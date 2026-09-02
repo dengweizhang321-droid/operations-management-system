@@ -23,6 +23,13 @@ import {
   MARKET_QUERIES_PATH,
   requestDjangoMarketService,
 } from "@/lib/django/market-service";
+import {
+  createDjangoInventoryService,
+  INVENTORY_AGE_ANALYSIS_PATH,
+  INVENTORY_IMPORTS_PATH,
+  INVENTORY_INBOUND_MONITOR_PATH,
+  INVENTORY_SETTINGS_PATH,
+} from "@/lib/django/inventory-service";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 /**
@@ -148,7 +155,7 @@ export type PageImportSource =
 export type PageDataToolServices = {
   readFinanceAnalysis(input: FinanceAnalysisInput): Promise<unknown>;
   readFinanceTargets(input: { page: number; pageSize: number }): Promise<unknown>;
-  readInventoryAge(input: InventoryAgeInput): Promise<unknown>;
+  readInventoryAge(input: InventoryAgeInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readInventoryInbound(input: InventoryInboundInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopCatalog(input: NetshopCatalogInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopPerformance(input: NetshopPerformanceInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
@@ -167,7 +174,7 @@ export type PageDataToolServices = {
     endDate?: string;
   }, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readMarketStatus(principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
-  readOperatingSettings(): Promise<unknown>;
+  readOperatingSettings(principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
 };
 
 const defaultPageDataToolServices: PageDataToolServices = {
@@ -186,29 +193,30 @@ const defaultPageDataToolServices: PageDataToolServices = {
     await ensureFinanceSchema(db);
     return listFinanceTargets(db, input);
   },
-  async readInventoryAge(input) {
-    const [{ ensureInventorySchema, getInventoryDatabase }, { getInventoryAgeAnalysis }, { ensureErpReferenceSchema }] = await Promise.all([
-      import("@/lib/inventory/database"),
-      import("@/lib/inventory/age-analysis"),
-      import("@/lib/erp-reference/database"),
-    ]);
-    const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
-    return getInventoryAgeAnalysis(db, input);
+  async readInventoryAge(input, principal, signal) {
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+    if (input.query) query.set("q", input.query);
+    for (const value of input.warehouses) query.append("warehouse", value);
+    for (const value of input.brands) query.append("brand", value);
+    for (const value of input.categories) query.append("category", value);
+    for (const value of input.statuses) query.append("status", value);
+    for (const value of input.ageBuckets) query.append("ageBucket", value);
+    return (await createDjangoInventoryService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: INVENTORY_AGE_ANALYSIS_PATH, service: "reader", rawQuery: query.toString() },
+      { signal },
+    )).data;
   },
   async readInventoryInbound(input, principal, signal) {
-    const [
-      { ensureInventorySchema, getInventoryDatabase },
-      { getInventoryInboundMonitor },
-      { ensureErpReferenceSchema },
-    ] = await Promise.all([
-      import("@/lib/inventory/database"),
-      import("@/lib/inventory/inbound-monitor"),
-      import("@/lib/erp-reference/database"),
-    ]);
-    const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
-    return getInventoryInboundMonitor(db, principal, { ...input, signal });
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+    if (input.query) query.set("q", input.query);
+    for (const value of input.warehouses) query.append("warehouse", value);
+    for (const value of input.suppliers) query.append("supplier", value);
+    return (await createDjangoInventoryService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: INVENTORY_INBOUND_MONITOR_PATH, service: "reader", rawQuery: query.toString() },
+      { signal },
+    )).data;
   },
   async readNetshopCatalog(input, principal, signal) {
     const query = new URLSearchParams({
@@ -286,13 +294,19 @@ const defaultPageDataToolServices: PageDataToolServices = {
         salesRevision: result.revision,
       };
     }
-    if (source === "inventory") {
-      const { ensureInventorySchema, getInventoryDatabase, listInventoryImportBatches } = await import("@/lib/inventory/database");
-      const db = getInventoryDatabase();
-      await ensureInventorySchema(db);
-      return listInventoryImportBatches(db, input);
+    if (source === "inventory" || source === "inventory_age") {
+      const query = new URLSearchParams({
+        dataset: source === "inventory" ? "stock" : "age",
+        page: String(input.page),
+        pageSize: String(input.pageSize),
+      });
+      return (await createDjangoInventoryService().requestJson<Record<string, unknown>>(
+        principal,
+        { method: "GET", path: INVENTORY_IMPORTS_PATH, service: "reader", rawQuery: query.toString() },
+        { signal },
+      )).data;
     }
-    if (source === "products" || source === "inventory_age" || source === "combos") {
+    if (source === "products" || source === "combos") {
       const { ensureErpReferenceSchema, getErpReferenceDatabase, listErpReferenceBatches } = await import("@/lib/erp-reference/database");
       const db = getErpReferenceDatabase();
       await ensureErpReferenceSchema(db);
@@ -349,9 +363,12 @@ const defaultPageDataToolServices: PageDataToolServices = {
       { signal },
     )).data;
   },
-  async readOperatingSettings() {
-    const { readOperatingSettings } = await import("@/lib/settings/service");
-    return readOperatingSettings();
+  async readOperatingSettings(principal, signal) {
+    return (await createDjangoInventoryService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: INVENTORY_SETTINGS_PATH, service: "reader" },
+      { signal },
+    )).data;
   },
 };
 
@@ -742,7 +759,11 @@ export async function getInventoryAgePageData(
     statuses: stringList(input.statuses, "statuses", 5, 20, ["healthy", "aged", "slow", "stagnant", "no_stock"]) as InventoryAgeInput["statuses"],
     ageBuckets: stringList(input.ageBuckets, "ageBuckets", 10, 20, ["0-7", "8-15", "16-30", "31-60", "61-90", "91-120", "121-150", "151-180", "181-360", "361+"]) as InventoryAgeInput["ageBuckets"],
   };
-  const result = resultObject(await serviceSet(overrides).readInventoryAge({ ...filters, ...pageInput }));
+  const result = resultObject(await serviceSet(overrides).readInventoryAge(
+    { ...filters, ...pageInput },
+    principal,
+    context.signal,
+  ));
   const filterOptions = resultObject(result.filters);
   return {
     page: "inventory.age",
@@ -1275,7 +1296,7 @@ export async function getOperatingSettingsSummaryPageData(
   requireUnrestrictedDataScope(principal, "系统运营设置");
   const input = inputObject(args);
   assertOnlyKeys(input, []);
-  const settings = await serviceSet(overrides).readOperatingSettings();
+  const settings = await serviceSet(overrides).readOperatingSettings(principal, context.signal);
   return {
     page: "settings.operating",
     available: true,

@@ -83,6 +83,92 @@ class MarketApiContractTests(TestCase):
             ),
         )
 
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_daily_coverage_preserves_exact_daily_price_band_contract(self) -> None:
+        common = {
+            "category": "商用净水设备",
+            "scope": "pop",
+            "ranking_dimension": "SKU",
+            "last_import_batch_id": "daily-coverage-batch",
+        }
+        for index, sku_code in enumerate(("SKU-1", "SKU-2"), start=1):
+            MarketRankingEntry.objects.create(
+                natural_key=f"daily-all-{index}",
+                source_row_number=index,
+                period_start="2026-08-01",
+                period_end="2026-08-01",
+                price_band_filter="全部",
+                sku_code=sku_code,
+                **common,
+            )
+        MarketRankingEntry.objects.create(
+            natural_key="daily-other-price-band",
+            source_row_number=3,
+            period_start="2026-08-02",
+            period_end="2026-08-02",
+            price_band_filter="1000-2000",
+            sku_code="SKU-3",
+            **common,
+        )
+        MarketRankingEntry.objects.create(
+            natural_key="monthly-must-not-cover-daily-gaps",
+            source_row_number=4,
+            period_start="2026-08-01",
+            period_end="2026-08-03",
+            price_band_filter="全部",
+            sku_code="SKU-4",
+            **common,
+        )
+
+        response = self.post_query(
+            {
+                "operation": "daily_coverage",
+                "category": "商用净水设备",
+                "scope": "pop",
+                "rankingDimension": "SKU",
+                "priceBandFilter": "全部",
+                "startDate": "2026-08-01",
+                "endDate": "2026-08-03",
+            },
+            "market-daily-coverage-exact-contract",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            response.json(),
+            {
+                "ok": True,
+                "identity": {
+                    "category": "商用净水设备",
+                    "scope": "pop",
+                    "rankingDimension": "SKU",
+                    "priceBandFilter": "全部",
+                },
+                "startDate": "2026-08-01",
+                "endDate": "2026-08-03",
+                "cutoffDate": "2026-08-01",
+                "presentDates": ["2026-08-01"],
+                "missingDates": ["2026-08-02", "2026-08-03"],
+                "rowCounts": {"2026-08-01": 2},
+            },
+        )
+
+        other_band = self.post_query(
+            {
+                "operation": "daily_coverage",
+                "category": "商用净水设备",
+                "scope": "pop",
+                "rankingDimension": "SKU",
+                "priceBandFilter": "1000-2000",
+                "startDate": "2026-08-01",
+                "endDate": "2026-08-03",
+            },
+            "market-daily-coverage-other-band",
+        )
+        self.assertEqual(other_band.status_code, 200, other_band.content)
+        self.assertEqual(other_band.json()["presentDates"], ["2026-08-02"])
+        self.assertEqual(other_band.json()["missingDates"], ["2026-08-01", "2026-08-03"])
+
     def test_candidate_counts_is_set_based_and_keeps_exact_image_identity(self) -> None:
         rows = []
         for index, (category, sku_code) in enumerate(

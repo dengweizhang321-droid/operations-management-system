@@ -87,6 +87,10 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(helper, /product_write_authority/);
   assert.match(helper, /productsRevisions/);
   assert.match(helper, /productsWriteAuthority/);
+  assert.match(helper, /inventory_data_revisions/);
+  assert.match(helper, /inventory_write_authority/);
+  assert.match(helper, /inventoryRevisions/);
+  assert.match(helper, /inventoryWriteAuthority/);
   assert.match(helper, /django_migrations/);
   assert.match(helper, /startswith\(ALLOWED_TABLE_PREFIXES\)/);
   assert.match(helper, /"sales_", "erp_", "finance_", "netshop_", "market_", "product_"/);
@@ -96,6 +100,8 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(operator, /市场 PostgreSQL 写入权威证据/);
   assert.match(operator, /PostgreSQL 商品经营 revision 证据/);
   assert.match(operator, /商品经营 PostgreSQL 写入权威证据/);
+  assert.match(operator, /PostgreSQL 库存 revision 证据/);
+  assert.match(operator, /库存 PostgreSQL 写入权威证据/);
   assert.match(operator, /pg_restore\.exe/);
   assert.match(operator, /@\("--list", \$dumpPath\)/);
   assert.match(operator, /backup-manifest\.json\.sha256/);

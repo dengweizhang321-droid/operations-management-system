@@ -5,10 +5,9 @@ import {
   type DjangoProductsServiceOptions,
 } from "@/lib/django/products-service";
 import {
-  findLatestInventoryImportBatch,
-  getInventoryDatabase,
-  type InventoryDatabase,
-} from "@/lib/inventory/database";
+  createDjangoInventoryConsumerReader,
+  type InventoryConsumerReader,
+} from "@/lib/django/inventory-consumer-reader";
 import { PublicApiError } from "@/lib/http/api-error";
 
 const MAX_ROWS = 20_000;
@@ -20,14 +19,6 @@ type ProjectionRow = {
   availableQuantity: number;
   knownStockValueCents: number;
   pricedAvailableQuantity: number;
-};
-
-type ProjectionDatabaseRow = {
-  product_code: string;
-  brand: string | null;
-  available_quantity: number;
-  known_stock_value_cents: number;
-  priced_available_quantity: number;
 };
 
 type ProductsProjectionWriter = ReturnType<typeof createDjangoProductsService>;
@@ -49,56 +40,76 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function readProjectionRows(db: InventoryDatabase, batchId: string) {
-  const result = await db.prepare(
-    `SELECT
-       TRIM(product_code) AS product_code,
-       MAX(NULLIF(TRIM(brand), '')) AS brand,
-       COALESCE(SUM(CASE WHEN available_quantity > 0 THEN available_quantity ELSE 0 END), 0) AS available_quantity,
-       COALESCE(SUM(CASE WHEN unit_cost_cents > 0 AND available_quantity > 0
-         THEN available_quantity * unit_cost_cents ELSE 0 END), 0) AS known_stock_value_cents,
-       COALESCE(SUM(CASE WHEN unit_cost_cents > 0 AND available_quantity > 0
-         THEN available_quantity ELSE 0 END), 0) AS priced_available_quantity
-     FROM inventory_stock_lines
-     WHERE batch_id = ? AND TRIM(warehouse) <> '刷刷仓' AND TRIM(product_code) <> ''
-     GROUP BY TRIM(product_code)
-     ORDER BY TRIM(product_code)
-     LIMIT ?`,
-  ).bind(batchId, MAX_ROWS + 1).all<ProjectionDatabaseRow>();
-  if (result.results.length > MAX_ROWS) {
-    throw unavailable("库存投影规格数量超过商品域安全上限");
-  }
-  return result.results.map((row): ProjectionRow => {
-    const availableQuantity = checkedInteger(row.available_quantity, "可用数量");
-    const pricedAvailableQuantity = checkedInteger(row.priced_available_quantity, "已知成本数量");
-    if (pricedAvailableQuantity > availableQuantity) {
-      throw unavailable("库存投影成本覆盖数量大于可用数量");
+async function readProjectionRows(
+  principal: AppPrincipal,
+  reader: InventoryConsumerReader,
+  signal?: AbortSignal,
+) {
+  const rows: ProjectionRow[] = [];
+  let expectedRevision = "";
+  let batchId: string | null = null;
+  let snapshotDate: string | null = null;
+  let total = -1;
+  for (let offset = 0; total < 0 || offset < total; offset += PAGE_SIZE) {
+    const result = await reader.read(principal, {
+      operation: "stock_projection",
+      offset,
+      limit: PAGE_SIZE,
+    }, { signal });
+    if (!expectedRevision) expectedRevision = result.revision;
+    if (result.revision !== expectedRevision
+      || (batchId !== null && result.data.batchId !== batchId)
+      || (snapshotDate !== null && result.data.snapshotDate !== snapshotDate)
+      || (total >= 0 && result.data.total !== total)
+      || result.data.offset !== offset) {
+      throw unavailable("库存投影分页读取期间版本发生变化");
     }
-    return {
-      productCode: row.product_code.trim(),
-      brand: row.brand?.trim() ?? "",
-      availableQuantity,
-      knownStockValueCents: checkedInteger(row.known_stock_value_cents, "已知库存金额"),
-      pricedAvailableQuantity,
-    };
-  });
+    batchId = result.data.batchId;
+    snapshotDate = result.data.snapshotDate;
+    total = checkedInteger(result.data.total, "规格总数");
+    if (total > MAX_ROWS || result.data.rows.length > PAGE_SIZE
+      || result.data.rows.length !== Math.min(PAGE_SIZE, Math.max(0, total - offset))) {
+      throw unavailable("库存投影规格数量超过商品域安全上限");
+    }
+    for (const row of result.data.rows) {
+      const availableQuantity = checkedInteger(row.availableQuantity, "可用数量");
+      const pricedAvailableQuantity = checkedInteger(row.pricedAvailableQuantity, "已知成本数量");
+      if (!row.productCode.trim() || row.productCode.length > 512
+        || row.brand.length > 500 || pricedAvailableQuantity > availableQuantity) {
+        throw unavailable("库存投影行结构无效");
+      }
+      rows.push({
+        productCode: row.productCode.trim(),
+        brand: row.brand.trim(),
+        availableQuantity,
+        knownStockValueCents: checkedInteger(row.knownStockValueCents, "已知库存金额"),
+        pricedAvailableQuantity,
+      });
+    }
+    if (total === 0) break;
+  }
+  if (!batchId || !snapshotDate || rows.length !== total) {
+    throw unavailable("没有可同步到商品域的已完成库存快照");
+  }
+  return { batchId, snapshotDate, rows };
 }
 
 export async function syncLatestInventoryProjection(
   principal: AppPrincipal,
   options: Omit<DjangoProductsServiceOptions, "config"> & {
-    db?: InventoryDatabase;
+    inventoryReader?: InventoryConsumerReader;
     writer?: ProductsProjectionWriter;
   } = {},
 ) {
-  const { db = getInventoryDatabase(), writer = createDjangoProductsService(), ...requestOptions } = options;
-  const batch = await findLatestInventoryImportBatch(db);
-  if (!batch || batch.status !== "completed") {
-    throw unavailable("没有可同步到商品域的已完成库存快照");
-  }
-  const rows = await readProjectionRows(db, batch.id);
+  const {
+    inventoryReader = createDjangoInventoryConsumerReader(),
+    writer = createDjangoProductsService(),
+    ...requestOptions
+  } = options;
+  const projection = await readProjectionRows(principal, inventoryReader, requestOptions.signal);
+  const { rows, batchId, snapshotDate } = projection;
   const projectionRevision = await sha256(
-    `product-inventory-projection-v1\n${batch.id}\n${batch.snapshotDate}\n${JSON.stringify(rows)}`,
+    `product-inventory-projection-v1\n${batchId}\n${snapshotDate}\n${JSON.stringify(rows)}`,
   );
   const ownerToken = await sha256(
     `product-inventory-projection-owner-v1\n${principal.email.trim().toLowerCase()}\n${projectionRevision}`,
@@ -114,14 +125,14 @@ export async function syncLatestInventoryProjection(
     payload: {
       action: "begin_sync",
       projectionRevision,
-      sourceBatchId: batch.id,
-      snapshotDate: batch.snapshotDate,
+      sourceBatchId: batchId,
+      snapshotDate,
       totalRows: rows.length,
       ownerToken,
     },
   }, requestOptions);
   if (begin.data.status === "active") {
-    return { status: "active" as const, projectionRevision, rowCount: rows.length, sourceBatchId: batch.id };
+    return { status: "active" as const, projectionRevision, rowCount: rows.length, sourceBatchId: batchId };
   }
   let offset = Number(begin.data.control.syncingOffset ?? 0);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > rows.length) {
@@ -162,5 +173,5 @@ export async function syncLatestInventoryProjection(
     || activated.data.control.activeTotal !== rows.length) {
     throw unavailable("商品域库存投影激活回查不一致");
   }
-  return { status: "active" as const, projectionRevision, rowCount: rows.length, sourceBatchId: batch.id };
+  return { status: "active" as const, projectionRevision, rowCount: rows.length, sourceBatchId: batchId };
 }

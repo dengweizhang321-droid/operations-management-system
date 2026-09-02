@@ -1,9 +1,3 @@
-import {
-  ensureInventorySchema,
-  findLatestInventoryImportBatch,
-  getInventoryDatabase,
-  queryReplenishmentPlans,
-} from "@/lib/inventory/database";
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import {
   createDjangoSalesConsumerReader,
@@ -13,7 +7,10 @@ import {
   createDjangoProductsConsumerReader,
   type ProductsConsumerReader,
 } from "@/lib/django/products-consumer-reader";
-import { getInventoryOverview } from "@/lib/inventory/overview";
+import {
+  createDjangoInventoryConsumerReader,
+  type InventoryConsumerReader,
+} from "@/lib/django/inventory-consumer-reader";
 import {
   isSalesRange,
 } from "@/lib/sales/read-contract";
@@ -23,6 +20,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 type OperationsToolDependencies = {
   salesReader?: SalesConsumerReader;
   productsReader?: ProductsConsumerReader;
+  inventoryReader?: InventoryConsumerReader;
   signal?: AbortSignal;
 };
 
@@ -66,18 +64,21 @@ export async function callOperationsTool(
   const args = asRecord(rawArguments);
   const salesReader = dependencies.salesReader ?? createDjangoSalesConsumerReader();
   const productsReader = dependencies.productsReader ?? createDjangoProductsConsumerReader();
+  const inventoryReader = dependencies.inventoryReader ?? createDjangoInventoryConsumerReader();
 
   if (name === "get_data_freshness") {
     assertOnlyKeys(args, []);
-    const db = getInventoryDatabase();
-    await ensureInventorySchema(db);
-    const [sales, inventoryBatch] = await Promise.all([
+    const [sales, inventory] = await Promise.all([
       salesReader.read(
         principal,
         { operation: "freshness" },
         { signal: dependencies.signal },
       ),
-      findLatestInventoryImportBatch(db),
+      inventoryReader.read(
+        principal,
+        { operation: "freshness" },
+        { signal: dependencies.signal },
+      ),
     ]);
     if (!sales || typeof sales.revision !== "string" || !sales.revision
       || !validFreshnessData(sales.data)) {
@@ -91,9 +92,9 @@ export async function callOperationsTool(
         fileName: sales.data.latestBatch?.fileName ?? null,
       },
       inventory: {
-        asOf: inventoryBatch?.snapshotDate ?? null,
-        importedAt: inventoryBatch?.completedAt ?? null,
-        fileName: inventoryBatch?.fileName ?? null,
+        asOf: inventory.data.stock?.snapshotDate ?? null,
+        importedAt: inventory.data.stock?.completedAt ?? null,
+        fileName: inventory.data.stock?.fileName ?? null,
       },
       timezone: businessDates.timeZone,
       currentBusinessDate: businessDates.today,
@@ -123,30 +124,15 @@ export async function callOperationsTool(
     const category = optionalString(args.category);
     const query = optionalString(args.query);
     const limit = integer(args.limit, 20, 1, 100);
-    const db = getInventoryDatabase();
-    await ensureInventorySchema(db);
-    const overview = await getInventoryOverview(db, principal, {
-      page: 1,
-      pageSize: limit,
-      query,
-      warehouses: warehouse ? [warehouse] : [],
-      categories: category ? [category] : [],
-      statuses: status ? [status] : [],
-      signal: dependencies.signal,
-    }, salesReader);
-    return {
-      sync: overview.sync,
-      settings: overview.settings,
-      metrics: overview.metrics,
-      health: overview.health,
-      filtersApplied: { status, warehouse, category, query: query ?? null },
-      totalMatched: overview.pagination.total,
-      returned: overview.pagination.returned,
-      truncated: overview.pagination.truncated,
-      items: overview.items,
-      currency: "CNY",
-      monetaryUnit: "cents",
-    };
+    const overview = await inventoryReader.read(principal, {
+      operation: "inventory_health",
+      warehouse: warehouse ?? null,
+      category: category ?? null,
+      status: status ?? null,
+      query: query ?? null,
+      limit,
+    }, { signal: dependencies.signal });
+    return overview.data;
   }
 
   if (name === "get_product_performance") {
@@ -175,22 +161,20 @@ export async function callOperationsTool(
   const warehouse = optionalString(args.warehouse);
   const query = optionalString(args.query);
   const limit = integer(args.limit, 20, 1, 100);
-  const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
-  const plans = await queryReplenishmentPlans(db, {
-    page: 1,
-    pageSize: limit,
-    status,
-    includeCancelled: status === "cancelled",
-    warehouse,
-    query,
-  });
+  const plans = await inventoryReader.read(principal, {
+    operation: "replenishment_search",
+    offset: 0,
+    limit,
+    status: status ?? null,
+    warehouse: warehouse ?? null,
+    query: query ?? "",
+  }, { signal: dependencies.signal });
   return {
     filtersApplied: { status, warehouse, query: query ?? null },
-    totalMatched: plans.pagination.total,
-    returned: plans.pagination.returned,
-    truncated: plans.pagination.truncated,
-    items: plans.items,
+    totalMatched: plans.data.total,
+    returned: plans.data.items.length,
+    truncated: plans.data.truncated,
+    items: plans.data.items,
   };
 }
 

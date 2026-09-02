@@ -9,6 +9,15 @@ import {
   releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
 import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
+import { importInventoryAgeToDjango } from "@/lib/inventory/django-age-import-service";
+import {
+  assembleDjangoInventoryUpload,
+  beginDjangoInventoryUpload,
+  claimDjangoInventoryUpload,
+  finishDjangoInventoryUpload,
+  receiveDjangoInventoryUploadChunk,
+  releaseDjangoInventoryUpload,
+} from "@/lib/inventory/django-chunked-upload";
 import { isErpReferenceSourceKey } from "@/lib/imports/erp-reference";
 import {
   authorizationErrorResponse,
@@ -33,6 +42,18 @@ function erpUploadScope(body: Record<string, unknown>) {
   return { source: body.source, snapshotDate: body.source === "inventory_age" ? snapshotDate : "" };
 }
 
+const AGE_UPLOAD_PREFIX = "inventory-age:";
+
+function publicAgeUpload<T extends { id: string }>(upload: T) {
+  return { ...upload, id: `${AGE_UPLOAD_PREFIX}${upload.id}` };
+}
+
+function ageUploadId(value: unknown) {
+  return typeof value === "string" && value.startsWith(AGE_UPLOAD_PREFIX)
+    ? value.slice(AGE_UPLOAD_PREFIX.length)
+    : "";
+}
+
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]);
@@ -42,6 +63,53 @@ export async function POST(request: Request) {
     if (!isErpReferenceSourceKey(body.source)) return reject(400, "缺少有效的数据来源");
     const scope = erpUploadScope(body);
     if (!scope) return reject(400, "库龄分片上传必须绑定有效快照日期");
+
+    if (body.source === "inventory_age") {
+      if (body.action === "init") {
+        const upload = await beginDjangoInventoryUpload(principal, {
+          dataset: "age",
+          snapshotDate: scope.snapshotDate,
+          fileName: typeof body.fileName === "string" ? body.fileName : "",
+          fileSizeBytes: Number(body.fileSizeBytes),
+          chunkCount: Number(body.chunkCount),
+          fingerprint: typeof body.fingerprint === "string" ? body.fingerprint : "",
+        }, request.signal);
+        return Response.json({
+          ok: true,
+          status: "ready",
+          upload: publicAgeUpload(upload),
+          limits: { chunkSizeBytes: INVENTORY_UPLOAD_CHUNK_BYTES, maxFileSizeBytes: MAX_CHUNKED_INVENTORY_FILE_BYTES },
+        }, { headers: { "cache-control": "no-store" } });
+      }
+      if (body.action === "complete") {
+        const uploadId = ageUploadId(body.uploadId);
+        if (!uploadId) return reject(400, "缺少库存库龄上传会话标识");
+        const claim = await claimDjangoInventoryUpload(principal, uploadId, request.signal);
+        if (claim.session.dataset !== "age" || claim.session.snapshotDate !== scope.snapshotDate) {
+          if (claim.kind === "claimed") await releaseDjangoInventoryUpload(principal, uploadId, claim.ownerToken, request.signal);
+          return reject(409, "上传会话绑定的库龄来源或快照日期与本次请求不一致");
+        }
+        if (claim.kind === "completed") {
+          return Response.json(claim.result, { status: importExecutionHttpStatus(claim.result as ImportExecutionLike), headers: { "cache-control": "no-store" } });
+        }
+        try {
+          const bytes = await assembleDjangoInventoryUpload(principal, claim, request.signal);
+          const result = await importInventoryAgeToDjango({
+            principal,
+            bytes,
+            fileName: claim.session.fileName,
+            fileSizeBytes: claim.session.fileSizeBytes,
+            snapshotDate: scope.snapshotDate,
+          }, { signal: request.signal });
+          await finishDjangoInventoryUpload(principal, uploadId, claim.ownerToken, result, request.signal);
+          return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
+        } catch (error) {
+          await releaseDjangoInventoryUpload(principal, uploadId, claim.ownerToken, request.signal).catch(() => undefined);
+          throw error;
+        }
+      }
+      return reject(400, "未知的库龄分片上传操作");
+    }
 
     if (body.action === "init") {
       const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
@@ -105,6 +173,15 @@ export async function PUT(request: Request) {
     if (contentLength > INVENTORY_UPLOAD_CHUNK_BYTES) return reject(413, "单个分片不能超过 1MB");
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (bytes.byteLength === 0) return reject(400, "上传分片为空");
+    const djangoAgeUploadId = ageUploadId(uploadId);
+    if (djangoAgeUploadId) {
+      const upload = await receiveDjangoInventoryUploadChunk(
+        principal,
+        { uploadId: djangoAgeUploadId, chunkIndex, bytes },
+        request.signal,
+      );
+      return Response.json({ ok: true, status: "uploading", upload: publicAgeUpload(upload) }, { headers: { "cache-control": "no-store" } });
+    }
     const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
     return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {

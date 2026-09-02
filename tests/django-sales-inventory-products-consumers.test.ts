@@ -224,8 +224,12 @@ test("inventory and product online paths contain no D1 sales dependency", async 
   const inventoryRoute = await readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8");
   const replenishmentRoute = await readFile(new URL("../app/api/inventory/replenishment/route.ts", import.meta.url), "utf8");
   const productRoute = await readFile(new URL("../app/api/products/summary/route.ts", import.meta.url), "utf8");
-  assert.match(inventoryRoute, /getInventoryOverview\(db, principal,/);
-  assert.match(replenishmentRoute, /getInventoryOverview\(db, principal,/);
+  assert.match(inventoryRoute, /createDjangoInventoryService/);
+  assert.match(inventoryRoute, /INVENTORY_OVERVIEW_PATH/);
+  assert.match(replenishmentRoute, /createDjangoInventoryService/);
+  assert.match(replenishmentRoute, /INVENTORY_REPLENISHMENT_PATH/);
+  assert.doesNotMatch(inventoryRoute, /getInventoryDatabase|getD1Database|env\.DB/);
+  assert.doesNotMatch(replenishmentRoute, /getInventoryDatabase|getD1Database|env\.DB/);
   assert.match(productRoute, /getProductSummary\(principal,/);
   assert.doesNotMatch(productRoute, /getInventoryDatabase|env\.DB/);
 });

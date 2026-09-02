@@ -248,9 +248,32 @@ test("已确认补货计划幂等创建采购执行事项并关联原计划", as
     INSERT INTO erp_product_master VALUES ('P1','供应商甲');
   `);
   const db = sqliteAdapter(sqlite) as never;
+  const principal: AppPrincipal = {
+    email: "operator@example.com",
+    displayName: "Operator",
+    role: "operator",
+    scope: null,
+  };
+  const inventoryReader = {
+    read: async () => ({
+      revision: "1:000000000000",
+      data: {
+        plan: {
+          id: "plan-1",
+          productCode: "P1",
+          productName: "采购货品",
+          warehouse: "华东仓",
+          plannedQuantity: 18,
+          coverageDays: 5,
+          status: "confirmed",
+        },
+        supplier: "供应商甲",
+      },
+    }),
+  } as never;
   const expectedArrivalDate = futureShanghaiDate(7);
-  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
-  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, "operator@example.com", db);
+  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, db, inventoryReader);
+  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, db, inventoryReader);
   assert.equal(first.created, true);
   assert.equal(second.created, false);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM workflow_task_entity_links WHERE entity_id = 'replenishment-plan:plan-1'").get()?.count, 1);

@@ -127,8 +127,8 @@ test("module filters transmit repeated values through their API boundaries", asy
   assert.match(masterRoute, /pendingPriceSources: params\.getAll\("pendingPriceSource"\)/);
   assert.match(annotation, /itemSegments\.forEach\(\(value\) => params\.append\("itemSegment", value\)\)/);
   assert.match(annotationRoute, /itemSegments: params\.getAll\("itemSegment"\)/);
-  assert.match(inventoryRoute, /startDate: params\.get\("startDate"\)/);
-  assert.match(inventoryRoute, /endDate: params\.get\("endDate"\)/);
+  assert.match(inventoryRoute, /"view", "startDate", "endDate"/);
+  assert.match(inventoryRoute, /rawQuery: params\.toString\(\)/);
 });
 
 test("promotion analysis separates JD and Tmall pages with platform-specific labels and links", async () => {

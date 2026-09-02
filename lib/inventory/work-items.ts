@@ -1,8 +1,9 @@
-import { getInventoryAgeAnalysis } from "@/lib/inventory/age-analysis";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import type { D1Database } from "@/lib/database/d1";
 import {
-  getReplenishmentPlanById,
-  type InventoryDatabase,
-} from "@/lib/inventory/database";
+  createDjangoInventoryConsumerReader,
+  type InventoryConsumerReader,
+} from "@/lib/django/inventory-consumer-reader";
 import { createWorkflowTaskLink, ensureWorkflowCollaborationSchema } from "@/lib/workflow/collaboration";
 import { createWorkflowTask, ensureWorkflowTaskSchema } from "@/lib/workflow/tasks";
 
@@ -70,7 +71,7 @@ function addDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-async function findOpenLinkedTask(db: InventoryDatabase, entityId: string) {
+async function findOpenLinkedTask(db: D1Database, entityId: string) {
   return db.prepare(
     `SELECT t.id, t.title, t.status
      FROM workflow_task_entity_links l
@@ -84,7 +85,7 @@ async function findOpenLinkedTask(db: InventoryDatabase, entityId: string) {
 }
 
 async function createLinkedTask(input: {
-  db: InventoryDatabase;
+  db: D1Database;
   actor: string;
   entityId: string;
   entityLabel: string;
@@ -120,8 +121,9 @@ async function createLinkedTask(input: {
 
 export async function createInventoryWorkItem(
   input: InventoryWorkItemInput,
-  actor: string,
-  db: InventoryDatabase,
+  principal: AppPrincipal,
+  db: D1Database,
+  reader: InventoryConsumerReader = createDjangoInventoryConsumerReader(),
 ) {
   const allowedKeys = new Set([
     "kind", "planId", "inventoryKey", "owner", "dueDate", "expectedArrivalDate",
@@ -137,7 +139,20 @@ export async function createInventoryWorkItem(
 
   if (kind === "procurement") {
     const planId = text(input.planId, "备货计划 ID", 128, true);
-    const plan = await getReplenishmentPlanById(db, planId);
+    const reference = await reader.read(principal, {
+      operation: "work_item_reference",
+      kind: "procurement",
+      referenceId: planId,
+    });
+    const plan = reference.data.plan as {
+      id: string;
+      productCode: string;
+      productName: string;
+      warehouse: string;
+      plannedQuantity: number;
+      coverageDays: number | null;
+      status: string;
+    } | null;
     if (!plan) throw new InventoryWorkItemError(404, "not_found", "备货计划不存在");
     if (plan.status !== "confirmed") {
       throw new InventoryWorkItemError(409, "plan_not_confirmed", "只有已确认的备货计划才能转为采购执行事项");
@@ -149,9 +164,9 @@ export async function createInventoryWorkItem(
     if (expectedArrivalDate < today || dueDate < today) {
       throw new InventoryWorkItemError(400, "invalid_request", "预计到货日期和截止日期不能早于今天");
     }
-    const supplier = await db.prepare("SELECT supplier FROM erp_product_master WHERE product_code = ? LIMIT 1")
-      .bind(plan.productCode).first<{ supplier: string }>();
-    const supplierName = supplier?.supplier?.trim() || "供应商待补充";
+    const supplierName = typeof reference.data.supplier === "string" && reference.data.supplier.trim()
+      ? reference.data.supplier.trim()
+      : "供应商待补充";
     const workContent = [
       `计划类型：${planType}`,
       `供应商：${supplierName}`,
@@ -163,7 +178,7 @@ export async function createInventoryWorkItem(
     ].filter(Boolean).join("\n");
     return createLinkedTask({
       db,
-      actor,
+      actor: principal.email,
       entityId: `replenishment-plan:${plan.id}`,
       entityLabel: `${plan.productName} · ${plan.warehouse} · ${plan.plannedQuantity} 件`,
       title: `[采购备货] ${plan.productName}`,
@@ -182,8 +197,20 @@ export async function createInventoryWorkItem(
     if (parts.length !== 2 || parts.some((part) => !part.trim())) {
       throw new InventoryWorkItemError(400, "invalid_request", "库存货品标识必须精确包含仓库与货品编码");
     }
-    const result = await getInventoryAgeAnalysis(db, { exactKey: inventoryKey, page: 1, pageSize: 1 });
-    const item = result.items[0];
+    const reference = await reader.read(principal, {
+      operation: "work_item_reference",
+      kind: "stale_cleanup",
+      referenceId: inventoryKey,
+    });
+    const item = reference.data.item as {
+      productName: string;
+      warehouse: string;
+      availableQuantity: number;
+      inventoryAgeDays: number | null;
+      sales30dQuantity: number | null;
+      recommendation: string;
+      status: string;
+    } | null;
     if (!item) throw new InventoryWorkItemError(404, "not_found", "最新库存快照中未找到该货品");
     if (!(["stagnant", "slow", "aged"] as const).includes(item.status as "stagnant" | "slow" | "aged")) {
       throw new InventoryWorkItemError(409, "not_cleanup_candidate", "该货品当前不在滞销或高库龄清理范围内");
@@ -216,8 +243,8 @@ export async function createInventoryWorkItem(
     ].filter(Boolean).join("\n");
     return createLinkedTask({
       db,
-      actor,
-      entityId: `inventory-stale:${result.sync.latestInventoryBatchId ?? "unknown"}:${inventoryKey}`,
+      actor: principal.email,
+      entityId: `inventory-stale:${(reference.data.sync as { latestInventoryBatchId?: string | null } | undefined)?.latestInventoryBatchId ?? "unknown"}:${inventoryKey}`,
       entityLabel: `${item.productName} · ${item.warehouse}`,
       title: `[滞销清理] ${item.productName}`,
       workContent,
