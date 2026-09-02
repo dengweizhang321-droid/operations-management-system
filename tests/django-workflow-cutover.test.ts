@@ -10,6 +10,10 @@ const authoritySql = readFileSync(
   new URL("../drizzle/0103_workflow_launch_write_authority.sql", import.meta.url),
   "utf8",
 );
+const writerFence = readFileSync(
+  new URL("../backend/workflow/write_requests.py", import.meta.url),
+  "utf8",
+);
 
 
 test("workflow runtime has isolated ports, roles, authority and a strict DML allowlist", () => {
@@ -21,6 +25,9 @@ test("workflow runtime has isolated ports, roles, authority and a strict DML all
   assert.match(service, /workflow_new_product_projects/);
   assert.match(service, /workflow_write_request_receipts/);
   assert.match(service, /workflow writer DML escaped allowlist/);
+  assert.match(service, /"workflow_write_authority": \("SELECT",\)/);
+  assert.match(writerFence, /WorkflowWriteAuthority\.objects\.get\(id=1\)/);
+  assert.doesNotMatch(writerFence, /WorkflowWriteAuthority\.objects\.select_for_update/);
   assert.doesNotMatch(service, /product_shipping_rates|sales_order_lines|erp_product_master/);
   assert.match(service, /\^workflow-\[0-9a-f\]\{32\}\$/);
 });

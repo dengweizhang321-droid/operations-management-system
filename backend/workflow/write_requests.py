@@ -42,7 +42,13 @@ def require_workflow_writer_process() -> None:
 def lock_active_authority() -> WorkflowWriteAuthority:
     require_workflow_writer_process()
     try:
-        authority = WorkflowWriteAuthority.objects.select_for_update().get(id=1)
+        # The terminal authority receipt is immutable to the workflow writer.
+        # PostgreSQL requires UPDATE privilege for SELECT ... FOR UPDATE, which
+        # would let the runtime role mutate the fence it is meant to obey.
+        # Only migration_writer may transition authority and activation has no
+        # reverse path, so an exact plain read plus epoch/cutover comparison is
+        # the least-privilege runtime fence (matching products and inventory).
+        authority = WorkflowWriteAuthority.objects.get(id=1)
     except WorkflowWriteAuthority.DoesNotExist as error:
         raise WorkflowApiError(
             "PostgreSQL 运营事务写入权威门禁尚未初始化",
