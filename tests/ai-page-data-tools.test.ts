@@ -344,8 +344,6 @@ test("structured new-product AI projection exposes bounded stages and targets wi
     readNewProductProjects: async (input, principal) => {
       captured = { input, principal };
       return {
-        structured: true,
-        backendMode: "django",
         workflowRevision: "3:abcdef123456",
         summary: {
           total: 1,
@@ -387,12 +385,6 @@ test("structured new-product AI projection exposes bounded stages and targets wi
   assert.equal("updatedBy" in payload.items[0]!, false);
   assert.equal("internal" in payload.items[0]!.targets[0]!, false);
   assert.equal("updatedBy" in payload.items[0]!.stages[0]!, false);
-
-  const legacy = await listNewProductProjectsPageData({}, { principal: unrestrictedAnalyst }, {
-    readNewProductProjects: async () => ({ structured: false, backendMode: "legacy" }),
-  });
-  assert.equal(legacy.available, false);
-  assert.equal(legacy.backendMode, "legacy");
 
   let called = false;
   await assert.rejects(

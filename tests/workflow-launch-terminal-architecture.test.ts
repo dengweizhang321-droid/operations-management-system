@@ -22,6 +22,9 @@ test("new-product launch production paths are Django-only and expose no D1/R2 fa
   for (const source of [operations, detail, activity, pageData, search]) {
     assert.doesNotMatch(source, /workflowMode === "legacy"|backendMode !== "django"/);
   }
+  assert.doesNotMatch(pageData, /structured\s*!==\s*true|backendMode.*legacy|旧新品记录仍可/);
+  assert.doesNotMatch(search, /includeLegacyLaunch/);
+  assert.match(search, /AND o\.record_type <> 'launch'/);
   for (const source of [service, collection, view]) {
     assert.doesNotMatch(source, /R2Bucket|SALES_IMPORT_FILES|workflow-attachments|getD1Database/);
   }

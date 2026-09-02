@@ -753,7 +753,6 @@ async function queryWorkflowGroup(
     tables,
     like,
     principal,
-    false,
     0,
     request.groupLimit,
     true,
@@ -808,7 +807,6 @@ async function queryWorkflowGroup(
       tables,
       like,
       principal,
-      false,
       legacyOffset,
       remaining,
       true,
@@ -836,7 +834,6 @@ async function queryLegacyWorkflowSource(
   tables: Set<string>,
   like: string,
   principal: AppPrincipal,
-  includeLegacyLaunch: boolean,
   offset: number,
   limit: number,
   exactCount: boolean,
@@ -873,7 +870,7 @@ async function queryLegacyWorkflowSource(
         OR (CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END) LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR o.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.status LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR o.priority LIKE ? ESCAPE '\\' COLLATE NOCASE)
-        ${includeLegacyLaunch ? "" : "AND o.record_type <> 'launch'"} ${scope.clause}`);
+        AND o.record_type <> 'launch' ${scope.clause}`);
     binds.push(like, like, like, like, like, like, like, ...scope.values);
   }
   if (fragments.length === 0) return { available: false, complete: true, total: 0, rows: [] };

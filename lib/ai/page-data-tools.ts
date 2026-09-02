@@ -288,10 +288,8 @@ const defaultPageDataToolServices: PageDataToolServices = {
   async readNewProductProjects(input, principal, signal) {
     const {
       createDjangoWorkflowService,
-      getWorkflowBackendMode,
       WORKFLOW_LAUNCH_PROJECTS_PATH,
     } = await import("@/lib/django/workflow-service");
-    const backendMode = await getWorkflowBackendMode();
     const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
     if (input.query) query.set("q", input.query);
     for (const value of input.statuses) query.append("status", value);
@@ -314,7 +312,7 @@ const defaultPageDataToolServices: PageDataToolServices = {
       { method: "GET", path: WORKFLOW_LAUNCH_PROJECTS_PATH, service: "reader", rawQuery: query.toString() },
       { signal },
     );
-    return { ...result.data, structured: true, backendMode, workflowRevision: result.revision };
+    return { ...result.data, workflowRevision: result.revision };
   },
   async readWorkflowTemplates(includeInactive) {
     const { listWorkflowTaskTemplates } = await import("@/lib/workflow/collaboration");
@@ -1184,14 +1182,6 @@ export async function listNewProductProjectsPageData(
     failInput("stage 包含无效值");
   }
   const result = resultObject(await serviceSet(overrides).readNewProductProjects(filters, principal, context.signal));
-  if (result.structured !== true) {
-    return {
-      page: "workflow.launch_projects",
-      available: false,
-      backendMode: safeScalar(result.backendMode) ?? "legacy",
-      reason: "结构化新品项目尚未启用；旧新品记录仍可通过 operations 视图读取。",
-    };
-  }
   const summary = resultObject(result.summary);
   const facets = resultObject(result.facets);
   return {
