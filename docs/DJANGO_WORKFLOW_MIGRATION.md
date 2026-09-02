@@ -103,6 +103,7 @@ Django writer 还必须以部署密文提供准确的 `TERUISI_DJANGO_WORKFLOW_A
 - authority 安装前完整 D1 备份：`D:\teruisi-runtime\django-sales\audits\workflow-cutover\20260902-185501-92e29247\d1-before-workflow-authority.sqlite`，SHA-256 为 `75f1dd0cbe300181b8818eb68eb7c81bfca7cb361d43e36bbcdbe78510e48a5f`。该备份只用于审计和受控恢复研究，不是生产回退源。
 - 终态 D1 authority 为 `owner=postgresql, epoch=3`；PostgreSQL authority、开机凭据和 writer 进程共同绑定本页开头的 cutover ID、authority epoch 与迁移 run。
 - Worker effective release 为 `20260902T141543Z-b1002b5b2f279312`，manifest SHA-256 为 `eea1325d29cc04e335c97edf6ff7295c80bbb19c5331631c4e135f89bbbac53f`；公开 API 返回 `backendMode=django`、`structured=true` 和 revision `1:bdfebd254007`。
+- 正式 writer 冒烟曾发现 runtime 角色只有 authority `SELECT` 权限，而 `SELECT ... FOR UPDATE` 还要求 `UPDATE` 权限。终态修复保持 authority 对 writer 不可变，改用只读 authority 精确读取并继续强制 epoch/cutover 双重匹配，未扩大数据库权限；防回归测试与 11 个 Django workflow 测试通过。修复部署后，公开 writer 对空项目正确返回 `400 invalid_request`，不再返回 503，项目水位仍为 12。
 - 切换后 PostgreSQL 备份为 `daily-20260902T150557Z-c94854026b37`，manifest SHA-256 为 `98f62104dcd95da09d249746cd529a604d5873c3181c7e3c88015967d18260f7`，内容摘要为 `22c6a7463d02d6c43e84035da79e8f5e90aed27b1383416464de59c359a9afff`。隔离恢复演练 `5277592d0cbc` 在 `127.0.0.1:55432` 完成，恢复后内容摘要完全一致，生产数据库未触碰，临时数据已清理。
 - React 页面已实机核验 12 个项目、七阶段矩阵、看板、筛选、详情、目标店铺和历史缺口说明；全局搜索命中结构化项目。旧新品列表为空、旧详情返回 404、旧 `launch` 新建返回 409，证明旧生产路径不可达。
 
