@@ -174,3 +174,30 @@ class WorkflowLaunchMigrationTests(TestCase):
                 )
         finally:
             connection.close()
+
+    def test_authority_transition_accepts_live_wal_but_migration_stays_sealed(self) -> None:
+        plan = run_json("migrate_workflow_launch_from_d1", "--source", str(self.source))
+        run_id = str(plan["runId"])
+        run_json(
+            "migrate_workflow_launch_from_d1", "--source", str(self.source),
+            "--apply", "--approved-run-id", run_id,
+        )
+        run_json(
+            "migrate_workflow_launch_from_d1", "--source", str(self.source),
+            "--verify-only", "--approved-run-id", run_id,
+        )
+        live_connection = sqlite3.connect(self.source)
+        try:
+            self.assertEqual(live_connection.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+            live_connection.execute(
+                "UPDATE workflow_operation_records SET title=title WHERE record_type='review'"
+            )
+            live_connection.commit()
+            self.assertTrue(Path(f"{self.source}-wal").exists())
+            prepared = run_json(
+                "workflow_write_authority", "--source", str(self.source), "--prepare",
+                "--approved-run-id", run_id, "--cutover-id", "workflow-live-wal-test",
+            )
+            self.assertEqual(prepared["status"], "prepared")
+        finally:
+            live_connection.close()

@@ -110,7 +110,7 @@ class Command(BaseCommand):
         if not mutating and (approved or cutover_id):
             raise CommandError("只读 authority status 不接受变更参数")
 
-        frozen_snapshot = _source_snapshot(path) if mutating else None
+        frozen_snapshot = _source_snapshot(path, require_sealed=False) if mutating else None
         source = _open(path, writable=mutating)
         try:
             current = _source_authority(source)
@@ -129,9 +129,11 @@ class Command(BaseCommand):
                 }, ensure_ascii=False, separators=(",", ":")))
                 return
 
-            snapshot = frozen_snapshot
-            if snapshot is None:
+            snapshot = _source_snapshot(path, require_sealed=False)
+            if frozen_snapshot is None:
                 raise CommandError("新品 authority 缺少冻结事实快照")
+            if _sha(snapshot) != _sha(frozen_snapshot) or _counts(snapshot) != _counts(frozen_snapshot):
+                raise CommandError("D1 新品事实在 authority 写锁建立前发生变化")
             source_digest = _sha(snapshot)
             counts = _counts(snapshot)
             run = _verified_run(source_digest, counts)
