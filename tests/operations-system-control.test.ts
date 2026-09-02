@@ -5,11 +5,27 @@ import test from "node:test";
 const panelBytes = readFileSync("tools/operations-system-control.ps1");
 const panel = panelBytes.toString("utf8");
 const workerService = readFileSync("tools/worker-local-service.ps1", "utf8");
+const djangoDomainServicePaths = [
+  "tools/django-netshop-service.ps1",
+  "tools/django-market-service.ps1",
+  "tools/django-products-service.ps1",
+];
 
 test("unified controller stays parseable by Windows PowerShell when Chinese text is present", () => {
   assert.deepEqual([...panelBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
   assert.match(panel, /teruisi-operations-system-control-v2/);
   assert.match(panel, /ValidateSet\("Panel", "Start", "Status", "StopWorker"\)/);
+});
+
+test("Django domain controllers retain a UTF-8 BOM for Windows PowerShell 5.1", () => {
+  for (const servicePath of djangoDomainServicePaths) {
+    const serviceBytes = readFileSync(servicePath);
+    assert.deepEqual(
+      [...serviceBytes.subarray(0, 3)],
+      [0xef, 0xbb, 0xbf],
+      `${servicePath} must remain UTF-8 with BOM`,
+    );
+  }
 });
 
 test("all public start modes share one nonblocking system mutex", () => {
