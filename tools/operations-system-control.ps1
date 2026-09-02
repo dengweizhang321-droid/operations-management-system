@@ -1,283 +1,344 @@
-﻿param(
+﻿[CmdletBinding()]
+param(
+  [ValidateSet("Panel", "Start", "Status", "StopWorker")]
+  [string]$Action = "Panel",
+  [switch]$Json,
+  [switch]$Open,
   [switch]$Check,
   [switch]$StopWorker
 )
 
-# 本地运营管理系统控制面板：启动、停止并打开本地服务。
-
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+$ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
-
-[System.Windows.Forms.Application]::EnableVisualStyles()
-
+$UnifiedStartControlVersion = "teruisi-operations-system-control-v2"
+$SystemControlMutexName = "Local\TERUISI.Operations.SystemControl.v2"
 $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$ControllerPath = $PSCommandPath
 $ServerUrl = "http://localhost:3000/"
-$ServerPort = 3000
 $LivenessUrl = "http://127.0.0.1:3000/_teruisi/local/health/live"
 $ReadinessUrl = "http://127.0.0.1:3000/_teruisi/local/health/ready"
+$HelperHealthUrl = "http://127.0.0.1:5791/health"
 $LocalWorkerStarter = Join-Path $ProjectRoot "tools\worker-local-service.ps1"
-$WorkflowHelperScript = Join-Path $ProjectRoot "tools\tmall-sycm-cookie-pipeline.ts"
-$WranglerBinScript = Join-Path $ProjectRoot "node_modules\wrangler\bin\wrangler.js"
-$WranglerCliScript = Join-Path $ProjectRoot "node_modules\wrangler\wrangler-dist\cli.js"
+$DjangoRuntimeRoot = "D:\teruisi-runtime\django-sales"
+$DjangoRuntimeTools = Join-Path $DjangoRuntimeRoot "app\tools"
+$DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"
+$DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps1"
+$DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
+$DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
+$PowerShellCommand = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
+if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "pwsh" -ErrorAction SilentlyContinue }
+if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "powershell.exe" -ErrorAction SilentlyContinue }
+$PowerShellExecutable = if ($PowerShellCommand) { $PowerShellCommand.Source } else { "" }
 $script:launchProcess = $null
 $script:launchStartedAt = $null
 $script:launchStdoutLog = $null
 $script:launchStderrLog = $null
+$script:lastDjangoCheckAt = $null
+$script:lastDjangoState = $null
+$script:lastWorkerCheckAt = $null
+$script:lastWorkerStatus = $null
 $script:lastHealthCheckAt = $null
 $script:lastHealthState = "Unresponsive"
 
-function Get-NodeExecutable {
-  $systemNode = Get-Command "node.exe" -ErrorAction SilentlyContinue
-  if ($systemNode) {
-    return $systemNode.Source
-  }
-
-  $codexRuntimeRoot = Join-Path $env:USERPROFILE ".cache\codex-runtimes"
-  if (Test-Path $codexRuntimeRoot) {
-    $bundledNode = Get-ChildItem -Path $codexRuntimeRoot -Directory -ErrorAction SilentlyContinue |
-      Sort-Object LastWriteTime -Descending |
-      ForEach-Object { Join-Path $_.FullName "dependencies\node\bin\node.exe" } |
-      Where-Object { Test-Path $_ } |
-      Select-Object -First 1
-    if ($bundledNode) {
-      return $bundledNode
-    }
-  }
-
-  return $null
+if ($Check -and $StopWorker) {
+  throw "-Check 与 -StopWorker 不能同时使用"
+}
+if ($Check) { $Action = "Status" }
+if ($StopWorker) { $Action = "StopWorker" }
+if ($Open -and $Action -notin @("Start", "Panel")) {
+  throw "-Open 只允许与 Start 或 Panel 一起使用"
 }
 
-function Get-PortProcesses {
-  try {
-    return @(Get-NetTCPConnection -State Listen -LocalPort $ServerPort -ErrorAction Stop |
-      Select-Object -ExpandProperty OwningProcess -Unique)
-  } catch {
-    return @()
-  }
-}
-
-function Test-CommandLineContainsExactPath {
+function Get-BoundedText {
   param(
-    [string]$CommandLine,
-    [string]$ExpectedPath
+    [object]$Value,
+    [int]$MaximumLength = 500
   )
 
-  if ([string]::IsNullOrWhiteSpace($CommandLine) -or [string]::IsNullOrWhiteSpace($ExpectedPath)) {
+  $textValue = (($Value | Out-String).Trim())
+  if ([string]::IsNullOrWhiteSpace($textValue)) { return $null }
+  if ($textValue.Length -gt $MaximumLength) {
+    return $textValue.Substring($textValue.Length - $MaximumLength, $MaximumLength)
+  }
+  return $textValue
+}
+
+function Write-Stage {
+  param([string]$Message)
+
+  if (-not $Json) {
+    Write-Output ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $Message)
+  }
+}
+
+function Write-ControlResult {
+  param([object]$Result)
+
+  if ($Json) {
+    Write-Output ($Result | ConvertTo-Json -Compress -Depth 10)
+    return
+  }
+  if ($Result.PSObject.Properties.Name -contains "message") {
+    Write-Output ([string]$Result.message)
+  } else {
+    Write-Output ($Result | Format-List | Out-String)
+  }
+}
+
+function Assert-ControllerDependencies {
+  foreach ($requiredPath in @(
+    $PowerShellExecutable,
+    $LocalWorkerStarter,
+    $DjangoService,
+    $DjangoNetshopService,
+    $DjangoMarketService,
+    $DjangoProductsService
+  )) {
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+      throw "缺少受控启动依赖：$requiredPath"
+    }
+  }
+}
+
+function Invoke-JsonServiceAction {
+  param(
+    [string]$ScriptPath,
+    [string[]]$Arguments,
+    [string]$Label
+  )
+
+  $serviceArguments = @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
+  ) + $Arguments + @("-Json")
+  $serviceOutput = & $PowerShellExecutable @serviceArguments 2>&1
+  $serviceExitCode = $LASTEXITCODE
+  if ($serviceExitCode -ne 0) {
+    $serviceDetail = Get-BoundedText -Value $serviceOutput
+    if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }
+    throw "$Label 失败：$serviceDetail"
+  }
+  $serviceText = (($serviceOutput | Out-String).Trim())
+  if ([string]::IsNullOrWhiteSpace($serviceText)) {
+    throw "$Label 未返回 JSON 状态"
+  }
+  try {
+    return ($serviceText | ConvertFrom-Json -ErrorAction Stop)
+  } catch {
+    throw "$Label 返回了无效 JSON"
+  }
+}
+
+function Invoke-VisibleServiceAction {
+  param(
+    [string]$ScriptPath,
+    [string[]]$Arguments,
+    [string]$Label
+  )
+
+  $serviceArguments = @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
+  ) + $Arguments
+  $serviceOutput = & $PowerShellExecutable @serviceArguments 2>&1
+  $serviceExitCode = $LASTEXITCODE
+  if (-not $Json -and $serviceOutput) {
+    $serviceOutput | ForEach-Object { Write-Output ([string]$_) }
+  }
+  if ($serviceExitCode -ne 0) {
+    $serviceDetail = Get-BoundedText -Value $serviceOutput
+    if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }
+    throw "$Label 失败：$serviceDetail"
+  }
+}
+
+function Test-CoreDjangoReady {
+  param([object]$Status)
+
+  return (
+    $Status -and
+    [string]$Status.PostgreSQL -ceq "running" -and
+    [string]$Status.DjangoReader -ceq "running" -and
+    [string]$Status.DjangoWriter -ceq "running" -and
+    [string]$Status.ErpReferenceSync -ceq "caught_up" -and
+    [string]$Status.ReaderReadiness -ceq "ready" -and
+    [string]$Status.WriterReadiness -ceq "ready" -and
+    [string]$Status.RuntimeAcl -ceq "root_hardened" -and
+    [string]$Status.RuntimeAclVerification -ceq "root_only_status"
+  )
+}
+
+function Test-DjangoDomainReady {
+  param(
+    [object]$Status,
+    [string]$ReaderProperty,
+    [string]$WriterProperty,
+    [string]$AuthorityProperty = ""
+  )
+
+  if (-not $Status) { return $false }
+  if ([string]$Status.PSObject.Properties[$ReaderProperty].Value -cne "running" -or
+      [string]$Status.PSObject.Properties[$WriterProperty].Value -cne "running" -or
+      [string]$Status.ReaderReadiness -cne "ready" -or
+      [string]$Status.WriterReadiness -cne "ready") {
     return $false
   }
-
-  $escapedPath = [System.Text.RegularExpressions.Regex]::Escape($ExpectedPath)
-  $exactPathArgument = '(?i)(?:^|\s)(?:"' + $escapedPath + '"|' + $escapedPath + ')(?=\s|$)'
-  return [System.Text.RegularExpressions.Regex]::IsMatch($CommandLine, $exactPathArgument)
-}
-
-function Test-IsLocalWorkerSupervisorProcess {
-  param([object]$ProcessInfo)
-
-  if (-not $ProcessInfo -or [string]$ProcessInfo.Name -notin @("node", "node.exe")) {
+  if (-not [string]::IsNullOrWhiteSpace($AuthorityProperty) -and
+      [string]$Status.PSObject.Properties[$AuthorityProperty].Value -cne "postgres") {
     return $false
   }
-  return Test-CommandLineContainsExactPath -CommandLine ([string]$ProcessInfo.CommandLine) -ExpectedPath $LocalWorkerStarter
+  return $true
 }
 
-function Get-UniqueProcessRecord {
-  param(
-    [int]$ProcessId,
-    [object[]]$AllProcesses
-  )
+function Get-DjangoAggregateState {
+  param([switch]$Refresh)
 
-  $records = @($AllProcesses | Where-Object { $_.ProcessId -eq $ProcessId })
-  if ($records.Count -ne 1) {
-    return $null
-  }
-  return $records[0]
-}
-
-function Get-ControlledLocalWorkerSupervisor {
-  param(
-    [int[]]$PortProcessIds,
-    [object[]]$AllProcesses
-  )
-
-  if ($PortProcessIds.Count -eq 0) {
-    return $null
+  $checkTime = Get-Date
+  if (-not $Refresh -and $script:lastDjangoCheckAt -and $script:lastDjangoState -and
+      (($checkTime - $script:lastDjangoCheckAt).TotalSeconds -lt 10)) {
+    return $script:lastDjangoState
   }
 
-  $supervisorCandidates = @()
-  foreach ($portProcessId in $PortProcessIds) {
-    $currentProcessId = $portProcessId
-    $visitedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
-    $ownerSupervisorMatches = @()
-
-    for ($depth = 0; $depth -lt 32 -and $currentProcessId -gt 0; $depth++) {
-      if (-not $visitedProcessIds.Add($currentProcessId)) {
-        break
-      }
-      $processInfo = Get-UniqueProcessRecord -ProcessId $currentProcessId -AllProcesses $AllProcesses
-      if (-not $processInfo) {
-        break
-      }
-      if (Test-IsLocalWorkerSupervisorProcess -ProcessInfo $processInfo) {
-        $ownerSupervisorMatches += $processInfo
-      }
-      $currentProcessId = [int]$processInfo.ParentProcessId
-    }
-
-    if ($ownerSupervisorMatches.Count -ne 1) {
-      return $null
-    }
-    $supervisorCandidates += $ownerSupervisorMatches[0]
-  }
-
-  $uniqueSupervisorIds = @($supervisorCandidates | Select-Object -ExpandProperty ProcessId -Unique)
-  if ($uniqueSupervisorIds.Count -ne 1) {
-    return $null
-  }
-  return Get-UniqueProcessRecord -ProcessId $uniqueSupervisorIds[0] -AllProcesses $AllProcesses
-}
-
-function Get-ProcessTreeEntries {
-  param(
-    [int]$RootProcessId,
-    [object[]]$AllProcesses
-  )
-
-  $pending = [System.Collections.Generic.Queue[object]]::new()
-  $pending.Enqueue([pscustomobject]@{ ProcessId = $RootProcessId; Depth = 0 })
-  $visitedProcessIds = [System.Collections.Generic.HashSet[int]]::new()
-  $entries = @()
-
-  while ($pending.Count -gt 0) {
-    $candidate = $pending.Dequeue()
-    if (-not $visitedProcessIds.Add([int]$candidate.ProcessId)) {
-      continue
-    }
-    $processInfo = Get-UniqueProcessRecord -ProcessId ([int]$candidate.ProcessId) -AllProcesses $AllProcesses
-    if (-not $processInfo) {
-      continue
-    }
-    $entries += [pscustomobject]@{ Process = $processInfo; Depth = [int]$candidate.Depth }
-    foreach ($child in @($AllProcesses | Where-Object { $_.ParentProcessId -eq $processInfo.ProcessId })) {
-      $pending.Enqueue([pscustomobject]@{ ProcessId = [int]$child.ProcessId; Depth = [int]$candidate.Depth + 1 })
-    }
-  }
-
-  return $entries
-}
-
-function Test-IsExpectedLocalWorkerTreeProcess {
-  param(
-    [object]$ProcessInfo,
-    [int]$SupervisorProcessId
-  )
-
-  if ($ProcessInfo.ProcessId -eq $SupervisorProcessId) {
-    return Test-IsLocalWorkerSupervisorProcess -ProcessInfo $ProcessInfo
-  }
-
-  $processName = ([string]$ProcessInfo.Name).ToLowerInvariant()
-  $commandLine = [string]$ProcessInfo.CommandLine
-  if ($processName -in @("node", "node.exe")) {
-    return (
-      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WorkflowHelperScript) -or
-      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WranglerBinScript) -or
-      (Test-CommandLineContainsExactPath -CommandLine $commandLine -ExpectedPath $WranglerCliScript)
-    )
-  }
-
-  if ($processName -in @("workerd", "workerd.exe", "esbuild", "esbuild.exe")) {
-    $nodeModulesRoot = (Join-Path $ProjectRoot "node_modules") + [System.IO.Path]::DirectorySeparatorChar
-    return -not [string]::IsNullOrWhiteSpace([string]$ProcessInfo.ExecutablePath) -and
-      ([string]$ProcessInfo.ExecutablePath).StartsWith($nodeModulesRoot, [System.StringComparison]::OrdinalIgnoreCase)
-  }
-
-  if ($processName -eq "conhost.exe") {
-    return $ProcessInfo.ParentProcessId -eq $SupervisorProcessId
-  }
-
-  return $false
-}
-
-function Stop-ControlledLocalWorker {
   try {
-    $raw = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LocalWorkerStarter -Action Stop -Json 2>&1
-    if ($LASTEXITCODE -ne 0) {
-      return [pscustomobject]@{ Success = $false; Reason = (($raw | Out-String).Trim()) }
+    Assert-ControllerDependencies
+    $coreStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "Status") -Label "Django/PostgreSQL 状态检查"
+    $financeStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "FinanceStatus") -Label "财务域状态检查"
+    $netshopStatus = Invoke-JsonServiceAction -ScriptPath $DjangoNetshopService -Arguments @("-Action", "Status") -Label "网店域状态检查"
+    $marketStatus = Invoke-JsonServiceAction -ScriptPath $DjangoMarketService -Arguments @("-Action", "Status") -Label "市场域状态检查"
+    $productsStatus = Invoke-JsonServiceAction -ScriptPath $DjangoProductsService -Arguments @("-Action", "Status") -Label "商品经营域状态检查"
+
+    $componentReadiness = [ordered]@{
+      core = Test-CoreDjangoReady -Status $coreStatus
+      finance = Test-DjangoDomainReady -Status $financeStatus -ReaderProperty "FinanceReader" -WriterProperty "FinanceWriter" -AuthorityProperty "PostgreSQLAuthority"
+      netshop = Test-DjangoDomainReady -Status $netshopStatus -ReaderProperty "NetshopReader" -WriterProperty "NetshopWriter"
+      market = Test-DjangoDomainReady -Status $marketStatus -ReaderProperty "MarketReader" -WriterProperty "MarketWriter"
+      products = Test-DjangoDomainReady -Status $productsStatus -ReaderProperty "ProductsReader" -WriterProperty "ProductsWriter"
     }
-    $result = ($raw | Out-String).Trim() | ConvertFrom-Json -ErrorAction Stop
-    if ($result.status -notin @("stopped", "already_stopped", "stale_receipt_cleared")) {
-      return [pscustomobject]@{ Success = $false; Reason = "不可变 Worker 停止回执无效" }
+    $notReadyComponents = @($componentReadiness.Keys | Where-Object { -not $componentReadiness[$_] })
+    $aggregateState = [pscustomobject]@{
+      State = if ($notReadyComponents.Count -eq 0) { "Ready" } else { "NotReady" }
+      Reason = if ($notReadyComponents.Count -eq 0) { $null } else { "未就绪组件：$($notReadyComponents -join ', ')" }
+      Components = [pscustomobject]$componentReadiness
+      CheckedAt = (Get-Date).ToString("o")
     }
-    return [pscustomobject]@{ Success = $true; Reason = $null }
   } catch {
-    return [pscustomobject]@{ Success = $false; Reason = $_.Exception.Message }
+    $aggregateState = [pscustomobject]@{
+      State = "Error"
+      Reason = Get-BoundedText -Value $_.Exception.Message -MaximumLength 300
+      Components = $null
+      CheckedAt = (Get-Date).ToString("o")
+    }
   }
+
+  $script:lastDjangoCheckAt = $checkTime
+  $script:lastDjangoState = $aggregateState
+  return $aggregateState
+}
+
+function Get-WorkerReleaseStatus {
+  param([switch]$Refresh)
+
+  $checkTime = Get-Date
+  if (-not $Refresh -and $script:lastWorkerCheckAt -and $script:lastWorkerStatus -and
+      (($checkTime - $script:lastWorkerCheckAt).TotalSeconds -lt 3)) {
+    return $script:lastWorkerStatus
+  }
+
+  try {
+    if (-not (Test-Path -LiteralPath $LocalWorkerStarter -PathType Leaf)) {
+      throw "缺少不可变 Worker 控制器：$LocalWorkerStarter"
+    }
+    $releaseStatus = Invoke-JsonServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Status") -Label "不可变 Worker 状态检查"
+    $workerStatus = [pscustomobject]@{
+      State = [string]$releaseStatus.state
+      Reason = [string]$releaseStatus.reason
+      ReleaseId = [string]$releaseStatus.releaseId
+      SupervisorProcessId = $releaseStatus.supervisorProcessId
+      PortProcessId = $releaseStatus.portProcessId
+      Raw = $releaseStatus
+    }
+  } catch {
+    $workerStatus = [pscustomobject]@{
+      State = "status_error"
+      Reason = Get-BoundedText -Value $_.Exception.Message -MaximumLength 300
+      ReleaseId = $null
+      SupervisorProcessId = $null
+      PortProcessId = $null
+      Raw = $null
+    }
+  }
+
+  $script:lastWorkerCheckAt = $checkTime
+  $script:lastWorkerStatus = $workerStatus
+  return $workerStatus
 }
 
 function Invoke-SystemHealthProbe {
-  param([string]$Uri)
+  param(
+    [string]$Uri,
+    [int]$TimeoutSeconds = 3
+  )
 
-  $client = $null
-  $request = $null
-  $response = $null
+  $httpClient = $null
+  $httpRequest = $null
+  $httpResponse = $null
   try {
-    $handler = [System.Net.Http.HttpClientHandler]::new()
-    $handler.UseProxy = $false
-    $client = [System.Net.Http.HttpClient]::new($handler)
-    $client.Timeout = [TimeSpan]::FromSeconds(2)
-    $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $Uri)
-    [void]$request.Headers.TryAddWithoutValidation("x-teruisi-local-health", "1")
-    $response = $client.SendAsync($request).GetAwaiter().GetResult()
-    $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    $httpHandler = [System.Net.Http.HttpClientHandler]::new()
+    $httpHandler.UseProxy = $false
+    $httpClient = [System.Net.Http.HttpClient]::new($httpHandler)
+    $httpClient.Timeout = [TimeSpan]::FromSeconds($TimeoutSeconds)
+    $httpRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $Uri)
+    [void]$httpRequest.Headers.TryAddWithoutValidation("x-teruisi-local-health", "1")
+    $httpResponse = $httpClient.SendAsync($httpRequest).GetAwaiter().GetResult()
+    $responseContent = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
     return [pscustomobject]@{
-      StatusCode = [int]$response.StatusCode
-      Content = $content
+      StatusCode = [int]$httpResponse.StatusCode
+      Content = $responseContent
       Error = $null
     }
   } catch {
     return [pscustomobject]@{
       StatusCode = $null
       Content = $null
-      Error = $_.Exception.Message
+      Error = Get-BoundedText -Value $_.Exception.Message -MaximumLength 200
     }
   } finally {
-    if ($response) { $response.Dispose() }
-    if ($request) { $request.Dispose() }
-    if ($client) { $client.Dispose() }
+    if ($httpResponse) { $httpResponse.Dispose() }
+    if ($httpRequest) { $httpRequest.Dispose() }
+    if ($httpClient) { $httpClient.Dispose() }
   }
 }
 
 function ConvertFrom-SystemHealthContent {
   param([object]$Probe)
 
-  if (-not $Probe -or [string]::IsNullOrWhiteSpace([string]$Probe.Content)) {
-    return $null
-  }
-  try {
-    return $Probe.Content | ConvertFrom-Json -ErrorAction Stop
-  } catch {
-    return $null
-  }
+  if (-not $Probe -or [string]::IsNullOrWhiteSpace([string]$Probe.Content)) { return $null }
+  try { return ($Probe.Content | ConvertFrom-Json -ErrorAction Stop) }
+  catch { return $null }
 }
 
 function Get-SystemHealthState {
-  $now = Get-Date
-  if ($script:lastHealthCheckAt -and (($now - $script:lastHealthCheckAt).TotalSeconds -lt 10)) {
+  param([switch]$Refresh)
+
+  $checkTime = Get-Date
+  if (-not $Refresh -and $script:lastHealthCheckAt -and
+      (($checkTime - $script:lastHealthCheckAt).TotalSeconds -lt 5)) {
     return $script:lastHealthState
   }
 
-  $script:lastHealthCheckAt = $now
   $healthState = "Unresponsive"
-  $liveness = Invoke-SystemHealthProbe -Uri $LivenessUrl
-  $livenessPayload = ConvertFrom-SystemHealthContent -Probe $liveness
-  if ($liveness.StatusCode -eq 200 -and $livenessPayload.ok -eq $true -and $livenessPayload.status -eq "live") {
-    $readiness = Invoke-SystemHealthProbe -Uri $ReadinessUrl
-    $readinessPayload = ConvertFrom-SystemHealthContent -Probe $readiness
-    if ($readiness.StatusCode -eq 200 -and $readinessPayload.ok -eq $true -and $readinessPayload.status -eq "ready") {
+  $livenessProbe = Invoke-SystemHealthProbe -Uri $LivenessUrl
+  $livenessPayload = ConvertFrom-SystemHealthContent -Probe $livenessProbe
+  $helperProbe = Invoke-SystemHealthProbe -Uri $HelperHealthUrl
+  $helperPayload = ConvertFrom-SystemHealthContent -Probe $helperProbe
+  if ($livenessProbe.StatusCode -eq 200 -and $livenessPayload.ok -eq $true -and
+      $livenessPayload.status -eq "live" -and $helperProbe.StatusCode -eq 200 -and
+      $helperPayload.ok -eq $true) {
+    $readinessProbe = Invoke-SystemHealthProbe -Uri $ReadinessUrl
+    $readinessPayload = ConvertFrom-SystemHealthContent -Probe $readinessProbe
+    if ($readinessProbe.StatusCode -eq 200 -and $readinessPayload.ok -eq $true -and
+        $readinessPayload.status -eq "ready") {
       $healthState = "Running"
     } elseif (
-      $readiness.StatusCode -eq 503 -and
+      $readinessProbe.StatusCode -eq 503 -and
       $readinessPayload.ok -eq $false -and
       $readinessPayload.status -eq "degraded" -and
       $readinessPayload.code -eq "d1_unavailable"
@@ -286,131 +347,287 @@ function Get-SystemHealthState {
     }
   }
 
+  $script:lastHealthCheckAt = $checkTime
   $script:lastHealthState = $healthState
   return $healthState
 }
 
 function Get-SystemState {
+  param([switch]$Refresh)
+
+  $backendState = Get-DjangoAggregateState -Refresh:$Refresh
+  $workerStatus = Get-WorkerReleaseStatus -Refresh:$Refresh
+  $combinedState = "StatusError"
+  $combinedReason = $null
+
+  switch ([string]$workerStatus.State) {
+    "foreign_or_ambiguous" {
+      $combinedState = "PortInUse"
+      $combinedReason = if ([string]::IsNullOrWhiteSpace([string]$workerStatus.Reason)) {
+        "3000/5791 端口或进程归属无法安全确认"
+      } else { [string]$workerStatus.Reason }
+    }
+    "status_error" {
+      $combinedState = "StatusError"
+      $combinedReason = [string]$workerStatus.Reason
+    }
+    "starting_exact_release" {
+      $combinedState = "Starting"
+      $combinedReason = "不可变 Worker 已领取启动所有权"
+    }
+    "stale_or_invalid_receipt" {
+      $combinedState = "StaleReceipt"
+      $combinedReason = "上次 Worker 未完成受控收尾；底层状态已证明端口当前没有冲突"
+    }
+    "stopped" {
+      if ($backendState.State -eq "Error") {
+        $combinedState = "StatusError"
+        $combinedReason = [string]$backendState.Reason
+      } elseif ($backendState.State -eq "Ready") {
+        $combinedState = "WorkerStopped"
+        $combinedReason = "Django/PostgreSQL 已就绪，网页 Worker 尚未运行"
+      } else {
+        $combinedState = "Stopped"
+        $combinedReason = [string]$backendState.Reason
+      }
+    }
+    "exact_release" {
+      if ($backendState.State -eq "Error") {
+        $combinedState = "StatusError"
+        $combinedReason = [string]$backendState.Reason
+      } elseif ($backendState.State -ne "Ready") {
+        $combinedState = "BackendUnavailable"
+        $combinedReason = [string]$backendState.Reason
+      } else {
+        $combinedState = Get-SystemHealthState -Refresh:$Refresh
+        if ($combinedState -eq "Unresponsive") {
+          $combinedReason = "Worker 进程归属正确，但本地存活、就绪或辅助服务探针未通过"
+        }
+      }
+    }
+    default {
+      $combinedState = "StatusError"
+      $combinedReason = "不可变 Worker 返回未知状态：$([string]$workerStatus.State)"
+    }
+  }
+
+  return [pscustomobject]@{
+    version = $UnifiedStartControlVersion
+    state = $combinedState
+    backendState = [string]$backendState.State
+    workerState = [string]$workerStatus.State
+    releaseId = $workerStatus.ReleaseId
+    supervisorProcessId = $workerStatus.SupervisorProcessId
+    portProcessId = $workerStatus.PortProcessId
+    url = $ServerUrl
+    reason = $combinedReason
+    components = $backendState.Components
+    checkedAt = (Get-Date).ToString("o")
+  }
+}
+
+function Reset-SystemStateCache {
+  $script:lastDjangoCheckAt = $null
+  $script:lastDjangoState = $null
+  $script:lastWorkerCheckAt = $null
+  $script:lastWorkerStatus = $null
+  $script:lastHealthCheckAt = $null
+  $script:lastHealthState = "Unresponsive"
+}
+
+function Enter-SystemControlMutex {
+  $controlMutex = [System.Threading.Mutex]::new($false, $SystemControlMutexName)
+  $mutexAcquired = $false
   try {
-    $raw = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LocalWorkerStarter -Action Status -Json 2>&1
-    if ($LASTEXITCODE -ne 0) { throw (($raw | Out-String).Trim()) }
-    $releaseState = ($raw | Out-String).Trim() | ConvertFrom-Json -ErrorAction Stop
-    switch ([string]$releaseState.state) {
-      "stopped" {
-        $script:lastHealthCheckAt = $null
-        return [pscustomobject]@{ State = "Stopped"; ProcessIds = @(); Reason = $null }
-      }
-      "exact_release" {
-        $state = Get-SystemHealthState
-        return [pscustomobject]@{
-          State = $state
-          ProcessIds = @([int]$releaseState.portProcessId)
-          SupervisorProcessId = [int]$releaseState.supervisorProcessId
-          Reason = $null
-        }
-      }
-      "starting_exact_release" {
-        return [pscustomobject]@{
-          State = "Starting"
-          ProcessIds = @(Get-PortProcesses)
-          SupervisorProcessId = [int]$releaseState.supervisorProcessId
-          Reason = $null
-        }
-      }
-      "stale_or_invalid_receipt" {
-        $portProcesses = @(Get-PortProcesses)
-        if ($portProcesses.Count -gt 0) {
-          return [pscustomobject]@{ State = "PortInUse"; ProcessIds = $portProcesses; Reason = "检测到残留回执时端口 3000 已出现监听进程" }
-        }
-        $script:lastHealthCheckAt = $null
-        return [pscustomobject]@{
-          State = "StaleReceipt"
-          ProcessIds = @()
-          Reason = "上次 Worker 未完成受控收尾，端口当前空闲"
-        }
-      }
-      "foreign_or_ambiguous" {
-        return [pscustomobject]@{
-          State = "PortInUse"
-          ProcessIds = @(Get-PortProcesses)
-          Reason = "系统所需端口或进程归属无法安全确认"
-        }
-      }
-      default {
-        return [pscustomobject]@{
-          State = "StatusError"
-          ProcessIds = @(Get-PortProcesses)
-          Reason = "不可变 Worker 服务返回了未知状态：$([string]$releaseState.state)"
-        }
-      }
-    }
-  } catch {
-    $portProcesses = @(Get-PortProcesses)
-    if ($portProcesses.Count -gt 0) {
-      return [pscustomobject]@{
-        State = "PortInUse"
-        ProcessIds = $portProcesses
-        Reason = "状态检测失败，且端口 3000 当前存在监听进程"
-      }
-    }
-    $reason = ([string]$_.Exception.Message).Trim()
-    if ($reason.Length -gt 180) { $reason = $reason.Substring(0, 180) + "…" }
-    return [pscustomobject]@{
-      State = "StatusError"
-      ProcessIds = @()
-      Reason = if ([string]::IsNullOrWhiteSpace($reason)) { "不可变 Worker 状态检测失败" } else { $reason }
-    }
+    $mutexAcquired = $controlMutex.WaitOne([TimeSpan]::Zero)
+  } catch [System.Threading.AbandonedMutexException] {
+    $mutexAcquired = $true
+  }
+  return [pscustomobject]@{
+    Mutex = $controlMutex
+    Acquired = $mutexAcquired
   }
 }
 
-function Get-LaunchFailureSummary {
-  if ([string]::IsNullOrWhiteSpace($script:launchStderrLog) -or
-      -not (Test-Path -LiteralPath $script:launchStderrLog -PathType Leaf)) {
-    return $null
+function Exit-SystemControlMutex {
+  param([object]$MutexLease)
+
+  if (-not $MutexLease) { return }
+  try {
+    if ($MutexLease.Acquired) { $MutexLease.Mutex.ReleaseMutex() }
+  } finally {
+    $MutexLease.Mutex.Dispose()
+  }
+}
+
+function Wait-ForExactWorkerRelease {
+  param([int]$MaximumSeconds = 900)
+
+  $deadline = (Get-Date).AddSeconds($MaximumSeconds)
+  do {
+    Start-Sleep -Milliseconds 500
+    $currentWorker = Get-WorkerReleaseStatus -Refresh
+    if ($currentWorker.State -ceq "exact_release") { return $currentWorker }
+    if ($currentWorker.State -notin @("starting_exact_release", "stopped")) {
+      throw "等待 Worker 启动时状态变为：$([string]$currentWorker.State)；$([string]$currentWorker.Reason)"
+    }
+  } while ((Get-Date) -lt $deadline)
+  throw "等待不可变 Worker 就绪超过 $MaximumSeconds 秒"
+}
+
+function Invoke-SystemStart {
+  $mutexLease = Enter-SystemControlMutex
+  if (-not $mutexLease.Acquired) {
+    Write-ControlResult ([pscustomobject]@{
+      version = $UnifiedStartControlVersion
+      status = "start_in_progress"
+      state = "Starting"
+      message = "已有唯一总控启动任务正在执行；本次请求未重复启动任何组件。"
+      checkedAt = (Get-Date).ToString("o")
+    })
+    Exit-SystemControlMutex -MutexLease $mutexLease
+    return
+  }
+
+  try {
+    Assert-ControllerDependencies
+    Write-Stage "唯一总控已取得启动互斥锁，开始检查完整系统状态"
+    Reset-SystemStateCache
+    $initialState = Get-SystemState -Refresh
+    if ($initialState.state -in @("PortInUse", "StatusError", "Unresponsive")) {
+      throw "启动前状态不可安全推进：$($initialState.reason)"
+    }
+
+    $changed = $false
+    if ($initialState.state -in @("Running", "D1Degraded")) {
+      Write-Stage "Django/PostgreSQL 全域与不可变 Worker 已经就绪，无需重复启动"
+    } elseif ($initialState.workerState -ceq "starting_exact_release") {
+      Write-Stage "不可变 Worker 已由受控入口启动，等待唯一引擎完成就绪门禁"
+      [void](Wait-ForExactWorkerRelease)
+    } else {
+      Write-Stage "调用唯一启动引擎；它将按 Django/PostgreSQL → Worker 顺序执行，完整性校验可能需要数分钟"
+      Invoke-VisibleServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Start") -Label "运营管理系统唯一启动引擎"
+      $changed = $true
+    }
+
+    Reset-SystemStateCache
+    $finalState = Get-SystemState -Refresh
+    if ($finalState.state -notin @("Running", "D1Degraded")) {
+      throw "启动结束但系统未达到可用状态：$($finalState.state)；$($finalState.reason)"
+    }
+    $pageProbe = Invoke-SystemHealthProbe -Uri $ServerUrl -TimeoutSeconds 10
+    if ($pageProbe.StatusCode -ne 200) {
+      throw "系统健康检查通过，但主页 HTTP 状态不是 200"
+    }
+    if ($Open) { Start-Process $ServerUrl | Out-Null }
+
+    $resultStatus = if ($finalState.state -eq "D1Degraded") {
+      "started_degraded"
+    } elseif ($changed) {
+      "started"
+    } else {
+      "already_running"
+    }
+    $resultMessage = if ($resultStatus -eq "already_running") {
+      "运营管理系统已在运行，未重复启动任何组件。访问地址：$ServerUrl"
+    } elseif ($resultStatus -eq "started_degraded") {
+      "系统已启动；D1 业务域处于受控降级，已迁移域保持可用。访问地址：$ServerUrl"
+    } else {
+      "运营管理系统已由唯一总控完成启动与回查。访问地址：$ServerUrl"
+    }
+    Write-ControlResult ([pscustomobject]@{
+      version = $UnifiedStartControlVersion
+      status = $resultStatus
+      state = $finalState.state
+      backendState = $finalState.backendState
+      workerState = $finalState.workerState
+      releaseId = $finalState.releaseId
+      supervisorProcessId = $finalState.supervisorProcessId
+      portProcessId = $finalState.portProcessId
+      url = $ServerUrl
+      message = $resultMessage
+      checkedAt = (Get-Date).ToString("o")
+    })
+  } finally {
+    Exit-SystemControlMutex -MutexLease $mutexLease
+  }
+}
+
+function Invoke-StopWorker {
+  $mutexLease = Enter-SystemControlMutex
+  if (-not $mutexLease.Acquired) {
+    Exit-SystemControlMutex -MutexLease $mutexLease
+    throw "唯一总控正在启动系统；为避免交错，本次暂停 Worker 请求已拒绝"
   }
   try {
-    $summary = ((Get-Content -LiteralPath $script:launchStderrLog -Tail 8 -ErrorAction Stop) -join " ").Trim()
-    if ([string]::IsNullOrWhiteSpace($summary)) { return $null }
-    if ($summary.Length -gt 260) { return $summary.Substring(0, 260) + "…" }
-    return $summary
-  } catch {
-    return $null
+    Assert-ControllerDependencies
+    $stopStatus = Invoke-JsonServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Stop") -Label "不可变 Worker 停止"
+    if ([string]$stopStatus.status -notin @("stopped", "already_stopped", "stale_receipt_cleared")) {
+      throw "不可变 Worker 停止回执无效"
+    }
+    Reset-SystemStateCache
+    $stoppedState = Get-SystemState -Refresh
+    Write-ControlResult ([pscustomobject]@{
+      version = $UnifiedStartControlVersion
+      status = [string]$stopStatus.status
+      state = $stoppedState.state
+      message = "网页 Worker 已通过底层身份门禁暂停；Django/PostgreSQL 后端继续运行。"
+      checkedAt = (Get-Date).ToString("o")
+    })
+  } finally {
+    Exit-SystemControlMutex -MutexLease $mutexLease
   }
 }
 
-function Stop-ProcessTree {
-  param(
-    [int]$ProcessId,
-    [object[]]$AllProcesses
-  )
-
-  foreach ($child in @($AllProcesses | Where-Object { $_.ParentProcessId -eq $ProcessId })) {
-    Stop-ProcessTree -ProcessId $child.ProcessId -AllProcesses $AllProcesses
-  }
-
-  Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
-}
-
-if ($StopWorker) {
-  $stopResult = Stop-ControlledLocalWorker
-  if ($stopResult.Success) {
-    Write-Output "Stopped: local Worker supervisor and verified project descendants"
+if ($Action -ne "Panel") {
+  try {
+    switch ($Action) {
+      "Start" { Invoke-SystemStart }
+      "Status" { Write-ControlResult (Get-SystemState -Refresh) }
+      "StopWorker" { Invoke-StopWorker }
+    }
     exit 0
+  } catch {
+    $failureReason = Get-BoundedText -Value $_.Exception.Message -MaximumLength 800
+    if ($Json) {
+      Write-ControlResult ([pscustomobject]@{
+        version = $UnifiedStartControlVersion
+        status = "failed"
+        state = "StatusError"
+        reason = $failureReason
+        message = "唯一启动总控执行失败：$failureReason"
+        checkedAt = (Get-Date).ToString("o")
+      })
+    } else {
+      Write-Error "唯一启动总控执行失败：$failureReason"
+    }
+    exit 1
   }
-  Write-Error $stopResult.Reason
-  exit 1
 }
 
-if ($Check) {
-  $currentState = Get-SystemState
-  Write-Output "State: $($currentState.State)"
-  exit 0
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+function Get-LaunchLogSummary {
+  $candidateLogs = @($script:launchStderrLog, $script:launchStdoutLog) | Where-Object {
+    -not [string]::IsNullOrWhiteSpace([string]$_) -and (Test-Path -LiteralPath $_ -PathType Leaf)
+  }
+  foreach ($candidateLog in $candidateLogs) {
+    try {
+      $summary = ((Get-Content -LiteralPath $candidateLog -Tail 4 -ErrorAction Stop) -join " ").Trim()
+      if ([string]::IsNullOrWhiteSpace($summary)) { continue }
+      if ($summary.Length -gt 260) { return $summary.Substring($summary.Length - 260, 260) }
+      return $summary
+    } catch {}
+  }
+  return $null
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "运营管理系统控制面板"
+$form.Text = "运营管理系统唯一启动总控"
 $form.StartPosition = "CenterScreen"
-$form.ClientSize = New-Object System.Drawing.Size(430, 270)
+$form.ClientSize = New-Object System.Drawing.Size(470, 315)
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $true
@@ -420,334 +637,255 @@ $title = New-Object System.Windows.Forms.Label
 $title.Text = "运营管理系统"
 $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 18, [System.Drawing.FontStyle]::Bold)
 $title.AutoSize = $true
-$title.Location = New-Object System.Drawing.Point(28, 24)
+$title.Location = New-Object System.Drawing.Point(28, 22)
 
 $subtitle = New-Object System.Windows.Forms.Label
-$subtitle.Text = "本地启动与暂停控制"
+$subtitle.Text = "唯一启动总控 · Django/PostgreSQL → Worker"
 $subtitle.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
 $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(92, 102, 117)
 $subtitle.AutoSize = $true
-$subtitle.Location = New-Object System.Drawing.Point(30, 64)
+$subtitle.Location = New-Object System.Drawing.Point(30, 62)
 
 $statusDot = New-Object System.Windows.Forms.Label
 $statusDot.Text = "●"
 $statusDot.Font = New-Object System.Drawing.Font("Segoe UI", 18)
 $statusDot.AutoSize = $true
-$statusDot.Location = New-Object System.Drawing.Point(29, 105)
+$statusDot.Location = New-Object System.Drawing.Point(29, 102)
 
 $status = New-Object System.Windows.Forms.Label
 $status.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 11, [System.Drawing.FontStyle]::Bold)
 $status.AutoSize = $true
-$status.Location = New-Object System.Drawing.Point(57, 108)
+$status.Location = New-Object System.Drawing.Point(57, 105)
 
 $details = New-Object System.Windows.Forms.Label
 $details.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 $details.ForeColor = [System.Drawing.Color]::FromArgb(92, 102, 117)
-$details.AutoSize = $true
-$details.Location = New-Object System.Drawing.Point(31, 145)
+$details.Location = New-Object System.Drawing.Point(31, 143)
+$details.Size = New-Object System.Drawing.Size(410, 48)
 
 $startButton = New-Object System.Windows.Forms.Button
 $startButton.Text = "启动系统"
 $startButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Bold)
-$startButton.Size = New-Object System.Drawing.Size(115, 42)
-$startButton.Location = New-Object System.Drawing.Point(31, 194)
+$startButton.Size = New-Object System.Drawing.Size(125, 42)
+$startButton.Location = New-Object System.Drawing.Point(31, 202)
 $startButton.BackColor = [System.Drawing.Color]::FromArgb(28, 118, 235)
 $startButton.ForeColor = [System.Drawing.Color]::White
 $startButton.FlatStyle = "Flat"
 $startButton.FlatAppearance.BorderSize = 0
 
 $stopButton = New-Object System.Windows.Forms.Button
-$stopButton.Text = "暂停／停止"
+$stopButton.Text = "暂停网页服务"
 $stopButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
-$stopButton.Size = New-Object System.Drawing.Size(115, 42)
-$stopButton.Location = New-Object System.Drawing.Point(158, 194)
+$stopButton.Size = New-Object System.Drawing.Size(125, 42)
+$stopButton.Location = New-Object System.Drawing.Point(172, 202)
 
 $openButton = New-Object System.Windows.Forms.Button
 $openButton.Text = "打开系统"
 $openButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
-$openButton.Size = New-Object System.Drawing.Size(115, 42)
-$openButton.Location = New-Object System.Drawing.Point(285, 194)
+$openButton.Size = New-Object System.Drawing.Size(125, 42)
+$openButton.Location = New-Object System.Drawing.Point(313, 202)
 
 $runContinueButton = New-Object System.Windows.Forms.Button
 $runContinueButton.Text = "执行待处理继续任务"
 $runContinueButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
-$runContinueButton.Size = New-Object System.Drawing.Size(175, 34)
-$runContinueButton.Location = New-Object System.Drawing.Point(31, 240)
-$runContinueButton.Enabled = $true
+$runContinueButton.Size = New-Object System.Drawing.Size(190, 34)
+$runContinueButton.Location = New-Object System.Drawing.Point(31, 260)
 
 $viewLogButton = New-Object System.Windows.Forms.Button
 $viewLogButton.Text = "查看启动日志"
 $viewLogButton.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
-$viewLogButton.Size = New-Object System.Drawing.Size(175, 34)
-$viewLogButton.Location = New-Object System.Drawing.Point(218, 240)
-$viewLogButton.Enabled = $true
+$viewLogButton.Size = New-Object System.Drawing.Size(190, 34)
+$viewLogButton.Location = New-Object System.Drawing.Point(248, 260)
 
-$form.ClientSize = New-Object System.Drawing.Size(430, 285)
-$form.Controls.AddRange(@($title, $subtitle, $statusDot, $status, $details, $startButton, $stopButton, $openButton, $runContinueButton, $viewLogButton))
+$form.Controls.AddRange(@(
+  $title, $subtitle, $statusDot, $status, $details,
+  $startButton, $stopButton, $openButton, $runContinueButton, $viewLogButton
+))
+
+function Set-UiState {
+  param(
+    [System.Drawing.Color]$Color,
+    [string]$Title,
+    [string]$Detail,
+    [bool]$CanStart,
+    [bool]$CanStop,
+    [bool]$CanOpen,
+    [bool]$CanContinue
+  )
+
+  $statusDot.ForeColor = $Color
+  $status.Text = $Title
+  $details.Text = $Detail
+  $startButton.Enabled = $CanStart
+  $stopButton.Enabled = $CanStop
+  $openButton.Enabled = $CanOpen
+  $runContinueButton.Enabled = $CanContinue
+}
 
 function Update-Status {
+  if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
+    $elapsedSeconds = [math]::Floor(((Get-Date) - $script:launchStartedAt).TotalSeconds)
+    $progressSummary = Get-LaunchLogSummary
+    $progressDetail = if ($progressSummary) {
+      "$progressSummary（已等待 $elapsedSeconds 秒）"
+    } else {
+      "总控正在执行分阶段启动与回查（已等待 $elapsedSeconds 秒）。"
+    }
+    Set-UiState -Color ([System.Drawing.Color]::FromArgb(28, 118, 235)) -Title "系统正在启动…" -Detail $progressDetail -CanStart $false -CanStop $false -CanOpen $false -CanContinue $false
+    return
+  }
+
+  if ($script:launchProcess -and $script:launchProcess.HasExited) {
+    $launchExitCode = $null
+    try {
+      $script:launchProcess.WaitForExit()
+      $script:launchProcess.Refresh()
+      $launchExitCode = [int]$script:launchProcess.ExitCode
+    } catch {}
+    if ($null -eq $launchExitCode -or $launchExitCode -ne 0) {
+      $failureSummary = Get-LaunchLogSummary
+      $failureDetail = if ($failureSummary) {
+        "$failureSummary。点击【查看启动日志】可查看完整记录。"
+      } else {
+        "启动进程未返回可用错误详情，请查看启动日志。"
+      }
+      $failureTitle = if ($null -eq $launchExitCode) { "启动失败" } else { "启动失败，退出码 $launchExitCode" }
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(202, 64, 64)) -Title $failureTitle -Detail $failureDetail -CanStart $true -CanStop $false -CanOpen $false -CanContinue $false
+      return
+    }
+    $script:launchProcess = $null
+    Reset-SystemStateCache
+  }
+
   $systemState = Get-SystemState
-  switch ($systemState.State) {
+  switch ([string]$systemState.state) {
     "Running" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(28, 160, 88)
-      $status.Text = "系统正在运行"
-      $details.Text = "访问地址：$ServerUrl"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $true
-      $openButton.Enabled = $true
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(28, 160, 88)) -Title "完整系统正在运行" -Detail "全部 Django/PostgreSQL 域与不可变 Worker 已就绪。访问地址：$ServerUrl" -CanStart $false -CanStop $true -CanOpen $true -CanContinue $true
     }
     "D1Degraded" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(224, 133, 27)
-      $status.Text = "D1 暂时降级"
-      $details.Text = "Worker 存活，D1 返回受控降级；系统会继续运行且不会因此重启。"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $true
-      $openButton.Enabled = $false
-    }
-    "Unresponsive" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
-      $status.Text = "Worker 无响应 / 重启中"
-      $details.Text = "端口仍由系统进程持有，但存活或就绪检查未通过；启动器正在按存活策略处理。"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $true
-      $openButton.Enabled = $false
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "D1 业务域受控降级" -Detail "已迁移域与 Worker 保持运行；不会因 D1 降级自动重启。" -CanStart $false -CanStop $true -CanOpen $false -CanContinue $false
     }
     "Starting" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(28, 118, 235)
-      $status.Text = "系统正在启动…"
-      $details.Text = "不可变 Worker 已领取启动所有权，正在等待 3000/5791 端口就绪。"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $true
-      $openButton.Enabled = $false
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(28, 118, 235)) -Title "Worker 正在启动…" -Detail "底层不可变 Worker 已领取所有权，总控不会创建第二个实例。" -CanStart $false -CanStop $false -CanOpen $false -CanContinue $false
     }
-    "StaleReceipt" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(224, 133, 27)
-      $status.Text = "检测到上次异常退出"
-      $details.Text = "端口空闲；点击【启动系统】将先校验并尝试清理残留回执，再重新启动。"
-      $startButton.Enabled = $true
-      $stopButton.Enabled = $true
-      $openButton.Enabled = $false
-    }
-    "StatusError" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
-      $status.Text = "无法确认系统状态"
-      $details.Text = "状态检测失败：$($systemState.Reason)"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $false
-      $openButton.Enabled = $false
+    "WorkerStopped" {
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(148, 158, 173)) -Title "网页 Worker 已暂停" -Detail "Django/PostgreSQL 后端已经就绪；点击【启动系统】恢复网页服务。" -CanStart $true -CanStop $false -CanOpen $false -CanContinue $false
     }
     "Stopped" {
-      if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
-        $elapsed = [math]::Floor(((Get-Date) - $script:launchStartedAt).TotalSeconds)
-        $statusDot.ForeColor = if ($elapsed -ge 180) { [System.Drawing.Color]::FromArgb(224, 133, 27) } else { [System.Drawing.Color]::FromArgb(28, 118, 235) }
-        $status.Text = if ($elapsed -ge 180) { "启动耗时较长…" } else { "正在启动…" }
-        $details.Text = "正在构建并启动本地 Worker（已等待 $elapsed 秒）。日志：$($script:launchStdoutLog)"
-        $startButton.Enabled = $false
-        $stopButton.Enabled = $true
-        $openButton.Enabled = $false
-      } elseif ($script:launchProcess -and $script:launchProcess.HasExited) {
-        $exitCode = $null
-        try {
-          $script:launchProcess.WaitForExit()
-          $script:launchProcess.Refresh()
-          $exitCode = [int]$script:launchProcess.ExitCode
-        } catch {}
-        $failureSummary = Get-LaunchFailureSummary
-        if ($null -eq $exitCode -or $exitCode -ne 0) {
-          $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
-          $status.Text = if ($null -eq $exitCode) { "启动失败" } else { "启动失败，退出码 $exitCode" }
-          $details.Text = if ($failureSummary) {
-            "原因：$failureSummary。点击【查看启动日志】可查看完整记录。"
-          } else {
-            "启动进程未返回可用错误详情。请点击【查看启动日志】。错误日志：$($script:launchStderrLog)"
-          }
-          $startButton.Enabled = $true
-          $stopButton.Enabled = $false
-          $openButton.Enabled = $false
-        } else {
-          $script:launchProcess = $null
-          $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)
-          $status.Text = "系统已暂停"
-          $details.Text = "本地 Worker 已退出。点击【启动系统】可重新启动。"
-          $startButton.Enabled = $true
-          $stopButton.Enabled = $false
-          $openButton.Enabled = $false
-        }
-      } else {
-        $script:launchProcess = $null
-        $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(148, 158, 173)
-        $status.Text = "系统已暂停"
-        $details.Text = "点击【启动系统】即可构建并恢复本地 Worker 服务。"
-        $startButton.Enabled = $true
-        $stopButton.Enabled = $false
-        $openButton.Enabled = $false
-      }
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(148, 158, 173)) -Title "系统尚未完整启动" -Detail "点击【启动系统】，总控将按后端 → Worker 顺序启动并回查。" -CanStart $true -CanStop $false -CanOpen $false -CanContinue $false
+    }
+    "BackendUnavailable" {
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "后端服务未全部就绪" -Detail "$($systemState.reason)。点击【启动系统】执行受控补齐。" -CanStart $true -CanStop $true -CanOpen $false -CanContinue $false
+    }
+    "StaleReceipt" {
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "检测到 Worker 异常退出" -Detail "点击【启动系统】后，仅在底层再次验证安全时清理陈旧回执。" -CanStart $true -CanStop $true -CanOpen $false -CanContinue $false
+    }
+    "Unresponsive" {
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(202, 64, 64)) -Title "Worker 无响应或重启中" -Detail "$($systemState.reason)。总控不会自动接管或强制重启。" -CanStart $false -CanStop $true -CanOpen $false -CanContinue $false
     }
     "PortInUse" {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(224, 133, 27)
-      $status.Text = "系统端口或进程归属冲突"
-      $details.Text = "$($systemState.Reason)。为避免影响其他程序，控制面板不会接管或停止它。"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $false
-      $openButton.Enabled = $false
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "端口或进程归属冲突" -Detail "$($systemState.reason)。为避免影响其他程序，总控拒绝接管。" -CanStart $false -CanStop $false -CanOpen $false -CanContinue $false
     }
     default {
-      $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(202, 64, 64)
-      $status.Text = "未知控制面板状态"
-      $details.Text = "控制面板拒绝执行启动或停止操作，请查看启动日志。"
-      $startButton.Enabled = $false
-      $stopButton.Enabled = $false
-      $openButton.Enabled = $false
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(202, 64, 64)) -Title "无法确认完整系统状态" -Detail "$($systemState.reason)" -CanStart $false -CanStop $false -CanOpen $false -CanContinue $false
     }
   }
 }
 
 $startButton.Add_Click({
-  if (-not (Test-Path $LocalWorkerStarter)) {
-    [System.Windows.Forms.MessageBox]::Show("未找到系统启动文件。请确认此控制面板位于项目目录中。", "无法启动", "OK", "Error") | Out-Null
-    return
-  }
-
-  $nodeExecutable = Get-NodeExecutable
-  if (-not $nodeExecutable) {
-    [System.Windows.Forms.MessageBox]::Show("未找到 Node.js。请安装 Node.js 22.13 或更高版本后重试。", "无法启动", "OK", "Error") | Out-Null
-    return
-  }
-
-  $actionState = Get-SystemState
-  if ($actionState.State -eq "StaleReceipt") {
-    $repairResult = Stop-ControlledLocalWorker
-    if (-not $repairResult.Success) {
-      [System.Windows.Forms.MessageBox]::Show(
-        "$($repairResult.Reason)。残留回执未被清理，本次启动已取消。",
-        "无法安全恢复",
-        "OK",
-        "Warning"
-      ) | Out-Null
-      Update-Status
-      return
-    }
-    Start-Sleep -Milliseconds 200
-    $actionState = Get-SystemState
-    if ($actionState.State -ne "Stopped") {
-      [System.Windows.Forms.MessageBox]::Show(
-        "残留回执已处理，但系统状态未稳定为空闲（当前：$($actionState.State)）。本次启动已取消。",
-        "状态尚未稳定",
-        "OK",
-        "Warning"
-      ) | Out-Null
-      Update-Status
-      return
-    }
-  }
-  if ($actionState.State -in @("Running", "D1Degraded", "Unresponsive", "Starting")) {
-    $message = if ($actionState.State -eq "Running") { "运营管理系统已经在运行，无需重复构建。" } else { "运营管理系统已启动但暂未就绪，请稍候，无需重复启动。" }
-    [System.Windows.Forms.MessageBox]::Show($message, "系统已启动", "OK", "Information") | Out-Null
+  $currentState = Get-SystemState -Refresh
+  if ($currentState.state -in @("Running", "D1Degraded", "Starting")) {
     Update-Status
     return
   }
-  if ($actionState.State -eq "PortInUse") {
-    [System.Windows.Forms.MessageBox]::Show("$($actionState.Reason)。为避免覆盖或停止其他程序，本次启动已取消。", "无法启动", "OK", "Warning") | Out-Null
-    Update-Status
-    return
-  }
-  if ($actionState.State -ne "Stopped") {
-    [System.Windows.Forms.MessageBox]::Show("无法确认系统处于可安全启动状态：$($actionState.Reason)", "无法启动", "OK", "Warning") | Out-Null
+  if ($currentState.state -in @("PortInUse", "StatusError", "Unresponsive")) {
+    [System.Windows.Forms.MessageBox]::Show(
+      "$($currentState.reason)。本次启动已取消。",
+      "无法安全启动",
+      "OK",
+      "Warning"
+    ) | Out-Null
     Update-Status
     return
   }
 
   $logDirectory = Join-Path $ProjectRoot "tmp"
   New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-  $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-  $script:launchStdoutLog = Join-Path $logDirectory "local-worker-panel-$stamp.stdout.log"
-  $script:launchStderrLog = Join-Path $logDirectory "local-worker-panel-$stamp.stderr.log"
+  $logStamp = Get-Date -Format "yyyyMMdd-HHmmss"
+  $script:launchStdoutLog = Join-Path $logDirectory "system-control-$logStamp.stdout.log"
+  $script:launchStderrLog = Join-Path $logDirectory "system-control-$logStamp.stderr.log"
   $script:launchStartedAt = Get-Date
-  $script:lastHealthCheckAt = $null
-  $script:lastHealthState = "Unresponsive"
-  $script:launchProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$LocalWorkerStarter`"", "-Action", "Start") -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $script:launchStdoutLog -RedirectStandardError $script:launchStderrLog -PassThru
+  $script:launchProcess = Start-Process -FilePath $PowerShellExecutable -ArgumentList @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ControllerPath`"", "-Action", "Start"
+  ) -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $script:launchStdoutLog -RedirectStandardError $script:launchStderrLog -PassThru
   Update-Status
 })
 
 $stopButton.Add_Click({
-  $systemState = Get-SystemState
-  if ($systemState.State -in @("Running", "D1Degraded", "Unresponsive", "Starting", "StaleReceipt")) {
-    $stopResult = Stop-ControlledLocalWorker
-    if (-not $stopResult.Success) {
-      [System.Windows.Forms.MessageBox]::Show(
-        "$($stopResult.Reason)。为避免影响 n8n、Chromium 或其他 Node 服务，本次停止已取消。",
-        "无法安全停止",
-        "OK",
-        "Warning"
-      ) | Out-Null
-      Update-Status
-      return
-    }
-
-    $script:launchProcess = $null
-    Start-Sleep -Milliseconds 500
-    Update-Status
-    return
-  }
-
-  # 构建尚未监听 3000 时，只能停止当前面板亲自创建并持有句柄的启动进程。
   if ($script:launchProcess -and -not $script:launchProcess.HasExited) {
-    $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
-    Stop-ProcessTree -ProcessId $script:launchProcess.Id -AllProcesses $allProcesses
-    $script:launchProcess = $null
-    Update-Status
+    [System.Windows.Forms.MessageBox]::Show(
+      "唯一总控正在执行启动门禁。为避免启动与停止交错，请等待本轮结束。",
+      "启动仍在进行",
+      "OK",
+      "Information"
+    ) | Out-Null
     return
   }
+  try {
+    Invoke-StopWorker
+  } catch {
+    [System.Windows.Forms.MessageBox]::Show(
+      "$(Get-BoundedText -Value $_.Exception.Message -MaximumLength 500)",
+      "无法安全暂停 Worker",
+      "OK",
+      "Warning"
+    ) | Out-Null
+  }
+  Reset-SystemStateCache
   Update-Status
 })
 
 $openButton.Add_Click({
-  if ((Get-SystemState).State -eq "Running") {
-    Start-Process $ServerUrl
+  if ((Get-SystemState -Refresh).state -eq "Running") {
+    Start-Process $ServerUrl | Out-Null
   } else {
     Update-Status
   }
 })
 
 $runContinueButton.Add_Click({
-  $nodeExecutable = Get-NodeExecutable
-  if (-not $nodeExecutable) {
-    [System.Windows.Forms.MessageBox]::Show("未找到 Node.js。请安装 Node.js 22.13 或更高版本后重试。", "无法执行", "OK", "Error") | Out-Null
+  $nodeCommand = Get-Command "node.exe" -ErrorAction SilentlyContinue
+  if (-not $nodeCommand) { $nodeCommand = Get-Command "node" -ErrorAction SilentlyContinue }
+  if (-not $nodeCommand) {
+    [System.Windows.Forms.MessageBox]::Show("未找到 Node.js。", "无法执行", "OK", "Error") | Out-Null
     return
   }
-
-  $helperScript = Join-Path $ProjectRoot "tools\jackyun-continue-helper.ts"
-  if (-not (Test-Path $helperScript)) {
+  $continueHelper = Join-Path $ProjectRoot "tools\jackyun-continue-helper.ts"
+  if (-not (Test-Path -LiteralPath $continueHelper -PathType Leaf)) {
     [System.Windows.Forms.MessageBox]::Show("未找到继续任务脚本。", "无法执行", "OK", "Error") | Out-Null
     return
   }
-
-  $runContinueButton.Enabled = $false
-  $statusDot.ForeColor = [System.Drawing.Color]::FromArgb(28, 118, 235)
-  $status.Text = "正在执行待处理任务…"
-  $details.Text = "请保持吉客云已登录状态。"
-  $form.Refresh()
-
-  Start-Process -FilePath $nodeExecutable -ArgumentList @("--import", "tsx", $helperScript) -WorkingDirectory $ProjectRoot -WindowStyle Hidden | Out-Null
-  Start-Sleep -Milliseconds 500
-  Update-Status
-  $runContinueButton.Enabled = $true
+  Start-Process -FilePath $nodeCommand.Source -ArgumentList @("--import", "tsx", $continueHelper) -WorkingDirectory $ProjectRoot -WindowStyle Hidden | Out-Null
 })
 
 $viewLogButton.Add_Click({
-  $logPath = if ($script:launchStderrLog -and (Test-Path $script:launchStderrLog) -and (Get-Item $script:launchStderrLog).Length -gt 0) { $script:launchStderrLog } else { $script:launchStdoutLog }
-  if (-not $logPath -or -not (Test-Path $logPath)) {
-    [System.Windows.Forms.MessageBox]::Show("尚未生成启动日志。请先启动系统。", "暂无日志", "OK", "Information") | Out-Null
+  $logPath = if ($script:launchStderrLog -and (Test-Path -LiteralPath $script:launchStderrLog) -and
+      (Get-Item -LiteralPath $script:launchStderrLog).Length -gt 0) {
+    $script:launchStderrLog
+  } else { $script:launchStdoutLog }
+  if (-not $logPath -or -not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
+    [System.Windows.Forms.MessageBox]::Show("尚未生成启动日志。", "暂无日志", "OK", "Information") | Out-Null
     return
   }
-  Start-Process -FilePath "notepad.exe" -ArgumentList @("`"$logPath`"")
+  Start-Process -FilePath "notepad.exe" -ArgumentList @("`"$logPath`"") | Out-Null
 })
 
 $statusTimer = New-Object System.Windows.Forms.Timer
-$statusTimer.Interval = 2000
+$statusTimer.Interval = 3000
 $statusTimer.Add_Tick({ Update-Status })
 $form.Add_Shown({
   Update-Status
+  if ($Open -and (Get-SystemState).state -eq "Running") { Start-Process $ServerUrl | Out-Null }
   $statusTimer.Start()
 })
 $form.Add_FormClosed({ $statusTimer.Stop() })
