@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { APIRequestContext, APIResponse, Page } from "playwright-core";
 
@@ -19,7 +18,10 @@ import {
   type PromotionDatePlan,
   type PromotionFileEvidence,
 } from "./tmall-promotion-export";
-import { ensureTmallStoreAuthenticatedSession } from "./tmall-product-master-export";
+import {
+  ensureTmallStoreAuthenticatedSession,
+  tmallAutomationProjectRoot,
+} from "./tmall-product-master-export";
 import { TMALL_YIJIU_STORE_KEY } from "./tmall-yijiu-direct-pm-contract";
 
 export const TMALL_ALIMAMA_CREATE_REPORT_URL = "https://one.alimama.com/report/createDownLoadTask.json";
@@ -48,9 +50,8 @@ export const TMALL_DIRECT_PROMOTION_FIELDS = [
   "itemColInshopCost",
 ] as const;
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultAuditDirectory = path.join(projectRoot, "outputs", "tmall-direct-promotion-export");
-const legacyAuditDirectory = path.join(projectRoot, "outputs", "tmall-promotion-export");
+const defaultAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-direct-promotion-export");
+const legacyAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-promotion-export");
 const maximumDownloadBytes = 25 * 1024 * 1024;
 const taskPollTimeoutMs = 7 * 60_000;
 const taskPollIntervalMs = 8_000;

@@ -52,7 +52,7 @@ export const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cf
 // mutable-root, resource and health tests.  The trusted Django verifier uses
 // this as the build-code trust root; the candidate cannot self-certify a
 // weakened bundle builder.
-export const trustedHelperBuilderSha256 = "05db5b14c90ad7c589a8079a21999af7c105e1456f3ce13cd888fc29bb0e7290";
+export const trustedHelperBuilderSha256 = "6f0e147f20a4e312be6ce21361b562b4e2c89eb590e362efb5ab30f6d089ec92";
 
 const salesContractTestFiles = Object.freeze([
   "tests/sales-d1-retirement.test.ts",
@@ -73,8 +73,6 @@ const requiredHelperMutableRootRewrites = Object.freeze([
   "tools/jd-promotion-export.ts",
   "tools/jd-promotion-n8n-pipeline.ts",
   "tools/sales-import-runner.ts",
-  "tools/tmall-direct-product-master-export.ts",
-  "tools/tmall-direct-promotion-export.ts",
   "tools/tmall-multi-store-import-runner.ts",
   "tools/tmall-pagewise-product-master-export.ts",
   "tools/tmall-product-master-cadence.ts",

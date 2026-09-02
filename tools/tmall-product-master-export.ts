@@ -34,6 +34,7 @@ const tmallExportConfirmationLabels = ["确认导出", "确认任务", "确认�
 const tmallNoticeActionSelector = 'button,a,[role="button"],[aria-label],[title],[class*="close" i],:text-is("×"),:text-is("✕")';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+export const tmallAutomationProjectRoot = projectRoot;
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
 const directMtopArtifactDirectory = path.join(projectRoot, "outputs", "tmall-direct-product-master-export");
 const defaultChromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";

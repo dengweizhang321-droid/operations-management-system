@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { APIRequestContext, APIResponse, BrowserContext, Page } from "playwright-core";
 
@@ -16,6 +15,7 @@ import {
   ensureTmallStoreAuthenticatedSession,
   importTmallProductMasterFile,
   inspectTmallMasterFile,
+  tmallAutomationProjectRoot,
   type TmallProductMasterStageResult,
 } from "./tmall-product-master-export";
 import { TMALL_YIJIU_STORE_KEY } from "./tmall-yijiu-direct-pm-contract";
@@ -33,10 +33,9 @@ export const TMALL_DIRECT_PRODUCT_MASTER_PROTOCOL = "tmall_mtop_batch_export_v1"
 export const TMALL_MTOP_PAGE_SIZE = 20;
 export const TMALL_MTOP_MAX_PAGES = 100;
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const defaultAuditDirectory = path.join(projectRoot, "outputs", "tmall-direct-product-master-export");
-const pagewiseAuditDirectory = path.join(projectRoot, "outputs", "tmall-pagewise-product-master-export");
-const productManagerAuditDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
+const defaultAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-direct-product-master-export");
+const pagewiseAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-pagewise-product-master-export");
+const productManagerAuditDirectory = path.join(tmallAutomationProjectRoot, "outputs", "tmall-product-master-export");
 const maximumWorkbookBytes = 25 * 1024 * 1024;
 const exportPollIntervalMs = 8_000;
 const exportOverallTimeoutMs = 15 * 60_000;
