@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场和商品经营域均已完成 Django/PostgreSQL 正式单写切换。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；已退役的 D1 路径不得作为 fallback 或回滚来源。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营和运营事务新品项目子域均已完成 Django/PostgreSQL 正式单写切换。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；已退出生产路径的 D1 数据不得作为 fallback 或回滚来源。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -34,6 +34,8 @@
 | `127.0.0.1:8032` | Django market writer | `teruisi_market_writer` |
 | `127.0.0.1:8041` | Django products reader | `teruisi_products_reader` |
 | `127.0.0.1:8042` | Django products writer | `teruisi_products_writer` |
+| `127.0.0.1:8061` | Django workflow reader | `teruisi_workflow_reader` |
+| `127.0.0.1:8062` | Django workflow writer | `teruisi_workflow_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
 各运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
@@ -133,11 +135,13 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 商品经营 app 位于 `backend/products/`，正式 reader/writer 固定为 `8041/8042`。现有 React 页面、公开汇总和快递费率导入路径保留；商品查询复用 PostgreSQL 销售/ERP 权威，并消费 D1 库存导入后的版本化投影，库存域本身不迁移。PostgreSQL 是商品费率、批次、审计、原始分片、revision、投影和商品读写的唯一权威；`products-service-enabled.json` 绑定正式 authority 加入启动链，服务启动还要求 PostgreSQL `max_connections>=80`。旧 D1 商品对象仅保留空 tombstone、永久 guard 和退役 receipt，商品在线路径不使用 R2。正式迁移、系统测试、`0099/0100`、PNR、退役、备份和恢复证据见[商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。
 
-## 运营事务新品项目（切换前实现）
+## 运营事务新品项目正式单写实现
 
 `backend/workflow/` 实现结构化新品项目、目标店铺、七阶段、元数据活动审计、revision、写请求回放防护和独立写 authority。reader 只开放新品列表/详情及固定 `launch_project_search` 消费查询；writer 只开放新品项目增删改和阶段更新。公开 Worker 继续负责真实 principal、无范围账号门禁、HMAC、请求/响应上限和读写端点隔离；React 页面不直连 Django 或 PostgreSQL。
 
-该领域目前是切换前代码，不是当前本机生产终态：`workflow_write_authority` 初始为 `disabled`，`TERUISI_DJANGO_WORKFLOW_MODE` 缺省为 `legacy`，未分配或启动正式端口，未迁移旧 `workflow_operation_records.record_type='launch'` 数据，也未执行 D1 退役。只有完成镜像迁移、逐项回查、独立最小权限 reader/writer、备份恢复、旧路径拒绝证明和受控 authority 切换后，才可把模式改为 `django`。完整边界与验收清单见[运营事务新品项目迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
+2026-09-02，本机该子域已完成正式切换：`TERUISI_DJANGO_WORKFLOW_MODE` 必须保持 `django`，reader/writer 固定为 `8061/8062`，`workflow-service-enabled.json` 绑定正式 authority 加入启动链。12 条旧 `workflow_operation_records.record_type='launch'` 数据已迁为 12 个项目、12 个目标、84 个阶段和 38 条活动；历史缺失内容以显式 gap 和 `not_applicable` 保留，没有补造不存在的阶段事实。D1 authority 已进入 `postgresql` 终态，旧新品列表、详情、活动与写入路径均排除或拒绝 `launch`。工作计划、巡店、评价和变量配置仍使用 D1，不受该子域切换影响。
+
+切换已跨过 PNR，不支持改回 `legacy`、恢复 D1 新品读写或双写。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复；完整 cutover、备份、恢复演练和旧路径拒绝证据见[运营事务新品项目迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
 
 ## 当前本机终态记录
 

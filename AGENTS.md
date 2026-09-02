@@ -19,7 +19,7 @@
 
 ## 2. 当前系统与模块边界
 
-- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、Cloudflare Workers、Django 5.2、PostgreSQL 17、D1 和 R2；销售、财务、网店、市场和商品经营域已正式使用 Django/PostgreSQL，其他业务域按各自迁移状态运行。
+- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、Cloudflare Workers、Django 5.2、PostgreSQL 17、D1 和 R2；销售、财务、网店、市场、商品经营和运营事务新品项目子域已正式使用 Django/PostgreSQL，其他业务域按各自迁移状态运行。
 - 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
 - 当前导航模块为：工作流、BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
 - 主要业务域及代码目录：
@@ -31,6 +31,7 @@
   - 市场 TOP 榜单、价格、标注、任务和缓存元数据权威实现：`backend/market/`；薄 Worker 和受控执行适配为 `lib/django/market-service.ts` 与 `lib/market/django-*`，旧 `lib/market/` D1 领域路径只允许作为已隔离的迁移、退役审计或测试材料保留
   - 客服会话与分析：`lib/customer-service/`
   - 财务和 ERP 货品参照：`lib/finance/`、`lib/erp-reference/`
+  - 运营事务工作计划、巡店、评价和变量配置仍按现行 D1 契约运行；结构化新品项目、多店目标、七阶段、活动、迁移和审计的权威实现为 `backend/workflow/`，Worker 薄适配为 `lib/django/workflow-service.ts`，旧 D1 `launch` 路径只允许作为写保护下的迁移证据、恢复研究或测试夹具保留
   - AI 助理、工具执行和审计：`lib/ai/`
   - 全局搜索：`lib/search/`
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
@@ -50,8 +51,8 @@
 - Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 只能在 Worker 停止时执行受控 `plan`，再用精确 plan SHA 执行 `apply`，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
 - Worker supervisor 的 prelaunch 不得递归调用 PowerShell `Status`；只能直接、有界验证 service 原子写入的 create-only canonical process receipt，且等待预算必须覆盖 controller 建立精确 CIM identity 和写入 receipt 的时延。外层 controller 仍须按 PID、CreationDate、命令行和进程树二次核验。PowerShell 读取受控 JSON 时必须保留 ISO 日期字符串，不能让 pwsh 自动转换为 `DateTime` 后进入递归规范化。
 - Miniflare 的 `Request.cf` 缓存固定写入 Worker runtime 的 `cache\miniflare\cf.json`，不得写入 immutable release、`node_modules` 或业务 `.wrangler/state`。每次启动和子进程重启前都必须清除继承的同名环境变量并安装固定绑定，核验 runtime/release/persist 边界、目录全链、文件叶和硬链接身份；release 出现 `.mf` 或其他未列入 manifest 的对象必须失败关闭。
-- 本机 Django/PostgreSQL 服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，销售 reader/writer 固定监听 `127.0.0.1:8001/8002`，财务 reader/writer 固定监听 `127.0.0.1:8011/8012`，网店 reader/writer 固定监听 `127.0.0.1:8021/8022`，市场 reader/writer 固定监听 `127.0.0.1:8031/8032`，商品经营 reader/writer 固定监听 `127.0.0.1:8041/8042`。长期进程使用各领域独立最小权限 reader/writer 与 ERP bridge 角色，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证各自 schema、索引、authority、attestation、revision、ERP checkpoint/心跳和只读事务。网店、市场和商品经营分别通过 authority 绑定的 `netshop-service-enabled.json`、`market-service-enabled.json`、`products-service-enabled.json` 加入现有受控开机启动链。商品经营启动还必须回读 PostgreSQL `max_connections>=80`；低于该值时 reader/writer 必须拒绝启动。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
-- PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；证据必须覆盖库中已经存在的销售、ERP、财务、网店、市场及商品经营表，并绑定各已迁移域的 revision、迁移 run 与 authority。恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
+- 本机 Django/PostgreSQL 服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，销售 reader/writer 固定监听 `127.0.0.1:8001/8002`，财务 reader/writer 固定监听 `127.0.0.1:8011/8012`，网店 reader/writer 固定监听 `127.0.0.1:8021/8022`，市场 reader/writer 固定监听 `127.0.0.1:8031/8032`，商品经营 reader/writer 固定监听 `127.0.0.1:8041/8042`，运营事务新品 reader/writer 固定监听 `127.0.0.1:8061/8062`。长期进程使用各领域独立最小权限 reader/writer 与 ERP bridge 角色，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证各自 schema、索引、authority、attestation、revision、ERP checkpoint/心跳和只读事务。网店、市场、商品经营和运营事务新品分别通过 authority 绑定的 `netshop-service-enabled.json`、`market-service-enabled.json`、`products-service-enabled.json`、`workflow-service-enabled.json` 加入现有受控开机启动链。商品经营和运营事务新品启动都必须回读 PostgreSQL `max_connections>=80`；低于该值时相应 reader/writer 必须拒绝启动。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
+- PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；证据必须覆盖库中已经存在的销售、ERP、财务、网店、市场、商品经营及运营事务新品表，并绑定各已迁移域的 revision、迁移 run 与 authority。恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
 - Django runtime 守护必须随 runtime 部署并通过登录启动项持续运行；它只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或 reader/writer/ERP bridge 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`。Windows 重启后仅当 receipt 的进程创建时间、启动时间及文件最后写入时间都严格早于当前系统启动时间，operator 才可只删除该上次开机遗留 receipt，绝不能终止当前复用同一 PID 的进程；当前启动周期内或无法证明来源的 PID/身份异常仍只能告警并失败关闭。状态探针失败、端口冲突、进程仍在但 readiness 失败或 ERP checkpoint/revision/摘要/心跳分歧也禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
 - `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
 - 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售 authority、销售事实、ERP bridge、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
@@ -59,6 +60,7 @@
 - 2026-09-01，本机网店域已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役，cutover ID 为 `netshop-pg-20260901T013053Z-4977777cec32`。PostgreSQL 是网店事实、批次、SKU/SPU、推广、上传、revision、幂等/尝试审计、scope head、读取和写入的唯一权威；现有 React `shop-module-view` 保留完整网店 UI 并继续通过同源公开 API 工作，前端不使用 Django template，也不直连 PostgreSQL。公开 Worker 只承担真实鉴权、权限/scope、签名、Excel/ZIP/图片解析、allowlist、超时/体积边界和薄边缘适配；网店读写固定进入 `127.0.0.1:8021/8022`。切换已跨过 PNR，禁止恢复 `legacy`/`shadow`、旧 D1 网店读写或反向迁移；旧 D1 网店对象已由 operator-only `0096` 变为 15 个空 tombstone view，共享导入表由 9 个永久 guard 拒绝网店域写入。原先为 D1 市场域保留的 `market_netshop_projection` 已随市场域正式切换由 `0098` 终态退役；当前兼容投影只由 Django netshop consumer 原子写入 PostgreSQL 市场表。故障恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复，不得改变销售、财务、ERP、市场或其他模块权威。operator-only `0094/0095/0096` 仍不得由普通 Drizzle 自动应用；正式证据和运维边界见 `docs/DJANGO_NETSHOP_MIGRATION.md`。
 - 2026-09-01，本机市场域已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役，cutover ID 为 `market-pg-20260901T112221Z-a687294e320f`，authority epoch 为 `c69ee84e-836d-40f6-b7b8-875ecca6f8c6`。PostgreSQL 是市场事实、批次、价格、标注、图片缓存元数据、任务、revision、幂等/尝试审计、scope owner、网店投影、读取和写入的唯一权威；现有 React 市场页面继续通过同源公开 API 工作，公开 Worker 只承担真实鉴权、权限、签名、边缘解析/图片能力、超时/体积边界和薄适配，市场读写固定进入 `127.0.0.1:8031/8032`。两笔历史 `processing` 批次和 8,000 条未发布 staging 已在 PNR 前受控处置；旧 D1 市场对象现为 49 个空 tombstone view，共享导入表由 9 个永久 guard 拒绝市场域写入。切换已跨过 PNR，禁止恢复旧 D1 市场读写、`legacy`/`shadow` 或反向迁移；故障恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。operator-only `0097/0098` 仍不得由普通 Drizzle 自动应用；正式证据见 `docs/DJANGO_MARKET_MIGRATION.md`。
 - 2026-09-02，本机商品经营域已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役，cutover ID 为 `products-pg-20260901T164758Z-1c636a3a0f564bc9`，authority epoch 为 `82834127-5232-41fd-8e16-fa5c02bc3e8d`。PostgreSQL 是商品快递费率、批次、revision、幂等/尝试审计、原始分片、库存只读投影、读取和写入的唯一权威；商品汇总只读销售与 ERP 的现有 PostgreSQL 权威，并消费 D1 库存成功导入后的版本化完整投影，库存域继续由 D1 单写且投影固定排除 `刷刷仓`。现有 React/API、AI 和 global search 保持原契约，公开 Worker 只承担真实鉴权、XLSX 解析、HMAC、超时/体积边界和薄适配，商品读写固定进入 `127.0.0.1:8041/8042`。旧 D1 商品对象已由 operator-only `0100` 变为 3 个空 tombstone view，18 个永久 guard 拒绝商品域写入；商品在线路径及分片不读写 R2。切换已跨过 PNR，禁止恢复 D1/legacy/shadow、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。全局 D1/R2 binding 继续供库存、ERP、市场图片和其他业务域使用，不得因商品域退役而删除。正式证据见 `docs/DJANGO_PRODUCTS_MIGRATION.md`。
+- 2026-09-02，本机运营事务新品项目子域已完成 Django/PostgreSQL 正式单写切换，cutover ID 为 `workflow-pg-20260902T110500Z-bdfebd254007`，authority epoch 为 `ce0ceb5d-7bc9-4ea9-8812-0609f7fdf1aa`。PostgreSQL 是新品项目、目标店铺、七阶段、活动、revision、request receipt、读取和写入的唯一权威；工作计划、巡店、评价和变量配置仍按现行 D1 契约运行。现有 React 页面、公开 API、AI 和 global search 保持原入口，公开 Worker 只承担真实鉴权、无范围账号门禁、HMAC、超时/体积边界和薄适配，新品读写固定进入 `127.0.0.1:8061/8062`。12 条旧 `launch` 记录已迁为 12 个项目、12 个目标、84 个阶段和 38 条活动；历史缺失字段形成显式缺口，没有伪造阶段事实。D1 authority 已进入 `postgresql` 终态，旧新品列表、详情、活动和写入路径排除或拒绝 `launch`；旧行只作为写保护下的迁移证据。切换已跨过 PNR，禁止恢复 `legacy`、D1 新品读写、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。正式证据见 `docs/DJANGO_WORKFLOW_MIGRATION.md`。
 
 ## 3. 统一业务口径
 
@@ -76,7 +78,7 @@
 ## 4. 运营数据查询规则
 
 1. 查询当前 TERUISI 运营数据时，优先使用只读（read-only）`teruisi_operations` MCP；第一步调用 `get_data_freshness`。
-2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用对应权威存储的最小只读身份：已迁移的销售、财务、网店、市场和商品经营域使用各自 PostgreSQL reader，ERP、库存和未迁移域才可按其现行契约使用本机 D1 只读副本；回复中必须说明替代来源。
+2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用对应权威存储的最小只读身份：已迁移的销售、财务、网店、市场、商品经营和运营事务新品项目子域使用各自 PostgreSQL reader，ERP、库存和未迁移域才可按其现行契约使用本机 D1 只读副本；回复中必须说明替代来源。
 3. 输出必须写明数据来源、数据截止日期、时间范围、渠道/平台/店铺/SKU 等筛选、金额和销量口径，以及缺数或映射异常。
 4. 中文筛选必须参数化并保证 UTF-8。零结果要先核验覆盖日期、字段枚举、编码、退款和时间边界，不能直接断言无数据。
 5. 只读连接不得导入、修改或删除数据，也不得声称已创建或改变补货计划。相关工具可调用时，不得用记忆、样例或估算代替真实查询。
@@ -124,7 +126,7 @@
 
 ## 8. D1、R2、迁移与缓存
 
-- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计，以及 ERP 主数据和库存事实。已迁移的销售、财务、网店、市场和商品经营事实只以 PostgreSQL 为权威；销售和商品经营原始分片字节也只保存在 PostgreSQL 的有界、可过期会话中。D1 中的销售/网店/市场/商品经营 tombstone 与永久 guard、财务 authority guard/旧财务对象均只是防复活和审计材料，不得作为读取、写入或回滚事实源。市场消费的网店兼容投影由来源固定的 Django netshop consumer 原子写入 PostgreSQL 市场表，不是网店第二事实源；商品经营消费的库存投影也不改变库存 D1 权威。R2 继续保存市场图片以及其他业务域经验证的原文件、附件或图片对象，不是任何业务域的完成证明；不得从全局配置移除其他模块仍在使用的 R2 binding。
+- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计，以及 ERP 主数据和库存事实。已迁移的销售、财务、网店、市场、商品经营和运营事务新品项目事实只以 PostgreSQL 为权威；销售和商品经营原始分片字节也只保存在 PostgreSQL 的有界、可过期会话中。D1 中的销售/网店/市场/商品经营 tombstone 与永久 guard、财务 authority guard/旧财务对象和写保护下的旧新品 `launch` 行均只是防复活、迁移和审计材料，不得作为读取、写入或回滚事实源。市场消费的网店兼容投影由来源固定的 Django netshop consumer 原子写入 PostgreSQL 市场表，不是网店第二事实源；商品经营消费的库存投影也不改变库存 D1 权威。R2 继续保存市场图片以及其他业务域经验证的原文件、附件或图片对象，不是任何业务域的完成证明；不得从全局配置移除其他模块仍在使用的 R2 binding。
 - 仍以 D1 为权威的业务域使用新的前向 `drizzle/*.sql` 迁移；Django/PostgreSQL 业务域使用新的 Django migrations。两类迁移都不得改写已应用版本。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
 - 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
 - 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。

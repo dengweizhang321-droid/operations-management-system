@@ -2,9 +2,9 @@
 
 ## 1. 当前状态
 
-截至 2026-09-02，结构化“新品上新”已经完成应用代码与隔离测试，但没有执行本机生产切换。生产写入权威仍是旧 D1 `workflow_operation_records` 中的 `launch` 记录；`TERUISI_DJANGO_WORKFLOW_MODE` 缺省并应继续保持 `legacy`，PostgreSQL `workflow_write_authority` 初始为 `disabled`。本次实现没有停止服务、迁移生产数据、激活 authority、分配正式端口、修改运行时或发布 Worker。
+2026-09-02，本机结构化“新品上新”已完成 Django/PostgreSQL 正式单写切换，cutover ID 为 `workflow-pg-20260902T110500Z-bdfebd254007`，authority epoch 为 `ce0ceb5d-7bc9-4ea9-8812-0609f7fdf1aa`。PostgreSQL 是新品项目、目标店铺、七阶段、活动、revision、request receipt 及全部新品读写的唯一权威；`TERUISI_DJANGO_WORKFLOW_MODE` 必须保持 `django`。独立 reader/writer 固定监听 `127.0.0.1:8061/8062`，并已通过 authority 绑定的 `workflow-service-enabled.json` 加入受控开机启动链。
 
-这一区分是强制边界：代码可供镜像验收，不等于 Django 已成为生产事实源。正式切换必须另行获得用户授权并形成可回查证据。
+现有 React/Next.js 运营事务页面继续使用同源公开 API，公开 Worker 只承担真实鉴权、无数据范围账号门禁、HMAC、请求/响应上限、超时和薄适配。旧 D1 `workflow_operation_records.record_type='launch'` 行只作为受保护迁移证据保留；D1 authority 已进入 `postgresql` 终态，旧新品列表、详情、活动和写入路径均排除或拒绝 `launch`，不得作为读取、写入、容灾或回滚来源。工作计划、巡店、评价和变量配置仍按各自现有 D1 契约运行，本次切换只改变新品项目子域。
 
 ## 2. 本次补齐的业务能力
 
@@ -49,9 +49,9 @@ reader 接受 `viewer/analyst/operator/admin`，但同样要求无数据范围�
 内部 Django reader 只允许列表、详情和 `POST /api/workflow/consumers/query`；内部 writer 只允许项目与阶段写接口。reader/writer URL 必须是经批准的两个不同回环端点，不能复用其他业务域的端口、凭据或数据库角色。需要的 Worker 配置为：
 
 ```text
-TERUISI_DJANGO_WORKFLOW_MODE=legacy|django
-TERUISI_DJANGO_WORKFLOW_READER_BASE_URL=<批准的独立回环 reader>
-TERUISI_DJANGO_WORKFLOW_WRITER_BASE_URL=<批准的独立回环 writer>
+TERUISI_DJANGO_WORKFLOW_MODE=django
+TERUISI_DJANGO_WORKFLOW_READER_BASE_URL=http://127.0.0.1:8061
+TERUISI_DJANGO_WORKFLOW_WRITER_BASE_URL=http://127.0.0.1:8062
 TERUISI_DJANGO_WORKFLOW_TIMEOUT_MS=<可选，受硬上限约束>
 TERUISI_DJANGO_WORKFLOW_MAX_REQUEST_BYTES=<可选，受硬上限约束>
 TERUISI_DJANGO_WORKFLOW_MAX_RESPONSE_BYTES=<可选，受硬上限约束>
@@ -59,9 +59,9 @@ TERUISI_DJANGO_WORKFLOW_MAX_RESPONSE_BYTES=<可选，受硬上限约束>
 
 Django writer 还必须以部署密文提供准确的 `TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH` 与 `TERUISI_DJANGO_WORKFLOW_CUTOVER_ID`。共享 HMAC 密钥继续使用现有受控密文机制，不能写入 Git、命令历史或日志。
 
-## 5. 渐进切换行为
+## 5. 运行行为与终态边界
 
-在 `legacy` 模式：
+`legacy` 模式只允许用于隔离测试、迁移演练或历史恢复研究，不是本机生产回退路径。其历史行为是：
 
 - 新品页面读取旧运营记录工作区；
 - 结构化公开 GET 返回 `structured:false`，前端安全回退；
@@ -77,7 +77,9 @@ Django writer 还必须以部署密文提供准确的 `TERUISI_DJANGO_WORKFLOW_A
 
 搜索采用稳定的“结构化新品项目在前，D1 工作事项/巡店/评价在后”跨源分页，避免声称两个独立数据库共享一个全局时间排序。切换完成后旧 `launch` 数据只可作为受保护迁移证据，不能继续成为可达业务读写路径。
 
-## 6. 正式切换前必过门禁
+切换已跨过 PNR。故障恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复；禁止把模式改回 `legacy`、恢复 D1 新品写入或建立双写。
+
+## 6. 正式切换门禁
 
 1. 从最新 `main` 建立隔离 worktree，并在与生产完全隔离的 PostgreSQL 镜像执行迁移和测试。
 2. 定义旧 `launch` 到结构化字段的逐行映射。旧记录缺失供应商、商品编码、多店铺目标或阶段状态时必须形成显式缺口清单，不能静默伪造。
@@ -89,11 +91,24 @@ Django writer 还必须以部署密文提供准确的 `TERUISI_DJANGO_WORKFLOW_A
 8. 在变更窗口冻结旧新品写入，复验源摘要未变化，建立单一写入所有者，再激活 PostgreSQL authority。禁止长期双写。
 9. 启动并回读独立 reader/writer，核对 authority epoch/cutover、数据库角色、端口身份、进程回执和健康状态。
 10. 切换 Worker 到 `django`，验证 React 页面、公开 API、全局搜索和 AI 只读工具；同时证明旧 `launch` 列表、详情、活动和写入路径均拒绝。
-11. 只有全部证据一致后，才可进入不可逆退役步骤并更新 `README.md`、`AGENTS.md` 和正式运行文档。当前仓库没有提供可直接激活生产 authority 的快捷命令，这是有意的安全门禁。
+11. 只有全部证据一致后，才可进入不可逆终态并更新 `README.md`、`AGENTS.md` 和正式运行文档。生产 authority 只能通过受保护 runtime 中的 `django-workflow-cutover.ps1` 在 Worker、reader 和 writer 均停止的变更窗口内受控切换。
 
 任何一步失败都不得宣称迁移完成，也不得把 `TERUISI_DJANGO_WORKFLOW_MODE` 留在与实际 authority 不一致的状态。
 
-## 7. 开发验证
+## 7. 本机正式切换证据
+
+- 批准迁移 run：`workflow-bdfebd254007be2416297de2b17bc82e`；冻结源摘要：`bdfebd254007be2416297de2b17bc82e6390735b288b375cf80fd92f809c749f`。
+- 生产迁移水位：12 个项目、12 个目标店铺、84 个阶段、38 条活动；12 个历史记录均形成显式缺口清单，没有伪造旧记录不存在的阶段事实。
+- 冻结快照：`D:\teruisi-runtime\django-sales\audits\workflow-cutover\20260902-185938-79830ca5\workflow-source.sqlite`，SHA-256 为 `4a1bd31d66dd243a2d7fbf3fed7c98769234221b409c7fd8fa8cb126734842dc`。
+- authority 安装前完整 D1 备份：`D:\teruisi-runtime\django-sales\audits\workflow-cutover\20260902-185501-92e29247\d1-before-workflow-authority.sqlite`，SHA-256 为 `75f1dd0cbe300181b8818eb68eb7c81bfca7cb361d43e36bbcdbe78510e48a5f`。该备份只用于审计和受控恢复研究，不是生产回退源。
+- 终态 D1 authority 为 `owner=postgresql, epoch=3`；PostgreSQL authority、开机凭据和 writer 进程共同绑定本页开头的 cutover ID、authority epoch 与迁移 run。
+- Worker effective release 为 `20260902T141543Z-b1002b5b2f279312`，manifest SHA-256 为 `eea1325d29cc04e335c97edf6ff7295c80bbb19c5331631c4e135f89bbbac53f`；公开 API 返回 `backendMode=django`、`structured=true` 和 revision `1:bdfebd254007`。
+- 切换后 PostgreSQL 备份为 `daily-20260902T150557Z-c94854026b37`，manifest SHA-256 为 `98f62104dcd95da09d249746cd529a604d5873c3181c7e3c88015967d18260f7`，内容摘要为 `22c6a7463d02d6c43e84035da79e8f5e90aed27b1383416464de59c359a9afff`。隔离恢复演练 `5277592d0cbc` 在 `127.0.0.1:55432` 完成，恢复后内容摘要完全一致，生产数据库未触碰，临时数据已清理。
+- React 页面已实机核验 12 个项目、七阶段矩阵、看板、筛选、详情、目标店铺和历史缺口说明；全局搜索命中结构化项目。旧新品列表为空、旧详情返回 404、旧 `launch` 新建返回 409，证明旧生产路径不可达。
+
+上述数量是切换时水位，不是代码常量；当前状态应通过公开 API 和受控 runtime 状态探针动态回读。
+
+## 8. 开发验证
 
 可在隔离 SQLite 测试库验证 Django 契约；SQLite 不能作为生产权威：
 
