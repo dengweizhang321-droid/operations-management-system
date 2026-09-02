@@ -136,15 +136,51 @@ function Invoke-VisibleServiceAction {
   )
 
   $serviceArguments = @(
-    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ScriptPath
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$ScriptPath`""
   ) + $Arguments
-  $serviceOutput = & $PowerShellExecutable @serviceArguments 2>&1
-  $serviceExitCode = $LASTEXITCODE
-  if (-not $Json -and $serviceOutput) {
-    $serviceOutput | ForEach-Object { Write-Output ([string]$_) }
+
+  # The Worker service intentionally launches a durable supervisor. Invoking it
+  # through PowerShell's native pipeline can keep the caller waiting on pipe
+  # handles inherited by that process tree even after the service process has
+  # exited. Redirect to exact files and wait only on the direct process object.
+  $invocationLogRoot = Join-Path $ProjectRoot "tmp"
+  [System.IO.Directory]::CreateDirectory($invocationLogRoot) | Out-Null
+  $invocationId = [Guid]::NewGuid().ToString("N")
+  $serviceStdoutPath = Join-Path $invocationLogRoot "system-control-service-$invocationId.stdout.log"
+  $serviceStderrPath = Join-Path $invocationLogRoot "system-control-service-$invocationId.stderr.log"
+  $serviceProcess = $null
+  $serviceStdout = ""
+  $serviceStderr = ""
+  $serviceExitCode = $null
+  try {
+    $serviceProcess = Start-Process -FilePath $PowerShellExecutable -ArgumentList $serviceArguments `
+      -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $serviceStdoutPath `
+      -RedirectStandardError $serviceStderrPath -PassThru
+    $serviceProcess.WaitForExit()
+    $serviceExitCode = [int]$serviceProcess.ExitCode
+    if (Test-Path -LiteralPath $serviceStdoutPath -PathType Leaf) {
+      $serviceStdout = [System.IO.File]::ReadAllText($serviceStdoutPath)
+    }
+    if (Test-Path -LiteralPath $serviceStderrPath -PathType Leaf) {
+      $serviceStderr = [System.IO.File]::ReadAllText($serviceStderrPath)
+    }
+  } finally {
+    if ($serviceProcess) { $serviceProcess.Dispose() }
+    foreach ($temporaryLog in @($serviceStdoutPath, $serviceStderrPath)) {
+      if (Test-Path -LiteralPath $temporaryLog -PathType Leaf) {
+        [System.IO.File]::Delete($temporaryLog)
+      }
+    }
   }
-  if ($serviceExitCode -ne 0) {
-    $serviceDetail = Get-BoundedText -Value $serviceOutput
+
+  $serviceOutput = @($serviceStdout, $serviceStderr) | Where-Object {
+    -not [string]::IsNullOrWhiteSpace([string]$_)
+  }
+  if (-not $Json -and $serviceOutput.Count -gt 0) {
+    $serviceOutput | ForEach-Object { Write-Output (([string]$_).TrimEnd()) }
+  }
+  if ($null -eq $serviceExitCode -or $serviceExitCode -ne 0) {
+    $serviceDetail = Get-BoundedText -Value ($serviceOutput -join [Environment]::NewLine)
     if ([string]::IsNullOrWhiteSpace($serviceDetail)) { $serviceDetail = "退出码 $serviceExitCode" }
     throw "$Label 失败：$serviceDetail"
   }

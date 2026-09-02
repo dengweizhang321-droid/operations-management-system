@@ -51,6 +51,21 @@ test("controller delegates mutation to one start engine and performs final healt
   assert.match(startBlock, /pageProbe\.StatusCode -ne 200/);
 });
 
+test("controller waits only for the direct start-engine process instead of a durable child pipeline", () => {
+  const invocationBlock = panel.slice(
+    panel.indexOf("function Invoke-VisibleServiceAction"),
+    panel.indexOf("function Test-CoreDjangoReady"),
+  );
+  assert.match(invocationBlock, /Start-Process -FilePath \$PowerShellExecutable/);
+  assert.match(invocationBlock, /-RedirectStandardOutput \$serviceStdoutPath/);
+  assert.match(invocationBlock, /-RedirectStandardError \$serviceStderrPath/);
+  assert.match(invocationBlock, /\$serviceProcess\.WaitForExit\(\)/);
+  assert.match(invocationBlock, /\[System\.IO\.File\]::ReadAllText/);
+  assert.match(invocationBlock, /\[System\.IO\.File\]::Delete\(\$temporaryLog\)/);
+  assert.doesNotMatch(invocationBlock, /=\s*&\s*\$PowerShellExecutable/);
+  assert.ok(invocationBlock.indexOf("WaitForExit()") < invocationBlock.indexOf("ReadAllText"));
+});
+
 test("canonical start engine enforces Django readiness before Worker verification", () => {
   const startBlock = workerService.slice(
     workerService.indexOf('if ($Action -eq "Start")'),
