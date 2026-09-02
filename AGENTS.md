@@ -146,7 +146,6 @@
 - 根据改动范围运行最小充分验证：优先相关测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。仅文档变更无需运行生产构建，但必须检查链接、命令和当前代码一致。
 - `npm test` 会先执行生产构建。生产构建会改写 `dist`，而本地预构建 Worker 会监听该目录；构建前必须检查 `127.0.0.1:3000` 是否被本项目服务占用。
 - 未经用户在当前对话中明确批准，不得停止、重启或中断本地服务，也不得在运行中的 Worker 监听构建产物时原地构建。当前本机正式 Worker 只能由 `tools/worker-local-service.ps1` 解析并管理不可变 effective head；禁止直接运行 Wrangler、旧 release、`dist` 或 `tools/start-local-worker.mjs`。
-- 日常人工启动、`运行项目.bat`、`npm start`、`npm run dev`、登录启动项和桌面控制面板必须统一汇聚到 `tools/worker-local-service.ps1 -Action Start` 这一唯一启动引擎。该引擎先只读核验已部署 Django/PostgreSQL 的销售、财务、ERP、网店、市场和商品经营全域；仅在状态明确未就绪时调用既有 Django `Start`，全部回读 ready 后才进入原不可变 Worker release/进程身份门禁。`tools/operations-system-control.ps1` 只提供组合状态、外层非阻塞互斥、日志和最终 HTTP 回查，启动时不得复制 Django 或 Worker 的写入/生命周期逻辑。只有 Worker 内部状态明确为 `stale_or_invalid_receipt`、受保护回执可验证且 supervisor 不存在时，唯一引擎才可通过既有精确回执删除函数清理该回执，并必须回读为 `stopped`；端口占用、身份不明、回执损坏、状态错误或健康异常均失败关闭。
 - 不得为了测试而覆盖本机 PostgreSQL/Django runtime、Worker release runtime、D1/R2、浏览器 profile、下载目录、备份、审计或 `.dev.vars`。测试优先使用临时目录、内存/临时 SQLite 和夹具。
 - 未经明确要求，不执行生产部署、远程 D1 迁移、生产数据导入或外部平台真实发送。涉及这类动作时，应先说明目标环境、影响范围和验证/回滚方案。
 - 修改注册表、鉴权、导入、市场迁移、缓存或自动化状态机时，必须增加针对失败、重试、重复、跨范围和并发交错的负向测试，不能只验证成功路径。

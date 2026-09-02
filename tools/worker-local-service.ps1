@@ -19,12 +19,6 @@ $FixedSourceRoot = "D:\运营管理系统-sales-django-release"
 $FixedProtectedRoot = "D:\运营管理系统"
 $FixedDevVarsSource = "D:\运营管理系统\.dev.vars"
 $FixedPersistRoot = "D:\运营管理系统\.wrangler\state"
-$FixedDjangoRuntimeRoot = "D:\teruisi-runtime\django-sales"
-$DjangoRuntimeTools = Join-Path $FixedDjangoRuntimeRoot "app\tools"
-$DjangoService = Join-Path $DjangoRuntimeTools "django-local-service.ps1"
-$DjangoNetshopService = Join-Path $DjangoRuntimeTools "django-netshop-service.ps1"
-$DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
-$DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
 $WorkerPort = 3000
 $WorkerHost = "127.0.0.1"
 $HelperPort = 5791
@@ -95,120 +89,6 @@ function Get-NodeExecutable {
   if (-not $node) { $node = Get-Command "node" -ErrorAction SilentlyContinue }
   if (-not $node) { throw "Node.js 24.x is required" }
   return $node.Source
-}
-
-function Get-DjangoControlPowerShell {
-  $djangoPowerShell = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
-  if (-not $djangoPowerShell) { $djangoPowerShell = Get-Command "pwsh" -ErrorAction SilentlyContinue }
-  if (-not $djangoPowerShell) {
-    throw "PowerShell 7 is required for the installed Django runtime controller"
-  }
-  return $djangoPowerShell.Source
-}
-
-function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [string]$Label) {
-  if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
-    throw "Missing installed Django controller for ${Label}: $ScriptPath"
-  }
-  $djangoOutput = @(& (Get-DjangoControlPowerShell) -NoProfile -File $ScriptPath -Action $StatusAction -Json 2>&1)
-  $djangoExitCode = $LASTEXITCODE
-  $djangoText = (($djangoOutput | ForEach-Object { $_.ToString() }) -join "`n").Trim()
-  if ($djangoExitCode -ne 0) {
-    if ($djangoText.Length -gt 500) { $djangoText = $djangoText.Substring($djangoText.Length - 500, 500) }
-    throw "$Label failed: exit=$djangoExitCode; $djangoText"
-  }
-  try { return ($djangoText | ConvertFrom-Json -ErrorAction Stop) }
-  catch { throw "$Label did not return valid JSON" }
-}
-
-function Test-DjangoDomainReady(
-  [object]$Status,
-  [string]$ReaderProperty,
-  [string]$WriterProperty,
-  [string]$AuthorityProperty = ""
-) {
-  if (-not $Status) { return $false }
-  if ([string]$Status.PSObject.Properties[$ReaderProperty].Value -cne "running" -or
-      [string]$Status.PSObject.Properties[$WriterProperty].Value -cne "running" -or
-      [string]$Status.ReaderReadiness -cne "ready" -or
-      [string]$Status.WriterReadiness -cne "ready") {
-    return $false
-  }
-  if (-not [string]::IsNullOrWhiteSpace($AuthorityProperty) -and
-      [string]$Status.PSObject.Properties[$AuthorityProperty].Value -cne "postgres") {
-    return $false
-  }
-  return $true
-}
-
-function Test-IsIsolatedTestRuntime {
-  if (-not $AllowTestRuntimeRoot) { return $false }
-  $actualRuntime = [System.IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
-  $productionRuntime = [System.IO.Path]::GetFullPath($FixedRuntimeRoot).TrimEnd('\')
-  return -not $actualRuntime.Equals($productionRuntime, [System.StringComparison]::OrdinalIgnoreCase)
-}
-
-function Get-DjangoSystemReadiness {
-  if (Test-IsIsolatedTestRuntime) {
-    return [pscustomobject]@{ Ready = $true; Missing = @() }
-  }
-
-  $coreStatus = Invoke-DjangoStatusJson $DjangoService "Status" "Django/PostgreSQL status"
-  $financeStatus = Invoke-DjangoStatusJson $DjangoService "FinanceStatus" "Django finance status"
-  $netshopStatus = Invoke-DjangoStatusJson $DjangoNetshopService "Status" "Django netshop status"
-  $marketStatus = Invoke-DjangoStatusJson $DjangoMarketService "Status" "Django market status"
-  $productsStatus = Invoke-DjangoStatusJson $DjangoProductsService "Status" "Django products status"
-
-  $checks = [ordered]@{
-    core = (
-      [string]$coreStatus.PostgreSQL -ceq "running" -and
-      [string]$coreStatus.DjangoReader -ceq "running" -and
-      [string]$coreStatus.DjangoWriter -ceq "running" -and
-      [string]$coreStatus.ErpReferenceSync -ceq "caught_up" -and
-      [string]$coreStatus.ReaderReadiness -ceq "ready" -and
-      [string]$coreStatus.WriterReadiness -ceq "ready" -and
-      [string]$coreStatus.RuntimeAcl -ceq "root_hardened" -and
-      [string]$coreStatus.RuntimeAclVerification -ceq "root_only_status"
-    )
-    finance = Test-DjangoDomainReady $financeStatus "FinanceReader" "FinanceWriter" "PostgreSQLAuthority"
-    netshop = Test-DjangoDomainReady $netshopStatus "NetshopReader" "NetshopWriter"
-    market = Test-DjangoDomainReady $marketStatus "MarketReader" "MarketWriter"
-    products = Test-DjangoDomainReady $productsStatus "ProductsReader" "ProductsWriter"
-  }
-  $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
-  return [pscustomobject]@{
-    Ready = ($missing.Count -eq 0)
-    Missing = $missing
-  }
-}
-
-function Ensure-DjangoSystemReady {
-  if (Test-IsIsolatedTestRuntime) { return }
-
-  $readiness = Get-DjangoSystemReadiness
-  if ($readiness.Ready) {
-    if (-not $Json) { Write-Host "Django/PostgreSQL full stack is already ready" }
-    return
-  }
-  if (-not $Json) {
-    Write-Host "Starting Django/PostgreSQL full stack; missing=$($readiness.Missing -join ',')"
-  }
-  $djangoStartOutput = @(& (Get-DjangoControlPowerShell) -NoProfile -File $DjangoService -Action Start 2>&1)
-  $djangoStartExitCode = $LASTEXITCODE
-  if (-not $Json) {
-    $djangoStartOutput | ForEach-Object { Write-Host $_.ToString() }
-  }
-  if ($djangoStartExitCode -ne 0) {
-    $djangoStartText = (($djangoStartOutput | ForEach-Object { $_.ToString() }) -join "`n").Trim()
-    if ($djangoStartText.Length -gt 800) {
-      $djangoStartText = $djangoStartText.Substring($djangoStartText.Length - 800, 800)
-    }
-    throw "Django/PostgreSQL full start failed: exit=$djangoStartExitCode; $djangoStartText"
-  }
-  $afterStart = Get-DjangoSystemReadiness
-  if (-not $afterStart.Ready) {
-    throw "Django/PostgreSQL full stack remained not ready after Start: $($afterStart.Missing -join ',')"
-  }
 }
 
 function Assert-NoReparsePath([string]$Path, [switch]$AllowMissingLeaf) {
@@ -1134,31 +1014,12 @@ try {
 
   if ($Action -eq "Start") {
     $status = Get-WorkerStatusInternal $identity
-    if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
-    $preflightStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
-    if ($status.State -notin @("stopped", "exact_release") -and -not $preflightStaleReceipt) {
-      throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover"
-    }
-
-    Ensure-DjangoSystemReady
-
-    $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "exact_release") {
       Write-Result ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
       exit 0
     }
     if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
-    $repairStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
-    if ($status.State -ne "stopped" -and -not $repairStaleReceipt) {
-      throw "Worker ownership changed while Django was starting; refusing takeover"
-    }
-    if ($repairStaleReceipt) {
-      Remove-ExactProcessReceipt $identity
-      $status = Get-WorkerStatusInternal $identity
-      if ($status.State -ne "stopped") {
-        throw "Validated stale Worker receipt was cleared but the service did not stabilize as stopped"
-      }
-    }
+    if ($status.State -ne "stopped") { throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover" }
     [void](Invoke-ReleaseVerification $identity "stopped")
     $logRoot = Join-Path $RuntimeRoot "logs"
     [System.IO.Directory]::CreateDirectory($logRoot) | Out-Null
