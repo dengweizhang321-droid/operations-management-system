@@ -36,6 +36,14 @@ import {
   type InventoryConsumerReader,
   type InventoryConsumerResponseMap,
 } from "@/lib/django/inventory-consumer-reader";
+import {
+  createDjangoWorkflowConsumerReader,
+  type WorkflowConsumerReader,
+} from "@/lib/django/workflow-consumer-reader";
+import {
+  getWorkflowBackendMode,
+  type WorkflowBackendMode,
+} from "@/lib/django/workflow-service";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -151,6 +159,8 @@ export type GlobalSearchExecutionOptions = {
   productsReader?: ProductsConsumerReader;
   inventoryReader?: InventoryConsumerReader;
   financeBackendMode?: FinanceBackendMode;
+  workflowReader?: WorkflowConsumerReader;
+  workflowBackendMode?: WorkflowBackendMode;
   signal?: AbortSignal;
 };
 
@@ -738,7 +748,108 @@ async function queryWorkflowGroup(
   request: GlobalSearchRequest,
   like: string,
   principal: AppPrincipal,
+  workflowReader: WorkflowConsumerReader,
+  workflowMode: WorkflowBackendMode,
+  signal?: AbortSignal,
 ) {
+  const source = await queryLegacyWorkflowSource(
+    db,
+    tables,
+    like,
+    principal,
+    workflowMode === "legacy",
+    workflowMode === "legacy" ? (request.page - 1) * request.groupLimit : 0,
+    workflowMode === "legacy" ? request.groupLimit + 1 : request.groupLimit,
+    workflowMode === "django",
+  );
+  if (workflowMode === "legacy") {
+    if (!source.available) return emptyGroup(workflowDefinition);
+    if (!source.complete) return emptyGroup(workflowDefinition, false);
+    return mapSearchRows(workflowDefinition, source.rows, request, principal);
+  }
+
+  // Structured launch projects are the first, stable segment of the workflow
+  // group after cutover.  Tasks, inspections and reviews remain in their D1
+  // authority as the second segment.  This preserves exact cross-source
+  // pagination without pretending that two databases share one timestamp sort.
+  const offset = (request.page - 1) * request.groupLimit;
+  let structuredTotal = 0;
+  let structuredRows: SearchRow[] = [];
+  let structuredComplete = principal.scope !== null;
+  if (principal.scope === null) {
+    try {
+      const result = await workflowReader.read(principal, {
+        operation: "launch_project_search",
+        query: request.query,
+        offset,
+        limit: request.groupLimit,
+      }, { signal });
+      structuredTotal = result.data.total;
+      structuredRows = result.data.items.map((item) => ({
+        result_id: `launch:${item.id}`,
+        title: item.title,
+        subtitle: item.subtitle,
+        detail: item.detail,
+        updated_at: item.updatedAt,
+        amount_cents: item.amountCents,
+        target_hint: "launch",
+      }));
+      structuredComplete = true;
+    } catch {
+      structuredComplete = false;
+    }
+  }
+
+  const visible: SearchRow[] = [];
+  let legacyOffset = 0;
+  if (structuredComplete && offset < structuredTotal) {
+    visible.push(...structuredRows.slice(0, request.groupLimit));
+  } else if (structuredComplete) {
+    legacyOffset = offset - structuredTotal;
+  } else {
+    legacyOffset = offset;
+  }
+  const remaining = request.groupLimit - visible.length;
+  const legacy = remaining === request.groupLimit && legacyOffset === 0
+    ? source
+    : await queryLegacyWorkflowSource(
+      db,
+      tables,
+      like,
+      principal,
+      false,
+      legacyOffset,
+      remaining,
+      true,
+    );
+  if (remaining > 0 && legacy.complete) visible.push(...legacy.rows.slice(0, remaining));
+
+  const available = structuredComplete || legacy.available;
+  if (!available) return emptyGroup(workflowDefinition, false);
+  if (structuredComplete && legacy.complete) {
+    return mapSearchRows(
+      workflowDefinition,
+      visible,
+      request,
+      principal,
+      structuredTotal + legacy.total,
+    );
+  }
+  const lowerBound = structuredComplete ? structuredTotal : legacy.complete ? legacy.total : 0;
+  const partial = mapSearchRows(workflowDefinition, visible, request, principal, lowerBound);
+  return { ...partial, totalExact: false, hasMore: partial.hasMore || !structuredComplete || !legacy.complete };
+}
+
+async function queryLegacyWorkflowSource(
+  db: GlobalSearchDatabase,
+  tables: Set<string>,
+  like: string,
+  principal: AppPrincipal,
+  includeLegacyLaunch: boolean,
+  offset: number,
+  limit: number,
+  exactCount: boolean,
+): Promise<{ available: boolean; complete: boolean; total: number; rows: SearchRow[] }> {
   const fragments: string[] = [];
   const binds: unknown[] = [];
   // Legacy task databases did not have the state companion table. They remain
@@ -770,20 +881,29 @@ async function queryWorkflowGroup(
       WHERE o.deleted_at IS NULL AND (o.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.content LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR (CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END) LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR o.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.status LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR o.priority LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
+        OR o.priority LIKE ? ESCAPE '\\' COLLATE NOCASE)
+        ${includeLegacyLaunch ? "" : "AND o.record_type <> 'launch'"} ${scope.clause}`);
     binds.push(like, like, like, like, like, like, like, ...scope.values);
   }
-  if (fragments.length === 0) return emptyGroup(workflowDefinition);
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint
-    FROM (${fragments.join(" UNION ALL ")})
-    ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
+  if (fragments.length === 0) return { available: false, complete: true, total: 0, rows: [] };
+  const union = fragments.join(" UNION ALL ");
   try {
-    const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
+    let total = 0;
+    if (exactCount) {
+      const countResult = await db.prepare(`SELECT COUNT(*) AS total_count FROM (${union})`)
+        .bind(...binds)
+        .all<{ total_count: number }>();
+      total = Number(countResult.results?.[0]?.total_count ?? 0);
+      if (!Number.isSafeInteger(total) || total < 0) throw new Error("workflow_search_count_invalid");
+    }
+    if (limit === 0) return { available: true, complete: true, total, rows: [] };
+    const result = await db.prepare(`SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint
+      FROM (${union}) ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`)
+      .bind(...binds, limit, offset)
       .all<SearchRow>();
-    return mapSearchRows(workflowDefinition, result.results ?? [], request, principal);
+    return { available: true, complete: true, total, rows: result.results ?? [] };
   } catch {
-    return emptyGroup(workflowDefinition, false);
+    return { available: true, complete: false, total: 0, rows: [] };
   }
 }
 
@@ -1511,7 +1631,9 @@ export async function searchAllBusinessData(
   const netshopReader = options.netshopReader ?? createDjangoNetshopConsumerReader();
   const productsReader = options.productsReader ?? createDjangoProductsConsumerReader();
   const inventoryReader = options.inventoryReader ?? createDjangoInventoryConsumerReader();
+  const workflowReader = options.workflowReader ?? createDjangoWorkflowConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
+  const workflowMode = options.workflowBackendMode ?? await getWorkflowBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
   const like = escapeGlobalSearchLike(request.query);
@@ -1604,8 +1726,19 @@ export async function searchAllBusinessData(
   if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
     groupTasks.push({
       definition: workflowDefinition,
-      available: (tables.has("workflow_tasks") && principal.scope === null) || tables.has("workflow_operation_records"),
-      run: () => queryWorkflowGroup(db, tables, request, like, principal),
+      available: workflowMode === "django" && principal.scope === null
+        || (tables.has("workflow_tasks") && principal.scope === null)
+        || tables.has("workflow_operation_records"),
+      run: () => queryWorkflowGroup(
+        db,
+        tables,
+        request,
+        like,
+        principal,
+        workflowReader,
+        workflowMode,
+        options.signal,
+      ),
     });
   }
   if ((!request.group || request.group === "inventory_age") && allRoles.includes(principal.role)) {

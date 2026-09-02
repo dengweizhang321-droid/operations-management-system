@@ -12,6 +12,10 @@ import {
   validateTaskDraft,
   validateTaskTemplateDraft,
 } from "@/app/operations-view";
+import {
+  validateNewProductDraft,
+  validateStageDraft,
+} from "@/app/new-product-launch-view";
 
 const source = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -208,4 +212,75 @@ test("work plan restores filters, analytics, timeline, source metadata, and nine
   assert.match(css, /\.operations-plan-table td:nth-child\(9\)::before \{ content: "操作"; \}/);
   assert.match(css, /\.operations-plan-table td:nth-child\(8\)::before \{ content: "协作"; \}/);
   assert.match(css, /@media \(max-width: 960px\)/);
+});
+
+test("work plan exposes server facets, standardized suggestions and complete filtered export", async () => {
+  const [operations, tasks, route] = await Promise.all([
+    source("../app/operations-view.tsx"),
+    source("../lib/workflow/tasks.ts"),
+    source("../app/api/workflow/tasks/route.ts"),
+  ]);
+  for (const parameter of ["shopName", "category", "source"]) {
+    assert.match(operations, new RegExp(`append\\(\"${parameter}\"`));
+  }
+  assert.match(operations, /导出筛选完整清单/);
+  assert.match(operations, /while \(exported\.length < total\)/);
+  assert.match(operations, /workflow-category-options/);
+  assert.match(operations, /workflow-shop-options/);
+  assert.match(operations, /workflow-owner-options/);
+  assert.match(tasks, /facets: \{/);
+  assert.match(tasks, /categories: boundedList\(input\.categories/);
+  assert.match(tasks, /sources: boundedList\(input\.sources/);
+  assert.match(route, /categories: params\.getAll\("category"\)/);
+  assert.match(route, /sources: params\.getAll\("source"\)/);
+});
+
+test("new-product editor validates multi-store identity, dates, money and blocked-stage evidence", async () => {
+  const draft = {
+    productName: "大通量商用净水器",
+    supplierName: "供应商甲",
+    brand: "志高",
+    category: "商用净水",
+    erpProductCode: "ERP-1",
+    skuCode: "SKU-1",
+    spuCode: "SPU-1",
+    productImageUrl: "",
+    proposedBy: "商品组",
+    proposedDate: "2026-09-02",
+    owner: "新品负责人",
+    targetLaunchDate: "2026-09-16",
+    lifecycleStatus: "active" as const,
+    priority: "normal" as const,
+    recommendedPriceYuan: "3999.00",
+    approvedPriceYuan: "",
+    estimatedGrossMarginPercent: "32.50",
+    notes: "",
+    targets: [{ platform: "京东", shopName: "测试店", channel: "线上", listingSku: "", listingUrl: "", status: "pending" as const }],
+  };
+  assert.equal(validateNewProductDraft(draft), "");
+  assert.match(validateNewProductDraft({ ...draft, productName: "" }), /商品名称/);
+  assert.match(validateNewProductDraft({ ...draft, targetLaunchDate: "2026-09-01" }), /不能早于/);
+  assert.match(validateNewProductDraft({ ...draft, recommendedPriceYuan: "1.999" }), /最多保留 2 位/);
+  assert.match(validateNewProductDraft({ ...draft, targets: [...draft.targets, { ...draft.targets[0]! }] }), /不能重复/);
+  assert.equal(validateStageDraft({ status: "blocked", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "", evidenceLabel: "" }), "阶段标记为受阻时，请填写阻塞原因。");
+  assert.match(validateStageDraft({ status: "completed", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "ftp://invalid", evidenceLabel: "" }), /http/);
+});
+
+test("new-product workspace includes seven stages, matrix, kanban, evidence and a safe legacy fallback", async () => {
+  const [launch, operations, css] = await Promise.all([
+    source("../app/new-product-launch-view.tsx"),
+    source("../app/operations-view.tsx"),
+    source("../app/globals.css"),
+  ]);
+  for (const label of ["建模", "分析定价", "图片", "视频", "上架", "备货", "上新复盘"]) {
+    assert.match(launch, new RegExp(label));
+  }
+  for (const feature of ["阶段矩阵", "看板", "目标店铺", "阻塞原因", "有阻塞节点", "证据链接", "最近活动"]) {
+    assert.match(launch, new RegExp(feature));
+  }
+  assert.match(launch, /if \(structured === false\) return <>\{legacyFallback\}<\/>/);
+  assert.match(operations, /legacyFallback=\{<OperationsRecordWorkspace type="launch"/);
+  assert.match(css, /\.launch-matrix-table/);
+  assert.match(css, /\.launch-kanban/);
+  assert.match(css, /\.launch-detail-stages/);
 });

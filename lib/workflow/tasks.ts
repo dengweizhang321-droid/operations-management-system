@@ -9,11 +9,13 @@ export const workflowTaskStatuses = ["待开始", "工作中", "已完成"] as c
 export type WorkflowTaskStatus = (typeof workflowTaskStatuses)[number];
 export const workflowTaskPriorities = ["high", "normal", "low"] as const;
 export type WorkflowTaskPriority = (typeof workflowTaskPriorities)[number];
+export const workflowTaskSources = ["系统预置", "手动录入"] as const;
+export type WorkflowTaskSource = (typeof workflowTaskSources)[number];
 
 export type WorkflowTask = {
   id: string; title: string; workContent: string; category: string; owner: string; shopName: string;
   startDate: string; due: string; status: WorkflowTaskStatus; priority: WorkflowTaskPriority;
-  source: "系统预置" | "手动录入"; version: number; createdAt: string; updatedAt: string;
+  source: WorkflowTaskSource; version: number; createdAt: string; updatedAt: string;
   /** @deprecated Attachments are paged through the collaboration endpoint. */
   attachments: [];
 };
@@ -25,7 +27,8 @@ export type CreateWorkflowTaskInput = {
 export type UpdateWorkflowTaskInput = CreateWorkflowTaskInput & { status?: unknown; expectedVersion?: unknown };
 export type WorkflowTaskListInput = {
   query?: unknown; statuses?: readonly unknown[]; priorities?: readonly unknown[]; owners?: readonly unknown[];
-  shopNames?: readonly unknown[]; dueFrom?: unknown; dueTo?: unknown; page?: unknown; pageSize?: unknown;
+  shopNames?: readonly unknown[]; categories?: readonly unknown[]; sources?: readonly unknown[];
+  dueFrom?: unknown; dueTo?: unknown; page?: unknown; pageSize?: unknown;
 };
 
 type WorkflowTaskRow = {
@@ -113,9 +116,12 @@ function mapTask(row: WorkflowTaskRow): WorkflowTask {
     shopName: row.shop_name, startDate: row.start_date, due: row.due_date,
     status: isWorkflowTaskStatus(row.status) ? row.status : "待开始",
     priority: isWorkflowTaskPriority(row.priority) ? row.priority : "normal",
-    source: row.created_by === "system" ? "系统预置" : "手动录入", version: Number(row.version),
+    source: sourceFromCreatedBy(row.created_by), version: Number(row.version),
     createdAt: row.created_at, updatedAt: row.updated_at, attachments: [],
   };
+}
+function sourceFromCreatedBy(createdBy: string): WorkflowTaskSource {
+  return createdBy === "system" ? "系统预置" : "手动录入";
 }
 function normalizedCreateInput(input: CreateWorkflowTaskInput) {
   assertAllowedKeys(input, ["title", "workContent", "category", "owner", "shopName", "startDate", "due", "priority"]);
@@ -170,6 +176,8 @@ function normalizeListInput(input: WorkflowTaskListInput) {
     statuses: boundedList(input.statuses, "状态", workflowTaskStatuses),
     priorities: boundedList(input.priorities, "紧急程度", workflowTaskPriorities),
     owners: boundedList(input.owners, "跟进人"), shopNames: boundedList(input.shopNames, "店铺"),
+    categories: boundedList(input.categories, "事项分类"),
+    sources: boundedList(input.sources, "来源", workflowTaskSources),
     dueFrom, dueTo, page, pageSize, offset,
   };
 }
@@ -191,6 +199,11 @@ function taskFilters(filters: ReturnType<typeof normalizeListInput>, includeStat
   };
   if (includeStatuses) appendList("t.status", filters.statuses);
   appendList("t.priority", filters.priorities); appendList("t.owner", filters.owners); appendList("t.shop_name", filters.shopNames);
+  appendList("t.category", filters.categories);
+  if (filters.sources.length > 0) {
+    clauses.push(`(CASE WHEN t.created_by = 'system' THEN '系统预置' ELSE '手动录入' END) IN (${placeholders(filters.sources)})`);
+    values.push(...filters.sources);
+  }
   if (filters.dueFrom) { clauses.push("t.due_date <> '待排期' AND t.due_date >= ?"); values.push(filters.dueFrom); }
   if (filters.dueTo) { clauses.push("t.due_date <> '待排期' AND t.due_date < ?"); values.push(filters.dueTo); }
   return { where: `WHERE ${clauses.join(" AND ")}`, values };
@@ -202,7 +215,7 @@ export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, d
   const filters = normalizeListInput(input);
   const selected = taskFilters(filters, true);
   const summaryFilter = taskFilters(filters, false);
-  const [count, summary, result] = await Promise.all([
+  const [count, summary, result, categoryRows, ownerRows, shopRows] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id ${selected.where}`)
       .bind(...selected.values).first<{ total: number }>(),
     database.prepare(`SELECT COUNT(*) AS total,
@@ -214,6 +227,12 @@ export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, d
     database.prepare(`SELECT ${taskColumns} FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id
       ${selected.where} ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`)
       .bind(...selected.values, filters.pageSize, filters.offset).all<WorkflowTaskRow>(),
+    database.prepare(`SELECT DISTINCT t.category AS value FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id
+      WHERE s.deleted_at IS NULL AND t.category <> '' ORDER BY t.category COLLATE NOCASE LIMIT 200`).all<{ value: string }>(),
+    database.prepare(`SELECT DISTINCT t.owner AS value FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id
+      WHERE s.deleted_at IS NULL AND t.owner <> '' ORDER BY t.owner COLLATE NOCASE LIMIT 200`).all<{ value: string }>(),
+    database.prepare(`SELECT DISTINCT t.shop_name AS value FROM workflow_tasks t JOIN workflow_task_states s ON s.task_id = t.id
+      WHERE s.deleted_at IS NULL AND t.shop_name <> '' ORDER BY t.shop_name COLLATE NOCASE LIMIT 200`).all<{ value: string }>(),
   ]);
   const items = (result.results ?? []).map(mapTask);
   const total = Number(count?.total ?? 0);
@@ -224,9 +243,16 @@ export async function listWorkflowTasksPage(input: WorkflowTaskListInput = {}, d
     items,
     pagination: { page: filters.page, pageSize: filters.pageSize, total, returned: items.length, truncated: filters.offset + items.length < total },
     summary: { total: Number(summary?.total ?? 0), pending, inProgress, completed, open: pending + inProgress },
+    facets: {
+      categories: (categoryRows.results ?? []).map((row) => row.value),
+      owners: (ownerRows.results ?? []).map((row) => row.value),
+      shopNames: (shopRows.results ?? []).map((row) => row.value),
+      sources: [...workflowTaskSources],
+    },
     filtersApplied: {
       query: filters.query, statuses: filters.statuses, priorities: filters.priorities,
-      owners: filters.owners, shopNames: filters.shopNames, dueFrom: filters.dueFrom, dueTo: filters.dueTo,
+      owners: filters.owners, shopNames: filters.shopNames, categories: filters.categories,
+      sources: filters.sources, dueFrom: filters.dueFrom, dueTo: filters.dueTo,
     },
   };
 }

@@ -55,6 +55,7 @@ import {
   getNetshopProductPerformancePageData,
   getOperatingSettingsSummaryPageData,
   listFinanceTargetsPageData,
+  listNewProductProjectsPageData,
   listOperationsRecordsPageData,
   listWorkflowTasksPageData,
   listWorkflowTemplatesPageData,
@@ -609,18 +610,26 @@ export const aiToolRegistry = [
   {
     name: "get_workflow_page_data",
     title: "运营事项页面数据",
-    description: "读取工作事项、巡店/复盘/新品运营记录或工作模板的有界投影。运营记录应用真实 principal scope；工作事项和模板在受限 scope 下失败关闭。",
+    description: "读取工作事项、巡店/复盘记录、结构化新品项目或工作模板的有界投影。Django 新品项目包含多店铺目标、七阶段、阻塞、证据和复盘状态；工作事项、模板与结构化新品项目在受限 scope 下失败关闭。",
     inputSchema: {
       type: "object",
       properties: {
-        view: { type: "string", enum: ["tasks", "operations", "templates"] },
+        view: { type: "string", enum: ["tasks", "operations", "launch_projects", "templates"] },
         q: { type: "string", maxLength: 80 },
         statuses: { type: "array", items: { type: "string", maxLength: 40 }, maxItems: 20 },
         priorities: { type: "array", items: { type: "string", enum: ["high", "normal", "low"] }, maxItems: 3 },
+        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         owners: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         shopNames: { type: "array", items: { type: "string", maxLength: 160 }, maxItems: 20 },
+        suppliers: { type: "array", items: { type: "string", maxLength: 200 }, maxItems: 20 },
+        sources: { type: "array", items: { type: "string", enum: ["系统预置", "手动录入", "manual", "system", "import", "integration"] }, maxItems: 4 },
         types: { type: "array", items: { type: "string", enum: ["inspection", "review", "launch"] }, maxItems: 3 },
         platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        lifecycleStatuses: { type: "array", items: { type: "string", enum: ["active", "paused", "cancelled"] }, maxItems: 3 },
+        stage: { type: "string", enum: ["modeling", "pricing", "image", "video", "listing", "stocking", "review"] },
+        stageStatuses: { type: "array", items: { type: "string", enum: ["not_started", "in_progress", "blocked", "completed", "not_applicable"] }, maxItems: 5 },
+        proposedFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        proposedTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
         dueFrom: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
         dueTo: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
         from: { type: "string", maxLength: 40 },
@@ -639,6 +648,8 @@ export const aiToolRegistry = [
     execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "operations"
       ? listOperationsRecordsPageData(pageToolArguments(args), context)
+      : args.view === "launch_projects"
+        ? listNewProductProjectsPageData(pageToolArguments(args), context)
       : args.view === "templates"
         ? listWorkflowTemplatesPageData(pageToolArguments(args), context)
         : listWorkflowTasksPageData(pageToolArguments(args), context),

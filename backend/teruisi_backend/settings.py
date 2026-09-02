@@ -131,6 +131,7 @@ INSTALLED_APPS = [
     "market.apps.MarketConfig",
     "products.apps.ProductsConfig",
     "inventory.apps.InventoryConfig",
+    "workflow.apps.WorkflowConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -206,6 +207,12 @@ INVENTORY_WRITE_AUTHORITY_EPOCH = os.getenv(
 INVENTORY_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_INVENTORY_CUTOVER_ID", ""
 ).strip()
+WORKFLOW_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH", ""
+).strip()
+WORKFLOW_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_WORKFLOW_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -221,6 +228,8 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "products_writer",
     "inventory_reader",
     "inventory_writer",
+    "workflow_reader",
+    "workflow_writer",
 }:
     raise RuntimeError(
         "生产 Django 必须显式声明已登记的 reader、writer、migration_writer 或同步进程角色"
@@ -251,6 +260,10 @@ if DJANGO_PROCESS_ROLE == "inventory_reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django inventory_reader 进程必须启用只读连接门禁")
 if DJANGO_PROCESS_ROLE == "inventory_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django inventory_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "workflow_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django workflow_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "workflow_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django workflow_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
@@ -293,6 +306,13 @@ if DJANGO_PROCESS_ROLE == "inventory_writer":
         raise RuntimeError("Django inventory_writer 必须配置有效的库存 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", INVENTORY_WRITE_CUTOVER_ID):
         raise RuntimeError("Django inventory_writer 必须配置有效的库存 cutover id")
+if DJANGO_PROCESS_ROLE == "workflow_writer":
+    try:
+        uuid.UUID(WORKFLOW_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django workflow_writer 必须配置有效的运营事务 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", WORKFLOW_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django workflow_writer 必须配置有效的运营事务 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )

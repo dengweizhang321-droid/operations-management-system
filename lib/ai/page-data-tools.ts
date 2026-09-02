@@ -114,8 +114,31 @@ type WorkflowTaskListInput = {
   query?: string;
   statuses: string[];
   priorities: string[];
+  categories: string[];
   owners: string[];
   shopNames: string[];
+  sources: string[];
+  dueFrom?: string;
+  dueTo?: string;
+  page: number;
+  pageSize: number;
+};
+
+type NewProductProjectListInput = {
+  query?: string;
+  statuses: string[];
+  suppliers: string[];
+  owners: string[];
+  categories: string[];
+  platforms: string[];
+  shopNames: string[];
+  priorities: string[];
+  sources: string[];
+  lifecycleStatuses: string[];
+  stage?: string;
+  stageStatuses: string[];
+  proposedFrom?: string;
+  proposedTo?: string;
   dueFrom?: string;
   dueTo?: string;
   page: number;
@@ -161,6 +184,7 @@ export type PageDataToolServices = {
   readNetshopPerformance(input: NetshopPerformanceInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readWorkflowTasks(input: WorkflowTaskListInput): Promise<unknown>;
   readOperationRecords(input: OperationRecordListInput, principal: AppPrincipal): Promise<unknown>;
+  readNewProductProjects(input: NewProductProjectListInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readWorkflowTemplates(includeInactive: boolean): Promise<unknown>;
   readImportBatches(
     source: PageImportSource,
@@ -259,7 +283,43 @@ const defaultPageDataToolServices: PageDataToolServices = {
   },
   async readOperationRecords(input, principal) {
     const { listOperationRecords } = await import("@/lib/workflow/operations-records");
-    return listOperationRecords(input, principal);
+    const { getWorkflowBackendMode } = await import("@/lib/django/workflow-service");
+    return listOperationRecords({
+      ...input,
+      excludeTypes: await getWorkflowBackendMode() === "django" ? ["launch"] : [],
+    }, principal);
+  },
+  async readNewProductProjects(input, principal, signal) {
+    const {
+      createDjangoWorkflowService,
+      getWorkflowBackendMode,
+      WORKFLOW_LAUNCH_PROJECTS_PATH,
+    } = await import("@/lib/django/workflow-service");
+    const backendMode = await getWorkflowBackendMode();
+    if (backendMode !== "django") return { structured: false, backendMode };
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+    if (input.query) query.set("q", input.query);
+    for (const value of input.statuses) query.append("status", value);
+    for (const value of input.suppliers) query.append("supplier", value);
+    for (const value of input.owners) query.append("owner", value);
+    for (const value of input.categories) query.append("category", value);
+    for (const value of input.platforms) query.append("platform", value);
+    for (const value of input.shopNames) query.append("shopName", value);
+    for (const value of input.priorities) query.append("priority", value);
+    for (const value of input.sources) query.append("source", value);
+    for (const value of input.lifecycleStatuses) query.append("lifecycleStatus", value);
+    if (input.stage) query.set("stage", input.stage);
+    for (const value of input.stageStatuses) query.append("stageStatus", value);
+    if (input.proposedFrom) query.set("proposedFrom", input.proposedFrom);
+    if (input.proposedTo) query.set("proposedTo", input.proposedTo);
+    if (input.dueFrom) query.set("dueFrom", input.dueFrom);
+    if (input.dueTo) query.set("dueTo", input.dueTo);
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: WORKFLOW_LAUNCH_PROJECTS_PATH, service: "reader", rawQuery: query.toString() },
+      { signal },
+    );
+    return { ...result.data, structured: true, backendMode, workflowRevision: result.revision };
   },
   async readWorkflowTemplates(includeInactive) {
     const { listWorkflowTaskTemplates } = await import("@/lib/workflow/collaboration");
@@ -619,6 +679,26 @@ function boundedStrings(value: unknown, maximum: number) {
 function boundedRecords(value: unknown, maximum: number, keys: readonly string[]) {
   if (!Array.isArray(value)) return [];
   return value.slice(0, maximum).map((item) => pickScalars(item, keys));
+}
+
+function projectNewProductProject(value: unknown) {
+  const source = resultObject(value);
+  return {
+    ...pickScalars(source, [
+      "id", "productName", "supplierName", "brand", "category", "erpProductCode", "skuCode", "spuCode",
+      "productImageUrl", "proposedBy", "proposedDate", "owner", "targetLaunchDate", "lifecycleStatus",
+      "status", "priority", "recommendedPriceCents", "approvedPriceCents", "estimatedGrossMarginBps",
+      "source", "sourceRef", "notes", "version", "progressPercent", "currentStageKey", "overdue",
+      "overdueStageCount", "createdAt", "updatedAt",
+    ]),
+    targets: boundedRecords(source.targets, 20, [
+      "id", "platform", "shopName", "channel", "listingSku", "listingUrl", "status",
+    ]),
+    stages: boundedRecords(source.stages, 7, [
+      "id", "stageKey", "label", "status", "owner", "plannedDueDate", "completedAt", "blocker", "notes",
+      "evidenceUrl", "evidenceLabel", "version", "updatedAt",
+    ]),
+  };
 }
 
 function projectPagination(value: unknown) {
@@ -1028,7 +1108,7 @@ export async function listWorkflowTasksPageData(
   const principal = requirePrincipal(context);
   requireUnrestrictedDataScope(principal, "工作事项");
   const input = inputObject(args);
-  assertOnlyKeys(input, ["q", "statuses", "priorities", "owners", "shopNames", "dueFrom", "dueTo", "page", "limit"]);
+  assertOnlyKeys(input, ["q", "statuses", "priorities", "categories", "owners", "shopNames", "sources", "dueFrom", "dueTo", "page", "limit"]);
   const dueFrom = isoDate(input.dueFrom, "dueFrom");
   const dueTo = isoDate(input.dueTo, "dueTo");
   if (dueFrom && dueTo && dueFrom >= dueTo) failInput("截止日期范围必须满足 dueFrom 早于 dueTo");
@@ -1036,8 +1116,10 @@ export async function listWorkflowTasksPageData(
     query: optionalText(input.q, "q", 80),
     statuses: stringList(input.statuses, "statuses", 3, 20, ["待开始", "工作中", "已完成"]),
     priorities: stringList(input.priorities, "priorities", 3, 20, ["high", "normal", "low"]),
+    categories: stringList(input.categories, "categories", 20, 120),
     owners: stringList(input.owners, "owners", 20, 120),
     shopNames: stringList(input.shopNames, "shopNames", 20, 160),
+    sources: stringList(input.sources, "sources", 2, 40, ["系统预置", "手动录入"]),
     dueFrom,
     dueTo,
     ...pagination(input),
@@ -1050,8 +1132,10 @@ export async function listWorkflowTasksPageData(
       query: filters.query,
       statuses: filters.statuses,
       priorities: filters.priorities,
+      categories: filters.categories,
       owners: filters.owners,
       shopNames: filters.shopNames,
+      sources: filters.sources,
       dueFrom,
       dueTo,
     },
@@ -1061,6 +1145,101 @@ export async function listWorkflowTasksPageData(
       "id", "title", "workContent", "category", "owner", "shopName", "startDate", "due", "status",
       "priority", "source", "version", "createdAt", "updatedAt",
     ]),
+  };
+}
+
+export async function listNewProductProjectsPageData(
+  args: unknown,
+  context: PageDataToolContext,
+  overrides?: Partial<PageDataToolServices>,
+) {
+  const principal = requirePrincipal(context);
+  requireUnrestrictedDataScope(principal, "新品项目");
+  const input = inputObject(args);
+  assertOnlyKeys(input, [
+    "q", "statuses", "suppliers", "owners", "categories", "platforms", "shopNames", "priorities", "sources",
+    "lifecycleStatuses", "stage", "stageStatuses", "proposedFrom", "proposedTo", "dueFrom", "dueTo", "page", "limit",
+  ]);
+  const proposedFrom = isoDate(input.proposedFrom, "proposedFrom");
+  const proposedTo = isoDate(input.proposedTo, "proposedTo");
+  const dueFrom = isoDate(input.dueFrom, "dueFrom");
+  const dueTo = isoDate(input.dueTo, "dueTo");
+  if (proposedFrom && proposedTo && proposedFrom >= proposedTo) failInput("提出日期范围必须满足 proposedFrom 早于 proposedTo");
+  if (dueFrom && dueTo && dueFrom >= dueTo) failInput("上架日期范围必须满足 dueFrom 早于 dueTo");
+  const filters: NewProductProjectListInput = {
+    query: optionalText(input.q, "q", 80),
+    statuses: stringList(input.statuses, "statuses", 6, 40, ["not_started", "in_progress", "blocked", "completed", "paused", "cancelled"]),
+    suppliers: stringList(input.suppliers, "suppliers", 20, 200),
+    owners: stringList(input.owners, "owners", 20, 120),
+    categories: stringList(input.categories, "categories", 20, 120),
+    platforms: stringList(input.platforms, "platforms", 20, 80),
+    shopNames: stringList(input.shopNames, "shopNames", 20, 160),
+    priorities: stringList(input.priorities, "priorities", 3, 40, ["high", "normal", "low"]),
+    sources: stringList(input.sources, "sources", 4, 40, ["manual", "system", "import", "integration"]),
+    lifecycleStatuses: stringList(input.lifecycleStatuses, "lifecycleStatuses", 3, 40, ["active", "paused", "cancelled"]),
+    stage: optionalText(input.stage, "stage", 40),
+    stageStatuses: stringList(input.stageStatuses, "stageStatuses", 5, 40, ["not_started", "in_progress", "blocked", "completed", "not_applicable"]),
+    proposedFrom,
+    proposedTo,
+    dueFrom,
+    dueTo,
+    ...pagination(input),
+  };
+  if (filters.stage && !["modeling", "pricing", "image", "video", "listing", "stocking", "review"].includes(filters.stage)) {
+    failInput("stage 包含无效值");
+  }
+  const result = resultObject(await serviceSet(overrides).readNewProductProjects(filters, principal, context.signal));
+  if (result.structured !== true) {
+    return {
+      page: "workflow.launch_projects",
+      available: false,
+      backendMode: safeScalar(result.backendMode) ?? "legacy",
+      reason: "结构化新品项目尚未启用；旧新品记录仍可通过 operations 视图读取。",
+    };
+  }
+  const summary = resultObject(result.summary);
+  const facets = resultObject(result.facets);
+  return {
+    page: "workflow.launch_projects",
+    available: true,
+    backendMode: "django",
+    workflowRevision: safeScalar(result.workflowRevision) ?? null,
+    monetaryUnit: "cents",
+    marginUnit: "basis_points",
+    filtersApplied: {
+      query: filters.query,
+      statuses: filters.statuses,
+      suppliers: filters.suppliers,
+      owners: filters.owners,
+      categories: filters.categories,
+      platforms: filters.platforms,
+      shopNames: filters.shopNames,
+      priorities: filters.priorities,
+      sources: filters.sources,
+      lifecycleStatuses: filters.lifecycleStatuses,
+      stage: filters.stage,
+      stageStatuses: filters.stageStatuses,
+      proposedFrom,
+      proposedTo,
+      dueFrom,
+      dueTo,
+    },
+    summary: {
+      ...pickScalars(summary, ["total", "notStarted", "inProgress", "blocked", "completed", "paused", "cancelled", "overdue"]),
+      stageSummary: boundedRecords(summary.stageSummary, 7, [
+        "stageKey", "label", "not_started", "in_progress", "blocked", "completed", "not_applicable",
+      ]),
+    },
+    pagination: projectPagination(result.pagination),
+    facets: {
+      suppliers: boundedStrings(facets.suppliers, 50),
+      owners: boundedStrings(facets.owners, 50),
+      categories: boundedStrings(facets.categories, 50),
+      platforms: boundedStrings(facets.platforms, 50),
+      shopNames: boundedStrings(facets.shopNames, 50),
+      sources: boundedStrings(facets.sources, 10),
+    },
+    items: Array.isArray(result.items) ? result.items.slice(0, filters.pageSize).map(projectNewProductProject) : [],
   };
 }
 

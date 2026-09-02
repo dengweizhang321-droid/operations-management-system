@@ -98,6 +98,36 @@ test("filters and paginates tasks on the server while summary ignores only the s
   sqlite.close();
 });
 
+test("filters work items by category, shop and source and returns reusable facets", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const db = sqliteAdapter(sqlite);
+  const created = await createWorkflowTask({
+    title: "新品节点检查",
+    category: "新品上新",
+    owner: "新品负责人",
+    shopName: "京东-标准店铺",
+    due: "2026-09-12",
+  }, "operator@example.com", db);
+  const manual = await listWorkflowTasksPage({
+    categories: ["新品上新"],
+    shopNames: ["京东-标准店铺"],
+    sources: ["手动录入"],
+    page: 1,
+    pageSize: 20,
+  }, db);
+  assert.equal(manual.pagination.total, 1);
+  assert.equal(manual.items[0]?.id, created.id);
+  assert.ok(manual.facets.categories.includes("新品上新"));
+  assert.ok(manual.facets.owners.includes("新品负责人"));
+  assert.ok(manual.facets.shopNames.includes("京东-标准店铺"));
+  assert.deepEqual(manual.facets.sources, ["系统预置", "手动录入"]);
+
+  const systemOnly = await listWorkflowTasksPage({ sources: ["系统预置"], page: 1, pageSize: 100 }, db);
+  assert.equal(systemOnly.items.some((item) => item.id === created.id), false);
+  await assert.rejects(listWorkflowTasksPage({ sources: ["未知来源"] }, db), /来源包含无效值/);
+  sqlite.close();
+});
+
 test("rejects stale and non-integer optimistic versions", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);

@@ -53,7 +53,7 @@ cd backend
 python -m pip install -r requirements.txt
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test sales finance netshop market products
+python manage.py test sales finance netshop market products workflow
 ```
 
 公开 Worker 与 Django 之间使用 HMAC principal 信封。浏览器传入的角色、scope、用户标识或内部签名头均不可信，必须由 Worker 重新生成并由 Django 验证时间窗、签名和规范化请求身份。
@@ -132,6 +132,12 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 ## 商品经营域终态实现
 
 商品经营 app 位于 `backend/products/`，正式 reader/writer 固定为 `8041/8042`。现有 React 页面、公开汇总和快递费率导入路径保留；商品查询复用 PostgreSQL 销售/ERP 权威，并消费 D1 库存导入后的版本化投影，库存域本身不迁移。PostgreSQL 是商品费率、批次、审计、原始分片、revision、投影和商品读写的唯一权威；`products-service-enabled.json` 绑定正式 authority 加入启动链，服务启动还要求 PostgreSQL `max_connections>=80`。旧 D1 商品对象仅保留空 tombstone、永久 guard 和退役 receipt，商品在线路径不使用 R2。正式迁移、系统测试、`0099/0100`、PNR、退役、备份和恢复证据见[商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。
+
+## 运营事务新品项目（切换前实现）
+
+`backend/workflow/` 实现结构化新品项目、目标店铺、七阶段、元数据活动审计、revision、写请求回放防护和独立写 authority。reader 只开放新品列表/详情及固定 `launch_project_search` 消费查询；writer 只开放新品项目增删改和阶段更新。公开 Worker 继续负责真实 principal、无范围账号门禁、HMAC、请求/响应上限和读写端点隔离；React 页面不直连 Django 或 PostgreSQL。
+
+该领域目前是切换前代码，不是当前本机生产终态：`workflow_write_authority` 初始为 `disabled`，`TERUISI_DJANGO_WORKFLOW_MODE` 缺省为 `legacy`，未分配或启动正式端口，未迁移旧 `workflow_operation_records.record_type='launch'` 数据，也未执行 D1 退役。只有完成镜像迁移、逐项回查、独立最小权限 reader/writer、备份恢复、旧路径拒绝证明和受控 authority 切换后，才可把模式改为 `django`。完整边界与验收清单见[运营事务新品项目迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
 
 ## 当前本机终态记录
 

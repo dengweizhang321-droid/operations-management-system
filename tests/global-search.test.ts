@@ -8,6 +8,7 @@ import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reade
 import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
 import type { ProductsConsumerReader } from "../lib/django/products-consumer-reader";
 import type { InventoryConsumerReader } from "../lib/django/inventory-consumer-reader";
+import type { WorkflowConsumerReader } from "../lib/django/workflow-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -827,6 +828,67 @@ test("运营事务真实 SQLite 结果按记录类型返回对应 target view", 
   assert.deepEqual(targets.get("operation:inspection-1"), { module: "workflow", view: "inspection" });
   assert.deepEqual(targets.get("operation:review-1"), { module: "workflow", view: "reviews" });
   assert.deepEqual(targets.get("operation:launch-1"), { module: "workflow", view: "launch" });
+  sqlite.close();
+});
+
+test("Django 运营事务模式优先检索结构化新品且不回查旧新品记录", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`CREATE TABLE workflow_operation_records (
+    id TEXT PRIMARY KEY, record_type TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
+    priority TEXT NOT NULL DEFAULT '', platform TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT '',
+    shop_name TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT
+  );
+  INSERT INTO workflow_operation_records
+    (id, record_type, title, platform, channel, shop_name, content, updated_at)
+  VALUES
+    ('review-1', 'review', '净水器复盘', '京东', '线上', '一店', '净水器', '2026-09-02'),
+    ('legacy-launch-1', 'launch', '净水器旧新品', '京东', '线上', '一店', '净水器', '2026-09-03');`);
+  const database = {
+    prepare(sql: string) {
+      let values: Array<string | number | bigint | Uint8Array | null> = [];
+      return {
+        bind(...next: unknown[]) { values = next as typeof values; return this; },
+        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+      };
+    },
+  } as GlobalSearchDatabase;
+  const calls: Array<Record<string, unknown>> = [];
+  const workflowReader: WorkflowConsumerReader = {
+    async read(_principal, request) {
+      calls.push(request);
+      return {
+        revision: "2:abcdef123456",
+        data: {
+          items: [{
+            id: "7e28149d-f0bd-4fb8-b87f-77e507b28130",
+            title: "净水器结构化新品",
+            subtitle: "供应商甲 · 商用净水 · 进行中",
+            detail: "SKU-NEW-1 · 新品负责人",
+            updatedAt: "2026-09-01T10:00:00+08:00",
+            amountCents: 399_900,
+          }],
+          total: 1,
+          truncated: false,
+        },
+      };
+    },
+  };
+  const result = await searchAllBusinessData(
+    database,
+    normalizeGlobalSearchRequest(new URLSearchParams("q=净水器&group=workflow&limit=8")),
+    admin,
+    { workflowBackendMode: "django", workflowReader },
+  );
+  assert.deepEqual(result.groups[0]?.items.map((item) => item.id), [
+    "launch:7e28149d-f0bd-4fb8-b87f-77e507b28130",
+    "operation:review-1",
+  ]);
+  assert.equal(result.groups[0]?.total, 2);
+  assert.equal(result.groups[0]?.totalExact, true);
+  assert.deepEqual(result.groups[0]?.items[0]?.target, { module: "workflow", view: "launch" });
+  assert.equal(calls[0]?.operation, "launch_project_search");
+  assert.equal(result.groups[0]?.items.some((item) => item.id.includes("legacy-launch")), false);
   sqlite.close();
 });
 

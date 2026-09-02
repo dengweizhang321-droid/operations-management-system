@@ -29,6 +29,7 @@ const {
   getNetshopProductPerformancePageData,
   getOperatingSettingsSummaryPageData,
   listFinanceTargetsPageData,
+  listNewProductProjectsPageData,
   listOperationsRecordsPageData,
   listWorkflowTasksPageData,
   listWorkflowTemplatesPageData,
@@ -328,6 +329,79 @@ test("workflow adapters keep unrestricted lists closed while operations records 
     },
   });
   assert.equal(includeInactive, true);
+});
+
+test("structured new-product AI projection exposes bounded stages and targets without audit identities", async () => {
+  let captured: unknown;
+  const payload = await listNewProductProjectsPageData({
+    q: "净水器",
+    statuses: ["blocked"],
+    suppliers: ["供应商甲"],
+    stage: "pricing",
+    stageStatuses: ["blocked"],
+    limit: 2,
+  }, { principal: unrestrictedAnalyst }, {
+    readNewProductProjects: async (input, principal) => {
+      captured = { input, principal };
+      return {
+        structured: true,
+        backendMode: "django",
+        workflowRevision: "3:abcdef123456",
+        summary: {
+          total: 1,
+          blocked: 1,
+          stageSummary: [{ stageKey: "pricing", label: "分析定价", blocked: 1, secret: "omit" }],
+        },
+        facets: { suppliers: ["供应商甲"], owners: ["负责人"], categories: ["商用净水"] },
+        pagination: { page: 1, pageSize: 2, total: 1, returned: 1, truncated: false },
+        items: [{
+          id: "project-1",
+          productName: "大通量净水器",
+          supplierName: "供应商甲",
+          status: "blocked",
+          approvedPriceCents: 399_900,
+          estimatedGrossMarginBps: 3_200,
+          createdBy: "private@example.com",
+          updatedBy: "private@example.com",
+          privateField: "omit",
+          targets: [{ platform: "京东", shopName: "旗舰店", listingSku: "JD-1", internal: "omit" }],
+          stages: [{
+            stageKey: "pricing",
+            label: "分析定价",
+            status: "blocked",
+            blocker: "等待成本",
+            evidenceUrl: "https://example.test/pricing.xlsx",
+            evidenceLabel: "定价表",
+            updatedBy: "private@example.com",
+          }],
+        }],
+      };
+    },
+  });
+  assert.equal((captured as { principal: unknown }).principal, unrestrictedAnalyst);
+  assert.equal((captured as { input: { stage?: string } }).input.stage, "pricing");
+  assert.equal(payload.available, true);
+  assert.equal(payload.workflowRevision, "3:abcdef123456");
+  assert.equal(payload.items[0]?.stages[0]?.blocker, "等待成本");
+  assert.equal("createdBy" in payload.items[0]!, false);
+  assert.equal("updatedBy" in payload.items[0]!, false);
+  assert.equal("internal" in payload.items[0]!.targets[0]!, false);
+  assert.equal("updatedBy" in payload.items[0]!.stages[0]!, false);
+
+  const legacy = await listNewProductProjectsPageData({}, { principal: unrestrictedAnalyst }, {
+    readNewProductProjects: async () => ({ structured: false, backendMode: "legacy" }),
+  });
+  assert.equal(legacy.available, false);
+  assert.equal(legacy.backendMode, "legacy");
+
+  let called = false;
+  await assert.rejects(
+    () => listNewProductProjectsPageData({}, { principal: restrictedAnalyst }, {
+      readNewProductProjects: async () => { called = true; return {}; },
+    }),
+    (error: unknown) => (error as { code?: string }).code === "access_denied",
+  );
+  assert.equal(called, false);
 });
 
 test("import status enforces source-specific authorization and removes hashes, warnings, and raw payloads", async () => {

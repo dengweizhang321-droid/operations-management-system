@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import Dialog from "./ui/dialog";
+import NewProductLaunchView from "./new-product-launch-view";
 
 type Role = "viewer" | "analyst" | "operator" | "admin";
 type Status = "待开始" | "工作中" | "已完成";
@@ -91,7 +92,8 @@ type TaskSummary = {
   owners?: Array<{ owner: string; pending?: number; active?: number; completed?: number; total?: number }>;
   ownerWorkload?: Array<{ owner: string; pending?: number; active?: number; completed?: number; total?: number }>;
 };
-type TaskListPayload = { items: Task[]; pagination?: Partial<Pagination>; summary?: TaskSummary };
+type TaskFacets = { categories?: string[]; owners?: string[]; shopNames?: string[]; sources?: string[] };
+type TaskListPayload = { items: Task[]; pagination?: Partial<Pagination>; summary?: TaskSummary; facets?: TaskFacets };
 type OperationActivity = { id: string; action: string; actorEmail: string; actorRole: Role; fromVersion: number | null; toVersion: number; changedFields?: string[]; fromStatus?: string | null; toStatus?: string | null; createdAt: string };
 type OperationRecordDraft = {
   title: string;
@@ -725,6 +727,10 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [taskStatuses, setTaskStatuses] = useState<Status[]>([]);
   const [taskPriorities, setTaskPriorities] = useState<Priority[]>([]);
   const [taskOwners, setTaskOwners] = useState<string[]>([]);
+  const [taskShops, setTaskShops] = useState<string[]>([]);
+  const [taskCategories, setTaskCategories] = useState<string[]>([]);
+  const [taskSources, setTaskSources] = useState<string[]>([]);
+  const [taskFacets, setTaskFacets] = useState<TaskFacets>({});
   const [taskDueFrom, setTaskDueFrom] = useState("");
   const [taskDueTo, setTaskDueTo] = useState("");
   const [taskViewMode, setTaskViewMode] = useState<"table" | "timeline">("table");
@@ -735,6 +741,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draft, setDraft] = useState<DraftTask>(EMPTY_TASK);
   const [taskEditorError, setTaskEditorError] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const selectOperationsTab = useCallback((tab: OperationsTab) => {
     onModuleViewChange(tab);
@@ -761,6 +768,9 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     if (query.trim()) commonParams.set("q", query.trim());
     taskPriorities.forEach((value) => commonParams.append("priority", value));
     taskOwners.forEach((value) => commonParams.append("owner", value));
+    taskShops.forEach((value) => commonParams.append("shopName", value));
+    taskCategories.forEach((value) => commonParams.append("category", value));
+    taskSources.forEach((value) => commonParams.append("source", value));
     if (taskDueFrom) commonParams.set("dueFrom", taskDueFrom);
     if (taskDueTo) commonParams.set("dueTo", calendarDateWithOffset(taskDueTo, 1));
     const listParams = new URLSearchParams(commonParams);
@@ -775,6 +785,9 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     if (query.trim()) { overdueParams.set("q", query.trim()); todayParams.set("q", query.trim()); }
     taskPriorities.forEach((value) => { overdueParams.append("priority", value); todayParams.append("priority", value); });
     taskOwners.forEach((value) => { overdueParams.append("owner", value); todayParams.append("owner", value); });
+    taskShops.forEach((value) => { overdueParams.append("shopName", value); todayParams.append("shopName", value); });
+    taskCategories.forEach((value) => { overdueParams.append("category", value); todayParams.append("category", value); });
+    taskSources.forEach((value) => { overdueParams.append("source", value); todayParams.append("source", value); });
     (["待开始", "工作中"] as Status[]).forEach((value) => { overdueParams.append("status", value); todayParams.append("status", value); });
     overdueParams.set("dueTo", today);
     todayParams.set("dueFrom", today);
@@ -789,15 +802,19 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
       ]);
       if (generation !== taskGeneration.current) return;
       const rawItems = Array.isArray(payload.items) ? payload.items : [];
+      if (payload.facets) setTaskFacets(payload.facets);
       const hasServerPagination = Boolean(payload.pagination);
       const queryNeedle = query.trim().toLocaleLowerCase("zh-CN");
       const matchesCommon = (item: Task) => {
         const matchesQuery = !queryNeedle || [item.title, item.workContent, item.category, item.owner, item.shopName].join(" ").toLocaleLowerCase("zh-CN").includes(queryNeedle);
         const matchesPriority = taskPriorities.length === 0 || taskPriorities.includes(item.priority);
         const matchesOwner = taskOwners.length === 0 || taskOwners.includes(item.owner);
+        const matchesShop = taskShops.length === 0 || taskShops.includes(item.shopName);
+        const matchesCategory = taskCategories.length === 0 || taskCategories.includes(item.category);
+        const matchesSource = taskSources.length === 0 || taskSources.includes(item.source);
         const matchesDueFrom = !taskDueFrom || (item.due !== "待排期" && item.due >= taskDueFrom);
         const matchesDueTo = !taskDueTo || (item.due !== "待排期" && item.due <= taskDueTo);
-        return matchesQuery && matchesPriority && matchesOwner && matchesDueFrom && matchesDueTo;
+        return matchesQuery && matchesPriority && matchesOwner && matchesShop && matchesCategory && matchesSource && matchesDueFrom && matchesDueTo;
       };
       const legacyPool = rawItems.filter(matchesCommon);
       const legacyVisible = legacyPool.filter((item) => effectiveStatuses.includes(item.status));
@@ -839,7 +856,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
         setLoadingMore(false);
       }
     }
-  }, [query, statusFilter, taskDueFrom, taskDueTo, taskOwners, taskPriorities, taskStatuses]);
+  }, [query, statusFilter, taskCategories, taskDueFrom, taskDueTo, taskOwners, taskPriorities, taskShops, taskSources, taskStatuses]);
 
   const loadTemplates = useCallback(async () => {
     const requestKey = `/api/workflow/templates${canWrite ? "?includeInactive=true" : ""}`;
@@ -888,7 +905,10 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   };
   const completedShare = counts.total > 0 ? counts.completed / counts.total * 100 : 0;
   const activeShare = counts.total > 0 ? counts.active / counts.total * 100 : 0;
-  const ownerOptions = useMemo(() => Array.from(new Set([...taskOwners, ...tasks.map((item) => item.owner), ...templates.map((item) => item.owner ?? "")].filter(Boolean))).sort((left, right) => left.localeCompare(right, "zh-CN")), [taskOwners, tasks, templates]);
+  const ownerOptions = useMemo(() => Array.from(new Set([...taskOwners, ...(taskFacets.owners ?? []), ...tasks.map((item) => item.owner), ...templates.map((item) => item.owner ?? "")].filter(Boolean))).sort((left, right) => left.localeCompare(right, "zh-CN")), [taskFacets.owners, taskOwners, tasks, templates]);
+  const shopOptions = useMemo(() => Array.from(new Set([...taskShops, ...(taskFacets.shopNames ?? []), ...tasks.map((item) => item.shopName), ...templates.map((item) => item.shopName ?? "")].filter(Boolean))).sort((left, right) => left.localeCompare(right, "zh-CN")), [taskFacets.shopNames, taskShops, tasks, templates]);
+  const categoryOptions = useMemo(() => Array.from(new Set([...taskCategories, ...(taskFacets.categories ?? []), ...tasks.map((item) => item.category), ...templates.map((item) => item.category ?? "")].filter(Boolean))).sort((left, right) => left.localeCompare(right, "zh-CN")), [taskCategories, taskFacets.categories, tasks, templates]);
+  const sourceOptions = useMemo(() => Array.from(new Set([...taskSources, ...(taskFacets.sources ?? []), ...tasks.map((item) => item.source)].filter(Boolean))).sort((left, right) => left.localeCompare(right, "zh-CN")), [taskFacets.sources, taskSources, tasks]);
   const openLoadedTasks = tasks.filter((item) => item.status !== "已完成");
   const prioritySummary = (["high", "normal", "low"] as Priority[]).map((priority) => ({ priority, label: priorityLabel(priority), count: openLoadedTasks.filter((item) => item.priority === priority).length }));
   const priorityMax = Math.max(1, ...prioritySummary.map((item) => item.count));
@@ -958,10 +978,46 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     setTaskEditorError("");
     window.requestAnimationFrame(() => document.getElementById("operations-task-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }));
   };
-  const downloadTasks = () => downloadCsvFile(`运营事务-工作计划-${shanghaiDateWithOffset()}.csv`, [
-    ["工作事项", "工作内容", "店铺", "紧急程度", "跟进人", "开始时间", "截止时间", "状态", "来源", "录入时间"],
-    ...tasks.map((task) => [task.title, task.workContent, task.shopName, priorityLabel(task.priority), task.owner, task.startDate, task.due, statusLabel(task.status), task.source, formatRecordedAt(task.createdAt)]),
-  ]);
+  const downloadTasks = async () => {
+    if (exporting) return;
+    setExporting(true); setFeedback("");
+    try {
+      const scopeStatuses: Status[] = statusFilter === "open" ? ["待开始", "工作中"] : statusFilter === "pending" ? ["待开始"] : statusFilter === "active" ? ["工作中"] : ["已完成"];
+      const effectiveStatuses = taskStatuses.length > 0 ? scopeStatuses.filter((value) => taskStatuses.includes(value)) : scopeStatuses;
+      const params = new URLSearchParams({ page: "1", pageSize: "100" });
+      if (query.trim()) params.set("q", query.trim());
+      effectiveStatuses.forEach((value) => params.append("status", value));
+      taskPriorities.forEach((value) => params.append("priority", value));
+      taskOwners.forEach((value) => params.append("owner", value));
+      taskShops.forEach((value) => params.append("shopName", value));
+      taskCategories.forEach((value) => params.append("category", value));
+      taskSources.forEach((value) => params.append("source", value));
+      if (taskDueFrom) params.set("dueFrom", taskDueFrom);
+      if (taskDueTo) params.set("dueTo", calendarDateWithOffset(taskDueTo, 1));
+      const exported: Task[] = [];
+      let page = 1;
+      let total = 0;
+      do {
+        params.set("page", String(page));
+        const payload = await requestJson<TaskListPayload>(`/api/workflow/tasks?${params}`);
+        const nextItems = Array.isArray(payload.items) ? payload.items : [];
+        total = payload.pagination?.total ?? nextItems.length;
+        if (total > 100_000) throw new Error("当前筛选结果超过 100,000 条，请缩小范围后导出。");
+        exported.push(...nextItems);
+        page += 1;
+        if (nextItems.length === 0) break;
+      } while (exported.length < total);
+      downloadCsvFile(`运营事务-工作计划-${shanghaiDateWithOffset()}.csv`, [
+        ["事项分类", "工作事项", "工作内容", "店铺", "紧急程度", "跟进人", "开始时间", "截止时间", "状态", "来源", "录入时间"],
+        ...exported.map((task) => [task.category, task.title, task.workContent, task.shopName, priorityLabel(task.priority), task.owner, task.startDate, task.due, statusLabel(task.status), task.source, formatRecordedAt(task.createdAt)]),
+      ]);
+      setFeedback(`已导出当前筛选下的完整清单，共 ${exported.length} 项。`);
+    } catch (reason) {
+      setFeedback(messageOf(reason, "工作计划导出失败"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">{([["plan", "工作计划"], ["inspection", "巡店检查"], ["reviews", "评价维护"], ["launch", "新品上架"], ["variables", "变量配置"]] as Array<[OperationsTab, string]>).map(([value, label]) => <button
     type="button"
@@ -980,7 +1036,8 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
       if (nextIndex >= 0) { event.preventDefault(); tabs[nextIndex]?.focus(); tabs[nextIndex]?.click(); }
     }}
   >{label}</button>)}</div>;
-  if (activeTab === "inspection" || activeTab === "reviews" || activeTab === "launch") return <>{subnav}<div role="tabpanel" id={`operations-panel-${activeTab}`} aria-labelledby={`operations-tab-${activeTab}`}><OperationsRecordWorkspace key={activeTab} type={activeTab === "reviews" ? "review" : activeTab} canWrite={canWrite} /></div></>;
+  if (activeTab === "inspection" || activeTab === "reviews") return <>{subnav}<div role="tabpanel" id={`operations-panel-${activeTab}`} aria-labelledby={`operations-tab-${activeTab}`}><OperationsRecordWorkspace key={activeTab} type={activeTab === "reviews" ? "review" : activeTab} canWrite={canWrite} /></div></>;
+  if (activeTab === "launch") return <>{subnav}<div role="tabpanel" id="operations-panel-launch" aria-labelledby="operations-tab-launch"><NewProductLaunchView canWrite={canWrite} legacyFallback={<OperationsRecordWorkspace type="launch" canWrite={canWrite} />} /></div></>;
   if (activeTab === "variables") return <>{subnav}<div role="tabpanel" id="operations-panel-variables" aria-labelledby="operations-tab-variables"><TemplateWorkspace templates={templates} loading={templatesLoading} error={templatesError} canWrite={canWrite} onReload={() => void loadTemplates()} onUse={useTemplate} /></div></>;
 
   const listTitle = statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";
@@ -990,7 +1047,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   return <>{subnav}<div role="tabpanel" id="operations-panel-plan" aria-labelledby="operations-tab-plan">
     <section className="workflow-toolbar workflow-section-hero workflow-plan-hero">
       <div><span className="eyebrow">OPERATION COLLABORATION</span><h2>工作计划</h2><p>集中管理责任人和截止节点；任务、协作与附件均由服务端持久化保存。</p></div>
-      <div className="workflow-hero-actions"><span>{canWrite ? "可协作编辑" : "只读访问"}</span><button type="button" className="secondary-button" disabled={tasks.length === 0} onClick={downloadTasks}>⇩ 下载已加载清单</button><button type="button" className="secondary-button" onClick={() => void loadTasks()} disabled={loading}>刷新</button></div>
+      <div className="workflow-hero-actions"><span>{canWrite ? "可协作编辑" : "只读访问"}</span><button type="button" className="secondary-button" disabled={pagination.total === 0 || exporting} onClick={() => void downloadTasks()}>{exporting ? "正在导出…" : "⇩ 导出筛选完整清单"}</button><button type="button" className="secondary-button" onClick={() => void loadTasks()} disabled={loading}>刷新</button></div>
     </section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭工作计划提示" onClick={() => setFeedback("")}>×</button></div>}
 
@@ -1000,8 +1057,11 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
         <MultiSelectFilter values={taskStatuses} onChange={(values) => setTaskStatuses(values as Status[])} ariaLabel="工作计划状态" allLabel="全部状态" options={STATUS_OPTIONS.map((value) => ({ value, label: statusLabel(value) }))} />
         <MultiSelectFilter values={taskPriorities} onChange={(values) => setTaskPriorities(values as Priority[])} ariaLabel="工作计划紧急程度" allLabel="全部紧急程度" options={[{ value: "high", label: "紧急" }, { value: "normal", label: "普通" }, { value: "low", label: "低" }]} />
         <MultiSelectFilter values={taskOwners} onChange={setTaskOwners} ariaLabel="工作计划跟进人" allLabel="全部跟进人" options={ownerOptions.map((owner) => ({ value: owner, label: owner }))} />
+        <MultiSelectFilter values={taskShops} onChange={setTaskShops} ariaLabel="工作计划店铺" allLabel="全部店铺" options={shopOptions.map((shop) => ({ value: shop, label: shop }))} />
+        <MultiSelectFilter values={taskCategories} onChange={setTaskCategories} ariaLabel="工作计划事项分类" allLabel="全部分类" options={categoryOptions.map((category) => ({ value: category, label: category }))} />
+        <MultiSelectFilter values={taskSources} onChange={setTaskSources} ariaLabel="工作计划来源" allLabel="全部来源" options={sourceOptions.map((source) => ({ value: source, label: source }))} />
         <label className="workflow-date-filter"><span>截止日期</span><input type="date" value={taskDueFrom} max={taskDueTo || undefined} onChange={(event) => setTaskDueFrom(event.target.value)} aria-label="截止从" /><i>至</i><input type="date" value={taskDueTo} min={taskDueFrom || undefined} onChange={(event) => setTaskDueTo(event.target.value)} aria-label="截止到（含）" /></label>
-        <button type="button" className="row-action operations-filter-reset" onClick={() => { setQuery(""); setTaskStatuses([]); setTaskPriorities([]); setTaskOwners([]); setTaskDueFrom(""); setTaskDueTo(""); }}>清除筛选</button>
+        <button type="button" className="row-action operations-filter-reset" onClick={() => { setQuery(""); setTaskStatuses([]); setTaskPriorities([]); setTaskOwners([]); setTaskShops([]); setTaskCategories([]); setTaskSources([]); setTaskDueFrom(""); setTaskDueTo(""); }}>清除筛选</button>
       </div>
       <div className="workflow-view-switch" role="radiogroup" aria-label="工作计划视图"><button type="button" role="radio" aria-checked={taskViewMode === "table"} className={taskViewMode === "table" ? "active" : ""} onClick={() => setTaskViewMode("table")}>☷ 表格</button><button type="button" role="radio" aria-checked={taskViewMode === "timeline"} className={taskViewMode === "timeline" ? "active" : ""} onClick={() => setTaskViewMode("timeline")}>⌁ 时间轴</button></div>
     </section>
@@ -1020,7 +1080,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
       <article className="panel workflow-chart-card"><header><div><h3>按跟进人工作量</h3><p>当前已加载，最多 6 位</p></div><span>{ownerWorkload.length} 人</span></header><div className="workflow-owner-chart">{ownerWorkload.length > 0 ? ownerWorkload.map((item) => <div key={item.owner}><label><span title={item.owner}>{item.owner}</span><strong>{item.total}</strong></label><i><b className="owner-pending" style={{ width: `${item.pending / ownerWorkloadMax * 100}%` }} /><b className="owner-active" style={{ width: `${item.active / ownerWorkloadMax * 100}%` }} /><b className="owner-completed" style={{ width: `${item.completed / ownerWorkloadMax * 100}%` }} /></i></div>) : <p className="workflow-chart-empty">暂无跟进人数据</p>}</div><footer><span><i className="legend-gray" />未开始</span><span><i className="legend-blue" />进行中</span><span><i className="legend-green" />已完成</span></footer></article>
     </section>
 
-    {canWrite ? <section id="operations-task-editor" className="panel workflow-quick-create"><header><div><span className="eyebrow">{editingTask ? "EDIT WORK ITEM" : "QUICK ENTRY"}</span><h3>{editingTask ? "编辑工作事项" : "快速录入工作项"}</h3></div>{editingTask && <button type="button" className="row-action" onClick={() => { setEditingTask(null); setDraft(EMPTY_TASK); setTaskEditorError(""); }}>取消编辑</button>}</header><form className="workflow-task-create-fields" noValidate onSubmit={(event) => { event.preventDefault(); void saveTask(); }}><label><span>事项分类</span><input maxLength={80} value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} /></label><label><span>工作事项（必填）</span><input required maxLength={160} value={draft.title} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, title: event.target.value })); }} /></label><label className="workflow-create-content"><span>工作内容</span><input maxLength={2000} value={draft.workContent} onChange={(event) => setDraft((current) => ({ ...current, workContent: event.target.value }))} /></label><label><span>店铺名称</span><input maxLength={160} value={draft.shopName} onChange={(event) => setDraft((current) => ({ ...current, shopName: event.target.value }))} /></label><label><span>紧急程度</span><select value={draft.priority} onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value as Priority }))}><option value="high">紧急</option><option value="normal">普通</option><option value="low">低</option></select></label><label><span>开始时间</span><input type="date" max={draft.due || undefined} value={draft.startDate} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, startDate: event.target.value })); }} /></label><label><span>截止时间</span><input type="date" min={draft.startDate || undefined} value={draft.due} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, due: event.target.value })); }} /></label><label><span>跟进人</span><input maxLength={120} value={draft.owner} onChange={(event) => setDraft((current) => ({ ...current, owner: event.target.value }))} /></label>{taskEditorError && <p className="workflow-edit-validation" role="alert">{taskEditorError}</p>}<button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : editingTask ? "保存修改" : "＋ 添加工作项"}</button></form><small>状态自动记录；逾期按 Asia/Shanghai 判定。编辑保存使用版本校验，冲突时请刷新后重试。</small></section> : <DataState kind="permission" title="当前为只读模式" note="你可以查看任务与协作详情；新增、编辑、评论和附件上传需要运营或管理员权限。" />}
+    {canWrite ? <section id="operations-task-editor" className="panel workflow-quick-create"><header><div><span className="eyebrow">{editingTask ? "EDIT WORK ITEM" : "QUICK ENTRY"}</span><h3>{editingTask ? "编辑工作事项" : "快速录入工作项"}</h3></div>{editingTask && <button type="button" className="row-action" onClick={() => { setEditingTask(null); setDraft(EMPTY_TASK); setTaskEditorError(""); }}>取消编辑</button>}</header><form className="workflow-task-create-fields" noValidate onSubmit={(event) => { event.preventDefault(); void saveTask(); }}><label><span>事项分类</span><input list="workflow-category-options" maxLength={80} value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} /></label><label><span>工作事项（必填）</span><input required maxLength={160} value={draft.title} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, title: event.target.value })); }} /></label><label className="workflow-create-content"><span>工作内容</span><input maxLength={2000} value={draft.workContent} onChange={(event) => setDraft((current) => ({ ...current, workContent: event.target.value }))} /></label><label><span>店铺名称</span><input list="workflow-shop-options" maxLength={160} value={draft.shopName} onChange={(event) => setDraft((current) => ({ ...current, shopName: event.target.value }))} /></label><label><span>紧急程度</span><select value={draft.priority} onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value as Priority }))}><option value="high">紧急</option><option value="normal">普通</option><option value="low">低</option></select></label><label><span>开始时间</span><input type="date" max={draft.due || undefined} value={draft.startDate} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, startDate: event.target.value })); }} /></label><label><span>截止时间</span><input type="date" min={draft.startDate || undefined} value={draft.due} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, due: event.target.value })); }} /></label><label><span>跟进人</span><input list="workflow-owner-options" maxLength={120} value={draft.owner} onChange={(event) => setDraft((current) => ({ ...current, owner: event.target.value }))} /></label>{taskEditorError && <p className="workflow-edit-validation" role="alert">{taskEditorError}</p>}<button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : editingTask ? "保存修改" : "＋ 添加工作项"}</button></form><datalist id="workflow-category-options">{categoryOptions.map((value) => <option key={value} value={value} />)}</datalist><datalist id="workflow-shop-options">{shopOptions.map((value) => <option key={value} value={value} />)}</datalist><datalist id="workflow-owner-options">{ownerOptions.map((value) => <option key={value} value={value} />)}</datalist><small>分类、店铺和负责人会优先复用现有标准选项；状态自动记录，逾期按 Asia/Shanghai 判定。编辑保存使用版本校验，冲突时请刷新后重试。</small></section> : <DataState kind="permission" title="当前为只读模式" note="你可以查看任务与协作详情；新增、编辑、评论和附件上传需要运营或管理员权限。" />}
 
     <section className="workflow-task-buckets" aria-label="工作事项分类">
       <button type="button" className={statusFilter === "open" ? "active" : ""} onClick={() => { setStatusFilter("open"); setTaskStatuses([]); }}><span>工作事项</span><strong>{counts.open}</strong><small>未开始 + 进行中</small></button>

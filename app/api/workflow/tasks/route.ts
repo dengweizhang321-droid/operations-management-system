@@ -25,6 +25,8 @@ export async function GET(request: Request) {
       priorities: params.getAll("priority"),
       owners: params.getAll("owner"),
       shopNames: params.getAll("shopName"),
+      categories: params.getAll("category"),
+      sources: params.getAll("source"),
       dueFrom: params.get("dueFrom"),
       dueTo: params.get("dueTo"),
       page: params.get("page"),

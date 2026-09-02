@@ -69,6 +69,11 @@ test("persists all three operation record types with bounded filters and metadat
   assert.equal(result.items[0]?.dueAt, "2026-08-19T16:00:00.000Z");
   const ranged = await listOperationRecords({ from: "2026-08-20", to: "2026-08-21" }, admin, db);
   assert.equal(ranged.items.some((item) => item.id === inspection.id), true);
+  const afterStructuredCutover = await listOperationRecords({ excludeTypes: ["launch"] }, admin, db);
+  assert.equal(afterStructuredCutover.pagination.total, 2);
+  assert.equal(afterStructuredCutover.items.some((item) => item.type === "launch"), false);
+  const oldLaunchOnly = await listOperationRecords({ types: ["launch"], excludeTypes: ["launch"] }, admin, db);
+  assert.equal(oldLaunchOnly.pagination.total, 0);
 
   const activity = await listOperationRecordActivities(inspection.id, {}, admin, db);
   assert.equal(activity.items.length, 1);
@@ -201,6 +206,9 @@ test("migration and API routes preserve schema, role and no-store contracts", as
   assert.match(collectionRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(itemRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(activityRoute, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
+  for (const route of [collectionRoute, itemRoute, activityRoute]) {
+    assert.match(route, /getWorkflowBackendMode/);
+  }
   for (const route of [collectionRoute, itemRoute, activityRoute]) assert.match(route, /cache-control[\s\S]*no-store/);
 });
 

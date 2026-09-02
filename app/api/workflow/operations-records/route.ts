@@ -6,6 +6,7 @@ import {
 } from "@/lib/workflow/operations-records";
 import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { getWorkflowBackendMode } from "@/lib/django/workflow-service";
 
 function requestErrorResponse(error: unknown, fallback: string) {
   const authorization = authorizationErrorResponse(error);
@@ -26,8 +27,10 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     const params = new URL(request.url).searchParams;
+    const workflowMode = await getWorkflowBackendMode();
     const payload = await listOperationRecords({
       types: params.getAll("type"),
+      excludeTypes: workflowMode === "django" ? ["launch"] : [],
       statuses: params.getAll("status"),
       shopNames: params.getAll("shopName"),
       platforms: params.getAll("platform"),
@@ -51,6 +54,12 @@ export async function POST(request: Request) {
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json({ error: "运营记录必须是有效的 JSON 对象", code: "invalid_request" }, {
         status: 400,
+        headers: { "cache-control": "no-store" },
+      });
+    }
+    if (body.type === "launch" && await getWorkflowBackendMode() === "django") {
+      return Response.json({ error: "新品上新已切换到结构化项目，请使用新品项目接口。", code: "conflict" }, {
+        status: 409,
         headers: { "cache-control": "no-store" },
       });
     }
