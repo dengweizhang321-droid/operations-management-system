@@ -575,6 +575,72 @@ test("阿里妈妈商品报表按日期和商品汇总计划维度后再生成�
   assert.equal(result.rows[0]?.raw["计划列表"], "plan-a:计划A|plan-b:计划B");
 });
 
+test("阿里妈妈直连单日报表用受控归档文件名补齐缺失日期", async () => {
+  const directPromotionCsv = strToU8([
+    "场景ID,场景名字,原二级场景ID,原二级场景名字,计划ID,计划名字,主体ID,主体类型,主体名称,展现量,点击量,花费,净成交金额,总成交金额",
+    "scene-1,商品推广,scene-0,标准推广,plan-a,计划A,10001,商品,测试商品,100,10,12.34,20.00,30.00",
+  ].join("\r\n"));
+  const bytes = zipSync({ "商品报表_20260901_e2cbd482.csv": directPromotionCsv });
+  const result = await inspectTmallImportBytes({
+    source: "tmall_promotion",
+    bytes,
+    fileName: "天猫-志高亿玖专卖店-商品报表-2026-09-01.zip",
+    fileSizeBytes: bytes.byteLength,
+    shopName: TMALL_YIJIU_SHOP,
+    expectedStartDate: "2026-09-01",
+    expectedEndDate: "2026-09-01",
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.totals.rowCount, 1);
+  assert.equal(result.totals.spendCents, 1_234);
+  assert.equal(result.rows[0]?.businessDate, "2026-09-01");
+  assert.equal(result.rows[0]?.raw["日期"], "2026-09-01");
+  assert.deepEqual(JSON.parse(result.rows[0]!.sourceRowKey).slice(0, 5), [
+    "promotion_daily", "天猫", TMALL_YIJIU_SHOP, "2026-09-01", "10001",
+  ]);
+});
+
+test("阿里妈妈缺日期报表只在单日、文件名日期一致且直连表头完整时补齐", async () => {
+  const completeHeaders = "场景ID,场景名字,计划ID,计划名字,主体ID,主体类型,主体名称,展现量,点击量,花费";
+  const completeRow = "scene-1,商品推广,plan-a,计划A,10001,商品,测试商品,100,10,12.34";
+  const incompleteHeaders = "计划ID,主体ID,主体类型,主体名称,展现量,点击量,花费";
+  const incompleteRow = "plan-a,10001,商品,测试商品,100,10,12.34";
+  const inspect = (entryName: string, csv: string, expectedStartDate: string, expectedEndDate: string) => {
+    const bytes = zipSync({ [entryName]: strToU8(csv) });
+    return inspectTmallImportBytes({
+      source: "tmall_promotion",
+      bytes,
+      fileName: "商品报表.zip",
+      fileSizeBytes: bytes.byteLength,
+      shopName: TMALL_YIJIU_SHOP,
+      expectedStartDate,
+      expectedEndDate,
+    });
+  };
+
+  await assert.rejects(
+    () => inspect("商品报表_20260831_abcd.csv", `${completeHeaders}\r\n${completeRow}`, "2026-09-01", "2026-09-01"),
+    /缺少日期/,
+  );
+  await assert.rejects(
+    () => inspect("商品报表_abcd.csv", `${completeHeaders}\r\n${completeRow}`, "2026-09-01", "2026-09-01"),
+    /缺少日期/,
+  );
+  await assert.rejects(
+    () => inspect("20260901/商品报表_20260901_abcd.csv", `${completeHeaders}\r\n${completeRow}`, "2026-09-01", "2026-09-01"),
+    /缺少日期/,
+  );
+  await assert.rejects(
+    () => inspect("商品报表_20260901_abcd.csv", `${completeHeaders}\r\n${completeRow}`, "2026-09-01", "2026-09-02"),
+    /缺少日期/,
+  );
+  await assert.rejects(
+    () => inspect("商品报表_20260901_abcd.csv", `${incompleteHeaders}\r\n${incompleteRow}`, "2026-09-01", "2026-09-01"),
+    /缺少日期/,
+  );
+});
+
 test("推广 ZIP 多 CSV 时拒绝解析", async () => {
   const bytes = zipSync({ "a.csv": gb18030PromotionCsv, "b.csv": gb18030PromotionCsv });
   await assert.rejects(

@@ -86,7 +86,14 @@ type TabularRow = {
 
 type ParsedTable = {
   sheetName: string;
+  archiveEntryName?: string;
   rows: TabularRow[];
+};
+
+type ParsedHeader = {
+  index: number;
+  headers: string[];
+  businessDateFallback?: string;
 };
 
 function toHex(buffer: ArrayBuffer) {
@@ -267,7 +274,8 @@ function parseZip(bytes: Uint8Array, fileName: string, source: NetshopSource): P
     throw new Error(`${fileName} 压缩包内没有可识别的 .xlsx 或 .csv 文件`);
   }
   const [innerName, innerBytes] = entries[0];
-  return parseFile(innerBytes, innerName, source);
+  const parsed = parseFile(innerBytes, innerName, source);
+  return { ...parsed, archiveEntryName: innerName };
 }
 
 function parseFile(bytes: Uint8Array, fileName: string, source: NetshopSource): ParsedTable {
@@ -293,7 +301,7 @@ function looksLikeHeader(values: readonly unknown[]) {
   return /日期|时间|SKU|SPU|商品|订单|会话|访客|库存|仓|金额|展现|点击|费用|销售|浏览|成交|编码|名称/i.test(joined);
 }
 
-function findHeader(table: ParsedTable) {
+function findHeader(table: ParsedTable): ParsedHeader {
   const index = table.rows.findIndex((row) => looksLikeHeader(row.values));
   if (index < 0) throw new Error("没有识别到表头行");
   const headers = table.rows[index].values.map((value, cellIndex) => normalizeHeader(value) || `列${cellIndex + 1}`);
@@ -391,7 +399,29 @@ function tmallMasterCanonicalHeaders(values: readonly unknown[]) {
   });
 }
 
-function findTmallHeader(source: NetshopSource, table: ParsedTable) {
+const tmallDirectPromotionIdentityHeaders = [
+  "场景ID", "计划ID", "主体ID", "主体类型", "主体名称", "展现量", "点击量", "花费",
+] as const;
+
+function tmallPromotionArchiveDateFallback(
+  table: ParsedTable,
+  expectedStartDate?: string,
+  expectedEndDate?: string,
+) {
+  const startDate = isoDateFromValue(expectedStartDate);
+  const endDate = isoDateFromValue(expectedEndDate);
+  if (!startDate || startDate !== endDate || !table.archiveEntryName) return "";
+  const dateTokens = table.archiveEntryName.match(/20\d{6}/g) ?? [];
+  if (dateTokens.length !== 1) return "";
+  return isoDateFromValue(dateTokens[0]) === startDate ? startDate : "";
+}
+
+function findTmallHeader(
+  source: NetshopSource,
+  table: ParsedTable,
+  expectedStartDate?: string,
+  expectedEndDate?: string,
+): ParsedHeader {
   if (source === "tmall_product_master") {
     if (table.sheetName !== "发布模板") throw new Error("天猫货品文件首个工作表必须为“发布模板”");
     const index = table.rows.findIndex((row) => normalizeKey(normalizeHeader(row.values[0])) === "商品id"
@@ -416,17 +446,31 @@ function findTmallHeader(source: NetshopSource, table: ParsedTable) {
     return { index, headers: table.rows[index].values.map((value, cellIndex) => normalizeHeader(value) || `列${cellIndex + 1}`) };
   }
   if (source === "tmall_promotion") {
+    const fallbackDate = tmallPromotionArchiveDateFallback(table, expectedStartDate, expectedEndDate);
     const index = table.rows.findIndex((row) => {
       const headers = row.values.map(canonicalTmallPromotionHeader);
-      return headers.includes("日期") && headers.includes("主体ID") && headers.includes("花费");
+      const hasRequiredFacts = headers.includes("主体ID") && headers.includes("花费");
+      const isDirectSingleDayReport = Boolean(fallbackDate)
+        && tmallDirectPromotionIdentityHeaders.every((header) => headers.includes(header));
+      return hasRequiredFacts && (headers.includes("日期") || isDirectSingleDayReport);
     });
     if (index < 0) throw new Error("天猫商品推广报表缺少日期、商品ID（或主体ID）或花费表头");
-    return { index, headers: table.rows[index].values.map((value, cellIndex) => canonicalTmallPromotionHeader(value) || `列${cellIndex + 1}`) };
+    const headers = table.rows[index].values.map((value, cellIndex) => canonicalTmallPromotionHeader(value) || `列${cellIndex + 1}`);
+    return {
+      index,
+      headers,
+      ...(headers.includes("日期") ? {} : { businessDateFallback: fallbackDate }),
+    };
   }
   return findHeader(table);
 }
 
-function tmallRowObject(source: NetshopSource, headers: readonly string[], values: readonly unknown[]) {
+function tmallRowObject(
+  source: NetshopSource,
+  headers: readonly string[],
+  values: readonly unknown[],
+  businessDateFallback = "",
+) {
   const raw = tmallObjectFromRow(headers, values);
   if (source === "tmall_product_master") {
     for (const header of tmallMasterCanonicalRawHeaders) {
@@ -446,7 +490,11 @@ function tmallRowObject(source: NetshopSource, headers: readonly string[], value
       "商品链接": raw["链接"],
     };
   }
-  if (source === "tmall_promotion") return canonicalTmallPromotionRaw(raw);
+  if (source === "tmall_promotion") {
+    const output = canonicalTmallPromotionRaw(raw);
+    if (!normalizeText(output["日期"]) && businessDateFallback) output["日期"] = businessDateFallback;
+    return output;
+  }
   return raw;
 }
 
@@ -881,7 +929,7 @@ export type NetshopImportInput = {
 
 function buildNetshopRows(input: NetshopImportInput, context: {
   parsed: ParsedTable;
-  header: ReturnType<typeof findHeader>;
+  header: ParsedHeader;
   dataset: string;
   platform: string;
   shopName: string;
@@ -894,7 +942,12 @@ function buildNetshopRows(input: NetshopImportInput, context: {
     .map((row) => ({
       rowNumber: row.rowNumber,
       raw: isTmallSource(input.source)
-        ? tmallRowObject(input.source, context.header.headers, row.values)
+        ? tmallRowObject(
+            input.source,
+            context.header.headers,
+            row.values,
+            context.header.businessDateFallback,
+          )
         : objectFromRow(context.header.headers, row.values),
     }))
     .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)))
@@ -998,7 +1051,7 @@ export async function inspectTmallImportBytes(input: NetshopImportInput) {
   const assetImages = input.source === "tmall_product_assets"
     ? await extractTmallProductAssetImages(input.bytes)
     : undefined;
-  const header = findTmallHeader(input.source, parsed);
+  const header = findTmallHeader(input.source, parsed, input.expectedStartDate, input.expectedEndDate);
   const dataset = detectDataset(input.source, input.fileName, header.headers);
   const snapshotDate = usesSnapshotDate(input.source) ? isoDateFromValue(input.snapshotDate) : "";
   if (usesSnapshotDate(input.source) && !snapshotDate) throw new Error("天猫快照数据必须提供有效 snapshot_date=YYYY-MM-DD");
@@ -1161,9 +1214,9 @@ export async function prepareNormalizedNetshopImport(
     return normalizedNetshopRejection(input, rawFileHash, { code: "PARSE_ERROR", message });
   }
 
-  let header: ReturnType<typeof findHeader>;
+  let header: ParsedHeader;
   try {
-    header = findTmallHeader(input.source, parsed);
+    header = findTmallHeader(input.source, parsed, input.expectedStartDate, input.expectedEndDate);
   } catch (error) {
     const message = error instanceof Error ? error.message : "表头识别失败";
     return normalizedNetshopRejection(input, rawFileHash, { code: "HEADER_NOT_FOUND", message });
@@ -1386,9 +1439,9 @@ export async function importNetshopBytes(
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "PARSE_ERROR", message }], errorCount: 1 });
   }
 
-  let header: ReturnType<typeof findHeader>;
+  let header: ParsedHeader;
   try {
-    header = findTmallHeader(input.source, parsed);
+    header = findTmallHeader(input.source, parsed, input.expectedStartDate, input.expectedEndDate);
   } catch (error) {
     const message = error instanceof Error ? error.message : "表头识别失败";
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "HEADER_NOT_FOUND", message }], errorCount: 1 });
@@ -1425,7 +1478,12 @@ export async function importNetshopBytes(
     return reject({ ok: false, status: "rejected", message, warnings: [], errors: [{ code: "MISSING_SNAPSHOT_DATE", message }], errorCount: 1 });
   }
   const parsedRawRows = parsed.rows.slice(header.index + 1)
-    .map((row) => ({ rowNumber: row.rowNumber, raw: isTmallSource(input.source) ? tmallRowObject(input.source, header.headers, row.values) : objectFromRow(header.headers, row.values) }))
+    .map((row) => ({
+      rowNumber: row.rowNumber,
+      raw: isTmallSource(input.source)
+        ? tmallRowObject(input.source, header.headers, row.values, header.businessDateFallback)
+        : objectFromRow(header.headers, row.values),
+    }))
     .filter((row) => Object.values(row.raw).some((value) => normalizeText(value)))
     .filter((row) => !isDailyAggregateRow(input.source, row.raw));
   const rawRows = input.source === "tmall_promotion" ? prepareTmallPromotionRows(parsedRawRows) : parsedRawRows;
