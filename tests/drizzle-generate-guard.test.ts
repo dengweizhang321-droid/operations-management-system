@@ -27,5 +27,7 @@ test("ordinary Drizzle generation fails closed after operator-only sales retirem
   assert.match(result.stderr, /0098_market_domain_retirement\.sql/);
   assert.match(result.stderr, /0099_product_write_authority\.sql/);
   assert.match(result.stderr, /0100_product_domain_retirement\.sql/);
+  assert.match(result.stderr, /0101_inventory_write_authority\.sql/);
+  assert.match(result.stderr, /0102_inventory_domain_retirement\.sql/);
   assert.equal(result.stdout, "");
 });

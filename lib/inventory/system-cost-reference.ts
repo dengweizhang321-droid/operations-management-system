@@ -1,13 +1,20 @@
-import { getD1Database } from "@/lib/database/d1";
-import { findLatestSystemCostSnapshot } from "@/lib/inventory/database";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import {
+  createDjangoInventoryConsumerReader,
+  type InventoryConsumerReader,
+} from "@/lib/django/inventory-consumer-reader";
 
 /**
  * Resolve the current system-cost reference through the inventory domain.
  *
- * Inventory has not migrated in this sales cutover, so its repository remains
- * responsible for the D1 binding.  Sales callers receive only the immutable
- * batch/date/cost snapshot and never acquire or query a D1 connection.
+ * Sales callers receive only the immutable batch/date/cost snapshot and never
+ * acquire a database connection. Inventory remains the sole fact owner.
  */
-export function findLatestAuthoritativeSystemCostSnapshot() {
-  return findLatestSystemCostSnapshot(getD1Database());
+export async function findLatestAuthoritativeSystemCostSnapshot(
+  principal: AppPrincipal,
+  options: { reader?: InventoryConsumerReader; signal?: AbortSignal } = {},
+) {
+  const reader = options.reader ?? createDjangoInventoryConsumerReader();
+  const result = await reader.read(principal, { operation: "system_cost_snapshot" }, { signal: options.signal });
+  return result.data.snapshot;
 }

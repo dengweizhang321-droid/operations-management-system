@@ -332,7 +332,7 @@ export async function importSalesLedgerBytes(input: {
   let systemCostSnapshot: Record<string, unknown> | null = null;
   if (parserErrors.length === 0
     && hasCleanableZeroCostRows(effectiveRowsForCost(rows, dateRange.startDate, dateRange.endDate, expectedChannels))) {
-    const snapshot = await findLatestAuthoritativeSystemCostSnapshot();
+    const snapshot = await findLatestAuthoritativeSystemCostSnapshot(input.principal);
     if (snapshot) {
       systemCostSnapshot = {
         sourceBatchId: snapshot.batchId,

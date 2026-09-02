@@ -35,7 +35,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_market_reader",
   "teruisi_market_writer",
   "teruisi_products_reader",
-  "teruisi_products_writer"
+  "teruisi_products_writer",
+  "teruisi_inventory_reader",
+  "teruisi_inventory_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -249,6 +251,11 @@ function Assert-MaintenanceEvidence(
   if ($hasProductsRevisions -ne $hasProductsAuthority) {
     throw "PostgreSQL 商品经营证据字段不完整"
   }
+  $hasInventoryRevisions = $null -ne $Evidence.PSObject.Properties["inventoryRevisions"]
+  $hasInventoryAuthority = $null -ne $Evidence.PSObject.Properties["inventoryWriteAuthority"]
+  if ($hasInventoryRevisions -ne $hasInventoryAuthority) {
+    throw "PostgreSQL 库存证据字段不完整"
+  }
   $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
@@ -261,6 +268,9 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasProductsRevisions) {
     $evidenceProperties += @("productsRevisions", "productsWriteAuthority")
+  }
+  if ($hasInventoryRevisions) {
+    $evidenceProperties += @("inventoryRevisions", "inventoryWriteAuthority")
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -312,13 +322,20 @@ function Assert-MaintenanceEvidence(
       "product_shipping_rates", "product_inventory_projection", "product_write_authority"
     )
   }
+  if ($hasInventoryRevisions) {
+    $requiredTables += @(
+      "inventory_data_revisions", "inventory_import_batches",
+      "inventory_stock_lines", "inventory_age_lines", "inventory_write_authority",
+      "inventory_operating_settings", "replenishment_plan_items"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -484,6 +501,50 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($productsEpoch) -or
               -not [string]::IsNullOrEmpty($productsCutoverId)) {
       throw "未激活的商品经营写入权威包含激活证据"
+    }
+  }
+
+  if ($hasInventoryRevisions) {
+    if ($Evidence.inventoryRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.inventoryRevisions.PSObject.Properties["inventory"]) {
+      throw "PostgreSQL 库存 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.inventoryRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 库存 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 库存 revision 证据"
+      $inventoryDigest = [string]$property.Value.sourceDigest
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 0 -or
+          ([int64]$property.Value.revision -gt 0 -and $inventoryDigest -cnotmatch "^[0-9a-f]{64}$")) {
+        throw "PostgreSQL 库存 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.inventoryWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "库存写入权威证据"
+    $inventoryStatus = [string]$Evidence.inventoryWriteAuthority.status
+    $inventoryEpoch = [string]$Evidence.inventoryWriteAuthority.authorityEpoch
+    $inventoryCutoverId = [string]$Evidence.inventoryWriteAuthority.cutoverId
+    $inventoryRunId = [string]$Evidence.inventoryWriteAuthority.migrationRunId
+    if ($inventoryStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($inventoryRunId) -and
+          $inventoryRunId -cnotmatch "^inventory-apply-[0-9a-f]{32}$")) {
+      throw "库存写入权威证据无效"
+    }
+    if ($inventoryStatus -ceq "postgres") {
+      if ([int64]$Evidence.inventoryRevisions.inventory.revision -lt 1 -or
+          $inventoryEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $inventoryCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $inventoryRunId -cnotmatch "^inventory-apply-[0-9a-f]{32}$") {
+        throw "库存 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($inventoryEpoch) -or
+              -not [string]::IsNullOrEmpty($inventoryCutoverId)) {
+      throw "未激活的库存写入权威包含激活证据"
     }
   }
 }

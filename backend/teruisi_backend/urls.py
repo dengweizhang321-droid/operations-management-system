@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/netshop/", include("netshop.urls")),
     path("api/market/", include("market.urls")),
     path("api/products/", include("products.urls")),
+    path("api/inventory/", include("inventory.urls")),
 ]

@@ -31,6 +31,11 @@ import {
   type ProductsConsumerReader,
   type ProductsConsumerResponseMap,
 } from "@/lib/django/products-consumer-reader";
+import {
+  createDjangoInventoryConsumerReader,
+  type InventoryConsumerReader,
+  type InventoryConsumerResponseMap,
+} from "@/lib/django/inventory-consumer-reader";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -144,6 +149,7 @@ export type GlobalSearchExecutionOptions = {
   financeReader?: FinanceConsumerReader;
   netshopReader?: NetshopConsumerReader;
   productsReader?: ProductsConsumerReader;
+  inventoryReader?: InventoryConsumerReader;
   financeBackendMode?: FinanceBackendMode;
   signal?: AbortSignal;
 };
@@ -292,31 +298,11 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "库存记录",
     icon: "库",
     module: "inventory",
-    requiredTables: ["inventory_stock_lines", "inventory_import_batches"],
-    likeParameterCount: 7,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: allRoles,
     scopeKind: "warehouse",
-    sql: `
-      WITH latest_batch AS (
-        SELECT id AS batch_id
-        FROM inventory_import_batches
-        WHERE status = 'completed'
-        ORDER BY snapshot_date DESC, rowid DESC
-        LIMIT 1
-      )
-      SELECT item.product_code || ':' || item.warehouse AS result_id, item.product_name AS title,
-        item.product_code || CASE WHEN item.specification <> '' THEN ' · ' || item.specification ELSE '' END AS subtitle,
-        item.warehouse || CASE WHEN item.warehouse_type <> '' THEN ' · ' || item.warehouse_type ELSE '' END || ' · 可用 ' || item.available_quantity AS detail,
-        item.snapshot_date AS updated_at, item.unit_cost_cents AS amount_cents
-      FROM latest_batch batch
-      JOIN inventory_stock_lines item ON item.batch_id = batch.batch_id
-      WHERE TRIM(item.warehouse) <> '刷刷仓'
-        AND (item.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.warehouse_type LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.specification LIKE ? ESCAPE '\\' COLLATE NOCASE OR item.brand LIKE ? ESCAPE '\\' COLLATE NOCASE
-          OR item.category LIKE ? ESCAPE '\\' COLLATE NOCASE)
-          /*SCOPE*/
-      ORDER BY item.snapshot_date DESC, item.product_code ASC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "market_skus",
@@ -369,20 +355,11 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "备货计划",
     icon: "备",
     module: "inventory",
-    requiredTables: ["replenishment_plan_items"],
-    likeParameterCount: 5,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: businessRoles,
     scopeKind: "warehouse",
-    sql: `
-      SELECT id AS result_id, product_name AS title, product_code || ' · ' || warehouse AS subtitle,
-        status || ' · 计划 ' || planned_quantity || CASE WHEN reason <> '' THEN ' · ' || reason ELSE '' END AS detail,
-        updated_at, NULL AS amount_cents
-      FROM replenishment_plan_items
-      WHERE (product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR status LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR reason LIKE ? ESCAPE '\\' COLLATE NOCASE)
-        /*SCOPE*/
-      ORDER BY updated_at DESC, product_code ASC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "market_annotations",
@@ -474,6 +451,8 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
 
 const financeSearchDefinition = staticDefinitions.find((definition) => definition.key === "finance")!;
 const targetSearchDefinition = staticDefinitions.find((definition) => definition.key === "targets")!;
+const inventorySearchDefinition = staticDefinitions.find((definition) => definition.key === "inventory")!;
+const replenishmentSearchDefinition = staticDefinitions.find((definition) => definition.key === "replenishment")!;
 
 const legacyTargetsDefinition: SearchGroupDefinition = {
   key: "targets",
@@ -512,7 +491,6 @@ const salesOrderDefinition = {
 };
 
 const importSources = [
-  { table: "inventory_import_batches", source: "'库存快照'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
   { table: "finance_import_batches", source: "'月度财报'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "market_import_batches", source: "'市场 · ' || source_type", file: "file_name", searchable: ["id", "file_name", "source_type", "status"] },
@@ -754,72 +732,6 @@ async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGrou
   }
 }
 
-async function queryInventoryAgeGroup(
-  db: GlobalSearchDatabase,
-  tables: Set<string>,
-  request: GlobalSearchRequest,
-  like: string,
-  principal: AppPrincipal,
-) {
-  const fragments: string[] = [];
-  const binds: unknown[] = [];
-  if (tables.has("erp_inventory_age_lines") && tables.has("erp_reference_import_batches")) {
-    const scope = scopeSql(principal, "warehouse", { warehouse: "age.warehouse" });
-    fragments.push(`SELECT 'erp:' || age.id AS result_id, age.product_name AS title,
-      age.product_code || ' · ' || age.warehouse AS subtitle,
-      COALESCE(age.category, '') || ' · 库龄 ' || COALESCE(age.inventory_age_days, 0) || ' 天 · 可用 ' || age.available_quantity AS detail,
-      age.snapshot_date AS updated_at, age.stock_value_cents AS amount_cents
-      FROM (
-        SELECT id, snapshot_date
-        FROM erp_reference_import_batches
-        WHERE source_key = 'inventory_age' AND status = 'completed'
-          AND snapshot_date IS NOT NULL AND snapshot_date <> ''
-        ORDER BY snapshot_date DESC, completed_at DESC, created_at DESC, id DESC
-        LIMIT 1
-      ) batch
-      JOIN erp_inventory_age_lines age
-        ON age.last_import_batch_id = batch.id AND age.snapshot_date = batch.snapshot_date
-      WHERE TRIM(age.warehouse) <> '刷刷仓'
-        AND (age.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR age.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR age.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR age.category LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR age.specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
-    binds.push(like, like, like, like, like, ...scope.values);
-  }
-  if (tables.has("inventory_age_metrics") && tables.has("inventory_stock_lines") && tables.has("inventory_import_batches")) {
-    const scope = scopeSql(principal, "warehouse", { warehouse: "stock.warehouse" });
-    fragments.push(`SELECT 'metric:' || stock.id AS result_id, stock.product_name AS title,
-      stock.product_code || ' · ' || stock.warehouse AS subtitle,
-      COALESCE(stock.category, '') || ' · 7日销量 ' || metric.sales_7d_quantity || ' · 30日销量 ' || metric.sales_30d_quantity AS detail,
-      stock.snapshot_date AS updated_at, NULL AS amount_cents
-      FROM (
-        SELECT id
-        FROM inventory_import_batches
-        WHERE status = 'completed'
-        ORDER BY snapshot_date DESC, rowid DESC
-        LIMIT 1
-      ) batch
-      JOIN inventory_stock_lines stock ON stock.batch_id = batch.id
-      JOIN inventory_age_metrics metric ON metric.batch_id = stock.batch_id AND metric.row_key = stock.row_key
-      WHERE TRIM(stock.warehouse) <> '刷刷仓'
-        AND (stock.product_code LIKE ? ESCAPE '\\' COLLATE NOCASE OR stock.product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR stock.warehouse LIKE ? ESCAPE '\\' COLLATE NOCASE OR stock.category LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR stock.specification LIKE ? ESCAPE '\\' COLLATE NOCASE) ${scope.clause}`);
-    binds.push(like, like, like, like, like, ...scope.values);
-  }
-  if (fragments.length === 0) return emptyGroup(inventoryAgeDefinition);
-  const sql = `SELECT result_id, title, subtitle, detail, updated_at, amount_cents
-    FROM (${fragments.join(" UNION ALL ")})
-    ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`;
-  try {
-    const result = await db.prepare(sql)
-      .bind(...binds, request.groupLimit + 1, (request.page - 1) * request.groupLimit)
-      .all<SearchRow>();
-    return mapSearchRows(inventoryAgeDefinition, result.results ?? [], request, principal);
-  } catch {
-    return emptyGroup(inventoryAgeDefinition, false);
-  }
-}
-
 async function queryWorkflowGroup(
   db: GlobalSearchDatabase,
   tables: Set<string>,
@@ -1025,12 +937,12 @@ async function queryNetshopSearchGroup(
     return mapSearchRows(
       definition,
       result.data.items.map((item) => ({
-        result_id: item.id,
-        title: item.title,
-        subtitle: item.subtitle,
-        detail: item.detail,
-        updated_at: item.updatedAt,
-        amount_cents: item.amountCents,
+        result_id: String(item.id),
+        title: String(item.title),
+        subtitle: String(item.subtitle),
+        detail: String(item.detail),
+        updated_at: String(item.updatedAt),
+        amount_cents: item.amountCents === null ? null : Number(item.amountCents),
       })),
       request,
       principal,
@@ -1125,6 +1037,93 @@ async function queryFinanceSearchGroup(
   }
 }
 
+type InventorySearchOperation = "inventory_search" | "age_search" | "replenishment_search";
+
+function validInventorySearch(
+  value: unknown,
+): value is InventoryConsumerResponseMap[InventorySearchOperation] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string"
+        && (row.amountCents === null || Number.isSafeInteger(row.amountCents));
+    });
+}
+
+async function queryInventorySearchGroup(
+  reader: InventoryConsumerReader,
+  operation: InventorySearchOperation,
+  definition: SearchGroupIdentity,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  try {
+    const offset = (request.page - 1) * request.groupLimit;
+    const result = operation === "replenishment_search"
+      ? await reader.read(principal, {
+          operation,
+          query: request.query,
+          status: null,
+          warehouse: null,
+          offset,
+          limit: request.groupLimit,
+        }, { signal })
+      : await reader.read(principal, {
+          operation,
+          query: request.query,
+          offset,
+          limit: request.groupLimit,
+        }, { signal });
+    if (!result.revision || !validInventorySearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition, false);
+    }
+    return mapSearchRows(
+      definition,
+      result.data.items.map((item) => ({
+        result_id: String(item.id),
+        title: String(item.title),
+        subtitle: String(item.subtitle),
+        detail: String(item.detail),
+        updated_at: String(item.updatedAt),
+        amount_cents: item.amountCents === null ? null : Number(item.amountCents),
+      })),
+      request,
+      principal,
+      result.data.total,
+    );
+  } catch {
+    return emptyGroup(definition, false);
+  }
+}
+
+function validInventoryImportSearch(
+  value: unknown,
+): value is InventoryConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.dataset === "string" && typeof row.fileName === "string"
+        && typeof row.status === "string" && Number.isSafeInteger(row.rowCount)
+        && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
 async function queryLocalImportRows(
   db: GlobalSearchDatabase,
   tables: Set<string>,
@@ -1173,6 +1172,7 @@ async function queryImportGroup(
   financeReader: FinanceConsumerReader,
   netshopReader: NetshopConsumerReader,
   productsReader: ProductsConsumerReader,
+  inventoryReader: InventoryConsumerReader,
   financeMode: FinanceBackendMode,
   signal?: AbortSignal,
 ) {
@@ -1228,6 +1228,19 @@ async function queryImportGroup(
     }
     const productsRevision = productsHead.revision;
     const productsTotal = productsHead.data.total;
+    const inventoryHead = await inventoryReader.read(principal, {
+      operation: "import_batch_search",
+      dataset: null,
+      query: request.query,
+      offset: 0,
+      limit: 1,
+    }, { signal });
+    if (!inventoryHead.revision || !validInventoryImportSearch(inventoryHead.data)
+      || !validFinanceConsumerWindow(inventoryHead.data, 0, 1)) {
+      return emptyGroup(importDefinition, false);
+    }
+    const inventoryRevision = inventoryHead.revision;
+    const inventoryTotal = inventoryHead.data.total;
     const globalOffset = (request.page - 1) * request.groupLimit;
     const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
     let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
@@ -1310,11 +1323,39 @@ async function queryImportGroup(
       }
       productsItems = productsPage.data.items;
     }
-    const localTake = request.groupLimit
-      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length;
-    const localOffset = Math.max(
+    const inventoryOffset = Math.max(
       0,
       globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal,
+    );
+    const inventoryTake = inventoryOffset < inventoryTotal
+      ? Math.min(
+          request.groupLimit - salesItems.length - financeItems.length - netshopItems.length - productsItems.length,
+          inventoryTotal - inventoryOffset,
+        )
+      : 0;
+    let inventoryItems: InventoryConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (inventoryTake > 0) {
+      const inventoryPage = await inventoryReader.read(principal, {
+        operation: "import_batch_search",
+        dataset: null,
+        query: request.query,
+        offset: inventoryOffset,
+        limit: inventoryTake,
+      }, { signal });
+      if (inventoryPage.revision !== inventoryRevision
+        || !validInventoryImportSearch(inventoryPage.data)
+        || !validFinanceConsumerWindow(inventoryPage.data, inventoryOffset, inventoryTake)
+        || inventoryPage.data.total !== inventoryTotal
+        || inventoryPage.data.items.length !== inventoryTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      inventoryItems = inventoryPage.data.items;
+    }
+    const localTake = request.groupLimit
+      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length - inventoryItems.length;
+    const localOffset = Math.max(
+      0,
+      globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal - inventoryTotal,
     );
     const local = await queryLocalImportRows(
       db,
@@ -1324,7 +1365,7 @@ async function queryImportGroup(
       localOffset,
       financeMode !== "django",
     );
-    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal + local.total;
+    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal + inventoryTotal + local.total;
     const rows: SearchRow[] = [
       ...salesItems.map((item) => ({
         result_id: item.id,
@@ -1356,6 +1397,14 @@ async function queryImportGroup(
         subtitle: item.source,
         detail: item.status,
         updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...inventoryItems.map((item) => ({
+        result_id: String(item.id),
+        title: String(item.fileName),
+        subtitle: String(item.source),
+        detail: String(item.status),
+        updated_at: String(item.completedAt ?? item.createdAt),
         amount_cents: null,
       })),
       ...local.rows,
@@ -1461,6 +1510,7 @@ export async function searchAllBusinessData(
   const financeReader = options.financeReader ?? createDjangoFinanceConsumerReader();
   const netshopReader = options.netshopReader ?? createDjangoNetshopConsumerReader();
   const productsReader = options.productsReader ?? createDjangoProductsConsumerReader();
+  const inventoryReader = options.inventoryReader ?? createDjangoInventoryConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
@@ -1482,6 +1532,34 @@ export async function searchAllBusinessData(
         run: () => queryNetshopSearchGroup(
           netshopReader,
           definition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
+    if (definition.key === "inventory") {
+      return {
+        definition: inventorySearchDefinition,
+        available: true,
+        run: () => queryInventorySearchGroup(
+          inventoryReader,
+          "inventory_search",
+          inventorySearchDefinition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
+    if (definition.key === "replenishment") {
+      return {
+        definition: replenishmentSearchDefinition,
+        available: true,
+        run: () => queryInventorySearchGroup(
+          inventoryReader,
+          "replenishment_search",
+          replenishmentSearchDefinition,
           request,
           principal,
           options.signal,
@@ -1533,9 +1611,15 @@ export async function searchAllBusinessData(
   if ((!request.group || request.group === "inventory_age") && allRoles.includes(principal.role)) {
     groupTasks.push({
       definition: inventoryAgeDefinition,
-      available: (tables.has("erp_inventory_age_lines") && tables.has("erp_reference_import_batches"))
-        || (tables.has("inventory_age_metrics") && tables.has("inventory_stock_lines") && tables.has("inventory_import_batches")),
-      run: () => queryInventoryAgeGroup(db, tables, request, like, principal),
+      available: true,
+      run: () => queryInventorySearchGroup(
+        inventoryReader,
+        "age_search",
+        inventoryAgeDefinition,
+        request,
+        principal,
+        options.signal,
+      ),
     });
   }
   if ((!request.group || request.group === "imports") && operatorRoles.some((role) => role === principal.role) && principal.scope === null) {
@@ -1552,6 +1636,7 @@ export async function searchAllBusinessData(
         financeReader,
         netshopReader,
         productsReader,
+        inventoryReader,
         financeMode,
         options.signal,
       ),

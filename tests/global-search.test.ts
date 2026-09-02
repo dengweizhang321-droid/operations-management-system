@@ -7,6 +7,7 @@ import type { SalesConsumerReader } from "../lib/django/sales-consumer-reader";
 import type { FinanceConsumerReader } from "../lib/django/finance-consumer-reader";
 import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reader";
 import type { ProductsConsumerReader } from "../lib/django/products-consumer-reader";
+import type { InventoryConsumerReader } from "../lib/django/inventory-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -148,6 +149,59 @@ function fakeProductsSearchReader(input: {
         },
       };
     }) as ProductsConsumerReader["read"],
+  };
+}
+
+type InventorySearchItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  detail: string;
+  updatedAt: string;
+  amountCents: number | null;
+};
+
+type InventoryImportItem = {
+  id: string;
+  source: string;
+  dataset: string;
+  fileName: string;
+  status: string;
+  rowCount: number;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+function fakeInventorySearchReader(input: {
+  inventory?: InventorySearchItem[];
+  age?: InventorySearchItem[];
+  replenishment?: InventorySearchItem[];
+  imports?: InventoryImportItem[];
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): InventoryConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "inventory_search"
+        ? input.inventory ?? []
+        : request.operation === "age_search"
+          ? input.age ?? []
+          : request.operation === "replenishment_search"
+            ? input.replenishment ?? []
+            : request.operation === "import_batch_search"
+              ? input.imports ?? []
+              : (() => { throw new Error(`unexpected operation ${String(request.operation)}`); })();
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "inventory:2:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as InventoryConsumerReader["read"],
   };
 }
 
@@ -317,13 +371,24 @@ test("库存搜索只读取当前完成快照并保持刷刷仓排除", async ()
     },
   } as GlobalSearchDatabase;
 
+  const inventoryCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const result = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=inventory")),
     admin,
+    {
+      inventoryReader: fakeInventorySearchReader({
+        inventory: [{
+          id: "CURRENT:主仓", title: "当前命中", subtitle: "CURRENT", detail: "主仓 · 可用 2",
+          updatedAt: "2026-08-25", amountCents: 200,
+        }],
+        calls: inventoryCalls,
+      }),
+    },
   );
 
   assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["CURRENT:主仓"]);
+  assert.deepEqual(inventoryCalls.map((call) => call.request.operation), ["inventory_search"]);
   sqlite.close();
 });
 
@@ -359,13 +424,24 @@ test("库龄搜索只读取最新权威库龄批次并保持刷刷仓排除", as
     },
   } as GlobalSearchDatabase;
 
+  const inventoryCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const result = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=命中&group=inventory_age")),
     admin,
+    {
+      inventoryReader: fakeInventorySearchReader({
+        age: [{
+          id: "erp:2", title: "当前命中", subtitle: "CURRENT · 主仓", detail: "库龄 30 天",
+          updatedAt: "2026-08-25", amountCents: 200,
+        }],
+        calls: inventoryCalls,
+      }),
+    },
   );
 
   assert.deepEqual(result.groups[0]?.items.map((item) => item.id), ["erp:2"]);
+  assert.deepEqual(inventoryCalls.map((call) => call.request.operation), ["age_search"]);
   sqlite.close();
 });
 
@@ -580,11 +656,22 @@ test("Django 财务与商品批次在销售及其余 D1 批次之间保持精确
     createdAt: `2026-08-${16 + index}`,
     completedAt: `2026-08-${16 + index}`,
   }));
+  const inventoryImports = [{
+    id: "inventory-1",
+    source: "inventory",
+    dataset: "stock",
+    fileName: "库存净水机.xlsx",
+    status: "completed",
+    rowCount: 10,
+    createdAt: "2026-08-20",
+    completedAt: "2026-08-20",
+  }];
   const dependencies = {
     salesReader: fakeSalesSearchReader({ imports: salesImports }),
     financeReader: fakeFinanceSearchReader({ imports: financeImports }),
     netshopReader: fakeNetshopSearchReader(),
     productsReader: fakeProductsSearchReader({ imports: productImports }),
+    inventoryReader: fakeInventorySearchReader({ imports: inventoryImports }),
     financeBackendMode: "django" as const,
   };
   const middle = await searchAllBusinessData(
@@ -672,6 +759,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
       financeReader: fakeFinanceSearchReader(),
       netshopReader: fakeNetshopSearchReader(),
       productsReader: fakeProductsSearchReader(),
+      inventoryReader: fakeInventorySearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -985,6 +1073,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
       financeReader: fakeFinanceSearchReader(),
       netshopReader: fakeNetshopSearchReader(),
       productsReader: fakeProductsSearchReader(),
+      inventoryReader: fakeInventorySearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -993,8 +1082,8 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 11);
-  assert.equal(statementCount, 12);
+  assert.equal(businessCalls.length, 8);
+  assert.equal(statementCount, 9);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
   assert.equal(businessCalls.filter((call) => !localImportCalls.includes(call))
     .every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);

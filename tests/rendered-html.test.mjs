@@ -263,8 +263,8 @@ test("wires inventory health, synchronization, and replenishment", async () => {
       readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/imports/inventory/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/imports/inventory/chunks/route.ts", import.meta.url), "utf8"),
-      readFile(new URL("../lib/inventory/chunked-upload.ts", import.meta.url), "utf8"),
-      readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
+      readFile(new URL("../lib/inventory/django-chunked-upload.ts", import.meta.url), "utf8"),
+      readFile(new URL("../backend/inventory/query.py", import.meta.url), "utf8"),
       readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/api/inventory/replenishment/route.ts", import.meta.url), "utf8"),
       readFile(new URL("../lib/inventory/database.ts", import.meta.url), "utf8"),
@@ -288,15 +288,21 @@ test("wires inventory health, synchronization, and replenishment", async () => {
   assert.match(parser, /实盘数量/);
   assert.match(parser, /固定成本价/);
   assert.match(parser, /吉客云库龄/);
-  assert.match(importRoute, /importInventoryStockBytes/);
-  assert.match(chunkRoute, /assembleInventoryUpload/);
-  assert.match(chunkRoute, /claimInventoryUpload/);
-  assert.match(chunkService, /inventory_import_upload_results/);
+  assert.match(importRoute, /importInventoryStockToDjango/);
+  assert.match(importRoute, /INVENTORY_IMPORTS_PATH/);
+  assert.match(chunkRoute, /assembleDjangoInventoryUpload/);
+  assert.match(chunkRoute, /claimDjangoInventoryUpload/);
+  assert.match(chunkService, /createDjangoInventoryService/);
+  assert.match(chunkService, /service: "writer"/);
   assert.match(chunkService, /chunk\.sha256/);
-  assert.match(overview, /normalizedWarehouseSql/);
+  assert.match(overview, /def inventory_overview/);
   assert.match(overview, /inventoryStale/);
-  assert.match(overviewRoute, /getInventoryOverview/);
-  assert.match(replenishmentRoute, /upsertReplenishmentPlan/);
+  assert.match(overview, /刷刷仓/);
+  assert.match(overviewRoute, /INVENTORY_OVERVIEW_PATH/);
+  assert.match(overviewRoute, /service: "reader"/);
+  assert.doesNotMatch(overviewRoute, /getInventoryOverview|@\/lib\/inventory\/overview/);
+  assert.match(replenishmentRoute, /INVENTORY_REPLENISHMENT_PATH/);
+  assert.match(replenishmentRoute, /service: "writer"/);
   assert.match(replenishmentRoute, /acknowledgeStale/);
   assert.match(database, /ensureInventorySchema/);
   assert.match(migration, /CREATE TABLE `inventory_stock_lines`/);
@@ -362,7 +368,7 @@ test("wires inventory age analysis and stale cleanup", async () => {
     readFile(new URL("../app/inventory-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/imports/inventory-stock.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/inventory/age-analysis/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/inventory/query.py", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0006_quiet_forgotten_one.sql", import.meta.url), "utf8"),
   ]);
 
@@ -370,9 +376,12 @@ test("wires inventory age analysis and stale cleanup", async () => {
   assert.match(inventoryModule, /滞销清理/);
   assert.match(inventoryModule, /snapshotDate/);
   assert.match(parser, /前30天销量/);
-  assert.match(route, /getInventoryAgeAnalysis/);
-  assert.match(analysis, /inventory_age_metrics/);
-  assert.match(analysis, /滞销清理/);
+  assert.match(route, /INVENTORY_AGE_ANALYSIS_PATH/);
+  assert.match(route, /service: "reader"/);
+  assert.doesNotMatch(route, /getInventoryAgeAnalysis|@\/lib\/inventory\/age-analysis/);
+  assert.match(analysis, /def inventory_age_analysis/);
+  assert.match(analysis, /InventoryAgeLine/);
+  assert.match(analysis, /刷刷仓/);
   assert.match(migration, /inventory_age_metrics/);
 });
 
@@ -385,13 +394,13 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
     readFile(new URL("../app/api/imports/erp/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/imports/erp/chunks/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/sales/import-service.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/inventory/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/inventory/import_service.py", import.meta.url), "utf8"),
     readFile(new URL("../backend/sales/models.py", import.meta.url), "utf8"),
-    readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/inventory/query.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/summary.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/products/query.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/products/inventory-projection-sync.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/inventory/consumers.py", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0009_wonderful_blindfold.sql", import.meta.url), "utf8"),
   ]);
 
@@ -407,11 +416,15 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
   assert.match(parser, /子件编号/);
   assert.match(service, /EXCLUDED_BRUSH_WAREHOUSE/);
   assert.match(route, /importErpReferenceBytes/);
+  assert.match(route, /importInventoryAgeToDjango/);
   assert.match(chunkRoute, /assembleInventoryUpload/);
+  assert.match(chunkRoute, /assembleDjangoInventoryUpload/);
   assert.match(salesService, /isExcludedSalesWarehouse/);
-  assert.match(inventoryService, /EXCLUDED_BRUSH_WAREHOUSE/);
-  for (const analysis of [salesModels, inventoryOverview, projectionSync, ageAnalysis]) assert.match(analysis, /刷刷仓/);
-  assert.match(ageAnalysis, /erp_inventory_age_lines/);
+  assert.match(inventoryService, /刷刷仓/);
+  for (const analysis of [salesModels, inventoryOverview, ageAnalysis]) assert.match(analysis, /刷刷仓/);
+  assert.match(projectionSync, /createDjangoInventoryConsumerReader/);
+  assert.doesNotMatch(projectionSync, /inventory_stock_lines|@\/lib\/inventory\/database/);
+  assert.match(ageAnalysis, /InventoryAgeLine/);
   assert.doesNotMatch(productSummary, /刷刷仓|erp_product_master|inventory_stock_lines/);
   assert.match(productQuery, /ErpProductMaster/);
   assert.match(productQuery, /ProductInventoryProjection/);

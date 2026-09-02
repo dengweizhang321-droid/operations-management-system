@@ -59,8 +59,9 @@ test("库存五个 Tab 由同一父级筛选状态驱动并向各接口透传公
   assert.match(filterBar, /inventoryBrand/);
   assert.match(filterBar, /inventoryCategory/);
   assert.match(filterBar, /库存管理公共筛选/);
-  assert.match(overviewRoute, /readInventorySelections\(params, "brand"/);
-  assert.match(overviewRoute, /readInventorySelections\(params, "category"/);
+  assert.match(overviewRoute, /normalizeInventorySelections\(params\.getAll\("brand"\)/);
+  assert.match(overviewRoute, /normalizeInventorySelections\(params\.getAll\("category"\)/);
+  assert.match(overviewRoute, /rawQuery: params\.toString\(\)/);
   assert.match(inboundRoute, /normalizeInventorySelections\(params\.getAll\("brand"\)/);
   assert.match(inboundRoute, /normalizeInventorySelections\(params\.getAll\("category"\)/);
 });

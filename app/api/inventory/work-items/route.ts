@@ -3,9 +3,8 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
-import { ensureErpReferenceSchema } from "@/lib/erp-reference/database";
+import { getD1Database } from "@/lib/database/d1";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
-import { ensureInventorySchema, getInventoryDatabase } from "@/lib/inventory/database";
 import {
   createInventoryWorkItem,
   InventoryWorkItemError,
@@ -23,9 +22,7 @@ export async function POST(request: Request) {
         headers: { "cache-control": "no-store" },
       });
     }
-    const db = getInventoryDatabase();
-    await Promise.all([ensureInventorySchema(db), ensureErpReferenceSchema(db)]);
-    const result = await createInventoryWorkItem(body, principal.email, db);
+    const result = await createInventoryWorkItem(body, principal, getD1Database());
     return Response.json({ ok: true, ...result }, {
       status: result.created ? 201 : 200,
       headers: { "cache-control": "no-store" },

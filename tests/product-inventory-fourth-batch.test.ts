@@ -162,15 +162,18 @@ test("product and inventory APIs expose real page contracts", async () => {
 });
 
 test("replenishment, AI and frontend do not reuse truncated pages", async () => {
-  const [route, ai, inventoryView, productView] = await Promise.all([
+  const [route, backend, ai, inventoryView, productView] = await Promise.all([
     source("../app/api/inventory/replenishment/route.ts"),
+    source("../backend/inventory/views.py"),
     source("../lib/ai/operations-tools.ts"),
     source("../app/inventory-module-view.tsx"),
     source("../app/product-module-view.tsx"),
   ]);
   const frontend = `${inventoryView}\n${productView}`;
-  assert.match(route, /exactKey: body\.key/);
-  assert.match(route, /startDate: body\.startDate/);
+  assert.match(route, /path: INVENTORY_REPLENISHMENT_PATH, service: "writer", payload: body/);
+  assert.match(route, /const parts = body\.key\.split\("\\u001f"\)/);
+  assert.match(backend, /"exactKey": key/);
+  assert.match(backend, /"startDate": body\.get\("startDate"\)/);
   assert.doesNotMatch(ai, /const overview = await getInventoryOverview\(db\);[\s\S]*?overview\.items\.filter/);
   assert.match(inventoryView, /useState\(shanghaiIsoToday\)/);
   assert.match(inventoryView, /currentUser\?\.role === "admin"/);

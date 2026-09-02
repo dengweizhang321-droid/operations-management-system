@@ -25,6 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
+    "inventory_", "replenishment_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -124,6 +125,21 @@ def collect_evidence(
         products_tables = {name for name in tables if name.startswith("product_")}
         if products_tables:
             required.update(products_required)
+        inventory_required = {
+            "inventory_data_revisions",
+            "inventory_import_batches",
+            "inventory_stock_lines",
+            "inventory_age_lines",
+            "inventory_write_authority",
+            "inventory_operating_settings",
+            "replenishment_plan_items",
+        }
+        inventory_tables = {
+            name for name in tables
+            if name.startswith("inventory_") or name.startswith("replenishment_")
+        }
+        if inventory_tables:
+            required.update(inventory_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -324,6 +340,61 @@ def collect_evidence(
                 "migrationRunId": products_run,
             }
 
+        inventory_revisions: dict[str, dict[str, Any]] | None = None
+        inventory_authority: dict[str, str] | None = None
+        if inventory_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM inventory_data_revisions ORDER BY domain"
+            )
+            inventory_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = inventory_revisions.get("inventory")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("inventory revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM inventory_write_authority WHERE id = 1"
+            )
+            inventory_authority_row = cursor.fetchone()
+            if inventory_authority_row is None:
+                raise RuntimeError("inventory write authority singleton is missing")
+            inventory_status, inventory_epoch, inventory_cutover, inventory_run = (
+                str(value or "") for value in inventory_authority_row
+            )
+            if inventory_status not in {"d1", "postgres"}:
+                raise RuntimeError("inventory write authority status is invalid")
+            if inventory_run and re.fullmatch(r"inventory-apply-[0-9a-f]{32}", inventory_run) is None:
+                raise RuntimeError("inventory migration run evidence is invalid")
+            if inventory_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", inventory_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", inventory_cutover) is None
+                    or not inventory_run
+                ):
+                    raise RuntimeError("active inventory write authority evidence is incomplete")
+            elif inventory_epoch or inventory_cutover:
+                raise RuntimeError("inactive inventory write authority contains activation evidence")
+            inventory_authority = {
+                "status": inventory_status,
+                "authorityEpoch": inventory_epoch,
+                "cutoverId": inventory_cutover,
+                "migrationRunId": inventory_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -343,6 +414,9 @@ def collect_evidence(
     if products_revisions is not None and products_authority is not None:
         content["productsRevisions"] = products_revisions
         content["productsWriteAuthority"] = products_authority
+    if inventory_revisions is not None and inventory_authority is not None:
+        content["inventoryRevisions"] = inventory_revisions
+        content["inventoryWriteAuthority"] = inventory_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

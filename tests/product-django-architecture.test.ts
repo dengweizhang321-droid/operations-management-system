@@ -28,13 +28,20 @@ test("product online paths terminate in Django and expose no D1/R2 fallback", as
   assert.match(chunks, /PRODUCTS_UPLOADS_PATH/);
 });
 
-test("inventory sync is the only bounded D1 projection bridge and excludes 刷刷仓", async () => {
-  const source = await readFile(new URL("../lib/products/inventory-projection-sync.ts", import.meta.url), "utf8");
-  assert.match(source, /TRIM\(warehouse\) <> '刷刷仓'/);
-  assert.match(source, /GROUP BY TRIM\(product_code\)/);
+test("inventory sync consumes only the bounded Django projection and excludes 刷刷仓 at its owner", async () => {
+  const [source, inventoryConsumer] = await Promise.all([
+    readFile(new URL("../lib/products/inventory-projection-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/inventory/consumers.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(source, /createDjangoInventoryConsumerReader/);
+  assert.match(source, /operation: "stock_projection"/);
+  assert.match(source, /PAGE_SIZE = 1_000/);
   assert.match(source, /MAX_ROWS = 20_000/);
   assert.match(source, /begin_sync[\s\S]+stage_page[\s\S]+activate_sync/);
   assert.match(source, /PRODUCTS_INVENTORY_PROJECTION_PATH/);
+  assert.doesNotMatch(source, /getInventoryDatabase|getD1Database|env\.DB/);
+  assert.match(inventoryConsumer, /exclude\(warehouse="刷刷仓"\)/);
+  assert.match(inventoryConsumer, /grouped\.setdefault\(row\.product_code\.strip\(\)/);
 });
 
 test("AI and global search consume the revisioned products reader", async () => {

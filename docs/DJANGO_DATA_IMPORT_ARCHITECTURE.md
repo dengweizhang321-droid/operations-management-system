@@ -4,7 +4,7 @@
 
 本契约用于把现有 Worker/D1 业务域逐个迁移到 Django/PostgreSQL。它定义可复用的安全不变量，不要求所有业务域共享表、进程、锁或写入所有者。
 
-本契约最初用于月度财报，现已复用于网店、市场以及商品经营候选域。各域保留现有 React/Next.js 前端和公开 API 契约，不以迁移后端为由改写页面或形成第二套业务口径。
+本契约最初用于月度财报，现已复用于网店、市场和商品经营，并用于库存管理候选域的完整实现与镜像验收。各域保留现有 React/Next.js 前端和公开 API 契约，不以迁移后端为由改写页面或形成第二套业务口径。
 
 ## 2. 固定组件边界
 
@@ -38,6 +38,8 @@
 销售域的原始分片字节、owner、摘要和生命周期固定由 PostgreSQL 管理，生产代码不得读写 R2；这不授权删除市场图片、库存、工作流等其他领域仍使用的全局 R2 binding。
 
 商品经营是组合读模型，不拥有上游销售、ERP 或库存事实。其 PostgreSQL reader 只读销售/ERP 已有权威表；库存仍由 D1 单写，并在每次成功或 duplicate 库存导入后通过 owner-fenced、完整摘要校验的版本化投影同步。投影固定排除 `刷刷仓`，失败不得回查 D1 或阻断库存事实发布。SKU 快递费率、商品域批次、幂等、上传和 revision 才属于商品经营写侧。
+
+库存正式切换前继续由 D1 单写，Django 库存目标只用于迁移和影子验证。正式切换后，PostgreSQL 拥有分仓库存、库龄、备货计划、库存设置、导入幂等/审计、分片和 revision；商品经营改由有界 inventory consumer 获取版本化完整投影。库存 reader/writer 只读销售需求和 ERP 参照，不得修改上游事实；库存故障不得改变其他领域 authority。
 
 ## 4. 公开请求与内部鉴权
 
@@ -150,6 +152,17 @@ PostgreSQL 接收第一笔新权威写入后，旧 D1 不再是无损回滚目�
 
 Worker 继续解析 `SKU累计` XLSX，Django 接收 `product-shipping-rates-normalized-v1` 定点规范行。商品 reader/writer 使用 `8041/8042` 独立进程和数据库角色。D1 库存事实不在本次迁移范围；`0100` 只能退役商品快递费率表及其共享命名空间，必须保留库存表、库存上传和其他域共享行。完整门禁见 [`DJANGO_PRODUCTS_MIGRATION.md`](DJANGO_PRODUCTS_MIGRATION.md)。
 
+### 11.3 库存管理候选域
+
+库存迁移以下对象：
+
+- 分仓库存和库龄事实、批次、内容指纹、attempt、scope head 与 revision；
+- 备货计划、库存运营设置、写请求 receipt 和 PostgreSQL 原始分片；
+- 库存总览、库龄、京东入仓、系统成本、AI、全局搜索和商品经营投影 consumer；
+- 真实 D1 冻结副本历史迁移、双侧 authority、系统 smoke、备份与 D1 retirement receipt。
+
+Worker 继续解析库存/库龄 XLSX，Django 接收版本化规范行并二次校验。库存 reader/writer 使用 `8051/8052` 独立进程和数据库角色。正式切换后的 D1 退役只能清理库存事实和库存占用的共享命名空间，必须保留 ERP 及其他域批次、指纹、attempt、scope head、上传和 retirement receipt。完整门禁见 [`DJANGO_INVENTORY_MIGRATION.md`](DJANGO_INVENTORY_MIGRATION.md)。
+
 ## 12. 必测负向路径
 
 - 相同内容改名、换序和重复提交；
@@ -165,3 +178,6 @@ Worker 继续解析 `SKU累计` XLSX，Django 接收 `product-shipping-rates-nor
 - 商品 reader/writer 失败时销售、ERP 和库存权威不变，且商品路径不回查 D1；
 - 库存投影缺页、乱序、owner 过期、调用方伪造摘要和分页期间 revision 变化；
 - 商品 D1 退役保留库存域、其他共享导入行和既有 retirement receipt。
+- 库存迁移对同日历史重导只发布最后完成批次事实，同时保留全部历史批次和迁移排除审计；单批次重复业务键必须拒绝。
+- 库存 authority pending/retirement 必须同时识别新旧库龄 scope key、`inventory_age:` 批次关联，并保留 ERP 其他共享行。
+- 库存 reader/writer 失败时销售、ERP、财务、网店、市场和商品经营 authority 不变，库存路径不得回查 D1/R2。
