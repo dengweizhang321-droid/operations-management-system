@@ -33,6 +33,8 @@ $InstalledMarketScriptPath = Join-Path $InstalledAppRoot "tools\django-market-se
 $MarketStartupEnabledPath = Join-Path $RuntimeRoot "market-service-enabled.json"
 $InstalledProductsScriptPath = Join-Path $InstalledAppRoot "tools\django-products-service.ps1"
 $ProductsStartupEnabledPath = Join-Path $RuntimeRoot "products-service-enabled.json"
+$InstalledInventoryScriptPath = Join-Path $InstalledAppRoot "tools\django-inventory-service.ps1"
+$InventoryStartupEnabledPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
@@ -50,6 +52,8 @@ $DjangoNetshopReaderPidPath = Join-Path $RunDirectory "django-netshop-reader.pid
 $DjangoNetshopWriterPidPath = Join-Path $RunDirectory "django-netshop-writer.pid.json"
 $DjangoMarketReaderPidPath = Join-Path $RunDirectory "django-market-reader.pid.json"
 $DjangoMarketWriterPidPath = Join-Path $RunDirectory "django-market-writer.pid.json"
+$DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader.pid.json"
+$DjangoInventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
 $DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
 $SupervisorDesiredStatePath = Join-Path $RunDirectory "django-supervisor-desired-state.json"
@@ -1338,6 +1342,7 @@ function Deploy-Application {
       "tools\django-netshop-service.ps1",
       "tools\django-market-service.ps1",
       "tools\django-products-service.ps1",
+      "tools\django-inventory-service.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\finance-d1-authority-install.py",
       "tools\finance_d1_rehearsal_snapshot.py",
@@ -1352,7 +1357,9 @@ function Deploy-Application {
       "drizzle\0097_market_write_authority.sql",
       "drizzle\0098_market_domain_retirement.sql",
       "drizzle\0099_product_write_authority.sql",
-      "drizzle\0100_product_domain_retirement.sql"
+      "drizzle\0100_product_domain_retirement.sql",
+      "drizzle\0101_inventory_write_authority.sql",
+      "drizzle\0102_inventory_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -1838,7 +1845,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8031).Count -gt 0 -or
     @(Get-PortListeners 8032).Count -gt 0 -or
     @(Get-PortListeners 8041).Count -gt 0 -or
-    @(Get-PortListeners 8042).Count -gt 0
+    @(Get-PortListeners 8042).Count -gt 0 -or
+    @(Get-PortListeners 8051).Count -gt 0 -or
+    @(Get-PortListeners 8052).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -1865,6 +1874,12 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   }
   if (Resolve-OwnedProcess "django-market-writer" $DjangoMarketWriterPidPath $Waitress) {
     throw "$Operation 前必须通过市场控制器 Stop 停止 Django market writer"
+  }
+  if (Resolve-OwnedProcess "django-inventory-reader" $DjangoInventoryReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过库存控制器 Stop 停止 Django inventory reader"
+  }
+  if (Resolve-OwnedProcess "django-inventory-writer" $DjangoInventoryWriterPidPath $Waitress) {
+    throw "$Operation 前必须通过库存控制器 Stop 停止 Django inventory writer"
   }
   if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python) {
     throw "$Operation 前必须通过 Stop 停止 ERP reference sync"
@@ -2251,6 +2266,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH", "TERUISI_DJANGO_NETSHOP_CUTOVER_ID",
     "TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH", "TERUISI_DJANGO_MARKET_CUTOVER_ID",
     "TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH", "TERUISI_DJANGO_PRODUCTS_CUTOVER_ID",
+    "TERUISI_DJANGO_INVENTORY_AUTHORITY_EPOCH", "TERUISI_DJANGO_INVENTORY_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2267,7 +2283,22 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_EXPECT_READ_ONLY = if ($ExpectReadOnly) { "true" } else { "false" }
     $env:TERUISI_DJANGO_SALES_CACHE_SECONDS = if ($ProcessRole -eq "reader") { "300" } else { "0" }
     $env:TERUISI_DJANGO_ERP_SYNC_MAX_AGE_SECONDS = "60"
-    if ($ProcessRole -eq "finance_writer") {
+    $env:TERUISI_DJANGO_INVENTORY_AUTHORITY_EPOCH = ""
+    $env:TERUISI_DJANGO_INVENTORY_CUTOVER_ID = ""
+    if ($ProcessRole -eq "inventory_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_INVENTORY_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_INVENTORY_CUTOVER_ID = $CutoverId
+    } elseif ($ProcessRole -eq "finance_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = $AuthorityEpoch
@@ -3491,10 +3522,19 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
           }
           & $InstalledProductsScriptPath -Action Start -RuntimeRoot $RuntimeRoot
         }
+        if (Test-Path -LiteralPath $InventoryStartupEnabledPath -PathType Leaf) {
+          if (-not (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf)) {
+            throw "库存开机启动已启用，但受控库存服务脚本缺失"
+          }
+          & $InstalledInventoryScriptPath -Action Start -RuntimeRoot $RuntimeRoot
+        }
       }
       "Stop" {
         Invoke-WithServiceMutex {
           Write-ServiceDesiredState "stopped" "explicit_stop"
+        }
+        if (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf) {
+          & $InstalledInventoryScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
         }
         if (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf) {
           & $InstalledProductsScriptPath -Action Stop -RuntimeRoot $RuntimeRoot

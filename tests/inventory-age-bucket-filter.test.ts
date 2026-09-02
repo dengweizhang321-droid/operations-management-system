@@ -185,5 +185,5 @@ test("库龄页面和接口使用重复 ageBucket 参数连接多选与分布图
   assert.match(route, /params\.getAll\("ageBucket"\)/);
   assert.match(route, /params\.getAll\("brand"\)/);
   assert.match(route, /params\.getAll\("category"\)/);
-  assert.match(route, /allowed: allowedAgeBuckets/);
+  assert.match(route, /allowed: inventoryAgeBuckets\.map\(\(bucket\) => bucket\.key\)/);
 });

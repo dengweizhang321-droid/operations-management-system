@@ -58,21 +58,20 @@ test("market read indexes cover ranking order and distinct image aggregation", a
 });
 
 test("inventory APIs bound response rows while preserving totals and recommendations", async () => {
-  const [overview, age, route, inventoryView] = await Promise.all([
-    readFile(new URL("../lib/inventory/overview.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/inventory/age-analysis.ts", import.meta.url), "utf8"),
+  const [query, route, inventoryView] = await Promise.all([
+    readFile(new URL("../backend/inventory/query.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/inventory/overview/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/inventory-module-view.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(overview, /LIMIT \? OFFSET \?/);
-  assert.match(overview, /filtered AS MATERIALIZED/);
-  assert.match(overview, /metrics AS MATERIALIZED/);
-  assert.match(overview, /returned: projection\.items\.length/);
-  assert.match(overview, /recommendations/);
-  assert.match(age, /LIMIT \? OFFSET \?/);
-  assert.match(age, /returned: pageResult\.results\.length/);
-  assert.match(route, /normalizeInventorySelections\(params\.getAll\(key\), options\)/);
-  assert.match(route, /readInventorySelections\(params, "warehouse"/);
+  assert.match(query, /filtered\[offset : offset \+ page_size\]/);
+  assert.match(query, /"total": len\(filtered\)/);
+  assert.match(query, /"returned": len\(filtered\[offset : offset \+ page_size\]\)/);
+  assert.match(query, /recommendations = \[\] if suppressed else sorted\([\s\S]*?\)\[:50\]/);
+  assert.match(query, /"items": filtered\[offset : offset \+ page_size\]/);
+  assert.match(route, /normalizeInventorySelections\(params\.getAll\("warehouse"\)/);
+  assert.match(route, /normalizeInventorySelections\(params\.getAll\("brand"\)/);
+  assert.match(route, /normalizeInventorySelections\(params\.getAll\("category"\)/);
+  assert.match(route, /rawQuery: params\.toString\(\)/);
   assert.match(inventoryView, /debouncedInventoryQuery/);
   assert.match(inventoryView, /overviewGenerationRef/);
 });

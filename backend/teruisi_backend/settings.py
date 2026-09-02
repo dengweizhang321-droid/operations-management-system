@@ -130,6 +130,7 @@ INSTALLED_APPS = [
     "netshop.apps.NetshopConfig",
     "market.apps.MarketConfig",
     "products.apps.ProductsConfig",
+    "inventory.apps.InventoryConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -199,6 +200,12 @@ PRODUCTS_WRITE_AUTHORITY_EPOCH = os.getenv(
 PRODUCTS_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_PRODUCTS_CUTOVER_ID", ""
 ).strip()
+INVENTORY_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_INVENTORY_AUTHORITY_EPOCH", ""
+).strip()
+INVENTORY_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_INVENTORY_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -212,6 +219,8 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "market_writer",
     "products_reader",
     "products_writer",
+    "inventory_reader",
+    "inventory_writer",
 }:
     raise RuntimeError(
         "生产 Django 必须显式声明已登记的 reader、writer、migration_writer 或同步进程角色"
@@ -238,6 +247,10 @@ if DJANGO_PROCESS_ROLE == "products_reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django products_reader 进程必须启用只读连接门禁")
 if DJANGO_PROCESS_ROLE == "products_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django products_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "inventory_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django inventory_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "inventory_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django inventory_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
@@ -273,6 +286,13 @@ if DJANGO_PROCESS_ROLE == "products_writer":
         raise RuntimeError("Django products_writer 必须配置有效的商品经营 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", PRODUCTS_WRITE_CUTOVER_ID):
         raise RuntimeError("Django products_writer 必须配置有效的商品经营 cutover id")
+if DJANGO_PROCESS_ROLE == "inventory_writer":
+    try:
+        uuid.UUID(INVENTORY_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django inventory_writer 必须配置有效的库存 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", INVENTORY_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django inventory_writer 必须配置有效的库存 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )
@@ -280,6 +300,7 @@ DJANGO_MAX_HEADER_BYTES = env_int("TERUISI_DJANGO_MAX_HEADER_BYTES", 32_768, 8_1
 DJANGO_MAX_BODY_BYTES = env_int(
     "TERUISI_DJANGO_MAX_BODY_BYTES",
     67_108_864 if DJANGO_PROCESS_ROLE in {"netshop_writer", "market_writer"}
+    else 67_108_864 if DJANGO_PROCESS_ROLE == "inventory_writer"
     else 33_554_432 if DJANGO_PROCESS_ROLE == "products_writer"
     else 16_777_216 if DJANGO_PROCESS_ROLE == "finance_writer"
     else 8_388_608 if DJANGO_PROCESS_ROLE == "sales_writer"

@@ -367,6 +367,96 @@ PRODUCTS_WRITER_TABLE_PRIVILEGES = {
 PRODUCTS_WRITER_AUTO_ID_TABLES = (
     "product_import_fingerprints", "product_inventory_projection", "product_raw_upload_chunks",
 )
+REQUIRED_INVENTORY_COLUMNS = {
+    "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
+    "sales_import_batches": {"id", "status", "completed_at"},
+    "sales_data_revisions": {"domain", "revision", "source_digest"},
+    "erp_product_master": {"product_code", "product_name", "category", "supplier"},
+    "erp_reference_sync_checkpoint": {
+        "id", "erp_revision", "content_hash", "row_count", "last_checked_at",
+    },
+    "inventory_import_batches": {
+        "id", "dataset", "status", "snapshot_date", "completed_at", "row_count",
+        "published_state_token", "migration_generation",
+    },
+    "inventory_stock_lines": {
+        "batch_id", "row_key", "snapshot_date", "warehouse", "product_code",
+        "available_quantity", "unit_cost_cents", "migration_generation",
+    },
+    "inventory_age_lines": {
+        "batch_id", "row_key", "snapshot_date", "warehouse", "product_code",
+        "available_quantity", "inventory_age_days", "stock_value_cents",
+        "migration_generation",
+    },
+    "inventory_data_revisions": {"domain", "revision", "source_digest"},
+    "replenishment_plan_items": {
+        "id", "source_batch_id", "product_code", "warehouse", "planned_quantity",
+        "status", "migration_generation",
+    },
+    "inventory_operating_settings": {
+        "id", "target_days", "critical_days", "slow_days", "stagnant_days",
+        "auto_replenishment", "inventory_alert", "allow_negative_inventory",
+    },
+}
+REQUIRED_INVENTORY_WRITER_COLUMNS = {
+    **REQUIRED_INVENTORY_COLUMNS,
+    "inventory_import_scope_heads": {
+        "dataset", "scope_key", "state_token", "status", "owner_token", "generation",
+    },
+    "inventory_import_attempts": {
+        "id", "dataset", "scope_key", "row_count", "excluded_count", "outcome",
+        "error_code", "metadata",
+    },
+    "inventory_import_fingerprints": {
+        "dataset", "batch_id", "scope_key", "content_hash", "published_state_token",
+    },
+    "inventory_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "inventory_write_request_receipts": {
+        "request_id", "body_sha256", "query_sha256", "status", "response_payload",
+    },
+    "inventory_raw_upload_sessions": {
+        "id", "fingerprint", "dataset", "actor_email", "status", "owner_token",
+        "owner_generation", "result_batch_id", "expires_at",
+    },
+    "inventory_raw_upload_chunks": {
+        "session_id", "chunk_index", "object_key", "sha256", "payload",
+    },
+}
+REQUIRED_INVENTORY_READER_INDEXES = {
+    "inv_batch_scope_idx", "inv_batch_created_idx", "inv_stock_lookup_idx",
+    "inv_stock_product_idx", "inv_age_lookup_idx", "inv_age_product_idx",
+    "inv_plan_status_idx",
+}
+REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
+    "inv_attempt_scope_idx", "inv_upload_fingerprint_idx", "inv_upload_expiry_idx",
+    "inv_raw_chunk_order_idx",
+}
+INVENTORY_WRITER_TABLE_PRIVILEGES = {
+    "sales_order_lines": ("SELECT",),
+    "sales_import_batches": ("SELECT",),
+    "sales_data_revisions": ("SELECT",),
+    "erp_product_master": ("SELECT",),
+    "erp_reference_sync_checkpoint": ("SELECT",),
+    "inventory_import_batches": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_stock_lines": ("SELECT", "INSERT", "DELETE"),
+    "inventory_age_lines": ("SELECT", "INSERT", "DELETE"),
+    "inventory_import_scope_heads": ("SELECT", "UPDATE"),
+    "inventory_import_attempts": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_import_fingerprints": ("SELECT", "INSERT"),
+    "inventory_data_revisions": ("SELECT", "UPDATE"),
+    "inventory_write_authority": ("SELECT",),
+    "inventory_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "inventory_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "inventory_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "replenishment_plan_items": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_operating_settings": ("SELECT", "UPDATE"),
+}
+INVENTORY_WRITER_AUTO_ID_TABLES = (
+    "inventory_stock_lines", "inventory_age_lines", "inventory_import_fingerprints",
+    "inventory_raw_upload_chunks",
+)
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
         "source_line_key",
@@ -946,6 +1036,137 @@ def _validate_products_writer_permissions(cursor) -> None:
                 raise ReadinessError("products_writer_database_privilege_missing")
 
 
+def _validate_inventory_schema(cursor, *, writer: bool) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    expected = REQUIRED_INVENTORY_WRITER_COLUMNS if writer else REQUIRED_INVENTORY_COLUMNS
+    for table, expected_columns in expected.items():
+        if table not in tables:
+            raise ReadinessError(
+                "inventory_writer_schema_missing" if writer else "inventory_reader_schema_missing"
+            )
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError(
+                "inventory_writer_schema_incomplete" if writer else "inventory_reader_schema_incomplete"
+            )
+    indexed_tables = (
+        "inventory_import_batches", "inventory_stock_lines", "inventory_age_lines",
+        "inventory_import_attempts", "inventory_raw_upload_sessions",
+        "inventory_raw_upload_chunks", "replenishment_plan_items",
+    )
+    present_indexes: set[str] = set()
+    for table in indexed_tables:
+        if table in tables:
+            constraints = connection.introspection.get_constraints(cursor, table)
+            present_indexes.update(
+                name for name, value in constraints.items() if value.get("index")
+            )
+    required_indexes = (
+        REQUIRED_INVENTORY_WRITER_INDEXES
+        if writer
+        else REQUIRED_INVENTORY_READER_INDEXES
+    )
+    if not required_indexes.issubset(present_indexes):
+        raise ReadinessError("inventory_indexes_incomplete")
+
+
+def _validate_inventory_revision(cursor) -> None:
+    cursor.execute(
+        "SELECT revision, source_digest FROM inventory_data_revisions "
+        "WHERE domain='inventory'"
+    )
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("inventory_reader_revision_invalid")
+
+
+def _validate_inventory_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
+        "FROM inventory_write_authority WHERE id = 1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("inventory_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("inventory_writer_authority_invalid") from error
+    if (
+        epoch != settings.INVENTORY_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.INVENTORY_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"inventory-apply-[0-9a-f]{32}", str(row[3] or ""))
+    ):
+        raise ReadinessError("inventory_writer_authority_mismatch")
+
+
+def _validate_inventory_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("inventory_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("inventory_writer_database_read_only")
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user, current_schema(), 'CREATE'), "
+        "has_database_privilege(current_user, current_database(), 'CREATE')"
+    )
+    if any(bool(value) for value in cursor.fetchone()):
+        raise ReadinessError("inventory_writer_database_privilege_excessive")
+    for table, privileges in INVENTORY_WRITER_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)",
+                [table, privilege],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("inventory_writer_database_privilege_missing")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') "
+        "AND n.nspname <> 'information_schema' "
+        "AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "INSERT": bool(row[2]) or bool(row[6]),
+            "UPDATE": bool(row[3]) or bool(row[7]),
+            "DELETE": bool(row[4]),
+            "TRUNCATE": bool(row[5]),
+        }
+        allowed = (
+            set(INVENTORY_WRITER_TABLE_PRIVILEGES.get(table_name, ()))
+            if schema_name == application_schema
+            else set()
+        )
+        if any(
+            granted and privilege not in allowed
+            for privilege, granted in actual.items()
+        ):
+            raise ReadinessError("inventory_writer_database_privilege_excessive")
+    for table in INVENTORY_WRITER_AUTO_ID_TABLES:
+        cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [table])
+        sequence = cursor.fetchone()[0]
+        if sequence:
+            cursor.execute(
+                "SELECT has_sequence_privilege(current_user, %s, 'USAGE')",
+                [sequence],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("inventory_writer_database_privilege_missing")
+
+
 def _validate_writer_authority(cursor) -> str:
     cursor.execute(
         "SELECT status, authority_epoch, cutover_id "
@@ -1038,9 +1259,27 @@ def ready(_request):
     market_reader_process = settings.DJANGO_PROCESS_ROLE == "market_reader"
     products_writer_process = settings.DJANGO_PROCESS_ROLE == "products_writer"
     products_reader_process = settings.DJANGO_PROCESS_ROLE == "products_reader"
+    inventory_writer_process = settings.DJANGO_PROCESS_ROLE == "inventory_writer"
+    inventory_reader_process = settings.DJANGO_PROCESS_ROLE == "inventory_reader"
     try:
         with connection.cursor() as cursor:
-            if products_writer_process:
+            if inventory_writer_process:
+                _validate_inventory_schema(cursor, writer=True)
+                _validate_inventory_revision(cursor)
+                _validate_inventory_writer_authority(cursor)
+                _validate_reader_state(cursor)
+                _validate_inventory_writer_permissions(cursor)
+            elif inventory_reader_process:
+                _validate_inventory_schema(cursor, writer=False)
+                _validate_inventory_revision(cursor)
+                _validate_reader_state(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif products_writer_process:
                 _validate_products_schema(cursor, writer=True)
                 _validate_products_revision(cursor)
                 _validate_products_writer_authority(cursor)
@@ -1127,7 +1366,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "products_writer_unavailable"
+                    "inventory_writer_unavailable"
+                    if inventory_writer_process
+                    else "inventory_reader_unavailable"
+                    if inventory_reader_process
+                    else "products_writer_unavailable"
                     if products_writer_process
                     else "products_reader_unavailable"
                     if products_reader_process
@@ -1160,7 +1403,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "products_writer_unavailable"
+                    "inventory_writer_unavailable"
+                    if inventory_writer_process
+                    else "inventory_reader_unavailable"
+                    if inventory_reader_process
+                    else "products_writer_unavailable"
                     if products_writer_process
                     else "products_reader_unavailable"
                     if products_reader_process
@@ -1188,7 +1435,11 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if products_writer_process:
+    if inventory_writer_process:
+        payload["inventoryWriter"] = "ready"
+    elif inventory_reader_process:
+        payload["inventoryReader"] = "ready"
+    elif products_writer_process:
         payload["productsWriter"] = "ready"
     elif products_reader_process:
         payload["productsReader"] = "ready"
