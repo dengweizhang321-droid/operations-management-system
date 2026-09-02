@@ -1856,7 +1856,7 @@ test("immutable Worker keeps Miniflare cache outside node_modules across two sta
   }
 });
 
-test("public entrypoints cannot directly invoke Vinext, Wrangler or the legacy starter", async () => {
+test("public entrypoints converge on the immutable Worker start engine", async () => {
   const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   for (const name of ["dev", "start", "start:local-worker"]) {
     assert.match(packageJson.scripts[name], /worker-local-service\.ps1.+-Action Start/);
@@ -1864,11 +1864,15 @@ test("public entrypoints cannot directly invoke Vinext, Wrangler or the legacy s
   }
   const batch = await readFile("运行项目.bat", "utf8");
   const panel = await readFile("tools/operations-system-control.ps1", "utf8");
+  const service = await readFile("tools/worker-local-service.ps1", "utf8");
   assert.match(batch, /worker-local-service\.ps1" -Action Start/);
   assert.doesNotMatch(batch, /npm\s+(?:install|run\s+dev)|vinext\s+(?:dev|start)|wrangler\s+dev/);
   assert.match(batch, /Node\.js 24\.x/);
+  assert.match(batch, /唯一启动总控/);
+  assert.match(panel, /teruisi-operations-system-control-v2/);
   assert.match(panel, /tools\\worker-local-service\.ps1/);
   assert.doesNotMatch(panel, /start-local-worker\.mjs|--build|vinext\s+(?:dev|start)|wrangler\s+dev/);
+  assert.match(service, /Ensure-DjangoSystemReady/);
 });
 
 test("PowerShell 5 service contract is parseable and never claims an unknown port is stopped", async () => {

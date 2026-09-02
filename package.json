@@ -10,6 +10,7 @@
     "build": "vinext build",
     "start": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
     "start:local-worker": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
+    "system:status": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-control.ps1 -Action Status",
     "test": "vinext build && node --import tsx --test tests/*.test.ts && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .runtime --ignore-pattern .codex-tmp --ignore-pattern .vite-sites-cache --ignore-pattern tmp --ignore-pattern outputs",
     "test:unit": "node --import tsx --test tests/*.test.ts",
