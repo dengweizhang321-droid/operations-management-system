@@ -2,9 +2,9 @@
 
 ## 1. 当前状态
 
-2026-09-02，库存管理板块的 Django/PostgreSQL 终态实现、真实 D1 副本迁移、目标库查询冒烟、双侧写权切换和 D1 退役均已在独立 worktree 与隔离镜像中完成验证。现有 React/Next.js 页面和公开 API 契约保持不变；公开 Worker 只保留真实鉴权、XLSX 解析、HMAC、请求体积/超时边界和薄适配。
+2026-09-03，本机库存管理板块已完成 Django/PostgreSQL 正式单写切换、完整垂直链路系统测试、D1 终态退役和库存 R2 路径下线。现有 React/Next.js 页面和公开 API 契约保持不变；公开 Worker 只保留真实鉴权、XLSX 解析、HMAC、请求体积/超时边界和薄适配。
 
-这次结果是“代码与迁移方案已通过镜像验收”，不是正式生产 cutover。生产 D1、PostgreSQL、Worker effective head、8051/8052 服务和启动链均未在本次开发验证中改变。正式切换必须在本分支合并并生成不可变发布后，另行执行第 9 节的受控流程；在此之前，生产库存权威仍按现有 D1 契约运行。
+正式 cutover ID 为 `inventory-pg-20260902T162501Z-c6f5c5af1d254c0d`，PostgreSQL authority epoch 为 `7cc50a33-91a6-4e2d-8253-1531c6de3a22`。切换已跨过 PNR：D1/R2、`legacy`、`shadow` 和反向迁移都不能作为库存恢复路径；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。全局 D1/R2 binding 仍供 ERP、市场图片和其他业务域使用，不得因库存域退役而删除。
 
 ## 2. 终态边界
 
@@ -161,9 +161,31 @@ PostgreSQL 一致性备份已把库存表、inventory revision、migration run �
 
 切换越过 PNR 后，恢复只能使用 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复；不得恢复 D1/legacy/shadow、双写或反向迁移。库存故障只能使库存相关 API、投影和导入失败关闭，不得改变销售、ERP、财务、网店、市场、商品经营或其他领域 authority。
 
-## 9. 正式 cutover 清单
+## 9. 2026-09-03 正式生产 cutover 证据
 
-1. 合并并复审本实现，确认与最新 `main` 无冲突；构建不可变 Worker successor，但不要激活。
+| 项目 | 正式生产证据 |
+| --- | --- |
+| cutover / authority | `inventory-pg-20260902T162501Z-c6f5c5af1d254c0d`；epoch `7cc50a33-91a6-4e2d-8253-1531c6de3a22` |
+| plan / apply / verify | `inventory-plan-6d2a3a052f8f401ba51c8f2d986767ba`；`inventory-apply-2c525a0e624141fab8f577d9fc5b91cd`；verify 与 apply 绑定 |
+| 源/目标规范摘要 | `2249cc533aa898007e3fc882b454f7730604ffbd0d87feb6dc1e541996273390` |
+| 正式数据 | 库存 1,085,958；库龄 275,669；批次 111；指纹 53；attempt 58；备货计划 1 |
+| 排除 | `刷刷仓` 1 行；同日旧版本库存 132,361 行 |
+| Worker effective head | release `20260902T161554Z-82b90718e2caf6f3`；build SHA-256 `03f67d55dd0a8c1996a2a1c9969edd2d0d6a5afc2cc726d9cffb1ab5e76c8ff1` |
+| 系统测试 | 16 项 reader/writer、公开 API、直接/分片导入负向、商品投影、系统成本、AI、搜索、旧路径拒绝和其他域保留检查通过；smoke receipt SHA-256 `07ec0bb7e4e5a23032ca7301d6fe999c76620f859c06718c2e1ebba07479ba00` |
+| R2 下线 | `inventory-upload/` 对象、字节、multipart upload/part 均为 0；证据 SHA-256 `e1519f1fcc3daf98e132093435513e94f0610d79550aebe604524ac6d96e7203` |
+| D1 退役 | plan `f9a4f052b0b3ffb6614a6692b7a4813219e798231c2cb099ed0cc17574ee3638`；6 个空 tombstone view、24 个永久 guard、库存共享行 0；`PRAGMA quick_check=ok` |
+| D1 切换前备份 | SHA-256 `7137049c4fbb30566a8a6c67068a763c8b363efceaaa5d21cd403f96ec5b587a` |
+| PostgreSQL 正式备份 | `daily-20260902T171805Z-180898b39f33`；manifest `b3aa9d30b537e1f8802f66fe560b1d4494cc47382c678b517a48262595a39e7b`；dump `0f3885179bd06d1b984a2d3847e24a05949164e34cb2211a645c8d047b09f6f1` |
+| 独立恢复演练 | `8f3a1c2d4e5f`，临时端口 55432；恢复摘要与备份 `133c47edfdd7cd7eb16974632486d4c3ad41ff3977748eeda0f1ae939fdd619a` 一致；生产库未触碰、服务状态未改变、临时数据已清理 |
+| 终态运行 | PostgreSQL 17.11 `127.0.0.1:5432`；inventory reader/writer `127.0.0.1:8051/8052`；`inventory-service-enabled.json` 已绑定 authority 并加入受控开机链；退役后 7 个总控组件全部 ready |
+
+正式证据保存在 `D:\teruisi-runtime\django-sales\audits\inventory-cutover\inventory-pg-20260902T162501Z-c6f5c5af1d254c0d`、对应 PostgreSQL backup/rehearsal 目录和不可变 Worker release 中。证据、backup、retirement receipt、authority epoch 和 successor 链均不得清理或覆盖。
+
+## 10. 后续 release / 恢复门禁
+
+以下清单是后续 release、灾难恢复或同类迁移必须继续满足的门禁；本次正式 cutover 已完成全部项目：
+
+1. 合并并复审实现，确认与最新 `main` 无冲突；构建不可变 Worker successor，但不要激活。
 2. 在不停服正式备份中核对库存表清单、revision、migration run 和 authority；另存 D1 冻结副本及 SHA-256。
 3. 暂停库存/库龄导入和备货计划写入；确认没有 processing batch/attempt、owner、上传、receipt 或商品库存投影租约。
 4. 在精确权威 D1 文件上受控安装行为中性的 `0101`，以该文件作为 `--source`，用正式 PostgreSQL migration writer 运行 Django schema、`plan -> apply -> verify`；独立复核计数、摘要、排除、设置和最新批次。另存冻结副本只作备份/复核。
