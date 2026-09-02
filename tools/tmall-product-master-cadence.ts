@@ -9,6 +9,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const defaultStateDirectory = path.join(projectRoot, ".runtime", "tmall-product-master-cadence");
 const productManagerAuditDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
 const pagewiseAuditDirectory = path.join(projectRoot, "outputs", "tmall-pagewise-product-master-export");
+const directMtopAuditDirectory = path.join(projectRoot, "outputs", "tmall-direct-product-master-export");
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const tmallForceProductMasterHeader = "x-teruisi-tmall-force-product-master";
@@ -111,7 +112,7 @@ export async function loadTmallProductMasterCadenceState(
 
 export async function hasPendingTmallProductMasterAudit(
   storeKey: string,
-  auditDirectories = [productManagerAuditDirectory, pagewiseAuditDirectory],
+  auditDirectories = [productManagerAuditDirectory, pagewiseAuditDirectory, directMtopAuditDirectory],
 ) {
   const activeName = `active-${storeKey}.json`;
   for (const directory of auditDirectories) {

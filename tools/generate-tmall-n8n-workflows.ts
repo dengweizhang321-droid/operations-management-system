@@ -3,9 +3,17 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+  tmallDirectPmProtocolHeader,
+  tmallDirectProductMasterRoute,
+  tmallDirectPromotionRoute,
+} from "./tmall-yijiu-direct-pm-contract";
+
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflowDirectory = path.join(projectRoot, "automation", "n8n");
 const baseWorkflowFile = path.join(workflowDirectory, "tmall-yijiu-sycm-cookie-daily.workflow.json");
+export const tmallYijiuDirectPmCandidateFileName = "tmall-yijiu-direct-pm-candidate.workflow.json";
 
 export type TmallN8nWorkflowDefinition = {
   storeKey: string;
@@ -116,6 +124,7 @@ type WorkflowTemplate = {
   nodes: WorkflowNode[];
   connections: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
 };
 
 const bindingEndMarker = "<!-- tmall-store-binding:end -->";
@@ -174,6 +183,7 @@ function setStoreHeader(node: WorkflowNode, storeKey: string) {
       "x-teruisi-tmall-force-product-master",
       "x-teruisi-tmall-plan-start-date",
       "x-teruisi-tmall-plan-end-date",
+      tmallDirectPmProtocolHeader,
     ].includes(String(header.name ?? "").toLowerCase())),
     { name: "X-TERUISI-TMALL-STORE-KEY", value: storeKey },
     ...(url.endsWith("/plan")
@@ -273,6 +283,81 @@ export function buildTmallN8nWorkflow(
   return workflow;
 }
 
+function renameWorkflowNode(workflow: WorkflowTemplate, node: WorkflowNode, targetName: string) {
+  const sourceName = node.name;
+  node.name = targetName;
+  if (sourceName !== targetName && workflow.connections[sourceName]) {
+    workflow.connections[targetName] = workflow.connections[sourceName];
+    delete workflow.connections[sourceName];
+  }
+  replaceConnectionNode(workflow.connections, sourceName, targetName);
+}
+
+function addCandidateProtocolHeader(node: WorkflowNode) {
+  const parameters = node.parameters ??= {};
+  parameters.sendHeaders = true;
+  const headerParameters = parameters.headerParameters ??= { parameters: [] };
+  const headers = Array.isArray(headerParameters.parameters) ? headerParameters.parameters : [];
+  headerParameters.parameters = [
+    ...headers.filter((header) => String(header.name ?? "").toLowerCase() !== tmallDirectPmProtocolHeader),
+    { name: "X-TERUISI-TMALL-CANDIDATE-PROTOCOL", value: TMALL_YIJIU_DIRECT_PM_PROTOCOL },
+  ];
+}
+
+export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplate): WorkflowTemplate {
+  const definition = tmallN8nWorkflowDefinitions.find((candidate) => candidate.storeKey === "tmall-yijiu");
+  if (!definition) throw new Error("缺少亿玖天猫工作流定义");
+  const workflow = buildTmallN8nWorkflow(source, definition);
+  workflow.id = definition.workflowId;
+  workflow.name = "天猫店铺数据导入（亿玖 P/M 直连候选）";
+  workflow.active = false;
+  workflow.versionId = stableUuid("teruisi:tmall-yijiu:direct-pm-candidate:v1");
+  workflow.meta = {
+    ...(workflow.meta ?? {}),
+    candidateOnly: true,
+    candidateProtocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+    replacesWorkflowId: definition.workflowId,
+  };
+
+  const promotion = workflow.nodes.find((node) => node.name === "P·商品报表逐日下载、汇总导入并回查");
+  const productMaster = workflow.nodes.find((node) => node.name === "M·出售中逐页导出、合并校验并导入");
+  if (!promotion || !productMaster) throw new Error("亿玖基础模板缺少 P 或 M 节点");
+  promotion.parameters ??= {};
+  promotion.parameters.url = `http://127.0.0.1:5791${tmallDirectPromotionRoute}`;
+  addCandidateProtocolHeader(promotion);
+  renameWorkflowNode(workflow, promotion, "P·直连创建商品报表、下载、汇总导入并回查");
+
+  productMaster.parameters ??= {};
+  productMaster.parameters.url = `http://127.0.0.1:5791${tmallDirectProductMasterRoute}`;
+  addCandidateProtocolHeader(productMaster);
+  renameWorkflowNode(workflow, productMaster, "M·MTOP 分批导出、合并校验并导入");
+
+  const credentialNote = workflow.nodes.find((node) => node.name === "凭证说明");
+  if (credentialNote?.parameters && typeof credentialNote.parameters.content === "string") {
+    credentialNote.parameters.content += "\n\n## 候选协议\nP/M 直连接口只复用亿玖独立 Chromium 的浏览器 Cookie 存储；csrfId、loginPointId、MTOP token、签名和 OSS 临时链接只在 helper 内存中存在，不写入 n8n、活动清单或日志。";
+  }
+  const flowNote = workflow.nodes.find((node) => node.name === "流程说明");
+  if (flowNote?.parameters) {
+    flowNote.parameters.content = [
+      "## 亿玖 P/M 直连候选（默认停用）",
+      "这是同一工作流 ID 的替换版本，不是可与现版并行激活的第二条流程。仓库文件固定 active=false；发布前必须先部署配套 helper，再在 n8n 中受控替换并确认只有一个版本激活。",
+      "",
+      "## A→B→C→P→M",
+      "A/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行，M 仍按上海日期每 3 天到期一次；not_due 也会关闭亿玖浏览器并释放 helper。",
+      "",
+      "## P·阿里妈妈直连任务",
+      "从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。",
+      "",
+      "## M·MTOP 固定导出",
+      "从千牛“商品 > 我的商品 > 出售中”的真实首屏请求捕获只读列表模板，固定每页 20 条、最多 100 页并核对 response total；itemId 排序后每 20 个一批。唯一写类路径逐字固定为 batchFastEdit.htm?optType=batchExportItem&action=submit，不能由工作流、配置或请求参数改写。每批提交前保存导出记录 id 基线，提交与下载串行；响应未决、出现多个新记录、行数/时间窗/商品 ID 不一致均失败关闭。全部批文件校验后合并成一个权威 XLSX，只导入一次并回查。",
+      "",
+      "## 切换门禁",
+      "原 P 或 M 只要存在已进入业务动作的活动清单，候选协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
+    ].join("\n");
+  }
+  return workflow;
+}
+
 export async function generateTmallN8nWorkflows() {
   const source = JSON.parse(await readFile(baseWorkflowFile, "utf8")) as WorkflowTemplate;
   if (source.active) throw new Error("拒绝从已激活的天猫工作流生成扩店模板");
@@ -283,6 +368,10 @@ export async function generateTmallN8nWorkflows() {
     await writeFile(outputPath, `${JSON.stringify(workflow, null, 2)}\n`, "utf8");
     generated.push(outputPath);
   }
+  const candidatePath = path.join(workflowDirectory, tmallYijiuDirectPmCandidateFileName);
+  const candidate = buildTmallYijiuDirectPmCandidateWorkflow(source);
+  await writeFile(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+  generated.push(candidatePath);
   return generated;
 }
 

@@ -923,6 +923,8 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
       "tools/jd-promotion-export.ts",
       "tools/jd-promotion-n8n-pipeline.ts",
       "tools/sales-import-runner.ts",
+      "tools/tmall-direct-product-master-export.ts",
+      "tools/tmall-direct-promotion-export.ts",
       "tools/tmall-multi-store-import-runner.ts",
       "tools/tmall-pagewise-product-master-export.ts",
       "tools/tmall-product-master-cadence.ts",

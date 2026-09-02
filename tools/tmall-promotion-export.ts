@@ -31,6 +31,7 @@ export const TMALL_PROMOTION_DIMENSIONS = ["商品", "计划"] as const;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-promotion-export");
+const directPromotionArtifactDirectory = path.join(projectRoot, "outputs", "tmall-direct-promotion-export");
 const defaultChromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const maximumDownloadBytes = 25 * 1024 * 1024;
 const maximumDaysPerRun = 30;
@@ -81,7 +82,7 @@ type PromotionDownloadTaskCandidate = PromotionDownloadTaskChoice & {
   actionBandEndY: number | null;
 };
 
-type PromotionFileEvidence = {
+export type PromotionFileEvidence = {
   fileName: string;
   filePath: string;
   size: number;
@@ -813,7 +814,7 @@ async function assertAlimamaIdentity(page: Page, store: TmallStore) {
   await assertStoreIdentity(page, store, "阿里妈妈");
 }
 
-async function waitForAlimamaIdentity(page: Page, store: TmallStore, timeoutMs = 60_000) {
+export async function waitForAlimamaIdentity(page: Page, store: TmallStore, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown;
   while (Date.now() < deadline) {
@@ -2560,7 +2561,11 @@ async function waitForGeneratedTask(options: {
   throw new Error(`阿里妈妈推广报表在有界等待后仍不可安全下载：${lastObservation}`);
 }
 
-async function inspectPromotionFile(filePath: string, store: TmallStore, plan: PromotionDatePlan): Promise<PromotionFileEvidence> {
+export async function inspectTmallPromotionFile(
+  filePath: string,
+  store: TmallStore,
+  plan: PromotionDatePlan,
+): Promise<PromotionFileEvidence> {
   const resolved = await realpath(filePath);
   if (!inside(store.browser.downloadDir, resolved) || !/\.zip$/i.test(resolved)) {
     throw new Error("推广文件不在当前店铺独立下载目录或扩展名不是 .zip");
@@ -2596,7 +2601,7 @@ async function inspectPromotionFile(filePath: string, store: TmallStore, plan: P
 }
 
 async function assertFileUnchanged(file: PromotionFileEvidence, store: TmallStore, plan: PromotionDatePlan) {
-  const current = await inspectPromotionFile(file.filePath, store, plan);
+  const current = await inspectTmallPromotionFile(file.filePath, store, plan);
   if (current.fileName !== file.fileName || current.size !== file.size || current.sha256 !== file.sha256
     || current.rowCount !== file.rowCount || current.dateMin !== file.dateMin || current.dateMax !== file.dateMax) {
     throw new Error("恢复清单中的推广文件已变化，拒绝继续导入");
@@ -2604,7 +2609,7 @@ async function assertFileUnchanged(file: PromotionFileEvidence, store: TmallStor
   return current;
 }
 
-async function importPromotionFile(options: {
+export async function importTmallPromotionFile(options: {
   baseUrl: string;
   store: TmallStore;
   plan: PromotionDatePlan;
@@ -2680,6 +2685,10 @@ async function runTmallPromotionDate(options: {
   if (plan.startDate !== plan.endDate || plan.dates.length !== 1 || plan.dates[0] !== plan.startDate) {
     throw new Error("推广报表必须按单个业务日下载，起止日期必须为同一天");
   }
+  const directActivePath = activeAuditPath(store.storeKey, directPromotionArtifactDirectory);
+  if (await stat(directActivePath).then(() => true).catch(() => false)) {
+    throw new Error("检测到推广直连 P 节点仍有活动清单；必须先人工核对原任务，不能切回页面导出");
+  }
   const existing = await readActiveAudit(store.storeKey, runAuditDirectory);
   const disposition = existing ? promotionAuditProtocolDisposition(existing.audit) : null;
   if (existing && disposition === "block_existing_business_action") {
@@ -2732,7 +2741,7 @@ async function runTmallPromotionDate(options: {
       await writeAudit(audit, runAuditDirectory);
       const unverified = await assertUnverifiedPromotionFileUnchanged(audit.unverifiedFile, store);
       try {
-        file = await inspectPromotionFile(unverified.filePath, store, plan);
+        file = await inspectTmallPromotionFile(unverified.filePath, store, plan);
       } catch (error) {
         const previousAttempts = audit.downloadAttempts ?? 1;
         if (!shouldRedownloadUnverifiedPromotionFile(error, previousAttempts)) throw error;
@@ -2784,7 +2793,7 @@ async function runTmallPromotionDate(options: {
           audit.unverifiedFile = await bindUnverifiedPromotionFile(recovered.filePath, store);
           audit.stage = "downloaded_unverified";
           await writeAudit(audit, runAuditDirectory);
-          file = await inspectPromotionFile(recovered.filePath, store, plan);
+          file = await inspectTmallPromotionFile(recovered.filePath, store, plan);
           delete audit.taskScanDiagnostic;
         } finally {
           try {
@@ -2900,7 +2909,7 @@ async function runTmallPromotionDate(options: {
         audit.unverifiedFile = await bindUnverifiedPromotionFile(downloaded.filePath, store);
         audit.stage = "downloaded_unverified";
         await writeAudit(audit, runAuditDirectory);
-        file = await inspectPromotionFile(downloaded.filePath, store, plan);
+        file = await inspectTmallPromotionFile(downloaded.filePath, store, plan);
         delete audit.taskScanDiagnostic;
         audit.file = file;
         audit.stage = "downloaded";
@@ -2925,7 +2934,7 @@ async function runTmallPromotionDate(options: {
     assertPromotionRunActive(signal);
     audit.stage = "importing";
     await writeAudit(audit, runAuditDirectory);
-    const imported = await importPromotionFile({ baseUrl, store, plan, file, request });
+    const imported = await importTmallPromotionFile({ baseUrl, store, plan, file, request });
     assertPromotionRunActive(signal);
     await verifyTmallPromotionCoverageAfterImport({
       baseUrl,

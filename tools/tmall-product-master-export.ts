@@ -35,6 +35,7 @@ const tmallNoticeActionSelector = 'button,a,[role="button"],[aria-label],[title]
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
+const directMtopArtifactDirectory = path.join(projectRoot, "outputs", "tmall-direct-product-master-export");
 const defaultChromeExecutable = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const maximumWorkbookBytes = 25 * 1024 * 1024;
 const exportResultTimeoutMs = 10 * 60 * 1000;
@@ -1952,6 +1953,10 @@ export async function runTmallProductMasterStage(options: {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedSnapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
 
   await mkdir(runAuditDirectory, { recursive: true });
+  const directMtopActivePath = path.join(directMtopArtifactDirectory, `active-${safeSegment(store.storeKey)}.json`);
+  if (await stat(directMtopActivePath).then(() => true).catch(() => false)) {
+    throw new Error("检测到 MTOP 直连 M 节点仍有活动清单；必须先人工核对原任务，不能切换为商品管家导出");
+  }
   const existing = await readActiveAudit(store.storeKey, runAuditDirectory);
   let audit: MasterExportAudit | undefined = existing?.audit;
   let evidence: MasterFileEvidence | undefined;

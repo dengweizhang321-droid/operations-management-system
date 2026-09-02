@@ -98,11 +98,12 @@ test("手动强制和未决活动清单都会越过未到期门禁，未配置�
   assert.equal(compatibility.reason, "daily_compatibility");
 });
 
-test("未决活动清单从两个 M 策略目录任一命中都会要求续接", async () => {
+test("未决活动清单从任一 M 策略目录命中都会要求续接", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "tmall-master-audit-"));
   const stateRoot = await mkdtemp(path.join(tmpdir(), "tmall-master-state-"));
   const productManager = path.join(root, "manager");
   const pagewise = path.join(root, "pagewise");
+  const directMtop = path.join(root, "direct-mtop");
   try {
     await mkdir(pagewise, { recursive: true });
     await writeFile(path.join(pagewise, "active-tmall-test.json"), "{}", "utf8");
@@ -110,10 +111,20 @@ test("未决活动清单从两个 M 策略目录任一命中都会要求续接",
       store: store(),
       now: new Date("2026-08-24T06:00:00.000Z"),
       stateDirectory: stateRoot,
-      auditDirectories: [productManager, pagewise],
+      auditDirectories: [productManager, pagewise, directMtop],
     });
     assert.equal(decision.due, true);
     assert.equal(decision.reason, "pending_audit");
+    await rm(path.join(pagewise, "active-tmall-test.json"));
+    await mkdir(directMtop, { recursive: true });
+    await writeFile(path.join(directMtop, "active-tmall-test.json"), "{}", "utf8");
+    const directDecision = await getTmallProductMasterCadenceDecision({
+      store: store(),
+      now: new Date("2026-08-24T06:00:00.000Z"),
+      stateDirectory: stateRoot,
+      auditDirectories: [productManager, pagewise, directMtop],
+    });
+    assert.equal(directDecision.reason, "pending_audit");
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(stateRoot, { recursive: true, force: true });
@@ -214,5 +225,39 @@ test("到期 M 只有完整导入成功并推进节奏后才关闭浏览器返�
   });
   assert.deepEqual(calls, ["pagewise", "state", "close"]);
   assert.equal(result.status, "imported");
+  assert.equal((result.cadence as { nextDueDate?: string }).nextDueDate, "2026-08-28");
+});
+
+test("亿玖候选 M 到期时只调用 MTOP 直连导出器并沿用原节奏与关浏览器终态", async () => {
+  const target = store({ storeKey: "tmall-yijiu", shopName: "天猫-志高亿玖专卖店" });
+  const decision = decideTmallProductMasterCadence({
+    store: target, operationDate: "2026-08-25", state: null,
+  });
+  const calls: string[] = [];
+  const result = await runTmallProductMasterTerminalStage({
+    store: target,
+    forced: false,
+    mode: "direct_mtop",
+    getDecision: async () => decision,
+    runProductManager: async () => { throw new Error("直连候选不得调用商品管家"); },
+    runPagewise: async () => { throw new Error("直连候选不得调用 UI 逐页导出"); },
+    runDirect: async () => {
+      calls.push("direct");
+      return {
+        ok: true, stage: "product_master", status: "duplicate", storeKey: target.storeKey,
+        shopName: target.shopName, snapshotDate: "2026-08-25", batchId: "batch-direct", rowCount: 43, warningCount: 0,
+      };
+    },
+    recordSuccess: async () => {
+      calls.push("state");
+      return {
+        version: 1, storeKey: target.storeKey, intervalDays: 3, lastSuccessDate: "2026-08-25",
+        lastSnapshotDate: "2026-08-25", nextDueDate: "2026-08-28", updatedAt: "2026-08-25T06:00:00.000Z",
+      };
+    },
+    closeBrowser: async () => { calls.push("close"); return { ok: true, status: "closed" }; },
+  });
+  assert.deepEqual(calls, ["direct", "state", "close"]);
+  assert.equal(result.status, "duplicate");
   assert.equal((result.cadence as { nextDueDate?: string }).nextDueDate, "2026-08-28");
 });

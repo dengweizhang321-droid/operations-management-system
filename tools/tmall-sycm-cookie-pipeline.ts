@@ -26,6 +26,7 @@ import {
   runTmallProductMasterStage,
 } from "./tmall-product-master-export";
 import { runTmallPagewiseProductMasterStage } from "./tmall-pagewise-product-master-export";
+import { runTmallDirectProductMasterStage } from "./tmall-direct-product-master-export";
 import {
   getTmallProductMasterCadenceDecision,
   parseTmallForceProductMasterHeader,
@@ -33,6 +34,15 @@ import {
   tmallForceProductMasterHeader,
 } from "./tmall-product-master-cadence";
 import { runTmallPromotionStage } from "./tmall-promotion-export";
+import { runTmallDirectPromotionStage } from "./tmall-direct-promotion-export";
+import {
+  isTmallDirectPmRoute,
+  tmallDirectPmProtocolError,
+  tmallDirectPmProtocolHeader,
+  tmallDirectProductMasterRoute,
+  tmallDirectPromotionRoute,
+  type TmallDirectPmRoute,
+} from "./tmall-yijiu-direct-pm-contract";
 import {
   getJackyunProfileStatus,
   jackyunN8nFailureDetails,
@@ -148,7 +158,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
 export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
-export type HelperRoute = "/plan" | "/fetch" | "/import" | "/promotion" | "/product-master";
+export type HelperRoute = "/plan" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
 export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
@@ -913,7 +923,7 @@ export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
   if (route === "/plan") return "planned";
   if (route === "/fetch") return "fetched";
   if (route === "/import") return "imported";
-  if (route === "/promotion") return "promoted";
+  if (route === "/promotion" || route === tmallDirectPromotionRoute) return "promoted";
   return "completed";
 }
 
@@ -937,7 +947,7 @@ export function helperRequestError(
       ? null
       : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
   }
-  if (route === "/product-master") {
+  if (route === "/product-master" || route === tmallDirectProductMasterRoute) {
     return stage === "promoted"
       ? null
       : { error: "invalid_stage" as const, expected: "promoted" as const, actual: stage };
@@ -1131,20 +1141,25 @@ export async function runTmallProductMasterTerminalStage(input: {
   getDecision?: typeof getTmallProductMasterCadenceDecision;
   runProductManager?: typeof runTmallProductMasterStage;
   runPagewise?: typeof runTmallPagewiseProductMasterStage;
+  mode?: "registered" | "direct_mtop";
+  runDirect?: typeof runTmallDirectProductMasterStage;
   recordSuccess?: typeof recordTmallProductMasterCadenceSuccess;
   closeBrowser?: typeof closeTmallWorkflowBrowser;
 }) {
   const getDecision = input.getDecision ?? getTmallProductMasterCadenceDecision;
   const runProductManager = input.runProductManager ?? runTmallProductMasterStage;
   const runPagewise = input.runPagewise ?? runTmallPagewiseProductMasterStage;
+  const runDirect = input.runDirect ?? runTmallDirectProductMasterStage;
   const recordSuccess = input.recordSuccess ?? recordTmallProductMasterCadenceSuccess;
   const closeBrowser = input.closeBrowser ?? closeTmallWorkflowBrowser;
   const cadenceDecision = await getDecision({ store: input.store, forced: input.forced });
   let result: Record<string, unknown>;
   if (cadenceDecision.due) {
-    const productMasterResult = input.store.productMasterExportMode === "on_sale_pagewise_excel"
-      ? await runPagewise({ storeKey: input.store.storeKey })
-      : await runProductManager({ storeKey: input.store.storeKey });
+    const productMasterResult = input.mode === "direct_mtop"
+      ? await runDirect({ storeKey: input.store.storeKey })
+      : input.store.productMasterExportMode === "on_sale_pagewise_excel"
+        ? await runPagewise({ storeKey: input.store.storeKey })
+        : await runProductManager({ storeKey: input.store.storeKey });
     const cadenceState = await recordSuccess({
       store: input.store,
       decision: cadenceDecision,
@@ -1386,7 +1401,15 @@ async function serveCommand(argv: string[]) {
       });
       return;
     }
-    const tmallRoutes = ["/product-master", "/plan", "/fetch", "/import", "/promotion"];
+    const tmallRoutes: HelperRoute[] = [
+      "/product-master",
+      tmallDirectProductMasterRoute,
+      "/plan",
+      "/fetch",
+      "/import",
+      "/promotion",
+      tmallDirectPromotionRoute,
+    ];
     const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
     const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
@@ -1426,6 +1449,11 @@ async function serveCommand(argv: string[]) {
         : helperRequestError(stage, busy, route as HelperRoute, requestExecutionId, claimedTmallExecutionId);
     const stateError = requestStateError ?? (workflow === "tmall"
       ? tmallStoreContextError(requestTmallStoreKey, claimedTmallStoreKey)
+        ?? tmallDirectPmProtocolError({
+          route: request.url ?? "",
+          storeKey: requestTmallStoreKey,
+          protocol: request.headers[tmallDirectPmProtocolHeader],
+        })
       : null);
     if (stateError) {
       reply(409, { ok: false, ...stateError });
@@ -1530,14 +1558,15 @@ async function serveCommand(argv: string[]) {
         stage = "completed";
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
-      } else if (request.url === "/product-master") {
+      } else if (request.url === "/product-master" || request.url === tmallDirectProductMasterRoute) {
         const store = await getTmallStore(claimedTmallStoreKey!);
         const result = await runTmallProductMasterTerminalStage({
           store,
           forced: parseTmallForceProductMasterHeader(request.headers[tmallForceProductMasterHeader]),
+          mode: request.url === tmallDirectProductMasterRoute ? "direct_mtop" : "registered",
         });
         tmallBrowserClosure = result.browserClosure;
-        stage = tmallStageAfterRoute("/product-master");
+        stage = tmallStageAfterRoute(request.url);
         reply(200, result);
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
@@ -1566,11 +1595,14 @@ async function serveCommand(argv: string[]) {
         stage = tmallStageAfterRoute("/import");
         reply(200, result);
         inactivityReaper?.arm();
-      } else {
+      } else if (request.url === "/promotion" || request.url === tmallDirectPromotionRoute) {
         if (tmallPlanDates.length === 0) throw new Error("天猫推广阶段缺少同一 execution 的目标日期计划");
         const store = await getTmallStore(claimedTmallStoreKey!);
+        const runPromotion = isTmallDirectPmRoute(request.url)
+          ? runTmallDirectPromotionStage
+          : runTmallPromotionStage;
         const result = await runTmallPromotionStageWithTimeout(
-          (signal) => runTmallPromotionStage({
+          (signal) => runPromotion({
             ...getTmallPromotionStageOptions(claimedTmallStoreKey!, tmallPlanDates),
             signal,
           }),
@@ -1580,9 +1612,11 @@ async function serveCommand(argv: string[]) {
             },
           },
         );
-        stage = tmallStageAfterRoute("/promotion");
+        stage = tmallStageAfterRoute(request.url);
         reply(200, result);
         inactivityReaper?.arm();
+      } else {
+        throw new Error("天猫 helper 路由未实现");
       }
     } catch (error) {
       stage = "failed";

@@ -48,6 +48,10 @@ import {
   workflowCoordinationAttemptHeader,
   workflowCoordinationKeyHeader,
 } from "../tools/tmall-sycm-cookie-pipeline";
+import {
+  tmallDirectProductMasterRoute,
+  tmallDirectPromotionRoute,
+} from "../tools/tmall-yijiu-direct-pm-contract";
 
 const ownedTmallStore: TmallStore = {
   storeKey: "tmall-test",
@@ -450,6 +454,7 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
   assert.equal(helperRequestError("planned", false, "/fetch", "execution-100", "execution-100"), null);
   assert.equal(helperRequestError("fetched", false, "/import", "execution-100", "execution-100"), null);
   assert.equal(helperRequestError("imported", false, "/promotion", "execution-100", "execution-100"), null);
+  assert.equal(helperRequestError("imported", false, tmallDirectPromotionRoute, "execution-100", "execution-100"), null);
   assert.deepEqual(helperRequestError("fetched", false, "/promotion", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "imported",
@@ -457,6 +462,7 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
   });
   assert.deepEqual(helperRequestError("imported", true, "/promotion", "execution-100", "execution-100"), { error: "pipeline_busy" });
   assert.equal(helperRequestError("promoted", false, "/product-master", "execution-100", "execution-100"), null);
+  assert.equal(helperRequestError("promoted", false, tmallDirectProductMasterRoute, "execution-100", "execution-100"), null);
   assert.deepEqual(helperRequestError("promoted", false, "/promotion", "execution-100", "execution-100"), {
     error: "invalid_stage",
     expected: "imported",
@@ -474,8 +480,10 @@ test("一次性 HTTP 辅助进程绑定同一 n8n execution id 并拒绝旧执�
     tmallStageAfterRoute("/fetch"),
     tmallStageAfterRoute("/import"),
     tmallStageAfterRoute("/promotion"),
+    tmallStageAfterRoute(tmallDirectPromotionRoute),
     tmallStageAfterRoute("/product-master"),
-  ], ["planned", "fetched", "imported", "promoted", "completed"]);
+    tmallStageAfterRoute(tmallDirectProductMasterRoute),
+  ], ["planned", "fetched", "imported", "promoted", "promoted", "completed", "completed"]);
 });
 
 test("A/B 等非终态在有界空闲后关闭 helper，下一段领取会取消旧回收计时", () => {

@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { buildTmallN8nWorkflow, tmallN8nWorkflowDefinitions } from "../tools/generate-tmall-n8n-workflows";
+import {
+  buildTmallN8nWorkflow,
+  buildTmallYijiuDirectPmCandidateWorkflow,
+  tmallN8nWorkflowDefinitions,
+  tmallYijiuDirectPmCandidateFileName,
+} from "../tools/generate-tmall-n8n-workflows";
+import {
+  TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+  tmallDirectProductMasterRoute,
+  tmallDirectPromotionRoute,
+} from "../tools/tmall-yijiu-direct-pm-contract";
 
 const workflowPath = new URL("../automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json", import.meta.url);
 
@@ -278,6 +288,90 @@ test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原�
   );
   const pagewiseWorkflow = buildTmallN8nWorkflow(source, masitu);
   assert.equal(pagewiseWorkflow.nodes.some((node) => node.name === "M·出售中逐页导出、合并校验并导入"), true);
+});
+
+test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替换两个终端业务节点", async () => {
+  const [baselineRaw, candidateRaw] = await Promise.all([
+    readFile(workflowPath, "utf8"),
+    readFile(new URL(`../automation/n8n/${tmallYijiuDirectPmCandidateFileName}`, import.meta.url), "utf8"),
+  ]);
+  const baseline = JSON.parse(baselineRaw) as {
+    id: string;
+    versionId: string;
+    nodes: Array<{ name: string; parameters?: unknown }>;
+  };
+  const candidate = JSON.parse(candidateRaw) as {
+    id: string;
+    name: string;
+    active: boolean;
+    versionId: string;
+    meta?: Record<string, unknown>;
+    settings?: { timezone?: string };
+    nodes: Array<{
+      name: string;
+      type: string;
+      parameters?: {
+        url?: string;
+        options?: { timeout?: number };
+        headerParameters?: { parameters?: Array<{ name?: string; value?: string }> };
+      };
+    }>;
+    connections: Record<string, { main?: Array<Array<{ node?: string }>> }>;
+  };
+  assert.equal(candidate.id, baseline.id);
+  assert.equal(candidate.id, "M4xY8kQ2vR6sT9pC");
+  assert.notEqual(candidate.versionId, baseline.versionId);
+  assert.equal(candidate.name, "天猫店铺数据导入（亿玖 P/M 直连候选）");
+  assert.equal(candidate.active, false);
+  assert.equal(candidate.settings?.timezone, "Asia/Shanghai");
+  assert.deepEqual(candidate.meta, {
+    templateCredsSetupCompleted: true,
+    candidateOnly: true,
+    candidateProtocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+    replacesWorkflowId: "M4xY8kQ2vR6sT9pC",
+  });
+
+  for (const name of ["领取共享 helper", "A·计划目标日期", "B·逐日下载并验证 XLS", "C·签收、导入并覆盖回查"]) {
+    assert.deepEqual(
+      candidate.nodes.find((node) => node.name === name)?.parameters,
+      baseline.nodes.find((node) => node.name === name)?.parameters,
+      `${name} 不应因候选 P/M 改造而变化`,
+    );
+  }
+  const promotion = candidate.nodes.find((node) => node.name === "P·直连创建商品报表、下载、汇总导入并回查");
+  const productMaster = candidate.nodes.find((node) => node.name === "M·MTOP 分批导出、合并校验并导入");
+  assert.equal(promotion?.parameters?.url, `http://127.0.0.1:5791${tmallDirectPromotionRoute}`);
+  assert.equal(productMaster?.parameters?.url, `http://127.0.0.1:5791${tmallDirectProductMasterRoute}`);
+  assert.equal(promotion?.parameters?.options?.timeout, 21_600_000);
+  assert.equal(productMaster?.parameters?.options?.timeout, 1_800_000);
+  for (const node of [promotion, productMaster]) {
+    assert.deepEqual(node?.parameters?.headerParameters?.parameters?.filter(
+      (header) => header.name === "X-TERUISI-TMALL-CANDIDATE-PROTOCOL",
+    ), [{ name: "X-TERUISI-TMALL-CANDIDATE-PROTOCOL", value: TMALL_YIJIU_DIRECT_PM_PROTOCOL }]);
+  }
+  assert.deepEqual(productMaster?.parameters?.headerParameters?.parameters?.filter(
+    (header) => header.name === "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+  ), [{
+    name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
+    value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+  }]);
+  assert.equal(
+    candidate.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node,
+    "P·直连创建商品报表、下载、汇总导入并回查",
+  );
+  assert.equal(
+    candidate.connections["P·直连创建商品报表、下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
+    "M·MTOP 分批导出、合并校验并导入",
+  );
+  assert.equal(candidate.connections["M·MTOP 分批导出、合并校验并导入"], undefined);
+  assert.match(candidateRaw, /同一工作流 ID 的替换版本/);
+  assert.match(candidateRaw, /响应未决时禁止自动重提/);
+  assert.match(candidateRaw, /唯一写类路径逐字固定/);
+  assert.match(candidateRaw, /全部批文件校验后合并成一个权威 XLSX，只导入一次并回查/);
+  assert.doesNotMatch(candidateRaw, /--(?:username|password|cookie)\b|_tb_token_=|cookie2=/i);
+
+  const rebuilt = buildTmallYijiuDirectPmCandidateWorkflow(JSON.parse(baselineRaw));
+  assert.equal(JSON.stringify(rebuilt), JSON.stringify(candidate));
 });
 
 test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async () => {

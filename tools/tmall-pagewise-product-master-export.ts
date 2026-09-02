@@ -33,6 +33,7 @@ export const TMALL_PAGEWISE_EXPORT_SUCCESS = "商品批量导出任务创建成�
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = path.join(projectRoot, "outputs", "tmall-pagewise-product-master-export");
 const legacyArtifactDirectory = path.join(projectRoot, "outputs", "tmall-product-master-export");
+const directMtopArtifactDirectory = path.join(projectRoot, "outputs", "tmall-direct-product-master-export");
 const maximumPages = 100;
 const recordWaitTimeoutMs = 10 * 60 * 1000;
 const recordRefreshIntervalMs = 8_000;
@@ -985,6 +986,10 @@ export async function runTmallPagewiseProductMasterStage(options: {
   const legacyActivePath = path.join(legacyArtifactDirectory, `active-${safeSegment(store.storeKey)}.json`);
   if (await stat(legacyActivePath).then(() => true).catch(() => false)) {
     throw new Error("检测到原商品管家 M 节点仍有活动清单；必须先人工核对原任务，不能直接切换为逐页导出");
+  }
+  const directMtopActivePath = path.join(directMtopArtifactDirectory, `active-${safeSegment(store.storeKey)}.json`);
+  if (await stat(directMtopActivePath).then(() => true).catch(() => false)) {
+    throw new Error("检测到 MTOP 直连 M 节点仍有活动清单；必须先人工核对原任务，不能切换为逐页导出");
   }
   const existing = await readActiveAudit(store.storeKey, auditRoot);
   let snapshotDate = requestedSnapshotDate;
