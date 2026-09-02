@@ -168,7 +168,13 @@ function Invoke-VisibleServiceAction {
     if ($serviceProcess) { $serviceProcess.Dispose() }
     foreach ($temporaryLog in @($serviceStdoutPath, $serviceStderrPath)) {
       if (Test-Path -LiteralPath $temporaryLog -PathType Leaf) {
-        [System.IO.File]::Delete($temporaryLog)
+        try {
+          [System.IO.File]::Delete($temporaryLog)
+        } catch [System.IO.IOException] {
+          # A durable Worker descendant may still hold the redirected file.
+          # Keep the bounded ignored diagnostic instead of turning a successful
+          # system start into a false failure during best-effort cleanup.
+        }
       }
     }
   }
