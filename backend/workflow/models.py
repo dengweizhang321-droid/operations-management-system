@@ -21,6 +21,7 @@ class WorkflowWriteAuthority(models.Model):
     status = models.CharField(max_length=16, default="disabled")
     authority_epoch = models.UUIDField(null=True, blank=True)
     cutover_id = models.CharField(max_length=128, default="")
+    migration_verify_run_id = models.CharField(max_length=64, default="")
     activated_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -33,6 +34,25 @@ class WorkflowWriteAuthority(models.Model):
                 name="workflow_auth_status_ck",
             ),
         ]
+
+
+class WorkflowMigrationRun(models.Model):
+    id = models.CharField(primary_key=True, max_length=64)
+    mode = models.CharField(max_length=16)
+    status = models.CharField(max_length=24)
+    source_path_digest = models.CharField(max_length=64)
+    source_snapshot_digest = models.CharField(max_length=64)
+    target_snapshot_digest = models.CharField(max_length=64, default="")
+    source_counts = models.JSONField(default=dict)
+    target_counts = models.JSONField(default=dict)
+    gap_counts = models.JSONField(default=dict)
+    approved_run_id = models.CharField(max_length=64, default="")
+    manifest = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "workflow_migration_runs"
 
 
 class WorkflowWriteRequestReceipt(models.Model):

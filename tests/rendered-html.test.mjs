@@ -720,7 +720,7 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
   assert.match(tasks, /deleted_at IS NULL/);
   assert.match(tasks, /deleteWorkflowTaskWithCollaboration/);
   assert.match(tasks, /created_by, t\.created_at/);
-  assert.match(tasks, /source: row\.created_by === "system"/);
+  assert.match(tasks, /source: sourceFromCreatedBy\(row\.created_by\)/);
   assert.match(tasks, /updateWorkflowTask/);
   assert.match(tasks, /截止时间不能早于开始时间/);
   assert.match(tasks, /SET title = \?, work_content = \?, category = \?, owner = \?, shop_name = \?/);

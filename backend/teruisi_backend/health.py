@@ -457,6 +457,49 @@ INVENTORY_WRITER_AUTO_ID_TABLES = (
     "inventory_stock_lines", "inventory_age_lines", "inventory_import_fingerprints",
     "inventory_raw_upload_chunks",
 )
+REQUIRED_WORKFLOW_COLUMNS = {
+    "workflow_data_revisions": {"domain", "revision", "source_digest"},
+    "workflow_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "workflow_new_product_projects": {
+        "id", "product_name", "supplier_name", "brand", "category",
+        "erp_product_code", "sku_code", "spu_code", "proposed_date", "owner",
+        "target_launch_date", "lifecycle_status", "priority", "source_ref", "version",
+        "created_at", "updated_at", "deleted_at",
+    },
+    "workflow_new_product_targets": {
+        "id", "project_id", "platform", "shop_name", "channel", "listing_sku", "status",
+    },
+    "workflow_new_product_stages": {
+        "id", "project_id", "stage_key", "status", "owner", "planned_due_date",
+        "completed_at", "blocker", "evidence_url", "version",
+    },
+    "workflow_new_product_activities": {
+        "id", "project_id", "action", "actor_email", "actor_role", "from_version",
+        "to_version", "stage_key", "changed_fields", "created_at",
+    },
+}
+REQUIRED_WORKFLOW_WRITER_COLUMNS = {
+    **REQUIRED_WORKFLOW_COLUMNS,
+    "workflow_write_request_receipts": {
+        "request_id", "body_sha256", "query_sha256", "method", "path", "actor_email",
+        "status", "claim_token", "response_status", "response_payload", "expires_at",
+    },
+}
+REQUIRED_WORKFLOW_INDEXES = {
+    "workflow_np_status_due_idx", "workflow_np_supplier_idx", "workflow_np_updated_idx",
+    "workflow_np_target_shop_idx", "workflow_np_stage_state_idx", "workflow_np_activity_idx",
+}
+WORKFLOW_WRITER_TABLE_PRIVILEGES = {
+    "workflow_data_revisions": ("SELECT", "UPDATE"),
+    "workflow_write_authority": ("SELECT",),
+    "workflow_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_new_product_projects": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_targets": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_new_product_stages": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_activities": ("SELECT", "INSERT"),
+}
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
         "source_line_key",
@@ -735,7 +778,10 @@ def _validate_netshop_relation_privilege_rows(
             if schema_name == application_schema
             else set()
         )
-        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
+        if any(
+            granted and privilege not in allowed
+            for privilege, granted in actual.items()
+        ):
             raise ReadinessError("netshop_writer_database_privilege_excessive")
 
 
@@ -1150,10 +1196,7 @@ def _validate_inventory_writer_permissions(cursor) -> None:
             if schema_name == application_schema
             else set()
         )
-        if any(
-            granted and privilege not in allowed
-            for privilege, granted in actual.items()
-        ):
+        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
             raise ReadinessError("inventory_writer_database_privilege_excessive")
     for table in INVENTORY_WRITER_AUTO_ID_TABLES:
         cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [table])
@@ -1165,6 +1208,112 @@ def _validate_inventory_writer_permissions(cursor) -> None:
             )
             if cursor.fetchone()[0] is not True:
                 raise ReadinessError("inventory_writer_database_privilege_missing")
+
+
+def _validate_workflow_schema(cursor, *, writer: bool) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    expected = REQUIRED_WORKFLOW_WRITER_COLUMNS if writer else REQUIRED_WORKFLOW_COLUMNS
+    for table, expected_columns in expected.items():
+        if table not in tables:
+            raise ReadinessError(
+                "workflow_writer_schema_missing" if writer else "workflow_reader_schema_missing"
+            )
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError(
+                "workflow_writer_schema_incomplete" if writer else "workflow_reader_schema_incomplete"
+            )
+    present_indexes: set[str] = set()
+    for table in (
+        "workflow_new_product_projects", "workflow_new_product_targets",
+        "workflow_new_product_stages", "workflow_new_product_activities",
+    ):
+        constraints = connection.introspection.get_constraints(cursor, table)
+        present_indexes.update(name for name, value in constraints.items() if value.get("index"))
+    if not REQUIRED_WORKFLOW_INDEXES.issubset(present_indexes):
+        raise ReadinessError("workflow_indexes_incomplete")
+
+
+def _validate_workflow_revision(cursor) -> None:
+    cursor.execute(
+        "SELECT revision, source_digest FROM workflow_data_revisions WHERE domain='workflow'"
+    )
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("workflow_reader_revision_invalid")
+
+
+def _validate_workflow_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
+        "FROM workflow_write_authority WHERE id=1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("workflow_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("workflow_writer_authority_invalid") from error
+    if (
+        epoch != settings.WORKFLOW_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.WORKFLOW_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"workflow-[0-9a-f]{32}", str(row[3] or ""))
+    ):
+        raise ReadinessError("workflow_writer_authority_mismatch")
+
+
+def _validate_workflow_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("workflow_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("workflow_writer_database_read_only")
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user, current_schema(), 'CREATE'), "
+        "has_database_privilege(current_user, current_database(), 'CREATE')"
+    )
+    if any(bool(value) for value in cursor.fetchone()):
+        raise ReadinessError("workflow_writer_database_privilege_excessive")
+    for table, privileges in WORKFLOW_WRITER_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)", [table, privilege]
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("workflow_writer_database_privilege_missing")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') "
+        "AND n.nspname <> 'information_schema' "
+        "AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "INSERT": bool(row[2]) or bool(row[6]),
+            "UPDATE": bool(row[3]) or bool(row[7]),
+            "DELETE": bool(row[4]),
+            "TRUNCATE": bool(row[5]),
+        }
+        allowed = (
+            set(WORKFLOW_WRITER_TABLE_PRIVILEGES.get(table_name, ()))
+            if schema_name == application_schema
+            else set()
+        )
+        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
+            raise ReadinessError("workflow_writer_database_privilege_excessive")
 
 
 def _validate_writer_authority(cursor) -> str:
@@ -1261,9 +1410,25 @@ def ready(_request):
     products_reader_process = settings.DJANGO_PROCESS_ROLE == "products_reader"
     inventory_writer_process = settings.DJANGO_PROCESS_ROLE == "inventory_writer"
     inventory_reader_process = settings.DJANGO_PROCESS_ROLE == "inventory_reader"
+    workflow_writer_process = settings.DJANGO_PROCESS_ROLE == "workflow_writer"
+    workflow_reader_process = settings.DJANGO_PROCESS_ROLE == "workflow_reader"
     try:
         with connection.cursor() as cursor:
-            if inventory_writer_process:
+            if workflow_writer_process:
+                _validate_workflow_schema(cursor, writer=True)
+                _validate_workflow_revision(cursor)
+                _validate_workflow_writer_authority(cursor)
+                _validate_workflow_writer_permissions(cursor)
+            elif workflow_reader_process:
+                _validate_workflow_schema(cursor, writer=False)
+                _validate_workflow_revision(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif inventory_writer_process:
                 _validate_inventory_schema(cursor, writer=True)
                 _validate_inventory_revision(cursor)
                 _validate_inventory_writer_authority(cursor)
@@ -1366,7 +1531,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "inventory_writer_unavailable"
+                    "workflow_writer_unavailable"
+                    if workflow_writer_process
+                    else "workflow_reader_unavailable"
+                    if workflow_reader_process
+                    else "inventory_writer_unavailable"
                     if inventory_writer_process
                     else "inventory_reader_unavailable"
                     if inventory_reader_process
@@ -1403,7 +1572,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "inventory_writer_unavailable"
+                    "workflow_writer_unavailable"
+                    if workflow_writer_process
+                    else "workflow_reader_unavailable"
+                    if workflow_reader_process
+                    else "inventory_writer_unavailable"
                     if inventory_writer_process
                     else "inventory_reader_unavailable"
                     if inventory_reader_process
@@ -1435,7 +1608,11 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if inventory_writer_process:
+    if workflow_writer_process:
+        payload["workflowWriter"] = "ready"
+    elif workflow_reader_process:
+        payload["workflowReader"] = "ready"
+    elif inventory_writer_process:
         payload["inventoryWriter"] = "ready"
     elif inventory_reader_process:
         payload["inventoryReader"] = "ready"

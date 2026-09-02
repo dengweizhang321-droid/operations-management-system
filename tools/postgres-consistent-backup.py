@@ -25,7 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
-    "inventory_", "replenishment_",
+    "inventory_", "replenishment_", "workflow_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -140,6 +140,17 @@ def collect_evidence(
         }
         if inventory_tables:
             required.update(inventory_required)
+        workflow_required = {
+            "workflow_data_revisions",
+            "workflow_write_authority",
+            "workflow_new_product_projects",
+            "workflow_new_product_targets",
+            "workflow_new_product_stages",
+            "workflow_new_product_activities",
+        }
+        workflow_tables = {name for name in tables if name.startswith("workflow_")}
+        if workflow_tables:
+            required.update(workflow_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -395,6 +406,61 @@ def collect_evidence(
                 "migrationRunId": inventory_run,
             }
 
+        workflow_revisions: dict[str, dict[str, Any]] | None = None
+        workflow_authority: dict[str, str] | None = None
+        if workflow_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM workflow_data_revisions ORDER BY domain"
+            )
+            workflow_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = workflow_revisions.get("workflow")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("workflow revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM workflow_write_authority WHERE id=1"
+            )
+            authority_row = cursor.fetchone()
+            if authority_row is None:
+                raise RuntimeError("workflow write authority singleton is missing")
+            workflow_status, workflow_epoch, workflow_cutover, workflow_run = (
+                str(value or "") for value in authority_row
+            )
+            if workflow_status not in {"disabled", "postgres"}:
+                raise RuntimeError("workflow write authority status is invalid")
+            if workflow_run and re.fullmatch(r"workflow-[0-9a-f]{32}", workflow_run) is None:
+                raise RuntimeError("workflow migration run evidence is invalid")
+            if workflow_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", workflow_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", workflow_cutover) is None
+                    or not workflow_run
+                ):
+                    raise RuntimeError("active workflow write authority evidence is incomplete")
+            elif workflow_epoch or workflow_cutover:
+                raise RuntimeError("inactive workflow write authority contains activation evidence")
+            workflow_authority = {
+                "status": workflow_status,
+                "authorityEpoch": workflow_epoch,
+                "cutoverId": workflow_cutover,
+                "migrationRunId": workflow_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -417,6 +483,9 @@ def collect_evidence(
     if inventory_revisions is not None and inventory_authority is not None:
         content["inventoryRevisions"] = inventory_revisions
         content["inventoryWriteAuthority"] = inventory_authority
+    if workflow_revisions is not None and workflow_authority is not None:
+        content["workflowRevisions"] = workflow_revisions
+        content["workflowWriteAuthority"] = workflow_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

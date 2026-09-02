@@ -37,7 +37,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_products_reader",
   "teruisi_products_writer",
   "teruisi_inventory_reader",
-  "teruisi_inventory_writer"
+  "teruisi_inventory_writer",
+  "teruisi_workflow_reader",
+  "teruisi_workflow_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -256,6 +258,11 @@ function Assert-MaintenanceEvidence(
   if ($hasInventoryRevisions -ne $hasInventoryAuthority) {
     throw "PostgreSQL 库存证据字段不完整"
   }
+  $hasWorkflowRevisions = $null -ne $Evidence.PSObject.Properties["workflowRevisions"]
+  $hasWorkflowAuthority = $null -ne $Evidence.PSObject.Properties["workflowWriteAuthority"]
+  if ($hasWorkflowRevisions -ne $hasWorkflowAuthority) {
+    throw "PostgreSQL 运营事务新品证据字段不完整"
+  }
   $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
@@ -271,6 +278,9 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasInventoryRevisions) {
     $evidenceProperties += @("inventoryRevisions", "inventoryWriteAuthority")
+  }
+  if ($hasWorkflowRevisions) {
+    $evidenceProperties += @("workflowRevisions", "workflowWriteAuthority")
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -329,13 +339,20 @@ function Assert-MaintenanceEvidence(
       "inventory_operating_settings", "replenishment_plan_items"
     )
   }
+  if ($hasWorkflowRevisions) {
+    $requiredTables += @(
+      "workflow_data_revisions", "workflow_write_authority",
+      "workflow_new_product_projects", "workflow_new_product_targets",
+      "workflow_new_product_stages", "workflow_new_product_activities"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -545,6 +562,50 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($inventoryEpoch) -or
               -not [string]::IsNullOrEmpty($inventoryCutoverId)) {
       throw "未激活的库存写入权威包含激活证据"
+    }
+  }
+
+  if ($hasWorkflowRevisions) {
+    if ($Evidence.workflowRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.workflowRevisions.PSObject.Properties["workflow"]) {
+      throw "PostgreSQL 运营事务新品 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.workflowRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 运营事务新品 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 运营事务新品 revision 证据"
+      $workflowDigest = [string]$property.Value.sourceDigest
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 0 -or
+          ([int64]$property.Value.revision -gt 0 -and $workflowDigest -cnotmatch "^[0-9a-f]{64}$")) {
+        throw "PostgreSQL 运营事务新品 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.workflowWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "运营事务新品写入权威证据"
+    $workflowStatus = [string]$Evidence.workflowWriteAuthority.status
+    $workflowEpoch = [string]$Evidence.workflowWriteAuthority.authorityEpoch
+    $workflowCutoverId = [string]$Evidence.workflowWriteAuthority.cutoverId
+    $workflowRunId = [string]$Evidence.workflowWriteAuthority.migrationRunId
+    if ($workflowStatus -notin @("disabled", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($workflowRunId) -and
+          $workflowRunId -cnotmatch "^workflow-[0-9a-f]{32}$")) {
+      throw "运营事务新品写入权威证据无效"
+    }
+    if ($workflowStatus -ceq "postgres") {
+      if ([int64]$Evidence.workflowRevisions.workflow.revision -lt 1 -or
+          $workflowEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $workflowCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $workflowRunId -cnotmatch "^workflow-[0-9a-f]{32}$") {
+        throw "运营事务新品 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($workflowEpoch) -or
+              -not [string]::IsNullOrEmpty($workflowCutoverId)) {
+      throw "未激活的运营事务新品写入权威包含激活证据"
     }
   }
 }
