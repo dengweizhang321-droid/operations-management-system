@@ -16,8 +16,10 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .migrate_workflow_launch_from_d1 import _counts, _sha, _source_snapshot
-from .workflow_write_authority import CUTOVER_ID_RE, RUN_ID_RE, _assert_postgres_quiet, _verified_run
+from workflow.models import WorkflowMigrationRun
+
+from .migrate_workflow_launch_from_d1 import GENERATION_VERSION, _counts, _sha, _source_snapshot
+from .workflow_write_authority import CUTOVER_ID_RE, RUN_ID_RE, _assert_postgres_quiet
 
 
 RETIREMENT_VERSION = "workflow-launch-domain-retirement-receipt-v1"
@@ -140,6 +142,32 @@ def _load_r2_evidence(path: Path) -> tuple[dict[str, object], str]:
         raise CommandError("新品 R2 退役证据摘要不一致。")
     _recent_timestamp(value.get("recordedAt"), "新品 R2 退役证据")
     return value, _sha256(payload)
+
+
+def _historically_verified_run(
+    source_digest: str,
+    counts: dict[str, int],
+    approved_run_id: str,
+) -> WorkflowMigrationRun:
+    """Validate the immutable migration receipt without re-hashing mutable live data."""
+    expected_run_id = f"workflow-{source_digest[:32]}"
+    run = WorkflowMigrationRun.objects.filter(id=approved_run_id).first()
+    if (
+        run is None
+        or approved_run_id != expected_run_id
+        or run.mode != "apply"
+        or run.status != "verified"
+        or run.approved_run_id != expected_run_id
+        or run.source_snapshot_digest != source_digest
+        or run.target_snapshot_digest != source_digest
+        or run.source_counts != counts
+        or run.target_counts != counts
+        or run.completed_at is None
+        or run.manifest.get("version") != GENERATION_VERSION
+        or run.manifest.get("sourceDigest") != source_digest
+    ):
+        raise CommandError("D1 新品事实没有匹配的历史已复验迁移凭证。")
+    return run
 
 
 def _migration_path() -> Path:
@@ -285,7 +313,7 @@ class Command(BaseCommand):
                 raise CommandError("D1 新品 authority 不属于本次已激活 cutover。")
             with transaction.atomic():
                 target = _assert_postgres_quiet()
-                run = _verified_run(source_digest, counts)
+                run = _historically_verified_run(source_digest, counts, run_id)
                 if run.id != run_id or target.status != "postgres" or target.cutover_id != cutover_id or target.migration_verify_run_id != run.id:
                     raise CommandError("PostgreSQL 新品 authority 不属于本次完成迁移。")
                 target_epoch = str(target.authority_epoch)
