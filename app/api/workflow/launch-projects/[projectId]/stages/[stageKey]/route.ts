@@ -14,9 +14,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     requireUnrestrictedDataScope(principal, "新品上新", "修改");
-    if (await getWorkflowBackendMode() !== "django") {
-      throw new PublicApiError(503, "service_unavailable", "结构化新品上新尚未完成 Django 受控切换。");
-    }
+    await getWorkflowBackendMode();
     const { projectId, stageKey } = await context.params;
     if (!UUID_RE.test(projectId) || !STAGES.has(stageKey)) {
       throw new PublicApiError(400, "invalid_request", "新品项目或阶段标识无效。");

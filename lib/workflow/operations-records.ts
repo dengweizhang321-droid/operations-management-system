@@ -1,7 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import type { D1Database } from "@/lib/database/d1";
 
-export const operationRecordTypes = ["inspection", "review", "launch"] as const;
+export const operationRecordTypes = ["inspection", "review"] as const;
 export type OperationRecordType = (typeof operationRecordTypes)[number];
 
 export const operationRecordPriorities = ["high", "normal", "low"] as const;
@@ -13,7 +13,6 @@ export type OperationRecordSource = (typeof operationRecordSources)[number];
 export const operationRecordStatuses = {
   inspection: ["正常", "待处理", "处理中", "已关闭"],
   review: ["待回复", "处理中", "已回复", "无需回复"],
-  launch: ["待开始", "工作中", "已完成", "已取消"],
 } as const satisfies Record<OperationRecordType, readonly string[]>;
 
 export type OperationRecord = {
@@ -76,8 +75,6 @@ export type UpdateOperationRecordInput = Omit<CreateOperationRecordInput, "type"
 
 export type OperationRecordListInput = {
   types?: readonly unknown[];
-  /** Internal cutover fence; public callers cannot set this field directly. */
-  excludeTypes?: readonly unknown[];
   statuses?: readonly unknown[];
   shopNames?: readonly unknown[];
   platforms?: readonly unknown[];
@@ -148,7 +145,7 @@ const recordColumns = `
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS workflow_operation_records (
     id TEXT PRIMARY KEY NOT NULL,
-    record_type TEXT NOT NULL CHECK (record_type IN ('inspection', 'review', 'launch')),
+    record_type TEXT NOT NULL CHECK (record_type IN ('inspection', 'review')),
     title TEXT NOT NULL,
     status TEXT NOT NULL,
     priority TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('high', 'normal', 'low')),
@@ -444,7 +441,6 @@ export function normalizeOperationRecordListInput(input: OperationRecordListInpu
   if (offset > MAX_OFFSET) requestError(`分页偏移不能超过 ${MAX_OFFSET}`);
   return {
     types: boundedList(input.types, "类型", operationRecordTypes),
-    excludeTypes: boundedList(input.excludeTypes, "排除类型", operationRecordTypes),
     statuses: boundedList(input.statuses, "状态"),
     shopNames: boundedList(input.shopNames, "店铺"),
     platforms: boundedList(input.platforms, "平台"),
@@ -465,7 +461,7 @@ export async function listOperationRecords(input: OperationRecordListInput, prin
   const database = await operationsDatabase(db);
   await ensureOperationRecordsSchema(database);
   const filters = normalizeOperationRecordListInput(input);
-  const clauses = ["deleted_at IS NULL"];
+  const clauses = ["deleted_at IS NULL", "record_type <> 'launch'"];
   const values: unknown[] = [];
   const appendList = (column: string, items: string[]) => {
     if (items.length === 0) return;
@@ -473,10 +469,6 @@ export async function listOperationRecords(input: OperationRecordListInput, prin
     values.push(...items);
   };
   appendList("record_type", filters.types);
-  if (filters.excludeTypes.length > 0) {
-    clauses.push(`record_type NOT IN (${placeholders(filters.excludeTypes)})`);
-    values.push(...filters.excludeTypes);
-  }
   appendList("status", filters.statuses);
   appendList("shop_name", filters.shopNames);
   appendList("platform", filters.platforms);

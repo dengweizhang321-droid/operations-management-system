@@ -796,7 +796,7 @@ test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", as
   sqlite.close();
 });
 
-test("运营事务真实 SQLite 结果按记录类型返回对应 target view", async () => {
+test("运营事务真实 SQLite 结果只返回仍由 D1 承载的记录类型", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`CREATE TABLE workflow_operation_records (
     id TEXT PRIMARY KEY, record_type TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
@@ -827,7 +827,7 @@ test("运营事务真实 SQLite 结果按记录类型返回对应 target view", 
   const targets = new Map(result.groups[0]?.items.map((item) => [item.id, item.target]));
   assert.deepEqual(targets.get("operation:inspection-1"), { module: "workflow", view: "inspection" });
   assert.deepEqual(targets.get("operation:review-1"), { module: "workflow", view: "reviews" });
-  assert.deepEqual(targets.get("operation:launch-1"), { module: "workflow", view: "launch" });
+  assert.equal(targets.has("operation:launch-1"), false);
   sqlite.close();
 });
 
@@ -1144,12 +1144,14 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 8);
-  assert.equal(statementCount, 9);
+  assert.equal(businessCalls.length, 9);
+  assert.equal(statementCount, 10);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
-  assert.equal(businessCalls.filter((call) => !localImportCalls.includes(call))
-    .every(({ values }) => values.at(-2) === 3 && values.at(-1) === 0), true);
+  const workflowCountCalls = businessCalls.filter(({ sql }) => /SELECT COUNT\(\*\) AS total_count FROM \(/i.test(sql));
+  assert.equal(businessCalls.filter(({ sql }) => /LIMIT \? OFFSET \?/i.test(sql))
+    .every(({ values }) => [1, 2, 3].includes(Number(values.at(-2))) && values.at(-1) === 0), true);
   assert.equal(localImportCalls.length, 2);
+  assert.equal(workflowCountCalls.length, 1);
   assert.equal(businessCalls.some(({ sql }) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
   assert.equal(businessCalls.some(({ sql }) => sql.includes("messages_json")), false);
 });

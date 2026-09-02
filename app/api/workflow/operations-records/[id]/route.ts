@@ -7,7 +7,6 @@ import {
 } from "@/lib/workflow/operations-records";
 import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { getWorkflowBackendMode } from "@/lib/django/workflow-service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,7 +30,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     const { id } = await context.params;
     const item = await getOperationRecord(id, principal, getD1Database());
-    if (!item || item.type === "launch" && await getWorkflowBackendMode() === "django") {
+    if (!item || item.type === "launch") {
       return Response.json({ error: "运营记录不存在或不可访问", code: "not_found" }, {
         status: 404,
         headers: { "cache-control": "no-store" },
@@ -55,7 +54,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     const { id } = await context.params;
     const current = await getOperationRecord(id, principal, getD1Database());
-    if (current?.type === "launch" && await getWorkflowBackendMode() === "django") {
+    if (current?.type === "launch") {
       return Response.json({ error: "旧新品记录已停止写入，请使用结构化新品项目。", code: "conflict" }, {
         status: 409,
         headers: { "cache-control": "no-store" },
@@ -73,7 +72,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const principal = await requireAppPrincipal(["operator", "admin"]);
     const { id } = await context.params;
     const current = await getOperationRecord(id, principal, getD1Database());
-    if (current?.type === "launch" && await getWorkflowBackendMode() === "django") {
+    if (current?.type === "launch") {
       return Response.json({ error: "旧新品记录已停止写入，请使用结构化新品项目。", code: "conflict" }, {
         status: 409,
         headers: { "cache-control": "no-store" },

@@ -22,7 +22,7 @@ const STAGE_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
-export type WorkflowBackendMode = "legacy" | "django";
+export type WorkflowBackendMode = "django";
 export type DjangoWorkflowServiceConfig = {
   readerBaseUrl: string;
   writerBaseUrl: string;
@@ -96,9 +96,9 @@ async function runtimeEnvironment(): Promise<RuntimeEnvironment> {
 }
 
 export function workflowBackendModeFromEnvironment(environment: RuntimeEnvironment): WorkflowBackendMode {
-  const value = (environment.TERUISI_DJANGO_WORKFLOW_MODE ?? "legacy").trim().toLowerCase();
-  if (value === "legacy" || value === "django") return value;
-  throw unavailable("Django 运营事务路由模式配置无效。");
+  const value = (environment.TERUISI_DJANGO_WORKFLOW_MODE ?? "").trim().toLowerCase();
+  if (value === "django") return value;
+  throw unavailable("新品上新已终态切换到 Django，路由模式必须显式配置为 django。");
 }
 
 export async function getWorkflowBackendMode(): Promise<WorkflowBackendMode> {

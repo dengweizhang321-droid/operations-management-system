@@ -5,7 +5,6 @@ import {
 } from "@/lib/workflow/operations-records";
 import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
-import { getWorkflowBackendMode } from "@/lib/django/workflow-service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -14,7 +13,7 @@ export async function GET(request: Request, context: RouteContext) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     const { id } = await context.params;
     const current = await getOperationRecord(id, principal, getD1Database());
-    if (current?.type === "launch" && await getWorkflowBackendMode() === "django") {
+    if (current?.type === "launch") {
       return Response.json({ error: "运营记录不存在或不可访问", code: "not_found" }, {
         status: 404,
         headers: { "cache-control": "no-store" },

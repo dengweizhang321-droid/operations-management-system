@@ -1,7 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- 用户提供的商品图片域名不固定，不能安全配置 Next Image 远端允许清单。 */
 "use client";
 
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
@@ -95,8 +94,8 @@ type LaunchSummary = {
 };
 type LaunchFacets = { suppliers: string[]; owners: string[]; categories: string[]; platforms: string[]; shopNames: string[]; sources: string[] };
 type LaunchPayload = {
-  structured: boolean;
-  backendMode: "legacy" | "django";
+  structured: true;
+  backendMode: "django";
   items?: LaunchProject[];
   pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
   summary?: LaunchSummary;
@@ -401,9 +400,8 @@ function ProjectDetail({ project, canWrite, saving, onClose, onEdit, onEditStage
   </Dialog>;
 }
 
-export default function NewProductLaunchView({ canWrite, legacyFallback }: { canWrite: boolean; legacyFallback: ReactNode }) {
+export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }) {
   const requestGeneration = useRef(0);
-  const [structured, setStructured] = useState<boolean | null>(null);
   const [items, setItems] = useState<LaunchProject[]>([]);
   const [summary, setSummary] = useState<LaunchSummary>({ total: 0, notStarted: 0, inProgress: 0, blocked: 0, completed: 0, paused: 0, cancelled: 0, overdue: 0, stageSummary: [] });
   const [facets, setFacets] = useState<LaunchFacets>({ suppliers: [], owners: [], categories: [], platforms: [], shopNames: [], sources: [] });
@@ -446,11 +444,6 @@ export default function NewProductLaunchView({ canWrite, legacyFallback }: { can
     try {
       const payload = await requestJson<LaunchPayload>(`/api/workflow/launch-projects?${buildParams(page)}`, { signal });
       if (generation !== requestGeneration.current) return;
-      if (!payload.structured) {
-        setStructured(false);
-        return;
-      }
-      setStructured(true);
       const next = Array.isArray(payload.items) ? payload.items : [];
       setItems((current) => append ? Array.from(new Map([...current, ...next].map((item) => [item.id, item])).values()) : next);
       if (payload.summary) setSummary(payload.summary);
@@ -550,8 +543,7 @@ export default function NewProductLaunchView({ canWrite, legacyFallback }: { can
   const stageMax = Math.max(1, ...summary.stageSummary.map((item) => Object.values(item).filter((value): value is number => typeof value === "number").reduce((total, value) => total + value, 0)));
   const kanban = useMemo(() => PROJECT_STATUS_OPTIONS.map((column) => ({ ...column, items: items.filter((item) => item.status === column.value) })), [items]);
 
-  if (structured === false) return <>{legacyFallback}</>;
-  if (structured === null && loading) return <LoadingState />;
+  if (loading && items.length === 0) return <LoadingState />;
   return <div className="launch-workspace">
     <section className="workflow-toolbar workflow-section-hero launch-hero"><div><span className="eyebrow">NEW PRODUCT PIPELINE</span><h2>新品上新</h2><p>从提出到复盘统一管理商品、目标店铺、责任人、节点期限、阻塞与交付证据。</p></div><div className="workflow-hero-actions"><span>{canWrite ? "可协作编辑" : "只读访问"}</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>{canWrite ? "＋ 新建新品项目" : "仅查看"}</button></div></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭新品提示" onClick={() => setFeedback("")}>×</button></div>}

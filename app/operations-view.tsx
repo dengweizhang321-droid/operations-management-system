@@ -10,7 +10,7 @@ type Role = "viewer" | "analyst" | "operator" | "admin";
 type Status = "待开始" | "工作中" | "已完成";
 type Priority = "high" | "normal" | "low";
 type OperationsTab = "plan" | "inspection" | "reviews" | "launch" | "variables";
-type RecordType = "inspection" | "review" | "launch";
+type RecordType = "inspection" | "review";
 
 type Task = {
   id: string;
@@ -175,7 +175,6 @@ const RECORD_META: Record<RecordType, {
 }> = {
   inspection: { eyebrow: "STORE INSPECTION", title: "巡店检查", note: "按店铺沉淀巡检结论、异常事项和后续责任人。", create: "新增巡店记录", empty: "暂无巡店记录", statuses: ["正常", "待处理", "处理中", "已关闭"], activeStatuses: ["待处理", "处理中"], terminalStatuses: ["正常", "已关闭"] },
   review: { eyebrow: "REVIEW CARE", title: "评价维护", note: "集中跟进评价内容、回复状态和处理责任人。", create: "新增评价记录", empty: "暂无评价记录", statuses: ["待回复", "处理中", "已回复", "无需回复"], activeStatuses: ["待回复", "处理中"], terminalStatuses: ["已回复", "无需回复"] },
-  launch: { eyebrow: "NEW PRODUCT LAUNCH", title: "新品上架", note: "按新品项目记录资料、节点、排期与当前推进状态。", create: "新增新品项目", empty: "暂无新品项目", statuses: ["待开始", "工作中", "已完成", "已取消"], activeStatuses: ["待开始", "工作中"], terminalStatuses: ["已完成", "已取消"] },
 };
 
 function messageOf(error: unknown, fallback: string) {
@@ -1037,7 +1036,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     }}
   >{label}</button>)}</div>;
   if (activeTab === "inspection" || activeTab === "reviews") return <>{subnav}<div role="tabpanel" id={`operations-panel-${activeTab}`} aria-labelledby={`operations-tab-${activeTab}`}><OperationsRecordWorkspace key={activeTab} type={activeTab === "reviews" ? "review" : activeTab} canWrite={canWrite} /></div></>;
-  if (activeTab === "launch") return <>{subnav}<div role="tabpanel" id="operations-panel-launch" aria-labelledby="operations-tab-launch"><NewProductLaunchView canWrite={canWrite} legacyFallback={<OperationsRecordWorkspace type="launch" canWrite={canWrite} />} /></div></>;
+  if (activeTab === "launch") return <>{subnav}<div role="tabpanel" id="operations-panel-launch" aria-labelledby="operations-tab-launch"><NewProductLaunchView canWrite={canWrite} /></div></>;
   if (activeTab === "variables") return <>{subnav}<div role="tabpanel" id="operations-panel-variables" aria-labelledby="operations-tab-variables"><TemplateWorkspace templates={templates} loading={templatesLoading} error={templatesError} canWrite={canWrite} onReload={() => void loadTemplates()} onUse={useTemplate} /></div></>;
 
   const listTitle = statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";
