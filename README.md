@@ -2,20 +2,18 @@
 
 ## 启动方式
 
-当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、销售、财务、ERP、网店、市场和商品经营服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
+当前本机正式环境必须先启动并检查 Django/PostgreSQL，再启动已经验证的不可变 Worker effective head：
 
 ```powershell
-& "D:\运营管理系统\tools\operations-system-control.ps1" -Action Start -Open
-& "D:\运营管理系统\tools\operations-system-control.ps1" -Action Status -Json
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Start
+& "D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1" Status
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Start
+& "D:\运营管理系统\tools\worker-local-service.ps1" -Action Status
 ```
 
-唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。Worker 完整性验证可能需要数分钟，控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
+正常登录启动由随 Django runtime 一同部署的受控 supervisor 持续监控。Windows 重启后，operator 只会清理能够由三项时间证据证明属于上一次开机的旧进程 receipt，不会接管或终止当前复用相同 PID 的进程；同一次开机内或证据不完整的身份冲突仍失败关闭。上面的显式 `Start` 继续作为受控维护与人工恢复入口，supervisor 状态和启用/回退步骤见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
 
-唯一引擎不会自行判断或删除任意残留进程。只有内部 Worker 状态明确为 `stale_or_invalid_receipt`，且受保护回执可重新验证、supervisor 已不存在时，它才通过既有精确回执删除门禁清理该回执，并在状态稳定为 `stopped` 后继续；端口占用、身份不明、回执损坏或健康探针异常仍失败关闭。控制面板的“暂停网页服务”只通过底层身份门禁停止 Worker，Django/PostgreSQL 后端继续运行。
-
-正常登录启动仍由随 Django runtime 和不可变 Worker release 部署的各自受控 supervisor 负责；它们是总控复用的底层生命周期机制，不是第二套人工入口。Windows 重启后，Django operator 只会清理能够由三项时间证据证明属于上一次开机的旧进程 receipt，不会接管或终止当前复用相同 PID 的进程；同一次开机内或证据不完整的身份冲突仍失败关闭。supervisor 状态和启用/回退步骤见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。
-
-正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。日常启动只能通过上述受控入口进入 `worker-local-service.ps1 -Action Start`，不得单独调用 Django 控制器后再自行拉起 Worker。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
+`运行项目.bat` 只调用受控 Worker 启动器并打开浏览器，不能代替 Django 健康检查。正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
 
 隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让已迁移的销售、财务、网店、市场或商品经营请求回退 D1。
 

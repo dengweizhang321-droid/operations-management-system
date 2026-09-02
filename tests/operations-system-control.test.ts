@@ -2,120 +2,124 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const panelBytes = readFileSync("tools/operations-system-control.ps1");
-const panel = panelBytes.toString("utf8");
-const workerService = readFileSync("tools/worker-local-service.ps1", "utf8");
+const panel = readFileSync("tools/operations-system-control.ps1", "utf8");
 
-test("unified controller stays parseable by Windows PowerShell when Chinese text is present", () => {
-  assert.deepEqual([...panelBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-  assert.match(panel, /teruisi-operations-system-control-v2/);
-  assert.match(panel, /ValidateSet\("Panel", "Start", "Status", "StopWorker"\)/);
-});
-
-test("all public start modes share one nonblocking system mutex", () => {
-  assert.match(panel, /Local\\TERUISI\.Operations\.SystemControl\.v2/);
-  assert.match(panel, /WaitOne\(\[TimeSpan\]::Zero\)/);
-  assert.match(panel, /status = "start_in_progress"/);
-  assert.match(panel, /本次请求未重复启动任何组件/);
-  assert.match(panel, /唯一总控正在启动系统；为避免交错/);
-  const startBlock = panel.slice(
-    panel.indexOf("function Invoke-SystemStart"),
-    panel.indexOf("function Invoke-StopWorker"),
-  );
-  assert.ok(startBlock.indexOf("Enter-SystemControlMutex") < startBlock.indexOf("Assert-ControllerDependencies"));
-});
-
-test("controller checks every authoritative Django PostgreSQL domain", () => {
-  assert.match(panel, /django-local-service\.ps1/);
-  assert.match(panel, /django-netshop-service\.ps1/);
-  assert.match(panel, /django-market-service\.ps1/);
-  assert.match(panel, /django-products-service\.ps1/);
-  for (const component of ["core", "finance", "netshop", "market", "products"]) {
-    assert.match(panel, new RegExp(`${component} = Test-`));
-  }
-  assert.match(panel, /ErpReferenceSync -ceq "caught_up"/);
-  assert.match(panel, /RuntimeAclVerification -ceq "root_only_status"/);
-  assert.match(panel, /AuthorityProperty "PostgreSQLAuthority"/);
-  assert.match(panel, /AuthorityProperty\]\.Value -cne "postgres"/);
-});
-
-test("controller delegates mutation to one start engine and performs final health gates", () => {
-  const startBlock = panel.slice(
-    panel.indexOf("function Invoke-SystemStart"),
-    panel.indexOf("function Invoke-StopWorker"),
-  );
-  assert.match(startBlock, /调用唯一启动引擎/);
-  assert.match(startBlock, /Invoke-VisibleServiceAction -ScriptPath \$LocalWorkerStarter -Arguments @\("-Action", "Start"\)/);
-  assert.doesNotMatch(startBlock, /-ScriptPath \$DjangoService -Arguments @\("-Action", "Start"\)/);
-  assert.match(startBlock, /finalState\.state -notin @\("Running", "D1Degraded"\)/);
-  assert.match(startBlock, /pageProbe\.StatusCode -ne 200/);
-});
-
-test("canonical start engine enforces Django readiness before Worker verification", () => {
-  const startBlock = workerService.slice(
-    workerService.indexOf('if ($Action -eq "Start")'),
-    workerService.indexOf('if ($Action -eq "Stop")'),
-  );
-  assert.ok(startBlock.indexOf("Ensure-DjangoSystemReady") < startBlock.indexOf("Invoke-ReleaseVerification"));
-  assert.match(workerService, /DjangoNetshopService/);
-  assert.match(workerService, /DjangoMarketService/);
-  assert.match(workerService, /DjangoProductsService/);
-  assert.match(workerService, /ErpReferenceSync -ceq "caught_up"/);
-  assert.match(workerService, /RuntimeAclVerification -ceq "root_only_status"/);
-  assert.match(workerService, /function Test-IsIsolatedTestRuntime/);
-  assert.match(workerService, /actualRuntime\.Equals\(\$productionRuntime/);
-  assert.match(workerService, /if \(Test-IsIsolatedTestRuntime\) \{ return \}/);
-});
-
-test("canonical engine clears only an exact validated stale receipt", () => {
-  const startBlock = workerService.slice(
-    workerService.indexOf('if ($Action -eq "Start")'),
-    workerService.indexOf('if ($Action -eq "Stop")'),
-  );
-  assert.match(startBlock, /status\.State -eq "stale_or_invalid_receipt" -and -not \$status\.Supervisor -and \$status\.Receipt/);
-  assert.match(startBlock, /Remove-ExactProcessReceipt \$identity/);
-  assert.match(startBlock, /status\.State -ne "stopped"/);
-  assert.ok(startBlock.indexOf("Ensure-DjangoSystemReady") < startBlock.lastIndexOf("$status = Get-WorkerStatusInternal $identity"));
-  assert.match(startBlock, /unknown\/ambiguous; refusing takeover/);
-});
-
-test("controller verifies Worker liveness, readiness and helper health without proxying", () => {
-  assert.match(panel, /_teruisi\/local\/health\/live/);
-  assert.match(panel, /_teruisi\/local\/health\/ready/);
-  assert.match(panel, /127\.0\.0\.1:5791\/health/);
-  assert.match(panel, /httpHandler\.UseProxy = \$false/);
-  assert.match(panel, /TryAddWithoutValidation\("x-teruisi-local-health", "1"\)/);
-  assert.match(panel, /readinessPayload\.code -eq "d1_unavailable"/);
-  assert.equal(panel.match(/healthState = "D1Degraded"/g)?.length, 1);
-});
-
-test("desktop panel launches the same controller instead of a lower-level service", () => {
-  const clickBlock = panel.slice(
-    panel.indexOf("$startButton.Add_Click({"),
-    panel.indexOf("$stopButton.Add_Click({"),
-  );
-  assert.match(clickBlock, /-File", "`"\$ControllerPath`"", "-Action", "Start"/);
-  assert.doesNotMatch(clickBlock, /-File", "`"\$LocalWorkerStarter/);
+test("control panel starts only the immutable Worker service and preserves launch diagnostics", () => {
+  assert.match(panel, /\$LocalWorkerStarter = Join-Path \$ProjectRoot "tools\\worker-local-service\.ps1"/);
+  assert.match(panel, /-File", "`"\$LocalWorkerStarter`"", "-Action", "Start"/);
   assert.match(panel, /-RedirectStandardOutput \$script:launchStdoutLog/);
   assert.match(panel, /-RedirectStandardError \$script:launchStderrLog/);
-  assert.match(panel, /Get-LaunchLogSummary/);
-  assert.match(panel, /完整性校验可能需要数分钟/);
+  assert.match(panel, /\$script:launchProcess\.WaitForExit\(\)/);
+  assert.match(panel, /function Get-LaunchFailureSummary/);
+  assert.match(panel, /Get-Content -LiteralPath \$script:launchStderrLog -Tail 8/);
+  assert.match(panel, /\$exitCode = \[int\]\$script:launchProcess\.ExitCode/);
+  assert.doesNotMatch(panel, /退出码 未知|\$exitCode = "未知"/);
+  assert.match(panel, /启动失败，退出码/);
+  assert.match(panel, /原因：\$failureSummary/);
+  assert.doesNotMatch(panel, /\$VinextCli/);
+  assert.doesNotMatch(panel, /start-local-worker\.mjs|--build/);
+  assert.doesNotMatch(panel, /Start-Sleep -Seconds 1/);
 });
 
-test("pause remains narrowly scoped to the exact immutable Worker", () => {
-  const stopBlock = panel.slice(
-    panel.indexOf("function Invoke-StopWorker"),
-    panel.indexOf('if ($Action -ne "Panel")'),
-  );
-  assert.match(stopBlock, /-ScriptPath \$LocalWorkerStarter -Arguments @\("-Action", "Stop"\)/);
-  assert.match(stopBlock, /Django\/PostgreSQL 后端继续运行/);
-  assert.doesNotMatch(stopBlock, /DjangoService[\s\S]*"Stop"/);
-  assert.doesNotMatch(stopBlock, /Stop-Process|taskkill/);
-  assert.match(panel, /暂停网页服务/);
+test("control panel rechecks immutable service ownership immediately before launch", () => {
+  assert.match(panel, /\$actionState = Get-SystemState/);
+  assert.match(panel, /\$actionState\.State -in @\("Running", "D1Degraded", "Unresponsive", "Starting"\)/);
+  assert.match(panel, /\$actionState\.State -eq "PortInUse"/);
+  assert.match(panel, /为避免覆盖或停止其他程序，本次启动已取消/);
 });
 
-test("controller never invokes legacy build or development launchers", () => {
-  assert.doesNotMatch(panel, /start-local-worker\.mjs|vinext\s+(?:dev|start)|wrangler\s+dev|--build/);
-  assert.match(panel, /tools\\worker-local-service\.ps1/);
-  assert.match(panel, /pwsh\.exe/);
+test("control panel checks loopback liveness before interpreting D1 readiness", () => {
+  assert.match(panel, /\$LivenessUrl = "http:\/\/127\.0\.0\.1:3000\/_teruisi\/local\/health\/live"/);
+  assert.match(panel, /\$ReadinessUrl = "http:\/\/127\.0\.0\.1:3000\/_teruisi\/local\/health\/ready"/);
+  assert.match(panel, /\$handler\.UseProxy = \$false/);
+  assert.match(panel, /\$client\.Timeout = \[TimeSpan\]::FromSeconds\(2\)/);
+  assert.match(panel, /TryAddWithoutValidation\("x-teruisi-local-health", "1"\)/);
+
+  const healthStateStart = panel.indexOf("function Get-SystemHealthState");
+  const livenessProbe = panel.indexOf("Invoke-SystemHealthProbe -Uri $LivenessUrl", healthStateStart);
+  const readinessProbe = panel.indexOf("Invoke-SystemHealthProbe -Uri $ReadinessUrl", healthStateStart);
+  assert.ok(healthStateStart >= 0);
+  assert.ok(livenessProbe > healthStateStart);
+  assert.ok(readinessProbe > livenessProbe);
+  assert.match(panel, /\$liveness\.StatusCode -eq 200[^\n]*\$livenessPayload\.ok -eq \$true[^\n]*\$livenessPayload\.status -eq "live"/);
+});
+
+test("control panel labels only the explicit D1 503 contract as degraded", () => {
+  assert.match(panel, /\$healthState = "Unresponsive"/);
+  assert.match(panel, /\$readiness\.StatusCode -eq 503/);
+  assert.match(panel, /\$readinessPayload\.ok -eq \$false/);
+  assert.match(panel, /\$readinessPayload\.status -eq "degraded"/);
+  assert.match(panel, /\$readinessPayload\.code -eq "d1_unavailable"/);
+  assert.match(panel, /\$healthState = "D1Degraded"/);
+  assert.equal(panel.match(/\$healthState = "D1Degraded"/g)?.length, 1);
+  assert.match(panel, /"D1Degraded"/);
+  assert.match(panel, /D1 暂时降级/);
+  assert.match(panel, /"Unresponsive"/);
+  assert.match(panel, /Worker 无响应 \/ 重启中/);
+  assert.match(panel, /State = \$state/);
+  assert.match(panel, /系统会继续运行且不会因此重启/);
+  assert.doesNotMatch(panel, /D1 尚未就绪；看门狗会在连续失败后受控重启/);
+  assert.match(panel, /TotalSeconds -lt 10/);
+});
+
+test("reopened control panel delegates status to the immutable service", () => {
+  const stateStart = panel.indexOf("function Get-SystemState");
+  const stopTreeStart = panel.indexOf("function Stop-ProcessTree");
+  assert.ok(stateStart >= 0);
+  assert.ok(stopTreeStart > stateStart);
+  const stateBlock = panel.slice(stateStart, stopTreeStart);
+  assert.match(stateBlock, /-File \$LocalWorkerStarter -Action Status -Json/);
+  assert.match(stateBlock, /"exact_release"/);
+  assert.match(stateBlock, /SupervisorProcessId = \[int\]\$releaseState\.supervisorProcessId/);
+});
+
+test("control panel distinguishes a stale receipt from a real port ownership conflict", () => {
+  const stateStart = panel.indexOf("function Get-SystemState");
+  const stopTreeStart = panel.indexOf("function Stop-ProcessTree");
+  const stateBlock = panel.slice(stateStart, stopTreeStart);
+  assert.match(stateBlock, /"stale_or_invalid_receipt"/);
+  assert.match(stateBlock, /State = "StaleReceipt"/);
+  assert.match(stateBlock, /"foreign_or_ambiguous"/);
+  assert.match(stateBlock, /State = "PortInUse"/);
+  assert.match(stateBlock, /State = "StatusError"/);
+  assert.doesNotMatch(stateBlock, /catch \{\s*return \[pscustomobject\]@\{ State = "PortInUse"/);
+  assert.match(panel, /检测到上次异常退出/);
+  assert.match(panel, /系统端口或进程归属冲突/);
+  assert.match(panel, /无法确认系统状态/);
+});
+
+test("starting after an abnormal exit clears only a validated stale receipt before launch", () => {
+  const clickStart = panel.indexOf("$startButton.Add_Click({");
+  const clickEnd = panel.indexOf("$stopButton.Add_Click({", clickStart);
+  const clickBlock = panel.slice(clickStart, clickEnd);
+  assert.match(clickBlock, /\$actionState\.State -eq "StaleReceipt"/);
+  assert.match(clickBlock, /\$repairResult = Stop-ControlledLocalWorker/);
+  assert.match(clickBlock, /残留回执未被清理，本次启动已取消/);
+  assert.match(clickBlock, /\$actionState = Get-SystemState/);
+  assert.match(clickBlock, /\$actionState\.State -ne "Stopped"/);
+  assert.match(clickBlock, /\$actionState\.State -ne "Stopped"[\s\S]*return[\s\S]*Start-Process/);
+});
+
+test("reopened control panel delegates stop to the same fail-closed immutable service", () => {
+  assert.match(panel, /function Stop-ControlledLocalWorker/);
+  assert.match(panel, /-File \$LocalWorkerStarter -Action Stop -Json/);
+  assert.match(panel, /\$result\.status -notin @\("stopped", "already_stopped", "stale_receipt_cleared"\)/);
+
+  assert.match(panel, /\$stopResult = Stop-ControlledLocalWorker/);
+  assert.match(panel, /为避免影响 n8n、Chromium 或其他 Node 服务，本次停止已取消/);
+  assert.doesNotMatch(panel, /foreach \(\$processId in \$systemState\.ProcessIds\)/);
+
+  const clickStart = panel.indexOf("$stopButton.Add_Click({");
+  const clickEnd = panel.indexOf("$openButton.Add_Click({", clickStart);
+  const clickBlock = panel.slice(clickStart, clickEnd);
+  assert.ok(clickBlock.indexOf("Stop-ControlledLocalWorker") < clickBlock.indexOf("if ($script:launchProcess"));
+  assert.match(clickBlock, /"Starting", "StaleReceipt"/);
+  assert.match(clickBlock, /构建尚未监听 3000 时，只能停止当前面板亲自创建并持有句柄的启动进程/);
+});
+
+test("control panel exposes a headless stop entry that reuses the same ownership gate", () => {
+  assert.match(panel, /\[switch\]\$StopWorker/);
+  assert.match(panel, /if \(\$StopWorker\) \{[\s\S]*\$stopResult = Stop-ControlledLocalWorker/);
+  assert.match(panel, /Stopped: local Worker supervisor and verified project descendants/);
+  assert.match(panel, /Write-Error \$stopResult\.Reason[\s\S]*exit 1/);
 });
