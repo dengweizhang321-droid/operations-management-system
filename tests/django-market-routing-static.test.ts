@@ -70,3 +70,19 @@ test("market edge configuration exposes separate fixed reader and writer origins
   assert.match(settings, /DJANGO_PROCESS_ROLE.*market_writer/);
   assert.match(settings, /DJANGO_MARKET_AUTHORITY_EPOCH/);
 });
+
+test("market daily coverage edge and Django reader share the exact ranking identity contract", async () => {
+  const [route, query] = await Promise.all([
+    readFile(new URL("../app/api/market/daily-coverage/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/market/query.py", import.meta.url), "utf8"),
+  ]);
+  for (const field of ["category", "scope", "rankingDimension", "priceBandFilter", "startDate", "endDate"]) {
+    assert.match(route, new RegExp(`${field}:`), `edge payload must include ${field}`);
+    assert.match(query, new RegExp(`"${field}"`), `Django daily coverage must accept ${field}`);
+  }
+  assert.doesNotMatch(route, /categories:/);
+  assert.match(query, /period_start=F\("period_end"\)/);
+  assert.match(query, /"presentDates"/);
+  assert.match(query, /"missingDates"/);
+  assert.match(query, /"rowCounts"/);
+});

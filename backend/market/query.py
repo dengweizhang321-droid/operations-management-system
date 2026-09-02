@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from datetime import date, timedelta
 
-from django.db.models import Count, Max, Min, Q, Sum
+from django.db.models import Count, F, Max, Min, Q, Sum
 
 from netshop.sales_client import read_sales_consumer
 from sales.auth import Principal
@@ -1489,48 +1489,64 @@ def item_trend(request: dict[str, object]) -> dict[str, object]:
 
 
 def daily_coverage(request: dict[str, object]) -> dict[str, object]:
-    allowed = {"operation", "startDate", "endDate", "categories", "scope", "rankingDimension"}
+    allowed = {
+        "operation",
+        "startDate",
+        "endDate",
+        "category",
+        "scope",
+        "rankingDimension",
+        "priceBandFilter",
+    }
     if set(request) != allowed or request.get("operation") != "daily_coverage":
         raise _error("市场日覆盖请求字段无效")
     start = _date(request["startDate"], "startDate")
     end = _date(request["endDate"], "endDate")
     if not start or not end or start > end:
         raise _error("市场日覆盖日期范围无效")
-    categories = _texts(request["categories"], "categories", maximum=50)
+    category = str(request["category"] or "").strip()
     scope = str(request["scope"] or "").strip()
+    price_band_filter = str(request["priceBandFilter"] or "").strip()
     dimension = request["rankingDimension"]
-    if not categories or not scope or dimension not in {"SKU", "SPU"}:
+    if not category or not scope or not price_band_filter or dimension not in {"SKU", "SPU"}:
         raise _error("市场日覆盖业务身份无效")
-    query = MarketRankingEntry.objects.filter(
-        category__in=categories,
-        scope=scope,
-        ranking_dimension=dimension,
-        period_start__lte=end,
-        period_end__gte=start,
+    rows = (
+        MarketRankingEntry.objects.filter(
+            category=category,
+            scope=scope,
+            ranking_dimension=dimension,
+            price_band_filter=price_band_filter,
+            period_start=F("period_end"),
+            period_end__gte=start,
+            period_end__lte=end,
+        )
+        .values("period_end")
+        .annotate(row_count=Count("id"))
+        .order_by("period_end")
     )
-    covered: set[str] = set()
-    for period_start, period_end in query.values_list("period_start", "period_end").distinct():
-        cursor = max(date.fromisoformat(period_start), date.fromisoformat(start))
-        stop = min(date.fromisoformat(period_end), date.fromisoformat(end))
-        while cursor <= stop:
-            covered.add(cursor.isoformat())
-            cursor += timedelta(days=1)
+    row_counts = {str(row["period_end"]): int(row["row_count"]) for row in rows}
     cursor = date.fromisoformat(start)
     stop = date.fromisoformat(end)
-    dates = []
+    expected_dates = []
     while cursor <= stop:
-        value = cursor.isoformat()
-        dates.append({"date": value, "covered": value in covered})
+        expected_dates.append(cursor.isoformat())
         cursor += timedelta(days=1)
-        if len(dates) > 4_000:
+        if len(expected_dates) > 4_000:
             raise _error("市场日覆盖范围不能超过 4000 天")
+    present_dates = [value for value in expected_dates if row_counts.get(value, 0) > 0]
+    missing_dates = [value for value in expected_dates if value not in row_counts]
     return {
+        "ok": True,
+        "identity": {
+            "category": category,
+            "scope": scope,
+            "rankingDimension": dimension,
+            "priceBandFilter": price_band_filter,
+        },
         "startDate": start,
         "endDate": end,
-        "categories": categories,
-        "scope": scope,
-        "rankingDimension": dimension,
-        "dates": dates,
-        "coveredCount": sum(1 for item in dates if item["covered"]),
-        "missingCount": sum(1 for item in dates if not item["covered"]),
+        "cutoffDate": present_dates[-1] if present_dates else None,
+        "presentDates": present_dates,
+        "missingDates": missing_dates,
+        "rowCounts": row_counts,
     }
