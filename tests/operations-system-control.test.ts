@@ -63,6 +63,8 @@ test("controller waits only for the direct start-engine process instead of a dur
   assert.match(invocationBlock, /\[System\.IO\.File\]::ReadAllText/);
   assert.match(invocationBlock, /\[System\.IO\.File\]::Delete\(\$temporaryLog\)/);
   assert.match(invocationBlock, /catch \[System\.IO\.IOException\]/);
+  assert.match(invocationBlock, /direct service exit code remains authoritative/);
+  assert.match(invocationBlock, /failed service also left an unreadable diagnostic handle/);
   assert.match(invocationBlock, /false failure during best-effort cleanup/);
   assert.doesNotMatch(invocationBlock, /=\s*&\s*\$PowerShellExecutable/);
   assert.ok(invocationBlock.indexOf("WaitForExit()") < invocationBlock.indexOf("ReadAllText"));
