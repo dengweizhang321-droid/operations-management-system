@@ -140,6 +140,24 @@ test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP �
   const store = { shopName: "天猫-志高亿玖专卖店" };
   assert.equal(validateImportPayload(payload, 201, store, "2026-07-31", 10).batchId, "batch-1");
   assert.equal(validateImportPayload({ ...payload, status: "duplicate" }, 200, store, "2026-07-31", 10).batchId, "batch-1");
+  const djangoPayload = {
+    ...payload,
+    verification: {
+      verified: true,
+      rowCount: 10,
+      dataset: "spu_daily",
+      platform: "天猫",
+      shopName: "天猫-志高亿玖专卖店",
+      dateMin: "2026-07-31",
+      dateMax: "2026-07-31",
+    },
+  };
+  assert.equal(validateImportPayload(djangoPayload, 201, store, "2026-07-31", 10).batchId, "batch-1");
+  assert.equal(validateImportPayload({
+    ...djangoPayload,
+    status: "duplicate",
+    verification: { verified: true, rowCount: 10 },
+  }, 200, store, "2026-07-31", 10).batchId, "batch-1");
   assert.throws(() => validateImportPayload({ ...payload, batch: { ...payload.batch, shopName: "B店" } }, 201, store, "2026-07-31", 10), /回查不一致/);
   assert.throws(() => validateImportPayload(payload, 200, store, "2026-07-31", 10), /回查不一致/);
   assert.throws(() => validateImportPayload({ ...payload, status: "duplicate" }, 201, store, "2026-07-31", 10), /回查不一致/);
@@ -150,6 +168,9 @@ test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP �
     { label: "批次行数少于预检", payload: { ...payload, batch: { ...payload.batch, rowCount: 9 } } },
     { label: "解析行数不一致", payload: { ...payload, verification: { ...payload.verification, parsedRowCount: 9 } } },
     { label: "回查行数不一致", payload: { ...payload, verification: { ...payload.verification, readbackRowCount: 9 } } },
+    { label: "Django 回查行数不一致", payload: { ...djangoPayload, verification: { ...djangoPayload.verification, rowCount: 9 } } },
+    { label: "两种行数证明相互矛盾", payload: { ...djangoPayload, verification: { ...payload.verification, rowCount: 9 } } },
+    { label: "Django 新导入不得省略验证身份", payload: { ...djangoPayload, verification: { verified: true, rowCount: 10 } } },
     { label: "回查店铺不一致", payload: { ...payload, verification: { ...payload.verification, shopName: "B店" } } },
     { label: "回查日期不一致", payload: { ...payload, verification: { ...payload.verification, dateMax: "2026-07-30" } } },
   ];
@@ -160,6 +181,11 @@ test("天猫导入结果必须精确匹配店铺、日期、数据集与 HTTP �
       failure.label,
     );
   }
+  assert.throws(() => validateImportPayload({
+    ...djangoPayload,
+    status: "duplicate",
+    verification: { verified: true, rowCount: 10, shopName: "B店" },
+  }, 200, store, "2026-07-31", 10), /回查不一致/);
 });
 
 test("天猫导入只对无 HTTP 响应的网络错误重建表单并有限重试", async () => {

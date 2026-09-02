@@ -16,6 +16,10 @@ import {
   resolveTmallBrowserLaunchTarget,
   type TmallStore,
 } from "../lib/netshop/tmall-store-registry";
+import {
+  hasExactTmallImportVerification,
+  type TmallImportVerificationProof,
+} from "./tmall-import-verification";
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
 import {
   createTmallBrowserDownloadSession,
@@ -217,16 +221,7 @@ type PromotionImportPayload = {
     dateMin?: string | null;
     dateMax?: string | null;
   };
-  verification?: {
-    verified?: boolean;
-    parsedRowCount?: number;
-    readbackRowCount?: number;
-    dataset?: string;
-    platform?: string;
-    shopName?: string;
-    dateMin?: string | null;
-    dateMax?: string | null;
-  };
+  verification?: TmallImportVerificationProof;
 };
 
 type BoundingBox = { x: number; y: number; width: number; height: number };
@@ -667,11 +662,15 @@ export function assertPromotionImportPayload(
     || batch.shopName !== expected.shopName || batch.status !== "completed" || batch.rowCount !== expected.rowCount
     || batch.dateMin !== expected.startDate || batch.dateMax !== expected.endDate
     || !Number.isInteger(batch.warningCount ?? 0) || Number(batch.warningCount ?? 0) < 0
-    || verification?.verified !== true || verification.parsedRowCount !== expected.rowCount
-    || verification.readbackRowCount !== expected.rowCount
-    || verification.dataset !== "promotion_daily" || verification.platform !== "天猫"
-    || verification.shopName !== expected.shopName || verification.dateMin !== expected.startDate
-    || verification.dateMax !== expected.endDate) {
+    || !hasExactTmallImportVerification(verification, {
+      status: importStatus,
+      rowCount: expected.rowCount,
+      dataset: "promotion_daily",
+      platform: "天猫",
+      shopName: expected.shopName,
+      dateMin: expected.startDate,
+      dateMax: expected.endDate,
+    })) {
     throw new Error(payload.message ?? "推广导入批次、店铺、日期、行数或落库回查不一致");
   }
   return {

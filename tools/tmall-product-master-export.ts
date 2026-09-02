@@ -20,6 +20,10 @@ import {
   autoLoginTmallWithWindowsDpapiCredential,
   inspectTmallLoginPageState,
 } from "./tmall-saved-login";
+import {
+  hasExactTmallImportVerification,
+  type TmallImportVerificationProof,
+} from "./tmall-import-verification";
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
@@ -64,14 +68,7 @@ type MasterImportPayload = {
   message?: string;
   batch?: MasterImportBatch | null;
   warnings?: Array<{ code?: string; message?: string }>;
-  verification?: {
-    verified?: boolean;
-    parsedRowCount?: number;
-    readbackRowCount?: number;
-    dataset?: string;
-    platform?: string;
-    shopName?: string;
-  };
+  verification?: TmallImportVerificationProof;
 };
 
 type MasterFileEvidence = {
@@ -751,19 +748,24 @@ export async function importTmallProductMasterFile(options: {
   });
   const payload = await response.json().catch(() => null) as MasterImportPayload | null;
   const batch = payload?.batch;
-  const expectedStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
+  const importStatus = payload?.status === "imported" || payload?.status === "duplicate" ? payload.status : null;
+  const expectedStatus = importStatus === "imported" ? 201 : importStatus === "duplicate" ? 200 : 0;
   const verification = payload?.verification;
-  if (response.status !== expectedStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
+  if (response.status !== expectedStatus || !payload?.ok || importStatus === null
     || !batch?.id || batch.source !== "tmall_product_master" || batch.dataset !== "product_master"
     || batch.platform !== "天猫" || batch.shopName !== options.store.shopName || batch.snapshotDate !== options.snapshotDate
     || batch.status !== "completed" || batch.rowCount !== options.evidence.rowCount
-    || verification?.verified !== true || verification.dataset !== "product_master"
-    || verification.platform !== "天猫" || verification.shopName !== options.store.shopName
-    || verification.parsedRowCount !== options.evidence.rowCount || verification.readbackRowCount !== options.evidence.rowCount) {
+    || !hasExactTmallImportVerification(verification, {
+      status: importStatus,
+      rowCount: options.evidence.rowCount,
+      dataset: "product_master",
+      platform: "天猫",
+      shopName: options.store.shopName,
+    })) {
     throw new Error(payload?.message ?? `天猫货品主数据导入或落库回查失败（HTTP ${response.status}）`);
   }
   return {
-    status: payload.status,
+    status: importStatus,
     batchId: batch.id,
     rowCount: batch.rowCount,
     warningCount: Number(batch.warningCount ?? 0),

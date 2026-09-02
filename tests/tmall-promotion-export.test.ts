@@ -599,10 +599,40 @@ test("推广导入结果必须同时匹配来源、店铺、日期、行数和�
     status: "duplicate",
     warningCount: 1,
   });
+  const djangoPayload = {
+    ...payload,
+    verification: {
+      verified: true,
+      rowCount: 12,
+      dataset: "promotion_daily",
+      platform: "天猫",
+      shopName: "天猫-志高亿玖专卖店",
+      dateMin: "2026-07-29",
+      dateMax: "2026-08-04",
+    },
+  };
+  assert.deepEqual(assertPromotionImportPayload(djangoPayload, 201, expected), {
+    batchId: "batch-1",
+    status: "imported",
+    warningCount: 1,
+  });
+  assert.deepEqual(assertPromotionImportPayload({
+    ...djangoPayload,
+    status: "duplicate",
+    verification: { verified: true, rowCount: 12 },
+  }, 200, expected), {
+    batchId: "batch-1",
+    status: "duplicate",
+    warningCount: 1,
+  });
   assert.throws(() => assertPromotionImportPayload(payload, 200, expected), /不一致/);
   assert.throws(() => assertPromotionImportPayload({
     ...payload,
     verification: { ...payload.verification, parsedRowCount: 11 },
+  }, 201, expected), /不一致/);
+  assert.throws(() => assertPromotionImportPayload({
+    ...djangoPayload,
+    verification: { ...djangoPayload.verification, rowCount: 11 },
   }, 201, expected), /不一致/);
   assert.throws(() => assertPromotionImportPayload({
     ...payload,

@@ -717,6 +717,44 @@ test("货品导入要求精确批次身份和落库行数回查", async () => {
     assert.equal(received.form.get("shop_name"), "天猫-志高亿玖专卖店");
     assert.equal(received.form.get("snapshot_date"), "2026-08-04");
 
+    const djangoImported = (async () => Response.json({
+      ok: true,
+      status: "imported",
+      batch: {
+        id: "batch-django", source: "tmall_product_master", dataset: "product_master", platform: "天猫",
+        shopName: "天猫-志高亿玖专卖店", snapshotDate: "2026-08-04", status: "completed", rowCount: 1, warningCount: 0,
+      },
+      verification: {
+        verified: true, rowCount: 1, dataset: "product_master", platform: "天猫", shopName: "天猫-志高亿玖专卖店",
+      },
+    }, { status: 201 })) as typeof fetch;
+    const djangoResult = await importTmallProductMasterFile({
+      baseUrl: "http://127.0.0.1:3000",
+      store: { shopName: "天猫-志高亿玖专卖店" },
+      snapshotDate: "2026-08-04",
+      evidence,
+      request: djangoImported,
+    });
+    assert.equal(djangoResult.status, "imported");
+
+    const djangoDuplicate = (async () => Response.json({
+      ok: true,
+      status: "duplicate",
+      batch: {
+        id: "batch-duplicate", source: "tmall_product_master", dataset: "product_master", platform: "天猫",
+        shopName: "天猫-志高亿玖专卖店", snapshotDate: "2026-08-04", status: "completed", rowCount: 1, warningCount: 0,
+      },
+      verification: { verified: true, rowCount: 1 },
+    }, { status: 200 })) as typeof fetch;
+    const duplicate = await importTmallProductMasterFile({
+      baseUrl: "http://127.0.0.1:3000",
+      store: { shopName: "天猫-志高亿玖专卖店" },
+      snapshotDate: "2026-08-04",
+      evidence,
+      request: djangoDuplicate,
+    });
+    assert.equal(duplicate.status, "duplicate");
+
     const badReadback = (async () => Response.json({
       ok: true,
       status: "imported",

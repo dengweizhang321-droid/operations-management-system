@@ -8,6 +8,10 @@ import { inspectTmallImportBytes } from "../lib/netshop/import-service";
 import { netshopOutletKey } from "../lib/netshop/query-contract";
 import { loadTmallStores, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import type { TmallDownloadReceipt } from "./tmall-download-receipt";
+import {
+  hasExactTmallImportVerification,
+  type TmallImportVerificationProof,
+} from "./tmall-import-verification";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const auditDirectory = path.join(projectRoot, "outputs", "tmall-multi-store-import");
@@ -68,16 +72,7 @@ type ImportPayload = {
     dateMin?: string | null;
     dateMax?: string | null;
   };
-  verification?: {
-    verified?: boolean;
-    parsedRowCount?: number;
-    readbackRowCount?: number;
-    dateMin?: string | null;
-    dateMax?: string | null;
-    dataset?: string;
-    platform?: string;
-    shopName?: string;
-  };
+  verification?: TmallImportVerificationProof;
 };
 
 type VerifiedReceipt = { receiptPath: string; filePath: string; receipt: TmallDownloadReceipt; bytes: Uint8Array };
@@ -209,19 +204,26 @@ export function validateImportPayload(
 ) {
   const batch = payload?.batch;
   const verification = payload?.verification;
-  const expectedStatus = payload?.status === "imported" ? 201 : payload?.status === "duplicate" ? 200 : 0;
-  if (httpStatus !== expectedStatus || !payload?.ok || (payload.status !== "imported" && payload.status !== "duplicate")
+  const importStatus = payload?.status === "imported" || payload?.status === "duplicate" ? payload.status : null;
+  const expectedStatus = importStatus === "imported" ? 201 : importStatus === "duplicate" ? 200 : 0;
+  if (httpStatus !== expectedStatus || !payload?.ok || importStatus === null
     || !batch?.id || batch.source !== "tmall_product_daily" || batch.dataset !== "spu_daily" || batch.platform !== "天猫"
     || batch.shopName !== store.shopName || batch.status !== "completed" || batch.dateMin !== businessDate || batch.dateMax !== businessDate
     || !Number.isInteger(expectedRowCount) || expectedRowCount <= 0 || batch.rowCount !== expectedRowCount
-    || !Number.isFinite(batch.warningCount) || verification?.verified !== true
-    || verification.parsedRowCount !== expectedRowCount || verification.readbackRowCount !== expectedRowCount
-    || verification.dataset !== "spu_daily" || verification.platform !== "天猫" || verification.shopName !== store.shopName
-    || verification.dateMin !== businessDate || verification.dateMax !== businessDate) {
+    || !Number.isFinite(batch.warningCount)
+    || !hasExactTmallImportVerification(verification, {
+      status: importStatus,
+      rowCount: expectedRowCount,
+      dataset: "spu_daily",
+      platform: "天猫",
+      shopName: store.shopName,
+      dateMin: businessDate,
+      dateMax: businessDate,
+    })) {
     throw new Error(payload?.message ?? `天猫 SPU 导入回查不一致 (HTTP ${httpStatus})`);
   }
   return {
-    status: payload.status,
+    status: importStatus,
     batchId: batch.id,
     rowCount: batch.rowCount!,
     warningCount: batch.warningCount!,
