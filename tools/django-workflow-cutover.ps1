@@ -19,6 +19,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $CutoverAction = $Action
+$CutoverApprovedPlanId = $ApprovedPlanId
 $ServiceScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 $previousLibraryMode = [Environment]::GetEnvironmentVariable(
   "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", "Process"
@@ -32,6 +33,7 @@ try {
   )
 }
 $Action = $CutoverAction
+$ApprovedPlanId = $CutoverApprovedPlanId
 $WorkflowAuditRoot = Join-Path $RuntimeRoot "audits\workflow-cutover"
 
 function Assert-InstalledWorkflowOperator {

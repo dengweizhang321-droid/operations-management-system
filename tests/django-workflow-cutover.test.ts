@@ -59,6 +59,8 @@ test("terminal workflow retirement is stopped, evidence-bound and Django-only", 
   assert.match(cutover, /RetireApply/);
   assert.match(cutover, /retire_workflow_launch_d1/);
   assert.match(cutover, /workflow-launch-r2-retirement-evidence\.py/);
+  assert.match(cutover, /\$CutoverApprovedPlanId = \$ApprovedPlanId/);
+  assert.match(cutover, /\$ApprovedPlanId = \$CutoverApprovedPlanId/);
   assert.match(cutover, /Assert-WorkflowStackStopped "终态退役 D1\/R2 新品子域"/);
   assert.match(cutover, /Assert-WorkflowWorkerStopped "终态退役 D1\/R2 新品子域"/);
 });
