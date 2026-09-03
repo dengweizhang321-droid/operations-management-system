@@ -1527,6 +1527,12 @@ test("release source fixes build closure, real contract tests, guard and authori
   ], { encoding: "utf8", windowsHide: true });
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /verify-authority 不支持参数 --process-policy/);
+  const acceptedPrelaunchFlag = spawnSync(process.execPath, [
+    "tools/worker-local-release.mjs", "verify", "--write-supervisor-prelaunch-receipt",
+  ], { encoding: "utf8", windowsHide: true });
+  assert.notEqual(acceptedPrelaunchFlag.status, 0);
+  assert.doesNotMatch(acceptedPrelaunchFlag.stderr, /参数无效.*write-supervisor-prelaunch-receipt/);
+  assert.match(acceptedPrelaunchFlag.stderr, /缺少参数 --manifest/);
   const migration = await readFile("drizzle/0092_sales_domain_retirement.sql", "utf8");
   assert.equal(createHash("sha256").update(migration).digest("hex"), salesRetirementMigrationSha256);
   for (const name of retiredNames) assert.match(migration, new RegExp("CREATE VIEW `" + name + "` AS"));

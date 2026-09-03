@@ -2983,7 +2983,10 @@ function parseCli(argv) {
   const flags = new Set();
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index];
-    if (!["--json", "--require-sales-retired-code-receipt", "--allow-test-runtime-root"].includes(token)) {
+    if (![
+      "--json", "--require-sales-retired-code-receipt", "--allow-test-runtime-root",
+      "--write-supervisor-prelaunch-receipt",
+    ].includes(token)) {
       if (!token.startsWith("--") || index + 1 >= argv.length || argv[index + 1].startsWith("--")) fail(`参数无效：${token}`);
       if (values.has(token)) fail(`参数重复：${token}`);
       values.set(token, argv[++index]);
