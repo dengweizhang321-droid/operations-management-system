@@ -298,7 +298,7 @@ function parseRow(
   if (errors.length > beforeErrors) return null;
   return {
     sourceRowNumber: row.rowNumber,
-    rowKey: JSON.stringify([warehouse, productCode]),
+    rowKey: `${warehouse}\u001f${productCode}`,
     snapshotDate,
     warehouse,
     warehouseType: inferInventoryWarehouseType(warehouse),

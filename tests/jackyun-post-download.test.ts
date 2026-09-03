@@ -108,8 +108,8 @@ test("inventory row identity is stable when workbook rows are reordered", () => 
     Object.fromEntries(reordered.map((row) => [row.productCode, row.rowKey])),
   );
   assert.deepEqual(first.map((row) => row.rowKey).sort(), [
-    JSON.stringify(["正常仓", "P1"]),
-    JSON.stringify(["正常仓", "P2"]),
+    "正常仓\u001fP1",
+    "正常仓\u001fP2",
   ]);
 });
 
