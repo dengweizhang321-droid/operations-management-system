@@ -1,6 +1,5 @@
 import { env } from "cloudflare:workers";
 import {
-  ensureInventorySchema,
   getInventoryDatabase,
   type InventoryDatabase,
 } from "@/lib/inventory/database";
@@ -9,6 +8,55 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const INVENTORY_UPLOAD_CHUNK_BYTES = 1024 * 1024;
 export const MAX_CHUNKED_INVENTORY_FILE_BYTES = 20 * 1024 * 1024;
 const UPLOAD_TTL_MS = 24 * 60 * 60 * 1000;
+
+const sharedUploadSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS inventory_import_uploads (
+    id TEXT PRIMARY KEY NOT NULL,
+    fingerprint TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    chunk_size_bytes INTEGER NOT NULL,
+    chunk_count INTEGER NOT NULL,
+    received_chunk_count INTEGER NOT NULL DEFAULT 0,
+    received_bytes INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'uploading',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS inventory_import_uploads_expires_at_idx
+    ON inventory_import_uploads (expires_at)`,
+  `CREATE TABLE IF NOT EXISTS inventory_import_upload_chunks (
+    upload_id TEXT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    object_key TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (upload_id, chunk_index)
+  )`,
+  `CREATE INDEX IF NOT EXISTS inventory_import_upload_chunks_upload_id_idx
+    ON inventory_import_upload_chunks (upload_id)`,
+  `CREATE TABLE IF NOT EXISTS inventory_import_upload_results (
+    upload_id TEXT PRIMARY KEY NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+] as const;
+
+const sharedUploadSchemaReady = new WeakMap<object, Promise<void>>();
+
+export async function ensureSharedImportUploadSchema(db = getInventoryDatabase()) {
+  const key = db as unknown as object;
+  const existing = sharedUploadSchemaReady.get(key);
+  if (existing) return existing;
+  const setup = db.batch(sharedUploadSchemaStatements.map((sql) => db.prepare(sql))).then(() => undefined).catch((error) => {
+    sharedUploadSchemaReady.delete(key);
+    throw error;
+  });
+  sharedUploadSchemaReady.set(key, setup);
+  return setup;
+}
 
 function uploadRequestError(status: 400 | 404 | 409 | 413 | 422, message: string) {
   const code = status === 404 ? "not_found" : status === 409 ? "conflict" : status === 413 ? "payload_too_large" : "invalid_request";
@@ -140,7 +188,7 @@ export async function beginInventoryUpload(input: {
   if (!input.fingerprint || input.fingerprint.length > 255) throw uploadRequestError(400, "上传指纹无效");
 
   const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
+  await ensureSharedImportUploadSchema(db);
   await cleanupExpiredUploads(db);
   const existing = await db.prepare(`SELECT id, fingerprint, file_name, file_size_bytes, chunk_size_bytes, chunk_count,
     received_chunk_count, received_bytes, status, expires_at
@@ -178,7 +226,7 @@ export async function receiveInventoryUploadChunk(input: {
   bytes: Uint8Array;
 }): Promise<InventoryUploadSession> {
   const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
+  await ensureSharedImportUploadSchema(db);
   const upload = await getUpload(db, input.uploadId);
   if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
   if (upload.status === "completed") throw uploadRequestError(409, "该上传会话已完成");
@@ -240,7 +288,7 @@ async function storedResult(db: InventoryDatabase, uploadId: string): Promise<un
 
 export async function claimInventoryUpload(uploadId: string): Promise<InventoryUploadClaim> {
   const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
+  await ensureSharedImportUploadSchema(db);
   let upload = await getUpload(db, uploadId);
   if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
   if (upload.status === "completed") {
@@ -276,7 +324,7 @@ export async function assembleInventoryUpload(uploadId: string): Promise<{
   objectKeys: string[];
 }> {
   const db = getInventoryDatabase();
-  await ensureInventorySchema(db);
+  await ensureSharedImportUploadSchema(db);
   const upload = await getUpload(db, uploadId);
   if (!upload || upload.expires_at <= nowIso()) throw uploadRequestError(404, "上传会话已过期，请重新选择文件");
   if (upload.status !== "processing") throw uploadRequestError(409, "库存上传会话尚未进入处理状态");

@@ -61,3 +61,13 @@ test("shared ERP endpoints route inventory_age to Django while keeping other ERP
   assert.match(chunks, /body\.source === "inventory_age"[\s\S]*?beginDjangoInventoryUpload/);
   assert.match(chunks, /body\.source === "inventory_age"[\s\S]*?importInventoryAgeToDjango/);
 });
+
+test("shared non-inventory chunk uploads initialize only their retained upload tables", async () => {
+  const sharedUploader = await source("lib/inventory/chunked-upload.ts");
+  assert.doesNotMatch(sharedUploader, /ensureInventorySchema/);
+  assert.match(sharedUploader, /ensureSharedImportUploadSchema/);
+  assert.match(sharedUploader, /CREATE TABLE IF NOT EXISTS inventory_import_uploads/);
+  assert.match(sharedUploader, /CREATE TABLE IF NOT EXISTS inventory_import_upload_chunks/);
+  assert.match(sharedUploader, /CREATE TABLE IF NOT EXISTS inventory_import_upload_results/);
+  assert.doesNotMatch(sharedUploader, /CREATE TABLE IF NOT EXISTS (?:inventory_stock_lines|inventory_import_batches|erp_inventory_age_lines|inventory_age_metrics|replenishment_plan_items)/);
+});

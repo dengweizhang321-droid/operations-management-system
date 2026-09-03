@@ -213,6 +213,11 @@ test("inventory D1 authority fences exact namespaces and retirement preserves ot
       sqlite.prepare("SELECT COUNT(*) count FROM inventory_import_uploads WHERE fingerprint='sku-shipping-rates:other-domain'").get()?.count,
       1,
     );
+    insertUpload(sqlite, "erp:products::retained-upload", "retained-upload");
+    assert.equal(
+      sqlite.prepare("SELECT COUNT(*) count FROM inventory_import_uploads WHERE id='retained-upload'").get()?.count,
+      1,
+    );
     assert.equal(
       sqlite.prepare("SELECT COUNT(*) count FROM system_settings WHERE key='non-inventory-setting'").get()?.count,
       1,
