@@ -480,6 +480,8 @@ test("aggregate status loads one controller and reuses exact in-process process 
   assert.match(aggregateBlock, /teruisi-django-aggregate-status-v1/);
   assert.match(aggregateBlock, /ElapsedMilliseconds = \[int64\]\$timer\.ElapsedMilliseconds/);
   assert.doesNotMatch(aggregateBlock, /Start-Process|powershell\.exe|pwsh\.exe/);
+  assert.equal(script.match(/if \(\$reader -eq "running"\) \{/g)?.length, 3);
+  assert.equal(script.match(/if \(\$writer -eq "running"\) \{/g)?.length, 3);
 });
 
 test("Wrangler deployment integration test is external, destructive only inside its unique temp runtime", () => {

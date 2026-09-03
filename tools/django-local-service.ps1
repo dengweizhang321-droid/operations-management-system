@@ -3697,15 +3697,19 @@ function Show-ServiceStatus {
     elseif (@(Get-PortListeners 8002).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
-  try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8001" }
-    if ($response.StatusCode -eq 200) { $readerReady = "ready" }
-  } catch {}
+  if ($reader -eq "running") {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8001" }
+      if ($response.StatusCode -eq 200) { $readerReady = "ready" }
+    } catch {}
+  }
   $writerReady = "not_ready"
-  try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8002" }
-    if ($response.StatusCode -eq 200) { $writerReady = "ready" }
-  } catch {}
+  if ($writer -eq "running") {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8002" }
+      if ($response.StatusCode -eq 200) { $writerReady = "ready" }
+    } catch {}
+  }
   $erpReference = "stopped"
   try {
     $config = Get-ServiceConfig
@@ -3762,15 +3766,19 @@ function Show-FinanceServiceStatus {
     elseif (@(Get-PortListeners 8012).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
-  try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8011" }
-    if ($response.StatusCode -eq 200) { $readerReady = "ready" }
-  } catch {}
+  if ($reader -eq "running") {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8011" }
+      if ($response.StatusCode -eq 200) { $readerReady = "ready" }
+    } catch {}
+  }
   $writerReady = "not_ready"
-  try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8012" }
-    if ($response.StatusCode -eq 200) { $writerReady = "ready" }
-  } catch {}
+  if ($writer -eq "running") {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri $DjangoFinanceWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8012" }
+      if ($response.StatusCode -eq 200) { $writerReady = "ready" }
+    } catch {}
+  }
   $authority = "unknown"
   try {
     if (Test-PostgresReady) {
@@ -3834,19 +3842,23 @@ function Get-SimpleDjangoDomainStatus(
     elseif (@(Get-PortListeners $WriterPort).Count -gt 0) { $writer = "foreign_port_owner" }
   } catch { $writer = "ownership_error" }
   $readerReady = "not_ready"
-  try {
-    if ((Invoke-WebRequest -UseBasicParsing -Uri $ReaderHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:$ReaderPort" }).StatusCode -eq 200) {
-      $readerReady = "ready"
-    }
-  } catch {}
+  if ($reader -eq "running") {
+    try {
+      if ((Invoke-WebRequest -UseBasicParsing -Uri $ReaderHealthUrl -TimeoutSec 2 `
+            -Headers @{ Host = "127.0.0.1:$ReaderPort" }).StatusCode -eq 200) {
+        $readerReady = "ready"
+      }
+    } catch {}
+  }
   $writerReady = "not_ready"
-  try {
-    if ((Invoke-WebRequest -UseBasicParsing -Uri $WriterHealthUrl -TimeoutSec 2 `
-          -Headers @{ Host = "127.0.0.1:$WriterPort" }).StatusCode -eq 200) {
-      $writerReady = "ready"
-    }
-  } catch {}
+  if ($writer -eq "running") {
+    try {
+      if ((Invoke-WebRequest -UseBasicParsing -Uri $WriterHealthUrl -TimeoutSec 2 `
+            -Headers @{ Host = "127.0.0.1:$WriterPort" }).StatusCode -eq 200) {
+        $writerReady = "ready"
+      }
+    } catch {}
+  }
   $status = [ordered]@{}
   $status[$ReaderProperty] = $reader
   $status[$WriterProperty] = $writer
