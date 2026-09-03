@@ -6,12 +6,14 @@ param(
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
+  [string]$OrchestratedLifecycleAclToken = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
+$RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) {
   throw "缺少 Django 本机服务基础控制器"
@@ -29,6 +31,7 @@ try {
 }
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
+$OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 
 $InventoryCredentialPath = Join-Path $RuntimeRoot "secrets\inventory-credentials.dpapi.json"
 $InventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader.pid.json"
@@ -40,11 +43,15 @@ $InventoryReaderMaxBodyBytes = 1048576
 $InventoryWriterMaxBodyBytes = 67108864
 $MinimumPostgresConnectionsForInventory = 80
 
-function Assert-InventoryRuntimeEntry {
+function Assert-InventoryRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "库存服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
   Assert-DeployedApplication
+  if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
+    Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=inventory"
+    return
+  }
   Assert-RuntimeAclHardened
 }
 
@@ -439,8 +446,8 @@ function Start-InventoryWriter(
   }
 }
 
-function Start-InventoryStack {
-  Assert-InventoryRuntimeEntry
+function Start-InventoryStack([string]$LifecycleAclToken = "") {
+  Assert-InventoryRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动库存服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
@@ -488,8 +495,8 @@ function Start-InventoryStack {
   }
 }
 
-function Stop-InventoryStack {
-  Assert-InventoryRuntimeEntry
+function Stop-InventoryStack([string]$LifecycleAclToken = "") {
+  Assert-InventoryRuntimeEntry $LifecycleAclToken
   Stop-OwnedProcess "django-inventory-writer" $InventoryWriterPidPath $Waitress
   Stop-OwnedProcess "django-inventory-reader" $InventoryReaderPidPath $Waitress
   Write-Output "Django 库存 reader/writer 已停止；销售、财务、网店、市场、ERP 与 PostgreSQL 未改变。"
@@ -572,8 +579,8 @@ try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-InventoryCredentials } }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-InventoryRoles } }
-    "Start" { Invoke-WithServiceMutex { Start-InventoryStack } }
-    "Stop" { Invoke-WithServiceMutex { Stop-InventoryStack } }
+    "Start" { Invoke-WithServiceMutex { Start-InventoryStack $OrchestratedLifecycleAclToken } }
+    "Stop" { Invoke-WithServiceMutex { Stop-InventoryStack $OrchestratedLifecycleAclToken } }
     "Status" { Show-InventoryStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-InventoryStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-InventoryStartup } }

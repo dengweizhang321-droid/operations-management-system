@@ -6,12 +6,14 @@ param(
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
+  [string]$OrchestratedLifecycleAclToken = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
+$RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) {
   throw "缺少 Django 本机服务基础控制器"
@@ -29,6 +31,7 @@ try {
 }
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
+$OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 
 $MarketCredentialPath = Join-Path $RuntimeRoot "secrets\market-credentials.dpapi.json"
 $MarketReaderPidPath = Join-Path $RunDirectory "django-market-reader.pid.json"
@@ -39,11 +42,15 @@ $MarketStartupPath = Join-Path $RuntimeRoot "market-service-enabled.json"
 $MarketReaderMaxBodyBytes = 1048576
 $MarketWriterMaxBodyBytes = 134217728
 
-function Assert-MarketRuntimeEntry {
+function Assert-MarketRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "市场服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
   Assert-DeployedApplication
+  if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
+    Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=market"
+    return
+  }
   Assert-RuntimeAclHardened
 }
 
@@ -431,8 +438,8 @@ function Start-MarketWriter(
   }
 }
 
-function Start-MarketStack {
-  Assert-MarketRuntimeEntry
+function Start-MarketStack([string]$LifecycleAclToken = "") {
+  Assert-MarketRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动市场服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
@@ -480,8 +487,8 @@ function Start-MarketStack {
   }
 }
 
-function Stop-MarketStack {
-  Assert-MarketRuntimeEntry
+function Stop-MarketStack([string]$LifecycleAclToken = "") {
+  Assert-MarketRuntimeEntry $LifecycleAclToken
   Stop-OwnedProcess "django-market-writer" $MarketWriterPidPath $Waitress
   Stop-OwnedProcess "django-market-reader" $MarketReaderPidPath $Waitress
   Write-Output "Django 市场 reader/writer 已停止；销售、财务、网店、ERP 与 PostgreSQL 未改变。"
@@ -564,8 +571,8 @@ try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-MarketCredentials } }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-MarketRoles } }
-    "Start" { Invoke-WithServiceMutex { Start-MarketStack } }
-    "Stop" { Invoke-WithServiceMutex { Stop-MarketStack } }
+    "Start" { Invoke-WithServiceMutex { Start-MarketStack $OrchestratedLifecycleAclToken } }
+    "Stop" { Invoke-WithServiceMutex { Stop-MarketStack $OrchestratedLifecycleAclToken } }
     "Status" { Show-MarketStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-MarketStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-MarketStartup } }

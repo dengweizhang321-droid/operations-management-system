@@ -43,6 +43,9 @@ export const processReceiptVersion = "teruisi-local-worker-process-v1";
 export const activationFenceVersion = "teruisi-local-worker-release-activation-fence-v1";
 export const activationFenceRelativePath = ".runtime/worker-release-activation-fence.json";
 export const treeHashAlgorithm = "sha256-ordinal-path-length-content-v1";
+export const treeHashMetadataConcurrency = 64;
+export const treeHashReadConcurrency = 16;
+export const treeHashReadBatchBytes = 32 * 1024 * 1024;
 export const npmCiArguments = Object.freeze(["ci", "--ignore-scripts=false", "--no-audit", "--no-fund"]);
 export const bundledNpmPackageRootRelativePath = "node_modules/npm";
 export const bundledNpmCliRelativePath = "node_modules/npm/bin/npm-cli.js";
@@ -666,23 +669,62 @@ async function listGitSourceFiles(sourceRoot) {
 
 export async function hashRelativeFiles(root, relativeFiles) {
   const digest = createHash("sha256");
-  let fileCount = 0;
-  for (const relative of [...relativeFiles].sort(ordinalCompare)) {
+  const ordered = [...relativeFiles].sort(ordinalCompare);
+  const metadata = await mapBounded(ordered, treeHashMetadataConcurrency, async (relative) => {
     const normalized = relative.replaceAll("\\", "/");
     if (normalized.startsWith("../") || path.posix.isAbsolute(normalized)) fail("哈希文件路径越界");
     const absolute = path.join(root, ...normalized.split("/"));
     const info = await lstat(absolute);
     if (!info.isFile() || info.isSymbolicLink()) fail(`哈希对象不是普通文件：${normalized}`);
-    const name = Buffer.from(normalized, "utf8");
-    const content = await readFile(absolute);
-    const nameLength = Buffer.alloc(4);
-    nameLength.writeUInt32BE(name.length);
-    const contentLength = Buffer.alloc(8);
-    contentLength.writeBigUInt64BE(BigInt(content.length));
-    digest.update(nameLength).update(name).update(contentLength).update(content);
-    fileCount += 1;
+    return { normalized, absolute, size: info.size };
+  });
+  let start = 0;
+  while (start < metadata.length) {
+    let end = start;
+    let batchBytes = 0;
+    while (end < metadata.length && end - start < treeHashReadConcurrency) {
+      const nextBytes = metadata[end].size;
+      if (end > start && batchBytes + nextBytes > treeHashReadBatchBytes) break;
+      batchBytes += nextBytes;
+      end += 1;
+    }
+    const batch = metadata.slice(start, end);
+    const contents = await Promise.all(batch.map((item) => readFile(item.absolute)));
+    for (let index = 0; index < batch.length; index += 1) {
+      const name = Buffer.from(batch[index].normalized, "utf8");
+      const content = contents[index];
+      const nameLength = Buffer.alloc(4);
+      nameLength.writeUInt32BE(name.length);
+      const contentLength = Buffer.alloc(8);
+      contentLength.writeBigUInt64BE(BigInt(content.length));
+      digest.update(nameLength).update(name).update(contentLength).update(content);
+    }
+    start = end;
   }
-  return { algorithm: treeHashAlgorithm, fileCount, sha256: digest.digest("hex") };
+  return { algorithm: treeHashAlgorithm, fileCount: metadata.length, sha256: digest.digest("hex") };
+}
+
+async function mapBounded(items, concurrency, operation) {
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1) fail("有界并发参数无效");
+  const results = new Array(items.length);
+  const failures = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = await operation(items[index], index);
+      } catch (error) {
+        failures[index] = error;
+      }
+    }
+  });
+  await Promise.all(workers);
+  const firstFailure = failures.find((error) => error !== undefined);
+  if (firstFailure !== undefined) throw firstFailure;
+  return results;
 }
 
 async function listRegularTreeFiles(root, { excluded = new Set() } = {}) {
@@ -690,11 +732,14 @@ async function listRegularTreeFiles(root, { excluded = new Set() } = {}) {
   async function visit(directory, prefix) {
     const entries = await readdir(directory, { withFileTypes: true });
     entries.sort((left, right) => ordinalCompare(left.name, right.name));
-    for (const entry of entries) {
+    const inspected = await mapBounded(entries, treeHashMetadataConcurrency, async (entry) => ({
+      entry,
+      info: await lstat(path.join(directory, entry.name)),
+    }));
+    for (const { entry, info } of inspected) {
       const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
       if (excluded.has(relative)) continue;
       const absolute = path.join(directory, entry.name);
-      const info = await lstat(absolute);
       if (info.isSymbolicLink()) fail(`发布树不得包含重解析点：${relative}`);
       if (info.isDirectory()) await visit(absolute, relative);
       else if (info.isFile()) files.push(relative);

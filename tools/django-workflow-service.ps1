@@ -6,12 +6,14 @@ param(
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
+  [string]$OrchestratedLifecycleAclToken = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
+$RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) {
   throw "缺少 Django 本机服务基础控制器"
@@ -29,6 +31,7 @@ try {
 }
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
+$OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 
 $WorkflowCredentialPath = Join-Path $RuntimeRoot "secrets\workflow-credentials.dpapi.json"
 $WorkflowReaderPidPath = Join-Path $RunDirectory "django-workflow-reader.pid.json"
@@ -40,11 +43,15 @@ $WorkflowReaderMaxBodyBytes = 1048576
 $WorkflowWriterMaxBodyBytes = 1048576
 $MinimumPostgresConnectionsForWorkflow = 80
 
-function Assert-WorkflowRuntimeEntry {
+function Assert-WorkflowRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "运营事务新品服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
   Assert-DeployedApplication
+  if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
+    Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=workflow"
+    return
+  }
   Assert-RuntimeAclHardened
 }
 
@@ -390,8 +397,8 @@ function Start-WorkflowWriter(
   }
 }
 
-function Start-WorkflowStack {
-  Assert-WorkflowRuntimeEntry
+function Start-WorkflowStack([string]$LifecycleAclToken = "") {
+  Assert-WorkflowRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动运营事务新品服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
@@ -439,8 +446,8 @@ function Start-WorkflowStack {
   }
 }
 
-function Stop-WorkflowStack {
-  Assert-WorkflowRuntimeEntry
+function Stop-WorkflowStack([string]$LifecycleAclToken = "") {
+  Assert-WorkflowRuntimeEntry $LifecycleAclToken
   Stop-OwnedProcess "django-workflow-writer" $WorkflowWriterPidPath $Waitress
   Stop-OwnedProcess "django-workflow-reader" $WorkflowReaderPidPath $Waitress
   Write-Output "Django 运营事务新品 reader/writer 已停止；销售、财务、网店、市场、ERP 与 PostgreSQL 未改变。"
@@ -523,8 +530,8 @@ try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-WorkflowCredentials } }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-WorkflowRoles } }
-    "Start" { Invoke-WithServiceMutex { Start-WorkflowStack } }
-    "Stop" { Invoke-WithServiceMutex { Stop-WorkflowStack } }
+    "Start" { Invoke-WithServiceMutex { Start-WorkflowStack $OrchestratedLifecycleAclToken } }
+    "Stop" { Invoke-WithServiceMutex { Stop-WorkflowStack $OrchestratedLifecycleAclToken } }
     "Status" { Show-WorkflowStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-WorkflowStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-WorkflowStartup } }

@@ -79,6 +79,9 @@ $ReaderMaxBodyBytes = 1048576
 $WriterMaxBodyBytes = 16777216
 $ErpReferenceSyncIntervalSeconds = 15
 $ApplicationFingerprintAlgorithm = "relative-path-file-sha256-ordinal-v2"
+$OrchestratedLifecycleAclContextVariable = "TERUISI_DJANGO_ORCHESTRATED_LIFECYCLE_ACL_CONTEXT"
+$OrchestratedLifecycleAclContextVersion = "teruisi-django-orchestrated-lifecycle-acl-v1"
+$OrchestratedLifecycleAclContextMaxAgeMilliseconds = 900000
 
 function Get-CanonicalPath([string]$Path) {
   return [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
@@ -834,6 +837,74 @@ function Assert-RuntimeAclHardened {
   $items = @(Get-RuntimeTreeItemsNoReparse)
   foreach ($item in $items) {
     Assert-ExactRuntimeAclEntry $item (Get-Acl -LiteralPath $item.FullName) $allowedValues $root
+  }
+}
+
+function New-OrchestratedLifecycleAclToken {
+  $bytes = [byte[]]::new(32)
+  $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $generator.GetBytes($bytes)
+    return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+  } finally {
+    $generator.Dispose()
+  }
+}
+
+function Set-OrchestratedLifecycleAclContext([string]$Token) {
+  if ($Token -cnotmatch "^[0-9a-f]{64}$") {
+    throw "orchestrated lifecycle ACL token 无效"
+  }
+  Assert-RuntimeRootAclHardened
+  if (-not (Test-Path -LiteralPath $DeploymentManifestPath -PathType Leaf)) {
+    throw "Django runtime app 部署清单缺失"
+  }
+  $payload = [ordered]@{
+    version = $OrchestratedLifecycleAclContextVersion
+    token = $Token
+    processId = [int]$PID
+    runtimeRootPathSha256 = Get-Sha256Text ((Get-CanonicalPath $RuntimeRoot).ToUpperInvariant())
+    deploymentManifestSha256 = Get-FileSha256 $DeploymentManifestPath
+    issuedAtUnixMilliseconds = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+  }
+  Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+    -Value ([pscustomobject]$payload) -Force
+  Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_context_issued"
+}
+
+function Test-OrchestratedLifecycleAclContext([string]$Token) {
+  if ([string]::IsNullOrWhiteSpace($Token)) { return $false }
+  if ($Token -cnotmatch "^[0-9a-f]{64}$") { return $false }
+  try {
+    $contextVariable = Get-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+      -ErrorAction SilentlyContinue
+    if ($null -eq $contextVariable) { return $false }
+    $payload = $contextVariable.Value
+    if (-not (Test-ExactObjectPropertyNames $payload @(
+          "version", "token", "processId", "runtimeRootPathSha256",
+          "deploymentManifestSha256", "issuedAtUnixMilliseconds"
+        ))) { return $false }
+    $processId = 0
+    $issuedAt = [int64]0
+    if ([string]$payload.version -cne $OrchestratedLifecycleAclContextVersion -or
+        [string]$payload.token -cne $Token -or
+        -not [int]::TryParse([string]$payload.processId, [ref]$processId) -or
+        $processId -ne [int]$PID -or
+        -not [int64]::TryParse([string]$payload.issuedAtUnixMilliseconds, [ref]$issuedAt)) {
+      return $false
+    }
+    $age = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - $issuedAt
+    if ($age -lt 0 -or $age -gt $OrchestratedLifecycleAclContextMaxAgeMilliseconds) { return $false }
+    if ([string]$payload.runtimeRootPathSha256 -cne
+        (Get-Sha256Text ((Get-CanonicalPath $RuntimeRoot).ToUpperInvariant()))) { return $false }
+    if (-not (Test-Path -LiteralPath $DeploymentManifestPath -PathType Leaf) -or
+        [string]$payload.deploymentManifestSha256 -cne (Get-FileSha256 $DeploymentManifestPath)) {
+      return $false
+    }
+    Assert-RuntimeRootAclHardened
+    return $true
+  } catch {
+    return $false
   }
 }
 
@@ -3524,6 +3595,73 @@ function Invoke-WithServiceMutex([scriptblock]$Operation) {
   }
 }
 
+function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken) {
+  if ($OrchestratedLifecycleAclToken -cnotmatch "^[0-9a-f]{64}$") {
+    throw "orchestrated lifecycle ACL token 无效"
+  }
+  if (Test-Path -LiteralPath $NetshopStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf)) {
+      throw "网店开机启动已启用，但受控网店服务脚本缺失"
+    }
+    & $InstalledNetshopScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $MarketStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledMarketScriptPath -PathType Leaf)) {
+      throw "市场开机启动已启用，但受控市场服务脚本缺失"
+    }
+    & $InstalledMarketScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $ProductsStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf)) {
+      throw "商品经营开机启动已启用，但受控商品经营服务脚本缺失"
+    }
+    & $InstalledProductsScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InventoryStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf)) {
+      throw "库存开机启动已启用，但受控库存服务脚本缺失"
+    }
+    & $InstalledInventoryScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $WorkflowStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledWorkflowScriptPath -PathType Leaf)) {
+      throw "运营事务新品开机启动已启用，但受控运营事务新品服务脚本缺失"
+    }
+    & $InstalledWorkflowScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+}
+
+function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToken) {
+  if ($OrchestratedLifecycleAclToken -cnotmatch "^[0-9a-f]{64}$") {
+    throw "orchestrated lifecycle ACL token 无效"
+  }
+  if (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf) {
+    & $InstalledInventoryScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledWorkflowScriptPath -PathType Leaf) {
+    & $InstalledWorkflowScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf) {
+    & $InstalledProductsScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledMarketScriptPath -PathType Leaf) {
+    & $InstalledMarketScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
+    & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+}
+
 if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
   try {
     Write-LauncherEvent "INFO" "action_started"
@@ -3533,67 +3671,58 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
       "RollbackApp" { Invoke-WithServiceMutex { Rollback-Application } }
       "HardenAcl" { Invoke-WithServiceMutex { Set-RuntimeAcl } }
       "Start" {
-        Invoke-WithServiceMutex {
-          if ([string]::IsNullOrWhiteSpace($SupervisorExpectedDesiredStateSha256)) {
-            Start-ServiceStack
-            Write-ServiceDesiredState "running" "explicit_start"
+        $previousAclContextVariable = Get-Variable -Scope Global `
+          -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
+        $hadPreviousAclContext = $null -ne $previousAclContextVariable
+        $previousAclContext = if ($hadPreviousAclContext) { $previousAclContextVariable.Value } else { $null }
+        try {
+          Invoke-WithServiceMutex {
+            if ([string]::IsNullOrWhiteSpace($SupervisorExpectedDesiredStateSha256)) {
+              Start-ServiceStack
+              Write-ServiceDesiredState "running" "explicit_start"
+            } else {
+              Assert-SupervisorStartFence $SupervisorExpectedDesiredStateSha256
+              Start-ServiceStack
+            }
+          }
+          $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
+          Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
+          Invoke-EnabledDjangoDomainStarts $orchestratedLifecycleAclToken
+        } finally {
+          if ($hadPreviousAclContext) {
+            Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+              -Value $previousAclContext -Force
           } else {
-            Assert-SupervisorStartFence $SupervisorExpectedDesiredStateSha256
-            Start-ServiceStack
+            Remove-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+              -ErrorAction SilentlyContinue
           }
-        }
-        if (Test-Path -LiteralPath $NetshopStartupEnabledPath -PathType Leaf) {
-          if (-not (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf)) {
-            throw "网店开机启动已启用，但受控网店服务脚本缺失"
-          }
-          & $InstalledNetshopScriptPath -Action Start -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $MarketStartupEnabledPath -PathType Leaf) {
-          if (-not (Test-Path -LiteralPath $InstalledMarketScriptPath -PathType Leaf)) {
-            throw "市场开机启动已启用，但受控市场服务脚本缺失"
-          }
-          & $InstalledMarketScriptPath -Action Start -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $ProductsStartupEnabledPath -PathType Leaf) {
-          if (-not (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf)) {
-            throw "商品经营开机启动已启用，但受控商品经营服务脚本缺失"
-          }
-          & $InstalledProductsScriptPath -Action Start -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $InventoryStartupEnabledPath -PathType Leaf) {
-          if (-not (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf)) {
-            throw "库存开机启动已启用，但受控库存服务脚本缺失"
-          }
-          & $InstalledInventoryScriptPath -Action Start -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $WorkflowStartupEnabledPath -PathType Leaf) {
-          if (-not (Test-Path -LiteralPath $InstalledWorkflowScriptPath -PathType Leaf)) {
-            throw "运营事务新品开机启动已启用，但受控运营事务新品服务脚本缺失"
-          }
-          & $InstalledWorkflowScriptPath -Action Start -RuntimeRoot $RuntimeRoot
         }
       }
       "Stop" {
-        Invoke-WithServiceMutex {
-          Write-ServiceDesiredState "stopped" "explicit_stop"
-        }
-        if (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf) {
-          & $InstalledInventoryScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $InstalledWorkflowScriptPath -PathType Leaf) {
-          & $InstalledWorkflowScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $InstalledProductsScriptPath -PathType Leaf) {
-          & $InstalledProductsScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $InstalledMarketScriptPath -PathType Leaf) {
-          & $InstalledMarketScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
-        }
-        if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
-          & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot
-        }
-        Invoke-WithServiceMutex {
-          Stop-ServiceStack
+        $previousAclContextVariable = Get-Variable -Scope Global `
+          -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
+        $hadPreviousAclContext = $null -ne $previousAclContextVariable
+        $previousAclContext = if ($hadPreviousAclContext) { $previousAclContextVariable.Value } else { $null }
+        try {
+          Invoke-WithServiceMutex {
+            Write-ServiceDesiredState "stopped" "explicit_stop"
+            Assert-DeployedApplication
+            Assert-RuntimeAclHardened
+          }
+          $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
+          Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
+          Invoke-InstalledDjangoDomainStops $orchestratedLifecycleAclToken
+          Invoke-WithServiceMutex {
+            Stop-ServiceStack
+          }
+        } finally {
+          if ($hadPreviousAclContext) {
+            Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+              -Value $previousAclContext -Force
+          } else {
+            Remove-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
+              -ErrorAction SilentlyContinue
+          }
         }
       }
       "Status" { Show-ServiceStatus }

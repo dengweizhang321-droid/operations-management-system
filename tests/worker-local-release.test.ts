@@ -25,6 +25,9 @@ import {
   deploymentKeyFiles,
   hashTree,
   hashRelativeFiles,
+  treeHashMetadataConcurrency,
+  treeHashReadBatchBytes,
+  treeHashReadConcurrency,
   helperPathContainsMutableState,
   isAcceptedExactWorkerProcessStatus,
   ordinalCompare,
@@ -578,6 +581,51 @@ test("source snapshot fingerprint detects a post-copy mutation", async () => {
     const after = await hashRelativeFiles(root, ["a.txt", "b.txt"]);
     assert.notEqual(after.sha256, before.sha256);
     assert.equal(after.fileCount, before.fileCount);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("bounded parallel tree hashing preserves the legacy ordinal byte protocol", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "teruisi-worker-parallel-hash-"));
+  const relativeFiles = Array.from({ length: 73 }, (_, index) => (
+    index % 3 === 0
+      ? `nested/${String(index).padStart(3, "0")}-中文.txt`
+      : `${String(index).padStart(3, "0")}.txt`
+  ));
+  try {
+    for (const [index, relativePath] of relativeFiles.entries()) {
+      const absolute = path.join(root, ...relativePath.split("/"));
+      await mkdir(path.dirname(absolute), { recursive: true });
+      await writeFile(absolute, `${relativePath}:${"x".repeat(index * 17)}\n`, "utf8");
+    }
+    const digest = createHash("sha256");
+    for (const relativePath of [...relativeFiles].sort(ordinalCompare)) {
+      const normalized = relativePath.replaceAll("\\", "/");
+      const name = Buffer.from(normalized, "utf8");
+      const content = await readFile(path.join(root, ...normalized.split("/")));
+      const nameLength = Buffer.alloc(4);
+      nameLength.writeUInt32BE(name.length);
+      const contentLength = Buffer.alloc(8);
+      contentLength.writeBigUInt64BE(BigInt(content.length));
+      digest.update(nameLength).update(name).update(contentLength).update(content);
+    }
+    const expected = {
+      algorithm: "sha256-ordinal-path-length-content-v1",
+      fileCount: relativeFiles.length,
+      sha256: digest.digest("hex"),
+    };
+    assert.deepEqual(await hashRelativeFiles(root, [...relativeFiles].reverse()), expected);
+    assert.deepEqual(await hashTree(root), expected);
+    await assert.rejects(
+      hashRelativeFiles(root, ["zzz-missing.txt", "aaa-missing.txt"]),
+      (error: unknown) => error instanceof Error
+        && error.message.includes("aaa-missing.txt")
+        && !error.message.includes("zzz-missing.txt"),
+    );
+    assert.equal(treeHashMetadataConcurrency, 64);
+    assert.equal(treeHashReadConcurrency, 16);
+    assert.equal(treeHashReadBatchBytes, 32 * 1024 * 1024);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -11,6 +11,8 @@
 
 唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。Worker 完整性验证可能需要数分钟，控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
 
+顶层 `Start`/`Stop` 把销售/财务与网店、市场、商品经营、库存和运营事务新品视为同一次受控生命周期操作：完整运行目录 ACL 审计只执行一次，后续子域只能在同一 PowerShell 进程、同一 runtime/部署清单且 15 分钟内复用该结果，并仍回读根 ACL 与应用清单。直接操作某个子域、上下文过期或任一绑定不一致时，仍会执行完整 ACL 审计。Worker release 的 source、dist、`node_modules` 和 helper 仍逐文件校验，但元数据读取与文件预取使用有界并发，最终 SHA-256 顺序和旧 manifest 协议保持不变。
+
 唯一引擎不会自行判断或删除任意残留进程。只有内部 Worker 状态明确为 `stale_or_invalid_receipt`，且受保护回执可重新验证、supervisor 已不存在时，它才通过既有精确回执删除门禁清理该回执，并在状态稳定为 `stopped` 后继续；端口占用、身份不明、回执损坏或健康探针异常仍失败关闭。控制面板的“暂停网页服务”只通过底层身份门禁停止 Worker，Django/PostgreSQL 后端继续运行。
 
 正常登录启动仍由随 Django runtime 和不可变 Worker release 部署的各自受控 supervisor 负责；它们是总控复用的底层生命周期机制，不是第二套人工入口。Windows 重启后，Django operator 只会清理能够由三项时间证据证明属于上一次开机的旧进程 receipt，不会接管或终止当前复用相同 PID 的进程；同一次开机内或证据不完整的身份冲突仍失败关闭。supervisor 状态和启用/回退步骤见 [`docs/DJANGO_RUNTIME_SUPERVISION.md`](docs/DJANGO_RUNTIME_SUPERVISION.md)。

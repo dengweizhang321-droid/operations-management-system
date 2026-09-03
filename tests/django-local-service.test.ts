@@ -23,6 +23,13 @@ const nativePs5RuntimeTest = readFileSync(
   "utf8",
 );
 const financeCutover = readFileSync("tools/django-finance-cutover.ps1", "utf8");
+const orchestratedDomainServices = [
+  ["netshop", readFileSync("tools/django-netshop-service.ps1", "utf8")],
+  ["market", readFileSync("tools/django-market-service.ps1", "utf8")],
+  ["products", readFileSync("tools/django-products-service.ps1", "utf8")],
+  ["inventory", readFileSync("tools/django-inventory-service.ps1", "utf8")],
+  ["workflow", readFileSync("tools/django-workflow-service.ps1", "utf8")],
+] as const;
 
 test("Django local service binds PostgreSQL and Waitress to loopback with bounded requests", () => {
   assert.match(script, /127\.0\.0\.1:5432\/\$\{escapedDatabase\}/);
@@ -48,6 +55,42 @@ test("Django local status keeps ACL verification bounded and labels its root-onl
   assert.doesNotMatch(statusBlock, /Assert-RuntimeAclHardened/);
   assert.match(statusBlock, /RuntimeAclVerification = "root_only_status"/);
   assert.match(statusBlock, /\$acl = "root_hardened"/);
+});
+
+test("one top-level lifecycle ACL audit is reused only by its bounded in-process domain chain", () => {
+  assert.match(script, /TERUISI_DJANGO_ORCHESTRATED_LIFECYCLE_ACL_CONTEXT/);
+  assert.match(script, /teruisi-django-orchestrated-lifecycle-acl-v1/);
+  assert.match(script, /OrchestratedLifecycleAclContextMaxAgeMilliseconds = 900000/);
+  assert.match(script, /processId = \[int\]\$PID/);
+  assert.match(script, /runtimeRootPathSha256 = Get-Sha256Text/);
+  assert.match(script, /deploymentManifestSha256 = Get-FileSha256 \$DeploymentManifestPath/);
+  assert.match(script, /Assert-RuntimeRootAclHardened/);
+
+  const startBlock = script.slice(
+    script.indexOf('"Start" {'),
+    script.indexOf('"Stop" {'),
+  );
+  assert.ok(startBlock.indexOf("Start-ServiceStack") < startBlock.indexOf("Set-OrchestratedLifecycleAclContext"));
+  assert.ok(startBlock.indexOf("Set-OrchestratedLifecycleAclContext") < startBlock.indexOf("Invoke-EnabledDjangoDomainStarts"));
+  assert.match(startBlock, /finally \{[\s\S]*?Set-Variable -Scope Global[\s\S]*?\$previousAclContext/);
+
+  const stopBlock = script.slice(
+    script.indexOf('"Stop" {'),
+    script.indexOf('"Status" {'),
+  );
+  assert.ok(stopBlock.indexOf("Assert-DeployedApplication") < stopBlock.indexOf("Assert-RuntimeAclHardened"));
+  assert.ok(stopBlock.indexOf("Assert-RuntimeAclHardened") < stopBlock.indexOf("Set-OrchestratedLifecycleAclContext"));
+  assert.ok(stopBlock.indexOf("Set-OrchestratedLifecycleAclContext") < stopBlock.indexOf("Invoke-InstalledDjangoDomainStops"));
+  assert.ok(stopBlock.indexOf("Invoke-InstalledDjangoDomainStops") < stopBlock.indexOf("Stop-ServiceStack"));
+  assert.match(stopBlock, /finally \{[\s\S]*?Set-Variable -Scope Global[\s\S]*?\$previousAclContext/);
+
+  for (const [domain, domainScript] of orchestratedDomainServices) {
+    assert.match(domainScript, /\[string\]\$OrchestratedLifecycleAclToken = ""/);
+    assert.match(domainScript, /Assert-DeployedApplication[\s\S]*?Test-OrchestratedLifecycleAclContext \$LifecycleAclToken[\s\S]*?Assert-RuntimeAclHardened/);
+    assert.match(domainScript, new RegExp(`orchestrated_lifecycle_acl_reused" "domain=${domain}"`));
+    assert.match(domainScript, /"Start" \{ Invoke-WithServiceMutex \{ Start-[A-Za-z]+Stack \$OrchestratedLifecycleAclToken \} \}/);
+    assert.match(domainScript, /"Stop" \{ Invoke-WithServiceMutex \{ Stop-[A-Za-z]+Stack \$OrchestratedLifecycleAclToken \} \}/);
+  }
 });
 
 test("Django local service uses deterministic production secrets and least-privilege roles", () => {
@@ -565,6 +608,24 @@ test(
 
 for (const shell of ["powershell.exe", "pwsh.exe"]) {
   const shellProbe = spawnSync(shell, ["-NoProfile", "-Command", "exit 0"], { timeout: 10_000 });
+  test(
+    `orchestrated lifecycle ACL evidence is bounded and fail-closed in ${shell}`,
+    {
+      skip: process.platform !== "win32"
+        || shellProbe.error !== undefined
+        || shellProbe.status !== 0,
+    },
+    () => {
+      const result = spawnSync(
+        shell,
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests\\django-orchestrated-start-acl.test.ps1"],
+        { encoding: "utf8", timeout: 30_000 },
+      );
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      assert.match(result.stdout, /PASS: orchestrated lifecycle ACL context is exact, bounded, and fail-closed/);
+    },
+  );
+
   test(
     `descendant ACL fallback is bounded and fail-closed in ${shell}`,
     {

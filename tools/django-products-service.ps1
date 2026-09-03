@@ -6,12 +6,14 @@ param(
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
+  [string]$OrchestratedLifecycleAclToken = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
+$RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) {
   throw "缺少 Django 本机服务基础控制器"
@@ -29,6 +31,7 @@ try {
 }
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
+$OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 
 $ProductsCredentialPath = Join-Path $RuntimeRoot "secrets\products-credentials.dpapi.json"
 $ProductsReaderPidPath = Join-Path $RunDirectory "django-products-reader.pid.json"
@@ -40,11 +43,15 @@ $ProductsReaderMaxBodyBytes = 1048576
 $ProductsWriterMaxBodyBytes = 33554432
 $MinimumPostgresConnectionsForProducts = 80
 
-function Assert-ProductsRuntimeEntry {
+function Assert-ProductsRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "商品经营服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
   Assert-DeployedApplication
+  if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
+    Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=products"
+    return
+  }
   Assert-RuntimeAclHardened
 }
 
@@ -436,8 +443,8 @@ function Start-ProductsWriter(
   }
 }
 
-function Start-ProductsStack {
-  Assert-ProductsRuntimeEntry
+function Start-ProductsStack([string]$LifecycleAclToken = "") {
+  Assert-ProductsRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动商品经营服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
@@ -485,8 +492,8 @@ function Start-ProductsStack {
   }
 }
 
-function Stop-ProductsStack {
-  Assert-ProductsRuntimeEntry
+function Stop-ProductsStack([string]$LifecycleAclToken = "") {
+  Assert-ProductsRuntimeEntry $LifecycleAclToken
   Stop-OwnedProcess "django-products-writer" $ProductsWriterPidPath $Waitress
   Stop-OwnedProcess "django-products-reader" $ProductsReaderPidPath $Waitress
   Write-Output "Django 商品经营 reader/writer 已停止；销售、财务、网店、市场、ERP 与 PostgreSQL 未改变。"
@@ -569,8 +576,8 @@ try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-ProductsCredentials } }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-ProductsRoles } }
-    "Start" { Invoke-WithServiceMutex { Start-ProductsStack } }
-    "Stop" { Invoke-WithServiceMutex { Stop-ProductsStack } }
+    "Start" { Invoke-WithServiceMutex { Start-ProductsStack $OrchestratedLifecycleAclToken } }
+    "Stop" { Invoke-WithServiceMutex { Stop-ProductsStack $OrchestratedLifecycleAclToken } }
     "Status" { Show-ProductsStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-ProductsStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-ProductsStartup } }

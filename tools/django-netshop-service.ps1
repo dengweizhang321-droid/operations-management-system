@@ -6,12 +6,14 @@ param(
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
+  [string]$OrchestratedLifecycleAclToken = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
+$RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) {
   throw "缺少 Django 本机服务基础控制器"
@@ -29,6 +31,7 @@ try {
 }
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
+$OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
 
 $NetshopCredentialPath = Join-Path $RuntimeRoot "secrets\netshop-credentials.dpapi.json"
 $NetshopReaderPidPath = Join-Path $RunDirectory "django-netshop-reader.pid.json"
@@ -39,11 +42,15 @@ $NetshopStartupPath = Join-Path $RuntimeRoot "netshop-service-enabled.json"
 $NetshopReaderMaxBodyBytes = 1048576
 $NetshopWriterMaxBodyBytes = 134217728
 
-function Assert-NetshopRuntimeEntry {
+function Assert-NetshopRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "网店服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
   Assert-DeployedApplication
+  if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
+    Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=netshop"
+    return
+  }
   Assert-RuntimeAclHardened
 }
 
@@ -401,8 +408,8 @@ function Start-NetshopWriter(
   }
 }
 
-function Start-NetshopStack {
-  Assert-NetshopRuntimeEntry
+function Start-NetshopStack([string]$LifecycleAclToken = "") {
+  Assert-NetshopRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动网店服务" }
   New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
@@ -450,8 +457,8 @@ function Start-NetshopStack {
   }
 }
 
-function Stop-NetshopStack {
-  Assert-NetshopRuntimeEntry
+function Stop-NetshopStack([string]$LifecycleAclToken = "") {
+  Assert-NetshopRuntimeEntry $LifecycleAclToken
   Stop-OwnedProcess "django-netshop-writer" $NetshopWriterPidPath $Waitress
   Stop-OwnedProcess "django-netshop-reader" $NetshopReaderPidPath $Waitress
   Write-Output "Django 网店 reader/writer 已停止；销售、财务、ERP 与 PostgreSQL 未改变。"
@@ -534,8 +541,8 @@ try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-NetshopCredentials } }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-NetshopRoles } }
-    "Start" { Invoke-WithServiceMutex { Start-NetshopStack } }
-    "Stop" { Invoke-WithServiceMutex { Stop-NetshopStack } }
+    "Start" { Invoke-WithServiceMutex { Start-NetshopStack $OrchestratedLifecycleAclToken } }
+    "Stop" { Invoke-WithServiceMutex { Stop-NetshopStack $OrchestratedLifecycleAclToken } }
     "Status" { Show-NetshopStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-NetshopStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-NetshopStartup } }
