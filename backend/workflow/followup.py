@@ -28,6 +28,7 @@ from .write_requests import lock_active_authority
 MAX_LINES = 1_000
 MAX_CODES_PER_LINE = 500
 MAX_CATALOG_SCAN = 100_000
+REPORT_TIMELINE_START = date(2026, 8, 3)
 APPROVED_DINGTALK_GROUP = "测试群聊"
 APPROVED_DINGTALK_ROBOT = "志高助手"
 LINE_FIELDS = {
@@ -376,6 +377,51 @@ def _metric_rows(start: date, end: date) -> dict[str, dict[str, int]]:
     }
 
 
+def _weekly_quantity_rows(start: date, end: date) -> dict[tuple[str, date], int]:
+    """Return one bounded aggregate per monitored code and local calendar week."""
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT sales.product_code, sales.business_date, "
+            "COALESCE(SUM(CASE WHEN sales.is_net_quantity_row THEN sales.quantity ELSE 0 END),0) "
+            "FROM sales_order_lines AS sales "
+            "INNER JOIN workflow_new_product_line_codes AS code ON code.product_code=sales.product_code AND code.active "
+            "INNER JOIN workflow_new_product_lines AS line ON line.id=code.product_line_id AND line.deleted_at IS NULL "
+            "WHERE sales.is_business_row AND sales.business_date >= %s AND sales.business_date < %s "
+            "AND sales.business_date >= line.monitoring_start_date "
+            "GROUP BY sales.product_code, sales.business_date",
+            [start, end],
+        )
+        rows = cursor.fetchall()
+    result: dict[tuple[str, date], int] = {}
+    for product_code, business_date, quantity in rows:
+        day = business_date.date() if isinstance(business_date, datetime) else business_date
+        if not isinstance(day, date):
+            day = date.fromisoformat(str(day))
+        week_start = day - timedelta(days=day.weekday())
+        result[(str(product_code), week_start)] = result.get((str(product_code), week_start), 0) + int(quantity or 0)
+    return result
+
+
+def _report_weeks(selected_start: date, data_cutoff: date | None) -> list[dict[str, object]]:
+    if selected_start < REPORT_TIMELINE_START:
+        raise _error(f"周起始日期不能早于 {REPORT_TIMELINE_START.isoformat()}")
+    weeks: list[dict[str, object]] = []
+    cursor = REPORT_TIMELINE_START
+    while cursor <= selected_start:
+        week_end = cursor + timedelta(days=6)
+        weeks.append({
+            "weekStart": cursor.isoformat(),
+            "weekEnd": week_end.isoformat(),
+            "weekNumber": int(cursor.isocalendar().week),
+            "label": f"第{cursor.isocalendar().week}周",
+            "dateRange": f"{cursor:%m.%d}-{week_end:%m.%d}",
+            "dataComplete": data_cutoff is not None and data_cutoff >= week_end,
+        })
+        cursor += timedelta(days=7)
+    return weeks
+
+
 def _zero_metric() -> dict[str, int]:
     return {"netQuantity": 0, "grossSalesCents": 0, "refundAmountCents": 0, "netSalesCents": 0, "grossProfitCents": 0}
 
@@ -434,10 +480,24 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
     earliest = min((line.monitoring_start_date for line in lines), default=start)
     cumulative_by_code = _metric_rows(earliest, end)
     data_cutoff = SalesOrderLine.objects.filter(is_business_row=True).aggregate(value=Max("business_date"))["value"]
+    weeks = _report_weeks(start, data_cutoff)
+    weekly_quantity_by_code = _weekly_quantity_rows(REPORT_TIMELINE_START, end)
+    monitored_codes = {
+        code.product_code
+        for line in lines
+        for code in line.codes.all()
+        if code.active
+    }
+    brands_by_code = {
+        str(product_code): str(brand or "").strip()
+        for product_code, brand in ErpProductMaster.objects.filter(product_code__in=monitored_codes)
+        .values_list("product_code", "brand")
+    }
     latest_batch = SalesImportBatch.objects.filter(status="completed").order_by("-completed_at", "-id").first()
     items: list[dict[str, object]] = []
     for line in lines:
         codes = [code for code in line.codes.all() if code.active]
+        brands = sorted({brands_by_code.get(code.product_code, "") for code in codes} - {""})
         current = _sum_metrics([current_by_code.get(code.product_code, _zero_metric()) for code in codes])
         previous = _sum_metrics([previous_by_code.get(code.product_code, _zero_metric()) for code in codes])
         cumulative = _sum_metrics([cumulative_by_code.get(code.product_code, _zero_metric()) for code in codes])
@@ -445,6 +505,7 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
         items.append({
             "id": str(line.id),
             "name": line.name,
+            "brand": "、".join(brands) if brands else "—",
             "active": line.active,
             "monitoringStartDate": line.monitoring_start_date.isoformat(),
             "trackingWeeks": int(line.tracking_weeks),
@@ -463,6 +524,10 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
             "cumulative": cumulative,
             "salesWeekOverWeekRate": _rate(current["netSalesCents"], previous["netSalesCents"]),
             "quantityWeekOverWeekRate": _rate(current["netQuantity"], previous["netQuantity"]),
+            "weeklyNetQuantities": [
+                sum(weekly_quantity_by_code.get((code.product_code, date.fromisoformat(str(week["weekStart"]))), 0) for code in codes)
+                for week in weeks
+            ],
             "weeklyUnitTarget": line.weekly_unit_target,
             "weeklySalesTargetCents": line.weekly_sales_target_cents,
         })
@@ -470,6 +535,8 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
     totals = _sum_metrics([item["current"] for item in items])
     incomplete = data_cutoff is None or data_cutoff < end - timedelta(days=1)
     report = {
+        "timelineStart": REPORT_TIMELINE_START.isoformat(),
+        "weeks": weeks,
         "weekStart": start.isoformat(),
         "weekEnd": (end - timedelta(days=1)).isoformat(),
         "endExclusive": end.isoformat(),
@@ -533,6 +600,9 @@ def get_report_config() -> dict[str, object]:
     latest = NewProductWeeklyDelivery.objects.order_by("-created_at", "-id").first()
     return {
         "enabled": config.enabled,
+        "connectionMode": "dws_stream",
+        "credentialsManagedExternally": True,
+        "deliveryMode": "png_drive_preview_by_bot",
         "targetGroupName": config.target_group_name,
         "robotName": config.robot_name,
         "sendWeekday": int(config.send_weekday),

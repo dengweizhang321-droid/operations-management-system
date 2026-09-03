@@ -289,3 +289,29 @@ test("new-product workspace includes editable planning, status-only stages and r
   assert.match(css, /\.launch-kanban/);
   assert.match(css, /\.launch-detail-stages/);
 });
+
+test("new-product follow-up renders the cumulative weekly PNG matrix and governed DingTalk robot panel", async () => {
+  const [followup, service, sender, imageRenderer, css] = await Promise.all([
+    source("../app/new-product-sales-followup-view.tsx"),
+    source("../backend/workflow/followup.py"),
+    source("../backend/workflow/management/commands/new_product_weekly_report.py"),
+    source("../backend/workflow/weekly_report_image.py"),
+    source("../app/globals.css"),
+  ]);
+  for (const label of ["钉钉周报 PNG 图片预览", "品牌", "产品名称", "趋势", "钉钉机器人", "下载 PNG"]) {
+    assert.match(followup, new RegExp(label));
+  }
+  assert.match(followup, /REPORT_TIMELINE_START = "2026-08-03"/);
+  assert.match(followup, /weeklyNetQuantities/);
+  assert.match(followup, /canvas\.toBlob/);
+  assert.match(service, /REPORT_TIMELINE_START = date\(2026, 8, 3\)/);
+  assert.match(service, /"weeks": weeks/);
+  assert.match(service, /"brand":/);
+  assert.match(sender, /"drive", "upload"/);
+  assert.match(sender, /png_drive_preview_by_bot/);
+  assert.match(sender, /打开周报 PNG 图片（钉钉在线预览）/);
+  assert.match(imageRenderer, /--headless=new/);
+  assert.match(imageRenderer, /MAX_IMAGE_BYTES/);
+  assert.match(css, /\.launch-followup-matrix-table/);
+  assert.match(css, /\.launch-followup-robot/);
+});

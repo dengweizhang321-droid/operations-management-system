@@ -5,8 +5,11 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -21,10 +24,12 @@ from workflow.followup import (
     weekly_followup,
 )
 from workflow.models import NewProductWeeklyReportConfig
+from workflow.weekly_report_image import render_weekly_report_html, render_weekly_report_png
 
 
 MAX_DWS_OUTPUT_BYTES = 2 * 1024 * 1024
 AUTOMATION_ACTOR = "new-product-weekly-report@local.system"
+APPROVED_PREVIEW_HOST_SUFFIXES = (".dingtalk.com", ".aliyuncs.com", ".aliyun.com", ".alicdn.com")
 
 
 def _records(value: object) -> Iterable[dict[str, Any]]:
@@ -159,6 +164,30 @@ def _assert_send_receipt(payload: object) -> None:
             raise CommandError("钉钉消息发送 ledger 包含失败目标")
 
 
+def _unique_value(payload: object, names: tuple[str, ...], label: str) -> str:
+    values = {
+        value
+        for record in _records(payload)
+        if (value := _field(record, names))
+    }
+    if len(values) != 1:
+        raise CommandError(f"{label}返回了 {len(values)} 个候选值")
+    return next(iter(values))
+
+
+def _drive_preview_url(upload_payload: object) -> tuple[str, object]:
+    node_id = _unique_value(upload_payload, ("dentryUuid", "fileId", "nodeId"), "钉盘上传")
+    info_payload = _run_dws(["drive", "info", "--node", node_id])
+    preview_url = _unique_value([upload_payload, info_payload], ("docUrl", "previewUrl", "webUrl"), "钉盘预览地址")
+    parsed = urlparse(preview_url)
+    hostname = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or parsed.username or parsed.password or parsed.fragment or not any(
+        hostname == suffix[1:] or hostname.endswith(suffix) for suffix in APPROVED_PREVIEW_HOST_SUFFIXES
+    ):
+        raise CommandError("钉盘预览地址不在允许的 HTTPS 域名内")
+    return preview_url, info_payload
+
+
 def _due_now(config: NewProductWeeklyReportConfig, now: datetime) -> bool:
     scheduled_minutes = config.send_local_time.hour * 60 + config.send_local_time.minute
     current_minutes = now.hour * 60 + now.minute
@@ -197,6 +226,7 @@ class Command(BaseCommand):
             "reportSha256": report["reportSha256"],
             "learning": learned,
             "enabled": config.enabled,
+            "deliveryMode": "png_drive_preview_by_bot",
         }
 
         if not dry_run and not send:
@@ -215,28 +245,48 @@ class Command(BaseCommand):
         robot_code, _robot = _search_robot(config.robot_name)
         _assert_robot_in_group(group_id, config.robot_name, robot_code)
         title = f"新品销售周报｜{report['weekStart']} 至 {report['weekEnd']}"
+        _image_html, image_width, image_height = render_weekly_report_html(report)
         if dry_run:
             _run_dws([
                 "chat", "+messages-send", "--as", "bot", "--robot-code", robot_code,
-                "--group", group_id, "--title", title, "--markdown", str(report["messageText"]), "--dry-run",
+                "--group", group_id, "--title", title,
+                "--markdown", f"{report['messageText']}\n\n[周报 PNG 在线预览链接将在正式投递时生成]",
+                "--dry-run",
             ])
-            self.stdout.write(json.dumps({**base, "status": "dry_run_ok", "groupVerified": True, "robotVerified": True}, ensure_ascii=False, separators=(",", ":")))
+            self.stdout.write(json.dumps({
+                **base, "status": "dry_run_ok", "groupVerified": True, "robotVerified": True,
+                "imageVerified": True, "imageWidth": image_width, "imageHeight": image_height,
+            }, ensure_ascii=False, separators=(",", ":")))
             return
 
-        delivery, claimed = claim_weekly_delivery(report, config, actor=AUTOMATION_ACTOR)
-        if not claimed:
-            self.stdout.write(json.dumps({**base, "status": f"already_{delivery.status}"}, ensure_ascii=False, separators=(",", ":")))
-            return
-        mark_weekly_delivery_sending(delivery.id)
-        try:
-            receipt = _run_dws([
-                "chat", "+messages-send", "--as", "bot", "--robot-code", robot_code,
-                "--group", group_id, "--title", title, "--markdown", str(report["messageText"]), "--yes",
-            ])
-            _assert_send_receipt(receipt)
-        except Exception as error:
-            mark_weekly_delivery_uncertain(delivery.id, error_code=type(error).__name__)
-            raise
-        receipt_sha = hashlib.sha256(json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        finish_weekly_delivery(delivery.id, provider_receipt=f"dws-sha256:{receipt_sha}")
-        self.stdout.write(json.dumps({**base, "status": "delivered"}, ensure_ascii=False, separators=(",", ":")))
+        with tempfile.TemporaryDirectory(prefix="teruisi-new-product-weekly-report-") as temporary_directory:
+            image_path = Path(temporary_directory) / f"新品销售周报-{report['weekStart']}-{report['weekEnd']}.png"
+            image = render_weekly_report_png(report, image_path)
+            delivery, claimed = claim_weekly_delivery(report, config, actor=AUTOMATION_ACTOR)
+            if not claimed:
+                self.stdout.write(json.dumps({**base, "status": f"already_{delivery.status}"}, ensure_ascii=False, separators=(",", ":")))
+                return
+            mark_weekly_delivery_sending(delivery.id)
+            try:
+                upload_receipt = _run_dws([
+                    "drive", "upload", "--file", str(image_path), "--file-name", image_path.name,
+                ], timeout=60)
+                preview_url, preview_receipt = _drive_preview_url(upload_receipt)
+                message = f"{report['messageText']}\n\n[打开周报 PNG 图片（钉钉在线预览）]({preview_url})"
+                send_receipt = _run_dws([
+                    "chat", "+messages-send", "--as", "bot", "--robot-code", robot_code,
+                    "--group", group_id, "--title", title, "--markdown", message, "--yes",
+                ])
+                _assert_send_receipt(send_receipt)
+            except Exception as error:
+                mark_weekly_delivery_uncertain(delivery.id, error_code=type(error).__name__)
+                raise
+            receipt_sha = hashlib.sha256(json.dumps(
+                {"upload": upload_receipt, "preview": preview_receipt, "send": send_receipt},
+                ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            ).encode()).hexdigest()
+            finish_weekly_delivery(delivery.id, provider_receipt=f"dws-sha256:{receipt_sha}")
+            self.stdout.write(json.dumps({
+                **base, "status": "delivered", "imageSha256": image["sha256"],
+                "imageSizeBytes": image["sizeBytes"],
+            }, ensure_ascii=False, separators=(",", ":")))

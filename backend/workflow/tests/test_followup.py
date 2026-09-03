@@ -13,6 +13,7 @@ from sales.tests.factories import TEST_SECRET, make_line, signed_headers
 from workflow.followup import claim_weekly_delivery, weekly_followup
 from workflow.management.commands.new_product_weekly_report import _assert_send_receipt, _due_now, _exact_identity
 from workflow.models import NewProductLineCode, NewProductWeeklyReportConfig, WorkflowWriteAuthority
+from workflow.weekly_report_image import render_weekly_report_html
 
 
 def body_bytes(payload: dict[str, object]) -> bytes:
@@ -147,6 +148,24 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertEqual(payload["items"][0]["current"]["netSalesCents"], 54_000)
         self.assertEqual(payload["items"][0]["previous"]["netSalesCents"], 10_000)
         self.assertEqual(payload["summary"]["netSalesCents"], 54_000)
+        self.assertEqual(payload["timelineStart"], "2026-08-03")
+        self.assertEqual([week["weekStart"] for week in payload["weeks"]], [
+            "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07",
+        ])
+        self.assertEqual(payload["items"][0]["brand"], "志高")
+        self.assertEqual(payload["items"][0]["weeklyNetQuantities"], [0, 0, 0, 0, 1, 5])
+        document, width, height = render_weekly_report_html(payload)
+        self.assertIn("品牌", document)
+        self.assertIn("第32周", document)
+        self.assertIn("油水分离器", document)
+        self.assertGreaterEqual(width, 1280)
+        self.assertGreater(height, 200)
+
+    def test_weekly_matrix_rejects_a_week_before_the_fixed_timeline(self) -> None:
+        url = "/api/workflow/new-product-weekly-followup?weekStart=2026-07-27"
+        response = self.client.get(url, headers=signed_headers(url, request_id="followup-before-anchor"))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("2026-08-03", response.json()["error"])
 
     def test_each_product_line_excludes_sales_before_its_own_monitoring_start(self) -> None:
         response = self.request_json(
@@ -248,6 +267,30 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertEqual(payload["status"], "dry_run_ok")
         self.assertEqual(run_dws.call_count, 4)
         self.assertIn("--dry-run", run_dws.call_args_list[-1].args[0])
+
+    @patch("workflow.management.commands.new_product_weekly_report.render_weekly_report_png")
+    @patch("workflow.management.commands.new_product_weekly_report._run_dws")
+    def test_management_command_uploads_png_and_sends_preview_link_by_bot(self, run_dws, render_png) -> None:
+        self.create_line()
+        NewProductWeeklyReportConfig.objects.filter(id=1).update(enabled=True)
+        render_png.return_value = {"sha256": "a" * 64, "sizeBytes": 4_096, "width": 1280, "height": 300}
+        run_dws.side_effect = [
+            {"items": [{"title": "测试群聊", "openConversationId": "group-1"}], "hasMore": False},
+            {"items": [{"robotName": "志高助手", "robotCode": "robot-1"}], "hasMore": False},
+            {"items": [{"robotName": "志高助手", "robotCode": "robot-1"}]},
+            {"ok": True, "result": {"dentryUuid": "file-1"}},
+            {"ok": True, "result": {"docUrl": "https://alidocs.dingtalk.com/i/nodes/file-1"}},
+            {"ok": True, "result": {"success": True}},
+        ]
+        stdout = StringIO()
+        call_command("new_product_weekly_report", "--send", "--force", stdout=stdout)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["status"], "delivered")
+        self.assertEqual(payload["deliveryMode"], "png_drive_preview_by_bot")
+        self.assertEqual(run_dws.call_count, 6)
+        self.assertEqual(run_dws.call_args_list[3].args[0][0:2], ["drive", "upload"])
+        self.assertIn("https://alidocs.dingtalk.com/i/nodes/file-1", "\n".join(run_dws.call_args_list[5].args[0]))
+        self.assertIn("--yes", run_dws.call_args_list[5].args[0])
 
     def test_local_schedule_uses_machine_calendar(self) -> None:
         config = NewProductWeeklyReportConfig.objects.get(id=1)
