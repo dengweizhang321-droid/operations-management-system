@@ -577,15 +577,32 @@ function Invoke-SystemStart {
     Assert-ControllerDependencies
     Write-Stage "唯一总控已取得启动互斥锁，开始检查完整系统状态"
     Reset-SystemStateCache
-    $initialState = Get-SystemState -Refresh
-    if ($initialState.state -in @("PortInUse", "StatusError", "Unresponsive")) {
-      throw "启动前状态不可安全推进：$($initialState.reason)"
+    # The canonical Worker engine performs the authoritative Django aggregate
+    # preflight before it changes any process.  On a cold start, running the
+    # same all-domain probe here first only repeats every stopped receipt/port
+    # check and consumes a material part of the two-minute budget.  Keep the
+    # fast Worker ownership gate here; retain the full combined status only for
+    # the already-running no-op path and for the mandatory final verification.
+    $initialWorker = Get-WorkerReleaseStatus -Refresh
+    if ($initialWorker.State -notin @(
+        "stopped", "starting_exact_release", "exact_release", "stale_or_invalid_receipt"
+      )) {
+      throw "启动前 Worker 状态不可安全推进：$([string]$initialWorker.State)；$([string]$initialWorker.Reason)"
     }
-
     $changed = $false
-    if ($initialState.state -in @("Running", "D1Degraded")) {
-      Write-Stage "Django/PostgreSQL 全域与不可变 Worker 已经就绪，无需重复启动"
-    } elseif ($initialState.workerState -ceq "starting_exact_release") {
+    if ($initialWorker.State -ceq "exact_release") {
+      $initialState = Get-SystemState -Refresh
+      if ($initialState.state -in @("PortInUse", "StatusError", "Unresponsive")) {
+        throw "启动前状态不可安全推进：$($initialState.reason)"
+      }
+      if ($initialState.state -in @("Running", "D1Degraded")) {
+        Write-Stage "Django/PostgreSQL 全域与不可变 Worker 已经就绪，无需重复启动"
+      } else {
+        Write-Stage "不可变 Worker 已运行但后端未完全就绪，调用唯一启动引擎恢复后端"
+        Invoke-VisibleServiceAction -ScriptPath $LocalWorkerStarter -Arguments @("-Action", "Start") -Label "运营管理系统唯一启动引擎"
+        $changed = $true
+      }
+    } elseif ($initialWorker.State -ceq "starting_exact_release") {
       Write-Stage "不可变 Worker 已由受控入口启动，等待唯一引擎完成就绪门禁"
       [void](Wait-ForExactWorkerRelease)
     } else {

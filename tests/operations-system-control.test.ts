@@ -80,6 +80,10 @@ test("controller delegates mutation to one start engine and performs final healt
   assert.doesNotMatch(startBlock, /-ScriptPath \$DjangoService -Arguments @\("-Action", "Start"\)/);
   assert.match(startBlock, /finalState\.state -notin @\("Running", "D1Degraded"\)/);
   assert.match(startBlock, /pageProbe\.StatusCode -ne 200/);
+  const coldPreflight = startBlock.slice(0, startBlock.indexOf("$changed = $false"));
+  assert.match(coldPreflight, /Get-WorkerReleaseStatus -Refresh/);
+  assert.doesNotMatch(coldPreflight, /Get-SystemState -Refresh/);
+  assert.match(startBlock, /if \(\$initialWorker\.State -ceq "exact_release"\) \{[\s\S]*?Get-SystemState -Refresh/);
 });
 
 test("controller waits only for the direct start-engine process instead of a durable child pipeline", () => {
