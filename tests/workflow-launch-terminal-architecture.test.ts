@@ -24,11 +24,16 @@ test("new-product launch production paths are Django-only and expose no D1/R2 fa
   }
   assert.doesNotMatch(pageData, /structured\s*!==\s*true|backendMode.*legacy|旧新品记录仍可/);
   assert.doesNotMatch(search, /includeLegacyLaunch/);
-  assert.match(search, /AND o\.record_type <> 'launch'/);
+  assert.match(search, /operation: "workflow_search"/);
+  assert.doesNotMatch(search, /FROM workflow_(?:tasks|operation_records)/);
   for (const source of [service, collection, view]) {
     assert.doesNotMatch(source, /R2Bucket|SALES_IMPORT_FILES|workflow-attachments|getD1Database/);
   }
-  assert.match(operations, /body as \{ type\?: unknown \}\)\.type === "launch"/);
+  for (const source of [operations, detail, activity]) {
+    assert.match(source, /createDjangoWorkflowService/);
+    assert.match(source, /WORKFLOW_OPERATION_RECORDS_PATH/);
+    assert.doesNotMatch(source, /getD1Database|operations-records"/);
+  }
   assert.match(retirement, /legacyD1Rejected/);
   assert.match(retirement, /legacyR2Rejected/);
   assert.match(retirement, /workflow_launch_retired_%_guard/);

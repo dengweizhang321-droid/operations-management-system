@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import date
 
 from django.http import HttpRequest, JsonResponse
+from django.db import transaction
 from django.views.decorators.http import require_POST, require_http_methods
 
 from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
@@ -64,11 +65,16 @@ def _error(error: Exception, fallback: str) -> JsonResponse:
     return _json({"error": fallback, "code": "internal_error"}, 500)
 
 
-def _principal(request: HttpRequest, roles: set[str]) -> Principal:
+def _principal(
+    request: HttpRequest,
+    roles: set[str],
+    *,
+    unrestricted: bool = True,
+) -> Principal:
     principal = verify_principal(request)
     if principal.role not in roles:
         raise PrincipalEnvelopeError("当前角色无权访问", status=403, code="insufficient_role")
-    if principal.scope is not None:
+    if unrestricted and principal.scope is not None:
         raise PrincipalEnvelopeError("运营事务接口仅支持未受限数据范围账号", status=403, code="access_denied")
     return principal
 
@@ -108,7 +114,13 @@ def _consistent_read(loader: Callable[[], dict[str, object] | None]) -> tuple[di
     raise WorkflowApiError("运营事务数据版本持续变化，请稍后重试", code="service_unavailable", status=503)
 
 
-def _replay_write(request: HttpRequest, principal: Principal, callback: Callable[[], tuple[dict[str, object], int]]) -> JsonResponse:
+def _replay_write(
+    request: HttpRequest,
+    principal: Principal,
+    callback: Callable[[], tuple[dict[str, object], int]],
+    *,
+    authority_scope: str = "launch",
+) -> JsonResponse:
     claim = claim_write_request(
         request_id=request.headers.get("X-Teruisi-Request-Id", "").strip(),
         actor_email=principal.email.strip().lower(),
@@ -116,12 +128,17 @@ def _replay_write(request: HttpRequest, principal: Principal, callback: Callable
         path=request.path,
         body_sha256=request.headers.get("X-Teruisi-Content-SHA256", "").strip().lower(),
         query_sha256=hashlib.sha256(request.META.get("QUERY_STRING", "").encode()).hexdigest(),
+        authority_scope=authority_scope,
     )
     if claim.replay_payload is not None and claim.replay_status is not None:
         return _json(claim.replay_payload, claim.replay_status, revision=revision_value(), replayed=True)
     try:
-        payload, status = callback()
-        complete_write_request(claim, response_status=status, response_payload=payload)
+        # Keep the domain mutation and its completed replay receipt in one
+        # transaction. A crash can therefore leave a retryable claim, but
+        # never committed business data paired with an incomplete receipt.
+        with transaction.atomic():
+            payload, status = callback()
+            complete_write_request(claim, response_status=status, response_payload=payload)
         return _json(payload, status, revision=revision_value())
     except Exception:
         fail_write_request(claim)
@@ -347,7 +364,11 @@ def new_product_weekly_report_config(request: HttpRequest) -> JsonResponse:
 @require_POST
 def consumer_query(request: HttpRequest) -> JsonResponse:
     try:
-        principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
+        principal = _principal(
+            request,
+            {"viewer", "analyst", "operator", "admin"},
+            unrestricted=False,
+        )
         if len(request.body) > 64 * 1024:
             raise WorkflowApiError("运营事务消费查询请求超出安全上限", code="payload_too_large", status=413)
         consumer = validate_consumer_request(_body(request))

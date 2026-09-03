@@ -1,105 +1,89 @@
 import {
-  createWorkflowTask,
-  deleteWorkflowTask,
-  listWorkflowTasksPage,
-  updateWorkflowTask,
-  type CreateWorkflowTaskInput,
-  type UpdateWorkflowTaskInput,
-} from "@/lib/workflow/tasks";
-import { getD1Database } from "@/lib/database/d1";
-import { workflowErrorResponse } from "@/lib/workflow/errors";
-import {
   authorizationErrorResponse,
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
+import {
+  createDjangoWorkflowService,
+  getWorkflowBackendMode,
+  WORKFLOW_TASKS_PATH,
+} from "@/lib/django/workflow-service";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { drainWorkflowAttachmentCleanup } from "@/lib/workflow/attachment-cleanup";
+import { requireWorkflowJsonObject, workflowServiceResponse } from "@/lib/workflow/django-api";
+
+function routeError(error: unknown, fallback: string) {
+  return authorizationErrorResponse(error) ?? safeApiErrorResponse(error, fallback);
+}
 
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "工作计划");
-    const params = new URL(request.url).searchParams;
-    const payload = await listWorkflowTasksPage({
-      query: params.get("q") ?? params.get("query") ?? undefined,
-      statuses: params.getAll("status"),
-      priorities: params.getAll("priority"),
-      owners: params.getAll("owner"),
-      shopNames: params.getAll("shopName"),
-      categories: params.getAll("category"),
-      sources: params.getAll("source"),
-      dueFrom: params.get("dueFrom"),
-      dueTo: params.get("dueTo"),
-      page: params.get("page"),
-      pageSize: params.get("pageSize"),
-    }, getD1Database());
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    await getWorkflowBackendMode();
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader", rawQuery: new URL(request.url).searchParams.toString() },
+      { signal: request.signal },
+    );
+    return workflowServiceResponse(result);
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
-    return workflowErrorResponse(error, "读取工作计划失败");
+    return routeError(error, "读取工作计划失败。");
   }
 }
 
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
-    requireUnrestrictedDataScope(principal, "工作计划");
-    const payload = await request.json().catch(() => null) as CreateWorkflowTaskInput | null;
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return Response.json({ error: "工作项内容必须是有效的 JSON 对象", code: "invalid_request" },
-        { status: 400, headers: { "cache-control": "no-store" } });
-    }
-    const db = getD1Database();
-    const item = await createWorkflowTask(payload, principal.email, db);
-    return Response.json({ item }, { status: 201, headers: { "cache-control": "no-store" } });
+    requireUnrestrictedDataScope(principal, "工作计划", "修改");
+    await getWorkflowBackendMode();
+    const payload = requireWorkflowJsonObject(await request.json().catch(() => null), "工作项内容必须是有效的 JSON 对象。");
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal, { method: "POST", path: WORKFLOW_TASKS_PATH, service: "writer", payload }, { signal: request.signal },
+    );
+    return workflowServiceResponse(result);
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
-    return workflowErrorResponse(error, "保存工作项失败");
+    return routeError(error, "保存工作项失败。");
   }
 }
 
 export async function PATCH(request: Request) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
-    requireUnrestrictedDataScope(principal, "工作计划");
-    const id = new URL(request.url).searchParams.get("id");
-    const payload = await request.json().catch(() => null) as UpdateWorkflowTaskInput | null;
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return Response.json({ error: "缺少可更新的工作项字段", code: "invalid_request" },
-        { status: 400, headers: { "cache-control": "no-store" } });
-    }
-    const db = getD1Database();
-    const item = await updateWorkflowTask(id, payload, principal.email, db);
-    if (!item) return Response.json({ error: "工作项不存在或已删除", code: "not_found" }, {
-      status: 404,
-      headers: { "cache-control": "no-store" },
-    });
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
+    requireUnrestrictedDataScope(principal, "工作计划", "修改");
+    await getWorkflowBackendMode();
+    const payload = requireWorkflowJsonObject(await request.json().catch(() => null), "缺少可更新的工作项字段。");
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "PATCH", path: WORKFLOW_TASKS_PATH, service: "writer", payload, rawQuery: new URL(request.url).searchParams.toString() },
+      { signal: request.signal },
+    );
+    return workflowServiceResponse(result);
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
-    return workflowErrorResponse(error, "更新工作项失败");
+    return routeError(error, "更新工作项失败。");
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const principal = await requireAppPrincipal(["operator", "admin"]);
-    requireUnrestrictedDataScope(principal, "工作计划");
-    const params = new URL(request.url).searchParams;
-    const id = params.get("id");
-    const expectedVersion = params.get("expectedVersion");
-    const db = getD1Database();
-    const deleted = await deleteWorkflowTask(id, expectedVersion, principal.email, db);
-    if (!deleted) return Response.json({ error: "工作项不存在或已删除", code: "not_found" }, {
-      status: 404,
-      headers: { "cache-control": "no-store" },
-    });
-    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
+    requireUnrestrictedDataScope(principal, "工作计划", "修改");
+    await getWorkflowBackendMode();
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "DELETE", path: WORKFLOW_TASKS_PATH, service: "writer", rawQuery: new URL(request.url).searchParams.toString() },
+      { signal: request.signal },
+    );
+    const cleanupObjectKeys = Array.isArray(result.data.cleanupObjectKeys)
+      ? result.data.cleanupObjectKeys.filter((value): value is string => typeof value === "string")
+      : [];
+    if (cleanupObjectKeys.length) {
+      await drainWorkflowAttachmentCleanup(principal, cleanupObjectKeys, { signal: request.signal }).catch(() => undefined);
+    }
+    const publicData = { ...result.data };
+    delete publicData.cleanupObjectKeys;
+    return workflowServiceResponse(result, publicData);
   } catch (error) {
-    const authResponse = authorizationErrorResponse(error);
-    if (authResponse) return authResponse;
-    return workflowErrorResponse(error, "删除工作项失败");
+    return routeError(error, "删除工作项失败。");
   }
 }

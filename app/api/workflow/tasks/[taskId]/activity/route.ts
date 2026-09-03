@@ -1,12 +1,15 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getD1Database } from "@/lib/database/d1";
-import { listWorkflowTaskActivity } from "@/lib/workflow/collaboration";
-import { workflowErrorResponse } from "@/lib/workflow/errors";
+import { createDjangoWorkflowService, getWorkflowBackendMode } from "@/lib/django/workflow-service";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { encodedWorkflowResource, workflowServiceResponse } from "@/lib/workflow/django-api";
 
-export async function GET(_request: Request, context: { params: Promise<{ taskId: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ taskId: string }> }) {
   try {
-    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项活动记录");
-    const { taskId } = await context.params;
-    return Response.json({ items: await listWorkflowTaskActivity(taskId, getD1Database()) }, { headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "读取活动记录失败"); }
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项活动");
+    await getWorkflowBackendMode(); const { taskId } = await context.params;
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, {
+      method: "GET", path: `/api/workflow/tasks/${encodedWorkflowResource(taskId)}/activity`, service: "reader",
+    }, { signal: request.signal });
+    return workflowServiceResponse(result);
+  } catch (error) { return authorizationErrorResponse(error) ?? safeApiErrorResponse(error, "读取工作事项活动失败。"); }
 }

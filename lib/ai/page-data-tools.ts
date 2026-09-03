@@ -30,6 +30,13 @@ import {
   INVENTORY_INBOUND_MONITOR_PATH,
   INVENTORY_SETTINGS_PATH,
 } from "@/lib/django/inventory-service";
+import {
+  createDjangoWorkflowService,
+  WORKFLOW_LAUNCH_PROJECTS_PATH,
+  WORKFLOW_OPERATION_RECORDS_PATH,
+  WORKFLOW_TASKS_PATH,
+  WORKFLOW_TEMPLATES_PATH,
+} from "@/lib/django/workflow-service";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 /**
@@ -182,10 +189,10 @@ export type PageDataToolServices = {
   readInventoryInbound(input: InventoryInboundInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopCatalog(input: NetshopCatalogInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopPerformance(input: NetshopPerformanceInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
-  readWorkflowTasks(input: WorkflowTaskListInput): Promise<unknown>;
-  readOperationRecords(input: OperationRecordListInput, principal: AppPrincipal): Promise<unknown>;
+  readWorkflowTasks(input: WorkflowTaskListInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
+  readOperationRecords(input: OperationRecordListInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNewProductProjects(input: NewProductProjectListInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
-  readWorkflowTemplates(includeInactive: boolean): Promise<unknown>;
+  readWorkflowTemplates(includeInactive: boolean, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readImportBatches(
     source: PageImportSource,
     input: { page: number; pageSize: number; platforms: string[] },
@@ -277,19 +284,40 @@ const defaultPageDataToolServices: PageDataToolServices = {
       { signal },
     )).data;
   },
-  async readWorkflowTasks(input) {
-    const { listWorkflowTasksPage } = await import("@/lib/workflow/tasks");
-    return listWorkflowTasksPage(input);
+  async readWorkflowTasks(input, principal, signal) {
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+    if (input.query) query.set("q", input.query);
+    for (const value of input.statuses) query.append("status", value);
+    for (const value of input.priorities) query.append("priority", value);
+    for (const value of input.categories) query.append("category", value);
+    for (const value of input.owners) query.append("owner", value);
+    for (const value of input.shopNames) query.append("shopName", value);
+    for (const value of input.sources) query.append("source", value);
+    if (input.dueFrom) query.set("dueFrom", input.dueFrom);
+    if (input.dueTo) query.set("dueTo", input.dueTo);
+    return (await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader", rawQuery: query.toString() },
+      { signal },
+    )).data;
   },
-  async readOperationRecords(input, principal) {
-    const { listOperationRecords } = await import("@/lib/workflow/operations-records");
-    return listOperationRecords(input, principal);
+  async readOperationRecords(input, principal, signal) {
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+    for (const value of input.types) query.append("type", value);
+    for (const value of input.statuses) query.append("status", value);
+    for (const value of input.shopNames) query.append("shopName", value);
+    for (const value of input.platforms) query.append("platform", value);
+    for (const value of input.owners) query.append("owner", value);
+    if (input.query) query.set("query", input.query);
+    if (input.from) query.set("from", input.from);
+    if (input.to) query.set("to", input.to);
+    return (await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: WORKFLOW_OPERATION_RECORDS_PATH, service: "reader", rawQuery: query.toString() },
+      { signal },
+    )).data;
   },
   async readNewProductProjects(input, principal, signal) {
-    const {
-      createDjangoWorkflowService,
-      WORKFLOW_LAUNCH_PROJECTS_PATH,
-    } = await import("@/lib/django/workflow-service");
     const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
     if (input.query) query.set("q", input.query);
     for (const value of input.statuses) query.append("status", value);
@@ -314,9 +342,12 @@ const defaultPageDataToolServices: PageDataToolServices = {
     );
     return { ...result.data, workflowRevision: result.revision };
   },
-  async readWorkflowTemplates(includeInactive) {
-    const { listWorkflowTaskTemplates } = await import("@/lib/workflow/collaboration");
-    return listWorkflowTaskTemplates(includeInactive);
+  async readWorkflowTemplates(includeInactive, principal, signal) {
+    return (await createDjangoWorkflowService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: WORKFLOW_TEMPLATES_PATH, service: "reader", rawQuery: includeInactive ? "includeInactive=true" : "" },
+      { signal },
+    )).data.items;
   },
   async readImportBatches(source, input, principal, signal) {
     if (source === "sales") {
@@ -1117,7 +1148,7 @@ export async function listWorkflowTasksPageData(
     dueTo,
     ...pagination(input),
   };
-  const result = resultObject(await serviceSet(overrides).readWorkflowTasks(filters));
+  const result = resultObject(await serviceSet(overrides).readWorkflowTasks(filters, principal, context.signal));
   return {
     page: "workflow.tasks",
     available: true,
@@ -1240,7 +1271,7 @@ export async function listOperationsRecordsPageData(
   const to = optionalIsoDateTime(input.to, "to");
   if (from && to && Date.parse(from) >= Date.parse(to)) failInput("时间范围必须满足 from 早于 to");
   const filters: OperationRecordListInput = {
-    types: stringList(input.types, "types", 3, 20, ["inspection", "review", "launch"]),
+    types: stringList(input.types, "types", 2, 20, ["inspection", "review"]),
     statuses: stringList(input.statuses, "statuses", 20, 40),
     shopNames: stringList(input.shopNames, "shopNames", 20, 160),
     platforms: stringList(input.platforms, "platforms", 20, 120),
@@ -1250,7 +1281,7 @@ export async function listOperationsRecordsPageData(
     to,
     ...pagination(input),
   };
-  const result = resultObject(await serviceSet(overrides).readOperationRecords(filters, principal));
+  const result = resultObject(await serviceSet(overrides).readOperationRecords(filters, principal, context.signal));
   return {
     page: "workflow.operations",
     available: true,
@@ -1285,7 +1316,7 @@ export async function listWorkflowTemplatesPageData(
   const requestedIncludeInactive = booleanValue(input.includeInactive, "includeInactive", false);
   const includeInactive = requestedIncludeInactive && (principal.role === "operator" || principal.role === "admin");
   const limit = integerValue(input.limit, "limit", MAX_RESULT_ITEMS, 50);
-  const rows = await serviceSet(overrides).readWorkflowTemplates(includeInactive);
+  const rows = await serviceSet(overrides).readWorkflowTemplates(includeInactive, principal, context.signal);
   const items = Array.isArray(rows) ? rows : [];
   return {
     page: "workflow.templates",

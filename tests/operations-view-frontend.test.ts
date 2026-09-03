@@ -90,7 +90,10 @@ test("all work-item and template creation entry points expose actionable validat
   assert.match(validateTaskTemplateDraft({ ...templateDraft, startOffsetDays: 366 }), /-365 至 365/);
   assert.match(validateTaskTemplateDraft({ ...templateDraft, dueOffsetDays: -1 }), /不能早于/);
 
-  const operations = await source("../app/operations-view.tsx");
+  const [operations, newProductLaunch] = await Promise.all([
+    source("../app/operations-view.tsx"),
+    source("../app/new-product-launch-view.tsx"),
+  ]);
   assert.match(operations, /setTaskEditorError\(messageOf\(reason, "工作事项保存失败，请稍后重试。"\)\)/);
   assert.match(operations, /setEditorError\(messageOf\(reason, "模板保存失败，请稍后重试。"\)\)/);
   assert.match(operations, />填入工作项<\/button>/);
@@ -100,7 +103,8 @@ test("all work-item and template creation entry points expose actionable validat
   assert.match(operations, /void submitLink\(\)/);
   assert.match(operations, /"创建巡店记录"/);
   assert.match(operations, /"创建评价记录"/);
-  assert.match(operations, /"创建新品项目"/);
+  assert.match(operations, /<NewProductLaunchView canWrite=\{canWrite\} \/>/);
+  assert.match(newProductLaunch, /新建新品项目/);
   assert.doesNotMatch(operations, /disabled=\{saving \|\| !draft\.title\.trim\(\)\}/);
   assert.doesNotMatch(operations, /disabled=\{saving \|\| !draft\.name\.trim\(\)\}/);
   assert.doesNotMatch(operations, /disabled=\{saving \|\| !comment\.trim\(\)\}/);
@@ -231,8 +235,10 @@ test("work plan exposes server facets, standardized suggestions and complete fil
   assert.match(tasks, /facets: \{/);
   assert.match(tasks, /categories: boundedList\(input\.categories/);
   assert.match(tasks, /sources: boundedList\(input\.sources/);
-  assert.match(route, /categories: params\.getAll\("category"\)/);
-  assert.match(route, /sources: params\.getAll\("source"\)/);
+  assert.match(route, /path: WORKFLOW_TASKS_PATH/);
+  assert.match(route, /service: "reader"/);
+  assert.match(route, /rawQuery: new URL\(request\.url\)\.searchParams\.toString\(\)/);
+  assert.doesNotMatch(route, /getD1Database|listWorkflowTasks/);
 });
 
 test("new-product editor validates multi-store identity, dates, money and optional stage details", async () => {

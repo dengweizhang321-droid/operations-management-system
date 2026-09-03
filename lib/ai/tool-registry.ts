@@ -623,7 +623,7 @@ export const aiToolRegistry = [
         shopNames: { type: "array", items: { type: "string", maxLength: 160 }, maxItems: 20 },
         suppliers: { type: "array", items: { type: "string", maxLength: 200 }, maxItems: 20 },
         sources: { type: "array", items: { type: "string", enum: ["系统预置", "手动录入", "manual", "system", "import", "integration"] }, maxItems: 4 },
-        types: { type: "array", items: { type: "string", enum: ["inspection", "review", "launch"] }, maxItems: 3 },
+        types: { type: "array", items: { type: "string", enum: ["inspection", "review"] }, maxItems: 2 },
         platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         lifecycleStatuses: { type: "array", items: { type: "string", enum: ["active", "paused", "cancelled"] }, maxItems: 3 },
         stage: { type: "string", enum: ["modeling", "pricing", "image", "video", "listing", "stocking", "review"] },

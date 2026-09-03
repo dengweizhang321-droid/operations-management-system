@@ -1,21 +1,27 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getD1Database } from "@/lib/database/d1";
-import { createWorkflowTaskComment, listWorkflowTaskComments } from "@/lib/workflow/collaboration";
-import { workflowErrorResponse } from "@/lib/workflow/errors";
+import { createDjangoWorkflowService, getWorkflowBackendMode } from "@/lib/django/workflow-service";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { encodedWorkflowResource, requireWorkflowJsonObject, workflowServiceResponse } from "@/lib/workflow/django-api";
 
 type Context = { params: Promise<{ taskId: string }> };
-export async function GET(_request: Request, context: Context) {
+const pathFor = (taskId: string) => `/api/workflow/tasks/${encodedWorkflowResource(taskId)}/comments`;
+const errorResponse = (error: unknown, fallback: string) => authorizationErrorResponse(error) ?? safeApiErrorResponse(error, fallback);
+
+export async function GET(request: Request, context: Context) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项评论");
-    const { taskId } = await context.params;
-    return Response.json({ items: await listWorkflowTaskComments(taskId, getD1Database()) }, { headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "读取评论失败"); }
+    await getWorkflowBackendMode(); const { taskId } = await context.params;
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "GET", path: pathFor(taskId), service: "reader" }, { signal: request.signal });
+    return workflowServiceResponse(result);
+  } catch (error) { return errorResponse(error, "读取评论失败。"); }
 }
+
 export async function POST(request: Request, context: Context) {
   try {
-    const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项评论"); const payload = await request.json().catch(() => null) as { content?: unknown } | null;
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return Response.json({ error: "评论内容必须是有效的 JSON 对象" }, { status: 400 });
-    const { taskId } = await context.params;
-    return Response.json({ item: await createWorkflowTaskComment(taskId, payload.content, principal.email, getD1Database()) }, { status: 201, headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "保存评论失败"); }
+    const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项评论", "修改");
+    await getWorkflowBackendMode(); const { taskId } = await context.params;
+    const payload = requireWorkflowJsonObject(await request.json().catch(() => null), "评论内容必须是有效的 JSON 对象。");
+    const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "POST", path: pathFor(taskId), service: "writer", payload }, { signal: request.signal });
+    return workflowServiceResponse(result);
+  } catch (error) { return errorResponse(error, "保存评论失败。"); }
 }

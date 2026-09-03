@@ -7,8 +7,13 @@ import {
   DjangoWorkflowServiceResponseError,
   requestDjangoWorkflowJson,
   workflowBackendModeFromEnvironment,
+  WORKFLOW_ATTACHMENT_CLEANUP_PATH,
   WORKFLOW_CONSUMER_QUERY_PATH,
+  WORKFLOW_INVENTORY_WORK_ITEMS_PATH,
   WORKFLOW_LAUNCH_PROJECTS_PATH,
+  WORKFLOW_OPERATION_RECORDS_PATH,
+  WORKFLOW_TASKS_PATH,
+  WORKFLOW_TEMPLATES_PATH,
 } from "../lib/django/workflow-service";
 import { readDjangoWorkflowConsumer } from "../lib/django/workflow-consumer-reader";
 import { PublicApiError } from "../lib/http/api-error";
@@ -126,6 +131,52 @@ test("workflow mutations stay on the writer and keep path-specific signatures", 
   verifySignature(observed[2]!, stagePath);
   verifySignature(observed[3]!, projectPath, "expectedVersion=2");
   assert.equal(created.replayed, true);
+});
+
+test("full workflow paths use strict reader and writer method allowlists", async () => {
+  const taskId = "task-1";
+  const attachmentId = "attachment-1";
+  const recordId = "record-1";
+  const observed: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    observed.push(new Request(input, init));
+    return Response.json({}, { headers: { "x-workflow-data-revision": "10:abcdef123456" } });
+  };
+  const requests = [
+    { method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader" },
+    { method: "POST", path: `${WORKFLOW_TASKS_PATH}/${taskId}/comments`, service: "writer", payload: { content: "复核" } },
+    { method: "GET", path: `${WORKFLOW_TASKS_PATH}/${taskId}/attachments/${attachmentId}`, service: "reader" },
+    { method: "DELETE", path: `${WORKFLOW_TASKS_PATH}/${taskId}/attachments/${attachmentId}`, service: "writer" },
+    { method: "GET", path: WORKFLOW_TEMPLATES_PATH, service: "reader" },
+    { method: "PATCH", path: `${WORKFLOW_OPERATION_RECORDS_PATH}/${recordId}`, service: "writer", payload: { expectedVersion: 1, status: "处理中" } },
+    { method: "GET", path: `${WORKFLOW_OPERATION_RECORDS_PATH}/${recordId}/activity`, service: "reader" },
+    { method: "GET", path: WORKFLOW_ATTACHMENT_CLEANUP_PATH, service: "writer" },
+    { method: "POST", path: WORKFLOW_INVENTORY_WORK_ITEMS_PATH, service: "writer", payload: { entityId: "sku-1" } },
+  ] as const;
+  for (const [index, request] of requests.entries()) {
+    await requestDjangoWorkflowJson(principal, request, {
+      config,
+      fetchImpl,
+      requestId: () => `workflow-full-path-${index}`,
+    });
+  }
+  assert.equal(observed.length, requests.length);
+  assert.equal(
+    observed.filter((request) => new URL(request.url).origin === config.readerBaseUrl).length,
+    4,
+  );
+  assert.equal(
+    observed.filter((request) => new URL(request.url).origin === config.writerBaseUrl).length,
+    5,
+  );
+  await assert.rejects(
+    requestDjangoWorkflowJson(
+      principal,
+      { method: "GET", path: WORKFLOW_TASKS_PATH, service: "writer" },
+      { config, fetchImpl: async () => assert.fail("wrong service must not fetch") },
+    ),
+    (error: unknown) => error instanceof PublicApiError && error.status === 503,
+  );
 });
 
 test("workflow consumer search stays on the reader with a fixed bounded contract", async () => {

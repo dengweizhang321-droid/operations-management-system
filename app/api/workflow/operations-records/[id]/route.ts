@@ -1,87 +1,23 @@
-import {
-  deleteOperationRecord,
-  getOperationRecord,
-  OperationRecordRequestError,
-  updateOperationRecord,
-  type UpdateOperationRecordInput,
-} from "@/lib/workflow/operations-records";
-import { getD1Database } from "@/lib/database/d1";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import { createDjangoWorkflowService, getWorkflowBackendMode, WORKFLOW_OPERATION_RECORDS_PATH } from "@/lib/django/workflow-service";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { encodedWorkflowResource, requireWorkflowJsonObject, workflowServiceResponse } from "@/lib/workflow/django-api";
 
-type RouteContext = { params: Promise<{ id: string }> };
-
-function errorResponse(error: unknown, fallback: string) {
-  const authorization = authorizationErrorResponse(error);
-  if (authorization) return authorization;
-  if (error instanceof OperationRecordRequestError) {
-    return Response.json({ error: error.message, code: error.code }, {
-      status: error.status,
-      headers: { "cache-control": "no-store" },
-    });
-  }
-  return Response.json({ error: fallback, code: "internal_error" }, {
-    status: 500,
-    headers: { "cache-control": "no-store" },
-  });
+type Context = { params: Promise<{ id: string }> };
+const routeError = (error: unknown, fallback: string) => authorizationErrorResponse(error) ?? safeApiErrorResponse(error, fallback);
+const pathFor = (id: string) => `${WORKFLOW_OPERATION_RECORDS_PATH}/${encodedWorkflowResource(id)}`;
+export async function GET(request: Request, context: Context) {
+  try { const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); await getWorkflowBackendMode(); const { id } = await context.params;
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "GET", path: pathFor(id), service: "reader" }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "读取运营记录失败。"); }
 }
-
-export async function GET(_request: Request, context: RouteContext) {
-  try {
-    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
-    const { id } = await context.params;
-    const item = await getOperationRecord(id, principal, getD1Database());
-    if (!item || item.type === "launch") {
-      return Response.json({ error: "运营记录不存在或不可访问", code: "not_found" }, {
-        status: 404,
-        headers: { "cache-control": "no-store" },
-      });
-    }
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
-  } catch (error) {
-    return errorResponse(error, "读取运营记录失败");
-  }
+export async function PATCH(request: Request, context: Context) {
+  try { const principal = await requireAppPrincipal(["operator", "admin"]); await getWorkflowBackendMode(); const { id } = await context.params; const payload = requireWorkflowJsonObject(await request.json().catch(() => null), "缺少可更新的运营记录字段。");
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "PATCH", path: pathFor(id), service: "writer", payload }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "更新运营记录失败。"); }
 }
-
-export async function PATCH(request: Request, context: RouteContext) {
-  try {
-    const principal = await requireAppPrincipal(["operator", "admin"]);
-    const body = await request.json().catch(() => null) as UpdateOperationRecordInput | null;
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return Response.json({ error: "缺少可更新的运营记录字段", code: "invalid_request" }, {
-        status: 400,
-        headers: { "cache-control": "no-store" },
-      });
-    }
-    const { id } = await context.params;
-    const current = await getOperationRecord(id, principal, getD1Database());
-    if (current?.type === "launch") {
-      return Response.json({ error: "旧新品记录已停止写入，请使用结构化新品项目。", code: "conflict" }, {
-        status: 409,
-        headers: { "cache-control": "no-store" },
-      });
-    }
-    const item = await updateOperationRecord(id, body, principal, getD1Database());
-    return Response.json({ item }, { headers: { "cache-control": "no-store" } });
-  } catch (error) {
-    return errorResponse(error, "更新运营记录失败");
-  }
-}
-
-export async function DELETE(request: Request, context: RouteContext) {
-  try {
-    const principal = await requireAppPrincipal(["operator", "admin"]);
-    const { id } = await context.params;
-    const current = await getOperationRecord(id, principal, getD1Database());
-    if (current?.type === "launch") {
-      return Response.json({ error: "旧新品记录已停止写入，请使用结构化新品项目。", code: "conflict" }, {
-        status: 409,
-        headers: { "cache-control": "no-store" },
-      });
-    }
-    const expectedVersion = new URL(request.url).searchParams.get("expectedVersion");
-    const result = await deleteOperationRecord(id, expectedVersion, principal, getD1Database());
-    return Response.json(result, { headers: { "cache-control": "no-store" } });
-  } catch (error) {
-    return errorResponse(error, "删除运营记录失败");
-  }
+export async function DELETE(request: Request, context: Context) {
+  try { const principal = await requireAppPrincipal(["operator", "admin"]); await getWorkflowBackendMode(); const { id } = await context.params;
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "DELETE", path: pathFor(id), service: "writer", rawQuery: new URL(request.url).searchParams.toString() }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "删除运营记录失败。"); }
 }

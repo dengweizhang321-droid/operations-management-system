@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+import hashlib
 import uuid
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from .errors import WorkflowApiError
-from .models import WorkflowWriteAuthority, WorkflowWriteRequestReceipt
+from .models import (
+    WorkflowOperationsWriteAuthority,
+    WorkflowWriteAuthority,
+    WorkflowWriteRequestReceipt,
+)
 
 
 RECEIPT_TTL = timedelta(days=7)
@@ -22,6 +27,19 @@ class WorkflowWriteClaim:
     claim_token: str
     replay_status: int | None = None
     replay_payload: dict[str, object] | None = None
+
+
+def _lock_request_identity(request_id: str) -> None:
+    """Serialize an absent-or-present receipt decision for one PostgreSQL request id."""
+    if connection.vendor != "postgresql":
+        return
+    key = int.from_bytes(
+        hashlib.sha256(f"workflow-write-request:{request_id}".encode()).digest()[:8],
+        byteorder="big",
+        signed=True,
+    )
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [key])
 
 
 def require_workflow_writer_process() -> None:
@@ -78,6 +96,39 @@ def lock_active_authority() -> WorkflowWriteAuthority:
     return authority
 
 
+def lock_active_operations_authority() -> WorkflowOperationsWriteAuthority:
+    require_workflow_writer_process()
+    try:
+        authority = WorkflowOperationsWriteAuthority.objects.get(id=1)
+    except WorkflowOperationsWriteAuthority.DoesNotExist as error:
+        raise WorkflowApiError(
+            "PostgreSQL 运营事务全板块写入权威门禁尚未初始化",
+            code="workflow_operations_write_authority_unavailable",
+            status=503,
+        ) from error
+    if authority.status != "postgres":
+        raise WorkflowApiError(
+            "PostgreSQL 尚未取得工作计划与运营记录唯一写入权",
+            code="workflow_operations_write_authority_inactive",
+            status=503,
+        )
+    if settings.DJANGO_PROCESS_ROLE == "workflow_writer":
+        expected_epoch = str(settings.WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH or "")
+        expected_cutover = str(settings.WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID or "")
+        if (
+            not expected_epoch
+            or not expected_cutover
+            or str(authority.authority_epoch) != expected_epoch
+            or authority.cutover_id != expected_cutover
+        ):
+            raise WorkflowApiError(
+                "PostgreSQL 运营事务全板块写入权威的 epoch/cutover 配置不匹配",
+                code="workflow_operations_write_authority_mismatch",
+                status=503,
+            )
+    return authority
+
+
 def claim_write_request(
     *,
     request_id: str,
@@ -86,13 +137,20 @@ def claim_write_request(
     path: str,
     body_sha256: str,
     query_sha256: str,
+    authority_scope: str = "launch",
 ) -> WorkflowWriteClaim:
     require_workflow_writer_process()
     if not request_id or len(request_id) > 128:
         raise WorkflowApiError("内部请求标识无效")
     now = timezone.now()
     with transaction.atomic():
-        lock_active_authority()
+        if authority_scope == "operations":
+            lock_active_operations_authority()
+        elif authority_scope == "launch":
+            lock_active_authority()
+        else:
+            raise WorkflowApiError("运营事务写入权威范围无效", status=503)
+        _lock_request_identity(request_id)
         expired_ids = list(
             WorkflowWriteRequestReceipt.objects.filter(expires_at__lte=now)
             .order_by("expires_at")

@@ -13,6 +13,11 @@ export const WORKFLOW_NEW_PRODUCT_LINES_PATH = "/api/workflow/new-product-lines"
 export const WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH = "/api/workflow/new-product-lines/learn";
 export const WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH = "/api/workflow/new-product-weekly-followup";
 export const WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH = "/api/workflow/new-product-weekly-report-config";
+export const WORKFLOW_TASKS_PATH = "/api/workflow/tasks";
+export const WORKFLOW_TEMPLATES_PATH = "/api/workflow/templates";
+export const WORKFLOW_OPERATION_RECORDS_PATH = "/api/workflow/operations-records";
+export const WORKFLOW_ATTACHMENT_CLEANUP_PATH = "/api/workflow/attachment-cleanup";
+export const WORKFLOW_INVENTORY_WORK_ITEMS_PATH = "/api/workflow/inventory-work-items";
 
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -24,6 +29,11 @@ const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const PROJECT_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STAGE_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/stages\/(?:modeling|pricing|image|video|listing|stocking|review)$/i;
 const PRODUCT_LINE_PATH_RE = /^\/api\/workflow\/new-product-lines\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RESOURCE_SEGMENT = "[A-Za-z0-9._:%-]{1,384}";
+const TASK_SUBRESOURCE_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEGMENT}/(?:collaboration|comments|activity|reminders|links|attachments)$`);
+const TASK_ATTACHMENT_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEGMENT}/attachments/${RESOURCE_SEGMENT}$`);
+const OPERATION_RECORD_PATH_RE = new RegExp(`^/api/workflow/operations-records/${RESOURCE_SEGMENT}$`);
+const OPERATION_RECORD_ACTIVITY_PATH_RE = new RegExp(`^/api/workflow/operations-records/${RESOURCE_SEGMENT}/activity$`);
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -181,11 +191,26 @@ function validateRequest(input: WorkflowServiceRequest) {
   const productLineLearning = input.path === WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH;
   const weeklyFollowup = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH;
   const weeklyReportConfig = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH;
+  const tasks = input.path === WORKFLOW_TASKS_PATH;
+  const taskSubresource = TASK_SUBRESOURCE_PATH_RE.test(input.path);
+  const taskAttachment = TASK_ATTACHMENT_PATH_RE.test(input.path);
+  const taskWritableCollection = taskSubresource && /\/(?:comments|reminders|links|attachments)$/.test(input.path);
+  const taskDeletableCollection = taskSubresource && /\/(?:reminders|links)$/.test(input.path);
+  const templates = input.path === WORKFLOW_TEMPLATES_PATH;
+  const records = input.path === WORKFLOW_OPERATION_RECORDS_PATH;
+  const record = OPERATION_RECORD_PATH_RE.test(input.path);
+  const recordActivity = OPERATION_RECORD_ACTIVITY_PATH_RE.test(input.path);
+  const attachmentCleanup = input.path === WORKFLOW_ATTACHMENT_CLEANUP_PATH;
+  const inventoryWorkItems = input.path === WORKFLOW_INVENTORY_WORK_ITEMS_PATH;
   const allowed = input.service === "reader"
-    ? (input.method === "GET" && (collection || project || productLines || weeklyFollowup || weeklyReportConfig)) || (input.method === "POST" && consumer)
-    : (input.method === "POST" && (collection || productLines || productLineLearning))
-      || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig))
-      || (input.method === "DELETE" && project);
+    ? (input.method === "GET" && (collection || project || productLines || weeklyFollowup || weeklyReportConfig
+      || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
+      || (input.method === "POST" && consumer)
+    : (input.method === "GET" && attachmentCleanup)
+      || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
+        || templates || records || attachmentCleanup || inventoryWorkItems))
+      || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig || tasks || templates || record))
+      || (input.method === "DELETE" && (project || tasks || taskDeletableCollection || taskAttachment || templates || record));
   if (!allowed) throw unavailable();
   if ((input.method === "POST" || input.method === "PATCH") !== (input.payload !== undefined)) throw unavailable();
   if ((input.method === "GET" || input.method === "DELETE") && input.payload !== undefined) throw unavailable();

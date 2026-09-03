@@ -239,18 +239,6 @@ test("京东入仓监控只统计 RDC/DC，并披露固定成本与原生指标�
 });
 
 test("已确认补货计划幂等创建采购执行事项并关联原计划", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(`
-    CREATE TABLE replenishment_plan_items (
-      id TEXT PRIMARY KEY, source_batch_id TEXT, product_code TEXT, product_name TEXT, warehouse TEXT,
-      suggested_quantity INTEGER, planned_quantity INTEGER, coverage_days_tenths INTEGER, reason TEXT, status TEXT,
-      created_at TEXT, updated_at TEXT
-    );
-    CREATE TABLE erp_product_master (product_code TEXT PRIMARY KEY, supplier TEXT);
-    INSERT INTO replenishment_plan_items VALUES ('plan-1','batch-1','P1','采购货品','华东仓',20,18,50,'库存告急','confirmed','2026-08-24','2026-08-24');
-    INSERT INTO erp_product_master VALUES ('P1','供应商甲');
-  `);
-  const db = sqliteAdapter(sqlite) as never;
   const principal: AppPrincipal = {
     email: "operator@example.com",
     displayName: "Operator",
@@ -274,12 +262,22 @@ test("已确认补货计划幂等创建采购执行事项并关联原计划", as
       },
     }),
   } as never;
+  let savedTask: { id: string; title: string; status: string } | null = null;
+  const savedPayloads: Record<string, unknown>[] = [];
+  const workflowWriter = {
+    create: async (_principal: AppPrincipal, payload: Record<string, unknown>) => {
+      if (savedTask) return { created: false, task: savedTask };
+      savedPayloads.push(payload);
+      savedTask = { id: "task-pg-1", title: String(payload.title), status: "待开始" };
+      return { created: true, task: savedTask };
+    },
+  };
   const expectedArrivalDate = futureShanghaiDate(7);
-  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, db, inventoryReader);
-  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, db, inventoryReader);
+  const first = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, inventoryReader, workflowWriter);
+  const second = await createInventoryWorkItem({ kind: "procurement", planId: "plan-1", owner: "采购组", planType: "daily", expectedArrivalDate, dueDate: expectedArrivalDate }, principal, inventoryReader, workflowWriter);
   assert.equal(first.created, true);
   assert.equal(second.created, false);
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM workflow_task_entity_links WHERE entity_id = 'replenishment-plan:plan-1'").get()?.count, 1);
-  assert.match(String(sqlite.prepare("SELECT work_content FROM workflow_tasks WHERE id = ?").get(first.task.id)?.work_content), /供应商甲|计划数量：18/);
-  sqlite.close();
+  assert.equal(savedPayloads[0]?.entityId, "replenishment-plan:plan-1");
+  assert.equal(savedPayloads[0]?.entityType, "product");
+  assert.match(String(savedPayloads[0]?.workContent), /供应商甲|计划数量：18/);
 });

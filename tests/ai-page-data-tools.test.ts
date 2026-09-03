@@ -311,6 +311,10 @@ test("workflow adapters keep unrestricted lists closed while operations records 
   assert.deepEqual((receivedFilters as { platforms: string[] }).platforms, ["京东"]);
   assert.equal(operations.filtersApplied.dataScope, "restricted");
   assert.equal("createdBy" in operations.items[0], false);
+  await assert.rejects(
+    () => listOperationsRecordsPageData({ types: ["launch"] }, { principal: unrestrictedAnalyst }),
+    /types包含无效值/,
+  );
 
   let includeInactive: boolean | undefined;
   const analystTemplates = await listWorkflowTemplatesPageData({ includeInactive: true }, { principal: unrestrictedAnalyst }, {

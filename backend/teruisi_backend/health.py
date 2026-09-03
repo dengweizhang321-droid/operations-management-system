@@ -465,6 +465,25 @@ REQUIRED_WORKFLOW_COLUMNS = {
     "workflow_write_authority": {
         "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
     },
+    "workflow_operations_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "workflow_tasks": {
+        "id", "title", "work_content", "category", "owner", "shop_name",
+        "start_date", "due_date", "status", "priority", "version", "created_by",
+        "updated_by", "created_at", "updated_at", "deleted_at", "deleted_by",
+    },
+    "workflow_task_comments": {"id", "task_id", "content", "created_by", "created_at"},
+    "workflow_task_activity_logs": {"id", "task_id", "action", "summary", "metadata", "actor_email", "created_at"},
+    "workflow_task_reminders": {"id", "task_id", "remind_at", "note", "status", "created_by", "updated_at"},
+    "workflow_task_templates": {"id", "name", "title", "active", "version", "created_by", "updated_by", "updated_at"},
+    "workflow_task_entity_links": {"id", "task_id", "entity_type", "entity_id", "label", "url", "created_by"},
+    "workflow_task_attachments": {"id", "task_id", "file_name", "mime_type", "size_bytes", "sha256", "object_key", "created_by"},
+    "workflow_operation_records": {
+        "id", "record_type", "title", "status", "priority", "platform", "channel",
+        "shop_name", "occurred_at", "version", "created_by", "updated_by", "deleted_at",
+    },
+    "workflow_operation_activities": {"id", "record_id", "action", "actor_email", "actor_role", "from_version", "to_version", "detail"},
     "workflow_new_product_projects": {
         "id", "product_name", "supplier_name", "brand", "category",
         "erp_product_code", "sku_code", "spu_code", "proposed_date", "owner",
@@ -513,16 +532,23 @@ REQUIRED_WORKFLOW_WRITER_COLUMNS = {
         "request_id", "body_sha256", "query_sha256", "method", "path", "actor_email",
         "status", "claim_token", "response_status", "response_payload", "expires_at",
     },
+    "workflow_attachment_cleanup_queue": {"object_key", "attempts", "last_error", "enqueued_at", "updated_at"},
 }
 REQUIRED_WORKFLOW_INDEXES = {
     "workflow_np_status_due_idx", "workflow_np_supplier_idx", "workflow_np_updated_idx",
     "workflow_np_target_shop_idx", "workflow_np_stage_state_idx", "workflow_np_activity_idx",
     "workflow_npl_active_start_idx", "workflow_npl_updated_idx", "workflow_npl_code_line_idx",
     "workflow_npl_active_name_uq", "workflow_npl_code_batch_idx", "workflow_npl_delivery_week_idx", "workflow_npl_delivery_time_idx",
+    "workflow_task_status_idx", "workflow_task_deleted_idx", "workflow_task_updated_idx",
+    "workflow_task_comment_idx", "workflow_task_activity_idx", "workflow_task_reminder_idx",
+    "workflow_template_active_idx", "workflow_task_link_idx", "workflow_task_link_uq",
+    "workflow_task_attach_idx", "workflow_ops_type_time_idx", "workflow_ops_shop_time_idx",
+    "workflow_ops_updated_idx", "workflow_ops_activity_idx", "workflow_attach_cleanup_idx",
 }
 WORKFLOW_WRITER_TABLE_PRIVILEGES = {
     "workflow_data_revisions": ("SELECT", "UPDATE"),
     "workflow_write_authority": ("SELECT",),
+    "workflow_operations_write_authority": ("SELECT",),
     "workflow_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "workflow_new_product_projects": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_targets": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -532,6 +558,16 @@ WORKFLOW_WRITER_TABLE_PRIVILEGES = {
     "workflow_new_product_line_codes": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_weekly_report_config": ("SELECT", "UPDATE"),
     "workflow_new_product_weekly_deliveries": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_tasks": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_task_comments": ("SELECT", "INSERT"),
+    "workflow_task_activity_logs": ("SELECT", "INSERT"),
+    "workflow_task_reminders": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_task_templates": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_task_entity_links": ("SELECT", "INSERT", "DELETE"),
+    "workflow_task_attachments": ("SELECT", "INSERT", "DELETE"),
+    "workflow_attachment_cleanup_queue": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_operation_records": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_operation_activities": ("SELECT", "INSERT"),
     "sales_order_lines": ("SELECT",),
     "sales_import_batches": ("SELECT",),
     "erp_product_master": ("SELECT",),
@@ -1264,9 +1300,16 @@ def _validate_workflow_schema(cursor, *, writer: bool) -> None:
         "workflow_new_product_stages", "workflow_new_product_activities",
         "workflow_new_product_lines", "workflow_new_product_line_codes",
         "workflow_new_product_weekly_deliveries",
+        "workflow_tasks", "workflow_task_comments", "workflow_task_activity_logs",
+        "workflow_task_reminders", "workflow_task_templates", "workflow_task_entity_links",
+        "workflow_task_attachments", "workflow_attachment_cleanup_queue",
+        "workflow_operation_records", "workflow_operation_activities",
     ):
         constraints = connection.introspection.get_constraints(cursor, table)
-        present_indexes.update(name for name, value in constraints.items() if value.get("index"))
+        present_indexes.update(
+            name for name, value in constraints.items()
+            if value.get("index") or value.get("unique")
+        )
     if not REQUIRED_WORKFLOW_INDEXES.issubset(present_indexes):
         raise ReadinessError("workflow_indexes_incomplete")
 
@@ -1298,6 +1341,23 @@ def _validate_workflow_writer_authority(cursor) -> None:
         or not re.fullmatch(r"workflow-[0-9a-f]{32}", str(row[3] or ""))
     ):
         raise ReadinessError("workflow_writer_authority_mismatch")
+    cursor.execute(
+        "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
+        "FROM workflow_operations_write_authority WHERE id=1"
+    )
+    operations_row = cursor.fetchone()
+    if operations_row is None or str(operations_row[0]) != "postgres":
+        raise ReadinessError("workflow_operations_writer_authority_inactive")
+    try:
+        operations_epoch = str(uuid.UUID(str(operations_row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("workflow_operations_writer_authority_invalid") from error
+    if (
+        operations_epoch != settings.WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH
+        or str(operations_row[2]) != settings.WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"workflow-ops-[0-9a-f]{32}", str(operations_row[3] or ""))
+    ):
+        raise ReadinessError("workflow_operations_writer_authority_mismatch")
 
 
 def _validate_workflow_writer_permissions(cursor) -> None:

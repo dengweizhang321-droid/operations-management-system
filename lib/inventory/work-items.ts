@@ -1,11 +1,12 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { D1Database } from "@/lib/database/d1";
 import {
   createDjangoInventoryConsumerReader,
   type InventoryConsumerReader,
 } from "@/lib/django/inventory-consumer-reader";
-import { createWorkflowTaskLink, ensureWorkflowCollaborationSchema } from "@/lib/workflow/collaboration";
-import { createWorkflowTask, ensureWorkflowTaskSchema } from "@/lib/workflow/tasks";
+import {
+  createDjangoWorkflowService,
+  WORKFLOW_INVENTORY_WORK_ITEMS_PATH,
+} from "@/lib/django/workflow-service";
 
 export type InventoryWorkItemInput = {
   kind?: unknown;
@@ -71,22 +72,37 @@ function addDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-async function findOpenLinkedTask(db: D1Database, entityId: string) {
-  return db.prepare(
-    `SELECT t.id, t.title, t.status
-     FROM workflow_task_entity_links l
-     JOIN workflow_tasks t ON t.id = l.task_id
-     JOIN workflow_task_states s ON s.task_id = t.id
-     WHERE l.entity_type = 'product' AND l.entity_id = ?
-       AND s.deleted_at IS NULL AND t.status <> '已完成'
-     ORDER BY t.created_at DESC, t.id DESC
-     LIMIT 1`,
-  ).bind(entityId).first<{ id: string; title: string; status: string }>();
+export type InventoryWorkflowWriter = {
+  create(principal: AppPrincipal, payload: Record<string, unknown>): Promise<{
+    created: boolean;
+    task: { id: string; title: string; status: string; [key: string]: unknown };
+  }>;
+};
+
+function createInventoryWorkflowWriter(): InventoryWorkflowWriter {
+  return {
+    async create(principal, payload) {
+      const result = await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, {
+        method: "POST",
+        path: WORKFLOW_INVENTORY_WORK_ITEMS_PATH,
+        service: "writer",
+        payload,
+      });
+      const task = result.data.task;
+      if (typeof result.data.created !== "boolean" || !task || typeof task !== "object" || Array.isArray(task)
+        || typeof (task as Record<string, unknown>).id !== "string"
+        || typeof (task as Record<string, unknown>).title !== "string"
+        || typeof (task as Record<string, unknown>).status !== "string") {
+        throw new InventoryWorkItemError(503, "service_unavailable", "Django 运营事务服务返回了无效结果");
+      }
+      return { created: result.data.created, task: task as { id: string; title: string; status: string } };
+    },
+  };
 }
 
 async function createLinkedTask(input: {
-  db: D1Database;
-  actor: string;
+  writer: InventoryWorkflowWriter;
+  principal: AppPrincipal;
   entityId: string;
   entityLabel: string;
   title: string;
@@ -97,10 +113,11 @@ async function createLinkedTask(input: {
   dueDate: string;
   priority: "high" | "normal" | "low";
 }) {
-  const existing = await findOpenLinkedTask(input.db, input.entityId);
-  if (existing) return { created: false as const, task: existing };
-
-  const task = await createWorkflowTask({
+  return input.writer.create(input.principal, {
+    entityType: "product",
+    entityId: input.entityId,
+    label: input.entityLabel,
+    url: "",
     title: input.title,
     workContent: input.workContent,
     category: input.category,
@@ -109,21 +126,14 @@ async function createLinkedTask(input: {
     startDate: input.startDate,
     due: input.dueDate,
     priority: input.priority,
-  }, input.actor, input.db);
-  await createWorkflowTaskLink(task.id, {
-    entityType: "product",
-    entityId: input.entityId,
-    label: input.entityLabel,
-    url: "",
-  }, input.actor, input.db);
-  return { created: true as const, task };
+  });
 }
 
 export async function createInventoryWorkItem(
   input: InventoryWorkItemInput,
   principal: AppPrincipal,
-  db: D1Database,
   reader: InventoryConsumerReader = createDjangoInventoryConsumerReader(),
+  writer: InventoryWorkflowWriter = createInventoryWorkflowWriter(),
 ) {
   const allowedKeys = new Set([
     "kind", "planId", "inventoryKey", "owner", "dueDate", "expectedArrivalDate",
@@ -131,7 +141,6 @@ export async function createInventoryWorkItem(
   ]);
   const unknownKey = Object.keys(input).find((key) => !allowedKeys.has(key));
   if (unknownKey) throw new InventoryWorkItemError(400, "invalid_request", `请求包含不支持的字段：${unknownKey}`);
-  await Promise.all([ensureWorkflowTaskSchema(db), ensureWorkflowCollaborationSchema(db)]);
   const kind = input.kind;
   const owner = text(input.owner, "负责人", 120, true);
   const notes = text(input.notes, "备注", 800);
@@ -177,8 +186,8 @@ export async function createInventoryWorkItem(
       notes ? `备注：${notes}` : "",
     ].filter(Boolean).join("\n");
     return createLinkedTask({
-      db,
-      actor: principal.email,
+      writer,
+      principal,
       entityId: `replenishment-plan:${plan.id}`,
       entityLabel: `${plan.productName} · ${plan.warehouse} · ${plan.plannedQuantity} 件`,
       title: `[采购备货] ${plan.productName}`,
@@ -242,8 +251,8 @@ export async function createInventoryWorkItem(
       notes ? `备注：${notes}` : "",
     ].filter(Boolean).join("\n");
     return createLinkedTask({
-      db,
-      actor: principal.email,
+      writer,
+      principal,
       entityId: `inventory-stale:${(reference.data.sync as { latestInventoryBatchId?: string | null } | undefined)?.latestInventoryBatchId ?? "unknown"}:${inventoryKey}`,
       entityLabel: `${item.productName} · ${item.warehouse}`,
       title: `[滞销清理] ${item.productName}`,

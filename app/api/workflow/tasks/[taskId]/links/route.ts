@@ -1,23 +1,25 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
-import { getD1Database } from "@/lib/database/d1";
-import { createWorkflowTaskLink, deleteWorkflowTaskLink, listWorkflowTaskLinks } from "@/lib/workflow/collaboration";
-import { workflowErrorResponse } from "@/lib/workflow/errors";
+import { createDjangoWorkflowService, getWorkflowBackendMode } from "@/lib/django/workflow-service";
+import { safeApiErrorResponse } from "@/lib/http/api-error";
+import { encodedWorkflowResource, requireWorkflowJsonObject, workflowServiceResponse } from "@/lib/workflow/django-api";
 
 type Context = { params: Promise<{ taskId: string }> };
-export async function GET(_request: Request, context: Context) {
-  try { const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联"); const { taskId } = await context.params;
-    return Response.json({ items: await listWorkflowTaskLinks(taskId, getD1Database()) }, { headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "读取业务关联失败"); }
+const pathFor = (taskId: string) => `/api/workflow/tasks/${encodedWorkflowResource(taskId)}/links`;
+const routeError = (error: unknown, fallback: string) => authorizationErrorResponse(error) ?? safeApiErrorResponse(error, fallback);
+
+export async function GET(request: Request, context: Context) {
+  try { const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联"); await getWorkflowBackendMode(); const { taskId } = await context.params;
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "GET", path: pathFor(taskId), service: "reader" }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "读取业务关联失败。"); }
 }
 export async function POST(request: Request, context: Context) {
-  try { const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联"); const payload = await request.json().catch(() => null) as { entityType?: unknown; entityId?: unknown; label?: unknown; url?: unknown } | null;
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return Response.json({ error: "业务关联必须是有效的 JSON 对象" }, { status: 400 });
-    const { taskId } = await context.params; return Response.json({ item: await createWorkflowTaskLink(taskId, payload, principal.email, getD1Database()) }, { status: 201, headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "保存业务关联失败"); }
+  try { const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联", "修改"); await getWorkflowBackendMode(); const { taskId } = await context.params;
+    const payload = requireWorkflowJsonObject(await request.json().catch(() => null), "业务关联必须是有效的 JSON 对象。");
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "POST", path: pathFor(taskId), service: "writer", payload }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "保存业务关联失败。"); }
 }
 export async function DELETE(request: Request, context: Context) {
-  try { const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联"); const { taskId } = await context.params; const id = new URL(request.url).searchParams.get("id");
-    const deleted = await deleteWorkflowTaskLink(taskId, id, principal.email, getD1Database()); if (!deleted) return Response.json({ error: "业务关联不存在" }, { status: 404 });
-    return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
-  } catch (error) { const auth = authorizationErrorResponse(error); if (auth) return auth; return workflowErrorResponse(error, "删除业务关联失败"); }
+  try { const principal = await requireAppPrincipal(["operator", "admin"]); requireUnrestrictedDataScope(principal, "工作事项业务关联", "修改"); await getWorkflowBackendMode(); const { taskId } = await context.params;
+    return workflowServiceResponse(await createDjangoWorkflowService().requestJson<Record<string, unknown>>(principal, { method: "DELETE", path: pathFor(taskId), service: "writer", rawQuery: new URL(request.url).searchParams.toString() }, { signal: request.signal }));
+  } catch (error) { return routeError(error, "删除业务关联失败。"); }
 }

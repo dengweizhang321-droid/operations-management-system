@@ -1626,6 +1626,10 @@ function Deploy-Application {
       "tools\django-products-service.ps1",
       "tools\django-workflow-service.ps1",
       "tools\django-workflow-cutover.ps1",
+      "tools\django-workflow-operations-cutover.ps1",
+      "tools\workflow-operations-production-smoke.ps1",
+      "tools\workflow-operations-consumer-smoke.ts",
+      "tools\workflow-operations-d1-rejection-smoke.py",
       "tools\django-inventory-service.ps1",
       "tools\django-inventory-cutover.ps1",
       "tools\django-postgres-maintenance.ps1",
@@ -1634,6 +1638,8 @@ function Deploy-Application {
       "tools\workflow-d1-authority-install.py",
       "tools\workflow-d1-snapshot.py",
       "tools\workflow-launch-r2-retirement-evidence.py",
+      "tools\workflow-operations-d1-authority-install.py",
+      "tools\workflow-operations-d1-snapshot.py",
       "tools\inventory-d1-authority-install.py",
       "tools\inventory-r2-retirement-evidence.py",
       "tools\postgres-consistent-backup.py",
@@ -1651,7 +1657,9 @@ function Deploy-Application {
       "drizzle\0101_inventory_write_authority.sql",
       "drizzle\0102_inventory_domain_retirement.sql",
       "drizzle\0103_workflow_launch_write_authority.sql",
-      "drizzle\0104_workflow_launch_domain_retirement.sql"
+      "drizzle\0104_workflow_launch_domain_retirement.sql",
+      "drizzle\0105_workflow_operations_write_authority.sql",
+      "drizzle\0106_workflow_operations_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -2551,7 +2559,9 @@ function Invoke-WithDjangoEnvironment(
   [int]$BodyBytes,
   [string]$AuthorityEpoch,
   [string]$CutoverId,
-  [scriptblock]$Operation
+  [scriptblock]$Operation,
+  [string]$WorkflowOperationsAuthorityEpoch = "",
+  [string]$WorkflowOperationsCutoverId = ""
 ) {
   $names = @(
     "TERUISI_DJANGO_DATABASE_URL", "TERUISI_DJANGO_INTERNAL_SECRET",
@@ -2568,6 +2578,8 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH", "TERUISI_DJANGO_PRODUCTS_CUTOVER_ID",
     "TERUISI_DJANGO_INVENTORY_AUTHORITY_EPOCH", "TERUISI_DJANGO_INVENTORY_CUTOVER_ID",
     "TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH", "TERUISI_DJANGO_WORKFLOW_CUTOVER_ID",
+    "TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH",
+    "TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2588,6 +2600,8 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_INVENTORY_CUTOVER_ID = ""
     $env:TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_WORKFLOW_CUTOVER_ID = ""
+    $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH = ""
+    $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2601,6 +2615,8 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_WORKFLOW_CUTOVER_ID = $CutoverId
+      $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH = $WorkflowOperationsAuthorityEpoch
+      $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID = $WorkflowOperationsCutoverId
     } elseif ($ProcessRole -eq "inventory_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""

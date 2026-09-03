@@ -3,7 +3,6 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
-import { getD1Database } from "@/lib/database/d1";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import {
   createInventoryWorkItem,
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
         headers: { "cache-control": "no-store" },
       });
     }
-    const result = await createInventoryWorkItem(body, principal, getD1Database());
+    const result = await createInventoryWorkItem(body, principal);
     return Response.json({ ok: true, ...result }, {
       status: result.created ? 201 : 200,
       headers: { "cache-control": "no-store" },

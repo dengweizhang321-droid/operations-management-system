@@ -700,12 +700,13 @@ test("exposes the five operational collaboration workspaces", async () => {
   assert.doesNotMatch(operations, /志高 ZK-30|近 30 天评价|今日已巡店/);
 });
 
-test("persists work-plan creation, full-field edits, status archiving, and deletion", async () => {
-  const [page, route, tasks, migration] = await Promise.all([
+test("persists work-plan creation, full-field edits, status archiving, and deletion through Django", async () => {
+  const [page, route, operations, models, migration] = await Promise.all([
     readFile(new URL("../app/operations-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/workflow/tasks.ts", import.meta.url), "utf8"),
-    readFile(new URL("../drizzle/0012_workflow_tasks.sql", import.meta.url), "utf8"),
+    readFile(new URL("../backend/workflow/operations.py", import.meta.url), "utf8"),
+    readFile(new URL("../backend/workflow/models.py", import.meta.url), "utf8"),
+    readFile(new URL("../backend/workflow/migrations/0005_operations_domain.py", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /requestJson<TaskListPayload>\(`\/api\/workflow\/tasks\?\$\{listParams\}`/);
@@ -714,23 +715,23 @@ test("persists work-plan creation, full-field edits, status archiving, and delet
   assert.match(page, /const \[saving, setSaving\]/);
   assert.match(route, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(route, /export async function DELETE/);
-  assert.match(route, /type UpdateWorkflowTaskInput/);
-  assert.match(route, /updateWorkflowTask\(id, payload/);
-  assert.match(tasks, /workflow_task_bootstrap/);
-  assert.match(tasks, /deleted_at IS NULL/);
-  assert.match(tasks, /deleteWorkflowTaskWithCollaboration/);
-  assert.match(tasks, /created_by, t\.created_at/);
-  assert.match(tasks, /source: sourceFromCreatedBy\(row\.created_by\)/);
-  assert.match(tasks, /updateWorkflowTask/);
-  assert.match(tasks, /截止时间不能早于开始时间/);
-  assert.match(tasks, /SET title = \?, work_content = \?, category = \?, owner = \?, shop_name = \?/);
-  assert.match(tasks, /start_date = \?, due_date = \?, status = \?, priority = \?, updated_by = \?, updated_at = CURRENT_TIMESTAMP/);
-  assert.match(tasks, /expectedVersion/);
-  assert.match(tasks, /工作项紧急程度无效/);
+  assert.match(route, /path: WORKFLOW_TASKS_PATH/);
+  assert.match(route, /service: "writer"/);
+  assert.match(route, /rawQuery: new URL\(request\.url\)\.searchParams\.toString\(\)/);
+  assert.doesNotMatch(route, /getD1Database|updateWorkflowTask/);
+  assert.match(operations, /def create_task\(/);
+  assert.match(operations, /def update_task\(/);
+  assert.match(operations, /def delete_task\(/);
+  assert.match(operations, /select_for_update\(\)/);
+  assert.match(operations, /deleted_at__isnull=True/);
+  assert.match(operations, /expectedVersion/);
+  assert.match(operations, /截止时间不能早于开始时间/);
+  assert.match(operations, /工作项紧急程度无效/);
+  assert.match(models, /class WorkflowTask\(models\.Model\)/);
+  assert.match(migration, /name='WorkflowTask'/);
   assert.match(page, /workflow-plan-actions/);
   assert.match(page, /statusFilter === "open"/);
   assert.match(page, /item\.status !== "已完成"/);
-  assert.match(migration, /CREATE TABLE `workflow_tasks`/);
 });
 
 test("requires an authenticated principal for reads and keeps writes on their declared role gates", async () => {

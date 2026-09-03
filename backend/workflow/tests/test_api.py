@@ -8,7 +8,12 @@ from urllib.parse import quote
 from django.test import TestCase, override_settings
 
 from sales.tests.factories import TEST_SECRET, signed_headers
-from workflow.models import NewProductActivity, NewProductProject, WorkflowWriteAuthority
+from workflow.models import (
+    NewProductActivity,
+    NewProductProject,
+    WorkflowOperationsWriteAuthority,
+    WorkflowWriteAuthority,
+)
 
 
 def body_bytes(payload: dict[str, object]) -> bytes:
@@ -99,17 +104,27 @@ class WorkflowApiContractTests(TestCase):
     def test_workflow_writer_readiness_validates_authority_and_schema(self) -> None:
         self.assertEqual(self.create_project("workflow-ready-writer").status_code, 201)
         authority_epoch = uuid.uuid4()
+        operations_epoch = uuid.uuid4()
         cutover_id = "workflow-ready-cutover"
+        operations_cutover_id = "workflow-operations-ready-cutover"
         WorkflowWriteAuthority.objects.filter(id=1).update(
             authority_epoch=authority_epoch,
             cutover_id=cutover_id,
             migration_verify_run_id="workflow-" + "a" * 32,
+        )
+        WorkflowOperationsWriteAuthority.objects.filter(id=1).update(
+            status="postgres",
+            authority_epoch=operations_epoch,
+            cutover_id=operations_cutover_id,
+            migration_verify_run_id="workflow-ops-" + "b" * 32,
         )
         with override_settings(
             DJANGO_PROCESS_ROLE="workflow_writer",
             DJANGO_EXPECT_READ_ONLY=False,
             WORKFLOW_WRITE_AUTHORITY_EPOCH=str(authority_epoch),
             WORKFLOW_WRITE_CUTOVER_ID=cutover_id,
+            WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH=str(operations_epoch),
+            WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID=operations_cutover_id,
         ):
             response = self.client.get("/health/ready")
         self.assertEqual(response.status_code, 200, response.content)

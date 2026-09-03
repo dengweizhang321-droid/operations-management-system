@@ -143,6 +143,7 @@ def collect_evidence(
         workflow_required = {
             "workflow_data_revisions",
             "workflow_write_authority",
+            "workflow_operations_write_authority",
             "workflow_new_product_projects",
             "workflow_new_product_targets",
             "workflow_new_product_stages",
@@ -151,6 +152,16 @@ def collect_evidence(
             "workflow_new_product_line_codes",
             "workflow_new_product_weekly_report_config",
             "workflow_new_product_weekly_deliveries",
+            "workflow_tasks",
+            "workflow_task_comments",
+            "workflow_task_activity_logs",
+            "workflow_task_reminders",
+            "workflow_task_templates",
+            "workflow_task_entity_links",
+            "workflow_task_attachments",
+            "workflow_attachment_cleanup_queue",
+            "workflow_operation_records",
+            "workflow_operation_activities",
         }
         workflow_tables = {name for name in tables if name.startswith("workflow_")}
         if workflow_tables:
@@ -412,6 +423,7 @@ def collect_evidence(
 
         workflow_revisions: dict[str, dict[str, Any]] | None = None
         workflow_authority: dict[str, str] | None = None
+        workflow_operations_authority: dict[str, str] | None = None
         if workflow_tables:
             cursor.execute(
                 "SELECT domain, revision, source_digest "
@@ -464,6 +476,36 @@ def collect_evidence(
                 "cutoverId": workflow_cutover,
                 "migrationRunId": workflow_run,
             }
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM workflow_operations_write_authority WHERE id=1"
+            )
+            operations_authority_row = cursor.fetchone()
+            if operations_authority_row is None:
+                raise RuntimeError("workflow operations write authority singleton is missing")
+            operations_status, operations_epoch, operations_cutover, operations_run = (
+                str(value or "") for value in operations_authority_row
+            )
+            if operations_status not in {"disabled", "postgres"}:
+                raise RuntimeError("workflow operations write authority status is invalid")
+            if operations_run and re.fullmatch(r"workflow-ops-[0-9a-f]{32}", operations_run) is None:
+                raise RuntimeError("workflow operations migration run evidence is invalid")
+            if operations_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", operations_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", operations_cutover) is None
+                    or not operations_run
+                ):
+                    raise RuntimeError("active workflow operations authority evidence is incomplete")
+            elif operations_epoch or operations_cutover:
+                raise RuntimeError("inactive workflow operations authority contains activation evidence")
+            workflow_operations_authority = {
+                "status": operations_status,
+                "authorityEpoch": operations_epoch,
+                "cutoverId": operations_cutover,
+                "migrationRunId": operations_run,
+            }
 
     content = {
         "tables": row_counts,
@@ -487,9 +529,14 @@ def collect_evidence(
     if inventory_revisions is not None and inventory_authority is not None:
         content["inventoryRevisions"] = inventory_revisions
         content["inventoryWriteAuthority"] = inventory_authority
-    if workflow_revisions is not None and workflow_authority is not None:
+    if (
+        workflow_revisions is not None
+        and workflow_authority is not None
+        and workflow_operations_authority is not None
+    ):
         content["workflowRevisions"] = workflow_revisions
         content["workflowWriteAuthority"] = workflow_authority
+        content["workflowOperationsWriteAuthority"] = workflow_operations_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

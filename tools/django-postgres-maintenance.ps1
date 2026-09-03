@@ -260,7 +260,9 @@ function Assert-MaintenanceEvidence(
   }
   $hasWorkflowRevisions = $null -ne $Evidence.PSObject.Properties["workflowRevisions"]
   $hasWorkflowAuthority = $null -ne $Evidence.PSObject.Properties["workflowWriteAuthority"]
-  if ($hasWorkflowRevisions -ne $hasWorkflowAuthority) {
+  $hasWorkflowOperationsAuthority = $null -ne $Evidence.PSObject.Properties["workflowOperationsWriteAuthority"]
+  if ($hasWorkflowRevisions -ne $hasWorkflowAuthority -or
+      $hasWorkflowRevisions -ne $hasWorkflowOperationsAuthority) {
     throw "PostgreSQL 运营事务新品证据字段不完整"
   }
   $evidenceProperties = @(
@@ -280,7 +282,9 @@ function Assert-MaintenanceEvidence(
     $evidenceProperties += @("inventoryRevisions", "inventoryWriteAuthority")
   }
   if ($hasWorkflowRevisions) {
-    $evidenceProperties += @("workflowRevisions", "workflowWriteAuthority")
+    $evidenceProperties += @(
+      "workflowRevisions", "workflowWriteAuthority", "workflowOperationsWriteAuthority"
+    )
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -342,10 +346,15 @@ function Assert-MaintenanceEvidence(
   if ($hasWorkflowRevisions) {
     $requiredTables += @(
       "workflow_data_revisions", "workflow_write_authority",
+      "workflow_operations_write_authority",
       "workflow_new_product_projects", "workflow_new_product_targets",
       "workflow_new_product_stages", "workflow_new_product_activities",
       "workflow_new_product_lines", "workflow_new_product_line_codes",
-      "workflow_new_product_weekly_report_config", "workflow_new_product_weekly_deliveries"
+      "workflow_new_product_weekly_report_config", "workflow_new_product_weekly_deliveries",
+      "workflow_tasks", "workflow_task_comments", "workflow_task_activity_logs",
+      "workflow_task_reminders", "workflow_task_templates", "workflow_task_entity_links",
+      "workflow_task_attachments", "workflow_attachment_cleanup_queue",
+      "workflow_operation_records", "workflow_operation_activities"
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
@@ -608,6 +617,29 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($workflowEpoch) -or
               -not [string]::IsNullOrEmpty($workflowCutoverId)) {
       throw "未激活的运营事务新品写入权威包含激活证据"
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.workflowOperationsWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "运营事务全板块写入权威证据"
+    $workflowOperationsStatus = [string]$Evidence.workflowOperationsWriteAuthority.status
+    $workflowOperationsEpoch = [string]$Evidence.workflowOperationsWriteAuthority.authorityEpoch
+    $workflowOperationsCutoverId = [string]$Evidence.workflowOperationsWriteAuthority.cutoverId
+    $workflowOperationsRunId = [string]$Evidence.workflowOperationsWriteAuthority.migrationRunId
+    if ($workflowOperationsStatus -notin @("disabled", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($workflowOperationsRunId) -and
+          $workflowOperationsRunId -cnotmatch "^workflow-ops-[0-9a-f]{32}$")) {
+      throw "运营事务全板块写入权威证据无效"
+    }
+    if ($workflowOperationsStatus -ceq "postgres") {
+      if ([int64]$Evidence.workflowRevisions.workflow.revision -lt 1 -or
+          $workflowOperationsEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $workflowOperationsCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $workflowOperationsRunId -cnotmatch "^workflow-ops-[0-9a-f]{32}$") {
+        throw "运营事务全板块 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($workflowOperationsEpoch) -or
+              -not [string]::IsNullOrEmpty($workflowOperationsCutoverId)) {
+      throw "未激活的运营事务全板块写入权威包含激活证据"
     }
   }
 }

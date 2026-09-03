@@ -206,6 +206,36 @@ function fakeInventorySearchReader(input: {
   };
 }
 
+function fakeWorkflowSearchReader(input: {
+  items?: Array<{
+    resultId: string;
+    targetHint: "task" | "inspection" | "review" | "launch";
+    title: string;
+    subtitle: string;
+    detail: string;
+    updatedAt: string;
+    amountCents: number | null;
+  }>;
+  total?: number;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): WorkflowConsumerReader {
+  return {
+    async read(principal, request) {
+      input.calls?.push({ principal, request });
+      assert.equal(request.operation, "workflow_search");
+      const items = input.items ?? [];
+      return {
+        revision: "3:abcdef123456",
+        data: {
+          items: items.slice(request.offset, request.offset + request.limit),
+          total: input.total ?? items.length,
+          truncated: request.offset + request.limit < (input.total ?? items.length),
+        },
+      };
+    },
+  };
+}
+
 test("全局搜索校验关键词、分组和严格分页上限", () => {
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=一")), GlobalSearchRequestError);
   assert.throws(() => normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=sqlite_master")), /允许清单/);
@@ -761,6 +791,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
       netshopReader: fakeNetshopSearchReader(),
       productsReader: fakeProductsSearchReader(),
       inventoryReader: fakeInventorySearchReader(),
+      workflowReader: fakeWorkflowSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -769,53 +800,46 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
   sqlite.close();
 });
 
-test("运营事务搜索兼容尚未创建运营记录和状态表的旧库", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(`CREATE TABLE workflow_tasks (
-    id TEXT PRIMARY KEY, title TEXT NOT NULL, work_content TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
-    owner TEXT NOT NULL DEFAULT '', shop_name TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, priority TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-  INSERT INTO workflow_tasks (id, title, work_content, category, owner, shop_name, status, priority)
-    VALUES ('legacy-1', '旧库巡店任务', '检查价格', '巡店检查', '运营组', '测试店', '待开始', 'normal');`);
+test("运营事务搜索只使用 Django consumer 且不回查 D1", async () => {
+  let businessStatements = 0;
   const database = {
     prepare(sql: string) {
-      let values: Array<string | number | bigint | Uint8Array | null> = [];
       return {
-        bind(...next: unknown[]) { values = next as typeof values; return this; },
-        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+        bind() { return this; },
+        async all<T>() {
+          if (!sql.includes("sqlite_master")) businessStatements += 1;
+          return { results: [] as T[] };
+        },
       };
     },
   } as GlobalSearchDatabase;
+  const calls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const result = await searchAllBusinessData(database,
-    normalizeGlobalSearchRequest(new URLSearchParams("q=旧库巡店&group=workflow")), admin);
+    normalizeGlobalSearchRequest(new URLSearchParams("q=巡店任务&group=workflow")), admin, {
+      workflowReader: fakeWorkflowSearchReader({
+        calls,
+        items: [{
+          resultId: "task:task-1", targetHint: "task", title: "巡店任务",
+          subtitle: "巡店检查 · 待开始", detail: "检查价格 · 运营组",
+          updatedAt: "2026-09-03T08:00:00Z", amountCents: null,
+        }],
+      }),
+    });
   assert.equal(result.groups[0]?.available, true);
   assert.equal(result.groups[0]?.total, 1);
-  assert.equal(result.groups[0]?.items[0]?.id, "task:legacy-1");
+  assert.equal(result.groups[0]?.items[0]?.id, "task:task-1");
   assert.deepEqual(result.groups[0]?.items[0]?.target, { module: "workflow", view: "plan" });
-  sqlite.close();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.request.operation, "workflow_search");
+  assert.equal(businessStatements, 0);
 });
 
-test("运营事务真实 SQLite 结果只返回仍由 D1 承载的记录类型", async () => {
-  const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(`CREATE TABLE workflow_operation_records (
-    id TEXT PRIMARY KEY, record_type TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL DEFAULT '',
-    priority TEXT NOT NULL DEFAULT '', platform TEXT NOT NULL DEFAULT '', channel TEXT NOT NULL DEFAULT '',
-    shop_name TEXT NOT NULL DEFAULT '', owner TEXT NOT NULL DEFAULT '', content TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT
-  );
-  INSERT INTO workflow_operation_records
-    (id, record_type, title, platform, channel, shop_name, content)
-  VALUES
-    ('inspection-1', 'inspection', '导航巡店', '京东', '线上', '一店', '导航'),
-    ('review-1', 'review', '导航评价', '京东', '线上', '一店', '导航'),
-    ('launch-1', 'launch', '导航新品', '京东', '线上', '一店', '导航');`);
+test("Django 运营事务统一搜索返回精确导航目标", async () => {
   const database = {
-    prepare(sql: string) {
-      let values: Array<string | number | bigint | Uint8Array | null> = [];
+    prepare(_sql: string) {
       return {
-        bind(...next: unknown[]) { values = next as typeof values; return this; },
-        async all<T>() { return { results: sqlite.prepare(sql).all(...values) as T[] }; },
+        bind() { return this; },
+        async all<T>() { return { results: [] as T[] }; },
       };
     },
   } as GlobalSearchDatabase;
@@ -823,12 +847,16 @@ test("运营事务真实 SQLite 结果只返回仍由 D1 承载的记录类型",
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=导航&group=workflow&limit=8")),
     admin,
+    { workflowReader: fakeWorkflowSearchReader({ items: [
+      { resultId: "operation:inspection-1", targetHint: "inspection", title: "导航巡店", subtitle: "巡店检查", detail: "导航", updatedAt: "2026-09-03T10:00:00Z", amountCents: null },
+      { resultId: "operation:review-1", targetHint: "review", title: "导航评价", subtitle: "评价维护", detail: "导航", updatedAt: "2026-09-03T09:00:00Z", amountCents: null },
+      { resultId: "launch:launch-1", targetHint: "launch", title: "导航新品", subtitle: "新品上架", detail: "导航", updatedAt: "2026-09-03T08:00:00Z", amountCents: null },
+    ] }) },
   );
   const targets = new Map(result.groups[0]?.items.map((item) => [item.id, item.target]));
   assert.deepEqual(targets.get("operation:inspection-1"), { module: "workflow", view: "inspection" });
   assert.deepEqual(targets.get("operation:review-1"), { module: "workflow", view: "reviews" });
-  assert.equal(targets.has("operation:launch-1"), false);
-  sqlite.close();
+  assert.deepEqual(targets.get("launch:launch-1"), { module: "workflow", view: "launch" });
 });
 
 test("Django 运营事务模式优先检索结构化新品且不回查旧新品记录", async () => {
@@ -853,27 +881,27 @@ test("Django 运营事务模式优先检索结构化新品且不回查旧新品�
       };
     },
   } as GlobalSearchDatabase;
-  const calls: Array<Record<string, unknown>> = [];
-  const workflowReader: WorkflowConsumerReader = {
-    async read(_principal, request) {
-      calls.push(request);
-      return {
-        revision: "2:abcdef123456",
-        data: {
-          items: [{
-            id: "7e28149d-f0bd-4fb8-b87f-77e507b28130",
-            title: "净水器结构化新品",
-            subtitle: "供应商甲 · 商用净水 · 进行中",
-            detail: "SKU-NEW-1 · 新品负责人",
-            updatedAt: "2026-09-01T10:00:00+08:00",
-            amountCents: 399_900,
-          }],
-          total: 1,
-          truncated: false,
-        },
-      };
+  const calls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
+  const workflowReader = fakeWorkflowSearchReader({ calls, items: [
+    {
+      resultId: "launch:7e28149d-f0bd-4fb8-b87f-77e507b28130",
+      targetHint: "launch",
+      title: "净水器结构化新品",
+      subtitle: "供应商甲 · 商用净水 · 进行中",
+      detail: "SKU-NEW-1 · 新品负责人",
+      updatedAt: "2026-09-03T10:00:00+08:00",
+      amountCents: 399_900,
     },
-  };
+    {
+      resultId: "operation:review-1",
+      targetHint: "review",
+      title: "净水器复盘",
+      subtitle: "评价维护 · 待回复",
+      detail: "净水器",
+      updatedAt: "2026-09-02T10:00:00+08:00",
+      amountCents: null,
+    },
+  ] });
   const result = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水器&group=workflow&limit=8")),
@@ -887,7 +915,7 @@ test("Django 运营事务模式优先检索结构化新品且不回查旧新品�
   assert.equal(result.groups[0]?.total, 2);
   assert.equal(result.groups[0]?.totalExact, true);
   assert.deepEqual(result.groups[0]?.items[0]?.target, { module: "workflow", view: "launch" });
-  assert.equal(calls[0]?.operation, "launch_project_search");
+  assert.equal(calls[0]?.request.operation, "workflow_search");
   assert.equal(result.groups[0]?.items.some((item) => item.id.includes("legacy-launch")), false);
   sqlite.close();
 });
@@ -1136,6 +1164,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
       netshopReader: fakeNetshopSearchReader(),
       productsReader: fakeProductsSearchReader(),
       inventoryReader: fakeInventorySearchReader(),
+      workflowReader: fakeWorkflowSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -1144,14 +1173,14 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 9);
-  assert.equal(statementCount, 10);
+  assert.equal(businessCalls.length, 7);
+  assert.equal(statementCount, 8);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
   const workflowCountCalls = businessCalls.filter(({ sql }) => /SELECT COUNT\(\*\) AS total_count FROM \(/i.test(sql));
   assert.equal(businessCalls.filter(({ sql }) => /LIMIT \? OFFSET \?/i.test(sql))
     .every(({ values }) => [1, 2, 3].includes(Number(values.at(-2))) && values.at(-1) === 0), true);
   assert.equal(localImportCalls.length, 2);
-  assert.equal(workflowCountCalls.length, 1);
+  assert.equal(workflowCountCalls.length, 0);
   assert.equal(businessCalls.some(({ sql }) => /sales_order_lines|sales_import_batches/i.test(sql)), false);
   assert.equal(businessCalls.some(({ sql }) => sql.includes("messages_json")), false);
 });

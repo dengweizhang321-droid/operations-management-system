@@ -75,6 +75,277 @@ class WorkflowWriteRequestReceipt(models.Model):
         db_table = "workflow_write_request_receipts"
 
 
+class WorkflowOperationsWriteAuthority(models.Model):
+    """Independent cutover fence for the legacy work-plan/operations scope."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    status = models.CharField(max_length=16, default="disabled")
+    authority_epoch = models.UUIDField(null=True, blank=True)
+    cutover_id = models.CharField(max_length=128, default="")
+    migration_verify_run_id = models.CharField(max_length=64, default="")
+    activated_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "workflow_operations_write_authority"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(id=1), name="workflow_ops_auth_singleton_ck"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=["disabled", "postgres"]),
+                name="workflow_ops_auth_status_ck",
+            ),
+        ]
+
+
+class WorkflowOperationsMigrationRun(models.Model):
+    id = models.CharField(primary_key=True, max_length=64)
+    mode = models.CharField(max_length=16)
+    status = models.CharField(max_length=24)
+    source_path_digest = models.CharField(max_length=64)
+    source_snapshot_digest = models.CharField(max_length=64)
+    target_snapshot_digest = models.CharField(max_length=64, default="")
+    source_counts = models.JSONField(default=dict)
+    target_counts = models.JSONField(default=dict)
+    approved_run_id = models.CharField(max_length=64, default="")
+    manifest = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "workflow_operations_migration_runs"
+
+
+class WorkflowTask(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    title = models.CharField(max_length=160)
+    work_content = models.TextField(default="")
+    category = models.CharField(max_length=80, default="工作计划")
+    owner = models.CharField(max_length=120, default="")
+    shop_name = models.CharField(max_length=160, default="")
+    start_date = models.CharField(max_length=10, default="待排期")
+    due_date = models.CharField(max_length=10, default="待排期")
+    status = models.CharField(max_length=16, default="待开始")
+    priority = models.CharField(max_length=16, default="normal")
+    version = models.PositiveBigIntegerField(default=1)
+    mutation_token = models.CharField(max_length=128, default="")
+    created_by = models.CharField(max_length=320)
+    updated_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.CharField(max_length=320, default="")
+
+    class Meta:
+        db_table = "workflow_tasks"
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="workflow_task_status_idx"),
+            models.Index(fields=["deleted_at", "id"], name="workflow_task_deleted_idx"),
+            models.Index(fields=["updated_at", "id"], name="workflow_task_updated_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(version__gte=1), name="workflow_task_version_ck"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=["待开始", "工作中", "已完成"]),
+                name="workflow_task_status_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(priority__in=["high", "normal", "low"]),
+                name="workflow_task_priority_ck",
+            ),
+        ]
+
+
+class WorkflowTaskComment(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    task = models.ForeignKey(WorkflowTask, on_delete=models.CASCADE, related_name="comments")
+    content = models.TextField()
+    created_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_comments"
+        indexes = [models.Index(fields=["task", "created_at", "id"], name="workflow_task_comment_idx")]
+
+
+class WorkflowTaskActivityLog(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    task = models.ForeignKey(WorkflowTask, on_delete=models.CASCADE, related_name="activity_logs")
+    action = models.CharField(max_length=64)
+    summary = models.CharField(max_length=500)
+    metadata = models.JSONField(default=dict)
+    actor_email = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_activity_logs"
+        indexes = [models.Index(fields=["task", "created_at", "id"], name="workflow_task_activity_idx")]
+
+
+class WorkflowTaskReminder(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    task = models.ForeignKey(WorkflowTask, on_delete=models.CASCADE, related_name="reminders")
+    remind_at = models.DateTimeField()
+    note = models.CharField(max_length=500, default="")
+    status = models.CharField(max_length=16, default="pending")
+    created_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_reminders"
+        indexes = [models.Index(fields=["task", "status", "remind_at"], name="workflow_task_reminder_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=["pending", "dismissed", "sent"]),
+                name="workflow_task_reminder_status_ck",
+            ),
+        ]
+
+
+class WorkflowTaskTemplate(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    name = models.CharField(max_length=160)
+    description = models.CharField(max_length=500, default="")
+    title = models.CharField(max_length=160, default="")
+    work_content = models.TextField(default="")
+    category = models.CharField(max_length=80, default="工作计划")
+    owner = models.CharField(max_length=120, default="")
+    shop_name = models.CharField(max_length=160, default="")
+    start_offset_days = models.IntegerField(default=0)
+    due_offset_days = models.IntegerField(default=0)
+    priority = models.CharField(max_length=16, default="normal")
+    active = models.BooleanField(default=True)
+    version = models.PositiveBigIntegerField(default=1)
+    mutation_token = models.CharField(max_length=128, default="")
+    created_by = models.CharField(max_length=320)
+    updated_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_templates"
+        indexes = [models.Index(fields=["active", "updated_at", "id"], name="workflow_template_active_idx")]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(version__gte=1), name="workflow_template_version_ck"),
+            models.CheckConstraint(
+                condition=models.Q(priority__in=["high", "normal", "low"]),
+                name="workflow_template_priority_ck",
+            ),
+        ]
+
+
+class WorkflowTaskEntityLink(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    task = models.ForeignKey(WorkflowTask, on_delete=models.CASCADE, related_name="entity_links")
+    entity_type = models.CharField(max_length=24)
+    entity_id = models.CharField(max_length=240)
+    label = models.CharField(max_length=240)
+    url = models.URLField(max_length=1000, default="")
+    created_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_entity_links"
+        indexes = [models.Index(fields=["task", "created_at", "id"], name="workflow_task_link_idx")]
+        constraints = [
+            models.UniqueConstraint(fields=["task", "entity_type", "entity_id"], name="workflow_task_link_uq"),
+            models.CheckConstraint(
+                condition=models.Q(entity_type__in=["shop", "product", "campaign", "order", "report", "url"]),
+                name="workflow_task_link_type_ck",
+            ),
+        ]
+
+
+class WorkflowTaskAttachment(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    task = models.ForeignKey(WorkflowTask, on_delete=models.CASCADE, related_name="attachments")
+    file_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=120)
+    size_bytes = models.PositiveBigIntegerField()
+    sha256 = models.CharField(max_length=64)
+    object_key = models.CharField(max_length=500, unique=True)
+    created_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_task_attachments"
+        indexes = [models.Index(fields=["task", "created_at", "id"], name="workflow_task_attach_idx")]
+
+
+class WorkflowAttachmentCleanup(models.Model):
+    object_key = models.CharField(primary_key=True, max_length=500)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=500, default="")
+    enqueued_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_attachment_cleanup_queue"
+        indexes = [models.Index(fields=["updated_at", "object_key"], name="workflow_attach_cleanup_idx")]
+
+
+class WorkflowOperationRecord(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    record_type = models.CharField(max_length=16)
+    title = models.CharField(max_length=200)
+    status = models.CharField(max_length=24)
+    priority = models.CharField(max_length=16, default="normal")
+    platform = models.CharField(max_length=80, default="")
+    channel = models.CharField(max_length=80, default="")
+    shop_name = models.CharField(max_length=160)
+    owner = models.CharField(max_length=120, default="")
+    occurred_at = models.DateTimeField()
+    due_at = models.DateTimeField(null=True, blank=True)
+    content = models.TextField(default="")
+    source = models.CharField(max_length=24, default="manual")
+    source_ref = models.CharField(max_length=300, default="")
+    reference_code = models.CharField(max_length=160, default="")
+    version = models.PositiveBigIntegerField(default=1)
+    mutation_token = models.CharField(max_length=128, default="")
+    created_by = models.CharField(max_length=320)
+    updated_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.CharField(max_length=320, default="")
+
+    class Meta:
+        db_table = "workflow_operation_records"
+        indexes = [
+            models.Index(fields=["record_type", "status", "occurred_at", "id"], name="workflow_ops_type_time_idx"),
+            models.Index(fields=["shop_name", "record_type", "occurred_at", "id"], name="workflow_ops_shop_time_idx"),
+            models.Index(fields=["updated_at", "id"], name="workflow_ops_updated_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(record_type__in=["inspection", "review"]), name="workflow_ops_type_ck"),
+            models.CheckConstraint(condition=models.Q(priority__in=["high", "normal", "low"]), name="workflow_ops_priority_ck"),
+            models.CheckConstraint(condition=models.Q(source__in=["manual", "system", "import", "integration"]), name="workflow_ops_source_ck"),
+            models.CheckConstraint(condition=models.Q(version__gte=1), name="workflow_ops_version_ck"),
+        ]
+
+
+class WorkflowOperationActivity(models.Model):
+    id = models.CharField(primary_key=True, max_length=128)
+    record = models.ForeignKey(WorkflowOperationRecord, on_delete=models.CASCADE, related_name="activities")
+    action = models.CharField(max_length=24)
+    actor_email = models.CharField(max_length=320)
+    actor_role = models.CharField(max_length=16)
+    from_version = models.PositiveBigIntegerField(null=True, blank=True)
+    to_version = models.PositiveBigIntegerField()
+    detail = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "workflow_operation_activities"
+        indexes = [models.Index(fields=["record", "to_version", "id"], name="workflow_ops_activity_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(action__in=["created", "updated", "status_changed", "deleted"]),
+                name="workflow_ops_activity_action_ck",
+            ),
+        ]
+
+
 class NewProductProject(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     product_name = models.CharField(max_length=200)

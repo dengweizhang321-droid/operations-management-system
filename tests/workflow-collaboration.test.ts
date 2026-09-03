@@ -103,7 +103,7 @@ test("validates attachment content, hides object keys, verifies downloads, and r
     async get(key: string) { const value = objects.get(key); return value ? { body: new ReadableStream(), httpEtag: "test", async arrayBuffer() { return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength); } } : null; },
     async head(key: string) { return objects.has(key) ? {} : null; },
     async delete(keys: string | string[]) { for (const key of Array.isArray(keys) ? keys : [keys]) objects.delete(key); },
-  } as R2Bucket);
+  } as unknown as R2Bucket);
   const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34])], "检查报告.pdf", { type: "application/pdf" });
   const attachment = await createWorkflowTaskAttachment(task.id, file, "operator@example.com", db);
   assert.equal(Object.hasOwn(attachment, "objectKey"), false);
@@ -143,7 +143,7 @@ test("persists an R2 cleanup outbox entry when both metadata save and immediate 
       if (failDelete) throw new Error("private-storage-detail");
       for (const item of Array.isArray(key) ? key : [key]) objects.delete(item);
     },
-  } as R2Bucket);
+  } as unknown as R2Bucket);
   failNextBatch = true;
   const file = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], "outbox.pdf", { type: "application/pdf" });
   await assert.rejects(createWorkflowTaskAttachment(task.id, file, "operator@example.com", db), /simulated_d1_failure/);
@@ -194,8 +194,10 @@ test("workflow collaboration routes are authenticated, operator-writable, and fa
   }
   const taskDomain = await readFile(new URL("../lib/workflow/tasks.ts", import.meta.url), "utf8");
   const taskRoute = await readFile(new URL("../app/api/workflow/tasks/route.ts", import.meta.url), "utf8");
-  assert.match(taskRoute, /params\.get\("q"\) \?\? params\.get\("query"\) \?\? undefined/,
-    "a missing search query must remain undefined instead of becoming invalid null input");
+  assert.match(taskRoute, /rawQuery: new URL\(request\.url\)\.searchParams\.toString\(\)/,
+    "the thin edge route must preserve the exact query string for Django validation");
+  assert.doesNotMatch(taskRoute, /params\.get\("q"\)|params\.get\("query"\)/,
+    "the edge route must not duplicate Django search parsing");
   assert.match(taskDomain, /task\.created/);
   assert.match(taskDomain, /task\.status_changed/);
   assert.match(taskDomain, /changedFields/);

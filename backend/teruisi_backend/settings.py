@@ -213,6 +213,12 @@ WORKFLOW_WRITE_AUTHORITY_EPOCH = os.getenv(
 WORKFLOW_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_WORKFLOW_CUTOVER_ID", ""
 ).strip()
+WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH", ""
+).strip()
+WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -313,6 +319,12 @@ if DJANGO_PROCESS_ROLE == "workflow_writer":
         raise RuntimeError("Django workflow_writer 必须配置有效的运营事务 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", WORKFLOW_WRITE_CUTOVER_ID):
         raise RuntimeError("Django workflow_writer 必须配置有效的运营事务 cutover id")
+    try:
+        uuid.UUID(WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django workflow_writer 必须配置有效的运营事务全板块 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django workflow_writer 必须配置有效的运营事务全板块 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )

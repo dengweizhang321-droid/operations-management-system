@@ -740,158 +740,31 @@ async function queryStaticGroup(db: GlobalSearchDatabase, definition: SearchGrou
 }
 
 async function queryWorkflowGroup(
-  db: GlobalSearchDatabase,
-  tables: Set<string>,
   request: GlobalSearchRequest,
-  like: string,
   principal: AppPrincipal,
   workflowReader: WorkflowConsumerReader,
   signal?: AbortSignal,
 ) {
-  const source = await queryLegacyWorkflowSource(
-    db,
-    tables,
-    like,
-    principal,
-    0,
-    request.groupLimit,
-    true,
-  );
-
-  // Structured launch projects are the first, stable segment of the workflow
-  // group after cutover.  Tasks, inspections and reviews remain in their D1
-  // authority as the second segment.  This preserves exact cross-source
-  // pagination without pretending that two databases share one timestamp sort.
   const offset = (request.page - 1) * request.groupLimit;
-  let structuredTotal = 0;
-  let structuredRows: SearchRow[] = [];
-  let structuredComplete = principal.scope !== null;
-  if (principal.scope === null) {
-    try {
-      const result = await workflowReader.read(principal, {
-        operation: "launch_project_search",
-        query: request.query,
-        offset,
-        limit: request.groupLimit,
-      }, { signal });
-      structuredTotal = result.data.total;
-      structuredRows = result.data.items.map((item) => ({
-        result_id: `launch:${item.id}`,
-        title: item.title,
-        subtitle: item.subtitle,
-        detail: item.detail,
-        updated_at: item.updatedAt,
-        amount_cents: item.amountCents,
-        target_hint: "launch",
-      }));
-      structuredComplete = true;
-    } catch {
-      structuredComplete = false;
-    }
-  }
-
-  const visible: SearchRow[] = [];
-  let legacyOffset = 0;
-  if (structuredComplete && offset < structuredTotal) {
-    visible.push(...structuredRows.slice(0, request.groupLimit));
-  } else if (structuredComplete) {
-    legacyOffset = offset - structuredTotal;
-  } else {
-    legacyOffset = offset;
-  }
-  const remaining = request.groupLimit - visible.length;
-  const legacy = remaining === request.groupLimit && legacyOffset === 0
-    ? source
-    : await queryLegacyWorkflowSource(
-      db,
-      tables,
-      like,
-      principal,
-      legacyOffset,
-      remaining,
-      true,
-    );
-  if (remaining > 0 && legacy.complete) visible.push(...legacy.rows.slice(0, remaining));
-
-  const available = structuredComplete || legacy.available;
-  if (!available) return emptyGroup(workflowDefinition, false);
-  if (structuredComplete && legacy.complete) {
-    return mapSearchRows(
-      workflowDefinition,
-      visible,
-      request,
-      principal,
-      structuredTotal + legacy.total,
-    );
-  }
-  const lowerBound = structuredComplete ? structuredTotal : legacy.complete ? legacy.total : 0;
-  const partial = mapSearchRows(workflowDefinition, visible, request, principal, lowerBound);
-  return { ...partial, totalExact: false, hasMore: partial.hasMore || !structuredComplete || !legacy.complete };
-}
-
-async function queryLegacyWorkflowSource(
-  db: GlobalSearchDatabase,
-  tables: Set<string>,
-  like: string,
-  principal: AppPrincipal,
-  offset: number,
-  limit: number,
-  exactCount: boolean,
-): Promise<{ available: boolean; complete: boolean; total: number; rows: SearchRow[] }> {
-  const fragments: string[] = [];
-  const binds: unknown[] = [];
-  // Legacy task databases did not have the state companion table. They remain
-  // searchable until the idempotent schema upgrader backfills that table.
-  if (tables.has("workflow_tasks") && principal.scope === null) {
-    const stateJoin = tables.has("workflow_task_states")
-      ? "JOIN workflow_task_states s ON s.task_id = t.id"
-      : "";
-    const activeClause = tables.has("workflow_task_states") ? "AND s.deleted_at IS NULL" : "";
-    fragments.push(`SELECT 'task:' || t.id AS result_id, t.title AS title,
-      t.category || CASE WHEN t.status <> '' THEN ' · ' || t.status ELSE '' END AS subtitle,
-      COALESCE(NULLIF(t.work_content, ''), t.shop_name) || CASE WHEN t.owner <> '' THEN ' · ' || t.owner ELSE '' END AS detail,
-      t.updated_at AS updated_at, NULL AS amount_cents, 'task' AS target_hint
-      FROM workflow_tasks t ${stateJoin}
-      WHERE (t.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.work_content LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR t.category LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR t.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.status LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR t.priority LIKE ? ESCAPE '\\' COLLATE NOCASE) ${activeClause}`);
-    binds.push(like, like, like, like, like, like, like);
-  }
-  if (tables.has("workflow_operation_records")) {
-    const scope = scopeSql(principal, "channel_platform", { channel: "o.channel", platform: "o.platform" });
-    fragments.push(`SELECT 'operation:' || o.id AS result_id, o.title AS title,
-      CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END
-        || CASE WHEN o.status <> '' THEN ' · ' || o.status ELSE '' END AS subtitle,
-      COALESCE(NULLIF(o.content, ''), o.shop_name) || CASE WHEN o.owner <> '' THEN ' · ' || o.owner ELSE '' END AS detail,
-      o.updated_at AS updated_at, NULL AS amount_cents, o.record_type AS target_hint
-      FROM workflow_operation_records o
-      WHERE o.deleted_at IS NULL AND (o.title LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.content LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR (CASE o.record_type WHEN 'inspection' THEN '巡店检查' WHEN 'review' THEN '评价维护' ELSE '新品上架' END) LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.owner LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR o.shop_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR o.status LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR o.priority LIKE ? ESCAPE '\\' COLLATE NOCASE)
-        AND o.record_type <> 'launch' ${scope.clause}`);
-    binds.push(like, like, like, like, like, like, like, ...scope.values);
-  }
-  if (fragments.length === 0) return { available: false, complete: true, total: 0, rows: [] };
-  const union = fragments.join(" UNION ALL ");
   try {
-    let total = 0;
-    if (exactCount) {
-      const countResult = await db.prepare(`SELECT COUNT(*) AS total_count FROM (${union})`)
-        .bind(...binds)
-        .all<{ total_count: number }>();
-      total = Number(countResult.results?.[0]?.total_count ?? 0);
-      if (!Number.isSafeInteger(total) || total < 0) throw new Error("workflow_search_count_invalid");
-    }
-    if (limit === 0) return { available: true, complete: true, total, rows: [] };
-    const result = await db.prepare(`SELECT result_id, title, subtitle, detail, updated_at, amount_cents, target_hint
-      FROM (${union}) ORDER BY updated_at DESC, result_id ASC LIMIT ? OFFSET ?`)
-      .bind(...binds, limit, offset)
-      .all<SearchRow>();
-    return { available: true, complete: true, total, rows: result.results ?? [] };
+    const result = await workflowReader.read(principal, {
+      operation: "workflow_search",
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+    }, { signal });
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.resultId!,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+      target_hint: item.targetHint ?? "task",
+    }));
+    return mapSearchRows(workflowDefinition, rows, request, principal, result.data.total);
   } catch {
-    return { available: true, complete: false, total: 0, rows: [] };
+    return emptyGroup(workflowDefinition, false);
   }
 }
 
@@ -1713,14 +1586,9 @@ export async function searchAllBusinessData(
   if ((!request.group || request.group === "workflow") && allRoles.includes(principal.role)) {
     groupTasks.push({
       definition: workflowDefinition,
-      available: principal.scope === null
-        || (tables.has("workflow_tasks") && principal.scope === null)
-        || tables.has("workflow_operation_records"),
+      available: true,
       run: () => queryWorkflowGroup(
-        db,
-        tables,
         request,
-        like,
         principal,
         workflowReader,
         options.signal,

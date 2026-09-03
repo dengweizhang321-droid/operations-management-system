@@ -141,6 +141,7 @@ roles = {
 reader_tables = (
     "workflow_data_revisions",
     "workflow_write_authority",
+    "workflow_operations_write_authority",
     "workflow_new_product_projects",
     "workflow_new_product_targets",
     "workflow_new_product_stages",
@@ -149,6 +150,15 @@ reader_tables = (
     "workflow_new_product_line_codes",
     "workflow_new_product_weekly_report_config",
     "workflow_new_product_weekly_deliveries",
+    "workflow_tasks",
+    "workflow_task_comments",
+    "workflow_task_activity_logs",
+    "workflow_task_reminders",
+    "workflow_task_templates",
+    "workflow_task_entity_links",
+    "workflow_task_attachments",
+    "workflow_operation_records",
+    "workflow_operation_activities",
     "sales_order_lines",
     "sales_import_batches",
     "erp_product_master",
@@ -156,6 +166,7 @@ reader_tables = (
 writer_privileges = {
     "workflow_data_revisions": ("SELECT", "UPDATE"),
     "workflow_write_authority": ("SELECT",),
+    "workflow_operations_write_authority": ("SELECT",),
     "workflow_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "workflow_new_product_projects": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_targets": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -165,6 +176,16 @@ writer_privileges = {
     "workflow_new_product_line_codes": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_weekly_report_config": ("SELECT", "UPDATE"),
     "workflow_new_product_weekly_deliveries": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_tasks": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_task_comments": ("SELECT", "INSERT"),
+    "workflow_task_activity_logs": ("SELECT", "INSERT"),
+    "workflow_task_reminders": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_task_templates": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_task_entity_links": ("SELECT", "INSERT", "DELETE"),
+    "workflow_task_attachments": ("SELECT", "INSERT", "DELETE"),
+    "workflow_attachment_cleanup_queue": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "workflow_operation_records": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_operation_activities": ("SELECT", "INSERT"),
     "sales_order_lines": ("SELECT",),
     "sales_import_batches": ("SELECT",),
     "erp_product_master": ("SELECT",),
@@ -293,9 +314,10 @@ function Get-WorkflowWriteAuthority([object]$RuntimeSecrets, [object]$WorkflowSe
   $code = @'
 import json
 from django.db import connection
-from workflow.models import WorkflowWriteAuthority
+from workflow.models import WorkflowOperationsWriteAuthority, WorkflowWriteAuthority
 
 authority = WorkflowWriteAuthority.objects.filter(id=1).first()
+operations = WorkflowOperationsWriteAuthority.objects.filter(id=1).first()
 with connection.cursor() as cursor:
     cursor.execute("SHOW max_connections")
     max_connections = int(cursor.fetchone()[0])
@@ -304,6 +326,10 @@ print(json.dumps({
     "authorityEpoch": str(authority.authority_epoch) if authority and authority.authority_epoch else "",
     "cutoverId": authority.cutover_id if authority else "",
     "migrationRunId": authority.migration_verify_run_id if authority else "",
+    "operationsStatus": operations.status if operations else "missing",
+    "operationsAuthorityEpoch": str(operations.authority_epoch) if operations and operations.authority_epoch else "",
+    "operationsCutoverId": operations.cutover_id if operations else "",
+    "operationsMigrationRunId": operations.migration_verify_run_id if operations else "",
     "maxConnections": max_connections,
 }, separators=(",", ":")))
 '@
@@ -316,7 +342,9 @@ print(json.dumps({
     }
   $writerUrl = $null
   if (-not (Test-ExactObjectPropertyNames $payload @(
-        "status", "authorityEpoch", "cutoverId", "migrationRunId", "maxConnections"
+        "status", "authorityEpoch", "cutoverId", "migrationRunId",
+        "operationsStatus", "operationsAuthorityEpoch", "operationsCutoverId",
+        "operationsMigrationRunId", "maxConnections"
       ))) {
     throw "PostgreSQL 运营事务新品写入权威探针结构无效"
   }
@@ -326,12 +354,22 @@ print(json.dumps({
   if ([string]$payload.status -cnotin @("disabled", "postgres")) {
     throw "PostgreSQL 运营事务新品写入权威状态无效"
   }
+  if ([string]$payload.operationsStatus -cnotin @("disabled", "postgres")) {
+    throw "PostgreSQL 运营事务全板块写入权威状态无效"
+  }
   if ([string]$payload.status -ceq "postgres" -and (
       -not ([string]$payload.authorityEpoch -match "^[0-9a-fA-F-]{36}$") -or
       -not ([string]$payload.cutoverId -match "^[A-Za-z0-9._:-]{8,128}$") -or
       -not ([string]$payload.migrationRunId -match "^workflow-[0-9a-f]{32}$")
     )) {
     throw "PostgreSQL 运营事务新品写入权威证据不完整"
+  }
+  if ([string]$payload.operationsStatus -ceq "postgres" -and (
+      -not ([string]$payload.operationsAuthorityEpoch -match "^[0-9a-fA-F-]{36}$") -or
+      -not ([string]$payload.operationsCutoverId -match "^[A-Za-z0-9._:-]{8,128}$") -or
+      -not ([string]$payload.operationsMigrationRunId -match "^workflow-ops-[0-9a-f]{32}$")
+    )) {
+    throw "PostgreSQL 运营事务全板块写入权威证据不完整"
   }
   return $payload
 }
@@ -375,8 +413,11 @@ function Start-WorkflowWriter(
   [object]$WorkflowSecrets,
   [object]$Authority
 ) {
-  if ([string]$Authority.status -cne "postgres") {
-    throw "PostgreSQL 尚未成为运营事务新品唯一写入源；拒绝启动运营事务新品 writer"
+  if (
+    [string]$Authority.status -cne "postgres" -or
+    [string]$Authority.operationsStatus -cne "postgres"
+  ) {
+    throw "PostgreSQL 尚未成为运营事务完整板块唯一写入源；拒绝启动运营事务 writer"
   }
   $arguments = @(
     "--listen=127.0.0.1:8062", "--threads=4", "--connection-limit=20",
@@ -401,7 +442,8 @@ function Start-WorkflowWriter(
         $WorkflowWriterPidPath $fingerprint `
         (Join-Path $LogDirectory "django-workflow-writer.$RunId.stdout.log") `
         (Join-Path $LogDirectory "django-workflow-writer.$RunId.stderr.log") | Out-Null
-    }
+    } -WorkflowOperationsAuthorityEpoch ([string]$Authority.operationsAuthorityEpoch) `
+      -WorkflowOperationsCutoverId ([string]$Authority.operationsCutoverId)
   $writerUrl = $null
   try {
     Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
@@ -426,25 +468,36 @@ function Start-WorkflowStack([string]$LifecycleAclToken = "") {
     if (Test-Path -LiteralPath $WorkflowStartupPath -PathType Leaf) {
       $startup = Read-JsonFile $WorkflowStartupPath "Django 运营事务新品开机启动凭据"
       if (-not (Test-ExactObjectPropertyNames $startup @(
-            "version", "authorityEpoch", "cutoverId", "migrationRunId", "enabledAt"
+            "version", "authorityEpoch", "cutoverId", "migrationRunId",
+            "operationsAuthorityEpoch", "operationsCutoverId", "operationsMigrationRunId",
+            "enabledAt"
           )) -or
-          [int]$startup.version -ne 1 -or
+          [int]$startup.version -ne 2 -or
           [string]$startup.authorityEpoch -cne [string]$authority.authorityEpoch -or
           [string]$startup.cutoverId -cne [string]$authority.cutoverId -or
-          [string]$startup.migrationRunId -cne [string]$authority.migrationRunId) {
+          [string]$startup.migrationRunId -cne [string]$authority.migrationRunId -or
+          [string]$startup.operationsAuthorityEpoch -cne [string]$authority.operationsAuthorityEpoch -or
+          [string]$startup.operationsCutoverId -cne [string]$authority.operationsCutoverId -or
+          [string]$startup.operationsMigrationRunId -cne [string]$authority.operationsMigrationRunId) {
         throw "Django 运营事务新品开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
     $readerStarted = Start-WorkflowReader $runtimeSecrets $workflowSecrets
-    if ([string]$authority.status -ceq "postgres") {
+    if (
+      [string]$authority.status -ceq "postgres" -and
+      [string]$authority.operationsStatus -ceq "postgres"
+    ) {
       $writerStarted = Start-WorkflowWriter $runtimeSecrets $workflowSecrets $authority
     }
     Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
-    if ([string]$authority.status -ceq "postgres") {
+    if (
+      [string]$authority.status -ceq "postgres" -and
+      [string]$authority.operationsStatus -ceq "postgres"
+    ) {
       Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
-      Write-Output "Django 运营事务新品服务已就绪：reader=http://127.0.0.1:8061 writer=http://127.0.0.1:8062。"
+      Write-Output "Django 运营事务完整板块服务已就绪：reader=http://127.0.0.1:8061 writer=http://127.0.0.1:8062。"
     } else {
-      Write-Output "Django 运营事务新品 reader 已就绪；PostgreSQL 运营事务新品写权尚未激活，writer 保持停止。"
+      Write-Output "Django 运营事务 reader 已就绪；完整板块写权尚未全部激活，writer 保持停止。"
     }
   } catch {
     $original = $_.Exception
@@ -476,15 +529,21 @@ function Enable-WorkflowStartup {
   $workflowSecrets = Read-WorkflowCredentials
   try {
     $authority = Get-WorkflowWriteAuthority $runtimeSecrets $workflowSecrets
-    if ([string]$authority.status -cne "postgres") {
-      throw "只有 PostgreSQL 已取得运营事务新品唯一写权后才能启用运营事务新品开机启动"
+    if (
+      [string]$authority.status -cne "postgres" -or
+      [string]$authority.operationsStatus -cne "postgres"
+    ) {
+      throw "只有 PostgreSQL 已取得运营事务完整板块唯一写权后才能启用开机启动"
     }
     Start-WorkflowStack
     Write-AtomicJson $WorkflowStartupPath ([ordered]@{
-      version = 1
+      version = 2
       authorityEpoch = [string]$authority.authorityEpoch
       cutoverId = [string]$authority.cutoverId
       migrationRunId = [string]$authority.migrationRunId
+      operationsAuthorityEpoch = [string]$authority.operationsAuthorityEpoch
+      operationsCutoverId = [string]$authority.operationsCutoverId
+      operationsMigrationRunId = [string]$authority.operationsMigrationRunId
       enabledAt = [DateTimeOffset]::UtcNow.ToString("o")
     })
     Set-RuntimeAcl
@@ -511,8 +570,11 @@ function Invoke-NewProductWeeklyReport([bool]$DryRun, [bool]$Force = $false) {
   $workflowSecrets = Read-WorkflowCredentials
   try {
     $authority = Get-WorkflowWriteAuthority $runtimeSecrets $workflowSecrets
-    if ([string]$authority.status -cne "postgres") {
-      throw "PostgreSQL 尚未成为运营事务新品唯一写入源；拒绝执行新品销售周报"
+    if (
+      [string]$authority.status -cne "postgres" -or
+      [string]$authority.operationsStatus -cne "postgres"
+    ) {
+      throw "PostgreSQL 尚未成为运营事务完整板块唯一写入源；拒绝执行新品销售周报"
     }
     $writerUrl = Database-Url `
       "teruisi_workflow_writer" $workflowSecrets.WriterPassword `
@@ -529,7 +591,8 @@ function Invoke-NewProductWeeklyReport([bool]$DryRun, [bool]$Force = $false) {
       ([string]$authority.authorityEpoch) ([string]$authority.cutoverId) {
         $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
         return ConvertFrom-UniqueNativeJson $nativeRun "执行新品销售周报"
-      }
+      } -WorkflowOperationsAuthorityEpoch ([string]$authority.operationsAuthorityEpoch) `
+        -WorkflowOperationsCutoverId ([string]$authority.operationsCutoverId)
     if ($RequestedJson) { Write-Output ($payload | ConvertTo-Json -Depth 8 -Compress) }
     else { $payload | Format-List }
   } finally {
@@ -547,8 +610,11 @@ function Set-NewProductWeeklyReportEnabled([bool]$Enabled) {
   $workflowSecrets = Read-WorkflowCredentials
   try {
     $authority = Get-WorkflowWriteAuthority $runtimeSecrets $workflowSecrets
-    if ([string]$authority.status -cne "postgres") {
-      throw "PostgreSQL 尚未成为运营事务新品唯一写入源；拒绝修改新品销售周报配置"
+    if (
+      [string]$authority.status -cne "postgres" -or
+      [string]$authority.operationsStatus -cne "postgres"
+    ) {
+      throw "PostgreSQL 尚未成为运营事务完整板块唯一写入源；拒绝修改新品销售周报配置"
     }
     $writerUrl = Database-Url `
       "teruisi_workflow_writer" $workflowSecrets.WriterPassword `
@@ -560,7 +626,8 @@ function Set-NewProductWeeklyReportEnabled([bool]$Enabled) {
       ([string]$authority.authorityEpoch) ([string]$authority.cutoverId) {
         $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
         return ConvertFrom-UniqueNativeJson $nativeRun "修改新品销售周报配置"
-      }
+      } -WorkflowOperationsAuthorityEpoch ([string]$authority.operationsAuthorityEpoch) `
+        -WorkflowOperationsCutoverId ([string]$authority.operationsCutoverId)
     if ($RequestedJson) { Write-Output ($payload | ConvertTo-Json -Depth 8 -Compress) }
     else { $payload | Format-List }
   } finally {

@@ -70,7 +70,7 @@ test("persists the remaining D1 operation record types with bounded filters and 
   assert.equal(ranged.items.some((item) => item.id === inspection.id), true);
   const afterStructuredCutover = await listOperationRecords({}, admin, db);
   assert.equal(afterStructuredCutover.pagination.total, 2);
-  assert.equal(afterStructuredCutover.items.some((item) => item.type === "launch"), false);
+  assert.equal(afterStructuredCutover.items.some((item) => String(item.type) === "launch"), false);
   await assert.rejects(listOperationRecords({ types: ["launch"] }, admin, db), /类型包含无效值/);
 
   const activity = await listOperationRecordActivities(inspection.id, {}, admin, db);
@@ -204,8 +204,12 @@ test("migration and API routes preserve schema, role and no-store contracts", as
   assert.match(collectionRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(itemRoute, /requireAppPrincipal\(\["operator", "admin"\]\)/);
   assert.match(activityRoute, /requireAppPrincipal\(\["viewer", "analyst", "operator", "admin"\]\)/);
-  for (const route of [collectionRoute, itemRoute, activityRoute]) assert.doesNotMatch(route, /getWorkflowBackendMode/);
-  for (const route of [collectionRoute, itemRoute, activityRoute]) assert.match(route, /cache-control[\s\S]*no-store/);
+  for (const route of [collectionRoute, itemRoute, activityRoute]) {
+    assert.match(route, /getWorkflowBackendMode/);
+    assert.match(route, /createDjangoWorkflowService/);
+    assert.match(route, /workflowServiceResponse/);
+    assert.doesNotMatch(route, /getD1Database|@\/lib\/workflow\/operations-records/);
+  }
 });
 
 function sqliteAdapter(sqlite: DatabaseSync): D1Database {
