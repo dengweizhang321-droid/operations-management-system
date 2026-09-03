@@ -23,6 +23,40 @@
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 
+### Windows 启动 / 停止 / 重启脚本
+
+`运营系统.bat`（根目录）和 `tools/operations-system-service.ps1` 是同一套生命周期入口，不复制任何启动逻辑：`Start` 仍调用 `operations-system-control.ps1 -Action Start` 进入唯一启动引擎；`Stop` 先经 `worker-local-service.ps1 -Action Stop` 的身份门禁停止 Worker，再调用运行目录中的 `django-local-service.ps1 -Action Stop` 停止各域 Django 与 PostgreSQL；`Restart` 是 Stop + Start；`Status` 复用总控的组合状态。Stop/Restart 与桌面控制面板共用同一个系统互斥，拿不到锁时直接拒绝而不是交错执行。
+
+```powershell
+运营系统.bat                     # 菜单：启动 / 后台启动 / 停止 / 只停 Worker / 重启 / 日志 / 状态
+运营系统.bat start-bg            # 后台启动并立即返回；进度用 运营系统.bat logs，结果用 运营系统.bat status
+npm run system:start             # 等价于 tools\operations-system-service.ps1 -Action Start
+npm run system:stop              # 完整停止；只停网页 Worker 用 -Action Stop -KeepBackend
+npm run system:restart
+npm run system:logs
+```
+
+`-Background` 只是把同一条命令放到隐藏的独立 PowerShell 进程里执行，输出写到 `tmp\system-service\*.log`，并把 PID 与进程创建时间绑定到 `tmp\system-service\background.json`；已有后台任务在执行时会拒绝重复提交，`Status` 会同时显示后台任务是否仍在运行。所有子脚本都通过文件重定向启动并只等待直接子进程，不会因为 Worker/PostgreSQL 等长期子进程继承句柄而挂住。
+
+#### 启动耗时的构成（2026-09-03 取证）
+
+一次完整 `Start` 的时间主要不是某一步慢，而是同一组完整性证据被重复生成：不可变 Worker release 的逐文件 SHA-256（source snapshot、`dist`、`node_modules` 约 3 万文件 / 790 MB、helper，外加 bundled npm 树两次）在 `worker-local-service.ps1 -Action Start` 和 `worker-local-runtime-supervisor.mjs` 预启动阶段各跑一遍；Django 应用树逐文件哈希加两次 wrangler 冒烟在核心 Start 与五个域脚本入口共跑六遍（6837d9f 的 15 分钟令牌只复用了运行目录 ACL 审计）；Django 就绪探针在引擎前后各跑一轮，每轮 7 个 PowerShell 子进程；`Invoke-DjangoMigrations` 无条件重放 migrate 与约 120 条授权 SQL；ERP 心跳等待每 500 毫秒冷启一次 Django。Windows Defender 实时扫描会对上述每次文件打开逐个上钩，这是同样的脚本在 Windows 上慢一个数量级的直接原因。
+
+优先级建议：先把 `D:\teruisi-runtime` 与 `D:\运营管理系统` 加入 Defender 排除目录并确认位于 SSD（零代码改动）；之后再按审批流程考虑：把域脚本的 `Assert-DeployedApplication` 纳入现有 15 分钟令牌复用（论证与 ACL 复用同构，令牌已绑定部署清单 SHA-256）、让 supervisor 预启动只做进程身份校验并接受引擎刚产出的 verify 回执、去掉 Django Start 成功后的第二轮 7 进程探针、ERP 心跳改读 PostgreSQL checkpoint。逐文件哈希与 ACL 精确契约本身是 manifest 协议和失败关闭边界的一部分，不应放宽。
+
+### macOS / Linux 开发机本地启动
+
+开发机没有 PostgreSQL 与受控 runtime，直接运行 `npx vinext dev` 时所有 Django 域都会提示"Django xx 服务配置不完整"。`tools/django-dev-backend.mjs` 用 SQLite 与 `development` 进程角色在本机拉起一套仅供开发的 Django 后端，并把 Worker 需要的 `TERUISI_DJANGO_*` 变量写入 `.dev.vars` 的受管块：
+
+```bash
+npm run backend:dev          # 创建 .runtime/django-dev/venv、生成 backend.env、migrate SQLite、启动读(8001)/写(8002)两个进程并同步 .dev.vars
+npx vinext dev               # .dev.vars 只在启动时读取，首次同步后需要重启 dev server
+npm run backend:dev:status   # 进程、端口、/health/live 与 .dev.vars 同步状态
+npm run backend:dev:stop
+```
+
+`development` 角色同时挂载每个域的 reader/writer 路由，两个进程即可覆盖销售、财务、网店、市场、商品经营、库存和运营事务七个域；它不启用生产 authority 门禁，仅在 `sales_writer` 等生产角色开放的写路径（如销售导入）在开发模式下不可用。`.runtime/`、`backend.env` 与其中的随机密钥都被 Git 忽略，不得用于 Windows 生产主机。Vite dev server 的依赖预打包缓存固定放在 `node_modules/.vite-sites-cache`（构建仍用根目录 `.vite-sites-cache`）：vinext 内置的 CommonJS 插件只跳过路径含 `node_modules/.vite` 的预打包产物，放在别处会在启动时报 "A module cannot have multiple default exports"。
+
 ## 吉客云自动化
 
 - `npm run jackyun:login`：打开专属浏览器，手工登录吉客云

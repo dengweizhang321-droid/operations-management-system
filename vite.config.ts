@@ -39,7 +39,7 @@ const localBindingConfig = {
   },
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command }) => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -51,8 +51,12 @@ export default defineConfig(async () => {
 
   return {
     // Keep build transforms isolated from the shared workspace cache so a new
-    // deployment never reuses a stale client bundle.
-    cacheDir: ".vite-sites-cache",
+    // deployment never reuses a stale client bundle. The dev server must keep
+    // its optimizer cache under node_modules/.vite*: vinext's bundled
+    // vite-plugin-commonjs only skips pre-bundled deps whose path contains
+    // "node_modules/.vite", and wrapping them again yields a second default
+    // export ("A module cannot have multiple default exports") on startup.
+    cacheDir: command === "serve" ? "node_modules/.vite-sites-cache" : ".vite-sites-cache",
     server: {
       // 端口被占时直接失败，不要静默顺延到 3001/3002：上一轮 dev server 若被
       // Ctrl+Z 或 SIGTTIN 停在后台，它仍持有监听 socket，顺延只会让多个实例
