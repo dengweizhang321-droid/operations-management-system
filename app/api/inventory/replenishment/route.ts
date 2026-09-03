@@ -16,6 +16,21 @@ import {
 function errorResponse(status: number, message: string) {
   return Response.json({ ok: false, message }, { status, headers: { "cache-control": "no-store" } });
 }
+
+const planTextLimits = {
+  buyer: 200,
+  operatorName: 200,
+  department: 200,
+  planType: 100,
+  notes: 1_000,
+} as const;
+
+function validOptionalDate(value: unknown) {
+  if (value === undefined || value === "") return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
@@ -56,7 +71,11 @@ export async function POST(request: Request) {
     requireUnrestrictedDataScope(principal, "备货计划", "修改");
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body || typeof body.key !== "string" || !body.key.trim()) return errorResponse(400, "缺少库存建议标识");
-    if (Object.keys(body).some((key) => !["key", "plannedQuantity", "acknowledgeStale", "startDate", "endDate"].includes(key))) {
+    if (Object.keys(body).some((key) => ![
+      "key", "plannedQuantity", "acknowledgeStale", "manual", "startDate", "endDate", "buyer",
+      "operatorName", "department", "planType", "orderDate", "expectedArrivalDate",
+      "status", "requiresInspection", "notes",
+    ].includes(key))) {
       return errorResponse(400, "创建备货计划包含未知字段");
     }
     const parts = body.key.split("\u001f");
@@ -69,6 +88,24 @@ export async function POST(request: Request) {
     }
     if (body.acknowledgeStale !== undefined && typeof body.acknowledgeStale !== "boolean") {
       return errorResponse(400, "acknowledgeStale 必须是 JSON 布尔值");
+    }
+    if (body.manual !== undefined && typeof body.manual !== "boolean") {
+      return errorResponse(400, "manual 必须是 JSON 布尔值");
+    }
+    for (const [key, maximum] of Object.entries(planTextLimits)) {
+      const value = body[key];
+      if (value !== undefined && (typeof value !== "string" || value.length > maximum)) {
+        return errorResponse(400, `${key} 字段无效`);
+      }
+    }
+    if (!validOptionalDate(body.orderDate) || !validOptionalDate(body.expectedArrivalDate)) {
+      return errorResponse(400, "备货计划日期无效");
+    }
+    if (body.status !== undefined && body.status !== "draft" && body.status !== "confirmed") {
+      return errorResponse(400, "新建备货计划状态只能是草稿或已确认");
+    }
+    if (body.requiresInspection !== undefined && typeof body.requiresInspection !== "boolean") {
+      return errorResponse(400, "是否验货必须是 JSON 布尔值");
     }
     const result = await createDjangoInventoryService().requestJson<Record<string, unknown>>(
       principal,

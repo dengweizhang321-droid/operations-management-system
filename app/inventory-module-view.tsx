@@ -13,7 +13,6 @@ import {
   getInventoryCleanupStrategy,
   InventoryAgeSummaryPanel,
   InventoryInboundActionPanel,
-  InventoryOverviewRulePanel,
   InventoryPlanWorkflowPanel,
   InventoryStalePlaybookPanel,
 } from "./inventory-workbench-panels";
@@ -21,7 +20,6 @@ import {
   type CurrentUser,
   type InventoryHealthStatus,
   type InventoryAgeStatus,
-  type InventoryOverviewItem,
   type ReplenishmentPlanItem,
   type InventoryOverviewResponse,
   type InventoryAgeAnalysisResponse,
@@ -56,6 +54,34 @@ type InventoryWorkItemDraft = {
   planType: "daily" | "new_product";
   cleanupStrategy: "promotion" | "transfer" | "return" | "review";
   expectedConsumptionDays: number;
+  notes: string;
+};
+
+type InventoryMappingItem = InventoryOverviewResponse["mapping"]["samples"][number];
+type InventoryPlanWarehouseOption = InventoryMappingItem["warehouseOptions"][number];
+
+type ReplenishmentPlanDraft = {
+  productCode: string;
+  productName: string;
+  brand: string;
+  category: string;
+  supplier: string;
+  warehouseOptions: InventoryPlanWarehouseOption[];
+  warehouse: string;
+  key: string;
+  currentStockQuantity: number;
+  sales30dQuantity: number | null;
+  suggestedQuantity: number | null;
+  plannedQuantity: number;
+  expectedConsumptionDays: number | null;
+  buyer: string;
+  orderDate: string;
+  planType: string;
+  operatorName: string;
+  department: string;
+  expectedArrivalDate: string;
+  status: "draft" | "confirmed";
+  requiresInspection: boolean;
   notes: string;
 };
 
@@ -116,6 +142,54 @@ function chartNumber(value: number) {
 
 function chartAmount(value: number) {
   return value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+}
+
+function warehouseTurnoverLabel(metric: { inventoryQuantity: number; salesQuantity: number | null; turnoverDays: number | null }) {
+  if (metric.turnoverDays !== null) return `${metric.turnoverDays.toFixed(1)}天`;
+  if (metric.salesQuantity === 0 && metric.inventoryQuantity > 0) return "∞";
+  return "—";
+}
+
+function planDraftFromCandidate(candidate: {
+  productCode: string;
+  productName: string;
+  brand: string;
+  category: string;
+  supplier: string;
+  warehouseOptions: InventoryPlanWarehouseOption[];
+  totalSalesQuantity: number | null;
+}, preferredKey?: string): ReplenishmentPlanDraft {
+  const option = candidate.warehouseOptions.find((item) => item.key === preferredKey)
+    ?? candidate.warehouseOptions.find((item) => !item.inDraftPlan)
+    ?? candidate.warehouseOptions[0];
+  const sales = candidate.totalSalesQuantity;
+  const consumptionDays = sales !== null && sales > 0 && option
+    ? Math.max(0, option.availableQuantity) / (sales / 30)
+    : null;
+  return {
+    productCode: candidate.productCode,
+    productName: candidate.productName,
+    brand: candidate.brand,
+    category: candidate.category,
+    supplier: candidate.supplier,
+    warehouseOptions: candidate.warehouseOptions,
+    warehouse: option?.warehouse ?? "",
+    key: option?.key ?? "",
+    currentStockQuantity: option?.availableQuantity ?? 0,
+    sales30dQuantity: sales,
+    suggestedQuantity: option?.suggestedQuantity ?? null,
+    plannedQuantity: Math.max(0, option?.suggestedQuantity ?? 0),
+    expectedConsumptionDays: consumptionDays,
+    buyer: "",
+    orderDate: shanghaiIsoToday(),
+    planType: "",
+    operatorName: "",
+    department: "",
+    expectedArrivalDate: "",
+    status: "draft",
+    requiresInspection: false,
+    notes: "",
+  };
 }
 
 function InventoryAgeDistributionChart({ buckets, stockValueComplete }: { buckets: InventoryAgeDistributionBucket[]; stockValueComplete: boolean }) {
@@ -215,6 +289,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [filters, setFilters] = useState<InventorySharedFilters>(readInventorySharedFilters);
   const [planActionId, setPlanActionId] = useState("");
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
+  const [planDraft, setPlanDraft] = useState<ReplenishmentPlanDraft | null>(null);
+  const [planSaving, setPlanSaving] = useState(false);
   const [overviewPage, setOverviewPage] = useState(1);
   const [agePage, setAgePage] = useState(1);
   const [planPage, setPlanPage] = useState(1);
@@ -567,36 +643,106 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     }
   }, [canSyncInventory, refreshActiveInventoryTab, snapshotDate]);
 
-  const createPlan = useCallback(async (item: InventoryOverviewItem) => {
+  const planCandidates = useMemo(() => {
+    const candidates = new Map<string, Parameters<typeof planDraftFromCandidate>[0]>();
+    for (const item of overview?.mapping.samples ?? []) {
+      candidates.set(item.productCode, {
+        productCode: item.productCode,
+        productName: item.productName,
+        brand: item.brand,
+        category: item.category,
+        supplier: item.supplier,
+        warehouseOptions: [...item.warehouseOptions],
+        totalSalesQuantity: item.totalSalesQuantity,
+      });
+    }
+    for (const item of overview?.items ?? []) {
+      const current = candidates.get(item.productCode);
+      const option: InventoryPlanWarehouseOption = {
+        key: item.key,
+        warehouse: item.warehouse,
+        availableQuantity: item.availableQuantity,
+        salesQuantity: item.sales30d,
+        coverageDays: item.coverageDays,
+        suggestedQuantity: item.suggestedQuantity,
+        inDraftPlan: item.inDraftPlan,
+      };
+      if (current) {
+        if (!current.warehouseOptions.some((candidate) => candidate.key === item.key)) current.warehouseOptions.push(option);
+        continue;
+      }
+      candidates.set(item.productCode, {
+        productCode: item.productCode,
+        productName: item.productName,
+        brand: item.brand,
+        category: item.category,
+        supplier: item.supplier,
+        warehouseOptions: [option],
+        totalSalesQuantity: item.sales30d,
+      });
+    }
+    return [...candidates.values()].sort((left, right) => left.productCode.localeCompare(right.productCode, "zh-CN"));
+  }, [overview]);
+
+  const openPlanModal = useCallback((productCode: string, preferredKey?: string) => {
     if (!canManageInventory) return;
+    const candidate = planCandidates.find((item) => item.productCode === productCode);
+    if (!candidate) return;
+    setPlanDraft(planDraftFromCandidate(candidate, preferredKey));
+    setSyncFeedback(null);
+  }, [canManageInventory, planCandidates]);
+
+  const submitPlan = useCallback(async () => {
+    if (!planDraft || planSaving || !canManageInventory) return;
+    if (!planDraft.key || planDraft.plannedQuantity < 1) {
+      setSyncFeedback({ tone: "error", title: "备货计划未保存", message: "请选择入库库房，并填写大于 0 的备货数量。" });
+      return;
+    }
     if (overview?.sync.inventoryStale) {
-      const confirmed = window.confirm(`库存快照日期为 ${overview.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照创建备货草稿？`);
+      const confirmed = window.confirm(`库存快照日期为 ${overview.sync.inventoryAsOf ?? "未知"}，已超过 3 天。建议先同步最新库存；是否仍按当前快照保存备货计划？`);
       if (!confirmed) return;
     }
-    setPlanActionId(item.key);
+    setPlanSaving(true);
+    setPlanActionId(planDraft.key);
     setSyncFeedback(null);
     try {
       const response = await fetch("/api/inventory/replenishment", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          key: item.key,
-          plannedQuantity: item.suggestedQuantity,
+          key: planDraft.key,
+          plannedQuantity: planDraft.plannedQuantity,
+          manual: true,
           acknowledgeStale: Boolean(overview?.sync.inventoryStale),
           startDate: customStartDate,
           endDate: customEndDate,
+          buyer: planDraft.buyer,
+          operatorName: planDraft.operatorName,
+          department: planDraft.department,
+          planType: planDraft.planType,
+          orderDate: planDraft.orderDate,
+          expectedArrivalDate: planDraft.expectedArrivalDate,
+          status: planDraft.status,
+          requiresInspection: planDraft.requiresInspection,
+          notes: planDraft.notes,
         }),
       });
       const payload = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
       if (!response.ok || !payload?.ok) throw new Error(payload?.message || "创建备货计划失败");
-      setSyncFeedback({ tone: "success", title: "已加入备货草稿", message: `${item.productName} · 建议补货 ${formatCount(item.suggestedQuantity ?? 0)} 件` });
+      setSyncFeedback({
+        tone: "success",
+        title: planDraft.status === "confirmed" ? "备货计划已确认" : "备货草稿已保存",
+        message: `${planDraft.productName} · ${planDraft.warehouse} · ${formatCount(planDraft.plannedQuantity)} 件`,
+      });
+      setPlanDraft(null);
       await refreshActiveInventoryTab();
     } catch (requestError) {
       setSyncFeedback({ tone: "error", title: "备货计划创建失败", message: requestError instanceof Error ? requestError.message : "请稍后重试" });
     } finally {
+      setPlanSaving(false);
       setPlanActionId("");
     }
-  }, [canManageInventory, customEndDate, customStartDate, overview, refreshActiveInventoryTab]);
+  }, [canManageInventory, customEndDate, customStartDate, overview, planDraft, planSaving, refreshActiveInventoryTab]);
 
   const updatePlanStatus = useCallback(async (plan: ReplenishmentPlanItem, status: ReplenishmentPlanItem["status"]) => {
     if (!canManageInventory) return;
@@ -849,9 +995,35 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <InventoryKpiCard label="待补货货品" value={overview.quality.recommendationsSuppressed ? "已暂停" : `${formatCount(overview.metrics.urgentCount + overview.metrics.replenishCount)} 个`} note={overview.controls.autoReplenishmentEnabled ? `${formatCount(overview.metrics.urgentCount)} 个需要紧急处理` : "系统设置已关闭自动建议"} tone="orange" icon="补" />
         </section>
 
-        <InventoryOverviewRulePanel settings={overview.settings} qualityStatus={overview.quality.status} />
-
-        {overview.mapping.unmatchedCount > 0 && <section className="panel table-panel inventory-mapping-panel"><div className="table-toolbar"><div><h2>销量映射缺口工作台</h2><p>库存仓库无法与同货品销售仓库匹配；请核对源报表仓名或仓库映射后重新同步</p></div><span className="soft-tag">已匹配 {formatCount(overview.mapping.matchedCount)} · 未匹配 {formatCount(overview.mapping.unmatchedCount)} · 展示前 {formatCount(overview.mapping.samples.length)}</span></div><div className="data-table-wrap"><table className="data-table inventory-mapping-table"><thead><tr><th>货品</th><th>库存仓库</th><th>同货品销售仓库候选</th><th>可用库存</th><th>诊断</th><th>查看</th></tr></thead><tbody>{overview.mapping.samples.map((gap) => <tr key={gap.key}><td><strong>{gap.productName}</strong><small className="cell-note">{gap.productCode}</small></td><td>{gap.inventoryWarehouse}<small className="cell-note">{gap.warehouseType === "owned" ? "自有仓" : gap.warehouseType === "jd_rdc" ? "京东 RDC / DC" : "其他仓"}</small></td><td>{gap.candidateSalesWarehouses.length > 0 ? gap.candidateSalesWarehouses.join("、") : "该周期没有同货品销售仓库"}</td><td>{formatCount(gap.availableQuantity)}</td><td><span className="status status-warning"><Dot tone="orange" />{gap.candidateSalesWarehouses.length > 0 ? "仓库名称未对齐" : "周期内无同货品销量"}</span></td><td><button type="button" className="row-action" onClick={() => updateFilters({ ...filters, productQuery: gap.productCode, warehouses: [gap.inventoryWarehouse] })}>定位明细</button></td></tr>)}</tbody></table></div></section>}
+        <section className="panel table-panel inventory-mapping-panel">
+          <div className="table-toolbar"><div><h2>销量映射缺口工作台</h2><p>公共货品、仓库、品牌、分类及总览专属筛选已同步；按货品汇总各仓库存、销量、周转和在途</p></div><span className="soft-tag">已匹配 {formatCount(overview.mapping.matchedCount)} · 未匹配 {formatCount(overview.mapping.unmatchedCount)} · 展示 {formatCount(overview.mapping.samples.length)} 个货品</span></div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table inventory-mapping-table"><thead><tr>
+            <th>货品编号</th><th>货品名称</th><th>品牌</th><th>分类</th><th>供应商</th>
+            <th>京东仓库</th><th>京东仓销量</th><th>京东仓周转</th><th>京东仓在途</th>
+            <th>代发仓销量</th><th>代发仓周转</th><th>代发仓在途</th>
+            <th>售后仓库存</th><th>售后仓销量</th>
+            <th>广东仓库存</th><th>广东仓销量</th><th>广东仓周转</th><th>广东仓在途</th>
+            <th>样品仓库存</th><th>样品仓销量</th><th>样品仓在途</th>
+            <th>菜鸟仓库存</th><th>菜鸟仓销量</th><th>菜鸟仓周转</th><th>菜鸟仓在途</th>
+            <th>自营库存</th><th>自营销量</th><th>自营周转</th><th>自营在途</th>
+            <th>总库存</th><th>总库存金额</th><th>总在途</th><th>总销量</th><th>总周转天数</th><th>建议补货</th><th>预警</th><th>创建备货计划</th>
+          </tr></thead><tbody>{overview.mapping.samples.map((gap) => {
+            const alert = inventoryStatusMeta[gap.alertStatus];
+            const metric = gap.warehouses;
+            const quantity = (value: number | null) => value === null ? "—" : formatCount(value);
+            return <tr key={gap.key}>
+              <td><strong>{gap.productCode}</strong></td><td className="inventory-mapping-name" title={gap.productName}>{gap.productName}</td><td>{gap.brand || "—"}</td><td>{gap.category || "—"}</td><td>{gap.supplier || "未映射供应商"}</td>
+              <td>{formatCount(metric.jd.inventoryQuantity)}</td><td>{quantity(metric.jd.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.jd)}</td><td>{formatCount(metric.jd.inTransitQuantity)}</td>
+              <td>{quantity(metric.dropship.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.dropship)}</td><td>{formatCount(metric.dropship.inTransitQuantity)}</td>
+              <td>{formatCount(metric.afterSales.inventoryQuantity)}</td><td>{quantity(metric.afterSales.salesQuantity)}</td>
+              <td>{formatCount(metric.guangdong.inventoryQuantity)}</td><td>{quantity(metric.guangdong.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.guangdong)}</td><td>{formatCount(metric.guangdong.inTransitQuantity)}</td>
+              <td>{formatCount(metric.sample.inventoryQuantity)}</td><td>{quantity(metric.sample.salesQuantity)}</td><td>{formatCount(metric.sample.inTransitQuantity)}</td>
+              <td>{formatCount(metric.cainiao.inventoryQuantity)}</td><td>{quantity(metric.cainiao.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.cainiao)}</td><td>{formatCount(metric.cainiao.inTransitQuantity)}</td>
+              <td>{formatCount(metric.selfOperated.inventoryQuantity)}</td><td>{quantity(metric.selfOperated.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.selfOperated)}</td><td>{formatCount(metric.selfOperated.inTransitQuantity)}</td>
+              <td><strong>{formatCount(gap.totalInventoryQuantity)}</strong></td><td>{formatCurrencyFromCents(gap.totalStockValueCents)}</td><td>{formatCount(gap.totalInTransitQuantity)}</td><td>{quantity(gap.totalSalesQuantity)}</td><td>{warehouseTurnoverLabel({ inventoryQuantity: gap.totalInventoryQuantity, salesQuantity: gap.totalSalesQuantity, turnoverDays: gap.totalTurnoverDays })}</td><td className={(gap.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{quantity(gap.suggestedQuantity)}</strong></td><td><span className={`status status-${alert.tone}`} title={`${gap.alertReason}；${gap.unmatchedWarehouseCount} 个仓库未匹配销量`}><Dot tone={alert.tone === "danger" ? "red" : alert.tone === "warning" ? "orange" : alert.tone === "success" ? "green" : alert.tone} />{gap.alertLabel}</span></td><td>{canManageInventory ? <button type="button" className="row-action primary-row-action" disabled={gap.warehouseOptions.every((option) => option.inDraftPlan) || planActionId === gap.key} onClick={() => openPlanModal(gap.productCode)}>{gap.warehouseOptions.every((option) => option.inDraftPlan) ? "已在草稿" : "创建备货计划"}</button> : <span className="soft-text">只读</span>}</td>
+            </tr>;
+          })}{overview.mapping.samples.length === 0 && <tr><td colSpan={37}><div className="table-state">当前筛选范围没有销量映射缺口。</div></td></tr>}</tbody></table></div>
+        </section>
 
         <section className="inventory-diagnosis-grid">
           <article className="panel inventory-health-panel">
@@ -886,7 +1058,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table inventory-data-table"><thead><tr><th>货品</th><th>品牌 / 品类</th><th>库存类型 / 仓库</th><th>在库 / 可用 / 锁定</th><th>报表 / 计划在途</th><th>{overview.settings.salesWindowDays}日周期销量</th><th>日均销量</th><th>预计可售</th><th>库龄</th><th>已覆盖货值</th><th>建议补货</th><th>健康状态</th><th>操作</th></tr></thead><tbody>
             {inventoryItems.map((item) => {
               const meta = inventoryStatusMeta[item.status];
-              const canPlan = canManageInventory && !overview.quality.recommendationsSuppressed && (item.suggestedQuantity ?? 0) > 0 && !item.inDraftPlan;
+              const canPlan = canManageInventory && !item.inDraftPlan;
               return <tr key={item.key}>
                 <td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td>
                 <td><div className="inventory-dimension-cell"><strong>{item.brand || "未设置品牌"}</strong><small>{item.category || "未分类"}</small></div></td>
@@ -900,7 +1072,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
                 <td><div className="inventory-number-cell"><strong>{formatCurrencyFromCents(item.knownStockValueCents)}</strong><small className={item.costCoverageRate < 1 ? "orange-text" : ""}>{item.costCoverageRate < 1 ? "成本缺口" : "成本完整"} · 覆盖 {formatRate(item.costCoverageRate)}</small></div></td>
                 <td className={(item.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{item.suggestedQuantity === null ? "—" : formatCount(item.suggestedQuantity)}</strong></td>
                 <td><span className={`status status-${meta.tone}`} title={item.reason}><Dot tone={meta.tone === "danger" ? "red" : meta.tone === "warning" ? "orange" : meta.tone === "success" ? "green" : meta.tone} />{item.statusLabel}</span></td>
-                <td>{canManageInventory ? <button className="row-action" disabled={!canPlan || planActionId === item.key} onClick={() => void createPlan(item)}>{item.inDraftPlan ? "已在草稿" : canPlan ? planActionId === item.key ? "处理中…" : "加入计划" : "无需补货"}</button> : <span className="soft-text">只读</span>}</td>
+                <td>{canManageInventory ? <button className="row-action" disabled={!canPlan || planActionId === item.key} onClick={() => openPlanModal(item.productCode, item.key)}>{item.inDraftPlan ? "已在草稿" : canPlan ? planActionId === item.key ? "处理中…" : "创建备货计划" : "无需补货"}</button> : <span className="soft-text">只读</span>}</td>
               </tr>;
             })}
             {inventoryItems.length === 0 && <tr><td colSpan={13}><div className="table-state">没有符合当前筛选条件的库存记录。</div></td></tr>}
@@ -918,10 +1090,10 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         <InventoryPlanWorkflowPanel summary={overview.planSummary} />
 
         <section className="panel table-panel replenishment-plan-panel">
-          <div className="table-toolbar"><div><h2>备货计划</h2><p>调整草稿数量并确认；草稿、已确认数量会自动计入在途，防止重复建议</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><div className="inventory-toolbar-actions"><button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编码", "货品名称", "仓库", "建议依据", "当前可售天数", "系统建议", "计划数量", "状态", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.warehouse, plan.reason, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, planStatusLabel[plan.status], plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div></div>
-          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>仓库</th><th>建议依据</th><th>当前可售</th><th>系统建议</th><th>计划数量</th><th>创建 / 更新</th><th>状态</th><th>操作</th></tr></thead><tbody>
-            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.id}</small></span></div></td><td>{plan.warehouse}</td><td><span className="plan-reason" title={plan.reason}>{plan.reason}</span></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td><strong>{formatCount(plan.suggestedQuantity)}</strong></td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}</td><td><div className="inventory-number-cell"><strong>{plan.createdAt ? plan.createdAt.slice(0, 10) : "—"}</strong><small>更新 {plan.updatedAt ? plan.updatedAt.slice(0, 10) : "—"}</small></div></td><td><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>)}
-            {overview.plans.length === 0 && <tr><td colSpan={9}><div className="table-state">暂无备货计划。请在“库存总览”中将补货建议加入计划。</div></td></tr>}
+          <div className="table-toolbar"><div><h2>备货计划</h2><p>保留采购、运营、部门、下单、到货、验货及备注；草稿与已确认数量计入计划在途</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><div className="inventory-toolbar-actions"><button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div></div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
+            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.category || "未分类"}</small></span></div></td><td><div className="inventory-number-cell"><strong>{plan.brand || "—"}</strong><small>{plan.supplier || "未映射供应商"}</small></div></td><td>{plan.warehouse}</td><td><div className="inventory-number-cell"><strong>{plan.buyer || "—"}</strong><small>运营 {plan.operatorName || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{plan.planType || "—"}</strong><small>{plan.department || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(plan.currentStockQuantity)}</strong><small>销量 {plan.sales30dQuantity === null ? "—" : formatCount(plan.sales30dQuantity)}</small></div></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}<small className="cell-note">建议 {formatCount(plan.suggestedQuantity)}</small></td><td><div className="inventory-number-cell"><strong>{plan.orderDate || "—"}</strong><small>到货 {plan.expectedArrivalDate || "—"}</small></div></td><td><div className="inventory-number-cell"><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span><small>{plan.requiresInspection ? "需要验货" : "无需验货"}</small></div></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <><button className="row-action primary-row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <span className="plan-done">✓ 已完成</span>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>)}
+            {overview.plans.length === 0 && <tr><td colSpan={11}><div className="table-state">暂无备货计划。请在“库存总览”中创建备货计划。</div></td></tr>}
           </tbody></table></div>
           <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
@@ -1016,6 +1188,40 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
       </>}
+      {planDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
+        <form className="inventory-work-item-modal inventory-plan-create-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-plan-create-title" onSubmit={(event) => { event.preventDefault(); void submitPlan(); }}>
+          <header><div><h2 id="inventory-plan-create-title">创建备货计划</h2><p>库存、销量与预计消耗周期来自当前公共筛选范围；人工字段会随计划保存。</p></div><button type="button" aria-label="关闭" disabled={planSaving} onClick={() => setPlanDraft(null)}>×</button></header>
+          <div className="inventory-work-item-fields inventory-plan-create-fields">
+            <label><span className="required-field">货品编号</span><select required value={planDraft.productCode} onChange={(event) => { const candidate = planCandidates.find((item) => item.productCode === event.target.value); if (candidate) setPlanDraft(planDraftFromCandidate(candidate)); }}>{planCandidates.map((candidate) => <option key={candidate.productCode} value={candidate.productCode}>{candidate.productCode}</option>)}</select></label>
+            <label className="inventory-plan-name-field"><span>货品名称</span><input readOnly value={planDraft.productName} /></label>
+            <label><span>品牌</span><input readOnly value={planDraft.brand || "—"} /></label>
+            <label><span>供应商</span><input readOnly value={planDraft.supplier || "未映射供应商"} /></label>
+            <label><span>对应采购</span><input maxLength={200} value={planDraft.buyer} onChange={(event) => setPlanDraft((current) => current ? { ...current, buyer: event.target.value } : current)} placeholder="填写采购负责人" /></label>
+            <label><span className="required-field">入库库房</span><select required value={planDraft.warehouse} onChange={(event) => setPlanDraft((current) => {
+              if (!current) return current;
+              const option = current.warehouseOptions.find((item) => item.warehouse === event.target.value);
+              if (!option) return current;
+              const expectedConsumptionDays = current.sales30dQuantity !== null && current.sales30dQuantity > 0
+                ? Math.max(0, option.availableQuantity) / (current.sales30dQuantity / 30)
+                : null;
+              return { ...current, warehouse: option.warehouse, key: option.key, currentStockQuantity: option.availableQuantity, suggestedQuantity: option.suggestedQuantity, plannedQuantity: Math.max(0, option.suggestedQuantity ?? 0), expectedConsumptionDays };
+            })}><option value="" disabled>选择库房</option>{planDraft.warehouseOptions.map((option) => <option key={option.key} value={option.warehouse}>{option.warehouse}{option.inDraftPlan ? "（已有草稿）" : ""}</option>)}</select></label>
+            <label><span>现有库存</span><input readOnly value={formatCount(planDraft.currentStockQuantity)} /></label>
+            <label><span>近30天销量（含自营入仓）</span><input readOnly value={planDraft.sales30dQuantity === null ? "—" : formatCount(planDraft.sales30dQuantity)} /></label>
+            <label><span className="required-field">备货数量</span><input required type="number" min={1} max={10000000} value={planDraft.plannedQuantity} onChange={(event) => setPlanDraft((current) => current ? { ...current, plannedQuantity: Math.max(0, Math.min(10000000, Math.trunc(Number(event.target.value) || 0))) } : current)} /></label>
+            <label><span>预计消耗周期(天)</span><div className="inventory-plan-unit-input"><input readOnly value={planDraft.expectedConsumptionDays === null ? "—" : planDraft.expectedConsumptionDays.toFixed(1)} /><em>天</em></div></label>
+            <label><span>下单日期</span><input type="date" value={planDraft.orderDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, orderDate: event.target.value } : current)} /></label>
+            <label><span>备货类型</span><input maxLength={100} value={planDraft.planType} onChange={(event) => setPlanDraft((current) => current ? { ...current, planType: event.target.value } : current)} placeholder="如 常规/促销" /></label>
+            <label><span>对应运营</span><input maxLength={200} value={planDraft.operatorName} onChange={(event) => setPlanDraft((current) => current ? { ...current, operatorName: event.target.value } : current)} placeholder="填写运营负责人" /></label>
+            <label><span>部门</span><input maxLength={200} value={planDraft.department} onChange={(event) => setPlanDraft((current) => current ? { ...current, department: event.target.value } : current)} placeholder="填写所属部门" /></label>
+            <label><span>预计到货日</span><input type="date" value={planDraft.expectedArrivalDate} onChange={(event) => setPlanDraft((current) => current ? { ...current, expectedArrivalDate: event.target.value } : current)} /></label>
+            <label><span>状态</span><select value={planDraft.status} onChange={(event) => setPlanDraft((current) => current ? { ...current, status: event.target.value as ReplenishmentPlanDraft["status"] } : current)}><option value="draft">草稿</option><option value="confirmed">已确认</option></select></label>
+            <label><span>是否验货</span><select value={planDraft.requiresInspection ? "yes" : "no"} onChange={(event) => setPlanDraft((current) => current ? { ...current, requiresInspection: event.target.value === "yes" } : current)}><option value="no">否</option><option value="yes">是</option></select></label>
+            <label className="inventory-work-item-notes"><span>备注</span><textarea rows={3} maxLength={1000} value={planDraft.notes} onChange={(event) => setPlanDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label>
+          </div>
+          <footer><span>{planDraft.suggestedQuantity === null || planDraft.suggestedQuantity <= 0 ? "当前无精确系统建议，可填写人工备货量并保留审计。" : `系统建议 ${formatCount(planDraft.suggestedQuantity)} 件；可按实际采购情况调整。`}</span><div><button type="button" className="secondary-button" disabled={planSaving} onClick={() => setPlanDraft(null)}>取消</button><button type="submit" className="primary-button" disabled={planSaving || !planDraft.key || planDraft.plannedQuantity < 1}>{planSaving ? "正在保存…" : "保存"}</button></div></footer>
+        </form>
+      </div>}
       {workItemDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !workItemSaving) setWorkItemDraft(null); }}>
         <form className="inventory-work-item-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-work-item-title" onSubmit={(event) => { event.preventDefault(); void submitInventoryWorkItem(); }}>
           <header><div><small>{workItemDraft.kind === "procurement" ? "补货 → 采购执行" : "滞销 → 清理执行"}</small><h2 id="inventory-work-item-title">{workItemDraft.kind === "procurement" ? "创建采购备货任务" : "创建滞销清理事项"}</h2><p>{workItemDraft.label}</p></div><button type="button" aria-label="关闭" disabled={workItemSaving} onClick={() => setWorkItemDraft(null)}>×</button></header>

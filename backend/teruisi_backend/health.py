@@ -391,7 +391,10 @@ REQUIRED_INVENTORY_COLUMNS = {
     "inventory_data_revisions": {"domain", "revision", "source_digest"},
     "replenishment_plan_items": {
         "id", "source_batch_id", "product_code", "warehouse", "planned_quantity",
-        "status", "migration_generation",
+        "status", "migration_generation", "brand", "category", "supplier", "buyer",
+        "operator_name", "department", "plan_type", "order_date",
+        "expected_arrival_date", "requires_inspection", "current_stock_quantity",
+        "sales_30d_quantity", "notes",
     },
     "inventory_operating_settings": {
         "id", "target_days", "critical_days", "slow_days", "stagnant_days",
