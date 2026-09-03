@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Start", "Stop", "Restart", "Status", "Logs")]
+  [ValidateSet("Start", "Stop", "Restart", "Status", "Logs", "Menu")]
   [string]$Action = "Status",
   # 在隐藏的独立 PowerShell 进程中执行 Start/Stop/Restart，本进程立即返回；用 -Action Logs / Status 查看进度。
   [switch]$Background,
@@ -417,6 +417,65 @@ function Show-Logs {
   Write-Output (Get-BoundedTail $latest.FullName 6000)
 }
 
+function Show-InteractiveMenu {
+  while ($true) {
+    Clear-Host
+    Write-Host "=========================================="
+    Write-Host " 运营管理系统"
+    Write-Host "=========================================="
+    Write-Host " 1  启动（前台，显示进度）"
+    Write-Host " 2  后台启动（立即返回，用 6 查看进度）"
+    Write-Host " 3  停止（Worker + Django/PostgreSQL）"
+    Write-Host " 4  只停止网页 Worker（保留后端）"
+    Write-Host " 5  重启"
+    Write-Host " 6  查看日志"
+    Write-Host " 7  查看状态"
+    Write-Host " 0  退出"
+    Write-Host ""
+    $choice = Read-Host "请选择"
+    if ($choice -eq "0") { return }
+    try {
+      switch ($choice) {
+        "1" {
+          $script:Open = $true
+          Invoke-Start
+        }
+        "2" {
+          $script:Action = "Start"
+          $script:Open = $true
+          Start-InBackground
+        }
+        "3" {
+          $script:KeepBackend = $false
+          Invoke-Stop
+        }
+        "4" {
+          $script:KeepBackend = $true
+          Invoke-Stop
+        }
+        "5" {
+          $script:Open = $true
+          $script:KeepBackend = $false
+          Invoke-Restart
+        }
+        "6" { Show-Logs }
+        "7" { Show-Status }
+        default { Write-Host "无效选项：$choice" -ForegroundColor Yellow }
+      }
+    } catch {
+      $failure = [string]$_.Exception.Message
+      if ($failure.Length -gt 800) { $failure = $failure.Substring(0, 800) }
+      Write-Host "操作失败：$failure" -ForegroundColor Red
+    } finally {
+      $script:Action = "Menu"
+      $script:Open = $false
+      $script:KeepBackend = $false
+      $script:exitCode = 0
+    }
+    [void](Read-Host "按 Enter 返回菜单")
+  }
+}
+
 if ($LibraryOnly) { return }
 
 $script:exitCode = 0
@@ -430,6 +489,7 @@ try {
       "Restart" { Invoke-Restart }
       "Status" { Show-Status }
       "Logs" { Show-Logs }
+      "Menu" { Show-InteractiveMenu }
     }
   }
   exit $script:exitCode
