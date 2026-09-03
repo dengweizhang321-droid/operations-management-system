@@ -96,6 +96,30 @@ function splitMigration(source: string) {
   return source.split("--> statement-breakpoint").map((item) => item.trim()).filter(Boolean);
 }
 
+test("ERP schema initialization preserves the retired inventory-age tombstone", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE VIEW erp_inventory_age_lines AS
+      SELECT 'inventory-domain-retired-v1' AS retirement_tombstone WHERE 0;
+  `);
+
+  await ensureErpReferenceSchema(sqliteAdapter(sqlite) as unknown as ErpReferenceDatabase);
+
+  assert.equal(
+    sqlite.prepare("SELECT type FROM sqlite_master WHERE name='erp_inventory_age_lines'").get()?.type,
+    "view",
+  );
+  assert.equal(
+    sqlite.prepare("SELECT type FROM sqlite_master WHERE name='erp_product_master'").get()?.type,
+    "table",
+  );
+  assert.equal(
+    sqlite.prepare("SELECT type FROM sqlite_master WHERE name='erp_combo_items'").get()?.type,
+    "table",
+  );
+  sqlite.close();
+});
+
 test("0091 bootstraps an ERP-owned stable epoch and revision without historical events", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(`
