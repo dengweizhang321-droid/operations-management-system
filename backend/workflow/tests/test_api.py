@@ -158,19 +158,10 @@ class WorkflowApiContractTests(TestCase):
         self.assertEqual(result["data"]["items"][0]["title"], "大通量商用净水器")
         self.assertNotIn("stages", result["data"]["items"][0])
 
-    def test_stage_updates_use_cas_blocker_evidence_and_metadata_only_activity(self) -> None:
+    def test_stage_updates_allow_empty_optional_details_and_use_cas(self) -> None:
         item = self.create_project("workflow-create-stage").json()["item"]
         stage = next(stage for stage in item["stages"] if stage["stageKey"] == "pricing")
         url = f"/api/workflow/launch-projects/{item['id']}/stages/pricing"
-        missing_blocker = self.request_json(
-            "PATCH",
-            url,
-            {"status": "blocked", "expectedVersion": stage["version"]},
-            "workflow-stage-invalid",
-        )
-        self.assertEqual(missing_blocker.status_code, 400)
-        self.assertIn("阻塞原因", missing_blocker.json()["error"])
-
         updated = self.request_json(
             "PATCH",
             url,
@@ -178,7 +169,7 @@ class WorkflowApiContractTests(TestCase):
                 "status": "blocked",
                 "owner": "定价负责人",
                 "plannedDueDate": "2026-09-06",
-                "blocker": "等待采购成本确认",
+                "blocker": "",
                 "notes": "这里包含业务详情",
                 "evidenceUrl": "https://example.test/pricing.xlsx",
                 "evidenceLabel": "定价测算表",
@@ -192,7 +183,7 @@ class WorkflowApiContractTests(TestCase):
         self.assertEqual(result["version"], 2)
         pricing = next(value for value in result["stages"] if value["stageKey"] == "pricing")
         self.assertEqual(pricing["version"], 2)
-        self.assertEqual(pricing["blocker"], "等待采购成本确认")
+        self.assertEqual(pricing["blocker"], "")
 
         stale = self.request_json(
             "PATCH",
@@ -205,7 +196,15 @@ class WorkflowApiContractTests(TestCase):
         activity = NewProductActivity.objects.filter(project_id=item["id"], action="stage.updated").get()
         self.assertIn("notes", activity.changed_fields)
         self.assertNotIn("这里包含业务详情", json.dumps(activity.changed_fields, ensure_ascii=False))
-        self.assertNotIn("等待采购成本确认", json.dumps(activity.changed_fields, ensure_ascii=False))
+
+    def test_create_accepts_blocked_stage_without_blocker(self) -> None:
+        payload = project_payload()
+        payload["stages"] = [{"stageKey": "pricing", "status": "blocked"}]
+        created = self.request_json("POST", "/api/workflow/launch-projects", payload, "workflow-create-blocked-stage")
+        self.assertEqual(created.status_code, 201, created.content)
+        pricing = next(stage for stage in created.json()["item"]["stages"] if stage["stageKey"] == "pricing")
+        self.assertEqual(pricing["status"], "blocked")
+        self.assertEqual(pricing["blocker"], "")
 
     def test_project_update_replaces_target_set_and_write_replay_is_fenced(self) -> None:
         created_response = self.create_project("workflow-create-replay")

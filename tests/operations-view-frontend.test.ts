@@ -235,7 +235,7 @@ test("work plan exposes server facets, standardized suggestions and complete fil
   assert.match(route, /sources: params\.getAll\("source"\)/);
 });
 
-test("new-product editor validates multi-store identity, dates, money and blocked-stage evidence", async () => {
+test("new-product editor validates multi-store identity, dates, money and optional stage details", async () => {
   const draft = {
     productName: "大通量商用净水器",
     supplierName: "供应商甲",
@@ -262,11 +262,11 @@ test("new-product editor validates multi-store identity, dates, money and blocke
   assert.match(validateNewProductDraft({ ...draft, targetLaunchDate: "2026-09-01" }), /不能早于/);
   assert.match(validateNewProductDraft({ ...draft, recommendedPriceYuan: "1.999" }), /最多保留 2 位/);
   assert.match(validateNewProductDraft({ ...draft, targets: [...draft.targets, { ...draft.targets[0]! }] }), /不能重复/);
-  assert.equal(validateStageDraft({ status: "blocked", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "", evidenceLabel: "" }), "阶段标记为受阻时，请填写阻塞原因。");
+  assert.equal(validateStageDraft({ status: "blocked", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "", evidenceLabel: "" }), "");
   assert.match(validateStageDraft({ status: "completed", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "ftp://invalid", evidenceLabel: "" }), /http/);
 });
 
-test("new-product workspace includes seven stages, matrix, kanban, evidence and no legacy fallback", async () => {
+test("new-product workspace includes editable planning, status-only stages and reachable modal actions", async () => {
   const [launch, operations, css] = await Promise.all([
     source("../app/new-product-launch-view.tsx"),
     source("../app/operations-view.tsx"),
@@ -275,12 +275,17 @@ test("new-product workspace includes seven stages, matrix, kanban, evidence and 
   for (const label of ["建模", "分析定价", "图片", "视频", "上架", "备货", "上新复盘"]) {
     assert.match(launch, new RegExp(label));
   }
-  for (const feature of ["阶段矩阵", "看板", "目标店铺", "阻塞原因", "有阻塞节点", "证据链接", "最近活动"]) {
+  for (const feature of ["阶段矩阵", "看板", "店铺规划", "编辑店铺规划", "负责人", "工作状态备注", "阻塞原因（选填）", "证据链接（选填）", "最近活动"]) {
     assert.match(launch, new RegExp(feature));
   }
+  assert.match(launch, /STATUS_ONLY_STAGE_KEYS = new Set<StageKey>\(\["modeling", "pricing", "image", "video", "stocking"\]\)/);
+  assert.match(launch, /STATUS_ONLY_STAGE_KEYS\.has\(stage\.stageKey\)/);
   assert.doesNotMatch(launch, /legacyFallback|structured === false/);
   assert.doesNotMatch(operations, /OperationsRecordWorkspace type="launch"/);
   assert.match(css, /\.launch-matrix-table/);
+  assert.match(css, /\.modal-backdrop:has\(\.workflow-edit-modal\)/);
+  assert.match(css, /\.workflow-edit-actions \{ position: sticky;/);
+  assert.match(css, /\.launch-planning-cell/);
   assert.match(css, /\.launch-kanban/);
   assert.match(css, /\.launch-detail-stages/);
 });

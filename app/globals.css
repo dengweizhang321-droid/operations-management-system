@@ -2395,6 +2395,8 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .workflow-timeline article > div { margin: 10px 0; padding: 14px 16px; border: 1px solid #e1e8f1; border-radius: 9px; background: #fff; }
 .workflow-timeline article > div > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }.workflow-timeline article > div > header strong { color: #34485f; font-size: 14px; }.workflow-timeline article p { margin: 8px 0 10px; color: #6c7b8f; font-size: 12px; line-height: 1.6; }.workflow-timeline article footer { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }.workflow-timeline article footer span { padding: 4px 7px; border-radius: 5px; color: #6f8095; background: #f2f5f8; font-size: 10px; }.workflow-timeline article footer .workflow-edit-button { margin-left: auto; }
 .workflow-edit-modal { width: min(760px,100%); max-height: min(820px,calc(100vh - 40px)); position: relative; overflow: auto; padding: 24px; border: 1px solid #d9e3f0; border-radius: 13px; background: #fff; box-shadow: 0 22px 60px rgba(23,38,65,.25); }
+.modal-backdrop:has(.workflow-edit-modal) { align-items: center; padding: 20px; }
+.workflow-edit-actions { position: sticky; z-index: 4; bottom: -24px; margin: 3px -24px -24px; padding: 13px 24px 18px; border-top: 1px solid #e5ebf3; background: rgba(255,255,255,.97); box-shadow: 0 -8px 18px rgba(31,48,73,.06); }
 .workflow-edit-modal h2 { margin: 5px 34px 5px 0; color: #33465d; font-size: 19px; }.workflow-edit-modal > p { margin: 0 0 18px; color: #8190a3; font-size: 12px; }
 .workflow-edit-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }.workflow-edit-form label { min-width: 0; display: grid; gap: 6px; }.workflow-edit-form label > span { color: #62748b; font-size: 11px; font-weight: 700; }.workflow-edit-form input,.workflow-edit-form textarea { width: 100%; min-width: 0; padding: 0 11px; border: 1px solid #d7e1ee; border-radius: 7px; outline: 0; color: #40536b; background: #fff; font: inherit; font-size: 12px; }.workflow-edit-form input { height: 40px; }.workflow-edit-form textarea { min-height: 104px; padding-top: 10px; padding-bottom: 10px; resize: vertical; line-height: 1.6; }.workflow-edit-form input:focus,.workflow-edit-form textarea:focus { border-color: #82a5e8; box-shadow: 0 0 0 3px #edf3ff; }.workflow-edit-form .searchable-select,.workflow-edit-form .searchable-select-trigger { width: 100%; }.workflow-edit-form .searchable-select-trigger { height: 40px; padding: 0 11px; border-color: #d7e1ee; color: #40536b; font-size: 12px; }.workflow-edit-title-field,.workflow-edit-content-field { grid-column: 1/-1; }.workflow-edit-validation { grid-column: 1/-1; margin: 0; padding: 9px 11px; border-radius: 7px; color: #b34851; background: #fff0f1; font-size: 11px; }.workflow-edit-actions { grid-column: 1/-1; margin-top: 3px; }
 .workflow-variable-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
@@ -2685,7 +2687,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 
 .launch-matrix-panel { overflow: hidden; padding: 0; }
 .launch-matrix-panel > .workflow-list-heading { padding: 17px 18px 13px; }
-.launch-matrix-table { min-width: 2380px; }
+.launch-matrix-table { min-width: 2670px; }
 .launch-matrix-table th,
 .launch-matrix-table td { padding: 10px 9px; vertical-align: top; font-size: 10px; }
 .launch-matrix-table th:first-child,
@@ -2693,9 +2695,11 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .launch-matrix-table th:first-child { z-index: 3; background: #f8fafc; }
 .launch-matrix-table th:nth-child(2) { width: 190px; min-width: 190px; }
 .launch-matrix-table th:nth-child(3) { width: 122px; min-width: 122px; }
-.launch-matrix-table th:nth-child(n+4):nth-child(-n+10) { width: 132px; min-width: 132px; }
-.launch-matrix-table th:nth-child(11) { width: 150px; min-width: 150px; }
-.launch-matrix-table th:nth-child(12) { width: 170px; min-width: 170px; }
+.launch-matrix-table th:nth-child(4) { width: 120px; min-width: 120px; }
+.launch-matrix-table th:nth-child(5) { width: 190px; min-width: 190px; }
+.launch-matrix-table th:nth-child(n+6):nth-child(-n+12) { width: 132px; min-width: 132px; }
+.launch-matrix-table th:nth-child(13) { width: 150px; min-width: 150px; }
+.launch-matrix-table th:nth-child(14) { width: 170px; min-width: 170px; }
 .launch-product-cell { display: flex; gap: 10px; align-items: flex-start; }
 .launch-product-cell > img,
 .launch-product-cell > span { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; border: 1px solid #dfe7f2; border-radius: 8px; color: #4776e6; background: #edf3ff; object-fit: cover; font-weight: 800; }
@@ -2705,6 +2709,14 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .launch-product-cell em { overflow: hidden; color: #7e8da0; font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .launch-target-chips { display: grid; gap: 4px; }
 .launch-target-chips span { overflow: hidden; padding: 4px 6px; border-radius: 5px; color: #536d91; background: #edf3fb; text-overflow: ellipsis; white-space: nowrap; }
+.launch-planning-cell { width: 100%; display: grid; gap: 6px; padding: 7px; border: 1px solid #dfe7f1; border-radius: 8px; color: inherit; background: #fff; text-align: left; }
+.launch-planning-cell:hover:not(:disabled) { border-color: #8eace8; background: #f8fbff; }
+.launch-planning-cell:disabled { opacity: 1; cursor: default; }
+.launch-planning-cell > small { color: #4776c9; font-size: 9px; }
+.launch-owner-cell { display: block; overflow: hidden; color: #52677f; text-overflow: ellipsis; white-space: nowrap; }
+.launch-work-note { display: grid; gap: 5px; }
+.launch-work-note strong { color: #52677f; font-size: 10px; }
+.launch-work-note small { display: -webkit-box; overflow: hidden; color: #8795a7; font-size: 9px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .launch-matrix-table td:nth-child(3) > time,
 .launch-matrix-table td:nth-child(3) > small { display: block; color: #61738a; }
 .launch-matrix-table td:nth-child(3) > small { margin-top: 4px; color: #919dad; }
@@ -2815,6 +2827,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   .launch-controls > div:first-child > *,
   .launch-controls > div:first-child > input:first-child { width: 100%; min-width: 0; flex: 1 1 100%; }
   .launch-detail-header { grid-template-columns: 48px minmax(0,1fr); }.launch-detail-header > .status { grid-column: 1/-1; width: fit-content; }.launch-detail-header > img,.launch-detail-header > span { width: 48px; height: 48px; }
+  .workflow-edit-actions { bottom: -20px; margin: 3px -20px -20px; padding: 12px 20px 16px; }
 }
 
 /* Keep filter-driven refreshes in place: existing data fades while the next

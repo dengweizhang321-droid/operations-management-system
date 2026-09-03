@@ -153,8 +153,6 @@ def _normalize_stage_seed(value: object) -> dict[str, object]:
     stage_key = _choice(payload.get("stageKey"), "阶段标识", STAGE_KEYS)
     status = _choice(payload.get("status"), "阶段状态", STAGE_STATUSES, "not_started")
     blocker = _text(payload.get("blocker"), "阻塞原因", 500)
-    if status == "blocked" and not blocker:
-        raise _error("阶段标记为阻塞时必须填写阻塞原因")
     return {
         "stage_key": stage_key,
         "status": status,
@@ -711,9 +709,6 @@ def update_stage(project_id: object, stage_key: str, payload: object, principal:
         if int(stage.version) != expected:
             raise _error("新品阶段已被其他人更新，请刷新后重试", code="version_conflict", status=409)
         next_status = str(normalized.get("status", stage.status))
-        next_blocker = str(normalized.get("blocker", stage.blocker))
-        if next_status == "blocked" and not next_blocker:
-            raise _error("阶段标记为阻塞时必须填写阻塞原因")
         if next_status != "blocked" and "blocker" not in normalized and stage.blocker:
             normalized["blocker"] = ""
         changed: list[str] = []
