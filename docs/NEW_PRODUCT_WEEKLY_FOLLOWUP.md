@@ -34,7 +34,13 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File D:\teruisi-runtime\django-sales\app\tools\django-workflow-service.ps1 -Action RunWeeklyReport -Json
 ```
 
-底层 Django 命令无参数时只学习代码并输出周报 JSON；`--dry-run` 会通过 `dws` 完成群、机器人及入群关系的动态核验，同时验证图片布局但不生成钉盘文件、不发送；`--send` 只在配置启用且本机时间落入设置时间后的 10 分钟窗口时发送。正式发送先用独立无状态 Chrome 将同一表格渲染为 PNG，再通过 `dws drive upload` 上传到当前授权身份的钉盘，最后由“志高助手”机器人发送钉钉在线预览链接。受控人工补发可使用 `--send --force`，仍要求配置启用并执行全部目标核验。
+受控人工立即发送一次使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\teruisi-runtime\django-sales\app\tools\django-workflow-service.ps1 -Action ForceWeeklyReport -Json
+```
+
+底层 Django 命令无参数时只学习代码并输出周报 JSON；`--dry-run` 会通过 `dws` 完成群、机器人及入群关系的动态核验，同时验证图片布局但不生成钉盘文件、不发送；`--send` 只在配置启用且本机时间落入设置时间后的 10 分钟窗口时发送。正式发送先用独立无状态 Chrome 将同一表格渲染为 PNG，再通过 `dws drive upload` 上传到当前授权身份的钉盘，最后由“志高助手”机器人发送钉钉在线预览链接。受控人工补发应通过 `ForceWeeklyReport` 入口调用底层 `--send --force`，仍要求配置启用并执行全部目标核验。
 
 仓库提供默认 `active=false` 的 `automation/n8n/new-product-weekly-dingtalk.workflow.json`。它每 5 分钟调用一次受保护 runtime 入口，由数据库配置中的本机星期和本机时间门禁决定是否发送；同一 10 分钟窗口内的再次调用由投递账本去重。生产发布时必须先导入、检查并手工激活该模板，不能让页面保存配置隐式发布 n8n 工作流。
 

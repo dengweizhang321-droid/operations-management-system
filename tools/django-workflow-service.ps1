@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "EnableWeeklyReport", "DisableWeeklyReport",
-    "RunWeeklyReport", "DryRunWeeklyReport"
+    "RunWeeklyReport", "ForceWeeklyReport", "DryRunWeeklyReport"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -503,7 +503,7 @@ function Disable-WorkflowStartup {
   Write-Output "Django 运营事务新品域已退出开机启动链；当前运行进程未改变。"
 }
 
-function Invoke-NewProductWeeklyReport([bool]$DryRun) {
+function Invoke-NewProductWeeklyReport([bool]$DryRun, [bool]$Force = $false) {
   Assert-WorkflowRuntimeEntry
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝执行新品销售周报" }
@@ -518,7 +518,12 @@ function Invoke-NewProductWeeklyReport([bool]$DryRun) {
       "teruisi_workflow_writer" $workflowSecrets.WriterPassword `
       "teruisi_new_product_weekly_report" $WriterStatementTimeoutMs
     $arguments = @((Join-Path $BackendRoot "manage.py"), "new_product_weekly_report")
-    if ($DryRun) { $arguments += "--dry-run" } else { $arguments += "--send" }
+    if ($DryRun) {
+      $arguments += "--dry-run"
+    } else {
+      $arguments += "--send"
+      if ($Force) { $arguments += "--force" }
+    }
     $payload = Invoke-WithDjangoEnvironment `
       $runtimeSecrets $writerUrl "workflow_writer" $false $WorkflowWriterMaxBodyBytes `
       ([string]$authority.authorityEpoch) ([string]$authority.cutoverId) {
@@ -614,8 +619,9 @@ try {
     "DisableStartup" { Invoke-WithServiceMutex { Disable-WorkflowStartup } }
     "EnableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $true } }
     "DisableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $false } }
-    "RunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false } }
-    "DryRunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $true } }
+    "RunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false $false } }
+    "ForceWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false $true } }
+    "DryRunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $true $false } }
   }
 } catch {
   Write-LauncherEvent "ERROR" "workflow_action_failed" $_.Exception.Message

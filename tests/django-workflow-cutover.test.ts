@@ -69,6 +69,8 @@ test("new-product weekly DingTalk scheduler is inactive and uses the protected l
   assert.match(command, /django-workflow-service\.ps1/);
   assert.match(command, /-Action RunWeeklyReport/);
   assert.match(service, /"RunWeeklyReport"/);
+  assert.match(service, /"ForceWeeklyReport"/);
+  assert.match(service, /if \(\$Force\) \{ \$arguments \+= "--force" \}/);
   assert.match(service, /"EnableWeeklyReport"/);
   assert.match(service, /configure_new_product_weekly_report/);
   assert.match(service, /new_product_weekly_report/);
