@@ -10,18 +10,10 @@ import {
   type InventoryOverviewResponse,
 } from "./module-view-shared";
 
-type OverviewSettings = InventoryOverviewResponse["settings"];
-type OverviewQualityStatus = InventoryOverviewResponse["quality"]["status"];
 type AgeDistributionBucket = InventoryAgeAnalysisResponse["fineDistribution"][number];
 type PlanSummary = InventoryOverviewResponse["planSummary"];
 type AgeMetrics = InventoryAgeAnalysisResponse["metrics"];
 type InboundMetrics = InventoryInboundMonitorResponse["metrics"];
-
-const qualityCopy: Record<OverviewQualityStatus, { label: string; detail: string }> = {
-  reliable: { label: "精确建议可用", detail: "销量匹配和单位校验已通过当前门槛" },
-  degraded: { label: "带缺口使用", detail: "可查看总量，执行前仍需核对提示项" },
-  blocked: { label: "精确建议已暂停", detail: "先修复映射或单位异常，再创建补货计划" },
-};
 
 export function getInventoryCleanupStrategy(status: InventoryAgeStatus) {
   if (status === "stagnant") {
@@ -37,59 +29,6 @@ export function getInventoryCleanupStrategy(status: InventoryAgeStatus) {
     return { label: "等待快照确认", note: "当前没有可用库存，不进入清理执行。" };
   }
   return { label: "持续观察", note: "库存处于健康区间，继续观察库龄和近 30 日动销。" };
-}
-
-export function InventoryOverviewRulePanel({
-  settings,
-  qualityStatus,
-}: {
-  settings: OverviewSettings;
-  qualityStatus: OverviewQualityStatus;
-}) {
-  const quality = qualityCopy[qualityStatus];
-  const rules = [
-    {
-      tone: "blue",
-      label: `${settings.salesWindowDays} 日需求`,
-      value: "同货品 × 同仓库",
-      note: "只使用所选周期内的正向销量；未匹配时不生成补货量。",
-    },
-    {
-      tone: "red",
-      label: "紧急补货",
-      value: `≤ ${settings.criticalDays} 天`,
-      note: "可用库存为 0 或预计可售不超过紧急阈值。",
-    },
-    {
-      tone: "orange",
-      label: "建议补货",
-      value: `< ${settings.replenishDays} 天`,
-      note: `补足到 ${settings.targetDays} 天目标，并扣除报表和计划在途。`,
-    },
-    {
-      tone: "purple",
-      label: "低周转",
-      value: `≥ ${settings.slowDays} 天`,
-      note: "先控制补货，再核对价格、渠道和活动节奏。",
-    },
-    {
-      tone: "red",
-      label: "呆滞风险",
-      value: `≥ ${settings.stagnantDays} 天`,
-      note: "高覆盖或高库龄且无有效销量，转入滞销清理。",
-    },
-  ];
-
-  return <section className="panel inventory-rule-panel" aria-labelledby="inventory-rule-title">
-    <header className="inventory-workbench-heading">
-      <div><span className="eyebrow">DECISION RULES</span><h2 id="inventory-rule-title">库存决策规则</h2><p>把建议背后的阈值直接放在工作页，避免只看到结果却不知道为什么。</p></div>
-      <span className={`inventory-quality-state ${qualityStatus}`}><strong>{quality.label}</strong><small>{quality.detail}</small></span>
-    </header>
-    <div className="inventory-rule-grid">
-      {rules.map((rule) => <article className={`tone-${rule.tone}`} key={rule.label}><span>{rule.label}</span><strong>{rule.value}</strong><p>{rule.note}</p></article>)}
-    </div>
-    <footer>统一边界：始终排除“刷刷仓”；成本缺失不按 0 元；精确建议必须先通过数据质量门禁。</footer>
-  </section>;
 }
 
 export function InventoryAgeSummaryPanel({

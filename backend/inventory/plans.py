@@ -27,7 +27,19 @@ def plan_payload(plan: ReplenishmentPlanItem) -> dict[str, object]:
         "sourceBatchId": plan.source_batch_id,
         "productCode": plan.product_code,
         "productName": plan.product_name,
+        "brand": plan.brand,
+        "category": plan.category,
+        "supplier": plan.supplier,
         "warehouse": plan.warehouse,
+        "buyer": plan.buyer,
+        "operatorName": plan.operator_name,
+        "department": plan.department,
+        "planType": plan.plan_type,
+        "orderDate": plan.order_date.isoformat() if plan.order_date else None,
+        "expectedArrivalDate": plan.expected_arrival_date.isoformat() if plan.expected_arrival_date else None,
+        "requiresInspection": bool(plan.requires_inspection),
+        "currentStockQuantity": int(plan.current_stock_quantity),
+        "sales30dQuantity": int(plan.sales_30d_quantity) if plan.sales_30d_quantity is not None else None,
         "suggestedQuantity": int(plan.suggested_quantity),
         "plannedQuantity": int(plan.planned_quantity),
         "coverageDays": (
@@ -36,6 +48,7 @@ def plan_payload(plan: ReplenishmentPlanItem) -> dict[str, object]:
             else None
         ),
         "reason": plan.reason,
+        "notes": plan.notes,
         "status": plan.status,
         "createdAt": plan.created_at.isoformat(),
         "updatedAt": plan.updated_at.isoformat(),
@@ -147,14 +160,29 @@ def get_plan(plan_id: str) -> ReplenishmentPlanItem | None:
 def upsert_plan(data: dict[str, object], actor_email: str) -> ReplenishmentPlanItem:
     with transaction.atomic():
         lock_active_authority()
+        requested_status = str(data.get("status") or "draft")
+        if requested_status not in {"draft", "confirmed"}:
+            raise InventoryApiError("新建备货计划状态无效")
         lookup = {
             "source_batch_id": str(data["sourceBatchId"]),
             "warehouse": str(data["warehouse"]),
             "product_code": str(data["productCode"]),
-            "status": "draft",
+            "status": requested_status,
         }
         defaults = {
             "product_name": str(data["productName"]),
+            "brand": str(data.get("brand") or ""),
+            "category": str(data.get("category") or ""),
+            "supplier": str(data.get("supplier") or ""),
+            "buyer": str(data.get("buyer") or ""),
+            "operator_name": str(data.get("operatorName") or ""),
+            "department": str(data.get("department") or ""),
+            "plan_type": str(data.get("planType") or ""),
+            "order_date": data.get("orderDate"),
+            "expected_arrival_date": data.get("expectedArrivalDate"),
+            "requires_inspection": bool(data.get("requiresInspection", False)),
+            "current_stock_quantity": int(data.get("currentStockQuantity") or 0),
+            "sales_30d_quantity": int(data["sales30dQuantity"]) if data.get("sales30dQuantity") is not None else None,
             "suggested_quantity": int(data["suggestedQuantity"]),
             "planned_quantity": int(data["plannedQuantity"]),
             "coverage_days_tenths": (
@@ -163,10 +191,15 @@ def upsert_plan(data: dict[str, object], actor_email: str) -> ReplenishmentPlanI
                 else None
             ),
             "reason": str(data["reason"]),
+            "notes": str(data.get("notes") or ""),
             "created_by": actor_email[:320],
         }
         try:
-            plan = ReplenishmentPlanItem.objects.select_for_update().filter(**lookup).first()
+            plan = (
+                ReplenishmentPlanItem.objects.select_for_update().filter(**lookup).first()
+                if requested_status == "draft"
+                else None
+            )
             if plan is None:
                 plan = ReplenishmentPlanItem.objects.create(
                     id=str(uuid.uuid4()),

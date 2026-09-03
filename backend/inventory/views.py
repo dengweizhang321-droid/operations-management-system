@@ -5,6 +5,7 @@ import json
 import logging
 import re
 from collections.abc import Callable
+from datetime import date
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -132,6 +133,30 @@ def _positive(value: str | None, fallback: int, label: str, maximum: int) -> int
     if not re.fullmatch(r"[1-9]\d*", value) or int(value) > maximum:
         raise InventoryApiError(f"{label} 超出允许范围")
     return int(value)
+
+
+def _body_text(payload: dict[str, object], key: str, label: str, maximum: int) -> str:
+    value = payload.get(key, "")
+    if value is None:
+        return ""
+    if not isinstance(value, str) or len(value) > maximum:
+        raise InventoryApiError(f"{label}无效")
+    return value.strip()
+
+
+def _body_date(payload: dict[str, object], key: str, label: str) -> date | None:
+    value = payload.get(key)
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        raise InventoryApiError(f"{label}无效")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as error:
+        raise InventoryApiError(f"{label}无效") from error
+    if parsed.isoformat() != value:
+        raise InventoryApiError(f"{label}无效")
+    return parsed
 
 
 def _selections(request: HttpRequest, key: str, maximum: int, allowed: set[str] | None = None) -> list[str]:
@@ -281,7 +306,11 @@ def replenishment(request: HttpRequest) -> JsonResponse:
             return _json(payload, revision=revision)
         principal = _principal(request, {"operator", "admin"}); body = _body(request)
         if request.method == "POST":
-            allowed = {"key", "plannedQuantity", "acknowledgeStale", "startDate", "endDate"}
+            allowed = {
+                "key", "plannedQuantity", "acknowledgeStale", "manual", "startDate", "endDate",
+                "buyer", "operatorName", "department", "planType", "orderDate",
+                "expectedArrivalDate", "status", "requiresInspection", "notes",
+            }
             if not set(body).issubset(allowed) or not isinstance(body.get("key"), str):
                 raise InventoryApiError("创建备货计划请求无效")
             key = str(body["key"]); parts = key.split("\x1f")
@@ -290,20 +319,51 @@ def replenishment(request: HttpRequest) -> JsonResponse:
             requested = body.get("plannedQuantity")
             if requested is not None and (isinstance(requested, bool) or not isinstance(requested, int) or not 1 <= requested <= 10_000_000):
                 raise InventoryApiError("计划补货量必须是 1 到 10,000,000 之间的整数")
+            manual = body.get("manual", False)
+            if not isinstance(manual, bool):
+                raise InventoryApiError("manual 必须是布尔值")
+            if manual and requested is None:
+                raise InventoryApiError("人工创建备货计划必须填写备货数量")
+            requested_status = body.get("status", "draft")
+            if requested_status not in {"draft", "confirmed"}:
+                raise InventoryApiError("新建备货计划状态只能是草稿或已确认")
+            requires_inspection = body.get("requiresInspection", False)
+            if not isinstance(requires_inspection, bool):
+                raise InventoryApiError("是否验货必须是布尔值")
+            details = {
+                "buyer": _body_text(body, "buyer", "对应采购", 200),
+                "operatorName": _body_text(body, "operatorName", "对应运营", 200),
+                "department": _body_text(body, "department", "部门", 200),
+                "planType": _body_text(body, "planType", "备货类型", 100),
+                "orderDate": _body_date(body, "orderDate", "下单日期"),
+                "expectedArrivalDate": _body_date(body, "expectedArrivalDate", "预计到货日"),
+                "status": requested_status,
+                "requiresInspection": requires_inspection,
+                "notes": _body_text(body, "notes", "备注", 1_000),
+            }
             def create() -> tuple[dict[str, object], int]:
                 overview_data = inventory_overview(principal, {"view": "overview", "exactKey": key, "startDate": body.get("startDate"), "endDate": body.get("endDate"), "page": 1, "pageSize": 1})
-                if not overview_data["controls"]["autoReplenishmentEnabled"]:
+                if not manual and not overview_data["controls"]["autoReplenishmentEnabled"]:
                     raise InventoryApiError("系统设置已关闭自动补货建议，请由管理员开启后再创建计划", code="conflict", status=409)
-                if overview_data["quality"]["recommendationsSuppressed"]:
+                if not manual and overview_data["quality"]["recommendationsSuppressed"]:
                     raise InventoryApiError("库存数据质量门禁未通过，已暂停创建精确补货计划", code="conflict", status=409)
                 if overview_data["sync"]["inventoryStale"] and body.get("acknowledgeStale") is not True:
                     raise InventoryApiError("库存快照已过期，请先同步或明确确认继续", code="conflict", status=409)
                 if not overview_data["items"]:
                     raise InventoryApiError("当前库存快照中未找到该货品与仓库", code="not_found", status=404)
                 item = overview_data["items"][0]; suggested = item["suggestedQuantity"]
-                if suggested is None or int(suggested) <= 0:
+                if not manual and (suggested is None or int(suggested) <= 0):
                     raise InventoryApiError("当前没有可创建的精确补货量", code="conflict", status=409)
-                plan = upsert_plan({"sourceBatchId": overview_data["sync"]["latestInventoryBatchId"], "productCode": item["productCode"], "productName": item["productName"], "warehouse": item["warehouse"], "suggestedQuantity": suggested, "plannedQuantity": requested if requested is not None else suggested, "coverageDays": item["coverageDays"], "reason": item["reason"]}, principal.email)
+                plan = upsert_plan({
+                    "sourceBatchId": overview_data["sync"]["latestInventoryBatchId"],
+                    "productCode": item["productCode"], "productName": item["productName"],
+                    "brand": item["brand"], "category": item["category"], "supplier": item["supplier"],
+                    "warehouse": item["warehouse"], "suggestedQuantity": suggested if suggested is not None else 0,
+                    "plannedQuantity": requested if requested is not None else suggested,
+                    "coverageDays": item["coverageDays"], "currentStockQuantity": item["availableQuantity"],
+                    "sales30dQuantity": item["sales30d"],
+                    "reason": f"人工创建备货计划；{item['reason']}" if manual else item["reason"], **details,
+                }, principal.email)
                 return {"ok": True, "item": plan_payload(plan)}, 201
             return _replay_write(request, principal, create)
         if set(body) - {"id", "status", "plannedQuantity"} or not isinstance(body.get("id"), str) or body.get("status") not in {"draft", "confirmed", "completed", "cancelled"}:

@@ -42,6 +42,15 @@ AGE_BUCKETS = (
 MIN_SALES_MATCH_RATE = 0.6
 MAX_OVERVIEW_PRODUCTS = 20_000
 MAX_INBOUND_PRODUCTS = 5_000
+WAREHOUSE_GROUPS = (
+    "jd",
+    "dropship",
+    "afterSales",
+    "guangdong",
+    "sample",
+    "cainiao",
+    "selfOperated",
+)
 
 
 def _latest_batch(dataset: str) -> InventoryImportBatch | None:
@@ -151,6 +160,23 @@ def _warehouse_type(warehouse: str, stored: str) -> str:
     if stored == "owned":
         return "owned"
     return "other"
+
+
+def _warehouse_group(warehouse: str, warehouse_type: str) -> str:
+    normalized = warehouse.strip().lower()
+    if _is_jd_warehouse(warehouse, warehouse_type):
+        return "jd"
+    if "代发" in normalized:
+        return "dropship"
+    if "售后" in normalized:
+        return "afterSales"
+    if "广东" in normalized:
+        return "guangdong"
+    if "样品" in normalized:
+        return "sample"
+    if "菜鸟" in normalized:
+        return "cainiao"
+    return "selfOperated"
 
 
 def _selected(options: dict[str, object], key: str, maximum: int) -> list[str]:
@@ -410,6 +436,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
                 "brand": row.brand or (master.brand if master else ""),
                 "specification": row.specification or (master.specification if master else ""),
                 "category": row.category or (master.category if master else "") or "未分类",
+                "supplier": (master.supplier.strip() if master and master.supplier.strip() else "未映射供应商"),
                 "warehouse": row.warehouse,
                 "warehouseType": _warehouse_type(row.warehouse, row.warehouse_type),
                 "onHandQuantity": int(row.on_hand_quantity),
@@ -496,6 +523,85 @@ def _metrics(items: list[dict[str, object]], quality: dict[str, object], alerts:
     }
 
 
+def _warehouse_metrics(items: list[dict[str, object]], window_days: int) -> dict[str, object]:
+    inventory = sum(int(item["availableQuantity"]) for item in items)
+    in_transit = sum(int(item["totalInTransitQuantity"]) for item in items)
+    matched_sales = [int(item["sales30d"]) for item in items if item["sales30d"] is not None]
+    sales = sum(matched_sales) if matched_sales else None
+    turnover = (
+        max(0, inventory) / (sales / window_days)
+        if sales is not None and sales > 0 and window_days > 0
+        else None
+    )
+    return {
+        "inventoryQuantity": inventory,
+        "salesQuantity": sales,
+        "turnoverDays": turnover,
+        "inTransitQuantity": in_transit,
+    }
+
+
+def _mapping_samples(
+    items: list[dict[str, object]],
+    window_days: int,
+    suppressed: bool,
+) -> list[dict[str, object]]:
+    by_product: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for item in items:
+        by_product[str(item["productCode"])].append(item)
+    samples: list[dict[str, object]] = []
+    for product_code, product_items in by_product.items():
+        if all(item["sales30d"] is not None for item in product_items):
+            continue
+        ordered = sorted(product_items, key=lambda item: (str(item["warehouse"]), str(item["key"])))
+        first = ordered[0]
+        grouped = {
+            key: _warehouse_metrics(
+                [item for item in ordered if _warehouse_group(str(item["warehouse"]), str(item["warehouseType"])) == key],
+                window_days,
+            )
+            for key in WAREHOUSE_GROUPS
+        }
+        total = _warehouse_metrics(ordered, window_days)
+        suggested_values = [int(item["suggestedQuantity"]) for item in ordered if item["suggestedQuantity"] is not None]
+        alert_item = min(ordered, key=lambda item: HEALTH_STATUSES.index(str(item["status"])))
+        samples.append(
+            {
+                "key": product_code,
+                "productCode": product_code,
+                "productName": first["productName"],
+                "brand": first["brand"],
+                "category": first["category"],
+                "supplier": first["supplier"],
+                "warehouses": grouped,
+                "warehouseOptions": [
+                    {
+                        "key": item["key"],
+                        "warehouse": item["warehouse"],
+                        "availableQuantity": item["availableQuantity"],
+                        "salesQuantity": item["sales30d"],
+                        "coverageDays": item["coverageDays"],
+                        "suggestedQuantity": item["suggestedQuantity"],
+                        "inDraftPlan": item["inDraftPlan"],
+                    }
+                    for item in ordered
+                ],
+                "totalInventoryQuantity": total["inventoryQuantity"],
+                "totalStockValueCents": sum(int(item["knownStockValueCents"]) for item in ordered),
+                "totalInTransitQuantity": total["inTransitQuantity"],
+                "totalSalesQuantity": total["salesQuantity"],
+                "totalTurnoverDays": total["turnoverDays"],
+                "suggestedQuantity": None if suppressed or not suggested_values else sum(suggested_values),
+                "alertStatus": alert_item["status"],
+                "alertLabel": alert_item["statusLabel"],
+                "alertReason": alert_item["reason"],
+                "unmatchedWarehouseCount": sum(item["sales30d"] is None for item in ordered),
+            }
+        )
+    samples.sort(key=lambda item: (-max(0, int(item["totalInventoryQuantity"])), str(item["productCode"])))
+    return samples[:50]
+
+
 def inventory_overview(principal: Principal, options: dict[str, object]) -> dict[str, object]:
     page, page_size, offset = _pagination(options)
     latest, all_items, settings, sales_start, sales_end, _revision = _overview_items(principal, options)
@@ -527,19 +633,7 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
         "categories": sorted({str(item["category"]) for item in all_items if item["category"]}),
         "statuses": list(HEALTH_STATUSES),
     }
-    mapping_samples = [
-        {
-            "key": item["key"],
-            "productCode": item["productCode"],
-            "productName": item["productName"],
-            "inventoryWarehouse": item["warehouse"],
-            "warehouseType": item["warehouseType"],
-            "availableQuantity": item["availableQuantity"],
-            "candidateSalesWarehouses": [],
-        }
-        for item in sorted(all_items, key=lambda value: -max(0, int(value["availableQuantity"])))
-        if item["sales30d"] is None
-    ][:50]
+    mapping_samples = _mapping_samples(filtered, int(settings["salesWindowDays"]), suppressed)
     sync = {
         "latestInventoryBatchId": latest.id if latest else None,
         "inventoryAsOf": latest.snapshot_date.isoformat() if latest else None,
@@ -571,8 +665,8 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
         "sources": sources,
         "filters": facets,
         "mapping": {
-            "matchedCount": sum(item["sales30d"] is not None for item in all_items),
-            "unmatchedCount": sum(item["sales30d"] is None for item in all_items),
+            "matchedCount": sum(item["sales30d"] is not None for item in filtered),
+            "unmatchedCount": sum(item["sales30d"] is None for item in filtered),
             "samples": mapping_samples,
         },
         "pagination": {
