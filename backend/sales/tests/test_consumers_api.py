@@ -76,7 +76,7 @@ class SalesConsumerApiTests(TestCase):
                     "productCode": "P1",
                     "warehouseKey": "主",
                     "productName": "饮水机",
-                    "salesQuantity": 1,
+                    "salesQuantity": 2,
                     "absoluteQuantity": 3,
                     "absoluteCostCents": 8_500,
                 }

@@ -5,7 +5,10 @@ import {
   type XlsxRow,
 } from "./xlsx";
 import { normalizeSalesLedgerDate } from "./sales-ledger";
-import { inferInventoryWarehouseType } from "@/lib/inventory/warehouse-classification";
+import {
+  classifyInventoryWarehouse,
+  type InventoryWarehouseCategory,
+} from "@/lib/inventory/warehouse-classification";
 
 export const MAX_INVENTORY_STOCK_ROWS = 100_000;
 
@@ -17,9 +20,12 @@ export type InventoryStockRow = {
   snapshotDate: string | null;
   warehouse: string;
   warehouseType: InventoryWarehouseType;
+  warehouseCategory: InventoryWarehouseCategory;
+  includeInInventory: boolean;
   productCode: string;
   productName: string;
   brand: string;
+  supplier: string;
   specification: string;
   barcode: string;
   category: string;
@@ -52,6 +58,7 @@ export type InventoryStockParseResult = {
     hasInTransitQuantity: boolean;
     hasUnitCost: boolean;
     hasBrand: boolean;
+    hasSupplier: boolean;
     hasInventoryAgeDays: boolean;
     hasSales7dQuantity: boolean;
     hasSales30dQuantity: boolean;
@@ -62,6 +69,8 @@ export type InventoryStockParseResult = {
     rowCount: number;
     warehouseCount: number;
     productCount: number;
+    includedInventoryRowCount: number;
+    excludedInventoryRowCount: number;
     onHandQuantity: number;
     availableQuantity: number;
     lockedQuantity: number;
@@ -98,6 +107,7 @@ type CanonicalHeader =
   | "productCode"
   | "productName"
   | "brand"
+  | "supplier"
   | "specification"
   | "barcode"
   | "category"
@@ -123,6 +133,7 @@ const headerAliases: Record<CanonicalHeader, readonly string[]> = {
   productCode: ["货品编号", "商品编码", "商品编号", "SKU编码", "SKU编号", "商家编码", "货号"],
   productName: ["货品名称", "商品名称", "商品", "品名"],
   brand: ["品牌", "品牌名称", "商品品牌", "货品品牌"],
+  supplier: ["规格默认供应商", "货品默认供应商", "默认供应商", "供应商名称", "供应商"],
   specification: ["规格", "规格名称", "货品规格", "商品规格"],
   barcode: ["条码", "商品条码", "货品条码", "国际条码"],
   category: ["货品分类", "商品分类", "分类", "品类", "货品细分"],
@@ -189,6 +200,8 @@ export function parseInventoryStockXlsx(
       result.stockValueCents += Math.max(0, row.availableQuantity) * row.unitCostCents;
       result.sales7dQuantity += row.sales7dQuantity;
       result.sales30dQuantity += row.sales30dQuantity;
+      if (row.includeInInventory) result.includedInventoryRowCount += 1;
+      else result.excludedInventoryRowCount += 1;
       return result;
     },
     {
@@ -196,6 +209,8 @@ export function parseInventoryStockXlsx(
       rowCount: rows.length,
       warehouseCount: warehouses.size,
       productCount: products.size,
+      includedInventoryRowCount: 0,
+      excludedInventoryRowCount: 0,
       onHandQuantity: 0,
       availableQuantity: 0,
       lockedQuantity: 0,
@@ -213,6 +228,7 @@ export function parseInventoryStockXlsx(
     hasInTransitQuantity: header.indexByCanonical.has("inTransitQuantity"),
     hasUnitCost: header.indexByCanonical.has("unitCost"),
     hasBrand: header.indexByCanonical.has("brand"),
+    hasSupplier: header.indexByCanonical.has("supplier"),
     hasInventoryAgeDays: header.indexByCanonical.has("inventoryAgeDays"),
     hasSales7dQuantity: header.indexByCanonical.has("sales7dQuantity"),
     hasSales30dQuantity: header.indexByCanonical.has("sales30dQuantity"),
@@ -296,15 +312,19 @@ function parseRow(
   const sales30dQuantity = optionalInteger(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors);
 
   if (errors.length > beforeErrors) return null;
+  const classification = classifyInventoryWarehouse(warehouse);
   return {
     sourceRowNumber: row.rowNumber,
     rowKey: `${warehouse}\u001f${productCode}`,
     snapshotDate,
     warehouse,
-    warehouseType: inferInventoryWarehouseType(warehouse),
+    warehouseType: classification.warehouseType,
+    warehouseCategory: classification.warehouseCategory,
+    includeInInventory: classification.includeInInventory,
     productCode,
     productName: text("productName"),
     brand: text("brand"),
+    supplier: text("supplier"),
     specification: text("specification"),
     barcode: text("barcode"),
     category: text("category"),

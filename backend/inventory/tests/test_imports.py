@@ -7,7 +7,7 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from inventory.errors import InventoryApiError
-from inventory.import_service import import_inventory_payload
+from inventory.import_service import _business_content_hash, import_inventory_payload
 from inventory.models import (
     InventoryDataRevision,
     InventoryImportAttempt,
@@ -35,9 +35,12 @@ def stock_row(
         "snapshotDate": "2026-09-01",
         "warehouse": warehouse,
         "warehouseType": "owned",
+        "warehouseCategory": "selfOperated",
+        "includeInInventory": True,
         "productCode": code,
         "productName": f"货品 {code}",
         "brand": "品牌甲",
+        "supplier": "规格供应商甲",
         "specification": "标准装",
         "barcode": f"BAR-{code}",
         "category": "厨房电器",
@@ -91,6 +94,10 @@ class InventoryImportTests(TestCase):
         )
         self.assertEqual(first["status"], "imported")
         self.assertEqual(InventoryStockLine.objects.count(), 2)
+        stored = InventoryStockLine.objects.get(product_code="P1")
+        self.assertEqual(stored.supplier, "规格供应商甲")
+        self.assertEqual(stored.warehouse_category, "selfOperated")
+        self.assertTrue(stored.include_in_inventory)
         attempt = InventoryImportAttempt.objects.get(outcome="imported")
         self.assertEqual(attempt.excluded_count, 1)
         self.assertEqual(InventoryDataRevision.objects.get(domain="inventory").revision, 1)
@@ -127,6 +134,45 @@ class InventoryImportTests(TestCase):
         self.assertEqual(InventoryImportBatch.objects.count(), 2)
         self.assertEqual(InventoryDataRevision.objects.get(domain="inventory").revision, 2)
         self.assertEqual(str(_latest_batch("stock").id), replacement["batch"]["id"])
+
+    def test_v1_current_batch_remains_verifiable_before_the_first_supplier_aware_import(self) -> None:
+        import_inventory_payload(stock_payload(stock_row("P1", 2)), "admin@example.test")
+        batch = InventoryImportBatch.objects.get()
+        row = InventoryStockLine.objects.get()
+        v1_row = {
+            "warehouse": row.warehouse,
+            "warehouseType": row.warehouse_type,
+            "productCode": row.product_code,
+            "productName": row.product_name,
+            "brand": row.brand,
+            "specification": row.specification,
+            "barcode": row.barcode,
+            "category": row.category,
+            "onHandQuantity": int(row.on_hand_quantity),
+            "availableQuantity": int(row.available_quantity),
+            "lockedQuantity": int(row.locked_quantity),
+            "inTransitQuantity": int(row.in_transit_quantity),
+            "unitCostCents": int(row.unit_cost_cents),
+            "inventoryAgeDays": row.inventory_age_days,
+            "sales7dQuantity": int(row.sales_7d_quantity or 0),
+            "sales30dQuantity": int(row.sales_30d_quantity or 0),
+        }
+        batch.content_hash = _business_content_hash(
+            "stock",
+            batch.snapshot_date,
+            [v1_row],
+            version="inventory-stock-pg-v1",
+        )
+        batch.totals_json = {**batch.totals_json, "canonicalFormatVersion": "inventory-stock-pg-v1"}
+        batch.save(update_fields=["content_hash", "totals_json"])
+
+        upgraded = import_inventory_payload(
+            stock_payload(stock_row("P1", 20), raw_seed="supplier-aware-v2"),
+            "admin@example.test",
+        )
+
+        self.assertEqual(upgraded["status"], "imported")
+        self.assertEqual(InventoryImportBatch.objects.count(), 2)
 
     def test_current_fact_corruption_fails_closed_and_is_durably_audited(self) -> None:
         payload = stock_payload(stock_row("P1", 2), stock_row("P2", 3))

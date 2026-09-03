@@ -36,7 +36,7 @@ test("库存五个工作页补充缺口明细、全量汇总和执行闭环", as
   assert.match(panels, /当前不展示伪造差异/);
 });
 
-test("销量映射缺口工作台同步公共筛选并提供完整仓别与备货计划字段", async () => {
+test("销量近30天工作台同步公共筛选并提供供应商与备货计划字段", async () => {
   const [view, query, route, dingTalkRoute, model, service] = await Promise.all([
     source("../app/inventory-module-view.tsx"),
     source("../backend/inventory/query.py"),
@@ -48,16 +48,18 @@ test("销量映射缺口工作台同步公共筛选并提供完整仓别与备�
 
   for (const label of [
     "货品编号", "货品名称", "品牌", "分类", "供应商", "京东仓库", "京东仓销量",
-    "代发仓销量", "售后仓库存", "广东仓库存", "样品仓库存", "菜鸟仓库存", "自营库存",
+    "供应商库存", "供应商销量", "供应商周转", "售后仓库存", "广东仓库存", "样品仓库存", "菜鸟仓库存", "自营库存",
     "总库存金额", "总周转天数", "建议补货", "预警", "创建备货计划",
   ]) assert.match(view, new RegExp(label));
   for (const label of [
-    "对应采购", "入库库房", "现有库存", "近30天销量（含自营入仓）", "备货数量",
+    "对应采购", "入库库房", "现有库存", "近30天总销量", "备货数量",
     "预计消耗周期\(天\)", "下单日期", "备货类型", "对应运营", "部门", "预计到货日", "是否验货", "备注",
   ]) assert.ok(view.includes(label.replaceAll("\\(", "(").replaceAll("\\)", ")")), `missing ${label}`);
 
-  assert.match(query, /mapping_samples = _mapping_samples\(filtered/);
-  assert.match(query, /"supplier": \(master\.supplier\.strip\(\)/);
+  assert.match(view, /<h2>销量近30天<\/h2>/);
+  assert.match(view, /department: "志高项目组"/);
+  assert.match(query, /mapping_samples = _mapping_samples\(workbench_filtered, 30/);
+  assert.match(query, /"supplier": row\.supplier\.strip\(\) or/);
   assert.match(route, /"manual"/);
   assert.match(model, /expected_arrival_date = models\.DateField/);
   assert.match(model, /requires_inspection = models\.BooleanField/);

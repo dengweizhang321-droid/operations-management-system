@@ -362,7 +362,7 @@ def replenishment(request: HttpRequest) -> JsonResponse:
                     "warehouse": item["warehouse"], "suggestedQuantity": suggested if suggested is not None else 0,
                     "plannedQuantity": requested if requested is not None else suggested,
                     "coverageDays": item["coverageDays"], "currentStockQuantity": item["availableQuantity"],
-                    "sales30dQuantity": item["sales30d"],
+                    "sales30dQuantity": item.get("productSales30d"),
                     "reason": f"人工创建备货计划；{item['reason']}" if manual else item["reason"], **details,
                 }, principal.email)
                 return {"ok": True, "item": plan_payload(plan)}, 201

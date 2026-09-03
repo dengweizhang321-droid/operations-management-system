@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   assertComboRelationBaseline,
@@ -112,6 +113,44 @@ test("inventory row identity is stable when workbook rows are reordered", () => 
     "正常仓\u001fP1",
     "正常仓\u001fP2",
   ]);
+});
+
+test("inventory parser reads the Jikexyun specification supplier and controlled warehouse mapping", () => {
+  const workbook = createXlsxWorkbookBytes([{
+    name: "分仓库存查询",
+    rows: [
+      ["货品编号", "货品名称", "规格", "仓库", "规格默认供应商", "固定成本价", "库存数量"],
+      ["P1", "货品一", "标准", "一个小太阳仓", "供应商甲", 10, 5],
+      ["P2", "货品二", "标准", "ZA菜鸟华中武汉黄陂标准03仓", "供应商乙", 20, 6],
+    ],
+  }]);
+
+  const result = parseInventoryStockXlsx(workbook);
+  assert.equal(result.coverage.hasSupplier, true);
+  assert.equal(result.rows[0]?.supplier, "供应商甲");
+  assert.equal(result.rows[0]?.warehouseCategory, "dropship");
+  assert.equal(result.rows[0]?.includeInInventory, false);
+  assert.equal(result.rows[1]?.supplier, "供应商乙");
+  assert.equal(result.rows[1]?.warehouseCategory, "cainiao");
+  assert.equal(result.rows[1]?.includeInInventory, true);
+  assert.equal(result.totals.includedInventoryRowCount, 1);
+  assert.equal(result.totals.excludedInventoryRowCount, 1);
+});
+
+test("controlled warehouse mapping preserves the verified workbook coverage", async () => {
+  const mapping = JSON.parse(await readFile(new URL("../config/inventory-warehouse-mapping.json", import.meta.url), "utf8")) as {
+    sourceSha256: string;
+    warehouses: Record<string, { category: string; includeInInventory: boolean }>;
+  };
+  const entries = Object.values(mapping.warehouses);
+  const count = (category: string) => entries.filter((entry) => entry.category === category).length;
+
+  assert.equal(mapping.sourceSha256, "caf15164d0388fc03dd15938ee1405afbf22e2302e75cc622b97ab3d638b2d2e");
+  assert.equal(entries.length, 283);
+  assert.equal(count("dropship"), 219);
+  assert.equal(count("jd"), 45);
+  assert.equal(count("cainiao"), 3);
+  assert.equal(entries.filter((entry) => entry.includeInInventory).length, 65);
 });
 
 test("inventory age uses the same exact warehouse filter and required schema", () => {

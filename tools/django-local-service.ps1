@@ -26,6 +26,7 @@ $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $ExecutionRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BackendRoot = Join-Path $ExecutionRoot "backend"
 $DingTalkReplenishmentConfigSource = Join-Path $ExecutionRoot "config\dingtalk-replenishment.json"
+$InventoryWarehouseMappingConfigSource = Join-Path $ExecutionRoot "config\inventory-warehouse-mapping.json"
 $InstalledAppRoot = Join-Path $RuntimeRoot "app"
 $InstalledScriptPath = Join-Path $InstalledAppRoot "tools\django-local-service.ps1"
 $InstalledNetshopScriptPath = Join-Path $InstalledAppRoot "tools\django-netshop-service.ps1"
@@ -1396,6 +1397,9 @@ function Deploy-Application {
   if (-not (Test-Path -LiteralPath $DingTalkReplenishmentConfigSource -PathType Leaf)) {
     throw "源码缺少钉钉备货计划同步配置"
   }
+  if (-not (Test-Path -LiteralPath $InventoryWarehouseMappingConfigSource -PathType Leaf)) {
+    throw "源码缺少库存仓库类型映射配置"
+  }
   Assert-ServiceStackStopped "DeployApp"
   New-Item -ItemType Directory -Path $RuntimeRoot -Force | Out-Null
   $staging = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.deploy-" + [Guid]::NewGuid().ToString("N")))
@@ -1405,6 +1409,8 @@ function Deploy-Application {
     Copy-ApplicationTree $BackendRoot (Join-Path $staging "backend")
     Copy-Item -LiteralPath $DingTalkReplenishmentConfigSource `
       -Destination (Join-Path $staging "config\dingtalk-replenishment.json") -Force
+    Copy-Item -LiteralPath $InventoryWarehouseMappingConfigSource `
+      -Destination (Join-Path $staging "config\inventory-warehouse-mapping.json") -Force
     Copy-WranglerRuntimeClosure (Join-Path $staging "runtime-tools") | Out-Null
     Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $staging "tools\django-local-service.ps1") -Force
     foreach ($relative in @(

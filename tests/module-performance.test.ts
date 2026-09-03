@@ -91,7 +91,8 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.equal((inventoryView.match(/\/api\/inventory\/age-analysis/g) ?? []).length, 1);
   assert.match(inventoryView, /const usesInventoryOverview = activeTab === "overview" \|\| activeTab === "plan"/);
   assert.match(inventoryView, /const projection = activeTab === "plan" \? "plan" : "overview"/);
-  assert.match(inventoryView, /new URLSearchParams\(\{ view: projection, startDate: customStartDate, endDate: customEndDate \}\)/);
+  assert.match(inventoryView, /new URLSearchParams\(\{ view: projection \}\)/);
+  assert.doesNotMatch(inventoryView, /view: projection, startDate: customStartDate, endDate: customEndDate/);
   assert.match(inventoryView, /if \(projection === "plan"\)[\s\S]*?params\.set\("planPage"[\s\S]*?else[\s\S]*?params\.set\("page"/);
   assert.match(inventoryView, /const usesInventoryAgeAnalysis = activeTab === "age" \|\| activeTab === "stale"/);
   assert.match(inventoryView, /if \(!usesInventoryOverview\) return;/);

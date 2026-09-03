@@ -29,7 +29,7 @@ SCOPE_KEYS = {
     "stock": "b1dda3405306702bed118060f189eb3837be5e07dcec8df8684b12edf4840704",
     "age": "ce499a195aa16f0f763b11768a0c897ff8f51beb6d4c3a35e6f5dcbb8795055d",
 }
-IMPORT_VERSION = {"stock": "inventory-stock-pg-v1", "age": "inventory-age-pg-v1"}
+IMPORT_VERSION = {"stock": "inventory-stock-pg-v2", "age": "inventory-age-pg-v1"}
 MAX_ROWS = 100_000
 MAX_WARNINGS = 200
 MAX_ABSOLUTE_QUANTITY = 10_000_000
@@ -47,9 +47,12 @@ STOCK_FIELDS = frozenset(
         "snapshotDate",
         "warehouse",
         "warehouseType",
+        "warehouseCategory",
+        "includeInInventory",
         "productCode",
         "productName",
         "brand",
+        "supplier",
         "specification",
         "barcode",
         "category",
@@ -161,6 +164,14 @@ def _warehouse_type(value: object) -> str:
     return str(value)
 
 
+def _warehouse_category(value: object) -> str:
+    from .warehouse_mapping import WAREHOUSE_CATEGORIES
+
+    if value not in WAREHOUSE_CATEGORIES:
+        raise _error("warehouseCategory 无效")
+    return str(value)
+
+
 def _validate_identity(warehouse: str, product_code: str, product_name: str, row_number: int) -> None:
     if warehouse == "刷刷仓":
         raise _error(f"第 {row_number} 行仍包含业务排除仓刷刷仓")
@@ -191,14 +202,31 @@ def _stock_row(item: object, snapshot_date: date, allow_negative: bool) -> dict[
     age = _integer(item["inventoryAgeDays"], "inventoryAgeDays", 0, MAX_INVENTORY_AGE_DAYS, nullable=True)
     if max(0, available) * unit_cost > MAX_ROW_STOCK_VALUE_CENTS:
         raise _error(f"第 {source_row} 行库存货值超过 10 亿元安全上限")
+    from .warehouse_mapping import classify_warehouse
+
+    classification = classify_warehouse(warehouse)
+    warehouse_type = _warehouse_type(item["warehouseType"])
+    warehouse_category = _warehouse_category(item["warehouseCategory"])
+    include_in_inventory = item["includeInInventory"]
+    if not isinstance(include_in_inventory, bool):
+        raise _error("includeInInventory 无效")
+    if (
+        warehouse_type != classification.warehouse_type
+        or warehouse_category != classification.category
+        or include_in_inventory != classification.include_in_inventory
+    ):
+        raise _error(f"第 {source_row} 行仓库类型映射与受控配置不一致")
     return {
         "sourceRowNumber": source_row,
         "rowKey": row_key,
         "warehouse": warehouse,
-        "warehouseType": _warehouse_type(item["warehouseType"]),
+        "warehouseType": warehouse_type,
+        "warehouseCategory": warehouse_category,
+        "includeInInventory": include_in_inventory,
         "productCode": product_code,
         "productName": product_name,
         "brand": _text(item["brand"], "brand", 500, allow_empty=True),
+        "supplier": _text(item["supplier"], "supplier", 500, allow_empty=True),
         "specification": _text(item["specification"], "specification", 1000, allow_empty=True),
         "barcode": _text(item["barcode"], "barcode", 500, allow_empty=True),
         "category": _text(item["category"], "category", 500, allow_empty=True),
@@ -298,11 +326,13 @@ def _business_content_hash(
     dataset: str,
     snapshot_date: date,
     business_rows: list[dict[str, object]],
+    *,
+    version: str | None = None,
 ) -> str:
     row_digests = sorted(_sha(_canonical(row)) for row in business_rows)
     scope = {"dataset": dataset, "snapshotDate": snapshot_date.isoformat()}
     return _sha(
-        f"{IMPORT_VERSION[dataset]}\n{_canonical(scope)}\n{len(business_rows)}\n{''.join(row_digests)}"
+        f"{version or IMPORT_VERSION[dataset]}\n{_canonical(scope)}\n{len(business_rows)}\n{''.join(row_digests)}"
     )
 
 
@@ -321,15 +351,22 @@ def _content_hash(data: dict[str, object]) -> str:
 
 
 def _stored_content(batch: InventoryImportBatch) -> tuple[int, str]:
+    stored_version = str(
+        (batch.totals_json or {}).get("canonicalFormatVersion")
+        or ("inventory-stock-pg-v1" if batch.dataset == "stock" else "inventory-age-pg-v1")
+    )
     if batch.dataset == "stock":
         records = InventoryStockLine.objects.filter(batch_id=batch.id).order_by("id")
-        rows = [
+        rows_v2 = [
             {
                 "warehouse": row.warehouse,
                 "warehouseType": row.warehouse_type,
+                "warehouseCategory": row.warehouse_category,
+                "includeInInventory": bool(row.include_in_inventory),
                 "productCode": row.product_code,
                 "productName": row.product_name,
                 "brand": row.brand,
+                "supplier": row.supplier,
                 "specification": row.specification,
                 "barcode": row.barcode,
                 "category": row.category,
@@ -344,6 +381,19 @@ def _stored_content(batch: InventoryImportBatch) -> tuple[int, str]:
             }
             for row in records
         ]
+        if stored_version == "inventory-stock-pg-v1":
+            rows = [
+                {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"warehouseCategory", "includeInInventory", "supplier"}
+                }
+                for row in rows_v2
+            ]
+        elif stored_version == IMPORT_VERSION["stock"]:
+            rows = rows_v2
+        else:
+            raise _error("库存批次规范化版本不受支持", code="version_conflict", status=409)
     else:
         records = InventoryAgeLine.objects.filter(batch_id=batch.id).order_by("id")
         rows = [
@@ -363,7 +413,12 @@ def _stored_content(batch: InventoryImportBatch) -> tuple[int, str]:
             }
             for row in records
         ]
-    return len(rows), _business_content_hash(batch.dataset, batch.snapshot_date, rows)
+    return len(rows), _business_content_hash(
+        batch.dataset,
+        batch.snapshot_date,
+        rows,
+        version=stored_version,
+    )
 
 
 def _state_token(previous: str, batch_id: str, content_hash: str, row_count: int) -> str:
@@ -653,9 +708,12 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
                         snapshot_date=snapshot_date,
                         warehouse=str(row["warehouse"]),
                         warehouse_type=str(row["warehouseType"]),
+                        warehouse_category=str(row["warehouseCategory"]),
+                        include_in_inventory=bool(row["includeInInventory"]),
                         product_code=str(row["productCode"]),
                         product_name=str(row["productName"]),
                         brand=str(row["brand"]),
+                        supplier=str(row["supplier"]),
                         specification=str(row["specification"]),
                         barcode=str(row["barcode"]),
                         category=str(row["category"]),

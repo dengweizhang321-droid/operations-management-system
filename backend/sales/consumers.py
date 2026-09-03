@@ -585,7 +585,15 @@ def _inventory_demand(principal: Principal, request: dict[str, object]) -> dict[
         .annotate(
             product_name=Max(NullIf("product_name", Value("", output_field=TextField()))),
             sales_quantity=Coalesce(
-                Sum("quantity"), Value(0), output_field=BigIntegerField()
+                Sum(
+                    Case(
+                        When(quantity__gt=0, then=F("quantity")),
+                        default=Value(0),
+                        output_field=BigIntegerField(),
+                    )
+                ),
+                Value(0),
+                output_field=BigIntegerField(),
             ),
             absolute_quantity=Coalesce(
                 Sum(Abs(F("quantity"))), Value(0), output_field=BigIntegerField()

@@ -23,6 +23,7 @@ from .models import (
     ReplenishmentPlanItem,
 )
 from .plans import plan_summary, query_plans
+from .warehouse_mapping import classify_warehouse
 
 
 HEALTH_STATUSES = ("urgent", "replenish", "healthy", "slow", "stagnant", "no_sales")
@@ -114,28 +115,18 @@ def _date_option(value: object, label: str) -> date | None:
     return parsed
 
 
-def _sales_period(options: dict[str, object], freshness: dict[str, object]) -> tuple[date | None, date | None, int]:
+def _sales_period(_options: dict[str, object], freshness: dict[str, object]) -> tuple[date | None, date | None, int]:
     data_start = _date_option(freshness.get("dataStartDate"), "销售起始")
     data_end = _date_option(freshness.get("dataCutoffDate"), "销售截止")
-    requested_end = _date_option(options.get("endDate"), "库存统计截止") or data_end
-    requested_start = _date_option(options.get("startDate"), "库存统计开始")
-    if requested_start is None and requested_end is not None:
-        requested_start = requested_end - timedelta(days=29)
-    if requested_start and requested_end and requested_start > requested_end:
-        raise InventoryApiError("库存统计周期的开始日期不能晚于结束日期")
-    if requested_start and requested_end and (requested_end - requested_start).days + 1 > 730:
-        raise InventoryApiError("库存统计周期最多支持 730 天")
-    window_days = (
-        (requested_end - requested_start).days + 1
-        if requested_start and requested_end
-        else 30
-    )
-    if not all((data_start, data_end, requested_start, requested_end)):
-        return None, None, window_days
-    start = max(data_start, requested_start)  # type: ignore[type-var]
-    end = min(data_end, requested_end)  # type: ignore[type-var]
+    if data_end is None:
+        return None, None, 30
+    requested_start = data_end - timedelta(days=29)
+    if data_start is None:
+        return None, None, 30
+    start = max(data_start, requested_start)
+    end = data_end
     if start > end:
-        return None, None, window_days
+        return None, None, 30
     return start, end, (end - start).days + 1
 
 
@@ -147,36 +138,20 @@ def _warehouse_key(value: str) -> str:
 
 
 def _is_jd_warehouse(warehouse: str, warehouse_type: str) -> bool:
-    normalized = warehouse.strip()
-    return warehouse_type.strip().lower() == "jd_rdc" or bool(
-        re.search(r"京东|rdc|dc仓|配送中心", normalized, re.I)
-        or re.search(r"(?:平台仓|中件(?:消费品)?)[^\r\n]*-chn$", normalized, re.I)
-    )
+    return classify_warehouse(warehouse, stored_type=warehouse_type).warehouse_type == "jd_rdc"
 
 
 def _warehouse_type(warehouse: str, stored: str) -> str:
-    if _is_jd_warehouse(warehouse, stored):
-        return "jd_rdc"
-    if stored == "owned":
-        return "owned"
-    return "other"
+    return classify_warehouse(warehouse, stored_type=stored).warehouse_type
 
 
-def _warehouse_group(warehouse: str, warehouse_type: str) -> str:
-    normalized = warehouse.strip().lower()
-    if _is_jd_warehouse(warehouse, warehouse_type):
-        return "jd"
-    if "代发" in normalized:
-        return "dropship"
-    if "售后" in normalized:
-        return "afterSales"
-    if "广东" in normalized:
-        return "guangdong"
-    if "样品" in normalized:
-        return "sample"
-    if "菜鸟" in normalized:
-        return "cainiao"
-    return "selfOperated"
+def _warehouse_group(warehouse: str, warehouse_type: str, warehouse_category: str = "") -> str:
+    category = classify_warehouse(
+        warehouse,
+        stored_type=warehouse_type,
+        stored_category=warehouse_category,
+    ).category
+    return category if category in WAREHOUSE_GROUPS else "selfOperated"
 
 
 def _selected(options: dict[str, object], key: str, maximum: int) -> list[str]:
@@ -366,12 +341,18 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
     if _sales_revision() != revision:
         raise InventoryApiError("销售版本在库存计算期间发生变化", code="service_unavailable", status=503)
     sales_start, sales_end, window_days = _sales_period(options, freshness)
-    settings["salesWindowDays"] = window_days
+    settings["salesWindowDays"] = 30
+    settings["salesCoverageDays"] = window_days
     if latest is None:
         return None, [], settings, sales_start, sales_end, revision
     stock_rows = list(InventoryStockLine.objects.filter(batch_id=latest.id).order_by("product_code", "warehouse", "id"))
     product_codes = sorted({row.product_code for row in stock_rows if row.product_code})
     demand = _sales_demand(principal, product_codes, sales_start, sales_end, revision) if product_codes else {}
+    product_sales: dict[str, int] = defaultdict(int)
+    products_with_sales: set[str] = set()
+    for (product_code, _warehouse), sales_row in demand.items():
+        product_sales[product_code] += int(sales_row["salesQuantity"])
+        products_with_sales.add(product_code)
     erp = {
         row.product_code: row
         for row in ErpProductMaster.objects.filter(product_code__in=product_codes)
@@ -390,6 +371,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
             continue
         sales = demand.get((row.product_code, _warehouse_key(row.warehouse)))
         sales_quantity = int(sales["salesQuantity"]) if sales is not None else None
+        product_sales_quantity = product_sales[row.product_code] if row.product_code in products_with_sales else None
         absolute_quantity = int(sales.get("absoluteQuantity", 0)) if sales else 0
         absolute_cost = int(sales.get("absoluteCostCents", 0)) if sales else 0
         fallback_cost = absolute_cost / absolute_quantity if absolute_quantity > 0 else 0
@@ -402,7 +384,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
         known_value = round(imported_value + fallback_quantity * fallback_cost)
         complete_value = known_value if covered >= max(available, 0) else None
         unit_cost = round(known_value / covered) if covered > 0 else 0
-        daily_sales = sales_quantity / window_days if sales_quantity is not None else None
+        daily_sales = sales_quantity / 30 if sales_quantity is not None else None
         coverage_days = max(available, 0) / daily_sales if daily_sales and daily_sales > 0 else None
         status, label, reason = _health(
             available,
@@ -410,14 +392,14 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
             coverage_days,
             row.inventory_age_days,
             settings,
-            window_days,
+            30,
         )
         plan = plans[(row.product_code, row.warehouse)]
         suggested = (
             max(
                 0,
                 math.ceil(
-                    (sales_quantity or 0) * int(settings["targetDays"]) / window_days
+                    (sales_quantity or 0) * int(settings["targetDays"]) / 30
                     - available
                     - int(row.in_transit_quantity)
                     - int(plan["quantity"])
@@ -427,6 +409,14 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
             else None
         )
         master = erp.get(row.product_code)
+        supplier = row.supplier.strip() or (master.supplier.strip() if master and master.supplier.strip() else "未映射供应商")
+        supplier_source = "jikexyun_inventory" if row.supplier.strip() else "erp_fallback" if master and master.supplier.strip() else "missing"
+        warehouse_classification = classify_warehouse(
+            row.warehouse,
+            stored_type=row.warehouse_type,
+            stored_category=row.warehouse_category,
+            stored_include_in_inventory=bool(row.include_in_inventory),
+        )
         product_name = row.product_name or (str(sales.get("productName")) if sales else "") or (master.product_name if master else "") or row.product_code
         items.append(
             {
@@ -436,9 +426,12 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
                 "brand": row.brand or (master.brand if master else ""),
                 "specification": row.specification or (master.specification if master else ""),
                 "category": row.category or (master.category if master else "") or "未分类",
-                "supplier": (master.supplier.strip() if master and master.supplier.strip() else "未映射供应商"),
+                "supplier": supplier,
+                "supplierSource": supplier_source,
                 "warehouse": row.warehouse,
-                "warehouseType": _warehouse_type(row.warehouse, row.warehouse_type),
+                "warehouseType": warehouse_classification.warehouse_type,
+                "warehouseCategory": warehouse_classification.category,
+                "includedInInventory": warehouse_classification.include_in_inventory,
                 "onHandQuantity": int(row.on_hand_quantity),
                 "availableQuantity": available,
                 "lockedQuantity": int(row.locked_quantity),
@@ -451,6 +444,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
                 "knownStockValueCents": known_value,
                 "costCoverageRate": covered / max(available, 0) if available > 0 else 1,
                 "sales30d": sales_quantity,
+                "productSales30d": product_sales_quantity,
                 "averageDailySales": daily_sales,
                 "coverageDays": coverage_days,
                 "suggestedQuantity": suggested,
@@ -465,7 +459,12 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
     return latest, items, settings, sales_start, sales_end, revision
 
 
-def _filtered_overview(items: list[dict[str, object]], options: dict[str, object]) -> list[dict[str, object]]:
+def _filtered_overview(
+    items: list[dict[str, object]],
+    options: dict[str, object],
+    *,
+    included_only: bool = True,
+) -> list[dict[str, object]]:
     warehouses = set(_selected(options, "warehouses", 10))
     brands = set(_selected(options, "brands", 20))
     categories = set(_selected(options, "categories", 20))
@@ -477,7 +476,8 @@ def _filtered_overview(items: list[dict[str, object]], options: dict[str, object
     return [
         item
         for item in items
-        if _matches_text(item, options.get("query"), ("productCode", "productName", "brand", "specification", "category", "warehouse"))
+        if (not included_only or bool(item.get("includedInInventory", True)))
+        and _matches_text(item, options.get("query"), ("productCode", "productName", "brand", "specification", "category", "supplier", "warehouse"))
         and (not warehouses or item["warehouse"] in warehouses)
         and (not brands or item["brand"] in brands)
         and (not categories or item["category"] in categories)
@@ -551,20 +551,34 @@ def _mapping_samples(
         by_product[str(item["productCode"])].append(item)
     samples: list[dict[str, object]] = []
     for product_code, product_items in by_product.items():
-        if all(item["sales30d"] is not None for item in product_items):
-            continue
         ordered = sorted(product_items, key=lambda item: (str(item["warehouse"]), str(item["key"])))
-        first = ordered[0]
+        included = [item for item in ordered if bool(item.get("includedInInventory", True))]
+        first = next((item for item in ordered if item["supplier"] != "未映射供应商"), ordered[0])
         grouped = {
             key: _warehouse_metrics(
-                [item for item in ordered if _warehouse_group(str(item["warehouse"]), str(item["warehouseType"])) == key],
+                [
+                    item
+                    for item in ordered
+                    if _warehouse_group(
+                        str(item["warehouse"]),
+                        str(item["warehouseType"]),
+                        str(item.get("warehouseCategory", "")),
+                    ) == key
+                ],
                 window_days,
             )
             for key in WAREHOUSE_GROUPS
         }
-        total = _warehouse_metrics(ordered, window_days)
-        suggested_values = [int(item["suggestedQuantity"]) for item in ordered if item["suggestedQuantity"] is not None]
-        alert_item = min(ordered, key=lambda item: HEALTH_STATUSES.index(str(item["status"])))
+        total_inventory = sum(int(item["availableQuantity"]) for item in included)
+        total_in_transit = sum(int(item["totalInTransitQuantity"]) for item in included)
+        product_sales = first.get("productSales30d")
+        total_turnover = (
+            max(0, total_inventory) / (int(product_sales) / 30)
+            if product_sales is not None and int(product_sales) > 0
+            else None
+        )
+        suggested_values = [int(item["suggestedQuantity"]) for item in included if item["suggestedQuantity"] is not None]
+        alert_item = min(included or ordered, key=lambda item: HEALTH_STATUSES.index(str(item["status"])))
         samples.append(
             {
                 "key": product_code,
@@ -584,13 +598,13 @@ def _mapping_samples(
                         "suggestedQuantity": item["suggestedQuantity"],
                         "inDraftPlan": item["inDraftPlan"],
                     }
-                    for item in ordered
+                    for item in included
                 ],
-                "totalInventoryQuantity": total["inventoryQuantity"],
-                "totalStockValueCents": sum(int(item["knownStockValueCents"]) for item in ordered),
-                "totalInTransitQuantity": total["inTransitQuantity"],
-                "totalSalesQuantity": total["salesQuantity"],
-                "totalTurnoverDays": total["turnoverDays"],
+                "totalInventoryQuantity": total_inventory,
+                "totalStockValueCents": sum(int(item["knownStockValueCents"]) for item in included),
+                "totalInTransitQuantity": total_in_transit,
+                "totalSalesQuantity": product_sales,
+                "totalTurnoverDays": total_turnover,
                 "suggestedQuantity": None if suppressed or not suggested_values else sum(suggested_values),
                 "alertStatus": alert_item["status"],
                 "alertLabel": alert_item["statusLabel"],
@@ -598,7 +612,13 @@ def _mapping_samples(
                 "unmatchedWarehouseCount": sum(item["sales30d"] is None for item in ordered),
             }
         )
-    samples.sort(key=lambda item: (-max(0, int(item["totalInventoryQuantity"])), str(item["productCode"])))
+    samples.sort(
+        key=lambda item: (
+            -(int(item["totalSalesQuantity"]) if item["totalSalesQuantity"] is not None else -1),
+            -max(0, int(item["totalInventoryQuantity"])),
+            str(item["productCode"]),
+        )
+    )
     return samples[:50]
 
 
@@ -606,8 +626,10 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
     page, page_size, offset = _pagination(options)
     latest, all_items, settings, sales_start, sales_end, _revision = _overview_items(principal, options)
     stale = bool(latest and (timezone.localdate() - latest.snapshot_date).days > 3)
-    quality = _quality(all_items, stale, bool(settings["autoReplenishment"]))
+    included_items = [item for item in all_items if bool(item.get("includedInInventory", True))]
+    quality = _quality(included_items, stale, bool(settings["autoReplenishment"]))
     filtered = _filtered_overview(all_items, options)
+    workbench_filtered = _filtered_overview(all_items, options, included_only=False)
     filtered.sort(
         key=lambda item: (
             HEALTH_STATUSES.index(str(item["status"])),
@@ -628,12 +650,12 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
         key=lambda item: (-int(item["suggestedQuantity"] or 0), str(item["productCode"]), str(item["warehouse"])),
     )[:50]
     facets = {
-        "warehouses": sorted({str(item["warehouse"]) for item in all_items}),
-        "brands": sorted({str(item["brand"]) for item in all_items if item["brand"]}),
-        "categories": sorted({str(item["category"]) for item in all_items if item["category"]}),
+        "warehouses": sorted({str(item["warehouse"]) for item in included_items}),
+        "brands": sorted({str(item["brand"]) for item in included_items if item["brand"]}),
+        "categories": sorted({str(item["category"]) for item in included_items if item["category"]}),
         "statuses": list(HEALTH_STATUSES),
     }
-    mapping_samples = _mapping_samples(filtered, int(settings["salesWindowDays"]), suppressed)
+    mapping_samples = _mapping_samples(workbench_filtered, 30, suppressed)
     sync = {
         "latestInventoryBatchId": latest.id if latest else None,
         "inventoryAsOf": latest.snapshot_date.isoformat() if latest else None,
@@ -643,11 +665,11 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
         "latestInventoryFile": latest.file_name if latest else None,
         "inventoryStale": stale,
     }
-    has_jd = any(item["warehouseType"] == "jd_rdc" for item in all_items)
+    has_jd = any(item["warehouseType"] == "jd_rdc" for item in included_items)
     source_status = "stale" if stale else "ready"
     sources = [
         {"key": "warehouse_stock", "label": "吉客云分仓库存", "status": source_status if latest else "missing", "asOfDate": sync["inventoryAsOf"]},
-        {"key": "sales_demand", "label": f"所选 {settings['salesWindowDays']} 日销售需求", "status": "ready" if sales_end else "missing", "asOfDate": sync["salesThrough"]},
+        {"key": "sales_demand", "label": "近 30 天正向销量", "status": "ready" if sales_end else "missing", "asOfDate": sync["salesThrough"]},
         {"key": "jd_rdc", "label": "京东 RDC / DC", "status": source_status if has_jd else "missing", "asOfDate": sync["inventoryAsOf"] if has_jd else None},
     ]
     response: dict[str, object] = {
@@ -939,7 +961,7 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
             "key": f"{row.warehouse}\x1f{row.product_code}", "productCode": row.product_code,
             "productName": row.product_name or (master.product_name if master else "") or row.product_code,
             "brand": row.brand or (master.brand if master else ""), "category": row.category or (master.category if master else "") or "未分类",
-            "supplier": (master.supplier.strip() if master and master.supplier.strip() else "未映射供应商"), "warehouse": row.warehouse,
+            "supplier": row.supplier.strip() or (master.supplier.strip() if master and master.supplier.strip() else "未映射供应商"), "warehouse": row.warehouse,
             "availableQuantity": available, "inTransitQuantity": int(row.in_transit_quantity), "inventoryAgeDays": row.inventory_age_days,
             "knownStockValueCents": known_value, "_pricedQuantity": priced,
             "costCoverageRate": priced / max(available, 0) if available > 0 else 1,

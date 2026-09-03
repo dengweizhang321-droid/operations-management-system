@@ -344,6 +344,15 @@ test("runtime deployment includes the exact DingTalk replenishment mapping", () 
   );
 });
 
+test("runtime deployment includes the exact inventory warehouse mapping", () => {
+  assert.match(script, /InventoryWarehouseMappingConfigSource/);
+  assert.match(script, /config\\inventory-warehouse-mapping\.json/);
+  assert.match(
+    script,
+    /Copy-Item -LiteralPath \$InventoryWarehouseMappingConfigSource[\s\S]*?-Destination \(Join-Path \$staging "config\\inventory-warehouse-mapping\.json"\)/,
+  );
+});
+
 test("configuration, deployment, and code rollback require a fully stopped stack", () => {
   assert.match(script, /function Assert-ServiceStackStopped/);
   assert.match(script, /Assert-ServiceStackStopped "Configure"/);

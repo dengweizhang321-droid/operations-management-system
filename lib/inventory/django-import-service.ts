@@ -66,6 +66,8 @@ function summarize(rows: InventoryStockRow[], sourceRowCount: number) {
     rowCount: rows.length,
     warehouseCount: 0,
     productCount: 0,
+    includedInventoryRowCount: 0,
+    excludedInventoryRowCount: 0,
     onHandQuantity: 0,
     availableQuantity: 0,
     lockedQuantity: 0,
@@ -84,6 +86,8 @@ function summarize(rows: InventoryStockRow[], sourceRowCount: number) {
     totals.stockValueCents += Math.max(0, row.availableQuantity) * row.unitCostCents;
     totals.sales7dQuantity += row.sales7dQuantity;
     totals.sales30dQuantity += row.sales30dQuantity;
+    if (row.includeInInventory) totals.includedInventoryRowCount += 1;
+    else totals.excludedInventoryRowCount += 1;
   }
   totals.warehouseCount = warehouses.size;
   totals.productCount = products.size;
@@ -188,9 +192,13 @@ export async function importInventoryStockToDjango(
     return reject({ ok: false, status: "rejected", message: "无法确定库存快照日期", warnings: [], errors: [{ code: "MISSING_SNAPSHOT_DATE", message: "报表没有库存日期，请在同步时填写快照日期，或在文件名中加入日期" }], errorCount: 1 });
   }
   const missingNames = rows.filter((row) => !row.productName).length;
+  const missingSuppliers = rows.filter((row) => !row.supplier).length;
+  const excludedByWarehouseMapping = rows.filter((row) => !row.includeInInventory).length;
   const warnings = [
     ...(excludedZeroCostRows ? [{ code: "EXCLUDED_ZERO_UNIT_COST", message: `${excludedZeroCostRows} 行成本价为 0，已自动剔除` }] : []),
     ...(missingNames ? [{ code: "MISSING_PRODUCT_NAME", message: `${missingNames} 行缺少货品名称，页面将使用销售明细中的名称补全` }] : []),
+    ...(missingSuppliers ? [{ code: "MISSING_SPEC_SUPPLIER", message: `${missingSuppliers} 行缺少规格默认供应商，页面将回退 ERP 货品档案并标明来源` }] : []),
+    ...(excludedByWarehouseMapping ? [{ code: "WAREHOUSE_NOT_COUNTED_IN_OVERVIEW", message: `${excludedByWarehouseMapping} 行按仓库类型映射保留为供应商/仓别明细，但不计入总览库存和备货计划` }] : []),
     ...(!parsed.coverage.hasAvailableQuantity ? [{ code: "DERIVED_AVAILABLE_QUANTITY", message: "报表未提供可用库存，系统已按实盘数量减锁定数量推导" }] : []),
     ...(!parsed.coverage.hasLockedQuantity ? [{ code: "MISSING_LOCKED_QUANTITY", message: "报表未提供锁定数量，本批次暂按 0 处理" }] : []),
     ...(!parsed.coverage.hasInTransitQuantity ? [{ code: "MISSING_IN_TRANSIT_QUANTITY", message: "报表未提供采购在途，本批次暂按 0 处理" }] : []),

@@ -448,16 +448,22 @@ def _source_snapshot(source: Path) -> dict[str, object]:
             batch = batches_by_id[batch_id]
             if len(rows) != int(batch["rowCount"]):
                 raise CommandError("D1 库存批次仅持有部分当前事实")
+            canonical_version = (
+                "inventory-stock-pg-v1"
+                if str(batch["dataset"]) == "stock"
+                else IMPORT_VERSION[str(batch["dataset"])]
+            )
             migrated_hash = _business_content_hash(
                 str(batch["dataset"]),
                 date.fromisoformat(str(batch["snapshotDate"])),
                 rows,
+                version=canonical_version,
             )
             batch["contentHash"] = migrated_hash
             batch["totals"] = {
                 **batch["totals"],
                 "contentHash": migrated_hash,
-                "canonicalFormatVersion": IMPORT_VERSION[str(batch["dataset"])],
+                "canonicalFormatVersion": canonical_version,
             }
 
         raw_plans = _rows(connection, "SELECT * FROM replenishment_plan_items ORDER BY created_at,id")

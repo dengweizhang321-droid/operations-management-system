@@ -1,4 +1,25 @@
+import warehouseMappingData from "@/config/inventory-warehouse-mapping.json";
+
 export type ClassifiedInventoryWarehouseType = "owned" | "jd_rdc" | "other";
+export type InventoryWarehouseCategory =
+  | "jd"
+  | "dropship"
+  | "afterSales"
+  | "guangdong"
+  | "sample"
+  | "cainiao"
+  | "overseas"
+  | "virtual"
+  | "exception"
+  | "selfOperated";
+
+type WarehouseMappingEntry = {
+  category: Exclude<InventoryWarehouseCategory, "selfOperated">;
+  label: string;
+  includeInInventory: boolean;
+};
+
+const warehouseMapping = warehouseMappingData.warehouses as Record<string, WarehouseMappingEntry>;
 
 const JD_EXPLICIT_WAREHOUSE = /京东|rdc|dc仓|配送中心/i;
 const JD_PLATFORM_WAREHOUSE = /(?:平台仓|中件(?:消费品)?)[^\r\n]*-chn$/i;
@@ -13,9 +34,58 @@ export function isJdInboundWarehouseName(warehouse: string) {
 }
 
 export function inferInventoryWarehouseType(warehouse: string): ClassifiedInventoryWarehouseType {
-  if (isJdInboundWarehouseName(warehouse)) return "jd_rdc";
-  if (/仓|库/.test(warehouse)) return "owned";
-  return "other";
+  return classifyInventoryWarehouse(warehouse).warehouseType;
+}
+
+export function classifyInventoryWarehouse(warehouse: string): {
+  warehouseType: ClassifiedInventoryWarehouseType;
+  warehouseCategory: InventoryWarehouseCategory;
+  includeInInventory: boolean;
+  mappingLabel: string;
+  mappingSource: "configured" | "inferred";
+} {
+  const normalized = warehouse.trim();
+  const configured = warehouseMapping[normalized];
+  if (configured) {
+    const warehouseType: ClassifiedInventoryWarehouseType = configured.category === "jd"
+      ? "jd_rdc"
+      : ["guangdong", "afterSales", "sample"].includes(configured.category)
+        ? "owned"
+        : "other";
+    return {
+      warehouseType,
+      warehouseCategory: configured.category,
+      includeInInventory: configured.includeInInventory,
+      mappingLabel: configured.label,
+      mappingSource: "configured",
+    };
+  }
+
+  if (isJdInboundWarehouseName(normalized)) {
+    return { warehouseType: "jd_rdc", warehouseCategory: "jd", includeInInventory: true, mappingLabel: "京东仓", mappingSource: "inferred" };
+  }
+  if (/代发/.test(normalized)) {
+    return { warehouseType: "other", warehouseCategory: "dropship", includeInInventory: true, mappingLabel: "代发仓", mappingSource: "inferred" };
+  }
+  if (/菜鸟/.test(normalized)) {
+    return { warehouseType: "other", warehouseCategory: "cainiao", includeInInventory: true, mappingLabel: "菜鸟仓", mappingSource: "inferred" };
+  }
+  if (/售后/.test(normalized)) {
+    return { warehouseType: "owned", warehouseCategory: "afterSales", includeInInventory: true, mappingLabel: "售后仓", mappingSource: "inferred" };
+  }
+  if (/广东/.test(normalized)) {
+    return { warehouseType: "owned", warehouseCategory: "guangdong", includeInInventory: true, mappingLabel: "广东仓", mappingSource: "inferred" };
+  }
+  if (/样品/.test(normalized)) {
+    return { warehouseType: "owned", warehouseCategory: "sample", includeInInventory: true, mappingLabel: "样品仓", mappingSource: "inferred" };
+  }
+  return {
+    warehouseType: /仓|库/.test(normalized) ? "owned" : "other",
+    warehouseCategory: "selfOperated",
+    includeInInventory: normalized !== "刷刷仓",
+    mappingLabel: "自营仓",
+    mappingSource: "inferred",
+  };
 }
 
 /** SQL counterpart used to interpret old snapshots without rewriting facts. */

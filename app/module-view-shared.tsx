@@ -220,8 +220,11 @@ export type InventoryOverviewItem = {
   specification: string;
   category: string;
   supplier: string;
+  supplierSource: "jikexyun_inventory" | "erp_fallback" | "missing";
   warehouse: string;
   warehouseType: "owned" | "jd_rdc" | "other";
+  warehouseCategory: "jd" | "dropship" | "afterSales" | "guangdong" | "sample" | "cainiao" | "overseas" | "virtual" | "exception" | "selfOperated";
+  includedInInventory: boolean;
   onHandQuantity: number;
   availableQuantity: number;
   lockedQuantity: number;
@@ -234,6 +237,7 @@ export type InventoryOverviewItem = {
   knownStockValueCents: number;
   costCoverageRate: number;
   sales30d: number | null;
+  productSales30d: number | null;
   averageDailySales: number | null;
   coverageDays: number | null;
   suggestedQuantity: number | null;
@@ -295,6 +299,7 @@ export type InventoryOverviewResponse = {
     slowDays: number;
     stagnantDays: number;
     salesWindowDays: number;
+    salesCoverageDays: number;
     autoReplenishment: boolean;
     inventoryAlert: boolean;
   };
