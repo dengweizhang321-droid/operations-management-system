@@ -37,6 +37,30 @@ import { assertReleaseWorkerLaunchAllowed } from "../tools/worker-authority-guar
 
 const hex = (character: string) => character.repeat(64);
 
+test("successor sequence remains bounded while allowing continued forward releases", () => {
+  const predecessor = releaseBinding({
+    releaseId: "20260903T000000Z-0000000000000001",
+    manifestSha256: hex("1"),
+    guardReceiptSha256: hex("2"),
+  });
+  const successor = releaseBinding({
+    releaseId: "20260903T000001Z-0000000000000002",
+    manifestSha256: hex("3"),
+    guardReceiptSha256: hex("4"),
+  });
+  const input = {
+    predecessor,
+    successor,
+    lineage: {},
+    approvedPlanSha256: hex("5"),
+    activatedAt: "2026-09-03T00:00:00.000Z",
+  };
+
+  assert.equal(successorPayload({ ...input, sequence: 33 }).sequence, 33);
+  assert.equal(successorPayload({ ...input, sequence: 128 }).sequence, 128);
+  assert.throws(() => successorPayload({ ...input, sequence: 129 }), /sequence/);
+});
+
 async function writeCanonical(target: string, value: unknown) {
   const raw = Buffer.from(`${canonicalJson(value)}\n`, "utf8");
   await writeFile(target, raw);

@@ -53,7 +53,7 @@ const modulePath = fileURLToPath(import.meta.url);
 const hex64 = /^[0-9a-f]{64}$/;
 const releaseIdPattern = /^\d{8}T\d{6}Z-[0-9a-f]{16}$/;
 const cutoverIdPattern = /^[A-Za-z0-9._:-]{8,128}$/;
-const maximumSuccessors = 32;
+const maximumSuccessors = 128;
 const rotationLockPipe = "\\\\.\\pipe\\TERUISI.Worker.ReleaseRotation.v1";
 
 function fail(message) {
