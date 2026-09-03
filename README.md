@@ -23,6 +23,21 @@
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 
+### Windows 启动 / 停止 / 重启脚本
+
+`运营系统.bat`（根目录）和 `tools/operations-system-service.ps1` 是同一套生命周期入口，不复制任何启动逻辑：`Start` 仍调用 `operations-system-control.ps1 -Action Start` 进入唯一启动引擎；`Stop` 先经 `worker-local-service.ps1 -Action Stop` 的身份门禁停止 Worker，再调用运行目录中的 `django-local-service.ps1 -Action Stop` 停止各域 Django 与 PostgreSQL；`Restart` 是 Stop + Start；`Status` 复用总控的组合状态。Stop/Restart 与桌面控制面板共用同一个系统互斥，拿不到锁时直接拒绝而不是交错执行。
+
+```powershell
+运营系统.bat                     # 菜单：启动 / 后台启动 / 停止 / 只停 Worker / 重启 / 日志 / 状态
+运营系统.bat start-bg            # 后台启动并立即返回；进度用 运营系统.bat logs，结果用 运营系统.bat status
+npm run system:start             # 等价于 tools\operations-system-service.ps1 -Action Start
+npm run system:stop              # 完整停止；只停网页 Worker 用 -Action Stop -KeepBackend
+npm run system:restart
+npm run system:logs
+```
+
+`-Background` 只是把同一条命令放到隐藏的独立 PowerShell 进程里执行，输出写到 `tmp\system-service\*.log`，并把 PID 与进程创建时间绑定到 `tmp\system-service\background.json`；已有后台任务在执行时会拒绝重复提交，`Status` 会同时显示后台任务是否仍在运行。所有子脚本都通过文件重定向启动并只等待直接子进程，不会因为 Worker/PostgreSQL 等长期子进程继承句柄而挂住。
+
 ### macOS / Linux 开发机本地启动
 
 开发机没有 PostgreSQL 与受控 runtime，直接运行 `npx vinext dev` 时所有 Django 域都会提示"Django xx 服务配置不完整"。`tools/django-dev-backend.mjs` 用 SQLite 与 `development` 进程角色在本机拉起一套仅供开发的 Django 后端，并把 Worker 需要的 `TERUISI_DJANGO_*` 变量写入 `.dev.vars` 的受管块：
