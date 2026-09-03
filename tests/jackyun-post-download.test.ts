@@ -7,6 +7,7 @@ import {
 } from "../lib/jackyun/post-download";
 import { parseXlsxFirstSheet, type XlsxCellValue } from "../lib/imports/xlsx";
 import { parseInventoryStockXlsx } from "../lib/imports/inventory-stock";
+import { parseErpReferenceXlsx } from "../lib/imports/erp-reference";
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 
 test("products validation keeps the original workbook and reports true data rows", () => {
@@ -126,6 +127,25 @@ test("inventory age uses the same exact warehouse filter and required schema", (
   const prepared = prepareJackyunWorkbook("inventory_age", workbook, { minimumRows: 1, snapshotDate: "2026-07-15" });
   assert.equal(prepared.preprocessing.excludedBrushWarehouseRows, 1);
   assert.equal(prepared.expectedBatchRowCount, 1);
+});
+
+test("inventory age removes implausible supplier placeholder stock values", () => {
+  const workbook = createXlsxWorkbookBytes([{
+    name: "sheetTitle",
+    rows: [
+      ["仓库", "货品编号", "货品名称", "库存数量", "固定成本价", "库龄(天)"],
+      ["主仓", "SKU-1", "正常库存", 3, 10, 20],
+      ["主仓", "SKU-0", "零成本库存", 2, 0, 20],
+      ["供应商仓", "SKU-2", "异常占位库存", 1_000_000, 20_000, 20],
+    ],
+  }]);
+
+  const prepared = prepareJackyunWorkbook("inventory_age", workbook, { minimumRows: 1, snapshotDate: "2026-07-15" });
+  assert.equal(prepared.preprocessing.excludedImplausibleValueRows, 1);
+  assert.equal(prepared.preprocessing.excludedZeroCostRows, 0);
+  assert.equal(prepared.preprocessing.retainedRows, 2);
+  assert.equal(prepared.expectedBatchRowCount, 2);
+  assert.equal(parseErpReferenceXlsx("inventory_age", prepared.importBytes).rows.length, 2);
 });
 
 test("inventory validation applies the minimum row gate after warehouse and cost filtering", () => {

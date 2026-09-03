@@ -36,7 +36,7 @@ export type JackyunPreprocessingSummary = {
   kind: "none" | "exact_warehouse_filter";
   excludedBrushWarehouseRows: number;
   excludedZeroCostRows: number;
-  /** 单行库存货值超过门禁上限（¥10亿）的占位数据行，仅 inventory 模块。 */
+  /** 单行库存货值超过门禁上限（¥10亿）的占位数据行，适用于 inventory 与 inventory_age。 */
   excludedImplausibleValueRows: number;
   /** 实盘/可用库存为负数且系统未允许负库存的行，仅 inventory 模块。 */
   excludedNegativeQuantityRows: number;
@@ -239,10 +239,8 @@ function prepareSingleSheet(
   const productCodeColumn = requiredColumn(header, "货品编号", `${module} 工作表`);
   const costColumn = module === "inventory"
     ? requiredColumn(header, "固定成本价", `${module} 工作表`)
-    : undefined;
-  const quantityColumn = module === "inventory"
-    ? requiredColumn(header, "库存数量", `${module} 工作表`)
-    : undefined;
+    : header.indexes.get(normalizeHeader("固定成本价"));
+  const quantityColumn = requiredColumn(header, "库存数量", `${module} 工作表`);
   // 吉客云分仓库存通常包含“可用库存”，但它不是导入文件的基础必需列。
   // 若存在，必须与实盘库存同时满足库存质量门禁，避免服务端在完成阶段整批拒绝。
   const availableQuantityColumn = module === "inventory"
@@ -255,15 +253,17 @@ function prepareSingleSheet(
   const retainedRows: XlsxRow[] = [];
   for (const row of sourceRows) {
     if (text(row.cells[warehouseColumn]) === "刷刷仓") excludedRows.push(row);
-    else if (costColumn !== undefined && positiveNumber(row.cells[costColumn]) === null) excludedZeroCostRows.push(row);
+    else if (module === "inventory" && costColumn !== undefined && positiveNumber(row.cells[costColumn]) === null) {
+      excludedZeroCostRows.push(row);
+    }
     else if (module === "inventory" && quantityColumn !== undefined
       && hasNegativeInventoryQuantity(row.cells[quantityColumn], availableQuantityColumn === undefined ? undefined : row.cells[availableQuantityColumn])) {
       excludedNegativeQuantityRows.push(row);
     }
-    else if (module === "inventory" && quantityColumn !== undefined && costColumn !== undefined
+    else if (costColumn !== undefined
       && isImplausibleInventoryRow(row.cells[quantityColumn], row.cells[costColumn])) {
       // 吉客云 ERP 供应商仓存在数量≈百万/十万的占位库存（单行货值可达数十亿元），
-      // 这些行会被服务端库存质量门禁整批拒绝，
+      // 这些行会被服务端库存或库龄质量门禁整批拒绝，
       // 在预处理阶段剔除以保证其余真实数据可按快照日全量替换入库。
       excludedImplausibleValueRows.push(row);
     }
@@ -283,7 +283,7 @@ function prepareSingleSheet(
     .sort((left, right) => left.localeCompare(right, "zh-CN"));
   const importFileName = module === "inventory"
     ? "分仓库存查询_已剔除刷刷仓及零成本.xlsx"
-    : "库龄分析_已剔除刷刷仓.xlsx";
+    : "库龄分析_已剔除刷刷仓及异常货值.xlsx";
   if (!options.snapshotDate || !/^\d{4}-\d{2}-\d{2}$/.test(options.snapshotDate)) {
     throw new JackyunValidationError(`${module} 必须提供快照日期以生成确定的本轮导入文件。`);
   }
