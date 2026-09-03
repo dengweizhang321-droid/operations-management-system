@@ -1609,24 +1609,19 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
   const service = await readFile("tools/worker-local-service.ps1", "utf8");
   const serviceStartBlock = service.slice(
     service.indexOf('if ($Action -eq "Start")'),
-    service.indexOf('if ($Action -eq "Restart")'),
+    service.indexOf('if ($Action -eq "Stop")'),
   );
   const fullPrelaunchVerifyAt = serviceStartBlock.indexOf('Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt');
-  const verifiedLaunchAt = serviceStartBlock.indexOf("Start-VerifiedWorkerSupervisor");
+  const supervisorSpawnAt = serviceStartBlock.indexOf("$process = Start-Process");
   assert.ok(
-    fullPrelaunchVerifyAt >= 0 && verifiedLaunchAt > fullPrelaunchVerifyAt,
-    "the full stopped verifier must finish before the verified supervisor launch",
+    fullPrelaunchVerifyAt >= 0 && supervisorSpawnAt > fullPrelaunchVerifyAt,
+    "the full stopped verifier must finish before the supervisor is spawned",
   );
-  const verifiedLaunchFunction = service.slice(
-    service.indexOf("function Start-VerifiedWorkerSupervisor"),
-    service.indexOf("if ($FunctionsOnly) { return }"),
-  );
-  assert.match(verifiedLaunchFunction, /\$process = Start-Process/);
   assert.match(supervisor, /consumeSupervisorPrelaunchVerificationReceipt\(\{/);
   assert.equal((supervisor.match(/assertSupervisorPrelaunchProcessState\(\{/g) ?? []).length, 3);
   assert.doesNotMatch(supervisor, /verifyWorkerRelease\(/);
   assert.match(service, /--write-supervisor-prelaunch-receipt/);
-  assert.match(verifiedLaunchFunction, /Get-PortProcessIds \$WorkerPort \$WorkerHost[\s\S]*Get-PortProcessIds \$HelperPort \$HelperHost[\s\S]*Get-WorkerStatusInternal \$Identity/);
+  assert.match(serviceStartBlock, /Get-PortProcessIds \$WorkerPort \$WorkerHost[\s\S]*Get-PortProcessIds \$HelperPort \$HelperHost[\s\S]*Get-WorkerStatusInternal \$identity/);
   assert.equal(supervisorPrelaunchReceiptWaitBudgetMs, 15_000);
   assert.equal(supervisorPrelaunchReceiptRetryDelayMs, 250);
   const releaseSource = await readFile("tools/worker-local-release.mjs", "utf8");
@@ -1637,50 +1632,6 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
   assert.match(directReceiptFunction, /worker-process\.json/);
   assert.match(directReceiptFunction, /validatePayloadSha\(receipt/);
   assert.doesNotMatch(directReceiptFunction, /powershell|exactReleaseProcessState/);
-});
-
-test("hot restart keeps the verified supervisor and helper while replacing only the Worker child", async () => {
-  const service = await readFile("tools/worker-local-service.ps1", "utf8");
-  const restartBlock = service.slice(
-    service.indexOf('if ($Action -eq "Restart")'),
-    service.indexOf('if ($Action -eq "Stop")'),
-  );
-  assert.match(restartBlock, /\$readiness = Get-DjangoSystemReadiness/);
-  assert.match(restartBlock, /Hot restart requires the aggregate-status Django runtime deployment/);
-  assert.match(restartBlock, /if \(-not \$readiness\.Ready\)/);
-  assert.match(restartBlock, /preflight exhausted its budget before changing the Worker process/);
-  assert.doesNotMatch(restartBlock, /Ensure-DjangoSystemReady|Invoke-DjangoStartProcess/);
-  assert.match(restartBlock, /\$status\.State -ne "exact_release"/);
-  assert.match(restartBlock, /Restart-ExactWorkerChild \$status/);
-  assert.match(restartBlock, /previousWorkerPortProcessId/);
-  assert.match(restartBlock, /backendRestarted = \$false/);
-  assert.match(restartBlock, /helperRestarted = \$false/);
-  assert.match(restartBlock, /HotRestartBudgetMilliseconds - \$hotRestartTimer\.ElapsedMilliseconds/);
-  assert.match(restartBlock, /elapsedMilliseconds = \[int64\]\$hotRestartTimer\.ElapsedMilliseconds/);
-  assert.match(restartBlock, /http:\/\/127\.0\.0\.1:3000\//);
-  assert.match(restartBlock, /http:\/\/127\.0\.0\.1:5791\/health/);
-  assert.doesNotMatch(restartBlock, /Invoke-ReleaseVerification|Stop-ExactWorkerSnapshot|Remove-ExactProcessReceipt|Start-VerifiedWorkerSupervisor/);
-
-  const childRestartFunction = service.slice(
-    service.indexOf("function Restart-ExactWorkerChild"),
-    service.indexOf("function Stop-ExactWorkerSnapshot"),
-  );
-  assert.match(childRestartFunction, /Test-SameProcessIdentity \$currentSupervisor \$supervisor/);
-  assert.match(childRestartFunction, /Test-ExactWorkerRootProcess/);
-  assert.ok(childRestartFunction.indexOf("Stop-ExactProcessIdentity $workerRoot") < childRestartFunction.indexOf("Get-CimInstance Win32_Process"));
-  assert.match(childRestartFunction, /Worker root PID was reused before the hot-restart fence completed/);
-  assert.match(childRestartFunction, /Get-ProcessTree \$workerRootId \$augmented/);
-  assert.match(childRestartFunction, /Sort-Object Depth -Descending/);
-  assert.match(childRestartFunction, /Stop-ExactProcessIdentity \$entry\.Process/);
-  assert.match(childRestartFunction, /candidate\.State -eq "exact_release"/);
-  assert.match(childRestartFunction, /\[DateTime\]::UtcNow -lt \$DeadlineUtc/);
-  assert.match(childRestartFunction, /Hot restart did not replace the exact Worker port process/);
-
-  const releaseSource = await readFile("tools/worker-local-release.mjs", "utf8");
-  assert.match(
-    releaseSource,
-    /writeSupervisorPrelaunchReceipt && processPolicy !== "stopped"/,
-  );
 });
 
 test("supervisor consumes one fresh full-verification receipt and rejects expired reuse", async () => {

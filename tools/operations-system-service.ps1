@@ -18,7 +18,7 @@ param(
 #            tools/worker-local-service.ps1 -Action Start（Django/PostgreSQL -> Worker）的界面层；
 #   - Stop   先通过 tools/worker-local-service.ps1 -Action Stop 按身份门禁停止 Worker，再调用
 #            运行目录中的 django-local-service.ps1 -Action Stop 停止各域 Django 与 PostgreSQL；
-#   - Restart 默认仍为完整 Stop + Start；传入 -KeepBackend 时走 Worker 原子热重启；
+#   - Restart = Stop + Start；
 #   - Status 复用 operations-system-control.ps1 -Action Status -Json 的组合状态；
 #   - -Background 只是把同一命令放到隐藏进程里执行，并把输出落到 tmp\system-service\ 日志。
 # 全部 Stop/Restart 与桌面控制面板共用同一个系统互斥，避免面板启动与本脚本停止交错。
@@ -278,35 +278,6 @@ function Invoke-Stop {
 }
 
 function Invoke-Restart {
-  if ($KeepBackend) {
-    Assert-Dependencies -RequireDjango:$false
-    $lease = Enter-SystemControlMutex
-    try {
-      if (-not $lease.Acquired) {
-        throw "唯一总控正在启动或停止系统；为避免交错，本次热重启请求已拒绝，请稍后重试"
-      }
-      Write-Line "后端保持运行，正在校验并热重启网页 Worker……"
-      $restartStatus = Invoke-ControlledScript $WindowsPowerShellPath $WorkerServicePath @("-Action", "Restart") "restart-worker" -CaptureJson
-      if ([string]$restartStatus.status -ne "restarted") {
-        throw "不可变 Worker 热重启回执无效：$([string]$restartStatus.status)"
-      }
-    } finally {
-      Exit-SystemControlMutex $lease
-    }
-    if ($Open) { Start-Process $ServerUrl | Out-Null }
-    Write-ServiceResult ([pscustomobject]@{
-      version = $ServiceVersion
-      action = "Restart"
-      status = "restarted"
-      mode = "hot"
-      backendRestarted = $false
-      elapsedMilliseconds = if ($restartStatus.PSObject.Properties.Name -contains "elapsedMilliseconds") { [int64]$restartStatus.elapsedMilliseconds } else { $null }
-      url = $ServerUrl
-      message = "网页 Worker 已完成热重启，Django/PostgreSQL 全程保持运行：$ServerUrl"
-      checkedAt = (Get-Date).ToString("o")
-    })
-    return
-  }
   Invoke-Stop
   Invoke-Start
 }
@@ -456,10 +427,9 @@ function Show-InteractiveMenu {
     Write-Host " 2  后台启动（立即返回，用 6 查看进度）"
     Write-Host " 3  停止（Worker + Django/PostgreSQL）"
     Write-Host " 4  只停止网页 Worker（保留后端）"
-    Write-Host " 5  热重启网页（后端保持运行，目标 30 秒）"
+    Write-Host " 5  重启"
     Write-Host " 6  查看日志"
     Write-Host " 7  查看状态"
-    Write-Host " 8  完整重启（Worker + Django/PostgreSQL）"
     Write-Host " 0  退出"
     Write-Host ""
     $choice = Read-Host "请选择"
@@ -485,16 +455,11 @@ function Show-InteractiveMenu {
         }
         "5" {
           $script:Open = $true
-          $script:KeepBackend = $true
+          $script:KeepBackend = $false
           Invoke-Restart
         }
         "6" { Show-Logs }
         "7" { Show-Status }
-        "8" {
-          $script:Open = $true
-          $script:KeepBackend = $false
-          Invoke-Restart
-        }
         default { Write-Host "无效选项：$choice" -ForegroundColor Yellow }
       }
     } catch {

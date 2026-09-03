@@ -402,13 +402,7 @@ test("runtime deployment and ACL hardening precede an exact startup shortcut", (
   assert.match(script, /\$rule\.IsInherited/);
   assert.match(script, /运行目录子项不得包含显式 ACL 规则/);
   assert.match(script, /\$topLevelItems\.Count -gt 128/);
-  assert.match(script, /function Initialize-RuntimeAclVerifier/);
-  assert.match(script, /DirectoryInfo directory = entry as DirectoryInfo/);
-  assert.match(script, /directory\.EnumerateFileSystemInfos\(\)/);
-  assert.match(script, /security\.GetAccessRules\(true, true, typeof\(SecurityIdentifier\)\)/);
-  assert.match(script, /Invoke-AcceleratedRuntimeAclVerification \$root \$allowedValues/);
-  assert.match(script, /runtime_acl_verified/);
-  assert.match(script, /objects=\$objectCount elapsedMilliseconds=/);
+  assert.match(script, /Get-RuntimeTreeItemsNoReparse[\s\S]*?Get-ChildItem -LiteralPath \$root -Force/);
   assert.match(script, /Get-CanonicalPath \(\[IO\.Path\]::GetDirectoryName\(\$itemPath\)\)/);
   assert.match(
     script,
@@ -464,22 +458,6 @@ test("runtime deployment and ACL hardening precede an exact startup shortcut", (
   assert.match(script, /\.pyc/);
   assert.match(script, /Start 必须从受保护的 runtime app 启动脚本执行/);
   assert.match(script, /RemoveStartup/);
-});
-
-test("aggregate status loads one controller and reuses exact in-process process checks", () => {
-  assert.match(script, /"AggregateStatus" \{ Show-AggregateServiceStatus \}/);
-  const aggregateBlock = script.slice(
-    script.indexOf("function Show-AggregateServiceStatus"),
-    script.indexOf("function Install-StartupShortcut"),
-  );
-  assert.match(aggregateBlock, /Invoke-InProcessJsonStatus \{ Show-ServiceStatus \}/);
-  assert.match(aggregateBlock, /Invoke-InProcessJsonStatus \{ Show-FinanceServiceStatus \}/);
-  for (const service of ["netshop", "market", "products", "inventory", "workflow"]) {
-    assert.match(aggregateBlock, new RegExp(`Get-SimpleDjangoDomainStatus[\\s\\S]*?django-${service}-reader`));
-  }
-  assert.match(aggregateBlock, /teruisi-django-aggregate-status-v1/);
-  assert.match(aggregateBlock, /ElapsedMilliseconds = \[int64\]\$timer\.ElapsedMilliseconds/);
-  assert.doesNotMatch(aggregateBlock, /Start-Process|powershell\.exe|pwsh\.exe/);
 });
 
 test("Wrangler deployment integration test is external, destructive only inside its unique temp runtime", () => {
@@ -690,32 +668,6 @@ for (const shell of ["powershell.exe", "pwsh.exe"]) {
       );
       assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
       assert.match(result.stdout, /PASS: descendant ACL fallback is DACL-only, bounded, and fail-closed/);
-    },
-  );
-
-  test(
-    `accelerated exact ACL verification stays inside its startup budget in ${shell}`,
-    {
-      skip: process.platform !== "win32"
-        || shellProbe.error !== undefined
-        || shellProbe.status !== 0,
-    },
-    () => {
-      const result = spawnSync(
-        shell,
-        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests\\django-local-service-acl-performance.test.ps1"],
-        { encoding: "utf8", timeout: 30_000 },
-      );
-      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-      const payload = JSON.parse(result.stdout.trim().split(/\r?\n/).at(-1) ?? "") as {
-        status: string;
-        objectCount: number;
-        elapsedMilliseconds: number;
-        budgetMilliseconds: number;
-      };
-      assert.equal(payload.status, "passed");
-      assert.equal(payload.objectCount, 5101);
-      assert.ok(payload.elapsedMilliseconds < payload.budgetMilliseconds, JSON.stringify(payload));
     },
   );
 

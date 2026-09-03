@@ -13,7 +13,6 @@ if /i "%~1"=="start-bg" goto start_bg
 if /i "%~1"=="stop" goto stop
 if /i "%~1"=="stop-worker" goto stop_worker
 if /i "%~1"=="restart" goto restart
-if /i "%~1"=="restart-full" goto restart_full
 if /i "%~1"=="restart-bg" goto restart_bg
 if /i "%~1"=="status" goto status
 if /i "%~1"=="logs" goto logs
@@ -40,15 +39,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SERVICE%" -Action Stop
 exit /b %ERRORLEVEL%
 
 :restart
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SERVICE%" -Action Restart -KeepBackend -Open
-exit /b %ERRORLEVEL%
-
-:restart_full
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SERVICE%" -Action Restart -Open
 exit /b %ERRORLEVEL%
 
 :restart_bg
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SERVICE%" -Action Restart -KeepBackend -Open -Background
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SERVICE%" -Action Restart -Open -Background
 exit /b %ERRORLEVEL%
 
 :status
@@ -66,5 +61,5 @@ exit /b 1
 
 :invalid_option
 echo ERROR: invalid option "%~1"
-echo Available: start ^| start-bg ^| stop ^| stop-worker ^| restart ^| restart-full ^| restart-bg ^| status ^| logs
+echo Available: start ^| start-bg ^| stop ^| stop-worker ^| restart ^| restart-bg ^| status ^| logs
 exit /b 1

@@ -55,19 +55,6 @@ test("controller checks every authoritative Django PostgreSQL domain", () => {
   assert.match(panel, /RuntimeAclVerification -ceq "root_only_status"/);
   assert.match(panel, /AuthorityProperty "PostgreSQLAuthority"/);
   assert.match(panel, /AuthorityProperty\]\.Value -cne "postgres"/);
-  const aggregateBlock = panel.slice(
-    panel.indexOf("function Get-DjangoAggregateState"),
-    panel.indexOf("function Get-WorkerReleaseStatus"),
-  );
-  assert.match(aggregateBlock, /-Arguments @\("-Action", "AggregateStatus"\)/);
-  assert.match(aggregateBlock, /teruisi-django-aggregate-status-v1/);
-  const optimizedBranch = aggregateBlock.slice(
-    aggregateBlock.indexOf("if (Test-DjangoAggregateStatusSupported)"),
-    aggregateBlock.indexOf("} else {"),
-  );
-  assert.equal((optimizedBranch.match(/Invoke-JsonServiceAction/g) ?? []).length, 1);
-  assert.doesNotMatch(optimizedBranch, /\$Django(?:Finance|Netshop|Market|Products|Workflow|Inventory)Service/);
-  assert.match(aggregateBlock, /Safe rolling-upgrade compatibility|source controller usable/);
 });
 
 test("controller delegates mutation to one start engine and performs final health gates", () => {
@@ -117,17 +104,6 @@ test("canonical start engine enforces Django readiness before Worker verificatio
   assert.match(workerService, /function Test-IsIsolatedTestRuntime/);
   assert.match(workerService, /actualRuntime\.Equals\(\$productionRuntime/);
   assert.match(workerService, /if \(Test-IsIsolatedTestRuntime\) \{ return \}/);
-  const aggregateBlock = workerService.slice(
-    workerService.indexOf("function Get-DjangoSystemReadiness"),
-    workerService.indexOf("function Ensure-DjangoSystemReady"),
-  );
-  assert.match(aggregateBlock, /\$DjangoService "AggregateStatus"/);
-  const optimizedReadinessBranch = aggregateBlock.slice(
-    aggregateBlock.indexOf("if (Test-DjangoAggregateStatusSupported)"),
-    aggregateBlock.indexOf("} else {"),
-  );
-  assert.equal((optimizedReadinessBranch.match(/Invoke-DjangoStatusJson/g) ?? []).length, 1);
-  assert.match(aggregateBlock, /Safe rolling-upgrade compatibility/);
 });
 
 test("canonical engine waits only for the direct Django Start controller process", () => {

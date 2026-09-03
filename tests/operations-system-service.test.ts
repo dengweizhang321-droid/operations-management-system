@@ -47,21 +47,6 @@ test("Stop halts the Worker through its identity gate before the Django stack, u
   assert.match(djangoStop, /\$DjangoPowerShellPath \$DjangoServicePath @\("-Action", "Stop"/);
 });
 
-test("hot restart keeps Django/PostgreSQL running and performs one gated Worker restart", () => {
-  const restartBlock = block("function Invoke-Restart", "function Get-ProcessStartUnixMilliseconds");
-  assert.match(restartBlock, /if \(\$KeepBackend\)/);
-  assert.match(restartBlock, /Enter-SystemControlMutex/);
-  assert.match(restartBlock, /\$WorkerServicePath @\("-Action", "Restart"\)/);
-  assert.match(restartBlock, /status -ne "restarted"/);
-  assert.match(restartBlock, /backendRestarted = \$false/);
-  assert.match(restartBlock, /elapsedMilliseconds = if \(\$restartStatus\.PSObject\.Properties\.Name -contains "elapsedMilliseconds"\)/);
-  assert.ok(restartBlock.indexOf("if ($KeepBackend)") < restartBlock.indexOf("Invoke-Stop"));
-  assert.doesNotMatch(
-    restartBlock.slice(restartBlock.indexOf("if ($KeepBackend)"), restartBlock.indexOf("return") + "return".length),
-    /Invoke-StopDjango|Invoke-StopWorkerOnly/,
-  );
-});
-
 test("child scripts are waited on through file redirection, never an inherited pipeline", () => {
   const invocation = block("function Invoke-ControlledScript", "function Copy-NewOutput");
   assert.match(invocation, /Start-Process -FilePath \$Executable/);
@@ -112,19 +97,23 @@ test("lifecycle service helpers pass their PowerShell unit test when a shell is 
 test("batch launcher and npm scripts route every action to the lifecycle service", () => {
   assert.match(launcher, /tools\\operations-system-service\.ps1/);
   assert.ok([...Buffer.from(launcher, "utf8")].every((byte) => byte < 0x80), "cmd wrapper must remain ASCII-only");
-  for (const option of ["start", "start-bg", "stop", "stop-worker", "restart", "restart-full", "restart-bg", "status", "logs"]) {
+  for (const option of ["start", "start-bg", "stop", "stop-worker", "restart", "restart-bg", "status", "logs"]) {
     assert.match(launcher, new RegExp(`if /i "%~1"=="${option}"`));
   }
   assert.match(launcher, /-Action Menu/);
   assert.match(launcher, /-Action Stop -KeepBackend/);
   assert.match(launcher, /-Action Start -Open -Background/);
-  assert.match(launcher, /:restart[\s\S]*?-Action Restart -KeepBackend -Open/);
-  assert.match(launcher, /:restart_full[\s\S]*?-Action Restart -Open/);
-  assert.equal(packageJson.scripts["system:start"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Start");
-  assert.equal(packageJson.scripts["system:stop"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Stop");
-  assert.equal(packageJson.scripts["system:restart"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Restart -KeepBackend");
-  assert.equal(packageJson.scripts["system:restart:full"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Restart");
-  assert.equal(packageJson.scripts["system:logs"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Logs");
+  for (const [name, action] of [
+    ["system:start", "Start"],
+    ["system:stop", "Stop"],
+    ["system:restart", "Restart"],
+    ["system:logs", "Logs"],
+  ] as const) {
+    assert.equal(
+      packageJson.scripts[name],
+      `powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action ${action}`,
+    );
+  }
   assert.equal(packageJson.scripts["backend:dev"], "node tools/django-dev-backend.mjs start");
 });
 

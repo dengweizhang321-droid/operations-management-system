@@ -9,7 +9,7 @@
 & "D:\运营管理系统\tools\operations-system-control.ps1" -Action Status -Json
 ```
 
-唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。当前机器的完整冷启动预算为 1–2 分钟；控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
+唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。Worker 完整性验证可能需要数分钟，控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
 
 顶层 `Start`/`Stop` 把销售/财务与网店、市场、商品经营、库存和运营事务新品视为同一次受控生命周期操作：完整运行目录 ACL 审计只执行一次，后续子域只能在同一 PowerShell 进程、同一 runtime/部署清单且 15 分钟内复用该结果，并仍回读根 ACL 与应用清单。直接操作某个子域、上下文过期或任一绑定不一致时，仍会执行完整 ACL 审计。Worker release 的 source、dist、`node_modules` 和 helper 仍逐文件校验，但元数据读取与文件预取使用有界并发，最终 SHA-256 顺序和旧 manifest 协议保持不变。
 
@@ -25,17 +25,14 @@
 
 ### Windows 启动 / 停止 / 重启脚本
 
-`运营系统.bat`（根目录）和 `tools/operations-system-service.ps1` 是同一套生命周期入口，不复制任何启动逻辑：`Start` 仍调用 `operations-system-control.ps1 -Action Start` 进入唯一启动引擎；`Stop` 先经 `worker-local-service.ps1 -Action Stop` 的身份门禁停止 Worker，再调用运行目录中的 `django-local-service.ps1 -Action Stop` 停止各域 Django 与 PostgreSQL；日常 `restart` 是目标 30 秒内的网页 Worker 热重启，Django/PostgreSQL 全程保持运行；`restart-full` 才执行完整 Stop + Start；`Status` 复用总控的组合状态。Stop/Restart 与桌面控制面板共用同一个系统互斥，拿不到锁时直接拒绝而不是交错执行。
+`运营系统.bat`（根目录）和 `tools/operations-system-service.ps1` 是同一套生命周期入口，不复制任何启动逻辑：`Start` 仍调用 `operations-system-control.ps1 -Action Start` 进入唯一启动引擎；`Stop` 先经 `worker-local-service.ps1 -Action Stop` 的身份门禁停止 Worker，再调用运行目录中的 `django-local-service.ps1 -Action Stop` 停止各域 Django 与 PostgreSQL；`Restart` 是 Stop + Start；`Status` 复用总控的组合状态。Stop/Restart 与桌面控制面板共用同一个系统互斥，拿不到锁时直接拒绝而不是交错执行。
 
 ```powershell
-运营系统.bat                     # 菜单：启动 / 停止 / 30 秒热重启 / 完整重启 / 日志 / 状态
+运营系统.bat                     # 菜单：启动 / 后台启动 / 停止 / 只停 Worker / 重启 / 日志 / 状态
 运营系统.bat start-bg            # 后台启动并立即返回；进度用 运营系统.bat logs，结果用 运营系统.bat status
-运营系统.bat restart             # 热重启 Worker，保留 Django/PostgreSQL
-运营系统.bat restart-full        # 完整重启全部服务
 npm run system:start             # 等价于 tools\operations-system-service.ps1 -Action Start
 npm run system:stop              # 完整停止；只停网页 Worker 用 -Action Stop -KeepBackend
-npm run system:restart           # 热重启 Worker
-npm run system:restart:full      # 完整重启
+npm run system:restart
 npm run system:logs
 ```
 
@@ -43,11 +40,7 @@ npm run system:logs
 
 #### 启动耗时治理（2026-09-03）
 
-取证发现完整 `Start` 曾在同一次启动内重复生成昂贵证据。当前实现保留所有失败关闭边界，同时消除可证明等价的重复工作：核心 Django Start 完成应用树与全 runtime ACL 校验后，绑定当前 PID、runtime 路径和部署清单 SHA-256 的 15 分钟上下文由同进程五个域复用，域独立启动仍完整校验；Django Start 只有在 ERP watch 和全部已启用 reader/writer 的有界 readiness 通过后才成功退出；外层和 Worker 现在各只调用一次 `AggregateStatus`，在同一 pwsh 进程内核验 PostgreSQL、ERP、14 个 reader/writer 精确进程回执及 readiness，不再串行冷启动 7 个 Status 控制器。ERP watch 等待先建立完整 D1/PG caught-up 基线，再通过最小权限 `psql` 只读 checkpoint 心跳，不再每 500 毫秒冷启 Django。
-
-全 runtime ACL 契约仍逐对象核验重解析点、继承保护、主体集合、Allow/FullControl、继承标志及显式 ACE，但扫描改为单个受控 .NET verifier，避免 9 万余次 PowerShell provider/ETS 对象构造。当前生产 runtime 的只读复测为：94,057 个文件系统对象完整 ACL 核验约 9.2 秒，全部服务聚合状态约 8.9 秒；旧基线分别约 128 秒和多轮合计约 80–100 秒。根据 300.8 秒历史完整冷启动时间线，消除的重复成本把同硬件冷启动预算压到约 100 秒；正式发布时间仍须在隔离镜像先做完整冷启动验收，再按受控发布流程回读生产证据。
-
-热重启不会停止 PostgreSQL、任一 Django 服务、immutable supervisor 或 5791 helper。Worker 服务先确认当前进程是 effective head 对应的 `exact_release`，再按 PID、CreationDate、命令行、父子树和 manifest 身份精确锁定 3000 Worker 子树，只终止这棵子树；已经在冷启动时消费完整 release 校验证据的同一 supervisor 随后复用其既有崩溃恢复门禁，重新核验 process receipt、authority guard、固定参数、持久化和 Miniflare cache 边界后创建新 Worker。控制器要求 supervisor 身份保持不变、3000 端口进程 PID 已替换、主页为 HTTP 200 且 helper 健康，任一歧义都失败关闭。该路径没有放宽 supervisor 首次启动必须持有两分钟有效一次性完整校验回执的契约；完整重启行为仍可通过 `restart-full` 使用。
+取证发现完整 `Start` 曾在同一次启动内重复生成昂贵证据。当前实现保留所有失败关闭边界，同时消除可证明等价的重复工作：核心 Django Start 完成应用树与全 runtime ACL 校验后，绑定当前 PID、runtime 路径和部署清单 SHA-256 的 15 分钟上下文由同进程五个域复用，域独立启动仍完整校验；Django Start 只有在 ERP watch 和全部已启用 reader/writer 的有界 readiness 通过后才成功退出，外层不再重复启动 7 个 Status 子进程；ERP watch 等待先建立完整 D1/PG caught-up 基线，再通过最小权限 `psql` 只读 checkpoint 心跳，不再每 500 毫秒冷启 Django。
 
 Worker release 的 source snapshot、`dist`、`node_modules`、helper、bundled npm、guard、activation fence 和硬链接仍由启动引擎逐文件完整校验一次。校验成功后，引擎在受保护的 runtime state 中 create-only 发布一个绑定 manifest SHA-256、release 路径 SHA-256、source/build fingerprint 且仅两分钟有效的一次性回执；supervisor 先核验自身 canonical process receipt，再消费该回执，避免第二遍约 4 万文件哈希。无效回执失败关闭；仅身份完全一致且已过期的中断回执可在下一次完整校验后清理。Worker 就绪等待在端口尚未出现时只做轻量监听检查，桌面并发启动等待最多每 10 秒生成一次完整状态。生产登录快捷方式仍固定于当前不可变 release，只有按既有 `plan`/精确 SHA `apply` 门禁激活并回读重绑后才会使用这些变更。
 
