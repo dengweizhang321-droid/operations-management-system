@@ -17,7 +17,7 @@ const writerFence = readFileSync(
 const weeklyWorkflow = JSON.parse(readFileSync(
   new URL("../automation/n8n/new-product-weekly-dingtalk.workflow.json", import.meta.url),
   "utf8",
-)) as { active: boolean; nodes: Array<{ type: string; parameters?: { command?: string } }> };
+)) as { id: string; active: boolean; nodes: Array<{ type: string; parameters?: { command?: string } }> };
 
 
 test("workflow runtime has isolated ports, roles, authority and a strict DML allowlist", () => {
@@ -62,6 +62,7 @@ test("base runtime deploy, environment isolation and startup chain include workf
 });
 
 test("new-product weekly DingTalk scheduler is inactive and uses the protected local-time gate", () => {
+  assert.equal(weeklyWorkflow.id, "NewProductWeeklyDingTalk2026");
   assert.equal(weeklyWorkflow.active, false);
   assert.ok(weeklyWorkflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"));
   const command = weeklyWorkflow.nodes.find((node) => node.type === "n8n-nodes-base.executeCommand")?.parameters?.command ?? "";
