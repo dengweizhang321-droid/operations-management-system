@@ -278,7 +278,7 @@ test("wires inventory health, synchronization, and replenishment", async () => {
   assert.match(inventoryUiSources, /\/api\/imports\/inventory/);
   assert.match(inventoryUiSources, /\/api\/imports\/inventory\/chunks/);
   assert.match(inventoryUiSources, /\/api\/inventory\/replenishment/);
-  assert.match(inventoryUiSources, /库存与销售数据已按全局周期联动/);
+  assert.match(inventoryUiSources, /库存与近30天销量已联动/);
   assert.match(inventoryUiSources, /备货计划/);
   assert.match(inventoryUiSources, /payload\?\.errors/);
   assert.doesNotMatch(inventoryUiSources, /2,684,700/);
