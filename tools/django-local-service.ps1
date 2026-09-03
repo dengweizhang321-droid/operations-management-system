@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [ValidateSet(
-    "Configure", "DeployApp", "HardenAcl", "Start", "Stop", "Status",
+    "Configure", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
     "ProvisionErpRole", "ProvisionFinanceRoles", "InitializeErpReference", "RollbackApp",
     "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
@@ -57,6 +57,8 @@ $DjangoNetshopReaderPidPath = Join-Path $RunDirectory "django-netshop-reader.pid
 $DjangoNetshopWriterPidPath = Join-Path $RunDirectory "django-netshop-writer.pid.json"
 $DjangoMarketReaderPidPath = Join-Path $RunDirectory "django-market-reader.pid.json"
 $DjangoMarketWriterPidPath = Join-Path $RunDirectory "django-market-writer.pid.json"
+$DjangoProductsReaderPidPath = Join-Path $RunDirectory "django-products-reader.pid.json"
+$DjangoProductsWriterPidPath = Join-Path $RunDirectory "django-products-writer.pid.json"
 $DjangoWorkflowReaderPidPath = Join-Path $RunDirectory "django-workflow-reader.pid.json"
 $DjangoWorkflowWriterPidPath = Join-Path $RunDirectory "django-workflow-writer.pid.json"
 $DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader.pid.json"
@@ -555,25 +557,213 @@ function Get-RuntimeTreeItemsNoReparse {
     throw "运行目录不存在：$RuntimeRoot"
   }
   $root = Get-CanonicalPath $RuntimeRoot
-  $rootItem = Get-Item -LiteralPath $root -Force
+  $rootItem = [IO.DirectoryInfo]::new($root)
+  $rootItem.Refresh()
   if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
     throw "运行目录不得包含重解析点：$($rootItem.FullName)"
   }
   $items = [Collections.Generic.List[object]]::new()
-  $directories = [Collections.Queue]::new()
-  $items.Add($rootItem)
-  $directories.Enqueue($rootItem)
+  $directories = [Collections.Stack]::new()
+  $items.Add([pscustomobject]@{
+    FullName = $rootItem.FullName
+    Attributes = $rootItem.Attributes
+    PSIsContainer = $true
+  })
+  $directories.Push($rootItem)
   while ($directories.Count -gt 0) {
-    $directory = $directories.Dequeue()
-    foreach ($item in @(Get-ChildItem -LiteralPath $directory.FullName -Force)) {
+    $directory = [IO.DirectoryInfo]$directories.Pop()
+    foreach ($item in $directory.EnumerateFileSystemInfos()) {
+      $item.Refresh()
       if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw "运行目录不得包含重解析点：$($item.FullName)"
       }
-      $items.Add($item)
-      if ($item.PSIsContainer) { $directories.Enqueue($item) }
+      $isDirectory = $item -is [IO.DirectoryInfo]
+      $items.Add([pscustomobject]@{
+        FullName = $item.FullName
+        Attributes = $item.Attributes
+        PSIsContainer = $isDirectory
+      })
+      if ($isDirectory) { $directories.Push($item) }
     }
   }
   return $items
+}
+
+function Get-RuntimeItemAccessControl([object]$Item) {
+  # Get-Acl creates a provider object and crosses the PowerShell provider
+  # boundary for every path.  That costs more than two minutes on the current
+  # 90k-item runtime.  The FileSystemAclExtensions API reads the same Windows
+  # DACL directly and preserves the exact inherited/explicit ACE evidence used
+  # by Assert-ExactRuntimeAclEntry.
+  if ([bool]$Item.PSIsContainer) {
+    $entry = [IO.DirectoryInfo]::new([string]$Item.FullName)
+  } else {
+    $entry = [IO.FileInfo]::new([string]$Item.FullName)
+  }
+  $entry.Refresh()
+  if (-not $entry.Exists) {
+    throw [IO.InvalidDataException]::new("运行目录对象在 ACL 检查期间消失：$($Item.FullName)")
+  }
+  if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw [IO.InvalidDataException]::new("运行目录不得包含重解析点：$($entry.FullName)")
+  }
+  if ($null -ne ("System.IO.FileSystemAclExtensions" -as [type])) {
+    return [IO.FileSystemAclExtensions]::GetAccessControl($entry)
+  }
+  # Windows PowerShell 5.1 exposes the same DACL through the Security module,
+  # while the accelerated full-tree verifier is compiled below against the
+  # framework instance APIs. This fallback is used only for the bounded root
+  # status check and keeps the production hot path provider-free on pwsh.
+  return Microsoft.PowerShell.Security\Get-Acl -LiteralPath ([string]$Item.FullName)
+}
+
+function Initialize-RuntimeAclVerifier {
+  if ($null -ne ("Teruisi.RuntimeAclVerifier" -as [type])) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
+
+namespace Teruisi {
+  public static class RuntimeAclVerifier {
+    private static readonly MethodInfo DirectoryAccessControl = ResolveAccessControl(typeof(DirectoryInfo));
+    private static readonly MethodInfo FileAccessControl = ResolveAccessControl(typeof(FileInfo));
+
+    public static long Verify(string rootPath, string[] allowedSidValues) {
+      if (String.IsNullOrWhiteSpace(rootPath) || allowedSidValues == null || allowedSidValues.Length == 0) {
+        throw new InvalidDataException("运行目录 ACL 校验参数无效");
+      }
+      string root = Path.GetFullPath(rootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+      var allowed = new HashSet<string>(allowedSidValues, StringComparer.OrdinalIgnoreCase);
+      if (allowed.Count != allowedSidValues.Length) {
+        throw new InvalidDataException("运行目录 ACL 允许主体包含重复项");
+      }
+
+      var rootInfo = new DirectoryInfo(root);
+      rootInfo.Refresh();
+      if (!rootInfo.Exists) throw new InvalidDataException("运行目录不存在：" + root);
+      VerifyEntry(rootInfo, true, allowed);
+
+      long count = 1;
+      var directories = new Stack<DirectoryInfo>();
+      directories.Push(rootInfo);
+      while (directories.Count != 0) {
+        DirectoryInfo directory = directories.Pop();
+        foreach (FileSystemInfo entry in directory.EnumerateFileSystemInfos()) {
+          entry.Refresh();
+          VerifyEntry(entry, false, allowed);
+          count += 1;
+          DirectoryInfo child = entry as DirectoryInfo;
+          if (child != null) directories.Push(child);
+        }
+      }
+      return count;
+    }
+
+    private static void VerifyEntry(FileSystemInfo entry, bool isRoot, HashSet<string> allowed) {
+      if ((entry.Attributes & FileAttributes.ReparsePoint) != 0) {
+        throw new InvalidDataException("运行目录不得包含重解析点：" + entry.FullName);
+      }
+      FileSystemSecurity security;
+      DirectoryInfo directory = entry as DirectoryInfo;
+      if (directory != null) {
+        security = ReadAccessControl(directory, DirectoryAccessControl);
+      } else {
+        security = ReadAccessControl((FileInfo)entry, FileAccessControl);
+      }
+      if (isRoot && !security.AreAccessRulesProtected) {
+        throw new InvalidDataException("运行目录根 ACL 尚未禁用父目录继承");
+      }
+      if (!isRoot && security.AreAccessRulesProtected) {
+        throw new InvalidDataException("运行目录子项必须继承受保护根 ACL：" + entry.FullName);
+      }
+
+      AuthorizationRuleCollection rules = security.GetAccessRules(true, true, typeof(SecurityIdentifier));
+      if (rules.Count != allowed.Count) {
+        throw new InvalidDataException(String.Format(
+          "运行目录 ACL 规则数量不符合精确契约（{0} expected={1} actual={2}）：{3}",
+          isRoot ? "root" : "descendant", allowed.Count, rules.Count, entry.FullName));
+      }
+      var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      const InheritanceFlags expectedInheritance = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+      foreach (FileSystemAccessRule rule in rules) {
+        string sid = ((SecurityIdentifier)rule.IdentityReference).Value;
+        if (!allowed.Contains(sid)) {
+          throw new InvalidDataException("运行目录 ACL 包含未授权主体：" + sid);
+        }
+        if (rule.AccessControlType != AccessControlType.Allow) {
+          throw new InvalidDataException("运行目录 ACL 不得包含拒绝规则");
+        }
+        if ((rule.FileSystemRights & FileSystemRights.FullControl) != FileSystemRights.FullControl) {
+          throw new InvalidDataException("运行目录 ACL 主体缺少 FullControl");
+        }
+        if (isRoot) {
+          if (rule.IsInherited || rule.InheritanceFlags != expectedInheritance || rule.PropagationFlags != PropagationFlags.None) {
+            throw new InvalidDataException("运行目录根 ACL 继承标志不符合精确契约");
+          }
+        } else if (!rule.IsInherited) {
+          throw new InvalidDataException("运行目录子项不得包含显式 ACL 规则：" + entry.FullName);
+        }
+        if (!seen.Add(sid)) throw new InvalidDataException("运行目录 ACL 包含重复主体");
+      }
+      foreach (string sid in allowed) {
+        if (!seen.Contains(sid)) throw new InvalidDataException("运行目录 ACL 缺少受控主体");
+      }
+    }
+
+    private static MethodInfo ResolveAccessControl(Type entryType) {
+      MethodInfo instance = entryType.GetMethod("GetAccessControl", Type.EmptyTypes);
+      if (instance != null) return instance;
+      Type extensions = Type.GetType(
+        "System.IO.FileSystemAclExtensions, System.IO.FileSystem.AccessControl", false
+      );
+      if (extensions == null) {
+        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies()) {
+          extensions = assembly.GetType("System.IO.FileSystemAclExtensions", false);
+          if (extensions != null) break;
+        }
+      }
+      if (extensions == null) {
+        throw new PlatformNotSupportedException("File-system ACL API is unavailable");
+      }
+      MethodInfo method = extensions.GetMethod(
+        "GetAccessControl", BindingFlags.Public | BindingFlags.Static,
+        null, new Type[] { entryType }, null
+      );
+      if (method == null) {
+        throw new PlatformNotSupportedException("Exact file-system ACL API is unavailable");
+      }
+      return method;
+    }
+
+    private static FileSystemSecurity ReadAccessControl(FileSystemInfo entry, MethodInfo method) {
+      object target = method.IsStatic ? null : (object)entry;
+      object[] arguments = method.IsStatic ? new object[] { entry } : null;
+      try {
+        return (FileSystemSecurity)method.Invoke(target, arguments);
+      } catch (TargetInvocationException error) {
+        if (error.InnerException != null) throw error.InnerException;
+        throw;
+      }
+    }
+  }
+}
+'@
+}
+
+function Invoke-AcceleratedRuntimeAclVerification([string]$Root, [string[]]$AllowedValues) {
+  Initialize-RuntimeAclVerifier
+  try {
+    return [Teruisi.RuntimeAclVerifier]::Verify($Root, $AllowedValues)
+  } catch {
+    if ($_.Exception.InnerException -is [IO.InvalidDataException]) {
+      throw $_.Exception.InnerException
+    }
+    throw
+  }
 }
 
 function Get-SystemIcaclsPath {
@@ -768,7 +958,11 @@ function Assert-ExactRuntimeAclEntry(
   if (-not $isRoot -and $Acl.AreAccessRulesProtected) {
     throw [IO.InvalidDataException]::new("运行目录子项必须继承受保护根 ACL：$($Item.FullName)")
   }
-  $rules = @($Acl.Access)
+  $rules = @($Acl.GetAccessRules(
+      $true,
+      $true,
+      [Security.Principal.SecurityIdentifier]
+    ))
   if ($rules.Count -ne $AllowedValues.Count) {
     $entryKind = if ($isRoot) { "root" } else { "descendant" }
     throw [IO.InvalidDataException]::new(
@@ -781,13 +975,7 @@ function Assert-ExactRuntimeAclEntry(
   $expectedInheritance = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
     [Security.AccessControl.InheritanceFlags]::ObjectInherit
   foreach ($rule in $rules) {
-    try {
-      $sid = $rule.IdentityReference.Translate(
-        [Security.Principal.SecurityIdentifier]
-      ).Value
-    } catch {
-      throw [IO.InvalidDataException]::new("运行目录包含无法解析的 ACL 主体：$($rule.IdentityReference)")
-    }
+    $sid = ([Security.Principal.SecurityIdentifier]$rule.IdentityReference).Value
     if ($AllowedValues -notcontains $sid) {
       throw [IO.InvalidDataException]::new("运行目录 ACL 包含未授权主体：$($rule.IdentityReference)")
     }
@@ -825,22 +1013,28 @@ function Assert-RuntimeRootAclHardened {
     throw "运行目录不存在：$RuntimeRoot"
   }
   $root = Get-CanonicalPath $RuntimeRoot
-  $rootItem = Get-Item -LiteralPath $root -Force
+  $rootItem = [pscustomobject]@{
+    FullName = $root
+    Attributes = [IO.File]::GetAttributes($root)
+    PSIsContainer = $true
+  }
   if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
     throw "运行目录不得包含重解析点：$($rootItem.FullName)"
   }
   $allowedValues = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
-  Assert-ExactRuntimeAclEntry $rootItem (Get-Acl -LiteralPath $root) $allowedValues $root
+  Assert-ExactRuntimeAclEntry $rootItem (Get-RuntimeItemAccessControl $rootItem) $allowedValues $root
 }
 
 function Assert-RuntimeAclHardened {
   if (-not (Test-Path -LiteralPath $RuntimeRoot -PathType Container)) { throw "运行目录不存在：$RuntimeRoot" }
   $allowedValues = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
   $root = Get-CanonicalPath $RuntimeRoot
-  $items = @(Get-RuntimeTreeItemsNoReparse)
-  foreach ($item in $items) {
-    Assert-ExactRuntimeAclEntry $item (Get-Acl -LiteralPath $item.FullName) $allowedValues $root
-  }
+  $timer = [Diagnostics.Stopwatch]::StartNew()
+  $objectCount = Invoke-AcceleratedRuntimeAclVerification $root $allowedValues
+  $timer.Stop()
+  Write-LauncherEvent "INFO" "runtime_acl_verified" (
+    "objects=$objectCount elapsedMilliseconds=$($timer.ElapsedMilliseconds)"
+  )
 }
 
 function New-OrchestratedLifecycleAclToken {
@@ -3604,6 +3798,109 @@ function Show-FinanceServiceStatus {
   }
 }
 
+function Invoke-InProcessJsonStatus([scriptblock]$Operation, [string]$Label) {
+  $previousJson = $Json
+  try {
+    $script:Json = [switch]$true
+    $raw = ((& $Operation) | Out-String).Trim()
+  } finally {
+    $script:Json = $previousJson
+  }
+  if ([string]::IsNullOrWhiteSpace($raw)) { throw "$Label 未返回 JSON" }
+  try { return ($raw | ConvertFrom-Json -ErrorAction Stop) }
+  catch { throw "$Label 返回了无效 JSON" }
+}
+
+function Get-SimpleDjangoDomainStatus(
+  [string]$Service,
+  [string]$ReaderPidPath,
+  [string]$WriterPidPath,
+  [int]$ReaderPort,
+  [int]$WriterPort,
+  [string]$ReaderHealthUrl,
+  [string]$WriterHealthUrl,
+  [string]$ReaderProperty,
+  [string]$WriterProperty
+) {
+  $reader = "stopped"
+  try {
+    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
+    elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
+  } catch { $reader = "ownership_error" }
+  $writerService = $Service.Replace("-reader", "-writer")
+  $writer = "stopped"
+  try {
+    if (Resolve-OwnedProcess $writerService $WriterPidPath $Waitress) { $writer = "running" }
+    elseif (@(Get-PortListeners $WriterPort).Count -gt 0) { $writer = "foreign_port_owner" }
+  } catch { $writer = "ownership_error" }
+  $readerReady = "not_ready"
+  try {
+    if ((Invoke-WebRequest -UseBasicParsing -Uri $ReaderHealthUrl -TimeoutSec 2 `
+          -Headers @{ Host = "127.0.0.1:$ReaderPort" }).StatusCode -eq 200) {
+      $readerReady = "ready"
+    }
+  } catch {}
+  $writerReady = "not_ready"
+  try {
+    if ((Invoke-WebRequest -UseBasicParsing -Uri $WriterHealthUrl -TimeoutSec 2 `
+          -Headers @{ Host = "127.0.0.1:$WriterPort" }).StatusCode -eq 200) {
+      $writerReady = "ready"
+    }
+  } catch {}
+  $status = [ordered]@{}
+  $status[$ReaderProperty] = $reader
+  $status[$WriterProperty] = $writer
+  $status["ReaderReadiness"] = $readerReady
+  $status["WriterReadiness"] = $writerReady
+  $status["CheckedAt"] = [DateTimeOffset]::UtcNow.ToString("o")
+  return [pscustomobject]$status
+}
+
+function Show-AggregateServiceStatus {
+  # Load the base controller once and inspect all exact process receipts in the
+  # same process.  The previous implementation cold-started seven pwsh
+  # interpreters serially, repeatedly parsing this controller before any
+  # service could start.
+  $timer = [Diagnostics.Stopwatch]::StartNew()
+  $core = Invoke-InProcessJsonStatus { Show-ServiceStatus } "Django/PostgreSQL 状态"
+  $finance = Invoke-InProcessJsonStatus { Show-FinanceServiceStatus } "Django 财务状态"
+  $netshop = Get-SimpleDjangoDomainStatus `
+    "django-netshop-reader" $DjangoNetshopReaderPidPath $DjangoNetshopWriterPidPath `
+    8021 8022 "http://127.0.0.1:8021/health/ready" "http://127.0.0.1:8022/health/ready" `
+    "NetshopReader" "NetshopWriter"
+  $market = Get-SimpleDjangoDomainStatus `
+    "django-market-reader" $DjangoMarketReaderPidPath $DjangoMarketWriterPidPath `
+    8031 8032 "http://127.0.0.1:8031/health/ready" "http://127.0.0.1:8032/health/ready" `
+    "MarketReader" "MarketWriter"
+  $products = Get-SimpleDjangoDomainStatus `
+    "django-products-reader" $DjangoProductsReaderPidPath $DjangoProductsWriterPidPath `
+    8041 8042 "http://127.0.0.1:8041/health/ready" "http://127.0.0.1:8042/health/ready" `
+    "ProductsReader" "ProductsWriter"
+  $inventory = Get-SimpleDjangoDomainStatus `
+    "django-inventory-reader" $DjangoInventoryReaderPidPath $DjangoInventoryWriterPidPath `
+    8051 8052 "http://127.0.0.1:8051/health/ready" "http://127.0.0.1:8052/health/ready" `
+    "InventoryReader" "InventoryWriter"
+  $workflow = Get-SimpleDjangoDomainStatus `
+    "django-workflow-reader" $DjangoWorkflowReaderPidPath $DjangoWorkflowWriterPidPath `
+    8061 8062 "http://127.0.0.1:8061/health/ready" "http://127.0.0.1:8062/health/ready" `
+    "WorkflowReader" "WorkflowWriter"
+  $timer.Stop()
+  $status = [pscustomobject][ordered]@{
+    Version = "teruisi-django-aggregate-status-v1"
+    Core = $core
+    Finance = $finance
+    Netshop = $netshop
+    Market = $market
+    Products = $products
+    Inventory = $inventory
+    Workflow = $workflow
+    ElapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
+    CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
+  }
+  if ($Json.IsPresent) { Write-Output ($status | ConvertTo-Json -Depth 5 -Compress) }
+  else { $status | Format-List }
+}
+
 function Install-StartupShortcut {
   Get-ServiceConfig | Out-Null
   Assert-DeployedApplication
@@ -3776,6 +4073,7 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
         }
       }
       "Status" { Show-ServiceStatus }
+      "AggregateStatus" { Show-AggregateServiceStatus }
       "ProvisionErpRole" { Invoke-WithServiceMutex { Provision-ErpDatabaseRole } }
       "ProvisionFinanceRoles" { Invoke-WithServiceMutex { Provision-FinanceDatabaseRoles } }
       "StartFinance" { Invoke-WithServiceMutex { Start-FinanceStack } }

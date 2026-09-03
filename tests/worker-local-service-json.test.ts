@@ -14,6 +14,63 @@ import {
 
 const shells = ["powershell.exe", "pwsh.exe"];
 
+test("PowerShell hot restart replaces only the exact Worker child and preserves its supervisor", () => {
+  const servicePath = path.resolve("tools/worker-local-service.ps1").replaceAll("'", "''");
+  const fixture = `
+. '${servicePath}' -FunctionsOnly -AllowTestRuntimeRoot
+$supervisor = [pscustomobject]@{ ProcessId = 100; ParentProcessId = 1; CreationDate = '20260903010000.000000+000' }
+$worker = [pscustomobject]@{ ProcessId = 200; ParentProcessId = 100; CreationDate = '20260903010100.000000+000' }
+$descendant = [pscustomobject]@{ ProcessId = 201; ParentProcessId = 200; CreationDate = '20260903010200.000000+000' }
+$identity = [pscustomobject]@{ ReleaseRoot = 'D:\\fixture'; Path = 'D:\\fixture\\deployment-manifest.json'; Sha256 = ('a' * 64); Manifest = [pscustomobject]@{ processIdentity = [pscustomobject]@{ fixedWranglerArguments = @('dev') } } }
+$internal = [pscustomobject]@{
+  State = 'exact_release'; Identity = $identity; Supervisor = $supervisor
+  Tree = @(
+    [pscustomobject]@{ Process = $supervisor; Depth = 0 },
+    [pscustomobject]@{ Process = $worker; Depth = 1 },
+    [pscustomobject]@{ Process = $descendant; Depth = 2 }
+  )
+  PortIds = @(250); HelperPortIds = @(350)
+}
+$script:allowWorkerRoot = $false
+$script:stopped = @()
+function Get-ExactCurrentProcess([int]$Id) { if ($Id -eq 100) { return $supervisor }; return $null }
+function Test-AllowedTreeProcess { return $true }
+function Test-ExactWorkerRootProcess([object]$Process) { return $script:allowWorkerRoot -and [int]$Process.ProcessId -eq 200 }
+function Stop-ExactProcessIdentity([object]$Snapshot) { $script:stopped += [int]$Snapshot.ProcessId }
+function Get-WorkerStatusInternal { return [pscustomobject]@{ State = 'exact_release'; Supervisor = $supervisor; PortIds = @(251); Reason = $null } }
+function Get-CimInstance { return @($descendant) }
+function Start-Sleep {}
+$ambiguousRejected = $false
+try { [void](Restart-ExactWorkerChild $internal ([DateTime]::UtcNow.AddSeconds(5))) } catch { $ambiguousRejected = $_.Exception.Message -match 'exactly one' }
+$script:allowWorkerRoot = $true
+$result = Restart-ExactWorkerChild $internal ([DateTime]::UtcNow.AddSeconds(5))
+[ordered]@{
+  ambiguousRejected = $ambiguousRejected
+  stopped = @($script:stopped)
+  supervisorPid = [int]$result.Supervisor.ProcessId
+  newPortPid = [int]$result.PortIds[0]
+} | ConvertTo-Json -Compress
+`;
+
+  for (const shell of shells) {
+    const result = spawnSync(shell, [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", fixture,
+    ], { encoding: "utf8", windowsHide: true, timeout: 15_000 });
+    assert.equal(result.error, undefined, `${shell}: ${result.error?.message ?? "spawn failed"}`);
+    assert.equal(result.status, 0, `${shell}: ${result.stdout}\n${result.stderr}`);
+    const payload = JSON.parse(result.stdout.trim()) as {
+      ambiguousRejected: boolean;
+      stopped: number[];
+      supervisorPid: number;
+      newPortPid: number;
+    };
+    assert.equal(payload.ambiguousRejected, true, shell);
+    assert.deepEqual(payload.stopped, [200, 201], shell);
+    assert.equal(payload.supervisorPid, 100, shell);
+    assert.equal(payload.newPortPid, 251, shell);
+  }
+});
+
 test("Django Start capture returns when only an inherited descendant log handle remains", async () => {
   const runtime = await mkdtemp(path.join(tmpdir(), "teruisi-django-start-capture-"));
   try {
