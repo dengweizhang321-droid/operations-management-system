@@ -202,10 +202,10 @@ function setStoreHeader(node: WorkflowNode, storeKey: string) {
       ? [{
           name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
           // n8n labels an execution started from the schedule node in the
-          // editor as `manual` too.  The force flag must therefore identify
-          // the actual Manual Trigger, otherwise a same-day recovery would
-          // incorrectly bypass the store's three-day M cadence.
-          value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+          // editor as `manual` too, while CLI recovery executes the Manual
+          // Trigger with mode `cli`. Force M only for the actual Manual Trigger
+          // in editor/manual mode so neither path bypasses the three-day cadence.
+          value: "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
         }]
       : []),
   ];

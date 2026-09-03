@@ -81,7 +81,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
       ...(node.parameters?.url?.endsWith("/product-master")
         ? [{
             name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-            value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+            value: "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
           }]
         : []),
     ];
@@ -202,7 +202,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
         node.parameters?.url?.endsWith("/product-master")
           ? [{
               name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-              value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+              value: "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
             }]
           : []);
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-START-DATE"),
@@ -353,7 +353,7 @@ test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替
     (header) => header.name === "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
   ), [{
     name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
-    value: "={{ $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
+    value: "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
   }]);
   assert.equal(
     candidate.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node,
