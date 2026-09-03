@@ -23,6 +23,19 @@
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 
+### macOS / Linux 开发机本地启动
+
+开发机没有 PostgreSQL 与受控 runtime，直接运行 `npx vinext dev` 时所有 Django 域都会提示"Django xx 服务配置不完整"。`tools/django-dev-backend.mjs` 用 SQLite 与 `development` 进程角色在本机拉起一套仅供开发的 Django 后端，并把 Worker 需要的 `TERUISI_DJANGO_*` 变量写入 `.dev.vars` 的受管块：
+
+```bash
+npm run backend:dev          # 创建 .runtime/django-dev/venv、生成 backend.env、migrate SQLite、启动读(8001)/写(8002)两个进程并同步 .dev.vars
+npx vinext dev               # .dev.vars 只在启动时读取，首次同步后需要重启 dev server
+npm run backend:dev:status   # 进程、端口、/health/live 与 .dev.vars 同步状态
+npm run backend:dev:stop
+```
+
+`development` 角色同时挂载每个域的 reader/writer 路由，两个进程即可覆盖销售、财务、网店、市场、商品经营、库存和运营事务七个域；它不启用生产 authority 门禁，仅在 `sales_writer` 等生产角色开放的写路径（如销售导入）在开发模式下不可用。`.runtime/`、`backend.env` 与其中的随机密钥都被 Git 忽略，不得用于 Windows 生产主机。Vite dev server 的依赖预打包缓存固定放在 `node_modules/.vite-sites-cache`（构建仍用根目录 `.vite-sites-cache`）：vinext 内置的 CommonJS 插件只跳过路径含 `node_modules/.vite` 的预打包产物，放在别处会在启动时报 "A module cannot have multiple default exports"。
+
 ## 吉客云自动化
 
 - `npm run jackyun:login`：打开专属浏览器，手工登录吉客云
