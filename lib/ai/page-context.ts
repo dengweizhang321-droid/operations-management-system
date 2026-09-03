@@ -43,7 +43,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   workflow: {
     label: "运营事务",
-    views: ["plan", "inspection", "reviews", "launch", "variables"],
+    views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"],
     suggestedTools: ["get_workflow_page_data", "search_system_data"],
   },
   import: {
