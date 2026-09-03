@@ -226,25 +226,30 @@ class DingTalkReplenishmentGateway:
                     code="service_unavailable",
                     status=503,
                 )
-        select_ids = ",".join(self._field(key)["id"] for key in ("brand", "warehouse", "requiresInspection"))
-        details = self.cli.run(
-            "aitable", "field", "get",
-            "--base-id", self.target.base_id,
-            "--table-id", self.target.table_id,
-            "--field-ids", select_ids,
-        )
-        fields = _data(details).get("fields")
-        if not isinstance(fields, list):
-            raise InventoryApiError("钉钉单选字段配置无法确认", code="service_unavailable", status=503)
         options: dict[str, set[str]] = {}
-        for field in fields:
-            if not isinstance(field, dict) or not isinstance(field.get("config"), dict):
-                continue
+        # Current DWS metadata advertises comma-separated field IDs, but the
+        # live endpoint rejects that representation. Keep each request bound to
+        # one exact field until the CLI contract and endpoint agree again.
+        for key in ("brand", "warehouse", "requiresInspection"):
+            expected_id = self._field(key)["id"]
+            details = self.cli.run(
+                "aitable", "field", "get",
+                "--base-id", self.target.base_id,
+                "--table-id", self.target.table_id,
+                "--field-ids", expected_id,
+            )
+            fields = _data(details).get("fields")
+            if not isinstance(fields, list) or len(fields) != 1 or not isinstance(fields[0], dict):
+                raise InventoryApiError("钉钉单选字段配置无法确认", code="service_unavailable", status=503)
+            field = fields[0]
+            if field.get("fieldId") != expected_id or not isinstance(field.get("config"), dict):
+                raise InventoryApiError("钉钉单选字段配置无法确认", code="service_unavailable", status=503)
             option_rows = field["config"].get("options")
-            if isinstance(option_rows, list):
-                options[str(field.get("fieldId"))] = {
-                    str(option.get("name")) for option in option_rows if isinstance(option, dict) and option.get("name")
-                }
+            if not isinstance(option_rows, list):
+                raise InventoryApiError("钉钉单选字段配置无法确认", code="service_unavailable", status=503)
+            options[expected_id] = {
+                str(option.get("name")) for option in option_rows if isinstance(option, dict) and option.get("name")
+            }
         for key, value in (("brand", plan.brand), ("warehouse", plan.warehouse), ("requiresInspection", "是" if plan.requires_inspection else "否")):
             if value and value not in options.get(self._field(key)["id"], set()):
                 raise InventoryApiError(

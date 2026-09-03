@@ -36,10 +36,13 @@ class FakeDws:
                 self.target.fields["warehouse"]["id"]: ["广东仓", "京东自营实物仓"],
                 self.target.fields["requiresInspection"]["id"]: ["是", "否"],
             }
+            field_id = args[args.index("--field-ids") + 1]
+            if field_id not in names or "," in field_id:
+                raise AssertionError(f"field get must use one exact field id: {field_id}")
             return {"data": {"fields": [{
                 "fieldId": field_id,
                 "config": {"options": [{"id": f"opt-{index}", "name": name} for index, name in enumerate(options)]},
-            } for field_id, options in names.items()]}}
+            } for field_id, options in [(field_id, names[field_id])]]}}
         if path == ("contact", "user", "search"):
             name = args[args.index("--query") + 1]
             return {"result": [{"name": name, "userId": f"user-{name}"}]}
@@ -119,6 +122,9 @@ class DingTalkReplenishmentGatewayTests(TestCase):
         self.assertEqual(fake.created_cells[fields["warehouse"]["id"]], "广东仓")
         self.assertEqual(fake.created_cells[fields["buyer"]["id"]][0]["userId"], "user-梁家明")
         self.assertIn("[TERUISI备货计划ID:", fake.created_cells[fields["notes"]["id"]])
+        field_gets = [command for command in fake.commands if command[:3] == ["aitable", "field", "get"]]
+        self.assertEqual(len(field_gets), 3)
+        self.assertTrue(all("," not in command[command.index("--field-ids") + 1] for command in field_gets))
         self.assertEqual(sum(command[:3] == ["aitable", "record", "query"] for command in fake.commands), 2)
 
 
