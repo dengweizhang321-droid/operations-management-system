@@ -266,10 +266,10 @@ function Ensure-DjangoSystemReady {
     if ([string]::IsNullOrWhiteSpace($djangoStartText)) { $djangoStartText = "no readable diagnostic" }
     throw "Django/PostgreSQL full start failed: exit=$djangoStartExitCode; $djangoStartText"
   }
-  $afterStart = Get-DjangoSystemReadiness
-  if (-not $afterStart.Ready) {
-    throw "Django/PostgreSQL full stack remained not ready after Start: $($afterStart.Missing -join ',')"
-  }
+  # The installed Start controller does not exit successfully until every
+  # enabled reader/writer and the ERP watch has passed its own bounded
+  # readiness gate. Re-running seven heavyweight Status controllers here only
+  # regenerates the same evidence and can add minutes of process startup cost.
 }
 
 function Assert-NoReparsePath([string]$Path, [switch]$AllowMissingLeaf) {
@@ -497,7 +497,11 @@ function Get-ManifestIdentity([string]$Path) {
   }
 }
 
-function Invoke-ReleaseVerification([object]$Identity, [string]$ProcessPolicy) {
+function Invoke-ReleaseVerification(
+  [object]$Identity,
+  [string]$ProcessPolicy,
+  [switch]$WriteSupervisorPrelaunchReceipt
+) {
   $node = Get-NodeExecutable
   $args = @(
     $ReleaseTool, "verify", "--manifest", $Identity.Path,
@@ -507,10 +511,21 @@ function Invoke-ReleaseVerification([object]$Identity, [string]$ProcessPolicy) {
     "--expected-host", $WorkerHost, "--expected-port", "$WorkerPort",
     "--require-sales-retired-code-receipt", "--process-policy", $ProcessPolicy, "--json"
   )
+  if ($WriteSupervisorPrelaunchReceipt) { $args += "--write-supervisor-prelaunch-receipt" }
   if ($AllowTestRuntimeRoot) { $args += "--allow-test-runtime-root" }
   $output = & $node @args 2>&1
   if ($LASTEXITCODE -ne 0) { throw (($output | Out-String).Trim()) }
   return (ConvertFrom-ExactJson (($output | Out-String).Trim()) "Worker release verification")
+}
+
+function Remove-ExactSupervisorPrelaunchVerificationReceipt([string]$ExpectedSha256) {
+  if ($ExpectedSha256 -cnotmatch "^[0-9a-f]{64}$") { return }
+  $receiptPath = Join-Path $RuntimeRoot "state\worker-startup-verification.json"
+  if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) { return }
+  if ((Get-Sha256File $receiptPath) -cne $ExpectedSha256) {
+    throw "Worker supervisor prelaunch verification receipt changed before cleanup"
+  }
+  Remove-Item -LiteralPath $receiptPath -Force
 }
 
 function Get-PortProcessIds([int]$Port = $WorkerPort, [string]$ExpectedHost = $WorkerHost) {
@@ -1220,16 +1235,25 @@ try {
         throw "Validated stale Worker receipt was cleared but the service did not stabilize as stopped"
       }
     }
-    [void](Invoke-ReleaseVerification $identity "stopped")
+    $releaseVerification = Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt
+    $startupVerificationReceiptSha256 = [string]$releaseVerification.supervisorPrelaunchReceiptSha256
+    if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
+      throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
+    }
     $logRoot = Join-Path $RuntimeRoot "logs"
     [System.IO.Directory]::CreateDirectory($logRoot) | Out-Null
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $stdout = Join-Path $logRoot "worker-$stamp.stdout.log"
     $stderr = Join-Path $logRoot "worker-$stamp.stderr.log"
     $supervisorPath = Join-Path $identity.ReleaseRoot "tools\worker-local-runtime-supervisor.mjs"
-    $process = Start-Process -FilePath (Get-NodeExecutable) -ArgumentList @(
-      "`"$supervisorPath`"", "--manifest", "`"$($identity.Path)`"", "--approved-manifest-sha256", $identity.Sha256
-    ) -WorkingDirectory $identity.ReleaseRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    try {
+      $process = Start-Process -FilePath (Get-NodeExecutable) -ArgumentList @(
+        "`"$supervisorPath`"", "--manifest", "`"$($identity.Path)`"", "--approved-manifest-sha256", $identity.Sha256
+      ) -WorkingDirectory $identity.ReleaseRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    } catch {
+      Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256
+      throw
+    }
     $supervisor = $null
     for ($attempt = 0; $attempt -lt 20 -and -not $supervisor; $attempt++) {
       Start-Sleep -Milliseconds 100
@@ -1237,6 +1261,7 @@ try {
     }
     if (-not $supervisor -or -not (Test-AllowedTreeProcess $supervisor $identity $process.Id)) {
       if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+      Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256
       throw "Immutable Worker supervisor identity could not be established"
     }
     $receiptWritten = $false
@@ -1249,6 +1274,9 @@ try {
         Start-Sleep -Milliseconds 250
         $process.Refresh()
         if ($process.HasExited) { break }
+        $workerPortOwners = @(Get-PortProcessIds $WorkerPort $WorkerHost)
+        $helperPortOwners = @(Get-PortProcessIds $HelperPort $HelperHost)
+        if ($workerPortOwners.Count -eq 0 -and $helperPortOwners.Count -eq 0) { continue }
         $readyStatus = Get-WorkerStatusInternal $identity
         $decision = Get-StartupOwnershipDecision $readyStatus $startupAnomalyAt (Get-Date)
         $startupAnomalyAt = $decision.FirstAnomalyAt
@@ -1274,6 +1302,7 @@ try {
       exit 0
     } catch {
       $startError = $_
+      try { Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256 } catch {}
       try {
         $owned = Get-WorkerStatusInternal $identity
         if ($owned.State -in @("starting_exact_release", "exact_release")) {

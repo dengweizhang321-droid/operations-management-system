@@ -40,6 +40,9 @@ export const verificationVersion = "teruisi-local-worker-release-verification-v1
 export const contractReceiptVersion = "teruisi-sales-retired-code-receipt-v1";
 export const helperReceiptVersion = "teruisi-worker-helper-build-receipt-v1";
 export const processReceiptVersion = "teruisi-local-worker-process-v1";
+export const supervisorPrelaunchVerificationReceiptVersion = "teruisi-local-worker-supervisor-prelaunch-verification-v1";
+export const supervisorPrelaunchVerificationReceiptRelativePath = "state/worker-startup-verification.json";
+export const supervisorPrelaunchVerificationReceiptMaxAgeMs = 120_000;
 export const activationFenceVersion = "teruisi-local-worker-release-activation-fence-v1";
 export const activationFenceRelativePath = ".runtime/worker-release-activation-fence.json";
 export const treeHashAlgorithm = "sha256-ordinal-path-length-content-v1";
@@ -2120,6 +2123,146 @@ export async function verifyWorkerReleaseProcessState({
   return "stopped";
 }
 
+function validateSupervisorPrelaunchVerificationReceipt(
+  receipt,
+  {
+    manifestPath,
+    approvedManifestSha256,
+    releaseRoot,
+    sourceFingerprint,
+    buildFingerprint,
+    contractReceiptSha256,
+    now = Date.now(),
+    allowExpired = false,
+  },
+) {
+  assertExactKeys(receipt, [
+    "buildFingerprint", "contractReceiptSha256", "issuedAtUnixMilliseconds", "manifestPathSha256",
+    "manifestSha256", "nonce", "receiptPayloadSha256", "releaseId", "releaseRootPathSha256",
+    "sourceFingerprint", "version",
+  ], "Worker supervisor prelaunch verification receipt");
+  validatePayloadSha(receipt, "receiptPayloadSha256", "Worker supervisor prelaunch verification receipt");
+  const age = now - receipt.issuedAtUnixMilliseconds;
+  if (receipt.version !== supervisorPrelaunchVerificationReceiptVersion
+    || receipt.releaseId !== path.basename(releaseRoot)
+    || receipt.manifestSha256 !== approvedManifestSha256
+    || receipt.manifestPathSha256 !== windowsPathSha256(manifestPath)
+    || receipt.releaseRootPathSha256 !== windowsPathSha256(releaseRoot)
+    || receipt.sourceFingerprint !== sourceFingerprint || !hex64.test(receipt.sourceFingerprint ?? "")
+    || receipt.buildFingerprint !== buildFingerprint || !hex64.test(receipt.buildFingerprint ?? "")
+    || receipt.contractReceiptSha256 !== contractReceiptSha256 || !hex64.test(receipt.contractReceiptSha256 ?? "")
+    || typeof receipt.nonce !== "string" || !/^[0-9a-f-]{36}$/.test(receipt.nonce)
+    || !Number.isSafeInteger(receipt.issuedAtUnixMilliseconds)
+    || age < -5_000 || (!allowExpired && age > supervisorPrelaunchVerificationReceiptMaxAgeMs)) {
+    fail("Worker supervisor prelaunch verification receipt 身份或时效无效");
+  }
+  return age;
+}
+
+async function readSupervisorPrelaunchVerificationReceipt(receiptPath, identity) {
+  const raw = await readStableRegularFile(receiptPath, "Worker supervisor prelaunch verification receipt");
+  let receipt;
+  try {
+    receipt = JSON.parse(raw.toString("utf8"));
+  } catch {
+    fail("Worker supervisor prelaunch verification receipt 不是有效 JSON");
+  }
+  if (!raw.equals(Buffer.from(`${canonicalJson(receipt)}\n`, "utf8"))) {
+    fail("Worker supervisor prelaunch verification receipt 不是 canonical JSON");
+  }
+  validateSupervisorPrelaunchVerificationReceipt(receipt, identity);
+  return { raw, receipt, sha256: sha256Bytes(raw) };
+}
+
+async function publishSupervisorPrelaunchVerificationReceipt({
+  runtimeRoot,
+  releaseRoot,
+  manifestPath,
+  approvedManifestSha256,
+  verification,
+}) {
+  const stateRoot = path.join(runtimeRoot, "state");
+  const receiptPath = path.join(runtimeRoot, ...supervisorPrelaunchVerificationReceiptRelativePath.split("/"));
+  await assertNoReparsePoint(stateRoot, { label: "Worker runtime state 根" });
+  if (await pathExists(receiptPath)) {
+    const existing = await readSupervisorPrelaunchVerificationReceipt(receiptPath, {
+      manifestPath,
+      approvedManifestSha256,
+      releaseRoot,
+      sourceFingerprint: verification.sourceFingerprint,
+      buildFingerprint: verification.buildFingerprint,
+      contractReceiptSha256: verification.contractReceiptSha256,
+      allowExpired: true,
+    });
+    const age = Date.now() - existing.receipt.issuedAtUnixMilliseconds;
+    if (age <= supervisorPrelaunchVerificationReceiptMaxAgeMs) {
+      fail("Worker supervisor prelaunch verification receipt 仍在有效期内，拒绝覆盖");
+    }
+    // Only a canonical, identity-bound, expired receipt from an interrupted
+    // prior Start is recoverable. Invalid evidence remains fail-closed.
+    await unlink(receiptPath);
+  }
+  const receipt = withPayloadSha256({
+    version: supervisorPrelaunchVerificationReceiptVersion,
+    releaseId: path.basename(releaseRoot),
+    manifestSha256: approvedManifestSha256,
+    manifestPathSha256: windowsPathSha256(manifestPath),
+    releaseRootPathSha256: windowsPathSha256(releaseRoot),
+    sourceFingerprint: verification.sourceFingerprint,
+    buildFingerprint: verification.buildFingerprint,
+    contractReceiptSha256: verification.contractReceiptSha256,
+    issuedAtUnixMilliseconds: Date.now(),
+    nonce: randomUUID(),
+  }, "receiptPayloadSha256");
+  const bytes = Buffer.from(`${canonicalJson(receipt)}\n`, "utf8");
+  await writeFileAtomicCreateOnly(receiptPath, bytes);
+  const published = await readSupervisorPrelaunchVerificationReceipt(receiptPath, {
+    manifestPath,
+    approvedManifestSha256,
+    releaseRoot,
+    sourceFingerprint: verification.sourceFingerprint,
+    buildFingerprint: verification.buildFingerprint,
+    contractReceiptSha256: verification.contractReceiptSha256,
+  });
+  if (!published.raw.equals(bytes)) fail("Worker supervisor prelaunch verification receipt 发布后回读不一致");
+  return published.sha256;
+}
+
+export async function consumeSupervisorPrelaunchVerificationReceipt({
+  manifestPath,
+  approvedManifestSha256,
+  releaseRoot,
+} = {}) {
+  const absoluteManifestPath = path.resolve(manifestPath);
+  const absoluteReleaseRoot = path.resolve(releaseRoot);
+  if (path.dirname(absoluteManifestPath) !== absoluteReleaseRoot
+    || path.basename(absoluteManifestPath) !== manifestFileName
+    || path.basename(path.dirname(absoluteReleaseRoot)).toLowerCase() !== "releases"
+    || !releaseIdPattern.test(path.basename(absoluteReleaseRoot))
+    || !hex64.test(approvedManifestSha256 ?? "")) {
+    fail("Worker supervisor prelaunch verification receipt manifest/release 身份无效");
+  }
+  const runtimeRoot = path.resolve(absoluteReleaseRoot, "..", "..");
+  const stateRoot = path.join(runtimeRoot, "state");
+  const receiptPath = path.join(runtimeRoot, ...supervisorPrelaunchVerificationReceiptRelativePath.split("/"));
+  await assertNoReparsePoint(stateRoot, { label: "Worker runtime state 根" });
+  const manifestRaw = await readStableRegularFile(absoluteManifestPath, "Worker release manifest");
+  if (sha256Bytes(manifestRaw) !== approvedManifestSha256) fail("Worker release manifest 原始文件哈希未获批准");
+  let manifest;
+  try { manifest = JSON.parse(manifestRaw.toString("utf8")); } catch { fail("Worker release manifest 不是有效 JSON"); }
+  const published = await readSupervisorPrelaunchVerificationReceipt(receiptPath, {
+    manifestPath: absoluteManifestPath,
+    approvedManifestSha256,
+    releaseRoot: absoluteReleaseRoot,
+    sourceFingerprint: manifest.source?.sourceFingerprint,
+    buildFingerprint: manifest.build?.buildFingerprint,
+    contractReceiptSha256: manifest.artifacts?.contractReceipt?.sha256,
+  });
+  await unlink(receiptPath);
+  if (await pathExists(receiptPath)) fail("Worker supervisor prelaunch verification receipt 未被一次性消费");
+  return published.receipt;
+}
+
 export async function validateGuardReceipt(manifest, releaseRoot, { verifyInstalledEntrypoints = false } = {}) {
   const pointer = manifest.artifacts.guardReceipt;
   assertExactKeys(pointer, ["version", "relativePath", "sha256"], "guard receipt pointer");
@@ -2279,8 +2422,12 @@ export async function verifyWorkerRelease({
   processPolicy = "stopped-or-exact-release",
   expectedSupervisorPid,
   allowTestRuntimeRoot = false,
+  writeSupervisorPrelaunchReceipt = false,
 } = {}) {
   if (typeof manifestPath !== "string" || !path.win32.isAbsolute(manifestPath)) fail("manifest 路径必须为绝对路径");
+  if (writeSupervisorPrelaunchReceipt && processPolicy !== "stopped") {
+    fail("supervisor prelaunch verification receipt 只能由 stopped 完整校验发布");
+  }
   manifestPath = path.resolve(manifestPath);
   const releaseRoot = path.dirname(manifestPath);
   const releaseId = path.basename(releaseRoot);
@@ -2477,7 +2624,7 @@ export async function verifyWorkerRelease({
     expectedSupervisorPid,
   });
 
-  return {
+  const verification = {
     status: "verified",
     version: verificationVersion,
     manifestSha256: manifestRead.sha256,
@@ -2489,6 +2636,16 @@ export async function verifyWorkerRelease({
     contractReceiptSha256: contract.sha256,
     processState,
   };
+  if (writeSupervisorPrelaunchReceipt) {
+    verification.supervisorPrelaunchReceiptSha256 = await publishSupervisorPrelaunchVerificationReceipt({
+      runtimeRoot,
+      releaseRoot,
+      manifestPath,
+      approvedManifestSha256: manifestRead.sha256,
+      verification,
+    });
+  }
+  return verification;
 }
 
 async function manifestContext(manifestPath, approvedManifestSha256, { allowTestRuntimeRoot = false } = {}) {
@@ -2868,7 +3025,10 @@ async function main() {
       "--expected-host", "--expected-port", "--process-policy",
     ]);
     for (const key of values.keys()) if (!allowed.has(key)) fail(`verify 不支持参数 ${key}`);
-    assertAllowedFlags(new Set(["--json", "--require-sales-retired-code-receipt", "--allow-test-runtime-root"]));
+    assertAllowedFlags(new Set([
+      "--json", "--require-sales-retired-code-receipt", "--allow-test-runtime-root",
+      "--write-supervisor-prelaunch-receipt",
+    ]));
     const expectedPort = Number.parseInt(values.get("--expected-port") ?? String(workerPort), 10);
     result = await verifyWorkerRelease({
       manifestPath: required(values, "--manifest"),
@@ -2880,6 +3040,7 @@ async function main() {
       requireSalesRetiredCodeReceipt: flags.has("--require-sales-retired-code-receipt"),
       processPolicy: values.get("--process-policy") ?? "stopped-or-exact-release",
       allowTestRuntimeRoot: flags.has("--allow-test-runtime-root"),
+      writeSupervisorPrelaunchReceipt: flags.has("--write-supervisor-prelaunch-receipt"),
     });
   } else if (command === "verify-guard") {
     const allowed = new Set([

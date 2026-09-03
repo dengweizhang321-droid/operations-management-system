@@ -38,11 +38,13 @@ npm run system:logs
 
 `-Background` 只是把同一条命令放到隐藏的独立 PowerShell 进程里执行，输出写到 `tmp\system-service\*.log`，并把 PID 与进程创建时间绑定到 `tmp\system-service\background.json`；已有后台任务在执行时会拒绝重复提交，`Status` 会同时显示后台任务是否仍在运行。所有子脚本都通过文件重定向启动并只等待直接子进程，不会因为 Worker/PostgreSQL 等长期子进程继承句柄而挂住。
 
-#### 启动耗时的构成（2026-09-03 取证）
+#### 启动耗时治理（2026-09-03）
 
-一次完整 `Start` 的时间主要不是某一步慢，而是同一组完整性证据被重复生成：不可变 Worker release 的逐文件 SHA-256（source snapshot、`dist`、`node_modules` 约 3 万文件 / 790 MB、helper，外加 bundled npm 树两次）在 `worker-local-service.ps1 -Action Start` 和 `worker-local-runtime-supervisor.mjs` 预启动阶段各跑一遍；Django 应用树逐文件哈希加两次 wrangler 冒烟在核心 Start 与五个域脚本入口共跑六遍（6837d9f 的 15 分钟令牌只复用了运行目录 ACL 审计）；Django 就绪探针在引擎前后各跑一轮，每轮 7 个 PowerShell 子进程；`Invoke-DjangoMigrations` 无条件重放 migrate 与约 120 条授权 SQL；ERP 心跳等待每 500 毫秒冷启一次 Django。Windows Defender 实时扫描会对上述每次文件打开逐个上钩，这是同样的脚本在 Windows 上慢一个数量级的直接原因。
+取证发现完整 `Start` 曾在同一次启动内重复生成昂贵证据。当前实现保留所有失败关闭边界，同时消除可证明等价的重复工作：核心 Django Start 完成应用树与全 runtime ACL 校验后，绑定当前 PID、runtime 路径和部署清单 SHA-256 的 15 分钟上下文由同进程五个域复用，域独立启动仍完整校验；Django Start 只有在 ERP watch 和全部已启用 reader/writer 的有界 readiness 通过后才成功退出，外层不再重复启动 7 个 Status 子进程；ERP watch 等待先建立完整 D1/PG caught-up 基线，再通过最小权限 `psql` 只读 checkpoint 心跳，不再每 500 毫秒冷启 Django。
 
-优先级建议：先把 `D:\teruisi-runtime` 与 `D:\运营管理系统` 加入 Defender 排除目录并确认位于 SSD（零代码改动）；之后再按审批流程考虑：把域脚本的 `Assert-DeployedApplication` 纳入现有 15 分钟令牌复用（论证与 ACL 复用同构，令牌已绑定部署清单 SHA-256）、让 supervisor 预启动只做进程身份校验并接受引擎刚产出的 verify 回执、去掉 Django Start 成功后的第二轮 7 进程探针、ERP 心跳改读 PostgreSQL checkpoint。逐文件哈希与 ACL 精确契约本身是 manifest 协议和失败关闭边界的一部分，不应放宽。
+Worker release 的 source snapshot、`dist`、`node_modules`、helper、bundled npm、guard、activation fence 和硬链接仍由启动引擎逐文件完整校验一次。校验成功后，引擎在受保护的 runtime state 中 create-only 发布一个绑定 manifest SHA-256、release 路径 SHA-256、source/build fingerprint 且仅两分钟有效的一次性回执；supervisor 先核验自身 canonical process receipt，再消费该回执，避免第二遍约 4 万文件哈希。无效回执失败关闭；仅身份完全一致且已过期的中断回执可在下一次完整校验后清理。Worker 就绪等待在端口尚未出现时只做轻量监听检查，桌面并发启动等待最多每 10 秒生成一次完整状态。生产登录快捷方式仍固定于当前不可变 release，只有按既有 `plan`/精确 SHA `apply` 门禁激活并回读重绑后才会使用这些变更。
+
+仍有意保留的成本包括每次 Start 的一次 Worker 完整逐文件校验、一次 Django 应用树校验、一次 runtime 全树 ACL 精确审计，以及当前的 migrate/最小权限重置。不得用 mtime、目录排除、旧回执或跳过规则来替代这些完整性证据。Windows Defender 排除属于主机安全策略变更，不由启动脚本自动执行。
 
 ### macOS / Linux 开发机本地启动
 

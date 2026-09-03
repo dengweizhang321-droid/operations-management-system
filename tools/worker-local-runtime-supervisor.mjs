@@ -11,12 +11,12 @@ import { assertReleaseWorkerLaunchAllowed } from "./worker-authority-guard.mjs";
 import {
   canonicalJson,
   canonicalWindowsPath,
+  consumeSupervisorPrelaunchVerificationReceipt,
   hashTree,
   probeAnyLocalPort,
   assertNoReparsePoint,
   assertSupervisorPrelaunchProcessState,
   sha256Bytes,
-  verifyWorkerRelease,
   windowsPathSha256,
   workerHelperHost,
   workerHelperPort,
@@ -320,16 +320,15 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
     || canonicalJson(manifest.processIdentity.fixedHelperArguments) !== canonicalJson(["serve", "--port", String(workerHelperPort)])) {
     throw new Error("Worker release immutable helper 契约无效");
   }
-  await verifyWorkerRelease({
+  await assertSupervisorPrelaunchProcessState({
+    manifestPath,
+    releaseRoot,
+    expectedSupervisorPid: process.pid,
+  });
+  await consumeSupervisorPrelaunchVerificationReceipt({
     manifestPath,
     approvedManifestSha256,
-    expectedSourceD1PathSha256: manifest.runtime.sourceD1PathSha256,
-    expectedPersistRootPathSha256: manifest.runtime.persistRootPathSha256,
-    expectedHost: workerHost,
-    expectedPort: workerPort,
-    requireSalesRetiredCodeReceipt: true,
-    processPolicy: "supervisor-prelaunch",
-    expectedSupervisorPid: process.pid,
+    releaseRoot,
   });
   await assertReleaseWorkerLaunchAllowed({ manifestPath, manifestSha256: approvedManifestSha256, runtimeRoot });
 

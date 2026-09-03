@@ -21,6 +21,7 @@ import {
   canonicalJson,
   canonicalWindowsPath,
   copyWorkerReleaseRuntimeArtifacts,
+  consumeSupervisorPrelaunchVerificationReceipt,
   consumeVinextBuildScratch,
   deploymentKeyFiles,
   hashTree,
@@ -60,6 +61,9 @@ import {
   runProcess,
   supervisorPrelaunchReceiptRetryDelayMs,
   supervisorPrelaunchReceiptWaitBudgetMs,
+  supervisorPrelaunchVerificationReceiptMaxAgeMs,
+  supervisorPrelaunchVerificationReceiptRelativePath,
+  supervisorPrelaunchVerificationReceiptVersion,
 } from "../tools/worker-local-release.mjs";
 import {
   immutableMiniflareCacheBinding,
@@ -1601,15 +1605,17 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
     service.indexOf('if ($Action -eq "Start")'),
     service.indexOf('if ($Action -eq "Stop")'),
   );
-  const fullPrelaunchVerifyAt = serviceStartBlock.indexOf('[void](Invoke-ReleaseVerification $identity "stopped")');
+  const fullPrelaunchVerifyAt = serviceStartBlock.indexOf('Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt');
   const supervisorSpawnAt = serviceStartBlock.indexOf("$process = Start-Process");
   assert.ok(
     fullPrelaunchVerifyAt >= 0 && supervisorSpawnAt > fullPrelaunchVerifyAt,
     "the full stopped verifier must finish before the supervisor is spawned",
   );
-  assert.match(supervisor, /processPolicy: "supervisor-prelaunch",\s+expectedSupervisorPid: process\.pid/);
-  assert.equal((supervisor.match(/assertSupervisorPrelaunchProcessState\(\{/g) ?? []).length, 2);
-  assert.doesNotMatch(supervisor, /processPolicy: "stopped"/);
+  assert.match(supervisor, /consumeSupervisorPrelaunchVerificationReceipt\(\{/);
+  assert.equal((supervisor.match(/assertSupervisorPrelaunchProcessState\(\{/g) ?? []).length, 3);
+  assert.doesNotMatch(supervisor, /verifyWorkerRelease\(/);
+  assert.match(service, /--write-supervisor-prelaunch-receipt/);
+  assert.match(serviceStartBlock, /Get-PortProcessIds \$WorkerPort \$WorkerHost[\s\S]*Get-PortProcessIds \$HelperPort \$HelperHost[\s\S]*Get-WorkerStatusInternal \$identity/);
   assert.equal(supervisorPrelaunchReceiptWaitBudgetMs, 15_000);
   assert.equal(supervisorPrelaunchReceiptRetryDelayMs, 250);
   const releaseSource = await readFile("tools/worker-local-release.mjs", "utf8");
@@ -1620,6 +1626,59 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
   assert.match(directReceiptFunction, /worker-process\.json/);
   assert.match(directReceiptFunction, /validatePayloadSha\(receipt/);
   assert.doesNotMatch(directReceiptFunction, /powershell|exactReleaseProcessState/);
+});
+
+test("supervisor consumes one fresh full-verification receipt and rejects expired reuse", async () => {
+  const runtime = await mkdtemp(path.join(tmpdir(), "teruisi-worker-full-verification-receipt-"));
+  const releaseId = "20260830T130000Z-fedcba9876543210";
+  const releaseRoot = path.join(runtime, "releases", releaseId);
+  const manifestPath = path.join(releaseRoot, "deployment-manifest.json");
+  const stateRoot = path.join(runtime, "state");
+  const receiptPath = path.join(runtime, ...supervisorPrelaunchVerificationReceiptRelativePath.split("/"));
+  try {
+    await mkdir(releaseRoot, { recursive: true });
+    await mkdir(stateRoot, { recursive: true });
+    const sourceFingerprint = "1".repeat(64);
+    const buildFingerprint = "2".repeat(64);
+    const contractReceiptSha256 = "3".repeat(64);
+    const manifest = {
+      source: { sourceFingerprint },
+      build: { buildFingerprint },
+      artifacts: { contractReceipt: { sha256: contractReceiptSha256 } },
+    };
+    const manifestRaw = Buffer.from(`${canonicalJson(manifest)}\n`, "utf8");
+    const manifestSha256 = sha256Bytes(manifestRaw);
+    await writeFile(manifestPath, manifestRaw);
+
+    const makeReceipt = (issuedAtUnixMilliseconds: number) => withPayloadSha256({
+      version: supervisorPrelaunchVerificationReceiptVersion,
+      releaseId,
+      manifestSha256,
+      manifestPathSha256: windowsPathSha256(manifestPath),
+      releaseRootPathSha256: windowsPathSha256(releaseRoot),
+      sourceFingerprint,
+      buildFingerprint,
+      contractReceiptSha256,
+      issuedAtUnixMilliseconds,
+      nonce: "01234567-89ab-cdef-0123-456789abcdef",
+    }, "receiptPayloadSha256");
+
+    const fresh = makeReceipt(Date.now());
+    await writeFile(receiptPath, `${canonicalJson(fresh)}\n`, "utf8");
+    assert.equal((await consumeSupervisorPrelaunchVerificationReceipt({
+      manifestPath, approvedManifestSha256: manifestSha256, releaseRoot,
+    })).releaseId, releaseId);
+    await assert.rejects(readFile(receiptPath), /ENOENT/);
+
+    const expired = makeReceipt(Date.now() - supervisorPrelaunchVerificationReceiptMaxAgeMs - 1_000);
+    await writeFile(receiptPath, `${canonicalJson(expired)}\n`, "utf8");
+    await assert.rejects(consumeSupervisorPrelaunchVerificationReceipt({
+      manifestPath, approvedManifestSha256: manifestSha256, releaseRoot,
+    }), /身份或时效无效/);
+    assert.equal((await readFile(receiptPath, "utf8")).length > 0, true);
+  } finally {
+    await rm(runtime, { recursive: true, force: true });
+  }
 });
 
 test("supervisor prelaunch waits for the real create-only receipt and rejects timeout or a forged PID", async () => {

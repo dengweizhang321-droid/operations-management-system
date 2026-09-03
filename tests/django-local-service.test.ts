@@ -86,7 +86,7 @@ test("one top-level lifecycle ACL audit is reused only by its bounded in-process
 
   for (const [domain, domainScript] of orchestratedDomainServices) {
     assert.match(domainScript, /\[string\]\$OrchestratedLifecycleAclToken = ""/);
-    assert.match(domainScript, /Assert-DeployedApplication[\s\S]*?Test-OrchestratedLifecycleAclContext \$LifecycleAclToken[\s\S]*?Assert-RuntimeAclHardened/);
+    assert.match(domainScript, /Test-OrchestratedLifecycleAclContext \$LifecycleAclToken[\s\S]*?return[\s\S]*?Assert-DeployedApplication[\s\S]*?Assert-RuntimeAclHardened/);
     assert.match(domainScript, new RegExp(`orchestrated_lifecycle_acl_reused" "domain=${domain}"`));
     assert.match(domainScript, /"Start" \{ Invoke-WithServiceMutex \{ Start-[A-Za-z]+Stack \$OrchestratedLifecycleAclToken \} \}/);
     assert.match(domainScript, /"Stop" \{ Invoke-WithServiceMutex \{ Stop-[A-Za-z]+Stack \$OrchestratedLifecycleAclToken \} \}/);
@@ -213,6 +213,15 @@ test("startup is mutexed, migration and authority gated, rollback-safe, and logg
   assert.match(script, /Start-ErpReferenceSync \$secrets \$config/);
   assert.match(script, /Invoke-ErpReferenceStatus/);
   assert.match(script, /Wait-ErpReferenceHeartbeat/);
+  const heartbeatBlock = script.slice(
+    script.indexOf("function Wait-ErpReferenceHeartbeat"),
+    script.indexOf("function Invoke-ErpReferenceSyncOnce"),
+  );
+  assert.match(heartbeatBlock, /Read-ErpReferenceCheckpointHeartbeat \$Secrets/);
+  assert.match(heartbeatBlock, /Resolve-OwnedProcess "erp-reference-sync"/);
+  assert.doesNotMatch(heartbeatBlock, /Invoke-ErpReferenceStatus/);
+  assert.match(script, /\$Psql = Join-Path \$PostgresBin "psql\.exe"/);
+  assert.match(script, /FROM erp_reference_sync_checkpoint WHERE id = 1/);
   assert.match(script, /heartbeat_not_advanced/);
   assert.match(script, /erp_reference_start_cleanup_failed/);
   assert.match(script, /django_migrations_applied/);

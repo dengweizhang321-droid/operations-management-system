@@ -41,6 +41,7 @@ $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
 $PostgresBin = Join-Path $RuntimeRoot "postgresql-17.11\bin"
+$Psql = Join-Path $PostgresBin "psql.exe"
 $PostgresData = Join-Path $RuntimeRoot "postgres-data"
 $Python = Join-Path $RuntimeRoot "venv\Scripts\python.exe"
 $Waitress = Join-Path $RuntimeRoot "venv\Scripts\waitress-serve.exe"
@@ -2774,6 +2775,40 @@ function ConvertTo-StatusTimestamp([object]$Value) {
   return $parsed.ToUniversalTime()
 }
 
+function Read-ErpReferenceCheckpointHeartbeat([object]$Secrets) {
+  if (-not (Test-Path -LiteralPath $Psql -PathType Leaf)) { throw "缺少 PostgreSQL psql 运行文件" }
+  $environmentNames = @("PGPASSWORD", "PGCONNECT_TIMEOUT", "PGAPPNAME", "PGOPTIONS")
+  $previousEnvironment = @{}
+  foreach ($name in $environmentNames) {
+    $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+  }
+  try {
+    [Environment]::SetEnvironmentVariable("PGPASSWORD", [string]$Secrets.ErpSyncPassword, "Process")
+    [Environment]::SetEnvironmentVariable("PGCONNECT_TIMEOUT", "5", "Process")
+    [Environment]::SetEnvironmentVariable("PGAPPNAME", "teruisi_erp_reference_heartbeat", "Process")
+    [Environment]::SetEnvironmentVariable("PGOPTIONS", "-c statement_timeout=$ReaderStatementTimeoutMs", "Process")
+    $query = "SELECT (EXTRACT(EPOCH FROM last_checked_at) * 1000)::bigint FROM erp_reference_sync_checkpoint WHERE id = 1"
+    $run = Invoke-BoundedNativeProcess $Psql @(
+      "--no-psqlrc", "--no-password", "--tuples-only", "--no-align", "--set", "ON_ERROR_STOP=1",
+      "--host", "127.0.0.1", "--port", "5432", "--username", "teruisi_erp_reference_sync",
+      "--dbname", "teruisi_sales", "--command", $query
+    ) $RuntimeRoot
+  } finally {
+    foreach ($name in $environmentNames) {
+      [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
+    }
+  }
+  if ($run.ExitCode -ne 0) {
+    throw "ERP reference checkpoint 心跳读取失败（$(Get-NativeFailureSummary $run)）"
+  }
+  $records = @($run.Output | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" })
+  if ($records.Count -ne 1 -or $records[0] -cnotmatch "^\d{13}$") {
+    throw "ERP reference checkpoint 心跳输出无效"
+  }
+  $unixMilliseconds = [Int64]::Parse($records[0], [Globalization.CultureInfo]::InvariantCulture)
+  return [DateTimeOffset]::FromUnixTimeMilliseconds($unixMilliseconds).ToUniversalTime()
+}
+
 function Wait-ErpReferenceHeartbeat(
   [object]$Secrets,
   [object]$Config,
@@ -2789,11 +2824,14 @@ function Wait-ErpReferenceHeartbeat(
     $running = Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python $Arguments $Fingerprint
     if (-not $running) { throw "ERP reference sync 在新心跳前退出" }
     try {
-      $status = Invoke-ErpReferenceStatus $Secrets $Config
-      $checkedAt = ConvertTo-StatusTimestamp $status.lastCheckedAt
+      # Start-ErpReferenceSync already established a full D1/PG caught-up
+      # baseline. During the bounded wait, only the durable PG heartbeat needs
+      # to advance; reading that scalar directly avoids a Django cold start on
+      # every 500ms poll while retaining the exact process-identity fence.
+      $checkedAt = Read-ErpReferenceCheckpointHeartbeat $Secrets
       if ($checkedAt -gt $baseline) {
-        Write-LauncherEvent "INFO" "erp_reference_watch_ready" ([string]$status.status)
-        return $status
+        Write-LauncherEvent "INFO" "erp_reference_watch_ready" "caught_up"
+        return [pscustomobject]@{ status = "caught_up"; lastCheckedAt = $checkedAt.ToString("o") }
       }
       $lastState = "heartbeat_not_advanced"
     } catch {

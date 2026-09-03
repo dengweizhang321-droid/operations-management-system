@@ -298,7 +298,7 @@ function Get-WorkerReleaseStatus {
 
   $checkTime = Get-Date
   if (-not $Refresh -and $script:lastWorkerCheckAt -and $script:lastWorkerStatus -and
-      (($checkTime - $script:lastWorkerCheckAt).TotalSeconds -lt 3)) {
+      (($checkTime - $script:lastWorkerCheckAt).TotalSeconds -lt 10)) {
     return $script:lastWorkerStatus
   }
 
@@ -525,8 +525,8 @@ function Wait-ForExactWorkerRelease {
 
   $deadline = (Get-Date).AddSeconds($MaximumSeconds)
   do {
-    Start-Sleep -Milliseconds 500
-    $currentWorker = Get-WorkerReleaseStatus -Refresh
+    Start-Sleep -Seconds 1
+    $currentWorker = Get-WorkerReleaseStatus
     if ($currentWorker.State -ceq "exact_release") { return $currentWorker }
     if ($currentWorker.State -notin @("starting_exact_release", "stopped")) {
       throw "等待 Worker 启动时状态变为：$([string]$currentWorker.State)；$([string]$currentWorker.Reason)"

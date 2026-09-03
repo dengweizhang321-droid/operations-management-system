@@ -122,6 +122,23 @@ test("canonical engine waits only for the direct Django Start controller process
   assert.match(invocationBlock, /direct process exit code authoritative/);
   assert.match(readinessBlock, /\$djangoStart = Invoke-DjangoStartProcess/);
   assert.doesNotMatch(readinessBlock, /@\(& \(Get-DjangoControlPowerShell\)[^\n]+-Action Start/);
+  assert.equal((readinessBlock.match(/Get-DjangoSystemReadiness/g) ?? []).length, 1);
+  assert.match(readinessBlock, /does not exit successfully until every/);
+});
+
+test("concurrent-start wait reuses a ten-second exact status result", () => {
+  const statusBlock = panel.slice(
+    panel.indexOf("function Get-WorkerReleaseStatus"),
+    panel.indexOf("function Invoke-SystemHealthProbe"),
+  );
+  const waitBlock = panel.slice(
+    panel.indexOf("function Wait-ForExactWorkerRelease"),
+    panel.indexOf("function Invoke-SystemStart"),
+  );
+  assert.match(statusBlock, /TotalSeconds -lt 10/);
+  assert.match(waitBlock, /Start-Sleep -Seconds 1/);
+  assert.match(waitBlock, /Get-WorkerReleaseStatus\s*\r?\n/);
+  assert.doesNotMatch(waitBlock, /Get-WorkerReleaseStatus -Refresh/);
 });
 
 test("canonical engine clears only an exact validated stale receipt", () => {

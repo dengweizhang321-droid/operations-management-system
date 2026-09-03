@@ -46,11 +46,11 @@ function Assert-NetshopRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "网店服务操作必须从受保护的 runtime app 控制器执行；请先运行 DeployApp"
   }
-  Assert-DeployedApplication
   if (Test-OrchestratedLifecycleAclContext $LifecycleAclToken) {
     Write-LauncherEvent "INFO" "orchestrated_lifecycle_acl_reused" "domain=netshop"
     return
   }
+  Assert-DeployedApplication
   Assert-RuntimeAclHardened
 }
 
