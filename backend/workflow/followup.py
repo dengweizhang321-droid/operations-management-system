@@ -505,7 +505,7 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
         items.append({
             "id": str(line.id),
             "name": line.name,
-            "brand": "、".join(brands) if brands else "—",
+            "brand": "、".join(brands) if brands else "志高",
             "active": line.active,
             "monitoringStartDate": line.monitoring_start_date.isoformat(),
             "trackingWeeks": int(line.tracking_weeks),

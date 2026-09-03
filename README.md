@@ -168,6 +168,8 @@ npm run dingtalk:robot:send -- --text "hello"
 
 销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
 
+上新跟进表格预览支持生成 Excel 工作簿；主数据品牌为空时按当前业务口径展示“志高”。钉钉机器人仍投递同版式 PNG 在线预览。
+
 ## 项目文档与长期信息
 
 - `README.md` 维护面向使用者的当前系统说明、启动方式、主要能力和必要限制。

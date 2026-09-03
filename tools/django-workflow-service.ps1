@@ -2,7 +2,8 @@
 param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
-    "EnableStartup", "DisableStartup", "RunWeeklyReport", "DryRunWeeklyReport"
+    "EnableStartup", "DisableStartup", "EnableWeeklyReport", "DisableWeeklyReport",
+    "RunWeeklyReport", "DryRunWeeklyReport"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -533,6 +534,37 @@ function Invoke-NewProductWeeklyReport([bool]$DryRun) {
   }
 }
 
+function Set-NewProductWeeklyReportEnabled([bool]$Enabled) {
+  Assert-WorkflowRuntimeEntry
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝修改新品销售周报配置" }
+  $runtimeSecrets = Read-Secrets
+  $workflowSecrets = Read-WorkflowCredentials
+  try {
+    $authority = Get-WorkflowWriteAuthority $runtimeSecrets $workflowSecrets
+    if ([string]$authority.status -cne "postgres") {
+      throw "PostgreSQL 尚未成为运营事务新品唯一写入源；拒绝修改新品销售周报配置"
+    }
+    $writerUrl = Database-Url `
+      "teruisi_workflow_writer" $workflowSecrets.WriterPassword `
+      "teruisi_new_product_weekly_report_config" $WriterStatementTimeoutMs
+    $arguments = @((Join-Path $BackendRoot "manage.py"), "configure_new_product_weekly_report")
+    $arguments += $(if ($Enabled) { "--enable" } else { "--disable" })
+    $payload = Invoke-WithDjangoEnvironment `
+      $runtimeSecrets $writerUrl "workflow_writer" $false $WorkflowWriterMaxBodyBytes `
+      ([string]$authority.authorityEpoch) ([string]$authority.cutoverId) {
+        $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
+        return ConvertFrom-UniqueNativeJson $nativeRun "修改新品销售周报配置"
+      }
+    if ($RequestedJson) { Write-Output ($payload | ConvertTo-Json -Depth 8 -Compress) }
+    else { $payload | Format-List }
+  } finally {
+    $writerUrl = $null
+    $runtimeSecrets = $null
+    $workflowSecrets = $null
+  }
+}
+
 function Show-WorkflowStatus {
   $reader = "stopped"
   $writer = "stopped"
@@ -580,6 +612,8 @@ try {
     "Status" { Show-WorkflowStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-WorkflowStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-WorkflowStartup } }
+    "EnableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $true } }
+    "DisableWeeklyReport" { Invoke-WithServiceMutex { Set-NewProductWeeklyReportEnabled $false } }
     "RunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false } }
     "DryRunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $true } }
   }

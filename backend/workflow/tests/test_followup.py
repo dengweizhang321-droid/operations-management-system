@@ -20,11 +20,11 @@ def body_bytes(payload: dict[str, object]) -> bytes:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
 
 
-def master(code: str, name: str, row: int) -> None:
+def master(code: str, name: str, row: int, brand: str = "志高") -> None:
     ErpProductMaster.objects.create(
         product_code=code,
         product_name=name,
-        brand="志高",
+        brand=brand,
         specification="",
         barcode="",
         category="商用设备",
@@ -167,6 +167,15 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("2026-08-03", response.json()["error"])
 
+    def test_weekly_matrix_uses_zhigao_when_master_brand_is_blank(self) -> None:
+        ErpProductMaster.objects.filter(product_code="YS-001").update(brand="")
+        created = self.create_line()
+        self.assertEqual(created.status_code, 201, created.content)
+        url = "/api/workflow/new-product-weekly-followup?weekStart=2026-09-07"
+        response = self.client.get(url, headers=signed_headers(url, request_id="followup-brand-fallback"))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["items"][0]["brand"], "志高")
+
     def test_each_product_line_excludes_sales_before_its_own_monitoring_start(self) -> None:
         response = self.request_json(
             "POST",
@@ -250,6 +259,19 @@ class NewProductWeeklyFollowupTests(TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["status"], "ready")
         self.assertEqual(payload["learning"]["added"][0]["productCode"], "YS-002")
+
+    def test_management_command_idempotently_enables_weekly_report(self) -> None:
+        first_stdout = StringIO()
+        call_command("configure_new_product_weekly_report", "--enable", stdout=first_stdout)
+        first = json.loads(first_stdout.getvalue())
+        self.assertEqual(first["status"], "enabled")
+        self.assertTrue(first["config"]["enabled"])
+
+        repeated_stdout = StringIO()
+        call_command("configure_new_product_weekly_report", "--enable", stdout=repeated_stdout)
+        repeated = json.loads(repeated_stdout.getvalue())
+        self.assertEqual(repeated["status"], "already_enabled")
+        self.assertEqual(repeated["config"]["version"], first["config"]["version"])
 
     @patch("workflow.management.commands.new_product_weekly_report._run_dws")
     def test_management_command_dry_run_verifies_exact_group_robot_and_membership(self, run_dws) -> None:
