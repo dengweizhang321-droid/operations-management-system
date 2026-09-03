@@ -12,6 +12,7 @@ export const INVENTORY_AGE_ANALYSIS_PATH = "/api/inventory/age-analysis";
 export const INVENTORY_INBOUND_MONITOR_PATH = "/api/inventory/inbound-monitor";
 export const INVENTORY_IMPORTS_PATH = "/api/inventory/imports";
 export const INVENTORY_REPLENISHMENT_PATH = "/api/inventory/replenishment";
+export const INVENTORY_REPLENISHMENT_DINGTALK_PATH = "/api/inventory/replenishment/dingtalk";
 export const INVENTORY_SETTINGS_PATH = "/api/inventory/settings";
 export const INVENTORY_CONSUMER_QUERY_PATH = "/api/inventory/consumers/query";
 export const INVENTORY_UPLOADS_PATH = "/api/inventory/uploads";
@@ -33,6 +34,7 @@ const writerMethods = new Set([
   `PUT ${INVENTORY_UPLOAD_CHUNK_PATH}`,
   `POST ${INVENTORY_REPLENISHMENT_PATH}`,
   `PATCH ${INVENTORY_REPLENISHMENT_PATH}`,
+  `POST ${INVENTORY_REPLENISHMENT_DINGTALK_PATH}`,
   `PUT ${INVENTORY_SETTINGS_PATH}`,
 ]);
 

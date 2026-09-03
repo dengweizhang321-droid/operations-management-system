@@ -25,6 +25,7 @@ $ErrorActionPreference = "Stop"
 $Utf8NoBom = [Text.UTF8Encoding]::new($false)
 $ExecutionRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BackendRoot = Join-Path $ExecutionRoot "backend"
+$DingTalkReplenishmentConfigSource = Join-Path $ExecutionRoot "config\dingtalk-replenishment.json"
 $InstalledAppRoot = Join-Path $RuntimeRoot "app"
 $InstalledScriptPath = Join-Path $InstalledAppRoot "tools\django-local-service.ps1"
 $InstalledNetshopScriptPath = Join-Path $InstalledAppRoot "tools\django-netshop-service.ps1"
@@ -1392,13 +1393,18 @@ function Deploy-Application {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
   if (-not (Test-Path -LiteralPath $BackendRoot -PathType Container)) { throw "源码 backend 不存在" }
+  if (-not (Test-Path -LiteralPath $DingTalkReplenishmentConfigSource -PathType Leaf)) {
+    throw "源码缺少钉钉备货计划同步配置"
+  }
   Assert-ServiceStackStopped "DeployApp"
   New-Item -ItemType Directory -Path $RuntimeRoot -Force | Out-Null
   $staging = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.deploy-" + [Guid]::NewGuid().ToString("N")))
   $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
   try {
-    New-Item -ItemType Directory -Path (Join-Path $staging "backend"), (Join-Path $staging "tools"), (Join-Path $staging "drizzle"), (Join-Path $staging "runtime-tools") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $staging "backend"), (Join-Path $staging "config"), (Join-Path $staging "tools"), (Join-Path $staging "drizzle"), (Join-Path $staging "runtime-tools") -Force | Out-Null
     Copy-ApplicationTree $BackendRoot (Join-Path $staging "backend")
+    Copy-Item -LiteralPath $DingTalkReplenishmentConfigSource `
+      -Destination (Join-Path $staging "config\dingtalk-replenishment.json") -Force
     Copy-WranglerRuntimeClosure (Join-Path $staging "runtime-tools") | Out-Null
     Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $staging "tools\django-local-service.ps1") -Force
     foreach ($relative in @(

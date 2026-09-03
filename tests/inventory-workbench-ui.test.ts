@@ -37,11 +37,13 @@ test("库存五个工作页补充缺口明细、全量汇总和执行闭环", as
 });
 
 test("销量映射缺口工作台同步公共筛选并提供完整仓别与备货计划字段", async () => {
-  const [view, query, route, model] = await Promise.all([
+  const [view, query, route, dingTalkRoute, model, service] = await Promise.all([
     source("../app/inventory-module-view.tsx"),
     source("../backend/inventory/query.py"),
     source("../app/api/inventory/replenishment/route.ts"),
+    source("../app/api/inventory/replenishment/dingtalk/route.ts"),
     source("../backend/inventory/models.py"),
+    source("../backend/inventory/dingtalk_sync.py"),
   ]);
 
   for (const label of [
@@ -59,6 +61,12 @@ test("销量映射缺口工作台同步公共筛选并提供完整仓别与备�
   assert.match(route, /"manual"/);
   assert.match(model, /expected_arrival_date = models\.DateField/);
   assert.match(model, /requires_inspection = models\.BooleanField/);
+  assert.match(view, /syncPlanToDingTalk/);
+  assert.match(view, /"创建计划"/);
+  assert.match(view, /钉钉已创建/);
+  assert.match(dingTalkRoute, /INVENTORY_REPLENISHMENT_DINGTALK_PATH/);
+  assert.match(service, /TERUISI备货计划ID/);
+  assert.match(service, /_verify_record/);
 });
 
 test("库存工作台继续披露既有数据质量与业务边界", async () => {

@@ -335,6 +335,15 @@ test("runtime deployment includes the persistent Django supervisor", () => {
   assert.match(script, /tools\\django-runtime-supervisor\.ps1/);
 });
 
+test("runtime deployment includes the exact DingTalk replenishment mapping", () => {
+  assert.match(script, /DingTalkReplenishmentConfigSource/);
+  assert.match(script, /config\\dingtalk-replenishment\.json/);
+  assert.match(
+    script,
+    /Copy-Item -LiteralPath \$DingTalkReplenishmentConfigSource[\s\S]*?-Destination \(Join-Path \$staging "config\\dingtalk-replenishment\.json"\)/,
+  );
+});
+
 test("configuration, deployment, and code rollback require a fully stopped stack", () => {
   assert.match(script, /function Assert-ServiceStackStopped/);
   assert.match(script, /Assert-ServiceStackStopped "Configure"/);

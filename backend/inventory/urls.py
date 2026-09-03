@@ -17,6 +17,7 @@ write_patterns = [
     path("uploads", views.uploads, name="inventory-uploads"),
     path("uploads/chunk", views.upload_chunk, name="inventory-upload-chunk"),
     path("replenishment", views.replenishment, name="inventory-replenishment"),
+    path("replenishment/dingtalk", views.replenishment_dingtalk, name="inventory-replenishment-dingtalk"),
     path("settings", views.settings_view, name="inventory-settings"),
 ]
 

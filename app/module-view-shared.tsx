@@ -267,6 +267,11 @@ export type ReplenishmentPlanItem = {
   reason: string;
   notes: string;
   status: "draft" | "confirmed" | "completed" | "cancelled";
+  dingTalkSync: {
+    status: "not_synced" | "syncing" | "synced" | "failed";
+    syncedAt: string | null;
+    error: string;
+  };
   createdAt: string;
   updatedAt: string;
 };

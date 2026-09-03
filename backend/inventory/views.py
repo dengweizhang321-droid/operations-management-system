@@ -13,6 +13,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 
 from .consumers import execute_consumer_query, validate_consumer_request
+from .dingtalk_sync import sync_replenishment_plan
 from .errors import InventoryApiError
 from .import_service import import_inventory_payload, list_import_batches, record_edge_rejection
 from .plans import plan_payload, plan_summary, query_plans, update_plan, upsert_plan
@@ -379,6 +380,25 @@ def replenishment(request: HttpRequest) -> JsonResponse:
         return _replay_write(request, principal, patch)
     except Exception as error:
         return _error(error, "备货计划处理失败")
+
+
+@require_POST
+def replenishment_dingtalk(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        body = _body(request)
+        if set(body) != {"id"} or not isinstance(body.get("id"), str):
+            raise InventoryApiError("创建钉钉备货计划请求无效")
+        plan_id = str(body["id"]).strip()
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", plan_id):
+            raise InventoryApiError("备货计划 ID 无效")
+        return _replay_write(
+            request,
+            principal,
+            lambda: (sync_replenishment_plan(plan_id, principal.email.strip().lower()), 200),
+        )
+    except Exception as error:
+        return _error(error, "创建钉钉备货计划失败")
 
 
 @require_http_methods(["GET", "PUT"])

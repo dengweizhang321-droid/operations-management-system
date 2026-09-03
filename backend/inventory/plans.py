@@ -50,6 +50,11 @@ def plan_payload(plan: ReplenishmentPlanItem) -> dict[str, object]:
         "reason": plan.reason,
         "notes": plan.notes,
         "status": plan.status,
+        "dingTalkSync": {
+            "status": plan.dingtalk_sync_status,
+            "syncedAt": plan.dingtalk_synced_at.isoformat() if plan.dingtalk_synced_at else None,
+            "error": plan.dingtalk_sync_error if plan.dingtalk_sync_status == "failed" else "",
+        },
         "createdAt": plan.created_at.isoformat(),
         "updatedAt": plan.updated_at.isoformat(),
     }
