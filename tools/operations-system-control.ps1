@@ -244,6 +244,13 @@ function Test-DjangoDomainReady {
   return $true
 }
 
+function Test-DjangoAggregateStatusSupported {
+  if (-not (Test-Path -LiteralPath $DjangoService -PathType Leaf)) { return $false }
+  $source = [System.IO.File]::ReadAllText($DjangoService)
+  return $source.Contains('"AggregateStatus" { Show-AggregateServiceStatus }') -and
+    $source.Contains('teruisi-django-aggregate-status-v1')
+}
+
 function Get-DjangoAggregateState {
   param([switch]$Refresh)
 
@@ -255,13 +262,30 @@ function Get-DjangoAggregateState {
 
   try {
     Assert-ControllerDependencies
-    $coreStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "Status") -Label "Django/PostgreSQL 状态检查"
-    $financeStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "FinanceStatus") -Label "财务域状态检查"
-    $netshopStatus = Invoke-JsonServiceAction -ScriptPath $DjangoNetshopService -Arguments @("-Action", "Status") -Label "网店域状态检查"
-    $marketStatus = Invoke-JsonServiceAction -ScriptPath $DjangoMarketService -Arguments @("-Action", "Status") -Label "市场域状态检查"
-    $productsStatus = Invoke-JsonServiceAction -ScriptPath $DjangoProductsService -Arguments @("-Action", "Status") -Label "商品经营域状态检查"
-    $workflowStatus = Invoke-JsonServiceAction -ScriptPath $DjangoWorkflowService -Arguments @("-Action", "Status") -Label "运营事务新品域状态检查"
-    $inventoryStatus = Invoke-JsonServiceAction -ScriptPath $DjangoInventoryService -Arguments @("-Action", "Status") -Label "库存域状态检查"
+    if (Test-DjangoAggregateStatusSupported) {
+      $aggregateStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService `
+        -Arguments @("-Action", "AggregateStatus") -Label "Django/PostgreSQL 聚合状态检查"
+      if ([string]$aggregateStatus.Version -cne "teruisi-django-aggregate-status-v1") {
+        throw "Django/PostgreSQL 聚合状态版本无效"
+      }
+      $coreStatus = $aggregateStatus.Core
+      $financeStatus = $aggregateStatus.Finance
+      $netshopStatus = $aggregateStatus.Netshop
+      $marketStatus = $aggregateStatus.Market
+      $productsStatus = $aggregateStatus.Products
+      $workflowStatus = $aggregateStatus.Workflow
+      $inventoryStatus = $aggregateStatus.Inventory
+    } else {
+      # Keep the source controller usable while a reviewed runtime deployment is
+      # staged. The optimized path becomes active immediately after DeployApp.
+      $coreStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "Status") -Label "Django/PostgreSQL 状态检查"
+      $financeStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "FinanceStatus") -Label "财务域状态检查"
+      $netshopStatus = Invoke-JsonServiceAction -ScriptPath $DjangoNetshopService -Arguments @("-Action", "Status") -Label "网店域状态检查"
+      $marketStatus = Invoke-JsonServiceAction -ScriptPath $DjangoMarketService -Arguments @("-Action", "Status") -Label "市场域状态检查"
+      $productsStatus = Invoke-JsonServiceAction -ScriptPath $DjangoProductsService -Arguments @("-Action", "Status") -Label "商品经营域状态检查"
+      $workflowStatus = Invoke-JsonServiceAction -ScriptPath $DjangoWorkflowService -Arguments @("-Action", "Status") -Label "运营事务新品域状态检查"
+      $inventoryStatus = Invoke-JsonServiceAction -ScriptPath $DjangoInventoryService -Arguments @("-Action", "Status") -Label "库存域状态检查"
+    }
 
     $componentReadiness = [ordered]@{
       core = Test-CoreDjangoReady -Status $coreStatus

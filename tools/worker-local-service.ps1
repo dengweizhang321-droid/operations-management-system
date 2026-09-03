@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet("Deploy", "Verify", "Start", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup")]
+  [ValidateSet("Deploy", "Verify", "Start", "Restart", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup")]
   [string]$Action = "Status",
   [string]$SourceRoot,
   [string]$RuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales",
@@ -34,6 +34,7 @@ $HelperHost = "127.0.0.1"
 $StatusVersion = "teruisi-local-worker-status-v1"
 $ProcessReceiptVersion = "teruisi-local-worker-process-v1"
 $StartupOwnershipGraceMilliseconds = 3000
+$HotRestartBudgetMilliseconds = 30000
 $ReleaseTool = Join-Path $PSScriptRoot "worker-local-release.mjs"
 $RotationTool = Join-Path $PSScriptRoot "worker-local-release-rotation.mjs"
 $StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
@@ -43,7 +44,7 @@ $StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
   if (-not [System.IO.Path]::IsPathRooted($StartupShortcutPath)) { throw "StartupShortcutPath must be absolute" }
   [System.IO.Path]::GetFullPath($StartupShortcutPath)
 }
-$MutatingActions = @("Deploy", "Start", "Stop", "InstallStartup", "RemoveStartup")
+$MutatingActions = @("Deploy", "Start", "Restart", "Stop", "InstallStartup", "RemoveStartup")
 $ServiceMutex = $null
 
 if (-not ("Teruisi.NativeCommandLine" -as [type])) {
@@ -204,18 +205,43 @@ function Test-IsIsolatedTestRuntime {
   return -not $actualRuntime.Equals($productionRuntime, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Test-DjangoAggregateStatusSupported {
+  if (-not (Test-Path -LiteralPath $DjangoService -PathType Leaf)) { return $false }
+  Assert-NoReparsePath $DjangoService
+  $source = [System.IO.File]::ReadAllText($DjangoService)
+  return $source.Contains('"AggregateStatus" { Show-AggregateServiceStatus }') -and
+    $source.Contains('teruisi-django-aggregate-status-v1')
+}
+
 function Get-DjangoSystemReadiness {
   if (Test-IsIsolatedTestRuntime) {
     return [pscustomobject]@{ Ready = $true; Missing = @() }
   }
 
-  $coreStatus = Invoke-DjangoStatusJson $DjangoService "Status" "Django/PostgreSQL status"
-  $financeStatus = Invoke-DjangoStatusJson $DjangoService "FinanceStatus" "Django finance status"
-  $netshopStatus = Invoke-DjangoStatusJson $DjangoNetshopService "Status" "Django netshop status"
-  $marketStatus = Invoke-DjangoStatusJson $DjangoMarketService "Status" "Django market status"
-  $productsStatus = Invoke-DjangoStatusJson $DjangoProductsService "Status" "Django products status"
-  $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
-  $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
+  if (Test-DjangoAggregateStatusSupported) {
+    $aggregateStatus = Invoke-DjangoStatusJson `
+      $DjangoService "AggregateStatus" "Django/PostgreSQL aggregate status"
+    if ([string]$aggregateStatus.Version -cne "teruisi-django-aggregate-status-v1") {
+      throw "Django/PostgreSQL aggregate status version is invalid"
+    }
+    $coreStatus = $aggregateStatus.Core
+    $financeStatus = $aggregateStatus.Finance
+    $netshopStatus = $aggregateStatus.Netshop
+    $marketStatus = $aggregateStatus.Market
+    $productsStatus = $aggregateStatus.Products
+    $workflowStatus = $aggregateStatus.Workflow
+    $inventoryStatus = $aggregateStatus.Inventory
+  } else {
+    # Safe rolling-upgrade compatibility. Once the new runtime app is deployed,
+    # the aggregate branch above is mandatory for the startup performance target.
+    $coreStatus = Invoke-DjangoStatusJson $DjangoService "Status" "Django/PostgreSQL status"
+    $financeStatus = Invoke-DjangoStatusJson $DjangoService "FinanceStatus" "Django finance status"
+    $netshopStatus = Invoke-DjangoStatusJson $DjangoNetshopService "Status" "Django netshop status"
+    $marketStatus = Invoke-DjangoStatusJson $DjangoMarketService "Status" "Django market status"
+    $productsStatus = Invoke-DjangoStatusJson $DjangoProductsService "Status" "Django products status"
+    $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
+    $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
+  }
 
   $checks = [ordered]@{
     core = (
@@ -1021,6 +1047,120 @@ function Get-PublicStatus([object]$Internal) {
   }
 }
 
+function Test-ExactWorkerRootProcess([object]$Process, [object]$Identity, [int]$SupervisorId) {
+  if ([int]$Process.ParentProcessId -ne $SupervisorId) { return $false }
+  $name = ([string]$Process.Name).ToLowerInvariant()
+  if ($name -notin @("node", "node.exe")) { return $false }
+  $nodePath = Get-NodeExecutable
+  $wranglerPath = Join-Path $Identity.ReleaseRoot "node_modules\wrangler\bin\wrangler.js"
+  $fixed = [string[]]@($Identity.Manifest.processIdentity.fixedWranglerArguments | ForEach-Object { [string]$_ })
+  $expected = [string[]]@($nodePath, $wranglerPath) + $fixed
+  return Test-ExactProcessArguments $Process $expected @(0, 1)
+}
+
+function Restart-ExactWorkerChild([object]$Internal, [datetime]$DeadlineUtc) {
+  if (-not $Internal.Supervisor -or $Internal.State -ne "exact_release") {
+    throw "Hot restart requires an exact running Worker supervisor"
+  }
+  $supervisor = $Internal.Supervisor
+  $supervisorId = [int]$supervisor.ProcessId
+  $currentSupervisor = Get-ExactCurrentProcess $supervisorId
+  if (-not $currentSupervisor -or
+      -not (Test-SameProcessIdentity $currentSupervisor $supervisor) -or
+      -not (Test-AllowedTreeProcess $currentSupervisor $Internal.Identity $supervisorId)) {
+    throw "Immutable Worker supervisor identity changed before hot restart"
+  }
+
+  $snapshots = @($Internal.Tree | ForEach-Object { $_.Process })
+  $workerRoots = @($snapshots | Where-Object {
+    Test-ExactWorkerRootProcess $_ $Internal.Identity $supervisorId
+  })
+  if ($workerRoots.Count -ne 1) {
+    throw "Hot restart requires exactly one manifest-bound Worker child"
+  }
+  $workerRoot = $workerRoots[0]
+  $workerRootId = [int]$workerRoot.ProcessId
+  $workerTree = @($Internal.Tree | Where-Object {
+    [int]$_.Process.ProcessId -eq $workerRootId -or
+    (Test-MonotonicAncestor ([int]$_.Process.ProcessId) $workerRootId $snapshots)
+  })
+  if ($workerTree.Count -lt 1) { throw "Exact Worker child tree is unavailable" }
+  foreach ($entry in $workerTree) {
+    if (-not (Test-AllowedTreeProcess $entry.Process $Internal.Identity $supervisorId)) {
+      throw "Hot restart discovered an unapproved Worker descendant"
+    }
+  }
+  $oldPortIds = @($Internal.PortIds | ForEach-Object { [int]$_ })
+
+  # Quiesce the only process in this branch that can create new descendants,
+  # then sweep its exact old lineage. The supervisor waits for port release
+  # before starting the replacement, so this cannot target the new branch.
+  Stop-ExactProcessIdentity $workerRoot
+  $workerRootStopped = $false
+  for ($attempt = 0; $attempt -lt 40; $attempt++) {
+    $currentRoot = Get-ExactCurrentProcess $workerRootId
+    if (-not $currentRoot) { $workerRootStopped = $true; break }
+    if (-not (Test-SameProcessIdentity $currentRoot $workerRoot)) {
+      throw "Worker root PID was reused before the hot-restart fence completed"
+    }
+    Start-Sleep -Milliseconds 50
+  }
+  if (-not $workerRootStopped) { throw "Exact Worker root did not terminate within 2 seconds" }
+
+  $currentProcesses = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+  $currentById = @{}
+  foreach ($process in $currentProcesses) { $currentById[[int]$process.ProcessId] = $process }
+  if ($currentById.ContainsKey($workerRootId)) {
+    throw "Worker root PID was reused after the hot-restart fence completed"
+  }
+  $augmented = @($currentProcesses)
+  foreach ($snapshot in $snapshots) {
+    $id = [int]$snapshot.ProcessId
+    if ($currentById.ContainsKey($id)) {
+      if (-not (Test-SameProcessIdentity $currentById[$id] $snapshot)) {
+        throw "Worker descendant PID $id was reused during hot restart"
+      }
+    } else {
+      $augmented += $snapshot
+    }
+  }
+  $remainingTree = @(Get-ProcessTree $workerRootId $augmented)
+  if ($remainingTree.Count -lt 1 -or -not (Test-SameProcessIdentity $remainingTree[0].Process $workerRoot)) {
+    throw "Hot restart lost the exact old Worker root identity"
+  }
+  foreach ($entry in @($remainingTree | Sort-Object Depth -Descending)) {
+    $id = [int]$entry.Process.ProcessId
+    if ($id -eq $workerRootId -or -not $currentById.ContainsKey($id)) { continue }
+    if (-not (Test-AllowedTreeProcess $entry.Process $Internal.Identity $supervisorId)) {
+      throw "Hot restart sweep discovered an unapproved Worker descendant"
+    }
+    Stop-ExactProcessIdentity $entry.Process
+  }
+
+  $readyStatus = $null
+  while ([DateTime]::UtcNow -lt $DeadlineUtc) {
+    Start-Sleep -Milliseconds 250
+    $candidate = Get-WorkerStatusInternal $Internal.Identity
+    if ($candidate.Supervisor -and -not (Test-SameProcessIdentity $candidate.Supervisor $supervisor)) {
+      throw "Immutable Worker supervisor identity changed during hot restart"
+    }
+    $oldPortStillPresent = @($candidate.PortIds | Where-Object { $oldPortIds -contains [int]$_ }).Count -gt 0
+    if ($candidate.State -eq "exact_release" -and -not $oldPortStillPresent) {
+      $readyStatus = $candidate
+      break
+    }
+  }
+  if (-not $readyStatus) {
+    $state = if ($candidate) { [string]$candidate.State } else { "unavailable" }
+    $reason = if ($candidate -and $candidate.Reason) { "; reason=$([string]$candidate.Reason)" } else { "" }
+    throw "Worker child did not return before the hot-restart deadline: state=$state$reason"
+  }
+  if (@($readyStatus.PortIds | Where-Object { $oldPortIds -contains [int]$_ }).Count -gt 0) {
+    throw "Hot restart did not replace the exact Worker port process"
+  }
+  return $readyStatus
+}
+
 function Stop-ExactWorkerSnapshot([object]$Internal) {
   if (-not $Internal.Supervisor -or $Internal.State -notin @("starting_exact_release", "exact_release")) { return }
   $supervisor = $Internal.Supervisor
@@ -1147,6 +1287,99 @@ function Write-Result([object]$Value) {
   else { $Value | Format-List | Out-String | Write-Output }
 }
 
+function Start-VerifiedWorkerSupervisor(
+  [object]$Identity,
+  [string]$StartupVerificationReceiptSha256,
+  [string]$ResultStatus = "started"
+) {
+  if ($StartupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
+    throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
+  }
+  $logRoot = Join-Path $RuntimeRoot "logs"
+  [System.IO.Directory]::CreateDirectory($logRoot) | Out-Null
+  $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+  $stdout = Join-Path $logRoot "worker-$stamp.stdout.log"
+  $stderr = Join-Path $logRoot "worker-$stamp.stderr.log"
+  $supervisorPath = Join-Path $Identity.ReleaseRoot "tools\worker-local-runtime-supervisor.mjs"
+  try {
+    $process = Start-Process -FilePath (Get-NodeExecutable) -ArgumentList @(
+      "`"$supervisorPath`"", "--manifest", "`"$($Identity.Path)`"", "--approved-manifest-sha256", $Identity.Sha256
+    ) -WorkingDirectory $Identity.ReleaseRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  } catch {
+    Remove-ExactSupervisorPrelaunchVerificationReceipt $StartupVerificationReceiptSha256
+    throw
+  }
+  $supervisor = $null
+  for ($attempt = 0; $attempt -lt 20 -and -not $supervisor; $attempt++) {
+    Start-Sleep -Milliseconds 100
+    $supervisor = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)" -ErrorAction SilentlyContinue
+  }
+  if (-not $supervisor -or -not (Test-AllowedTreeProcess $supervisor $Identity $process.Id)) {
+    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+    Remove-ExactSupervisorPrelaunchVerificationReceipt $StartupVerificationReceiptSha256
+    throw "Immutable Worker supervisor identity could not be established"
+  }
+  $receiptWritten = $false
+  try {
+    Write-ProcessReceipt $Identity $supervisor
+    $receiptWritten = $true
+    $readyStatus = $null
+    $startupAnomalyAt = $null
+    for ($attempt = 0; $attempt -lt 360; $attempt++) {
+      Start-Sleep -Milliseconds 250
+      $process.Refresh()
+      if ($process.HasExited) { break }
+      $workerPortOwners = @(Get-PortProcessIds $WorkerPort $WorkerHost)
+      $helperPortOwners = @(Get-PortProcessIds $HelperPort $HelperHost)
+      if ($workerPortOwners.Count -eq 0 -and $helperPortOwners.Count -eq 0) { continue }
+      $readyStatus = Get-WorkerStatusInternal $Identity
+      $decision = Get-StartupOwnershipDecision $readyStatus $startupAnomalyAt (Get-Date)
+      $startupAnomalyAt = $decision.FirstAnomalyAt
+      if ($decision.Action -eq "Ready" -or $decision.Action -eq "Fail") { break }
+    }
+    if (-not $readyStatus -or $readyStatus.State -ne "exact_release") {
+      $process.Refresh()
+      $logTail = Get-BoundedLogTail $stderr
+      if ($process.HasExited) {
+        $process.WaitForExit()
+        $exitCode = $process.ExitCode
+        $detail = if ($logTail) { "; stderr=$logTail" } else { "; stderr log is empty: $stderr" }
+        throw "Immutable Worker supervisor exited before readiness: exit=$exitCode$detail"
+      }
+      $state = if ($readyStatus) { [string]$readyStatus.State } else { "unavailable" }
+      $reason = if ($readyStatus -and -not [string]::IsNullOrWhiteSpace([string]$readyStatus.Reason)) { "; reason=$([string]$readyStatus.Reason)" } else { "" }
+      $detail = if ($logTail) { "; stderr=$logTail" } else { "" }
+      throw "Immutable Worker/helper did not establish stable exact 3000/5791 ownership: state=$state$reason$detail"
+    }
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
+    if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not report ready" }
+    return [ordered]@{
+      status = $ResultStatus
+      version = $StatusVersion
+      releaseId = $Identity.ReleaseId
+      manifestSha256 = $Identity.Sha256
+      supervisorProcessId = $process.Id
+    }
+  } catch {
+    $startError = $_
+    try { Remove-ExactSupervisorPrelaunchVerificationReceipt $StartupVerificationReceiptSha256 } catch {}
+    try {
+      $owned = Get-WorkerStatusInternal $Identity
+      if ($owned.State -in @("starting_exact_release", "exact_release")) {
+        Stop-ExactWorkerSnapshot $owned
+      } else {
+        $currentSupervisor = Get-CimInstance Win32_Process -Filter "ProcessId = $($supervisor.ProcessId)" -ErrorAction SilentlyContinue
+        if ($currentSupervisor -and (Get-CreationIdentity $currentSupervisor) -ceq (Get-CreationIdentity $supervisor) -and
+            (Test-AllowedTreeProcess $currentSupervisor $Identity $supervisor.ProcessId)) {
+          Stop-Process -Id $currentSupervisor.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+      }
+    } catch {}
+    if ($receiptWritten) { try { Remove-ExactProcessReceipt $Identity } catch {} }
+    throw $startError
+  }
+}
+
 if ($FunctionsOnly) { return }
 
 Assert-FixedRuntimeRoot
@@ -1240,84 +1473,59 @@ try {
     if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
       throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
     }
-    $logRoot = Join-Path $RuntimeRoot "logs"
-    [System.IO.Directory]::CreateDirectory($logRoot) | Out-Null
-    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $stdout = Join-Path $logRoot "worker-$stamp.stdout.log"
-    $stderr = Join-Path $logRoot "worker-$stamp.stderr.log"
-    $supervisorPath = Join-Path $identity.ReleaseRoot "tools\worker-local-runtime-supervisor.mjs"
-    try {
-      $process = Start-Process -FilePath (Get-NodeExecutable) -ArgumentList @(
-        "`"$supervisorPath`"", "--manifest", "`"$($identity.Path)`"", "--approved-manifest-sha256", $identity.Sha256
-      ) -WorkingDirectory $identity.ReleaseRoot -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-    } catch {
-      Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256
-      throw
+    Write-Result (Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started")
+    exit 0
+  }
+
+  if ($Action -eq "Restart") {
+    $hotRestartTimer = [Diagnostics.Stopwatch]::StartNew()
+    if (-not (Test-DjangoAggregateStatusSupported)) {
+      throw "Hot restart requires the aggregate-status Django runtime deployment"
     }
-    $supervisor = $null
-    for ($attempt = 0; $attempt -lt 20 -and -not $supervisor; $attempt++) {
-      Start-Sleep -Milliseconds 100
-      $supervisor = Get-CimInstance Win32_Process -Filter "ProcessId = $($process.Id)" -ErrorAction SilentlyContinue
+    $readiness = Get-DjangoSystemReadiness
+    if (-not $readiness.Ready) {
+      throw "Hot restart requires the Django/PostgreSQL stack to remain ready; missing=$($readiness.Missing -join ',')"
     }
-    if (-not $supervisor -or -not (Test-AllowedTreeProcess $supervisor $identity $process.Id)) {
-      if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
-      Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256
-      throw "Immutable Worker supervisor identity could not be established"
+    if ($hotRestartTimer.ElapsedMilliseconds -ge ($HotRestartBudgetMilliseconds - 3000)) {
+      throw "Hot restart preflight exhausted its budget before changing the Worker process"
     }
-    $receiptWritten = $false
-    try {
-      Write-ProcessReceipt $identity $supervisor
-      $receiptWritten = $true
-      $readyStatus = $null
-      $startupAnomalyAt = $null
-      for ($attempt = 0; $attempt -lt 360; $attempt++) {
-        Start-Sleep -Milliseconds 250
-        $process.Refresh()
-        if ($process.HasExited) { break }
-        $workerPortOwners = @(Get-PortProcessIds $WorkerPort $WorkerHost)
-        $helperPortOwners = @(Get-PortProcessIds $HelperPort $HelperHost)
-        if ($workerPortOwners.Count -eq 0 -and $helperPortOwners.Count -eq 0) { continue }
-        $readyStatus = Get-WorkerStatusInternal $identity
-        $decision = Get-StartupOwnershipDecision $readyStatus $startupAnomalyAt (Get-Date)
-        $startupAnomalyAt = $decision.FirstAnomalyAt
-        if ($decision.Action -eq "Ready" -or $decision.Action -eq "Fail") { break }
-      }
-      if (-not $readyStatus -or $readyStatus.State -ne "exact_release") {
-        $process.Refresh()
-        $logTail = Get-BoundedLogTail $stderr
-        if ($process.HasExited) {
-          $process.WaitForExit()
-          $exitCode = $process.ExitCode
-          $detail = if ($logTail) { "; stderr=$logTail" } else { "; stderr log is empty: $stderr" }
-          throw "Immutable Worker supervisor exited before readiness: exit=$exitCode$detail"
-        }
-        $state = if ($readyStatus) { [string]$readyStatus.State } else { "unavailable" }
-        $reason = if ($readyStatus -and -not [string]::IsNullOrWhiteSpace([string]$readyStatus.Reason)) { "; reason=$([string]$readyStatus.Reason)" } else { "" }
-        $detail = if ($logTail) { "; stderr=$logTail" } else { "" }
-        throw "Immutable Worker/helper did not establish stable exact 3000/5791 ownership: state=$state$reason$detail"
-      }
-      $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
-      if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not report ready" }
-      Write-Result ([ordered]@{ status = "started"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256; supervisorProcessId = $process.Id })
-      exit 0
-    } catch {
-      $startError = $_
-      try { Remove-ExactSupervisorPrelaunchVerificationReceipt $startupVerificationReceiptSha256 } catch {}
-      try {
-        $owned = Get-WorkerStatusInternal $identity
-        if ($owned.State -in @("starting_exact_release", "exact_release")) {
-          Stop-ExactWorkerSnapshot $owned
-        } else {
-          $currentSupervisor = Get-CimInstance Win32_Process -Filter "ProcessId = $($supervisor.ProcessId)" -ErrorAction SilentlyContinue
-          if ($currentSupervisor -and (Get-CreationIdentity $currentSupervisor) -ceq (Get-CreationIdentity $supervisor) -and
-              (Test-AllowedTreeProcess $currentSupervisor $identity $supervisor.ProcessId)) {
-            Stop-Process -Id $currentSupervisor.ProcessId -Force -ErrorAction SilentlyContinue
-          }
-        }
-      } catch {}
-      if ($receiptWritten) { try { Remove-ExactProcessReceipt $identity } catch {} }
-      throw $startError
+    $status = Get-WorkerStatusInternal $identity
+    if ($status.State -ne "exact_release") {
+      throw "Hot restart requires the exact immutable Worker release to be running"
     }
+    $oldSupervisorId = [int]$status.Supervisor.ProcessId
+    $oldWorkerPortId = if ($status.PortIds.Count -eq 1) { [int]$status.PortIds[0] } else { $null }
+    $childDeadline = [DateTime]::UtcNow.AddMilliseconds(
+      [Math]::Max(1000, $HotRestartBudgetMilliseconds - $hotRestartTimer.ElapsedMilliseconds - 3000)
+    )
+    $readyStatus = Restart-ExactWorkerChild $status $childDeadline
+    $remainingMilliseconds = $HotRestartBudgetMilliseconds - $hotRestartTimer.ElapsedMilliseconds
+    if ($remainingMilliseconds -lt 1000) { throw "Hot restart exhausted its 30-second budget before HTTP readiness" }
+    $pageTimeoutSeconds = [Math]::Max(1, [Math]::Min(10, [Math]::Floor($remainingMilliseconds / 1000)))
+    $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec $pageTimeoutSeconds
+    if ($page.StatusCode -ne 200) { throw "Hot-restarted Worker homepage did not report HTTP 200" }
+    $remainingMilliseconds = $HotRestartBudgetMilliseconds - $hotRestartTimer.ElapsedMilliseconds
+    if ($remainingMilliseconds -lt 1000) { throw "Hot restart exhausted its 30-second budget before helper readiness" }
+    $helperTimeoutSeconds = [Math]::Max(1, [Math]::Min(5, [Math]::Floor($remainingMilliseconds / 1000)))
+    $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec $helperTimeoutSeconds
+    if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Immutable helper /health did not remain ready" }
+    $hotRestartTimer.Stop()
+    if ($hotRestartTimer.ElapsedMilliseconds -ge $HotRestartBudgetMilliseconds) {
+      throw "Hot restart exceeded its 30-second wall-clock budget"
+    }
+    Write-Result ([ordered]@{
+      status = "restarted"
+      version = $StatusVersion
+      releaseId = $identity.ReleaseId
+      manifestSha256 = $identity.Sha256
+      supervisorProcessId = $oldSupervisorId
+      previousWorkerPortProcessId = $oldWorkerPortId
+      workerPortProcessId = if ($readyStatus.PortIds.Count -eq 1) { [int]$readyStatus.PortIds[0] } else { $null }
+      backendRestarted = $false
+      helperRestarted = $false
+      elapsedMilliseconds = [int64]$hotRestartTimer.ElapsedMilliseconds
+    })
+    exit 0
   }
 
   if ($Action -eq "Stop") {
