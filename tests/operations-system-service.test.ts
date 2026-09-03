@@ -17,7 +17,7 @@ function block(start: string, end: string) {
 
 test("lifecycle service stays parseable by Windows PowerShell 5.1 with Chinese text", () => {
   assert.deepEqual([...serviceBytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
-  assert.match(service, /ValidateSet\("Start", "Stop", "Restart", "Status", "Logs"\)/);
+  assert.match(service, /ValidateSet\("Start", "Stop", "Restart", "Status", "Logs", "Menu"\)/);
   assert.match(service, /teruisi-operations-system-service-v1/);
   assert.match(service, /本脚本只用于 Windows 本机正式环境/);
   assert.doesNotMatch(service, /\?\?|\?\./, "PowerShell 7-only operators are not allowed");
@@ -96,9 +96,11 @@ test("lifecycle service helpers pass their PowerShell unit test when a shell is 
 
 test("batch launcher and npm scripts route every action to the lifecycle service", () => {
   assert.match(launcher, /tools\\operations-system-service\.ps1/);
+  assert.ok([...Buffer.from(launcher, "utf8")].every((byte) => byte < 0x80), "cmd wrapper must remain ASCII-only");
   for (const option of ["start", "start-bg", "stop", "stop-worker", "restart", "restart-bg", "status", "logs"]) {
-    assert.match(launcher, new RegExp(`if /i "%CHOICE%"=="${option}"`));
+    assert.match(launcher, new RegExp(`if /i "%~1"=="${option}"`));
   }
+  assert.match(launcher, /-Action Menu/);
   assert.match(launcher, /-Action Stop -KeepBackend/);
   assert.match(launcher, /-Action Start -Open -Background/);
   for (const [name, action] of [
@@ -113,4 +115,22 @@ test("batch launcher and npm scripts route every action to the lifecycle service
     );
   }
   assert.equal(packageJson.scripts["backend:dev"], "node tools/django-dev-backend.mjs start");
+});
+
+test("batch launcher opens and exits its menu through real cmd.exe", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("cmd.exe is only available on Windows");
+    return;
+  }
+  const result = spawnSync("cmd.exe", ["/d", "/c", "echo 0|运营系统.bat"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 15_000,
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /not recognized|不是内部或外部命令/i);
+  assert.match(result.stdout, /={20,}/);
+  assert.match(result.stdout, /Worker \+ Django\/PostgreSQL/);
+  assert.match(result.stdout, /\b0\s+/);
 });
