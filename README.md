@@ -38,6 +38,12 @@ npm run system:logs
 
 `-Background` 只是把同一条命令放到隐藏的独立 PowerShell 进程里执行，输出写到 `tmp\system-service\*.log`，并把 PID 与进程创建时间绑定到 `tmp\system-service\background.json`；已有后台任务在执行时会拒绝重复提交，`Status` 会同时显示后台任务是否仍在运行。所有子脚本都通过文件重定向启动并只等待直接子进程，不会因为 Worker/PostgreSQL 等长期子进程继承句柄而挂住。
 
+#### 启动耗时的构成（2026-09-03 取证）
+
+一次完整 `Start` 的时间主要不是某一步慢，而是同一组完整性证据被重复生成：不可变 Worker release 的逐文件 SHA-256（source snapshot、`dist`、`node_modules` 约 3 万文件 / 790 MB、helper，外加 bundled npm 树两次）在 `worker-local-service.ps1 -Action Start` 和 `worker-local-runtime-supervisor.mjs` 预启动阶段各跑一遍；Django 应用树逐文件哈希加两次 wrangler 冒烟在核心 Start 与五个域脚本入口共跑六遍（6837d9f 的 15 分钟令牌只复用了运行目录 ACL 审计）；Django 就绪探针在引擎前后各跑一轮，每轮 7 个 PowerShell 子进程；`Invoke-DjangoMigrations` 无条件重放 migrate 与约 120 条授权 SQL；ERP 心跳等待每 500 毫秒冷启一次 Django。Windows Defender 实时扫描会对上述每次文件打开逐个上钩，这是同样的脚本在 Windows 上慢一个数量级的直接原因。
+
+优先级建议：先把 `D:\teruisi-runtime` 与 `D:\运营管理系统` 加入 Defender 排除目录并确认位于 SSD（零代码改动）；之后再按审批流程考虑：把域脚本的 `Assert-DeployedApplication` 纳入现有 15 分钟令牌复用（论证与 ACL 复用同构，令牌已绑定部署清单 SHA-256）、让 supervisor 预启动只做进程身份校验并接受引擎刚产出的 verify 回执、去掉 Django Start 成功后的第二轮 7 进程探针、ERP 心跳改读 PostgreSQL checkpoint。逐文件哈希与 ACL 精确契约本身是 manifest 协议和失败关闭边界的一部分，不应放宽。
+
 ### macOS / Linux 开发机本地启动
 
 开发机没有 PostgreSQL 与受控 runtime，直接运行 `npx vinext dev` 时所有 Django 域都会提示"Django xx 服务配置不完整"。`tools/django-dev-backend.mjs` 用 SQLite 与 `development` 进程角色在本机拉起一套仅供开发的 Django 后端，并把 Worker 需要的 `TERUISI_DJANGO_*` 变量写入 `.dev.vars` 的受管块：
