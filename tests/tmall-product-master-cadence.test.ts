@@ -10,6 +10,7 @@ import {
   decideTmallProductMasterCadence,
   getTmallProductMasterCadenceDecision,
   loadTmallProductMasterCadenceState,
+  migrateTmallProductMasterCadenceInterval,
   parseTmallForceProductMasterHeader,
   recordTmallProductMasterCadenceSuccess,
   shanghaiBusinessDate,
@@ -78,6 +79,50 @@ test("M 到期失败不推进日期，成功后从实际完成日再顺延三天
     assert.equal(decideTmallProductMasterCadence({
       store: target, operationDate: "2026-08-29", state: persisted,
     }).due, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("亿玖从三日节奏迁移为每日时使用最后成功日计算下一到期日并做 CAS 校验", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "tmall-master-cadence-migrate-"));
+  try {
+    await writeFile(path.join(root, "tmall-yijiu.json"), JSON.stringify({
+      version: 1,
+      storeKey: "tmall-yijiu",
+      intervalDays: 3,
+      lastSuccessDate: "2026-09-03",
+      lastSnapshotDate: "2026-09-03",
+      nextDueDate: "2026-09-06",
+      updatedAt: "2026-09-03T07:07:03.024Z",
+    }), "utf8");
+    const target = store({
+      storeKey: "tmall-yijiu",
+      shopName: "天猫-志高亿玖专卖店",
+      productMasterCadence: { intervalDays: 1, initialDueDate: "2026-08-27" },
+    });
+    const migrated = await migrateTmallProductMasterCadenceInterval({
+      store: target,
+      expectedPreviousIntervalDays: 3,
+      expectedLastSuccessDate: "2026-09-03",
+      stateDirectory: root,
+      updatedAt: "2026-09-03T08:00:00.000Z",
+    });
+    assert.deepEqual(migrated, {
+      version: 1,
+      storeKey: "tmall-yijiu",
+      intervalDays: 1,
+      lastSuccessDate: "2026-09-03",
+      lastSnapshotDate: "2026-09-03",
+      nextDueDate: "2026-09-04",
+      updatedAt: "2026-09-03T08:00:00.000Z",
+    });
+    await assert.rejects(migrateTmallProductMasterCadenceInterval({
+      store: target,
+      expectedPreviousIntervalDays: 3,
+      expectedLastSuccessDate: "2026-09-02",
+      stateDirectory: root,
+    }), /状态与店铺配置不一致|最后成功日期已变化/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -228,10 +273,14 @@ test("到期 M 只有完整导入成功并推进节奏后才关闭浏览器返�
   assert.equal((result.cadence as { nextDueDate?: string }).nextDueDate, "2026-08-28");
 });
 
-test("亿玖候选 M 到期时只调用 MTOP 直连导出器并沿用原节奏与关浏览器终态", async () => {
-  const target = store({ storeKey: "tmall-yijiu", shopName: "天猫-志高亿玖专卖店" });
+test("亿玖每日 M 到期时只调用 MTOP 直连导出器并把下一到期日推进到次日", async () => {
+  const target = store({
+    storeKey: "tmall-yijiu",
+    shopName: "天猫-志高亿玖专卖店",
+    productMasterCadence: { intervalDays: 1, initialDueDate: "2026-08-27" },
+  });
   const decision = decideTmallProductMasterCadence({
-    store: target, operationDate: "2026-08-25", state: null,
+    store: target, operationDate: "2026-08-27", state: null,
   });
   const calls: string[] = [];
   const result = await runTmallProductMasterTerminalStage({
@@ -239,20 +288,20 @@ test("亿玖候选 M 到期时只调用 MTOP 直连导出器并沿用原节奏�
     forced: false,
     mode: "direct_mtop",
     getDecision: async () => decision,
-    runProductManager: async () => { throw new Error("直连候选不得调用商品管家"); },
-    runPagewise: async () => { throw new Error("直连候选不得调用 UI 逐页导出"); },
+    runProductManager: async () => { throw new Error("直连现行流程不得调用商品管家"); },
+    runPagewise: async () => { throw new Error("直连现行流程不得调用 UI 逐页导出"); },
     runDirect: async () => {
       calls.push("direct");
       return {
         ok: true, stage: "product_master", status: "duplicate", storeKey: target.storeKey,
-        shopName: target.shopName, snapshotDate: "2026-08-25", batchId: "batch-direct", rowCount: 43, warningCount: 0,
+        shopName: target.shopName, snapshotDate: "2026-08-27", batchId: "batch-direct", rowCount: 43, warningCount: 0,
       };
     },
     recordSuccess: async () => {
       calls.push("state");
       return {
-        version: 1, storeKey: target.storeKey, intervalDays: 3, lastSuccessDate: "2026-08-25",
-        lastSnapshotDate: "2026-08-25", nextDueDate: "2026-08-28", updatedAt: "2026-08-25T06:00:00.000Z",
+        version: 1, storeKey: target.storeKey, intervalDays: 1, lastSuccessDate: "2026-08-27",
+        lastSnapshotDate: "2026-08-27", nextDueDate: "2026-08-28", updatedAt: "2026-08-27T06:00:00.000Z",
       };
     },
     closeBrowser: async () => { calls.push("close"); return { ok: true, status: "closed" }; },

@@ -211,3 +211,48 @@ export async function recordTmallProductMasterCadenceSuccess(input: {
   await writeJsonAtomic(statePath(input.store.storeKey, directory), state);
   return state;
 }
+
+export async function migrateTmallProductMasterCadenceInterval(input: {
+  store: TmallStore;
+  expectedPreviousIntervalDays: number;
+  expectedLastSuccessDate: string;
+  stateDirectory?: string;
+  updatedAt?: string;
+}) {
+  const cadence = input.store.productMasterCadence;
+  if (!cadence || !Number.isInteger(input.expectedPreviousIntervalDays)
+    || input.expectedPreviousIntervalDays < 1
+    || input.expectedPreviousIntervalDays === cadence.intervalDays
+    || !validIsoDate(input.expectedLastSuccessDate)) {
+    throw new Error("天猫货品节奏迁移参数无效");
+  }
+  const directory = input.stateDirectory ?? defaultStateDirectory;
+  const file = statePath(input.store.storeKey, directory);
+  const raw = await readFile(file, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("天猫货品节奏状态无法解析");
+  }
+  const previous = validateTmallProductMasterCadenceState(parsed, {
+    storeKey: input.store.storeKey,
+    productMasterCadence: {
+      ...cadence,
+      intervalDays: input.expectedPreviousIntervalDays,
+    },
+  });
+  if (previous.lastSuccessDate !== input.expectedLastSuccessDate) {
+    throw new Error("天猫货品节奏迁移的最后成功日期已变化");
+  }
+  const updatedAt = input.updatedAt ?? new Date().toISOString();
+  if (Number.isNaN(Date.parse(updatedAt))) throw new Error("天猫货品节奏迁移更新时间无效");
+  const migrated: TmallProductMasterCadenceState = {
+    ...previous,
+    intervalDays: cadence.intervalDays,
+    nextDueDate: addIsoCalendarDays(previous.lastSuccessDate, cadence.intervalDays),
+    updatedAt,
+  };
+  await writeJsonAtomic(file, migrated);
+  return validateTmallProductMasterCadenceState(migrated, input.store);
+}

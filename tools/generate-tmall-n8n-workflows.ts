@@ -26,7 +26,7 @@ export type TmallN8nWorkflowDefinition = {
   scheduleName: string;
   productMasterExportMode?: "on_sale_pagewise_excel";
   productMasterCadence: {
-    intervalDays: 3;
+    intervalDays: number;
     initialDueDate: string;
   };
 };
@@ -42,7 +42,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     cronExpression: "30 13 * * *",
     scheduleName: "每天 13:30 运行",
     productMasterExportMode: "on_sale_pagewise_excel",
-    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-27" },
+    productMasterCadence: { intervalDays: 1, initialDueDate: "2026-08-27" },
   },
   {
     storeKey: "tmall-lili",
@@ -309,12 +309,12 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
   if (!definition) throw new Error("缺少亿玖天猫工作流定义");
   const workflow = buildTmallN8nWorkflow(source, definition);
   workflow.id = definition.workflowId;
-  workflow.name = "天猫店铺数据导入（亿玖 P/M 直连候选）";
+  workflow.name = "天猫店铺数据导入（亿玖 P/M 直连·每日 M）";
   workflow.active = false;
-  workflow.versionId = stableUuid("teruisi:tmall-yijiu:direct-pm-candidate:v1");
+  workflow.versionId = stableUuid("teruisi:tmall-yijiu:direct-pm:daily-m:v2");
   workflow.meta = {
     ...(workflow.meta ?? {}),
-    candidateOnly: true,
+    currentForYijiu: true,
     candidateProtocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
     replacesWorkflowId: definition.workflowId,
   };
@@ -334,16 +334,16 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
 
   const credentialNote = workflow.nodes.find((node) => node.name === "凭证说明");
   if (credentialNote?.parameters && typeof credentialNote.parameters.content === "string") {
-    credentialNote.parameters.content += "\n\n## 候选协议\nP/M 直连接口只复用亿玖独立 Chromium 的浏览器 Cookie 存储；csrfId、loginPointId、MTOP token、签名和 OSS 临时链接只在 helper 内存中存在，不写入 n8n、活动清单或日志。";
+    credentialNote.parameters.content += "\n\n## 亿玖直连协议\nP/M 直连接口只复用亿玖独立 Chromium 的浏览器 Cookie 存储；csrfId、loginPointId、MTOP token、签名和 OSS 临时链接只在 helper 内存中存在，不写入 n8n、活动清单或日志。";
   }
   const flowNote = workflow.nodes.find((node) => node.name === "流程说明");
   if (flowNote?.parameters) {
     flowNote.parameters.content = [
-      "## 亿玖 P/M 直连候选（默认停用）",
-      "这是同一工作流 ID 的替换版本，不是可与现版并行激活的第二条流程。仓库文件固定 active=false；发布前必须先部署配套 helper，再在 n8n 中受控替换并确认只有一个版本激活。",
+      "## 亿玖 P/M 直连现行模板（仓库默认停用）",
+      "这是同一工作流 ID 的现行替换版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。",
       "",
       "## A→B→C→P→M",
-      "A/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行，M 仍按上海日期每 3 天到期一次；not_due 也会关闭亿玖浏览器并释放 helper。",
+      "A/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行；亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。",
       "",
       "## P·阿里妈妈直连任务",
       "从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。",
@@ -352,7 +352,7 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
       "从千牛“商品 > 我的商品 > 出售中”的真实首屏请求捕获只读列表模板，固定每页 20 条、最多 100 页并核对 response total；itemId 排序后每 20 个一批。唯一写类路径逐字固定为 batchFastEdit.htm?optType=batchExportItem&action=submit，不能由工作流、配置或请求参数改写。每批提交前保存导出记录 id 基线，提交与下载串行；响应未决、出现多个新记录、行数/时间窗/商品 ID 不一致均失败关闭。全部批文件校验后合并成一个权威 XLSX，只导入一次并回查。",
       "",
       "## 切换门禁",
-      "原 P 或 M 只要存在已进入业务动作的活动清单，候选协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
+      "原 P 或 M 只要存在已进入业务动作的活动清单，直连协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
     ].join("\n");
   }
   return workflow;

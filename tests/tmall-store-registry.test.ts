@@ -113,6 +113,7 @@ test("服务端只接受注册表中启用的天猫店铺", () => {
   assert.equal(yijiu.browser.profileDir, "%LOCALAPPDATA%/Chromium-Tmall-Yijiu/User Data/Default");
   assert.equal(yijiu.browser.debugPort, 9334);
   assert.equal(yijiu.loginMode, "windows_dpapi_credentials");
+  assert.equal(yijiu.productMasterCadence?.intervalDays, 1);
   assert.equal(resolveEnabledTmallShop("天猫-志高丽力专卖店").storeKey, "tmall-lili");
   assert.throws(() => resolveEnabledTmallShop("天猫-志高乐度专卖店"), /未注册或未启用/);
 });

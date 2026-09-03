@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-daily.workflow.json";
-import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json";
+import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
 import jdPromotionWorkflowDefinition from "@/automation/n8n/jd-promotion-daily.workflow.json";

@@ -25,7 +25,7 @@
 
 | 店铺 | `storeKey` | 调试端口 | n8n 模板 | 本机 live 调度 |
 | --- | --- | ---: | --- | --- |
-| 天猫-志高亿玖专卖店 | `tmall-yijiu` | 9334 | `tmall-yijiu-sycm-cookie-daily.workflow.json` | 13:30 |
+| 天猫-志高亿玖专卖店 | `tmall-yijiu` | 9334 | `tmall-yijiu-direct-pm-candidate.workflow.json`（历史文件名，现行模板） | 13:30 |
 | 天猫-志高丽力专卖店 | `tmall-lili` | 9325 | `tmall-lili-sycm-cookie-daily.workflow.json` | 13:40 |
 | 天猫-志高拓丰专卖店 | `tmall-tuofeng` | 9327 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 13:50 |
 | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang` | 9329 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 14:00 |
@@ -137,10 +137,10 @@ n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-daily-import.workfl
 亿玖店已经完成授权验证时，可导入现有副本：
 
 ```powershell
-n8n import:workflow --input "automation/n8n/tmall-yijiu-sycm-cookie-daily.workflow.json"
+n8n import:workflow --input "automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json"
 ```
 
-该副本在 n8n 与运营管理系统中统一命名为“天猫店铺数据导入”，固定工作流 ID 为 `M4xY8kQ2vR6sT9pC`。新增五店分别使用 2.1 表中的独立模板和工作流 ID。运营管理系统左侧“工作流”板块会展示 A→B→C→P→M 原生概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。A/B/C/P 保持每日执行，M 每日进入终态门禁，但只在本店持久三日节奏到期、存在未决清单或手动完整运行明确强制时执行货品导出与导入。
+亿玖现行副本固定工作流 ID `M4xY8kQ2vR6sT9pC`，P/M 使用直连协议，M 每日到期；新增五店分别使用 2.1 表中的独立模板和工作流 ID，并继续按各自三日节奏运行 M。运营管理系统左侧“工作流”板块会展示现行亿玖 A→B→C→P→M 概览，并仅向 `operator`、`admin` 嵌入本机 n8n 编辑器；页面加载不会自动执行或发布工作流。旧亿玖 UI 逐页模板和旧直连版本只保留历史审计，不得重新激活或用于新的恢复 execution。
 
 该副本不依赖 n8n 2 默认禁用的 `ExecuteCommand`，五个执行节点只访问 `127.0.0.1:5791`。通过受保护命令启动本地 Worker 时，启动器会同时拉起并守护一次性辅助进程：
 

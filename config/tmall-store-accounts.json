@@ -9,7 +9,7 @@
       "loginMode": "windows_dpapi_credentials",
       "productMasterExportMode": "on_sale_pagewise_excel",
       "productMasterCadence": {
-        "intervalDays": 3,
+        "intervalDays": 1,
         "initialDueDate": "2026-08-27"
       },
       "initialStartDate": "2026-07-28",

@@ -21,7 +21,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 必守契约
 
-- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口，只在该店持久三日节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，翌日必须从新完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
+- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口。亿玖的持久节奏为每日一次；其余五店只在各自三日节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，下一次必须从新的完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
@@ -30,7 +30,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 - 验证码、安全验证、店铺身份不符、任务歧义、登录按钮歧义或不能证明可安全续接时失败关闭并要求人工操作。
 - 每店独立解析 `executablePath + userDataDir + profileName + profileDir + debugPort + downloadDir`。不得回退默认 Chrome，不得扫描、复用或关闭其他 Chromium。
 - 服务重启遵守项目授权门禁。只能在确认精确目标进程并获当前授权后重启所需服务。
-- M 实际成功、`not_due` 或任一阶段失败后，核验该 execution 的受控 Chromium 已关闭；关闭失败也算 execution 失败。不得把 `*/3` cron、单独 M 工作流或仅按日期取模当成三日节奏；必须以每店持久的下一到期日和最后成功事实判定。
+- M 实际成功、`not_due` 或任一阶段失败后，核验该 execution 的受控 Chromium 已关闭；关闭失败也算 execution 失败。不得用日历取模 cron、单独 M 工作流或静态日期计算替代持久节奏；必须以每店配置的间隔、下一到期日和最后成功事实判定。
 
 ## 执行流程
 

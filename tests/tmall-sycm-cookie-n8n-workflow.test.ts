@@ -114,7 +114,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
   assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"], undefined);
   assert.match(raw, /A→B→C→P→M/);
-  assert.match(raw, /每 3 天到期一次/);
+  assert.match(raw, /每 1 天到期一次/);
   assert.match(raw, /not_due/);
   assert.match(raw, /到期失败不推进下次日期/);
   assert.match(raw, /Windows 用户.*DPAPI/);
@@ -290,7 +290,7 @@ test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原�
   assert.equal(pagewiseWorkflow.nodes.some((node) => node.name === "M·出售中逐页导出、合并校验并导入"), true);
 });
 
-test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替换两个终端业务节点", async () => {
+test("亿玖 P/M 直连现行模板保持同一工作流 ID、仓库默认停用，并只替换两个终端业务节点", async () => {
   const [baselineRaw, candidateRaw] = await Promise.all([
     readFile(workflowPath, "utf8"),
     readFile(new URL(`../automation/n8n/${tmallYijiuDirectPmCandidateFileName}`, import.meta.url), "utf8"),
@@ -321,12 +321,12 @@ test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替
   assert.equal(candidate.id, baseline.id);
   assert.equal(candidate.id, "M4xY8kQ2vR6sT9pC");
   assert.notEqual(candidate.versionId, baseline.versionId);
-  assert.equal(candidate.name, "天猫店铺数据导入（亿玖 P/M 直连候选）");
+  assert.equal(candidate.name, "天猫店铺数据导入（亿玖 P/M 直连·每日 M）");
   assert.equal(candidate.active, false);
   assert.equal(candidate.settings?.timezone, "Asia/Shanghai");
   assert.deepEqual(candidate.meta, {
     templateCredsSetupCompleted: true,
-    candidateOnly: true,
+    currentForYijiu: true,
     candidateProtocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
     replacesWorkflowId: "M4xY8kQ2vR6sT9pC",
   });
@@ -335,7 +335,7 @@ test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替
     assert.deepEqual(
       candidate.nodes.find((node) => node.name === name)?.parameters,
       baseline.nodes.find((node) => node.name === name)?.parameters,
-      `${name} 不应因候选 P/M 改造而变化`,
+      `${name} 不应因直连 P/M 改造而变化`,
     );
   }
   const promotion = candidate.nodes.find((node) => node.name === "P·直连创建商品报表、下载、汇总导入并回查");
@@ -364,7 +364,9 @@ test("亿玖 P/M 直连候选保持同一工作流 ID、默认停用，并只替
     "M·MTOP 分批导出、合并校验并导入",
   );
   assert.equal(candidate.connections["M·MTOP 分批导出、合并校验并导入"], undefined);
-  assert.match(candidateRaw, /同一工作流 ID 的替换版本/);
+  assert.match(candidateRaw, /同一工作流 ID 的现行替换版本/);
+  assert.match(candidateRaw, /亿玖 M 按上海日期每天到期一次/);
+  assert.match(candidateRaw, /旧版本只保留历史审计，不得用于新的定时或恢复 execution/);
   assert.match(candidateRaw, /响应未决时禁止自动重提/);
   assert.match(candidateRaw, /唯一写类路径逐字固定/);
   assert.match(candidateRaw, /全部批文件校验后合并成一个权威 XLSX，只导入一次并回查/);
@@ -385,7 +387,7 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   const dashboardNavigation = navigationCatalog.indexOf('{ key: "dashboard", label: "BI 看板"');
   assert.ok(dashboardNavigation >= 0 && workflowNavigation >= 0);
   assert.match(page, /n8n_workflows: \(\{ currentUser, moduleView, onModuleViewChange \}\) => <N8nWorkflowView currentUser=\{currentUser\} moduleView=/);
-  assert.match(view, /tmall-yijiu-sycm-cookie-daily\.workflow\.json/);
+  assert.match(view, /tmall-yijiu-direct-pm-candidate\.workflow\.json/);
   assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);
   assert.match(view, /jd-multi-store-daily\.workflow\.json/);
   assert.match(view, /http:\/\/localhost:5678\/workflow\//);
