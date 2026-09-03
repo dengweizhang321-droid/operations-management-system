@@ -53,6 +53,7 @@ async function makeRelease(
     createdAt = "2026-08-30T00:00:00.000Z",
     sourceFingerprint = hex("1"),
     buildFingerprint = hex("6"),
+    entrypointTextByPath = {} as Record<string, string>,
   } = {},
 ) {
   const releaseRoot = path.join(runtime, "releases", releaseId);
@@ -68,9 +69,11 @@ async function makeRelease(
   const entrypoints = [];
   const entrypointBytes = new Map<string, Buffer>();
   for (const relativePath of entrypointPaths) {
+    const content = entrypointTextByPath[relativePath]
+      ?? (relativePath === "tools/worker-local-service.ps1" ? entrypointText : "stable");
     const raw = relativePath === activationFenceRelativePath
       ? Buffer.from(`${canonicalJson(activationFence)}\n`, "utf8")
-      : Buffer.from(`${relativePath === "tools/worker-local-service.ps1" ? entrypointText : "stable"}:${relativePath}`, "utf8");
+      : Buffer.from(`${content}:${relativePath}`, "utf8");
     await mkdir(path.dirname(path.join(releaseRoot, ...relativePath.split("/"))), { recursive: true });
     await writeFile(path.join(releaseRoot, ...relativePath.split("/")), raw);
     entrypointBytes.set(relativePath, raw);
@@ -469,6 +472,40 @@ test("rotation plan binds predecessor CAS, immutable evidence and protected-entr
     const planCore = { ...plan } as Record<string, unknown>;
     delete planCore.payloadSha256;
     assert.equal(plan.payloadSha256, sha256Canonical(planCore));
+  } finally {
+    await rm(item.runtime, { recursive: true, force: true });
+  }
+});
+
+test("rotation planning accepts a stopped verifier upgrade mixed with predecessor protected entrypoints", async () => {
+  const item = await fixture();
+  try {
+    const candidate = await makeRelease(
+      item.runtime,
+      item.protectedRoot,
+      "20260830T000002Z-3333333333333333",
+      "candidate-service",
+      {
+        createdAt: "2026-08-30T00:00:02.000Z",
+        buildFingerprint: hex("8"),
+        entrypointTextByPath: { "tools/worker-local-release.mjs": "candidate-verifier" },
+      },
+    );
+    const verifier = candidate.entrypoints.find((entrypoint) => entrypoint.relativePath === "tools/worker-local-release.mjs")!;
+    const verifierTarget = path.join(item.protectedRoot, ...verifier.relativePath.split("/"));
+    await writeFile(verifierTarget, candidate.entrypointBytes.get(verifier.relativePath)!);
+    const protectedEntrypoints = await buildEntrypointPlan(
+      await releaseManifestContext(item.bootstrapRelease),
+      await releaseManifestContext(candidate),
+    );
+    assert.equal(
+      protectedEntrypoints.find((entrypoint) => entrypoint.relativePath === verifier.relativePath)?.candidateSha256,
+      verifier.sha256,
+    );
+    await assert.rejects(
+      resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true, verifyInstalledHead: true }),
+      /protected entrypoint 未匹配 guard/,
+    );
   } finally {
     await rm(item.runtime, { recursive: true, force: true });
   }
@@ -903,6 +940,7 @@ test("production rotation CLI rejects caller-controlled runtime/source/command o
   assert.match(service, /worker-local-release-rotation\.mjs/);
   assert.match(service, /ManifestPath is not the authorized effective head release/);
   assert.match(source, /validateApprovedRotationBeforeMutation/);
+  assert.match(source, /resolveEffectiveReleaseChain\(\{ allowTestRuntimeRoot, verifyInstalledHead: false \}\)/);
   assert.match(source, /dependencies\.verifyHeadStopped/);
   assert.equal((source.match(/await dependencies\.verifyHeadStopped/g) ?? []).length, 2);
   assert.match(source, /beforeMutation\.chain\.chainStateSha256 !== validated\.chain\.chainStateSha256/);

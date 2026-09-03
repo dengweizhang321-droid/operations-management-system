@@ -994,7 +994,12 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
   let serviceLock;
   try {
     serviceLock = await acquireWorkerServiceMutex();
-    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+    // A verifier update necessarily creates a short, stopped-only mixed state:
+    // the source/protected copy can already be the candidate while the immutable
+    // effective head is still the predecessor.  Resolve the append-only chain
+    // without treating that intentional mismatch as an installed-head success;
+    // the predecessor's immutable verifier below still proves it is stopped.
+    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
     await verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot });
     const evidence = await readCutoverEvidence({ ...before.bootstrap.authority, rawSha256: before.bootstrap.authoritySha256 });
     if (before.records.length > 0) {
@@ -1012,7 +1017,7 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       now,
       allowTestRuntimeRoot,
     });
-    const after = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+    const after = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
     if (after.chainStateSha256 !== before.chainStateSha256 || after.head.bindingSha256 !== before.head.bindingSha256) {
       fail("rotation candidate 构建期间 effective head 发生变化；候选保留但不得生成计划");
     }
