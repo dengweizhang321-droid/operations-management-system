@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import tempfile
 from datetime import date, datetime, time
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.management import call_command
@@ -11,7 +15,7 @@ from django.test import TestCase
 from sales.models import ErpProductMaster, SalesImportBatch, SalesOrderLine
 from sales.tests.factories import TEST_SECRET, make_line, signed_headers
 from workflow.followup import claim_weekly_delivery, weekly_followup
-from workflow.management.commands.new_product_weekly_report import _assert_send_receipt, _due_now, _exact_identity
+from workflow.management.commands.new_product_weekly_report import _assert_send_receipt, _due_now, _exact_identity, _run_dws
 from workflow.models import NewProductLineCode, NewProductWeeklyReportConfig, WorkflowWriteAuthority
 from workflow.weekly_report_image import render_weekly_report_html
 
@@ -251,6 +255,30 @@ class NewProductWeeklyFollowupTests(TestCase):
         )
         self.assertEqual(identity, "robot-1")
         _assert_send_receipt({"ok": True, "result": {"success": True}})
+
+    def test_windows_dws_invocation_uses_node_without_a_command_shell(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            npm_root = Path(directory)
+            (npm_root / "node_modules" / "dingtalk-workspace-cli" / "bin").mkdir(parents=True)
+            launcher = npm_root / "dws.cmd"
+            node = npm_root / "node.exe"
+            cli = npm_root / "node_modules" / "dingtalk-workspace-cli" / "bin" / "dws.js"
+            launcher.write_text("", encoding="utf-8")
+            node.write_bytes(b"")
+            cli.write_text("", encoding="utf-8")
+            completed = subprocess.CompletedProcess([], 0, stdout=b'{"ok":true}', stderr=b"")
+            with patch.object(os, "name", "nt"), patch(
+                "workflow.management.commands.new_product_weekly_report.shutil.which",
+                side_effect=lambda name: str(launcher) if name == "dws.cmd" else None,
+            ), patch(
+                "workflow.management.commands.new_product_weekly_report.subprocess.run",
+                return_value=completed,
+            ) as run:
+                self.assertEqual(_run_dws(["chat", "search", "--query", "测试群聊"]), {"ok": True})
+            command = run.call_args.args[0]
+            self.assertEqual(command[:2], [str(node), str(cli)])
+            self.assertNotIn("cmd.exe", command)
+            self.assertEqual(command[-2:], ["--format", "json"])
 
     def test_management_command_reconciles_without_sending_by_default(self) -> None:
         self.create_line()

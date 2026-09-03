@@ -78,13 +78,28 @@ def _page_value(payload: object, field: str) -> object | None:
     return None
 
 
-def _run_dws(args: list[str], *, timeout: int = 30) -> object:
-    executable = shutil.which("dws.cmd" if os.name == "nt" else "dws")
-    if not executable:
+def _dws_command() -> list[str]:
+    if os.name != "nt":
+        executable = shutil.which("dws")
+        if not executable:
+            raise CommandError("钉钉 dws 命令不可用")
+        return [executable]
+    launcher = shutil.which("dws.cmd") or shutil.which("dws.ps1")
+    if not launcher:
         raise CommandError("钉钉 dws 命令不可用")
+    npm_root = Path(launcher).parent
+    cli = npm_root / "node_modules" / "dingtalk-workspace-cli" / "bin" / "dws.js"
+    bundled_node = npm_root / "node.exe"
+    node = str(bundled_node) if bundled_node.is_file() else shutil.which("node.exe")
+    if not node or not cli.is_file():
+        raise CommandError("钉钉 dws 命令不可用")
+    return [node, str(cli)]
+
+
+def _run_dws(args: list[str], *, timeout: int = 30) -> object:
     try:
         completed = subprocess.run(
-            [executable, *args, "--format", "json"],
+            [*_dws_command(), *args, "--format", "json"],
             capture_output=True,
             check=False,
             timeout=timeout,
