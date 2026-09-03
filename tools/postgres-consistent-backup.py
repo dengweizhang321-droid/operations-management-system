@@ -147,6 +147,10 @@ def collect_evidence(
             "workflow_new_product_targets",
             "workflow_new_product_stages",
             "workflow_new_product_activities",
+            "workflow_new_product_lines",
+            "workflow_new_product_line_codes",
+            "workflow_new_product_weekly_report_config",
+            "workflow_new_product_weekly_deliveries",
         }
         workflow_tables = {name for name in tables if name.startswith("workflow_")}
         if workflow_tables:

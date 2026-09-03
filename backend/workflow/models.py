@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import time
 
 from django.db import models
 from django.utils import timezone
@@ -183,4 +184,102 @@ class NewProductActivity(models.Model):
         db_table = "workflow_new_product_activities"
         indexes = [
             models.Index(fields=["project", "created_at"], name="workflow_np_activity_idx"),
+        ]
+
+
+class NewProductLine(models.Model):
+    """A user-named monitored product line backed by one or more Jackyun codes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=160)
+    match_terms = models.JSONField(default=list)
+    monitoring_start_date = models.DateField(db_index=True)
+    tracking_weeks = models.PositiveSmallIntegerField(default=8)
+    weekly_unit_target = models.PositiveBigIntegerField(null=True, blank=True)
+    weekly_sales_target_cents = models.PositiveBigIntegerField(null=True, blank=True)
+    active = models.BooleanField(default=True, db_index=True)
+    version = models.PositiveBigIntegerField(default=1)
+    created_by = models.CharField(max_length=320)
+    updated_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        db_table = "workflow_new_product_lines"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="workflow_npl_active_name_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["active", "monitoring_start_date"], name="workflow_npl_active_start_idx"),
+            models.Index(fields=["updated_at", "id"], name="workflow_npl_updated_idx"),
+        ]
+
+
+class NewProductLineCode(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product_line = models.ForeignKey(NewProductLine, on_delete=models.CASCADE, related_name="codes")
+    product_code = models.CharField(max_length=200, unique=True)
+    product_name = models.CharField(max_length=500)
+    source = models.CharField(max_length=16, default="manual")
+    source_batch_id = models.CharField(max_length=200, default="")
+    active = models.BooleanField(default=True, db_index=True)
+    added_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "workflow_new_product_line_codes"
+        indexes = [
+            models.Index(fields=["product_line", "active"], name="workflow_npl_code_line_idx"),
+            models.Index(fields=["source_batch_id"], name="workflow_npl_code_batch_idx"),
+        ]
+
+
+class NewProductWeeklyReportConfig(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    enabled = models.BooleanField(default=False)
+    target_group_name = models.CharField(max_length=200, default="测试群聊")
+    robot_name = models.CharField(max_length=160, default="志高助手")
+    send_weekday = models.PositiveSmallIntegerField(default=0)
+    send_local_time = models.TimeField(default=time(9, 30))
+    version = models.PositiveBigIntegerField(default=1)
+    updated_by = models.CharField(max_length=320, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "workflow_new_product_weekly_report_config"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(id=1), name="workflow_npl_report_singleton_ck"),
+            models.CheckConstraint(condition=models.Q(send_weekday__gte=0, send_weekday__lte=6), name="workflow_npl_weekday_ck"),
+        ]
+
+
+class NewProductWeeklyDelivery(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    week_start = models.DateField()
+    week_end = models.DateField()
+    target_group_name = models.CharField(max_length=200)
+    robot_name = models.CharField(max_length=160)
+    idempotency_key = models.CharField(max_length=64, unique=True)
+    report_sha256 = models.CharField(max_length=64)
+    data_cutoff_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=16, default="processing")
+    attempt_count = models.PositiveIntegerField(default=1)
+    provider_receipt = models.CharField(max_length=500, default="")
+    error_code = models.CharField(max_length=120, default="")
+    claimed_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "workflow_new_product_weekly_deliveries"
+        indexes = [
+            models.Index(fields=["week_start", "status"], name="workflow_npl_delivery_week_idx"),
+            models.Index(fields=["created_at"], name="workflow_npl_delivery_time_idx"),
         ]

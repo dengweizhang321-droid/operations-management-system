@@ -2,7 +2,7 @@
 param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
-    "EnableStartup", "DisableStartup"
+    "EnableStartup", "DisableStartup", "RunWeeklyReport", "DryRunWeeklyReport"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -144,6 +144,13 @@ reader_tables = (
     "workflow_new_product_targets",
     "workflow_new_product_stages",
     "workflow_new_product_activities",
+    "workflow_new_product_lines",
+    "workflow_new_product_line_codes",
+    "workflow_new_product_weekly_report_config",
+    "workflow_new_product_weekly_deliveries",
+    "sales_order_lines",
+    "sales_import_batches",
+    "erp_product_master",
 )
 writer_privileges = {
     "workflow_data_revisions": ("SELECT", "UPDATE"),
@@ -153,6 +160,13 @@ writer_privileges = {
     "workflow_new_product_targets": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "workflow_new_product_stages": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_activities": ("SELECT", "INSERT"),
+    "workflow_new_product_lines": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_line_codes": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_weekly_report_config": ("SELECT", "UPDATE"),
+    "workflow_new_product_weekly_deliveries": ("SELECT", "INSERT", "UPDATE"),
+    "sales_order_lines": ("SELECT",),
+    "sales_import_batches": ("SELECT",),
+    "erp_product_master": ("SELECT",),
 }
 
 connection = psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"])
@@ -488,6 +502,37 @@ function Disable-WorkflowStartup {
   Write-Output "Django 运营事务新品域已退出开机启动链；当前运行进程未改变。"
 }
 
+function Invoke-NewProductWeeklyReport([bool]$DryRun) {
+  Assert-WorkflowRuntimeEntry
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝执行新品销售周报" }
+  $runtimeSecrets = Read-Secrets
+  $workflowSecrets = Read-WorkflowCredentials
+  try {
+    $authority = Get-WorkflowWriteAuthority $runtimeSecrets $workflowSecrets
+    if ([string]$authority.status -cne "postgres") {
+      throw "PostgreSQL 尚未成为运营事务新品唯一写入源；拒绝执行新品销售周报"
+    }
+    $writerUrl = Database-Url `
+      "teruisi_workflow_writer" $workflowSecrets.WriterPassword `
+      "teruisi_new_product_weekly_report" $WriterStatementTimeoutMs
+    $arguments = @((Join-Path $BackendRoot "manage.py"), "new_product_weekly_report")
+    if ($DryRun) { $arguments += "--dry-run" } else { $arguments += "--send" }
+    $payload = Invoke-WithDjangoEnvironment `
+      $runtimeSecrets $writerUrl "workflow_writer" $false $WorkflowWriterMaxBodyBytes `
+      ([string]$authority.authorityEpoch) ([string]$authority.cutoverId) {
+        $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
+        return ConvertFrom-UniqueNativeJson $nativeRun "执行新品销售周报"
+      }
+    if ($RequestedJson) { Write-Output ($payload | ConvertTo-Json -Depth 8 -Compress) }
+    else { $payload | Format-List }
+  } finally {
+    $writerUrl = $null
+    $runtimeSecrets = $null
+    $workflowSecrets = $null
+  }
+}
+
 function Show-WorkflowStatus {
   $reader = "stopped"
   $writer = "stopped"
@@ -535,6 +580,8 @@ try {
     "Status" { Show-WorkflowStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-WorkflowStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-WorkflowStartup } }
+    "RunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $false } }
+    "DryRunWeeklyReport" { Invoke-WithServiceMutex { Invoke-NewProductWeeklyReport $true } }
   }
 } catch {
   Write-LauncherEvent "ERROR" "workflow_action_failed" $_.Exception.Message

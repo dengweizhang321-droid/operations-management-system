@@ -9,6 +9,7 @@ import {
   releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
 import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
+import { reconcileNewProductCodesAfterImport } from "@/lib/workflow/new-product-learning";
 import { importInventoryAgeToDjango } from "@/lib/inventory/django-age-import-service";
 import {
   assembleDjangoInventoryUpload,
@@ -140,13 +141,17 @@ export async function POST(request: Request) {
       }
       try {
         const assembled = await assembleInventoryUpload(uploadId);
-        const result = await importErpReferenceBytes({
+        const imported = await importErpReferenceBytes({
           source: body.source,
           bytes: assembled.bytes,
           fileName: assembled.session.fileName,
           fileSizeBytes: assembled.session.fileSizeBytes,
           snapshotDate: scope.snapshotDate || undefined,
         });
+        const productBatchId = (imported as { batch?: { id?: unknown } }).batch?.id;
+        const result = body.source === "products"
+          ? { ...imported, newProductLearning: await reconcileNewProductCodesAfterImport(principal, typeof productBatchId === "string" ? productBatchId : "", request.signal) }
+          : imported;
         await finishInventoryUpload(uploadId, assembled.objectKeys, result);
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {

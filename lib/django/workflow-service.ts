@@ -9,6 +9,10 @@ import { PublicApiError } from "@/lib/http/api-error";
 
 export const WORKFLOW_LAUNCH_PROJECTS_PATH = "/api/workflow/launch-projects";
 export const WORKFLOW_CONSUMER_QUERY_PATH = "/api/workflow/consumers/query";
+export const WORKFLOW_NEW_PRODUCT_LINES_PATH = "/api/workflow/new-product-lines";
+export const WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH = "/api/workflow/new-product-lines/learn";
+export const WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH = "/api/workflow/new-product-weekly-followup";
+export const WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH = "/api/workflow/new-product-weekly-report-config";
 
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -19,6 +23,7 @@ const DEFAULT_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const PROJECT_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STAGE_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/stages\/(?:modeling|pricing|image|video|listing|stocking|review)$/i;
+const PRODUCT_LINE_PATH_RE = /^\/api\/workflow\/new-product-lines\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -171,10 +176,15 @@ function validateRequest(input: WorkflowServiceRequest) {
   const consumer = input.path === WORKFLOW_CONSUMER_QUERY_PATH;
   const project = PROJECT_PATH_RE.test(input.path);
   const stage = STAGE_PATH_RE.test(input.path);
+  const productLines = input.path === WORKFLOW_NEW_PRODUCT_LINES_PATH;
+  const productLine = PRODUCT_LINE_PATH_RE.test(input.path);
+  const productLineLearning = input.path === WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH;
+  const weeklyFollowup = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH;
+  const weeklyReportConfig = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH;
   const allowed = input.service === "reader"
-    ? (input.method === "GET" && (collection || project)) || (input.method === "POST" && consumer)
-    : (input.method === "POST" && collection)
-      || (input.method === "PATCH" && (project || stage))
+    ? (input.method === "GET" && (collection || project || productLines || weeklyFollowup || weeklyReportConfig)) || (input.method === "POST" && consumer)
+    : (input.method === "POST" && (collection || productLines || productLineLearning))
+      || (input.method === "PATCH" && (project || stage || productLine || weeklyReportConfig))
       || (input.method === "DELETE" && project);
   if (!allowed) throw unavailable();
   if ((input.method === "POST" || input.method === "PATCH") !== (input.payload !== undefined)) throw unavailable();

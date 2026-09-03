@@ -1379,6 +1379,56 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
     height: 54px;
   }
 }
+
+/* New-product weekly sales follow-up. */
+.new-product-followup-view { display: grid; gap: 16px; }
+.launch-followup-hero { background: linear-gradient(132deg, #f2f7ff 0%, #fff 48%, #eef9f5 100%); }
+.launch-followup-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 14px 18px; }
+.launch-followup-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.launch-followup-controls input { min-width: 170px; }
+.launch-followup-controls > span { margin-left: auto; color: var(--muted); font-size: 13px; }
+.launch-followup-controls > strong { color: #a85a11; font-size: 13px; }
+.launch-followup-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.launch-followup-summary article { display: grid; gap: 7px; min-height: 118px; padding: 18px; }
+.launch-followup-summary span,.launch-followup-summary small { color: var(--muted); }
+.launch-followup-summary strong { font-size: clamp(24px, 3vw, 34px); letter-spacing: -.04em; }
+.launch-followup-table td > strong,.launch-followup-table td > small { display: block; }
+.launch-followup-table td > small { max-width: 220px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); white-space: nowrap; }
+.launch-followup-actions { display: flex; gap: 8px; }
+.followup-target_achieved { background: #e7f7ef; color: #17724a; }
+.followup-selling { background: #e8f1ff; color: #285ba5; }
+.followup-no_sales,.followup-stalled,.followup-missing_codes { background: #fff0df; color: #9b5617; }
+.followup-not_started,.followup-tracking_ended { background: #eef0f4; color: #646b78; }
+.launch-followup-code-detail { border-top: 1px solid var(--line); padding: 18px; }
+.launch-followup-code-detail h3 { margin: 0 0 12px; }
+.launch-followup-code-detail > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.launch-followup-code-detail article { display: grid; gap: 4px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fafbfe; }
+.launch-followup-code-detail article span,.launch-followup-code-detail article small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.launch-followup-code-detail article small { color: var(--muted); }
+.launch-followup-bottom { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .7fr); gap: 16px; }
+.launch-followup-message,.launch-followup-config { padding: 18px; }
+.launch-followup-message > header,.launch-followup-config > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.launch-followup-message h3,.launch-followup-config h3 { margin: 0; }
+.launch-followup-message header p,.launch-followup-config header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.launch-followup-message pre { max-height: 430px; margin: 0; overflow: auto; padding: 16px; border-radius: 12px; background: #111827; color: #e9f0fb; font: 13px/1.75 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+.launch-followup-config { display: grid; align-content: start; gap: 12px; }
+.launch-followup-config label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.launch-followup-config > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.launch-followup-config .workflow-checkbox-field,.new-product-line-modal .workflow-checkbox-field { display: flex; align-items: center; grid-column: 1 / -1; }
+.new-product-line-modal .new-product-line-codes { grid-column: 1 / -1; }
+.new-product-line-modal .new-product-line-codes small { color: var(--muted); }
+
+@media (max-width: 1100px) {
+  .launch-followup-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .launch-followup-bottom { grid-template-columns: 1fr; }
+  .launch-followup-code-detail > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .launch-followup-summary,.launch-followup-code-detail > div { grid-template-columns: 1fr; }
+  .launch-followup-controls > span { margin-left: 0; width: 100%; }
+  .launch-followup-config > div { grid-template-columns: 1fr; }
+}
 @media(max-width:900px) {
   .annotation-task-setup,
   .annotation-current-run {

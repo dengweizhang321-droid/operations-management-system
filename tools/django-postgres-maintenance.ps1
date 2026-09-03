@@ -343,7 +343,9 @@ function Assert-MaintenanceEvidence(
     $requiredTables += @(
       "workflow_data_revisions", "workflow_write_authority",
       "workflow_new_product_projects", "workflow_new_product_targets",
-      "workflow_new_product_stages", "workflow_new_product_activities"
+      "workflow_new_product_stages", "workflow_new_product_activities",
+      "workflow_new_product_lines", "workflow_new_product_line_codes",
+      "workflow_new_product_weekly_report_config", "workflow_new_product_weekly_deliveries"
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)

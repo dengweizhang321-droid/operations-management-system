@@ -18,6 +18,7 @@ import {
   createDjangoInventoryService,
   INVENTORY_IMPORTS_PATH,
 } from "@/lib/django/inventory-service";
+import { reconcileNewProductCodesAfterImport } from "@/lib/workflow/new-product-learning";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -169,7 +170,11 @@ export async function POST(request: Request) {
           fileSizeBytes: entry.size,
           snapshotDate,
         });
-    return Response.json(payload, { status: importExecutionHttpStatus(payload), headers: { "cache-control": "no-store" } });
+    const productBatchId = (payload as { batch?: { id?: unknown } }).batch?.id;
+    const responsePayload = source === "products"
+      ? { ...payload, newProductLearning: await reconcileNewProductCodesAfterImport(principal, typeof productBatchId === "string" ? productBatchId : "", request.signal) }
+      : payload;
+    return Response.json(responsePayload, { status: importExecutionHttpStatus(payload), headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

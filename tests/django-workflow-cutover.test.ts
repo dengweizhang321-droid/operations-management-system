@@ -14,6 +14,10 @@ const writerFence = readFileSync(
   new URL("../backend/workflow/write_requests.py", import.meta.url),
   "utf8",
 );
+const weeklyWorkflow = JSON.parse(readFileSync(
+  new URL("../automation/n8n/new-product-weekly-dingtalk.workflow.json", import.meta.url),
+  "utf8",
+)) as { active: boolean; nodes: Array<{ type: string; parameters?: { command?: string } }> };
 
 
 test("workflow runtime has isolated ports, roles, authority and a strict DML allowlist", () => {
@@ -28,7 +32,11 @@ test("workflow runtime has isolated ports, roles, authority and a strict DML all
   assert.match(service, /"workflow_write_authority": \("SELECT",\)/);
   assert.match(writerFence, /WorkflowWriteAuthority\.objects\.get\(id=1\)/);
   assert.doesNotMatch(writerFence, /WorkflowWriteAuthority\.objects\.select_for_update/);
-  assert.doesNotMatch(service, /product_shipping_rates|sales_order_lines|erp_product_master/);
+  assert.doesNotMatch(service, /product_shipping_rates/);
+  assert.match(service, /"sales_order_lines": \("SELECT",\)/);
+  assert.match(service, /"sales_import_batches": \("SELECT",\)/);
+  assert.match(service, /"erp_product_master": \("SELECT",\)/);
+  assert.doesNotMatch(service, /"(?:sales_order_lines|sales_import_batches|erp_product_master)": \([^\n]*(?:INSERT|UPDATE|DELETE|TRUNCATE)/);
   assert.match(service, /\^workflow-\[0-9a-f\]\{32\}\$/);
 });
 
@@ -51,6 +59,16 @@ test("base runtime deploy, environment isolation and startup chain include workf
   assert.match(base, /WorkflowStartupEnabledPath/);
   assert.match(base, /Get-PortListeners 8061/);
   assert.match(base, /Get-PortListeners 8062/);
+});
+
+test("new-product weekly DingTalk scheduler is inactive and uses the protected local-time gate", () => {
+  assert.equal(weeklyWorkflow.active, false);
+  assert.ok(weeklyWorkflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"));
+  const command = weeklyWorkflow.nodes.find((node) => node.type === "n8n-nodes-base.executeCommand")?.parameters?.command ?? "";
+  assert.match(command, /django-workflow-service\.ps1/);
+  assert.match(command, /-Action RunWeeklyReport/);
+  assert.match(service, /"RunWeeklyReport"/);
+  assert.match(service, /new_product_weekly_report/);
 });
 
 test("terminal workflow retirement is stopped, evidence-bound and Django-only", () => {

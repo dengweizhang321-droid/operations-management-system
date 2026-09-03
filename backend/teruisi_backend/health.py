@@ -482,6 +482,30 @@ REQUIRED_WORKFLOW_COLUMNS = {
         "id", "project_id", "action", "actor_email", "actor_role", "from_version",
         "to_version", "stage_key", "changed_fields", "created_at",
     },
+    "workflow_new_product_lines": {
+        "id", "name", "match_terms", "monitoring_start_date", "tracking_weeks",
+        "weekly_unit_target", "weekly_sales_target_cents", "active", "version",
+        "created_at", "updated_at", "deleted_at",
+    },
+    "workflow_new_product_line_codes": {
+        "id", "product_line_id", "product_code", "product_name", "source",
+        "source_batch_id", "active", "created_at", "updated_at",
+    },
+    "workflow_new_product_weekly_report_config": {
+        "id", "enabled", "target_group_name", "robot_name", "send_weekday",
+        "send_local_time", "version", "updated_at",
+    },
+    "workflow_new_product_weekly_deliveries": {
+        "id", "week_start", "week_end", "target_group_name", "robot_name",
+        "idempotency_key", "report_sha256", "data_cutoff_date", "status",
+        "attempt_count", "provider_receipt", "error_code", "created_at", "updated_at",
+    },
+    "sales_order_lines": {
+        "product_code", "business_date", "quantity", "allocated_amount_cents",
+        "gross_profit_cents", "is_business_row", "is_net_sales_row", "is_net_quantity_row",
+    },
+    "sales_import_batches": {"id", "status", "file_name", "completed_at"},
+    "erp_product_master": {"product_code", "product_name", "last_import_batch_id"},
 }
 REQUIRED_WORKFLOW_WRITER_COLUMNS = {
     **REQUIRED_WORKFLOW_COLUMNS,
@@ -493,6 +517,8 @@ REQUIRED_WORKFLOW_WRITER_COLUMNS = {
 REQUIRED_WORKFLOW_INDEXES = {
     "workflow_np_status_due_idx", "workflow_np_supplier_idx", "workflow_np_updated_idx",
     "workflow_np_target_shop_idx", "workflow_np_stage_state_idx", "workflow_np_activity_idx",
+    "workflow_npl_active_start_idx", "workflow_npl_updated_idx", "workflow_npl_code_line_idx",
+    "workflow_npl_active_name_uq", "workflow_npl_code_batch_idx", "workflow_npl_delivery_week_idx", "workflow_npl_delivery_time_idx",
 }
 WORKFLOW_WRITER_TABLE_PRIVILEGES = {
     "workflow_data_revisions": ("SELECT", "UPDATE"),
@@ -502,6 +528,13 @@ WORKFLOW_WRITER_TABLE_PRIVILEGES = {
     "workflow_new_product_targets": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "workflow_new_product_stages": ("SELECT", "INSERT", "UPDATE"),
     "workflow_new_product_activities": ("SELECT", "INSERT"),
+    "workflow_new_product_lines": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_line_codes": ("SELECT", "INSERT", "UPDATE"),
+    "workflow_new_product_weekly_report_config": ("SELECT", "UPDATE"),
+    "workflow_new_product_weekly_deliveries": ("SELECT", "INSERT", "UPDATE"),
+    "sales_order_lines": ("SELECT",),
+    "sales_import_batches": ("SELECT",),
+    "erp_product_master": ("SELECT",),
 }
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
@@ -1229,6 +1262,8 @@ def _validate_workflow_schema(cursor, *, writer: bool) -> None:
     for table in (
         "workflow_new_product_projects", "workflow_new_product_targets",
         "workflow_new_product_stages", "workflow_new_product_activities",
+        "workflow_new_product_lines", "workflow_new_product_line_codes",
+        "workflow_new_product_weekly_deliveries",
     ):
         constraints = connection.introspection.get_constraints(cursor, table)
         present_indexes.update(name for name, value in constraints.items() if value.get("index"))

@@ -14,6 +14,15 @@ from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 
 from .errors import WorkflowApiError
 from .consumers import execute_consumer_query, validate_consumer_request
+from .followup import (
+    create_product_line,
+    get_report_config,
+    learn_product_line_codes,
+    list_product_lines,
+    update_product_line,
+    update_report_config,
+    weekly_followup,
+)
 from .new_products import (
     DERIVED_STATUSES,
     PROJECT_LIFECYCLE_STATUSES,
@@ -254,6 +263,85 @@ def launch_project_stage(request: HttpRequest, project_id: object, stage_key: st
         )
     except Exception as error:
         return _error(error, "新品阶段更新失败")
+
+
+@require_http_methods(["GET", "POST"])
+def new_product_lines(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "GET":
+            _principal(request, {"viewer", "analyst", "operator", "admin"})
+            _unknown(request, set(), "新品产品线列表")
+            payload, revision = _consistent_read(list_product_lines)
+            return _json(payload, revision=revision)
+        principal = _principal(request, {"operator", "admin"})
+        payload = _body(request)
+        return _replay_write(request, principal, lambda: ({"item": create_product_line(payload, principal)}, 201))
+    except Exception as error:
+        return _error(error, "新品产品线处理失败")
+
+
+@require_http_methods(["PATCH"])
+def new_product_line(request: HttpRequest, line_id: object) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        payload = _body(request)
+        return _replay_write(
+            request,
+            principal,
+            lambda: ({"item": update_product_line(line_id, payload, principal)}, 200),
+        )
+    except Exception as error:
+        return _error(error, "新品产品线更新失败")
+
+
+@require_POST
+def new_product_line_learning(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        payload = _body(request)
+        if not isinstance(payload, dict) or not set(payload).issubset({"expectedSourceBatchId"}):
+            raise WorkflowApiError("新品代码学习参数无效")
+        expected_batch = payload.get("expectedSourceBatchId", "")
+        if not isinstance(expected_batch, str) or len(expected_batch) > 200 or any(ord(character) < 32 for character in expected_batch):
+            raise WorkflowApiError("吉客云货品主数据批次无效")
+        return _replay_write(
+            request,
+            principal,
+            lambda: ({"result": learn_product_line_codes(principal, expected_source_batch_id=expected_batch.strip())}, 200),
+        )
+    except Exception as error:
+        return _error(error, "新品代码学习失败")
+
+
+@require_http_methods(["GET"])
+def new_product_weekly_followup(request: HttpRequest) -> JsonResponse:
+    try:
+        _principal(request, {"viewer", "analyst", "operator", "admin"})
+        _unknown(request, {"weekStart"}, "新品销售周报")
+        week_start = _date(_one(request, "weekStart"), "周起始日期")
+        payload, revision = _consistent_read(lambda: weekly_followup(week_start=week_start))
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "新品销售周报读取失败")
+
+
+@require_http_methods(["GET", "PATCH"])
+def new_product_weekly_report_config(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "GET":
+            _principal(request, {"viewer", "analyst", "operator", "admin"})
+            _unknown(request, set(), "新品周报配置")
+            payload, revision = _consistent_read(get_report_config)
+            return _json({"config": payload}, revision=revision)
+        principal = _principal(request, {"operator", "admin"})
+        payload = _body(request)
+        return _replay_write(
+            request,
+            principal,
+            lambda: ({"config": update_report_config(payload, principal)}, 200),
+        )
+    except Exception as error:
+        return _error(error, "新品周报配置处理失败")
 
 
 @require_POST

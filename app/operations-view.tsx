@@ -5,11 +5,12 @@ import { requestJson } from "@/lib/http/api-client";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import Dialog from "./ui/dialog";
 import NewProductLaunchView from "./new-product-launch-view";
+import NewProductSalesFollowupView from "./new-product-sales-followup-view";
 
 type Role = "viewer" | "analyst" | "operator" | "admin";
 type Status = "待开始" | "工作中" | "已完成";
 type Priority = "high" | "normal" | "low";
-type OperationsTab = "plan" | "inspection" | "reviews" | "launch" | "variables";
+type OperationsTab = "plan" | "inspection" | "reviews" | "launch" | "launch-followup" | "variables";
 type RecordType = "inspection" | "review";
 
 type Task = {
@@ -1018,7 +1019,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     }
   };
 
-  const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">{([["plan", "工作计划"], ["inspection", "巡店检查"], ["reviews", "评价维护"], ["launch", "新品上架"], ["variables", "变量配置"]] as Array<[OperationsTab, string]>).map(([value, label]) => <button
+  const subnav = <div className="subnav workflow-subnav" role="tablist" aria-label="运营事务子版块">{([["plan", "工作计划"], ["inspection", "巡店检查"], ["reviews", "评价维护"], ["launch", "新品上架"], ["launch-followup", "上新跟进"], ["variables", "变量配置"]] as Array<[OperationsTab, string]>).map(([value, label]) => <button
     type="button"
     role="tab"
     id={`operations-tab-${value}`}
@@ -1037,6 +1038,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   >{label}</button>)}</div>;
   if (activeTab === "inspection" || activeTab === "reviews") return <>{subnav}<div role="tabpanel" id={`operations-panel-${activeTab}`} aria-labelledby={`operations-tab-${activeTab}`}><OperationsRecordWorkspace key={activeTab} type={activeTab === "reviews" ? "review" : activeTab} canWrite={canWrite} /></div></>;
   if (activeTab === "launch") return <>{subnav}<div role="tabpanel" id="operations-panel-launch" aria-labelledby="operations-tab-launch"><NewProductLaunchView canWrite={canWrite} /></div></>;
+  if (activeTab === "launch-followup") return <>{subnav}<div role="tabpanel" id="operations-panel-launch-followup" aria-labelledby="operations-tab-launch-followup"><NewProductSalesFollowupView canWrite={canWrite} /></div></>;
   if (activeTab === "variables") return <>{subnav}<div role="tabpanel" id="operations-panel-variables" aria-labelledby="operations-tab-variables"><TemplateWorkspace templates={templates} loading={templatesLoading} error={templatesError} canWrite={canWrite} onReload={() => void loadTemplates()} onUse={useTemplate} /></div></>;
 
   const listTitle = statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";

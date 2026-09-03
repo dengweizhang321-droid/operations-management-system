@@ -30,6 +30,10 @@ PostgreSQL 表包括：
 - `workflow_new_product_targets`
 - `workflow_new_product_stages`
 - `workflow_new_product_activities`
+- `workflow_new_product_lines`
+- `workflow_new_product_line_codes`
+- `workflow_new_product_weekly_report_config`
+- `workflow_new_product_weekly_deliveries`
 - `workflow_data_revisions`
 - `workflow_write_authority`
 - `workflow_write_request_receipts`
@@ -45,6 +49,11 @@ reader 接受 `viewer/analyst/operator/admin`，但同样要求无数据范围�
 - `GET/POST /api/workflow/launch-projects`
 - `GET/PATCH/DELETE /api/workflow/launch-projects/{projectId}`
 - `PATCH /api/workflow/launch-projects/{projectId}/stages/{stageKey}`
+- `GET/POST /api/workflow/new-product-lines`
+- `PATCH /api/workflow/new-product-lines/{lineId}`
+- `POST /api/workflow/new-product-lines/learn`
+- `GET /api/workflow/new-product-weekly-followup`
+- `GET/PATCH /api/workflow/new-product-weekly-report-config`
 
 内部 Django reader 只允许列表、详情和 `POST /api/workflow/consumers/query`；内部 writer 只允许项目与阶段写接口。reader/writer URL 必须是经批准的两个不同回环端点，不能复用其他业务域的端口、凭据或数据库角色。需要的 Worker 配置为：
 
