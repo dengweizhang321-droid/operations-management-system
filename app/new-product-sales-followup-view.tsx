@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
 
@@ -81,24 +82,6 @@ type FollowupReport = {
   items: FollowupItem[];
 };
 
-type ReportConfig = {
-  enabled: boolean;
-  connectionMode: "dws_stream";
-  credentialsManagedExternally: boolean;
-  deliveryMode: "png_drive_preview_by_bot";
-  targetGroupName: string;
-  robotName: string;
-  sendWeekday: number;
-  sendLocalTime: string;
-  version: number;
-  lastDelivery: null | {
-    weekStart: string;
-    weekEnd: string;
-    status: string;
-    deliveredAt: string | null;
-  };
-};
-
 type LineDraft = {
   name: string;
   matchTerms: string;
@@ -120,7 +103,6 @@ const EMPTY_DRAFT: LineDraft = {
   active: true,
   productCodes: "",
 };
-const WEEKDAYS = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"];
 const REPORT_TIMELINE_START = "2026-08-03";
 
 function messageOf(reason: unknown, fallback: string) {
@@ -264,7 +246,6 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
 export default function NewProductSalesFollowupView({ canWrite }: { canWrite: boolean }) {
   const [lines, setLines] = useState<ProductLine[]>([]);
   const [report, setReport] = useState<FollowupReport | null>(null);
-  const [config, setConfig] = useState<ReportConfig | null>(null);
   const [weekStart, setWeekStart] = useState(previousMonday);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -273,20 +254,16 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   const [feedback, setFeedback] = useState("");
   const [editor, setEditor] = useState<ProductLine | "create" | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [configDraft, setConfigDraft] = useState<ReportConfig | null>(null);
 
   const load = useCallback(async (targetWeek = weekStart) => {
     setLoading(true); setError("");
     try {
-      const [linePayload, reportPayload, configPayload] = await Promise.all([
+      const [linePayload, reportPayload] = await Promise.all([
         requestJson<{ items: ProductLine[] }>("/api/workflow/new-product-lines"),
         requestJson<FollowupReport>(`/api/workflow/new-product-weekly-followup?weekStart=${encodeURIComponent(targetWeek)}`),
-        requestJson<{ config: ReportConfig }>("/api/workflow/new-product-weekly-report-config"),
       ]);
       setLines(linePayload.items);
       setReport(reportPayload);
-      setConfig(configPayload.config);
-      setConfigDraft(configPayload.config);
     } catch (reason) { setError(messageOf(reason, "新品销售跟进读取失败。")); }
     finally { setLoading(false); }
   }, [weekStart]);
@@ -335,27 +312,6 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     } finally { setSaving(false); }
   };
 
-  const saveConfig = async () => {
-    if (!canWrite || !configDraft || !config || saving) return;
-    setSaving(true); setFeedback("");
-    try {
-      const result = await requestJson<{ config: ReportConfig }>("/api/workflow/new-product-weekly-report-config", {
-        method: "PATCH",
-        body: {
-          enabled: configDraft.enabled,
-          targetGroupName: configDraft.targetGroupName,
-          robotName: configDraft.robotName,
-          sendWeekday: configDraft.sendWeekday,
-          sendLocalTime: configDraft.sendLocalTime,
-          expectedVersion: config.version,
-        },
-      });
-      setConfig(result.config); setConfigDraft(result.config);
-      setFeedback(result.config.enabled ? "新品钉钉周报配置已启用；发送任务按本机时间执行。" : "新品钉钉周报配置已保存并保持停用。");
-    } catch (reason) { setFeedback(messageOf(reason, "新品周报配置保存失败。")); }
-    finally { setSaving(false); }
-  };
-
   const downloadReportImage = async () => {
     if (!report) return;
     setFeedback("");
@@ -377,8 +333,7 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
       <section className="panel"><div className="data-table-wrap"><table className="data-table launch-followup-table"><thead><tr><th>产品线</th><th>吉客云代码</th><th>状态</th><th>本周销量</th><th>本周净销售额</th><th>销售额环比</th><th>毛利</th><th>上新累计</th><th>操作</th></tr></thead><tbody>{lines.map((line) => { const item = currentByLine.get(line.id); return <tr key={line.id}><td><strong>{line.name}</strong><small>{line.monitoringStartDate} 起 · {line.trackingWeeks} 周</small></td><td><strong>{line.codes.filter((code) => code.active).length}</strong><small>{line.codes.filter((code) => code.active).slice(0, 2).map((code) => code.productCode).join("、") || "待补充"}</small></td><td>{item ? <span className={`status followup-${item.status}`}>{statusLabel(item.status)}</span> : "—"}</td><td><strong>{item?.current.netQuantity.toLocaleString("zh-CN") ?? "—"}</strong><small>上周 {item?.previous.netQuantity.toLocaleString("zh-CN") ?? "—"}</small></td><td><strong>{item ? money(item.current.netSalesCents) : "—"}</strong><small>退款 {item ? money(item.current.refundAmountCents) : "—"}</small></td><td className={item?.salesWeekOverWeekRate !== null && Number(item?.salesWeekOverWeekRate) < 0 ? "red-text" : "green-text"}>{rate(item?.salesWeekOverWeekRate ?? null)}</td><td><strong>{item ? money(item.current.grossProfitCents) : "—"}</strong><small>{item?.current.grossMarginRate === null || item?.current.grossMarginRate === undefined ? "—" : `${(item.current.grossMarginRate * 100).toFixed(1)}%`}</small></td><td><strong>{item ? money(item.cumulative.netSalesCents) : "—"}</strong><small>{item?.cumulative.netQuantity.toLocaleString("zh-CN") ?? "—"} 件</small></td><td><div className="launch-followup-actions"><button type="button" className="row-action" onClick={() => setExpanded(expanded === line.id ? null : line.id)}>{expanded === line.id ? "收起代码" : "查看代码"}</button><button type="button" className="row-action" disabled={!canWrite} onClick={() => setEditor(line)}>编辑</button></div></td></tr>; })}{lines.length === 0 && <tr><td colSpan={9}><div className="table-state">尚未建立新品产品线，请先添加产品线名称和吉客云代码。</div></td></tr>}</tbody></table></div>
       {expanded && currentByLine.get(expanded) && <div className="launch-followup-code-detail"><h3>{currentByLine.get(expanded)?.name} · 吉客云代码明细</h3><div>{currentByLine.get(expanded)?.codes.map((code) => <article key={code.productCode}><strong>{code.productCode}</strong><span>{code.productName}</span><small>{code.source === "learned" ? "自动学习" : "手工添加"} · 本周 {code.current.netQuantity} 件 / {money(code.current.netSalesCents)}</small></article>)}</div></div>}
       </section>
-      <section className="panel launch-followup-matrix"><header><div><span className="eyebrow">DINGTALK IMAGE PREVIEW</span><h3>钉钉周报 PNG 图片预览</h3><p>发送内容按参考图整理为“品牌 / 产品名称 / 趋势 / 连续周销量”表格，周列从 8 月 3 日所在周开始累积。</p></div><div><span>{report.weekStart} 至 {report.weekEnd}</span><button type="button" className="secondary-button" onClick={() => void downloadReportImage()}>下载 PNG</button></div></header><div className="launch-followup-matrix-scroll"><table className="launch-followup-matrix-table"><thead><tr><th>品牌</th><th>产品名称</th><th>趋势</th>{report.weeks.map((week) => <th key={week.weekStart}><strong>{week.label}</strong><span>({week.dateRange})</span>{!week.dataComplete && <small>数据未完整</small>}</th>)}</tr></thead><tbody>{report.items.map((item, index) => <tr key={item.id} className={index % 2 === 0 ? "alternate" : ""}><td>{item.brand}</td><td>{item.name}</td><td><Trend values={item.weeklyNetQuantities} /></td>{item.weeklyNetQuantities.map((value, weekIndex) => <td key={report.weeks[weekIndex]?.weekStart ?? weekIndex}>{value.toLocaleString("zh-CN")}</td>)}</tr>)}{report.items.length === 0 && <tr><td colSpan={3 + report.weeks.length}>尚未建立新品产品线</td></tr>}</tbody></table></div><footer><span>口径：吉客云货品代码净销量</span><span>销售数据截至：{report.dataCutoffDate ?? "暂无"}</span></footer></section>
-      <section className="panel launch-followup-config launch-followup-robot"><header><div><span className="eyebrow">DINGTALK ROBOT</span><h3>钉钉机器人</h3><p>机器人凭据由本机 DWS 安全凭据库托管，AppSecret 不写入业务数据库。</p></div><span>{configDraft?.enabled ? "已启用" : "未启用"}</span></header>{configDraft && <><div className="launch-followup-robot-grid"><label><span>接入模式</span><input readOnly value={configDraft.connectionMode === "dws_stream" ? "Stream 模式（DWS 授权连接）" : configDraft.connectionMode} /></label><label><span>机器人名称</span><input readOnly value={configDraft.robotName} /></label><label><span>指定群名称</span><input readOnly value={configDraft.targetGroupName} /></label><label><span>图片投递方式</span><input readOnly value={configDraft.deliveryMode === "png_drive_preview_by_bot" ? "PNG 上传钉盘 + 机器人在线预览链接" : configDraft.deliveryMode} /></label></div><div className="launch-followup-robot-notice"><strong>安全发送门禁</strong><span>每次发送前动态唯一核验“志高助手”和“测试群聊”、确认机器人已入群，并用数据库投递账本阻止同一报告周重复发送。</span></div><div className="launch-followup-schedule"><label><span>发送日</span><select value={configDraft.sendWeekday} onChange={(event) => setConfigDraft({ ...configDraft, sendWeekday: Number(event.target.value) })}>{WEEKDAYS.map((label, index) => <option key={label} value={index}>{label}</option>)}</select></label><label><span>本机时间</span><input type="time" value={configDraft.sendLocalTime} onChange={(event) => setConfigDraft({ ...configDraft, sendLocalTime: event.target.value })} /></label><label className="workflow-checkbox-field"><input type="checkbox" checked={configDraft.enabled} onChange={(event) => setConfigDraft({ ...configDraft, enabled: event.target.checked })} /><span>启用每周钉钉图片周报</span></label></div>{configDraft.lastDelivery && <small>最近投递：{configDraft.lastDelivery.weekStart} 至 {configDraft.lastDelivery.weekEnd} · {configDraft.lastDelivery.status}{configDraft.lastDelivery.deliveredAt ? ` · ${new Date(configDraft.lastDelivery.deliveredAt).toLocaleString("zh-CN")}` : ""}</small>}<div className="launch-followup-robot-actions"><span>保存只更新调度；不会立即发送消息。</span><button type="button" className="primary-button" disabled={!canWrite || saving} onClick={() => void saveConfig()}>{saving ? "保存中…" : "保存机器人配置"}</button></div></>}</section>
+      <section className="panel launch-followup-matrix"><header><div><span className="eyebrow">DINGTALK IMAGE PREVIEW</span><h3>钉钉周报 PNG 图片预览</h3><p>发送内容按参考图整理为“品牌 / 产品名称 / 趋势 / 连续周销量”表格，周列从 8 月 3 日所在周开始累积。</p></div><div><span>{report.weekStart} 至 {report.weekEnd}</span><Link className="secondary-button" href="/?module=settings&view=dingtalk">钉钉机器人设置</Link><button type="button" className="secondary-button" onClick={() => void downloadReportImage()}>下载 PNG</button></div></header><div className="launch-followup-matrix-scroll"><table className="launch-followup-matrix-table"><thead><tr><th>品牌</th><th>产品名称</th><th>趋势</th>{report.weeks.map((week) => <th key={week.weekStart}><strong>{week.label}</strong><span>({week.dateRange})</span>{!week.dataComplete && <small>数据未完整</small>}</th>)}</tr></thead><tbody>{report.items.map((item, index) => <tr key={item.id} className={index % 2 === 0 ? "alternate" : ""}><td>{item.brand}</td><td>{item.name}</td><td><Trend values={item.weeklyNetQuantities} /></td>{item.weeklyNetQuantities.map((value, weekIndex) => <td key={report.weeks[weekIndex]?.weekStart ?? weekIndex}>{value.toLocaleString("zh-CN")}</td>)}</tr>)}{report.items.length === 0 && <tr><td colSpan={3 + report.weeks.length}>尚未建立新品产品线</td></tr>}</tbody></table></div><footer><span>口径：吉客云货品代码净销量</span><span>销售数据截至：{report.dataCutoffDate ?? "暂无"}</span></footer></section>
     </>}
     {editor && <ProductLineEditor key={editor === "create" ? "create" : `${editor.id}-${editor.version}`} line={editor === "create" ? null : editor} saving={saving} onClose={() => setEditor(null)} onSave={saveLine} />}
   </div>;

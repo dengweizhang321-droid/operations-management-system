@@ -36,7 +36,7 @@ const expectedViews = {
   product: { defaultView: "overview", views: ["overview", "calculator"] },
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "continuity"] },
-  settings: { defaultView: "parameters", views: ["parameters", "master", "permissions"] },
+  settings: { defaultView: "parameters", views: ["parameters", "master", "dingtalk", "permissions"] },
   ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management"] },
 } as const;
 

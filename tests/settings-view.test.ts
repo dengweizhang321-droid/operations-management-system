@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import {
   canEditOperatingSettings,
+  canEditDingTalkSettings,
   nextMarketSettingsPane,
   nextSettingsTab,
   marketStatusMatchesCurrentRequest,
@@ -16,11 +17,19 @@ test("settings tabs implement deterministic automatic-activation roving", () => 
   assert.equal(nextSettingsTab("parameters", "ArrowRight"), "master");
   assert.equal(nextSettingsTab("parameters", "ArrowLeft"), "permissions");
   assert.equal(nextSettingsTab("permissions", "ArrowRight"), "parameters");
-  assert.equal(nextSettingsTab("master", "ArrowDown"), "permissions");
+  assert.equal(nextSettingsTab("master", "ArrowDown"), "dingtalk");
   assert.equal(nextSettingsTab("master", "ArrowUp"), "parameters");
   assert.equal(nextSettingsTab("master", "Home"), "parameters");
   assert.equal(nextSettingsTab("master", "End"), "permissions");
   assert.equal(nextSettingsTab("master", "Enter"), null);
+});
+
+test("DingTalk robot settings allow operators and administrators to manage delivery", () => {
+  assert.equal(canEditDingTalkSettings({ role: "admin" }), true);
+  assert.equal(canEditDingTalkSettings({ role: "operator" }), true);
+  assert.equal(canEditDingTalkSettings({ role: "analyst" }), false);
+  assert.equal(canEditDingTalkSettings({ role: "viewer" }), false);
+  assert.equal(canEditDingTalkSettings(null), false);
 });
 
 test("market settings panes implement deterministic automatic-activation roving", () => {
@@ -116,6 +125,7 @@ test("settings tab and panel semantics are linked and keyboard operable", async 
   assert.match(settings, /role="tabpanel"/);
   assert.match(settings, /aria-labelledby="settings-tab-parameters"/);
   assert.match(settings, /aria-labelledby="settings-tab-master"/);
+  assert.match(settings, /aria-labelledby="settings-tab-dingtalk"/);
   assert.match(settings, /aria-labelledby="settings-tab-permissions"/);
   assert.match(settings, /role="tablist" aria-label="主数据与映射工作区"/);
   assert.match(settings, /aria-selected=\{marketPane === pane\}/);
@@ -127,6 +137,27 @@ test("settings tab and panel semantics are linked and keyboard operable", async 
   assert.match(settings, /aria-labelledby="settings-master-tab-annotation"/);
   assert.match(settings, /role="switch"/);
   assert.match(settings, /aria-checked=\{settings\[key\]\}/);
+});
+
+test("DingTalk robot is a dedicated system settings workspace", async () => {
+  const [settings, robot, followup, navigation] = await Promise.all([
+    source("../app/settings-view.tsx"),
+    source("../app/dingtalk-robot-settings.tsx"),
+    source("../app/new-product-sales-followup-view.tsx"),
+    source("../app/shell/navigation-catalog.ts"),
+  ]);
+  assert.match(navigation, /settings: \{ defaultView: "parameters", views: \["parameters", "master", "dingtalk", "permissions"\] \}/);
+  assert.match(settings, /dingtalk: "钉钉机器人"/);
+  assert.match(settings, /<LazyDingTalkRobotSettings canWrite=\{canEditDingTalk\}/);
+  for (const label of ["钉钉机器人", "Stream 模式", "机器人名称", "目标群名称", "图片投递方式", "保存机器人配置"]) {
+    assert.match(robot, new RegExp(label));
+  }
+  assert.match(robot, /new-product-weekly-report-config/);
+  assert.match(robot, /本机 DWS 安全凭据库/);
+  assert.match(robot, /安全边界固定为唯一企业机器人“志高助手”/);
+  assert.match(robot, /安全边界固定为唯一群聊“测试群聊”/);
+  assert.match(followup, /\?module=settings&view=dingtalk/);
+  assert.doesNotMatch(followup, /const saveConfig/);
 });
 
 test("page lazy-loads the extracted settings implementation", async () => {

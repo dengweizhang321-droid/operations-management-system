@@ -1451,6 +1451,16 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .launch-followup-robot > small { display: block; margin-top: 12px; color: var(--muted); }
 .launch-followup-robot-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 16px; }
 .launch-followup-robot-actions span { margin-right: auto; color: var(--muted); font-size: 12px; }
+.dingtalk-settings-workspace { display: grid; gap: 16px; }
+.dingtalk-settings-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 22px; background: linear-gradient(135deg, #fff, #f1f6ff); }
+.dingtalk-settings-intro h2 { margin: 4px 0 7px; }
+.dingtalk-settings-intro p { max-width: 840px; margin: 0; color: var(--muted); line-height: 1.65; }
+.dingtalk-settings-guide { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 18px; padding: 18px 20px; border-color: #b8d5ff; background: #eef6ff; color: #315272; }
+.dingtalk-settings-guide ol { display: grid; gap: 7px; margin: 0; padding-left: 20px; }
+.dingtalk-settings-form { margin: 0; }
+.dingtalk-settings-delivery { grid-column: 1 / -1; }
+.dingtalk-settings-form .launch-followup-robot-grid small,.dingtalk-settings-delivery small { color: var(--muted); font-weight: 400; }
+.launch-followup-robot-actions a.secondary-button { text-decoration: none; }
 .new-product-line-modal .new-product-line-codes { grid-column: 1 / -1; }
 .new-product-line-modal .new-product-line-codes small { color: var(--muted); }
 
@@ -1467,6 +1477,8 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   .launch-followup-matrix > header,.launch-followup-matrix > footer,.launch-followup-robot-actions { align-items: stretch; flex-direction: column; }
   .launch-followup-matrix > header > div:last-child { justify-content: space-between; }
   .launch-followup-robot-grid,.launch-followup-schedule { grid-template-columns: 1fr; }
+  .dingtalk-settings-intro { flex-direction: column; }
+  .dingtalk-settings-guide { grid-template-columns: 1fr; }
 }
 @media(max-width:900px) {
   .annotation-task-setup,

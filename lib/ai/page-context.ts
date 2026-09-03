@@ -53,7 +53,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   settings: {
     label: "系统设置",
-    views: ["parameters", "master", "permissions"],
+    views: ["parameters", "master", "dingtalk", "permissions"],
     suggestedTools: ["get_operating_settings_summary", "search_system_knowledge", "search_system_data"],
   },
   ai: {
