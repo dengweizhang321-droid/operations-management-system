@@ -1259,8 +1259,9 @@ async function buildLegacyGuardReceipt({
     }
   }
   const batchText = texts.get("运行项目.bat");
-  if (!/worker-local-service\.ps1.+-Action Start/i.test(batchText) || /npm\s+(?:install|run\s+dev)/i.test(batchText)) {
-    fail("运行项目.bat 未收口到不可变 Worker launcher");
+  if (!/operations-system-control\.ps1.+-Action Start.+-Open/i.test(batchText)
+      || /worker-local-service\.ps1|npm\s+(?:install|run\s+dev)|vinext\s+(?:dev|start)|wrangler\s+dev/i.test(batchText)) {
+    fail("运行项目.bat 未收口到唯一系统启动总控");
   }
   const controlText = texts.get("tools/operations-system-control.ps1");
   if (!/worker-local-service\.ps1/i.test(controlText) || /start-local-worker\.mjs/i.test(controlText) || /--build/i.test(controlText)) {

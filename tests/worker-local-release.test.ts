@@ -2031,8 +2031,8 @@ test("public entrypoints converge on the immutable Worker start engine", async (
   const batch = await readFile("运行项目.bat", "utf8");
   const panel = await readFile("tools/operations-system-control.ps1", "utf8");
   const service = await readFile("tools/worker-local-service.ps1", "utf8");
-  assert.match(batch, /worker-local-service\.ps1" -Action Start/);
-  assert.doesNotMatch(batch, /npm\s+(?:install|run\s+dev)|vinext\s+(?:dev|start)|wrangler\s+dev/);
+  assert.match(batch, /operations-system-control\.ps1" -Action Start -Open/);
+  assert.doesNotMatch(batch, /worker-local-service\.ps1|npm\s+(?:install|run\s+dev)|vinext\s+(?:dev|start)|wrangler\s+dev/);
   assert.match(batch, /Node\.js 24\.x/);
   assert.match(batch, /唯一启动总控/);
   assert.match(panel, /teruisi-operations-system-control-v2/);
