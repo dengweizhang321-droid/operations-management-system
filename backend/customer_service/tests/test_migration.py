@@ -169,6 +169,25 @@ class CustomerServiceMigrationTests(TestCase):
         with self.assertRaisesRegex(CommandError, "approved-plan-id"):
             call_command("migrate_customer_service_from_d1", source=str(self.source), apply=True, approved_plan_id=plan_id)
 
+    def test_plan_preserves_historical_batch_count_after_conversation_reimport(self) -> None:
+        connection = sqlite3.connect(self.source)
+        try:
+            connection.execute(
+                "UPDATE customer_service_import_batches SET conversation_count=2 WHERE id='batch-1'"
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        planned = StringIO()
+        call_command(
+            "migrate_customer_service_from_d1",
+            source=str(self.source),
+            plan=True,
+            stdout=planned,
+        )
+        self.assertEqual(json.loads(planned.getvalue())["counts"]["conversations"], 1)
+
     def test_authority_prepare_blocks_d1_and_activate_is_terminal(self) -> None:
         planned = StringIO()
         call_command("migrate_customer_service_from_d1", source=str(self.source), plan=True, stdout=planned)

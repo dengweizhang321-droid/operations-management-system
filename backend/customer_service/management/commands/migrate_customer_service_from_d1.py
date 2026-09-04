@@ -190,8 +190,12 @@ def _source_snapshot(path: Path) -> dict[str, object]:
             "createdAt": _timestamp(row.get("created_at")).isoformat(),
             "completedAt": _optional_timestamp(row.get("completed_at")).isoformat() if row.get("completed_at") else None,
         }
-        if item["status"] == "completed" and item["conversationCount"] != len(owned):
-            raise CommandError("D1 客服批次会话数量与事实所有权不一致")
+        # Re-imports update a conversation's last_import_batch_id, so an older
+        # completed batch can legitimately retain a larger historical count than
+        # the rows it currently owns. It must never claim fewer rows than still
+        # point at that batch.
+        if item["status"] == "completed" and item["conversationCount"] < len(owned):
+            raise CommandError("D1 客服批次会话数量小于当前事实所有权")
         batches.append(item)
         batch_meta[batch_id] = item
     if any(str(row.get("last_import_batch_id") or "") not in batch_meta for row in raw_conversations):
