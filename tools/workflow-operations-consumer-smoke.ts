@@ -1,8 +1,9 @@
 import {
-  listOperationsRecordsPageData,
-  listWorkflowTasksPageData,
-  listWorkflowTemplatesPageData,
-} from "@/lib/ai/page-data-tools";
+  createDjangoWorkflowService,
+  WORKFLOW_OPERATION_RECORDS_PATH,
+  WORKFLOW_TASKS_PATH,
+  WORKFLOW_TEMPLATES_PATH,
+} from "@/lib/django/workflow-service";
 import { readDjangoWorkflowConsumer } from "@/lib/django/workflow-consumer-reader";
 
 const query = (process.env.TERUISI_WORKFLOW_SMOKE_QUERY ?? "").trim();
@@ -20,28 +21,45 @@ const scopedPrincipal = {
   ...principal,
   scope: { warehouses: [] as string[], channels: [] as string[], platforms: ["__workflow_smoke_no_match__"] },
 };
+const service = createDjangoWorkflowService();
+const taskQuery = new URLSearchParams({ q: query, page: "1", pageSize: "5" }).toString();
+const scopedOperationQuery = new URLSearchParams({ page: "1", pageSize: "5" }).toString();
 
-const [search, tasks, templates, scopedOperations] = await Promise.all([
+const [search, tasksResponse, templatesResponse, scopedOperationsResponse] = await Promise.all([
   readDjangoWorkflowConsumer(principal, {
     operation: "workflow_search",
     query,
     offset: 0,
     limit: 5,
   }),
-  listWorkflowTasksPageData({ q: query, page: 1, limit: 5 }, { principal }),
-  listWorkflowTemplatesPageData({ page: 1, limit: 5 }, { principal }),
-  listOperationsRecordsPageData({ page: 1, limit: 5 }, { principal: scopedPrincipal }),
+  service.requestJson<Record<string, unknown>>(principal, {
+    method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader", rawQuery: taskQuery,
+  }),
+  service.requestJson<Record<string, unknown>>(principal, {
+    method: "GET", path: WORKFLOW_TEMPLATES_PATH, service: "reader", rawQuery: "",
+  }),
+  service.requestJson<Record<string, unknown>>(scopedPrincipal, {
+    method: "GET", path: WORKFLOW_OPERATION_RECORDS_PATH, service: "reader", rawQuery: scopedOperationQuery,
+  }),
 ]);
+
+const tasks = Array.isArray(tasksResponse.data.items) ? tasksResponse.data.items : [];
+const templates = Array.isArray(templatesResponse.data.items) ? templatesResponse.data.items : [];
+const scopedOperations = Array.isArray(scopedOperationsResponse.data.items) ? scopedOperationsResponse.data.items : [];
+const scopedFilters = scopedOperationsResponse.data.filtersApplied;
+const scopedOperationMode = scopedFilters && typeof scopedFilters === "object" && !Array.isArray(scopedFilters)
+  ? (scopedFilters as Record<string, unknown>).dataScope
+  : null;
 
 const result = {
   status: "passed",
   workflowRevision: search.revision,
   searchReturned: search.data.items.length,
   searchTaskReturned: search.data.items.filter((item) => item.targetHint === "task").length,
-  aiTaskReturned: tasks.items.length,
-  aiTemplateReturned: templates.items.length,
-  scopedOperationReturned: scopedOperations.items.length,
-  scopedOperationMode: scopedOperations.filtersApplied.dataScope,
+  aiTaskReturned: tasks.length,
+  aiTemplateReturned: templates.length,
+  scopedOperationReturned: scopedOperations.length,
+  scopedOperationMode,
 };
 
 if (
