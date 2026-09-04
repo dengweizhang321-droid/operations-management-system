@@ -490,7 +490,7 @@ REQUIRED_WORKFLOW_COLUMNS = {
         "to_version", "stage_key", "changed_fields", "created_at",
     },
     "workflow_new_product_lines": {
-        "id", "name", "match_terms", "monitoring_start_date", "tracking_weeks",
+        "id", "name", "match_terms", "product_image_url", "monitoring_start_date",
         "weekly_unit_target", "weekly_sales_target_cents", "active", "version",
         "created_at", "updated_at", "deleted_at",
     },

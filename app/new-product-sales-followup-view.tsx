@@ -1,8 +1,8 @@
+/* eslint-disable @next/next/no-img-element -- 产品线图片地址由操作员维护，域名不能预先固定到 Next Image 白名单。 */
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
 
@@ -19,8 +19,8 @@ type ProductLine = {
   id: string;
   name: string;
   matchTerms: string[];
+  productImageUrl: string;
   monitoringStartDate: string;
-  trackingWeeks: number;
   weeklyUnitTarget: number | null;
   weeklySalesTargetCents: number | null;
   active: boolean;
@@ -40,7 +40,8 @@ type FollowupItem = {
   id: string;
   name: string;
   brand: string;
-  status: "not_started" | "selling" | "target_achieved" | "stalled" | "no_sales" | "missing_codes" | "tracking_ended";
+  productImageUrl: string;
+  status: "not_started" | "selling" | "target_achieved" | "stalled" | "no_sales" | "missing_codes";
   codeCount: number;
   current: Metric & { grossMarginRate: number | null };
   previous: Metric;
@@ -86,22 +87,20 @@ type FollowupReport = {
 type LineDraft = {
   name: string;
   matchTerms: string;
+  productImageUrl: string;
   monitoringStartDate: string;
-  trackingWeeks: number;
   weeklyUnitTarget: string;
   weeklySalesTargetYuan: string;
-  active: boolean;
   productCodes: string;
 };
 
 const EMPTY_DRAFT: LineDraft = {
   name: "",
   matchTerms: "",
+  productImageUrl: "",
   monitoringStartDate: "",
-  trackingWeeks: 8,
   weeklyUnitTarget: "",
   weeklySalesTargetYuan: "",
-  active: true,
   productCodes: "",
 };
 const REPORT_TIMELINE_START = "2026-08-03";
@@ -127,7 +126,6 @@ function statusLabel(value: FollowupItem["status"]) {
     stalled: "本周停滞",
     no_sales: "尚未开单",
     missing_codes: "缺少代码",
-    tracking_ended: "跟踪结束",
   } as const)[value];
 }
 
@@ -161,40 +159,165 @@ function Trend({ values }: { values: number[] }) {
   return <svg className="launch-followup-sparkline" viewBox="0 0 150 42" role="img" aria-label={`周销量趋势：${values.join("、") || "暂无"}`}><polyline points={sparklinePoints(values)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-function downloadMatrixExcel(report: FollowupReport) {
-  const rows: Array<Array<string | number>> = [
-    ["品牌", "产品名称", "趋势", ...report.weeks.map((week) => `${week.label}\n(${week.dateRange})`)],
-    ...report.items.map((item) => [
-      item.brand || "志高",
-      item.name,
-      item.weeklyNetQuantities.join(" → "),
-      ...item.weeklyNetQuantities,
-    ]),
+function trendPngDataUrl(values: number[]) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 300;
+  canvas.height = 84;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  context.scale(2, 2);
+  context.strokeStyle = "#4777b5";
+  context.lineWidth = 2;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  const points = sparklinePoints(values);
+  context.beginPath();
+  for (const [index, point] of points.split(" ").entries()) {
+    const [x, y] = point.split(",").map(Number);
+    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+  }
+  context.stroke();
+  return canvas.toDataURL("image/png");
+}
+
+async function remoteImagePngDataUrl(source: string) {
+  if (!source) return "";
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(source, { credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal });
+    if (!response.ok) return "";
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/") || blob.size < 1 || blob.size > 3 * 1024 * 1024) return "";
+    if (["image/png", "image/jpeg", "image/gif"].includes(blob.type)) {
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(blob);
+      });
+    }
+    const bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = 120;
+    canvas.height = 120;
+    const context = canvas.getContext("2d");
+    if (!context) return "";
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+    const width = Math.max(1, bitmap.width * scale);
+    const height = Math.max(1, bitmap.height * scale);
+    context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    bitmap.close();
+    return canvas.toDataURL("image/png");
+  } catch {
+    return "";
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function excelImageExtension(dataUrl: string): "png" | "jpeg" | "gif" {
+  if (dataUrl.startsWith("data:image/jpeg")) return "jpeg";
+  if (dataUrl.startsWith("data:image/gif")) return "gif";
+  return "png";
+}
+
+async function loadProductImages(items: FollowupItem[]) {
+  const sources = Array.from(new Set(items.map((item) => item.productImageUrl).filter(Boolean)));
+  const images = new Map<string, string>();
+  let cursor = 0;
+  const deadline = Date.now() + 15_000;
+  async function worker() {
+    while (cursor < sources.length && Date.now() < deadline) {
+      const source = sources[cursor];
+      cursor += 1;
+      images.set(source, await remoteImagePngDataUrl(source));
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(6, sources.length) }, worker));
+  return images;
+}
+
+async function downloadMatrixExcel(report: FollowupReport) {
+  const { default: ExcelJS } = await import("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "TERUISI 运营管理系统";
+  workbook.created = new Date();
+  const worksheet = workbook.addWorksheet("上新周报", { views: [{ state: "frozen", xSplit: 4, ySplit: 1 }] });
+  worksheet.properties.defaultRowHeight = 22;
+  worksheet.columns = [
+    { header: "品牌", key: "brand", width: 12 },
+    { header: "产品图", key: "image", width: 14 },
+    { header: "产品名称", key: "name", width: 28 },
+    { header: "趋势", key: "trend", width: 25 },
+    ...report.weeks.map((week) => ({ header: `${week.label}\n(${week.dateRange})${week.dataComplete ? "" : "\n数据未完整"}`, key: `week_${week.weekNumber}`, width: 16 })),
   ];
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  worksheet["!cols"] = [
-    { wch: 12 },
-    { wch: 32 },
-    { wch: 36 },
-    ...report.weeks.map(() => ({ wch: 16 })),
-  ];
-  worksheet["!autofilter"] = {
-    ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, rows.length - 1), c: rows[0].length - 1 } }),
-  };
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "上新周报");
-  XLSX.writeFile(workbook, `新品销售周报-${report.weekStart}-${report.weekEnd}.xlsx`, { compression: true });
+  const header = worksheet.getRow(1);
+  header.height = 58;
+  header.eachCell((cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4477C8" } };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    cell.border = { bottom: { style: "thin", color: { argb: "FFB7C9E7" } }, right: { style: "thin", color: { argb: "FFB7C9E7" } } };
+  });
+  const productImages = await loadProductImages(report.items);
+
+  for (const [index, item] of report.items.entries()) {
+    const row = worksheet.addRow([item.brand || "志高", "", item.name, "", ...item.weeklyNetQuantities]);
+    row.height = 58;
+    row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? "FFDBE5F5" : "FFFFFFFF" } };
+      cell.font = { bold: columnNumber === 1 || columnNumber === 3, color: { argb: "FF17233C" }, size: 11 };
+      cell.alignment = { horizontal: columnNumber === 3 ? "left" : "center", vertical: "middle", wrapText: true };
+      cell.border = { bottom: { style: "thin", color: { argb: "FFB7C9E7" } }, right: { style: "thin", color: { argb: "FFB7C9E7" } } };
+      if (columnNumber >= 5) cell.numFmt = "#,##0";
+    });
+    const trend = trendPngDataUrl(item.weeklyNetQuantities);
+    if (trend) {
+      const trendImage = workbook.addImage({ base64: trend, extension: "png" });
+      worksheet.addImage(trendImage, { tl: { col: 3.15, row: row.number - .88 }, ext: { width: 138, height: 42 } });
+    }
+    if (item.productImageUrl) {
+      const embedded = productImages.get(item.productImageUrl) || "";
+      if (embedded) {
+        const productImage = workbook.addImage({ base64: embedded, extension: excelImageExtension(embedded) });
+        worksheet.addImage(productImage, { tl: { col: 1.22, row: row.number - .93 }, ext: { width: 50, height: 50 } });
+      } else {
+        worksheet.getCell(row.number, 2).value = { text: "查看产品图", hyperlink: item.productImageUrl };
+        worksheet.getCell(row.number, 2).font = { color: { argb: "FF4477C8" }, underline: true, size: 10 };
+      }
+    } else {
+      worksheet.getCell(row.number, 2).value = "暂无";
+      worksheet.getCell(row.number, 2).font = { color: { argb: "FF8793A6" }, size: 10 };
+    }
+  }
+  worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, report.items.length + 1), column: 4 + report.weeks.length } };
+  const noteRow = report.items.length + 3;
+  worksheet.mergeCells(noteRow, 1, noteRow, Math.max(4, 2 + Math.floor(report.weeks.length / 2)));
+  worksheet.getCell(noteRow, 1).value = `周维度自 ${report.timelineStart} 起持续累积 · 数值口径：吉客云货品代码净销量`;
+  worksheet.mergeCells(noteRow, Math.max(5, 3 + Math.floor(report.weeks.length / 2)), noteRow, 4 + report.weeks.length);
+  worksheet.getCell(noteRow, Math.max(5, 3 + Math.floor(report.weeks.length / 2))).value = `销售数据截至：${report.dataCutoffDate ?? "暂无"}`;
+  worksheet.getRow(noteRow).font = { color: { argb: "FF68748A" }, size: 10 };
+  worksheet.getRow(noteRow).alignment = { vertical: "middle" };
+  const bytes = await workbook.xlsx.writeBuffer();
+  const href = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = `新品销售周报-${report.weekStart}-${report.weekEnd}.xlsx`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(href), 1_000);
 }
 
 function lineToDraft(line: ProductLine): LineDraft {
   return {
     name: line.name,
     matchTerms: line.matchTerms.join("、"),
+    productImageUrl: line.productImageUrl,
     monitoringStartDate: line.monitoringStartDate,
-    trackingWeeks: line.trackingWeeks,
     weeklyUnitTarget: line.weeklyUnitTarget === null ? "" : String(line.weeklyUnitTarget),
     weeklySalesTargetYuan: line.weeklySalesTargetCents === null ? "" : String(line.weeklySalesTargetCents / 100),
-    active: line.active,
     productCodes: line.codes.filter((code) => code.active).map((code) => code.productCode).join("\n"),
   };
 }
@@ -210,23 +333,21 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
   const submit = async () => {
     if (!draft.name.trim()) return setError("请填写你希望展示的产品线名称。");
     if (!draft.monitoringStartDate) return setError("请选择监控开始日期。");
-    if (!Number.isInteger(draft.trackingWeeks) || draft.trackingWeeks < 1 || draft.trackingWeeks > 104) return setError("跟踪周数应为 1–104 周。");
     setError("");
     try { await onSave(draft); } catch (reason) { setError(messageOf(reason, "产品线保存失败。")); }
   };
   return <Dialog open onClose={() => !saving && onClose()} dialogId="new-product-line-editor" ariaLabel={line ? "编辑新品产品线" : "新建新品产品线"} className="workflow-edit-modal new-product-line-modal">
     <button type="button" className="workflow-modal-close" aria-label="关闭产品线编辑" disabled={saving} onClick={onClose}>×</button>
     <span className="eyebrow">JACKYUN PRODUCT LINE</span><h2>{line ? "编辑新品产品线" : "新建新品产品线"}</h2>
-    <p className="launch-modal-intro">名称由你定义；销售统计只按吉客云货品代码归集。</p>
+    <p className="launch-modal-intro">名称由你定义；产品线从监控开始日持续跟踪，销售统计只按吉客云货品代码归集。</p>
     <form className="workflow-edit-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <label className="workflow-edit-title-field"><span>产品线名称（必填）</span><input autoFocus maxLength={160} value={draft.name} placeholder="例如：油水分离器" onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-      <label><span>自动学习关键词</span><input maxLength={500} value={draft.matchTerms} placeholder="多个关键词用顿号或逗号分隔" onChange={(event) => setDraft({ ...draft, matchTerms: event.target.value })} /></label>
+      <label><span>吉客云名称（学习关键词）</span><input maxLength={500} value={draft.matchTerms} placeholder="填写吉客云货品名称关键词，多个用顿号或逗号分隔" onChange={(event) => setDraft({ ...draft, matchTerms: event.target.value })} /><small>货品名称只命中一个产品线时会自动学习归入，多产品线命中时保留人工判断。</small></label>
+      <label><span>产品图链接</span><input type="url" maxLength={1000} value={draft.productImageUrl} placeholder="https://…" onChange={(event) => setDraft({ ...draft, productImageUrl: event.target.value })} /><small>请使用可公开读取的 HTTPS 图片地址，以便周报截图和 Excel 嵌入产品图。</small></label>
       <label><span>监控开始日期</span><input type="date" value={draft.monitoringStartDate} onChange={(event) => setDraft({ ...draft, monitoringStartDate: event.target.value })} /></label>
-      <label><span>跟踪周数</span><input type="number" min={1} max={104} value={draft.trackingWeeks} onChange={(event) => setDraft({ ...draft, trackingWeeks: Number(event.target.value) })} /></label>
       <label><span>每周销量目标（件）</span><input type="number" min={0} step={1} value={draft.weeklyUnitTarget} onChange={(event) => setDraft({ ...draft, weeklyUnitTarget: event.target.value })} /></label>
       <label><span>每周净销售额目标（元）</span><input type="number" min={0} step="0.01" value={draft.weeklySalesTargetYuan} onChange={(event) => setDraft({ ...draft, weeklySalesTargetYuan: event.target.value })} /></label>
       <label className="new-product-line-codes"><span>吉客云货品代码</span><textarea rows={8} value={draft.productCodes} placeholder="每行填写一个代码；货品名称从吉客云主数据读取" onChange={(event) => setDraft({ ...draft, productCodes: event.target.value })} /><small>保存时会校验代码真实存在；后续导入出现名称唯一匹配的新代码会自动补入。</small></label>
-      <label className="workflow-checkbox-field"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /><span>继续监控该产品线</span></label>
       {error && <p className="workflow-edit-validation" role="alert">{error}</p>}
       <div className="workflow-modal-actions workflow-edit-actions"><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>取消</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : "保存产品线"}</button></div>
     </form>
@@ -240,6 +361,8 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [learning, setLearning] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [togglingLineId, setTogglingLineId] = useState("");
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [editor, setEditor] = useState<ProductLine | "create" | null>(null);
@@ -282,18 +405,17 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     const codes = [...new Set(draft.productCodes.split(/[\s,，、;；]+/).map((value) => value.trim()).filter(Boolean))].map((productCode) => ({ productCode }));
     const matchTerms = [...new Set(draft.matchTerms.split(/[,，、;；\n]+/).map((value) => value.trim()).filter(Boolean))];
     const payload = {
-      name: draft.name.trim(), matchTerms, monitoringStartDate: draft.monitoringStartDate,
-      trackingWeeks: draft.trackingWeeks,
+      name: draft.name.trim(), matchTerms, productImageUrl: draft.productImageUrl.trim(), monitoringStartDate: draft.monitoringStartDate,
       weeklyUnitTarget: draft.weeklyUnitTarget === "" ? null : Number(draft.weeklyUnitTarget),
       weeklySalesTargetCents: draft.weeklySalesTargetYuan === "" ? null : Math.round(Number(draft.weeklySalesTargetYuan) * 100),
-      active: draft.active, codes,
+      codes,
     };
     try {
       if (editor && editor !== "create") {
         await requestJson(`/api/workflow/new-product-lines/${encodeURIComponent(editor.id)}`, { method: "PATCH", body: { ...payload, expectedVersion: editor.version } });
         setFeedback(`产品线“${payload.name}”已更新。`);
       } else {
-        await requestJson("/api/workflow/new-product-lines", { method: "POST", body: payload });
+        await requestJson("/api/workflow/new-product-lines", { method: "POST", body: { ...payload, active: true } });
         setFeedback(`产品线“${payload.name}”已创建。`);
       }
       setEditor(null);
@@ -302,13 +424,28 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     } finally { setSaving(false); }
   };
 
-  const downloadReportExcel = () => {
-    if (!report) return;
+  const toggleMonitoring = async (line: ProductLine) => {
+    if (!canWrite || togglingLineId) return;
+    setTogglingLineId(line.id);
     setFeedback("");
     try {
-      downloadMatrixExcel(report);
-      setFeedback("Excel 周报已生成，请打开下载的文件查看；钉钉自动投递仍发送同版式 PNG 图片。");
+      await requestJson(`/api/workflow/new-product-lines/${encodeURIComponent(line.id)}`, { method: "PATCH", body: { active: !line.active, expectedVersion: line.version } });
+      setFeedback(`产品线“${line.name}”已${line.active ? "暂停" : "启动"}监控${line.active ? "，不会出现在钉钉周报预览和发送截图中" : ""}。`);
+      if (line.active && expanded === line.id) setExpanded(null);
+      await load();
+    } catch (reason) { setFeedback(messageOf(reason, `${line.active ? "暂停" : "启动"}监控失败。`)); }
+    finally { setTogglingLineId(""); }
+  };
+
+  const downloadReportExcel = async () => {
+    if (!report || exporting) return;
+    setExporting(true);
+    setFeedback("");
+    try {
+      await downloadMatrixExcel(report);
+      setFeedback("Excel 周报已生成，表格内容、蓝色调、产品图和趋势图与页面预览保持一致。");
     } catch (reason) { setFeedback(messageOf(reason, "Excel 周报生成失败。")); }
+    finally { setExporting(false); }
   };
 
   const currentByLine = useMemo(() => new Map(report?.items.map((item) => [item.id, item]) ?? []), [report]);
@@ -320,10 +457,10 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品销售跟进加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}
     {loading && !report ? <section className="panel data-state operations-data-state"><span className="state-spinner" /><strong>正在生成新品销售周报</strong><p>读取产品线、吉客云代码与销售事实…</p></section> : report && <>
       <section className="launch-followup-summary"><article className="panel"><span>监控产品线</span><strong>{report.summary.lineCount}</strong><small>已销售 {report.summary.sellingCount} · 达标 {report.summary.targetAchievedCount}</small></article><article className="panel"><span>本周净销量</span><strong>{report.summary.netQuantity.toLocaleString("zh-CN")}</strong><small>吉客云代码口径</small></article><article className="panel"><span>本周净销售额</span><strong>{money(report.summary.netSalesCents)}</strong><small>退款 {money(report.summary.refundAmountCents)}</small></article><article className="panel"><span>需要跟进</span><strong>{report.summary.noSalesCount + report.summary.stalledCount}</strong><small>未开单 {report.summary.noSalesCount} · 停滞 {report.summary.stalledCount}</small></article></section>
-      <section className="panel"><div className="data-table-wrap"><table className="data-table launch-followup-table"><thead><tr><th>产品线</th><th>吉客云代码</th><th>状态</th><th>本周销量</th><th>本周净销售额</th><th>销售额环比</th><th>毛利</th><th>上新累计</th><th>操作</th></tr></thead><tbody>{lines.map((line) => { const item = currentByLine.get(line.id); return <tr key={line.id}><td><strong>{line.name}</strong><small>{line.monitoringStartDate} 起 · {line.trackingWeeks} 周</small></td><td><strong>{line.codes.filter((code) => code.active).length}</strong><small>{line.codes.filter((code) => code.active).slice(0, 2).map((code) => code.productCode).join("、") || "待补充"}</small></td><td>{item ? <span className={`status followup-${item.status}`}>{statusLabel(item.status)}</span> : "—"}</td><td><strong>{item?.current.netQuantity.toLocaleString("zh-CN") ?? "—"}</strong><small>上周 {item?.previous.netQuantity.toLocaleString("zh-CN") ?? "—"}</small></td><td><strong>{item ? money(item.current.netSalesCents) : "—"}</strong><small>退款 {item ? money(item.current.refundAmountCents) : "—"}</small></td><td className={item?.salesWeekOverWeekRate !== null && Number(item?.salesWeekOverWeekRate) < 0 ? "red-text" : "green-text"}>{rate(item?.salesWeekOverWeekRate ?? null)}</td><td><strong>{item ? money(item.current.grossProfitCents) : "—"}</strong><small>{item?.current.grossMarginRate === null || item?.current.grossMarginRate === undefined ? "—" : `${(item.current.grossMarginRate * 100).toFixed(1)}%`}</small></td><td><strong>{item ? money(item.cumulative.netSalesCents) : "—"}</strong><small>{item?.cumulative.netQuantity.toLocaleString("zh-CN") ?? "—"} 件</small></td><td><div className="launch-followup-actions"><button type="button" className="row-action" onClick={() => setExpanded(expanded === line.id ? null : line.id)}>{expanded === line.id ? "收起代码" : "查看代码"}</button><button type="button" className="row-action" disabled={!canWrite} onClick={() => setEditor(line)}>编辑</button></div></td></tr>; })}{lines.length === 0 && <tr><td colSpan={9}><div className="table-state">尚未建立新品产品线，请先添加产品线名称和吉客云代码。</div></td></tr>}</tbody></table></div>
+      <section className="panel"><div className="data-table-wrap"><table className="data-table launch-followup-table"><thead><tr><th>产品图</th><th>产品线</th><th>吉客云代码</th><th>状态</th><th>本周销量</th><th>本周净销售额</th><th>销售额环比</th><th>毛利</th><th>上新累计</th><th>操作</th></tr></thead><tbody>{lines.map((line) => { const item = currentByLine.get(line.id); return <tr key={line.id} className={line.active ? "" : "launch-followup-paused-row"}><td className="launch-followup-product-image">{line.productImageUrl ? <img src={line.productImageUrl} alt={`${line.name}产品图`} loading="lazy" referrerPolicy="no-referrer" /> : <span>暂无</span>}</td><td><strong>{line.name}</strong><small>{line.monitoringStartDate} 起 · 持续跟踪</small></td><td><strong>{line.codes.filter((code) => code.active).length}</strong><small>{line.codes.filter((code) => code.active).slice(0, 2).map((code) => code.productCode).join("、") || "待补充"}</small></td><td>{line.active ? (item ? <span className={`status followup-${item.status}`}>{statusLabel(item.status)}</span> : "—") : <span className="status followup-paused">已暂停</span>}</td><td><strong>{item?.current.netQuantity.toLocaleString("zh-CN") ?? "—"}</strong><small>上周 {item?.previous.netQuantity.toLocaleString("zh-CN") ?? "—"}</small></td><td><strong>{item ? money(item.current.netSalesCents) : "—"}</strong><small>退款 {item ? money(item.current.refundAmountCents) : "—"}</small></td><td className={item?.salesWeekOverWeekRate !== null && Number(item?.salesWeekOverWeekRate) < 0 ? "red-text" : "green-text"}>{rate(item?.salesWeekOverWeekRate ?? null)}</td><td><strong>{item ? money(item.current.grossProfitCents) : "—"}</strong><small>{item?.current.grossMarginRate === null || item?.current.grossMarginRate === undefined ? "—" : `${(item.current.grossMarginRate * 100).toFixed(1)}%`}</small></td><td><strong>{item ? money(item.cumulative.netSalesCents) : "—"}</strong><small>{item?.cumulative.netQuantity.toLocaleString("zh-CN") ?? "—"} 件</small></td><td><div className="launch-followup-actions"><button type="button" className="row-action" disabled={!item} onClick={() => setExpanded(expanded === line.id ? null : line.id)}> {expanded === line.id ? "收起代码" : "查看代码"}</button><button type="button" className="row-action" disabled={!canWrite} onClick={() => setEditor(line)}>编辑</button><button type="button" className={`row-action ${line.active ? "warning" : "success"}`} disabled={!canWrite || togglingLineId === line.id} onClick={() => void toggleMonitoring(line)}>{togglingLineId === line.id ? "处理中…" : line.active ? "暂停监控" : "启动监控"}</button></div></td></tr>; })}{lines.length === 0 && <tr><td colSpan={10}><div className="table-state">尚未建立新品产品线，请先添加产品线名称和吉客云代码。</div></td></tr>}</tbody></table></div>
       {expanded && currentByLine.get(expanded) && <div className="launch-followup-code-detail"><h3>{currentByLine.get(expanded)?.name} · 吉客云代码明细</h3><div>{currentByLine.get(expanded)?.codes.map((code) => <article key={code.productCode}><strong>{code.productCode}</strong><span>{code.productName}</span><small>{code.source === "learned" ? "自动学习" : "手工添加"} · 本周 {code.current.netQuantity} 件 / {money(code.current.netSalesCents)}</small></article>)}</div></div>}
       </section>
-      <section className="panel launch-followup-matrix"><header><div><span className="eyebrow">DINGTALK REPORT PREVIEW</span><h3>钉钉周报表格预览</h3><p>发送内容按参考图整理为“品牌 / 产品名称 / 趋势 / 连续周销量”表格，周列从 8 月 3 日所在周开始累积；页面可生成 Excel，机器人仍发送同版式 PNG 图片。</p></div><div><span>{report.weekStart} 至 {report.weekEnd}</span><Link className="secondary-button" href="/?module=settings&view=dingtalk">钉钉机器人设置</Link><button type="button" className="secondary-button" onClick={downloadReportExcel}>打开 Excel 表格</button></div></header><div className="launch-followup-matrix-scroll"><table className="launch-followup-matrix-table"><thead><tr><th>品牌</th><th>产品名称</th><th>趋势</th>{report.weeks.map((week) => <th key={week.weekStart}><strong>{week.label}</strong><span>({week.dateRange})</span>{!week.dataComplete && <small>数据未完整</small>}</th>)}</tr></thead><tbody>{report.items.map((item, index) => <tr key={item.id} className={index % 2 === 0 ? "alternate" : ""}><td>{item.brand || "志高"}</td><td>{item.name}</td><td><Trend values={item.weeklyNetQuantities} /></td>{item.weeklyNetQuantities.map((value, weekIndex) => <td key={report.weeks[weekIndex]?.weekStart ?? weekIndex}>{value.toLocaleString("zh-CN")}</td>)}</tr>)}{report.items.length === 0 && <tr><td colSpan={3 + report.weeks.length}>尚未建立新品产品线</td></tr>}</tbody></table></div><footer><span>口径：吉客云货品代码净销量</span><span>销售数据截至：{report.dataCutoffDate ?? "暂无"}</span></footer></section>
+      <section className="panel launch-followup-matrix"><header><div><span className="eyebrow">DINGTALK REPORT PREVIEW</span><h3>钉钉周报表格预览</h3><p>发送截图按“品牌 / 产品图 / 产品名称 / 趋势 / 连续周销量”展示，周列从 8 月 3 日所在周开始累积；已暂停监控的产品线不会出现。</p></div><div><span>{report.weekStart} 至 {report.weekEnd}</span><Link className="secondary-button" href="/?module=settings&view=dingtalk">钉钉机器人设置</Link><button type="button" className="secondary-button" disabled={exporting} onClick={() => void downloadReportExcel()}>{exporting ? "正在生成…" : "打开 Excel 表格"}</button></div></header><div className="launch-followup-matrix-scroll"><table className="launch-followup-matrix-table"><thead><tr><th>品牌</th><th>产品图</th><th>产品名称</th><th>趋势</th>{report.weeks.map((week) => <th key={week.weekStart}><strong>{week.label}</strong><span>({week.dateRange})</span>{!week.dataComplete && <small>数据未完整</small>}</th>)}</tr></thead><tbody>{report.items.map((item, index) => <tr key={item.id} className={index % 2 === 0 ? "alternate" : ""}><td>{item.brand || "志高"}</td><td className="launch-followup-matrix-image">{item.productImageUrl ? <img src={item.productImageUrl} alt={`${item.name}产品图`} loading="lazy" referrerPolicy="no-referrer" /> : <span>暂无</span>}</td><td>{item.name}</td><td><Trend values={item.weeklyNetQuantities} /></td>{item.weeklyNetQuantities.map((value, weekIndex) => <td key={report.weeks[weekIndex]?.weekStart ?? weekIndex}>{value.toLocaleString("zh-CN")}</td>)}</tr>)}{report.items.length === 0 && <tr><td colSpan={4 + report.weeks.length}>尚无正在监控的新品产品线</td></tr>}</tbody></table></div><footer><span>口径：吉客云货品代码净销量</span><span>销售数据截至：{report.dataCutoffDate ?? "暂无"}</span></footer></section>
     </>}
     {editor && <ProductLineEditor key={editor === "create" ? "create" : `${editor.id}-${editor.version}`} line={editor === "create" ? null : editor} saving={saving} onClose={() => setEditor(null)} onSave={saveLine} />}
   </div>;

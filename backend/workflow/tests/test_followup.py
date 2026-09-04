@@ -16,7 +16,7 @@ from sales.models import ErpProductMaster, SalesImportBatch, SalesOrderLine
 from sales.tests.factories import TEST_SECRET, make_line, signed_headers
 from workflow.followup import claim_weekly_delivery, weekly_followup
 from workflow.management.commands.new_product_weekly_report import _assert_send_receipt, _due_now, _exact_identity, _run_dws
-from workflow.models import NewProductLineCode, NewProductWeeklyReportConfig, WorkflowWriteAuthority
+from workflow.models import NewProductLine, NewProductLineCode, NewProductWeeklyReportConfig, WorkflowWriteAuthority
 from workflow.weekly_report_image import render_weekly_report_html
 
 
@@ -70,9 +70,9 @@ class NewProductWeeklyFollowupTests(TestCase):
             "/api/workflow/new-product-lines",
             {
                 "name": "油水分离器",
-                "matchTerms": [],
+                "matchTerms": ["商用油水分离器"],
+                "productImageUrl": "https://example.test/oil-water-separator.png",
                 "monitoringStartDate": "2026-09-01",
-                "trackingWeeks": 8,
                 "weeklyUnitTarget": 10,
                 "weeklySalesTargetCents": 100_000,
                 "active": True,
@@ -86,6 +86,9 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertEqual(created.status_code, 201, created.content)
         item = created.json()["item"]
         self.assertEqual(item["name"], "油水分离器")
+        self.assertEqual(item["matchTerms"], ["商用油水分离器"])
+        self.assertEqual(item["productImageUrl"], "https://example.test/oil-water-separator.png")
+        self.assertNotIn("trackingWeeks", item)
         self.assertEqual(item["codes"][0]["productName"], "油水分离器 100 型")
 
         learned = self.request_json("POST", "/api/workflow/new-product-lines/learn", {}, "followup-learn")
@@ -124,13 +127,33 @@ class NewProductWeeklyFollowupTests(TestCase):
             "/api/workflow/new-product-lines",
             {
                 "name": "不存在产品线", "matchTerms": [], "monitoringStartDate": "2026-09-01",
-                "trackingWeeks": 8, "weeklyUnitTarget": None, "weeklySalesTargetCents": None,
+                "productImageUrl": "", "weeklyUnitTarget": None, "weeklySalesTargetCents": None,
                 "active": True, "codes": [{"productCode": "MISSING"}],
             },
             "followup-missing-code",
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("尚未出现在吉客云货品主数据", response.json()["error"])
+
+    def test_product_image_rejects_local_or_insecure_targets(self) -> None:
+        for index, product_image_url in enumerate([
+            "http://example.test/product.png",
+            "https://127.0.0.1/product.png",
+            "https://localhost/product.png",
+            "https://example.test:8443/product.png",
+        ]):
+            response = self.request_json(
+                "POST",
+                "/api/workflow/new-product-lines",
+                {
+                    "name": "图片安全校验", "matchTerms": [], "monitoringStartDate": "2026-09-01",
+                    "productImageUrl": product_image_url, "weeklyUnitTarget": None,
+                    "weeklySalesTargetCents": None, "active": True, "codes": [],
+                },
+                f"followup-image-url-{index}",
+            )
+            self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(NewProductLine.objects.count(), 0)
 
     def test_weekly_metrics_group_all_codes_by_user_named_line(self) -> None:
         self.create_line()
@@ -157,9 +180,13 @@ class NewProductWeeklyFollowupTests(TestCase):
             "2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07",
         ])
         self.assertEqual(payload["items"][0]["brand"], "志高")
+        self.assertEqual(payload["items"][0]["productImageUrl"], "https://example.test/oil-water-separator.png")
         self.assertEqual(payload["items"][0]["weeklyNetQuantities"], [0, 0, 0, 0, 1, 5])
+        self.assertEqual(payload["messageText"], "新品销售周报")
         document, width, height = render_weekly_report_html(payload)
         self.assertIn("品牌", document)
+        self.assertIn("产品图", document)
+        self.assertIn("https://example.test/oil-water-separator.png", document)
         self.assertIn("第32周", document)
         self.assertIn("油水分离器", document)
         self.assertGreaterEqual(width, 1280)
@@ -187,8 +214,8 @@ class NewProductWeeklyFollowupTests(TestCase):
             {
                 "name": "净水机",
                 "matchTerms": [],
+                "productImageUrl": "",
                 "monitoringStartDate": "2026-09-08",
-                "trackingWeeks": 8,
                 "weeklyUnitTarget": None,
                 "weeklySalesTargetCents": None,
                 "active": True,
@@ -206,6 +233,26 @@ class NewProductWeeklyFollowupTests(TestCase):
         item = next(row for row in report["items"] if row["name"] == "净水机")
         self.assertEqual(item["current"]["netQuantity"], 2)
         self.assertEqual(item["cumulative"]["netQuantity"], 2)
+
+    def test_product_line_continues_indefinitely_and_paused_line_is_excluded_from_report(self) -> None:
+        created = self.create_line()
+        self.assertEqual(created.status_code, 201, created.content)
+        line = created.json()["item"]
+        far_future = weekly_followup(week_start=date.fromisoformat("2035-09-03"))
+        self.assertEqual([item["id"] for item in far_future["items"]], [line["id"]])
+        self.assertNotEqual(far_future["items"][0]["status"], "tracking_ended")
+
+        paused = self.request_json(
+            "PATCH",
+            f"/api/workflow/new-product-lines/{line['id']}",
+            {"active": False, "expectedVersion": line["version"]},
+            "followup-pause-line",
+        )
+        self.assertEqual(paused.status_code, 200, paused.content)
+        self.assertFalse(paused.json()["item"]["active"])
+        report = weekly_followup(week_start=date.fromisoformat("2026-09-07"))
+        self.assertEqual(report["items"], [])
+        self.assertEqual(report["summary"]["lineCount"], 0)
 
     def test_report_config_uses_local_clock_and_requires_approved_exact_targets(self) -> None:
         missing = self.request_json(
@@ -339,7 +386,10 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertEqual(payload["deliveryMode"], "png_drive_preview_by_bot")
         self.assertEqual(run_dws.call_count, 6)
         self.assertEqual(run_dws.call_args_list[3].args[0][0:2], ["drive", "upload"])
-        self.assertIn("https://alidocs.dingtalk.com/i/nodes/file-1", "\n".join(run_dws.call_args_list[5].args[0]))
+        sent = "\n".join(run_dws.call_args_list[5].args[0])
+        self.assertIn("https://alidocs.dingtalk.com/i/nodes/file-1", sent)
+        self.assertIn("新品销售周报", sent)
+        self.assertNotIn("本周净销量", sent)
         self.assertIn("--yes", run_dws.call_args_list[5].args[0])
 
     def test_local_schedule_uses_machine_calendar(self) -> None:
