@@ -93,4 +93,42 @@ WHEN (OLD.`domain`='customer-service' OR NEW.`domain`='customer-service') AND CO
 BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
 CREATE TRIGGER IF NOT EXISTS `customer_service_heads_delete_guard` BEFORE DELETE ON `import_scope_heads`
 WHEN OLD.`domain`='customer-service' AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+
+-- Legacy customer-service paired uploads reused the shared inventory uploader.
+-- Fence that exact fingerprint namespace so stale Workers cannot recreate R2
+-- objects after prepare/activate while unrelated shared-upload rows remain valid.
+CREATE TRIGGER IF NOT EXISTS `customer_service_uploads_insert_guard` BEFORE INSERT ON `inventory_import_uploads`
+WHEN NEW.`fingerprint` LIKE 'customer-service:%' AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_uploads_update_guard` BEFORE UPDATE ON `inventory_import_uploads`
+WHEN (OLD.`fingerprint` LIKE 'customer-service:%' OR NEW.`fingerprint` LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_uploads_delete_guard` BEFORE DELETE ON `inventory_import_uploads`
+WHEN OLD.`fingerprint` LIKE 'customer-service:%' AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_chunks_insert_guard` BEFORE INSERT ON `inventory_import_upload_chunks`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id=NEW.upload_id AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_chunks_update_guard` BEFORE UPDATE ON `inventory_import_upload_chunks`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id IN (OLD.upload_id,NEW.upload_id) AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_chunks_delete_guard` BEFORE DELETE ON `inventory_import_upload_chunks`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id=OLD.upload_id AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_results_insert_guard` BEFORE INSERT ON `inventory_import_upload_results`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id=NEW.upload_id AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_results_update_guard` BEFORE UPDATE ON `inventory_import_upload_results`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id IN (OLD.upload_id,NEW.upload_id) AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
+BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;--> statement-breakpoint
+CREATE TRIGGER IF NOT EXISTS `customer_service_upload_results_delete_guard` BEFORE DELETE ON `inventory_import_upload_results`
+WHEN EXISTS (SELECT 1 FROM inventory_import_uploads WHERE id=OLD.upload_id AND fingerprint LIKE 'customer-service:%')
+  AND COALESCE((SELECT owner FROM customer_service_write_authority WHERE id=1),'')<>'legacy'
 BEGIN SELECT RAISE(ABORT,'customer_service_authority_not_legacy'); END;

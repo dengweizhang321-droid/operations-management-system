@@ -68,6 +68,21 @@ CREATE TABLE import_scope_heads (
 CREATE TABLE customer_service_write_authority (
   id INTEGER PRIMARY KEY, owner TEXT, epoch INTEGER, cutover_id TEXT, updated_at TEXT
 );
+CREATE TABLE inventory_import_uploads (
+  id TEXT PRIMARY KEY, fingerprint TEXT UNIQUE, file_name TEXT,
+  file_size_bytes INTEGER, chunk_size_bytes INTEGER, chunk_count INTEGER,
+  received_chunk_count INTEGER DEFAULT 0, received_bytes INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'uploading', created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP, expires_at TEXT
+);
+CREATE TABLE inventory_import_upload_chunks (
+  upload_id TEXT, chunk_index INTEGER, object_key TEXT, size_bytes INTEGER,
+  sha256 TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(upload_id, chunk_index)
+);
+CREATE TABLE inventory_import_upload_results (
+  upload_id TEXT PRIMARY KEY, result_json TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -178,6 +193,8 @@ class CustomerServiceMigrationTests(TestCase):
             self.assertEqual(source.execute("SELECT owner FROM customer_service_write_authority WHERE id=1").fetchone()[0], "pending")
             with self.assertRaisesRegex(sqlite3.DatabaseError, "customer_service_authority_not_legacy"):
                 source.execute("INSERT INTO customer_service_import_batches(id,shop_name,session_file_name,chat_file_name,file_hash,status) VALUES ('blocked','shop','s','c','f','completed')")
+            with self.assertRaisesRegex(sqlite3.DatabaseError, "customer_service_authority_not_legacy"):
+                source.execute("INSERT INTO inventory_import_uploads(id,fingerprint,file_name,file_size_bytes,chunk_size_bytes,chunk_count,expires_at) VALUES ('blocked-upload','customer-service:session:blocked','s.xlsx',1,1,1,'2999-01-01T00:00:00Z')")
         finally:
             source.close()
 

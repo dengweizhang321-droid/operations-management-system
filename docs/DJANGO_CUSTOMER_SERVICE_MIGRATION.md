@@ -129,11 +129,37 @@ python manage.py customer_service_write_authority `
 
 authority 变更也必须通过受保护 operator 的 `AuthorityPrepare`、`AuthorityAbort`、`AuthorityActivate`；不得从源码目录直接解密凭据或调用 production database。`activate` 成功后立即启动 `django-customer-service.ps1 -Action Start`，回读 8071/8072 readiness、authority、revision、公开 API 正负向、导入 duplicate/replay、版本冲突、受限 scope、HMAC 篡改和旧 D1 拒绝，再以原子 Worker release 绑定 `django` 模式。切权后不支持恢复 `legacy`/`shadow`、D1 双写或反向迁移。
 
-## 7. D1 终态退役
+## 7. D1/R2 终态退役
 
-跨过 PNR 并完成观察后，才可由 operator-only `0108_customer_service_domain_retirement.sql` 退役旧客服 D1 对象。退役前必须具备：成功 PostgreSQL 备份、完整迁移 verify、系统 smoke receipt、D1 authority 已为 `postgresql`、旧客服分片对象为 0、processing/owner 为 0，以及保留其他域对象和共享导入表非客服行不变的证据。
+跨过 PNR 并完成观察后，才可由受保护 operator 退役旧客服 D1/R2 路径。退役前必须具备：成功 PostgreSQL 备份、完整迁移 verify、正式系统 smoke receipt、D1 authority 已为 `postgresql`、旧客服分片对象为 0、processing/owner 为 0，以及保留其他域对象和共享导入表非客服行不变的证据。
 
-`0108` 会删除旧客服事实表并建立空 tombstone view，同时安装客服域永久 guard；共享导入表仅拒绝 `domain='customer-service'` 的新增、更新和删除。退役脚本不得由普通 Drizzle journal、Django 启动或应用请求自动执行。
+旧客服配对上传曾复用 `inventory-upload/` R2 前缀；库存域已经终态退出该前缀，因此客服退役必须在 Worker 停止时证明整个前缀、multipart upload 和 multipart part 均为 0。该证据只退役客服/库存历史上传前缀，不删除全局 R2 bucket 或 binding；市场图片、运营事务附件、网店图片和 AI 图片继续使用各自现行 R2 命名空间。
+
+正式回读和退役命令如下，所有 receipt/evidence 必须位于同一受保护 `audits\customer-service-cutover\` 根内：
+
+```powershell
+# 先在 Worker 停止时生成 R2 空前缀证据，再启动正式 Worker 与 8071/8072
+& $operator -Action R2Evidence -CustomerServiceD1 <客服D1绝对路径>
+
+# 正式链路运行时生成系统测试 receipt
+& <runtime-app>\tools\customer-service-production-smoke.ps1 `
+  -ReleaseRoot <effective-worker-release> -D1Path <客服D1绝对路径> `
+  -R2Evidence <客服R2证据> -AuditDirectory <本轮audit目录> `
+  -CutoverId <cutover-id> -MigrationRunId <verify-run-id> `
+  -SourceDigest <source-digest> -TargetDigest <同一digest> `
+  -WorkerBuildSha256 <worker-build-sha256>
+
+# 再次受控停止 Worker 和客服 reader/writer 后，以同一新鲜证据执行 plan/apply
+& $operator -Action RetirementPlan -CustomerServiceD1 <客服D1绝对路径> `
+  -ApprovedRunId <verify-run-id> -CustomerServiceCutoverId <cutover-id> `
+  -SmokeReceipt <system-test-receipt> -R2Evidence <r2-evidence>
+& $operator -Action RetirementApply -CustomerServiceD1 <客服D1绝对路径> `
+  -ApprovedRunId <verify-run-id> -CustomerServiceCutoverId <cutover-id> `
+  -SmokeReceipt <system-test-receipt> -R2Evidence <r2-evidence> `
+  -ApprovedRetirementPlanId <精确plan-id>
+```
+
+`0108` 会删除旧客服事实表和 authority 表并建立空 tombstone view，清除共享导入表的客服行、历史 `customer-service:%` 上传会话/结果，同时安装 18 个客服域永久 guard。共享导入表只拒绝 `domain='customer-service'`，共享上传表只拒绝 `fingerprint LIKE 'customer-service:%'`；其他域数据必须保持摘要不变。退役 SQL 不得由普通 Drizzle journal、Django 启动或应用请求自动执行。
 
 PNR 后的恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复；D1 退役对象和 evidence 必须继续保留，不能作为事实回滚来源。
 

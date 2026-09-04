@@ -28,6 +28,9 @@ TABLES = (
     "import_content_fingerprints",
     "import_content_attempts",
     "import_scope_heads",
+    "inventory_import_uploads",
+    "inventory_import_upload_chunks",
+    "inventory_import_upload_results",
 )
 
 
@@ -61,8 +64,8 @@ def preflight(connection: sqlite3.Connection) -> dict[str, int]:
     for name in TABLES[:4]:
         if not table_exists(connection, name):
             raise RuntimeError(f"D1 customer-service table missing: {name}")
-    if not table_exists(connection, "import_content_fingerprints") or not table_exists(connection, "import_content_attempts") or not table_exists(connection, "import_scope_heads"):
-        raise RuntimeError("D1 shared import audit tables are missing")
+    if any(not table_exists(connection, name) for name in TABLES[4:]):
+        raise RuntimeError("D1 shared import/upload tables are missing")
     processing = connection.execute(
         "SELECT COUNT(*) FROM customer_service_import_batches WHERE status='processing'"
     ).fetchone()[0]
@@ -71,6 +74,10 @@ def preflight(connection: sqlite3.Connection) -> dict[str, int]:
     ).fetchone()[0]
     processing += connection.execute(
         "SELECT COUNT(*) FROM import_scope_heads WHERE domain='customer-service' AND status='processing'"
+    ).fetchone()[0]
+    processing += connection.execute(
+        "SELECT COUNT(*) FROM inventory_import_uploads "
+        "WHERE fingerprint LIKE 'customer-service:%' AND status<>'completed'"
     ).fetchone()[0]
     if processing:
         raise RuntimeError("D1 customer-service has processing state")
@@ -82,6 +89,9 @@ def preflight(connection: sqlite3.Connection) -> dict[str, int]:
         "fingerprints": int(connection.execute("SELECT COUNT(*) FROM import_content_fingerprints WHERE domain='customer-service'").fetchone()[0]),
         "attempts": int(connection.execute("SELECT COUNT(*) FROM import_content_attempts WHERE domain='customer-service'").fetchone()[0]),
         "heads": int(connection.execute("SELECT COUNT(*) FROM import_scope_heads WHERE domain='customer-service'").fetchone()[0]),
+        "uploads": int(connection.execute("SELECT COUNT(*) FROM inventory_import_uploads WHERE fingerprint LIKE 'customer-service:%'").fetchone()[0]),
+        "uploadChunks": int(connection.execute("SELECT COUNT(*) FROM inventory_import_upload_chunks c JOIN inventory_import_uploads u ON u.id=c.upload_id WHERE u.fingerprint LIKE 'customer-service:%'").fetchone()[0]),
+        "uploadResults": int(connection.execute("SELECT COUNT(*) FROM inventory_import_upload_results r JOIN inventory_import_uploads u ON u.id=r.upload_id WHERE u.fingerprint LIKE 'customer-service:%'").fetchone()[0]),
     }
 
 
@@ -125,7 +135,7 @@ def install(source_path: Path, sql_path: Path, backup_path: Path, receipt_path: 
         raise RuntimeError("authority output paths are invalid or already exist")
     sql_text = sql_path.read_text(encoding="utf-8")
     expected_triggers = sorted(set(TRIGGER_RE.findall(sql_text)))
-    if len(expected_triggers) != 24:
+    if len(expected_triggers) != 33:
         raise RuntimeError("customer-service authority SQL trigger contract is incomplete")
     connection = sqlite3.connect(source_path, timeout=30, isolation_level=None)
     try:

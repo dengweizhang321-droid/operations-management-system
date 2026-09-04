@@ -3,14 +3,18 @@ param(
   [ValidateSet(
     "Snapshot", "MigrateDryRun", "MigrateApply", "MigrateVerify",
     "InstallD1Authority", "AuthorityStatus", "AuthorityPrepare",
-    "AuthorityAbort", "AuthorityActivate"
+    "AuthorityAbort", "AuthorityActivate", "R2Evidence",
+    "RetirementPlan", "RetirementApply"
   )]
   [string]$Action = "AuthorityStatus",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$CustomerServiceD1 = "",
   [string]$CustomerServiceSource = "",
   [string]$ApprovedRunId = "",
-  [string]$CustomerServiceCutoverId = ""
+  [string]$CustomerServiceCutoverId = "",
+  [string]$SmokeReceipt = "",
+  [string]$R2Evidence = "",
+  [string]$ApprovedRetirementPlanId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +27,8 @@ try {
 } finally { [Environment]::SetEnvironmentVariable("TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", $previousLibraryMode, "Process") }
 $Action = $CutoverAction
 $CustomerServiceAuditRoot = Join-Path $RuntimeRoot "audits\customer-service-cutover"
+$CustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
+$CustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
 
 function Assert-InstalledCustomerServiceOperator {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) { throw "客服 cutover 必须从 DeployApp 后的受保护 runtime app 执行" }
@@ -50,6 +56,25 @@ function Resolve-CustomerServiceSnapshot([string]$Value) {
   return $canonical
 }
 
+function Resolve-CustomerServiceEvidencePath([string]$Value, [string]$Label) {
+  if ([string]::IsNullOrWhiteSpace($Value) -or -not (Test-FullyQualifiedPath $Value)) { throw "$Label 必须是客服 audit 目录内的绝对文件路径" }
+  $canonical = Get-CanonicalPath $Value
+  [void](Assert-RuntimeChildPath $canonical)
+  $auditRoot = Get-CanonicalPath $CustomerServiceAuditRoot
+  if (-not $canonical.StartsWith($auditRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $canonical -PathType Leaf)) { throw "$Label 不在受保护客服切换 audit 目录或文件不存在" }
+  return $canonical
+}
+
+function Assert-CustomerServiceStackStopped([string]$Operation) {
+  if (Resolve-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress) { throw "$Operation 前必须通过客服控制器停止 reader" }
+  if (Resolve-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress) { throw "$Operation 前必须通过客服控制器停止 writer" }
+  if (@(Get-PortListeners 8071).Count -gt 0 -or @(Get-PortListeners 8072).Count -gt 0) { throw "$Operation 前端口 8071/8072 必须没有监听者" }
+}
+
+function Assert-CustomerServiceWorkerStopped([string]$Operation) {
+  if (@(Get-PortListeners 3000).Count -gt 0) { throw "$Operation 前必须通过统一控制器停止 Worker" }
+}
+
 function Invoke-CustomerServiceManagementCommand([string[]]$Arguments, [string]$Operation) {
   $secrets = Read-Secrets
   $ownerUrl = Database-Url "teruisi_sales_owner" $secrets.OwnerPassword "teruisi_customer_service_cutover" $WriterStatementTimeoutMs
@@ -65,6 +90,8 @@ function Invoke-CustomerServiceManagementCommand([string[]]$Arguments, [string]$
 
 function Invoke-CustomerServiceSnapshot {
   Assert-InstalledCustomerServiceOperator
+  Assert-CustomerServiceStackStopped "创建客服 D1 一致快照"
+  Assert-CustomerServiceWorkerStopped "创建客服 D1 一致快照"
   $source = Resolve-LiveCustomerServiceD1
   $directory = Join-Path $CustomerServiceAuditRoot $RunId
   New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -79,6 +106,8 @@ function Invoke-CustomerServiceSnapshot {
 
 function Invoke-CustomerServiceMigration([string]$Mode) {
   Assert-InstalledCustomerServiceOperator
+  Assert-CustomerServiceStackStopped "执行客服正式迁移"
+  Assert-CustomerServiceWorkerStopped "执行客服正式迁移"
   $source = Resolve-CustomerServiceSnapshot $CustomerServiceSource
   $arguments = @("migrate_customer_service_from_d1", "--source", $source)
   if ($Mode -eq "apply") {
@@ -99,7 +128,8 @@ function Assert-CustomerServiceWriterStopped {
 
 function Invoke-InstallCustomerServiceD1Authority {
   Assert-InstalledCustomerServiceOperator
-  Assert-CustomerServiceWriterStopped
+  Assert-CustomerServiceStackStopped "安装客服 D1 写入权威门禁"
+  Assert-CustomerServiceWorkerStopped "安装客服 D1 写入权威门禁"
   $source = Resolve-LiveCustomerServiceD1
   $directory = Join-Path $CustomerServiceAuditRoot $RunId
   New-Item -ItemType Directory -Path $directory -Force | Out-Null
@@ -116,7 +146,12 @@ function Invoke-InstallCustomerServiceD1Authority {
 
 function Invoke-CustomerServiceAuthority([string]$Mode) {
   Assert-InstalledCustomerServiceOperator
-  Assert-CustomerServiceWriterStopped
+  if ($Mode -ne "status") {
+    Assert-CustomerServiceStackStopped "变更客服写入权威"
+    Assert-CustomerServiceWorkerStopped "变更客服写入权威"
+  } else {
+    Assert-CustomerServiceWriterStopped
+  }
   $source = Resolve-LiveCustomerServiceD1
   $arguments = @("customer_service_write_authority", "--source", $source)
   if ($Mode -ne "status") {
@@ -127,6 +162,54 @@ function Invoke-CustomerServiceAuthority([string]$Mode) {
   } elseif (-not [string]::IsNullOrWhiteSpace($ApprovedRunId) -or -not [string]::IsNullOrWhiteSpace($CustomerServiceCutoverId)) { throw "客服 authority status 不接受变更参数" }
   $payload = Invoke-CustomerServiceManagementCommand $arguments "customer_service_authority_$Mode"
   Write-Output ($payload | ConvertTo-Json -Compress -Depth 8)
+}
+
+function Invoke-CustomerServiceR2Evidence {
+  Assert-InstalledCustomerServiceOperator
+  Assert-CustomerServiceWorkerStopped "生成客服 R2 退役证据"
+  $source = Resolve-LiveCustomerServiceD1
+  $d1ObjectRoot = Split-Path -Parent $source
+  $d1Root = Split-Path -Parent $d1ObjectRoot
+  if ((Split-Path -Leaf $d1Root) -cne "d1") { throw "权威 D1 不在固定 Wrangler persist/v3/d1 根内" }
+  $v3Root = Split-Path -Parent $d1Root
+  $r2Root = Join-Path $v3Root "r2\miniflare-R2BucketObject"
+  if (-not (Test-Path -LiteralPath $r2Root -PathType Container)) { throw "固定 Wrangler R2 metadata 根不存在" }
+  $directory = Join-Path $CustomerServiceAuditRoot $RunId
+  New-Item -ItemType Directory -Path $directory -Force | Out-Null
+  $output = Join-Path $directory "customer-service-r2-retirement-evidence.json"
+  $nativeRun = Invoke-BoundedNativeProcess $Python @(
+    (Join-Path $InstalledAppRoot "tools\customer-service-r2-retirement-evidence.py"),
+    "--r2-root", $r2Root, "--output", $output
+  ) $InstalledAppRoot
+  Write-NativeDiagnosticLog (Join-Path $LogDirectory "customer-service-r2-evidence.$RunId.log") "customer_service_r2_evidence" $nativeRun
+  Write-Output ((ConvertFrom-UniqueNativeJson $nativeRun "证明客服旧 R2 命名空间为空") | ConvertTo-Json -Compress -Depth 8)
+}
+
+function Invoke-CustomerServiceRetirement([bool]$Apply) {
+  Assert-InstalledCustomerServiceOperator
+  Assert-CustomerServiceStackStopped "执行客服 D1/R2 终态退役"
+  Assert-CustomerServiceWorkerStopped "执行客服 D1/R2 终态退役"
+  if ($ApprovedRunId -notmatch "^customer-service-[0-9a-f]{32}$") { throw "客服退役需要有效 verify run id" }
+  if ($CustomerServiceCutoverId -notmatch "^[A-Za-z0-9._:-]{8,128}$") { throw "客服退役需要有效 cutover id" }
+  $smoke = Resolve-CustomerServiceEvidencePath $SmokeReceipt "客服系统测试 receipt"
+  $r2 = Resolve-CustomerServiceEvidencePath $R2Evidence "客服 R2 退役证据"
+  $arguments = @(
+    "retire_customer_service_d1", "--source", (Resolve-LiveCustomerServiceD1),
+    "--cutover-id", $CustomerServiceCutoverId,
+    "--approved-run-id", $ApprovedRunId,
+    "--smoke-receipt", $smoke, "--r2-evidence", $r2
+  )
+  if ($Apply) {
+    if ($ApprovedRetirementPlanId -notmatch "^[0-9a-f]{64}$") { throw "客服 retirement apply 需要精确 plan id" }
+    $directory = Join-Path $CustomerServiceAuditRoot $RunId
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $arguments += @(
+      "--apply", "--approved-plan-id", $ApprovedRetirementPlanId,
+      "--audit-output", (Join-Path $directory "customer-service-retirement-audit.json")
+    )
+  } elseif (-not [string]::IsNullOrWhiteSpace($ApprovedRetirementPlanId)) { throw "客服 retirement plan 不接受 approved plan id" }
+  $payload = Invoke-CustomerServiceManagementCommand $arguments ($(if ($Apply) { "customer_service_retirement_apply" } else { "customer_service_retirement_plan" }))
+  Write-Output ($payload | ConvertTo-Json -Compress -Depth 10)
 }
 
 Invoke-WithServiceMutex {
@@ -140,5 +223,8 @@ Invoke-WithServiceMutex {
     "AuthorityPrepare" { Invoke-CustomerServiceAuthority "prepare" }
     "AuthorityAbort" { Invoke-CustomerServiceAuthority "abort" }
     "AuthorityActivate" { Invoke-CustomerServiceAuthority "activate" }
+    "R2Evidence" { Invoke-CustomerServiceR2Evidence }
+    "RetirementPlan" { Invoke-CustomerServiceRetirement $false }
+    "RetirementApply" { Invoke-CustomerServiceRetirement $true }
   }
 }

@@ -153,7 +153,7 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 客服 reader/writer 固定使用 `127.0.0.1:8071/8072`、`teruisi_customer_service_reader/writer` 和独立 DPAPI 凭据。reader 只读客服域表，writer 只写客服域表；writer 只有在 `customer_service_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境一致且 revision 已验证时才可承接写入。客服账号仍按现有口径只允许无数据范围 principal 读取，消息正文仅在明确请求且受有界截断保护时返回。
 
-客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal；正式切权/退役步骤与受控命令见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
+客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。旧客服配对上传复用过 `inventory-upload/` R2 前缀，终态退役必须提供该前缀及 multipart 均为空的独立证据，并将证据哈希绑定 retirement plan；全局 R2 binding 继续供其他域使用。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal；正式切权/退役步骤与受控命令见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
 
 ## 当前本机终态记录
 
