@@ -159,12 +159,20 @@ function Trend({ values }: { values: number[] }) {
   return <svg className="launch-followup-sparkline" viewBox="0 0 150 42" role="img" aria-label={`周销量趋势：${values.join("、") || "暂无"}`}><polyline points={sparklinePoints(values)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-function trendPngDataUrl(values: number[]) {
+type WorkbookImage = { bytes: Uint8Array; extension: "png" | "jpeg" | "gif" };
+
+function dataUrlBytes(dataUrl: string) {
+  const encoded = dataUrl.split(",", 2)[1] || "";
+  const binary = window.atob(encoded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function trendPngImage(values: number[]): WorkbookImage {
   const canvas = document.createElement("canvas");
   canvas.width = 300;
   canvas.height = 84;
   const context = canvas.getContext("2d");
-  if (!context) return "";
+  if (!context) throw new Error("当前浏览器无法生成 Excel 趋势图。");
   context.scale(2, 2);
   context.strokeStyle = "#4777b5";
   context.lineWidth = 2;
@@ -177,32 +185,28 @@ function trendPngDataUrl(values: number[]) {
     if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
   }
   context.stroke();
-  return canvas.toDataURL("image/png");
+  return { bytes: dataUrlBytes(canvas.toDataURL("image/png")), extension: "png" };
 }
 
-async function remoteImagePngDataUrl(source: string) {
-  if (!source) return "";
+async function remoteWorkbookImage(source: string): Promise<WorkbookImage | null> {
+  if (!source) return null;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 8_000);
   try {
     const response = await fetch(source, { credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal });
-    if (!response.ok) return "";
+    if (!response.ok) return null;
     const blob = await response.blob();
-    if (!blob.type.startsWith("image/") || blob.size < 1 || blob.size > 3 * 1024 * 1024) return "";
-    if (["image/png", "image/jpeg", "image/gif"].includes(blob.type)) {
-      return await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-        reader.onerror = () => resolve("");
-        reader.readAsDataURL(blob);
-      });
+    if (!blob.type.startsWith("image/") || blob.size < 1 || blob.size > 3 * 1024 * 1024) return null;
+    const directExtension = ({ "image/png": "png", "image/jpeg": "jpeg", "image/gif": "gif" } as const)[blob.type as "image/png" | "image/jpeg" | "image/gif"];
+    if (directExtension) {
+      return { bytes: new Uint8Array(await blob.arrayBuffer()), extension: directExtension };
     }
     const bitmap = await createImageBitmap(blob);
     const canvas = document.createElement("canvas");
     canvas.width = 120;
     canvas.height = 120;
     const context = canvas.getContext("2d");
-    if (!context) return "";
+    if (!context) { bitmap.close(); return null; }
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
     const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
@@ -210,30 +214,24 @@ async function remoteImagePngDataUrl(source: string) {
     const height = Math.max(1, bitmap.height * scale);
     context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
     bitmap.close();
-    return canvas.toDataURL("image/png");
+    return { bytes: dataUrlBytes(canvas.toDataURL("image/png")), extension: "png" };
   } catch {
-    return "";
+    return null;
   } finally {
     window.clearTimeout(timer);
   }
 }
 
-function excelImageExtension(dataUrl: string): "png" | "jpeg" | "gif" {
-  if (dataUrl.startsWith("data:image/jpeg")) return "jpeg";
-  if (dataUrl.startsWith("data:image/gif")) return "gif";
-  return "png";
-}
-
 async function loadProductImages(items: FollowupItem[]) {
   const sources = Array.from(new Set(items.map((item) => item.productImageUrl).filter(Boolean)));
-  const images = new Map<string, string>();
+  const images = new Map<string, WorkbookImage | null>();
   let cursor = 0;
   const deadline = Date.now() + 15_000;
   async function worker() {
     while (cursor < sources.length && Date.now() < deadline) {
       const source = sources[cursor];
       cursor += 1;
-      images.set(source, await remoteImagePngDataUrl(source));
+      images.set(source, await remoteWorkbookImage(source));
     }
   }
   await Promise.all(Array.from({ length: Math.min(6, sources.length) }, worker));
@@ -241,67 +239,21 @@ async function loadProductImages(items: FollowupItem[]) {
 }
 
 async function downloadMatrixExcel(report: FollowupReport) {
-  const { default: ExcelJS } = await import("exceljs");
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "TERUISI 运营管理系统";
-  workbook.created = new Date();
-  const worksheet = workbook.addWorksheet("上新周报", { views: [{ state: "frozen", xSplit: 4, ySplit: 1 }] });
-  worksheet.properties.defaultRowHeight = 22;
-  worksheet.columns = [
-    { header: "品牌", key: "brand", width: 12 },
-    { header: "产品图", key: "image", width: 14 },
-    { header: "产品名称", key: "name", width: 28 },
-    { header: "趋势", key: "trend", width: 25 },
-    ...report.weeks.map((week) => ({ header: `${week.label}\n(${week.dateRange})${week.dataComplete ? "" : "\n数据未完整"}`, key: `week_${week.weekNumber}`, width: 16 })),
-  ];
-  const header = worksheet.getRow(1);
-  header.height = 58;
-  header.eachCell((cell) => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4477C8" } };
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-    cell.border = { bottom: { style: "thin", color: { argb: "FFB7C9E7" } }, right: { style: "thin", color: { argb: "FFB7C9E7" } } };
-  });
+  const { createNewProductFollowupWorkbookBytes } = await import("@/lib/imports/new-product-followup-xlsx");
   const productImages = await loadProductImages(report.items);
-
-  for (const [index, item] of report.items.entries()) {
-    const row = worksheet.addRow([item.brand || "志高", "", item.name, "", ...item.weeklyNetQuantities]);
-    row.height = 58;
-    row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: index % 2 === 0 ? "FFDBE5F5" : "FFFFFFFF" } };
-      cell.font = { bold: columnNumber === 1 || columnNumber === 3, color: { argb: "FF17233C" }, size: 11 };
-      cell.alignment = { horizontal: columnNumber === 3 ? "left" : "center", vertical: "middle", wrapText: true };
-      cell.border = { bottom: { style: "thin", color: { argb: "FFB7C9E7" } }, right: { style: "thin", color: { argb: "FFB7C9E7" } } };
-      if (columnNumber >= 5) cell.numFmt = "#,##0";
-    });
-    const trend = trendPngDataUrl(item.weeklyNetQuantities);
-    if (trend) {
-      const trendImage = workbook.addImage({ base64: trend, extension: "png" });
-      worksheet.addImage(trendImage, { tl: { col: 3.15, row: row.number - .88 }, ext: { width: 138, height: 42 } });
-    }
-    if (item.productImageUrl) {
-      const embedded = productImages.get(item.productImageUrl) || "";
-      if (embedded) {
-        const productImage = workbook.addImage({ base64: embedded, extension: excelImageExtension(embedded) });
-        worksheet.addImage(productImage, { tl: { col: 1.22, row: row.number - .93 }, ext: { width: 50, height: 50 } });
-      } else {
-        worksheet.getCell(row.number, 2).value = { text: "查看产品图", hyperlink: item.productImageUrl };
-        worksheet.getCell(row.number, 2).font = { color: { argb: "FF4477C8" }, underline: true, size: 10 };
-      }
-    } else {
-      worksheet.getCell(row.number, 2).value = "暂无";
-      worksheet.getCell(row.number, 2).font = { color: { argb: "FF8793A6" }, size: 10 };
-    }
-  }
-  worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, report.items.length + 1), column: 4 + report.weeks.length } };
-  const noteRow = report.items.length + 3;
-  worksheet.mergeCells(noteRow, 1, noteRow, Math.max(4, 2 + Math.floor(report.weeks.length / 2)));
-  worksheet.getCell(noteRow, 1).value = `周维度自 ${report.timelineStart} 起持续累积 · 数值口径：吉客云货品代码净销量`;
-  worksheet.mergeCells(noteRow, Math.max(5, 3 + Math.floor(report.weeks.length / 2)), noteRow, 4 + report.weeks.length);
-  worksheet.getCell(noteRow, Math.max(5, 3 + Math.floor(report.weeks.length / 2))).value = `销售数据截至：${report.dataCutoffDate ?? "暂无"}`;
-  worksheet.getRow(noteRow).font = { color: { argb: "FF68748A" }, size: 10 };
-  worksheet.getRow(noteRow).alignment = { vertical: "middle" };
-  const bytes = await workbook.xlsx.writeBuffer();
+  const bytes = createNewProductFollowupWorkbookBytes({
+    timelineStart: report.timelineStart,
+    dataCutoffDate: report.dataCutoffDate,
+    weeks: report.weeks,
+    items: report.items.map((item) => ({
+      brand: item.brand || "志高",
+      name: item.name,
+      productImageUrl: item.productImageUrl,
+      weeklyNetQuantities: item.weeklyNetQuantities,
+      productImage: item.productImageUrl ? productImages.get(item.productImageUrl) ?? null : null,
+      trendImage: trendPngImage(item.weeklyNetQuantities),
+    })),
+  });
   const href = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   const link = document.createElement("a");
   link.href = href;

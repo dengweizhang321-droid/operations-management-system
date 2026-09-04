@@ -306,9 +306,8 @@ test("new-product follow-up renders continuous monitoring, product images, match
   assert.match(robotSettings, /PNG 上传钉盘 \+ 机器人在线预览链接/);
   assert.match(followup, /REPORT_TIMELINE_START = "2026-08-03"/);
   assert.match(followup, /weeklyNetQuantities/);
-  assert.match(followup, /import\("exceljs"\)/);
-  assert.match(followup, /workbook\.addImage/);
-  assert.match(followup, /trendPngDataUrl/);
+  assert.match(followup, /createNewProductFollowupWorkbookBytes/);
+  assert.match(followup, /trendPngImage/);
   assert.match(followup, /\.xlsx/);
   assert.doesNotMatch(followup, /trackingWeeks|跟踪周数/);
   assert.match(service, /REPORT_TIMELINE_START = date\(2026, 8, 3\)/);
