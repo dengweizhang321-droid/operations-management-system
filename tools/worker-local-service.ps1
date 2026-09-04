@@ -28,6 +28,7 @@ $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
+$DjangoBiService = Join-Path $DjangoRuntimeTools "django-bi-service.ps1"
 $WorkerPort = 3000
 $WorkerHost = "127.0.0.1"
 $HelperPort = 5791
@@ -199,6 +200,14 @@ function Test-DjangoDomainReady(
   return $true
 }
 
+function Test-DjangoReaderReady([object]$Status, [string]$ReaderProperty) {
+  return (
+    $Status -and
+    [string]$Status.PSObject.Properties[$ReaderProperty].Value -ceq "running" -and
+    [string]$Status.ReaderReadiness -ceq "ready"
+  )
+}
+
 function Test-IsIsolatedTestRuntime {
   if (-not $AllowTestRuntimeRoot) { return $false }
   $actualRuntime = [System.IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
@@ -233,6 +242,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = $aggregateStatus.Workflow
     $inventoryStatus = $aggregateStatus.Inventory
     $customerServiceStatus = $aggregateStatus.CustomerService
+    $biStatus = $aggregateStatus.Bi
   } else {
     # Safe rolling-upgrade compatibility. Once the new runtime app is deployed,
     # the aggregate branch above is mandatory for the startup performance target.
@@ -244,6 +254,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
     $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
     $customerServiceStatus = Invoke-DjangoStatusJson $DjangoCustomerService "Status" "Django customer-service status"
+    $biStatus = Invoke-DjangoStatusJson $DjangoBiService "Status" "Django BI status"
   }
 
   $checks = [ordered]@{
@@ -264,6 +275,7 @@ function Get-DjangoSystemReadiness {
     workflow = Test-DjangoDomainReady $workflowStatus "WorkflowReader" "WorkflowWriter"
     inventory = Test-DjangoDomainReady $inventoryStatus "InventoryReader" "InventoryWriter"
     customerService = Test-DjangoDomainReady $customerServiceStatus "CustomerServiceReader" "CustomerServiceWriter"
+    bi = Test-DjangoReaderReady $biStatus "BiReader"
   }
   $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
   return [pscustomobject]@{

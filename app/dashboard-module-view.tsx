@@ -4,8 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import {
   type SalesRangeLabel,
-  type SalesDashboardResponse,
-  type InventoryDashboardResponse,
+  type BiDashboardResponse,
   salesRangeMap,
   formatCurrencyFromCents,
   formatCount,
@@ -30,10 +29,7 @@ export default function DashboardView({
   customEndDate: string;
 }) {
   const apiRange = salesRangeMap[range];
-  const [sales, setSales] = useState<SalesDashboardResponse | null>(null);
-  const [inventory, setInventory] = useState<InventoryDashboardResponse | null>(
-    null,
-  );
+  const [dashboard, setDashboard] = useState<BiDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
@@ -48,30 +44,23 @@ export default function DashboardView({
     setLoading(true);
     setError("");
     try {
-      const query = new URLSearchParams({ range: apiRange, view: "dashboard" });
+      const query = new URLSearchParams({ range: apiRange });
       if (apiRange === "custom") {
         query.set("startDate", customStartDate);
         query.set("endDate", customEndDate);
       }
-      const inventoryQuery = new URLSearchParams({ view: "dashboard", startDate: customStartDate, endDate: customEndDate });
-      const [salesPayload, inventoryPayload] = await Promise.all([
-        requestJson<SalesDashboardResponse>(`/api/sales/summary?${query}`, {
-          signal: controller.signal,
-        }),
-        requestJson<InventoryDashboardResponse>(
-          `/api/inventory/overview?${inventoryQuery}`,
-          { signal: controller.signal },
-        ),
-      ]);
+      const payload = await requestJson<BiDashboardResponse>(`/api/bi/overview?${query}`, {
+        signal: controller.signal,
+      });
       if (
-        salesPayload?.projection !== "dashboard" ||
-        !salesPayload.current ||
-        !inventoryPayload?.metrics
+        payload?.projection !== "dashboard" ||
+        payload.contractVersion !== "bi-dashboard-read-model-v1" ||
+        !payload.sales?.current ||
+        !payload.inventory?.metrics
       )
         throw new Error("经营数据读取失败");
       if (generation !== requestGenerationRef.current) return;
-      setSales(salesPayload);
-      setInventory(inventoryPayload);
+      setDashboard(payload);
     } catch (reason) {
       if (
         controller.signal.aborted ||
@@ -90,15 +79,15 @@ export default function DashboardView({
     void load();
     return () => requestControllerRef.current?.abort();
   }, [load, retryKey]);
-  if (loading && !sales)
+  if (loading && !dashboard)
     return (
       <section className="panel data-state" role="status">
         <span className="state-spinner" />
         <strong>正在同步 BI 经营看板</strong>
-        <p>正在汇总销售、网店与库存数据…</p>
+        <p>正在读取销售与库存的一致性经营投影…</p>
       </section>
     );
-  if (!sales || !inventory)
+  if (!dashboard)
     return (
       <section className="panel data-state data-state-error" role="alert">
         <span className="state-symbol">!</span>
@@ -112,6 +101,8 @@ export default function DashboardView({
         </button>
       </section>
     );
+  const sales = dashboard.sales;
+  const inventory = dashboard.inventory;
   const current = sales.current;
   const previous = sales.previous;
   const yearAgo = sales.yearAgo;
@@ -130,17 +121,7 @@ export default function DashboardView({
   const inventoryAlertsAvailable =
     inventory.metrics.inventoryAlertsEnabled &&
     !inventory.metrics.recommendationsSuppressed;
-  const healthScore = inventoryAlertsAvailable
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          100 -
-            inventory.metrics.urgentCount * 8 -
-            inventory.health.stagnant * 2,
-        ),
-      )
-    : null;
+  const healthScore = dashboard.inventoryHealthScore;
   return (
     <>
       <section className="dashboard-sync-bar">

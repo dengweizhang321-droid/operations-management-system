@@ -34,6 +34,7 @@
   - 运营事务工作计划、评论/活动/提醒/关联、模板（变量配置）、附件元数据/清理队列、巡店/评价记录、结构化新品项目、多店目标、七阶段、产品线、周报配置、投递账本、迁移和审计的权威实现：`backend/workflow/`；Worker 薄适配与有界 consumer：`lib/django/workflow-service.ts`、`lib/django/workflow-consumer-reader.ts`。旧 D1 运营事务对象只允许作为空 tombstone、永久 guard、隔离迁移/恢复研究或测试夹具保留；附件字节继续由薄 Worker 使用现有 R2 命名空间，元数据与清理状态以 PostgreSQL 为权威
   - AI 助理、工具执行和审计：`lib/ai/`
   - 全局搜索：`lib/search/`
+  - BI 看板只读聚合：`backend/bi/`；Worker 薄适配为 `lib/django/bi-service.ts`。BI 不拥有或复制销售、ERP、库存事实，不设 writer 或第二套业务 revision；生产 reader 固定使用 `127.0.0.1:8081`、独立 `teruisi_bi_reader` 只读角色和 `bi-service-enabled.json`，服务端通过源 revision 前后采样组成一致性快照，并只在 `bi_migration_runs` 保存采用审计
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
 ### 2.1 Django 后端渐进迁移决策

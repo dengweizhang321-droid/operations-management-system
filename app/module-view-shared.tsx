@@ -410,6 +410,17 @@ export type InventoryOverviewResponse = {
 
 export type InventoryDashboardResponse = Pick<InventoryOverviewResponse, "hasInventory" | "sync" | "metrics" | "health">;
 
+export type BiDashboardResponse = {
+  projection: "dashboard";
+  contractVersion: "bi-dashboard-read-model-v1";
+  generatedAt: string;
+  revision: string;
+  sourceRevisions: { salesErp: string; inventory: string };
+  sales: SalesDashboardResponse;
+  inventory: InventoryDashboardResponse;
+  inventoryHealthScore: number | null;
+};
+
 export type InventoryAgeItem = {
   key: string;
   productCode: string;

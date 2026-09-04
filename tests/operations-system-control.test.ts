@@ -6,6 +6,7 @@ const panelBytes = readFileSync("tools/operations-system-control.ps1");
 const panel = panelBytes.toString("utf8");
 const workerService = readFileSync("tools/worker-local-service.ps1", "utf8");
 const djangoDomainServicePaths = [
+  "tools/django-bi-service.ps1",
   "tools/django-netshop-service.ps1",
   "tools/django-market-service.ps1",
   "tools/django-products-service.ps1",

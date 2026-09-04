@@ -41,6 +41,8 @@ $InstalledInventoryScriptPath = Join-Path $InstalledAppRoot "tools\django-invent
 $InventoryStartupEnabledPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $InstalledCustomerServiceScriptPath = Join-Path $InstalledAppRoot "tools\django-customer-service.ps1"
 $CustomerServiceStartupEnabledPath = Join-Path $RuntimeRoot "customer-service-enabled.json"
+$InstalledBiScriptPath = Join-Path $InstalledAppRoot "tools\django-bi-service.ps1"
+$BiStartupEnabledPath = Join-Path $RuntimeRoot "bi-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
@@ -67,6 +69,7 @@ $DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader
 $DjangoInventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
 $DjangoCustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
 $DjangoCustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
+$DjangoBiReaderPidPath = Join-Path $RunDirectory "django-bi-reader.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
 $DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
 $SupervisorDesiredStatePath = Join-Path $RunDirectory "django-supervisor-desired-state.json"
@@ -81,6 +84,7 @@ $DjangoFinanceReaderHealthUrl = "http://127.0.0.1:8011/health/ready"
 $DjangoFinanceWriterHealthUrl = "http://127.0.0.1:8012/health/ready"
 $DjangoCustomerServiceReaderHealthUrl = "http://127.0.0.1:8071/health/ready"
 $DjangoCustomerServiceWriterHealthUrl = "http://127.0.0.1:8072/health/ready"
+$DjangoBiReaderHealthUrl = "http://127.0.0.1:8081/health/ready"
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Django Sales.lnk"
 $RunId = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
 $ReaderStatementTimeoutMs = 7000
@@ -1642,6 +1646,7 @@ function Deploy-Application {
       "tools\workflow-operations-d1-rejection-smoke.py",
       "tools\django-inventory-service.ps1",
       "tools\django-customer-service.ps1",
+      "tools\django-bi-service.ps1",
       "tools\django-customer-service-cutover.ps1",
       "tools\customer-service-production-smoke.ps1",
       "tools\customer-service-consumer-smoke.ts",
@@ -2171,7 +2176,8 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8061).Count -gt 0 -or
     @(Get-PortListeners 8062).Count -gt 0 -or
     @(Get-PortListeners 8071).Count -gt 0 -or
-    @(Get-PortListeners 8072).Count -gt 0
+    @(Get-PortListeners 8072).Count -gt 0 -or
+    @(Get-PortListeners 8081).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -2216,6 +2222,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   }
   if (Resolve-OwnedProcess "django-customer-service-writer" $DjangoCustomerServiceWriterPidPath $Waitress) {
     throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service writer"
+  }
+  if (Resolve-OwnedProcess "django-bi-reader" $DjangoBiReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过 BI 控制器 Stop 停止 Django BI reader"
   }
   if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python) {
     throw "$Operation 前必须通过 Stop 停止 ERP reference sync"
@@ -3344,7 +3353,7 @@ function Configure-Service {
     erpSourceD1 = $resolvedErpSource
   })
   Write-LauncherEvent "INFO" "service_configured"
-  Write-Output "Django 本机销售/财务/客服 reader/writer 与 ERP reference sync 配置已固定；未启动服务。"
+  Write-Output "Django 本机业务域 reader/writer、BI reader 与 ERP reference sync 配置已固定；未启动服务。"
 }
 
 function Initialize-ErpReferenceCheckpoint {
@@ -3931,6 +3940,34 @@ function Get-SimpleDjangoDomainStatus(
   return [pscustomobject]$status
 }
 
+function Get-SimpleDjangoReaderStatus(
+  [string]$Service,
+  [string]$ReaderPidPath,
+  [int]$ReaderPort,
+  [string]$ReaderHealthUrl,
+  [string]$ReaderProperty
+) {
+  $reader = "stopped"
+  try {
+    if (Resolve-OwnedProcess $Service $ReaderPidPath $Waitress) { $reader = "running" }
+    elseif (@(Get-PortListeners $ReaderPort).Count -gt 0) { $reader = "foreign_port_owner" }
+  } catch { $reader = "ownership_error" }
+  $readerReady = "not_ready"
+  if ($reader -eq "running") {
+    try {
+      if ((Invoke-WebRequest -UseBasicParsing -Uri $ReaderHealthUrl -TimeoutSec 2 `
+            -Headers @{ Host = "127.0.0.1:$ReaderPort" }).StatusCode -eq 200) {
+        $readerReady = "ready"
+      }
+    } catch {}
+  }
+  $status = [ordered]@{}
+  $status[$ReaderProperty] = $reader
+  $status["ReaderReadiness"] = $readerReady
+  $status["CheckedAt"] = [DateTimeOffset]::UtcNow.ToString("o")
+  return [pscustomobject]$status
+}
+
 function Show-AggregateServiceStatus {
   # Load the base controller once and inspect all exact process receipts in the
   # same process.  The previous implementation cold-started seven pwsh
@@ -3963,6 +4000,8 @@ function Show-AggregateServiceStatus {
     "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $DjangoCustomerServiceWriterPidPath `
     8071 8072 "http://127.0.0.1:8071/health/ready" "http://127.0.0.1:8072/health/ready" `
     "CustomerServiceReader" "CustomerServiceWriter"
+  $bi = Get-SimpleDjangoReaderStatus `
+    "django-bi-reader" $DjangoBiReaderPidPath 8081 $DjangoBiReaderHealthUrl "BiReader"
   $timer.Stop()
   $status = [pscustomobject][ordered]@{
     Version = "teruisi-django-aggregate-status-v1"
@@ -3974,6 +4013,7 @@ function Show-AggregateServiceStatus {
     Inventory = $inventory
     Workflow = $workflow
     CustomerService = $customerService
+    Bi = $bi
     ElapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
   }
@@ -4068,11 +4108,22 @@ function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken
     & $InstalledCustomerServiceScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
+  if (Test-Path -LiteralPath $BiStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledBiScriptPath -PathType Leaf)) {
+      throw "BI 开机启动已启用，但受控 BI 服务脚本缺失"
+    }
+    & $InstalledBiScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
 }
 
 function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToken) {
   if ($OrchestratedLifecycleAclToken -cnotmatch "^[0-9a-f]{64}$") {
     throw "orchestrated lifecycle ACL token 无效"
+  }
+  if (Test-Path -LiteralPath $InstalledBiScriptPath -PathType Leaf) {
+    & $InstalledBiScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
   if (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf) {
     & $InstalledInventoryScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `

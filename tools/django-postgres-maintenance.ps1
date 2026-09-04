@@ -41,7 +41,8 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_workflow_reader",
   "teruisi_workflow_writer",
   "teruisi_customer_service_reader",
-  "teruisi_customer_service_writer"
+  "teruisi_customer_service_writer",
+  "teruisi_bi_reader"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -240,6 +241,9 @@ function Assert-MaintenanceEvidence(
   [string]$ExpectedUser,
   [int]$ExpectedPort
 ) {
+  $hasBiMigration = @($Evidence.migrations | Where-Object {
+      [string]$_.app -ceq "bi" -and [string]$_.name -ceq "0001_initial"
+    }).Count -gt 0
   $hasNetshopRevisions = $null -ne $Evidence.PSObject.Properties["netshopRevisions"]
   $hasNetshopAuthority = $null -ne $Evidence.PSObject.Properties["netshopWriteAuthority"]
   if ($hasNetshopRevisions -ne $hasNetshopAuthority) {
@@ -328,6 +332,9 @@ function Assert-MaintenanceEvidence(
     "django_migrations", "sales_data_revisions", "sales_import_batches",
     "sales_order_lines", "sales_write_authority", "erp_product_master"
   )
+  if ($hasBiMigration) {
+    $requiredTables += @("bi_migration_runs")
+  }
   if ($hasNetshopRevisions) {
     $requiredTables += @(
       "netshop_data_revisions", "netshop_import_batches",
@@ -384,7 +391,7 @@ function Assert-MaintenanceEvidence(
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or

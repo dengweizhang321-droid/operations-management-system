@@ -51,6 +51,10 @@ test("print-dev-vars emits every Django domain pair with distinct reader/writer 
       assert.match(output, new RegExp(`^TERUISI_DJANGO_${domain}_READER_BASE_URL=http://127\\.0\\.0\\.1:18001$`, "m"));
     assert.match(output, new RegExp(`^TERUISI_DJANGO_${domain}_WRITER_BASE_URL=http://127\\.0\\.0\\.1:18002$`, "m"));
     }
+    assert.match(output, /^TERUISI_DJANGO_BI_READER_BASE_URL=http:\/\/127\.0\.0\.1:18001$/m);
+    assert.doesNotMatch(output, /TERUISI_DJANGO_BI_WRITER_BASE_URL/);
+    assert.match(output, /^TERUISI_DJANGO_BI_READER_BASE_URL=http:\/\/127\.0\.0\.1:18001$/m);
+    assert.doesNotMatch(output, /TERUISI_DJANGO_BI_WRITER_BASE_URL/);
     assert.match(output, /^TERUISI_DJANGO_FINANCE_MODE=django$/m);
     assert.match(output, /^TERUISI_DJANGO_WORKFLOW_MODE=django$/m);
     assert.match(output, /^TERUISI_DJANGO_CUSTOMER_SERVICE_MODE=django$/m);

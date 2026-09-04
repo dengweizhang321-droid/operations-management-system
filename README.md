@@ -2,7 +2,7 @@
 
 ## 启动方式
 
-当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、销售、财务、ERP、网店、市场和商品经营服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
+当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、各业务域、ERP bridge 和已启用的 BI 只读聚合服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
 
 ```powershell
 & "D:\运营管理系统\tools\operations-system-control.ps1" -Action Start -Open
@@ -45,7 +45,7 @@ npm run system:logs
 
 #### 启动耗时治理（2026-09-03）
 
-取证发现完整 `Start` 曾在同一次启动内重复生成昂贵证据。当前实现保留所有失败关闭边界，同时消除可证明等价的重复工作：核心 Django Start 完成应用树与全 runtime ACL 校验后，绑定当前 PID、runtime 路径和部署清单 SHA-256 的 15 分钟上下文由同进程五个域复用，域独立启动仍完整校验；Django Start 只有在 ERP watch 和全部已启用 reader/writer 的有界 readiness 通过后才成功退出；外层和 Worker 现在各只调用一次 `AggregateStatus`，在同一 pwsh 进程内核验 PostgreSQL、ERP、14 个 reader/writer 精确进程回执及 readiness，不再串行冷启动 7 个 Status 控制器。ERP watch 等待先建立完整 D1/PG caught-up 基线，再通过最小权限 `psql` 只读 checkpoint 心跳，不再每 500 毫秒冷启 Django。
+取证发现完整 `Start` 曾在同一次启动内重复生成昂贵证据。当前实现保留所有失败关闭边界，同时消除可证明等价的重复工作：核心 Django Start 完成应用树与全 runtime ACL 校验后，绑定当前 PID、runtime 路径和部署清单 SHA-256 的 15 分钟上下文由同进程各业务域复用，域独立启动仍完整校验；Django Start 只有在 ERP watch、全部已启用 reader/writer 和 BI reader 的有界 readiness 通过后才成功退出；外层和 Worker 现在各只调用一次 `AggregateStatus`，在同一 pwsh 进程内核验 PostgreSQL、ERP、16 个业务 reader/writer 与 1 个 BI reader 的精确进程回执及 readiness，不再串行冷启动多个 Status 控制器。ERP watch 等待先建立完整 D1/PG caught-up 基线，再通过最小权限 `psql` 只读 checkpoint 心跳，不再每 500 毫秒冷启 Django。
 
 全 runtime ACL 契约仍逐对象核验重解析点、继承保护、主体集合、Allow/FullControl、继承标志及显式 ACE，但扫描改为单个受控 .NET verifier，避免 9 万余次 PowerShell provider/ETS 对象构造。当前生产 runtime 的只读复测为：94,057 个文件系统对象完整 ACL 核验约 9.2 秒，全部服务聚合状态约 8.9 秒；旧基线分别约 128 秒和多轮合计约 80–100 秒。根据 300.8 秒历史完整冷启动时间线，消除的重复成本把同硬件冷启动预算压到约 100 秒；正式发布时间仍须在隔离镜像先做完整冷启动验收，再按受控发布流程回读生产证据。
 
@@ -66,7 +66,7 @@ npm run backend:dev:status   # 进程、端口、/health/live 与 .dev.vars 同�
 npm run backend:dev:stop
 ```
 
-`development` 角色同时挂载每个域的 reader/writer 路由，两个进程即可覆盖销售、财务、网店、市场、商品经营、库存和运营事务七个域；它不启用生产 authority 门禁，仅在 `sales_writer` 等生产角色开放的写路径（如销售导入）在开发模式下不可用。`.runtime/`、`backend.env` 与其中的随机密钥都被 Git 忽略，不得用于 Windows 生产主机。Vite dev server 的依赖预打包缓存固定放在 `node_modules/.vite-sites-cache`（构建仍用根目录 `.vite-sites-cache`）：vinext 内置的 CommonJS 插件只跳过路径含 `node_modules/.vite` 的预打包产物，放在别处会在启动时报 "A module cannot have multiple default exports"。
+`development` 角色同时挂载每个域的 reader/writer 路由与 BI 只读路由，两个进程即可覆盖销售、财务、网店、市场、商品经营、库存、运营事务、客服以及 BI；它不启用生产 authority 门禁，仅在 `sales_writer` 等生产角色开放的写路径（如销售导入）在开发模式下不可用。BI 的生产拓扑、组合 revision 和迁移门禁见 [`docs/DJANGO_BI_MIGRATION.md`](docs/DJANGO_BI_MIGRATION.md)。`.runtime/`、`backend.env` 与其中的随机密钥都被 Git 忽略，不得用于 Windows 生产主机。Vite dev server 的依赖预打包缓存固定放在 `node_modules/.vite-sites-cache`（构建仍用根目录 `.vite-sites-cache`）：vinext 内置的 CommonJS 插件只跳过路径含 `node_modules/.vite` 的预打包产物，放在别处会在启动时报 "A module cannot have multiple default exports"。
 
 ## 吉客云自动化
 

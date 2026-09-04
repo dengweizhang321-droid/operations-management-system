@@ -39,8 +39,8 @@ test("BI pilot cancels stale requests and uses the shared JSON client", async ()
   const dashboard = await source("../app/dashboard-module-view.tsx");
   assert.match(dashboard, /requestGenerationRef/);
   assert.match(dashboard, /requestControllerRef\.current\?\.abort\(\)/);
-  assert.match(dashboard, /requestJson<SalesDashboardResponse>/);
-  assert.match(dashboard, /requestJson<InventoryDashboardResponse>/);
-  assert.match(dashboard, /view: "dashboard"/);
+  assert.match(dashboard, /requestJson<BiDashboardResponse>/);
+  assert.match(dashboard, /\/api\/bi\/overview/);
+  assert.doesNotMatch(dashboard, /\/api\/sales\/summary|\/api\/inventory\/overview/);
   assert.match(dashboard, /generation !== requestGenerationRef\.current/);
 });

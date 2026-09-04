@@ -21,6 +21,14 @@ from sales.runtime_guard import (
 logger = logging.getLogger(__name__)
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 
+REQUIRED_BI_COLUMNS = {
+    "bi_migration_runs": {
+        "id", "plan_id", "status", "contract_version", "source_digest",
+        "source_revisions_json", "source_counts_json", "source_snapshot_json",
+        "created_at", "verified_at",
+    },
+}
+
 REQUIRED_COLUMNS = {
     "sales_order_lines": {
         "business_date",
@@ -1281,6 +1289,33 @@ def _validate_inventory_revision(cursor) -> None:
         raise ReadinessError("inventory_reader_revision_invalid")
 
 
+def _validate_bi_reader_state(cursor) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    for table, expected_columns in REQUIRED_BI_COLUMNS.items():
+        if table not in tables:
+            raise ReadinessError("bi_reader_schema_missing")
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError("bi_reader_schema_incomplete")
+    constraints = connection.introspection.get_constraints(cursor, "bi_migration_runs")
+    if "bi_migration_status_idx" not in constraints:
+        raise ReadinessError("bi_reader_indexes_incomplete")
+    _validate_inventory_schema(cursor, writer=False)
+    _validate_inventory_revision(cursor)
+    _validate_reader_state(cursor)
+    cursor.execute(
+        "SELECT id,contract_version,source_digest FROM bi_migration_runs "
+        "WHERE status='verified' ORDER BY verified_at DESC,created_at DESC LIMIT 1"
+    )
+    row = cursor.fetchone()
+    if (
+        row is None
+        or not re.fullmatch(r"bi-apply-[0-9a-f]{32}", str(row[0] or ""))
+        or str(row[1]) != "bi-dashboard-read-model-v1"
+        or not HEX_64.fullmatch(str(row[2] or ""))
+    ):
+        raise ReadinessError("bi_reader_migration_unverified")
+
+
 def _validate_inventory_writer_authority(cursor) -> None:
     cursor.execute(
         "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
@@ -1730,9 +1765,18 @@ def ready(_request):
     workflow_reader_process = settings.DJANGO_PROCESS_ROLE == "workflow_reader"
     customer_service_writer_process = settings.DJANGO_PROCESS_ROLE == "customer_service_writer"
     customer_service_reader_process = settings.DJANGO_PROCESS_ROLE == "customer_service_reader"
+    bi_reader_process = settings.DJANGO_PROCESS_ROLE == "bi_reader"
     try:
         with connection.cursor() as cursor:
-            if customer_service_writer_process:
+            if bi_reader_process:
+                _validate_bi_reader_state(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif customer_service_writer_process:
                 _validate_customer_service_schema(cursor, writer=True)
                 _validate_customer_service_revision(cursor)
                 _validate_customer_service_connection_capacity(cursor)
@@ -1865,7 +1909,9 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "customer_service_writer_unavailable"
+                    "bi_reader_unavailable"
+                    if bi_reader_process
+                    else "customer_service_writer_unavailable"
                     if customer_service_writer_process
                     else "customer_service_reader_unavailable"
                     if customer_service_reader_process
@@ -1910,7 +1956,9 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "customer_service_writer_unavailable"
+                    "bi_reader_unavailable"
+                    if bi_reader_process
+                    else "customer_service_writer_unavailable"
                     if customer_service_writer_process
                     else "customer_service_reader_unavailable"
                     if customer_service_reader_process
@@ -1950,7 +1998,9 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if customer_service_writer_process:
+    if bi_reader_process:
+        payload["biReader"] = "ready"
+    elif customer_service_writer_process:
         payload["customerServiceWriter"] = "ready"
     elif customer_service_reader_process:
         payload["customerServiceReader"] = "ready"

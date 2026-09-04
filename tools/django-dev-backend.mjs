@@ -9,7 +9,7 @@
 //   - 以 development 进程角色启动两个 Waitress 进程：读端口与写端口（默认 8001/8002）。
 //     development 角色同时挂载每个域的 reader/writer 路由，Worker 只要求同一域的
 //     读写 base URL 属于不同 origin，所以两个进程即可覆盖销售、财务、网店、市场、
-//     商品经营、库存和运营事务七个域；
+//     商品经营、库存、运营事务和客服八个读写域，以及只读 BI 聚合层；
 //   - 把 Worker 侧需要的 TERUISI_DJANGO_* 变量写入 .dev.vars 的受管块，缺少这些变量时
 //     页面会提示"Django xx 服务配置不完整"。
 //
@@ -54,6 +54,7 @@ const isWindows = process.platform === "win32";
 const DEV_VARS_BEGIN = "# >>> teruisi-django-dev-backend >>> 由 tools/django-dev-backend.mjs 维护，请勿手工编辑此块";
 const DEV_VARS_END = "# <<< teruisi-django-dev-backend <<<";
 const DOMAINS = ["SALES", "FINANCE", "NETSHOP", "MARKET", "PRODUCTS", "INVENTORY", "WORKFLOW", "CUSTOMER_SERVICE"];
+const READ_ONLY_DOMAINS = ["BI"];
 const MODE_FLAGS = { FINANCE: "TERUISI_DJANGO_FINANCE_MODE", WORKFLOW: "TERUISI_DJANGO_WORKFLOW_MODE", CUSTOMER_SERVICE: "TERUISI_DJANGO_CUSTOMER_SERVICE_MODE" };
 const WRITER_MAX_BODY_BYTES = 67_108_864;
 const READER_MAX_BODY_BYTES = 4_194_304;
@@ -412,6 +413,9 @@ function devVarsBlock(envValues, readerPort, writerPort) {
     if (MODE_FLAGS[domain]) lines.push(`${MODE_FLAGS[domain]}=django`);
     lines.push(`TERUISI_DJANGO_${domain}_READER_BASE_URL=http://127.0.0.1:${readerPort}`);
     lines.push(`TERUISI_DJANGO_${domain}_WRITER_BASE_URL=http://127.0.0.1:${writerPort}`);
+  }
+  for (const domain of READ_ONLY_DOMAINS) {
+    lines.push(`TERUISI_DJANGO_${domain}_READER_BASE_URL=http://127.0.0.1:${readerPort}`);
   }
   lines.push(DEV_VARS_END);
   return lines.join("\n");

@@ -25,7 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
-    "inventory_", "replenishment_", "workflow_", "customer_service_",
+    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -186,6 +186,9 @@ def collect_evidence(
         }
         if customer_service_tables:
             required.update(customer_service_required)
+        bi_tables = {name for name in tables if name.startswith("bi_")}
+        if bi_tables:
+            required.add("bi_migration_runs")
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")

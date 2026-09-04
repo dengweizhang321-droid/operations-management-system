@@ -133,6 +133,7 @@ INSTALLED_APPS = [
     "inventory.apps.InventoryConfig",
     "workflow.apps.WorkflowConfig",
     "customer_service.apps.CustomerServiceConfig",
+    "bi.apps.BiConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -245,6 +246,7 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "workflow_writer",
     "customer_service_reader",
     "customer_service_writer",
+    "bi_reader",
 }:
     raise RuntimeError(
         "生产 Django 必须显式声明已登记的 reader、writer、migration_writer 或同步进程角色"
@@ -283,6 +285,8 @@ if DJANGO_PROCESS_ROLE == "customer_service_reader" and not DJANGO_EXPECT_READ_O
     raise RuntimeError("Django customer_service_reader 进程必须启用只读连接门禁")
 if DJANGO_PROCESS_ROLE == "customer_service_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django customer_service_writer 进程不能使用只读连接")
+if DJANGO_PROCESS_ROLE == "bi_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django bi_reader 进程必须启用只读连接门禁")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)

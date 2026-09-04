@@ -108,6 +108,14 @@ function customerServiceConfigurationUnavailable(): PublicApiError {
   );
 }
 
+function biConfigurationUnavailable(): PublicApiError {
+  return new PublicApiError(
+    503,
+    "service_unavailable",
+    "Django BI 服务配置不完整。",
+  );
+}
+
 function parseBoundedInteger(
   value: string | undefined,
   fallback: number,
@@ -639,6 +647,44 @@ export async function createCustomerServiceGatewayAuthHeaders(
   }
   const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
   if (principalBytes.byteLength > 16_384) throw customerServiceConfigurationUnavailable();
+  const principal = base64Url(principalBytes);
+  const canonical = [
+    "v1", String(input.timestamp), input.requestId, method, input.path,
+    input.rawQuery, bodySha256, principal,
+  ].join("\n");
+  const key = await crypto.subtle.importKey(
+    "raw", encoder.encode(input.secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const signature = hex(await crypto.subtle.sign("HMAC", key, encoder.encode(canonical)));
+  return new Headers({
+    accept: "application/json",
+    "x-teruisi-content-sha256": bodySha256,
+    "x-teruisi-principal": principal,
+    "x-teruisi-request-id": input.requestId,
+    "x-teruisi-signature": `v1=${signature}`,
+    "x-teruisi-timestamp": String(input.timestamp),
+  });
+}
+
+/** BI is a read-only composite projection. Keep its signed envelope scoped to
+ * /api/bi/ so it cannot be replayed into an upstream authority. */
+export async function createBiGatewayAuthHeaders(
+  input: SalesGatewaySignatureInput,
+): Promise<Headers> {
+  const method = input.method.toUpperCase();
+  if (method !== "GET" || !input.path.startsWith("/api/bi/")) {
+    throw biConfigurationUnavailable();
+  }
+  const bodySha256 = input.bodySha256?.trim().toLowerCase() ?? EMPTY_SHA256;
+  if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw biConfigurationUnavailable();
+  if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
+    throw biConfigurationUnavailable();
+  }
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(input.requestId)) {
+    throw biConfigurationUnavailable();
+  }
+  const principalBytes = encoder.encode(canonicalPrincipal(input.principal));
+  if (principalBytes.byteLength > 16_384) throw biConfigurationUnavailable();
   const principal = base64Url(principalBytes);
   const canonical = [
     "v1", String(input.timestamp), input.requestId, method, input.path,

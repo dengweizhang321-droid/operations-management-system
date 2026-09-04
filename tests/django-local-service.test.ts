@@ -479,10 +479,11 @@ test("aggregate status loads one controller and reuses exact in-process process 
   for (const service of ["netshop", "market", "products", "inventory", "workflow"]) {
     assert.match(aggregateBlock, new RegExp(`Get-SimpleDjangoDomainStatus[\\s\\S]*?django-${service}-reader`));
   }
+  assert.match(aggregateBlock, /Get-SimpleDjangoReaderStatus[\s\S]*?django-bi-reader/);
   assert.match(aggregateBlock, /teruisi-django-aggregate-status-v1/);
   assert.match(aggregateBlock, /ElapsedMilliseconds = \[int64\]\$timer\.ElapsedMilliseconds/);
   assert.doesNotMatch(aggregateBlock, /Start-Process|powershell\.exe|pwsh\.exe/);
-  assert.equal(script.match(/if \(\$reader -eq "running"\) \{/g)?.length, 3);
+  assert.equal(script.match(/if \(\$reader -eq "running"\) \{/g)?.length, 4);
   assert.equal(script.match(/if \(\$writer -eq "running"\) \{/g)?.length, 3);
 });
 
