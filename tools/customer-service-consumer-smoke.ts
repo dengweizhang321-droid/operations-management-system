@@ -1,4 +1,7 @@
-import { getCustomerServiceConversationsForAi } from "../lib/customer-service/database";
+import {
+  createDjangoCustomerService,
+  CUSTOMER_SERVICE_CONVERSATIONS_PATH,
+} from "../lib/django/customer-service";
 import { readDjangoCustomerServiceConsumer } from "../lib/django/customer-service-consumer-reader";
 import type { AppPrincipal } from "../lib/auth/authorization";
 
@@ -16,12 +19,18 @@ const search = await readDjangoCustomerServiceConsumer(principal, {
   limit: 1,
   includeMessages: false,
 });
-const ai = await getCustomerServiceConversationsForAi(
-  { limit: 1 },
-  principal,
-);
+const ai = await createDjangoCustomerService().requestJson<{
+  items: unknown[];
+  pagination: { total: number };
+}>(principal, {
+  method: "GET",
+  path: CUSTOMER_SERVICE_CONVERSATIONS_PATH,
+  service: "reader",
+  rawQuery: "page=1&pageSize=1&includeOptions=false",
+});
 
-if (!search.revision || search.data.items.length > 1 || ai.returned > 1) {
+if (!search.revision || !ai.revision || !Array.isArray(ai.data.items)
+    || ai.data.items.length > 1 || !Number.isSafeInteger(ai.data.pagination?.total)) {
   throw new Error("customer-service consumer smoke returned an invalid bounded result");
 }
 
@@ -29,6 +38,7 @@ process.stdout.write(JSON.stringify({
   status: "passed",
   consumerRevision: search.revision,
   consumerReturned: search.data.items.length,
-  aiReturned: ai.returned,
-  aiTotalMatched: ai.totalMatched,
+  aiRevision: ai.revision,
+  aiReturned: ai.data.items.length,
+  aiTotalMatched: ai.data.pagination.total,
 }));
