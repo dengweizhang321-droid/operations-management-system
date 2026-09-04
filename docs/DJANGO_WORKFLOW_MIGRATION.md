@@ -2,12 +2,12 @@
 
 ## 1. 当前权威状态
 
-截至 2026-09-04，生产环境必须区分两个写入权威范围：
+截至 2026-09-04，本机生产环境的两个写入权威范围都已正式切换到 PostgreSQL：
 
 - 结构化“新品上架”已经完成正式切换。PostgreSQL 是新品项目、店铺规划、七阶段、活动、产品线、周报配置与投递账本的唯一权威；既有 cutover ID 为 `workflow-pg-20260902T110500Z-bdfebd254007`，authority epoch 为 `ce0ceb5d-7bc9-4ea9-8812-0609f7fdf1aa`。旧 D1 `launch` 事实和新品专属 R2 候选命名空间已经终态退役。
-- 工作计划、评论、活动、提醒、业务关联、模板、附件元数据/清理队列以及巡店/评价记录，在本分支完成了 Django/PostgreSQL 全链路实现和隔离数据迁移演练，但尚未执行生产 authority 切换。生产中这些数据仍以当前 D1 为权威，工作事项附件字节仍保存在现有 R2 命名空间。
+- 工作计划、评论、活动、提醒、业务关联、模板、附件元数据/清理队列以及巡店/评价记录已完成正式切换。operations cutover ID 为 `workflow-ops-pg-20260904T094000Z-7438caa33f18`，authority epoch 为 `5ab6bed6-df07-4585-84d9-f650e0855ef1`；PostgreSQL 是该范围唯一事实、状态、审计、revision 和读写权威。
 
-因此，本分支合并、测试通过或迁移演练通过都不等于生产迁移完成。只有在受控停机窗口完成冻结、精确迁移、双 authority 激活、Worker 发布、系统冒烟和 D1 终态退役后，才能更新 `README.md`/`AGENTS.md` 为“运营事务全板块已切换”。未经明确授权不得执行该生产序列。
+运营事务全板块已跨过 PNR，不存在 D1、`legacy`、`shadow` 或双写回退路径。工作事项附件字节仍保存在现有 R2 命名空间，但文件名、MIME、大小、SHA-256、对象键与清理状态只以 PostgreSQL 为权威；当前切换水位没有活动附件。全局 D1/R2 binding 仍服务 ERP、市场图片、运营事务附件和其他现行范围，不得删除。
 
 ## 2. 最终架构与所有权边界
 
@@ -94,7 +94,21 @@ apply 只能使用 plan 返回的精确 run ID，且在一个 PostgreSQL 事务�
 - `AuthorityActivate` 后：PostgreSQL 是唯一事实源。恢复只允许兼容代码、前向修复或 PostgreSQL 备份/WAL/PITR；D1 快照仅作审计和恢复研究，不能重新承担读写。
 - D1 终态退役后：必须保留快照、migration run、authority、smoke、retirement receipt、tombstone 和 guard 证据。全局 D1/R2 binding 继续服务 ERP、市场图片、运营事务附件字节和其他现行域，不得删除。
 
-## 7. 2026-09-04 隔离迁移演练
+## 7. 2026-09-04 正式切换证据
+
+本次正式切换使用本机已导入生产数据。`teruisi_operations` MCP 当时不可用，因此只在受控 operator 中读取本机 D1 源并写入 PostgreSQL；证据不保存任务正文、密钥或附件内容。
+
+- D1 authority 安装前备份 SHA-256 为 `1c592cc1b086256debaa3db7f5b9023e5aa83886e9e3213f4821af67b6867578`，安装 receipt SHA-256 为 `48aa2bdfda246223f353ed25197dcfddebda66808875aeac4470d307638f59ad`；冻结阶段安装 42 个临时写入 guard。
+- 受控源快照位于 runtime 审计目录 `20260904-173728-7b6ee110`。SQLite 文件 SHA-256 为 `85777c2ca67e4597347b9035ce52cdcb0eaf64c7e0b9800c8433c68b3887ed4e`，manifest SHA-256 为 `a2ac4bdbbb12a8c7d5741288356a85dce3f98f549722260249280329780d9e58`，规范化业务摘要为 `e323b069b5f1c1de2a0973856320949702a9c45c2a8a11c02028e7d8701a7e9f`。
+- 正式 migration run 为 `workflow-ops-7438caa33f189924efd6bdbc04192660`。plan、apply 和 verify-only 的源/目标摘要完全一致；迁移 35 个任务、1 条评论、34 条活动，提醒、模板、关联、附件元数据、清理队列、巡店/评价记录及其活动均为 0。
+- `AuthorityPrepare` 回读 D1 `owner=pending, epoch=2` 且 PostgreSQL 尚为 disabled；`AuthorityActivate` 后 operations epoch 为 `5ab6bed6-df07-4585-84d9-f650e0855ef1`。从该步起只能前向恢复。
+- 正式 Worker effective successor 为 `20260904T102019Z-f0c5c52779240d1b`，manifest SHA-256 为 `55eb195cabec31da6279268d575309d5f50aacc3ee71cc974cd5f18e7937ceb1`，build fingerprint 为 `5018221d9d96d5e77776012206e06fc46b14fde96b397537908205157c03ea76`。旧集成树候选曾按 D1 guard 失败关闭，没有产生旧写入；推进固定集成树到最新 `main` 后才激活正式 successor。
+- 正式系统 smoke receipt SHA-256 为 `026947990137156cd03ee0f82f24f3231161bffc67615432bc3af5aed27e124d`，details SHA-256 为 `9adaa481c5c651674ad9ec7e59cd1cb9d6f2474088eb8755ad7bfe2c54827ae2`。14 项门禁覆盖公开任务/协作/附件元数据、模板、巡店/评价、新品、writer 负向校验、scope、库存桥接、全局搜索、AI consumer、附件字节、D1 拒写和其他业务域健康。
+- D1 终态退役 plan ID 为 `f182178fc0c398059f91fb7f959d33a7f71dd3353b33cba27705c117428bf311`，audit ID 为 `5435231003a22845a48f809a770f06d0c74ce92b479edc3efe6a7817bbe1dc00`，审计文件 SHA-256 为 `b0aeadfb787a7cd1857b33296665df07bb007c86fec79ee93afb7b9fb3f32f9b`。`0106` 已将 14 个旧对象变为空 tombstone view，并留下 42 个永久 guard。
+- 退役后公开回读统一返回 200、`Cache-Control: no-store` 和 revision `40:87fc5c3dc46c`：任务 35、模板 0、巡店 0、评价 0、新品项目 12、产品线 10、周报 10；周报配置也正常读取。
+- 切换后 PostgreSQL 一致性备份为 `daily-20260904T103402Z-a04a9f950319`，manifest/dump/content SHA-256 分别为 `8de59cd948345b181ebe209f6b1d092d00894d0aab564f9bdc67ad27e120c0e4`、`d98b01854877c9f7aa9d1430d0fc6870a0a3df500d4751f84161af8f79b4631f`、`05ba4cbadabf68e4d3a59bc71363ea065f5aff110befa78f380808d118da7ea4`。隔离恢复 `a04a9f950319` 在 `127.0.0.1:55432` 完成，恢复摘要相同，`productionDatabaseTouched=false`、`serviceStateChanged=false`，临时数据已删除。
+
+## 8. 2026-09-04 隔离迁移演练
 
 本分支使用生产 D1 的只读一致性副本进行演练；`teruisi_operations` MCP 当时不可用，因此按数据查询规范使用本机已导入权威 D1 的只读副本。未记录客户正文或附件内容，生产文件、authority、服务和端口均未修改。
 
@@ -105,9 +119,9 @@ apply 只能使用 plan 返回的精确 run ID，且在一个 PostgreSQL 事务�
 - 在隔离 PostgreSQL 17.11（`127.0.0.1:55431`）和隔离 D1 副本完成 prepare → abort → prepare → activate；epoch 为 `f2551d46-2dc2-446f-b437-52fed05e01a5`。激活后 D1 写入探针按预期返回 `workflow_operations_authority_not_legacy`。
 - 隔离 Django API 验证了 writer 的 400/409 负向契约、相同 request-id 精确回放、任务创建、scope 过滤和 revision；演练结束后隔离 PostgreSQL 已停止，约 30GB 临时 D1/PostgreSQL 副本已在保留摘要证据后删除。
 
-这些结果证明迁移器能够处理当前生产形状，但不是生产 cutover receipt；终态退役仍必须使用真实激活 release 生成的 14 项系统 smoke receipt，不能伪造或复用隔离证据。
+这些结果证明迁移器能够处理当时的生产形状；正式 cutover 最终使用第 7 节记录的独立生产快照、run、真实 release smoke 与 retirement receipt，没有复用隔离证据。
 
-## 8. 开发验证
+## 9. 开发验证
 
 在隔离 worktree 和隔离数据库中运行：
 
@@ -121,7 +135,7 @@ npm run build
 
 构建前先确认正式 3000 端口状态；不得停止生产 Worker 只为运行开发构建。测试服务只能使用隔离端口和独立 PostgreSQL 数据目录，不得复用正式 reader/writer、写入生产 D1/R2、触发机器人/定时任务或修改 production authority。
 
-## 9. 既有新品正式切换证据
+## 10. 既有新品正式切换证据
 
 既有新品切换的批准 run 为 `workflow-bdfebd254007be2416297de2b17bc82e`，冻结业务摘要为 `bdfebd254007be2416297de2b17bc82e6390735b288b375cf80fd92f809c749f`。当时迁移 12 个项目、12 个店铺规划、84 个阶段和 38 条活动，历史缺失字段以显式缺口保留，没有伪造阶段事实。
 
