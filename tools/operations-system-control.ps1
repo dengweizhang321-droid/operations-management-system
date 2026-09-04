@@ -27,6 +27,7 @@ $DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
 $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
+$DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
 $PowerShellCommand = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
 if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "pwsh" -ErrorAction SilentlyContinue }
 if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "powershell.exe" -ErrorAction SilentlyContinue }
@@ -125,7 +126,8 @@ function Assert-ControllerDependencies {
     $DjangoMarketService,
     $DjangoProductsService,
     $DjangoWorkflowService,
-    $DjangoInventoryService
+    $DjangoInventoryService,
+    $DjangoCustomerService
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
       throw "缺少受控启动依赖：$requiredPath"
@@ -304,6 +306,7 @@ function Get-DjangoAggregateState {
       $productsStatus = $aggregateStatus.Products
       $workflowStatus = $aggregateStatus.Workflow
       $inventoryStatus = $aggregateStatus.Inventory
+      $customerServiceStatus = $aggregateStatus.CustomerService
     } else {
       # Keep the source controller usable while a reviewed runtime deployment is
       # staged. The optimized path becomes active immediately after DeployApp.
@@ -314,6 +317,7 @@ function Get-DjangoAggregateState {
       $productsStatus = Invoke-JsonServiceAction -ScriptPath $DjangoProductsService -Arguments @("-Action", "Status") -Label "商品经营域状态检查"
       $workflowStatus = Invoke-JsonServiceAction -ScriptPath $DjangoWorkflowService -Arguments @("-Action", "Status") -Label "运营事务新品域状态检查"
       $inventoryStatus = Invoke-JsonServiceAction -ScriptPath $DjangoInventoryService -Arguments @("-Action", "Status") -Label "库存域状态检查"
+      $customerServiceStatus = Invoke-JsonServiceAction -ScriptPath $DjangoCustomerService -Arguments @("-Action", "Status") -Label "客服域状态检查"
     }
 
     $componentReadiness = [ordered]@{
@@ -324,6 +328,7 @@ function Get-DjangoAggregateState {
       products = Test-DjangoDomainReady -Status $productsStatus -ReaderProperty "ProductsReader" -WriterProperty "ProductsWriter"
       workflow = Test-DjangoDomainReady -Status $workflowStatus -ReaderProperty "WorkflowReader" -WriterProperty "WorkflowWriter"
       inventory = Test-DjangoDomainReady -Status $inventoryStatus -ReaderProperty "InventoryReader" -WriterProperty "InventoryWriter"
+      customerService = Test-DjangoDomainReady -Status $customerServiceStatus -ReaderProperty "CustomerServiceReader" -WriterProperty "CustomerServiceWriter"
     }
     $notReadyComponents = @($componentReadiness.Keys | Where-Object { -not $componentReadiness[$_] })
     $aggregateState = [pscustomobject]@{

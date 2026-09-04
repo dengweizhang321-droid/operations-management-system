@@ -61,7 +61,7 @@ test("Windows PowerShell 5 can generate the restore rehearsal secret", async (t)
   assert.equal(result.stdout, "");
 });
 
-test("maintenance reuses the deployed service's strict v4 configuration contract", async () => {
+test("maintenance reuses the deployed service's strict configuration contract", async () => {
   const script = await readFile(operatorPath, "utf8");
   const context = script.match(
     /function Assert-MaintenanceRuntimeContext \{([\s\S]*?)\r?\n\}/,
@@ -117,6 +117,13 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(helper, /inventoryWriteAuthority/);
   assert.match(helper, /inventory_replenishment_group_deliveries/);
   assert.match(operator, /inventory_replenishment_group_deliveries/);
+  assert.match(helper, /customer_service_data_revisions/);
+  assert.match(helper, /customer_service_write_authority/);
+  assert.match(helper, /customerServiceRevisions/);
+  assert.match(helper, /customerServiceWriteAuthority/);
+  assert.match(operator, /customer_service_raw_upload_chunks/);
+  assert.match(operator, /PostgreSQL 客服 revision 证据/);
+  assert.match(operator, /客服 PostgreSQL 写入权威证据/);
   assert.match(helper, /django_migrations/);
   assert.match(helper, /startswith\(ALLOWED_TABLE_PREFIXES\)/);
   assert.match(helper, /"sales_", "erp_", "finance_", "netshop_", "market_", "product_"/);

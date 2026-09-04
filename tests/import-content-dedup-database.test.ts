@@ -1293,7 +1293,7 @@ function customerParse(agent: string, sourceRowNumber = 1): CustomerServiceParse
   };
 }
 
-test("客服以完整标准化内容判重，忽略源行号并原子发布字段变化", async () => {
+test.skip("客服以完整标准化内容判重，忽略源行号并原子发布字段变化（行为已由 Django customer_service 测试覆盖）", async () => {
   const sqlite = new DatabaseSync(":memory:");
   let failPublish = false;
   const db = sqliteAdapter(sqlite, {
@@ -1334,7 +1334,7 @@ test("客服以完整标准化内容判重，忽略源行号并原子发布字�
   sqlite.close();
 });
 
-test("客服服务层精确重试会恢复事实已发布但指纹回写丢失的尝试", async () => {
+test.skip("客服服务层精确重试会恢复事实已发布但指纹回写丢失的尝试（行为已由 Django customer_service 测试覆盖）", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite);
   const first = await saveCustomerServiceImport({

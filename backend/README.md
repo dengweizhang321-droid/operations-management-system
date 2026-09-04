@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营和运营事务新品项目子域均已完成 Django/PostgreSQL 正式单写切换。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；已退出生产路径的 D1 数据不得作为 fallback 或回滚来源。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营和运营事务新品项目子域已完成 Django/PostgreSQL 正式单写切换；客服分析已完成 Django 目标实现与隔离迁移演练，正式切权需按客服迁移手册单独执行。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；已退出生产路径的 D1 数据不得作为 fallback 或回滚来源。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -36,6 +36,8 @@
 | `127.0.0.1:8042` | Django products writer | `teruisi_products_writer` |
 | `127.0.0.1:8061` | Django workflow reader | `teruisi_workflow_reader` |
 | `127.0.0.1:8062` | Django workflow writer | `teruisi_workflow_writer` |
+| `127.0.0.1:8071` | Django customer-service reader | `teruisi_customer_service_reader` |
+| `127.0.0.1:8072` | Django customer-service writer | `teruisi_customer_service_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
 各运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
@@ -55,7 +57,7 @@ cd backend
 python -m pip install -r requirements.txt
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test sales finance netshop market products workflow
+python manage.py test sales finance netshop market products workflow customer_service
 ```
 
 公开 Worker 与 Django 之间使用 HMAC principal 信封。浏览器传入的角色、scope、用户标识或内部签名头均不可信，必须由 Worker 重新生成并由 Django 验证时间窗、签名和规范化请求身份。
@@ -64,7 +66,7 @@ python manage.py test sales finance netshop market products workflow
 
 ## 本机服务管理
 
-受控脚本位于仓库 `tools/django-local-service.ps1`，部署副本位于运行目录 `D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1`。运行配置固定为 v4，并分别记录 reader、writer、PostgreSQL 与 ERP D1 来源。关键操作要求 reader、writer、ERP bridge 和 PostgreSQL 全部停止；脚本也会检查未登记的 ERP 同步进程并失败关闭。
+受控脚本位于仓库 `tools/django-local-service.ps1`，部署副本位于运行目录 `D:\teruisi-runtime\django-sales\app\tools\django-local-service.ps1`。运行配置固定为 v5，并分别记录销售、财务、客服 reader/writer、PostgreSQL 与 ERP D1 来源。关键操作要求 reader、writer、ERP bridge 和 PostgreSQL 全部停止；脚本也会检查未登记的 ERP 同步进程并失败关闭。
 
 首次准备的命令骨架如下。占位值必须由操作者在批准的变更窗口内填写，不能把密码、连接串或真实客户材料写入命令历史、文档、日志或 Git：
 
@@ -144,6 +146,14 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 2026-09-04，本分支又在同一 `workflow` app 中实现工作计划、评论/活动/提醒/关联、任务模板、附件元数据/清理队列和巡店/评价记录，并把公开 API、AI、全局搜索与库存执行事项改为 Django 薄适配。附件字节仍由 Worker 管理现有 R2 `workflow-attachments/` 命名空间。该范围只完成隔离迁移演练，尚未执行生产 `workflow_operations_write_authority` 切换；生产 D1 仍是这些事实的当前权威，不能把代码合并或演练结果称为正式迁移完成。
 
 新品切换已跨过 PNR，不支持改回 `legacy`、恢复 D1/R2 新品路径或双写。全板块剩余范围的 PNR、双 authority、迁移、系统测试和退役门禁见[运营事务迁移手册](../docs/DJANGO_WORKFLOW_MIGRATION.md)。
+
+## 客服分析 Django 实现
+
+`backend/customer_service/` 负责客服会话、配对导入、筛选、分析标注、删除审计、导入幂等、原始分片和有界搜索 consumer。现有 React 客服页面与公开 API 保持不变；Worker 只负责真实 principal、scope 门禁、Excel/聊天解析、HMAC、请求/响应上限和薄转发，Django 不接受公网直连或任意 SQL。
+
+客服 reader/writer 固定使用 `127.0.0.1:8071/8072`、`teruisi_customer_service_reader/writer` 和独立 DPAPI 凭据。reader 只读客服域表，writer 只写客服域表；writer 只有在 `customer_service_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境一致且 revision 已验证时才可承接写入。客服账号仍按现有口径只允许无数据范围 principal 读取，消息正文仅在明确请求且受有界截断保护时返回。
+
+客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal；正式切权/退役步骤与受控命令见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
 
 ## 当前本机终态记录
 

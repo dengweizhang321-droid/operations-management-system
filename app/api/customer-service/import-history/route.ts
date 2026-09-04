@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const page = parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
     const pageSize = parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
     return Response.json(
-      await listCustomerServiceBatches({ page, pageSize }),
+      await listCustomerServiceBatches({ page, pageSize }, principal),
       { headers: { "cache-control": "no-store" } },
     );
   } catch (error) {

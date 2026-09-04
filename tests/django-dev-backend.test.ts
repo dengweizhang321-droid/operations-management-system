@@ -7,7 +7,7 @@ import test from "node:test";
 
 const script = path.resolve("tools/django-dev-backend.mjs");
 const source = readFileSync(script, "utf8");
-const DOMAINS = ["SALES", "FINANCE", "NETSHOP", "MARKET", "PRODUCTS", "INVENTORY", "WORKFLOW"];
+const DOMAINS = ["SALES", "FINANCE", "NETSHOP", "MARKET", "PRODUCTS", "INVENTORY", "WORKFLOW", "CUSTOMER_SERVICE"];
 
 function runLauncher(args: string[], environment: Record<string, string>) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -49,10 +49,11 @@ test("print-dev-vars emits every Django domain pair with distinct reader/writer 
     assert.ok(Buffer.byteLength(secret, "utf8") >= 32, "internal secret must satisfy the Worker's 32-byte minimum");
     for (const domain of DOMAINS) {
       assert.match(output, new RegExp(`^TERUISI_DJANGO_${domain}_READER_BASE_URL=http://127\\.0\\.0\\.1:18001$`, "m"));
-      assert.match(output, new RegExp(`^TERUISI_DJANGO_${domain}_WRITER_BASE_URL=http://127\\.0\\.0\\.1:18002$`, "m"));
+    assert.match(output, new RegExp(`^TERUISI_DJANGO_${domain}_WRITER_BASE_URL=http://127\\.0\\.0\\.1:18002$`, "m"));
     }
     assert.match(output, /^TERUISI_DJANGO_FINANCE_MODE=django$/m);
     assert.match(output, /^TERUISI_DJANGO_WORKFLOW_MODE=django$/m);
+    assert.match(output, /^TERUISI_DJANGO_CUSTOMER_SERVICE_MODE=django$/m);
     const generatedEnvironment = readFileSync(path.join(root, "backend.env"), "utf8");
     assert.match(generatedEnvironment, new RegExp(`TERUISI_DJANGO_INTERNAL_SECRET=${secret}`));
     assert.match(generatedEnvironment, /DJANGO_SECRET_KEY=[0-9a-f]{96}/);

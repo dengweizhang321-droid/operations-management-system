@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const detailId = url.searchParams.get("id");
     if (detailId !== null) {
       const id = parsePositiveIntegerQuery(detailId, 1, "会话 ID");
-      return Response.json({ item: await getCustomerServiceConversationById(id) }, { headers: { "cache-control": "no-store" } });
+      return Response.json({ item: await getCustomerServiceConversationById(id, principal, { signal: request.signal }) }, { headers: { "cache-control": "no-store" } });
     }
     const page = url.searchParams.get("page");
     const pageSize = url.searchParams.get("pageSize");
@@ -56,7 +56,7 @@ export async function PATCH(request: Request) {
       ...(typeof body.summaryText === "string" ? { summaryText: body.summaryText } : {}),
       analysisSource: "manual" as const,
     };
-    return Response.json({ ok: true, ...(await updateCustomerServiceConversationAnnotation(id, annotation as CustomerServiceAnnotationInput, expectedVersion)) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ ok: true, ...(await updateCustomerServiceConversationAnnotation(id, annotation as CustomerServiceAnnotationInput, expectedVersion, principal, { signal: request.signal })) }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     return safeApiErrorResponse(error, "保存客服标注失败。", { headers: { "cache-control": "no-store" } });
@@ -72,7 +72,7 @@ export async function DELETE(request: Request) {
     const id = requirePositiveSafeIntegerNumber(body.id, "会话 ID");
     const expectedVersion = requirePositiveSafeIntegerNumber(body.expectedVersion, "expectedVersion");
     const reason = typeof (body as Record<string, unknown>).reason === "string" ? String((body as Record<string, unknown>).reason) : "";
-    return Response.json({ ok: true, ...(await deleteCustomerServiceConversation(id, expectedVersion, principal.email, reason)) }, { headers: { "cache-control": "no-store" } });
+    return Response.json({ ok: true, ...(await deleteCustomerServiceConversation(id, expectedVersion, principal, reason, { signal: request.signal })) }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     return safeApiErrorResponse(error, "删除客服会话失败。", { headers: { "cache-control": "no-store" } });

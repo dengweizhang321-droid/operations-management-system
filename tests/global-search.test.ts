@@ -9,6 +9,7 @@ import type { NetshopConsumerReader } from "../lib/django/netshop-consumer-reade
 import type { ProductsConsumerReader } from "../lib/django/products-consumer-reader";
 import type { InventoryConsumerReader } from "../lib/django/inventory-consumer-reader";
 import type { WorkflowConsumerReader } from "../lib/django/workflow-consumer-reader";
+import type { CustomerServiceConsumerReader } from "../lib/django/customer-service-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -233,6 +234,29 @@ function fakeWorkflowSearchReader(input: {
         },
       };
     },
+  };
+}
+
+function fakeCustomerServiceSearchReader(input: {
+  conversations?: Array<{ resultId: string; title: string; subtitle: string; detail: string; updatedAt: string; amountCents: null }>;
+  imports?: Array<{ id: string; source: string; fileName: string; status: string; rowCount: number; createdAt: string; completedAt: string | null }>;
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): CustomerServiceConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "search" ? input.conversations ?? [] : input.imports ?? [];
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "customer-service:1:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as CustomerServiceConsumerReader["read"],
   };
 }
 
@@ -703,6 +727,7 @@ test("Django 财务与商品批次在销售及其余 D1 批次之间保持精确
     netshopReader: fakeNetshopSearchReader(),
     productsReader: fakeProductsSearchReader({ imports: productImports }),
     inventoryReader: fakeInventorySearchReader({ imports: inventoryImports }),
+    customerServiceReader: fakeCustomerServiceSearchReader(),
     financeBackendMode: "django" as const,
   };
   const middle = await searchAllBusinessData(
@@ -792,6 +817,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
       productsReader: fakeProductsSearchReader(),
       inventoryReader: fakeInventorySearchReader(),
       workflowReader: fakeWorkflowSearchReader(),
+      customerServiceReader: fakeCustomerServiceSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -1165,6 +1191,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
       productsReader: fakeProductsSearchReader(),
       inventoryReader: fakeInventorySearchReader(),
       workflowReader: fakeWorkflowSearchReader(),
+      customerServiceReader: fakeCustomerServiceSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -1173,8 +1200,8 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 7);
-  assert.equal(statementCount, 8);
+  assert.equal(businessCalls.length, 6);
+  assert.equal(statementCount, 7);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
   const workflowCountCalls = businessCalls.filter(({ sql }) => /SELECT COUNT\(\*\) AS total_count FROM \(/i.test(sql));
   assert.equal(businessCalls.filter(({ sql }) => /LIMIT \? OFFSET \?/i.test(sql))
@@ -1185,8 +1212,9 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(businessCalls.some(({ sql }) => sql.includes("messages_json")), false);
 });
 
-test("explicit group stays single-query and only explicit customer-service search scans messages_json", async () => {
+test("explicit group stays single-query and only explicit customer-service search requests message matching", async () => {
   const businessCalls: Array<{ sql: string; values: unknown[] }> = [];
+  const customerServiceCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   let statementCount = 0;
   const database = {
     prepare(sql: string) {
@@ -1209,20 +1237,23 @@ test("explicit group stays single-query and only explicit customer-service searc
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息")),
     admin,
+    { customerServiceReader: fakeCustomerServiceSearchReader({ calls: customerServiceCalls }) },
   );
-  assert.equal(businessCalls.length, 1);
-  assert.doesNotMatch(businessCalls[0]?.sql ?? "", /messages_json/);
+  assert.equal(businessCalls.length, 0);
+  assert.equal(customerServiceCalls.length, 1);
+  assert.equal(customerServiceCalls[0]?.request.includeMessages, false);
 
   businessCalls.length = 0;
   const explicit = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=客户消息&group=customer_service")),
     admin,
+    { customerServiceReader: fakeCustomerServiceSearchReader({ calls: customerServiceCalls }) },
   );
-  assert.equal(businessCalls.length, 1);
-  assert.match(businessCalls[0]?.sql ?? "", /messages_json LIKE \?/);
-  assert.equal(businessCalls[0]?.values.at(-2), 5);
-  assert.equal(statementCount, 4);
+  assert.equal(businessCalls.length, 0);
+  assert.equal(customerServiceCalls.length, 2);
+  assert.equal(customerServiceCalls[1]?.request.includeMessages, true);
+  assert.equal(statementCount, 2);
   assert.equal(explicit.groups.length, 1);
   assert.equal(explicit.groups[0]?.key, "customer_service");
 });

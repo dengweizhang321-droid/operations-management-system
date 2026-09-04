@@ -27,6 +27,7 @@ $DjangoMarketService = Join-Path $DjangoRuntimeTools "django-market-service.ps1"
 $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.ps1"
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
+$DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
 $WorkerPort = 3000
 $WorkerHost = "127.0.0.1"
 $HelperPort = 5791
@@ -231,6 +232,7 @@ function Get-DjangoSystemReadiness {
     $productsStatus = $aggregateStatus.Products
     $workflowStatus = $aggregateStatus.Workflow
     $inventoryStatus = $aggregateStatus.Inventory
+    $customerServiceStatus = $aggregateStatus.CustomerService
   } else {
     # Safe rolling-upgrade compatibility. Once the new runtime app is deployed,
     # the aggregate branch above is mandatory for the startup performance target.
@@ -241,6 +243,7 @@ function Get-DjangoSystemReadiness {
     $productsStatus = Invoke-DjangoStatusJson $DjangoProductsService "Status" "Django products status"
     $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
     $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
+    $customerServiceStatus = Invoke-DjangoStatusJson $DjangoCustomerService "Status" "Django customer-service status"
   }
 
   $checks = [ordered]@{
@@ -260,6 +263,7 @@ function Get-DjangoSystemReadiness {
     products = Test-DjangoDomainReady $productsStatus "ProductsReader" "ProductsWriter"
     workflow = Test-DjangoDomainReady $workflowStatus "WorkflowReader" "WorkflowWriter"
     inventory = Test-DjangoDomainReady $inventoryStatus "InventoryReader" "InventoryWriter"
+    customerService = Test-DjangoDomainReady $customerServiceStatus "CustomerServiceReader" "CustomerServiceWriter"
   }
   $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
   return [pscustomobject]@{

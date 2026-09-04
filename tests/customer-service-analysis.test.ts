@@ -39,7 +39,7 @@ test("customer-service imports scope file identity by shop", async () => {
     readFile(new URL("../app/api/customer-service/import/chunks/route.ts", import.meta.url), "utf8"),
   ]);
   assert.match(directRoute, /`\$\{resolvedShopName\}:\$\{await digest\(sessionBytes\)\}/);
-  assert.match(chunkRoute, /`\$\{resolvedShopName\}:\$\{await digest\(session\.bytes\)\}/);
+  assert.match(chunkRoute, /`\$\{resolvedShopName\}:\$\{await digest\(sessionBytes\)\}/);
 });
 
 test("customer-service page keeps the paired-file import available beside analysis", async () => {
@@ -58,11 +58,12 @@ test("customer-service category filter and display use the netshop SKU to Jackyu
   assert.match(page, /吉客云类目筛选/);
   assert.match(page, /categories\.forEach\(\(value\) => params\.append\("category", value\)\)/);
   assert.match(route, /searchParams\.getAll\("category"\)/);
-  assert.match(database, /SELECT DISTINCT product_sku\s+FROM customer_service_conversations\s+WHERE product_sku <> ''/);
+  assert.match(database, /createDjangoCustomerService/);
   assert.match(database, /operation: "customer_service_products"/);
-  assert.match(database, /readCustomerServiceSalesProducts/);
+  assert.match(database, /readSalesProducts/);
   assert.match(mapping, /onlineSpecCode: String\(raw\["商家SKU"\]/);
   assert.doesNotMatch(database, /FROM sales_order_lines/);
+  assert.doesNotMatch(database, /FROM customer_service_conversations/);
   assert.match(database, /categories: categoryOptions/);
   assert.doesNotMatch(database, /catalog\.get\(`\$\{item\.shopName\}/);
 });
@@ -96,7 +97,7 @@ test("customer-service reverse fallback rejects an ambiguous online specificatio
   assert.equal(mappings.has("SHARED"), false);
 });
 
-test("customer-service list exposes SKUID, Jackyun number, and category with a unique SQL fallback", async () => {
+test("customer-service list exposes SKUID, Jackyun number, and category through bounded consumers", async () => {
   const [page, database, mapping] = await Promise.all([
     readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
@@ -104,8 +105,9 @@ test("customer-service list exposes SKUID, Jackyun number, and category with a u
   ]);
   assert.match(page, /SKUID \/ 吉客云编号/);
   assert.match(page, /吉客云编号 \{item\.erpProductCode\}/);
-  assert.match(database, /if \(skuIds\.size === 1\) result\.add\(onlineSpec\)/);
+  assert.match(database, /productCodes\.forEach/);
   assert.match(database, /matchedSkuId: matched\?\.matchedSkuId/);
+  assert.match(database, /CUSTOMER_SERVICE_CONVERSATIONS_PATH/);
   assert.match(mapping, /candidates\.length !== 1/);
 });
 

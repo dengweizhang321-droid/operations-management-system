@@ -39,7 +39,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_inventory_reader",
   "teruisi_inventory_writer",
   "teruisi_workflow_reader",
-  "teruisi_workflow_writer"
+  "teruisi_workflow_writer",
+  "teruisi_customer_service_reader",
+  "teruisi_customer_service_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -265,6 +267,11 @@ function Assert-MaintenanceEvidence(
       $hasWorkflowRevisions -ne $hasWorkflowOperationsAuthority) {
     throw "PostgreSQL 运营事务新品证据字段不完整"
   }
+  $hasCustomerServiceRevisions = $null -ne $Evidence.PSObject.Properties["customerServiceRevisions"]
+  $hasCustomerServiceAuthority = $null -ne $Evidence.PSObject.Properties["customerServiceWriteAuthority"]
+  if ($hasCustomerServiceRevisions -ne $hasCustomerServiceAuthority) {
+    throw "PostgreSQL 客服证据字段不完整"
+  }
   $evidenceProperties = @(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
@@ -285,6 +292,9 @@ function Assert-MaintenanceEvidence(
     $evidenceProperties += @(
       "workflowRevisions", "workflowWriteAuthority", "workflowOperationsWriteAuthority"
     )
+  }
+  if ($hasCustomerServiceRevisions) {
+    $evidenceProperties += @("customerServiceRevisions", "customerServiceWriteAuthority")
   }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
@@ -358,13 +368,23 @@ function Assert-MaintenanceEvidence(
       "workflow_operation_records", "workflow_operation_activities"
     )
   }
+  if ($hasCustomerServiceRevisions) {
+    $requiredTables += @(
+      "customer_service_data_revisions", "customer_service_import_batches",
+      "customer_service_conversations", "customer_service_deletion_audits",
+      "customer_service_import_scope_heads", "customer_service_import_fingerprints",
+      "customer_service_import_attempts", "customer_service_write_authority",
+      "customer_service_write_request_receipts", "customer_service_migration_runs",
+      "customer_service_raw_upload_sessions", "customer_service_raw_upload_chunks"
+    )
+  }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
@@ -641,6 +661,51 @@ function Assert-MaintenanceEvidence(
     } elseif (-not [string]::IsNullOrEmpty($workflowOperationsEpoch) -or
               -not [string]::IsNullOrEmpty($workflowOperationsCutoverId)) {
       throw "未激活的运营事务全板块写入权威包含激活证据"
+    }
+  }
+
+  if ($hasCustomerServiceRevisions) {
+    if ($Evidence.customerServiceRevisions -isnot [pscustomobject] -or
+        $null -eq $Evidence.customerServiceRevisions.PSObject.Properties["customer-service"]) {
+      throw "PostgreSQL 客服 revision 证据不完整"
+    }
+    foreach ($property in $Evidence.customerServiceRevisions.PSObject.Properties) {
+      if ($property.Name -cnotmatch "^[a-z][a-z0-9_-]{0,63}$") {
+        throw "PostgreSQL 客服 revision 身份无效"
+      }
+      Assert-MaintenanceExactPropertySet $property.Value @(
+        "revision", "sourceDigest"
+      ) "PostgreSQL 客服 revision 证据"
+      $customerServiceDigest = [string]$property.Value.sourceDigest
+      if (-not (Test-MaintenanceInteger $property.Value.revision) -or
+          [int64]$property.Value.revision -lt 0 -or
+          ([int64]$property.Value.revision -gt 0 -and
+            $customerServiceDigest -cnotmatch "^[0-9a-f]{64}$")) {
+        throw "PostgreSQL 客服 revision 证据无效"
+      }
+    }
+    Assert-MaintenanceExactPropertySet $Evidence.customerServiceWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "客服写入权威证据"
+    $customerServiceStatus = [string]$Evidence.customerServiceWriteAuthority.status
+    $customerServiceEpoch = [string]$Evidence.customerServiceWriteAuthority.authorityEpoch
+    $customerServiceCutoverId = [string]$Evidence.customerServiceWriteAuthority.cutoverId
+    $customerServiceRunId = [string]$Evidence.customerServiceWriteAuthority.migrationRunId
+    if ($customerServiceStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($customerServiceRunId) -and
+          $customerServiceRunId -cnotmatch "^customer-service-[0-9a-f]{32}$")) {
+      throw "客服写入权威证据无效"
+    }
+    if ($customerServiceStatus -ceq "postgres") {
+      if ([int64]$Evidence.customerServiceRevisions.'customer-service'.revision -lt 1 -or
+          $customerServiceEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $customerServiceCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $customerServiceRunId -cnotmatch "^customer-service-[0-9a-f]{32}$") {
+        throw "客服 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($customerServiceEpoch) -or
+              -not [string]::IsNullOrEmpty($customerServiceCutoverId)) {
+      throw "未激活的客服写入权威包含激活证据"
     }
   }
 }

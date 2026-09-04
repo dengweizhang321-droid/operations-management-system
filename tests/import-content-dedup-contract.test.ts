@@ -7,7 +7,6 @@ const retainedD1FingerprintImplementations = [
   "lib/inventory/import-service.ts",
   "lib/erp-reference/import-service.ts",
   "lib/finance/import-service.ts",
-  "lib/customer-service/database.ts",
   "lib/market/import-service.ts",
 ] as const;
 
@@ -75,8 +74,6 @@ test("各导入入口都审计预校验拒绝且不让坏文件参与业务判�
   }
   for (const file of [
     "lib/market/import-service.ts",
-    "app/api/customer-service/import/route.ts",
-    "app/api/customer-service/import/chunks/route.ts",
   ]) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
     assert.match(source, /recordRejectedImportAttempt/, file);
@@ -91,6 +88,24 @@ test("各导入入口都审计预校验拒绝且不让坏文件参与业务判�
   assert.doesNotMatch(rejectedBlock, /INSERT INTO import_content_fingerprints|UPDATE import_scope_heads|INSERT INTO import_scope_heads/);
 });
 
+test("客服导入通过 Django writer 保存结构化拒绝和业务内容指纹", async () => {
+  const [edge, database, backend] = await Promise.all([
+    readFile(new URL("../app/api/customer-service/import/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/customer-service/database.ts", import.meta.url), "utf8"),
+    readFile(new URL("../backend/customer_service/import_service.py", import.meta.url), "utf8"),
+  ]);
+  assert.match(database, /CUSTOMER_SERVICE_IMPORTS_PATH/);
+  assert.doesNotMatch(edge, /recordRejectedImportAttempt|import_content_fingerprints/);
+  for (const source of [edge, database]) {
+    assert.match(source, /recordRejectedCustomerServiceImport|action: "reject"/);
+    assert.doesNotMatch(source, /recordRejectedImportAttempt|import_content_fingerprints/);
+  }
+  assert.match(backend, /CustomerServiceImportAttempt\.objects\.create/);
+  assert.match(backend, /CustomerServiceImportFingerprint\.objects\.create/);
+  assert.match(backend, /CustomerServiceImportScopeHead\.objects\.select_for_update\(\)/);
+  assert.match(backend, /with transaction\.atomic\(\)/);
+});
+
 test("保留的 D1 事实发布实现都安装共享 owner 提交栅栏", async () => {
   for (const file of [
     "lib/inventory/database.ts",
@@ -98,7 +113,6 @@ test("保留的 D1 事实发布实现都安装共享 owner 提交栅栏", async 
     "lib/erp-reference/database.ts",
     "lib/netshop/database.ts",
     "lib/market/import-core.ts",
-    "lib/customer-service/database.ts",
     "lib/products/shipping-rate-database.ts",
   ]) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");

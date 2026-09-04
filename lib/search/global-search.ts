@@ -40,6 +40,11 @@ import {
   createDjangoWorkflowConsumerReader,
   type WorkflowConsumerReader,
 } from "@/lib/django/workflow-consumer-reader";
+import {
+  createDjangoCustomerServiceConsumerReader,
+  type CustomerServiceConsumerReader,
+  type CustomerServiceConsumerResponseMap,
+} from "@/lib/django/customer-service-consumer-reader";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -156,6 +161,7 @@ export type GlobalSearchExecutionOptions = {
   inventoryReader?: InventoryConsumerReader;
   financeBackendMode?: FinanceBackendMode;
   workflowReader?: WorkflowConsumerReader;
+  customerServiceReader?: CustomerServiceConsumerReader;
   /** Test-only compatibility override; terminal production behavior is always Django. */
   workflowBackendMode?: "django";
   signal?: AbortSignal;
@@ -391,24 +397,11 @@ const staticDefinitions: readonly SearchGroupDefinition[] = [
     label: "客服会话",
     icon: "服",
     module: "customer_service",
-    requiredTables: ["customer_service_conversations"],
-    likeParameterCount: 10,
+    requiredTables: [],
+    likeParameterCount: 0,
     allowedRoles: businessRoles,
     scopeKind: "unscoped_only",
-    sql: `
-      SELECT CAST(id AS TEXT) AS result_id,
-        COALESCE(NULLIF(customer_alias, ''), NULLIF(customer_id, ''), NULLIF(chat_customer_alias, ''), '匿名顾客') AS title,
-        COALESCE(NULLIF(product_name, ''), NULLIF(product_sku, ''), '未关联商品') || CASE WHEN agent <> '' THEN ' · ' || agent ELSE '' END AS subtitle,
-        COALESCE(NULLIF(summary_text, ''), NULLIF(service_issues, ''), consultation_type) || CASE WHEN problem_type <> '' THEN ' · ' || problem_type ELSE '' END AS detail,
-        consulted_at AS updated_at, NULL AS amount_cents
-      FROM customer_service_conversations
-      WHERE customer_id LIKE ? ESCAPE '\\' COLLATE NOCASE OR customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR chat_customer_alias LIKE ? ESCAPE '\\' COLLATE NOCASE OR agent LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR product_sku LIKE ? ESCAPE '\\' COLLATE NOCASE OR product_name LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR conversation_id LIKE ? ESCAPE '\\' COLLATE NOCASE /*CUSTOMER_MESSAGES*/
-        OR problem_type LIKE ? ESCAPE '\\' COLLATE NOCASE OR service_issues LIKE ? ESCAPE '\\' COLLATE NOCASE
-        OR summary_text LIKE ? ESCAPE '\\' COLLATE NOCASE
-      ORDER BY consulted_at DESC, id DESC LIMIT ? OFFSET ?`,
+    sql: "",
   },
   {
     key: "finance",
@@ -460,6 +453,7 @@ const financeSearchDefinition = staticDefinitions.find((definition) => definitio
 const targetSearchDefinition = staticDefinitions.find((definition) => definition.key === "targets")!;
 const inventorySearchDefinition = staticDefinitions.find((definition) => definition.key === "inventory")!;
 const replenishmentSearchDefinition = staticDefinitions.find((definition) => definition.key === "replenishment")!;
+const customerServiceSearchDefinition = staticDefinitions.find((definition) => definition.key === "customer_service")!;
 
 const legacyTargetsDefinition: SearchGroupDefinition = {
   key: "targets",
@@ -501,7 +495,6 @@ const importSources = [
   { table: "erp_reference_import_batches", source: "source_label", file: "file_name", searchable: ["id", "file_name", "source_key", "source_label", "status"] },
   { table: "finance_import_batches", source: "'月度财报'", file: "file_name", searchable: ["id", "file_name", "source", "status"] },
   { table: "market_import_batches", source: "'市场 · ' || source_type", file: "file_name", searchable: ["id", "file_name", "source_type", "status"] },
-  { table: "customer_service_import_batches", source: "'客服会话'", file: "session_file_name || ' / ' || chat_file_name", searchable: ["id", "session_file_name", "chat_file_name", "status"] },
 ] as const;
 
 const inventoryAgeDefinition = {
@@ -765,6 +758,49 @@ async function queryWorkflowGroup(
     return mapSearchRows(workflowDefinition, rows, request, principal, result.data.total);
   } catch {
     return emptyGroup(workflowDefinition, false);
+  }
+}
+
+function validCustomerServiceSearch(value: unknown): value is CustomerServiceConsumerResponseMap["search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items) && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean" && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.resultId === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && row.amountCents === null;
+    });
+}
+
+async function queryCustomerServiceGroup(
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  reader: CustomerServiceConsumerReader,
+  signal?: AbortSignal,
+) {
+  const offset = (request.page - 1) * request.groupLimit;
+  try {
+    const result = await reader.read(principal, {
+      operation: "search",
+      query: request.query,
+      offset,
+      limit: request.groupLimit,
+      includeMessages: request.group === "customer_service",
+    }, { signal });
+    if (!result.revision || !validCustomerServiceSearch(result.data)) return emptyGroup(customerServiceSearchDefinition, false);
+    const rows: SearchRow[] = result.data.items.map((item) => ({
+      result_id: item.resultId,
+      title: item.title,
+      subtitle: item.subtitle,
+      detail: item.detail,
+      updated_at: item.updatedAt,
+      amount_cents: item.amountCents,
+    }));
+    return mapSearchRows(customerServiceSearchDefinition, rows, request, principal, result.data.total);
+  } catch {
+    return emptyGroup(customerServiceSearchDefinition, false);
   }
 }
 
@@ -1105,6 +1141,24 @@ function validInventoryImportSearch(
     });
 }
 
+function validCustomerServiceImportSearch(
+  value: unknown,
+): value is CustomerServiceConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
 async function queryLocalImportRows(
   db: GlobalSearchDatabase,
   tables: Set<string>,
@@ -1154,6 +1208,7 @@ async function queryImportGroup(
   netshopReader: NetshopConsumerReader,
   productsReader: ProductsConsumerReader,
   inventoryReader: InventoryConsumerReader,
+  customerServiceReader: CustomerServiceConsumerReader,
   financeMode: FinanceBackendMode,
   signal?: AbortSignal,
 ) {
@@ -1222,6 +1277,18 @@ async function queryImportGroup(
     }
     const inventoryRevision = inventoryHead.revision;
     const inventoryTotal = inventoryHead.data.total;
+    const customerServiceHead = await customerServiceReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      offset: 0,
+      limit: 1,
+    }, { signal });
+    if (!customerServiceHead.revision || !validCustomerServiceImportSearch(customerServiceHead.data)
+      || !validFinanceConsumerWindow(customerServiceHead.data, 0, 1)) {
+      return emptyGroup(importDefinition, false);
+    }
+    const customerServiceRevision = customerServiceHead.revision;
+    const customerServiceTotal = customerServiceHead.data.total;
     const globalOffset = (request.page - 1) * request.groupLimit;
     const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
     let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
@@ -1332,11 +1399,38 @@ async function queryImportGroup(
       }
       inventoryItems = inventoryPage.data.items;
     }
-    const localTake = request.groupLimit
-      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length - inventoryItems.length;
-    const localOffset = Math.max(
+    const customerServiceOffset = Math.max(
       0,
       globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal - inventoryTotal,
+    );
+    const customerServiceTake = customerServiceOffset < customerServiceTotal
+      ? Math.min(
+          request.groupLimit - salesItems.length - financeItems.length - netshopItems.length - productsItems.length - inventoryItems.length,
+          customerServiceTotal - customerServiceOffset,
+        )
+      : 0;
+    let customerServiceItems: CustomerServiceConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (customerServiceTake > 0) {
+      const customerServicePage = await customerServiceReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: customerServiceOffset,
+        limit: customerServiceTake,
+      }, { signal });
+      if (customerServicePage.revision !== customerServiceRevision
+        || !validCustomerServiceImportSearch(customerServicePage.data)
+        || !validFinanceConsumerWindow(customerServicePage.data, customerServiceOffset, customerServiceTake)
+        || customerServicePage.data.total !== customerServiceTotal
+        || customerServicePage.data.items.length !== customerServiceTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      customerServiceItems = customerServicePage.data.items;
+    }
+    const localTake = request.groupLimit
+      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length - inventoryItems.length - customerServiceItems.length;
+    const localOffset = Math.max(
+      0,
+      globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal - inventoryTotal - customerServiceTotal,
     );
     const local = await queryLocalImportRows(
       db,
@@ -1346,7 +1440,7 @@ async function queryImportGroup(
       localOffset,
       financeMode !== "django",
     );
-    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal + inventoryTotal + local.total;
+    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal + inventoryTotal + customerServiceTotal + local.total;
     const rows: SearchRow[] = [
       ...salesItems.map((item) => ({
         result_id: item.id,
@@ -1386,6 +1480,14 @@ async function queryImportGroup(
         subtitle: String(item.source),
         detail: String(item.status),
         updated_at: String(item.completedAt ?? item.createdAt),
+        amount_cents: null,
+      })),
+      ...customerServiceItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: item.source,
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
         amount_cents: null,
       })),
       ...local.rows,
@@ -1493,6 +1595,7 @@ export async function searchAllBusinessData(
   const productsReader = options.productsReader ?? createDjangoProductsConsumerReader();
   const inventoryReader = options.inventoryReader ?? createDjangoInventoryConsumerReader();
   const workflowReader = options.workflowReader ?? createDjangoWorkflowConsumerReader();
+  const customerServiceReader = options.customerServiceReader ?? createDjangoCustomerServiceConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
@@ -1544,6 +1647,18 @@ export async function searchAllBusinessData(
           replenishmentSearchDefinition,
           request,
           principal,
+          options.signal,
+        ),
+      };
+    }
+    if (definition.key === "customer_service") {
+      return {
+        definition: customerServiceSearchDefinition,
+        available: true,
+        run: () => queryCustomerServiceGroup(
+          request,
+          principal,
+          customerServiceReader,
           options.signal,
         ),
       };
@@ -1624,6 +1739,7 @@ export async function searchAllBusinessData(
         netshopReader,
         productsReader,
         inventoryReader,
+        customerServiceReader,
         financeMode,
         options.signal,
       ),

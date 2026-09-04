@@ -39,6 +39,8 @@ $InstalledWorkflowScriptPath = Join-Path $InstalledAppRoot "tools\django-workflo
 $WorkflowStartupEnabledPath = Join-Path $RuntimeRoot "workflow-service-enabled.json"
 $InstalledInventoryScriptPath = Join-Path $InstalledAppRoot "tools\django-inventory-service.ps1"
 $InventoryStartupEnabledPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
+$InstalledCustomerServiceScriptPath = Join-Path $InstalledAppRoot "tools\django-customer-service.ps1"
+$CustomerServiceStartupEnabledPath = Join-Path $RuntimeRoot "customer-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
 $ConfigPath = Join-Path $RuntimeRoot "service.json"
 $CredentialPath = Join-Path $RuntimeRoot "secrets\credentials.dpapi.json"
@@ -63,6 +65,8 @@ $DjangoWorkflowReaderPidPath = Join-Path $RunDirectory "django-workflow-reader.p
 $DjangoWorkflowWriterPidPath = Join-Path $RunDirectory "django-workflow-writer.pid.json"
 $DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader.pid.json"
 $DjangoInventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
+$DjangoCustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
+$DjangoCustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
 $DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
 $SupervisorDesiredStatePath = Join-Path $RunDirectory "django-supervisor-desired-state.json"
@@ -75,6 +79,8 @@ $DjangoReaderHealthUrl = "http://127.0.0.1:8001/health/ready"
 $DjangoWriterHealthUrl = "http://127.0.0.1:8002/health/ready"
 $DjangoFinanceReaderHealthUrl = "http://127.0.0.1:8011/health/ready"
 $DjangoFinanceWriterHealthUrl = "http://127.0.0.1:8012/health/ready"
+$DjangoCustomerServiceReaderHealthUrl = "http://127.0.0.1:8071/health/ready"
+$DjangoCustomerServiceWriterHealthUrl = "http://127.0.0.1:8072/health/ready"
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Django Sales.lnk"
 $RunId = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
 $ReaderStatementTimeoutMs = 7000
@@ -527,12 +533,14 @@ function Resolve-ErpSourceD1([string]$Path) {
 
 function Get-ServiceConfig {
   $config = Read-JsonFile $ConfigPath "Django 本机服务配置"
-  if ([int]$config.version -ne 4) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
+  if ([int]$config.version -ne 5) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
   if (
     [string]$config.readerAddress -cne "127.0.0.1:8001" -or
     [string]$config.writerAddress -cne "127.0.0.1:8002" -or
     [string]$config.financeReaderAddress -cne "127.0.0.1:8011" -or
     [string]$config.financeWriterAddress -cne "127.0.0.1:8012" -or
+    [string]$config.customerServiceReaderAddress -cne "127.0.0.1:8071" -or
+    [string]$config.customerServiceWriterAddress -cne "127.0.0.1:8072" -or
     [string]$config.postgresAddress -cne "127.0.0.1:5432"
   ) {
     throw "Django 本机服务地址配置不符合固定回环契约"
@@ -1633,6 +1641,8 @@ function Deploy-Application {
       "tools\workflow-operations-consumer-smoke.ts",
       "tools\workflow-operations-d1-rejection-smoke.py",
       "tools\django-inventory-service.ps1",
+      "tools\django-customer-service.ps1",
+      "tools\django-customer-service-cutover.ps1",
       "tools\django-inventory-cutover.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\finance-d1-authority-install.py",
@@ -1644,6 +1654,8 @@ function Deploy-Application {
       "tools\workflow-operations-d1-snapshot.py",
       "tools\inventory-d1-authority-install.py",
       "tools\inventory-r2-retirement-evidence.py",
+      "tools\customer-service-d1-authority-install.py",
+      "tools\customer-service-d1-snapshot.py",
       "tools\postgres-consistent-backup.py",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
@@ -1661,7 +1673,9 @@ function Deploy-Application {
       "drizzle\0103_workflow_launch_write_authority.sql",
       "drizzle\0104_workflow_launch_domain_retirement.sql",
       "drizzle\0105_workflow_operations_write_authority.sql",
-      "drizzle\0106_workflow_operations_domain_retirement.sql"
+      "drizzle\0106_workflow_operations_domain_retirement.sql",
+      "drizzle\0107_customer_service_write_authority.sql",
+      "drizzle\0108_customer_service_domain_retirement.sql"
     )) {
       $source = Join-Path $ExecutionRoot $relative
       if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -2151,7 +2165,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8051).Count -gt 0 -or
     @(Get-PortListeners 8052).Count -gt 0 -or
     @(Get-PortListeners 8061).Count -gt 0 -or
-    @(Get-PortListeners 8062).Count -gt 0
+    @(Get-PortListeners 8062).Count -gt 0 -or
+    @(Get-PortListeners 8071).Count -gt 0 -or
+    @(Get-PortListeners 8072).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -2190,6 +2206,12 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   }
   if (Resolve-OwnedProcess "django-inventory-writer" $DjangoInventoryWriterPidPath $Waitress) {
     throw "$Operation 前必须通过库存控制器 Stop 停止 Django inventory writer"
+  }
+  if (Resolve-OwnedProcess "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service reader"
+  }
+  if (Resolve-OwnedProcess "django-customer-service-writer" $DjangoCustomerServiceWriterPidPath $Waitress) {
+    throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service writer"
   }
   if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python) {
     throw "$Operation 前必须通过 Stop 停止 ERP reference sync"
@@ -2582,6 +2604,8 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_WORKFLOW_AUTHORITY_EPOCH", "TERUISI_DJANGO_WORKFLOW_CUTOVER_ID",
     "TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH",
     "TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID",
+    "TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH",
+    "TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2604,6 +2628,8 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_WORKFLOW_CUTOVER_ID = ""
     $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID = ""
+    $env:TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH = ""
+    $env:TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2676,6 +2702,19 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = $CutoverId
+    } elseif ($ProcessRole -eq "customer_service_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID = $CutoverId
     } else {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
@@ -3288,18 +3327,20 @@ function Configure-Service {
   $resolvedErpSource = Resolve-ErpSourceD1 $ErpSourceD1
   New-Item -ItemType Directory -Path $RuntimeRoot, $LogDirectory, $RunDirectory -Force | Out-Null
   Write-AtomicJson $ConfigPath ([ordered]@{
-    version = 4
+    version = 5
     configuredAt = [DateTimeOffset]::Now.ToString("o")
     configuredFrom = $ExecutionRoot
     readerAddress = "127.0.0.1:8001"
     writerAddress = "127.0.0.1:8002"
     financeReaderAddress = "127.0.0.1:8011"
     financeWriterAddress = "127.0.0.1:8012"
+    customerServiceReaderAddress = "127.0.0.1:8071"
+    customerServiceWriterAddress = "127.0.0.1:8072"
     postgresAddress = "127.0.0.1:5432"
     erpSourceD1 = $resolvedErpSource
   })
   Write-LauncherEvent "INFO" "service_configured"
-  Write-Output "Django 本机销售/财务 reader/writer 与 ERP reference sync 配置已固定；未启动服务。"
+  Write-Output "Django 本机销售/财务/客服 reader/writer 与 ERP reference sync 配置已固定；未启动服务。"
 }
 
 function Initialize-ErpReferenceCheckpoint {
@@ -3914,6 +3955,10 @@ function Show-AggregateServiceStatus {
     "django-workflow-reader" $DjangoWorkflowReaderPidPath $DjangoWorkflowWriterPidPath `
     8061 8062 "http://127.0.0.1:8061/health/ready" "http://127.0.0.1:8062/health/ready" `
     "WorkflowReader" "WorkflowWriter"
+  $customerService = Get-SimpleDjangoDomainStatus `
+    "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $DjangoCustomerServiceWriterPidPath `
+    8071 8072 "http://127.0.0.1:8071/health/ready" "http://127.0.0.1:8072/health/ready" `
+    "CustomerServiceReader" "CustomerServiceWriter"
   $timer.Stop()
   $status = [pscustomobject][ordered]@{
     Version = "teruisi-django-aggregate-status-v1"
@@ -3924,6 +3969,7 @@ function Show-AggregateServiceStatus {
     Products = $products
     Inventory = $inventory
     Workflow = $workflow
+    CustomerService = $customerService
     ElapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
   }
@@ -4011,6 +4057,13 @@ function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken
     & $InstalledWorkflowScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
+  if (Test-Path -LiteralPath $CustomerServiceStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledCustomerServiceScriptPath -PathType Leaf)) {
+      throw "客服开机启动已启用，但受控客服服务脚本缺失"
+    }
+    & $InstalledCustomerServiceScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
 }
 
 function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToken) {
@@ -4035,6 +4088,10 @@ function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToke
   }
   if (Test-Path -LiteralPath $InstalledNetshopScriptPath -PathType Leaf) {
     & $InstalledNetshopScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledCustomerServiceScriptPath -PathType Leaf) {
+    & $InstalledCustomerServiceScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
 }

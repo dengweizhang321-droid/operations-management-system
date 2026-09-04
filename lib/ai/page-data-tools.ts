@@ -415,7 +415,7 @@ const defaultPageDataToolServices: PageDataToolServices = {
       )).data;
     }
     const { listCustomerServiceBatches } = await import("@/lib/customer-service/database");
-    return listCustomerServiceBatches(input);
+    return listCustomerServiceBatches(input, principal, { signal });
   },
   async readMarketComparison(input, principal, signal) {
     return (await requestDjangoMarketService<Record<string, unknown>>(

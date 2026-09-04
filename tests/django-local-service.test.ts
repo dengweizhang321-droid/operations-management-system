@@ -263,9 +263,11 @@ test("critical Django native calls are PS5-safe and report only bounded redacted
 });
 
 test("configuration fixes separate endpoints and an exact ERP-only D1 source", () => {
-  assert.match(script, /version = 4/);
+  assert.match(script, /version = 5/);
   assert.match(script, /readerAddress = "127\.0\.0\.1:8001"/);
   assert.match(script, /writerAddress = "127\.0\.0\.1:8002"/);
+  assert.match(script, /customerServiceReaderAddress = "127\.0\.0\.1:8071"/);
+  assert.match(script, /customerServiceWriterAddress = "127\.0\.0\.1:8072"/);
   assert.match(script, /erpSourceD1 = \$resolvedErpSource/);
   assert.match(script, /sync_erp_reference/);
   assert.match(script, /TERUISI_DJANGO_PROCESS_ROLE = \$ProcessRole/);

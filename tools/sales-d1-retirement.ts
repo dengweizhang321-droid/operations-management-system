@@ -1857,13 +1857,19 @@ export async function executeSalesD1RetirementWithDjangoPreflight(
     JSON.parse(await readFile(path.join(runtimeRoot, "service.json"), "utf8")),
     [
       "version", "configuredAt", "configuredFrom", "readerAddress",
-      "writerAddress", "postgresAddress", "erpSourceD1",
+      "writerAddress", "financeReaderAddress", "financeWriterAddress",
+      "customerServiceReaderAddress", "customerServiceWriterAddress",
+      "postgresAddress", "erpSourceD1",
     ],
     "runtime service config",
   );
-  if (serviceConfig.version !== 3
+  if (serviceConfig.version !== 5
     || serviceConfig.readerAddress !== "127.0.0.1:8001"
     || serviceConfig.writerAddress !== "127.0.0.1:8002"
+    || serviceConfig.financeReaderAddress !== "127.0.0.1:8011"
+    || serviceConfig.financeWriterAddress !== "127.0.0.1:8012"
+    || serviceConfig.customerServiceReaderAddress !== "127.0.0.1:8071"
+    || serviceConfig.customerServiceWriterAddress !== "127.0.0.1:8072"
     || serviceConfig.postgresAddress !== "127.0.0.1:5432"
     || typeof serviceConfig.erpSourceD1 !== "string"
     || !path.isAbsolute(serviceConfig.erpSourceD1)
@@ -1945,13 +1951,19 @@ async function resolveManagedRehearsalContext(
     JSON.parse(await readFile(path.join(runtimeRoot, "service.json"), "utf8")),
     [
       "version", "configuredAt", "configuredFrom", "readerAddress",
-      "writerAddress", "postgresAddress", "erpSourceD1",
+      "writerAddress", "financeReaderAddress", "financeWriterAddress",
+      "customerServiceReaderAddress", "customerServiceWriterAddress",
+      "postgresAddress", "erpSourceD1",
     ],
     "runtime service config",
   );
-  if (serviceConfig.version !== 3
+  if (serviceConfig.version !== 5
     || serviceConfig.readerAddress !== "127.0.0.1:8001"
     || serviceConfig.writerAddress !== "127.0.0.1:8002"
+    || serviceConfig.financeReaderAddress !== "127.0.0.1:8011"
+    || serviceConfig.financeWriterAddress !== "127.0.0.1:8012"
+    || serviceConfig.customerServiceReaderAddress !== "127.0.0.1:8071"
+    || serviceConfig.customerServiceWriterAddress !== "127.0.0.1:8072"
     || serviceConfig.postgresAddress !== "127.0.0.1:5432"
     || typeof serviceConfig.erpSourceD1 !== "string"
     || !path.isAbsolute(serviceConfig.erpSourceD1)) {

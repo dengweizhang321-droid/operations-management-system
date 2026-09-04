@@ -1,7 +1,6 @@
 import { authorizationErrorResponse, requireAppPrincipal, requireUnrestrictedDataScope } from "@/lib/auth/authorization";
 import { CustomerServiceImportError, parseCustomerServiceImport } from "@/lib/customer-service/import-service";
-import { ensureCustomerServiceSchema, getCustomerServiceDatabase, planCustomerServiceImportPayloads, saveCustomerServiceImport } from "@/lib/customer-service/database";
-import { ensureImportFingerprintSchema, recordRejectedImportAttempt } from "@/lib/imports/content-fingerprint";
+import { planCustomerServiceImportPayloads, recordRejectedCustomerServiceImport, saveCustomerServiceImport } from "@/lib/customer-service/database";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -26,16 +25,13 @@ export async function POST(request: Request) {
       if (parsed.conversations.length === 0) throw new CustomerServiceImportError("客服导入没有可保存的会话资料");
     } catch (error) {
       const message = error instanceof CustomerServiceImportError ? error.message : "客服文件解析失败";
-      const db = getCustomerServiceDatabase();
-      await ensureCustomerServiceSchema(db);
-      await ensureImportFingerprintSchema(db);
-      await recordRejectedImportAttempt(db, {
-        domain: "customer-service",
+      await recordRejectedCustomerServiceImport(principal, {
         rawFileHash: requestedFileHash,
         scopeHint: { shopName },
         errorCode: "CUSTOMER_SERVICE_PARSE_REJECTED",
         issues: [{ code: "CUSTOMER_SERVICE_PARSE_REJECTED", message }],
-        metadata: { fileName: `${sessionFile.name} + ${chatFile.name}`, fileSizeBytes: sessionFile.size + chatFile.size },
+        fileName: `${sessionFile.name} + ${chatFile.name}`,
+        fileSizeBytes: sessionFile.size + chatFile.size,
       });
       if (error instanceof CustomerServiceImportError) throw new PublicApiError(422, "invalid_request", message);
       throw error;
@@ -46,20 +42,17 @@ export async function POST(request: Request) {
       planCustomerServiceImportPayloads(resolvedShopName, parsed.conversations);
     } catch (error) {
       if (!(error instanceof PublicApiError) || error.status !== 422) throw error;
-      const db = getCustomerServiceDatabase();
-      await ensureCustomerServiceSchema(db);
-      await ensureImportFingerprintSchema(db);
-      await recordRejectedImportAttempt(db, {
-        domain: "customer-service",
+      await recordRejectedCustomerServiceImport(principal, {
         rawFileHash: fileHash,
         scopeHint: { shopName: resolvedShopName },
         errorCode: "CUSTOMER_SERVICE_PUBLISH_BUDGET_REJECTED",
         issues: [{ code: "CUSTOMER_SERVICE_PUBLISH_BUDGET_REJECTED", message: error.message }],
-        metadata: { fileName: `${sessionFile.name} + ${chatFile.name}`.slice(0, 500), fileSizeBytes: sessionFile.size + chatFile.size },
+        fileName: `${sessionFile.name} + ${chatFile.name}`.slice(0, 500),
+        fileSizeBytes: sessionFile.size + chatFile.size,
       });
       throw error;
     }
-    const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName: sessionFile.name, chatFileName: chatFile.name, fileHash, parsed });
+    const saved = await saveCustomerServiceImport({ shopName: resolvedShopName, sessionFileName: sessionFile.name, chatFileName: chatFile.name, fileHash, fileSizeBytes: sessionFile.size + chatFile.size, parsed }, principal);
     return Response.json({ ok: true, status: saved.status, batch: saved.batch, summary: parsed.summary, ...saved.warningSummary, message: saved.status === "duplicate" ? "全部标准化客服资料与当前数据一致，未重复写入。" : `已导入 ${parsed.conversations.length} 条客服会话，其中 ${parsed.summary.matchedCount + parsed.summary.timeOnlyMatchedCount} 条已关联聊天记录。` }, { status: saved.status === "imported" ? 201 : 200, headers: { "cache-control": "no-store" } });
   } catch (error) {
     const auth = authorizationErrorResponse(error); if (auth) return auth;

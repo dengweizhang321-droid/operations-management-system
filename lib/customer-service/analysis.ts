@@ -16,6 +16,7 @@ export type CustomerServiceAnalysisWriteResult =
 export async function applyCustomerServiceAnalysisResults(
   results: CustomerServiceAnalysisResult[],
   expectedVersions: ReadonlyMap<number, number>,
+  principal: AppPrincipal,
 ): Promise<CustomerServiceAnalysisWriteResult[]> {
   const resultById = new Map(results.map((result) => [result.id, result]));
   const outcomes: CustomerServiceAnalysisWriteResult[] = [];
@@ -34,7 +35,7 @@ export async function applyCustomerServiceAnalysisResults(
       analysisSource: "ai",
     };
     try {
-      const updated = await updateCustomerServiceConversationAnnotation(id, annotation, expectedVersion);
+      const updated = await updateCustomerServiceConversationAnnotation(id, annotation, expectedVersion, principal);
       outcomes.push({ id, status: "updated", version: updated.version, updatedAt: updated.updatedAt });
     } catch (error) {
       if (error instanceof PublicApiError) {
@@ -67,7 +68,7 @@ export function normalizeCustomerServiceAnalysisIds(ids: unknown) {
 
 export async function analyzeCustomerServiceConversations(ids: unknown, principal: AppPrincipal) {
   const normalizedIds = normalizeCustomerServiceAnalysisIds(ids);
-  const conversations = await getCustomerServiceConversationsByIds(normalizedIds);
+  const conversations = await getCustomerServiceConversationsByIds(normalizedIds, principal);
   const conversationsById = new Map(conversations.map((item) => [item.id, item]));
   const missingResults: CustomerServiceAnalysisWriteResult[] = normalizedIds
     .filter((id) => !conversationsById.has(id))
@@ -95,7 +96,7 @@ export async function analyzeCustomerServiceConversations(ids: unknown, principa
     }
     const results = parseCustomerServiceAnalysisReply(reply, new Set(records.map((item) => item.id)));
     const versions = new Map(conversations.map((item) => [item.id, item.version]));
-    writeResults = await applyCustomerServiceAnalysisResults(results, versions);
+    writeResults = await applyCustomerServiceAnalysisResults(results, versions, principal);
   }
   const outcomeById = new Map([...missingResults, ...writeResults].map((result) => [result.id, result]));
   const orderedResults = normalizedIds.map((id) => outcomeById.get(id)

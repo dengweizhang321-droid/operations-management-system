@@ -581,6 +581,80 @@ WORKFLOW_WRITER_TABLE_PRIVILEGES = {
     "sales_import_batches": ("SELECT",),
     "erp_product_master": ("SELECT",),
 }
+REQUIRED_CUSTOMER_SERVICE_COLUMNS = {
+    "customer_service_import_batches": {
+        "id", "shop_name", "status", "raw_file_hash", "import_hash", "content_hash",
+        "identity_set_hash", "scope_key", "published_state_token", "conversation_count",
+        "migration_generation", "created_at", "completed_at",
+    },
+    "customer_service_conversations": {
+        "id", "conversation_key", "first_import_batch_id", "last_import_batch_id",
+        "shop_name", "consulted_at", "agent", "product_sku", "messages", "match_status",
+        "robot_scope", "problem_type", "conversion_status", "version", "migration_generation",
+        "updated_at",
+    },
+    "customer_service_data_revisions": {"domain", "revision", "source_digest"},
+}
+REQUIRED_CUSTOMER_SERVICE_WRITER_COLUMNS = {
+    **REQUIRED_CUSTOMER_SERVICE_COLUMNS,
+    "customer_service_deletion_audits": {
+        "audit_id", "conversation_id", "conversation_key", "actor", "old_version",
+        "expected_version", "reason", "deleted_at", "migration_generation",
+    },
+    "customer_service_import_scope_heads": {
+        "scope_key", "shop_name", "state_token", "status", "owner_token", "generation",
+        "current_batch_id",
+    },
+    "customer_service_import_fingerprints": {
+        "id", "domain", "batch_id", "scope_key", "scope_json", "import_hash",
+        "raw_file_hash", "content_hash", "row_count", "outcome", "published_state_token",
+        "migration_generation",
+    },
+    "customer_service_import_attempts": {
+        "id", "domain", "batch_id", "scope_key", "scope_json", "raw_file_hash",
+        "content_hash", "row_count", "outcome", "error_code", "migration_generation",
+    },
+    "customer_service_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "customer_service_write_request_receipts": {
+        "request_id", "actor_email", "method", "path", "body_sha256", "query_sha256",
+        "status", "claim_token", "response_status", "response_payload", "expires_at",
+    },
+    "customer_service_raw_upload_sessions": {
+        "id", "fingerprint", "kind", "actor_email", "file_name", "file_size_bytes",
+        "chunk_size_bytes", "chunk_count", "received_chunk_count", "received_bytes",
+        "status", "owner_token", "owner_generation", "result_payload", "expires_at",
+    },
+    "customer_service_raw_upload_chunks": {
+        "id", "session_id", "chunk_index", "size_bytes", "sha256", "payload",
+    },
+}
+REQUIRED_CUSTOMER_SERVICE_READER_INDEXES = {
+    "cs_batch_created_idx", "cs_batch_shop_idx", "cs_conversation_date_idx",
+    "cs_conversation_filter_idx", "cs_conversation_batch_idx",
+}
+REQUIRED_CUSTOMER_SERVICE_WRITER_INDEXES = REQUIRED_CUSTOMER_SERVICE_READER_INDEXES | {
+    "cs_attempt_scope_idx", "cs_attempt_raw_idx", "cs_upload_fingerprint_idx",
+    "cs_upload_expiry_idx", "cs_upload_chunk_idx",
+}
+CUSTOMER_SERVICE_WRITER_TABLE_PRIVILEGES = {
+    "customer_service_import_batches": ("SELECT", "INSERT", "UPDATE"),
+    "customer_service_conversations": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "customer_service_deletion_audits": ("SELECT", "INSERT"),
+    "customer_service_import_scope_heads": ("SELECT", "INSERT", "UPDATE"),
+    "customer_service_import_fingerprints": ("SELECT", "INSERT"),
+    "customer_service_import_attempts": ("SELECT", "INSERT", "UPDATE"),
+    "customer_service_data_revisions": ("SELECT", "UPDATE"),
+    "customer_service_write_authority": ("SELECT",),
+    "customer_service_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "customer_service_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "customer_service_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+}
+CUSTOMER_SERVICE_WRITER_AUTO_ID_TABLES = (
+    "customer_service_conversations", "customer_service_import_fingerprints",
+    "customer_service_raw_upload_chunks",
+)
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
         "source_line_key",
@@ -1424,6 +1498,140 @@ def _validate_workflow_writer_permissions(cursor) -> None:
             raise ReadinessError("workflow_writer_database_privilege_excessive")
 
 
+def _validate_customer_service_schema(cursor, *, writer: bool) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    expected = (
+        REQUIRED_CUSTOMER_SERVICE_WRITER_COLUMNS
+        if writer else REQUIRED_CUSTOMER_SERVICE_COLUMNS
+    )
+    for table, expected_columns in expected.items():
+        if table not in tables:
+            raise ReadinessError(
+                "customer_service_writer_schema_missing"
+                if writer else "customer_service_reader_schema_missing"
+            )
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError(
+                "customer_service_writer_schema_incomplete"
+                if writer else "customer_service_reader_schema_incomplete"
+            )
+    present_indexes: set[str] = set()
+    for table in expected:
+        constraints = connection.introspection.get_constraints(cursor, table)
+        present_indexes.update(
+            name for name, value in constraints.items()
+            if value.get("index") or value.get("unique")
+        )
+    required_indexes = (
+        REQUIRED_CUSTOMER_SERVICE_WRITER_INDEXES
+        if writer else REQUIRED_CUSTOMER_SERVICE_READER_INDEXES
+    )
+    if not required_indexes.issubset(present_indexes):
+        raise ReadinessError("customer_service_indexes_incomplete")
+
+
+def _validate_customer_service_revision(cursor) -> None:
+    cursor.execute(
+        "SELECT revision, source_digest FROM customer_service_data_revisions "
+        "WHERE domain='customer-service'"
+    )
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("customer_service_reader_revision_invalid")
+
+
+def _validate_customer_service_connection_capacity(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("customer_service_database_not_postgresql")
+        return
+    cursor.execute("SHOW max_connections")
+    if int(cursor.fetchone()[0]) < 80:
+        raise ReadinessError("customer_service_database_capacity_too_low")
+
+
+def _validate_customer_service_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
+        "FROM customer_service_write_authority WHERE id=1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("customer_service_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("customer_service_writer_authority_invalid") from error
+    if (
+        epoch != settings.CUSTOMER_SERVICE_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.CUSTOMER_SERVICE_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"customer-service-[0-9a-f]{32}", str(row[3] or ""))
+    ):
+        raise ReadinessError("customer_service_writer_authority_mismatch")
+
+
+def _validate_customer_service_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("customer_service_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("customer_service_writer_database_read_only")
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user, current_schema(), 'CREATE'), "
+        "has_database_privilege(current_user, current_database(), 'CREATE')"
+    )
+    if any(bool(value) for value in cursor.fetchone()):
+        raise ReadinessError("customer_service_writer_database_privilege_excessive")
+    for table, privileges in CUSTOMER_SERVICE_WRITER_TABLE_PRIVILEGES.items():
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user, %s, %s)", [table, privilege]
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("customer_service_writer_database_privilege_missing")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') "
+        "AND n.nspname <> 'information_schema' "
+        "AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "INSERT": bool(row[2]) or bool(row[6]),
+            "UPDATE": bool(row[3]) or bool(row[7]),
+            "DELETE": bool(row[4]),
+            "TRUNCATE": bool(row[5]),
+        }
+        allowed = (
+            set(CUSTOMER_SERVICE_WRITER_TABLE_PRIVILEGES.get(table_name, ()))
+            if schema_name == application_schema else set()
+        )
+        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
+            raise ReadinessError("customer_service_writer_database_privilege_excessive")
+    for table in CUSTOMER_SERVICE_WRITER_AUTO_ID_TABLES:
+        cursor.execute("SELECT pg_get_serial_sequence(%s, 'id')", [table])
+        sequence = cursor.fetchone()[0]
+        if sequence:
+            cursor.execute(
+                "SELECT has_sequence_privilege(current_user, %s, 'USAGE')", [sequence]
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("customer_service_writer_database_privilege_missing")
+
+
 def _validate_writer_authority(cursor) -> str:
     cursor.execute(
         "SELECT status, authority_epoch, cutover_id "
@@ -1520,9 +1728,27 @@ def ready(_request):
     inventory_reader_process = settings.DJANGO_PROCESS_ROLE == "inventory_reader"
     workflow_writer_process = settings.DJANGO_PROCESS_ROLE == "workflow_writer"
     workflow_reader_process = settings.DJANGO_PROCESS_ROLE == "workflow_reader"
+    customer_service_writer_process = settings.DJANGO_PROCESS_ROLE == "customer_service_writer"
+    customer_service_reader_process = settings.DJANGO_PROCESS_ROLE == "customer_service_reader"
     try:
         with connection.cursor() as cursor:
-            if workflow_writer_process:
+            if customer_service_writer_process:
+                _validate_customer_service_schema(cursor, writer=True)
+                _validate_customer_service_revision(cursor)
+                _validate_customer_service_connection_capacity(cursor)
+                _validate_customer_service_writer_authority(cursor)
+                _validate_customer_service_writer_permissions(cursor)
+            elif customer_service_reader_process:
+                _validate_customer_service_schema(cursor, writer=False)
+                _validate_customer_service_revision(cursor)
+                _validate_customer_service_connection_capacity(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif workflow_writer_process:
                 _validate_workflow_schema(cursor, writer=True)
                 _validate_workflow_revision(cursor)
                 _validate_workflow_writer_authority(cursor)
@@ -1639,7 +1865,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "workflow_writer_unavailable"
+                    "customer_service_writer_unavailable"
+                    if customer_service_writer_process
+                    else "customer_service_reader_unavailable"
+                    if customer_service_reader_process
+                    else "workflow_writer_unavailable"
                     if workflow_writer_process
                     else "workflow_reader_unavailable"
                     if workflow_reader_process
@@ -1680,7 +1910,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "workflow_writer_unavailable"
+                    "customer_service_writer_unavailable"
+                    if customer_service_writer_process
+                    else "customer_service_reader_unavailable"
+                    if customer_service_reader_process
+                    else "workflow_writer_unavailable"
                     if workflow_writer_process
                     else "workflow_reader_unavailable"
                     if workflow_reader_process
@@ -1716,7 +1950,11 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if workflow_writer_process:
+    if customer_service_writer_process:
+        payload["customerServiceWriter"] = "ready"
+    elif customer_service_reader_process:
+        payload["customerServiceReader"] = "ready"
+    elif workflow_writer_process:
         payload["workflowWriter"] = "ready"
     elif workflow_reader_process:
         payload["workflowReader"] = "ready"

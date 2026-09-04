@@ -25,7 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
-    "inventory_", "replenishment_", "workflow_",
+    "inventory_", "replenishment_", "workflow_", "customer_service_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -167,6 +167,25 @@ def collect_evidence(
         workflow_tables = {name for name in tables if name.startswith("workflow_")}
         if workflow_tables:
             required.update(workflow_required)
+        customer_service_required = {
+            "customer_service_data_revisions",
+            "customer_service_import_batches",
+            "customer_service_conversations",
+            "customer_service_deletion_audits",
+            "customer_service_import_scope_heads",
+            "customer_service_import_fingerprints",
+            "customer_service_import_attempts",
+            "customer_service_write_authority",
+            "customer_service_write_request_receipts",
+            "customer_service_migration_runs",
+            "customer_service_raw_upload_sessions",
+            "customer_service_raw_upload_chunks",
+        }
+        customer_service_tables = {
+            name for name in tables if name.startswith("customer_service_")
+        }
+        if customer_service_tables:
+            required.update(customer_service_required)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -508,6 +527,61 @@ def collect_evidence(
                 "migrationRunId": operations_run,
             }
 
+        customer_service_revisions: dict[str, dict[str, Any]] | None = None
+        customer_service_authority: dict[str, str] | None = None
+        if customer_service_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM customer_service_data_revisions ORDER BY domain"
+            )
+            customer_service_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = customer_service_revisions.get("customer-service")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("customer-service revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM customer_service_write_authority WHERE id = 1"
+            )
+            customer_service_authority_row = cursor.fetchone()
+            if customer_service_authority_row is None:
+                raise RuntimeError("customer-service write authority singleton is missing")
+            customer_service_status, customer_service_epoch, customer_service_cutover, customer_service_run = (
+                str(value or "") for value in customer_service_authority_row
+            )
+            if customer_service_status not in {"d1", "postgres"}:
+                raise RuntimeError("customer-service write authority status is invalid")
+            if customer_service_run and re.fullmatch(r"customer-service-[0-9a-f]{32}", customer_service_run) is None:
+                raise RuntimeError("customer-service migration run evidence is invalid")
+            if customer_service_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", customer_service_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", customer_service_cutover) is None
+                    or not customer_service_run
+                ):
+                    raise RuntimeError("active customer-service write authority evidence is incomplete")
+            elif customer_service_epoch or customer_service_cutover:
+                raise RuntimeError("inactive customer-service write authority contains activation evidence")
+            customer_service_authority = {
+                "status": customer_service_status,
+                "authorityEpoch": customer_service_epoch,
+                "cutoverId": customer_service_cutover,
+                "migrationRunId": customer_service_run,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -538,6 +612,9 @@ def collect_evidence(
         content["workflowRevisions"] = workflow_revisions
         content["workflowWriteAuthority"] = workflow_authority
         content["workflowOperationsWriteAuthority"] = workflow_operations_authority
+    if customer_service_revisions is not None and customer_service_authority is not None:
+        content["customerServiceRevisions"] = customer_service_revisions
+        content["customerServiceWriteAuthority"] = customer_service_authority
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")
