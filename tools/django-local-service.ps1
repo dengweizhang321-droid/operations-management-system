@@ -425,10 +425,12 @@ function Protect-Value([string]$PlainValue) {
 
 function New-RandomSecret {
   $bytes = [byte[]]::new(48)
-  [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+  $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
   try {
-    return [Convert]::ToHexString($bytes).ToLowerInvariant()
+    $generator.GetBytes($bytes)
+    return ([BitConverter]::ToString($bytes) -replace "-", "").ToLowerInvariant()
   } finally {
+    $generator.Dispose()
     [Array]::Clear($bytes, 0, $bytes.Length)
   }
 }

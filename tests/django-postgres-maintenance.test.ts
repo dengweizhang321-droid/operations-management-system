@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const operatorPath = path.join(root, "tools", "django-postgres-maintenance.ps1");
+const servicePath = path.join(root, "tools", "django-local-service.ps1");
 const helperPath = path.join(root, "tools", "postgres-consistent-backup.py");
 const powershell = path.join(
   process.env.SystemRoot ?? "C:\\Windows",
@@ -35,6 +36,29 @@ test("PostgreSQL maintenance operators parse under Windows PowerShell 5", async 
     "-NoProfile", "-NonInteractive", "-Command", command,
   ], { encoding: "utf8", windowsHide: true });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("Windows PowerShell 5 can generate the restore rehearsal secret", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const escapedPath = servicePath.replaceAll("'", "''");
+  const command = [
+    "$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';",
+    `. '${escapedPath}';`,
+    "$first=New-RandomSecret; $second=New-RandomSecret;",
+    "if($first -cnotmatch '^[0-9a-f]{96}$'){exit 2};",
+    "if($second -cnotmatch '^[0-9a-f]{96}$'){exit 3};",
+    "if($first -ceq $second){exit 4};",
+    "exit 0",
+  ].join(" ");
+  const result = spawnSync(powershell, [
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-Command", command,
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(result.stdout, "");
 });
 
 test("maintenance reuses the deployed service's strict v4 configuration contract", async () => {
