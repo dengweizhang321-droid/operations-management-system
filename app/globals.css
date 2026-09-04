@@ -503,6 +503,25 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   *, *::before, *::after { scroll-behavior: auto!important; transition-duration: .01ms!important; animation-duration: .01ms!important; }
 }
 
+.replenishment-plan-table { min-width: 1300px; }
+.replenishment-plan-table .plan-selection-cell { width: 42px; min-width: 42px; padding-right: 6px; padding-left: 12px; text-align: center; }
+.plan-selection-cell input { width: 15px; height: 15px; accent-color: var(--blue); cursor: pointer; }
+.plan-selection-cell input:disabled { cursor: not-allowed; opacity: .35; }
+.plan-group-send-button { min-height: 31px; padding: 0 13px; font-size: 9px; white-space: nowrap; }
+.inventory-dingtalk-group-modal { width: min(760px,100%); }
+.inventory-dingtalk-group-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; padding: 16px 20px 0; }
+.inventory-dingtalk-group-summary > span { display: grid; gap: 4px; padding: 11px 12px; border: 1px solid #e5eaf2; border-radius: 8px; background: #fafbfd; }
+.inventory-dingtalk-group-summary small { color: #8995a5; font-size: 8px; }
+.inventory-dingtalk-group-summary strong { overflow: hidden; color: #405169; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-dingtalk-message-preview { display: grid; gap: 7px; padding: 16px 20px 20px; }
+.inventory-dingtalk-message-preview > span { color: #67778c; font-size: 8px; font-weight: 700; }
+.inventory-dingtalk-message-preview pre { max-height: 330px; overflow: auto; margin: 0; padding: 15px; border: 1px solid #dfe6f0; border-radius: 8px; color: #384a62; background: #f7f9fc; font: 10px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  .inventory-dingtalk-group-summary { grid-template-columns: 1fr; padding-right: 15px; padding-left: 15px; }
+  .inventory-dingtalk-message-preview { padding-right: 15px; padding-left: 15px; }
+}
+
 /* AI workspace: conversation, governed image generation, and administration. */
 .ai-module-tabs { margin-bottom: 16px; }
 .ai-space-workspace,

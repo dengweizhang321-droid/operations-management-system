@@ -91,6 +91,8 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(helper, /inventory_write_authority/);
   assert.match(helper, /inventoryRevisions/);
   assert.match(helper, /inventoryWriteAuthority/);
+  assert.match(helper, /inventory_replenishment_group_deliveries/);
+  assert.match(operator, /inventory_replenishment_group_deliveries/);
   assert.match(helper, /django_migrations/);
   assert.match(helper, /startswith\(ALLOWED_TABLE_PREFIXES\)/);
   assert.match(helper, /"sales_", "erp_", "finance_", "netshop_", "market_", "product_"/);

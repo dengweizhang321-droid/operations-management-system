@@ -157,6 +157,7 @@ writer_privileges = {
     "inventory_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "inventory_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "replenishment_plan_items": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_replenishment_group_deliveries": ("SELECT", "INSERT", "UPDATE"),
     "inventory_operating_settings": ("SELECT", "UPDATE"),
 }
 auto_id_tables = (

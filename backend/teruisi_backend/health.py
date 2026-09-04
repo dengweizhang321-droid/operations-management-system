@@ -426,6 +426,11 @@ REQUIRED_INVENTORY_WRITER_COLUMNS = {
     "inventory_raw_upload_chunks": {
         "session_id", "chunk_index", "object_key", "sha256", "payload",
     },
+    "inventory_replenishment_group_deliveries": {
+        "id", "idempotency_key", "plan_ids", "target_group_name", "robot_name",
+        "message_sha256", "message_text", "status", "provider_receipt",
+        "error_code", "claimed_by", "created_at", "updated_at", "delivered_at",
+    },
 }
 REQUIRED_INVENTORY_READER_INDEXES = {
     "inv_batch_scope_idx", "inv_batch_created_idx", "inv_stock_lookup_idx",
@@ -434,7 +439,8 @@ REQUIRED_INVENTORY_READER_INDEXES = {
 }
 REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_attempt_scope_idx", "inv_upload_fingerprint_idx", "inv_upload_expiry_idx",
-    "inv_raw_chunk_order_idx",
+    "inv_raw_chunk_order_idx", "inv_group_delivery_time_idx",
+    "inv_group_delivery_status_idx",
 }
 INVENTORY_WRITER_TABLE_PRIVILEGES = {
     "sales_order_lines": ("SELECT",),
@@ -454,6 +460,7 @@ INVENTORY_WRITER_TABLE_PRIVILEGES = {
     "inventory_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "inventory_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "replenishment_plan_items": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_replenishment_group_deliveries": ("SELECT", "INSERT", "UPDATE"),
     "inventory_operating_settings": ("SELECT", "UPDATE"),
 }
 INVENTORY_WRITER_AUTO_ID_TABLES = (
@@ -1134,6 +1141,7 @@ def _validate_inventory_schema(cursor, *, writer: bool) -> None:
         "inventory_import_batches", "inventory_stock_lines", "inventory_age_lines",
         "inventory_import_attempts", "inventory_raw_upload_sessions",
         "inventory_raw_upload_chunks", "replenishment_plan_items",
+        "inventory_replenishment_group_deliveries",
     )
     present_indexes: set[str] = set()
     for table in indexed_tables:

@@ -8,6 +8,7 @@ import {
   INVENTORY_CONSUMER_QUERY_PATH,
   INVENTORY_IMPORTS_PATH,
   INVENTORY_OVERVIEW_PATH,
+  INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH,
   INVENTORY_REPLENISHMENT_PATH,
   requestDjangoInventoryBytes,
   requestDjangoInventoryJson,
@@ -97,9 +98,15 @@ test("inventory consumers stay reader-only while imports and plans use writer", 
     { method: "PATCH", path: INVENTORY_REPLENISHMENT_PATH, service: "writer", payload: { id: "plan-1", status: "confirmed" } },
     { config, fetchImpl },
   );
+  await requestDjangoInventoryJson(
+    principal,
+    { method: "POST", path: INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH, service: "writer", payload: { action: "preview", planIds: ["plan-1"] } },
+    { config, fetchImpl },
+  );
   assert.equal(new URL(observed[0]!.url).origin, config.readerBaseUrl);
   assert.equal(new URL(observed[1]!.url).origin, config.writerBaseUrl);
   assert.equal(new URL(observed[2]!.url).origin, config.writerBaseUrl);
+  assert.equal(new URL(observed[3]!.url).origin, config.writerBaseUrl);
   assert.equal(imported.replayed, true);
   verifySignature(observed[1]!, INVENTORY_IMPORTS_PATH);
 });

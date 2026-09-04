@@ -133,6 +133,7 @@ def collect_evidence(
             "inventory_write_authority",
             "inventory_operating_settings",
             "replenishment_plan_items",
+            "inventory_replenishment_group_deliveries",
         }
         inventory_tables = {
             name for name in tables

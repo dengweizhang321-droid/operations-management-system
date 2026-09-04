@@ -166,7 +166,7 @@ npm run dingtalk:robot:send -- --text "hello"
 
 2026-09-03，库存管理的 Django/PostgreSQL 垂直链路已在本机正式切换。独立 `inventory_reader`/`inventory_writer` 固定监听 `127.0.0.1:8051/8052` 并加入受控启动链；PostgreSQL 是库存/库龄事实、批次、导入控制、备货计划、设置、revision、审计和分片的唯一权威。Worker 只保留鉴权、解析和薄适配，商品经营投影、系统成本、AI、搜索统一使用库存 consumer。旧 D1 库存事实和共享命名空间已由空 tombstone 与永久 guard 终态退役，库存 R2 前缀和生产访问路径也已下线；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。完整生产证据见 [`docs/DJANGO_INVENTORY_MIGRATION.md`](docs/DJANGO_INVENTORY_MIGRATION.md)。
 
-库存总览固定使用销售最新截止日向前 30 个自然日的正向销量，退款不冲减备货需求；“库存健康明细（近30天）”与“销量近30天”使用同一货品汇总信息和列布局。备货计划中的“近30天总销量”按货品跨仓汇总，部门预填“志高项目组”但允许留空，预计消耗周期可人工调整；计划确认后立即通过既有幂等链路提交到配置绑定的钉钉“备货管理”多维表，外部提交失败不回滚本地确认并可重试。分仓库存导入读取吉客云“规格默认供应商”，并使用 `config/inventory-warehouse-mapping.json` 中的仓库分类和“计入库存”标记；“销量近30天”工作台单独展示供应商（代发仓）、京东仓和菜鸟仓等指标。详细口径见 [`docs/INVENTORY_MANAGEMENT.md`](docs/INVENTORY_MANAGEMENT.md)。
+库存总览固定使用销售最新截止日向前 30 个自然日的正向销量，退款不冲减备货需求；页面保留“库存健康明细（近30天）”这一张货品汇总表，不再重复展示顶部库存 KPI、质量暂停横幅和“销量近30天”表格。备货计划中的“近30天总销量”按货品跨仓汇总，部门预填“志高项目组”但允许留空，预计消耗周期可人工调整；计划确认后立即通过既有幂等链路提交到配置绑定的钉钉“备货管理”多维表。多选已确认计划后，可先预览按采购和工厂分组的话术，再通过系统设置绑定的机器人发送到精确匹配的钉钉群；同一批消息有发送账本防重。多维表备注的新标记统一为“运营管理系统备货计划ID”，并兼容查询、更新历史 TERUISI 标记。分仓库存导入读取吉客云“规格默认供应商”，并使用 `config/inventory-warehouse-mapping.json` 中的仓库分类和“计入库存”标记。详细口径见 [`docs/INVENTORY_MANAGEMENT.md`](docs/INVENTORY_MANAGEMENT.md)。
 
 销售数据运维可见性使用只读 `GET /api/sales/data-health`：仅 `operator/admin` 且无数据范围限制的账号可读取，返回 Django/PostgreSQL 单写来源、动态 sales/ERP revision、上海业务日期、销售覆盖起止日、距当前业务日的机械天数、是否覆盖昨天及最近成功批次。该接口不自行定义“过期”阈值，不读取 runtime 文件或凭据，也没有改动销售/财务页面模板。
 

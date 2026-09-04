@@ -121,11 +121,16 @@ class DingTalkReplenishmentGatewayTests(TestCase):
         self.assertEqual(fake.created_cells[fields["plannedQuantity"]["id"]], 3)
         self.assertEqual(fake.created_cells[fields["warehouse"]["id"]], "广东仓")
         self.assertEqual(fake.created_cells[fields["buyer"]["id"]][0]["userId"], "user-梁家明")
-        self.assertIn("[TERUISI备货计划ID:", fake.created_cells[fields["notes"]["id"]])
+        self.assertIn("[运营管理系统备货计划ID:", fake.created_cells[fields["notes"]["id"]])
+        self.assertNotIn("[TERUISI备货计划ID:", fake.created_cells[fields["notes"]["id"]])
         field_gets = [command for command in fake.commands if command[:3] == ["aitable", "field", "get"]]
         self.assertEqual(len(field_gets), 3)
         self.assertTrue(all("," not in command[command.index("--field-ids") + 1] for command in field_gets))
-        self.assertEqual(sum(command[:3] == ["aitable", "record", "query"] for command in fake.commands), 2)
+        marker_queries = [command for command in fake.commands if command[:3] == ["aitable", "record", "query"]]
+        self.assertEqual(len(marker_queries), 4)
+        filters = [command[command.index("--filters") + 1] for command in marker_queries]
+        self.assertTrue(any("运营管理系统备货计划ID" in value for value in filters))
+        self.assertTrue(any("TERUISI备货计划ID" in value for value in filters))
 
 
 class ReplenishmentSyncStateTests(TestCase):
@@ -163,6 +168,31 @@ class ReplenishmentSyncStateTests(TestCase):
         self.assertEqual(plan.dingtalk_record_id, "record-1")
         self.assertEqual(plan.dingtalk_synced_by, "operator@example.test")
         self.assertIsNotNone(plan.dingtalk_synced_at)
+
+    def test_legacy_payload_digest_is_resynced_to_migrate_the_marker(self) -> None:
+        plan = make_plan()
+        plan.dingtalk_sync_status = "synced"
+        plan.dingtalk_record_id = "record-legacy"
+        plan.dingtalk_payload_sha256 = "0" * 64
+        plan.save(update_fields=["dingtalk_sync_status", "dingtalk_record_id", "dingtalk_payload_sha256"])
+
+        class Gateway:
+            target = load_target()
+
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def sync(self, _plan: ReplenishmentPlanItem) -> tuple[str, str]:
+                self.calls += 1
+                return "record-legacy", "updated"
+
+        gateway = Gateway()
+        result = sync_replenishment_plan(plan.id, "operator@example.test", gateway=gateway)
+        plan.refresh_from_db()
+
+        self.assertEqual(result["outcome"], "updated")
+        self.assertEqual(gateway.calls, 1)
+        self.assertNotEqual(plan.dingtalk_payload_sha256, "0" * 64)
 
     def test_draft_plan_is_rejected_without_external_write(self) -> None:
         plan = make_plan(status="draft")

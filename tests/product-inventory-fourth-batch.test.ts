@@ -179,8 +179,7 @@ test("replenishment, AI and frontend do not reuse truncated pages", async () => 
   assert.match(inventoryView, /currentUser\?\.role === "admin"/);
   assert.match(inventoryView, /overviewGenerationRef/);
   assert.match(productView, /productSummaryGenerationRef/);
-  assert.match(inventoryView, /已覆盖库存货值/);
-  assert.match(inventoryView, /成本缺口/);
+  assert.doesNotMatch(inventoryView, /InventoryKpiCard label=\{overview\.metrics\.stockValueComplete \? "库存货值"/);
   assert.match(inventoryView, /stockValueComplete/);
   assert.doesNotMatch(frontend, /filtered\.slice\(0, 300\)/);
   assert.doesNotMatch(frontend, /filteredItems\.slice\(0, 300\)/);

@@ -367,6 +367,30 @@ class ReplenishmentPlanItem(models.Model):
         ]
 
 
+class ReplenishmentGroupDelivery(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    idempotency_key = models.CharField(max_length=64, unique=True)
+    plan_ids = models.JSONField(default=list)
+    target_group_name = models.CharField(max_length=200)
+    robot_name = models.CharField(max_length=160)
+    message_sha256 = models.CharField(max_length=64)
+    message_text = models.TextField()
+    status = models.CharField(max_length=16, default="claimed")
+    provider_receipt = models.CharField(max_length=500, default="")
+    error_code = models.CharField(max_length=120, default="")
+    claimed_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "inventory_replenishment_group_deliveries"
+        indexes = [
+            models.Index(fields=["created_at"], name="inv_group_delivery_time_idx"),
+            models.Index(fields=["status", "updated_at"], name="inv_group_delivery_status_idx"),
+        ]
+
+
 class InventoryOperatingSettings(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     target_days = models.PositiveIntegerField(default=30)

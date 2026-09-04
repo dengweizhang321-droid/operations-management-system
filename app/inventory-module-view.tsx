@@ -86,6 +86,17 @@ type ReplenishmentPlanDraft = {
 };
 
 type DingTalkSyncOutcome = "created" | "updated" | "already_synced";
+type DingTalkGroupPreview = {
+  ok: true;
+  status: "preview" | "delivered" | "already_delivered";
+  planIds: string[];
+  planCount: number;
+  targetGroupName: string;
+  robotName: string;
+  message: string;
+  buyerNames: string[];
+  previewToken: string;
+};
 
 async function requestPlanDingTalkSync(planId: string) {
   const response = await fetch("/api/inventory/replenishment/dingtalk", {
@@ -103,6 +114,27 @@ async function requestPlanDingTalkSync(planId: string) {
     throw new Error(payload?.message || payload?.error || "提交钉钉多维表失败");
   }
   return payload.outcome ?? "created";
+}
+
+async function requestDingTalkGroupMessage(
+  action: "preview" | "send",
+  planIds: string[],
+  previewToken?: string,
+) {
+  const response = await fetch("/api/inventory/replenishment/dingtalk/group", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action, planIds, ...(previewToken ? { previewToken } : {}) }),
+  });
+  const payload = await response.json().catch(() => null) as (Partial<DingTalkGroupPreview> & {
+    message?: string;
+    error?: string;
+  }) | null;
+  if (!response.ok || !payload?.ok || !payload.previewToken || !payload.targetGroupName
+    || !payload.robotName || !Array.isArray(payload.planIds) || !Array.isArray(payload.buyerNames)) {
+    throw new Error(payload?.message || payload?.error || "备货群消息处理失败");
+  }
+  return payload as DingTalkGroupPreview;
 }
 
 function addCalendarDays(value: string, days: number) {
@@ -382,6 +414,9 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [planQuantities, setPlanQuantities] = useState<Record<string, number>>({});
   const [planDraft, setPlanDraft] = useState<ReplenishmentPlanDraft | null>(null);
   const [planSaving, setPlanSaving] = useState(false);
+  const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(() => new Set());
+  const [groupPreview, setGroupPreview] = useState<DingTalkGroupPreview | null>(null);
+  const [groupMessageLoading, setGroupMessageLoading] = useState(false);
   const [overviewPage, setOverviewPage] = useState(1);
   const [agePage, setAgePage] = useState(1);
   const [planPage, setPlanPage] = useState(1);
@@ -436,6 +471,23 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const effectiveInboundPage = effectivePageForScope(inboundPage, inboundPageScopeKey, committedInboundPageScopeKey);
   const canSyncInventory = currentUser?.role === "admin";
   const canManageInventory = currentUser?.role === "admin" || currentUser?.role === "operator";
+  const selectablePlans = useMemo(
+    () => canManageInventory
+      ? (overview?.plans ?? []).filter((plan) => plan.status === "confirmed" && plan.buyer.trim() && plan.supplier.trim())
+      : [],
+    [canManageInventory, overview?.plans],
+  );
+  const selectablePlanIds = useMemo(() => new Set(selectablePlans.map((plan) => plan.id)), [selectablePlans]);
+  const allSelectablePlansSelected = selectablePlans.length > 0
+    && selectablePlans.every((plan) => selectedPlanIds.has(plan.id));
+
+  useEffect(() => {
+    setSelectedPlanIds((current) => {
+      const next = new Set([...current].filter((id) => selectablePlanIds.has(id)));
+      return next.size === current.size && [...next].every((id) => current.has(id)) ? current : next;
+    });
+    setGroupPreview(null);
+  }, [planPageScopeKey, selectablePlanIds]);
 
   const updateFilters = useCallback((next: InventorySharedFilters) => {
     setFilters(next);
@@ -896,13 +948,13 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   }, [canManageInventory, planQuantities, refreshActiveInventoryTab]);
 
   const syncPlanToDingTalk = useCallback(async (plan: ReplenishmentPlanItem) => {
-    if (!canManageInventory || plan.status !== "confirmed" || plan.dingTalkSync.status === "synced") return;
+    if (!canManageInventory || plan.status !== "confirmed") return;
     setPlanActionId(plan.id);
     try {
       const outcome = await requestPlanDingTalkSync(plan.id);
       setSyncFeedback({
         tone: "success",
-        title: outcome === "updated" ? "钉钉备货计划已更新" : "钉钉备货计划已创建",
+        title: outcome === "updated" ? "钉钉备货计划已更新" : outcome === "already_synced" ? "钉钉备货计划已是最新" : "钉钉备货计划已创建",
         message: `${plan.productName} · ${plan.warehouse} · ${formatCount(plan.plannedQuantity)} 件`,
       });
       await refreshActiveInventoryTab();
@@ -912,6 +964,63 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       setPlanActionId("");
     }
   }, [canManageInventory, refreshActiveInventoryTab]);
+
+  const togglePlanSelection = useCallback((planId: string) => {
+    if (!selectablePlanIds.has(planId)) return;
+    setSelectedPlanIds((current) => {
+      const next = new Set(current);
+      if (next.has(planId)) next.delete(planId);
+      else next.add(planId);
+      return next;
+    });
+    setGroupPreview(null);
+  }, [selectablePlanIds]);
+
+  const toggleAllPlanSelections = useCallback(() => {
+    setSelectedPlanIds(allSelectablePlansSelected ? new Set() : new Set(selectablePlans.map((plan) => plan.id)));
+    setGroupPreview(null);
+  }, [allSelectablePlansSelected, selectablePlans]);
+
+  const previewDingTalkGroupMessage = useCallback(async () => {
+    if (!canManageInventory || selectedPlanIds.size === 0 || groupMessageLoading) return;
+    setGroupMessageLoading(true);
+    try {
+      const preview = await requestDingTalkGroupMessage("preview", [...selectedPlanIds]);
+      setGroupPreview(preview);
+    } catch (requestError) {
+      setSyncFeedback({
+        tone: "error",
+        title: "备货群消息预览失败",
+        message: requestError instanceof Error ? requestError.message : "请检查采购、工厂和钉钉设置后重试",
+      });
+    } finally {
+      setGroupMessageLoading(false);
+    }
+  }, [canManageInventory, groupMessageLoading, selectedPlanIds]);
+
+  const sendDingTalkGroupMessage = useCallback(async () => {
+    if (!canManageInventory || !groupPreview || groupMessageLoading) return;
+    setGroupMessageLoading(true);
+    try {
+      const result = await requestDingTalkGroupMessage("send", groupPreview.planIds, groupPreview.previewToken);
+      setSyncFeedback({
+        tone: "success",
+        title: result.status === "already_delivered" ? "该批备货消息已发送" : "备货消息已发送到钉钉群",
+        message: `${result.targetGroupName} · ${result.planCount} 条计划 · 已提醒 ${result.buyerNames.join("、")}`,
+      });
+      setGroupPreview(null);
+      setSelectedPlanIds(new Set());
+      await refreshActiveInventoryTab();
+    } catch (requestError) {
+      setSyncFeedback({
+        tone: "error",
+        title: "备货群消息发送失败",
+        message: requestError instanceof Error ? requestError.message : "发送结果不明确，请勿重复发送并联系管理员核对",
+      });
+    } finally {
+      setGroupMessageLoading(false);
+    }
+  }, [canManageInventory, groupMessageLoading, groupPreview, refreshActiveInventoryTab]);
 
   const openProcurementWorkItem = useCallback((plan: ReplenishmentPlanItem) => {
     const expectedArrivalDate = addCalendarDays(shanghaiIsoToday(), 7);
@@ -1118,23 +1227,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       {ageRefreshError}
       {inboundRefreshError}
       {sharedFilterBar}
-      {activeTab === "overview" && overview && overview.quality.issues.length > 0 && <section className={`inventory-feedback inventory-feedback-${overview.quality.status === "blocked" ? "error" : "warning"}`} role={overview.quality.status === "blocked" ? "alert" : "status"}>
-        <span>{overview.quality.status === "blocked" ? "×" : "!"}</span>
-        <div><strong>{overview.quality.status === "blocked" ? "库存数据质量门禁已暂停精确补货" : "库存数据需要关注"}</strong><p>{overview.quality.issues.map((issue) => issue.message).join("；")}</p></div>
-      </section>}
       {activeTab === "overview" && overview ? <>
-        <section className="inventory-kpi-grid data-refresh-region" aria-busy={loading}>
-          <InventoryKpiCard label="可用库存" value={`${formatCount(overview.metrics.totalAvailableQuantity)} 件`} note={`${formatCount(overview.metrics.skuWarehouseCount)} 个 SKU × 仓库`} tone="blue" icon="存" />
-          <InventoryKpiCard label={overview.metrics.stockValueComplete ? "库存货值" : "已覆盖库存货值"} value={formatCurrencyFromCents(overview.metrics.knownStockValueCents)} note={overview.metrics.stockValueComplete ? "全部可用库存已有成本" : `成本覆盖 ${formatRate(overview.metrics.costCoverageRate)}，缺失部分未计入`} tone="purple" icon="值" />
-          <InventoryKpiCard label="平均可售天数" value={overview.quality.recommendationsSuppressed ? "待校验" : overview.metrics.averageCoverageDays === null ? "暂无销量" : `${overview.metrics.averageCoverageDays.toFixed(1)} 天`} note={`销量匹配 ${formatRate(overview.metrics.salesDemandMatchRate)} · 可信门槛 ${formatRate(overview.quality.salesMatchThreshold)}`} tone="green" icon="天" />
-          <InventoryKpiCard label="待补货货品" value={overview.quality.recommendationsSuppressed ? "已暂停" : `${formatCount(overview.metrics.urgentCount + overview.metrics.replenishCount)} 个`} note={overview.controls.autoReplenishmentEnabled ? `${formatCount(overview.metrics.urgentCount)} 个需要紧急处理` : "系统设置已关闭自动建议"} tone="orange" icon="补" />
-        </section>
-
-        <section className="panel table-panel inventory-mapping-panel">
-          <div className="table-toolbar"><div><h2>销量近30天</h2><p>按货品汇总近30天正向总销量；供应商、京东与菜鸟仓按受控仓库映射归类，总库存仅计入映射表标记为“是”的仓库</p></div><span className="soft-tag">已匹配 {formatCount(overview.mapping.matchedCount)} · 未匹配 {formatCount(overview.mapping.unmatchedCount)} · 展示 {formatCount(overview.mapping.samples.length)} 个货品</span></div>
-          <InventoryThirtyDayTable samples={overview.mapping.samples} loading={loading} canManageInventory={canManageInventory} planActionId={planActionId} onCreatePlan={openPlanModal} />
-        </section>
-
         <section className="inventory-diagnosis-grid">
           <article className="panel inventory-health-panel">
             <SectionHeader title="库存健康分布" note="按 SKU × 仓库实时诊断" />
@@ -1178,10 +1271,13 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         <InventoryPlanWorkflowPanel summary={overview.planSummary} />
 
         <section className="panel table-panel replenishment-plan-panel">
-          <div className="table-toolbar"><div><h2>备货计划</h2><p>保留采购、运营、部门、下单、到货、验货及备注；确认计划时自动提交钉钉多维表，失败可幂等重试</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><div className="inventory-toolbar-actions"><button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div></div>
-          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
-            {overview.plans.map((plan) => <tr key={plan.id}><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.category || "未分类"}</small></span></div></td><td><div className="inventory-number-cell"><strong>{plan.brand || "—"}</strong><small>{plan.supplier || "未映射供应商"}</small></div></td><td>{plan.warehouse}</td><td><div className="inventory-number-cell"><strong>{plan.buyer || "—"}</strong><small>运营 {plan.operatorName || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{plan.planType || "—"}</strong><small>{plan.department || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(plan.currentStockQuantity)}</strong><small>销量 {plan.sales30dQuantity === null ? "—" : formatCount(plan.sales30dQuantity)}</small></div></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}<small className="cell-note">建议 {formatCount(plan.suggestedQuantity)}</small></td><td><div className="inventory-number-cell"><strong>{plan.orderDate || "—"}</strong><small>到货 {plan.expectedArrivalDate || "—"}</small></div></td><td><div className="inventory-number-cell"><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span><small>{plan.requiresInspection ? "需要验货" : "无需验货"}</small></div></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认并提交钉钉</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <>{plan.dingTalkSync.status === "synced" ? <span className="plan-done">✓ 钉钉已提交</span> : <button className="row-action primary-row-action" title={plan.dingTalkSync.error || "提交到钉钉备货管理表"} disabled={planActionId === plan.id || plan.dingTalkSync.status === "syncing"} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id || plan.dingTalkSync.status === "syncing" ? "提交中…" : plan.dingTalkSync.status === "failed" ? "重试提交钉钉" : "提交钉钉"}</button>}<button className="row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <><span className="plan-done">✓ 已完成</span>{plan.dingTalkSync.status === "synced" && <span className="plan-done">✓ 钉钉已提交</span>}</>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>)}
-            {overview.plans.length === 0 && <tr><td colSpan={11}><div className="table-state">暂无备货计划。请在“库存总览”中创建备货计划。</div></td></tr>}
+          <div className="table-toolbar"><div><h2>备货计划</h2><p>勾选已确认计划后，可按采购与工厂汇总预览并发送钉钉群消息</p></div><span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span><div className="inventory-toolbar-actions"><button type="button" className="primary-button plan-group-send-button" disabled={selectedPlanIds.size === 0 || groupMessageLoading} onClick={() => void previewDingTalkGroupMessage()}>{groupMessageLoading && !groupPreview ? "正在核验钉钉…" : `发送钉钉群（${selectedPlanIds.size}）`}</button><button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button><button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button></div></div>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th className="plan-selection-cell"><input type="checkbox" aria-label="全选本页可发送备货计划" checked={allSelectablePlansSelected} disabled={selectablePlans.length === 0} onChange={toggleAllPlanSelections} /></th><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
+            {overview.plans.map((plan) => {
+              const selectable = selectablePlanIds.has(plan.id);
+              return <tr key={plan.id}><td className="plan-selection-cell"><input type="checkbox" aria-label={`选择 ${plan.productName}`} checked={selectedPlanIds.has(plan.id)} disabled={!selectable} title={selectable ? "加入钉钉群消息" : "仅已确认且已填写采购与工厂的计划可发送"} onChange={() => togglePlanSelection(plan.id)} /></td><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.category || "未分类"}</small></span></div></td><td><div className="inventory-number-cell"><strong>{plan.brand || "—"}</strong><small>{plan.supplier || "未映射供应商"}</small></div></td><td>{plan.warehouse}</td><td><div className="inventory-number-cell"><strong>{plan.buyer || "—"}</strong><small>运营 {plan.operatorName || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{plan.planType || "—"}</strong><small>{plan.department || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(plan.currentStockQuantity)}</strong><small>销量 {plan.sales30dQuantity === null ? "—" : formatCount(plan.sales30dQuantity)}</small></div></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}<small className="cell-note">建议 {formatCount(plan.suggestedQuantity)}</small></td><td><div className="inventory-number-cell"><strong>{plan.orderDate || "—"}</strong><small>到货 {plan.expectedArrivalDate || "—"}</small></div></td><td><div className="inventory-number-cell"><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span><small>{plan.requiresInspection ? "需要验货" : "无需验货"}</small></div></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认并提交钉钉</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <>{plan.dingTalkSync.status === "synced" ? <><span className="plan-done">✓ 钉钉已提交</span><button className="row-action" title="把历史标记更新为运营管理系统，并回查现有记录" disabled={planActionId === plan.id} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id ? "更新中…" : "更新钉钉记录"}</button></> : <button className="row-action primary-row-action" title={plan.dingTalkSync.error || "提交到钉钉备货管理表"} disabled={planActionId === plan.id || plan.dingTalkSync.status === "syncing"} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id || plan.dingTalkSync.status === "syncing" ? "提交中…" : plan.dingTalkSync.status === "failed" ? "重试提交钉钉" : "提交钉钉"}</button>}<button className="row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <><span className="plan-done">✓ 已完成</span>{plan.dingTalkSync.status === "synced" && <span className="plan-done">✓ 钉钉已提交</span>}</>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>;
+            })}
+            {overview.plans.length === 0 && <tr><td colSpan={12}><div className="table-state">暂无备货计划。请在“库存总览”中创建备货计划。</div></td></tr>}
           </tbody></table></div>
           <footer className="jd-sku-pagination"><span>第 {overview.plansPagination.page} / {Math.max(1, overview.plansPagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={loading || overview.plansPagination.page <= 1} onClick={() => setPlanPage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={loading || overview.plansPagination.page >= Math.max(1, overview.plansPagination.totalPages)} onClick={() => setPlanPage((value) => value + 1)}>下一页</button></div></footer>
         </section>
@@ -1276,6 +1372,15 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
       </>}
+      {groupPreview && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !groupMessageLoading) setGroupPreview(null); }}>
+        <section className="inventory-work-item-modal inventory-dingtalk-group-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-dingtalk-group-title">
+          <header><div><small>发送前确认</small><h2 id="inventory-dingtalk-group-title">钉钉备货群消息</h2><p>目标群与机器人来自“系统设置 → 钉钉机器人”，已完成精确匹配</p></div><button type="button" aria-label="关闭" disabled={groupMessageLoading} onClick={() => setGroupPreview(null)}>×</button></header>
+          <div className="inventory-dingtalk-group-summary"><span><small>目标群</small><strong>{groupPreview.targetGroupName}</strong></span><span><small>机器人</small><strong>{groupPreview.robotName}</strong></span><span><small>备货计划</small><strong>{groupPreview.planCount} 条</strong></span></div>
+          <div className="inventory-dingtalk-message-preview"><span>将发送以下内容</span><pre>{groupPreview.message}</pre></div>
+          <footer><span>确认后会先校验并更新所选钉钉多维表记录，再向群内发送一次消息并 @ 对应采购。</span><div><button type="button" className="secondary-button" disabled={groupMessageLoading} onClick={() => setGroupPreview(null)}>取消</button><button type="button" className="primary-button" disabled={groupMessageLoading} onClick={() => void sendDingTalkGroupMessage()}>{groupMessageLoading ? "正在发送…" : "确认发送"}</button></div></footer>
+        </section>
+      </div>}
+
       {planDraft && <div className="modal-backdrop inventory-work-item-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !planSaving) setPlanDraft(null); }}>
         <form className="inventory-work-item-modal inventory-plan-create-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-plan-create-title" onSubmit={(event) => { event.preventDefault(); void submitPlan(); }}>
           <header><div><h2 id="inventory-plan-create-title">创建备货计划</h2><p>库存来自所选入库库房，销量固定为货品近30天正向总销量；人工字段会随计划保存。</p></div><button type="button" aria-label="关闭" disabled={planSaving} onClick={() => setPlanDraft(null)}>×</button></header>
