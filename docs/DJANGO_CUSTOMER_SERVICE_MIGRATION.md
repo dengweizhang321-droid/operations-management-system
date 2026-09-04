@@ -163,13 +163,18 @@ authority 变更也必须通过受保护 operator 的 `AuthorityPrepare`、`Auth
 
 PNR 后的恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复；D1 退役对象和 evidence 必须继续保留，不能作为事实回滚来源。
 
-## 8. 本分支验收状态
+## 8. 正式切换与终态证据
 
 | 项目 | 结果 |
 | --- | --- |
-| Django app / migrations | 已完成，`check` 与 migration drift 检查通过 |
-| 隔离迁移 | `plan → apply → verify` 通过，源/目标摘要与计数回查通过 |
-| authority 演练 | `prepare → abort → prepare → activate` 通过 |
-| Django API | 导入、duplicate、重放、查询、范围拒绝、标注/删除契约有测试 |
-| Worker/API 静态检查 | 客服页面、分析、导入、分片、AI/global search 无 D1 事实 fallback |
-| 生产切权/退役 | 未执行；需批准的变更窗口、冻结源快照和正式证据 |
+| Django app / migrations | `check`、migration drift 和客服 10 项 Django 测试通过 |
+| 正式迁移 | `plan → apply → verify` 通过，29,018 条会话、7 个批次、1 个 scope head；源/目标摘要均为 `ed3c642fbbfa03f4ee956ffe8c0d0eed58aafde609c58a7413fd4cc9876b04fa` |
+| authority | cutover `customer-service-pg-20260905T012130Z-5e02b476b398` 已激活，epoch `6fbe9992-5f8d-44a3-8569-2f90f49a40e5`，PNR 已跨过 |
+| 正式系统测试 | Django reader/writer、公开会话、导入历史、分片负向、global search、AI consumer、D1/R2 拒绝和其他域保全全部通过 |
+| Worker | effective head `20260904T175625Z-61c15a876f2c685c`，manifest SHA-256 `b7bd38aa9248ccddef008a4e353a819b3ce5c3116e57c79bb1e9aaa787988be7` |
+| D1/R2 退役 | retirement plan `8fb53d3be716cbd82bff2cb7336b9d33420a69e739207468bdf15e617a788c07` 已完成；5 个空 tombstone view、18 个永久 guard，R2 `inventory-upload/` 对象/字节/multipart 均为 0 |
+| 备份恢复 | 备份 `daily-20260904T180528Z-7f0f7c68b0ba` 已 Verify；隔离恢复 `e9047c2a1b6d` 内容摘要一致，生产库未触碰，临时数据已清理 |
+
+正式迁移 run 为 `customer-service-5e02b476b3984cb590f46fd11081c6d9`。正式 smoke receipt SHA-256 为 `8c25983b973e53a5aa0f72d0035201fd7ff7afea88e4dd3bab52908fbd9dd163`，R2 空前缀证据 SHA-256 为 `1127331846322966dcf8753317fe093be521ce6d421e12cdf8ac55b02aca58c3`。退役时共享导入/上传表的非客服行摘要保持 `141b66b920f7f0ed5a7ec6890b23ffbec47650f984b57e1c73b8b4ff6116f23e`，未删除全局 D1 数据库或 R2 bucket/binding。
+
+正式数据暴露了两项历史边界并已前向固化：历史批次的累计 `conversation_count` 可以大于当前仍指向该批次的会话数，因为后续重导会移动 `last_import_batch_id`；历史消息数组可超过现行新导入 200 条上限，迁移必须在 2,000 条、128 KiB 的独立安全边界内完整保留，不能静默截断。运行时新导入仍保持原 200 条契约。

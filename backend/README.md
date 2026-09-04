@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营和运营事务新品项目子域已完成 Django/PostgreSQL 正式单写切换；客服分析已完成 Django 目标实现与隔离迁移演练，正式切权需按客服迁移手册单独执行。各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；已退出生产路径的 D1 数据不得作为 fallback 或回滚来源。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营、库存、运营事务和客服分析均已完成 Django/PostgreSQL 正式单写切换；各领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界。已退出生产路径的 D1/R2 数据不得作为 fallback 或回滚来源。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -153,7 +153,9 @@ $erpSourceD1 = "<经核验的 ERP D1 路径>"
 
 客服 reader/writer 固定使用 `127.0.0.1:8071/8072`、`teruisi_customer_service_reader/writer` 和独立 DPAPI 凭据。reader 只读客服域表，writer 只写客服域表；writer 只有在 `customer_service_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境一致且 revision 已验证时才可承接写入。客服账号仍按现有口径只允许无数据范围 principal 读取，消息正文仅在明确请求且受有界截断保护时返回。
 
-客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。旧客服配对上传复用过 `inventory-upload/` R2 前缀，终态退役必须提供该前缀及 multipart 均为空的独立证据，并将证据哈希绑定 retirement plan；全局 R2 binding 继续供其他域使用。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal；正式切权/退役步骤与受控命令见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
+客服历史迁移采用 `plan → apply → verify`，源必须是冻结的 `.sqlite/.sqlite3` 权威 D1 快照，目标写入必须使用 `migration_writer`，并在源计数、规范摘要、scope head、幂等尝试和 revision 全部回查后才可批准。旧客服配对上传复用过 `inventory-upload/` R2 前缀，终态退役必须提供该前缀及 multipart 均为空的独立证据，并将证据哈希绑定 retirement plan；全局 R2 binding 继续供其他域使用。`0107_customer_service_write_authority.sql` 与 `0108_customer_service_domain_retirement.sql` 均为 operator-only，不进入普通 Drizzle journal。
+
+2026-09-05，本机客服域已完成正式切权和终态退役：cutover ID `customer-service-pg-20260905T012130Z-5e02b476b398`、authority epoch `6fbe9992-5f8d-44a3-8569-2f90f49a40e5`。正式 run `customer-service-5e02b476b3984cb590f46fd11081c6d9` 迁移并复验 29,018 条会话、7 个批次和 1 个 scope head；旧 D1 对象现为 5 个空 tombstone view，18 个永久 guard 拒绝客服事实和共享上传命名空间复活，历史 R2 前缀为空。该切换已跨过 PNR，只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。正式证据、受控命令和恢复边界见 [客服分析迁移手册](../docs/DJANGO_CUSTOMER_SERVICE_MIGRATION.md)。
 
 ## 当前本机终态记录
 
