@@ -92,7 +92,7 @@ def render_weekly_report_html(report: dict[str, object]) -> tuple[str, int, int]
 th,td{{height:76px;border:1px solid #b7c9e7;text-align:center;font-size:15px}}thead th{{height:76px;background:#4477c8;color:#fff;font-weight:700}}
 th strong,th span{{display:block}}th span{{margin-top:4px;font-size:12px}}th .partial{{color:#ffe5a3;font-size:10px}}
 th:nth-child(1),td:nth-child(1){{width:90px}}th:nth-child(2),td:nth-child(2){{width:96px}}th:nth-child(3),td:nth-child(3){{width:180px}}th:nth-child(4),td:nth-child(4){{width:150px}}
-td.brand{{font-weight:700}}td.image{{padding:6px}}td.image img{{display:block;width:58px;height:58px;margin:auto;object-fit:cover;border-radius:6px}}td.image .no-image{{color:#8793a6;font-size:12px}}td.name{{padding:0 10px;text-align:left;font-weight:700}}td.trend{{padding:5px 8px}}td.trend svg{{display:block;width:100%;height:44px}}
+td.brand{{font-weight:700}}td.image{{padding:6px}}td.image img{{display:block;width:58px;height:58px;margin:auto;padding:3px;object-fit:contain;object-position:center;background:#fff;border-radius:6px}}td.image .no-image{{color:#8793a6;font-size:12px}}td.name{{padding:0 10px;text-align:left;font-weight:700}}td.trend{{padding:5px 8px}}td.trend svg{{display:block;width:100%;height:44px}}
 tbody tr.alternate td{{background:#dbe5f5}}tbody td{{background:#fff}}.empty{{height:82px;color:#6c7890}}
 .footnote{{display:flex;justify-content:space-between;gap:24px;padding:12px 6px 0;color:#68748a;font-size:12px}}
 </style></head><body><main class="report"><table><thead><tr><th>品牌</th><th>产品图</th><th>产品名称</th><th>趋势</th>{''.join(header_cells)}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>

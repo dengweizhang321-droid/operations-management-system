@@ -5,7 +5,13 @@ import { createNewProductFollowupWorkbookBytes } from "../lib/imports/new-produc
 import { parseXlsxFirstSheet } from "../lib/imports/xlsx";
 
 test("new-product follow-up XLSX keeps preview colors, values, freeze pane and embedded images", () => {
-  const png = { bytes: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]), extension: "png" as const };
+  const productPng = {
+    bytes: Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    extension: "png" as const,
+    pixelWidth: 200,
+    pixelHeight: 100,
+  };
+  const trendPng = { ...productPng, pixelWidth: 300, pixelHeight: 84 };
   const workbook = createNewProductFollowupWorkbookBytes({
     timelineStart: "2026-08-03",
     dataCutoffDate: "2026-09-03",
@@ -18,8 +24,8 @@ test("new-product follow-up XLSX keeps preview colors, values, freeze pane and e
       name: "空气净化器新品",
       productImageUrl: "https://example.test/product.png",
       weeklyNetQuantities: [12, 24],
-      productImage: png,
-      trendImage: png,
+      productImage: productPng,
+      trendImage: trendPng,
     }],
   });
   const files = unzipSync(workbook);
@@ -31,6 +37,7 @@ test("new-product follow-up XLSX keeps preview colors, values, freeze pane and e
   assert.match(styles, /FF4477C8/);
   assert.match(styles, /FFDBE5F5/);
   assert.equal((drawing.match(/<xdr:oneCellAnchor>/g) || []).length, 2);
+  assert.match(drawing, /<xdr:col>1<\/xdr:col><xdr:colOff>76200<\/xdr:colOff><xdr:row>1<\/xdr:row><xdr:rowOff>157163<\/xdr:rowOff>.*?<xdr:ext cx="476250" cy="238125"\/>/);
   assert.ok(files["xl/media/image1.png"]);
   assert.ok(files["xl/media/image2.png"]);
   const parsed = parseXlsxFirstSheet(workbook);

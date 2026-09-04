@@ -3,6 +3,8 @@ import { strToU8, zipSync } from "fflate";
 export type FollowupWorkbookImage = {
   bytes: Uint8Array;
   extension: "png" | "jpeg" | "gif";
+  pixelWidth: number;
+  pixelHeight: number;
 };
 
 export type FollowupWorkbookInput = {
@@ -45,9 +47,28 @@ function numberCell(reference: string, value: number, style: number) {
   return `<c r="${reference}" s="${style}"><v>${Number.isFinite(value) ? Math.trunc(value) : 0}</v></c>`;
 }
 
-function drawingAnchor(imageId: number, row: number, column: number, width: number, height: number) {
+function fittedImagePlacement(image: FollowupWorkbookImage, boxWidth: number, boxHeight: number) {
+  if (!Number.isFinite(image.pixelWidth) || !Number.isFinite(image.pixelHeight) || image.pixelWidth <= 0 || image.pixelHeight <= 0) {
+    throw new Error("周报图片尺寸无效。");
+  }
+  const scale = Math.min(boxWidth / image.pixelWidth, boxHeight / image.pixelHeight);
+  const width = image.pixelWidth * scale;
+  const height = image.pixelHeight * scale;
+  return { width, height, xOffset: (boxWidth - width) / 2, yOffset: (boxHeight - height) / 2 };
+}
+
+function pixelsToEmu(value: number) {
+  return Math.round(value * 9525);
+}
+
+function drawingAnchor(imageId: number, row: number, column: number, image: FollowupWorkbookImage, boxWidth: number, boxHeight: number) {
   const rowOffset = row === 1 ? 7 : 4;
-  return `<xdr:oneCellAnchor><xdr:from><xdr:col>${column}</xdr:col><xdr:colOff>${8 * 9525}</xdr:colOff><xdr:row>${row - 1}</xdr:row><xdr:rowOff>${rowOffset * 9525}</xdr:rowOff></xdr:from><xdr:ext cx="${width * 9525}" cy="${height * 9525}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imageId}" name="周报图片 ${imageId}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${imageId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width * 9525}" cy="${height * 9525}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
+  const placement = fittedImagePlacement(image, boxWidth, boxHeight);
+  const width = pixelsToEmu(placement.width);
+  const height = pixelsToEmu(placement.height);
+  const columnOffset = pixelsToEmu(8 + placement.xOffset);
+  const verticalOffset = pixelsToEmu(rowOffset + placement.yOffset);
+  return `<xdr:oneCellAnchor><xdr:from><xdr:col>${column}</xdr:col><xdr:colOff>${columnOffset}</xdr:colOff><xdr:row>${row - 1}</xdr:row><xdr:rowOff>${verticalOffset}</xdr:rowOff></xdr:from><xdr:ext cx="${width}" cy="${height}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imageId}" name="周报图片 ${imageId}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId${imageId}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>`;
 }
 
 const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><color rgb="FF17233C"/><sz val="11"/><name val="Microsoft YaHei"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4477C8"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDBE5F5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left/><right style="thin"><color rgb="FFB7C9E7"/></right><top/><bottom style="thin"><color rgb="FFB7C9E7"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf xfId="0" fontId="0" fillId="0" borderId="0"/><xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="2" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="2" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
@@ -92,7 +113,7 @@ export function createNewProductFollowupWorkbookBytes(input: FollowupWorkbookInp
   };
   if (images.length) {
     files["xl/worksheets/_rels/sheet1.xml.rels"] = strToU8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>');
-    files["xl/drawings/drawing1.xml"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${images.map((image, index) => drawingAnchor(index + 1, image.row, image.column, image.width, image.height)).join("")}</xdr:wsDr>`);
+    files["xl/drawings/drawing1.xml"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${images.map((image, index) => drawingAnchor(index + 1, image.row, image.column, image, image.width, image.height)).join("")}</xdr:wsDr>`);
     files["xl/drawings/_rels/drawing1.xml.rels"] = strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${images.map((image, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${index + 1}.${image.extension}"/>`).join("")}</Relationships>`);
     images.forEach((image, index) => { files[`xl/media/image${index + 1}.${image.extension}`] = image.bytes; });
   }

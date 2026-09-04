@@ -333,6 +333,10 @@ test("new-product follow-up renders continuous monitoring, product images, match
   assert.doesNotMatch(sender, /本周净销量/);
   assert.match(imageRenderer, /--headless=new/);
   assert.match(imageRenderer, /MAX_IMAGE_BYTES/);
+  assert.match(imageRenderer, /object-fit:contain/);
   assert.match(css, /\.launch-followup-matrix-table/);
   assert.match(css, /\.launch-followup-robot/);
+  for (const selector of ["launch-followup-product-image", "launch-followup-matrix-image", "new-product-line-image-picker"]) {
+    assert.match(css, new RegExp(`${selector}[^}]*object-fit: contain`));
+  }
 });

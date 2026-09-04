@@ -260,6 +260,8 @@ class NewProductWeeklyFollowupTests(TestCase):
         self.assertIn("品牌", document)
         self.assertIn("产品图", document)
         self.assertIn("https://example.test/oil-water-separator.png", document)
+        self.assertIn("object-fit:contain", document)
+        self.assertNotIn("object-fit:cover", document)
         self.assertIn("第32周", document)
         self.assertIn("油水分离器", document)
         self.assertGreaterEqual(width, 1280)

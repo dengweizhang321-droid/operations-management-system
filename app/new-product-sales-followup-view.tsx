@@ -166,7 +166,12 @@ function Trend({ values }: { values: number[] }) {
   return <svg className="launch-followup-sparkline" viewBox="0 0 150 42" role="img" aria-label={`周销量趋势：${values.join("、") || "暂无"}`}><polyline points={sparklinePoints(values)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-type WorkbookImage = { bytes: Uint8Array; extension: "png" | "jpeg" | "gif" };
+type WorkbookImage = {
+  bytes: Uint8Array;
+  extension: "png" | "jpeg" | "gif";
+  pixelWidth: number;
+  pixelHeight: number;
+};
 
 function dataUrlBytes(dataUrl: string) {
   const encoded = dataUrl.split(",", 2)[1] || "";
@@ -192,7 +197,12 @@ function trendPngImage(values: number[]): WorkbookImage {
     if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
   }
   context.stroke();
-  return { bytes: dataUrlBytes(canvas.toDataURL("image/png")), extension: "png" };
+  return {
+    bytes: dataUrlBytes(canvas.toDataURL("image/png")),
+    extension: "png",
+    pixelWidth: canvas.width,
+    pixelHeight: canvas.height,
+  };
 }
 
 async function remoteWorkbookImage(source: string): Promise<WorkbookImage | null> {
@@ -204,24 +214,38 @@ async function remoteWorkbookImage(source: string): Promise<WorkbookImage | null
     if (!response.ok) return null;
     const blob = await response.blob();
     if (!blob.type.startsWith("image/") || blob.size < 1 || blob.size > 3 * 1024 * 1024) return null;
-    const directExtension = ({ "image/png": "png", "image/jpeg": "jpeg", "image/gif": "gif" } as const)[blob.type as "image/png" | "image/jpeg" | "image/gif"];
-    if (directExtension) {
-      return { bytes: new Uint8Array(await blob.arrayBuffer()), extension: directExtension };
-    }
     const bitmap = await createImageBitmap(blob);
-    const canvas = document.createElement("canvas");
-    canvas.width = 120;
-    canvas.height = 120;
-    const context = canvas.getContext("2d");
-    if (!context) { bitmap.close(); return null; }
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
-    const width = Math.max(1, bitmap.width * scale);
-    const height = Math.max(1, bitmap.height * scale);
-    context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-    bitmap.close();
-    return { bytes: dataUrlBytes(canvas.toDataURL("image/png")), extension: "png" };
+    try {
+      if (bitmap.width < 1 || bitmap.height < 1 || bitmap.width > 16_384 || bitmap.height > 16_384) return null;
+      const directExtension = ({ "image/png": "png", "image/jpeg": "jpeg", "image/gif": "gif" } as const)[blob.type as "image/png" | "image/jpeg" | "image/gif"];
+      if (directExtension) {
+        return {
+          bytes: new Uint8Array(await blob.arrayBuffer()),
+          extension: directExtension,
+          pixelWidth: bitmap.width,
+          pixelHeight: bitmap.height,
+        };
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = 120;
+      canvas.height = 120;
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+      const width = Math.max(1, bitmap.width * scale);
+      const height = Math.max(1, bitmap.height * scale);
+      context.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+      return {
+        bytes: dataUrlBytes(canvas.toDataURL("image/png")),
+        extension: "png",
+        pixelWidth: canvas.width,
+        pixelHeight: canvas.height,
+      };
+    } finally {
+      bitmap.close();
+    }
   } catch {
     return null;
   } finally {
