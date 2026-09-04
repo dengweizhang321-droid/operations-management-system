@@ -14,6 +14,7 @@ test("customer-service cutover retires its exact D1 and legacy R2 paths", async 
     d1Smoke,
     chunkRoute,
     chunkClient,
+    customerServiceLauncher,
   ] = await Promise.all([
     readFile(new URL("../tools/django-customer-service-cutover.ps1", import.meta.url), "utf8"),
     readFile(new URL("../tools/django-local-service.ps1", import.meta.url), "utf8"),
@@ -25,6 +26,7 @@ test("customer-service cutover retires its exact D1 and legacy R2 paths", async 
     readFile(new URL("../tools/customer-service-d1-rejection-smoke.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/customer-service/import/chunks/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/customer-service/chunked-upload.ts", import.meta.url), "utf8"),
+    readFile(new URL("../tools/django-customer-service.ps1", import.meta.url), "utf8"),
   ]);
 
   assert.match(controller, /"R2Evidence",\s*"RetirementPlan",\s*"RetirementApply"/);
@@ -63,4 +65,17 @@ test("customer-service cutover retires its exact D1 and legacy R2 paths", async 
   for (const source of [chunkRoute, chunkClient]) {
     assert.doesNotMatch(source, /SALES_IMPORT_FILES|R2Bucket|beginInventoryUpload|getCustomerServiceDatabase/);
   }
+
+  assert.match(
+    customerServiceLauncher,
+    /"customer_service_import_fingerprints": \("SELECT", "INSERT"\)/,
+  );
+  assert.doesNotMatch(
+    customerServiceLauncher,
+    /"customer_service_migration_runs": \("SELECT", "INSERT", "UPDATE"\)/,
+  );
+  assert.match(
+    customerServiceLauncher,
+    /for table in \(\s*"customer_service_conversations", "customer_service_import_fingerprints",\s*"customer_service_raw_upload_chunks",\s*\):/,
+  );
 });

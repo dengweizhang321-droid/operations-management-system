@@ -137,10 +137,9 @@ writer_privileges = {
     "customer_service_conversations": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "customer_service_deletion_audits": ("SELECT", "INSERT"),
     "customer_service_import_scope_heads": ("SELECT", "INSERT", "UPDATE"),
-    "customer_service_import_fingerprints": ("SELECT", "INSERT", "UPDATE"),
+    "customer_service_import_fingerprints": ("SELECT", "INSERT"),
     "customer_service_import_attempts": ("SELECT", "INSERT", "UPDATE"),
     "customer_service_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
-    "customer_service_migration_runs": ("SELECT", "INSERT", "UPDATE"),
     "customer_service_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "customer_service_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
 }
@@ -163,7 +162,10 @@ with connection.cursor() as cursor:
     cursor.execute(sql.SQL("GRANT SELECT ON {} TO teruisi_customer_service_reader").format(sql.SQL(",").join(sql.Identifier(table) for table in tables)))
     for table, privileges in writer_privileges.items():
         cursor.execute(sql.SQL("GRANT {} ON {} TO teruisi_customer_service_writer").format(sql.SQL(",").join(sql.SQL(item) for item in privileges), sql.Identifier(table)))
-    for table in ("customer_service_import_fingerprints", "customer_service_raw_upload_chunks"):
+    for table in (
+        "customer_service_conversations", "customer_service_import_fingerprints",
+        "customer_service_raw_upload_chunks",
+    ):
         cursor.execute("SELECT pg_get_serial_sequence(%s,'id')", (f"public.{table}",))
         row = cursor.fetchone()
         if row and row[0]:
