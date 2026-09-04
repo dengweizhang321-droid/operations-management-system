@@ -11,6 +11,9 @@ const djangoDomainServicePaths = [
   "tools/django-products-service.ps1",
   "tools/django-inventory-service.ps1",
   "tools/django-workflow-service.ps1",
+  "tools/django-workflow-cutover.ps1",
+  "tools/django-workflow-operations-cutover.ps1",
+  "tools/workflow-operations-production-smoke.ps1",
 ];
 
 test("unified controller stays parseable by Windows PowerShell when Chinese text is present", () => {
@@ -32,7 +35,7 @@ test("all system page actions explicitly use Google Chrome instead of the Window
   assert.doesNotMatch(pageOpenActions, /Start-Process \$ServerUrl/);
 });
 
-test("Django domain controllers retain a UTF-8 BOM for Windows PowerShell 5.1", () => {
+test("Django domain controllers and operators retain a UTF-8 BOM for Windows PowerShell 5.1", () => {
   for (const servicePath of djangoDomainServicePaths) {
     const serviceBytes = readFileSync(servicePath);
     assert.deepEqual(
