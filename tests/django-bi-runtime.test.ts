@@ -20,6 +20,9 @@ test("BI runtime is one isolated read-only process", async () => {
   assert.match(source, /"ApplyMigration" \{ Invoke-WithServiceMutex/);
   assert.match(source, /"VerifyMigration" \{ Invoke-WithServiceMutex/);
   assert.match(source, /Database-Url "teruisi_sales_owner"/);
+  assert.match(source, /ConvertFrom-UniqueNativeJson \$run "BI 迁移证据探针"/);
+  assert.match(source, /ConvertFrom-UniqueNativeJson \$run "BI \$Mode"/);
+  assert.doesNotMatch(source, /\$run\.Stdout/);
   assert.doesNotMatch(source, /bi_writer|django-bi-writer|8082/);
 });
 

@@ -201,7 +201,7 @@ print(json.dumps({
       $launcher = ConvertTo-PythonBase64Launcher $code "bi_migration_probe.py"
       $run = Invoke-BoundedNativeProcess $Python @("-c", $launcher) $BackendRoot
       if ($run.ExitCode -ne 0) { throw "BI 迁移证据探针失败（$(Get-NativeFailureSummary $run)）" }
-      Write-Output $run.Stdout.Trim()
+      Write-Output ((ConvertFrom-UniqueNativeJson $run "BI 迁移证据探针") | ConvertTo-Json -Compress)
     }
     $payload = ((@($json) | Select-Object -Last 1) | ConvertFrom-Json)
     if (-not (Test-ExactObjectPropertyNames $payload @("migrationRunId", "sourceDigest", "contractVersion")) -or
@@ -236,7 +236,7 @@ function Invoke-BiMigration([ValidateSet("plan", "apply", "verify")][string]$Mod
       Write-NativeDiagnosticLog (Join-Path $LogDirectory "bi-migration-$Mode.$RunId.log") `
         "bi_migration_$Mode" $run
       if ($run.ExitCode -ne 0) { throw "BI $Mode 失败（$(Get-NativeFailureSummary $run)）" }
-      Write-Output $run.Stdout.Trim()
+      Write-Output ((ConvertFrom-UniqueNativeJson $run "BI $Mode") | ConvertTo-Json -Compress -Depth 8)
     }
     $payload = ((@($json) | Select-Object -Last 1) | ConvertFrom-Json)
     if ([string]$payload.mode -cne $Mode -or
