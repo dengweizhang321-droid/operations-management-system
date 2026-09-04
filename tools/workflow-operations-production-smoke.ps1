@@ -52,44 +52,67 @@ function Invoke-SmokeWebRequest(
   [string]$Body = "",
   [string]$OutFile = ""
 ) {
-  $parameters = @{
-    Uri = $Uri
-    Method = $Method
-    UseBasicParsing = $true
-    TimeoutSec = $TimeoutSec
-  }
-  if (-not [string]::IsNullOrEmpty($ContentType)) { $parameters["ContentType"] = $ContentType }
-  if (-not [string]::IsNullOrEmpty($Body)) { $parameters["Body"] = $Body }
-  if (-not [string]::IsNullOrEmpty($OutFile)) {
-    $parameters["OutFile"] = $OutFile
-    $parameters["PassThru"] = $true
-  }
-  $command = Get-Command Invoke-WebRequest -ErrorAction Stop
-  if ($command.Parameters.ContainsKey("SkipHttpErrorCheck")) {
-    $parameters["SkipHttpErrorCheck"] = $true
-  }
-  try {
-    return Invoke-WebRequest @parameters
-  } catch {
-    $errorResponse = $_.Exception.Response
-    if ($null -eq $errorResponse) { throw }
-    $content = ""
-    $stream = $null
-    $reader = $null
+  $request = [Net.HttpWebRequest]::Create($Uri)
+  $request.Method = $Method
+  $request.Timeout = $TimeoutSec * 1000
+  $request.ReadWriteTimeout = $TimeoutSec * 1000
+  $request.AllowAutoRedirect = $false
+  $request.KeepAlive = $false
+  if (-not [string]::IsNullOrEmpty($ContentType)) { $request.ContentType = $ContentType }
+  if (-not [string]::IsNullOrEmpty($Body)) {
+    $bodyBytes = [Text.UTF8Encoding]::new($false).GetBytes($Body)
+    $request.ContentLength = $bodyBytes.Length
+    $requestStream = $request.GetRequestStream()
     try {
-      $stream = $errorResponse.GetResponseStream()
-      if ($null -ne $stream) {
-        $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
-        $content = $reader.ReadToEnd()
-      }
+      $requestStream.Write($bodyBytes, 0, $bodyBytes.Length)
     } finally {
-      if ($null -ne $reader) { $reader.Dispose() }
-      elseif ($null -ne $stream) { $stream.Dispose() }
+      $requestStream.Dispose()
+    }
+  }
+  $response = $null
+  try {
+    $response = $request.GetResponse()
+  } catch {
+    $failure = $_.Exception
+    while ($null -ne $failure -and $null -eq $response) {
+      if ($null -ne $failure.PSObject.Properties["Response"]) {
+        $response = $failure.Response
+      }
+      $failure = $failure.InnerException
+    }
+    if ($null -eq $response) { throw }
+  }
+  $stream = $null
+  $reader = $null
+  $output = $null
+  try {
+    $statusCode = [int]$response.StatusCode
+    $headers = @{}
+    foreach ($name in @($response.Headers.AllKeys)) {
+      $headers[$name] = @($response.Headers.GetValues($name))
+    }
+    $stream = $response.GetResponseStream()
+    $content = ""
+    if (-not [string]::IsNullOrEmpty($OutFile)) {
+      $output = [IO.File]::Open($OutFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+      $stream.CopyTo($output)
+    } elseif ($null -ne $stream) {
+      $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
+      $content = $reader.ReadToEnd()
     }
     return [pscustomobject]@{
-      StatusCode = [int]$errorResponse.StatusCode
-      Headers = $errorResponse.Headers
+      StatusCode = $statusCode
+      Headers = $headers
       Content = $content
+    }
+  } finally {
+    if ($null -ne $output) { $output.Dispose() }
+    if ($null -ne $reader) { $reader.Dispose() }
+    elseif ($null -ne $stream) { $stream.Dispose() }
+    try {
+      $response.Dispose()
+    } catch {
+      $response.Close()
     }
   }
 }

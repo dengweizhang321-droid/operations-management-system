@@ -258,7 +258,7 @@ test("workflow operations production smoke path gate works in Windows PowerShell
   assert.doesNotMatch(diagnostic, /IsPathFullyQualified/);
 });
 
-test("workflow operations production smoke captures HTTP errors in Windows PowerShell 5.1", async (t) => {
+test("workflow operations production smoke preserves UTF-8 and HTTP errors in Windows PowerShell 5.1", async (t) => {
   if (process.platform !== "win32") {
     t.skip("Windows PowerShell 5.1 is Windows-only");
     return;
@@ -268,10 +268,54 @@ test("workflow operations production smoke captures HTTP errors in Windows Power
     t.skip("Windows PowerShell 5.1 is unavailable");
     return;
   }
-  const server = createServer((_request, response) => {
-    response.statusCode = 418;
-    response.setHeader("content-type", "application/json; charset=utf-8");
-    response.end("{}");
+  let capturedSearchQuery: string | null = null;
+  const requests: string[] = [];
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method ?? ""} ${url.pathname}${url.search}`);
+    const sendJson = (status: number, payload: unknown, revision = false) => {
+      response.statusCode = status;
+      response.setHeader("content-type", "application/json");
+      response.setHeader("cache-control", "no-store");
+      if (revision) response.setHeader("x-workflow-data-revision", "1:0123456789ab");
+      response.end(JSON.stringify(payload));
+    };
+    if (request.method === "GET" && url.pathname === "/api/workflow/tasks") {
+      sendJson(200, {
+        items: [{ id: "task-1", title: "中文任务" }],
+        pagination: { page: 1, pageSize: Number(url.searchParams.get("pageSize")), total: 1 },
+      }, true);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/workflow/tasks/task-1/collaboration") {
+      sendJson(200, { comments: [], activity: [], reminders: [], links: [], attachments: [] }, true);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/workflow/templates") {
+      sendJson(200, { items: [] }, true);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/workflow/operations-records") {
+      sendJson(200, { items: [], pagination: { page: 1, pageSize: 1, total: 0 } }, true);
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/workflow/launch-projects") {
+      sendJson(200, {
+        items: [], pagination: { page: 1, pageSize: 1, total: 0 }, structured: true, backendMode: "django",
+      }, true);
+      return;
+    }
+    if (request.method === "POST" && ["/api/workflow/tasks", "/api/inventory/work-items"].includes(url.pathname)) {
+      request.resume();
+      request.once("end", () => sendJson(400, {}));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/api/search") {
+      capturedSearchQuery = url.searchParams.get("q");
+      sendJson(418, {});
+      return;
+    }
+    sendJson(404, {});
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -311,8 +355,9 @@ test("workflow operations production smoke captures HTTP errors in Windows Power
     });
     const diagnostic = `${stdout}${stderr}`;
     assert.notEqual(status, 0);
-    assert.match(diagnostic, /status 418/);
+    assert.match(diagnostic, /status 418/, `requests=${JSON.stringify(requests)}`);
     assert.doesNotMatch(diagnostic, /SkipHttpErrorCheck/);
+    assert.equal(capturedSearchQuery, "中文任务");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     rmSync(fixtureRoot, { recursive: true, force: true });
