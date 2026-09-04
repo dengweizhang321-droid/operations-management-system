@@ -296,7 +296,7 @@ test("new-product workspace includes editable planning, status-only stages and r
   assert.match(css, /\.launch-detail-stages/);
 });
 
-test("new-product follow-up renders the cumulative weekly matrix with Excel export and governed DingTalk settings", async () => {
+test("new-product follow-up renders continuous monitoring, product images, matching Excel export, and governed DingTalk settings", async () => {
   const [followup, robotSettings, service, sender, imageRenderer, css] = await Promise.all([
     source("../app/new-product-sales-followup-view.tsx"),
     source("../app/dingtalk-robot-settings.tsx"),
@@ -305,21 +305,26 @@ test("new-product follow-up renders the cumulative weekly matrix with Excel expo
     source("../backend/workflow/weekly_report_image.py"),
     source("../app/globals.css"),
   ]);
-  for (const label of ["钉钉周报表格预览", "品牌", "产品名称", "趋势", "钉钉机器人设置", "打开 Excel 表格"]) {
+  for (const label of ["钉钉周报表格预览", "品牌", "产品图", "产品名称", "趋势", "钉钉机器人设置", "打开 Excel 表格", "暂停监控", "启动监控", "吉客云名称（学习关键词）"]) {
     assert.match(followup, new RegExp(label));
   }
   assert.match(robotSettings, /<h2>钉钉机器人<\/h2>/);
   assert.match(robotSettings, /PNG 上传钉盘 \+ 机器人在线预览链接/);
   assert.match(followup, /REPORT_TIMELINE_START = "2026-08-03"/);
   assert.match(followup, /weeklyNetQuantities/);
-  assert.match(followup, /XLSX\.writeFile/);
+  assert.match(followup, /createNewProductFollowupWorkbookBytes/);
+  assert.match(followup, /trendPngImage/);
   assert.match(followup, /\.xlsx/);
+  assert.doesNotMatch(followup, /trackingWeeks|跟踪周数/);
   assert.match(service, /REPORT_TIMELINE_START = date\(2026, 8, 3\)/);
+  assert.match(service, /deleted_at__isnull=True, active=True/);
   assert.match(service, /"weeks": weeks/);
   assert.match(service, /"brand":/);
+  assert.match(service, /"productImageUrl": line\.product_image_url/);
   assert.match(sender, /"drive", "upload"/);
   assert.match(sender, /png_drive_preview_by_bot/);
-  assert.match(sender, /打开周报 PNG 图片（钉钉在线预览）/);
+  assert.match(sender, /查看周报预览图片/);
+  assert.doesNotMatch(sender, /本周净销量/);
   assert.match(imageRenderer, /--headless=new/);
   assert.match(imageRenderer, /MAX_IMAGE_BYTES/);
   assert.match(css, /\.launch-followup-matrix-table/);

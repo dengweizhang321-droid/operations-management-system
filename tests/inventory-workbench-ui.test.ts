@@ -26,7 +26,7 @@ test("库存五个工作页补充缺口明细、全量汇总和执行闭环", as
   assert.match(view, /<InventoryStalePlaybookPanel/);
   assert.match(view, /<InventoryInboundActionPanel/);
   assert.match(view, /品牌 \/ 品类/);
-  assert.match(view, /报表 \/ 计划在途/);
+  assert.match(view, /京东仓周转/);
   assert.match(view, /导出当前页 CSV/);
 
   assert.doesNotMatch(panels, /库存决策规则/);
@@ -36,14 +36,16 @@ test("库存五个工作页补充缺口明细、全量汇总和执行闭环", as
   assert.match(panels, /当前不展示伪造差异/);
 });
 
-test("销量近30天工作台同步公共筛选并提供供应商与备货计划字段", async () => {
-  const [view, query, route, dingTalkRoute, model, service] = await Promise.all([
+test("库存健康明细与备货计划钉钉协作使用统一受控口径", async () => {
+  const [view, query, route, dingTalkRoute, groupRoute, model, service, groupService] = await Promise.all([
     source("../app/inventory-module-view.tsx"),
     source("../backend/inventory/query.py"),
     source("../app/api/inventory/replenishment/route.ts"),
     source("../app/api/inventory/replenishment/dingtalk/route.ts"),
+    source("../app/api/inventory/replenishment/dingtalk/group/route.ts"),
     source("../backend/inventory/models.py"),
     source("../backend/inventory/dingtalk_sync.py"),
+    source("../backend/inventory/dingtalk_group_message.py"),
   ]);
 
   for (const label of [
@@ -56,7 +58,14 @@ test("销量近30天工作台同步公共筛选并提供供应商与备货计划
     "预计消耗周期\(天\)", "下单日期", "备货类型", "对应运营", "部门", "预计到货日", "是否验货", "备注",
   ]) assert.ok(view.includes(label.replaceAll("\\(", "(").replaceAll("\\)", ")")), `missing ${label}`);
 
-  assert.match(view, /<h2>销量近30天<\/h2>/);
+  assert.doesNotMatch(view, /<h2>销量近30天<\/h2>/);
+  assert.match(view, /<h2>库存健康明细（近30天）<\/h2>/);
+  assert.equal((view.match(/<InventoryThirtyDayTable samples=\{overview\.mapping\.samples\}/g) ?? []).length, 1);
+  assert.doesNotMatch(view, /InventoryKpiCard label="可用库存"/);
+  assert.doesNotMatch(view, /InventoryKpiCard label=\{overview\.metrics\.stockValueComplete \? "库存货值"/);
+  assert.doesNotMatch(view, /InventoryKpiCard label="平均可售天数"/);
+  assert.doesNotMatch(view, /InventoryKpiCard label="待补货货品"/);
+  assert.doesNotMatch(view, /库存数据质量门禁已暂停精确补货/);
   assert.match(view, /department: "志高项目组"/);
   assert.match(query, /mapping_samples = _mapping_samples\(workbench_filtered, 30/);
   assert.match(query, /"supplier": row\.supplier\.strip\(\) or/);
@@ -64,11 +73,26 @@ test("销量近30天工作台同步公共筛选并提供供应商与备货计划
   assert.match(model, /expected_arrival_date = models\.DateField/);
   assert.match(model, /requires_inspection = models\.BooleanField/);
   assert.match(view, /syncPlanToDingTalk/);
-  assert.match(view, /"创建计划"/);
-  assert.match(view, /钉钉已创建/);
+  assert.match(view, /requestPlanDingTalkSync\(payload\.item\.id\)/);
+  assert.match(view, /确认并提交钉钉/);
+  assert.match(view, /expectedConsumptionDays: planDraft\.expectedConsumptionDays/);
+  assert.match(view, /step=\{0\.1\} value=\{planDraft\.expectedConsumptionDays \?\? ""\}/);
+  assert.match(route, /"expectedConsumptionDays"/);
+  assert.match(view, /钉钉已提交/);
+  assert.match(view, /更新钉钉记录/);
   assert.match(dingTalkRoute, /INVENTORY_REPLENISHMENT_DINGTALK_PATH/);
+  assert.match(service, /运营管理系统备货计划ID/);
+  assert.match(service, /legacy_markers/);
   assert.match(service, /TERUISI备货计划ID/);
   assert.match(service, /_verify_record/);
+  assert.match(view, /全选本页可发送备货计划/);
+  assert.match(view, /发送钉钉群（/);
+  assert.match(view, /确认发送/);
+  assert.match(groupRoute, /WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH/);
+  assert.match(groupRoute, /INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH/);
+  assert.match(groupService, /▸ 对应工厂：/);
+  assert.match(groupService, /--at-user-ids/);
+  assert.match(groupService, /ReplenishmentGroupDelivery/);
 });
 
 test("库存工作台继续披露既有数据质量与业务边界", async () => {

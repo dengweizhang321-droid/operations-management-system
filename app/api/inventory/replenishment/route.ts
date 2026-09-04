@@ -31,6 +31,12 @@ function validOptionalDate(value: unknown) {
   const parsed = new Date(`${value}T00:00:00Z`);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
+
+function validOptionalConsumptionDays(value: unknown) {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 3_650) return false;
+  return Math.abs(value * 10 - Math.round(value * 10)) < 1e-9;
+}
 export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
@@ -74,7 +80,7 @@ export async function POST(request: Request) {
     if (Object.keys(body).some((key) => ![
       "key", "plannedQuantity", "acknowledgeStale", "manual", "startDate", "endDate", "buyer",
       "operatorName", "department", "planType", "orderDate", "expectedArrivalDate",
-      "status", "requiresInspection", "notes",
+      "expectedConsumptionDays", "status", "requiresInspection", "notes",
     ].includes(key))) {
       return errorResponse(400, "创建备货计划包含未知字段");
     }
@@ -100,6 +106,9 @@ export async function POST(request: Request) {
     }
     if (!validOptionalDate(body.orderDate) || !validOptionalDate(body.expectedArrivalDate)) {
       return errorResponse(400, "备货计划日期无效");
+    }
+    if (!validOptionalConsumptionDays(body.expectedConsumptionDays)) {
+      return errorResponse(400, "预计消耗周期必须是 0 到 3,650 天之间、最多一位小数的数字");
     }
     if (body.status !== undefined && body.status !== "draft" && body.status !== "confirmed") {
       return errorResponse(400, "新建备货计划状态只能是草稿或已确认");

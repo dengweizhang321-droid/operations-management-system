@@ -28,6 +28,7 @@ MAX_DWS_OUTPUT_BYTES = 1_048_576
 SYNC_LEASE = timedelta(minutes=5)
 NAME_SPLIT_RE = re.compile(r"[,，;；/、]+")
 RED_TAG_RE = re.compile(r"</?red>", re.I)
+REPLENISHMENT_MARKER_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -310,7 +311,11 @@ class DingTalkReplenishmentGateway:
 
     @staticmethod
     def marker(plan_id: str) -> str:
-        return f"[TERUISI备货计划ID:{plan_id}]"
+        return f"[运营管理系统备货计划ID:{plan_id}]"
+
+    @staticmethod
+    def legacy_markers(plan_id: str) -> tuple[str, ...]:
+        return (f"[TERUISI备货计划ID:{plan_id}]",)
 
     def _cells(self, plan: ReplenishmentPlanItem) -> dict[str, object]:
         field = lambda key: self._field(key)["id"]
@@ -354,20 +359,29 @@ class DingTalkReplenishmentGateway:
     def _query_marker(self, plan_id: str, *, all_fields: bool = False) -> list[dict[str, object]]:
         notes_field = self._field("notes")["id"]
         field_ids = ",".join(field["id"] for field in self.target.fields.values()) if all_fields else notes_field
-        filters = json.dumps({
-            "operator": "and",
-            "operands": [{"operator": "contain", "operands": [notes_field, self.marker(plan_id)]}],
-        }, ensure_ascii=False, separators=(",", ":"))
-        payload = self.cli.run(
-            "aitable", "record", "query",
-            "--base-id", self.target.base_id,
-            "--table-id", self.target.table_id,
-            "--field-ids", field_ids,
-            "--filters", filters,
-            "--limit", "10",
-        )
-        rows = _data(payload).get("records")
-        return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+        matches: dict[str, dict[str, object]] = {}
+        for marker in (self.marker(plan_id), *self.legacy_markers(plan_id)):
+            filters = json.dumps({
+                "operator": "and",
+                "operands": [{"operator": "contain", "operands": [notes_field, marker]}],
+            }, ensure_ascii=False, separators=(",", ":"))
+            payload = self.cli.run(
+                "aitable", "record", "query",
+                "--base-id", self.target.base_id,
+                "--table-id", self.target.table_id,
+                "--field-ids", field_ids,
+                "--filters", filters,
+                "--limit", "10",
+            )
+            rows = _data(payload).get("records")
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                record_id = str(row.get("recordId") or "")
+                matches[record_id or json.dumps(row, ensure_ascii=False, sort_keys=True)] = row
+        return list(matches.values())
 
     @staticmethod
     def _number_equal(actual: object, expected: object) -> bool:
@@ -450,6 +464,7 @@ class DingTalkReplenishmentGateway:
 
 def _plan_digest(plan: ReplenishmentPlanItem) -> str:
     payload = {
+        "markerVersion": REPLENISHMENT_MARKER_VERSION,
         "id": plan.id,
         "productCode": plan.product_code,
         "productName": plan.product_name,
@@ -494,7 +509,12 @@ def sync_replenishment_plan(
             raise InventoryApiError("备货计划不存在", code="not_found", status=404)
         if plan.status != "confirmed":
             raise InventoryApiError("只有已确认的备货计划才能创建钉钉计划", code="conflict", status=409)
-        if plan.dingtalk_sync_status == "synced" and plan.dingtalk_record_id:
+        current_digest = _plan_digest(plan)
+        if (
+            plan.dingtalk_sync_status == "synced"
+            and plan.dingtalk_record_id
+            and plan.dingtalk_payload_sha256 == current_digest
+        ):
             return {
                 "ok": True,
                 "outcome": "already_synced",
@@ -510,7 +530,7 @@ def sync_replenishment_plan(
         plan.dingtalk_sync_status = "syncing"
         plan.dingtalk_sync_owner_token = owner_token
         plan.dingtalk_sync_started_at = now
-        plan.dingtalk_payload_sha256 = _plan_digest(plan)
+        plan.dingtalk_payload_sha256 = current_digest
         plan.dingtalk_sync_error = ""
         plan.save(update_fields=[
             "dingtalk_sync_status", "dingtalk_sync_owner_token", "dingtalk_sync_started_at",

@@ -51,6 +51,35 @@ if ($Open -and $Action -notin @("Start", "Panel")) {
   throw "-Open 只允许与 Start 或 Panel 一起使用"
 }
 
+function Get-GoogleChromeExecutable {
+  $candidates = New-Object System.Collections.Generic.List[string]
+  foreach ($basePath in @(
+      $env:ProgramFiles,
+      [Environment]::GetEnvironmentVariable("ProgramFiles(x86)"),
+      $env:LOCALAPPDATA
+    )) {
+    if (-not [string]::IsNullOrWhiteSpace($basePath)) {
+      [void]$candidates.Add((Join-Path $basePath "Google\Chrome\Application\chrome.exe"))
+    }
+  }
+  $pathCommand = Get-Command "chrome.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($pathCommand -and -not [string]::IsNullOrWhiteSpace($pathCommand.Source)) {
+    [void]$candidates.Add($pathCommand.Source)
+  }
+  foreach ($candidate in ($candidates | Select-Object -Unique)) {
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+  throw "未找到 Google Chrome，无法打开运营管理系统页面。请安装 Google Chrome 后重试。"
+}
+
+function Open-SystemInGoogleChrome {
+  param([string]$Url = $ServerUrl)
+
+  Start-Process -FilePath (Get-GoogleChromeExecutable) -ArgumentList @($Url) | Out-Null
+}
+
 function Get-BoundedText {
   param(
     [object]$Value,
@@ -620,7 +649,7 @@ function Invoke-SystemStart {
     if ($pageProbe.StatusCode -ne 200) {
       throw "系统健康检查通过，但主页 HTTP 状态不是 200"
     }
-    if ($Open) { Start-Process $ServerUrl | Out-Null }
+    if ($Open) { Open-SystemInGoogleChrome }
 
     $resultStatus = if ($finalState.state -eq "D1Degraded") {
       "started_degraded"
@@ -948,7 +977,7 @@ $stopButton.Add_Click({
 
 $openButton.Add_Click({
   if ((Get-SystemState -Refresh).state -eq "Running") {
-    Start-Process $ServerUrl | Out-Null
+    Open-SystemInGoogleChrome
   } else {
     Update-Status
   }
@@ -986,7 +1015,7 @@ $statusTimer.Interval = 3000
 $statusTimer.Add_Tick({ Update-Status })
 $form.Add_Shown({
   Update-Status
-  if ($Open -and (Get-SystemState).state -eq "Running") { Start-Process $ServerUrl | Out-Null }
+  if ($Open -and (Get-SystemState).state -eq "Running") { Open-SystemInGoogleChrome }
   $statusTimer.Start()
 })
 $form.Add_FormClosed({ $statusTimer.Stop() })

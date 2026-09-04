@@ -44,6 +44,7 @@ test("inventory runtime and readiness share an explicit least-privilege allowlis
     "inventory_raw_upload_sessions",
     "inventory_write_request_receipts",
     "replenishment_plan_items",
+    "inventory_replenishment_group_deliveries",
   ]) {
     assert.match(source, new RegExp(`"${table}"`));
     assert.match(health, new RegExp(`"${table}"`));

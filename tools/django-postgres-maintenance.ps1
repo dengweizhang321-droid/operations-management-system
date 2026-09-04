@@ -340,7 +340,8 @@ function Assert-MaintenanceEvidence(
     $requiredTables += @(
       "inventory_data_revisions", "inventory_import_batches",
       "inventory_stock_lines", "inventory_age_lines", "inventory_write_authority",
-      "inventory_operating_settings", "replenishment_plan_items"
+      "inventory_operating_settings", "replenishment_plan_items",
+      "inventory_replenishment_group_deliveries"
     )
   }
   if ($hasWorkflowRevisions) {

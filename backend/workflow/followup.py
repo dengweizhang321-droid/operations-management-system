@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+from ipaddress import ip_address
 import json
 import re
 import unicodedata
 from datetime import date, datetime, time, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.db import connection, transaction
 from django.db.models import F, Max
@@ -32,7 +34,7 @@ REPORT_TIMELINE_START = date(2026, 8, 3)
 APPROVED_DINGTALK_GROUP = "测试群聊"
 APPROVED_DINGTALK_ROBOT = "志高助手"
 LINE_FIELDS = {
-    "name", "matchTerms", "monitoringStartDate", "trackingWeeks",
+    "name", "matchTerms", "productImageUrl", "monitoringStartDate",
     "weeklyUnitTarget", "weeklySalesTargetCents", "active", "codes",
 }
 LINE_UPDATE_FIELDS = LINE_FIELDS | {"expectedVersion"}
@@ -100,6 +102,32 @@ def _terms(value: object) -> list[str]:
     return output
 
 
+def _url(value: object, label: str) -> str:
+    text = _text(value, label, 1_000)
+    if not text:
+        return ""
+    try:
+        parsed = urlsplit(text)
+    except ValueError as error:
+        raise _error(f"{label}不是有效链接") from error
+    hostname = (parsed.hostname or "").casefold().rstrip(".")
+    try:
+        port = parsed.port
+    except ValueError as error:
+        raise _error(f"{label}不是有效链接") from error
+    if parsed.scheme != "https" or not hostname or parsed.username or parsed.password or port not in {None, 443}:
+        raise _error(f"{label}必须是无账号信息的标准 HTTPS 链接")
+    if hostname == "localhost" or hostname.endswith(".local"):
+        raise _error(f"{label}不能指向本机或内网地址")
+    try:
+        address = ip_address(hostname)
+    except ValueError:
+        address = None
+    if address is not None and not address.is_global:
+        raise _error(f"{label}不能指向本机或内网地址")
+    return text
+
+
 def _normalized_match_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value).casefold()
     return re.sub(r"[^0-9a-z\u3400-\u9fff]+", "", normalized)
@@ -133,8 +161,8 @@ def _serialize_line(item: NewProductLine) -> dict[str, object]:
         "id": str(item.id),
         "name": item.name,
         "matchTerms": list(item.match_terms or []),
+        "productImageUrl": item.product_image_url,
         "monitoringStartDate": item.monitoring_start_date.isoformat(),
-        "trackingWeeks": int(item.tracking_weeks),
         "weeklyUnitTarget": item.weekly_unit_target,
         "weeklySalesTargetCents": item.weekly_sales_target_cents,
         "active": item.active,
@@ -162,10 +190,10 @@ def _normalized_line_fields(payload: dict[str, object], *, partial: bool) -> dic
         output["name"] = _text(payload.get("name"), "产品线名称", 160, required=True)
     if "matchTerms" in payload or not partial:
         output["match_terms"] = _terms(payload.get("matchTerms"))
+    if "productImageUrl" in payload or not partial:
+        output["product_image_url"] = _url(payload.get("productImageUrl"), "产品图链接")
     if "monitoringStartDate" in payload or not partial:
         output["monitoring_start_date"] = _calendar_date(payload.get("monitoringStartDate"), "监控开始日期")
-    if "trackingWeeks" in payload or not partial:
-        output["tracking_weeks"] = _integer(payload.get("trackingWeeks", 8), "跟踪周数", minimum=1, maximum=104)
     if "weeklyUnitTarget" in payload or not partial:
         output["weekly_unit_target"] = _integer(payload.get("weeklyUnitTarget"), "周销量目标", minimum=0, maximum=10**12, nullable=True)
     if "weeklySalesTargetCents" in payload or not partial:
@@ -358,7 +386,7 @@ def _metric_rows(start: date, end: date) -> dict[str, dict[str, int]]:
             "COALESCE(SUM(CASE WHEN sales.is_net_sales_row THEN sales.gross_profit_cents ELSE 0 END),0) "
             "FROM sales_order_lines AS sales "
             "INNER JOIN workflow_new_product_line_codes AS code ON code.product_code=sales.product_code AND code.active "
-            "INNER JOIN workflow_new_product_lines AS line ON line.id=code.product_line_id AND line.deleted_at IS NULL "
+            "INNER JOIN workflow_new_product_lines AS line ON line.id=code.product_line_id AND line.deleted_at IS NULL AND line.active "
             "WHERE sales.is_business_row AND sales.business_date >= %s AND sales.business_date < %s "
             "AND sales.business_date >= line.monitoring_start_date "
             "GROUP BY sales.product_code",
@@ -386,7 +414,7 @@ def _weekly_quantity_rows(start: date, end: date) -> dict[tuple[str, date], int]
             "COALESCE(SUM(CASE WHEN sales.is_net_quantity_row THEN sales.quantity ELSE 0 END),0) "
             "FROM sales_order_lines AS sales "
             "INNER JOIN workflow_new_product_line_codes AS code ON code.product_code=sales.product_code AND code.active "
-            "INNER JOIN workflow_new_product_lines AS line ON line.id=code.product_line_id AND line.deleted_at IS NULL "
+            "INNER JOIN workflow_new_product_lines AS line ON line.id=code.product_line_id AND line.deleted_at IS NULL AND line.active "
             "WHERE sales.is_business_row AND sales.business_date >= %s AND sales.business_date < %s "
             "AND sales.business_date >= line.monitoring_start_date "
             "GROUP BY sales.product_code, sales.business_date",
@@ -443,9 +471,6 @@ def _rate(current: int, previous: int) -> float | None:
 def _line_status(current: dict[str, int], previous: dict[str, int], cumulative: dict[str, int], line: NewProductLine, as_of: date) -> str:
     if as_of < line.monitoring_start_date:
         return "not_started"
-    tracking_end = line.monitoring_start_date + timedelta(weeks=int(line.tracking_weeks))
-    if not line.active or as_of >= tracking_end:
-        return "tracking_ended"
     if not line.codes.filter(active=True).exists():
         return "missing_codes"
     unit_hit = line.weekly_unit_target is not None and current["netQuantity"] >= line.weekly_unit_target
@@ -469,7 +494,7 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
     end = start + timedelta(days=7)
     previous_start = start - timedelta(days=7)
     lines = list(
-        NewProductLine.objects.filter(deleted_at__isnull=True)
+        NewProductLine.objects.filter(deleted_at__isnull=True, active=True)
         .prefetch_related("codes")
         .order_by("name", "id")[: MAX_LINES + 1]
     )
@@ -506,9 +531,9 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
             "id": str(line.id),
             "name": line.name,
             "brand": "、".join(brands) if brands else "志高",
+            "productImageUrl": line.product_image_url,
             "active": line.active,
             "monitoringStartDate": line.monitoring_start_date.isoformat(),
-            "trackingWeeks": int(line.tracking_weeks),
             "status": _line_status(current, previous, cumulative, line, local_today),
             "codeCount": len(codes),
             "codes": [
@@ -566,33 +591,8 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
     return report
 
 
-def _money(cents: int) -> str:
-    return f"¥{cents / 100:,.2f}"
-
-
 def render_weekly_message(report: dict[str, object]) -> str:
-    summary = report["summary"]
-    items = report["items"]
-    lines = [
-        f"新品销售周报｜{report['weekStart']} 至 {report['weekEnd']}",
-        f"口径：本机时间 {report['timezone']}｜吉客云货品代码｜数据截至 {report['dataCutoffDate'] or '暂无'}",
-        "",
-        f"产品线 {summary['lineCount']} 条｜已开单 {summary['sellingCount']} 条｜未开单 {summary['noSalesCount']} 条｜停滞 {summary['stalledCount']} 条｜达标 {summary['targetAchievedCount']} 条",
-        f"本周净销量 {summary['netQuantity']:,} 件｜净销售额 {_money(summary['netSalesCents'])}｜退款额 {_money(summary['refundAmountCents'])}",
-    ]
-    if report["dataIncomplete"]:
-        lines.extend(["", "⚠ 当前销售数据尚未覆盖完整报告周，本次结果为不完整快照。"])
-    ranked = [item for item in items if item["current"]["netSalesCents"] > 0][:5]
-    if ranked:
-        lines.extend(["", "销售前列"])
-        for index, item in enumerate(ranked, 1):
-            lines.append(f"{index}. {item['name']}：{item['current']['netQuantity']:,} 件 / {_money(item['current']['netSalesCents'])} / {item['codeCount']} 个代码")
-    attention = [item for item in items if item["status"] in {"no_sales", "stalled", "missing_codes"}][:10]
-    if attention:
-        labels = {"no_sales": "尚未开单", "stalled": "本周停滞", "missing_codes": "缺少吉客云代码"}
-        lines.extend(["", "需要跟进"])
-        lines.extend(f"- {item['name']}：{labels[item['status']]}" for item in attention)
-    return "\n".join(lines)
+    return "新品销售周报"
 
 
 def get_report_config() -> dict[str, object]:

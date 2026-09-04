@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 import uuid
 from unittest.mock import patch
 
@@ -116,6 +117,7 @@ class InventoryMappingWorkbenchTests(SimpleTestCase):
                 "manual": True,
                 "buyer": "采购甲",
                 "orderDate": "2026-09-03",
+                "expectedConsumptionDays": 45.6,
             },
             content_type="application/json",
         )
@@ -153,8 +155,30 @@ class InventoryMappingWorkbenchTests(SimpleTestCase):
         self.assertEqual(captured["plannedQuantity"], 12)
         self.assertEqual(captured["buyer"], "采购甲")
         self.assertEqual(captured["sales30dQuantity"], 37)
-        self.assertEqual(captured["coverageDays"], 11.4)
+        self.assertEqual(captured["coverageDays"], 45.6)
         self.assertIn("人工创建", captured["reason"])
+
+    def test_manual_plan_rejects_invalid_expected_consumption_days(self) -> None:
+        request = RequestFactory().post(
+            "/api/inventory/replenishment",
+            data={
+                "key": "广东仓\x1fP1",
+                "plannedQuantity": 12,
+                "manual": True,
+                "expectedConsumptionDays": 45.67,
+            },
+            content_type="application/json",
+        )
+        principal = Principal("operator@example.test", "运营", "operator", None)
+
+        with (
+            patch("inventory.views._principal", return_value=principal),
+            patch("inventory.views._replay_write", side_effect=lambda _request, _principal, callback: callback()),
+        ):
+            response = replenishment(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("最多一位小数", json.loads(response.content)["error"])
 
 
 class ReplenishmentPlanDetailsTests(TestCase):

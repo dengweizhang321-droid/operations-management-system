@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import re
 from collections.abc import Callable
 from datetime import date
@@ -14,6 +15,7 @@ from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 
 from .consumers import execute_consumer_query, validate_consumer_request
 from .dingtalk_sync import sync_replenishment_plan
+from .dingtalk_group_message import preview_group_message, send_group_message
 from .errors import InventoryApiError
 from .import_service import import_inventory_payload, list_import_batches, record_edge_rejection
 from .plans import plan_payload, plan_summary, query_plans, update_plan, upsert_plan
@@ -310,7 +312,7 @@ def replenishment(request: HttpRequest) -> JsonResponse:
             allowed = {
                 "key", "plannedQuantity", "acknowledgeStale", "manual", "startDate", "endDate",
                 "buyer", "operatorName", "department", "planType", "orderDate",
-                "expectedArrivalDate", "status", "requiresInspection", "notes",
+                "expectedArrivalDate", "expectedConsumptionDays", "status", "requiresInspection", "notes",
             }
             if not set(body).issubset(allowed) or not isinstance(body.get("key"), str):
                 raise InventoryApiError("创建备货计划请求无效")
@@ -331,6 +333,18 @@ def replenishment(request: HttpRequest) -> JsonResponse:
             requires_inspection = body.get("requiresInspection", False)
             if not isinstance(requires_inspection, bool):
                 raise InventoryApiError("是否验货必须是布尔值")
+            expected_consumption_days_supplied = "expectedConsumptionDays" in body
+            expected_consumption_days = body.get("expectedConsumptionDays")
+            if expected_consumption_days is not None:
+                if (
+                    isinstance(expected_consumption_days, bool)
+                    or not isinstance(expected_consumption_days, (int, float))
+                    or not math.isfinite(float(expected_consumption_days))
+                    or not 0 <= float(expected_consumption_days) <= 3_650
+                    or abs(float(expected_consumption_days) * 10 - round(float(expected_consumption_days) * 10)) >= 1e-9
+                ):
+                    raise InventoryApiError("预计消耗周期必须是 0 到 3,650 天之间、最多一位小数的数字")
+                expected_consumption_days = round(float(expected_consumption_days), 1)
             details = {
                 "buyer": _body_text(body, "buyer", "对应采购", 200),
                 "operatorName": _body_text(body, "operatorName", "对应运营", 200),
@@ -361,7 +375,8 @@ def replenishment(request: HttpRequest) -> JsonResponse:
                     "brand": item["brand"], "category": item["category"], "supplier": item["supplier"],
                     "warehouse": item["warehouse"], "suggestedQuantity": suggested if suggested is not None else 0,
                     "plannedQuantity": requested if requested is not None else suggested,
-                    "coverageDays": item["coverageDays"], "currentStockQuantity": item["availableQuantity"],
+                    "coverageDays": expected_consumption_days if expected_consumption_days_supplied else item["coverageDays"],
+                    "currentStockQuantity": item["availableQuantity"],
                     "sales30dQuantity": item.get("productSales30d"),
                     "reason": f"人工创建备货计划；{item['reason']}" if manual else item["reason"], **details,
                 }, principal.email)
@@ -399,6 +414,44 @@ def replenishment_dingtalk(request: HttpRequest) -> JsonResponse:
         )
     except Exception as error:
         return _error(error, "创建钉钉备货计划失败")
+
+
+@require_POST
+def replenishment_dingtalk_group(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        body = _body(request)
+        action = body.get("action")
+        common_keys = {"action", "planIds", "targetGroupName", "robotName"}
+        if action == "preview":
+            if set(body) != common_keys:
+                raise InventoryApiError("备货群消息预览请求无效")
+            return _json(
+                preview_group_message(
+                    body.get("planIds"), body.get("targetGroupName"), body.get("robotName"),
+                ),
+                revision=revision_value(),
+            )
+        if action == "send":
+            if set(body) != common_keys | {"previewToken"}:
+                raise InventoryApiError("备货群消息发送请求无效")
+            return _replay_write(
+                request,
+                principal,
+                lambda: (
+                    send_group_message(
+                        body.get("planIds"),
+                        body.get("targetGroupName"),
+                        body.get("robotName"),
+                        body.get("previewToken"),
+                        principal.email.strip().lower(),
+                    ),
+                    200,
+                ),
+            )
+        raise InventoryApiError("备货群消息操作无效")
+    except Exception as error:
+        return _error(error, "备货群消息处理失败")
 
 
 @require_http_methods(["GET", "PUT"])

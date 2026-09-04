@@ -17,6 +17,19 @@ test("unified controller stays parseable by Windows PowerShell when Chinese text
   assert.match(panel, /ValidateSet\("Panel", "Start", "Status", "StopWorker"\)/);
 });
 
+test("all system page actions explicitly use Google Chrome instead of the Windows default browser", () => {
+  assert.match(panel, /function Get-GoogleChromeExecutable/);
+  assert.match(panel, /Google\\Chrome\\Application\\chrome\.exe/);
+  assert.match(panel, /function Open-SystemInGoogleChrome/);
+  assert.match(panel, /Start-Process -FilePath \(Get-GoogleChromeExecutable\) -ArgumentList @\(\$Url\)/);
+  const pageOpenActions = panel.slice(
+    panel.indexOf("function Open-SystemInGoogleChrome"),
+    panel.indexOf("$runContinueButton.Add_Click({"),
+  );
+  assert.equal((pageOpenActions.match(/Open-SystemInGoogleChrome/g) ?? []).length, 3);
+  assert.doesNotMatch(pageOpenActions, /Start-Process \$ServerUrl/);
+});
+
 test("Django domain controllers retain a UTF-8 BOM for Windows PowerShell 5.1", () => {
   for (const servicePath of djangoDomainServicePaths) {
     const serviceBytes = readFileSync(servicePath);
