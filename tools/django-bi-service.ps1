@@ -189,6 +189,9 @@ function Get-BiMigrationState([object]$RuntimeSecrets, [object]$BiSecrets) {
   $readerUrl = Database-Url "teruisi_bi_reader" $BiSecrets.ReaderPassword "teruisi_bi_migration_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
+import django
+
+django.setup()
 from bi.models import BiMigrationRun
 
 run = BiMigrationRun.objects.filter(status="verified").order_by("-verified_at", "-created_at").first()

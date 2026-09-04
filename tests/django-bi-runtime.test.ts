@@ -22,6 +22,7 @@ test("BI runtime is one isolated read-only process", async () => {
   assert.match(source, /Database-Url "teruisi_sales_owner"/);
   assert.match(source, /ConvertFrom-UniqueNativeJson \$run "BI 迁移证据探针"/);
   assert.match(source, /ConvertFrom-UniqueNativeJson \$run "BI \$Mode"/);
+  assert.match(source, /django\.setup\(\)/);
   assert.match(source, /\$RequestedApprovedPlanId = \$ApprovedPlanId/);
   assert.match(source, /\$RequestedApprovedRunId = \$ApprovedRunId/);
   assert.match(source, /\$ApprovedPlanId = \$RequestedApprovedPlanId/);
