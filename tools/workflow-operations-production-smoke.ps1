@@ -44,9 +44,58 @@ function Get-HeaderValue($Headers, [string]$Name) {
   return (@($value) -join ",")
 }
 
+function Invoke-SmokeWebRequest(
+  [string]$Uri,
+  [string]$Method,
+  [int]$TimeoutSec,
+  [string]$ContentType = "",
+  [string]$Body = "",
+  [string]$OutFile = ""
+) {
+  $parameters = @{
+    Uri = $Uri
+    Method = $Method
+    UseBasicParsing = $true
+    TimeoutSec = $TimeoutSec
+  }
+  if (-not [string]::IsNullOrEmpty($ContentType)) { $parameters["ContentType"] = $ContentType }
+  if (-not [string]::IsNullOrEmpty($Body)) { $parameters["Body"] = $Body }
+  if (-not [string]::IsNullOrEmpty($OutFile)) {
+    $parameters["OutFile"] = $OutFile
+    $parameters["PassThru"] = $true
+  }
+  $command = Get-Command Invoke-WebRequest -ErrorAction Stop
+  if ($command.Parameters.ContainsKey("SkipHttpErrorCheck")) {
+    $parameters["SkipHttpErrorCheck"] = $true
+  }
+  try {
+    return Invoke-WebRequest @parameters
+  } catch {
+    $errorResponse = $_.Exception.Response
+    if ($null -eq $errorResponse) { throw }
+    $content = ""
+    $stream = $null
+    $reader = $null
+    try {
+      $stream = $errorResponse.GetResponseStream()
+      if ($null -ne $stream) {
+        $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
+        $content = $reader.ReadToEnd()
+      }
+    } finally {
+      if ($null -ne $reader) { $reader.Dispose() }
+      elseif ($null -ne $stream) { $stream.Dispose() }
+    }
+    return [pscustomobject]@{
+      StatusCode = [int]$errorResponse.StatusCode
+      Headers = $errorResponse.Headers
+      Content = $content
+    }
+  }
+}
+
 function Get-SmokeJson([string]$Path, [bool]$RequireRevision = $true) {
-  $response = Invoke-WebRequest -Uri "$BaseUrl$Path" -Method GET `
-    -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 180
+  $response = Invoke-SmokeWebRequest -Uri "$BaseUrl$Path" -Method GET -TimeoutSec 180
   if ([int]$response.StatusCode -ne 200) {
     throw "$Path status $($response.StatusCode)"
   }
@@ -148,8 +197,8 @@ try {
     if (-not $downloadUrl.StartsWith("/api/workflow/tasks/", [StringComparison]::Ordinal)) {
       throw "附件下载地址不属于 workflow API"
     }
-    $response = Invoke-WebRequest -Uri "$BaseUrl$downloadUrl" -Method GET `
-      -OutFile $downloadPath -PassThru -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 180
+    $response = Invoke-SmokeWebRequest -Uri "$BaseUrl$downloadUrl" -Method GET `
+      -OutFile $downloadPath -TimeoutSec 180
     if ([int]$response.StatusCode -ne 200) { throw "附件下载失败: $($response.StatusCode)" }
     $file = Get-Item -LiteralPath $downloadPath
     if ([int64]$file.Length -ne [int64]$attachment.sizeBytes -or
@@ -179,13 +228,13 @@ if ($launch.Data.structured -ne $true -or $launch.Data.backendMode -cne "django"
   throw "新品项目子域未保持 Django 契约"
 }
 
-$invalidTask = Invoke-WebRequest -Uri "$BaseUrl/api/workflow/tasks" -Method POST `
+$invalidTask = Invoke-SmokeWebRequest -Uri "$BaseUrl/api/workflow/tasks" -Method POST `
   -ContentType "application/json" -Body '{"workflowSmokeUnknownField":true}' `
-  -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 60
+  -TimeoutSec 60
 if ([int]$invalidTask.StatusCode -ne 400) { throw "工作计划 writer 负向校验失败" }
-$invalidInventory = Invoke-WebRequest -Uri "$BaseUrl/api/inventory/work-items" -Method POST `
+$invalidInventory = Invoke-SmokeWebRequest -Uri "$BaseUrl/api/inventory/work-items" -Method POST `
   -ContentType "application/json" -Body '{}' `
-  -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 60
+  -TimeoutSec 60
 if ([int]$invalidInventory.StatusCode -ne 400) { throw "库存执行事项桥接负向校验失败" }
 $tasksAfter = Get-SmokeJson "/api/workflow/tasks?page=1&pageSize=1"
 Assert-PagedResult $tasksAfter "工作计划负向校验后回读"

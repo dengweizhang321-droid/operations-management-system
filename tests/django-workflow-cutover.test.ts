@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -225,6 +228,8 @@ test("workflow operations production smoke creates the exact fresh terminal rece
   assert.match(operationsProductionSmoke, /Get-FileHash/);
   assert.match(operationsProductionSmoke, /function Test-FullyQualifiedPath/);
   assert.doesNotMatch(operationsProductionSmoke, /IsPathFullyQualified/);
+  assert.match(operationsProductionSmoke, /function Invoke-SmokeWebRequest/);
+  assert.doesNotMatch(operationsProductionSmoke, /-SkipHttpErrorCheck/);
   assert.match(operationsConsumerSmoke, /operation: "workflow_search"/);
   assert.match(operationsConsumerSmoke, /scopedOperationReturned !== 0/);
   assert.match(operationsD1RejectionSmoke, /workflow_operations_authority_not_legacy/);
@@ -251,6 +256,67 @@ test("workflow operations production smoke path gate works in Windows PowerShell
   assert.notEqual(result.status, 0);
   assert.match(diagnostic, /Worker release root/);
   assert.doesNotMatch(diagnostic, /IsPathFullyQualified/);
+});
+
+test("workflow operations production smoke captures HTTP errors in Windows PowerShell 5.1", async (t) => {
+  if (process.platform !== "win32") {
+    t.skip("Windows PowerShell 5.1 is Windows-only");
+    return;
+  }
+  const available = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "exit 0"]);
+  if (available.error && "code" in available.error && available.error.code === "ENOENT") {
+    t.skip("Windows PowerShell 5.1 is unavailable");
+    return;
+  }
+  const server = createServer((_request, response) => {
+    response.statusCode = 418;
+    response.setHeader("content-type", "application/json; charset=utf-8");
+    response.end("{}");
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), "workflow-smoke-ps5-"));
+  const releaseRoot = path.join(fixtureRoot, "release");
+  const auditDirectory = path.join(fixtureRoot, "audit");
+  const d1Path = path.join(fixtureRoot, "source.sqlite");
+  mkdirSync(releaseRoot);
+  mkdirSync(auditDirectory);
+  writeFileSync(d1Path, "fixture");
+  try {
+    const child = spawn("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy", "Bypass",
+      "-File", operationsProductionSmokePath,
+      "-BaseUrl", `http://127.0.0.1:${address.port}`,
+      "-ReleaseRoot", releaseRoot,
+      "-D1Path", d1Path,
+      "-AuditDirectory", auditDirectory,
+      "-CutoverId", "workflow-ops-test",
+      "-MigrationRunId", `workflow-ops-${"0".repeat(32)}`,
+      "-SourceDigest", "0".repeat(64),
+      "-WorkerBuildSha256", "1".repeat(64),
+    ], { windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => { stderr += chunk; });
+    const status = await new Promise<number | null>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", resolve);
+    });
+    const diagnostic = `${stdout}${stderr}`;
+    assert.notEqual(status, 0);
+    assert.match(diagnostic, /status 418/);
+    assert.doesNotMatch(diagnostic, /SkipHttpErrorCheck/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 
