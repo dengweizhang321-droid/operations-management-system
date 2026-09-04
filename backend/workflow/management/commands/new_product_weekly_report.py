@@ -259,13 +259,13 @@ class Command(BaseCommand):
         group_id, _group = _search_group(config.target_group_name)
         robot_code, _robot = _search_robot(config.robot_name)
         _assert_robot_in_group(group_id, config.robot_name, robot_code)
-        title = f"新品销售周报｜{report['weekStart']} 至 {report['weekEnd']}"
+        title = "新品销售周报"
         _image_html, image_width, image_height = render_weekly_report_html(report)
         if dry_run:
             _run_dws([
                 "chat", "+messages-send", "--as", "bot", "--robot-code", robot_code,
                 "--group", group_id, "--title", title,
-                "--markdown", f"{report['messageText']}\n\n[周报 PNG 在线预览链接将在正式投递时生成]",
+                "--markdown", "新品销售周报\n\n[周报预览图片将在正式投递时生成]",
                 "--dry-run",
             ])
             self.stdout.write(json.dumps({
@@ -287,7 +287,7 @@ class Command(BaseCommand):
                     "drive", "upload", "--file", str(image_path), "--file-name", image_path.name,
                 ], timeout=60)
                 preview_url, preview_receipt = _drive_preview_url(upload_receipt)
-                message = f"{report['messageText']}\n\n[打开周报 PNG 图片（钉钉在线预览）]({preview_url})"
+                message = f"新品销售周报\n\n[查看周报预览图片]({preview_url})"
                 send_receipt = _run_dws([
                     "chat", "+messages-send", "--as", "bot", "--robot-code", robot_code,
                     "--group", group_id, "--title", title, "--markdown", message, "--yes",
