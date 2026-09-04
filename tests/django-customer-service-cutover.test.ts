@@ -62,6 +62,7 @@ test("customer-service cutover retires its exact D1 and legacy R2 paths", async 
   assert.match(smoke, /TERUISI_DJANGO_CUSTOMER_SERVICE_WRITER_BASE_URL/);
   assert.match(smoke, /legacyD1Rejected = "passed"/);
   assert.match(smoke, /legacyR2Rejected = "passed"/);
+  assert.doesNotMatch(smoke, /\$home\s*=/i);
   assert.match(d1Smoke, /customer_service_authority_not_legacy/);
 
   for (const source of [chunkRoute, chunkClient]) {

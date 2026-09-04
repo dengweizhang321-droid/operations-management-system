@@ -164,8 +164,8 @@ if ($LASTEXITCODE -ne 0) { throw "客服 consumer smoke 进程失败" }
 $consumer = $consumerText | ConvertFrom-Json
 if ($consumer.status -cne "passed" -or [int]$consumer.consumerReturned -gt 1 -or [int]$consumer.aiReturned -gt 1) { throw "客服 consumer smoke 结果无效" }
 
-$home = Invoke-SmokeRequest "/"
-if ([int]$home.StatusCode -ne 200) { throw "主页在客服切换后不可用" }
+$homeResponse = Invoke-SmokeRequest "/"
+if ([int]$homeResponse.StatusCode -ne 200) { throw "主页在客服切换后不可用" }
 $inventory = Invoke-SmokeRequest "/api/inventory/overview?page=1&pageSize=1"
 $products = Invoke-SmokeRequest "/api/products/summary?range=last30&page=1&pageSize=1"
 if ([int]$inventory.StatusCode -ne 200 -or [int]$products.StatusCode -ne 200) { throw "客服切换影响了其他 Django 域" }
