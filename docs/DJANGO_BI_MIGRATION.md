@@ -58,11 +58,15 @@ BI 看板是跨领域只读投影，不是新的业务事实域。销售事实�
 
 三个动作都会重新采样源 revision；两次尝试仍无法形成一致材料即失败。直接运行 `manage.py migrate_bi_read_model` 只用于隔离开发或测试环境。
 
-## 5. 已完成的隔离迁移演练
+## 5. 隔离演练与生产启用
 
 2026-09-05 已在 worktree 独立 SQLite 镜像完成全量 Django migration、合成销售/ERP/库存/库龄边界数据，以及 BI `plan -> apply -> verify`。结果为 `status=verified`，销售业务行 4、库存行 1、库龄行 1、旧 BI 事实行 0，且未复制任何业务事实。完整机器可读凭据见 [`evidence/bi-django-isolated-migration-20260905.json`](evidence/bi-django-isolated-migration-20260905.json)。
 
-这份凭据只证明隔离镜像通过，不是生产 cutover 收据。生产启用必须在合并后的受控窗口中完成：停止 Worker、备份并复验 PostgreSQL、部署 runtime、执行迁移与 `plan/apply/verify`、配置最小权限角色、启用 8081、绑定 Worker successor、执行公开 API 正负向与页面 smoke，然后回读聚合状态和备份覆盖。未经该流程不得写成“生产 BI 已切换”。
+隔离凭据只证明镜像通过，不是生产 cutover 收据。生产启用必须在合并后的受控窗口中完成：停止 Worker、备份并复验 PostgreSQL、部署 runtime、执行迁移与 `plan/apply/verify`、配置最小权限角色、启用 8081、绑定 Worker successor、执行公开 API 正负向与页面 smoke，然后回读聚合状态和备份覆盖。
+
+2026-09-05 已完成本机生产启用。生产 plan 为 `bi-plan-f486db46d27d1a203e33365118954e38`，verified run 为 `bi-apply-1079734fb42842eeb1cb13b830bbb8a6`，源摘要为 `f486db46d27d1a203e33365118954e384a29332f6e164b85aa22729e28cc3ae8`；采用水位为销售/ERP revision `14:10`、库存 revision `25:836ee07086e6`、销售业务行 577,957、当前库存行 22,628、当前库龄行 5,525、旧 BI 事实行 0。独立 reader、启动凭据和公开 API 均已回读 ready，unsigned 内部请求返回 401，非法公开 query 返回 400，合法公开 dashboard 返回 200 且响应 revision 与 `X-Bi-Data-Revision` 一致。
+
+Worker 通过 append-only successor 计划 `0de08035d40d360af57f7c879e5ff8c42681303a69e178a8ef1b26def81996b5` 激活 release `20260904T223540Z-40a783da7d4d5867`。发布后备份 `daily-20260904T224400Z-3a04b5b245f5` 已包含 `bi_migration_runs`，manifest SHA-256 为 `539113700f102d56b2056c5476f15419ed7527434f3466599420a01357d639cb`；隔离恢复演练 `5bdcabec9e8a` 的 expected/restored content SHA-256 均为 `818055d8359d8f2ae222f53277345e801023f11472f29a356a20e6a4e2f05910`，且 `productionDatabaseTouched=false`、`serviceStateChanged=false`。完整机器可读凭据见 [`evidence/bi-django-cutover-20260905.json`](evidence/bi-django-cutover-20260905.json)。
 
 ## 6. 必测门禁
 
