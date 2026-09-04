@@ -116,7 +116,10 @@ function Invoke-CustomerServiceMigration([string]$Mode) {
   } elseif ($Mode -eq "verify") {
     if ($ApprovedRunId -notmatch "^customer-service-[0-9a-f]{32}$") { throw "客服 verify 需要有效 approved apply run id" }
     $arguments += @("--verify", "--approved-run-id", $ApprovedRunId)
-  } elseif (-not [string]::IsNullOrWhiteSpace($ApprovedRunId)) { throw "客服 dry-run 不接受 approved run id" }
+  } elseif ($Mode -eq "dry-run") {
+    if (-not [string]::IsNullOrWhiteSpace($ApprovedRunId)) { throw "客服 dry-run 不接受 approved run id" }
+    $arguments += "--plan"
+  } else { throw "未知客服迁移操作" }
   $payload = Invoke-CustomerServiceManagementCommand $arguments "customer_service_migration_$Mode"
   Write-Output ($payload | ConvertTo-Json -Compress -Depth 8)
 }

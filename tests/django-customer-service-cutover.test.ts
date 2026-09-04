@@ -30,6 +30,7 @@ test("customer-service cutover retires its exact D1 and legacy R2 paths", async 
   assert.match(controller, /"R2Evidence",\s*"RetirementPlan",\s*"RetirementApply"/);
   assert.match(controller, /Assert-CustomerServiceWorkerStopped/);
   assert.match(controller, /Assert-CustomerServiceStackStopped/);
+  assert.match(controller, /\$Mode -eq "dry-run"[\s\S]*?\$arguments \+= "--plan"/);
   assert.match(controller, /customer-service-r2-retirement-evidence\.py/);
   assert.match(controller, /retire_customer_service_d1/);
   for (const file of [
