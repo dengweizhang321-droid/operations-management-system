@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 
@@ -13,6 +15,9 @@ const operationsCutover = readFileSync(
 const operationsProductionSmoke = readFileSync(
   new URL("../tools/workflow-operations-production-smoke.ps1", import.meta.url),
   "utf8",
+);
+const operationsProductionSmokePath = fileURLToPath(
+  new URL("../tools/workflow-operations-production-smoke.ps1", import.meta.url),
 );
 const operationsConsumerSmoke = readFileSync(
   new URL("../tools/workflow-operations-consumer-smoke.ts", import.meta.url),
@@ -218,10 +223,34 @@ test("workflow operations production smoke creates the exact fresh terminal rece
   assert.match(operationsProductionSmoke, /workflow-operations-d1-rejection-smoke\.py/);
   assert.match(operationsProductionSmoke, /attachment\.sha256/);
   assert.match(operationsProductionSmoke, /Get-FileHash/);
+  assert.match(operationsProductionSmoke, /function Test-FullyQualifiedPath/);
+  assert.doesNotMatch(operationsProductionSmoke, /IsPathFullyQualified/);
   assert.match(operationsConsumerSmoke, /operation: "workflow_search"/);
   assert.match(operationsConsumerSmoke, /scopedOperationReturned !== 0/);
   assert.match(operationsD1RejectionSmoke, /workflow_operations_authority_not_legacy/);
   assert.match(operationsD1RejectionSmoke, /connection\.rollback\(\)/);
+});
+
+test("workflow operations production smoke path gate works in Windows PowerShell 5.1", (t) => {
+  if (process.platform !== "win32") {
+    t.skip("Windows PowerShell 5.1 is Windows-only");
+    return;
+  }
+  const result = spawnSync("powershell.exe", [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy", "Bypass",
+    "-File", operationsProductionSmokePath,
+    "-ReleaseRoot", "C:relative\\release",
+  ], { encoding: "utf8", windowsHide: true });
+  if (result.error && "code" in result.error && result.error.code === "ENOENT") {
+    t.skip("Windows PowerShell 5.1 is unavailable");
+    return;
+  }
+  const diagnostic = `${result.stdout}${result.stderr}`;
+  assert.notEqual(result.status, 0);
+  assert.match(diagnostic, /Worker release root/);
+  assert.doesNotMatch(diagnostic, /IsPathFullyQualified/);
 });
 
 

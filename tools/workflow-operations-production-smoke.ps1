@@ -12,8 +12,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-FullyQualifiedPath([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+  try { [void][IO.Path]::GetFullPath($Path) } catch { return $false }
+  if ([IO.Path]::DirectorySeparatorChar -eq "\") {
+    return $Path -match "^[A-Za-z]:[\\/]" -or
+      $Path -match "^[\\/]{2}[^\\/]+[\\/]+[^\\/]+(?:[\\/]|$)"
+  }
+  return $Path.StartsWith("/", [StringComparison]::Ordinal)
+}
+
 function Resolve-ExistingPath([string]$Value, [string]$Label, [bool]$Container) {
-  if ([string]::IsNullOrWhiteSpace($Value) -or -not [IO.Path]::IsPathFullyQualified($Value)) {
+  if (-not (Test-FullyQualifiedPath $Value)) {
     throw "$Label 必须是绝对路径"
   }
   $resolved = [IO.Path]::GetFullPath($Value)
