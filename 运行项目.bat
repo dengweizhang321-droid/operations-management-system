@@ -14,16 +14,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [信息] 正在通过唯一引擎按 Django/PostgreSQL -^> Worker 顺序启动...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\worker-local-service.ps1" -Action Start
+echo [信息] 正在通过唯一总控按 Django/PostgreSQL -^> Worker 顺序启动，并在 Google Chrome 中打开页面...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\operations-system-control.ps1" -Action Start -Open
 if errorlevel 1 (
   echo [错误] 唯一启动总控执行失败，请查看上方错误信息。
   pause
   exit /b 1
 )
 
-start "" "http://localhost:3000"
-
-echo [完成] 系统已通过完整启动门禁并打开浏览器。
-echo 如果页面未自动打开，请手动访问 http://localhost:3000
+echo [完成] 系统已通过完整启动门禁，并已在 Google Chrome 中打开页面。
+echo 如果 Google Chrome 未能打开，请安装后手动访问 http://localhost:3000
 pause

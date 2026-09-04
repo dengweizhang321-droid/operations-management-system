@@ -6,6 +6,7 @@ import test from "node:test";
 const serviceBytes = readFileSync("tools/operations-system-service.ps1");
 const service = serviceBytes.toString("utf8");
 const launcher = readFileSync("运营系统.bat", "utf8");
+const legacyLauncher = readFileSync("运行项目.bat", "utf8");
 const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Record<string, string> };
 
 function block(start: string, end: string) {
@@ -126,6 +127,12 @@ test("batch launcher and npm scripts route every action to the lifecycle service
   assert.equal(packageJson.scripts["system:restart:full"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Restart");
   assert.equal(packageJson.scripts["system:logs"], "powershell -NoProfile -ExecutionPolicy Bypass -File tools/operations-system-service.ps1 -Action Logs");
   assert.equal(packageJson.scripts["backend:dev"], "node tools/django-dev-backend.mjs start");
+});
+
+test("legacy launcher delegates browser opening to the Chrome-aware unified controller", () => {
+  assert.match(legacyLauncher, /tools\\operations-system-control\.ps1" -Action Start -Open/);
+  assert.match(legacyLauncher, /Google Chrome/);
+  assert.doesNotMatch(legacyLauncher, /start "" "http:\/\/localhost:3000"/);
 });
 
 test("batch launcher opens and exits its menu through real cmd.exe", (context) => {

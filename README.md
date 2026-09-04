@@ -9,6 +9,8 @@
 & "D:\运营管理系统\tools\operations-system-control.ps1" -Action Status -Json
 ```
 
+`-Open` 及桌面控制面板的“打开页面”会显式使用 Google Chrome，不依赖 Windows 默认浏览器。
+
 唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。当前机器的完整冷启动预算为 1–2 分钟；控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
 
 顶层 `Start`/`Stop` 把销售/财务与网店、市场、商品经营、库存和运营事务新品视为同一次受控生命周期操作：完整运行目录 ACL 审计只执行一次，后续子域只能在同一 PowerShell 进程、同一 runtime/部署清单且 15 分钟内复用该结果，并仍回读根 ACL 与应用清单。直接操作某个子域、上下文过期或任一绑定不一致时，仍会执行完整 ACL 审计。Worker release 的 source、dist、`node_modules` 和 helper 仍逐文件校验，但元数据读取与文件预取使用有界并发，最终 SHA-256 顺序和旧 manifest 协议保持不变。
