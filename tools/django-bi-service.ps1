@@ -16,6 +16,8 @@ $ErrorActionPreference = "Stop"
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
+$RequestedApprovedPlanId = $ApprovedPlanId
+$RequestedApprovedRunId = $ApprovedRunId
 $BaseScript = Join-Path $PSScriptRoot "django-local-service.ps1"
 if (-not (Test-Path -LiteralPath $BaseScript -PathType Leaf)) { throw "缺少 Django 本机服务基础控制器" }
 $PreviousLibraryOnly = [Environment]::GetEnvironmentVariable("TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", "Process")
@@ -28,6 +30,8 @@ try {
 $Action = $RequestedAction
 $Json = [switch]$RequestedJson
 $OrchestratedLifecycleAclToken = $RequestedOrchestratedLifecycleAclToken
+$ApprovedPlanId = $RequestedApprovedPlanId
+$ApprovedRunId = $RequestedApprovedRunId
 
 $BiCredentialPath = Join-Path $RuntimeRoot "secrets\bi-credentials.dpapi.json"
 $BiReaderPidPath = Join-Path $RunDirectory "django-bi-reader.pid.json"
