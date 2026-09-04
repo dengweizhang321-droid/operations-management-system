@@ -510,6 +510,8 @@ REQUIRED_WORKFLOW_COLUMNS = {
     },
     "workflow_new_product_lines": {
         "id", "name", "match_terms", "product_image_url", "monitoring_start_date",
+        "product_image_file_name", "product_image_mime_type", "product_image_size_bytes",
+        "product_image_sha256", "product_image_bytes",
         "weekly_unit_target", "weekly_sales_target_cents", "active", "version",
         "created_at", "updated_at", "deleted_at",
     },

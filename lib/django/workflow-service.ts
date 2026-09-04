@@ -29,6 +29,7 @@ const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const PROJECT_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STAGE_PATH_RE = /^\/api\/workflow\/launch-projects\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/stages\/(?:modeling|pricing|image|video|listing|stocking|review)$/i;
 const PRODUCT_LINE_PATH_RE = /^\/api\/workflow\/new-product-lines\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PRODUCT_LINE_IMAGE_PATH_RE = /^\/api\/workflow\/new-product-lines\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/image$/i;
 const RESOURCE_SEGMENT = "[A-Za-z0-9._:%-]{1,384}";
 const TASK_SUBRESOURCE_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEGMENT}/(?:collaboration|comments|activity|reminders|links|attachments)$`);
 const TASK_ATTACHMENT_PATH_RE = new RegExp(`^/api/workflow/tasks/${RESOURCE_SEGMENT}/attachments/${RESOURCE_SEGMENT}$`);
@@ -188,6 +189,7 @@ function validateRequest(input: WorkflowServiceRequest) {
   const stage = STAGE_PATH_RE.test(input.path);
   const productLines = input.path === WORKFLOW_NEW_PRODUCT_LINES_PATH;
   const productLine = PRODUCT_LINE_PATH_RE.test(input.path);
+  const productLineImage = PRODUCT_LINE_IMAGE_PATH_RE.test(input.path);
   const productLineLearning = input.path === WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH;
   const weeklyFollowup = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH;
   const weeklyReportConfig = input.path === WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH;
@@ -203,7 +205,7 @@ function validateRequest(input: WorkflowServiceRequest) {
   const attachmentCleanup = input.path === WORKFLOW_ATTACHMENT_CLEANUP_PATH;
   const inventoryWorkItems = input.path === WORKFLOW_INVENTORY_WORK_ITEMS_PATH;
   const allowed = input.service === "reader"
-    ? (input.method === "GET" && (collection || project || productLines || weeklyFollowup || weeklyReportConfig
+    ? (input.method === "GET" && (collection || project || productLines || productLineImage || weeklyFollowup || weeklyReportConfig
       || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
       || (input.method === "POST" && consumer)
     : (input.method === "GET" && attachmentCleanup)

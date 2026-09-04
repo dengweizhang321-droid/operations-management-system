@@ -146,6 +146,7 @@ test("full workflow paths use strict reader and writer method allowlists", async
     { method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader" },
     { method: "POST", path: `${WORKFLOW_TASKS_PATH}/${taskId}/comments`, service: "writer", payload: { content: "复核" } },
     { method: "GET", path: `${WORKFLOW_TASKS_PATH}/${taskId}/attachments/${attachmentId}`, service: "reader" },
+    { method: "GET", path: `/api/workflow/new-product-lines/${projectId}/image`, service: "reader" },
     { method: "DELETE", path: `${WORKFLOW_TASKS_PATH}/${taskId}/attachments/${attachmentId}`, service: "writer" },
     { method: "GET", path: WORKFLOW_TEMPLATES_PATH, service: "reader" },
     { method: "PATCH", path: `${WORKFLOW_OPERATION_RECORDS_PATH}/${recordId}`, service: "writer", payload: { expectedVersion: 1, status: "处理中" } },
@@ -163,7 +164,7 @@ test("full workflow paths use strict reader and writer method allowlists", async
   assert.equal(observed.length, requests.length);
   assert.equal(
     observed.filter((request) => new URL(request.url).origin === config.readerBaseUrl).length,
-    4,
+    5,
   );
   assert.equal(
     observed.filter((request) => new URL(request.url).origin === config.writerBaseUrl).length,

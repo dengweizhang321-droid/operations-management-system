@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 from ipaddress import ip_address
 import json
@@ -30,11 +32,15 @@ from .write_requests import lock_active_authority
 MAX_LINES = 1_000
 MAX_CODES_PER_LINE = 500
 MAX_CATALOG_SCAN = 100_000
+MAX_PRODUCT_IMAGE_BYTES = 300 * 1024
+MAX_PRODUCT_IMAGE_DIMENSION = 4_096
+MAX_PRODUCT_IMAGE_PIXELS = 16_000_000
+MAX_EMBEDDED_IMAGE_LINES = 200
 REPORT_TIMELINE_START = date(2026, 8, 3)
 APPROVED_DINGTALK_GROUP = "测试群聊"
 APPROVED_DINGTALK_ROBOT = "志高助手"
 LINE_FIELDS = {
-    "name", "matchTerms", "productImageUrl", "monitoringStartDate",
+    "name", "matchTerms", "productImageUrl", "productImage", "monitoringStartDate",
     "weeklyUnitTarget", "weeklySalesTargetCents", "active", "codes",
 }
 LINE_UPDATE_FIELDS = LINE_FIELDS | {"expectedVersion"}
@@ -128,6 +134,78 @@ def _url(value: object, label: str) -> str:
     return text
 
 
+def _jpeg_dimensions(content: bytes) -> tuple[int, int]:
+    if len(content) < 4 or not content.startswith(b"\xff\xd8") or not content.endswith(b"\xff\xd9"):
+        raise _error("产品图内容不是有效的 JPEG 图片")
+    position = 2
+    dimensions: tuple[int, int] | None = None
+    start_of_frame = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+    while position + 4 <= len(content):
+        if content[position] != 0xFF:
+            raise _error("产品图内容不是有效的 JPEG 图片")
+        while position < len(content) and content[position] == 0xFF:
+            position += 1
+        if position >= len(content):
+            break
+        marker = content[position]
+        position += 1
+        if marker in {0x01, 0xD8, 0xD9}:
+            continue
+        if position + 2 > len(content):
+            break
+        segment_length = int.from_bytes(content[position:position + 2], "big")
+        if segment_length < 2 or position + segment_length > len(content):
+            raise _error("产品图内容不是有效的 JPEG 图片")
+        if marker == 0xDA:
+            if dimensions is None or position + segment_length >= len(content) - 2:
+                raise _error("产品图内容不是有效的 JPEG 图片")
+            return dimensions
+        if marker in start_of_frame:
+            if segment_length < 7:
+                raise _error("产品图内容不是有效的 JPEG 图片")
+            height = int.from_bytes(content[position + 3:position + 5], "big")
+            width = int.from_bytes(content[position + 5:position + 7], "big")
+            if width < 1 or height < 1:
+                raise _error("产品图尺寸无效")
+            dimensions = (width, height)
+        position += segment_length
+    raise _error("产品图缺少有效的尺寸信息")
+
+
+def _uploaded_product_image(value: object) -> dict[str, object]:
+    if value is None:
+        return {
+            "product_image_url": "", "product_image_file_name": "", "product_image_mime_type": "",
+            "product_image_size_bytes": 0, "product_image_sha256": "", "product_image_bytes": None,
+        }
+    allowed = {"fileName", "mimeType", "sizeBytes", "sha256", "dataBase64"}
+    if not isinstance(value, dict) or set(value) != allowed:
+        raise _error("产品图上传内容无效")
+    file_name = _text(value.get("fileName"), "产品图文件名", 255, required=True)
+    if file_name != re.split(r"[\\/]", file_name)[-1] or not file_name.casefold().endswith((".jpg", ".jpeg")):
+        raise _error("产品图文件名必须是 JPG 图片")
+    if value.get("mimeType") != "image/jpeg":
+        raise _error("产品图上传格式必须是 JPEG")
+    size = _integer(value.get("sizeBytes"), "产品图大小", minimum=1, maximum=MAX_PRODUCT_IMAGE_BYTES)
+    sha256 = _text(value.get("sha256"), "产品图摘要", 64, required=True).casefold()
+    encoded = value.get("dataBase64")
+    if not re.fullmatch(r"[0-9a-f]{64}", sha256) or not isinstance(encoded, str) or len(encoded) > 410_000:
+        raise _error("产品图上传内容无效")
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise _error("产品图上传内容无效") from error
+    if len(content) != size or hashlib.sha256(content).hexdigest() != sha256:
+        raise _error("产品图大小或完整性校验失败")
+    width, height = _jpeg_dimensions(content)
+    if width > MAX_PRODUCT_IMAGE_DIMENSION or height > MAX_PRODUCT_IMAGE_DIMENSION or width * height > MAX_PRODUCT_IMAGE_PIXELS:
+        raise _error("产品图尺寸超出允许范围")
+    return {
+        "product_image_url": "", "product_image_file_name": file_name, "product_image_mime_type": "image/jpeg",
+        "product_image_size_bytes": size, "product_image_sha256": sha256, "product_image_bytes": content,
+    }
+
+
 def _normalized_match_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value).casefold()
     return re.sub(r"[^0-9a-z\u3400-\u9fff]+", "", normalized)
@@ -155,13 +233,25 @@ def _serialize_code(item: NewProductLineCode) -> dict[str, object]:
     }
 
 
+def _line_image_source(item: NewProductLine, *, embed_uploaded: bool = False) -> str:
+    if item.product_image_size_bytes > 0:
+        if embed_uploaded:
+            if not item.product_image_bytes:
+                raise _error("产品图内容缺失", code="conflict", status=409)
+            encoded = base64.b64encode(bytes(item.product_image_bytes)).decode("ascii")
+            return f"data:{item.product_image_mime_type};base64,{encoded}"
+        return f"/api/workflow/new-product-lines/{item.id}/image?v={item.version}"
+    return item.product_image_url
+
+
 def _serialize_line(item: NewProductLine) -> dict[str, object]:
     codes = sorted(list(item.codes.all()), key=lambda value: value.product_code)
     return {
         "id": str(item.id),
         "name": item.name,
         "matchTerms": list(item.match_terms or []),
-        "productImageUrl": item.product_image_url,
+        "productImageUrl": _line_image_source(item),
+        "productImageFileName": item.product_image_file_name,
         "monitoringStartDate": item.monitoring_start_date.isoformat(),
         "weeklyUnitTarget": item.weekly_unit_target,
         "weeklySalesTargetCents": item.weekly_sales_target_cents,
@@ -173,9 +263,29 @@ def _serialize_line(item: NewProductLine) -> dict[str, object]:
     }
 
 
+def get_product_line_image(line_id: object) -> dict[str, object] | None:
+    item = NewProductLine.objects.filter(id=line_id, deleted_at__isnull=True).only(
+        "product_image_file_name", "product_image_mime_type", "product_image_size_bytes",
+        "product_image_sha256", "product_image_bytes",
+    ).first()
+    if item is None or not item.product_image_bytes:
+        return None
+    content = bytes(item.product_image_bytes)
+    if len(content) != item.product_image_size_bytes or hashlib.sha256(content).hexdigest() != item.product_image_sha256:
+        raise _error("产品图完整性校验失败", code="conflict", status=409)
+    return {
+        "fileName": item.product_image_file_name,
+        "mimeType": item.product_image_mime_type,
+        "sizeBytes": item.product_image_size_bytes,
+        "sha256": item.product_image_sha256,
+        "dataBase64": base64.b64encode(content).decode("ascii"),
+    }
+
+
 def list_product_lines() -> dict[str, object]:
     rows = list(
         NewProductLine.objects.filter(deleted_at__isnull=True)
+        .defer("product_image_bytes")
         .prefetch_related("codes")
         .order_by("-active", "name", "id")[: MAX_LINES + 1]
     )
@@ -268,7 +378,11 @@ def _replace_codes(line: NewProductLine, rows: list[dict[str, str]], actor: str)
 
 def create_product_line(payload: object, principal: Principal) -> dict[str, object]:
     data = _object(payload, LINE_FIELDS, "新品产品线")
+    if "productImage" in data and "productImageUrl" in data:
+        raise _error("产品图上传与历史图片链接不能同时提交")
     fields = _normalized_line_fields(data, partial=False)
+    if "productImage" in data:
+        fields.update(_uploaded_product_image(data["productImage"]))
     codes = _resolve_codes(data.get("codes"))
     actor = principal.email.strip().lower()
     with transaction.atomic():
@@ -283,8 +397,14 @@ def create_product_line(payload: object, principal: Principal) -> dict[str, obje
 
 def update_product_line(line_id: object, payload: object, principal: Principal) -> dict[str, object]:
     data = _object(payload, LINE_UPDATE_FIELDS, "新品产品线更新")
+    if "productImage" in data and "productImageUrl" in data:
+        raise _error("产品图上传与历史图片链接不能同时提交")
     expected = _integer(data.get("expectedVersion"), "expectedVersion", minimum=1, maximum=9_007_199_254_740_991)
     fields = _normalized_line_fields(data, partial=True)
+    if "productImage" in data:
+        fields.update(_uploaded_product_image(data["productImage"]))
+    elif "productImageUrl" in data:
+        fields.update(_uploaded_product_image(None))
     replace_codes = "codes" in data
     codes = _resolve_codes(data.get("codes")) if replace_codes else []
     actor = principal.email.strip().lower()
@@ -300,7 +420,10 @@ def update_product_line(line_id: object, payload: object, principal: Principal) 
             raise _error(f"产品线名称“{next_name}”已存在", code="conflict", status=409)
         changed = False
         for key, value in fields.items():
-            if getattr(line, key) != value:
+            current = getattr(line, key)
+            if key == "product_image_bytes" and current is not None:
+                current = bytes(current)
+            if current != value:
                 setattr(line, key, value)
                 changed = True
         if replace_codes:
@@ -486,20 +609,21 @@ def _line_status(current: dict[str, int], previous: dict[str, int], cumulative: 
     return "selling"
 
 
-def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
+def weekly_followup(*, week_start: date | None = None, embed_uploaded_images: bool = False) -> dict[str, object]:
     local_today, zone_label = _local_clock()
     start = week_start or (local_today - timedelta(days=local_today.weekday() + 7))
     if start.weekday() != 0:
         raise _error("周起始日期必须是本机日历中的星期一")
     end = start + timedelta(days=7)
     previous_start = start - timedelta(days=7)
-    lines = list(
-        NewProductLine.objects.filter(deleted_at__isnull=True, active=True)
-        .prefetch_related("codes")
-        .order_by("name", "id")[: MAX_LINES + 1]
-    )
+    line_query = NewProductLine.objects.filter(deleted_at__isnull=True, active=True)
+    if not embed_uploaded_images:
+        line_query = line_query.defer("product_image_bytes")
+    lines = list(line_query.prefetch_related("codes").order_by("name", "id")[: MAX_LINES + 1])
     if len(lines) > MAX_LINES:
         raise _error("新品产品线超过 1,000 条", code="payload_too_large", status=413)
+    if embed_uploaded_images and len(lines) > MAX_EMBEDDED_IMAGE_LINES:
+        raise _error("新品周报图片最多支持 200 条产品线", code="payload_too_large", status=413)
     current_by_code = _metric_rows(start, end)
     previous_by_code = _metric_rows(previous_start, start)
     earliest = min((line.monitoring_start_date for line in lines), default=start)
@@ -531,7 +655,7 @@ def weekly_followup(*, week_start: date | None = None) -> dict[str, object]:
             "id": str(line.id),
             "name": line.name,
             "brand": "、".join(brands) if brands else "志高",
-            "productImageUrl": line.product_image_url,
+            "productImageUrl": _line_image_source(line, embed_uploaded=embed_uploaded_images),
             "active": line.active,
             "monitoringStartDate": line.monitoring_start_date.isoformat(),
             "status": _line_status(current, previous, cumulative, line, local_today),

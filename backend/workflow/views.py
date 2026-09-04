@@ -17,6 +17,7 @@ from .errors import WorkflowApiError
 from .consumers import execute_consumer_query, validate_consumer_request
 from .followup import (
     create_product_line,
+    get_product_line_image,
     get_report_config,
     learn_product_line_codes,
     list_product_lines,
@@ -309,6 +310,19 @@ def new_product_line(request: HttpRequest, line_id: object) -> JsonResponse:
         )
     except Exception as error:
         return _error(error, "新品产品线更新失败")
+
+
+@require_http_methods(["GET"])
+def new_product_line_image(request: HttpRequest, line_id: object) -> JsonResponse:
+    try:
+        _principal(request, {"viewer", "analyst", "operator", "admin"})
+        _unknown(request, set(), "新品产品线图片")
+        image, revision = _consistent_read(lambda: get_product_line_image(line_id))
+        if image is None:
+            raise WorkflowApiError("新品产品线图片不存在", code="not_found", status=404)
+        return _json({"image": image}, revision=revision)
+    except Exception as error:
+        return _error(error, "新品产品线图片读取失败")
 
 
 @require_POST

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import subprocess
@@ -18,6 +20,26 @@ from workflow.followup import claim_weekly_delivery, weekly_followup
 from workflow.management.commands.new_product_weekly_report import _assert_send_receipt, _due_now, _exact_identity, _run_dws
 from workflow.models import NewProductLine, NewProductLineCode, NewProductWeeklyReportConfig, WorkflowWriteAuthority
 from workflow.weekly_report_image import render_weekly_report_html
+
+
+JPEG_2X2_BASE64 = (
+    "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/"
+    "2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAIDASIAAhEBAxEB/"
+    "8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2Jy"
+    "ggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLD"
+    "xMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3"
+    "AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6"
+    "goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8rZ55"
+    "LmaSaaRpZZGLvI7EszE5JJPUmiiis6fwL0OvF/7xU/xP8z//2Q=="
+)
+
+
+def uploaded_image() -> dict[str, object]:
+    content = base64.b64decode(JPEG_2X2_BASE64)
+    return {
+        "fileName": "本地产品图.jpg", "mimeType": "image/jpeg", "sizeBytes": len(content),
+        "sha256": hashlib.sha256(content).hexdigest(), "dataBase64": JPEG_2X2_BASE64,
+    }
 
 
 def body_bytes(payload: dict[str, object]) -> bytes:
@@ -153,6 +175,57 @@ class NewProductWeeklyFollowupTests(TestCase):
                 f"followup-image-url-{index}",
             )
             self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(NewProductLine.objects.count(), 0)
+
+    def test_local_product_image_upload_is_saved_served_embedded_and_removable(self) -> None:
+        response = self.request_json(
+            "POST",
+            "/api/workflow/new-product-lines",
+            {
+                "name": "本地图片产品线", "matchTerms": [], "monitoringStartDate": "2026-09-01",
+                "productImage": uploaded_image(), "weeklyUnitTarget": None,
+                "weeklySalesTargetCents": None, "active": True, "codes": [],
+            },
+            "followup-upload-image",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        item = response.json()["item"]
+        self.assertEqual(item["productImageFileName"], "本地产品图.jpg")
+        self.assertRegex(item["productImageUrl"], rf"^/api/workflow/new-product-lines/{item['id']}/image\?v=1$")
+
+        image_path = f"/api/workflow/new-product-lines/{item['id']}/image"
+        image_response = self.client.get(image_path, headers=signed_headers(image_path, request_id="followup-read-image"))
+        self.assertEqual(image_response.status_code, 200, image_response.content)
+        self.assertEqual(image_response.json()["image"]["dataBase64"], JPEG_2X2_BASE64)
+
+        report = weekly_followup(week_start=date.fromisoformat("2026-09-07"), embed_uploaded_images=True)
+        uploaded = next(row for row in report["items"] if row["id"] == item["id"])
+        self.assertTrue(uploaded["productImageUrl"].startswith("data:image/jpeg;base64,"))
+
+        removed = self.request_json(
+            "PATCH",
+            f"/api/workflow/new-product-lines/{item['id']}",
+            {"productImage": None, "expectedVersion": item["version"]},
+            "followup-remove-image",
+        )
+        self.assertEqual(removed.status_code, 200, removed.content)
+        self.assertEqual(removed.json()["item"]["productImageUrl"], "")
+        self.assertEqual(removed.json()["item"]["productImageFileName"], "")
+
+    def test_local_product_image_upload_rejects_tampered_content(self) -> None:
+        image = uploaded_image()
+        image["sha256"] = "0" * 64
+        response = self.request_json(
+            "POST",
+            "/api/workflow/new-product-lines",
+            {
+                "name": "损坏图片产品线", "matchTerms": [], "monitoringStartDate": "2026-09-01",
+                "productImage": image, "weeklyUnitTarget": None,
+                "weeklySalesTargetCents": None, "active": True, "codes": [],
+            },
+            "followup-upload-image-tampered",
+        )
+        self.assertEqual(response.status_code, 400, response.content)
         self.assertEqual(NewProductLine.objects.count(), 0)
 
     def test_weekly_metrics_group_all_codes_by_user_named_line(self) -> None:

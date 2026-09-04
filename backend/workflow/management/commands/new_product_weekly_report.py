@@ -229,7 +229,7 @@ class Command(BaseCommand):
 
         principal = Principal(AUTOMATION_ACTOR, "新品周报自动任务", "admin", None)
         learned = learn_product_line_codes(principal)
-        report = weekly_followup()
+        report = weekly_followup(embed_uploaded_images=True)
         config = NewProductWeeklyReportConfig.objects.get(id=1)
         local_now = datetime.now().astimezone()
         base = {

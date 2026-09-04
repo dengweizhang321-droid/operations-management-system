@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element -- 产品线图片地址由操作员维护，域名不能预先固定到 Next Image 白名单。 */
+/* eslint-disable @next/next/no-img-element -- 产品线图片包含本地选择后的临时预览和鉴权读取地址。 */
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
@@ -20,6 +20,7 @@ type ProductLine = {
   name: string;
   matchTerms: string[];
   productImageUrl: string;
+  productImageFileName: string;
   monitoringStartDate: string;
   weeklyUnitTarget: number | null;
   weeklySalesTargetCents: number | null;
@@ -87,7 +88,8 @@ type FollowupReport = {
 type LineDraft = {
   name: string;
   matchTerms: string;
-  productImageUrl: string;
+  productImageFile: File | null;
+  removeProductImage: boolean;
   monitoringStartDate: string;
   weeklyUnitTarget: string;
   weeklySalesTargetYuan: string;
@@ -97,13 +99,18 @@ type LineDraft = {
 const EMPTY_DRAFT: LineDraft = {
   name: "",
   matchTerms: "",
-  productImageUrl: "",
+  productImageFile: null,
+  removeProductImage: false,
   monitoringStartDate: "",
   weeklyUnitTarget: "",
   weeklySalesTargetYuan: "",
   productCodes: "",
 };
 const REPORT_TIMELINE_START = "2026-08-03";
+const MAX_PRODUCT_IMAGE_SOURCE_BYTES = 15 * 1024 * 1024;
+const MAX_PRODUCT_IMAGE_UPLOAD_BYTES = 300 * 1024;
+const MAX_PRODUCT_IMAGE_DIMENSION = 1_200;
+const ACCEPTED_PRODUCT_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function messageOf(reason: unknown, fallback: string) {
   return reason instanceof Error && reason.message ? reason.message : fallback;
@@ -193,7 +200,7 @@ async function remoteWorkbookImage(source: string): Promise<WorkbookImage | null
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 8_000);
   try {
-    const response = await fetch(source, { credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal });
+    const response = await fetch(source, { credentials: source.startsWith("/") ? "same-origin" : "omit", referrerPolicy: "no-referrer", signal: controller.signal });
     if (!response.ok) return null;
     const blob = await response.blob();
     if (!blob.type.startsWith("image/") || blob.size < 1 || blob.size > 3 * 1024 * 1024) return null;
@@ -220,6 +227,59 @@ async function remoteWorkbookImage(source: string): Promise<WorkbookImage | null
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+type ProductImageUpload = {
+  fileName: string;
+  mimeType: "image/jpeg";
+  sizeBytes: number;
+  sha256: string;
+  dataBase64: string;
+};
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)));
+  }
+  return window.btoa(binary);
+}
+
+async function canvasJpeg(canvas: HTMLCanvasElement, quality: number) {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  if (!blob) throw new Error("当前浏览器无法处理这张图片，请换一张后重试。");
+  return blob;
+}
+
+async function prepareProductImage(file: File): Promise<ProductImageUpload> {
+  if (!ACCEPTED_PRODUCT_IMAGE_TYPES.has(file.type.toLowerCase())) throw new Error("请选择 JPG、PNG 或 WebP 图片。");
+  if (file.size < 1 || file.size > MAX_PRODUCT_IMAGE_SOURCE_BYTES) throw new Error("原始图片不能为空且不能超过 15MB。");
+  let bitmap: ImageBitmap;
+  try { bitmap = await createImageBitmap(file); }
+  catch { throw new Error("图片无法读取，请重新选择有效的 JPG、PNG 或 WebP 文件。"); }
+  try {
+    if (bitmap.width < 1 || bitmap.height < 1 || bitmap.width > 16_384 || bitmap.height > 16_384) throw new Error("图片尺寸无效或过大。");
+    let scale = Math.min(1, MAX_PRODUCT_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    let blob: Blob | null = null;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("当前浏览器无法处理这张图片。");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      blob = await canvasJpeg(canvas, Math.max(.48, .88 - attempt * .07));
+      if (blob.size <= MAX_PRODUCT_IMAGE_UPLOAD_BYTES) break;
+      scale *= .82;
+    }
+    if (!blob || blob.size > MAX_PRODUCT_IMAGE_UPLOAD_BYTES) throw new Error("图片压缩后仍然过大，请选择内容更简单或尺寸更小的图片。");
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[\\/\u0000-\u001f\u007f]/g, "_").trim().slice(0, 100) || "product-image";
+    return { fileName: `${baseName}.jpg`, mimeType: "image/jpeg", sizeBytes: bytes.byteLength, sha256, dataBase64: bytesToBase64(bytes) };
+  } finally { bitmap.close(); }
 }
 
 async function loadProductImages(items: FollowupItem[]) {
@@ -254,7 +314,8 @@ async function downloadMatrixExcel(report: FollowupReport) {
       trendImage: trendPngImage(item.weeklyNetQuantities),
     })),
   });
-  const href = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+  const workbookBytes = new Uint8Array(bytes.byteLength); workbookBytes.set(bytes);
+  const href = URL.createObjectURL(new Blob([workbookBytes.buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
   const link = document.createElement("a");
   link.href = href;
   link.download = `新品销售周报-${report.weekStart}-${report.weekEnd}.xlsx`;
@@ -266,7 +327,8 @@ function lineToDraft(line: ProductLine): LineDraft {
   return {
     name: line.name,
     matchTerms: line.matchTerms.join("、"),
-    productImageUrl: line.productImageUrl,
+    productImageFile: null,
+    removeProductImage: false,
     monitoringStartDate: line.monitoringStartDate,
     weeklyUnitTarget: line.weeklyUnitTarget === null ? "" : String(line.weeklyUnitTarget),
     weeklySalesTargetYuan: line.weeklySalesTargetCents === null ? "" : String(line.weeklySalesTargetCents / 100),
@@ -282,6 +344,19 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
 }) {
   const [draft, setDraft] = useState<LineDraft>(() => line ? lineToDraft(line) : { ...EMPTY_DRAFT, monitoringStartDate: localIsoDate() });
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrl = useMemo(() => draft.productImageFile ? URL.createObjectURL(draft.productImageFile) : "", [draft.productImageFile]);
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
+  const displayedImage = previewUrl || (!draft.removeProductImage ? line?.productImageUrl ?? "" : "");
+  const chooseImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!ACCEPTED_PRODUCT_IMAGE_TYPES.has(file.type.toLowerCase())) { setError("请选择 JPG、PNG 或 WebP 图片。"); return; }
+    if (file.size < 1 || file.size > MAX_PRODUCT_IMAGE_SOURCE_BYTES) { setError("原始图片不能为空且不能超过 15MB。"); return; }
+    setError("");
+    setDraft((current) => ({ ...current, productImageFile: file, removeProductImage: false }));
+  };
   const submit = async () => {
     if (!draft.name.trim()) return setError("请填写你希望展示的产品线名称。");
     if (!draft.monitoringStartDate) return setError("请选择监控开始日期。");
@@ -295,7 +370,7 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
     <form className="workflow-edit-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <label className="workflow-edit-title-field"><span>产品线名称（必填）</span><input autoFocus maxLength={160} value={draft.name} placeholder="例如：油水分离器" onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
       <label><span>吉客云名称（学习关键词）</span><input maxLength={500} value={draft.matchTerms} placeholder="填写吉客云货品名称关键词，多个用顿号或逗号分隔" onChange={(event) => setDraft({ ...draft, matchTerms: event.target.value })} /><small>货品名称只命中一个产品线时会自动学习归入，多产品线命中时保留人工判断。</small></label>
-      <label><span>产品图链接</span><input type="url" maxLength={1000} value={draft.productImageUrl} placeholder="https://…" onChange={(event) => setDraft({ ...draft, productImageUrl: event.target.value })} /><small>请使用可公开读取的 HTTPS 图片地址，以便周报截图和 Excel 嵌入产品图。</small></label>
+      <div className="new-product-line-image-field"><span>产品图</span><input ref={fileInputRef} className="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => { chooseImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className="new-product-line-image-picker">{displayedImage ? <img src={displayedImage} alt="产品图预览" /> : <span aria-hidden="true">图片</span>}<div><strong>{draft.productImageFile?.name || line?.productImageFileName || (displayedImage ? "已有产品图" : "尚未选择图片")}</strong><small>支持 JPG、PNG、WebP，原图最大 15MB；保存时自动压缩上传。</small><div><button type="button" className="secondary-button" disabled={saving} onClick={() => fileInputRef.current?.click()}>打开本地文件夹选择图片</button>{displayedImage && <button type="button" className="row-action danger" disabled={saving} onClick={() => setDraft((current) => ({ ...current, productImageFile: null, removeProductImage: true }))}>移除图片</button>}</div></div></div></div>
       <label><span>监控开始日期</span><input type="date" value={draft.monitoringStartDate} onChange={(event) => setDraft({ ...draft, monitoringStartDate: event.target.value })} /></label>
       <label><span>每周销量目标（件）</span><input type="number" min={0} step={1} value={draft.weeklyUnitTarget} onChange={(event) => setDraft({ ...draft, weeklyUnitTarget: event.target.value })} /></label>
       <label><span>每周净销售额目标（元）</span><input type="number" min={0} step="0.01" value={draft.weeklySalesTargetYuan} onChange={(event) => setDraft({ ...draft, weeklySalesTargetYuan: event.target.value })} /></label>
@@ -354,15 +429,17 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   const saveLine = async (draft: LineDraft) => {
     if (saving) return;
     setSaving(true);
-    const codes = [...new Set(draft.productCodes.split(/[\s,，、;；]+/).map((value) => value.trim()).filter(Boolean))].map((productCode) => ({ productCode }));
-    const matchTerms = [...new Set(draft.matchTerms.split(/[,，、;；\n]+/).map((value) => value.trim()).filter(Boolean))];
-    const payload = {
-      name: draft.name.trim(), matchTerms, productImageUrl: draft.productImageUrl.trim(), monitoringStartDate: draft.monitoringStartDate,
-      weeklyUnitTarget: draft.weeklyUnitTarget === "" ? null : Number(draft.weeklyUnitTarget),
-      weeklySalesTargetCents: draft.weeklySalesTargetYuan === "" ? null : Math.round(Number(draft.weeklySalesTargetYuan) * 100),
-      codes,
-    };
     try {
+      const codes = [...new Set(draft.productCodes.split(/[\s,，、;；]+/).map((value) => value.trim()).filter(Boolean))].map((productCode) => ({ productCode }));
+      const matchTerms = [...new Set(draft.matchTerms.split(/[,，、;；\n]+/).map((value) => value.trim()).filter(Boolean))];
+      const productImage = draft.productImageFile ? await prepareProductImage(draft.productImageFile) : undefined;
+      const payload = {
+        name: draft.name.trim(), matchTerms, monitoringStartDate: draft.monitoringStartDate,
+        weeklyUnitTarget: draft.weeklyUnitTarget === "" ? null : Number(draft.weeklyUnitTarget),
+        weeklySalesTargetCents: draft.weeklySalesTargetYuan === "" ? null : Math.round(Number(draft.weeklySalesTargetYuan) * 100),
+        codes,
+        ...(productImage ? { productImage } : draft.removeProductImage ? { productImage: null } : {}),
+      };
       if (editor && editor !== "create") {
         await requestJson(`/api/workflow/new-product-lines/${encodeURIComponent(editor.id)}`, { method: "PATCH", body: { ...payload, expectedVersion: editor.version } });
         setFeedback(`产品线“${payload.name}”已更新。`);
