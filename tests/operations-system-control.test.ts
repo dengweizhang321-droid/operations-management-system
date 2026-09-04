@@ -9,6 +9,8 @@ const djangoDomainServicePaths = [
   "tools/django-netshop-service.ps1",
   "tools/django-market-service.ps1",
   "tools/django-products-service.ps1",
+  "tools/django-inventory-service.ps1",
+  "tools/django-workflow-service.ps1",
 ];
 
 test("unified controller stays parseable by Windows PowerShell when Chinese text is present", () => {
