@@ -188,6 +188,39 @@ class CustomerServiceMigrationTests(TestCase):
         )
         self.assertEqual(json.loads(planned.getvalue())["counts"]["conversations"], 1)
 
+    def test_migration_preserves_legacy_messages_above_online_import_limit(self) -> None:
+        messages = [
+            {"sender": "顾客", "sentAt": "2026-09-01 10:00:00", "content": f"消息 {index}"}
+            for index in range(201)
+        ]
+        connection = sqlite3.connect(self.source)
+        try:
+            connection.execute(
+                "UPDATE customer_service_conversations SET messages_json=? WHERE id=7",
+                (json.dumps(messages, ensure_ascii=False, separators=(",", ":")),),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        planned = StringIO()
+        call_command(
+            "migrate_customer_service_from_d1",
+            source=str(self.source),
+            plan=True,
+            stdout=planned,
+        )
+        plan_id = json.loads(planned.getvalue())["planId"]
+        applied = StringIO()
+        call_command(
+            "migrate_customer_service_from_d1",
+            source=str(self.source),
+            apply=True,
+            approved_plan_id=plan_id,
+            stdout=applied,
+        )
+        self.assertEqual(len(CustomerServiceConversation.objects.get(id=7).messages), 201)
+
     def test_authority_prepare_blocks_d1_and_activate_is_terminal(self) -> None:
         planned = StringIO()
         call_command("migrate_customer_service_from_d1", source=str(self.source), plan=True, stdout=planned)

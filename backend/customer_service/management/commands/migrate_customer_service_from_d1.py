@@ -31,6 +31,8 @@ from customer_service.models import (
 GENERATION_VERSION = "customer-service-d1-to-postgres-v1"
 DOMAIN = "customer-service"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
+MIGRATION_MAX_MESSAGES = 2_000
+MIGRATION_MAX_MESSAGE_BYTES = 128 * 1024
 
 
 def _json(value: object) -> str:
@@ -102,17 +104,22 @@ def _warnings(value: object) -> dict[str, object]:
 
 def _messages(value: object) -> list[dict[str, str]]:
     parsed = _parse_json(value, [])
-    if not isinstance(parsed, list) or len(parsed) > 200:
+    if not isinstance(parsed, list) or len(parsed) > MIGRATION_MAX_MESSAGES:
         raise CommandError("D1 客服消息集合无效")
     output: list[dict[str, str]] = []
     for raw in parsed:
         if not isinstance(raw, dict):
             raise CommandError("D1 客服消息行无效")
-        output.append({
-            "sender": str(raw.get("sender") or "")[:120],
-            "sentAt": str(raw.get("sentAt") or "")[:80],
-            "content": str(raw.get("content") or "")[:4000],
-        })
+        item = {
+            "sender": str(raw.get("sender") or ""),
+            "sentAt": str(raw.get("sentAt") or ""),
+            "content": str(raw.get("content") or ""),
+        }
+        if len(item["sender"]) > 120 or len(item["sentAt"]) > 80 or len(item["content"]) > 4_000:
+            raise CommandError("D1 客服消息字段超过迁移安全上限")
+        output.append(item)
+    if len(_json(output).encode("utf-8")) > MIGRATION_MAX_MESSAGE_BYTES:
+        raise CommandError("D1 客服消息集合超过迁移字节上限")
     return output
 
 
