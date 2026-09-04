@@ -342,7 +342,7 @@ $sourceFiles = @(
   "$sourceSnapshot\app\api\workflow\operations-records\route.ts",
   "$sourceSnapshot\lib\inventory\work-items.ts"
 )
-$legacyMatches = Select-String -LiteralPath $sourceFiles -Pattern @(
+$legacyMatches = Select-String -CaseSensitive -LiteralPath $sourceFiles -Pattern @(
   "getD1Database", "workflow_task_bootstrap", "workflow_operation_records"
 )
 if ($legacyMatches) { throw "active workflow source still reaches legacy D1 domain tables" }

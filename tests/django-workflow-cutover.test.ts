@@ -230,6 +230,7 @@ test("workflow operations production smoke creates the exact fresh terminal rece
   assert.doesNotMatch(operationsProductionSmoke, /IsPathFullyQualified/);
   assert.match(operationsProductionSmoke, /function Invoke-SmokeWebRequest/);
   assert.doesNotMatch(operationsProductionSmoke, /-SkipHttpErrorCheck/);
+  assert.match(operationsProductionSmoke, /Select-String -CaseSensitive/);
   assert.match(operationsConsumerSmoke, /operation: "workflow_search"/);
   assert.match(operationsConsumerSmoke, /scopedOperationReturned !== 0/);
   assert.match(operationsD1RejectionSmoke, /workflow_operations_authority_not_legacy/);
