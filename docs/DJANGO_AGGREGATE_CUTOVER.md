@@ -40,9 +40,12 @@ python -B manage.py test market.tests.test_search_consumers market.tests.test_ap
 
 2026-09-06 隔离验证结果（基于 `main` 的 `7dc79c67`）：生产依赖图检查 302 个模块，D1 违规为 0；单元测试 1,838 项通过、20 项既有跳过；构建及 20 项产物/入口测试通过，其中直接运行无 D1 binding 的编译 Worker，验证 liveness 正常、缺少 Django 配置时 readiness 返回 `django_unavailable`。独立 PostgreSQL cluster 的 26 项 Django 测试通过，迁移 dry-run 无变化。Lint 为 0 错误、9 项既有警告；全仓 TypeScript 检查仍有 160 项既有诊断，与同一 `main` 基线逐项比较无新增，不能表述为全仓类型检查通过。现有本机 23 个 Django 服务的只读 `/health/ready` 探测全部通过；没有停止、重启、写入业务数据或采用新 release。
 
+正式发布前的配置核对发现 ERP readiness 必须复用现行 `ERP` 环境变量前缀，已修正并增加该生产配置形状的回归测试。修正后 23 项服务配置检查全部通过，单元测试为 1,839 项通过、20 项既有跳过；构建、20 项产物测试和 lint 复验通过，TypeScript 仍与基线一致。包含错误 ERP 变量名的候选不得激活。
+
 ## 正式发布门禁
 
-1. 用户明确授权本机受控发布与必要服务操作后，重新确认最新 `main`、工作树差异、全部检查和无冲突合并结果；保留已有生产备份、迁移 attestation 与 D1 退役回执。
+1. 用户明确授权本机受控发布与必要服务操作后，重新确认最新 `main`、工作树差异、全部检查和无冲突合并结果；保留已有生产备份、迁移 attestation 与 D1 退役回执。先更新独立集成工作树，停止当前 Worker 之前必须保持主仓库中 guard 绑定的启动入口字节与现行 release 一致；不要提前用 Git 同步覆盖 `package.json`、总控或 launcher。停服后再更新其他源码，受保护入口由 successor apply 原子安装。若先行同步导致门禁拒绝，只有在确认差异全部来自本次同步并验证旧 manifest/guard SHA 后，才可恢复当前 release 的精确入口字节以执行受控 Stop；不能绕过 guard。
+   同时只读核对现有 `.dev.vars` 的服务变量契约，不输出凭据。ERP 域沿用 `TERUISI_DJANGO_ERP_READER_BASE_URL` / `TERUISI_DJANGO_ERP_WRITER_BASE_URL`，服务名仍为 `erp_reference.reader/writer`；不得自行发明 `ERP_REFERENCE` 变量或靠新增生产别名掩盖适配错误。
 2. 按现有 Django runtime 发布流程更新已验证的应用快照和清单，采用财务目标视图变更，回读各已启用域 readiness。不要直接覆盖运行目录或扩大数据库角色权限。
 3. 按现有 Worker 控制器停止网页服务，再执行受控 successor `plan`，核对精确计划 SHA 后 `apply`。`plan` 会生成候选，不是无副作用 dry-run。不得手工启动 Wrangler 或绕过 immutable release 门禁。
 4. 使用唯一总控启动；核验 Django 全栈、Worker 新 effective head、激活 fence、登录快捷方式重绑和组合状态。验证健康接口读取 Django，D1 故障或无 binding 不再阻断搜索、AI 查询和标注入口。

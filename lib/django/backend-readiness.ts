@@ -9,7 +9,7 @@ const domains = [
 export const DJANGO_READINESS_SERVICES = domains.flatMap(([key, field]) =>
   (key === "BI" ? ["reader"] : ["reader", "writer"]).map((role) => ({
     name: `${key.toLowerCase()}.${role}`,
-    variable: `TERUISI_DJANGO_${key}_${role.toUpperCase()}_BASE_URL`,
+    variable: `TERUISI_DJANGO_${key === "ERP_REFERENCE" ? "ERP" : key}_${role.toUpperCase()}_BASE_URL`,
     field: field ? `${field}${role === "reader" ? "Reader" : "Writer"}` : role,
     aiRole: key === "AI" ? `ai_${role}` : null,
   })));
