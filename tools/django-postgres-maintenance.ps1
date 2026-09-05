@@ -247,6 +247,13 @@ function Assert-MaintenanceEvidence(
   $hasBiMigration = @($Evidence.migrations | Where-Object {
       [string]$_.app -ceq "bi" -and [string]$_.name -ceq "0001_initial"
     }).Count -gt 0
+  $hasAccessControlMigration = @($Evidence.migrations | Where-Object {
+      [string]$_.app -ceq "access_control" -and [string]$_.name -ceq "0001_initial"
+    }).Count -gt 0
+  $hasAccessControl = $null -ne $Evidence.PSObject.Properties["accessControl"]
+  if ($hasAccessControlMigration -ne $hasAccessControl) {
+    throw "PostgreSQL 权限域证据字段不完整"
+  }
   $hasErpReferenceMigration = @($Evidence.migrations | Where-Object {
       [string]$_.app -ceq "erp_reference" -and [string]$_.name -like "0002_*"
     }).Count -gt 0
@@ -313,6 +320,7 @@ function Assert-MaintenanceEvidence(
   if ($hasCustomerServiceRevisions) {
     $evidenceProperties += @("customerServiceRevisions", "customerServiceWriteAuthority")
   }
+  if ($hasAccessControl) { $evidenceProperties += @("accessControl") }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
     [string]$Evidence.contentSha256,
@@ -356,6 +364,35 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasBiMigration) {
     $requiredTables += @("bi_migration_runs")
+  }
+  if ($hasAccessControl) {
+    $requiredTables += @(
+      "access_control_users", "access_control_roles", "access_control_permission_audits",
+      "access_control_data_revisions", "access_control_write_authority",
+      "access_control_write_request_receipts", "access_control_migration_runs"
+    )
+    Assert-MaintenanceExactPropertySet $Evidence.accessControl @(
+      "revision", "sourceDigest", "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "权限域写入权威证据"
+    $accessEvidence = $Evidence.accessControl
+    if (-not (Test-MaintenanceInteger $accessEvidence.revision) -or
+        [int64]$accessEvidence.revision -lt 0 -or
+        [string]$accessEvidence.sourceDigest -cnotmatch "^[0-9a-f]{64}$" -or
+        [string]$accessEvidence.status -cnotin @("d1", "postgres") -or
+        ([string]$accessEvidence.migrationRunId -ne "" -and
+          [string]$accessEvidence.migrationRunId -cnotmatch "^access-control-[0-9a-f]{32}$")) {
+      throw "权限域版本或迁移证据无效"
+    }
+    if ([string]$accessEvidence.status -ceq "postgres") {
+      if ([int64]$accessEvidence.revision -lt 1 -or
+          [string]$accessEvidence.authorityEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          [string]$accessEvidence.cutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          [string]$accessEvidence.migrationRunId -cnotmatch "^access-control-[0-9a-f]{32}$") {
+        throw "权限域 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif ([string]$accessEvidence.authorityEpoch -ne "" -or [string]$accessEvidence.cutoverId -ne "") {
+      throw "未激活的权限域写入权威包含激活证据"
+    }
   }
   if ($hasNetshopRevisions) {
     $requiredTables += @(
@@ -413,7 +450,7 @@ function Assert-MaintenanceEvidence(
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi|access_control)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
