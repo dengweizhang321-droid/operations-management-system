@@ -1,14 +1,8 @@
 import {
   INVENTORY_UPLOAD_CHUNK_BYTES,
   MAX_CHUNKED_INVENTORY_FILE_BYTES,
-  assembleInventoryUpload,
-  beginInventoryUpload,
-  claimInventoryUpload,
-  finishInventoryUpload,
-  receiveInventoryUploadChunk,
-  releaseInventoryUpload,
 } from "@/lib/inventory/chunked-upload";
-import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
+import { importErpReferenceToDjango } from "@/lib/erp-reference/django-import-service";
 import { reconcileNewProductCodesAfterImport } from "@/lib/workflow/new-product-learning";
 import { importInventoryAgeToDjango } from "@/lib/inventory/django-age-import-service";
 import {
@@ -19,6 +13,14 @@ import {
   receiveDjangoInventoryUploadChunk,
   releaseDjangoInventoryUpload,
 } from "@/lib/inventory/django-chunked-upload";
+import {
+  assembleDjangoErpUpload,
+  beginDjangoErpUpload,
+  claimDjangoErpUpload,
+  finishDjangoErpUpload,
+  receiveDjangoErpUploadChunk,
+  releaseDjangoErpUpload,
+} from "@/lib/erp-reference/django-chunked-upload";
 import { isErpReferenceSourceKey } from "@/lib/imports/erp-reference";
 import {
   authorizationErrorResponse,
@@ -114,12 +116,13 @@ export async function POST(request: Request) {
 
     if (body.action === "init") {
       const clientFingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
-      const upload = await beginInventoryUpload({
+      const upload = await beginDjangoErpUpload(principal, {
+        source: body.source,
         fileName: typeof body.fileName === "string" ? body.fileName : "",
         fileSizeBytes: Number(body.fileSizeBytes),
         chunkCount: Number(body.chunkCount),
-        fingerprint: `erp:${scope.source}:${scope.snapshotDate}:${clientFingerprint}`,
-      });
+        fingerprint: clientFingerprint,
+      }, request.signal);
       return Response.json({
         ok: true,
         status: "ready",
@@ -131,31 +134,31 @@ export async function POST(request: Request) {
     if (body.action === "complete") {
       const uploadId = typeof body.uploadId === "string" ? body.uploadId : "";
       if (!uploadId) return reject(400, "缺少上传会话标识");
-      const claim = await claimInventoryUpload(uploadId);
-      if (!claim.session.fingerprint.startsWith(`erp:${scope.source}:${scope.snapshotDate}:`)) {
-        if (claim.kind === "claimed") await releaseInventoryUpload(uploadId);
-        return reject(409, "上传会话绑定的 ERP 来源或快照日期与本次完成请求不一致");
-      }
+      const claim = await claimDjangoErpUpload(principal, uploadId, body.source, request.signal);
       if (claim.kind === "completed") {
         return Response.json(claim.result, { status: importExecutionHttpStatus(claim.result as ImportExecutionLike), headers: { "cache-control": "no-store" } });
       }
       try {
-        const assembled = await assembleInventoryUpload(uploadId);
-        const imported = await importErpReferenceBytes({
+        const bytes = await assembleDjangoErpUpload(principal, claim, request.signal);
+        const imported = await importErpReferenceToDjango({
+          principal,
           source: body.source,
-          bytes: assembled.bytes,
-          fileName: assembled.session.fileName,
-          fileSizeBytes: assembled.session.fileSizeBytes,
-          snapshotDate: scope.snapshotDate || undefined,
-        });
+          bytes,
+          fileName: claim.session.fileName,
+          fileSizeBytes: claim.session.fileSizeBytes,
+        }, { signal: request.signal });
         const productBatchId = (imported as { batch?: { id?: unknown } }).batch?.id;
         const result = body.source === "products"
           ? { ...imported, newProductLearning: await reconcileNewProductCodesAfterImport(principal, typeof productBatchId === "string" ? productBatchId : "", request.signal) }
           : imported;
-        await finishInventoryUpload(uploadId, assembled.objectKeys, result);
+        await finishDjangoErpUpload(principal, {
+          uploadId, source: body.source, ownerToken: claim.ownerToken, result,
+        }, request.signal);
         return Response.json(result, { status: importExecutionHttpStatus(result), headers: { "cache-control": "no-store" } });
       } catch (error) {
-        await releaseInventoryUpload(uploadId);
+        await releaseDjangoErpUpload(principal, {
+          uploadId, source: body.source, ownerToken: claim.ownerToken,
+        }, request.signal).catch(() => undefined);
         throw error;
       }
     }
@@ -187,7 +190,9 @@ export async function PUT(request: Request) {
       );
       return Response.json({ ok: true, status: "uploading", upload: publicAgeUpload(upload) }, { headers: { "cache-control": "no-store" } });
     }
-    const upload = await receiveInventoryUploadChunk({ uploadId, chunkIndex, bytes });
+    const upload = await receiveDjangoErpUploadChunk(
+      principal, { uploadId, chunkIndex, bytes }, request.signal,
+    );
     return Response.json({ ok: true, status: "uploading", upload }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

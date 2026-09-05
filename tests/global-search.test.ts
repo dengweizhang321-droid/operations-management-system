@@ -10,6 +10,7 @@ import type { ProductsConsumerReader } from "../lib/django/products-consumer-rea
 import type { InventoryConsumerReader } from "../lib/django/inventory-consumer-reader";
 import type { WorkflowConsumerReader } from "../lib/django/workflow-consumer-reader";
 import type { CustomerServiceConsumerReader } from "../lib/django/customer-service-consumer-reader";
+import type { ErpReferenceConsumerReader } from "../lib/django/erp-reference-consumer-reader";
 import { globalSearchErrorResponse } from "../lib/search/api-response";
 
 import {
@@ -29,6 +30,45 @@ import {
 
 const admin: AppPrincipal = { email: "admin@example.com", displayName: "Admin", role: "admin", scope: null };
 const viewer: AppPrincipal = { email: "viewer@example.com", displayName: "Viewer", role: "viewer", scope: null };
+
+type ErpSearchItem = {
+  resultId: string; title: string; subtitle: string; detail: string;
+  updatedAt: string; amountCents: null;
+};
+type ErpImportItem = {
+  id: string; source: string; fileName: string; status: string;
+  rowCount: number; createdAt: string; completedAt: string | null;
+};
+
+function fakeErpReferenceSearchReader(input: {
+  products?: ErpSearchItem[];
+  combos?: ErpSearchItem[];
+  imports?: ErpImportItem[];
+  calls?: Array<{ principal: AppPrincipal; request: Record<string, unknown> }>;
+} = {}): ErpReferenceConsumerReader {
+  return {
+    read: (async (principal: AppPrincipal, request: Record<string, unknown>) => {
+      input.calls?.push({ principal, request });
+      const allItems = request.operation === "product_search"
+        ? input.products ?? []
+        : request.operation === "combo_search"
+          ? input.combos ?? []
+          : request.operation === "import_batch_search"
+            ? input.imports ?? []
+            : (() => { throw new Error(`unexpected operation ${String(request.operation)}`); })();
+      const offset = Number(request.offset);
+      const limit = Number(request.limit);
+      return {
+        revision: "erp:7:abcdef123456",
+        data: {
+          items: allItems.slice(offset, offset + limit),
+          total: allItems.length,
+          truncated: offset + limit < allItems.length,
+        },
+      };
+    }) as ErpReferenceConsumerReader["read"],
+  };
+}
 
 const allSearchTables = [
   "erp_product_master", "netshop_rows", "inventory_stock_lines",
@@ -547,6 +587,7 @@ test("市场搜索复用最新身份投影而不扫描历史榜单", async () =>
 
 test("统一搜索只把关键词作为绑定参数并在数据库分页", async () => {
   const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const erpCalls: Array<{ principal: AppPrincipal; request: Record<string, unknown> }> = [];
   const database = {
     prepare(sql: string) {
       let values: Array<string | number | bigint | Uint8Array | null> = [];
@@ -555,26 +596,28 @@ test("统一搜索只把关键词作为绑定参数并在数据库分页", async
         async all<T>() {
           calls.push({ sql, values });
           if (sql.includes("sqlite_master")) return { results: [{ name: "erp_product_master" }] as T[] };
-          return { results: Array.from({ length: 3 }, (_, index) => ({
-            result_id: `SKU-${index + 1}`, title: "净水机", subtitle: "商用", detail: "净水设备",
-            updated_at: "2026-07-23", amount_cents: null,
-          })) as T[] };
+          return { results: [] as T[] };
         },
       };
     },
   } as GlobalSearchDatabase;
   const request = normalizeGlobalSearchRequest(new URLSearchParams("q=%27%20OR%201%3D1--&group=products&page=2&limit=2&totalLimit=8"));
-  const result = await searchAllBusinessData(database, request, admin);
-  const businessCall = calls.find((call) => call.sql.includes("erp_product_master"));
-  assert.ok(businessCall);
-  assert.doesNotMatch(businessCall.sql, /OR 1=1--/);
-  assert.equal(businessCall.values.at(-2), 3);
-  assert.equal(businessCall.values.at(-1), 2);
-  assert.doesNotMatch(businessCall.sql, /COUNT\s*\(\s*\*\s*\)\s*OVER/i);
-  assert.equal(calls.length, 2);
+  const erpProducts = Array.from({ length: 5 }, (_, index) => ({
+    resultId: `SKU-${index + 1}`, title: "净水机", subtitle: "商用", detail: "净水设备",
+    updatedAt: "2026-07-23", amountCents: null as null,
+  }));
+  const result = await searchAllBusinessData(database, request, admin, {
+    erpReferenceReader: fakeErpReferenceSearchReader({ products: erpProducts, calls: erpCalls }),
+  });
+  assert.equal(erpCalls.length, 1);
+  assert.equal(erpCalls[0]?.request.operation, "product_search");
+  assert.equal(erpCalls[0]?.request.query, "' OR 1=1--");
+  assert.equal(erpCalls[0]?.request.offset, 2);
+  assert.equal(erpCalls[0]?.request.limit, 2);
+  assert.equal(calls.length, 1);
   assert.equal(result.groups[0]?.items.length, 2);
   assert.equal(result.groups[0]?.total, 5);
-  assert.equal(result.groups[0]?.totalExact, false);
+  assert.equal(result.groups[0]?.totalExact, true);
   assert.equal(result.groups[0]?.hasMore, true);
   assert.equal(result.filtersApplied.group, "products");
   assert.equal(result.truncated, true);
@@ -728,6 +771,7 @@ test("Django 财务与商品批次在销售及其余 D1 批次之间保持精确
     productsReader: fakeProductsSearchReader({ imports: productImports }),
     inventoryReader: fakeInventorySearchReader({ imports: inventoryImports }),
     customerServiceReader: fakeCustomerServiceSearchReader(),
+    erpReferenceReader: fakeErpReferenceSearchReader(),
     financeBackendMode: "django" as const,
   };
   const middle = await searchAllBusinessData(
@@ -818,6 +862,7 @@ test("所有登记分组 SQL 可在真实 SQLite 架构执行", async () => {
       inventoryReader: fakeInventorySearchReader(),
       workflowReader: fakeWorkflowSearchReader(),
       customerServiceReader: fakeCustomerServiceSearchReader(),
+      erpReferenceReader: fakeErpReferenceSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -1062,6 +1107,10 @@ test("restricted principal 在旧库不搜索无平台目标且其他分组继�
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=旧库隔离词")),
     restrictedAdmin,
+    { erpReferenceReader: fakeErpReferenceSearchReader({ products: [{
+      resultId: "P-PG", title: "旧库隔离词商品", subtitle: "", detail: "",
+      updatedAt: "2026-09-05", amountCents: null,
+    }] }) },
   );
   const targets = result.groups.find((group) => group.key === "targets");
   const products = result.groups.find((group) => group.key === "products");
@@ -1069,8 +1118,9 @@ test("restricted principal 在旧库不搜索无平台目标且其他分组继�
   assert.equal(targets?.total, 0);
   assert.deepEqual(targets?.items, []);
   assert.equal(products?.total, 1);
-  assert.equal(products?.items[0]?.id, "P-LEGACY");
+  assert.equal(products?.items[0]?.id, "P-PG");
   assert.equal(calls.some((sql) => /FROM finance_targets\b/.test(sql)), false);
+  assert.equal(calls.some((sql) => /FROM erp_product_master\b/.test(sql)), false);
   sqlite.close();
 });
 
@@ -1192,6 +1242,7 @@ test("multi-domain search caps database concurrency at three and performs one LI
       inventoryReader: fakeInventorySearchReader(),
       workflowReader: fakeWorkflowSearchReader(),
       customerServiceReader: fakeCustomerServiceSearchReader(),
+      erpReferenceReader: fakeErpReferenceSearchReader(),
       financeBackendMode: "django",
     },
   );
@@ -1200,8 +1251,8 @@ test("multi-domain search caps database concurrency at three and performs one LI
   assert.equal(result.deadlineExceeded, false);
   assert.equal(peak, 3);
   assert.ok(peak <= 3);
-  assert.equal(businessCalls.length, 6);
-  assert.equal(statementCount, 7);
+  assert.equal(businessCalls.length, 4);
+  assert.equal(statementCount, 5);
   const localImportCalls = businessCalls.filter(({ sql }) => /COUNT\s*\(\s*\*\s*\)\s*OVER/i.test(sql));
   const workflowCountCalls = businessCalls.filter(({ sql }) => /SELECT COUNT\(\*\) AS total_count FROM \(/i.test(sql));
   assert.equal(businessCalls.filter(({ sql }) => /LIMIT \? OFFSET \?/i.test(sql))
@@ -1259,7 +1310,7 @@ test("explicit group stays single-query and only explicit customer-service searc
 });
 
 test("LIMIT+1 derives hasMore and marks a non-empty terminal page total as exact without a count query", async () => {
-  let businessQueryCount = 0;
+  let erpQueryCount = 0;
   let returnEmptyPage = false;
   const database = {
     prepare(sql: string) {
@@ -1267,40 +1318,51 @@ test("LIMIT+1 derives hasMore and marks a non-empty terminal page total as exact
         bind() { return this; },
         async all<T>() {
           if (sql.includes("sqlite_master")) return { results: [{ name: "erp_product_master" }] as T[] };
-          businessQueryCount += 1;
-          if (returnEmptyPage) return { results: [] as T[] };
-          return { results: [{
-            result_id: "SKU-3", title: "净水机三号", subtitle: "", detail: "",
-            updated_at: "2026-08-25", amount_cents: null,
-          }] as T[] };
+          return { results: [] as T[] };
         },
       };
     },
   } as GlobalSearchDatabase;
+  const erpReader = {
+    read: async () => {
+      erpQueryCount += 1;
+      return {
+        revision: "erp:7:abcdef123456",
+        data: returnEmptyPage
+          ? { items: [], total: 0, truncated: false }
+          : { items: [{
+              resultId: "SKU-3", title: "净水机三号", subtitle: "", detail: "",
+              updatedAt: "2026-08-25", amountCents: null,
+            }], total: 3, truncated: false },
+      };
+    },
+  } as ErpReferenceConsumerReader;
 
   const result = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=products&page=2&limit=2")),
     admin,
+    { erpReferenceReader: erpReader },
   );
-  assert.equal(businessQueryCount, 1);
+  assert.equal(erpQueryCount, 1);
   assert.equal(result.groups[0]?.items.length, 1);
   assert.equal(result.groups[0]?.hasMore, false);
   assert.equal(result.groups[0]?.total, 3);
   assert.equal(result.groups[0]?.totalExact, true);
 
   returnEmptyPage = true;
-  const beforeEmptyPage = businessQueryCount;
+  const beforeEmptyPage = erpQueryCount;
   const emptyPage = await searchAllBusinessData(
     database,
     normalizeGlobalSearchRequest(new URLSearchParams("q=净水机&group=products&page=3&limit=2")),
     admin,
+    { erpReferenceReader: erpReader },
   );
-  assert.equal(businessQueryCount, beforeEmptyPage + 1);
+  assert.equal(erpQueryCount, beforeEmptyPage + 1);
   assert.equal(emptyPage.groups[0]?.items.length, 0);
   assert.equal(emptyPage.groups[0]?.hasMore, false);
   assert.equal(emptyPage.groups[0]?.total, 0);
-  assert.equal(emptyPage.groups[0]?.totalExact, false);
+  assert.equal(emptyPage.groups[0]?.totalExact, true);
 });
 
 test("one failed group is isolated and does not prevent another group from returning", async () => {
@@ -1314,7 +1376,6 @@ test("one failed group is isolated and does not prevent another group from retur
             return { results: [{ name: "erp_product_master" }] as T[] };
           }
           businessQueryCount += 1;
-          if (sql.includes("erp_product_master")) throw new Error("simulated product query failure");
           return { results: [{
             result_id: "ORDER-1", title: "ORDER-1", subtitle: "京东 · 测试店", detail: "净水机",
             updated_at: "2026-08-25", amount_cents: 100,
@@ -1331,9 +1392,11 @@ test("one failed group is isolated and does not prevent another group from retur
     { salesReader: fakeSalesSearchReader({ orders: [{
       id: "ORDER-1", title: "ORDER-1", subtitle: "京东 · 测试店", detail: "净水机",
       updatedAt: "2026-08-25", amountCents: 100,
-    }] }) },
+    }] }), erpReferenceReader: {
+      read: async () => { throw new Error("simulated ERP product query failure"); },
+    } as ErpReferenceConsumerReader },
   );
-  assert.equal(businessQueryCount, 1);
+  assert.equal(businessQueryCount, 0);
   assert.equal(result.groups.find((group) => group.key === "products")?.available, false);
   assert.equal(result.groups.find((group) => group.key === "products")?.totalExact, false);
   assert.equal(result.groups.find((group) => group.key === "orders")?.items[0]?.id, "ORDER-1");
@@ -1366,14 +1429,15 @@ test("group deadline returns a disclosed partial response and never starts queue
       salesReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as SalesConsumerReader,
       financeReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as FinanceConsumerReader,
       netshopReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as NetshopConsumerReader,
+      erpReferenceReader: { read: async () => { await wait(60); throw new Error("simulated timeout"); } } as ErpReferenceConsumerReader,
       financeBackendMode: "django",
     },
   );
-  assert.equal(businessStarts, 1);
+  assert.equal(businessStarts, 0);
   assert.equal(result.deadlineExceeded, true);
   assert.equal(result.truncated, true);
   assert.equal(result.timedOutDomains.length, 14);
   assert.equal(result.groups.every((group) => group.totalExact === false), true);
   await wait(70);
-  assert.equal(businessStarts, 1);
+  assert.equal(businessStarts, 0);
 });

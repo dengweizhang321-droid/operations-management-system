@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from datetime import timedelta
+import hashlib
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from erp_reference.models import ErpReferenceSyncCheckpoint
+from erp_reference.models import (
+    ErpReferenceImportBatch,
+    ErpReferenceImportScopeHead,
+    ErpReferenceWriteAuthority,
+)
+from erp_reference.import_service import combined_database_digest, content_hash
 from sales.models import (
     ErpProductMaster,
     SalesCutoverAttestation,
@@ -19,17 +24,84 @@ SALES_DIGEST = "c" * 64
 ERP_DIGEST = "d" * 64
 WRITER_EPOCH = "11111111-1111-4111-8111-111111111111"
 WRITER_CUTOVER = "sales-cutover-20260828"
+ERP_CUTOVER = "erp-reference-test-cutover"
+ERP_VERIFY_RUN = "erp-reference-" + "a" * 32
 
 
 class HealthTests(TestCase):
     def _create_erp_product(self) -> None:
-        ErpProductMaster.objects.create(
+        ErpProductMaster.objects.update_or_create(
             product_code="P1",
-            product_name="ERP readiness fixture",
-            source_row_number=1,
-            last_import_batch_id="products:baseline",
-            created_at="2026-08-28 00:00:00",
-            updated_at="2026-08-28 00:00:00",
+            defaults={
+                "product_name": "ERP readiness fixture",
+                "source_row_number": 1,
+                "last_import_batch_id": "products:baseline",
+                "created_at": "2026-08-28 00:00:00",
+                "updated_at": "2026-08-28 00:00:00",
+            },
+        )
+
+    def _create_terminal_erp_state(self, *, erp_revision: int, erp_digest: str) -> None:
+        self._create_erp_product()
+        for source, row_count in (("products", 1), ("combos", 0)):
+            scope_key = hashlib.sha256(
+                f'{{"source":"{source}"}}'.encode("utf-8")
+            ).hexdigest()
+            batch_id = f"{source}:baseline"
+            current_content_hash = content_hash(
+                source,
+                [
+                    {
+                        "productCode": "P1",
+                        "productName": "ERP readiness fixture",
+                        "brand": "",
+                        "specification": "",
+                        "barcode": "",
+                        "category": "",
+                        "supplier": "",
+                        "productStatus": "",
+                        "sourceRowNumber": 1,
+                    }
+                ]
+                if source == "products"
+                else [],
+            )
+            ErpReferenceImportBatch.objects.update_or_create(
+                id=batch_id,
+                defaults={
+                    "source_key": source,
+                    "source_label": source,
+                    "file_name": f"{source}.xlsx",
+                    "file_size_bytes": 1,
+                    "file_hash": hashlib.sha256(batch_id.encode()).hexdigest(),
+                    "raw_file_hash": hashlib.sha256(f"raw:{batch_id}".encode()).hexdigest(),
+                    "content_hash": current_content_hash,
+                    "scope_key": scope_key,
+                    "published_state_token": erp_digest,
+                    "sheet_name": "Sheet1",
+                    "status": "completed",
+                    "row_count": row_count,
+                    "inserted_count": row_count,
+                    "completed_at": timezone.now(),
+                },
+            )
+            ErpReferenceImportScopeHead.objects.filter(source_key=source).update(
+                scope_key=scope_key,
+                state_token=erp_digest,
+                status="ready",
+                owner_token="",
+                current_batch_id=batch_id,
+            )
+        ErpReferenceWriteAuthority.objects.filter(id=1).update(
+            status="postgres",
+            authority_epoch="33333333-3333-4333-8333-333333333333",
+            cutover_id=ERP_CUTOVER,
+            migration_verify_run_id=ERP_VERIFY_RUN,
+            activated_at=timezone.now(),
+        )
+        SalesDataRevision.objects.filter(domain="erp").update(
+            revision=erp_revision,
+            source_digest=combined_database_digest(),
         )
 
     def _create_revisions(
@@ -39,27 +111,19 @@ class HealthTests(TestCase):
         erp_revision: int = 3,
         sales_digest: str = SALES_DIGEST,
         erp_digest: str = ERP_DIGEST,
+        terminal_erp: bool = True,
     ) -> None:
-        SalesDataRevision.objects.bulk_create(
-            [
-                SalesDataRevision(
-                    domain="sales", revision=sales_revision, source_digest=sales_digest
-                ),
-                SalesDataRevision(domain="erp", revision=erp_revision, source_digest=erp_digest),
-            ]
+        SalesDataRevision.objects.update_or_create(
+            domain="sales",
+            defaults={"revision": sales_revision, "source_digest": sales_digest},
         )
-        if len(erp_digest) == 64:
-            self._create_erp_product()
-            ErpReferenceSyncCheckpoint.objects.create(
-                id=1,
-                source_epoch="a" * 32,
-                source_path_digest="b" * 64,
-                last_event_sequence=0,
-                last_event_id="",
-                erp_revision=erp_revision,
-                content_hash=erp_digest,
-                row_count=1,
-                source_batch_id="products:baseline",
+        SalesDataRevision.objects.update_or_create(
+            domain="erp",
+            defaults={"revision": erp_revision, "source_digest": erp_digest},
+        )
+        if terminal_erp and erp_revision > 0 and len(erp_digest) == 64:
+            self._create_terminal_erp_state(
+                erp_revision=erp_revision, erp_digest=erp_digest
             )
 
     def test_liveness_does_not_require_database_state(self):
@@ -84,42 +148,31 @@ class HealthTests(TestCase):
         self._create_revisions(sales_digest="", erp_digest="")
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
 
-    def test_readiness_rejects_missing_empty_or_stale_erp_checkpoint(self):
-        SalesDataRevision.objects.bulk_create(
-            [
-                SalesDataRevision(domain="sales", revision=7, source_digest=SALES_DIGEST),
-                SalesDataRevision(domain="erp", revision=3, source_digest=ERP_DIGEST),
-            ]
-        )
+    def test_readiness_rejects_missing_or_inactive_erp_authority(self):
+        self._create_revisions(terminal_erp=False)
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
-        ErpReferenceSyncCheckpoint.objects.create(
-            id=1,
-            source_epoch="a" * 32,
-            source_path_digest="b" * 64,
-            erp_revision=3,
-            content_hash=ERP_DIGEST,
-            row_count=0,
-        )
-        self.assertEqual(self.client.get("/health/ready").status_code, 503)
-        self._create_erp_product()
-        ErpReferenceSyncCheckpoint.objects.filter(id=1).update(
-            row_count=1,
-            last_checked_at=timezone.now(),
-        )
+        self._create_terminal_erp_state(erp_revision=3, erp_digest=ERP_DIGEST)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
-        ErpReferenceSyncCheckpoint.objects.filter(id=1).update(
-            last_checked_at=timezone.now() - timedelta(seconds=61)
+        ErpReferenceWriteAuthority.objects.filter(id=1).update(
+            status="d1",
+            authority_epoch=None,
+            cutover_id="",
+            migration_verify_run_id="",
+            activated_at=None,
         )
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
 
-    def test_readiness_rejects_checkpoint_revision_or_row_count_divergence(self):
+    def test_readiness_rejects_scope_or_row_count_divergence(self):
         self._create_revisions()
-        ErpReferenceSyncCheckpoint.objects.filter(id=1).update(erp_revision=4)
+        ErpReferenceImportScopeHead.objects.filter(source_key="products").update(
+            owner_token="busy"
+        )
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
-        ErpReferenceSyncCheckpoint.objects.filter(id=1).update(
-            erp_revision=3,
-            row_count=2,
-            last_checked_at=timezone.now(),
+        ErpReferenceImportScopeHead.objects.filter(source_key="products").update(
+            owner_token=""
+        )
+        ErpReferenceImportBatch.objects.filter(id="products:baseline").update(
+            row_count=2
         )
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
 
@@ -161,43 +214,18 @@ class HealthTests(TestCase):
         DJANGO_ENVIRONMENT="test",
         SALES_WRITE_AUTHORITY_EPOCH=WRITER_EPOCH,
         SALES_WRITE_CUTOVER_ID=WRITER_CUTOVER,
-        ERP_REFERENCE_SYNC_MAX_AGE_SECONDS=60,
     )
-    def test_writer_readiness_fails_closed_without_fresh_erp_bridge_state(self):
+    def test_writer_readiness_fails_closed_without_terminal_erp_authority(self):
         install_lightweight_attestation(WRITER_CUTOVER)
         SalesWriteAuthority.objects.filter(id=1).update(
             status="active",
             authority_epoch=WRITER_EPOCH,
             cutover_id=WRITER_CUTOVER,
         )
-        SalesDataRevision.objects.bulk_create(
-            [
-                SalesDataRevision(domain="sales", revision=7, source_digest=SALES_DIGEST),
-                SalesDataRevision(domain="erp", revision=3, source_digest=ERP_DIGEST),
-            ]
-        )
+        self._create_revisions(terminal_erp=False)
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
-
-        checkpoint = ErpReferenceSyncCheckpoint.objects.create(
-            id=1,
-            source_epoch="a" * 32,
-            source_path_digest="b" * 64,
-            erp_revision=3,
-            content_hash=ERP_DIGEST,
-            row_count=0,
-        )
-        self.assertEqual(self.client.get("/health/ready").status_code, 503)
-        self._create_erp_product()
-        ErpReferenceSyncCheckpoint.objects.filter(id=checkpoint.id).update(
-            row_count=1,
-            last_checked_at=timezone.now(),
-        )
+        self._create_terminal_erp_state(erp_revision=3, erp_digest=ERP_DIGEST)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
-
-        ErpReferenceSyncCheckpoint.objects.filter(id=checkpoint.id).update(
-            last_checked_at=timezone.now() - timedelta(seconds=61)
-        )
-        self.assertEqual(self.client.get("/health/ready").status_code, 503)
 
     @override_settings(
         DJANGO_PROCESS_ROLE="sales_writer",
@@ -206,7 +234,7 @@ class HealthTests(TestCase):
         SALES_WRITE_AUTHORITY_EPOCH=WRITER_EPOCH,
         SALES_WRITE_CUTOVER_ID=WRITER_CUTOVER,
     )
-    def test_writer_readiness_fails_closed_on_erp_revision_digest_or_count_divergence(self):
+    def test_writer_readiness_fails_closed_on_erp_digest_or_count_divergence(self):
         self._create_revisions()
         install_lightweight_attestation(WRITER_CUTOVER)
         SalesWriteAuthority.objects.filter(id=1).update(
@@ -214,20 +242,14 @@ class HealthTests(TestCase):
             authority_epoch=WRITER_EPOCH,
             cutover_id=WRITER_CUTOVER,
         )
-        checkpoint = ErpReferenceSyncCheckpoint.objects.get(id=1)
-
-        checkpoint.erp_revision = 4
-        checkpoint.save(update_fields=["erp_revision", "last_checked_at"])
+        SalesDataRevision.objects.filter(domain="erp").update(
+            revision=3, source_digest="not-a-digest"
+        )
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
-
-        checkpoint.erp_revision = 3
-        checkpoint.content_hash = "e" * 64
-        checkpoint.save(update_fields=["erp_revision", "content_hash", "last_checked_at"])
-        self.assertEqual(self.client.get("/health/ready").status_code, 503)
-
-        checkpoint.content_hash = ERP_DIGEST
-        checkpoint.row_count = 2
-        checkpoint.save(update_fields=["content_hash", "row_count", "last_checked_at"])
+        SalesDataRevision.objects.filter(domain="erp").update(
+            source_digest=combined_database_digest()
+        )
+        ErpReferenceImportBatch.objects.filter(id="products:baseline").update(row_count=2)
         self.assertEqual(self.client.get("/health/ready").status_code, 503)
 
     @override_settings(

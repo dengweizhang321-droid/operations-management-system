@@ -27,7 +27,8 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_sales_owner",
   "teruisi_sales_reader",
   "teruisi_sales_writer",
-  "teruisi_erp_reference_sync",
+  "teruisi_erp_reference_reader",
+  "teruisi_erp_reference_writer",
   "teruisi_finance_reader",
   "teruisi_finance_writer",
   "teruisi_netshop_reader",
@@ -244,6 +245,13 @@ function Assert-MaintenanceEvidence(
   $hasBiMigration = @($Evidence.migrations | Where-Object {
       [string]$_.app -ceq "bi" -and [string]$_.name -ceq "0001_initial"
     }).Count -gt 0
+  $hasErpReferenceMigration = @($Evidence.migrations | Where-Object {
+      [string]$_.app -ceq "erp_reference" -and [string]$_.name -like "0002_*"
+    }).Count -gt 0
+  $hasErpReferenceAuthority = $null -ne $Evidence.PSObject.Properties["erpReferenceWriteAuthority"]
+  if ($hasErpReferenceMigration -ne $hasErpReferenceAuthority) {
+    throw "PostgreSQL ERP 主数据证据字段不完整"
+  }
   $hasNetshopRevisions = $null -ne $Evidence.PSObject.Properties["netshopRevisions"]
   $hasNetshopAuthority = $null -ne $Evidence.PSObject.Properties["netshopWriteAuthority"]
   if ($hasNetshopRevisions -ne $hasNetshopAuthority) {
@@ -280,6 +288,9 @@ function Assert-MaintenanceEvidence(
     "database", "tables", "migrations", "revisions", "writeAuthority",
     "contentSha256", "canonicalSha256"
   )
+  if ($hasErpReferenceAuthority) {
+    $evidenceProperties += @("erpReferenceWriteAuthority")
+  }
   if ($hasNetshopRevisions) {
     $evidenceProperties += @("netshopRevisions", "netshopWriteAuthority")
   }
@@ -332,6 +343,15 @@ function Assert-MaintenanceEvidence(
     "django_migrations", "sales_data_revisions", "sales_import_batches",
     "sales_order_lines", "sales_write_authority", "erp_product_master"
   )
+  if ($hasErpReferenceAuthority) {
+    $requiredTables += @(
+      "erp_combo_items", "erp_reference_import_batches_pg",
+      "erp_reference_import_scope_heads", "erp_reference_import_fingerprints",
+      "erp_reference_import_attempts", "erp_reference_write_authority",
+      "erp_reference_write_request_receipts", "erp_reference_migration_runs",
+      "erp_reference_raw_upload_sessions", "erp_reference_raw_upload_chunks"
+    )
+  }
   if ($hasBiMigration) {
     $requiredTables += @("bi_migration_runs")
   }
@@ -430,6 +450,31 @@ function Assert-MaintenanceEvidence(
       [string]$Evidence.writeAuthority.authorityEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
       [string]$Evidence.writeAuthority.cutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$") {
     throw "销售写入权威证据无效"
+  }
+
+  if ($hasErpReferenceAuthority) {
+    Assert-MaintenanceExactPropertySet $Evidence.erpReferenceWriteAuthority @(
+      "status", "authorityEpoch", "cutoverId", "migrationRunId"
+    ) "ERP 主数据写入权威证据"
+    $erpStatus = [string]$Evidence.erpReferenceWriteAuthority.status
+    $erpEpoch = [string]$Evidence.erpReferenceWriteAuthority.authorityEpoch
+    $erpCutoverId = [string]$Evidence.erpReferenceWriteAuthority.cutoverId
+    $erpRunId = [string]$Evidence.erpReferenceWriteAuthority.migrationRunId
+    if ($erpStatus -notin @("d1", "postgres") -or
+        (-not [string]::IsNullOrWhiteSpace($erpRunId) -and
+          $erpRunId -cnotmatch "^erp-reference-[0-9a-f]{32}$")) {
+      throw "ERP 主数据写入权威证据无效"
+    }
+    if ($erpStatus -ceq "postgres") {
+      if ($erpEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or
+          $erpCutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or
+          $erpRunId -cnotmatch "^erp-reference-[0-9a-f]{32}$") {
+        throw "ERP 主数据 PostgreSQL 写入权威证据不完整"
+      }
+    } elseif (-not [string]::IsNullOrEmpty($erpEpoch) -or
+              -not [string]::IsNullOrEmpty($erpCutoverId)) {
+      throw "未激活 ERP 主数据权威包含激活身份"
+    }
   }
 
   if ($hasNetshopRevisions) {

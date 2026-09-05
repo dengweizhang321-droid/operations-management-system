@@ -77,7 +77,7 @@ test("supervisor restarts only exact stopped processes and never auto-fixes data
   assert.match(script, /postgresql_process_stopped/);
   assert.match(script, /managed_child_process_stopped/);
   assert.match(script, /ownership_or_port_conflict/);
-  assert.match(script, /erp_reference_stale_or_diverged/);
+  assert.doesNotMatch(script, /erp_reference_stale_or_diverged|ErpReferenceSync/);
   assert.match(script, /running_process_not_ready/);
   assert.match(script, /recoverable = \$false/);
   assert.match(script, /SupervisorFailureThreshold = 2/);

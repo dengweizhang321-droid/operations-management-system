@@ -28,6 +28,7 @@ $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
+$DjangoErpReferenceService = Join-Path $DjangoRuntimeTools "django-erp-reference.ps1"
 $DjangoBiService = Join-Path $DjangoRuntimeTools "django-bi-service.ps1"
 $WorkerPort = 3000
 $WorkerHost = "127.0.0.1"
@@ -242,6 +243,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = $aggregateStatus.Workflow
     $inventoryStatus = $aggregateStatus.Inventory
     $customerServiceStatus = $aggregateStatus.CustomerService
+    $erpReferenceStatus = $aggregateStatus.ErpReference
     $biStatus = $aggregateStatus.Bi
   } else {
     # Safe rolling-upgrade compatibility. Once the new runtime app is deployed,
@@ -254,6 +256,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
     $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
     $customerServiceStatus = Invoke-DjangoStatusJson $DjangoCustomerService "Status" "Django customer-service status"
+    $erpReferenceStatus = Invoke-DjangoStatusJson $DjangoErpReferenceService "Status" "Django ERP reference status"
     $biStatus = Invoke-DjangoStatusJson $DjangoBiService "Status" "Django BI status"
   }
 
@@ -262,7 +265,6 @@ function Get-DjangoSystemReadiness {
       [string]$coreStatus.PostgreSQL -ceq "running" -and
       [string]$coreStatus.DjangoReader -ceq "running" -and
       [string]$coreStatus.DjangoWriter -ceq "running" -and
-      [string]$coreStatus.ErpReferenceSync -ceq "caught_up" -and
       [string]$coreStatus.ReaderReadiness -ceq "ready" -and
       [string]$coreStatus.WriterReadiness -ceq "ready" -and
       [string]$coreStatus.RuntimeAcl -ceq "root_hardened" -and
@@ -275,6 +277,7 @@ function Get-DjangoSystemReadiness {
     workflow = Test-DjangoDomainReady $workflowStatus "WorkflowReader" "WorkflowWriter"
     inventory = Test-DjangoDomainReady $inventoryStatus "InventoryReader" "InventoryWriter"
     customerService = Test-DjangoDomainReady $customerServiceStatus "CustomerServiceReader" "CustomerServiceWriter"
+    erpReference = Test-DjangoDomainReady $erpReferenceStatus "ErpReferenceReader" "ErpReferenceWriter"
     bi = Test-DjangoReaderReady $biStatus "BiReader"
   }
   $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
@@ -309,7 +312,7 @@ function Ensure-DjangoSystemReady {
     throw "Django/PostgreSQL full start failed: exit=$djangoStartExitCode; $djangoStartText"
   }
   # The installed Start controller does not exit successfully until every
-  # enabled reader/writer and the ERP watch has passed its own bounded
+  # enabled reader/writer, including ERP reference, has passed its own bounded
   # readiness gate. Re-running seven heavyweight Status controllers here only
   # regenerates the same evidence and can add minutes of process startup cost.
 }

@@ -39,7 +39,10 @@ test("products roles enforce the same explicit least-privilege allowlist as read
   );
   assert.match(source, /products reader revision RLS policy is invalid/);
   assert.match(source, /FROM pg_policy p/);
-  assert.match(source, /"erp_reference_sync_checkpoint"/);
+  for (const table of [
+    "erp_product_master", "erp_combo_items", "erp_reference_import_batches_pg",
+    "erp_reference_import_scope_heads", "erp_reference_write_authority",
+  ]) assert.match(source, new RegExp(`"${table}"`));
   assert.match(source, /products writer DML escaped allowlist/);
   assert.match(source, /"product_write_authority": \("SELECT",\)/);
   assert.match(writerFence, /ProductWriteAuthority\.objects\.get\(id=1\)/);

@@ -11,6 +11,7 @@ const djangoDomainServicePaths = [
   "tools/django-market-service.ps1",
   "tools/django-products-service.ps1",
   "tools/django-inventory-service.ps1",
+  "tools/django-erp-reference.ps1",
   "tools/django-workflow-service.ps1",
   "tools/django-workflow-cutover.ps1",
   "tools/django-workflow-operations-cutover.ps1",
@@ -67,10 +68,11 @@ test("controller checks every authoritative Django PostgreSQL domain", () => {
   assert.match(panel, /django-products-service\.ps1/);
   assert.match(panel, /django-workflow-service\.ps1/);
   assert.match(panel, /django-inventory-service\.ps1/);
-  for (const component of ["core", "finance", "netshop", "market", "products", "workflow", "inventory"]) {
+  assert.match(panel, /django-erp-reference\.ps1/);
+  for (const component of ["core", "finance", "netshop", "market", "products", "workflow", "inventory", "customerService", "erpReference", "bi"]) {
     assert.match(panel, new RegExp(`${component} = Test-`));
   }
-  assert.match(panel, /ErpReferenceSync -ceq "caught_up"/);
+  assert.doesNotMatch(panel, /ErpReferenceSync -ceq "caught_up"/);
   assert.match(panel, /RuntimeAclVerification -ceq "root_only_status"/);
   assert.match(panel, /AuthorityProperty "PostgreSQLAuthority"/);
   assert.match(panel, /AuthorityProperty\]\.Value -cne "postgres"/);
@@ -135,7 +137,9 @@ test("canonical start engine enforces Django readiness before Worker verificatio
   assert.match(workerService, /DjangoProductsService/);
   assert.match(workerService, /DjangoWorkflowService/);
   assert.match(workerService, /DjangoInventoryService/);
-  assert.match(workerService, /ErpReferenceSync -ceq "caught_up"/);
+  assert.match(workerService, /DjangoErpReferenceService/);
+  assert.match(workerService, /erpReference = Test-DjangoDomainReady/);
+  assert.doesNotMatch(workerService, /ErpReferenceSync -ceq "caught_up"/);
   assert.match(workerService, /RuntimeAclVerification -ceq "root_only_status"/);
   assert.match(workerService, /function Test-IsIsolatedTestRuntime/);
   assert.match(workerService, /actualRuntime\.Equals\(\$productionRuntime/);

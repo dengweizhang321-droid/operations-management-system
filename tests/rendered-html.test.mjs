@@ -415,10 +415,12 @@ test("wires all five ERP imports and excludes 刷刷仓 from operating analysis"
   assert.match(parser, /库存天数/);
   assert.match(parser, /子件编号/);
   assert.match(service, /EXCLUDED_BRUSH_WAREHOUSE/);
-  assert.match(route, /importErpReferenceBytes/);
+  assert.match(route, /importErpReferenceToDjango/);
+  assert.match(route, /createDjangoErpReferenceService/);
   assert.match(route, /importInventoryAgeToDjango/);
-  assert.match(chunkRoute, /assembleInventoryUpload/);
+  assert.match(chunkRoute, /importErpReferenceToDjango/);
   assert.match(chunkRoute, /assembleDjangoInventoryUpload/);
+  assert.doesNotMatch(`${route}\n${chunkRoute}`, /@\/lib\/erp-reference\/(?:database|import-service|projection-outbox)/);
   assert.match(salesService, /isExcludedSalesWarehouse/);
   assert.match(inventoryService, /刷刷仓/);
   for (const analysis of [salesModels, inventoryOverview, ageAnalysis]) assert.match(analysis, /刷刷仓/);

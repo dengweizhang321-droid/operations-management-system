@@ -45,6 +45,11 @@ import {
   type CustomerServiceConsumerReader,
   type CustomerServiceConsumerResponseMap,
 } from "@/lib/django/customer-service-consumer-reader";
+import {
+  createDjangoErpReferenceConsumerReader,
+  type ErpReferenceConsumerReader,
+  type ErpReferenceConsumerResponseMap,
+} from "@/lib/django/erp-reference-consumer-reader";
 
 export { globalSearchGroupKeys, isGlobalSearchGroupKey } from "./target-contract";
 export type { GlobalSearchGroupKey, GlobalSearchNavigationTarget } from "./target-contract";
@@ -162,6 +167,7 @@ export type GlobalSearchExecutionOptions = {
   financeBackendMode?: FinanceBackendMode;
   workflowReader?: WorkflowConsumerReader;
   customerServiceReader?: CustomerServiceConsumerReader;
+  erpReferenceReader?: ErpReferenceConsumerReader;
   /** Test-only compatibility override; terminal production behavior is always Django. */
   workflowBackendMode?: "django";
   signal?: AbortSignal;
@@ -804,6 +810,45 @@ async function queryCustomerServiceGroup(
   }
 }
 
+function validErpSearch(value: unknown): value is ErpReferenceConsumerResponseMap["product_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items) && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean" && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.resultId === "string" && typeof row.title === "string"
+        && typeof row.subtitle === "string" && typeof row.detail === "string"
+        && typeof row.updatedAt === "string" && row.amountCents === null;
+    });
+}
+
+async function queryErpGroup(
+  reader: ErpReferenceConsumerReader,
+  operation: "product_search" | "combo_search",
+  definition: SearchGroupDefinition,
+  request: GlobalSearchRequest,
+  principal: AppPrincipal,
+  signal?: AbortSignal,
+) {
+  const offset = (request.page - 1) * request.groupLimit;
+  try {
+    const result = await reader.read(principal, {
+      operation, query: request.query, offset, limit: request.groupLimit,
+    }, { signal });
+    if (!result.revision || !validErpSearch(result.data)
+      || !validFinanceConsumerWindow(result.data, offset, request.groupLimit)) {
+      return emptyGroup(definition, false);
+    }
+    return mapSearchRows(definition, result.data.items.map((item) => ({
+      result_id: item.resultId, title: item.title, subtitle: item.subtitle,
+      detail: item.detail, updated_at: item.updatedAt, amount_cents: null,
+    })), request, principal, result.data.total);
+  } catch {
+    return emptyGroup(definition, false);
+  }
+}
+
 function validSalesOrderSearch(value: unknown): value is SalesConsumerResponseMap["order_search"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
@@ -1159,6 +1204,24 @@ function validCustomerServiceImportSearch(
     });
 }
 
+function validErpImportSearch(
+  value: unknown,
+): value is ErpReferenceConsumerResponseMap["import_batch_search"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  return Array.isArray(data.items)
+    && Number.isSafeInteger(data.total) && Number(data.total) >= 0
+    && typeof data.truncated === "boolean"
+    && data.items.every((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.id === "string" && typeof row.source === "string"
+        && typeof row.fileName === "string" && typeof row.status === "string"
+        && Number.isSafeInteger(row.rowCount) && typeof row.createdAt === "string"
+        && (row.completedAt === null || typeof row.completedAt === "string");
+    });
+}
+
 async function queryLocalImportRows(
   db: GlobalSearchDatabase,
   tables: Set<string>,
@@ -1168,7 +1231,9 @@ async function queryLocalImportRows(
   includeFinance: boolean,
 ) {
   const availableSources = importSources.filter((source) =>
-    tables.has(source.table) && (includeFinance || source.table !== "finance_import_batches"));
+    tables.has(source.table)
+      && source.table !== "erp_reference_import_batches"
+      && (includeFinance || source.table !== "finance_import_batches"));
   if (availableSources.length === 0) return { rows: [] as SearchRow[], total: 0 };
   const binds: unknown[] = [];
   const fragments = availableSources.map((source) => {
@@ -1209,6 +1274,7 @@ async function queryImportGroup(
   productsReader: ProductsConsumerReader,
   inventoryReader: InventoryConsumerReader,
   customerServiceReader: CustomerServiceConsumerReader,
+  erpReferenceReader: ErpReferenceConsumerReader,
   financeMode: FinanceBackendMode,
   signal?: AbortSignal,
 ) {
@@ -1289,6 +1355,18 @@ async function queryImportGroup(
     }
     const customerServiceRevision = customerServiceHead.revision;
     const customerServiceTotal = customerServiceHead.data.total;
+    const erpHead = await erpReferenceReader.read(principal, {
+      operation: "import_batch_search",
+      query: request.query,
+      offset: 0,
+      limit: 1,
+    }, { signal });
+    if (!erpHead.revision || !validErpImportSearch(erpHead.data)
+      || !validFinanceConsumerWindow(erpHead.data, 0, 1)) {
+      return emptyGroup(importDefinition, false);
+    }
+    const erpRevision = erpHead.revision;
+    const erpTotal = erpHead.data.total;
     const globalOffset = (request.page - 1) * request.groupLimit;
     const salesTake = globalOffset < salesTotal ? Math.min(request.groupLimit, salesTotal - globalOffset) : 0;
     let salesItems: SalesConsumerResponseMap["import_batch_search"]["items"] = [];
@@ -1426,11 +1504,42 @@ async function queryImportGroup(
       }
       customerServiceItems = customerServicePage.data.items;
     }
+    const erpOffset = Math.max(
+      0,
+      globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal
+        - inventoryTotal - customerServiceTotal,
+    );
+    const erpTake = erpOffset < erpTotal
+      ? Math.min(
+          request.groupLimit - salesItems.length - financeItems.length - netshopItems.length
+            - productsItems.length - inventoryItems.length - customerServiceItems.length,
+          erpTotal - erpOffset,
+        )
+      : 0;
+    let erpItems: ErpReferenceConsumerResponseMap["import_batch_search"]["items"] = [];
+    if (erpTake > 0) {
+      const erpPage = await erpReferenceReader.read(principal, {
+        operation: "import_batch_search",
+        query: request.query,
+        offset: erpOffset,
+        limit: erpTake,
+      }, { signal });
+      if (erpPage.revision !== erpRevision
+        || !validErpImportSearch(erpPage.data)
+        || !validFinanceConsumerWindow(erpPage.data, erpOffset, erpTake)
+        || erpPage.data.total !== erpTotal
+        || erpPage.data.items.length !== erpTake) {
+        return emptyGroup(importDefinition, false);
+      }
+      erpItems = erpPage.data.items;
+    }
     const localTake = request.groupLimit
-      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length - inventoryItems.length - customerServiceItems.length;
+      - salesItems.length - financeItems.length - netshopItems.length - productsItems.length
+      - inventoryItems.length - customerServiceItems.length - erpItems.length;
     const localOffset = Math.max(
       0,
-      globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal - inventoryTotal - customerServiceTotal,
+      globalOffset - salesTotal - financeTotal - netshopTotal - productsTotal
+        - inventoryTotal - customerServiceTotal - erpTotal,
     );
     const local = await queryLocalImportRows(
       db,
@@ -1440,7 +1549,8 @@ async function queryImportGroup(
       localOffset,
       financeMode !== "django",
     );
-    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal + inventoryTotal + customerServiceTotal + local.total;
+    const combinedTotal = salesTotal + financeTotal + netshopTotal + productsTotal
+      + inventoryTotal + customerServiceTotal + erpTotal + local.total;
     const rows: SearchRow[] = [
       ...salesItems.map((item) => ({
         result_id: item.id,
@@ -1483,6 +1593,14 @@ async function queryImportGroup(
         amount_cents: null,
       })),
       ...customerServiceItems.map((item) => ({
+        result_id: item.id,
+        title: item.fileName,
+        subtitle: item.source,
+        detail: item.status,
+        updated_at: item.completedAt ?? item.createdAt,
+        amount_cents: null,
+      })),
+      ...erpItems.map((item) => ({
         result_id: item.id,
         title: item.fileName,
         subtitle: item.source,
@@ -1596,6 +1714,7 @@ export async function searchAllBusinessData(
   const inventoryReader = options.inventoryReader ?? createDjangoInventoryConsumerReader();
   const workflowReader = options.workflowReader ?? createDjangoWorkflowConsumerReader();
   const customerServiceReader = options.customerServiceReader ?? createDjangoCustomerServiceConsumerReader();
+  const erpReferenceReader = options.erpReferenceReader ?? createDjangoErpReferenceConsumerReader();
   const financeMode = options.financeBackendMode ?? await getFinanceBackendMode();
   const tableResult = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all<{ name: string }>();
   const tables = new Set((tableResult.results ?? []).map((row) => row.name));
@@ -1603,6 +1722,20 @@ export async function searchAllBusinessData(
   const selectedStaticDefinitions = staticDefinitions.filter((definition) =>
     (!request.group || definition.key === request.group) && isGroupAuthorized(definition, principal));
   const groupTasks: SearchGroupTask[] = selectedStaticDefinitions.map((definition) => {
+    if (definition.key === "products" || definition.key === "combos") {
+      return {
+        definition,
+        available: true,
+        run: () => queryErpGroup(
+          erpReferenceReader,
+          definition.key === "products" ? "product_search" : "combo_search",
+          definition,
+          request,
+          principal,
+          options.signal,
+        ),
+      };
+    }
     if (definition.key === "orders") {
       return {
         definition: salesOrderDefinition,
@@ -1740,6 +1873,7 @@ export async function searchAllBusinessData(
         productsReader,
         inventoryReader,
         customerServiceReader,
+        erpReferenceReader,
         financeMode,
         options.signal,
       ),

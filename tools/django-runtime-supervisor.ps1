@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 $SupervisorUtf8NoBom = [Text.UTF8Encoding]::new($false)
 $SupervisorFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
-$SupervisorVersion = "teruisi-django-runtime-supervisor-v1"
+$SupervisorVersion = "teruisi-django-runtime-supervisor-v2"
 $SupervisorDesiredStateVersion = "teruisi-django-supervisor-desired-state-v1"
 $SupervisorStateVersion = "teruisi-django-supervisor-state-v1"
 $SupervisorReceiptVersion = "teruisi-django-supervisor-process-v1"
@@ -137,7 +137,7 @@ function Set-SupervisorDesiredState([string]$State, [string]$Reason) {
 
 function Assert-SupervisorStatusPayload([object]$Status) {
   Assert-SupervisorExactPropertySet $Status @(
-    "PostgreSQL", "DjangoReader", "DjangoWriter", "ErpReferenceSync",
+    "PostgreSQL", "DjangoReader", "DjangoWriter",
     "ReaderReadiness", "WriterReadiness", "RuntimeAcl",
     "RuntimeAclVerification", "Startup", "CheckedAt"
   ) "Django service status"
@@ -149,10 +149,6 @@ function Assert-SupervisorStatusPayload([object]$Status) {
       ) -or
       [string]$Status.DjangoWriter -notin @(
         "stopped", "running", "foreign_port_owner", "ownership_error"
-      ) -or
-      [string]$Status.ErpReferenceSync -notin @(
-        "stopped", "caught_up", "stale_or_diverged", "unregistered_process",
-        "ownership_or_config_error"
       ) -or
       [string]$Status.ReaderReadiness -notin @("ready", "not_ready") -or
       [string]$Status.WriterReadiness -notin @("ready", "not_ready") -or
@@ -187,7 +183,6 @@ function Get-SupervisorHealthClassification([object]$Status) {
     PostgreSQL = [string]$Status.PostgreSQL
     DjangoReader = [string]$Status.DjangoReader
     DjangoWriter = [string]$Status.DjangoWriter
-    ErpReferenceSync = [string]$Status.ErpReferenceSync
     ReaderReadiness = [string]$Status.ReaderReadiness
     WriterReadiness = [string]$Status.WriterReadiness
     RuntimeAcl = [string]$Status.RuntimeAcl
@@ -197,7 +192,6 @@ function Get-SupervisorHealthClassification([object]$Status) {
     [string]$Status.PostgreSQL -ceq "running" -and
     [string]$Status.DjangoReader -ceq "running" -and
     [string]$Status.DjangoWriter -ceq "running" -and
-    [string]$Status.ErpReferenceSync -ceq "caught_up" -and
     [string]$Status.ReaderReadiness -ceq "ready" -and
     [string]$Status.WriterReadiness -ceq "ready" -and
     [string]$Status.RuntimeAcl -ceq "root_hardened"
@@ -221,10 +215,7 @@ function Get-SupervisorHealthClassification([object]$Status) {
   }
   if ([string]$Status.PostgreSQL -in @("not_ready", "foreign_or_unverified") -or
       [string]$Status.DjangoReader -in @("foreign_port_owner", "ownership_error") -or
-      [string]$Status.DjangoWriter -in @("foreign_port_owner", "ownership_error") -or
-      [string]$Status.ErpReferenceSync -in @(
-        "unregistered_process", "ownership_or_config_error"
-      )) {
+      [string]$Status.DjangoWriter -in @("foreign_port_owner", "ownership_error")) {
     return [pscustomobject][ordered]@{
       health = "unhealthy"
       recoverable = $false
@@ -243,8 +234,7 @@ function Get-SupervisorHealthClassification([object]$Status) {
   }
   if ([string]$Status.PostgreSQL -ceq "running" -and
       ([string]$Status.DjangoReader -ceq "stopped" -or
-       [string]$Status.DjangoWriter -ceq "stopped" -or
-       [string]$Status.ErpReferenceSync -ceq "stopped")) {
+       [string]$Status.DjangoWriter -ceq "stopped")) {
     return [pscustomobject][ordered]@{
       health = "unhealthy"
       recoverable = $true
@@ -255,11 +245,7 @@ function Get-SupervisorHealthClassification([object]$Status) {
   return [pscustomobject][ordered]@{
     health = "unhealthy"
     recoverable = $false
-    code = if ([string]$Status.ErpReferenceSync -ceq "stale_or_diverged") {
-      "erp_reference_stale_or_diverged"
-    } else {
-      "running_process_not_ready"
-    }
+    code = "running_process_not_ready"
     fingerprint = $fingerprint
   }
 }

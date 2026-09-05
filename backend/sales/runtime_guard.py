@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
-from datetime import UTC
+import uuid
 
-from django.conf import settings
 from django.db import connection
-from django.utils import timezone
 
 from .cutover_attestation import (
     SalesCutoverAttestationError,
@@ -40,54 +39,75 @@ def validate_erp_reference_runtime_state(cursor=None) -> None:
         if revision < 1 or not HEX_64_RE.fullmatch(revision_digest):
             raise WriterRuntimeGuardError("erp_reference_revision_invalid")
         cursor.execute(
-            "SELECT source_epoch, source_path_digest, last_event_sequence, "
-            "last_event_id, erp_revision, content_hash, row_count, "
-            "source_batch_id, last_checked_at "
-            "FROM erp_reference_sync_checkpoint WHERE id = 1"
+            "SELECT status, authority_epoch, cutover_id, migration_verify_run_id "
+            "FROM erp_reference_write_authority WHERE id = 1"
         )
-        checkpoint = cursor.fetchone()
-        if checkpoint is None:
-            raise WriterRuntimeGuardError("erp_reference_checkpoint_missing")
-        (
-            source_epoch,
-            source_path_digest,
-            raw_sequence,
-            raw_event_id,
-            raw_erp_revision,
-            raw_content_hash,
-            raw_row_count,
-            raw_source_batch_id,
-            last_checked_at,
-        ) = checkpoint
-        sequence = int(raw_sequence)
-        erp_revision = int(raw_erp_revision)
-        row_count = int(raw_row_count)
-        event_id = str(raw_event_id or "")
-        source_batch_id = str(raw_source_batch_id or "")
-        content_hash = str(raw_content_hash or "")
-        source_epoch = str(source_epoch or "")
+        authority = cursor.fetchone()
+        try:
+            authority_epoch = uuid.UUID(str(authority[1])) if authority is not None else None
+        except (ValueError, TypeError, AttributeError):
+            authority_epoch = None
         if (
-            not re.fullmatch(r"[0-9a-f]{32}", source_epoch)
-            or not HEX_64_RE.fullmatch(str(source_path_digest or ""))
-            or not HEX_64_RE.fullmatch(content_hash)
-            or sequence < 0
-            or erp_revision < 1
-            or row_count <= 0
-            or bool(event_id) != (sequence > 0)
-            or (sequence > 0 and event_id != f"{source_epoch}:erp:{source_batch_id}")
-            or (revision, revision_digest) != (erp_revision, content_hash)
+            authority is None
+            or str(authority[0] or "") != "postgres"
+            or authority_epoch is None
+            or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", str(authority[2] or ""))
+            or not re.fullmatch(r"erp-reference-[0-9a-f]{32}", str(authority[3] or ""))
         ):
-            raise WriterRuntimeGuardError("erp_reference_checkpoint_invalid")
-        if last_checked_at is None:
-            raise WriterRuntimeGuardError("erp_reference_checkpoint_stale")
-        if timezone.is_naive(last_checked_at):
-            last_checked_at = timezone.make_aware(last_checked_at, UTC)
-        age_seconds = (timezone.now() - last_checked_at).total_seconds()
-        if age_seconds < -5 or age_seconds > settings.ERP_REFERENCE_SYNC_MAX_AGE_SECONDS:
-            raise WriterRuntimeGuardError("erp_reference_checkpoint_stale")
-        cursor.execute("SELECT COUNT(*) FROM erp_product_master")
-        if int(cursor.fetchone()[0]) != row_count:
-            raise WriterRuntimeGuardError("erp_reference_checkpoint_invalid")
+            raise WriterRuntimeGuardError("erp_reference_authority_invalid")
+        cursor.execute(
+            "SELECT h.source_key,h.scope_key,h.status,h.owner_token,h.current_batch_id,"
+            "b.status,b.content_hash,b.row_count "
+            "FROM erp_reference_import_scope_heads h "
+            "LEFT JOIN erp_reference_import_batches_pg b "
+            "ON b.id=h.current_batch_id AND b.source_key=h.source_key "
+            "ORDER BY h.source_key"
+        )
+        heads = cursor.fetchall()
+        if len(heads) != 2 or [str(row[0]) for row in heads] != ["combos", "products"]:
+            raise WriterRuntimeGuardError("erp_reference_scope_heads_invalid")
+        expected_counts: dict[str, int] = {}
+        expected_hashes: dict[str, str] = {}
+        for row in heads:
+            source = str(row[0])
+            expected_scope = hashlib.sha256(
+                (f'{{"source":"{source}"}}').encode("utf-8")
+            ).hexdigest()
+            if (
+                str(row[1]) != expected_scope
+                or str(row[2]) != "ready"
+                or str(row[3] or "")
+                or not str(row[4] or "")
+                or str(row[5] or "") != "completed"
+                or not HEX_64_RE.fullmatch(str(row[6] or ""))
+                or int(row[7]) < 0
+            ):
+                raise WriterRuntimeGuardError("erp_reference_scope_heads_invalid")
+            expected_counts[source] = int(row[7])
+            expected_hashes[source] = str(row[6])
+        # Import locally so sales model initialization cannot form an import
+        # cycle. Readiness independently re-hashes both complete ERP scopes;
+        # the revision row is a checkpoint, not proof by itself.
+        from erp_reference.import_service import (
+            combined_database_digest,
+            combo_rows_from_database,
+            content_hash,
+            product_rows_from_database,
+        )
+
+        products = product_rows_from_database()
+        combos = combo_rows_from_database()
+        product_count = len(products)
+        combo_count = len(combos)
+        if (
+            product_count <= 0
+            or product_count != expected_counts["products"]
+            or combo_count != expected_counts["combos"]
+            or content_hash("products", products) != expected_hashes["products"]
+            or content_hash("combos", combos) != expected_hashes["combos"]
+            or combined_database_digest() != revision_digest
+        ):
+            raise WriterRuntimeGuardError("erp_reference_facts_invalid")
     finally:
         if owns_cursor:
             cursor.close()

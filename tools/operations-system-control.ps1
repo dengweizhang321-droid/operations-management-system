@@ -28,6 +28,7 @@ $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
+$DjangoErpReferenceService = Join-Path $DjangoRuntimeTools "django-erp-reference.ps1"
 $DjangoBiService = Join-Path $DjangoRuntimeTools "django-bi-service.ps1"
 $PowerShellCommand = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
 if (-not $PowerShellCommand) { $PowerShellCommand = Get-Command "pwsh" -ErrorAction SilentlyContinue }
@@ -128,7 +129,8 @@ function Assert-ControllerDependencies {
     $DjangoProductsService,
     $DjangoWorkflowService,
     $DjangoInventoryService,
-    $DjangoCustomerService
+    $DjangoCustomerService,
+    $DjangoErpReferenceService,
     $DjangoBiService
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
@@ -247,7 +249,6 @@ function Test-CoreDjangoReady {
     [string]$Status.PostgreSQL -ceq "running" -and
     [string]$Status.DjangoReader -ceq "running" -and
     [string]$Status.DjangoWriter -ceq "running" -and
-    [string]$Status.ErpReferenceSync -ceq "caught_up" -and
     [string]$Status.ReaderReadiness -ceq "ready" -and
     [string]$Status.WriterReadiness -ceq "ready" -and
     [string]$Status.RuntimeAcl -ceq "root_hardened" -and
@@ -318,6 +319,7 @@ function Get-DjangoAggregateState {
       $workflowStatus = $aggregateStatus.Workflow
       $inventoryStatus = $aggregateStatus.Inventory
       $customerServiceStatus = $aggregateStatus.CustomerService
+      $erpReferenceStatus = $aggregateStatus.ErpReference
       $biStatus = $aggregateStatus.Bi
     } else {
       # Keep the source controller usable while a reviewed runtime deployment is
@@ -330,6 +332,7 @@ function Get-DjangoAggregateState {
       $workflowStatus = Invoke-JsonServiceAction -ScriptPath $DjangoWorkflowService -Arguments @("-Action", "Status") -Label "运营事务新品域状态检查"
       $inventoryStatus = Invoke-JsonServiceAction -ScriptPath $DjangoInventoryService -Arguments @("-Action", "Status") -Label "库存域状态检查"
       $customerServiceStatus = Invoke-JsonServiceAction -ScriptPath $DjangoCustomerService -Arguments @("-Action", "Status") -Label "客服域状态检查"
+      $erpReferenceStatus = Invoke-JsonServiceAction -ScriptPath $DjangoErpReferenceService -Arguments @("-Action", "Status") -Label "ERP 主数据域状态检查"
       $biStatus = Invoke-JsonServiceAction -ScriptPath $DjangoBiService -Arguments @("-Action", "Status") -Label "BI 状态检查"
     }
 
@@ -342,6 +345,7 @@ function Get-DjangoAggregateState {
       workflow = Test-DjangoDomainReady -Status $workflowStatus -ReaderProperty "WorkflowReader" -WriterProperty "WorkflowWriter"
       inventory = Test-DjangoDomainReady -Status $inventoryStatus -ReaderProperty "InventoryReader" -WriterProperty "InventoryWriter"
       customerService = Test-DjangoDomainReady -Status $customerServiceStatus -ReaderProperty "CustomerServiceReader" -WriterProperty "CustomerServiceWriter"
+      erpReference = Test-DjangoDomainReady -Status $erpReferenceStatus -ReaderProperty "ErpReferenceReader" -WriterProperty "ErpReferenceWriter"
       bi = Test-DjangoReaderReady -Status $biStatus -ReaderProperty "BiReader"
     }
     $notReadyComponents = @($componentReadiness.Keys | Where-Object { -not $componentReadiness[$_] })

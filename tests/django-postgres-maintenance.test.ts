@@ -121,6 +121,7 @@ test("backup evidence and archive are bound to one exported PostgreSQL snapshot"
   assert.match(helper, /customer_service_write_authority/);
   assert.match(helper, /customerServiceRevisions/);
   assert.match(helper, /customerServiceWriteAuthority/);
+  assert.match(helper, /erpReferenceWriteAuthority/);
   assert.match(operator, /customer_service_raw_upload_chunks/);
   assert.match(operator, /PostgreSQL 客服 revision 证据/);
   assert.match(operator, /客服 PostgreSQL 写入权威证据/);
@@ -203,7 +204,8 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
     "teruisi_sales_owner",
     "teruisi_sales_reader",
     "teruisi_sales_writer",
-    "teruisi_erp_reference_sync",
+    "teruisi_erp_reference_reader",
+    "teruisi_erp_reference_writer",
     "teruisi_finance_reader",
     "teruisi_finance_writer",
     "teruisi_netshop_reader",

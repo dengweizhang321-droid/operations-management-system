@@ -139,7 +139,8 @@ roles = {
 }
 reader_tables = (
     "sales_data_revisions", "sales_import_batches", "sales_order_lines",
-    "erp_product_master", "erp_reference_sync_checkpoint",
+    "erp_product_master", "erp_combo_items", "erp_reference_import_batches_pg",
+    "erp_reference_import_scope_heads", "erp_reference_write_authority",
     "product_shipping_rate_import_batches", "product_shipping_rates",
     "product_data_revisions",
     "product_inventory_projection", "product_inventory_projection_control",

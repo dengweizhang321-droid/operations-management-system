@@ -96,26 +96,28 @@ test("one top-level lifecycle ACL audit is reused only by its bounded in-process
 test("Django local service uses deterministic production secrets and least-privilege roles", () => {
   assert.match(script, /ConvertTo-SecureString \$ProtectedValue/);
   assert.match(script, /databaseWriter/);
-  assert.match(script, /databaseErpSync/);
   assert.match(script, /teruisi_sales_writer/);
-  assert.match(script, /Database-Url "teruisi_erp_reference_sync" \$Secrets\.ErpSyncPassword/);
+  assert.doesNotMatch(script, /Unprotect-Value \(\[string\]\$payload\.databaseErpSync\)/);
+  assert.doesNotMatch(script, /ErpSyncPassword/);
+  assert.doesNotMatch(script, /CREATE ROLE teruisi_erp_reference_sync/);
+  assert.match(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(script, /NOBYPASSRLS/);
   assert.match(script, /REVOKE ALL PRIVILEGES ON ALL TABLES/);
   assert.match(script, /REVOKE ALL PRIVILEGES \(\{names\}\)/);
   assert.match(script, /ENABLE ROW LEVEL SECURITY/);
   assert.match(script, /domain = 'sales'/);
-  assert.match(script, /domain = 'erp'/);
-  assert.match(script, /GRANT UPDATE \(resolved_category\)/);
+  assert.match(script, /domain IN \('sales', 'erp'\)/);
+  assert.doesNotMatch(script, /GRANT UPDATE \(resolved_category\).*teruisi_erp_reference_sync/);
   assert.match(
     script,
-    /GRANT SELECT ON sales_write_authority, sales_cutover_attestations, erp_product_master, erp_reference_sync_checkpoint TO teruisi_sales_writer/,
+    /GRANT SELECT ON sales_write_authority, sales_cutover_attestations, erp_product_master, erp_combo_items, erp_reference_import_batches_pg, erp_reference_import_scope_heads, erp_reference_write_authority TO teruisi_sales_writer/,
   );
   const writerGrants = [...script.matchAll(/c\.execute\("(GRANT [^"]+ TO teruisi_sales_writer)"\)/g)]
     .map((match) => match[1])
     .join("\n");
   assert.doesNotMatch(
     writerGrants,
-    /GRANT .*\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b.*\b(?:sales_write_authority|erp_product_master|erp_reference_sync_checkpoint|sales_cutover_attestations|sales_legacy_upload_audits)\b/,
+    /GRANT .*\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b.*\b(?:sales_write_authority|erp_product_master|erp_combo_items|erp_reference_import_batches_pg|erp_reference_import_scope_heads|erp_reference_write_authority|sales_cutover_attestations|sales_legacy_upload_audits)\b/,
   );
   assert.match(script, /"sales_write_authority",\s*"erp_product_master"/);
   assert.match(script, /has_any_column_privilege/);
@@ -153,11 +155,15 @@ test("Django local service uses deterministic production secrets and least-privi
   assert.doesNotMatch(script, /--(?:password|secret|database-url)/i);
 });
 
-test("writer readiness fails closed on stale or divergent ERP bridge state", () => {
-  assert.match(
-    health,
-    /"erp_reference_sync_checkpoint": \("SELECT",\)/,
-  );
+test("writer readiness fails closed on divergent terminal ERP PostgreSQL authority", () => {
+  for (const table of [
+    "erp_product_master",
+    "erp_combo_items",
+    "erp_reference_import_batches_pg",
+    "erp_reference_import_scope_heads",
+    "erp_reference_write_authority",
+  ]) assert.match(health, new RegExp(`"${table}": \\("SELECT",\\)`));
+  assert.match(health, /validate_erp_reference_runtime_state/);
   assert.match(health, /WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES/);
   assert.match(
     health,
@@ -205,29 +211,19 @@ test("PostgreSQL reuse proves listener executable and exact data directory befor
   assert.doesNotMatch(script, /& \$pgCtl start/);
 });
 
-test("startup is mutexed, migration and authority gated, rollback-safe, and logged", () => {
+test("startup is mutexed, authority gated, bridge-rejecting, rollback-safe, and logged", () => {
   assert.match(script, /\[Threading\.Mutex\]::new/);
   assert.match(script, /Invoke-DjangoMigrations/);
   assert.match(script, /Get-ActiveWriteAuthority/);
-  assert.match(script, /Invoke-ErpReferenceSyncOnce \$secrets \$config \$false/);
-  assert.match(script, /Start-ErpReferenceSync \$secrets \$config/);
-  assert.match(script, /Invoke-ErpReferenceStatus/);
-  assert.match(script, /Wait-ErpReferenceHeartbeat/);
-  const heartbeatBlock = script.slice(
-    script.indexOf("function Wait-ErpReferenceHeartbeat"),
-    script.indexOf("function Invoke-ErpReferenceSyncOnce"),
-  );
-  assert.match(heartbeatBlock, /Read-ErpReferenceCheckpointHeartbeat \$Secrets/);
-  assert.match(heartbeatBlock, /Resolve-OwnedProcess "erp-reference-sync"/);
-  assert.doesNotMatch(heartbeatBlock, /Invoke-ErpReferenceStatus/);
+  assert.doesNotMatch(script, /function (?:Invoke|Start|Wait|Read)-ErpReference/);
+  assert.doesNotMatch(script, /sync_erp_reference(?:\s|"|')/);
+  assert.match(script, /Get-ErpReferenceSyncCandidates/);
+  assert.match(script, /旧 ERP reference sync 必须保持停止/);
+  assert.match(script, /InstalledErpReferenceScriptPath -Action Start/);
   assert.match(script, /\$Psql = Join-Path \$PostgresBin "psql\.exe"/);
-  assert.match(script, /FROM erp_reference_sync_checkpoint WHERE id = 1/);
-  assert.match(script, /heartbeat_not_advanced/);
-  assert.match(script, /erp_reference_start_cleanup_failed/);
   assert.match(script, /django_migrations_applied/);
   assert.match(script, /if \(\$writerStarted\) \{\s+try \{ Stop-OwnedProcess/);
   assert.match(script, /if \(\$readerStarted\) \{\s+try \{ Stop-OwnedProcess/);
-  assert.match(script, /if \(\$erpSyncStarted\) \{\s+try \{ Stop-OwnedProcess/);
   assert.match(script, /if \(\$postgresStarted\) \{\s+try \{ Stop-Postgres/);
   assert.match(script, /launcher\.jsonl/);
   assert.match(script, /Remove-OldServiceLogs/);
@@ -247,7 +243,6 @@ test("critical Django native calls are PS5-safe and report only bounded redacted
   assert.match(script, /ConvertTo-PythonBase64Launcher \$grantCode/);
   assert.match(script, /Invoke-BoundedNativeProcess \$Node \$Arguments/);
   assert.match(script, /Invoke-BoundedNativeProcess \$Python @\(\s*\$manage, "sales_write_authority"/);
-  assert.match(script, /Invoke-BoundedNativeProcess \$Python \$arguments \$BackendRoot/);
   assert.match(script, /sales_cutover_smoke_receipt[\s\S]*?ConvertFrom-UniqueNativeJson \$nativeRun/);
   assert.doesNotMatch(script, /@\(& \$(?:Python|Node)\b/);
   assert.doesNotMatch(script, /& \$(?:pgCtl|pgIsReady)\b/);
@@ -262,22 +257,21 @@ test("critical Django native calls are PS5-safe and report only bounded redacted
   assert.match(nativePs5RuntimeTest, /duplicate JSON probe/);
 });
 
-test("configuration fixes separate endpoints and an exact ERP-only D1 source", () => {
+test("configuration retains the exact ERP D1 only for controlled cutover and exposes the terminal ERP service", () => {
   assert.match(script, /version = 5/);
   assert.match(script, /readerAddress = "127\.0\.0\.1:8001"/);
   assert.match(script, /writerAddress = "127\.0\.0\.1:8002"/);
   assert.match(script, /customerServiceReaderAddress = "127\.0\.0\.1:8071"/);
   assert.match(script, /customerServiceWriterAddress = "127\.0\.0\.1:8072"/);
   assert.match(script, /erpSourceD1 = \$resolvedErpSource/);
-  assert.match(script, /sync_erp_reference/);
   assert.match(script, /TERUISI_DJANGO_PROCESS_ROLE = \$ProcessRole/);
-  assert.match(script, /"erp_reference_sync"/);
-  assert.match(script, /--initialize-checkpoint/);
-  assert.match(script, /--status/);
-  assert.match(script, /"caught_up"/);
   assert.match(script, /DjangoReader = \$reader/);
   assert.match(script, /DjangoWriter = \$writer/);
-  assert.match(script, /ErpReferenceSync = \$erpReference/);
+  assert.match(script, /ErpReference = \$erpReference/);
+  assert.match(script, /django-erp-reference-reader\.pid\.json/);
+  assert.match(script, /django-erp-reference-writer\.pid\.json/);
+  assert.doesNotMatch(script, /function Initialize-ErpReferenceCheckpoint/);
+  assert.doesNotMatch(script, /function Provision-ErpDatabaseRole/);
   assert.doesNotMatch(script, /sales_projection_source|sales_projection_outbox/);
 });
 
@@ -363,16 +357,18 @@ test("configuration, deployment, and code rollback require a fully stopped stack
   assert.match(script, /Get-CimInstance Win32_Process -ErrorAction Stop/);
   assert.match(script, /Get-ErpReferenceSyncCandidates/);
   assert.match(script, /未登记的 ERP reference sync 进程/);
-  assert.match(script, /Stop 发现未登记的 ERP reference sync 进程/);
+  assert.match(script, /旧 ERP reference sync 必须保持停止/);
 });
 
-test("ERP role provisioning and application rollback are callable, bounded actions", () => {
-  assert.match(script, /"ProvisionErpRole" \{ Invoke-WithServiceMutex \{ Provision-ErpDatabaseRole \} \}/);
+test("retired ERP bridge provisioning is unreachable and application rollback remains bounded", () => {
+  assert.doesNotMatch(script, /"ProvisionErpRole"/);
+  assert.doesNotMatch(script, /function Provision-ErpDatabaseRole/);
+  assert.doesNotMatch(script, /CREATE ROLE teruisi_erp_reference_sync/);
+  assert.match(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(script, /"RollbackApp" \{ Invoke-WithServiceMutex \{ Rollback-Application \} \}/);
   assert.match(script, /Assert-ApplicationTreeManifest \$backup/);
   assert.match(script, /runtime_app_rolled_back/);
   assert.match(script, /数据库 migration 与业务数据未改变/);
-  assert.match(script, /credential_vault_upgraded/);
   assert.doesNotMatch(script, /TERUISI_PROVISION_ERP_PASSWORD\s*=\s*["'][^$]/);
 });
 

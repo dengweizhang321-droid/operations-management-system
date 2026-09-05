@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import uuid
 from pathlib import Path
 
 from django.utils import timezone
@@ -22,7 +23,19 @@ from sales.models import (
     SalesDataRevision,
     SalesMigrationRun,
 )
-from erp_reference.models import ErpReferenceSyncCheckpoint
+from erp_reference.import_service import (
+    SOURCE_LABELS,
+    SOURCE_SCOPE_KEYS,
+    combined_database_digest,
+    combo_rows_from_database,
+    content_hash,
+    product_rows_from_database,
+)
+from erp_reference.models import (
+    ErpReferenceImportBatch,
+    ErpReferenceImportScopeHead,
+    ErpReferenceWriteAuthority,
+)
 
 
 DRY_RUN_ID = "d" * 32
@@ -91,10 +104,6 @@ def install_lightweight_attestation(cutover_id: str) -> SalesCutoverAttestation:
 
 def install_writer_runtime_guard(cutover_id: str) -> SalesCutoverAttestation:
     attestation = install_lightweight_attestation(cutover_id)
-    digest = "7" * 64
-    SalesDataRevision.objects.update_or_create(
-        domain="erp", defaults={"revision": 5, "source_digest": digest}
-    )
     ErpProductMaster.objects.create(
         product_code="GUARD-ERP-1",
         product_name="Runtime guard fixture",
@@ -103,16 +112,51 @@ def install_writer_runtime_guard(cutover_id: str) -> SalesCutoverAttestation:
         created_at="2026-08-28 00:00:00",
         updated_at="2026-08-28 00:00:00",
     )
-    ErpReferenceSyncCheckpoint.objects.create(
-        id=1,
-        source_epoch="8" * 32,
-        source_path_digest="9" * 64,
-        last_event_sequence=0,
-        last_event_id="",
-        erp_revision=5,
-        content_hash=digest,
-        row_count=1,
-        source_batch_id="guard-baseline",
+    rows_by_source = {
+        "products": product_rows_from_database(),
+        "combos": combo_rows_from_database(),
+    }
+    now = timezone.now()
+    for source, rows in rows_by_source.items():
+        batch_id = f"guard-{source}-baseline"
+        digest = content_hash(source, rows)
+        ErpReferenceImportBatch.objects.create(
+            id=batch_id,
+            source_key=source,
+            source_label=SOURCE_LABELS[source],
+            file_name=f"{source}.xlsx",
+            file_size_bytes=1,
+            file_hash=digest,
+            raw_file_hash=digest,
+            content_hash=digest,
+            scope_key=SOURCE_SCOPE_KEYS[source],
+            published_state_token=digest,
+            sheet_name=source,
+            status="completed",
+            row_count=len(rows),
+            inserted_count=len(rows),
+            actor_email="fixture@example.test",
+            completed_at=now,
+        )
+        ErpReferenceImportScopeHead.objects.filter(source_key=source).update(
+            state_token=digest,
+            status="ready",
+            owner_token="",
+            current_batch_id=batch_id,
+            owner_started_at=None,
+            heartbeat_at=None,
+        )
+    run_id = f"erp-reference-{uuid.uuid4().hex}"
+    ErpReferenceWriteAuthority.objects.filter(id=1).update(
+        status="postgres",
+        authority_epoch=uuid.uuid4(),
+        cutover_id="erp-reference-test-cutover",
+        migration_verify_run_id=run_id,
+        activated_at=now,
+    )
+    SalesDataRevision.objects.update_or_create(
+        domain="erp",
+        defaults={"revision": 5, "source_digest": combined_database_digest()},
     )
     return attestation
 

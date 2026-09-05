@@ -130,6 +130,11 @@ class SalesWriteServiceTests(TestCase):
             activated_at=timezone.now(),
         )
         install_writer_runtime_guard(CUTOVER_ID)
+        self.erp_runtime_revision = tuple(
+            SalesDataRevision.objects.filter(domain="erp")
+            .values_list("revision", "source_digest")
+            .get()
+        )
 
     def test_writer_authority_fence_uses_shared_lock_and_plain_select(self) -> None:
         with patch(
@@ -720,7 +725,7 @@ class SalesWriteServiceTests(TestCase):
         self.assertFalse(SalesDataRevision.objects.filter(domain="sales").exists())
         self.assertEqual(
             tuple(SalesDataRevision.objects.filter(domain="erp").values_list("revision", "source_digest").get()),
-            (5, "7" * 64),
+            self.erp_runtime_revision,
         )
         head = SalesImportScopeHead.objects.get()
         self.assertEqual(head.status, "ready")
@@ -750,7 +755,7 @@ class SalesWriteServiceTests(TestCase):
         self.assertFalse(SalesDataRevision.objects.filter(domain="sales").exists())
         self.assertEqual(
             tuple(SalesDataRevision.objects.filter(domain="erp").values_list("revision", "source_digest").get()),
-            (5, "7" * 64),
+            self.erp_runtime_revision,
         )
 
     def test_inactive_authority_rejects_even_staging_metadata(self) -> None:

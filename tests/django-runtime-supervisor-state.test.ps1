@@ -34,7 +34,6 @@ function New-FixtureStatus {
     PostgreSQL = "running"
     DjangoReader = "running"
     DjangoWriter = "running"
-    ErpReferenceSync = "caught_up"
     ReaderReadiness = "ready"
     WriterReadiness = "ready"
     RuntimeAcl = "root_hardened"
@@ -51,7 +50,6 @@ $postgresStopped = New-FixtureStatus
 $postgresStopped.PostgreSQL = "stopped"
 $postgresStopped.ReaderReadiness = "not_ready"
 $postgresStopped.WriterReadiness = "not_ready"
-$postgresStopped.ErpReferenceSync = "stale_or_diverged"
 $classification = Get-SupervisorHealthClassification $postgresStopped
 if (-not $classification.recoverable -or
     $classification.code -cne "postgresql_process_stopped") { exit 3 }
@@ -69,14 +67,6 @@ $foreign.WriterReadiness = "not_ready"
 $classification = Get-SupervisorHealthClassification $foreign
 if ($classification.recoverable -or
     $classification.code -cne "ownership_or_port_conflict") { exit 5 }
-
-$stale = New-FixtureStatus
-$stale.ErpReferenceSync = "stale_or_diverged"
-$stale.ReaderReadiness = "not_ready"
-$stale.WriterReadiness = "not_ready"
-$classification = Get-SupervisorHealthClassification $stale
-if ($classification.recoverable -or
-    $classification.code -cne "erp_reference_stale_or_diverged") { exit 6 }
 
 $acl = New-FixtureStatus
 $acl.RuntimeAcl = "not_hardened"

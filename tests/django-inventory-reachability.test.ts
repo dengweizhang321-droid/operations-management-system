@@ -50,16 +50,23 @@ test("reachable inventory entry points use Django and cannot fall back to D1", a
   assert.match(await source("lib/search/global-search.ts"), /createDjangoInventoryConsumerReader/);
 });
 
-test("shared ERP endpoints route inventory_age to Django while keeping other ERP sources isolated", async () => {
+test("shared ERP endpoints route each source to its owning Django domain and cannot reach retired ERP D1", async () => {
   const direct = await source("app/api/imports/erp/route.ts");
   const chunks = await source("app/api/imports/erp/chunks/route.ts");
   assert.match(direct, /source === "inventory_age"[\s\S]*?importInventoryAgeToDjango/);
   assert.match(direct, /source === "inventory_age"[\s\S]*?INVENTORY_IMPORTS_PATH/);
-  assert.match(direct, /listErpReferenceBatches\(db, "products", \{ page: 1, pageSize: combinedLimit \}\)/);
-  assert.match(direct, /listErpReferenceBatches\(db, "combos", \{ page: 1, pageSize: combinedLimit \}\)/);
+  assert.match(direct, /createDjangoErpReferenceService/);
+  assert.match(direct, /source: "products"[\s\S]*?ERP_REFERENCE_IMPORTS_PATH/);
+  assert.match(direct, /source: "combos"[\s\S]*?ERP_REFERENCE_IMPORTS_PATH/);
+  assert.match(direct, /importErpReferenceToDjango/);
+  assert.doesNotMatch(direct, /@\/lib\/erp-reference\/(?:database|import-service|projection-outbox)/);
   assert.match(direct, /combinedLimit > 100/);
   assert.match(chunks, /body\.source === "inventory_age"[\s\S]*?beginDjangoInventoryUpload/);
   assert.match(chunks, /body\.source === "inventory_age"[\s\S]*?importInventoryAgeToDjango/);
+  assert.match(chunks, /beginDjangoErpUpload/);
+  assert.match(chunks, /receiveDjangoErpUploadChunk/);
+  assert.match(chunks, /importErpReferenceToDjango/);
+  assert.doesNotMatch(chunks, /@\/lib\/erp-reference\/(?:database|import-service|projection-outbox)/);
 });
 
 test("shared non-inventory chunk uploads initialize only their retained upload tables", async () => {

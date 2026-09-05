@@ -21,6 +21,31 @@ from sales.runtime_guard import (
 logger = logging.getLogger(__name__)
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 
+REQUIRED_ERP_RUNTIME_COLUMNS = {
+    "sales_data_revisions": {"domain", "revision", "source_digest"},
+    "erp_product_master": {
+        "product_code", "product_name", "brand", "specification", "barcode",
+        "category", "supplier", "product_status", "source_row_number",
+        "last_import_batch_id", "migration_generation",
+    },
+    "erp_combo_items": {
+        "id", "parent_code", "parent_name", "child_code", "child_name",
+        "child_quantity_milli", "source_row_number", "last_import_batch_id",
+        "migration_generation",
+    },
+    "erp_reference_import_batches_pg": {
+        "id", "source_key", "status", "raw_file_hash", "content_hash", "scope_key",
+        "published_state_token", "row_count", "migration_generation",
+    },
+    "erp_reference_import_scope_heads": {
+        "scope_key", "source_key", "state_token", "status", "owner_token",
+        "generation", "current_batch_id",
+    },
+    "erp_reference_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+}
+
 REQUIRED_BI_COLUMNS = {
     "bi_migration_runs": {
         "id", "plan_id", "status", "contract_version", "source_digest",
@@ -43,19 +68,7 @@ REQUIRED_COLUMNS = {
         "migration_generation",
     },
     "sales_import_batches": {"migration_generation"},
-    "erp_product_master": {"migration_generation"},
-    "sales_data_revisions": {"domain", "revision", "source_digest"},
-    "erp_reference_sync_checkpoint": {
-        "source_epoch",
-        "source_path_digest",
-        "last_event_sequence",
-        "last_event_id",
-        "erp_revision",
-        "content_hash",
-        "row_count",
-        "source_batch_id",
-        "last_checked_at",
-    },
+    **REQUIRED_ERP_RUNTIME_COLUMNS,
 }
 REQUIRED_SALES_INDEXES = {
     "sales_biz_date_idx",
@@ -114,7 +127,10 @@ FINANCE_WRITER_FORBIDDEN_TABLES = (
     "sales_data_revisions",
     "sales_write_authority",
     "erp_product_master",
-    "erp_reference_sync_checkpoint",
+    "erp_combo_items",
+    "erp_reference_import_batches_pg",
+    "erp_reference_import_scope_heads",
+    "erp_reference_write_authority",
     "finance_migration_runs",
 )
 FINANCE_WRITER_AUTO_ID_TABLES = ("finance_lines", "finance_import_fingerprints")
@@ -302,11 +318,7 @@ MARKET_WRITER_AUTO_ID_TABLES = (
 REQUIRED_PRODUCTS_COLUMNS = {
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
     "sales_import_batches": {"id", "status", "completed_at"},
-    "erp_product_master": {"product_code", "product_name", "category", "supplier"},
-    "sales_data_revisions": {"domain", "revision", "source_digest"},
-    "erp_reference_sync_checkpoint": {
-        "id", "erp_revision", "content_hash", "row_count", "last_checked_at",
-    },
+    **REQUIRED_ERP_RUNTIME_COLUMNS,
     "product_shipping_rate_import_batches": {
         "id", "status", "raw_file_hash", "content_hash", "scope_key",
         "published_state_token", "migration_generation",
@@ -378,11 +390,7 @@ PRODUCTS_WRITER_AUTO_ID_TABLES = (
 REQUIRED_INVENTORY_COLUMNS = {
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
     "sales_import_batches": {"id", "status", "completed_at"},
-    "sales_data_revisions": {"domain", "revision", "source_digest"},
-    "erp_product_master": {"product_code", "product_name", "category", "supplier"},
-    "erp_reference_sync_checkpoint": {
-        "id", "erp_revision", "content_hash", "row_count", "last_checked_at",
-    },
+    **REQUIRED_ERP_RUNTIME_COLUMNS,
     "inventory_import_batches": {
         "id", "dataset", "status", "snapshot_date", "completed_at", "row_count",
         "published_state_token", "migration_generation",
@@ -455,7 +463,10 @@ INVENTORY_WRITER_TABLE_PRIVILEGES = {
     "sales_import_batches": ("SELECT",),
     "sales_data_revisions": ("SELECT",),
     "erp_product_master": ("SELECT",),
-    "erp_reference_sync_checkpoint": ("SELECT",),
+    "erp_combo_items": ("SELECT",),
+    "erp_reference_import_batches_pg": ("SELECT",),
+    "erp_reference_import_scope_heads": ("SELECT",),
+    "erp_reference_write_authority": ("SELECT",),
     "inventory_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "inventory_stock_lines": ("SELECT", "INSERT", "DELETE"),
     "inventory_age_lines": ("SELECT", "INSERT", "DELETE"),
@@ -663,6 +674,60 @@ CUSTOMER_SERVICE_WRITER_AUTO_ID_TABLES = (
     "customer_service_conversations", "customer_service_import_fingerprints",
     "customer_service_raw_upload_chunks",
 )
+REQUIRED_ERP_REFERENCE_COLUMNS = REQUIRED_ERP_RUNTIME_COLUMNS
+REQUIRED_ERP_REFERENCE_WRITER_COLUMNS = {
+    **REQUIRED_ERP_REFERENCE_COLUMNS,
+    "erp_reference_import_fingerprints": {
+        "id", "batch_id", "source_key", "scope_key", "scope_json", "import_hash",
+        "raw_file_hash", "content_hash", "row_count", "published_state_token",
+        "outcome", "migration_generation",
+    },
+    "erp_reference_import_attempts": {
+        "id", "batch_id", "source_key", "scope_key", "scope_json", "import_hash",
+        "raw_file_hash", "content_hash", "row_count", "outcome", "error_code",
+        "migration_generation",
+    },
+    "erp_reference_write_request_receipts": {
+        "request_id", "actor_email", "method", "path", "body_sha256", "query_sha256",
+        "status", "claim_token", "response_status", "response_payload", "expires_at",
+    },
+    "erp_reference_raw_upload_sessions": {
+        "id", "fingerprint", "source_key", "actor_email", "file_name",
+        "file_size_bytes", "chunk_size_bytes", "chunk_count", "received_chunk_count",
+        "received_bytes", "status", "owner_token", "owner_generation",
+        "result_payload", "expires_at",
+    },
+    "erp_reference_raw_upload_chunks": {
+        "id", "session_id", "chunk_index", "size_bytes", "sha256", "payload",
+    },
+}
+REQUIRED_ERP_REFERENCE_READER_INDEXES = {
+    "erp_product_name_idx", "erp_product_barcode_idx", "erp_product_batch_idx",
+    "erp_combo_identity_uq", "erp_combo_parent_idx", "erp_combo_child_idx",
+    "erp_batch_source_created_idx", "erp_batch_status_idx",
+}
+REQUIRED_ERP_REFERENCE_WRITER_INDEXES = REQUIRED_ERP_REFERENCE_READER_INDEXES | {
+    "erp_fingerprint_scope_import_uq", "erp_attempt_source_idx", "erp_attempt_raw_idx",
+    "erp_upload_fingerprint_idx", "erp_upload_expiry_idx", "erp_upload_chunk_idx",
+}
+ERP_REFERENCE_WRITER_TABLE_PRIVILEGES = {
+    "sales_data_revisions": ("SELECT", "UPDATE"),
+    "sales_order_lines": ("SELECT", "UPDATE"),
+    "erp_reference_write_authority": ("SELECT",),
+    "erp_reference_import_batches_pg": ("SELECT", "INSERT", "UPDATE"),
+    "erp_product_master": ("SELECT", "INSERT", "DELETE"),
+    "erp_combo_items": ("SELECT", "INSERT", "DELETE"),
+    "erp_reference_import_scope_heads": ("SELECT", "UPDATE"),
+    "erp_reference_import_fingerprints": ("SELECT", "INSERT"),
+    "erp_reference_import_attempts": ("SELECT", "INSERT", "UPDATE"),
+    "erp_reference_write_request_receipts": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "erp_reference_raw_upload_sessions": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "erp_reference_raw_upload_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+}
+ERP_REFERENCE_WRITER_AUTO_ID_TABLES = (
+    "erp_combo_items", "erp_reference_import_fingerprints",
+    "erp_reference_raw_upload_chunks",
+)
 REQUIRED_WRITER_COLUMNS = {
     "sales_order_lines": {
         "source_line_key",
@@ -732,17 +797,7 @@ REQUIRED_WRITER_COLUMNS = {
         "response_payload",
     },
     "erp_product_master": {"product_code"},
-    "erp_reference_sync_checkpoint": {
-        "source_epoch",
-        "source_path_digest",
-        "last_event_sequence",
-        "last_event_id",
-        "erp_revision",
-        "content_hash",
-        "row_count",
-        "source_batch_id",
-        "last_checked_at",
-    },
+    **REQUIRED_ERP_RUNTIME_COLUMNS,
 }
 WRITER_TABLE_PRIVILEGES = {
     "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -759,12 +814,18 @@ WRITER_TABLE_PRIVILEGES = {
     "sales_staged_import_chunks": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_write_request_receipts": ("SELECT", "INSERT", "UPDATE"),
     "erp_product_master": ("SELECT",),
-    "erp_reference_sync_checkpoint": ("SELECT",),
+    "erp_combo_items": ("SELECT",),
+    "erp_reference_import_batches_pg": ("SELECT",),
+    "erp_reference_import_scope_heads": ("SELECT",),
+    "erp_reference_write_authority": ("SELECT",),
 }
 WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
     "sales_write_authority": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
     "erp_product_master": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
-    "erp_reference_sync_checkpoint": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_combo_items": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_reference_import_batches_pg": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_reference_import_scope_heads": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
+    "erp_reference_write_authority": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
     "sales_cutover_attestations": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
     "sales_legacy_upload_audits": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
 }
@@ -1533,6 +1594,134 @@ def _validate_workflow_writer_permissions(cursor) -> None:
             raise ReadinessError("workflow_writer_database_privilege_excessive")
 
 
+def _validate_erp_reference_schema(cursor, *, writer: bool) -> None:
+    tables = set(connection.introspection.table_names(cursor))
+    expected = REQUIRED_ERP_REFERENCE_WRITER_COLUMNS if writer else REQUIRED_ERP_REFERENCE_COLUMNS
+    for table, expected_columns in expected.items():
+        if table not in tables:
+            raise ReadinessError(
+                "erp_reference_writer_schema_missing" if writer else "erp_reference_reader_schema_missing"
+            )
+        if not expected_columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError(
+                "erp_reference_writer_schema_incomplete" if writer else "erp_reference_reader_schema_incomplete"
+            )
+    present_indexes: set[str] = set()
+    for table in expected:
+        constraints = connection.introspection.get_constraints(cursor, table)
+        present_indexes.update(
+            name for name, value in constraints.items()
+            if value.get("index") or value.get("unique")
+        )
+    required = REQUIRED_ERP_REFERENCE_WRITER_INDEXES if writer else REQUIRED_ERP_REFERENCE_READER_INDEXES
+    if not required.issubset(present_indexes):
+        raise ReadinessError("erp_reference_indexes_incomplete")
+
+
+def _validate_erp_reference_state(cursor) -> None:
+    try:
+        validate_erp_reference_runtime_state(cursor)
+    except WriterRuntimeGuardError as error:
+        raise ReadinessError(error.code) from error
+    if connection.vendor == "postgresql":
+        cursor.execute("SHOW max_connections")
+        if int(cursor.fetchone()[0]) < 80:
+            raise ReadinessError("erp_reference_database_capacity_too_low")
+
+
+def _validate_erp_reference_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status,authority_epoch,cutover_id,migration_verify_run_id "
+        "FROM erp_reference_write_authority WHERE id=1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("erp_reference_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("erp_reference_writer_authority_invalid") from error
+    if (
+        epoch != settings.ERP_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.ERP_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"erp-reference-[0-9a-f]{32}", str(row[3] or ""))
+    ):
+        raise ReadinessError("erp_reference_writer_authority_mismatch")
+
+
+def _validate_erp_reference_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("erp_reference_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("erp_reference_writer_database_read_only")
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user,current_schema(),'CREATE'),"
+        "has_database_privilege(current_user,current_database(),'CREATE')"
+    )
+    if any(bool(value) for value in cursor.fetchone()):
+        raise ReadinessError("erp_reference_writer_database_privilege_excessive")
+    for table, privileges in ERP_REFERENCE_WRITER_TABLE_PRIVILEGES.items():
+        if table == "sales_order_lines":
+            for column in ("product_code", "category", "resolved_category"):
+                cursor.execute(
+                    "SELECT has_column_privilege(current_user,%s,%s,'SELECT')", [table, column]
+                )
+                if cursor.fetchone()[0] is not True:
+                    raise ReadinessError("erp_reference_writer_database_privilege_missing")
+            cursor.execute(
+                "SELECT has_column_privilege(current_user,%s,%s,'UPDATE')",
+                [table, "resolved_category"],
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("erp_reference_writer_database_privilege_missing")
+            continue
+        for privilege in privileges:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user,%s,%s)", [table, privilege]
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("erp_reference_writer_database_privilege_missing")
+    cursor.execute(
+        "SELECT n.nspname,c.relname,"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') "
+        "AND n.nspname<>'information_schema' AND n.nspname NOT LIKE 'pg\\_%' ESCAPE '\\'"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "INSERT": bool(row[2]) or bool(row[6]),
+            "UPDATE": bool(row[3]) or bool(row[7]),
+            "DELETE": bool(row[4]), "TRUNCATE": bool(row[5]),
+        }
+        allowed = (
+            set(ERP_REFERENCE_WRITER_TABLE_PRIVILEGES.get(table_name, ()))
+            if schema_name == application_schema else set()
+        )
+        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
+            raise ReadinessError("erp_reference_writer_database_privilege_excessive")
+    for table in ERP_REFERENCE_WRITER_AUTO_ID_TABLES:
+        cursor.execute("SELECT pg_get_serial_sequence(%s,'id')", [table])
+        sequence = cursor.fetchone()[0]
+        if sequence:
+            cursor.execute(
+                "SELECT has_sequence_privilege(current_user,%s,'USAGE')", [sequence]
+            )
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("erp_reference_writer_database_privilege_missing")
+
+
 def _validate_customer_service_schema(cursor, *, writer: bool) -> None:
     tables = set(connection.introspection.table_names(cursor))
     expected = (
@@ -1763,6 +1952,8 @@ def ready(_request):
     inventory_reader_process = settings.DJANGO_PROCESS_ROLE == "inventory_reader"
     workflow_writer_process = settings.DJANGO_PROCESS_ROLE == "workflow_writer"
     workflow_reader_process = settings.DJANGO_PROCESS_ROLE == "workflow_reader"
+    erp_reference_writer_process = settings.DJANGO_PROCESS_ROLE == "erp_reference_writer"
+    erp_reference_reader_process = settings.DJANGO_PROCESS_ROLE == "erp_reference_reader"
     customer_service_writer_process = settings.DJANGO_PROCESS_ROLE == "customer_service_writer"
     customer_service_reader_process = settings.DJANGO_PROCESS_ROLE == "customer_service_reader"
     bi_reader_process = settings.DJANGO_PROCESS_ROLE == "bi_reader"
@@ -1770,6 +1961,20 @@ def ready(_request):
         with connection.cursor() as cursor:
             if bi_reader_process:
                 _validate_bi_reader_state(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    if connection.vendor != "postgresql":
+                        raise ReadinessError("database_role_not_read_only")
+                    cursor.execute("SHOW transaction_read_only")
+                    if cursor.fetchone()[0] != "on":
+                        raise ReadinessError("database_role_not_read_only")
+            elif erp_reference_writer_process:
+                _validate_erp_reference_schema(cursor, writer=True)
+                _validate_erp_reference_state(cursor)
+                _validate_erp_reference_writer_authority(cursor)
+                _validate_erp_reference_writer_permissions(cursor)
+            elif erp_reference_reader_process:
+                _validate_erp_reference_schema(cursor, writer=False)
+                _validate_erp_reference_state(cursor)
                 if settings.DJANGO_EXPECT_READ_ONLY:
                     if connection.vendor != "postgresql":
                         raise ReadinessError("database_role_not_read_only")
@@ -1884,11 +2089,9 @@ def ready(_request):
                 cutover_id = _validate_writer_authority(cursor)
                 _validate_writer_permissions(cursor)
                 # Sales imports resolve ERP categories in the same transaction. A
-                # writer must therefore fail closed when the independently owned
-                # D1 -> PostgreSQL ERP bridge is stopped, stale, or divergent.
-                # This deliberately reuses the reader's exact checkpoint/revision/
-                # digest/row-count contract without requiring a read-only database
-                # connection for the writer process.
+                # writer therefore fails closed unless the independent ERP domain
+                # is on its terminal PostgreSQL authority and its exact revision,
+                # scopes, batches, and facts agree.
                 try:
                     validate_writer_runtime_state(cutover_id=cutover_id, cursor=cursor)
                 except WriterRuntimeGuardError as error:
@@ -1911,6 +2114,10 @@ def ready(_request):
                 "code": (
                     "bi_reader_unavailable"
                     if bi_reader_process
+                    else "erp_reference_writer_unavailable"
+                    if erp_reference_writer_process
+                    else "erp_reference_reader_unavailable"
+                    if erp_reference_reader_process
                     else "customer_service_writer_unavailable"
                     if customer_service_writer_process
                     else "customer_service_reader_unavailable"
@@ -1958,6 +2165,10 @@ def ready(_request):
                 "code": (
                     "bi_reader_unavailable"
                     if bi_reader_process
+                    else "erp_reference_writer_unavailable"
+                    if erp_reference_writer_process
+                    else "erp_reference_reader_unavailable"
+                    if erp_reference_reader_process
                     else "customer_service_writer_unavailable"
                     if customer_service_writer_process
                     else "customer_service_reader_unavailable"
@@ -2000,6 +2211,10 @@ def ready(_request):
     }
     if bi_reader_process:
         payload["biReader"] = "ready"
+    elif erp_reference_writer_process:
+        payload["erpReferenceWriter"] = "ready"
+    elif erp_reference_reader_process:
+        payload["erpReferenceReader"] = "ready"
     elif customer_service_writer_process:
         payload["customerServiceWriter"] = "ready"
     elif customer_service_reader_process:

@@ -173,11 +173,11 @@ class ErpReferenceSyncTests(TestCase):
             product("P2", "旧ERP类目2", batch_id="erp-baseline"),
         ]
         install_source(self.source, self.baseline_products)
-        SalesDataRevision.objects.bulk_create(
-            [
-                SalesDataRevision(domain="sales", revision=7, source_digest="c" * 64),
-                SalesDataRevision(domain="erp", revision=1, source_digest="d" * 64),
-            ]
+        SalesDataRevision.objects.update_or_create(
+            domain="sales", defaults={"revision": 7, "source_digest": "c" * 64}
+        )
+        SalesDataRevision.objects.update_or_create(
+            domain="erp", defaults={"revision": 1, "source_digest": "d" * 64}
         )
         for row in self.baseline_products:
             ErpProductMaster.objects.create(

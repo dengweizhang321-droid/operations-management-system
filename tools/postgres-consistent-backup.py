@@ -97,6 +97,19 @@ def collect_evidence(
             "sales_write_authority",
             "erp_product_master",
         }
+        erp_reference_required = {
+            "erp_product_master", "erp_combo_items",
+            "erp_reference_import_batches_pg", "erp_reference_import_scope_heads",
+            "erp_reference_import_fingerprints", "erp_reference_import_attempts",
+            "erp_reference_write_authority", "erp_reference_write_request_receipts",
+            "erp_reference_migration_runs", "erp_reference_raw_upload_sessions",
+            "erp_reference_raw_upload_chunks",
+        }
+        erp_reference_tables = {
+            name for name in tables if name.startswith("erp_reference_")
+        }
+        if "erp_reference_write_authority" in erp_reference_tables:
+            required.update(erp_reference_required)
         netshop_required = {
             "netshop_data_revisions",
             "netshop_import_batches",
@@ -231,6 +244,31 @@ def collect_evidence(
         authority_status, authority_epoch, cutover_id = authority
         if str(authority_status) != "active" or not str(authority_epoch) or not str(cutover_id):
             raise RuntimeError("sales write authority is not active")
+
+        erp_reference_authority: dict[str, str] | None = None
+        if "erp_reference_write_authority" in erp_reference_tables:
+            cursor.execute(
+                "SELECT status,COALESCE(authority_epoch::text,''),cutover_id,"
+                "COALESCE(migration_verify_run_id,'') "
+                "FROM erp_reference_write_authority WHERE id=1"
+            )
+            erp_authority = cursor.fetchone()
+            if erp_authority is None:
+                raise RuntimeError("ERP reference write authority singleton is missing")
+            erp_status, erp_epoch, erp_cutover, erp_run = map(str, erp_authority)
+            if erp_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", erp_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", erp_cutover) is None
+                    or re.fullmatch(r"erp-reference-[0-9a-f]{32}", erp_run) is None
+                ):
+                    raise RuntimeError("active ERP reference authority evidence is incomplete")
+            elif erp_status != "d1" or erp_epoch or erp_cutover:
+                raise RuntimeError("ERP reference authority evidence is invalid")
+            erp_reference_authority = {
+                "status": erp_status, "authorityEpoch": erp_epoch,
+                "cutoverId": erp_cutover, "migrationRunId": erp_run,
+            }
 
         netshop_revisions: dict[str, dict[str, Any]] | None = None
         netshop_authority: dict[str, str] | None = None
@@ -595,6 +633,8 @@ def collect_evidence(
             "cutoverId": str(cutover_id),
         },
     }
+    if erp_reference_authority is not None:
+        content["erpReferenceWriteAuthority"] = erp_reference_authority
     if netshop_revisions is not None and netshop_authority is not None:
         content["netshopRevisions"] = netshop_revisions
         content["netshopWriteAuthority"] = netshop_authority

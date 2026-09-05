@@ -15,7 +15,6 @@ from sales.models import (
     SalesWriteAuthority,
     SalesWriteRequestReceipt,
 )
-from erp_reference.models import ErpReferenceSyncCheckpoint
 from sales.write_requests import (
     claim_write_request,
     complete_write_request,
@@ -136,22 +135,24 @@ class SalesWriteApiTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(SalesRawUploadSession.objects.count(), 0)
 
-    def test_post_fails_closed_with_zero_business_write_after_erp_heartbeat_stales(self) -> None:
-        ErpReferenceSyncCheckpoint.objects.filter(id=1).update(
-            last_checked_at=timezone.now() - timedelta(minutes=10)
+    def test_post_fails_closed_with_zero_business_write_after_erp_facts_drift(self) -> None:
+        from sales.models import ErpProductMaster
+
+        ErpProductMaster.objects.filter(product_code="GUARD-ERP-1").update(
+            product_name="tampered-after-checkpoint"
         )
         response = self._post(
             "/api/sales/imports/uploads",
             {
                 "action": "init",
-                "fingerprint": "stale-erp",
+                "fingerprint": "drifted-erp",
                 "fileName": "sales.xlsx",
                 "fileSizeBytes": 1,
                 "chunkCount": 1,
                 "expectedStartDate": "2024-01-01",
                 "expectedEndDate": "2024-01-01",
             },
-            request_id="stale-erp-1",
+            request_id="drifted-erp-1",
         )
         self.assertEqual(response.status_code, 503)
         self.assertEqual(SalesRawUploadSession.objects.count(), 0)

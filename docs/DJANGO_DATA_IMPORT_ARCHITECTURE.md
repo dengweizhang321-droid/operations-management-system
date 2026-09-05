@@ -35,11 +35,11 @@
 - readiness 与迁移/切换证据；
 - 备份核对清单和恢复验收。
 
-财务写入故障不得阻断销售总览、渠道或品类查询。财务迁移不得改变销售 write authority、销售表、ERP bridge 或 D1 销售 retirement 对象。
+财务写入故障不得阻断销售总览、渠道或品类查询。财务迁移不得改变销售 write authority、销售表、ERP 主数据 authority 或 D1 销售 retirement 对象。
 
 销售域的原始分片字节、owner、摘要和生命周期固定由 PostgreSQL 管理，生产代码不得读写 R2；这不授权删除市场图片、库存、工作流等其他领域仍使用的全局 R2 binding。
 
-商品经营是组合读模型，不拥有上游销售、ERP 或库存事实。其 PostgreSQL reader 只读销售/ERP 已有权威表；库存仍由 D1 单写，并在每次成功或 duplicate 库存导入后通过 owner-fenced、完整摘要校验的版本化投影同步。投影固定排除 `刷刷仓`，失败不得回查 D1 或阻断库存事实发布。SKU 快递费率、商品域批次、幂等、上传和 revision 才属于商品经营写侧。
+商品经营是组合读模型，不拥有上游销售、ERP 或库存事实。其 PostgreSQL reader 只读销售、ERP 主数据和库存的现有 PostgreSQL 权威；库存投影固定排除 `刷刷仓`，失败不得回查 D1 或阻断上游事实发布。SKU 快递费率、商品域批次、幂等、上传和 revision 才属于商品经营写侧。
 
 库存正式切换前继续由 D1 单写，Django 库存目标只用于迁移和影子验证。正式切换后，PostgreSQL 拥有分仓库存、库龄、备货计划、库存设置、导入幂等/审计、分片和 revision；商品经营改由有界 inventory consumer 获取版本化完整投影。库存 reader/writer 只读销售需求和 ERP 参照，不得修改上游事实；库存故障不得改变其他领域 authority。
 

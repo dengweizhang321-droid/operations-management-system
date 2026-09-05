@@ -2,7 +2,7 @@
 param(
   [ValidateSet(
     "Configure", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
-    "ProvisionErpRole", "ProvisionFinanceRoles", "InitializeErpReference", "RollbackApp",
+    "ProvisionFinanceRoles", "RollbackApp",
     "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
     "CreateSalesCutoverSmokeReceipt"
@@ -41,6 +41,8 @@ $InstalledInventoryScriptPath = Join-Path $InstalledAppRoot "tools\django-invent
 $InventoryStartupEnabledPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $InstalledCustomerServiceScriptPath = Join-Path $InstalledAppRoot "tools\django-customer-service.ps1"
 $CustomerServiceStartupEnabledPath = Join-Path $RuntimeRoot "customer-service-enabled.json"
+$InstalledErpReferenceScriptPath = Join-Path $InstalledAppRoot "tools\django-erp-reference.ps1"
+$ErpReferenceStartupEnabledPath = Join-Path $RuntimeRoot "erp-reference-enabled.json"
 $InstalledBiScriptPath = Join-Path $InstalledAppRoot "tools\django-bi-service.ps1"
 $BiStartupEnabledPath = Join-Path $RuntimeRoot "bi-service-enabled.json"
 $DeploymentManifestPath = Join-Path $InstalledAppRoot "deployment.json"
@@ -69,6 +71,8 @@ $DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader
 $DjangoInventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
 $DjangoCustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
 $DjangoCustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
+$DjangoErpReferenceReaderPidPath = Join-Path $RunDirectory "django-erp-reference-reader.pid.json"
+$DjangoErpReferenceWriterPidPath = Join-Path $RunDirectory "django-erp-reference-writer.pid.json"
 $DjangoBiReaderPidPath = Join-Path $RunDirectory "django-bi-reader.pid.json"
 $ErpReferenceSyncPidPath = Join-Path $RunDirectory "erp-reference-sync.pid.json"
 $DjangoSupervisorPidPath = Join-Path $RunDirectory "django-supervisor.pid.json"
@@ -462,12 +466,11 @@ function Assert-StrongSecret([string]$Value, [string]$Label) {
 function Read-Secrets {
   $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
   if ([int]$payload.version -ne 3) {
-    throw "Django 本机 DPAPI 凭据库尚未包含独立 ERP sync 与财务凭据；请先执行 ProvisionErpRole 和 ProvisionFinanceRoles"
+    throw "Django 本机 DPAPI 凭据库版本无效；财务凭据必须已完成受控配置"
   }
   $owner = Unprotect-Value ([string]$payload.databaseOwner) "databaseOwner"
   $reader = Unprotect-Value ([string]$payload.databaseReader) "databaseReader"
   $writer = Unprotect-Value ([string]$payload.databaseWriter) "databaseWriter"
-  $erpSync = Unprotect-Value ([string]$payload.databaseErpSync) "databaseErpSync"
   $financeReader = Unprotect-Value ([string]$payload.databaseFinanceReader) "databaseFinanceReader"
   $financeWriter = Unprotect-Value ([string]$payload.databaseFinanceWriter) "databaseFinanceWriter"
   $django = Unprotect-Value ([string]$payload.djangoSecretKey) "djangoSecretKey"
@@ -478,17 +481,15 @@ function Read-Secrets {
     [string]::IsNullOrWhiteSpace($owner) -or
     [string]::IsNullOrWhiteSpace($reader) -or
     [string]::IsNullOrWhiteSpace($writer) -or
-    [string]::IsNullOrWhiteSpace($erpSync) -or
     [string]::IsNullOrWhiteSpace($financeReader) -or
     [string]::IsNullOrWhiteSpace($financeWriter)
   ) {
-    throw "数据库 owner/reader/writer/ERP sync/finance 凭据不能为空"
+    throw "数据库 owner/reader/writer/finance 凭据不能为空"
   }
   return [pscustomobject]@{
     OwnerPassword = $owner
     ReaderPassword = $reader
     WriterPassword = $writer
-    ErpSyncPassword = $erpSync
     FinanceReaderPassword = $financeReader
     FinanceWriterPassword = $financeWriter
     DjangoSecretKey = $django
@@ -1646,12 +1647,19 @@ function Deploy-Application {
       "tools\workflow-operations-d1-rejection-smoke.py",
       "tools\django-inventory-service.ps1",
       "tools\django-customer-service.ps1",
+      "tools\django-erp-reference.ps1",
       "tools\django-bi-service.ps1",
       "tools\django-customer-service-cutover.ps1",
+      "tools\django-erp-reference-cutover.ps1",
       "tools\customer-service-production-smoke.ps1",
       "tools\customer-service-consumer-smoke.ts",
       "tools\customer-service-d1-rejection-smoke.py",
       "tools\customer-service-r2-retirement-evidence.py",
+      "tools\erp-reference-production-smoke.ps1",
+      "tools\erp-reference-consumer-smoke.ts",
+      "tools\erp-reference-d1-rejection-smoke.py",
+      "tools\erp-reference-r2-retirement-evidence.py",
+      "tools\erp-reference-d1-snapshot.py",
       "tools\django-inventory-cutover.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\finance-d1-authority-install.py",
@@ -1664,6 +1672,7 @@ function Deploy-Application {
       "tools\inventory-d1-authority-install.py",
       "tools\inventory-r2-retirement-evidence.py",
       "tools\customer-service-d1-authority-install.py",
+      "tools\erp-reference-d1-authority-install.py",
       "tools\customer-service-d1-snapshot.py",
       "tools\postgres-consistent-backup.py",
       "drizzle\0090_sales_write_authority.sql",
@@ -1678,6 +1687,8 @@ function Deploy-Application {
       "drizzle\0099_product_write_authority.sql",
       "drizzle\0100_product_domain_retirement.sql",
       "drizzle\0101_inventory_write_authority.sql",
+      "drizzle\0109_erp_reference_write_authority.sql",
+      "drizzle\0110_erp_reference_domain_retirement.sql",
       "drizzle\0102_inventory_domain_retirement.sql",
       "drizzle\0103_workflow_launch_write_authority.sql",
       "drizzle\0104_workflow_launch_domain_retirement.sql",
@@ -1973,9 +1984,9 @@ function Get-ConfigFingerprint([string]$Service, [string]$Executable, [string[]]
     (Join-Path $BackendRoot "sales\authority.py"),
     (Join-Path $BackendRoot "sales\write_service.py"),
     (Join-Path $BackendRoot "sales\write_views.py"),
-    (Join-Path $BackendRoot "erp_reference\locking.py"),
-    (Join-Path $BackendRoot "erp_reference\sync.py"),
-    (Join-Path $BackendRoot "erp_reference\management\commands\sync_erp_reference.py")
+    (Join-Path $BackendRoot "erp_reference\import_service.py"),
+    (Join-Path $BackendRoot "erp_reference\query.py"),
+    (Join-Path $BackendRoot "erp_reference\views.py")
   )
   $material = [ordered]@{
     service = $Service
@@ -2223,6 +2234,12 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   if (Resolve-OwnedProcess "django-customer-service-writer" $DjangoCustomerServiceWriterPidPath $Waitress) {
     throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service writer"
   }
+  if (Resolve-OwnedProcess "django-erp-reference-reader" $DjangoErpReferenceReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过 ERP 主数据控制器 Stop 停止 Django ERP reader"
+  }
+  if (Resolve-OwnedProcess "django-erp-reference-writer" $DjangoErpReferenceWriterPidPath $Waitress) {
+    throw "$Operation 前必须通过 ERP 主数据控制器 Stop 停止 Django ERP writer"
+  }
   if (Resolve-OwnedProcess "django-bi-reader" $DjangoBiReaderPidPath $Waitress) {
     throw "$Operation 前必须通过 BI 控制器 Stop 停止 Django BI reader"
   }
@@ -2352,37 +2369,10 @@ function Stop-Postgres {
   Write-LauncherEvent "INFO" "postgres_stopped"
 }
 
-function Get-ErpRoleProvisioningSecrets {
-  $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
-  if ([int]$payload.version -notin @(1, 2, 3)) {
-    throw "Django 本机 DPAPI 凭据库版本不受支持"
-  }
-  $superuser = Unprotect-Value ([string]$payload.postgresSuperuser) "postgresSuperuser"
-  $erpPassword = ""
-  if ([int]$payload.version -in @(2, 3)) {
-    $erpPassword = Unprotect-Value ([string]$payload.databaseErpSync) "databaseErpSync"
-  } else {
-    $erpPassword = New-RandomSecret
-    $updated = [ordered]@{}
-    foreach ($property in $payload.PSObject.Properties) {
-      $updated[$property.Name] = $property.Value
-    }
-    $updated.version = 2
-    $updated.databaseErpSync = Protect-Value $erpPassword
-    Write-AtomicJson $CredentialPath $updated
-    Write-LauncherEvent "INFO" "credential_vault_upgraded" "version=2"
-  }
-  Assert-StrongSecret $erpPassword "databaseErpSync"
-  return [pscustomobject]@{
-    SuperuserPassword = $superuser
-    ErpSyncPassword = $erpPassword
-  }
-}
-
 function Get-FinanceRoleProvisioningSecrets {
   $payload = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
   if ([int]$payload.version -notin @(2, 3)) {
-    throw "配置财务数据库角色前必须先执行 ProvisionErpRole"
+    throw "配置财务数据库角色需要版本 2 或 3 的受控凭据库"
   }
   $superuser = Unprotect-Value ([string]$payload.postgresSuperuser) "postgresSuperuser"
   if ([int]$payload.version -eq 3) {
@@ -2407,89 +2397,6 @@ function Get-FinanceRoleProvisioningSecrets {
     SuperuserPassword = $superuser
     FinanceReaderPassword = $financeReader
     FinanceWriterPassword = $financeWriter
-  }
-}
-
-function Provision-ErpDatabaseRole {
-  if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
-    throw "ProvisionErpRole 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
-  }
-  Assert-DeployedApplication
-  Assert-RuntimeAclHardened
-  Assert-ApplicationProcessesStopped "ProvisionErpRole"
-  Get-ServiceConfig | Out-Null
-  New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
-  $provisioning = Get-ErpRoleProvisioningSecrets
-  $postgresStarted = $false
-  $previousUrl = [Environment]::GetEnvironmentVariable("TERUISI_PROVISION_DATABASE_URL", "Process")
-  $previousPassword = [Environment]::GetEnvironmentVariable("TERUISI_PROVISION_ERP_PASSWORD", "Process")
-  try {
-    $postgresStarted = Start-Postgres
-    $env:TERUISI_PROVISION_DATABASE_URL = Database-Url "postgres" $provisioning.SuperuserPassword "teruisi_erp_role_provision" $ReaderStatementTimeoutMs
-    $env:TERUISI_PROVISION_ERP_PASSWORD = $provisioning.ErpSyncPassword
-    $code = @'
-import os
-
-import psycopg
-from psycopg import sql
-
-connection = psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"])
-connection.autocommit = True
-with connection.cursor() as cursor:
-    cursor.execute(
-        "SELECT 1 FROM pg_roles WHERE rolname = %s",
-        ("teruisi_erp_reference_sync",),
-    )
-    if cursor.fetchone() is None:
-        cursor.execute(
-            "CREATE ROLE teruisi_erp_reference_sync LOGIN NOSUPERUSER "
-            "NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
-        )
-    cursor.execute(
-        "ALTER ROLE teruisi_erp_reference_sync LOGIN NOSUPERUSER NOCREATEDB "
-        "NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS"
-    )
-    cursor.execute(
-        "SELECT parent.rolname FROM pg_auth_members membership "
-        "JOIN pg_roles parent ON parent.oid = membership.roleid "
-        "JOIN pg_roles member ON member.oid = membership.member "
-        "WHERE member.rolname = %s",
-        ("teruisi_erp_reference_sync",),
-    )
-    for parent_role in (row[0] for row in cursor.fetchall()):
-        cursor.execute(
-            sql.SQL("REVOKE {} FROM teruisi_erp_reference_sync").format(
-                sql.Identifier(parent_role)
-            )
-        )
-    cursor.execute(
-        sql.SQL("ALTER ROLE teruisi_erp_reference_sync PASSWORD {}").format(
-            sql.Literal(os.environ["TERUISI_PROVISION_ERP_PASSWORD"])
-        )
-    )
-    cursor.execute(
-        "GRANT CONNECT ON DATABASE teruisi_sales TO teruisi_erp_reference_sync"
-    )
-connection.close()
-'@
-    $logPath = Join-Path $LogDirectory "erp-role-provision.$RunId.log"
-    $launcher = ConvertTo-PythonBase64Launcher $code "erp_role_provision.py"
-    $nativeRun = Invoke-BoundedNativeProcess $Python @("-c", $launcher) $BackendRoot
-    Write-NativeDiagnosticLog $logPath "erp_role_provision" $nativeRun
-    if ($nativeRun.ExitCode -ne 0) {
-      throw "独立 ERP sync 数据库角色配置失败（$(Get-NativeFailureSummary $nativeRun)）"
-    }
-    Write-LauncherEvent "INFO" "erp_database_role_provisioned"
-    Write-Output "独立 ERP reference sync 数据库角色与 DPAPI 凭据已配置。"
-  } finally {
-    [Environment]::SetEnvironmentVariable("TERUISI_PROVISION_DATABASE_URL", $previousUrl, "Process")
-    [Environment]::SetEnvironmentVariable("TERUISI_PROVISION_ERP_PASSWORD", $previousPassword, "Process")
-    $provisioning = $null
-    if ($postgresStarted) {
-      try { Stop-Postgres } catch {
-        Write-LauncherEvent "ERROR" "provision_cleanup_failed" $_.Exception.Message
-      }
-    }
   }
 }
 
@@ -2619,6 +2526,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID",
     "TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH",
     "TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID",
+    "TERUISI_DJANGO_ERP_AUTHORITY_EPOCH", "TERUISI_DJANGO_ERP_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
   )
@@ -2643,6 +2551,8 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID = ""
     $env:TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID = ""
+    $env:TERUISI_DJANGO_ERP_AUTHORITY_EPOCH = ""
+    $env:TERUISI_DJANGO_ERP_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2715,6 +2625,19 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = $CutoverId
+    } elseif ($ProcessRole -eq "erp_reference_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_ERP_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_ERP_CUTOVER_ID = $CutoverId
     } elseif ($ProcessRole -eq "customer_service_writer") {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
@@ -2779,7 +2702,6 @@ from django.db import connection
 roles = (
     "teruisi_sales_reader",
     "teruisi_sales_writer",
-    "teruisi_erp_reference_sync",
     "teruisi_finance_reader",
     "teruisi_finance_writer",
 )
@@ -2797,7 +2719,7 @@ with connection.cursor() as c:
     current_database = quote(str(c.fetchone()[0]))
     c.execute(
         f"GRANT CONNECT ON DATABASE {current_database} TO "
-        "teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, "
+        "teruisi_sales_reader, teruisi_sales_writer, "
         "teruisi_finance_reader, teruisi_finance_writer"
     )
     c.execute(
@@ -2830,17 +2752,17 @@ with connection.cursor() as c:
                 f"{quote(schema)}.{quote(table)} FROM {quote(role)}"
             )
 
-    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
-    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
-    c.execute("GRANT USAGE ON SCHEMA public TO teruisi_sales_reader, teruisi_sales_writer, teruisi_erp_reference_sync, teruisi_finance_reader, teruisi_finance_writer")
+    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_finance_reader, teruisi_finance_writer")
+    c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_sales_reader, teruisi_sales_writer, teruisi_finance_reader, teruisi_finance_writer")
+    c.execute("GRANT USAGE ON SCHEMA public TO teruisi_sales_reader, teruisi_sales_writer, teruisi_finance_reader, teruisi_finance_writer")
 
-    c.execute("GRANT SELECT ON sales_order_lines, sales_import_batches, erp_product_master, sales_data_revisions, erp_reference_sync_checkpoint TO teruisi_sales_reader")
+    c.execute("GRANT SELECT ON sales_order_lines, sales_import_batches, sales_data_revisions, erp_product_master, erp_combo_items, erp_reference_import_batches_pg, erp_reference_import_scope_heads, erp_reference_write_authority TO teruisi_sales_reader")
 
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON sales_order_lines TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE ON sales_import_batches, sales_data_revisions, sales_import_scope_heads, sales_import_attempts, sales_raw_upload_sessions, sales_staged_import_sessions, sales_write_request_receipts TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT ON sales_import_fingerprints TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON sales_raw_upload_chunks, sales_staged_import_chunks TO teruisi_sales_writer")
-    c.execute("GRANT SELECT ON sales_write_authority, sales_cutover_attestations, erp_product_master, erp_reference_sync_checkpoint TO teruisi_sales_writer")
+    c.execute("GRANT SELECT ON sales_write_authority, sales_cutover_attestations, erp_product_master, erp_combo_items, erp_reference_import_batches_pg, erp_reference_import_scope_heads, erp_reference_write_authority TO teruisi_sales_writer")
     for table in (
         "sales_order_lines",
         "sales_import_fingerprints",
@@ -2855,13 +2777,6 @@ with connection.cursor() as c:
                 f"GRANT USAGE, SELECT, UPDATE ON SEQUENCE "
                 f"{quote(schema)}.{quote(name)} TO teruisi_sales_writer"
             )
-
-    c.execute("GRANT SELECT, INSERT, UPDATE ON erp_reference_sync_checkpoint TO teruisi_erp_reference_sync")
-    c.execute("GRANT SELECT, INSERT, DELETE ON erp_product_master TO teruisi_erp_reference_sync")
-    c.execute("GRANT SELECT ON sales_data_revisions TO teruisi_erp_reference_sync")
-    c.execute("GRANT UPDATE (revision, source_digest, updated_at) ON sales_data_revisions TO teruisi_erp_reference_sync")
-    c.execute("GRANT SELECT (product_code, category, resolved_category) ON sales_order_lines TO teruisi_erp_reference_sync")
-    c.execute("GRANT UPDATE (resolved_category) ON sales_order_lines TO teruisi_erp_reference_sync")
 
     c.execute(
         "GRANT SELECT ON finance_import_batches, finance_months, finance_lines, "
@@ -2893,12 +2808,36 @@ with connection.cursor() as c:
     c.execute("CREATE POLICY sales_revision_writer_read ON sales_data_revisions FOR SELECT TO teruisi_sales_writer USING (domain IN ('sales', 'erp'))")
     c.execute("CREATE POLICY sales_revision_writer_insert ON sales_data_revisions FOR INSERT TO teruisi_sales_writer WITH CHECK (domain = 'sales')")
     c.execute("CREATE POLICY sales_revision_writer_update ON sales_data_revisions FOR UPDATE TO teruisi_sales_writer USING (domain = 'sales') WITH CHECK (domain = 'sales')")
-    c.execute("CREATE POLICY erp_revision_writer ON sales_data_revisions FOR ALL TO teruisi_erp_reference_sync USING (domain = 'erp') WITH CHECK (domain = 'erp')")
+    c.execute("SELECT 1 FROM pg_roles WHERE rolname='teruisi_erp_reference_sync'")
+    if c.fetchone() is not None:
+        c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_erp_reference_sync")
+        c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_erp_reference_sync")
+        c.execute("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM teruisi_erp_reference_sync")
+        c.execute("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM teruisi_erp_reference_sync")
+        c.execute("REVOKE ALL PRIVILEGES ON SCHEMA public FROM teruisi_erp_reference_sync")
+        c.execute(
+            "SELECT table_schema,table_name,column_name FROM information_schema.column_privileges "
+            "WHERE grantee='teruisi_erp_reference_sync' AND table_schema='public'"
+        )
+        grouped = {}
+        for schema, table, column in c.fetchall():
+            grouped.setdefault((schema, table), []).append(column)
+        for (schema, table), columns in grouped.items():
+            names = ", ".join(quote(column) for column in columns)
+            c.execute(
+                f"REVOKE ALL PRIVILEGES ({names}) ON TABLE "
+                f"{quote(schema)}.{quote(table)} FROM teruisi_erp_reference_sync"
+            )
+        c.execute("REVOKE CONNECT ON DATABASE " + current_database + " FROM teruisi_erp_reference_sync")
+        c.execute("ALTER ROLE teruisi_erp_reference_sync NOLOGIN")
 
     for table in (
         "sales_write_authority",
         "erp_product_master",
-        "erp_reference_sync_checkpoint",
+        "erp_combo_items",
+        "erp_reference_import_batches_pg",
+        "erp_reference_import_scope_heads",
+        "erp_reference_write_authority",
         "sales_cutover_attestations",
         "sales_legacy_upload_audits",
     ):
@@ -2938,7 +2877,7 @@ with connection.cursor() as c:
     ) $BackendRoot
     Write-NativeDiagnosticLog $logPath "django_runtime_grants" $grantRun
     if ($grantRun.ExitCode -ne 0) {
-      throw "Django 销售/财务 reader、writer 与 ERP sync 最小权限重置失败（$(Get-NativeFailureSummary $grantRun)）"
+      throw "Django 销售/财务 reader、writer 与退役 ERP bridge 权限回收失败（$(Get-NativeFailureSummary $grantRun)）"
     }
   }
   $ownerUrl = $null
@@ -2995,197 +2934,6 @@ print(json.dumps({
     throw "PostgreSQL 财务写入权威身份无效"
   }
   return $payload
-}
-
-function Get-ErpReferenceSyncArguments([object]$Config, [bool]$Watch) {
-  $arguments = @(
-    (Join-Path $BackendRoot "manage.py"),
-    "sync_erp_reference",
-    "--source", ([string]$Config.erpSourceD1),
-    "--interval-seconds", ([string]$ErpReferenceSyncIntervalSeconds),
-    "--max-events", "1000",
-    "--batch-size", "1000",
-    "--source-change-retries", "3",
-    "--transient-db-retries", "5"
-  )
-  if ($Watch) { $arguments += "--watch" }
-  return $arguments
-}
-
-function Get-ErpReferenceStatusArguments([object]$Config) {
-  $arguments = @(Get-ErpReferenceSyncArguments $Config $false)
-  $arguments += @("--status", "--max-age-seconds", "60")
-  return $arguments
-}
-
-function Invoke-ErpReferenceStatus([object]$Secrets, [object]$Config) {
-  $arguments = @(Get-ErpReferenceStatusArguments $Config)
-  $statusUrl = Database-Url "teruisi_erp_reference_sync" $Secrets.ErpSyncPassword "teruisi_erp_reference_status" $ReaderStatementTimeoutMs
-  try {
-    $payload = Invoke-WithDjangoEnvironment $Secrets $statusUrl "erp_reference_sync" $false $ReaderMaxBodyBytes "" "" {
-      $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
-      return ConvertFrom-UniqueNativeJson $nativeRun "ERP reference status 检查"
-    }
-  } finally {
-    $statusUrl = $null
-  }
-  if (
-    [string]$payload.status -cne "caught_up" -or
-    [string]::IsNullOrWhiteSpace([string]$payload.lastCheckedAt)
-  ) {
-    throw "ERP reference status 未追平"
-  }
-  return $payload
-}
-
-function ConvertTo-StatusTimestamp([object]$Value) {
-  $parsed = [DateTimeOffset]::MinValue
-  if (-not [DateTimeOffset]::TryParse(
-    [string]$Value,
-    [Globalization.CultureInfo]::InvariantCulture,
-    [Globalization.DateTimeStyles]::RoundtripKind,
-    [ref]$parsed
-  )) {
-    throw "ERP reference status 心跳时间无效"
-  }
-  return $parsed.ToUniversalTime()
-}
-
-function Read-ErpReferenceCheckpointHeartbeat([object]$Secrets) {
-  if (-not (Test-Path -LiteralPath $Psql -PathType Leaf)) { throw "缺少 PostgreSQL psql 运行文件" }
-  $environmentNames = @("PGPASSWORD", "PGCONNECT_TIMEOUT", "PGAPPNAME", "PGOPTIONS")
-  $previousEnvironment = @{}
-  foreach ($name in $environmentNames) {
-    $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
-  }
-  try {
-    [Environment]::SetEnvironmentVariable("PGPASSWORD", [string]$Secrets.ErpSyncPassword, "Process")
-    [Environment]::SetEnvironmentVariable("PGCONNECT_TIMEOUT", "5", "Process")
-    [Environment]::SetEnvironmentVariable("PGAPPNAME", "teruisi_erp_reference_heartbeat", "Process")
-    [Environment]::SetEnvironmentVariable("PGOPTIONS", "-c statement_timeout=$ReaderStatementTimeoutMs", "Process")
-    $query = "SELECT (EXTRACT(EPOCH FROM last_checked_at) * 1000)::bigint FROM erp_reference_sync_checkpoint WHERE id = 1"
-    $run = Invoke-BoundedNativeProcess $Psql @(
-      "--no-psqlrc", "--no-password", "--tuples-only", "--no-align", "--set", "ON_ERROR_STOP=1",
-      "--host", "127.0.0.1", "--port", "5432", "--username", "teruisi_erp_reference_sync",
-      "--dbname", "teruisi_sales", "--command", $query
-    ) $RuntimeRoot
-  } finally {
-    foreach ($name in $environmentNames) {
-      [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
-    }
-  }
-  if ($run.ExitCode -ne 0) {
-    throw "ERP reference checkpoint 心跳读取失败（$(Get-NativeFailureSummary $run)）"
-  }
-  $records = @($run.Output | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne "" })
-  if ($records.Count -ne 1 -or $records[0] -cnotmatch "^\d{13}$") {
-    throw "ERP reference checkpoint 心跳输出无效"
-  }
-  $unixMilliseconds = [Int64]::Parse($records[0], [Globalization.CultureInfo]::InvariantCulture)
-  return [DateTimeOffset]::FromUnixTimeMilliseconds($unixMilliseconds).ToUniversalTime()
-}
-
-function Wait-ErpReferenceHeartbeat(
-  [object]$Secrets,
-  [object]$Config,
-  [object]$BaselineCheckedAt,
-  [string[]]$Arguments,
-  [string]$Fingerprint,
-  [int]$Seconds = 45
-) {
-  $baseline = ConvertTo-StatusTimestamp $BaselineCheckedAt
-  $deadline = (Get-Date).AddSeconds($Seconds)
-  $lastState = "waiting"
-  do {
-    $running = Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python $Arguments $Fingerprint
-    if (-not $running) { throw "ERP reference sync 在新心跳前退出" }
-    try {
-      # Start-ErpReferenceSync already established a full D1/PG caught-up
-      # baseline. During the bounded wait, only the durable PG heartbeat needs
-      # to advance; reading that scalar directly avoids a Django cold start on
-      # every 500ms poll while retaining the exact process-identity fence.
-      $checkedAt = Read-ErpReferenceCheckpointHeartbeat $Secrets
-      if ($checkedAt -gt $baseline) {
-        Write-LauncherEvent "INFO" "erp_reference_watch_ready" "caught_up"
-        return [pscustomobject]@{ status = "caught_up"; lastCheckedAt = $checkedAt.ToString("o") }
-      }
-      $lastState = "heartbeat_not_advanced"
-    } catch {
-      $lastState = "status_unavailable"
-    }
-    Start-Sleep -Milliseconds 500
-  } while ((Get-Date) -lt $deadline)
-  throw "ERP reference sync 未在 ${Seconds} 秒内产生新的已追平心跳（lastState=$lastState）"
-}
-
-function Invoke-ErpReferenceSyncOnce(
-  [object]$Secrets,
-  [object]$Config,
-  [bool]$InitializeCheckpoint = $false
-) {
-  if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { throw "缺少 Python 运行文件" }
-  $arguments = @(Get-ErpReferenceSyncArguments $Config $false)
-  if ($InitializeCheckpoint) { $arguments += "--initialize-checkpoint" }
-  $operation = if ($InitializeCheckpoint) { "initialize" } else { "catch-up" }
-  $logPath = Join-Path $LogDirectory "erp-reference-$operation.$RunId.log"
-  $syncUrl = Database-Url "teruisi_erp_reference_sync" $Secrets.ErpSyncPassword "teruisi_erp_reference_$operation" $WriterStatementTimeoutMs
-  try {
-    $output = Invoke-WithDjangoEnvironment $Secrets $syncUrl "erp_reference_sync" $false $ReaderMaxBodyBytes "" "" {
-      $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
-      Write-NativeDiagnosticLog $logPath "erp_reference_$operation" $nativeRun
-      if ($nativeRun.ExitCode -ne 0) {
-        throw "ERP reference $operation 失败（$(Get-NativeFailureSummary $nativeRun)）"
-      }
-      return ConvertFrom-UniqueNativeJson $nativeRun "ERP reference $operation"
-    }
-  } finally {
-    $syncUrl = $null
-  }
-  $allowedStatuses = if ($InitializeCheckpoint) { @("initialized") } else { @("up_to_date", "synchronized") }
-  if ($allowedStatuses -notcontains [string]$output.status) {
-    throw "ERP reference $operation 返回未知状态"
-  }
-  Write-LauncherEvent "INFO" "erp_reference_$($operation.Replace('-', '_'))" ([string]$output.status)
-  return $output
-}
-
-function Start-ErpReferenceSync([object]$Secrets, [object]$Config) {
-  $arguments = @(Get-ErpReferenceSyncArguments $Config $true)
-  $fingerprint = Get-ConfigFingerprint "erp-reference-sync" $Python $arguments
-  $baseline = Invoke-ErpReferenceStatus $Secrets $Config
-  $existing = Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python $arguments $fingerprint
-  if ($existing) {
-    Wait-ErpReferenceHeartbeat $Secrets $Config $baseline.lastCheckedAt $arguments $fingerprint | Out-Null
-    return $false
-  }
-  if (@(Get-ErpReferenceSyncCandidates).Count -gt 0) {
-    throw "发现未登记的 ERP reference sync 进程；拒绝启动重复消费者"
-  }
-  Remove-OldServiceLogs "erp-reference-sync"
-  $stdout = Join-Path $LogDirectory "erp-reference-sync.$RunId.stdout.log"
-  $stderr = Join-Path $LogDirectory "erp-reference-sync.$RunId.stderr.log"
-  $syncUrl = Database-Url "teruisi_erp_reference_sync" $Secrets.ErpSyncPassword "teruisi_erp_reference_watch" $WriterStatementTimeoutMs
-  $launched = $false
-  try {
-    Invoke-WithDjangoEnvironment $Secrets $syncUrl "erp_reference_sync" $false $ReaderMaxBodyBytes "" "" {
-      Start-ManagedProcess "erp-reference-sync" $Python $arguments $BackendRoot $ErpReferenceSyncPidPath $fingerprint $stdout $stderr | Out-Null
-    }
-    $launched = $true
-    Wait-ErpReferenceHeartbeat $Secrets $Config $baseline.lastCheckedAt $arguments $fingerprint | Out-Null
-    return $true
-  } catch {
-    $originalError = $_.Exception
-    if ($launched -or (Test-Path -LiteralPath $ErpReferenceSyncPidPath -PathType Leaf)) {
-      try {
-        Stop-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python
-      } catch {
-        Write-LauncherEvent "ERROR" "erp_reference_start_cleanup_failed" $_.Exception.Message
-      }
-    }
-    throw $originalError
-  } finally {
-    $syncUrl = $null
-  }
 }
 
 function Wait-DjangoReady([string]$Label, [string]$HealthUrl, [string]$HostHeader, [int]$Seconds = 30) {
@@ -3353,38 +3101,7 @@ function Configure-Service {
     erpSourceD1 = $resolvedErpSource
   })
   Write-LauncherEvent "INFO" "service_configured"
-  Write-Output "Django 本机业务域 reader/writer、BI reader 与 ERP reference sync 配置已固定；未启动服务。"
-}
-
-function Initialize-ErpReferenceCheckpoint {
-  if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
-    throw "InitializeErpReference 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
-  }
-  Assert-DeployedApplication
-  Assert-RuntimeAclHardened
-  Assert-ApplicationProcessesStopped "InitializeErpReference"
-  $config = Get-ServiceConfig
-  New-Item -ItemType Directory -Path $LogDirectory, $RunDirectory -Force | Out-Null
-  $secrets = Read-Secrets
-  $postgresStarted = $false
-  try {
-    $postgresStarted = Start-Postgres
-    Invoke-DjangoMigrations $secrets
-    $watchArguments = @(Get-ErpReferenceSyncArguments $config $true)
-    $watchFingerprint = Get-ConfigFingerprint "erp-reference-sync" $Python $watchArguments
-    if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python $watchArguments $watchFingerprint) {
-      throw "ERP reference sync 正在运行，拒绝重新初始化 checkpoint"
-    }
-    $result = Invoke-ErpReferenceSyncOnce $secrets $config $true
-    Write-Output "ERP reference checkpoint 已绑定并逐行验证：revision=$($result.erpRevision) rows=$($result.rowCount)。"
-  } finally {
-    $secrets = $null
-    if ($postgresStarted) {
-      try { Stop-Postgres } catch {
-        Write-LauncherEvent "ERROR" "initialize_cleanup_failed" $_.Exception.Message
-      }
-    }
-  }
+  Write-Output "Django 本机业务域 reader/writer 与 BI reader 配置已固定；ERP D1 路径仅供受控迁移和退役使用，未启动服务。"
 }
 
 function Assert-Hex64([string]$Value, [string]$Label) {
@@ -3622,14 +3339,15 @@ function Start-ServiceStack {
   $writerStarted = $false
   $financeReaderStarted = $false
   $financeWriterStarted = $false
-  $erpSyncStarted = $false
   $salesCoreReady = $false
   try {
+    if ((Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python) -or
+        @(Get-ErpReferenceSyncCandidates).Count -gt 0) {
+      throw "ERP 主数据已切换 PostgreSQL；旧 ERP reference sync 必须保持停止"
+    }
     $postgresStarted = Start-Postgres
     Invoke-DjangoMigrations $secrets
     $authority = Get-ActiveWriteAuthority $secrets
-    Invoke-ErpReferenceSyncOnce $secrets $config $false | Out-Null
-    $erpSyncStarted = Start-ErpReferenceSync $secrets $config
     $readerStarted = Start-DjangoReader $secrets
     $writerStarted = Start-DjangoWriter $secrets $authority
     Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
@@ -3646,7 +3364,7 @@ function Start-ServiceStack {
     }
     Write-LauncherEvent "INFO" "service_stack_ready"
     $financeWriterState = if ([string]$financeAuthority.status -ceq "postgres") { "ready" } else { "not_active" }
-    Write-Output "Django 本机服务已就绪：sales reader=8001 writer=8002，finance reader=8011 writer=$financeWriterState，ERP reference sync 已持续运行。"
+    Write-Output "Django 本机服务已就绪：sales reader=8001 writer=8002，finance reader=8011 writer=$financeWriterState；ERP 主数据由独立 PostgreSQL 服务承担。"
   } catch {
     $originalError = $_.Exception
     Write-LauncherEvent "ERROR" "service_stack_start_failed" $originalError.Message
@@ -3674,11 +3392,6 @@ function Start-ServiceStack {
         Write-LauncherEvent "ERROR" "rollback_failed" "django-reader: $($_.Exception.Message)"
       }
     }
-    if ($erpSyncStarted) {
-      try { Stop-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python } catch {
-        Write-LauncherEvent "ERROR" "rollback_failed" "erp-reference-sync: $($_.Exception.Message)"
-      }
-    }
     if ($postgresStarted) {
       try { Stop-Postgres } catch {
         Write-LauncherEvent "ERROR" "rollback_failed" "postgres: $($_.Exception.Message)"
@@ -3695,9 +3408,8 @@ function Stop-ServiceStack {
   Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
   Stop-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress
   Stop-OwnedProcess "django-reader" $DjangoReaderPidPath $Waitress
-  Stop-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python
   if (@(Get-ErpReferenceSyncCandidates).Count -gt 0) {
-    throw "Stop 发现未登记的 ERP reference sync 进程；拒绝自动终止该进程或停止其 PostgreSQL"
+    throw "Stop 发现终态禁止的 ERP reference sync 进程；拒绝自动终止该进程或停止其 PostgreSQL"
   }
   Stop-Postgres
   Write-Output "Django 本机服务已停止；数据目录未删除。"
@@ -3782,25 +3494,6 @@ function Show-ServiceStatus {
       if ($response.StatusCode -eq 200) { $writerReady = "ready" }
     } catch {}
   }
-  $erpReference = "stopped"
-  try {
-    $config = Get-ServiceConfig
-    $erpArguments = @(Get-ErpReferenceSyncArguments $config $true)
-    $erpFingerprint = Get-ConfigFingerprint "erp-reference-sync" $Python $erpArguments
-    if (Resolve-OwnedProcess "erp-reference-sync" $ErpReferenceSyncPidPath $Python $erpArguments $erpFingerprint) {
-      $statusSecrets = Read-Secrets
-      try {
-        Invoke-ErpReferenceStatus $statusSecrets $config | Out-Null
-        $erpReference = "caught_up"
-      } catch {
-        $erpReference = "stale_or_diverged"
-      } finally {
-        $statusSecrets = $null
-      }
-    } elseif (@(Get-ErpReferenceSyncCandidates).Count -gt 0) {
-      $erpReference = "unregistered_process"
-    }
-  } catch { $erpReference = "ownership_or_config_error" }
   # Status must stay operationally bounded even when retained backup/rehearsal
   # evidence contains tens of thousands of files.  A complete descendant ACL
   # audit remains mandatory in HardenAcl and every sensitive lifecycle action;
@@ -3811,7 +3504,6 @@ function Show-ServiceStatus {
     PostgreSQL = $postgres
     DjangoReader = $reader
     DjangoWriter = $writer
-    ErpReferenceSync = $erpReference
     ReaderReadiness = $readerReady
     WriterReadiness = $writerReady
     RuntimeAcl = $acl
@@ -4000,6 +3692,10 @@ function Show-AggregateServiceStatus {
     "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $DjangoCustomerServiceWriterPidPath `
     8071 8072 "http://127.0.0.1:8071/health/ready" "http://127.0.0.1:8072/health/ready" `
     "CustomerServiceReader" "CustomerServiceWriter"
+  $erpReference = Get-SimpleDjangoDomainStatus `
+    "django-erp-reference-reader" $DjangoErpReferenceReaderPidPath $DjangoErpReferenceWriterPidPath `
+    8091 8092 "http://127.0.0.1:8091/health/ready" "http://127.0.0.1:8092/health/ready" `
+    "ErpReferenceReader" "ErpReferenceWriter"
   $bi = Get-SimpleDjangoReaderStatus `
     "django-bi-reader" $DjangoBiReaderPidPath 8081 $DjangoBiReaderHealthUrl "BiReader"
   $timer.Stop()
@@ -4013,6 +3709,7 @@ function Show-AggregateServiceStatus {
     Inventory = $inventory
     Workflow = $workflow
     CustomerService = $customerService
+    ErpReference = $erpReference
     Bi = $bi
     ElapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
     CheckedAt = [DateTimeOffset]::UtcNow.ToString("o")
@@ -4108,6 +3805,13 @@ function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken
     & $InstalledCustomerServiceScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
+  if (Test-Path -LiteralPath $ErpReferenceStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledErpReferenceScriptPath -PathType Leaf)) {
+      throw "ERP 主数据开机启动已启用，但受控 ERP 服务脚本缺失"
+    }
+    & $InstalledErpReferenceScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
   if (Test-Path -LiteralPath $BiStartupEnabledPath -PathType Leaf) {
     if (-not (Test-Path -LiteralPath $InstalledBiScriptPath -PathType Leaf)) {
       throw "BI 开机启动已启用，但受控 BI 服务脚本缺失"
@@ -4147,6 +3851,10 @@ function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToke
   }
   if (Test-Path -LiteralPath $InstalledCustomerServiceScriptPath -PathType Leaf) {
     & $InstalledCustomerServiceScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledErpReferenceScriptPath -PathType Leaf) {
+    & $InstalledErpReferenceScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
 }
@@ -4216,12 +3924,10 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
       }
       "Status" { Show-ServiceStatus }
       "AggregateStatus" { Show-AggregateServiceStatus }
-      "ProvisionErpRole" { Invoke-WithServiceMutex { Provision-ErpDatabaseRole } }
       "ProvisionFinanceRoles" { Invoke-WithServiceMutex { Provision-FinanceDatabaseRoles } }
       "StartFinance" { Invoke-WithServiceMutex { Start-FinanceStack } }
       "StopFinance" { Invoke-WithServiceMutex { Stop-FinanceStack } }
       "FinanceStatus" { Show-FinanceServiceStatus }
-      "InitializeErpReference" { Invoke-WithServiceMutex { Initialize-ErpReferenceCheckpoint } }
       "PlanSalesD1Retirement" { Invoke-WithServiceMutex { Invoke-PlanSalesD1Retirement } }
       "RetireSalesD1" { Invoke-WithServiceMutex { Invoke-RetireSalesD1 } }
       "CreateSalesCutoverSmokeReceipt" { Invoke-WithServiceMutex { Invoke-CreateSalesCutoverSmokeReceipt } }

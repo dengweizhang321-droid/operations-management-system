@@ -391,10 +391,18 @@ const defaultPageDataToolServices: PageDataToolServices = {
       )).data;
     }
     if (source === "products" || source === "combos") {
-      const { ensureErpReferenceSchema, getErpReferenceDatabase, listErpReferenceBatches } = await import("@/lib/erp-reference/database");
-      const db = getErpReferenceDatabase();
-      await ensureErpReferenceSchema(db);
-      return listErpReferenceBatches(db, source, input);
+      const { createDjangoErpReferenceService, ERP_REFERENCE_IMPORTS_PATH } = await import("@/lib/django/erp-reference-service");
+      const query = new URLSearchParams({
+        source,
+        page: String(input.page),
+        pageSize: String(input.pageSize),
+      });
+      const result = await createDjangoErpReferenceService().requestJson<Record<string, unknown>>(
+        principal,
+        { method: "GET", path: ERP_REFERENCE_IMPORTS_PATH, service: "reader", rawQuery: query.toString() },
+        { signal },
+      );
+      return { ...result.data, erpReferenceRevision: result.revision };
     }
     if (source === "finance") {
       const { ensureFinanceSchema, getFinanceDatabase, listFinanceImportBatches } = await import("@/lib/finance/database");

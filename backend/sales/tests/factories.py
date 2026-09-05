@@ -116,10 +116,15 @@ def make_line(identifier: int, key: str, **overrides) -> SalesOrderLine:
 
 
 def install_fixture() -> None:
-    SalesDataRevision.objects.bulk_create([
-        SalesDataRevision(domain="sales", revision=7, source_digest="sales"),
-        SalesDataRevision(domain="erp", revision=3, source_digest="erp"),
-    ])
+    # The ERP Django migration owns the singleton revision row.  Keep this
+    # cross-domain fixture compatible with a database whose migrations have
+    # already seeded that control row.
+    SalesDataRevision.objects.update_or_create(
+        domain="sales", defaults={"revision": 7, "source_digest": "sales"}
+    )
+    SalesDataRevision.objects.update_or_create(
+        domain="erp", defaults={"revision": 3, "source_digest": "erp"}
+    )
     SalesImportBatch.objects.create(
         id="batch-1", source="test", file_name="sales.xlsx", file_size_bytes=100,
         file_hash="a" * 64, sheet_name="销售", status="completed", row_count=5,

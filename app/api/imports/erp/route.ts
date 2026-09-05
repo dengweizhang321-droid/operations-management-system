@@ -3,14 +3,7 @@ import {
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
-import {
-  ensureErpReferenceSchema,
-  countErpReferenceRowsOwnedByBatch,
-  findErpReferenceBatch,
-  getErpReferenceDatabase,
-  listErpReferenceBatches,
-} from "@/lib/erp-reference/database";
-import { importErpReferenceBytes } from "@/lib/erp-reference/import-service";
+import { importErpReferenceToDjango } from "@/lib/erp-reference/django-import-service";
 import { importInventoryAgeToDjango } from "@/lib/inventory/django-age-import-service";
 import { isErpReferenceSourceKey } from "@/lib/imports/erp-reference";
 import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
@@ -18,6 +11,10 @@ import {
   createDjangoInventoryService,
   INVENTORY_IMPORTS_PATH,
 } from "@/lib/django/inventory-service";
+import {
+  createDjangoErpReferenceService,
+  ERP_REFERENCE_IMPORTS_PATH,
+} from "@/lib/django/erp-reference-service";
 import { reconcileNewProductCodesAfterImport } from "@/lib/workflow/new-product-learning";
 
 const MAX_DIRECT_FILE_BYTES = 2 * 1024 * 1024;
@@ -53,17 +50,24 @@ export async function GET(request: Request) {
       );
       return Response.json(result.data, { headers: { "cache-control": "no-store", "x-inventory-data-revision": result.revision } });
     }
-    const db = getErpReferenceDatabase();
-    await ensureErpReferenceSchema(db);
     if (!source && !batchId) {
       const combinedLimit = page * pageSize;
       if (combinedLimit > 100) {
         return reject(400, "跨域 ERP 导入历史最多联合翻阅前 100 条；更早记录请先选择具体来源");
       }
       const ageQuery = new URLSearchParams({ dataset: "age", page: "1", pageSize: String(combinedLimit) });
-      const [products, combos, age] = await Promise.all([
-        listErpReferenceBatches(db, "products", { page: 1, pageSize: combinedLimit }),
-        listErpReferenceBatches(db, "combos", { page: 1, pageSize: combinedLimit }),
+      const erpService = createDjangoErpReferenceService();
+      const [productsResult, combosResult, age] = await Promise.all([
+        erpService.requestJson<{ items: Array<Record<string, unknown>>; pagination: { total: number } }>(
+          principal,
+          { method: "GET", path: ERP_REFERENCE_IMPORTS_PATH, service: "reader", rawQuery: new URLSearchParams({ source: "products", page: "1", pageSize: String(combinedLimit) }).toString() },
+          { signal: request.signal },
+        ),
+        erpService.requestJson<{ items: Array<Record<string, unknown>>; pagination: { total: number } }>(
+          principal,
+          { method: "GET", path: ERP_REFERENCE_IMPORTS_PATH, service: "reader", rawQuery: new URLSearchParams({ source: "combos", page: "1", pageSize: String(combinedLimit) }).toString() },
+          { signal: request.signal },
+        ),
         createDjangoInventoryService().requestJson<{
           items: Array<Record<string, unknown>>;
           pagination: { total: number };
@@ -75,8 +79,8 @@ export async function GET(request: Request) {
         }, { signal: request.signal }),
       ]);
       const combined = [
-        ...products.items.map((item) => ({ ...item })),
-        ...combos.items.map((item) => ({ ...item })),
+        ...productsResult.data.items,
+        ...combosResult.data.items,
         ...age.data.items,
       ].sort((left, right) => {
         const byTime = String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? ""));
@@ -84,7 +88,7 @@ export async function GET(request: Request) {
       });
       const offset = (page - 1) * pageSize;
       const items = combined.slice(offset, offset + pageSize);
-      const total = products.pagination.total + combos.pagination.total + age.data.pagination.total;
+      const total = productsResult.data.pagination.total + combosResult.data.pagination.total + age.data.pagination.total;
       return Response.json({
         items,
         pagination: {
@@ -97,31 +101,15 @@ export async function GET(request: Request) {
         },
       }, { headers: { "cache-control": "no-store" } });
     }
-    const exactBatch = source && batchHash ? await findErpReferenceBatch(db, source, batchHash) : null;
-    let payload: {
-      items: Array<Record<string, unknown>>;
-      pagination: { page: number; pageSize: number; total: number; returned: number; truncated: boolean; totalPages?: number };
-    } = { items: [], pagination: { page, pageSize, total: 0, returned: 0, truncated: false } };
-    if (batchId) {
-      payload = exactBatch?.id === batchId
-          ? { items: [{
-              ...exactBatch,
-              ownedRowCount: await countErpReferenceRowsOwnedByBatch(
-                db,
-                exactBatch.sourceKey,
-                exactBatch.id,
-                exactBatch.snapshotDate,
-              ),
-            }], pagination: { page: 1, pageSize: 1, total: 1, returned: 1, truncated: false } }
-          : { items: [], pagination: { page: 1, pageSize: 1, total: 0, returned: 0, truncated: false } };
-    } else {
-      const legacy = await listErpReferenceBatches(db, source, { page, pageSize });
-      payload = {
-        items: legacy.items.map((item) => ({ ...item })),
-        pagination: legacy.pagination,
-      };
-    }
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    if (!source) return reject(400, "ERP 导入来源无效");
+    const query = new URLSearchParams({ source, page: String(page), pageSize: String(pageSize) });
+    if (batchId) query.set("batchId", batchId);
+    const result = await createDjangoErpReferenceService().requestJson<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: ERP_REFERENCE_IMPORTS_PATH, service: "reader", rawQuery: query.toString() },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, { headers: { "cache-control": "no-store", "x-erp-reference-data-revision": result.revision } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
@@ -163,13 +151,13 @@ export async function POST(request: Request) {
           fileSizeBytes: entry.size,
           snapshotDate,
         }, { signal: request.signal })
-      : await importErpReferenceBytes({
+      : await importErpReferenceToDjango({
+          principal,
           source,
           bytes,
           fileName: entry.name,
           fileSizeBytes: entry.size,
-          snapshotDate,
-        });
+        }, { signal: request.signal });
     const productBatchId = (payload as { batch?: { id?: unknown } }).batch?.id;
     const responsePayload = source === "products"
       ? { ...payload, newProductLearning: await reconcileNewProductCodesAfterImport(principal, typeof productBatchId === "string" ? productBatchId : "", request.signal) }
