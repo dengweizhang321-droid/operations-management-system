@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-本分支已按 Django/PostgreSQL 单写契约完成权限域实现、Worker 薄适配、React 管理界面、迁移/切权工具、最小权限运行编排和自动化测试。2026-09-05 已对当前本机 D1 `app_users` 做只读快照，并先后在隔离 SQLite 与独立端口 PostgreSQL 17 镜像中完成 `dry-run → apply → verify-only` 演练；生产 PostgreSQL、生产 D1 authority、受控运行目录和 Worker release 均未改变。
+2026-09-05，已在用户批准的受控停写窗口完成本机权限域 PostgreSQL 正式迁移、唯一写权激活及 D1 终态退役，Worker 薄适配、React 管理界面及权限服务均已完成真实部署检查。权限域没有 R2 文件/字节所有权或可达路径；全局 D1/R2 仍供其他未迁移范围使用，没有关闭或删除。下方早期镜像 run 仅是开发演练，不是生产 authority。
 
 隔离演练证据：
 
@@ -78,6 +78,24 @@ PostgreSQL authority 激活后即按 PNR 处理（不等到 `0112`）：禁止�
 - 独立 PostgreSQL 17 端口 `55439` 的固定合成夹具完成真实 reader/writer CRUD、审计、重放、CAS、错端点、未知用户和失配 authority 检查。apply：`access-control-768ce53cd85048d696bd804910e686b6`；verify：`access-control-verify-c389f9757a5e42ba9d8882d29a622e99`。合成源/目标摘要均为 `6ceeedeac19caf93232e20fcbdf0afefe2fc16313d5bb7752963eeb6d314ec70`，不代表生产用户。
 - 已完成线上只读全库备份 `daily-20260905T084345Z-6b5fd76b5aab`，manifest SHA-256 为 `8813298e9eecdb591caf5c703978a39f394078cc3684d8703bf958750f10b703`。独立 `55441` 恢复演练 `ac2026090501` 成功，源/恢复 content SHA-256 均为 `c81b33538933501e6ef249cfb034a3889ba11ee6c6fccfcb43d837da4c62ff10`；生产数据库和服务状态未改变。
 - 正式 operator 为 `tools/django-access-control-cutover.ps1`，只能从受保护 runtime app 执行。它提供 `PrepareRuntime`、`Snapshot`、`MigrateDryRun/Apply/Verify`、`InstallD1Authority`、`AuthorityPrepare/Activate`、`Smoke`、`RetirementPlan/Apply`；变更需 Worker 与权限 writer 停止，retirement 需要精确 plan ID、30 分钟内的真实部署 smoke 和同一事务内其他 D1 域事实摘要不变。权限表、revision、authority、迁移与审计已加入日常备份/恢复证据。
+
+## 正式切换证据
+
+- cutover：`access-control-pg-20260905T091024Z-06e143235de1`；authority epoch：`5903a114-ec95-4d17-95bd-d612f013d0ed`。
+- D1 冻结全量快照：`audits/access-control-cutover/20260905-170537-ed638821/access-control-source.sqlite`（相对 Django runtime）；9,586,368,512 字节，SHA-256 `bea18c97d3f060594bacec3d138d63e174effe5d18ae311e348704f30dfa103a`。保留完整备份，不删除原始审计证据。
+- 正式 dry-run：`access-control-dryrun-7f577890ed514d4e86e8d568a69d1e69`；apply：`access-control-06e143235de14abf80541c6d27e15781`；独立 verify：`access-control-verify-6de38cdcc2214a1eaa5ac0edbf05dc66`。
+- 正式用户 1、启用 1、无限制管理员 1、停用 0、受限 scope 0。源/目标规范摘要均为 `92ff6dd59dd97011d692da1453a46f6d982451494c990dcb3207ffdb0364c497`；历史时间戳按 UTC 正确保留。
+- Worker effective release：`20260905T090134Z-6a5d72609fb56a8a`；manifest SHA-256 `33ce62082f5bc91c3d79af2e004c692cfb4b18a71aa599b7701698783aa53472`；发布 plan SHA-256 `833ba1d142146eef1627baed7dd2c45b5fa54bc12ed6e22dfa34ff1bc580f32f`。successor SHA-256 `257e63e3ce17fe562805be0c58fa60441db88b30fe1406d1116c5cca179a55ca`；登录快捷方式由受控 apply 同步重绑并回读。
+- 正式 smoke：`audits/access-control-cutover/20260905-171528-2d842221/Smoke.json`，SHA-256 `026c4433e96badac804a21fafe518e90fa616d57d159ce8d6053aa4ba6d53432`。12 项检查通过：reader/writer、公开用户/角色/审计、无效权限写入、跨站拒绝、未知账号、无签名请求、旧 D1 拒写、旧源码路径不可达及其他域 readiness。
+- Chrome 独立无头上下文真实打开 `/?module=settings&view=permissions`：4 个角色卡片、1 个账号、新增和编辑表单、审计页面均成功渲染，3 个权限 API 均为 200，页面错误 0、生产表单提交 0。这是受控本机直连 principal 验证，不声称完成外部 ChatGPT SSO 登录演练。
+- 代码门禁：Django 330 项通过；Node 1848 项中 1828 通过、20 项有条件跳过、0 失败；构建及 19 项构建产物检查通过；lint 0 错误、10 项既有警告；迁移检查无漂移。额外真实 PostgreSQL 固定角色演练及权限域 14 项回归通过。
+- 首次 retirement apply 因 `sqlite_stat1` 中权限表自身的优化器统计被误算为其他域数据而安全回滚；未改变旧账号事实、其他域事实或 PostgreSQL authority。修复只在保全摘要中排除 `app_users` 和 `access_control_write_authority` 自身的 `sqlite_stat*` 行，仍比较所有其他域统计；保留该失败尝试的 intent 文件，补充 `ANALYZE` 回归夹具，按受保护 runtime 部署修复，不手改运行包。
+- 运维顺序补充：涉及受保护控制入口更新时，先通过当前 effective head 受控停止 Worker，再更新入口或合并会改动入口的源码；禁止在旧 Worker 尚未停止时让受保护入口提前漂移。
+- D1 终态退役：`audits/access-control-cutover/20260905-172555-e587f0a6/RetirementApply.json`，SHA-256 `eaa2c709ad7508ced1bb4df47f4ecda456df617ff95851cd1ad1881af4a6bf0e`；plan ID `e6c322b328332b9a559d7a8d48cb20bc54acb21258a93b8b4c8475aaa5a88631`。`app_users` 与 `access_control_write_authority` 已变为 2 个空 tombstone views，6 个永久 guard 完整，旧写入被 `access_control_domain_retired` 拒绝。其他 D1 域事实及统计保全摘要前后均为 `cd49349d0cd414219a13c64e1e977778a70c49aecf73038a2e63e6b9db0578a5`。
+- 迁移后正式全库备份：`daily-20260905T093723Z-95b158df2c32`；manifest SHA-256 `6881b624943e26af0d9013f572d55b7eaa8c66d2f930f4ca24e0c559b1190b13`；dump SHA-256 `4556d96d7143affed5e28a50e1f787e4dae04671ef96b5f8e5a94b515abace36`；content SHA-256 `0af735396b0c09d446f4b98c1dd22cfc2f16e9f36d6ec9b3984a7295da6ab1b7`。证据明确覆盖权限域 7 张表（用户 1、角色 4、审计 1、revision 1、authority 1、迁移 run 3、请求回执 0），并绑定 revision=1、迁移 run、正式 authority epoch 与规范摘要。
+- 运维备份严格白名单已同时更新 Python 证据生成器与 PowerShell 验证器；新增权限域字段、迁移标记和 7 张表必须一致，缺失/非法状态继续失败关闭。曾因白名单未同步而拒绝一次备份，不将其标记为成功；修复经 PowerShell 5/7 的 8 项新旧证据验证和 11 项维护回归验证，再按受保护 runtime 部署。所有成功备份、原始快照与失败尝试证据保留。
+- 2026-09-05 17:39（上海）最终总控回读：`Running`、`backendState=Ready`、`workerState=exact_release`，11 组组件（含权限和 BI）全部 true；退役后 Chrome 权限页与三个公开权限读取 API 再次通过，生产表单提交仍为 0。
+- 迁移后备份的独立恢复演练 `ac2026090502` 于 2026-09-05 17:44（上海）完成，独立端口 `55442`，源/恢复 content SHA-256 均为 `0af735396b0c09d446f4b98c1dd22cfc2f16e9f36d6ec9b3984a7295da6ab1b7`；`productionDatabaseTouched=false`、`serviceStateChanged=false`。演练实例与其临时数据由受控 operator 清理，正式备份、D1 源快照和切换证据继续保留。
 
 ## 验证清单
 

@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；其他范围仍依赖的全局 D1/R2 保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
+
 ## 启动方式
 
 当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、各业务域（含 ERP 主数据 reader/writer）和已启用的 BI 只读聚合服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：

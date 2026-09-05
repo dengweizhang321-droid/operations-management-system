@@ -34,6 +34,7 @@
   - ERP 货品主数据、组合装、原始分片、迁移和审计权威实现：`backend/erp_reference/`；Worker 薄适配与有界 consumer 为 `lib/django/erp-reference-*.ts`、`lib/erp-reference/django-*.ts`。库存库龄继续属于 `backend/inventory/`；旧 `lib/erp-reference/` D1 领域实现和 ERP bridge 只允许作为隔离迁移、终态退役审计或测试材料保留
   - 运营事务工作计划、评论/活动/提醒/关联、模板（变量配置）、附件元数据/清理队列、巡店/评价记录、结构化新品项目、多店目标、七阶段、产品线、周报配置、投递账本、迁移和审计的权威实现：`backend/workflow/`；Worker 薄适配与有界 consumer：`lib/django/workflow-service.ts`、`lib/django/workflow-consumer-reader.ts`。旧 D1 运营事务对象只允许作为空 tombstone、永久 guard、隔离迁移/恢复研究或测试夹具保留；附件字节继续由薄 Worker 使用现有 R2 命名空间，元数据与清理状态以 PostgreSQL 为权威
   - AI 助理、工具执行和审计：`lib/ai/`
+  - 用户、固定角色、数据范围、权限变更审计、revision、迁移和写权证据的权威实现：`backend/access_control/`；Worker 薄适配为 `lib/django/access-control-service.ts`、`lib/auth/authorization.ts` 与 `lib/ai/background-principal.ts`。未知/停用账号失败关闭，不自动登记 viewer；AI 工具执行审计仍属于 AI 域，不混入权限变更审计。
   - 全局搜索：`lib/search/`
   - BI 看板只读聚合：`backend/bi/`；Worker 薄适配为 `lib/django/bi-service.ts`。BI 不拥有或复制销售、ERP、库存事实，不设 writer 或第二套业务 revision；生产 reader 固定使用 `127.0.0.1:8081`、独立 `teruisi_bi_reader` 只读角色和 `bi-service-enabled.json`，服务端通过源 revision 前后采样组成一致性快照，并只在 `bi_migration_runs` 保存采用审计。2026-09-05 已完成本机生产启用，采用 run 为 `bi-apply-1079734fb42842eeb1cb13b830bbb8a6`，当前 Worker release 为 `20260904T223540Z-40a783da7d4d5867`
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
@@ -41,6 +42,7 @@
 ### 2.1 Django 后端渐进迁移决策
 
 - 2026-08-27 已确认后端长期目标框架为 Django，并采用按业务域逐步迁移，不进行一次性整体重写。现有 React 19、Next.js 16、Vinext/Vite 前端继续保留；2026-09-01 用户最终确认网店分析前端也继续使用现有 React/Next.js 架构，不改写为 Django template。
+- 2026-09-05，本机用户/角色/数据范围/权限变更审计域已完成 Django/PostgreSQL 正式单写切换和 D1 终态退役。cutover ID 为 `access-control-pg-20260905T091024Z-06e143235de1`，authority epoch 为 `5903a114-ec95-4d17-95bd-d612f013d0ed`；正式 run `access-control-06e143235de14abf80541c6d27e15781` 迁移并复验 1 个启用的无限制管理员，源/目标摘要均为 `92ff6dd59dd97011d692da1453a46f6d982451494c990dcb3207ffdb0364c497`。固定 reader/writer 为 `127.0.0.1:8101/8102`、独立最小权限 DPAPI 角色，并通过 `access-control-enabled.json` 加入受控启动链；Worker effective release 为 `20260905T090134Z-6a5d72609fb56a8a`。operator-only `0111/0112` 不进入普通 Drizzle journal；旧 `app_users` 和权限 authority 是 2 个空 tombstone views，6 个永久 guard 拒绝旧写入。权限域没有 R2 文件/字节所有权，不能据此删除仍供 AI、市场图片和运营事务附件等范围使用的全局 D1/R2。已跨过 PNR，禁止恢复 D1 权限读写、自动补建、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或受控前向修复。正式证据见 `docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`。
 - 自本决策起，所有新增后端业务能力默认且必须在 Django 服务中实现。现有 TypeScript/Next.js API 仅继续承担尚未迁移业务的维护、缺陷修复、迁移适配、边缘路由和必须依赖 Cloudflare Worker binding 的兼容职责，不得把新的领域事实源或长期业务流程继续堆入旧后端。确需临时例外时必须获得用户明确批准，隔离实现并记录后续迁移项。
 - 每个既有业务域在完成数据结构与数据迁移、API 契约对比、真实 principal 权限与 scope、审计、业务口径、并发/幂等、性能、回滚演练和单写所有者切换前，仍由当前 TypeScript/Worker 实现作为该域的权威后端。不得因已确定 Django 方向就声称尚未迁移的模块已经运行在 Django 上。
 - 迁移期间禁止新旧后端长期双写。同一精确业务范围任一时刻只能有一个写入所有者；优先通过只读影子对比、按域灰度路由和可立即回退的切换完成迁移。现有金额、时区、日期边界、店铺身份、权限、审计、导入幂等、租约 fencing、跨店隔离和落库回查契约必须原样保留。
