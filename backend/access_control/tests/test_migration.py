@@ -76,6 +76,9 @@ class AccessControlMigrationTests(TestCase):
             with sqlite3.connect(source_path) as source:
                 source.execute("CREATE TABLE unrelated_facts(id INTEGER PRIMARY KEY, value TEXT)")
                 source.execute("INSERT INTO unrelated_facts VALUES(1,'must survive')")
+                source.execute("CREATE INDEX app_users_role_status_idx ON app_users(role,status)")
+                source.execute("ANALYZE")
+                self.assertGreater(source.execute("SELECT COUNT(*) FROM sqlite_stat1 WHERE tbl='app_users'").fetchone()[0], 0)
             dry = _command("migrate_access_control_from_d1", source=str(source_path), mode="dry-run")
             applied = _command("migrate_access_control_from_d1", source=str(source_path), mode="apply", approve_run_id=dry["runId"])
             cutover = "access-control-retirement-fixture"

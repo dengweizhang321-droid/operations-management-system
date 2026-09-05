@@ -42,6 +42,10 @@ def _preserved(source: sqlite3.Connection) -> str:
     for table in tables:
         quoted = '"' + table.replace('"', '""') + '"'
         where = " WHERE domain<>'access-control'" if table == "domain_retirement_receipts" else ""
+        if table in {"sqlite_stat1", "sqlite_stat2", "sqlite_stat3", "sqlite_stat4"}:
+            # DROP TABLE removes that table's planner statistics automatically.
+            # They belong to the retired domain; retain and compare all others.
+            where = " WHERE tbl NOT IN ('app_users','access_control_write_authority')"
         hashes = []
         for row in source.execute(f"SELECT * FROM {quoted}{where}"):
             values = [base64.b64encode(value).decode() if isinstance(value, bytes) else value for value in row]
