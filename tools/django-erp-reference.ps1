@@ -143,6 +143,9 @@ writer_privileges = {
 connection = psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"])
 connection.autocommit = True
 with connection.cursor() as cursor:
+    cursor.execute("SELECT 1 FROM pg_roles WHERE rolname='teruisi_erp_reference_sync'")
+    if cursor.fetchone() is not None:
+        cursor.execute("ALTER ROLE teruisi_erp_reference_sync NOLOGIN")
     for role, password in roles.items():
         cursor.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", (role,))
         if cursor.fetchone() is None:

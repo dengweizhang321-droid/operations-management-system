@@ -23,6 +23,7 @@ const nativePs5RuntimeTest = readFileSync(
   "utf8",
 );
 const financeCutover = readFileSync("tools/django-finance-cutover.ps1", "utf8");
+const erpReferenceService = readFileSync("tools/django-erp-reference.ps1", "utf8");
 const orchestratedDomainServices = [
   ["netshop", readFileSync("tools/django-netshop-service.ps1", "utf8")],
   ["market", readFileSync("tools/django-market-service.ps1", "utf8")],
@@ -100,7 +101,8 @@ test("Django local service uses deterministic production secrets and least-privi
   assert.doesNotMatch(script, /Unprotect-Value \(\[string\]\$payload\.databaseErpSync\)/);
   assert.doesNotMatch(script, /ErpSyncPassword/);
   assert.doesNotMatch(script, /CREATE ROLE teruisi_erp_reference_sync/);
-  assert.match(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
+  assert.doesNotMatch(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
+  assert.match(erpReferenceService, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(script, /NOBYPASSRLS/);
   assert.match(script, /REVOKE ALL PRIVILEGES ON ALL TABLES/);
   assert.match(script, /REVOKE ALL PRIVILEGES \(\{names\}\)/);
@@ -364,7 +366,8 @@ test("retired ERP bridge provisioning is unreachable and application rollback re
   assert.doesNotMatch(script, /"ProvisionErpRole"/);
   assert.doesNotMatch(script, /function Provision-ErpDatabaseRole/);
   assert.doesNotMatch(script, /CREATE ROLE teruisi_erp_reference_sync/);
-  assert.match(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
+  assert.doesNotMatch(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
+  assert.match(erpReferenceService, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(script, /"RollbackApp" \{ Invoke-WithServiceMutex \{ Rollback-Application \} \}/);
   assert.match(script, /Assert-ApplicationTreeManifest \$backup/);
   assert.match(script, /runtime_app_rolled_back/);

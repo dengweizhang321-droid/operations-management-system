@@ -2829,7 +2829,6 @@ with connection.cursor() as c:
                 f"{quote(schema)}.{quote(table)} FROM teruisi_erp_reference_sync"
             )
         c.execute("REVOKE CONNECT ON DATABASE " + current_database + " FROM teruisi_erp_reference_sync")
-        c.execute("ALTER ROLE teruisi_erp_reference_sync NOLOGIN")
 
     for table in (
         "sales_write_authority",
