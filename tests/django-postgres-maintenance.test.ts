@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -285,6 +285,69 @@ test("Python helper imports with the controlled runtime", async (t) => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /\{backup,probe,restore\}/);
   assert.equal(result.stderr, "");
+});
+
+test("maintenance validates complete AI backup evidence before and after activation", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
+  const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(aiTables).size, 44);
+  const base = {
+    database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
+    tables: Object.fromEntries(["django_migrations", "sales_data_revisions", "sales_import_batches", "sales_order_lines", "sales_write_authority", "erp_product_master"].map(name => [name, 0])),
+    migrations: [{ app: "sales", name: "0001_initial" }],
+    revisions: { sales: 1, erp: 1 },
+    writeAuthority: { status: "active", authorityEpoch: "11111111-1111-1111-1111-111111111111", cutoverId: "fixture-sales" },
+    contentSha256: "a".repeat(64), canonicalSha256: "b".repeat(64),
+  };
+  const candidate = {
+    ...structuredClone(base),
+    tables: { ...base.tables, ...Object.fromEntries(aiTables.map(name => [name, 0])) },
+    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }],
+    aiAssistant: { revision: 0, sourceDigest: "", status: "d1", authorityEpoch: "", cutoverId: "", migrationRunId: "" },
+  };
+  const adopted = structuredClone(candidate);
+  Object.assign(adopted.aiAssistant, { revision: 1, sourceDigest: "c".repeat(64), migrationRunId: `ai-apply-${"d".repeat(32)}` });
+  const active = structuredClone(adopted);
+  Object.assign(active.aiAssistant, { status: "postgres", authorityEpoch: "22222222-2222-2222-2222-222222222222", cutoverId: "fixture-ai" });
+  const missing = structuredClone(active);
+  delete missing.tables.ai_models;
+  const unknown = structuredClone(active);
+  unknown.tables.ai_unregistered = 0;
+  const unbound = { ...structuredClone(base), tables: { ...base.tables, ai_models: 0 } };
+  const metadataMissing = structuredClone(active) as Partial<typeof active>;
+  delete metadataMissing.aiAssistant;
+  const cases = [
+    ...[base, candidate, adopted, active].map(evidence => ({ valid: true, evidence })),
+    ...[missing, unknown, unbound, metadataMissing].map(evidence => ({ valid: false, evidence })),
+  ];
+  const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
+  const command = `
+$ErrorActionPreference='Stop'
+$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1'
+$operator=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(operatorPath).toString("base64")}'))
+. $operator
+$cases=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encoded}')) | ConvertFrom-Json
+foreach($case in $cases) {
+  $accepted=$false
+  try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
+  if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
+}
+Write-Output '8 AI backup evidence cases passed'
+`;
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
+  try {
+    const scriptPath = path.join(tempRoot, "validate.ps1");
+    await writeFile(scriptPath, command);
+    const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /8 AI backup evidence cases passed/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 test("Python helper snapshot and restore behavior passes isolated unit fixtures", async (t) => {

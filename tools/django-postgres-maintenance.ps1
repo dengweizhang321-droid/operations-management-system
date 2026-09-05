@@ -469,8 +469,11 @@ function Assert-MaintenanceEvidence(
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
     if ($property.Name -cne "django_migrations" -and
-        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi|access_control)_[a-z0-9_]+$") {
+        $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi|access_control|ai)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
+    }
+    if ($property.Name -clike "ai_*" -and $property.Name -cnotin $requiredTables) {
+      throw "PostgreSQL AI 表不在已采用的闭合清单中"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
         [int64]$property.Value -lt 0) {
