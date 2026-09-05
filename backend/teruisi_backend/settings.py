@@ -124,6 +124,7 @@ if DJANGO_ENVIRONMENT == "production" and (
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
+    "ai_assistant.apps.AiAssistantConfig",
     "access_control.apps.AccessControlConfig",
     "sales.apps.SalesConfig",
     "erp_reference.apps.ErpReferenceConfig",
@@ -238,6 +239,8 @@ ACCESS_CONTROL_WRITE_AUTHORITY_EPOCH = os.getenv(
 ACCESS_CONTROL_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID", ""
 ).strip()
+AI_WRITE_AUTHORITY_EPOCH = os.getenv("TERUISI_DJANGO_AI_AUTHORITY_EPOCH", "").strip()
+AI_WRITE_CUTOVER_ID = os.getenv("TERUISI_DJANGO_AI_CUTOVER_ID", "").strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -261,12 +264,25 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "bi_reader",
     "access_control_reader",
     "access_control_writer",
+    "ai_reader",
+    "ai_writer",
 }:
     raise RuntimeError(
         "生产 Django 必须显式声明已登记的 reader、writer、migration_writer 或同步进程角色"
     )
 if DJANGO_PROCESS_ROLE == "reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "ai_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django ai_reader 必须使用只读连接")
+if DJANGO_PROCESS_ROLE in {"ai_reader", "ai_writer"}:
+    if DJANGO_PROCESS_ROLE == "ai_writer" and DJANGO_EXPECT_READ_ONLY:
+        raise RuntimeError("Django ai_writer 不能使用只读连接")
+    try:
+        uuid.UUID(AI_WRITE_AUTHORITY_EPOCH)
+    except ValueError as error:
+        raise RuntimeError("Django ai_writer 缺少有效 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", AI_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django ai_writer 缺少有效 cutover id")
 if DJANGO_PROCESS_ROLE == "sales_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django sales_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "erp_reference_reader" and not DJANGO_EXPECT_READ_ONLY:

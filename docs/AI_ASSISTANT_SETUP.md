@@ -1,13 +1,13 @@
 # AI 助理、AI 空间与聊天渠道接入
 
-“AI 助理”模块分为六个可深链接工作区：`AI 对话`、`Agent 工作流`、`全局记忆`、`分析沙箱`、`AI 空间` 和 `AI 管理`。AI 对话提供带中央只读工具的同步 Agent 循环；Agent 工作流同时开放 D1 DAG dry-run、正式单 Agent 和带人工复核节点的正式多 Agent DAG；全局记忆只保存 owner 明确确认的稳定信息；分析沙箱只执行确定性 JSON AST，不执行任意代码；AI 空间提供有界的商品视觉生成与私有资产库；AI 管理集中维护对话模型、聊天渠道、独立图片生成模型、提示词模板和中央工具目录。正式 Agent 每个执行微步最多派发一次 provider 或执行一次中央注册表只读工具，创建时固定模型版本和工具策略，每轮重新核验 owner、角色、scope、模型版本与工具策略摘要；provider/tool 派发均有持久 ledger，外部结果未知时失败关闭且不自动重试。模型、Webhook、Token、AES Key 与图片模型 API Key 只在服务端保存；页面和接口列表只返回掩码或脱敏信息，不会返回可用明文。完整边界见 [`AI_PLATFORM_ARCHITECTURE.md`](AI_PLATFORM_ARCHITECTURE.md)。
+“AI 助理”模块分为六个可深链接工作区：`AI 对话`、`Agent 工作流`、`全局记忆`、`分析沙箱`、`AI 空间` 和 `AI 管理`。AI 对话提供带中央只读工具的同步 Agent 循环；Agent 工作流同时开放 Django/PostgreSQL DAG dry-run、正式单 Agent 和带人工复核节点的正式多 Agent DAG；全局记忆只保存 owner 明确确认的稳定信息；分析沙箱只执行确定性 JSON AST，不执行任意代码；AI 空间提供有界的商品视觉生成与私有资产库；AI 管理集中维护对话模型、聊天渠道、独立图片生成模型、提示词模板和中央工具目录。正式 Agent 每个执行微步最多派发一次 provider 或执行一次中央注册表只读工具，创建时固定模型版本和工具策略，每轮重新核验 owner、角色、scope、模型版本与工具策略摘要；provider/tool 派发均有持久 ledger，外部结果未知时失败关闭且不自动重试。模型、Webhook、Token、AES Key 与图片模型 API Key 只在服务端保存；页面和接口列表只返回掩码或脱敏信息，不会返回可用明文。完整边界见 [`AI_PLATFORM_ARCHITECTURE.md`](AI_PLATFORM_ARCHITECTURE.md)。
 
 ## 上线前准备
 
-1. 先应用 Drizzle 数据库迁移，至少包含 `drizzle/0013_ai_assistant.sql`、`drizzle/0014_ai_channel_callbacks.sql`、`drizzle/0030_ai_vision_model_capability.sql`、`drizzle/0039_ai_question_pipeline.sql`、`drizzle/0040_ai_model_reasoning_mode.sql`、`drizzle/0082_ai_space.sql`、`drizzle/0084_ai_memory.sql`、`drizzle/0085_ai_analysis_sandbox.sql`、`drizzle/0086_ai_agent_workflows.sql` 与 `drizzle/0087_ai_agent_executor.sql`。`0087` 创建 provider/tool 派发与结果 ledger；模型版本和固定工具策略兼容列由 runtime schema 在业务读取或派发前幂等补齐，以同时支持 migration-first 与 runtime-first。生产应用迁移后还必须重启 Worker。当前 `127.0.0.1:3000` 是否已热更新应以进程和接口验收为准，不能仅凭源码判断。
-2. 在服务器环境变量中设置强随机值 `AI_SECRET_ENCRYPTION_KEY`。Sites 项目必须把它设置为生产运行时 Secret，并在变更后重新发布版本；本地开发可通过进程环境变量或 `.dev.vars` 提供。缺少该变量时，系统会拒绝保存或解密密钥。
+1. AI 完整数据域通过 Django migrations 与受控采用工具部署，reader/writer 为 8111/8112。正式切换状态、备份恢复、停服批准、单写 authority 与 D1 退役顺序见 [`DJANGO_AI_ASSISTANT_MIGRATION.md`](DJANGO_AI_ASSISTANT_MIGRATION.md)。旧 Drizzle `0013–0087` 只用于历史恢复研究和测试，生产不再运行 AI runtime schema 自动建表；`0113/0114` 只允许受控 operator 使用，不进入普通 journal。
+2. 已有系统必须保留原 `AI_SECRET_ENCRYPTION_KEY`，由 `django-ai.ps1` 转存到独立 DPAPI 凭据库；不得为迁移重新生成密钥。全新隔离开发环境才可创建新的随机密钥。AI writer 保存/解密密文，启动前离线核验已有密文与模型 origin；Worker 仅因现行市场模型调用的兼容职责保留原密钥。读写端点和内部签名配置参见迁移文档。
 3. 生产环境仅允许 HTTPS 的模型地址和 Webhook 地址。模型来源默认只信任精确 origin `https://api.openai.com`；其他供应商必须通过 `AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST` 以英文逗号分隔加入精确 HTTPS origin（含非 443 端口），不能填写路径、查询参数或模糊域名。运行环境缺失或无法判断时按生产环境失败关闭。`AI_ALLOW_LOCAL_MODEL_ENDPOINTS=true` 只用于已明确验证为 development 的本机调试，不能用于生产。
-4. Sites/Workers 必须保留 `DB` D1 和私有 `SALES_IMPORT_FILES` R2 绑定；AI 空间图片字节只进入 R2，D1 仅保存任务、校验摘要和对象身份。
+4. Worker 保留其他现行范围仍需的 `DB` D1 和私有 `SALES_IMPORT_FILES` R2 绑定。AI 空间图片字节继续在原私有 R2 命名空间，任务、校验摘要、对象身份和清理队列以 PostgreSQL 为唯一权威；AI 失败不回退 D1。
 5. 只有无数据范围限制的管理员能新增、编辑或删除模型、渠道和图片模板；普通用户不读取这些敏感配置。
 
 ## 本机开发直连

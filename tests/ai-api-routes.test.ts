@@ -80,7 +80,7 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
   const database = sqliteAdapter(sqlite);
   testEnvironment.DB = database;
   installDjangoAccessControlFixture(sqlite);
-  const { ensureAiAssistantSchema, resolveChatModel } = await import("../lib/ai/assistant-service");
+  const { ensureAiAssistantSchema, resolveChatModel } = await import("./legacy/ai/assistant-service");
   const { resolveAiModelEndpointUrl } = await import("../lib/ai/endpoint-security");
   await ensureAiAssistantSchema(database as never);
   sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
@@ -95,10 +95,10 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
     (id, conversation_id, role, content, message_kind)
     VALUES ('message-one', 'owner-one', 'user', 'hello', 'message')`).run();
 
-  const conversationsRoute = await import("../app/api/ai/conversations/route");
-  const chatRoute = await import("../app/api/ai/chat/route");
-  const modelsRoute = await import("../app/api/ai/models/route");
-  const channelsRoute = await import("../app/api/ai/channels/route");
+  const conversationsRoute = await import("./legacy/app/api/ai/conversations/route");
+  const chatRoute = await import("./legacy/app/api/ai/chat/route");
+  const modelsRoute = await import("./legacy/app/api/ai/models/route");
+  const channelsRoute = await import("./legacy/app/api/ai/channels/route");
 
   const listResponse = await conversationsRoute.GET(new Request("https://example.test/api/ai/conversations?page=1&pageSize=1"));
   assert.equal(listResponse.status, 200);

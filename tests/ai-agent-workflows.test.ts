@@ -5,7 +5,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database as SalesDatabase } from "../lib/database/d1";
 import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
@@ -39,15 +39,15 @@ const {
   runNextAiAgentMicrostep,
   runNextAiWorkflowMicrostep,
   validateAiWorkflowGraph,
-} = await import("../lib/ai/agent-workflows").then(async (service) => ({
+} = await import("./legacy/ai/agent-workflows").then(async (service) => ({
   ...service,
-  ensureAiAgentWorkflowSchema: (await import("../lib/ai/agent-workflow-schema")).ensureAiAgentWorkflowSchema,
+  ensureAiAgentWorkflowSchema: (await import("./legacy/ai/agent-workflow-schema")).ensureAiAgentWorkflowSchema,
 }));
-const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
+const { ensureAuthorizationSchema } = await import("./legacy/auth/authorization");
 const {
   AI_FORMAL_WORKFLOW_INACTIVE_TTL_DAYS,
   selectNextWorkflowExecutorAdmission,
-} = await import("../lib/ai/agent-executor-admission");
+} = await import("./legacy/ai/agent-executor-admission");
 
 const owner: AppPrincipal = {
   email: "owner@example.com",
@@ -815,22 +815,18 @@ test("AI Agent and workflow routes are same-origin, bounded JSON, role-gated, an
   ];
   const sources = await Promise.all(routeFiles.map((file) => readFile(new URL(file, import.meta.url), "utf8")));
   for (const source of sources) {
-    assert.match(source, /requireAiSameOriginWrite\(request\)/);
-    assert.match(source, /readAiJsonObject\(request\)/);
-    assert.match(source, /requireAppPrincipal\(\["admin", "operator", "analyst"\]\)/);
-    assert.match(source, /aiRouteErrorResponse/);
+    assert.match(source, /forwardAiRequest/);
+    assert.doesNotMatch(source, /getD1Database|ensureAi|createAiAgentJob/);
   }
-  assert.match(sources[0]!, /createCurrentAgentExecutorAdmission/);
-  assert.match(sources[0]!, /createAiAgentJob/);
-  assert.match(sources[0]!, /executorAdmission: admission/);
-  assert.match(sources[3]!, /body\.dryRun === true/);
-  assert.match(sources[3]!, /createCurrentAgentExecutorAdmission/);
-  assert.match(sources[3]!, /executorAdmission: admission/);
-  const service = await readFile(new URL("../lib/ai/agent-workflows.ts", import.meta.url), "utf8");
-  assert.match(service, /j\.owner_email = \?/);
-  assert.match(service, /w\.owner_email = \?/);
-  assert.match(service, /aiScopeSnapshotAccessSql/);
-  assert.doesNotMatch(service, /eval\(|new Function|node:child_process|tool-registry/);
+  const gate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
+  assert.match(gate, /requireAiSameOriginWrite\(request\)/);
+  assert.match(gate, /readAiJsonObject\(request\)/);
+  assert.match(gate, /requireAppPrincipal\(read \? undefined : \["admin", "operator", "analyst"\]\)/);
+  const service = await readFile(new URL("../backend/ai_assistant/workflows.py", import.meta.url), "utf8");
+  assert.match(service, /authorize_owner\(row, principal\)/);
+  assert.match(service, /admission\(principal/);
+  assert.match(service, /select|mutation/);
+  assert.doesNotMatch(service, /eval\(|exec\(|subprocess/);
 });
 
 function applyMigration(sqlite: DatabaseSync, migration: string) {

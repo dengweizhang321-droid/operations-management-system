@@ -1,9 +1,4 @@
-import {
-  appendConversationMessage,
-  createConversation,
-  generateAssistantReply,
-  resolveChatModel,
-} from "@/lib/ai/assistant-service";
+import { aiConsumer } from "@/lib/django/ai-service";
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
 import {
   MARKET_QUERIES_PATH,
@@ -11,7 +6,6 @@ import {
 } from "@/lib/django/market-service";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
-import { getD1Database } from "@/lib/database/d1";
 
 type MarketAiRequest = {
   question?: string;
@@ -48,7 +42,6 @@ export async function POST(request: Request) {
       );
     }
     const body = await readBoundedJsonObject(request, MARKET_AI_BODY_BYTES_MAX) as MarketAiRequest;
-    const db = getD1Database();
     const market = await requestDjangoMarketService<{
       summary: Record<string, number | null> & { productCount: number };
       items: Array<Record<string, unknown>>;
@@ -77,8 +70,6 @@ export async function POST(request: Request) {
     }, { signal: request.signal });
     const overview = market.data;
     if (!overview.summary.productCount) return Response.json({ error: "当前筛选范围没有市场数据，请先导入榜单或 SKU 数据" }, { status: 400 });
-    const model = await resolveChatModel(db);
-    if (!model) return Response.json({ error: "请先在 AI 助理中启用一个默认文本模型" }, { status: 409 });
     const topItems = overview.items.slice(0, 12).map((item) => ({
       rank: item.rank,
       sku: item.skuCode,
@@ -104,20 +95,11 @@ export async function POST(request: Request) {
       `汇总：${JSON.stringify(overview.summary)}`,
       `头部商品：${JSON.stringify(topItems)}`,
     ].join("\n");
-    const conversationId = await createConversation(`市场分析：${question.slice(0, 36)}`, principal, model.id, db);
-    await appendConversationMessage(conversationId, "user", prompt, db);
-    const requestId = request.headers.get("x-request-id")?.slice(0, 200) || crypto.randomUUID();
-    const generation = await generateAssistantReply({
-      prompt,
-      principal,
-      conversationId,
-      model,
-      requestId,
-      surface: "market_ai",
-      signal: request.signal,
-      systemPrompt: MARKET_AI_SYSTEM_PROMPT,
-    }, db);
-    return Response.json({ ok: true, answer: generation.reply, conversationId, dataRange: overview.dataRange });
+    const generation = await aiConsumer<{ reply: string; conversationId: string }>(principal, {
+      operation: "analysis-reply", title: `市场分析：${question.slice(0, 36)}`, prompt,
+      systemPrompt: MARKET_AI_SYSTEM_PROMPT, surface: "market_ai",
+    }, { signal: request.signal });
+    return Response.json({ ok: true, answer: generation.reply, conversationId: generation.conversationId, dataRange: overview.dataRange });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

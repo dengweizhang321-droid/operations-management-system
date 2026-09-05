@@ -1,0 +1,160 @@
+{
+  "version": "ai-assistant-migration-validation-v1",
+  "status": "isolated_verified",
+  "date": "2026-09-05",
+  "baseCommit": "fb5c503bdd81d0d9721651c39bfa8253573daf8a",
+  "branch": "codex/django-ai-assistant",
+  "production": {
+    "databaseWrites": false,
+    "servicesRestarted": false,
+    "deployed": false,
+    "d1Retired": false,
+    "paidProviderCalls": 0,
+    "externalMessages": 0
+  },
+  "source": {
+    "historicalTables": 39,
+    "totalRows": 536,
+    "counts": {
+      "ai_agent_checkpoints": 0,
+      "ai_agent_events": 0,
+      "ai_agent_jobs": 0,
+      "ai_agent_provider_dispatches": 0,
+      "ai_agent_provider_results": 0,
+      "ai_agent_tool_dispatches": 0,
+      "ai_agent_tool_results": 0,
+      "ai_analysis_runs": 0,
+      "ai_artifact_deliveries": 0,
+      "ai_artifacts": 3,
+      "ai_channel_callback_events": 0,
+      "ai_channels": 0,
+      "ai_chat_provider_dispatches": 0,
+      "ai_chat_request_receipts": 0,
+      "ai_conversation_deletion_audits": 1,
+      "ai_conversation_messages": 2,
+      "ai_conversation_scopes": 0,
+      "ai_conversations": 1,
+      "ai_knowledge_entries": 6,
+      "ai_memory_audit_logs": 0,
+      "ai_memory_commit_guards": 0,
+      "ai_memory_entries": 0,
+      "ai_models": 4,
+      "ai_space_admin_audits": 0,
+      "ai_space_asset_cleanup_queue": 0,
+      "ai_space_asset_favorites": 0,
+      "ai_space_assets": 0,
+      "ai_space_dispatch_receipts": 0,
+      "ai_space_dispatch_results": 0,
+      "ai_space_job_items": 0,
+      "ai_space_jobs": 0,
+      "ai_space_model_profiles": 0,
+      "ai_space_schema_upgrades": 1,
+      "ai_space_templates": 3,
+      "ai_system_settings": 1,
+      "ai_tool_audit_logs": 514,
+      "ai_workflow_events": 0,
+      "ai_workflow_node_runs": 0,
+      "ai_workflow_runs": 0
+    },
+    "normalizedDigest": "1218c81a9cc6a36ddc68b584bf82f35634b5154fbf6e0ef32150d87946358cca"
+  },
+  "isolatedMigration": {
+    "dryRun": "ai-dryrun-b2948829c5e844edb7137e25b6687449",
+    "applyRun": "ai-apply-6ddc104cc114453c9973ec66a6bffa0b",
+    "verifyRun": "ai-verify-edbcc2e634ef4b41a1316f218c4d1d73",
+    "targetDigest": "1218c81a9cc6a36ddc68b584bf82f35634b5154fbf6e0ef32150d87946358cca",
+    "restoredDigest": "1218c81a9cc6a36ddc68b584bf82f35634b5154fbf6e0ef32150d87946358cca",
+    "postActivationRestore": {
+      "status": "passed",
+      "tables": 44,
+      "authority": "postgres",
+      "productionDatabaseTouched": false
+    }
+  },
+  "tests": {
+    "frontendUnit": {
+      "total": 1852,
+      "passed": 1832,
+      "failed": 0,
+      "skipped": 20
+    },
+    "backendUnit": {
+      "environment": "isolated SQLite",
+      "passed": 360
+    },
+    "aiPostgresql": {
+      "environment": "independent PostgreSQL cluster 55443",
+      "passed": 30
+    },
+    "runtimeHttp": {
+      "status": "passed",
+      "productionWrites": false,
+      "externalCalls": 0,
+      "databasePort": 55443,
+      "readerPort": 18111,
+      "writerPort": 18112,
+      "negativeDatabasePrivileges": 10,
+      "checks": [
+        "reader:/api/ai/conversations",
+        "reader:/api/ai/models",
+        "reader:/api/ai/channels",
+        "reader:/api/ai/memories",
+        "reader:/api/ai/space/meta",
+        "reader:/api/ai/space/jobs",
+        "reader:/api/ai/space/assets",
+        "reader:/api/ai/agent-jobs",
+        "reader:/api/ai/workflow-runs",
+        "writer-refuses-reader-route",
+        "reader-refuses-mutation",
+        "tampered-signature",
+        "unknown-user",
+        "duplicate-query",
+        "invalid-write",
+        "new-topic-without-paid-provider",
+        "durable-chat-replay",
+        "replay-conflict",
+        "reader-message-page"
+      ]
+    },
+    "build": "passed",
+    "renderedArtifactChecks": 19,
+    "eslint": {
+      "errors": 0,
+      "existingWarnings": 10
+    },
+    "pythonRuff": "passed",
+    "powershellSyntax": "passed",
+    "gitDiffCheck": "passed",
+    "typescript": {
+      "status": "baseline_errors_remain",
+      "baselineErrors": 165,
+      "candidateErrors": 160,
+      "introducedErrors": 0,
+      "resolvedLegacyImportErrors": 5
+    }
+  },
+  "credentialCompatibility": {
+    "status": "verified",
+    "credentialsChecked": 4,
+    "providerCalls": 0,
+    "artifactsChecked": 3,
+    "artifactDigestMatches": 3,
+    "exactOrigins": [
+      "https://apihub.agnes-ai.com",
+      "https://ark.cn-beijing.volces.com"
+    ],
+    "endpointQueryCount": 0
+  },
+  "evidenceSha256": {
+    "tmp/ai-unit-final.log": "e17f56431df4c4cdef575d6c45a6b415e636f75e07ea835028e2a05e149b5c99",
+    "tmp/ai-lint-final.log": "74944ef8e4fe9b200ab39e00f509bac217dfe4faba04168f5c16ffe18f6f4140",
+    "tmp/ai-build-final.log": "c7cee1dec508065407f409206fbf69376aae1ad654141218c9bf221104d5cee4",
+    "tmp/ai-rendered-test.log": "95c351c2b79b37b9732c339b3ac52acc38cceef048f5c012165bd340271fa2b1",
+    "tmp/ai-tsc-final.log": "1d1baf54a5e83d9acc691fd39714dbfff44e50bbb4f32e3adca33a1c018516b3",
+    "tmp/ai-tsc-baseline.log": "9032b3eb0a9751ef2ecc0f251dc1026da857e75db287f4072412523bbf471640",
+    ".runtime/ai-pg-f5e5c5ca742e/tests.log": "7ba36f8e0e1539c4a0902816b731ef0fe4560ff339cf982cc4caca2d21c4e001",
+    ".runtime/ai-pg-f5e5c5ca742e/backend-regression.log": "9980369f84a2e1827d023ef3c0c498128c897132599b45a942024e4be68397d7",
+    ".runtime/ai-pg-f5e5c5ca742e/system-result.json": "77f8959abc3366014b1001dce7675b384f8aba21abe4d2aad74209674dd6cda6"
+  },
+  "requiredNextStep": "Approved local maintenance window; formal deployment, fresh live-source migration, pre/post-activation backups with independent restores, effective Worker successor and D1 retirement remain unexecuted."
+}

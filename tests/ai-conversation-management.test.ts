@@ -7,7 +7,7 @@ import {
   assertAiConversationAccess,
   deleteAiConversationData,
   isAiChatCapableModelType,
-} from "../lib/ai/conversation-management";
+} from "./legacy/ai/conversation-management";
 import {
   attachPendingAiChatResponse,
   markPendingAiChatSynchronized,
@@ -321,8 +321,8 @@ test("chat capability admits text and vision models while rejecting legacy or un
   assert.equal(isAiChatCapableModelType("audio"), false);
 
   const [service, workflow] = await Promise.all([
-    readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/question-workflow.ts", import.meta.url), "utf8"),
   ]);
   assert.match(service, /WHERE model_type IN \('text', 'vision'\) AND status = 'enabled'/);
   assert.match(service, /WHERE id = \? AND model_type IN \('text', 'vision'\) AND status = 'enabled'/);

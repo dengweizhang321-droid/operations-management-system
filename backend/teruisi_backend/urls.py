@@ -16,4 +16,5 @@ urlpatterns = [
     path("api/customer-service/", include("customer_service.urls")),
     path("api/bi/", include("bi.urls")),
     path("api/access-control/", include("access_control.urls")),
+    path("api/ai/", include("ai_assistant.urls")),
 ]

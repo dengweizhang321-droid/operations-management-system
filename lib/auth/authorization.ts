@@ -2,10 +2,6 @@ import { getChatGPTUser } from "@/app/chatgpt-auth";
 import { env } from "cloudflare:workers";
 import { headers } from "next/headers";
 import {
-  getD1Database,
-  type D1Database,
-} from "@/lib/database/d1";
-import {
   ACCESS_CONTROL_RESOLVE_PATH,
   AccessControlServiceError,
   createDjangoAccessControlService,
@@ -54,61 +50,6 @@ export class AuthorizationError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-const schemaStatements = [
-  `CREATE TABLE IF NOT EXISTS ai_tool_audit_logs (
-    id TEXT PRIMARY KEY NOT NULL,
-    request_id TEXT NOT NULL,
-    invocation_id TEXT NOT NULL DEFAULT '',
-    provider_call_id TEXT,
-    actor_email TEXT NOT NULL,
-    actor_role TEXT NOT NULL,
-    surface TEXT NOT NULL,
-    tool_name TEXT NOT NULL,
-    arguments_json TEXT NOT NULL DEFAULT '{}',
-    status TEXT NOT NULL,
-    row_count INTEGER,
-    duration_ms INTEGER,
-    response_digest TEXT,
-    error_code TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE INDEX IF NOT EXISTS ai_tool_audit_logs_actor_created_idx
-    ON ai_tool_audit_logs (actor_email, created_at)`,
-  `CREATE INDEX IF NOT EXISTS ai_tool_audit_logs_tool_created_idx
-    ON ai_tool_audit_logs (tool_name, created_at)`,
-] as const;
-
-const schemaReadyByDatabase = new WeakMap<object, Promise<void>>();
-
-export async function ensureAuthorizationSchema(
-  db: D1Database = getD1Database(),
-): Promise<void> {
-  const key = db as unknown as object;
-  const existing = schemaReadyByDatabase.get(key);
-  if (existing) return existing;
-
-  const setup = db
-    .batch(
-      schemaStatements.map((statement) => db.prepare(statement)),
-    )
-    .then(() => ensureAiToolAuditExecutionIndex(db))
-    .catch((error: unknown) => {
-      schemaReadyByDatabase.delete(key);
-      throw error;
-    });
-
-  schemaReadyByDatabase.set(key, setup);
-  return setup;
-}
-
-async function ensureAiToolAuditExecutionIndex(db: D1Database): Promise<void> {
-  const info = await db.prepare("PRAGMA table_info(ai_tool_audit_logs)").all<{ name: string }>();
-  const names = new Set((info.results ?? []).map((column) => column.name));
-  if (!names.has("invocation_id")) return;
-  await db.prepare(`CREATE INDEX IF NOT EXISTS ai_tool_audit_logs_invocation_created_idx
-    ON ai_tool_audit_logs (invocation_id, created_at)`).run();
 }
 
 export async function requireAppPrincipal(

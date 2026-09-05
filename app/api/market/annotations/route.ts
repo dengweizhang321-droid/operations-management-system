@@ -140,6 +140,7 @@ async function generatedPromptCommand(
     getD1Database(),
     text(command.textModelId),
     instruction,
+    principal,
   );
   const saved = await marketCommand<JsonRecord>(
     principal,
@@ -179,8 +180,8 @@ export async function GET(request: Request) {
     if (view === "workspace" || view === "workspace_fast") {
       const db = getD1Database();
       const [models, textModels] = await Promise.all([
-        listAnnotationModels(db),
-        listPromptTextModels(db),
+        listAnnotationModels(db, principal),
+        listPromptTextModels(db, principal),
       ]);
       payload = { ...payload, models, textModels, principal };
     }

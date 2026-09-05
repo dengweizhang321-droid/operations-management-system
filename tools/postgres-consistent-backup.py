@@ -25,7 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
-    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_",
+    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_", "ai_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -209,6 +209,13 @@ def collect_evidence(
                 "access_control_data_revisions", "access_control_write_authority",
                 "access_control_write_request_receipts", "access_control_migration_runs",
             })
+        ai_tables = {name for name in tables if name.startswith("ai_")}
+        if ai_tables:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+            from ai_assistant.table_manifest import AI_TABLES
+            if ai_tables != set(AI_TABLES):
+                raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+            required.update(AI_TABLES)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -660,6 +667,31 @@ def collect_evidence(
                 "status": status, "authorityEpoch": epoch, "cutoverId": cutover, "migrationRunId": run_id,
             }
 
+        ai_evidence = None
+        if ai_tables:
+            cursor.execute("SELECT revision, source_digest FROM ai_data_revisions WHERE domain='ai-assistant'")
+            revision_row = cursor.fetchone()
+            cursor.execute("SELECT status, COALESCE(authority_epoch::text,''), cutover_id, migration_verify_run_id FROM ai_write_authority WHERE id=1")
+            authority_row = cursor.fetchone()
+            if not revision_row or not authority_row:
+                raise RuntimeError("AI revision/authority evidence is missing")
+            revision_number, digest = revision_row
+            status, epoch, cutover, run_id = authority_row
+            if int(revision_number) < 0 or status not in {"d1", "postgres"}:
+                raise RuntimeError("AI revision/authority evidence is invalid")
+            if status == "postgres" and (int(revision_number) < 1 or not re.fullmatch(r"[0-9a-f-]{36}", epoch) or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", cutover) or not re.fullmatch(r"ai-apply-[0-9a-f]{32}", run_id)):
+                raise RuntimeError("active AI evidence is incomplete")
+            if status == "d1" and (epoch or cutover):
+                raise RuntimeError("inactive AI contains activation evidence")
+            if run_id:
+                cursor.execute("SELECT status,source_snapshot_digest,target_snapshot_digest,source_counts,target_counts FROM ai_migration_runs WHERE id=%s AND mode='apply'", (run_id,))
+                run = cursor.fetchone()
+                if not run or run[0] != "verified" or run[1] != run[2] or run[1] != digest or run[3] != run[4] or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    raise RuntimeError("AI migration evidence is not verified")
+            elif int(revision_number) != 0 or digest:
+                raise RuntimeError("AI pre-adoption evidence is inconsistent")
+            ai_evidence = {"revision": int(revision_number), "sourceDigest": digest, "status": status, "authorityEpoch": epoch, "cutoverId": cutover, "migrationRunId": run_id}
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -695,6 +727,8 @@ def collect_evidence(
     if customer_service_revisions is not None and customer_service_authority is not None:
         content["customerServiceRevisions"] = customer_service_revisions
         content["customerServiceWriteAuthority"] = customer_service_authority
+    if ai_evidence is not None:
+        content["aiAssistant"] = ai_evidence
     if access_control_evidence is not None:
         content["accessControl"] = access_control_evidence
     content_bytes = json.dumps(

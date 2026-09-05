@@ -245,6 +245,7 @@ function Get-DjangoSystemReadiness {
     $inventoryStatus = $aggregateStatus.Inventory
     $customerServiceStatus = $aggregateStatus.CustomerService
     $accessControlStatus = $aggregateStatus.AccessControl
+    $aiStatus = if ($aggregateStatus.PSObject.Properties.Name -contains "Ai") { $aggregateStatus.Ai } else { $null }
     $erpReferenceStatus = $aggregateStatus.ErpReference
     $biStatus = $aggregateStatus.Bi
   } else {
@@ -283,6 +284,10 @@ function Get-DjangoSystemReadiness {
     accessControl = Test-DjangoDomainReady $accessControlStatus "AccessControlReader" "AccessControlWriter"
     erpReference = Test-DjangoDomainReady $erpReferenceStatus "ErpReferenceReader" "ErpReferenceWriter"
     bi = Test-DjangoReaderReady $biStatus "BiReader"
+  }
+  if (Test-Path -LiteralPath (Join-Path $FixedDjangoRuntimeRoot "ai-enabled.json")) {
+    if (-not (Test-DjangoAggregateStatusSupported)) { throw "AI authority requires current aggregate readiness" }
+    $checks["ai"] = ($null -ne $aiStatus -and (Test-DjangoDomainReady $aiStatus "AiReader" "AiWriter"))
   }
   $missing = @($checks.Keys | Where-Object { -not $checks[$_] })
   return [pscustomobject]@{

@@ -6,7 +6,7 @@ import {
   AiAnalysisSandboxError,
   describeAiAnalysisDatasets,
   runDeterministicAnalysisTransform,
-} from "../lib/ai/analysis-sandbox";
+} from "./legacy/ai/analysis-sandbox";
 
 test("analysis sandbox advertises bounded deterministic execution, not arbitrary code", () => {
   const description = describeAiAnalysisDatasets();
@@ -68,6 +68,8 @@ test("analysis sandbox capabilities are declared once in the central registry", 
 
 test("analysis sandbox mutation route requires browser same-origin proof", async () => {
   const route = await readFile(new URL("../app/api/ai/sandbox/route.ts", import.meta.url), "utf8");
-  assert.match(route, /export async function POST[\s\S]*?requireAiSameOriginWrite\(request\)/);
-  assert.match(route, /requireAppPrincipal\(\["admin", "operator", "analyst"\]\)/);
+  assert.match(route, /export const POST = forwardAiRequest/);
+  const gate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
+  assert.match(gate, /requireAiSameOriginWrite\(request\)/);
+  assert.match(gate, /requireAppPrincipal\(read \? undefined : \["admin", "operator", "analyst"\]\)/);
 });

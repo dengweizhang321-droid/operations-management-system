@@ -219,16 +219,16 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
     readFile(new URL("../app/api/ai/channels/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/webhooks/[channelId]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/artifacts/[artifactId]/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/assistant-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/bounded-fetch.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/entry-context.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/data-knowledge.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/artifacts.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/data-knowledge.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/artifacts.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/model-gateway.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/model-tool-budget.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/tool-execution-runtime.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/tool-audit.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/tool-audit.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/auth/authorization.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/market/annotation-model.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0014_ai_channel_callbacks.sql", import.meta.url), "utf8"),
@@ -260,21 +260,13 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /modelBaseUrlDirty/);
   assert.match(page, /modelDraft\.id && !modelBaseUrlDirty/);
   assert.match(page, /webhookUrlMasked/);
-  assert.match(chatRoute, /createWebChatEntryContext/);
-  assert.match(chatRoute, /answerAiQuestion/);
-  assert.match(chatRoute, /signal: request\.signal/);
-  assert.match(conversationsRoute, /listAvailableChatModels/);
-  assert.match(conversationsRoute, /export async function PATCH/);
-  assert.match(conversationsRoute, /selectConversationModel/);
-  assert.match(conversationsRoute, /export async function DELETE/);
-  assert.match(conversationsRoute, /deleteAiConversation/);
-  assert.match(modelsRoute, /requireAppPrincipal\(\["admin"\]\)/);
-  assert.match(channelsRoute, /deleteAiChannel/);
-  assert.match(webhookRoute, /verifyWeComSignature/);
-  assert.match(webhookRoute, /recordAiChannelCallbackEvent/);
-  assert.match(artifactRoute, /getAiArtifactDownload/);
-  assert.match(artifactRoute, /recordAiArtifactDelivery/);
-  assert.match(artifactRoute, /private, no-store/);
+  for (const route of [chatRoute, conversationsRoute, modelsRoute, channelsRoute, artifactRoute]) assert.match(route, /forwardAiRequest/);
+  assert.match(webhookRoute, /requestDjangoAi/);
+  const edgeGate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
+  assert.match(edgeGate, /requireAppPrincipal/);
+  assert.match(edgeGate, /requireAiSameOriginWrite/);
+  assert.match(edgeGate, /private, no-store/);
+  assert.match(edgeGate, /request.signal/);
   assert.match(boundedFetch, /redirect: "manual"/);
   assert.match(boundedFetch, /response\.status >= 300 && response\.status < 400/);
   assert.match(boundedFetch, /readBoundedBody\(response, maxBytes\)/);
@@ -321,7 +313,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(toolRuntime, /maxCumulativeDurationMs/);
   assert.match(toolRuntime, /tool_timeout/);
   assert.match(toolRuntime, /crypto\.randomUUID/);
-  assert.match(authorization, /ensureAiToolAuditExecutionIndex/);
+  assert.doesNotMatch(authorization, /ensureAiToolAuditExecutionIndex/);
   assert.doesNotMatch(authorization, /ALTER TABLE ai_tool_audit_logs ADD COLUMN/);
   assert.match(toolAudit, /supportsInvocationCorrelation/);
   assert.match(toolAudit, /request_id, actor_email, actor_role, surface, tool_name/);
@@ -351,8 +343,8 @@ test("AI chat POST and UI carry a stable client request idempotency key", async 
   const [page, route, workflow, service, migration] = await Promise.all([
     readFile(new URL("../app/ai-assistant-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/question-workflow.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/question-workflow.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/assistant-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0083_ai_chat_idempotency.sql", import.meta.url), "utf8"),
   ]);
   assert.match(page, /pendingChatRequestRef/);
@@ -361,7 +353,11 @@ test("AI chat POST and UI carry a stable client request idempotency key", async 
   assert.match(page, /attachPendingAiChatResponse\(pendingRequest/);
   assert.match(page, /markPendingAiChatSynchronized/);
   assert.match(page, /服务端同步尚未完整确认；原请求号已保留/);
-  assert.match(route, /requireAiId\(payload\.clientRequestId, "clientRequestId"\)/);
+  assert.match(route, /forwardAiRequest/);
+  const domain = await readFile(new URL("../backend/ai_assistant/chat.py", import.meta.url), "utf8");
+  assert.match(domain, /identifier\(body\["clientRequestId"\], "clientRequestId"\)/);
+  assert.match(domain, /existing.request_digest != request_digest/);
+  assert.match(domain, /ai_chat_result_unknown/);
   assert.match(workflow, /claimAiChatRequest/);
   assert.match(workflow, /markAiChatRequestDispatched/);
   assert.match(workflow, /markAiChatRequestUnknown/);

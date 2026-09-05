@@ -45,6 +45,7 @@ interface R2ObjectBody extends R2Object {
 
 interface R2Bucket {
   put(key: string, value: ArrayBuffer | Uint8Array, options?: {
+    onlyIf?: { etagDoesNotMatch: string };
     httpMetadata?: R2HttpMetadata;
     customMetadata?: Record<string, string>;
   }): Promise<unknown>;

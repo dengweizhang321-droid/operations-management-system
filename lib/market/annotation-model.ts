@@ -1,3 +1,5 @@
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import { aiConsumer } from "@/lib/django/ai-service";
 import { decryptSecret } from "@/lib/ai/crypto";
 import {
   loadAiEndpointSecurityContext,
@@ -23,22 +25,15 @@ const VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600;
 const VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
-export async function listAnnotationModels(db: MarketDatabase) {
-  const rows = await db.prepare("SELECT * FROM ai_models WHERE status = 'enabled' AND model_type IN ('vision','image') ORDER BY updated_at DESC").all<ModelRow>();
-  return (rows.results ?? []).map(({ id, name, protocol, model_name }) => ({ id, name, protocol, modelName: model_name }));
+type PublicModel = { id: string; name: string; protocol: string; modelName: string };
+export async function listAnnotationModels(_db: MarketDatabase, principal?: AppPrincipal) {
+  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "vision" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
-
-export async function listPromptTextModels(db: MarketDatabase) {
-  const rows = await db.prepare("SELECT * FROM ai_models WHERE status = 'enabled' AND model_type = 'text' ORDER BY is_default_text_model DESC, updated_at DESC").all<ModelRow>();
-  return (rows.results ?? []).map(({ id, name, protocol, model_name }) => ({ id, name, protocol, modelName: model_name }));
+export async function listPromptTextModels(_db: MarketDatabase, principal?: AppPrincipal) {
+  return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "text" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
-
-async function getModel(db: MarketDatabase, id: string, type: "vision" | "text") {
-  const row = type === "vision"
-    ? await db.prepare("SELECT * FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type IN ('vision','image') LIMIT 1").bind(id).first<ModelRow>()
-    : await db.prepare("SELECT * FROM ai_models WHERE id = ? AND status = 'enabled' AND model_type = ? LIMIT 1").bind(id, type).first<ModelRow>();
-  if (!row) throw new Error(`所选 ${type === "vision" ? "视觉" : "文本"} 模型不存在或未启用`);
-  return row;
+async function getModel(_db: MarketDatabase, id: string, type: "vision" | "text", principal?: AppPrincipal) {
+  return (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false })).model;
 }
 
 export async function probeVisionModelConnection(model: AnnotationModelConfig): Promise<string> {
@@ -61,14 +56,14 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 }
 
 export async function runVisionAnnotation(input: {
-  db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
+  principal?: AppPrincipal; db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
   skipMarketCache?: boolean;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
   try {
-    const model = await getModel(input.db, input.modelId, "vision");
+    const model = await getModel(input.db, input.modelId, "vision", input.principal);
     const imageLoadStartedAt = Date.now();
     const cachedImage = input.imageUrl && !input.skipMarketCache
       ? await loadCachedAnnotationImage(input.db, input.imageUrl)
@@ -152,8 +147,8 @@ async function prepareAnnotationModelImage<T extends LoadedImage>(image: T): Pro
   }
 }
 
-export async function runPromptTextCompletion(db: MarketDatabase, modelId: string, instruction: string) {
-  const model = await getModel(db, modelId, "text");
+export async function runPromptTextCompletion(db: MarketDatabase, modelId: string, instruction: string, principal?: AppPrincipal) {
+  const model = await getModel(db, modelId, "text", principal);
   return completeText({
     model: textRuntimeModel(model),
     messages: [{ role: "user", content: instruction }],

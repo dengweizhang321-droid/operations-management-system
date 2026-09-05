@@ -733,7 +733,7 @@ test("production registry keeps all existing operations tools plus knowledge and
   const [registry, apiRoute, assistant, operations, searchHandler, mcp, marketAiRoute] = await Promise.all([
     readFile(new URL("../lib/ai/tool-registry.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai/tools/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/ai/assistant-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("./legacy/ai/assistant-service.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/ai/operations-tools.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/search/ai-tool.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mcp/route.ts", import.meta.url), "utf8"),

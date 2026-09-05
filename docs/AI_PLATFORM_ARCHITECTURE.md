@@ -1,6 +1,6 @@
 # TERUISI AI 平台架构
 
-本文件说明当前代码已经落地的 AI 能力边界。外部架构图只作为设计参考；实际契约以本仓库的代码、迁移和测试为准。
+本文件说明当前代码已经落地的 AI 能力边界。外部架构图只作为设计参考；实际契约以本仓库的代码、迁移和测试为准。Django 候选的正式切换状态与操作证据见 [`DJANGO_AI_ASSISTANT_MIGRATION.md`](DJANGO_AI_ASSISTANT_MIGRATION.md)，源码实现不等于正式发布。
 
 ## 端到端链路
 
@@ -10,7 +10,7 @@
   -> 同步 Chat 工具循环
   -> owner 私有全局记忆（低信任召回）
   -> 确定性分析沙箱（JSON AST）
-  -> D1 Agent 长任务与检查点
+  -> Django/PostgreSQL Agent 长任务与检查点
   -> 有界 DAG 多 Agent 工作流 + 人工复核
 ```
 
@@ -25,28 +25,28 @@
 
 - AI 对话使用现有 OpenAI-compatible / Anthropic 工具循环，保持 provider tool-call ID、每轮和每请求调用上限、超时、取消、响应体积与审计边界。
 - 当前运营数据问题先核对数据新鲜度，再调用有界只读工具；最终回答必须披露截止日期、筛选、金额口径和截断状态。
-- 客户端请求使用稳定 `clientRequestId`。D1 receipt 和逐 provider 请求 dispatch ledger 防止网络重试重复付费；结果不确定时失败关闭。
+- 客户端请求使用稳定 `clientRequestId`。PostgreSQL receipt 和逐 provider 请求 dispatch ledger 防止网络重试重复付费；结果不确定时失败关闭。
 - 表格型结果可以形成 owner/scope 隔离的对话产物；写入、发布、导入和危险动作没有伪装成只读工具。
 
 ### 3. 全局记忆
 
 - 记忆仅允许当前 owner 在管理界面显式确认写入，类型为个人偏好、业务术语和稳定业务背景。
 - 写入经过来源、敏感/指令内容、精确重复和近似重复四道闸；更新与归档使用 `expectedVersion` CAS，删除为软归档。
-- 记忆 mutation 与脱敏摘要审计在同一 D1 batch 中提交。审计不可用时整批失败。
-- 对话召回最多 8 条、4000 字；记忆以 `untrusted_memory_data` 附加到最新一轮用户消息，只在本次 provider 请求中存在，不写入聊天历史，也不进入 system prompt。
+- 记忆 mutation 与脱敏摘要审计在同一 PostgreSQL 事务中提交。审计不可用时整批失败。
+- 对话召回最多 8 条、4000 字；记忆以 `personal_memory` 附加到最新一轮用户消息，只在本次 provider 请求中存在，不写入聊天历史，也不进入 system prompt。
 
 ### 4. 代码执行沙箱
 
 - Cloudflare Worker 内不开放任意 Python、JavaScript、SQL、`eval`、子进程或网络代码执行。
 - 当前安全沙箱采用白名单数据集和确定性 JSON AST，支持 `filter / select / derive / group / sort / limit`。
 - 数据先按真实 principal 查询，再进入无网络转换阶段；源行、步骤、列、结果行和序列化字符数都有硬上限。
-- D1 只保存 owner、scope、数据集、操作名、截止日、行数和摘要哈希，不保存完整结果或原始查询内容。
+- PostgreSQL 只保存 owner、scope、数据集、操作名、截止日、行数和摘要哈希，不保存完整结果或原始查询内容。
 - 若未来需要通用 Python/Node，必须使用独立隔离执行服务，至少具备无默认网络、只读输入挂载、临时工作区、CPU/内存/时长/输出配额、镜像白名单和可验证清理；不能直接在 Worker 内 `eval`。
 
 ### 5. Agent 长任务
 
 - `ai_agent_jobs` 保存 owner、不可变 scope 快照、幂等请求、模型 ID/版本、允许工具快照与策略摘要、被动 JSON 输入/状态/输出、版本、租约和终态。
-- 正式 runner 每次只允许一个有界微步骤：最多派发一次 provider，或执行一次中央注册表中的只读工具；它使用 lease token、单调 epoch 和过期条件 fencing，迟到 Worker 无法覆盖新 owner。
+- 正式 runner 每次只允许一个有界微步骤：最多派发一次 provider，或执行一次中央注册表中的只读工具；它使用 lease token、单调 epoch 和过期条件 fencing，迟到执行进程无法覆盖新 owner。
 - 每步产生 checkpoint 与追加式事件；任务支持 CAS 取消/恢复，并限制活动任务、最大 64 步和最多 16 次恢复。
 - 正式 Agent 创建时固定模型版本和完整工具策略；每轮派发前重新核验 owner 仍有效、角色仍获准、当前 scope 仍覆盖创建快照、模型版本未变化且工具策略摘要完全一致，任一条件漂移都失败关闭。
 - provider 与工具调用各有不可变派发/结果 ledger。派发后若无法确定外部调用是否完成，任务进入非重试失败，不会自动重放付费 provider 或工具；已持久化的结果可在检查点丢失后被安全消费。
@@ -59,7 +59,7 @@
 - `dryRun` 会验证并持久推进完整 DAG 形状，但不会创建 Agent 子任务或等待人工审批。
 - 正式多 Agent DAG 的创建入口、人工复核、取消、恢复和子 Agent 编排状态机均已开放；工作流在创建时固定与子 Agent 相同的模型版本和工具策略，子任务继承该不可变执行契约。
 - Cloudflare scheduled 与受保护的本地 scheduled 入口每个 tick 最多推进一个工作流编排微步骤和一个正式 Agent 执行微步骤，并与图片缓存、AI 空间、市场标注 runner 逐项隔离；dry-run 仍可用于只验证和演练 DAG。
-- 代码入口已开放不等于生产版本已发布。正式部署需要应用 `0087_ai_agent_executor.sql` 并重启对应 Worker；本机开发监听可自动换新进程，但不能替代生产迁移与发布。迁移或生产重启均不会由页面自动执行。
+- 代码入口已开放不等于生产版本已发布。正式部署必须按 AI Django 迁移文档完成 39 表采用、备份恢复、写权切换、不可变 Worker 发布和退役；本机开发验证不能替代生产迁移与发布。迁移或生产重启均不会由页面自动执行。
 
 ## API 与权限
 
@@ -72,9 +72,6 @@
 
 ## 数据迁移
 
-- `0084_ai_memory.sql`：全局记忆、审计和提交 guard。
-- `0085_ai_analysis_sandbox.sql`：分析运行摘要。
-- `0086_ai_agent_workflows.sql`：Agent、checkpoint、事件、工作流、节点和工作流事件。
-- `0087_ai_agent_executor.sql`：provider/tool 派发与结果 ledger。SQLite/D1 不支持 `ADD COLUMN IF NOT EXISTS`，因此模型版本与 Agent/工作流固定策略兼容列由 runtime schema 在任何业务读取或派发前幂等补齐；这样 migration-first 与 runtime-first 都不会因重复列失败。
+`backend/ai_assistant/migrations/0001–0004` 定义 39 张历史事实/状态表及 5 张控制表、闭合授权、单写 fencing、追加式审计与不可变 authority。历史 `0084–0087` 保留在隔离迁移/测试材料中；生产源码不再运行旧 AI D1 查询、runtime schema 或 fallback。
 
-迁移只做前向升级；runtime schema 与 migration-first / runtime-first 顺序均有回归测试。部署或执行生产迁移仍需要单独授权；应用 `0087` 后必须重启对应生产 Worker。本机开发监听造成的自动换进程不代表生产迁移或发布已经完成。
+公开 Worker 仅负责真实身份、权限、同源、HMAC、传输边界、中央只读工具与私有 R2 字节适配。全部 AI 模型循环、任务编排、元数据写入和审计进入 Django。正式步骤必须绑定最新源快照、精确批准 dry-run、备份/恢复证据、effective Worker head 和不可逆退役 receipt；详见 [`DJANGO_AI_ASSISTANT_MIGRATION.md`](DJANGO_AI_ASSISTANT_MIGRATION.md)。

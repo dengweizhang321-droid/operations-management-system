@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { ModelProviderTranscriptFrame, ModelProviderTurnResult } from "../lib/ai/model-gateway";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database as SalesDatabase } from "../lib/database/d1";
 import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
@@ -25,23 +25,23 @@ registerHooks({
 
 const {
   createCurrentAgentExecutorAdmission,
-} = await import("../lib/ai/agent-executor-admission");
+} = await import("./legacy/ai/agent-executor-admission");
 const {
   AI_CHAT_DISPATCH_LIMITS,
-} = await import("../lib/ai/assistant-service");
+} = await import("./legacy/ai/assistant-service");
 const {
   runNextFormalAiAgentMicrostep,
-} = await import("../lib/ai/agent-executor");
+} = await import("./legacy/ai/agent-executor");
 const {
   ensureAiAgentExecutorSchema,
-} = await import("../lib/ai/agent-executor-schema");
+} = await import("./legacy/ai/agent-executor-schema");
 const {
   createAiAgentJob,
   createAiWorkflowRun,
   getAiAgentJob,
   getAiWorkflowRun,
   runNextAiWorkflowMicrostep,
-} = await import("../lib/ai/agent-workflows");
+} = await import("./legacy/ai/agent-workflows");
 
 const owner: AppPrincipal = {
   email: "agent-owner@example.com",

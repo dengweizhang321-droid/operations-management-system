@@ -11,6 +11,7 @@ dependencies = [
   "Django==5.2.17",
   "psycopg[binary]==3.3.4",
   "waitress==3.0.2",
+  "cryptography==46.0.5",
 ]
 
 [tool.setuptools.packages.find]
@@ -18,7 +19,7 @@ where = ["."]
 include = [
   "teruisi_backend*", "sales*", "erp_reference*", "finance*", "netshop*", "market*",
   "products*", "inventory*", "workflow*", "customer_service*",
-  "access_control*",
+  "access_control*", "ai_assistant*",
 ]
 
 [tool.coverage.run]
@@ -26,7 +27,7 @@ branch = true
 source = [
   "sales", "erp_reference", "finance", "netshop", "market",
   "products", "inventory", "workflow", "customer_service",
-  "access_control",
+  "access_control", "ai_assistant",
 ]
 
 [tool.coverage.report]

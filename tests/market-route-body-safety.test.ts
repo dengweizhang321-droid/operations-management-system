@@ -88,7 +88,7 @@ test("market write routes authenticate and reject restricted scope before bounde
   const database = sqliteAdapter(sqlite);
   testEnvironment.DB = database;
   installDjangoAccessControlFixture(sqlite);
-  const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
+  const { ensureAuthorizationSchema } = await import("./legacy/auth/authorization");
   await ensureAuthorizationSchema(database as never);
   const scopeJson = JSON.stringify({ warehouses: [], channels: [], platforms: ["京东"] });
   sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
