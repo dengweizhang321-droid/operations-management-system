@@ -280,6 +280,39 @@ try:
         18111,
         "/api/ai/chat?conversationId=" + result["conversationId"],
     )
+    # A real minimum-privilege writer persists a synthetic PNG. Only provider and
+    # edge background authorization are substitutes; bytes never cross the edge.
+    image_fixture = r"""
+import base64,json
+from types import SimpleNamespace
+from unittest.mock import patch
+import django
+django.setup()
+from ai_assistant.tests import AiDomainTests
+from ai_assistant import models as m, space
+from ai_assistant.policy import mutation
+from sales.auth import Principal
+principal=Principal("local-admin@teruisi.local","Isolated administrator","admin",None)
+raw=AiDomainTests.image_bytes(None)
+with mutation(principal):
+    AiDomainTests.image_job(SimpleNamespace(owner=principal),number=987)
+def edge(action,payload,actor):
+    if action != "authorize_background": raise AssertionError("Storage edge is retired")
+    return {"ok":True,"principal":{"email":principal.email,"displayName":principal.display_name,"role":"admin","scope":None}}
+with patch.object(space,"decrypt",return_value="synthetic-no-provider"), patch.object(space.transport,"edge",side_effect=edge), patch.object(space.transport,"bounded_json",return_value={"data":[{"b64_json":base64.b64encode(raw).decode()}]}):
+    assert space.tick()["status"]=="succeeded"
+asset=m.AiSpaceAssets.objects.get()
+assert bytes(m.AiSpaceAssetPayload.objects.get(asset=asset).content)==raw
+print(json.dumps({"id":asset.id,"sha256":asset.content_sha256,"byteSize":len(raw)}))
+"""
+    fixture = subprocess.run([sys.executable, "-c", image_fixture], cwd=ROOT / "backend", env=role_envs["writer"], capture_output=True, text=True, timeout=45)
+    if fixture.returncode:
+        raise RuntimeError("Isolated minimum-role image fixture failed: " + fixture.stderr[-3000:])
+    image = json.loads(fixture.stdout)
+    content, _ = expect("postgres-image-download", 200, 18111, "/api/ai/space/assets/" + image["id"] + "/content")
+    downloaded = base64.b64decode(content["base64"], validate=True)
+    assert len(downloaded) == image["byteSize"] and hashlib.sha256(downloaded).hexdigest() == image["sha256"]
+    expect("postgres-image-unknown-owner", 403, 18111, "/api/ai/space/assets/" + image["id"] + "/content", actor=Principal("unknown@example.invalid", "Unknown", "admin", None))
     report = {
         "status": "passed",
         "productionWrites": False,
@@ -289,6 +322,7 @@ try:
         "writerPort": 18112,
         "negativeDatabasePrivileges": 10,
         "checks": checks,
+        "postgresImage": image,
     }
     (run_root / "system-result.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"

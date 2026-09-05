@@ -30,6 +30,7 @@ AI_TABLES = (
     "ai_space_admin_audits",
     "ai_space_asset_cleanup_queue",
     "ai_space_asset_favorites",
+    "ai_space_asset_payloads",
     "ai_space_assets",
     "ai_space_dispatch_receipts",
     "ai_space_dispatch_results",

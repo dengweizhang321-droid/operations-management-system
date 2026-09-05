@@ -195,13 +195,9 @@ def signed_headers(path, body, principal, request_id=None):
 
 
 def edge(action, payload, principal):
-    cleanup = (
-        action == "storage_delete"
-        and principal.email == "ai-scheduler@teruisi.internal"
-        and principal.role == "operator"
-        and principal.scope is None
-    )
-    if action != "authorize_background" and not cleanup:
+    if action not in {"authorize_background", "catalog", "execute", "dataset"}:
+        raise AiError("AI 内部动作不受支持", "access_denied", 403)
+    if action != "authorize_background":
         current_principal(principal)
     base = os.getenv("TERUISI_DJANGO_AI_EDGE_BASE_URL", "").rstrip("/")
     if not base:

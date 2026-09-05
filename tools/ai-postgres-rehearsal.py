@@ -343,7 +343,7 @@ try:
         "restored": restored,
         "terminalRestore": {
             "status": "passed",
-            "tables": 44,
+            "tables": len(AI_TABLES),
             "authority": "postgres",
             "productionDatabaseTouched": False,
         },

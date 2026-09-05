@@ -581,21 +581,12 @@ def png(bytes_value):
     return width, height
 
 
-def storage_identity(asset):
-    return {
-        "objectKey": asset.object_key,
-        "byteSize": asset.byte_size,
-        "mimeType": asset.mime_type,
-        "sha256": asset.content_sha256,
-        "jobId": asset.job_id,
-        "itemId": asset.item_id,
-    }
-
-
 def download(asset_id, principal):
     asset = get_asset(asset_id, principal)
-    result = transport.edge("storage_get", storage_identity(asset), principal)
-    raw = base64.b64decode(result["base64"], validate=True)
+    payload = m.AiSpaceAssetPayload.objects.filter(asset_id=asset.id).first()
+    if payload is None:
+        raise AiError("图片字节缺失", "service_unavailable", 503)
+    raw = bytes(payload.content)
     if (
         len(raw) != asset.byte_size
         or hashlib.sha256(raw).hexdigest() != asset.content_sha256
@@ -603,64 +594,33 @@ def download(asset_id, principal):
     ):
         raise AiError("图片回查失败", "service_unavailable", 503)
     return {
-        "base64": result["base64"],
+        "base64": base64.b64encode(raw).decode(),
         "mimeType": asset.mime_type,
         "fileName": asset.id + ".png",
     }
 
 
 def cleanup():
-    # Terminal item + expired fencing token proves the same key cannot be published
-    # while R2 deletion runs outside the database transaction. New leases use new keys.
+    # Published metadata and payload commit together. No external object can be
+    # stranded by cancellation or a lost lease; retain only legacy queue handling.
     with mutation():
         now = timezone.now()
-        entry = (
-            m.AiSpaceAssetCleanupQueue.objects.filter(attempt_count__lt=10)
-            .filter(Q(attempt_count=0) | Q(updated_at__lt=now - timedelta(minutes=5)))
-            .order_by("created_at")
-            .first()
-        )
+        entry = m.AiSpaceAssetCleanupQueue.objects.order_by("created_at").first()
         if not entry:
-            return
-        if m.AiSpaceAssets.objects.filter(object_key=entry.object_key).exists():
-            m.AiSpaceAssetCleanupQueue.objects.filter(pk=entry.pk).delete()
-            return
-        if (
-            m.AiSpaceJobItems.objects.filter(pending_object_key=entry.object_key)
-            .filter(Q(status__in=["queued", "running"]) | Q(lease_expires_at__gt=now))
-            .exists()
-        ):
             return
         if not re.fullmatch(
             r"ai-space/v1/[A-Za-z0-9_-]{1,160}/[A-Za-z0-9_-]{1,200}\.png",
             entry.object_key,
         ):
             raise AiError("图片清理键不在受控命名空间", "service_unavailable", 503)
-        entry.attempt_count += 1
-        entry.updated_at = now
-        entry.save()
-        identity = (entry.object_key, entry.attempt_count, entry.updated_at)
-    error = ""
-    try:
-        result = transport.edge(
-            "storage_delete",
-            {"objectKey": entry.object_key},
-            Principal(
-                "ai-scheduler@teruisi.internal", "AI scheduler", "operator", None
-            ),
-        )
-        if result.get("ok") is not True:
-            raise ValueError("unconfirmed")
-    except Exception:
-        error = "storage_cleanup_unconfirmed"
-    with mutation():
-        query = m.AiSpaceAssetCleanupQueue.objects.filter(
-            object_key=identity[0], attempt_count=identity[1], updated_at=identity[2]
-        )
-        if error:
-            query.update(last_error=error)
-        else:
-            query.delete()
+        if (
+            m.AiSpaceJobItems.objects.filter(pending_object_key=entry.object_key)
+            .filter(Q(status__in=["queued", "running"]) | Q(lease_expires_at__gt=now))
+            .exists()
+        ):
+            return
+        # Assets and their immutable bytes are never deleted by queue cleanup.
+        entry.delete()
 
 
 def tick():
@@ -780,25 +740,6 @@ def tick():
         )
         with mutation(principal, background=True):
             item = _leased(lease, publication=True)
-            item.pending_object_key = object_key
-            item.save()
-        identity = {
-            "objectKey": object_key,
-            "byteSize": len(raw),
-            "mimeType": "image/png",
-            "sha256": sha,
-            "jobId": job.id,
-            "itemId": item.id,
-        }
-        stored = transport.edge(
-            "storage_put",
-            {**identity, "base64": base64.b64encode(raw).decode()},
-            principal,
-        )
-        if stored.get("ok") is not True or stored.get("sha256") != sha:
-            raise AiError("图片存储回查未确认", "service_unavailable", 503)
-        with mutation(principal, background=True):
-            item = _leased(lease, publication=True)
             asset = m.AiSpaceAssets.objects.create(
                 id=uid("ai-space-asset"),
                 job_id=job.id,
@@ -813,6 +754,7 @@ def tick():
                 width=width,
                 height=height,
             )
+            m.AiSpaceAssetPayload.objects.create(asset=asset, content=raw)
             m.AiSpaceDispatchResults.objects.create(
                 dispatch_id=dispatch.id,
                 status="succeeded",

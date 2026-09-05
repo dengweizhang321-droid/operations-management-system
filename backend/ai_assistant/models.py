@@ -1019,6 +1019,16 @@ class AiSpaceAssetFavorites(models.Model):
         ]
 
 
+class AiSpaceAssetPayload(models.Model):
+    asset = models.OneToOneField(
+        "AiSpaceAssets", primary_key=True, on_delete=models.PROTECT, db_column="asset_id"
+    )
+    content = models.BinaryField()
+
+    class Meta:
+        db_table = "ai_space_asset_payloads"
+
+
 class AiSpaceAssets(models.Model):
     id = models.TextField(primary_key=True)
     job = models.ForeignKey("AiSpaceJobs", on_delete=models.CASCADE, db_column="job_id")

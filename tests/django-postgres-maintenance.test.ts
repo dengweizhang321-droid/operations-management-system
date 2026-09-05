@@ -294,7 +294,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 44);
+  assert.equal(new Set(aiTables).size, 45);
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
     tables: Object.fromEntries(["django_migrations", "sales_data_revisions", "sales_import_batches", "sales_order_lines", "sales_write_authority", "erp_product_master"].map(name => [name, 0])),

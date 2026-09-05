@@ -61,3 +61,12 @@ test("AI production entry points contain no retired D1 domain implementation or 
   assert.equal(isPublicAiPath("/api/ai/consumer"), false);
   assert.equal(isPublicAiPath("/api/ai/space/assets/one/content"), true);
 });
+
+
+test("AI production image path has no R2 binding or storage bridge", async () => {
+  const edge = await readFile(new URL("../lib/ai/django-edge.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(edge, /R2Bucket|SALES_IMPORT_FILES|cloudflare:workers|storage_(?:get|put|delete)/);
+  const space = await readFile(new URL("../backend/ai_assistant/space.py", import.meta.url), "utf8");
+  assert.doesNotMatch(space, /transport\.edge\(\s*["']storage_/);
+  assert.match(space, /AiSpaceAssetPayload\.objects\.create/);
+});

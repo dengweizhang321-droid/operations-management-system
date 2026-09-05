@@ -729,16 +729,9 @@ class AiDomainTests(TestCase):
         self,
     ):
         import base64
-        import hashlib
 
         raw = self.image_bytes()
         self.image_job()
-
-        def edge(action, payload, principal):
-            self.assertEqual(action, "storage_put")
-            self.assertEqual(payload["sha256"], hashlib.sha256(raw).hexdigest())
-            self.assertEqual(base64.b64decode(payload["base64"]), raw)
-            return {"ok": True, "sha256": payload["sha256"]}
 
         with (
             patch.object(space, "decrypt", return_value="isolated"),
@@ -747,11 +740,15 @@ class AiDomainTests(TestCase):
                 "bounded_json",
                 return_value={"data": [{"b64_json": base64.b64encode(raw).decode()}]},
             ),
-            patch.object(space.transport, "edge", side_effect=edge),
+            patch.object(space.transport, "edge", side_effect=AssertionError("R2 retired")),
         ):
             self.assertEqual(space.tick()["status"], "succeeded")
         asset = m.AiSpaceAssets.objects.get()
         self.assertEqual(asset.width, 1024)
+        self.assertEqual(bytes(m.AiSpaceAssetPayload.objects.get(asset=asset).content), raw)
+        self.assertEqual(base64.b64decode(space.download(asset.id, self.owner)["base64"]), raw)
+        with self.assertRaises(AiError):
+            space.download(asset.id, self.other)
         m.AiSpaceAssetCleanupQueue.objects.create(object_key=asset.object_key)
         with patch.object(space.transport, "edge") as storage:
             space.cleanup()
@@ -779,8 +776,56 @@ class AiDomainTests(TestCase):
             space.tick()
             space.tick()
             self.assertEqual(call.call_count, 1)
-            self.assertTrue(
-                all(call.args[0] == "storage_delete" for call in storage.call_args_list)
-            )
+            storage.assert_not_called()
         self.assertFalse(m.AiSpaceAssets.objects.exists())
+        self.assertFalse(m.AiSpaceAssetPayload.objects.exists())
         self.assertEqual(m.AiSpaceJobItems.objects.get().status, "cancelled")
+
+    def test_image_payload_failure_rolls_back_publication_and_does_not_repeat_paid_call(self):
+        import base64
+        self.image_job()
+        raw = self.image_bytes()
+        with (
+            patch.object(space, "decrypt", return_value="isolated"),
+            patch.object(space.transport, "bounded_json", return_value={"data": [{"b64_json": base64.b64encode(raw).decode()}]}) as paid,
+            patch.object(m.AiSpaceAssetPayload.objects, "create", side_effect=RuntimeError("database unavailable")),
+            patch.object(space.transport, "edge", side_effect=AssertionError("R2 retired")),
+        ):
+            self.assertEqual(space.tick()["status"], "failed")
+            space.tick()
+        self.assertEqual(paid.call_count, 1)
+        self.assertFalse(m.AiSpaceAssets.objects.exists())
+        self.assertFalse(m.AiSpaceAssetPayload.objects.exists())
+        self.assertEqual(m.AiSpaceJobItems.objects.get().status, "failed")
+
+    def test_retired_storage_actions_fail_before_any_network_call(self):
+        from . import transport
+        with patch.object(transport, "bounded_json") as network:
+            for action in ("storage_get", "storage_put", "storage_delete"):
+                with self.assertRaises(AiError):
+                    transport.edge(action, {}, self.owner)
+            network.assert_not_called()
+
+    def test_postgres_payload_constraints_reject_missing_tampered_or_mutated_bytes(self):
+        import base64
+        from django.db import connection, transaction, DatabaseError
+        if connection.vendor != "postgresql":
+            self.skipTest("PostgreSQL database constraint test")
+        self.image_job()
+        raw = self.image_bytes()
+        with (
+            patch.object(space, "decrypt", return_value="isolated"),
+            patch.object(space.transport, "bounded_json", return_value={"data": [{"b64_json": base64.b64encode(raw).decode()}]}),
+        ):
+            self.assertEqual(space.tick()["status"], "succeeded")
+        asset = m.AiSpaceAssets.objects.get()
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS ai_asset_payload_complete IMMEDIATE")
+        for sql, args in (
+            ("UPDATE ai_space_asset_payloads SET content=%s WHERE asset_id=%s", [b"tampered", asset.id]),
+            ("DELETE FROM ai_space_asset_payloads WHERE asset_id=%s", [asset.id]),
+            ("UPDATE ai_space_assets SET content_sha256=%s WHERE id=%s", ["0" * 64, asset.id]),
+        ):
+            with self.assertRaises(DatabaseError), transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute(sql, args)
+        self.assertEqual(base64.b64decode(space.download(asset.id, self.owner)["base64"]), raw)

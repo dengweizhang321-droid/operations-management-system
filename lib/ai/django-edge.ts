@@ -81,30 +81,6 @@ async function dataset(body: Record<string, unknown>, principal: AppPrincipal) {
   return { rows, sourceTotal, truncated: sourceTotal > rows.length, dataCutoffDate: payload.dataCutoffDate ?? null, filtersApplied: payload.filtersApplied ?? { requestedPeriod: payload.requestedPeriod ?? null, coverage: payload.coverage ?? null } };
 }
 
-async function storage(body: Record<string, unknown>, bucket: R2Bucket) {
-  exact(body, ["action", "objectKey", "byteSize", "mimeType", "sha256", "jobId", "itemId", "base64"]);
-  const objectKey = text(body.objectKey, 500);
-  if (!/^ai-space\/v1\/[A-Za-z0-9_-]{1,160}\/[A-Za-z0-9_-]{1,200}\.png$/.test(objectKey)) throw denied();
-  if (body.action === "storage_delete") { await bucket.delete(objectKey); return { ok: true }; }
-  const sha = text(body.sha256, 64), jobId = text(body.jobId), itemId = text(body.itemId);
-  if (!/^[a-f0-9]{64}$/.test(sha) || !objectKey.startsWith(`ai-space/v1/${jobId}/`) || body.mimeType !== "image/png"
-    || !Number.isInteger(body.byteSize) || Number(body.byteSize) < 1 || Number(body.byteSize) > 6 * 1024 * 1024) throw denied();
-  if (body.action === "storage_put") {
-    const bytes = Uint8Array.from(atob(text(body.base64, 8 * 1024 * 1024)), c => c.charCodeAt(0));
-    if (bytes.length !== body.byteSize || await aiSha256(bytes) !== sha) throw denied();
-    await bucket.put(objectKey, bytes, { onlyIf: { etagDoesNotMatch: "*" }, httpMetadata: { contentType: "image/png" }, customMetadata: { source: "ai-space", sha256: sha, jobId, itemId } });
-  }
-  const stored = await bucket.get(objectKey);
-  if (!stored || stored.size !== body.byteSize || stored.httpMetadata?.contentType !== "image/png"
-    || stored.customMetadata?.source !== "ai-space" || stored.customMetadata?.sha256 !== sha
-    || stored.customMetadata?.jobId !== jobId || stored.customMetadata?.itemId !== itemId) throw denied();
-  const bytes = new Uint8Array(await stored.arrayBuffer());
-  if (bytes.length > 6 * 1024 * 1024 || await aiSha256(bytes) !== sha) throw denied();
-  let raw = "";
-  if (body.action === "storage_get") for (let index = 0; index < bytes.length; index += 16384) raw += String.fromCharCode(...bytes.subarray(index, index + 16384));
-  return body.action === "storage_get" ? { base64: btoa(raw) } : { ok: true, sha256: sha };
-}
-
 export async function handleAiEdge(request: Request) {
   try {
     const environment = await aiEnvironment();
@@ -123,12 +99,7 @@ export async function handleAiEdge(request: Request) {
       if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface)))) throw denied();
       result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface), requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal });
     } else if (body.action === "dataset") result = await dataset(body, principal);
-    else if (["storage_get", "storage_put", "storage_delete"].includes(String(body.action))) {
-      if (body.action === "storage_delete" && (principal.email !== "ai-scheduler@teruisi.internal" || principal.role !== "operator" || principal.scope !== null)) throw denied();
-      const { env } = await import("cloudflare:workers");
-      if (!env.SALES_IMPORT_FILES) throw new PublicApiError(503, "service_unavailable", "AI 私有图片存储不可用。");
-      result = await storage(body, env.SALES_IMPORT_FILES);
-    } else throw denied();
+    else throw denied();
     return Response.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) { return safeApiErrorResponse(error, "AI 内部执行失败", { headers: { "cache-control": "no-store" } }); }
 }

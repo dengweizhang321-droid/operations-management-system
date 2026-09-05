@@ -18,6 +18,7 @@ CONTROL_MODELS = (
 )
 MODELS = {
     **m.HISTORICAL_MODELS,
+    "ai_space_asset_payloads": m.AiSpaceAssetPayload,
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
@@ -39,6 +40,7 @@ READ_TABLES = {
     "ai_space_jobs",
     "ai_space_job_items",
     "ai_space_assets",
+    "ai_space_asset_payloads",
     "ai_space_asset_favorites",
     "ai_data_revisions",
     "ai_write_authority",
@@ -46,6 +48,7 @@ READ_TABLES = {
     "access_control_users",
 }
 APPEND_ONLY = {
+    "ai_space_asset_payloads",
     "ai_chat_provider_dispatches",
     "ai_agent_checkpoints",
     "ai_agent_events",
