@@ -199,13 +199,13 @@ print(json.dumps({
 
 function Invoke-WithAiEnvironment(
   [object]$RuntimeSecrets, [object]$AiSecrets, [string]$DatabaseUrl,
-  [string]$Role, [bool]$ReadOnly, [int]$BodyBytes, [object]$Authority, [scriptblock]$Operation
+  [string]$Role, [bool]$ReadOnly, [int]$BodyBytes, [object]$Authority, [scriptblock]$AiOperation
 ) {
   Invoke-WithDjangoEnvironment $RuntimeSecrets $DatabaseUrl $Role $ReadOnly $BodyBytes ([string]$Authority.authorityEpoch) ([string]$Authority.cutoverId) {
     $env:AI_SECRET_ENCRYPTION_KEY = if ($Role -ceq "ai_writer") { $AiSecrets.ModelEncryptionKey } else { "" }
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = $AiSecrets.ModelOriginAllowlist
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:3000"
-    & $Operation
+    & $AiOperation
   }
 }
 
