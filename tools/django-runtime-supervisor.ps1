@@ -410,6 +410,19 @@ function Invoke-SupervisorProbe {
   try {
     $status = Invoke-SupervisorServiceStatus
     $classification = Get-SupervisorHealthClassification $status
+    if (Test-Path -LiteralPath $AiStartupEnabledPath -PathType Leaf) {
+      $ai = Get-SimpleDjangoDomainStatus "django-ai-reader" $DjangoAiReaderPidPath $DjangoAiWriterPidPath 8111 8112 $DjangoAiReaderHealthUrl $DjangoAiWriterHealthUrl "AiReader" "AiWriter"
+      $aiIdentity = [ordered]@{ Reader = [string]$ai.AiReader; Writer = [string]$ai.AiWriter; ReaderReady = [string]$ai.ReaderReadiness; WriterReady = [string]$ai.WriterReadiness }
+      $classification.fingerprint = Get-Sha256Text ([string]$classification.fingerprint + ($aiIdentity | ConvertTo-Json -Compress))
+      $identityError = [string]$ai.AiReader -notin @("running", "stopped") -or [string]$ai.AiWriter -notin @("running", "stopped")
+      $readinessError = ([string]$ai.AiReader -ceq "running" -and [string]$ai.ReaderReadiness -cne "ready") -or ([string]$ai.AiWriter -ceq "running" -and [string]$ai.WriterReadiness -cne "ready")
+      if ($identityError -or $readinessError) {
+        $classification.health = "unhealthy"; $classification.recoverable = $false
+        $classification.code = if ($identityError) { "ai_process_identity_mismatch" } else { "ai_readiness_failed" }
+      } elseif ([string]$classification.health -ceq "healthy" -and ([string]$ai.AiReader -ceq "stopped" -or [string]$ai.AiWriter -ceq "stopped")) {
+        $classification.health = "unhealthy"; $classification.recoverable = $true; $classification.code = "ai_process_stopped"
+      }
+    }
     return [pscustomobject][ordered]@{
       probeStatus = "completed"
       status = $status

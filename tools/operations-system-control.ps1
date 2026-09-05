@@ -322,9 +322,11 @@ function Get-DjangoAggregateState {
       $inventoryStatus = $aggregateStatus.Inventory
       $customerServiceStatus = $aggregateStatus.CustomerService
       $accessControlStatus = $aggregateStatus.AccessControl
+      $aiStatus = if ($aggregateStatus.PSObject.Properties.Name -contains "Ai") { $aggregateStatus.Ai } else { $null }
       $erpReferenceStatus = $aggregateStatus.ErpReference
       $biStatus = $aggregateStatus.Bi
     } else {
+      $aiStatus = $null
       # Keep the source controller usable while a reviewed runtime deployment is
       # staged. The optimized path becomes active immediately after DeployApp.
       $coreStatus = Invoke-JsonServiceAction -ScriptPath $DjangoService -Arguments @("-Action", "Status") -Label "Django/PostgreSQL 状态检查"
@@ -352,6 +354,9 @@ function Get-DjangoAggregateState {
       accessControl = Test-DjangoDomainReady -Status $accessControlStatus -ReaderProperty "AccessControlReader" -WriterProperty "AccessControlWriter"
       erpReference = Test-DjangoDomainReady -Status $erpReferenceStatus -ReaderProperty "ErpReferenceReader" -WriterProperty "ErpReferenceWriter"
       bi = Test-DjangoReaderReady -Status $biStatus -ReaderProperty "BiReader"
+    }
+    if (Test-Path -LiteralPath (Join-Path $DjangoRuntimeRoot "ai-enabled.json") -PathType Leaf) {
+      $componentReadiness["ai"] = Test-DjangoDomainReady -Status $aiStatus -ReaderProperty "AiReader" -WriterProperty "AiWriter"
     }
     $notReadyComponents = @($componentReadiness.Keys | Where-Object { -not $componentReadiness[$_] })
     $aggregateState = [pscustomobject]@{

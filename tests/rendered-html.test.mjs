@@ -838,9 +838,11 @@ test("exposes the centrally registered, fail-closed Codex MCP connection", async
   assert.match(contract, /if \(!preflightAudited\).*audit_unavailable/);
   assert.match(contract, /if \(!audited\)/);
   assert.match(contract, /工具执行未返回数据/);
-  assert.match(audit, /ai_tool_audit_logs/);
-  assert.match(audit, /input\.actorEmail/);
-  assert.match(audit, /input\.actorRole/);
+  assert.match(audit, /aiConsumer/);
+  assert.match(audit, /operation: "tool-audit", entry: input/);
+  const domainAudit = await readFile(new URL("../backend/ai_assistant/views.py", import.meta.url), "utf8");
+  assert.match(domainAudit, /entry\["actorEmail"\].lower\(\) != principal.email.lower\(\)/);
+  assert.match(domainAudit, /entry\["actorRole"\] != principal.role/);
   assert.match(config, /mcp_servers\.teruisi_operations/);
   assert.match(config, /TERUISI_CODEX_MCP_TOKEN/);
   assert.match(agents, /get_data_freshness/);

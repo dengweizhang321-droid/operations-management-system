@@ -45,7 +45,7 @@ test("Django local service binds PostgreSQL and Waitress to loopback with bounde
   assert.match(script, /\$MinimumPostgresConnectionsForFullStack = 120/);
   assert.match(script, /function Assert-PostgresConnectionCapacity/);
   assert.match(script, /cursor\.execute\("SHOW max_connections"\)/);
-  assert.match(script, /max_connections 低于完整 Django\/BI 运行栈所需的 120/);
+  assert.match(script, /\$requiredConnections = if \(Test-Path -LiteralPath \$AiStartupEnabledPath -PathType Leaf\) \{ 128 \}/);
   assert.match(script, /--channel-timeout=960/);
   assert.doesNotMatch(script, /--channel-timeout=120/);
   assert.doesNotMatch(script, /--listen=0\.0\.0\.0|listen_addresses\s*=\s*['"]\*/);

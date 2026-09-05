@@ -7,31 +7,15 @@ const workerUrl = new URL("../worker/index.ts", import.meta.url);
 test("scheduled and protected local ticks run one isolated workflow and one formal Agent microstep", async () => {
   const source = await readFile(workerUrl, "utf8");
 
-  assert.match(
-    source,
-    /import \{ runNextAiWorkflowMicrostep \} from "\.\.\/lib\/ai\/agent-workflows";/,
-  );
-  assert.match(source, /import \{ runNextFormalAiAgentMicrostep \} from "\.\.\/lib\/ai\/agent-executor";/);
-  assert.doesNotMatch(source, /runNextAiAgentMicrostep/);
-
+  assert.match(source, /import \{ wakeAiQueue \} from "\.\.\/lib\/django\/ai-service"/);
+  assert.doesNotMatch(source, /runNextAiAgentMicrostep|runNextFormalAiAgentMicrostep|runNextAiWorkflowMicrostep/);
   const maintenanceStart = source.indexOf("async function runScheduledMarketMaintenance");
   const maintenanceEnd = source.indexOf("function allowsLoopbackDevelopmentRequest", maintenanceStart);
   const maintenance = source.slice(maintenanceStart, maintenanceEnd);
   assert.ok(maintenanceStart >= 0 && maintenanceEnd > maintenanceStart);
-  assert.equal(
-    maintenance.match(/runNextAiWorkflowMicrostep\(\{ db, \.\.\.\(executorAdmission \? \{ executorAdmission \} : \{\}\) \}\)/g)?.length,
-    1,
-    "one combined scheduler tick must advance at most one workflow microstep",
-  );
-  assert.match(
-    maintenance,
-    /const aiWorkflow = await runScheduledMarketTask\([\s\S]*?selectNextWorkflowExecutorAdmission\(db\)[\s\S]*?runNextAiWorkflowMicrostep/,
-  );
-  assert.equal(
-    maintenance.match(/runNextFormalAiAgentMicrostep\(\{ db \}\)/g)?.length,
-    1,
-    "one combined scheduler tick must advance at most one formal Agent microstep",
-  );
+  for (const queue of ["workflow", "agent", "space"]) {
+    assert.equal(maintenance.split(`wakeAiQueue("${queue}")`).length - 1, 1);
+  }
 
   const workflowAt = maintenance.indexOf("const aiWorkflow = await runScheduledMarketTask");
   const agentAt = maintenance.indexOf("const aiAgent = await runScheduledMarketTask");

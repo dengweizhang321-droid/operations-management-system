@@ -7,7 +7,7 @@ import { deflateSync } from "node:zlib";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
 import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database as SalesDatabase } from "../lib/database/d1";
 
 const testEnvironment: { DB?: unknown; SALES_IMPORT_FILES?: unknown } = {};
 (globalThis as typeof globalThis & { __aiSpaceTestEnv?: typeof testEnvironment }).__aiSpaceTestEnv = testEnvironment;
@@ -41,7 +41,7 @@ const {
   upsertAiSpaceTemplate,
   validateAiSpaceImageBytes,
   validateAiSpaceImageBytesDeep,
-} = await import("../lib/ai/space");
+} = await import("./legacy/ai/space");
 
 const owner: AppPrincipal = {
   email: "owner@example.com",
@@ -671,21 +671,19 @@ test("AI Space routes and UI preserve role, private-object, and six-workspace co
     readFile(new URL("../app/shell/navigation-catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(jobsRoute, /requireAppPrincipal\(\["admin", "operator", "analyst"\]\)/);
-  assert.match(cancelRoute, /requireAiSameOriginWrite\(request\)/);
-  for (const route of [profilesRoute, templatesRoute]) {
-    assert.match(route, /requireAppPrincipal\(\["admin"\]\)/);
-    assert.match(route, /requireUnrestrictedDataScope/);
-  }
-  assert.match(contentRoute, /"cache-control": "private, no-store"/);
-  assert.match(contentRoute, /"x-content-type-options": "nosniff"/);
-  assert.match(contentRoute, /"content-security-policy": "default-src 'none'; sandbox"/);
-  assert.match(contentRoute, /"x-ai-generated": "true"/);
-  assert.match(contentRoute, /"x-ai-review-required": "true"/);
+  for (const route of [jobsRoute, cancelRoute, profilesRoute, templatesRoute, contentRoute]) assert.match(route, /forwardAiRequest/);
+  const gate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
+  assert.match(gate, /requireUnrestrictedDataScope/);
+  assert.match(gate, /requireAiSameOriginWrite/);
+  assert.match(gate, /"cache-control": "private, no-store"/);
+  assert.match(gate, /"x-content-type-options": "nosniff"/);
+  assert.match(gate, /"content-security-policy": "default-src 'none'; sandbox"/);
+  assert.match(gate, /"x-ai-generated": "true"/);
+  assert.match(gate, /"x-ai-review-required": "true"/);
   assert.doesNotMatch(contentRoute, /object_key|objectKey/);
   assert.match(moduleView, /\["assistant", "agents", "memory", "sandbox", "space", "management"\]/);
   assert.match(catalog, /ai: \{ defaultView: "assistant", views: \["assistant", "agents", "memory", "sandbox", "space", "management"\] \}/);
-  assert.match(worker, /runScheduledAiSpace\(\{ db, bucket: input\.aiSpaceBucket \}\)/);
+  assert.match(worker, /wakeAiQueue\("space"\)/);
   assert.match(worker, /return \{ aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \}/);
 });
 

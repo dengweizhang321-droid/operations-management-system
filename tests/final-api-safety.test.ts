@@ -37,8 +37,7 @@ test("market, settings, and Jackyun routes mask unknown failures and disable cac
 
 test("global market writes and operating settings reject restricted principals", async () => {
   const scopeProtectedRoutes = [
-    "../app/api/ai/models/route.ts",
-    "../app/api/ai/channels/route.ts",
+    "../lib/ai/django-route.ts",
     "../app/api/market/import/route.ts",
     "../app/api/market/annotations/route.ts",
     "../app/api/market/images/[hash]/route.ts",

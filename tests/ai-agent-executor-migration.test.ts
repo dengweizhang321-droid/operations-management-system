@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database as SalesDatabase } from "../lib/database/d1";
 import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
@@ -23,9 +23,9 @@ registerHooks({
   },
 });
 
-const { ensureAiAgentExecutorSchema } = await import("../lib/ai/agent-executor-schema");
-const { selectNextWorkflowExecutorAdmission } = await import("../lib/ai/agent-executor-admission");
-const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
+const { ensureAiAgentExecutorSchema } = await import("./legacy/ai/agent-executor-schema");
+const { selectNextWorkflowExecutorAdmission } = await import("./legacy/ai/agent-executor-admission");
+const { ensureAuthorizationSchema } = await import("./legacy/auth/authorization");
 
 test("0087 and runtime compatibility upgrades are safe in either rollout order", async () => {
   const workflowMigration = await readFile(new URL("../drizzle/0086_ai_agent_workflows.sql", import.meta.url), "utf8");

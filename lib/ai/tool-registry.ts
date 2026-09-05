@@ -31,7 +31,6 @@ import { GLOBAL_SEARCH_COVERAGE } from "@/lib/search/global-search";
 import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/database";
 import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
-import { getD1Database } from "@/lib/database/d1";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
@@ -127,7 +126,7 @@ export const aiToolRegistry = [
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
     execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
-    handler: (args, context) => searchAiKnowledge(args, context.principal, getD1Database()),
+    handler: (args, context) => searchAiKnowledge(args, context.principal),
   },
   {
     name: "search_personal_memory",
@@ -168,7 +167,7 @@ export const aiToolRegistry = [
     handler: (args, context) => listAiAgentJobs({
       page: typeof args.page === "number" ? args.page : 1,
       pageSize: typeof args.pageSize === "number" ? args.pageSize : 10,
-    }, context.principal, getD1Database()),
+    }, context.principal),
   },
   {
     name: "list_my_agent_workflows",
@@ -190,7 +189,7 @@ export const aiToolRegistry = [
     handler: (args, context) => listAiWorkflowRuns({
       page: typeof args.page === "number" ? args.page : 1,
       pageSize: typeof args.pageSize === "number" ? args.pageSize : 10,
-    }, context.principal, getD1Database()),
+    }, context.principal),
   },
   {
     name: "get_data_freshness",
@@ -739,7 +738,7 @@ export const aiToolRegistry = [
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
     execution: analysisSandboxExecution,
-    handler: async () => describeAiAnalysisDatasets(),
+    handler: (_args, context) => describeAiAnalysisDatasets(context.principal),
   },
   {
     name: "run_analysis_plan",
@@ -862,7 +861,7 @@ export function createRegisteredToolExecutionRuntime(
   const runtime = createAiToolExecutionRuntime({
     context,
     entries: aiToolRegistry,
-    audit: recordAiToolAudit,
+    audit: (entry) => recordAiToolAudit(entry, context.principal),
     summarizeArguments: summarizeToolArguments,
     limits,
   });
@@ -887,7 +886,7 @@ export async function executeRegisteredToolCall(
   const runtime = createAiToolExecutionRuntime({
     context,
     entries: options.entries ?? aiToolRegistry,
-    audit: options.audit ?? recordAiToolAudit,
+    audit: options.audit ?? ((entry) => recordAiToolAudit(entry, context.principal)),
     summarizeArguments: summarizeToolArguments,
     limits: { maxTotalCalls: 1 },
   });

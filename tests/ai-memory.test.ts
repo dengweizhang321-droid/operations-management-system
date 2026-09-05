@@ -6,7 +6,7 @@ import test from "node:test";
 import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
-import type { SalesDatabase } from "../lib/sales/database";
+import type { D1Database as SalesDatabase } from "../lib/database/d1";
 
 const testEnvironment: {
   DB?: unknown;
@@ -42,7 +42,7 @@ const {
   listAiMemories,
   retrieveAiMemoriesForContext,
   updateAiMemory,
-} = await import("../lib/ai/memory");
+} = await import("./legacy/ai/memory");
 
 const owner: AppPrincipal = {
   email: "owner@example.com",
@@ -381,13 +381,13 @@ test("AI memory API requires same-origin writes and rejects caller-owned identit
   testEnvironment.DB = db;
   try {
     installDjangoAccessControlFixture(sqlite);
-    const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
+    const { ensureAuthorizationSchema } = await import("./legacy/auth/authorization");
     await ensureAuthorizationSchema(db);
     sqlite.prepare(`INSERT OR REPLACE INTO app_users
       (email, display_name, role, status, scope_json)
       VALUES ('owner@example.com', 'Owner', 'analyst', 'active', NULL)`).run();
-    const collectionRoute = await import("../app/api/ai/memories/route");
-    const itemRoute = await import("../app/api/ai/memories/[memoryId]/route");
+    const collectionRoute = await import("./legacy/app/api/ai/memories/route");
+    const itemRoute = await import("./legacy/app/api/ai/memories/[memoryId]/route");
 
     const missingOrigin = await collectionRoute.POST(jsonRequest(
       "https://example.test/api/ai/memories",

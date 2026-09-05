@@ -44,21 +44,21 @@ const {
   sendAiChannelText,
   upsertAiChannel,
   upsertAiModel,
-} = await import("../lib/ai/assistant-service");
+} = await import("./legacy/ai/assistant-service");
 const {
   ensureAiArtifactSchema,
   getAiArtifactDownload,
   listAiArtifactsForConversation,
   persistAiTableArtifacts,
-} = await import("../lib/ai/artifacts");
+} = await import("./legacy/ai/artifacts");
 const {
   aiRouteErrorResponse,
   parseAiPositiveInteger,
   readAiJsonObject,
-} = await import("../app/api/ai/route-helpers");
+} = await import("./legacy/app/api/ai/route-helpers");
 const { readBoundedJsonObject } = await import("../lib/http/bounded-json");
-const { answerAiQuestion } = await import("../lib/ai/question-workflow");
-const { ensureAiAgentExecutorSchema } = await import("../lib/ai/agent-executor-schema");
+const { answerAiQuestion } = await import("./legacy/ai/question-workflow");
+const { ensureAiAgentExecutorSchema } = await import("./legacy/ai/agent-executor-schema");
 
 test("global memory stays request-local and is appended only to the latest user message", () => {
   const storedMessages = [
@@ -1497,7 +1497,7 @@ test("AI route contract rejects ambiguous integers and masks unknown failures", 
     "tools/route.ts",
     "artifacts/[artifactId]/route.ts",
     "webhooks/[channelId]/route.ts",
-  ].map((path) => readFile(new URL(`../app/api/ai/${path}`, import.meta.url), "utf8")));
+  ].map((path) => readFile(new URL(`./legacy/app/api/ai/${path}`, import.meta.url), "utf8")));
   assert.equal(routeFiles.some((source) => /error instanceof Error \? error\.message/.test(source)), false);
   assert.equal(routeFiles.some((source) => /request\.json\(/.test(source)), false);
   assert.match(routeFiles[0], /parseAiPositiveInteger/);
@@ -1513,7 +1513,7 @@ test("AI route contract rejects ambiguous integers and masks unknown failures", 
     "space/profiles/route.ts",
     "space/templates/route.ts",
     "space/assets/[assetId]/route.ts",
-  ].map((path) => readFile(new URL(`../app/api/ai/${path}`, import.meta.url), "utf8")));
+  ].map((path) => readFile(new URL(`./legacy/app/api/ai/${path}`, import.meta.url), "utf8")));
   for (const source of protectedWriteRoutes) assert.match(source, /requireAiSameOriginWrite\(request\)/);
   assert.doesNotMatch(routeFiles[6]!, /requireAiSameOriginWrite/);
 
@@ -1537,7 +1537,7 @@ test("enabled WeCom callbacks require an exact receiver identity at save and ver
     /接收方 ID/,
   );
   const webhookRoute = await readFile(
-    new URL("../app/api/ai/webhooks/[channelId]/route.ts", import.meta.url),
+    new URL("./legacy/app/api/ai/webhooks/[channelId]/route.ts", import.meta.url),
     "utf8",
   );
   assert.match(webhookRoute, /!channel\.receiverId/);

@@ -2144,6 +2144,9 @@ def _validate_access_control_writer_permissions(cursor) -> None:
 
 @require_GET
 def ready(_request):
+    if settings.DJANGO_PROCESS_ROLE in {"ai_reader", "ai_writer"}:
+        from ai_assistant.health import ready as ai_ready
+        return ai_ready()
     writer_process = settings.DJANGO_PROCESS_ROLE == "sales_writer"
     finance_writer_process = settings.DJANGO_PROCESS_ROLE == "finance_writer"
     finance_reader_process = settings.DJANGO_PROCESS_ROLE == "finance_reader"

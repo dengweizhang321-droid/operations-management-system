@@ -56,10 +56,10 @@ test("page context stays separate from user text and participates in retry inten
 });
 
 test("chat route validates page context and workflow injects it outside the user message", () => {
-  const route = readFileSync("app/api/ai/chat/route.ts", "utf8");
-  const workflow = readFileSync("lib/ai/question-workflow.ts", "utf8");
+  const route = readFileSync("lib/ai/django-route.ts", "utf8");
+  const workflow = readFileSync("backend/ai_assistant/chat.py", "utf8");
   assert.match(route, /normalizeAiPageContext\(payload\.pageContext\)/);
   assert.match(workflow, /<page_context>/);
-  assert.match(workflow, /const prompt = normalizeQuestion\(input\.message\)/);
-  assert.match(workflow, /classifyShortcut\(prompt\)/);
+  assert.match(workflow, /prompt = text\(body\["message"\]/);
+  assert.match(workflow, /shortcut/);
 });

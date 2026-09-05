@@ -133,6 +133,7 @@ export async function runClaimedDjangoMarketVisionTask(input: {
   try {
     const prediction = await runVisionAnnotation({
       db: input.db,
+      principal: input.principal,
       modelId: task.modelId,
       promptBody: task.promptBody,
       segments: task.segments,

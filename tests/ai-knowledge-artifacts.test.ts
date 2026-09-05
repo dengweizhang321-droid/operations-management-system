@@ -9,7 +9,7 @@ import {
   retrieveKnowledgeForPrompt,
   searchAiKnowledge,
   systemKnowledgeSeeds,
-} from "../lib/ai/data-knowledge";
+} from "./legacy/ai/data-knowledge";
 import {
   AI_ARTIFACT_LIMITS,
   boundAiTableArtifactCandidates,
@@ -20,7 +20,7 @@ import {
   persistAiTableArtifacts,
   recordAiArtifactDelivery,
   toSafeCsv,
-} from "../lib/ai/artifacts";
+} from "./legacy/ai/artifacts";
 import type { D1Database } from "../lib/database/d1";
 
 const analyst: AppPrincipal = {

@@ -45,7 +45,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_customer_service_writer",
   "teruisi_bi_reader",
   "teruisi_access_control_reader",
-  "teruisi_access_control_writer"
+  "teruisi_access_control_writer",
+  "teruisi_ai_reader",
+  "teruisi_ai_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action
@@ -251,6 +253,10 @@ function Assert-MaintenanceEvidence(
       [string]$_.app -ceq "access_control" -and [string]$_.name -ceq "0001_initial"
     }).Count -gt 0
   $hasAccessControl = $null -ne $Evidence.PSObject.Properties["accessControl"]
+  $hasAiMigration = @($Evidence.migrations | Where-Object { [string]$_.app -ceq "ai_assistant" -and [string]$_.name -ceq "0001_initial" }).Count -gt 0
+  $hasAi = $null -ne $Evidence.PSObject.Properties["aiAssistant"]
+  if ($hasAiMigration -ne $hasAi) { throw "PostgreSQL AI 域证据字段不完整" }
+
   if ($hasAccessControlMigration -ne $hasAccessControl) {
     throw "PostgreSQL 权限域证据字段不完整"
   }
@@ -321,6 +327,7 @@ function Assert-MaintenanceEvidence(
     $evidenceProperties += @("customerServiceRevisions", "customerServiceWriteAuthority")
   }
   if ($hasAccessControl) { $evidenceProperties += @("accessControl") }
+  if ($hasAi) { $evidenceProperties += @("aiAssistant") }
   Assert-MaintenanceExactPropertySet $Evidence $evidenceProperties "PostgreSQL 证据"
   foreach ($digest in @(
     [string]$Evidence.contentSha256,
@@ -364,6 +371,18 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasBiMigration) {
     $requiredTables += @("bi_migration_runs")
+  }
+  if ($hasAi) {
+    $requiredTables += @("ai_agent_checkpoints", "ai_agent_events", "ai_agent_jobs", "ai_agent_provider_dispatches", "ai_agent_provider_results", "ai_agent_tool_dispatches", "ai_agent_tool_results", "ai_analysis_runs", "ai_artifact_deliveries", "ai_artifacts", "ai_channel_callback_events", "ai_channels", "ai_chat_provider_dispatches", "ai_chat_request_receipts", "ai_conversation_deletion_audits", "ai_conversation_messages", "ai_conversation_scopes", "ai_conversations", "ai_data_revisions", "ai_knowledge_entries", "ai_memory_audit_logs", "ai_memory_commit_guards", "ai_memory_entries", "ai_migration_runs", "ai_models", "ai_mutation_audits", "ai_space_admin_audits", "ai_space_asset_cleanup_queue", "ai_space_asset_favorites", "ai_space_assets", "ai_space_dispatch_receipts", "ai_space_dispatch_results", "ai_space_job_items", "ai_space_jobs", "ai_space_model_profiles", "ai_space_schema_upgrades", "ai_space_templates", "ai_system_settings", "ai_tool_audit_logs", "ai_workflow_events", "ai_workflow_node_runs", "ai_workflow_runs", "ai_write_authority", "ai_write_request_receipts")
+    Assert-MaintenanceExactPropertySet $Evidence.aiAssistant @("revision", "sourceDigest", "status", "authorityEpoch", "cutoverId", "migrationRunId") "AI 域证据"
+    $aiEvidence = $Evidence.aiAssistant
+    if (-not (Test-MaintenanceInteger $aiEvidence.revision) -or [int64]$aiEvidence.revision -lt 0 -or [string]$aiEvidence.status -cnotin @("d1", "postgres")) { throw "AI 版本或 authority 无效" }
+    if ([string]$aiEvidence.migrationRunId -ne "") {
+      if ([string]$aiEvidence.migrationRunId -cnotmatch "^ai-apply-[0-9a-f]{32}$" -or [string]$aiEvidence.sourceDigest -cnotmatch "^[0-9a-f]{64}$" -or [int64]$aiEvidence.revision -lt 1) { throw "AI 采用证据无效" }
+    } elseif ([int64]$aiEvidence.revision -ne 0 -or [string]$aiEvidence.sourceDigest -ne "") { throw "AI 未采用状态包含数据变化" }
+    if ([string]$aiEvidence.status -ceq "postgres") {
+      if ([int64]$aiEvidence.revision -lt 1 -or [string]$aiEvidence.authorityEpoch -cnotmatch "^[0-9a-fA-F-]{36}$" -or [string]$aiEvidence.cutoverId -cnotmatch "^[A-Za-z0-9._:-]{8,128}$" -or [string]$aiEvidence.migrationRunId -cnotmatch "^ai-apply-[0-9a-f]{32}$") { throw "AI PostgreSQL 激活证据不完整" }
+    } elseif ([string]$aiEvidence.authorityEpoch -ne "" -or [string]$aiEvidence.cutoverId -ne "") { throw "AI 未激活状态包含激活证据" }
   }
   if ($hasAccessControl) {
     $requiredTables += @(

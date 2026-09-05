@@ -1,13 +1,10 @@
+import { wakeAiQueue } from "../lib/django/ai-service";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runScheduledDjangoMarketAnnotation } from "../lib/market/django-annotation-scheduled";
 import { runDjangoMarketImageCacheBatch } from "../lib/market/django-image-cache-runner";
 import { runDjangoMarketNetshopProjectionSync } from "../lib/market/django-netshop-projection-runner";
-import { runScheduledAiSpace } from "../lib/ai/space";
-import { runNextAiWorkflowMicrostep } from "../lib/ai/agent-workflows";
-import { runNextFormalAiAgentMicrostep } from "../lib/ai/agent-executor";
-import { selectNextWorkflowExecutorAdmission } from "../lib/ai/agent-executor-admission";
 import { enforceDynamicCachePolicy } from "./cache-policy";
 
 interface Env {
@@ -64,15 +61,12 @@ async function runScheduledMarketMaintenance(
   // 每个队列每次最多推进一个持久微步，并放在可能耗时更长的图片任务之前，避免队列饥饿。
   const aiWorkflow = await runScheduledMarketTask(
     "AI workflow scheduled runner failed",
-    async () => {
-      const executorAdmission = await selectNextWorkflowExecutorAdmission(db);
-      return runNextAiWorkflowMicrostep({ db, ...(executorAdmission ? { executorAdmission } : {}) });
-    },
+    () => wakeAiQueue("workflow"),
   );
   // 正式 Agent 一次只允许一次 provider HTTP 或一次中央注册表只读工具调用。
   const aiAgent = await runScheduledMarketTask(
     "AI Agent scheduled runner failed",
-    () => runNextFormalAiAgentMicrostep({ db }),
+    () => wakeAiQueue("agent"),
   );
   const netshopProjection = await runScheduledMarketTask(
     "market netshop projection scheduled runner failed",
@@ -85,7 +79,7 @@ async function runScheduledMarketMaintenance(
   );
   const aiSpace = await runScheduledMarketTask(
     "AI space scheduled runner failed",
-    () => runScheduledAiSpace({ db, bucket: input.aiSpaceBucket }),
+    () => wakeAiQueue("space"),
   );
   const annotations = await runScheduledMarketTask(
     "market annotation scheduled runner failed",

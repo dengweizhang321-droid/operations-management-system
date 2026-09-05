@@ -32,10 +32,11 @@ export type PublicApiErrorCode =
   | "rate_limited"
   | "ai_chat_not_dispatched"
   | "ai_chat_result_unknown"
+  | "ai_request_cancelled"
   | "service_unavailable";
 
 export class PublicApiError extends Error {
-  readonly status: 400 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 503;
+  readonly status: 400 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 499 | 503;
   readonly code: PublicApiErrorCode;
 
   constructor(

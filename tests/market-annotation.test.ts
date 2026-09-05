@@ -1,3 +1,4 @@
+import "./ai-legacy-market-fixture";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
@@ -8,7 +9,7 @@ import {
   parseVisionAnnotation, stableStratifiedSample, validationMetrics,
 } from "../lib/market/annotation-types";
 import { DEFAULT_MARKET_SEGMENTS, marketSegmentsForCategory } from "../lib/market/default-taxonomy";
-import { activatePromptVersion, annotationCandidateCountsSql, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, getAnnotationCandidateCounts, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } from "../lib/market/annotation-service";
+const { activatePromptVersion, annotationCandidateCountsSql, claimLocalAnnotation, classifyCloudAnnotationFailure, commitAnnotationItems, commitSelectedAnnotationItems, completeLocalAnnotation, createAnnotationJob, createPriceRecognitionJob, createValidationRun, deletePromptVersion, deleteSettledAnnotationJob, getAnnotationCandidateCounts, getAnnotationJobProgress, getAnnotationReviewWorkspace, getAnnotationWorkspace, rebuildSelectedStaleAnnotationItems, rebuildStaleAnnotationItem, runCloudAnnotationBatch, runCloudAnnotationPump, runNextCloudAnnotation, runNextValidation, runScheduledCloudAnnotations, searchAnnotationCatalog, setAnnotationConcurrency, setCloudAnnotationRunState, setFilteredAnnotationSelection, updateAnnotationItems } = await import("../lib/market/annotation-service");
 import { AnnotationAgentError, annotationAgentErrorResponse } from "../lib/market/annotation-agent-errors";
 import { ensureAnnotationSchema } from "../lib/market/annotation-schema";
 import { ensureMarketSchemaCore } from "../lib/market/schema-core";
