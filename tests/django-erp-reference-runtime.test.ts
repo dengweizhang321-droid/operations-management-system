@@ -92,6 +92,8 @@ test("ERP cutover binds exact migration, smoke, R2 and terminal D1 retirement ev
   assert.match(smoke, /\/api\/imports\/erp\?source=products/);
   assert.match(smoke, /erp-reference-d1-rejection-smoke\.py/);
   assert.match(smoke, /TERUISI_DJANGO_ERP_MODE/);
+  assert.match(smoke, /SkipHttpErrorCheck = \$true/);
+  assert.ok(smoke.indexOf('"/api/imports/erp/chunks"') < smoke.indexOf('"/api/imports/erp" "POST"'));
   assert.match(consumerSmoke, /operation: "product_search",\s*query: "[^"]+"/);
   assert.match(retirement, /0110_erp_reference_domain_retirement\.sql/);
   assert.match(retirement, /erp-reference-system-test-receipt-v1/);

@@ -20,17 +20,14 @@ function Invoke-SmokeRequest([string]$Path, [string]$Method = "GET", [string]$Bo
     Uri = "$BaseUrl$Path"
     Method = $Method
     UseBasicParsing = $true
+    SkipHttpErrorCheck = $true
     TimeoutSec = 180
   }
   if (-not [string]::IsNullOrEmpty($Body)) {
     $arguments.ContentType = "application/json"
     $arguments.Body = $Body
   }
-  try { return Invoke-WebRequest @arguments }
-  catch {
-    if ($null -eq $_.Exception.Response) { throw }
-    return [pscustomobject]@{ StatusCode = [int]$_.Exception.Response.StatusCode; Content = "" }
-  }
+  return Invoke-WebRequest @arguments
 }
 
 function Get-SmokeJson([string]$Path) {
@@ -85,10 +82,10 @@ if ($null -eq $history.items -or $null -eq $history.pagination -or @($history.it
 $comboHistory = Get-SmokeJson "/api/imports/erp?source=combos&page=1&pageSize=1"
 if ($null -eq $comboHistory.items -or $null -eq $comboHistory.pagination -or @($comboHistory.items).Count -gt 1) { throw "ERP 主数据组合装导入历史公开 API 契约失败" }
 
-$negative = Invoke-SmokeRequest "/api/imports/erp" "POST" "{}"
-if ([int]$negative.StatusCode -ne 415) { throw "ERP 主数据直传 writer 负向请求未稳定拒绝" }
 $chunk = Invoke-SmokeRequest "/api/imports/erp/chunks" "POST" '{"source":"products","action":"unknown"}'
 if ([int]$chunk.StatusCode -ne 400) { throw "ERP 主数据分片上传负向请求未稳定拒绝" }
+$negative = Invoke-SmokeRequest "/api/imports/erp" "POST" "{}"
+if ([int]$negative.StatusCode -ne 415) { throw "ERP 主数据直传 writer 负向请求未稳定拒绝" }
 
 $search = Get-SmokeJson "/api/search?q=ERP&group=products&page=1&pageSize=1"
 $erpGroup = @($search.groups | Where-Object key -eq "products")
