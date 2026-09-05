@@ -41,7 +41,7 @@ $ProductsWriterHealthUrl = "http://127.0.0.1:8042/health/ready"
 $ProductsStartupPath = Join-Path $RuntimeRoot "products-service-enabled.json"
 $ProductsReaderMaxBodyBytes = 1048576
 $ProductsWriterMaxBodyBytes = 33554432
-$MinimumPostgresConnectionsForProducts = 80
+$MinimumPostgresConnectionsForProducts = 120
 
 function Assert-ProductsRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {

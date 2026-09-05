@@ -1,22 +1,23 @@
 # Django 本机运行守护与主动健康监控
 
-本文定义 `D:\teruisi-runtime\django-sales` 的进程崩溃恢复和主动健康监控。守护范围只包括该 runtime 的 PostgreSQL、Django reader、Django writer 和 ERP bridge；不得启动、停止、重启或接管 Worker、n8n、京东、天猫及其他模块进程。
+本文定义 `D:\teruisi-runtime\django-sales` 的进程崩溃恢复和主动健康监控。守护范围只包括该 runtime 的 PostgreSQL、全部已启用 Django reader/writer 和 BI reader；不得启动、停止、重启或接管 Worker、n8n、京东、天猫及其他模块进程。
 
 ## 1. 自动恢复边界
 
 守护每 15 秒读取一次受控 `Status -Json`。只有下列两类状态可以自动调用既有 `Start`：
 
 - PostgreSQL 监听器不存在，且没有任何外来/身份异常端口或进程；
-- PostgreSQL 身份和 readiness 正常，但 reader、writer 或 ERP bridge 中至少一个经过核验的受管进程已经停止。
+- PostgreSQL 身份和 readiness 正常，但至少一个经过核验的 reader/writer 或 BI reader 受管进程已经停止。
 
 以下状态只生成告警，不自动重启：
 
-- `5432/8001/8002` 被外来或无法核验身份的进程占用；
-- 当前 Windows 启动周期内的 PID receipt 损坏、PID 复用、身份变化，或出现未登记 ERP bridge；
+- PostgreSQL 或任一已配置 Django 端口被外来或无法核验身份的进程占用；
+- PostgreSQL `max_connections` 低于完整 Django/BI 运行栈所需的 `120`，或普通角色连接槽已经耗尽；
+- 当前 Windows 启动周期内的 PID receipt 损坏、PID 复用、身份变化，或出现未登记受管进程；
 - runtime ACL 不符合契约；
 - PostgreSQL 仍监听但未 ready；
 - 进程都在运行，但 reader/writer readiness 失败；
-- ERP checkpoint、revision、摘要、行数或心跳陈旧/分歧；
+- 任一领域 authority、revision、摘要、行数或 startup marker 陈旧/分歧；
 - 状态探针本身失败。
 
 允许恢复的失败必须连续出现两次，并在真正执行前再次探测；分类或 desired-state 发生变化立即取消。15 分钟窗口最多尝试 3 次，退避为 15、30、60 秒。守护只调用受控 `Start`，从不自动调用 `Stop`，也不绕过现有服务 mutex、进程所有权、authority、权限、migration 和 readiness 门禁。
@@ -51,7 +52,7 @@ D:\teruisi-runtime\django-sales\monitoring\django-runtime\alerts\pending\
 
 ## 4. 受控启用
 
-仓库脚本必须先通过不可变部署进入 runtime；部署清单必须包含 `django-runtime-supervisor.ps1`，不能只部署 one-shot service operator。启用不会重启业务服务，但前置要求当前四个组件和两条 readiness 全部健康：
+仓库脚本必须先通过不可变部署进入 runtime；部署清单必须包含 `django-runtime-supervisor.ps1`，不能只部署 one-shot service operator。启用不会重启业务服务，但前置要求 PostgreSQL、全部已启用 Django/BI 进程及其 readiness 全部健康：
 
 ```powershell
 $supervisor = "D:\teruisi-runtime\django-sales\app\tools\django-runtime-supervisor.ps1"

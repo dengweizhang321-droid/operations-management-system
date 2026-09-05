@@ -23,6 +23,9 @@ test("ERP runtime uses isolated endpoints, roles, bodies, and process receipts",
   assert.match(source, /--listen=127\.0\.0\.1:8091/);
   assert.match(source, /--listen=127\.0\.0\.1:8092/);
   assert.match(source, /\$ErpReferenceWriterMaxBodyBytes = 67108864/);
+  assert.match(source, /\$MinimumPostgresConnectionsForErpReference = 120/);
+  assert.match(source, /cursor\.execute\("SHOW max_connections"\)/);
+  assert.match(source, /max_connections 低于完整 Django\/BI 运行栈所需的 120/);
   assert.match(source, /ALTER ROLE teruisi_erp_reference_reader SET default_transaction_read_only=on/);
   assert.match(source, /NOINHERIT NOREPLICATION NOBYPASSRLS/);
   assert.match(source, /GRANT UPDATE \(resolved_category\) ON sales_order_lines TO teruisi_erp_reference_writer/);

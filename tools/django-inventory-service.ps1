@@ -41,7 +41,7 @@ $InventoryWriterHealthUrl = "http://127.0.0.1:8052/health/ready"
 $InventoryStartupPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $InventoryReaderMaxBodyBytes = 1048576
 $InventoryWriterMaxBodyBytes = 67108864
-$MinimumPostgresConnectionsForInventory = 80
+$MinimumPostgresConnectionsForInventory = 120
 
 function Assert-InventoryRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {

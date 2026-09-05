@@ -16,7 +16,7 @@ test("products runtime uses isolated endpoints, identities, and bounded bodies",
   assert.match(source, /--listen=127\.0\.0\.1:8042/);
   assert.match(source, /\$ProductsReaderMaxBodyBytes = 1048576/);
   assert.match(source, /\$ProductsWriterMaxBodyBytes = 33554432/);
-  assert.match(source, /\$MinimumPostgresConnectionsForProducts = 80/);
+  assert.match(source, /\$MinimumPostgresConnectionsForProducts = 120/);
   assert.match(source, /Stop-OwnedProcess "django-products-reader"/);
   assert.match(source, /Stop-OwnedProcess "django-products-writer"/);
 });

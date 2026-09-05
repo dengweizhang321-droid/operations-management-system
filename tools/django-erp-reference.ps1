@@ -35,6 +35,7 @@ $ErpReferenceWriterHealthUrl = "http://127.0.0.1:8092/health/ready"
 $ErpReferenceStartupPath = Join-Path $RuntimeRoot "erp-reference-enabled.json"
 $ErpReferenceReaderMaxBodyBytes = 1048576
 $ErpReferenceWriterMaxBodyBytes = 67108864
+$MinimumPostgresConnectionsForErpReference = 120
 
 function Assert-ErpReferenceRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
@@ -211,12 +212,16 @@ from erp_reference.models import ErpReferenceWriteAuthority
 from sales.models import SalesDataRevision
 authority = ErpReferenceWriteAuthority.objects.filter(id=1).first()
 revision = SalesDataRevision.objects.filter(domain="erp").first()
+with connection.cursor() as cursor:
+    cursor.execute("SHOW max_connections")
+    max_connections = int(cursor.fetchone()[0])
 print(json.dumps({
     "status": authority.status if authority else "missing",
     "authorityEpoch": str(authority.authority_epoch) if authority and authority.authority_epoch else "",
     "cutoverId": authority.cutover_id if authority else "",
     "migrationRunId": authority.migration_verify_run_id if authority else "",
     "revision": int(revision.revision) if revision else -1,
+    "maxConnections": max_connections,
 }, separators=(",", ":")))
 '@
   $launcher = ConvertTo-PythonBase64Launcher $code "erp_reference_authority_probe.py"
@@ -226,7 +231,10 @@ print(json.dumps({
       return ConvertFrom-UniqueNativeJson $nativeRun "读取 PostgreSQL ERP 主数据写入权威"
     }
   } finally { $writerUrl = $null }
-  if (-not (Test-ExactObjectPropertyNames $payload @("status", "authorityEpoch", "cutoverId", "migrationRunId", "revision"))) { throw "PostgreSQL ERP 主数据写入权威探针结构无效" }
+  if (-not (Test-ExactObjectPropertyNames $payload @("status", "authorityEpoch", "cutoverId", "migrationRunId", "revision", "maxConnections"))) { throw "PostgreSQL ERP 主数据写入权威探针结构无效" }
+  if ([int]$payload.maxConnections -lt $MinimumPostgresConnectionsForErpReference) {
+    throw "PostgreSQL max_connections 低于完整 Django/BI 运行栈所需的 120；拒绝启动 ERP 主数据服务"
+  }
   if ([string]$payload.status -cnotin @("d1", "postgres")) { throw "PostgreSQL ERP 主数据写入权威状态无效" }
   if ([string]$payload.status -ceq "postgres" -and (
       -not ([string]$payload.authorityEpoch -match "^[0-9a-fA-F-]{36}$") -or

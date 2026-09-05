@@ -163,7 +163,7 @@ Worker 继续解析 `SKU累计` XLSX，Django 接收 `product-shipping-rates-nor
 - 库存总览、库龄、京东入仓、系统成本、AI、全局搜索和商品经营投影 consumer；
 - 真实 D1 冻结副本历史迁移、双侧 authority、系统 smoke、备份与 D1 retirement receipt。
 
-Worker 继续解析库存/库龄 XLSX，Django 接收版本化规范行并二次校验。库存 reader/writer 使用 `8051/8052` 独立进程和数据库角色。正式切换后的 D1 退役只能清理库存事实和库存占用的共享命名空间，必须保留 ERP 及其他域批次、指纹、attempt、scope head、上传和 retirement receipt。完整门禁见 [`DJANGO_INVENTORY_MIGRATION.md`](DJANGO_INVENTORY_MIGRATION.md)。
+Worker 继续解析库存/库龄 XLSX，Django 接收版本化规范行并二次校验。库存 reader/writer 使用 `8051/8052` 独立进程和数据库角色。库存正式切换时的 D1 退役只能清理库存事实和库存占用的共享命名空间，并已证明当时的 ERP 及其他域批次、指纹、attempt、scope head、上传和 retirement receipt 均被保留；ERP 后续仅通过独立 `0110` 完成终态退役。完整门禁见 [`DJANGO_INVENTORY_MIGRATION.md`](DJANGO_INVENTORY_MIGRATION.md) 与 [`DJANGO_ERP_REFERENCE_MIGRATION.md`](DJANGO_ERP_REFERENCE_MIGRATION.md)。
 
 ## 12. 必测负向路径
 
@@ -181,5 +181,5 @@ Worker 继续解析库存/库龄 XLSX，Django 接收版本化规范行并二次
 - 库存投影缺页、乱序、owner 过期、调用方伪造摘要和分页期间 revision 变化；
 - 商品 D1 退役保留库存域、其他共享导入行和既有 retirement receipt。
 - 库存迁移对同日历史重导只发布最后完成批次事实，同时保留全部历史批次和迁移排除审计；单批次重复业务键必须拒绝。
-- 库存 authority pending/retirement 必须同时识别新旧库龄 scope key、`inventory_age:` 批次关联，并保留 ERP 其他共享行。
+- 库存 authority pending/retirement 必须同时识别新旧库龄 scope key、`inventory_age:` 批次关联；其完成证据必须证明在后续 ERP 独立退役前保留了 ERP 共享行。
 - 库存 reader/writer 失败时销售、ERP、财务、网店、市场和商品经营 authority 不变，库存路径不得回查 D1/R2。

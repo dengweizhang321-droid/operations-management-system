@@ -30,7 +30,7 @@ reader 只能读取 ERP 有界查询所需表。writer 只能写 ERP 表；唯�
 - `products` 以 `product_code` 唯一；`combos` 以 `parent_code + child_code` 唯一，子件数量使用千分单位正整数。
 - 每次发布是完整 scope 替换。事实、批次、scope head、指纹、尝试、ERP revision 和销售派生分类在同一事务内提交；处理中 owner 使用 generation/token fencing。
 - 相同规范化内容返回 `duplicate`；相同 request ID 只能重放同一 actor、method、path、query 和 body 的既有响应。
-- reader/writer readiness 必须独立重算货品与组合 scope 的完整摘要，核对当前完成批次、scope head、ERP revision、PostgreSQL authority、进程 epoch/cutover ID、数据库身份和读写事务属性。
+- reader/writer readiness 必须独立重算货品与组合 scope 的完整摘要，核对当前完成批次、scope head、ERP revision、PostgreSQL authority、进程 epoch/cutover ID、数据库身份和读写事务属性。完整 Django/BI 运行栈最多常驻约 98 条 Waitress 线程连接，因此生产启动必须回读 `max_connections>=120`；本机正式值为 `128`。
 - `TERUISI_DJANGO_ERP_MODE=django`；reader/writer URL 固定为 `http://127.0.0.1:8091/8092`。超时、签名、JSON、revision、响应上限或数据库错误均失败关闭。
 
 ## 4. 开发和系统测试门禁
@@ -104,4 +104,14 @@ PNR 后恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的�
 
 2026-09-05 已在独立目录和 `127.0.0.1:55439` 完成生产数据镜像演练：8,473 条货品、4,392 条组合件、83 个批次、58 个尝试、83 个规范化指纹和 2 个 scope head 的源/目标摘要均为 `33b4d6032868f5d25532cc9333f09482bc2a205ee92f2cec0524a8f583f4d7fb`；镜像 apply run 为 `erp-reference-5de6ff6a49434feaa013d92624afba2d`。该 run 仅为镜像证据，不得用作生产 authority 或生产完成声明。
 
-正式 cutover ID、生产 run/epoch、Worker effective head、系统 smoke、D1/R2 retirement 和备份恢复证据在生产门禁全部通过后补录。
+## 8. 本机生产完成状态（2026-09-05）
+
+- cutover ID：`erp-reference-pg-20260905T102200Z-8a8dbcb59fc8`；authority epoch：`69f7d42f-109f-43c7-9f84-c86629d8fa00`。
+- 生产迁移 run：`erp-reference-eb5fa9fc5cd0467ba58c9dc0a9c11b01`。8,473 条货品、4,392 条组合件、83 个批次、58 个尝试、83 个规范化指纹和 2 个 scope head 已完成源/目标复验，双方摘要均为 `33b4d6032868f5d25532cc9333f09482bc2a205ee92f2cec0524a8f583f4d7fb`。
+- reader/writer 固定运行于 `127.0.0.1:8091/8092`；生产 Worker effective head 为 `20260905T024235Z-8ab8213dadf5407c`。正式系统测试 receipt 覆盖 Django 读写负向、公开历史/直传/分片、global search、AI consumer、旧 D1/R2 拒绝和其他域保全，共 10 项全部通过。
+- 全量系统测试将旧 `max_connections=100` 的普通角色连接槽耗尽后，终态修复把本机值提高到 `128`，并新增全栈与 ERP 独立启动的 `>=120` 失败关闭门禁；修复后须在全部服务被请求预热的情况下复验聚合状态。
+- operator-only `0110` 已把 7 个旧 ERP D1 对象变为空 tombstone view，18 个永久 guard 已生效；`inventory-upload/` 的对象、字节、multipart upload 和 part 均为 0。全局 D1/R2 binding 保留给仍使用它们的其他域。
+- 切换后备份 `daily-20260905T030501Z-66b58028ef30` 已完成独立校验；其 content SHA-256 为 `1faa8b07e95c82e144144f117b936f794fba12deaf51bfc448e378719901c661`。恢复演练 `c45ed90af731` 在独立端口 `55444` 得到相同摘要，未触碰生产数据库，临时数据已移除。
+- 生产已跨过 PNR。旧 D1、R2、bridge、legacy/shadow 和反向迁移不得恢复；故障恢复仅允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。
+
+完整可机读证据见 [`docs/evidence/erp-reference-django-cutover-20260905.json`](evidence/erp-reference-django-cutover-20260905.json)。

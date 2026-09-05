@@ -2,7 +2,7 @@
 
 ## 1. 结论与边界
 
-BI 看板是跨领域只读投影，不是新的业务事实域。销售事实与批次继续由 `backend/sales/` 的 PostgreSQL 单写权威持有，库存与库龄继续由 `backend/inventory/` 的 PostgreSQL 单写权威持有；ERP 主数据仍以 D1 为权威，并仅通过现有 ERP bridge 的 PostgreSQL 只读投影参与查询。BI 不复制这些事实，不创建 writer、scope head、导入批次或独立业务 revision。
+BI 看板是跨领域只读投影，不是新的业务事实域。销售事实与批次继续由 `backend/sales/` 的 PostgreSQL 单写权威持有，库存与库龄继续由 `backend/inventory/` 的 PostgreSQL 单写权威持有，ERP 主数据由 `backend/erp_reference/` 的 PostgreSQL 单写权威持有。BI 只以最小权限读取这些权威表，不复制事实，不创建 writer、scope head、导入批次或独立业务 revision。
 
 本次只重构现有 BI 首页已经展示的销售与库存指标。页面不再并行请求销售、库存接口，也不在 React 中重算库存健康分；所有同名指标由 Django 领域服务组合后一次返回。网店、财务等尚未出现在现有 BI 首页的指标不在本次范围内，不能因模块名称而伪称已纳入。
 
@@ -12,7 +12,7 @@ BI 看板是跨领域只读投影，不是新的业务事实域。销售事实�
 浏览器
   -> GET /api/bi/overview（公开 Worker：真实鉴权、无范围账号、参数边界）
   -> 127.0.0.1:8081（bi_reader：HMAC、只读事务、组合查询）
-  -> sales / ERP projection / inventory PostgreSQL 表
+  -> sales / ERP master / inventory PostgreSQL 表
   -> 单一 dashboard 响应 + X-Bi-Data-Revision
 ```
 
@@ -24,7 +24,7 @@ BI 看板是跨领域只读投影，不是新的业务事实域。销售事实�
 - 响应契约：`bi-dashboard-read-model-v1`
 - 运行控制器：`tools/django-bi-service.ps1`
 
-数据库角色只获得 BI 审计表及生成当前看板所需销售、ERP 投影、库存和库龄表的 `SELECT`。它没有 writer、序列权限、DDL 权限或上游表 DML 权限。`sales_data_revisions` 的 RLS 只允许读取 `sales` 与 `erp` 两个 revision。
+数据库角色只获得 BI 审计表及生成当前看板所需销售、ERP 主数据、库存和库龄表的 `SELECT`。它没有 writer、序列权限、DDL 权限或上游表 DML 权限。`sales_data_revisions` 的 RLS 只允许读取 `sales` 与 `erp` 两个 revision。
 
 ## 3. 一致性与失败关闭
 

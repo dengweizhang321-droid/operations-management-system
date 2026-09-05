@@ -42,9 +42,29 @@ test("Django local service binds PostgreSQL and Waitress to loopback with bounde
   assert.match(script, /--max-request-body-size=\$WriterMaxBodyBytes/);
   assert.match(script, /\$WriterMaxBodyBytes = 16777216/);
   assert.match(script, /\$WriterStatementTimeoutMs = 900000/);
+  assert.match(script, /\$MinimumPostgresConnectionsForFullStack = 120/);
+  assert.match(script, /function Assert-PostgresConnectionCapacity/);
+  assert.match(script, /cursor\.execute\("SHOW max_connections"\)/);
+  assert.match(script, /max_connections 低于完整 Django\/BI 运行栈所需的 120/);
   assert.match(script, /--channel-timeout=960/);
   assert.doesNotMatch(script, /--channel-timeout=120/);
   assert.doesNotMatch(script, /--listen=0\.0\.0\.0|listen_addresses\s*=\s*['"]\*/);
+});
+
+test("full-stack startup checks PostgreSQL capacity before schema work and process launch", () => {
+  const startBlock = script.slice(
+    script.indexOf("function Start-ServiceStack"),
+    script.indexOf("function Stop-ServiceStack"),
+  );
+  assert.ok(startBlock.indexOf("Assert-PostgresConnectionCapacity") > -1);
+  assert.ok(
+    startBlock.indexOf("Assert-PostgresConnectionCapacity") <
+      startBlock.indexOf("Invoke-DjangoMigrations"),
+  );
+  assert.ok(
+    startBlock.indexOf("Assert-PostgresConnectionCapacity") <
+      startBlock.indexOf("Start-DjangoReader"),
+  );
 });
 
 test("Django local status keeps ACL verification bounded and labels its root-only scope", () => {

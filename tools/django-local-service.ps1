@@ -97,6 +97,7 @@ $MaxHeaderBytes = 32768
 $ReaderMaxBodyBytes = 1048576
 $WriterMaxBodyBytes = 16777216
 $ErpReferenceSyncIntervalSeconds = 15
+$MinimumPostgresConnectionsForFullStack = 120
 $ApplicationFingerprintAlgorithm = "relative-path-file-sha256-ordinal-v2"
 $OrchestratedLifecycleAclContextVariable = "TERUISI_DJANGO_ORCHESTRATED_LIFECYCLE_ACL_CONTEXT"
 $OrchestratedLifecycleAclContextVersion = "teruisi-django-orchestrated-lifecycle-acl-v1"
@@ -2681,6 +2682,37 @@ function Invoke-WithDjangoEnvironment(
   }
 }
 
+function Assert-PostgresConnectionCapacity([object]$Secrets) {
+  $ownerUrl = Database-Url `
+    "teruisi_sales_owner" $Secrets.OwnerPassword `
+    "teruisi_connection_capacity_probe" $ReaderStatementTimeoutMs
+  $code = @'
+import json
+from django.db import connection
+
+with connection.cursor() as cursor:
+    cursor.execute("SHOW max_connections")
+    max_connections = int(cursor.fetchone()[0])
+print(json.dumps({"maxConnections": max_connections}, separators=(",", ":")))
+'@
+  $launcher = ConvertTo-PythonBase64Launcher $code "connection_capacity_probe.py"
+  try {
+    $payload = Invoke-WithDjangoEnvironment `
+      $Secrets $ownerUrl "migration_writer" $false $ReaderMaxBodyBytes "" "" {
+        $nativeRun = Invoke-BoundedNativeProcess `
+          $Python @((Join-Path $BackendRoot "manage.py"), "shell", "-c", $launcher) $BackendRoot
+        return ConvertFrom-UniqueNativeJson $nativeRun "读取 PostgreSQL 全栈连接容量"
+      }
+  } finally {
+    $ownerUrl = $null
+  }
+  if (-not (Test-ExactObjectPropertyNames $payload @("maxConnections")) -or
+      [int]$payload.maxConnections -lt $MinimumPostgresConnectionsForFullStack) {
+    throw "PostgreSQL max_connections 低于完整 Django/BI 运行栈所需的 120；拒绝启动服务"
+  }
+  return [int]$payload.maxConnections
+}
+
 function Invoke-DjangoMigrations(
   [object]$Secrets,
   [string]$DatabaseName = "teruisi_sales"
@@ -3345,6 +3377,7 @@ function Start-ServiceStack {
       throw "ERP 主数据已切换 PostgreSQL；旧 ERP reference sync 必须保持停止"
     }
     $postgresStarted = Start-Postgres
+    Assert-PostgresConnectionCapacity $secrets | Out-Null
     Invoke-DjangoMigrations $secrets
     $authority = Get-ActiveWriteAuthority $secrets
     $readerStarted = Start-DjangoReader $secrets

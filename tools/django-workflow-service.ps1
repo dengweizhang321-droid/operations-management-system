@@ -42,7 +42,7 @@ $WorkflowWriterHealthUrl = "http://127.0.0.1:8062/health/ready"
 $WorkflowStartupPath = Join-Path $RuntimeRoot "workflow-service-enabled.json"
 $WorkflowReaderMaxBodyBytes = 1048576
 $WorkflowWriterMaxBodyBytes = 1048576
-$MinimumPostgresConnectionsForWorkflow = 80
+$MinimumPostgresConnectionsForWorkflow = 120
 
 function Assert-WorkflowRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
