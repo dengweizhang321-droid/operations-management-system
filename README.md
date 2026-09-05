@@ -1,12 +1,12 @@
 # 电扇运营管理系统
 
-本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；其他范围仍依赖的全局 D1/R2 保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
+本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；D1 历史审计证据及其他域仍使用的 R2 对象保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
 
 AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/PostgreSQL（reader/writer：8111/8112），39 张历史表、536 条记录迁移复验通过，旧 AI D1 已终态退役。现有 React 六个工作区和中央只读工具注册表保留；图片字节亦已于 2026-09-06 切换到 PostgreSQL，AI R2 命名空间已退役，其他业务域 R2 保留，详见 [`docs/DJANGO_AI_R2_RETIREMENT.md`](docs/DJANGO_AI_R2_RETIREMENT.md)。系统测试、激活前后备份恢复和正式采用证据见 [`docs/DJANGO_AI_ASSISTANT_MIGRATION.md`](docs/DJANGO_AI_ASSISTANT_MIGRATION.md)。
 
 ## 后端与聚合入口
 
-当前源码的结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；生产构建不再绑定 D1，也不携带 Drizzle 迁移。市场/网店图片及运营事务附件继续使用原 R2。源码合并与正式发布是两个步骤，运行环境以受控 Django 应用清单和 Worker effective head 为准，不能仅凭源码检查宣称生产已经采用。检查命令为 `npm run check:backend-boundary`，调用链、验证与发布步骤见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
+本机已于 2026-09-06 完成聚合层受控发布，结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；生产 Worker `20260905T180043Z-7364a22437c52ae1` 不再绑定 D1，也不携带 Drizzle 迁移。23 个 Django 服务及 14 分组搜索已回查，网店搜索的重复批次查询也已修复。现有 React 前端与薄 Worker 保留，市场/网店图片及运营事务附件继续使用原 R2。检查命令为 `npm run check:backend-boundary`，实际采用清单、验证与发布证据见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
 
 ## 启动方式
 
@@ -19,7 +19,7 @@ AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/Postgr
 
 `-Open` 及桌面控制面板的“打开页面”会显式使用 Google Chrome，不依赖 Windows 默认浏览器。
 
-唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它现在先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和新版登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。当前机器的完整冷启动预算为 1–2 分钟；控制面板会持续显示当前阶段和日志摘要。源码中的人工入口在合并后立即使用新版引擎；登录快捷方式固定在当前不可变 release，只有下一次受控 Worker release 激活并回读重绑后才会携带新版引擎，本次源码变更不会绕过发布门禁去改写它。
+唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。当前机器的完整冷启动预算为 1–2 分钟；控制面板会持续显示当前阶段和日志摘要。登录快捷方式已于 2026-09-06 经受控激活重绑至 `20260905T180043Z-7364a22437c52ae1` 并通过回读；后续版本仍必须走 successor 激活和启动绑定门禁。
 
 顶层 `Start`/`Stop` 把销售/财务与网店、市场、商品经营、库存和运营事务新品视为同一次受控生命周期操作：完整运行目录 ACL 审计只执行一次，后续子域只能在同一 PowerShell 进程、同一 runtime/部署清单且 15 分钟内复用该结果，并仍回读根 ACL 与应用清单。直接操作某个子域、上下文过期或任一绑定不一致时，仍会执行完整 ACL 审计。Worker release 的 source、dist、`node_modules` 和 helper 仍逐文件校验，但元数据读取与文件预取使用有界并发，最终 SHA-256 顺序和旧 manifest 协议保持不变。
 
