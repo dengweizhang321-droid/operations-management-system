@@ -7,6 +7,7 @@ const baseControllerUrl = new URL("../tools/django-local-service.ps1", import.me
 const healthUrl = new URL("../backend/teruisi_backend/health.py", import.meta.url);
 const cutoverUrl = new URL("../tools/django-erp-reference-cutover.ps1", import.meta.url);
 const smokeUrl = new URL("../tools/erp-reference-production-smoke.ps1", import.meta.url);
+const consumerSmokeUrl = new URL("../tools/erp-reference-consumer-smoke.ts", import.meta.url);
 const retirementUrl = new URL("../backend/erp_reference/management/commands/retire_erp_reference_d1.py", import.meta.url);
 const publicRouteUrl = new URL("../app/api/imports/erp/route.ts", import.meta.url);
 const chunkRouteUrl = new URL("../app/api/imports/erp/chunks/route.ts", import.meta.url);
@@ -69,8 +70,9 @@ test("live ERP entrypoints cannot import the retired D1 domain implementation", 
 });
 
 test("ERP cutover binds exact migration, smoke, R2 and terminal D1 retirement evidence", async () => {
-  const [cutover, smoke, retirement, base] = await Promise.all([
+  const [cutover, smoke, consumerSmoke, retirement, base] = await Promise.all([
     readFile(cutoverUrl, "utf8"), readFile(smokeUrl, "utf8"),
+    readFile(consumerSmokeUrl, "utf8"),
     readFile(retirementUrl, "utf8"), readFile(baseControllerUrl, "utf8"),
   ]);
   assert.match(cutover, /migrate_erp_reference_from_d1/);
@@ -90,6 +92,7 @@ test("ERP cutover binds exact migration, smoke, R2 and terminal D1 retirement ev
   assert.match(smoke, /\/api\/imports\/erp\?source=products/);
   assert.match(smoke, /erp-reference-d1-rejection-smoke\.py/);
   assert.match(smoke, /TERUISI_DJANGO_ERP_MODE/);
+  assert.match(consumerSmoke, /operation: "product_search",\s*query: "[^"]+"/);
   assert.match(retirement, /0110_erp_reference_domain_retirement\.sql/);
   assert.match(retirement, /erp-reference-system-test-receipt-v1/);
   assert.match(retirement, /erp-reference-r2-retirement-evidence-v1/);

@@ -14,7 +14,7 @@ const principal: AppPrincipal = {
 
 const consumer = await createDjangoErpReferenceConsumerReader().read(principal, {
   operation: "product_search",
-  query: "",
+  query: "ERP",
   offset: 0,
   limit: 1,
 });
