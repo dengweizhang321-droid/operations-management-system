@@ -1,3 +1,4 @@
+import { probeDjangoBackendReadiness } from "../lib/django/backend-readiness";
 import { wakeAiQueue } from "../lib/django/ai-service";
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
@@ -9,7 +10,7 @@ import { enforceDynamicCachePolicy } from "./cache-policy";
 
 interface Env {
   ASSETS: Fetcher;
-  DB: D1Database;
+  [key: string]: unknown;
   SALES_IMPORT_FILES?: R2Bucket;
   TERUISI_LOCAL_DIRECT_ACCESS?: string;
   TERUISI_RUNTIME_ENV?: string;
@@ -55,8 +56,7 @@ async function runScheduledMarketTask(
 }
 
 async function runScheduledMarketMaintenance(
-  db: D1Database,
-  input: { annotationMaxRuntimeMs?: number; aiSpaceBucket?: R2Bucket } = {},
+  input: { marketImageBucket?: R2Bucket } = {},
 ) {
   // 每个队列每次最多推进一个持久微步，并放在可能耗时更长的图片任务之前，避免队列饥饿。
   const aiWorkflow = await runScheduledMarketTask(
@@ -75,7 +75,7 @@ async function runScheduledMarketMaintenance(
   // 图片缓存每次只处理一个有界批次；任一 runner 失败都不能阻塞其余独立队列。
   const imageCache = await runScheduledMarketTask(
     "market image cache scheduled runner failed",
-    () => runDjangoMarketImageCacheBatch({ bucket: input.aiSpaceBucket }),
+    () => runDjangoMarketImageCacheBatch({ bucket: input.marketImageBucket }),
   );
   const aiSpace = await runScheduledMarketTask(
     "AI space scheduled runner failed",
@@ -83,7 +83,7 @@ async function runScheduledMarketMaintenance(
   );
   const annotations = await runScheduledMarketTask(
     "market annotation scheduled runner failed",
-    () => runScheduledDjangoMarketAnnotation({ db }),
+    () => runScheduledDjangoMarketAnnotation(),
   );
   return { aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
 }
@@ -138,19 +138,12 @@ const worker = {
     if (url.pathname === localReadinessPath) {
       if (request.method !== "GET") return new Response(null, { status: 405, headers: { allow: "GET" } });
       if (!allowsLocalHealthRequest(request, env)) return new Response(null, { status: 404 });
-      try {
-        const row = await env.DB.prepare(
-          "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' LIMIT 1",
-        ).first<{ ok: number }>();
-        if (row?.ok !== 1) throw new Error("database schema is unavailable");
-        return Response.json({ ok: true, status: "ready" }, { headers: { "cache-control": "no-store" } });
-      } catch {
-        console.error("本地 D1 就绪检查失败");
-        return Response.json(
-          { ok: false, status: "degraded", code: "d1_unavailable" },
-          { status: 503, headers: { "cache-control": "no-store" } },
-        );
-      }
+      const result = await probeDjangoBackendReadiness(env, { signal: request.signal });
+      return Response.json(
+        result.ok ? { ...result, status: "ready" }
+          : { ...result, status: "degraded", code: "django_unavailable" },
+        { status: result.ok ? 200 : 503, headers: { "cache-control": "no-store" } },
+      );
     }
 
     if (url.pathname === localScheduledPath) {
@@ -158,9 +151,8 @@ const worker = {
       if (!allowsLocalScheduledRequest(request, env)) return new Response(null, { status: 404 });
       try {
         // 本地触发器不会重叠执行，因此限制标注时间片，让图片缓存也能按分钟持续推进。
-        const result = await runScheduledMarketMaintenance(env.DB, {
-          annotationMaxRuntimeMs: 45_000,
-          aiSpaceBucket: env.SALES_IMPORT_FILES,
+        const result = await runScheduledMarketMaintenance({
+          marketImageBucket: env.SALES_IMPORT_FILES,
         });
         return Response.json({ ok: true, result }, { headers: { "cache-control": "no-store" } });
       } catch (error) {
@@ -186,7 +178,7 @@ const worker = {
   },
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
     void _ctx;
-    await runScheduledMarketMaintenance(env.DB, { aiSpaceBucket: env.SALES_IMPORT_FILES });
+    await runScheduledMarketMaintenance({ marketImageBucket: env.SALES_IMPORT_FILES });
   },
 };
 

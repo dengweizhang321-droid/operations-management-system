@@ -1,3 +1,4 @@
+import { createDjangoFinanceService, FINANCE_ANALYSIS_PATH, FINANCE_TARGETS_PATH, FINANCE_IMPORTS_PATH } from "@/lib/django/finance-service";
 import {
   AuthorizationError,
   appRoles,
@@ -183,8 +184,8 @@ export type PageImportSource =
   | "customer_service";
 
 export type PageDataToolServices = {
-  readFinanceAnalysis(input: FinanceAnalysisInput): Promise<unknown>;
-  readFinanceTargets(input: { page: number; pageSize: number }): Promise<unknown>;
+  readFinanceAnalysis(input: FinanceAnalysisInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
+  readFinanceTargets(input: { page: number; pageSize: number }, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readInventoryAge(input: InventoryAgeInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readInventoryInbound(input: InventoryInboundInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readNetshopCatalog(input: NetshopCatalogInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
@@ -209,20 +210,20 @@ export type PageDataToolServices = {
 };
 
 const defaultPageDataToolServices: PageDataToolServices = {
-  async readFinanceAnalysis(input) {
-    const [{ ensureFinanceSchema, getFinanceDatabase }, { getFinanceAnalysis }] = await Promise.all([
-      import("@/lib/finance/database"),
-      import("@/lib/finance/analysis"),
-    ]);
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    return getFinanceAnalysis(db, input);
+  async readFinanceAnalysis(input, principal, signal) {
+    const query = new URLSearchParams();
+    if (input.allMonths) query.append("month", "*");
+    for (const month of input.requestedMonths) query.append("month", month);
+    if (input.fallbackToLatestCompletedMonth) query.set("initialMonthFallback", "latest_completed");
+    for (const platform of input.platformNames) query.append("platform", platform);
+    for (const shop of input.shopKeys) query.append("shop", shop);
+    return (await createDjangoFinanceService().request<Record<string, unknown>>(principal,
+      { method: "GET", path: FINANCE_ANALYSIS_PATH, query, service: "reader" }, { signal })).data;
   },
-  async readFinanceTargets(input) {
-    const { ensureFinanceSchema, getFinanceDatabase, listFinanceTargets } = await import("@/lib/finance/database");
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    return listFinanceTargets(db, input);
+  async readFinanceTargets(input, principal, signal) {
+    const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize), view: "items" });
+    return (await createDjangoFinanceService().request<Record<string, unknown>>(principal,
+      { method: "GET", path: FINANCE_TARGETS_PATH, query, service: "reader" }, { signal })).data;
   },
   async readInventoryAge(input, principal, signal) {
     const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
@@ -405,10 +406,9 @@ const defaultPageDataToolServices: PageDataToolServices = {
       return { ...result.data, erpReferenceRevision: result.revision };
     }
     if (source === "finance") {
-      const { ensureFinanceSchema, getFinanceDatabase, listFinanceImportBatches } = await import("@/lib/finance/database");
-      const db = getFinanceDatabase();
-      await ensureFinanceSchema(db);
-      return listFinanceImportBatches(db, input);
+      const query = new URLSearchParams({ page: String(input.page), pageSize: String(input.pageSize) });
+      return (await createDjangoFinanceService().request<Record<string, unknown>>(principal,
+        { method: "GET", path: FINANCE_IMPORTS_PATH, query, service: "reader" }, { signal })).data;
     }
     if (source === "netshop") {
       const query = new URLSearchParams({
@@ -828,7 +828,7 @@ export async function getFinanceAnalysisPageData(
     fallbackToLatestCompletedMonth,
     platformNames: stringList(input.platforms, "platforms", 20),
     shopKeys: stringList(input.shopKeys, "shopKeys", 20, 240),
-  });
+  }, principal, context.signal);
   return projectFinanceAnalysis(result);
 }
 
@@ -842,7 +842,7 @@ export async function listFinanceTargetsPageData(
   const input = inputObject(args);
   assertOnlyKeys(input, ["page", "limit"]);
   const pageInput = pagination(input);
-  const result = resultObject(await serviceSet(overrides).readFinanceTargets(pageInput));
+  const result = resultObject(await serviceSet(overrides).readFinanceTargets(pageInput, principal, context.signal));
   return {
     page: "bi.finance-targets",
     available: true,

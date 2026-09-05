@@ -1,7 +1,7 @@
 import {
   prepareNormalizedNetshopImport,
   readNetshopForm,
-} from "@/lib/netshop/import-service";
+} from "@/lib/netshop/normalized-import";
 import {
   createDjangoNetshopService,
   NETSHOP_IMPORTS_PATH,

@@ -49,8 +49,8 @@ function verifySignature(request: Request, expectedPath: string, expectedQuery: 
 }
 
 test("finance mode defaults to legacy and accepts only the staged cutover states", () => {
-  assert.equal(financeBackendModeFromEnvironment({}), "legacy");
-  assert.equal(financeBackendModeFromEnvironment({ TERUISI_DJANGO_FINANCE_MODE: "shadow" }), "shadow");
+  assert.equal(financeBackendModeFromEnvironment({}), "django");
+  for (const mode of ["legacy", "shadow"]) assert.throws(() => financeBackendModeFromEnvironment({ TERUISI_DJANGO_FINANCE_MODE: mode }));
   assert.equal(financeBackendModeFromEnvironment({ TERUISI_DJANGO_FINANCE_MODE: "django" }), "django");
   assert.throws(
     () => financeBackendModeFromEnvironment({ TERUISI_DJANGO_FINANCE_MODE: "fallback" }),

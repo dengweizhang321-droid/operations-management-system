@@ -28,7 +28,7 @@ const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
-export type FinanceBackendMode = "legacy" | "shadow" | "django";
+export type FinanceBackendMode = "django";
 
 export type DjangoFinanceServiceConfig = {
   readerBaseUrl: string;
@@ -98,8 +98,8 @@ async function runtimeEnvironment(): Promise<RuntimeEnvironment> {
 }
 
 export function financeBackendModeFromEnvironment(environment: RuntimeEnvironment): FinanceBackendMode {
-  const mode = (environment.TERUISI_DJANGO_FINANCE_MODE ?? "legacy").trim().toLowerCase();
-  if (mode === "legacy" || mode === "shadow" || mode === "django") return mode;
+  const mode = (environment.TERUISI_DJANGO_FINANCE_MODE ?? "django").trim().toLowerCase();
+  if (mode === "django") return mode;
   throw unavailable("Django 财务路由模式配置无效。");
 }
 
@@ -109,6 +109,7 @@ export async function getFinanceBackendMode(): Promise<FinanceBackendMode> {
 
 async function loadConfig(): Promise<DjangoFinanceServiceConfig> {
   const environment = await runtimeEnvironment();
+  financeBackendModeFromEnvironment(environment);
   return {
     readerBaseUrl: environment.TERUISI_DJANGO_FINANCE_READER_BASE_URL ?? "",
     writerBaseUrl: environment.TERUISI_DJANGO_FINANCE_WRITER_BASE_URL ?? "",

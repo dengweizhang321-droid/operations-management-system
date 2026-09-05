@@ -4,6 +4,10 @@
 
 AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/PostgreSQL（reader/writer：8111/8112），39 张历史表、536 条记录迁移复验通过，旧 AI D1 已终态退役。现有 React 六个工作区和中央只读工具注册表保留；图片字节亦已于 2026-09-06 切换到 PostgreSQL，AI R2 命名空间已退役，其他业务域 R2 保留，详见 [`docs/DJANGO_AI_R2_RETIREMENT.md`](docs/DJANGO_AI_R2_RETIREMENT.md)。系统测试、激活前后备份恢复和正式采用证据见 [`docs/DJANGO_AI_ASSISTANT_MIGRATION.md`](docs/DJANGO_AI_ASSISTANT_MIGRATION.md)。
 
+## 后端与聚合入口
+
+当前源码的结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；生产构建不再绑定 D1，也不携带 Drizzle 迁移。市场/网店图片及运营事务附件继续使用原 R2。源码合并与正式发布是两个步骤，运行环境以受控 Django 应用清单和 Worker effective head 为准，不能仅凭源码检查宣称生产已经采用。检查命令为 `npm run check:backend-boundary`，调用链、验证与发布步骤见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
+
 ## 启动方式
 
 当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、各业务域（含 ERP 主数据 reader/writer）和已启用的 BI 只读聚合服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
@@ -25,7 +29,7 @@ AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/Postgr
 
 正式本机环境禁止直接运行 Wrangler、`dist`、旧 release 或 `tools/start-local-worker.mjs`；Worker 升级只能在停服时通过 append-only successor 协议前向发布。日常启动只能通过上述受控入口进入 `worker-local-service.ps1 -Action Start`，不得单独调用 Django 控制器后再自行拉起 Worker。`npm run build` 仅用于 Worker 已停止的源码验证，不会自动部署正式运行目录。
 
-隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；D1 降级只影响仍由 D1 承载的业务域，不得让任何已迁移到 Django/PostgreSQL 的业务域回退 D1。
+隔离开发环境中的旧 `start:local-worker` 流程会把被 Git 忽略的根目录 `.dev.vars` 以硬链接提供给构建产物；它不属于当前本机正式启动或发布路径。正式不可变 Worker 内部仍以回环存活检查、有界重启和熔断门禁守护自己持有的 Worker/helper 子进程；网页 liveness 与后端 readiness 分离；Django 就绪异常只披露受影响服务，不触发 Worker 自动重启，也不存在 D1 回退。
 
 本机 `.dev.vars` 同时显式设置 `TERUISI_LOCAL_DIRECT_ACCESS=true` 与 `TERUISI_RUNTIME_ENV=development` 时，AI 助理可直接使用本地管理员身份，无需登录；该能力还要求真实开发/受控本机构建，并由 Worker 与身份层双重限制在 `127.0.0.1`、`localhost` 或 IPv6 回环地址。生产构建、LAN 地址、任意域名、Host 伪装和 DNS rebinding 都不会获得匿名管理员权限。具体配置与验收方法见 [`docs/AI_ASSISTANT_SETUP.md`](docs/AI_ASSISTANT_SETUP.md)。
 

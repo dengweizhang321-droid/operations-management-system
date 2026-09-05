@@ -1378,7 +1378,10 @@ test("导入结果状态码区分并发、校验、体积和依赖故障，直�
     "../app/api/imports/erp/chunks/route.ts",
   ]) {
     const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
-    assert.match(source, /importExecutionHttpStatus\(/, `${relativePath} must use the shared status contract`);
+    if (relativePath.includes("imports/finance/")) {
+      assert.match(source, /status: result\.status/);
+      assert.match(source, /acceptedErrorStatuses: \[422\]/);
+    } else assert.match(source, /importExecutionHttpStatus\(/, `${relativePath} must use the shared status contract`);
     assert.doesNotMatch(source, /payload\.ok\s*\?[\s\S]{0,80}:\s*422|result\.ok\s*\?[\s\S]{0,80}:\s*422/);
   }
 });

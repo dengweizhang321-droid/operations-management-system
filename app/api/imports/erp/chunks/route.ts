@@ -1,7 +1,7 @@
 import {
   INVENTORY_UPLOAD_CHUNK_BYTES,
   MAX_CHUNKED_INVENTORY_FILE_BYTES,
-} from "@/lib/inventory/chunked-upload";
+} from "@/lib/inventory/django-chunked-upload";
 import { importErpReferenceToDjango } from "@/lib/erp-reference/django-import-service";
 import { reconcileNewProductCodesAfterImport } from "@/lib/workflow/new-product-learning";
 import { importInventoryAgeToDjango } from "@/lib/inventory/django-age-import-service";

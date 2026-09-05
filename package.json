@@ -23,6 +23,7 @@
     "test": "vinext build && node --import tsx --test tests/*.test.ts && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .runtime --ignore-pattern .codex-tmp --ignore-pattern .vite-sites-cache --ignore-pattern tmp --ignore-pattern outputs",
     "test:unit": "node --import tsx --test tests/*.test.ts",
+    "check:backend-boundary": "node tools/check-django-production-boundary.mjs",
     "jackyun:post-download": "node --import tsx tools/jackyun-download-runner.ts",
     "jackyun:daily": "node --import tsx tools/jackyun-automation-runner.ts",
     "jackyun:browser": "node --import tsx tools/jackyun-browser-controller.ts",

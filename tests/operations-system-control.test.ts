@@ -101,7 +101,7 @@ test("controller delegates mutation to one start engine and performs final healt
   assert.match(startBlock, /调用唯一启动引擎/);
   assert.match(startBlock, /Invoke-VisibleServiceAction -ScriptPath \$LocalWorkerStarter -Arguments @\("-Action", "Start"\)/);
   assert.doesNotMatch(startBlock, /-ScriptPath \$DjangoService -Arguments @\("-Action", "Start"\)/);
-  assert.match(startBlock, /finalState\.state -notin @\("Running", "D1Degraded"\)/);
+  assert.match(startBlock, /finalState\.state -notin @\("Running", "BackendDegraded"\)/);
   assert.match(startBlock, /pageProbe\.StatusCode -ne 200/);
   const coldPreflight = startBlock.slice(0, startBlock.indexOf("$changed = $false"));
   assert.match(coldPreflight, /Get-WorkerReleaseStatus -Refresh/);
@@ -214,8 +214,8 @@ test("controller verifies Worker liveness, readiness and helper health without p
   assert.match(panel, /127\.0\.0\.1:5791\/health/);
   assert.match(panel, /httpHandler\.UseProxy = \$false/);
   assert.match(panel, /TryAddWithoutValidation\("x-teruisi-local-health", "1"\)/);
-  assert.match(panel, /readinessPayload\.code -eq "d1_unavailable"/);
-  assert.equal(panel.match(/healthState = "D1Degraded"/g)?.length, 1);
+  assert.match(panel, /readinessPayload\.code -eq "django_unavailable"/);
+  assert.equal(panel.match(/healthState = "BackendDegraded"/g)?.length, 1);
 });
 
 test("desktop panel launches the same controller instead of a lower-level service", () => {

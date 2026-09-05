@@ -209,11 +209,11 @@ function Invoke-Start {
   Write-Line "通过唯一总控启动运营管理系统（Django/PostgreSQL -> Worker），完整性校验可能需要较长时间……"
   $arguments = @("-Action", "Start")
   if ($Open) { $arguments += "-Open" }
-  # 控制面板的 Start 自带最终组合状态与主页 HTTP 回查，退出码 0 即代表 Running/D1Degraded；
+  # 控制面板的 Start 自带最终组合状态与主页 HTTP 回查，退出码 0 即代表 Running/BackendDegraded；
   # 前台模式转发它的阶段输出，JSON 模式直接透传它的结果，不再额外做一轮耗时的全域状态探测。
   if ($Json) {
     $result = Invoke-ControlledScript $WindowsPowerShellPath $ControllerPath $arguments "start" -CaptureJson
-    if ([string]$result.status -eq "failed" -or [string]$result.state -notin @("Running", "D1Degraded")) {
+    if ([string]$result.status -eq "failed" -or [string]$result.state -notin @("Running", "BackendDegraded")) {
       throw "启动结束但系统未达到可用状态：$([string]$result.state) $([string]$result.reason)"
     }
     $status = [string]$result.status
@@ -388,7 +388,7 @@ function Show-Status {
   }
   $stateText = switch ([string]$status.state) {
     "Running" { "运行中" }
-    "D1Degraded" { "运行中（D1 业务域降级）" }
+    "BackendDegraded" { "运行中（Django 后端未就绪）" }
     "Starting" { "启动中" }
     "Stopped" { "已停止" }
     default { [string]$status.state }
@@ -416,7 +416,7 @@ function Show-Status {
     message = $message
     checkedAt = (Get-Date).ToString("o")
   })
-  if ([string]$status.state -notin @("Running", "D1Degraded")) { $script:exitCode = 2 }
+  if ([string]$status.state -notin @("Running", "BackendDegraded")) { $script:exitCode = 2 }
 }
 
 function Show-Logs {

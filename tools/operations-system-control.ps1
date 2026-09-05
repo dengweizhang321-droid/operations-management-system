@@ -487,9 +487,9 @@ function Get-SystemHealthState {
       $readinessProbe.StatusCode -eq 503 -and
       $readinessPayload.ok -eq $false -and
       $readinessPayload.status -eq "degraded" -and
-      $readinessPayload.code -eq "d1_unavailable"
+      $readinessPayload.code -eq "django_unavailable"
     ) {
-      $healthState = "D1Degraded"
+      $healthState = "BackendDegraded"
     }
   }
 
@@ -657,7 +657,7 @@ function Invoke-SystemStart {
       if ($initialState.state -in @("PortInUse", "StatusError", "Unresponsive")) {
         throw "启动前状态不可安全推进：$($initialState.reason)"
       }
-      if ($initialState.state -in @("Running", "D1Degraded")) {
+      if ($initialState.state -in @("Running", "BackendDegraded")) {
         Write-Stage "Django/PostgreSQL 全域与不可变 Worker 已经就绪，无需重复启动"
       } else {
         Write-Stage "不可变 Worker 已运行但后端未完全就绪，调用唯一启动引擎恢复后端"
@@ -675,7 +675,7 @@ function Invoke-SystemStart {
 
     Reset-SystemStateCache
     $finalState = Get-SystemState -Refresh
-    if ($finalState.state -notin @("Running", "D1Degraded")) {
+    if ($finalState.state -notin @("Running", "BackendDegraded")) {
       throw "启动结束但系统未达到可用状态：$($finalState.state)；$($finalState.reason)"
     }
     $pageProbe = Invoke-SystemHealthProbe -Uri $ServerUrl -TimeoutSeconds 10
@@ -684,7 +684,7 @@ function Invoke-SystemStart {
     }
     if ($Open) { Open-SystemInGoogleChrome }
 
-    $resultStatus = if ($finalState.state -eq "D1Degraded") {
+    $resultStatus = if ($finalState.state -eq "BackendDegraded") {
       "started_degraded"
     } elseif ($changed) {
       "started"
@@ -694,7 +694,7 @@ function Invoke-SystemStart {
     $resultMessage = if ($resultStatus -eq "already_running") {
       "运营管理系统已在运行，未重复启动任何组件。访问地址：$ServerUrl"
     } elseif ($resultStatus -eq "started_degraded") {
-      "系统已启动；D1 业务域处于受控降级，已迁移域保持可用。访问地址：$ServerUrl"
+      "系统已启动；Django 后端部分服务未就绪，正常域保持可用。访问地址：$ServerUrl"
     } else {
       "运营管理系统已由唯一总控完成启动与回查。访问地址：$ServerUrl"
     }
@@ -925,8 +925,8 @@ function Update-Status {
     "Running" {
       Set-UiState -Color ([System.Drawing.Color]::FromArgb(28, 160, 88)) -Title "完整系统正在运行" -Detail "全部 Django/PostgreSQL 域与不可变 Worker 已就绪。访问地址：$ServerUrl" -CanStart $false -CanStop $true -CanOpen $true -CanContinue $true
     }
-    "D1Degraded" {
-      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "D1 业务域受控降级" -Detail "已迁移域与 Worker 保持运行；不会因 D1 降级自动重启。" -CanStart $false -CanStop $true -CanOpen $false -CanContinue $false
+    "BackendDegraded" {
+      Set-UiState -Color ([System.Drawing.Color]::FromArgb(224, 133, 27)) -Title "Django 后端部分服务未就绪" -Detail "正常域与 Worker 保持运行；不会因就绪检查失败自动重启。" -CanStart $false -CanStop $true -CanOpen $false -CanContinue $false
     }
     "Starting" {
       Set-UiState -Color ([System.Drawing.Color]::FromArgb(28, 118, 235)) -Title "Worker 正在启动…" -Detail "底层不可变 Worker 已领取所有权，总控不会创建第二个实例。" -CanStart $false -CanStop $false -CanOpen $false -CanContinue $false
@@ -957,7 +957,7 @@ function Update-Status {
 
 $startButton.Add_Click({
   $currentState = Get-SystemState -Refresh
-  if ($currentState.state -in @("Running", "D1Degraded", "Starting")) {
+  if ($currentState.state -in @("Running", "BackendDegraded", "Starting")) {
     Update-Status
     return
   }

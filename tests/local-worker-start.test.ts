@@ -185,7 +185,7 @@ test("local Worker readiness probe keeps the D1 ready/degraded contract", async 
       fetchImpl: async () => Response.json({ ok: false, status: "degraded" }, { status: 503 }),
       timeoutMs: 100,
     }),
-    /D1 就绪检查失败：HTTP 503/,
+    /Django 就绪检查失败：HTTP 503/,
   );
 });
 
@@ -446,14 +446,14 @@ test("Worker health routes keep liveness D1-free and readiness explicitly degrad
   const readinessBlock = source.slice(readinessStart, scheduledStart);
   assert.doesNotMatch(livenessBlock, /env\.DB|sqlite_master/);
   assert.match(livenessBlock, /status: "live"/);
-  assert.match(readinessBlock, /env\.DB/);
+  assert.match(readinessBlock, /probeDjangoBackendReadiness/);
   assert.match(readinessBlock, /status: "ready"/);
   assert.match(readinessBlock, /status: "degraded"/);
   assert.match(source, /\/_teruisi\/local\/health\/ready/);
   assert.match(source, /\/_teruisi\/local\/health\/live/);
   assert.match(source, /x-teruisi-local-health/);
-  assert.match(source, /SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' LIMIT 1/);
-  assert.match(source, /d1_unavailable/);
+  assert.doesNotMatch(source, /env\.DB|sqlite_master/);
+  assert.match(source, /django_unavailable/);
   assert.match(source, /TERUISI_RUNTIME_ENV === "development"/);
 });
 

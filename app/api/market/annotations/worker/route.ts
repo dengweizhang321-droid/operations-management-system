@@ -1,5 +1,4 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import { getD1Database } from "@/lib/database/d1";
 import {
   DjangoMarketServiceResponseError,
   MARKET_COMMANDS_PATH,
@@ -85,7 +84,6 @@ export async function POST(request: Request) {
       );
       const result = await runClaimedDjangoMarketVisionTask({
         principal: INTERNAL_AGENT_PRINCIPAL,
-        db: getD1Database(),
         jobId: typeof parsed.jobId === "string" ? parsed.jobId.trim() : "",
         signal: request.signal,
       });

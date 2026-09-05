@@ -77,9 +77,9 @@ test("finance target list is decoupled from slow admin-only options while full s
   assert.match(route, /type FinanceTargetReadView = "full" \| "items" \| "options"/);
   assert.match(route, /if \(values\.length === 0\) return "full"/);
   assert.match(route, /view 必须且只能是 full、items 或 options/);
-  assert.match(route, /if \(view === "items"\) \{[\s\S]*?listFinanceTargets[\s\S]*?return Response\.json/);
-  assert.match(route, /if \(view === "options"\) \{[\s\S]*?getFinanceTargetOptions/);
-  assert.match(route, /const \[targets, options\] = await Promise\.all\(/, "default full response must remain compatible");
+  assert.match(route, /if \(view === "items"\) \{[\s\S]*?createDjangoFinanceService[\s\S]*?return requireDjangoRecord/);
+  assert.match(route, /financeOptions/);
+  assert.match(route, /const \[financeResult, salesCategories\] = await Promise\.all\(/, "default full response must remain compatible");
 
   assert.match(sales, /finance\/targets\?view=items&page=\$\{targetPage\}&pageSize=100/);
   assert.match(sales, /if \(!canManageTargets\) return;[\s\S]*?finance\/targets\?view=options/);

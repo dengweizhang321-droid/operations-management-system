@@ -21,7 +21,7 @@ const localLivenessIntervalMs = 10_000;
 // A netshop import can legitimately occupy the single local workerd isolate
 // until its bounded 120-second request timeout.  Fourteen consecutive misses
 // keep the earliest liveness takeover beyond that window, so the supervisor
-// cannot terminate a valid D1 commit while still recovering a dead Worker in a
+// cannot terminate a valid import request while still recovering a dead Worker in a
 // bounded amount of time.
 export const localLivenessFailureThreshold = 14;
 const localLivenessTimeoutMs = 5_000;
@@ -218,7 +218,7 @@ export async function probeLocalWorkerReadiness({
     url,
     timeoutMs,
     signal,
-    label: "本地 Worker D1 就绪检查",
+    label: "本地 Worker Django 就绪检查",
   });
 }
 
@@ -552,15 +552,15 @@ export async function superviseLocalWorker({
       intervalMs: readinessIntervalMs,
       onDegraded: ({ error }) => {
         const message = error instanceof Error ? error.message : String(error);
-        logger.warn(`本地 Worker D1 就绪状态已降级（${message.slice(0, 180)}）；将继续运行且不会因此重启`);
+        logger.warn(`本地 Worker Django 就绪状态已降级（${message.slice(0, 180)}）；将继续运行且不会因此重启`);
       },
       onRecovered: ({ previousFailures }) => {
-        logger.warn(`本地 Worker D1 就绪状态已恢复（此前连续失败 ${previousFailures} 次）`);
+        logger.warn(`本地 Worker Django 就绪状态已恢复（此前连续失败 ${previousFailures} 次）`);
       },
     })).catch((error) => {
       if (!monitorController.signal.aborted) {
         const message = error instanceof Error ? error.message : String(error);
-        logger.warn(`本地 Worker D1 就绪观察器异常停止（${message.slice(0, 180)}）；不会因此重启`);
+        logger.warn(`本地 Worker Django 就绪观察器异常停止（${message.slice(0, 180)}）；不会因此重启`);
       }
       return { status: "observer_error" };
     });

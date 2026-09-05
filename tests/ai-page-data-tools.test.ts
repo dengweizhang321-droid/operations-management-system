@@ -41,6 +41,46 @@ const unrestrictedAnalyst = {
   role: "analyst" as const,
   scope: null,
 };
+
+test("default AI finance adapters sign the real principal and never touch D1", async (t) => {
+  const environment = testEnvironment as Record<string, unknown>;
+  const previous = { ...environment };
+  const config = {
+    TERUISI_DJANGO_FINANCE_MODE: "django",
+    TERUISI_DJANGO_FINANCE_READER_BASE_URL: "http://127.0.0.1:22401",
+    TERUISI_DJANGO_FINANCE_WRITER_BASE_URL: "http://127.0.0.1:22402",
+    TERUISI_DJANGO_INTERNAL_SECRET: "isolated-ai-finance-secret-01234567890123456789",
+    DB: { prepare: () => { throw new Error("D1 must not be accessed"); } },
+  };
+  Object.assign(environment, config);
+  t.after(() => {
+    for (const key of Object.keys(config)) delete environment[key];
+    Object.assign(environment, previous);
+  });
+  const urls: URL[] = [];
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input)); urls.push(url);
+    assert.equal(url.origin, config.TERUISI_DJANGO_FINANCE_READER_BASE_URL);
+    assert.equal(init?.method, "GET");
+    const signed = new Headers(init?.headers).get("x-teruisi-principal");
+    assert.ok(signed);
+    assert.deepEqual(JSON.parse(Buffer.from(signed, "base64url").toString("utf8")), unrestrictedAnalyst);
+    return Response.json({ items: [], pagination: { page: 1, pageSize: 2, total: 0 }, hasData: false },
+      { headers: { "x-finance-data-revision": "2:abcdef123456" } });
+  });
+  const context = { principal: unrestrictedAnalyst };
+  await getFinanceAnalysisPageData({ months: ["2026-08"], fallbackToLatestCompletedMonth: true, platforms: ["京东"] }, context);
+  await listFinanceTargetsPageData({ page: 1, limit: 2 }, context);
+  await getImportStatusPageData({ source: "finance", page: 1, limit: 2 }, context);
+  assert.equal(urls.length, 3);
+  assert.deepEqual(urls.map((url) => url.pathname), ["/api/finance/analysis", "/api/finance/targets", "/api/finance/imports"]);
+  assert.equal(urls[0].searchParams.get("initialMonthFallback"), "latest_completed");
+  assert.equal(urls[0].searchParams.get("platform"), "京东");
+  assert.equal(urls[1].searchParams.get("view"), "items");
+  environment.TERUISI_DJANGO_FINANCE_MODE = "legacy";
+  await assert.rejects(listFinanceTargetsPageData({ limit: 2 }, context), /配置无效/);
+  assert.equal(urls.length, 3);
+});
 const restrictedAnalyst = {
   email: "scoped@example.com",
   displayName: "Scoped",
