@@ -59,9 +59,9 @@
     "writerReady": true,
     "startupReceiptPath": "D:/teruisi-runtime/django-sales/erp-reference-enabled.json",
     "startupReceiptSha256": "604d0d5a7031b0ccd6ca5ee81ef1ee42d7b773823f841aceb2f9d6ea3c5ceafe",
-    "deployedAt": "2026-09-05T10:55:18.6432694+08:00",
-    "appFingerprint": "9799e99bb409bd5ad1735176123365bf9bbe9b9c42937813336dfcbd9fae462c",
-    "deploymentReceiptSha256": "83e8f35cdd4816fb428c05d3757ea4271b9933b2820e49d71a5ee3f3336d9d95",
+    "deployedAt": "2026-09-05T11:41:23.2488393+08:00",
+    "appFingerprint": "086d4102dc00ba1ca1bc2363fcce6c2ad2d702b3400f495707cb35e4e9d2c911",
+    "deploymentReceiptSha256": "9c8763520012879f95c5f3e9ded90a4dd23a8f054c83936fa3ba30fd903ce6a2",
     "legacyBridgeLoginDisabled": true,
     "legacyBridgePermissionsRevoked": true
   },
@@ -69,10 +69,16 @@
     "preFixMaxConnections": 100,
     "observedResidentApplicationConnections": 97,
     "superuserReservedConnections": 3,
+    "preFixPostgresqlConfigSha256": "e791c971cff8f2051d8522d8e15d2b413a534faee61dccb863a001ea1e459794",
     "configuredMaxConnections": 128,
+    "postFixPostgresqlConfigSha256": "1f2741e60ce6ea612b236e61a98746c34aa7954a24e403e920959192a301ffdc",
     "startupMinimum": 120,
     "reason": "ERP reader/writer raised the full Django/BI Waitress thread ceiling to about 98 persistent database connections",
-    "postFixWarmStackVerified": false
+    "postFixWarmRequests": 294,
+    "postFixWarmRequestsPassed": 294,
+    "postFixResidentApplicationConnections": 98,
+    "postFixNormalRoleHeadroom": 27,
+    "postFixWarmStackVerified": true
   },
   "workerRelease": {
     "releaseId": "20260905T024235Z-8ab8213dadf5407c",
@@ -103,7 +109,12 @@
       "legacyD1Rejected",
       "legacyR2Rejected",
       "otherDomainsPreserved"
-    ]
+    ],
+    "postCapacityFixPublicReadback": {
+      "productsStatuses": [200, 200],
+      "combosStatuses": [200, 200],
+      "cacheControl": "no-store"
+    }
   },
   "d1Retirement": {
     "planId": "85d276dbc69f9269410783a7cc2fe63208305f0bdfa9fe60320343b398f75442",
@@ -183,6 +194,12 @@
     "djangoCheck": "passed",
     "djangoMigrationsCheck": "passed",
     "powershellSyntax": "passed",
+    "connectionCapacityRegression": {
+      "localServiceTestsPassed": 2,
+      "erpRuntimeTestsPassed": 5,
+      "productsRuntimeTestsPassed": 4,
+      "failed": 0
+    },
     "standaloneTypecheck": {
       "status": "pre_existing_baseline_failures",
       "errors": 235,
@@ -194,12 +211,14 @@
     "systemState": "Running",
     "backendState": "Ready",
     "workerState": "exact_release",
-    "allConfiguredDomainsReady": true
+    "allConfiguredDomainsReady": true,
+    "warmStackStatusCheckedAt": "2026-09-05T11:47:07.5052563+08:00"
   },
   "implementationCommits": [
     "0aafeba2",
     "8a8dbcb5",
     "12a7eb0c",
-    "b4cccfce"
+    "b4cccfce",
+    "4ba674a7"
   ]
 }

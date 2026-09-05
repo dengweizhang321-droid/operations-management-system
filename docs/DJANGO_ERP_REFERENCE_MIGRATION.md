@@ -109,7 +109,7 @@ PNR 后恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的�
 - cutover ID：`erp-reference-pg-20260905T102200Z-8a8dbcb59fc8`；authority epoch：`69f7d42f-109f-43c7-9f84-c86629d8fa00`。
 - 生产迁移 run：`erp-reference-eb5fa9fc5cd0467ba58c9dc0a9c11b01`。8,473 条货品、4,392 条组合件、83 个批次、58 个尝试、83 个规范化指纹和 2 个 scope head 已完成源/目标复验，双方摘要均为 `33b4d6032868f5d25532cc9333f09482bc2a205ee92f2cec0524a8f583f4d7fb`。
 - reader/writer 固定运行于 `127.0.0.1:8091/8092`；生产 Worker effective head 为 `20260905T024235Z-8ab8213dadf5407c`。正式系统测试 receipt 覆盖 Django 读写负向、公开历史/直传/分片、global search、AI consumer、旧 D1/R2 拒绝和其他域保全，共 10 项全部通过。
-- 全量系统测试将旧 `max_connections=100` 的普通角色连接槽耗尽后，终态修复把本机值提高到 `128`，并新增全栈与 ERP 独立启动的 `>=120` 失败关闭门禁；修复后须在全部服务被请求预热的情况下复验聚合状态。
+- 全量系统测试将旧 `max_connections=100` 的普通角色连接槽耗尽后，终态修复把本机值提高到 `128`，并新增全栈与 ERP 独立启动的 `>=120` 失败关闭门禁。修复后 294 个并发健康请求全部成功，预热状态下 98 条应用连接仍保留 27 个普通角色槽位，聚合状态为 `Running / Ready` 且 10 个组件全部通过。
 - operator-only `0110` 已把 7 个旧 ERP D1 对象变为空 tombstone view，18 个永久 guard 已生效；`inventory-upload/` 的对象、字节、multipart upload 和 part 均为 0。全局 D1/R2 binding 保留给仍使用它们的其他域。
 - 切换后备份 `daily-20260905T030501Z-66b58028ef30` 已完成独立校验；其 content SHA-256 为 `1faa8b07e95c82e144144f117b936f794fba12deaf51bfc448e378719901c661`。恢复演练 `c45ed90af731` 在独立端口 `55444` 得到相同摘要，未触碰生产数据库，临时数据已移除。
 - 生产已跨过 PNR。旧 D1、R2、bridge、legacy/shadow 和反向迁移不得恢复；故障恢复仅允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。
