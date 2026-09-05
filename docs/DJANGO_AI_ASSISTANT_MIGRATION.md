@@ -2,9 +2,9 @@
 
 ## 状态与范围
 
-本机 AI 助理完整数据域已完成 Django/PostgreSQL 正式单写切换、系统验收与旧 D1 终态退役。39 张历史表的 536 条记录已迁移并逐表复验；PostgreSQL 是全部 AI 事实、状态、审计和资产元数据的唯一权威。正式 cutover 为 `ai-pg-20260905T143048Z-489bd21bb811`，authority epoch 为 `be36a1d7-a84f-4617-baf3-8537a844750d`。现有 React 六个工作区保留，当前 Worker effective release 为 `20260905T153926Z-2b35a94f0222a5e5`。此结论只覆盖当前 Windows 主机。
+本机 AI 助理完整数据域已完成 Django/PostgreSQL 正式单写切换、系统验收与旧 D1 终态退役。39 张历史表的 536 条记录已迁移并逐表复验；PostgreSQL 是全部 AI 事实、状态、审计和资产元数据的唯一权威。正式 cutover 为 `ai-pg-20260905T143048Z-489bd21bb811`，authority epoch 为 `be36a1d7-a84f-4617-baf3-8537a844750d`。现有 React 六个工作区保留，当前 Worker effective release 为 `20260905T161941Z-2f1ddff054f33ff5`。此结论只覆盖当前 Windows 主机。
 
-迁移覆盖 AI 对话、模型、渠道与回调、知识、个人记忆、工具审计、表格产物与下载审计、确定性分析沙箱、Agent、DAG 与人工复核、AI 空间模板/图片配置/任务/资产/收藏/清理队列，以及全部历史派发账本、检查点和事件。39 张历史表进入 AI 自有 PostgreSQL app；新增 revision、authority、通用请求 receipt、mutation audit、migration run 5 张控制表，共 44 张表。
+迁移覆盖 AI 对话、模型、渠道与回调、知识、个人记忆、工具审计、表格产物与下载审计、确定性分析沙箱、Agent、DAG 与人工复核、AI 空间模板/图片配置/任务/资产/收藏/清理队列，以及全部历史派发账本、检查点和事件。初次采用时，39 张历史表进入 AI 自有 PostgreSQL app，新增 revision、authority、通用请求 receipt、mutation audit、migration run 5 张控制表，共 44 张表；2026-09-06 图片字节迁入 PostgreSQL 后共 45 张表。
 
 既有 React 六个工作区与公开 `/api/ai/*` 入口继续使用。`lib/ai/tool-registry.ts` 仍是唯一工具能力声明，领域读取继续进入各业务域的有界 consumer，不复制业务事实或获得其他域写权限。
 
@@ -18,15 +18,16 @@ React / MCP / 当前业务模块
   → PostgreSQL AI 自有表
 
 Django AI → HMAC /api/ai/internal/edge
-  → 中央只读工具执行器、各业务域 consumer，或私有 R2 图片字节适配
+  → 中央只读工具执行器、各业务域 consumer
+图片字节 → PostgreSQL ai_space_asset_payloads（与资产原子发布）
 ```
 
 - reader 使用 `teruisi_ai_reader`，2 个线程，只读事务；writer 使用独立 `teruisi_ai_writer`，6 个线程。两者要求相同且已经激活的 AI epoch/cutover，并使用闭合表授权。
-- writer 只写 AI 表；权限域用户表仅用于实时复核 principal。模型请求、图片请求和 R2 网络调用不持有 AI revision 行锁。同步主请求与嵌套 consumer 分别最多占用两个线程，另保留两个线程处理取消、工具审计等回调。
+- writer 只写 AI 表；权限域用户表仅用于实时复核 principal。模型请求和图片供应商网络调用不持有 AI revision 行锁。同步主请求与嵌套 consumer 分别最多占用两个线程，另保留两个线程处理取消、工具审计等回调。
 - 通用写请求绑定原方法、路径、query、body、request ID 与 principal 摘要。聊天、图片、Agent/DAG 另保留客户端业务幂等账本。已派发但结果未知的模型/图片调用不会自动重复付费。
 - PostgreSQL 具有写权 fencing、不可变身份、追加式审计、延迟记忆审计约束、单向 authority 与 revision 约束。D1 `0113` 在激活前先冻结旧写入；`0114` 将 39 张事实表和 authority 变为 40 个空 tombstone view，安装 120 个永久写入 guard。
 - 普通 Drizzle journal 不包含 `0113/0114`。旧 AI D1 实现隔离在 `tests/legacy/`，生产入口无 AI SQL/schema bootstrap/fallback。
-- AI 空间只迁任务和资产元数据；私有 R2 图片字节保留原命名空间，按 owner/scope 授权，PNG 尺寸/内容摘要/对象元数据回查后才发布。取消、过期租约、未知派发不会发布迟到结果；清理队列拒绝删除已发布或仍可发布的对象。其他领域的 D1/R2 不受此退役影响。
+- 初次 AI 采用时保留 R2 图片字节。2026-09-06 已进一步将图片字节迁入 PostgreSQL，新增第 45 张 AI 表 `ai_space_asset_payloads`，与资产及任务成功状态原子提交；owner/scope、PNG、大小/SHA 和租约校验保留，旧 R2 存取入口已退出生产路径。`ai-space/` 水位为 0，无历史文件搬运或删除；其他领域 D1/R2 保留。正式证据见 [DJANGO_AI_R2_RETIREMENT.md](DJANGO_AI_R2_RETIREMENT.md)。
 - 上海业务日期、人民币分、净额与正向销量、大毛利率、`刷刷仓` 排除和市场 TOP 覆盖口径保留。
 
 ## 模型凭证与部署配置
@@ -107,7 +108,7 @@ git diff --check
 | D1 退役 plan | `9e5d753f94358e7ebd93353ff25c75548860298f5e8fbf24728e5747ba329b26` |
 | D1 终态 | 40 个空 tombstone view、120 个永久写入 guard；非 AI 保留摘要未改变 |
 
-完整脱敏记录、激活前后备份及恢复、启动绑定、守护状态、最终 23 个 reader/writer/BI readiness 和 12 个公开 AI 读取入口回查见 [`AI_ASSISTANT_MIGRATION_VALIDATION.json`](AI_ASSISTANT_MIGRATION_VALIDATION.json)。正式审计、快照、备份及恢复证据持续保留。原 AI 密钥未旋转；私有图片 R2 字节及其他业务域 D1/R2 未清理。
+完整脱敏记录、激活前后备份及恢复、启动绑定、守护状态、最终 23 个 reader/writer/BI readiness 和 12 个公开 AI 读取入口回查见 [`AI_ASSISTANT_MIGRATION_VALIDATION.json`](AI_ASSISTANT_MIGRATION_VALIDATION.json)。正式审计、快照、备份及恢复证据持续保留。原 AI 密钥未旋转。初次采用时保留的 AI R2 图片路径已在 2026-09-06 后续退役；其他业务域 D1/R2 未清理。上表记录初次 D1 退役水位，最新图片存储发布证据见 [DJANGO_AI_R2_RETIREMENT.md](DJANGO_AI_R2_RETIREMENT.md)。
 
 ## 验证与维护处理
 

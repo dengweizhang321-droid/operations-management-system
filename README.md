@@ -2,7 +2,7 @@
 
 本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；其他范围仍依赖的全局 D1/R2 保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
 
-AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/PostgreSQL（reader/writer：8111/8112），39 张历史表、536 条记录迁移复验通过，旧 AI D1 已终态退役。现有 React 六个工作区、中央只读工具注册表及私有 R2 图片字节适配保留。系统测试、激活前后备份恢复和正式采用证据见 [`docs/DJANGO_AI_ASSISTANT_MIGRATION.md`](docs/DJANGO_AI_ASSISTANT_MIGRATION.md)。
+AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/PostgreSQL（reader/writer：8111/8112），39 张历史表、536 条记录迁移复验通过，旧 AI D1 已终态退役。现有 React 六个工作区和中央只读工具注册表保留；图片字节亦已于 2026-09-06 切换到 PostgreSQL，AI R2 命名空间已退役，其他业务域 R2 保留，详见 [`docs/DJANGO_AI_R2_RETIREMENT.md`](docs/DJANGO_AI_R2_RETIREMENT.md)。系统测试、激活前后备份恢复和正式采用证据见 [`docs/DJANGO_AI_ASSISTANT_MIGRATION.md`](docs/DJANGO_AI_ASSISTANT_MIGRATION.md)。
 
 ## 启动方式
 
