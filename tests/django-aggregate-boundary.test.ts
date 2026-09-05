@@ -27,6 +27,21 @@ function readinessFixture() {
   });
   return { environment, payloads };
 }
+
+test("readiness uses the deployed ERP adapter's ERP environment names", async () => {
+  const requested: string[] = [];
+  const result = await probeDjangoBackendReadiness({
+    TERUISI_DJANGO_ERP_READER_BASE_URL: "http://127.0.0.1:22901",
+    TERUISI_DJANGO_ERP_WRITER_BASE_URL: "http://127.0.0.1:22902",
+  }, { fetchImpl: async (url) => {
+    requested.push(String(url));
+    return Response.json({ status: "ready", service: "teruisi-django", database: "ready",
+      [String(url).includes(":22901/") ? "erpReferenceReader" : "erpReferenceWriter"]: "ready" });
+  } });
+  assert.equal(requested.length, 2);
+  assert.equal(result.unavailableServices.length, 21);
+  assert.ok(result.unavailableServices.every((service) => !service.startsWith("erp_reference.")));
+});
 test("readiness verifies all 23 reader/writer identities with at most six requests in flight", async () => {
   const { environment, payloads } = readinessFixture();
   let active = 0, peak = 0, calls = 0;
