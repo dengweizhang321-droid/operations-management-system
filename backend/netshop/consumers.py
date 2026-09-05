@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.db.models import F, Max, OuterRef, Q, Subquery, TextField, Value
+from django.db.models import Exists, Max, OuterRef, Q, Subquery, TextField, Value
 from django.db.models.functions import Coalesce
 
 from sales.auth import Principal
@@ -30,23 +30,28 @@ def _platform_scope(principal: Principal) -> list[str] | None:
 
 
 def _latest_rows(principal: Principal):
-    latest_batch = (
-        NetshopImportBatch.objects.filter(
-            source=OuterRef("source"),
-            dataset=OuterRef("dataset"),
-            platform=OuterRef("platform"),
-            shop_name=OuterRef("shop_name"),
-            status="completed",
-        )
+    scope_fields = ("source", "dataset", "platform", "shop_name")
+    latest_batch_ids = (
+        NetshopImportBatch.objects.filter(status="completed")
         .exclude(source__in=["jd_promotion", "tmall_promotion"])
         .annotate(head_date=Coalesce("snapshot_date", "date_max", Value("")))
-        .order_by("-head_date", "-completed_at", "-created_at", "-id")
-        .values("id")[:1]
+        .order_by(*scope_fields, "-head_date", "-completed_at", "-created_at", "-id")
+        .distinct(*scope_fields)
+        .values("id")
+    )
+    # Select heads once, then let PostgreSQL semi-join rows to that small set.
+    # A scalar ORDER BY/LIMIT correlated to every fact row repeats the batch
+    # lookup during both the exact count and page query, exceeding search's
+    # deadline on historical imports. Match all scope fields as well as the ID
+    # so malformed cross-shop/source references cannot become visible.
+    head_for_row = NetshopImportBatch.objects.filter(
+        id__in=Subquery(latest_batch_ids),
+        id=OuterRef("last_import_batch_id"),
+        **{field: OuterRef(field) for field in scope_fields},
     )
     rows = (
         NetshopRow.objects.exclude(source__in=["jd_promotion", "tmall_promotion"])
-        .annotate(latest_batch_id=Subquery(latest_batch))
-        .filter(last_import_batch_id=F("latest_batch_id"))
+        .filter(Exists(head_for_row))
     )
     platforms = _platform_scope(principal)
     return rows.filter(platform__in=platforms) if platforms is not None else rows

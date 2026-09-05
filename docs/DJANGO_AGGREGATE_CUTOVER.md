@@ -9,6 +9,7 @@
 ## 最终调用链
 
 - 顶部搜索 `/api/search` 和中央 AI 工具 `search_system_data` 共用有界适配层，14 个分组全部读取现有 Django consumer。市场使用已有的 `/api/market/consumers/query`；它返回直接的 `items/total/truncated`，版本由 `X-Market-Data-Revision` 提供，不增加另一套 envelope。
+- 网店 consumer 先以 PostgreSQL `DISTINCT ON` 选出各 source/dataset/platform/shop 的最新已完成批次，再以 `EXISTS` 关联事实，避免每条历史记录重复排序批次；批次 ID 和四个范围字段共同匹配，日期空值、排序 tie-break、推广排除、权限和分页总数保持原口径。此项没有新增索引、表、写权限或 revision。
 - 导入批次保持销售 → 财务 → 网店 → 商品经营 → 库存 → 客服 → ERP → 市场的跨源分页顺序。每页只读取必要窗口；计数与数据页的来源 revision/total 不一致时，该分组失败关闭。
 - 财务分析、目标、导入及 AI 财务工具删除 legacy/shadow 生产分支。财务模式默认且只允许 `django`，显式旧模式失败关闭。真实 principal、scope、HMAC、请求取消、金额分单位、写请求 replay 和上游错误状态保持原契约。
 - 财务目标 Django 接口落实 `view=items/options/full`：列表不再查询管理选项，选项不扫描列表，缺省 `full` 保持兼容。AI 目标查询使用 `items`。
@@ -33,7 +34,7 @@ git diff --check
 Django 验证在独立临时 PostgreSQL 17 cluster 执行，使用独立端口、测试角色和合成数据，禁用外部回调与自动化；禁止连接生产 cluster 创建测试库。执行 `migrate --noinput`、`makemigrations --check --dry-run` 及：
 
 ```text
-python -B manage.py test market.tests.test_search_consumers market.tests.test_api finance.tests.test_target_views finance.tests.test_api --noinput
+python -B manage.py test netshop.tests market.tests.test_search_consumers market.tests.test_api finance.tests.test_target_views finance.tests.test_api --noinput
 ```
 
 覆盖当前市场身份投影、字面量匹配、精确分页、金额分单位、签名/角色/scope 拒绝、版本交错、财务列表/选项隔离，以及既有财务导入幂等、目标版本和市场 API 契约。本次没有新增表、数据库迁移或权限授予。
@@ -41,6 +42,8 @@ python -B manage.py test market.tests.test_search_consumers market.tests.test_ap
 2026-09-06 隔离验证结果（基于 `main` 的 `7dc79c67`）：生产依赖图检查 302 个模块，D1 违规为 0；单元测试 1,838 项通过、20 项既有跳过；构建及 20 项产物/入口测试通过，其中直接运行无 D1 binding 的编译 Worker，验证 liveness 正常、缺少 Django 配置时 readiness 返回 `django_unavailable`。独立 PostgreSQL cluster 的 26 项 Django 测试通过，迁移 dry-run 无变化。Lint 为 0 错误、9 项既有警告；全仓 TypeScript 检查仍有 160 项既有诊断，与同一 `main` 基线逐项比较无新增，不能表述为全仓类型检查通过。现有本机 23 个 Django 服务的只读 `/health/ready` 探测全部通过；没有停止、重启、写入业务数据或采用新 release。
 
 正式发布前的配置核对发现 ERP readiness 必须复用现行 `ERP` 环境变量前缀，已修正并增加该生产配置形状的回归测试。修正后 23 项服务配置检查全部通过，单元测试为 1,839 项通过、20 项既有跳过；构建、20 项产物测试和 lint 复验通过，TypeScript 仍与基线一致。包含错误 ERP 变量名的候选不得激活。
+
+上线只读回查发现既有网店 consumer 的逐行相关子查询超过搜索 2 秒截止时间。独立 PostgreSQL 上修复后 49 项 Django 测试通过；10 万条合成记录、40 个历史批次的对比中，精确查询从 186 ms 降为 25 ms，宽泛查询从 3,086 ms 降为 46 ms，原实现与新实现的条目、总数和分页完全一致。该数字为隔离性能样本，生产耗时以发布后真实 principal 回查为准。
 
 ## 正式发布门禁
 

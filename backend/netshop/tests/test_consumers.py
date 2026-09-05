@@ -97,3 +97,70 @@ class NetshopConsumerContractTests(TestCase):
         }, request_id="netshop-market-stale")
         self.assertEqual(changed.status_code, 409)
         self.assertEqual(changed.json()["code"], "version_conflict")
+
+    def test_search_latest_heads_preserve_scope_dates_ties_and_exact_pagination(self) -> None:
+        from django.db.models import F, OuterRef, Subquery, Value
+        from django.db.models.functions import Coalesce
+        from netshop.consumers import _latest_rows
+        from sales.auth import Principal
+
+        batch_template = NetshopImportBatch.objects.get(pk="master-1")
+        row_template = NetshopRow.objects.get(source_row_key="master-row")
+
+        def add(key, *, snapshot=None, date_max=None, completed="2026-08-30T00:01:00Z",
+                shop="京东一店", platform="京东", source="jd_product_master", status="completed",
+                row_shop=None, batch_ref=None):
+            batch = NetshopImportBatch.objects.get(pk=batch_template.pk)
+            batch.pk = key
+            batch.file_hash = key
+            batch.snapshot_date, batch.date_max = snapshot, date_max
+            batch.completed_at, batch.shop_name, batch.platform = completed, shop, platform
+            batch.source, batch.status = source, status
+            batch.save(force_insert=True)
+            row = NetshopRow.objects.get(pk=row_template.pk)
+            row.pk = None
+            row.source_row_key, row.sku_id = key, key
+            row.last_import_batch_id = batch_ref or key
+            row.shop_name, row.platform, row.source = row_shop or shop, platform, source
+            row.save(force_insert=True)
+
+        add("old", snapshot="2026-08-29")
+        add("by-date-max", date_max="2026-08-31")
+        add("tie-a", snapshot="2026-08-31", completed=None)
+        add("tie-z", snapshot="2026-08-31", completed=None)
+        add("unpublished", snapshot="2026-09-02", status="processing")
+        add("shop-two", snapshot="2026-08-30", shop="京东二店")
+        add("tmall", snapshot="2026-08-30", platform="天猫")
+        add("promotion", snapshot="2026-08-30", source="jd_promotion")
+        add("wrong-shop", snapshot="2026-08-28", row_shop="错误店铺", batch_ref="tie-z")
+        # Empty snapshot_date retains the existing COALESCE contract: it does
+        # not fall through to date_max and supersede the August head.
+        add("empty-snapshot", snapshot="", date_max="2026-09-03")
+
+        principal = Principal(email="analyst@example.test", display_name="Analyst", role="analyst", scope=None)
+        latest = (NetshopImportBatch.objects.filter(
+            **{field: OuterRef(field) for field in ("source", "dataset", "platform", "shop_name")},
+            status="completed",
+        ).exclude(source__in=["jd_promotion", "tmall_promotion"])
+            .annotate(head_date=Coalesce("snapshot_date", "date_max", Value("")))
+            .order_by("-head_date", "-completed_at", "-created_at", "-id").values("id")[:1])
+        previous = (NetshopRow.objects.exclude(source__in=["jd_promotion", "tmall_promotion"])
+                    .annotate(head=Subquery(latest)).filter(last_import_batch_id=F("head")))
+        self.assertSetEqual(set(_latest_rows(principal).values_list("id", flat=True)),
+                            set(previous.values_list("id", flat=True)))
+        self.assertSetEqual(set(_latest_rows(principal).values_list("source_row_key", flat=True)),
+                            {"tie-z", "shop-two", "tmall", "daily-row"})
+
+        payload = {"operation": "row_search", "query": "饮水机", "offset": 0, "limit": 1}
+        first = self.query(payload).json()["data"]
+        second = self.query({**payload, "offset": 1}, request_id="second").json()["data"]
+        self.assertEqual(first["total"], 4)
+        self.assertTrue(first["truncated"])
+        self.assertNotEqual(first["items"][0]["id"], second["items"][0]["id"])
+        denied = self.query(payload, scope={"warehouses": [], "channels": [], "platforms": []},
+                            request_id="empty-scope").json()["data"]
+        self.assertEqual(denied, {"items": [], "total": 0, "truncated": False})
+        scoped = self.query(payload, scope={"warehouses": [], "channels": [], "platforms": ["天猫"]},
+                            request_id="tmall-scope").json()["data"]
+        self.assertEqual(scoped["total"], 1)
+        self.assertEqual(scoped["items"][0]["id"], "tmall:京东一店")
