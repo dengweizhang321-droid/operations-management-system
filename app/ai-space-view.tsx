@@ -503,7 +503,7 @@ export default function AiSpaceView({
     </div>
 
     <article className="panel ai-space-jobs">
-      <div className="section-header"><div><h3>生成任务</h3><p>页面离开后任务仍由 Worker 继续；取消只影响尚未派发的图片。</p></div><span className="ai-space-live"><i />{hasActiveJob ? "后台处理中" : "队列空闲"}</span></div>
+      <div className="section-header"><div><h3>生成任务</h3><p>离开页面后任务仍会在后台继续；取消只影响尚未派发的图片。</p></div><span className="ai-space-live"><i />{hasActiveJob ? "后台处理中" : "队列空闲"}</span></div>
       <div className="ai-space-job-list">
         {jobs.length === 0 && <div className="ai-space-empty"><strong>还没有生成任务</strong><p>填写上方商品信息并提交，任务会出现在这里。</p></div>}
         {jobs.map((job) => {

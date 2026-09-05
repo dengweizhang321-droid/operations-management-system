@@ -731,7 +731,7 @@ export const aiToolRegistry = [
   {
     name: "describe_analysis_datasets",
     title: "查看安全分析沙箱数据集",
-    description: "列出可在 Worker 内安全分析的数据集、允许的结构化操作和硬限制。该沙箱不执行任意 Python、JavaScript、SQL、eval 或网络请求，只运行受限 JSON 分析计划。",
+    description: "列出安全分析沙箱可用的数据集、允许的结构化操作和硬限制。该沙箱不执行任意 Python、JavaScript、SQL、eval 或网络请求，只运行受限 JSON 分析计划。",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: readOnlyAnnotations,
     risk: "read_only",
