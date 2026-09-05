@@ -8,7 +8,6 @@ import {
 import { completeText, type AiTextModelRuntimeConfig } from "@/lib/ai/model-gateway";
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
 import { fetchAnnotationImage } from "@/lib/market/annotation-image";
-import type { MarketDatabase } from "@/lib/market/database";
 import { digest, parseVisionAnnotation, type VisionAnnotation } from "@/lib/market/annotation-types";
 
 export type AnnotationModelConfig = {
@@ -26,13 +25,13 @@ const VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320;
 const VISION_PROBE_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAvSURBVFhH7c6hAQAACMOw/f/08BwAJqKmKmnSz7LHdQAAAAAAAAAAAAAAAAAAAANUDfhqnpuFxwAAAABJRU5ErkJggg==";
 
 type PublicModel = { id: string; name: string; protocol: string; modelName: string };
-export async function listAnnotationModels(_db: MarketDatabase, principal?: AppPrincipal) {
+export async function listAnnotationModels(principal?: AppPrincipal) {
   return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "vision" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
-export async function listPromptTextModels(_db: MarketDatabase, principal?: AppPrincipal) {
+export async function listPromptTextModels(principal?: AppPrincipal) {
   return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "text" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
-async function getModel(_db: MarketDatabase, id: string, type: "vision" | "text", principal?: AppPrincipal) {
+async function getModel(id: string, type: "vision" | "text", principal?: AppPrincipal) {
   return (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false })).model;
 }
 
@@ -56,19 +55,15 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 }
 
 export async function runVisionAnnotation(input: {
-  principal?: AppPrincipal; db: MarketDatabase; modelId: string; promptBody: string; segments: readonly string[];
+  principal?: AppPrincipal; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
-  skipMarketCache?: boolean;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
   try {
-    const model = await getModel(input.db, input.modelId, "vision", input.principal);
+    const model = await getModel(input.modelId, "vision", input.principal);
     const imageLoadStartedAt = Date.now();
-    const cachedImage = input.imageUrl && !input.skipMarketCache
-      ? await loadCachedAnnotationImage(input.db, input.imageUrl)
-      : null;
-    const sourceImage = cachedImage ?? (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
+    const sourceImage = (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
     timing.imageLoadMs = Date.now() - imageLoadStartedAt;
     if (sourceImage.kind !== "image") throw new Error(`主图获取失败：${sourceImage.message}`);
     const imagePrepareStartedAt = Date.now();
@@ -128,15 +123,6 @@ export function priceOnlyAnnotationPrompt(segment: string) {
   return `该 SKU 的细分品类已经人工复核并正式入库，固定为“${segment}”。不要重新分类，只识别当前新主图价格；segment 必须原样返回“${segment}”。`;
 }
 
-async function loadCachedAnnotationImage(db: MarketDatabase, sourceUrl: string) {
-  try {
-    const { getCachedMarketImageForAnnotation } = await import("@/lib/market/image-cache");
-    return await getCachedMarketImageForAnnotation(sourceUrl, db);
-  } catch {
-    return null;
-  }
-}
-
 async function prepareAnnotationModelImage<T extends LoadedImage>(image: T): Promise<T> {
   if ("optimizedForModel" in image && image.optimizedForModel) return image;
   try {
@@ -147,8 +133,8 @@ async function prepareAnnotationModelImage<T extends LoadedImage>(image: T): Pro
   }
 }
 
-export async function runPromptTextCompletion(db: MarketDatabase, modelId: string, instruction: string, principal?: AppPrincipal) {
-  const model = await getModel(db, modelId, "text", principal);
+export async function runPromptTextCompletion(modelId: string, instruction: string, principal?: AppPrincipal) {
+  const model = await getModel(modelId, "text", principal);
   return completeText({
     model: textRuntimeModel(model),
     messages: [{ role: "user", content: instruction }],

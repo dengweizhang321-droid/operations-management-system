@@ -35,7 +35,7 @@
   - 运营事务工作计划、评论/活动/提醒/关联、模板（变量配置）、附件元数据/清理队列、巡店/评价记录、结构化新品项目、多店目标、七阶段、产品线、周报配置、投递账本、迁移和审计的权威实现：`backend/workflow/`；Worker 薄适配与有界 consumer：`lib/django/workflow-service.ts`、`lib/django/workflow-consumer-reader.ts`。旧 D1 运营事务对象只允许作为空 tombstone、永久 guard、隔离迁移/恢复研究或测试夹具保留；附件字节继续由薄 Worker 使用现有 R2 命名空间，元数据与清理状态以 PostgreSQL 为权威
   - AI 助理模型/渠道/知识/个人记忆、对话/产物/工具审计、分析沙箱、Agent/DAG、图片任务/资产元数据/图片字节及控制证据的 Django 实现：`backend/ai_assistant/`；公开 Worker 薄适配：`lib/django/ai-service.ts`、`lib/ai/django-route.ts`，中央能力唯一声明仍为 `lib/ai/tool-registry.ts`，签名只读工具桥为 `lib/ai/django-edge.ts`。AI reader/writer 独立使用 8111/8112、DPAPI 角色、同一 AI authority epoch 与 `ai-enabled.json`；启用后的全栈连接门槛为 128。新逻辑不得写回旧 AI D1 路径；2026-09-05 本机已正式单写切换并完成 D1 终态退役；正式证据及门禁见 `docs/DJANGO_AI_ASSISTANT_MIGRATION.md`。
   - 用户、固定角色、数据范围、权限变更审计、revision、迁移和写权证据的权威实现：`backend/access_control/`；Worker 薄适配为 `lib/django/access-control-service.ts`、`lib/auth/authorization.ts` 与 `lib/ai/background-principal.ts`。未知/停用账号失败关闭，不自动登记 viewer；AI 工具执行审计仍属于 AI 域，不混入权限变更审计。
-  - 全局搜索：`lib/search/`
+  - 全局搜索：`lib/search/` 仅通过各域 Django consumer 有界聚合；禁止 D1 表清单、SQL、数据库句柄和 legacy/shadow 回退。市场消费响应为直接的 `items/total/truncated` 与 revision header。
   - BI 看板只读聚合：`backend/bi/`；Worker 薄适配为 `lib/django/bi-service.ts`。BI 不拥有或复制销售、ERP、库存事实，不设 writer 或第二套业务 revision；生产 reader 固定使用 `127.0.0.1:8081`、独立 `teruisi_bi_reader` 只读角色和 `bi-service-enabled.json`，服务端通过源 revision 前后采样组成一致性快照，并只在 `bi_migration_runs` 保存采用审计。2026-09-05 已完成本机生产启用，采用 run 为 `bi-apply-1079734fb42842eeb1cb13b830bbb8a6`，当前 Worker release 为 `20260904T223540Z-40a783da7d4d5867`
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
@@ -148,6 +148,9 @@
 - 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
 - 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
 - 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
+
+- 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。当前源码已无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。生产采用仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
+- Worker readiness 使用已配置的 23 个 Django reader/writer 健康端点，按服务角色核验并有界取消；失败返回 `django_unavailable`，总控显示 `BackendDegraded`。liveness 与 readiness 必须保持独立，不能因就绪探测失败重启服务。
 
 ## 9. API、前端与性能要求
 

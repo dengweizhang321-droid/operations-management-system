@@ -1,8 +1,47 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir, stat } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { Miniflare } from "miniflare";
 
 const templateRoot = new URL("../", import.meta.url);
+
+test("built Worker starts without D1 and reports missing Django services without a fallback", async () => {
+  const serverRoot = fileURLToPath(new URL("../dist/server/", import.meta.url));
+  const config = JSON.parse(await readFile(resolve(serverRoot, "wrangler.json"), "utf8"));
+  assert.deepEqual(config.d1_databases, []);
+  assert.equal(config.r2_buckets[0].binding, "SALES_IMPORT_FILES");
+  await assert.rejects(access(new URL("../dist/.openai/drizzle", import.meta.url)));
+  const modulePaths = (await readdir(serverRoot, { recursive: true })).filter((path) => /\.[cm]?js$/.test(path));
+  modulePaths.sort((a, b) => a === "index.js" ? -1 : b === "index.js" ? 1 : a.localeCompare(b));
+  const runtime = new Miniflare({
+    modules: modulePaths.map((path) => ({ type: "ESModule", path: resolve(serverRoot, path) })),
+    modulesRoot: serverRoot,
+    compatibilityDate: config.compatibility_date,
+    compatibilityFlags: config.compatibility_flags,
+    // Deliberately omit every service URL and DB binding: this isolated runtime
+    // must neither contact a real backend nor need D1 for health checks.
+    bindings: { TERUISI_RUNTIME_ENV: "development" },
+    cf: false,
+    port: 0,
+    host: "127.0.0.1",
+  });
+  try {
+    const init = { headers: { "x-teruisi-local-health": "1" } };
+    const live = await runtime.dispatchFetch("http://127.0.0.1/_teruisi/local/health/live", init);
+    assert.equal(live.status, 200);
+    assert.equal((await live.json()).status, "live");
+    const ready = await runtime.dispatchFetch("http://127.0.0.1/_teruisi/local/health/ready", init);
+    assert.equal(ready.status, 503);
+    const payload = await ready.json();
+    assert.equal(payload.code, "django_unavailable");
+    assert.equal(payload.backend, "django-postgresql");
+    assert.equal(payload.unavailableServices.length, 23);
+  } finally {
+    await runtime.dispose();
+  }
+});
 
 test("build emits the operations console", async () => {
   const assetRoot = new URL("../dist/client/assets/", import.meta.url);
@@ -66,20 +105,19 @@ test("searches all allowlisted system data through the grouped authenticated sea
   assert.match(route, /searchAllBusinessData/);
   assert.match(route, /principal/);
   for (const domain of [
-    "erp_product_master", "inventory_stock_lines",
-    "erp_inventory_age_lines", "inventory_age_metrics", "erp_combo_items", "replenishment_plan_items",
-    "market_ranking_entries", "market_sku_annotations", "customer_service_conversations",
-    "finance_lines", "finance_targets", "workflow_tasks",
-  ]) assert.match(search, new RegExp(domain));
-  assert.match(search, /createDjangoNetshopConsumerReader/);
+    "Sales", "Finance", "Netshop", "Products", "Inventory", "CustomerService", "ErpReference", "Market", "Workflow",
+  ]) assert.match(search, new RegExp(`createDjango${domain}ConsumerReader`));
   assert.match(search, /operation: "row_search"/);
   assert.match(search, /netshopReader\.read/);
   assert.doesNotMatch(search, /\b(?:FROM|JOIN)\s+netshop_rows\b/i);
   assert.match(search, /operation: "order_search"/);
   assert.match(search, /operation: "import_batch_search"/);
-  assert.match(search, /scopeSql\(principal/);
-  assert.match(search, /GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT/);
-  assert.doesNotMatch(route, /SELECT\s|LIKE\s|sqlite_master/i);
+  assert.match(search, /operation: "sku_search"/);
+  assert.match(search, /"sku_search" : "annotation_search"/);
+  assert.match(search, /definition\.allowedRoles\.includes\(principal\.role\)/);
+  assert.match(search, /scopeKind === "unscoped_only" && principal\.scope !== null/);
+  assert.doesNotMatch(search, /GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT|scopeSql|sqlite_master|\b(?:FROM|JOIN)\s+\w+/i);
+  assert.doesNotMatch(route, /getD1Database|SELECT\s|LIKE\s|sqlite_master/i);
 });
 
 test("wires the sales import and PostgreSQL analytics capabilities", async () => {
@@ -207,7 +245,7 @@ test("wires the sales import and PostgreSQL analytics capabilities", async () =>
   assert.match(summaryRoute, /productCodes/);
   assert.match(summaryService, /report_shop_key/);
   assert.match(packageJson, /"fflate"/);
-  assert.equal(JSON.parse(hosting).d1, "DB");
+  assert.equal(JSON.parse(hosting).d1, undefined);
   assert.equal(JSON.parse(hosting).r2, "SALES_IMPORT_FILES");
   assert.ok(og.size > 10_000);
 
@@ -476,8 +514,8 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   assert.match(salesModule, /yearAgoFeeRateBps/);
   assert.match(importRoute, /application\/octet-stream/);
   assert.match(importRoute, /requireAppPrincipal\(\["admin"\]\)/);
-  assert.match(analysisRoute, /getAll\("platform"\)/);
-  assert.match(analysisRoute, /getAll\("shop"\)/);
+  assert.match(analysisRoute, /path: FINANCE_ANALYSIS_PATH, query: searchParams, service: "reader"/);
+  assert.doesNotMatch(analysisRoute, /getFinanceDatabase|legacy|shadow/);
   assert.match(targetRoute, /periodType === "project"/);
   assert.match(targetRoute, /requireAppPrincipal\(\["admin"\]\)/);
   assert.match(migration, /CREATE TABLE `finance_lines`/);
@@ -489,7 +527,7 @@ test("connects JD SPU daily workbooks to the netshop import API", async () => {
   const [importModule, route, service, models, dailyContract] = await Promise.all([
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/normalized-import.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/netshop/models.py", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
   ]);
@@ -590,7 +628,7 @@ test("shows filtered SPU visitors only as a product-by-day accumulation", async 
 test("guards JD daily SKU and SPU imports with stable identity and full date coverage", async () => {
   const [importModule, service, database, dailyContract, dailyMigration] = await Promise.all([
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/normalized-import.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/database.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/daily-contract.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/netshop/daily-row-migration.ts", import.meta.url), "utf8"),
@@ -603,7 +641,7 @@ test("guards JD daily SKU and SPU imports with stable identity and full date cov
   assert.match(service, /MISSING_SPU_ID/);
   assert.match(service, /MISSING_EXPECTED_DATES/);
   assert.match(service, /OUT_OF_RANGE_DATES/);
-  assert.match(service, /dailyRowKey\(dataset, platform, shopName, businessDate/);
+  assert.match(service, /dailyRowKey\(context\.dataset, context\.platform, context\.shopName, businessDate/);
   assert.match(database, /ensureDailyRowNaturalKeys/);
   assert.match(dailyMigration, /DAILY_ROW_NATURAL_KEY_MIGRATION/);
   assert.match(dailyMigration, /DELETE FROM netshop_rows WHERE id =/);
@@ -623,7 +661,7 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
     readFile(new URL("../app/shop-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/module-view-shared.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../lib/netshop/import-service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/netshop/normalized-import.ts", import.meta.url), "utf8"),
     readFile(new URL("../backend/netshop/query.py", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/import/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/netshop/products/route.ts", import.meta.url), "utf8"),
@@ -652,8 +690,9 @@ test("connects Tmall product, BI daily, and promotion data with scoped APIs", as
   assert.match(service, /resolveEnabledTmallShop/);
   assert.match(service, /TextDecoder\("gb18030", \{ fatal: true \}\)/);
   assert.match(service, /天猫推广 ZIP 必须且只能包含一个 CSV/);
-  assert.match(service, /if \(!verification\.verified\)/);
-  assert.match(service, /批次、行数、店铺、数据集或日期覆盖回查不一致/);
+  const writer = await readFile(new URL("../backend/netshop/import_service.py", import.meta.url), "utf8");
+  assert.match(writer, /verification_count != len\(rows\)/);
+  assert.match(writer, /网店业务范围落库归属回查不一致/);
   assert.match(service, /DUPLICATE_MERCHANT_CODE/);
   assert.match(database, /def product_catalog\(/);
   assert.match(database, /def promotion_performance\(/);

@@ -1,6 +1,4 @@
-import { getD1Database } from "@/lib/database/d1";
 import {
-  type GlobalSearchDatabase,
   type GlobalSearchGroupKey,
 } from "./global-search";
 import { handleSearchAllSystemDataTool } from "./global-search-tool";
@@ -15,7 +13,6 @@ export type SearchSystemDataForAiArguments = {
 };
 
 export type SearchSystemDataForAiContext = {
-  database?: GlobalSearchDatabase;
   execution: AiToolExecutionContext;
 };
 
@@ -24,8 +21,7 @@ export async function searchSystemDataForAi(
   args: SearchSystemDataForAiArguments,
   context: SearchSystemDataForAiContext,
 ): Promise<Record<string, unknown>> {
-  const database = context.database ?? (getD1Database() as unknown as GlobalSearchDatabase);
-  const result = await handleSearchAllSystemDataTool(database, {
+  const result = await handleSearchAllSystemDataTool({
     query: args.q,
     domain: args.domain,
     page: args.page,

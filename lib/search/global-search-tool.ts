@@ -1,7 +1,6 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { SalesConsumerReader } from "@/lib/django/sales-consumer-reader";
+import type { GlobalSearchExecutionOptions } from "./global-search";
 import {
-  type GlobalSearchDatabase,
   type GlobalSearchGroupKey,
   normalizeGlobalSearchRequest,
   searchAllBusinessData,
@@ -30,14 +29,13 @@ function asToolArguments(raw: unknown): SearchAllSystemDataToolArguments {
 }
 
 /**
- * Central AI tool registries can bind their authorized D1 database here without
+ * Central AI tool registries reuse the authorized Django readers here without
  * coupling the search implementation to a particular model/provider loop.
  */
 export async function handleSearchAllSystemDataTool(
-  db: GlobalSearchDatabase,
   rawArguments: unknown,
   principal: AppPrincipal,
-  dependencies: { salesReader?: SalesConsumerReader; signal?: AbortSignal } = {},
+  dependencies: GlobalSearchExecutionOptions = {},
 ) {
   const args = asToolArguments(rawArguments);
   const params = new URLSearchParams({ q: args.query });
@@ -46,7 +44,7 @@ export async function handleSearchAllSystemDataTool(
   if (args.perGroupLimit !== undefined) params.set("limit", String(args.perGroupLimit));
   if (args.totalLimit !== undefined) params.set("totalLimit", String(args.totalLimit));
   const request = normalizeGlobalSearchRequest(params);
-  const response = await searchAllBusinessData(db, request, principal, dependencies);
+  const response = await searchAllBusinessData(request, principal, dependencies);
   return {
     ...response,
     cutoffMeaning: "dataCutoffDate 是本页匹配结果中最新的业务日期或更新时间；各域仍以其导入批次为最终时效依据。",

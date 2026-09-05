@@ -1,4 +1,4 @@
-import { PublicApiError } from "@/lib/http/api-error";
+export { requireDjangoRecord } from "@/lib/django/response-contract";
 
 function canonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalValue);
@@ -16,6 +16,7 @@ async function digest(value: unknown) {
 }
 
 /**
+ * Offline migration/rehearsal helper; unreachable from production entries.
  * Shadow reads must never delay or replace the legacy response. The detached
  * comparison logs only hashes and a contract label; no finance values, names,
  * filenames, principal data, or query strings enter logs.
@@ -36,11 +37,4 @@ export function observeFinanceShadow(
       errorType: error instanceof Error ? error.name : "unknown",
     });
   });
-}
-
-export function requireDjangoRecord(value: unknown, message = "Django 财务响应格式无效。") {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new PublicApiError(503, "service_unavailable", message);
-  }
-  return value as Record<string, unknown>;
 }

@@ -11,7 +11,6 @@ import {
 } from "@/lib/django/market-service";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
-import { getD1Database } from "@/lib/database/d1";
 import {
   listAnnotationModels,
   listPromptTextModels,
@@ -137,7 +136,6 @@ async function generatedPromptCommand(
     ? `你是视觉分类 Prompt 工程师。请仅根据通用品类规则改进下面的 Prompt，保持可审计、可复用，只输出完整新 Prompt 正文，不要代码围栏。不得请求、推断或复述冻结 holdout 的金标、预测或错误信息。\n三级类目：${category}\n固定枚举：${segments.join("、")}\n旧 Prompt：\n${parentBody}`
     : `你是电商视觉分类 Prompt 工程师。为三级类目“${category}”编写完整 Prompt。固定枚举：${segments.join("、")}。要求结合商品名与京东大图判断、提取主图明确展示的人民币价格、输出严格 JSON，只输出 Prompt 正文。`;
   const promptBody = await runPromptTextCompletion(
-    getD1Database(),
     text(command.textModelId),
     instruction,
     principal,
@@ -178,10 +176,9 @@ export async function GET(request: Request) {
     );
     let payload = result.data;
     if (view === "workspace" || view === "workspace_fast") {
-      const db = getD1Database();
       const [models, textModels] = await Promise.all([
-        listAnnotationModels(db, principal),
-        listPromptTextModels(db, principal),
+        listAnnotationModels(principal),
+        listPromptTextModels(principal),
       ]);
       payload = { ...payload, models, textModels, principal };
     }
@@ -213,7 +210,6 @@ export async function POST(request: Request) {
     const result = action === "run_next" || action === "run_batch"
       ? await runClaimedDjangoMarketVisionTask({
           principal,
-          db: getD1Database(),
           jobId: text(command.jobId),
           signal: request.signal,
         })

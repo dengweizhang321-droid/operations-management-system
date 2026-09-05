@@ -186,8 +186,8 @@ test("财报前端按结构化400只清理无效项、同步URL并显示调整�
   assert.match(filterBar, /maxSelectionsPerDimension = MAX_SALES_SHARED_FILTER_SELECTIONS/);
   assert.match(source, /已调整财报筛选/);
   assert.match(source, /onFilterOptionsChange\(financeDimensionOptionsToSalesOptions\(payload\.filters\)\)/);
-  assert.match(route, /code: "finance_dimension_filter_out_of_scope"/);
-  assert.match(route, /invalidPlatforms: error\.invalidPlatforms/);
+  assert.match(route, /upstreamCode === "finance_dimension_filter_out_of_scope"/);
+  assert.match(route, /Response\.json\(error\.payload, \{ status: error\.status/);
 });
 
 test("初始财务月份回退保持显式且手动选择后恢复严格读取", async () => {

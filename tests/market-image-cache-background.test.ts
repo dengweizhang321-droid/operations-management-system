@@ -515,7 +515,7 @@ test("API validation rejects ambiguous inputs and HTTP/UI/scheduled paths remain
   assert.doesNotMatch(imageCacheState, /claim_job_id|claim_lease_expires_at|propagated_at/);
   assert.match(imageCacheState, /market_image_cache_claims/);
   assert.match(imageCacheState, /job_lease_token/);
-  assert.match(workerEntry, /runDjangoMarketImageCacheBatch\(\{ bucket: input\.aiSpaceBucket \}\)/);
-  assert.ok(workerEntry.indexOf("runDjangoMarketImageCacheBatch({ bucket: input.aiSpaceBucket })")
-    < workerEntry.indexOf("runScheduledDjangoMarketAnnotation({ db })"));
+  assert.match(workerEntry, /runDjangoMarketImageCacheBatch\(\{ bucket: input\.marketImageBucket \}\)/);
+  assert.ok(workerEntry.indexOf("runDjangoMarketImageCacheBatch({ bucket: input.marketImageBucket })")
+    < workerEntry.indexOf("runScheduledDjangoMarketAnnotation()"));
 });

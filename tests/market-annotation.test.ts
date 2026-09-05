@@ -222,7 +222,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /恢复剩余识别/);
   assert.match(service, /history_job\.prompt_version_id=\?/);
   assert.match(model, /type: "image_url"/);
-  assert.match(model, /loadCachedAnnotationImage/);
+  assert.doesNotMatch(model, /loadCachedAnnotationImage|MarketDatabase|image-cache/);
   assert.match(model, /prepareAnnotationModelImage/);
   assert.match(model, /VISION_ANNOTATION_OUTPUT_TOKEN_MAX = 600/);
   assert.match(model, /VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX = 320/);
@@ -262,8 +262,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /retry_state_json/);
   assert.match(service, /model_input_bytes=\?, image_load_ms=\?, image_prepare_ms=\?, model_call_ms=\?, total_inference_ms=\?/);
   assert.match(workerEntry, /async scheduled\(_controller: ScheduledController, env: Env, _ctx: ExecutionContext\)/);
-  assert.match(workerEntry, /runScheduledMarketMaintenance\(env\.DB(?:,|\))/);
-  assert.match(workerEntry, /runScheduledDjangoMarketAnnotation\(\{ db \}\)/);
+  assert.match(workerEntry, /runScheduledMarketMaintenance\(\{/);
+  assert.match(workerEntry, /runScheduledDjangoMarketAnnotation\(\)/);
   assert.match(workerEntry, /const aiSpace = await runScheduledMarketTask\([\s\S]*?const annotations = await runScheduledMarketTask\(/);
   assert.match(workerEntry, /\/_teruisi\/local\/market-annotation-scheduled/);
   assert.match(workerEntry, /TERUISI_RUNTIME_ENV === "development"/);
@@ -308,7 +308,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(backendAnnotations, /if view == "candidate_counts":[\s\S]*return candidate_counts\(\)/);
   assert.match(backendAnnotations, /if view in \{"workspace", "workspace_fast"\}:[\s\S]*candidate_count=view == "workspace"/);
   assert.ok(route.indexOf("requireUnrestrictedDataScope") < route.indexOf("await marketQuery<JsonRecord>"));
-  assert.ok(route.indexOf("await marketQuery<JsonRecord>") < route.indexOf("const db = getD1Database()"));
+  assert.doesNotMatch(route, /getD1Database|\bdb:/);
   assert.match(ui, /view: deferCandidateCounts \? "workspace_fast" : "workspace"/);
   assert.match(ui, /await load\(jobId, itemPage, false, true\)/);
   assert.match(ui, /annotations\?view=candidate_counts/);

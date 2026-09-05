@@ -1,5 +1,5 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import { runPromptTextCompletion } from "@/lib/market/annotation-model";
+import { runPromptTextCompletion } from "../../tests/legacy/market/annotation-model";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import type { MarketDatabase } from "@/lib/market/database";
 import { mapMarketBatch, marketBatchColumns } from "@/lib/market/import-core";

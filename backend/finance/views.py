@@ -252,8 +252,16 @@ def targets(request: HttpRequest) -> JsonResponse:
             _principal(request, {"viewer", "analyst", "operator", "admin"})
             page = _positive(request.GET.get("page"), 1, "page", 10_000)
             page_size = _positive(request.GET.get("pageSize"), 50, "pageSize", 100)
+            views = request.GET.getlist("view")
+            if len(views) > 1 or (views and views[0] not in {"full", "items", "options"}):
+                raise FinanceApiError("view 必须且只能是 full、items 或 options")
+            view = views[0] if views else "full"
 
             def load() -> dict[str, object]:
+                if view == "items":
+                    return list_targets(page, page_size)
+                if view == "options":
+                    return {"financeOptions": target_options()}
                 return {**list_targets(page, page_size), "financeOptions": target_options()}
 
             payload, revision = _consistent_read(load)

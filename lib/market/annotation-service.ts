@@ -9,7 +9,7 @@ import {
   normalizeMarketAnnotationJobLimit,
   type MarketAnnotationExecutor,
 } from "@/lib/market/annotation-limits";
-import { listAnnotationModels, listPromptTextModels, priceOnlyAnnotationPrompt, runPromptTextCompletion, runVisionAnnotation, visionAnnotationTiming } from "@/lib/market/annotation-model";
+import { listAnnotationModels, listPromptTextModels, priceOnlyAnnotationPrompt, runPromptTextCompletion, runVisionAnnotation, visionAnnotationTiming } from "../../tests/legacy/market/annotation-model";
 import { AnnotationRunRetryController, annotationRetryDelayMs, type AnnotationRunRetrySnapshot } from "@/lib/market/annotation-retry";
 import { systemPriceRecognitionPrompt } from "@/lib/market/default-taxonomy";
 import { listMarketSubcategoryTaxonomy } from "@/lib/market/subcategory-taxonomy";

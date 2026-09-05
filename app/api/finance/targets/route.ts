@@ -1,17 +1,8 @@
-import {
-  deleteFinanceTarget,
-  ensureFinanceSchema,
-  getFinanceDatabase,
-  getFinanceTargetOptions,
-  listFinanceTargets,
-  upsertFinanceTarget,
-} from "@/lib/finance/database";
 import type { FinanceTargetInput, FinanceTargetPeriodType } from "@/lib/finance/types";
-import { observeFinanceShadow, requireDjangoRecord } from "@/lib/finance/backend-routing";
+import { requireDjangoRecord } from "@/lib/django/response-contract";
 import {
   createDjangoFinanceService,
   FINANCE_TARGETS_PATH,
-  getFinanceBackendMode,
 } from "@/lib/django/finance-service";
 import { createDjangoSalesConsumerReader } from "@/lib/django/sales-consumer-reader";
 import {
@@ -83,6 +74,15 @@ async function getDjangoTargets(
   params: URLSearchParams,
   signal: AbortSignal,
 ) {
+  const view = readFinanceTargetView(params.getAll("view"));
+  if (view === "items") {
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: FINANCE_TARGETS_PATH, query: params, service: "reader" },
+      { signal },
+    );
+    return requireDjangoRecord(result.data);
+  }
   const [financeResult, salesCategories] = await Promise.all([
     createDjangoFinanceService().request<Record<string, unknown>>(
       principal,
@@ -125,31 +125,10 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "经营目标");
     const params = new URL(request.url).searchParams;
-    const view = readFinanceTargetView(params.getAll("view"));
-    const page = parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
-    const pageSize = parsePositiveIntegerQuery(params.get("pageSize"), 50, "pageSize", 100);
-    const mode = await getFinanceBackendMode();
-    if (mode === "django") {
-      return Response.json(await getDjangoTargets(principal, params, request.signal), { headers: { "cache-control": "no-store" } });
-    }
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    if (view === "items") {
-      return Response.json(await listFinanceTargets(db, { page, pageSize }), { headers: { "cache-control": "no-store" } });
-    }
-    if (view === "options") {
-      return Response.json({ options: await getFinanceTargetOptions(db, principal, { signal: request.signal }) }, { headers: { "cache-control": "no-store" } });
-    }
-    const [targets, options] = await Promise.all([
-      listFinanceTargets(db, {
-        page,
-        pageSize,
-      }),
-      getFinanceTargetOptions(db, principal, { signal: request.signal }),
-    ]);
-    const payload = { ...targets, options };
-    if (mode === "shadow") observeFinanceShadow("targets", payload, getDjangoTargets(principal, params, request.signal));
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    readFinanceTargetView(params.getAll("view"));
+    parsePositiveIntegerQuery(params.get("page"), 1, "page", 10_000);
+    parsePositiveIntegerQuery(params.get("pageSize"), 50, "pageSize", 100);
+    return Response.json(await getDjangoTargets(principal, params, request.signal), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
@@ -164,26 +143,19 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
     if (!body) return Response.json({ error: "请求内容不是有效 JSON" }, { status: 400, headers: { "cache-control": "no-store" } });
     const input = parseTarget(body);
-    const mode = await getFinanceBackendMode();
-    if (mode === "django") {
-      const result = await createDjangoFinanceService().request<Record<string, unknown>>(
-        principal,
-        {
-          method: "POST",
-          path: FINANCE_TARGETS_PATH,
-          payload: input as unknown as Record<string, unknown>,
-          service: "writer",
-        },
-        { signal: request.signal },
-      );
-      const headers = new Headers({ "cache-control": "no-store" });
-      if (result.replayed) headers.set("x-teruisi-write-replay", "1");
-      return Response.json(result.data, { status: result.status, headers });
-    }
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    const item = await upsertFinanceTarget(db, { ...input, id: input.id || crypto.randomUUID() });
-    return Response.json({ ok: true, item }, { status: input.id ? 200 : 201, headers: { "cache-control": "no-store" } });
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      {
+        method: "POST",
+        path: FINANCE_TARGETS_PATH,
+        payload: input as unknown as Record<string, unknown>,
+        service: "writer",
+      },
+      { signal: request.signal },
+    );
+    const headers = new Headers({ "cache-control": "no-store" });
+    if (result.replayed) headers.set("x-teruisi-write-replay", "1");
+    return Response.json(result.data, { status: result.status, headers });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
@@ -200,23 +172,15 @@ export async function DELETE(request: Request) {
     if (!id) return Response.json({ error: "缺少目标 ID" }, { status: 400, headers: { "cache-control": "no-store" } });
     const expectedVersionValue = params.get("expectedVersion");
     if (expectedVersionValue === null) throw new PublicApiError(400, "invalid_request", "缺少 expectedVersion");
-    const expectedVersion = parsePositiveIntegerQuery(expectedVersionValue, 1, "expectedVersion");
-    const reason = params.get("reason") ?? "";
-    const mode = await getFinanceBackendMode();
-    if (mode === "django") {
-      const result = await createDjangoFinanceService().request<Record<string, unknown>>(
-        principal,
-        { method: "DELETE", path: FINANCE_TARGETS_PATH, query: params, service: "writer" },
-        { signal: request.signal },
-      );
-      const headers = new Headers({ "cache-control": "no-store" });
-      if (result.replayed) headers.set("x-teruisi-write-replay", "1");
-      return Response.json(result.data, { status: result.status, headers });
-    }
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    const deleted = await deleteFinanceTarget(db, id, expectedVersion, principal.email, reason);
-    return Response.json({ ok: true, ...deleted }, { headers: { "cache-control": "no-store" } });
+    parsePositiveIntegerQuery(expectedVersionValue, 1, "expectedVersion");
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      { method: "DELETE", path: FINANCE_TARGETS_PATH, query: params, service: "writer" },
+      { signal: request.signal },
+    );
+    const headers = new Headers({ "cache-control": "no-store" });
+    if (result.replayed) headers.set("x-teruisi-write-replay", "1");
+    return Response.json(result.data, { status: result.status, headers });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

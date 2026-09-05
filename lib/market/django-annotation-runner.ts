@@ -1,5 +1,4 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { D1Database } from "@/lib/database/d1";
 import {
   MARKET_COMMANDS_PATH,
   MARKET_QUERIES_PATH,
@@ -100,7 +99,6 @@ async function command<T extends JsonRecord>(
 
 export async function runClaimedDjangoMarketVisionTask(input: {
   principal: AppPrincipal;
-  db: D1Database;
   jobId?: string;
   signal?: AbortSignal;
 }) {
@@ -132,7 +130,6 @@ export async function runClaimedDjangoMarketVisionTask(input: {
   }
   try {
     const prediction = await runVisionAnnotation({
-      db: input.db,
       principal: input.principal,
       modelId: task.modelId,
       promptBody: task.promptBody,
@@ -142,7 +139,6 @@ export async function runClaimedDjangoMarketVisionTask(input: {
       brand: task.brand,
       imageUrl: task.sourceImageUrl,
       fixedSegment: task.fixedSegment ?? undefined,
-      skipMarketCache: true,
     });
     const completed = await command<JsonRecord>(
       input.principal,

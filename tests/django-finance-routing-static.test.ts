@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
-test("finance cutover keeps the existing UI and public paths while defaulting to legacy", async () => {
+test("finance cutover keeps the existing UI and public paths with Django as the only backend", async () => {
   const [page, salesModule, importModule, analysis, targets, imports, service] = await Promise.all([
     readFile(path.join(root, "app", "page.tsx"), "utf8"),
     readFile(path.join(root, "app", "sales-module-view.tsx"), "utf8"),
@@ -22,25 +22,23 @@ test("finance cutover keeps the existing UI and public paths while defaulting to
   assert.match(importModule, /\/api\/imports\/finance/);
   assert.doesNotMatch(`${page}\n${salesModule}\n${importModule}`, /TERUISI_DJANGO_FINANCE_MODE|finance-normalized-v1/);
   for (const route of [analysis, targets, imports]) {
-    assert.match(route, /getFinanceBackendMode/);
-    assert.match(route, /mode === "django"/);
+    assert.match(route, /createDjangoFinanceService/);
+    assert.doesNotMatch(route, /getFinanceDatabase|ensureFinanceSchema|observeFinanceShadow/);
   }
-  assert.match(service, /\?\? "legacy"/);
-  assert.match(service, /"legacy" \| "shadow" \| "django"/);
+  assert.match(service, /\?\? "django"/);
+  assert.match(service, /type FinanceBackendMode = "django"/);
   assert.doesNotMatch(service, /catch[\s\S]{0,120}return\s+["']legacy["']/i);
-  assert.match(imports, /Shadow mode deliberately keeps D1 as the sole writer/);
+  assert.doesNotMatch(imports, /importFinanceReportBytes|Shadow mode/);
 });
 
-test("Django mode branches before finance D1 access and shadow writes never call Django", async () => {
+test("finance routes have no D1 branch and every write has one Django dispatch", async () => {
   const [analysis, targets, imports] = await Promise.all([
     readFile(path.join(root, "app", "api", "finance", "analysis", "route.ts"), "utf8"),
     readFile(path.join(root, "app", "api", "finance", "targets", "route.ts"), "utf8"),
     readFile(path.join(root, "app", "api", "imports", "finance", "route.ts"), "utf8"),
   ]);
   for (const source of [analysis, targets, imports]) {
-    const djangoBranch = source.indexOf('if (mode === "django")');
-    const databaseAccess = source.indexOf("getFinanceDatabase()", djangoBranch);
-    assert.ok(djangoBranch >= 0 && databaseAccess > djangoBranch);
+    assert.doesNotMatch(source, /getFinanceDatabase|mode === "(?:legacy|shadow|django)"/);
   }
   const importPost = imports.slice(imports.indexOf("export async function POST"));
   assert.equal((importPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);

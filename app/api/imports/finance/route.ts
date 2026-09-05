@@ -1,22 +1,14 @@
-import {
-  ensureFinanceSchema,
-  getFinanceDatabase,
-  listFinanceImportBatches,
-} from "@/lib/finance/database";
-import { importFinanceReportBytes } from "@/lib/finance/import-service";
-import { prepareNormalizedFinanceImport } from "@/lib/finance/import-service";
-import { observeFinanceShadow } from "@/lib/finance/backend-routing";
+import { prepareNormalizedFinanceImport } from "@/lib/finance/normalized-import";
 import {
   createDjangoFinanceService,
   FINANCE_IMPORTS_PATH,
-  getFinanceBackendMode,
 } from "@/lib/django/finance-service";
 import {
   authorizationErrorResponse,
   requireAppPrincipal,
   requireUnrestrictedDataScope,
 } from "@/lib/auth/authorization";
-import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
+import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FINANCE_FILE_BYTES = 8 * 1024 * 1024;
 
@@ -30,35 +22,14 @@ export async function GET(request: Request) {
     requireUnrestrictedDataScope(principal, "财报导入历史");
     const params = new URL(request.url).searchParams;
     const paged = params.has("page") || params.has("pageSize");
-    const page = parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
-    const pageSize = parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
-    const mode = await getFinanceBackendMode();
-    if (mode === "django") {
-      const result = await createDjangoFinanceService().request<Record<string, unknown>>(
-        principal,
-        { method: "GET", path: FINANCE_IMPORTS_PATH, query: params, service: "reader" },
-        { signal: request.signal },
-      );
-      return Response.json(result.data, { headers: { "cache-control": "no-store" } });
-    }
-    const db = getFinanceDatabase();
-    await ensureFinanceSchema(db);
-    const payload = await listFinanceImportBatches(db, { page, pageSize });
-    if (mode === "shadow") {
-      const shadowQuery = new URLSearchParams();
-      if (paged) {
-        shadowQuery.set("page", String(page));
-        shadowQuery.set("pageSize", String(pageSize));
-      } else {
-        shadowQuery.set("limit", String(pageSize));
-      }
-      observeFinanceShadow("imports", payload, createDjangoFinanceService().request<Record<string, unknown>>(
-        principal,
-        { method: "GET", path: FINANCE_IMPORTS_PATH, query: shadowQuery, service: "reader" },
-        { signal: request.signal },
-      ).then((result) => result.data));
-    }
-    return Response.json(payload, { headers: { "cache-control": "no-store" } });
+    parsePositiveIntegerQuery(paged ? params.get("page") : null, 1, "page", 10_000);
+    parsePositiveIntegerQuery(paged ? params.get("pageSize") : params.get("limit"), 20, paged ? "pageSize" : "limit", 100);
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      { method: "GET", path: FINANCE_IMPORTS_PATH, query: params, service: "reader" },
+      { signal: request.signal },
+    );
+    return Response.json(result.data, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
@@ -102,31 +73,21 @@ export async function POST(request: Request) {
       fileName,
       fileSizeBytes: bytes.byteLength,
     };
-    const mode = await getFinanceBackendMode();
-    if (mode === "django") {
-      const normalized = await prepareNormalizedFinanceImport(input);
-      const result = await createDjangoFinanceService().request<Record<string, unknown>>(
-        principal,
-        {
-          method: "POST",
-          path: FINANCE_IMPORTS_PATH,
-          payload: normalized as unknown as Record<string, unknown>,
-          service: "writer",
-          acceptedErrorStatuses: [422],
-        },
-        { signal: request.signal },
-      );
-      const headers = new Headers({ "cache-control": "no-store" });
-      if (result.replayed) headers.set("x-teruisi-write-replay", "1");
-      return Response.json(result.data, { status: result.status, headers });
-    }
-    // Shadow mode deliberately keeps D1 as the sole writer. Django receives no
-    // mutation until the separately attested single-write cutover.
-    const payload = await importFinanceReportBytes(input);
-    return Response.json(payload, {
-      status: importExecutionHttpStatus(payload),
-      headers: { "cache-control": "no-store" },
-    });
+    const normalized = await prepareNormalizedFinanceImport(input);
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      {
+        method: "POST",
+        path: FINANCE_IMPORTS_PATH,
+        payload: normalized as unknown as Record<string, unknown>,
+        service: "writer",
+        acceptedErrorStatuses: [422],
+      },
+      { signal: request.signal },
+    );
+    const headers = new Headers({ "cache-control": "no-store" });
+    if (result.replayed) headers.set("x-teruisi-write-replay", "1");
+    return Response.json(result.data, { status: result.status, headers });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;

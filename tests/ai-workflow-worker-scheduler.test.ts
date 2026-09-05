@@ -33,10 +33,10 @@ test("scheduled and protected local ticks run one isolated workflow and one form
     source.indexOf("if (url.pathname === localScheduledPath)"),
     source.indexOf('if (url.pathname === "/_vinext/image")'),
   );
-  assert.match(localScheduled, /runScheduledMarketMaintenance\(env\.DB,/);
+  assert.match(localScheduled, /runScheduledMarketMaintenance\(\{/);
 
   const scheduled = source.slice(source.indexOf("async scheduled("));
-  assert.match(scheduled, /runScheduledMarketMaintenance\(env\.DB,/);
+  assert.match(scheduled, /runScheduledMarketMaintenance\(\{/);
 });
 
 test("each scheduled runner remains failure-isolated", async () => {

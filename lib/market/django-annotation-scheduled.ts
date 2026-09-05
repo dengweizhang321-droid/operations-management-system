@@ -1,5 +1,4 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
-import type { D1Database } from "@/lib/database/d1";
 import { runClaimedDjangoMarketVisionTask } from "@/lib/market/django-annotation-runner";
 
 const INTERNAL_ANNOTATION_PRINCIPAL: AppPrincipal = {
@@ -9,12 +8,9 @@ const INTERNAL_ANNOTATION_PRINCIPAL: AppPrincipal = {
   scope: null,
 };
 
-export async function runScheduledDjangoMarketAnnotation(input: {
-  db: D1Database;
-}) {
+export async function runScheduledDjangoMarketAnnotation() {
   const result = await runClaimedDjangoMarketVisionTask({
     principal: INTERNAL_ANNOTATION_PRINCIPAL,
-    db: input.db,
   });
   const payload = result.data.result;
   const processedCount = Number(payload.processedCount ?? 0);
