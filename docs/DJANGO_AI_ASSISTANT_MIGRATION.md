@@ -2,7 +2,7 @@
 
 ## 状态与范围
 
-本文件描述 `codex/django-ai-assistant` 的迁移候选。代码重构、隔离系统验证、历史数据采用与恢复演练已完成；**尚未执行本机正式切换、生产数据导入、D1 退役或服务重启**。正式运行状态必须以受控切换证据和实际 effective Worker head 为准，不能用本文件中的镜像 run 冒充正式证据。
+完整实现已通过 PR #5 合并到 main，合并提交为 `16c4926844251c8b178514df670b5704d7d8f207`。代码重构、隔离系统验证、历史数据采用与恢复演练已完成；**尚未执行本机正式切换、生产数据导入、D1 退役或服务重启**。正式运行状态必须以受控切换证据和实际 effective Worker head 为准，不能用本文件中的镜像 run 冒充正式证据。
 
 迁移覆盖 AI 对话、模型、渠道与回调、知识、个人记忆、工具审计、表格产物与下载审计、确定性分析沙箱、Agent、DAG 与人工复核、AI 空间模板/图片配置/任务/资产/收藏/清理队列，以及全部历史派发账本、检查点和事件。39 张历史表进入 AI 自有 PostgreSQL app；新增 revision、authority、通用请求 receipt、mutation audit、migration run 5 张控制表，共 44 张表。
 
@@ -85,3 +85,11 @@ git diff --check
 `0113/0114` 及 PostgreSQL authority 不提供自动反向切换。激活前失败保持旧源冻结且新服务停止，由操作员处理；激活后失败保持新架构失败关闭。任何正式备份、restore receipt、采用 run、authority、smoke、intent 或退休证据不得清理。
 
 当前仍待实际维护窗口生成正式 source/dry-run/apply/cutover/epoch、生产备份与恢复 receipt、Worker plan SHA、effective release、smoke 和 retirement receipt。镜像摘要只能用于核对候选，不得填入正式批准参数以跳过重新取证。
+
+## 2026-09-05 维护窗口预检记录
+
+用户已批准本机维护窗口，不需要重复请求停服、重启和正式 AI 迁移授权。预检时 PostgreSQL、Worker 与全部 Django reader/writer 已停止；销售 writer 和权限 writer 两份历史进程记录的 PID 在同一次系统启动周期内被新的 Codex 进程复用。现行控制器按 AGENTS.md 的身份边界拒绝接管或终止这些进程。已准备保留原文件、哈希和新旧进程创建时间的精确归档方案，另行请求只归档这两份失效记录的例外批准；批准到达前不归档、不改进程身份校验规则。
+
+Worker 自身的失效 receipt 已由既有受控 Stop 正常清理；未终止其他进程。首次正式备份因 PostgreSQL 原本未运行而失败关闭，没有自动启动数据库或生成成功备份。主检出和固定 Worker 发布源已快进到上述合并提交，但 Django runtime、Worker effective release、生产配置和数据库均未部署或迁移。
+
+预检另以正式 runtime 相同的 Python 3.12.10、Django 5.2.17、psycopg 3.3.4、waitress 3.0.2 和拟新增 cryptography 46.0.5，在独立 worktree/venv/cluster 完整补验：后端单元 360 项、AI PostgreSQL 30 项、最小权限 HTTP 19 项、源数据采用、激活前后完整备份恢复全部通过。结果位于忽略目录 `.runtime/ai-pg-26ea5b76a7f0/result.json`；源/目标规范化摘要仍为上文 `1218c81a…58cca`。最新只读源快照仍是 39 表、536 行，无活动派发。正式执行须继续使用受保护 operator 重新生成采用与备份证据。
