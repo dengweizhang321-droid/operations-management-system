@@ -19,7 +19,7 @@
 
 ## 2. 当前系统与模块边界
 
-- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、Cloudflare Workers、Django 5.2、PostgreSQL 17、D1 和 R2；销售、财务、ERP 主数据、网店、市场、商品经营、库存、运营事务和客服分析已正式使用 Django/PostgreSQL，其他业务域按各自迁移状态运行。
+- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、薄 Cloudflare Worker、Django 5.2、PostgreSQL 17 和 R2；本机全部结构化业务域及聚合入口已正式使用 Django/PostgreSQL，D1 仅保留隔离历史审计与退役证据，不进入生产调用链。
 - 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
 - 当前导航模块为：工作流、BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
 - 主要业务域及代码目录：
@@ -36,10 +36,12 @@
   - AI 助理模型/渠道/知识/个人记忆、对话/产物/工具审计、分析沙箱、Agent/DAG、图片任务/资产元数据/图片字节及控制证据的 Django 实现：`backend/ai_assistant/`；公开 Worker 薄适配：`lib/django/ai-service.ts`、`lib/ai/django-route.ts`，中央能力唯一声明仍为 `lib/ai/tool-registry.ts`，签名只读工具桥为 `lib/ai/django-edge.ts`。AI reader/writer 独立使用 8111/8112、DPAPI 角色、同一 AI authority epoch 与 `ai-enabled.json`；启用后的全栈连接门槛为 128。新逻辑不得写回旧 AI D1 路径；2026-09-05 本机已正式单写切换并完成 D1 终态退役；正式证据及门禁见 `docs/DJANGO_AI_ASSISTANT_MIGRATION.md`。
   - 用户、固定角色、数据范围、权限变更审计、revision、迁移和写权证据的权威实现：`backend/access_control/`；Worker 薄适配为 `lib/django/access-control-service.ts`、`lib/auth/authorization.ts` 与 `lib/ai/background-principal.ts`。未知/停用账号失败关闭，不自动登记 viewer；AI 工具执行审计仍属于 AI 域，不混入权限变更审计。
   - 全局搜索：`lib/search/` 仅通过各域 Django consumer 有界聚合；禁止 D1 表清单、SQL、数据库句柄和 legacy/shadow 回退。市场消费响应为直接的 `items/total/truncated` 与 revision header。
-  - BI 看板只读聚合：`backend/bi/`；Worker 薄适配为 `lib/django/bi-service.ts`。BI 不拥有或复制销售、ERP、库存事实，不设 writer 或第二套业务 revision；生产 reader 固定使用 `127.0.0.1:8081`、独立 `teruisi_bi_reader` 只读角色和 `bi-service-enabled.json`，服务端通过源 revision 前后采样组成一致性快照，并只在 `bi_migration_runs` 保存采用审计。2026-09-05 已完成本机生产启用，采用 run 为 `bi-apply-1079734fb42842eeb1cb13b830bbb8a6`，当前 Worker release 为 `20260904T223540Z-40a783da7d4d5867`
+  - BI 看板只读聚合：`backend/bi/`；Worker 薄适配为 `lib/django/bi-service.ts`。BI 不拥有或复制销售、ERP、库存事实，不设 writer 或第二套业务 revision；生产 reader 固定使用 `127.0.0.1:8081`、独立 `teruisi_bi_reader` 只读角色和 `bi-service-enabled.json`，服务端通过源 revision 前后采样组成一致性快照，并只在 `bi_migration_runs` 保存采用审计。2026-09-05 已完成本机生产启用，采用 run 为 `bi-apply-1079734fb42842eeb1cb13b830bbb8a6`，当时 Worker release 为 `20260904T223540Z-40a783da7d4d5867`；当前整机采用记录见下节。
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
 ### 2.1 Django 后端渐进迁移决策
+
+- 2026-09-06，本机全局搜索、AI 财务工具、财务公开 API、市场标注与调度等残留聚合入口已完成受控 Django/PostgreSQL 发布。Worker effective release 为 `20260905T180043Z-7364a22437c52ae1`，manifest SHA 为 `589e304f0e60a8ee711840888b5090c8bcdb7580b2372275e2313e8e219a7f4e`；无 D1 binding，不携带 Drizzle 迁移。Django 应用已采用财务目标视图隔离与网店最新批次半连接优化，23 个服务健康；ERP 环境变量固定沿用 `TERUISI_DJANGO_ERP_*`。不新增数据域、写权限或业务 revision，现有 R2 图片/附件字节边界保持不变。后续以 `docs/DJANGO_AGGREGATE_CUTOVER.md` 的实际采用与前向恢复门禁为准；下方各域历史记录中的旧 Worker release 和全局 D1 用途只描述当时状态，不能恢复为当前生产依赖。
 
 - 2026-09-05，本机 AI 助理完整数据域已完成 Django/PostgreSQL 正式单写切换与 D1 终态退役，cutover ID 为 `ai-pg-20260905T143048Z-489bd21bb811`，authority epoch 为 `be36a1d7-a84f-4617-baf3-8537a844750d`。正式 apply `ai-apply-489bd21bb8114654a954c9a9004b9757` 迁移并复验 39 张历史表、536 条记录，源/目标摘要均为 `1218c81a9cc6a36ddc68b584bf82f35634b5154fbf6e0ef32150d87946358cca`；新增 5 张领域控制表，共 44 张 AI 自有表。AI reader/writer 固定 8111/8112，以独立 DPAPI 最小权限角色和 `ai-enabled.json` 加入启动与监控链。operator-only `0113/0114` 不进入普通 Drizzle journal；旧 AI 对象现为 40 个空 tombstone view，120 个永久 guard 拒绝旧写入。2026-09-06，AI 图片字节亦已正式切换至 PostgreSQL；新增 `ai_space_asset_payloads` 后共 45 张 AI 表，字节与资产在同一事务发布，最大 6 MiB，具有 SHA/大小、不可变 payload 与 authority fencing 约束。旧 AI R2 存取入口已删除，`ai-space/` 对象、字节、multipart upload/part 均为 0；共享 R2 其余 38,050 个对象的保留摘要一致，其他域 D1/R2 继续保留。正式证据见 `docs/DJANGO_AI_R2_RETIREMENT.md`。切换已跨过 PNR，禁止恢复旧 D1/legacy/fallback、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或受控前向修复。正式证据见 `docs/DJANGO_AI_ASSISTANT_MIGRATION.md`。
 
@@ -142,14 +144,14 @@
 
 ## 8. D1、R2、迁移与缓存
 
-- D1 保存尚未迁移业务域的结构化事实、配置、批次与审计。已迁移的销售、财务、ERP 主数据、网店、市场、商品经营、库存和运营事务全板块事实只以 PostgreSQL 为权威；销售、ERP、商品经营和库存原始分片字节也只保存在 PostgreSQL 的有界、可过期会话中。D1 中的销售/ERP/网店/市场/商品经营/库存/运营事务 tombstone、永久 guard 与完成 receipt，以及财务 authority guard/旧财务对象，均只是防复活、迁移和审计材料，不得作为读取、写入或回滚事实源；D1 已无旧运营事务或 ERP 事实。市场消费的网店兼容投影由来源固定的 Django netshop consumer 原子写入 PostgreSQL 市场表，不是网店第二事实源；商品经营消费的库存投影也不形成库存第二事实源。R2 继续保存市场图片、运营事务附件以及其他业务域经验证的原文件、附件或图片对象，但库存、新品项目和 ERP 路径不再读写 R2；运营事务附件仅保留字节，文件名、MIME、大小、SHA-256、对象键与清理状态均以 PostgreSQL 为权威。不得从全局配置移除其他模块仍在使用的 R2 binding。
+- 当前所有结构化业务事实、配置、批次与运行审计均以 PostgreSQL 为权威。原始分片使用各域 PostgreSQL 的有界、可过期会话；AI 图片字节也以 PostgreSQL 为权威。D1 中的 tombstone、永久 guard、完成 receipt 和受保护旧对象只属于防复活、迁移和历史审计材料，不得作为读取、写入或回滚事实源。市场消费的网店兼容投影由来源固定的 Django netshop consumer 原子写入 PostgreSQL 市场表，不是网店第二事实源；商品经营消费的库存投影也不形成库存第二事实源。R2 继续保存市场/网店图片和运营事务附件等仍有效的对象，但销售、库存、新品项目、ERP、客服和 AI 退役前缀不再读写 R2；运营事务附件仅保留字节，文件名、MIME、大小、SHA-256、对象键与清理状态均以 PostgreSQL 为权威。不得从全局配置移除其他模块仍在使用的 R2 binding。
 - 仍以 D1 为权威的业务域使用新的前向 `drizzle/*.sql` 迁移；Django/PostgreSQL 业务域使用新的 Django migrations。两类迁移都不得改写已应用版本。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
 - 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
 - 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
 - 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
 - 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
 
-- 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。当前源码已无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。生产采用仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
+- 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。源码和本机已采用的生产 release 均无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。后续更新仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
 - Worker readiness 使用已配置的 23 个 Django reader/writer 健康端点，按服务角色核验并有界取消；失败返回 `django_unavailable`，总控显示 `BackendDegraded`。liveness 与 readiness 必须保持独立，不能因就绪探测失败重启服务。
 
 ## 9. API、前端与性能要求
