@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: {
   DB?: unknown;
@@ -78,6 +79,7 @@ test("AI routes enforce strict pagination, SQL owner scope, bounded bodies, audi
   const sqlite = new DatabaseSync(":memory:");
   const database = sqliteAdapter(sqlite);
   testEnvironment.DB = database;
+  installDjangoAccessControlFixture(sqlite);
   const { ensureAiAssistantSchema, resolveChatModel } = await import("../lib/ai/assistant-service");
   const { resolveAiModelEndpointUrl } = await import("../lib/ai/endpoint-security");
   await ensureAiAssistantSchema(database as never);

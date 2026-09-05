@@ -18,6 +18,7 @@ where = ["."]
 include = [
   "teruisi_backend*", "sales*", "erp_reference*", "finance*", "netshop*", "market*",
   "products*", "inventory*", "workflow*", "customer_service*",
+  "access_control*",
 ]
 
 [tool.coverage.run]
@@ -25,6 +26,7 @@ branch = true
 source = [
   "sales", "erp_reference", "finance", "netshop", "market",
   "products", "inventory", "workflow", "customer_service",
+  "access_control",
 ]
 
 [tool.coverage.report]

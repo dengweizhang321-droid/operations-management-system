@@ -5,6 +5,7 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 
 import type { SalesDatabase } from "../lib/sales/database";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __aiAgentExecutorMigrationTestEnv?: typeof testEnvironment })
@@ -62,6 +63,7 @@ test("a malformed oldest workflow admission fails closed without starving the ne
   const db = sqliteAdapter(sqlite);
   testEnvironment.DB = db;
   try {
+    installDjangoAccessControlFixture(sqlite);
     await ensureAiAgentExecutorSchema(db);
     await ensureAuthorizationSchema(db);
     sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)

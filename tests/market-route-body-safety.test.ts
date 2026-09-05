@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
 const identity: { email: string } = { email: "restricted-admin@example.com" };
@@ -86,6 +87,7 @@ test("market write routes authenticate and reject restricted scope before bounde
   const sqlite = new DatabaseSync(":memory:");
   const database = sqliteAdapter(sqlite);
   testEnvironment.DB = database;
+  installDjangoAccessControlFixture(sqlite);
   const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
   await ensureAuthorizationSchema(database as never);
   const scopeJson = JSON.stringify({ warehouses: [], channels: [], platforms: ["京东"] });

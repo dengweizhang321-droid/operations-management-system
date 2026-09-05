@@ -124,6 +124,7 @@ if DJANGO_ENVIRONMENT == "production" and (
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
+    "access_control.apps.AccessControlConfig",
     "sales.apps.SalesConfig",
     "erp_reference.apps.ErpReferenceConfig",
     "finance.apps.FinanceConfig",
@@ -231,6 +232,12 @@ CUSTOMER_SERVICE_WRITE_AUTHORITY_EPOCH = os.getenv(
 CUSTOMER_SERVICE_WRITE_CUTOVER_ID = os.getenv(
     "TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID", ""
 ).strip()
+ACCESS_CONTROL_WRITE_AUTHORITY_EPOCH = os.getenv(
+    "TERUISI_DJANGO_ACCESS_CONTROL_AUTHORITY_EPOCH", ""
+).strip()
+ACCESS_CONTROL_WRITE_CUTOVER_ID = os.getenv(
+    "TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID", ""
+).strip()
 if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "reader",
     "migration_writer",
@@ -252,6 +259,8 @@ if DJANGO_ENVIRONMENT == "production" and DJANGO_PROCESS_ROLE not in {
     "customer_service_reader",
     "customer_service_writer",
     "bi_reader",
+    "access_control_reader",
+    "access_control_writer",
 }:
     raise RuntimeError(
         "生产 Django 必须显式声明已登记的 reader、writer、migration_writer 或同步进程角色"
@@ -294,6 +303,10 @@ if DJANGO_PROCESS_ROLE == "customer_service_writer" and DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django customer_service_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "bi_reader" and not DJANGO_EXPECT_READ_ONLY:
     raise RuntimeError("Django bi_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "access_control_reader" and not DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django access_control_reader 进程必须启用只读连接门禁")
+if DJANGO_PROCESS_ROLE == "access_control_writer" and DJANGO_EXPECT_READ_ONLY:
+    raise RuntimeError("Django access_control_writer 进程不能使用只读连接")
 if DJANGO_PROCESS_ROLE == "sales_writer":
     try:
         uuid.UUID(SALES_WRITE_AUTHORITY_EPOCH)
@@ -363,6 +376,13 @@ if DJANGO_PROCESS_ROLE == "customer_service_writer":
         raise RuntimeError("Django customer_service_writer 必须配置有效的客服 authority epoch") from error
     if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", CUSTOMER_SERVICE_WRITE_CUTOVER_ID):
         raise RuntimeError("Django customer_service_writer 必须配置有效的客服 cutover id")
+if DJANGO_PROCESS_ROLE == "access_control_writer":
+    try:
+        uuid.UUID(ACCESS_CONTROL_WRITE_AUTHORITY_EPOCH)
+    except (ValueError, AttributeError) as error:
+        raise RuntimeError("Django access_control_writer 必须配置有效的权限 authority epoch") from error
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", ACCESS_CONTROL_WRITE_CUTOVER_ID):
+        raise RuntimeError("Django access_control_writer 必须配置有效的权限 cutover id")
 DJANGO_SIGNATURE_MAX_AGE_SECONDS = env_int(
     "TERUISI_DJANGO_SIGNATURE_MAX_AGE_SECONDS", 60, 1, 300
 )

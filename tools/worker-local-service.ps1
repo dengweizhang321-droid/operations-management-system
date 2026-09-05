@@ -28,6 +28,7 @@ $DjangoProductsService = Join-Path $DjangoRuntimeTools "django-products-service.
 $DjangoWorkflowService = Join-Path $DjangoRuntimeTools "django-workflow-service.ps1"
 $DjangoInventoryService = Join-Path $DjangoRuntimeTools "django-inventory-service.ps1"
 $DjangoCustomerService = Join-Path $DjangoRuntimeTools "django-customer-service.ps1"
+$DjangoAccessControlService = Join-Path $DjangoRuntimeTools "django-access-control.ps1"
 $DjangoErpReferenceService = Join-Path $DjangoRuntimeTools "django-erp-reference.ps1"
 $DjangoBiService = Join-Path $DjangoRuntimeTools "django-bi-service.ps1"
 $WorkerPort = 3000
@@ -243,6 +244,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = $aggregateStatus.Workflow
     $inventoryStatus = $aggregateStatus.Inventory
     $customerServiceStatus = $aggregateStatus.CustomerService
+    $accessControlStatus = $aggregateStatus.AccessControl
     $erpReferenceStatus = $aggregateStatus.ErpReference
     $biStatus = $aggregateStatus.Bi
   } else {
@@ -256,6 +258,7 @@ function Get-DjangoSystemReadiness {
     $workflowStatus = Invoke-DjangoStatusJson $DjangoWorkflowService "Status" "Django workflow status"
     $inventoryStatus = Invoke-DjangoStatusJson $DjangoInventoryService "Status" "Django inventory status"
     $customerServiceStatus = Invoke-DjangoStatusJson $DjangoCustomerService "Status" "Django customer-service status"
+    $accessControlStatus = Invoke-DjangoStatusJson $DjangoAccessControlService "Status" "Django access-control status"
     $erpReferenceStatus = Invoke-DjangoStatusJson $DjangoErpReferenceService "Status" "Django ERP reference status"
     $biStatus = Invoke-DjangoStatusJson $DjangoBiService "Status" "Django BI status"
   }
@@ -277,6 +280,7 @@ function Get-DjangoSystemReadiness {
     workflow = Test-DjangoDomainReady $workflowStatus "WorkflowReader" "WorkflowWriter"
     inventory = Test-DjangoDomainReady $inventoryStatus "InventoryReader" "InventoryWriter"
     customerService = Test-DjangoDomainReady $customerServiceStatus "CustomerServiceReader" "CustomerServiceWriter"
+    accessControl = Test-DjangoDomainReady $accessControlStatus "AccessControlReader" "AccessControlWriter"
     erpReference = Test-DjangoDomainReady $erpReferenceStatus "ErpReferenceReader" "ErpReferenceWriter"
     bi = Test-DjangoReaderReady $biStatus "BiReader"
   }

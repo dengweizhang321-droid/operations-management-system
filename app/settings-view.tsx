@@ -25,6 +25,7 @@ const { Component: LazyMarketWorkflowPanel } = createReloadableLazy<MarketWorkfl
 })));
 const { Component: LazyMarketAnnotationView } = createReloadableLazy("settings", () => import("./market-annotation-view"));
 const { Component: LazyDingTalkRobotSettings } = createReloadableLazy<{ canWrite: boolean }>("settings", () => import("./dingtalk-robot-settings"));
+const { Component: LazyAccessControlManagement } = createReloadableLazy<{ canManage: boolean }>("settings", () => import("./access-control-management"));
 
 export type SettingsTab = ModuleViewKey<"settings">;
 
@@ -33,6 +34,7 @@ export type SettingsCurrentUser = {
   displayName?: string;
   role: "viewer" | "analyst" | "operator" | "admin";
   roleLabel?: string;
+  scopeRestricted?: boolean;
 };
 
 export type SettingsViewProps = {
@@ -584,13 +586,15 @@ export default function SettingsView({
 
     {activeTab === "permissions" && <section
       id="settings-panel-permissions"
-      className="panel settings-form"
+      className="settings-permissions-panel"
       role="tabpanel"
       aria-labelledby="settings-tab-permissions"
       tabIndex={0}
     >
-      <SectionHeader title="权限管理" note="当前版本沿用应用用户表和角色授权；市场导入、提交标注和模型配置仍仅管理员可执行。" />
-      <p className="soft-text">如需新增行级数据范围，请在系统用户权限中配置，AI 工具不会信任模型提供的身份或角色声明。</p>
+      <SectionHeader title="用户、角色与数据范围" note="Django/PostgreSQL 是用户权限与变更审计的唯一权威；AI 与后台任务在派发前重新校验当前权限。" />
+      <Suspense fallback={<LoadingState>正在加载权限管理</LoadingState>}>
+        <LazyAccessControlManagement canManage={currentUser?.role === "admin" && !currentUser.scopeRestricted} />
+      </Suspense>
     </section>}
   </>;
 }

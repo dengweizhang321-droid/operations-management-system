@@ -553,7 +553,7 @@ export const GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT = {
     "product_shipping_rates",
   ],
   excludedSensitiveOrInternal: [
-    "app_users", "ai_models", "ai_channels", "ai_channel_callback_events",
+    "ai_models", "ai_channels", "ai_channel_callback_events",
     "ai_chat_request_receipts", "ai_chat_provider_dispatches",
     "ai_conversations", "ai_conversation_scopes", "ai_conversation_messages", "ai_conversation_deletion_audits", "system_settings", "workflow_task_bootstrap",
     "ai_space_model_profiles", "ai_space_templates", "ai_space_jobs", "ai_space_job_items", "ai_space_assets",

@@ -30,11 +30,13 @@ def signed_headers(
     method: str = "GET",
     body: bytes | str = b"",
     request_id: str = "test-request-1",
+    email: str = "admin@example.test",
+    display_name: str = "Test Admin",
 ) -> dict[str, str]:
     split = urlsplit(iri_to_uri(url))
     principal = {
-        "email": "admin@example.test",
-        "displayName": "Test Admin",
+        "email": email,
+        "displayName": display_name,
         "role": role,
         "scope": scope,
     }

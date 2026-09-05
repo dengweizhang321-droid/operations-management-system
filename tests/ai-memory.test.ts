@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import test from "node:test";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesDatabase } from "../lib/sales/database";
@@ -379,6 +380,7 @@ test("AI memory API requires same-origin writes and rejects caller-owned identit
   const db = sqliteAdapter(sqlite);
   testEnvironment.DB = db;
   try {
+    installDjangoAccessControlFixture(sqlite);
     const { ensureAuthorizationSchema } = await import("../lib/auth/authorization");
     await ensureAuthorizationSchema(db);
     sqlite.prepare(`INSERT OR REPLACE INTO app_users

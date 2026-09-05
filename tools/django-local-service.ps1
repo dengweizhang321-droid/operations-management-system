@@ -41,6 +41,8 @@ $InstalledInventoryScriptPath = Join-Path $InstalledAppRoot "tools\django-invent
 $InventoryStartupEnabledPath = Join-Path $RuntimeRoot "inventory-service-enabled.json"
 $InstalledCustomerServiceScriptPath = Join-Path $InstalledAppRoot "tools\django-customer-service.ps1"
 $CustomerServiceStartupEnabledPath = Join-Path $RuntimeRoot "customer-service-enabled.json"
+$InstalledAccessControlScriptPath = Join-Path $InstalledAppRoot "tools\django-access-control.ps1"
+$AccessControlStartupEnabledPath = Join-Path $RuntimeRoot "access-control-enabled.json"
 $InstalledErpReferenceScriptPath = Join-Path $InstalledAppRoot "tools\django-erp-reference.ps1"
 $ErpReferenceStartupEnabledPath = Join-Path $RuntimeRoot "erp-reference-enabled.json"
 $InstalledBiScriptPath = Join-Path $InstalledAppRoot "tools\django-bi-service.ps1"
@@ -71,6 +73,8 @@ $DjangoInventoryReaderPidPath = Join-Path $RunDirectory "django-inventory-reader
 $DjangoInventoryWriterPidPath = Join-Path $RunDirectory "django-inventory-writer.pid.json"
 $DjangoCustomerServiceReaderPidPath = Join-Path $RunDirectory "django-customer-service-reader.pid.json"
 $DjangoCustomerServiceWriterPidPath = Join-Path $RunDirectory "django-customer-service-writer.pid.json"
+$DjangoAccessControlReaderPidPath = Join-Path $RunDirectory "django-access-control-reader.pid.json"
+$DjangoAccessControlWriterPidPath = Join-Path $RunDirectory "django-access-control-writer.pid.json"
 $DjangoErpReferenceReaderPidPath = Join-Path $RunDirectory "django-erp-reference-reader.pid.json"
 $DjangoErpReferenceWriterPidPath = Join-Path $RunDirectory "django-erp-reference-writer.pid.json"
 $DjangoBiReaderPidPath = Join-Path $RunDirectory "django-bi-reader.pid.json"
@@ -88,6 +92,8 @@ $DjangoFinanceReaderHealthUrl = "http://127.0.0.1:8011/health/ready"
 $DjangoFinanceWriterHealthUrl = "http://127.0.0.1:8012/health/ready"
 $DjangoCustomerServiceReaderHealthUrl = "http://127.0.0.1:8071/health/ready"
 $DjangoCustomerServiceWriterHealthUrl = "http://127.0.0.1:8072/health/ready"
+$DjangoAccessControlReaderHealthUrl = "http://127.0.0.1:8101/health/ready"
+$DjangoAccessControlWriterHealthUrl = "http://127.0.0.1:8102/health/ready"
 $DjangoBiReaderHealthUrl = "http://127.0.0.1:8081/health/ready"
 $StartupShortcut = Join-Path ([Environment]::GetFolderPath("Startup")) "TERUISI Django Sales.lnk"
 $RunId = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
@@ -1648,6 +1654,7 @@ function Deploy-Application {
       "tools\workflow-operations-d1-rejection-smoke.py",
       "tools\django-inventory-service.ps1",
       "tools\django-customer-service.ps1",
+      "tools\django-access-control.ps1",
       "tools\django-erp-reference.ps1",
       "tools\django-bi-service.ps1",
       "tools\django-customer-service-cutover.ps1",
@@ -1690,6 +1697,8 @@ function Deploy-Application {
       "drizzle\0101_inventory_write_authority.sql",
       "drizzle\0109_erp_reference_write_authority.sql",
       "drizzle\0110_erp_reference_domain_retirement.sql",
+      "drizzle\0111_access_control_write_authority.sql",
+      "drizzle\0112_access_control_domain_retirement.sql",
       "drizzle\0102_inventory_domain_retirement.sql",
       "drizzle\0103_workflow_launch_write_authority.sql",
       "drizzle\0104_workflow_launch_domain_retirement.sql",
@@ -2189,7 +2198,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8062).Count -gt 0 -or
     @(Get-PortListeners 8071).Count -gt 0 -or
     @(Get-PortListeners 8072).Count -gt 0 -or
-    @(Get-PortListeners 8081).Count -gt 0
+    @(Get-PortListeners 8081).Count -gt 0 -or
+    @(Get-PortListeners 8101).Count -gt 0 -or
+    @(Get-PortListeners 8102).Count -gt 0
   ) {
     throw "$Operation 前必须停止全部 Django 业务域 reader/writer"
   }
@@ -2234,6 +2245,12 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   }
   if (Resolve-OwnedProcess "django-customer-service-writer" $DjangoCustomerServiceWriterPidPath $Waitress) {
     throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service writer"
+  }
+  if (Resolve-OwnedProcess "django-access-control-reader" $DjangoAccessControlReaderPidPath $Waitress) {
+    throw "$Operation 前必须通过权限控制器 Stop 停止 Django access-control reader"
+  }
+  if (Resolve-OwnedProcess "django-access-control-writer" $DjangoAccessControlWriterPidPath $Waitress) {
+    throw "$Operation 前必须通过权限控制器 Stop 停止 Django access-control writer"
   }
   if (Resolve-OwnedProcess "django-erp-reference-reader" $DjangoErpReferenceReaderPidPath $Waitress) {
     throw "$Operation 前必须通过 ERP 主数据控制器 Stop 停止 Django ERP reader"
@@ -2527,6 +2544,8 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID",
     "TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH",
     "TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID",
+    "TERUISI_DJANGO_ACCESS_CONTROL_AUTHORITY_EPOCH",
+    "TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID",
     "TERUISI_DJANGO_ERP_AUTHORITY_EPOCH", "TERUISI_DJANGO_ERP_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
@@ -2552,6 +2571,8 @@ function Invoke-WithDjangoEnvironment(
     $env:TERUISI_DJANGO_WORKFLOW_OPERATIONS_CUTOVER_ID = ""
     $env:TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID = ""
+    $env:TERUISI_DJANGO_ACCESS_CONTROL_AUTHORITY_EPOCH = ""
+    $env:TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID = ""
     $env:TERUISI_DJANGO_ERP_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_ERP_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {
@@ -2652,6 +2673,19 @@ function Invoke-WithDjangoEnvironment(
       $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
       $env:TERUISI_DJANGO_CUSTOMER_SERVICE_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_CUSTOMER_SERVICE_CUTOVER_ID = $CutoverId
+    } elseif ($ProcessRole -eq "access_control_writer") {
+      $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_SALES_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_FINANCE_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_FINANCE_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_NETSHOP_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_NETSHOP_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_MARKET_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_MARKET_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_PRODUCTS_AUTHORITY_EPOCH = ""
+      $env:TERUISI_DJANGO_PRODUCTS_CUTOVER_ID = ""
+      $env:TERUISI_DJANGO_ACCESS_CONTROL_AUTHORITY_EPOCH = $AuthorityEpoch
+      $env:TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID = $CutoverId
     } else {
       $env:TERUISI_DJANGO_SALES_AUTHORITY_EPOCH = $AuthorityEpoch
       $env:TERUISI_DJANGO_SALES_CUTOVER_ID = $CutoverId
@@ -3724,6 +3758,10 @@ function Show-AggregateServiceStatus {
     "django-customer-service-reader" $DjangoCustomerServiceReaderPidPath $DjangoCustomerServiceWriterPidPath `
     8071 8072 "http://127.0.0.1:8071/health/ready" "http://127.0.0.1:8072/health/ready" `
     "CustomerServiceReader" "CustomerServiceWriter"
+  $accessControl = Get-SimpleDjangoDomainStatus `
+    "django-access-control-reader" $DjangoAccessControlReaderPidPath $DjangoAccessControlWriterPidPath `
+    8101 8102 "http://127.0.0.1:8101/health/ready" "http://127.0.0.1:8102/health/ready" `
+    "AccessControlReader" "AccessControlWriter"
   $erpReference = Get-SimpleDjangoDomainStatus `
     "django-erp-reference-reader" $DjangoErpReferenceReaderPidPath $DjangoErpReferenceWriterPidPath `
     8091 8092 "http://127.0.0.1:8091/health/ready" "http://127.0.0.1:8092/health/ready" `
@@ -3741,6 +3779,7 @@ function Show-AggregateServiceStatus {
     Inventory = $inventory
     Workflow = $workflow
     CustomerService = $customerService
+    AccessControl = $accessControl
     ErpReference = $erpReference
     Bi = $bi
     ElapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
@@ -3837,6 +3876,13 @@ function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken
     & $InstalledCustomerServiceScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
+  if (Test-Path -LiteralPath $AccessControlStartupEnabledPath -PathType Leaf) {
+    if (-not (Test-Path -LiteralPath $InstalledAccessControlScriptPath -PathType Leaf)) {
+      throw "权限开机启动已启用，但受控权限服务脚本缺失"
+    }
+    & $InstalledAccessControlScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
   if (Test-Path -LiteralPath $ErpReferenceStartupEnabledPath -PathType Leaf) {
     if (-not (Test-Path -LiteralPath $InstalledErpReferenceScriptPath -PathType Leaf)) {
       throw "ERP 主数据开机启动已启用，但受控 ERP 服务脚本缺失"
@@ -3859,6 +3905,10 @@ function Invoke-InstalledDjangoDomainStops([string]$OrchestratedLifecycleAclToke
   }
   if (Test-Path -LiteralPath $InstalledBiScriptPath -PathType Leaf) {
     & $InstalledBiScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
+      -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  if (Test-Path -LiteralPath $InstalledAccessControlScriptPath -PathType Leaf) {
+    & $InstalledAccessControlScriptPath -Action Stop -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
   }
   if (Test-Path -LiteralPath $InstalledInventoryScriptPath -PathType Leaf) {

@@ -1,6 +1,6 @@
 # Django 领域后端
 
-本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营、库存、运营事务和客服分析均已完成 Django/PostgreSQL 正式单写切换；BI 是不持有上游事实的只读聚合 app。各写领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；BI 使用独立只读角色与组合 revision。已退出生产路径的 D1/R2 数据不得作为 fallback 或回滚来源。
+本目录承载按领域隔离的 Django 后端。当前本机销售、财务、网店、市场、商品经营、库存、运营事务和客服分析均已完成 Django/PostgreSQL 正式单写切换；BI 是不持有上游事实的只读聚合 app。用户、角色、数据范围与权限审计域的 Django 实现及隔离迁移演练已完成，但生产 authority 与 D1 退役尚未切换。各写领域必须使用独立 app、进程角色、最小权限数据库角色、revision、authority 和失败关闭边界；BI 使用独立只读角色与组合 revision。已退出生产路径的 D1/R2 数据不得作为 fallback 或回滚来源。
 
 2026-08-29/30，本机销售域迁移、单写切换与 D1 `0092` 退役已经完成；现场证据、动态水位和本机限制见 [迁移与切换手册](../docs/DJANGO_SALES_MIGRATION.md)。本文后续命令仍作为新环境重建、受控升级和恢复骨架，不能据此重复执行已经完成的不可逆切换。
 
@@ -39,6 +39,8 @@
 | `127.0.0.1:8071` | Django customer-service reader | `teruisi_customer_service_reader` |
 | `127.0.0.1:8072` | Django customer-service writer | `teruisi_customer_service_writer` |
 | `127.0.0.1:8081` | Django BI read-model reader | `teruisi_bi_reader` |
+| `127.0.0.1:8101` | Django access-control reader | `teruisi_access_control_reader` |
+| `127.0.0.1:8102` | Django access-control writer | `teruisi_access_control_writer` |
 | 后台进程，无监听端口 | ERP bridge | `teruisi_erp_reference_sync` |
 
 各运行角色必须使用相互独立的当前 Windows 用户 DPAPI 密文，并按最小权限授权：
@@ -58,10 +60,16 @@ cd backend
 python -m pip install -r requirements.txt
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python manage.py test sales finance netshop market products inventory workflow customer_service bi
+python manage.py test sales finance netshop market products inventory workflow customer_service access_control bi
 ```
 
 公开 Worker 与 Django 之间使用 HMAC principal 信封。浏览器传入的角色、scope、用户标识或内部签名头均不可信，必须由 Worker 重新生成并由 Django 验证时间窗、签名和规范化请求身份。
+
+## 权限控制 Django 实现
+
+`backend/access_control/` 负责固定角色目录、用户状态、仓库/渠道/平台 scope、权限变更审计、revision、幂等写回执、迁移 run 和 write authority。Worker 不再查询或自动补建 D1 `app_users`；普通登录和后台 Agent 都必须从 reader 获取实时账号状态并在服务漂移时失败关闭。管理写入仅由无限制管理员经 writer 执行，并要求变更原因与 `expectedVersion`。
+
+`8101/8102` 使用独立最小权限数据库角色和 DPAPI 凭据。生产 writer 只有在 `access_control_write_authority.status=postgres`、authority epoch/cutover ID 与进程环境完全一致后才就绪。2026-09-05 的当前 D1 水位已在独立端口 PostgreSQL 17 镜像完成三阶段迁移复验，但生产切权、服务启用和 `0112` 终态退役未执行；完整契约与受控步骤见 [权限控制迁移手册](../docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
 
 商品经营终态架构、`8041/8042` 最小权限边界、正式切换、D1 退役、备份和恢复演练证据见 [商品经营迁移手册](../docs/DJANGO_PRODUCTS_MIGRATION.md)。历史迁移命令只用于审计和受控恢复研究，不得对已经跨过 PNR 的正式域重新执行或恢复 D1 authority。
 

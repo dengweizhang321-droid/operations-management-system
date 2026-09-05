@@ -9,7 +9,7 @@ import {
   digestCanonicalJson,
   validateCurrentAgentToolPolicy,
 } from "@/lib/ai/agent-executor-admission";
-import { resolveAiBackgroundPrincipal, storedScopeCoverageSql } from "@/lib/ai/background-principal";
+import { resolveAiBackgroundPrincipal } from "@/lib/ai/background-principal";
 import {
   AI_CHAT_DISPATCH_LIMITS,
   resolveChatModel,
@@ -269,7 +269,7 @@ async function resolveRuntime(job: FormalAgentJobRow, db: D1Database): Promise<
   | { ok: true; principal: AppPrincipal; model: VersionedAiTextModelRuntimeConfig; entries: readonly AiToolEntry[] }
   | { ok: false; code: string; message: string }
 > {
-  const principal = await resolveAiBackgroundPrincipal(job.owner_email, job.scope_json, db);
+  const principal = await resolveAiBackgroundPrincipal(job.owner_email, job.scope_json);
   if (!principal.ok) return principal;
   const model = await resolveChatModel({ modelId: job.model_id, allowFallback: false }, db);
   if (!model || model.version !== Number(job.model_version)) {
@@ -814,7 +814,6 @@ async function reserveProviderDispatch(input: {
 }) {
   const time = shanghaiDispatchBounds(input.now);
   const allowedToolsJson = JSON.stringify(parseAllowedTools(input.job.allowed_tools_json));
-  const scopeCoverage = storedScopeCoverageSql("u.scope_json", "j.scope_json");
   const localDirect = input.principal.email === "local-admin@teruisi.local" ? 1 : 0;
   const result = await input.db.prepare(`INSERT OR IGNORE INTO ai_agent_provider_dispatches (
       id, job_id, dispatch_ordinal, owner_email, actor_role, model_id, model_version,
@@ -830,9 +829,8 @@ async function reserveProviderDispatch(input: {
       AND EXISTS (SELECT 1 FROM ai_models m
         WHERE m.id = j.model_id AND m.version = j.model_version
           AND m.status = 'enabled' AND m.model_type IN ('text','vision'))
-      AND (? = 1 OR EXISTS (SELECT 1 FROM app_users u
-        WHERE u.email = j.owner_email COLLATE NOCASE AND u.status = 'active'
-          AND u.role = ? AND u.role IN ('analyst','operator','admin') AND ${scopeCoverage}))
+      AND (? = 1 OR (j.owner_email = ? COLLATE NOCASE
+        AND ? IN ('analyst','operator','admin') AND j.scope_json = ?))
       AND (SELECT COUNT(*) FROM ai_agent_provider_dispatches prior WHERE prior.job_id = j.id) = ?
       AND ((SELECT COUNT(*) FROM ai_chat_provider_dispatches d
           WHERE d.owner_email = j.owner_email AND d.reserved_at >= ? AND d.reserved_at < ?)
@@ -851,7 +849,7 @@ async function reserveProviderDispatch(input: {
       time.dispatchedAt, time.dispatchedAt,
       input.job.id, input.lease.leaseToken, input.lease.leaseEpoch,
       input.model.id, input.model.version, allowedToolsJson, input.job.tool_policy_digest,
-      localDirect, input.principal.role, input.ordinal - 1,
+      localDirect, input.principal.email, input.principal.role, input.job.scope_json, input.ordinal - 1,
       time.dayStart, time.dayEnd, time.dayStart, time.dayEnd,
       AI_CHAT_DISPATCH_LIMITS.maximumDailyProviderDispatchesPerOwner,
       time.dayStart, time.dayEnd, time.dayStart, time.dayEnd,
@@ -1016,7 +1014,6 @@ async function reserveToolDispatch(input: {
   db: D1Database;
 }) {
   const allowedToolsJson = JSON.stringify(parseAllowedTools(input.job.allowed_tools_json));
-  const scopeCoverage = storedScopeCoverageSql("u.scope_json", "j.scope_json");
   const localDirect = input.principal.email === "local-admin@teruisi.local" ? 1 : 0;
   const result = await input.db.prepare(`INSERT OR IGNORE INTO ai_agent_tool_dispatches (
       id, job_id, provider_dispatch_id, tool_call_ordinal, provider_call_id, tool_name,
@@ -1032,9 +1029,8 @@ async function reserveToolDispatch(input: {
       AND EXISTS (SELECT 1 FROM ai_models m
         WHERE m.id = j.model_id AND m.version = j.model_version
           AND m.status = 'enabled' AND m.model_type IN ('text','vision'))
-      AND (? = 1 OR EXISTS (SELECT 1 FROM app_users u
-        WHERE u.email = j.owner_email COLLATE NOCASE AND u.status = 'active'
-          AND u.role = ? AND u.role IN ('analyst','operator','admin') AND ${scopeCoverage}))
+      AND (? = 1 OR (j.owner_email = ? COLLATE NOCASE
+        AND ? IN ('analyst','operator','admin') AND j.scope_json = ?))
       AND (SELECT COUNT(*) FROM ai_agent_tool_dispatches prior WHERE prior.job_id = j.id) = ?
       AND (SELECT COUNT(*) FROM ai_agent_tool_dispatches prior
         WHERE prior.job_id = j.id AND prior.tool_name = ?) < ?`)
@@ -1043,7 +1039,8 @@ async function reserveToolDispatch(input: {
       input.argumentsJson, input.argumentsDigest, input.invocationId,
       input.providerDispatchId, input.job.id, input.lease.leaseToken, input.lease.leaseEpoch,
       input.model.id, input.model.version, allowedToolsJson, input.job.tool_policy_digest,
-      localDirect, input.principal.role, input.ordinal - 1, input.call.name, input.perToolLimit,
+      localDirect, input.principal.email, input.principal.role, input.job.scope_json,
+      input.ordinal - 1, input.call.name, input.perToolLimit,
     ).run();
   if (changes(result) !== 1) {
     throw new AgentPreDispatchError("tool_dispatch_not_admitted", "工具派发前的身份、范围、模型版本、调用上限或租约校验未通过。", false);

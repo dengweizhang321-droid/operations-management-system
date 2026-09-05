@@ -3034,3 +3034,27 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
     background-position: 50% 0;
   }
 }
+.access-control-layout { display: grid; gap: 16px; }
+.access-control-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.access-control-summary article { display: grid; gap: 6px; }
+.access-control-summary article > small { color: var(--muted); text-transform: uppercase; }
+.access-control-summary article > strong { font-size: 18px; }
+.access-control-summary article > p { color: var(--muted); margin: 0; min-height: 42px; }
+.access-control-summary article > em { color: var(--accent); font-style: normal; font-size: 12px; }
+.access-control-grid { grid-template-columns: minmax(280px, .8fr) minmax(420px, 1.4fr); }
+.access-control-users > input { width: 100%; margin: 10px 0; }
+.access-control-user-list { display: grid; gap: 6px; max-height: 510px; overflow: auto; }
+.access-control-user-list button { width: 100%; display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; text-align: left; border: 1px solid transparent; border-radius: 10px; padding: 9px; background: transparent; }
+.access-control-user-list button:hover, .access-control-user-list button.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.access-control-user-list button > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-soft); }
+.access-control-user-list button div { min-width: 0; display: grid; }
+.access-control-user-list button small { overflow: hidden; text-overflow: ellipsis; }
+.access-control-user-list button em { font-style: normal; font-size: 12px; color: var(--muted); }
+.access-control-audit-list { display: grid; }
+.access-control-audit-list article { display: grid; grid-template-columns: 110px minmax(180px, .8fr) minmax(180px, .7fr) 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.access-control-audit-list time, .access-control-audit-list small { color: var(--muted); font-size: 12px; }
+@media (max-width: 900px) {
+  .access-control-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .access-control-grid { grid-template-columns: 1fr; }
+  .access-control-audit-list article { grid-template-columns: 1fr; gap: 3px; }
+}

@@ -1,5 +1,5 @@
-import type { AppDataScope, AppPrincipal } from "@/lib/auth/authorization";
-import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
+import type { AppPrincipal } from "@/lib/auth/authorization";
+import { resolveAiBackgroundPrincipal } from "@/lib/ai/background-principal";
 import { BoundedFetchError, fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import { decryptSecret, encryptSecret } from "@/lib/ai/crypto";
 import {
@@ -1800,76 +1800,9 @@ async function runnerContext(lease: AiSpaceItemLease, db: D1Database): Promise<R
     ) LIMIT 1`).bind(lease.jobId, lease.itemId, lease.leaseToken, lease.leaseEpoch).first<RunnerContextRow>();
 }
 
-type RunnerUserRow = { role: string; status: string; scope_json: string | null };
-
-function strictStoredScope(value: string | null, sqlNullIsUnrestricted: boolean): AppDataScope | undefined {
-  if (value === null) return sqlNullIsUnrestricted ? null : undefined;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (parsed === null) return sqlNullIsUnrestricted ? undefined : null;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
-    const record = parsed as Record<string, unknown>;
-    const dimensions = [record.warehouses, record.channels, record.platforms];
-    if (dimensions.some((items) => !Array.isArray(items) || !items.every((item) => typeof item === "string"))) return undefined;
-    return {
-      warehouses: [...new Set(record.warehouses as string[])],
-      channels: [...new Set(record.channels as string[])],
-      platforms: [...new Set(record.platforms as string[])],
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function scopeCoversSnapshot(current: AppDataScope, snapshot: AppDataScope): boolean {
-  if (current === null) return true;
-  if (snapshot === null) return false;
-  return snapshot.warehouses.every((value) => current.warehouses.includes(value))
-    && snapshot.channels.every((value) => current.channels.includes(value))
-    && snapshot.platforms.every((value) => current.platforms.includes(value));
-}
-
-async function localRunnerRole(context: RunnerContextRow): Promise<string | null> {
-  if (context.owner_email !== "local-admin@teruisi.local" || context.scope_json !== "null") return null;
-  try {
-    const cloudflare = await import("cloudflare:workers");
-    const runtime = cloudflare.env as unknown as Record<string, unknown>;
-    const viteEnvironment = (
-      import.meta as ImportMeta & {
-        readonly env?: {
-          readonly DEV?: boolean;
-          readonly PROD?: boolean;
-          readonly VITE_TERUISI_LOCAL_BUILD?: string;
-        };
-      }
-    ).env;
-    return decideLocalDirectAccess(["admin", "operator", "analyst"], {
-      enabled: typeof runtime.TERUISI_LOCAL_DIRECT_ACCESS === "string"
-        ? runtime.TERUISI_LOCAL_DIRECT_ACCESS
-        : undefined,
-      runtimeEnvironment: typeof runtime.TERUISI_RUNTIME_ENV === "string"
-        ? runtime.TERUISI_RUNTIME_ENV
-        : undefined,
-      viteDevelopment: viteEnvironment?.DEV === true,
-      viteProduction: viteEnvironment?.PROD === true,
-      nodeEnvironment: globalThis.process?.env?.NODE_ENV,
-      localBuild: viteEnvironment?.VITE_TERUISI_LOCAL_BUILD?.trim().toLowerCase() === "true",
-    }) === "allowed" ? "admin" : null;
-  } catch {
-    return null;
-  }
-}
-
-async function authorizeAiSpaceDispatch(context: RunnerContextRow, db: D1Database): Promise<{ role: string } | null> {
-  const localRole = await localRunnerRole(context);
-  if (localRole) return { role: localRole };
-  const user = await db.prepare(`SELECT role, status, scope_json FROM app_users
-    WHERE email = ? COLLATE NOCASE LIMIT 1`).bind(context.owner_email).first<RunnerUserRow>();
-  if (!user || user.status !== "active" || !["admin", "operator", "analyst"].includes(user.role)) return null;
-  const currentScope = strictStoredScope(user.scope_json, true);
-  const jobScope = strictStoredScope(context.scope_json, false);
-  if (currentScope === undefined || jobScope === undefined || !scopeCoversSnapshot(currentScope, jobScope)) return null;
-  return { role: user.role };
+async function authorizeAiSpaceDispatch(context: RunnerContextRow): Promise<{ role: string } | null> {
+  const authorization = await resolveAiBackgroundPrincipal(context.owner_email, context.scope_json);
+  return authorization.ok ? { role: authorization.actorRole } : null;
 }
 
 async function beginAiSpaceDispatch(
@@ -2115,7 +2048,7 @@ export async function runScheduledAiSpace(input: {
     await refreshAiSpaceJobAggregate(lease.jobId, db);
     return { status: changes(result) === 1 ? "cancelled" as const : "lost" as const, jobId: lease.jobId, itemId: lease.itemId, cleaned };
   }
-  const authorization = await authorizeAiSpaceDispatch(context, db);
+  const authorization = await authorizeAiSpaceDispatch(context);
   if (!authorization) {
     await failAiSpaceItemLease(lease, "authorization_revoked", "任务所有者的账号、角色或数据范围已失效，未派发图片生成", startedAt, db);
     return { status: "failed" as const, jobId: lease.jobId, itemId: lease.itemId, code: "authorization_revoked", cleaned };

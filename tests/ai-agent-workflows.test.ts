@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { SalesDatabase } from "../lib/sales/database";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __aiAgentWorkflowTestEnv?: typeof testEnvironment }).__aiAgentWorkflowTestEnv = testEnvironment;
@@ -615,6 +616,7 @@ test("scheduled workflow maintenance fails waiting review runs after owner revoc
     sqlite.exec("PRAGMA foreign_keys = ON");
     const db = sqliteAdapter(sqlite);
     try {
+      installDjangoAccessControlFixture(sqlite);
       await ensureAuthorizationSchema(db);
       sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
         VALUES (?, ?, 'operator', 'active', ?)`)
@@ -674,6 +676,7 @@ test("scheduled workflow maintenance fails a malformed immutable scope even for 
   sqlite.exec("PRAGMA foreign_keys = ON");
   const db = sqliteAdapter(sqlite);
   try {
+    installDjangoAccessControlFixture(sqlite);
     await ensureAuthorizationSchema(db);
     sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
       VALUES (?, ?, 'operator', 'active', NULL)`).run(owner.email, owner.displayName);
@@ -705,6 +708,7 @@ test("scheduled workflow maintenance expires only stale waiting or paused runs a
   sqlite.exec("PRAGMA foreign_keys = ON");
   const db = sqliteAdapter(sqlite);
   try {
+    installDjangoAccessControlFixture(sqlite);
     await ensureAuthorizationSchema(db);
     sqlite.prepare(`INSERT INTO app_users (email, display_name, role, status, scope_json)
       VALUES (?, ?, 'operator', 'active', NULL)`).run(owner.email, owner.displayName);

@@ -780,11 +780,13 @@ test("requires an authenticated principal for reads and keeps writes on their de
   assert.match(page, /只读查看者/);
   assert.doesNotMatch(page, /IdentityGate/);
   assert.doesNotMatch(page, /林晓 · 管理员/);
-  assert.match(schema, /app_users/);
+  assert.doesNotMatch(schema, /sqliteTable\(\s*["']app_users["']/);
   assert.match(schema, /ai_tool_audit_logs/);
   assert.match(authorization, /dengweizhang321@gmail\.com/);
   assert.match(authorization, /getChatGPTUser/);
-  assert.match(authorization, /WHERE email = \? COLLATE NOCASE/);
+  assert.match(authorization, /createDjangoAccessControlService/);
+  assert.match(authorization, /ACCESS_CONTROL_RESOLVE_PATH/);
+  assert.doesNotMatch(authorization, /FROM app_users|WHERE email = \? COLLATE NOCASE/);
   assert.match(authRoute, /requireAppPrincipal/);
   assert.match(migration, /INSERT INTO `app_users`/);
   assert.match(migration, /dengweizhang321@gmail\.com/);

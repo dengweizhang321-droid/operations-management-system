@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import uuid
@@ -53,6 +54,58 @@ REQUIRED_BI_COLUMNS = {
         "created_at", "verified_at",
     },
 }
+REQUIRED_ACCESS_CONTROL_COLUMNS = {
+    "access_control_roles": {"code", "label", "rank", "permissions", "version"},
+    "access_control_users": {
+        "email", "display_name", "role", "status", "scope", "version",
+        "created_at", "updated_at", "migration_generation",
+    },
+    "access_control_permission_audits": {
+        "sequence", "event_id", "request_id", "actor_email", "actor_role",
+        "target_email", "action", "before_state", "after_state",
+        "before_digest", "after_digest", "reason", "occurred_at",
+    },
+    "access_control_data_revisions": {"domain", "revision", "source_digest"},
+}
+REQUIRED_ACCESS_CONTROL_WRITER_COLUMNS = {
+    **REQUIRED_ACCESS_CONTROL_COLUMNS,
+    "access_control_write_authority": {
+        "id", "status", "authority_epoch", "cutover_id", "migration_verify_run_id",
+    },
+    "access_control_write_request_receipts": {
+        "request_id", "body_sha256", "query_sha256", "method", "path",
+        "actor_email", "status", "response_payload",
+    },
+}
+REQUIRED_ACCESS_CONTROL_INDEXES = {
+    "access_user_role_status_idx", "access_user_status_time_idx",
+    "access_audit_target_time_idx", "access_audit_action_time_idx",
+}
+ACCESS_CONTROL_ROLE_CONTRACT = [
+    ("viewer", 10, ["data.read"]),
+    ("analyst", 20, ["data.read", "analytics.read", "ai.query"]),
+    ("operator", 30, [
+        "data.read", "analytics.read", "ai.query", "operations.write",
+        "workflow.execute",
+    ]),
+    ("admin", 40, [
+        "data.read", "analytics.read", "ai.query", "operations.write",
+        "workflow.execute", "imports.execute", "settings.write",
+        "access_control.manage", "access_control.audit.read",
+    ]),
+]
+ACCESS_CONTROL_READER_TABLE_PRIVILEGES = {
+    table: ("SELECT",) for table in REQUIRED_ACCESS_CONTROL_COLUMNS
+}
+ACCESS_CONTROL_WRITER_TABLE_PRIVILEGES = {
+    "access_control_roles": ("SELECT",),
+    "access_control_users": ("SELECT", "INSERT", "UPDATE"),
+    "access_control_permission_audits": ("SELECT", "INSERT"),
+    "access_control_data_revisions": ("SELECT", "UPDATE"),
+    "access_control_write_authority": ("SELECT",),
+    "access_control_write_request_receipts": ("SELECT", "INSERT", "UPDATE"),
+}
+ACCESS_CONTROL_WRITER_AUTO_ID_TABLES = ("access_control_permission_audits",)
 
 REQUIRED_COLUMNS = {
     "sales_order_lines": {
@@ -1937,6 +1990,158 @@ def live(_request):
     return _response({"status": "ok", "service": "teruisi-django"})
 
 
+def _validate_access_control_schema(cursor, *, writer: bool) -> None:
+    expected = REQUIRED_ACCESS_CONTROL_WRITER_COLUMNS if writer else REQUIRED_ACCESS_CONTROL_COLUMNS
+    tables = set(connection.introspection.table_names(cursor))
+    for table, columns in expected.items():
+        if table not in tables:
+            raise ReadinessError("access_control_writer_schema_missing" if writer else "access_control_reader_schema_missing")
+        if not columns.issubset(_column_names(cursor, table)):
+            raise ReadinessError("access_control_writer_schema_incomplete" if writer else "access_control_reader_schema_incomplete")
+    present_indexes: set[str] = set()
+    for table in REQUIRED_ACCESS_CONTROL_COLUMNS:
+        present_indexes.update(
+            name for name, value in connection.introspection.get_constraints(cursor, table).items()
+            if value.get("index") or value.get("unique")
+        )
+    if not REQUIRED_ACCESS_CONTROL_INDEXES.issubset(present_indexes):
+        raise ReadinessError("access_control_indexes_incomplete")
+
+
+def _validate_access_control_state(cursor) -> None:
+    cursor.execute(
+        "SELECT revision,source_digest FROM access_control_data_revisions "
+        "WHERE domain='access-control'"
+    )
+    row = cursor.fetchone()
+    if row is None or int(row[0]) < 1 or not HEX_64.fullmatch(str(row[1] or "")):
+        raise ReadinessError("access_control_revision_invalid")
+    cursor.execute(
+        "SELECT code,rank,permissions FROM access_control_roles ORDER BY rank"
+    )
+    role_rows = []
+    try:
+        for code, rank, permissions in cursor.fetchall():
+            normalized_permissions = json.loads(permissions) if isinstance(permissions, str) else permissions
+            role_rows.append((code, rank, normalized_permissions))
+    except (TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ReadinessError("access_control_role_catalog_invalid") from error
+    if role_rows != ACCESS_CONTROL_ROLE_CONTRACT:
+        raise ReadinessError("access_control_role_catalog_invalid")
+    cursor.execute(
+        "SELECT role,status,scope FROM access_control_users "
+        "WHERE email='dengweizhang321@gmail.com'"
+    )
+    bootstrap = cursor.fetchone()
+    if bootstrap is None or tuple(bootstrap) != ("admin", "active", None):
+        raise ReadinessError("access_control_bootstrap_admin_invalid")
+
+
+def _validate_access_control_writer_authority(cursor) -> None:
+    cursor.execute(
+        "SELECT status,authority_epoch,cutover_id,migration_verify_run_id "
+        "FROM access_control_write_authority WHERE id=1"
+    )
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != "postgres":
+        raise ReadinessError("access_control_writer_authority_inactive")
+    try:
+        epoch = str(uuid.UUID(str(row[1])))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ReadinessError("access_control_writer_authority_invalid") from error
+    if (
+        epoch != settings.ACCESS_CONTROL_WRITE_AUTHORITY_EPOCH
+        or str(row[2]) != settings.ACCESS_CONTROL_WRITE_CUTOVER_ID
+        or not re.fullmatch(r"access-control-[0-9a-f]{32}", str(row[3] or ""))
+    ):
+        raise ReadinessError("access_control_writer_authority_mismatch")
+
+
+def _validate_access_control_runtime_role(cursor) -> str:
+    cursor.execute("SELECT current_schema()")
+    application_schema = str(cursor.fetchone()[0])
+    cursor.execute(
+        "SELECT rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,"
+        "rolreplication,rolbypassrls FROM pg_catalog.pg_roles WHERE rolname=current_user"
+    )
+    role = cursor.fetchone()
+    if role is None or tuple(bool(value) for value in role) != (False, False, False, False, True, False, False):
+        raise ReadinessError("access_control_database_role_attributes_excessive")
+    cursor.execute(
+        "SELECT has_schema_privilege(current_user,current_schema(),'CREATE'),"
+        "has_database_privilege(current_user,current_database(),'CREATE')"
+    )
+    if any(bool(value) for value in cursor.fetchone()):
+        raise ReadinessError("access_control_database_privilege_excessive")
+    return application_schema
+
+
+def _validate_access_control_table_permissions(cursor, expected: dict[str, tuple[str, ...]]) -> None:
+    for table, privileges in expected.items():
+        for privilege in privileges:
+            cursor.execute("SELECT has_table_privilege(current_user,%s,%s)", [table, privilege])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("access_control_database_privilege_missing")
+    application_schema = _validate_access_control_runtime_role(cursor)
+    cursor.execute(
+        "SELECT n.nspname,c.relname,has_table_privilege(current_user,c.oid,'SELECT'),"
+        "has_table_privilege(current_user,c.oid,'INSERT'),"
+        "has_table_privilege(current_user,c.oid,'UPDATE'),"
+        "has_table_privilege(current_user,c.oid,'DELETE'),"
+        "has_table_privilege(current_user,c.oid,'TRUNCATE'),"
+        "has_any_column_privilege(current_user,c.oid,'INSERT'),"
+        "has_any_column_privilege(current_user,c.oid,'UPDATE') "
+        "FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname=current_schema()"
+    )
+    for row in cursor.fetchall():
+        schema_name, table_name = str(row[0]), str(row[1])
+        actual = {
+            "SELECT": bool(row[2]), "INSERT": bool(row[3]) or bool(row[7]),
+            "UPDATE": bool(row[4]) or bool(row[8]), "DELETE": bool(row[5]),
+            "TRUNCATE": bool(row[6]),
+        }
+        allowed = set(expected.get(table_name, ())) if schema_name == application_schema else set()
+        if any(granted and privilege not in allowed for privilege, granted in actual.items()):
+            raise ReadinessError("access_control_database_privilege_excessive")
+
+
+def _validate_access_control_reader_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("access_control_reader_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "on":
+        raise ReadinessError("database_role_not_read_only")
+    _validate_access_control_table_permissions(cursor, ACCESS_CONTROL_READER_TABLE_PRIVILEGES)
+
+
+def _validate_access_control_writer_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("access_control_writer_database_not_postgresql")
+        return
+    cursor.execute("SHOW transaction_read_only")
+    if cursor.fetchone()[0] != "off":
+        raise ReadinessError("access_control_writer_database_read_only")
+    _validate_access_control_table_permissions(cursor, ACCESS_CONTROL_WRITER_TABLE_PRIVILEGES)
+    for table in ACCESS_CONTROL_WRITER_AUTO_ID_TABLES:
+        cursor.execute(
+            "SELECT pg_get_serial_sequence(%s,'sequence')",
+            [table],
+        )
+        sequence_name = cursor.fetchone()[0]
+        if not sequence_name:
+            raise ReadinessError("access_control_writer_sequence_missing")
+        cursor.execute(
+            "SELECT has_sequence_privilege(current_user,%s,'USAGE')",
+            [sequence_name],
+        )
+        if cursor.fetchone()[0] is not True:
+            raise ReadinessError("access_control_writer_database_privilege_missing")
+
+
 @require_GET
 def ready(_request):
     writer_process = settings.DJANGO_PROCESS_ROLE == "sales_writer"
@@ -1957,9 +2162,21 @@ def ready(_request):
     customer_service_writer_process = settings.DJANGO_PROCESS_ROLE == "customer_service_writer"
     customer_service_reader_process = settings.DJANGO_PROCESS_ROLE == "customer_service_reader"
     bi_reader_process = settings.DJANGO_PROCESS_ROLE == "bi_reader"
+    access_control_writer_process = settings.DJANGO_PROCESS_ROLE == "access_control_writer"
+    access_control_reader_process = settings.DJANGO_PROCESS_ROLE == "access_control_reader"
     try:
         with connection.cursor() as cursor:
-            if bi_reader_process:
+            if access_control_writer_process:
+                _validate_access_control_schema(cursor, writer=True)
+                _validate_access_control_state(cursor)
+                _validate_access_control_writer_authority(cursor)
+                _validate_access_control_writer_permissions(cursor)
+            elif access_control_reader_process:
+                _validate_access_control_schema(cursor, writer=False)
+                _validate_access_control_state(cursor)
+                if settings.DJANGO_EXPECT_READ_ONLY:
+                    _validate_access_control_reader_permissions(cursor)
+            elif bi_reader_process:
                 _validate_bi_reader_state(cursor)
                 if settings.DJANGO_EXPECT_READ_ONLY:
                     if connection.vendor != "postgresql":
@@ -2112,7 +2329,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "bi_reader_unavailable"
+                    "access_control_writer_unavailable"
+                    if access_control_writer_process
+                    else "access_control_reader_unavailable"
+                    if access_control_reader_process
+                    else "bi_reader_unavailable"
                     if bi_reader_process
                     else "erp_reference_writer_unavailable"
                     if erp_reference_writer_process
@@ -2163,7 +2384,11 @@ def ready(_request):
                 "status": "not_ready",
                 "service": "teruisi-django",
                 "code": (
-                    "bi_reader_unavailable"
+                    "access_control_writer_unavailable"
+                    if access_control_writer_process
+                    else "access_control_reader_unavailable"
+                    if access_control_reader_process
+                    else "bi_reader_unavailable"
                     if bi_reader_process
                     else "erp_reference_writer_unavailable"
                     if erp_reference_writer_process
@@ -2209,7 +2434,11 @@ def ready(_request):
         "service": "teruisi-django",
         "database": "ready",
     }
-    if bi_reader_process:
+    if access_control_writer_process:
+        payload["accessControlWriter"] = "ready"
+    elif access_control_reader_process:
+        payload["accessControlReader"] = "ready"
+    elif bi_reader_process:
         payload["biReader"] = "ready"
     elif erp_reference_writer_process:
         payload["erpReferenceWriter"] = "ready"

@@ -53,7 +53,7 @@ const isWindows = process.platform === "win32";
 
 const DEV_VARS_BEGIN = "# >>> teruisi-django-dev-backend >>> 由 tools/django-dev-backend.mjs 维护，请勿手工编辑此块";
 const DEV_VARS_END = "# <<< teruisi-django-dev-backend <<<";
-const DOMAINS = ["SALES", "FINANCE", "NETSHOP", "MARKET", "PRODUCTS", "INVENTORY", "WORKFLOW", "CUSTOMER_SERVICE", "ERP"];
+const DOMAINS = ["SALES", "FINANCE", "NETSHOP", "MARKET", "PRODUCTS", "INVENTORY", "WORKFLOW", "CUSTOMER_SERVICE", "ERP", "ACCESS_CONTROL"];
 const READ_ONLY_DOMAINS = ["BI"];
 const MODE_FLAGS = { FINANCE: "TERUISI_DJANGO_FINANCE_MODE", WORKFLOW: "TERUISI_DJANGO_WORKFLOW_MODE", CUSTOMER_SERVICE: "TERUISI_DJANGO_CUSTOMER_SERVICE_MODE", ERP: "TERUISI_DJANGO_ERP_MODE" };
 const WRITER_MAX_BODY_BYTES = 67_108_864;

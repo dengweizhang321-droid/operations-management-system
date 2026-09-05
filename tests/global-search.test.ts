@@ -1156,7 +1156,7 @@ test("every durable schema table is explicitly searchable, projected, or securit
   ].sort();
   assert.deepEqual(classified, schemaTables);
   assert.equal(new Set(classified).size, classified.length);
-  for (const sensitive of ["app_users", "ai_models", "ai_tool_audit_logs", "market_annotation_local_agents"]) {
+  for (const sensitive of ["ai_models", "ai_tool_audit_logs", "market_annotation_local_agents"]) {
     assert.equal(GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT.excludedSensitiveOrInternal.includes(sensitive as never), true);
     assert.equal(GLOBAL_SEARCH_SCHEMA_TABLE_AUDIT.searchable.includes(sensitive as never), false);
   }

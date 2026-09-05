@@ -6,18 +6,14 @@ import {
   type AppRole,
 } from "@/lib/auth/authorization";
 import { decideLocalDirectAccess } from "@/lib/auth/local-direct-access";
-import type { D1Database } from "@/lib/database/d1";
+import {
+  ACCESS_CONTROL_BACKGROUND_PATH,
+  AccessControlServiceError,
+  createDjangoAccessControlService,
+} from "@/lib/django/access-control-service";
 
 const BACKGROUND_AGENT_ROLES = ["analyst", "operator", "admin"] as const;
 const LOCAL_BACKGROUND_OWNER = "local-admin@teruisi.local";
-
-type BackgroundUserRow = {
-  email: string;
-  display_name: string;
-  role: string;
-  status: string;
-  scope_json: string | null;
-};
 
 export type AiBackgroundPrincipalResult =
   | { ok: true; principal: AppPrincipal; actorRole: AppRole; localDirect: boolean }
@@ -26,7 +22,6 @@ export type AiBackgroundPrincipalResult =
 export async function resolveAiBackgroundPrincipal(
   ownerEmailInput: string,
   scopeSnapshotJson: string,
-  db: D1Database,
 ): Promise<AiBackgroundPrincipalResult> {
   const ownerEmail = ownerEmailInput.trim().toLowerCase();
   const snapshot = parseStoredScope(scopeSnapshotJson, false);
@@ -46,21 +41,48 @@ export async function resolveAiBackgroundPrincipal(
     };
   }
 
-  const row = await db.prepare(`SELECT email, display_name, role, status, scope_json
-    FROM app_users WHERE email = ? COLLATE NOCASE LIMIT 1`)
-    .bind(ownerEmail).first<BackgroundUserRow>();
-  if (!row || row.status !== "active" || !isBackgroundRole(row.role)) {
+  const signedIdentity: AppPrincipal = {
+    email: ownerEmail,
+    displayName: ownerEmail,
+    role: "viewer",
+    scope: null,
+  };
+  let row: Record<string, unknown>;
+  try {
+    const result = await createDjangoAccessControlService().request<{ user?: unknown }>(
+      signedIdentity,
+      {
+        method: "POST",
+        path: ACCESS_CONTROL_BACKGROUND_PATH,
+        service: "reader",
+        payload: { ownerEmail, scope: snapshot },
+      },
+    );
+    if (!result.data.user || typeof result.data.user !== "object" || Array.isArray(result.data.user)) {
+      return { ok: false, code: "authorization_revoked", message: "权限服务未返回有效任务身份。" };
+    }
+    row = result.data.user as Record<string, unknown>;
+  } catch (error) {
+    const message = error instanceof AccessControlServiceError && error.status === 403
+      ? error.message
+      : "权限服务不可用，后台任务已失败关闭。";
+    return { ok: false, code: "authorization_revoked", message };
+  }
+  if (row.email !== ownerEmail || typeof row.displayName !== "string"
+    || typeof row.role !== "string" || !isBackgroundRole(row.role)
+    || row.status !== "active") {
     return { ok: false, code: "authorization_revoked", message: "任务发起账号已停用或不再具备 Agent 执行角色。" };
   }
-  const currentScope = parseStoredScope(row.scope_json, true);
-  if (currentScope === undefined || !scopeCoversSnapshot(currentScope, snapshot)) {
-    return { ok: false, code: "authorization_revoked", message: "任务发起账号的当前数据范围不再覆盖创建快照。" };
+  const returnedScope = parseStoredScope(JSON.stringify(row.scope), false);
+  if (returnedScope === undefined || !scopeCoversSnapshot(returnedScope, snapshot)
+    || !scopeCoversSnapshot(snapshot, returnedScope)) {
+    return { ok: false, code: "authorization_revoked", message: "权限服务返回的数据范围与任务快照不一致。" };
   }
   return {
     ok: true,
     principal: {
-      email: row.email.trim().toLowerCase(),
-      displayName: row.display_name || row.email,
+      email: ownerEmail,
+      displayName: row.displayName,
       role: row.role,
       // Expansion never broadens an existing job: tools always receive the immutable snapshot.
       scope: snapshot,
@@ -68,47 +90,6 @@ export async function resolveAiBackgroundPrincipal(
     actorRole: row.role,
     localDirect: false,
   };
-}
-
-/**
- * SQL predicate proving a stored current user scope still covers an immutable
- * task scope. Both expressions must be trusted server-selected columns.
- */
-export function storedScopeCoverageSql(currentScopeExpression: string, snapshotExpression: string): string {
-  const current = `CASE WHEN ${currentScopeExpression} IS NOT NULL AND json_valid(${currentScopeExpression})
-    THEN ${currentScopeExpression} ELSE 'null' END`;
-  const snapshot = `CASE WHEN ${snapshotExpression} IS NOT NULL AND json_valid(${snapshotExpression})
-    THEN ${snapshotExpression} ELSE 'null' END`;
-  return `(
-    ${currentScopeExpression} IS NULL
-    OR (
-      ${snapshotExpression} IS NOT NULL
-      AND ${snapshotExpression} <> 'null'
-      AND json_valid(${snapshotExpression})
-      AND json_type(${snapshot}) = 'object'
-      AND json_type(${snapshot}, '$.warehouses') = 'array'
-      AND json_type(${snapshot}, '$.channels') = 'array'
-      AND json_type(${snapshot}, '$.platforms') = 'array'
-      AND ${currentScopeExpression} <> 'null'
-      AND json_valid(${currentScopeExpression})
-      AND json_type(${current}) = 'object'
-      AND json_type(${current}, '$.warehouses') = 'array'
-      AND json_type(${current}, '$.channels') = 'array'
-      AND json_type(${current}, '$.platforms') = 'array'
-      AND NOT EXISTS (SELECT 1 FROM json_each(${snapshot}, '$.warehouses') item
-        WHERE item.type <> 'text' OR CAST(item.value AS TEXT) NOT IN (
-          SELECT CAST(allowed.value AS TEXT) FROM json_each(${current}, '$.warehouses') allowed
-        ))
-      AND NOT EXISTS (SELECT 1 FROM json_each(${snapshot}, '$.channels') item
-        WHERE item.type <> 'text' OR CAST(item.value AS TEXT) NOT IN (
-          SELECT CAST(allowed.value AS TEXT) FROM json_each(${current}, '$.channels') allowed
-        ))
-      AND NOT EXISTS (SELECT 1 FROM json_each(${snapshot}, '$.platforms') item
-        WHERE item.type <> 'text' OR CAST(item.value AS TEXT) NOT IN (
-          SELECT CAST(allowed.value AS TEXT) FROM json_each(${current}, '$.platforms') allowed
-        ))
-    )
-  )`;
 }
 
 function isBackgroundRole(value: string): value is (typeof BACKGROUND_AGENT_ROLES)[number] {

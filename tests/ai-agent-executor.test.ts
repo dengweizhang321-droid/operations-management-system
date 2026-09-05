@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { AppPrincipal } from "../lib/auth/authorization";
 import type { ModelProviderTranscriptFrame, ModelProviderTurnResult } from "../lib/ai/model-gateway";
 import type { SalesDatabase } from "../lib/sales/database";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 
 const testEnvironment: { DB?: unknown } = {};
 (globalThis as typeof globalThis & { __aiAgentExecutorTestEnv?: typeof testEnvironment }).__aiAgentExecutorTestEnv = testEnvironment;
@@ -519,6 +520,7 @@ async function withAgentDatabase(
   const db = sqliteAdapter(sqlite);
   testEnvironment.DB = db;
   try {
+    installDjangoAccessControlFixture(sqlite);
     await ensureAiAgentExecutorSchema(db);
     sqlite.prepare(`INSERT OR REPLACE INTO app_users (email, display_name, role, status, scope_json)
       VALUES (?, ?, 'operator', 'active', NULL)`).run(owner.email, owner.displayName);

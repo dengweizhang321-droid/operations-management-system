@@ -1,23 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-/** Server-side allowlist and authorization source for the operations console. */
-export const appUsers = sqliteTable(
-  "app_users",
-  {
-    email: text("email").primaryKey(),
-    displayName: text("display_name").notNull().default(""),
-    role: text("role").notNull(),
-    status: text("status").notNull().default("active"),
-    scopeJson: text("scope_json"),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    index("app_users_role_status_idx").on(table.role, table.status),
-  ],
-);
-
 /** Configured AI model endpoints; credentials are stored encrypted. */
 export const aiModels = sqliteTable("ai_models", {
   id: text("id").primaryKey(),

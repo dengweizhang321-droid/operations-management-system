@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { deflateSync } from "node:zlib";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
+import { installDjangoAccessControlFixture } from "./access-control-service-fixture";
 import type { SalesDatabase } from "../lib/sales/database";
 
 const testEnvironment: { DB?: unknown; SALES_IMPORT_FILES?: unknown } = {};
@@ -707,10 +708,7 @@ function applyDrizzleMigration(sqlite: DatabaseSync, migration: string) {
 }
 
 function seedAppUser(sqlite: DatabaseSync, principal: AppPrincipal) {
-  sqlite.exec(`CREATE TABLE IF NOT EXISTS app_users (
-    email TEXT PRIMARY KEY NOT NULL COLLATE NOCASE, display_name TEXT NOT NULL DEFAULT '',
-    role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', scope_json TEXT
-  )`);
+  installDjangoAccessControlFixture(sqlite);
   sqlite.prepare(`INSERT OR REPLACE INTO app_users (email, display_name, role, status, scope_json)
     VALUES (?, ?, ?, 'active', ?)`).run(
     principal.email,

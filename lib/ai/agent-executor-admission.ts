@@ -9,7 +9,6 @@ import {
 import { ensureAiAgentWorkflowSchema } from "@/lib/ai/agent-workflow-schema";
 import {
   resolveAiBackgroundPrincipal,
-  storedScopeCoverageSql,
 } from "@/lib/ai/background-principal";
 import { resolveChatModel } from "@/lib/ai/assistant-service";
 import {
@@ -173,7 +172,7 @@ async function failRevokedActiveFormalWorkflows(db: D1Database): Promise<void> {
     ORDER BY created_at, id
     LIMIT 64`).all<ActiveFormalWorkflowAuthorizationRow>();
   for (const row of rows.results ?? []) {
-    const authorization = await resolveAiBackgroundPrincipal(row.owner_email, row.scope_json, db);
+    const authorization = await resolveAiBackgroundPrincipal(row.owner_email, row.scope_json);
     if (!authorization.ok) {
       await failWorkflowForRevokedAuthorization(row, authorization, db);
       continue;
@@ -191,17 +190,10 @@ async function failWorkflowForRevokedAuthorization(
 ): Promise<void> {
   const errorCode = authorization.code;
   const errorMessage = authorization.message.slice(0, 800);
-  const localDirectOwner = row.owner_email.trim().toLowerCase() === "local-admin@teruisi.local";
-  const currentScopeCoversRun = storedScopeCoverageSql("u.scope_json", "ai_workflow_runs.scope_json");
-  // Recheck the mutable user row inside the fenced UPDATE. If an administrator
-  // restored the role/scope after our read, this write affects zero rows and a
-  // later tick evaluates the fresh authorization state instead of failing it.
-  const authorizationStillRevoked = authorization.code === "scope_invalid" || localDirectOwner
-    ? "1 = 1"
-    : `NOT EXISTS (SELECT 1 FROM app_users u
-        WHERE u.email = ai_workflow_runs.owner_email COLLATE NOCASE
-          AND u.status = 'active' AND u.role IN ('analyst','operator','admin')
-          AND ${currentScopeCoversRun})`;
+  // The current authorization was resolved from the PostgreSQL authority.
+  // The fenced update below still binds the exact immutable owner, scope,
+  // version and state snapshot; D1 no longer contains a second user authority.
+  const authorizationStillRevoked = "1 = 1";
   await failActiveFormalWorkflow(row, {
     actor: "system:workflow-authorization-maintenance",
     code: errorCode,
