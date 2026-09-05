@@ -67,7 +67,17 @@ TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID=<本次受控切换 ID>
 5. 回查 PostgreSQL 用户、角色、scope、审计、revision、最小权限和 reader readiness；激活 PostgreSQL authority 后启动 writer，并原子发布只调用 Django 的 Worker release。
 6. 完成真实登录正向/负向测试、未知用户拒绝、角色与 scope 收紧、后台任务撤权、并发 CAS、幂等重放和审计回查后，才可运行 operator-only `drizzle/0112_access_control_domain_retirement.sql`。该脚本要求精确退役回执，将旧表替换为空 tombstone views，并安装 6 个永久写入 guard。
 
-一旦 `0112` 完成即跨过 PNR：禁止恢复 D1 用户权限读写、自动补建、`legacy`/`shadow`、双写或反向迁移。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。
+PostgreSQL authority 激活后即按 PNR 处理（不等到 `0112`）：禁止恢复 D1 用户权限读写、自动补建、`legacy`/`shadow`、双写或反向迁移。恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或审批过的前向修复。
+
+## 2026-09-05 受控发布前复查
+
+- 用户已批准本次受控停写窗口与旧路径退役；全局 D1/R2 仍有 AI 数据、市场图片和运营事务附件依赖，权限域退役不得删除其他域的数据或全局 binding。本权限域没有 R2 文件/字节所有权，不虚构 R2 数据迁移。
+- 修复了最小权限 writer 的 authority/角色联表 `FOR UPDATE` 权限错误：writer 只锁自己的 revision、用户和回执，不获得 authority 或角色目录的更新权；等待 revision 锁后重新验证操作者，撤权后的请求和重放均拒绝。
+- `local-admin@teruisi.local` 是经 Worker 开发标记、受控本机构建和精确回环地址验证后的保留签名操作者，不是可注册或可经登录解析取得的用户。普通未知账号仍拒绝；审计保留本地操作者身份。
+- SQLite `CURRENT_TIMESTAMP` 按 UTC 解释，再由系统按上海时区展示。上节较早真实源演练摘要使用了旧时间解释，不得作为生产迁移批准摘要；正式迁移须重新 dry-run/apply/verify。
+- 独立 PostgreSQL 17 端口 `55439` 的固定合成夹具完成真实 reader/writer CRUD、审计、重放、CAS、错端点、未知用户和失配 authority 检查。apply：`access-control-768ce53cd85048d696bd804910e686b6`；verify：`access-control-verify-c389f9757a5e42ba9d8882d29a622e99`。合成源/目标摘要均为 `6ceeedeac19caf93232e20fcbdf0afefe2fc16313d5bb7752963eeb6d314ec70`，不代表生产用户。
+- 已完成线上只读全库备份 `daily-20260905T084345Z-6b5fd76b5aab`，manifest SHA-256 为 `8813298e9eecdb591caf5c703978a39f394078cc3684d8703bf958750f10b703`。独立 `55441` 恢复演练 `ac2026090501` 成功，源/恢复 content SHA-256 均为 `c81b33538933501e6ef249cfb034a3889ba11ee6c6fccfcb43d837da4c62ff10`；生产数据库和服务状态未改变。
+- 正式 operator 为 `tools/django-access-control-cutover.ps1`，只能从受保护 runtime app 执行。它提供 `PrepareRuntime`、`Snapshot`、`MigrateDryRun/Apply/Verify`、`InstallD1Authority`、`AuthorityPrepare/Activate`、`Smoke`、`RetirementPlan/Apply`；变更需 Worker 与权限 writer 停止，retirement 需要精确 plan ID、30 分钟内的真实部署 smoke 和同一事务内其他 D1 域事实摘要不变。权限表、revision、authority、迁移与审计已加入日常备份/恢复证据。
 
 ## 验证清单
 

@@ -68,6 +68,36 @@ def _source_fixture():
 
 
 class AccessControlMigrationTests(TestCase):
+    def test_controlled_retirement_preserves_unrelated_facts_and_fences_plan(self) -> None:
+        from django.utils import timezone
+        from access_control.management.commands.access_control_cutover_check import CHECKS
+        with _source_fixture() as source_path:
+            _command("access_control_cutover_check", source=str(source_path), action="install-authority", output=str(source_path.with_suffix(".installed.json")))
+            with sqlite3.connect(source_path) as source:
+                source.execute("CREATE TABLE unrelated_facts(id INTEGER PRIMARY KEY, value TEXT)")
+                source.execute("INSERT INTO unrelated_facts VALUES(1,'must survive')")
+            dry = _command("migrate_access_control_from_d1", source=str(source_path), mode="dry-run")
+            applied = _command("migrate_access_control_from_d1", source=str(source_path), mode="apply", approve_run_id=dry["runId"])
+            cutover = "access-control-retirement-fixture"
+            _command("access_control_write_authority", source=str(source_path), prepare=True, approved_run_id=applied["runId"], cutover_id=cutover)
+            activation = _command("access_control_write_authority", source=str(source_path), activate=True, approved_run_id=applied["runId"], cutover_id=cutover)
+            smoke = {"version": "access-control-system-test-receipt-v1", "status": "passed", "cutoverId": cutover, "migrationRunId": applied["runId"], "sourceDigest": applied["sourceDigest"], "targetDigest": applied["targetDigest"], "authorityEpoch": activation["authorityEpoch"], "checks": {key: "passed" for key in CHECKS}, "recordedAt": timezone.now().isoformat()}
+            smoke_path = source_path.with_suffix(".smoke.json")
+            smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+            options = {"source": str(source_path), "approved_run_id": applied["runId"], "cutover_id": cutover, "smoke_receipt": str(smoke_path)}
+            plan = _command("access_control_cutover_check", **options, action="retirement-plan", output=str(source_path.with_suffix(".plan.json")))
+            with self.assertRaises(CommandError):
+                _command("access_control_cutover_check", **options, action="retirement-apply", approved_plan_id="0"*64, output=str(source_path.with_suffix(".wrong.json")))
+            retired = _command("access_control_cutover_check", **options, action="retirement-apply", approved_plan_id=plan["planId"], output=str(source_path.with_suffix(".retired.json")))
+            self.assertEqual(retired["permanentGuards"], 6)
+            with sqlite3.connect(source_path) as source:
+                self.assertEqual(source.execute("SELECT value FROM unrelated_facts").fetchone()[0], "must survive")
+                self.assertEqual(source.execute("SELECT COUNT(*) FROM app_users").fetchone()[0], 0)
+
+    def test_sqlite_naive_timestamps_preserve_utc_instant(self) -> None:
+        from access_control.management.commands.migrate_access_control_from_d1 import _timestamp
+        self.assertEqual(_timestamp("2026-01-01 08:30:00").isoformat(), "2026-01-01T08:30:00+00:00")
+
     def test_exact_dry_run_apply_and_verify_only(self) -> None:
         with _source_fixture() as source_path:
             dry_run = _command(

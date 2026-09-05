@@ -1655,6 +1655,7 @@ function Deploy-Application {
       "tools\django-inventory-service.ps1",
       "tools\django-customer-service.ps1",
       "tools\django-access-control.ps1",
+      "tools\django-access-control-cutover.ps1",
       "tools\django-erp-reference.ps1",
       "tools\django-bi-service.ps1",
       "tools\django-customer-service-cutover.ps1",

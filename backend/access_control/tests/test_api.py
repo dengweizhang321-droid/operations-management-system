@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 from unittest.mock import patch
-from urllib.parse import quote
-
 from django.test import TestCase
 
 from access_control.models import (
@@ -29,6 +27,27 @@ class AccessControlApiTests(TestCase):
             url, data=body, content_type="application/json; charset=utf-8",
             headers=signed_headers(url, method="POST", body=body, request_id=request_id, role=role, email=email),
         )
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_reserved_local_actor_requires_signature_and_cannot_be_registered(self) -> None:
+        path = "/api/access-control/users"
+        self.assertEqual(self.client.get(path).status_code, 401)
+        signed = self.client.get(path, headers=signed_headers(path, email="local-admin@teruisi.local"))
+        self.assertEqual(signed.status_code, 200, signed.content)
+        payload = {"email": "local-admin@teruisi.local", "displayName": "保留身份", "role": "admin", "status": "active", "scope": None, "reason": "不允许登记"}
+        self.assertEqual(self.post_json(path, payload, "reserved-actor").status_code, 400)
+        resolved = self.post_json("/api/access-control/principal/resolve", {"email": payload["email"], "displayName": "x"}, "reserved-resolve", email=payload["email"], role="viewer")
+        self.assertEqual(resolved.status_code, 403)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_revocation_during_mutex_wait_rejects_write(self) -> None:
+        actor = AppUser.objects.create(email="manager@example.test", display_name="Manager", role_id="admin", status="active", scope=None, version=1, created_at="2026-09-05T00:00:00Z", updated_at="2026-09-05T00:00:00Z")
+        def revoke(_request_id):
+            AppUser.objects.filter(email=actor.email).update(status="disabled")
+        with patch("access_control.views._lock_request_id", side_effect=revoke):
+            response = self.post_json("/api/access-control/users", {"email": "new@example.test", "displayName": "New", "role": "viewer", "status": "active", "scope": None, "reason": "test"}, "revoked-write", email=actor.email)
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertFalse(AppUser.objects.filter(email="new@example.test").exists())
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_identity_resolution_uses_postgres_role_and_rejects_unknown_user(self) -> None:

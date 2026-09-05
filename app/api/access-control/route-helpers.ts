@@ -46,9 +46,30 @@ export async function readAccessControlJson(request: Request): Promise<Record<st
   if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_BODY_BYTES)) {
     throw new PublicApiError(413, "payload_too_large", "权限写入请求超过大小上限。" );
   }
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.byteLength > MAX_BODY_BYTES) {
-    throw new PublicApiError(413, "payload_too_large", "权限写入请求超过大小上限。" );
+  const reader = request.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    if (reader) {
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        size += next.value.byteLength;
+        if (size > MAX_BODY_BYTES) {
+          await reader.cancel();
+          throw new PublicApiError(413, "payload_too_large", "权限写入请求超过大小上限。");
+        }
+        chunks.push(next.value);
+      }
+    }
+  } finally {
+    reader?.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
   }
   let payload: unknown;
   try {

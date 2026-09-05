@@ -43,7 +43,9 @@ $MaintenanceRehearsalRoles = @(
   "teruisi_workflow_writer",
   "teruisi_customer_service_reader",
   "teruisi_customer_service_writer",
-  "teruisi_bi_reader"
+  "teruisi_bi_reader",
+  "teruisi_access_control_reader",
+  "teruisi_access_control_writer"
 )
 $MaintenanceRequest = [pscustomobject][ordered]@{
   Action = $Action

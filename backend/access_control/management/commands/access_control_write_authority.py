@@ -12,6 +12,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from access_control.models import (
+    AccessControlDataRevision,
     AccessControlMigrationRun,
     AccessControlWriteAuthority,
     AccessControlWriteRequestReceipt,
@@ -138,6 +139,7 @@ class Command(BaseCommand):
                 if current["owner"] not in {"pending", "postgresql"} or current["cutover_id"] != cutover_id:
                     raise CommandError("D1 必须先进入本次权限 cutover 的 pending 状态")
                 with transaction.atomic():
+                    AccessControlDataRevision.objects.select_for_update().get(domain="access-control")
                     target = AccessControlWriteAuthority.objects.select_for_update().get(id=1)
                     _verified_apply(path, run_id)
                     if target.status == "d1":

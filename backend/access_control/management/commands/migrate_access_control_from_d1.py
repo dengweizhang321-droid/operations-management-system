@@ -47,7 +47,8 @@ def _timestamp(value: object) -> datetime:
     except ValueError as error:
         raise CommandError("D1 用户时间戳无效") from error
     if timezone.is_naive(result):
-        result = timezone.make_aware(result, timezone.get_default_timezone())
+        # SQLite CURRENT_TIMESTAMP is UTC, not the business display timezone.
+        result = timezone.make_aware(result, datetime_timezone.utc)
     return result.astimezone(datetime_timezone.utc)
 
 

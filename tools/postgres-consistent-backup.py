@@ -25,7 +25,7 @@ from psycopg import sql
 VERSION = "teruisi-postgres-consistent-backup-v1"
 ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
-    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_",
+    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 
@@ -202,6 +202,13 @@ def collect_evidence(
         bi_tables = {name for name in tables if name.startswith("bi_")}
         if bi_tables:
             required.add("bi_migration_runs")
+        access_control_tables = {name for name in tables if name.startswith("access_control_")}
+        if access_control_tables:
+            required.update({
+                "access_control_users", "access_control_roles", "access_control_permission_audits",
+                "access_control_data_revisions", "access_control_write_authority",
+                "access_control_write_request_receipts", "access_control_migration_runs",
+            })
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -623,6 +630,36 @@ def collect_evidence(
                 "migrationRunId": customer_service_run,
             }
 
+        access_control_evidence = None
+        if access_control_tables:
+            cursor.execute("SELECT revision, source_digest FROM access_control_data_revisions WHERE domain='access-control'")
+            revision_row = cursor.fetchone()
+            cursor.execute("SELECT status, COALESCE(authority_epoch::text,''), cutover_id, migration_verify_run_id FROM access_control_write_authority WHERE id=1")
+            authority_row = cursor.fetchone()
+            if not revision_row or not authority_row:
+                raise RuntimeError("access-control revision/authority evidence is missing")
+            revision_number, digest = revision_row
+            status, epoch, cutover, run_id = authority_row
+            if int(revision_number) < 0 or not re.fullmatch(r"[0-9a-f]{64}", digest) or status not in {"d1", "postgres"}:
+                raise RuntimeError("access-control revision/authority evidence is invalid")
+            if status == "postgres" and (
+                int(revision_number) < 1 or not re.fullmatch(r"[0-9a-f-]{36}", epoch)
+                or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", cutover)
+                or not re.fullmatch(r"access-control-[0-9a-f]{32}", run_id)
+            ):
+                raise RuntimeError("active access-control evidence is incomplete")
+            if status == "d1" and (epoch or cutover):
+                raise RuntimeError("inactive access-control contains activation evidence")
+            if run_id:
+                cursor.execute("SELECT status,source_snapshot_digest,target_snapshot_digest FROM access_control_migration_runs WHERE id=%s AND mode='apply'", (run_id,))
+                run = cursor.fetchone()
+                if not run or run[0] != "verified" or run[1] != run[2]:
+                    raise RuntimeError("access-control migration evidence is not verified")
+            access_control_evidence = {
+                "revision": int(revision_number), "sourceDigest": digest,
+                "status": status, "authorityEpoch": epoch, "cutoverId": cutover, "migrationRunId": run_id,
+            }
+
     content = {
         "tables": row_counts,
         "migrations": migrations,
@@ -658,6 +695,8 @@ def collect_evidence(
     if customer_service_revisions is not None and customer_service_authority is not None:
         content["customerServiceRevisions"] = customer_service_revisions
         content["customerServiceWriteAuthority"] = customer_service_authority
+    if access_control_evidence is not None:
+        content["accessControl"] = access_control_evidence
     content_bytes = json.dumps(
         content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("ascii")

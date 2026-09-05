@@ -92,7 +92,7 @@ def domain_snapshot() -> list[dict[str, Any]]:
 
 def current_revision() -> AccessControlDataRevision:
     revision = AccessControlDataRevision.objects.filter(domain="access-control").first()
-    if revision is None or revision.revision < 0 or not HEX_64_RE.fullmatch(revision.source_digest):
+    if revision is None or revision.revision < 1 or not HEX_64_RE.fullmatch(revision.source_digest):
         raise AccessControlError("权限数据版本不可用", code="service_unavailable", status=503)
     return revision
 
@@ -199,6 +199,8 @@ def _validated_mutation(payload: dict[str, Any], *, creating: bool) -> dict[str,
         raise AccessControlError(str(error)) from error
     if result["role"] not in ROLE_CODES:
         raise AccessControlError("用户角色无效")
+    if result["email"] == "local-admin@teruisi.local":
+        raise AccessControlError("本地直连身份为保留的边缘操作者，不能登记为登录账号")
     if result["status"] not in USER_STATUSES:
         raise AccessControlError("用户状态无效")
     if not result["reason"] or len(result["reason"]) > 200:
@@ -247,7 +249,7 @@ def update_user(target_email: str, payload: dict[str, Any], *, actor_email: str,
     values = _validated_mutation({**payload, "email": target_email}, creating=False)
     with transaction.atomic():
         AccessControlDataRevision.objects.select_for_update().get(domain="access-control")
-        user = AppUser.objects.select_for_update().select_related("role").filter(email=values["email"]).first()
+        user = AppUser.objects.select_for_update(of=("self",)).select_related("role").filter(email=values["email"]).first()
         if user is None:
             raise AccessControlError("用户不存在", code="not_found", status=404)
         if user.version != values["expected_version"]:

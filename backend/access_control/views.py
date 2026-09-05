@@ -12,7 +12,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 
 from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 
-from .models import AccessControlWriteAuthority, AccessControlWriteRequestReceipt
+from .models import AccessControlDataRevision, AccessControlWriteAuthority, AccessControlWriteRequestReceipt
 from .policy import PolicyError, normalize_display_name, normalize_email
 from .service import (
     AccessControlError,
@@ -61,6 +61,11 @@ def _body(request: HttpRequest) -> dict[str, object]:
 
 def _admin(request: HttpRequest) -> Principal:
     principal = verify_principal(request)
+    # Reserved edge-only identity: the Worker already verifies the explicit local
+    # build/development flags and exact loopback host before signing this actor.
+    # It is never resolvable as a login account or persisted as an AppUser.
+    if principal.email == "local-admin@teruisi.local" and principal.role == "admin" and principal.scope is None:
+        return principal
     current = resolve_user(principal.email)
     if (
         principal.role != "admin" or principal.scope is not None
@@ -81,7 +86,9 @@ def _positive(value: str | None, fallback: int, maximum: int) -> int:
 def _writer_authority() -> None:
     if settings.DJANGO_PROCESS_ROLE == "development":
         return
-    authority = AccessControlWriteAuthority.objects.select_for_update().filter(id=1).first()
+    # Runtime writers must not gain UPDATE on immutable authority evidence.
+    # The revision mutex serializes writes and authority activation.
+    authority = AccessControlWriteAuthority.objects.filter(id=1).first()
     if (
         authority is None or authority.status != "postgres" or authority.authority_epoch is None
         or str(authority.authority_epoch) != settings.ACCESS_CONTROL_WRITE_AUTHORITY_EPOCH
@@ -105,7 +112,11 @@ def _replay_fenced_write(request: HttpRequest, principal: Principal, callback: C
     query_digest = hashlib.sha256(request.META.get("QUERY_STRING", "").encode()).hexdigest()
     with transaction.atomic():
         _lock_request_id(request_id)
+        AccessControlDataRevision.objects.select_for_update().get(domain="access-control")
         _writer_authority()
+        # Recheck after waiting for the mutation mutex, including on replay:
+        # a concurrent administrator revocation must take effect before commit.
+        principal = _admin(request)
         receipt = AccessControlWriteRequestReceipt.objects.select_for_update().filter(request_id=request_id).first()
         if receipt:
             if (
