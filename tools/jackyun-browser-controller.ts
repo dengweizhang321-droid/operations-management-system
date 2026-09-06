@@ -14,7 +14,7 @@ import { downloadSignedOssExport } from "../lib/jackyun/oss-download";
 import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
-import type { JackyunHistoricalSnapshotEvidence } from "../lib/jackyun/run-contract";
+import { assertJackyunSnapshotEvidence, jackyunCaptureDate, jackyunExportFirstPolicyVersion, type JackyunHistoricalSnapshotEvidence } from "../lib/jackyun/run-contract";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
@@ -124,6 +124,8 @@ type CliOptions = {
   launchOnly: boolean;
   checkLoginOnly: boolean;
   signal?: AbortSignal;
+  /** Only the explicit n8n export-first protocol uses current queries and deferred imports. */
+  exportOnlyModule?: JackyunModule;
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -713,7 +715,7 @@ async function setDateInputs(client: BrowserAutomationClient, values: string[], 
   })()`);
 }
 
-async function rightClickDataRow(client: BrowserAutomationClient, urlHints: string[] = []) {
+async function rightClickDataRow(client: BrowserAutomationClient, urlHints: string[] = [], singleClick = false) {
   const point = await evaluateValue<{ found: boolean; x?: number; y?: number }>(client, `(() => {
     ${jsDocumentsPrelude(urlHints)}
     const rowScopes = documents.flatMap((doc) => Array.from(doc.querySelectorAll('#grid-goods_managet,#gridOrderDetail,#datagrid,.mini-grid')))
@@ -748,6 +750,7 @@ async function rightClickDataRow(client: BrowserAutomationClient, urlHints: stri
   await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y, button: "none" });
   await client.send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "right", buttons: 2, clickCount: 1 });
   await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "right", buttons: 0, clickCount: 1 });
+  if (singleClick) return;
   await evaluateValue<boolean>(client, `(() => {
     ${jsDocumentsPrelude(urlHints)}
     const rowScopes = documents.flatMap((doc) => Array.from(doc.querySelectorAll('#grid-goods_managet,#gridOrderDetail,#datagrid,.mini-grid')))
@@ -1035,6 +1038,7 @@ export type QueryRefreshTracking = {
   module: JackyunModule;
   queryIntentAt: string;
   requiredDate?: string;
+  currentCapture?: boolean;
   pageProbeArmed: boolean;
   pageStartedAt?: string;
   pageCompletedAt?: string;
@@ -1091,6 +1095,7 @@ export async function armQueryRefreshTracking(
   queryIntentAt: string,
   urlHints: string[],
   requiredDate?: string,
+  currentCapture = false,
 ) {
   const token = `query-${moduleKey}-${randomUUID()}`;
   const tracking: QueryRefreshTracking = {
@@ -1098,6 +1103,7 @@ export async function armQueryRefreshTracking(
     module: moduleKey,
     queryIntentAt,
     requiredDate,
+    currentCapture,
     pageProbeArmed: false,
   };
   const pendingRequestIds = new Set<string>();
@@ -1225,7 +1231,7 @@ function completedQueryRefreshEvidence(tracking: QueryRefreshTracking) {
       && startedMs >= intentMs
       && completedMs >= startedMs;
   };
-  if ((!requiresDateBoundNetwork || /^\d{4}-\d{2}-\d{2}$/.test(tracking.requiredDate ?? ""))
+  if ((!requiresDateBoundNetwork || tracking.currentCapture || /^\d{4}-\d{2}-\d{2}$/.test(tracking.requiredDate ?? ""))
     && validSequence(tracking.networkStartedAt, tracking.networkCompletedAt)) {
     return { source: "module_network_request" as const, completedAt: tracking.networkCompletedAt! };
   }
@@ -1666,8 +1672,62 @@ export async function withOwnedControllerChromeCleanup<T>(
   }
 }
 
+export async function setShipmentTimeType(client: BrowserAutomationClient) {
+  const actual = await evaluateValue<string>(client, `(() => {
+    ${jsDocumentsPrelude(["order_detail"])}
+    const candidates = [];
+    for (const doc of documents) {
+      const mini = doc.defaultView?.mini;
+      if (!mini) continue;
+      for (const element of doc.querySelectorAll('.mini-combobox')) {
+        if (!visible(element)) continue;
+        const control = mini.get?.(element.id);
+        const data = control?.getData?.();
+        if (!Array.isArray(data)) continue;
+        const textField = control.textField || 'text';
+        const matches = data.filter(item => String(item[textField] ?? '').trim() === '发货时间');
+        if (matches.length === 1) candidates.push({control, item: matches[0], textField});
+      }
+    }
+    if (candidates.length !== 1) throw new Error('统计时间类型控件缺失或不唯一');
+    const {control, item, textField} = candidates[0];
+    const valueField = control.valueField || 'id';
+    if (item[valueField] == null) throw new Error('发货时间选项缺少实际取值');
+    control.setValue(item[valueField]);
+    control.setText?.(item[textField]);
+    control.doValueChanged?.();
+    if (String(control.getValue()) !== String(item[valueField])) throw new Error('发货时间取值读回不一致');
+    return String(control.getText?.() ?? '').trim();
+  })()`);
+  if (actual !== "发货时间") throw controllerFailure("FIELD_MISMATCH", "field_readback", "统计时间类型未读回为发货时间。");
+  return actual;
+}
+
+async function clickExportAllPages(client: BrowserAutomationClient, timeoutMs: number, pollMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const label = await evaluateValue<string | null>(client, `(() => {
+      ${jsDocumentsPrelude()}
+      const labels = documents.flatMap(doc => Array.from(doc.querySelectorAll('.mini-menuitem-text')))
+        .filter(visible).map(el => (el.textContent || '').trim())
+        .filter(text => /^导出所有页(?:\\s*[(（].*[)）])?$/.test(text));
+      if (labels.length > 1) throw new Error('导出所有页菜单不唯一');
+      return labels[0] || null;
+    })()`);
+    if (label) { await clickText(client, label); return; }
+    await new Promise(resolve => setTimeout(resolve, pollMs));
+  } while (Date.now() < deadline);
+  throw new Error("未找到当前模块唯一的导出所有页菜单。");
+}
+
 async function runController(options: CliOptions) {
-  const policy = await readJsonFile<Policy>(policyPath);
+  const policy = await readJsonFile<Policy>(options.exportOnlyModule
+    ? path.join(projectRoot, "config", "jackyun-export-first-policy.json") : policyPath);
+  if (options.exportOnlyModule && (!jackyunModuleOrder.includes(options.exportOnlyModule)
+    || policy.version !== jackyunExportFirstPolicyVersion
+    || options.snapshotDate !== jackyunCaptureDate(new Date().toISOString()))) {
+    throw new Error("先导出后导入协议的模块、策略或实际采集日无效。");
+  }
   const chromePath = options.chromePath ?? policy.browser.controller?.chromePath ?? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   const profileDirectory = path.resolve(options.profileDirectory ?? policy.browser.controller?.profileDirectory ?? path.join(projectRoot, ".runtime", "jackyun-chrome-profile"));
   const port = options.debuggingPort ?? policy.browser.controller?.debuggingPort ?? 9223;
@@ -1726,6 +1786,7 @@ async function runController(options: CliOptions) {
   for (let index = 0; index < jackyunModuleOrder.length; index += 1) {
     if (options.signal?.aborted) throw options.signal.reason instanceof Error ? options.signal.reason : new Error("浏览器 controller 已取消。");
     const moduleKey = jackyunModuleOrder[index];
+    if (options.exportOnlyModule && moduleKey !== options.exportOnlyModule) continue;
     const resultPath = path.join(eventDirectory, `${eventFileName(index, moduleKey)}.result.json`);
     const existingResult = await readJsonFileOr<Record<string, unknown> | null>(resultPath, null);
     if (existingResult && ["completed", "duplicate_ignored"].includes(String(existingResult.status))) {
@@ -1766,7 +1827,8 @@ async function runController(options: CliOptions) {
         moduleKey,
         queryIntentAt,
         moduleUrlHints(moduleKey),
-        moduleKey === "inventory" || moduleKey === "inventory_age" ? options.snapshotDate : undefined,
+        !options.exportOnlyModule && (moduleKey === "inventory" || moduleKey === "inventory_age") ? options.snapshotDate : undefined,
+        Boolean(options.exportOnlyModule),
       );
       await clickAnyTextEventually(
         client,
@@ -1938,7 +2000,7 @@ async function runController(options: CliOptions) {
       // Formal inventory snapshots are historical facts. A real-time page or
       // a date control whose value cannot be read back exactly must stop before
       // the query/export intent is recorded.
-      try {
+      if (!options.exportOnlyModule) try {
         const dates = await setDateInputs(client, [options.snapshotDate], moduleUrlHints(moduleKey));
         const observedDate = assertHistoricalDateReadback(moduleKey, options.snapshotDate, dates);
         const controlReadbackAt = new Date().toISOString();
@@ -1963,7 +2025,7 @@ async function runController(options: CliOptions) {
       }
     }
     if (moduleKey === "inventory_age") {
-      try {
+      if (!options.exportOnlyModule) try {
         const dates = await setDateInputs(client, [options.snapshotDate], moduleUrlHints(moduleKey));
         const observedDate = assertHistoricalDateReadback(moduleKey, options.snapshotDate, dates);
         const controlReadbackAt = new Date().toISOString();
@@ -1992,6 +2054,10 @@ async function runController(options: CliOptions) {
       }
     }
     if (moduleKey === "sales") {
+      if (options.exportOnlyModule) {
+        const timeType = await setShipmentTimeType(client);
+        fieldChecks.push({ field: "统计时间类型", value: timeType, verifiedAt: new Date().toISOString() });
+      }
       const expected = [`${salesStartDate(options.asOfDate)} 00:00:00`, `${options.asOfDate} 23:59:59`];
       // v4 sales 页面用 laydate 日期控件 (#timeBegin$text / #timeEnd$text)，
       // 直接通过 id 定位并设值，绕过 setDateInputs 的 iframe 遍历（order_detail iframe 可能在 tab 切换时被判定不可见）
@@ -2145,7 +2211,7 @@ async function runController(options: CliOptions) {
       };
       if (moduleKey === "inventory" || moduleKey === "inventory_age") {
         const snapshotControl = moduleState.snapshotControlReadback;
-        if (!snapshotControl) {
+        if (!snapshotControl && !options.exportOnlyModule) {
           throw controllerFailure(
             "FIELD_MISMATCH",
             "field_readback",
@@ -2159,13 +2225,33 @@ async function runController(options: CliOptions) {
             `${moduleKey} 缺少可绑定到历史日期条件的查询刷新证据。`,
           );
         }
-        moduleState.snapshotEvidence = {
-          ...snapshotControl,
+        moduleState.snapshotEvidence = options.exportOnlyModule ? {
+          version: 1,
+          module: moduleKey,
+          runId: options.runId,
+          source: "current_query",
+          targetDate: options.snapshotDate,
+          queryIntentAt: moduleState.queryRefreshEvidence.queryIntentAt,
+          queryRefreshSource: "module_network_request",
+          queryRefreshCompletedAt: moduleState.queryRefreshEvidence.completedAt,
+          tableStableAt: moduleState.tableStableAt,
+        } : {
+          ...snapshotControl!,
           queryIntentAt: moduleState.queryRefreshEvidence.queryIntentAt,
           queryRefreshSource: moduleState.queryRefreshEvidence.source,
           queryRefreshCompletedAt: moduleState.queryRefreshEvidence.completedAt,
           tableStableAt: moduleState.tableStableAt,
         };
+        if (options.exportOnlyModule) {
+          if (moduleState.queryRefreshEvidence.source !== "module_network_request") {
+            throw controllerFailure("TABLE_TIMEOUT", "query_refresh", "当前快照缺少本模块成功网络响应。");
+          }
+          assertJackyunSnapshotEvidence(moduleState.snapshotEvidence, {
+            module: moduleKey, runId: options.runId, snapshotDate: options.snapshotDate,
+            policyVersion: policy.version, navigationIntentAt: moduleState.navigationIntentAt,
+            exportIntentAt: new Date().toISOString(),
+          });
+        }
       }
       fieldChecks.push({ field: "页面总数", value: `共 ${moduleState.expectedSourceRows} 条`, verifiedAt: moduleState.tableStableAt });
       moduleState.fieldChecks = fieldChecks;
@@ -2177,7 +2263,7 @@ async function runController(options: CliOptions) {
       moduleState.exportIntentAt = new Date().toISOString();
       moduleState.status = "export_armed";
       await persistControllerState(controllerStatePath, state);
-      const directExportStarted = moduleKey === "sales"
+      const directExportStarted = options.exportOnlyModule ? false : moduleKey === "sales"
         ? await triggerSalesMinimalExportAllPage(client, moduleUrlHints(moduleKey))
         : moduleKey === "inventory_age"
           ? await triggerStockAgePayloadExport(client, stockAgeOwnerId ?? "")
@@ -2189,8 +2275,11 @@ async function runController(options: CliOptions) {
                 moduleKey === "products" ? ["grid-goods_managet"] : [],
                 minimalGridExportHeaders[moduleKey],
               );
-      if (!directExportStarted) await rightClickDataRow(client, moduleUrlHints(moduleKey));
-      if (moduleKey === "combos" && !directExportStarted) {
+      if (!directExportStarted) await rightClickDataRow(client, moduleUrlHints(moduleKey), Boolean(options.exportOnlyModule));
+      if (options.exportOnlyModule) {
+        await clickAnyTextEventually(client, [moduleKey === "combos" ? "导出组合装及子件" : "导出"], actionTimeout(policy, moduleKey), fastPoll(policy));
+        await clickExportAllPages(client, actionTimeout(policy, moduleKey), fastPoll(policy));
+      } else if (moduleKey === "combos" && !directExportStarted) {
         await clickAnyTextEventually(client, ["导出组合装及子件"], actionTimeout(policy, moduleKey), fastPoll(policy));
         await clickAnyTextEventually(client, ["导出所有页", "导出所有页(限500000行)", "导出所有页（限500000行）"], actionTimeout(policy, moduleKey), fastPoll(policy));
       } else if (!directExportStarted) {
@@ -2288,6 +2377,10 @@ async function runController(options: CliOptions) {
     await writeJsonAtomic(eventPath, handoff);
     moduleState.status = "handed_off";
     await persistControllerState(controllerStatePath, state);
+    if (options.exportOnlyModule) {
+      client.close();
+      continue;
+    }
     const result = await waitForResult(`${eventPath}.result.json`, policy.browser.eventTimeoutMs, options.signal, fastPoll(policy));
     if (!["completed", "duplicate_ignored"].includes(String(result.status))) throw new Error(`${moduleKey} 下载后处理未完成。`);
     moduleState.status = "completed";
@@ -2298,7 +2391,7 @@ async function runController(options: CliOptions) {
     await persistControllerState(controllerStatePath, state);
     client.close();
   }
-  return { status: "completed", runId: options.runId, controllerStatePath };
+  return { status: options.exportOnlyModule ? "exported" : "completed", runId: options.runId, controllerStatePath };
   } finally {
     browserClient.close();
     await Promise.allSettled([

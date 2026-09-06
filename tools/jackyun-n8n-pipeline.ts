@@ -130,6 +130,7 @@ type VerifiedModuleEvidence = {
   warningCount: number;
   outputSha256: string;
   salesPolicyVersion?: string;
+  djangoReceipt?: { contentHash: string; rawFileHash: string };
 };
 
 function pathsFor(root = projectRoot): RuntimePaths {
@@ -488,6 +489,7 @@ async function readPublishedItems(request: typeof fetch, url: string) {
 export async function verifyPublishedJackyunBatches(options: {
   baseUrl: string;
   asOfDate: string;
+  snapshotDate?: string;
   modules: readonly VerifiedModuleEvidence[];
   request?: typeof fetch;
 }) {
@@ -534,7 +536,13 @@ export async function verifyPublishedJackyunBatches(options: {
       throw new Error(`吉客云 ${moduleKey} 精确批次未在运营系统落库历史中完成。`);
     }
     const snapshotDate = batch.snapshotDate;
-    if ((moduleKey === "inventory" || moduleKey === "inventory_age") && snapshotDate !== options.asOfDate) {
+    if (expected.djangoReceipt) {
+      const totals = batch.totals as Record<string, unknown> | undefined;
+      if (totals?.contentHash !== expected.djangoReceipt.contentHash || totals?.rawFileHash !== expected.djangoReceipt.rawFileHash) {
+        throw new Error(`吉客云 ${moduleKey} Django 当前批次摘要与本轮回执不一致。`);
+      }
+    }
+    if ((moduleKey === "inventory" || moduleKey === "inventory_age") && snapshotDate !== (options.snapshotDate ?? options.asOfDate)) {
       throw new Error(`吉客云 ${moduleKey} 落库批次快照日期不一致。`);
     }
     if ((moduleKey === "products" || moduleKey === "combos") && snapshotDate !== null) {

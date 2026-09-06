@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
+import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import {
@@ -1410,7 +1411,8 @@ async function serveCommand(argv: string[]) {
       "/promotion",
       tmallDirectPromotionRoute,
     ];
-    const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify"];
+    const jackyunExportFirstRoutes = jackyunExportFirstActions.map(action => `${jackyunExportFirstPrefix}${action}`);
+    const jackyunRoutes = ["/jackyun/plan", "/jackyun/run", "/jackyun/verify", ...jackyunExportFirstRoutes];
     const jdRoutes = ["/jd/plan", "/jd/run", "/jd/verify"];
     const jdMarketRoutes = ["/jd-market/plan", "/jd-market/run", "/jd-market/verify"];
     const jdPromotionRoutes = ["/jd-promotion/plan", "/jd-promotion-cut-meat/plan", "/jd-promotion/run", "/jd-promotion/verify"];
@@ -1419,6 +1421,7 @@ async function serveCommand(argv: string[]) {
       return;
     }
     const isJackyun = jackyunRoutes.includes(request.url ?? "");
+    const isJackyunExportFirst = jackyunExportFirstRoutes.includes(request.url ?? "");
     const isJd = jdRoutes.includes(request.url ?? "");
     const isJdMarket = jdMarketRoutes.includes(request.url ?? "");
     const isJdPromotion = jdPromotionRoutes.includes(request.url ?? "");
@@ -1432,7 +1435,12 @@ async function serveCommand(argv: string[]) {
     const requestTmallStoreKey = workflow === "tmall"
       ? normalizeTmallStoreKey(request.headers[tmallStoreKeyHeader])
       : null;
-    const requestStateError = isJackyun
+    const requestStateError = isJackyunExportFirst
+      ? (!requestExecutionId ? { error: "missing_or_invalid_execution_id" }
+        : !claimedJackyunExecutionId ? { error: "execution_not_claimed", expected: "/coordination/claim" }
+          : requestExecutionId !== claimedJackyunExecutionId ? { error: "execution_mismatch" }
+            : busy ? { error: "pipeline_busy" } : null)
+      : isJackyun
       ? jackyunHelperRequestError(
           stage,
           busy,
@@ -1468,7 +1476,14 @@ async function serveCommand(argv: string[]) {
     busy = true;
     let tmallBrowserClosure: Awaited<ReturnType<typeof closeTmallWorkflowBrowser>> | null = null;
     try {
-      if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
+      if (isJackyunExportFirst) {
+        const action = request.url!.slice(jackyunExportFirstPrefix.length);
+        const result = await runJackyunExportFirstAction(action, requestExecutionId!);
+        stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
+        reply(200, result);
+        if (stage === "completed") scheduleOneShotServerClose(server, 500);
+        else inactivityReaper?.arm();
+      } else if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({
           executionId: requestExecutionId!,
           storeKey: parseJdPromotionStoreKeyHeader(request.headers[jdPromotionStoreKeyHeader]),

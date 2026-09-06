@@ -35,6 +35,7 @@ const mutableRootDeclarations = new Map([
   ["tools/jackyun-daily-runner.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["tools/jackyun-download-runner.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["tools/jackyun-n8n-pipeline.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
+  ["tools/jackyun-export-first-pipeline.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["tools/jd-market-ranking-daily.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["tools/jd-multi-store-runner.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["tools/jd-n8n-pipeline.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],

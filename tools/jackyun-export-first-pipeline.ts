@@ -1,0 +1,281 @@
+import { createHash } from "node:crypto";
+import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
+import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
+import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCaptureDate,
+  jackyunExportFirstPolicyVersion, jackyunExportOrder } from "../lib/jackyun/run-contract";
+import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
+import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
+import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { runController } from "./jackyun-browser-controller";
+import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
+import type { BrowserHandoff } from "./jackyun-daily-runner";
+import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+export const jackyunExportFirstPrefix = "/jackyun/export-first/";
+export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(module => `export/${module}`), "validate", "import", "verify"];
+type Phase = "exporting" | "exported" | "validating" | "validated" | "importing" | "imported" | "completed";
+type ExportReceipt = { handoffSha256: string; fileSha256: string; bytes: number };
+export type JackyunExportFirstPlan = {
+  version: 1;
+  protocol: typeof jackyunExportFirstPolicyVersion;
+  executionId: string;
+  runId: string;
+  runDate: string;
+  asOfDate: string;
+  baseUrl: string;
+  createdAt: string;
+  phase: Phase;
+  exports: Partial<Record<JackyunModule, ExportReceipt>>;
+  exportIntent?: JackyunModule;
+  completedAt?: string;
+};
+type Policy = {
+  version: string;
+  browser: { downloadDirectory: string; allowedDownloadHosts: string[]; controller: { profileDirectory: string } };
+};
+export type ExportFirstDependencies = {
+  root?: string;
+  now?: () => Date;
+  request?: typeof fetch;
+  profileReady?: () => Promise<boolean>;
+  runBrowser?: typeof runController;
+  runDownload?: typeof runJackyunDownload;
+};
+const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
+const nowOf = (deps: ExportFirstDependencies) => (deps.now?.() ?? new Date()).toISOString();
+function paths(root: string) {
+  return {
+    outputRoot: path.join(root, "outputs", "jackyun-import-runs"),
+    eventRoot: path.join(root, "outputs", "jackyun-browser-events"),
+    pipelineRoot: path.join(root, "outputs", "jackyun-export-first"),
+    validationRoot: path.join(root, "outputs", "jackyun-export-first-validation"),
+  };
+}
+function handoffPath(root: string, plan: JackyunExportFirstPlan, module: JackyunModule) {
+  return path.join(paths(root).eventRoot, plan.runId, `${String(jackyunModuleOrder.indexOf(module) + 1).padStart(2, "0")}-${module}.json`);
+}
+function checkPlan(plan: JackyunExportFirstPlan, executionId: string) {
+  if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
+    || !/^[A-Za-z0-9._-]{1,96}$/.test(plan.runId)) throw new Error("运行身份或工作流协议不一致。");
+  const yesterday = new Date(`${plan.runDate}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  if (plan.runDate !== jackyunCaptureDate(plan.createdAt) || plan.asOfDate !== yesterday.toISOString().slice(0, 10)
+    || normalizeJackyunLocalBaseUrl(plan.baseUrl) !== "http://localhost:3000") throw new Error("计划日期或目标运营系统发生变化。");
+  let incomplete = false;
+  for (const moduleKey of jackyunExportOrder) {
+    if (!plan.exports[moduleKey]) incomplete = true;
+    else if (incomplete) throw new Error("导出清单不是规定顺序的完整前缀。");
+  }
+}
+export function assertExportFirstAction(plan: JackyunExportFirstPlan, executionId: string, action: string) {
+  checkPlan(plan, executionId);
+  if (action === "plan") return;
+  if (action.startsWith("export/")) {
+    const moduleKey = action.slice(7) as JackyunModule;
+    if (!jackyunExportOrder.includes(moduleKey)) throw new Error("未知导出模块。");
+    if (plan.exports[moduleKey]) return;
+    if (plan.phase !== "exporting" || jackyunExportOrder.find(item => !plan.exports[item]) !== moduleKey
+      || (plan.exportIntent && plan.exportIntent !== moduleKey)) throw new Error("导出步骤乱序，已拒绝执行。");
+    return;
+  }
+  if (jackyunExportOrder.some(module => !plan.exports[module])) throw new Error("五张表尚未全部导出，禁止导入。");
+  const allowed: Record<string, Phase[]> = {
+    validate: ["exported", "validating", "validated"], import: ["validated", "importing", "imported"], verify: ["imported", "completed"],
+  };
+  if (!allowed[action]?.includes(plan.phase)) throw new Error("工作流阶段不匹配，已拒绝跳步或不明确的恢复。");
+}
+
+async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, policy: Policy, module: JackyunModule) {
+  const rawHandoff = await readFile(handoffPath(root, plan, module));
+  const handoff = JSON.parse(rawHandoff.toString("utf8").replace(/^\uFEFF/, "")) as BrowserHandoff;
+  if (handoff.schemaVersion !== 2 || handoff.runId !== plan.runId || handoff.module !== module
+    || handoff.policyVersion !== plan.protocol || !Number.isSafeInteger(handoff.expectedSourceRows)
+    || handoff.expectedSourceRows <= 0) throw new Error(`${module} 文件交接身份或行数无效。`);
+  assertJackyunHandoffEvidence(handoff, module);
+  if (!handoff.queryIntentAt || Date.parse(handoff.queryIntentAt) < Date.parse(handoff.navigationIntentAt)
+    || Date.parse(handoff.queryIntentAt) > Date.parse(handoff.tableStableAt)
+    || Date.parse(handoff.navigationIntentAt) < Date.parse(plan.createdAt)) throw new Error(`${module} 缺少本轮筛选证据。`);
+  assertBoundDownloadProvenance(handoff.downloadProvenance, policy.browser.allowedDownloadHosts, {
+    runId: plan.runId, module, policyVersion: plan.protocol,
+  });
+  if (handoff.downloadEventAt !== handoff.downloadProvenance.completedAt) throw new Error("下载时间不匹配。");
+  if (module === "inventory" || module === "inventory_age") {
+    assertJackyunSnapshotEvidence(handoff.snapshotEvidence, {
+      module, runId: plan.runId, policyVersion: plan.protocol, snapshotDate: plan.runDate,
+      navigationIntentAt: handoff.navigationIntentAt, exportIntentAt: handoff.exportIntentAt,
+    });
+    if (handoff.snapshotEvidence.queryIntentAt !== handoff.queryIntentAt
+      || handoff.snapshotEvidence.tableStableAt !== handoff.tableStableAt) throw new Error("快照与交接时间线不一致。");
+  } else if (handoff.snapshotEvidence) throw new Error("主数据或销售不接受库存快照证据。");
+  if (module === "products" && !handoff.fieldChecks?.some(item => item.field === "模式" && item.value === "规格模式(SKU)")) {
+    throw new Error("货品没有读回规格模式 SKU。");
+  }
+  if (module === "sales" && (!handoff.fieldChecks?.some(item => item.field === "统计时间类型" && item.value === "发货时间")
+    || !handoff.fieldChecks.some(item => item.field === "日期区间"
+      && item.value === `${plan.asOfDate.slice(0, 8)}01 00:00:00 至 ${plan.asOfDate} 23:59:59`))) {
+    throw new Error("销售发货时间或本月至昨天的范围没有精确读回。");
+  }
+  const directory = path.resolve(policy.browser.downloadDirectory, "jackyun", plan.runId, module);
+  if (path.dirname(path.resolve(handoff.filePath)) !== directory || path.extname(handoff.filePath).toLowerCase() !== ".xlsx") {
+    throw new Error("导出文件不在本轮模块专属目录中。");
+  }
+  const info = await stat(handoff.filePath);
+  if (!info.isFile() || info.size <= 0 || info.size > 512 * 1024 * 1024
+    || path.resolve(await realpath(handoff.filePath)) !== path.resolve(handoff.filePath)) throw new Error("下载文件类型、大小或实际路径无效。");
+  const bytes = await readFile(handoff.filePath);
+  const receipt = { handoffSha256: sha(rawHandoff), fileSha256: sha(bytes), bytes: bytes.length };
+  if (receipt.fileSha256 !== handoff.downloadProvenance.sha256 || receipt.bytes !== handoff.downloadProvenance.bytes
+    || (plan.exports[module] && !isDeepStrictEqual(plan.exports[module], receipt))) throw new Error("文件或交接证据已经变化。");
+  if (module !== "sales") {
+    const prepared = prepareJackyunWorkbook(module, bytes, { snapshotDate: plan.runDate });
+    const sourceRows = module === "combos" ? prepared.validation.parentRowCount : prepared.validation.sourceRowCount;
+    if (sourceRows !== handoff.expectedSourceRows) throw new Error(`${module} 页面总数与导出文件行数不一致。`);
+  }
+  return { handoff, receipt };
+}
+
+async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Policy, dryRun: boolean, deps: ExportFirstDependencies) {
+  // This full revalidation happens before the first upload, including on retries.
+  const bound = new Map<JackyunModule, BrowserHandoff>();
+  for (const moduleKey of jackyunExportOrder) bound.set(moduleKey, (await readBoundHandoff(root, plan, policy, moduleKey)).handoff);
+  const outputRoot = dryRun ? paths(root).validationRoot : paths(root).outputRoot;
+  let costSourcePath: string | undefined;
+  for (const moduleKey of jackyunModuleOrder) {
+    const handoff = bound.get(moduleKey)!;
+    const options: JackyunDownloadRunOptions = {
+      module: moduleKey, filePath: handoff.filePath, runId: plan.runId, policyVersion: plan.protocol,
+      snapshotDate: moduleKey === "inventory" || moduleKey === "inventory_age" ? plan.runDate : undefined,
+      snapshotEvidence: handoff.snapshotEvidence, asOfDate: moduleKey === "sales" ? plan.asOfDate : undefined,
+      costSourcePath: moduleKey === "sales" ? costSourcePath : undefined,
+      exportStart: handoff.exportIntentAt, expectedSourceRows: handoff.expectedSourceRows,
+      baseUrl: plan.baseUrl, outputRoot, downloadDirectory: policy.browser.downloadDirectory,
+      downloadProvenance: handoff.downloadProvenance, handoffEvidence: {
+        navigationIntentAt: handoff.navigationIntentAt, queryIntentAt: handoff.queryIntentAt,
+        tableStableAt: handoff.tableStableAt, exportIntentAt: handoff.exportIntentAt, downloadEventAt: handoff.downloadEventAt,
+      }, allowedDownloadHosts: policy.browser.allowedDownloadHosts, dryRun,
+    };
+    const result = await (deps.runDownload ?? runJackyunDownload)(options);
+    if (!(dryRun ? ["prepared", "duplicate_ignored"] : ["completed", "duplicate_ignored"]).includes(result.status)) {
+      throw new Error(`${moduleKey} 导入或校验未完成。`);
+    }
+    if (moduleKey === "inventory") {
+      costSourcePath = "salesCostSourcePath" in result ? result.salesCostSourcePath : result.existing.salesCostSourcePath;
+      if (!costSourcePath) throw new Error("没有本轮库存成本源，禁止销售导入。");
+    }
+  }
+}
+
+async function verifyImports(root: string, plan: JackyunExportFirstPlan, policy: Policy, deps: ExportFirstDependencies) {
+  const runDirectory = path.join(paths(root).outputRoot, plan.runId);
+  const manifest = await readJsonFile<{ modules: Record<JackyunModule, JackyunArtifactManifestModule> }>(path.join(runDirectory, "run-manifest.json"));
+  const modules = [];
+  for (const moduleKey of jackyunModuleOrder) {
+    await readBoundHandoff(root, plan, policy, moduleKey);
+    const verified = await verifyJackyunModuleArtifact({
+      runDirectory, runId: plan.runId, module: moduleKey, snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate,
+      policyVersion: plan.protocol, manifestModule: manifest.modules[moduleKey],
+      allowedDownloadHosts: policy.browser.allowedDownloadHosts, handoffPath: handoffPath(root, plan, moduleKey), requireAtomicHandoff: true,
+    });
+    if (!verified.batchId || !verified.rowCount) throw new Error("没有精确成功批次。");
+    const audit = await readJsonFile<{ import: { result: { djangoReceipt?: { contentHash: string; rawFileHash: string } } } }>(verified.auditPath);
+    modules.push({ module: moduleKey, status: "completed", batchId: verified.batchId, rowCount: verified.rowCount,
+      warningCount: verified.warningCount ?? 0, outputSha256: manifest.modules[moduleKey].outputSha256!,
+      djangoReceipt: audit.import.result.djangoReceipt });
+  }
+  return verifyPublishedJackyunBatches({ baseUrl: plan.baseUrl, asOfDate: plan.asOfDate,
+    snapshotDate: plan.runDate, modules, request: deps.request });
+}
+
+export async function runJackyunExportFirstAction(action: string, executionId: string, deps: ExportFirstDependencies = {}) {
+  if (!jackyunExportFirstActions.includes(action) || !/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("节点或 n8n execution ID 无效。");
+  const root = path.resolve(deps.root ?? projectRoot);
+  const runId = `n8n-export-first-${executionId}`;
+  return withJackyunRunLock({ runId, purpose: "n8n_export_first",
+    ...(deps.root ? { lockDirectory: path.join(root, ".runtime", "jackyun-test.lock") } : {}) }, async () => {
+    const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
+    if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
+    const planPath = path.join(paths(root).pipelineRoot, `${runId}.json`);
+    const activePath = path.join(paths(root).pipelineRoot, "active.json");
+    const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
+    if (active && active.executionId !== executionId) {
+      if (!/^n8n-export-first-[1-9]\d{0,19}$/.test(active.runId)) throw new Error("活动运行编号无效。");
+      const previous = await readJsonFile<JackyunExportFirstPlan>(path.join(paths(root).pipelineRoot, `${active.runId}.json`));
+      if (previous.phase !== "completed") throw new Error(`原运行 ${active.runId} 尚未闭合；保留原证据，禁止新建重复导出。`);
+    }
+    let plan = await readJsonFileOr<JackyunExportFirstPlan | null>(planPath, null);
+    if (!plan) {
+      if (action !== "plan") throw new Error("缺少本 execution 的计划，禁止单节点执行。");
+      const ready = await (deps.profileReady?.() ?? getJackyunProfileStatus(policy.browser.controller.profileDirectory, root).then(value => value === "ready"));
+      if (!ready) throw new Error("吉客云专用浏览器未完成首次登录配置。");
+      const baseUrl = normalizeJackyunLocalBaseUrl("http://localhost:3000");
+      const response = await (deps.request ?? fetch)(`${baseUrl}/api/sales/data-health`, { signal: AbortSignal.timeout(30000) });
+      if (!response.ok) throw new Error("运营系统身份或只读数据健康检查未通过。");
+      const createdAt = nowOf(deps);
+      const runDate = jackyunCaptureDate(createdAt);
+      const yesterday = new Date(`${runDate}T00:00:00Z`);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      plan = { version: 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId, runDate,
+        asOfDate: yesterday.toISOString().slice(0, 10), baseUrl, createdAt, phase: "exporting", exports: {} };
+      await mkdir(path.dirname(planPath), { recursive: true });
+      await writeFile(planPath, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+      await writeJsonAtomic(activePath, { runId, executionId });
+    }
+    assertExportFirstAction(plan, executionId, action);
+    if (action === "plan") return publicExportFirstPlan(plan);
+    if (action.startsWith("export/")) {
+      const moduleKey = action.slice(7) as JackyunModule;
+      if (plan.exports[moduleKey]) {
+        await readBoundHandoff(root, plan, policy, moduleKey);
+        return publicExportFirstPlan(plan);
+      }
+      if (!plan.exports[moduleKey]) {
+        if (plan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
+        plan.exportIntent = moduleKey;
+        await writeJsonAtomic(planPath, plan);
+        const result = await (deps.runBrowser ?? runController)({
+          runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
+          eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
+          headless: true, launchOnly: false, checkLoginOnly: false, exportOnlyModule: moduleKey,
+        });
+        if (result.status !== "exported") throw new Error(`${moduleKey} 导出未完成：${result.status}`);
+      }
+      const { receipt } = await readBoundHandoff(root, plan, policy, moduleKey);
+      plan.exports[moduleKey] = receipt;
+      delete plan.exportIntent;
+      if (jackyunExportOrder.every(item => plan!.exports[item])) plan.phase = "exported";
+    } else if (action === "validate") {
+      if (plan.phase !== "validated") {
+        plan.phase = "validating";
+        await writeJsonAtomic(planPath, plan);
+        await runImports(root, plan, policy, true, deps);
+        plan.phase = "validated";
+      }
+    } else if (action === "import") {
+      if (plan.phase !== "imported") {
+        plan.phase = "importing";
+        await writeJsonAtomic(planPath, plan);
+        await runImports(root, plan, policy, false, deps);
+        plan.phase = "imported";
+      }
+    } else if (action === "verify") {
+      const result = await verifyImports(root, plan, policy, deps);
+      plan.phase = "completed";
+      plan.completedAt = nowOf(deps);
+      await writeJsonAtomic(planPath, plan);
+      return { ...publicExportFirstPlan(plan), results: result.modules };
+    }
+    await writeJsonAtomic(planPath, plan);
+    return publicExportFirstPlan(plan);
+  });
+}
+
+function publicExportFirstPlan(plan: JackyunExportFirstPlan) {
+  return { ok: true, protocol: plan.protocol, runId: plan.runId, phase: plan.phase,
+    snapshotDate: plan.runDate, salesStartDate: `${plan.asOfDate.slice(0, 8)}01`, salesEndDate: plan.asOfDate,
+    exported: jackyunExportOrder.filter(module => plan.exports[module]), importOrder: jackyunModuleOrder };
+}
