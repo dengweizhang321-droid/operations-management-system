@@ -19,7 +19,7 @@
 
 ## 2. 当前系统与模块边界
 
-- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、薄 Cloudflare Worker、Django 5.2、PostgreSQL 17 和 R2；本机全部结构化业务域及聚合入口已正式使用 Django/PostgreSQL，D1 仅保留历史审计与退役证据，不进入生产业务调用链；启动/发布控制层的剩余依赖见第 8 节。
+- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、薄 Cloudflare Worker、Django 5.2、PostgreSQL 17 和 R2；本机全部结构化业务域及聚合入口已正式使用 Django/PostgreSQL，日常启动/发布控制链亦已脱离历史 D1 文件。D1 仅保留历史审计与退役证据，不进入生产业务或日常控制调用链；不可变退役证明和保留边界见第 8 节。
 - 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
 - 当前导航模块为：工作流、BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
 - 主要业务域及代码目录：
@@ -40,6 +40,8 @@
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
 ### 2.1 Django 后端渐进迁移决策
+
+- 2026-09-06 后续已完成本机全局 D1 控制链正式脱钩。当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`，Django 部署清单 SHA 为 `28587a32ef44290b974f3dc4af5cec01d4583c8da2cb3b02d91943e1bdab4114`；23 服务、Worker/helper、启动绑定、生产只读 API 和发布前后备份独立恢复均通过。详细门禁见第 8 节及 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`。以下聚合与各域记录中的旧版本均保留为历史采用证据。
 
 - 2026-09-06，本机全局搜索、AI 财务工具、财务公开 API、市场标注与调度等残留聚合入口已完成受控 Django/PostgreSQL 发布。Worker effective release 为 `20260905T180043Z-7364a22437c52ae1`，manifest SHA 为 `589e304f0e60a8ee711840888b5090c8bcdb7580b2372275e2313e8e219a7f4e`；无 D1 binding，不携带 Drizzle 迁移。Django 应用已采用财务目标视图隔离与网店最新批次半连接优化，23 个服务健康；ERP 环境变量固定沿用 `TERUISI_DJANGO_ERP_*`。不新增数据域、写权限或业务 revision，现有 R2 图片/附件字节边界保持不变。后续以 `docs/DJANGO_AGGREGATE_CUTOVER.md` 的实际采用与前向恢复门禁为准；下方各域历史记录中的旧 Worker release 和全局 D1 用途只描述当时状态，不能恢复为当前生产依赖。
 
@@ -153,7 +155,7 @@
 
 - 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。源码和本机已采用的生产 release 均无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。后续更新仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
 - Worker readiness 使用已配置的 23 个 Django reader/writer 健康端点，按服务角色核验并有界取消；失败返回 `django_unavailable`，总控显示 `BackendDegraded`。liveness 与 readiness 必须保持独立，不能因就绪探测失败重启服务。
-- “无 D1 业务访问”不等于“控制层无 D1 文件依赖”。控制链脱钩代码使用与不可变发布链绑定的全局退役证明，首次采用只读复验全部领域、PostgreSQL readiness 和既有保留证据，后续继承同一证明且拒绝降级。正式部署尚未采用该协议，仍依赖历史 D1；必须完成无 D1 工作副本的镜像生命周期/发布演练和实际回读后才能宣布完全脱钩。不得跳过 guard、把 completed 写死或删改历史 manifest/authority。实现与门禁见 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`，原始评估见 `docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`。
+- 2026-09-06，本机 D1 控制链脱钩已正式采用，effective release 为 `20260906T035823Z-fceee410b71f79b0`，manifest SHA 为 `ab44b00f096534c97651108c4bb75ea6d9343eb1d6d66f3f96a3b043dd3ea492`，全局退役 proof SHA 为 `24503a096bb6649b4d4f0988ccfaab9924100232129daa13f70edf78e1f22c52`。首次采用只读复验 12 个终态单元、23 个 PostgreSQL 服务 readiness 和既有保留证据；日常启动、自动子进程恢复及后续 successor 发布继承同一不可变证明，不再打开历史 D1。Django v5 的历史 D1 路径仅为元数据，v6 可不配置该路径；显式历史 operator 仍严格检查来源。无 D1 镜像、真实子进程恢复、正式启动项和 API 回读均通过，旧 release 拒绝启动。不得跳过 guard、把 completed 写死、删改历史 manifest/authority，或恢复 D1/legacy/fallback/双写。历史 D1 及审计材料保留，物理销毁和远程部署不在本次范围。实现、备份恢复与正式证据见 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`；`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md` 仅描述采用前的核查。
 
 ## 9. API、前端与性能要求
 

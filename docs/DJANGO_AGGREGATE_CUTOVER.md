@@ -8,7 +8,7 @@
 
 ## 本机正式采用记录
 
-本节的无 D1 结论指业务调用与 Worker binding。当前启动、自动重启及发布控制器仍依赖历史 D1 退役证明，不能据此删除实体文件；控制层缺口与后续验收方案见 [全局 D1 退役评估](GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。
+本节记录较早的聚合层业务采用。2026-09-06 后续已正式采用 D1 控制链脱钩，当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`；正常启动、自动子进程恢复和后续发布验证不可变退役证明，不再读取历史 D1。下表的旧 release 和 Django 清单保留为当次历史证据，当前采用与备份恢复记录见 [全局 D1 控制链脱钩](GLOBAL_D1_CONTROL_RETIREMENT.md)。历史实体文件仍保留，不因控制链脱钩而删除。
 
 脱敏机器可读证据：[`evidence/django-aggregate-release-20260906.json`](evidence/django-aggregate-release-20260906.json)。没有保存凭据、账号标识、模型配置或原始业务记录。
 

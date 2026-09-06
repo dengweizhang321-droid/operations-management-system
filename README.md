@@ -6,11 +6,11 @@ AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/Postgr
 
 ## 后端与聚合入口
 
-本机已于 2026-09-06 完成聚合层受控发布，结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；生产 Worker `20260905T180043Z-7364a22437c52ae1` 不再绑定 D1，也不携带 Drizzle 迁移。23 个 Django 服务及 14 分组搜索已回查，网店搜索的重复批次查询也已修复。现有 React 前端与薄 Worker 保留，市场/网店图片及运营事务附件继续使用原 R2。检查命令为 `npm run check:backend-boundary`，实际采用清单、验证与发布证据见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
+本机已于 2026-09-06 完成聚合层受控发布，结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；当次采用的 Worker `20260905T180043Z-7364a22437c52ae1` 已取消 D1 binding 和 Drizzle 迁移，后续控制链采用保持此边界，当前版本见下节。23 个 Django 服务及 14 分组搜索已回查，网店搜索的重复批次查询也已修复。现有 React 前端与薄 Worker 保留，市场/网店图片及运营事务附件继续使用原 R2。检查命令为 `npm run check:backend-boundary`，聚合层历史采用清单、验证与发布证据见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
 
 ## 启动方式
 
-D1 业务退役与整机控制层脱钩的范围不同：业务已经统一使用 Django/PostgreSQL，但当前正式 Worker/Django 控制器仍依赖历史 D1 文件，不能直接删除。控制链脱钩代码已实现为与不可变发布链绑定的退役证明，尚未正式采用；实现、验证范围与发布门禁见 [`docs/GLOBAL_D1_CONTROL_RETIREMENT.md`](docs/GLOBAL_D1_CONTROL_RETIREMENT.md)，原始只读评估见 [`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`](docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。
+2026-09-06 本机已正式完成 D1 控制链脱钩：业务统一使用 Django/PostgreSQL，Worker/Django 日常启动、自动子进程恢复和后续发布不再读取历史 D1 文件。当前采用 release 为 `20260906T035823Z-fceee410b71f79b0`，23 个 Django 服务及网页已回查正常。不可变发布链继续绑定全局退役证明；历史 D1、永久 guard 和审计证据保留，R2 图片/附件边界不变。正式采用与验证证据见 [`docs/GLOBAL_D1_CONTROL_RETIREMENT.md`](docs/GLOBAL_D1_CONTROL_RETIREMENT.md)，原始评估见 [`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`](docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。本结论只覆盖当前 Windows 本机，不代表远程部署或 D1 物理销毁。
 
 当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、各业务域（含 ERP 主数据 reader/writer）和已启用的 BI 只读聚合服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
 
