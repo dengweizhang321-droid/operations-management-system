@@ -564,6 +564,39 @@ function fastPoll(policy: Policy) {
   return Math.max(100, Math.min(policy.browser.fastPollIntervalMs ?? 200, policy.browser.pollIntervalMs));
 }
 
+export async function confirmJackyunComboExport(client: BrowserAutomationClient, urlHints: string[], promptParts: string[],
+  button: string, timeoutMs: number, pollMs: number) {
+  const read = () => evaluateValue<{ x: number; y: number } | null>(client, `(() => {
+    ${jsDocumentsPrelude(urlHints)}
+    const dialogs=documents.flatMap(doc=>Array.from(doc.querySelectorAll('.mini-messagebox')).filter(visible));
+    if(!dialogs.length) return null;
+    if(dialogs.length!==1 || !${JSON.stringify(promptParts)}.every(part=>dialogs[0].innerText.includes(part))) throw new Error('组合装导出确认弹窗不唯一或内容不符');
+    const buttons=Array.from(dialogs[0].querySelectorAll('a.mini-button,button')).filter(el=>visible(el)&&normalize(el.innerText)===normalize(${JSON.stringify(button)}));
+    if(buttons.length!==1) throw new Error('组合装导出确认按钮不唯一');
+    const el=buttons[0];
+    if(el.matches(':disabled,[aria-disabled="true"],.mini-disabled') || getComputedStyle(el).pointerEvents==='none') throw new Error('组合装导出确认按钮不可用');
+    const r=el.getBoundingClientRect();let x=r.left+r.width/2,y=r.top+r.height/2,win=el.ownerDocument.defaultView;
+    if(!el.contains(el.ownerDocument.elementFromPoint(x,y))) throw new Error('组合装导出确认按钮被遮挡');
+    while(win.frameElement){const f=win.frameElement,b=f.getBoundingClientRect();x+=b.left;y+=b.top;win=win.parent;if(win.document.elementFromPoint(x,y)!==f)throw new Error('组合装导出确认框被遮挡');}
+    return {x,y};
+  })()`);
+  const deadline = Date.now() + timeoutMs;
+  let target = await read();
+  while (!target && Date.now() < deadline) { await new Promise(resolve => setTimeout(resolve, pollMs)); target = await read(); }
+  if (!target) throw new Error("组合装导出确认弹窗未出现。");
+  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...target, button: "none" });
+  const afterMove = await read();
+  if (!afterMove || afterMove.x !== target.x || afterMove.y !== target.y) throw new Error("组合装导出确认按钮位置变化。");
+  const confirmedAt = new Date().toISOString();
+  await client.send("Input.dispatchMouseEvent", { type: "mousePressed", ...target, button: "left", clickCount: 1 });
+  await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...target, button: "left", clickCount: 1 });
+  while (Date.now() < deadline) {
+    if (!await read()) return confirmedAt;
+    await new Promise(resolve => setTimeout(resolve, pollMs));
+  }
+  throw new Error("组合装确认框未关闭；保留原导出意图，禁止再次点击。");
+}
+
 async function clickText(client: BrowserAutomationClient, text: string) {
   const result = await evaluateValue<{ clicked: boolean; actual?: string; x?: number; y?: number }>(client, `(() => {
     ${jsDocumentsPrelude()}
@@ -2458,8 +2491,11 @@ async function runController(options: CliOptions) {
         const confirmationPolicy = policy.modules.combos.exportConfirmation;
         if (!confirmationPolicy) throw new Error("组合装导出确认规则缺失。");
         await waitForPageTextParts(client, confirmationPolicy.promptIncludes, actionTimeout(policy, moduleKey), fastPoll(policy));
-        const confirmedAt = new Date().toISOString();
-        await clickText(client, confirmationPolicy.button);
+        const confirmedAt = options.exportOnlyModule
+          ? await confirmJackyunComboExport(client, moduleUrlHints(moduleKey), confirmationPolicy.promptIncludes,
+              confirmationPolicy.button, actionTimeout(policy, moduleKey), fastPoll(policy))
+          : new Date().toISOString();
+        if (!options.exportOnlyModule) await clickText(client, confirmationPolicy.button);
         moduleState.exportConfirmation = { prompt: confirmationPolicy.promptIncludes.join("，"), button: confirmationPolicy.button, confirmedAt };
         await persistControllerState(controllerStatePath, state);
       }

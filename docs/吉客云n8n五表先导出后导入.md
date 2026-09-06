@@ -142,3 +142,17 @@ DPAPI 登录与无业务效果恢复受控采用 release `20260906T110340Z-73a29
 许可发布后 30 分钟内，从 n8n 完整工作流入口手动启动一次，正常经过“领取共享 helper”节点。计划节点独占领取许可并以 create-only `outputs/jackyun-export-first/resumptions/n8n-export-first-844.json` 绑定新 execution；只有它的后续节点可沿用原 RUN_ID、日期、文件和阶段。原失败记录、plan/controller/active 的身份不被改写；跨日、其他执行、许可或原始证据变化均拒绝。不要点击 n8n 原生的“重试失败节点”，因为它会跳过共享 helper 领取。后续仍受五表齐全、正式导入幂等和独立批次回查约束。
 
 任务未完成时，每 10 秒通过已观测的下载中心“刷新”按钮刷新列表；不会重新点击业务导出。专项 17 项、全量 1,918 项（1,898 通过、20 跳过）、构建、20 项渲染及生产边界检查通过。lint 为 0 错误、9 项既有警告；TypeScript 142 项既有诊断与基线一致。原 844 的只读续跑提案检查通过，实际采用和导入结果以下续执行证据为准。
+
+### 845 五表落地与组合装名称修复
+
+续跑修复 `bf75eef4` 保留了期间已发布的界面改动，采用 release `20260906T141849Z-75fb691dce9c14bd`，manifest SHA `4bc80d9b76899561f18de12ec0a6da948388677d02077bb54043dc9f05366688`，plan SHA `2d6b7e7aad30aa7f4b7e947b83da03a29a47e34616b1ddecf7917d301d47bc5d`，successor SHA `c240d90f3eed7d43c4c2c13591342570ae0c9793d26be233b7cc8623cb1ca1a4`。一次 apply 因旧服务被重新启动而在正式门禁处拒绝，受控 Stop 后相同计划成功 apply；没有绕过端口停止检查。Status、VerifyStartup、全部 readiness 通过。
+
+原 844 续跑许可提案 SHA 为 `2f3ec26d13d41675c9426da1921a91998e8a937e94ad96c9cf0de1fa2a2ade15`。完整手动 n8n 845 于 `2026-09-06T14:27:21.207Z` 开始，独占领取原运行，consumption 绑定许可文件 SHA `d2a0a72580a960a56e368b4eaac782811fcfe07ee7b46690d91aa69d189ccd89`。分仓库存 25,709 行复用原任务，其余依次实际生成：组合装 1,942 个母件/4,392 条关系、销售 4,828 行（发货时间 9 月 1–5 日）、库龄 5,629 行、SKU 货品 8,476 行。五张原始 Excel 均在 `D:\谷歌浏览器\jackyun\n8n-export-first-844`，原交接及 SHA 保留。
+
+组合装首个确认点击没有关闭模块内图片列提示框；operator 只在精确原弹窗、1,942 小于 2,000 上限、原 intent 未变且无新任务的证据下点击一次确认，并重新打开下载中心，未重复发起导出。此人工介入记录为 `outputs/validation/845-combo-confirmation-intervention.json`。后续修复把确认限制在组合装 iframe 内唯一、内容吻合、可点击的 `.mini-messagebox`，点击前后校验位置，并要求确认框消失后才读取下载任务；拒绝遮挡、禁用、重复和未消失弹窗，不自动重点击。
+
+845 的五表完整校验及演练通过。正式导入已成功发布货品 8,476 行、分仓库存 22,642 行、库龄 5,554 行、销售 4,478 行，随后组合装被 Django 400 `parentName 无效` 拒绝，845 于 `14:34:30.057Z` 结束为 error。原文件中恰有两个 parentName 含 U+0009 制表符（子件源行 1,243 与 1,247），没有超长名称。解析边缘仅把组合装展示名称的制表/换行空白规范为空格，附聚合警告；不改编号、关系、数量、其他控制字符或原文件。Django 的 `_combo_rows` 在 `transaction.atomic`、scope owner 与业务写入之前拒绝该请求，因此这次错误可证明未写组合装事实。
+
+受控续导例外精确绑定原 run ID、原文件 SHA `b10ec87fbb0175a7041d83361d40b9266d8bc80dc1f5ed9df24d85f36d1edb67`、输入契约 SHA `b7bf347a04436a19165434491be89edf4346adf817bc6482c250361b0a022a24`、完整失败 audit 规范化 SHA `d15f2096c8d3aa03760a74644703d99e18aa875344227f3405652dc81a26a93f`。重新解析须保留 4,392 条关系、无错误且名称规范化成功；先 create-only 归档旧失败 audit，再由原正式 runner 重新上传组合装。四个 completed 模块只核验已有文件、契约与批次，不重复导入；不能推广为任意失败或结果未知的写入重试。845 的 n8n error 记录保留，operator 续导完成后以原计划 completed 和独立 PostgreSQL 批次回查作为业务完成证据。
+
+组合装专项 3 项通过；全量以 `node --import tsx --test --test-concurrency=4 tests/*.test.ts` 检查 1,921 项，1,900 通过、21 跳过，无失败/取消。默认无并发上限的一次全量中 Chromium 夹具 30 秒超时，单独检查及有界并发全量均通过。构建、20 项渲染、生产边界检查通过，lint 0 错误/9 项既有警告，TypeScript 142 项既有诊断未变。辅助诊断为 ignored outputs 下的 `.mjs`，未纳入产品代码。

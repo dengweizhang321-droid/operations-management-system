@@ -33,6 +33,7 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { verifyJackyunModuleArtifact } from "../lib/jackyun/run-artifact-verification";
 import { jackyunDjangoImportReceipt } from "../lib/jackyun/django-import-receipt";
 import { jackyunExportFirstPolicyVersion } from "../lib/jackyun/run-contract";
+import { auditedComboNameRejection, isAuditedComboNameRepair } from "../lib/jackyun/combo-name-recovery";
 
 type CliOptions = {
   module: JackyunModule;
@@ -754,9 +755,15 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         const result = { status: "duplicate_ignored", runId: options.runId, module: options.module, auditPath, manifestPath, existing };
         return result;
       }
-      const failedAudit = options.sourceRowCountCorrection
+      const failedAudit = options.sourceRowCountCorrection || (options.module === "combos" && existing.status === "failed")
         ? await readJsonFileOr<Record<string, unknown> | null>(auditPath, null)
         : null;
+      const comboRepairParse = options.module === "combos" && existing.status === "failed" && options.runId === auditedComboNameRejection.runId
+        ? prepareJackyunWorkbook("combos", rawBytes) : null;
+      const repairsComboName = !options.dryRun && isAuditedComboNameRepair({
+        runId: options.runId, module: options.module, sourceSha256: rawHash, inputContractHash, priorModule: existing, failedAudit,
+        relationCountVerified: comboRepairParse?.expectedBatchRowCount === 4392,
+      });
       const repairsExactRowCount = isExactFailedSourceRowCountRepair({
         runId: options.runId,
         module: options.module,
@@ -767,7 +774,12 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         priorModule: existing as unknown as Record<string, unknown>,
         failedAudit,
       });
-      if (repairsExactRowCount) {
+      if (repairsComboName) {
+        await writeFile(path.join(auditDirectory, `combos.name-whitespace-repair-${auditedComboNameRejection.auditSha256}.json`),
+          JSON.stringify({ failedAudit, repair: "audited_845_combo_name_whitespace", repairedAt: new Date().toISOString() }) + "\n", { flag: "wx" });
+        delete manifest.modules[options.module];
+        priorModule = undefined;
+      } else if (repairsExactRowCount) {
         await writeJsonAtomic(path.join(auditDirectory, `${options.module}.row-count-repair-${Date.now()}.json`), {
           ...failedAudit,
           repair: options.sourceRowCountCorrection,
