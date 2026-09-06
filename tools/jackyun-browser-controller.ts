@@ -18,6 +18,7 @@ import { assertJackyunSnapshotEvidence, jackyunCaptureDate, jackyunExportFirstPo
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession } from "../lib/jackyun/dpapi-login";
+import { selectJackyunExportTask, type JackyunExportTaskBinding, type JackyunExportTaskRecord } from "../lib/jackyun/export-task";
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
 type Policy = {
@@ -50,6 +51,7 @@ type Policy = {
 };
 
 type ModuleActionState = Partial<BrowserHandoff> & {
+  exportTaskBinding?: JackyunExportTaskBinding;
   status: "pending" | "navigated" | "queried" | "export_armed" | "downloaded" | "handed_off" | "completed";
   queryRetryCount?: number;
   queryRetryIntentAt?: string;
@@ -131,6 +133,8 @@ type CliOptions = {
   exportOnlyModule?: JackyunModule;
   /** Operator diagnosis: query and open menus, then return before any export intent/click. */
   inspectExportMenuOnly?: boolean;
+  /** Bound existing task approved for resuming the original run; never a new export. */
+  resumeTaskBinding?: JackyunExportTaskBinding;
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -552,6 +556,7 @@ function actionTimeout(policy: Policy, moduleKey: JackyunModule) {
 }
 
 function exportTimeout(policy: Policy, moduleKey: JackyunModule) {
+  if (policy.version === jackyunExportFirstPolicyVersion) return Math.max(actionTimeout(policy, moduleKey), policy.browser.exportTimeoutMs ?? 300_000);
   return Math.max(actionTimeout(policy, moduleKey), Math.min(policy.browser.exportTimeoutMs ?? 60_000, moduleTimeout(policy, moduleKey)));
 }
 
@@ -1599,8 +1604,66 @@ async function waitForActiveModule(client: BrowserAutomationClient, moduleKey: J
 export type CapturedDownloadUrlEvidence = {
   url: string;
   observedAt: string;
-  source: "browser_download_event" | "module_network_request" | "page_download_hook";
+  source: "browser_download_event" | "module_network_request" | "page_download_hook" | "task_download_record";
 };
+
+export async function waitForJackyunExportTask(client: BrowserAutomationClient, expected: {
+  module: JackyunModule; sourceRows: number; exportIntentAt: string; allowedHosts: readonly string[];
+  binding?: JackyunExportTaskBinding;
+}, timeoutMs: number, pollMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let opened = false;
+  let refreshedAt = Date.now();
+  while (Date.now() < deadline) {
+    const records = await evaluateValue<JackyunExportTaskRecord[]>(client, `(() => {
+      ${jsDocumentsPrelude(["/system/taskList.html"])}
+      return documents.flatMap(doc => Array.from(doc.querySelectorAll('[id^="sys-"]')).filter(visible).map(el => {
+        const button = el.querySelector('.download-btn');
+        let attachments = []; try { attachments = JSON.parse(button?.getAttribute('data-attas') || '[]'); } catch {}
+        return { taskId: el.id, label: (el.querySelector('.filename')?.textContent || '').trim(),
+          createdAt: Number(button?.getAttribute('data-gmtcreate')), completed: !!el.querySelector('.state.success'),
+          urls: Array.isArray(attachments) ? attachments.map(a => String(a.attachmentUrl || '')) : [] };
+      }));
+    })()`);
+    const result = selectJackyunExportTask(records, { ...expected, observedAt: new Date().toISOString() });
+    if (result) return result;
+    if (!opened) {
+      const entry = await evaluateValue<{ x: number; y: number } | null>(client, `(() => {
+        const candidates = Array.from(document.querySelectorAll('img[title="文件下载记录和系统任务"]')).filter(el=>{
+          const r=el.getBoundingClientRect(); return r.width>2 && r.height>2;
+        });
+        if(candidates.length>1) throw new Error('下载记录入口不唯一');
+        if(!candidates.length) return null;
+        const r=candidates[0].getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2};
+      })()`);
+      if (entry) {
+        await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...entry, button: "none" });
+        await client.send("Input.dispatchMouseEvent", { type: "mousePressed", ...entry, button: "left", clickCount: 1 });
+        await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...entry, button: "left", clickCount: 1 });
+        opened = true;
+      }
+    }
+    if (opened && Date.now() - refreshedAt >= 10_000) {
+      const refresh = await evaluateValue<{ x: number; y: number } | null>(client, `(() => {
+        ${jsDocumentsPrelude(["/system/taskList.html"])}
+        const matches=documents.flatMap(doc=>Array.from(doc.querySelectorAll('i.fa-refresh[title="刷新"]')).filter(visible));
+        if(matches.length!==1) return null;
+        const el=matches[0], r=el.getBoundingClientRect(); let x=r.left+r.width/2,y=r.top+r.height/2,win=el.ownerDocument.defaultView;
+        if(el.ownerDocument.elementFromPoint(x,y)!==el) return null;
+        while(win.frameElement){const f=win.frameElement, b=f.getBoundingClientRect();x+=b.left;y+=b.top;win=win.parent;}
+        return {x,y};
+      })()`);
+      if (refresh) {
+        await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...refresh, button: "none" });
+        await client.send("Input.dispatchMouseEvent", { type: "mousePressed", ...refresh, button: "left", clickCount: 1 });
+        await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...refresh, button: "left", clickCount: 1 });
+      }
+      refreshedAt = Date.now();
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.max(500, pollMs)));
+  }
+  throw new Error("导出任务仍未出现唯一已完成附件；保留原意图，禁止重复导出。");
+}
 
 export function assertBoundDownloadUrl(
   evidence: CapturedDownloadUrlEvidence | undefined,
@@ -1927,7 +1990,12 @@ async function runController(options: CliOptions) {
 
     if (moduleState.exportIntentAt && !moduleState.filePath) {
       capturedDownloadUrl = undefined;
-      const recoveryUrl = await findOssUrl(
+      const task = options.exportOnlyModule ? await waitForJackyunExportTask(client, {
+        module: moduleKey, sourceRows: moduleState.expectedSourceRows!, exportIntentAt: moduleState.exportIntentAt,
+        allowedHosts: policy.browser.allowedDownloadHosts, binding: moduleState.exportTaskBinding ?? (options.resumeTaskBinding?.module === moduleKey ? options.resumeTaskBinding : undefined),
+      }, exportTimeout(policy, moduleKey), fastPoll(policy)) : undefined;
+      if (task) { moduleState.exportTaskBinding = task.binding; await persistControllerState(controllerStatePath, state); }
+      const recoveryUrl = task?.url ?? await findOssUrl(
         () => capturedDownloadUrl,
         policy.browser.allowedDownloadHosts,
         moduleState.exportIntentAt,
@@ -2399,7 +2467,12 @@ async function runController(options: CliOptions) {
     }  // end if (!moduleState.filePath) — 跳过浏览器操作
 
     if (!moduleState.filePath) {
-      const downloadEvidence = await findCurrentDownloadEvidence(
+      const task = options.exportOnlyModule ? await waitForJackyunExportTask(client, {
+        module: moduleKey, sourceRows: moduleState.expectedSourceRows!, exportIntentAt: moduleState.exportIntentAt!,
+        allowedHosts: policy.browser.allowedDownloadHosts, binding: moduleState.exportTaskBinding ?? (options.resumeTaskBinding?.module === moduleKey ? options.resumeTaskBinding : undefined),
+      }, exportTimeout(policy, moduleKey), fastPoll(policy)) : undefined;
+      if (task) { moduleState.exportTaskBinding = task.binding; await persistControllerState(controllerStatePath, state); }
+      const downloadEvidence = task ? { url: task.url, observedAt: task.binding.observedAt, source: "task_download_record" as const } : await findCurrentDownloadEvidence(
         client,
         moduleUrlHints(moduleKey),
         () => capturedDownloadUrl,
@@ -2471,6 +2544,7 @@ async function runController(options: CliOptions) {
         controller: "dedicated_chrome_playwright",
         policyVersion: policy.version,
         sourceUrlHash: moduleState.downloadProvenance?.sourceUrlHash ?? null,
+        exportTaskBinding: moduleState.exportTaskBinding ?? null,
       },
     };
     const eventPath = path.join(eventDirectory, eventFileName(index, moduleKey));

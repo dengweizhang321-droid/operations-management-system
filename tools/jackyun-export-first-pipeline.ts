@@ -10,6 +10,7 @@ import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { assertClosedPreflight, preflightClosurePath } from "../lib/jackyun/preflight-recovery";
+import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { runController } from "./jackyun-browser-controller";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
@@ -103,6 +104,15 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
   assertBoundDownloadProvenance(handoff.downloadProvenance, policy.browser.allowedDownloadHosts, {
     runId: plan.runId, module, policyVersion: plan.protocol,
   });
+  const taskBinding = handoff.evidence?.exportTaskBinding as import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
+  if (taskBinding && (taskBinding.version !== 1 || taskBinding.module !== module || taskBinding.sourceRows !== handoff.expectedSourceRows
+    || taskBinding.sourceUrlHash !== handoff.downloadProvenance.sourceUrlHash || !/^sys-\d{1,20}$/.test(taskBinding.taskId)
+    || !Number.isFinite(Date.parse(taskBinding.createdAt)) || !Number.isFinite(Date.parse(taskBinding.observedAt))
+    || Date.parse(taskBinding.createdAt) < Math.floor(Date.parse(handoff.exportIntentAt) / 1000) * 1000
+    || Date.parse(taskBinding.observedAt) < Date.parse(taskBinding.createdAt)
+    || Date.parse(taskBinding.observedAt) > Date.parse(handoff.downloadProvenance.completedAt))) {
+    throw new Error("导出任务记录与本轮文件交接不一致。");
+  }
   if (handoff.downloadEventAt !== handoff.downloadProvenance.completedAt) throw new Error("下载时间不匹配。");
   if (module === "inventory" || module === "inventory_age") {
     assertJackyunSnapshotEvidence(handoff.snapshotEvidence, {
@@ -195,22 +205,29 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
   if (!jackyunExportFirstActions.includes(action) || !/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("节点或 n8n execution ID 无效。");
   if (!deps.root || !path.isAbsolute(deps.root)) throw new Error("缺少执行器提供的受保护数据目录。");
   const root = path.resolve(deps.root);
-  const runId = `n8n-export-first-${executionId}`;
+  let runId = `n8n-export-first-${executionId}`;
   return withJackyunRunLock({ runId, purpose: "n8n_export_first",
     ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async () => {
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
-    const planPath = path.join(paths(root).pipelineRoot, `${runId}.json`);
+    let resumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
     const activePath = path.join(paths(root).pipelineRoot, "active.json");
     const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
     if (active && active.executionId !== executionId) {
       if (!/^n8n-export-first-[1-9]\d{0,19}$/.test(active.runId)) throw new Error("活动运行编号无效。");
       const previous = await readJsonFile<JackyunExportFirstPlan>(path.join(paths(root).pipelineRoot, `${active.runId}.json`));
       if (active.runId !== `n8n-export-first-${active.executionId}`) throw new Error("活动运行身份不一致。");
-      if (previous.phase !== "completed") await assertClosedPreflight(root, active.executionId).catch(() => {
-        throw new Error(`原运行 ${active.runId} 尚未闭合；保留原证据，禁止新建重复导出。`);
-      });
+      if (previous.phase !== "completed") {
+        const closed = await assertClosedPreflight(root, active.executionId).then(() => true, () => false);
+        if (!closed) {
+          try { resumeTaskBinding = await claimJackyunResumePermit(root, active.executionId, executionId, action, nowOf(deps)); }
+          catch { throw new Error(`原运行 ${active.runId} 尚未闭合，且当前执行没有有效续跑许可；禁止新建重复导出。`); }
+          assertExportFirstAction(previous, active.executionId, action);
+          executionId = active.executionId; runId = active.runId;
+        }
+      }
     }
+    const planPath = path.join(paths(root).pipelineRoot, `${runId}.json`);
     if (await stat(preflightClosurePath(root, executionId)).then(() => true, error => {
       if (error.code === "ENOENT") return false; throw error;
     })) throw new Error("原登录失败运行已经闭合，禁止重放；只能由新的完整 n8n execution 从计划节点开始。");
@@ -247,7 +264,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         const result = await (deps.runBrowser ?? runController)({
           runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
           eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
-          headless: true, launchOnly: false, checkLoginOnly: false, exportOnlyModule: moduleKey,
+          headless: true, launchOnly: false, checkLoginOnly: false, exportOnlyModule: moduleKey, resumeTaskBinding,
         });
         if (result.status !== "exported") throw new Error(`${moduleKey} 导出未完成：${result.status}`);
       }
