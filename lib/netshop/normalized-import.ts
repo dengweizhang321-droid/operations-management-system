@@ -718,12 +718,18 @@ export function prepareTmallPromotionRows(rows: readonly ParsedNetshopRawRow[]) 
   return [...groups.values()].map((group) => {
     const first = group[0]!;
     if (group.length === 1) return first;
-    const subjectNames = [...new Set(group.map((row) => normalizeText(row.raw["主体名称"])).filter(Boolean))];
+    const subjectNames = [...new Set(group.map((row) => normalizeText(row.raw["主体名称"])).filter(Boolean))].sort();
     const subjectTypes = [...new Set(group.map((row) => normalizeText(row.raw["主体类型"])).filter(Boolean))];
-    if (subjectNames.length > 1) throw new Error(`天猫商品报表同一商品存在多个商品名称（源行 ${group.map((row) => row.rowNumber).join("、")}）`);
+    if (!/^\d+$/.test(normalizeText(first.raw["主体ID"]))) throw new Error("天猫商品报表缺少有效商品 ID，拒绝汇总");
     if (subjectTypes.some((value) => value !== "商品")) throw new Error("天猫商品报表计划维度包含非商品主体，拒绝汇总");
 
     const raw = { ...first.raw };
+    // Plan-level titles can differ for one product ID. Keep every title as
+    // provenance and select a stable display title independent of row order.
+    if (subjectNames.length > 1) {
+      raw["主体名称"] = subjectNames[0]!;
+      raw["主体名称列表"] = JSON.stringify(subjectNames);
+    }
     for (const header of tmallPromotionAdditiveHeaders) raw[header] = sumTmallPromotionHeader(group, header);
     const spend = numberFromUnknown(raw["花费"]);
     const impressions = numberFromUnknown(raw["展现量"]);

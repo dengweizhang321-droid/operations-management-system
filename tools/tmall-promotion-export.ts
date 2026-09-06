@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -2671,12 +2671,82 @@ function resumableStage(audit: PromotionExportAudit): PromotionAuditStage {
   return audit.stage === "failed" ? audit.resumeStage ?? "planned" : audit.stage;
 }
 
+const promotionPreSubmitStages = ["planned", "browser_ready", "dialog_opening", "dialog_ready", "report_configured"];
+
+type PromotionRecoveryInput = {
+  store: TmallStore;
+  baseUrl: string;
+  auditDirectory: string;
+  latestAllowedDate: string;
+};
+
+type PromotionRecovery = { date: string; runId: string };
+
+/** Read only: pending business actions keep their original date and identity. */
+export async function readTmallPromotionRecovery(input: PromotionRecoveryInput): Promise<PromotionRecovery | null> {
+  const existing = await readActiveAudit(input.store.storeKey, input.auditDirectory);
+  if (!existing) return null;
+  if (existing.audit.shopName !== input.store.shopName || existing.audit.baseUrl !== input.baseUrl) {
+    throw new Error("商品推广恢复清单的店铺或系统地址不一致");
+  }
+  const disposition = promotionAuditProtocolDisposition(existing.audit);
+  if (disposition === "block_existing_business_action") {
+    throw new Error("存在旧版或不同协议的推广业务活动清单，拒绝由商品报表流程接管");
+  }
+  if (disposition === "replace_pre_submit") {
+    const legacyStage = existing.audit.stage === "failed" ? existing.audit.resumeStage : existing.audit.stage;
+    if (!legacyStage || ![...promotionPreSubmitStages, "completed"].includes(legacyStage)
+      || legacyStage !== "completed" && (existing.audit.file || existing.audit.unverifiedFile || existing.audit.selectedTask || existing.audit.batchId || existing.audit.downloadAttempts)) {
+      throw new Error("旧推广清单阶段或业务证据不明确，拒绝替换");
+    }
+    return null;
+  }
+  const audit = existing.audit as PromotionExportAudit;
+  const stage = audit.stage === "failed" ? audit.resumeStage : audit.stage;
+  if (audit.shopName !== input.store.shopName || audit.baseUrl !== input.baseUrl
+    || !validDate(audit.startDate) || audit.startDate !== audit.endDate
+    || audit.startDate < input.store.initialStartDate! || audit.endDate > input.latestAllowedDate
+    || !Array.isArray(audit.dates) || audit.dates.length !== 1 || audit.dates[0] !== audit.startDate
+    || audit.reportName !== "商品报表" || audit.metrics !== "全部数据指标"
+    || !Array.isArray(audit.marketingScenes) || !isTmallPromotionMarketingSceneSelection(audit.marketingScenes)
+    || !Array.isArray(audit.dimensions) || !isTmallPromotionDimensionSelection(audit.dimensions)
+    || audit.timeGranularity !== "分天" || !Number.isFinite(Date.parse(audit.startedAt))
+    || !stage || ![...promotionPreSubmitStages, "report_submitting", "report_submitted", "downloaded_unverified", "downloaded", "importing", "completed"].includes(stage)) {
+    throw new Error("商品推广恢复清单的店铺、系统地址、日期、阶段或报表协议无效");
+  }
+  if (stage === "report_submitting") throw new Error("推广报表提交结果未决，必须人工核对原任务，禁止自动重放");
+  if (promotionPreSubmitStages.includes(stage)) {
+    if (audit.file || audit.unverifiedFile || audit.selectedTask || audit.batchId || audit.downloadAttempts) {
+      throw new Error("推广提交前清单含有业务执行证据，拒绝替换或重放");
+    }
+    return null;
+  }
+  if (stage === "completed") return null;
+  if (stage === "downloaded_unverified" && !audit.unverifiedFile
+    || ["downloaded", "importing"].includes(stage) && !audit.file) {
+    throw new Error("推广恢复阶段缺少对应文件证据，拒绝重新提交报表");
+  }
+  return { date: audit.startDate, runId: audit.runId };
+}
+
+async function archivePromotionAudit(audit: StoredPromotionExportAudit, directory: string) {
+  const content = JSON.stringify(audit, null, 2);
+  const digest = createHash("sha256").update(content).digest("hex");
+  const archivePath = path.join(directory, `history-${safeSegment(audit.storeKey)}-${safeSegment(audit.runId)}-${digest}.json`);
+  try {
+    await writeFile(archivePath, content, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST" || await readFile(archivePath, "utf8") !== content) throw error;
+  }
+}
+
 async function runTmallPromotionDate(options: {
   store: TmallStore;
   baseUrl: string;
   request: typeof fetch;
   auditDirectory: string;
   plan: PromotionDatePlan;
+  recoveryRunId?: string;
   signal?: AbortSignal;
 }) {
   const { store, baseUrl, request, auditDirectory: runAuditDirectory, plan, signal } = options;
@@ -2694,8 +2764,14 @@ async function runTmallPromotionDate(options: {
     throw new Error(`存在旧版或不同协议的推广业务活动清单 ${existing.audit.startDate}..${existing.audit.endDate}，且已进入提交/下载/导入阶段；拒绝由商品报表流程接管`);
   }
   const reusable = existing && disposition === "reuse" ? existing.audit as PromotionExportAudit : null;
+  if (options.recoveryRunId && (!reusable || reusable.runId !== options.recoveryRunId
+    || reusable.startDate !== plan.startDate || reusable.endDate !== plan.endDate
+    || !["report_submitted", "downloaded_unverified", "downloaded", "importing", "completed"].includes(resumableStage(reusable))
+    || resumableStage(reusable) === "completed" && !reusable.file)) {
+    throw new Error("原推广任务已变化或缺少续接证据，禁止为恢复日期重新创建报表");
+  }
   if (reusable && (reusable.startDate !== plan.startDate || reusable.endDate !== plan.endDate)
-    && !["completed", "planned"].includes(resumableStage(reusable))) {
+    && !["completed", ...promotionPreSubmitStages].includes(resumableStage(reusable))) {
     throw new Error(`存在未完成的商品推广恢复清单 ${reusable.startDate}..${reusable.endDate}，拒绝覆盖为 ${plan.startDate}..${plan.endDate}`);
   }
   const audit: PromotionExportAudit = reusable
@@ -2729,6 +2805,15 @@ async function runTmallPromotionDate(options: {
     || !isTmallPromotionDimensionSelection(audit.dimensions) || audit.timeGranularity !== "分天") {
     throw new Error("商品推广恢复清单的店铺、系统地址、日期或报表协议与当前计划不一致");
   }
+  // Recheck immediately before changing the active slot; a changed owner/date
+  // cannot be overwritten on the strength of the earlier planning read.
+  const pending = await readTmallPromotionRecovery({ store, baseUrl, auditDirectory: runAuditDirectory, latestAllowedDate: shanghaiYesterday() });
+  if (pending && pending.date !== plan.startDate) throw new Error("推广活动日期已变化，拒绝覆盖其他日期的任务");
+  const currentAudit = await readActiveAudit(store.storeKey, runAuditDirectory);
+  if (JSON.stringify(currentAudit?.audit) !== JSON.stringify(existing?.audit)) {
+    throw new Error("推广活动清单在计划后发生变化，拒绝覆盖其他执行的状态");
+  }
+  if (existing && existing.audit !== audit) await archivePromotionAudit(existing.audit, runAuditDirectory);
   await writeAudit(audit, runAuditDirectory);
 
   try {
@@ -2989,6 +3074,7 @@ export async function runTmallPromotionStage(options: {
   forceExistingDates?: boolean;
   maximumDays?: number;
   executeDate?: typeof runTmallPromotionDate;
+  resolveRecovery?: (input: PromotionRecoveryInput) => Promise<PromotionRecovery | null>;
   signal?: AbortSignal;
 } = {}) {
   assertPromotionRunActive(options.signal);
@@ -3022,6 +3108,24 @@ export async function runTmallPromotionStage(options: {
     maximumDays: options.maximumDays,
   });
 
+  const recovery = await (options.resolveRecovery ?? readTmallPromotionRecovery)({
+    store, baseUrl, auditDirectory: runAuditDirectory, latestAllowedDate,
+  });
+  const recoveryDate = recovery?.date ?? null;
+  if (recoveryDate) {
+    // One existing task may be resumed in addition to the bounded requested
+    // days. It never expands the set of dates allowed to create new reports.
+    if (!requestedDates.includes(recoveryDate)) {
+      const recoveryCoverage = await coverageForStore(baseUrl, store, recoveryDate, recoveryDate, request);
+      if (!recoveryCoverage.productDailyDates.includes(recoveryDate)) {
+        throw new Error(`waiting_product_daily：原推广任务 ${recoveryDate} 缺少商品日覆盖，保留原任务`);
+      }
+    }
+    const index = plans.findIndex((plan) => plan.startDate === recoveryDate);
+    if (index >= 0) plans.splice(index, 1);
+    plans.unshift({ startDate: recoveryDate, endDate: recoveryDate, dates: [recoveryDate] });
+  }
+
   const executeDate = options.executeDate ?? runTmallPromotionDate;
   const dailyResults = await runPromotionDailyPlansSequentially(plans, async (plan) => executeDate({
       store,
@@ -3029,6 +3133,7 @@ export async function runTmallPromotionStage(options: {
       request,
       auditDirectory: runAuditDirectory,
       plan,
+      recoveryRunId: recoveryDate === plan.startDate ? recovery?.runId : undefined,
       signal: options.signal,
     }));
   const executedResults = dailyResults;
@@ -3044,11 +3149,12 @@ export async function runTmallPromotionStage(options: {
     reason: undefined,
     storeKey: store.storeKey,
     shopName: store.shopName,
-    startDate: plans[0]!.startDate,
-    endDate: plans[plans.length - 1]!.endDate,
+    startDate: plans.map((plan) => plan.startDate).sort()[0]!,
+    endDate: plans.map((plan) => plan.endDate).sort().at(-1)!,
     dates: plans.map((plan) => plan.startDate),
     plannedDates: plans.map((plan) => plan.startDate),
     completedDates: dailyResults.map((result) => result.date),
+    recoveryDate,
     reportCount: executedResults.length,
     importedCount,
     duplicateCount,
