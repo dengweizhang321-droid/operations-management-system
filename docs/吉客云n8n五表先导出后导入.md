@@ -156,3 +156,11 @@ DPAPI 登录与无业务效果恢复受控采用 release `20260906T110340Z-73a29
 受控续导例外精确绑定原 run ID、原文件 SHA `b10ec87fbb0175a7041d83361d40b9266d8bc80dc1f5ed9df24d85f36d1edb67`、输入契约 SHA `b7bf347a04436a19165434491be89edf4346adf817bc6482c250361b0a022a24`、完整失败 audit 规范化 SHA `d15f2096c8d3aa03760a74644703d99e18aa875344227f3405652dc81a26a93f`。重新解析须保留 4,392 条关系、无错误且名称规范化成功；先 create-only 归档旧失败 audit，再由原正式 runner 重新上传组合装。四个 completed 模块只核验已有文件、契约与批次，不重复导入；不能推广为任意失败或结果未知的写入重试。845 的 n8n error 记录保留，operator 续导完成后以原计划 completed 和独立 PostgreSQL 批次回查作为业务完成证据。
 
 组合装专项 3 项通过；全量以 `node --import tsx --test --test-concurrency=4 tests/*.test.ts` 检查 1,921 项，1,900 通过、21 跳过，无失败/取消。默认无并发上限的一次全量中 Chromium 夹具 30 秒超时，单独检查及有界并发全量均通过。构建、20 项渲染、生产边界检查通过，lint 0 错误/9 项既有警告，TypeScript 142 项既有诊断未变。辅助诊断为 ignored outputs 下的 `.mjs`，未纳入产品代码。
+
+### 已导入五表的独立核验兼容
+
+名称修复 `1cf3599c` 已通过受控发布采用 release `20260906T145453Z-800e92a49927bf7e`（manifest SHA `911fbfbbe946adb0d3b6d77a6d94c8443d8d7475d3186447e8a83cad165d3867`）。精确原失败审计归档后，原 runner 成功续导 4,392 条组合装关系，逻辑计划进入 `imported`；未重新导出或重复导入其余四表。原 n8n 845 error 保留。
+
+随后独立回查暴露出已迁移库存历史 API 未返回 `ownedRowCount/isCurrent`，导致现有严格核验器拒绝。Worker 仅在库存/库龄的精确 batchId 查询中，通过已有 Django `freshness` 确认当前批次，再以无筛选、limit=1 的 `inventory_search/age_search` 读取实际仓库事实总数；批次历史、新鲜度、事实查询必须具有相同库存 revision 和快照日期。历史批次显式标记非当前，不借用新批次行数，不从声明 rowCount 推算归属。SKU 聚合的 `stock_projection.total` 不是仓库事实行数，不能用于此核验。
+
+该兼容只使用真实 principal 和已有 reader consumer，不改 PostgreSQL、Django、权限、业务过滤或核验器要求。隔离全量 1,932 项测试中 1,912 通过、20 跳过、无失败/取消；构建、20 项渲染、生产边界检查通过，lint 0 错误/9 项既有警告，TypeScript 142 项既有诊断与基线一致。后续仅允许调用原计划的 `verify`，禁止为该接口缺口重跑下载或导入。

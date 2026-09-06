@@ -7,6 +7,7 @@ import {
   createDjangoInventoryService,
   INVENTORY_IMPORTS_PATH,
 } from "@/lib/django/inventory-service";
+import { withCurrentInventoryBatchOwnership } from "@/lib/django/inventory-batch-ownership";
 import { importExecutionHttpStatus, parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 import { importInventoryStockToDjango } from "@/lib/inventory/django-import-service";
 import { syncLatestInventoryProjection } from "@/lib/products/inventory-projection-sync";
@@ -36,7 +37,8 @@ export async function GET(request: Request) {
       { method: "GET", path: INVENTORY_IMPORTS_PATH, service: "reader", rawQuery: query.toString() },
       { signal: request.signal },
     );
-    return Response.json(result.data, { headers: { "cache-control": "no-store", "x-inventory-data-revision": result.revision } });
+    const data = await withCurrentInventoryBatchOwnership(principal, "stock", batchId, result, { signal: request.signal });
+    return Response.json(data, { headers: { "cache-control": "no-store", "x-inventory-data-revision": result.revision } });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
