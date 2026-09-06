@@ -24,7 +24,10 @@ import {
   type JdPromotionExportResult,
 } from "../tools/jd-promotion-export";
 import {
+  assertJdPromotionCoveragePayload,
+  buildJdPromotionCoverageUrl,
   jdPromotionHelperRequestError,
+  planJdPromotionMissingDates,
   parseJdPromotionStoreKeyHeader,
   planJdPromotionN8nRun,
   runJdPromotionN8nPlan,
@@ -104,6 +107,7 @@ function store(storeKey: "jd-yiyong-director" | "jd-maidehao-operator1" = "jd-yi
     shopName: cutMeat ? "志高切肉机旗舰店" : "志高商用设备旗舰店",
     shopId: cutMeat ? "745866" : "701455",
     enabled: true,
+    promotionInitialStartDate: "2026-07-01",
     browser: {
       executablePath: "unused/chromium.exe",
       userDataDir: "unused/user-data",
@@ -115,31 +119,58 @@ function store(storeKey: "jd-yiyong-director" | "jd-maidehao-operator1" = "jd-yi
   };
 }
 
-function importPayload(hash: string) {
+function importPayload(hash: string, options: {
+  dateMin?: string;
+  dateMax?: string;
+  rowCount?: number;
+  shopName?: string;
+  batchId?: string;
+} = {}) {
+  const dateMin = options.dateMin ?? "2026-08-13";
+  const dateMax = options.dateMax ?? "2026-08-14";
+  const rowCount = options.rowCount ?? 2;
+  const shopName = options.shopName ?? "志高商用设备旗舰店";
   return {
     ok: true,
     status: "imported",
     batch: {
-      id: "batch-13-14",
+      id: options.batchId ?? "batch-13-14",
       status: "completed",
       source: "jd_promotion",
       dataset: "ad",
       platform: "京东",
-      shopName: "志高商用设备旗舰店",
-      rowCount: 2,
+      shopName,
+      rowCount,
       warningCount: 0,
-      dateMin: "2026-08-13",
-      dateMax: "2026-08-14",
+      dateMin,
+      dateMax,
       totals: { rawFileHash: hash },
     },
     verification: {
       verified: true,
-      readbackRowCount: 2,
-      dateMin: "2026-08-13",
-      dateMax: "2026-08-14",
-      shopName: "志高商用设备旗舰店",
+      readbackRowCount: rowCount,
+      dateMin,
+      dateMax,
+      shopName,
     },
   };
+}
+
+function coverageResponse(startDate: string, endDate: string, promotionDates: string[]) {
+  return Response.json({
+    requestedPeriod: { startDate, endDate },
+    coverage: {
+      promotionDates,
+      promotionDatesPagination: { total: promotionDates.length, returned: promotionDates.length, truncated: false },
+    },
+  });
+}
+
+function singleDayBytes(date: string, skuId: string) {
+  return bytes([
+    "日期,跟单SKU ID,产品线,账户昵称,展现数,点击数,花费,总订单行,总订单金额",
+    `${date.replaceAll("-", "")},${skuId},商智,志高亿用-小燕,10,2,3.25,1,998.75`,
+  ].join("\r\n"));
 }
 
 test("京准通 CSV 必须完整覆盖精确日期范围并重算关键汇总", () => {
@@ -315,6 +346,48 @@ test("京准通 n8n 店铺请求头只接受两条显式推广白名单", () => 
   assert.throws(() => parseJdPromotionStoreKeyHeader(["jd-maidehao-operator1"]), /店铺请求头无效/);
 });
 
+test("京准通下载前按系统覆盖计算缺口并把跨月缺口限制为逐日计划", () => {
+  assert.equal(
+    buildJdPromotionCoverageUrl("http://localhost:3000", store(), "2026-07-31", "2026-08-02"),
+    `http://localhost:3000/api/netshop/promotion-performance/overview?platform=${encodeURIComponent("京东")}&outlet=${encodeURIComponent(`京东\u001f${store().shopName}`)}&startDate=2026-07-31&endDate=2026-08-02`,
+  );
+  assert.deepEqual(planJdPromotionMissingDates({
+    startDate: "2026-07-31",
+    endDate: "2026-08-03",
+    coveredDates: ["2026-07-31", "2026-08-02"],
+  }), {
+    dates: ["2026-08-01", "2026-08-03"],
+    missingDateCount: 2,
+    deferredDateCount: 0,
+  });
+  const capped = planJdPromotionMissingDates({
+    startDate: "2026-07-01",
+    endDate: "2026-08-10",
+    coveredDates: [],
+  });
+  assert.equal(capped.dates.length, 31);
+  assert.equal(capped.dates[0], "2026-07-01");
+  assert.equal(capped.dates.at(-1), "2026-07-31");
+  assert.equal(capped.deferredDateCount, 10);
+});
+
+test("京准通缺口扫描拒绝截断、计数异常和区间外日期", () => {
+  assert.throws(() => assertJdPromotionCoveragePayload({
+    requestedPeriod: { startDate: "2026-08-13", endDate: "2026-08-14" },
+    coverage: {
+      promotionDates: ["2026-08-13"],
+      promotionDatesPagination: { total: 2, returned: 1, truncated: true },
+    },
+  }, { startDate: "2026-08-13", endDate: "2026-08-14" }), /截断或分页计数不一致/);
+  assert.throws(() => assertJdPromotionCoveragePayload({
+    requestedPeriod: { startDate: "2026-08-13", endDate: "2026-08-14" },
+    coverage: {
+      promotionDates: ["2026-08-15"],
+      promotionDatesPagination: { total: 1, returned: 1, truncated: false },
+    },
+  }, { startDate: "2026-08-13", endDate: "2026-08-14" }), /区间外日期/);
+});
+
 test("京准通 n8n 计划拒绝店铺对象与请求头跨店错配", async () => {
   await assert.rejects(() => planJdPromotionN8nRun({
     executionId: "mismatched-store",
@@ -323,7 +396,7 @@ test("京准通 n8n 计划拒绝店铺对象与请求头跨店错配", async () 
   }), /店铺对象与受控请求头不一致/);
 });
 
-test("京准通 n8n 计划把切肉机店铺、Profile 2 和 8月13日至14日固化在同一计划", async () => {
+test("京准通 n8n 计划先读取切肉机店覆盖，再只固化缺失日期", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-cut-meat-plan-"));
   const targetStore = store("jd-maidehao-operator1");
   const plan = await planJdPromotionN8nRun({
@@ -334,7 +407,7 @@ test("京准通 n8n 计划把切肉机店铺、Profile 2 和 8月13日至14日�
     startDate: "2026-08-13",
     endDate: "2026-08-14",
     store: targetStore,
-    request: async () => new Response("ok"),
+    request: async () => coverageResponse("2026-08-13", "2026-08-14", ["2026-08-13"]),
     profileStatus: async (stores) => {
       assert.deepEqual(stores.map((item) => [item.storeKey, item.browser.profileName]), [["jd-maidehao-operator1", "Profile 2"]]);
       return "ready";
@@ -347,23 +420,33 @@ test("京准通 n8n 计划把切肉机店铺、Profile 2 和 8月13日至14日�
     shopName: "志高切肉机旗舰店",
     accountLabel: "志高迈德豪-运营1",
   });
-  assert.deepEqual([plan.startDate, plan.endDate, plan.stage], ["2026-08-13", "2026-08-14", "planned"]);
+  assert.deepEqual([plan.scannedStartDate, plan.scannedEndDate], ["2026-08-13", "2026-08-14"]);
+  assert.deepEqual([plan.startDate, plan.endDate, plan.dates, plan.stage], ["2026-08-14", "2026-08-14", ["2026-08-14"], "planned"]);
 });
 
-test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发布批次", async () => {
+test("京准通 n8n A/B/C 按缺口逐日串行并独立复验文件、批次和最终覆盖", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-n8n-"));
   const targetStore = store();
-  const savedPath = path.join(root, "promotion.csv");
-  await writeFile(savedPath, bytes());
-  const inspection = inspectJdPromotionCsv(bytes(), "2026-08-13", "2026-08-14");
-  const importResult = validateJdPromotionImportProof({
-    payload: importPayload(inspection.sha256),
-    shopName: targetStore.shopName,
-    startDate: inspection.dateMin,
-    endDate: inspection.dateMax,
-    rowCount: inspection.rowCount,
-    rawFileHash: inspection.sha256,
-  });
+  const daily = await Promise.all(["2026-08-13", "2026-08-14"].map(async (date, index) => {
+    const fileBytes = singleDayBytes(date, `100${index + 1}`);
+    const savedPath = path.join(root, `promotion-${date}.csv`);
+    await writeFile(savedPath, fileBytes);
+    const inspection = inspectJdPromotionCsv(fileBytes, date, date);
+    const importResult = validateJdPromotionImportProof({
+      payload: importPayload(inspection.sha256, {
+        dateMin: date,
+        dateMax: date,
+        rowCount: inspection.rowCount,
+        batchId: `batch-${date}`,
+      }),
+      shopName: targetStore.shopName,
+      startDate: date,
+      endDate: date,
+      rowCount: inspection.rowCount,
+      rawFileHash: inspection.sha256,
+    });
+    return { date, savedPath, inspection, importResult };
+  }));
   const plan = await planJdPromotionN8nRun({
     root,
     now: new Date("2026-08-15T03:00:00+08:00"),
@@ -372,22 +455,131 @@ test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发
     startDate: "2026-08-13",
     endDate: "2026-08-14",
     store: targetStore,
-    request: async () => new Response("ok"),
+    request: async () => coverageResponse("2026-08-13", "2026-08-14", []),
     profileStatus: async () => "ready",
     runIdFactory: () => "jd-promotion-13-14",
   });
-  assert.deepEqual([plan.store.storeKey, plan.startDate, plan.endDate, plan.stage], ["jd-yiyong-director", "2026-08-13", "2026-08-14", "planned"]);
-  const result: JdPromotionExportResult = {
+  assert.deepEqual([plan.store.storeKey, plan.dates, plan.stage], ["jd-yiyong-director", ["2026-08-13", "2026-08-14"], "planned"]);
+  let active = 0;
+  let maximumActive = 0;
+  const calls: string[] = [];
+  await runJdPromotionN8nPlan(plan, { root, store: targetStore, run: async (options) => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    calls.push(options.startDate);
+    await Promise.resolve();
+    const item = daily.find((candidate) => candidate.date === options.startDate)!;
+    active -= 1;
+    return {
+      ok: true,
+      runId: options.runId,
+      storeKey: targetStore.storeKey,
+      shopName: targetStore.shopName,
+      startDate: item.date,
+      endDate: item.date,
+      reportName: `受控报表-${item.date}`,
+      taskCreatedAt: "2026-08-15 18:07:23",
+      savedPath: item.savedPath,
+      fileSizeBytes: (await stat(item.savedPath)).size,
+      sha256: item.inspection.sha256,
+      rowCount: item.inspection.rowCount,
+      accountNicknames: item.inspection.accountNicknames,
+      productLines: item.inspection.productLines,
+      impressions: item.inspection.impressions,
+      clicks: item.inspection.clicks,
+      spendYuan: item.inspection.spendYuan,
+      totalOrders: item.inspection.totalOrders,
+      totalOrderAmountYuan: item.inspection.totalOrderAmountYuan,
+      importResult: item.importResult,
+    } satisfies JdPromotionExportResult;
+  } });
+  assert.equal(plan.stage, "executed");
+  assert.deepEqual(calls, ["2026-08-13", "2026-08-14"]);
+  assert.equal(maximumActive, 1);
+  const request: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("promotion-performance/overview")) return coverageResponse("2026-08-13", "2026-08-14", ["2026-08-13", "2026-08-14"]);
+    const item = daily.find((candidate) => url.includes(encodeURIComponent(candidate.importResult.batchId)))!;
+    return Response.json({ items: [{
+      id: item.importResult.batchId,
+      status: "completed",
+      source: "jd_promotion",
+      dataset: "ad",
+      platform: "京东",
+      shopName: targetStore.shopName,
+      warningCount: 0,
+      rowCount: item.inspection.rowCount,
+      dateMin: item.date,
+      dateMax: item.date,
+      totals: { rawFileHash: item.inspection.sha256 },
+    }] });
+  };
+  const verified = await verifyJdPromotionN8nPlan(plan, { root, store: targetStore, request });
+  assert.deepEqual([verified.stage, verified.rowCount, verified.completedDates, plan.stage], ["verify", 2, ["2026-08-13", "2026-08-14"], "completed"]);
+});
+
+test("京准通 n8n 无缺口时不调用浏览器 runner，只完成覆盖复核", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-no-gap-"));
+  const targetStore = store();
+  const request: typeof fetch = async () => coverageResponse("2026-08-13", "2026-08-14", ["2026-08-13", "2026-08-14"]);
+  const plan = await planJdPromotionN8nRun({
+    root,
+    now: new Date("2026-08-15T03:00:00+08:00"),
+    baseUrl: "http://localhost:3000",
+    executionId: "no-gap",
+    startDate: "2026-08-13",
+    endDate: "2026-08-14",
+    store: targetStore,
+    request,
+    profileStatus: async () => { throw new Error("无缺口时不得检查浏览器 Profile"); },
+    runIdFactory: () => "jd-promotion-no-gap",
+  });
+  assert.deepEqual([plan.dates, plan.stage], [[], "executed"]);
+  const run = await runJdPromotionN8nPlan(plan, { root, store: targetStore, run: async () => { throw new Error("不得调用"); } });
+  assert.equal(run.status, "no_gap");
+  const verified = await verifyJdPromotionN8nPlan(plan, { root, store: targetStore, request });
+  assert.deepEqual([verified.status, verified.rowCount, plan.stage], ["no_gap", 0, "completed"]);
+});
+
+test("京准通 C 节点失败后保留逐日证据并只重试核验", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jd-promotion-verify-recovery-"));
+  const targetStore = store();
+  const date = "2026-08-13";
+  const fileBytes = singleDayBytes(date, "1001");
+  const savedPath = path.join(root, `promotion-${date}.csv`);
+  await writeFile(savedPath, fileBytes);
+  const inspection = inspectJdPromotionCsv(fileBytes, date, date);
+  const importResult = validateJdPromotionImportProof({
+    payload: importPayload(inspection.sha256, { dateMin: date, dateMax: date, rowCount: 1, batchId: "batch-recovery" }),
+    shopName: targetStore.shopName,
+    startDate: date,
+    endDate: date,
+    rowCount: 1,
+    rawFileHash: inspection.sha256,
+  });
+  const plan = await planJdPromotionN8nRun({
+    root,
+    now: new Date("2026-08-15T03:00:00+08:00"),
+    baseUrl: "http://localhost:3000",
+    executionId: "verify-recovery-1",
+    startDate: date,
+    endDate: date,
+    store: targetStore,
+    request: async () => coverageResponse(date, date, []),
+    profileStatus: async () => "ready",
+    runIdFactory: () => "jd-promotion-verify-recovery",
+  });
+  await runJdPromotionN8nPlan(plan, { root, store: targetStore, run: async (options) => ({
     ok: true,
-    runId: plan.runId,
+    runId: options.runId,
     storeKey: targetStore.storeKey,
     shopName: targetStore.shopName,
-    startDate: plan.startDate,
-    endDate: plan.endDate,
+    startDate: date,
+    endDate: date,
     reportName: "受控报表",
     taskCreatedAt: "2026-08-15 18:07:23",
     savedPath,
-    fileSizeBytes: bytes().byteLength,
+    fileSizeBytes: fileBytes.byteLength,
     sha256: inspection.sha256,
     rowCount: inspection.rowCount,
     accountNicknames: inspection.accountNicknames,
@@ -398,11 +590,35 @@ test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发
     totalOrders: inspection.totalOrders,
     totalOrderAmountYuan: inspection.totalOrderAmountYuan,
     importResult,
-  };
-  await runJdPromotionN8nPlan(plan, { root, store: targetStore, run: async () => result });
-  assert.equal(plan.stage, "executed");
-  const request: typeof fetch = async () => Response.json({
-    items: [{
+  }) });
+  await assert.rejects(() => verifyJdPromotionN8nPlan(plan, {
+    root,
+    store: targetStore,
+    request: async () => Response.json({ items: [] }),
+  }), /已发布批次与下载、日期或导入证明不一致/);
+  assert.deepEqual([plan.stage, plan.failure?.stage, plan.results.length], ["failed", "verify", 1]);
+
+  const resumed = await planJdPromotionN8nRun({
+    root,
+    now: new Date("2026-08-15T03:05:00+08:00"),
+    baseUrl: "http://localhost:3000",
+    executionId: "verify-recovery-2",
+    startDate: date,
+    endDate: date,
+    store: targetStore,
+    request: async () => coverageResponse(date, date, [date]),
+    profileStatus: async () => "ready",
+  });
+  assert.deepEqual([resumed.runId, resumed.stage, resumed.dates, resumed.results.length], [plan.runId, "executed", [date], 1]);
+  const recoveredRun = await runJdPromotionN8nPlan(resumed, {
+    root,
+    store: targetStore,
+    run: async () => { throw new Error("不得重复下载"); },
+  });
+  assert.equal(recoveredRun.verificationOnly, true);
+  const request: typeof fetch = async (input) => String(input).includes("promotion-performance/overview")
+    ? coverageResponse(date, date, [date])
+    : Response.json({ items: [{
       id: importResult.batchId,
       status: "completed",
       source: "jd_promotion",
@@ -410,14 +626,12 @@ test("京准通 n8n A/B/C 固化 8月13日至14日并独立复验文件和已发
       platform: "京东",
       shopName: targetStore.shopName,
       warningCount: 0,
-      rowCount: inspection.rowCount,
-      dateMin: inspection.dateMin,
-      dateMax: inspection.dateMax,
+      rowCount: 1,
+      dateMin: date,
+      dateMax: date,
       totals: { rawFileHash: inspection.sha256 },
-    }],
-  });
-  const verified = await verifyJdPromotionN8nPlan(plan, { root, store: targetStore, request });
-  assert.deepEqual([verified.stage, verified.rowCount, plan.stage], ["verify", 2, "completed"]);
+    }] });
+  assert.equal((await verifyJdPromotionN8nPlan(resumed, { root, store: targetStore, request })).status, "completed");
 });
 
 test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 execution ID 串联三段请求", async () => {
@@ -445,6 +659,10 @@ test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 
     { name: "X-TERUISI-WORKFLOW-KEY", value: "jd-promotion" },
   ]);
   assert.deepEqual(requests[1]?.parameters?.headerParameters?.parameters?.[1], { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-yiyong-director" });
+  assert.deepEqual(requests[1]?.parameters?.headerParameters?.parameters?.slice(2), [
+    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.startDate : '' }}" },
+    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.endDate : '' }}" },
+  ]);
   assert.deepEqual(workflow.nodes.find((node) => node.name === "手动补跑日期")?.parameters?.assignments?.assignments?.map((item) => [item.name, item.value]), [
     ["startDate", "2026-08-20"],
     ["endDate", "2026-08-20"],
@@ -456,7 +674,7 @@ test("京准通 n8n 模板保持未激活、先原子领取 helper 再以同一 
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
 });
 
-test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:10 处理昨天并先领取 helper", async () => {
+test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:10 扫描缺口并先领取 helper", async () => {
   const workflow = JSON.parse(await readFile(new URL("../automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json", import.meta.url), "utf8")) as {
     id: string;
     active: boolean;
@@ -485,8 +703,8 @@ test("切肉机京准通 n8n 模板固定 Profile 2、每天 13:10 处理昨天�
   assert.deepEqual(requests[1]?.parameters?.headerParameters?.parameters, [
     { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
     { name: "X-TERUISI-JD-PROMOTION-STORE-KEY", value: "jd-maidehao-operator1" },
-    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.startDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
-    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
+    { name: "X-TERUISI-JD-PROMOTION-START-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.startDate : '' }}" },
+    { name: "X-TERUISI-JD-PROMOTION-END-DATE", value: "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : '' }}" },
   ]);
   assert.equal(workflow.connections["固定补跑日期"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["每天 13:10 执行"]?.main?.[0]?.[0]?.node, "领取共享 helper");

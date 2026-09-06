@@ -1415,6 +1415,12 @@ def _reserve_prepared_import(
                         "verification": {
                             "verified": True,
                             "rowCount": len(rows),
+                            "readbackRowCount": len(rows),
+                            "dataset": payload["dataset"],
+                            "platform": payload["platform"],
+                            "shopName": payload["shopName"],
+                            "dateMin": _start,
+                            "dateMax": _end,
                             "unmatchedProductCount": unmatched_count,
                             **payload["imagePersistence"],
                         },
@@ -1603,6 +1609,7 @@ def _publish_prepared_import(
             "verification": {
                 "verified": True,
                 "rowCount": verification_count,
+                "readbackRowCount": verification_count,
                 "dataset": payload["dataset"],
                 "platform": payload["platform"],
                 "shopName": payload["shopName"],
