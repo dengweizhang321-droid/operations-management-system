@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$BaseUrl = "http://localhost:3000",
   [string]$ReleaseRoot,
