@@ -7,7 +7,7 @@ import test from "node:test";
 import { canonicalProofJson, createD1RetirementReceipt, d1ReceiptRelativePath, d1ReceiptVersion,
   d1RetiredDomains, proofBytesHash, readD1RetirementReceipt, sealProof, validateD1RetirementProof } from "../tools/d1-retirement-proof.mjs";
 import { finalRetirementContracts, inspectGlobalD1Retirement, inspectPostgresRetirementReadiness,
-  retirementMigrations } from "../tools/collect-d1-retirement-proof.mjs";
+  retirementMigrations, retirementReceiptGuardContracts } from "../tools/collect-d1-retirement-proof.mjs";
 import { syntheticD1Proof } from "./fixtures/d1-retirement-proof";
 
 const bindings = Object.fromEntries(["runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256",
@@ -86,16 +86,23 @@ async function databaseFixture(root: string, crlf = false) {
   db.exec("INSERT INTO finance_write_authority(id,owner,epoch,cutover_id) VALUES(1,'postgresql',1,'finance-fixture-cutover')");
   const receiptFields = ["domain", "version", "status", "completed_at", "cutover_id", "attestation_sha256", "smoke_receipt_sha256",
     "preflight_evidence_sha256", "migration_sha256", "preserved_evidence_sha256"];
-  db.exec(`CREATE TABLE domain_retirement_receipts (${receiptFields.join(",")})`);
-  const insert = db.prepare(`INSERT INTO domain_retirement_receipts VALUES(${receiptFields.map(() => "?").join(",")})`);
+  db.exec(`CREATE TABLE domain_retirement_receipts (${[...receiptFields, "plan_id", "audit_id", "created_at"].join(",")})`);
+  const insert = db.prepare(`INSERT INTO domain_retirement_receipts (${receiptFields.join(",")}) VALUES(${receiptFields.map(() => "?").join(",")})`);
   d1RetiredDomains.forEach((domain: string, index: number) => {
     if (domain === "finance") return;
     const raw = crlf ? migrations[index].toString("utf8").replaceAll("\r\n", "\n").replaceAll("\n", "\r\n") : migrations[index];
     insert.run(domain, `${domain}-domain-retirement-receipt-v1`, "completed", "2026-09-06T00:00:00Z", `${domain}-fixture-cutover`,
       "1".repeat(64), "2".repeat(64), "3".repeat(64), proofBytesHash(raw), "4".repeat(64));
   });
+  const receiptGuards: Map<string, Set<string>> = retirementReceiptGuardContracts(migrations);
+  for (const variants of receiptGuards.values()) db.exec([...variants][0]);
   for (const type of ["view", "trigger"]) for (const item of objects.values()) if (item.type === type) db.exec(item.sql);
-  return { db, target, sourceRoot, contracts };
+  function corruptReceipt(statement: string) {
+    db.exec("DROP TRIGGER domain_retirement_receipts_transition_guard");
+    db.exec(statement);
+    db.exec([...receiptGuards.get("domain_retirement_receipts_transition_guard")!][0]);
+  }
+  return { db, target, sourceRoot, contracts, receiptGuards, corruptReceipt };
 }
 
 test("collector verifies all terminal schemas including superseded shared tables and historical CRLF receipts", async (t) => {
@@ -104,10 +111,33 @@ test("collector verifies all terminal schemas including superseded shared tables
     const result = await inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot);
     assert.deepEqual(result.domains.map((row: { viewCount: number; guardCount: number }) => [row.viewCount, row.guardCount]),
       [[9,9],[0,42],[15,9],[49,9],[3,18],[7,21],[2,0],[14,42],[5,18],[7,18],[2,6],[40,120]]);
-    fixture.db.exec("UPDATE domain_retirement_receipts SET status='pending' WHERE domain='ai-assistant'");
+    assert.throws(() => fixture.db.exec("UPDATE domain_retirement_receipts SET status='approved' WHERE domain='ai-assistant'"), /receipt_update_forbidden/);
+    assert.throws(() => fixture.db.exec("DELETE FROM domain_retirement_receipts WHERE domain='ai-assistant'"), /receipt_delete_forbidden/);
+    fixture.corruptReceipt("UPDATE domain_retirement_receipts SET status='pending' WHERE domain='ai-assistant'");
     await assert.rejects(inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot), /receipt mismatch: ai-assistant/);
-    fixture.db.exec("UPDATE domain_retirement_receipts SET status='completed',migration_sha256='invalid' WHERE domain='ai-assistant'");
+    fixture.corruptReceipt("UPDATE domain_retirement_receipts SET status='completed',migration_sha256='invalid' WHERE domain='ai-assistant'");
     await assert.rejects(inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot), /receipt mismatch/);
+  } finally { fixture.db.close(); }
+});
+
+test("collector rejects missing, weakened and unexpected shared receipt guards", async (t) => {
+  const fixture = await databaseFixture(await sandbox(t));
+  try {
+    for (const [name, variants] of fixture.receiptGuards) {
+      fixture.db.exec(`DROP TRIGGER "${name}"`);
+      await assert.rejects(inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot), /immutable receipt guard mismatch/);
+      fixture.db.exec(`CREATE TRIGGER "${name}" BEFORE UPDATE ON domain_retirement_receipts BEGIN SELECT 1; END`);
+      await assert.rejects(inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot), /immutable receipt guard mismatch/);
+      fixture.db.exec(`DROP TRIGGER "${name}"`);
+      for (const variant of variants) {
+        fixture.db.exec(variant);
+        await inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot);
+        fixture.db.exec(`DROP TRIGGER "${name}"`);
+      }
+      fixture.db.exec([...variants][0]);
+    }
+    fixture.db.exec("CREATE TRIGGER unexpected_receipt_update BEFORE UPDATE ON domain_retirement_receipts BEGIN SELECT 1; END");
+    await assert.rejects(inspectGlobalD1Retirement(fixture.target, fixture.sourceRoot), /unapproved trigger/);
   } finally { fixture.db.close(); }
 });
 

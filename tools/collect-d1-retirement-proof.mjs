@@ -14,6 +14,19 @@ export const retirementMigrations = Object.freeze([
 const receiptHashFields = ["attestation_sha256", "smoke_receipt_sha256", "preflight_evidence_sha256", "migration_sha256", "preserved_evidence_sha256"];
 const hex = /^[0-9a-f]{64}$/;
 export const normalizeRetirementSql = (sql) => sql.replace(/\bIF\s+NOT\s+EXISTS\s+/gi, "").trim().replace(/;\s*$/, "").replace(/\s+/g, " ");
+export function retirementReceiptGuardContracts(migrations) {
+  const names = ["domain_retirement_receipts_insert_guard", "domain_retirement_receipts_transition_guard", "domain_retirement_receipts_no_delete"];
+  const contracts = new Map(names.map((name) => [name, new Set()]));
+  for (const migration of migrations) {
+    for (const statement of migration.toString("utf8").split(/--> statement-breakpoint\s*/)) {
+      const definition = statement.replace(/^(?:\s*--[^\n]*(?:\n|$))*/, "").trim();
+      const match = /^CREATE\s+TRIGGER\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z_][A-Za-z0-9_]*)[`"]?/i.exec(definition);
+      if (match && contracts.has(match[1])) contracts.get(match[1]).add(normalizeRetirementSql(definition));
+    }
+  }
+  if ([...contracts.values()].some((variants) => variants.size === 0)) throw new Error("Missing immutable receipt guard contract");
+  return contracts;
+}
 export function expectedRetirementObjects(sql) {
   const objects = [];
   for (const statement of sql.split(/--> statement-breakpoint\s*/)) {
@@ -82,6 +95,16 @@ export async function inspectGlobalD1Retirement(sourceD1Path, sourceRoot) {
     db.exec("PRAGMA query_only=ON; BEGIN");
     const schema = db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type,name LIMIT 5001").all();
     if (schema.length > 5000) throw new Error("D1 adoption schema exceeds audit bound");
+    const receiptGuards = retirementReceiptGuardContracts(migrations);
+    for (const [name, variants] of receiptGuards) {
+      const actual = schema.find((row) => row.name === name);
+      if (!actual || actual.type !== "trigger" || actual.tbl_name !== "domain_retirement_receipts" || !variants.has(normalizeRetirementSql(actual.sql))) {
+        throw new Error(`D1 immutable receipt guard mismatch: ${name}`);
+      }
+    }
+    if (schema.some((row) => row.type === "trigger" && row.tbl_name === "domain_retirement_receipts" && !receiptGuards.has(row.name))) {
+      throw new Error("D1 retirement receipts have an unapproved trigger");
+    }
     const domains = d1RetiredDomains.map((domain, index) => {
       let migrationSha256 = proofBytesHash(migrations[index]);
       // Historical Windows operators used both LF and CRLF checkouts. Accept
