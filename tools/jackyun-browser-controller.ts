@@ -1087,7 +1087,16 @@ export function isModuleQueryRefreshRequest(
     sales: /order_detail_list|order.*detail/,
     combos: /goods_managet_combination|goods.*combination/,
   };
-  const matchesModule = moduleUrlHints(moduleKey).some((hint) => context.includes(hint.toLowerCase()))
+  // Current SKU inventory queries use this gateway route, without either a
+  // branch_stock page name or a "query" verb. Keep the route exact so totals,
+  // auxiliary grids and export requests cannot stand in for the main query.
+  let currentInventoryQuery = false;
+  try {
+    const url = new URL(String(request?.url ?? ""));
+    currentInventoryQuery = url.pathname.toLowerCase() === "/jkyun/erp-stock/warehousestock/stockskulist";
+  } catch { /* existing module matching still handles non-URL test contexts */ }
+  if (currentInventoryQuery && moduleKey !== "inventory") return false;
+  const matchesModule = currentInventoryQuery || moduleUrlHints(moduleKey).some((hint) => context.includes(hint.toLowerCase()))
     || modulePatterns[moduleKey].test(context);
   if (!matchesModule) return false;
   if (!requiredDate) return true;
@@ -1381,7 +1390,7 @@ export async function stableRowCount(
   }
   if (queryRefresh && !completedQueryRefreshEvidence(queryRefresh)) {
     const requiredRefresh = queryRefresh.module === "inventory" || queryRefresh.module === "inventory_age"
-      ? `包含目标日期 ${queryRefresh.requiredDate ?? "缺失"} 的模块网络请求`
+      ? queryRefresh.currentCapture ? "当前采集的模块网络请求" : `包含目标日期 ${queryRefresh.requiredDate ?? "缺失"} 的模块网络请求`
       : "目标网格加载或模块网络请求";
     throw controllerFailure(
       "TABLE_TIMEOUT",

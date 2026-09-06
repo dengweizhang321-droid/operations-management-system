@@ -103,3 +103,56 @@ test("n8n SQLite probe reads only exact execution, omits resume secrets and dete
   const writer = new DatabaseSync(databasePath); writer.prepare("INSERT INTO execution_entity VALUES(?,?,?,?,?,?,?)").run(842, jackyunWorkflowId, "running", null, null, null, null); writer.close();
   assert.equal(readN8nPreflightEvidence(databasePath, "841").activeExecutions, 1);
 });
+
+const queryProof: PreflightEvidence = { ...proof, stoppedAt: "2026-09-06T09:00:30.000Z",
+  error: "TABLE_TIMEOUT [query_refresh]: inventory 未观测到本轮查询触发的包含目标日期 缺失 的模块网络请求完成；拒绝把旧表格当作新结果。" };
+async function queryFixture() {
+  const f = await fixture(), directory = path.join(f.root, "outputs", "jackyun-import-runs", f.plan.runId);
+  await mkdir(directory, { recursive: true });
+  const statePath = path.join(directory, "browser-controller-state.json");
+  const state = { version: 1, runId: f.plan.runId, policyVersion: f.plan.protocol, updatedAt: "2026-09-06T09:00:29.000Z",
+    modules: { inventory: { status: "queried", navigationIntentAt: "2026-09-06T09:00:02.000Z", timings: { enterModuleMs: 917 },
+      fieldChecks: [{ field: "仓库", value: "已勾选:244条", verifiedAt: "2026-09-06T09:00:05.000Z" }],
+      queryIntentAt: "2026-09-06T09:00:05.000Z", tableReadbackFailure: { code: "table_timeout", observedAt: "2026-09-06T09:00:29.000Z" } } } };
+  await writeFile(statePath, JSON.stringify(state));
+  return { ...f, directory, state, statePath };
+}
+
+test("query failure closure preserves controller and plan, binds hashes and permits a new complete execution", async () => {
+  const f = await queryFixture(), before = await readFile(f.statePath), planBefore = await readFile(f.planPath);
+  const proposal = await inspectPreflightClosure(f.root, "841", queryProof, closedAt);
+  assert.equal(proposal.status, "closed_before_export"); assert.equal(proposal.controllerEvidence?.sha256, recoverySha(before));
+  await publishPreflightClosure(f.root, proposal, queryProof, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "841");
+  await assert.rejects(runJackyunExportFirstAction("export/inventory", "841", f.deps), /已经闭合/);
+  await runJackyunExportFirstAction("plan", "842", f.deps);
+  assert.deepEqual(await readFile(f.statePath), before); assert.deepEqual(await readFile(f.planPath), planBefore);
+});
+
+test("query recovery rejects any export intent, foreign state, late timestamp, extra file or controller change", async () => {
+  for (const fault of ["intent", "stable", "module", "run", "time", "file", "mutated"]) {
+    const f = await queryFixture(), proposal = await inspectPreflightClosure(f.root, "841", queryProof, closedAt);
+    if (fault === "intent") Object.assign(f.state.modules.inventory, { exportIntentAt: f.state.updatedAt });
+    if (fault === "stable") Object.assign(f.state.modules.inventory, { tableStableAt: f.state.updatedAt });
+    if (fault === "module") Object.assign(f.state.modules, { combos: {} });
+    if (fault === "run") f.state.runId = "n8n-export-first-842";
+    if (fault === "time") f.state.updatedAt = "2026-09-06T09:00:31.000Z";
+    if (fault === "file") await writeFile(path.join(f.directory, "export.xlsx"), "unexpected");
+    if (fault === "mutated") f.state.modules.inventory.timings.enterModuleMs += 1;
+    await writeFile(f.statePath, JSON.stringify(f.state));
+    await assert.rejects(publishPreflightClosure(f.root, proposal, queryProof, recoverySha(JSON.stringify(proposal))));
+  }
+  const f = await queryFixture();
+  await assert.rejects(inspectPreflightClosure(f.root, "841", proof, closedAt));
+  await assert.rejects(inspectPreflightClosure(f.root, "841", { ...queryProof, error: "TABLE_TIMEOUT export result unknown" }, closedAt));
+});
+
+test("query closure remains invalid if a download or later controller mutation appears", async () => {
+  for (const fault of ["download", "controller"]) {
+    const f = await queryFixture(), proposal = await inspectPreflightClosure(f.root, "841", queryProof, closedAt);
+    await publishPreflightClosure(f.root, proposal, queryProof, recoverySha(JSON.stringify(proposal)));
+    if (fault === "download") await mkdir(path.join(f.download, "jackyun", f.plan.runId), { recursive: true });
+    else await writeFile(f.statePath, JSON.stringify({ ...f.state, updatedAt: "2026-09-06T09:00:28.000Z" }));
+    await assert.rejects(runJackyunExportFirstAction("plan", "842", f.deps), /尚未闭合/);
+  }
+});

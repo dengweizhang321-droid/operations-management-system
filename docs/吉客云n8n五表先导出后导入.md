@@ -57,7 +57,9 @@ node --import tsx tools/jackyun-preflight-recovery.ts apply 841 outputs/validati
 
 operator 只读当前 Windows 用户的本机 n8n SQLite，限定工作流 `J8kY2mQ5vR7sT4pN` 和指定 execution；核验失败状态、原错误、仅经过首次库存节点及之前节点、无活跃执行，并再次核验原计划、active、策略和四类当轮路径。数据库中的凭据、恢复令牌和原始输出不会复制到计划。全部检查在相同的吉客云全局运行锁内进行，且要求 helper 空闲。任何变化、业务记录、路径重解析或摘要不匹配均停止。
 
-apply 不改写原计划，也不删除 active；仅以 create-only 方式发布 `outputs/jackyun-export-first/preflight-closures/<RUN_ID>.json`。此后从 n8n 的“手动运行”开始新的完整 execution。A 节点重验闭合证据并按新执行的实际上海日期建立计划，原 execution 拒绝再执行。不能用此入口处理超时、文件不完整、已点击导出或已开始导入的运行。
+apply 不改写原计划，也不删除 active；仅以 create-only 方式发布 `outputs/jackyun-export-first/preflight-closures/<RUN_ID>.json`。此后从 n8n 的“手动运行”开始新的完整 execution。A 节点重验闭合证据并按新执行的实际上海日期建立计划，原 execution 拒绝再执行。不能用此入口处理文件不完整、已点击导出或已开始导入的运行。
+
+查询失败的唯一例外是 842 遇到的精确首次库存 `TABLE_TIMEOUT [query_refresh]`，旧诊断包含“包含目标日期 缺失”。此时 operator 还要求导入运行目录中只有 `browser-controller-state.json`：仅 inventory/queried、仓库读回、查询意图与 table_timeout，所有时间均属于原 execution，任何稳定表格、导出意图、额外字段、其他模块或额外文件均拒绝。其他三类路径仍必须不存在。回执状态为 `closed_before_export`，绑定 controller 原文件 SHA，发布时和新计划建立时均重新读取；原 controller、plan、active 均保留。这不是通用超时重试，也不会接管旧导出任务。命令格式相同，仅将 execution ID 换为 `842`。
 
 ### 测试与实际验收
 
@@ -83,3 +85,9 @@ apply 不改写原计划，也不删除 active；仅以 create-only 方式发布
 试跑后辅助服务为 `ready`、`busy=false`、无活动 owner；后端为 `django-postgresql / ready`。销售只读健康检查仍为 revision `14:10`、覆盖截至 `2026-09-03`，与试跑前一致。日常 Chrome 的已登录页面不代表自动化独立 profile 已认证；现有错误无法区分专用登录失效与页面尚未加载完。代码在调试端口就绪后立即探测一次登录，是需要继续验证的时序风险，尚未确认它就是本次根因。
 
 后续验收需先检查专用 profile 的页面加载与登录识别，必要时通过既有专用登录入口完成人工验证，再按原运行证据设计受控恢复。不得绕过 n8n 改为直接生产导入，不得把登录检测失败误报成导出成功或数据已同步。工作流继续为手动入口，未启用日调度。
+
+## 2026-09-06 DPAPI 后续试跑及查询识别修复
+
+DPAPI 登录与无业务效果恢复受控采用 release `20260906T110340Z-73a29ca80836ac11`（manifest SHA `764e7aba90fe46f703b7a07b5c9586e18a3633cda9dd46fa4a784739a9583eec`）。841 经只读 n8n 和文件证据核验后闭合；原计划字节未改写。随后从 n8n 全局手动入口启动一次 execution **842**，本轮通过登录、进入分仓库存并选中 244 个仓库，在查询刷新验证处停止，尚未点击导出，没有文件下载或业务导入。
+
+通过已登录页面的底部“筛选”按钮进行一次只读查询，观察到 `/jkyun/erp-stock/warehouseStock/stockSkuList` 的 XHR、HTTP 200 及同请求 loadingFinished，页面显示查询耗时与分页结果。旧模块匹配只接受 branch_stock 或 stock…query，漏掉该实际主表接口。修复只增加精确路由识别，其他模块、相邻总数/导出接口不能替代；历史日期门槛保持不变。当前采集的错误文字也改为“当前采集的模块网络请求”。后续生产验收须以实际新 execution 的五表校验、导入及独立回查结果为准。

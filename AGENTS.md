@@ -129,6 +129,7 @@
 - 京东/吉客云任务优先遵循仓库内对应的 `.agents/skills/*/SKILL.md` 和 `docs/` 操作手册。修改这些链路时，必须覆盖跨店隔离、重复任务、日期覆盖、恢复清单、批次幂等和“下载后真正导入”的回归测试。
 - 吉客云专用登录采用 `config/jackyun-login.json` 中的 Windows DPAPI 绑定：凭据由操作者在本机窗口录入，密文仅位于当前用户的 `%LOCALAPPDATA%/TERUISI/JackyunCredentials`，绑定吉客号和专用 Profile，并限制目录 ACL。账号密码不得进入 n8n、Git、命令参数、环境变量、日志、截图或记忆。仅由登录器在内存中解密，最多向已观察到的唯一吉客云三字段表单提交一次；必须先核验浏览器可执行文件、进程用户、Profile、端口、精确 HTTPS origin，提交后从受控菜单和 `#jlink-sn` 验证企业号。空白/加载中有界等待，验证码、拒绝、其他企业号、控件歧义或不确定提交均停止，不回退到其他账号或 Chrome 自动填充。纯登录维护使用同一全局运行锁，不能清除未完成的导出计划或重新触发业务导出。详见 `docs/吉客云DPAPI登录配置.md`。
 - 吉客云五表协议允许显式 operator 对首次库存节点的 `inventory 导出未完成：login_unknown` 作无业务效果闭合：`tools/jackyun-preflight-recovery.ts` 必须只读核验本机 n8n 精确失败 execution、无活跃同工作流 execution、原计划及 active 摘要，并证明浏览器事件、下载、演练和导入四类当轮路径均不存在；持有同一运行锁、helper 空闲、计划摘要精确匹配后，只 create-only 写入闭合回执。原计划和 active 字节保持不变，不标为 completed；新完整 n8n execution 只能从 A 重新建计划并原子推进 active，旧 execution 永久拒绝重放。该入口不是跨 execution 接管，不适用于任何导出点击未决、超时、部分文件或已开始导入的情况；上述保留旧证据和禁止直接删除 active 的约束继续适用。
+- 上述恢复另支持 842 实际遇到的精确首次库存 `TABLE_TIMEOUT [query_refresh]`（旧诊断“包含目标日期 缺失”）。必须证明唯一 controller 文件只含 inventory/queried、仓库读回和查询超时，时间顺序属于原 execution，且不存在 tableStable、exportIntent、下载、验证、导入或其他模块；闭合回执绑定 controller SHA 并由新计划再次验证。该特例只闭合导出前失败，不能推广到其他超时。当前查询识别补齐实际网关 `/jkyun/erp-stock/warehouseStock/stockSkuList`，仍须同一请求的 HTTP 2xx 与加载完成；历史模式继续要求目标日期。
 - 未经用户明确授权，不删除、改写或重新导入业务数据；需要清理时必须先只读定位精确批次与影响行数，并提供清理后的同范围验证。
 
 ## 6. 鉴权、密钥与敏感数据
