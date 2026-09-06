@@ -212,7 +212,9 @@ while ($missingChecks -lt 40) {
 }`}`;
 }
 
-export async function startChromiumWindowGuard(browserPid: number, debugPort: number, timeoutMs = 5_000) {
+export const chromiumWindowGuardReadyTimeoutMs = 15_000;
+
+export async function startChromiumWindowGuard(browserPid: number, debugPort: number, timeoutMs = chromiumWindowGuardReadyTimeoutMs) {
   if (process.platform !== "win32") throw new Error("Chromium 严格静默窗口模式当前只支持 Windows。");
   const encoded = Buffer.from(chromiumWindowGuardScript(browserPid, debugPort), "utf16le").toString("base64");
   const guard = spawn("powershell.exe", [
