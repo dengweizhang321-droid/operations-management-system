@@ -34,7 +34,8 @@ import {
   recordTmallProductMasterCadenceSuccess,
   tmallForceProductMasterHeader,
 } from "./tmall-product-master-cadence";
-import { runTmallPromotionStage } from "./tmall-promotion-export";
+import { fetchTmallPromotionCoverage, runTmallPromotionStage } from "./tmall-promotion-export";
+import { planTmallDailyGaps } from "./tmall-daily-gap-plan";
 import { runTmallDirectPromotionStage } from "./tmall-direct-promotion-export";
 import {
   isTmallDirectPmRoute,
@@ -186,6 +187,7 @@ type PipelinePlan = {
   startDate: string;
   endDate: string;
   dates: string[];
+  promotionDates: string[];
   truncated: boolean;
   coverageAuditPath: string;
 };
@@ -514,7 +516,11 @@ function validatePlan(plan: PipelinePlan) {
   if (plan.version !== 1 || !plan.runId || !plan.storeKey || !plan.shopName || !validDate(plan.startDate)
     || !validDate(plan.endDate) || !Array.isArray(plan.dates) || plan.dates.length > maximumDaysPerRun
     || plan.dates.some((date) => !validDate(date) || date < plan.startDate || date > plan.endDate)
-    || new Set(plan.dates).size !== plan.dates.length) {
+    || new Set(plan.dates).size !== plan.dates.length
+    || !Array.isArray(plan.promotionDates) || plan.promotionDates.length > maximumDaysPerRun
+    || plan.promotionDates.some((date) => !validDate(date) || date < plan.startDate || date > plan.endDate)
+    || new Set(plan.promotionDates).size !== plan.promotionDates.length
+    || plan.dates.some((date) => !plan.promotionDates.includes(date))) {
     throw new Error("目标日计划格式无效");
   }
   return plan;
@@ -549,8 +555,9 @@ async function planCommand(argv: string[]) {
   const storeKey = cliValue(argv, "--store-key") ?? "tmall-yijiu";
   const store = await getTmallStore(storeKey);
   const endDate = cliValue(argv, "--end-date") ?? shanghaiYesterday();
-  const startDate = cliValue(argv, "--start-date") ?? endDate;
-  if (!startDate || !validDate(startDate) || !validDate(endDate) || startDate > endDate || endDate > shanghaiYesterday()) {
+  const startDate = cliValue(argv, "--start-date") ?? store.initialStartDate;
+  if (!startDate || !store.initialStartDate || startDate < store.initialStartDate
+    || !validDate(startDate) || !validDate(endDate) || startDate > endDate || endDate > shanghaiYesterday()) {
     throw new Error("目标导入日期必须位于店铺注册起始日至昨天之间");
   }
   const requestedMaximum = Number(cliValue(argv, "--max-days") ?? maximumDaysPerRun);
@@ -558,14 +565,13 @@ async function planCommand(argv: string[]) {
     throw new Error(`--max-days 必须是 1..${maximumDaysPerRun} 的整数`);
   }
   const baseUrl = normalizeLocalBaseUrl(cliValue(argv, "--base-url") ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
-  const planned = await runTmallMultiStoreImport({ baseUrl, storeKey, startDate, endDate, dryRun: true });
-  if (!planned.ok) {
-    const failed = planned.audit.items.find((item) => item.status === "failed");
-    throw new Error(failed?.error ?? "目标导入日期计划失败");
-  }
-  const allDates = planned.audit.items.filter((item) => item.status === "planned").map((item) => item.businessDate).sort();
-  const dates = allDates.slice(0, requestedMaximum);
+  const coverage = await fetchTmallPromotionCoverage({ baseUrl, store, startDate, endDate });
+  const gaps = planTmallDailyGaps({ startDate, endDate, ...coverage, maximumDays: requestedMaximum });
+  const dates = gaps.productDownloadDates;
   const runId = randomUUID();
+  const coverageAuditPath = path.join(artifactDirectory, `coverage-${runId}.json`);
+  await writeJsonAtomic(coverageAuditPath, { storeKey: store.storeKey, shopName: store.shopName,
+    startDate, endDate, generatedAt: new Date().toISOString(), ...coverage, ...gaps });
   const plan: PipelinePlan = {
     version: 1,
     runId,
@@ -576,12 +582,14 @@ async function planCommand(argv: string[]) {
     startDate,
     endDate,
     dates,
-    truncated: allDates.length > dates.length,
-    coverageAuditPath: planned.auditPath,
+    promotionDates: gaps.selectedDates,
+    truncated: gaps.truncated,
+    coverageAuditPath,
   };
   const planPath = path.join(artifactDirectory, `plan-${runId}.json`);
   await writeJsonAtomic(planPath, plan);
-  return { ok: true, stage: "plan", planPath, planPathBase64: encodeArtifactPath(planPath), dates, truncated: plan.truncated };
+  return { ok: true, stage: "plan", planPath, planPathBase64: encodeArtifactPath(planPath), dates,
+    promotionDates: gaps.selectedDates, ...gaps };
 }
 
 function delay(ms: number) {
@@ -1595,7 +1603,7 @@ async function serveCommand(argv: string[]) {
         if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
         const result = await planCommand(planArguments);
         planPathBase64 = result.planPathBase64;
-        tmallPlanDates = [...result.dates];
+        tmallPlanDates = [...result.promotionDates];
         stage = tmallStageAfterRoute("/plan");
         reply(200, { ...result, authentication });
         inactivityReaper?.arm();
@@ -1611,7 +1619,7 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         inactivityReaper?.arm();
       } else if (request.url === "/promotion" || request.url === tmallDirectPromotionRoute) {
-        if (tmallPlanDates.length === 0) throw new Error("天猫推广阶段缺少同一 execution 的目标日期计划");
+        if (!planPathBase64) throw new Error("天猫推广阶段缺少同一 execution 的目标日期计划");
         const store = await getTmallStore(claimedTmallStoreKey!);
         const runPromotion = isTmallDirectPmRoute(request.url)
           ? runTmallDirectPromotionStage
