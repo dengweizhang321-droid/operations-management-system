@@ -80,6 +80,8 @@ npm run backend:dev:stop
 
 ## 吉客云自动化
 
+五表 n8n 模板采用一次专用浏览器会话顺序导出：调用网页自身的导出函数、保留平台校验，通过任务接口核对本轮任务并直链下载。登录沿用 DPAPI，会话不写入 n8n；仍需加载页面并验证查询条件。五表齐全后统一校验、导入、回查，旧单表计划和只读诊断不能升级成新批量运行。部署和实际采用状态见下方五表文档。
+
 - `npm run jackyun:login`：打开专属浏览器，手工登录吉客云
 - `npm run jackyun:credential:setup`：打开本机 DPAPI 凭据录入窗口，填写手机号或工号和密码；`npm run jackyun:credential:status` 只检查当前 Windows 用户能否解密。`npm run jackyun:authenticate` 只验证专用登录与企业号，不执行导出或导入。配置见 `config/jackyun-login.json`，维护步骤见 [`docs/吉客云DPAPI登录配置.md`](docs/吉客云DPAPI登录配置.md)。
 - 五表任务若只在首次库存登录检查或指定查询验证失败，可按五表文档使用受控 `jackyun-preflight-recovery.ts` 闭合导出前停止的旧执行，再从 n8n 手动入口启动完整新执行。查询失败必须额外核验唯一 controller 状态及摘要、无导出意图，并保留全部旧证据；有任何导出、下载或导入证据时拒绝该恢复方式。

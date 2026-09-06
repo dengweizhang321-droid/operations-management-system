@@ -12,12 +12,14 @@ import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { assertClosedPreflight, preflightClosurePath } from "../lib/jackyun/preflight-recovery";
 import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { runController } from "./jackyun-browser-controller";
+import { jackyunWebSessionTransport } from "../lib/jackyun/web-session-export";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
 
 export const jackyunExportFirstPrefix = "/jackyun/export-first/";
-export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(module => `export/${module}`), "validate", "import", "verify"];
+export const jackyunWebSessionActions = ["plan-web-session", "export-all", "validate", "import", "verify"];
+export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(module => `export/${module}`), ...jackyunWebSessionActions];
 type Phase = "exporting" | "exported" | "validating" | "validated" | "importing" | "imported" | "completed";
 type ExportReceipt = { handoffSha256: string; fileSha256: string; bytes: number };
 export type JackyunExportFirstPlan = {
@@ -32,6 +34,7 @@ export type JackyunExportFirstPlan = {
   phase: Phase;
   exports: Partial<Record<JackyunModule, ExportReceipt>>;
   exportIntent?: JackyunModule;
+  exportTransport?: typeof jackyunWebSessionTransport;
   completedAt?: string;
 };
 type Policy = {
@@ -75,7 +78,16 @@ function checkPlan(plan: JackyunExportFirstPlan, executionId: string) {
 }
 export function assertExportFirstAction(plan: JackyunExportFirstPlan, executionId: string, action: string) {
   checkPlan(plan, executionId);
-  if (action === "plan") return;
+  if (plan.exportTransport && plan.exportTransport !== jackyunWebSessionTransport) throw new Error("未知网页导出版本。");
+  if ((action === "plan-web-session" || action === "export-all") && plan.exportTransport !== jackyunWebSessionTransport)
+    throw new Error("网页批量模式不能接管旧单表计划。");
+  if ((action === "plan" || action.startsWith("export/")) && plan.exportTransport)
+    throw new Error("网页批量计划不能降级为旧单表模式。");
+  if (action === "plan" || action === "plan-web-session") return;
+  if (action === "export-all") {
+    if (!["exporting", "exported"].includes(plan.phase)) throw new Error("网页批量导出阶段不匹配。");
+    return;
+  }
   if (action.startsWith("export/")) {
     const moduleKey = action.slice(7) as JackyunModule;
     if (!jackyunExportOrder.includes(moduleKey)) throw new Error("未知导出模块。");
@@ -105,6 +117,8 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
     runId: plan.runId, module, policyVersion: plan.protocol,
   });
   const taskBinding = handoff.evidence?.exportTaskBinding as import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
+  if (plan.exportTransport && (handoff.evidence?.exportTransport !== plan.exportTransport
+    || handoff.evidence?.taskQuerySource !== "web_session_api" || !taskBinding)) throw new Error(`${module} 缺少网页任务与导出方式证据。`);
   if (taskBinding && (taskBinding.version !== 1 || taskBinding.module !== module || taskBinding.sourceRows !== handoff.expectedSourceRows
     || taskBinding.sourceUrlHash !== handoff.downloadProvenance.sourceUrlHash || !/^sys-\d{1,20}$/.test(taskBinding.taskId)
     || !Number.isFinite(Date.parse(taskBinding.createdAt)) || !Number.isFinite(Date.parse(taskBinding.observedAt))
@@ -233,7 +247,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     })) throw new Error("原登录失败运行已经闭合，禁止重放；只能由新的完整 n8n execution 从计划节点开始。");
     let plan = await readJsonFileOr<JackyunExportFirstPlan | null>(planPath, null);
     if (!plan) {
-      if (action !== "plan") throw new Error("缺少本 execution 的计划，禁止单节点执行。");
+      if (action !== "plan" && action !== "plan-web-session") throw new Error("缺少本 execution 的计划，禁止单节点执行。");
       const ready = await (deps.profileReady?.() ?? getJackyunProfileStatus(policy.browser.controller.profileDirectory, root).then(value => value === "ready"));
       if (!ready) throw new Error("吉客云专用浏览器未完成首次登录配置。");
       const baseUrl = normalizeJackyunLocalBaseUrl("http://localhost:3000");
@@ -244,14 +258,42 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       const yesterday = new Date(`${runDate}T00:00:00Z`);
       yesterday.setUTCDate(yesterday.getUTCDate() - 1);
       plan = { version: 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId, runDate,
-        asOfDate: yesterday.toISOString().slice(0, 10), baseUrl, createdAt, phase: "exporting", exports: {} };
+        asOfDate: yesterday.toISOString().slice(0, 10), baseUrl, createdAt, phase: "exporting", exports: {},
+        ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : {}) };
       await mkdir(path.dirname(planPath), { recursive: true });
       await writeFile(planPath, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
       await writeJsonAtomic(activePath, { runId, executionId });
     }
     assertExportFirstAction(plan, executionId, action);
-    if (action === "plan") return publicExportFirstPlan(plan);
-    if (action.startsWith("export/")) {
+    if (action === "plan" || action === "plan-web-session") return publicExportFirstPlan(plan);
+    if (action === "export-all") {
+      for (const moduleKey of jackyunExportOrder) if (plan.exports[moduleKey]) await readBoundHandoff(root, plan, policy, moduleKey);
+      if (plan.phase === "exported") return publicExportFirstPlan(plan);
+      if (plan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止启动浏览器采集旧日期。");
+      const currentPlan = plan;
+      const result = await (deps.runBrowser ?? runController)({
+        runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
+        eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
+        headless: true, launchOnly: false, checkLoginOnly: false, exportFirstBatch: true,
+        beforeModule: async module => {
+          if (currentPlan.exports[module]) { await readBoundHandoff(root, currentPlan, policy, module); return; }
+          if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");
+          if (jackyunExportOrder.find(key => !currentPlan.exports[key]) !== module
+            || (currentPlan.exportIntent && currentPlan.exportIntent !== module)) throw new Error("网页五表导出乱序。");
+          currentPlan.exportIntent = module;
+          await writeJsonAtomic(planPath, currentPlan);
+        },
+        afterModule: async module => {
+          if (!currentPlan.exports[module] && currentPlan.exportIntent !== module) throw new Error("网页导出没有对应的本轮 intent。");
+          const { receipt } = await readBoundHandoff(root, currentPlan, policy, module);
+          currentPlan.exports[module] = receipt;
+          delete currentPlan.exportIntent;
+          await writeJsonAtomic(planPath, currentPlan);
+        },
+      });
+      if (result.status !== "exported" || jackyunExportOrder.some(module => !plan!.exports[module])) throw new Error("网页五表导出未全部完成。");
+      plan.phase = "exported";
+    } else if (action.startsWith("export/")) {
       const moduleKey = action.slice(7) as JackyunModule;
       if (plan.exports[moduleKey]) {
         await readBoundHandoff(root, plan, policy, moduleKey);
@@ -300,6 +342,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
 
 function publicExportFirstPlan(plan: JackyunExportFirstPlan) {
   return { ok: true, protocol: plan.protocol, runId: plan.runId, phase: plan.phase,
+    exportTransport: plan.exportTransport ?? "browser_menu",
     snapshotDate: plan.runDate, salesStartDate: `${plan.asOfDate.slice(0, 8)}01`, salesEndDate: plan.asOfDate,
     exported: jackyunExportOrder.filter(module => plan.exports[module]), importOrder: jackyunModuleOrder };
 }
