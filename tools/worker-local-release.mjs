@@ -158,7 +158,7 @@ export const salesRetirementMigrationSha256 = "f981a62efd0515a7f64dd9f174151b8cf
 // mutable-root, resource and health tests.  The trusted Django verifier uses
 // this as the build-code trust root; the candidate cannot self-certify a
 // weakened bundle builder.
-export const trustedHelperBuilderSha256 = "a9cec7b72704672c960c9a8e9e5543603dee4f033e631dc17ae8dba8e3eefe82";
+export const trustedHelperBuilderSha256 = "6f0e147f20a4e312be6ce21361b562b4e2c89eb590e362efb5ab30f6d089ec92";
 
 const salesContractTestFiles = Object.freeze([
   "tests/sales-d1-retirement.test.ts",

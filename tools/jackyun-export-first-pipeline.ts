@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import { assertBoundDownloadProvenance } from "../lib/jackyun/download-provenance";
@@ -15,7 +14,6 @@ import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-do
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
 
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const jackyunExportFirstPrefix = "/jackyun/export-first/";
 export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(module => `export/${module}`), "validate", "import", "verify"];
 type Phase = "exporting" | "exported" | "validating" | "validated" | "importing" | "imported" | "completed";
@@ -39,7 +37,8 @@ type Policy = {
   browser: { downloadDirectory: string; allowedDownloadHosts: string[]; controller: { profileDirectory: string } };
 };
 export type ExportFirstDependencies = {
-  root?: string;
+  root: string;
+  lockDirectory?: string;
   now?: () => Date;
   request?: typeof fetch;
   profileReady?: () => Promise<boolean>;
@@ -191,12 +190,13 @@ async function verifyImports(root: string, plan: JackyunExportFirstPlan, policy:
     snapshotDate: plan.runDate, modules, request: deps.request });
 }
 
-export async function runJackyunExportFirstAction(action: string, executionId: string, deps: ExportFirstDependencies = {}) {
+export async function runJackyunExportFirstAction(action: string, executionId: string, deps: ExportFirstDependencies) {
   if (!jackyunExportFirstActions.includes(action) || !/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("节点或 n8n execution ID 无效。");
-  const root = path.resolve(deps.root ?? projectRoot);
+  if (!deps.root || !path.isAbsolute(deps.root)) throw new Error("缺少执行器提供的受保护数据目录。");
+  const root = path.resolve(deps.root);
   const runId = `n8n-export-first-${executionId}`;
   return withJackyunRunLock({ runId, purpose: "n8n_export_first",
-    ...(deps.root ? { lockDirectory: path.join(root, ".runtime", "jackyun-test.lock") } : {}) }, async () => {
+    ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async () => {
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
     const planPath = path.join(paths(root).pipelineRoot, `${runId}.json`);

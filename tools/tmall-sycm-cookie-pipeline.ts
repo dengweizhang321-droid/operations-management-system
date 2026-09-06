@@ -1478,7 +1478,7 @@ async function serveCommand(argv: string[]) {
     try {
       if (isJackyunExportFirst) {
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
-        const result = await runJackyunExportFirstAction(action, requestExecutionId!);
+        const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot });
         stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
         reply(200, result);
         if (stage === "completed") scheduleOneShotServerClose(server, 500);

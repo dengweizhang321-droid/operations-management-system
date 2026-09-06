@@ -76,7 +76,8 @@ async function fixture() {
   });
   const calls: string[] = [];
   const files = new Map<JackyunModule, string>();
-  const deps: ExportFirstDependencies = { root, now: () => new Date(at(0)), profileReady: async () => true,
+  const deps: ExportFirstDependencies = { root, lockDirectory: path.join(root, ".runtime", "test.lock"),
+    now: () => new Date(at(0)), profileReady: async () => true,
     request: async () => new Response("{}", { status: 200 }),
     runBrowser: async options => {
       const moduleKey = options.exportOnlyModule!;

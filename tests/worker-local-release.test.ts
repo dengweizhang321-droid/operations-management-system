@@ -970,7 +970,6 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
       "tools/jackyun-browser-controller.ts",
       "tools/jackyun-daily-runner.ts",
       "tools/jackyun-download-runner.ts",
-      "tools/jackyun-export-first-pipeline.ts",
       "tools/jackyun-n8n-pipeline.ts",
       "tools/jd-market-ranking-daily.ts",
       "tools/jd-multi-store-runner.ts",
