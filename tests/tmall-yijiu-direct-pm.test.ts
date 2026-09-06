@@ -171,7 +171,7 @@ test("M 用提交前 id 基线唯一认领新记录，并同时核对行数、�
   }), /行数 19/);
 });
 
-test("候选 helper 协议只允许亿玖并且 P/M 两个直连路由都要求显式版本头", () => {
+test("亿玖现行协议保持兼容，P/M 两个直连路由都要求显式版本头且不开放丽力", () => {
   for (const route of [tmallDirectPromotionRoute, tmallDirectProductMasterRoute]) {
     assert.equal(tmallDirectPmProtocolError({
       route,

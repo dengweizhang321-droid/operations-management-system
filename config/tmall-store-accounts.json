@@ -86,7 +86,7 @@
       "enabled": true,
       "loginMode": "windows_dpapi_credentials",
       "productMasterCadence": {
-        "intervalDays": 3,
+        "intervalDays": 1,
         "initialDueDate": "2026-08-26"
       },
       "initialStartDate": "2026-08-01",

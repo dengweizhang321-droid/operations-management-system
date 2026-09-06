@@ -1,6 +1,6 @@
 {
   "id": "TmallYiyongDaily2026",
-  "name": "天猫店铺数据导入-亿用",
+  "name": "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）",
   "nodes": [
     {
       "parameters": {},
@@ -125,7 +125,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5791/product-master",
+        "url": "http://127.0.0.1:5791/product-master-direct-v1",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -140,6 +140,10 @@
             {
               "name": "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
               "value": "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-CANDIDATE-PROTOCOL",
+              "value": "yiyong-direct-pm-v1"
             }
           ]
         },
@@ -148,7 +152,7 @@
         }
       },
       "id": "dc616bb1-dba8-47c7-aa95-aea5bc936d10",
-      "name": "M·商品管家批量导出、校验并导入",
+      "name": "M·MTOP 分批导出、合并校验并导入",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -257,7 +261,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5791/promotion",
+        "url": "http://127.0.0.1:5791/promotion-direct-v1",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -268,6 +272,10 @@
             {
               "name": "X-TERUISI-TMALL-STORE-KEY",
               "value": "tmall-yiyong"
+            },
+            {
+              "name": "X-TERUISI-TMALL-CANDIDATE-PROTOCOL",
+              "value": "yiyong-direct-pm-v1"
             }
           ]
         },
@@ -276,7 +284,7 @@
         }
       },
       "id": "c6a5608d-f8ae-4d8c-b03f-c09b848fc325",
-      "name": "P·商品报表逐日下载、汇总导入并回查",
+      "name": "P·直连创建商品报表、下载、汇总导入并回查",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -286,7 +294,7 @@
     },
     {
       "parameters": {
-        "content": "## 店铺绑定\n本模板固定绑定 `天猫-志高亿用专卖店`（`tmall-yiyong`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。\n定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每 1 天到期一次，初始到期日为 `2026-08-26`。未到期时 M 返回 `not_due`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。\n<!-- tmall-store-binding:end -->\n\n## 凭证边界\nCookie 内容和明文登录凭据都不写入工作流。A 先启动受控亿用店独立 Chromium：登录失效时仅由当前 Windows 用户解密该店 DPAPI 凭据，在唯一密码表单中填入并最多提交一次；验证码、短信、安全验证、凭据缺失/损坏或登录按钮歧义均失败关闭并要求人工处理。B 随后从同一会话读取适用于生意参谋的 Cookie，只在内存中使用；浏览器不可连接时才从 Git 已忽略的店铺专属 `.runtime/tmall-yiyong-sycm-cookie-path.txt` 读取后备原文件路径。两种路径都用 `sn` 身份与受控店铺注册项交叉核验。",
+        "content": "## 店铺绑定\n本模板固定绑定 `天猫-志高亿用专卖店`（`tmall-yiyong`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。\n定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每 1 天到期一次，初始到期日为 `2026-08-26`。未到期时 M 返回 `not_due`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。\n<!-- tmall-store-binding:end -->\n\n## 凭证边界\nCookie 内容和明文登录凭据都不写入工作流。A 先启动受控亿用店独立 Chromium：登录失效时仅由当前 Windows 用户解密该店 DPAPI 凭据，在唯一密码表单中填入并最多提交一次；验证码、短信、安全验证、凭据缺失/损坏或登录按钮歧义均失败关闭并要求人工处理。B 随后从同一会话读取适用于生意参谋的 Cookie，只在内存中使用；浏览器不可连接时才从临时环境变量 `TMALL_SYCM_COOKIE_FILE` 或 Git 已忽略的 `.runtime/tmall-yiyong-sycm-cookie-path.txt` 读取后备原文件路径。两种路径都用 `sn` 身份与受控店铺注册项交叉核验。\n\n## 亿用直连协议\nP/M 直连接口只复用亿用独立 Chromium 的浏览器 Cookie 存储；csrfId、loginPointId、MTOP token、签名和 OSS 临时链接只在 helper 内存中存在，不写入 n8n、活动清单或日志。",
         "height": 190,
         "width": 430,
         "color": 3
@@ -302,7 +310,7 @@
     },
     {
       "parameters": {
-        "content": "## 店铺绑定\n本模板固定绑定 `天猫-志高亿用专卖店`（`tmall-yiyong`）。工作流与店铺键不匹配时，helper 会在业务节点前失败关闭。\n定时执行仍每日完成 A→B→C→P；M 货品主数据按上海日期每 1 天到期一次，初始到期日为 `2026-08-26`。未到期时 M 返回 `not_due`，只负责关闭本店浏览器并释放 helper；到期失败不推进下次日期，翌日完整流程继续补跑。手动完整运行明确强制执行 M。\n<!-- tmall-store-binding:end -->\n\n## 五段式安全门禁\n本地运营系统启动器会守护只监听 `127.0.0.1:5791` 的一次性辅助进程，并在每轮成功或失败退出后自动重新待命；点击执行前先确认工作流页面显示“辅助服务已就绪”。定时和手动入口先以 workflow key + n8n execution ID 原子领取 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后五个节点按 A→B→C→P→M 绑定同一 n8n 执行 ID，旧执行、缺失 ID、乱序和并发请求均失败关闭；商品日与推广日每轮各最多处理一天。A 先启动注册表中的亿用店独立 Chromium，登录失效时仅从当前 Windows 用户绑定的 DPAPI 凭据项向唯一密码表单提交一次，随后精确核验店铺身份；验证码、安全验证、凭据缺失/损坏或身份不符都停止，n8n 不传输或记录明文凭据。认证通过后 A 默认直接计划昨天，显式目标日期也不按已有覆盖预先跳过；B 从同一会话取得 Cookie，对当前业务日单独下载并验证 XLS；C 在导入时按业务范围与规范化后的完整内容判重并回查。P 仅在 C 完成后进入阿里妈妈“报表 > 商品报表”的受控直达页面，精确核验当前店铺和目标日期；营销场景必须“全选”并逐项回读货品全站推广、关键词推广、人群推广、店铺直达四类，维度必须同时选择并回读“商品、计划”。每个目标日单独点击右侧“下载报表”，弹窗再次核对同日起止日期、时间粒度“分天”和“全部数据指标”后确认。只点击同时包含“离线数据生成成功”和“下载任务管理”的成功提示内“立即前往/前往下载”；下载任务页只接管本轮创建时间、唯一目标日、状态和“商品报表”名称全部一致的唯一任务，拒绝旧全站推任务。ZIP 必须包含唯一 CSV，并校验店铺、日期、商品身份、行数和哈希；计划维度多行先按“日期 + 商品”完整汇总为唯一推广日事实，再导入系统并回查精确批次与日期覆盖。旧协议若已进入提交、下载或导入阶段只保留原清单并失败关闭，不得由新流程接管或重复生成。最后 M 复用同一亿用店独立 Chromium 会话，进入千牛“商品 > 出售中”，关闭右下角“重要通知”（若显示），再从右下角打开“商品管家”，在右侧聊天发送“导出全部商品”、确认任务、等待生成并下载 XLSX；随后校验发布模板、店铺、行数和哈希，提交货品主数据导入并回查。M 成功或任一阶段失败后，只关闭本轮受控店铺实例；M 失败不会回滚已完成并回查的商品日或推广数据，但整个 n8n execution 仍保持失败，活动清单按原快照安全续接，禁止重置或重复发送导出指令。",
+        "content": "## 亿用 P/M 直连待验证试点模板（仓库默认停用）\n这是同一工作流 ID 的待验证候选版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。\n\n## A→B→C→P→M\nA/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行；亿用 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。\n\n## P·阿里妈妈直连任务\n从亿用独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。\n\n## M·MTOP 固定导出\n从千牛“商品 > 我的商品 > 出售中”的真实首屏请求捕获只读列表模板，固定每页 20 条、最多 100 页并核对 response total；itemId 排序后每 20 个一批。唯一写类路径逐字固定为 batchFastEdit.htm?optType=batchExportItem&action=submit，不能由工作流、配置或请求参数改写。每批提交前保存导出记录 id 基线，提交与下载串行；响应未决、出现多个新记录、行数/时间窗/商品 ID 不一致均失败关闭。全部批文件校验后合并成一个权威 XLSX，只导入一次并回查。\n\n## 切换门禁\n原 P 或 M 只要存在已进入业务动作的活动清单，直连协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
         "height": 220,
         "width": 660,
         "color": 4
@@ -385,18 +393,7 @@
       "main": [
         [
           {
-            "node": "P·商品报表逐日下载、汇总导入并回查",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "P·商品报表逐日下载、汇总导入并回查": {
-      "main": [
-        [
-          {
-            "node": "M·商品管家批量导出、校验并导入",
+            "node": "P·直连创建商品报表、下载、汇总导入并回查",
             "type": "main",
             "index": 0
           }
@@ -424,6 +421,17 @@
           }
         ]
       ]
+    },
+    "P·直连创建商品报表、下载、汇总导入并回查": {
+      "main": [
+        [
+          {
+            "node": "M·MTOP 分批导出、合并校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -431,9 +439,12 @@
     "executionOrder": "v1",
     "timezone": "Asia/Shanghai"
   },
-  "versionId": "0502c575-d8ea-4146-9a76-c2662b557605",
+  "versionId": "acc62a5c-84e7-49fa-9e99-d0a0d691903f",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "candidateProtocol": "yiyong-direct-pm-v1",
+    "replacesWorkflowId": "TmallYiyongDaily2026",
+    "trialForYiyong": true
   },
   "tags": []
 }

@@ -129,7 +129,9 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
   assert.equal(selected.every((item) => item.enabled === true), true);
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
   assert.equal(selected.every((item) => item.initialStartDate === "2026-08-01"), true);
-  assert.equal(selected.every((item) => item.productMasterCadence?.intervalDays === 3), true);
+  for (const item of selected) {
+    assert.equal(item.productMasterCadence?.intervalDays, item.storeKey === "tmall-yiyong" ? 1 : 3);
+  }
   assert.deepEqual(
     ["tmall-yijiu", "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "tmall-yiyong"]
       .map((storeKey) => [storeKey, resolveRegisteredTmallStore(stores, storeKey).productMasterCadence?.initialDueDate]),
