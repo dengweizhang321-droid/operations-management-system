@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [ValidateSet(
     "InstallD1Authority", "MigratePlan", "MigrateApply", "MigrateVerify",
