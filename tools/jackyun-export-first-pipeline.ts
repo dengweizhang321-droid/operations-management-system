@@ -9,6 +9,7 @@ import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCap
 import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { assertClosedPreflight, preflightClosurePath } from "../lib/jackyun/preflight-recovery";
 import { runController } from "./jackyun-browser-controller";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
@@ -205,8 +206,14 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     if (active && active.executionId !== executionId) {
       if (!/^n8n-export-first-[1-9]\d{0,19}$/.test(active.runId)) throw new Error("活动运行编号无效。");
       const previous = await readJsonFile<JackyunExportFirstPlan>(path.join(paths(root).pipelineRoot, `${active.runId}.json`));
-      if (previous.phase !== "completed") throw new Error(`原运行 ${active.runId} 尚未闭合；保留原证据，禁止新建重复导出。`);
+      if (active.runId !== `n8n-export-first-${active.executionId}`) throw new Error("活动运行身份不一致。");
+      if (previous.phase !== "completed") await assertClosedPreflight(root, active.executionId).catch(() => {
+        throw new Error(`原运行 ${active.runId} 尚未闭合；保留原证据，禁止新建重复导出。`);
+      });
     }
+    if (await stat(preflightClosurePath(root, executionId)).then(() => true, error => {
+      if (error.code === "ENOENT") return false; throw error;
+    })) throw new Error("原登录失败运行已经闭合，禁止重放；只能由新的完整 n8n execution 从计划节点开始。");
     let plan = await readJsonFileOr<JackyunExportFirstPlan | null>(planPath, null);
     if (!plan) {
       if (action !== "plan") throw new Error("缺少本 execution 的计划，禁止单节点执行。");

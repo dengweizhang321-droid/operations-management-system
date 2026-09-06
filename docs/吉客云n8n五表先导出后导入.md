@@ -40,10 +40,26 @@
 - 导出步骤乱序、文件或交接 SHA 变化、缺表、跨日、其他 execution 接管、未完成运行重复创建均停止。仅协调领取自动重试；业务节点不进行盲目自动重放。
 - 同一 execution 对已签收导出节点的重试只重验文件，不重复点击导出，也不会把导入阶段倒退。已记录导出 intent、尚无下载的节点只能恢复原任务的下载证据；不能重新创建导出任务。
 - 中断后保留原运行。不能直接删除 active 清单或改 execution ID；先核查原阶段、原文件、导入尝试及精确批次，再决定受控恢复。尚未提供跨 execution 自动接管。
+- 对首个库存节点的精确 `inventory 导出未完成：login_unknown`，支持下述无业务效果闭合 operator。它保留原计划与 active，只发布失败闭合回执；原运行不视为成功，也不转移其文件给新执行。
 - 导入接口使用规范化业务内容幂等。新协议使用服务端返回的精确批次及业务摘要，允许内容相同但 XLSX 字节不同的 `duplicate`；不得再把当前批次号假设成原文件 SHA。
 - 五表导入不构成跨领域的单一事务。后续模块失败时保留前面已完成批次并停止，禁止为“回滚工作流”删除已发布业务事实。
 
 ## 验证边界
+
+### 首次登录检查失败后的受控恢复
+
+前提是当前 helper 已受控采用恢复实现。运行以下命令生成脱敏计划，再使用输出的 `approvedSha256` 精确执行 apply：
+
+```powershell
+node --import tsx tools/jackyun-preflight-recovery.ts plan 841 > outputs/validation/preflight-recovery-plan.json
+node --import tsx tools/jackyun-preflight-recovery.ts apply 841 outputs/validation/preflight-recovery-plan.json <approvedSha256>
+```
+
+operator 只读当前 Windows 用户的本机 n8n SQLite，限定工作流 `J8kY2mQ5vR7sT4pN` 和指定 execution；核验失败状态、原错误、仅经过首次库存节点及之前节点、无活跃执行，并再次核验原计划、active、策略和四类当轮路径。数据库中的凭据、恢复令牌和原始输出不会复制到计划。全部检查在相同的吉客云全局运行锁内进行，且要求 helper 空闲。任何变化、业务记录、路径重解析或摘要不匹配均停止。
+
+apply 不改写原计划，也不删除 active；仅以 create-only 方式发布 `outputs/jackyun-export-first/preflight-closures/<RUN_ID>.json`。此后从 n8n 的“手动运行”开始新的完整 execution。A 节点重验闭合证据并按新执行的实际上海日期建立计划，原 execution 拒绝再执行。不能用此入口处理超时、文件不完整、已点击导出或已开始导入的运行。
+
+### 测试与实际验收
 
 仓库测试使用临时目录和合成工作簿验证顺序、跨日、缺文件、证据变化、并发、重复和批次回执。真实吉客云菜单、登录状态及正式五表导入仍须在配套 helper 发布后进行验收，不能把夹具通过表述为生产跑通。
 
