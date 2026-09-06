@@ -2,11 +2,51 @@
 
 ## 状态与边界
 
-2026-09-06：本变更实现了控制链脱钩协议，并在独立工作树完成 23 服务 PostgreSQL 镜像、真实子进程守护恢复、配置兼容、发布链和构建验证。**尚未正式采用。** 本机当前 effective release 仍是 `20260905T180043Z-7364a22437c52ae1`，其启动控制器仍依赖历史 D1；不能据此移动、删除或销毁生产 D1。
+2026-09-06：**本机正式采用完成。** 独立工作树验证、23 服务 PostgreSQL 镜像、真实子进程守护恢复、配置兼容、发布链和构建检查通过后，按用户授权完成合并、受控 Django 部署、Worker 证明采用及正式启动回查。当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`；业务与日常控制链均不再读取历史 D1。历史 D1、tombstone、永久 guard、原始 bootstrap 和审计证据继续保留，本次没有移动、删除或销毁它们。
 
 业务权威继续是 Django/PostgreSQL，现有 React 前端和薄 Worker 保留。R2 市场/网店图片与运营事务附件字节不在本次范围内。本变更不新增数据库迁移、业务写权限、数据 revision、双写或回退路径。
 
-此前已部署状态与只读核查记录见 [全局退役评估](GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。下文描述待采用代码，不是新的生产采用记录。
+采用前的只读核查记录见 [全局退役评估](GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。本结论只覆盖当前 Windows 本机；没有清查或发布远程 Cloudflare 部署，也没有实现新机器绕过历史 bootstrap 的首次安装路径。
+
+## 本机正式采用记录
+
+脱敏机器可读证据见 [`evidence/global-d1-control-adoption-20260906.json`](evidence/global-d1-control-adoption-20260906.json)。
+
+| 项目 | 已核验值 |
+| --- | --- |
+| 发布源码 | `175c2687328bef491aeca2c32188ae387932ed1b`；PR #10/#11 已合并 |
+| Worker effective release | `20260906T035823Z-fceee410b71f79b0` |
+| Worker manifest SHA-256 | `ab44b00f096534c97651108c4bb75ea6d9343eb1d6d66f3f96a3b043dd3ea492` |
+| 已消费 plan SHA-256 | `fb69313b8ebb86de684d3340e464b69e6bd84c032660e4a7b44415fc9fbc5745` |
+| successor SHA-256 | `93cf0f2ddeaba1fb63da5783d0c218f241808360a04fb3e0e66d5cb0c3c8f0a4` |
+| 全局 proof SHA-256 | `24503a096bb6649b4d4f0988ccfaab9924100232129daa13f70edf78e1f22c52` |
+| 历史终态 schema SHA-256 | `7b6a241ad508a86b630aa6f82b01b2f43339b92b2f9e7c529685531da47e8de5`；12 个退役单元 |
+| Django 部署清单 SHA-256 | `28587a32ef44290b974f3dc4af5cec01d4583c8da2cb3b02d91943e1bdab4114` |
+| 正式状态 | `Running / Ready / exact_release`，12 个组件、23 个 Django reader/writer/BI 全部通过 |
+| 启动与监控 | Worker `VerifyStartup` 通过；Django 守护为 `running / healthy`，重启尝试为 0 |
+| 旧版本拒绝 | 前任 `20260905T180043Z-7364a22437c52ae1` 被只读 Verify 拒绝：`ManifestPath is not the authorized effective head release` |
+| 生产绑定 | D1 为 0；原 R2 binding `SALES_IMPORT_FILES` 保留 |
+
+首次 `apply` 在修改受保护入口前重新采集 D1/PostgreSQL 证据，通过精确计划 SHA 与前任 CAS，写入连续 successor、消费记录和启动绑定；没有覆盖旧 manifest/authority。唯一总控于北京时间 12:09 回查网页启动成功，后续 Status 确认所有组件健康。
+
+正式 HTTP 验收共 19 项通过，涵盖真实 principal、销售新鲜度、liveness/readiness、页面、财务目标列表/选项/导入历史、市场工作区、AI 模型配置读取、网店、商品、库存、客服和商品分组搜索。错误目标视图/搜索分组为 400，未签名财务内部请求为 401，未知 Host 为 404。Host 检查使用 `node:http` 明确发送原始 Host；首次 `fetch` 检查因客户端规范化该头未形成预期请求，修正验收脚本后通过，生产代码未因此改动。搜索使用无匹配预期的测试词，不能据此声称所有关键词或全部分组均已做性能验收。
+
+运营 MCP 不可用，以上使用经授权的本机只读 API 替代；先确认既有无范围限制管理员及销售 `django_postgresql / sales_single_write`，revision 为 `14:10`，数据截止 `2026-09-03`。仅保存响应状态、大小、摘要和必要的新鲜度元数据，没有保存业务明细、账号、模型配置或凭据，没有导入业务数据、执行模型调用或发送外部通知。
+
+维护期间发现既有 5 个中文 PowerShell operator 为 UTF-8 无 BOM，Windows PowerShell 5 解析失败。通过已安装控制器在 PowerShell 7 中完成受控停止，再在隔离分支为这些文件补充 BOM；PR #11 的 Windows PowerShell 5 Parser 回归测试通过后合并并统一 DeployApp。随后 Windows PowerShell 5 完整 Start 通过。启动隐藏的 PowerShell 5 守护时，需要避免继承 PowerShell 7 的模块路径；本次从 PowerShell 5 父进程使用匹配的 `PSModulePath` 启动并回读健康状态。未手工终止业务进程或修改已部署应用文件。
+
+| 发布后备份与恢复 | 已核验值 |
+| --- | --- |
+| 一致性备份 | `daily-20260906T041413Z-b507264145c7`，Backup / Verify 通过 |
+| manifest SHA-256 | `4d594ab01480efb2c7f3d4c9e9a179fd09a5a6ee08f204b50594dc5e2d5d67ac` |
+| dump SHA-256 | `4a3264ab2e7126cf8b1ad72ea914d0b6907b82e58d984a516aefd00c042b3e64` |
+| 隔离恢复 ID / 端口 | `260906d1a001` / `55432` |
+| 期望与恢复 content SHA-256 | 均为 `39b96e002df005e072684276529ffad085e5a1f8e6bf885377e5c6a778647af4` |
+| 恢复边界 | `productionDatabaseTouched=false`、`serviceStateChanged=false`、`cleanupStatus=isolated_data_removed` |
+
+发布前后各域 revision、authority 及 AI/权限证据一致；表计数变化为在线市场图片缓存从 43,856 增至 43,867、市场写请求回执从 17,344 增至 17,415。不同时间的整体内容摘要因此不同，两次恢复均与各自绑定的 exported snapshot 备份一致。正式备份、独立恢复结果、原始退役证明和发布链均继续保留。
+
+验收后，逐项核验 4 个本次镜像 run 的 stopped receipt、独立端口无监听、无所属进程、精确目录和无重解析路径，再清理其临时 PostgreSQL 数据目录；镜像结果、日志与清理审计保留。此清理没有触及正式备份、生产数据库或历史 D1。
 
 ## 替代证明
 
@@ -31,19 +71,19 @@
 - `netshop:promotion:backfill` 及旧脚本的 CLI 入口永久拒绝执行；历史导出函数仅供隔离研究与夹具使用。普通 Drizzle 生成继续失败关闭，新结构使用 Django migrations。
 - `check:backend-boundary` 自动扫描 `app/`、`worker/`、真实 helper 及 package 中的日常 Node 入口和传递动态导入；本次覆盖 366 个模块，违规 0。PowerShell 生命周期和首次采用的隔离审计协议由专门测试覆盖，不把它们冒充为此业务依赖图的一部分。
 
-## 验证与尚未执行的门禁
+## 验证结果
 
 新增测试覆盖完整退役单元、错误/重排的域、缺失 guard、额外 view 写入 trigger、未完成/错误摘要 receipt、历史 CRLF、文件篡改、跨版本/路径绑定、硬链接、非 canonical JSON、23 个 readiness 角色及部署文件中途变化。
 
 发布夹具在首次采用后撤去其 SQLite 文件，再采用第二个 successor，两次启动门禁均通过；旧版本与篡改证明被拒绝。首次证据复验失败时受保护入口和发布链保持不变。PowerShell 5 配置夹具验证 v5 缺失 D1、v6 无 D1、错误 backend/端口及历史 operator 的拒绝行为。
 
-仓库单元测试、lint、隔离 Vinext 构建与 rendered Worker 测试需全部通过。构建 Worker 在无 D1 binding、无 Django 服务配置的临时端口上能启动，readiness 返回缺失 23 个服务且不回退。helper 使用临时端口完成打包后健康检查。
+仓库单元测试、lint、隔离 Vinext 构建与 rendered Worker 测试通过。构建 Worker 在无 D1 binding、无 Django 服务配置的临时端口上能启动，readiness 返回缺失 23 个服务且不回退。helper 使用临时端口完成打包后健康检查。
 
 本分支验证结果：全量单元测试共 1,871 项，1,851 通过、20 跳过、0 失败（`--test-concurrency=2`）；隔离构建成功，20 项 rendered Worker 测试全部通过；全量 lint 为 0 错误。默认高并发复跑曾出现两项既有短时序测试失败，降低并发后通过，未修改对应业务实现或放宽断言。
 
 最终复审后，30 项证明/发布协议及真实子进程恢复测试全部通过。全库 TypeScript 检查仍有既有诊断，不能报告为通过：使用同一依赖环境、以 Git HEAD 源码作内存覆盖的对照检查，原基线为 160 项，本分支为 141 项，新增诊断 0 项，消除 19 项；本次新代码未增加诊断。
 
-本轮用户已授权按镜像联调、复审与备份恢复、合并、受控本机发布、正式验收的顺序继续执行。镜像、复审与新备份独立恢复已通过；是否完成正式采用仍以上方状态和后续生产证据为准。
+本轮按用户已授权的镜像联调、复审与备份恢复、合并、受控本机发布、正式验收顺序执行。额外的 PowerShell 编码回归单独通过 1 项测试；没有把它计为重新执行了整套单元测试。正式采用及当前状态以上方记录为准。
 
 ### 23 服务镜像与守护恢复
 
