@@ -16,6 +16,8 @@ import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/js
 import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-download";
 import { assertJackyunSnapshotEvidence, jackyunCaptureDate, jackyunExportFirstPolicyVersion, type JackyunHistoricalSnapshotEvidence } from "../lib/jackyun/run-contract";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
+import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
+import { inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession } from "../lib/jackyun/dpapi-login";
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
 type Policy = {
@@ -123,6 +125,7 @@ type CliOptions = {
   headless: boolean;
   launchOnly: boolean;
   checkLoginOnly: boolean;
+  authenticateOnly?: boolean;
   signal?: AbortSignal;
   /** Only the explicit n8n export-first protocol uses current queries and deferred imports. */
   exportOnlyModule?: JackyunModule;
@@ -148,18 +151,20 @@ function parseCli(): CliOptions {
   let headless = true;
   let launchOnly = false;
   let checkLoginOnly = false;
+  let authenticateOnly = false;
   const args = process.argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--headless") { headless = true; continue; }
     if (args[index] === "--headed") { headless = false; continue; }
     if (args[index] === "--launch-only") { launchOnly = true; continue; }
     if (args[index] === "--check-login") { checkLoginOnly = true; continue; }
+    if (args[index] === "--authenticate-only") { authenticateOnly = true; continue; }
     const next = args[index + 1];
     if (!next || next.startsWith("--")) throw new Error(`参数 ${args[index]} 缺少取值。`);
     values.set(args[index], next);
     index += 1;
   }
-  const runId = values.get("--run-id") ?? (launchOnly || checkLoginOnly ? `login-${shanghaiDate(0).replace(/-/g, '')}` : undefined);
+  const runId = values.get("--run-id") ?? (launchOnly || checkLoginOnly || authenticateOnly ? `login-${shanghaiDate(0).replace(/-/g, '')}` : undefined);
   if (!runId || !/^[A-Za-z0-9._-]+$/.test(runId)) throw new Error("浏览器 controller 必须提供有效 --run-id。");
   return {
     runId,
@@ -173,6 +178,7 @@ function parseCli(): CliOptions {
     headless,
     launchOnly,
     checkLoginOnly,
+    authenticateOnly,
   };
 }
 
@@ -1547,16 +1553,6 @@ export async function getJackyunSessionStatus(port: number): Promise<JackyunSess
   }
 }
 
-async function waitForAuthenticatedSession(port: number, timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  do {
-    const status = await getJackyunSessionStatus(port);
-    if (status === "authenticated") return status;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  } while (Date.now() < deadline);
-  return getJackyunSessionStatus(port);
-}
-
 async function waitForPageTextParts(client: BrowserAutomationClient, parts: string[], timeoutMs: number, pollIntervalMs = 100) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -1732,29 +1728,33 @@ async function runController(options: CliOptions) {
   const profileDirectory = path.resolve(options.profileDirectory ?? policy.browser.controller?.profileDirectory ?? path.join(projectRoot, ".runtime", "jackyun-chrome-profile"));
   const port = options.debuggingPort ?? policy.browser.controller?.debuggingPort ?? 9223;
   const startUrl = policy.browser.controller?.startUrl ?? "https://web.jackyun.com/home/mainframe_web_horizontal.html";
+  const loginConfig = await readJackyunLoginConfig(projectRoot);
+  if (path.resolve(loginConfig.profileDirectory).toLowerCase() !== profileDirectory.toLowerCase()
+    || loginConfig.debuggingPort !== port || !isJackyunLoginOrigin(startUrl)) {
+    throw new Error("waiting_login：登录策略与专用 Profile、端口或站点不一致。");
+  }
   const launchedBrowser = await launchDedicatedChrome({ executablePath: chromePath, profileDirectory, port, startUrl, headless: options.launchOnly ? false : options.headless });
   if (options.launchOnly) return { status: "chrome_ready", profileDirectory, port };
   const ownsBrowser = Boolean(launchedBrowser);
 
   return withOwnedControllerChromeCleanup(ownsBrowser, port, async () => {
-  let sessionStatus = await getJackyunSessionStatus(port);
-  if (options.checkLoginOnly) {
-    return { status: sessionStatus, port };
-  }
-  if (sessionStatus === "login_required") {
-    const target = await connectJackyunTarget(port).catch(() => null);
-    const loginResult = target
-      ? await autoLoginWithSavedBrowserCredentials(target.client).finally(() => target.client.close())
-      : { attempted: false, submitted: false, reason: "login_form_missing" as const };
-    console.log(JSON.stringify({ type: "jackyun_saved_login", ...loginResult }));
-    if (loginResult.submitted) sessionStatus = await waitForAuthenticatedSession(port, 30_000);
-  }
-  if (sessionStatus === "login_required") {
-    console.log("检测到吉客云登录页。专用 Chrome 未自动填充已保存凭证，或页面要求验证码；请执行 npm run jackyun:login 完成人工验证。");
-    return { status: "login_required", profileDirectory, port };
-  }
-  if (sessionStatus !== "authenticated") {
-    return { status: "login_unknown", profileDirectory, port };
+  await verifyJackyunBrowserBinding({ chromePath, profileDirectory, port });
+  const loginBrowser = await connectPlaywrightBrowser(port);
+  try {
+    const candidates = loginBrowser.contexts().flatMap(context => context.pages())
+      .filter(page => page.url() === "about:blank" || isJackyunLoginOrigin(page.url()));
+    if (candidates.length !== 1) throw new Error("waiting_login：专用浏览器的吉客云登录页面不唯一。");
+    const page = candidates[0];
+    const loginResult = await waitForJackyunDpapiSession({
+      inspect: () => inspectJackyunLoginSurface(page, loginConfig.tenantId),
+      submit: () => submitJackyunDpapiLogin(page, loginConfig),
+      initialWaitMs: loginConfig.initialWaitMs, afterSubmitWaitMs: loginConfig.afterSubmitWaitMs,
+      readOnly: options.checkLoginOnly, signal: options.signal,
+    });
+    if (options.checkLoginOnly || options.authenticateOnly) return { ...loginResult, port, tenantVerified: loginResult.status === "authenticated" };
+    console.log(JSON.stringify({ type: "jackyun_login", ...loginResult, tenantVerified: true }));
+  } finally {
+    await loginBrowser.close();
   }
 
   const eventDirectory = path.join(options.eventRoot, options.runId);
@@ -2404,8 +2404,15 @@ async function runController(options: CliOptions) {
 
 if (path.resolve(process.argv[1] ?? "") === path.resolve(fileURLToPath(import.meta.url))) {
   const cliOptions = parseCli();
+  const cliLoginConfig = await readJackyunLoginConfig(projectRoot);
+  if (cliOptions.authenticateOnly || cliOptions.checkLoginOnly || cliOptions.launchOnly) {
+    const health = await fetch("http://127.0.0.1:5791/health", { signal: AbortSignal.timeout(2000) }).catch(() => null);
+    const value = health?.ok ? await health.json() as { busy?: boolean; activeWorkflow?: unknown } : null;
+    if (value?.busy || value?.activeWorkflow) throw new Error("共享辅助服务正忙，暂不能维护专用登录。");
+  }
   withJackyunRunLock(
-    { runId: cliOptions.runId, purpose: cliOptions.checkLoginOnly ? "browser_login_check" : "browser_controller" },
+    { runId: cliOptions.runId, purpose: cliOptions.checkLoginOnly || cliOptions.authenticateOnly ? "browser_login_check" : "browser_controller",
+      lockDirectory: path.join(path.dirname(cliLoginConfig.profileDirectory), "jackyun-automation.lock") },
     () => runController(cliOptions),
   )
     .then((result) => console.log(JSON.stringify(result)))

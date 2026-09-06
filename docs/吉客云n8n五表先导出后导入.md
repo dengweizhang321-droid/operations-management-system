@@ -27,7 +27,7 @@
 2. 将 JSON 导入现有同 ID 工作流并保存草稿；不要创建另一个同名的自动调度副本。
 3. 配套 helper 必须经过项目受控发布，支持 `/jackyun/export-first/` 的 plan、五个 export、validate、import、verify 路由。仅导入 JSON 不会升级运行中的 helper；旧 helper 会返回 404，不能据此开始业务导出。
 4. 正式服务发布、停止或重启仍遵循 `AGENTS.md` 和现有 Worker successor 流程，不能直接替换运行目录或绕过 immutable release。
-5. 专用 Chrome 首次登录使用既有 `npm run jackyun:login`；账号、密码、Cookie 和会话不进入 n8n。遇到验证码或安全验证时停止并由操作者处理。
+5. 专用 Chrome 登录使用 Windows DPAPI：先运行 `npm run jackyun:credential:setup` 在本机录入，再用 `npm run jackyun:credential:status` 检查保存结果。纯登录验证使用 `npm run jackyun:authenticate`；遇到验证码或安全验证时停止，由操作者使用 `npm run jackyun:login` 处理。账号、密码、Cookie 和会话不进入 n8n。详见 `docs/吉客云DPAPI登录配置.md`。
 6. 发布后从“手动运行”启动完整工作流，最后节点完成才算成功。保存工作流、文件下载完成或导入响应成功都不能代替最后核验。
 
 重新生成模板：`node tools/generate-jackyun-export-first-workflow.mjs`。
