@@ -164,3 +164,35 @@ DPAPI 登录与无业务效果恢复受控采用 release `20260906T110340Z-73a29
 随后独立回查暴露出已迁移库存历史 API 未返回 `ownedRowCount/isCurrent`，导致现有严格核验器拒绝。Worker 仅在库存/库龄的精确 batchId 查询中，通过已有 Django `freshness` 确认当前批次，再以无筛选、limit=1 的 `inventory_search/age_search` 读取实际仓库事实总数；批次历史、新鲜度、事实查询必须具有相同库存 revision 和快照日期。历史批次显式标记非当前，不借用新批次行数，不从声明 rowCount 推算归属。SKU 聚合的 `stock_projection.total` 不是仓库事实行数，不能用于此核验。
 
 该兼容只使用真实 principal 和已有 reader consumer，不改 PostgreSQL、Django、权限、业务过滤或核验器要求。隔离全量 1,932 项测试中 1,912 通过、20 跳过、无失败/取消；构建、20 项渲染、生产边界检查通过，lint 0 错误/9 项既有警告，TypeScript 142 项既有诊断与基线一致。后续仅允许调用原计划的 `verify`，禁止为该接口缺口重跑下载或导入。
+
+### 最终完成证据（2026-09-06）
+
+兼容修复源码 `947e80d83856b5eb2941dd22863ed5f57d28598d` 已通过受控 Stop/plan/精确 SHA apply/Start 采用，保留同期天猫 `dafec1dc`，未重启 Django 或触发其他平台任务：
+
+- release：`20260906T151730Z-e07832f459944ae8`；manifest SHA：`6add8a64a22e95f13a65905e242289bdadc981f3413391f8bf739c9454134e85`。
+- plan SHA：`18f99f5e2068de9200cd9d5a0db7d717d0716f7609b33a46a9f5b7a761f0ad24`；successor SHA：`3524c1648129016d3f4fc30e0b35d7bea3cdcce37557fe609f081759fe26ee4c`；startup binding SHA：`a6ad76f56602f580b9f430a869ce2042ad0b7b0860b2c8679e53df4e82424161`。
+- 官方 Status 为 `exact_release`、VerifyStartup 为 `verified`、Django readiness 为 `ready` 且不可用服务为空；最终 helper `busy=false/activeWorkflow=null`，吉客云锁已释放。
+
+operator 使用新 release 不可变 source snapshot 中的原 `runJackyunExportFirstAction('verify','844',...)`，只回查五表文件、交接、审计及本机已授权公开只读 API，不再上传、导入或导出。MCP 不可用，使用本机只读 API 作为明确的替代来源。全部精确批次、实际归属行数、文件/内容摘要、日期和销售成本源检查通过；原导入 manifest SHA 在 verify 前后完全一致。逻辑计划于 **2026-09-06T15:23:54.322Z（上海时间 23:23:54）** 正式进入 `completed`。
+
+| 数据集 | 原始下载 | 正式入库并回查 | 日期口径 |
+| --- | ---: | ---: | --- |
+| 分仓库存 | 25,709 行 | 22,642 行 | 2026-09-06 当前采集 |
+| 组合装及子件 | 1,942 个母件、4,393 条源关系 | 4,392 条关系 | 当前主数据；1 条重复关系合并 |
+| 销售单明细 | 4,828 行 | 4,478 行 | 发货时间 2026-09-01 至 2026-09-05 |
+| 库龄 | 5,629 行 | 5,554 行 | 2026-09-06 当前采集 |
+| 货品 SKU | 8,476 行 | 8,476 行 | 当前主数据 |
+
+库存、库龄和销售原始行数与入库行数的差异来自现有业务过滤；原 Excel 未改写。五张下载文件位于 `D:\谷歌浏览器\jackyun\n8n-export-first-844` 的各模块子目录。
+
+精确批次：
+
+- 库存：`9885577944ad779f786ddb5fe1ca6093d2a8be00618fff04f579024219759891`。
+- 组合装：`combos:d4e8221f494750c57bac81129093e9d3431daca0c979d0c77d22c0ff1340c3a4`。
+- 销售：`a3df2a1f8c93786a1ab65aef591954c2c91992dd8f3faec3a370181cec848095`。
+- 库龄：`inventory_age:f4e4c6816895ace2fa8f92887400ea3d190de23c3ad3af878de9bbf384178dc9`。
+- 货品：`products:bced2d8e75d2c5fc75ae49c10cba8fed51625243bebc6220a6175674b43f6d75`。
+
+本机脱敏证据位于 `D:\codex-worktrees\jackyun-preflight-recovery-20260906\outputs\validation`：`845-import-continuation-before.json` 保留精确旧失败，`845-verification-only-before.json` 绑定 verify 前五表批次和原 manifest，`845-import-continuation-result.json` 为五表核验成功回执，`ownership-final-idle.json` 为释放证据；发布、Status、启动绑定和 readiness 文件以 `ownership-` 为前缀。
+
+**n8n 845 仍为 error，真实五表业务已完成。** 本次包含一次组合装确认人工介入、受控名称修复续导及最终只读核验，不能表述为 845 全程无人工干预成功。当前无需重跑本轮下载或导入，也未启用日调度。
