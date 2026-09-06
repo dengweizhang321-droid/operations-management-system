@@ -45,6 +45,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 特殊判断
 
+- 商品日/推广日的下载计划与验收还须读取 [缺失日规划](../../../docs/天猫商品与推广缺失日规划.md)，先核验其中的本机采用状态。采用后 A 分别核对注册起始日至上海昨天的商品日与推广日缺口，按并集选择最早一天；B/C 只补商品缺口，P 复核同日商品覆盖后只补推广缺口。`already_covered` 是无新增导入的正常结果，不是新批次完成；空日期计划必须复查覆盖仍完整且无未决推广活动清单。剩余缺口不授权监控绕过 n8n 或自动创建连续补跑。
 - 亿玖与亿用现行模板分别为 `tmall-yijiu-direct-pm-candidate.workflow.json` 与 `tmall-yiyong-direct-pm-candidate.workflow.json`，固定原 workflow ID；文件名中的 candidate 不代表可以发布旧基线。P/M 直连分别要求 `yijiu-direct-pm-v1` / `yiyong-direct-pm-v1`，不能跨店互换，也不扩展至另外四店。详情见对应店铺直连文档。
 - C/P 的表现回查必须使用项目领域函数生成的复合 `outlet`（平台 + 店铺），不能使用旧的单独 `shop` 参数。
 - 若导入接口已发布 completed 批次但覆盖回查失败，保留已发布事实；修复回查后通过新完整 execution 让内容幂等返回 duplicate 或精确替换。
