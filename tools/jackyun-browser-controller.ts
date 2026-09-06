@@ -22,6 +22,7 @@ import { selectJackyunExportTask, type JackyunExportTaskBinding, type JackyunExp
 import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-runner";
 
 import { jackyunWebSessionTransport, prepareWebSessionExport, submitWebSessionExport, readWebSessionTasks, waitForWebSessionTask } from "../lib/jackyun/web-session-export";
+import { assert849ReprepareWindow } from "../lib/jackyun/web-session-recovery";
 
 type Policy = {
   version: string;
@@ -56,6 +57,7 @@ type ModuleActionState = Partial<BrowserHandoff> & {
   exportTaskBinding?: JackyunExportTaskBinding;
   status: "pending" | "navigated" | "queried" | "export_armed" | "downloaded" | "handed_off" | "completed";
   webSession?: { baselineIds: string[]; baselineAt: string; pendingTaskId?: string };
+  reprepareEvidence?: { originalIntentAt: string; permitSha256: string; originalControllerSha256: string };
   queryRetryCount?: number;
   queryRetryIntentAt?: string;
   tableReadbackFailure?: {
@@ -144,6 +146,7 @@ type CliOptions = {
   inspectExportMenuOnly?: boolean;
   /** Bound existing task approved for resuming the original run; never a new export. */
   resumeTaskBinding?: JackyunExportTaskBinding;
+  webConfirmationRecovery?: { originalExecutionId: string; executionId: string; permitSha256: string };
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -575,7 +578,7 @@ function fastPoll(policy: Policy) {
 
 export async function confirmJackyunComboExport(client: BrowserAutomationClient, urlHints: string[], promptParts: string[],
   button: string, timeoutMs: number, pollMs: number) {
-  const read = () => evaluateValue<{ x: number; y: number } | null>(client, `(() => {
+  const read = () => evaluateValue<{ x: number; y: number; ready: boolean } | null>(client, `(() => {
     ${jsDocumentsPrelude(urlHints)}
     const dialogs=documents.flatMap(doc=>Array.from(doc.querySelectorAll('.mini-messagebox')).filter(visible));
     if(!dialogs.length) return null;
@@ -584,21 +587,26 @@ export async function confirmJackyunComboExport(client: BrowserAutomationClient,
     if(buttons.length!==1) throw new Error('组合装导出确认按钮不唯一');
     const el=buttons[0];
     if(el.matches(':disabled,[aria-disabled="true"],.mini-disabled') || getComputedStyle(el).pointerEvents==='none') throw new Error('组合装导出确认按钮不可用');
+    const control=el.ownerDocument.defaultView.mini?.get?.(el.id);
+    if(control && (control.enabled===false || control.readOnly===true)) throw new Error('组合装导出确认按钮不可用');
     const r=el.getBoundingClientRect();let x=r.left+r.width/2,y=r.top+r.height/2,win=el.ownerDocument.defaultView;
     if(!el.contains(el.ownerDocument.elementFromPoint(x,y))) throw new Error('组合装导出确认按钮被遮挡');
     while(win.frameElement){const f=win.frameElement,b=f.getBoundingClientRect();x+=b.left;y+=b.top;win=win.parent;if(win.document.elementFromPoint(x,y)!==f)throw new Error('组合装导出确认框被遮挡');}
-    return {x,y};
+    // MiniUI binds Button.onclick asynchronously after rendering the dialog.
+    // Visibility alone can lead to a trusted click before the handler exists.
+    return {x,y,ready:typeof el.onclick==='function'};
   })()`);
   const deadline = Date.now() + timeoutMs;
   let target = await read();
-  while (!target && Date.now() < deadline) { await new Promise(resolve => setTimeout(resolve, pollMs)); target = await read(); }
-  if (!target) throw new Error("组合装导出确认弹窗未出现。");
-  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...target, button: "none" });
+  while (!target?.ready && Date.now() < deadline) { await new Promise(resolve => setTimeout(resolve, pollMs)); target = await read(); }
+  if (!target?.ready) throw new Error("组合装导出确认弹窗或按钮处理函数未就绪。");
+  const point = { x: target.x, y: target.y };
+  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...point, button: "none" });
   const afterMove = await read();
-  if (!afterMove || afterMove.x !== target.x || afterMove.y !== target.y) throw new Error("组合装导出确认按钮位置变化。");
+  if (!afterMove?.ready || afterMove.x !== target.x || afterMove.y !== target.y) throw new Error("组合装导出确认按钮位置或处理函数变化。");
   const confirmedAt = new Date().toISOString();
-  await client.send("Input.dispatchMouseEvent", { type: "mousePressed", ...target, button: "left", clickCount: 1 });
-  await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...target, button: "left", clickCount: 1 });
+  await client.send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", clickCount: 1 });
+  await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", clickCount: 1 });
   while (Date.now() < deadline) {
     if (!await read()) return confirmedAt;
     await new Promise(resolve => setTimeout(resolve, pollMs));
@@ -1995,6 +2003,9 @@ async function runController(options: CliOptions) {
     }
 
     const moduleState = state.modules[moduleKey] ?? { status: "pending" as const };
+    if (moduleState.reprepareEvidence && (!options.exportFirstBatch || moduleKey !== "combos" || options.runId !== "n8n-export-first-849"
+      || options.webConfirmationRecovery?.originalExecutionId !== "849"
+      || options.webConfirmationRecovery.permitSha256 !== moduleState.reprepareEvidence.permitSha256)) throw new Error("组合装恢复缺少独占 n8n 许可。");
     state.modules[moduleKey] = moduleState;
     const { client, page } = await connectPlaywrightJackyunTarget(playwrightBrowser, { startUrl });
     if (options.headless && ownsBrowser) await page.setViewportSize({ width: 1920, height: 1080 });
@@ -2497,6 +2508,10 @@ async function runController(options: CliOptions) {
       };
       if (options.exportFirstBatch) {
         const token = await prepareWebSessionExport(client, moduleKey);
+        if (moduleState.reprepareEvidence) {
+          const original = await readWebSessionTasks(client, moduleKey, moduleState.reprepareEvidence.originalIntentAt);
+          assert849ReprepareWindow(moduleState.expectedSourceRows,moduleState.reprepareEvidence.originalIntentAt,original.records);
+        }
         const baseline = await readWebSessionTasks(client, moduleKey);
         moduleState.webSession = { baselineIds: baseline.records.map(r => r.taskId), baselineAt: new Date().toISOString() };
         await armExport();

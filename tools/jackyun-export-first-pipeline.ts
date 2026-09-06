@@ -11,6 +11,7 @@ import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from 
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { assertClosedPreflight, preflightClosurePath } from "../lib/jackyun/preflight-recovery";
 import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
+import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recovery";
 import { runController } from "./jackyun-browser-controller";
 import { jackyunWebSessionTransport } from "../lib/jackyun/web-session-export";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
@@ -225,6 +226,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
     let resumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
+    let webConfirmationRecovery: Awaited<ReturnType<typeof claimWebConfirmationRecovery>> | undefined;
     const activePath = path.join(paths(root).pipelineRoot, "active.json");
     const active = await readJsonFileOr<{ runId: string; executionId: string } | null>(activePath, null);
     if (active && active.executionId !== executionId) {
@@ -234,7 +236,11 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       if (previous.phase !== "completed") {
         const closed = await assertClosedPreflight(root, active.executionId).then(() => true, () => false);
         if (!closed) {
-          try { resumeTaskBinding = await claimJackyunResumePermit(root, active.executionId, executionId, action, nowOf(deps)); }
+          try {
+            if (previous.exportTransport === jackyunWebSessionTransport) {
+              webConfirmationRecovery = await claimWebConfirmationRecovery(root, active.executionId, executionId, action, nowOf(deps));
+            } else resumeTaskBinding = await claimJackyunResumePermit(root, active.executionId, executionId, action, nowOf(deps));
+          }
           catch { throw new Error(`原运行 ${active.runId} 尚未闭合，且当前执行没有有效续跑许可；禁止新建重复导出。`); }
           assertExportFirstAction(previous, active.executionId, action);
           executionId = active.executionId; runId = active.runId;
@@ -275,6 +281,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
         eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
         headless: true, launchOnly: false, checkLoginOnly: false, exportFirstBatch: true,
+        webConfirmationRecovery,
         beforeModule: async module => {
           if (currentPlan.exports[module]) { await readBoundHandoff(root, currentPlan, policy, module); return; }
           if (currentPlan.runDate !== jackyunCaptureDate(nowOf(deps))) throw new Error("采集过程已跨日，禁止把新采集结果记入旧日期。");

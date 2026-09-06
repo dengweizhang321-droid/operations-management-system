@@ -55,7 +55,16 @@ test("combo confirmation clicks only the exact module dialog once and requires i
     await invoke();
     assert.equal(await page.evaluate(() => (window as unknown as { decoyClicked?: boolean }).decoyClicked), undefined);
     assert.equal(await page.frames()[1].evaluate(() => (window as unknown as { clicked: number }).clicked), 1);
-    for (const fault of ["duplicate", "disabled", "covered", "stays-open"]) {
+    await reset();
+    await page.frames()[1].evaluate(() => {
+      const button = document.querySelector<HTMLAnchorElement>('.mini-messagebox a')!;
+      const handler = button.onclick;
+      button.onclick = null;
+      setTimeout(() => { button.onclick = handler; }, 150);
+    });
+    await invoke();
+    assert.equal(await page.frames()[1].evaluate(() => (window as unknown as { clicked: number }).clicked), 1);
+    for (const fault of ["duplicate", "disabled", "covered", "stays-open", "unbound", "unbinds-after-click"]) {
       await reset();
       await page.frames()[1].evaluate(fault => {
         const dialog = document.querySelector<HTMLElement>(".mini-messagebox")!, button = dialog.querySelector<HTMLElement>("a")!;
@@ -63,9 +72,11 @@ test("combo confirmation clicks only the exact module dialog once and requires i
         if (fault === "disabled") button.classList.add("mini-disabled");
         if (fault === "covered") { const cover = document.createElement("div");cover.style.cssText="position:fixed;inset:0;z-index:999;background:white";document.body.append(cover); }
         if (fault === "stays-open") button.onclick = () => { (window as unknown as { clicked: number }).clicked = ((window as unknown as { clicked: number }).clicked || 0) + 1; };
+        if (fault === "unbound") button.onclick = null;
+        if (fault === "unbinds-after-click") button.onclick = () => { (window as unknown as { clicked: number }).clicked = 1; button.onclick = null; };
       }, fault);
       await assert.rejects(invoke());
-      assert.equal(await page.frames()[1].evaluate(() => (window as unknown as { clicked: number }).clicked || 0), fault === "stays-open" ? 1 : 0);
+      assert.equal(await page.frames()[1].evaluate(() => (window as unknown as { clicked: number }).clicked || 0), ["stays-open", "unbinds-after-click"].includes(fault) ? 1 : 0);
     }
   } finally { await b.close(); }
 });
