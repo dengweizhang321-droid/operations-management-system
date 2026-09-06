@@ -34,6 +34,8 @@ import {
   successorPayload,
 } from "../tools/worker-local-release-rotation.mjs";
 import { assertReleaseWorkerLaunchAllowed } from "../tools/worker-authority-guard.mjs";
+import { createD1RetirementReceipt, d1ReceiptVersion, d1ReceiptRelativePath } from "../tools/d1-retirement-proof.mjs";
+import { syntheticD1Proof } from "./fixtures/d1-retirement-proof";
 
 const hex = (character: string) => character.repeat(64);
 
@@ -87,6 +89,8 @@ async function makeRelease(
     ? [...workerGuardEntrypointPaths]
     : workerGuardEntrypointPaths.filter((relativePath) => ![
       "tools/worker-local-release-rotation.mjs",
+      "tools/d1-retirement-proof.mjs",
+      "tools/collect-d1-retirement-proof.mjs",
       activationFenceRelativePath,
     ].includes(relativePath));
   const activationFence = workerReleaseActivationFence({ createdAt, sourceFingerprint, buildFingerprint });
@@ -178,6 +182,19 @@ async function makeRelease(
     },
   }, "manifestPayloadSha256");
   const manifestPath = path.join(releaseRoot, "deployment-manifest.json");
+  const authorityRaw = await readFile(path.join(runtime, "state", "sales-postgresql-authority.json")).catch(() => null);
+  if (authorityRaw) {
+    const authority = JSON.parse(authorityRaw.toString("utf8"));
+    const proof = syntheticD1Proof({ runtimeRootPathSha256: windowsPathSha256(runtime), sourceD1PathSha256: windowsPathSha256(sourceD1Path),
+      persistRootPathSha256: windowsPathSha256(persistRoot), bootstrapAuthoritySha256: sha256Bytes(authorityRaw),
+      adoptionPredecessorManifestSha256: authority.workerReleaseManifestSha256 });
+    const receipt = createD1RetirementReceipt(proof, manifest);
+    Object.assign(manifest.artifacts, { d1RetirementReceipt: { version: d1ReceiptVersion, relativePath: d1ReceiptRelativePath,
+      sha256: await writeCanonical(path.join(releaseRoot, ...d1ReceiptRelativePath.split("/")), receipt) } });
+    const core = { ...manifest };
+    delete core.manifestPayloadSha256;
+    Object.assign(manifest, withPayloadSha256(core, "manifestPayloadSha256"));
+  }
   const manifestSha256 = await writeCanonical(manifestPath, manifest);
   return {
     releaseId,
@@ -371,6 +388,89 @@ async function directoryNamesOrEmpty(target: string) {
     throw error;
   }
 }
+
+test("adopted proof admits two successive releases after the isolated D1 file disappears", async () => {
+  const item = await fixture();
+  try {
+    let adoptions = 0;
+    const testDependencies = { verifyD1Adoption: async () => { adoptions++; } };
+    const firstChain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+    const first = await approvedTransition(item, firstChain);
+    await applyApprovedRotationPlanForTest({ runtimeRoot: item.runtime, approvedPlanSha256: first.planSha256,
+      cutoverEvidence: item.cutoverEvidence, testDependencies });
+    await rm(path.join(item.runtime, "state.sqlite"));
+    const launch = (release: typeof item.candidate) => assertReleaseWorkerLaunchAllowed({ runtimeRoot: item.runtime,
+      manifestPath: release.manifestPath, manifestSha256: release.manifestSha256, allowTestRuntimeRoot: true });
+    assert.equal((await launch(item.candidate)).status, "allowed");
+    const next = await makeRelease(item.runtime, item.protectedRoot, "20260906T000000Z-3333333333333333", "next-service",
+      { createdAt: "2026-09-06T00:00:00.000Z", buildFingerprint: hex("7") });
+    const nextChain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+    const second = await approvedTransition(item, nextChain, next, item.candidate, "2026-09-06T00:01:00.000Z");
+    await applyApprovedRotationPlanForTest({ runtimeRoot: item.runtime, approvedPlanSha256: second.planSha256,
+      cutoverEvidence: item.cutoverEvidence, testDependencies });
+    assert.equal((await launch(next)).status, "allowed");
+    assert.equal(adoptions, 1);
+    await assert.rejects(launch(item.candidate), /effective head/);
+    await writeFile(path.join(next.releaseRoot, ...d1ReceiptRelativePath.split("/")), "{}");
+    await assert.rejects(launch(next), /digest mismatch/);
+  } finally {
+    assert.equal(path.dirname(item.runtime).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+    assert.ok(path.basename(item.runtime).startsWith("teruisi-worker-rotation-"));
+    await rm(item.runtime, { recursive: true, force: true });
+  }
+});
+
+test("failed initial D1 adoption revalidation leaves protected entrypoints untouched", async () => {
+  const item = await fixture();
+  try {
+    const chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+    const approved = await approvedTransition(item, chain);
+    const before = await protectedSnapshot(item.protectedRoot, item.candidate.entrypoints);
+    await assert.rejects(applyApprovedRotationPlanForTest({ runtimeRoot: item.runtime, approvedPlanSha256: approved.planSha256,
+      cutoverEvidence: item.cutoverEvidence, testDependencies: { verifyD1Adoption: async () => { throw new Error("changed adoption evidence"); } } }), /changed adoption/);
+    assert.deepEqual(await protectedSnapshot(item.protectedRoot, item.candidate.entrypoints), before);
+    assert.equal((await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true })).successorCount, 0);
+  } finally {
+    assert.equal(path.dirname(item.runtime).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+    assert.ok(path.basename(item.runtime).startsWith("teruisi-worker-rotation-"));
+    await rm(item.runtime, { recursive: true, force: true });
+  }
+});
+
+test("successors cannot remove or replace inherited retirement evidence before installing any entrypoint", async () => {
+  for (const mode of ["remove", "replace"]) {
+    const item = await fixture();
+    try {
+      const bootstrap = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+      const initial = await approvedTransition(item, bootstrap);
+      await applyApprovedRotationPlanForTest({ runtimeRoot: item.runtime, approvedPlanSha256: initial.planSha256,
+        cutoverEvidence: item.cutoverEvidence });
+      const next = await makeRelease(item.runtime, item.protectedRoot, "20260906T000000Z-4444444444444444", "next-service");
+      const manifest = JSON.parse(await readFile(next.manifestPath, "utf8"));
+      if (mode === "remove") delete manifest.artifacts.d1RetirementReceipt;
+      else {
+        const receiptPath = path.join(next.releaseRoot, ...d1ReceiptRelativePath.split("/"));
+        const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        delete receipt.proof.proofSha256;
+        receipt.proof.sourceSchemaSha256 = hex("f");
+        const replacement = createD1RetirementReceipt(withPayloadSha256(receipt.proof, "proofSha256"), manifest);
+        manifest.artifacts.d1RetirementReceipt.sha256 = await writeCanonical(receiptPath, replacement);
+      }
+      delete manifest.manifestPayloadSha256;
+      next.manifestSha256 = await writeCanonical(next.manifestPath, withPayloadSha256(manifest, "manifestPayloadSha256"));
+      const chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+      const approved = await approvedTransition(item, chain, next, item.candidate);
+      const before = await protectedSnapshot(item.protectedRoot, next.entrypoints);
+      await assert.rejects(applyApprovedRotationPlanForTest({ runtimeRoot: item.runtime, approvedPlanSha256: approved.planSha256,
+        cutoverEvidence: item.cutoverEvidence }), /proof downgrade|evidence changed across successors/);
+      assert.deepEqual(await protectedSnapshot(item.protectedRoot, next.entrypoints), before);
+    } finally {
+      assert.equal(path.dirname(item.runtime).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+      assert.ok(path.basename(item.runtime).startsWith("teruisi-worker-rotation-"));
+      await rm(item.runtime, { recursive: true, force: true });
+    }
+  }
+});
 
 test("append-only successor resolves an effective head without rewriting bootstrap current or authority", async () => {
   const item = await fixture();
@@ -869,7 +969,7 @@ test("startup shortcut recognizes the immutable seven-entry predecessor then reb
   const item = await fixture();
   try {
     assert.equal(item.bootstrapRelease.entrypoints.length, 7);
-    assert.equal(item.candidate.entrypoints.length, 9);
+    assert.equal(item.candidate.entrypoints.length, workerGuardEntrypointPaths.length);
     const chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
     const approved = await approvedTransition(item, chain);
     await applyApprovedRotationPlanForTest({

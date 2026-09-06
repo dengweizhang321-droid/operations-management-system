@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readD1RetirementReceipt } from "./d1-retirement-proof.mjs";
 
 import {
   activationFenceRelativePath,
@@ -515,6 +516,20 @@ async function validateSuccessorTransition({ runtimeRoot, bootstrap, records, he
     fail("Worker successor 未绑定精确 approved plan/CAS tuple");
   }
   const successorManifest = await readManifest(runtimeRoot, record.successor, `successor ${record.sequence}`);
+  const predecessorHasProof = Boolean(headManifest.manifest.artifacts.d1RetirementReceipt);
+  const successorHasProof = Boolean(successorManifest.manifest.artifacts.d1RetirementReceipt);
+  if (predecessorHasProof && !successorHasProof) fail("D1 retirement proof downgrade is forbidden");
+  if (successorHasProof) {
+    const proof = await readD1RetirementReceipt(successorManifest.manifest, path.dirname(successorManifest.manifestPath), {
+      bootstrapAuthoritySha256: bootstrap.authoritySha256,
+    });
+    if (predecessorHasProof) {
+      const previousProof = await readD1RetirementReceipt(headManifest.manifest, path.dirname(headManifest.manifestPath));
+      if (proof.proofSha256 !== previousProof.proofSha256) fail("D1 retirement evidence changed across successors");
+    } else if (proof.adoptionPredecessorManifestSha256 !== headManifest.manifestSha256) {
+      fail("D1 retirement proof does not bind the adoption predecessor");
+    }
+  }
   const expectedEntrypoints = await entrypointPlanFromReceipts(headManifest, successorManifest);
   if (canonicalJson(approvedPlan.plan.protectedEntrypoints) !== canonicalJson(expectedEntrypoints)) {
     fail("Worker successor approved plan 未精确绑定 predecessor/candidate guard entrypoints");
@@ -989,7 +1004,7 @@ async function invokeStartupShortcutAction(candidateManifest, action) {
   return result;
 }
 
-export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false } = {}) {
+export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false } = {}) {
   const releaseLock = await acquireRotationLock();
   let serviceLock;
   try {
@@ -1008,12 +1023,25 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
         if (evidence[field] !== established[field]) fail("cutover evidence 与已建立 successor lineage 不一致");
       }
     }
+    let retirementProof;
+    if (before.headManifest.artifacts.d1RetirementReceipt) {
+      if (adoptD1ControlRetirement) fail("D1 control retirement has already been adopted");
+      retirementProof = await readD1RetirementReceipt(before.headManifest, path.dirname(before.headManifestPath), {
+        bootstrapAuthoritySha256: before.bootstrap.authoritySha256,
+      });
+    } else {
+      if (!adoptD1ControlRetirement) fail("Initial D1 control retirement requires plan --adopt-d1-control-retirement");
+      const { collectD1RetirementProof } = await import("./collect-d1-retirement-proof.mjs");
+      retirementProof = await collectD1RetirementProof({ chain: before, sourceRoot: workerSourceRoot,
+        djangoRuntimeRoot: djangoSalesRuntimeRoot, retainedEvidence: evidence, now });
+    }
     const built = await buildWorkerReleaseCandidate({
       sourceRoot: workerSourceRoot,
       runtimeRoot: workerRuntimeRoot,
       devVarsSource: workerDevVarsSource,
       persistRoot: workerPersistRoot,
       sourceD1Path: before.headManifest.runtime.sourceD1Path,
+      retirementProof,
       now,
       allowTestRuntimeRoot,
     });
@@ -1162,6 +1190,9 @@ async function applyApprovedRotationPlanCore({
     runtimeRoot, approvedPlanSha256, allowTestRuntimeRoot,
     readCurrentCutoverEvidence: dependencies.readCurrentCutoverEvidence,
   });
+  await readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath), {
+    bootstrapAuthoritySha256: validated.bootstrap.authoritySha256,
+  });
   await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
   await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
   const beforeMutation = await validateApprovedRotationBeforeMutation({
@@ -1176,6 +1207,11 @@ async function applyApprovedRotationPlanCore({
   validated = beforeMutation;
   await dependencies.verifyHeadStopped(validated.chain, { allowTestRuntimeRoot });
   await dependencies.assertCandidateStopped(validated.candidateManifest, allowTestRuntimeRoot);
+  if (validated.state === "pending" && validated.candidateManifest.manifest.artifacts.d1RetirementReceipt
+      && !validated.chain.headManifest.artifacts.d1RetirementReceipt) {
+    if (!dependencies.verifyD1Adoption) fail("Initial D1 adoption requires independent source revalidation");
+    await dependencies.verifyD1Adoption(validated);
+  }
   await installProtectedEntrypoints(validated.planRead.plan, validated.candidateManifest, {
     afterEntrypointInstalled: dependencies.afterEntrypointInstalled,
   });
@@ -1211,6 +1247,7 @@ async function applyApprovedRotationPlanCore({
   };
 }
 
+/** @param {{ runtimeRoot: string, approvedPlanSha256: string, cutoverEvidence: object, testDependencies?: object }} options */
 export async function applyApprovedRotationPlanForTest({
   runtimeRoot,
   approvedPlanSha256,
@@ -1225,6 +1262,7 @@ export async function applyApprovedRotationPlanForTest({
   const noOp = async () => {};
   const dependencies = {
     readCurrentCutoverEvidence: async () => cutoverEvidence,
+    verifyD1Adoption: testDependencies.verifyD1Adoption ?? noOp,
     verifyHeadStopped: testDependencies.verifyHeadStopped ?? noOp,
     assertCandidateStopped: testDependencies.assertCandidateStopped ?? noOp,
     installAndVerifyStartup: testDependencies.installAndVerifyStartup ?? noOp,
@@ -1249,6 +1287,15 @@ export async function applyApprovedRotationPlan({ approvedPlanSha256, allowTestR
     serviceLock = await acquireWorkerServiceMutex();
     const dependencies = {
       readCurrentCutoverEvidence: readCutoverEvidence,
+      verifyD1Adoption: async (validated) => {
+        const { collectD1RetirementProof, sameAdoptionEvidence } = await import("./collect-d1-retirement-proof.mjs");
+        const expected = await readD1RetirementReceipt(validated.candidateManifest.manifest, path.dirname(validated.candidateManifest.manifestPath));
+        const retainedEvidence = await readCutoverEvidence({ ...validated.bootstrap.authority, rawSha256: validated.bootstrap.authoritySha256 });
+        const fresh = await collectD1RetirementProof({ chain: validated.chain,
+          sourceRoot: path.join(path.dirname(validated.candidateManifest.manifestPath), "source-snapshot"),
+          djangoRuntimeRoot: djangoSalesRuntimeRoot, retainedEvidence });
+        if (!sameAdoptionEvidence(expected, fresh)) fail("D1 adoption evidence changed after the approved plan");
+      },
       verifyHeadStopped: verifyReleaseWithOwnVerifier,
       assertCandidateStopped: assertStoppedForCandidate,
       afterEntrypointInstalled: null,
@@ -1280,7 +1327,7 @@ function parseCli(argv) {
   const flags = new Set();
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index];
-    if (["--json", "--allow-test-runtime-root"].includes(token)) {
+    if (["--json", "--allow-test-runtime-root", "--adopt-d1-control-retirement"].includes(token)) {
       if (flags.has(token)) fail(`参数重复：${token}`);
       flags.add(token);
       continue;
@@ -1296,10 +1343,11 @@ function parseCli(argv) {
 async function main() {
   const { command, values, flags } = parseCli(process.argv.slice(2));
   const allowTestRuntimeRoot = flags.has("--allow-test-runtime-root");
+  if (command !== "plan" && flags.has("--adopt-d1-control-retirement")) fail("D1 retirement adoption flag is plan-only");
   let result;
   if (command === "plan") {
     if (values.size > 0 || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
-    result = await planWorkerReleaseRotation();
+    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement") });
   } else if (command === "apply") {
     if (values.size !== 1 || !values.has("--approved-plan-sha256") || allowTestRuntimeRoot) {
       fail("production apply 只接受 --approved-plan-sha256");

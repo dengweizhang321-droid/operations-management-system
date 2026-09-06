@@ -153,7 +153,7 @@
 
 - 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。源码和本机已采用的生产 release 均无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。后续更新仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
 - Worker readiness 使用已配置的 23 个 Django reader/writer 健康端点，按服务角色核验并有界取消；失败返回 `django_unavailable`，总控显示 `BackendDegraded`。liveness 与 readiness 必须保持独立，不能因就绪探测失败重启服务。
-- “无 D1 业务访问”不等于“控制层无 D1 文件依赖”。当前 Worker 启动/自动重启仍校验历史 D1 内的退役证明，Django 生命周期和 Worker successor 构建仍检查历史文件。完整脱钩必须先建立并采用与不可变发布链绑定的等效终态证明，完成无 D1 工作副本的隔离生命周期/发布演练，再真实回读；不得跳过 guard、把 completed 写死或删改历史 manifest/authority。具体缺口与验收条件见 `docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`。
+- “无 D1 业务访问”不等于“控制层无 D1 文件依赖”。控制链脱钩代码使用与不可变发布链绑定的全局退役证明，首次采用只读复验全部领域、PostgreSQL readiness 和既有保留证据，后续继承同一证明且拒绝降级。正式部署尚未采用该协议，仍依赖历史 D1；必须完成无 D1 工作副本的镜像生命周期/发布演练和实际回读后才能宣布完全脱钩。不得跳过 guard、把 completed 写死或删改历史 manifest/authority。实现与门禁见 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`，原始评估见 `docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`。
 
 ## 9. API、前端与性能要求
 

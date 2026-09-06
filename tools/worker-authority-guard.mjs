@@ -1,6 +1,7 @@
 import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { resolveEffectiveReleaseChain } from "./worker-local-release-rotation.mjs";
+import { readD1RetirementReceipt } from "./d1-retirement-proof.mjs";
 
 import {
   canonicalJson,
@@ -215,100 +216,6 @@ async function readAndVerifyGuardReceipt(current) {
   return { receipt, sha256: pointer.sha256 };
 }
 
-export async function inspectD1RetirementState(sourceD1Path) {
-  if (typeof sourceD1Path !== "string" || !path.win32.isAbsolute(sourceD1Path)) fail("D1 tombstone 检查路径无效");
-  const info = await lstat(sourceD1Path);
-  if (!info.isFile() || info.isSymbolicLink()) fail("D1 tombstone 检查必须使用普通文件");
-  const { DatabaseSync } = await import("node:sqlite");
-  const database = new DatabaseSync(sourceD1Path, { readOnly: true });
-  try {
-    const receiptObject = database.prepare("SELECT type FROM sqlite_master WHERE name = ? LIMIT 1").get("domain_retirement_receipts");
-    const retiredNames = [
-      "sales_import_upload_chunks", "sales_import_uploads", "sales_order_lines", "sales_import_batches",
-      "sales_overview_response_cache", "sales_overview_cache_state", "sales_projection_outbox",
-      "sales_projection_source_state", "sales_write_authority",
-    ];
-    const placeholders = retiredNames.map(() => "?").join(",");
-    const rows = database.prepare(
-      `SELECT type, name, sql FROM sqlite_master WHERE name IN (${placeholders}) ORDER BY name`,
-    ).all(...retiredNames);
-    const viewRows = rows.filter((row) => row.type === "view");
-    if (viewRows.length > 0 && (rows.length !== retiredNames.length || viewRows.length !== retiredNames.length)) {
-      fail("D1 sales retirement tombstone views 部分存在或与旧表混合");
-    }
-    const exactViewsPresent = viewRows.length === retiredNames.length;
-    if (exactViewsPresent) {
-      const expectedNames = [...retiredNames].sort();
-      if (canonicalJson(rows.map((row) => row.name)) !== canonicalJson(expectedNames)) fail("D1 sales retirement tombstone view 名称集无效");
-      const trigger = database.prepare(
-        `SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name IN (${placeholders}) LIMIT 1`,
-      ).get(...retiredNames);
-      if (trigger) fail("D1 sales retirement tombstone view 不得携带 trigger");
-      for (const row of rows) {
-        const normalizedSql = typeof row.sql === "string" ? row.sql.trim().replace(/\s+/g, " ") : "";
-        const expectedSql = `CREATE VIEW \`${row.name}\` AS SELECT 'sales-domain-retired-v1' AS \`retirement_tombstone\` WHERE 0`;
-        if (normalizedSql !== expectedSql) fail(`D1 sales retirement tombstone SQL 无效：${row.name}`);
-        const count = database.prepare(`SELECT COUNT(*) AS count FROM "${row.name}"`).get();
-        if (count?.count !== 0) fail(`D1 sales retirement tombstone 必须为空：${row.name}`);
-      }
-    }
-
-    const sharedTargets = [
-      ["fingerprints", "import_content_fingerprints"],
-      ["attempts", "import_content_attempts"],
-      ["scope_heads", "import_scope_heads"],
-    ];
-    const expectedGuards = sharedTargets.flatMap(([shortName, tableName]) => ["insert", "update", "delete"].map((operation) => ({
-      name: `sales_retired_${shortName}_${operation}_guard`, tableName, operation,
-    })));
-    const guardNames = expectedGuards.map((item) => item.name);
-    const guardPlaceholders = guardNames.map(() => "?").join(",");
-    const guardRows = database.prepare(
-      `SELECT type, name, tbl_name AS tableName, sql FROM sqlite_master WHERE name IN (${guardPlaceholders}) ORDER BY name`,
-    ).all(...guardNames);
-    if (guardRows.length > 0 && guardRows.length !== expectedGuards.length) fail("D1 shared sales retirement guards 部分存在");
-    const exactSharedGuardsPresent = guardRows.length === expectedGuards.length;
-    if (exactSharedGuardsPresent) {
-      for (const expected of expectedGuards) {
-        const row = guardRows.find((item) => item.name === expected.name);
-        if (!row || row.type !== "trigger" || row.tableName !== expected.tableName) fail(`D1 shared retirement guard 身份无效：${expected.name}`);
-        const predicate = expected.operation === "update"
-          ? "OLD.`domain` = 'sales' OR NEW.`domain` = 'sales'"
-          : `${expected.operation === "insert" ? "NEW" : "OLD"}.\`domain\` = 'sales'`;
-        const expectedSql = `CREATE TRIGGER \`${expected.name}\` BEFORE ${expected.operation.toUpperCase()} ON \`${expected.tableName}\` WHEN ${predicate} BEGIN SELECT RAISE(ABORT, 'sales_domain_retired'); END`;
-        const normalizedSql = typeof row.sql === "string" ? row.sql.trim().replace(/\s+/g, " ") : "";
-        if (normalizedSql !== expectedSql) fail(`D1 shared retirement guard SQL 无效：${expected.name}`);
-      }
-    }
-
-    let completedReceiptPresent = false;
-    if (receiptObject?.type === "table") {
-      try {
-        const receipt = database.prepare(
-          "SELECT version, status FROM domain_retirement_receipts WHERE domain = 'sales' LIMIT 2",
-        ).all();
-        completedReceiptPresent = receipt.length === 1
-          && receipt[0].version === "sales-domain-retirement-receipt-v1" && receipt[0].status === "completed";
-      } catch {
-        completedReceiptPresent = false;
-      }
-    }
-    return {
-      detected: Boolean(receiptObject) || viewRows.length > 0 || guardRows.length > 0,
-      exactViewsPresent,
-      exactSharedGuardsPresent,
-      completedReceiptPresent,
-      completed: exactViewsPresent && exactSharedGuardsPresent && completedReceiptPresent,
-    };
-  } finally {
-    database.close();
-  }
-}
-
-export async function d1ContainsRetirementTombstone(sourceD1Path) {
-  return (await inspectD1RetirementState(sourceD1Path)).detected;
-}
-
 async function currentTombstoneState(runtimeRoot, { allowTestRuntimeRoot = false } = {}) {
   if (!(await exists(runtimeRoot))) return { current: null, guard: null, tombstone: false, runtimeInstalled: false };
   await assertNoReparsePath(runtimeRoot, "Worker runtime root");
@@ -334,29 +241,30 @@ async function currentTombstoneState(runtimeRoot, { allowTestRuntimeRoot = false
     };
   }
   const guard = await readAndVerifyGuardReceipt(current);
-  const retirement = await inspectD1RetirementState(guard.receipt.bindings.sourceD1Path);
+  // The old source path remains immutable lineage metadata. Runtime admission
+  // reads the manifest-bound proof and never opens the historical database.
+  const retirementProof = authority ? await readD1RetirementReceipt(current.manifest, path.dirname(current.manifestPath), {
+    bootstrapAuthoritySha256: effective.bootstrap.authoritySha256,
+  }) : null;
   return {
     current,
     bootstrapCurrent,
     effective,
     authority,
     guard,
-    tombstone: retirement.detected,
-    retirement,
+    retirementProof,
     runtimeInstalled: true,
   };
 }
 
 export async function assertLegacyWorkerLaunchAllowed({ runtimeRoot = workerRuntimeRoot } = {}) {
-  const context = await currentTombstoneState(runtimeRoot);
-  if (!context.runtimeInstalled) return { status: "allowed", mode: "legacy-pre-release-install" };
-  const authority = context.authority ?? await readSalesAuthority(runtimeRoot);
-  const { tombstone } = context;
-  if (authority) fail("sales 已转为 PostgreSQL 权威源，旧源码 Worker 入口已永久失效");
-  if (tombstone) fail("D1 已存在 sales retirement tombstone，旧源码 Worker 入口已永久失效");
-  return { status: "allowed", mode: "legacy-pre-cutover" };
+  // An installed managed runtime cannot become a legacy runtime if its D1
+  // archive or authority files are missing. No database access is needed.
+  if (await exists(runtimeRoot)) fail("受控 runtime 已安装，旧源码 Worker 入口已永久失效");
+  return { status: "allowed", mode: "legacy-pre-release-install" };
 }
 
+/** @param {{ manifestPath: string, manifestSha256: string, runtimeRoot?: string, allowTestRuntimeRoot?: boolean }} options */
 export async function assertReleaseWorkerLaunchAllowed({
   manifestPath,
   manifestSha256,
@@ -377,9 +285,7 @@ export async function assertReleaseWorkerLaunchAllowed({
   }
   const authority = context.authority ?? await readSalesAuthority(runtimeRoot);
   if (!authority) fail("sales authority sentinel 尚未发布，专用 retired release 禁止提前启动");
-  if (!context.retirement?.completed) {
-    fail("D1 0092 retirement 尚未完成 exact views/shared guards/completed receipt，专用 release 禁止启动");
-  }
+  if (!context.retirementProof) fail("缺少与 effective head 绑定的全局 D1 退役证明，禁止启动");
   if ((context.effective?.successorCount ?? 0) === 0
       && authority.guardReceiptSha256 !== context.guard.sha256
     || context.current.manifest.artifacts.guardReceipt.sha256 !== context.guard.sha256

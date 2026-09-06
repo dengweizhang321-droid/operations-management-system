@@ -532,7 +532,7 @@ function Database-Url(
   return "postgresql://${escapedUser}:${escapedPassword}@127.0.0.1:5432/${escapedDatabase}?sslmode=disable&application_name=${escapedApplication}&connect_timeout=5&options=${options}"
 }
 
-function Resolve-ErpSourceD1([string]$Path) {
+function Resolve-ErpSourceD1([string]$Path, [switch]$MetadataOnly) {
   if ([string]::IsNullOrWhiteSpace($Path)) {
     throw "必须提供 ERP 权威 D1 的精确 SQLite 文件路径"
   }
@@ -540,7 +540,7 @@ function Resolve-ErpSourceD1([string]$Path) {
     throw "ERP 权威 D1 必须使用绝对路径"
   }
   $canonical = Get-CanonicalPath $Path
-  if (-not (Test-Path -LiteralPath $canonical -PathType Leaf)) {
+  if (-not $MetadataOnly -and -not (Test-Path -LiteralPath $canonical -PathType Leaf)) {
     throw "ERP 权威 D1 不存在：$canonical"
   }
   if ([IO.Path]::GetExtension($canonical) -ine ".sqlite") {
@@ -549,9 +549,12 @@ function Resolve-ErpSourceD1([string]$Path) {
   return $canonical
 }
 
-function Get-ServiceConfig {
+function Get-ServiceConfig([switch]$RequireLegacyD1) {
   $config = Read-JsonFile $ConfigPath "Django 本机服务配置"
-  if ([int]$config.version -ne 5) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
+  if ([int]$config.version -notin @(5, 6)) { throw "Django 本机服务配置版本不受支持；请重新执行 Configure" }
+  if ([int]$config.version -eq 6 -and [string]$config.backend -cne "django-postgresql") {
+    throw "Django 本机服务配置必须使用 django-postgresql"
+  }
   if (
     [string]$config.readerAddress -cne "127.0.0.1:8001" -or
     [string]$config.writerAddress -cne "127.0.0.1:8002" -or
@@ -563,9 +566,13 @@ function Get-ServiceConfig {
   ) {
     throw "Django 本机服务地址配置不符合固定回环契约"
   }
-  $resolvedSource = Resolve-ErpSourceD1 ([string]$config.erpSourceD1)
-  if ([string]$config.erpSourceD1 -cne $resolvedSource) {
-    throw "ERP 权威 D1 配置必须是规范绝对路径；请重新执行 Configure"
+  # Version 5 retains the historical source identity, not a runtime dependency.
+  # Only an explicitly requested historical operator may inspect that file.
+  if ($RequireLegacyD1 -or [int]$config.version -eq 5 -or -not [string]::IsNullOrWhiteSpace([string]$config.erpSourceD1)) {
+    $resolvedSource = Resolve-ErpSourceD1 ([string]$config.erpSourceD1) -MetadataOnly:(-not $RequireLegacyD1)
+    if ([string]$config.erpSourceD1 -cne $resolvedSource) {
+      throw "历史 D1 配置必须是规范绝对路径；请重新执行 Configure"
+    }
   }
   return $config
 }
@@ -3187,10 +3194,11 @@ function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority) {
 
 function Configure-Service {
   Assert-ServiceStackStopped "Configure"
-  $resolvedErpSource = Resolve-ErpSourceD1 $ErpSourceD1
+  $resolvedErpSource = if ([string]::IsNullOrWhiteSpace($ErpSourceD1)) { "" } else { Resolve-ErpSourceD1 $ErpSourceD1 }
   New-Item -ItemType Directory -Path $RuntimeRoot, $LogDirectory, $RunDirectory -Force | Out-Null
   Write-AtomicJson $ConfigPath ([ordered]@{
-    version = 5
+    version = 6
+    backend = "django-postgresql"
     configuredAt = [DateTimeOffset]::Now.ToString("o")
     configuredFrom = $ExecutionRoot
     readerAddress = "127.0.0.1:8001"
@@ -3250,7 +3258,7 @@ function Get-RetirementRuntimeContext {
   if ($nodeVersionRun.ExitCode -ne 0 -or $nodeVersionLines.Count -ne 1) {
     throw "retirement operator 必须使用固定 Node.js 24 原生 TypeScript runtime（$(Get-NativeFailureSummary $nodeVersionRun)）"
   }
-  $config = Get-ServiceConfig
+  $config = Get-ServiceConfig -RequireLegacyD1
   New-Item -ItemType Directory -Path $RetirementAuditDirectory -Force | Out-Null
   Assert-RuntimeAclHardened
   return [pscustomobject]@{

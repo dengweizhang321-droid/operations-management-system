@@ -34,7 +34,7 @@
     "jd:all-stores": "node --import tsx tools/jd-multi-store-runner.ts",
     "jd:credential:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/jd-credential-vault.ps1 -Action setup",
     "jd:promotion": "node --import tsx tools/jd-promotion-export.ts",
-    "netshop:promotion:backfill": "node --import tsx tools/netshop-promotion-aggregate-backfill.ts",
+    "netshop:promotion:backfill": "node tools/retired-d1-command.mjs",
     "tmall:receipt": "node --import tsx tools/tmall-download-receipt.ts",
     "tmall:daily:import": "node --import tsx tools/tmall-multi-store-import-runner.ts",
     "tmall:login": "node --import tsx tools/tmall-product-master-export.ts --launch-only",

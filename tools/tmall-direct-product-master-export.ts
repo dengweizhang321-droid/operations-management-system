@@ -6,7 +6,7 @@ import type { APIRequestContext, APIResponse, BrowserContext, Page } from "playw
 
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
-import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import { mergeTmallPagewiseProductWorkbooks } from "./tmall-pagewise-product-master-export";
 import {

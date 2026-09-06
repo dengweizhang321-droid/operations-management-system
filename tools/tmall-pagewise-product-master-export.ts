@@ -7,7 +7,7 @@ import type { Frame, Locator, Page } from "playwright-core";
 import * as XLSX from "xlsx";
 
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
-import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import { getTmallStore, type TmallStore } from "../lib/netshop/tmall-store-registry";
 import {
   TMALL_SELLER_ON_SALE_URL,

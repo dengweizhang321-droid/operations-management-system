@@ -4,6 +4,12 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const script = readFileSync("tools/django-local-service.ps1", "utf8");
+test("Django lifecycle treats legacy D1 paths as metadata and supports PostgreSQL-only configuration", { skip: process.platform !== "win32" }, () => {
+  const result = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/django-local-service-d1-metadata.test.ps1"], {
+    encoding: "utf8", windowsHide: true, timeout: 30_000,
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
 const health = readFileSync("backend/teruisi_backend/health.py", "utf8");
 const retirementOperator = readFileSync("tools/sales-d1-retirement.ts", "utf8");
 const deploymentRuntimeTest = readFileSync(
@@ -280,7 +286,7 @@ test("critical Django native calls are PS5-safe and report only bounded redacted
 });
 
 test("configuration retains the exact ERP D1 only for controlled cutover and exposes the terminal ERP service", () => {
-  assert.match(script, /version = 5/);
+  assert.match(script, /version = 6/);
   assert.match(script, /readerAddress = "127\.0\.0\.1:8001"/);
   assert.match(script, /writerAddress = "127\.0\.0\.1:8002"/);
   assert.match(script, /customerServiceReaderAddress = "127\.0\.0\.1:8071"/);

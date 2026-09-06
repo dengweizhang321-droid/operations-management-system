@@ -9,6 +9,8 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 test("every production entry and transitive dynamic import is free of D1 access", async () => {
   const result = await auditProductionBoundary();
   assert.ok(result.checkedModules > 250);
+  assert.ok(result.operationalEntrypoints.includes("tools/tmall-sycm-cookie-pipeline.ts"));
+  assert.ok(result.operationalEntrypoints.includes("tools/jd-market-image-repair.ts"));
   assert.deepEqual(result.violations, []);
   const hosting = JSON.parse(await readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"));
   assert.equal(hosting.d1, undefined);

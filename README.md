@@ -10,7 +10,7 @@ AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/Postgr
 
 ## 启动方式
 
-D1 业务退役与整机控制层脱钩的范围不同：业务已经统一使用 Django/PostgreSQL，但当前 Worker 启动/自动重启仍读取历史 D1 退役证明，Django 生命周期与 Worker successor 构建也仍检查历史文件。不能直接删除 D1。已核查的依赖、替代证明方案和验收条件见 [`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`](docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。
+D1 业务退役与整机控制层脱钩的范围不同：业务已经统一使用 Django/PostgreSQL，但当前正式 Worker/Django 控制器仍依赖历史 D1 文件，不能直接删除。控制链脱钩代码已实现为与不可变发布链绑定的退役证明，尚未正式采用；实现、验证范围与发布门禁见 [`docs/GLOBAL_D1_CONTROL_RETIREMENT.md`](docs/GLOBAL_D1_CONTROL_RETIREMENT.md)，原始只读评估见 [`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`](docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。
 
 当前本机正式环境的人工启动统一使用唯一总控。总控通过内核级互斥避免重复启动，先检查并启动 PostgreSQL、各业务域（含 ERP 主数据 reader/writer）和已启用的 BI 只读聚合服务，再处理已经验证的不可变 Worker effective head，最后回查全部域、Worker、辅助服务和主页：
 
