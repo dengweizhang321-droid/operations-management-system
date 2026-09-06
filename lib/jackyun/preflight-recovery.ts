@@ -9,6 +9,18 @@ const failedNode = "1·分仓库存：筛选并导出所有页";
 const expectedNodes = ["手动运行", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", failedNode];
 const loginFailure = "inventory 导出未完成：login_unknown";
 const queryFailure = "TABLE_TIMEOUT [query_refresh]: inventory 未观测到本轮查询触发的包含目标日期 缺失 的模块网络请求完成；拒绝把旧表格当作新结果。";
+const legacyMenuFailure = "未找到当前模块唯一的导出所有页菜单。";
+// Audited historical exception, not a rule for arbitrary export_armed runs.
+// In this exact deployed controller the named error is thrown only after
+// menu lookup expires, before entering its final clickText branch. The old
+// exportIntent was written too early, before right-click/menu preparation.
+const audited843 = {
+  executionId: "843", releaseId: "20260906T113045Z-e1a943dd272d5547",
+  controllerSourceSha256: "8d64fafc73e815c94b7aa0f56020b2314b8dd3754a829863c5f15eedf4fb7677",
+  executionDataSha256: "c72519e3ce9fca4069e28c3c309531744ffd3c1629727ff8ef87327802badb54",
+  planSha256: "f7f871b06decd6aecde7becae70434d155d0d4b6a240428920b2b48bf3c36f59",
+  controllerSha256: "fdfa4f7d58ba9517222c750aa45c20a8ee09760180358db8b639a7277ca2a56e",
+} as const;
 export const recoverySha = (raw: string | Uint8Array) => createHash("sha256").update(raw).digest("hex");
 export type PreflightEvidence = {
   executionId: string; workflowId: string; status: string; startedAt: string; stoppedAt: string;
@@ -21,8 +33,9 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent";
+  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click";
   controllerEvidence?: { path: string; sha256: string };
+  historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
 const canonical = (value: unknown): string => JSON.stringify(value);
 export function preflightClosurePath(root: string, executionId: string) {
@@ -54,13 +67,24 @@ function assertEvidence(e: PreflightEvidence, plan: EmptyPlan) {
   if (e.executionId !== plan.executionId || e.workflowId !== jackyunWorkflowId || e.status !== "error"
     || e.retrySuccessId !== null || e.activeExecutions !== 0 || e.lastNode !== failedNode
     || !isDeepStrictEqual(e.runNodes, expectedNodes) || e.httpCode !== "500"
-    || (e.error !== loginFailure && e.error !== queryFailure)
+    || (e.error !== loginFailure && e.error !== queryFailure && e.error !== legacyMenuFailure)
     || e.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export/inventory"
     || !/^[a-f0-9]{64}$/.test(e.executionDataSha256)
     || !Number.isFinite(Date.parse(e.startedAt)) || !Number.isFinite(Date.parse(e.stoppedAt))
     || Date.parse(e.startedAt) > Date.parse(plan.createdAt) || Date.parse(e.stoppedAt) < Date.parse(plan.createdAt)) {
     throw new Error("仅允许核实的首个库存节点登录或指定查询验证失败，禁止恢复导出点击未决或已进入后续阶段的运行。");
   }
+}
+async function inspectAudited843(directory: string, planRaw: Uint8Array, evidence: PreflightEvidence) {
+  if (evidence.executionId !== audited843.executionId || evidence.executionDataSha256 !== audited843.executionDataSha256
+    || evidence.startedAt !== "2026-09-06T11:37:04.545Z" || evidence.stoppedAt !== "2026-09-06T11:37:26.934Z"
+    || recoverySha(planRaw) !== audited843.planSha256 || !(await assertEntityPath(directory))?.isDirectory()
+    || !isDeepStrictEqual((await readdir(directory)).sort(), ["browser-controller-state.json"])) {
+    throw new Error("该运行不属于已审计的 843 菜单查找失败，禁止闭合导出意图。");
+  }
+  const target = path.join(directory, "browser-controller-state.json"), raw = await readRegular(target);
+  if (recoverySha(raw) !== audited843.controllerSha256) throw new Error("843 原控制状态已变化，禁止闭合。");
+  return { path: target, sha256: recoverySha(raw) };
 }
 async function inspectQueryFailure(directory: string, plan: EmptyPlan, evidence: PreflightEvidence) {
   if (!(await assertEntityPath(directory))?.isDirectory()
@@ -137,9 +161,15 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     || Date.parse(closedAt) < Date.parse(evidence.stoppedAt)) throw new Error("活动运行、策略或恢复时间不一致。");
   const effects = effectPaths(root, policy.browser.downloadDirectory, plan.runId);
   const queryOnly = evidence.error === queryFailure;
-  const controllerEvidence = queryOnly ? await inspectQueryFailure(effects[1], plan, evidence) : undefined;
-  const absentPaths = queryOnly ? effects.filter((_, index) => index !== 1) : effects;
+  const legacyMenuOnly = evidence.error === legacyMenuFailure;
+  const controllerEvidence = queryOnly ? await inspectQueryFailure(effects[1], plan, evidence)
+    : legacyMenuOnly ? await inspectAudited843(effects[1], planRaw, evidence) : undefined;
+  const absentPaths = queryOnly || legacyMenuOnly ? effects.filter((_, index) => index !== 1) : effects;
   await assertAbsentEffects(absentPaths);
+  if (legacyMenuOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_843_menu_lookup_before_export_click", controllerEvidence,
+    historicalCodeEvidence: { releaseId: audited843.releaseId, controllerSourceSha256: audited843.controllerSourceSha256 } };
   if (queryOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "verified_query_failure_before_export_intent", controllerEvidence };
@@ -163,7 +193,8 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const receipt = parse<PreflightClosure>(raw);
   const loginClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_login_failure_without_business_effects";
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed)) {
+  const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);

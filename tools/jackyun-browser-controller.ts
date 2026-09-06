@@ -129,6 +129,8 @@ type CliOptions = {
   signal?: AbortSignal;
   /** Only the explicit n8n export-first protocol uses current queries and deferred imports. */
   exportOnlyModule?: JackyunModule;
+  /** Operator diagnosis: query and open menus, then return before any export intent/click. */
+  inspectExportMenuOnly?: boolean;
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -721,13 +723,14 @@ async function setDateInputs(client: BrowserAutomationClient, values: string[], 
   })()`);
 }
 
-async function rightClickDataRow(client: BrowserAutomationClient, urlHints: string[] = [], singleClick = false) {
+export async function rightClickDataRow(client: BrowserAutomationClient, urlHints: string[] = [], singleClick = false) {
   const point = await evaluateValue<{ found: boolean; x?: number; y?: number }>(client, `(() => {
     ${jsDocumentsPrelude(urlHints)}
     const rowScopes = documents.flatMap((doc) => Array.from(doc.querySelectorAll('#grid-goods_managet,#gridOrderDetail,#datagrid,.mini-grid')))
       .filter((el) => visible(el) && el.getBoundingClientRect().width > 500);
     const searchRoots = rowScopes.length ? rowScopes : documents;
-    const rows = searchRoots.flatMap((root) => Array.from(root.querySelectorAll('.mini-grid-row,.x-grid-item,.x-grid-row,[role=row],tbody tr')))
+    const rows = searchRoots.flatMap((root) => Array.from(root.querySelectorAll(${JSON.stringify(singleClick
+      ? ".mini-grid-row,.x-grid-item,.x-grid-row" : ".mini-grid-row,.x-grid-item,.x-grid-row,[role=row],tbody tr")})))
       .filter((el) => visible(el) && el.getBoundingClientRect().width > 500 && (el.innerText || '').trim().length > 5)
       .sort((a, b) => {
         const rank = (el) => el.closest?.('#grid-goods_managet') ? -1 : (/mini-grid-row|x-grid-row|x-grid-item/i.test(String(el.className || '')) ? 0 : 1);
@@ -1684,7 +1687,7 @@ export async function setShipmentTimeType(client: BrowserAutomationClient) {
     for (const doc of documents) {
       const mini = doc.defaultView?.mini;
       if (!mini) continue;
-      for (const element of doc.querySelectorAll('.mini-combobox')) {
+      for (const element of doc.querySelectorAll('#selectTimeStr,.mini-combobox')) {
         if (!visible(element)) continue;
         const control = mini.get?.(element.id);
         const data = control?.getData?.();
@@ -1708,24 +1711,95 @@ export async function setShipmentTimeType(client: BrowserAutomationClient) {
   return actual;
 }
 
-async function clickExportAllPages(client: BrowserAutomationClient, timeoutMs: number, pollMs: number) {
+async function readExportMenuInspection(client: BrowserAutomationClient, urlHints: string[]) {
+  return evaluateValue(client, `(() => {
+    ${jsDocumentsPrelude(urlHints)}
+    return documents.flatMap(doc => Array.from(doc.querySelectorAll('.mini-menuitem-text'))
+      .filter(visible).map(el => {
+        const rect = el.getBoundingClientRect();
+        let x = rect.left + rect.width / 2, y = rect.top + rect.height / 2, win = doc.defaultView;
+        const hit = doc.elementFromPoint(x,y), frames = [];
+        while (win.frameElement) {
+          const frame = win.frameElement, r = frame.getBoundingClientRect(); x+=r.left; y+=r.top; win=win.parent;
+          const hit = win.document.elementFromPoint(x,y);
+          frames.push({ x, y, correct: hit === frame, hit: hit?.tagName + '.' + hit?.className, frame: frame.tagName + '.' + frame.className,
+            width: r.width, height: r.height, layoutWidth: frame.offsetWidth, layoutHeight: frame.offsetHeight, innerWidth: frame.contentWindow.innerWidth });
+        }
+        return { path: doc.location.pathname, text: (el.textContent || '').trim(),
+          left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+          scrollY: doc.defaultView.scrollY, viewportHeight: doc.defaultView.innerHeight,
+          itemHit: el.closest('.mini-menuitem')?.contains(hit), frames };
+      }));
+  })()`);
+}
+
+export async function findExportMenuTarget(client: BrowserAutomationClient, urlHints: string[], parentLabel?: string) {
+  return evaluateValue<{ text: string; x: number; y: number } | null>(client, `(() => {
+    ${jsDocumentsPrelude(urlHints)}
+    const wanted = ${JSON.stringify(parentLabel ?? null)};
+    const matches = [];
+    for (const doc of documents) for (const el of doc.querySelectorAll('.mini-menuitem-text')) {
+      if (!visible(el)) continue;
+      const text = (el.textContent || '').trim();
+      if (wanted ? normalize(text) !== normalize(wanted) : !/^导出所有页(?:\\s*[(（].*[)）])?$/.test(text)) continue;
+      const rect = el.getBoundingClientRect();
+      let x = rect.left + rect.width / 2, y = rect.top + rect.height / 2, win = doc.defaultView;
+      if (x < 0 || y < 0 || x >= win.innerWidth || y >= win.innerHeight) continue;
+      const item = el.closest('.mini-menuitem');
+      if (!item?.contains(doc.elementFromPoint(x, y)) || /disabled/.test(item.className)) continue;
+      if (wanted && !Array.from(item.querySelectorAll('.mini-menuitem-allow')).some(visible)) continue;
+      let unoccluded = true;
+      while (win.frameElement) {
+        const frame = win.frameElement, frameRect = frame.getBoundingClientRect();
+        x += frameRect.left; y += frameRect.top; win = win.parent;
+        if (x < 0 || y < 0 || x >= win.innerWidth || y >= win.innerHeight || win.document.elementFromPoint(x, y) !== frame) {
+          unoccluded = false; break;
+        }
+      }
+      if (unoccluded) matches.push({ text, x, y });
+    }
+    if (matches.length > 1) throw new Error('导出菜单目标不唯一');
+    return matches[0] || null;
+  })()`);
+}
+
+export async function prepareExportAllPagesMenu(client: BrowserAutomationClient, moduleKey: JackyunModule, urlHints: string[], timeoutMs: number, pollMs: number) {
   const deadline = Date.now() + timeoutMs;
   do {
-    const label = await evaluateValue<string | null>(client, `(() => {
-      ${jsDocumentsPrelude()}
-      const labels = documents.flatMap(doc => Array.from(doc.querySelectorAll('.mini-menuitem-text')))
-        .filter(visible).map(el => (el.textContent || '').trim())
-        .filter(text => /^导出所有页(?:\\s*[(（].*[)）])?$/.test(text));
-      if (labels.length > 1) throw new Error('导出所有页菜单不唯一');
-      return labels[0] || null;
-    })()`);
-    if (label) { await clickText(client, label); return; }
-    await new Promise(resolve => setTimeout(resolve, pollMs));
+    const leaf = await findExportMenuTarget(client, urlHints);
+    if (leaf) return leaf;
+    const parent = await findExportMenuTarget(client, urlHints, moduleKey === "combos" ? "导出组合装及子件" : "导出");
+    if (parent) {
+      // MiniUI can redraw the parent beneath the pointer after the context
+      // menu opens. Re-enter the actual parent to fire its submenu hover.
+      // Neither preparation nor its retries send a mouse button event.
+      await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: Math.max(5, parent.x - 160), y: parent.y, button: "none" });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: parent.x, y: parent.y, button: "none" });
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.max(500, pollMs)));
   } while (Date.now() < deadline);
-  throw new Error("未找到当前模块唯一的导出所有页菜单。");
+  throw new Error("EXPORT_MENU_NOT_READY：未找到可点击的本模块导出所有页菜单，尚未发送导出点击。");
+}
+
+export async function clickPreparedExportAllPages(client: BrowserAutomationClient, urlHints: string[], beforeClick: () => Promise<void>) {
+  const target = await findExportMenuTarget(client, urlHints);
+  if (!target) throw new Error("EXPORT_MENU_NOT_READY：导出所有页菜单已消失，尚未发送导出点击。");
+  await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: target.x, y: target.y, button: "none" });
+  const readback = await findExportMenuTarget(client, urlHints);
+  if (!readback || readback.text !== target.text || Math.abs(readback.x - target.x) > 1 || Math.abs(readback.y - target.y) > 1) {
+    throw new Error("EXPORT_MENU_NOT_READY：导出所有页菜单发生移动，尚未发送导出点击。");
+  }
+  await beforeClick();
+  await client.send("Input.dispatchMouseEvent", { type: "mousePressed", x: target.x, y: target.y, button: "left", clickCount: 1 });
+  await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: target.x, y: target.y, button: "left", clickCount: 1 });
 }
 
 async function runController(options: CliOptions) {
+  if (options.inspectExportMenuOnly && (!options.exportOnlyModule || !options.runId.startsWith("inspect-menu-")
+    || !path.resolve(options.outputRoot).startsWith(path.join(projectRoot, "outputs", "jackyun-menu-inspection") + path.sep))) {
+    throw new Error("菜单诊断必须使用独立诊断目录和运行 ID。");
+  }
   const policy = await readJsonFile<Policy>(options.exportOnlyModule
     ? path.join(projectRoot, "config", "jackyun-export-first-policy.json") : policyPath);
   if (options.exportOnlyModule && (!jackyunModuleOrder.includes(options.exportOnlyModule)
@@ -1773,6 +1847,9 @@ async function runController(options: CliOptions) {
     version: 1, runId: options.runId, policyVersion: policy.version, updatedAt: new Date().toISOString(), modules: {},
   });
   if (state.runId !== options.runId || state.policyVersion !== policy.version) throw new Error("浏览器 controller 状态与当前运行参数不一致。");
+  if (options.inspectExportMenuOnly && Object.values(state.modules).some(module => module?.exportIntentAt || module?.filePath)) {
+    throw new Error("菜单诊断不能接管业务运行。");
+  }
 
   // Playwright owns the browser/page lifecycle. A browser-level CDP session
   // remains only for signed-export download evidence from legacy MiniUI pages.
@@ -1806,6 +1883,7 @@ async function runController(options: CliOptions) {
     const moduleState = state.modules[moduleKey] ?? { status: "pending" as const };
     state.modules[moduleKey] = moduleState;
     const { client, page } = await connectPlaywrightJackyunTarget(playwrightBrowser, { startUrl });
+    if (options.headless && ownsBrowser) await page.setViewportSize({ width: 1920, height: 1080 });
     page.setDefaultTimeout(actionTimeout(policy, moduleKey));
     page.setDefaultNavigationTimeout(moduleTimeout(policy, moduleKey));
     await client.send("Page.enable");
@@ -2063,10 +2141,6 @@ async function runController(options: CliOptions) {
       }
     }
     if (moduleKey === "sales") {
-      if (options.exportOnlyModule) {
-        const timeType = await setShipmentTimeType(client);
-        fieldChecks.push({ field: "统计时间类型", value: timeType, verifiedAt: new Date().toISOString() });
-      }
       const expected = [`${salesStartDate(options.asOfDate)} 00:00:00`, `${options.asOfDate} 23:59:59`];
       // v4 sales 页面用 laydate 日期控件 (#timeBegin$text / #timeEnd$text)，
       // 直接通过 id 定位并设值，绕过 setDateInputs 的 iframe 遍历（order_detail iframe 可能在 tab 切换时被判定不可见）
@@ -2080,6 +2154,10 @@ async function runController(options: CliOptions) {
         actionTimeout(policy, moduleKey),
         fastPoll(policy),
       );
+      if (options.exportOnlyModule) {
+        const timeType = await setShipmentTimeType(client);
+        fieldChecks.push({ field: "统计时间类型", value: timeType, verifiedAt: new Date().toISOString() });
+      }
       const dates = await evaluateValue<string[]>(client, `(() => {
     let target = null;
     const visit = (d) => { if (d.location && /order_detail/.test(d.location.href)) { target = d; return; } try { for (const f of d.querySelectorAll('iframe,frame')) { try { if (f.contentDocument) visit(f.contentDocument); } catch(e){} } } catch(e){} };
@@ -2268,10 +2346,23 @@ async function runController(options: CliOptions) {
     }
 
     capturedDownloadUrl = undefined;
+    if (options.inspectExportMenuOnly) {
+      if (moduleState.exportIntentAt || moduleState.filePath) throw new Error("菜单诊断不能接管业务运行。");
+      await rightClickDataRow(client, moduleUrlHints(moduleKey), true);
+      const rightClickMenu = await readExportMenuInspection(client, moduleUrlHints(moduleKey));
+      const prepared = await prepareExportAllPagesMenu(client, moduleKey, moduleUrlHints(moduleKey), actionTimeout(policy, moduleKey), fastPoll(policy))
+        .catch(() => ({ error: "EXPORT_MENU_NOT_READY" }));
+      const afterHover = await readExportMenuInspection(client, moduleUrlHints(moduleKey));
+      client.close();
+      return { status: "menu_inspected", runId: options.runId, module: moduleKey, rightClickMenu, prepared, afterHover };
+    }
     if (!moduleState.exportIntentAt) {
-      moduleState.exportIntentAt = new Date().toISOString();
-      moduleState.status = "export_armed";
-      await persistControllerState(controllerStatePath, state);
+      const armExport = async () => {
+        moduleState.exportIntentAt = new Date().toISOString();
+        moduleState.status = "export_armed";
+        await persistControllerState(controllerStatePath, state);
+      };
+      if (!options.exportOnlyModule) await armExport();
       const directExportStarted = options.exportOnlyModule ? false : moduleKey === "sales"
         ? await triggerSalesMinimalExportAllPage(client, moduleUrlHints(moduleKey))
         : moduleKey === "inventory_age"
@@ -2286,8 +2377,8 @@ async function runController(options: CliOptions) {
               );
       if (!directExportStarted) await rightClickDataRow(client, moduleUrlHints(moduleKey), Boolean(options.exportOnlyModule));
       if (options.exportOnlyModule) {
-        await clickAnyTextEventually(client, [moduleKey === "combos" ? "导出组合装及子件" : "导出"], actionTimeout(policy, moduleKey), fastPoll(policy));
-        await clickExportAllPages(client, actionTimeout(policy, moduleKey), fastPoll(policy));
+        await prepareExportAllPagesMenu(client, moduleKey, moduleUrlHints(moduleKey), actionTimeout(policy, moduleKey), fastPoll(policy));
+        await clickPreparedExportAllPages(client, moduleUrlHints(moduleKey), armExport);
       } else if (moduleKey === "combos" && !directExportStarted) {
         await clickAnyTextEventually(client, ["导出组合装及子件"], actionTimeout(policy, moduleKey), fastPoll(policy));
         await clickAnyTextEventually(client, ["导出所有页", "导出所有页(限500000行)", "导出所有页（限500000行）"], actionTimeout(policy, moduleKey), fastPoll(policy));

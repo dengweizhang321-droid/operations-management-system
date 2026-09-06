@@ -156,3 +156,66 @@ test("query closure remains invalid if a download or later controller mutation a
     await assert.rejects(runJackyunExportFirstAction("plan", "842", f.deps), /尚未闭合/);
   }
 });
+
+const menuProof: PreflightEvidence = { ...proof, executionId: "843",
+  startedAt: "2026-09-06T11:37:04.545Z", stoppedAt: "2026-09-06T11:37:26.934Z",
+  error: "未找到当前模块唯一的导出所有页菜单。",
+  executionDataSha256: "c72519e3ce9fca4069e28c3c309531744ffd3c1629727ff8ef87327802badb54" };
+const menuClosedAt = "2026-09-06T13:00:00.000Z";
+async function menuFixture() {
+  const f = await fixture();
+  const plan = { ...f.plan, executionId: "843", runId: "n8n-export-first-843", createdAt: "2026-09-06T11:37:05.011Z" };
+  const planPath = path.join(f.pipeline, `${plan.runId}.json`), directory = path.join(f.root, "outputs", "jackyun-import-runs", plan.runId);
+  await mkdir(directory, { recursive: true });
+  const statePath = path.join(directory, "browser-controller-state.json");
+  // Canonical LF restores the audited bytes even when Git checks out CRLF.
+  const state = JSON.parse(await readFile(new URL("./fixtures/jackyun-843-menu-controller.json", import.meta.url), "utf8"));
+  await writeFile(statePath, JSON.stringify(state, null, 2) + "\n");
+  await writeFile(planPath, JSON.stringify(plan, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId: plan.runId, executionId: "843" }));
+  return { ...f, plan, planPath, directory, statePath };
+}
+
+test("audited 843 closes only the exact historical menu lookup failure and preserves all original evidence", async () => {
+  const f = await menuFixture(), state = await readFile(f.statePath), plan = await readFile(f.planPath), active = await readFile(f.activePath);
+  const proposal = await inspectPreflightClosure(f.root, "843", menuProof, menuClosedAt);
+  assert.equal(proposal.reason, "audited_843_menu_lookup_before_export_click");
+  assert.equal(proposal.historicalCodeEvidence?.releaseId, "20260906T113045Z-e1a943dd272d5547");
+  await publishPreflightClosure(f.root, proposal, menuProof, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "843");
+  assert.deepEqual(await readFile(f.activePath), active);
+  await assert.rejects(runJackyunExportFirstAction("export/inventory", "843", f.deps), /已经闭合/);
+  await runJackyunExportFirstAction("plan", "844", f.deps);
+  assert.deepEqual(await readFile(f.statePath), state); assert.deepEqual(await readFile(f.planPath), plan);
+});
+
+test("historical menu recovery rejects altered identities, timestamps, bytes, running retries or new effects", async () => {
+  for (const fault of ["id", "hash", "time", "running", "active", "retry", "plan", "controller", "file", "download", "events", "validation"]) {
+    const f = await menuFixture(), evidence = { ...menuProof };
+    if (fault === "id") evidence.executionId = "844";
+    if (fault === "hash") evidence.executionDataSha256 = "a".repeat(64);
+    if (fault === "time") evidence.stoppedAt = "2026-09-06T11:37:27.000Z";
+    if (fault === "running") evidence.status = "running";
+    if (fault === "active") evidence.activeExecutions = 1;
+    if (fault === "retry") evidence.retrySuccessId = "844";
+    if (fault === "plan") await writeFile(f.planPath, JSON.stringify(f.plan));
+    if (fault === "controller") await writeFile(f.statePath, (await readFile(f.statePath, "utf8")) + " ");
+    if (fault === "file") await writeFile(path.join(f.directory, "export.xlsx"), "uncertain");
+    const effects = { download: path.join(f.download, "jackyun", f.plan.runId), events: path.join(f.root, "outputs", "jackyun-browser-events", f.plan.runId),
+      validation: path.join(f.root, "outputs", "jackyun-export-first-validation", f.plan.runId) };
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "843", evidence, menuClosedAt));
+  }
+  const arbitrary = await queryFixture();
+  await assert.rejects(inspectPreflightClosure(arbitrary.root, "841", { ...queryProof, error: menuProof.error }, menuClosedAt));
+});
+
+test("audited menu closure remains fenced against late controller mutation and receipt changes", async () => {
+  for (const fault of ["controller", "receipt"]) {
+    const f = await menuFixture(), proposal = await inspectPreflightClosure(f.root, "843", menuProof, menuClosedAt);
+    await publishPreflightClosure(f.root, proposal, menuProof, recoverySha(JSON.stringify(proposal)));
+    if (fault === "controller") await writeFile(f.statePath, (await readFile(f.statePath, "utf8")) + " ");
+    else await writeFile(preflightClosurePath(f.root, "843"), JSON.stringify({ ...proposal, historicalCodeEvidence: undefined }));
+    await assert.rejects(runJackyunExportFirstAction("plan", "844", f.deps), /尚未闭合/);
+  }
+});
