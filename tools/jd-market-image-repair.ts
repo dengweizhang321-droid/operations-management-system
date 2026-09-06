@@ -8,7 +8,7 @@ import { connectPlaywrightBrowser, connectPlaywrightJackyunTarget } from "../lib
 import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 import { getJdStore } from "../lib/jd/store-registry";
-import { normalizeJdMarketRepairImageUrl, type MarketImageRepairCandidate, type MarketImageRepairMapping } from "../lib/market/image-repair";
+import { normalizeJdMarketRepairImageUrl, type MarketImageRepairCandidate, type MarketImageRepairMapping } from "../lib/market/image-repair-contract";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const configPath = path.join(projectRoot, "config", "jd-market-ranking-daily.json");

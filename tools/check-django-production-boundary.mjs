@@ -17,8 +17,17 @@ async function localModule(from, specifier) {
   throw new Error(`Unresolved production import: ${relative(root, from)} -> ${specifier}`);
 }
 export async function auditProductionBoundary() {
+  const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+  const operationalEntrypoints = [...new Set([
+    "tools/tmall-sycm-cookie-pipeline.ts",
+    ...Object.values(packageJson.scripts).flatMap((command) => {
+      const match = /^node\s+(?:--import\s+tsx\s+)?(tools\/[A-Za-z0-9._/-]+\.(?:ts|mjs))(?:\s|$)/.exec(command);
+      return match && !["check:backend-boundary"].some((name) => command === packageJson.scripts[name]) ? [match[1]] : [];
+    }),
+  ])];
   const queue = (await Promise.all([files(resolve(root, "app")), files(resolve(root, "worker"))])).flat()
     .filter((path) => /\.[cm]?[jt]sx?$/.test(path));
+  queue.push(...operationalEntrypoints.map((entry) => resolve(root, entry)));
   const parents = new Map(queue.map((path) => [path, null]));
   const violations = [];
   for (let cursor = 0; cursor < queue.length; cursor++) {
@@ -47,7 +56,7 @@ export async function auditProductionBoundary() {
     }
     visit(ast);
     if (bindingAccess || /\b(?:getD1Database|getMarketDatabase|getFinanceDatabase|getInventoryDatabase|getNetshopDatabase|getErpReferenceDatabase)\s*\(|\b(?:env|environment)\s*(?:\.DB\b|\[\s*["']DB["']\s*\])|\bsqlite_master\b|\b(?:CREATE TABLE|INSERT INTO|DELETE FROM)\b/.test(emitted)
-      || imports.some((specifier) => /^(?:drizzle-orm|@\/db\/)/.test(specifier))) {
+      || imports.some((specifier) => /^(?:drizzle-orm|@\/db\/|node:sqlite$|better-sqlite3$)/.test(specifier))) {
       const chain = [];
       for (let current = path; current; current = parents.get(current)) chain.unshift(relative(root, current).replaceAll("\\", "/"));
       violations.push(chain.join(" -> "));
@@ -60,7 +69,7 @@ export async function auditProductionBoundary() {
       }
     }
   }
-  return { checkedModules: queue.length, violations };
+  return { checkedModules: queue.length, operationalEntrypoints, violations };
 }
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
   const result = await auditProductionBoundary();

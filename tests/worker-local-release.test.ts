@@ -78,9 +78,11 @@ import {
 } from "../tools/build-worker-helper.mjs";
 import {
   assertLegacyWorkerLaunchAllowed,
+} from "../tools/worker-authority-guard.mjs";
+import {
   d1ContainsRetirementTombstone,
   inspectD1RetirementState,
-} from "../tools/worker-authority-guard.mjs";
+} from "../tools/legacy-d1-retirement-inspector.mjs";
 
 async function availableLoopbackPort() {
   const server = createServer();
@@ -136,6 +138,8 @@ test("real release artifact packer carries every guarded entrypoint and binds ea
     "tools/operations-system-control.ps1",
     "tools/start-local-worker.mjs",
     "tools/worker-authority-guard.mjs",
+    "tools/d1-retirement-proof.mjs",
+    "tools/collect-d1-retirement-proof.mjs",
     "tools/worker-local-release.mjs",
     "tools/worker-local-release-rotation.mjs",
     "tools/worker-local-service.ps1",
@@ -956,8 +960,6 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
     );
     assert.equal(build.stdout, `${canonicalJson(evidence)}\n`);
     assert.deepEqual(evidence.mutableConfigPaths, [
-      "config/jd-store-accounts.json",
-      "config/sales-import-policy.json",
       "config/tmall-store-accounts.json",
     ]);
     assert.equal(evidence.inputFiles.some((item) => item.relativePath.startsWith("config/")), false);
@@ -1198,7 +1200,7 @@ test("installed runtime without current guard receipt never lets legacy launcher
       runtimeRootPathSha256: windowsPathSha256(runtime),
     }, "markerPayloadSha256");
     await writeFile(path.join(runtime, "runtime-root.json"), `${canonicalJson(marker)}\n`, "utf8");
-    await assert.rejects(assertLegacyWorkerLaunchAllowed({ runtimeRoot: runtime }), /current release\/guard receipt 缺失/);
+    await assert.rejects(assertLegacyWorkerLaunchAllowed({ runtimeRoot: runtime }), /旧源码 Worker 入口已永久失效/);
   } finally {
     await rm(runtime, { recursive: true, force: true });
   }
@@ -1544,7 +1546,8 @@ test("release source fixes build closure, real contract tests, guard and authori
   assert.match(await readFile("tools/sales-d1-retirement.ts", "utf8"), /sales-d1-retirement-v4/);
   const guard = await readFile("tools/worker-authority-guard.mjs", "utf8");
   assert.doesNotMatch(guard, /release-pre-cutover/);
-  assert.match(guard, /exact views\/shared guards\/completed receipt/);
+  assert.match(guard, /readD1RetirementReceipt/);
+  assert.doesNotMatch(guard, /node:sqlite|inspectD1RetirementState|DatabaseSync/);
   assert.match(guard, /authority\.guardReceiptSha256 !== context\.guard\.sha256/);
 });
 

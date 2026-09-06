@@ -21,6 +21,106 @@ import { createConnection, createServer } from "node:net";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
+// Keep the trusted verifier self-contained when Django deploys its exact file.
+export const d1ProofVersion = "teruisi-global-d1-retirement-proof-v1";
+export const d1ReceiptVersion = "teruisi-global-d1-retirement-binding-v1";
+export const d1ReceiptRelativePath = "audit/global-d1-retirement.json";
+export const d1RetiredDomains = Object.freeze([
+  "sales", "finance", "netshop", "market", "products", "inventory",
+  "workflow-launch", "workflow-operations", "customer-service", "erp-reference", "access-control", "ai-assistant",
+]);
+const hex = /^[0-9a-f]{64}$/;
+const proofReleaseIdPattern = /^\d{8}T\d{6}Z-[0-9a-f]{16}$/;
+export function canonicalProofJson(value) {
+  return canonicalJson(value);
+}
+export function proofHash(value) { return createHash("sha256").update(canonicalProofJson(value)).digest("hex"); }
+export function proofBytesHash(value) { return createHash("sha256").update(value).digest("hex"); }
+function keys(value, expected, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || canonicalProofJson(Object.keys(value).sort()) !== canonicalProofJson([...expected].sort())) {
+    throw new Error(`${label}: invalid fields`);
+  }
+}
+function hashFields(value, fields) {
+  if (fields.some((field) => typeof value[field] !== "string" || !hex.test(value[field]))) throw new Error("D1 retirement proof: invalid digest");
+}
+function date(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT/.test(value)
+      || !Number.isFinite(Date.parse(value))) throw new Error("D1 retirement proof: invalid timestamp");
+}
+export function sealProof(value, field) { return { ...value, [field]: proofHash(value) }; }
+function selfHash(value, field) {
+  const { [field]: digest, ...core } = value;
+  if (!hex.test(digest ?? "") || digest !== proofHash(core)) throw new Error("D1 retirement proof: digest mismatch");
+}
+export function validateD1RetirementProof(proof, expected = {}) {
+  keys(proof, ["version", "verifiedAt", "runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256",
+    "bootstrapAuthoritySha256", "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256",
+    "retainedEvidenceSha256", "domains", "proofSha256"], "D1 retirement proof");
+  selfHash(proof, "proofSha256");
+  if (proof.version !== d1ProofVersion) throw new Error("D1 retirement proof: unsupported version");
+  date(proof.verifiedAt);
+  hashFields(proof, ["runtimeRootPathSha256", "sourceD1PathSha256", "persistRootPathSha256", "bootstrapAuthoritySha256",
+    "adoptionPredecessorManifestSha256", "sourceSchemaSha256", "postgresEvidenceSha256", "retainedEvidenceSha256"]);
+  if (!Array.isArray(proof.domains) || canonicalProofJson(proof.domains.map((item) => item?.domain)) !== canonicalProofJson(d1RetiredDomains)) {
+    throw new Error("D1 retirement proof: incomplete or reordered domains");
+  }
+  for (const item of proof.domains) {
+    keys(item, ["domain", "cutoverId", "migrationSha256", "objectsSha256", "receiptSha256", "viewCount", "guardCount"], "D1 domain proof");
+    hashFields(item, ["migrationSha256", "objectsSha256", "receiptSha256"]);
+    if (typeof item.cutoverId !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(item.cutoverId)
+        || !Number.isSafeInteger(item.viewCount) || item.viewCount < 0
+        || !Number.isSafeInteger(item.guardCount) || item.guardCount < 0
+        || (item.domain === "finance" ? item.guardCount < 1 : item.viewCount < 1)) throw new Error("D1 retirement proof: invalid domain evidence");
+  }
+  for (const [field, value] of Object.entries(expected)) {
+    if (!Object.hasOwn(proof, field) || proof[field] !== value) throw new Error(`D1 retirement proof: ${field} binding mismatch`);
+  }
+  return proof;
+}
+export function createD1RetirementReceipt(proof, manifest) {
+  validateD1RetirementProof(proof, {
+    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,
+    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,
+    persistRootPathSha256: manifest.runtime.persistRootPathSha256,
+  });
+  return sealProof({ version: d1ReceiptVersion, releaseId: manifest.releaseId,
+    sourceFingerprint: manifest.source.sourceFingerprint, buildFingerprint: manifest.build.buildFingerprint, proof }, "receiptPayloadSha256");
+}
+export async function readD1RetirementReceipt(manifest, releaseRoot, expected = {}) {
+  const pointer = manifest.artifacts?.d1RetirementReceipt;
+  keys(pointer, ["version", "relativePath", "sha256"], "D1 retirement receipt pointer");
+  if (pointer.version !== d1ReceiptVersion || pointer.relativePath !== d1ReceiptRelativePath || !hex.test(pointer.sha256 ?? "")) {
+    throw new Error("D1 retirement proof is required for this release");
+  }
+  const target = path.resolve(releaseRoot, ...d1ReceiptRelativePath.split("/"));
+  let current = path.parse(target).root;
+  for (const part of target.slice(current.length).split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
+    if ((await lstat(current)).isSymbolicLink()) throw new Error("D1 retirement receipt: reparse path forbidden");
+  }
+  const info = await lstat(target);
+  if (!info.isFile() || info.nlink !== 1 || path.resolve(await realpath(target)).toLowerCase() !== target.toLowerCase()
+      || info.size > 64 * 1024) throw new Error("D1 retirement receipt: invalid file");
+  const raw = await readFile(target);
+  if (proofBytesHash(raw) !== pointer.sha256) throw new Error("D1 retirement receipt: file digest mismatch");
+  const receipt = JSON.parse(raw.toString("utf8"));
+  if (!raw.equals(Buffer.from(`${canonicalProofJson(receipt)}\n`))) throw new Error("D1 retirement receipt: noncanonical bytes");
+  keys(receipt, ["version", "releaseId", "sourceFingerprint", "buildFingerprint", "proof", "receiptPayloadSha256"], "D1 retirement receipt");
+  selfHash(receipt, "receiptPayloadSha256");
+  hashFields(receipt, ["sourceFingerprint", "buildFingerprint"]);
+  if (receipt.version !== d1ReceiptVersion || !proofReleaseIdPattern.test(receipt.releaseId ?? "")
+      || receipt.releaseId !== manifest.releaseId || receipt.sourceFingerprint !== manifest.source.sourceFingerprint
+      || receipt.buildFingerprint !== manifest.build.buildFingerprint) throw new Error("D1 retirement receipt: release mismatch");
+  return validateD1RetirementProof(receipt.proof, {
+    runtimeRootPathSha256: manifest.runtime.runtimeRootPathSha256,
+    sourceD1PathSha256: manifest.runtime.sourceD1PathSha256,
+    persistRootPathSha256: manifest.runtime.persistRootPathSha256,
+    ...expected,
+  });
+}
+
 
 export const workerRuntimeRoot = "D:\\teruisi-runtime\\teruisi-worker-sales";
 // Existing immutable releases retain the original combined-tree provenance.
@@ -100,8 +200,6 @@ const requiredHelperImportMetaNeutralizedPaths = Object.freeze([
   "tools/tmall-promotion-export.ts",
 ]);
 const requiredHelperMutableConfigPaths = Object.freeze([
-  "config/jd-store-accounts.json",
-  "config/sales-import-policy.json",
   "config/tmall-store-accounts.json",
 ]);
 const requiredHelperImmutableResourceUrlPaths = Object.freeze([
@@ -122,6 +220,8 @@ export const workerGuardEntrypointPaths = Object.freeze([
   "tools/operations-system-control.ps1",
   "tools/start-local-worker.mjs",
   "tools/worker-authority-guard.mjs",
+  "tools/d1-retirement-proof.mjs",
+  "tools/collect-d1-retirement-proof.mjs",
   "tools/worker-local-release.mjs",
   "tools/worker-local-release-rotation.mjs",
   "tools/worker-local-service.ps1",
@@ -1532,6 +1632,7 @@ async function buildWorkerReleaseInternal({
   now = new Date(),
   allowTestRuntimeRoot = false,
   publicationMode,
+  retirementProof,
 } = {}) {
   if (!["first-deploy", "rotation-candidate"].includes(publicationMode)) fail("Worker release publication mode 无效");
   if (!/^v24\./.test(process.version)) fail("Worker 发布构建固定要求 Node 24.x");
@@ -1555,7 +1656,15 @@ async function buildWorkerReleaseInternal({
   }
   await assertNoReparsePoint(sourceRoot, { label: "源仓库根" });
   await assertNoReparsePoint(persistRoot, { label: "Wrangler persist root" });
-  await assertRegularFile(sourceD1Path, "D1 源文件");
+  if (publicationMode === "first-deploy") {
+    await assertRegularFile(sourceD1Path, "D1 源文件");
+  } else {
+    validateD1RetirementProof(retirementProof, {
+      runtimeRootPathSha256: windowsPathSha256(runtimeRoot),
+      sourceD1PathSha256: windowsPathSha256(sourceD1Path),
+      persistRootPathSha256: windowsPathSha256(persistRoot),
+    });
+  }
   await assertRegularFile(devVarsSource, ".dev.vars 源文件");
   await ensureRuntimeMarker(runtimeRoot, { allowTestRuntimeRoot });
   if (await pathExists(path.join(runtimeRoot, "state", "worker-process.json"))) {
@@ -1685,6 +1794,7 @@ async function buildWorkerReleaseInternal({
     await validateTree(path.join(releaseStage, "helper"), helperBuild.helperTree, "copied helper bundle");
     const releaseId = `${timestampId(now)}-${sha256Canonical({
       sourceFingerprint, buildFingerprint, contractReceiptSha256, guardReceiptSha256,
+      ...(retirementProof ? { retirementProofSha256: retirementProof.proofSha256 } : {}),
     }).slice(0, 16)}`;
     if (!releaseIdPattern.test(releaseId)) fail("内部 releaseId 格式无效");
     const releaseRoot = path.join(runtimeRoot, "releases", releaseId);
@@ -1772,6 +1882,14 @@ async function buildWorkerReleaseInternal({
         ],
       },
     };
+    if (publicationMode === "rotation-candidate") {
+      const retirementReceipt = createD1RetirementReceipt(retirementProof, manifestCore);
+      await writeCanonicalJson(path.join(releaseStage, ...d1ReceiptRelativePath.split("/")), retirementReceipt);
+      const retirementReceiptSha256 = sha256Bytes(Buffer.from(`${canonicalJson(retirementReceipt)}\n`));
+      manifestCore.artifacts.d1RetirementReceipt = {
+        version: d1ReceiptVersion, relativePath: d1ReceiptRelativePath, sha256: retirementReceiptSha256,
+      };
+    }
     const manifest = withPayloadSha256(manifestCore, "manifestPayloadSha256");
     await writeCanonicalJson(path.join(releaseStage, manifestFileName), manifest);
     await createHardLinkOnly(devVarsSource, path.join(releaseStage, ".dev.vars"));
@@ -2462,7 +2580,9 @@ export async function verifyWorkerRelease({
     "persistRoot", "sourceD1Path", "protectedSourceRoot", "protectedSourceRootPathSha256", "cliOverridesAllowed", "helperMode",
     "helperHost", "helperPort", "helperMutableRoot", "helperMutableRootPathSha256", "devVars",
   ], "manifest runtime");
-  assertExactKeys(manifest.artifacts, ["keyFiles", "contractReceipt", "guardReceipt", "helperReceipt"], "manifest artifacts");
+  assertExactKeys(manifest.artifacts, ["keyFiles", "contractReceipt", "guardReceipt", "helperReceipt",
+    ...(manifest.artifacts.d1RetirementReceipt ? ["d1RetirementReceipt"] : [])], "manifest artifacts");
+  if (manifest.artifacts.d1RetirementReceipt) await readD1RetirementReceipt(manifest, releaseRoot);
   assertExactKeys(manifest.processIdentity, [
     "supervisorEntrypoint", "serviceControl", "manifestFile", "processReceipt", "processReceiptVersion", "wranglerEntrypoint",
     "wranglerCliEntrypoint", "fixedWranglerArguments", "helperEntrypoint", "fixedHelperArguments",

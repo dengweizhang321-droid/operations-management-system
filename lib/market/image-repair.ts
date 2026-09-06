@@ -4,21 +4,9 @@ import type { MarketDatabase } from "@/lib/market/database";
 import { ensureAnnotationSchema } from "@/lib/market/annotation-schema";
 import { ensureMarketSchemaCached, marketStandardSkuImagePriceInheritanceSql } from "@/lib/market/schema-core";
 
-export type MarketImageRepairIdentity = {
-  category: string;
-  scope: string;
-  rankingDimension: "SKU";
-  skuCode: string;
-};
-
-export type MarketImageRepairCandidate = MarketImageRepairIdentity & {
-  productUrl: string;
-  reusableImageUrl: string;
-};
-
-export type MarketImageRepairMapping = MarketImageRepairIdentity & {
-  imageUrl: string;
-};
+import { normalizeJdMarketRepairImageUrl, type MarketImageRepairMapping } from "./image-repair-contract";
+export { normalizeJdMarketRepairImageUrl } from "./image-repair-contract";
+export type { MarketImageRepairIdentity, MarketImageRepairCandidate, MarketImageRepairMapping } from "./image-repair-contract";
 
 type MarketImageRepairActor = { email: string; role: string };
 
@@ -29,21 +17,6 @@ function boundedText(value: unknown, label: string, maximum: number) {
   const text = String(value ?? "").trim();
   if (!text || text.length > maximum || /[\u0000-\u001f\u007f]/.test(text)) throw new Error(`${label}无效`);
   return text;
-}
-
-export function normalizeJdMarketRepairImageUrl(value: unknown) {
-  const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" || !/^img\d+\.360buyimg\.com$/i.test(url.hostname) || url.port || url.username || url.password) return "";
-    url.search = "";
-    url.hash = "";
-    url.pathname = url.pathname.replace(/\/n\d+\//, "/n5/");
-    if (!/(^|\/)n5\/|(^|\/)imgzone\//i.test(url.pathname)) return "";
-    return url.toString();
-  } catch {
-    return "";
-  }
 }
 
 export async function listMarketImageRepairCandidates(

@@ -581,8 +581,7 @@ export async function runPromotionAggregateBackfill(
 }
 
 async function main() {
-  const options = parsePromotionBackfillArgs(process.argv.slice(2));
-  await runPromotionAggregateBackfill(options);
+  throw new Error("D1 推广聚合维护已退役；当前业务维护必须使用 Django/PostgreSQL。该模块仅保留隔离历史审计与测试导入。");
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";

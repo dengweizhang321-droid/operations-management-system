@@ -8,7 +8,7 @@ import type { Browser, Frame, Locator, Page } from "playwright-core";
 import { launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
-import { inspectTmallImportBytes } from "../lib/netshop/import-service";
+import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import {
   getRegisteredTmallStore,
   getTmallStore,

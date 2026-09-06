@@ -19,7 +19,7 @@
 
 ## 2. 当前系统与模块边界
 
-- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、薄 Cloudflare Worker、Django 5.2、PostgreSQL 17 和 R2；本机全部结构化业务域及聚合入口已正式使用 Django/PostgreSQL，D1 仅保留隔离历史审计与退役证据，不进入生产调用链。
+- 技术栈：React 19、Next.js 16 API/组件约定、TypeScript、Vinext/Vite、薄 Cloudflare Worker、Django 5.2、PostgreSQL 17 和 R2；本机全部结构化业务域及聚合入口已正式使用 Django/PostgreSQL，D1 仅保留历史审计与退役证据，不进入生产业务调用链；启动/发布控制层的剩余依赖见第 8 节。
 - 页面入口集中在 `app/page.tsx`，市场分析主体位于 `app/market-view.tsx` 和 `app/market-annotation-view.tsx`；业务逻辑应放在 `lib/<domain>/`，API 路由只负责鉴权、输入解析、调用服务和稳定响应。
 - 当前导航模块为：工作流、BI 看板、网店分析、市场分析、客服分析、销售分析、库存管理、货品详情、运营事务、数据导入、系统设置和 AI 助理。
 - 主要业务域及代码目录：
@@ -96,7 +96,7 @@
 ## 4. 运营数据查询规则
 
 1. 查询当前 TERUISI 运营数据时，优先使用只读（read-only）`teruisi_operations` MCP；第一步调用 `get_data_freshness`。
-2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用对应权威存储的最小只读身份：已迁移的销售、财务、ERP 主数据、网店、市场、商品经营、库存和运营事务全板块使用各自 PostgreSQL reader；只有尚未迁移域才可按其现行契约使用本机 D1 只读副本。回复中必须说明替代来源。
+2. 只有 MCP 不可用且用户明确指定本机已导入数据时，才可使用对应业务域 Django/PostgreSQL 的最小只读身份。当前所有业务域均已切换，不得使用本机 D1 或其历史副本查询当前运营数据。回复中必须说明替代来源。
 3. 输出必须写明数据来源、数据截止日期、时间范围、渠道/平台/店铺/SKU 等筛选、金额和销量口径，以及缺数或映射异常。
 4. 中文筛选必须参数化并保证 UTF-8。零结果要先核验覆盖日期、字段枚举、编码、退款和时间边界，不能直接断言无数据。
 5. 只读连接不得导入、修改或删除数据，也不得声称已创建或改变补货计划。相关工具可调用时，不得用记忆、样例或估算代替真实查询。
@@ -145,14 +145,15 @@
 ## 8. D1、R2、迁移与缓存
 
 - 当前所有结构化业务事实、配置、批次与运行审计均以 PostgreSQL 为权威。原始分片使用各域 PostgreSQL 的有界、可过期会话；AI 图片字节也以 PostgreSQL 为权威。D1 中的 tombstone、永久 guard、完成 receipt 和受保护旧对象只属于防复活、迁移和历史审计材料，不得作为读取、写入或回滚事实源。市场消费的网店兼容投影由来源固定的 Django netshop consumer 原子写入 PostgreSQL 市场表，不是网店第二事实源；商品经营消费的库存投影也不形成库存第二事实源。R2 继续保存市场/网店图片和运营事务附件等仍有效的对象，但销售、库存、新品项目、ERP、客服和 AI 退役前缀不再读写 R2；运营事务附件仅保留字节，文件名、MIME、大小、SHA-256、对象键与清理状态均以 PostgreSQL 为权威。不得从全局配置移除其他模块仍在使用的 R2 binding。
-- 仍以 D1 为权威的业务域使用新的前向 `drizzle/*.sql` 迁移；Django/PostgreSQL 业务域使用新的 Django migrations。两类迁移都不得改写已应用版本。若领域存在运行时 `ensure*Schema()` 兼容路径，新迁移和运行时升级顺序必须保持一致，并用旧库升级测试验证。
+- 当前业务结构变更只使用新的 Django migrations，不得改写已应用版本或新增 D1 业务迁移、运行时 `ensure*Schema()`。历史 `drizzle/*.sql` 及相关升级验证只供隔离迁移、退役审计与测试保留，不进入生产构建或普通迁移链。
 - 迁移先补列/补表、回填和去重，再创建依赖新结构的索引或唯一约束。升级必须可重复执行，并保护已有人工确认、审计和批次历史。
-- 对仍以 D1 为权威的业务域，D1 `batch()` 承担需要原子发布的写入；长任务使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
-- 查询设计必须适应 D1 限制，保持参数、表达式深度、复合查询项、结果体和执行时间有界。涉及复杂市场查询时保留表达式深度 100、复合查询 5 项的回归门禁。
+- 业务原子发布使用各域 PostgreSQL 事务；长任务继续使用租约、owner/execution token 或等价 fencing，防止旧 worker、重试和响应丢失造成 ABA 或迟到覆盖。
+- 查询必须保持参数、分页窗口、结果体和执行时间有界。D1 表达式深度与复合查询项限制仅属于隔离历史实现的回归契约，不得为沿用旧 D1 限制恢复生产旧查询路径。
 - 有效指标、月度汇总和 overview 响应缓存都只是派生数据。任何影响结果的事实、价格、图片状态、映射或主数据变更必须递增版本或精确失效；版本不一致、构建未完成或租约失效时不得返回旧缓存。
 
 - 全系统生产入口 `app/`、`worker/` 及其传递依赖必须通过 `npm run check:backend-boundary`，包含动态导入检查。源码和本机已采用的生产 release 均无 D1 业务访问，`.openai/hosting.json`/Vite 不再绑定 D1；构建包不得复制 Drizzle 迁移。D1 退役 tombstone、guard、历史迁移与证据仅保留在隔离审计/测试面，不据此删除实体数据库或 R2。后续更新仍须按 `docs/DJANGO_AGGREGATE_CUTOVER.md` 受控发布并真实回读。
 - Worker readiness 使用已配置的 23 个 Django reader/writer 健康端点，按服务角色核验并有界取消；失败返回 `django_unavailable`，总控显示 `BackendDegraded`。liveness 与 readiness 必须保持独立，不能因就绪探测失败重启服务。
+- “无 D1 业务访问”不等于“控制层无 D1 文件依赖”。控制链脱钩代码使用与不可变发布链绑定的全局退役证明，首次采用只读复验全部领域、PostgreSQL readiness 和既有保留证据，后续继承同一证明且拒绝降级。正式部署尚未采用该协议，仍依赖历史 D1；必须完成无 D1 工作副本的镜像生命周期/发布演练和实际回读后才能宣布完全脱钩。不得跳过 guard、把 completed 写死或删改历史 manifest/authority。实现与门禁见 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`，原始评估见 `docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`。
 
 ## 9. API、前端与性能要求
 
