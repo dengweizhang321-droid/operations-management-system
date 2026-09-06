@@ -47,3 +47,13 @@ n8n execution `841` 在旧登录探测阶段停止的记录继续保留。配置
 2026-09-06，操作者在本机窗口完成录入，凭据状态检查返回 `ready=true`。隔离工作树中的纯登录验证返回 `authenticated / windows_dpapi_credentials / tenantVerified=true`，证明当前用户的 DPAPI 凭据已被吉客云接受；本次未触发导出或业务导入。n8n 运行中的 helper 采用情况以受控 release 回读为准，不能用源码验证代替已发布证据。
 
 相关 36 项登录/导出状态机检查通过，包含本地页面夹具与 Windows DPAPI 合成凭据往返、复制绑定、密文损坏和权限继承拒绝测试。最终完整回归 1,871 项通过、20 项跳过、0 失败；lint 为 0 错误、9 项既有警告，生产构建、20 项渲染检查及 Django 边界检查通过。全库 TypeScript 当前与同一 main 基线均为 142 项既有诊断，按文件、错误码和消息比较无增减，不宣称全库类型检查通过。
+
+## 2026-09-06 本机采用记录
+
+登录实现 `b8ab617f6f500d796980b6f1db11f84354068e35` 已快进合入 main。停止旧 Worker/helper 后，由固定干净集成工作树构建并采用 release `20260906T102947Z-22414d6a30a05dbf`，manifest SHA 为 `cfb97aba9a5f7ffd4bc4be8cc89d58dea339ca4137cb18322438de7d2bcc3172`。精确 plan SHA 为 `65cdf70ddcd57c51b55ff7a1bd71590b1c18902016c9e6ccbd299341de38bf35`，successor SHA 为 `c1a023daa3c2f462df303bee44d3561014ca95f8b79f9080b91c79293cd0d073`。
+
+候选 helper 的编译回执包含三个 DPAPI 模块及浏览器 controller，四个输入摘要逐项与已合入源码一致；登录配置与发布快照一致，受保护 builder 和 verifier 未改变。采用后官方组合状态为 `Running / Ready / exact_release`，后端 readiness 为 `django-postgresql / ready`，helper 为 `ready` 且空闲，登录启动项回读绑定新 release。正式项目目录中的凭据状态检查再次返回 `ready=true`。n8n 使用的本机 helper 已包含新登录实现；本次没有重新运行五表导出导入，execution `841` 的失败证据与未闭合清单继续保留。
+
+发布前一致性备份 `daily-20260906T101758Z-a1cc5328435f` 已完成并复验，manifest SHA 为 `5434b7ba95ea2d3bf96fb8d7cf4c2c10dd1ba719e655550b1e82498e6a3d6c9b`。独立恢复演练 `fbdfc0c67106` 使用端口 `55642`，原始与恢复内容 SHA 均为 `aae82efcd2f3059373a6747bfc969051a400d4e9349a1b36e7c5eb208abea52f`；演练未触及生产数据库、未改变数据库服务状态，临时数据已由受控 operator 清理。本次没有数据库结构或 Django 服务变更。
+
+受控 Start 已启动健康服务，但外层 PowerShell 等待进程未返回。通过 PID、创建时间、精确命令、无直接子进程及官方新 release 状态核验后，只结束该等待进程；不能将其退出结果记为正常 Start 成功。服务未因此重启，随后组合状态与启动项核验通过。原始命令结果、helper 编译摘要、发布、健康、启动项与等待进程处置记录保存在隔离工作树 `D:\codex-worktrees\jackyun-dpapi-login-20260906\outputs\validation`。
