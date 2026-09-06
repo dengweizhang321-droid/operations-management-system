@@ -8,6 +8,8 @@
 
 ## 本机正式采用记录
 
+本节的无 D1 结论指业务调用与 Worker binding。当前启动、自动重启及发布控制器仍依赖历史 D1 退役证明，不能据此删除实体文件；控制层缺口与后续验收方案见 [全局 D1 退役评估](GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。
+
 脱敏机器可读证据：[`evidence/django-aggregate-release-20260906.json`](evidence/django-aggregate-release-20260906.json)。没有保存凭据、账号标识、模型配置或原始业务记录。
 
 | 项目 | 已核验值 |
