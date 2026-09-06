@@ -167,7 +167,7 @@ export async function inspectTmallLoginPageState(page: Pick<Page, "frames">): Pr
     const textState = await frame.evaluate(() => {
       const text = String(document.body?.innerText ?? "");
       return {
-        credentialRejected: /账号.{0,8}(?:密码|登录).{0,8}(?:错误|不正确)|密码.{0,8}(?:错误|不正确)|用户名.{0,8}(?:错误|不存在)|登录失败/.test(text),
+        credentialRejected: /账密错误|账号.{0,8}(?:密码|登录).{0,8}(?:错误|不正确)|密码.{0,8}(?:错误|不正确)|用户名.{0,8}(?:错误|不存在)|登录失败/.test(text),
         temporarilyLocked: /操作频繁|次数过多|账号.{0,8}(?:锁定|冻结)/.test(text),
       };
     }).catch(() => ({ credentialRejected: false, temporarilyLocked: false }));
@@ -294,6 +294,7 @@ export async function autoLoginTmallWithWindowsDpapiCredential(
   prepareLogin: (target: Page) => Promise<TmallSavedCredentialLoginResult> = (target) => (
     autoLoginTmallWithSavedBrowserCredentials(target, 3_000)
   ),
+  validateFrame: (frame: Frame) => boolean = () => true,
 ): Promise<TmallSavedCredentialLoginResult> {
   const browserSaved = await prepareLogin(page);
   if (browserSaved.submitted || browserSaved.reason === "challenge_present"
@@ -309,11 +310,18 @@ export async function autoLoginTmallWithWindowsDpapiCredential(
     };
   }
   const form = forms[0]!;
+  const beforeFill = await inspectTmallLoginPageState(page);
+  if (beforeFill.challengePresent || beforeFill.credentialRejected || beforeFill.temporarilyLocked) {
+    return { attempted: false, submitted: false, reason: "challenge_present" };
+  }
+  if (!validateFrame(form.frame)) throw new Error("waiting_login：登录表单来源已变化");
   const credential = await loadCredential(storeKey);
   let username = credential.username;
   let password = credential.password;
   try {
+    if (!validateFrame(form.frame)) throw new Error("waiting_login：登录表单来源已变化");
     await form.account.fill(username);
+    if (!validateFrame(form.frame)) throw new Error("waiting_login：登录表单来源已变化");
     await form.password.fill(password);
   } finally {
     username = "";
@@ -341,6 +349,7 @@ export async function autoLoginTmallWithWindowsDpapiCredential(
       reason: exactLoginControls.length > 1 ? "login_control_ambiguous" : "login_control_missing",
     };
   }
+  if (!validateFrame(form.frame)) throw new Error("waiting_login：登录表单来源已变化");
   await exactLoginControls[0]!.click();
   return { attempted: true, submitted: true, reason: "submitted" };
 }

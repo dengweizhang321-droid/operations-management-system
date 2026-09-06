@@ -814,22 +814,15 @@ async function assertStoreIdentity(page: Page, store: TmallStore, surface: "千�
 
 async function assertAlimamaIdentity(page: Page, store: TmallStore) {
   await assertStoreIdentity(page, store, "阿里妈妈");
+  const text = await page.locator("body").innerText({ timeout: 5_000 });
+  if (!text.includes(store.shopName.replace(/^天猫-/, ""))) {
+    throw new Error("shop_identity_mismatch：阿里妈妈主页面未显示完整受控店铺名称");
+  }
 }
 
 export async function waitForAlimamaIdentity(page: Page, store: TmallStore, timeoutMs = 60_000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-  while (Date.now() < deadline) {
-    try {
-      await assertAlimamaIdentity(page, store);
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith("waiting_login")) throw error;
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("阿里妈妈页面店铺身份核验超时");
+  const { ensureAlimamaLogin } = await import("./tmall-alimama-login");
+  await ensureAlimamaLogin(page, store, () => assertAlimamaIdentity(page, store), { timeoutMs });
 }
 
 async function waitUntil(timeoutMs: number, probe: () => Promise<boolean>, message: string, intervalMs = 500) {

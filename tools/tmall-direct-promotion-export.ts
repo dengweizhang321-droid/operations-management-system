@@ -302,13 +302,17 @@ async function boundedDownload(url: string, signal?: AbortSignal, request: typeo
 }
 
 async function discoverIdentifiers(page: Page, store: TmallStore) {
+  await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await waitForAlimamaIdentity(page, store);
+  // Only capture identifiers after authentication. Reloading this read-only list
+  // does not submit or regenerate a report, including during activity recovery.
   const requestPromise = page.waitForRequest((request) => parseTmallAlimamaIdentifiers(request.url()) !== null, {
     timeout: 60_000,
-  });
+  }).catch(() => null);
   await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
   const observed = await requestPromise;
   await waitForAlimamaIdentity(page, store);
-  const identifiers = parseTmallAlimamaIdentifiers(observed.url());
+  const identifiers = observed ? parseTmallAlimamaIdentifiers(observed.url()) : null;
   if (!identifiers) throw new Error("未捕获到阿里妈妈下载列表的 csrfId/loginPointId");
   return identifiers;
 }
