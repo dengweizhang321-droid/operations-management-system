@@ -91,3 +91,21 @@ apply 不改写原计划，也不删除 active；仅以 create-only 方式发布
 DPAPI 登录与无业务效果恢复受控采用 release `20260906T110340Z-73a29ca80836ac11`（manifest SHA `764e7aba90fe46f703b7a07b5c9586e18a3633cda9dd46fa4a784739a9583eec`）。841 经只读 n8n 和文件证据核验后闭合；原计划字节未改写。随后从 n8n 全局手动入口启动一次 execution **842**，本轮通过登录、进入分仓库存并选中 244 个仓库，在查询刷新验证处停止，尚未点击导出，没有文件下载或业务导入。
 
 通过已登录页面的底部“筛选”按钮进行一次只读查询，观察到 `/jkyun/erp-stock/warehouseStock/stockSkuList` 的 XHR、HTTP 200 及同请求 loadingFinished，页面显示查询耗时与分页结果。旧模块匹配只接受 branch_stock 或 stock…query，漏掉该实际主表接口。修复只增加精确路由识别，其他模块、相邻总数/导出接口不能替代；历史日期门槛保持不变。当前采集的错误文字也改为“当前采集的模块网络请求”。后续生产验收须以实际新 execution 的五表校验、导入及独立回查结果为准。
+
+### 查询修复发布及 843 的实际结果
+
+查询识别修复提交为 `4b16acfd`。相关测试 39 项通过；全量单元测试 1,903 项中 1,883 通过、20 跳过、无失败或取消；lint 最终 0 错误、9 项既有警告；生产构建、20 项渲染检查及 Django 生产边界检查通过。TypeScript 全库仍有 142 项既有诊断，按文件/错误码/消息与原基线比较无新增；不称为全库类型检查通过。
+
+沿用本次任务已复验并独立恢复的备份 `daily-20260906T101758Z-a1cc5328435f`（manifest SHA `5434b7ba95ea2d3bf96fb8d7cf4c2c10dd1ba719e655550b1e82498e6a3d6c9b`，恢复演练 `fbdfc0c67106`、独立端口 55642、内容 SHA 一致）。本次没有数据库结构变更、数据库服务重启或业务写入。
+
+- 当前 Worker/helper：`20260906T113045Z-e1a943dd272d5547`；manifest SHA `2038f6d362518831918703dcf9836a44cfffa7ff81d9f274c94205c68bc3ef79`。
+- 精确 plan SHA：`0a01a68b9f1ab31161cecf7bbe5049e68be02465e4f6a592f439e5c7c28ff3c1`；successor SHA：`321e7283eef40cd69c3dc32753948cdcab4bbb62ec48bc71f0c57aeecf357aca`。已按受控 Stop/plan/apply/Start 执行，Status 为 exact_release，启动绑定及 readiness 回读通过。隐藏、重定向输出的官方 Start 子进程正常返回 started，没有再处理孤立等待进程。
+- 842 闭合回执 SHA：`7b17204e0731bac1f771fc347e99deed5e6166033290fd618ce54168b00f65b1`，状态 closed_before_export，原 plan/controller 保留。
+
+随后从 n8n 全局手动入口仅启动一次新 execution **843**，于 `2026-09-06T11:37:04.545Z` 开始、`11:37:26.934Z` 停止。专用 DPAPI 登录成功，库存选择 **244** 个仓库；本轮主表 HTTP 成功刷新完成于 `11:37:10.567Z`，精确行数 **25,595**。此后错误为 **“未找到当前模块唯一的导出所有页菜单。”**，n8n 运行数据 SHA 为 `c72519e3ce9fca4069e28c3c309531744ffd3c1629727ff8ef87327802badb54`。
+
+843 的原计划保留 phase=exporting、exports={}、exportIntent=inventory；controller 为 export_armed，已有 exportIntentAt。浏览器事件、下载和验证三个当轮目录不存在；正式导入目录只有 browser-controller-state.json，没有导入清单或批次。本机只读 `/api/sales/data-health` 于 `11:45:17.991Z` 仍为 revision `14:10`、销售覆盖截至 `2026-09-03`，与运行前一致；helper 空闲，所有 backend readiness 正常。原始脱敏证据在隔离工作树 `outputs/validation/n8n-execution-843-final-status.json`。
+
+诊断只在日常浏览器查询并打开右键父菜单：同模块 `branch_stock_main_v4.html` 中，“导出”及“导出所有页（限500000行）”均为可见 `.mini-menuitem-text`。没有手动点击“导出所有页”，未直接创建导出或执行生产导入。该观察仅证明日常浏览器的菜单存在，尚未证实专用 headless 执行时的定位失败原因；不能把它表述为菜单修复通过。
+
+**后续从 843 继续核查。** 现有登录/查询失败闭合 operator 不适用已有 exportIntent 的 843，必须继续拒绝。先补齐实际菜单展开/点击阶段的证据，核查是否已有可接管的当轮导出，再设计受控恢复；不能删除 active、套用 842 的闭合证明、直接点击新一轮或绕过 n8n 导入。当前五表真实下载、导入和最终验收均未完成。
