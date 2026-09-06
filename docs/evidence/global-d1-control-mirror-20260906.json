@@ -252,5 +252,21 @@
     "sourceSchemaSha256": "7b6a241ad508a86b630aa6f82b01b2f43339b92b2f9e7c529685531da47e8de5",
     "domains": 12,
     "sharedReceiptGuards": 3
+  },
+  "preReleaseRestore": {
+    "version": "teruisi-postgres-restore-rehearsal-v1",
+    "status": "completed",
+    "rehearsalId": "386a2f901c57",
+    "startedAt": "2026-09-06T03:41:41.6295997+00:00",
+    "completedAt": "2026-09-06T03:45:36.4152496+00:00",
+    "backupId": "daily-20260906T033825Z-b37cade931d1",
+    "backupManifestSha256": "158ec9f328064166a6a0b57aae0476e253c18cfd612ed0a2e77144ab24e67cfc",
+    "dumpSha256": "b7725639726102d9842b378056cc1ffb956c85ab2ac5562bbd12ba447f68564a",
+    "expectedContentSha256": "8aa537624ba17b1b2d5a2ad2f10dcffbfcfe570ad8a34faf82aa14efbb83dd30",
+    "restoredContentSha256": "8aa537624ba17b1b2d5a2ad2f10dcffbfcfe570ad8a34faf82aa14efbb83dd30",
+    "isolatedPort": 55432,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed"
   }
 }
