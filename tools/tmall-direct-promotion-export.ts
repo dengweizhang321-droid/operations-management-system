@@ -22,7 +22,7 @@ import {
   ensureTmallStoreAuthenticatedSession,
   tmallAutomationProjectRoot,
 } from "./tmall-product-master-export";
-import { TMALL_YIJIU_STORE_KEY } from "./tmall-yijiu-direct-pm-contract";
+import { TMALL_YIJIU_STORE_KEY, assertTmallDirectPmStore } from "./tmall-yijiu-direct-pm-contract";
 
 export const TMALL_ALIMAMA_CREATE_REPORT_URL = "https://one.alimama.com/report/createDownLoadTask.json";
 export const TMALL_ALIMAMA_FIND_REPORT_URL = "https://bpcommon.alimama.com/commonapi/report/async/findPage.json";
@@ -440,7 +440,7 @@ async function runDirectPromotionDate(options: {
   downloadRequest?: typeof fetch;
 }) {
   const { store, plan, signal } = options;
-  if (store.storeKey !== TMALL_YIJIU_STORE_KEY) throw new Error("推广直连候选协议只允许志高亿玖专卖店");
+  assertTmallDirectPmStore(store.storeKey);
   if (plan.startDate !== plan.endDate || plan.dates.length !== 1 || plan.dates[0] !== plan.startDate) {
     throw new Error("推广直连报表必须按单个业务日执行");
   }
@@ -599,7 +599,7 @@ export async function runTmallDirectPromotionStage(options: {
 } = {}) {
   const storeKey = options.storeKey ?? TMALL_YIJIU_STORE_KEY;
   const store = await getTmallStore(storeKey);
-  if (store.storeKey !== TMALL_YIJIU_STORE_KEY) throw new Error("推广直连候选协议只允许志高亿玖专卖店");
+  assertTmallDirectPmStore(store.storeKey);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const auditDirectory = path.resolve(options.auditDirectory ?? defaultAuditDirectory);
   const request = options.request ?? fetch;

@@ -1,5 +1,20 @@
 export const TMALL_YIJIU_STORE_KEY = "tmall-yijiu" as const;
 export const TMALL_YIJIU_DIRECT_PM_PROTOCOL = "yijiu-direct-pm-v1" as const;
+export const TMALL_YIYONG_DIRECT_PM_PROTOCOL = "yiyong-direct-pm-v1" as const;
+const directPmProtocols: Readonly<Record<string, string>> = Object.freeze({
+  "tmall-yijiu": TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+  "tmall-yiyong": TMALL_YIYONG_DIRECT_PM_PROTOCOL,
+});
+
+export function tmallDirectPmProtocolForStore(storeKey: string | null): string | null {
+  return storeKey !== null && Object.hasOwn(directPmProtocols, storeKey)
+    ? directPmProtocols[storeKey]!
+    : null;
+}
+
+export function assertTmallDirectPmStore(storeKey: string): void {
+  if (!tmallDirectPmProtocolForStore(storeKey)) throw new Error("天猫 P/M 直连只允许已批准的亿玖、亿用店铺");
+}
 export const tmallDirectPmProtocolHeader = "x-teruisi-tmall-candidate-protocol" as const;
 export const tmallDirectPromotionRoute = "/promotion-direct-v1" as const;
 export const tmallDirectProductMasterRoute = "/product-master-direct-v1" as const;
@@ -18,10 +33,11 @@ export function tmallDirectPmProtocolError(input: {
   protocol: string | string[] | undefined;
 }) {
   if (!isTmallDirectPmRoute(input.route)) return null;
-  if (input.storeKey !== TMALL_YIJIU_STORE_KEY) {
+  const expectedProtocol = tmallDirectPmProtocolForStore(input.storeKey);
+  if (!expectedProtocol) {
     return { error: "tmall_direct_pm_store_not_allowed" as const };
   }
-  if (input.protocol !== TMALL_YIJIU_DIRECT_PM_PROTOCOL) {
+  if (input.protocol !== expectedProtocol) {
     return { error: "missing_or_invalid_tmall_direct_pm_protocol" as const };
   }
   return null;

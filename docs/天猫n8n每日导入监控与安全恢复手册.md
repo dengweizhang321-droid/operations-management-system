@@ -11,9 +11,9 @@
 | 13:50 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
 | 14:00 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
 | 14:10 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
-| 14:20 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-sycm-cookie-daily.workflow.json` | 9328 |
+| 14:20 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-direct-pm-candidate.workflow.json`（现行直连试点模板） | 9328 |
 
-六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；调度可以同时处于等待状态，但 A→B→C→P→M 业务阶段只能串行。A/B/C/P 每日执行；亿玖 M 每日执行，其余五店 M 继续按各店持久三日节奏错峰执行。
+六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；调度可以同时处于等待状态，但 A→B→C→P→M 业务阶段只能串行。A/B/C/P 每日执行；亿玖、亿用 M 每日执行，丽力、拓丰、炊之王、马思图 M 按各店持久三日节奏错峰执行。亿用直连采用与恢复门禁见 [亿用试点](天猫亿用直连每日M试点.md)；独立协议为 `yiyong-direct-pm-v1`，不能把亿玖身份、协议头或旧亿用管家模板用作当前配置。
 
 ## 1. 不可越过的边界
 
@@ -128,7 +128,7 @@ Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331
 
 ### 4.7 M 持久节奏门禁
 
-- 亿玖固定 `intervalDays=1`，每次完整成功后以实际完成的上海日期加 1 天作为 `nextDueDate`。其余五店保持三日节奏：拓丰/炊之王初始到期 `2026-08-25`，马思图/亿用 `2026-08-26`，丽力 `2026-08-27`；成功后加 3 天。
+- 亿玖、亿用固定 `intervalDays=1`，每次完整成功后以实际完成的上海日期加 1 天作为 `nextDueDate`。其余四店保持三日节奏：拓丰/炊之王初始到期 `2026-08-25`，马思图 `2026-08-26`，丽力 `2026-08-27`；成功后加 3 天。间隔变更只允许经授权用 cadence admin 的 CAS 迁移入口，保留最后成功事实，不能删除状态重建。
 - 到期判断来自注册表与 Git 忽略的店铺独立持久状态，不使用 `*/3` cron，也不依赖 n8n 节点静态日期取模。状态缺失时使用注册表初始到期日；状态损坏、跨店、间隔不一致或日期无效时失败关闭。
 - 到期 M 只有在货品文件、导入批次和落库回查全部成功后才原子推进节奏。失败、超时、登录异常、点击未决或浏览器关闭前的业务失败均不推进，因此次日完整 workflow 仍判定到期并安全续接。
 - 已存在本店商品管家或逐页活动清单时，即使日历未到期也必须进入 M 续接，不能以 `not_due` 绕过已发生业务点击。n8n 手动完整运行发送明确强制标记；定时和普通 CLI 恢复不强制。
