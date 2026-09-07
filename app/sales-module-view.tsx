@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWithTransientRetry } from "@/lib/http/transient-retry";
-import { parseProductQueries } from "@/lib/sales/read-contract";
+import { parseProductQueries, parseProductQueriesStrict } from "@/lib/sales/read-contract";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableSelect } from "./ui/searchable-select";
 import { ProductSalesTrend, ShopSalesDistribution } from "./module-view-business-ui";
@@ -944,7 +944,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
             query.set("startDate", customStartDate);
             query.set("endDate", customEndDate);
           }
-          productQueries.forEach((productQuery) => query.append("productQuery", productQuery));
+          parseProductQueriesStrict(debouncedProductQuery).forEach((productQuery) => query.append("productQuery", productQuery));
           filters.platforms.forEach((platform) => query.append("platform", platform));
           filters.outletKeys.forEach((shopKey) => query.append("outlet", shopKey));
           filters.categories.forEach((category) => query.append("category", category));
@@ -970,7 +970,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [apiRange, customEndDate, customStartDate, filters.categories, filters.outletKeys, filters.platforms, productQueries, retryKey, usesSalesSummary]);
+  }, [apiRange, customEndDate, customStartDate, debouncedProductQuery, filters.categories, filters.outletKeys, filters.platforms, retryKey, usesSalesSummary]);
 
   const current = summary?.current;
   const previous = summary?.previous;

@@ -129,8 +129,8 @@ def normalize_options(raw: dict[str, object]) -> dict[str, object]:
     if isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 100:
         raise _error("pageSize 必须是 1 到 100 的整数")
     query = raw.get("query") or ""
-    if not isinstance(query, str) or len(query.strip()) > 100:
-        raise _error("搜索词不能超过 100 个字符")
+    if not isinstance(query, str) or len(query.strip()) > 1000:
+        raise _error("搜索词不能超过 1000 个字符")
     platforms = _unique_strings(raw.get("platforms", []), "平台", 8)
     raw_shop_keys = _unique_strings(raw.get("shopKeys", []), "店铺", 4, 220)
     shops: list[dict[str, str]] = []
@@ -366,20 +366,13 @@ def _merge(
     }
 
 
-def _matches_text(row: dict[str, object], query: str) -> bool:
-    if not query:
+def _matches_text(row: dict[str, object], keywords: list[str]) -> bool:
+    if not keywords:
         return True
     fields = [
         str(row.get(key) or "").lower()
         for key in ("product_code", "product_name", "brand", "supplier_name", "specification", "category")
     ]
-    keywords: list[str] = []
-    for value in re.split(r"[\s,，;；]+", query):
-        normalized = value.strip().lower()
-        if normalized and normalized not in keywords:
-            keywords.append(normalized)
-        if len(keywords) == 8:
-            break
     return any(keyword in field for keyword in keywords for field in fields)
 
 
@@ -567,7 +560,9 @@ def product_summary(principal: Principal, raw_options: dict[str, object]) -> dic
         _merge(row, erp.get(code), inventory.get(code), shipping.get(code))
         for code, row in performance.items()
     ]
-    facet_rows = [row for row in all_rows if _matches_text(row, str(options["query"]))]
+    # The validated 1000-character query bounds this list; never silently drop later codes.
+    keywords = list(dict.fromkeys(value.lower() for value in re.split(r"[\s,，;；]+", str(options["query"])) if value))
+    facet_rows = [row for row in all_rows if _matches_text(row, keywords)]
     filtered = [
         row
         for row in facet_rows

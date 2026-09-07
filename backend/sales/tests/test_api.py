@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 from django.db import connection
 from django.test import TestCase
@@ -16,6 +17,17 @@ class SalesApiContractTests(TestCase):
     def setUp(self) -> None:
         cache.clear()
         install_fixture()
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_summary_multicode_query_accepts_1000_characters_and_rejects_overflow(self) -> None:
+        query = ",".join(str(index) * (91 if index == 9 else 100) for index in range(10))
+        self.assertEqual(len(query), 1000)
+        for value, expected_status in ((query, 200), (query + "Z", 400)):
+            url = "/api/sales/summary?range=custom&startDate=2026-08-01&endDate=2026-08-02&" + urlencode({"productQuery": value})
+            response = self.client.get(url, headers=signed_headers(url))
+            self.assertEqual(response.status_code, expected_status, response.content)
+            if expected_status == 400:
+                self.assertIn("1000", response.json()["error"])
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_summary_preserves_metrics_cutoff_and_revision_headers(self) -> None:

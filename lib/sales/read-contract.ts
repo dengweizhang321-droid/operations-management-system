@@ -1,5 +1,6 @@
 export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
+export const SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH = 1000;
 
 export const salesCategoryGranularities = ["day", "week", "month"] as const;
 export type SalesCategoryGranularity = (typeof salesCategoryGranularities)[number];
@@ -47,6 +48,9 @@ export function parseProductQueriesStrict(values: string | string[]): string[] {
   const queries = [...new Set(normalizedProductQueries(values))];
   if (queries.length > 100 || queries.some((value) => value.length > 200)) {
     throw new SalesReadRequestError("商品筛选最多 100 项，且每项不能超过 200 字。");
+  }
+  if ((Array.isArray(values) ? values.join("\n") : values).trim().length > SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH) {
+    throw new SalesReadRequestError(`货品筛选不能超过 ${SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH} 个字符。`);
   }
   return queries;
 }

@@ -12,6 +12,7 @@ import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { parseShopFilterKey } from "@/lib/sales/shop-identity";
 import {
   normalizeProductSummarySelections,
+  normalizeProductSummaryQuery,
   parseProductSummaryPaginationParameter,
 } from "@/lib/products/query-contract";
 
@@ -65,8 +66,7 @@ export async function GET(request: Request) {
     if (shopKeys.some((value) => !parseShopFilterKey(value))) {
       throw new ProductSummaryRequestError("店铺筛选标识格式无效");
     }
-    const query = searchParams.get("q")?.trim() || undefined;
-    if (query && query.length > 100) throw new ProductSummaryRequestError("搜索词不能超过 100 个字符");
+    const query = normalizeProductSummaryQuery(searchParams.get("q") ?? "") || undefined;
     const categories = readSelections(searchParams, "category", { maximum: 10, label: "类目" });
     const marginBands = readSelections(searchParams, "marginBand", {
       maximum: 5,

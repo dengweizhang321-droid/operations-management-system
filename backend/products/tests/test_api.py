@@ -385,6 +385,20 @@ class ProductsDomainTests(TestCase):
         self.assertEqual(page["projection"], "page")
         self.assertEqual(page["snapshotToken"], full["snapshotToken"])
 
+        # A pasted list must include late codes, not just its first eight terms.
+        long_query = ",\n".join([f"ABSENT-{index:03d}" for index in range(80)] + ["SKU-A"])
+        self.assertGreater(len(long_query), 100)
+        self.assertLessEqual(len(long_query), 1000)
+        filtered = product_summary(principal, {"query": long_query})
+        self.assertEqual([item["productCode"] for item in filtered["items"]], ["SKU-A"])
+        self.assertEqual(filtered["filtersApplied"]["query"], long_query)
+
+    def test_summary_search_accepts_1000_characters_and_rejects_overflow(self) -> None:
+        for length in (101, 1000):
+            self.assertEqual(normalize_options({"query": "码" * length})["query"], "码" * length)
+        with self.assertRaisesMessage(ProductsApiError, "1000"):
+            normalize_options({"query": "码" * 1001})
+
     def test_explicit_last30_ignores_legacy_days_while_implicit_range_accepts_it(self) -> None:
         explicit = normalize_options({"range": "last30", "days": 90})
         implicit = normalize_options({"days": 90})
