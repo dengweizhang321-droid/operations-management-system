@@ -1415,6 +1415,12 @@ def _reserve_prepared_import(
                         "verification": {
                             "verified": True,
                             "rowCount": len(rows),
+                            "readbackRowCount": current_count,
+                            "dataset": payload["dataset"],
+                            "platform": payload["platform"],
+                            "shopName": payload["shopName"],
+                            "dateMin": min((row["businessDate"] for row in current_rows if row["businessDate"]), default=None),
+                            "dateMax": max((row["businessDate"] for row in current_rows if row["businessDate"]), default=None),
                             "unmatchedProductCount": unmatched_count,
                             **payload["imagePersistence"],
                         },
@@ -1603,6 +1609,7 @@ def _publish_prepared_import(
             "verification": {
                 "verified": True,
                 "rowCount": verification_count,
+                "readbackRowCount": verification_count,
                 "dataset": payload["dataset"],
                 "platform": payload["platform"],
                 "shopName": payload["shopName"],

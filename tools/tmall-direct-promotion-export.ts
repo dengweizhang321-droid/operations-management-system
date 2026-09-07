@@ -638,6 +638,9 @@ export async function runTmallDirectPromotionStage(options: {
     dates: options.dates,
     maximumDays: options.maximumDays,
     signal: options.signal,
+    // Direct task IDs and their audit protocol remain owned by this runner.
+    // Never interpret a direct audit as a UI report recovery manifest.
+    resolveRecovery: async () => null,
     executeDate: (input) => runDirectPromotionDate({ ...input, downloadRequest: options.downloadRequest }),
   });
 }
