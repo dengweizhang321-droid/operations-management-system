@@ -24,6 +24,7 @@ import {
   makeTmallDirectProductBatches,
   parseTmallExportSubmitResult,
   parseTmallMtopListRequest,
+  resolveTmallDirectProductMasterSnapshotDate,
   selectNewTmallExportRecord,
 } from "../tools/tmall-direct-product-master-export";
 import {
@@ -211,6 +212,30 @@ test("M 用提交前 id 基线唯一认领新记录，并同时核对行数、�
     expectedRows: 20,
     submittedAt: "2026-09-02T05:00:00.000Z",
   }), /行数 19/);
+});
+
+test("M 接受唯一具名的空导出记录列表，并拒绝无关空数组", () => {
+  assert.deepEqual(extractTmallExportRecords({
+    data: { table: { dataSource: [] } },
+    ret: [],
+  }), []);
+  assert.throws(() => extractTmallExportRecords({ ret: [], warnings: [] }), /没有唯一记录数组/);
+  assert.equal(extractTmallExportRecords({
+    data: { table: { dataSource: [
+      { id: 100, rowCount: 20, taskStatus: "已完成", gmtCreate: "2026-09-02 12:50:00" },
+    ] } },
+    ret: [],
+  })[0]?.id, "100");
+});
+
+test("M 默认续跑未完成快照，显式冲突和非法日期失败关闭", () => {
+  assert.equal(resolveTmallDirectProductMasterSnapshotDate(undefined, undefined, "2026-09-07"), "2026-09-07");
+  assert.equal(resolveTmallDirectProductMasterSnapshotDate(undefined, "2026-09-06", "2026-09-07"), "2026-09-06");
+  assert.equal(resolveTmallDirectProductMasterSnapshotDate("2026-09-06", "2026-09-06", "2026-09-07"), "2026-09-06");
+  assert.throws(() => resolveTmallDirectProductMasterSnapshotDate("2026-09-07", "2026-09-06", "2026-09-07"), /拒绝覆盖/);
+  assert.throws(() => resolveTmallDirectProductMasterSnapshotDate("2026-9-7", undefined, "2026-09-07"), /YYYY-MM-DD/);
+  assert.throws(() => resolveTmallDirectProductMasterSnapshotDate(undefined, "bad", "2026-09-07"), /YYYY-MM-DD/);
+  assert.throws(() => resolveTmallDirectProductMasterSnapshotDate(undefined, undefined, "bad"), /YYYY-MM-DD/);
 });
 
 test("亿玖现行协议保持兼容，P/M 两个直连路由都要求显式版本头且不开放丽力", () => {
