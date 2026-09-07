@@ -589,7 +589,7 @@ async function planCommand(argv: string[]) {
   const planPath = path.join(artifactDirectory, `plan-${runId}.json`);
   await writeJsonAtomic(planPath, plan);
   return { ok: true, stage: "plan", planPath, planPathBase64: encodeArtifactPath(planPath), dates,
-    promotionDates: gaps.selectedDates, ...gaps };
+    startDate, endDate, promotionDates: gaps.selectedDates, ...gaps };
 }
 
 function delay(ms: number) {
@@ -686,13 +686,18 @@ export function createInitialDownloadManifest(
   };
 }
 
-export function getTmallPromotionStageOptions(storeKey = "tmall-yijiu", dates?: readonly string[]) {
+export function getTmallPromotionStageOptions(
+  storeKey = "tmall-yijiu",
+  dates?: readonly string[],
+  planRange?: { startDate: string; endDate: string },
+) {
   const normalized = normalizeTmallStoreKey(storeKey);
   if (!normalized) throw new Error("天猫店铺键无效");
   return {
     storeKey: normalized,
     maximumDays: maximumDaysPerRun,
     ...(dates ? { dates: [...dates] } : {}),
+    ...(planRange ? { planStartDate: planRange.startDate, planEndDate: planRange.endDate } : {}),
   };
 }
 
@@ -1264,6 +1269,7 @@ async function serveCommand(argv: string[]) {
   let activeWorkflow: CoordinatedWorkflow | null = null;
   let planPathBase64 = "";
   let tmallPlanDates: string[] = [];
+  let tmallPlanRange: { startDate: string; endDate: string } | undefined;
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let jdPlan: JdN8nPlan | null = null;
@@ -1604,6 +1610,7 @@ async function serveCommand(argv: string[]) {
         const result = await planCommand(planArguments);
         planPathBase64 = result.planPathBase64;
         tmallPlanDates = [...result.promotionDates];
+        tmallPlanRange = { startDate: result.startDate, endDate: result.endDate };
         stage = tmallStageAfterRoute("/plan");
         reply(200, { ...result, authentication });
         inactivityReaper?.arm();
@@ -1626,7 +1633,7 @@ async function serveCommand(argv: string[]) {
           : runTmallPromotionStage;
         const result = await runTmallPromotionStageWithTimeout(
           (signal) => runPromotion({
-            ...getTmallPromotionStageOptions(claimedTmallStoreKey!, tmallPlanDates),
+            ...getTmallPromotionStageOptions(claimedTmallStoreKey!, tmallPlanDates, tmallPlanRange),
             signal,
           }),
           {

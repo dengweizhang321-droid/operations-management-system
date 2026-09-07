@@ -620,6 +620,8 @@ export async function runTmallDirectPromotionStage(options: {
   request?: typeof fetch;
   auditDirectory?: string;
   dates?: readonly string[];
+  planStartDate?: string;
+  planEndDate?: string;
   maximumDays?: number;
   signal?: AbortSignal;
   downloadRequest?: typeof fetch;
@@ -636,6 +638,8 @@ export async function runTmallDirectPromotionStage(options: {
     request,
     auditDirectory,
     dates: options.dates,
+    planStartDate: options.planStartDate,
+    planEndDate: options.planEndDate,
     maximumDays: options.maximumDays,
     signal: options.signal,
     // Direct task IDs and their audit protocol remain owned by this runner.
