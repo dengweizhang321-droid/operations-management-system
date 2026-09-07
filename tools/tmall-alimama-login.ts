@@ -70,11 +70,13 @@ export async function ensureAlimamaLogin(
       if (!(error instanceof Error) || !/^(waiting_login|shop_identity_mismatch)/.test(error.message)) throw error;
       if (error.message.startsWith("shop_identity_mismatch")) {
         const resetStoreKey = wrongSessionResets.get(page.context());
-        if (store.loginMode !== "windows_dpapi_credentials" || attempts.has(page.context())
+        const attemptStoreKey = attempts.get(page.context());
+        if (store.loginMode !== "windows_dpapi_credentials"
+          || (attemptStoreKey && attemptStoreKey !== store.storeKey)
           || (resetStoreKey && resetStoreKey !== store.storeKey)) {
           throw new Error("waiting_login：阿里妈妈店铺身份不符且无法安全切换，请人工登录");
         }
-        if (!resetStoreKey) {
+        if (!resetStoreKey && !attemptStoreKey) {
           wrongSessionResets.set(page.context(), store.storeKey);
           try {
             await (options.resetWrongSession ?? resetDedicatedAlimamaSession)(page);
@@ -86,8 +88,9 @@ export async function ensureAlimamaLogin(
           continue;
         }
         // The cleared page can briefly retain the old SPA identity while its
-        // trusted Taobao login frame loads. Do not reset again; wait for that
-        // frame and keep all business actions fenced behind identity proof.
+        // trusted Taobao login frame loads. After DPAPI submission the correct
+        // identity text can also render after the main URL returns. Do not reset
+        // or submit again; keep waiting behind the exact identity proof.
         needsLogin = true;
       } else {
         needsLogin = true;
