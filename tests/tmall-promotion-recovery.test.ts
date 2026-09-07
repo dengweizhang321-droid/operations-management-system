@@ -81,6 +81,39 @@ test("one pending report resumes at its original date without replaying an alrea
   });
 });
 
+test("an empty new plan resumes an already-imported audit on its exact original date", async () => {
+  await withAudit(async (directory, auditPath, audit) => {
+    await writeFile(auditPath, JSON.stringify({
+      ...audit,
+      stage: "failed",
+      resumeStage: "importing",
+      file: {
+        fileName: "fixture.zip",
+        filePath: "fixture.zip",
+        size: 1,
+        sha256: "a".repeat(64),
+        rowCount: 1,
+        dateMin: originalDate,
+        dateMax: originalDate,
+      },
+      error: "import response proof not acknowledged",
+    }), "utf8");
+    const executed: string[] = [];
+    const result = await runTmallPromotionStage({
+      storeKey, baseUrl, dates: [], maximumDays: 1,
+      auditDirectory: directory, request: mockCoverage(),
+      executeDate: async ({ plan, recoveryRunId }) => {
+        assert.equal(recoveryRunId, audit.runId);
+        executed.push(plan.startDate);
+        return completed(plan.startDate);
+      },
+    });
+    assert.deepEqual(executed, [originalDate]);
+    assert.deepEqual(result.completedDates, [originalDate]);
+    assert.equal(result.recoveryDate, originalDate);
+  });
+});
+
 test("same-day recovery runs once and failure of the old report prevents new-date execution", async () => {
   await withAudit(async (directory) => {
     const calls: string[] = [];
