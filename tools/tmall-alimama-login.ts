@@ -14,7 +14,7 @@ export function trustedAlimamaLoginUrl(value: string, frame = false): boolean {
   } catch { return false; }
 }
 
-async function resetDedicatedAlimamaSession(page: Page) {
+export async function resetDedicatedAlimamaSession(page: Page) {
   if (new URL(page.url()).hostname !== "one.alimama.com") {
     throw new Error("unexpected_origin");
   }
@@ -23,10 +23,17 @@ async function resetDedicatedAlimamaSession(page: Page) {
     sessionStorage.clear();
   });
   await page.context().clearCookies();
-  await page.goto("https://one.alimama.com/index.html", {
-    waitUntil: "domcontentloaded",
-    timeout: 60_000,
-  });
+  try {
+    await page.goto("https://one.alimama.com/index.html", {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+  } catch (error) {
+    // Clearing the login cookies can make Alimama abort the navigation while it
+    // redirects to Taobao login. The next loop still inspects the page, limits
+    // credential submission to trusted login frames, and verifies store identity.
+    if (!trustedAlimamaLoginUrl(page.url())) throw error;
+  }
 }
 
 /** Login only: never creates a report. An uncertain submission consumes the attempt. */
