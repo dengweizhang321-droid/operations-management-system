@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { chromiumWindowGuardScript } from "../lib/jackyun/cdp-client";
+import { chromiumWindowGuardReadyTimeoutMs, chromiumWindowGuardScript } from "../lib/jackyun/cdp-client";
 import {
   hasJdInteractivePageGate,
   isJdInteractiveBrowserFailure,
@@ -19,6 +19,7 @@ test("JD product detail stays headless while JD master uses minimized headed Chr
 });
 
 test("strict silent headed Chromium uses an off-screen Win32 window guard", () => {
+  assert.equal(chromiumWindowGuardReadyTimeoutMs, 15_000);
   const script = chromiumWindowGuardScript(1234);
   assert.match(script, /EnumWindows/);
   assert.match(script, /GetWindowThreadProcessId/);
