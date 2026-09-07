@@ -2663,8 +2663,26 @@ async function writeAudit(audit: PromotionExportAudit, directory: string) {
   await writeJsonAtomic(activeAuditPath(audit.storeKey, directory), audit);
 }
 
+function inferredPostSubmissionStage(audit: PromotionExportAudit): PromotionResumeStage | undefined {
+  const scan = audit.taskScanDiagnostic;
+  const scanCounts = scan && [scan.rowCandidates, scan.visibleRows, scan.strictRows,
+    scan.downloadActions, scan.visibleDownloadActions, scan.strictActionScopes, scan.candidateCount];
+  if (Number.isInteger(audit.dialogAttempts) && audit.dialogAttempts! > 0
+    && scan && Number.isFinite(Date.parse(scan.capturedAt)) && Array.isArray(scan.candidates)
+    && Array.isArray(scan.visibleActionBoxes) && scanCounts?.every((count) => Number.isInteger(count) && count >= 0)
+    && scan.candidateCount === scan.candidates.length) {
+    // taskScanDiagnostic is written only after report submission (or while
+    // re-downloading an already generated report). Treat it as proof that a
+    // missing resumeStage must never fall back to creating another report.
+    return "report_submitted";
+  }
+  return undefined;
+}
+
 function resumableStage(audit: PromotionExportAudit): PromotionAuditStage {
-  return audit.stage === "failed" ? audit.resumeStage ?? "planned" : audit.stage;
+  return audit.stage === "failed"
+    ? audit.resumeStage ?? inferredPostSubmissionStage(audit) ?? "planned"
+    : audit.stage;
 }
 
 const promotionPreSubmitStages = ["planned", "browser_ready", "dialog_opening", "dialog_ready", "report_configured"];
@@ -2698,7 +2716,9 @@ export async function readTmallPromotionRecovery(input: PromotionRecoveryInput):
     return null;
   }
   const audit = existing.audit as PromotionExportAudit;
-  const stage = audit.stage === "failed" ? audit.resumeStage : audit.stage;
+  const stage = audit.stage === "failed"
+    ? audit.resumeStage ?? inferredPostSubmissionStage(audit)
+    : audit.stage;
   if (audit.shopName !== input.store.shopName || audit.baseUrl !== input.baseUrl
     || !validDate(audit.startDate) || audit.startDate !== audit.endDate
     || audit.startDate < input.store.initialStartDate! || audit.endDate > input.latestAllowedDate
@@ -2712,7 +2732,8 @@ export async function readTmallPromotionRecovery(input: PromotionRecoveryInput):
   }
   if (stage === "report_submitting") throw new Error("推广报表提交结果未决，必须人工核对原任务，禁止自动重放");
   if (promotionPreSubmitStages.includes(stage)) {
-    if (audit.file || audit.unverifiedFile || audit.selectedTask || audit.batchId || audit.downloadAttempts) {
+    if (audit.file || audit.unverifiedFile || audit.selectedTask || audit.batchId || audit.downloadAttempts
+      || audit.taskScanDiagnostic) {
       throw new Error("推广提交前清单含有业务执行证据，拒绝替换或重放");
     }
     return null;
@@ -3053,7 +3074,9 @@ async function runTmallPromotionDate(options: {
     };
   } catch (error) {
     const current = audit.stage;
-    audit.resumeStage = current === "completed" || current === "failed" ? undefined : current;
+    audit.resumeStage = current === "completed"
+      ? undefined
+      : current === "failed" ? audit.resumeStage ?? inferredPostSubmissionStage(audit) : current;
     audit.stage = "failed";
     audit.error = error instanceof Error ? error.message : String(error);
     await writeAudit(audit, runAuditDirectory).catch(() => undefined);
