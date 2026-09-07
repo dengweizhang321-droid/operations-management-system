@@ -46,6 +46,49 @@ class NetshopApiContractTests(TestCase):
         )
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_promotion_import_and_duplicate_expose_exact_database_readback(self) -> None:
+        for shop_index, shop in enumerate(["志高商用设备旗舰店", "志高切肉机旗舰店"]):
+            with self.subTest(shop=shop):
+                rows = [netshop_row(
+                    source="jd_promotion", dataset="ad", shop_name=shop,
+                    business_date=f"2026-09-0{day}", sku_id=f"SKU-{day}",
+                    metrics={"spendCents": day * 100, "impressions": 100, "clicks": 5},
+                    row_number=day + 1,
+                ) for day in [4, 5]]
+                payload = prepared_payload(*rows, raw_seed=shop)
+                for attempt, expected_status in enumerate(["imported", "duplicate"]):
+                    response = self.post(payload, f"promotion-proof-{shop_index}-{attempt}")
+                    self.assertEqual(response.status_code, 201 if attempt == 0 else 200, response.content)
+                    result = response.json()
+                    self.assertEqual(result["status"], expected_status)
+                    self.assertEqual(result["batch"]["totals"]["rawFileHash"], payload["rawFileHash"])
+                    proof = result["verification"]
+                    self.assertTrue(proof["verified"])
+                    self.assertEqual(proof["readbackRowCount"], 2)
+                    self.assertEqual(proof["rowCount"], 2)
+                    self.assertEqual(proof["dataset"], "ad")
+                    self.assertEqual(proof["platform"], "京东")
+                    self.assertEqual(proof["shopName"], shop)
+                    self.assertEqual([proof["dateMin"], proof["dateMax"]], ["2026-09-04", "2026-09-05"])
+                self.assertEqual(NetshopRow.objects.filter(shop_name=shop).count(), 2)
+                self.assertEqual(NetshopImportBatch.objects.filter(shop_name=shop).count(), 1)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_duplicate_readback_dates_describe_snapshot_facts_not_scope_bounds(self) -> None:
+        payload = prepared_payload(netshop_row(
+            source="jd_product_master", dataset="product_master",
+            business_date="", snapshot_date="2026-09-06",
+        ))
+        first = self.post(payload, "snapshot-proof-first")
+        self.assertEqual(first.status_code, 201, first.content)
+        duplicate = self.post(payload, "snapshot-proof-duplicate")
+        self.assertEqual(duplicate.status_code, 200, duplicate.content)
+        for response in [first, duplicate]:
+            self.assertEqual(response.json()["verification"]["readbackRowCount"], 1)
+            self.assertIsNone(response.json()["verification"]["dateMin"])
+            self.assertIsNone(response.json()["verification"]["dateMax"])
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_import_is_typed_atomic_idempotent_and_replay_fenced(self) -> None:
         payload = prepared_payload(netshop_row())
         first = self.post(payload, "netshop-import-1")
