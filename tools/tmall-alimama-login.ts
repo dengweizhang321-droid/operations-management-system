@@ -3,6 +3,7 @@ import type { TmallStore } from "../lib/netshop/tmall-store-registry";
 import { autoLoginTmallWithWindowsDpapiCredential, inspectTmallLoginPageState } from "./tmall-saved-login";
 
 const attempts = new WeakMap<object, string>();
+const wrongSessionResets = new WeakMap<object, string>();
 const loginHosts = new Set(["login.taobao.com", "loginmyseller.taobao.com"]);
 
 export function trustedAlimamaLoginUrl(value: string, frame = false): boolean {
@@ -11,6 +12,21 @@ export function trustedAlimamaLoginUrl(value: string, frame = false): boolean {
     return url.protocol === "https:" && !url.username && !url.password && !url.port
       && (loginHosts.has(url.hostname) || (!frame && url.hostname === "one.alimama.com"));
   } catch { return false; }
+}
+
+async function resetDedicatedAlimamaSession(page: Page) {
+  if (new URL(page.url()).hostname !== "one.alimama.com") {
+    throw new Error("unexpected_origin");
+  }
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.context().clearCookies();
+  await page.goto("https://one.alimama.com/index.html", {
+    waitUntil: "domcontentloaded",
+    timeout: 60_000,
+  });
 }
 
 /** Login only: never creates a report. An uncertain submission consumes the attempt. */
@@ -23,6 +39,7 @@ export async function ensureAlimamaLogin(
     wait?: () => Promise<void>;
     inspect?: typeof inspectTmallLoginPageState;
     login?: typeof autoLoginTmallWithWindowsDpapiCredential;
+    resetWrongSession?: (page: Page) => Promise<void>;
   } = {},
 ) {
   const deadline = Date.now() + (options.timeoutMs ?? 60_000);
@@ -44,7 +61,22 @@ export async function ensureAlimamaLogin(
       }
     } catch (error) {
       if (!(error instanceof Error) || !/^(waiting_login|shop_identity_mismatch)/.test(error.message)) throw error;
-      needsLogin = error.message.startsWith("waiting_login");
+      if (error.message.startsWith("shop_identity_mismatch")) {
+        if (store.loginMode !== "windows_dpapi_credentials" || wrongSessionResets.has(page.context())
+          || attempts.has(page.context())) {
+          throw new Error("waiting_login：阿里妈妈店铺身份不符且无法安全切换，请人工登录");
+        }
+        wrongSessionResets.set(page.context(), store.storeKey);
+        try {
+          await (options.resetWrongSession ?? resetDedicatedAlimamaSession)(page);
+        } catch {
+          throw new Error("waiting_login：阿里妈妈错店会话清理未确认成功，请人工登录");
+        }
+        if (Date.now() >= deadline) break;
+        await (options.wait ?? (() => new Promise<void>((resolve) => setTimeout(resolve, 500))))();
+        continue;
+      }
+      needsLogin = true;
     }
     const frames = page.frames().filter((frame) => trustedAlimamaLoginUrl(frame.url(), true));
     if (needsLogin && !submitted && frames.length) {
