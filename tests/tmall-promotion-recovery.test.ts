@@ -152,6 +152,21 @@ test("an empty covered plan without recovery rechecks only the immutable plan ra
       request,
       resolveRecovery: async () => null,
     }), /计划范围必须完整/);
+    await writeFile(path.join(directory, `active-${storeKey}.json`), JSON.stringify({ stage: "failed" }));
+    const emptyPlan = {
+      storeKey,
+      baseUrl,
+      dates: [],
+      planStartDate: "2026-09-05",
+      planEndDate: "2026-09-05",
+      maximumDays: 1,
+      auditDirectory: directory,
+      request,
+      resolveRecovery: async () => null,
+    };
+    await assert.rejects(runTmallPromotionStage(emptyPlan), /仍有活动清单/);
+    const specialized = await runTmallPromotionStage({ ...emptyPlan, pendingAuditDirectories: [] });
+    assert.equal(specialized.status, "skipped");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
