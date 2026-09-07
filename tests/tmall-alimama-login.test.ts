@@ -116,6 +116,34 @@ test("Wrong dedicated-profile identity is cleared once before DPAPI login", asyn
   assert.equal(g.state.attempts, 1);
 });
 
+test("Wrong identity may remain briefly after reset while the trusted login frame settles", async () => {
+  const g = fixture();
+  let resets = 0;
+  let waits = 0;
+  (g.page as unknown as { frames: () => Array<{ url: () => string }> }).frames = () => waits >= 2
+    ? [{ url: () => "https://login.taobao.com/member/login.jhtml" }]
+    : [];
+  await ensureAlimamaLogin(g.page, store, async () => {
+    if (!g.state.authenticated) throw new Error("shop_identity_mismatch");
+  }, {
+    timeoutMs: 1_000,
+    inspect: async () => clean,
+    wait: async () => {
+      waits++;
+      if (waits === 2) g.state.url = "https://login.taobao.com/member/login.jhtml";
+    },
+    resetWrongSession: async () => { resets++; },
+    login: async () => {
+      g.state.attempts++;
+      g.state.url = "https://one.alimama.com/index.html";
+      g.state.authenticated = true;
+      return { attempted: true, submitted: true, reason: "submitted" };
+    },
+  });
+  assert.equal(resets, 1);
+  assert.equal(g.state.attempts, 1);
+});
+
 test("Dedicated-session reset accepts a navigation abort only on a trusted login surface", async () => {
   for (const [redirectUrl, allowed] of [
     ["https://login.taobao.com/member/login.jhtml", true],

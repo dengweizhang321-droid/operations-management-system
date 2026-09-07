@@ -69,21 +69,29 @@ export async function ensureAlimamaLogin(
     } catch (error) {
       if (!(error instanceof Error) || !/^(waiting_login|shop_identity_mismatch)/.test(error.message)) throw error;
       if (error.message.startsWith("shop_identity_mismatch")) {
-        if (store.loginMode !== "windows_dpapi_credentials" || wrongSessionResets.has(page.context())
-          || attempts.has(page.context())) {
+        const resetStoreKey = wrongSessionResets.get(page.context());
+        if (store.loginMode !== "windows_dpapi_credentials" || attempts.has(page.context())
+          || (resetStoreKey && resetStoreKey !== store.storeKey)) {
           throw new Error("waiting_login：阿里妈妈店铺身份不符且无法安全切换，请人工登录");
         }
-        wrongSessionResets.set(page.context(), store.storeKey);
-        try {
-          await (options.resetWrongSession ?? resetDedicatedAlimamaSession)(page);
-        } catch {
-          throw new Error("waiting_login：阿里妈妈错店会话清理未确认成功，请人工登录");
+        if (!resetStoreKey) {
+          wrongSessionResets.set(page.context(), store.storeKey);
+          try {
+            await (options.resetWrongSession ?? resetDedicatedAlimamaSession)(page);
+          } catch {
+            throw new Error("waiting_login：阿里妈妈错店会话清理未确认成功，请人工登录");
+          }
+          if (Date.now() >= deadline) break;
+          await (options.wait ?? (() => new Promise<void>((resolve) => setTimeout(resolve, 500))))();
+          continue;
         }
-        if (Date.now() >= deadline) break;
-        await (options.wait ?? (() => new Promise<void>((resolve) => setTimeout(resolve, 500))))();
-        continue;
+        // The cleared page can briefly retain the old SPA identity while its
+        // trusted Taobao login frame loads. Do not reset again; wait for that
+        // frame and keep all business actions fenced behind identity proof.
+        needsLogin = true;
+      } else {
+        needsLogin = true;
       }
-      needsLogin = true;
     }
     const frames = page.frames().filter((frame) => trustedAlimamaLoginUrl(frame.url(), true));
     if (needsLogin && !submitted && frames.length) {
