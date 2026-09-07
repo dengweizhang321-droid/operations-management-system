@@ -93,8 +93,8 @@
           "parameters": [
             { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
             { "name": "X-TERUISI-JD-PROMOTION-STORE-KEY", "value": "jd-yiyong-director" },
-            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.startDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" },
-            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.endDate : $now.setZone('Asia/Shanghai').minus({ days: 1 }).toFormat('yyyy-MM-dd') }}" }
+            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.startDate : '' }}" },
+            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $execution.mode === 'manual' ? $('手动补跑日期').first().json.endDate : '' }}" }
           ]
         },
         "options": { "timeout": 120000 }
@@ -148,7 +148,7 @@
     },
     {
       "parameters": {
-        "content": "## 原子协调领取 + A → B → C 闭环\n手动入口当前补跑 2026-08-20；每日 13:00 入口使用 Asia/Shanghai 的昨天。定时和手动入口都先原子领取共享 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后，A 绑定 n8n execution ID、店铺注册表与本机系统；B 依次执行自定义报表、AI推广数据自动下载、日期选择、生成任务、下载中心唯一任务接管、UTF-8 CSV 校验、精确范围导入和回查；C 重新读取文件并核对 SHA-256、行数、账户集合及精确 completed 批次。任一歧义、重复候选、跨执行或日期缺口都会失败关闭。",
+        "content": "## 原子协调领取 + A → B → C 闭环\n手动入口按填写范围检查缺口；每日 13:00 入口从店铺推广起始日检查到 Asia/Shanghai 的昨天。定时和手动入口都先原子领取共享 helper；未获授权时每 5 分钟等待，72 次后失败关闭。领取成功后，A 读取运营系统日期覆盖，只把缺失日期固化进计划；B 按日期升序逐日执行自定义报表、AI推广数据自动下载、唯一任务接管、UTF-8 CSV 校验、精确单日导入和回查；C 逐文件核对 SHA-256、行数、账户集合、精确 completed 批次，并再次确认计划日均已覆盖。无缺口时不启动 Chromium、不创建任务，直接完成覆盖复核。",
         "height": 205,
         "width": 880,
         "color": 4

@@ -10,6 +10,7 @@ export type JdStore = {
   shopId: string;
   enabled: boolean;
   loginMode?: "manual" | "windows_dpapi_credentials";
+  promotionInitialStartDate?: string;
   browser: {
     executablePath: string;
     userDataDir: string;
@@ -40,6 +41,13 @@ function assertNoSecrets(value: unknown, location: string): void {
   }
 }
 
+function validIsoDate(value: string | undefined) {
+  if (value === undefined) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export function validateJdStoreRegistry(parsed: unknown, rootDirectory = projectRoot, localAppData = process.env.LOCALAPPDATA): JdStore[] {
   if (!parsed || typeof parsed !== "object") throw new Error("京东店铺注册表格式无效");
   const registry = parsed as { version?: unknown; stores?: unknown };
@@ -56,6 +64,7 @@ export function validateJdStoreRegistry(parsed: unknown, rootDirectory = project
     if (!store.storeKey?.trim() || !/^[a-z0-9][a-z0-9-]*$/.test(store.storeKey) || !store.accountLabel?.trim() || !store.shopName?.trim() || !/^\d+$/.test(store.shopId ?? "")
       || typeof store.enabled !== "boolean" || store.platform !== "京东" || !store.browser
       || store.loginMode !== undefined && !["manual", "windows_dpapi_credentials"].includes(store.loginMode)
+      || !validIsoDate(store.promotionInitialStartDate)
       || typeof store.browser.executablePath !== "string" || !store.browser.executablePath.trim()
       || typeof store.browser.userDataDir !== "string" || !store.browser.userDataDir.trim()
       || typeof store.browser.profileName !== "string" || !/^(?:Default|Profile [1-9]\d*)$/.test(store.browser.profileName)
