@@ -7,12 +7,14 @@ from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import uuid
+from typing import NoReturn
 
 from django.conf import settings
 from django.db import transaction
@@ -29,6 +31,38 @@ SYNC_LEASE = timedelta(minutes=5)
 NAME_SPLIT_RE = re.compile(r"[,，;；/、]+")
 RED_TAG_RE = re.compile(r"</?red>", re.I)
 REPLENISHMENT_MARKER_VERSION = 2
+logger = logging.getLogger(__name__)
+
+
+def _dws_failure_details(stdout: str, stderr: str) -> tuple[str, str]:
+    # Only classify known signals. Never expose CLI output: it can contain
+    # tokens, profile identities, request arguments or returned business data.
+    details: list[str] = []
+    for output in (stdout, stderr):
+        try:
+            payload = json.loads(output)
+        except (ValueError, RecursionError):
+            details.append(output)
+            continue
+        if isinstance(payload, dict):
+            for key in ("error", "code", "reason", "message", "error_reason", "error_category"):
+                if key in payload:
+                    details.append(json.dumps(payload[key], ensure_ascii=False))
+    detail = "\n".join(details).lower()
+    if any(signal in detail for signal in (
+        "invalidparameter.authcode.notfound", "旧版登录态", "重新授权", "auth_required",
+        "token_expired", "invalid_token", "invalid_grant",
+    )):
+        return "auth_required", "钉钉登录授权已失效，请管理员为系统绑定的钉钉账号重新授权后，再重试原备货计划。"
+    if any(signal in detail for signal in ("permission_denied", "access_denied", "forbidden", "无权限", "权限不足")):
+        return "permission_denied", "钉钉访问权限不足，请管理员检查系统绑定账号的表格访问权限和应用授权后，再重试原备货计划。"
+    if any(signal in detail for signal in ("rate_limit", "too many requests", "限流", "请求过于频繁")):
+        return "rate_limited", "钉钉请求过于频繁，请稍后重试原备货计划。"
+    if any(signal in detail for signal in ("confirmation_required", "当前环境无法交互确认")):
+        return "confirmation_required", "钉钉操作需要确认，请管理员检查同步程序与钉钉组件的确认流程。"
+    if any(signal in detail for signal in ("timeout", "timed out", "deadline exceeded", "econnreset", "econnrefused", "enotfound")):
+        return "network_error", "钉钉连接超时或网络异常，请检查网络后重试原备货计划；若已进入写入，请先核对钉钉中的记录。"
+    return "request_failed", "钉钉请求失败，请管理员检查同步日志；核对钉钉记录后再重试原备货计划。"
 
 
 @dataclass(frozen=True)
@@ -141,6 +175,11 @@ class DwsCli:
         return [str(Path(node).resolve()), str(Path(script).resolve())]
 
     def _run_process(self, args: list[str]) -> dict[str, object]:
+        def fail(category: str, message: str, returncode: int | None = None) -> NoReturn:
+            stage = " ".join(part if re.fullmatch(r"[a-z-]+", part) else "?" for part in args[:3])
+            logger.warning("dws_sync_failed command=%s category=%s exit_code=%s", stage, category, returncode)
+            raise InventoryApiError(message, code="service_unavailable", status=503) from None
+
         command = [
             *self._command_prefix(),
             *args,
@@ -162,25 +201,29 @@ class DwsCli:
                 check=False,
                 creationflags=creation_flags,
             )
-        except (OSError, subprocess.TimeoutExpired, UnicodeError) as error:
-            raise InventoryApiError(
-                "钉钉服务暂时不可用，请稍后重试",
-                code="service_unavailable",
-                status=503,
-            ) from error
+        except subprocess.TimeoutExpired:
+            fail("timeout", "钉钉请求超时；若已进入写入，请先核对钉钉记录，再重试原备货计划。")
+        except OSError:
+            fail("process_unavailable", "钉钉同步程序无法启动，请管理员检查 DWS 运行组件。")
+        except UnicodeError:
+            fail("invalid_encoding", "钉钉响应编码异常，请管理员检查 DWS 运行组件。")
+        if len(result.stdout.encode("utf-8")) + len(result.stderr.encode("utf-8")) > MAX_DWS_OUTPUT_BYTES:
+            fail("output_too_large", "钉钉返回内容超过安全上限", result.returncode)
         stdout = result.stdout.strip()
-        if len(stdout.encode("utf-8")) > MAX_DWS_OUTPUT_BYTES:
-            raise InventoryApiError("钉钉返回内容超过安全上限", code="service_unavailable", status=503)
+        # The CLI can send an authentication error to stderr with empty stdout.
+        # Inspect failure diagnostics before trying to parse the success payload.
+        if result.returncode != 0:
+            fail(*_dws_failure_details(stdout, result.stderr), result.returncode)
         try:
             payload = json.loads(stdout)
-        except json.JSONDecodeError as error:
-            raise InventoryApiError("钉钉返回内容无效", code="service_unavailable", status=503) from error
-        if not isinstance(payload, dict) or result.returncode != 0 or payload.get("success") is False or payload.get("status") == "error":
-            raise InventoryApiError(
-                "钉钉请求未成功；请确认登录授权仍有效后重试",
-                code="service_unavailable",
-                status=503,
-            )
+        except (ValueError, RecursionError):
+            if not stdout and result.stderr.strip():
+                fail(*_dws_failure_details(stdout, result.stderr), result.returncode)
+            fail("invalid_response", "钉钉返回内容无效，请管理员检查 DWS 响应格式。", result.returncode)
+        if not isinstance(payload, dict):
+            fail("invalid_response", "钉钉返回内容无效，请管理员检查 DWS 响应格式。", result.returncode)
+        if payload.get("success") is False or payload.get("status") == "error" or payload.get("error"):
+            fail(*_dws_failure_details(stdout, result.stderr), result.returncode)
         return payload
 
     def run(self, *args: str) -> dict[str, object]:
@@ -374,13 +417,25 @@ class DingTalkReplenishmentGateway:
                 "--limit", "10",
             )
             rows = _data(payload).get("records")
-            if not isinstance(rows, list):
-                continue
+            if (
+                not isinstance(rows, list)
+                or _data(payload).get("hasMore") is True
+                or len(rows) >= 10
+                or any(
+                    not isinstance(row, dict)
+                    or not isinstance(row.get("recordId"), str)
+                    or not row["recordId"].strip()
+                    for row in rows
+                )
+            ):
+                raise InventoryApiError(
+                    "钉钉已有备货记录查询不完整，已停止提交以避免重复创建；请管理员核对后重试。",
+                    code="service_unavailable",
+                    status=503,
+                )
             for row in rows:
-                if not isinstance(row, dict):
-                    continue
                 record_id = str(row.get("recordId") or "")
-                matches[record_id or json.dumps(row, ensure_ascii=False, sort_keys=True)] = row
+                matches[record_id] = row
         return list(matches.values())
 
     @staticmethod

@@ -3053,3 +3053,6 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   .access-control-grid { grid-template-columns: 1fr; }
   .access-control-audit-list article { grid-template-columns: 1fr; gap: 3px; }
 }
+
+/* Keep the persisted sync failure readable inside the plan status cell. */
+.replenishment-plan-table .plan-sync-error { color: var(--red); min-width: 160px; max-width: 240px; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }

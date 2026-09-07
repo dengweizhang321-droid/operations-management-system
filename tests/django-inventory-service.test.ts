@@ -9,6 +9,7 @@ import {
   INVENTORY_IMPORTS_PATH,
   INVENTORY_OVERVIEW_PATH,
   INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH,
+  INVENTORY_REPLENISHMENT_DINGTALK_PATH,
   INVENTORY_REPLENISHMENT_PATH,
   requestDjangoInventoryBytes,
   requestDjangoInventoryJson,
@@ -30,6 +31,31 @@ const config = {
   maxRequestBytes: 64 * 1024 * 1024,
   maxResponseBytes: 1024 * 1024,
 };
+
+test("DingTalk authorization guidance reaches the caller without replaying the write", async () => {
+  const message = "钉钉登录授权已失效，请管理员为系统绑定的钉钉账号重新授权后，再重试原备货计划。";
+  let calls = 0;
+  await assert.rejects(
+    requestDjangoInventoryJson(
+      principal,
+      { method: "POST", path: INVENTORY_REPLENISHMENT_DINGTALK_PATH, service: "writer", payload: { planId: "plan-1" } },
+      {
+        config,
+        fetchImpl: async () => {
+          calls += 1;
+          return Response.json({ error: message, code: "service_unavailable" }, { status: 503 });
+        },
+      },
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof DjangoInventoryServiceResponseError);
+      assert.equal(error.message, message);
+      assert.equal(error.status, 503);
+      return true;
+    },
+  );
+  assert.equal(calls, 1);
+});
 
 function verifySignature(request: Request, path: string, query = "") {
   const canonical = [
