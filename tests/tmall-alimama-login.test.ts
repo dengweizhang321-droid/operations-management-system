@@ -7,12 +7,13 @@ import { ensureAlimamaLogin, trustedAlimamaLoginUrl } from "../tools/tmall-alima
 const store = { storeKey: "tmall-yijiu", loginMode: "windows_dpapi_credentials" as const };
 const clean = { challengePresent: false, credentialRejected: false, temporarilyLocked: false };
 
-test("Both promotion paths use the guard; direct capture follows authentication", async () => {
+test("Both promotion paths use the guard; direct capture starts before navigation and returns only after authentication", async () => {
   const ui = await readFile(new URL("../tools/tmall-promotion-export.ts", import.meta.url), "utf8");
   assert.match(ui, /await ensureAlimamaLogin\(page, store/);
   const direct = await readFile(new URL("../tools/tmall-direct-promotion-export.ts", import.meta.url), "utf8");
-  const discovery = direct.slice(direct.indexOf("async function discoverIdentifiers"), direct.indexOf("async function apiCreateTask"));
-  assert.ok(discovery.indexOf("await waitForAlimamaIdentity") < discovery.indexOf("page.waitForRequest"));
+  const discovery = direct.slice(direct.indexOf("export async function discoverTmallAlimamaIdentifiers"), direct.indexOf("async function apiCreateTask"));
+  assert.ok(discovery.indexOf('page.on("request", captureIdentifiers)') < discovery.indexOf("await page.goto"));
+  assert.ok(discovery.indexOf("await waitForIdentity") < discovery.indexOf("return identifiers"));
   assert.doesNotMatch(discovery, /apiCreateTask|\.post\(/);
   assert.match(discovery, /catch\(\(\) => null\)/);
 });
