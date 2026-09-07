@@ -28,12 +28,13 @@ export async function GET(request: Request) {
   try {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "销售汇总");
-    const params = new URL(request.url).searchParams;
+    const url = new URL(request.url);
+    const params = url.searchParams;
     const requested = params.get("range") ?? "month";
     if (!isSalesRange(requested)) {
       throw new SalesReadRequestError(`range 必须是 ${salesRanges.join(", ")} 之一`);
     }
-    parseProductQueriesStrict([
+    const productQueries = parseProductQueriesStrict([
       ...params.getAll("productQuery"),
       params.get("productCodes") ?? "",
     ]);
@@ -43,6 +44,11 @@ export async function GET(request: Request) {
     if (outlets.some((value) => value === null)) {
       throw new SalesReadRequestError("outlet 必须使用有效的平台与店铺复合键。");
     }
+    // Keep repeated client values within Django's total query-field limit.
+    params.delete("productQuery");
+    params.delete("productCodes");
+    if (productQueries.length > 0) params.set("productQuery", productQueries.join(","));
+    request = new Request(url, request);
     return routeDjangoSalesReadRequest({ request, principal });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

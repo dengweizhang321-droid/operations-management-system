@@ -20,7 +20,7 @@ class SalesApiContractTests(TestCase):
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_summary_multicode_query_accepts_1000_characters_and_rejects_overflow(self) -> None:
-        query = ",".join(str(index) * (91 if index == 9 else 100) for index in range(10))
+        query = ",".join(f"SKU-{index:05d}" for index in range(100)) + "Z"
         self.assertEqual(len(query), 1000)
         for value, expected_status in ((query, 200), (query + "Z", 400)):
             url = "/api/sales/summary?range=custom&startDate=2026-08-01&endDate=2026-08-02&" + urlencode({"productQuery": value})

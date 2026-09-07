@@ -944,7 +944,8 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
             query.set("startDate", customStartDate);
             query.set("endDate", customEndDate);
           }
-          parseProductQueriesStrict(debouncedProductQuery).forEach((productQuery) => query.append("productQuery", productQuery));
+          const queries = parseProductQueriesStrict(debouncedProductQuery);
+          if (queries.length > 0) query.set("productQuery", queries.join(","));
           filters.platforms.forEach((platform) => query.append("platform", platform));
           filters.outletKeys.forEach((shopKey) => query.append("outlet", shopKey));
           filters.categories.forEach((category) => query.append("category", category));

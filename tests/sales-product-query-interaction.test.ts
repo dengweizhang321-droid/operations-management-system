@@ -40,12 +40,13 @@ test("sales overview preserves multiline code paste, sends all codes and restore
     assert.equal(await field.getAttribute("maxlength"), "1000");
     const codes = Array.from({ length: 100 }, (_, index) => `SKU-${String(index).padStart(3, "0")}`);
     const pasted = codes.join(",\n");
-    const sent = page.waitForRequest(request => new URL(request.url()).searchParams.getAll("productQuery").length === 100);
+    const sent = page.waitForRequest(request => new URL(request.url()).searchParams.get("productQuery")?.split(",").length === 100);
     await field.fill(pasted);
     const filteredRequest = await sent;
-    assert.deepEqual(new URL(filteredRequest.url()).searchParams.getAll("productQuery"), codes);
+    assert.deepEqual(new URL(filteredRequest.url()).searchParams.getAll("productQuery"), [codes.join(",")]);
+    assert.ok([...new URL(filteredRequest.url()).searchParams].length < 100);
     assert.equal(await field.inputValue(), pasted);
-    const restored = page.waitForResponse(response => new URL(response.url()).searchParams.getAll("productQuery").length === 100);
+    const restored = page.waitForResponse(response => new URL(response.url()).searchParams.get("productQuery")?.split(",").length === 100);
     await page.reload();
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     await restored;
