@@ -196,10 +196,10 @@ test("HTTP plans stay distinct, preserve the five-file import barrier, and requi
   const single = f.deps.runBrowser!;
   f.deps.runBrowser = async options => {
     assert.equal(options.directHttp, true);
-    for (const module of jackyunExportOrder) {
-      await options.beforeModule!(module);
-      await single({ ...options, exportOnlyModule: module });
-      await options.afterModule!(module);
+    for (const moduleKey of jackyunExportOrder) {
+      await options.beforeModule!(moduleKey);
+      await single({ ...options, exportOnlyModule: moduleKey });
+      await options.afterModule!(moduleKey);
     }
     return { status: "exported", runId: options.runId, controllerStatePath: "unused" };
   };
