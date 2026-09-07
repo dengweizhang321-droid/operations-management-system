@@ -144,6 +144,27 @@ test("Wrong identity may remain briefly after reset while the trusted login fram
   assert.equal(g.state.attempts, 1);
 });
 
+test("DPAPI submission waits for delayed exact identity without a second login attempt", async () => {
+  const g = fixture("https://login.taobao.com/member/login.jhtml");
+  let identityChecks = 0;
+  await ensureAlimamaLogin(g.page, store, async () => {
+    identityChecks++;
+    if (identityChecks < 3) throw new Error("shop_identity_mismatch");
+  }, {
+    timeoutMs: 1_000,
+    inspect: async () => clean,
+    wait: async () => {},
+    resetWrongSession: async () => { assert.fail("submitted login must not reset the session"); },
+    login: async () => {
+      g.state.attempts++;
+      g.state.url = "https://one.alimama.com/index.html";
+      return { attempted: true, submitted: true, reason: "submitted" };
+    },
+  });
+  assert.equal(g.state.attempts, 1);
+  assert.equal(identityChecks, 3);
+});
+
 test("Dedicated-session reset accepts a navigation abort only on a trusted login surface", async () => {
   for (const [redirectUrl, allowed] of [
     ["https://login.taobao.com/member/login.jhtml", true],
