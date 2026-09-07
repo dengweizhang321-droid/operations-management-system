@@ -1,5 +1,7 @@
 # 吉客云 n8n 五表先导出后导入
 
+2026-09-08 本机已采用“网页校验 + HTTP 导出”版本，当前定义与正式发布记录见 [`JACKYUN_HTTP_EXPORT.md`](JACKYUN_HTTP_EXPORT.md)。本页以下保留原网页会话版协议及历史执行证据，不代表当前传输方式。
+
 工作流：`automation/n8n/jackyun-five-dataset-daily.workflow.json`，名称“吉客云导入系统”，沿用 ID `J8kY2mQ5vR7sT4pN`。默认手动运行、未激活，不含定时器。配套策略为 `config/jackyun-export-first-policy.json`，协议版本 `2026-09-06.export-first.1`。
 
 新版模板使用 `web_session_batch_v1` 导出方式：A 固定计划，B 在一次专用 Chrome 会话内顺序完成五表，C 校验，D 导入，E 回查。网页登录继续使用现有 DPAPI；Cookie、Token 和网页签名由原网页会话处理，不写入 n8n，也不申请新的官方开放 API 权限。它仍需要加载各模块、设置并核对查询条件；不是脱离浏览器的纯 HTTP 抓取。

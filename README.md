@@ -1,6 +1,6 @@
 # 电扇运营管理系统
 
-吉客云另提供“网页校验 + HTTP 导出”的候选工作流：保留现有动态查询和权限校验，使用本机 HTTP 提交/轮询五表任务，并复用原导入和精确批次核验；不会自动替换当前已发布工作流。生成、会话边界及采用门槛见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
+吉客云“网页校验 + HTTP 导出”已于 2026-09-08 在本机正式采用：保留动态查询和权限校验，使用本机 HTTP 提交/轮询五表任务，复用原导入和精确批次核验。原 n8n 工作流保持手动运行，定义为 `automation/n8n/jackyun-five-dataset-http.workflow.json`；本次发布没有触发新一轮业务导入。版本、会话边界及验收记录见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
 
 本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；D1 历史审计证据及其他域仍使用的 R2 对象保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
 
@@ -88,7 +88,7 @@ npm run backend:dev:stop
 - `npm run jackyun:credential:setup`：打开本机 DPAPI 凭据录入窗口，填写手机号或工号和密码；`npm run jackyun:credential:status` 只检查当前 Windows 用户能否解密。`npm run jackyun:authenticate` 只验证专用登录与企业号，不执行导出或导入。配置见 `config/jackyun-login.json`，维护步骤见 [`docs/吉客云DPAPI登录配置.md`](docs/吉客云DPAPI登录配置.md)。
 - 五表任务若只在首次库存登录检查或指定查询验证失败，可按五表文档使用受控 `jackyun-preflight-recovery.ts` 闭合导出前停止的旧执行，再从 n8n 手动入口启动完整新执行。查询失败必须额外核验唯一 controller 状态及摘要、无导出意图，并保留全部旧证据；有任何导出、下载或导入证据时拒绝该恢复方式。
 - `npm run jackyun:daily`：运行每日五类数据导入
-- `automation/n8n/jackyun-five-dataset-daily.workflow.json`：默认手动、未激活的吉客云五表工作流，按分仓库存 → 组合装及子件 → 发货时间销售明细 → 库龄 → SKU 货品依次导出；五表全部校验后，再按主数据和成本依赖统一导入并独立核验精确批次。库存和库龄使用实际采集日，销售使用本月至昨天；新协议与旧历史快照协议隔离，不把实时结果标成昨日余额。使用 Django 内容幂等和服务端批次回执，缺表、乱序、证据变化、跨日和跨执行接管均拒绝执行。工作流不保存账号、密码或会话；配套 helper 必须受控发布后才能运行。详见 [`docs/吉客云n8n五表先导出后导入.md`](docs/吉客云n8n五表先导出后导入.md)。
+- `automation/n8n/jackyun-five-dataset-http.workflow.json`：本机已采用、手动运行的吉客云五表工作流，按分仓库存 → 组合装及子件 → 发货时间销售明细 → 库龄 → SKU 货品依次导出；五表全部校验后，再按主数据和成本依赖统一导入并独立核验精确批次。库存和库龄使用实际采集日，销售使用本月至昨天。新旧传输的计划和恢复状态隔离，工作流不保存账号、密码或会话。原 `jackyun-five-dataset-daily.workflow.json` 保留用于网页会话版历史协议，不是当前已采用定义。详见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
 - 网页会话版已在本机完成真实五表下载、Django 导入和独立批次回查。货品、组合装内容未变化时按幂等规则复用原批次；库存/库龄精确归属由同 revision 的只读事实核验，销售同时绑定发货日期和本轮库存成本源。组合装确认会等待按钮事件就绪后只点击一次。日调度仍停用；各次 n8n 执行、原始文件、采用回执及受控恢复记录保留在五表文档中，失败执行不会改写为成功。
 - 2026-08-05 历史快照的多 AI、多方法验证结论和真实来源限制见 [`docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md`](docs/吉客云导入系统多AI多方法跑通测试-2026-08-06.md)。
 
