@@ -304,6 +304,22 @@ function FinanceMultiFilterSelect({ label, allLabel, options, selected, onChange
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const closeWhenOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeWhenOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
   const normalizedOptions = options.map((option) => typeof option === "string" ? { value: option, label: option } : option);
   const visibleOptions = normalizedOptions.filter((option) => option.label.toLowerCase().includes(search.trim().toLowerCase()));
   const isAll = selected === null;
@@ -318,7 +334,7 @@ function FinanceMultiFilterSelect({ label, allLabel, options, selected, onChange
     if (next.length === 0 || next.length === normalizedOptions.length) onChange(null);
     else onChange(next);
   };
-  return <div className={`multi-filter-select finance-multi-filter ${open ? "open" : ""}`}>
+  return <div ref={rootRef} className={`multi-filter-select finance-multi-filter ${open ? "open" : ""}`}>
     <button type="button" className="multi-filter-trigger" aria-label={`${label}多选`} aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSearch(""); }}><span title={summary}>{summary}</span><i>⌄</i></button>
     {open && <div className="multi-filter-menu" role="listbox" aria-label={`${label}多选`} aria-multiselectable="true">
       <div className="multi-filter-menu-head"><strong>{label}筛选</strong><button type="button" onClick={() => onChange(null)} disabled={isAll}>全选</button></div>
@@ -377,6 +393,8 @@ function FinanceAnalysisView({
   const [expenseSearch, setExpenseSearch] = useState("");
   const [expenseSort, setExpenseSort] = useState<{ column: FinanceExpenseSortKey; direction: "asc" | "desc" }>({ column: "current", direction: "desc" });
   const [dataResult, setDataResult] = useState<{ requestSignature: string; payload: FinanceAnalysisResponse } | null>(null);
+  // Filter options survive a refresh; financial results still require an exact request signature.
+  const [monthOptions, setMonthOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filterReconciliationNotice, setFilterReconciliationNotice] = useState("");
@@ -477,6 +495,7 @@ function FinanceAnalysisView({
         if (!response.ok || !payload) throw new Error(payload?.error || `财报分析读取失败（${response.status}）`);
         if (controller.signal.aborted || generation !== analysisRequestGenerationRef.current) return;
         if (payload.filters) onFilterOptionsChange(financeDimensionOptionsToSalesOptions(payload.filters));
+        setMonthOptions(payload.months.map((item) => ({ value: item.month, label: financeMonthLabel(item.month) })));
         setDataResult({ requestSignature, payload });
       } catch (requestError) {
         if (controller.signal.aborted || generation !== analysisRequestGenerationRef.current
@@ -502,26 +521,25 @@ function FinanceAnalysisView({
     onDimensionFiltersChange(pendingDimensionChange.platforms, pendingDimensionChange.outletKeys);
   };
 
-  if (loading && !data) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在生成财报分析</strong><p>正在汇总利润、目标进度和费用异常…</p></section>;
-  if (error && !data) return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>财报分析加载失败</strong><p>{error}</p>{pendingDimensionChange
+  const resultState = !data && (loading || !error) ? <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在生成财报分析</strong><p>可继续搜索并多选月份、店铺，结果按最新选择更新。</p></section>
+    : error && !data ? <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>财报分析加载失败</strong><p>{error}</p>{pendingDimensionChange
     ? <button className="secondary-button" onClick={confirmPendingDimensionChange}>{pendingDimensionChange.platforms.length || pendingDimensionChange.outletKeys.length ? "移除异常筛选并继续" : "清除筛选并查看全部财报"}</button>
-    : <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>}</section>;
-  if (!data?.hasData || !data.current || !data.targets || !data.progress || !data.yearToDate) return <section className="panel data-state finance-empty-state"><span className="state-symbol">财</span><strong>还没有月度财报数据</strong><p>请到“数据导入”选择“月度财报”，上传志高事业部 .xls 文件；系统会自动识别月份并排除已导入月份。</p></section>;
+    : <button className="secondary-button" onClick={() => setRetryKey((key) => key + 1)}>重新加载</button>}</section>
+    : !data?.hasData || !data.current || !data.targets || !data.progress || !data.yearToDate ? <section className="panel data-state finance-empty-state"><span className="state-symbol">财</span><strong>当前筛选没有月度财报数据</strong><p>可调整月份和店铺筛选，或到“数据导入”上传月度财报。</p></section> : null;
 
-  const current = data.current;
-  const previous = data.previous;
-  const yearAgo = data.yearAgo;
-  const targets = data.targets.month;
-  const progress = data.progress.month;
-  const selectedPeriodName = data.selectedMonths && data.selectedMonths.length > 1
+  const current = data?.current;
+  const previous = data?.previous;
+  const yearAgo = data?.yearAgo;
+  const targets = data?.targets?.month;
+  const progress = data?.progress?.month;
+  const selectedPeriodName = !data?.selectedMonth ? "等待所选期间结果" : data.selectedMonths && data.selectedMonths.length > 1
     ? `${financeMonthLabel(data.selectedMonths[0])}—${financeMonthLabel(data.selectedMonths.at(-1)!)}（${data.selectedMonths.length}个月）`
     : financeMonthLabel(data.selectedMonth!);
-  const monthOptions = data.months.map((item) => ({ value: item.month, label: financeMonthLabel(item.month) }));
-  const activeMonthSelection = allowInitialMonthFallback && data.selection?.fallbackApplied
+  const activeMonthSelection = allowInitialMonthFallback && data?.selection?.fallbackApplied
     ? data.selectedMonths ?? selectedMonths
     : selectedMonths;
   const normalizedExpenseSearch = expenseSearch.trim().toLocaleLowerCase("zh-CN");
-  const expenseRows = data.expenses.filter((item) => {
+  const expenseRows = (data?.expenses ?? []).filter((item) => {
     if (!normalizedExpenseSearch) return true;
     const displayName = item.name.replace(/^销售费用_/, "").replaceAll("_", " / ");
     return `${item.name} ${displayName}`.toLocaleLowerCase("zh-CN").includes(normalizedExpenseSearch);
@@ -554,13 +572,14 @@ function FinanceAnalysisView({
   return <div className="finance-analysis-page data-refresh-region" aria-busy={loading}>
     <section className="finance-analysis-hero">
       <div><span className="eyebrow">FINANCIAL PERFORMANCE</span><h2>财报经营分析</h2><p>以月度财报与经营目标为口径，追踪销售、利润、毛利和动态费用异常。</p></div>
-      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div></div><small>平台与店铺继承销售分析公共筛选 · 全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data.sync?.dataCutoffMonth}</small></div>
+      <div className="finance-period-control"><div className="finance-hero-filter-row"><div className="finance-filter-field"><span>分析月份</span><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div></div><small>平台与店铺继承销售分析公共筛选 · 全局周期 {customStartDate} 至 {customEndDate} · 财报按涵盖月份汇总 · 数据截止 {data?.sync?.dataCutoffMonth ?? "—"}</small></div>
     </section>
-    {allowInitialMonthFallback && data.selection?.fallbackApplied && <div className="inline-feedback warning" role="status"><strong>已显示最新可用财报</strong><span>全局月份 {data.selection.requestedMonths?.join("、") || globalMonths.join("、")} 尚未导入，已安全回退至 {data.selectedMonth}；手动选择月份后将严格按选择读取。</span></div>}
+    {resultState}
+    {allowInitialMonthFallback && data?.selection?.fallbackApplied && <div className="inline-feedback warning" role="status"><strong>已显示最新可用财报</strong><span>全局月份 {data.selection.requestedMonths?.join("、") || globalMonths.join("、")} 尚未导入，已安全回退至 {data.selectedMonth}；手动选择月份后将严格按选择读取。</span></div>}
     {filterReconciliationNotice && <div className="inline-feedback warning" role="status"><strong>已调整财报筛选</strong><span>{filterReconciliationNotice}</span></div>}
-    {error && <div className="inline-feedback warning"><strong>刷新提示</strong><span>{error}</span></div>}
-    {data.selection?.truncated && <div className="inline-feedback warning" role="status"><strong>分析范围已设上限</strong><span>当前共有 {data.selection.availableMonthCount} 个可用月份，“全部月份”仅分析最近 {data.selection.months.length} 个月；如需更早月份，请在月份筛选中明确选择。</span></div>}
-    {Boolean(data.targets.legacyCompatibility?.excluded) && <div className="inline-feedback warning" role="status"><strong>旧目标缺少平台身份</strong><span>{data.targets.legacyCompatibility?.reason} 当前有 {data.targets.legacyCompatibility?.excluded} 项未参与本次 KPI。</span></div>}
+    {data && data.selection?.truncated && <div className="inline-feedback warning" role="status"><strong>分析范围已设上限</strong><span>当前共有 {data.selection.availableMonthCount} 个可用月份，“全部月份”仅分析最近 {data.selection.months.length} 个月；如需更早月份，请在月份筛选中明确选择。</span></div>}
+    {data?.hasData && current && targets && progress && data.yearToDate && <>
+    {Boolean(data.targets?.legacyCompatibility?.excluded) && <div className="inline-feedback warning" role="status"><strong>旧目标缺少平台身份</strong><span>{data.targets?.legacyCompatibility?.reason} 当前有 {data.targets?.legacyCompatibility?.excluded} 项未参与本次 KPI。</span></div>}
     <section className="finance-kpi-grid">
       <FinanceKpiCard label="净销售额" value={formatCurrencyFromCents(current.netSalesCents)} targetLabel={targets.salesTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.salesTargetCents)}` : "尚未设置销售目标"} progress={progress.sales} mom={{ text: formatFinanceChange(current.netSalesCents, previous?.netSalesCents), tone: financeChangeTone(current.netSalesCents, previous?.netSalesCents) }} yoy={{ text: formatFinanceChange(current.netSalesCents, yearAgo?.netSalesCents), tone: financeChangeTone(current.netSalesCents, yearAgo?.netSalesCents) }} tone="blue" />
       <FinanceKpiCard label="利润" value={formatCurrencyFromCents(current.profitCents)} targetLabel={targets.profitTargetCents > 0 ? `目标 ${formatCurrencyFromCents(targets.profitTargetCents)}` : "尚未设置利润目标"} progress={progress.profit} mom={{ text: formatFinanceChange(current.profitCents, previous?.profitCents), tone: financeChangeTone(current.profitCents, previous?.profitCents) }} yoy={{ text: formatFinanceChange(current.profitCents, yearAgo?.profitCents), tone: financeChangeTone(current.profitCents, yearAgo?.profitCents) }} tone="green" />
@@ -580,10 +599,11 @@ function FinanceAnalysisView({
       <article className="panel finance-trend-panel"><div className="finance-panel-heading"><div><span className="eyebrow">MONTHLY TREND</span><h2>销售与利润趋势</h2><p>每个节点直接展示净销售额与利润，数值单位为万元。</p></div><span className="soft-tag">{data.timeline.length} 个月</span></div><FinanceTrendChart rows={data.timeline} /><div className="finance-ytd-summary"><span>本年累计净销售<strong>{formatCurrencyFromCents(data.yearToDate.netSalesCents)}</strong></span><span>本年累计利润<strong>{formatCurrencyFromCents(data.yearToDate.profitCents)}</strong></span><span>累计小毛利率<strong>{formatFinanceBps(data.yearToDate.smallMarginBps)}</strong></span></div></article>
       <article className="panel finance-anomaly-panel"><div className="finance-panel-heading"><div><span className="eyebrow">EXCEPTION WATCH</span><h2>{selectedPeriodName}异常雷达</h2><p>按利润、目标差距及费用环比阈值自动识别。</p></div><span className="soft-tag">{data.anomalies.length} 项</span></div><div className="finance-anomaly-list">{data.anomalies.map((item, index) => <div className={`finance-anomaly ${item.level}`} key={`${item.title}-${index}`}><i>{item.level === "critical" ? "!" : item.level === "warning" ? "△" : "i"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span></div>)}</div></article>
     </section>
+    </>}
     <section className="panel finance-expense-panel">
-      <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${data.expenses.length} 项` : `共 ${expenseRows.length} 项`}</span></div>
+      <div className="finance-panel-heading"><div><span className="eyebrow">DYNAMIC EXPENSES</span><h2>费用同环比与异常点</h2><p>字段直接来自金蝶科目名称；同名科目已合并，新增科目会自动出现。</p></div><span className="soft-tag">{expenseSearch.trim() ? `显示 ${expenseRows.length} / ${(data?.expenses.length ?? 0)} 项` : `共 ${expenseRows.length} 项`}</span></div>
       <div className="finance-expense-filter-bar" aria-label="费用明细筛选"><div><strong>费用筛选</strong><small>月份与上方公共平台、店铺筛选同步更新所有指标</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /><button type="button" className="finance-filter-reset" onClick={resetMonthsStrictly}>重置月份</button></div>
-      <div className="data-table-wrap finance-expense-scroll">
+      {data?.hasData && <div className="data-table-wrap finance-expense-scroll">
         <table className="data-table finance-expense-table" data-column-filter-scope={data.expensePagination?.truncated === false ? "full" : "none"}>
           <thead><tr>
             <th><div className="finance-expense-name-head"><FinanceSortButton label="费用科目" column="name" activeColumn={expenseSort.column} direction={expenseSort.direction} onSort={updateExpenseSort} /><label className="finance-expense-name-search"><span aria-hidden="true">⌕</span><input type="search" value={expenseSearch} onChange={(event) => setExpenseSearch(event.target.value)} placeholder="搜索费用名称" aria-label="搜索费用名称" /></label></div></th>
@@ -608,9 +628,9 @@ function FinanceAnalysisView({
             <td><span className={`status ${item.abnormal ? "status-warning" : "status-success"}`}><Dot tone={item.abnormal ? "orange" : "green"} />{item.abnormal ? "波动异常" : "正常"}</span></td>
           </tr>)}</tbody>
         </table>
-      </div>
+      </div>}
     </section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data.shops.length} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div><div className="data-table-wrap"><table className="data-table finance-shop-table" data-column-filter-scope={data.shopPagination?.truncated === false ? "full" : "none"}><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div></section>
+    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data?.shops.length ?? 0} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div>{data?.hasData && <div className="data-table-wrap"><table className="data-table finance-shop-table" data-column-filter-scope={data.shopPagination?.truncated === false ? "full" : "none"}><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div>}</section>
   </div>;
 }
 

@@ -6,11 +6,14 @@ import uuid
 from datetime import date, timedelta
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from market.annotations import candidate_counts
 from market.models import (
+    MarketAnnotationItem,
+    MarketAnnotationJob,
     MarketDataRevision,
     MarketImportAttempt,
     MarketImportBatch,
@@ -37,6 +40,53 @@ CUTOVER_ID = "market-test-cutover"
     MARKET_WRITE_CUTOVER_ID=CUTOVER_ID,
 )
 class MarketApiContractTests(TestCase):
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_annotation_progress_is_read_only_and_derives_live_counts(self) -> None:
+        job = MarketAnnotationJob.objects.create(
+            id="progress-job", category="净水", prompt_version_id="prompt",
+            executor="cloud", status="queued", total_count=999,
+            created_by="admin@example.test",
+        )
+        original = MarketAnnotationJob.objects.filter(id=job.id).values().get()
+        statuses = ["queued", "inferencing", "failed", "failed", "approved", "committed", "superseded"]
+        for index, status in enumerate(statuses):
+            MarketAnnotationItem.objects.create(
+                id=f"progress-item-{index}", job_id=job.id, category=job.category,
+                sku_code=f"sku-{index}", status=status,
+                attempt_count=3 if index == 3 else 1,
+                lease_expires_at=timezone.now() + timedelta(minutes=1),
+            )
+
+        def reject_writes(execute, sql, params, many, context):
+            self.assertNotIn(sql.lstrip().split()[0].upper(), {"INSERT", "UPDATE", "DELETE"})
+            return execute(sql, params, many, context)
+
+        for poll in range(2):
+            with connection.execute_wrapper(reject_writes):
+                response = self.post_query(
+                    {"operation": "annotations", "view": "progress", "params": {"jobId": job.id}},
+                    f"progress-read-{poll}", role="viewer",
+                )
+            self.assertEqual(response.status_code, 200, response.content)
+            result = response.json()
+            self.assertEqual(result["job"]["totalCount"], 6)
+            self.assertEqual(result["job"]["completedCount"], 2)
+            self.assertEqual(result["job"]["failedCount"], 2)
+            self.assertEqual(result["remainingInferenceUnits"], 3)
+            self.assertEqual(result["activeClaims"], 1)
+        self.assertEqual(MarketAnnotationJob.objects.filter(id=job.id).values().get(), original)
+
+        MarketAnnotationItem.objects.filter(job_id=job.id).exclude(status="superseded").update(status="committed")
+        with connection.execute_wrapper(reject_writes):
+            settled = self.post_query(
+                {"operation": "annotations", "view": "progress", "params": {"jobId": job.id}},
+                "progress-read-settled", role="viewer",
+            )
+        self.assertEqual(settled.status_code, 200, settled.content)
+        self.assertEqual(settled.json()["job"]["status"], "committed")
+        self.assertEqual(settled.json()["remainingInferenceUnits"], 0)
+        self.assertEqual(MarketAnnotationJob.objects.filter(id=job.id).values().get(), original)
+
     def setUp(self) -> None:
         MarketWriteAuthority.objects.filter(id=1).update(
             status="postgres",

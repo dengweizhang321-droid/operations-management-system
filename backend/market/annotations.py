@@ -235,11 +235,11 @@ def _cloud_run_value(row: MarketAnnotationCloudRun, configured: int) -> dict[str
     }
 
 
-def _refresh_job(job_id: str) -> MarketAnnotationJob:
-    job = MarketAnnotationJob.objects.get(id=job_id)
-    items = MarketAnnotationItem.objects.filter(job_id=job_id).exclude(status="superseded")
-    counts = Counter(items.values_list("status", flat=True))
-    total = items.count()
+def _summarize_job(job: MarketAnnotationJob) -> MarketAnnotationJob:
+    """Derive live progress without writing through the reader connection."""
+    items = MarketAnnotationItem.objects.filter(job_id=job.id).exclude(status="superseded")
+    counts = Counter({row["status"]: row["count"] for row in items.values("status").annotate(count=Count("id"))})
+    total = sum(counts.values())
     remaining = sum(counts[item] for item in ("queued", "claimed", "inferencing")) + items.filter(status="failed", attempt_count__lt=3).count()
     job.total_count = total
     job.completed_count = sum(counts[item] for item in ("review_pending", "approved", "rejected", "committed"))
@@ -253,6 +253,11 @@ def _refresh_job(job_id: str) -> MarketAnnotationJob:
             job.status = "review_ready"
         else:
             job.status = "running" if job.started_at else "queued"
+    return job
+
+
+def _refresh_job(job_id: str) -> MarketAnnotationJob:
+    job = _summarize_job(MarketAnnotationJob.objects.get(id=job_id))
     if job.status in {"review_ready", "committed"}:
         job.completed_at = job.completed_at or timezone.now()
     job.save()
@@ -545,11 +550,11 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
         job = MarketAnnotationJob.objects.filter(id=job_id).first()
         if not job:
             raise _error("标注任务不存在", code="not_found", status=404)
-        job = _refresh_job(job_id)
+        job = _summarize_job(job)
         now = timezone.now()
         active = MarketAnnotationItem.objects.filter(
             job_id=job_id,
-            status="claimed",
+            status__in=["claimed", "inferencing"],
             lease_expires_at__gt=now,
         ).count()
         base = MarketAnnotationItem.objects.filter(job_id=job_id).exclude(status="superseded")
@@ -557,7 +562,7 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
             "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256"
         ).distinct().count()
         remaining_units = base.filter(
-            Q(status__in=["queued", "claimed"])
+            Q(status__in=["queued", "claimed", "inferencing"])
             | Q(status="failed", attempt_count__lt=3)
         ).values(
             "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256"
