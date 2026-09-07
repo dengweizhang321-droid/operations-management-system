@@ -115,12 +115,14 @@ export function selectNewWebSessionTask(snapshot: WebTaskSnapshot, expected: {
 }
 
 export async function waitForWebSessionTask(client: BrowserAutomationClient, expected: Parameters<typeof selectNewWebSessionTask>[1],
-  options: { timeoutMs: number; onTask: (taskId: string) => Promise<void>; signal?: AbortSignal }) {
+  options: { timeoutMs: number; onTask: (taskId: string) => Promise<void>; signal?: AbortSignal;
+    readTasks?: (module: JackyunModule, since: string) => Promise<WebTaskSnapshot> }) {
   const deadline = Date.now() + options.timeoutMs;
   let poll = 0;
   while (Date.now() < deadline) {
     options.signal?.throwIfAborted();
-    const snapshot = await readWebSessionTasks(client, expected.module, expected.exportIntentAt);
+    const snapshot = await (options.readTasks ? options.readTasks(expected.module, expected.exportIntentAt)
+      : readWebSessionTasks(client, expected.module, expected.exportIntentAt));
     const selected = selectNewWebSessionTask(snapshot, { ...expected, observedAt: new Date().toISOString() });
     if (selected.taskId && !expected.pendingTaskId) {
       await options.onTask(selected.taskId);

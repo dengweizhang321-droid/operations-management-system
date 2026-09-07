@@ -23,6 +23,8 @@ import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-
 
 import { jackyunWebSessionTransport, prepareWebSessionExport, submitWebSessionExport, readWebSessionTasks, waitForWebSessionTask } from "../lib/jackyun/web-session-export";
 import { assert849ReprepareWindow } from "../lib/jackyun/web-session-recovery";
+import { captureDirectExport, createDirectSession, jackyunDirectTransport, readDirectTasks } from "../lib/jackyun/direct-export";
+import type { JackyunHttpSession } from "../lib/jackyun/direct-http";
 
 type Policy = {
   version: string;
@@ -57,6 +59,7 @@ type ModuleActionState = Partial<BrowserHandoff> & {
   exportTaskBinding?: JackyunExportTaskBinding;
   status: "pending" | "navigated" | "queried" | "export_armed" | "downloaded" | "handed_off" | "completed";
   webSession?: { baselineIds: string[]; baselineAt: string; pendingTaskId?: string };
+  directPayloadSha256?: string;
   reprepareEvidence?: { originalIntentAt: string; permitSha256: string; originalControllerSha256: string };
   queryRetryCount?: number;
   queryRetryIntentAt?: string;
@@ -113,7 +116,7 @@ export function assertHistoricalDateReadback(
 }
 
 type ControllerState = {
-  exportTransport?: typeof jackyunWebSessionTransport;
+  exportTransport?: typeof jackyunWebSessionTransport | typeof jackyunDirectTransport;
   inspectionOnly?: true;
   version: 1;
   runId: string;
@@ -139,6 +142,7 @@ type CliOptions = {
   /** Only the explicit n8n export-first protocol uses current queries and deferred imports. */
   exportOnlyModule?: JackyunModule;
   exportFirstBatch?: boolean;
+  directHttp?: boolean;
   inspectWebSessionOnly?: boolean;
   beforeModule?: (module: JackyunModule) => Promise<void>;
   afterModule?: (module: JackyunModule) => Promise<void>;
@@ -1909,6 +1913,8 @@ export async function clickPreparedExportAllPages(client: BrowserAutomationClien
 }
 
 async function runController(options: CliOptions) {
+  if (options.directHttp && (!options.exportFirstBatch || options.inspectWebSessionOnly || options.webConfirmationRecovery)) throw new Error("HTTP 导出必须使用独立的五表运行。");
+  const batchTransport = options.directHttp ? jackyunDirectTransport : jackyunWebSessionTransport;
   const exportFirst = options.exportOnlyModule || options.exportFirstBatch;
   if (options.exportFirstBatch && (options.exportOnlyModule || options.resumeTaskBinding || options.inspectExportMenuOnly)) throw new Error("网页批量模式不能接管旧单表任务。");
   if (options.inspectWebSessionOnly && (!options.exportFirstBatch || !options.runId.startsWith("inspect-web-"))) throw new Error("网页诊断必须使用独立运行身份。");
@@ -1944,6 +1950,7 @@ async function runController(options: CliOptions) {
       .filter(page => page.url() === "about:blank" || isJackyunLoginOrigin(page.url()));
     if (candidates.length !== 1) throw new Error("waiting_login：专用浏览器的吉客云登录页面不唯一。");
     const page = candidates[0];
+    if (page.url() === "about:blank") await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
     const loginResult = await waitForJackyunDpapiSession({
       inspect: () => inspectJackyunLoginSurface(page, loginConfig.tenantId),
       submit: () => submitJackyunDpapiLogin(page, loginConfig),
@@ -1961,11 +1968,11 @@ async function runController(options: CliOptions) {
   const controllerStatePath = path.join(runDirectory, "browser-controller-state.json");
   const state = await readJsonFileOr<ControllerState>(controllerStatePath, {
     version: 1, runId: options.runId, policyVersion: policy.version,
-    ...(options.exportFirstBatch ? { exportTransport: jackyunWebSessionTransport } : {}),
+    ...(options.exportFirstBatch ? { exportTransport: batchTransport } : {}),
     ...(options.inspectWebSessionOnly ? { inspectionOnly: true as const } : {}), updatedAt: new Date().toISOString(), modules: {},
   });
   if (Boolean(state.inspectionOnly) !== Boolean(options.inspectWebSessionOnly)) throw new Error("只读诊断不能升级为正式导出。");
-  if (state.exportTransport !== (options.exportFirstBatch ? jackyunWebSessionTransport : undefined)) throw new Error("网页批量与旧浏览器运行状态不能互相接管。");
+  if (state.exportTransport !== (options.exportFirstBatch ? batchTransport : undefined)) throw new Error("不同导出传输版本的运行状态不能互相接管。");
   if (state.runId !== options.runId || state.policyVersion !== policy.version) throw new Error("浏览器 controller 状态与当前运行参数不一致。");
   if (options.inspectExportMenuOnly && Object.values(state.modules).some(module => module?.exportIntentAt || module?.filePath)) {
     throw new Error("菜单诊断不能接管业务运行。");
@@ -2050,13 +2057,23 @@ async function runController(options: CliOptions) {
       );
     };
 
-    const waitBoundTask = async () => {
+    let directTask: ReturnType<typeof selectJackyunExportTask> = null;
+    const withHttp = async <T>(callback: (http: JackyunHttpSession) => Promise<T>): Promise<T> => {
+      // The dedicated context cannot issue its own refresh while the HTTP owner is active.
+      await page.context().setOffline(true);
+      try { return await callback(await createDirectSession(client, loginConfig.tenantId)); }
+      finally { await page.context().setOffline(false); }
+    };
+    const waitBoundTask = async (http?: JackyunHttpSession): Promise<ReturnType<typeof selectJackyunExportTask>> => {
+      if (directTask) return directTask;
+      if (options.directHttp && !http) return withHttp(session => waitBoundTask(session));
       const expected = { module: moduleKey, sourceRows: moduleState.expectedSourceRows!, exportIntentAt: moduleState.exportIntentAt!,
         allowedHosts: policy.browser.allowedDownloadHosts, binding: moduleState.exportTaskBinding ?? (options.resumeTaskBinding?.module === moduleKey ? options.resumeTaskBinding : undefined) };
       if (!options.exportFirstBatch) return waitForJackyunExportTask(client, expected, exportTimeout(policy, moduleKey), fastPoll(policy));
       if (!moduleState.webSession) throw new Error("网页提交缺少任务基线，禁止恢复或重复导出。");
       return waitForWebSessionTask(client, { ...expected, ...moduleState.webSession, observedAt: new Date().toISOString() }, {
-        timeoutMs: exportTimeout(policy, moduleKey), signal: options.signal, onTask: async taskId => {
+        timeoutMs: exportTimeout(policy, moduleKey), signal: options.signal,
+        ...(http ? { readTasks: (module: JackyunModule, since: string) => readDirectTasks(http, module, since) } : {}), onTask: async taskId => {
           moduleState.webSession!.pendingTaskId = taskId; await persistControllerState(controllerStatePath, state);
         },
       });
@@ -2506,7 +2523,27 @@ async function runController(options: CliOptions) {
         moduleState.status = "export_armed";
         await persistControllerState(controllerStatePath, state);
       };
-      if (options.exportFirstBatch) {
+      if (options.directHttp) {
+        const baseline = await withHttp(http => readDirectTasks(http, moduleKey));
+        moduleState.webSession = { baselineIds: baseline.records.map(r => r.taskId), baselineAt: new Date().toISOString() };
+        await armExport();
+        const captured = await captureDirectExport(client, moduleKey, moduleKey === "combos" ? async () => {
+          const rule = policy.modules.combos.exportConfirmation;
+          if (!rule) throw new Error("组合装导出确认规则缺失。");
+          const confirmedAt = await confirmJackyunComboExport(client, moduleUrlHints(moduleKey), rule.promptIncludes, rule.button, actionTimeout(policy, moduleKey), fastPoll(policy));
+          moduleState.exportConfirmation = { prompt: rule.promptIncludes.join("，"), button: rule.button, confirmedAt };
+          await persistControllerState(controllerStatePath, state);
+        } : undefined, options.asOfDate);
+        try {
+          moduleState.directPayloadSha256 = captured.payloadSha256;
+          await persistControllerState(controllerStatePath, state);
+          await withHttp(async http => {
+            const response = await http.request("submitExport", captured.data, captured.moduleCode);
+            await captured.complete(response);
+            directTask = await waitBoundTask(http);
+          });
+        } catch (error) { await captured.cancel(); throw error; }
+      } else if (options.exportFirstBatch) {
         const token = await prepareWebSessionExport(client, moduleKey);
         if (moduleState.reprepareEvidence) {
           const original = await readWebSessionTasks(client, moduleKey, moduleState.reprepareEvidence.originalIntentAt);
@@ -2542,7 +2579,7 @@ async function runController(options: CliOptions) {
         await clickAnyTextEventually(client, ["导出所有页(限500000行)", "导出所有页（限500000行）", "导出所有页"], actionTimeout(policy, moduleKey), fastPoll(policy));
       }
       }
-      if (moduleKey === "combos") {
+      if (moduleKey === "combos" && !options.directHttp) {
         const confirmationPolicy = policy.modules.combos.exportConfirmation;
         if (!confirmationPolicy) throw new Error("组合装导出确认规则缺失。");
         await waitForPageTextParts(client, confirmationPolicy.promptIncludes, actionTimeout(policy, moduleKey), fastPoll(policy));
@@ -2630,7 +2667,8 @@ async function runController(options: CliOptions) {
       fieldChecks: moduleState.fieldChecks,
       evidence: {
         controller: "dedicated_chrome_playwright",
-        ...(options.exportFirstBatch ? { exportTransport: jackyunWebSessionTransport, taskQuerySource: "web_session_api" } : {}),
+        ...(options.exportFirstBatch ? { exportTransport: batchTransport, taskQuerySource: options.directHttp ? "direct_http_api" : "web_session_api" } : {}),
+        ...(options.directHttp ? { directPayloadSha256: moduleState.directPayloadSha256 } : {}),
         policyVersion: policy.version,
         sourceUrlHash: moduleState.downloadProvenance?.sourceUrlHash ?? null,
         exportTaskBinding: moduleState.exportTaskBinding ?? null,
