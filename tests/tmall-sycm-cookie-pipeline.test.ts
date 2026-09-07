@@ -327,6 +327,16 @@ test("单轮只规划一个商品日，空计划不读取 Cookie 并可生成空
     maximumDays: 1,
     dates: ["2026-08-25"],
   });
+  assert.deepEqual(getTmallPromotionStageOptions("tmall-yijiu", [], {
+    startDate: "2026-08-28",
+    endDate: "2026-08-28",
+  }), {
+    storeKey: "tmall-yijiu",
+    maximumDays: 1,
+    dates: [],
+    planStartDate: "2026-08-28",
+    planEndDate: "2026-08-28",
+  });
   assert.throws(() => getTmallPromotionStageOptions("bad store"), /店铺键无效/);
   assert.equal(shouldLoadCookieForPlan([]), false);
   assert.equal(shouldLoadCookieForPlan(["2026-08-05"]), true);

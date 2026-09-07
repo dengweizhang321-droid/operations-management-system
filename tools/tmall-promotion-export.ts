@@ -2663,8 +2663,26 @@ async function writeAudit(audit: PromotionExportAudit, directory: string) {
   await writeJsonAtomic(activeAuditPath(audit.storeKey, directory), audit);
 }
 
+function inferredPostSubmissionStage(audit: PromotionExportAudit): PromotionResumeStage | undefined {
+  const scan = audit.taskScanDiagnostic;
+  const scanCounts = scan && [scan.rowCandidates, scan.visibleRows, scan.strictRows,
+    scan.downloadActions, scan.visibleDownloadActions, scan.strictActionScopes, scan.candidateCount];
+  if (Number.isInteger(audit.dialogAttempts) && audit.dialogAttempts! > 0
+    && scan && Number.isFinite(Date.parse(scan.capturedAt)) && Array.isArray(scan.candidates)
+    && Array.isArray(scan.visibleActionBoxes) && scanCounts?.every((count) => Number.isInteger(count) && count >= 0)
+    && scan.candidateCount === scan.candidates.length) {
+    // taskScanDiagnostic is written only after report submission (or while
+    // re-downloading an already generated report). Treat it as proof that a
+    // missing resumeStage must never fall back to creating another report.
+    return "report_submitted";
+  }
+  return undefined;
+}
+
 function resumableStage(audit: PromotionExportAudit): PromotionAuditStage {
-  return audit.stage === "failed" ? audit.resumeStage ?? "planned" : audit.stage;
+  return audit.stage === "failed"
+    ? audit.resumeStage ?? inferredPostSubmissionStage(audit) ?? "planned"
+    : audit.stage;
 }
 
 const promotionPreSubmitStages = ["planned", "browser_ready", "dialog_opening", "dialog_ready", "report_configured"];
@@ -2698,7 +2716,9 @@ export async function readTmallPromotionRecovery(input: PromotionRecoveryInput):
     return null;
   }
   const audit = existing.audit as PromotionExportAudit;
-  const stage = audit.stage === "failed" ? audit.resumeStage : audit.stage;
+  const stage = audit.stage === "failed"
+    ? audit.resumeStage ?? inferredPostSubmissionStage(audit)
+    : audit.stage;
   if (audit.shopName !== input.store.shopName || audit.baseUrl !== input.baseUrl
     || !validDate(audit.startDate) || audit.startDate !== audit.endDate
     || audit.startDate < input.store.initialStartDate! || audit.endDate > input.latestAllowedDate
@@ -2712,7 +2732,8 @@ export async function readTmallPromotionRecovery(input: PromotionRecoveryInput):
   }
   if (stage === "report_submitting") throw new Error("推广报表提交结果未决，必须人工核对原任务，禁止自动重放");
   if (promotionPreSubmitStages.includes(stage)) {
-    if (audit.file || audit.unverifiedFile || audit.selectedTask || audit.batchId || audit.downloadAttempts) {
+    if (audit.file || audit.unverifiedFile || audit.selectedTask || audit.batchId || audit.downloadAttempts
+      || audit.taskScanDiagnostic) {
       throw new Error("推广提交前清单含有业务执行证据，拒绝替换或重放");
     }
     return null;
@@ -3053,7 +3074,9 @@ async function runTmallPromotionDate(options: {
     };
   } catch (error) {
     const current = audit.stage;
-    audit.resumeStage = current === "completed" || current === "failed" ? undefined : current;
+    audit.resumeStage = current === "completed"
+      ? undefined
+      : current === "failed" ? audit.resumeStage ?? inferredPostSubmissionStage(audit) : current;
     audit.stage = "failed";
     audit.error = error instanceof Error ? error.message : String(error);
     await writeAudit(audit, runAuditDirectory).catch(() => undefined);
@@ -3079,6 +3102,9 @@ export async function runTmallPromotionStage(options: {
   request?: typeof fetch;
   auditDirectory?: string;
   dates?: readonly string[];
+  planStartDate?: string;
+  planEndDate?: string;
+  pendingAuditDirectories?: readonly string[];
   forceExistingDates?: boolean;
   maximumDays?: number;
   executeDate?: typeof runTmallPromotionDate;
@@ -3098,6 +3124,12 @@ export async function runTmallPromotionStage(options: {
   if (requestedDates?.some((date) => !validDate(date) || date < store.initialStartDate! || date > latestAllowedDate)) {
     throw new Error(`推广显式日期必须位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
   }
+  if ((options.planStartDate === undefined) !== (options.planEndDate === undefined)
+    || options.planStartDate !== undefined && (!validDate(options.planStartDate)
+      || !validDate(options.planEndDate!) || options.planStartDate < store.initialStartDate
+      || options.planStartDate > options.planEndDate! || options.planEndDate! > latestAllowedDate)) {
+    throw new Error(`推广计划范围必须完整且位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
+  }
   const recovery = await (options.resolveRecovery ?? readTmallPromotionRecovery)({
     store, baseUrl, auditDirectory: runAuditDirectory, latestAllowedDate,
   });
@@ -3106,8 +3138,8 @@ export async function runTmallPromotionStage(options: {
   // succeeded before the exact proof was acknowledged. Scope the consistency
   // check to that immutable recovery date instead of scanning unrelated
   // historical gaps for the whole store.
-  const requestedStartDate = requestedDates[0] ?? recoveryDate ?? store.initialStartDate;
-  const requestedEndDate = requestedDates.at(-1) ?? recoveryDate ?? latestAllowedDate;
+  const requestedStartDate = requestedDates[0] ?? recoveryDate ?? options.planStartDate ?? store.initialStartDate;
+  const requestedEndDate = requestedDates.at(-1) ?? recoveryDate ?? options.planEndDate ?? latestAllowedDate;
   assertPromotionRunActive(options.signal);
   const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
   if (requestedDates.length === 0 && planTmallDailyGaps({ startDate: requestedStartDate,
@@ -3144,8 +3176,9 @@ export async function runTmallPromotionStage(options: {
 
   if (plans.length === 0) {
     // A coverage hit is not permission to discard an unresolved platform task.
-    await assertNoPendingPromotionForSkip(store.storeKey, [runAuditDirectory,
-      artifactDirectory, directPromotionArtifactDirectory]);
+    await assertNoPendingPromotionForSkip(store.storeKey, options.pendingAuditDirectories ?? [
+      runAuditDirectory, artifactDirectory, directPromotionArtifactDirectory,
+    ]);
     return { ok: true, stage: "promotion", status: "skipped" as const, mode: "daily" as const,
       reason: "already_covered", storeKey: store.storeKey, shopName: store.shopName,
       startDate: requestedStartDate, endDate: requestedEndDate, dates: requestedDates,

@@ -114,6 +114,103 @@ test("an empty new plan resumes an already-imported audit on its exact original 
   });
 });
 
+test("a lost resumeStage uses post-submission task scan proof and never creates a second report", async () => {
+  await withAudit(async (directory, auditPath, audit) => {
+    await writeFile(auditPath, JSON.stringify({
+      ...audit,
+      stage: "failed",
+      dialogAttempts: 1,
+      taskScanDiagnostic: {
+        capturedAt: "2026-09-07T13:42:37.435Z",
+        rowCandidates: 0,
+        visibleRows: 0,
+        strictRows: 0,
+        downloadActions: 0,
+        visibleDownloadActions: 0,
+        strictActionScopes: 0,
+        visibleActionBoxes: [],
+        candidateCount: 0,
+        candidates: [],
+      },
+      error: "outer timeout replaced the original failure",
+    }), "utf8");
+    const executed: string[] = [];
+    const result = await runTmallPromotionStage({
+      storeKey,
+      baseUrl,
+      dates: [requestedDate],
+      maximumDays: 1,
+      auditDirectory: directory,
+      request: mockCoverage(),
+      executeDate: async ({ plan, recoveryRunId }) => {
+        assert.equal(recoveryRunId, audit.runId);
+        executed.push(plan.startDate);
+        return completed(plan.startDate);
+      },
+    });
+    assert.deepEqual(executed, [originalDate]);
+    assert.equal(result.recoveryDate, originalDate);
+  });
+});
+
+test("an empty covered plan without recovery rechecks only the immutable plan range", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-empty-plan-test-"));
+  try {
+    let requestedRange: [string, string] | undefined;
+    const request = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = new URL(String(input));
+      const startDate = url.searchParams.get("startDate")!;
+      const endDate = url.searchParams.get("endDate")!;
+      requestedRange = [startDate, endDate];
+      return Response.json({ requestedPeriod: { startDate, endDate }, coverage: {
+        productDailyDates: [startDate],
+        promotionDates: [startDate],
+      } });
+    }) as typeof fetch;
+    const result = await runTmallPromotionStage({
+      storeKey,
+      baseUrl,
+      dates: [],
+      planStartDate: "2026-09-05",
+      planEndDate: "2026-09-05",
+      maximumDays: 1,
+      auditDirectory: directory,
+      request,
+      resolveRecovery: async () => null,
+      executeDate: async () => { assert.fail("covered empty plan must not execute a report"); },
+    });
+    assert.deepEqual(requestedRange, ["2026-09-05", "2026-09-05"]);
+    assert.equal(result.status, "skipped");
+    assert.equal(result.coverageConfirmed, true);
+    await assert.rejects(runTmallPromotionStage({
+      storeKey,
+      baseUrl,
+      dates: [],
+      planStartDate: "2026-09-05",
+      auditDirectory: directory,
+      request,
+      resolveRecovery: async () => null,
+    }), /计划范围必须完整/);
+    await writeFile(path.join(directory, `active-${storeKey}.json`), JSON.stringify({ stage: "failed" }));
+    const emptyPlan = {
+      storeKey,
+      baseUrl,
+      dates: [],
+      planStartDate: "2026-09-05",
+      planEndDate: "2026-09-05",
+      maximumDays: 1,
+      auditDirectory: directory,
+      request,
+      resolveRecovery: async () => null,
+    };
+    await assert.rejects(runTmallPromotionStage(emptyPlan), /仍有活动清单/);
+    const specialized = await runTmallPromotionStage({ ...emptyPlan, pendingAuditDirectories: [] });
+    assert.equal(specialized.status, "skipped");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("same-day recovery runs once and failure of the old report prevents new-date execution", async () => {
   await withAudit(async (directory) => {
     const calls: string[] = [];

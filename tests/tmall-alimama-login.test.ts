@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import type { Page } from "playwright-core";
-import { ensureAlimamaLogin, trustedAlimamaLoginUrl } from "../tools/tmall-alimama-login";
+import { ensureAlimamaLogin, resetDedicatedAlimamaSession, trustedAlimamaLoginUrl } from "../tools/tmall-alimama-login";
 
 const store = { storeKey: "tmall-yijiu", loginMode: "windows_dpapi_credentials" as const };
 const clean = { challengePresent: false, credentialRejected: false, temporarilyLocked: false };
@@ -84,17 +84,68 @@ test("Uncertain login is sanitized and fenced across tabs/store keys", async () 
   }), /本轮已尝试/);
 });
 
-test("Login origin cannot pass as authenticated; wrong identity times out", async () => {
+test("Login origin cannot pass as authenticated", async () => {
   const f = fixture("https://login.taobao.com/member/login.jhtml");
   await assert.rejects(ensureAlimamaLogin(f.page, store, async () => {}, {
     timeoutMs: 0, inspect: async () => clean,
     login: async () => ({ attempted: true, submitted: true, reason: "submitted" }),
   }), /店铺身份未确认/);
+});
+
+test("Wrong dedicated-profile identity is cleared once before DPAPI login", async () => {
   const g = fixture();
-  await assert.rejects(ensureAlimamaLogin(g.page, store, async () => { throw new Error("shop_identity_mismatch"); }, {
-    timeoutMs: 0, inspect: async () => clean,
-    login: async () => { assert.fail("wrong store must not login"); },
-  }), /店铺身份未确认/);
+  let resets = 0;
+  await ensureAlimamaLogin(g.page, store, async () => {
+    if (!g.state.authenticated) throw new Error("shop_identity_mismatch");
+  }, {
+    timeoutMs: 1_000,
+    inspect: async () => clean,
+    wait: async () => {},
+    resetWrongSession: async () => {
+      resets++;
+      g.state.url = "https://login.taobao.com/member/login.jhtml";
+    },
+    login: async () => {
+      g.state.attempts++;
+      g.state.url = "https://one.alimama.com/index.html";
+      g.state.authenticated = true;
+      return { attempted: true, submitted: true, reason: "submitted" };
+    },
+  });
+  assert.equal(resets, 1);
+  assert.equal(g.state.attempts, 1);
+});
+
+test("Dedicated-session reset accepts a navigation abort only on a trusted login surface", async () => {
+  for (const [redirectUrl, allowed] of [
+    ["https://login.taobao.com/member/login.jhtml", true],
+    ["https://evil.example/phishing", false],
+  ] as const) {
+    const state = { url: "https://one.alimama.com/index.html", storageCleared: false, cookiesCleared: false };
+    const page = {
+      url: () => state.url,
+      evaluate: async () => { state.storageCleared = true; },
+      context: () => ({ clearCookies: async () => { state.cookiesCleared = true; } }),
+      goto: async () => {
+        state.url = redirectUrl;
+        throw new Error("net::ERR_ABORTED");
+      },
+    } as unknown as Page;
+    if (allowed) await resetDedicatedAlimamaSession(page);
+    else await assert.rejects(resetDedicatedAlimamaSession(page), /ERR_ABORTED/);
+    assert.equal(state.storageCleared, true);
+    assert.equal(state.cookiesCleared, true);
+  }
+});
+
+test("Wrong identity without DPAPI remains fail closed", async () => {
+  const g = fixture();
+  await assert.rejects(ensureAlimamaLogin(g.page, { ...store, loginMode: "manual" }, async () => {
+    throw new Error("shop_identity_mismatch");
+  }, {
+    inspect: async () => clean,
+    resetWrongSession: async () => { assert.fail("manual store must not clear session"); },
+  }), /无法安全切换/);
 });
 
 test("Unknown origin and missing credentials fail closed", async () => {
