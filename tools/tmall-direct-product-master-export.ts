@@ -236,9 +236,12 @@ function recordFromValue(value: unknown): TmallExportRecord | null {
 
 export function extractTmallExportRecords(value: unknown) {
   const candidates: TmallExportRecord[][] = [];
-  const walk = (current: unknown) => {
+  const recordContainerKeys = new Set(["dataSource", "records", "recordList", "list", "rows"]);
+  const walk = (current: unknown, parentKey?: string) => {
     if (Array.isArray(current)) {
-      if (current.length > 0) {
+      if (current.length === 0 && parentKey && recordContainerKeys.has(parentKey)) {
+        candidates.push([]);
+      } else if (current.length > 0) {
         const records = current.map(recordFromValue);
         if (records.every((record) => record !== null)) candidates.push(records as TmallExportRecord[]);
       }
@@ -246,7 +249,7 @@ export function extractTmallExportRecords(value: unknown) {
       return;
     }
     if (current && typeof current === "object") {
-      for (const child of Object.values(current as JsonRecord)) walk(child);
+      for (const [key, child] of Object.entries(current as JsonRecord)) walk(child, key);
     }
   };
   walk(value);
@@ -255,6 +258,22 @@ export function extractTmallExportRecords(value: unknown) {
     ? "天猫导出记录响应中没有唯一记录数组"
     : "天猫导出记录响应中出现多个不同记录数组");
   return [...unique.values()][0]!;
+}
+
+export function resolveTmallDirectProductMasterSnapshotDate(
+  requestedDate: string | undefined,
+  activeDate: string | undefined,
+  today = shanghaiToday(),
+) {
+  for (const value of [requestedDate, activeDate, today]) {
+    if (value !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
+    }
+  }
+  if (requestedDate && activeDate && requestedDate !== activeDate) {
+    throw new Error(`存在未完成的 MTOP 货品清单 ${activeDate}，拒绝覆盖为 ${requestedDate}`);
+  }
+  return activeDate ?? requestedDate ?? today;
 }
 
 function parseShanghaiTimestamp(value: string) {
@@ -620,15 +639,14 @@ export async function runTmallDirectProductMasterStage(options: {
   const store = await getTmallStore(options.storeKey);
   assertTmallDirectPmStore(store.storeKey);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
-  const snapshotDate = options.snapshotDate ?? shanghaiToday();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");
   const auditDirectory = path.resolve(options.auditDirectory ?? defaultAuditDirectory);
   await assertNoLegacyMasterAction(store);
   await mkdir(auditDirectory, { recursive: true });
   let audit = await readAudit(store, auditDirectory);
-  if (audit && audit.snapshotDate !== snapshotDate) {
-    throw new Error(`存在未完成的 MTOP 货品清单 ${audit.snapshotDate}，拒绝覆盖为 ${snapshotDate}`);
-  }
+  const snapshotDate = resolveTmallDirectProductMasterSnapshotDate(
+    options.snapshotDate,
+    audit?.snapshotDate,
+  );
   const now = new Date().toISOString();
   audit ??= {
     version: 1,
