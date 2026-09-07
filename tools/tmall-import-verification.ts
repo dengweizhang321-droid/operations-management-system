@@ -29,10 +29,13 @@ export function hasExactTmallImportVerification(
     return false;
   }
 
-  const hasReadbackRowCount = verification.rowCount !== undefined;
+  const hasCurrentRowCount = verification.rowCount !== undefined;
   const hasParsedRowCount = verification.parsedRowCount !== undefined;
   const hasLegacyReadbackRowCount = verification.readbackRowCount !== undefined;
-  if (hasParsedRowCount !== hasLegacyReadbackRowCount) return false;
+  // The current Django contract returns rowCount plus readbackRowCount. The
+  // legacy contract used parsedRowCount plus readbackRowCount. Only require
+  // the legacy pair when the current rowCount proof is absent.
+  if (!hasCurrentRowCount && hasParsedRowCount !== hasLegacyReadbackRowCount) return false;
 
   const suppliedCounts = [
     verification.rowCount,
@@ -45,7 +48,7 @@ export function hasExactTmallImportVerification(
   }
 
   const hasLegacyProof = hasParsedRowCount && hasLegacyReadbackRowCount;
-  if (!hasReadbackRowCount && !hasLegacyProof) return false;
+  if (!hasCurrentRowCount && !hasLegacyProof) return false;
 
   const identities = [
     [verification.dataset, expected.dataset],
@@ -59,6 +62,6 @@ export function hasExactTmallImportVerification(
   // Current Django duplicate responses rely on the exact completed batch identity
   // plus a compact verified row-count proof. Imported responses, and the legacy
   // two-count proof, must continue to repeat the complete verification identity.
-  const requiresCompleteIdentity = expected.status === "imported" || !hasReadbackRowCount;
+  const requiresCompleteIdentity = expected.status === "imported" || !hasCurrentRowCount;
   return !requiresCompleteIdentity || identities.every(([actual, wanted]) => actual === wanted);
 }

@@ -631,6 +631,14 @@ test("推广导入结果必须同时匹配来源、店铺、日期、行数和�
   });
   assert.deepEqual(assertPromotionImportPayload({
     ...djangoPayload,
+    verification: { ...djangoPayload.verification, readbackRowCount: 12 },
+  }, 201, expected), {
+    batchId: "batch-1",
+    status: "imported",
+    warningCount: 1,
+  });
+  assert.deepEqual(assertPromotionImportPayload({
+    ...djangoPayload,
     status: "duplicate",
     verification: { verified: true, rowCount: 12 },
   }, 200, expected), {
