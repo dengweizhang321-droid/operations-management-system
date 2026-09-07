@@ -632,6 +632,7 @@ export async function runTmallDirectPromotionStage(options: {
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const auditDirectory = path.resolve(options.auditDirectory ?? defaultAuditDirectory);
   const request = options.request ?? fetch;
+  await assertNoLegacyBusinessAction(store);
   return runTmallPromotionStage({
     storeKey,
     baseUrl,
@@ -640,6 +641,7 @@ export async function runTmallDirectPromotionStage(options: {
     dates: options.dates,
     planStartDate: options.planStartDate,
     planEndDate: options.planEndDate,
+    pendingAuditDirectories: [auditDirectory],
     maximumDays: options.maximumDays,
     signal: options.signal,
     // Direct task IDs and their audit protocol remain owned by this runner.

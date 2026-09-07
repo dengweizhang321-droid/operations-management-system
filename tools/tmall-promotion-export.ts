@@ -3081,6 +3081,7 @@ export async function runTmallPromotionStage(options: {
   dates?: readonly string[];
   planStartDate?: string;
   planEndDate?: string;
+  pendingAuditDirectories?: readonly string[];
   forceExistingDates?: boolean;
   maximumDays?: number;
   executeDate?: typeof runTmallPromotionDate;
@@ -3152,8 +3153,9 @@ export async function runTmallPromotionStage(options: {
 
   if (plans.length === 0) {
     // A coverage hit is not permission to discard an unresolved platform task.
-    await assertNoPendingPromotionForSkip(store.storeKey, [runAuditDirectory,
-      artifactDirectory, directPromotionArtifactDirectory]);
+    await assertNoPendingPromotionForSkip(store.storeKey, options.pendingAuditDirectories ?? [
+      runAuditDirectory, artifactDirectory, directPromotionArtifactDirectory,
+    ]);
     return { ok: true, stage: "promotion", status: "skipped" as const, mode: "daily" as const,
       reason: "already_covered", storeKey: store.storeKey, shopName: store.shopName,
       startDate: requestedStartDate, endDate: requestedEndDate, dates: requestedDates,
