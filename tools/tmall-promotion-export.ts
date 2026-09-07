@@ -2687,7 +2687,7 @@ export async function readTmallPromotionRecovery(input: PromotionRecoveryInput):
   }
   const disposition = promotionAuditProtocolDisposition(existing.audit);
   if (disposition === "block_existing_business_action") {
-    throw new Error("存在旧版或不同协议的推广业务活动清单，拒绝由商品报表流程接管");
+    throw new Error("存在旧版或不同协议的推广业务活动清单，禁止按无缺口跳过或由商品报表流程接管");
   }
   if (disposition === "replace_pre_submit") {
     const legacyStage = existing.audit.stage === "failed" ? existing.audit.resumeStage : existing.audit.stage;
