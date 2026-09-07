@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 import json
 import uuid
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -107,6 +108,30 @@ def make_plan(*, status: str = "confirmed") -> ReplenishmentPlanItem:
 
 
 class DingTalkReplenishmentGatewayTests(TestCase):
+    def test_incomplete_marker_query_never_creates_or_updates_a_record(self) -> None:
+        plan = make_plan()
+        invalid_queries = [
+            {}, {"data": {}}, {"data": {"records": None}},
+            {"data": {"records": [{}]}},
+            {"data": {"records": [{"recordId": 12}]}},
+            {"data": {"records": [], "hasMore": True}},
+            {"data": {"records": [{"recordId": str(i)} for i in range(10)]}},
+        ]
+        for payload in invalid_queries:
+            with self.subTest(payload=payload):
+                fake = FakeDws()
+
+                def runner(args):
+                    if args[:3] == ["aitable", "record", "query"]:
+                        return payload
+                    return fake(args)
+
+                gateway = DingTalkReplenishmentGateway(fake.target, DwsCli(fake.target, runner))
+                with self.assertRaisesMessage(InventoryApiError, "避免重复创建"):
+                    gateway.sync(plan)
+                self.assertIsNone(fake.created_cells)
+                self.assertFalse(any(args[:3] in (["aitable", "record", "create"], ["aitable", "record", "update"]) for args in fake.commands))
+
     def test_maps_and_rechecks_every_written_field(self) -> None:
         plan = make_plan()
         fake = FakeDws()
@@ -216,3 +241,53 @@ class ReplenishmentSyncStateTests(TestCase):
         self.assertEqual(plan.dingtalk_sync_status, "failed")
         self.assertEqual(plan.dingtalk_sync_error, "钉钉测试失败")
         self.assertEqual(plan.dingtalk_record_id, "")
+
+    def test_auth_failure_is_persisted_and_explicit_retry_can_succeed(self) -> None:
+        plan = make_plan()
+        fake = FakeDws()
+        gateway = DingTalkReplenishmentGateway(fake.target, DwsCli(fake.target, fake))
+        message = "钉钉登录授权已失效，请管理员为系统绑定的钉钉账号重新授权后，再重试原备货计划。"
+        with patch.object(gateway, "sync", side_effect=InventoryApiError(message, status=503)) as attempt:
+            with self.assertRaisesMessage(InventoryApiError, "登录授权已失效"):
+                sync_replenishment_plan(plan.id, "operator@example.test", gateway=gateway)
+            attempt.assert_called_once()
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "confirmed")
+        self.assertEqual(plan.dingtalk_sync_error, message)
+        self.assertEqual(plan.dingtalk_sync_status, "failed")
+        self.assertEqual(plan.dingtalk_sync_owner_token, "")
+        sync_replenishment_plan(plan.id, "operator@example.test", gateway=gateway)
+        plan.refresh_from_db()
+        self.assertEqual(plan.dingtalk_sync_status, "synced")
+        self.assertEqual(plan.dingtalk_sync_error, "")
+
+    def test_uncertain_create_is_reconciled_on_retry_without_duplicate_create(self) -> None:
+        plan = make_plan()
+        fake = FakeDws()
+
+        def runner(args):
+            result = fake(args)
+            if args[:3] == ["aitable", "record", "create"]:
+                raise InventoryApiError("钉钉请求超时", status=503)
+            return result
+
+        gateway = DingTalkReplenishmentGateway(fake.target, DwsCli(fake.target, runner))
+        with self.assertRaisesMessage(InventoryApiError, "请求超时"):
+            sync_replenishment_plan(plan.id, "operator@example.test", gateway=gateway)
+        result = sync_replenishment_plan(plan.id, "operator@example.test", gateway=gateway)
+        self.assertEqual(result["outcome"], "updated")
+        self.assertEqual(sum(args[:3] == ["aitable", "record", "create"] for args in fake.commands), 1)
+        self.assertEqual(sum(args[:3] == ["aitable", "record", "update"] for args in fake.commands), 1)
+
+    def test_active_sync_lease_prevents_another_external_attempt(self) -> None:
+        plan = make_plan()
+        plan.dingtalk_sync_status = "syncing"
+        plan.dingtalk_sync_owner_token = "existing-owner"
+        plan.dingtalk_sync_started_at = timezone.now()
+        plan.save()
+        with patch("inventory.dingtalk_sync.DingTalkReplenishmentGateway") as gateway:
+            with self.assertRaisesMessage(InventoryApiError, "正在同步"):
+                sync_replenishment_plan(plan.id, "operator@example.test")
+            gateway.assert_not_called()
+        plan.refresh_from_db()
+        self.assertEqual(plan.dingtalk_sync_owner_token, "existing-owner")
