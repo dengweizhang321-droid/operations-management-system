@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -3086,11 +3086,27 @@ async function runTmallPromotionDate(options: {
 
 export async function assertNoPendingPromotionForSkip(storeKey: string, directories: readonly string[]) {
   for (const directory of new Set(directories)) {
+    let stored: unknown;
     try {
-      await lstat(activeAuditPath(storeKey, directory));
+      stored = JSON.parse(await readFile(activeAuditPath(storeKey, directory), "utf8"));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
-      throw error;
+      stored = null;
+    }
+    const audit = stored as Partial<PromotionExportAudit> | null;
+    const file = audit?.file;
+    if (audit?.stage === "completed" && audit.storeKey === storeKey && typeof audit.runId === "string" && audit.runId
+      && validDate(audit.startDate ?? "") && audit.startDate === audit.endDate
+      && Array.isArray(audit.dates) && audit.dates.length === 1 && audit.dates[0] === audit.startDate
+      && typeof audit.batchId === "string" && audit.batchId
+      && ["imported", "duplicate"].includes(audit.importStatus ?? "")
+      && Number.isInteger(audit.warningCount) && audit.warningCount! >= 0
+      && file && typeof file.fileName === "string" && file.fileName
+      && typeof file.sha256 === "string" && /^[a-f0-9]{64}$/i.test(file.sha256)
+      && Number.isInteger(file.size) && file.size > 0 && Number.isInteger(file.rowCount) && file.rowCount >= 0
+      && file.dateMin === audit.startDate && file.dateMax === audit.endDate
+      && audit.resumeStage === undefined && audit.error === undefined) {
+      continue;
     }
     throw new Error("推广已有覆盖但仍有活动清单，需核验原任务后安全续接，禁止按无缺口跳过");
   }

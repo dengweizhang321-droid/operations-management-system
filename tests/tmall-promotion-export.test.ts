@@ -162,6 +162,34 @@ test("推广无缺口不能跳过活动清单，跨店隔离且原证据不变",
     await assert.rejects(assertNoPendingPromotionForSkip("tmall-lili", [directory]), /活动清单/);
     await assertNoPendingPromotionForSkip("tmall-tuofeng", [directory]);
     assert.equal(await readFile(file, "utf8"), original);
+
+    const completed = JSON.stringify({
+      version: 2,
+      runId: "completed-run",
+      storeKey: "tmall-lili",
+      stage: "completed",
+      startDate: "2026-08-01",
+      endDate: "2026-08-01",
+      dates: ["2026-08-01"],
+      batchId: "tmall_promotion:completed",
+      importStatus: "imported",
+      warningCount: 0,
+      file: {
+        fileName: "completed.zip",
+        filePath: "D:\\controlled\\completed.zip",
+        size: 128,
+        sha256: "a".repeat(64),
+        rowCount: 10,
+        dateMin: "2026-08-01",
+        dateMax: "2026-08-01",
+      },
+    });
+    await writeFile(file, completed);
+    await assertNoPendingPromotionForSkip("tmall-lili", [directory]);
+    assert.equal(await readFile(file, "utf8"), completed);
+
+    await writeFile(file, JSON.stringify({ ...JSON.parse(completed), batchId: undefined }));
+    await assert.rejects(assertNoPendingPromotionForSkip("tmall-lili", [directory]), /活动清单/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
