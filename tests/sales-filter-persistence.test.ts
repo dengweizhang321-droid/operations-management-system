@@ -4,6 +4,32 @@ import { readFile } from "node:fs/promises";
 
 import { readSalesSharedFilters } from "../app/sales-filter-bar";
 import { updateModuleViewLocation } from "../app/shell/navigation-contract";
+import { parseProductQueriesStrict, SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH } from "../lib/sales/read-contract";
+import { normalizeProductSummaryQuery } from "../lib/products/query-contract";
+
+test("商品经营搜索接受1000字符且不会截断超限输入", () => {
+  assert.equal(normalizeProductSummaryQuery("码".repeat(1000)), "码".repeat(1000));
+  assert.throws(() => normalizeProductSummaryQuery("码".repeat(1001)), /1000/);
+});
+
+test("销售多代码换行与逗号输入去重且刷新后不丢失第500字符之后的代码", () => {
+  const codes = Array.from({ length: 100 }, (_, index) => `SKU-${String(index).padStart(3, "0")}`);
+  const raw = codes.join(",\n");
+  const url = new URL("https://example.test/");
+  url.searchParams.set("salesProductQuery", raw);
+  const restored = readSalesSharedFilters(url.href).productQuery;
+  assert.equal(restored, raw);
+  assert.deepEqual(parseProductQueriesStrict(restored), codes);
+  assert.deepEqual(parseProductQueriesStrict("SKU-1\r\nSKU-2，SKU-1;SKU-3"), ["SKU-1", "SKU-2", "SKU-3"]);
+  assert.throws(() => parseProductQueriesStrict([...codes, "SKU-101"]), /最多 100 项/);
+  assert.throws(() => parseProductQueriesStrict("X".repeat(201)), /200/);
+  assert.equal(SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH, 1000);
+  // Use ten long codes so per-code and item-count bounds remain valid.
+  const boundary = Array.from({ length: 10 }, (_, i) => String(i).repeat(i === 9 ? 91 : 100)).join(",");
+  assert.equal(boundary.length, 1000);
+  assert.equal(parseProductQueriesStrict(boundary).length, 10);
+  assert.throws(() => parseProductQueriesStrict(`${boundary}Z`), /1000/);
+});
 
 test("销售公共筛选从 URL 去重、去空并恢复所有跨页签维度", () => {
   const filters = readSalesSharedFilters("https://example.test/?module=sales&salesPlatform=%E4%BA%AC%E4%B8%9C&salesPlatform=%E4%BA%AC%E4%B8%9C&salesOutlet=%E4%BA%AC%E4%B8%9C%1F%E6%97%97%E8%88%B0%E5%BA%97&salesCategory=%E5%95%86%E7%94%A8%E5%87%80%E6%B0%B4&salesChannel=%E7%BA%BF%E4%B8%8A&salesProductQuery=SKU-1");

@@ -1,6 +1,7 @@
 "use client";
 
 import { SearchableMultiSelect } from "./ui/searchable-select";
+import { parseProductQueriesStrict, SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH } from "@/lib/sales/read-contract";
 
 export type SalesSharedFilters = {
   platforms: string[];
@@ -171,7 +172,7 @@ export function readSalesSharedFilters(input?: string | URL): SalesSharedFilters
     outletKeys: boundedSelections(params, "salesOutlet"),
     categories: boundedSelections(params, "salesCategory"),
     channels: boundedSelections(params, "salesChannel"),
-    productQuery: (params.get("salesProductQuery") ?? "").slice(0, 500),
+    productQuery: (params.get("salesProductQuery") ?? "").slice(0, SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH),
   };
 }
 
@@ -212,6 +213,9 @@ export default function SalesFilterBar({
   const visibleShops = filters.platforms.length
     ? options.shops.filter((shop) => filters.platforms.includes(shop.platform))
     : options.shops;
+  let productQueryError = "";
+  try { parseProductQueriesStrict(filters.productQuery); }
+  catch (error) { productQueryError = error instanceof Error ? error.message : "货品筛选无效"; }
   const hasApplicableFilter = filters.platforms.length > 0
     || filters.outletKeys.length > 0
     || (capabilities.categories !== false && filters.categories.length > 0)
@@ -243,7 +247,7 @@ export default function SalesFilterBar({
         <label><span>店铺</span><SearchableMultiSelect values={filters.outletKeys} onChange={(outletKeys) => patch({ outletKeys })} ariaLabel="销售分析店铺" allLabel="全部店铺" searchPlaceholder="搜索店铺或平台" maxSelections={maxSelectionsPerDimension} options={visibleShops.map((shop) => ({ value: shop.key, label: shop.platform === "未分类" ? shop.name : `${shop.platform} · ${shop.name}`, searchText: `${shop.platform} ${shop.name}` }))} /></label>
         {capabilities.categories !== false && <label><span>品类</span><SearchableMultiSelect values={filters.categories} onChange={(categories) => patch({ categories })} ariaLabel="销售分析品类" allLabel="全部品类" searchPlaceholder="搜索品类" maxSelections={maxSelectionsPerDimension} options={options.categories.map((category) => ({ value: category, label: category }))} /></label>}
         {capabilities.channels && <label><span>渠道</span><SearchableMultiSelect values={filters.channels} onChange={(channels) => patch({ channels })} ariaLabel="销售分析渠道" allLabel="全部渠道" searchPlaceholder="搜索渠道" maxSelections={maxSelectionsPerDimension} options={(options.channels ?? []).map((channel) => ({ value: channel, label: channel }))} /></label>}
-        {capabilities.product !== false && <label className="sales-shared-product-query"><span>货品编码或名称</span><input value={filters.productQuery} onChange={(event) => patch({ productQuery: event.target.value })} placeholder="支持多值，逗号或换行分隔" aria-label="销售分析货品编码或名称" /></label>}
+        {capabilities.product !== false && <label className="sales-shared-product-query"><span>货品编码或名称</span><textarea rows={2} maxLength={SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH} value={filters.productQuery} onChange={(event) => patch({ productQuery: event.target.value })} placeholder="粘贴多个代码，用逗号或换行分隔（最多1000字符、100项）" aria-label="销售分析货品编码或名称" aria-invalid={Boolean(productQueryError)} />{productQueryError && <small role="alert">{productQueryError}</small>}</label>}
         {hasApplicableFilter && <button type="button" className="secondary-button sales-overview-filter-reset" onClick={resetApplicable}>清空筛选</button>}
       </div>
     </div>

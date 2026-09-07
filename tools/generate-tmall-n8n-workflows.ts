@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+  tmallDirectPmProtocolForStore,
   tmallDirectPmProtocolHeader,
   tmallDirectProductMasterRoute,
   tmallDirectPromotionRoute,
@@ -14,6 +15,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const workflowDirectory = path.join(projectRoot, "automation", "n8n");
 const baseWorkflowFile = path.join(workflowDirectory, "tmall-yijiu-sycm-cookie-daily.workflow.json");
 export const tmallYijiuDirectPmCandidateFileName = "tmall-yijiu-direct-pm-candidate.workflow.json";
+export const tmallYiyongDirectPmCandidateFileName = "tmall-yiyong-direct-pm-candidate.workflow.json";
 
 export type TmallN8nWorkflowDefinition = {
   storeKey: string;
@@ -100,7 +102,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     fileName: "tmall-yiyong-sycm-cookie-daily.workflow.json",
     cronExpression: "20 14 * * *",
     scheduleName: "每天 14:20 运行",
-    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-26" },
+    productMasterCadence: { intervalDays: 1, initialDueDate: "2026-08-26" },
   },
 ] as const;
 
@@ -293,14 +295,14 @@ function renameWorkflowNode(workflow: WorkflowTemplate, node: WorkflowNode, targ
   replaceConnectionNode(workflow.connections, sourceName, targetName);
 }
 
-function addCandidateProtocolHeader(node: WorkflowNode) {
+function addCandidateProtocolHeader(node: WorkflowNode, protocol: string = TMALL_YIJIU_DIRECT_PM_PROTOCOL) {
   const parameters = node.parameters ??= {};
   parameters.sendHeaders = true;
   const headerParameters = parameters.headerParameters ??= { parameters: [] };
   const headers = Array.isArray(headerParameters.parameters) ? headerParameters.parameters : [];
   headerParameters.parameters = [
     ...headers.filter((header) => String(header.name ?? "").toLowerCase() !== tmallDirectPmProtocolHeader),
-    { name: "X-TERUISI-TMALL-CANDIDATE-PROTOCOL", value: TMALL_YIJIU_DIRECT_PM_PROTOCOL },
+    { name: "X-TERUISI-TMALL-CANDIDATE-PROTOCOL", value: protocol },
   ];
 }
 
@@ -358,6 +360,50 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
   return workflow;
 }
 
+// Reuse the verified transport description and node configuration, but bind all
+// identity-bearing fields again from Yiyong's own definition. No second ID or
+// schedule is created. This candidate stays unpublished until the cutover gates
+// (legacy M, cadence migration and matching deployed helper) have passed.
+export function buildTmallYiyongDirectPmCandidateWorkflow(source: WorkflowTemplate): WorkflowTemplate {
+  const definition = tmallN8nWorkflowDefinitions.find((item) => item.storeKey === "tmall-yiyong");
+  if (!definition) throw new Error("缺少亿用天猫工作流定义");
+  const protocol = tmallDirectPmProtocolForStore(definition.storeKey);
+  if (!protocol) throw new Error("亿用直连协议未批准");
+  const workflow = buildTmallN8nWorkflow(source, definition);
+  const reference = buildTmallYijiuDirectPmCandidateWorkflow(source);
+  workflow.name = "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）";
+  workflow.versionId = stableUuid("teruisi:tmall-yiyong:direct-pm:daily-m:v1");
+  workflow.meta = {
+    ...(workflow.meta ?? {}),
+    candidateProtocol: protocol,
+    replacesWorkflowId: definition.workflowId,
+    trialForYiyong: true,
+  };
+  for (const [legacyName, directName, route] of [
+    ["P·商品报表逐日下载、汇总导入并回查", "P·直连创建商品报表、下载、汇总导入并回查", tmallDirectPromotionRoute],
+    ["M·商品管家批量导出、校验并导入", "M·MTOP 分批导出、合并校验并导入", tmallDirectProductMasterRoute],
+  ]) {
+    const node = workflow.nodes.find((item) => item.name === legacyName);
+    if (!node) throw new Error("亿用基础模板缺少 P 或 M 节点");
+    node.parameters ??= {};
+    node.parameters.url = `http://127.0.0.1:5791${route}`;
+    addCandidateProtocolHeader(node, protocol);
+    renameWorkflowNode(workflow, node, directName!);
+  }
+  for (const name of ["凭证说明", "流程说明"]) {
+    const note = workflow.nodes.find((item) => item.name === name);
+    const content = reference.nodes.find((item) => item.name === name)?.parameters?.content;
+    if (!note || typeof content !== "string") throw new Error("直连模板说明缺失");
+    note.parameters ??= {};
+    note.parameters.content = content.replaceAll("亿玖", "亿用")
+      .replaceAll("tmall-yijiu", definition.storeKey)
+      .replaceAll("2026-08-27", definition.productMasterCadence.initialDueDate)
+      .replace("这是同一工作流 ID 的现行替换版本", "这是同一工作流 ID 的待验证候选版本")
+      .replace("直连现行模板", "直连待验证试点模板");
+  }
+  return workflow;
+}
+
 export async function generateTmallN8nWorkflows() {
   const source = JSON.parse(await readFile(baseWorkflowFile, "utf8")) as WorkflowTemplate;
   if (source.active) throw new Error("拒绝从已激活的天猫工作流生成扩店模板");
@@ -372,6 +418,9 @@ export async function generateTmallN8nWorkflows() {
   const candidate = buildTmallYijiuDirectPmCandidateWorkflow(source);
   await writeFile(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
   generated.push(candidatePath);
+  const yiyongPath = path.join(workflowDirectory, tmallYiyongDirectPmCandidateFileName);
+  await writeFile(yiyongPath, `${JSON.stringify(buildTmallYiyongDirectPmCandidateWorkflow(source), null, 2)}\n`, "utf8");
+  generated.push(yiyongPath);
   return generated;
 }
 

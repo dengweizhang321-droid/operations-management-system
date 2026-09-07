@@ -33,6 +33,8 @@ test("application shell keeps mobile period access and navigation focus behavior
   assert.match(page, /window\.history\.pushState/);
   assert.match(page, /window\.history\.replaceState/);
   assert.match(page, /window\.addEventListener\("popstate"/);
+  assert.doesNotMatch(page, /需要帮助|查看使用指南|sidebar-help/);
+  assert.doesNotMatch(styles, /sidebar-help/);
 });
 
 test("BI pilot cancels stale requests and uses the shared JSON client", async () => {

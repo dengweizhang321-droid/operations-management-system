@@ -6,6 +6,7 @@ import test from "node:test";
 
 import {
   assertPromotionCoveragePayload,
+  assertNoPendingPromotionForSkip,
   assertPromotionImportPayload,
   buildTmallPromotionItemReportUrl,
   buildTmallPromotionCoverageUrl,
@@ -73,7 +74,7 @@ test("推广入口严格选择阿里妈妈商品报表页并排除相似登录�
   ]), -1);
 });
 
-test("推广目标日期不因已有覆盖而跳过，并为每个业务日生成独立报表", () => {
+test("推广目标日期排除已有覆盖，并为每个缺失业务日生成独立报表", () => {
   const productDailyDates = [
     "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31",
     "2026-08-02", "2026-08-03",
@@ -85,7 +86,6 @@ test("推广目标日期不因已有覆盖而跳过，并为每个业务日生�
     promotionDates: ["2026-07-28"],
   });
   assert.deepEqual(plans, [
-    { startDate: "2026-07-28", endDate: "2026-07-28", dates: ["2026-07-28"] },
     { startDate: "2026-07-29", endDate: "2026-07-29", dates: ["2026-07-29"] },
     { startDate: "2026-07-30", endDate: "2026-07-30", dates: ["2026-07-30"] },
     { startDate: "2026-07-31", endDate: "2026-07-31", dates: ["2026-07-31"] },
@@ -115,16 +115,17 @@ test("推广目标日期不因已有覆盖而跳过，并为每个业务日生�
     requestedEndDate: "2026-08-04",
     productDailyDates,
     promotionDates: productDailyDates,
-  }), productDailyDates.map((date) => ({ startDate: date, endDate: date, dates: [date] })));
+  }), []);
 });
 
-test("推广显式日期始终执行且仍要求商品日先覆盖", () => {
+test("推广显式日期只有明确强制才重复执行且仍要求商品日先覆盖", () => {
   const input = {
     requestedStartDate: "2026-08-01",
     requestedEndDate: "2026-08-05",
     productDailyDates: ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"],
     promotionDates: ["2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"],
   } as const;
+  assert.deepEqual(planTmallPromotionDailyReports({ ...input, requestedDates: ["2026-08-01"] }), []);
   assert.deepEqual(planTmallPromotionDailyReports({
     ...input,
     requestedDates: ["2026-08-05", "2026-08-01", "2026-08-03", "2026-08-01"],
@@ -150,6 +151,18 @@ test("推广显式日期始终执行且仍要求商品日先覆盖", () => {
     forceExistingDates: true,
     maximumDays: 1,
   }), /超过单轮 1 天上限/);
+});
+
+test("推广无缺口不能跳过活动清单，跨店隔离且原证据不变", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-gap-"));
+  try {
+    const file = path.join(directory, "active-tmall-lili.json");
+    const original = JSON.stringify({ stage: "export_submitted", date: "2026-08-01" });
+    await writeFile(file, original);
+    await assert.rejects(assertNoPendingPromotionForSkip("tmall-lili", [directory]), /活动清单/);
+    await assertNoPendingPromotionForSkip("tmall-tuofeng", [directory]);
+    assert.equal(await readFile(file, "utf8"), original);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("推广日报严格串行执行且任意一天失败后不再处理后续日期", async () => {
@@ -814,6 +827,28 @@ test("没有商品日覆盖时推广阶段明确等待并通过失败状态让�
   }), /waiting_product_daily/);
 });
 
+test("已覆盖的推广日在下载前返回跳过，绝不调用导出；空计划覆盖变化失败关闭", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-covered-"));
+  let exported = false;
+  try {
+    const request = (async (input: Parameters<typeof fetch>[0]) => Response.json({
+      requestedPeriod: requestedPeriodFromFetchInput(input),
+      coverage: { productDailyDates: ["2026-07-28"], promotionDates: ["2026-07-28"] },
+    })) as typeof fetch;
+    const result = await runTmallPromotionStage({ storeKey: "tmall-yijiu", request,
+      auditDirectory: directory, dates: ["2026-07-28"],
+      executeDate: async () => { exported = true; throw new Error("must_not_export"); } });
+    assert.equal(result.status, "skipped");
+    assert.equal(result.reason, "already_covered");
+    assert.equal(result.reportCount, 0);
+    assert.equal(exported, false);
+    await assert.rejects(runTmallPromotionStage({ storeKey: "tmall-yijiu", request,
+      auditDirectory: directory, dates: [],
+      executeDate: async () => { exported = true; throw new Error("must_not_export"); } }), /覆盖已变化/);
+    assert.equal(exported, false);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("推广阶段 maximumDays 能把单轮日任务限制为一个且默认规划器上限不变", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-promotion-limit-"));
   let requestCount = 0;
@@ -826,7 +861,7 @@ test("推广阶段 maximumDays 能把单轮日任务限制为一个且默认规�
       return Response.json({
         requestedPeriod,
         coverage: singleDay
-          ? { productDailyDates: [requestedPeriod.startDate], promotionDates: [requestedPeriod.startDate] }
+          ? { productDailyDates: [requestedPeriod.startDate], promotionDates: [] }
           : { productDailyDates: ["2026-07-28", "2026-07-29"], promotionDates: [] },
       });
     }) as typeof fetch;
@@ -922,7 +957,7 @@ test("旧全站推已提交活动清单保持原样并阻止商品报表重复�
       request,
       auditDirectory: directory,
       dates: ["2026-07-28"],
-    }), /旧版或不同协议.*拒绝由商品报表流程接管/);
+    }), /活动清单.*禁止按无缺口跳过/);
     assert.deepEqual(JSON.parse(await readFile(auditPath, "utf8")), legacy);
   } finally {
     await rm(directory, { recursive: true, force: true });

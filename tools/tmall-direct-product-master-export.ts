@@ -18,7 +18,7 @@ import {
   tmallAutomationProjectRoot,
   type TmallProductMasterStageResult,
 } from "./tmall-product-master-export";
-import { TMALL_YIJIU_STORE_KEY } from "./tmall-yijiu-direct-pm-contract";
+import { assertTmallDirectPmStore } from "./tmall-yijiu-direct-pm-contract";
 
 export const TMALL_MTOP_URL = "https://h5api.m.taobao.com/h5/mtop.tmall.sell.pc.manage.async/1.0/";
 export const TMALL_MTOP_API = "mtop.tmall.sell.pc.manage.async";
@@ -564,10 +564,16 @@ async function inspectBatchFile(input: {
   return { ...evidence, productIds: actual };
 }
 
-async function assertNoLegacyMasterAction(store: TmallStore) {
-  for (const directory of [pagewiseAuditDirectory, productManagerAuditDirectory]) {
+export async function assertNoLegacyMasterAction(
+  store: Pick<TmallStore, "storeKey">,
+  directories: readonly string[] = [pagewiseAuditDirectory, productManagerAuditDirectory],
+) {
+  for (const directory of directories) {
     const filePath = activeAuditPath(store.storeKey, directory);
-    if (await stat(filePath).then(() => true).catch(() => false)) {
+    if (await stat(filePath).then(() => true).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    })) {
       throw new Error(`检测到原 M 节点活动清单 ${path.basename(directory)}，拒绝由 MTOP 直连候选接管`);
     }
   }
@@ -612,7 +618,7 @@ export async function runTmallDirectProductMasterStage(options: {
   auditDirectory?: string;
 }): Promise<TmallProductMasterStageResult> {
   const store = await getTmallStore(options.storeKey);
-  if (store.storeKey !== TMALL_YIJIU_STORE_KEY) throw new Error("MTOP 货品直连候选协议只允许志高亿玖专卖店");
+  assertTmallDirectPmStore(store.storeKey);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const snapshotDate = options.snapshotDate ?? shanghaiToday();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) throw new Error("天猫货品快照日期必须是 YYYY-MM-DD");

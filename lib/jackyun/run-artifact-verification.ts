@@ -8,10 +8,11 @@ import { assertBoundDownloadProvenance, type JackyunDownloadProvenance } from ".
 import { readJsonFile } from "./json-file";
 import type { JackyunModule } from "./post-download";
 import {
-  assertJackyunHistoricalSnapshotEvidence,
+  assertJackyunSnapshotEvidence,
   assertJackyunHandoffEvidence,
   createJackyunInputContractHash,
   type JackyunInputContract,
+  jackyunExportFirstPolicyVersion,
 } from "./run-contract";
 
 export type JackyunArtifactManifestModule = {
@@ -165,10 +166,11 @@ export async function verifyJackyunModuleArtifact(options: {
       || !isDeepStrictEqual(inputContract.snapshotEvidence, source.snapshotEvidence)) {
       throw new Error(`吉客云 ${options.module} 历史快照证据与输入契约不一致`);
     }
-    assertJackyunHistoricalSnapshotEvidence(inputContract.snapshotEvidence, {
+    assertJackyunSnapshotEvidence(inputContract.snapshotEvidence, {
       module: options.module,
       runId: options.runId,
       snapshotDate: options.snapshotDate,
+      policyVersion: options.policyVersion,
       exportIntentAt: inputContract.exportStart,
     });
   } else if (inputContract.snapshotDate !== undefined || inputContract.snapshotEvidence !== undefined
@@ -204,11 +206,22 @@ export async function verifyJackyunModuleArtifact(options: {
     throw new Error(`吉客云 ${options.module} 精确完成批次证据无效`);
   }
   if (options.module !== "sales") {
-    const expectedBatchId = options.module === "inventory"
-      ? output.sha256
-      : `${options.module}:${output.sha256}`;
-    if (batchId !== expectedBatchId) {
-      throw new Error(`吉客云 ${options.module} 批次号未与本轮归档输出 SHA-256 绑定`);
+    if (options.policyVersion === jackyunExportFirstPolicyVersion) {
+      const receipt = record(record(imported?.result)?.djangoReceipt);
+      const expectedSource = options.module === "inventory" ? "inventory_stock" : options.module;
+      if (!receipt || !["imported", "duplicate"].includes(String(receipt.status))
+        || receipt.batchId !== batchId || receipt.sourceKey !== expectedSource
+        || receipt.inputSha256 !== output.sha256 || !validSha(receipt.contentHash) || !validSha(receipt.rawFileHash)
+        || (receipt.status === "imported" && receipt.rawFileHash !== output.sha256)) {
+        throw new Error(`吉客云 ${options.module} Django 回执未与本轮归档和精确批次绑定`);
+      }
+    } else {
+      const expectedBatchId = options.module === "inventory"
+        ? output.sha256
+        : `${options.module}:${output.sha256}`;
+      if (batchId !== expectedBatchId) {
+        throw new Error(`吉客云 ${options.module} 批次号未与本轮归档输出 SHA-256 绑定`);
+      }
     }
   }
   if (options.summaryResult && (options.summaryResult.batchId !== batchId

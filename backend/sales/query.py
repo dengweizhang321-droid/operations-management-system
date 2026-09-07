@@ -94,6 +94,7 @@ def selected_values(query, *keys: str, maximum: int = 50, label: str | None = No
 
 
 def parse_product_queries(values: Iterable[str], *, strict: bool = True) -> list[str]:
+    values = list(values)
     parsed: list[str] = []
     for value in values:
         for candidate in PRODUCT_SPLIT_RE.split(value):
@@ -105,6 +106,8 @@ def parse_product_queries(values: Iterable[str], *, strict: bool = True) -> list
     parsed = list(dict.fromkeys(parsed))
     if strict and (len(parsed) > 100 or any(len(item) > 200 for item in parsed)):
         raise SalesRequestError("商品筛选最多 100 项，且每项不能超过 200 字。")
+    if strict and len("\n".join(values).strip()) > 1000:
+        raise SalesRequestError("货品筛选不能超过 1000 个字符。")
     return parsed[:100]
 
 

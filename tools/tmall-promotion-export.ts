@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -21,6 +21,7 @@ import {
   type TmallImportVerificationProof,
 } from "./tmall-import-verification";
 import { shanghaiYesterday } from "./tmall-multi-store-import-runner";
+import { planTmallDailyGaps } from "./tmall-daily-gap-plan";
 import {
   createTmallBrowserDownloadSession,
 } from "./tmall-product-master-export";
@@ -413,7 +414,9 @@ export function planTmallPromotionDailyReports(input: {
       throw new Error(`推广显式日期超过单轮 ${maximumDays} 天上限`);
     }
   }
-  const candidates = requestedDates ?? [...productDaily].sort();
+  const promotionDates = new Set(input.promotionDates);
+  const candidates = (requestedDates ?? [...productDaily].sort())
+    .filter((date) => input.forceExistingDates === true || !promotionDates.has(date));
   return candidates.slice(0, maximumDays).map((date) => ({
     startDate: date,
     endDate: date,
@@ -811,22 +814,15 @@ async function assertStoreIdentity(page: Page, store: TmallStore, surface: "千�
 
 async function assertAlimamaIdentity(page: Page, store: TmallStore) {
   await assertStoreIdentity(page, store, "阿里妈妈");
+  const text = await page.locator("body").innerText({ timeout: 5_000 });
+  if (!text.includes(store.shopName.replace(/^天猫-/, ""))) {
+    throw new Error("shop_identity_mismatch：阿里妈妈主页面未显示完整受控店铺名称");
+  }
 }
 
 export async function waitForAlimamaIdentity(page: Page, store: TmallStore, timeoutMs = 60_000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
-  while (Date.now() < deadline) {
-    try {
-      await assertAlimamaIdentity(page, store);
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith("waiting_login")) throw error;
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("阿里妈妈页面店铺身份核验超时");
+  const { ensureAlimamaLogin } = await import("./tmall-alimama-login");
+  await ensureAlimamaLogin(page, store, () => assertAlimamaIdentity(page, store), { timeoutMs });
 }
 
 async function waitUntil(timeoutMs: number, probe: () => Promise<boolean>, message: string, intervalMs = 500) {
@@ -3065,6 +3061,18 @@ async function runTmallPromotionDate(options: {
   }
 }
 
+export async function assertNoPendingPromotionForSkip(storeKey: string, directories: readonly string[]) {
+  for (const directory of new Set(directories)) {
+    try {
+      await lstat(activeAuditPath(storeKey, directory));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    throw new Error("推广已有覆盖但仍有活动清单，需核验原任务后安全续接，禁止按无缺口跳过");
+  }
+}
+
 export async function runTmallPromotionStage(options: {
   storeKey?: string;
   baseUrl?: string;
@@ -3087,24 +3095,28 @@ export async function runTmallPromotionStage(options: {
   const requestedDates = options.dates === undefined
     ? [latestAllowedDate]
     : [...new Set(options.dates)].sort();
-  if (requestedDates && requestedDates.length === 0) throw new Error("推广显式日期清单不能为空");
   if (requestedDates?.some((date) => !validDate(date) || date < store.initialStartDate! || date > latestAllowedDate)) {
     throw new Error(`推广显式日期必须位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
   }
-  const requestedStartDate = requestedDates[0]!;
-  const requestedEndDate = requestedDates.at(-1)!;
+  const requestedStartDate = requestedDates[0] ?? store.initialStartDate;
+  const requestedEndDate = requestedDates.at(-1) ?? latestAllowedDate;
   assertPromotionRunActive(options.signal);
   const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
+  if (requestedDates.length === 0 && planTmallDailyGaps({ startDate: requestedStartDate,
+    endDate: requestedEndDate, ...coverage, maximumDays: 1 }).selectedDates.length > 0) {
+    throw new Error("空日期计划的覆盖已变化，需从新的完整 execution 重新规划，禁止伪报无缺口");
+  }
   const missingProductDailyDates = requestedDates.filter((date) => !coverage.productDailyDates.includes(date));
   if (missingProductDailyDates.length > 0) {
     throw new Error(`waiting_product_daily：商品日数据尚未覆盖 ${missingProductDailyDates.join(", ")}，推广阶段需要稍后重试`);
   }
-  const plans = planTmallPromotionDailyReports({
+  const plans = requestedDates.length === 0 ? [] : planTmallPromotionDailyReports({
     requestedStartDate,
     requestedEndDate,
     productDailyDates: coverage.productDailyDates,
     promotionDates: coverage.promotionDates,
     requestedDates,
+    forceExistingDates: options.forceExistingDates,
     maximumDays: options.maximumDays,
   });
 
@@ -3124,6 +3136,18 @@ export async function runTmallPromotionStage(options: {
     const index = plans.findIndex((plan) => plan.startDate === recoveryDate);
     if (index >= 0) plans.splice(index, 1);
     plans.unshift({ startDate: recoveryDate, endDate: recoveryDate, dates: [recoveryDate] });
+  }
+
+  if (plans.length === 0) {
+    // A coverage hit is not permission to discard an unresolved platform task.
+    await assertNoPendingPromotionForSkip(store.storeKey, [runAuditDirectory,
+      artifactDirectory, directPromotionArtifactDirectory]);
+    return { ok: true, stage: "promotion", status: "skipped" as const, mode: "daily" as const,
+      reason: "already_covered", storeKey: store.storeKey, shopName: store.shopName,
+      startDate: requestedStartDate, endDate: requestedEndDate, dates: requestedDates,
+      plannedDates: [], completedDates: [], reportCount: 0, importedCount: 0, duplicateCount: 0,
+      skippedCount: requestedDates.length, rowCount: 0, warningCount: 0, dailyResults: [],
+      coverageConfirmed: true, forcedExistingDates: false };
   }
 
   const executeDate = options.executeDate ?? runTmallPromotionDate;

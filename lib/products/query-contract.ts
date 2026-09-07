@@ -2,6 +2,7 @@ export type ProductSummaryRange = "last30" | "last90" | "halfYear" | "custom";
 export type ProductSummarySort = "netSalesCents" | "grossProfitCents" | "grossMarginRate" | "refundRate" | "stockValueCents" | "netQuantity";
 export type ProductSummaryDirection = "asc" | "desc";
 export type ProductMarginBand = "below35" | "35to40" | "40to45" | "atLeast45" | "unavailable";
+export const PRODUCT_SUMMARY_QUERY_MAX_LENGTH = 1000;
 
 export type ProductSummaryQueryOptions = {
   range?: ProductSummaryRange;
@@ -22,6 +23,14 @@ export class ProductSummaryContractError extends Error {
     super(message);
     this.name = "ProductSummaryContractError";
   }
+}
+
+export function normalizeProductSummaryQuery(value: string) {
+  const query = value.trim();
+  if (query.length > PRODUCT_SUMMARY_QUERY_MAX_LENGTH) {
+    throw new ProductSummaryContractError(`搜索词不能超过 ${PRODUCT_SUMMARY_QUERY_MAX_LENGTH} 个字符`);
+  }
+  return query;
 }
 
 export function normalizeProductSummarySelections(

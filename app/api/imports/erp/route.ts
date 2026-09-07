@@ -11,6 +11,7 @@ import {
   createDjangoInventoryService,
   INVENTORY_IMPORTS_PATH,
 } from "@/lib/django/inventory-service";
+import { withCurrentInventoryBatchOwnership } from "@/lib/django/inventory-batch-ownership";
 import {
   createDjangoErpReferenceService,
   ERP_REFERENCE_IMPORTS_PATH,
@@ -48,7 +49,8 @@ export async function GET(request: Request) {
         { method: "GET", path: INVENTORY_IMPORTS_PATH, service: "reader", rawQuery: query.toString() },
         { signal: request.signal },
       );
-      return Response.json(result.data, { headers: { "cache-control": "no-store", "x-inventory-data-revision": result.revision } });
+      const data = await withCurrentInventoryBatchOwnership(principal, "age", batchId, result, { signal: request.signal });
+      return Response.json(data, { headers: { "cache-control": "no-store", "x-inventory-data-revision": result.revision } });
     }
     if (!source && !batchId) {
       const combinedLimit = page * pageSize;

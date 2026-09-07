@@ -62,7 +62,7 @@ function completed(date: string) {
   };
 }
 
-test("one pending report resumes at its original date before the requested day without overwriting its manifest", async () => {
+test("one pending report resumes at its original date without replaying an already-covered requested day", async () => {
   await withAudit(async (directory, auditPath, audit) => {
     const executed: string[] = [];
     const result = await runTmallPromotionStage({
@@ -75,7 +75,7 @@ test("one pending report resumes at its original date before the requested day w
         return completed(plan.startDate);
       },
     });
-    assert.deepEqual(executed, [originalDate, requestedDate]);
+    assert.deepEqual(executed, [originalDate]);
     assert.deepEqual(result.completedDates, executed);
     assert.equal(result.recoveryDate, originalDate);
   });

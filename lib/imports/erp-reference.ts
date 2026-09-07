@@ -403,6 +403,21 @@ export function isErpReferenceSourceKey(value: unknown): value is ErpReferenceSo
   return typeof value === "string" && (ERP_REFERENCE_SOURCE_KEYS as readonly string[]).includes(value);
 }
 
+function normalizeComboDisplayNames<T extends { rows: ComboItemImportRow[]; warnings: ErpReferenceIssue[] }>(parsed: T): T {
+  let changedFields = 0;
+  for (const row of parsed.rows) {
+    for (const field of ["parentName", "childName"] as const) {
+      if (/[\t\r\n]/.test(row[field])) {
+        row[field] = row[field].replace(/[ \t\r\n]+/g, " ").trim();
+        changedFields += 1;
+      }
+    }
+  }
+  if (changedFields) parsed.warnings.push({ code: "NORMALIZED_DISPLAY_WHITESPACE",
+    message: `组合装名称中 ${changedFields} 个字段的制表或换行空白已规范为空格，编号和子件数量保持原值` });
+  return parsed;
+}
+
 export function parseErpReferenceXlsx(
   source: ErpReferenceSourceKey,
   input: ArrayBuffer | Uint8Array,
@@ -417,11 +432,11 @@ export function parseErpReferenceXlsx(
       && hasHeader(parentSheet.rows, JKY_COMBO_PARENT_ALIASES, ["parentCode"])
       && hasHeader(childSheet.rows, JKY_COMBO_CHILD_ALIASES, ["parentCode", "childCode", "childQuantity"])
     ) {
-      const parsed = parseJkyComboWorkbook(parentSheet.rows, childSheet.rows);
+      const parsed = normalizeComboDisplayNames(parseJkyComboWorkbook(parentSheet.rows, childSheet.rows));
       return { source, sheetName: `${parentSheet.sheetName} + ${childSheet.sheetName}`, ...parsed };
     }
     const fallbackSheet = parseXlsxFirstSheet(input, { maxRows: MAX_REFERENCE_ROWS + 1 });
-    return { source, sheetName: fallbackSheet.sheetName, ...parseCombos(fallbackSheet.rows) };
+    return { source, sheetName: fallbackSheet.sheetName, ...normalizeComboDisplayNames(parseCombos(fallbackSheet.rows)) };
   }
 
   const sheet = parseXlsxFirstSheet(input, { maxRows: MAX_REFERENCE_ROWS + 1 });

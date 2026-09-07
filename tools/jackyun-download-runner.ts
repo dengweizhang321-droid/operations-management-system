@@ -4,12 +4,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   assertJackyunHistoricalSnapshotEvidence,
+  assertJackyunSnapshotEvidence,
   assertJackyunHandoffEvidence,
   createJackyunInputContractHash,
   isValidJackyunSourceRowCountCorrection,
   type JackyunInputContract,
   type JackyunHandoffEvidence,
   type JackyunHistoricalSnapshotEvidence,
+  type JackyunSnapshotEvidence,
   type JackyunSourceRowCountCorrection,
 } from "../lib/jackyun/run-contract";
 import {
@@ -29,6 +31,9 @@ import {
 } from "../lib/jackyun/download-provenance";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
 import { verifyJackyunModuleArtifact } from "../lib/jackyun/run-artifact-verification";
+import { jackyunDjangoImportReceipt } from "../lib/jackyun/django-import-receipt";
+import { jackyunExportFirstPolicyVersion } from "../lib/jackyun/run-contract";
+import { auditedComboNameRejection, isAuditedComboNameRepair } from "../lib/jackyun/combo-name-recovery";
 
 type CliOptions = {
   module: JackyunModule;
@@ -36,7 +41,7 @@ type CliOptions = {
   runId: string;
   policyVersion: string;
   snapshotDate?: string;
-  snapshotEvidence?: JackyunHistoricalSnapshotEvidence;
+  snapshotEvidence?: JackyunSnapshotEvidence;
   asOfDate?: string;
   costSourcePath?: string;
   exportStart: string;
@@ -540,6 +545,7 @@ async function uploadWorkbook(options: CliOptions, module: JackyunWorkbookModule
       fileSizeBytes: bytes.byteLength,
       chunkCount,
       fingerprint: `${module}:${fingerprint}`,
+      ...(options.snapshotDate ? { snapshotDate: options.snapshotDate } : {}),
     }),
   }));
   const upload = initBody.upload as { id?: string; receivedChunkIndexes?: number[] } | undefined;
@@ -611,7 +617,9 @@ function verifyWorkbookImport(
     ? importResponse.batch as Record<string, unknown>
     : null;
   if (!item) throw new Error(`导入后未找到本轮批次：${expectedId}`);
-  if (String(item.id ?? "") !== expectedId) throw new Error(`导入后批次号不一致：期望 ${expectedId}。`);
+  if (options.policyVersion === jackyunExportFirstPolicyVersion) {
+    jackyunDjangoImportReceipt(module, fingerprint, importResponse);
+  } else if (String(item.id ?? "") !== expectedId) throw new Error(`导入后批次号不一致：期望 ${expectedId}。`);
   const batch = summarizeBatch(item);
   if (batch.status !== "completed") throw new Error(`本轮批次状态不是 completed：${batch.status}`);
   if (batch.rowCount !== expectedRows) throw new Error(`导入后行数不一致：期望 ${expectedRows}，实际 ${batch.rowCount}。`);
@@ -685,10 +693,11 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
     if (!options.dryRun) assertJackyunHandoffEvidence(options.handoffEvidence, options.module);
     moveToStage("verify_historical_snapshot_evidence");
     if (options.module === "inventory" || options.module === "inventory_age") {
-      assertJackyunHistoricalSnapshotEvidence(options.snapshotEvidence, {
+      assertJackyunSnapshotEvidence(options.snapshotEvidence, {
         module: options.module,
         runId: options.runId,
         snapshotDate: options.snapshotDate!,
+        policyVersion: options.policyVersion,
         exportIntentAt: options.exportStart,
       });
     } else if (options.snapshotEvidence) {
@@ -746,9 +755,15 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         const result = { status: "duplicate_ignored", runId: options.runId, module: options.module, auditPath, manifestPath, existing };
         return result;
       }
-      const failedAudit = options.sourceRowCountCorrection
+      const failedAudit = options.sourceRowCountCorrection || (options.module === "combos" && existing.status === "failed")
         ? await readJsonFileOr<Record<string, unknown> | null>(auditPath, null)
         : null;
+      const comboRepairParse = options.module === "combos" && existing.status === "failed" && options.runId === auditedComboNameRejection.runId
+        ? prepareJackyunWorkbook("combos", rawBytes) : null;
+      const repairsComboName = !options.dryRun && isAuditedComboNameRepair({
+        runId: options.runId, module: options.module, sourceSha256: rawHash, inputContractHash, priorModule: existing, failedAudit,
+        relationCountVerified: comboRepairParse?.expectedBatchRowCount === 4392,
+      });
       const repairsExactRowCount = isExactFailedSourceRowCountRepair({
         runId: options.runId,
         module: options.module,
@@ -759,7 +774,12 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         priorModule: existing as unknown as Record<string, unknown>,
         failedAudit,
       });
-      if (repairsExactRowCount) {
+      if (repairsComboName) {
+        await writeFile(path.join(auditDirectory, `combos.name-whitespace-repair-${auditedComboNameRejection.auditSha256}.json`),
+          JSON.stringify({ failedAudit, repair: "audited_845_combo_name_whitespace", repairedAt: new Date().toISOString() }) + "\n", { flag: "wx" });
+        delete manifest.modules[options.module];
+        priorModule = undefined;
+      } else if (repairsExactRowCount) {
         await writeJsonAtomic(path.join(auditDirectory, `${options.module}.row-count-repair-${Date.now()}.json`), {
           ...failedAudit,
           repair: options.sourceRowCountCorrection,
@@ -868,6 +888,9 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         moduleResult = {
           status: "completed",
           responseStatus: typeof importResponse.status === "string" ? importResponse.status : null,
+          ...(options.policyVersion === jackyunExportFirstPolicyVersion ? {
+            djangoReceipt: jackyunDjangoImportReceipt(options.module, importHash, importResponse),
+          } : {}),
         };
       }
     }
