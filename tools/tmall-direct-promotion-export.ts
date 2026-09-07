@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import type { APIRequestContext, APIResponse, Page } from "playwright-core";
+import type { APIRequestContext, APIResponse, Page, Request } from "playwright-core";
 
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { connectPlaywrightBrowser } from "../lib/jackyun/playwright-client";
@@ -301,20 +301,43 @@ async function boundedDownload(url: string, signal?: AbortSignal, request: typeo
   return bytes;
 }
 
-async function discoverIdentifiers(page: Page, store: TmallStore) {
-  await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await waitForAlimamaIdentity(page, store);
-  // Only capture identifiers after authentication. Reloading this read-only list
-  // does not submit or regenerate a report, including during activity recovery.
-  const requestPromise = page.waitForRequest((request) => parseTmallAlimamaIdentifiers(request.url()) !== null, {
-    timeout: 60_000,
-  }).catch(() => null);
-  await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  const observed = await requestPromise;
-  await waitForAlimamaIdentity(page, store);
-  const identifiers = observed ? parseTmallAlimamaIdentifiers(observed.url()) : null;
-  if (!identifiers) throw new Error("未捕获到阿里妈妈下载列表的 csrfId/loginPointId");
-  return identifiers;
+export async function discoverTmallAlimamaIdentifiers(
+  page: Page,
+  store: TmallStore,
+  options: {
+    waitForIdentity?: typeof waitForAlimamaIdentity;
+    captureTimeoutMs?: number;
+  } = {},
+) {
+  const waitForIdentity = options.waitForIdentity ?? waitForAlimamaIdentity;
+  const captureTimeoutMs = options.captureTimeoutMs ?? 60_000;
+  let identifiers: AlimamaIdentifiers | null = null;
+  const captureIdentifiers = (request: Request) => {
+    identifiers ??= parseTmallAlimamaIdentifiers(request.url());
+  };
+
+  // The download-list request can fire during the first authenticated
+  // navigation. Listen before navigation, but only use a captured value after
+  // the store identity has passed the existing DPAPI-backed login guard.
+  page.on("request", captureIdentifiers);
+  try {
+    await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await waitForIdentity(page, store);
+    if (!identifiers) {
+      const requestPromise = page.waitForRequest(
+        (request) => parseTmallAlimamaIdentifiers(request.url()) !== null,
+        { timeout: captureTimeoutMs },
+      ).catch(() => null);
+      await page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      const observed = await requestPromise;
+      await waitForIdentity(page, store);
+      identifiers = observed ? parseTmallAlimamaIdentifiers(observed.url()) : identifiers;
+    }
+    if (!identifiers) throw new Error("未捕获到阿里妈妈下载列表的 csrfId/loginPointId");
+    return identifiers;
+  } finally {
+    page.off("request", captureIdentifiers);
+  }
 }
 
 async function apiCreateTask(api: APIRequestContext, identifiers: AlimamaIdentifiers, audit: DirectPromotionAudit) {
@@ -493,7 +516,7 @@ async function runDirectPromotionDate(options: {
       try {
         const identifiers = audit.taskId
           ? null
-          : await discoverIdentifiers(connected.page, store);
+          : await discoverTmallAlimamaIdentifiers(connected.page, store);
         if (audit.taskId) {
           await connected.page.goto(TMALL_PROMOTION_DOWNLOAD_LIST_URL, {
             waitUntil: "domcontentloaded",

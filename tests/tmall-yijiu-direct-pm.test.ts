@@ -7,9 +7,12 @@ import {
   assertTmallSignedDownloadUrl,
   buildTmallDirectPromotionRequestBody,
   directPromotionLegacyAuditBlocks,
+  discoverTmallAlimamaIdentifiers,
   findTmallDirectPromotionTask,
   parseTmallAlimamaIdentifiers,
 } from "../tools/tmall-direct-promotion-export";
+import type { Page, Request } from "playwright-core";
+import type { TmallStore } from "../lib/netshop/tmall-store-registry";
 import {
   TMALL_MTOP_API,
   TMALL_MTOP_EXPORT_PATH,
@@ -71,6 +74,45 @@ test("P 只从 bpcommon 下载列表真实请求取得临时标识并按唯一 t
   assert.throws(() => findTmallDirectPromotionTask({
     data: { list: [{ id: 42 }, { id: "42" }] },
   }, "42"), /重复 taskId/);
+});
+
+test("P 在首次导航前监听会话标识，登录身份通过后直接使用首次请求", async () => {
+  let requestListener: ((request: Request) => void) | undefined;
+  let navigations = 0;
+  let fallbackWaits = 0;
+  let detached = false;
+  const page = {
+    on: (event: string, listener: (request: Request) => void) => {
+      assert.equal(event, "request");
+      requestListener = listener;
+    },
+    off: (event: string, listener: (request: Request) => void) => {
+      assert.equal(event, "request");
+      assert.equal(listener, requestListener);
+      detached = true;
+    },
+    goto: async () => {
+      navigations += 1;
+      requestListener?.({
+        url: () => "https://bpcommon.alimama.com/commonapi/report/async/findPage.json?csrfId=first-load&loginPointId=store-session",
+      } as Request);
+    },
+    waitForRequest: async () => {
+      fallbackWaits += 1;
+      throw new Error("首次导航已捕获时不应再次等待");
+    },
+  } as unknown as Page;
+  const store = { storeKey: "tmall-yijiu" } as TmallStore;
+
+  const identifiers = await discoverTmallAlimamaIdentifiers(page, store, {
+    waitForIdentity: async () => {},
+    captureTimeoutMs: 1,
+  });
+
+  assert.deepEqual(identifiers, { csrfId: "first-load", loginPointId: "store-session" });
+  assert.equal(navigations, 1);
+  assert.equal(fallbackWaits, 0);
+  assert.equal(detached, true);
 });
 
 test("P/M 临时下载链接限制在 HTTPS 阿里云 OSS，且旧业务动作清单阻止协议切换", () => {
