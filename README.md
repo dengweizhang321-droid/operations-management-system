@@ -23,6 +23,8 @@ AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/Postgr
 
 `-Open` 及桌面控制面板的“打开页面”会显式使用 Google Chrome，不依赖 Windows 默认浏览器。
 
+桌面应用可用 `pwsh -NoProfile -File tools/install-desktop-launcher.ps1` 安装或重建。安装后双击桌面/开始菜单中的“运营管理系统”，或按 `Ctrl+Alt+O`：已就绪时直接用 Chrome 打开；未就绪时显示等待窗口，仅委托既有总控 `Start -Open`，成功后自动打开页面。应用安装在当前用户的 `%LOCALAPPDATA%\TERUISI\Launcher`，失败时可在窗口查看本次日志；关闭窗口不会停止服务器。安装只创建本机桌面入口，不改变服务部署、开机启动项或业务数据。开发时可用 `-InstallDirectory <临时目录> -NoShortcuts` 隔离验证。
+
 唯一启动引擎位于 `tools/worker-local-service.ps1 -Action Start`：它先验证并按需启动完整 Django/PostgreSQL 栈，再处理 Worker。`运行项目.bat`、`npm start`、`npm run dev` 和登录启动项直接汇聚到该引擎；桌面控制面板与上面的 `operations-system-control.ps1 -Action Start` 是带组合状态、日志和最终 HTTP 回查的界面层，启动时仍只调用这一个引擎，不再复制启动逻辑。重复点击控制面板时返回 `start_in_progress`；系统已经完整运行时返回 `already_running`，不会重启现有进程。当前机器的完整冷启动预算为 1–2 分钟；控制面板会持续显示当前阶段和日志摘要。登录快捷方式已于 2026-09-06 经受控激活重绑至 `20260905T180043Z-7364a22437c52ae1` 并通过回读；后续版本仍必须走 successor 激活和启动绑定门禁。
 
 顶层 `Start`/`Stop` 把销售/财务与网店、市场、商品经营、库存和运营事务新品视为同一次受控生命周期操作：完整运行目录 ACL 审计只执行一次，后续子域只能在同一 PowerShell 进程、同一 runtime/部署清单且 15 分钟内复用该结果，并仍回读根 ACL 与应用清单。直接操作某个子域、上下文过期或任一绑定不一致时，仍会执行完整 ACL 审计。Worker release 的 source、dist、`node_modules` 和 helper 仍逐文件校验，但元数据读取与文件预取使用有界并发，最终 SHA-256 顺序和旧 manifest 协议保持不变。
