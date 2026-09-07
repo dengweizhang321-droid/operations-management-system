@@ -488,7 +488,8 @@ test("imports dynamic monthly financial reports and exposes target-linked analys
   ]);
 
   for (const label of ["财报分析", "目标设置", "月度财报", "费用同环比与异常点", "大毛利率", "退货率", "费用率", "全部月份", "8系列"]) assert.match(salesModule, new RegExp(label));
-  assert.match(salesModule, /\.xls/);
+  const importModule = await readFile(new URL("../app/import-module-view.tsx", import.meta.url), "utf8");
+  assert.match(importModule, /key: "finance"[^\r\n]+directEndpoint: "\/api\/imports\/finance"[^\r\n]+extensions: \["\.xls", "\.xlsx"\]/);
   assert.match(salesModule, /\/api\/finance\/analysis/);
   assert.match(salesModule, /\/api\/finance\/targets/);
   assert.match(schema, /financeImportBatches/);

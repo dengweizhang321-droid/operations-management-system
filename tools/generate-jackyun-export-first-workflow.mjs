@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
+const directHttp = process.argv.includes("--direct-http");
+if (process.argv.slice(2).some(arg => arg !== "--direct-http")) throw new Error("Unknown workflow option");
 const original = JSON.parse(await readFile(new URL("automation/n8n/jd-multi-store-daily.workflow.json", root), "utf8"));
 const id = name => createHash("sha256").update(`jackyun-export-first:${name}`).digest("hex").slice(0, 32);
 const cloneNode = name => {
@@ -15,8 +17,8 @@ claim.parameters.headerParameters.parameters.find(item => item.name === "X-TERUI
 const claimed = cloneNode("helper 领取成功？"); claimed.position = [-300, 0];
 const wait = cloneNode("等待前序流程释放 helper"); wait.position = [-540, 220];
 const steps = [
-  ["plan-web-session", "A·固定采集日和销售日期", [-60, 0], 120000],
-  ["export-all", "B·共用登录态：顺序导出五表", [280, 0], 1800000],
+  [directHttp ? "plan-direct-http" : "plan-web-session", "A·固定采集日和销售日期", [-60, 0], 120000],
+  ["export-all", directHttp ? "B·网页校验后 HTTP 导出五表" : "B·共用登录态：顺序导出五表", [280, 0], 1800000],
   ["validate", "C·五表完整校验和导入演练", [620, 0], 1800000],
   ["import", "D·统一导入运营管理系统", [960, 0], 5400000],
   ["verify", "E·独立核验五类精确批次", [1300, 0], 300000],
@@ -42,4 +44,8 @@ for (const [name, content, position, width] of [
   parameters: { content, width, height: 245, color: 4 } });
 const workflow = { id: "J8kY2mQ5vR7sT4pN", name: "吉客云导入系统", nodes, connections, pinData: {}, active: false,
   settings: { executionOrder: "v1", timezone: "Asia/Shanghai" }, tags: [] };
-await writeFile(new URL("automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(workflow, null, 2)}\n`, "utf8");
+if (directHttp) {
+  const note = nodes.find(node => node.name === "五表操作说明");
+  note.parameters.content += "\nHTTP 版本保留网页初始化、动态仓库/字段、权限和组合装确认；拦截最终提交，以本机 HTTP 创建任务和查询结果。HTTP 阶段专用浏览器离线，由唯一会话所有者按需续期；遇到提交不确定性不重试。此版本仍需要专用浏览器，不是零浏览器实现。";
+}
+await writeFile(new URL(directHttp ? "automation/n8n/jackyun-five-dataset-http.workflow.json" : "automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(workflow, null, 2)}\n`, "utf8");

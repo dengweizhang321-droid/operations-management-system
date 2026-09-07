@@ -98,7 +98,8 @@ async function fixture() {
         downloadProvenance: { runId: options.runId, module: moduleKey, policyVersion: jackyunExportFirstPolicyVersion,
           method: "browser_event", downloadId: `test-${moduleKey}`, originalFileName: "12345678.xlsx", completedAt: at(6), sha256: hash(bytes), bytes: bytes.length,
           ...(options.exportFirstBatch ? { sourceUrlHash: "a".repeat(64) } : {}) },
-        ...(options.exportFirstBatch ? { evidence: { exportTransport: "web_session_batch_v1", taskQuerySource: "web_session_api",
+        ...(options.exportFirstBatch ? { evidence: { exportTransport: options.directHttp ? "web_prepared_http_v1" : "web_session_batch_v1", taskQuerySource: options.directHttp ? "direct_http_api" : "web_session_api",
+          ...(options.directHttp ? { directPayloadSha256: "b".repeat(64) } : {}),
           exportTaskBinding: { version: 1, taskId: `sys-${100 + jackyunModuleOrder.indexOf(moduleKey)}`, module: moduleKey,
             label: "fixture", sourceRows: counts[moduleKey], sourceUrlHash: "a".repeat(64), createdAt: at(5), observedAt: at(6) } } } : {}),
       });
@@ -188,6 +189,26 @@ test("web transport cannot adopt legacy plans or start a browser after midnight"
   await runJackyunExportFirstAction("plan-web-session", "982", f.deps);
   await assert.rejects(runJackyunExportFirstAction("export-all", "982", { ...f.deps, now: () => new Date("2026-09-07T01:00:00Z") }), /跨日/);
   assert.deepEqual(f.calls, []);
+});
+
+test("HTTP plans stay distinct, preserve the five-file import barrier, and require matching handoff transport", async () => {
+  const f = await fixture();
+  const single = f.deps.runBrowser!;
+  f.deps.runBrowser = async options => {
+    assert.equal(options.directHttp, true);
+    for (const moduleKey of jackyunExportOrder) {
+      await options.beforeModule!(moduleKey);
+      await single({ ...options, exportOnlyModule: moduleKey });
+      await options.afterModule!(moduleKey);
+    }
+    return { status: "exported", runId: options.runId, controllerStatePath: "unused" };
+  };
+  const run = (action: string) => runJackyunExportFirstAction(action, "987", f.deps);
+  assert.equal((await run("plan-direct-http")).exportTransport, "web_prepared_http_v1");
+  await assert.rejects(run("plan-web-session"), /不能接管/);
+  await assert.rejects(run("import"), /全部导出/);
+  await run("export-all"); await run("validate"); await run("import");
+  assert.deepEqual(f.calls, [...jackyunExportOrder.map(m => `export:${m}`), ...jackyunModuleOrder.map(m => `validate:${m}`), ...jackyunModuleOrder.map(m => `import:${m}`)]);
 });
 test("cross-day and concurrent executions stop before browser side effects", async () => {
   const f = await fixture();
