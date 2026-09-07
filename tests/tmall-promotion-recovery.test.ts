@@ -114,6 +114,45 @@ test("an empty new plan resumes an already-imported audit on its exact original 
   });
 });
 
+test("a lost resumeStage uses post-submission task scan proof and never creates a second report", async () => {
+  await withAudit(async (directory, auditPath, audit) => {
+    await writeFile(auditPath, JSON.stringify({
+      ...audit,
+      stage: "failed",
+      dialogAttempts: 1,
+      taskScanDiagnostic: {
+        capturedAt: "2026-09-07T13:42:37.435Z",
+        rowCandidates: 0,
+        visibleRows: 0,
+        strictRows: 0,
+        downloadActions: 0,
+        visibleDownloadActions: 0,
+        strictActionScopes: 0,
+        visibleActionBoxes: [],
+        candidateCount: 0,
+        candidates: [],
+      },
+      error: "outer timeout replaced the original failure",
+    }), "utf8");
+    const executed: string[] = [];
+    const result = await runTmallPromotionStage({
+      storeKey,
+      baseUrl,
+      dates: [requestedDate],
+      maximumDays: 1,
+      auditDirectory: directory,
+      request: mockCoverage(),
+      executeDate: async ({ plan, recoveryRunId }) => {
+        assert.equal(recoveryRunId, audit.runId);
+        executed.push(plan.startDate);
+        return completed(plan.startDate);
+      },
+    });
+    assert.deepEqual(executed, [originalDate]);
+    assert.equal(result.recoveryDate, originalDate);
+  });
+});
+
 test("an empty covered plan without recovery rechecks only the immutable plan range", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "tmall-empty-plan-test-"));
   try {
