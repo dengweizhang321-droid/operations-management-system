@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-daily.workflow.json";
+import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-http.workflow.json";
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
@@ -76,19 +76,21 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     definition: jackyunWorkflowDefinition as N8nWorkflowDefinition,
     subtitle: "吉客云 ERP 货品、分仓库存、库龄、销售和组合装的一体化每日导入流程。",
     tags: ["吉客云 ERP", "Asia/Shanghai", "五类严格串行"],
-    flowLabel: "A → B → C",
-    pipelineTitle: "三段式五类安全导入链路",
-    pipelineDescription: "自动定时已停用；五类数据当前由操作者手动导入。",
+    flowLabel: "A → B → C → D → E",
+    pipelineTitle: "五表先导出后导入",
+    pipelineDescription: "手动启动后，依次完成五表导出、完整校验、统一导入和结果核验。",
     workflowMetric: "吉客云导入系统",
     scheduleMetric: "已停用",
-    scheduleDescription: "当前由操作者手动导入五类数据",
+    scheduleDescription: "手动启动完整五表流程",
     scheduleTriggerLabel: "自动定时",
     iframeTitle: "吉客云导入系统 n8n 工作流",
-    safetyNote: "页面只嵌入本机编辑器，吉客云账号、密码、Cookie、Token 和 Session 均不进入运营系统。A 会跳过已有完整当日结果；B 复用正式五类 runner 的下载绑定、刷刷仓过滤、批次幂等与落库回查；C 独立重读清单、审计和精确批次。",
+    safetyNote: "页面只嵌入本机编辑器，吉客云账号、密码、Cookie、Token 和 Session 均不进入运营系统。五表全部下载并通过校验后才开始导入；库存和库龄使用实际采集日，销售按发货时间从月初统计至昨天。最终以五类精确批次核验结果为准。",
     stageDetails: {
-      A: { title: "生成安全计划", description: "按上海时区计算昨天，核验本机系统、专用 profile、策略版本和当日完成状态。" },
-      B: { title: "五类串行执行", description: "依次完成货品、分仓库存、库龄、销售、组合装的下载、校验、导入和回查。" },
-      C: { title: "独立结果核验", description: "重读日汇总、运行清单和模块审计，确认五类顺序、日期与精确批次。" },
+      A: { title: "固定采集与销售日期", description: "按上海时区固定库存采集日及销售截止日，核验执行条件。" },
+      B: { title: "依次导出五表", description: "完成分仓库存、组合装及子件、销售明细、库龄、SKU 货品的导出和下载。" },
+      C: { title: "五表完整校验", description: "核对原文件、日期、行数和业务范围，并完成导入演练。" },
+      D: { title: "统一导入系统", description: "按货品、分仓库存、库龄、销售、组合装顺序导入，保留来源和批次。" },
+      E: { title: "独立结果核验", description: "重读审计和五类精确批次，确认实际导入结果。" },
     },
   },
   tmall: {
