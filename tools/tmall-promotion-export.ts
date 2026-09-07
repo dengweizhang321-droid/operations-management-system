@@ -3079,6 +3079,8 @@ export async function runTmallPromotionStage(options: {
   request?: typeof fetch;
   auditDirectory?: string;
   dates?: readonly string[];
+  planStartDate?: string;
+  planEndDate?: string;
   forceExistingDates?: boolean;
   maximumDays?: number;
   executeDate?: typeof runTmallPromotionDate;
@@ -3098,6 +3100,12 @@ export async function runTmallPromotionStage(options: {
   if (requestedDates?.some((date) => !validDate(date) || date < store.initialStartDate! || date > latestAllowedDate)) {
     throw new Error(`推广显式日期必须位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
   }
+  if ((options.planStartDate === undefined) !== (options.planEndDate === undefined)
+    || options.planStartDate !== undefined && (!validDate(options.planStartDate)
+      || !validDate(options.planEndDate!) || options.planStartDate < store.initialStartDate
+      || options.planStartDate > options.planEndDate! || options.planEndDate! > latestAllowedDate)) {
+    throw new Error(`推广计划范围必须完整且位于 ${store.initialStartDate} 至 ${latestAllowedDate}`);
+  }
   const recovery = await (options.resolveRecovery ?? readTmallPromotionRecovery)({
     store, baseUrl, auditDirectory: runAuditDirectory, latestAllowedDate,
   });
@@ -3106,8 +3114,8 @@ export async function runTmallPromotionStage(options: {
   // succeeded before the exact proof was acknowledged. Scope the consistency
   // check to that immutable recovery date instead of scanning unrelated
   // historical gaps for the whole store.
-  const requestedStartDate = requestedDates[0] ?? recoveryDate ?? store.initialStartDate;
-  const requestedEndDate = requestedDates.at(-1) ?? recoveryDate ?? latestAllowedDate;
+  const requestedStartDate = requestedDates[0] ?? recoveryDate ?? options.planStartDate ?? store.initialStartDate;
+  const requestedEndDate = requestedDates.at(-1) ?? recoveryDate ?? options.planEndDate ?? latestAllowedDate;
   assertPromotionRunActive(options.signal);
   const coverage = await coverageForStore(baseUrl, store, requestedStartDate, requestedEndDate, request);
   if (requestedDates.length === 0 && planTmallDailyGaps({ startDate: requestedStartDate,
