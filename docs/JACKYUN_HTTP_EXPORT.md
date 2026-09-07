@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-候选工作流为 `automation/n8n/jackyun-five-dataset-http.workflow.json`。它与原工作流使用同一 n8n ID，部署时应更新已有工作流，不能另外激活一条竞争链。文件默认未激活、只有手动触发；生成命令是 `node tools/generate-jackyun-export-first-workflow.mjs --direct-http`。原生成命令和原工作流文件保持原行为。
+当前本机已采用工作流为 `automation/n8n/jackyun-five-dataset-http.workflow.json`。它与原工作流使用同一 n8n ID，部署时更新已有工作流，不能另外激活一条竞争链。文件默认未激活、只有手动触发；生成命令是 `node tools/generate-jackyun-export-first-workflow.mjs --direct-http`。不带参数的原生成命令和原工作流文件仍用于历史网页会话协议；后续发布当前版本应使用 HTTP 定义。
 
 本版本借鉴独立签名请求、异步导出任务和统一续期，不依赖他人的源码。采用的是已登录网站自身的接口协议，并非吉客云官方开放平台的 AppKey 接入。该版本仍需专用浏览器初始化、读取动态仓库和字段、验证 SKU/日期/货主/权限；不能称为零浏览器取数。网页客户端发布后协议可能变化，签名比对或参数结构不符会停止。
 
@@ -49,3 +49,18 @@
 用户确认进入发布流程后，全量单元测试为 1,979 通过、20 跳过、0 失败；构建产物及渲染契约 20 项通过。修正了一处新增测试的保留变量命名，以及既有财报渲染测试仍在销售页面查找上传扩展名的过期断言：上传入口已在统一数据导入页，测试现在精确核验该页财报入口、API 及 `.xls/.xlsx` 支持，没有修改财务业务实现。
 
 142 项类型诊断与基线完全一致，按既有网页会话版和本机发布记录的无新增标准核验；它不是本次新增故障，先前将其描述为必须全部消除后才能采用候选版本不够准确。共享 Worker/helper 的发布窗口须与其他正在运行的任务串行协调，收到释放通知后才切换版本。
+
+## 2026-09-08 本机正式采用
+
+用户授权发布，且天猫在途执行终态、浏览器关闭、helper 空闲并明确交接后，本机经 Stop → plan → 精确 SHA apply → 原 n8n ID 更新 → Start 完成采用。源码为 `237427e409bbe68c96d601cf2af9ef4bd2801474`，包含吉客云 PR #22/#25 和同期天猫 PR #23/#24；没有覆盖其他任务的新修复。
+
+- Worker/helper release：`20260907T164126Z-c0bafded45a318c6`（上海日期为 9 月 8 日）。
+- manifest SHA：`efab585c7498fd18e1f586fe0255e9aa4108d175d15863a24b396864f7fcaf11`。
+- plan SHA：`d28687bcdc359cfdd8dce95706dcd4edcf9cbff5a81a27e9b910a7a4dfa9d419`。
+- 原 n8n ID `J8kY2mQ5vR7sT4pN`，新 version ID `bfc65dde-b3c5-41c8-8fd9-592bc678ffb8`；11 个节点、连接、设置、标签和项目归属回读一致，仍为 `active=false`、手动触发。
+- Status 为 `exact_release`，VerifyStartup 为 `verified`；readiness 200、无不可用服务；helper 为 `ready/busy=false/activeWorkflow=null`，吉客云 profile 为 ready。
+- 缺少 execution ID 的 HTTP 计划请求按预期返回 409，未领取执行权或写计划；Django/PostgreSQL 的 24 个监听端口及 PID 前后一致。
+
+本次没有运行新的业务 execution、没有导入正式业务数据、没有迁移数据库或调整成本规则。此前的五表实测是下载与本地 dry-run，不能表述为新版本已完成一次生产导入。其他任务的活动审计、待生成平台任务和浏览器资料均未更改；发布验证后已交还共享窗口。后续恢复仍遵循不可变发布链及现有 Django 单写边界，不通过删除已发布事实或恢复旧 D1 实现回滚。
+
+精简证据见 [`evidence/jackyun-http-release-20260908.json`](evidence/jackyun-http-release-20260908.json)。完整日志、原/新工作流备份及验收文件归档到 `D:\codex-artifacts\jackyun-http-release-20260907`，原始五表文件仍在 `D:\谷歌浏览器\jackyun\http-acceptance-1788793857188`。
