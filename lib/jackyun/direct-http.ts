@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 
 // This is the authenticated website protocol, not the separately licensed Open API.
 // Signing material and credentials are supplied at runtime and never serialized here.
-export type JackyunSession = { accessToken: string; refreshToken: string; appkey: string; signingSecret: string };
+export type JackyunSession = { accessToken: string; refreshToken: string; appkey: string; signingSecret: string;
+  cookie?: string; userAgent?: string; ati?: string };
 export type JackyunHttpOperation = "tasks" | "validateExport" | "submitExport";
 const operations = {
   tasks: { path: "/jkyun/tms/taskmanage/sysTaskInfoList", method: "GET", replaySafe: true },
@@ -10,12 +11,21 @@ const operations = {
   submitExport: { path: "/jkyun/excel-service/manager/startExcelExport", method: "POST", replaySafe: false },
 } as const;
 const origin = "https://web.jackyun.com";
+class JackyunHttpTransportFailure extends Error {
+  constructor(error?: unknown) {
+    const value = error as { name?: string; cause?: { code?: string } } | undefined;
+    const raw = value?.name === "TimeoutError" ? "TIMEOUT" : value?.cause?.code;
+    const code = ["TIMEOUT", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "UND_ERR_SOCKET"].includes(raw ?? "") ? raw : "NETWORK_ERROR";
+    super(`JACKYUN_HTTP_RESPONSE_UNVERIFIED:${code}`);
+  }
+}
 
 function assertSession(value: JackyunSession) {
   if (![value.accessToken, value.refreshToken, value.appkey, value.signingSecret].every(v =>
     typeof v === "string" && v.length > 0 && v.length < 16384 && !/[\r\n]/.test(v))) {
     throw new Error("JACKYUN_SESSION_INVALID");
   }
+  if ([value.cookie, value.userAgent, value.ati].some(v => v !== undefined && (typeof v !== "string" || v.length > 32768 || /[\r\n]/.test(v)))) throw new Error("JACKYUN_SESSION_INVALID");
 }
 
 /** Matches jkUtils.jkGetSign, including unsigned empty/whitespace/undefined values. */
@@ -70,9 +80,19 @@ export class JackyunHttpSession {
     this.#allowRefresh = options.allowRefresh === true;
   }
 
-  async #json(path: string, init: RequestInit): Promise<{ status: number; body: Record<string, unknown> }> {
+  #headers(moduleCode = ""): Record<string, string> {
+    return { Authorization: `Bearer ${this.#session.accessToken}`, module_code: moduleCode,
+      "Content-Type": "application/x-www-form-urlencoded", Origin: origin, Referer: origin + "/", "X-Requested-With": "XMLHttpRequest",
+      ...(this.#session.cookie ? { Cookie: this.#session.cookie } : {}),
+      ...(this.#session.userAgent ? { "User-Agent": this.#session.userAgent } : {}),
+      ...(this.#session.ati ? { ati: this.#session.ati } : {}),
+    };
+  }
+
+  async #json(path: string, init: RequestInit, timeoutMs = 15000): Promise<{ status: number; body: Record<string, unknown> }> {
     try {
-      const response = await this.#fetch(origin + path, { ...init, redirect: "error", signal: AbortSignal.timeout(15000) });
+      const response = await this.#fetch(origin + path, { ...init, redirect: "error", signal: AbortSignal.timeout(timeoutMs) })
+        .catch(error => { throw new JackyunHttpTransportFailure(error); });
       if (!response.headers.get("content-type")?.toLowerCase().includes("application/json")) throw new Error();
       const reader = response.body?.getReader();
       if (!reader) throw new Error();
@@ -80,7 +100,7 @@ export class JackyunHttpSession {
       let size = 0;
       try {
         for (;;) {
-          const part = await reader.read();
+          const part = await reader.read().catch(error => { throw new JackyunHttpTransportFailure(error); });
           if (part.done) break;
           size += part.value.byteLength;
           if (size > 2 * 1024 * 1024) throw new Error();
@@ -90,8 +110,9 @@ export class JackyunHttpSession {
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       if (!body || Array.isArray(body) || typeof body !== "object") throw new Error();
       return { status: response.status, body };
-    } catch {
+    } catch (error) {
       // A transport error can contain signed URLs, tokens or response contents.
+      if (error instanceof JackyunHttpTransportFailure) throw error;
       throw new Error("JACKYUN_HTTP_RESPONSE_UNVERIFIED");
     }
   }
@@ -104,11 +125,12 @@ export class JackyunHttpSession {
       const previous = { ...this.#session };
       try {
         const { status, body } = await this.#json("/auth/refresh", {
-          method: "POST", headers: { clientId: "jackyun_web_browser", "Content-Type": "application/x-www-form-urlencoded", Origin: origin, Referer: origin + "/" },
+          method: "POST", headers: { ...this.#headers(), clientId: "jackyun_web_browser" },
           body: new URLSearchParams({ refreshToken: previous.refreshToken }).toString(),
         });
         if (status !== 200 || typeof body.access_token !== "string" || typeof body.refresh_token !== "string") throw new Error();
         const next = { ...previous, accessToken: body.access_token, refreshToken: body.refresh_token };
+        if (previous.cookie) next.cookie = previous.cookie.split(/;\s*/).map(part => part.startsWith("token=") ? `token=${encodeURIComponent(next.accessToken)}` : part).join("; ");
         assertSession(next);
         await this.#publish(Object.freeze(previous), Object.freeze(next));
         this.#session = next;
@@ -130,11 +152,20 @@ export class JackyunHttpSession {
     for (let attempt = 0; attempt < 2; attempt++) {
       const generation = this.#generation;
       const form = signJackyunForm(data, this.#session, this.#now());
-      const headers = { Authorization: `Bearer ${this.#session.accessToken}`, module_code: moduleCode,
-        "Content-Type": "application/x-www-form-urlencoded", Origin: origin, Referer: origin + "/", "X-Requested-With": "XMLHttpRequest" };
-      const { status, body } = await this.#json(spec.path + (spec.method === "GET" ? "?" + form.toString() : ""), {
-        method: spec.method, headers, ...(spec.method === "POST" ? { body: form.toString() } : {}),
-      });
+      const headers = this.#headers(moduleCode);
+      let response: { status: number; body: Record<string, unknown> };
+      try {
+        response = await this.#json(spec.path + (spec.method === "GET" ? "?" + form.toString() : ""), {
+          method: spec.method, headers, ...(spec.method === "POST" ? { body: form.toString() } : {}),
+        }, operation === "submitExport" ? 120000 : 15000);
+      } catch (error) {
+        if (operation === "tasks" && attempt === 0 && error instanceof JackyunHttpTransportFailure) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
+        }
+        throw error;
+      }
+      const { status, body } = response;
       if (["0190210000", "0190210006", "0031117002"].includes(String(body.subCode))) throw new Error("JACKYUN_HTTP_VERIFICATION_REQUIRED");
       if (status === 200 && body.code === 200 && body.result && typeof body.result === "object") return body.result as T;
       if (status === 401 && body.subCode === "0190210003" && attempt === 0 && spec.replaySafe && this.#allowRefresh) {

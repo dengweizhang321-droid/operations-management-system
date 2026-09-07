@@ -5,7 +5,7 @@ import { chromium } from "playwright-core";
 import { captureDirectExport, readDirectTasks, validateDirectExportPayload } from "../lib/jackyun/direct-export";
 import { JackyunHttpSession } from "../lib/jackyun/direct-http";
 import { PlaywrightPageClient } from "../lib/jackyun/playwright-client";
-import type { BrowserAutomationClient } from "../lib/jackyun/cdp-client";
+import type { Page, Route } from "playwright-core";
 
 const headers = (fields: string[]) => ({ enName: fields, showName: fields });
 const inventory = {
@@ -18,7 +18,8 @@ const form = (patch = {}) => new URLSearchParams({ ...inventory, ...patch }).toS
 test("captured request preserves all-page, masked, SKU and mother/child schema boundaries", () => {
   assert.equal(validateDirectExportPayload("inventory", form(), "branch_stock").data.excelType, inventory.excelType);
   assert.throws(() => validateDirectExportPayload("inventory", form({ plaintext: "true" }), "branch_stock"), /PARAMETER/);
-  assert.throws(() => validateDirectExportPayload("inventory", form({ isSyn: "true" }), "branch_stock"), /SCHEMA/);
+  assert.equal(validateDirectExportPayload("inventory", form({ isSyn: "true" }), "branch_stock").data.isSyn, "true");
+  assert.throws(() => validateDirectExportPayload("inventory", form({ isSyn: "unknown" }), "branch_stock"), /SCHEMA/);
   assert.throws(() => validateDirectExportPayload("inventory", form({ conditionJson: '{"version":"2.0","ids":[1]}' }), "branch_stock"), /SCOPE/);
   assert.throws(() => validateDirectExportPayload("inventory", form() + "&excelType=other", "branch_stock"), /PARAMETER/);
   assert.throws(() => validateDirectExportPayload("inventory", form(), "goods_managet_query"), /SCHEMA/);
@@ -60,7 +61,7 @@ test("final browser POST is held until HTTP completion; failure destroys late br
     const open = () => page.goto("https://web.jackyun.com/erp_stock/goods_stock/branch_stock_main_v4.html");
     await t.test("captured submission never reaches the website, even when completion is signalled twice", async () => {
       await open();
-      const captured = await captureDirectExport(client, "inventory");
+      const captured = await captureDirectExport(client, page, "inventory");
       assert.equal(backendSubmissions, 0); assert.equal(await page.evaluate("finished"), false);
       await page.context().setOffline(true);
       await captured.complete({ data: {} }); await captured.complete({ data: {} });
@@ -69,25 +70,28 @@ test("final browser POST is held until HTTP completion; failure destroys late br
       assert.equal(backendSubmissions, 0);
     });
     await t.test("uncertain HTTP submission cancels the browser request before interception is released", async () => {
-      await open(); const captured = await captureDirectExport(client, "inventory");
+      await open(); const captured = await captureDirectExport(client, page, "inventory");
       await captured.cancel(); assert.equal(page.url(), "about:blank");
       assert.equal(backendSubmissions, 0);
     });
     await t.test("unknown schema also fails before any export request reaches the server", async () => {
       await open(); await page.evaluate("payload+='&plaintext=true'");
-      await assert.rejects(captureDirectExport(client, "inventory"), /CAPTURE_REJECTED/);
+      await assert.rejects(captureDirectExport(client, page, "inventory"), /UNEXPECTED_PARAMETER/);
       assert.equal(page.url(), "about:blank"); assert.equal(backendSubmissions, 0);
     });
     await t.test("a failed browser acknowledgement cannot release its original POST after HTTP submission", async () => {
       await open();
-      const failedAck: BrowserAutomationClient = {
-        on: client.on.bind(client), close: () => {},
-        send: async <T>(method: string, params?: Record<string, unknown>, timeout?: number) => {
-          if (method === "Fetch.fulfillRequest") throw new Error("synthetic acknowledgement failure");
-          return client.send<T>(method, params, timeout);
-        },
+      const failedAck: Pick<Page, "route" | "unroute" | "goto"> = {
+        goto: page.goto.bind(page), unroute: pattern => page.unroute(pattern),
+        route: (pattern, handler) => page.route(pattern, route => handler(new Proxy(route, {
+          get(target, key) {
+            if (key === "fulfill") return async () => { throw new Error("synthetic acknowledgement failure"); };
+            const value = Reflect.get(target, key);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        }) as Route, route.request())),
       };
-      const captured = await captureDirectExport(failedAck, "inventory");
+      const captured = await captureDirectExport(client, failedAck, "inventory");
       await assert.rejects(captured.complete({ data: {} }), /ACK_FAILED/);
       assert.equal(page.url(), "about:blank"); assert.equal(backendSubmissions, 0);
     });

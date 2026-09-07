@@ -60,6 +60,7 @@ type ModuleActionState = Partial<BrowserHandoff> & {
   status: "pending" | "navigated" | "queried" | "export_armed" | "downloaded" | "handed_off" | "completed";
   webSession?: { baselineIds: string[]; baselineAt: string; pendingTaskId?: string };
   directPayloadSha256?: string;
+  queryAttemptHistory?: { queryIntentAt: string; tableStableAt: string | null; repreparedAt: string }[];
   reprepareEvidence?: { originalIntentAt: string; permitSha256: string; originalControllerSha256: string };
   queryRetryCount?: number;
   queryRetryIntentAt?: string;
@@ -2009,12 +2010,26 @@ async function runController(options: CliOptions) {
       continue;
     }
 
+    const previousQuery = state.modules[moduleKey];
+    if (options.directHttp && previousQuery?.queryIntentAt && !previousQuery.exportIntentAt && !previousQuery.filePath) {
+      const history = previousQuery.queryAttemptHistory ?? [];
+      if (!Array.isArray(history) || history.length >= 5) throw new Error("未提交的查询已经多次失败，保留审计并停止。");
+      // No export was armed. A restarted process must issue a NEW read-only query,
+      // rather than accepting the lost process's table or network completion.
+      state.modules[moduleKey] = { status: "pending", queryAttemptHistory: [...history, {
+        queryIntentAt: previousQuery.queryIntentAt, tableStableAt: previousQuery.tableStableAt ?? null, repreparedAt: new Date().toISOString(),
+      }] };
+      await persistControllerState(controllerStatePath, state);
+    }
     const moduleState = state.modules[moduleKey] ?? { status: "pending" as const };
     if (moduleState.reprepareEvidence && (!options.exportFirstBatch || moduleKey !== "combos" || options.runId !== "n8n-export-first-849"
       || options.webConfirmationRecovery?.originalExecutionId !== "849"
       || options.webConfirmationRecovery.permitSha256 !== moduleState.reprepareEvidence.permitSha256)) throw new Error("组合装恢复缺少独占 n8n 许可。");
     state.modules[moduleKey] = moduleState;
     const { client, page } = await connectPlaywrightJackyunTarget(playwrightBrowser, { startUrl });
+    // The report iframe has a 1024px minimum width. Chrome's default headless
+    // viewport can horizontally scroll its left filter button off-screen.
+    if (options.directHttp && options.headless) await page.setViewportSize({ width: 1920, height: 1080 });
     if (options.headless && ownsBrowser) await page.setViewportSize({ width: 1920, height: 1080 });
     page.setDefaultTimeout(actionTimeout(policy, moduleKey));
     page.setDefaultNavigationTimeout(moduleTimeout(policy, moduleKey));
@@ -2527,7 +2542,7 @@ async function runController(options: CliOptions) {
         const baseline = await withHttp(http => readDirectTasks(http, moduleKey));
         moduleState.webSession = { baselineIds: baseline.records.map(r => r.taskId), baselineAt: new Date().toISOString() };
         await armExport();
-        const captured = await captureDirectExport(client, moduleKey, moduleKey === "combos" ? async () => {
+        const captured = await captureDirectExport(client, page, moduleKey, moduleKey === "combos" ? async () => {
           const rule = policy.modules.combos.exportConfirmation;
           if (!rule) throw new Error("组合装导出确认规则缺失。");
           const confirmedAt = await confirmJackyunComboExport(client, moduleUrlHints(moduleKey), rule.promptIncludes, rule.button, actionTimeout(policy, moduleKey), fastPoll(policy));

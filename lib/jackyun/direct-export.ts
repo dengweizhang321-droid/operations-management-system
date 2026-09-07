@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Page, Route } from "playwright-core";
 import { evaluateValue, type BrowserAutomationClient } from "./cdp-client";
 import { JackyunHttpSession, signJackyunForm, type JackyunSession } from "./direct-http";
 import type { JackyunModule } from "./post-download";
@@ -27,7 +28,7 @@ export function validateDirectExportPayload(module: JackyunModule, postData: str
   const [server, type, code, label] = schemas[module];
   if (moduleCode !== code || data.serverName !== server || data.excelType !== type
     || !(data.typeName === label || module === "inventory_age" && data.typeName === label + "(正式勿删)")
-    || data.isSyn !== "false" || data.multiSheet !== String(module === "combos") || data.datasource !== "") throw new Error("HTTP_EXPORT_SCHEMA_CHANGED");
+    || !["false", "true"].includes(data.isSyn) || data.multiSheet !== String(module === "combos") || data.datasource !== "") throw new Error("HTTP_EXPORT_SCHEMA_CHANGED");
   let condition: Record<string, unknown>, headers: { enName: string[]; showName: string[] }[];
   try {
     condition = JSON.parse(data.conditionJson);
@@ -57,56 +58,61 @@ export function validateDirectExportPayload(module: JackyunModule, postData: str
 }
 
 /** Captures the final POST after the website's real validators, before a task can be created. */
-export async function captureDirectExport(client: BrowserAutomationClient, module: JackyunModule, confirm?: () => Promise<void>, asOfDate?: string) {
+export async function captureDirectExport(client: BrowserAutomationClient, page: Pick<Page, "route" | "unroute" | "goto">,
+  module: JackyunModule, confirm?: () => Promise<void>, asOfDate?: string) {
   let resolve!: (value: ReturnType<typeof validateDirectExportPayload>) => void, reject!: (error: Error) => void;
   const result = new Promise<ReturnType<typeof validateDirectExportPayload>>((yes, no) => { resolve = yes; reject = no; });
   void result.catch(() => {});
-  let pausedId: string | undefined;
+  let paused: Route | undefined;
   let invalid = false;
   let settled = false;
   let enabled = false;
-  const off = client.on("Fetch.requestPaused", params => {
-    void (async () => {
+  const pattern = "**/startExcelExport*";
+  const handler = async (route: Route) => {
       try {
-        if (pausedId) {
+        if (paused) {
           invalid = true;
-          await client.send("Fetch.failRequest", { requestId: params.requestId, errorReason: "Aborted" });
+          await route.abort("aborted");
           throw new Error();
         }
-        pausedId = String(params.requestId);
-        const request = params.request as { url: string; method: string; postData: string; headers: Record<string, string> };
-        if (request.url !== "https://web.jackyun.com/jkyun/excel-service/manager/startExcelExport" || request.method !== "POST") throw new Error();
-        const code = Object.entries(request.headers).find(([key]) => key.toLowerCase() === "module_code")?.[1] ?? "";
-        resolve(validateDirectExportPayload(module, request.postData, code, asOfDate));
-      } catch { invalid = true; reject(new Error("HTTP_EXPORT_CAPTURE_REJECTED")); }
-    })();
-  });
+        paused = route;
+        const request = route.request();
+        if (request.url() !== "https://web.jackyun.com/jkyun/excel-service/manager/startExcelExport" || request.method() !== "POST") throw new Error();
+        const code = Object.entries(await request.allHeaders()).find(([key]) => key.toLowerCase() === "module_code")?.[1] ?? "";
+        resolve(validateDirectExportPayload(module, request.postData() ?? "", code, asOfDate));
+      } catch (error) {
+        invalid = true;
+        reject(new Error(error instanceof Error && /^HTTP_[A-Z_]+$/.test(error.message) ? error.message : "HTTP_EXPORT_CAPTURE_REJECTED"));
+      }
+  };
+  const abortPage = async () => {
+    // Abort the exact held request BEFORE unloading/unrouting. Unrouting alone can release it.
+    if (paused) await paused.abort("aborted").catch(() => {});
+    await page.goto("about:blank", { waitUntil: "commit", timeout: 10000 });
+  };
   const close = async (success: boolean, response?: unknown) => {
     if (settled) return;
     settled = true;
     try {
-      if (!pausedId || !success || invalid) {
+      if (!paused || !success || invalid) {
         // Destroy outstanding handlers before releasing interception; a late callback must never submit.
-        await client.send("Page.navigate", { url: "about:blank" });
+        await abortPage();
         if (success) throw new Error("HTTP_EXPORT_CAPTURE_REJECTED");
       } else {
         try {
-          await client.send("Fetch.fulfillRequest", { requestId: pausedId, responseCode: 200,
-            responseHeaders: [{ name: "Content-Type", value: "application/json;charset=UTF-8" }],
-            body: Buffer.from(JSON.stringify({ code: 200, result: response })).toString("base64") });
+          await paused.fulfill({ status: 200, contentType: "application/json;charset=UTF-8", body: JSON.stringify({ code: 200, result: response }) });
         } catch {
-          await client.send("Page.navigate", { url: "about:blank" });
+          await abortPage();
           throw new Error("HTTP_EXPORT_BROWSER_ACK_FAILED");
         }
       }
     } finally {
-      if (enabled) await client.send("Fetch.disable");
-      off();
+      if (enabled) await page.unroute(pattern, handler);
     }
   };
   const timer = setTimeout(() => reject(new Error("HTTP_EXPORT_CAPTURE_TIMEOUT")), 20000);
   try {
-    await client.send("Fetch.enable", { patterns: [{ urlPattern: "*startExcelExport*", requestStage: "Request" }] });
+    await page.route(pattern, handler);
     enabled = true;
     const token = await prepareWebSessionExport(client, module);
     await submitWebSessionExport(client, token);
@@ -127,7 +133,8 @@ export async function createDirectSession(client: BrowserAutomationClient, tenan
     if(jkUtils.isInJkyunCef()&&topWindow.signPlate==='jkyun')plate='jackyun';
     if(!['jackyun','jackyun_wdgj'].includes(plate)||isInCef)throw Error('HTTP_SESSION_PLATFORM_UNSUPPORTED');
     const s=jkUtils.signInfo[plate]();
-    return {accessToken:s.token,refreshToken:localStorage.getItem('refresh_token'),appkey:s.appkey,signingSecret:s.secret};
+    return {accessToken:s.token,refreshToken:localStorage.getItem('refresh_token'),appkey:s.appkey,signingSecret:s.secret,
+      cookie:document.cookie,userAgent:navigator.userAgent,ati:jkUtils.getAti()||''};
   })()`);
   const probe = { keyWords: "签名校验 &+", pageIndex: 0, pageSize: 10, empty: "", nil: null };
   const webSign = await evaluateValue<Record<string, string>>(client, `jkUtils.jkGetSign(${JSON.stringify(probe)},null,false)`);
@@ -150,7 +157,9 @@ export async function readDirectTasks(http: JackyunHttpSession, module: JackyunM
   if (!Number.isFinite(sinceMs)) throw new Error("HTTP_TASK_TIME_INVALID");
   const snapshot: WebTaskSnapshot = { records: [], failedIds: [] };
   const seen = new Set<string>();
+  const deadline = Date.now() + 60000;
   for (let pageIndex = 0; pageIndex < 10; pageIndex++) {
+    if (Date.now() >= deadline) throw new Error("HTTP_TASK_WINDOW_TIMEOUT");
     const res = await http.request<{ data: Record<string, unknown>[]; pageInfo: { total: number } }>("tasks", {
       pageIndex, pageSize: 10, timeStamp: Date.now(), keyWords: schemas[module][3],
     });
