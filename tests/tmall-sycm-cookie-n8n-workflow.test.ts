@@ -388,7 +388,9 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.ok(dashboardNavigation >= 0 && workflowNavigation >= 0);
   assert.match(page, /n8n_workflows: \(\{ currentUser, moduleView, onModuleViewChange \}\) => <N8nWorkflowView currentUser=\{currentUser\} moduleView=/);
   assert.match(view, /tmall-yijiu-direct-pm-candidate\.workflow\.json/);
-  assert.match(view, /jackyun-five-dataset-daily\.workflow\.json/);
+  assert.match(view, /jackyun-five-dataset-http\.workflow\.json/);
+  assert.match(view, /A → B → C → D → E/);
+  assert.match(view, /五表全部下载并通过校验后才开始导入/);
   assert.match(view, /jd-multi-store-daily\.workflow\.json/);
   assert.match(view, /http:\/\/localhost:5678\/workflow\//);
   assert.match(view, /canManageN8nWorkflow\(currentUser\?\.role\)/);
