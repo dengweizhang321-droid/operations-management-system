@@ -43,7 +43,7 @@ try { $icon.Save($iconStream) } finally {
 
 & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/win32icon:$iconPath" "/out:$executable" `
   /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll `
-  /reference:System.Web.Extensions.dll $source
+  /reference:System.Runtime.Serialization.dll $source
 if ($LASTEXITCODE -ne 0) { throw '桌面应用编译失败。' }
 $configuration = [ordered]@{ ControllerPath=$controller; PowerShellPath=$powerShellPath; ChromePath=$chromePath }
 $configuration | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $InstallDirectory 'launcher.json') -Encoding UTF8

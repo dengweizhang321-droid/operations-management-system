@@ -4,23 +4,55 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net.Http;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
+[DataContract]
 internal sealed class LauncherConfig
 {
+    [DataMember]
     public string ControllerPath { get; set; }
+    [DataMember]
     public string PowerShellPath { get; set; }
+    [DataMember]
     public string ChromePath { get; set; }
+}
+
+[DataContract]
+internal sealed class ReadyResponse
+{
+    [DataMember(Name = "ok")]
+    public bool Ok { get; set; }
+    [DataMember(Name = "status")]
+    public string Status { get; set; }
+    [DataMember(Name = "backend")]
+    public string Backend { get; set; }
+}
+
+[DataContract]
+internal sealed class ControllerResponse
+{
+    [DataMember(Name = "version")]
+    public string Version { get; set; }
+    [DataMember(Name = "status")]
+    public string Status { get; set; }
+    [DataMember(Name = "state")]
+    public string State { get; set; }
 }
 
 internal static class Launcher
 {
     internal const string PageUrl = "http://localhost:3000/";
-    internal static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
+
+    private static T Deserialize<T>(string text) where T : class
+    {
+        using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(text)))
+            return (T)new DataContractJsonSerializer(typeof(T)).ReadObject(stream);
+    }
 
     [STAThread]
     private static void Main(string[] args)
@@ -33,7 +65,7 @@ internal static class Launcher
             if (!created) return;
             try
             {
-                var config = Json.Deserialize<LauncherConfig>(File.ReadAllText(
+                var config = Deserialize<LauncherConfig>(File.ReadAllText(
                     Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher.json"), Encoding.UTF8));
                 foreach (var path in new[] { config.ControllerPath, config.PowerShellPath, config.ChromePath })
                     if (!File.Exists(path)) throw new IOException("启动所需文件不存在，请重新安装桌面入口。");
@@ -58,10 +90,10 @@ internal static class Launcher
     {
         try
         {
-            var value = Json.Deserialize<Dictionary<string, object>>(text);
-            return value != null && value.ContainsKey("ok") && object.Equals(value["ok"], true)
-                && value.ContainsKey("status") && object.Equals(value["status"], "ready")
-                && value.ContainsKey("backend") && object.Equals(value["backend"], "django-postgresql");
+            var value = Deserialize<ReadyResponse>(text);
+            return value != null && value.Ok
+                && object.Equals(value.Status, "ready")
+                && object.Equals(value.Backend, "django-postgresql");
         }
         catch { return false; }
     }
@@ -114,18 +146,20 @@ internal static class Launcher
             if (process.ExitCode != 0)
                 throw new InvalidOperationException("受控启动未通过，请查看本次日志中的原因。");
         }
-        var result = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(output, Encoding.UTF8));
-        if (result == null || !result.ContainsKey("version")
-            || !object.Equals(result["version"], "teruisi-operations-system-control-v2")
-            || !result.ContainsKey("status") || !result.ContainsKey("state"))
+        var receipt = Deserialize<ControllerResponse>(File.ReadAllText(output, Encoding.UTF8));
+        if (receipt == null
+            || !object.Equals(receipt.Version, "teruisi-operations-system-control-v2")
+            || string.IsNullOrEmpty(receipt.Status) || string.IsNullOrEmpty(receipt.State))
             throw new InvalidOperationException("启动器没有收到有效的总控结果，请查看日志。");
-        var status = result["status"] as string;
-        var state = result["state"] as string;
+        var status = receipt.Status;
+        var state = receipt.State;
         if (!((status == "started" || status == "already_running") && state == "Running")
             && !(status == "started_degraded" && state == "BackendDegraded")
             && !(status == "start_in_progress" && state == "Starting"))
             throw new InvalidOperationException("总控尚未确认系统可用，请查看本次启动日志。");
-        return result;
+        return new Dictionary<string, object> {
+            { "version", receipt.Version }, { "status", status }, { "state", state }
+        };
     }
 }
 
