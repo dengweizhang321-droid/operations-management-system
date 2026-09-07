@@ -99,7 +99,7 @@
       ]
     },
     {
-      "id": "c83ae592a58217d0c74badc1e8d52367",
+      "id": "42bc0fc98fc01866f78e05fc421a9f3c",
       "name": "A·固定采集日和销售日期",
       "position": [
         -60,
@@ -109,7 +109,7 @@
       "typeVersion": 4.2,
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/plan",
+        "url": "http://127.0.0.1:5791/jackyun/export-first/plan-web-session",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -125,8 +125,8 @@
       }
     },
     {
-      "id": "2bcf7801e5c994e086a4263625b33168",
-      "name": "1·分仓库存：筛选并导出所有页",
+      "id": "fb6028846f14fb982282281d2d8d4432",
+      "name": "B·共用登录态：顺序导出五表",
       "position": [
         280,
         0
@@ -135,7 +135,7 @@
       "typeVersion": 4.2,
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/export/inventory",
+        "url": "http://127.0.0.1:5791/jackyun/export-first/export-all",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -146,120 +146,16 @@
           ]
         },
         "options": {
-          "timeout": 900000
-        }
-      }
-    },
-    {
-      "id": "640ef0de2f0b1ed5966c4bbd25a7a4fd",
-      "name": "2·组合装及子件：导出所有页",
-      "position": [
-        620,
-        0
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/export/combos",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-TERUISI-N8N-EXECUTION-ID",
-              "value": "={{ $execution.id }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 900000
-        }
-      }
-    },
-    {
-      "id": "0421ccdaec207f549e216852cb03ab39",
-      "name": "3·销售明细：发货时间、本月至昨天",
-      "position": [
-        960,
-        0
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/export/sales",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-TERUISI-N8N-EXECUTION-ID",
-              "value": "={{ $execution.id }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 900000
-        }
-      }
-    },
-    {
-      "id": "bf5f450f3b5f05bd9bcdfff0febef432",
-      "name": "4·库龄分析：筛选并导出所有页",
-      "position": [
-        1300,
-        0
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/export/inventory_age",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-TERUISI-N8N-EXECUTION-ID",
-              "value": "={{ $execution.id }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 900000
-        }
-      }
-    },
-    {
-      "id": "ba681258b54de845df044e9b624bd20f",
-      "name": "5·货品查询：SKU 模式导出所有页",
-      "position": [
-        1640,
-        0
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "parameters": {
-        "method": "POST",
-        "url": "http://127.0.0.1:5791/jackyun/export-first/export/products",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-TERUISI-N8N-EXECUTION-ID",
-              "value": "={{ $execution.id }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 900000
+          "timeout": 1800000
         }
       }
     },
     {
       "id": "46831fd7e8668d9cc85c10ae92c721d9",
-      "name": "6·五表完整校验和导入演练",
+      "name": "C·五表完整校验和导入演练",
       "position": [
-        1640,
-        280
+        620,
+        0
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -282,10 +178,10 @@
     },
     {
       "id": "366a4fc139ed556417dca4f17feb7a7e",
-      "name": "7·统一导入运营管理系统",
+      "name": "D·统一导入运营管理系统",
       "position": [
-        1300,
-        280
+        960,
+        0
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -308,10 +204,10 @@
     },
     {
       "id": "e2d15d0604985fa8550747ad0cf37bdf",
-      "name": "8·独立核验五类精确批次",
+      "name": "E·独立核验五类精确批次",
       "position": [
-        960,
-        280
+        1300,
+        0
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -342,8 +238,8 @@
         -300
       ],
       "parameters": {
-        "content": "## 先导出五张表，再导入\n导出顺序：分仓库存 → 组合装及子件 → 销售单明细账 → 库龄分析 → 货品 SKU。每张表先筛选、等查询完成，再右键导出所有页。销售按发货时间，本月 1 日至昨天；每月 1 日按已有业务规则处理上月整月。销售使用截图中的普通“导出”，组合装使用“导出组合装及子件”。\n库存与库龄记录实际采集日；当前查询不会标成昨天的历史快照。分仓库存继续使用公司全仓范围，导入时按现有规则过滤刷刷仓等无效行。",
-        "width": 1050,
+        "content": "## 先导出五张表，再导入\n导出顺序：分仓库存 → 组合装及子件 → 销售单明细账 → 库龄分析 → 货品 SKU。五表共用一次专用浏览器登录态；每表按已核验的条件查询，调用网页自身的“导出所有页”能力，按任务接口等待并下载原始 Excel。保留平台原有校验，组合装导出母件及子件；不保存 Cookie 到 n8n。销售按发货时间，本月 1 日至昨天；每月 1 日按已有业务规则处理上月整月。销售使用截图中的普通“导出”，组合装使用“导出组合装及子件”。\n库存与库龄记录实际采集日；当前查询不会标成昨天的历史快照。分仓库存继续使用公司全仓范围，导入时按现有规则过滤刷刷仓等无效行。",
+        "width": 1280,
         "height": 245,
         "color": 4
       }
@@ -358,8 +254,8 @@
         280
       ],
       "parameters": {
-        "content": "## 导入门槛\n5 张本轮文件全部落地后，核验表头、页面总数、SHA-256、组合装母子关系和销售日期，并进行无业务写入的导入演练。全部通过才依次导入：货品 → 分仓库存 → 库龄 → 销售 → 组合装；最后独立回查 PostgreSQL 权威 API 的批次与事实归属。\n同一 execution 全程绑定；导出点击未决时保留原运行，禁止重复生成。仅共享 helper 的领取允许自动重试，业务节点失败后停止。默认手动、未激活，无定时器。账号密码及浏览器会话均不保存在 n8n。需要配套 helper 版本支持 /jackyun/export-first/ 路由。",
-        "width": 820,
+        "content": "## 导入门槛\n5 张本轮文件全部落地后，核验表头、页面总数、SHA-256、组合装母子关系和销售日期，并进行无业务写入的导入演练。全部通过才依次导入：货品 → 分仓库存 → 库龄 → 销售 → 组合装；最后独立回查 PostgreSQL 权威 API 的批次与事实归属。\n同一 execution 全程绑定；提交前保存任务基线和 intent；提交结果未决时保留原运行，只查询原任务，禁止重复生成。仅共享 helper 的领取允许自动重试，业务节点失败后停止。默认手动、未激活，无定时器。账号密码及浏览器会话均不保存在 n8n。需要配套 helper 版本支持 /jackyun/export-first/ 路由。",
+        "width": 1200,
         "height": 245,
         "color": 4
       }
@@ -421,84 +317,40 @@
       "main": [
         [
           {
-            "node": "1·分仓库存：筛选并导出所有页",
+            "node": "B·共用登录态：顺序导出五表",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "1·分仓库存：筛选并导出所有页": {
+    "B·共用登录态：顺序导出五表": {
       "main": [
         [
           {
-            "node": "2·组合装及子件：导出所有页",
+            "node": "C·五表完整校验和导入演练",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "2·组合装及子件：导出所有页": {
+    "C·五表完整校验和导入演练": {
       "main": [
         [
           {
-            "node": "3·销售明细：发货时间、本月至昨天",
+            "node": "D·统一导入运营管理系统",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "3·销售明细：发货时间、本月至昨天": {
+    "D·统一导入运营管理系统": {
       "main": [
         [
           {
-            "node": "4·库龄分析：筛选并导出所有页",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "4·库龄分析：筛选并导出所有页": {
-      "main": [
-        [
-          {
-            "node": "5·货品查询：SKU 模式导出所有页",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "5·货品查询：SKU 模式导出所有页": {
-      "main": [
-        [
-          {
-            "node": "6·五表完整校验和导入演练",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "6·五表完整校验和导入演练": {
-      "main": [
-        [
-          {
-            "node": "7·统一导入运营管理系统",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "7·统一导入运营管理系统": {
-      "main": [
-        [
-          {
-            "node": "8·独立核验五类精确批次",
+            "node": "E·独立核验五类精确批次",
             "type": "main",
             "index": 0
           }

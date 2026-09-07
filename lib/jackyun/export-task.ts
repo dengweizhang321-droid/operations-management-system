@@ -15,9 +15,8 @@ const labels: Record<JackyunModule, RegExp> = {
   products: /^【导出任务-(?:明文|密文)】货品导出\((\d+)条\)$/,
 };
 
-export function selectJackyunExportTask(records: JackyunExportTaskRecord[], expected: {
+export function matchJackyunExportTask(records: JackyunExportTaskRecord[], expected: {
   module: JackyunModule; sourceRows: number; exportIntentAt: string; observedAt: string;
-  allowedHosts: readonly string[]; binding?: JackyunExportTaskBinding;
 }) {
   const intent = Date.parse(expected.exportIntentAt), observed = Date.parse(expected.observedAt);
   if (!Number.isFinite(intent) || !Number.isFinite(observed) || observed < intent
@@ -30,7 +29,14 @@ export function selectJackyunExportTask(records: JackyunExportTaskRecord[], expe
       && record.createdAt >= start && record.createdAt <= observed;
   });
   if (matches.length > 1) throw new Error("本轮同模块同数量导出任务不唯一，禁止自动选择文件。");
-  const task = matches[0];
+  return matches[0];
+}
+
+export function selectJackyunExportTask(records: JackyunExportTaskRecord[], expected: {
+  module: JackyunModule; sourceRows: number; exportIntentAt: string; observedAt: string;
+  allowedHosts: readonly string[]; binding?: JackyunExportTaskBinding;
+}) {
+  const task = matchJackyunExportTask(records, expected);
   if (!task || !task.completed) return null;
   if (!/^sys-\d{1,20}$/.test(task.taskId) || task.urls.length !== 1) throw new Error("导出任务身份或附件数量异常。");
   let url: URL;

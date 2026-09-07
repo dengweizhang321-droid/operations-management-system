@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { jackyunExportFirstActions } from "../tools/jackyun-export-first-pipeline";
+import { jackyunWebSessionActions } from "../tools/jackyun-export-first-pipeline";
 
 test("manual n8n graph requires all five exports and validation before import", async () => {
   const raw = await readFile(new URL("../automation/n8n/jackyun-five-dataset-daily.workflow.json", import.meta.url), "utf8");
@@ -14,7 +14,7 @@ test("manual n8n graph requires all five exports and validation before import", 
   const requests = workflow.nodes.filter((node: { type: string }) => node.type === "n8n-nodes-base.httpRequest");
   assert.equal(requests[0].parameters.url, "http://127.0.0.1:5791/coordination/claim");
   assert.deepEqual(requests.slice(1).map((node: { parameters: { url: string } }) => node.parameters.url),
-    jackyunExportFirstActions.map(action => `http://127.0.0.1:5791/jackyun/export-first/${action}`));
+    jackyunWebSessionActions.map(action => `http://127.0.0.1:5791/jackyun/export-first/${action}`));
   for (const node of requests) {
     assert.ok(node.parameters.headerParameters.parameters.some((header: { name: string; value: string }) =>
       header.name === "X-TERUISI-N8N-EXECUTION-ID" && header.value === "={{ $execution.id }}"));

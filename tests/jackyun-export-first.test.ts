@@ -96,7 +96,11 @@ async function fixture() {
           { field: "日期区间", value: "2026-09-01 00:00:00 至 2026-09-05 23:59:59", verifiedAt: at(2) }],
         snapshotEvidence: moduleKey === "inventory" || moduleKey === "inventory_age" ? { ...currentEvidence, module: moduleKey, runId: options.runId } : undefined,
         downloadProvenance: { runId: options.runId, module: moduleKey, policyVersion: jackyunExportFirstPolicyVersion,
-          method: "browser_event", downloadId: `test-${moduleKey}`, originalFileName: "12345678.xlsx", completedAt: at(6), sha256: hash(bytes), bytes: bytes.length },
+          method: "browser_event", downloadId: `test-${moduleKey}`, originalFileName: "12345678.xlsx", completedAt: at(6), sha256: hash(bytes), bytes: bytes.length,
+          ...(options.exportFirstBatch ? { sourceUrlHash: "a".repeat(64) } : {}) },
+        ...(options.exportFirstBatch ? { evidence: { exportTransport: "web_session_batch_v1", taskQuerySource: "web_session_api",
+          exportTaskBinding: { version: 1, taskId: `sys-${100 + jackyunModuleOrder.indexOf(moduleKey)}`, module: moduleKey,
+            label: "fixture", sourceRows: counts[moduleKey], sourceUrlHash: "a".repeat(64), createdAt: at(5), observedAt: at(6) } } } : {}),
       });
       return { status: "exported", runId: options.runId, controllerStatePath: "unused" };
     },
@@ -137,6 +141,53 @@ test("pipeline enforces order, all-file barrier, replay checks and execution own
   await run("export/inventory");
   assert.equal((await run("plan")).phase, "imported", "replay must not rewind phase");
   await assert.rejects(run("verify"), /JSON 文件/);
+});
+
+test("web batch shares one controller and preserves a verified export prefix after partial failure", async () => {
+  const f = await fixture();
+  const single = f.deps.runBrowser!;
+  let browserCalls = 0, fail = true;
+  f.deps.runBrowser = async options => {
+    browserCalls++;
+    assert.equal(options.exportFirstBatch, true);
+    assert.equal(options.exportOnlyModule, undefined);
+    for (const moduleKey of jackyunExportOrder) {
+      await options.beforeModule!(moduleKey);
+      if (fail && moduleKey === "sales") throw new Error("synthetic pending export");
+      if (!f.files.has(moduleKey)) await single({ ...options, exportOnlyModule: moduleKey });
+      await options.afterModule!(moduleKey);
+    }
+    return { status: "exported", runId: options.runId, controllerStatePath: "unused" };
+  };
+  const run = (action: string) => runJackyunExportFirstAction(action, "975", f.deps);
+  await run("plan-web-session");
+  await assert.rejects(run("export/inventory"), /降级/);
+  await assert.rejects(run("export-all"), /synthetic pending/);
+  assert.equal(browserCalls, 1);
+  assert.deepEqual(f.calls, ["export:inventory", "export:combos"]);
+  await assert.rejects(run("import"), /全部导出/);
+  await assert.rejects(runJackyunExportFirstAction("plan-web-session", "976", f.deps), /尚未闭合/);
+  fail = false;
+  const result = await run("export-all");
+  assert.equal(result.phase, "exported");
+  assert.deepEqual(f.calls, jackyunExportOrder.map(module => `export:${module}`));
+  assert.equal(browserCalls, 2);
+  await run("export-all");
+  assert.equal(browserCalls, 2, "a completed export replay only verifies original files");
+  await run("validate");
+  await run("import");
+  assert.deepEqual(f.calls.slice(5), [...jackyunModuleOrder.map(m => `validate:${m}`), ...jackyunModuleOrder.map(m => `import:${m}`)]);
+});
+
+test("web transport cannot adopt legacy plans or start a browser after midnight", async () => {
+  const legacy = await fixture();
+  await runJackyunExportFirstAction("plan", "981", legacy.deps);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "981", legacy.deps), /旧单表/);
+  assert.deepEqual(legacy.calls, []);
+  const f = await fixture();
+  await runJackyunExportFirstAction("plan-web-session", "982", f.deps);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "982", { ...f.deps, now: () => new Date("2026-09-07T01:00:00Z") }), /跨日/);
+  assert.deepEqual(f.calls, []);
 });
 test("cross-day and concurrent executions stop before browser side effects", async () => {
   const f = await fixture();
