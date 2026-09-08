@@ -14,6 +14,26 @@
       ]
     },
     {
+      "id": "cffaaa43523070f74eb344316db42535",
+      "name": "每天本机时间 00:10",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -760,
+        -160
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "10 0 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/coordination/claim",
@@ -254,7 +274,7 @@
         280
       ],
       "parameters": {
-        "content": "## 导入门槛\n5 张本轮文件全部落地后，核验表头、接口查询总数、SHA-256、组合装母子关系和销售日期，并进行无业务写入的导入演练。全部通过才依次导入：货品 → 分仓库存 → 库龄 → 销售 → 组合装；最后独立回查 PostgreSQL 权威 API 的批次与事实归属。\n同一 execution 全程绑定；提交前保存任务基线和 intent；提交结果未决时保留原运行，只查询原任务，禁止重复生成。仅共享 helper 的领取允许自动重试，业务节点失败后停止。默认手动、未激活，无定时器。账号密码及浏览器会话均不保存在 n8n。需要配套 helper 版本支持 /jackyun/export-first/ 路由。",
+        "content": "## 导入门槛\n5 张本轮文件全部落地后，核验表头、接口查询总数、SHA-256、组合装母子关系和销售日期，并进行无业务写入的导入演练。全部通过才依次导入：货品 → 分仓库存 → 库龄 → 销售 → 组合装；最后独立回查 PostgreSQL 权威 API 的批次与事实归属。\n同一 execution 全程绑定；提交前保存任务基线和 intent；提交结果未决时保留原运行，只查询原任务，禁止重复生成。仅共享 helper 的领取允许自动重试，业务节点失败后停止。每天本机时间 00:10 定时运行，同时保留手动入口。已核验本机 China Standard Time，对应工作流时区 Asia/Shanghai（UTC+08:00）；本机需保持开机且 n8n/helper 服务运行。仓库模板未激活，实际调度以 n8n 已发布版本为准。账号密码及浏览器会话均不保存在 n8n。需要配套 helper 版本支持 /jackyun/export-first/ 路由。",
         "width": 1200,
         "height": 245,
         "color": 4
@@ -351,6 +371,17 @@
         [
           {
             "node": "E·独立核验五类精确批次",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天本机时间 00:10": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
             "type": "main",
             "index": 0
           }
