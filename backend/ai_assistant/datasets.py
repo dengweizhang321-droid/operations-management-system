@@ -137,6 +137,8 @@ def _result(value, expected_tool):
             raise AiError("查询参数不符合数据集 schema")
         if code in {"access_denied", "forbidden", "tool_forbidden", "tool_not_allowed"}:
             raise AiError("当前账号无权查询数据集", "access_denied", 403)
+        if code in {"payload_too_large", "tool_result_too_large"}:
+            raise AiError("请缩小字段范围或分页大小", "payload_too_large", 413)
         raise AiError("数据集来源执行失败，请检查权限、范围或稍后重试", "service_unavailable", 503)
     if not isinstance(value.get("data"), dict):
         raise AiError("数据集来源响应无效", "service_unavailable", 503)
