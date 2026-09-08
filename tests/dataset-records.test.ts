@@ -48,6 +48,28 @@ test("records source uses only the configured owning reader and authenticates ex
   assert.equal(calls.length, 1);
 });
 
+test("sales records reuse the deployed sales base URL contract", async t => {
+  const originalFetch = globalThis.fetch;
+  const keys = ["TERUISI_DJANGO_SALES_READER_BASE_URL", "TERUISI_DJANGO_SALES_BASE_URL", "TERUISI_DJANGO_INTERNAL_SECRET"];
+  const saved = keys.map(key => process.env[key]);
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    keys.forEach((key, i) => { if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i]; });
+  });
+  delete process.env.TERUISI_DJANGO_SALES_READER_BASE_URL;
+  process.env.TERUISI_DJANGO_SALES_BASE_URL = "http://127.0.0.1:18001";
+  process.env.TERUISI_DJANGO_INTERNAL_SECRET = "isolated-dataset-sales-secret-abcdefghijklmnopqrstuvwxyz";
+  const urls: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    urls.push(new Request(input, init).url);
+    return Response.json({ dataset: "rows_sales_order_lines", sourceDomain: "sales", rows: [], returned: 0, consistency: "live_per_page" });
+  };
+  await queryDatasetRecords({ dataset: "rows_sales_order_lines", queryJson: "{}" }, context);
+  process.env.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:18002";
+  await queryDatasetRecords({ dataset: "rows_sales_order_lines", queryJson: "{}" }, context);
+  assert.deepEqual(urls, ["http://127.0.0.1:18001/api/ai/dataset-records", "http://127.0.0.1:18002/api/ai/dataset-records"]);
+});
+
 test("every reader provisioning entry point applies the explicit column contract", async () => {
   const files: Record<string, string[]> = {
     "tools/django-local-service.ps1": ["sales", "finance"],

@@ -1,5 +1,6 @@
 import manifest from "@/backend/system_datasets/manifest.json";
 import { aiEnvironment, aiHeaders } from "@/lib/django/ai-service";
+import { salesGatewayConfigFromEnvironment } from "@/lib/django/sales-gateway";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import { PublicApiError } from "@/lib/http/api-error";
 import type { AiToolExecutionContext } from "@/lib/ai/tool-registry-contract";
@@ -29,7 +30,9 @@ export async function queryDatasetRecords(args: Record<string, unknown>, context
   try { query = JSON.parse(String(args.queryJson)); } catch { throw new PublicApiError(400, "invalid_request", "queryJson 无效。"); }
   if (!query || typeof query !== "object" || Array.isArray(query)) throw new PublicApiError(400, "invalid_request", "query 必须为对象。");
   const environment = await aiEnvironment();
-  const endpoint = environment[readerKeys[spec.domain]];
+  const endpoint = spec.domain === "sales"
+    ? salesGatewayConfigFromEnvironment(environment).djangoBaseUrl
+    : environment[readerKeys[spec.domain]];
   const unavailable = () => new PublicApiError(503, "service_unavailable", "所属领域数据集 reader 未就绪。");
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }
