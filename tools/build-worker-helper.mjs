@@ -28,6 +28,7 @@ const immutableResourceUrlDeclarations = new Map([
   ["tools/tmall-secure-credential.ts", 'const credentialScript = fileURLToPath(new URL("./tmall-credential-vault.ps1", import.meta.url));'],
 ]);
 const mutableRootDeclarations = new Map([
+  ["tools/jackyun-api-export.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],
   ["lib/jackyun/run-lock.ts", "const projectRoot = resolveJackyunRunLockProjectRoot({ moduleUrl: import.meta.url });"],
   ["lib/jd/chromium-run-lock.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");'],
   ["tools/jackyun-automation-runner.ts", 'const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");'],

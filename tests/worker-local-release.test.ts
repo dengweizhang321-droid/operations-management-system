@@ -962,10 +962,12 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
     assert.deepEqual(evidence.mutableConfigPaths, [
       "config/tmall-store-accounts.json",
     ]);
-    assert.equal(evidence.inputFiles.some((item) => item.relativePath.startsWith("config/")), false);
+    assert.deepEqual(evidence.inputFiles.filter((item) => item.relativePath.startsWith("config/")).map(item => item.relativePath), ["config/jackyun-api-templates.json"]);
+    assert.equal(evidence.inputFiles.find(item => item.relativePath === "config/jackyun-api-templates.json")?.sha256, sha256Bytes(await readFile("config/jackyun-api-templates.json")));
     assert.deepEqual(evidence.mutableRootRewritePaths, [
       "lib/jackyun/run-lock.ts",
       "lib/jd/chromium-run-lock.ts",
+      "tools/jackyun-api-export.ts",
       "tools/jackyun-automation-runner.ts",
       "tools/jackyun-browser-controller.ts",
       "tools/jackyun-daily-runner.ts",

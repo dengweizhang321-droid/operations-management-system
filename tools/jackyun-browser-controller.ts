@@ -146,6 +146,8 @@ type CliOptions = {
   exportFirstBatch?: boolean;
   directHttp?: boolean;
   inspectWebSessionOnly?: boolean;
+  /** Isolated calibration only: capture unsigned parameters and abort the final POST. */
+  inspectApiPayload?: (module: JackyunModule, payload: { data: Record<string, string>; moduleCode: string; payloadSha256: string }, sourceRows: number) => Promise<void>;
   beforeModule?: (module: JackyunModule) => Promise<void>;
   afterModule?: (module: JackyunModule) => Promise<void>;
   /** Operator diagnosis: query and open menus, then return before any export intent/click. */
@@ -1921,6 +1923,7 @@ async function runController(options: CliOptions) {
   const exportFirst = options.exportOnlyModule || options.exportFirstBatch;
   if (options.exportFirstBatch && (options.exportOnlyModule || options.resumeTaskBinding || options.inspectExportMenuOnly)) throw new Error("网页批量模式不能接管旧单表任务。");
   if (options.inspectWebSessionOnly && (!options.exportFirstBatch || !options.runId.startsWith("inspect-web-"))) throw new Error("网页诊断必须使用独立运行身份。");
+  if (options.inspectApiPayload && !options.inspectWebSessionOnly) throw new Error("接口模板采集只允许隔离的网页诊断。");
   if (options.inspectExportMenuOnly && (!exportFirst || !options.runId.startsWith("inspect-menu-")
     || !path.resolve(options.outputRoot).startsWith(path.join(projectRoot, "outputs", "jackyun-menu-inspection") + path.sep))) {
     throw new Error("菜单诊断必须使用独立诊断目录和运行 ID。");
@@ -2532,6 +2535,17 @@ async function runController(options: CliOptions) {
       return { status: "menu_inspected", runId: options.runId, module: moduleKey, rightClickMenu, prepared, afterHover };
     }
     if (options.inspectWebSessionOnly) {
+      if (options.inspectApiPayload) {
+        const captured = await captureDirectExport(client, page, moduleKey, moduleKey === "combos" ? async () => {
+          const rule = policy.modules.combos.exportConfirmation;
+          if (!rule) throw new Error("组合装导出确认规则缺失。");
+          await confirmJackyunComboExport(client, moduleUrlHints(moduleKey), rule.promptIncludes, rule.button, actionTimeout(policy, moduleKey), fastPoll(policy));
+        } : undefined, options.asOfDate);
+        try {
+          await options.inspectApiPayload(moduleKey, { data: captured.data, moduleCode: captured.moduleCode, payloadSha256: captured.payloadSha256 }, moduleState.expectedSourceRows);
+        } finally { await captured.cancel(); }
+        client.close(); continue;
+      }
       await prepareWebSessionExport(client, moduleKey);
       const baseline = await readWebSessionTasks(client, moduleKey);
       console.log(JSON.stringify({ type: "jackyun_web_preflight", module: moduleKey, rows: moduleState.expectedSourceRows, tasks: baseline.records.length }));

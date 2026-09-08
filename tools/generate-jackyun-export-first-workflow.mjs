@@ -3,7 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 const directHttp = process.argv.includes("--direct-http");
-if (process.argv.slice(2).some(arg => arg !== "--direct-http")) throw new Error("Unknown workflow option");
+const apiOnly = process.argv.includes("--api-only");
+if (directHttp && apiOnly || process.argv.slice(2).some(arg => !["--direct-http", "--api-only"].includes(arg))) throw new Error("Unknown workflow option");
 const original = JSON.parse(await readFile(new URL("automation/n8n/jd-multi-store-daily.workflow.json", root), "utf8"));
 const id = name => createHash("sha256").update(`jackyun-export-first:${name}`).digest("hex").slice(0, 32);
 const cloneNode = name => {
@@ -17,8 +18,8 @@ claim.parameters.headerParameters.parameters.find(item => item.name === "X-TERUI
 const claimed = cloneNode("helper 领取成功？"); claimed.position = [-300, 0];
 const wait = cloneNode("等待前序流程释放 helper"); wait.position = [-540, 220];
 const steps = [
-  [directHttp ? "plan-direct-http" : "plan-web-session", "A·固定采集日和销售日期", [-60, 0], 120000],
-  ["export-all", directHttp ? "B·网页校验后 HTTP 导出五表" : "B·共用登录态：顺序导出五表", [280, 0], 1800000],
+  [apiOnly ? "plan-api" : directHttp ? "plan-direct-http" : "plan-web-session", "A·固定采集日和销售日期", [-60, 0], 120000],
+  ["export-all", apiOnly ? "B·接口校验与五表下载" : directHttp ? "B·网页校验后 HTTP 导出五表" : "B·共用登录态：顺序导出五表", [280, 0], 1800000],
   ["validate", "C·五表完整校验和导入演练", [620, 0], 1800000],
   ["import", "D·统一导入运营管理系统", [960, 0], 5400000],
   ["verify", "E·独立核验五类精确批次", [1300, 0], 300000],
@@ -48,4 +49,9 @@ if (directHttp) {
   const note = nodes.find(node => node.name === "五表操作说明");
   note.parameters.content += "\nHTTP 版本保留网页初始化、动态仓库/字段、权限和组合装确认；拦截最终提交，以本机 HTTP 创建任务和查询结果。HTTP 阶段专用浏览器离线，由唯一会话所有者按需续期；遇到提交不确定性不重试。此版本仍需要专用浏览器，不是零浏览器实现。";
 }
-await writeFile(new URL(directHttp ? "automation/n8n/jackyun-five-dataset-http.workflow.json" : "automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(workflow, null, 2)}\n`, "utf8");
+if (apiOnly) {
+  nodes.find(node => node.name === "五表操作说明").parameters.content = "## 五表接口下载\n浏览器仅负责登录和会话初始化；报表阶段由同一个 HTTP 会话完成权限核验、获取全部授权仓库与自营货主、按本轮日期查询数量、服务端导出校验、提交任务、轮询和下载。没有报表页面导航、MiniUI 控件、右键或菜单点击。\n销售按发货时间，本月初至昨天；月初第一天沿用上月整月。组合装保留母件与子件，图片导出数量上限仍严格校验。库存和库龄记录实际采集日。";
+  const note = nodes.find(node => node.name === "导入与运行说明");
+  note.parameters.content = note.parameters.content.replace("页面总数", "接口查询总数");
+}
+await writeFile(new URL(apiOnly ? "automation/n8n/jackyun-five-dataset-api.workflow.json" : directHttp ? "automation/n8n/jackyun-five-dataset-http.workflow.json" : "automation/n8n/jackyun-five-dataset-daily.workflow.json", root), `${JSON.stringify(workflow, null, 2)}\n`, "utf8");
