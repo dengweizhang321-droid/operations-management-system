@@ -24,6 +24,7 @@ const {
   getImportStatusPageData,
   getInventoryAgePageData,
   getInventoryInboundPageData,
+  getInventoryGuangdongPageData,
   getMarketWorkspaceStatusPageData,
   getNetshopProductCatalogPageData,
   getNetshopProductPerformancePageData,
@@ -41,6 +42,36 @@ const unrestrictedAnalyst = {
   role: "analyst" as const,
   scope: null,
 };
+
+test("广东AI工具固定reader、真实签名、20行上限和数据scope拒绝", async (t) => {
+  const environment = testEnvironment as Record<string, unknown>;
+  const previous = { ...environment };
+  const config = {
+    TERUISI_DJANGO_INVENTORY_READER_BASE_URL: "http://127.0.0.1:22451",
+    TERUISI_DJANGO_INVENTORY_WRITER_BASE_URL: "http://127.0.0.1:22452",
+    TERUISI_DJANGO_INTERNAL_SECRET: "isolated-guangdong-ai-secret-01234567890123456789",
+  };
+  Object.assign(environment, config);
+  t.after(() => { for (const key of Object.keys(config)) delete environment[key]; Object.assign(environment, previous); });
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    calls++;
+    const url = new URL(String(input));
+    assert.equal(url.origin, config.TERUISI_DJANGO_INVENTORY_READER_BASE_URL);
+    assert.equal(url.pathname, "/api/inventory/guangdong-monitor");
+    assert.equal(url.searchParams.get("pageSize"), "20");
+    assert.equal(url.searchParams.get("risk"), "urgent");
+    assert.equal(url.searchParams.has("warehouse"), false);
+    assert.deepEqual(JSON.parse(Buffer.from(new Headers(init?.headers).get("x-teruisi-principal")!, "base64url").toString()), unrestrictedAnalyst);
+    return Response.json({ items: Array.from({ length: 30 }, (_, i) => ({ productCode: String(i), risk: "urgent", leadDays: 14, riskReason: "周期内耗尽" })), pagination: { page: 1, total: 30 } }, { headers: { "x-inventory-data-revision": "1:abcdef123456" } });
+  });
+  const result = await getInventoryGuangdongPageData({ limit: 20, risk: "urgent" }, { principal: unrestrictedAnalyst });
+  assert.equal(result.items.length, 20);
+  assert.equal(result.items[0].riskReason, "周期内耗尽");
+  await assert.rejects(() => getInventoryGuangdongPageData({ limit: 21 }, { principal: unrestrictedAnalyst }));
+  await assert.rejects(() => getInventoryGuangdongPageData({}, { principal: { ...unrestrictedAnalyst, scope: { warehouses: ["广东仓"], channels: [], platforms: [] } } }));
+  assert.equal(calls, 1);
+});
 
 test("default AI finance adapters sign the real principal and never touch D1", async (t) => {
   const environment = testEnvironment as Record<string, unknown>;

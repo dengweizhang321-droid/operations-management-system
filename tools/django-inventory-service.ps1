@@ -138,6 +138,7 @@ roles = {
     "teruisi_inventory_writer": os.environ["TERUISI_PROVISION_INVENTORY_WRITER_PASSWORD"],
 }
 reader_tables = (
+    "inventory_guangdong_monitor_items", "inventory_guangdong_supplier_cycles",
     "sales_data_revisions", "sales_import_batches", "sales_order_lines",
     "erp_product_master", "erp_combo_items", "erp_reference_import_batches_pg",
     "erp_reference_import_scope_heads", "erp_reference_write_authority",
@@ -146,6 +147,9 @@ reader_tables = (
     "inventory_operating_settings",
 )
 writer_privileges = {
+    "inventory_guangdong_monitor_items": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_guangdong_supplier_cycles": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_guangdong_monitor_audits": ("SELECT", "INSERT"),
     "inventory_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "inventory_stock_lines": ("SELECT", "INSERT", "DELETE"),
     "inventory_age_lines": ("SELECT", "INSERT", "DELETE"),

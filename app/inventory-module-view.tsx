@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
+import GuangdongInventoryView from "./inventory-guangdong-view";
 import InventoryFilterBar, {
   readInventorySharedFilters,
   writeInventorySharedFilters,
@@ -1138,8 +1139,11 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       <button type="button" role="tab" aria-selected={activeTab === "plan"} className={activeTab === "plan" ? "active" : ""} onClick={() => onModuleViewChange("plan")}>备货计划</button>
       <button type="button" role="tab" aria-selected={activeTab === "stale"} className={activeTab === "stale" ? "active" : ""} onClick={() => onModuleViewChange("stale")}>滞销清理</button>
       <button type="button" role="tab" aria-selected={activeTab === "inbound"} className={activeTab === "inbound" ? "active" : ""} onClick={() => onModuleViewChange("inbound")}>京东入仓监控</button>
+      <button type="button" role="tab" aria-selected={activeTab === "guangdong"} className={activeTab === "guangdong" ? "active" : ""} onClick={() => onModuleViewChange("guangdong")}>广东入仓监控</button>
     </div>
   );
+
+  if (activeTab === "guangdong") return <>{subnav}<GuangdongInventoryView canManage={currentUser?.role === "operator" || currentUser?.role === "admin"} filters={filters} onFiltersChange={updateFilters} onAskAi={onAskAi} /></>;
 
   const activeInventoryHasData = usesInventoryAgeAnalysis ? ageAnalysis?.hasInventory : usesInboundMonitor ? inboundMonitor?.hasInventory : overview?.hasInventory;
   const activeInventoryAsOf = usesInventoryAgeAnalysis ? ageAnalysis?.sync.inventoryAsOf : usesInboundMonitor ? inboundMonitor?.sync.inventoryAsOf : overview?.sync.inventoryAsOf;

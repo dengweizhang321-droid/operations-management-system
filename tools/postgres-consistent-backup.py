@@ -147,6 +147,9 @@ def collect_evidence(
             "inventory_operating_settings",
             "replenishment_plan_items",
             "inventory_replenishment_group_deliveries",
+            "inventory_guangdong_monitor_items",
+            "inventory_guangdong_supplier_cycles",
+            "inventory_guangdong_monitor_audits",
         }
         inventory_tables = {
             name for name in tables
