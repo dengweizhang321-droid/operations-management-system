@@ -127,7 +127,22 @@ def turn(model, transcript, system, tools):
     ):
         raise AiError("模型工具调用越界", "invalid_provider_response", 503)
     for c in calls:
-        passive(c["arguments"], 8000)
+        # Honor the registered JSON-string input contract, including its JSON
+        # escaping overhead. Other tools retain the existing 8 KB bound; the
+        # central executor still validates the complete schema before dispatch.
+        entry = next((t for t in tools if t["name"] == c["name"]), {})
+        query_schema = (
+            entry.get("inputSchema", {}).get("properties", {}).get("queryJson", {})
+        )
+        declared = query_schema.get("maxLength")
+        limit = 8000
+        if (
+            query_schema.get("type") == "string"
+            and type(declared) is int
+            and 0 < declared <= 16000
+        ):
+            limit = max(limit, declared * 2 + 1024)
+        passive(c["arguments"], limit)
     answer = "\n".join(texts)
     if not answer and not calls:
         raise AiError("模型没有返回正文", "invalid_provider_response", 503)

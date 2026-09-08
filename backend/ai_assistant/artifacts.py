@@ -42,7 +42,15 @@ def cell(value):
 
 
 def candidate(name, data):
+    if name == "describe_system_datasets":
+        return None  # Discovery metadata is not a queried business table.
+    if name == "query_system_dataset":
+        data = data.get("data")
+        if not isinstance(data, dict):
+            return None
     collection = data.get("items", data.get("daily"))
+    if name in {"query_system_dataset", "get_system_dataset_records"} and collection is None:
+        collection = data.get("rows")
     if (
         not isinstance(collection, list)
         or not collection
@@ -74,7 +82,7 @@ def candidate(name, data):
         columns=columns[:12],
         rows=rows,
         rowCount=max(total if type(total) is int else 0, len(collection)),
-        truncated=bool(data.get("truncated"))
+        truncated=bool(data.get("truncated") or data.get("hasMore"))
         or len(collection) > 50
         or len(columns) > 12
         or changed,
