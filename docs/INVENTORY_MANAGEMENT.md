@@ -126,6 +126,14 @@
 
 库存迁移 `0007_guangdong_monitor` 新增三张广东清单、供应商周期和审计表，reader只读业务配置，writer按最小权限维护配置并追加审计；部署脚本、readiness和日常备份清单同步包含新表。验证在独立工作树执行 `python tools/verify-guangdong-monitor.py`（独立55458端口PostgreSQL、合成数据、最小权限、备份恢复）及 `node tools/verify-guangdong-ui.mjs`（独立3108端口、浏览器交互、模拟API）。正式迁移与发布仍使用受控发布流程，不由开发验证自动执行。
 
+### 广东监控本机生产采用（2026-09-08）
+
+经用户明确授权，广东监控已随提交 `f39d8d6887a57812ac36f41bc7ada0e7b2141ab7` 完成本机受控发布。Worker effective release 为 `20260908T103235Z-6e9bfb8baea02174`；Django 部署清单 SHA-256 为 `d86d6a007bfb95ca36cd0b0dcd0d9529ff06e8dca7cc78defa475d5530b76c0b`。已应用 `inventory.0007_guangdong_monitor`，只为库存 reader/writer 新增三张广东表所需的10条权限，其他角色、BI、列权限及数据库权限保持一致。
+
+入口为“库存管理 → 广东入仓监控”。上线回查时清单、供应商周期及审计表均为0条，没有导入测试货品；使用时先添加吉客云货品编码，再设置对应供应商完整到仓周期和缓冲天数。生产浏览器、两类完整 Excel 导出、版本冲突拒绝及原有京东监控回归均已通过。
+
+发布使用独立工作树和生产备份的独立 PostgreSQL 镜像；镜像完成新增迁移、最小权限配置、23服务启动/重启及20项接口检查。发布前后正式备份均保留，恢复仅遵循现行 PostgreSQL 备份恢复或兼容代码前向修复，不恢复旧 D1 路径。具体计划摘要、服务状态、回查和恢复证据见 [广东监控生产发布证据](evidence/guangdong-monitor-production-20260908.json)。
+
 ### 既有接口
 
 - `GET /api/inventory/overview`：库存总览与备货计划投影。
