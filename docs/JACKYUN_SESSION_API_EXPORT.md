@@ -5,7 +5,7 @@
 ## 入口与不变的业务口径
 
 - 工作流定义：`automation/n8n/jackyun-five-dataset-api.workflow.json`；生成命令：`node tools/generate-jackyun-export-first-workflow.mjs --api-only`。
-- 保留原 n8n ID `J8kY2mQ5vR7sT4pN`，只能受控更新现有工作流，不能另外启用竞争链。JSON 默认手动、未激活。
+- 保留原 n8n ID `J8kY2mQ5vR7sT4pN`，每天本机时间 00:10 自动运行，同时保留手动入口；两者均先领取共享 helper。时区固定为与本机 China Standard Time 对应的 `Asia/Shanghai`。仓库 JSON 保持未激活，实际调度以本机 n8n 已发布版本为准，不能另外启用竞争链。
 - 新计划入口为 `/jackyun/export-first/plan-api`，传输版本为 `session_api_v1`；B 节点调用 `export-all`，C/D/E 继续使用现有 `validate/import/verify`。
 - 导出顺序：分仓库存、组合装及子件、发货时间销售明细、库龄、SKU 货品；五表全部落地、校验后，依次导入货品、分仓库存、库龄、销售、组合装。
 - 销售为本月初至昨天，月初第一天沿用上月整月；库存及库龄标记实际采集日。销售依旧使用本轮分仓库存匹配成本，任何成本冲突、未匹配或缺失均在正式导入前拦截。本次不改变历史 827 行合理零成本的处理，不补录成本、不引入新的零成本豁免。
@@ -69,3 +69,12 @@
 - 守护进程于 14:12:35 核验为 `running / healthy / all_components_ready`。首次从 PowerShell 7 启动 Windows PowerShell 子进程时，继承的 `PSModulePath` 导致 `Microsoft.PowerShell.Security` 自动加载失败；仅在启动该子进程时去除继承值、随后恢复父进程环境后，受控原脚本正常常驻。没有修改服务代码或全局环境，失败日志仍保留。全部 12 组组件健康，Worker 身份为 `exact_release`。
 
 脱敏采用记录及本地原始证据摘要见 [`evidence/jackyun-session-api-adoption-20260908.json`](evidence/jackyun-session-api-adoption-20260908.json)，发布本地证据在 `D:\codex-artifacts\jackyun-api-release-20260908`。后续首次正式运行必须仍由原 n8n 手动入口执行 A/B/C/D/E；成本检查失败时禁止进入 D，E 必须回查精确批次。更近一次隔离 A/B/C 和独立校验总耗时为 88.591 秒，材料在 `D:\codex-artifacts\jackyun-timing-test-20260908`；该耗时不包含正式导入，也不包含本次服务发布维护时间。
+
+## 2026-09-09 每天本机 00:10 调度
+
+用户明确要求按本机本地时间每天 00:10 执行。本机时区经 `Get-TimeZone` 核验为 `China Standard Time`（UTC+08:00），工作流沿用 `Asia/Shanghai`，新增唯一 Schedule Trigger，定时和手动入口均进入原共享 helper 领取流程。现有 A/B/C/D/E、成本处理、排队和失败停止规则未改变。
+
+本机于 00:09 发布版本 `9dfa78ac-ec2d-45a9-bbab-02380f5e7c35`，原工作流 `J8kY2mQ5vR7sT4pN` 已启用：`active=true` 且 `activeVersionId=versionId`。12 个节点、连接和时区与仓库模板一致，已发布历史节点和连接也已逐项核验；其他 16 条工作流定义摘要不变。使用 n8n 正常页面发布，使在线调度器立即生效，没有通过 CLI publish 后遗漏重启，也没有重启 n8n/Worker/helper。
+
+使用本机已安装 n8n 的 cron 库验证跨日边界：2026-09-09 00:09 的下一次为当天 00:10。本机必须保持开机，n8n 和配套服务运行；离线时不承诺自动补跑。如以后更改 Windows 时区，需要同步调整工作流时区。更改前定义备份及发布回查证据保存在 `D:\codex-artifacts\jackyun-schedule-20260909`。
+实际触发已核验：n8n execution 912 于本机 2026-09-09 00:10:00.029 自动开始，模式为 	rigger（不是手工/CLI 触发）。发布与首次触发证据见 [调度采用记录](evidence/jackyun-daily-0010-20260909.json)。
