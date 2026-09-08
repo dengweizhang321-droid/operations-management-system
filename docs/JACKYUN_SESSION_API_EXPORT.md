@@ -1,10 +1,10 @@
-# 吉客云五表会话接口下载候选版
+# 吉客云五表会话接口下载
 
 本实现使用当前账号已登录网站的接口协议，浏览器只负责 DPAPI 登录、企业身份检查、签名等价检查及令牌发布。报表查询、权限检查、任务提交、轮询和 OSS 下载由同一个 HTTP 会话完成，不再加载五个报表页面、等待 MiniUI 控件或执行右键菜单。本实现不是独立的官方开放平台 AppKey 接入。
 
 ## 入口与不变的业务口径
 
-- 候选定义：`automation/n8n/jackyun-five-dataset-api.workflow.json`；生成命令：`node tools/generate-jackyun-export-first-workflow.mjs --api-only`。
+- 工作流定义：`automation/n8n/jackyun-five-dataset-api.workflow.json`；生成命令：`node tools/generate-jackyun-export-first-workflow.mjs --api-only`。
 - 保留原 n8n ID `J8kY2mQ5vR7sT4pN`，只能受控更新现有工作流，不能另外启用竞争链。JSON 默认手动、未激活。
 - 新计划入口为 `/jackyun/export-first/plan-api`，传输版本为 `session_api_v1`；B 节点调用 `export-all`，C/D/E 继续使用现有 `validate/import/verify`。
 - 导出顺序：分仓库存、组合装及子件、发货时间销售明细、库龄、SKU 货品；五表全部落地、校验后，依次导入货品、分仓库存、库龄、销售、组合装。
@@ -53,3 +53,19 @@
 发布准备复核原 n8n SQLite、计划和唯一 controller 文件：897 在 `warehouseCom` 控件等待处失败，controller 仅为 `navigated`，没有本轮查询、导出提交或业务文件。已部署 release `20260908T023322Z-d783739f19e43a9d` 的 controller 源码摘要为 `35d006f60461f9ce7f8b6fcd4d224f10fd973202a88dd2c5c5bd84e9543dadae`，该异常在仓库选择和最终导出 POST 之前抛出。
 
 现有 `tools/jackyun-preflight-recovery.ts plan 897` / `apply 897 <proposal.json> <approvedSha256>` 增加仅适用于这一次的已审计分支。精确绑定原 n8n 数据摘要、时间、错误节点、请求路径、计划和控制状态字节，同时检查无在途吉客云 execution、无成功重试、helper 空闲和无额外文件。闭合采用 create-only 审计记录；不删除 active、计划或旧失败历史。之后仅允许新的完整 n8n 计划推进 active，897 不能重放。任一文件变化、出现下载/演练目录或身份变化均拒绝，不能作为任意失败运行的通用放行规则。
+
+## 2026-09-08 本机正式采用
+
+在用户明确要求“发布新版，替换旧版”后，已把本实现部署到受控 Worker/helper，并更新原 n8n 工作流；上面的隔离演练段落描述发布前记录，不代表当前仍是候选状态。
+
+- 发布代码由 PR #31、#32 合入，部署源码为 `e193367eeb648f17e22e1b0c56858db752d9f72d`。Effective release 为 `20260908T060055Z-c06e40a5d153d39e`，manifest SHA-256 为 `ac0676a9ff83e432cfe9fda4d0240d61f6b8d0d8d96698451e923d5632d58bb0`。
+- 受控 rotation plan SHA-256 为 `7f10eb6d18989a7297ee85e6f5c896ff6bd8e5f5517073308d64a29fc99fa5b2`；apply 已验证唯一 successor 并重绑、回读启动入口。旧 release `20260908T023322Z-d783739f19e43a9d` 保留审计，后续启动采用新 head。
+- Django 重新 DeployApp/HardenAcl 后的部署清单摘要为 `0b4235f702266c1fdbd646cdb082b31361b3fe1ccf04c288a27f579d3e54c06d`，受信 verifier 与部署源码一致。本次不改变后端业务代码、数据库结构或领域写入权限。
+- 原工作流 `J8kY2mQ5vR7sT4pN` / “吉客云导入系统”已使用 API 模板覆盖。11 个节点及连接、设置均与模板逐项一致，version ID 为 `1e9930b1-4e64-4ee3-919b-d8fe10f8f670`。保持同一所有者、手动运行和 `active=false`，没有新建竞争工作流；其余 16 条定义摘要未变。
+- 897 已按上述精确证据闭合为 `closed_before_export`，receipt SHA-256 为 `95f9e8518afd53a2ffe828ba34ee704246bbcef92a573c11e881bea911fdb752`。该状态不表示其下载或导入成功；旧计划、active 和失败历史仍保留。
+- 全量回归最终为 2,003 通过、20 跳过、0 失败；发布前高负载下出现过一次浏览器弹窗测试超时，原失败日志保留，定向三次复验及随后全量均通过。首次生产 plan 因新 helper root/template 缺少 verifier 精确登记而在激活前失败，PR #32 补齐两项登记后，64 项 release/rotation 测试通过，再次 plan/apply 成功。测试直接将真实 helper build receipt 交给生产 validator，并验证遗漏和额外可变配置被拒绝；没有绕过门禁。
+- 发布前备份 `daily-20260908T053620Z-dd46ac9b49d7` 已完成 SHA 校验与独立端口 55432 恢复演练；manifest SHA-256 为 `5b731557a37a542a642ebab0a88d18a76dae0cacde6027376bbac8e6e3dd4b08`，源与恢复内容摘要均为 `9c980ab8ae53a0f0f2a4a4a483315b202c3072fb3fee14c3576f80d369514c8f`，演练未触碰生产库。
+- 总控于上海时间 14:09:20 返回 `started / Running`。本机只读 `/api/sales/data-health` 核验销售 revision 仍为 `17:13`、覆盖截至 `2026-09-07`，helper 返回就绪且空闲。本次发布没有触发新的 n8n execution 或正式业务导入，不能报告为新版生产全链路已跑通。
+- 守护进程于 14:12:35 核验为 `running / healthy / all_components_ready`。首次从 PowerShell 7 启动 Windows PowerShell 子进程时，继承的 `PSModulePath` 导致 `Microsoft.PowerShell.Security` 自动加载失败；仅在启动该子进程时去除继承值、随后恢复父进程环境后，受控原脚本正常常驻。没有修改服务代码或全局环境，失败日志仍保留。全部 12 组组件健康，Worker 身份为 `exact_release`。
+
+脱敏采用记录及本地原始证据摘要见 [`evidence/jackyun-session-api-adoption-20260908.json`](evidence/jackyun-session-api-adoption-20260908.json)，发布本地证据在 `D:\codex-artifacts\jackyun-api-release-20260908`。后续首次正式运行必须仍由原 n8n 手动入口执行 A/B/C/D/E；成本检查失败时禁止进入 D，E 必须回查精确批次。更近一次隔离 A/B/C 和独立校验总耗时为 88.591 秒，材料在 `D:\codex-artifacts\jackyun-timing-test-20260908`；该耗时不包含正式导入，也不包含本次服务发布维护时间。
