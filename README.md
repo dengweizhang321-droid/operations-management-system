@@ -82,6 +82,10 @@ npm run backend:dev:stop
 
 `development` 角色同时挂载每个域的 reader/writer 路由与 BI 只读路由，两个进程即可覆盖销售、财务、ERP 主数据、网店、市场、商品经营、库存、运营事务、客服、权限控制以及 BI；它不启用生产 authority 门禁，仅在 `sales_writer` 等生产角色开放的写路径（如销售导入）在开发模式下不可用。BI 的生产拓扑、组合 revision 和迁移门禁见 [`docs/DJANGO_BI_MIGRATION.md`](docs/DJANGO_BI_MIGRATION.md)。`.runtime/`、`backend.env` 与其中的随机密钥都被 Git 忽略，不得用于 Windows 生产主机。Vite dev server 的依赖预打包缓存固定放在 `node_modules/.vite-sites-cache`（构建仍用根目录 `.vite-sites-cache`）：vinext 内置的 CommonJS 插件只跳过路径含 `node_modules/.vite` 的预打包产物，放在别处会在启动时报 "A module cannot have multiple default exports"。
 
+## 工作流运行通知
+
+钉钉运行消息只在整条工作流完成、失败需要人工协助、或持续卡住无法恢复时发送，由“志高助手”发送到“测试群聊”。中间节点和数据集完成不再逐条通知，同一卡点不重复提醒；恢复后以整条流程完成消息收尾。吉客云五表和京东四店整条流程各汇总一条，天猫及京东 AI 推广按每店独立完整工作流各一条。完整单位、阻塞判定与防重规则见 [工作流钉钉通知规则](docs/WORKFLOW_DINGTALK_NOTIFICATIONS.md)。
+
 ## 吉客云自动化
 
 五表另提供浏览器仅登录、报表走会话接口的候选工作流 `automation/n8n/jackyun-five-dataset-api.workflow.json`。它保留原有销售成本校验、五表屏障和导入回查，并为平台与本机时间差增加任务匹配证据；尚未替换上文已采用版本。参数校准、运行边界和验收见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
