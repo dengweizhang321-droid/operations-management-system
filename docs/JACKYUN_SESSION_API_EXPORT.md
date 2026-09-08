@@ -77,4 +77,4 @@
 本机于 00:09 发布版本 `9dfa78ac-ec2d-45a9-bbab-02380f5e7c35`，原工作流 `J8kY2mQ5vR7sT4pN` 已启用：`active=true` 且 `activeVersionId=versionId`。12 个节点、连接和时区与仓库模板一致，已发布历史节点和连接也已逐项核验；其他 16 条工作流定义摘要不变。使用 n8n 正常页面发布，使在线调度器立即生效，没有通过 CLI publish 后遗漏重启，也没有重启 n8n/Worker/helper。
 
 使用本机已安装 n8n 的 cron 库验证跨日边界：2026-09-09 00:09 的下一次为当天 00:10。本机必须保持开机，n8n 和配套服务运行；离线时不承诺自动补跑。如以后更改 Windows 时区，需要同步调整工作流时区。更改前定义备份及发布回查证据保存在 `D:\codex-artifacts\jackyun-schedule-20260909`。
-实际触发已核验：n8n execution 912 于本机 2026-09-09 00:10:00.029 自动开始，模式为 	rigger（不是手工/CLI 触发）。发布与首次触发证据见 [调度采用记录](evidence/jackyun-daily-0010-20260909.json)。
+实际触发已核验：n8n execution 912 于本机 2026-09-09 00:10:00.029 自动开始，模式为 trigger（不是手工/CLI 触发）。发布与首次触发证据见 [调度采用记录](evidence/jackyun-daily-0010-20260909.json)。
