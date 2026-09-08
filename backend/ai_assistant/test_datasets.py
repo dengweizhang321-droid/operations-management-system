@@ -12,6 +12,17 @@ from . import tests as support
 CATALOG, ADMIN = support.CATALOG, support.ADMIN
 
 
+class DatasetSourceErrorTests(SimpleTestCase):
+    def test_source_errors_preserve_http_contract(self):
+        for code, status in [("invalid_arguments", 400), ("forbidden", 403),
+                             ("payload_too_large", 413), ("tool_result_too_large", 413),
+                             ("service_unavailable", 503), ("unknown", 503)]:
+            with self.subTest(code=code), self.assertRaises(AiError) as caught:
+                datasets._result({"ok": False, "toolName": "get_system_dataset_records",
+                                  "error": {"code": code}}, "get_system_dataset_records")
+            self.assertEqual(caught.exception.status, status)
+
+
 def catalog_fixture():
     entries = []
     for name in {v[0] for v in datasets.DATASETS.values()} | {"get_data_freshness"}:

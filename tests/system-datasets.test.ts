@@ -18,6 +18,34 @@ const environment = {
   TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112",
 };
 
+test("record source failures retain actionable codes through the central executor and audit", async t => {
+  const key = "TERUISI_DJANGO_ERP_READER_BASE_URL";
+  const saved = { ...Object.fromEntries(Object.keys(environment).map(k => [k, process.env[k]])), [key]: process.env[key] };
+  const originalFetch = globalThis.fetch;
+  Object.assign(process.env, environment, { [key]: "http://127.0.0.1:18091" });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    for (const [k, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[k]; else process.env[k] = value;
+    }
+  });
+  for (const [status, code] of [[400, "invalid_arguments"], [403, "forbidden"], [413, "payload_too_large"], [503, "service_unavailable"]] as const) {
+    globalThis.fetch = async () => Response.json({ error: "private source detail" }, { status });
+    const audit: string[] = [];
+    const result = await executeRegisteredToolCall("get_system_dataset_records", {
+      dataset: "rows_erp_product_master", queryJson: '{"columns":["api_key"]}',
+    }, { principal: { ...principal, role: "admin" }, surface: "ai_chat", requestId: "record-error-fixture" }, {
+      audit: async input => { audit.push(input.status); },
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.error.code, code);
+      assert.doesNotMatch(result.error.message, /private source detail/);
+    }
+    assert.deepEqual(audit, ["started", "failed"]);
+  }
+});
+
 test("every explicit dataset resolves to a bounded, callable, read-only central entry", async () => {
   validateToolRegistry(aiToolRegistry);
   const source = await readFile(new URL("../backend/ai_assistant/datasets.py", import.meta.url), "utf8");
