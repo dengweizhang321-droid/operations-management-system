@@ -9,8 +9,9 @@ export async function forwardAiRequest(request: Request) {
     const url = new URL(request.url);
     if (!isPublicAiPath(url.pathname)) throw new PublicApiError(404, "not_found", "AI 接口不存在。");
     const read = request.method === "GET";
+    const datasetQuery = request.method === "POST" && /^\/api\/ai\/datasets\/[a-z][a-z0-9_]{0,63}\/query$/.test(url.pathname);
     if (!read) requireAiSameOriginWrite(request);
-    const principal = await requireAppPrincipal(read ? undefined : ["admin", "operator", "analyst"]);
+    const principal = await requireAppPrincipal(read || datasetQuery ? undefined : ["admin", "operator", "analyst"]);
     if (/^\/api\/ai\/(?:models|channels|space\/(?:profiles|templates))$/.test(url.pathname)) {
       if (principal.role !== "admin") throw new PublicApiError(403, "access_denied", "AI 管理仅允许管理员。");
       requireUnrestrictedDataScope(principal, "AI 管理");

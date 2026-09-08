@@ -19,6 +19,7 @@ from . import (
     provider,
     transport,
     knowledge,
+    datasets,
 )
 from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
@@ -119,6 +120,8 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"datasets(?:/[a-z][a-z0-9_]{0,63})?": {"GET"},
+            r"datasets/[a-z][a-z0-9_]{0,63}/query": {"POST"},
             r"models|channels|space/(?:profiles|templates)": {"GET", "POST", "DELETE"},
             r"conversations": {"GET", "PATCH", "DELETE"},
             r"chat|memories|sandbox|agent-jobs|workflow-runs|space/jobs": {
@@ -164,10 +167,12 @@ def _dispatch(request, path=""):
             "knowledge",
             "memory-recall",
             "analysis-describe",
+            "datasets-describe",
+            "datasets-query",
         }
         writer = (
             request.method != "GET" or root in {"artifacts"}
-        ) and not consumer_read
+        ) and not consumer_read and root != "datasets"
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -185,6 +190,14 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "datasets":
+            if request.method == "GET":
+                fields(payload, set())
+                fields(params, {"page", "pageSize", "domain"} if len(parts) == 1 else set())
+                return response(datasets.describe(principal, parts[1] if len(parts) == 2 else None,
+                    page=int(params.get("page", "1")), page_size=int(params.get("pageSize", "20")), domain=params.get("domain")))
+            fields(params, set())
+            return response(datasets.query(parts[1], payload, principal, request_id))
         if root == "chat" and len(parts) == 1 and request.method == "POST":
             return response(chat.answer(payload, principal, request_id))
         if (
@@ -599,6 +612,8 @@ def consumer(payload, principal, request_id):
         return response_payload
     if operation == "analysis-plan":
         return sandbox.run(payload["input"], principal, request_id)
+    if operation in {"datasets-describe", "datasets-query"}:
+        return datasets.consumer(payload, principal, request_id)
     if operation == "memory-recall":
         fields(payload, {"operation", "query"}, {"operation", "query"})
         return memory.recall(
@@ -617,22 +632,27 @@ def consumer(payload, principal, request_id):
 
 _primary_slots = BoundedSemaphore(2)
 _consumer_slots = BoundedSemaphore(2)
+_dataset_slots = BoundedSemaphore(2)
 
 
 def dispatch(request, path=""):
     # Six writer threads: at most two blocking primary requests + two nested
     # consumers. Two threads remain available for tool audits and cancellation.
     gate = None
+    dataset_request = path == "datasets" or path.startswith("datasets/")
     if request.method != "GET" and not path.endswith("/cancel"):
         if path == "consumer":
             try:
                 operation = body(request).get("operation")
             except AiError:
                 operation = None
+            dataset_request = operation in {"datasets-describe", "datasets-query"}
             if operation in {"analysis-reply", "analysis-plan"}:
                 gate = _consumer_slots
         else:
             gate = _primary_slots
+    if dataset_request:
+        gate = _dataset_slots
     if gate and not gate.acquire(blocking=False):
         return JsonResponse(
             {"error": "AI 执行繁忙，请稍后重试", "code": "rate_limited"},
@@ -641,7 +661,7 @@ def dispatch(request, path=""):
         )
     try:
         with transport.request_budget(
-            260 if path == "chat" else 195 if path == "scheduler" else 120
+            28 if dataset_request else 260 if path == "chat" else 195 if path == "scheduler" else 120
         ):
             result = _dispatch(request, path)
         if result.status_code < 400:

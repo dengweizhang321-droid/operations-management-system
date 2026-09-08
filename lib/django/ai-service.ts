@@ -5,7 +5,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 type Environment = Record<string, string | undefined>;
 const encoder = new TextEncoder();
 const ENTITY = "[A-Za-z0-9_-]{1,160}";
-const PUBLIC_PATH = new RegExp(`^/api/ai/(?:models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
+const PUBLIC_PATH = new RegExp(`^/api/ai/(?:datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
 export const AI_INTERNAL_PATHS = new Set(["/api/ai/consumer", "/api/ai/scheduler"]);
 
 export async function aiEnvironment(): Promise<Environment> {
@@ -39,10 +39,11 @@ export async function aiHeaders(input: { secret: string; principal: AppPrincipal
 export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   path: string; method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; query?: URLSearchParams; payload?: Record<string, unknown>; service?: "reader" | "writer";
 }, options: { environment?: Environment; fetchImpl?: typeof fetch; signal?: AbortSignal; requestId?: string } = {}): Promise<{ data: T; status: number; revision: string; replayed: boolean }> {
+  if (options.signal?.aborted) throw unavailable();
   if (!isPublicAiPath(input.path) && !AI_INTERNAL_PATHS.has(input.path) && !new RegExp(`^/api/ai/callback/${ENTITY}$`).test(input.path)) throw unavailable();
   const environment = options.environment ?? await aiEnvironment();
   const method = input.method ?? "GET";
-  const service = input.service ?? (method === "GET" && !input.path.startsWith("/api/ai/artifacts/") ? "reader" : "writer");
+  const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/")) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }
@@ -70,7 +71,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
 }
 
 export async function aiConsumer<T>(principal: AppPrincipal, payload: Record<string, unknown>, options: Parameters<typeof requestDjangoAi>[2] = {}) {
-  const read = ["model-runtime", "model-list", "knowledge", "memory-recall", "analysis-describe"].includes(String(payload.operation));
+  const read = ["model-runtime", "model-list", "knowledge", "memory-recall", "analysis-describe", "datasets-describe", "datasets-query"].includes(String(payload.operation));
   return (await requestDjangoAi<T>(principal, { path: "/api/ai/consumer", method: "POST", payload, service: read ? "reader" : "writer" }, options)).data;
 }
 

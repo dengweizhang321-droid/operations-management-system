@@ -151,6 +151,8 @@ with connection.cursor() as cursor:
         "CREATE POLICY bi_revision_reader ON sales_data_revisions FOR SELECT TO teruisi_bi_reader "
         "USING (domain IN ('sales','erp'))"
     )
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "bi")
     cursor.execute("ALTER ROLE teruisi_bi_reader SET default_transaction_read_only=on")
     cursor.execute(
         "SELECT rolsuper,rolcreaterole,rolcreatedb,rolreplication,rolbypassrls "

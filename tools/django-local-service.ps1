@@ -2867,6 +2867,9 @@ with connection.cursor() as c:
     c.execute("GRANT USAGE ON SCHEMA public TO teruisi_sales_reader, teruisi_sales_writer, teruisi_finance_reader, teruisi_finance_writer")
 
     c.execute("GRANT SELECT ON sales_order_lines, sales_import_batches, sales_data_revisions, erp_product_master, erp_combo_items, erp_reference_import_batches_pg, erp_reference_import_scope_heads, erp_reference_write_authority TO teruisi_sales_reader")
+    from system_datasets.permissions import grant_columns
+    grant_columns(c, "sales")
+    grant_columns(c, "finance")
 
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON sales_order_lines TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE ON sales_import_batches, sales_data_revisions, sales_import_scope_heads, sales_import_attempts, sales_raw_upload_sessions, sales_staged_import_sessions, sales_write_request_receipts TO teruisi_sales_writer")

@@ -162,6 +162,9 @@ def provision(connection, reader_password, writer_password):
                         sql.Identifier(role),
                     )
                 )
+            if role == "teruisi_ai_reader":
+                from system_datasets.permissions import grant_columns
+                grant_columns(cursor, "ai_assistant")
             cursor.execute(
                 sql.SQL("ALTER ROLE {} SET default_transaction_read_only={}").format(
                     sql.Identifier(role),

@@ -171,6 +171,8 @@ with connection.cursor() as cursor:
         if row and row[0]:
             schema, sequence = row[0].split(".", 1)
             cursor.execute(sql.SQL("GRANT USAGE ON SEQUENCE {}.{} TO teruisi_customer_service_writer").format(sql.Identifier(schema), sql.Identifier(sequence)))
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "customer_service")
     cursor.execute("ALTER ROLE teruisi_customer_service_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_customer_service_writer RESET default_transaction_read_only")
     for role in roles:

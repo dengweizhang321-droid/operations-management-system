@@ -39,6 +39,9 @@ def check():
             if writer
             else {table: ("SELECT",) for table in READ_TABLES}
         )
+        if not writer:
+            from system_datasets.permissions import validate_reader_columns
+            validate_reader_columns(cursor, settings.DJANGO_PROCESS_ROLE)
         cursor.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
         )

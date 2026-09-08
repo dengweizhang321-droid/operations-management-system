@@ -236,6 +236,8 @@ with connection.cursor() as cursor:
                 "GRANT USAGE ON SEQUENCE {}.{} TO teruisi_products_writer"
             ).format(sql.Identifier(schema), sql.Identifier(sequence)))
 
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "products")
     cursor.execute("ALTER ROLE teruisi_products_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_products_writer RESET default_transaction_read_only")
     for role in roles:
