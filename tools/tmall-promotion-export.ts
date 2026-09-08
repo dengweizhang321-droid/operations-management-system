@@ -287,6 +287,30 @@ export function isTmallPromotionItemReportUrl(value: string, expected?: { startD
   }
 }
 
+export type PromotionReportReadinessPhase = "initial" | "recovered";
+
+export async function waitForPromotionReportReadinessWithRecovery(options: {
+  waitForReady: (phase: PromotionReportReadinessPhase) => Promise<boolean>;
+  recoverRoute: () => Promise<void>;
+  verifyIdentity: () => Promise<void>;
+  dismissPopups: () => Promise<number>;
+  failureMessage: () => Promise<string> | string;
+}) {
+  if (await options.waitForReady("initial")) {
+    return { recovered: false, dismissedPopups: 0 } as const;
+  }
+  // This is intentionally limited to one read-only route recovery. No report
+  // control is touched until the exact route, identity and page semantics are
+  // all observed again after recovery.
+  await options.recoverRoute();
+  await options.verifyIdentity();
+  const dismissedPopups = await options.dismissPopups();
+  if (await options.waitForReady("recovered")) {
+    return { recovered: true, dismissedPopups } as const;
+  }
+  throw new Error(await options.failureMessage());
+}
+
 function exactNormalizedSelection(actual: readonly string[], expected: readonly string[]) {
   const normalizedActual = [...new Set(actual.map((value) => normalizeText(value)).filter(Boolean))].sort();
   const normalizedExpected = [...new Set(expected.map((value) => normalizeText(value)).filter(Boolean))].sort();
@@ -1808,11 +1832,48 @@ async function navigateToPromotionReport(page: Page, store: TmallStore, startDat
   page.setDefaultTimeout(15_000);
   await waitForAlimamaIdentity(page, store);
   dismissedPopups += await dismissBlockingPopups(page);
-  await waitUntil(60_000, async () => {
+
+  const expected = { startDate, endDate };
+  const reportReady = async () => {
     const text = await combinedPageText(page);
-    return isTmallPromotionItemReportUrl(page.url(), { startDate, endDate })
+    return isTmallPromotionItemReportUrl(page.url(), expected)
       && text.includes("商品报表") && text.includes("营销场景") && text.includes("商品数据明细");
-  }, "阿里妈妈商品报表页面或目标日期未加载完成");
+  };
+  const readiness = await waitForPromotionReportReadinessWithRecovery({
+    waitForReady: async (phase) => {
+      // A successful DPAPI login can legitimately land on the Alimama home
+      // route. Do not spend the full readiness budget waiting on a route that
+      // cannot become the requested dated report without navigation.
+      if (!isTmallPromotionItemReportUrl(page.url(), expected)) return false;
+      const timeoutMs = phase === "initial" ? 30_000 : 60_000;
+      try {
+        await waitUntil(timeoutMs, reportReady, "商品报表页面尚未就绪");
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    recoverRoute: async () => {
+      if (isTmallPromotionItemReportUrl(page.url(), expected)) {
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+      } else {
+        await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      }
+    },
+    verifyIdentity: () => waitForAlimamaIdentity(page, store),
+    dismissPopups: () => dismissBlockingPopups(page),
+    failureMessage: async () => {
+      const text = await combinedPageText(page);
+      const missing = [
+        !isTmallPromotionItemReportUrl(page.url(), expected) ? "目标日期路由" : "",
+        !text.includes("商品报表") ? "商品报表" : "",
+        !text.includes("营销场景") ? "营销场景" : "",
+        !text.includes("商品数据明细") ? "商品数据明细" : "",
+      ].filter(Boolean).join("、") || "未知页面语义";
+      return `阿里妈妈商品报表页面一次受控恢复后仍未加载完成（页面：${sanitizePromotionDiagnosticUrl(page.url())}；缺少：${missing}），未开始报表业务操作`;
+    },
+  });
+  dismissedPopups += readiness.dismissedPopups;
   await configureMarketingScenes(page);
   dismissedPopups += await dismissBlockingPopups(page);
   await configurePlanDimension(page);
