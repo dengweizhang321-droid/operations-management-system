@@ -322,6 +322,15 @@ def record_rejection(payload: dict[str, object], actor_email: str) -> dict[str, 
     }
 
 
+def _restore_sales_category_fallback(lines) -> None:
+    # ERP may read only product_code/category/resolved_category. Group by the
+    # source category instead of reading sales row IDs or widening privileges.
+    for category in lines.values_list("category", flat=True).distinct():
+        lines.filter(category=category).update(
+            resolved_category=(category or "").strip() or "未分类"
+        )
+
+
 def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, object]:
     if payload.get("kind") == "rejection":
         return record_rejection(payload, actor_email)
@@ -441,9 +450,7 @@ def import_payload(payload: dict[str, object], actor_email: str) -> dict[str, ob
                         if fallback:
                             lines.update(resolved_category=fallback)
                         else:
-                            for line in lines.only("id", "category"):
-                                line.resolved_category = (line.category or "").strip() or "未分类"
-                                line.save(update_fields=["resolved_category"])
+                            _restore_sales_category_fallback(lines)
             else:
                 ErpComboItem.objects.all().delete()
                 ErpComboItem.objects.bulk_create([

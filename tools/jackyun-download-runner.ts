@@ -34,6 +34,7 @@ import { verifyJackyunModuleArtifact } from "../lib/jackyun/run-artifact-verific
 import { jackyunDjangoImportReceipt } from "../lib/jackyun/django-import-receipt";
 import { jackyunExportFirstPolicyVersion } from "../lib/jackyun/run-contract";
 import { auditedComboNameRejection, isAuditedComboNameRepair } from "../lib/jackyun/combo-name-recovery";
+import { assertExactFailedImportRetry, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
 
 type CliOptions = {
   module: JackyunModule;
@@ -54,6 +55,7 @@ type CliOptions = {
   handoffEvidence?: JackyunHandoffEvidence;
   allowedDownloadHosts?: readonly string[];
   sourceRowCountCorrection?: JackyunSourceRowCountCorrection;
+  importRecovery?: ImportRecoveryBinding;
   dryRun: boolean;
 };
 
@@ -774,7 +776,15 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         priorModule: existing as unknown as Record<string, unknown>,
         failedAudit,
       });
-      if (repairsComboName) {
+      if (!options.dryRun && options.importRecovery) {
+        assertExactFailedImportRetry({ runId: options.runId, module: options.module,
+          sourceSha256: rawHash, inputContractHash, prior: existing,
+          auditRaw: await readFile(auditPath), binding: options.importRecovery });
+        // The pipeline already saved the original failed manifest and audit in
+        // a create-only archive before binding this new n8n execution.
+        delete manifest.modules[options.module];
+        priorModule = undefined;
+      } else if (repairsComboName) {
         await writeFile(path.join(auditDirectory, `combos.name-whitespace-repair-${auditedComboNameRejection.auditSha256}.json`),
           JSON.stringify({ failedAudit, repair: "audited_845_combo_name_whitespace", repairedAt: new Date().toISOString() }) + "\n", { flag: "wx" });
         delete manifest.modules[options.module];
