@@ -42,6 +42,7 @@ import {
   withPayloadSha256,
   verifyPublishedAuthorityForCurrent,
   validateGuardReceipt,
+  validateHelperBuilderEvidence,
   verifyWorkerReleaseProcessState,
   windowsPathSha256,
   workerReleaseBundledSourcePaths,
@@ -959,6 +960,22 @@ test("immutable helper bundle keeps code immutable and mutable state at the prot
       trustedHelperBuilderSha256,
     );
     assert.equal(build.stdout, `${canonicalJson(evidence)}\n`);
+    await validateHelperBuilderEvidence(evidence, path.resolve("."), buildOutput);
+    await assert.rejects(validateHelperBuilderEvidence({
+      ...evidence,
+      mutableRootRewritePaths: evidence.mutableRootRewritePaths.filter(p => p !== "tools/jackyun-api-export.ts"),
+    }, path.resolve("."), buildOutput), /mutable root rewrite 缺少/);
+    await assert.rejects(validateHelperBuilderEvidence({
+      ...evidence,
+      inputFiles: evidence.inputFiles.filter(p => p.relativePath !== "config/jackyun-api-templates.json"),
+    }, path.resolve("."), buildOutput), /不得嵌入 mutable config state/);
+    const mutableConfig = "config/tmall-store-accounts.json";
+    await assert.rejects(validateHelperBuilderEvidence({
+      ...evidence,
+      inputFiles: [...evidence.inputFiles, {
+        relativePath: mutableConfig, sha256: sha256Bytes(await readFile(mutableConfig)),
+      }].sort((a, b) => ordinalCompare(a.relativePath, b.relativePath)),
+    }, path.resolve("."), buildOutput), /不得嵌入 mutable config state/);
     assert.deepEqual(evidence.mutableConfigPaths, [
       "config/tmall-store-accounts.json",
     ]);

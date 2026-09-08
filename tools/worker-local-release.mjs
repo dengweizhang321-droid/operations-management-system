@@ -168,6 +168,7 @@ const vinextScratchConfigRelativePath = ".wrangler/deploy/config.json";
 const requiredHelperMutableRootRewrites = Object.freeze([
   "lib/jackyun/run-lock.ts",
   "lib/jd/chromium-run-lock.ts",
+  "tools/jackyun-api-export.ts",
   "tools/jackyun-automation-runner.ts",
   "tools/jackyun-browser-controller.ts",
   "tools/jackyun-daily-runner.ts",
@@ -1204,7 +1205,7 @@ export function helperPathContainsMutableState(relativePath) {
   return typeof relativePath === "string" && /(?:^|\/)(?:\.runtime|outputs|tmp)(?:\/|$)/.test(relativePath);
 }
 
-async function validateHelperBuilderEvidence(evidence, sourceRoot, helperRoot) {
+export async function validateHelperBuilderEvidence(evidence, sourceRoot, helperRoot) {
   assertExactKeys(evidence, [
     "version", "entryRelativePath", "inputFiles", "mutableRootRewritePaths", "importMetaNeutralizedPaths",
     "immutableResourceUrlPaths", "mutableConfigPaths", "resourceInputFiles", "resourceOutputFiles", "outputSha256",
@@ -1307,7 +1308,8 @@ async function validateHelperBuilderEvidence(evidence, sourceRoot, helperRoot) {
     helperRoot,
     "helper immutable resource output",
   );
-  if (inputPaths.some((relativePath) => relativePath.startsWith("config/"))) {
+  if (canonicalJson(inputPaths.filter((relativePath) => relativePath.startsWith("config/")))
+    !== canonicalJson(["config/jackyun-api-templates.json"])) {
     fail("helper immutable JS bundle 不得嵌入 mutable config state");
   }
   const helperEntrypoint = path.join(helperRoot, "tmall-workflow-helper.mjs");
