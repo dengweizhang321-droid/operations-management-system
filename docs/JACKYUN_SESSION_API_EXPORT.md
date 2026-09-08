@@ -2,6 +2,10 @@
 
 本实现使用当前账号已登录网站的接口协议，浏览器只负责 DPAPI 登录、企业身份检查、签名等价检查及令牌发布。报表查询、权限检查、任务提交、轮询和 OSS 下载由同一个 HTTP 会话完成，不再加载五个报表页面、等待 MiniUI 控件或执行右键菜单。本实现不是独立的官方开放平台 AppKey 接入。
 
+自动任务使用当前 Windows 用户本机 `%LOCALAPPDATA%\Chromium\Application\chrome.exe` 的独立 Chromium，以 `--headless=new` 无窗口运行；不回退到日常 Google Chrome 或可见窗口。沿用吉客云专用 profile 和 DPAPI 绑定，登录数据不与日常浏览器、京东或天猫 profile 混用。每轮只接受自己新启动的进程，并核验可执行文件、Windows 用户、profile、端口、进程 ID 和无窗口参数。安装缺失、端口已占用、验证或登录失败时停止任务，不接管既有浏览器；人工处理验证码仍须显式维护。下载结束后关闭本轮专用浏览器。
+
+2026-09-09 隔离验收：本机 Chromium 151.0.7922.109 完成真实登录与签名等价检查，耗时 4.043 秒，主窗口句柄为 0，退出后专用端口关闭；已有浏览器占用端口时拒绝接管、未调用会话回调，原空白页和进程保持可用，错误 PID 也被拒绝。本次没有提交导出或导入。36 项定向测试、全量 2,020 通过（23 跳过，0 失败）、构建、20 项页面检查及 helper 打包通过；类型检查仍为既有 142 项错误，改动文件无新增错误。原始脱敏证据保存在 `D:\codex-artifacts\jackyun-hidden-chromium-20260909`。这段记录只证明发布前验收，实际采用以受控 release 回读为准。
+
 ## 入口与不变的业务口径
 
 - 工作流定义：`automation/n8n/jackyun-five-dataset-api.workflow.json`；生成命令：`node tools/generate-jackyun-export-first-workflow.mjs --api-only`。

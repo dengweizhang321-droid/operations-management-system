@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { chromium } from "playwright-core";
-import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
+import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
 import { assertJackyunLoginConfig, invokeJackyunVault, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { jackyunDpapiProgram } from "../lib/jackyun/dpapi-program";
 
@@ -46,6 +46,23 @@ test("browser process must match the Windows owner, executable, profile and exac
     { commandLine: identity.commandLine.replace("test profiles", "another profile") }]) {
     assert.throws(() => assertJackyunBrowserIdentity({ ...identity, ...patch }, expected));
   }
+});
+
+test("scheduled API login requires independent Chromium and an unambiguous headless process", () => {
+  const executable = resolveJackyunChromiumExecutable("C:\\Users\\fixture user\\AppData\\Local");
+  assert.equal(executable, "C:\\Users\\fixture user\\AppData\\Local\\Chromium\\Application\\chrome.exe");
+  for (const root of ["", "relative", "\\\\remote\\profile", "C:relative"]) {
+    assert.throws(() => resolveJackyunChromiumExecutable(root));
+  }
+  const expected = { chromePath: executable, profileDirectory: config.profileDirectory, port: 19223, headless: true as const };
+  const identity = { executablePath: executable, ownedByCurrentUser: true,
+    commandLine: `"${executable}" --remote-debugging-port=19223 "--user-data-dir=${config.profileDirectory}"` };
+  assert.doesNotThrow(() => assertJackyunBrowserIdentity({ ...identity, commandLine: identity.commandLine + " --headless=new" }, expected));
+  for (const flags of ["", " --headless", " --headless=false", " --headless=old", " --headless=new --headless=new", " --headless=new --headless=false"]) {
+    assert.throws(() => assertJackyunBrowserIdentity({ ...identity, commandLine: identity.commandLine + flags }, expected));
+  }
+  assert.throws(() => assertJackyunBrowserIdentity({ ...identity, executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    commandLine: identity.commandLine + " --headless=new" }, expected));
 });
 
 test("initial loading waits for an actual login page and a successful tenant shell", async () => {

@@ -17,22 +17,36 @@ function windowsArguments(command: string) {
   return command.match(/(?:[^\s"]|"[^"]*")+/g)?.map(token => token.replace(/"/g, "")) ?? [];
 }
 
+export function resolveJackyunChromiumExecutable(localAppData = process.env.LOCALAPPDATA) {
+  if (!localAppData || !/^[A-Za-z]:[\\/]/.test(localAppData)) {
+    throw new Error("waiting_login：无法定位本机独立 Chromium 安装目录。");
+  }
+  return path.win32.join(localAppData, "Chromium", "Application", "chrome.exe");
+}
+
+type JackyunBrowserBinding = { chromePath: string; profileDirectory: string; port: number; headless?: true; processId?: number };
+
 export function assertJackyunBrowserIdentity(identity: { executablePath: string; commandLine: string; ownedByCurrentUser: boolean },
-  expected: { chromePath: string; profileDirectory: string; port: number }) {
+  expected: JackyunBrowserBinding) {
   const normalize = (value: string) => path.win32.resolve(value).replace(/\\+$/, "").toLowerCase();
   const args = windowsArguments(identity.commandLine);
   const profiles = args.filter(arg => arg.startsWith("--user-data-dir="));
   const ports = args.filter(arg => arg.startsWith("--remote-debugging-port="));
+  const headless = args.filter(arg => arg === "--headless" || arg.startsWith("--headless="));
   if (!identity.ownedByCurrentUser || normalize(identity.executablePath) !== normalize(expected.chromePath)
     || profiles.length !== 1 || ports.length !== 1
     || normalize(profiles[0].slice("--user-data-dir=".length)) !== normalize(expected.profileDirectory)
-    || ports[0] !== `--remote-debugging-port=${expected.port}`) {
+    || ports[0] !== `--remote-debugging-port=${expected.port}`
+    || (expected.headless && (headless.length !== 1 || headless[0] !== "--headless=new"))) {
     throw new Error("waiting_login：专用浏览器进程、Windows 用户、Profile 或端口绑定不一致。");
   }
 }
 
-export async function verifyJackyunBrowserBinding(expected: { chromePath: string; profileDirectory: string; port: number }) {
+export async function verifyJackyunBrowserBinding(expected: JackyunBrowserBinding) {
   const pid = await readChromeBrowserProcessId(expected.port);
+  if (expected.processId !== undefined && pid !== expected.processId) {
+    throw new Error("waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。");
+  }
   const script = `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false); $p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}';
     $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid;
     @{executablePath=$p.ExecutablePath;commandLine=$p.CommandLine;ownedByCurrentUser=($owner.Sid -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value)} | ConvertTo-Json -Compress`;

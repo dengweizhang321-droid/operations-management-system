@@ -1,11 +1,11 @@
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { closeChromeBrowser, launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, PlaywrightPageClient } from "../lib/jackyun/playwright-client";
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
-import { inspectJackyunLoginSurface, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession, isJackyunLoginOrigin } from "../lib/jackyun/dpapi-login";
+import { inspectJackyunLoginSurface, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession, isJackyunLoginOrigin, resolveJackyunChromiumExecutable } from "../lib/jackyun/dpapi-login";
 import { createDirectSession, readDirectTasks } from "../lib/jackyun/direct-export";
 import { apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock, JackyunHttpSession } from "../lib/jackyun/direct-http";
@@ -31,11 +31,17 @@ export type ApiExportOptions = { runId: string; runDate: string; asOfDate: strin
 /** Caller owns the profile/run lock. Browser is used only for authentication and token publication. */
 export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSession, tenantId: string) => Promise<T>): Promise<T> {
   const login = await readJackyunLoginConfig(projectRoot);
-  const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+  const chromePath = resolveJackyunChromiumExecutable();
+  if (!(await stat(chromePath).catch(() => null))?.isFile()) {
+    throw new Error("waiting_login：独立 Chromium 未安装，自动任务已停止。");
+  }
   const launched = await launchDedicatedChrome({ executablePath: chromePath, profileDirectory: login.profileDirectory, port: login.debuggingPort,
     startUrl: "https://web.jackyun.com/home/mainframe_web_horizontal.html", headless: true });
+  if (!launched) throw new Error("waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。");
+  let ownedBrowserVerified = false;
   try {
-    await verifyJackyunBrowserBinding({ chromePath, profileDirectory: login.profileDirectory, port: login.debuggingPort });
+    await verifyJackyunBrowserBinding({ chromePath, profileDirectory: login.profileDirectory, port: login.debuggingPort, headless: true, processId: launched.pid });
+    ownedBrowserVerified = true;
     const browser = await connectPlaywrightBrowser(login.debuggingPort);
     const context = browser.contexts()[0];
     let client: PlaywrightPageClient | undefined;
@@ -51,7 +57,10 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
     } finally {
       await context.setOffline(false); client?.close(); await browser.close();
     }
-  } finally { if (launched) await closeChromeBrowser(login.debuggingPort); }
+  } finally {
+    if (ownedBrowserVerified) await closeChromeBrowser(login.debuggingPort);
+    else launched.kill();
+  }
 }
 
 export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number } = {}) {
