@@ -49,6 +49,7 @@ import {
   TMALL_PROMOTION_ENTRY_URL,
   TMALL_PROMOTION_REPORT_PROTOCOL,
   verifyTmallPromotionCoverageAfterImport,
+  waitForPromotionReportReadinessWithRecovery,
 } from "../tools/tmall-promotion-export";
 
 function requestedPeriodFromFetchInput(input: Parameters<typeof fetch>[0]) {
@@ -517,6 +518,83 @@ test("推广报表固定使用阿里妈妈商品报表协议和精确日期路�
   assert.match(target, /rptType=item_promotion/);
   assert.match(target, /startTime=2026-08-25/);
   assert.throws(() => buildTmallPromotionItemReportUrl("2026-08-26", "2026-08-25"), /日期范围无效/);
+});
+
+test("商品报表已就绪时不执行路由恢复", async () => {
+  const events: string[] = [];
+  const result = await waitForPromotionReportReadinessWithRecovery({
+    waitForReady: async (phase) => {
+      events.push(`wait:${phase}`);
+      return true;
+    },
+    recoverRoute: async () => { events.push("recover"); },
+    verifyIdentity: async () => { events.push("identity"); },
+    dismissPopups: async () => {
+      events.push("dismiss");
+      return 1;
+    },
+    failureMessage: () => "not ready",
+  });
+  assert.deepEqual(result, { recovered: false, dismissedPopups: 0 });
+  assert.deepEqual(events, ["wait:initial"]);
+});
+
+test("商品报表路由漂移后只恢复一次并重新核验身份再操作页面", async () => {
+  const events: string[] = [];
+  const result = await waitForPromotionReportReadinessWithRecovery({
+    waitForReady: async (phase) => {
+      events.push(`wait:${phase}`);
+      return phase === "recovered";
+    },
+    recoverRoute: async () => { events.push("recover"); },
+    verifyIdentity: async () => { events.push("identity"); },
+    dismissPopups: async () => {
+      events.push("dismiss");
+      return 2;
+    },
+    failureMessage: () => "not ready",
+  });
+  assert.deepEqual(result, { recovered: true, dismissedPopups: 2 });
+  assert.deepEqual(events, ["wait:initial", "recover", "identity", "dismiss", "wait:recovered"]);
+});
+
+test("商品报表受控恢复后仍未就绪则失败关闭且不重复恢复", async () => {
+  const events: string[] = [];
+  await assert.rejects(waitForPromotionReportReadinessWithRecovery({
+    waitForReady: async (phase) => {
+      events.push(`wait:${phase}`);
+      return false;
+    },
+    recoverRoute: async () => { events.push("recover"); },
+    verifyIdentity: async () => { events.push("identity"); },
+    dismissPopups: async () => {
+      events.push("dismiss");
+      return 0;
+    },
+    failureMessage: () => "一次受控恢复后仍未加载完成，未开始报表业务操作",
+  }), /一次受控恢复后仍未加载完成.*未开始报表业务操作/);
+  assert.deepEqual(events, ["wait:initial", "recover", "identity", "dismiss", "wait:recovered"]);
+});
+
+test("商品报表恢复后的身份核验失败时不继续页面等待", async () => {
+  const events: string[] = [];
+  await assert.rejects(waitForPromotionReportReadinessWithRecovery({
+    waitForReady: async (phase) => {
+      events.push(`wait:${phase}`);
+      return false;
+    },
+    recoverRoute: async () => { events.push("recover"); },
+    verifyIdentity: async () => {
+      events.push("identity");
+      throw new Error("shop_identity_mismatch");
+    },
+    dismissPopups: async () => {
+      events.push("dismiss");
+      return 0;
+    },
+    failureMessage: () => "not ready",
+  }), /shop_identity_mismatch/);
+  assert.deepEqual(events, ["wait:initial", "recover", "identity"]);
 });
 
 test("商品报表必须精确选择全部营销场景与商品计划两个维度", () => {
