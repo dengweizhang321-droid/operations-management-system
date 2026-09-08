@@ -21,6 +21,23 @@ const audited843 = {
   planSha256: "f7f871b06decd6aecde7becae70434d155d0d4b6a240428920b2b48bf3c36f59",
   controllerSha256: "fdfa4f7d58ba9517222c750aa45c20a8ee09760180358db8b639a7277ca2a56e",
 } as const;
+// Exact reviewed 897 failure: waitForModuleControls throws while state is
+// navigated, before warehouse selection, querying or the final export POST.
+const audited897 = {
+  releaseId: "20260908T023322Z-d783739f19e43a9d",
+  controllerSourceSha256: "35d006f60461f9ce7f8b6fcd4d224f10fd973202a88dd2c5c5bd84e9543dadae",
+  planSha256: "4e64b64820dcc43faca1997df86ea363dc50a9bf99eedad7b94efd4d0256aeb7",
+  controllerSha256: "17579899de469c2ecf4e57dc1eac895d436434a0f1b51e7a0d20ad3d71c7c28f",
+  evidence: {
+    executionId: "897", workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-09-08T03:51:42.636Z", stoppedAt: "2026-09-08T03:52:12.107Z", retrySuccessId: null,
+    lastNode: "B·网页校验后 HTTP 导出五表",
+    runNodes: ["手动运行", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·网页校验后 HTTP 导出五表"],
+    error: "模块页面控件尚未就绪：branch_stock_main / warehouseCom", httpCode: "500",
+    requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "87b51149300402e7dfbb642244985b1bc2beb13ff3d16f8c9b7f89d53d99c586", activeExecutions: 0,
+  },
+} as const;
 export const recoverySha = (raw: string | Uint8Array) => createHash("sha256").update(raw).digest("hex");
 export type PreflightEvidence = {
   executionId: string; workflowId: string; status: string; startedAt: string; stoppedAt: string;
@@ -33,7 +50,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click";
+  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -155,17 +172,30 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const policyRaw = await readRegular(path.join(root, "config", "jackyun-export-first-policy.json"));
   const plan = parse<EmptyPlan>(planRaw), active = parse<{ runId: string; executionId: string }>(activeRaw);
   const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
-  assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan);
+  const controlsOnly = executionId === "897";
+  if (controlsOnly) {
+    if (recoverySha(planRaw) !== audited897.planSha256 || !isDeepStrictEqual(evidence, audited897.evidence)) throw new Error("897 原失败运行身份或证据已变化。");
+  } else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
   if (!isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
     || !path.isAbsolute(policy.browser.downloadDirectory) || !Number.isFinite(Date.parse(closedAt))
     || Date.parse(closedAt) < Date.parse(evidence.stoppedAt)) throw new Error("活动运行、策略或恢复时间不一致。");
   const effects = effectPaths(root, policy.browser.downloadDirectory, plan.runId);
   const queryOnly = evidence.error === queryFailure;
   const legacyMenuOnly = evidence.error === legacyMenuFailure;
-  const controllerEvidence = queryOnly ? await inspectQueryFailure(effects[1], plan, evidence)
+  let controllerEvidence = queryOnly ? await inspectQueryFailure(effects[1], plan, evidence)
     : legacyMenuOnly ? await inspectAudited843(effects[1], planRaw, evidence) : undefined;
-  const absentPaths = queryOnly || legacyMenuOnly ? effects.filter((_, index) => index !== 1) : effects;
+  if (controlsOnly) {
+    if (!(await assertEntityPath(effects[1]))?.isDirectory() || !isDeepStrictEqual((await readdir(effects[1])).sort(), ["browser-controller-state.json"])) throw new Error("897 存在额外运行文件，拒绝闭合。");
+    const target = path.join(effects[1], "browser-controller-state.json"), raw = await readRegular(target);
+    if (recoverySha(raw) !== audited897.controllerSha256) throw new Error("897 原控制状态已变化。");
+    controllerEvidence = { path: target, sha256: recoverySha(raw) };
+  }
+  const absentPaths = queryOnly || legacyMenuOnly || controlsOnly ? effects.filter((_, index) => index !== 1) : effects;
   await assertAbsentEffects(absentPaths);
+  if (controlsOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_897_controls_before_query_and_export", controllerEvidence,
+    historicalCodeEvidence: { releaseId: audited897.releaseId, controllerSourceSha256: audited897.controllerSourceSha256 } };
   if (legacyMenuOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_843_menu_lookup_before_export_click", controllerEvidence,
@@ -194,7 +224,8 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const loginClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_login_failure_without_business_effects";
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed)) {
+  const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed && !controlsClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);

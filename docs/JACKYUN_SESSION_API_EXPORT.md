@@ -47,3 +47,9 @@
 脱敏计时及验证材料在 `D:\codex-artifacts\jackyun-api-only-20260908`；原始业务文件仅保存在本机隔离目录，不进入 Git。生产采用须先核验候选 helper 构建和现有共享链路回归，再审核 897 原运行闭合证据，协调共享 helper 空闲窗口，通过受控 release 替换 helper 与原 n8n 定义。正式导入后的批次回查仍为必需，不能把这些下载/演练耗时报告为正式全链路耗时。
 
 回归记录：全量单元测试 2,001 通过、20 跳过、0 失败；生产构建及 20 项渲染契约通过；42 项受控 release/helper 测试通过；Django 生产边界检查无违规。Lint 无错误，保留 9 项既有警告。全量 TypeScript 仍有 142 项历史诊断，规范化后与既有基线逐项一致，没有新增诊断，不能称为全量类型检查通过。新增负向测试覆盖权限/租户变化、范围和日期、数量截断、时间校准、提交响应丢失后不重放、API 调度隔离以及销售成本失败阻止正式导入。
+
+## 897 旧运行的精确闭合
+
+发布准备复核原 n8n SQLite、计划和唯一 controller 文件：897 在 `warehouseCom` 控件等待处失败，controller 仅为 `navigated`，没有本轮查询、导出提交或业务文件。已部署 release `20260908T023322Z-d783739f19e43a9d` 的 controller 源码摘要为 `35d006f60461f9ce7f8b6fcd4d224f10fd973202a88dd2c5c5bd84e9543dadae`，该异常在仓库选择和最终导出 POST 之前抛出。
+
+现有 `tools/jackyun-preflight-recovery.ts plan 897` / `apply 897 <proposal.json> <approvedSha256>` 增加仅适用于这一次的已审计分支。精确绑定原 n8n 数据摘要、时间、错误节点、请求路径、计划和控制状态字节，同时检查无在途吉客云 execution、无成功重试、helper 空闲和无额外文件。闭合采用 create-only 审计记录；不删除 active、计划或旧失败历史。之后仅允许新的完整 n8n 计划推进 active，897 不能重放。任一文件变化、出现下载/演练目录或身份变化均拒绝，不能作为任意失败运行的通用放行规则。
