@@ -4,13 +4,23 @@ import { createHash } from "node:crypto";
 // Signing material and credentials are supplied at runtime and never serialized here.
 export type JackyunSession = { accessToken: string; refreshToken: string; appkey: string; signingSecret: string;
   cookie?: string; userAgent?: string; ati?: string };
-export type JackyunHttpOperation = "tasks" | "validateExport" | "submitExport";
+export type JackyunHttpOperation = keyof typeof operations;
 const operations = {
   tasks: { path: "/jkyun/tms/taskmanage/sysTaskInfoList", method: "GET", replaySafe: true },
   validateExport: { path: "/jkyun/excel-service/manager/validateExcelExport", method: "POST", replaySafe: true },
   submitExport: { path: "/jkyun/excel-service/manager/startExcelExport", method: "POST", replaySafe: false },
+  warehouses: { path: "/jkyun/erp-baseinfo/warehouse/warehousepullsimpl", method: "GET", replaySafe: true },
+  owners: { path: "/jkyun/birc/open/erp/owner/list", method: "POST", replaySafe: true },
+  inventoryCount: { path: "/jkyun/erp-stock/warehouseStock/stockSkuCount", method: "POST", replaySafe: true },
+  goodsCount: { path: "/jkyun/erp-goods/search/getskulistbyconditioncount", method: "POST", replaySafe: true },
+  ageCount: { path: "/jkyun/birc/open/erp/report/stockAgeReport/pageTotal", method: "POST", replaySafe: true },
+  salesCount: { path: "/jkyun/oms-flow/trade/detailCount", method: "POST", replaySafe: true },
+  roleFunctions: { path: "/jkyun/erp/open/role/getfunbyuserid", method: "GET", replaySafe: true },
+  rolePermissions: { path: "/jkyun/erp/open/role/getpermissionbyuserid", method: "GET", replaySafe: true },
+  dataFieldPermissions: { path: "/jkyun/erp-baseinfo/open/role/listdatafieldbyuserid", method: "GET", replaySafe: true },
 } as const;
 const origin = "https://web.jackyun.com";
+export type JackyunServerClock = { requestStartedAt: string; receivedAt: string; serverDate: string };
 class JackyunHttpTransportFailure extends Error {
   constructor(error?: unknown) {
     const value = error as { name?: string; cause?: { code?: string } } | undefined;
@@ -71,6 +81,8 @@ export class JackyunHttpSession {
   #now: () => number;
   #publish: SessionOptions["publishSession"];
   #allowRefresh: boolean;
+  #clock?: JackyunServerClock;
+  get serverClock(): JackyunServerClock | undefined { return this.#clock && { ...this.#clock }; }
   constructor(session: JackyunSession, options: SessionOptions) {
     assertSession(session);
     this.#session = { ...session };
@@ -91,6 +103,8 @@ export class JackyunHttpSession {
 
   async #json(path: string, init: RequestInit, timeoutMs = 15000): Promise<{ status: number; body: Record<string, unknown> }> {
     try {
+      this.#clock = undefined;
+      const requestStartedAt = new Date(this.#now()).toISOString();
       const response = await this.#fetch(origin + path, { ...init, redirect: "error", signal: AbortSignal.timeout(timeoutMs) })
         .catch(error => { throw new JackyunHttpTransportFailure(error); });
       if (!response.headers.get("content-type")?.toLowerCase().includes("application/json")) throw new Error();
@@ -109,6 +123,8 @@ export class JackyunHttpSession {
       } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       if (!body || Array.isArray(body) || typeof body !== "object") throw new Error();
+      const serverDate = response.headers.get("date");
+      if (serverDate && Number.isFinite(Date.parse(serverDate))) this.#clock = { requestStartedAt, receivedAt: new Date(this.#now()).toISOString(), serverDate: new Date(Date.parse(serverDate)).toISOString() };
       return { status: response.status, body };
     } catch (error) {
       // A transport error can contain signed URLs, tokens or response contents.

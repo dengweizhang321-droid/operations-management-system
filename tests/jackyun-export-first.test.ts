@@ -116,6 +116,43 @@ async function fixture() {
   };
   return { root, deps, calls, files };
 }
+
+test("API plan dispatches only its adapter and a sales cost validation failure blocks every import", async () => {
+  const f = await fixture();
+  const makeFile = f.deps.runBrowser!;
+  f.deps.runBrowser = async () => { throw new Error("DOM_REPORT_ADAPTER_MUST_NOT_RUN"); };
+  f.deps.runApi = async options => {
+    for (const moduleKey of jackyunExportOrder) {
+      await options.beforeModule?.(moduleKey);
+      await makeFile({ runId: options.runId, snapshotDate: options.runDate, asOfDate: options.asOfDate, outputRoot: options.outputRoot,
+        eventRoot: options.eventRoot, exportOnlyModule: moduleKey, exportFirstBatch: true, directHttp: true,
+        headless: true, launchOnly: false, checkLoginOnly: false });
+      const eventPath = path.join(options.eventRoot, options.runId, `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`);
+      const handoff = JSON.parse(await readFile(eventPath, "utf8"));
+      handoff.evidence = { ...handoff.evidence, controller: "authenticated_http_api", exportTransport: "session_api_v1",
+        apiPreflightStartedAt: handoff.navigationIntentAt, apiQueryCompletedAt: handoff.tableStableAt,
+        apiQuerySha256: "a".repeat(64), permissionSha256: "b".repeat(64), templateSha256: "c".repeat(64),
+        serverClock: { requestStartedAt: at(4), receivedAt: at(4), serverDate: at(4) } };
+      await writeJsonAtomic(eventPath, handoff);
+      await options.afterModule?.(moduleKey);
+    }
+    return { status: "exported", runId: options.runId, transport: "session_api_v1", statePath: "fixture" };
+  };
+  const prepare = f.deps.runDownload!;
+  f.deps.runDownload = async options => {
+    if (options.module === "sales") throw new Error("COST_VALIDATION_FAILED");
+    assert.equal(options.dryRun, true);
+    return prepare(options);
+  };
+  const run = (action: string) => runJackyunExportFirstAction(action, "81818", f.deps);
+  assert.equal((await run("plan-api")).exportTransport, "session_api_v1");
+  await assert.rejects(run("plan-direct-http"), /不能接管/);
+  await assert.rejects(run("import"), /全部导出/);
+  await run("export-all");
+  await assert.rejects(run("validate"), /COST_VALIDATION_FAILED/);
+  await assert.rejects(run("import"), /阶段不匹配/);
+  assert.equal(f.calls.filter(call => call.startsWith("import:")).length, 0);
+});
 test("pipeline enforces order, all-file barrier, replay checks and execution ownership", async () => {
   const f = await fixture();
   const run = (action: string) => runJackyunExportFirstAction(action, "12345", f.deps);

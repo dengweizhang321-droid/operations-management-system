@@ -84,6 +84,8 @@ npm run backend:dev:stop
 
 ## 吉客云自动化
 
+五表另提供浏览器仅登录、报表走会话接口的候选工作流 `automation/n8n/jackyun-five-dataset-api.workflow.json`。它保留原有销售成本校验、五表屏障和导入回查，并为平台与本机时间差增加任务匹配证据；尚未替换上文已采用版本。参数校准、运行边界和验收见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)。
+
 五表 n8n 模板采用一次专用浏览器会话顺序导出：调用网页自身的导出函数、保留平台校验，通过任务接口核对本轮任务并直链下载。登录沿用 DPAPI，会话不写入 n8n；仍需加载页面并验证查询条件。五表齐全后统一校验、导入、回查，旧单表计划和只读诊断不能升级成新批量运行。部署和实际采用状态见下方五表文档。
 
 - `npm run jackyun:login`：打开专属浏览器，手工登录吉客云

@@ -17,6 +17,13 @@ const proof: PreflightEvidence = { executionId: "841", workflowId: jackyunWorkfl
   error: "inventory 导出未完成：login_unknown", httpCode: "500", requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export/inventory",
   executionDataSha256: "1".repeat(64), activeExecutions: 0, retrySuccessId: null };
 const closedAt = "2026-09-06T10:00:00.000Z";
+const proof897: PreflightEvidence = { executionId: "897", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-09-08T03:51:42.636Z", stoppedAt: "2026-09-08T03:52:12.107Z", retrySuccessId: null,
+  lastNode: "B·网页校验后 HTTP 导出五表",
+  runNodes: ["手动运行", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·网页校验后 HTTP 导出五表"],
+  error: "模块页面控件尚未就绪：branch_stock_main / warehouseCom", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "87b51149300402e7dfbb642244985b1bc2beb13ff3d16f8c9b7f89d53d99c586", activeExecutions: 0 };
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), "jackyun-preflight-test-"));
   const pipeline = path.join(root, "outputs", "jackyun-export-first"), download = path.join(root, "downloads");
@@ -32,6 +39,45 @@ async function fixture() {
     now: () => new Date("2026-09-07T01:00:00Z"), request: (async () => new Response("{}")) as typeof fetch };
   return { root, pipeline, download, plan, planPath, activePath, deps };
 }
+async function fixture897() {
+  const f = await fixture(), runId = "n8n-export-first-897";
+  const planPath = path.join(f.pipeline, runId + ".json"), controllerPath = path.join(f.root, "outputs", "jackyun-import-runs", runId, "browser-controller-state.json");
+  await writeFile(planPath, await readFile(new URL("./fixtures/jackyun-897-plan.json", import.meta.url)));
+  await mkdir(path.dirname(controllerPath), { recursive: true });
+  await writeFile(controllerPath, await readFile(new URL("./fixtures/jackyun-897-controller.json", import.meta.url)));
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "897" }));
+  return { ...f, planPath, controllerPath, runId };
+}
+test("audited 897 closes before export without altering original bytes and allows a fresh API plan", async () => {
+  const f = await fixture897(), before = await readFile(f.planPath), controller = await readFile(f.controllerPath), active = await readFile(f.activePath);
+  const proposal = await inspectPreflightClosure(f.root, "897", proof897, "2026-09-08T06:00:00Z");
+  assert.equal(proposal.reason, "audited_897_controls_before_query_and_export");
+  await publishPreflightClosure(f.root, proposal, proof897, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "897");
+  assert.deepEqual(await readFile(f.planPath), before); assert.deepEqual(await readFile(f.controllerPath), controller); assert.deepEqual(await readFile(f.activePath), active);
+  const deps = { ...f.deps, now: () => new Date("2026-09-08T06:01:00Z") };
+  await assert.rejects(runJackyunExportFirstAction("export-all", "897", deps), /已经闭合/);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "898", deps), /缺少/);
+  assert.equal((await runJackyunExportFirstAction("plan-api", "898", deps)).exportTransport, "session_api_v1");
+});
+test("897 exception rejects changed identity, controller, later stages and any new side effect", async () => {
+  for (const change of ["plan", "controller", "extra-file", "events", "download", "validation", "active", "live", "hash", "retry", "other-id", "later-node"]) {
+    const f = await fixture897(); const evidence = { ...proof897 };
+    if (change === "plan") await writeFile(f.planPath, (await readFile(f.planPath, "utf8")) + " ");
+    if (change === "controller") await writeFile(f.controllerPath, (await readFile(f.controllerPath, "utf8")).replace("navigated", "export_armed"));
+    if (change === "extra-file") await writeFile(path.join(path.dirname(f.controllerPath), "unexpected.json"), "{}");
+    if (change === "events") await mkdir(path.join(f.root, "outputs", "jackyun-browser-events", f.runId), { recursive: true });
+    if (change === "download") await mkdir(path.join(f.download, "jackyun", f.runId), { recursive: true });
+    if (change === "validation") await mkdir(path.join(f.root, "outputs", "jackyun-export-first-validation", f.runId), { recursive: true });
+    if (change === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-898", executionId: "898" }));
+    if (change === "live") evidence.activeExecutions = 1;
+    if (change === "hash") evidence.executionDataSha256 = "f".repeat(64);
+    if (change === "retry") evidence.retrySuccessId = "898";
+    if (change === "other-id") evidence.executionId = "898";
+    if (change === "later-node") evidence.runNodes = [...evidence.runNodes, "D·统一导入运营管理系统"];
+    await assert.rejects(inspectPreflightClosure(f.root, "897", evidence, "2026-09-08T06:00:00Z"));
+  }
+});
 test("preflight closure preserves old bytes, rejects old execution replay and permits only a new full n8n plan", async () => {
   const f = await fixture(), before = await readFile(f.planPath), active = await readFile(f.activePath);
   await assert.rejects(runJackyunExportFirstAction("plan", "842", f.deps), /尚未闭合/);
