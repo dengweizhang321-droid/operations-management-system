@@ -33,7 +33,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   inventory: {
     label: "库存管理",
-    views: ["overview", "age", "plan", "stale", "inbound"],
+    views: ["overview", "age", "plan", "stale", "inbound", "guangdong"],
     suggestedTools: ["get_data_freshness", "get_inventory_health", "get_inventory_page_data", "list_replenishment_plans", "search_system_data"],
   },
   product: {

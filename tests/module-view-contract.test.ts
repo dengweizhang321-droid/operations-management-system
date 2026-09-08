@@ -32,7 +32,7 @@ const expectedViews = {
   market: { defaultView: "ranking", views: ["ranking", "overview", "compare", "settings"] },
   customer_service: { defaultView: "conversations", views: ["conversations"] },
   sales: { defaultView: "overview", views: ["overview", "channel", "category", "finance", "targets"] },
-  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound"] },
+  inventory: { defaultView: "overview", views: ["overview", "age", "plan", "stale", "inbound", "guangdong"] },
   product: { defaultView: "overview", views: ["overview", "calculator"] },
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "continuity"] },

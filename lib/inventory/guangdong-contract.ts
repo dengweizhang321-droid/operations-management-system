@@ -1,0 +1,24 @@
+export type GuangdongWatchRow = { productCode: string; active: boolean; notes: string };
+export type GuangdongIdentity = { productCode: string; productName: string; specification: string; brand: string; category: string; supplier: string; supplierSource: string };
+export type GuangdongRisk = "no_stock" | "urgent" | "warning" | "stale" | "unknown" | "healthy";
+export type GuangdongItem = GuangdongIdentity & {
+  warehouse: string; notes: string; availableQuantity: number | null; inTransitQuantity: number | null;
+  inventoryAgeDays: number | null; unitCostCents: number | null; knownStockValueCents: number; costMissing: boolean;
+  outbound7dQuantity: number | null; outbound30dQuantity: number | null; outbound90dQuantity: number | null;
+  leadDays: number | null; bufferDays: number; inventoryStale: boolean;
+  turnoverDays: number | null; latestOrderDate: string | null; risk: GuangdongRisk; riskLabel: string; riskReasons: string[];
+};
+export type GuangdongMonitor = {
+  version: string; hasInventory: boolean; watchCount: number;
+  sync: { inventoryAsOf: string | null; salesThrough: string | null; latestInventoryBatchId: string | null; inventoryStale: boolean };
+  filters: { brands: string[]; categories: string[]; suppliers: string[] };
+  metrics: { itemCount: number; availableQuantity: number; inTransitQuantity: number; knownStockValueCents: number; missingCostCount: number; missingStockCount: number };
+  distribution: Array<{ risk: GuangdongRisk; label: string; itemCount: number; quantity: number; knownStockValueCents: number; itemRate: number; quantityRate: number; valueRate: number }>;
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }; items: GuangdongItem[]; disclosures: string[];
+};
+export type GuangdongPreview = {
+  version: string; contentHash: string; valid: boolean;
+  counts: { added: number; updated: number; unchanged: number };
+  errors: Array<{ row?: number; productCode?: string; error: string }>;
+  items: Array<GuangdongWatchRow & { change: "added" | "updated" | "unchanged" }>;
+};

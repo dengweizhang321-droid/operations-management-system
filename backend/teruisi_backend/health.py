@@ -441,6 +441,8 @@ PRODUCTS_WRITER_AUTO_ID_TABLES = (
     "product_import_fingerprints", "product_inventory_projection", "product_raw_upload_chunks",
 )
 REQUIRED_INVENTORY_COLUMNS = {
+    "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "updated_by", "updated_at"},
+    "inventory_guangdong_supplier_cycles": {"supplier", "lead_days", "buffer_days", "updated_by", "updated_at"},
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
     "sales_import_batches": {"id", "status", "completed_at"},
     **REQUIRED_ERP_RUNTIME_COLUMNS,
@@ -471,6 +473,7 @@ REQUIRED_INVENTORY_COLUMNS = {
     },
 }
 REQUIRED_INVENTORY_WRITER_COLUMNS = {
+    "inventory_guangdong_monitor_audits": {"id", "action", "source", "raw_hash", "content_hash", "actor", "status", "result", "created_at"},
     **REQUIRED_INVENTORY_COLUMNS,
     "inventory_import_scope_heads": {
         "dataset", "scope_key", "state_token", "status", "owner_token", "generation",
@@ -512,6 +515,9 @@ REQUIRED_INVENTORY_WRITER_INDEXES = REQUIRED_INVENTORY_READER_INDEXES | {
     "inv_group_delivery_status_idx",
 }
 INVENTORY_WRITER_TABLE_PRIVILEGES = {
+    "inventory_guangdong_monitor_items": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_guangdong_supplier_cycles": ("SELECT", "INSERT", "UPDATE"),
+    "inventory_guangdong_monitor_audits": ("SELECT", "INSERT"),
     "sales_order_lines": ("SELECT",),
     "sales_import_batches": ("SELECT",),
     "sales_data_revisions": ("SELECT",),
@@ -1359,9 +1365,11 @@ def _validate_products_writer_permissions(cursor) -> None:
                 raise ReadinessError("products_writer_database_privilege_missing")
 
 
-def _validate_inventory_schema(cursor, *, writer: bool) -> None:
+def _validate_inventory_schema(cursor, *, writer: bool, include_monitor_configuration: bool = True) -> None:
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_INVENTORY_WRITER_COLUMNS if writer else REQUIRED_INVENTORY_COLUMNS
+    if not include_monitor_configuration:
+        expected = {table: columns for table, columns in expected.items() if not table.startswith("inventory_guangdong_")}
     for table, expected_columns in expected.items():
         if table not in tables:
             raise ReadinessError(
@@ -1413,7 +1421,8 @@ def _validate_bi_reader_state(cursor) -> None:
     constraints = connection.introspection.get_constraints(cursor, "bi_migration_runs")
     if "bi_migration_status_idx" not in constraints:
         raise ReadinessError("bi_reader_indexes_incomplete")
-    _validate_inventory_schema(cursor, writer=False)
+    # BI consumes inventory facts, not Guangdong monitoring configuration.
+    _validate_inventory_schema(cursor, writer=False, include_monitor_configuration=False)
     _validate_inventory_revision(cursor)
     _validate_reader_state(cursor)
     cursor.execute(

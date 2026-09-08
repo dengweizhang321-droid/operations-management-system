@@ -49,6 +49,7 @@ import {
   getImportStatusPageData,
   getInventoryAgePageData,
   getInventoryInboundPageData,
+  getInventoryGuangdongPageData,
   getMarketWorkspaceStatusPageData,
   getNetshopProductCatalogPageData,
   getNetshopProductPerformancePageData,
@@ -550,11 +551,12 @@ export const aiToolRegistry = [
   {
     name: "get_inventory_page_data",
     title: "库存库龄与入仓页面数据",
-    description: "复用库存库龄或京东入仓监控页面领域服务，返回指标、筛选、分页和最多 20 行明细；所有金额字段单位为人民币分。当前仅支持无数据 scope 限制的身份。",
+    description: "复用库存库龄、京东或广东入仓监控页面领域服务，广东监控含供应商备货周期与风险分布；返回最多20行明细，金额为人民币分。仅支持无数据scope限制的身份。",
     inputSchema: {
       type: "object",
       properties: {
-        view: { type: "string", enum: ["age", "inbound"] },
+        view: { type: "string", enum: ["age", "inbound", "guangdong"] },
+        risk: { type: "string", enum: ["no_stock", "urgent", "warning", "stale", "unknown", "healthy"] },
         q: { type: "string", maxLength: 100 },
         warehouses: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 10 },
         brands: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
@@ -573,7 +575,9 @@ export const aiToolRegistry = [
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
-    handler: (args, context) => args.view === "inbound"
+    handler: (args, context) => args.view === "guangdong"
+      ? getInventoryGuangdongPageData(pageToolArguments(args), context)
+      : args.view === "inbound"
       ? getInventoryInboundPageData(pageToolArguments(args), context)
       : getInventoryAgePageData(pageToolArguments(args), context),
   },

@@ -6,6 +6,47 @@ from django.db import models
 from django.utils import timezone
 
 
+class GuangdongMonitorItem(models.Model):
+    product_code = models.CharField(primary_key=True, max_length=200)
+    active = models.BooleanField(default=True)
+    notes = models.CharField(max_length=1000, default="")
+    updated_by = models.CharField(max_length=320)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "inventory_guangdong_monitor_items"
+
+
+class GuangdongSupplierCycle(models.Model):
+    supplier = models.CharField(primary_key=True, max_length=512)
+    lead_days = models.PositiveSmallIntegerField()
+    buffer_days = models.PositiveSmallIntegerField(default=7)
+    updated_by = models.CharField(max_length=320)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "inventory_guangdong_supplier_cycles"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(lead_days__gte=1, lead_days__lte=365), name="inv_gd_lead_bounds"),
+            models.CheckConstraint(condition=models.Q(buffer_days__gte=0, buffer_days__lte=365), name="inv_gd_buffer_bounds"),
+        ]
+
+
+class GuangdongMonitorAudit(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    action = models.CharField(max_length=32)
+    source = models.CharField(max_length=255)
+    raw_hash = models.CharField(max_length=64, default="")
+    content_hash = models.CharField(max_length=64, default="")
+    actor = models.CharField(max_length=320)
+    status = models.CharField(max_length=32)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "inventory_guangdong_monitor_audits"
+
+
 class InventoryImportBatch(models.Model):
     id = models.CharField(primary_key=True, max_length=128)
     dataset = models.CharField(max_length=16, db_index=True)

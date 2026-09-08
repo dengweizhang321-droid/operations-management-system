@@ -10,6 +10,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const INVENTORY_OVERVIEW_PATH = "/api/inventory/overview";
 export const INVENTORY_AGE_ANALYSIS_PATH = "/api/inventory/age-analysis";
 export const INVENTORY_INBOUND_MONITOR_PATH = "/api/inventory/inbound-monitor";
+export const INVENTORY_GUANGDONG_PATH = "/api/inventory/guangdong-monitor";
 export const INVENTORY_IMPORTS_PATH = "/api/inventory/imports";
 export const INVENTORY_REPLENISHMENT_PATH = "/api/inventory/replenishment";
 export const INVENTORY_REPLENISHMENT_DINGTALK_PATH = "/api/inventory/replenishment/dingtalk";
@@ -20,6 +21,12 @@ export const INVENTORY_UPLOADS_PATH = "/api/inventory/uploads";
 export const INVENTORY_UPLOAD_CHUNK_PATH = "/api/inventory/uploads/chunk";
 
 const readerMethods = new Set([
+  `GET ${INVENTORY_GUANGDONG_PATH}`,
+  `GET ${INVENTORY_GUANGDONG_PATH}/watchlist`,
+  `GET ${INVENTORY_GUANGDONG_PATH}/products`,
+  `GET ${INVENTORY_GUANGDONG_PATH}/suppliers`,
+  `GET ${INVENTORY_GUANGDONG_PATH}/export`,
+  `POST ${INVENTORY_GUANGDONG_PATH}/preview`,
   `GET ${INVENTORY_OVERVIEW_PATH}`,
   `GET ${INVENTORY_AGE_ANALYSIS_PATH}`,
   `GET ${INVENTORY_INBOUND_MONITOR_PATH}`,
@@ -29,6 +36,8 @@ const readerMethods = new Set([
   `POST ${INVENTORY_CONSUMER_QUERY_PATH}`,
 ]);
 const writerMethods = new Set([
+  `POST ${INVENTORY_GUANGDONG_PATH}/import`,
+  `PATCH ${INVENTORY_GUANGDONG_PATH}/suppliers`,
   `POST ${INVENTORY_IMPORTS_PATH}`,
   `POST ${INVENTORY_UPLOADS_PATH}`,
   `GET ${INVENTORY_UPLOAD_CHUNK_PATH}`,

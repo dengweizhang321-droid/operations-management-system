@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+库存管理源码新增“广东入仓监控”：仅监控人工清单内启用型号及精确“广东仓”，支持 Excel 清单导入导出、粘贴多行、供应商到仓周期和风险健康分布。库存与销量继续来自系统权威数据。本功能需随库存迁移 `0007_guangdong_monitor` 受控发布后使用；操作口径见 [库存管理说明](docs/INVENTORY_MANAGEMENT.md)。
+
 吉客云五表“会话接口下载”已于 2026-09-08 在本机替换原“网页校验 + HTTP 导出”工作流。浏览器负责 DPAPI 登录与会话核验，五类报表使用同一登录会话直接查询、提交导出、轮询和下载。原 n8n ID 保持不变并继续手动运行，现行定义为 `automation/n8n/jackyun-five-dataset-api.workflow.json`；销售仍先匹配成本、校验通过后导入。此次发布没有新增正式导入；此前执行 896 的正式导入和精确批次回查记录保留，销售覆盖截至 2026-09-07。当前版本与采用证据见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)，历史网页校验版见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
 
 本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；D1 历史审计证据及其他域仍使用的 R2 对象保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。

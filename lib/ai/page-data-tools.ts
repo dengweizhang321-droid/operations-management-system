@@ -29,6 +29,7 @@ import {
   INVENTORY_AGE_ANALYSIS_PATH,
   INVENTORY_IMPORTS_PATH,
   INVENTORY_INBOUND_MONITOR_PATH,
+  INVENTORY_GUANGDONG_PATH,
   INVENTORY_SETTINGS_PATH,
 } from "@/lib/django/inventory-service";
 import {
@@ -56,6 +57,37 @@ export class PageDataToolInputError extends RegistryToolError {
     super("invalid_tool_arguments", message);
     this.name = "PageDataToolInputError";
   }
+}
+
+export async function getInventoryGuangdongPageData(args: unknown, context: PageDataToolContext) {
+  const principal = requirePrincipal(context);
+  requireUnrestrictedDataScope(principal, "广东入仓库存监控");
+  const input = inputObject(args);
+  assertOnlyKeys(input, ["q", "brands", "categories", "suppliers", "risk", "page", "limit"]);
+  const pageInput = pagination(input);
+  const query = new URLSearchParams({ page: String(pageInput.page), pageSize: String(pageInput.pageSize) });
+  const text = optionalText(input.q, "q", 100);
+  if (text) query.set("q", text);
+  for (const [key, param] of [["brands", "brand"], ["categories", "category"], ["suppliers", "supplier"]]) {
+    for (const value of stringList(input[key], key, 20)) query.append(param, value);
+  }
+  const risk = optionalText(input.risk, "risk", 20);
+  if (risk) {
+    if (!["no_stock", "urgent", "warning", "stale", "unknown", "healthy"].includes(risk)) failInput("广东风险状态无效");
+    query.set("risk", risk);
+  }
+  const result = resultObject((await createDjangoInventoryService().requestJson<Record<string, unknown>>(principal, {
+    method: "GET", path: INVENTORY_GUANGDONG_PATH, service: "reader", rawQuery: query.toString(),
+  }, { signal: context.signal })).data);
+  return {
+    page: "inventory.guangdong", currency: "CNY", monetaryUnit: "cents", version: result.version,
+    sync: pickScalars(result.sync, ["inventoryAsOf", "salesThrough", "inventoryStale"]),
+    metrics: pickScalars(result.metrics, ["itemCount", "availableQuantity", "inTransitQuantity", "knownStockValueCents", "missingCostCount", "missingStockCount"]),
+    distribution: boundedRecords(result.distribution, 6, ["risk", "label", "itemCount", "quantity", "knownStockValueCents", "itemRate", "quantityRate", "valueRate"]),
+    pagination: projectPagination(result.pagination),
+    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "supplier", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound30dQuantity", "outbound90dQuantity", "turnoverDays", "inventoryAgeDays", "knownStockValueCents", "leadDays", "bufferDays", "latestOrderDate", "risk", "riskLabel", "riskReason"]),
+    disclosures: boundedStrings(result.disclosures, 8),
+  };
 }
 
 type FinanceAnalysisInput = {
