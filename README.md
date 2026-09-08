@@ -1,6 +1,6 @@
 # 电扇运营管理系统
 
-吉客云“网页校验 + HTTP 导出”已于 2026-09-08 在本机正式采用：保留动态查询和权限校验，使用本机 HTTP 提交/轮询五表任务，复用原导入和精确批次核验。原 n8n 工作流保持手动运行，定义为 `automation/n8n/jackyun-five-dataset-http.workflow.json`；本次发布没有触发新一轮业务导入。版本、会话边界及验收记录见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
+吉客云“网页校验 + HTTP 导出”已于 2026-09-08 在本机正式采用。后续 ERP 分类权限修复及受控导入续跑已发布，n8n 执行 896 复用已下载五表，完成正式导入和精确批次回查；销售覆盖截至 2026-09-07。销售仍先匹配成本、校验通过后导入。原工作流保持手动运行，定义为 `automation/n8n/jackyun-five-dataset-http.workflow.json`。版本、会话边界及验收记录见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
 
 本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；D1 历史审计证据及其他域仍使用的 R2 对象保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。
 
