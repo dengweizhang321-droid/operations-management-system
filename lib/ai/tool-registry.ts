@@ -1,6 +1,7 @@
 import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
+import { describeSystemDatasets, querySystemDataset } from "@/lib/ai/system-datasets";
 import {
   getAnthropicTools as deriveAnthropicTools,
   getOpenAiTools as deriveOpenAiTools,
@@ -109,6 +110,42 @@ function pageToolArguments(args: Record<string, unknown>) {
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
 export const aiToolRegistry = [
+  {
+    name: "describe_system_datasets",
+    title: "查看系统数据集目录与参数",
+    description: "列出当前账号有权访问的实时业务数据集；指定 dataset 返回该数据集的 querySchema、业务口径、固定筛选和查询上限。涵盖销售、库存、商品、网店、市场、财务、客服与运营事务。查询前先读取参数说明。",
+    inputSchema: {
+      type: "object",
+      properties: { dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$", maxLength: 64 } },
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: 20_000 },
+    handler: describeSystemDatasets,
+  },
+  {
+    name: "query_system_dataset",
+    title: "查询系统数据集",
+    description: "按 describe_system_datasets 返回的 querySchema 查询一个实时数据集。queryJson 是查询参数对象的 JSON 字符串，只接受该 schema 字段，不接受 SQL、代码或身份参数。自动先读取销售/库存水位，随后经真实账号权限和审计执行查询；返回原业务明细、汇总、分页与截断信息。其他域截止日期以来源 coverage/dataCutoffDate 为准，未知不能推断。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$", maxLength: 64 },
+        queryJson: { type: "string", minLength: 2, maxLength: 8000, description: "符合数据集 querySchema 的 JSON 对象字符串，例如 {}；不得传固定选择器。UTF-8 最多 8000 字节。" },
+      },
+      required: ["dataset", "queryJson"],
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: 30_000, maxCallsPerRequest: 2 },
+    handler: querySystemDataset,
+  },
   {
     name: "search_system_knowledge",
     title: "检索系统口径与知识",

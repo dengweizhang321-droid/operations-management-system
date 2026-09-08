@@ -821,7 +821,7 @@ test("AI Agent and workflow routes are same-origin, bounded JSON, role-gated, an
   const gate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
   assert.match(gate, /requireAiSameOriginWrite\(request\)/);
   assert.match(gate, /readAiJsonObject\(request\)/);
-  assert.match(gate, /requireAppPrincipal\(read \? undefined : \["admin", "operator", "analyst"\]\)/);
+  assert.match(gate, /requireAppPrincipal\(read \|\| datasetQuery \? undefined : \["admin", "operator", "analyst"\]\)/);
   const service = await readFile(new URL("../backend/ai_assistant/workflows.py", import.meta.url), "utf8");
   assert.match(service, /authorize_owner\(row, principal\)/);
   assert.match(service, /admission\(principal/);

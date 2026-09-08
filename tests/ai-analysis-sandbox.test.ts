@@ -71,5 +71,5 @@ test("analysis sandbox mutation route requires browser same-origin proof", async
   assert.match(route, /export const POST = forwardAiRequest/);
   const gate = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
   assert.match(gate, /requireAiSameOriginWrite\(request\)/);
-  assert.match(gate, /requireAppPrincipal\(read \? undefined : \["admin", "operator", "analyst"\]\)/);
+  assert.match(gate, /requireAppPrincipal\(read \|\| datasetQuery \? undefined : \["admin", "operator", "analyst"\]\)/);
 });
