@@ -16,6 +16,15 @@ const schemas = {
 const signedFields = new Set(["timestamp", "access_token", "appkey", "sign"]);
 const payloadFields = new Set(["serverName", "excelType", "headersJson", "conditionJson", "datasource", "isMerge", "typeName", "multiSheet", "exportTotal", "isSyn"]);
 
+/** Current OMS converts the selected consign-time enum to numeric sort=4.
+ * If either representation is present it must agree; other time types fail closed. */
+export function isShipmentTimeFilter(filter: Record<string, unknown> | undefined) {
+  if (!filter) return false;
+  const legacy = Object.hasOwn(filter, "selectTimeStr"), current = Object.hasOwn(filter, "timeType");
+  return (legacy || current) && (!legacy || filter.selectTimeStr === "tradeOrder.consign_time")
+    && (!current || filter.timeType === 4);
+}
+
 export function validateDirectExportPayload(module: JackyunModule, postData: string, moduleCode: string, asOfDate?: string) {
   if (postData.length > 256 * 1024) throw new Error("HTTP_EXPORT_PAYLOAD_TOO_LARGE");
   const form = new URLSearchParams(postData), data: Record<string, string> = {};
@@ -48,7 +57,7 @@ export function validateDirectExportPayload(module: JackyunModule, postData: str
   if (module === "inventory_age" && (!includes(0, ["goodsNo", "warehouseName", "stockAge"])
     || !Array.isArray(condition.orderIds) || condition.orderIds.length)) throw new Error("HTTP_AGE_SCOPE_CHANGED");
   if (module === "sales" && (!includes(0, ["goodsNo", "cost", "consignTime", "sellCount", "afterShareFee"])
-    || (condition.filterOrderDetailDto as Record<string, unknown>)?.selectTimeStr !== "tradeOrder.consign_time")) throw new Error("HTTP_SALES_SCOPE_CHANGED");
+    || !isShipmentTimeFilter(condition.filterOrderDetailDto as Record<string, unknown>))) throw new Error("HTTP_SALES_SCOPE_CHANGED");
   if (module === "sales") {
     const filter = condition.filterOrderDetailDto as Record<string, unknown>;
     if (!asOfDate || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate) || filter.timeBegin !== `${asOfDate.slice(0, 8)}01 00:00:00`

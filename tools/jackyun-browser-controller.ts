@@ -23,6 +23,7 @@ import type { BrowserExportConfirmation, BrowserHandoff } from "./jackyun-daily-
 
 import { jackyunWebSessionTransport, prepareWebSessionExport, submitWebSessionExport, readWebSessionTasks, waitForWebSessionTask } from "../lib/jackyun/web-session-export";
 import { assert849ReprepareWindow } from "../lib/jackyun/web-session-recovery";
+import { assert890ReprepareWindow } from "../lib/jackyun/http-scope-recovery";
 import { captureDirectExport, createDirectSession, jackyunDirectTransport, readDirectTasks } from "../lib/jackyun/direct-export";
 import type { JackyunHttpSession } from "../lib/jackyun/direct-http";
 
@@ -152,6 +153,7 @@ type CliOptions = {
   /** Bound existing task approved for resuming the original run; never a new export. */
   resumeTaskBinding?: JackyunExportTaskBinding;
   webConfirmationRecovery?: { originalExecutionId: string; executionId: string; permitSha256: string };
+  httpScopeRecovery?: { originalExecutionId: string; executionId: string; permitSha256: string };
 };
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -2022,7 +2024,10 @@ async function runController(options: CliOptions) {
       await persistControllerState(controllerStatePath, state);
     }
     const moduleState = state.modules[moduleKey] ?? { status: "pending" as const };
-    if (moduleState.reprepareEvidence && (!options.exportFirstBatch || moduleKey !== "combos" || options.runId !== "n8n-export-first-849"
+    if (moduleState.reprepareEvidence && options.directHttp && (!options.exportFirstBatch || moduleKey !== "sales" || options.runId !== "n8n-export-first-890"
+      || options.httpScopeRecovery?.originalExecutionId !== "890"
+      || options.httpScopeRecovery.permitSha256 !== moduleState.reprepareEvidence.permitSha256)) throw new Error("HTTP 销售恢复缺少独占 n8n 许可。");
+    if (moduleState.reprepareEvidence && !options.directHttp && (!options.exportFirstBatch || moduleKey !== "combos" || options.runId !== "n8n-export-first-849"
       || options.webConfirmationRecovery?.originalExecutionId !== "849"
       || options.webConfirmationRecovery.permitSha256 !== moduleState.reprepareEvidence.permitSha256)) throw new Error("组合装恢复缺少独占 n8n 许可。");
     state.modules[moduleKey] = moduleState;
@@ -2539,7 +2544,8 @@ async function runController(options: CliOptions) {
         await persistControllerState(controllerStatePath, state);
       };
       if (options.directHttp) {
-        const baseline = await withHttp(http => readDirectTasks(http, moduleKey));
+        const baseline = await withHttp(http => readDirectTasks(http, moduleKey, moduleState.reprepareEvidence?.originalIntentAt));
+        if (moduleState.reprepareEvidence) assert890ReprepareWindow(moduleState.reprepareEvidence.originalIntentAt, baseline.records);
         moduleState.webSession = { baselineIds: baseline.records.map(r => r.taskId), baselineAt: new Date().toISOString() };
         await armExport();
         const captured = await captureDirectExport(client, page, moduleKey, moduleKey === "combos" ? async () => {

@@ -36,6 +36,17 @@ test("sales HTTP request must use shipment time and exactly the accepted month-t
     headersJson: JSON.stringify(headers(["goodsNo", "cost", "consignTime", "sellCount", "afterShareFee"])),
     conditionJson: JSON.stringify({ version: "2.0", filterOrderDetailDto: filter }) };
   validateDirectExportPayload("sales", new URLSearchParams(sales).toString(), "order_detail_list", "2026-09-06");
+  const currentFilter = { timeType: 4, timeBegin: filter.timeBegin, timeEnd: filter.timeEnd };
+  const current = (patch = {}) => new URLSearchParams({ ...sales, conditionJson: JSON.stringify({ version: "2.0", filterOrderDetailDto: { ...currentFilter, ...patch } }) }).toString();
+  validateDirectExportPayload("sales", current(), "order_detail_list", "2026-09-06");
+  validateDirectExportPayload("sales", current({ selectTimeStr: filter.selectTimeStr }), "order_detail_list", "2026-09-06");
+  for (const timeType of [0, 1, 2, 3, 9, 12, "4", null, undefined]) {
+    assert.throws(() => validateDirectExportPayload("sales", current({ timeType }), "order_detail_list", "2026-09-06"), /SCOPE/);
+  }
+  assert.throws(() => validateDirectExportPayload("sales", current({ selectTimeStr: "tradeOrder.pay_time" }), "order_detail_list", "2026-09-06"), /SCOPE/);
+  assert.throws(() => validateDirectExportPayload("sales", current({ timeEnd: "2026-09-07 23:59:59" }), "order_detail_list", "2026-09-06"), /DATE/);
+  const missingCost = new URLSearchParams(current()); missingCost.set("headersJson", JSON.stringify(headers(["goodsNo", "consignTime", "sellCount", "afterShareFee"])));
+  assert.throws(() => validateDirectExportPayload("sales", missingCost.toString(), "order_detail_list", "2026-09-06"), /SCOPE/);
   assert.throws(() => validateDirectExportPayload("sales", new URLSearchParams(sales).toString(), "order_detail_list", "2026-09-07"), /DATE/);
   sales.conditionJson = JSON.stringify({ version: "2.0", filterOrderDetailDto: { ...filter, timeBegin: "2026-07-24 00:00:00" } });
   assert.throws(() => validateDirectExportPayload("sales", new URLSearchParams(sales).toString(), "order_detail_list", "2026-09-06"), /DATE/);
