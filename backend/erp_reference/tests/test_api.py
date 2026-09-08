@@ -7,6 +7,8 @@ import uuid
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from erp_reference.import_service import IMPORT_VERSION
@@ -79,6 +81,30 @@ class ErpReferenceApiTests(TestCase):
                 "/api/erp-reference/imports", method="POST", body=body, request_id=request_id
             ),
         )
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_category_fallback_uses_only_erp_sales_column_permissions(self) -> None:
+        for index, category in enumerate(["\t 原类目 \n", "", "\u3000", "\t 原类目 \n"], 1):
+            make_line(index, f"fallback-{index}", product_code="P1", category=category).save(force_insert=True)
+        first = self.post_import(product_payload(), "erp-fallback-permissions-1")
+        self.assertEqual(first.status_code, 201, first.content)
+        before = list(SalesOrderLine.objects.order_by("id").values())
+        payload = product_payload(raw_seed="removed-P1")
+        payload["rows"] = [payload["rows"][1]]
+        payload["sourceRowCount"] = 1
+        with CaptureQueriesContext(connection) as queries:
+            response = self.post_import(payload, "erp-fallback-permissions-2")
+        self.assertEqual(response.status_code, 201, response.content)
+        sales_selects = [q["sql"] for q in queries if q["sql"].lstrip().upper().startswith("SELECT") and '"sales_order_lines"' in q["sql"]]
+        self.assertTrue(sales_selects)
+        for sql in sales_selects:
+            self.assertNotIn('"sales_order_lines"."id"', sql)
+        after = list(SalesOrderLine.objects.order_by("id").values())
+        self.assertEqual([row["resolved_category"] for row in after], ["原类目", "未分类", "未分类", "原类目"])
+        for previous, current in zip(before, after):
+            previous.pop("resolved_category")
+            current.pop("resolved_category")
+            self.assertEqual(previous, current)
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_product_and_combo_imports_are_atomic_idempotent_and_replay_fenced(self) -> None:
