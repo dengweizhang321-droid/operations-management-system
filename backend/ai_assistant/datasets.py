@@ -1,6 +1,7 @@
 """Live logical datasets over explicitly selected, audited central read tools.
 
-No copied facts, database permissions, SQL executor or second tool registry.
+No copied facts, SQL executor or second tool registry. Record datasets use the
+owning reader's explicit column grant contract in system_datasets.permissions.
 The edge remains the sole authority for tool schemas, roles and execution.
 """
 
@@ -8,6 +9,7 @@ import json
 from django.utils import timezone
 from . import transport
 from .policy import AiError, canonical, digest, fields, identifier, passive
+from system_datasets import catalog as record_catalog
 
 
 # Stable public dataset ID -> existing central capability, domain, fixed selector.
@@ -40,7 +42,7 @@ DATASETS = {
 
 SURFACE = "ai_chat"
 BASE = "/api/ai/datasets"
-MAX_QUERY_BYTES = 8000
+MAX_QUERY_BYTES = 16000
 MAX_RESULT_BYTES = 140000
 MAX_RESULT_CHARACTERS = 39500
 
@@ -60,6 +62,8 @@ def visible(principal):
 
 
 def allowed(dataset_id, principal, selected):
+    if dataset_id in record_catalog.SPECS:
+        return principal.role == "admin" and principal.scope is None and "get_system_dataset_records" in selected
     spec = DATASETS.get(dataset_id)
     if not spec or spec[0] not in selected:
         return False
@@ -97,16 +101,28 @@ def descriptor(dataset_id, entry, *, detail=False):
     return item
 
 
-def describe(principal, dataset_id=None):
+def describe(principal, dataset_id=None, *, page=1, page_size=20, domain=None):
     _, selected = visible(principal)
     if dataset_id is not None:
         identifier(dataset_id, "dataset")
         if not allowed(dataset_id, principal, selected):
             raise AiError("数据集不存在或当前账号无权访问", "not_found", 404)
+        if dataset_id in record_catalog.SPECS:
+            return record_catalog.describe(record_catalog.SPECS[dataset_id], detail=True)
         return descriptor(dataset_id, selected[DATASETS[dataset_id][0]], detail=True)
     items = [descriptor(key, selected[spec[0]]) for key, spec in DATASETS.items()
              if allowed(key, principal, selected)]
-    return {"schemaVersion": "1", "items": items, "count": len(items),
+    items.extend(record_catalog.describe(spec) for key, spec in record_catalog.SPECS.items()
+                 if allowed(key, principal, selected))
+    if domain is not None:
+        if not isinstance(domain, str) or domain not in record_catalog.DOMAINS:
+            raise AiError("domain 无效")
+        items = [item for item in items if item["domain"] == domain]
+    if type(page) is not int or not 1 <= page <= 100 or type(page_size) is not int or not 1 <= page_size <= 50:
+        raise AiError("目录分页参数无效")
+    window = items[(page-1)*page_size:page*page_size]
+    return {"schemaVersion": "1", "items": window, "count": len(items), "total": len(items),
+            "returned": len(window), "page": page, "pageSize": page_size, "hasMore": page*page_size < len(items),
             "readOnly": True, "storage": "live_authoritative_sources"}
 
 
@@ -137,9 +153,10 @@ def query(dataset_id, body, principal, request_id):
     entries, selected = visible(principal)
     if not allowed(dataset_id, principal, selected):
         raise AiError("数据集不存在或当前账号无权访问", "not_found", 404)
-    tool, domain, fixed = DATASETS[dataset_id]
+    record_spec = record_catalog.SPECS.get(dataset_id)
+    tool, domain, fixed = ("get_system_dataset_records", record_spec["domain"], {}) if record_spec else DATASETS[dataset_id]
     # Selectors belong to the dataset; callers cannot switch to another view.
-    schema = selected[tool]["inputSchema"]
+    schema = record_catalog.query_schema(record_spec) if record_spec else selected[tool]["inputSchema"]
     fields(args, set(schema["properties"]) - set(fixed), set(schema.get("required", [])) - set(fixed))
     if "get_data_freshness" not in selected:
         raise AiError("数据水位查询不可用", "service_unavailable", 503)
@@ -152,7 +169,7 @@ def query(dataset_id, body, principal, request_id):
         ), name)
 
     freshness = execute("get_data_freshness", {})
-    data = execute(tool, {**args, **fixed})
+    data = execute(tool, {"dataset": dataset_id, "queryJson": canonical(args)} if record_spec else {**args, **fixed})
     result = {
         "schemaVersion": "1", "dataset": dataset_id,
         "source": {"domain": domain, "tool": tool, "storage": "Django/PostgreSQL"},
@@ -171,8 +188,9 @@ def query(dataset_id, body, principal, request_id):
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
     if operation == "datasets-describe":
-        fields(payload, {"operation", "dataset"}, {"operation"})
-        return describe(principal, payload.get("dataset"))
+        fields(payload, {"operation", "dataset", "page", "pageSize", "domain"}, {"operation"})
+        return describe(principal, payload.get("dataset"), page=payload.get("page", 1),
+                        page_size=payload.get("pageSize", 20), domain=payload.get("domain"))
     fields(payload, {"operation", "dataset", "queryJson"}, {"operation", "dataset", "queryJson"})
     raw = payload["queryJson"]
     if not isinstance(raw, str) or len(raw.encode()) > MAX_QUERY_BYTES:

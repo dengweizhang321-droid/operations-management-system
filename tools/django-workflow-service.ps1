@@ -244,6 +244,8 @@ with connection.cursor() as cursor:
             sql.Identifier(table),
         ))
 
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "workflow")
     cursor.execute("ALTER ROLE teruisi_workflow_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_workflow_writer RESET default_transaction_read_only")
     for role in roles:

@@ -172,6 +172,8 @@ with connection.cursor() as cursor:
         if row and row[0]:
             schema, sequence = row[0].split(".", 1)
             cursor.execute(sql.SQL("GRANT USAGE ON SEQUENCE {}.{} TO teruisi_erp_reference_writer").format(sql.Identifier(schema), sql.Identifier(sequence)))
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "erp_reference")
     cursor.execute("ALTER ROLE teruisi_erp_reference_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_erp_reference_writer RESET default_transaction_read_only")
     cursor.execute("GRANT SELECT (product_code,category,resolved_category) ON sales_order_lines TO teruisi_erp_reference_writer")

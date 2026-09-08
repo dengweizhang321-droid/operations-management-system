@@ -2178,6 +2178,9 @@ def ready(_request):
     access_control_reader_process = settings.DJANGO_PROCESS_ROLE == "access_control_reader"
     try:
         with connection.cursor() as cursor:
+            if connection.vendor == "postgresql":
+                from system_datasets.permissions import validate_reader_columns
+                validate_reader_columns(cursor, settings.DJANGO_PROCESS_ROLE)
             if access_control_writer_process:
                 _validate_access_control_schema(cursor, writer=True)
                 _validate_access_control_state(cursor)

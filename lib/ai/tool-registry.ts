@@ -2,6 +2,7 @@ import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
 import { describeSystemDatasets, querySystemDataset } from "@/lib/ai/system-datasets";
+import { queryDatasetRecords } from "@/lib/ai/dataset-records";
 import {
   getAnthropicTools as deriveAnthropicTools,
   getOpenAiTools as deriveOpenAiTools,
@@ -111,12 +112,37 @@ function pageToolArguments(args: Record<string, unknown>) {
  */
 export const aiToolRegistry = [
   {
-    name: "describe_system_datasets",
-    title: "查看系统数据集目录与参数",
-    description: "列出当前账号有权访问的实时业务数据集；指定 dataset 返回该数据集的 querySchema、业务口径、固定筛选和查询上限。涵盖销售、库存、商品、网店、市场、财务、客服与运营事务。查询前先读取参数说明。",
+    name: "get_system_dataset_records",
+    title: "读取系统数据集逐行记录",
+    description: "读取显式数据集清单中的权威逐行记录，支持 columns、结构化 filters、pageSize 和连续 cursor。只允许未限制数据范围的管理员；AI 个人记录仍按当前 owner 隔离。先通过 describe_system_datasets 取得 rows_ 数据集 ID 与字段说明，不支持任意表、SQL、连接地址或凭据。",
     inputSchema: {
       type: "object",
-      properties: { dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$", maxLength: 64 } },
+      properties: {
+        dataset: { type: "string", pattern: "^rows_[a-z0-9_]{1,58}$", maxLength: 63 },
+        queryJson: { type: "string", minLength: 2, maxLength: 16000 },
+      },
+      required: ["dataset", "queryJson"],
+      additionalProperties: false,
+    },
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: ["admin"],
+    scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 4 },
+    handler: queryDatasetRecords,
+  },
+  {
+    name: "describe_system_datasets",
+    title: "查看系统数据集目录与参数",
+    description: "分页列出当前账号可访问的全部业务域数据集，含 rows_ 逐行记录及分析数据集；可按 domain 筛选。指定 dataset 返回字段、受保护字段说明、querySchema 与上限。先发现目录并读取参数，再连续分页查询。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$", maxLength: 64 },
+        domain: { type: "string", maxLength: 32 },
+        page: { type: "integer", minimum: 1, maximum: 100, default: 1 },
+        pageSize: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+      },
       additionalProperties: false,
     },
     annotations: readOnlyAnnotations,
@@ -134,7 +160,7 @@ export const aiToolRegistry = [
       type: "object",
       properties: {
         dataset: { type: "string", pattern: "^[a-z][a-z0-9_]{0,63}$", maxLength: 64 },
-        queryJson: { type: "string", minLength: 2, maxLength: 8000, description: "符合数据集 querySchema 的 JSON 对象字符串，例如 {}；不得传固定选择器。UTF-8 最多 8000 字节。" },
+        queryJson: { type: "string", minLength: 2, maxLength: 16000, description: "符合数据集 querySchema 的 JSON 对象字符串，例如 {}；不得传固定选择器。UTF-8 最多 16000 字节。" },
       },
       required: ["dataset", "queryJson"],
       additionalProperties: false,

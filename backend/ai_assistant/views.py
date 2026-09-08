@@ -191,10 +191,12 @@ def _dispatch(request, path=""):
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
         if root == "datasets":
-            fields(params, set())
             if request.method == "GET":
                 fields(payload, set())
-                return response(datasets.describe(principal, parts[1] if len(parts) == 2 else None))
+                fields(params, {"page", "pageSize", "domain"} if len(parts) == 1 else set())
+                return response(datasets.describe(principal, parts[1] if len(parts) == 2 else None,
+                    page=int(params.get("page", "1")), page_size=int(params.get("pageSize", "20")), domain=params.get("domain")))
+            fields(params, set())
             return response(datasets.query(parts[1], payload, principal, request_id))
         if root == "chat" and len(parts) == 1 and request.method == "POST":
             return response(chat.answer(payload, principal, request_id))

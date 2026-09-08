@@ -1,99 +1,105 @@
 # 系统实时数据集 API
 
-实现状态：源码提供 24 个实时逻辑数据集；正式环境需同时采用本次 Worker 与 Django AI reader 代码后才可调用。本文不是生产发布记录。
+源码共提供 **243 个数据集：219 个记录数据集 + 24 个分析数据集**，覆盖 12 个领域。已在隔离 PostgreSQL 验证记录表与列权限；尚未生产发布，本文不是采用记录。
 
-数据直接来自现有 Django/PostgreSQL 业务查询，不复制事实表，不建立第二写入源，不执行任意 SQL，不新增数据库迁移或数据库角色权限。适合 AI 按业务口径查询、筛选和读取有界明细与汇总；不是全库导出、训练语料快照或可无限分页的数据仓库接口。
+记录数据集直接查询各域现有 Django/PostgreSQL 权威记录，支持连续分页；分析数据集复用已有业务口径和聚合工具。不复制事实、不建立第二写入源、不接受 SQL，不新增业务表或迁移。完整列表见 [覆盖清单](SYSTEM_DATASETS_COVERAGE.md)，逐列契约在 `backend/system_datasets/manifest.json`。
 
-## 入口
+## 覆盖与权限
 
-所有 URL 均使用系统现有同源地址；以下路径相对该地址。
+覆盖销售、ERP、财务、网店、市场、商品经营、库存、运营事务、客服、用户权限、AI 助理和 BI。清单核对这些 app 的全部 221 个模型：219 个记录来源，1 个重复 ERP 消费者模型归并到权威数据集，1 个已退役 ERP bridge 模型明确排除。包括事实、批次、版本、导入状态和审计；读取原始记录时必须按状态判断是否为已发布事实，不能把暂存行或失败批次直接计入经营指标。
+
+每一列均有开放定义或排除原因。凭据、加密内容、原始客户聊天、客户标识、对象存储键和文件字节不开放给通用 AI 查询；图片、附件和分片只提供允许的元数据，字节仍走原有受控接口。业务 JSON 和本人 AI 内容按显式字段清单开放；结构内容中凭据键递归脱敏，URL 去除用户信息、查询参数和片段，深度超过 12 显示 `[depth-limited]`。这套 API 不等于数据库备份或无损文件导出。
+
+219 个记录数据集仅允许**无数据范围限制的管理员**。私有 AI 会话、消息、记忆、产物和任务进一步按当前本人及父记录所有者过滤。其他角色继续访问原有分析数据集中符合其角色和数据范围的部分。沿用真实认证，未知、停用或权限变化的账号失败关闭，不创建通用密钥或管理员身份。
+
+## HTTP 与 AI 入口
+
+以下路径相对系统同源地址：
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| GET | `/api/ai/datasets` | 返回当前账号可访问的数据集目录 |
-| GET | `/api/ai/datasets/{dataset}` | 返回业务口径、固定筛选、`querySchema` 和执行上限 |
-| POST | `/api/ai/datasets/{dataset}/query` | JSON 正文 `{"query": {...}}`，按该数据集 schema 查询 |
-| GET | `/api/ai/tools` | 现有中央 AI 工具目录，包含两个新数据集工具 |
-| POST | `/mcp` | 现有 MCP JSON-RPC `tools/list`、`tools/call` 入口 |
+| GET | `/api/ai/datasets?page=1&pageSize=20&domain=sales` | 分页发现可访问数据集，参数均可省略 |
+| GET | `/api/ai/datasets/{dataset}` | 字段、类型、单位、排除原因、权限和查询 schema |
+| POST | `/api/ai/datasets/{dataset}/query` | 正文 `{"query": {...}}` |
+| GET | `/api/ai/tools` | 中央 AI 工具目录 |
+| POST | `/mcp` | 既有 MCP `tools/list` / `tools/call` |
 
-GET 不接受查询字符串；查询条件放在 POST 的 `query` 对象内。API 使用系统已有的真实用户认证，不新增匿名入口或通用 API Key。POST 还必须提供精确同源 `Origin` 或 `Sec-Fetch-Site: same-origin`。普通 viewer 可查询其权限范围内的数据集，管理和写接口的角色限制不变。外部 AI 客户端仍需接入现有认证链路；不能把客户端提供的 email、role、scope 或内部签名头当作身份。
+目录默认每页 20 个、最大 50 个，按 `hasMore` 翻页；`total` 为权限及领域筛选后的数量。详情和查询不接受查询字符串。POST 沿用同源检查，提供精确同源 `Origin` 或 `Sec-Fetch-Site: same-origin`。外部客户端必须接入现有认证；客户端自报 email、role、scope 或内部签名头不是身份。
 
-公开请求由薄 Worker 鉴权、解析和签名后进入现有 AI reader；Django 负责显式数据集映射，通过已签名执行桥调用中央只读工具。每次来源查询由中央执行器进行参数验证、权限校验、超时/体积限制和开始/完成审计。审计仍经 AI writer 写入 PostgreSQL；业务数据不写入。
+三个中央 AI 工具：
 
-## 数据集
+- `describe_system_datasets`：传 `page/pageSize/domain` 发现目录，或传 `dataset` 读取详情。
+- `query_system_dataset`：传 `dataset`、`queryJson`，返回来源数据、水位和审计关联。
+- `get_system_dataset_records`：有界记录来源工具，传同样的参数，由所属领域 reader 执行。
 
-| 业务域 | 稳定数据集 ID |
+`queryJson` 是符合 schema 的 JSON 对象字符串，不是 SQL 或代码。系统 chat/Agent 和既有 MCP 从唯一中央注册表发现工具。MCP 沿用现有 Bearer 配置、服务身份及 12 秒请求预算，本次不配置凭据或连接。
+
+## 连续读取记录
+
+在已登录的同源页面中先查询目录及 schema，再选择字段：
+
+```javascript
+const catalog = await fetch('/api/ai/datasets?page=1&pageSize=50&domain=erp_reference').then(r => r.json());
+const schema = await fetch('/api/ai/datasets/rows_erp_product_master').then(r => r.json());
+const query = { columns: ['product_code', 'product_name', 'brand'], pageSize: 50 };
+let cursor;
+do {
+  const response = await fetch('/api/ai/datasets/rows_erp_product_master/query', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: { ...query, ...(cursor ? { cursor } : {}) } })
+  });
+  if (!response.ok) throw new Error(`查询失败：${response.status}`);
+  const { data } = await response.json();
+  console.log(data.rows); // 在此处理本页，不要用单页行数代表全量
+  cursor = data.nextCursor;
+} while (cursor);
+```
+
+AI 调用示例：
+
+```json
+{"name":"describe_system_datasets","arguments":{"dataset":"rows_sales_order_lines"}}
+```
+
+```json
+{"name":"query_system_dataset","arguments":{"dataset":"rows_erp_product_master","queryJson":"{\"columns\":[\"product_code\",\"product_name\"],\"filters\":[{\"field\":\"brand\",\"op\":\"eq\",\"value\":\"志高\"}],\"pageSize\":20}"}}
+```
+
+记录查询支持 `columns`（最多 50 列，默认前 12 列）、`filters`（最多 8 条 AND 条件）、`pageSize`（1–100）、`cursor`、`textOffset`、`textLimit`。操作为 `eq/gte/gt/lte/lt/in/isnull`；`in` 最多 50 个值，`isnull` 使用布尔值，结构字段不支持通用值比较。数值和日期按字段类型传入，不接受嵌套字段路径或表达式。
+
+分页按唯一键递增，不限制总页数。游标加密、有效 30 分钟，绑定本人、权限、数据集版本、字段、筛选和文本窗口参数，修改这些条件必须从第一页重查。每页实时读取（`live_per_page`），持续写入时不保证跨页原子快照。超过 JavaScript 安全范围的整数、Decimal 和 UUID 返回字符串。
+
+长文本或 JSON 默认每个单元格最多 2000 字符，`textLimit` 最大 8000。`cellWindows["行号.字段"]` 返回编码、总字符数、偏移和 `nextOffset`。续读单个记录时，用其唯一键作 `eq` 筛选、仅选所需列、设置 `textOffset=nextOffset` 并重新查询；不要复用绑定旧窗口的游标。`encoding=json` 的分段拼接后再解析。减少列数或页大小可避免响应超限。
+
+## 24 个分析数据集
+
+| 领域 | 数据集 ID |
 | --- | --- |
 | 销售 | `sales_summary`、`sales_category` |
 | 库存 | `inventory_health`、`inventory_age`、`inventory_inbound`、`inventory_guangdong`、`replenishment_plans` |
-| 商品经营 | `product_performance` |
+| 商品 | `product_performance` |
 | 网店 | `netshop_catalog`、`netshop_products`、`netshop_product_daily`、`netshop_promotion` |
 | 市场 | `market_overview`、`market_sku_trend`、`market_brands`、`market_price_bands`、`market_pending_review` |
 | 财务 | `finance_analysis`、`finance_targets` |
 | 客服 | `customer_service` |
 | 运营事务 | `workflow_tasks`、`workflow_operations`、`workflow_launch_projects`、`workflow_templates` |
 
-目录依据中央工具的角色和 scope 策略筛选。当前财务、库存库龄/入仓、工作事项/新品/模板等无法安全应用受限 scope 的能力会隐藏并拒绝查询。数据内容继续按来源的仓库、平台、渠道及店铺范围校验。客服沿用现有安全投影与角色限制。ERP 参照继续通过现有商品经营数据消费；没有开放 ERP 全表、用户权限表、凭据、原始聊天、附件字节和任意数据库对象。
+分析数据集保留各自参数及分页契约；例如 `sales_summary` 接受 `{"range":"custom","startDate":"2026-09-01","endDate":"2026-09-07"}`。固定选择器由服务端注入，调用方不能覆盖。沿用上海业务日界；金额按字段单位解释，人民币分不能当元，网店访客不能当去重店铺 UV。查询仍须遵守 [业务数据查询规范](OPERATIONS_DATA_QUERY.md)。
 
-参数 schema 从唯一中央注册表派生；每个数据集的固定选择器由 Django 注入，调用者不得传入。例如 `inventory_age` 固定 `view=age`，其 `querySchema` 不含 `view`。输入类型、枚举、必填、日期格式和行数上限仍由原工具验证。不要假设所有数据集都支持相同的字段或分页形式。
+## 响应与边界
 
-## 调用示例
+外层包含 `schemaVersion/dataset/source/requestId/queriedAt/freshness/dataCutoffDate/data`。`freshness` 为查询前读取的销售/库存水位，只代表这两个域；未知截止日期为 `null`。AI revision 不是业务版本或快照令牌。
 
-在已登录系统的同源页面中，先发现数据集并读取参数：
+记录结果在 `data` 中包含 `rows/returned/total/hasMore/nextCursor/truncated/truncatedFields/cellWindows/sourceDomain/consistency`。`total=null`，不做无界 COUNT，按 `nextCursor` 续读。分析结果保留原工具的 JSON、覆盖和截断标记，不根据截断行重算总计。
 
-```javascript
-const catalog = await fetch('/api/ai/datasets').then(r => r.json());
-const schema = await fetch('/api/ai/datasets/sales_summary').then(r => r.json());
-const response = await fetch('/api/ai/datasets/sales_summary/query', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ query: {
-    range: 'custom', startDate: '2026-09-01', endDate: '2026-09-07'
-  } })
-});
-if (!response.ok) throw new Error(`数据集查询失败：${response.status}`);
-const result = await response.json();
-```
+查询对象最多 16000 UTF-8 字节，记录来源响应最多 34000 字符，外层最多 39500 字符及 140000 字节。来源只读事务有 8 秒 SQL 超时、领域请求最多 10 秒；数据集网络调用共用 28 秒预算，每进程最多 2 个执行槽。AI 查询单次最多 30 秒、每轮最多 2 次。繁忙返回 429；参数、权限、签名、审计或来源异常失败关闭，不返回缓存。响应 `Cache-Control: no-store`。取消会中止边缘等待，已发起的有界只读调用可能完成正常审计。
 
-日期参数沿用各工具现有契约；底层业务时间使用上海时区，并保持既有左闭右开过滤实现。金额/净额/退款/销量以 schema 描述及来源字段为准；销售与财务金额通常为人民币分，不得不经确认将不同字段统一缩放。网店访客不能解释为店铺去重 UV。
+Worker 只做鉴权、签名和薄路由。Django AI 层通过中央执行桥保留工具审计；记录由固定内部签名路径 `/api/ai/dataset-records` 进入所属领域 reader，来源配置不由客户端传入。此路径不是公开 Worker API，不直接暴露 Django 端口。
 
-AI 的两个新工具：
+## 隔离验证与采用
 
-```json
-{"name":"describe_system_datasets","arguments":{}}
-```
+没有新业务 schema、服务、写权限或 authority。**新增列级 SELECT 权限**：各域现有角色 provisioning 调用 `system_datasets.permissions.grant_columns`，按清单配置本域 reader，不扩大为整表授权，不给 AI reader 授予其他域表。重配先撤除这些表上旧列级 SELECT 再按清单重建，保留原有领域整表授权及其他域权限；readiness 检查列授权完整性。
 
-```json
-{"name":"describe_system_datasets","arguments":{"dataset":"sales_summary"}}
-```
+测试覆盖所有模型/字段、全部记录表查询、游标连续分页与篡改/跨账号拒绝、本人隔离、长内容续读、签名、边界及中央注册表一致性。`tools/verify-system-datasets-mirror.py` 固定仅接受 `fixture_owner@127.0.0.1:15468/datasets_test` 隔离库，用 12 个无登录列级 reader 验证 219 个数据集全部字段可读、重复配置幂等、写入及排除字段拒绝。未查询或写入生产数据。
 
-```json
-{"name":"query_system_dataset","arguments":{"dataset":"sales_summary","queryJson":"{\"range\":\"custom\",\"startDate\":\"2026-09-01\",\"endDate\":\"2026-09-07\"}"}}
-```
-
-`queryJson` 是参数对象的 JSON 字符串，便于不同数据集使用各自严格 schema；不是 SQL、表达式或代码。外部调用仍使用上述 HTTP API 和真实认证，系统内 AI chat/Agent 的工具目录会自动包含这两个中央声明，不需要复制工具定义。
-
-已有 MCP 客户端也可通过 `/mcp` 的 `tools/list` 发现两个新工具，再用 `tools/call` 调用。该入口沿用既有 Bearer 配置及服务身份，Django 仍核验对应账号处于启用状态且权限匹配；本次不创建凭据、不自动登记管理员身份、不改 MCP 鉴权。MCP 单条请求另受现有 12 秒预算限制；接口可发现不代表正式连接与账号已经配置完成。
-
-## 结果与限制
-
-- `schemaVersion`：当前为 `1`。
-- `source`：业务域、实际中央工具名和权威存储说明。
-- `requestId`：与来源工具审计关联；重复请求会重新查询，不复用历史响应。
-- `queriedAt`：请求结果生成时间，不是数据覆盖日期。
-- `freshness`：查询前自动执行 `get_data_freshness` 获得的销售和库存水位，仅代表这两个域。
-- `dataCutoffDate`：来源显式给出的同名字段，否则为 `null`；其他域应继续查看 `data.coverage` 等来源字段，不能借用销售日期。
-- `data`：原工具的业务 JSON，保留明细、汇总、`total`/`returned`/`truncated`、coverage、revision 等来源已提供的元数据；不会为缺失字段伪造值，不对截断明细重算完整总计。
-- `consistency=live_per_source`：来源实时读取，不承诺跨域或跨页的原子快照。`X-AI-Revision` 是 AI 域 revision，不能作为业务数据版本或分页快照令牌。
-
-查询对象最多 8000 UTF-8 字节。每个来源工具保留其原有行数、分页、超时和结果字符限制；数据集结果封装最多 39,500 个字符和 140,000 字节，超限返回 413，调用方应减小日期范围或分页大小。AI 数据集查询单次最多 30 秒、每轮最多 2 次；来源调用另受原工具限制。未取得水位、审计不可用、权限/策略变化、后端异常或取消时失败关闭，不返回上次结果。查询的 POST 仍是业务只读，但会生成正常工具审计。
-
-Django 数据集目录与查询共用每进程最多 2 个执行槽，网络调用共用 28 秒预算；繁忙时返回 429。客户端取消会中止边缘等待，Django 已发起的只读调用仍受剩余预算限制，可能完成其正常审计，不会转成后台无界任务。
-
-常见响应：400 参数无效；401/403 身份或权限失败；404 数据集不存在或不可访问；413 结果或请求超限；429 执行繁忙；503 来源、审计或内部服务不可用。API 默认 `Cache-Control: no-store`。
-
-## 验证与采用
-
-在隔离工作树运行 `node --import tsx --test tests/system-datasets.test.ts tests/django-ai-service.test.ts tests/ai-tool-calling.test.ts` 和隔离 SQLite 的 `python backend/manage.py test ai_assistant`，再运行项目单元测试、lint、后端边界检查和构建。测试覆盖固定选择器、防任意字段、权限目录、scope、签名、reader/writer 分流、审计失败、取消、参数/结果边界及中央 registry/provider schema 一致性。
-
-正式采用必须同时发布 Worker 与 Django AI 代码，再以真实 principal 回查目录、schema、查询和拒绝路径；沿用现有受控发布及前向恢复流程，不启用新服务、不变更 authority，不回退 D1。首次部署后才可以把本文源码实现状态改为正式可用状态。
+正式采用须按现有受控流程部署完整 Django 代码、更新全部 12 个 reader 列授权并验证 readiness，再采用配套 Worker，以真实管理员、受限账号和本人数据回查目录、schema、查询、审计及拒绝路径。缺少代码或授权时来源失败关闭。生产 provisioning、服务采用和 Worker 发布本次均未执行；恢复继续使用当前 PostgreSQL 架构的兼容或前向修复，不恢复 D1 或旧 bridge。

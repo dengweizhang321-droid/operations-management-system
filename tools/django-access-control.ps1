@@ -158,6 +158,8 @@ with connection.cursor() as cursor:
     if not row or not row[0]: raise RuntimeError("access-control audit sequence is missing")
     schema, sequence = row[0].split(".", 1)
     cursor.execute(sql.SQL("GRANT USAGE ON SEQUENCE {}.{} TO teruisi_access_control_writer").format(sql.Identifier(schema), sql.Identifier(sequence)))
+    from system_datasets.permissions import grant_columns
+    grant_columns(cursor, "access_control")
     cursor.execute("ALTER ROLE teruisi_access_control_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_access_control_writer RESET default_transaction_read_only")
     for role in roles:

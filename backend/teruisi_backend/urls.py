@@ -1,8 +1,10 @@
 from django.urls import include, path
 
 from . import health
+from system_datasets.reader import endpoint as dataset_records
 
 urlpatterns = [
+    path("api/ai/dataset-records", dataset_records),
     path("health/live", health.live, name="health-live"),
     path("health/ready", health.ready, name="health-ready"),
     path("api/sales/", include("sales.urls")),
