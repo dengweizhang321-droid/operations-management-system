@@ -77,7 +77,10 @@ export async function getSalesCategoryAnalysisForAi(
   const result = await response.json().catch(() => null) as Record<string, unknown> | null;
   const details = record(result?.details);
   const pagination = record(details.pagination);
-  if (!result || !Array.isArray(result.ranking) || !Array.isArray(result.trend)
+  const trend = record(result?.trend);
+  if (!result || !Array.isArray(result.ranking) || !Array.isArray(trend.items)
+    || !Number.isSafeInteger(trend.returned) || Number(trend.returned) !== trend.items.length
+    || typeof trend.truncated !== "boolean"
     || !Array.isArray(details.items) || !Number.isFinite(Number(pagination.total))) {
     throw new PublicApiError(503, "service_unavailable", "Django 销售读取响应无效，请稍后重试。");
   }

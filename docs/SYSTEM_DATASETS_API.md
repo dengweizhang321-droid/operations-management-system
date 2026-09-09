@@ -92,7 +92,7 @@ AI 调用示例：
 | 客服 | `customer_service` |
 | 运营事务 | `workflow_tasks`、`workflow_operations`、`workflow_launch_projects`、`workflow_templates` |
 
-分析数据集保留各自参数及分页契约；例如 `sales_summary` 接受 `{"range":"custom","startDate":"2026-09-01","endDate":"2026-09-07"}`。固定选择器由服务端注入，调用方不能覆盖。沿用上海业务日界；金额按字段单位解释，人民币分不能当元，网店访客不能当去重店铺 UV。查询仍须遵守 [业务数据查询规范](OPERATIONS_DATA_QUERY.md)。
+分析数据集保留各自参数及分页契约；例如 `sales_summary` 接受 `{"range":"custom","startDate":"2026-09-01","endDate":"2026-09-07"}`。销售分析工具与页面的起止日期均包含当天，上例覆盖 9 月 1—7 日；单日填写相同起止日。2026-09-09 的适配修复在销售汇总工具边界将结束日加一天，再传给既有左闭右开的 Django consumer，不能由调用方再加一天；此前单日拒绝和多日少算末日是缺陷。`sales_category.trend` 保留 Django 的对象结构（`items/returned/truncated/granularity/categoryLimit`），不是直接的数组。固定选择器由服务端注入，调用方不能覆盖。沿用上海业务日界；金额按字段单位解释，人民币分不能当元，网店访客不能当去重店铺 UV。查询仍须遵守 [业务数据查询规范](OPERATIONS_DATA_QUERY.md)。
 
 ## 响应与边界
 

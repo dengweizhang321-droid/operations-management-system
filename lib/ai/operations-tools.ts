@@ -55,6 +55,30 @@ function validSummaryData(value: unknown): boolean {
     .every((key) => Array.isArray(value[key]));
 }
 
+function customSalesPeriod(startDate: string | undefined, endDate: string | undefined) {
+  const parse = (value: string | undefined): Date => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new ToolInputError("custom 必须提供 YYYY-MM-DD 格式的 startDate 和 endDate。");
+    }
+    const parsed = new Date(`${value}T00:00:00Z`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value
+      || value < "1900-01-01" || value > "2199-12-31") {
+      throw new ToolInputError("销售查询日期无效。");
+    }
+    return parsed;
+  };
+  const start = parse(startDate);
+  const end = parse(endDate);
+  const inclusiveDays = (end.getTime() - start.getTime()) / 86_400_000 + 1;
+  if (inclusiveDays < 1 || inclusiveDays > 366) {
+    throw new ToolInputError("销售查询开始日期不能晚于结束日期，且最多包含 366 天。");
+  }
+  // AI/page dates include the selected final business day. The internal sales
+  // consumer alone expects an exclusive end; do not change its shared contract.
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { startDate, endDate: end.toISOString().slice(0, 10) };
+}
+
 export async function callOperationsTool(
   name: string,
   rawArguments: unknown,
@@ -106,11 +130,15 @@ export async function callOperationsTool(
     assertOnlyKeys(args, ["range", "startDate", "endDate"]);
     const requestedRange = optionalString(args.range) ?? "month";
     if (!isSalesRange(requestedRange)) throw new ToolInputError("range 参数无效");
+    const startDate = optionalString(args.startDate);
+    const endDate = optionalString(args.endDate);
+    const period = requestedRange === "custom"
+      ? customSalesPeriod(startDate, endDate)
+      : { startDate, endDate };
     const summary = await salesReader.read(principal, {
       operation: "summary",
       range: requestedRange,
-      startDate: optionalString(args.startDate),
-      endDate: optionalString(args.endDate),
+      ...period,
     }, { signal: dependencies.signal });
     if (!summary || typeof summary.revision !== "string" || !summary.revision
       || !validSummaryData(summary.data)) throw salesConsumerUnavailable();
