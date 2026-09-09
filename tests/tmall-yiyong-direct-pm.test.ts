@@ -42,7 +42,7 @@ test("亿用试点使用原 ID 与调度，A/B/C 完全不变，候选生成确�
     assert.deepEqual(workflow.nodes.find((node) => node.name === name), legacy.nodes.find((node) => node.name === name));
   }
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 7);
   for (const node of requests) {
     const headers = node.parameters?.headerParameters?.parameters ?? [];
     assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-STORE-KEY"), [{ name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yiyong" }]);
@@ -52,7 +52,8 @@ test("亿用试点使用原 ID 与调度，A/B/C 完全不变，候选生成确�
   }
   const edges = workflow.connections as Record<string, { main: { node: string }[][] }>;
   assert.equal(edges["C·签收、导入并覆盖回查"]!.main[0]![0]!.node, "P·直连创建商品报表、下载、汇总导入并回查");
-  assert.equal(edges["P·直连创建商品报表、下载、汇总导入并回查"]!.main[0]![0]!.node, "M·MTOP 分批导出、合并校验并导入");
+  assert.equal(edges["P·直连创建商品报表、下载、汇总导入并回查"]!.main[0]![0]!.node, "N·复查缺口并计划下一日");
+  assert.equal(edges["还有缺口且预算充足？"]!.main[1]![0]!.node, "M·MTOP 分批导出、合并校验并导入");
   assert.doesNotMatch(JSON.stringify(workflow), /tmall-yijiu|亿玖|csrfId=[^ ]|cookie2=/);
 });
 

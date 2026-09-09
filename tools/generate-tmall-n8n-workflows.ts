@@ -107,6 +107,9 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
 ] as const;
 
 type WorkflowNode = {
+  id?: string;
+  typeVersion?: number;
+  position?: number[];
   name: string;
   type: string;
   parameters?: {
@@ -188,7 +191,7 @@ function setStoreHeader(node: WorkflowNode, storeKey: string) {
       tmallDirectPmProtocolHeader,
     ].includes(String(header.name ?? "").toLowerCase())),
     { name: "X-TERUISI-TMALL-STORE-KEY", value: storeKey },
-    ...(url.endsWith("/plan")
+    ...((url.endsWith("/plan") || url.endsWith("/plan-backfill"))
       ? [
           {
             name: "X-TERUISI-TMALL-PLAN-START-DATE",
@@ -282,7 +285,56 @@ export function buildTmallN8nWorkflow(
   }
   adaptManualTrigger(workflow);
   adaptProductMasterNode(workflow, definition);
+  addDailyBackfillLoop(workflow);
   return workflow;
+}
+
+export const tmallNextDayNode = "N·复查缺口并计划下一日";
+export const tmallContinueNode = "还有缺口且预算充足？";
+
+function addDailyBackfillLoop(workflow: WorkflowTemplate) {
+  const plan = workflow.nodes.find(node => ["http://127.0.0.1:5791/plan", "http://127.0.0.1:5791/plan-backfill"].includes(String(node.parameters?.url)));
+  const fetchNode = workflow.nodes.find(node => node.parameters?.url === "http://127.0.0.1:5791/fetch");
+  const promotion = workflow.nodes.find(node => node.name.startsWith("P·"));
+  const master = workflow.nodes.find(node => node.name.startsWith("M·"));
+  if (!plan?.parameters || !fetchNode || !promotion || !master) throw new Error("天猫补缺循环缺少业务节点");
+  plan.parameters.url = "http://127.0.0.1:5791/plan-backfill";
+  const headers = plan.parameters.headerParameters?.parameters ?? [];
+  const edge = (node: string) => ({ node, type: "main", index: 0 });
+  const ifNode = (name: string, expression: string, position: number[]): WorkflowNode => ({
+    id: stableUuid(`tmall-backfill:${name}`), name, type: "n8n-nodes-base.if", typeVersion: 2.2, position,
+    parameters: { conditions: {
+      options: { caseSensitive: true, leftValue: "", typeValidation: "strict", version: 2 },
+      conditions: [{ id: stableUuid(`tmall-backfill:condition:${name}`), leftValue: expression,
+        rightValue: true, operator: { type: "boolean", operation: "true", singleValue: true } }], combinator: "and",
+    }, options: {} },
+  });
+  const complete = "全部缺失日已补齐？";
+  const budget = "补缺未完成·已释放店铺资源";
+  // Rebuilding from the generated base must produce exactly one loop.
+  workflow.nodes = workflow.nodes.filter(node => ![tmallNextDayNode, tmallContinueNode, complete, budget].includes(node.name));
+  workflow.nodes.push({
+    id: stableUuid("tmall-backfill:next"), name: tmallNextDayNode, type: "n8n-nodes-base.httpRequest", typeVersion: 4.2,
+    position: [740, 40], parameters: { method: "POST", url: "http://127.0.0.1:5791/next-day", sendHeaders: true,
+      headerParameters: { parameters: [...headers.filter(header => ["X-TERUISI-N8N-EXECUTION-ID", "X-TERUISI-TMALL-STORE-KEY"].includes(header.name ?? "")),
+        { name: "X-TERUISI-TMALL-BACKFILL-CYCLE", value: "={{ $runIndex }}" }] }, options: { timeout: 120000 } },
+  }, ifNode(tmallContinueNode, "={{ $json.continueBackfill }}", [960, 40]),
+  ifNode(complete, "={{ $json.dailyBackfill.status === 'completed' }}", [1400, 40]), {
+    id: stableUuid("tmall-backfill:budget"), name: budget, type: "n8n-nodes-base.stopAndError", typeVersion: 1,
+    position: [1620, 140], parameters: { errorMessage: "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}" },
+  });
+  master.position = [1180, 40];
+  workflow.connections[promotion.name] = { main: [[edge(tmallNextDayNode)]] };
+  workflow.connections[tmallNextDayNode] = { main: [[edge(tmallContinueNode)]] };
+  workflow.connections[tmallContinueNode] = { main: [[edge(fetchNode.name)], [edge(master.name)]] };
+  workflow.connections[master.name] = { main: [[edge(complete)]] };
+  workflow.connections[complete] = { main: [[], [edge(budget)]] };
+  const note = workflow.nodes.find(node => node.name === "流程说明");
+  if (typeof note?.parameters?.content === "string") {
+    note.parameters.content = note.parameters.content
+      .replaceAll("商品日与推广日每轮各最多处理一天。", "商品日与推广日每个循环只处理一天；P 后由 N 重新核验两类覆盖，再决定是否循环回 B。每店最多补 14 天，30 分钟后不再开启新日，最后 M 执行一次并收尾；预算耗尽仍有缺口则明确报未完成。")
+      .replaceAll("认证通过后 A 默认直接计划昨天，显式目标日期也不按已有覆盖预先跳过", "认证通过后 A 固定注册起始日至昨天的范围，先查两类缺口并选择最早一天，只下载缺失部分");
+  }
 }
 
 function renameWorkflowNode(workflow: WorkflowTemplate, node: WorkflowNode, targetName: string) {
@@ -345,7 +397,7 @@ export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplat
       "这是同一工作流 ID 的现行替换版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。",
       "",
       "## A→B→C→P→M",
-      "A/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行；亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。",
+      "A 固定注册起始日至昨天的范围；B/C/P 每个循环只补最早缺失日，N 重新核验商品日和推广日覆盖后循环回 B。每店最多补 14 天，30 分钟后不再开启新日；最后 M 执行一次并收尾，预算耗尽仍有缺口明确报未完成。同一 execution ID、店铺键与共享 helper 串行认领不变。亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。",
       "",
       "## P·阿里妈妈直连任务",
       "从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。",
