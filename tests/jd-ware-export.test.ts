@@ -596,8 +596,9 @@ test("classifies the WareList query control only when it is uniquely bound to it
   assert.throws(() => jdWareSkuExportDrawerDecision({ exportDrawerCount: 0, scopedSkuTabCount: 0, pageSkuTabCount: 1 }), /不在唯一导出条件抽屉/);
 });
 
-function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; hideExportEntryOnClickFailure?: boolean; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none"; batchAriaExpanded?: "true" | "false"; deferBatchRevealUntilAriaRead?: boolean }) {
+function createWareListEntryPageFixture(input: { productSearchContainerCount: number; scopedQueryButtonCount: number; pageQueryButtonCount: number; nestedDrawerDom?: boolean; jdOverlayDom?: "single" | "multiple" | "hidden_clone"; exportDrawerCount?: number; scopedSkuTabCount?: number; pageSkuTabCount?: number; initialExportEntryCount?: number; exportEntryCountSequence?: readonly number[]; revealAfterWaits?: number; hideInitialExportAfterWaits?: number; hideExportAfterWaits?: number; queryClickFailures?: number; exportClickFailures?: number; hideExportEntryOnClickFailure?: boolean; batchOperationsCount?: number; batchRevealMethod?: "click" | "enter" | "none"; batchAriaExpanded?: "true" | "false"; deferBatchRevealUntilAriaRead?: boolean }) {
   let exportEntryCount = input.initialExportEntryCount ?? 0;
+  let exportEntryCountReads = 0;
   let waitCount = 0;
   let batchAriaRead = false;
   let requiredBatchClicks = 1;
@@ -639,7 +640,7 @@ function createWareListEntryPageFixture(input: { productSearchContainerCount: nu
   });
   const pageSkuTab = chain({ count: async () => input.pageSkuTabCount ?? 0 });
   const exportEntry = chain({
-    count: async () => exportEntryCount,
+    count: async () => input.exportEntryCountSequence?.[exportEntryCountReads++] ?? exportEntryCount,
     click: async () => {
       clicks.exportEntry += 1;
       if (clicks.exportEntry <= (input.exportClickFailures ?? 0)) {
@@ -753,6 +754,20 @@ test("revealJdWareExportEntry ignores an early transient export clone and waits 
   await revealJdWareExportEntry(target.page as never);
 
   assert.equal(target.clicks.batchOperations, 1);
+  assert.equal(target.clicks.scopedQuery, 0);
+});
+
+test("revealJdWareExportEntry keeps waiting when JD removes a stable-looking entry during verification", async () => {
+  const target = createWareListEntryPageFixture({
+    productSearchContainerCount: 1,
+    scopedQueryButtonCount: 1,
+    pageQueryButtonCount: 1,
+    initialExportEntryCount: 1,
+    exportEntryCountSequence: [1, 1, 1, 0, 0, 1, 1, 1],
+  });
+
+  await revealJdWareExportEntry(target.page as never);
+
   assert.equal(target.clicks.scopedQuery, 0);
 });
 
