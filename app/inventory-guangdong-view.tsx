@@ -11,6 +11,7 @@ type Watchlist = { version: string; items: Array<GuangdongWatchRow & GuangdongId
 type Cycles = { version: string; items: Array<{ supplier: string; leadDays: number | null; bufferDays: number }> };
 const numberText = (value: number | null) => value === null ? "—" : formatCount(value);
 const daysText = (value: number | null) => value === null ? "—" : `${value.toFixed(1)} 天`;
+const riskOptions = [["no_stock", "无可用库存"], ["urgent", "紧急补货"], ["warning", "补货预警"], ["stale", "积压风险"], ["unknown", "待完善/待观察"], ["healthy", "健康"]] as const;
 
 async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, { cache: "no-store", ...init });
@@ -131,11 +132,15 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
     const values = new FormData(form);
     const leadText = String(values.get("lead") ?? "").trim();
     const bufferText = String(values.get("buffer") ?? "").trim();
+    const riskText = String(values.get("risk") ?? "").trim();
+    const riskReason = String(values.get("riskReason") ?? "").trim();
     if (!!leadText !== !!bufferText) throw new Error("生产周期和安全天数必须同时填写或同时留空");
+    if (!!riskText !== !!riskReason) throw new Error("手工风险和原因说明必须同时填写或同时留空");
     await jsonRequest("/items", jsonBody({
       action: "item", productCode: editing.productCode,
       leadDays: leadText ? Number(leadText) : null, bufferDays: bufferText ? Number(bufferText) : null,
       operatorName: String(values.get("operatorName") ?? ""), buyer: String(values.get("buyer") ?? ""),
+      risk: riskText, riskReason,
       version: editingVersion,
     }, "PATCH"));
     setEditing(null); setNotice("型号设置已保存并回查。"); setRefresh((value) => value + 1);
@@ -191,7 +196,9 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
             <label>安全天数<input name="buffer" aria-label="型号安全天数" type="number" min={0} max={365} step={1} defaultValue={editing.bufferDaysOverride ?? ""} placeholder={`供应商默认 ${editing.supplierBufferDays}`} disabled={busy} /></label>
             <label>运营负责人<input name="operatorName" aria-label="型号运营负责人" maxLength={200} defaultValue={editing.operatorNameOverride ?? ""} placeholder={editing.planOperatorName || "最新备货计划未设置"} disabled={busy} /></label>
             <label>采购负责人<input name="buyer" aria-label="型号采购负责人" maxLength={200} defaultValue={editing.buyerOverride ?? ""} placeholder={editing.planBuyer || "最新备货计划未设置"} disabled={busy} /></label>
-            <div className={styles.editorActions}><button className="primary-button" disabled={busy}>保存</button><small>周期留空继承供应商设置；负责人留空继承最新未取消备货计划。</small></div>
+            <label>风险判定<select name="risk" aria-label="型号风险判定" defaultValue={editing.riskOverride ?? ""} disabled={busy}><option value="">系统自动判定</option>{riskOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+            <label className={styles.reasonField}>原因说明<textarea name="riskReason" aria-label="型号风险原因说明" rows={2} maxLength={1000} defaultValue={editing.riskReasonOverride ?? ""} placeholder={`系统当前判定：${editing.autoRiskLabel}`} disabled={busy} /></label>
+            <div className={styles.editorActions}><button className="primary-button" disabled={busy}>保存</button><small>周期留空继承供应商设置；负责人留空继承最新未取消备货计划；风险与原因都留空时恢复系统判定。</small></div>
           </form>
         </section>}
         <section className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className="data-table"><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "生产周期 / 安全天数", "最晚下单", "备货数量 / 最新下单时间", "风险及原因", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
@@ -206,7 +213,7 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
           <td>{item.leadDays === null ? "待设置" : `${item.leadDays} 天`}<small className="cell-note">安全 {item.bufferDays} 天 · {item.cycleSource}</small></td>
           <td>{item.latestOrderDate ?? "—"}</td>
           <td>{numberText(item.replenishmentQuantity)}<small className="cell-note">下单 {item.latestReplenishmentOrderDate ?? "—"}</small></td>
-          <td className={styles.reason}><strong>{item.riskLabel}</strong><small className="cell-note">{item.riskReasons.join("；") || "可售天数充足"}</small></td>
+          <td className={styles.reason}><strong>{item.riskLabel}</strong><small className="cell-note">{item.riskSource} · {item.riskReasons.join("；") || "可售天数充足"}</small></td>
           <td>{canManage ? <button className="row-action" aria-label={`${item.productCode}编辑型号设置`} disabled={busy} onClick={() => { setEditing(item); setEditingVersion(data.version); }}>编辑</button> : "—"}</td>
         </tr>)}{data.items.length === 0 && <tr><td colSpan={13}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
       </>}

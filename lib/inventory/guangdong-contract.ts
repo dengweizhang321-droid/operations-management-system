@@ -12,6 +12,8 @@ export type GuangdongItem = GuangdongIdentity & {
   operatorName: string; operatorNameOverride: string | null; planOperatorName: string; operatorNameSource: "型号设置" | "最新备货计划" | "待设置";
   buyer: string; buyerOverride: string | null; planBuyer: string; buyerSource: "型号设置" | "最新备货计划" | "待设置";
   turnoverDays: number | null; latestOrderDate: string | null; risk: GuangdongRisk; riskLabel: string; riskReasons: string[];
+  autoRisk: GuangdongRisk; autoRiskLabel: string; autoRiskReasons: string[];
+  riskOverride: GuangdongRisk | null; riskReasonOverride: string | null; riskSource: "型号设置" | "系统判定";
 };
 export type GuangdongMonitor = {
   version: string; hasInventory: boolean; watchCount: number;

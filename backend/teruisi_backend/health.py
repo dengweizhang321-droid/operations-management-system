@@ -441,7 +441,7 @@ PRODUCTS_WRITER_AUTO_ID_TABLES = (
     "product_import_fingerprints", "product_inventory_projection", "product_raw_upload_chunks",
 )
 REQUIRED_INVENTORY_COLUMNS = {
-    "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "updated_by", "updated_at"},
+    "inventory_guangdong_monitor_items": {"product_code", "active", "notes", "lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "risk_override", "risk_reason_override", "updated_by", "updated_at"},
     "inventory_guangdong_supplier_cycles": {"supplier", "lead_days", "buffer_days", "updated_by", "updated_at"},
     "sales_order_lines": {"business_date", "product_code", "platform", "shop_name"},
     "sales_import_batches": {"id", "status", "completed_at"},

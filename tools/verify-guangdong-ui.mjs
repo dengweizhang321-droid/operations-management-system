@@ -27,8 +27,8 @@ try {
   const identity = { productCode: "00123", productName: "志高循环风扇", specification: "ZG-18", brand: "志高", category: "电风扇", supplier: "测试供应商", supplierSource: "库存快照" };
   let watch = [{ ...identity, active: true, notes: "关注补货" }];
   let cycle = { supplier: "测试供应商", leadDays: 10, bufferDays: 7 };
-  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound15dQuantity: 150, outbound30dQuantity: 300, turnoverDays: 10, latestOrderDate: "2026-09-09", replenishmentQuantity: 35, latestReplenishmentOrderDate: "2026-09-08", supplierLeadDays: 10, supplierBufferDays: 7, planOperatorName: "运营甲", planBuyer: "采购甲", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], inventoryStale: false };
-  let itemSettings = { leadDays: 10, bufferDays: 7, leadDaysOverride: null, bufferDaysOverride: null, cycleSource: "供应商设置", operatorName: "运营甲", operatorNameOverride: null, operatorNameSource: "最新备货计划", buyer: "采购甲", buyerOverride: null, buyerSource: "最新备货计划" };
+  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound15dQuantity: 150, outbound30dQuantity: 300, turnoverDays: 10, latestOrderDate: "2026-09-09", replenishmentQuantity: 35, latestReplenishmentOrderDate: "2026-09-08", supplierLeadDays: 10, supplierBufferDays: 7, planOperatorName: "运营甲", planBuyer: "采购甲", autoRisk: "urgent", autoRiskLabel: "紧急补货", autoRiskReasons: ["销售周转不超过生产周期"], inventoryStale: false };
+  let itemSettings = { leadDays: 10, bufferDays: 7, leadDaysOverride: null, bufferDaysOverride: null, cycleSource: "供应商设置", operatorName: "运营甲", operatorNameOverride: null, operatorNameSource: "最新备货计划", buyer: "采购甲", buyerOverride: null, buyerSource: "最新备货计划", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], riskOverride: null, riskReasonOverride: null, riskSource: "系统判定" };
   const labels = { no_stock: "无可用库存", urgent: "紧急补货", warning: "补货预警", stale: "积压风险", unknown: "待完善/待观察", healthy: "健康" };
   const requests = [];
   await page.route("**/api/inventory/guangdong-monitor**", async (route) => {
@@ -56,6 +56,9 @@ try {
         operatorNameSource: body.operatorName ? "型号设置" : "最新备货计划",
         buyer: body.buyer || "采购甲", buyerOverride: body.buyer || null,
         buyerSource: body.buyer ? "型号设置" : "最新备货计划",
+        risk: body.risk || "urgent", riskLabel: body.risk ? labels[body.risk] : "紧急补货",
+        riskReasons: body.risk ? [`人工设置：${body.riskReason}`, "系统原判：紧急补货（销售周转不超过生产周期）"] : ["销售周转不超过生产周期"],
+        riskOverride: body.risk || null, riskReasonOverride: body.riskReason || null, riskSource: body.risk ? "型号设置" : "系统判定",
       };
       version = "4:012345abcdef/sales:1/erp:1"; result = { status: "saved", version };
     } else if (suffix === "/products") result = { items: [identity] };
@@ -92,15 +95,18 @@ try {
   await page.getByLabel("型号安全天数").fill("6");
   await page.getByLabel("型号运营负责人").fill("运营乙");
   await page.getByLabel("型号采购负责人").fill("采购乙");
+  await page.getByLabel("型号风险判定").selectOption("healthy");
+  await page.getByLabel("型号风险原因说明").fill("人工核实库存健康");
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByText("型号设置已保存并回查。", { exact: true }).waitFor();
-  assert.equal(itemSettings.leadDays, 22); assert.equal(itemSettings.operatorName, "运营乙");
+  assert.equal(itemSettings.leadDays, 22); assert.equal(itemSettings.operatorName, "运营乙"); assert.equal(itemSettings.risk, "healthy");
   await page.getByRole("button", { name: "00123编辑型号设置" }).click();
   await page.getByLabel("型号生产周期").fill(""); await page.getByLabel("型号安全天数").fill("");
   await page.getByLabel("型号运营负责人").fill(""); await page.getByLabel("型号采购负责人").fill("");
+  await page.getByLabel("型号风险判定").selectOption(""); await page.getByLabel("型号风险原因说明").fill("");
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByText("型号设置已保存并回查。", { exact: true }).waitFor();
-  assert.equal(itemSettings.leadDays, 10); assert.equal(itemSettings.operatorName, "运营甲");
+  assert.equal(itemSettings.leadDays, 10); assert.equal(itemSettings.operatorName, "运营甲"); assert.equal(itemSettings.risk, "urgent");
   await page.screenshot({ path: resolve(output, "desktop.png"), fullPage: true });
   await page.getByRole("button", { name: /^紧急补货/ }).click();
   await page.waitForFunction(() => location.search.includes("inventoryGuangdongRisk=urgent"));
@@ -129,7 +135,7 @@ try {
   assert.equal(await page.getByRole("button", { name: "预览批量变更" }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "00123编辑型号设置" }).count(), 0);
   assert.deepEqual(errors, []);
-  await writeFile(resolve(output, "result.json"), JSON.stringify({ status: "passed", mockedApi: true, requests: requests.length, checks: ["fixed-warehouse", "risk-url", "item-overrides-and-fallback", "paste-preview-commit", "supplier-cycle", "versioned-export", "viewer-read-only", "desktop-mobile-render"] }, null, 2));
+  await writeFile(resolve(output, "result.json"), JSON.stringify({ status: "passed", mockedApi: true, requests: requests.length, checks: ["fixed-warehouse", "risk-url", "item-overrides-risk-reason-and-fallback", "paste-preview-commit", "supplier-cycle", "versioned-export", "viewer-read-only", "desktop-mobile-render"] }, null, 2));
   console.log("Guangdong UI checks passed: " + output);
 } finally {
   await browser?.close();

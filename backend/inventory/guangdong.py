@@ -174,7 +174,7 @@ def mutate(payload, actor):
     if not isinstance(payload, dict):
         raise InventoryApiError("请求必须为对象")
     action = payload.get("action")
-    allowed = {"action", "rows", "version", "contentHash", "source", "rawHash", "supplier", "productCode", "leadDays", "bufferDays", "operatorName", "buyer", "error"}
+    allowed = {"action", "rows", "version", "contentHash", "source", "rawHash", "supplier", "productCode", "leadDays", "bufferDays", "operatorName", "buyer", "risk", "riskReason", "error"}
     source = str(payload.get("source", "页面维护"))[:255]
     raw_hash = payload.get("rawHash", "")
     if not isinstance(raw_hash, str) or (raw_hash and not re.fullmatch("[0-9a-f]{64}", raw_hash)):
@@ -230,6 +230,7 @@ def mutate(payload, actor):
                 product_code = payload.get("productCode")
                 lead, buffer = payload.get("leadDays"), payload.get("bufferDays")
                 operator_name, buyer = payload.get("operatorName"), payload.get("buyer")
+                risk, risk_reason = payload.get("risk", ""), payload.get("riskReason", "")
                 if not isinstance(product_code, str) or not product_code.strip() or len(product_code.strip()) > 200 or re.search(r"[\x00-\x1f]", product_code):
                     raise InventoryApiError("货品编码必须为1–200字文本")
                 if (lead is None) != (buffer is None):
@@ -238,9 +239,19 @@ def mutate(payload, actor):
                     raise InventoryApiError("周期须为1–365天，安全天数须为0–365天整数")
                 if not isinstance(operator_name, str) or len(operator_name.strip()) > 200 or re.search(r"[\x00-\x1f]", operator_name) or not isinstance(buyer, str) or len(buyer.strip()) > 200 or re.search(r"[\x00-\x1f]", buyer):
                     raise InventoryApiError("负责人必须为不超过200字的文本")
+                if not isinstance(risk, str) or not isinstance(risk_reason, str) or len(risk_reason.strip()) > 1000 or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", risk_reason):
+                    raise InventoryApiError("风险或原因说明无效")
+                risk = risk.strip()
+                risk_reason = risk_reason.strip()
+                if risk and risk not in RISK_LABELS:
+                    raise InventoryApiError("风险选项无效")
+                if bool(risk) != bool(risk_reason):
+                    raise InventoryApiError("手工风险和原因说明必须同时填写或同时留空")
                 product_code = product_code.strip()
                 operator_name = operator_name.strip() or None
                 buyer = buyer.strip() or None
+                risk = risk or None
+                risk_reason = risk_reason or None
                 old = GuangdongMonitorItem.objects.select_for_update().filter(product_code=product_code).first()
                 if old is None:
                     raise InventoryApiError("型号不属于当前广东监控清单")
@@ -249,8 +260,10 @@ def mutate(payload, actor):
                     "bufferDays": old.buffer_days_override,
                     "operatorName": old.operator_name_override,
                     "buyer": old.buyer_override,
+                    "risk": old.risk_override,
+                    "riskReason": old.risk_reason_override,
                 }
-                after = {"leadDays": lead, "bufferDays": buffer, "operatorName": operator_name, "buyer": buyer}
+                after = {"leadDays": lead, "bufferDays": buffer, "operatorName": operator_name, "buyer": buyer, "risk": risk, "riskReason": risk_reason}
                 unchanged = before == after
                 if not unchanged and payload.get("version") != version():
                     _conflict()
@@ -259,10 +272,12 @@ def mutate(payload, actor):
                     old.buffer_days_override = buffer
                     old.operator_name_override = operator_name
                     old.buyer_override = buyer
+                    old.risk_override = risk
+                    old.risk_reason_override = risk_reason
                     old.updated_by = actor
-                    old.save(update_fields=["lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "updated_by", "updated_at"])
+                    old.save(update_fields=["lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "risk_override", "risk_reason_override", "updated_by", "updated_at"])
                 saved = GuangdongMonitorItem.objects.get(product_code=product_code)
-                if (saved.lead_days_override, saved.buffer_days_override, saved.operator_name_override, saved.buyer_override) != (lead, buffer, operator_name, buyer):
+                if (saved.lead_days_override, saved.buffer_days_override, saved.operator_name_override, saved.buyer_override, saved.risk_override, saved.risk_reason_override) != (lead, buffer, operator_name, buyer, risk, risk_reason):
                     raise InventoryApiError("型号设置回查失败", status=503)
                 summary = {"productCode": product_code, **after}
                 audit_details = {"before": before, "after": after}
@@ -378,6 +393,18 @@ def monitor(principal, options, *, export=False):
         if stale:
             item["riskReasons"].append("库存快照待更新，估算仅供参考")
             if item["risk"] == "healthy": item.update(risk="unknown", riskLabel=RISK_LABELS["unknown"])
+        item.update({
+            "autoRisk": item["risk"], "autoRiskLabel": item["riskLabel"], "autoRiskReasons": list(item["riskReasons"]),
+            "riskOverride": watched_row.risk_override, "riskReasonOverride": watched_row.risk_reason_override,
+            "riskSource": "型号设置" if watched_row.risk_override else "系统判定",
+        })
+        if watched_row.risk_override:
+            auto_reason = "；".join(item["autoRiskReasons"]) or "可售天数充足"
+            item.update(
+                risk=watched_row.risk_override,
+                riskLabel=RISK_LABELS[watched_row.risk_override],
+                riskReasons=[f"人工设置：{watched_row.risk_reason_override}", f"系统原判：{item['autoRiskLabel']}（{auto_reason}）"],
+            )
         item["riskReason"] = "；".join(item["riskReasons"])
         items.append(item)
     facets = {key: sorted({row[field] for row in items if row[field]}) for key, field in (("brands", "brand"), ("categories", "category"), ("suppliers", "supplier"))}

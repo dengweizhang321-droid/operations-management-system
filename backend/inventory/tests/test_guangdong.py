@@ -165,7 +165,7 @@ class GuangdongTests(TestCase):
         self.assertEqual((initial["planOperatorName"], initial["planBuyer"]), ("运营默认", "采购默认"))
 
         before_version = gd.version()
-        payload = {"action": "item", "productCode": "00123", "leadDays": 20, "bufferDays": 5, "operatorName": "运营覆盖", "buyer": "采购覆盖", "version": before_version}
+        payload = {"action": "item", "productCode": "00123", "leadDays": 20, "bufferDays": 5, "operatorName": "运营覆盖", "buyer": "采购覆盖", "risk": "healthy", "riskReason": "已核实现货可持续供应", "version": before_version}
         self.assertEqual(gd.mutate(payload, self.principal.email)["status"], "saved")
         self.assertEqual(gd.mutate(payload, self.principal.email)["status"], "unchanged")
         with patch.object(gd, "_sales_query", return_value=self.sales()):
@@ -173,18 +173,25 @@ class GuangdongTests(TestCase):
         self.assertEqual((overridden["leadDays"], overridden["bufferDays"], overridden["cycleSource"]), (20, 5, "型号设置"))
         self.assertEqual((overridden["operatorName"], overridden["operatorNameSource"]), ("运营覆盖", "型号设置"))
         self.assertEqual((overridden["buyer"], overridden["buyerSource"]), ("采购覆盖", "型号设置"))
+        self.assertEqual((overridden["risk"], overridden["riskSource"]), ("healthy", "型号设置"))
+        self.assertEqual(overridden["autoRisk"], "urgent")
+        self.assertIn("人工设置：已核实现货可持续供应", overridden["riskReasons"])
+        self.assertIn("系统原判：紧急补货", overridden["riskReasons"][1])
 
         with self.assertRaises(InventoryApiError):
             gd.mutate({**payload, "leadDays": None, "bufferDays": 5, "version": gd.version()}, self.principal.email)
+        with self.assertRaises(InventoryApiError):
+            gd.mutate({**payload, "riskReason": "", "version": gd.version()}, self.principal.email)
         with self.assertRaises(InventoryApiError) as caught:
             gd.mutate({**payload, "buyer": "另一采购", "version": before_version}, self.principal.email)
         self.assertEqual(caught.exception.status, 409)
-        cleared = {"action": "item", "productCode": "00123", "leadDays": None, "bufferDays": None, "operatorName": "", "buyer": "", "version": gd.version()}
+        cleared = {"action": "item", "productCode": "00123", "leadDays": None, "bufferDays": None, "operatorName": "", "buyer": "", "risk": "", "riskReason": "", "version": gd.version()}
         gd.mutate(cleared, self.principal.email)
         with patch.object(gd, "_sales_query", return_value=self.sales()):
             restored = gd.monitor(self.principal, {})["items"][0]
         self.assertEqual((restored["leadDays"], restored["bufferDays"], restored["cycleSource"]), (12, 8, "供应商设置"))
         self.assertEqual((restored["operatorName"], restored["buyer"]), ("运营默认", "采购默认"))
+        self.assertEqual((restored["risk"], restored["riskSource"]), ("urgent", "系统判定"))
 
     def test_pause_missing_coverage_cost_and_snapshot_age(self):
         self.save_rows([{"productCode": "00123"}, {"productCode": "B", "active": False}])
@@ -230,6 +237,8 @@ class GuangdongTests(TestCase):
             GuangdongSupplierCycle.objects.create(supplier="非法", lead_days=0, updated_by="test")
         with self.assertRaises(IntegrityError), transaction.atomic():
             GuangdongMonitorItem.objects.create(product_code="invalid-pair", lead_days_override=1, buffer_days_override=None, updated_by="test")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            GuangdongMonitorItem.objects.create(product_code="invalid-risk", risk_override="healthy", risk_reason_override=None, updated_by="test")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_signed_http_preview_commit_replay_and_export_header(self):
@@ -249,7 +258,7 @@ class GuangdongTests(TestCase):
         response = self.client.get(base, headers=signed_headers(base))
         self.assertEqual(response.status_code, 200, response.content)
         self.assertRegex(response["X-Inventory-Data-Revision"], r"^\d+:[a-f0-9]{12}$")
-        item_body = json.dumps({"action": "item", "productCode": "00123", "leadDays": 18, "bufferDays": 6, "operatorName": "运营覆盖", "buyer": "采购覆盖", "version": response.json()["version"]})
+        item_body = json.dumps({"action": "item", "productCode": "00123", "leadDays": 18, "bufferDays": 6, "operatorName": "运营覆盖", "buyer": "采购覆盖", "risk": "warning", "riskReason": "HTTP人工调整", "version": response.json()["version"]})
         item_headers = signed_headers(base + "/items", method="PATCH", body=item_body, request_id="gd-item-write-request")
         item_response = self.client.patch(base + "/items", data=item_body, content_type="application/json", headers=item_headers)
         self.assertEqual(item_response.status_code, 200, item_response.content)
@@ -258,6 +267,8 @@ class GuangdongTests(TestCase):
         response = self.client.get(base, headers=signed_headers(base))
         self.assertEqual(response.json()["items"][0]["operatorName"], "运营覆盖")
         self.assertEqual(response.json()["items"][0]["cycleSource"], "型号设置")
+        self.assertEqual(response.json()["items"][0]["riskSource"], "型号设置")
+        self.assertEqual(response.json()["items"][0]["riskReasonOverride"], "HTTP人工调整")
         url = base + "/export?kind=monitor&version=" + response.json()["version"]
         response = self.client.get(url, headers=signed_headers(url))
         self.assertEqual(response.status_code, 200, response.content)

@@ -14,6 +14,8 @@ class GuangdongMonitorItem(models.Model):
     buffer_days_override = models.PositiveSmallIntegerField(null=True, blank=True)
     operator_name_override = models.CharField(max_length=200, null=True, blank=True)
     buyer_override = models.CharField(max_length=200, null=True, blank=True)
+    risk_override = models.CharField(max_length=32, null=True, blank=True)
+    risk_reason_override = models.CharField(max_length=1000, null=True, blank=True)
     updated_by = models.CharField(max_length=320)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -33,6 +35,16 @@ class GuangdongMonitorItem(models.Model):
                     )
                 ),
                 name="inv_gd_item_cycle_pair",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(risk_override__isnull=True, risk_reason_override__isnull=True)
+                    | (
+                        models.Q(risk_override__in=["no_stock", "urgent", "warning", "stale", "unknown", "healthy"], risk_reason_override__isnull=False)
+                        & ~models.Q(risk_reason_override="")
+                    )
+                ),
+                name="inv_gd_item_risk_pair",
             ),
         ]
 
