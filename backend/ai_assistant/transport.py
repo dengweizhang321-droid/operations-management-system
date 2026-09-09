@@ -15,13 +15,14 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from threading import BoundedSemaphore
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
 
 _deadline = ContextVar("ai_network_deadline", default=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
 _dns_slots = BoundedSemaphore(4)
+_synthetic_network = ipaddress.ip_network("198.18.0.0/15")
 
 
 @contextmanager
@@ -57,6 +58,118 @@ def resolve_addresses(host, port, timeout):
 def bounded_json(
     url, body, headers=None, *, timeout=60, maximum=2 * 1024 * 1024, internal=False
 ):
+    return _bounded_json(
+        url, body, headers, timeout=timeout, maximum=maximum, internal=internal
+    )
+
+
+def public_model_addresses(url, addresses, timeout):
+    """Replace proxy synthetic DNS only; never connect to or allowlist fake IPs."""
+    ips = [ipaddress.ip_address(addr[4][0]) for addr in addresses]
+    if not any(ip in _synthetic_network for ip in ips):
+        return addresses
+    if any(not ip.is_global and ip not in _synthetic_network for ip in ips):
+        raise AiError("请求目标解析到非公网地址", "access_denied", 403)
+    # Only configured, exact HTTPS model origins may use this recovery path.
+    from .configuration import endpoint
+
+    endpoint(url)
+    parts = urlsplit(url)
+    host = parts.hostname
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise AiError("禁止非公网模型地址", "access_denied", 403)
+    started = time.monotonic()
+    budget = min(5, timeout)
+    result = []
+    for record_type in (1, 28):
+        remaining = budget - (time.monotonic() - started)
+        if remaining <= 0:
+            raise AiError("DNS 查询超时", "service_unavailable", 503)
+        # Fixed public IP avoids the same intercepted OS lookup. TLS verifies
+        # this IP's certificate. No provider headers/body are sent to DNS.
+        answer = _bounded_json(
+            "https://1.1.1.1/dns-query?"
+            + urlencode({"name": host, "type": record_type}),
+            None,
+            {"Accept": "application/dns-json"},
+            timeout=remaining,
+            maximum=16 * 1024,
+            method="GET",
+            fixed_addresses=[
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    socket.IPPROTO_TCP,
+                    "",
+                    ("1.1.1.1", 443),
+                )
+            ],
+        )
+        question = answer.get("Question")
+        records = answer.get("Answer", [])
+        if (
+            type(answer.get("Status")) is not int
+            or answer["Status"] != 0
+            or answer.get("TC") is not False
+            or not isinstance(question, list)
+            or len(question) != 1
+            or not isinstance(question[0], dict)
+            or not isinstance(question[0].get("name"), str)
+            or question[0].get("name", "").rstrip(".").lower() != host.lower()
+            or type(question[0].get("type")) is not int
+            or question[0].get("type") != record_type
+            or not isinstance(records, list)
+            or len(records) > 32
+        ):
+            raise AiError("公网 DNS 响应无效", "service_unavailable", 503)
+        for record in records:
+            if not isinstance(record, dict):
+                raise AiError("公网 DNS 记录无效", "service_unavailable", 503)
+            if type(record.get("type")) is not int:
+                raise AiError("公网 DNS 记录类型无效", "service_unavailable", 503)
+            if record["type"] not in (1, 28):
+                continue
+            if record["type"] != record_type or not isinstance(record.get("data"), str):
+                raise AiError("公网 DNS 地址类型无效", "service_unavailable", 503)
+            try:
+                ip = ipaddress.ip_address(record.get("data"))
+            except ValueError as error:
+                raise AiError(
+                    "公网 DNS 地址无效", "service_unavailable", 503
+                ) from error
+            if (
+                not ip.is_global
+                or ip.is_multicast
+                or ip.version != (4 if record["type"] == 1 else 6)
+            ):
+                raise AiError("请求目标解析到非公网地址", "access_denied", 403)
+            family = socket.AF_INET if ip.version == 4 else socket.AF_INET6
+            target = (str(ip), parts.port or 443)
+            if ip.version == 6:
+                target += (0, 0)
+            item = (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", target)
+            if item not in result:
+                result.append(item)
+    if not result or len(result) > 32:
+        raise AiError("公网 DNS 未返回有效地址", "service_unavailable", 503)
+    return result
+
+
+def _bounded_json(
+    url,
+    body,
+    headers=None,
+    *,
+    timeout=60,
+    maximum=2 * 1024 * 1024,
+    internal=False,
+    method="POST",
+    fixed_addresses=None,
+):
     parts = urlsplit(url)
     if (
         parts.scheme not in {"https", "http"}
@@ -79,11 +192,20 @@ def bounded_json(
         raise AiError("请求必须使用 HTTPS")
     timeout = remaining_budget(timeout)
     started = time.monotonic()
-    addresses = resolve_addresses(host, port, timeout)
+    addresses = (
+        fixed_addresses
+        if fixed_addresses is not None
+        else resolve_addresses(host, port, timeout)
+    )
     if not addresses or len(addresses) > 32:
         raise AiError("DNS 结果异常", "service_unavailable", 503)
+    if not internal and fixed_addresses is None and not local:
+        addresses = public_model_addresses(
+            url, addresses, timeout - (time.monotonic() - started)
+        )
     for addr in addresses:
-        if not ipaddress.ip_address(addr[4][0]).is_global and not (
+        address = ipaddress.ip_address(addr[4][0])
+        if (not address.is_global or address.is_multicast) and not (
             local and permit_local
         ):
             raise AiError("请求目标解析到非公网地址", "access_denied", 403)
@@ -108,7 +230,7 @@ def bounded_json(
             sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
         connection = http.client.HTTPConnection(host, port, timeout=remaining)
         connection.sock = sock
-        data = canonical(body).encode()
+        data = canonical(body).encode() if method == "POST" else None
         request_headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -116,7 +238,7 @@ def bounded_json(
         }
         bounded_socket()
         connection.request(
-            "POST",
+            method,
             parts.path + ("?" + parts.query if parts.query else ""),
             data,
             request_headers,

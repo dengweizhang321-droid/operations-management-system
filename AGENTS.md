@@ -141,6 +141,7 @@
 - 应用角色固定为 `viewer`、`analyst`、`operator`、`admin`。所有权限和数据 scope 均使用服务端 `requireAppPrincipal()` 得到的真实身份；客户端、模型参数和请求正文中的身份/角色声明不可信。
 - 读取也要应用 principal scope；写入、配置、导入、发布、回滚、删除等操作按现有角色契约收紧，不能为了修复页面流程绕过鉴权。
 - `.dev.vars`、API Key、Token、Webhook、AES Key、浏览器登录状态和原始客户聊天不得提交、打印到日志、写进审计摘要或持久记忆。列表接口只返回掩码。
+- AI 模型域名若被代理 DNS 返回为 `198.18.0.0/15` 虚拟地址，只能对已有精确 HTTPS origin 白名单中的域名，通过固定公网 HTTPS DNS 取得并校验真实公网单播 IP 后固定连接；保持原域名 TLS 校验、总超时、响应上限、禁止重定向和模型 POST 不自动重发。不得放行虚拟地址段、私网或关闭证书验证；DNS 查询不得携带模型密钥和对话正文，内部回环工具桥不走该恢复路径。说明见 `docs/AI_ASSISTANT_SETUP.md`。
 - 本地免登录管理员仅在 `TERUISI_LOCAL_DIRECT_ACCESS=true`、`TERUISI_RUNTIME_ENV=development` 与真实开发/受控本地构建标记同时满足时可用，并必须在 Worker 入口和身份解析两层把请求限制到精确回环地址；Host 不能作为开发证明，LAN 地址、任意域名和 DNS rebinding 必须失败关闭。所有非 Webhook AI 写请求还必须提供精确同源 `Origin` 或明确的 `Sec-Fetch-Site: same-origin`；生产环境必须保持拒绝匿名直连。
 - 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
 
