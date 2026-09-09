@@ -231,6 +231,7 @@ def category_analysis(request: HttpRequest) -> JsonResponse:
         params.update(
             {
                 "level": _bounded_integer(_first(inner.GET, "level"), 1, "level", 3),
+                "brands": selected_values(inner.GET, "brand", "brands", label="brand"),
                 "categories": selected_values(inner.GET, "category", "categories", label="category"),
                 "granularity": granularity,
                 "sortBy": sort_by,

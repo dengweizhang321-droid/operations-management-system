@@ -19,6 +19,25 @@ class SalesApiContractTests(TestCase):
         install_fixture()
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_brand_filter_uses_exact_erp_identity_and_preserves_refunds(self):
+        from sales.models import ErpProductMaster, SalesDataRevision
+        ErpProductMaster.objects.filter(product_code="P1").update(brand="志高")
+        # A name match without the ERP brand must never count toward the brand.
+        SalesOrderLine.objects.filter(product_code="P2").update(product_name="志高字样测试商品")
+        base = "/api/sales/category-analysis?startDate=2026-08-01&endDate=2026-08-02&pageSize=20&"
+        url = base + urlencode({"brand": "志高"})
+        result = self.client.get(url, headers=signed_headers(url))
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()["summary"]["netSalesCents"], 8000)
+        self.assertEqual(result.json()["summary"]["netQuantity"], 1)
+        self.assertEqual(result.json()["filtersApplied"]["brands"], ["志高"])
+        different = base + urlencode({"brand": "志"})
+        self.assertEqual(self.client.get(different, headers=signed_headers(different)).json()["summary"]["netSalesCents"], 0)
+        ErpProductMaster.objects.filter(product_code="P1").update(brand="其他")
+        SalesDataRevision.objects.filter(domain="erp").update(revision=4)
+        self.assertEqual(self.client.get(url, headers=signed_headers(url)).json()["summary"]["netSalesCents"], 0)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_summary_multicode_query_accepts_1000_characters_and_rejects_overflow(self) -> None:
         query = ",".join(f"SKU-{index:05d}" for index in range(100)) + "Z"
         self.assertEqual(len(query), 1000)

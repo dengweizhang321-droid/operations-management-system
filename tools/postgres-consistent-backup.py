@@ -234,6 +234,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0007_dingtalk_readonly" in ai_migrations and "0006_conversation_workspaces" not in ai_migrations:
+                raise RuntimeError("DingTalk schema has no workspace predecessor")
+            if "0007_dingtalk_readonly" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_dingtalk_sessions", "ai_dingtalk_receipts"})
             if "0006_conversation_workspaces" not in ai_migrations:
                 expected_ai_tables.remove("ai_conversation_workspaces")
             if ai_tables != expected_ai_tables:

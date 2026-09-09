@@ -57,7 +57,9 @@ def _remaining_tools(tools, per_tool, remaining):
 
 
 def conversations(principal):
+    from django.db.models import Q
     query = m.AiConversations.objects.all()
+    query = query.filter(Q(dingtalk_session__isnull=True) | Q(created_by__iexact=principal.email))
     if principal.role != "admin":
         query = query.filter(created_by__iexact=principal.email)
     else:
@@ -209,6 +211,8 @@ def messages(params, principal):
 
 def delete(conversation_id, principal):
     row = conversation(conversation_id, principal)
+    if m.AiDingTalkSession.objects.filter(conversation=row).exists():
+        raise AiError("钉钉会话保留投递审计，请在钉钉发送“新话题”清空上下文", "conflict", 409)
     m.AiConversationDeletionAudits.objects.create(
         audit_id=uid("ai-delete"),
         conversation_id=row.id,
@@ -350,7 +354,7 @@ def _live(receipt_id, principal):
     return row
 
 
-def _context(conv, principal, prompt):
+def _context(conv, principal, prompt, *, private_context=True):
     reset = (
         m.AiConversationMessages.objects.filter(
             conversation_id=conv.id, message_kind="context_reset"
@@ -370,6 +374,8 @@ def _context(conv, principal, prompt):
     )
     rows.reverse()
     frames = [{"role": r.role, "content": r._bounded_content} for r in rows]
+    if not private_context:
+        return frames
     if frames:
         frames[-1]["content"] += knowledge.context(prompt, principal)
     memories = memory.recall(prompt[:200], principal)
@@ -419,7 +425,19 @@ def _artifacts(results, conv, message, principal):
     return assets
 
 
-def answer(body, principal, request_id):
+def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None):
+    # Only the trusted Stream worker can supply these keyword arguments.
+    surface = "dingtalk_chat" if dingtalk_session is not None else "ai_chat"
+    if dingtalk_session is not None:
+        if (not callable(channel_guard) or dingtalk_session.owner_email != principal.email
+                or body.get("conversationId") != dingtalk_session.conversation_id
+                or body.get("workspaceModule") != "ai"):
+            raise AiError("钉钉会话身份无效", "access_denied", 403)
+        channel_guard()
+    def live(receipt_id):
+        if channel_guard and not connection.in_atomic_block:
+            channel_guard()
+        return _live(receipt_id, principal)
     fields(
         body,
         {
@@ -457,6 +475,8 @@ def answer(body, principal, request_id):
         normalized.append(body["pageContext"])
     if workspace_module:
         normalized.append({"workspaceModule": workspace_module, "hasPageContext": "pageContext" in body})
+    if dingtalk_session is not None:
+        normalized.append({"dingtalkSession": dingtalk_session.id, "businessDate": (channel_time or timezone.now()).astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()})
     request_digest = digest(
         json.dumps(
             normalized, ensure_ascii=False, separators=(",", ":"), allow_nan=False
@@ -484,6 +504,8 @@ def answer(body, principal, request_id):
             if body.get("conversationId")
             else None
         )
+        if conv and dingtalk_session is None and m.AiDingTalkSession.objects.filter(conversation=conv).exists():
+            raise AiError("请在钉钉继续此会话，或在网页新建话题", "access_denied", 403)
         shortcut = (
             "help"
             if prompt.strip().lower() in {"帮助", "help", "/help"}
@@ -535,6 +557,9 @@ def answer(body, principal, request_id):
             m.AiConversationScopes.objects.create(
                 conversation_id=conv.id, scope_json=canonical(principal.scope)
             )
+            if dingtalk_session is not None:
+                if not m.AiDingTalkSession.objects.filter(pk=dingtalk_session.pk, conversation__isnull=True).update(conversation=conv):
+                    raise AiError("钉钉会话已变化", "conflict", 409)
         elif model:
             conv.model_id = model.id
             conv.updated_at = timezone.now()
@@ -550,7 +575,7 @@ def answer(body, principal, request_id):
     try:
         if shortcut:
             tools = (
-                transport.catalog(principal, "ai_chat") if shortcut == "help" else []
+                transport.catalog(principal, surface) if shortcut == "help" else []
             )
             reply = (
                 "当前可用只读工具：\n" + "\n".join(t["title"] for t in tools)
@@ -558,19 +583,31 @@ def answer(body, principal, request_id):
                 else "已开启新话题。此前消息仍保留用于审计，但不会再进入后续模型上下文。"
             )
         else:
-            tools = transport.catalog(principal, "ai_chat")
-            frames = _context(conv, principal, prompt)
+            tools = transport.catalog(principal, surface)
+            frames = _context(conv, principal, prompt, private_context=dingtalk_session is None)
             total = 0
             per_tool = {}
             finish_only = False
             system = (
                 SYSTEM
                 + "\n业务时区 Asia/Shanghai，当前日期 "
-                + timezone.now()
+                + (channel_time or timezone.now())
                 .astimezone(ZoneInfo("Asia/Shanghai"))
                 .date()
                 .isoformat()
             )
+            if dingtalk_session is not None:
+                system += "\n你正在通过志高助手回答钉钉问题，只支持销售、库存、网店分析。其他范围说明尚未开放。先给简短结论与来源、截止日期，再列必要数据；不输出图片、外链或文件。品牌销售使用 get_sales_category_analysis 的 brands 精确筛选，品牌来自 ERP 当前主数据，缺少映射的货品不计入；不能拿全店或商品名关键词匹配冒充品牌汇总。"
+                live(receipt.id)
+                entry = next((t for t in tools if t["name"] == "get_data_freshness"), None)
+                if not entry:
+                    raise AiError("钉钉查询缺少数据水位权限", "access_denied", 403)
+                freshness = transport.execute_tool("get_data_freshness", {}, principal, surface=surface,
+                    request_id=request_id, provider_call_id="dingtalk-freshness", policy_digest=digest(tools))
+                if not freshness.get("ok") or freshness.get("auditStatus") == "unavailable":
+                    raise AiError("数据水位查询失败，暂不提供经营结论", "service_unavailable", 503)
+                frames[-1]["content"] += "\n<data_freshness>" + canonical(freshness).replace("<", "\\u003c") + "</data_freshness>"
+                total, per_tool = 1, {"get_data_freshness": 1}
             effective_context = normalized_context if workspace_module else body.get("pageContext")
             if effective_context:
                 frames[-1]["content"] += (
@@ -580,6 +617,8 @@ def answer(body, principal, request_id):
                 )
             for ordinal in range(1, model.max_tool_rounds + 1):
                 transport.remaining_budget()
+                if dingtalk_session is not None:
+                    live(receipt.id)
                 # Reserve the last existing provider turn for an answer. Never
                 # enlarge configured rounds, tool counts or paid-call quotas.
                 final_turn = finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
@@ -588,7 +627,7 @@ def answer(body, principal, request_id):
                 if not offered_tools:
                     turn_system += "\n本轮只生成最终回答，不再调用工具。请依据已有成功查询说明结论、来源和缺口；若没有可用结果，明确说明未能取得数据并建议缩小问题，不得编造。"
                 with mutation(principal):
-                    row = _live(receipt.id, principal)
+                    row = live(receipt.id)
                     current = resolve_model(model.id)
                     if current.version != model.version:
                         raise AiError("模型配置已变化", "model_version_changed", 409)
@@ -640,14 +679,14 @@ def answer(body, principal, request_id):
                             "truncated": response.get("truncated", False),
                         },
                     )
-                _live(receipt.id, principal)
+                live(receipt.id)
                 frames.append(response["frame"])
                 if not response["calls"]:
                     reply = text(response["text"], "模型回复", 48000)
                     break
                 outputs = []
                 for call in response["calls"]:
-                    _live(receipt.id, principal)
+                    live(receipt.id)
                     entry = next((t for t in tools if t["name"] == call["name"]), None)
                     if not entry:
                         with mutation(principal):
@@ -672,7 +711,7 @@ def answer(body, principal, request_id):
                         call["name"],
                         call["arguments"],
                         principal,
-                        surface="ai_chat",
+                        surface=surface,
                         request_id=request_id,
                         provider_call_id=call["id"],
                         policy_digest=digest(tools),
@@ -684,10 +723,12 @@ def answer(body, principal, request_id):
                 frames += provider.tool_frames(model, response["calls"], outputs)
             else:
                 raise AiError("模型工具轮数超限", "tool_limit_exceeded", 409)
+        if dingtalk_session is not None:
+            live(receipt.id)
         with mutation(principal):
-            row = _live(receipt.id, principal)
+            row = live(receipt.id)
             message = append(conv.id, "assistant", reply, shortcut or "message")
-            assets = _artifacts(results, conv, message, principal)
+            assets = _artifacts(results, conv, message, principal) if dingtalk_session is None else []
             result = {
                 "conversationId": conv.id,
                 "assistantMessageId": message.id,

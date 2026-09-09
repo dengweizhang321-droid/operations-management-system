@@ -63,6 +63,7 @@ export async function getSalesCategoryAnalysisForAi(
     pageSize: String(integer(args.limit, 20, 50)),
   });
   for (const value of list(args.categories, 20)) query.append("category", value);
+  for (const value of list(args.brands, 20)) query.append("brand", value);
   for (const value of list(args.channels, 20)) query.append("channel", value);
   for (const value of list(args.platforms, 20)) query.append("platform", value);
   for (const value of list(args.productQueries, 20)) query.append("productQuery", value);

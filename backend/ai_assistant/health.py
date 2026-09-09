@@ -96,6 +96,11 @@ def check():
             | {(table, "ai_immutable_identity") for table in fencing.IDENTITIES}
             | {("ai_memory_entries", "ai_memory_requires_audit")}
             | {
+                ("ai_dingtalk_sessions", "ai_write_fence"),
+                ("ai_dingtalk_sessions", "ai_immutable_identity"),
+                ("ai_dingtalk_sessions", "ai_ding_conversation_guard"),
+                ("ai_dingtalk_receipts", "ai_write_fence"),
+                ("ai_dingtalk_receipts", "ai_immutable_identity"),
                 ("ai_conversation_workspaces", "ai_write_fence"),
                 ("ai_conversation_workspaces", "ai_immutable_identity"),
                 ("ai_space_asset_payloads", "ai_write_fence"),
@@ -122,6 +127,13 @@ def check():
         }
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
+        for table, expected in (
+            ("ai_dingtalk_sessions", {"ai_ding_session_type", "ai_ding_scope_size"}),
+            ("ai_dingtalk_receipts", {"ai_ding_receipt_status", "ai_ding_ack_status", "ai_ding_content_size"}),
+        ):
+            cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=%s::regclass AND convalidated", [table])
+            if not expected <= {row[0] for row in cursor.fetchall()}:
+                raise ValueError("AI DingTalk constraints missing")
         cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid='public.ai_conversation_workspaces'::regclass AND convalidated")
         if not {"ai_workspace_module", "ai_workspace_context_size"} <= {row[0] for row in cursor.fetchall()}:
             raise ValueError("AI conversation workspace constraints missing")

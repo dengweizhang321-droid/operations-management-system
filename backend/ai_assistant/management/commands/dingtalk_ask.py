@@ -1,0 +1,141 @@
+"""Foreground Stream worker, explicitly started by the guarded runtime operator."""
+import asyncio
+import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
+from urllib.parse import quote_plus, urlsplit
+from django.core.management.base import BaseCommand, CommandError
+from django.db import connection, close_old_connections
+from ai_assistant import dingtalk as service, dingtalk_transport as platform, transport
+from ai_assistant.policy import AiError, authority
+
+
+class Command(BaseCommand):
+    help = "运行志高助手只读问数 Stream 接收器；--check 仅核验配置与现有身份"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--config", required=True)
+        parser.add_argument("--check", action="store_true")
+
+    def handle(self, *args, **options):
+        reader = lambda: service.load_config(options["config"])
+        try:
+            config = reader()
+            platform.robot(config)
+            for group in config["groups"]:
+                platform.verify_group(config, group)
+            for binding in config["bindings"]:
+                service.principal_for({**config, "enabled": True}, binding["senderId"])
+            if options["check"]:
+                self.stdout.write('{"status":"verified","connected":false,"sent":0}')
+                return
+            if not config["enabled"] or connection.vendor != "postgresql":
+                raise AiError("运行监听需显式启用配置和独立 AI PostgreSQL 写侧")
+            authority()
+            # Session lock belongs to this dedicated connection until process exit.
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_try_advisory_lock(841327, 1909)")
+                if cursor.fetchone() != (True,):
+                    raise AiError("已有钉钉问数接收器，拒绝重复启动")
+            service.recover_interrupted()
+            self.stdout.write('{"status":"starting","replyMode":"direct","domains":["sales","inventory","netshop"]}')
+            try:
+                asyncio.run(self.run_stream(reader))
+            finally:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_advisory_unlock(841327, 1909)")
+        except KeyboardInterrupt:
+            self.stdout.write('{"status":"stopped"}')
+        except Exception:
+            # SDK exceptions can contain credentials, tickets, message bodies or URLs.
+            raise CommandError("钉钉问数未能运行；请核验配置、DWS 授权和本机 AI 服务。未自动重发消息。") from None
+
+    async def run_stream(self, reader):
+        import dingtalk_stream as sdk
+        import websockets
+        silent = logging.getLogger("teruisi.dingtalk.silent")
+        silent.handlers = [logging.NullHandler()]
+        silent.propagate = False
+        silent.disabled = True
+        loop = asyncio.get_running_loop()
+        stopping = Event()
+        original_reader = reader
+        def reader():
+            if stopping.is_set():
+                raise AiError("接收器正在停止", "access_denied", 403)
+            return original_reader()
+        ingress = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ding-ingress")
+        worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ding-ai")
+        def db_call(fn):
+            close_old_connections()
+            try:
+                return fn()
+            finally:
+                close_old_connections()
+        key, secret = await loop.run_in_executor(ingress, lambda: platform.credentials(reader()))
+        client = sdk.DingTalkStreamClient(sdk.Credential(key, secret), logger=silent)
+        class Handler(sdk.CallbackHandler):
+            async def process(self, message):
+                try:
+                    await loop.run_in_executor(ingress, lambda: db_call(lambda: service.accept(reader(), message.data)))
+                    return sdk.AckMessage.STATUS_OK, "accepted"
+                except AiError as error:
+                    # Permanently invalid or unauthorized input is acknowledged and discarded.
+                    return (200, "ignored") if error.status in (400, 403, 409, 413) else (503, "unavailable")
+                except Exception:
+                    return 503, "unavailable"
+        handler = Handler()
+        handler.logger = silent
+        client.system_handler.logger = silent
+        client.event_handler.logger = silent
+        client.register_callback_handler("/v1.0/im/bot/messages/get", handler)
+        async def work():
+            while True:
+                await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
+                await asyncio.sleep(0.5)
+        async def listen():
+            failures = 0
+            while True:
+                if not reader()["enabled"]:
+                    return
+                try:
+                    # Bound SDK connection creation; the stock helper has no HTTP timeout.
+                    reply = await loop.run_in_executor(ingress, lambda: transport.bounded_json(
+                        "https://api.dingtalk.com/v1.0/gateway/connections/open",
+                        {"clientId": key, "clientSecret": secret, "ua": "teruisi-readonly/1", "localIp": "127.0.0.1",
+                         "subscriptions": [{"type": "CALLBACK", "topic": "/v1.0/im/bot/messages/get"}]},
+                        timeout=15, maximum=16384))
+                    endpoint = urlsplit(reply.get("endpoint", ""))
+                    if endpoint.scheme != "wss" or endpoint.hostname != "wss-open-connection.dingtalk.com" or endpoint.port not in (None, 443) or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment or endpoint.path != "/connect":
+                        raise AiError("Stream endpoint 无效")
+                    ticket = service.opaque(reply.get("ticket"), "ticket", 4096)
+                    async with websockets.connect(reply["endpoint"] + "?ticket=" + quote_plus(ticket), open_timeout=15, close_timeout=5, max_size=32768, max_queue=16, ping_interval=30, ping_timeout=30, logger=silent) as websocket:
+                        client.websocket = websocket
+                        self.stdout.write('{"status":"connected"}')
+                        failures = 0
+                        async for raw in websocket:
+                            if await client.route_message(json.loads(raw)) == client.TAG_DISCONNECT:
+                                break
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    failures += 1
+                    self.stderr.write('{"code":"stream_unavailable"}')
+                    if failures >= 5:
+                        raise AiError("Stream 连续失败，需重新核验授权")
+                await asyncio.sleep(min(30, 2 ** failures))
+        tasks = [asyncio.create_task(work()), asyncio.create_task(listen())]
+        try:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+        finally:
+            stopping.set()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            # Hold the PostgreSQL singleton until all synchronous work is gone.
+            # Cancelling an asyncio Future alone cannot stop its worker thread.
+            ingress.shutdown(wait=True, cancel_futures=True)
+            worker.shutdown(wait=True, cancel_futures=True)

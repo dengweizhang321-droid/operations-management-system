@@ -294,7 +294,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 46);
+  assert.equal(new Set(aiTables).size, 48);
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -307,7 +307,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   const candidate = {
     ...structuredClone(base),
     tables: { ...base.tables, ...Object.fromEntries(aiTables.map(name => [name, 0])) },
-    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }],
+    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }, { app: "ai_assistant", name: "0007_dingtalk_readonly" }],
     aiAssistant: { revision: 0, sourceDigest: "", status: "d1", authorityEpoch: "", cutoverId: "", migrationRunId: "" },
   };
   const adopted = structuredClone(candidate);
@@ -324,14 +324,24 @@ test("maintenance validates complete AI backup evidence before and after activat
   const orphanWorkspaceMigration = { ...structuredClone(base), migrations: [...base.migrations, { app: "ai_assistant", name: "0006_conversation_workspaces" }] };
   const beforeWorkspaceMigration = structuredClone(active);
   delete beforeWorkspaceMigration.tables.ai_conversation_workspaces;
-  beforeWorkspaceMigration.migrations = beforeWorkspaceMigration.migrations.filter(item => item.name !== "0006_conversation_workspaces");
+  delete beforeWorkspaceMigration.tables.ai_dingtalk_sessions;
+  delete beforeWorkspaceMigration.tables.ai_dingtalk_receipts;
+  beforeWorkspaceMigration.migrations = beforeWorkspaceMigration.migrations.filter(item => !["0006_conversation_workspaces", "0007_dingtalk_readonly"].includes(item.name));
+  const beforeDingTalk = structuredClone(active);
+  delete beforeDingTalk.tables.ai_dingtalk_sessions;
+  delete beforeDingTalk.tables.ai_dingtalk_receipts;
+  beforeDingTalk.migrations = beforeDingTalk.migrations.filter(item => item.name !== "0007_dingtalk_readonly");
+  const dingTalkMissing = structuredClone(active);
+  delete dingTalkMissing.tables.ai_dingtalk_receipts;
+  const dingTalkUnbound = structuredClone(active);
+  dingTalkUnbound.migrations = dingTalkUnbound.migrations.filter(item => item.name !== "0007_dingtalk_readonly");
   const workspaceMissing = structuredClone(active);
   delete workspaceMissing.tables.ai_conversation_workspaces;
   const workspaceMigrationMissing = structuredClone(active);
   workspaceMigrationMissing.migrations = workspaceMigrationMissing.migrations.filter(item => item.name !== "0006_conversation_workspaces");
   const cases = [
-    ...[base, candidate, adopted, active, beforeWorkspaceMigration].map(evidence => ({ valid: true, evidence })),
-    ...[missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration].map(evidence => ({ valid: false, evidence })),
+    ...[base, candidate, adopted, active, beforeWorkspaceMigration, beforeDingTalk].map(evidence => ({ valid: true, evidence })),
+    ...[missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
   const command = `
@@ -345,7 +355,7 @@ foreach($case in $cases) {
   try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
   if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
 }
-Write-Output '12 AI backup evidence cases passed'
+Write-Output '15 AI backup evidence cases passed'
 `;
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
   try {
@@ -353,7 +363,7 @@ Write-Output '12 AI backup evidence cases passed'
     await writeFile(scriptPath, command);
     const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /12 AI backup evidence cases passed/);
+    assert.match(result.stdout, /15 AI backup evidence cases passed/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

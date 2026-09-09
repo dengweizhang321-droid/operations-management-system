@@ -56,7 +56,7 @@ export async function verifyAiEdgeEnvelope(request: Request, raw: string, secret
 }
 
 function surface(value: unknown): AiToolSurface {
-  if (!["ai_chat", "ai_agent", "ai_sandbox"].includes(String(value))) throw denied();
+  if (!["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox"].includes(String(value))) throw denied();
   return value as AiToolSurface;
 }
 function entries(principal: AppPrincipal, value: unknown) {

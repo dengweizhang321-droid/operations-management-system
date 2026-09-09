@@ -151,6 +151,8 @@
 
 ## 7. 中央 AI 工具注册表
 
+- 钉钉“志高助手”问数使用独立 `dingtalk_chat` surface，仅逐项开放销售、库存、网店的七个只读工具；不把新增工具自动开放给机器人。钉钉组织/应用/群/staffId 与系统 principal 必须显式绑定，接收、执行、发送前重查，禁止从昵称或消息文本提权。首版单聊和“测试群聊”内 @ 均向提问者本人私聊回复，群内不同用户与单聊历史隔离，不附加个人记忆或知识库。接收/投递账本属于 Django AI 域，写入使用既有 authority，外发未知结果不盲目重试；未经受控发布不得启动真实监听。销售品牌按 ERP 当前品牌精确关联，不能用商品名关键词冒充。详见 `docs/DINGTALK_READONLY_ASK.md`。
+
 - 所有供模型调用的系统能力必须且只能在 `lib/ai/tool-registry.ts` 声明一次。不得从数据库表、任意 SQL、API 路由或 handler 自动暴露工具。
 - 每个条目必须包含稳定名称、标题、精确描述、`additionalProperties: false` 的对象 JSON Schema、允许角色、`scopePolicy`、`risk`、annotations、有界执行策略和可调用 handler。
 - 执行策略必须明确入口 surface、超时、响应字符上限和单请求调用上限。内联直调只允许只读工具；写入或危险工具必须走人工确认或持久化后台任务，不能伪装成只读。

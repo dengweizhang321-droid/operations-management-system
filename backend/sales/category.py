@@ -70,6 +70,9 @@ def _base(params: dict[str, Any], principal: Principal, start_date: str | None =
         principal=principal,
         category_contract=True,
     )
+    if params.get("brands"):
+        from .models import ErpProductMaster
+        queryset = queryset.filter(product_code__in=ErpProductMaster.objects.filter(brand__in=params["brands"]).values("product_code"))
     return queryset, scope_mode
 
 
@@ -314,6 +317,7 @@ def get_category_analysis(params: dict[str, Any], principal: Principal) -> dict[
         "filtersApplied": {
             "level": 1, "categories": params["categories"], "channels": params["channels"], "platforms": params["platforms"],
             "outlets": params["outlets"], "productQueries": params["productQueries"], "productCodes": params["productCodes"], "dataScope": scope_payload,
+            **({"brands": params["brands"], "brandSource": "erp_product_master.brand (current)", "unmappedBrandPolicy": "excluded"} if params.get("brands") else {}),
         },
         "summary": totals,
         "uncategorized": {

@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+
+test("optional DingTalk dependencies are checked only by explicit receiver startup", () => {
+  const source = readFileSync(new URL("../tools/django-ai.ps1", import.meta.url), "utf8");
+  const start = source.slice(source.indexOf("function Start-AiStack"), source.indexOf("function Stop-AiStack"));
+  const receiver = source.slice(source.indexOf("function Invoke-DingTalkReceiver"), source.indexOf("function Enable-AiStartup"));
+  assert.doesNotMatch(start, /dingtalk_stream|StartDingTalk|Invoke-DingTalkReceiver/);
+  assert.match(receiver, /import dingtalk_stream, websockets/);
+  assert.ok(receiver.indexOf("import dingtalk_stream") < receiver.indexOf('Start-ManagedProcess "django-ai-dingtalk"'));
+});
 
 test("AI runtime environment wrapper invokes the caller once without callback shadowing", t => {
   const powershell = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");

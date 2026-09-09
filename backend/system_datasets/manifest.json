@@ -13287,7 +13287,14 @@
           "unit": null
         }
       },
-      "excludedFields": {},
+      "excludedFields": {
+        "lead_days_override": "Manual monitor overrides are not exposed by the generic dataset contract.",
+        "buffer_days_override": "Manual monitor overrides are not exposed by the generic dataset contract.",
+        "operator_name_override": "Manual monitor overrides are not exposed by the generic dataset contract.",
+        "buyer_override": "Manual monitor overrides are not exposed by the generic dataset contract.",
+        "risk_override": "Manual monitor overrides are not exposed by the generic dataset contract.",
+        "risk_reason_override": "Manual monitor overrides are not exposed by the generic dataset contract."
+      },
       "keys": [
         "product_code"
       ],
@@ -17666,6 +17673,16 @@
     }
   ],
   "excludedModels": [
+    {
+      "model": "ai_assistant.AiDingTalkSession",
+      "coveredBy": null,
+      "reason": "钉钉账号绑定与私有会话路由，禁止通过通用数据集读取"
+    },
+    {
+      "model": "ai_assistant.AiDingTalkReceipt",
+      "coveredBy": null,
+      "reason": "钉钉消息与外发投递账本，禁止通过通用数据集读取"
+    },
     {
       "model": "ai_assistant.AiConversationWorkspace",
       "coveredBy": null,

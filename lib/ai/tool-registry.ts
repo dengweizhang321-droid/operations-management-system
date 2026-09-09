@@ -106,6 +106,12 @@ function pageToolArguments(args: Record<string, unknown>) {
   return rest;
 }
 
+// Explicit opt-in per tool; future registry entries do not inherit bot access.
+const dingTalkReadOnlyExecution: AiToolExecutionPolicy = {
+  ...synchronousReadOnlyExecution,
+  allowedSurfaces: [...synchronousReadOnlyExecution.allowedSurfaces, "dingtalk_chat"],
+};
+
 /**
  * The sole declaration point for model-callable application capabilities.
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
@@ -264,7 +270,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callOperationsTool("get_data_freshness", args, context.principal, { signal: context.signal }),
   },
   {
@@ -288,7 +294,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callOperationsTool("get_sales_summary", args, context.principal, { signal: context.signal }),
   },
   {
@@ -298,6 +304,7 @@ export const aiToolRegistry = [
     inputSchema: {
       type: "object",
       properties: {
+        brands: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "按 ERP 当前主数据品牌精确筛选，如志高；不使用商品名关键词代替品牌。缺少品牌映射的货品不计入。" },
         startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "开始日期，YYYY-MM-DD。" },
         endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "结束日期，YYYY-MM-DD。" },
         categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
@@ -315,7 +322,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => getSalesCategoryAnalysisForAi(args, context.principal),
   },
   {
@@ -340,7 +347,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callOperationsTool("get_inventory_health", args, context.principal, { signal: context.signal }),
   },
   {
@@ -553,7 +560,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 24_000, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxResultCharacters: 24_000, maxCallsPerRequest: 2 },
     handler: (args, context) => getNetshopPerformanceForAi(args, context.principal),
   },
   {
@@ -637,7 +644,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "guangdong"
       ? getInventoryGuangdongPageData(pageToolArguments(args), context)
       : args.view === "inbound"
@@ -668,7 +675,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "catalog"
       ? getNetshopProductCatalogPageData(pageToolArguments(args), context)
       : getNetshopProductPerformancePageData(pageToolArguments(args), context),

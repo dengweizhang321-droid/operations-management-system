@@ -106,12 +106,14 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_evidence_accepts_both_backup_generations_with_stable_content_digest(self):
-        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces"}
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts"}
         legacy_migrations = [("ai_assistant", "0001_initial"), ("ai_assistant", "0005_postgres_image_payload")]
         legacy = _ai_evidence(legacy_tables, legacy_migrations)
-        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
+        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly")])
+        pre_dingtalk = _ai_evidence(set(AI_TABLES) - {"ai_dingtalk_sessions", "ai_dingtalk_receipts"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
+        self.assertEqual(len([name for name in pre_dingtalk["tables"] if name.startswith("ai_")]), 46)
         self.assertEqual(len([name for name in legacy["tables"] if name.startswith("ai_")]), 45)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 46)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 48)
         self.assertEqual(legacy["contentSha256"], _ai_evidence(legacy_tables, legacy_migrations)["contentSha256"])
         self.assertNotEqual(legacy["contentSha256"], current["contentSha256"])
         self.assertEqual(legacy["aiAssistant"], current["aiAssistant"])
@@ -119,7 +121,7 @@ class ConsistentBackupTests(unittest.TestCase):
     def test_evidence_rejects_inconsistent_ai_schema_and_migration_inventory(self):
         initial = ("ai_assistant", "0001_initial")
         workspace = ("ai_assistant", "0006_conversation_workspaces")
-        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces"}
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts"}
         for tables, migrations in [
             (legacy_tables, [initial, workspace]),
             (AI_TABLES, [initial]),

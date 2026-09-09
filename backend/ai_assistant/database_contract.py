@@ -17,12 +17,15 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    "ai_dingtalk_sessions": m.AiDingTalkSession,
+    "ai_dingtalk_receipts": m.AiDingTalkReceipt,
     **m.HISTORICAL_MODELS,
     "ai_space_asset_payloads": m.AiSpaceAssetPayload,
     "ai_conversation_workspaces": m.AiConversationWorkspace,
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_dingtalk_sessions",
     "ai_conversation_workspaces",
     "ai_models",
     "ai_channels",
@@ -83,6 +86,8 @@ for table in {
     WRITER_PRIVILEGES[table] = ("SELECT",)
 WRITER_PRIVILEGES["ai_data_revisions"] = ("SELECT", "UPDATE")
 for table in {
+    "ai_dingtalk_sessions",
+    "ai_dingtalk_receipts",
     "ai_memory_entries",
     "ai_chat_request_receipts",
     "ai_write_request_receipts",

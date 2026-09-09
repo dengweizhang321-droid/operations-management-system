@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.utils import timezone
+from .dingtalk_models import AiDingTalkSession, AiDingTalkReceipt
 from .control_models import (
     AiDataRevision,
     AiWriteAuthority,

@@ -2,7 +2,7 @@
 param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
-    "EnableStartup", "DisableStartup"
+    "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -37,6 +37,8 @@ $AiWriterPidPath = Join-Path $RunDirectory "django-ai-writer.pid.json"
 $AiReaderHealthUrl = "http://127.0.0.1:8111/health/ready"
 $AiWriterHealthUrl = "http://127.0.0.1:8112/health/ready"
 $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
+$DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
+$DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
 $AiReaderMaxBodyBytes = 1048576
 $AiWriterMaxBodyBytes = 1048576
 
@@ -298,9 +300,46 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
 
 function Stop-AiStack([string]$LifecycleAclToken = "") {
   Assert-AiRuntimeEntry $LifecycleAclToken
+  Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python
   Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress
   Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress
   Write-Output "Django AI 助理 reader/writer 已停止；其他业务域、ERP 与 PostgreSQL 未改变。"
+}
+
+function Invoke-DingTalkReceiver([bool]$CheckOnly) {
+  Assert-AiRuntimeEntry
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪" }
+  $config = Read-JsonFile $DingTalkConfigPath "钉钉只读问数配置"
+  if (-not $CheckOnly -and $config.enabled -cne $true) { throw "钉钉问数配置未显式启用" }
+  $runtimeSecrets = Read-Secrets; $aiSecrets = Read-AiCredentials
+  try {
+    $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
+    if ([string]$authority.status -cne "postgres") { throw "AI 写入权威未激活" }
+    $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
+    $arguments = @((Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
+    if ($CheckOnly) {
+      $arguments += "--check"
+      Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
+        $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
+        ConvertFrom-UniqueNativeJson $nativeRun "钉钉配置只读核验" | ConvertTo-Json -Compress
+      }
+      return
+    }
+    Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
+    Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
+      Invoke-BoundedNativeProcess $Python @("-c", "import dingtalk_stream, websockets; print('receiver_dependencies_available')") $BackendRoot | Out-Null
+    }
+    $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-dingtalk" $Python $arguments) + (Get-FileHash -LiteralPath $DingTalkConfigPath -Algorithm SHA256).Hash + [string]$authority.authorityEpoch + [string]$authority.cutoverId)
+    if (Resolve-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python $arguments $fingerprint) {
+      Write-Output "钉钉问数接收器已运行。"; return
+    }
+    Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
+      Start-ManagedProcess "django-ai-dingtalk" $Python $arguments $BackendRoot $DingTalkPidPath $fingerprint `
+        (Join-Path $LogDirectory "django-ai-dingtalk.$RunId.stdout.log") (Join-Path $LogDirectory "django-ai-dingtalk.$RunId.stderr.log") | Out-Null
+    }
+    Write-Output "钉钉问数接收器已启动；需在日志看到 connected，并用本人单聊完成端到端验收。"
+  } finally { $runtimeSecrets = $null; $aiSecrets = $null; $url = $null }
 }
 
 function Enable-AiStartup {
@@ -347,5 +386,8 @@ try {
     "Status" { Show-AiStatus }
     "EnableStartup" { Invoke-WithServiceMutex { Enable-AiStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-AiStartup } }
+    "DingTalkCheck" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $true } }
+    "StartDingTalk" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $false } }
+    "StopDingTalk" { Invoke-WithServiceMutex { Assert-AiRuntimeEntry; Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python } }
   }
 } catch { Write-LauncherEvent "ERROR" "ai_action_failed" $_.Exception.Message; throw }
