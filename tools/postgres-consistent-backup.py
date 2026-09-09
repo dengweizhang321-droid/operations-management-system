@@ -89,6 +89,15 @@ def collect_evidence(
         canonical_server_address = _canonical_loopback_address(server_address)
 
         tables = _table_names(cursor)
+        if "django_migrations" not in tables:
+            raise RuntimeError("required database tables are missing")
+        cursor.execute("SELECT app, name FROM django_migrations ORDER BY app, name")
+        migrations = [
+            {"app": str(app), "name": str(name)}
+            for app, name in cursor.fetchall()
+        ]
+        if not migrations:
+            raise RuntimeError("django migration evidence is empty")
         required = {
             "django_migrations",
             "sales_data_revisions",
@@ -213,12 +222,23 @@ def collect_evidence(
                 "access_control_write_request_receipts", "access_control_migration_runs",
             })
         ai_tables = {name for name in tables if name.startswith("ai_")}
-        if ai_tables:
+        ai_migrations = {
+            item["name"] for item in migrations if item["app"] == "ai_assistant"
+        }
+        if ai_tables or ai_migrations:
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
             from ai_assistant.table_manifest import AI_TABLES
-            if ai_tables != set(AI_TABLES):
+            if "0001_initial" not in ai_migrations:
+                raise RuntimeError("AI table inventory has no initial migration evidence")
+            # Restore probes run with today's helper against the backup's schema.
+            # Use migrations from this same transaction, never the deployed schema,
+            # to retain the approved pre-workspace (45 table) backup contract.
+            expected_ai_tables = set(AI_TABLES)
+            if "0006_conversation_workspaces" not in ai_migrations:
+                expected_ai_tables.remove("ai_conversation_workspaces")
+            if ai_tables != expected_ai_tables:
                 raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
-            required.update(AI_TABLES)
+            required.update(expected_ai_tables)
         missing = sorted(required.difference(tables))
         if missing:
             raise RuntimeError("required database tables are missing")
@@ -231,16 +251,6 @@ def collect_evidence(
                 )
             )
             row_counts[table] = int(cursor.fetchone()[0])
-
-        cursor.execute(
-            "SELECT app, name FROM django_migrations ORDER BY app, name"
-        )
-        migrations = [
-            {"app": str(app), "name": str(name)}
-            for app, name in cursor.fetchall()
-        ]
-        if not migrations:
-            raise RuntimeError("django migration evidence is empty")
 
         cursor.execute(
             "SELECT domain, revision FROM sales_data_revisions ORDER BY domain"
