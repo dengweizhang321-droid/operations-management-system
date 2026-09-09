@@ -10,7 +10,32 @@ from .secrets import decrypt
 from .transport import bounded_json
 
 
-def turn(model, transcript, system, tools):
+class EmptyProviderResponse(AiError):
+    """A fully received, valid response with no public answer or tool call."""
+
+    def __init__(self, *, truncated, finish_reason, has_reasoning, usage):
+        super().__init__(
+            "模型输出额度已耗尽，但尚未生成正文" if truncated else "模型已结束生成，但未返回正文",
+            "provider_output_limit" if truncated else "provider_empty_response", 503,
+        )
+        self.can_finalize = isinstance(finish_reason, str) and finish_reason in {"length", "stop", "max_tokens", "end_turn"}
+        self.diagnostics = {"finishReason": finish_reason if self.can_finalize else "other",
+                            "hasReasoning": has_reasoning}
+        # No provider text, reasoning, request body or credentials enter audit.
+        if isinstance(usage, dict):
+            for key in ("completion_tokens", "output_tokens"):
+                value = usage.get(key)
+                if type(value) is int and 0 <= value <= 10_000_000:
+                    self.diagnostics["completionUnits" if key == "completion_tokens" else "outputUnits"] = value
+
+
+def supports_direct_finish(model):
+    return model.protocol == "openai_compatible" and bool(
+        re.fullmatch(r"glm-(?:4\.[567]|5(?:\.[0-9]+)?)(?:-[a-z0-9]+)*", model.model_name.lower())
+    )
+
+
+def turn(model, transcript, system, tools, *, retain_reasoning=False):
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)
     if model.protocol == "anthropic":
@@ -92,6 +117,10 @@ def turn(model, transcript, system, tools):
             raise AiError("模型返回格式无效", "invalid_provider_response", 503)
         message = choices[0]["message"]
         frame = {"role": "assistant", "content": message.get("content")}
+        # Interleaved thinking is part of the provider's tool-turn contract.
+        # Keep it only in this request's in-memory transcript, never as a reply.
+        if retain_reasoning and isinstance(message.get("reasoning_content"), str):
+            frame["reasoning_content"] = message["reasoning_content"]
         raw_calls = message.get("tool_calls", [])
         if not isinstance(raw_calls, list):
             raise AiError("工具调用格式无效", "invalid_provider_response", 503)
@@ -143,13 +172,19 @@ def turn(model, transcript, system, tools):
         ):
             limit = max(limit, declared * 2 + 1024)
         passive(c["arguments"], limit)
-    answer = "\n".join(texts)
+    answer = "\n".join(texts).strip()
     truncated = (result.get("stop_reason") == "max_tokens" if model.protocol == "anthropic"
                  else choices[0].get("finish_reason") == "length")
     if truncated and answer and not calls:
         answer += "\n\n（本次回复达到模型输出上限，内容尚未完整生成；可要求继续。）"
     if not answer and not calls:
-        raise AiError("模型没有返回正文", "invalid_provider_response", 503)
+        raise EmptyProviderResponse(
+            truncated=truncated,
+            finish_reason=result.get("stop_reason") if model.protocol == "anthropic" else choices[0].get("finish_reason"),
+            has_reasoning=(any(b.get("type") == "thinking" for b in blocks) if model.protocol == "anthropic"
+                           else bool(message.get("reasoning_content"))),
+            usage=result.get("usage"),
+        )
     return {
         "text": answer,
         "calls": calls,

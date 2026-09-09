@@ -123,3 +123,121 @@ class ChatToolBudgetTests(TestCase):
             self.assertEqual(error.exception.code, "tool_limit_exceeded")
             self.assertEqual(source.call_count, 1)
             self.assertEqual(http.call_count, 2)
+
+    def test_glm_tool_turn_preserves_reasoning_only_in_live_transcript(self):
+        self.model.model_name = "glm-5.2"
+        self.model.save()
+        first = wire("openai_compatible", "get_data_freshness", {})
+        first["choices"][0]["message"]["reasoning_content"] = "private-reasoning-fixture"
+        patches = self.run_chat([first, wire("openai_compatible", answer="查询已完成。")])
+        with patches[0], patches[1], patches[2], patches[3] as http:
+            result = chat.answer({"clientRequestId": "reasoning", "message": "查询"}, self.owner, "reasoning")
+            frames = http.call_args.args[1]["messages"]
+            self.assertEqual(frames[2]["reasoning_content"], "private-reasoning-fixture")
+            self.assertEqual(frames[3]["role"], "tool")
+        self.assertNotIn("private-reasoning-fixture", canonical(result))
+        self.assertFalse(m.AiConversationMessages.objects.filter(content__contains="private-reasoning-fixture").exists())
+        self.assertFalse(m.AiToolAuditLogs.objects.filter(arguments_json__contains="private-reasoning-fixture").exists())
+
+    def test_completed_empty_glm_response_gets_one_direct_finalization_and_replay_is_read_only(self):
+        self.model.model_name = "glm-5.2"
+        self.model.save()
+        empty = {"choices": [{"finish_reason": "length", "message": {"content": "  ", "reasoning_content": "private-thought"}}],
+                 "usage": {"completion_tokens": 4096}}
+        patches = self.run_chat([wire("openai_compatible", "get_data_freshness", {}), empty,
+                                 wire("openai_compatible", answer="已取得水位，其余数据未查询。")])
+        body = {"clientRequestId": "empty-finalize", "message": "查询"}
+        with patches[0], patches[1] as source, patches[2], patches[3] as http:
+            result = chat.answer(body, self.owner, "empty-finalize")
+            self.assertEqual(http.call_count, 3)
+            self.assertEqual(source.call_count, 1)
+            self.assertEqual(http.call_args.args[1]["thinking"], {"type": "disabled"})
+            self.assertNotIn("tools", http.call_args.args[1])
+            self.assertIn("2026-09-09", canonical(http.call_args.args[1]["messages"]))
+            self.assertNotIn("private-thought", canonical(http.call_args.args[1]))
+            self.assertEqual(chat.answer(body, self.owner, "replay"), result)
+            self.assertEqual(http.call_count, 3)
+        failed = m.AiToolAuditLogs.objects.get(status="failed")
+        self.assertEqual(failed.error_code, "provider_output_limit")
+        self.assertIn('"completionUnits":4096', failed.arguments_json)
+        self.assertIn('"hasReasoning":true', failed.arguments_json)
+        self.assertEqual(m.AiChatProviderDispatches.objects.count(), 3)
+        self.model.refresh_from_db()
+        self.assertEqual(self.model.reasoning_mode, "auto")
+
+    def test_empty_finalization_never_repeats_or_exceeds_rounds(self):
+        empty = {"choices": [{"finish_reason": "stop", "message": {"content": ""}}]}
+        for rounds, expected in [(1, 1), (6, 2)]:
+            self.model.model_name = "glm-5.2"
+            self.model.max_tool_rounds = rounds
+            self.model.save()
+            patches = self.run_chat([empty, empty])
+            with patches[0], patches[1] as source, patches[2], patches[3] as http:
+                with self.assertRaises(AiError) as caught:
+                    chat.answer({"clientRequestId": f"empty-{rounds}", "message": "查询"}, self.owner, f"empty-{rounds}")
+                self.assertEqual(caught.exception.code, "provider_empty_response")
+                self.assertEqual(http.call_count, expected)
+                source.assert_not_called()
+        self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
+
+    def test_time_budget_reserves_direct_answer_without_changing_model_config(self):
+        self.model.model_name = "glm-5.2"
+        self.model.timeout_ms = 120000
+        self.model.save()
+        patches = self.run_chat([wire("openai_compatible", "get_data_freshness", {}),
+                                 wire("openai_compatible", answer="按已取得数据回答。")])
+        with patches[0], patches[1] as source, patches[2], patches[3] as http, patch.object(chat.transport, "remaining_budget", side_effect=[260, 125]):
+            chat.answer({"clientRequestId": "time-finalize", "message": "查询"}, self.owner, "time-finalize")
+            self.assertEqual(source.call_count, 1)
+            self.assertNotIn("tools", http.call_args.args[1])
+            self.assertEqual(http.call_args.args[1]["thinking"], {"type": "disabled"})
+
+    def test_network_unknown_invalid_json_and_filter_finish_are_never_replayed(self):
+        self.model.model_name = "glm-5.2"
+        self.model.save()
+        failures = [AiError("timeout", "provider_timeout", 503), AiError("json", "invalid_provider_response", 503),
+                    {"choices": [{"finish_reason": "content_filter", "message": {"content": ""}}]}]
+        for i, failure in enumerate(failures):
+            patches = self.run_chat([failure])
+            with patches[0], patches[1] as source, patches[2], patches[3] as http:
+                with self.assertRaises(AiError):
+                    chat.answer({"clientRequestId": f"no-retry-{i}", "message": "查询"}, self.owner, f"no-retry-{i}")
+                self.assertEqual(http.call_count, 1)
+                source.assert_not_called()
+
+    def test_finalization_still_checks_paid_quota_and_audit(self):
+        self.model.model_name = "glm-5.2"
+        self.model.save()
+        empty = {"choices": [{"finish_reason": "length", "message": {"content": ""}}]}
+        patches = self.run_chat([empty, wire("openai_compatible", answer="不应调用")])
+        with patches[0], patches[1], patches[2], patches[3] as http, patch.object(chat, "dispatch_budget", side_effect=[None, None, AiError("quota", "ai_chat_quota_exceeded", 429)]):
+            with self.assertRaises(AiError) as caught:
+                chat.answer({"clientRequestId": "quota-finalize", "message": "查询"}, self.owner, "quota-finalize")
+            self.assertEqual(caught.exception.code, "ai_chat_quota_exceeded")
+            self.assertEqual(http.call_count, 1)
+        self.assertFalse(m.AiConversationMessages.objects.filter(role="assistant").exists())
+
+    def test_finalization_is_closed_on_failed_audit_or_insufficient_time(self):
+        self.model.model_name = "glm-5.2"
+        self.model.save()
+        empty = {"choices": [{"finish_reason": "length", "message": {"content": ""}}]}
+        for gate in ("audit", "time"):
+            real_audit = chat.audit
+            def checked_audit(*args, **kwargs):
+                if gate == "audit" and args[3] == "failed":
+                    raise AiError("audit unavailable", "service_unavailable", 503)
+                return real_audit(*args, **kwargs)
+            patches = self.run_chat([empty])
+            with patches[0], patches[1], patches[2], patches[3] as http, patch.object(chat, "audit", side_effect=checked_audit), patch.object(chat.transport, "remaining_budget", side_effect=[260, 14]):
+                with self.assertRaises(AiError):
+                    chat.answer({"clientRequestId": f"closed-{gate}", "message": "查询"}, self.owner, f"closed-{gate}")
+                self.assertEqual(http.call_count, 1)
+
+    def test_unknown_provider_does_not_receive_glm_specific_recovery(self):
+        empty = {"choices": [{"finish_reason": "stop", "message": {"content": ""}}]}
+        patches = self.run_chat([empty])
+        with patches[0], patches[1], patches[2], patches[3] as http:
+            with self.assertRaises(AiError):
+                chat.answer({"clientRequestId": "other-provider", "message": "查询"}, self.owner, "other-provider")
+            self.assertEqual(http.call_count, 1)
+            self.assertNotIn("thinking", http.call_args.args[1])

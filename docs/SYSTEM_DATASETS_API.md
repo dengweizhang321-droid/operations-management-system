@@ -96,6 +96,8 @@ AI 调用示例：
 
 ## 响应与边界
 
+销售品类分析提供 `categoryOptions.items/total/truncated`，沿用权威接口在当前账号与日期范围内的有界品类候选，最多 200 个。未确认品类时先仅传日期和 `limit=1` 获取候选，再将实际名称放入 `categories`。`productQueries` 只精确匹配完整货品名称或编码，不支持品类词/名称片段的模糊包含；错误筛选返回零行不能作为该品类没有销量的证据。
+
 外层包含 `schemaVersion/dataset/source/requestId/queriedAt/freshness/dataCutoffDate/data`。`freshness` 为查询前读取的销售/库存水位，只代表这两个域；未知截止日期为 `null`。AI revision 不是业务版本或快照令牌。
 
 记录结果在 `data` 中包含 `rows/returned/total/hasMore/nextCursor/truncated/truncatedFields/cellWindows/sourceDomain/consistency`。`total=null`，不做无界 COUNT，按 `nextCursor` 续读。分析结果保留原工具的 JSON、覆盖和截断标记，不根据截断行重算总计。

@@ -294,16 +294,16 @@ export const aiToolRegistry = [
   {
     name: "get_sales_category_analysis",
     title: "销售品类分析",
-    description: "查询具体品类/货品在指定日期卖了多少时优先使用本工具，productQueries 可匹配货品名称或编码。startDate、endDate 均包含当天，单日查询填写相同日期。按真实用户范围返回品类净销售额、净销量、退货率、退款、毛利、大毛利率、同比、环比上周、排名和月度趋势；trend 是带 items、returned、truncated 的对象。大毛利率按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；环比上周固定使用截止日近 7 天对比此前 7 天；品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
+    description: "查询品类在某天卖了多少时优先使用本工具。品类名称未确认时，先只传日期和 limit=1，从 categoryOptions.items 获取该日期/账号范围内的真实品类，再用 categories 精确选择相关品类；应说明实际合并了哪些品类。切勿将品类词放入 productQueries：它只精确匹配完整货品名称或编码，不做模糊包含，未匹配不等于该品类无销量。startDate、endDate 均包含当天，单日填写相同日期。返回 summary 全量汇总、净销售额/净销量/退款/毛利、排名和趋势；trend 是带 items、returned、truncated 的对象。金额单位为人民币分，大毛利率按（分摊后金额−货品成本）÷分摊后金额，不扣费用；环比上周固定比较近 7 天与此前 7 天。品类优先来自 ERP 主数据，销售明细品类为兜底。",
     inputSchema: {
       type: "object",
       properties: {
         startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "开始日期，YYYY-MM-DD。" },
         endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "结束日期，YYYY-MM-DD。" },
-        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "精确品类名称；未知时先不传 categories/productQueries，limit=1 读取 categoryOptions 后再选择。" },
         channels: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
-        productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "仅完整货品名称或货品编码精确匹配。不要填品类、简称或模糊关键词；品类提问使用 categories。" },
         sortBy: { type: "string", enum: ["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "weekOverWeekRate", "yearOverYearRate"], default: "netSalesCents" },
         direction: { type: "string", enum: ["asc", "desc"], default: "desc" },
         limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },

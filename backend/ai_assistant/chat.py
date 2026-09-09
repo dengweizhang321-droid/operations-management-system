@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from copy import copy
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.db.models import Max, F, Func, IntegerField
@@ -563,6 +564,7 @@ def answer(body, principal, request_id):
             total = 0
             per_tool = {}
             finish_only = False
+            empty_finalization_used = False
             system = (
                 SYSTEM
                 + "\n业务时区 Asia/Shanghai，当前日期 "
@@ -579,10 +581,11 @@ def answer(body, principal, request_id):
                     + "</page_context>"
                 )
             for ordinal in range(1, model.max_tool_rounds + 1):
-                transport.remaining_budget()
+                remaining_seconds = transport.remaining_budget(default=3600)
                 # Reserve the last existing provider turn for an answer. Never
                 # enlarge configured rounds, tool counts or paid-call quotas.
-                final_turn = finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                final_turn = (finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                              or (ordinal > 1 and remaining_seconds <= model.timeout_ms / 1000 + 10))
                 offered_tools = [] if final_turn else _remaining_tools(tools, per_tool, model.max_total_tool_calls - total)
                 turn_system = system
                 if not offered_tools:
@@ -614,17 +617,34 @@ def answer(body, principal, request_id):
                     )
                 provider_started = time.monotonic()
                 try:
-                    response = provider.turn(model, frames, turn_system, offered_tools)
+                    turn_model = model
+                    if final_turn and provider.supports_direct_finish(model):
+                        turn_model = copy(model)
+                        turn_model.reasoning_mode = "disabled"
+                    response = provider.turn(turn_model, frames, turn_system, offered_tools, retain_reasoning=True)
                 except Exception as error:
                     with mutation(principal):
                         audit(
                             principal, request_id, "ai_chat_provider", "failed",
-                            arguments={"modelId": model.id, "ordinal": ordinal},
+                            arguments={"modelId": model.id, "ordinal": ordinal,
+                                       **({"responseDiagnostics": error.diagnostics}
+                                          if isinstance(error, provider.EmptyProviderResponse) else {})},
                             duration=int((time.monotonic() - provider_started) * 1000),
                             error_code=(error.code if isinstance(error, AiError)
                                         else "provider_timeout" if isinstance(error, TimeoutError)
                                         else "provider_unavailable"),
                         )
+                    if (isinstance(error, provider.EmptyProviderResponse) and error.can_finalize
+                            and provider.supports_direct_finish(model) and not empty_finalization_used
+                            and not final_turn and ordinal < model.max_tool_rounds
+                            and transport.remaining_budget(default=3600) >= 15):
+                        # The provider completed this dispatch. Spend at most one
+                        # remaining ordinal on finalization, without repeating tools
+                        # or replaying a timeout / unknown paid dispatch.
+                        empty_finalization_used = True
+                        finish_only = True
+                        system += "\n上一轮已结束但没有生成正文。本轮直接依据已取得结果给出简短最终回答；没有取得所需数据时明确说明缺口。"
+                        continue
                     raise
                 with mutation(principal):
                     audit(

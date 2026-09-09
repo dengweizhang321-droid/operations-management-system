@@ -78,9 +78,14 @@ export async function getSalesCategoryAnalysisForAi(
   const details = record(result?.details);
   const pagination = record(details.pagination);
   const trend = record(result?.trend);
+  const filterOptions = record(result?.filterOptions);
+  const categoryTotal = record(filterOptions.totals).categories;
   if (!result || !Array.isArray(result.ranking) || !Array.isArray(trend.items)
     || !Number.isSafeInteger(trend.returned) || Number(trend.returned) !== trend.items.length
     || typeof trend.truncated !== "boolean"
+    || !Array.isArray(filterOptions.categories) || filterOptions.categories.length > 200
+    || !filterOptions.categories.every(value => typeof value === "string" && value.length <= 120)
+    || !Number.isSafeInteger(categoryTotal) || Number(categoryTotal) < filterOptions.categories.length
     || !Array.isArray(details.items) || !Number.isFinite(Number(pagination.total))) {
     throw new PublicApiError(503, "service_unavailable", "Django 销售读取响应无效，请稍后重试。");
   }
@@ -90,6 +95,11 @@ export async function getSalesCategoryAnalysisForAi(
     dataCutoffDate: result.dataCutoffDate,
     categoryHierarchy: result.categoryHierarchy,
     filtersApplied: result.filtersApplied,
+    categoryOptions: {
+      items: filterOptions.categories,
+      total: categoryTotal,
+      truncated: Number(categoryTotal) > filterOptions.categories.length,
+    },
     summary: result.summary,
     uncategorized: result.uncategorized,
     ranking: result.ranking,

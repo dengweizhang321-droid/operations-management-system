@@ -328,6 +328,7 @@ test("sales category AI uses only the Django read route and preserves the signed
         uncategorized: {},
         ranking: [],
         trend: { granularity: "month", categoryLimit: 8, returned: 0, truncated: false, items: [] },
+        filterOptions: { categories: ["商用净水"], totals: { categories: 1 } },
         details: { items: [], pagination: { total: 0, returned: 0, truncated: false } },
       });
     },
@@ -344,6 +345,7 @@ test("sales category AI uses only the Django read route and preserves the signed
   assert.deepEqual(url.searchParams.getAll("productQuery"), ["直饮机"]);
   assert.deepEqual(result.trend, { granularity: "month", categoryLimit: 8, returned: 0, truncated: false, items: [] });
   assert.equal(result.totalMatched, 0);
+  assert.deepEqual(result.categoryOptions, {items:["商用净水"],total:1,truncated:false});
 });
 
 test("AI sales dates include the final day without leaking the next day's facts", async () => {
@@ -402,14 +404,18 @@ test("AI sales rejects invalid or unbounded dates before reading Django", async 
 test("sales category AI preserves bounded native trend and rejects malformed responses", async () => {
   const args = {startDate:"2026-09-08",endDate:"2026-09-08",limit:1};
   const trend = {granularity:"month",categoryLimit:8,returned:1,truncated:true,items:[{period:"2026-09-01",category:"净水",netSalesCents:150}]};
-  const payload = {ranking:[],trend,details:{items:[{category:"净水",netSalesCents:150}],pagination:{total:3,returned:1,truncated:true}}};
+  const payload = {ranking:[],trend,filterOptions:{categories:["净水"],totals:{categories:2}},details:{items:[{category:"净水",netSalesCents:150}],pagination:{total:3,returned:1,truncated:true}}};
   const result = await getSalesCategoryAnalysisForAi(args,principal,{route:async () => Response.json(payload)});
   assert.deepEqual(result.trend,trend);
   assert.equal(result.returned,1);
   assert.equal(result.totalMatched,3);
   assert.equal(result.truncated,true);
+  assert.deepEqual(result.categoryOptions,{items:["净水"],total:2,truncated:true});
   for (const malformed of [null,[],{}, {...trend,items:{}}, {...trend,returned:2}, {...trend,truncated:"false"}]) {
     await assert.rejects(getSalesCategoryAnalysisForAi(args,principal,{route:async () => Response.json({...payload,trend:malformed})}), (error:unknown) => (error as {status?:number}).status===503);
+  }
+  for (const malformed of [null,{}, {categories:[],totals:{categories:-1}}, {categories:["净水"],totals:{categories:0}}, {categories:Array(201).fill("净水"),totals:{categories:201}}]) {
+    await assert.rejects(getSalesCategoryAnalysisForAi(args,principal,{route:async () => Response.json({...payload,filterOptions:malformed})}), (error:unknown) => (error as {status?:number}).status===503);
   }
 });
 
