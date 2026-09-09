@@ -156,14 +156,14 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        860,
+        1180,
         40
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:5791/plan",
+        "url": "http://127.0.0.1:5791/plan-backfill",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -310,7 +310,7 @@
     },
     {
       "parameters": {
-        "content": "## 亿玖 P/M 直连现行模板（仓库默认停用）\n这是同一工作流 ID 的现行替换版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。\n\n## A→B→C→P→M\nA/B/C、同一 execution ID、店铺键、共享 helper 串行认领、每日单日范围和导入回查保持不变。P 仅在 C 完成后运行；亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。\n\n## P·阿里妈妈直连任务\n从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。\n\n## M·MTOP 固定导出\n从千牛“商品 > 我的商品 > 出售中”的真实首屏请求捕获只读列表模板，固定每页 20 条、最多 100 页并核对 response total；itemId 排序后每 20 个一批。唯一写类路径逐字固定为 batchFastEdit.htm?optType=batchExportItem&action=submit，不能由工作流、配置或请求参数改写。每批提交前保存导出记录 id 基线，提交与下载串行；响应未决、出现多个新记录、行数/时间窗/商品 ID 不一致均失败关闭。全部批文件校验后合并成一个权威 XLSX，只导入一次并回查。\n\n## 切换门禁\n原 P 或 M 只要存在已进入业务动作的活动清单，直连协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
+        "content": "## 亿玖 P/M 直连现行模板（仓库默认停用）\n这是同一工作流 ID 的现行替换版本，不是可并行激活的第二条流程。仓库文件固定 active=false；发布时必须先部署配套 helper，再在 n8n 中受控替换并确认只有最新版本激活。旧版本只保留历史审计，不得用于新的定时或恢复 execution。\n\n## A→B→C→P→M\nA 固定注册起始日至昨天的范围；B/C/P 每个循环只补最早缺失日，N 重新核验商品日和推广日覆盖后循环回 B。每店最多补 14 天，30 分钟后不再开启新日；最后 M 执行一次并收尾，预算耗尽仍有缺口明确报未完成。同一 execution ID、店铺键与共享 helper 串行认领不变。亿玖 M 按上海日期每天到期一次，成功后将 nextDueDate 推进到下一日，失败不推进并由下一次新的完整 execution 补跑。\n\n## P·阿里妈妈直连任务\n从亿玖独立浏览器的阿里妈妈下载列表真实请求中临时取得 csrfId 与 loginPointId；按同一天起止日期、分天、全部指标、last_click_by_effect_time、15 天累计、货品全站推广/关键词推广/人群推广/店铺直达四场景及商品+计划维度创建商品报表。创建前先写 report_submitting 栅栏，响应未决时禁止自动重提；成功后只按唯一 taskId 轮询，立即下载受控 OSS ZIP，校验店铺、日期、行数与哈希，再单次导入并回查日期覆盖。\n\n## M·MTOP 固定导出\n从千牛“商品 > 我的商品 > 出售中”的真实首屏请求捕获只读列表模板，固定每页 20 条、最多 100 页并核对 response total；itemId 排序后每 20 个一批。唯一写类路径逐字固定为 batchFastEdit.htm?optType=batchExportItem&action=submit，不能由工作流、配置或请求参数改写。每批提交前保存导出记录 id 基线，提交与下载串行；响应未决、出现多个新记录、行数/时间窗/商品 ID 不一致均失败关闭。全部批文件校验后合并成一个权威 XLSX，只导入一次并回查。\n\n## 切换门禁\n原 P 或 M 只要存在已进入业务动作的活动清单，直连协议拒绝接管；验证码、安全验证、店铺身份不符、token 失效、风控或页面/接口契约变化均保留清单并停止。",
         "height": 220,
         "width": 660,
         "color": 4
@@ -323,6 +323,121 @@
         0,
         -300
       ]
+    },
+    {
+      "id": "d04c7fdd-7221-456b-b5ad-ecf18e1e89da",
+      "name": "N·复查缺口并计划下一日",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5791/next-day",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-TMALL-STORE-KEY",
+              "value": "tmall-yijiu"
+            },
+            {
+              "name": "X-TERUISI-TMALL-BACKFILL-CYCLE",
+              "value": "={{ $runIndex }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "078445e5-bf78-43c6-839c-7a47b46579f5",
+      "name": "还有缺口且预算充足？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5928d5c5-ee38-4eee-84e1-058316d88462",
+              "leftValue": "={{ $json.continueBackfill }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b73a4d7c-c80d-4bd8-925a-61c2ca81c5a1",
+      "name": "全部缺失日已补齐？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5752f977-f0c9-441a-afd2-0aad8f77fad2",
+              "leftValue": "={{ $json.dailyBackfill.status === 'completed' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "cc2e7073-892d-4769-847f-f80840c70296",
+      "name": "补缺未完成·已释放店铺资源",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1620,
+        140
+      ],
+      "parameters": {
+        "errorMessage": "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
+      }
     }
   ],
   "pinData": {},
@@ -422,11 +537,63 @@
         ]
       ]
     },
+    "N·复查缺口并计划下一日": {
+      "main": [
+        [
+          {
+            "node": "还有缺口且预算充足？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "还有缺口且预算充足？": {
+      "main": [
+        [
+          {
+            "node": "B·逐日下载并验证 XLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "M·MTOP 分批导出、合并校验并导入",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "全部缺失日已补齐？": {
+      "main": [
+        [],
+        [
+          {
+            "node": "补缺未完成·已释放店铺资源",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "P·直连创建商品报表、下载、汇总导入并回查": {
       "main": [
         [
           {
-            "node": "M·MTOP 分批导出、合并校验并导入",
+            "node": "N·复查缺口并计划下一日",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "M·MTOP 分批导出、合并校验并导入": {
+      "main": [
+        [
+          {
+            "node": "全部缺失日已补齐？",
             "type": "main",
             "index": 0
           }
