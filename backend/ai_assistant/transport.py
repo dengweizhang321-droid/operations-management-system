@@ -274,6 +274,15 @@ def _bounded_json(
         if not isinstance(value, dict):
             raise AiError("响应 JSON 无效", "invalid_provider_response", 503)
         return value
+    except TimeoutError as error:
+        raise AiError(
+            "模型或工具服务等待超时，本次请求未自动重试。请稍后重新发送或缩小分析范围。",
+            "provider_timeout", 503,
+        ) from error
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise AiError(
+            "服务返回了无效的 JSON 响应", "invalid_provider_response", 503
+        ) from error
     except (OSError, ValueError, http.client.HTTPException) as error:
         raise AiError(
             "服务请求失败或响应格式无效", "provider_unavailable", 503

@@ -144,6 +144,10 @@ def turn(model, transcript, system, tools):
             limit = max(limit, declared * 2 + 1024)
         passive(c["arguments"], limit)
     answer = "\n".join(texts)
+    truncated = (result.get("stop_reason") == "max_tokens" if model.protocol == "anthropic"
+                 else choices[0].get("finish_reason") == "length")
+    if truncated and answer and not calls:
+        answer += "\n\n（本次回复达到模型输出上限，内容尚未完整生成；可要求继续。）"
     if not answer and not calls:
         raise AiError("模型没有返回正文", "invalid_provider_response", 503)
     return {
@@ -151,6 +155,7 @@ def turn(model, transcript, system, tools):
         "calls": calls,
         "frame": frame,
         "usage": result.get("usage", {}),
+        "truncated": truncated,
         "providerRequestId": str(result.get("id", ""))[:200],
     }
 

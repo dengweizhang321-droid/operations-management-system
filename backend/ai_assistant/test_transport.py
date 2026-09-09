@@ -283,6 +283,36 @@ class ModelDnsTests(SimpleTestCase):
         recovery.assert_not_called()
         connections[0].request.assert_called_once()
 
+    def test_provider_marks_output_limit_without_replaying_paid_request(self):
+        model = SimpleNamespace(base_url=URL.rsplit("/chat/completions", 1)[0],
+            api_key_encrypted="fixture", protocol="openai_compatible", model_name="fixture",
+            max_tokens=128, temperature_milli=200, reasoning_mode="auto", timeout_ms=120000)
+        for protocol in ("openai_compatible", "anthropic"):
+            model.protocol = protocol
+            value = ({"choices": [{"finish_reason": "length", "message": {"content": "部分分析"}}]}
+                     if protocol == "openai_compatible" else {"stop_reason": "max_tokens", "content": [{"type": "text", "text": "部分分析"}]})
+            with self.subTest(protocol=protocol), patch.object(provider, "decrypt", return_value="fixture"), patch.object(provider, "bounded_json", return_value=value) as send:
+                result = provider.turn(model, [{"role": "user", "content": "市场分析"}], "测试", [])
+                self.assertTrue(result["truncated"])
+                self.assertIn("尚未完整生成", result["text"])
+                self.assertTrue(result["text"].startswith("部分分析"))
+                send.assert_called_once()
+                self.assertEqual(send.call_args.kwargs["timeout"], 120)
+
+    def test_timeout_is_distinct_from_invalid_json_and_never_retried(self):
+        for failure, expected in ((TimeoutError("sensitive fixture"), "provider_timeout"),
+                                  (b"not-json", "invalid_provider_response")):
+            with self.subTest(expected=expected):
+                _, _, connections = self.wire({})
+                response = connections[0].getresponse.return_value
+                response.read1.side_effect = [failure] if isinstance(failure, Exception) else [failure, b""]
+                with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+                    with self.assertRaises(AiError) as caught:
+                        transport.bounded_json(URL, {})
+                self.assertEqual(caught.exception.code, expected)
+                self.assertNotIn("sensitive fixture", str(caught.exception))
+                connections[0].request.assert_called_once()
+
     def test_real_http_response_can_close_socket_after_last_body_chunk(self):
         # HTTPConnection transfers a Connection: close socket to HTTPResponse.
         # read1() may close its last file reference after the full body arrives.
