@@ -33,22 +33,30 @@ function list(value: unknown, maximum = 50): string[] {
   return [...new Set(value.map((item) => optionalString(item, 200)).filter(Boolean) as string[])];
 }
 
-function filters(args: Record<string, unknown>) {
+export function marketAiFilters(args: Record<string, unknown>) {
   const startDate = optionalString(args.startDate, 10);
   const endDate = optionalString(args.endDate, 10);
   if ((startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate))
     || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))) {
     throw new Error("date argument must use YYYY-MM-DD");
   }
+  function selection(singleKey: string, listKey: string) {
+    const single = optionalString(args[singleKey], 200);
+    const multiple = list(args[listKey]);
+    if (single && multiple.length && (multiple.length !== 1 || multiple[0] !== single)) {
+      throw new Error(`conflicting ${singleKey} filters`);
+    }
+    return single ? [single] : multiple;
+  }
   return {
     query: optionalString(args.query, 120) ?? "",
-    categories: list(args.categories),
-    scopes: list(args.scopes),
-    brands: list(args.brands),
+    categories: selection("category", "categories"),
+    scopes: selection("scope", "scopes"),
+    brands: selection("brand", "brands"),
     priceBands: list(args.priceBands),
-    rankingDimensions: list(args.rankingDimensions),
-    operationModes: list(args.operationModes),
-    subcategories: list(args.subcategories),
+    rankingDimensions: selection("rankingDimension", "rankingDimensions"),
+    operationModes: selection("operationMode", "operationModes"),
+    subcategories: selection("subcategory", "subcategories"),
     startDate: startDate ?? null,
     endDate: endDate ?? null,
   };
@@ -65,7 +73,7 @@ async function overview(args: Record<string, unknown>, principal: AppPrincipal) 
         view: "full",
         page: 1,
         pageSize: integer(args.limit, 20, 10, 50),
-        filters: filters(args),
+        filters: marketAiFilters(args),
       },
     },
   );
