@@ -402,6 +402,9 @@ def mutate(parts, params, payload, principal, request_id, method):
             return channels.send(payload, principal), 200
         return channels.save(payload, principal), 200
     if root == "conversations":
+        if method == "PATCH" and payload.get("action") == "activate":
+            from .conversation_workspace import activate
+            return activate(payload, principal), 200
         return (
             chat.delete(params["id"], principal)
             if method == "DELETE"

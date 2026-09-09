@@ -17667,6 +17667,11 @@
   ],
   "excludedModels": [
     {
+      "model": "ai_assistant.AiConversationWorkspace",
+      "coveredBy": null,
+      "reason": "本人私有的分板块会话恢复元数据，仅由已鉴权聊天接口返回"
+    },
+    {
       "model": "sales.ErpProductMaster",
       "coveredBy": "erp_reference.ErpProductMaster",
       "reason": "ERP 权威模型的历史消费者映射，不重复暴露"

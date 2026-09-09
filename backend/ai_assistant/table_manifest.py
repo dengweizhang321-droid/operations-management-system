@@ -1,6 +1,7 @@
 """Closed AI backup inventory; checked against the ORM in readiness and tests."""
 
 AI_TABLES = (
+    "ai_conversation_workspaces",
     "ai_agent_checkpoints",
     "ai_agent_events",
     "ai_agent_jobs",

@@ -19,9 +19,11 @@ CONTROL_MODELS = (
 MODELS = {
     **m.HISTORICAL_MODELS,
     "ai_space_asset_payloads": m.AiSpaceAssetPayload,
+    "ai_conversation_workspaces": m.AiConversationWorkspace,
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_conversation_workspaces",
     "ai_models",
     "ai_channels",
     "ai_conversations",

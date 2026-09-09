@@ -1,4 +1,6 @@
 "use client";
+
+import { useAiPageDetails } from "./ai-page-context-provider";
 /* eslint-disable @next/next/no-img-element -- JD competitor images are external audited sources. */
 
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -101,6 +103,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [itemSegments, setItemSegments] = useState<string[]>([]);
   const [storageStatuses, setStorageStatuses] = useState<Array<"pending" | "committed">>([]);
   const [recognitionSources, setRecognitionSources] = useState<Array<"ai" | "non_ai">>([]);
+  useAiPageDetails("market", {
+    period: null,
+    filters: { categories: reviewCategories, itemSegments, storageStatuses, recognitionSources },
+  });
+
   const [cloudProgress, setCloudProgress] = useState<JobProgress | null>(null);
   const [reviewView, setReviewView] = useState<"list" | "gallery">("list");
   const [sampleCount, setSampleCount] = useState(50);

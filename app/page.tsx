@@ -4,10 +4,12 @@ import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, use
 import type { ReactNode, RefObject } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import {
-  buildAiPageContextPrompt,
   createAiPageContext,
+  normalizeAiPageFilters,
   type AiPageContext,
 } from "@/lib/ai/page-context";
+import AiWorkspaceHost from "./ai-workspace-host";
+import { AiPageContextProvider, type AiPageRegistration } from "./ai-page-context-provider";
 import AppShell from "./shell/app-shell";
 import GlobalHeader from "./shell/global-header";
 import ModuleErrorBoundary from "./shell/module-error-boundary";
@@ -223,7 +225,7 @@ const viewMap: Record<ModuleKey, (props: ShellViewProps) => React.ReactNode> = {
   workflow: ({ currentUser, moduleView, onModuleViewChange }) => <OperationsView currentUser={currentUser} moduleView={normalizeModuleView("workflow", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   import: ({ importSource, currentUser, moduleView, onModuleViewChange }) => <ImportView importSource={importSource} currentUser={currentUser} moduleView={normalizeModuleView("import", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
   settings: ({ currentUser, moduleView, onModuleViewChange }) => <SettingsView currentUser={currentUser} moduleView={normalizeModuleView("settings", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
-  ai: ({ currentUser, aiContextPrompt, aiPageContext, moduleView, onModuleViewChange }) => <AiModuleView currentUser={currentUser} initialContextPrompt={aiContextPrompt} initialPageContext={aiPageContext} moduleView={normalizeModuleView("ai", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
+  ai: ({ currentUser, aiContextPrompt, aiPageContext, moduleView, onModuleViewChange }) => <AiModuleView currentUser={currentUser} externalChat initialContextPrompt={aiContextPrompt} initialPageContext={aiPageContext} moduleView={normalizeModuleView("ai", moduleView)} onModuleViewChange={(view) => onModuleViewChange(view)} />,
 };
 
 export default function Home() {
@@ -243,6 +245,14 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [globalSearchLoadVersion, setGlobalSearchLoadVersion] = useState(0);
   const [aiContextPrompt, setAiContextPrompt] = useState("");
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPromptId, setAiPromptId] = useState(0);
+  const [aiDetails, setAiDetails] = useState<AiPageRegistration | null>(null);
+  const publishAiDetails = useCallback((registration: AiPageRegistration) => {
+    setAiDetails(registration);
+    return () => setAiDetails(current => current?.token === registration.token ? null : current);
+  }, []);
+  const closeAiPanel = useCallback(() => setAiPanelOpen(false), []);
   const [aiPageContext, setAiPageContext] = useState<AiPageContext | null>(null);
   const [GlobalSearchDialogView, setGlobalSearchDialogView] = useState(() => GlobalSearchDialog);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
@@ -469,30 +479,32 @@ export default function Home() {
     pushModuleView(active, normalizeModuleView(active, view));
   }, [active, pushModuleView]);
 
+  const currentAiContext = useMemo(() => {
+    const details = aiDetails?.module === active && aiDetails.view === activeModuleView ? aiDetails.details : null;
+    const usesPeriod = ["dashboard", "shop", "market", "customer_service", "sales", "product"].includes(active)
+      && !(active === "market" && activeModuleView === "settings")
+      && !(active === "sales" && ["finance", "targets"].includes(activeModuleView));
+    const period = details?.period !== undefined ? details.period : usesPeriod ? globalPeriod : null;
+    return createAiPageContext({ module: active, view: normalizeModuleView(active, activeModuleView),
+      startDate: period?.startDate, endDate: period?.endDate,
+      importSource: active === "import" ? importSource : null, filters: normalizeAiPageFilters(details?.filters) ?? undefined });
+  }, [active, activeModuleView, aiDetails, globalPeriod, importSource]);
+  const aiContextError = aiDetails?.module === active && aiDetails.view === activeModuleView
+    ? aiDetails.details.blockedReason || (normalizeAiPageFilters(aiDetails.details.filters) === null
+      ? "当前筛选项目过多或查询文字过长。请缩小筛选，或移除页面上下文后提问。" : "") : "";
+
   const askAiWithContext = useCallback((prompt: string) => {
     const boundedPrompt = Array.from(prompt.trim()).slice(0, 4_000).join("");
     if (!boundedPrompt) return;
-    setAiPageContext(createAiPageContext({
-      module: active,
-      view: normalizeModuleView(active, activeModuleView),
-      startDate: active === "n8n_workflows" ? null : globalPeriod.startDate,
-      endDate: active === "n8n_workflows" ? null : globalPeriod.endDate,
-      importSource: active === "import" ? importSource : null,
-    }));
+    setAiPageContext(currentAiContext);
     setAiContextPrompt(boundedPrompt);
-    selectModule("ai");
-  }, [active, activeModuleView, globalPeriod.endDate, globalPeriod.startDate, importSource, selectModule]);
+    setAiPromptId(value => value + 1);
+    setAiPanelOpen(true);
+  }, [currentAiContext]);
 
   const askAiAboutCurrentPage = useCallback(() => {
-    const context = createAiPageContext({
-      module: active,
-      view: normalizeModuleView(active, activeModuleView),
-      startDate: active === "n8n_workflows" ? null : globalPeriod.startDate,
-      endDate: active === "n8n_workflows" ? null : globalPeriod.endDate,
-      importSource: active === "import" ? importSource : null,
-    });
-    askAiWithContext(buildAiPageContextPrompt(context));
-  }, [active, activeModuleView, askAiWithContext, globalPeriod.endDate, globalPeriod.startDate, importSource]);
+    askAiWithContext("请结合当前页面的数据分析重点变化、异常及可能原因，并说明数据来源和统计范围。");
+  }, [askAiWithContext]);
 
   const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -676,10 +688,17 @@ export default function Home() {
               onOpenDashboard={() => selectModule("dashboard")}
             >
               {shellLocationReady ? <Suspense fallback={<section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在加载{current.label}</strong><p>正在按需载入当前业务工作区…</p></section>}>
-                <View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} />
+                <AiPageContextProvider module={active} view={activeModuleView} publish={publishAiDetails}><View range={range} customStartDate={globalPeriod.startDate} customEndDate={globalPeriod.endDate} importSource={importSource ?? undefined} moduleView={activeModuleView} onNavigate={selectModule} onAskAi={askAiWithContext} aiContextPrompt={aiContextPrompt} aiPageContext={aiPageContext} onModuleViewChange={selectModuleView} onApplyPeriod={applyCustomPeriod} currentUser={currentUser} /></AiPageContextProvider>
               </Suspense> : <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在打开目标工作区</strong><p>正在读取当前页面位置与统计周期…</p></section>}
             </ModuleErrorBoundary>
           </div>
+          {currentUser && shellLocationReady && <AiWorkspaceHost
+            key={JSON.stringify([currentUser.email, currentUser.role, currentUser.scopeRestricted])}
+            currentUser={currentUser} module={active} context={currentAiContext}
+            contextError={aiContextError}
+            open={aiPanelOpen} fullPage={active === "ai" && activeModuleView === "assistant"}
+            onClose={closeAiPanel} prompt={aiContextPrompt} promptModule={aiPageContext?.module} promptId={aiPromptId}
+          />}
           <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
         </div>
       </AppShell>

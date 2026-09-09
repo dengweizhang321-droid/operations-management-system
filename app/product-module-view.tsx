@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRODUCT_SUMMARY_QUERY_MAX_LENGTH } from "@/lib/products/query-contract";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
@@ -235,6 +237,14 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
     : null;
   const detailStartDate = summary?.sync.salesWindowStart ?? "";
   const detailEndDate = summary?.sync.salesThrough ?? "";
+  useAiPageDetails("product", {
+    period: detailOpen ? (detailStartDate && detailEndDate ? { startDate: detailStartDate, endDate: detailEndDate } : null) : { startDate: customStartDate, endDate: customEndDate },
+    filters: detailOpen
+      ? { dataset: "sales_summary", productCodes: detailProductCode ? [detailProductCode] : [] }
+      : { dataset: "product_performance", query: debouncedProductQuery.trim(), platforms: platformFilters, shops: shopFilters, categories: categoryFilters, marginFilterKeys,
+        ...(activeTab === "calculator" && selectedProduct ? { selectedIds: [selectedProduct.productCode] } : {}) },
+  });
+
   const loadProductDetail = useCallback(async () => {
     if (!detailProductCode || !detailStartDate || !detailEndDate) return;
     const requestedProductCode = detailProductCode;

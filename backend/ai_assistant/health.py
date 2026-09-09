@@ -96,6 +96,8 @@ def check():
             | {(table, "ai_immutable_identity") for table in fencing.IDENTITIES}
             | {("ai_memory_entries", "ai_memory_requires_audit")}
             | {
+                ("ai_conversation_workspaces", "ai_write_fence"),
+                ("ai_conversation_workspaces", "ai_immutable_identity"),
                 ("ai_space_asset_payloads", "ai_write_fence"),
                 ("ai_space_asset_payloads", "ai_immutable_evidence"),
                 ("ai_space_asset_payloads", "ai_asset_payload_complete"),
@@ -120,6 +122,9 @@ def check():
         }
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
+        cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid='public.ai_conversation_workspaces'::regclass AND convalidated")
+        if not {"ai_workspace_module", "ai_workspace_context_size"} <= {row[0] for row in cursor.fetchall()}:
+            raise ValueError("AI conversation workspace constraints missing")
         cursor.execute("SELECT convalidated FROM pg_constraint WHERE conrelid='public.ai_space_asset_payloads'::regclass AND conname='ai_payload_size'")
         if cursor.fetchone() != (True,):
             raise ValueError("AI image payload size constraint missing")

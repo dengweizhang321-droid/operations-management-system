@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- 产品线图片包含本地选择后的临时预览和鉴权读取地址。 */
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { requestJson } from "@/lib/http/api-client";
@@ -418,6 +420,8 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   const [feedback, setFeedback] = useState("");
   const [editor, setEditor] = useState<ProductLine | "create" | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  useAiPageDetails("workflow", { period: null, filters: { weekStart, selectedIds: expanded ? [expanded] : [] } });
+
 
   const load = useCallback(async (targetWeek = weekStart) => {
     setLoading(true); setError("");

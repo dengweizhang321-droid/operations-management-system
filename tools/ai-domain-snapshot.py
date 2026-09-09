@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
 
 TABLES = set(AI_TABLES) - {
+    "ai_conversation_workspaces",  # New PostgreSQL metadata has no historical D1 counterpart.
     "ai_data_revisions",
     "ai_write_authority",
     "ai_write_request_receipts",

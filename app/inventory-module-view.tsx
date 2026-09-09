@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
 import { InventoryKpiCard } from "./module-view-business-ui";
@@ -431,6 +433,22 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const inboundGenerationRef = useRef(0);
   const inboundControllerRef = useRef<AbortController | null>(null);
   const debouncedInventoryQuery = useDebouncedValue(filters.productQuery);
+  const aiInventoryAgeStatuses = activeTab === "stale"
+    ? (filters.ageStatuses.filter(value => ["stagnant", "slow", "aged"].includes(value)).length > 0
+      ? filters.ageStatuses.filter(value => ["stagnant", "slow", "aged"].includes(value))
+      : ["stagnant", "slow", "aged"])
+    : filters.ageStatuses;
+  useAiPageDetails("inventory", {
+    period: null,
+    filters: {
+      query: debouncedInventoryQuery.trim(), warehouses: filters.warehouses, brands: filters.brands, categories: filters.categories,
+      ...(activeTab === "overview" ? { warehouseTypes: filters.warehouseTypes, healthStatuses: filters.healthStatuses } : {}),
+      ...(activeTab === "plan" ? { status: filters.planStatus, selectedIds: [...selectedPlanIds] } : {}),
+      ...(activeTab === "age" || activeTab === "stale" ? { status: aiInventoryAgeStatuses, ageBuckets: filters.ageBuckets } : {}),
+      ...(activeTab === "inbound" ? { suppliers: filters.suppliers } : {}),
+    },
+  }, activeTab !== "guangdong");
+
   const overviewPageScopeKey = useMemo(() => JSON.stringify({
     query: debouncedInventoryQuery.trim(),
     warehouses: [...filters.warehouses].sort(),

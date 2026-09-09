@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- 用户提供的商品图片域名不固定，不能安全配置 Next Image 远端允许清单。 */
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
@@ -427,6 +429,11 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   const [editor, setEditor] = useState<LaunchProject | "create" | null>(null);
   const [detail, setDetail] = useState<LaunchProject | null>(null);
   const [stageEditor, setStageEditor] = useState<{ project: LaunchProject; stage: LaunchStage } | null>(null);
+  useAiPageDetails("workflow", {
+    period: null,
+    filters: { dataset: "workflow_launch_projects", query: query.trim(), status, suppliers: supplier ? [supplier] : [], owner, stageKey, stageStatus, proposedFrom, dueTo: dueTo ? datePlus(dueTo, 1) : "", selectedIds: detail ? [detail.id] : [] },
+  });
+
 
   const buildParams = useCallback((page: number) => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });

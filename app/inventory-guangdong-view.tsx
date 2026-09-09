@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import InventoryFilterBar, { type InventorySharedFilters } from "./inventory-filter-bar";
 import { formatCount, formatRate, useDebouncedValue } from "./module-view-shared";
@@ -49,6 +51,11 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
   const managementGeneration = useRef(0);
   const searchGeneration = useRef(0);
   const productSearch = useDebouncedValue(filters.productQuery, 250);
+  useAiPageDetails("inventory", {
+    period: null,
+    filters: { dataset: "inventory_guangdong", query: productSearch.trim(), warehouses: ["广东仓"], brands: filters.brands, categories: filters.categories, suppliers: filters.suppliers, risk },
+  });
+
   const params = new URLSearchParams();
   if (productSearch.trim()) params.set("q", productSearch.trim());
   filters.brands.forEach((value) => params.append("brand", value));

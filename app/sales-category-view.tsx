@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import Dialog from "./ui/dialog";
@@ -323,6 +325,11 @@ export default function SalesCategoryView({ startDate, endDate, filters, onFilte
   const [detailError, setDetailError] = useState("");
   const requestGenerationRef = useRef(0);
   const detailRequestGenerationRef = useRef(0);
+  useAiPageDetails("sales", {
+    period: { startDate, endDate },
+    filters: { dataset: "sales_category", query: filters.productQuery.trim(), platforms: filters.platforms, outletKeys: filters.outletKeys, channels: filters.channels, categories: detailCategory ? [detailCategory] : filters.categories },
+  });
+
 
   const closeCategoryDetail = useCallback(() => {
     setDetailCategory(null);
