@@ -4,13 +4,14 @@ export type GuangdongRisk = "no_stock" | "urgent" | "warning" | "stale" | "unkno
 export type GuangdongItem = GuangdongIdentity & {
   warehouse: string; notes: string; availableQuantity: number | null; inTransitQuantity: number | null;
   inventoryAgeDays: number | null; unitCostCents: number | null; knownStockValueCents: number; costMissing: boolean;
-  outbound7dQuantity: number | null; outbound30dQuantity: number | null; outbound90dQuantity: number | null;
+  outbound7dQuantity: number | null; outbound15dQuantity: number | null; outbound30dQuantity: number | null;
   leadDays: number | null; bufferDays: number; inventoryStale: boolean;
+  replenishmentQuantity: number | null; latestReplenishmentOrderDate: string | null;
   turnoverDays: number | null; latestOrderDate: string | null; risk: GuangdongRisk; riskLabel: string; riskReasons: string[];
 };
 export type GuangdongMonitor = {
   version: string; hasInventory: boolean; watchCount: number;
-  sync: { inventoryAsOf: string | null; salesThrough: string | null; latestInventoryBatchId: string | null; inventoryStale: boolean };
+  sync: { inventoryAsOf: string | null; inventoryAgeAsOf: string | null; salesThrough: string | null; latestInventoryBatchId: string | null; inventoryStale: boolean };
   filters: { brands: string[]; categories: string[]; suppliers: string[] };
   metrics: { itemCount: number; availableQuantity: number; inTransitQuantity: number; knownStockValueCents: number; missingCostCount: number; missingStockCount: number };
   distribution: Array<{ risk: GuangdongRisk; label: string; itemCount: number; quantity: number; knownStockValueCents: number; itemRate: number; quantityRate: number; valueRate: number }>;

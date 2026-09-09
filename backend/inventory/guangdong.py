@@ -8,12 +8,20 @@ import re
 from datetime import date, timedelta
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q, Window
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 
 from sales.models import ErpProductMaster
 from .errors import InventoryApiError
-from .models import GuangdongMonitorItem, GuangdongSupplierCycle, GuangdongMonitorAudit, InventoryStockLine
+from .models import (
+    GuangdongMonitorAudit,
+    GuangdongMonitorItem,
+    GuangdongSupplierCycle,
+    InventoryAgeLine,
+    InventoryStockLine,
+    ReplenishmentPlanItem,
+)
 from .query import _latest_batch, _sales_query, _sales_revision, _warehouse_key
 from .revisions import revision_value, bump_revision
 from .write_requests import lock_active_authority
@@ -67,6 +75,43 @@ def _stock(codes):
                 raise InventoryApiError("广东仓快照存在重复型号记录，需先核验库存来源", status=503)
             rows[row.product_code] = row
     return latest, rows
+
+
+def _ages(codes):
+    latest = _latest_batch("age")
+    rows = {}
+    if latest is not None:
+        for row in InventoryAgeLine.objects.filter(
+            batch_id=latest.id,
+            warehouse="广东仓",
+            product_code__in=codes,
+        ):
+            if row.product_code in rows:
+                raise InventoryApiError("广东仓库龄快照存在重复型号记录，需先核验吉客云库龄来源", status=503)
+            rows[row.product_code] = row
+    return latest, rows
+
+
+def _latest_plans(codes):
+    if not codes:
+        return {}
+    rows = (
+        ReplenishmentPlanItem.objects.filter(product_code__in=codes, warehouse="广东仓")
+        .exclude(status="cancelled")
+        .annotate(
+            latest_rank=Window(
+                expression=RowNumber(),
+                partition_by=[F("product_code"), F("warehouse")],
+                order_by=[
+                    F("order_date").desc(nulls_last=True),
+                    F("updated_at").desc(),
+                    F("id").desc(),
+                ],
+            )
+        )
+        .filter(latest_rank=1)
+    )
+    return {row.product_code: row for row in rows}
 
 
 def list_items():
@@ -197,29 +242,30 @@ def risk_fields(*, available, age, sales30, sales90, lead, buffer, snapshot):
     reasons, risks = [], []
     if available is None:
         reasons.append("最新快照缺少该型号广东仓记录")
-    elif available <= 0:
-        risks.append("no_stock"); reasons.append("广东仓无可用库存")
+    elif available < 0:
+        risks.append("no_stock"); reasons.append("广东仓可用库存小于0")
     if turnover is not None and lead is not None:
         if turnover <= lead:
-            risks.append("urgent"); reasons.append("可售天数不超过供应商备货周期")
-        elif turnover <= lead + buffer:
-            risks.append("warning"); reasons.append("可售天数进入供应商周期及安全缓冲范围")
+            risks.append("urgent"); reasons.append("销售周转不超过生产周期")
+        elif turnover < lead + buffer:
+            risks.append("warning"); reasons.append("销售周转低于生产周期及安全天数之和")
     if available is not None and available > 0:
         if age is not None and age >= 90:
             risks.append("stale"); reasons.append("库龄达到90天")
         if sales90 == 0:
             if "stale" not in risks: risks.append("stale")
             reasons.append("可信90日出库为零")
-    if lead is None: reasons.append("供应商备货周期待设置")
+    if lead is None: reasons.append("供应商生产周期待设置")
     if sales30 is None: reasons.append("近30日销量未匹配或覆盖不足")
-    elif sales30 == 0: reasons.append("近30日无正向出库，周转待观察")
+    elif sales30 == 0: reasons.append("近30日无正向出库，销售周转待观察")
     pending = available is None or lead is None or turnover is None
     risk = next((key for key in RISK_LABELS if key in risks), "unknown" if pending else "healthy")
     order_date = None
     if snapshot and turnover is not None and lead is not None:
         days = math.floor(turnover - lead - buffer)
         if abs(days) <= 36500:
-            order_date = (snapshot + timedelta(days=days)).isoformat()
+            calculated = snapshot + timedelta(days=days)
+            order_date = max(calculated, timezone.localdate()).isoformat()
     return {"risk": risk, "riskLabel": RISK_LABELS[risk], "riskReasons": reasons, "turnoverDays": turnover, "latestOrderDate": order_date}
 
 
@@ -228,6 +274,8 @@ def monitor(principal, options, *, export=False):
     watched = [row for row in _bounded_items() if row.active]
     codes = [row.product_code for row in watched]
     latest, stock = _stock(codes)
+    age_latest, ages = _ages(codes)
+    plans = _latest_plans(codes)
     identities = _identity(codes, stock)
     sales = {"rows": [], "asOfDate": None, "dataStartDate": None, "truncated": False}
     if codes:
@@ -249,20 +297,23 @@ def monitor(principal, options, *, export=False):
     items = []
     for watched_row in watched:
         code = watched_row.product_code
-        row, sale = stock.get(code), demand.get(code)
+        row, age_row, sale = stock.get(code), ages.get(code), demand.get(code)
         item = dict(identities[code])
         cycle = cycles.get(item["supplier"])
         available = int(row.available_quantity) if row else None
         def quantity(days):
             return int(sale[f"sales{days}dQuantity"]) if sale and cutoff and start and start <= cutoff - timedelta(days=days - 1) else None
-        s7, s30, s90 = quantity(7), quantity(30), quantity(90)
+        s7, s15, s30, s90 = quantity(7), quantity(15), quantity(30), quantity(90)
         cost = int(row.unit_cost_cents) if row and row.unit_cost_cents > 0 else None
+        plan = plans.get(code)
         item.update({"warehouse": "广东仓", "notes": watched_row.notes, "availableQuantity": available,
             "inTransitQuantity": int(row.in_transit_quantity) if row else None,
-            "inventoryAgeDays": row.inventory_age_days if row else None, "unitCostCents": cost,
+            "inventoryAgeDays": age_row.inventory_age_days if age_row else None, "unitCostCents": cost,
             "knownStockValueCents": max(0, available or 0) * (cost or 0), "costMissing": row is not None and available > 0 and cost is None,
-            "outbound7dQuantity": s7, "outbound30dQuantity": s30, "outbound90dQuantity": s90,
+            "outbound7dQuantity": s7, "outbound15dQuantity": s15, "outbound30dQuantity": s30,
             "leadDays": cycle.lead_days if cycle else None, "bufferDays": cycle.buffer_days if cycle else 7,
+            "replenishmentQuantity": int(plan.planned_quantity) if plan else None,
+            "latestReplenishmentOrderDate": plan.order_date.isoformat() if plan and plan.order_date else None,
             "inventoryStale": stale,
         })
         item.update(risk_fields(available=available, age=item["inventoryAgeDays"], sales30=s30, sales90=s90, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
@@ -286,12 +337,12 @@ def monitor(principal, options, *, export=False):
     filtered.sort(key=lambda row: (list(RISK_LABELS).index(row["risk"]), -row["knownStockValueCents"], row["productCode"]))
     page, size = options.get("page", 1), options.get("pageSize", 50)
     result = {"version": before, "hasInventory": latest is not None,
-        "sync": {"inventoryAsOf": latest.snapshot_date.isoformat() if latest else None, "salesThrough": sales.get("asOfDate"), "latestInventoryBatchId": latest.id if latest else None, "inventoryStale": stale},
+        "sync": {"inventoryAsOf": latest.snapshot_date.isoformat() if latest else None, "inventoryAgeAsOf": age_latest.snapshot_date.isoformat() if age_latest else None, "salesThrough": sales.get("asOfDate"), "latestInventoryBatchId": latest.id if latest else None, "inventoryStale": stale},
         "filters": facets, "distribution": distribution, "watchCount": len(watched),
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
         "items": filtered if export else filtered[(page - 1) * size:page * size],
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
     }
     if version() != before: _conflict()
     if export and options.get("version") != before: _conflict()

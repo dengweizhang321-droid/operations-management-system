@@ -220,6 +220,7 @@ export type SalesConsumerResponseMap = {
       warehouseKey: string;
       productName: string;
       sales7dQuantity: number;
+      sales15dQuantity: number;
       sales30dQuantity: number;
       sales90dQuantity: number;
     }>;

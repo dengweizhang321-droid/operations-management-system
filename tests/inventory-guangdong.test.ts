@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "xlsx";
-import { parseWatchGrid, parseWatchPaste, parseWatchWorkbook, watchWorkbook, workbookBytes } from "../lib/inventory/guangdong-workbook";
+import { monitorWorkbook, parseWatchGrid, parseWatchPaste, parseWatchWorkbook, watchWorkbook, workbookBytes } from "../lib/inventory/guangdong-workbook";
 import { createDjangoInventoryService, INVENTORY_GUANGDONG_PATH } from "../lib/django/inventory-service";
 
 test("广东清单保留前导零、状态、备注及公式文本，导出可回导", () => {
@@ -27,6 +27,26 @@ test("广东文件拒绝公式、多表、超限与空集合", () => {
   assert.throws(() => parseWatchWorkbook(new Uint8Array(workbookBytes([{ name: "a", rows: [["a"]] }, { name: "b", rows: [["b"]] }])).buffer), /一个工作表/);
   assert.throws(() => parseWatchPaste(Array.from({ length: 5001 }, (_, i) => String(i)).join("\n")), /5000/);
   assert.throws(() => parseWatchWorkbook(new Uint8Array(watchWorkbook([])).buffer), /1–5000/);
+});
+
+test("广东监控导出使用7/15/30、销售周转、生产安全与备货字段并删除明细成本", () => {
+  const bytes = monitorWorkbook({
+    version: "1/sales:1",
+    hasInventory: true,
+    watchCount: 1,
+    sync: { inventoryAsOf: "2026-09-09", inventoryAgeAsOf: "2026-09-08", salesThrough: "2026-09-09", latestInventoryBatchId: "stock", inventoryStale: false },
+    filters: { brands: [], categories: [], suppliers: [] },
+    metrics: { itemCount: 1, availableQuantity: 10, inTransitQuantity: 0, knownStockValueCents: 5000, missingCostCount: 0, missingStockCount: 0 },
+    distribution: [], pagination: { page: 1, pageSize: 50, total: 1, totalPages: 1 }, disclosures: [],
+    items: [{ productCode: "SKU-1", productName: "商品", specification: "白色", brand: "", category: "", supplier: "工厂", supplierSource: "ERP档案", warehouse: "广东仓", notes: "", availableQuantity: 10, inTransitQuantity: 0, inventoryAgeDays: 20, unitCostCents: 500, knownStockValueCents: 5000, costMissing: false, outbound7dQuantity: 7, outbound15dQuantity: 15, outbound30dQuantity: 30, leadDays: 10, bufferDays: 7, inventoryStale: false, replenishmentQuantity: 25, latestReplenishmentOrderDate: "2026-09-08", turnoverDays: 10, latestOrderDate: "2026-09-09", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"] }],
+  });
+  const book = XLSX.read(bytes, { type: "array" });
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets["广东入仓监控"], { header: 1, defval: "" });
+  assert.deepEqual(rows[0], ["货品编码", "货品名称", "规格编码", "规格", "品牌", "品类", "供应商", "供应商来源", "仓库", "可用库存", "在途", "7日出库", "15日出库", "30日出库", "销售周转天数", "库龄天数", "生产周期天", "安全天数", "最晚下单日期", "备货数量", "最新下单日期", "风险", "风险原因", "备注"]);
+  assert.equal(rows[0].includes("成本元"), false);
+  assert.equal(rows[0].includes("已覆盖货值元"), false);
+  assert.equal(rows[1][12], 15);
+  assert.equal(rows[1][19], 25);
 });
 
 test("广东网关允许有界reader读取，拒绝向reader提交清单写入", async () => {

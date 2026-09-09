@@ -27,7 +27,7 @@ try {
   const identity = { productCode: "00123", productName: "志高循环风扇", specification: "ZG-18", brand: "志高", category: "电风扇", supplier: "测试供应商", supplierSource: "库存快照" };
   let watch = [{ ...identity, active: true, notes: "关注补货" }];
   let cycle = { supplier: "测试供应商", leadDays: 10, bufferDays: 7 };
-  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound30dQuantity: 300, outbound90dQuantity: 900, turnoverDays: 10, latestOrderDate: "2026-09-01", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["可售天数不超过供应商备货周期"], inventoryStale: false };
+  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound15dQuantity: 150, outbound30dQuantity: 300, turnoverDays: 10, latestOrderDate: "2026-09-09", replenishmentQuantity: 35, latestReplenishmentOrderDate: "2026-09-08", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], inventoryStale: false };
   const labels = { no_stock: "无可用库存", urgent: "紧急补货", warning: "补货预警", stale: "积压风险", unknown: "待完善/待观察", healthy: "健康" };
   const requests = [];
   await page.route("**/api/inventory/guangdong-monitor**", async (route) => {
@@ -38,7 +38,7 @@ try {
     if (!suffix) {
       assert.equal(url.searchParams.has("warehouse"), false);
       const items = watch.filter((row) => row.active).map((row) => ({ ...base, ...row, ...cycle }));
-      result = { version, hasInventory: true, watchCount: items.length, sync: { inventoryAsOf: "2026-09-08", salesThrough: "2026-09-07", inventoryStale: false }, filters: { brands: ["志高"], categories: ["电风扇"], suppliers: ["测试供应商"] }, metrics: { itemCount: items.length, availableQuantity: 100, inTransitQuantity: 200, knownStockValueCents: 500000, missingCostCount: 0, missingStockCount: 0 }, pagination: { page: 1, pageSize: 50, total: items.length, totalPages: 1 }, items, distribution: Object.entries(labels).map(([risk,label]) => ({ risk, label, itemCount: risk === "urgent" ? items.length : 0, quantity: risk === "urgent" ? 100 : 0, knownStockValueCents: risk === "urgent" ? 500000 : 0, itemRate: risk === "urgent" ? 1 : 0, quantityRate: risk === "urgent" ? 1 : 0, valueRate: risk === "urgent" ? 1 : 0 })), disclosures: [] };
+      result = { version, hasInventory: true, watchCount: items.length, sync: { inventoryAsOf: "2026-09-08", inventoryAgeAsOf: "2026-09-08", salesThrough: "2026-09-07", inventoryStale: false }, filters: { brands: ["志高"], categories: ["电风扇"], suppliers: ["测试供应商"] }, metrics: { itemCount: items.length, availableQuantity: 100, inTransitQuantity: 200, knownStockValueCents: 500000, missingCostCount: 0, missingStockCount: 0 }, pagination: { page: 1, pageSize: 50, total: items.length, totalPages: 1 }, items, distribution: Object.entries(labels).map(([risk,label]) => ({ risk, label, itemCount: risk === "urgent" ? items.length : 0, quantity: risk === "urgent" ? 100 : 0, knownStockValueCents: risk === "urgent" ? 500000 : 0, itemRate: risk === "urgent" ? 1 : 0, quantityRate: risk === "urgent" ? 1 : 0, valueRate: risk === "urgent" ? 1 : 0 })), disclosures: [] };
     } else if (suffix === "/watchlist") result = { version, items: watch };
     else if (suffix === "/preview") result = { version, contentHash: "a".repeat(64), valid: true, counts: { added: 0, updated: body.rows.length, unchanged: 0 }, errors: [], items: body.rows.map((r) => ({ ...r, change: "updated" })) };
     else if (suffix === "/import") { watch = body.rows.map((r) => ({ ...identity, ...r })); version = "2:012345abcdef/sales:1/erp:1"; result = { status: "saved", version }; }
@@ -55,6 +55,15 @@ try {
   await page.goto("http://127.0.0.1:3108/.runtime/guangdong-ui/index.html");
   await page.getByRole("heading", { name: "风险库存健康分布" }).waitFor();
   assert.equal(await page.getByLabel("广东监控固定仓库").inputValue(), "广东仓");
+  await page.getByRole("columnheader", { name: "规格编码" }).waitFor();
+  await page.getByRole("columnheader", { name: "7 / 15 / 30日出库" }).waitFor();
+  await page.getByRole("columnheader", { name: "销售周转 / 库龄" }).waitFor();
+  await page.getByRole("columnheader", { name: "生产周期 / 安全天数" }).waitFor();
+  await page.getByRole("columnheader", { name: "备货数量 / 最新下单时间" }).waitFor();
+  assert.equal(await page.getByRole("columnheader", { name: "成本 / 货值" }).count(), 0);
+  const urgentCardText = await page.getByRole("button", { name: /^紧急补货/ }).innerText();
+  assert.equal(urgentCardText.includes("100 件"), false);
+  assert.equal(urgentCardText.includes("¥5,000"), false);
   await page.screenshot({ path: resolve(output, "desktop.png"), fullPage: true });
   await page.getByRole("button", { name: /^紧急补货/ }).click();
   await page.waitForFunction(() => location.search.includes("inventoryGuangdongRisk=urgent"));
@@ -66,7 +75,7 @@ try {
   await page.getByText("监控清单已保存并回查。", { exact: true }).waitFor();
   assert.equal(watch[0].active, false); assert.equal(watch[0].productCode, "00123");
   await page.getByRole("button", { name: "供应商备货周期", exact: true }).click();
-  await page.getByLabel("测试供应商备货周期").fill("21");
+  await page.getByLabel("测试供应商生产周期").fill("21");
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByText("供应商周期已保存并回查。", { exact: true }).waitFor();
   assert.equal(cycle.leadDays, 21);

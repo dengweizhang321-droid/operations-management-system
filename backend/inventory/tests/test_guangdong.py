@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from inventory import guangdong as gd
 from inventory import guangdong_views as views
-from inventory.models import GuangdongMonitorItem, GuangdongSupplierCycle, GuangdongMonitorAudit, InventoryWriteAuthority, InventoryImportBatch, InventoryStockLine
+from inventory.models import GuangdongMonitorItem, GuangdongSupplierCycle, GuangdongMonitorAudit, InventoryAgeLine, InventoryWriteAuthority, InventoryImportBatch, InventoryStockLine, ReplenishmentPlanItem
 from inventory.errors import InventoryApiError
 from sales.models import ErpProductMaster
 from sales.auth import Principal
@@ -24,15 +24,18 @@ class RiskTests(SimpleTestCase):
         return gd.risk_fields(**args)
 
     def test_inclusive_thresholds_and_order_date(self):
-        self.assertEqual(self.fields()["risk"], "urgent")
-        self.assertEqual(self.fields(available=170)["risk"], "warning")
-        self.assertEqual(self.fields(available=171)["risk"], "healthy")
-        self.assertEqual(self.fields(available=170)["latestOrderDate"], "2026-09-08")
-        self.assertEqual(self.fields(available=100)["latestOrderDate"], "2026-09-01")
+        with patch.object(gd.timezone, "localdate", return_value=date(2026, 9, 9)):
+            self.assertEqual(self.fields()["risk"], "urgent")
+            self.assertEqual(self.fields(available=169)["risk"], "warning")
+            self.assertEqual(self.fields(available=170)["risk"], "healthy")
+            self.assertEqual(self.fields(available=171)["risk"], "healthy")
+            self.assertEqual(self.fields(available=170)["latestOrderDate"], "2026-09-09")
+            self.assertEqual(self.fields(available=100)["latestOrderDate"], "2026-09-09")
+            self.assertEqual(self.fields(available=270)["latestOrderDate"], "2026-09-18")
 
     def test_missing_is_not_zero_and_all_risk_reasons_remain(self):
         self.assertEqual(self.fields(available=None)["risk"], "unknown")
-        self.assertEqual(self.fields(available=0)["risk"], "no_stock")
+        self.assertEqual(self.fields(available=0)["risk"], "urgent")
         self.assertEqual(self.fields(available=-5)["risk"], "no_stock")
         result = self.fields(age=90)
         self.assertEqual(result["risk"], "urgent")
@@ -65,11 +68,17 @@ class GuangdongTests(TestCase):
 
     def sales(self, **updates):
         result = {"asOfDate": self.today.isoformat(), "dataStartDate": (self.today - timedelta(days=120)).isoformat(), "truncated": False, "rows": [
-            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓"), "sales7dQuantity": 70, "sales30dQuantity": 300, "sales90dQuantity": 900},
-            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓-欧洲站"), "sales7dQuantity": 7000, "sales30dQuantity": 30000, "sales90dQuantity": 90000},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓"), "sales7dQuantity": 70, "sales15dQuantity": 150, "sales30dQuantity": 300, "sales90dQuantity": 900},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓-欧洲站"), "sales7dQuantity": 7000, "sales15dQuantity": 15000, "sales30dQuantity": 30000, "sales90dQuantity": 90000},
         ]}
         result.update(updates)
         return result
+
+    def age_batch(self, age=45):
+        batch = InventoryImportBatch.objects.create(id="gd-age", dataset="age", source="test", file_name="age.xlsx", file_size_bytes=1, file_hash="d" * 64, raw_file_hash="e" * 64, content_hash="f" * 64, scope_key="age", sheet_name="test", snapshot_date=self.today - timedelta(days=1), status="completed", completed_at=timezone.now())
+        InventoryAgeLine.objects.create(batch_id=batch.id, row_key="00123广东仓", source_row_number=1, snapshot_date=batch.snapshot_date, warehouse="广东仓", product_code="00123", inventory_age_days=age)
+        InventoryAgeLine.objects.create(batch_id=batch.id, row_key="00123广东仓-欧洲站", source_row_number=2, snapshot_date=batch.snapshot_date, warehouse="广东仓-欧洲站", product_code="00123", inventory_age_days=999)
+        return batch
 
     def test_import_preview_atomic_errors_and_leading_zero(self):
         self.save_rows([{"productCode": "00123", "active": True, "notes": "首条"}])
@@ -114,7 +123,9 @@ class GuangdongTests(TestCase):
     def test_exact_warehouse_distribution_export_and_in_transit(self):
         self.save_rows([{"productCode": code} for code in ["00123", "B", "MISSING"]])
         self.batch()
+        self.age_batch()
         GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=10, updated_by="test")
+        ReplenishmentPlanItem.objects.create(id="gd-plan", source_batch_id="gd-stock", product_code="00123", product_name="测试产品00123", warehouse="广东仓", order_date=self.today - timedelta(days=2), suggested_quantity=40, planned_quantity=35)
         with patch.object(gd, "_sales_query", return_value=self.sales()):
             result = gd.monitor(self.principal, {"pageSize": 1})
             self.assertEqual(result["metrics"]["availableQuantity"], 100)
@@ -127,6 +138,11 @@ class GuangdongTests(TestCase):
             self.assertEqual(item["risk"], "urgent")
             self.assertEqual(item["turnoverDays"], 10)
             self.assertEqual(item["inTransitQuantity"], 1000)
+            self.assertEqual(item["outbound15dQuantity"], 150)
+            self.assertEqual(item["inventoryAgeDays"], 45)
+            self.assertEqual(item["replenishmentQuantity"], 35)
+            self.assertEqual(item["latestReplenishmentOrderDate"], (self.today - timedelta(days=2)).isoformat())
+            self.assertEqual(full["sync"]["inventoryAgeAsOf"], (self.today - timedelta(days=1)).isoformat())
             with self.assertRaises(InventoryApiError): gd.monitor(self.principal, {"version": "old"}, export=True)
 
     def test_pause_missing_coverage_cost_and_snapshot_age(self):
