@@ -85,7 +85,7 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
     metrics: pickScalars(result.metrics, ["itemCount", "availableQuantity", "inTransitQuantity", "knownStockValueCents", "missingCostCount", "missingStockCount"]),
     distribution: boundedRecords(result.distribution, 6, ["risk", "label", "itemCount", "quantity", "knownStockValueCents", "itemRate", "quantityRate", "valueRate"]),
     pagination: projectPagination(result.pagination),
-    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "risk", "riskLabel", "riskReason"]),
+    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "risk", "riskLabel", "riskReason"]),
     disclosures: boundedStrings(result.disclosures, 8),
   };
 }

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import InventoryFilterBar, { type InventorySharedFilters } from "./inventory-filter-bar";
-import { InventoryKpiCard } from "./module-view-business-ui";
-import { formatCount, formatCurrencyFromCents, formatRate, useDebouncedValue } from "./module-view-shared";
-import type { GuangdongIdentity, GuangdongMonitor, GuangdongPreview, GuangdongWatchRow } from "@/lib/inventory/guangdong-contract";
+import { formatCount, formatRate, useDebouncedValue } from "./module-view-shared";
+import type { GuangdongIdentity, GuangdongItem, GuangdongMonitor, GuangdongPreview, GuangdongWatchRow } from "@/lib/inventory/guangdong-contract";
 import styles from "./inventory-guangdong.module.css";
 
 const BASE = "/api/inventory/guangdong-monitor";
@@ -42,6 +41,8 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
   const [products, setProducts] = useState<GuangdongIdentity[]>([]);
   const [listQuery, setListQuery] = useState("");
   const [listPage, setListPage] = useState(1);
+  const [editing, setEditing] = useState<GuangdongItem | null>(null);
+  const [editingVersion, setEditingVersion] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const generation = useRef(0);
   const managementGeneration = useRef(0);
@@ -125,6 +126,20 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
     link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   const visibleList = (list?.items ?? []).filter((row) => `${row.productCode} ${row.productName}`.toLowerCase().includes(listQuery.toLowerCase()));
+  const saveItem = (form: HTMLFormElement) => void run(async () => {
+    if (!editing || !editingVersion) return;
+    const values = new FormData(form);
+    const leadText = String(values.get("lead") ?? "").trim();
+    const bufferText = String(values.get("buffer") ?? "").trim();
+    if (!!leadText !== !!bufferText) throw new Error("生产周期和安全天数必须同时填写或同时留空");
+    await jsonRequest("/items", jsonBody({
+      action: "item", productCode: editing.productCode,
+      leadDays: leadText ? Number(leadText) : null, bufferDays: bufferText ? Number(bufferText) : null,
+      operatorName: String(values.get("operatorName") ?? ""), buyer: String(values.get("buyer") ?? ""),
+      version: editingVersion,
+    }, "PATCH"));
+    setEditing(null); setNotice("型号设置已保存并回查。"); setRefresh((value) => value + 1);
+  });
 
   return <div className={styles.root}>
     <section className="inventory-sync-bar"><div><h2>广东入仓库存监控</h2><p>库存快照 {data?.sync.inventoryAsOf ?? "—"} · 库龄快照 {data?.sync.inventoryAgeAsOf ?? "—"} · 销售截至 {data?.sync.salesThrough ?? "—"} · 固定仓库：广东仓</p></div><div className={styles.actions}>
@@ -165,27 +180,35 @@ export default function GuangdongInventoryView({ canManage, filters, onFiltersCh
     </section>}
     {data && <>
       {data.watchCount === 0 ? <section className="panel data-state"><h3>还没有启用的监控型号</h3><p>添加吉客云货品编码后，将自动关联广东仓库存、出库和供应商。</p><button className="primary-button" onClick={() => openPanel("watchlist")}>{canManage ? "添加或导入监控型号" : "查看监控清单"}</button></section> : <>
-        <div className={styles.kpis}>
-          <InventoryKpiCard label="广东仓可用库存" value={`${formatCount(data.metrics.availableQuantity)} 件`} note={`${data.metrics.itemCount} 个监控型号`} tone="blue" icon="仓" />
-          <InventoryKpiCard label="在途库存" value={`${formatCount(data.metrics.inTransitQuantity)} 件`} note="在途不抵减缺货预警" tone="blue" icon="途" />
-          <InventoryKpiCard label="已覆盖库存货值" value={formatCurrencyFromCents(data.metrics.knownStockValueCents)} note={`${data.metrics.missingCostCount} 个型号缺少固定成本`} tone="blue" icon="值" />
-        </div>
         <section className={`panel ${styles.healthPanel}`}><div className={styles.heading}><div><h3>风险库存健康分布</h3><p>按搜索、品牌、品类及供应商统计；点击分类查看明细。</p></div><button className="row-action" onClick={() => changeRisk("")}>全部风险</button></div>
           <div className={styles.distribution}>{data.distribution.map((item) => <button key={item.risk} aria-pressed={risk === item.risk} className={`${styles.riskCard} ${styles[item.risk]}`} onClick={() => changeRisk(risk === item.risk ? "" : item.risk)}><strong>{item.label}</strong><b>{item.itemCount} <small>个型号 · {formatRate(item.itemRate)}</small></b><progress aria-label={`${item.label}型号占比`} max={1} value={item.itemRate} /></button>)}</div>
           <p className={styles.note}>生产周期包含下单至可用入库，安全天数默认7天。库龄取最新吉客云库龄表；当前缺库存记录 {data.metrics.missingStockCount} 个型号。</p>
         </section>
-        <section className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className="data-table"><thead><tr>{["商品", "规格编码", "供应商", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "生产周期 / 安全天数", "最晚下单", "备货数量 / 最新下单时间", "风险及原因"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
+        {editing && <section className={`panel ${styles.itemEditor}`} aria-label={`${editing.productCode}型号设置`}>
+          <div className={styles.heading}><div><h3>编辑型号设置：{editing.productCode}</h3><p>{editing.productName} · 留空后自动使用默认来源。</p></div><button className="row-action" disabled={busy} onClick={() => setEditing(null)}>取消</button></div>
+          <form key={`${editing.productCode}:${data.version}`} className={styles.editorGrid} onSubmit={(event) => { event.preventDefault(); saveItem(event.currentTarget); }}>
+            <label>生产周期（天）<input name="lead" aria-label="型号生产周期" type="number" min={1} max={365} step={1} defaultValue={editing.leadDaysOverride ?? ""} placeholder={editing.supplierLeadDays === null ? "供应商未设置" : `供应商默认 ${editing.supplierLeadDays}`} disabled={busy} /></label>
+            <label>安全天数<input name="buffer" aria-label="型号安全天数" type="number" min={0} max={365} step={1} defaultValue={editing.bufferDaysOverride ?? ""} placeholder={`供应商默认 ${editing.supplierBufferDays}`} disabled={busy} /></label>
+            <label>运营负责人<input name="operatorName" aria-label="型号运营负责人" maxLength={200} defaultValue={editing.operatorNameOverride ?? ""} placeholder={editing.planOperatorName || "最新备货计划未设置"} disabled={busy} /></label>
+            <label>采购负责人<input name="buyer" aria-label="型号采购负责人" maxLength={200} defaultValue={editing.buyerOverride ?? ""} placeholder={editing.planBuyer || "最新备货计划未设置"} disabled={busy} /></label>
+            <div className={styles.editorActions}><button className="primary-button" disabled={busy}>保存</button><small>周期留空继承供应商设置；负责人留空继承最新未取消备货计划。</small></div>
+          </form>
+        </section>}
+        <section className="panel table-panel"><div className="table-toolbar"><h3>广东入仓型号明细</h3><span>{data.pagination.total} 条 · 第 {page} / {Math.max(1, data.pagination.totalPages)} 页</span></div><div className="data-table-wrap" aria-busy={loading}><table className="data-table"><thead><tr>{["商品", "规格编码", "供应商", "运营负责人", "采购负责人", "库存 / 在途", "7 / 15 / 30日出库", "销售周转 / 库龄", "生产周期 / 安全天数", "最晚下单", "备货数量 / 最新下单时间", "风险及原因", "操作"].map((title) => <th key={title}>{title}</th>)}</tr></thead><tbody>{data.items.map((item) => <tr key={item.productCode}>
           <td><strong>{item.productName}</strong></td>
           <td><strong>{item.productCode}</strong><small className="cell-note">{item.specification || "无规格"}</small></td>
           <td>{item.supplier}<small className="cell-note">{item.supplierSource}</small></td>
+          <td>{item.operatorName || "—"}<small className="cell-note">{item.operatorNameSource}</small></td>
+          <td>{item.buyer || "—"}<small className="cell-note">{item.buyerSource}</small></td>
           <td>{numberText(item.availableQuantity)}<small className="cell-note">在途 {numberText(item.inTransitQuantity)}</small></td>
           <td>{numberText(item.outbound7dQuantity)} / {numberText(item.outbound15dQuantity)} / {numberText(item.outbound30dQuantity)}</td>
           <td>{daysText(item.turnoverDays)}<small className="cell-note">库龄 {numberText(item.inventoryAgeDays)} 天</small></td>
-          <td>{item.leadDays === null ? "待设置" : `${item.leadDays} 天`}<small className="cell-note">安全 {item.bufferDays} 天</small></td>
+          <td>{item.leadDays === null ? "待设置" : `${item.leadDays} 天`}<small className="cell-note">安全 {item.bufferDays} 天 · {item.cycleSource}</small></td>
           <td>{item.latestOrderDate ?? "—"}</td>
           <td>{numberText(item.replenishmentQuantity)}<small className="cell-note">下单 {item.latestReplenishmentOrderDate ?? "—"}</small></td>
           <td className={styles.reason}><strong>{item.riskLabel}</strong><small className="cell-note">{item.riskReasons.join("；") || "可售天数充足"}</small></td>
-        </tr>)}{data.items.length === 0 && <tr><td colSpan={10}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
+          <td>{canManage ? <button className="row-action" aria-label={`${item.productCode}编辑型号设置`} disabled={busy} onClick={() => { setEditing(item); setEditingVersion(data.version); }}>编辑</button> : "—"}</td>
+        </tr>)}{data.items.length === 0 && <tr><td colSpan={13}>当前筛选没有监控结果。</td></tr>}</tbody></table></div><footer className="jd-sku-pagination"><button className="row-action" disabled={page <= 1 || loading} onClick={() => setPageState({ scope, page: page - 1 })}>上一页</button><button className="row-action" disabled={page >= data.pagination.totalPages || loading} onClick={() => setPageState({ scope, page: page + 1 })}>下一页</button></footer></section>
       </>}
     </>}
 

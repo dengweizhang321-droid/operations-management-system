@@ -10,11 +10,31 @@ class GuangdongMonitorItem(models.Model):
     product_code = models.CharField(primary_key=True, max_length=200)
     active = models.BooleanField(default=True)
     notes = models.CharField(max_length=1000, default="")
+    lead_days_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    buffer_days_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    operator_name_override = models.CharField(max_length=200, null=True, blank=True)
+    buyer_override = models.CharField(max_length=200, null=True, blank=True)
     updated_by = models.CharField(max_length=320)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "inventory_guangdong_monitor_items"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(lead_days_override__isnull=True, buffer_days_override__isnull=True)
+                    | models.Q(
+                        lead_days_override__gte=1,
+                        lead_days_override__lte=365,
+                        lead_days_override__isnull=False,
+                        buffer_days_override__gte=0,
+                        buffer_days_override__lte=365,
+                        buffer_days_override__isnull=False,
+                    )
+                ),
+                name="inv_gd_item_cycle_pair",
+            ),
+        ]
 
 
 class GuangdongSupplierCycle(models.Model):

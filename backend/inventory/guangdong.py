@@ -28,6 +28,7 @@ from .write_requests import lock_active_authority
 
 MAX_ITEMS = 5000
 RISK_LABELS = {"no_stock": "无可用库存", "urgent": "紧急补货", "warning": "补货预警", "stale": "积压风险", "unknown": "待完善/待观察", "healthy": "健康"}
+RISK_PRIORITY = ("no_stock", "stale", "urgent", "warning")
 
 
 def version():
@@ -173,14 +174,14 @@ def mutate(payload, actor):
     if not isinstance(payload, dict):
         raise InventoryApiError("请求必须为对象")
     action = payload.get("action")
-    allowed = {"action", "rows", "version", "contentHash", "source", "rawHash", "supplier", "leadDays", "bufferDays", "error"}
+    allowed = {"action", "rows", "version", "contentHash", "source", "rawHash", "supplier", "productCode", "leadDays", "bufferDays", "operatorName", "buyer", "error"}
     source = str(payload.get("source", "页面维护"))[:255]
     raw_hash = payload.get("rawHash", "")
     if not isinstance(raw_hash, str) or (raw_hash and not re.fullmatch("[0-9a-f]{64}", raw_hash)):
         raise InventoryApiError("原始内容摘要无效")
     content_hash = ""
     try:
-        if set(payload) - allowed or action not in {"import", "supplier", "reject"}:
+        if set(payload) - allowed or action not in {"import", "supplier", "item", "reject"}:
             raise InventoryApiError("维护操作或字段无效")
         with transaction.atomic():
             lock_active_authority()
@@ -204,7 +205,7 @@ def mutate(payload, actor):
                     raise InventoryApiError("清单写后回查不一致", status=503)
                 summary = result["counts"]
                 audit_details = {"counts": summary, "changes": [{"productCode": row["productCode"], "before": row["before"], "after": {"active": row["active"], "notes": row["notes"]}} for row in result["items"] if row["change"] != "unchanged"]}
-            else:
+            elif action == "supplier":
                 supplier, lead, buffer = payload.get("supplier"), payload.get("leadDays"), payload.get("bufferDays", 7)
                 if not isinstance(supplier, str) or not supplier.strip() or len(supplier) > 512 or supplier == "未映射供应商":
                     raise InventoryApiError("供应商无效")
@@ -225,6 +226,47 @@ def mutate(payload, actor):
                 summary = {"supplier": supplier, "leadDays": lead, "bufferDays": buffer}
                 audit_details = {"before": {"leadDays": old.lead_days, "bufferDays": old.buffer_days} if old else None, "after": summary}
                 content_hash = _digest(summary)
+            else:
+                product_code = payload.get("productCode")
+                lead, buffer = payload.get("leadDays"), payload.get("bufferDays")
+                operator_name, buyer = payload.get("operatorName"), payload.get("buyer")
+                if not isinstance(product_code, str) or not product_code.strip() or len(product_code.strip()) > 200 or re.search(r"[\x00-\x1f]", product_code):
+                    raise InventoryApiError("货品编码必须为1–200字文本")
+                if (lead is None) != (buffer is None):
+                    raise InventoryApiError("生产周期和安全天数必须同时设置或同时留空")
+                if lead is not None and (isinstance(lead, bool) or not isinstance(lead, int) or not 1 <= lead <= 365 or isinstance(buffer, bool) or not isinstance(buffer, int) or not 0 <= buffer <= 365):
+                    raise InventoryApiError("周期须为1–365天，安全天数须为0–365天整数")
+                if not isinstance(operator_name, str) or len(operator_name.strip()) > 200 or re.search(r"[\x00-\x1f]", operator_name) or not isinstance(buyer, str) or len(buyer.strip()) > 200 or re.search(r"[\x00-\x1f]", buyer):
+                    raise InventoryApiError("负责人必须为不超过200字的文本")
+                product_code = product_code.strip()
+                operator_name = operator_name.strip() or None
+                buyer = buyer.strip() or None
+                old = GuangdongMonitorItem.objects.select_for_update().filter(product_code=product_code).first()
+                if old is None:
+                    raise InventoryApiError("型号不属于当前广东监控清单")
+                before = {
+                    "leadDays": old.lead_days_override,
+                    "bufferDays": old.buffer_days_override,
+                    "operatorName": old.operator_name_override,
+                    "buyer": old.buyer_override,
+                }
+                after = {"leadDays": lead, "bufferDays": buffer, "operatorName": operator_name, "buyer": buyer}
+                unchanged = before == after
+                if not unchanged and payload.get("version") != version():
+                    _conflict()
+                if not unchanged:
+                    old.lead_days_override = lead
+                    old.buffer_days_override = buffer
+                    old.operator_name_override = operator_name
+                    old.buyer_override = buyer
+                    old.updated_by = actor
+                    old.save(update_fields=["lead_days_override", "buffer_days_override", "operator_name_override", "buyer_override", "updated_by", "updated_at"])
+                saved = GuangdongMonitorItem.objects.get(product_code=product_code)
+                if (saved.lead_days_override, saved.buffer_days_override, saved.operator_name_override, saved.buyer_override) != (lead, buffer, operator_name, buyer):
+                    raise InventoryApiError("型号设置回查失败", status=503)
+                summary = {"productCode": product_code, **after}
+                audit_details = {"before": before, "after": after}
+                content_hash = _digest(summary)
             if not unchanged:
                 bump_revision({"kind": "guangdong_" + action, "contentHash": content_hash})
             result = {"status": "unchanged" if unchanged else "saved", "version": version(), "summary": summary}
@@ -237,29 +279,25 @@ def mutate(payload, actor):
         raise
 
 
-def risk_fields(*, available, age, sales30, sales90, lead, buffer, snapshot):
+def risk_fields(*, available, sales30, lead, buffer, snapshot):
     turnover = max(0, available) / (sales30 / 30) if available is not None and sales30 is not None and sales30 > 0 else None
     reasons, risks = [], []
     if available is None:
         reasons.append("最新快照缺少该型号广东仓记录")
-    elif available < 0:
-        risks.append("no_stock"); reasons.append("广东仓可用库存小于0")
+    elif available <= 0:
+        risks.append("no_stock"); reasons.append("广东仓可用库存小于等于0")
+    if turnover is not None and turnover >= 180:
+        risks.append("stale"); reasons.append("销售周转达到180天")
     if turnover is not None and lead is not None:
         if turnover <= lead:
             risks.append("urgent"); reasons.append("销售周转不超过生产周期")
         elif turnover < lead + buffer:
             risks.append("warning"); reasons.append("销售周转低于生产周期及安全天数之和")
-    if available is not None and available > 0:
-        if age is not None and age >= 90:
-            risks.append("stale"); reasons.append("库龄达到90天")
-        if sales90 == 0:
-            if "stale" not in risks: risks.append("stale")
-            reasons.append("可信90日出库为零")
     if lead is None: reasons.append("供应商生产周期待设置")
     if sales30 is None: reasons.append("近30日销量未匹配或覆盖不足")
     elif sales30 == 0: reasons.append("近30日无正向出库，销售周转待观察")
     pending = available is None or lead is None or turnover is None
-    risk = next((key for key in RISK_LABELS if key in risks), "unknown" if pending else "healthy")
+    risk = next((key for key in RISK_PRIORITY if key in risks), "unknown" if pending else "healthy")
     order_date = None
     if snapshot and turnover is not None and lead is not None:
         days = math.floor(turnover - lead - buffer)
@@ -303,20 +341,40 @@ def monitor(principal, options, *, export=False):
         available = int(row.available_quantity) if row else None
         def quantity(days):
             return int(sale[f"sales{days}dQuantity"]) if sale and cutoff and start and start <= cutoff - timedelta(days=days - 1) else None
-        s7, s15, s30, s90 = quantity(7), quantity(15), quantity(30), quantity(90)
+        s7, s15, s30 = quantity(7), quantity(15), quantity(30)
         cost = int(row.unit_cost_cents) if row and row.unit_cost_cents > 0 else None
         plan = plans.get(code)
+        has_cycle_override = watched_row.lead_days_override is not None and watched_row.buffer_days_override is not None
+        supplier_lead_days = cycle.lead_days if cycle else None
+        supplier_buffer_days = cycle.buffer_days if cycle else 7
+        lead_days = watched_row.lead_days_override if has_cycle_override else supplier_lead_days
+        buffer_days = watched_row.buffer_days_override if has_cycle_override else supplier_buffer_days
+        plan_operator = plan.operator_name.strip() if plan else ""
+        plan_buyer = plan.buyer.strip() if plan else ""
+        operator_override = (watched_row.operator_name_override or "").strip() or None
+        buyer_override = (watched_row.buyer_override or "").strip() or None
+        operator_name = operator_override if operator_override is not None else plan_operator
+        buyer = buyer_override if buyer_override is not None else plan_buyer
         item.update({"warehouse": "广东仓", "notes": watched_row.notes, "availableQuantity": available,
             "inTransitQuantity": int(row.in_transit_quantity) if row else None,
             "inventoryAgeDays": age_row.inventory_age_days if age_row else None, "unitCostCents": cost,
             "knownStockValueCents": max(0, available or 0) * (cost or 0), "costMissing": row is not None and available > 0 and cost is None,
             "outbound7dQuantity": s7, "outbound15dQuantity": s15, "outbound30dQuantity": s30,
-            "leadDays": cycle.lead_days if cycle else None, "bufferDays": cycle.buffer_days if cycle else 7,
+            "leadDays": lead_days, "bufferDays": buffer_days,
+            "supplierLeadDays": supplier_lead_days, "supplierBufferDays": supplier_buffer_days,
+            "leadDaysOverride": watched_row.lead_days_override, "bufferDaysOverride": watched_row.buffer_days_override,
+            "cycleSource": "型号设置" if has_cycle_override else "供应商设置" if cycle else "待设置",
             "replenishmentQuantity": int(plan.planned_quantity) if plan else None,
             "latestReplenishmentOrderDate": plan.order_date.isoformat() if plan and plan.order_date else None,
+            "operatorName": operator_name, "operatorNameOverride": operator_override,
+            "planOperatorName": plan_operator,
+            "operatorNameSource": "型号设置" if operator_override is not None else "最新备货计划" if plan_operator else "待设置",
+            "buyer": buyer, "buyerOverride": buyer_override,
+            "planBuyer": plan_buyer,
+            "buyerSource": "型号设置" if buyer_override is not None else "最新备货计划" if plan_buyer else "待设置",
             "inventoryStale": stale,
         })
-        item.update(risk_fields(available=available, age=item["inventoryAgeDays"], sales30=s30, sales90=s90, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
+        item.update(risk_fields(available=available, sales30=s30, lead=item["leadDays"], buffer=item["bufferDays"], snapshot=latest.snapshot_date if latest else None))
         if stale:
             item["riskReasons"].append("库存快照待更新，估算仅供参考")
             if item["risk"] == "healthy": item.update(risk="unknown", riskLabel=RISK_LABELS["unknown"])

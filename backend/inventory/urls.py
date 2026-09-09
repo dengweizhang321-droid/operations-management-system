@@ -21,6 +21,7 @@ read_patterns = [
 ]
 write_patterns = [
     path("guangdong-monitor/import", gd.imports),
+    path("guangdong-monitor/items", gd.items),
     path("guangdong-monitor/suppliers", gd.suppliers),
     path("imports", views.imports, name="inventory-imports"),
     path("uploads", views.uploads, name="inventory-uploads"),
