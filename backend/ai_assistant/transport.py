@@ -252,7 +252,7 @@ def _bounded_json(
             raise AiError("响应超限", "response_too_large", 503)
         chunks = []
         count = 0
-        while True:
+        while not response.isclosed():
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
                 raise AiError("请求超时", "provider_timeout", 503)

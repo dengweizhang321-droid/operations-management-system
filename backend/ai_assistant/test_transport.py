@@ -172,6 +172,7 @@ class ModelDnsTests(SimpleTestCase):
         connections = []
         for value in responses:
             response = MagicMock(status=200)
+            response.isclosed.return_value = False
             response.getheader.return_value = None
             response.read1.side_effect = [json.dumps(value).encode(), b""]
             conn = MagicMock()
@@ -281,3 +282,46 @@ class ModelDnsTests(SimpleTestCase):
         self.assertEqual(result, {"ok": True})
         recovery.assert_not_called()
         connections[0].request.assert_called_once()
+
+    def test_real_http_response_can_close_socket_after_last_body_chunk(self):
+        # HTTPConnection transfers a Connection: close socket to HTTPResponse.
+        # read1() may close its last file reference after the full body arrives.
+        # A second settimeout() then fails on Windows with WinError 10038.
+        payload = b'{"reply":"ok"}'
+        responses = [
+            b"HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: "
+            + str(len(payload)).encode()
+            + b"\r\n\r\n"
+            + payload,
+            b"HTTP/1.1 200 OK\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n"
+            + format(len(payload), "x").encode()
+            + b"\r\n"
+            + payload
+            + b"\r\n0\r\n\r\n",
+            b"HTTP/1.0 200 OK\r\n\r\n" + payload,
+        ]
+        for wire in responses:
+            with self.subTest(wire=wire):
+                client, server = socket.socketpair()
+                try:
+                    server.sendall(wire)
+                    server.shutdown(socket.SHUT_WR)
+                    wrapped = MagicMock(wraps=client)
+                    wrapped.connect = MagicMock()
+                    context = MagicMock()
+                    context.wrap_socket.return_value = wrapped
+                    with patch.object(
+                        transport,
+                        "resolve_addresses",
+                        return_value=addresses("8.8.4.4"),
+                    ), patch.object(
+                        transport.socket, "socket", return_value=wrapped
+                    ), patch.object(
+                        transport.ssl, "create_default_context", return_value=context
+                    ):
+                        self.assertEqual(
+                            transport.bounded_json(URL, {}), {"reply": "ok"}
+                        )
+                finally:
+                    client.close()
+                    server.close()
