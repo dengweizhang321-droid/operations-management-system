@@ -1,0 +1,26 @@
+# 一键本机演示预览
+
+在独立 `codex/*` Git worktree 中双击 `预览系统.bat`，或运行 `npm run preview:isolated`。缺少前端依赖时自动执行 `npm ci`；首次自动创建独立 Python 环境、安装锁定的后端依赖、执行 SQLite 迁移并生成合成数据；后续复用。需要本机预装 Node.js 与 Python 3.12+，首次安装需要网络。默认页面是 `http://127.0.0.1:3100/?module=inventory`，代码保存后通过 Vite 热更新。窗口保持运行，Ctrl+C 或 `npm run preview:stop` 停止。
+
+生产目录保持原样。启动器拒绝主检出、非 `codex/*` 分支、链接运行目录以及包含 `.env*` / `.dev.vars*` 的 worktree；不要复制生产配置或共享 `node_modules` 链接。前端固定回环 3100，后端 18100/18101，控制端口 13100。多 worktree 同时预览时，可在启动前设置 `TERUISI_PREVIEW_PORT` 为 3100–3900 内的另一端口；后端为它加 15000/15001，控制端口加 10000，端口冲突直接失败。
+
+## 数据准备与快照
+
+- `npm run preview:prepare`：停止预览后生成一套新数据，以当天上海日期为锚点；旧数据库保留，不重复追加。
+- `npm run preview:snapshot`：停止预览后保存当前数据的一致性 SQLite 副本，输出快照文件名。
+- `npm run preview:restore -- snapshot-<时间>-<随机值>.sqlite3`：将本 worktree 中的快照复制为新数据库，再启动即可观看。
+- `npm run preview:status`：显示该 worktree 预览状态和地址。
+- `npm run preview:stop`：通知持有本次子进程的预览控制器退出；不按磁盘记录中的 PID 杀进程。
+- `npm run preview:verify`：预览就绪后校验首页、库存数据/筛选、商品分页、销售行数、请求拦截和 CSP 响应头，结果存入 `.runtime/preview/smoke.json`。
+
+数据、快照、随机密钥和 Worker 配置只放在被 Git 忽略的 `.runtime/preview/`。快照附带合成数据标记和 SHA-256 清单，恢复前必须精确匹配；每次启动将当前代码的 Django 迁移应用到该预览数据库。快照是合成演示库的副本；这里没有接入生产 PostgreSQL 备份或自动复制生产数据。需要真实规模、权限角色、写流程和 PostgreSQL 契约验收时，仍须按领域文档使用独立 PostgreSQL 镜像。
+
+当前演示集包含 6 个 ERP 货品、30 天合计 180 条销售、6 条广东仓库存、6 条库龄、广东入仓监控清单与供应商周期。名称、店铺、供应商和订单号均为虚构，库存包含 0/8/30/90/200/500 六档。销售、库存、货品页面可用于数据展示验收；其余领域已迁移空表，以空态为主，不能据此宣称全模块功能验收完成。
+
+## 预览边界与验收
+
+页面固定显示“演示预览 · 合成数据 · 仅查询”。预览专属 Worker 只开放 GET/HEAD，不挂载定时处理器；浏览器 CSP 禁止外部连接、嵌入工作流页面和表单提交，Worker fetch 仅允许请求本轮两个 Django 端口并禁止重定向。R2 使用独立本地目录，Cloudflare 远程绑定与隧道关闭。子进程使用环境变量白名单，不继承生产密钥、代理、NODE_OPTIONS 或 PYTHONPATH。
+
+预览用于布局、筛选、分页、空态和图表检查；导入、保存、AI 调用、外部自动化在这套只读演示中不可验收。不要把 SQLite 演示视为 PostgreSQL 生产等价证明。
+
+推荐流程：最新 main → 独立 worktree 调整 → 此入口观看效果 → 相关测试/lint/边界检查及隔离构建 → 用户验收 → 合并 main → 另行受控生产发布。预览不修改 `npm run dev`、正式启动入口或发布链。首次安装可能较慢；日常热更新无需重建完整生产 release。
