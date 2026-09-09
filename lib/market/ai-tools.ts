@@ -79,6 +79,34 @@ async function overview(args: Record<string, unknown>, principal: AppPrincipal) 
   );
 }
 
+export function marketAiOverview(data: Record<string, unknown>) {
+  const rows = (value: unknown) => Array.isArray(value) ? value : [];
+  const brands = data.brandAnalysis && typeof data.brandAnalysis === "object"
+    ? data.brandAnalysis as Record<string, unknown> : {};
+  return {
+    basis: "current_top_ranking_coverage",
+    summary: data.summary,
+    dataRange: data.dataRange,
+    salesRevision: data.salesRevision,
+    trend: rows(data.trend).slice(0, 24),
+    trendTotal: data.trendTotal,
+    trendTruncated: data.trendTruncated || rows(data.trend).length > 24,
+    brandAnalysis: {
+      items: rows(brands.items).slice(0, 10),
+      cr3Bps: brands.cr3Bps, cr5Bps: brands.cr5Bps, concentration: brands.concentration,
+    },
+    priceBandSummary: rows(data.priceBandSummary).slice(0, 10),
+    subcategorySummary: rows(data.subcategorySummary).slice(0, 10),
+    limits: {
+      brands: 10, priceBands: 10, subcategories: 10, trendMonths: 24,
+      brandItemsTruncated: rows(brands.items).length > 10,
+      priceBandsTruncated: rows(data.priceBandSummary).length > 10,
+      subcategoriesTruncated: rows(data.subcategorySummary).length > 10,
+      dashboardDetailsOmitted: true,
+    },
+  };
+}
+
 export async function callMarketTool(
   name: string,
   args: Record<string, unknown>,
@@ -86,7 +114,7 @@ export async function callMarketTool(
 ): Promise<Record<string, unknown>> {
   if (name === "get_market_overview") {
     const result = await overview(args, principal);
-    return { ...result.data, dataRevision: result.revision };
+    return { ...marketAiOverview(result.data), dataRevision: result.revision };
   }
   if (name === "get_market_brand_analysis") {
     const result = await overview(args, principal);

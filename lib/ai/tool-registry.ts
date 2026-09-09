@@ -419,7 +419,7 @@ export const aiToolRegistry = [
   {
     name: "get_market_overview",
     title: "市场 TOP 榜单概览",
-    description: "只读查询市场分析 2.0 的核心 KPI、行业趋势、商品进出、经营模式、流量转化象限、标题卖点、机会矩阵、数据质量和正式确认主图市场定位价口径。返回范围仅代表当前 TOP 榜单覆盖口径，不代表完整行业市场；行业结论应锁定单一类目、榜单范围和 SKU/SPU 维度。",
+    description: "只读查询市场核心 KPI、最多 24 个月趋势及最多各 10 项品牌、价格带、细分类目摘要，返回截断标志，不包含整页看板和商品明细。仅代表当前 TOP 榜单覆盖，不代表完整行业；查询前应明确日期、单一类目、榜单范围和 SKU/SPU 维度，范围过大时先询问用户并缩小查询。",
     inputSchema: {
       type: "object",
       properties: {
