@@ -63,7 +63,9 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
   const principal = requirePrincipal(context);
   requireUnrestrictedDataScope(principal, "广东入仓库存监控");
   const input = inputObject(args);
-  assertOnlyKeys(input, ["q", "brands", "categories", "suppliers", "risk", "page", "limit"]);
+  assertOnlyKeys(input, ["q", "brands", "categories", "suppliers", "risk", "page", "limit", "warehouses"]);
+  const warehouses = stringList(input.warehouses, "warehouses", 10);
+  if (warehouses.some(warehouse => warehouse !== "广东仓")) failInput("广东入仓监控固定为广东仓，不能查询其他仓库");
   const pageInput = pagination(input);
   const query = new URLSearchParams({ page: String(pageInput.page), pageSize: String(pageInput.pageSize) });
   const text = optionalText(input.q, "q", 100);

@@ -321,7 +321,7 @@ export const aiToolRegistry = [
   {
     name: "get_inventory_health",
     title: "库存健康分析",
-    description: "读取最新库存健康、缺货风险、滞销库存、覆盖天数和补货建议。返回 filtersApplied、totalMatched、returned、truncated 和 items；所有金额字段单位均为人民币分。",
+    description: "用于库存总览（inventory overview），读取最新库存健康、缺货风险、滞销库存、覆盖天数和补货建议。返回 filtersApplied、totalMatched、returned、truncated 和 items；所有金额字段单位均为人民币分。",
     inputSchema: {
       type: "object",
       properties: {
@@ -614,7 +614,7 @@ export const aiToolRegistry = [
   {
     name: "get_inventory_page_data",
     title: "库存库龄与入仓页面数据",
-    description: "复用库存库龄、京东或广东入仓监控页面领域服务，广东监控含供应商备货周期与风险分布；返回最多20行明细，金额为人民币分。仅支持无数据scope限制的身份。",
+    description: "只查询库存子页：age为库龄，inbound为京东入仓，guangdong为广东入仓人工监控清单。库存总览请用get_inventory_health。guangdong固定广东仓，warehouses省略或仅含广东仓，不能代表全仓库存；含供应商周期与风险分布。最多20行明细，金额为人民币分。仅支持无数据scope限制的身份。",
     inputSchema: {
       type: "object",
       properties: {

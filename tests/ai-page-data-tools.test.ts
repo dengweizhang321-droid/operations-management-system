@@ -68,9 +68,14 @@ test("广东AI工具固定reader、真实签名、20行上限和数据scope拒�
   const result = await getInventoryGuangdongPageData({ limit: 20, risk: "urgent" }, { principal: unrestrictedAnalyst });
   assert.equal(result.items.length, 20);
   assert.equal(result.items[0].riskReason, "周期内耗尽");
+  const fixedWarehouse = await getInventoryGuangdongPageData({ limit: 20, risk: "urgent", warehouses: ["广东仓"] }, { principal: unrestrictedAnalyst });
+  assert.deepEqual(fixedWarehouse, result);
+  await assert.rejects(() => getInventoryGuangdongPageData({ warehouses: ["京东仓"] }, { principal: unrestrictedAnalyst }));
+  await assert.rejects(() => getInventoryGuangdongPageData({ warehouses: ["广东仓", "京东仓"] }, { principal: unrestrictedAnalyst }));
+  await assert.rejects(() => getInventoryGuangdongPageData({ warehouses: "广东仓" }, { principal: unrestrictedAnalyst }));
   await assert.rejects(() => getInventoryGuangdongPageData({ limit: 21 }, { principal: unrestrictedAnalyst }));
   await assert.rejects(() => getInventoryGuangdongPageData({}, { principal: { ...unrestrictedAnalyst, scope: { warehouses: ["广东仓"], channels: [], platforms: [] } } }));
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test("default AI finance adapters sign the real principal and never touch D1", async (t) => {
