@@ -98,6 +98,11 @@ Django AI 传输层对已经通过精确 HTTPS origin 白名单校验的模型�
 
 ### 配置与凭据故障
 
+- 本机火山方舟 `https://ark.cn-beijing.volces.com/api/plan/v3` 的 `glm-5.2` 使用自动思考模式（`reasoningMode=auto`）。2026-09-09 供应商实测拒绝 `thinking.type=disabled`，因此不能强制关闭该端点的思考；模型切换后也应按供应商实际能力设置，不应盲目继承上一模型的思考参数。
+- HTTP 回复带 `Connection: close` 时，完整正文读完后连接可能已关闭。传输层按响应是否已结束停止读取，不能继续对关闭的套接字设置超时，否则 Windows 会把正常回复误报为网络失败。
+- 市场概览查询达到现有行数上限会拒绝执行。应明确类目、日期、榜单范围和 SKU/SPU 维度，再缩小查询；不能为了让模型返回数据而放宽服务端上限。
+- 中央工具声明的 `category/scope/rankingDimension/brand/subcategory/operationMode` 必须映射为 Django 对应数组筛选，冲突参数拒绝执行。`get_market_overview` 返回核心汇总、覆盖日期、最多 24 期趋势及品牌/价格带/子类目前 10 项，并显式标记截断；不把完整页面的商品明细、筛选枚举和行业报告塞入模型工具响应，现有 40,000 字符上限保持不变。
+
 - 密钥泄露或机器人 Webhook 泄露时，应先在平台侧轮换，再在系统中编辑对应配置并输入新值。
 - 修改配置时将密钥、Token、AES Key、Webhook 留空，即保留服务器中已有值；要替换才输入新值。
 - 删除配置会连同加密凭据删除，界面会要求二次确认。

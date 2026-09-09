@@ -10,6 +10,8 @@
 
 AI 助理完整数据域已于 2026-09-05 在本机正式切换至 Django/PostgreSQL（reader/writer：8111/8112），39 张历史表、536 条记录迁移复验通过，旧 AI D1 已终态退役。现有 React 六个工作区和中央只读工具注册表保留；图片字节亦已于 2026-09-06 切换到 PostgreSQL，AI R2 命名空间已退役，其他业务域 R2 保留，详见 [`docs/DJANGO_AI_R2_RETIREMENT.md`](docs/DJANGO_AI_R2_RETIREMENT.md)。系统测试、激活前后备份恢复和正式采用证据见 [`docs/DJANGO_AI_ASSISTANT_MIGRATION.md`](docs/DJANGO_AI_ASSISTANT_MIGRATION.md)。
 
+AI 对话已于 2026-09-09 在本机修复代理虚拟 DNS 地址拦截与完整 HTTP 响应读取后误报连接失败的问题；默认火山方舟 `glm-5.2` 的思考模式已修正为自动，避免供应商拒绝关闭思考参数。市场工具已修复筛选参数映射，并返回有界分析摘要，避免完整页面内容超过工具上限。普通对话与指定类目、日期、SKU 维度的市场分析均已取得真实模型回复并完成消息保存回查。市场分析仍受现有查询量上限约束，提问时应指定类目、日期和 SKU/SPU 维度。故障处理见 [AI 助理配置说明](docs/AI_ASSISTANT_SETUP.md)，发布与验收记录见 [本机采用证据](docs/evidence/ai-chat-production-20260909.json)。
+
 ## 后端与聚合入口
 
 本机已于 2026-09-06 完成聚合层受控发布，结构化业务事实与状态统一由 Django/PostgreSQL 负责。全局搜索、AI 财务工具、财务公开 API、市场标注和后台调度已清除 D1 访问；当次采用的 Worker `20260905T180043Z-7364a22437c52ae1` 已取消 D1 binding 和 Drizzle 迁移，后续控制链采用保持此边界，当前版本见下节。23 个 Django 服务及 14 分组搜索已回查，网店搜索的重复批次查询也已修复。现有 React 前端与薄 Worker 保留，市场/网店图片及运营事务附件继续使用原 R2。检查命令为 `npm run check:backend-boundary`，聚合层历史采用清单、验证与发布证据见 [`docs/DJANGO_AGGREGATE_CUTOVER.md`](docs/DJANGO_AGGREGATE_CUTOVER.md)。
