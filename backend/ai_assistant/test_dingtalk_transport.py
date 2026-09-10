@@ -49,14 +49,32 @@ class DingTalkTransportTests(SimpleTestCase):
             return {"success": True, "result": {"processQueryKey": "fixture-receipt", "invalidStaffIdList": [], "flowControlledStaffIdList": []}}
         raise AssertionError(args)
 
-    def test_group_trigger_replies_only_to_its_verified_sender(self):
+    def test_group_trigger_replies_to_its_verified_source_group(self):
         session = SimpleNamespace(sender_id="bound-staff", conversation_type="2", external_conversation_id="group")
         with patch.object(platform, "guard"), patch.object(platform, "dws", side_effect=self.response) as calls:
             platform.send(lambda: self.config, session, "有界结果")
         args = calls.call_args.args[0]
+        self.assertNotIn("--users", args)
+        self.assertEqual(args[args.index("--group")+1], "group")
+        self.assertIn("send-by-bot", args)
+
+    def test_dm_still_replies_to_bound_sender(self):
+        session = SimpleNamespace(sender_id="bound-staff", conversation_type="1", external_conversation_id="dm")
+        with patch.object(platform, "guard"), patch.object(platform, "dws", side_effect=self.response) as calls:
+            platform.send(lambda: self.config, session, "结果")
+        args = calls.call_args.args[0]
         self.assertNotIn("--group", args)
         self.assertEqual(args[args.index("--users")+1], "bound-staff")
-        self.assertIn("send-by-bot", args)
+
+    def test_group_change_or_bot_mismatch_never_falls_back_to_dm(self):
+        session = SimpleNamespace(sender_id="bound-staff", conversation_type="2", external_conversation_id="group")
+        for replacement in ({"result": {"hasMore": False, "groups": [{"title": "测试群聊", "openConversationId": "other"}]}},
+                            {"result": {"hasMore": False, "groups": []}}):
+            def response(args, profile):
+                return replacement if args[:2] == ["chat", "search"] else self.response(args, profile)
+            with patch.object(platform, "guard"), patch.object(platform, "dws", side_effect=response) as calls, self.assertRaises(AiError):
+                platform.send(lambda: self.config, session, "结果")
+            self.assertFalse(any(call.args[0][:3] == ["chat", "message", "send-by-bot"] for call in calls.call_args_list))
 
     def test_removed_bot_stops_before_send(self):
         session = SimpleNamespace(sender_id="bound-staff", conversation_type="2", external_conversation_id="group")

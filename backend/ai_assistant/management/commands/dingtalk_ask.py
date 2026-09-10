@@ -7,7 +7,7 @@ from threading import Event
 from urllib.parse import quote_plus, urlsplit
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, close_old_connections
-from ai_assistant import dingtalk as service, dingtalk_transport as platform
+from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings
 from ai_assistant.policy import AiError, authority
 
 
@@ -19,9 +19,10 @@ class Command(BaseCommand):
         parser.add_argument("--check", action="store_true")
 
     def handle(self, *args, **options):
-        reader = lambda: service.load_config(options["config"])
+        reader = lambda: dingtalk_settings.effective(service.load_config(options["config"]))
         try:
-            config = reader()
+            base = service.load_config(options["config"])
+            config = reader() if service.m.AiDingTalkSettings.objects.filter(pk=1).exists() else base
             platform.robot(config)
             for group in config["groups"]:
                 platform.verify_group(config, group)
@@ -30,7 +31,7 @@ class Command(BaseCommand):
             if options["check"]:
                 self.stdout.write('{"status":"verified","connected":false,"sent":0}')
                 return
-            if not config["enabled"] or connection.vendor != "postgresql":
+            if not base["enabled"] or connection.vendor != "postgresql":
                 raise AiError("运行监听需显式启用配置和独立 AI PostgreSQL 写侧")
             authority()
             # Session lock belongs to this dedicated connection until process exit.
@@ -38,9 +39,10 @@ class Command(BaseCommand):
                 cursor.execute("SELECT pg_try_advisory_lock(841327, 1909)")
                 if cursor.fetchone() != (True,):
                     raise AiError("已有钉钉问数接收器，拒绝重复启动")
-            service.recover_interrupted()
-            self.stdout.write('{"status":"starting","replyMode":"direct","domains":["sales","inventory","netshop"]}')
             try:
+                dingtalk_settings.initialize(base)
+                service.recover_interrupted()
+                self.stdout.write('{"status":"starting","replyMode":"source","queryScope":"authorized_system_modules"}')
                 asyncio.run(self.run_stream(reader))
             finally:
                 with connection.cursor() as cursor:
@@ -73,7 +75,7 @@ class Command(BaseCommand):
                 return fn()
             finally:
                 close_old_connections()
-        key, secret = await loop.run_in_executor(ingress, lambda: platform.credentials(reader()))
+        key, secret = await loop.run_in_executor(ingress, lambda: db_call(lambda: platform.credentials(reader())))
         client = sdk.DingTalkStreamClient(sdk.Credential(key, secret), logger=silent)
         class Handler(sdk.CallbackHandler):
             async def process(self, message):
@@ -97,8 +99,12 @@ class Command(BaseCommand):
         async def listen():
             failures = 0
             while True:
-                if not reader()["enabled"]:
-                    return
+                # ORM policy reads must run outside the asyncio thread. Keep the
+                # listener alive when disabled so a settings save can re-enable it.
+                config = await loop.run_in_executor(ingress, lambda: db_call(reader))
+                if not config["enabled"]:
+                    await asyncio.sleep(2)
+                    continue
                 try:
                     # Bound SDK connection creation; the stock helper has no HTTP timeout.
                     reply = await loop.run_in_executor(ingress, lambda: platform.open_stream(key, secret))

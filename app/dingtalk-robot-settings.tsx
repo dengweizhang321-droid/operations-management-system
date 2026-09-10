@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import DingTalkAiSettings from "./dingtalk-ai-settings";
 
 import { requestJson } from "@/lib/http/api-client";
 
@@ -93,14 +94,15 @@ export default function DingTalkRobotSettings({ canWrite }: { canWrite: boolean 
     return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取钉钉机器人配置</strong><p>正在连接运营事务周报配置…</p></section>;
   }
   if (!draft) {
-    return <section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>钉钉机器人配置读取失败</strong><p>{error || "暂时无法读取配置"}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>;
+    return <><DingTalkAiSettings /><section className="panel data-state data-state-error" role="alert"><span className="state-symbol">!</span><strong>钉钉周报配置读取失败</strong><p>{error || "暂时无法读取配置"}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section></>;
   }
 
   return <div className="dingtalk-settings-workspace data-refresh-region" aria-busy={loading || saving}>
+    <DingTalkAiSettings />
     {(error || notice) && <section className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "处理失败" : "保存成功"}</strong><p>{error || notice}</p></div></section>}
 
     <section className="panel dingtalk-settings-intro">
-      <div><span className="eyebrow">DINGTALK STREAM ROBOT</span><h2>钉钉机器人</h2><p>统一管理上新销售图片周报的机器人、目标群和发送时间。机器人密钥由本机 DWS 安全凭据库托管，不在网页中显示或保存。</p></div>
+      <div><span className="eyebrow">DINGTALK STREAM ROBOT</span><h2>钉钉图片周报</h2><p>管理上新销售图片周报的目标群和发送时间，与 AI 对话群独立配置。机器人密钥由本机 DWS 安全凭据库托管。</p></div>
       <span className={`status ${draft.enabled ? "status-success" : "status-gray"}`}>{draft.enabled ? "已启用" : "未启用"}</span>
     </section>
 

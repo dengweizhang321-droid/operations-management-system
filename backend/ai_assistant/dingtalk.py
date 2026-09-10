@@ -35,20 +35,25 @@ def load_config(path):
 
 def validate_config(config):
     required = {"version", "enabled", "profile", "corpId", "unifiedAppId", "robotCode", "robotName", "groups", "bindings"}
-    fields(config, required, required)
-    if type(config["version"]) is not int or config["version"] != 1 or type(config["enabled"]) is not bool or config["robotName"] != "志高助手":
+    fields(config, required | {"policyVersion"}, required)
+    if type(config["version"]) is not int or config["version"] not in (1, 2) or type(config["enabled"]) is not bool or config["robotName"] != "志高助手":
         raise AiError("钉钉问数配置版本或机器人名称无效")
+    if config["version"] == 2 and (type(config.get("policyVersion")) is not int or config["policyVersion"] < 1):
+        raise AiError("AI 群配置版本无效")
     for key in ("profile", "corpId", "unifiedAppId", "robotCode"):
         opaque(config[key], key)
     if config["profile"].split(":")[0] != config["corpId"]:
         raise AiError("钉钉组织与授权 profile 不一致")
-    if not isinstance(config["groups"], list) or len(config["groups"]) > 1:
-        raise AiError("首批只允许一个指定群")
+    if not isinstance(config["groups"], list) or len(config["groups"]) > 30:
+        raise AiError("最多允许 30 个指定群")
+    group_ids = set()
     for group in config["groups"]:
         fields(group, {"id", "name"}, {"id", "name"})
         opaque(group["id"], "group", 256)
-        if group["name"] != "测试群聊":
-            raise AiError("首批群聊必须为测试群聊")
+        text(group["name"], "群名称", 100)
+        if group["id"] in group_ids:
+            raise AiError("群 ID 不能重复")
+        group_ids.add(group["id"])
     bindings = config["bindings"]
     if not isinstance(bindings, list) or not 1 <= len(bindings) <= 30:
         raise AiError("请配置 1–30 个钉钉账号绑定")
@@ -183,7 +188,7 @@ def step(config_reader, sender):
                     row.ack_status = "sending"
                     row.save(update_fields=["ack_status"])
                 try:
-                    sender(session, "收到，正在查询销售、库存或网店数据；结果会私聊回复。")
+                    sender(session, "收到，正在查询系统数据；结果将在本群回复。" if session.conversation_type == "2" else "收到，正在查询系统数据；结果将在当前私聊回复。")
                 except Exception:
                     with mutation():
                         row.ack_status = "unknown"

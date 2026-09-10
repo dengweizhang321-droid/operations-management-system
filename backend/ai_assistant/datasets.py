@@ -47,14 +47,16 @@ MAX_RESULT_BYTES = 140000
 MAX_RESULT_CHARACTERS = 39500
 
 
-def visible(principal):
-    entries = transport.catalog(principal, SURFACE)
+def visible(principal, surface=SURFACE):
+    if surface not in {"ai_chat", "dingtalk_chat"}:
+        raise AiError("数据集查询入口无效", "access_denied", 403)
+    entries = transport.catalog(principal, surface)
     selected = {}
     for entry in entries:
         policy = entry.get("execution", {})
         if (entry.get("risk") == "read_only"
                 and policy.get("mode") == "direct"
-                and SURFACE in policy.get("allowedSurfaces", [])
+                and surface in policy.get("allowedSurfaces", [])
                 and principal.role in entry.get("allowedRoles", [])
                 and (principal.scope is None or entry.get("scopePolicy") != "unscoped_only")):
             selected[entry["name"]] = entry
@@ -101,8 +103,8 @@ def descriptor(dataset_id, entry, *, detail=False):
     return item
 
 
-def describe(principal, dataset_id=None, *, page=1, page_size=20, domain=None):
-    _, selected = visible(principal)
+def describe(principal, dataset_id=None, *, page=1, page_size=20, domain=None, surface=SURFACE):
+    _, selected = visible(principal, surface)
     if dataset_id is not None:
         identifier(dataset_id, "dataset")
         if not allowed(dataset_id, principal, selected):
@@ -145,14 +147,14 @@ def _result(value, expected_tool):
     return value["data"]
 
 
-def query(dataset_id, body, principal, request_id):
+def query(dataset_id, body, principal, request_id, *, surface=SURFACE):
     identifier(dataset_id, "dataset")
     fields(body, {"query"})
     args = body.get("query", {})
     if not isinstance(args, dict):
         raise AiError("query 必须为 JSON 对象")
     passive(args, MAX_QUERY_BYTES)
-    entries, selected = visible(principal)
+    entries, selected = visible(principal, surface)
     if not allowed(dataset_id, principal, selected):
         raise AiError("数据集不存在或当前账号无权访问", "not_found", 404)
     record_spec = record_catalog.SPECS.get(dataset_id)
@@ -166,7 +168,7 @@ def query(dataset_id, body, principal, request_id):
 
     def execute(name, arguments):
         return _result(transport.execute_tool(
-            name, arguments, principal, surface=SURFACE, request_id=request_id,
+            name, arguments, principal, surface=surface, request_id=request_id,
             policy_digest=policy_digest,
         ), name)
 
@@ -190,10 +192,10 @@ def query(dataset_id, body, principal, request_id):
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
     if operation == "datasets-describe":
-        fields(payload, {"operation", "dataset", "page", "pageSize", "domain"}, {"operation"})
+        fields(payload, {"operation", "dataset", "page", "pageSize", "domain", "surface"}, {"operation"})
         return describe(principal, payload.get("dataset"), page=payload.get("page", 1),
-                        page_size=payload.get("pageSize", 20), domain=payload.get("domain"))
-    fields(payload, {"operation", "dataset", "queryJson"}, {"operation", "dataset", "queryJson"})
+                        page_size=payload.get("pageSize", 20), domain=payload.get("domain"), surface=payload.get("surface", SURFACE))
+    fields(payload, {"operation", "dataset", "queryJson", "surface"}, {"operation", "dataset", "queryJson"})
     raw = payload["queryJson"]
     if not isinstance(raw, str) or len(raw.encode()) > MAX_QUERY_BYTES:
         raise AiError("queryJson 超限或不是字符串")
@@ -201,4 +203,4 @@ def consumer(payload, principal, request_id):
         args = json.loads(raw)
     except (ValueError, RecursionError) as error:
         raise AiError("queryJson 必须为有效 JSON 对象") from error
-    return query(payload["dataset"], {"query": args}, principal, request_id)
+    return query(payload["dataset"], {"query": args}, principal, request_id, surface=payload.get("surface", SURFACE))

@@ -262,6 +262,12 @@ function Assert-MaintenanceEvidence(
   $dingTalkMigration = @($Evidence.migrations | Where-Object {
     [string]$_.app -ceq "ai_assistant" -and [string]$_.name -ceq "0007_dingtalk_readonly"
   })
+  $dingTalkSettingsMigration = @($Evidence.migrations | Where-Object {
+    [string]$_.app -ceq "ai_assistant" -and [string]$_.name -ceq "0008_dingtalk_settings"
+  })
+  if ($dingTalkSettingsMigration.Count -gt 0 -and ($dingTalkMigration.Count -ne 1 -or -not $hasAiMigration -or -not $hasAi)) {
+    throw "PostgreSQL 钉钉设置迁移缺少完整前置证据"
+  }
   if ($dingTalkMigration.Count -gt 0 -and ($workspaceMigration.Count -ne 1 -or -not $hasAiMigration -or -not $hasAi)) {
     throw "PostgreSQL 钉钉问数迁移缺少完整前置证据"
   }
@@ -386,6 +392,9 @@ function Assert-MaintenanceEvidence(
   }
   if ($hasAi) {
     $requiredTables += @("ai_agent_checkpoints", "ai_agent_events", "ai_agent_jobs", "ai_agent_provider_dispatches", "ai_agent_provider_results", "ai_agent_tool_dispatches", "ai_agent_tool_results", "ai_analysis_runs", "ai_artifact_deliveries", "ai_artifacts", "ai_channel_callback_events", "ai_channels", "ai_chat_provider_dispatches", "ai_chat_request_receipts", "ai_conversation_deletion_audits", "ai_conversation_messages", "ai_conversation_scopes", "ai_conversations", "ai_data_revisions", "ai_knowledge_entries", "ai_memory_audit_logs", "ai_memory_commit_guards", "ai_memory_entries", "ai_migration_runs", "ai_models", "ai_mutation_audits", "ai_space_admin_audits", "ai_space_asset_cleanup_queue", "ai_space_asset_favorites", "ai_space_asset_payloads", "ai_space_assets", "ai_space_dispatch_receipts", "ai_space_dispatch_results", "ai_space_job_items", "ai_space_jobs", "ai_space_model_profiles", "ai_space_schema_upgrades", "ai_space_templates", "ai_system_settings", "ai_tool_audit_logs", "ai_workflow_events", "ai_workflow_node_runs", "ai_workflow_runs", "ai_write_authority", "ai_write_request_receipts")
+    if ($dingTalkSettingsMigration.Count -gt 0) {
+      $requiredTables += @("ai_dingtalk_settings")
+    }
     if ($dingTalkMigration.Count -gt 0) {
       if ($workspaceMigration.Count -ne 1) { throw "钉钉问数迁移缺少前置会话迁移" }
       $requiredTables += @("ai_dingtalk_sessions", "ai_dingtalk_receipts")

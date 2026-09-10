@@ -308,7 +308,7 @@ test("new-product follow-up renders continuous monitoring, product images, match
   for (const label of ["钉钉周报表格预览", "品牌", "产品图", "产品名称", "趋势", "钉钉机器人设置", "打开 Excel 表格", "暂停监控", "启动监控", "吉客云名称（学习关键词）"]) {
     assert.match(followup, new RegExp(label));
   }
-  assert.match(robotSettings, /<h2>钉钉机器人<\/h2>/);
+  assert.match(robotSettings, /<h2>钉钉图片周报<\/h2>/);
   assert.match(robotSettings, /PNG 上传钉盘 \+ 机器人在线预览链接/);
   assert.match(followup, /REPORT_TIMELINE_START = "2026-08-03"/);
   assert.match(followup, /weeklyNetQuantities/);

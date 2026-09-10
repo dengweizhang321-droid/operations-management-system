@@ -3,6 +3,23 @@ from django.db import models
 from django.utils import timezone
 
 
+class AiDingTalkSettings(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    identity_json = models.TextField()
+    enabled = models.BooleanField(default=False)
+    groups_json = models.TextField(default="[]")
+    version = models.PositiveIntegerField(default=1)
+    updated_by = models.CharField(max_length=320)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_dingtalk_settings"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(id=1), name="ai_ding_settings_singleton"),
+            models.CheckConstraint(condition=models.Q(version__gte=1), name="ai_ding_settings_version"),
+        ]
+
+
 class AiDingTalkSession(models.Model):
     id = models.CharField(primary_key=True, max_length=64)
     config_digest = models.CharField(max_length=64)

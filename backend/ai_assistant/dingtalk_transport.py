@@ -106,10 +106,11 @@ def send(config_reader, session, content):
         if not group:
             raise AiError("群聊已撤销授权", "access_denied", 403)
         verify_group(config, group)
-    # Always DM the verified sender in v1. A group trigger grants no disclosure to peers.
+    target = ["--group", session.external_conversation_id] if session.conversation_type == "2" else ["--users", session.sender_id]
+    # Source identity comes only from the persisted, authenticated Stream session.
     guard(session, config_reader())
     result = dws(["chat", "message", "send-by-bot", "--robot-code", config["robotCode"],
-        "--users", session.sender_id, "--title", "志高助手 · 只读问数", "--text", content], config["profile"])
+        *target, "--title", "志高助手 · 只读问数", "--text", content], config["profile"])
     receipt = result.get("result")
     if (result.get("success") is not True or not isinstance(receipt, dict)
             or not isinstance(receipt.get("processQueryKey"), str)

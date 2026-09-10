@@ -20,6 +20,7 @@ from . import (
     transport,
     knowledge,
     datasets,
+    dingtalk_settings,
 )
 from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
@@ -120,6 +121,7 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"dingtalk-settings": {"GET", "PATCH"},
             r"datasets(?:/[a-z][a-z0-9_]{0,63})?": {"GET"},
             r"datasets/[a-z][a-z0-9_]{0,63}/query": {"POST"},
             r"models|channels|space/(?:profiles|templates)": {"GET", "POST", "DELETE"},
@@ -184,7 +186,7 @@ def _dispatch(request, path=""):
             principal = current_principal(
                 principal, write=writer and root not in {"consumer", "artifacts"}
             )
-        if root in {"models", "channels"} or parts[:2] in [
+        if root in {"models", "channels", "dingtalk-settings"} or parts[:2] in [
             ["space", "profiles"],
             ["space", "templates"],
         ]:
@@ -279,6 +281,9 @@ def _dispatch(request, path=""):
 
 def read(parts, params, principal):
     root = parts[0]
+    if root == "dingtalk-settings":
+        fields(params, set())
+        return dingtalk_settings.read(principal)
     if root == "models":
         return {
             "items": [
@@ -364,6 +369,9 @@ def read(parts, params, principal):
 
 def mutate(parts, params, payload, principal, request_id, method):
     root = parts[0]
+    if root == "dingtalk-settings":
+        fields(params, set())
+        return dingtalk_settings.save(payload, principal), 200
     if root == "models":
         if method == "DELETE":
             return configuration.delete_model(params, principal), 200

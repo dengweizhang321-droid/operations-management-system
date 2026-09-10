@@ -17673,6 +17673,7 @@
     }
   ],
   "excludedModels": [
+    {"model": "ai_assistant.AiDingTalkSettings", "coveredBy": null, "reason": "钉钉 AI 群路由授权配置，仅通过管理员设置接口访问"},
     {
       "model": "ai_assistant.AiDingTalkSession",
       "coveredBy": null,

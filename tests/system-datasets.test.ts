@@ -90,6 +90,30 @@ test("dataset tools share provider schemas, principal filtering and strict input
   }
 });
 
+test("DingTalk registry preserves roles, scopes, provider schemas and private tool exclusions", async () => {
+  for (const role of ["viewer", "analyst", "operator", "admin"] as const) {
+    for (const scope of [null, { warehouses: [], channels: [], platforms: [] }]) {
+      const actor = { ...principal, role, scope };
+      const entries = getToolsForPrincipal(actor, "dingtalk_chat");
+      const openai = getOpenAiTools(actor, "dingtalk_chat");
+      const anthropic = getAnthropicTools(actor, "dingtalk_chat");
+      assert.equal(entries.some(e => e.name === "get_system_dataset_records"), role === "admin" && scope === null);
+      assert.ok(entries.every(e => e.risk === "read_only" && e.execution.mode === "direct"));
+      for (const name of ["search_personal_memory", "search_system_knowledge", "run_analysis_plan"]) {
+        assert.ok(!entries.some(e => e.name === name));
+      }
+      for (const entry of entries) {
+        assert.equal(typeof entry.handler, "function");
+        assert.deepEqual(openai.find(t => t.function.name === entry.name)!.function.parameters,
+          anthropic.find(t => t.name === entry.name)!.input_schema);
+      }
+    }
+  }
+  const denied = await executeRegisteredToolCall("get_system_dataset_records", { dataset: "rows_ai_models", queryJson: "{}" },
+    { principal: { ...principal, role: "analyst" }, surface: "dingtalk_chat", requestId: "ding-scope-denied" }, { audit: async () => {} });
+  assert.equal(denied.ok, false);
+});
+
 test("public and AI dataset calls select reader, bind identity and support cancellation", async () => {
   const calls: Request[] = [];
   const fetchImpl: typeof fetch = async (input, init) => {
@@ -150,10 +174,13 @@ test("registered dataset handlers forward validated input to Django with real id
   });
   assert.equal(result.ok, true);
   assert.deepEqual(audited, ["started", "succeeded"]);
-  assert.deepEqual(await calls[0].json(), { operation: "datasets-query", dataset: "sales_summary", queryJson: "{}" });
+  assert.deepEqual(await calls[0].json(), { operation: "datasets-query", dataset: "sales_summary", queryJson: "{}", surface: "ai_chat" });
   assert.equal(calls[0].headers.get("x-teruisi-request-id"), context.requestId);
   assert.equal(new URL(calls[0].url).port, "18111");
   if (result.ok) assert.deepEqual(result.data.data, { total: 100, returned: 1, truncated: true });
   await executeRegisteredToolCall("describe_system_datasets", { dataset: "sales_summary" }, context, { audit: async () => {} });
-  assert.deepEqual(await calls[1].json(), { operation: "datasets-describe", dataset: "sales_summary" });
+  assert.deepEqual(await calls[1].json(), { operation: "datasets-describe", dataset: "sales_summary", surface: "ai_chat" });
+  await executeRegisteredToolCall("query_system_dataset", { dataset: "sales_summary", queryJson: "{}" },
+    { ...context, surface: "dingtalk_chat" }, { audit: async () => {} });
+  assert.equal((await calls[2].json()).surface, "dingtalk_chat");
 });

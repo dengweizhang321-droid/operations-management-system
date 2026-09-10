@@ -134,7 +134,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: ["admin"],
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 4 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 4 },
     handler: queryDatasetRecords,
   },
   {
@@ -155,7 +155,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, timeoutMs: 20_000 },
+    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000 },
     handler: describeSystemDatasets,
   },
   {
@@ -175,7 +175,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, timeoutMs: 30_000, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 30_000, maxCallsPerRequest: 2 },
     handler: querySystemDataset,
   },
   {
@@ -233,7 +233,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 20_000 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 20_000 },
     handler: (args, context) => listAiAgentJobs({
       page: typeof args.page === "number" ? args.page : 1,
       pageSize: typeof args.pageSize === "number" ? args.pageSize : 10,
@@ -255,7 +255,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 20_000 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 20_000 },
     handler: (args, context) => listAiWorkflowRuns({
       page: typeof args.page === "number" ? args.page : 1,
       pageSize: typeof args.pageSize === "number" ? args.pageSize : 10,
@@ -374,7 +374,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callOperationsTool("get_product_performance", args, context.principal, { signal: context.signal }),
   },
   {
@@ -395,7 +395,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callOperationsTool("list_replenishment_plans", args, context.principal, { signal: context.signal }),
   },
   {
@@ -420,7 +420,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => getCustomerServiceConversationsForAi(args, context.principal, { signal: context.signal }),
   },
   {
@@ -446,7 +446,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callMarketTool("get_market_overview", args, context.principal),
   },
   {
@@ -469,7 +469,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callMarketTool("get_market_sku_trend", args, context.principal),
   },
   {
@@ -493,7 +493,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callMarketTool("get_market_brand_analysis", args, context.principal),
   },
   {
@@ -517,7 +517,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callMarketTool("get_market_price_band_analysis", args, context.principal),
   },
   {
@@ -536,7 +536,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: chatDataRoles,
     scopePolicy: "unscoped_only",
-    execution: synchronousReadOnlyExecution,
+    execution: dingTalkReadOnlyExecution,
     handler: (args, context) => callMarketTool("get_market_pending_review_summary", args, context.principal),
   },
   {
@@ -587,7 +587,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => searchSystemDataForAi(args as never, { execution: context }),
   },
   {
@@ -613,7 +613,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "targets"
       ? listFinanceTargetsPageData(pageToolArguments(args), context)
       : getFinanceAnalysisPageData(pageToolArguments(args), context),
@@ -718,7 +718,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "operations"
       ? listOperationsRecordsPageData(pageToolArguments(args), context)
       : args.view === "launch_projects"
@@ -746,7 +746,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2 },
     handler: (args, context) => getImportStatusPageData(args, context),
   },
   {
@@ -763,7 +763,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "metadata_safe",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 8_000 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 8_000 },
     handler: (args, context) => getAutomationRunStatusPageData(args, context),
   },
   {
@@ -785,7 +785,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 },
+    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 2 },
     handler: (args, context) => args.view === "compare"
       ? compareMarketItemsPageData(pageToolArguments(args), context)
       : getMarketWorkspaceStatusPageData(pageToolArguments(args), context),
@@ -799,7 +799,7 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "unscoped_only",
-    execution: { ...synchronousReadOnlyExecution, maxCallsPerRequest: 1, maxResultCharacters: 8_000 },
+    execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 1, maxResultCharacters: 8_000 },
     handler: (args, context) => getOperatingSettingsSummaryPageData(args, context),
   },
   {
