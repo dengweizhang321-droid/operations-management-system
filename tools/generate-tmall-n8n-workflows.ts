@@ -10,6 +10,7 @@ import {
   tmallDirectProductMasterRoute,
   tmallDirectPromotionRoute,
 } from "./tmall-yijiu-direct-pm-contract";
+import { attachHourlyRetryTarget } from "./n8n-hourly-retry-policy.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflowDirectory = path.join(projectRoot, "automation", "n8n");
@@ -156,7 +157,7 @@ function replaceStoreSpecificText(content: string, definition: TmallN8nWorkflowD
       "浏览器不可连接时才从 Git 已忽略的店铺专属",
     );
   }
-  const productMasterStart = adapted.indexOf("最后 M ");
+  const productMasterStart = adapted.indexOf("最后 M 复用");
   const productMasterEnd = adapted.indexOf("M 成功或任一阶段失败后", productMasterStart);
   if (productMasterStart >= 0) {
     if (productMasterEnd < 0) throw new Error("天猫 n8n 基础模板的 M 节点说明不完整");
@@ -286,6 +287,7 @@ export function buildTmallN8nWorkflow(
   adaptManualTrigger(workflow);
   adaptProductMasterNode(workflow, definition);
   addDailyBackfillLoop(workflow);
+  attachHourlyRetryTarget(workflow);
   return workflow;
 }
 

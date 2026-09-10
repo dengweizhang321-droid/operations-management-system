@@ -15,6 +15,10 @@ if (-not (Test-Path -LiteralPath $n8nEntry -PathType Leaf)) {
 
 $existingListener = @(Get-NetTCPConnection -State Listen -LocalPort 5678 -ErrorAction SilentlyContinue)
 if ($existingListener.Count -gt 0) {
+  $nonLoopbackListener = @($existingListener | Where-Object { $_.LocalAddress -notin @("127.0.0.1", "::1") })
+  if ($nonLoopbackListener.Count -gt 0) {
+    throw "Port 5678 is listening on a non-loopback address; the retry endpoints must not be externally reachable."
+  }
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:5678/healthz" -TimeoutSec 5
     if ([int]$response.StatusCode -eq 200) {
@@ -29,5 +33,6 @@ if ($existingListener.Count -gt 0) {
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 Set-Location -LiteralPath $projectRoot
 
+$env:N8N_LISTEN_ADDRESS = "127.0.0.1"
 & $nodeCommand $n8nEntry start 1>> $stdoutLog 2>> $stderrLog
 exit $LASTEXITCODE

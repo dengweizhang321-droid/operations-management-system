@@ -325,6 +325,23 @@
       ]
     },
     {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "f49b218d-379b-489e-bcd9-5ad5db24bcb4",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -860,
+        360
+      ],
+      "webhookId": "caccf5d0-455c-4c9d-aff3-0a5086373c6e"
+    },
+    {
       "id": "d04c7fdd-7221-456b-b5ad-ecf18e1e89da",
       "name": "N·复查缺口并计划下一日",
       "type": "n8n-nodes-base.httpRequest",
@@ -578,6 +595,17 @@
         ]
       ]
     },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "P·直连创建商品报表、下载、汇总导入并回查": {
       "main": [
         [
@@ -604,11 +632,18 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "a4b3e032-7809-4ad6-8555-f4267ac201fb",
   "meta": {
     "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453"
+    },
     "currentForYijiu": true,
     "candidateProtocol": "yijiu-direct-pm-v1",
     "replacesWorkflowId": "M4xY8kQ2vR6sT9pC"
