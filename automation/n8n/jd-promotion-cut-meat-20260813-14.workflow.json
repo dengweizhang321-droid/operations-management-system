@@ -8,14 +8,27 @@
       "name": "手动补跑8月20日",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [-700, -80]
+      "position": [
+        -700,
+        -80
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "cut-meat-start", "name": "startDate", "value": "2026-08-20", "type": "string" },
-            { "id": "cut-meat-end", "name": "endDate", "value": "2026-08-20", "type": "string" }
+            {
+              "id": "cut-meat-start",
+              "name": "startDate",
+              "value": "2026-08-20",
+              "type": "string"
+            },
+            {
+              "id": "cut-meat-end",
+              "name": "endDate",
+              "value": "2026-08-20",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -24,17 +37,30 @@
       "name": "固定补跑日期",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [-500, -80]
+      "position": [
+        -500,
+        -80
+      ]
     },
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "10 13 * * *" }] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "10 13 * * *"
+            }
+          ]
+        }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212208",
       "name": "每天 13:10 执行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [-700, 100]
+      "position": [
+        -700,
+        100
+      ]
     },
     {
       "parameters": {
@@ -43,29 +69,51 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
-            { "name": "X-TERUISI-COORDINATION-ATTEMPT", "value": "={{ $runIndex }}" },
-            { "name": "X-TERUISI-WORKFLOW-KEY", "value": "jd-promotion" }
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-COORDINATION-ATTEMPT",
+              "value": "={{ $runIndex }}"
+            },
+            {
+              "name": "X-TERUISI-WORKFLOW-KEY",
+              "value": "jd-promotion"
+            }
           ]
         },
-        "options": { "timeout": 10000 }
+        "options": {
+          "timeout": 10000
+        }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212209",
       "name": "领取共享 helper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-300, 0]
+      "position": [
+        -300,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
           "conditions": [
             {
               "id": "8b9c0d11-1213-4415-8617-181920212210",
               "leftValue": "={{ $json.coordinationStatus }}",
               "rightValue": "granted",
-              "operator": { "type": "string", "operation": "equals" }
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
           ],
           "combinator": "and"
@@ -76,15 +124,25 @@
       "name": "helper 领取成功？",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-100, 0]
+      "position": [
+        -100,
+        0
+      ]
     },
     {
-      "parameters": { "resume": "timeInterval", "amount": 5, "unit": "minutes" },
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "minutes"
+      },
       "id": "8b9c0d11-1213-4415-8617-181920212212",
       "name": "等待前序流程释放 helper",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [-100, 170]
+      "position": [
+        -100,
+        170
+      ]
     },
     {
       "parameters": {
@@ -93,47 +151,88 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" },
-            { "name": "X-TERUISI-JD-PROMOTION-STORE-KEY", "value": "jd-maidehao-operator1" },
-            { "name": "X-TERUISI-JD-PROMOTION-START-DATE", "value": "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.startDate : '' }}" },
-            { "name": "X-TERUISI-JD-PROMOTION-END-DATE", "value": "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : '' }}" }
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            },
+            {
+              "name": "X-TERUISI-JD-PROMOTION-STORE-KEY",
+              "value": "jd-maidehao-operator1"
+            },
+            {
+              "name": "X-TERUISI-JD-PROMOTION-START-DATE",
+              "value": "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.startDate : '' }}"
+            },
+            {
+              "name": "X-TERUISI-JD-PROMOTION-END-DATE",
+              "value": "={{ $execution.mode === 'manual' ? $('固定补跑日期').first().json.endDate : '' }}"
+            }
           ]
         },
-        "options": { "timeout": 120000 }
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212203",
       "name": "A·固化切肉机店铺与目标日期",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [120, 0]
+      "position": [
+        120,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd-promotion/run",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
-        "options": { "timeout": 1800000 }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 1800000
+        }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212204",
       "name": "B·生成下载校验导入并回查",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 0]
+      "position": [
+        520,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://127.0.0.1:5791/jd-promotion/verify",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "X-TERUISI-N8N-EXECUTION-ID", "value": "={{ $execution.id }}" }] },
-        "options": { "timeout": 120000 }
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-TERUISI-N8N-EXECUTION-ID",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "8b9c0d11-1213-4415-8617-181920212205",
       "name": "C·独立复验文件与精确批次",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [920, 0]
+      "position": [
+        920,
+        0
+      ]
     },
     {
       "parameters": {
@@ -146,7 +245,10 @@
       "name": "切肉机店铺安全边界",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-700, -300]
+      "position": [
+        -700,
+        -300
+      ]
     },
     {
       "parameters": {
@@ -159,28 +261,153 @@
       "name": "流程与恢复说明",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-20, -300]
+      "position": [
+        -20,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-c299587c4711e52824c319f192a6429ca61eb55f",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c4f15b94-5e02-44bc-b19e-b91950f9359b",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -540,
+        320
+      ],
+      "webhookId": "b3a80a64-0e1e-4cb1-9e16-f2faac3c5479"
     }
   ],
   "pinData": {},
   "connections": {
-    "手动补跑8月20日": { "main": [[{ "node": "固定补跑日期", "type": "main", "index": 0 }]] },
-    "固定补跑日期": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
-    "每天 13:10 执行": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
-    "领取共享 helper": { "main": [[{ "node": "helper 领取成功？", "type": "main", "index": 0 }]] },
-    "helper 领取成功？": {
+    "手动补跑8月20日": {
       "main": [
-        [{ "node": "A·固化切肉机店铺与目标日期", "type": "main", "index": 0 }],
-        [{ "node": "等待前序流程释放 helper", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "固定补跑日期",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "等待前序流程释放 helper": { "main": [[{ "node": "领取共享 helper", "type": "main", "index": 0 }]] },
-    "A·固化切肉机店铺与目标日期": { "main": [[{ "node": "B·生成下载校验导入并回查", "type": "main", "index": 0 }]] },
-    "B·生成下载校验导入并回查": { "main": [[{ "node": "C·独立复验文件与精确批次", "type": "main", "index": 0 }]] }
+    "固定补跑日期": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天 13:10 执行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "领取共享 helper": {
+      "main": [
+        [
+          {
+            "node": "helper 领取成功？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "helper 领取成功？": {
+      "main": [
+        [
+          {
+            "node": "A·固化切肉机店铺与目标日期",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待前序流程释放 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "等待前序流程释放 helper": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A·固化切肉机店铺与目标日期": {
+      "main": [
+        [
+          {
+            "node": "B·生成下载校验导入并回查",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B·生成下载校验导入并回查": {
+      "main": [
+        [
+          {
+            "node": "C·独立复验文件与精确批次",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": false,
-  "settings": { "executionOrder": "v1", "timezone": "Asia/Shanghai" },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
+  },
   "versionId": "437e0439-d267-46e4-948f-53252f22ae30",
-  "meta": { "templateCredsSetupCompleted": true },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-c299587c4711e52824c319f192a6429ca61eb55f"
+    }
+  },
   "tags": []
 }

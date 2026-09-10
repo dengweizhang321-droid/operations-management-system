@@ -50,6 +50,7 @@
     "tmall:login": "node --import tsx tools/tmall-product-master-export.ts --launch-only",
     "tmall:credential:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/tmall-credential-vault.ps1 -Action setup",
     "tmall:n8n:generate": "node --import tsx tools/generate-tmall-n8n-workflows.ts",
+    "n8n:retry:generate": "node tools/generate-n8n-hourly-retry-workflows.mjs",
     "market:annotation-agent": "node --import tsx tools/market-annotation-runner.ts",
     "market:annotation-cloud-pump": "node --import tsx tools/market-annotation-cloud-pump.ts",
     "market:image-repair": "node --import tsx tools/jd-market-image-repair.ts",

@@ -430,6 +430,23 @@
       "parameters": {
         "errorMessage": "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "ae876761-af86-4e80-9b8d-81c615c58e46",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -860,
+        360
+      ],
+      "webhookId": "1c9ad511-5c5b-42e4-8e7c-4ccaf8c7c1bd"
     }
   ],
   "pinData": {},
@@ -529,17 +546,6 @@
         ]
       ]
     },
-    "每天 14:10 运行": {
-      "main": [
-        [
-          {
-            "node": "领取共享 helper",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "N·复查缺口并计划下一日": {
       "main": [
         [
@@ -591,16 +597,45 @@
           }
         ]
       ]
+    },
+    "每天 14:10 运行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "4a0a9313-8f9c-4a8b-b38b-a481d9c380a5",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea"
+    }
   },
   "tags": []
 }

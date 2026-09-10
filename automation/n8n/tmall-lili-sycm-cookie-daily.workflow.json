@@ -430,6 +430,23 @@
       "parameters": {
         "errorMessage": "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-5bf5673970f4b8262809dd8f152d1603dc03c133",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "77bd7d07-4999-4c68-8c07-5e1eb3fc22b9",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -860,
+        360
+      ],
+      "webhookId": "71e033b3-aa07-4b50-875f-5e5b6306f299"
     }
   ],
   "pinData": {},
@@ -529,17 +546,6 @@
         ]
       ]
     },
-    "每天 13:40 运行": {
-      "main": [
-        [
-          {
-            "node": "领取共享 helper",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "N·复查缺口并计划下一日": {
       "main": [
         [
@@ -569,17 +575,6 @@
         ]
       ]
     },
-    "M·商品管家批量导出、校验并导入": {
-      "main": [
-        [
-          {
-            "node": "全部缺失日已补齐？",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "全部缺失日已补齐？": {
       "main": [
         [],
@@ -591,16 +586,56 @@
           }
         ]
       ]
+    },
+    "每天 13:40 运行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "M·商品管家批量导出、校验并导入": {
+      "main": [
+        [
+          {
+            "node": "全部缺失日已补齐？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "fa4f30b1-7b82-4e74-9ef2-6e2527559190",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-5bf5673970f4b8262809dd8f152d1603dc03c133"
+    }
   },
   "tags": []
 }

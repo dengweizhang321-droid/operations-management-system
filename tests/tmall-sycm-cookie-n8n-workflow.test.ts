@@ -326,11 +326,18 @@ test("亿玖 P/M 直连现行模板保持同一工作流 ID、仓库默认停用
   assert.equal(candidate.name, "天猫店铺数据导入（亿玖 P/M 直连·每日 M）");
   assert.equal(candidate.active, false);
   assert.equal(candidate.settings?.timezone, "Asia/Shanghai");
-  assert.deepEqual(candidate.meta, {
+  const { hourlyRetryPolicy, ...candidateMeta } = candidate.meta ?? {};
+  assert.deepEqual(candidateMeta, {
     templateCredsSetupCompleted: true,
     currentForYijiu: true,
     candidateProtocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
     replacesWorkflowId: "M4xY8kQ2vR6sT9pC",
+  });
+  assert.deepEqual(hourlyRetryPolicy, {
+    version: "2026-09-10.safe-hourly-retry.1",
+    delayMinutes: 60,
+    errorWorkflowId: "TeruisiHourlyRetry2026",
+    webhookPath: "teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453",
   });
 
   for (const name of ["领取共享 helper", "A·计划目标日期", "B·逐日下载并验证 XLS", "C·签收、导入并覆盖回查"]) {

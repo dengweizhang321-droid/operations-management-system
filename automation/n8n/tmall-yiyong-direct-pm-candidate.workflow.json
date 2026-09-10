@@ -438,6 +438,23 @@
       "parameters": {
         "errorMessage": "={{ '天猫补缺达到本轮预算，M 和浏览器已收尾；剩余 ' + $json.dailyBackfill.remainingDates.length + ' 天：' + $json.dailyBackfill.remainingDates.join(', ') }}"
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teruisi-hourly-retry-1311a7e06af8415e5080650e1668871676ddebb1",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "e3291299-7759-4a5f-ba20-add34233c11e",
+      "name": "失败后每小时安全重试入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -860,
+        360
+      ],
+      "webhookId": "b08d5607-8587-43e8-a760-d66a80266ca9"
     }
   ],
   "pinData": {},
@@ -526,17 +543,6 @@
         ]
       ]
     },
-    "每天 14:20 运行": {
-      "main": [
-        [
-          {
-            "node": "领取共享 helper",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "N·复查缺口并计划下一日": {
       "main": [
         [
@@ -578,6 +584,28 @@
         ]
       ]
     },
+    "每天 14:20 运行": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "P·直连创建商品报表、下载、汇总导入并回查": {
       "main": [
         [
@@ -604,11 +632,18 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "Asia/Shanghai"
+    "timezone": "Asia/Shanghai",
+    "errorWorkflow": "TeruisiHourlyRetry2026"
   },
   "versionId": "acc62a5c-84e7-49fa-9e99-d0a0d691903f",
   "meta": {
     "templateCredsSetupCompleted": true,
+    "hourlyRetryPolicy": {
+      "version": "2026-09-10.safe-hourly-retry.1",
+      "delayMinutes": 60,
+      "errorWorkflowId": "TeruisiHourlyRetry2026",
+      "webhookPath": "teruisi-hourly-retry-1311a7e06af8415e5080650e1668871676ddebb1"
+    },
     "candidateProtocol": "yiyong-direct-pm-v1",
     "replacesWorkflowId": "TmallYiyongDaily2026",
     "trialForYiyong": true
