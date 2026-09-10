@@ -487,6 +487,22 @@ def _filtered_overview(
     ]
 
 
+def replenishment_plan_sources(
+    principal: Principal,
+) -> dict[str, object]:
+    """Return the current authoritative plan inputs in one consistent, bounded read."""
+    latest, all_items, settings, _sales_start, _sales_end, _revision = _overview_items(principal, {})
+    stale = bool(latest and (timezone.localdate() - latest.snapshot_date).days > 3)
+    included = [item for item in all_items if bool(item.get("includedInInventory", True))]
+    return {
+        "latestBatchId": latest.id if latest else None,
+        "inventoryAsOf": latest.snapshot_date.isoformat() if latest else None,
+        "inventoryStale": stale,
+        "quality": _quality(included, stale, bool(settings["autoReplenishment"])),
+        "itemsByKey": {str(item["key"]): item for item in included},
+    }
+
+
 def _metrics(items: list[dict[str, object]], quality: dict[str, object], alerts: bool) -> tuple[dict[str, object], dict[str, int]]:
     positive = sum(max(0, int(item["availableQuantity"])) for item in items)
     covered = sum(round(max(0, int(item["availableQuantity"])) * float(item["costCoverageRate"])) for item in items)

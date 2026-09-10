@@ -8,11 +8,11 @@ from unittest.mock import patch
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
-from inventory.models import InventoryWriteAuthority
+from inventory.models import InventoryImportScopeHead, InventoryWriteAuthority, ReplenishmentPlanItem
 from inventory.plans import plan_payload, upsert_plan
 from inventory.query import _filtered_overview, _mapping_samples, _sales_period
 from inventory.warehouse_mapping import classify_warehouse
-from inventory.views import replenishment
+from inventory.views import replenishment, replenishment_import
 from sales.auth import Principal
 
 
@@ -228,3 +228,121 @@ class ReplenishmentPlanDetailsTests(TestCase):
         self.assertTrue(payload["requiresInspection"])
         self.assertEqual(payload["sales30dQuantity"], 37)
         self.assertEqual(payload["notes"], "优先安排")
+
+
+class ReplenishmentPlanImportTests(TestCase):
+    def setUp(self) -> None:
+        InventoryWriteAuthority.objects.filter(id=1).update(
+            status="postgres",
+            authority_epoch=uuid.UUID("11111111-1111-4111-8111-111111111111"),
+            cutover_id="inventory-test-cutover",
+            migration_verify_run_id="inventory-apply-" + "1" * 32,
+            activated_at=timezone.now(),
+        )
+        InventoryImportScopeHead.objects.filter(dataset="stock").update(
+            status="ready",
+            current_batch_id="batch-latest",
+        )
+
+    @staticmethod
+    def row(product_code: str, warehouse: str, quantity: int, *, status: str = "confirmed") -> dict[str, object]:
+        return {
+            "productCode": product_code,
+            "warehouse": warehouse,
+            "plannedQuantity": quantity,
+            "buyer": "采购甲",
+            "operatorName": "运营甲",
+            "department": "志高项目组",
+            "planType": "日常备货",
+            "orderDate": "2026-09-10",
+            "expectedArrivalDate": "2026-09-18",
+            "expectedConsumptionDays": 45.5,
+            "status": status,
+            "requiresInspection": True,
+            "notes": "表格导入",
+        }
+
+    @staticmethod
+    def sources() -> dict[str, object]:
+        return {
+            "latestBatchId": "batch-latest",
+            "inventoryAsOf": "2026-09-10",
+            "inventoryStale": False,
+            "quality": {"recommendationsSuppressed": False},
+            "itemsByKey": {
+                "广东仓\x1fP1": overview_item("广东仓", available=20, sales=30, product_sales=40),
+                "广东仓\x1fP2": {**overview_item("广东仓", available=12, sales=15, product_sales=25), "key": "广东仓\x1fP2", "productCode": "P2"},
+            },
+        }
+
+    def test_imports_multiple_rows_atomically_and_returns_confirmed_ids(self) -> None:
+        request = RequestFactory().post(
+            "/api/inventory/replenishment/import",
+            data={
+                "rows": [self.row("P1", "广东仓", 10), self.row("P2", "广东仓", 8, status="draft")],
+                "acknowledgeStale": False,
+                "fileSha256": "a" * 64,
+            },
+            content_type="application/json",
+        )
+        principal = Principal("operator@example.test", "运营", "operator", None)
+        with (
+            patch("inventory.views._principal", return_value=principal),
+            patch("inventory.views._replay_write", side_effect=lambda _request, _principal, callback: callback()),
+            patch("inventory.views.replenishment_plan_sources", return_value=self.sources()),
+        ):
+            payload, status = replenishment_import(request)
+
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["importedCount"], 2)
+        self.assertEqual(payload["confirmedCount"], 1)
+        self.assertEqual(payload["draftCount"], 1)
+        self.assertEqual(len(payload["confirmedPlanIds"]), 1)
+        self.assertEqual(ReplenishmentPlanItem.objects.count(), 2)
+        confirmed = ReplenishmentPlanItem.objects.get(status="confirmed")
+        self.assertEqual(confirmed.source_batch_id, "batch-latest")
+        self.assertEqual(confirmed.sales_30d_quantity, 40)
+        self.assertEqual(confirmed.coverage_days_tenths, 455)
+
+    def test_missing_inventory_row_rejects_entire_import(self) -> None:
+        request = RequestFactory().post(
+            "/api/inventory/replenishment/import",
+            data={
+                "rows": [self.row("P1", "广东仓", 10), self.row("MISSING", "广东仓", 8)],
+                "acknowledgeStale": False,
+                "fileSha256": "b" * 64,
+            },
+            content_type="application/json",
+        )
+        principal = Principal("operator@example.test", "运营", "operator", None)
+        with (
+            patch("inventory.views._principal", return_value=principal),
+            patch("inventory.views._replay_write", side_effect=lambda _request, _principal, callback: callback()),
+            patch("inventory.views.replenishment_plan_sources", return_value=self.sources()),
+        ):
+            response = replenishment_import(request)
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(ReplenishmentPlanItem.objects.count(), 0)
+
+    def test_inventory_snapshot_change_rejects_entire_import(self) -> None:
+        InventoryImportScopeHead.objects.filter(dataset="stock").update(current_batch_id="batch-newer")
+        request = RequestFactory().post(
+            "/api/inventory/replenishment/import",
+            data={
+                "rows": [self.row("P1", "广东仓", 10)],
+                "acknowledgeStale": False,
+                "fileSha256": "c" * 64,
+            },
+            content_type="application/json",
+        )
+        principal = Principal("operator@example.test", "运营", "operator", None)
+        with (
+            patch("inventory.views._principal", return_value=principal),
+            patch("inventory.views._replay_write", side_effect=lambda _request, _principal, callback: callback()),
+            patch("inventory.views.replenishment_plan_sources", return_value=self.sources()),
+        ):
+            response = replenishment_import(request)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(ReplenishmentPlanItem.objects.count(), 0)

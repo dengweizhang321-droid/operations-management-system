@@ -7,7 +7,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Case, IntegerField, Q, Sum, When
 
 from .errors import InventoryApiError
-from .models import InventoryStockLine, ReplenishmentPlanItem
+from .models import InventoryImportScopeHead, InventoryStockLine, ReplenishmentPlanItem
 from .revisions import bump_revision
 from .write_requests import lock_active_authority
 
@@ -162,63 +162,93 @@ def get_plan(plan_id: str) -> ReplenishmentPlanItem | None:
     return ReplenishmentPlanItem.objects.filter(id=plan_id).first()
 
 
+def _upsert_plan_locked(data: dict[str, object], actor_email: str) -> ReplenishmentPlanItem:
+    requested_status = str(data.get("status") or "draft")
+    if requested_status not in {"draft", "confirmed"}:
+        raise InventoryApiError("新建备货计划状态无效")
+    lookup = {
+        "source_batch_id": str(data["sourceBatchId"]),
+        "warehouse": str(data["warehouse"]),
+        "product_code": str(data["productCode"]),
+        "status": requested_status,
+    }
+    defaults = {
+        "product_name": str(data["productName"]),
+        "brand": str(data.get("brand") or ""),
+        "category": str(data.get("category") or ""),
+        "supplier": str(data.get("supplier") or ""),
+        "buyer": str(data.get("buyer") or ""),
+        "operator_name": str(data.get("operatorName") or ""),
+        "department": str(data.get("department") or ""),
+        "plan_type": str(data.get("planType") or ""),
+        "order_date": data.get("orderDate"),
+        "expected_arrival_date": data.get("expectedArrivalDate"),
+        "requires_inspection": bool(data.get("requiresInspection", False)),
+        "current_stock_quantity": int(data.get("currentStockQuantity") or 0),
+        "sales_30d_quantity": int(data["sales30dQuantity"]) if data.get("sales30dQuantity") is not None else None,
+        "suggested_quantity": int(data["suggestedQuantity"]),
+        "planned_quantity": int(data["plannedQuantity"]),
+        "coverage_days_tenths": (
+            round(float(data["coverageDays"]) * 10)
+            if data.get("coverageDays") is not None
+            else None
+        ),
+        "reason": str(data["reason"]),
+        "notes": str(data.get("notes") or ""),
+        "created_by": actor_email[:320],
+    }
+    try:
+        plan = (
+            ReplenishmentPlanItem.objects.select_for_update().filter(**lookup).first()
+            if requested_status == "draft"
+            else None
+        )
+        if plan is None:
+            plan = ReplenishmentPlanItem.objects.create(
+                id=str(uuid.uuid4()),
+                **lookup,
+                **defaults,
+            )
+        else:
+            for field, value in defaults.items():
+                setattr(plan, field, value)
+            plan.save()
+        return plan
+    except IntegrityError as error:
+        raise InventoryApiError("备货草稿已被其他请求更新", code="conflict", status=409) from error
+
+
 def upsert_plan(data: dict[str, object], actor_email: str) -> ReplenishmentPlanItem:
     with transaction.atomic():
         lock_active_authority()
-        requested_status = str(data.get("status") or "draft")
-        if requested_status not in {"draft", "confirmed"}:
-            raise InventoryApiError("新建备货计划状态无效")
-        lookup = {
-            "source_batch_id": str(data["sourceBatchId"]),
-            "warehouse": str(data["warehouse"]),
-            "product_code": str(data["productCode"]),
-            "status": requested_status,
-        }
-        defaults = {
-            "product_name": str(data["productName"]),
-            "brand": str(data.get("brand") or ""),
-            "category": str(data.get("category") or ""),
-            "supplier": str(data.get("supplier") or ""),
-            "buyer": str(data.get("buyer") or ""),
-            "operator_name": str(data.get("operatorName") or ""),
-            "department": str(data.get("department") or ""),
-            "plan_type": str(data.get("planType") or ""),
-            "order_date": data.get("orderDate"),
-            "expected_arrival_date": data.get("expectedArrivalDate"),
-            "requires_inspection": bool(data.get("requiresInspection", False)),
-            "current_stock_quantity": int(data.get("currentStockQuantity") or 0),
-            "sales_30d_quantity": int(data["sales30dQuantity"]) if data.get("sales30dQuantity") is not None else None,
-            "suggested_quantity": int(data["suggestedQuantity"]),
-            "planned_quantity": int(data["plannedQuantity"]),
-            "coverage_days_tenths": (
-                round(float(data["coverageDays"]) * 10)
-                if data.get("coverageDays") is not None
-                else None
-            ),
-            "reason": str(data["reason"]),
-            "notes": str(data.get("notes") or ""),
-            "created_by": actor_email[:320],
-        }
-        try:
-            plan = (
-                ReplenishmentPlanItem.objects.select_for_update().filter(**lookup).first()
-                if requested_status == "draft"
-                else None
-            )
-            if plan is None:
-                plan = ReplenishmentPlanItem.objects.create(
-                    id=str(uuid.uuid4()),
-                    **lookup,
-                    **defaults,
-                )
-            else:
-                for field, value in defaults.items():
-                    setattr(plan, field, value)
-                plan.save()
-        except IntegrityError as error:
-            raise InventoryApiError("备货草稿已被其他请求更新", code="conflict", status=409) from error
+        plan = _upsert_plan_locked(data, actor_email)
         bump_revision({"kind": "replenishment_upsert", "planId": plan.id})
         return plan
+
+
+def import_plans(
+    rows: list[dict[str, object]],
+    actor_email: str,
+    file_sha256: str,
+    source_batch_id: str,
+) -> list[ReplenishmentPlanItem]:
+    if not 1 <= len(rows) <= 200:
+        raise InventoryApiError("单次必须导入1到200行备货计划")
+    if not source_batch_id or any(str(row.get("sourceBatchId") or "") != source_batch_id for row in rows):
+        raise InventoryApiError("备货计划导入来源批次不一致", code="version_conflict", status=409)
+    with transaction.atomic():
+        lock_active_authority()
+        scope = InventoryImportScopeHead.objects.select_for_update().filter(dataset="stock").first()
+        if scope is None or scope.status != "ready" or scope.current_batch_id != source_batch_id:
+            raise InventoryApiError("库存快照在导入期间已变化，请重新下载或导入", code="version_conflict", status=409)
+        plans = [_upsert_plan_locked(row, actor_email) for row in rows]
+        bump_revision({
+            "kind": "replenishment_import",
+            "count": len(plans),
+            "fileSha256": file_sha256,
+            "planIds": [plan.id for plan in plans],
+        })
+        return plans
 
 
 def update_plan(plan_id: str, status: str, planned_quantity: int | None) -> ReplenishmentPlanItem | None:

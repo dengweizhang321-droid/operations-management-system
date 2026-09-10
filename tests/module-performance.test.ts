@@ -98,7 +98,9 @@ test("sales and inventory tabs only request the data source needed by the visibl
   assert.match(inventoryView, /if \(!usesInventoryOverview\) return;/);
   assert.match(inventoryView, /if \(!usesInventoryAgeAnalysis\) return;/);
   assert.match(inventoryView, /if \(tab === "age" \|\| tab === "stale"\) await loadAgeAnalysis\(tab\);\s+else if \(tab === "inbound"\) await loadInboundMonitor\(\);\s+else await loadOverview\(\);/);
-  assert.equal((inventoryView.match(/await refreshActiveInventoryTab\(\)/g) ?? []).length, 5);
+  assert.ok((inventoryView.match(/await refreshActiveInventoryTab\(\)/g) ?? []).length >= 5);
+  assert.match(inventoryView, /const importReplenishmentPlans = useCallback[\s\S]*?await refreshActiveInventoryTab\(\)/);
+  assert.match(inventoryView, /const batchSyncPlansToDingTalk = useCallback[\s\S]*?await refreshActiveInventoryTab\(\)/);
   assert.doesNotMatch(inventoryView, /Promise\.all\(\[loadOverview\(\), loadAgeAnalysis\(\)\]\)/);
 });
 
