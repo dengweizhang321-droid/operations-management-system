@@ -415,7 +415,17 @@ async function waitForExportEntry(page: Page, timeoutMs = 90_000) {
   while (Date.now() < deadline) {
     recentVisibleCounts.push(await entry.count());
     if (recentVisibleCounts.length > 2) recentVisibleCounts.shift();
-    if (hasStableUniqueVisibleJdExportEntry(recentVisibleCounts)) return exactlyOne(entry, "导出查询商品按钮");
+    if (hasStableUniqueVisibleJdExportEntry(recentVisibleCounts)) {
+      // Re-read immediately before returning because JD can remove the
+      // short-lived menu between the two stable samples and this hand-off.
+      // A vanished entry is transient and must stay inside this bounded wait;
+      // an extra visible entry remains an identity ambiguity and fails closed.
+      const verificationCount = await entry.count();
+      if (verificationCount === 1) return entry;
+      if (verificationCount > 1) throw new Error("导出查询商品入口不唯一。");
+      recentVisibleCounts.push(verificationCount);
+      if (recentVisibleCounts.length > 2) recentVisibleCounts.shift();
+    }
     await page.waitForTimeout(250);
   }
   throw new Error("导出查询商品按钮未达到连续可见稳定状态。");

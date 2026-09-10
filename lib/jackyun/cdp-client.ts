@@ -267,6 +267,7 @@ export async function launchDedicatedChrome(options: {
   startUrl: string;
   headless?: boolean;
   visible?: boolean;
+  disableExtensions?: boolean;
   startMinimized?: boolean;
   keepWindowHidden?: boolean;
 }) {
@@ -289,6 +290,7 @@ export async function launchDedicatedChrome(options: {
     "--disable-session-crashed-bubble",
     options.startUrl,
   ];
+  if (options.disableExtensions) args.unshift("--disable-extensions");
   if (options.headless) args.unshift("--headless=new");
   if (options.keepWindowHidden) {
     args.unshift("--window-position=-32000,-32000");

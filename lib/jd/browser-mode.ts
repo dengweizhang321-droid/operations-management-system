@@ -1,19 +1,19 @@
 import { closeChromeBrowser, launchDedicatedChrome, waitForChrome } from "../jackyun/cdp-client";
 
-export type JdBrowserLaunchMode = { headless: boolean; visible: boolean };
+export type JdBrowserLaunchMode = { headless: boolean; visible: boolean; disableExtensions: boolean };
 
 export function jdBrowserLaunchMode(interactiveLogin: boolean): JdBrowserLaunchMode {
   return interactiveLogin
-    ? { headless: false, visible: true }
-    : { headless: true, visible: false };
+    ? { headless: false, visible: true, disableExtensions: false }
+    : { headless: true, visible: false, disableExtensions: true };
 }
 
 export type JdWareBrowserLaunchMode = JdBrowserLaunchMode & { startMinimized?: boolean };
 
 export function jdWareBrowserLaunchMode(interactiveLogin: boolean): JdWareBrowserLaunchMode {
   return interactiveLogin
-    ? { headless: false, visible: true }
-    : { headless: false, visible: false, startMinimized: true };
+    ? { headless: false, visible: true, disableExtensions: false }
+    : { headless: false, visible: false, disableExtensions: true, startMinimized: true };
 }
 
 export function isJdInteractiveBrowserFailure(error: unknown) {
@@ -104,6 +104,7 @@ export async function revealJdBrowserForInteractiveFailure(
     ...options,
     headless: false,
     visible: true,
+    disableExtensions: false,
   });
   if (!launched) throw new Error("京东交互浏览器端口被并发进程占用，未打开新的可见窗口。");
   await dependencies.waitForChrome(options.port);

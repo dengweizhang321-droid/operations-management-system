@@ -11,11 +11,16 @@ import {
   revealJdBrowserForInteractiveFailure,
 } from "../lib/jd/browser-mode";
 
-test("JD product detail stays headless while JD master uses minimized headed Chromium", () => {
-  assert.deepEqual(jdBrowserLaunchMode(false), { headless: true, visible: false });
-  assert.deepEqual(jdBrowserLaunchMode(true), { headless: false, visible: true });
-  assert.deepEqual(jdWareBrowserLaunchMode(false), { headless: false, visible: false, startMinimized: true });
-  assert.deepEqual(jdWareBrowserLaunchMode(true), { headless: false, visible: true });
+test("automated JD browsers disable extensions while interactive login preserves them", () => {
+  assert.deepEqual(jdBrowserLaunchMode(false), { headless: true, visible: false, disableExtensions: true });
+  assert.deepEqual(jdBrowserLaunchMode(true), { headless: false, visible: true, disableExtensions: false });
+  assert.deepEqual(jdWareBrowserLaunchMode(false), {
+    headless: false,
+    visible: false,
+    disableExtensions: true,
+    startMinimized: true,
+  });
+  assert.deepEqual(jdWareBrowserLaunchMode(true), { headless: false, visible: true, disableExtensions: false });
 });
 
 test("strict silent headed Chromium uses an off-screen Win32 window guard", () => {
@@ -63,11 +68,11 @@ test("JD ware browser replaces a stale HeadlessChrome before launching minimized
     closeChromeBrowser: async (port) => { calls.push(`close:${port}`); return true; },
     launchDedicatedChrome: async (options) => {
       assert.equal(options.profileName, "Profile 1");
-      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}:${options.keepWindowHidden}:${options.port}`);
+      calls.push(`launch:${options.headless}:${options.visible}:${options.disableExtensions}:${options.startMinimized}:${options.keepWindowHidden}:${options.port}`);
       return {};
     },
   });
-  assert.deepEqual(calls, ["close:9224", "launch:false:false:true:true:9224"]);
+  assert.deepEqual(calls, ["close:9224", "launch:false:false:true:true:true:9224"]);
   assert.equal(result.replacedHeadless, true);
 });
 
@@ -83,11 +88,11 @@ test("JD ware browser safely reuses an existing non-headless Chromium without cl
     readUserAgent: async () => "Mozilla/5.0 Chrome/151.0.0.0",
     closeChromeBrowser: async () => { calls.push("close"); return true; },
     launchDedicatedChrome: async (options) => {
-      calls.push(`launch:${options.headless}:${options.visible}:${options.startMinimized}`);
+      calls.push(`launch:${options.headless}:${options.visible}:${options.disableExtensions}:${options.startMinimized}`);
       return null;
     },
   });
-  assert.deepEqual(calls, ["launch:false:false:true"]);
+  assert.deepEqual(calls, ["launch:false:false:true:true"]);
   assert.equal(result.replacedHeadless, false);
 });
 
@@ -156,12 +161,12 @@ test("interactive recovery closes headless Chromium before opening one visible p
   }, {
     closeChromeBrowser: async (port) => { calls.push(`close:${port}`); return true; },
     launchDedicatedChrome: async (options) => {
-      calls.push(`launch:${options.headless}:${options.visible}:${options.port}`);
+      calls.push(`launch:${options.headless}:${options.visible}:${options.disableExtensions}:${options.port}`);
       return {};
     },
     waitForChrome: async (port) => { calls.push(`wait:${port}`); },
   });
-  assert.deepEqual(calls, ["close:9224", "launch:false:true:9224", "wait:9224"]);
+  assert.deepEqual(calls, ["close:9224", "launch:false:true:false:9224", "wait:9224"]);
 
   await assert.rejects(
     revealJdBrowserForInteractiveFailure({
@@ -192,6 +197,7 @@ test("JD master uses minimized headed Chromium while product detail keeps shared
   assert.match(master, /options\.visibleRecovery\s*&&\s*interactiveAttentionRequired/);
   assert.match(daily, /options\.visibleRecovery\s*&&\s*!options\.interactiveLogin/);
   assert.match(cdp, /options\.startMinimized[\s\S]*--start-minimized/);
+  assert.match(cdp, /options\.disableExtensions[\s\S]*--disable-extensions/);
   assert.match(cdp, /options\.keepWindowHidden[\s\S]*--window-position=-32000,-32000/);
   assert.match(cdp, /startChromiumWindowGuard/);
   assert.match(cdp, /--profile-directory=\$\{options\.profileName\}/);
