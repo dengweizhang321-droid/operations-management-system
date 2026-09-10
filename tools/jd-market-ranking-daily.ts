@@ -358,12 +358,36 @@ async function installRequestCapture(page: Page) {
   });
 }
 
+export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[] }) {
+  return !input.hitInsideControl && input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName))
+    ? "native_dispatch" as const
+    : "pointer" as const;
+}
+
 async function clickDropdownControl(control: Locator) {
   const count = await control.count();
   const className = count === 1 ? String(await control.getAttribute("class") ?? "") : "";
   const eventName = count === 1 ? String(await control.getAttribute("data-event-name") ?? "") : "";
   if (count !== 1 || !className.split(/\s+/).includes("jmtd-base-input") || eventName !== "open") {
     throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
+  }
+  const hitTest = await control.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    const hitTagNames: string[] = [];
+    let current = hit as HTMLElement | null;
+    for (let depth = 0; current && current !== document.body && depth < 8; depth += 1) {
+      hitTagNames.push(current.tagName);
+      current = current.parentElement;
+    }
+    return { hitInsideControl: hit === element || Boolean(hit && element.contains(hit)), hitTagNames };
+  });
+  if (jdMarketDropdownClickMode(hitTest) === "native_dispatch") {
+    // 京东的 AI 助手扩展偶尔覆盖类目控件并吞掉坐标点击。控件已经通过
+    // 唯一性、组件类型和 data-event-name 契约校验；仅在命中该已知扩展
+    // 覆盖层时向真实控件派发原生 click，避免修改或关闭平台扩展 DOM。
+    await control.dispatchEvent("click");
+    return;
   }
   await control.click({ timeout: 3_000, force: true });
 }
