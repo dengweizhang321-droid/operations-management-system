@@ -33,6 +33,8 @@ class DingTalkTransportTests(SimpleTestCase):
 
     def response(self, args, profile):
         self.assertEqual(profile, "corp:operator")
+        if args == ["contact", "user", "get-self"]:
+            return {"success": True, "result": []}
         if args[:2] == ["profile", "list"]:
             return {"profiles": [{"profile": profile, "corpId": "corp", "status": "active"}]}
         if args[:3] == ["dev", "app", "list"]:
@@ -44,7 +46,7 @@ class DingTalkTransportTests(SimpleTestCase):
         if args[:3] == ["chat", "group", "bots"]:
             return {"result": {"bots": [{"name": "志高助手", "robotCode": "bot", "status": 1}]}}
         if args[:3] == ["chat", "message", "send-by-bot"]:
-            return {"ok": True}
+            return {"success": True, "result": {"processQueryKey": "fixture-receipt", "invalidStaffIdList": [], "flowControlledStaffIdList": []}}
         raise AssertionError(args)
 
     def test_group_trigger_replies_only_to_its_verified_sender(self):
@@ -66,6 +68,18 @@ class DingTalkTransportTests(SimpleTestCase):
             platform.send(lambda: self.config, session, "结果")
         self.assertFalse(any(call.args[0][:3] == ["chat", "message", "send-by-bot"] for call in calls.call_args_list))
 
+    def test_uncertain_or_rejected_receipts_are_not_retried(self):
+        session = SimpleNamespace(sender_id="bound-staff", conversation_type="1", external_conversation_id="dm")
+        for receipt in ({"ok": True}, {"success": True, "result": {}},
+                        {"success": True, "result": {"processQueryKey": "accepted", "invalidStaffIdList": ["bound-staff"]}},
+                        {"success": True, "result": {"processQueryKey": "accepted", "flowControlledStaffIdList": ["bound-staff"]}}):
+            def response(args, profile):
+                return receipt if args[:3] == ["chat", "message", "send-by-bot"] else self.response(args, profile)
+            with self.subTest(receipt=receipt), patch.object(platform, "guard"), patch.object(platform, "dws", side_effect=response) as calls:
+                with self.assertRaises(AiError):
+                    platform.send(lambda: self.config, session, "结果")
+                self.assertEqual(sum(call.args[0][:3] == ["chat", "message", "send-by-bot"] for call in calls.call_args_list), 1)
+
     def test_incomplete_app_search_fails_closed(self):
         def response(args, profile):
             result = self.response(args, profile)
@@ -74,3 +88,9 @@ class DingTalkTransportTests(SimpleTestCase):
             return result
         with patch.object(platform, "dws", side_effect=response), self.assertRaises(AiError):
             platform.robot(self.config)
+
+    def test_live_identity_read_precedes_cached_profile_validation(self):
+        with patch.object(platform, "dws", side_effect=self.response) as calls:
+            platform.robot(self.config)
+        self.assertEqual(calls.call_args_list[0].args[0], ["contact", "user", "get-self"])
+        self.assertEqual(calls.call_args_list[1].args[0], ["profile", "list"])

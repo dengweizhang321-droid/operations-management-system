@@ -317,7 +317,7 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly) {
     $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
     if ([string]$authority.status -cne "postgres") { throw "AI 写入权威未激活" }
     $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
-    $arguments = @((Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
+    $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
     if ($CheckOnly) {
       $arguments += "--check"
       Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {

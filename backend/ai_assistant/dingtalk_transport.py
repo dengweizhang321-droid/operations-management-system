@@ -60,6 +60,9 @@ def dws(args, profile):
 
 
 def robot(config):
+    # A live read lets DWS refresh an expired access token using the existing
+    # refresh grant. Profile listing alone only reports the cached expiry.
+    dws(["contact", "user", "get-self"], config["profile"])
     profile = dws(["profile", "list"], config["profile"])
     matches = [p for p in profile.get("profiles", []) if p.get("profile") == config["profile"] and p.get("corpId") == config["corpId"] and p.get("status") == "active"]
     if len(matches) != 1:
@@ -107,5 +110,10 @@ def send(config_reader, session, content):
     guard(session, config_reader())
     result = dws(["chat", "message", "send-by-bot", "--robot-code", config["robotCode"],
         "--users", session.sender_id, "--title", "志高助手 · 只读问数", "--text", content], config["profile"])
-    if result.get("ok") is not True or (isinstance(result.get("result"), dict) and result["result"].get("success") is False):
+    receipt = result.get("result")
+    if (result.get("success") is not True or not isinstance(receipt, dict)
+            or not isinstance(receipt.get("processQueryKey"), str)
+            or not 0 < len(receipt["processQueryKey"]) <= 4096
+            or receipt.get("invalidStaffIdList") not in (None, [])
+            or receipt.get("flowControlledStaffIdList") not in (None, [])):
         raise AiError("钉钉发送回执未确认", "delivery_unknown", 503)
