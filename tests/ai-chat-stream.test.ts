@@ -40,7 +40,7 @@ test("thin SSE relay signs original body and streams only from configured writer
   let calls=0;
   const result=await requestDjangoAiStream(principal,{message:"test",clientRequestId:"request"},{environment,fetchImpl:async(url,init)=>{
     calls++; assert.equal(new URL(String(url)).port,"18112"); const headers=new Headers(init?.headers);
-    assert.equal(headers.get("accept"),"text/event-stream"); assert.ok(headers.get("x-teruisi-signature")); assert.equal(init?.redirect,"error");
+    assert.equal(headers.get("accept"),"text/event-stream"); assert.ok(headers.get("x-teruisi-signature")); assert.equal(init?.redirect,"manual");
     return response(frame(1,"done",{reply:"ok"}));
   }});
   assert.equal(result.headers.get("x-ai-revision"),"7"); assert.equal((await readAiChatStream<{reply:string}>(result,()=>{})).reply,"ok"); assert.equal(calls,1);
@@ -49,7 +49,7 @@ test("relay rejects bad endpoint, missing revision, JSON success, oversized body
   let calls=0; const fetchImpl=async()=>{calls++; return response(frame(1,"done",{}));};
   await assert.rejects(requestDjangoAiStream(principal,{}, {environment:{...environment,TERUISI_DJANGO_AI_WRITER_BASE_URL:"http://192.168.1.1"},fetchImpl})); assert.equal(calls,0);
   await assert.rejects(requestDjangoAiStream(principal,{message:"x".repeat(1048577)}, {environment,fetchImpl})); assert.equal(calls,0);
-  for (const bad of [new Response("",{headers:{"content-type":"text/event-stream"}}),Response.json({reply:"no stream"})]) await assert.rejects(requestDjangoAiStream(principal,{}, {environment,fetchImpl:async()=>bad}));
+  for (const bad of [new Response("",{status:302,headers:{location:"https://untrusted.example"}}),new Response("",{headers:{"content-type":"text/event-stream"}}),Response.json({reply:"no stream"})]) await assert.rejects(requestDjangoAiStream(principal,{}, {environment,fetchImpl:async()=>bad}));
   await assert.rejects(requestDjangoAiStream(principal,{}, {environment,fetchImpl:async()=>Response.json({error:"未派发",code:"ai_chat_not_dispatched"},{status:409})}), (error:unknown)=>error instanceof Error && error.message === "未派发");
 });
 test("browser cancel propagates to upstream once and never starts another request", async () => {

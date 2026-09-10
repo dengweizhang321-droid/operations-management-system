@@ -25,7 +25,7 @@ export async function requestDjangoAiStream(principal: AppPrincipal, payload: Re
   if (options.signal?.aborted) { abort(); cleanup(); throw unavailable(); }
   let upstream: Response;
   try {
-    upstream = await (options.fetchImpl ?? fetch)(new URL("/api/ai/chat", base), { method: "POST", body, headers, cache: "no-store", redirect: "error", signal: controller.signal });
+    upstream = await (options.fetchImpl ?? fetch)(new URL("/api/ai/chat", base), { method: "POST", body, headers, cache: "no-store", redirect: "manual", signal: controller.signal });
     if (!upstream.ok && upstream.body && /application\/json/i.test(upstream.headers.get("content-type") ?? "") && [400, 401, 403, 404, 409, 413, 429, 499, 503].includes(upstream.status)) {
       const errorReader = upstream.body.getReader(); const decoder = new TextDecoder(); let text = ""; let size = 0;
       try {
