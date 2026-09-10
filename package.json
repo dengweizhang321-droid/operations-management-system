@@ -6,6 +6,13 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "preview:isolated": "node tools/preview/launcher.mjs start --open",
+    "preview:prepare": "node tools/preview/launcher.mjs prepare",
+    "preview:status": "node tools/preview/launcher.mjs status",
+    "preview:stop": "node tools/preview/launcher.mjs stop",
+    "preview:snapshot": "node tools/preview/launcher.mjs snapshot",
+    "preview:restore": "node tools/preview/launcher.mjs restore",
+    "preview:verify": "node tools/preview/smoke.mjs",
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
     "build": "vinext build",
     "start": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/worker-local-service.ps1 -Action Start",
