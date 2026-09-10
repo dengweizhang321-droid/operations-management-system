@@ -77,6 +77,8 @@ Start-Process powershell.exe `
 
 `Run` 使用全局 singleton mutex 和绑定 PID、creation time、命令行、operator 路径/内容摘要的 receipt。重复实例、PID 复用或 operator 变化都失败关闭。循环内部错误会形成脱敏告警并继续监控，不会因单次探针异常退出。
 
+从 PowerShell 7 启动 Windows `powershell.exe` 时，不能让子进程继承仅适配 PowerShell 7 的 `PSModulePath`；否则 `Microsoft.PowerShell.Security\Get-Acl` 可能无法加载。启动子进程前临时将当前进程的 `PSModulePath` 设为 `[Environment]::GetEnvironmentVariable('PSModulePath', 'Machine')`，启动后在 `finally` 恢复原值，不修改用户或系统环境。隐藏启动时将 stdout/stderr 重定向到 runtime 日志，并回读 `Status` 的 `supervisorProcess=running`、`health=healthy`；只取得 PID 或成功安装快捷方式不能当作守护已运行。
+
 ## 5. 查看、停用与代码回退
 
 ```powershell

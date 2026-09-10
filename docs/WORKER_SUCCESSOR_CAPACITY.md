@@ -1,6 +1,8 @@
 # Worker successor 有界容量评审（2026-09-10）
 
-当前正式链保留 128 条 successor，旧源码的硬上限也是 128；不能继续用旧验证器生成第 129 条。用户已授权检查所有分支并合并发布，本次采用源码级有界扩容至 256，仍完整验证 bootstrap 到 effective head 的全部记录，不做历史压缩或链根轮换。
+本次采用前正式链保留 128 条 successor，旧源码的硬上限也是 128；不能继续用旧验证器生成第 129 条。用户已授权检查所有分支并合并发布，本次采用源码级有界扩容至 256，仍完整验证 bootstrap 到 effective head 的全部记录，不做历史压缩或链根轮换。
+
+2026-09-11 已受控激活第 129 条，effective release 为 `20260910T161236Z-c0ab8ed9ff663df9`；当前上限 256。完整采用记录见 [统一发布证据](evidence/guangdong-replenishment-health-production-20260911.json)。Worker 发布源固定为 `D:\运营管理系统-sales-django-release`，每次 plan 前必须确认该干净集成树与已验收 main 的提交一致；仅更新生产保护入口根目录并不更新发布源。
 
 选择该方案是因为现有证据格式、连续 sequence、前驱 binding、plan SHA、sidecar、不可变 release、activation fence 和启动绑定均可原样保留。256 条仍是固定有界集合，目录最多 512 个记录/sidecar 文件；257、非法序号、分叉、不可达记录、环、缺失/篡改 sidecar、过期 CAS 与 lineage 变化继续拒绝。没有环境变量或 CLI 可调上限，不删除历史证据，也不跳过旧记录校验。
 

@@ -22,7 +22,7 @@
 
 公开 `GET /api/imports/chain-status` 经真实 principal 和无限制数据范围校验后，薄适配至 Django workflow reader 的 `GET /api/workflow/import-chain-status`，后端再次鉴权。只允许读取白名单工作流，不接受客户端路径、日期或筛选参数。既有 AI `get_automation_run_status` 工具复用同一 reader，按选定工作流返回有界字段并沿用工具审计；受限数据范围在读取前拒绝。
 
-Django 读取由运维显式配置的 `TERUISI_N8N_STATUS_DATABASE_PATH`。默认空值，未接入时显示无法核实；不回退用户目录、业务批次或历史 D1。正式采用时须在受控发布中为 workflow reader 配置本机 n8n SQLite 的绝对路径并确认文件读取权限、运行时部署包含生成的 JSON 白名单。此次开发没有修改生产环境配置。使用 SQLite `mode=ro`、`query_only` 和一致性读事务，仅查询 `workflow_entity` 的 ID/启停及 `execution_entity` 的 ID/状态/时间/工作流 ID；不读取凭据、节点参数或执行载荷，不写 n8n 或业务数据库。
+Django 读取由运维显式配置的 `TERUISI_N8N_STATUS_DATABASE_PATH`。默认空值，未接入时显示无法核实；不回退用户目录、业务批次或历史 D1。2026-09-11 本机受控发布已为 workflow reader 配置 n8n SQLite 的绝对路径并确认读取权限，运行时包含生成的 JSON 白名单，11 条链回读 `source=n8n_execution_metadata`；采用记录见 [统一发布证据](evidence/guangdong-replenishment-health-production-20260911.json)。使用 SQLite `mode=ro`、`query_only` 和一致性读事务，仅查询 `workflow_entity` 的 ID/启停及 `execution_entity` 的 ID/状态/时间/工作流 ID；不读取凭据、节点参数或执行载荷，不写 n8n 或业务数据库。
 
 按服务器上海日期统计当日结束的自动执行（`trigger`/`webhook`），并显示尚未结束的自动执行；手动调试、已删除记录和未来记录不计入。`success` 且有结束时间才算今天完成；当天成功后再次失败会显示最近失败并保留较早完成时间；运行中/等待优先展示，不能标绿。无保留记录显示“未查到今日记录”，不能解释成从未运行。执行级成功也不替代各业务域导入结果的回查。
 
