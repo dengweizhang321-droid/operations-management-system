@@ -261,6 +261,11 @@ class AiDomainTests(TestCase):
             m.AiChatRequestReceipts.objects.get(client_request_id="uncertain").status,
             "unknown",
         )
+        failure = m.AiToolAuditLogs.objects.get(
+            request_id="unknown-http", tool_name="ai_chat_provider", status="failed"
+        )
+        self.assertEqual(failure.error_code, "provider_timeout")
+        self.assertGreaterEqual(failure.duration_ms, 0)
 
     def test_workflow_cycle_rejected_without_writes(self):
         bad = {

@@ -36,6 +36,7 @@ import {
 } from "./tmall-product-master-cadence";
 import { fetchTmallPromotionCoverage, runTmallPromotionStage } from "./tmall-promotion-export";
 import { planTmallDailyGaps } from "./tmall-daily-gap-plan";
+import { beginTmallBackfill, advanceTmallBackfill, publicTmallBackfill, type TmallBackfillState } from "./tmall-daily-backfill";
 import { runTmallDirectPromotionStage } from "./tmall-direct-promotion-export";
 import {
   isTmallDirectPmRoute,
@@ -160,7 +161,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 type PipelineCommand = "master" | "plan" | "fetch" | "import" | "promotion" | "serve";
 export type HelperStage = "ready" | "planned" | "fetched" | "imported" | "promoted" | "running" | "executed" | "completed" | "failed";
-export type HelperRoute = "/plan" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
+export type HelperRoute = "/plan" | "/plan-backfill" | "/next-day" | "/fetch" | "/import" | "/promotion" | "/product-master" | TmallDirectPmRoute;
 export type CoordinatedWorkflow = "tmall" | "jackyun" | "jd" | "jd-market" | "jd-promotion";
 export type CookieSourceStatus = "ready" | "missing" | "invalid";
 export type TmallProfileStatus = "ready" | "missing" | "invalid";
@@ -934,7 +935,7 @@ export function tmallStoreContextError(
 }
 
 export function tmallStageAfterRoute(route: HelperRoute): HelperStage {
-  if (route === "/plan") return "planned";
+  if (route === "/plan" || route === "/plan-backfill") return "planned";
   if (route === "/fetch") return "fetched";
   if (route === "/import") return "imported";
   if (route === "/promotion" || route === tmallDirectPromotionRoute) return "promoted";
@@ -956,12 +957,12 @@ export function helperRequestError(
     return { error: "execution_not_claimed" as const, expected: "/coordination/claim" as const };
   }
   if (busy) return { error: "pipeline_busy" as const };
-  if (route === "/plan") {
+  if (route === "/plan" || route === "/plan-backfill") {
     return stage === "ready"
       ? null
       : { error: "invalid_stage" as const, expected: "ready" as const, actual: stage };
   }
-  if (route === "/product-master" || route === tmallDirectProductMasterRoute) {
+  if (route === "/next-day" || route === "/product-master" || route === tmallDirectProductMasterRoute) {
     return stage === "promoted"
       ? null
       : { error: "invalid_stage" as const, expected: "promoted" as const, actual: stage };
@@ -1270,6 +1271,14 @@ async function serveCommand(argv: string[]) {
   let planPathBase64 = "";
   let tmallPlanDates: string[] = [];
   let tmallPlanRange: { startDate: string; endDate: string } | undefined;
+  let tmallBackfill: TmallBackfillState | null = null;
+  const persistBackfill = async (state: TmallBackfillState) => {
+    // Immutable progress evidence. Recovery starts a new execution from A and
+    // queries authoritative coverage; this journal never authorizes an import.
+    const file = path.join(artifactDirectory, `backfill-${state.executionId}-${state.storeKey}-${state.cycle}.json`);
+    await mkdir(artifactDirectory, { recursive: true });
+    await writeFile(file, JSON.stringify(state), { encoding: "utf8", flag: "wx" });
+  };
   let manifestPathBase64 = "";
   let jackyunPlan: JackyunN8nPlan | null = null;
   let jdPlan: JdN8nPlan | null = null;
@@ -1420,6 +1429,8 @@ async function serveCommand(argv: string[]) {
       "/product-master",
       tmallDirectProductMasterRoute,
       "/plan",
+      "/plan-backfill",
+      "/next-day",
       "/fetch",
       "/import",
       "/promotion",
@@ -1588,6 +1599,7 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/product-master" || request.url === tmallDirectProductMasterRoute) {
+        if (tmallBackfill?.status === "running") throw new Error("天猫逐日补缺尚未完成最终覆盖核验，不能进入 M");
         const store = await getTmallStore(claimedTmallStoreKey!);
         const result = await runTmallProductMasterTerminalStage({
           store,
@@ -1596,10 +1608,30 @@ async function serveCommand(argv: string[]) {
         });
         tmallBrowserClosure = result.browserClosure;
         stage = tmallStageAfterRoute(request.url);
-        reply(200, result);
+        reply(200, { ...result, ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}) });
         inactivityReaper?.clear();
         scheduleOneShotServerClose(server, 500);
-      } else if (request.url === "/plan") {
+      } else if (request.url === "/next-day") {
+        if (!tmallBackfill || !tmallPlanRange) throw new Error("缺少同一 execution 的逐日补缺计划");
+        const next = await planCommand(["--store-key", claimedTmallStoreKey!, "--max-days", "1",
+          "--start-date", tmallPlanRange.startDate, "--end-date", tmallPlanRange.endDate]);
+        const advanced = advanceTmallBackfill(tmallBackfill, {
+          executionId: requestExecutionId!, storeKey: claimedTmallStoreKey!,
+          cycle: request.headers["x-teruisi-tmall-backfill-cycle"], plan: next, now: Date.now(),
+        });
+        await persistBackfill(advanced);
+        tmallBackfill = advanced;
+        const continueBackfill = advanced.status === "running";
+        if (continueBackfill) {
+          planPathBase64 = next.planPathBase64;
+          tmallPlanDates = [...next.promotionDates];
+          manifestPathBase64 = "";
+        }
+        stage = continueBackfill ? "planned" : "promoted";
+        reply(200, { ok: true, stage: "next_day", continueBackfill, dailyBackfill: publicTmallBackfill(advanced) });
+        inactivityReaper?.arm();
+      } else if (request.url === "/plan" || request.url === "/plan-backfill") {
+        const startedAt = Date.now();
         const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
         const explicitDates = parseTmallPlanDateRangeHeaders(
           request.headers[tmallPlanStartDateHeader],
@@ -1608,11 +1640,16 @@ async function serveCommand(argv: string[]) {
         const planArguments = ["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)];
         if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
         const result = await planCommand(planArguments);
+        if (request.url === "/plan-backfill") {
+          const initial = beginTmallBackfill(requestExecutionId!, claimedTmallStoreKey!, result, startedAt);
+          await persistBackfill(initial);
+          tmallBackfill = initial;
+        }
         planPathBase64 = result.planPathBase64;
         tmallPlanDates = [...result.promotionDates];
         tmallPlanRange = { startDate: result.startDate, endDate: result.endDate };
         stage = tmallStageAfterRoute("/plan");
-        reply(200, { ...result, authentication });
+        reply(200, { ...result, authentication, ...(tmallBackfill ? { dailyBackfill: publicTmallBackfill(tmallBackfill) } : {}) });
         inactivityReaper?.arm();
       } else if (request.url === "/fetch") {
         const result = await fetchCommand(["--plan-base64", planPathBase64], claimedTmallStoreKey!);

@@ -33,22 +33,30 @@ function list(value: unknown, maximum = 50): string[] {
   return [...new Set(value.map((item) => optionalString(item, 200)).filter(Boolean) as string[])];
 }
 
-function filters(args: Record<string, unknown>) {
+export function marketAiFilters(args: Record<string, unknown>) {
   const startDate = optionalString(args.startDate, 10);
   const endDate = optionalString(args.endDate, 10);
   if ((startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate))
     || (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate))) {
     throw new Error("date argument must use YYYY-MM-DD");
   }
+  function selection(singleKey: string, listKey: string) {
+    const single = optionalString(args[singleKey], 200);
+    const multiple = list(args[listKey]);
+    if (single && multiple.length && (multiple.length !== 1 || multiple[0] !== single)) {
+      throw new Error(`conflicting ${singleKey} filters`);
+    }
+    return single ? [single] : multiple;
+  }
   return {
     query: optionalString(args.query, 120) ?? "",
-    categories: list(args.categories),
-    scopes: list(args.scopes),
-    brands: list(args.brands),
+    categories: selection("category", "categories"),
+    scopes: selection("scope", "scopes"),
+    brands: selection("brand", "brands"),
     priceBands: list(args.priceBands),
-    rankingDimensions: list(args.rankingDimensions),
-    operationModes: list(args.operationModes),
-    subcategories: list(args.subcategories),
+    rankingDimensions: selection("rankingDimension", "rankingDimensions"),
+    operationModes: selection("operationMode", "operationModes"),
+    subcategories: selection("subcategory", "subcategories"),
     startDate: startDate ?? null,
     endDate: endDate ?? null,
   };
@@ -65,10 +73,38 @@ async function overview(args: Record<string, unknown>, principal: AppPrincipal) 
         view: "full",
         page: 1,
         pageSize: integer(args.limit, 20, 10, 50),
-        filters: filters(args),
+        filters: marketAiFilters(args),
       },
     },
   );
+}
+
+export function marketAiOverview(data: Record<string, unknown>) {
+  const rows = (value: unknown) => Array.isArray(value) ? value : [];
+  const brands = data.brandAnalysis && typeof data.brandAnalysis === "object"
+    ? data.brandAnalysis as Record<string, unknown> : {};
+  return {
+    basis: "current_top_ranking_coverage",
+    summary: data.summary,
+    dataRange: data.dataRange,
+    salesRevision: data.salesRevision,
+    trend: rows(data.trend).slice(0, 24),
+    trendTotal: data.trendTotal,
+    trendTruncated: data.trendTruncated || rows(data.trend).length > 24,
+    brandAnalysis: {
+      items: rows(brands.items).slice(0, 10),
+      cr3Bps: brands.cr3Bps, cr5Bps: brands.cr5Bps, concentration: brands.concentration,
+    },
+    priceBandSummary: rows(data.priceBandSummary).slice(0, 10),
+    subcategorySummary: rows(data.subcategorySummary).slice(0, 10),
+    limits: {
+      brands: 10, priceBands: 10, subcategories: 10, trendMonths: 24,
+      brandItemsTruncated: rows(brands.items).length > 10,
+      priceBandsTruncated: rows(data.priceBandSummary).length > 10,
+      subcategoriesTruncated: rows(data.subcategorySummary).length > 10,
+      dashboardDetailsOmitted: true,
+    },
+  };
 }
 
 export async function callMarketTool(
@@ -78,7 +114,7 @@ export async function callMarketTool(
 ): Promise<Record<string, unknown>> {
   if (name === "get_market_overview") {
     const result = await overview(args, principal);
-    return { ...result.data, dataRevision: result.revision };
+    return { ...marketAiOverview(result.data), dataRevision: result.revision };
   }
   if (name === "get_market_brand_analysis") {
     const result = await overview(args, principal);

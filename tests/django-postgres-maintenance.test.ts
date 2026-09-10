@@ -294,7 +294,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 45);
+  assert.equal(new Set(aiTables).size, 46);
+  assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
     tables: Object.fromEntries(["django_migrations", "sales_data_revisions", "sales_import_batches", "sales_order_lines", "sales_write_authority", "erp_product_master"].map(name => [name, 0])),
@@ -306,7 +307,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   const candidate = {
     ...structuredClone(base),
     tables: { ...base.tables, ...Object.fromEntries(aiTables.map(name => [name, 0])) },
-    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }],
+    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }],
     aiAssistant: { revision: 0, sourceDigest: "", status: "d1", authorityEpoch: "", cutoverId: "", migrationRunId: "" },
   };
   const adopted = structuredClone(candidate);
@@ -320,9 +321,17 @@ test("maintenance validates complete AI backup evidence before and after activat
   const unbound = { ...structuredClone(base), tables: { ...base.tables, ai_models: 0 } };
   const metadataMissing = structuredClone(active) as Partial<typeof active>;
   delete metadataMissing.aiAssistant;
+  const orphanWorkspaceMigration = { ...structuredClone(base), migrations: [...base.migrations, { app: "ai_assistant", name: "0006_conversation_workspaces" }] };
+  const beforeWorkspaceMigration = structuredClone(active);
+  delete beforeWorkspaceMigration.tables.ai_conversation_workspaces;
+  beforeWorkspaceMigration.migrations = beforeWorkspaceMigration.migrations.filter(item => item.name !== "0006_conversation_workspaces");
+  const workspaceMissing = structuredClone(active);
+  delete workspaceMissing.tables.ai_conversation_workspaces;
+  const workspaceMigrationMissing = structuredClone(active);
+  workspaceMigrationMissing.migrations = workspaceMigrationMissing.migrations.filter(item => item.name !== "0006_conversation_workspaces");
   const cases = [
-    ...[base, candidate, adopted, active].map(evidence => ({ valid: true, evidence })),
-    ...[missing, unknown, unbound, metadataMissing].map(evidence => ({ valid: false, evidence })),
+    ...[base, candidate, adopted, active, beforeWorkspaceMigration].map(evidence => ({ valid: true, evidence })),
+    ...[missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
   const command = `
@@ -336,7 +345,7 @@ foreach($case in $cases) {
   try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
   if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
 }
-Write-Output '8 AI backup evidence cases passed'
+Write-Output '12 AI backup evidence cases passed'
 `;
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
   try {
@@ -344,7 +353,7 @@ Write-Output '8 AI backup evidence cases passed'
     await writeFile(scriptPath, command);
     const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /8 AI backup evidence cases passed/);
+    assert.match(result.stdout, /12 AI backup evidence cases passed/);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -361,6 +370,6 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 5 tests/);
+  assert.match(result.stderr, /Ran 7 tests/);
   assert.match(result.stderr, /OK/);
 });

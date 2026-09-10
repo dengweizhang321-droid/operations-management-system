@@ -76,10 +76,10 @@ export function watchWorkbook(rows: GuangdongWatchRow[]): Uint8Array {
 export function monitorWorkbook(data: GuangdongMonitor): Uint8Array {
   return workbookBytes([
     { name: "广东入仓监控", rows: [
-      ["货品编码", "货品名称", "规格", "品牌", "品类", "供应商", "供应商来源", "仓库", "可用库存", "在途", "7日出库", "30日出库", "90日出库", "周转天数", "库龄天数", "成本元", "已覆盖货值元", "备货周期天", "缓冲天", "最晚下单日期", "风险", "风险原因", "备注"],
-      ...data.items.map((r) => [r.productCode, r.productName, r.specification, r.brand, r.category, r.supplier, r.supplierSource, r.warehouse, r.availableQuantity, r.inTransitQuantity, r.outbound7dQuantity, r.outbound30dQuantity, r.outbound90dQuantity, r.turnoverDays, r.inventoryAgeDays, r.unitCostCents === null ? null : r.unitCostCents / 100, r.knownStockValueCents / 100, r.leadDays, r.bufferDays, r.latestOrderDate, r.riskLabel, r.riskReasons.join("；"), r.notes]),
+      ["货品编码", "货品名称", "规格编码", "规格", "品牌", "品类", "供应商", "供应商来源", "运营负责人", "采购负责人", "仓库", "可用库存", "在途", "7日出库", "15日出库", "30日出库", "销售周转天数", "库龄天数", "生产周期天", "安全天数", "最晚下单日期", "备货数量", "最新下单日期", "风险", "风险原因", "备注"],
+      ...data.items.map((r) => [r.productCode, r.productName, r.productCode, r.specification, r.brand, r.category, r.supplier, r.supplierSource, r.operatorName, r.buyer, r.warehouse, r.availableQuantity, r.inTransitQuantity, r.outbound7dQuantity, r.outbound15dQuantity, r.outbound30dQuantity, r.turnoverDays, r.inventoryAgeDays, r.leadDays, r.bufferDays, r.latestOrderDate, r.replenishmentQuantity, r.latestReplenishmentOrderDate, r.riskLabel, r.riskReasons.join("；"), r.notes]),
     ] },
-    { name: "统计说明", rows: [["项目", "内容"], ["库存截止", data.sync.inventoryAsOf], ["销售截止", data.sync.salesThrough], ["数据版本", data.version], ["缺成本型号数", data.metrics.missingCostCount], ["缺库存型号数", data.metrics.missingStockCount], ...data.disclosures.map((text) => ["口径", text])] },
+    { name: "统计说明", rows: [["项目", "内容"], ["库存截止", data.sync.inventoryAsOf], ["库龄截止", data.sync.inventoryAgeAsOf], ["销售截止", data.sync.salesThrough], ["数据版本", data.version], ["缺成本型号数", data.metrics.missingCostCount], ["缺库存型号数", data.metrics.missingStockCount], ...data.disclosures.map((text) => ["口径", text])] },
     { name: "健康分布", rows: [["风险", "型号数", "型号占比", "正向可用库存", "数量占比", "已覆盖货值元", "货值占比"], ...data.distribution.map((row) => [row.label, row.itemCount, row.itemRate, row.quantity, row.quantityRate, row.knownStockValueCents / 100, row.valueRate])] },
   ]);
 }

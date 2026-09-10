@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from inventory import guangdong as gd
 from inventory import guangdong_views as views
-from inventory.models import GuangdongMonitorItem, GuangdongSupplierCycle, GuangdongMonitorAudit, InventoryWriteAuthority, InventoryImportBatch, InventoryStockLine
+from inventory.models import GuangdongMonitorItem, GuangdongSupplierCycle, GuangdongMonitorAudit, InventoryAgeLine, InventoryWriteAuthority, InventoryImportBatch, InventoryStockLine, ReplenishmentPlanItem
 from inventory.errors import InventoryApiError
 from sales.models import ErpProductMaster
 from sales.auth import Principal
@@ -19,30 +19,35 @@ from sales.models import SalesOrderLine
 
 class RiskTests(SimpleTestCase):
     def fields(self, **updates):
-        args = dict(available=100, age=10, sales30=300, sales90=900, lead=10, buffer=7, snapshot=date(2026, 9, 8))
+        args = dict(available=100, sales30=300, lead=10, buffer=7, snapshot=date(2026, 9, 8))
         args.update(updates)
         return gd.risk_fields(**args)
 
     def test_inclusive_thresholds_and_order_date(self):
-        self.assertEqual(self.fields()["risk"], "urgent")
-        self.assertEqual(self.fields(available=170)["risk"], "warning")
-        self.assertEqual(self.fields(available=171)["risk"], "healthy")
-        self.assertEqual(self.fields(available=170)["latestOrderDate"], "2026-09-08")
-        self.assertEqual(self.fields(available=100)["latestOrderDate"], "2026-09-01")
+        with patch.object(gd.timezone, "localdate", return_value=date(2026, 9, 9)):
+            self.assertEqual(self.fields()["risk"], "urgent")
+            self.assertEqual(self.fields(available=169)["risk"], "warning")
+            self.assertEqual(self.fields(available=170)["risk"], "healthy")
+            self.assertEqual(self.fields(available=171)["risk"], "healthy")
+            self.assertEqual(self.fields(available=170)["latestOrderDate"], "2026-09-09")
+            self.assertEqual(self.fields(available=100)["latestOrderDate"], "2026-09-09")
+            self.assertEqual(self.fields(available=270)["latestOrderDate"], "2026-09-18")
 
     def test_missing_is_not_zero_and_all_risk_reasons_remain(self):
         self.assertEqual(self.fields(available=None)["risk"], "unknown")
         self.assertEqual(self.fields(available=0)["risk"], "no_stock")
         self.assertEqual(self.fields(available=-5)["risk"], "no_stock")
-        result = self.fields(age=90)
-        self.assertEqual(result["risk"], "urgent")
-        self.assertIn("库龄达到90天", result["riskReasons"])
+        result = self.fields(available=1800, lead=200)
+        self.assertEqual(result["risk"], "stale")
+        self.assertIn("销售周转达到180天", result["riskReasons"])
+        self.assertIn("销售周转不超过生产周期", result["riskReasons"])
 
     def test_missing_cycle_zero_sales_and_unmatched_sales(self):
         self.assertEqual(self.fields(lead=None)["risk"], "unknown")
-        self.assertEqual(self.fields(sales30=None, sales90=None)["risk"], "unknown")
-        self.assertEqual(self.fields(sales30=0, sales90=10)["risk"], "unknown")
-        self.assertEqual(self.fields(sales30=0, sales90=0)["risk"], "stale")
+        self.assertEqual(self.fields(sales30=None)["risk"], "unknown")
+        self.assertEqual(self.fields(sales30=0)["risk"], "unknown")
+        self.assertEqual(self.fields(available=1799)["risk"], "healthy")
+        self.assertEqual(self.fields(available=1800)["risk"], "stale")
 
 
 class GuangdongTests(TestCase):
@@ -65,11 +70,17 @@ class GuangdongTests(TestCase):
 
     def sales(self, **updates):
         result = {"asOfDate": self.today.isoformat(), "dataStartDate": (self.today - timedelta(days=120)).isoformat(), "truncated": False, "rows": [
-            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓"), "sales7dQuantity": 70, "sales30dQuantity": 300, "sales90dQuantity": 900},
-            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓-欧洲站"), "sales7dQuantity": 7000, "sales30dQuantity": 30000, "sales90dQuantity": 90000},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓"), "sales7dQuantity": 70, "sales15dQuantity": 150, "sales30dQuantity": 300, "sales90dQuantity": 900},
+            {"productCode": "00123", "warehouseKey": gd._warehouse_key("广东仓-欧洲站"), "sales7dQuantity": 7000, "sales15dQuantity": 15000, "sales30dQuantity": 30000, "sales90dQuantity": 90000},
         ]}
         result.update(updates)
         return result
+
+    def age_batch(self, age=45):
+        batch = InventoryImportBatch.objects.create(id="gd-age", dataset="age", source="test", file_name="age.xlsx", file_size_bytes=1, file_hash="d" * 64, raw_file_hash="e" * 64, content_hash="f" * 64, scope_key="age", sheet_name="test", snapshot_date=self.today - timedelta(days=1), status="completed", completed_at=timezone.now())
+        InventoryAgeLine.objects.create(batch_id=batch.id, row_key="00123广东仓", source_row_number=1, snapshot_date=batch.snapshot_date, warehouse="广东仓", product_code="00123", inventory_age_days=age)
+        InventoryAgeLine.objects.create(batch_id=batch.id, row_key="00123广东仓-欧洲站", source_row_number=2, snapshot_date=batch.snapshot_date, warehouse="广东仓-欧洲站", product_code="00123", inventory_age_days=999)
+        return batch
 
     def test_import_preview_atomic_errors_and_leading_zero(self):
         self.save_rows([{"productCode": "00123", "active": True, "notes": "首条"}])
@@ -114,7 +125,9 @@ class GuangdongTests(TestCase):
     def test_exact_warehouse_distribution_export_and_in_transit(self):
         self.save_rows([{"productCode": code} for code in ["00123", "B", "MISSING"]])
         self.batch()
+        self.age_batch()
         GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=10, updated_by="test")
+        ReplenishmentPlanItem.objects.create(id="gd-plan", source_batch_id="gd-stock", product_code="00123", product_name="测试产品00123", warehouse="广东仓", order_date=self.today - timedelta(days=2), suggested_quantity=40, planned_quantity=35, operator_name="运营甲", buyer="采购甲")
         with patch.object(gd, "_sales_query", return_value=self.sales()):
             result = gd.monitor(self.principal, {"pageSize": 1})
             self.assertEqual(result["metrics"]["availableQuantity"], 100)
@@ -127,7 +140,58 @@ class GuangdongTests(TestCase):
             self.assertEqual(item["risk"], "urgent")
             self.assertEqual(item["turnoverDays"], 10)
             self.assertEqual(item["inTransitQuantity"], 1000)
+            self.assertEqual(item["outbound15dQuantity"], 150)
+            self.assertEqual(item["inventoryAgeDays"], 45)
+            self.assertEqual(item["replenishmentQuantity"], 35)
+            self.assertEqual(item["latestReplenishmentOrderDate"], (self.today - timedelta(days=2)).isoformat())
+            self.assertEqual(item["operatorName"], "运营甲")
+            self.assertEqual(item["buyer"], "采购甲")
+            self.assertIsNone(item["leadDaysOverride"])
+            self.assertEqual(item["cycleSource"], "供应商设置")
+            self.assertEqual(item["operatorNameSource"], "最新备货计划")
+            self.assertEqual(item["buyerSource"], "最新备货计划")
+            self.assertEqual(full["sync"]["inventoryAgeAsOf"], (self.today - timedelta(days=1)).isoformat())
             with self.assertRaises(InventoryApiError): gd.monitor(self.principal, {"version": "old"}, export=True)
+
+    def test_item_overrides_and_default_sources(self):
+        self.save_rows([{"productCode": "00123"}]); self.batch()
+        GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=12, buffer_days=8, updated_by="test")
+        ReplenishmentPlanItem.objects.create(id="gd-plan-defaults", source_batch_id="gd-stock", product_code="00123", product_name="测试产品00123", warehouse="广东仓", order_date=self.today, suggested_quantity=20, planned_quantity=20, operator_name="运营默认", buyer="采购默认")
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            initial = gd.monitor(self.principal, {})["items"][0]
+        self.assertEqual((initial["leadDays"], initial["bufferDays"], initial["cycleSource"]), (12, 8, "供应商设置"))
+        self.assertEqual((initial["supplierLeadDays"], initial["supplierBufferDays"]), (12, 8))
+        self.assertEqual((initial["operatorName"], initial["operatorNameSource"]), ("运营默认", "最新备货计划"))
+        self.assertEqual((initial["planOperatorName"], initial["planBuyer"]), ("运营默认", "采购默认"))
+
+        before_version = gd.version()
+        payload = {"action": "item", "productCode": "00123", "leadDays": 20, "bufferDays": 5, "operatorName": "运营覆盖", "buyer": "采购覆盖", "risk": "healthy", "riskReason": "已核实现货可持续供应", "version": before_version}
+        self.assertEqual(gd.mutate(payload, self.principal.email)["status"], "saved")
+        self.assertEqual(gd.mutate(payload, self.principal.email)["status"], "unchanged")
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            overridden = gd.monitor(self.principal, {})["items"][0]
+        self.assertEqual((overridden["leadDays"], overridden["bufferDays"], overridden["cycleSource"]), (20, 5, "型号设置"))
+        self.assertEqual((overridden["operatorName"], overridden["operatorNameSource"]), ("运营覆盖", "型号设置"))
+        self.assertEqual((overridden["buyer"], overridden["buyerSource"]), ("采购覆盖", "型号设置"))
+        self.assertEqual((overridden["risk"], overridden["riskSource"]), ("healthy", "型号设置"))
+        self.assertEqual(overridden["autoRisk"], "urgent")
+        self.assertIn("人工设置：已核实现货可持续供应", overridden["riskReasons"])
+        self.assertIn("系统原判：紧急补货", overridden["riskReasons"][1])
+
+        with self.assertRaises(InventoryApiError):
+            gd.mutate({**payload, "leadDays": None, "bufferDays": 5, "version": gd.version()}, self.principal.email)
+        with self.assertRaises(InventoryApiError):
+            gd.mutate({**payload, "riskReason": "", "version": gd.version()}, self.principal.email)
+        with self.assertRaises(InventoryApiError) as caught:
+            gd.mutate({**payload, "buyer": "另一采购", "version": before_version}, self.principal.email)
+        self.assertEqual(caught.exception.status, 409)
+        cleared = {"action": "item", "productCode": "00123", "leadDays": None, "bufferDays": None, "operatorName": "", "buyer": "", "risk": "", "riskReason": "", "version": gd.version()}
+        gd.mutate(cleared, self.principal.email)
+        with patch.object(gd, "_sales_query", return_value=self.sales()):
+            restored = gd.monitor(self.principal, {})["items"][0]
+        self.assertEqual((restored["leadDays"], restored["bufferDays"], restored["cycleSource"]), (12, 8, "供应商设置"))
+        self.assertEqual((restored["operatorName"], restored["buyer"]), ("运营默认", "采购默认"))
+        self.assertEqual((restored["risk"], restored["riskSource"]), ("urgent", "系统判定"))
 
     def test_pause_missing_coverage_cost_and_snapshot_age(self):
         self.save_rows([{"productCode": "00123"}, {"productCode": "B", "active": False}])
@@ -159,6 +223,8 @@ class GuangdongTests(TestCase):
         with patch("inventory.views.verify_principal", return_value=viewer):
             response = views.imports(factory.post("/api/inventory/guangdong-monitor/import", data=json.dumps({}), content_type="application/json"))
             self.assertEqual(response.status_code, 403)
+            response = views.items(factory.patch("/api/inventory/guangdong-monitor/items", data=json.dumps({}), content_type="application/json"))
+            self.assertEqual(response.status_code, 403)
             self.assertEqual(views.monitor(factory.get("/api/inventory/guangdong-monitor?warehouse=京东仓")).status_code, 400)
         restricted = Principal(email="scope@example.invalid", display_name="Test", role="admin", scope={"platformNames": ["京东"]})
         with patch("inventory.views.verify_principal", return_value=restricted):
@@ -169,6 +235,10 @@ class GuangdongTests(TestCase):
         from django.db import IntegrityError, transaction
         with self.assertRaises(IntegrityError), transaction.atomic():
             GuangdongSupplierCycle.objects.create(supplier="非法", lead_days=0, updated_by="test")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            GuangdongMonitorItem.objects.create(product_code="invalid-pair", lead_days_override=1, buffer_days_override=None, updated_by="test")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            GuangdongMonitorItem.objects.create(product_code="invalid-risk", risk_override="healthy", risk_reason_override=None, updated_by="test")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_signed_http_preview_commit_replay_and_export_header(self):
@@ -188,6 +258,17 @@ class GuangdongTests(TestCase):
         response = self.client.get(base, headers=signed_headers(base))
         self.assertEqual(response.status_code, 200, response.content)
         self.assertRegex(response["X-Inventory-Data-Revision"], r"^\d+:[a-f0-9]{12}$")
+        item_body = json.dumps({"action": "item", "productCode": "00123", "leadDays": 18, "bufferDays": 6, "operatorName": "运营覆盖", "buyer": "采购覆盖", "risk": "warning", "riskReason": "HTTP人工调整", "version": response.json()["version"]})
+        item_headers = signed_headers(base + "/items", method="PATCH", body=item_body, request_id="gd-item-write-request")
+        item_response = self.client.patch(base + "/items", data=item_body, content_type="application/json", headers=item_headers)
+        self.assertEqual(item_response.status_code, 200, item_response.content)
+        item_replay = self.client.patch(base + "/items", data=item_body, content_type="application/json", headers=item_headers)
+        self.assertEqual(item_replay["X-Teruisi-Write-Replay"], "1")
+        response = self.client.get(base, headers=signed_headers(base))
+        self.assertEqual(response.json()["items"][0]["operatorName"], "运营覆盖")
+        self.assertEqual(response.json()["items"][0]["cycleSource"], "型号设置")
+        self.assertEqual(response.json()["items"][0]["riskSource"], "型号设置")
+        self.assertEqual(response.json()["items"][0]["riskReasonOverride"], "HTTP人工调整")
         url = base + "/export?kind=monitor&version=" + response.json()["version"]
         response = self.client.get(url, headers=signed_headers(url))
         self.assertEqual(response.status_code, 200, response.content)

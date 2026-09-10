@@ -1,4 +1,6 @@
 "use client";
+
+import { useAiPageDetails } from "./ai-page-context-provider";
 /* eslint-disable @next/next/no-img-element -- Market master thumbnails are imported business assets. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -207,6 +209,19 @@ export function MarketMasterAdminPanel({ currentUser, mode = "database" }: Marke
   const [notice, setNotice] = useState("");
   const isAdmin = currentUser?.role === "admin";
   const skuEditorSaving = !canCloseMarketSkuEditor(busy);
+  useAiPageDetails("market", {
+    period: null,
+    filters: {
+      masterSection: mode,
+      ...(mode === "database" ? {
+        query: query.trim(), categories: masterCategories, rankingDimension: rankingDimensions,
+        operationMode: operationModes, subcategories: subcategoryFilters, priceStatuses,
+        candidatePriceSources: masterCandidatePriceSources, annotationStatuses,
+        ...(databaseSecondaryRequested ? { pendingPriceSources } : {}),
+      } : mode === "brand" ? { query: query.trim(), categories: category ? [category] : [] }
+        : mode === "subcategory" ? { categories: category ? [category] : [] } : {}),
+    },
+  });
   const closeSkuEditor = useCallback(() => {
     if (!canCloseMarketSkuEditor(busyActionRef.current)) return;
     setEditingSku(null);

@@ -63,7 +63,9 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
   const principal = requirePrincipal(context);
   requireUnrestrictedDataScope(principal, "广东入仓库存监控");
   const input = inputObject(args);
-  assertOnlyKeys(input, ["q", "brands", "categories", "suppliers", "risk", "page", "limit"]);
+  assertOnlyKeys(input, ["q", "brands", "categories", "suppliers", "risk", "page", "limit", "warehouses"]);
+  const warehouses = stringList(input.warehouses, "warehouses", 10);
+  if (warehouses.some(warehouse => warehouse !== "广东仓")) failInput("广东入仓监控固定为广东仓，不能查询其他仓库");
   const pageInput = pagination(input);
   const query = new URLSearchParams({ page: String(pageInput.page), pageSize: String(pageInput.pageSize) });
   const text = optionalText(input.q, "q", 100);
@@ -85,7 +87,7 @@ export async function getInventoryGuangdongPageData(args: unknown, context: Page
     metrics: pickScalars(result.metrics, ["itemCount", "availableQuantity", "inTransitQuantity", "knownStockValueCents", "missingCostCount", "missingStockCount"]),
     distribution: boundedRecords(result.distribution, 6, ["risk", "label", "itemCount", "quantity", "knownStockValueCents", "itemRate", "quantityRate", "valueRate"]),
     pagination: projectPagination(result.pagination),
-    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "supplier", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound30dQuantity", "outbound90dQuantity", "turnoverDays", "inventoryAgeDays", "knownStockValueCents", "leadDays", "bufferDays", "latestOrderDate", "risk", "riskLabel", "riskReason"]),
+    items: boundedRecords(result.items, pageInput.pageSize, ["productCode", "productName", "specification", "supplier", "operatorName", "buyer", "warehouse", "availableQuantity", "inTransitQuantity", "outbound7dQuantity", "outbound15dQuantity", "outbound30dQuantity", "turnoverDays", "inventoryAgeDays", "leadDays", "bufferDays", "latestOrderDate", "replenishmentQuantity", "latestReplenishmentOrderDate", "risk", "riskLabel", "riskReason"]),
     disclosures: boundedStrings(result.disclosures, 8),
   };
 }

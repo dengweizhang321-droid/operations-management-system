@@ -96,13 +96,18 @@ def main():
         initial = gd.preview([{"productCode": "00123", "notes": "私有镜像"}])
         gd.mutate({"action": "import", "rows": [{"productCode": "00123", "notes": "私有镜像"}], "version": initial["version"], "contentHash": initial["contentHash"]}, "mirror@example.invalid")
         gd.mutate({"action": "supplier", "supplier": "镜像供应商", "leadDays": 14, "version": gd.version()}, "mirror@example.invalid")
+        gd.mutate({"action": "item", "productCode": "00123", "leadDays": 21, "bufferDays": 5, "operatorName": "镜像运营", "buyer": "镜像采购", "risk": "healthy", "riskReason": "镜像人工核实", "version": gd.version()}, "mirror@example.invalid")
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
             cursor.execute("SET ROLE gd_reader")
             _validate_inventory_schema(cursor, writer=False)
         assert gd.list_items()["items"][0]["productCode"] == "00123"
         from sales.auth import Principal
-        assert gd.monitor(Principal("mirror@example.invalid", "Mirror", "admin", None), {})["items"][0]["risk"] == "unknown"
+        monitor_item = gd.monitor(Principal("mirror@example.invalid", "Mirror", "admin", None), {})["items"][0]
+        assert monitor_item["autoRisk"] == "unknown"
+        assert (monitor_item["leadDays"], monitor_item["bufferDays"], monitor_item["cycleSource"]) == (21, 5, "型号设置")
+        assert (monitor_item["operatorName"], monitor_item["buyer"]) == ("镜像运营", "镜像采购")
+        assert (monitor_item["risk"], monitor_item["riskSource"], monitor_item["riskReasonOverride"]) == ("healthy", "型号设置", "镜像人工核实")
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
             cursor.execute("SET ROLE gd_bi")
@@ -130,7 +135,7 @@ def main():
         command([BIN / "createdb.exe", "gd_restore"], "restore-create")
         command([BIN / "pg_restore.exe", "--no-owner", "--no-privileges", "--exit-on-error", "-d", "gd_restore", run / "mirror.dump"], "restore")
         assert summary("gd_restore") == before
-        evidence = {"status": "passed", "postgresPort": PORT, "syntheticDataOnly": True, "migration": "0007_guangdong_monitor", "tables": before, "minimumRoleChecks": "passed", "restoreMatches": True}
+        evidence = {"status": "passed", "postgresPort": PORT, "syntheticDataOnly": True, "migration": "0009_guangdong_item_risk_overrides", "tables": before, "minimumRoleChecks": "passed", "restoreMatches": True}
         (run / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
         print(json.dumps({"stage": "restore-readback", "status": "passed", "evidence": str(run / "result.json")}), flush=True)
         connection.close()

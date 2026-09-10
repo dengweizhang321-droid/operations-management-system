@@ -741,6 +741,24 @@ class AiConversations(models.Model):
         ]
 
 
+class AiConversationWorkspace(models.Model):
+    conversation = models.OneToOneField(
+        AiConversations, primary_key=True, db_column="conversation_id",
+        on_delete=models.CASCADE, related_name="workspace",
+    )
+    module_key = models.TextField()
+    page_context_json = models.TextField(default="null")
+    last_opened_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_conversation_workspaces"
+        indexes = [models.Index(fields=["module_key", "last_opened_at"], name="ai_workspace_recent")]
+        constraints = [models.CheckConstraint(
+            condition=models.Q(module_key__in=["n8n_workflows", "dashboard", "shop", "market", "customer_service", "sales", "inventory", "product", "workflow", "import", "settings", "ai"]),
+            name="ai_workspace_module",
+        )]
+
+
 class AiKnowledgeEntries(models.Model):
     id = models.TextField(primary_key=True)
     source_type = models.TextField()

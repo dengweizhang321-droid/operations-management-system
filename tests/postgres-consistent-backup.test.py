@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import sys
 from unittest import mock
 
 
@@ -15,6 +16,58 @@ SPEC = importlib.util.spec_from_file_location("postgres_consistent_backup", MODU
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+sys.path.insert(0, str(ROOT / "backend"))
+from ai_assistant.table_manifest import AI_TABLES
+
+
+class _EvidenceCursor:
+    def __init__(self, tables, migrations):
+        self.tables = sorted(tables)
+        self.migrations = sorted(migrations)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def execute(self, statement):
+        query = statement if isinstance(statement, str) else statement.as_string()
+        if "current_database()" in query:
+            self.rows = [("fixture", "fixture_owner", "127.0.0.1/32", 15479, False, 170011)]
+        elif "pg_catalog.pg_tables" in query:
+            self.rows = [(table,) for table in self.tables]
+        elif "SELECT app, name FROM django_migrations" in query:
+            self.rows = self.migrations
+        elif query.startswith("SELECT COUNT(*)"):
+            self.rows = [(0,)]
+        elif "FROM sales_data_revisions" in query:
+            self.rows = [("sales", 1), ("erp", 1)]
+        elif "FROM sales_write_authority" in query:
+            self.rows = [("active", "11111111-1111-1111-1111-111111111111", "fixture-cutover")]
+        elif "FROM ai_data_revisions" in query:
+            self.rows = [(0, "")]
+        elif "FROM ai_write_authority" in query:
+            self.rows = [("d1", "", "", "")]
+        else:
+            raise AssertionError("Unexpected evidence query: " + query)
+
+    def fetchall(self):
+        return self.rows
+
+    def fetchone(self):
+        return self.rows[0]
+
+
+def _ai_evidence(tables, migrations):
+    base_tables = {
+        "django_migrations", "sales_data_revisions", "sales_import_batches",
+        "sales_order_lines", "sales_write_authority", "erp_product_master",
+    }
+    cursor = _EvidenceCursor(base_tables | set(tables), [("sales", "0001_initial"), *migrations])
+    connection = mock.Mock()
+    connection.cursor.return_value = cursor
+    return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
 
 
 class _SnapshotCursor:
@@ -52,6 +105,34 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_evidence_accepts_both_backup_generations_with_stable_content_digest(self):
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces"}
+        legacy_migrations = [("ai_assistant", "0001_initial"), ("ai_assistant", "0005_postgres_image_payload")]
+        legacy = _ai_evidence(legacy_tables, legacy_migrations)
+        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
+        self.assertEqual(len([name for name in legacy["tables"] if name.startswith("ai_")]), 45)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 46)
+        self.assertEqual(legacy["contentSha256"], _ai_evidence(legacy_tables, legacy_migrations)["contentSha256"])
+        self.assertNotEqual(legacy["contentSha256"], current["contentSha256"])
+        self.assertEqual(legacy["aiAssistant"], current["aiAssistant"])
+
+    def test_evidence_rejects_inconsistent_ai_schema_and_migration_inventory(self):
+        initial = ("ai_assistant", "0001_initial")
+        workspace = ("ai_assistant", "0006_conversation_workspaces")
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces"}
+        for tables, migrations in [
+            (legacy_tables, [initial, workspace]),
+            (AI_TABLES, [initial]),
+            (AI_TABLES, [workspace]),
+            (AI_TABLES, []),
+            (set(), [initial]),
+            (set(), [workspace]),
+            (set(AI_TABLES) | {"ai_unknown"}, [initial, workspace]),
+        ]:
+            with self.subTest(tables=len(tables), migrations=migrations):
+                with self.assertRaisesRegex(RuntimeError, "AI .* (inventory|migration)"):
+                    _ai_evidence(tables, migrations)
+
     def test_loopback_identity_normalizes_postgres_inet_cidr_text(self):
         self.assertEqual(
             MODULE._canonical_loopback_address("127.0.0.1/32"),

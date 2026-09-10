@@ -65,6 +65,32 @@ export const AI_PAGE_CONTEXT_CATALOG = {
 
 export type AiPageModule = keyof typeof AI_PAGE_CONTEXT_CATALOG;
 
+export const AI_PAGE_FILTER_KEYS = [
+  "platforms", "shops", "channels", "categories", "warehouses", "brands", "skus", "spus",
+  "productCodes", "months", "scope", "rankingDimension", "query", "status", "dataset",
+  "operationMode", "subcategories", "dueFrom", "dueTo", "owner", "selectedIds",
+  "outletKeys", "priceBands", "suppliers", "warehouseTypes", "healthStatuses", "ageBuckets",
+  "agents", "robotScopes", "problemTypes", "conversionStatuses", "priorities", "sources",
+  "stageKey", "stageStatus", "proposedFrom", "weekStart", "marginFilterKeys",
+  "itemSegments", "storageStatuses", "recognitionSources", "risk",
+  "masterSection", "priceStatuses", "candidatePriceSources", "annotationStatuses", "pendingPriceSources",
+] as const;
+export type AiPageFilters = Partial<Record<(typeof AI_PAGE_FILTER_KEYS)[number], string | string[]>>;
+
+export function normalizeAiPageFilters(value: unknown): AiPageFilters | null {
+  if (value === undefined) return {};
+  if (!isRecord(value)) return null;
+  const output: AiPageFilters = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (!(AI_PAGE_FILTER_KEYS as readonly string[]).includes(key)) return null;
+    if (item === undefined || item === "" || (Array.isArray(item) && item.length === 0)) continue;
+    const values = Array.isArray(item) ? item : [item];
+    if (values.length > 20 || values.some(v => typeof v !== "string" || !v.trim() || v.length > 160)) return null;
+    output[key as keyof AiPageFilters] = Array.isArray(item) ? [...item] : item as string;
+  }
+  return new TextEncoder().encode(JSON.stringify(output)).byteLength <= 3000 ? output : null;
+}
+
 export type AiPageContext = {
   version: typeof AI_PAGE_CONTEXT_VERSION;
   module: AiPageModule;
@@ -73,6 +99,7 @@ export type AiPageContext = {
   period: { startDate: string; endDate: string } | null;
   importSource: string | null;
   suggestedTools: string[];
+  filters?: AiPageFilters;
 };
 
 const isoDayPattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -84,6 +111,7 @@ export function createAiPageContext(input: {
   startDate?: string | null;
   endDate?: string | null;
   importSource?: string | null;
+  filters?: AiPageFilters;
 }): AiPageContext {
   const context = normalizeAiPageContext({
     version: AI_PAGE_CONTEXT_VERSION,
@@ -93,6 +121,7 @@ export function createAiPageContext(input: {
       ? { startDate: input.startDate, endDate: input.endDate }
       : null,
     importSource: input.importSource ?? null,
+    filters: input.filters,
   });
   if (!context) throw new Error("AI 页面上下文无效");
   return context;
@@ -105,6 +134,9 @@ export function normalizeAiPageContext(value: unknown): AiPageContext | null {
   const pageModule = value.module as AiPageModule;
   const definition = AI_PAGE_CONTEXT_CATALOG[pageModule];
   if (typeof value.view !== "string" || !(definition.views as readonly string[]).includes(value.view)) return null;
+  const filters = normalizeAiPageFilters(value.filters);
+  if (!filters) return null;
+  if (pageModule === "customer_service" && "query" in filters) return null;
   const period = normalizePeriod(value.period);
   if (value.period !== undefined && value.period !== null && period === null) return null;
   const importSource = value.importSource === undefined || value.importSource === null
@@ -121,6 +153,7 @@ export function normalizeAiPageContext(value: unknown): AiPageContext | null {
     period,
     importSource,
     suggestedTools: [...definition.suggestedTools],
+    ...(value.filters !== undefined ? { filters } : {}),
   };
 }
 
@@ -140,6 +173,7 @@ export function serializeAiPageContextForSystemPrompt(context: AiPageContext): s
     period: context.period,
     importSource: context.importSource,
     suggestedTools: context.suggestedTools,
+    ...(context.filters ? { filters: context.filters } : {}),
   });
 }
 
@@ -150,8 +184,31 @@ function normalizePeriod(value: unknown): AiPageContext["period"] {
     || typeof value.endDate !== "string"
     || !isoDayPattern.test(value.startDate)
     || !isoDayPattern.test(value.endDate)
-    || value.startDate > value.endDate) return null;
+    || value.startDate > value.endDate
+    || !isCalendarDay(value.startDate) || !isCalendarDay(value.endDate)) return null;
   return { startDate: value.startDate, endDate: value.endDate };
+}
+
+function isCalendarDay(value: string) {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+const FILTER_LABELS: Record<keyof AiPageFilters, string> = {
+  platforms: "平台", shops: "店铺", channels: "渠道", categories: "类目", warehouses: "仓库", brands: "品牌",
+  skus: "SKU", spus: "SPU", productCodes: "货品代码", months: "月份", scope: "榜单范围", rankingDimension: "排行维度",
+  query: "搜索条件", status: "状态", dataset: "数据类型", operationMode: "经营模式", subcategories: "细分类目",
+  dueFrom: "到期起日", dueTo: "到期上界（不含）", owner: "负责人", selectedIds: "已选记录", outletKeys: "店铺",
+  priceBands: "价格带", suppliers: "供应商", warehouseTypes: "仓库类型", healthStatuses: "库存状态", ageBuckets: "库龄段",
+  agents: "客服", robotScopes: "机器人范围", problemTypes: "问题类型", conversionStatuses: "转化状态", priorities: "优先级",
+  sources: "来源", stageKey: "阶段", stageStatus: "阶段状态", proposedFrom: "提案起日", weekStart: "周起始日",
+  marginFilterKeys: "毛利区间", itemSegments: "商品分组", storageStatuses: "入库状态", recognitionSources: "识别来源", risk: "风险级别",
+  masterSection: "主数据页面", priceStatuses: "价格状态", candidatePriceSources: "候选价来源", annotationStatuses: "标注状态", pendingPriceSources: "待审核价格来源",
+};
+
+export function aiPageFilterSummary(filters?: AiPageFilters): string[] {
+  return Object.entries(filters ?? {}).filter(([key]) => key !== "dataset").map(([key, value]) =>
+    `${FILTER_LABELS[key as keyof AiPageFilters]}：${Array.isArray(value) ? value.join("、") : value}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

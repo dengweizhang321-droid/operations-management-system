@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchWithTransientRetry } from "@/lib/http/transient-retry";
 import { parseProductQueries, parseProductQueriesStrict } from "@/lib/sales/read-contract";
@@ -415,6 +417,11 @@ function FinanceAnalysisView({
     selectedShopKeys,
   ]);
   const data = financeAnalysisPayloadForRequest(dataResult, requestSignature);
+  useAiPageDetails("sales", {
+    period: null,
+    filters: { dataset: "finance_analysis", months: data?.selection?.months ?? data?.selectedMonths ?? (selectedMonths === null ? ["*"] : selectedMonths), platforms: selectedPlatforms, outletKeys: selectedShopKeys },
+  });
+
 
   useEffect(() => {
     setSelectedMonths(globalMonths);
@@ -905,6 +912,11 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   const [financeFilterOptions, setFinanceFilterOptions] = useState<SalesSharedFilterOptions | null>(null);
   const debouncedProductQuery = useDebouncedValue(filters.productQuery);
   const productQueries = useMemo(() => parseProductQueries(debouncedProductQuery), [debouncedProductQuery]);
+  useAiPageDetails("sales", {
+    period: activeTab === "targets" ? null : { startDate: customStartDate, endDate: customEndDate },
+    filters: activeTab === "targets" ? {} : { query: debouncedProductQuery.trim(), platforms: filters.platforms, outletKeys: filters.outletKeys, categories: filters.categories },
+  }, activeTab !== "category" && activeTab !== "finance");
+
 
   const updateFilters = useCallback((next: SalesSharedFilters) => {
     setFilters(next);

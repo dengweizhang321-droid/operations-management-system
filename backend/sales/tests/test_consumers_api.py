@@ -83,6 +83,14 @@ class SalesConsumerApiTests(TestCase):
             ],
         )
 
+        SalesOrderLine.objects.bulk_create(
+            [make_line(
+                6, "L6", quantity=5,
+                ship_time="2026-07-24 10:00:00",
+                line_ship_time="2026-07-24 10:00:00",
+            )]
+        )
+
         inbound = self.post(
             {
                 "operation": "inventory_inbound_windows",
@@ -104,11 +112,13 @@ class SalesConsumerApiTests(TestCase):
                     "warehouseKey": "主",
                     "productName": "饮水机",
                     "sales7dQuantity": 2,
-                    "sales30dQuantity": 2,
-                    "sales90dQuantity": 2,
+                    "sales15dQuantity": 7,
+                    "sales30dQuantity": 7,
+                    "sales90dQuantity": 7,
                 }
             ],
         )
+        SalesOrderLine.objects.filter(source_line_key="L6").delete()
 
         product = self.post(
             {

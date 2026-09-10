@@ -10,7 +10,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 export async function guangdongRoute(request: Request, operation = "") {
   try {
     const method = request.method;
-    const allowed = method === "GET" ? READ.has(operation) : method === "POST" ? ["preview", "import", "file-preview"].includes(operation) : method === "PATCH" && operation === "suppliers";
+    const allowed = method === "GET" ? READ.has(operation) : method === "POST" ? ["preview", "import", "file-preview"].includes(operation) : method === "PATCH" && ["suppliers", "items"].includes(operation);
     if (!allowed) return Response.json({ error: "不支持的广东监控操作" }, { status: 405 });
     const writeAccess = method !== "GET";
     const principal = await requireAppPrincipal(writeAccess ? ["operator", "admin"] : ["viewer", "analyst", "operator", "admin"]);

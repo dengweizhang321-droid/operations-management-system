@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
-import type { AiPageContext } from "@/lib/ai/page-context";
+import { aiPageFilterSummary, normalizeAiPageContext, type AiPageModule, type AiPageContext } from "@/lib/ai/page-context";
+import { recoverAiWorkspaceRequest } from "@/lib/ai/workspace-recovery";
 import { ApiError } from "@/lib/http/api-error";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
@@ -70,6 +71,8 @@ type AiConversationRecord = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  workspaceModule?: AiPageModule;
+  pageContext?: AiPageContext | null;
 };
 
 type AiModelDraft = {
@@ -113,6 +116,7 @@ type AiConversationPagePayload = {
 };
 
 type AiConversationPageRequestOptions = {
+  workspaceModule?: AiPageModule;
   page?: number;
   pageSize?: number;
   signal?: AbortSignal;
@@ -123,11 +127,12 @@ type AiIdentityPayload = {
 };
 
 export type AiChatPostPayload = {
+  workspaceModule?: AiPageModule;
   conversationId?: string;
   modelId?: string;
   message: string;
   title: string;
-  pageContext?: AiPageContext;
+  pageContext?: AiPageContext | null;
 };
 
 export type PendingAiChatRequest = {
@@ -145,6 +150,8 @@ export function resolvePendingAiChatRequest(
 ): PendingAiChatRequest {
   // Conversation/model state can change after a lost response. The user's message and explicit
   // new-topic/model actions control rotation; otherwise retain the exact originally billed payload.
+  if (candidate.workspaceModule && current?.requestPayload.workspaceModule === candidate.workspaceModule
+    && current.requestPayload.message === candidate.message) return current;
   const intentKey = JSON.stringify([candidate.message, candidate.title, candidate.pageContext ?? null]);
   if (current?.intentKey === intentKey) return current;
   return {
@@ -191,7 +198,7 @@ export async function requestAiConversationPage(
   const page = options.page ?? 1;
   const pageSize = options.pageSize ?? 30;
   const response = await requestAiInitializationResponse(
-    () => fetcher(`/api/ai/conversations?page=${page}&pageSize=${pageSize}`, {
+    () => fetcher(`/api/ai/conversations?page=${page}&pageSize=${pageSize}${options.workspaceModule ? `&workspaceModule=${options.workspaceModule}` : ""}`, {
       cache: "no-store",
       signal: options.signal,
     }),
@@ -383,11 +390,19 @@ function AiAssistantView({
   initialContextPrompt = "",
   initialPageContext = null,
   workspace = "chat",
+  workspaceModule,
+  compact = false,
+  contextRequestId = 0,
+  contextError = "",
 }: {
   currentUser: CurrentUser | null;
   initialContextPrompt?: string;
   initialPageContext?: AiPageContext | null;
   workspace?: "chat" | "management";
+  workspaceModule?: AiPageModule;
+  compact?: boolean;
+  contextRequestId?: number;
+  contextError?: string;
 }) {
   const showChat = workspace === "chat";
   const showManagement = workspace === "management";
@@ -434,19 +449,37 @@ function AiAssistantView({
   const messageGenerationRef = useRef(0);
   const configurationGenerationRef = useRef(0);
   const appliedContextPromptRef = useRef("");
+  const mountedRef = useRef(true);
+  const [recoveryBlocked, setRecoveryBlocked] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(!compact);
+  const [activatingConversation, setActivatingConversation] = useState(false);
+  const conversationMutationRef = useRef(false);
+  const conversationLoadedRef = useRef(false);
+  const navigationGenerationRef = useRef(0);
+  const currentContextRef = useRef(initialPageContext);
+  useEffect(() => { currentContextRef.current = initialPageContext; }, [initialPageContext]);
+  const conversationBusy = sending || chatLoading || activatingConversation || switchingModel || Boolean(busyConversationId);
+  const recoveryKey = workspaceModule && currentUser ? `teruisi.ai.pending.v1:${currentUser.email.toLowerCase()}:${workspaceModule}` : "";
+  const rememberPending = useCallback((id: string | null) => {
+    if (!recoveryKey) return;
+    try { if (id) sessionStorage.setItem(recoveryKey, id); else sessionStorage.removeItem(recoveryKey); } catch { /* Server receipts remain authoritative. */ }
+  }, [recoveryKey]);
+  useEffect(() => {
+    if (initialPageContext) setPageContext(initialPageContext);
+  }, [initialPageContext]);
 
   useEffect(() => {
     const prompt = Array.from(initialContextPrompt.trim()).slice(0, 4_000).join("");
     const contextKey = JSON.stringify(initialPageContext ?? null);
-    const applicationKey = `${prompt}\n${contextKey}`;
-    if (!prompt || applicationKey === appliedContextPromptRef.current) return;
+    const applicationKey = `${prompt}\n${contextRequestId || contextKey}`;
+    if (!prompt || sending || applicationKey === appliedContextPromptRef.current) return;
     appliedContextPromptRef.current = applicationKey;
     setMessageDraft(prompt);
     setPageContext(initialPageContext);
     setNotice(initialPageContext
       ? `已带入“${initialPageContext.moduleLabel} / ${initialPageContext.view}”页面上下文；请确认问题后发送。`
       : "已带入页面问题草稿；请确认后发送。");
-  }, [initialContextPrompt, initialPageContext]);
+  }, [initialContextPrompt, initialPageContext, contextRequestId, sending]);
 
   const loadConfiguration = useCallback(async () => {
     const generation = ++configurationGenerationRef.current;
@@ -494,6 +527,7 @@ function AiAssistantView({
     try {
       const payload = await requestAiConversationPageWithIdentityRecovery({
         currentUser,
+        workspaceModule,
         page,
         pageSize: 30,
         signal: controller.signal,
@@ -501,7 +535,8 @@ function AiAssistantView({
       if (controller.signal.aborted || generation !== conversationGenerationRef.current) return;
       const items = payload.items ?? [];
       const models = payload.models ?? [];
-      if (!options.append) setConversationLoaded(true);
+      const firstLoad = !conversationLoadedRef.current;
+      if (!options.append) { setConversationLoaded(true); conversationLoadedRef.current = true; }
       setConversationItems((current) => {
         if (!options.append) return items;
         const merged = new Map(current.map((item) => [item.id, item]));
@@ -511,7 +546,7 @@ function AiAssistantView({
       setConversationPagination(payload.pagination ?? { page, pageSize: 30, total: items.length, returned: items.length, truncated: false, hasMore: false });
       setAvailableChatModels(models);
       setSelectedModelId((current) => models.some((model) => model.id === current) ? current : models.find((model) => model.isDefault)?.id || models[0]?.id || "");
-      if (!options.append) setActiveConversationId((current) => items.some((item) => item.id === current) ? current : items[0]?.id || "");
+      if (!options.append && firstLoad) setActiveConversationId(current => current || items[0]?.id || "");
       const pending = pendingChatRequestRef.current;
       if (pending?.response && items.some((item) => item.id === pending.response!.conversationId)) {
         const synchronized = markPendingAiChatSynchronized(pending, {
@@ -519,7 +554,7 @@ function AiAssistantView({
           conversationId: pending.response.conversationId,
         });
         pendingChatRequestRef.current = synchronized;
-        if (!synchronized) setNotice("消息已发送并完成服务端同步。");
+        if (!synchronized) { rememberPending(null); setRecoveryBlocked(false); setNotice("消息已发送并完成服务端同步。"); }
       }
     } catch (reason) {
       if (controller.signal.aborted || generation !== conversationGenerationRef.current) return;
@@ -528,7 +563,7 @@ function AiAssistantView({
       options.signal?.removeEventListener("abort", relayAbort);
       if (conversationControllerRef.current === controller) conversationControllerRef.current = null;
     }
-  }, [currentUser]);
+  }, [currentUser, workspaceModule, rememberPending]);
 
   const loadMessages = useCallback(async (conversationId: string, options: { before?: number | null; appendOlder?: boolean } = {}) => {
     const generation = ++messageGenerationRef.current;
@@ -537,12 +572,16 @@ function AiAssistantView({
     messageControllerRef.current = controller;
     try {
       const params = new URLSearchParams({ conversationId, pageSize: "30" });
+      if (workspaceModule) params.set("workspaceModule", workspaceModule);
       if (options.before) params.set("before", String(options.before));
       const response = await fetch(`/api/ai/chat?${params.toString()}`, { cache: "no-store", signal: controller.signal });
-      const payload = await response.json().catch(() => null) as { items?: AiConversationMessage[]; pagination?: AiMessagePagination; error?: string } | null;
+      const payload = await response.json().catch(() => null) as { items?: AiConversationMessage[]; conversation?: AiConversationRecord; pagination?: AiMessagePagination; error?: string } | null;
       if (!response.ok) throw new Error(payload?.error || "读取对话失败");
       if (controller.signal.aborted || generation !== messageGenerationRef.current) return;
       const items = payload?.items ?? [];
+      if ((workspaceModule && payload?.conversation?.id !== conversationId)
+        || items.some(item => item.conversationId !== conversationId)) throw new Error("会话响应不匹配");
+      if (!currentContextRef.current && !options.appendOlder) setPageContext(normalizeAiPageContext(payload?.conversation?.pageContext));
       setMessages((current) => {
         if (!options.appendOlder) return items;
         const merged = new Map<string, AiConversationMessage>();
@@ -560,7 +599,7 @@ function AiAssistantView({
           assistantMessageId: pending.response.assistantMessageId,
         });
         pendingChatRequestRef.current = synchronized;
-        if (!synchronized) setNotice("消息已发送并完成服务端同步。");
+        if (!synchronized) { rememberPending(null); setRecoveryBlocked(false); setNotice("消息已发送并完成服务端同步。"); }
       }
     } catch (reason) {
       if (controller.signal.aborted || generation !== messageGenerationRef.current) return;
@@ -568,9 +607,35 @@ function AiAssistantView({
     } finally {
       if (messageControllerRef.current === controller) messageControllerRef.current = null;
     }
-  }, []);
+  }, [workspaceModule, rememberPending]);
+
+  const recoverPending = useCallback(async (signal: AbortSignal) => {
+    if (!recoveryKey || !workspaceModule) return;
+    let id: string | null = null;
+    try { id = sessionStorage.getItem(recoveryKey); } catch { return; }
+    if (!id) return;
+    const generation = navigationGenerationRef.current;
+    const isCurrent = () => {
+      if (!mountedRef.current || generation !== navigationGenerationRef.current) return false;
+      try { return sessionStorage.getItem(recoveryKey) === id; } catch { return false; }
+    };
+    setRecoveryBlocked(true);
+    const recovered = await recoverAiWorkspaceRequest({ clientRequestId: id, module: workspaceModule, signal, isCurrent });
+    if (signal.aborted || !isCurrent()) return;
+    if (recovered) {
+      rememberPending(null);
+      pendingChatRequestRef.current = null;
+      setRecoveryBlocked(false);
+      setMessages([]);
+      setActiveConversationId(recovered.conversationId);
+      await loadMessages(recovered.conversationId);
+      if (signal.aborted || !mountedRef.current || generation !== navigationGenerationRef.current) return;
+      setNotice("上次回复已恢复，可继续提问。");
+    } else setNotice("上次请求尚未确认完成。请刷新查看结果；如需另开话题，请新建对话。系统不会自动重发。");
+  }, [recoveryKey, workspaceModule, rememberPending, loadMessages]);
 
   const refresh = useCallback(async () => {
+    if (sendControllerRef.current || conversationMutationRef.current) return;
     const generation = ++refreshGenerationRef.current;
     refreshControllerRef.current?.abort();
     const controller = new AbortController();
@@ -578,13 +643,14 @@ function AiAssistantView({
     setChatLoading(true); setError("");
     try {
       await loadConversations({ signal: controller.signal });
+      await recoverPending(controller.signal);
     } catch (reason) {
       if (!controller.signal.aborted && generation === refreshGenerationRef.current) setError(reason instanceof Error ? reason.message : "AI 助理加载失败");
     } finally {
       if (refreshControllerRef.current === controller) refreshControllerRef.current = null;
       if (generation === refreshGenerationRef.current) setChatLoading(false);
     }
-  }, [loadConversations]);
+  }, [loadConversations, recoverPending]);
 
   useEffect(() => {
     if (!showChat) return;
@@ -623,26 +689,29 @@ function AiAssistantView({
     return () => window.clearTimeout(timer);
   }, [activeConversationId, availableChatModels, conversationItems]);
 
-  useEffect(() => () => {
+  useEffect(() => { mountedRef.current = true; return () => {
+    mountedRef.current = false;
     sendControllerRef.current?.abort();
     refreshControllerRef.current?.abort();
     conversationControllerRef.current?.abort();
     messageControllerRef.current?.abort();
     configurationControllerRef.current?.abort();
     configurationGenerationRef.current += 1;
-  }, []);
+  }; }, []);
 
   const sendMessage = async () => {
     const text = messageDraft.trim();
-    if (!text || sending || !canChat) return;
+    if (!text || conversationBusy || conversationMutationRef.current || sendControllerRef.current || recoveryBlocked || (contextError && pageContext) || !canChat) return;
     const requestPayload = {
       conversationId: activeConversationId || undefined,
       modelId: selectedModelId || undefined,
       message: text,
-      title: "小特对话",
-      pageContext: pageContext ?? undefined,
+      title: workspaceModule ? Array.from(text).slice(0, 40).join("") : "小特对话",
+      workspaceModule,
+      pageContext: workspaceModule ? pageContext : pageContext ?? undefined,
     } satisfies AiChatPostPayload;
     const pendingRequest = resolvePendingAiChatRequest(pendingChatRequestRef.current, requestPayload);
+    rememberPending(pendingRequest.clientRequestId);
     pendingChatRequestRef.current = pendingRequest;
     const clientRequestId = pendingRequest.clientRequestId;
     const controller = new AbortController();
@@ -665,10 +734,12 @@ function AiAssistantView({
         error?: string;
         code?: string;
       } | null;
+      if (!mountedRef.current) return;
       if (!response.ok) {
         if (shouldReleasePendingAiChatRequest(payload?.code)
           && pendingChatRequestRef.current?.clientRequestId === clientRequestId) {
           pendingChatRequestRef.current = null;
+          rememberPending(null);
         }
         throw new Error(payload?.error || "发送失败");
       }
@@ -707,6 +778,7 @@ function AiAssistantView({
         setNotice("消息已发送，但服务端同步尚未完整确认；原请求号已保留，再试只会读取原结果，不会重复调用模型。");
       }
     } catch (reason) {
+      if (!mountedRef.current) return;
       if (controller.signal.aborted) {
         setNotice("已停止等待；请求号已保留，系统会阻止同一消息重复调用模型。请刷新对话记录确认结果。");
         if (activeConversationId) await loadMessages(activeConversationId).catch(() => undefined);
@@ -714,12 +786,15 @@ function AiAssistantView({
       } else setError(reason instanceof Error ? reason.message : "发送失败");
     } finally {
       if (sendControllerRef.current === controller) sendControllerRef.current = null;
-      setSending(false);
+      if (mountedRef.current) setSending(false);
     }
   };
 
   const startNewConversation = () => {
-    if (sending) return;
+    if (conversationBusy || conversationMutationRef.current) return;
+    navigationGenerationRef.current += 1;
+    rememberPending(null);
+    setRecoveryBlocked(false);
     messageControllerRef.current?.abort();
     messageGenerationRef.current += 1;
     setActiveConversationId("");
@@ -732,16 +807,38 @@ function AiAssistantView({
     setSelectedModelId(availableChatModels.find((model) => model.isDefault)?.id || availableChatModels[0]?.id || "");
   };
 
-  const openConversation = (conversationId: string) => {
-    if (sending || conversationId === activeConversationId) return;
-    pendingChatRequestRef.current = null;
-    setActiveConversationId(conversationId);
-    setError("");
-    setNotice("");
+  const openConversation = async (conversationId: string) => {
+    if (conversationBusy || conversationMutationRef.current || conversationId === activeConversationId) return;
+    conversationMutationRef.current = true;
+    setActivatingConversation(true);
+    navigationGenerationRef.current += 1;
+    messageControllerRef.current?.abort();
+    messageGenerationRef.current += 1;
+    setError(""); setNotice("");
+    try {
+      if (workspaceModule && canChat) {
+        const response = await fetch("/api/ai/conversations", {
+          method: "PATCH", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "activate", conversationId, workspaceModule }),
+        });
+        if (!response.ok) throw new Error("未能保存本次会话选择，请重试。");
+      }
+      if (!mountedRef.current) return;
+      pendingChatRequestRef.current = null;
+      rememberPending(null); setRecoveryBlocked(false);
+      setMessages([]);
+      setMessagePagination({ pageSize: 30, total: 0, returned: 0, truncated: false, hasMore: false, nextBefore: null });
+      setActiveConversationId(conversationId);
+    } catch (reason) {
+      if (mountedRef.current) setError(reason instanceof Error ? reason.message : "打开对话失败");
+    } finally {
+      conversationMutationRef.current = false;
+      if (mountedRef.current) setActivatingConversation(false);
+    }
   };
 
   const loadMoreConversations = async () => {
-    if (!conversationPagination.hasMore || loadingMoreConversations) return;
+    if (conversationBusy || !conversationPagination.hasMore || loadingMoreConversations) return;
     setLoadingMoreConversations(true); setError("");
     try {
       await loadConversations({ page: conversationPagination.page + 1, append: true });
@@ -765,11 +862,14 @@ function AiAssistantView({
   };
 
   const changeConversationModel = async (modelId: string) => {
+    if (conversationBusy || conversationMutationRef.current || recoveryBlocked) return;
     pendingChatRequestRef.current = null;
+    rememberPending(null);
     if (!activeConversationId) {
       setSelectedModelId(modelId);
       return;
     }
+    conversationMutationRef.current = true;
     setSwitchingModel(true); setError(""); setNotice("");
     try {
       const response = await fetch("/api/ai/conversations", {
@@ -778,26 +878,30 @@ function AiAssistantView({
         body: JSON.stringify({ conversationId: activeConversationId, modelId }),
       });
       const payload = await response.json().catch(() => null) as { item?: AiConversationRecord; error?: string } | null;
-      if (!response.ok || !payload?.item) throw new Error(payload?.error || "切换对话模型失败");
+      if (!mountedRef.current) return;
+      if (!response.ok || !payload?.item || payload.item.id !== activeConversationId) throw new Error(payload?.error || "切换对话模型失败");
       setSelectedModelId(modelId);
       setConversationItems((items) => items.map((item) => item.id === payload.item?.id ? payload.item : item));
       setNotice(`本对话后续消息将使用“${availableChatModels.find((model) => model.id === modelId)?.name || "所选模型"}”。`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "切换对话模型失败");
+      if (mountedRef.current) setError(reason instanceof Error ? reason.message : "切换对话模型失败");
     } finally {
-      setSwitchingModel(false);
+      conversationMutationRef.current = false;
+      if (mountedRef.current) setSwitchingModel(false);
     }
   };
 
   const deleteConversation = async (item: AiConversationRecord) => {
-    if (sending || !canChat || !window.confirm(`确定删除对话“${item.title}”吗？对话消息和生成的数据产物将一并删除，此操作无法撤销。`)) return;
+    if (conversationBusy || conversationMutationRef.current || !canChat || !window.confirm(`确定删除对话“${item.title}”吗？对话消息和生成的数据产物将一并删除，此操作无法撤销。`)) return;
+    conversationMutationRef.current = true;
     setBusyConversationId(item.id); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/ai/conversations?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
       const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!mountedRef.current) return;
       if (!response.ok) throw new Error(payload?.error || "删除对话失败");
       const remaining = conversationItems.filter((conversation) => conversation.id !== item.id);
-      setConversationItems(remaining);
+      setConversationItems(current => current.filter(conversation => conversation.id !== item.id));
       if (activeConversationId === item.id) {
         messageControllerRef.current?.abort();
         messageGenerationRef.current += 1;
@@ -808,9 +912,10 @@ function AiAssistantView({
       setNotice(`对话“${item.title}”已删除。`);
       await loadConversations();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "删除对话失败");
+      if (mountedRef.current) setError(reason instanceof Error ? reason.message : "删除对话失败");
     } finally {
-      setBusyConversationId("");
+      conversationMutationRef.current = false;
+      if (mountedRef.current) setBusyConversationId("");
     }
   };
 
@@ -904,13 +1009,16 @@ function AiAssistantView({
   const channelNeedsWebhook = channelDraft.kind === "dingtalk_group_bot" || channelDraft.kind === "wechat_work_group_bot" || channelDraft.sendEnabled;
   if (showChat && chatLoading && !conversationLoaded) return <section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在读取 AI 助理</strong><p>正在加载可用对话…</p></section>;
 
-  return <section className="ai-assistant-grid">
+  return <section className={`ai-assistant-grid${compact ? " ai-chat-compact" : ""}`}>
+    {contextError && pageContext && <p className="inventory-feedback inventory-feedback-error" role="alert">{contextError}</p>}
     {showChat && <article className="panel ai-chat-card data-refresh-region" aria-busy={chatLoading}>
-      <div className="section-header"><div><h2>AI 助理</h2><p>网页入口统一经过权限、问答 Workflow、模型网关和中央工具注册表；外部聊天回调仍只验签和去重。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={chatLoading}>{chatLoading ? "刷新中…" : "刷新"}</button></div>
+      <div className="section-header"><div><h2>AI 助理</h2><p>结合页面筛选提问，历史会话自动保存。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={chatLoading}>{chatLoading ? "刷新中…" : "刷新"}</button></div>
       {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
+      {pageContext && <details className="ai-page-context-card"><summary>{pageContext.moduleLabel} · {pageContext.period ? `${pageContext.period.startDate} 至 ${pageContext.period.endDate}` : "日期以实际数据为准"}</summary><ul>{aiPageFilterSummary(pageContext.filters).map(item => <li key={item}>{item}</li>)}</ul><small>历史回复保留原统计口径；新问题使用当前页面条件。</small></details>}
+      {compact && <button type="button" className="secondary-button" aria-expanded={historyOpen} onClick={() => setHistoryOpen(value => !value)}>{historyOpen ? "收起会话记录" : "查看历史 / 新建对话"}</button>}
       <div className="ai-chat-layout">
-        <aside className="ai-sidebar"><div className="ai-sidebar-heading"><h3>对话记录</h3><small>已加载 {conversationItems.length} / {conversationPagination.total}</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={sending}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <div key={item.id} className={`ai-conversation-row ${item.id === activeConversationId ? "active" : ""}`}><button type="button" className="ai-conversation-open" disabled={sending} onClick={() => openConversation(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>{canChat && <button type="button" className="ai-conversation-delete" aria-label={`删除对话 ${item.title}`} title="删除对话" disabled={sending || busyConversationId === item.id} onClick={() => void deleteConversation(item)}>{busyConversationId === item.id ? "…" : "×"}</button>}</div>)}</div>{conversationPagination.hasMore && <button type="button" className="secondary-button" disabled={loadingMoreConversations} onClick={() => void loadMoreConversations()}>{loadingMoreConversations ? "加载中…" : "加载更多对话"}</button>}</aside>
-        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={(value) => void changeConversationModel(value)} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={sending || switchingModel || availableChatModels.length === 0} options={availableChatModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.modelType === "vision" ? "视觉" : "文本"}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{switchingModel ? "正在切换模型…" : "文本和视觉模型均可用于对话；切换后从下一条消息起生效。输入“帮助”或“新话题”可走免模型短路。"}</small></div>{pageContext && <div className="ai-page-context" role="status"><span><strong>当前页面</strong> · {pageContext.moduleLabel} / {pageContext.view}{pageContext.period ? ` · ${pageContext.period.startDate} 至 ${pageContext.period.endDate}` : ""}</span><button type="button" className="secondary-button" onClick={() => setPageContext(null)} disabled={sending}>移除上下文</button></div>}<div className="ai-message-list">{messagePagination.hasMore && <button type="button" className="secondary-button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()}>{loadingOlderMessages ? "加载中…" : `加载更早消息（共 ${messagePagination.total} 条）`}</button>}{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p>{item.contentTruncated && <small role="status">此条历史消息内容较长，已按安全响应上限截断显示。</small>}<AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim()} onClick={() => void sendMessage()}>发送</button>}</div></div>
+        <aside className="ai-sidebar" hidden={compact && !historyOpen}><div className="ai-sidebar-heading"><h3>对话记录</h3><small>已加载 {conversationItems.length} / {conversationPagination.total}</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={conversationBusy}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <div key={item.id} className={`ai-conversation-row ${item.id === activeConversationId ? "active" : ""}`}><button type="button" className="ai-conversation-open" disabled={conversationBusy} onClick={() => void openConversation(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>{canChat && <button type="button" className="ai-conversation-delete" aria-label={`删除对话 ${item.title}`} title="删除对话" disabled={conversationBusy} onClick={() => void deleteConversation(item)}>{busyConversationId === item.id ? "…" : "×"}</button>}</div>)}</div>{conversationPagination.hasMore && <button type="button" className="secondary-button" disabled={loadingMoreConversations} onClick={() => void loadMoreConversations()}>{loadingMoreConversations ? "加载中…" : "加载更多对话"}</button>}</aside>
+        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={(value) => void changeConversationModel(value)} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={conversationBusy || recoveryBlocked || availableChatModels.length === 0} options={availableChatModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.modelType === "vision" ? "视觉" : "文本"}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{switchingModel ? "正在切换模型…" : "文本和视觉模型均可用于对话；切换后从下一条消息起生效。输入“帮助”或“新话题”可走免模型短路。"}</small></div>{pageContext && <div className="ai-page-context" role="status"><span><strong>当前页面</strong> · {pageContext.moduleLabel}{pageContext.period ? ` · ${pageContext.period.startDate} 至 ${pageContext.period.endDate}` : ""}</span><button type="button" className="secondary-button" onClick={() => setPageContext(null)} disabled={sending}>移除上下文</button></div>}<div className="ai-message-list">{messagePagination.hasMore && <button type="button" className="secondary-button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()}>{loadingOlderMessages ? "加载中…" : `加载更早消息（共 ${messagePagination.total} 条）`}</button>}{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.filter(item => item.conversationId === activeConversationId).map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p>{item.contentTruncated && <small role="status">此条历史消息内容较长，已按安全响应上限截断显示。</small>}<AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim() || conversationBusy || recoveryBlocked || Boolean(contextError && pageContext)} onClick={() => void sendMessage()}>发送</button>}</div></div>
       </div>
     </article>}
     {showManagement && (isAdmin ? <>

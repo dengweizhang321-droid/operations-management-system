@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppCurrentUser, AppNavigate } from "./shell/view-contract";
@@ -87,6 +89,13 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const debouncedCustomerQuery = useDebouncedValue(query);
   const debouncedSkuIds = useDebouncedValue(skuIds);
   const debouncedSpuIds = useDebouncedValue(spuIds);
+  useAiPageDetails("customer_service", {
+    period: selected ? null : { startDate, endDate },
+    blockedReason: !selected && debouncedCustomerQuery.trim() ? "顾客搜索条件不会转交 AI。请清除该搜索条件，或移除页面上下文后提问。" : undefined,
+    filters: selected ? { selectedIds: [String(selected.id)] }
+      : { dataset: "customer_service", agents, shops: shopNames, status: statuses, robotScopes, problemTypes, conversionStatuses, categories, skus: debouncedSkuIds.trim(), spus: debouncedSpuIds.trim() },
+  });
+
   const customerListScopeKey = useMemo(() => JSON.stringify({
     agents: [...agents].sort(),
     categories: [...categories].sort(),

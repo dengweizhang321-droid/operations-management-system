@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ImportSourceKey, ModuleKey, ModuleViewKey } from "./shell/navigation-catalog";
@@ -421,6 +423,11 @@ function StoreAnalysisView({ summary, outlets, selectedOutletKeys, onSelectOutle
   const salesChange = storeComparisonRate(current.netSalesCents, baseline?.netSalesCents);
   const aovChange = storeComparisonRate(currentAov, baselineAov);
   const selectedOutlets = useMemo(() => outlets.filter((item) => selectedOutletKeys.includes(item.groupKey)), [outlets, selectedOutletKeys]);
+  useAiPageDetails("shop", {
+    period: { startDate: summary.startDate, endDate: summary.endDate },
+    filters: { outletKeys: selectedOutletKeys },
+  });
+
   const promotionOutlets = useMemo(
     () => selectedOutlets.map((item) => netshopOutletFilterKey(item.platform, item.name)),
     [selectedOutlets],
@@ -734,6 +741,11 @@ function ShopDailyProductPerformanceView({
     [customEndDate, customStartDate, range],
   );
   const selectedPeriod = basePeriod;
+  useAiPageDetails("shop", {
+    period: selectedPeriod,
+    filters: { dataset: dimension === "sku" ? "sku_daily" : "spu_daily", query: debouncedQuery.trim(), platforms: selectedPlatforms, outletKeys: selectedOutletKeys },
+  });
+
   const comparisonPeriod = useMemo(
     () => showComparison ? productComparisonPeriod(selectedPeriod, comparisonMode) : null,
     [comparisonMode, selectedPeriod, showComparison],
@@ -1123,6 +1135,11 @@ function ShopSkuView({
     () => skuSalesPeriod(range, customStartDate, customEndDate),
     [customEndDate, customStartDate, range],
   );
+  useAiPageDetails("shop", {
+    period: salesPeriod,
+    filters: { dataset: "netshop_catalog", query: debouncedQuery.trim(), platforms: selectedPlatforms, outletKeys: selectedOutletKeys },
+  });
+
   const catalogBootstrapScopeKey = useMemo(() => JSON.stringify({
     startDate: salesPeriod.startDate,
     endDate: salesPeriod.endDate,
@@ -1338,6 +1355,11 @@ function ShopPromotionView({
   const promotionOverviewControllerRef = useRef<AbortController | null>(null);
   const promotionSnapshotRestartedTokensRef = useRef(new Set<string>());
   const pageConfig = promotionPageConfig[promotionPage];
+  useAiPageDetails("shop", {
+    period,
+    filters: { dataset: "netshop_promotion", platforms: [pageConfig.platform], outletKeys: selectedOutletKeys, query: promotionQuery },
+  });
+
   const promotionScopeKey = useMemo(() => JSON.stringify({
     startDate: period.startDate,
     endDate: period.endDate,
@@ -1581,6 +1603,11 @@ export default function ShopView({ range, customStartDate, customEndDate, onNavi
   const [error, setError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
   const [platformFilters, setPlatformFilters] = useState<string[]>([]);
+  useAiPageDetails("shop", {
+    period: skuSalesPeriod(range, customStartDate, customEndDate),
+    filters: activeTab === "outlets" ? { platforms: platformFilters } : {},
+  }, activeTab === "outlets" || activeTab === "platforms");
+
   const requestGenerationRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
 

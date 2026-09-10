@@ -1,4 +1,6 @@
 "use client";
+
+import { useAiPageDetails } from "./ai-page-context-provider";
 /* eslint-disable @next/next/no-img-element -- Market ranking thumbnails are imported business assets. */
 
 import { Suspense, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -928,6 +930,14 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const [compareSelections, setCompareSelections] = useState<MarketCompareSelection[]>([]);
   const compareKeys = useMemo(() => compareSelections.map(marketCompareSelectionKey), [compareSelections]);
   const [trendItem, setTrendItem] = useState<MarketItem | null>(null);
+  useAiPageDetails("market", {
+    period: { startDate: marketStartDate, endDate: marketEndDate },
+    filters: {
+      query: query.trim(), categories, scope: scopes, rankingDimension: dimensions, operationMode: operationModes, brands, subcategories, priceBands,
+      selectedIds: trendItem ? [marketCompareSelectionKey(trendItem)] : activeSection === "compare" ? compareSelections.map(marketCompareSelectionKey) : [],
+    },
+  }, activeSection !== "settings");
+
   const [reloadKey, setReloadKey] = useState(0);
   const [settingsStatus, setSettingsStatus] = useState<MarketSettingsStatus | null>(null);
   const [settingsStatusLoading, setSettingsStatusLoading] = useState(false);

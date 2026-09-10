@@ -102,6 +102,19 @@ def suppliers(request):
         return _error(error, "供应商周期操作失败")
 
 
+@require_http_methods(["PATCH"])
+def items(request):
+    try:
+        principal = _principal(request, WRITE_ROLES)
+        _unknown(request, set(), "型号设置")
+        payload = _body(request)
+        if payload.get("action") != "item":
+            raise InventoryApiError("型号设置操作无效")
+        return _replay_write(request, principal, lambda: (service.mutate(payload, principal.email), 200))
+    except Exception as error:
+        return _error(error, "型号设置保存失败")
+
+
 @require_GET
 def export(request):
     try:

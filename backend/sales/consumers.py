@@ -644,6 +644,7 @@ def _inventory_inbound_windows(
     as_of = date.fromisoformat(str(requested_as_of))
     end_exclusive = as_of + timedelta(days=1)
     start_7d = as_of - timedelta(days=6)
+    start_15d = as_of - timedelta(days=14)
     start_30d = as_of - timedelta(days=29)
     start_90d = as_of - timedelta(days=89)
     facts = base.filter(
@@ -659,6 +660,15 @@ def _inventory_inbound_windows(
             sales_7d_quantity=Coalesce(
                 Sum(Case(
                     When(business_date__gte=start_7d, quantity__gt=0, then=F("quantity")),
+                    default=Value(0),
+                    output_field=BigIntegerField(),
+                )),
+                Value(0),
+                output_field=BigIntegerField(),
+            ),
+            sales_15d_quantity=Coalesce(
+                Sum(Case(
+                    When(business_date__gte=start_15d, quantity__gt=0, then=F("quantity")),
                     default=Value(0),
                     output_field=BigIntegerField(),
                 )),
@@ -698,6 +708,7 @@ def _inventory_inbound_windows(
                 "warehouseKey": str(row["warehouse_key"])[:200],
                 "productName": str(row["product_name"] or row["product_code"])[:300],
                 "sales7dQuantity": int(row["sales_7d_quantity"] or 0),
+                "sales15dQuantity": int(row["sales_15d_quantity"] or 0),
                 "sales30dQuantity": int(row["sales_30d_quantity"] or 0),
                 "sales90dQuantity": int(row["sales_90d_quantity"] or 0),
             }

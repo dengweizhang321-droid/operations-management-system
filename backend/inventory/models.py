@@ -10,11 +10,43 @@ class GuangdongMonitorItem(models.Model):
     product_code = models.CharField(primary_key=True, max_length=200)
     active = models.BooleanField(default=True)
     notes = models.CharField(max_length=1000, default="")
+    lead_days_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    buffer_days_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    operator_name_override = models.CharField(max_length=200, null=True, blank=True)
+    buyer_override = models.CharField(max_length=200, null=True, blank=True)
+    risk_override = models.CharField(max_length=32, null=True, blank=True)
+    risk_reason_override = models.CharField(max_length=1000, null=True, blank=True)
     updated_by = models.CharField(max_length=320)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "inventory_guangdong_monitor_items"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(lead_days_override__isnull=True, buffer_days_override__isnull=True)
+                    | models.Q(
+                        lead_days_override__gte=1,
+                        lead_days_override__lte=365,
+                        lead_days_override__isnull=False,
+                        buffer_days_override__gte=0,
+                        buffer_days_override__lte=365,
+                        buffer_days_override__isnull=False,
+                    )
+                ),
+                name="inv_gd_item_cycle_pair",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(risk_override__isnull=True, risk_reason_override__isnull=True)
+                    | (
+                        models.Q(risk_override__in=["no_stock", "urgent", "warning", "stale", "unknown", "healthy"], risk_reason_override__isnull=False)
+                        & ~models.Q(risk_reason_override="")
+                    )
+                ),
+                name="inv_gd_item_risk_pair",
+            ),
+        ]
 
 
 class GuangdongSupplierCycle(models.Model):

@@ -1,5 +1,7 @@
 "use client";
 
+import { useAiPageDetails } from "./ai-page-context-provider";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ModuleViewKey } from "./shell/navigation-catalog";
@@ -332,6 +334,11 @@ function OperationsRecordWorkspace({ type, canWrite }: { type: RecordType; canWr
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: TASK_PAGE_SIZE, total: 0 });
   const [editing, setEditing] = useState<OperationsRecord | null>(null);
   const [activityRecord, setActivityRecord] = useState<OperationsRecord | null>(null);
+  useAiPageDetails("workflow", {
+    period: null,
+    filters: { dataset: "workflow_operations", query: query.trim(), status, selectedIds: activityRecord ? [activityRecord.id] : [] },
+  });
+
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -742,6 +749,17 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [draft, setDraft] = useState<DraftTask>(EMPTY_TASK);
   const [taskEditorError, setTaskEditorError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const aiTaskStatusScope: Status[] = statusFilter === "open" ? ["待开始", "工作中"] : statusFilter === "pending" ? ["待开始"] : statusFilter === "active" ? ["工作中"] : ["已完成"];
+  const aiTaskStatuses = taskStatuses.length > 0 ? aiTaskStatusScope.filter(value => taskStatuses.includes(value)) : aiTaskStatusScope;
+  useAiPageDetails("workflow", {
+    period: null,
+    blockedReason: activeTab === "plan" && aiTaskStatuses.length === 0 ? "当前状态筛选没有交集。请调整筛选，或移除页面上下文后提问。" : undefined,
+    filters: activeTab === "variables" ? { dataset: "workflow_templates" } : {
+      dataset: "workflow_tasks", query: query.trim(), status: aiTaskStatuses, priorities: taskPriorities, owner: taskOwners, shops: taskShops, categories: taskCategories, sources: taskSources,
+      dueFrom: taskDueFrom, dueTo: taskDueTo ? calendarDateWithOffset(taskDueTo, 1) : "", selectedIds: selectedTask ? [selectedTask.id] : [],
+    },
+  }, activeTab === "plan" || activeTab === "variables");
+
 
   const selectOperationsTab = useCallback((tab: OperationsTab) => {
     onModuleViewChange(tab);

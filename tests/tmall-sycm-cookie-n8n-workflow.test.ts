@@ -56,17 +56,18 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest" && node.name !== "领取共享 helper");
   assert.deepEqual(requestNodes.map((node) => node.parameters?.url), [
     "http://127.0.0.1:5791/product-master",
-    "http://127.0.0.1:5791/plan",
+    "http://127.0.0.1:5791/plan-backfill",
     "http://127.0.0.1:5791/fetch",
     "http://127.0.0.1:5791/import",
     "http://127.0.0.1:5791/promotion",
+    "http://127.0.0.1:5791/next-day",
   ]);
   for (const node of requestNodes) {
     assert.equal(node.parameters?.sendHeaders, true);
     const expectedHeaders = [
       { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
       { name: "X-TERUISI-TMALL-STORE-KEY", value: "tmall-yijiu" },
-      ...(node.parameters?.url?.endsWith("/plan")
+      ...(node.parameters?.url?.endsWith("/plan-backfill")
         ? [
             {
               name: "X-TERUISI-TMALL-PLAN-START-DATE",
@@ -85,6 +86,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
           }]
         : []),
     ];
+    if (node.parameters?.url?.endsWith("/next-day")) expectedHeaders.push({ name: "X-TERUISI-TMALL-BACKFILL-CYCLE", value: "={{ $runIndex }}" });
     assert.deepEqual(node.parameters?.headerParameters?.parameters, expectedHeaders);
   }
   assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.executeCommand"), false);
@@ -111,8 +113,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.connections["A·计划目标日期"]?.main?.[0]?.[0]?.node, "B·逐日下载并验证 XLS");
   assert.equal(workflow.connections["B·逐日下载并验证 XLS"]?.main?.[0]?.[0]?.node, "C·签收、导入并覆盖回查");
   assert.equal(workflow.connections["C·签收、导入并覆盖回查"]?.main?.[0]?.[0]?.node, "P·商品报表逐日下载、汇总导入并回查");
-  assert.equal(workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node, "M·出售中逐页导出、合并校验并导入");
-  assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"], undefined);
+  assert.equal(workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node, "N·复查缺口并计划下一日");
+  assert.equal(workflow.connections["M·出售中逐页导出、合并校验并导入"]?.main?.[0]?.[0]?.node, "全部缺失日已补齐？");
   assert.match(raw, /A→B→C→P→M/);
   assert.match(raw, /每 1 天到期一次/);
   assert.match(raw, /not_due/);
@@ -120,7 +122,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.match(raw, /Windows 用户.*DPAPI/);
   assert.match(raw, /验证码、安全验证/);
   assert.equal(requestNodes[0]?.parameters?.options?.timeout, 1_800_000);
-  assert.equal(requestNodes.at(-1)?.parameters?.options?.timeout, 21_600_000);
+  assert.equal(requestNodes.find(node => node.name.startsWith("P·"))?.parameters?.options?.timeout, 21_600_000);
   assert.doesNotMatch(raw, /--(?:username|password|cookie)\b|TMALL_(?:USERNAME|PASSWORD)\b|Cookie:\s*[^`\n]/i);
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
 });
@@ -189,7 +191,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
     assert.equal(workflow.connections["手动完整运行（强制 M）"]?.main?.[0]?.[0]?.node, "领取共享 helper");
 
     const requestNodes = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");
-    assert.equal(requestNodes.length, 6);
+    assert.equal(requestNodes.length, 7);
     for (const node of requestNodes) {
       const headers = node.parameters?.headerParameters?.parameters ?? [];
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-STORE-KEY"), [
@@ -206,14 +208,14 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
             }]
           : []);
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-START-DATE"),
-        node.parameters?.url?.endsWith("/plan")
+        node.parameters?.url?.endsWith("/plan-backfill")
           ? [{
               name: "X-TERUISI-TMALL-PLAN-START-DATE",
               value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_START_DATE || '') : '' }}",
             }]
           : []);
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-PLAN-END-DATE"),
-        node.parameters?.url?.endsWith("/plan")
+        node.parameters?.url?.endsWith("/plan-backfill")
           ? [{
               name: "X-TERUISI-TMALL-PLAN-END-DATE",
               value: "={{ $mode === 'cli' ? ($env.TERUISI_TMALL_PLAN_END_DATE || '') : '' }}",
@@ -243,14 +245,14 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       assert.match(raw, /先合并成一个无跨页重复/);
       assert.match(raw, /禁止逐页导入互相覆盖/);
       assert.equal(
-        workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
+        workflow.connections["还有缺口且预算充足？"]?.main?.[1]?.[0]?.node,
         "M·出售中逐页导出、合并校验并导入",
       );
       assert.equal(workflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), false);
     } else {
       assert.equal(store.productMasterExportMode, undefined);
       assert.equal(
-        workflow.connections["P·商品报表逐日下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
+        workflow.connections["还有缺口且预算充足？"]?.main?.[1]?.[0]?.node,
         "M·商品管家批量导出、校验并导入",
       );
     }
@@ -282,8 +284,8 @@ test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原�
   const productManagerWorkflow = buildTmallN8nWorkflow(source, lili);
   assert.equal(productManagerWorkflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), true);
   assert.equal(
-    (productManagerWorkflow.connections["P·商品报表逐日下载、汇总导入并回查"] as { main?: Array<Array<{ node?: string }>> })
-      ?.main?.[0]?.[0]?.node,
+    (productManagerWorkflow.connections["还有缺口且预算充足？"] as { main?: Array<Array<{ node?: string }>> })
+      ?.main?.[1]?.[0]?.node,
     "M·商品管家批量导出、校验并导入",
   );
   const pagewiseWorkflow = buildTmallN8nWorkflow(source, masitu);
@@ -360,10 +362,10 @@ test("亿玖 P/M 直连现行模板保持同一工作流 ID、仓库默认停用
     "P·直连创建商品报表、下载、汇总导入并回查",
   );
   assert.equal(
-    candidate.connections["P·直连创建商品报表、下载、汇总导入并回查"]?.main?.[0]?.[0]?.node,
+    candidate.connections["还有缺口且预算充足？"]?.main?.[1]?.[0]?.node,
     "M·MTOP 分批导出、合并校验并导入",
   );
-  assert.equal(candidate.connections["M·MTOP 分批导出、合并校验并导入"], undefined);
+  assert.equal(candidate.connections["M·MTOP 分批导出、合并校验并导入"]?.main?.[0]?.[0]?.node, "全部缺失日已补齐？");
   assert.match(candidateRaw, /同一工作流 ID 的现行替换版本/);
   assert.match(candidateRaw, /亿玖 M 按上海日期每天到期一次/);
   assert.match(candidateRaw, /旧版本只保留历史审计，不得用于新的定时或恢复 execution/);

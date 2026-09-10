@@ -35,12 +35,14 @@ function AiViewLoading({ label }: { label: string }) {
 
 export default function AiModuleView({
   currentUser,
+  externalChat = false,
   initialContextPrompt = "",
   initialPageContext = null,
   moduleView,
   onModuleViewChange,
 }: {
   currentUser: AppCurrentUser | null;
+  externalChat?: boolean;
   initialContextPrompt?: string;
   initialPageContext?: AiPageContext | null;
   moduleView: AiView;
@@ -77,7 +79,7 @@ export default function AiModuleView({
       >{aiViewLabels[view]}</button>)}
     </div>
 
-    {moduleView === "assistant" && <div id="ai-panel-assistant" role="tabpanel" aria-labelledby="ai-tab-assistant" tabIndex={0}>
+    {moduleView === "assistant" && !externalChat && <div id="ai-panel-assistant" role="tabpanel" aria-labelledby="ai-tab-assistant" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.assistant} />}>
         <AiAssistantView currentUser={currentUser} initialContextPrompt={initialContextPrompt} initialPageContext={initialPageContext} workspace="chat" />
       </Suspense>
