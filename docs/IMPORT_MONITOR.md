@@ -30,6 +30,8 @@ Django 读取由运维显式配置的 `TERUISI_N8N_STATUS_DATABASE_PATH`。默�
 
 页面不保存规则、不启停调度、不触发导入。操作员/管理员可打开 n8n 的工作流及执行记录；只读用户仅查看配置详情。不会复制参考系统的调度器或退役其外部执行器的业务结论。
 
+本机受控采用时，将明确核验后的 n8n 绝对路径保存为当前 Windows 用户的 `TERUISI_N8N_STATUS_DATABASE_PATH` 环境变量，并在本次受控启动进程中设置相同值。全部旧 Django 服务与守护停止后再部署、启动，使新 reader 和新守护继承同一配置；后续登录从用户环境继承。它是只读元数据路径，不包含密钥。发布回查必须返回 `source=n8n_execution_metadata`，配置缺失时仍返回无法核实。
+
 ## 隔离验收
 
 在独立 worktree 使用既有 `preview:isolated` 入口。预览仅 GET/HEAD，合成销售、库存和 ERP 批次可以检查记录展示；其他域以空态为主。启动器额外创建一份独立 n8n 形状的合成 SQLite 元数据，覆盖成功、运行、失败、等待和无记录；以 SQLite application ID 标明来源，接口返回 `synthetic_n8n`，页面显示“合成状态演示”。不复制或读取生产 n8n 数据库。真实 n8n 执行、规则修改、生产部署和服务重启均不属于本次页面验收。

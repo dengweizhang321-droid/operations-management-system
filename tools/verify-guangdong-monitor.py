@@ -54,7 +54,7 @@ def main():
         command(manage + ["migrate", "--plan"], "migration-plan")
         command(manage + ["migrate", "--noinput"], "migration-apply")
         command(manage + ["makemigrations", "--check", "--dry-run"], "migration-drift")
-        command(manage + ["test", "inventory.tests", "sales.tests.test_consumers_api", "--noinput"], "postgres-tests")
+        command(manage + ["test", "inventory.tests", "sales.tests.test_consumers_api", "workflow.tests.test_import_chain_status", "--noinput"], "postgres-tests")
 
         # The only imported settings belong to this fresh private cluster.
         os.environ.update(env)

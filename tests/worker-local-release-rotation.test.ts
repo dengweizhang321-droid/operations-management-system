@@ -54,7 +54,40 @@ test("successor sequence remains bounded while allowing continued forward releas
 
   assert.equal(successorPayload({ ...input, sequence: 33 }).sequence, 33);
   assert.equal(successorPayload({ ...input, sequence: 128 }).sequence, 128);
-  assert.throws(() => successorPayload({ ...input, sequence: 129 }), /sequence/);
+  assert.equal(successorPayload({ ...input, sequence: 129 }).sequence, 129);
+  assert.equal(successorPayload({ ...input, sequence: 256 }).sequence, 256);
+  for (const sequence of [0, -1, 1.5, 257, Infinity]) {
+    assert.throws(() => successorPayload({ ...input, sequence }), /sequence/);
+  }
+});
+
+test("full successor verification crosses the old 128 boundary without dropping history", async () => {
+  const item = await fixture();
+  try {
+    let chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+    let previous = item.bootstrapRelease;
+    for (let sequence = 1; sequence <= 129; sequence++) {
+      const createdAt = new Date(Date.UTC(2026, 8, 6, 0, 0, sequence)).toISOString();
+      const releaseId = createdAt.replace(/[-:]/g, "").replace(/\.000Z$/, "Z") + "-" + sequence.toString(16).padStart(16, "0");
+      const next = await makeRelease(item.runtime, item.protectedRoot, releaseId, `service-${sequence}`, {
+        createdAt, buildFingerprint: sequence.toString(16).padStart(64, "0"),
+      });
+      const transition = await approvedTransition(item, chain, next, previous, createdAt);
+      await publishSuccessorRecord(item.runtime, transition.record, chain.bootstrap);
+      chain = await resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true });
+      assert.equal(chain.successorCount, sequence);
+      previous = next;
+    }
+    const records = await readdir(path.join(item.runtime, "state", successorDirectoryName));
+    assert.equal(records.length, 258);
+    const firstSidecar = path.join(item.runtime, "state", successorDirectoryName, records.find((name) => name.endsWith(".sha256"))!);
+    await writeFile(firstSidecar, "0".repeat(64) + "\n");
+    await assert.rejects(resolveEffectiveReleaseChain({ runtimeRoot: item.runtime, allowTestRuntimeRoot: true }), /sidecar 无效/);
+  } finally {
+    assert.equal(path.dirname(item.runtime).toLowerCase(), path.resolve(tmpdir()).toLowerCase());
+    assert.ok(path.basename(item.runtime).startsWith("teruisi-worker-rotation-"));
+    await rm(item.runtime, { recursive: true, force: true });
+  }
 });
 
 async function protectedSnapshot(
