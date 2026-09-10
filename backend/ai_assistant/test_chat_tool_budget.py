@@ -151,7 +151,7 @@ class ChatToolBudgetTests(TestCase):
             result = chat.answer(body, self.owner, "empty-finalize")
             self.assertEqual(http.call_count, 3)
             self.assertEqual(source.call_count, 1)
-            self.assertEqual(http.call_args.args[1]["thinking"], {"type": "disabled"})
+            self.assertNotIn("thinking", http.call_args.args[1])
             self.assertNotIn("tools", http.call_args.args[1])
             self.assertIn("2026-09-09", canonical(http.call_args.args[1]["messages"]))
             self.assertNotIn("private-thought", canonical(http.call_args.args[1]))
@@ -190,7 +190,7 @@ class ChatToolBudgetTests(TestCase):
             chat.answer({"clientRequestId": "time-finalize", "message": "查询"}, self.owner, "time-finalize")
             self.assertEqual(source.call_count, 1)
             self.assertNotIn("tools", http.call_args.args[1])
-            self.assertEqual(http.call_args.args[1]["thinking"], {"type": "disabled"})
+            self.assertNotIn("thinking", http.call_args.args[1])
 
     def test_network_unknown_invalid_json_and_filter_finish_are_never_replayed(self):
         self.model.model_name = "glm-5.2"
@@ -233,8 +233,8 @@ class ChatToolBudgetTests(TestCase):
                     chat.answer({"clientRequestId": f"closed-{gate}", "message": "查询"}, self.owner, f"closed-{gate}")
                 self.assertEqual(http.call_count, 1)
 
-    def test_unknown_provider_does_not_receive_glm_specific_recovery(self):
-        empty = {"choices": [{"finish_reason": "stop", "message": {"content": ""}}]}
+    def test_unknown_finish_reason_does_not_trigger_finalization(self):
+        empty = {"choices": [{"finish_reason": "unknown", "message": {"content": ""}}]}
         patches = self.run_chat([empty])
         with patches[0], patches[1], patches[2], patches[3] as http:
             with self.assertRaises(AiError):

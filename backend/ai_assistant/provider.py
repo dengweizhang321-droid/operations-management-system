@@ -29,12 +29,6 @@ class EmptyProviderResponse(AiError):
                     self.diagnostics["completionUnits" if key == "completion_tokens" else "outputUnits"] = value
 
 
-def supports_direct_finish(model):
-    return model.protocol == "openai_compatible" and bool(
-        re.fullmatch(r"glm-(?:4\.[567]|5(?:\.[0-9]+)?)(?:-[a-z0-9]+)*", model.model_name.lower())
-    )
-
-
 def turn(model, transcript, system, tools, *, retain_reasoning=False):
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)

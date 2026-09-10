@@ -25,6 +25,14 @@ _dns_slots = BoundedSemaphore(4)
 _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
 
 
+class ProviderHttpError(AiError):
+    """Keep transport status for audit without disclosing an upstream body."""
+    def __init__(self, status):
+        super().__init__(f"服务返回 HTTP {status}",
+                         "provider_rate_limited" if status == 429 else "provider_error", 503)
+        self.diagnostics = {"httpStatus": status}
+
+
 @contextmanager
 def request_budget(seconds):
     token = _deadline.set(time.monotonic() + seconds)
@@ -265,11 +273,7 @@ def _bounded_json(
                 raise AiError("响应超限", "response_too_large", 503)
             chunks.append(part)
         if not 200 <= response.status < 300:
-            raise AiError(
-                f"服务返回 HTTP {response.status}",
-                "provider_rate_limited" if response.status == 429 else "provider_error",
-                503,
-            )
+            raise ProviderHttpError(response.status)
         value = json.loads(b"".join(chunks).decode("utf-8"))
         if not isinstance(value, dict):
             raise AiError("响应 JSON 无效", "invalid_provider_response", 503)

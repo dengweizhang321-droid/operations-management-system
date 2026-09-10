@@ -2,7 +2,6 @@ from __future__ import annotations
 import json
 import re
 import time
-from copy import copy
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 from django.db.models import Max, F, Func, IntegerField
@@ -590,6 +589,12 @@ def answer(body, principal, request_id):
                 turn_system = system
                 if not offered_tools:
                     turn_system += "\n本轮只生成最终回答，不再调用工具。请依据已有成功查询说明结论、来源和缺口；若没有可用结果，明确说明未能取得数据并建议缩小问题，不得编造。"
+                provider_arguments = {
+                    "modelId": model.id, "ordinal": ordinal,
+                    "phase": "final" if final_turn else "query",
+                    "thinkingParameter": "disabled" if model.protocol == "openai_compatible" and model.reasoning_mode == "disabled" else "omitted",
+                    "toolsOffered": len(offered_tools),
+                }
                 with mutation(principal):
                     row = _live(receipt.id, principal)
                     current = resolve_model(model.id)
@@ -613,29 +618,28 @@ def answer(body, principal, request_id):
                         request_id,
                         "ai_chat_provider",
                         "started",
-                        arguments={"modelId": model.id, "ordinal": ordinal},
+                        arguments=provider_arguments,
                     )
                 provider_started = time.monotonic()
                 try:
-                    turn_model = model
-                    if final_turn and provider.supports_direct_finish(model):
-                        turn_model = copy(model)
-                        turn_model.reasoning_mode = "disabled"
-                    response = provider.turn(turn_model, frames, turn_system, offered_tools, retain_reasoning=True)
+                    # A model name does not identify the serving endpoint's
+                    # capabilities. Finalization changes tools/instructions only;
+                    # every dispatch preserves the saved provider parameters.
+                    response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True)
                 except Exception as error:
                     with mutation(principal):
                         audit(
                             principal, request_id, "ai_chat_provider", "failed",
-                            arguments={"modelId": model.id, "ordinal": ordinal,
+                            arguments={**provider_arguments,
                                        **({"responseDiagnostics": error.diagnostics}
-                                          if isinstance(error, provider.EmptyProviderResponse) else {})},
+                                          if isinstance(error, (provider.EmptyProviderResponse, transport.ProviderHttpError)) else {})},
                             duration=int((time.monotonic() - provider_started) * 1000),
                             error_code=(error.code if isinstance(error, AiError)
                                         else "provider_timeout" if isinstance(error, TimeoutError)
                                         else "provider_unavailable"),
                         )
                     if (isinstance(error, provider.EmptyProviderResponse) and error.can_finalize
-                            and provider.supports_direct_finish(model) and not empty_finalization_used
+                            and not empty_finalization_used
                             and not final_turn and ordinal < model.max_tool_rounds
                             and transport.remaining_budget(default=3600) >= 15):
                         # The provider completed this dispatch. Spend at most one
@@ -652,7 +656,7 @@ def answer(body, principal, request_id):
                         request_id,
                         "ai_chat_provider",
                         "succeeded",
-                        arguments={"modelId": model.id, "ordinal": ordinal},
+                        arguments=provider_arguments,
                         duration=int((time.monotonic() - provider_started) * 1000),
                         result={
                             "providerRequestId": response.get("providerRequestId", ""),
