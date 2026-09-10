@@ -358,8 +358,10 @@ async function installRequestCapture(page: Page) {
   });
 }
 
-export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[] }) {
-  return !input.hitInsideControl && input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName))
+export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[]; hitClassNames?: string[] }) {
+  const hitIsJdMenuList = input.hitTagNames[0]?.toUpperCase() === "UL"
+    && String(input.hitClassNames?.[0] ?? "").split(/\s+/).includes("menu-list");
+  return !input.hitInsideControl && (input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName)) || hitIsJdMenuList)
     ? "native_dispatch" as const
     : "pointer" as const;
 }
@@ -375,17 +377,19 @@ async function clickDropdownControl(control: Locator) {
     const box = element.getBoundingClientRect();
     const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
     const hitTagNames: string[] = [];
+    const hitClassNames: string[] = [];
     let current = hit as HTMLElement | null;
     for (let depth = 0; current && current !== document.body && depth < 8; depth += 1) {
       hitTagNames.push(current.tagName);
+      hitClassNames.push(String(current.className));
       current = current.parentElement;
     }
-    return { hitInsideControl: hit === element || Boolean(hit && element.contains(hit)), hitTagNames };
+    return { hitInsideControl: hit === element || Boolean(hit && element.contains(hit)), hitTagNames, hitClassNames };
   });
   if (jdMarketDropdownClickMode(hitTest) === "native_dispatch") {
-    // 京东的 AI 助手扩展偶尔覆盖类目控件并吞掉坐标点击。控件已经通过
-    // 唯一性、组件类型和 data-event-name 契约校验；仅在命中该已知扩展
-    // 覆盖层时向真实控件派发原生 click，避免修改或关闭平台扩展 DOM。
+    // 京东 AI 助手或京东自身的顶层 UL.menu-list 偶尔覆盖类目控件并吞掉
+    // 坐标点击。控件已经通过唯一性、组件类型和 data-event-name 契约校验；
+    // 仅对这两种已知遮挡派发原生 click，不修改或关闭平台 DOM。
     await control.dispatchEvent("click");
     return;
   }

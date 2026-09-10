@@ -55,7 +55,7 @@ test("JD market filter selection retries one ignored click and still fails close
   assert.equal(failedSelections, 2);
 });
 
-test("JD market category control bypasses only the known AI helper pointer overlay", () => {
+test("JD market category control bypasses only known JD overlays", () => {
   assert.equal(jdMarketDropdownClickMode({
     hitInsideControl: false,
     hitTagNames: ["AIHELPER-EXTENSION-EMBEDDED", "BODY"],
@@ -67,6 +67,21 @@ test("JD market category control bypasses only the known AI helper pointer overl
   assert.equal(jdMarketDropdownClickMode({
     hitInsideControl: true,
     hitTagNames: ["AIHELPER-EXTENSION-EMBEDDED"],
+  }), "pointer");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["UL", "DIV"],
+    hitClassNames: ["menu-list", "header-menu"],
+  }), "native_dispatch");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["DIV", "UL"],
+    hitClassNames: ["menu-list", "header-menu"],
+  }), "pointer");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["UL", "DIV"],
+    hitClassNames: ["unknown-menu", "header-menu"],
   }), "pointer");
   assert.equal(jdMarketDropdownClickMode({
     hitInsideControl: false,
