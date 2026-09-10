@@ -89,8 +89,11 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
   assert.match(service, /_verify_record/);
   assert.match(view, /下载导入模板/);
   assert.match(view, /导入备货计划/);
+  assert.match(view, /一键确认并提交钉钉（/);
   assert.match(view, /批量提交钉钉表（/);
-  assert.match(view, /全选本页已确认备货计划/);
+  assert.match(view, /全选本页草稿和已确认备货计划/);
+  assert.match(view, /confirmAndSyncDraftPlans/);
+  assert.match(view, /preservedConfirmedIds/);
   assert.match(view, /发送钉钉群（/);
   assert.match(view, /确认发送/);
   assert.match(groupRoute, /WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH/);

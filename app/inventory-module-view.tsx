@@ -43,6 +43,7 @@ import {
   Dot,
   SectionHeader,
 } from "./module-view-shared";
+import { confirmAndSyncDraftPlans, retainFailedPlanSelections } from "../lib/inventory/replenishment-batch";
 
 type InventoryTab = ModuleViewKey<"inventory">;
 
@@ -128,6 +129,31 @@ async function requestPlanDingTalkSync(planId: string) {
     throw new Error(payload?.message || payload?.error || "提交钉钉多维表失败");
   }
   return payload.outcome ?? "created";
+}
+
+async function requestPlanStatusUpdate(
+  planId: string,
+  status: ReplenishmentPlanItem["status"],
+  plannedQuantity?: number,
+) {
+  const response = await fetch("/api/inventory/replenishment", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      id: planId,
+      status,
+      ...(plannedQuantity === undefined ? {} : { plannedQuantity }),
+    }),
+  });
+  const payload = await response.json().catch(() => null) as {
+    ok?: boolean;
+    item?: ReplenishmentPlanItem;
+    message?: string;
+  } | null;
+  if (!response.ok || !payload?.ok || !payload.item?.id) {
+    throw new Error(payload?.message || "更新备货计划失败");
+  }
+  return payload.item;
 }
 
 async function requestDingTalkGroupMessage(
@@ -434,6 +460,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const [groupMessageLoading, setGroupMessageLoading] = useState(false);
   const [planImporting, setPlanImporting] = useState(false);
   const [batchDingTalkLoading, setBatchDingTalkLoading] = useState(false);
+  const [batchDraftConfirmLoading, setBatchDraftConfirmLoading] = useState(false);
   const [overviewPage, setOverviewPage] = useState(1);
   const [agePage, setAgePage] = useState(1);
   const [planPage, setPlanPage] = useState(1);
@@ -506,7 +533,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   const canManageInventory = currentUser?.role === "admin" || currentUser?.role === "operator";
   const selectablePlans = useMemo(
     () => canManageInventory
-      ? (overview?.plans ?? []).filter((plan) => plan.status === "confirmed")
+      ? (overview?.plans ?? []).filter((plan) => plan.status === "draft" || plan.status === "confirmed")
       : [],
     [canManageInventory, overview?.plans],
   );
@@ -515,9 +542,17 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     () => selectablePlans.filter((plan) => selectedPlanIds.has(plan.id)),
     [selectablePlans, selectedPlanIds],
   );
-  const groupSelectionReady = selectedPlans.length > 0
-    && selectedPlans.length === selectedPlanIds.size
-    && selectedPlans.every((plan) => plan.buyer.trim() && plan.supplier.trim());
+  const selectedDraftPlans = useMemo(
+    () => selectedPlans.filter((plan) => plan.status === "draft"),
+    [selectedPlans],
+  );
+  const selectedConfirmedPlans = useMemo(
+    () => selectedPlans.filter((plan) => plan.status === "confirmed"),
+    [selectedPlans],
+  );
+  const groupSelectionReady = selectedConfirmedPlans.length > 0
+    && selectedConfirmedPlans.length === selectedPlanIds.size
+    && selectedConfirmedPlans.every((plan) => plan.buyer.trim() && plan.supplier.trim());
   const allSelectablePlansSelected = selectablePlans.length > 0
     && selectablePlans.every((plan) => selectedPlanIds.has(plan.id));
 
@@ -946,20 +981,14 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     if (confirmationText && !window.confirm(confirmationText)) return;
     setPlanActionId(plan.id);
     try {
-      const response = await fetch("/api/inventory/replenishment", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: plan.id,
-          status,
-          ...(plan.status === "draft" ? { plannedQuantity: planQuantities[plan.id] ?? plan.plannedQuantity } : {}),
-        }),
-      });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; item?: ReplenishmentPlanItem; message?: string } | null;
-      if (!response.ok || !payload?.ok || !payload.item?.id) throw new Error(payload?.message || "更新备货计划失败");
+      const updatedPlan = await requestPlanStatusUpdate(
+        plan.id,
+        status,
+        plan.status === "draft" ? planQuantities[plan.id] ?? plan.plannedQuantity : undefined,
+      );
       if (status === "confirmed") {
         try {
-          await requestPlanDingTalkSync(payload.item.id);
+          await requestPlanDingTalkSync(updatedPlan.id);
           setSyncFeedback({
             tone: "success",
             title: "备货计划已确认并提交钉钉多维表",
@@ -1007,7 +1036,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
   }, [canManageInventory, refreshActiveInventoryTab]);
 
   const importReplenishmentPlans = useCallback(async (file?: File) => {
-    if (!file || !canManageInventory || planImporting || batchDingTalkLoading || groupMessageLoading) return;
+    if (!file || !canManageInventory || planImporting || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading) return;
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       setSyncFeedback({ tone: "error", title: "文件格式不支持", message: "请使用下载的 .xlsx 备货计划导入模板。" });
       if (planImportInputRef.current) planImportInputRef.current.value = "";
@@ -1048,11 +1077,49 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       setPlanImporting(false);
       if (planImportInputRef.current) planImportInputRef.current.value = "";
     }
-  }, [batchDingTalkLoading, canManageInventory, groupMessageLoading, overview?.sync.inventoryAsOf, overview?.sync.inventoryStale, planImporting, refreshActiveInventoryTab]);
+  }, [batchDingTalkLoading, batchDraftConfirmLoading, canManageInventory, groupMessageLoading, overview?.sync.inventoryAsOf, overview?.sync.inventoryStale, planImporting, refreshActiveInventoryTab]);
+
+  const batchConfirmDraftPlans = useCallback(async () => {
+    if (!canManageInventory || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting || selectedDraftPlans.length === 0) return;
+    const plans = selectedDraftPlans.slice(0, 50).map((plan) => ({
+      id: plan.id,
+      plannedQuantity: planQuantities[plan.id] ?? plan.plannedQuantity,
+    }));
+    const preservedConfirmedIds = selectedConfirmedPlans.map((plan) => plan.id);
+    if (!window.confirm(`确认将所选 ${plans.length} 条草稿计入执行在途，并逐条提交到钉钉多维表？`)) return;
+    setBatchDraftConfirmLoading(true);
+    setGroupPreview(null);
+    setSyncFeedback(null);
+    try {
+      const results = await confirmAndSyncDraftPlans(
+        plans,
+        async (plan) => { await requestPlanStatusUpdate(plan.id, "confirmed", plan.plannedQuantity); },
+        async (plan) => { await requestPlanDingTalkSync(plan.id); },
+        (message) => /授权已失效|访问权限不足|运行组件不可用/.test(message),
+      );
+      const failed = results.filter((result) => !result.ok);
+      const succeeded = results.length - failed.length;
+      const confirmedButUnsynced = failed.filter((result) => result.confirmed).length;
+      setSelectedPlanIds(new Set(retainFailedPlanSelections(preservedConfirmedIds, results)));
+      setSyncFeedback({
+        tone: failed.length ? "warning" : "success",
+        title: failed.length
+          ? `已确认并提交 ${succeeded} 条，待处理 ${failed.length} 条`
+          : `已一键确认并提交 ${succeeded} 条钉钉备货计划`,
+        message: failed[0]?.error
+          ? `${failed[0].error}${confirmedButUnsynced ? `；其中 ${confirmedButUnsynced} 条已确认但钉钉未完成` : ""}${failed.length > 1 ? "；未完成项已保留勾选" : ""}`
+          : "所有所选草稿均已确认、幂等写入并回查钉钉备货管理表。",
+      });
+      await refreshActiveInventoryTab();
+    } finally {
+      setBatchDraftConfirmLoading(false);
+    }
+  }, [batchDingTalkLoading, batchDraftConfirmLoading, canManageInventory, groupMessageLoading, planImporting, planQuantities, refreshActiveInventoryTab, selectedConfirmedPlans, selectedDraftPlans]);
 
   const batchSyncPlansToDingTalk = useCallback(async () => {
-    if (!canManageInventory || batchDingTalkLoading || groupMessageLoading || planImporting || selectedPlanIds.size === 0) return;
-    const planIds = [...selectedPlanIds].slice(0, 50);
+    if (!canManageInventory || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting || selectedConfirmedPlans.length === 0) return;
+    const planIds = selectedConfirmedPlans.slice(0, 50).map((plan) => plan.id);
+    const preservedDraftIds = selectedDraftPlans.map((plan) => plan.id);
     setBatchDingTalkLoading(true);
     setGroupPreview(null);
     setSyncFeedback(null);
@@ -1076,7 +1143,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       }
       const failed = results.filter((result) => !result.ok);
       const succeeded = results.length - failed.length;
-      setSelectedPlanIds(new Set(failed.map((result) => result.id)));
+      setSelectedPlanIds(new Set(retainFailedPlanSelections(preservedDraftIds, results)));
       setSyncFeedback({
         tone: failed.length ? "warning" : "success",
         title: failed.length ? `钉钉表已提交 ${succeeded} 条，失败 ${failed.length} 条` : `已批量提交 ${succeeded} 条钉钉备货计划`,
@@ -1086,7 +1153,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     } finally {
       setBatchDingTalkLoading(false);
     }
-  }, [batchDingTalkLoading, canManageInventory, groupMessageLoading, planImporting, refreshActiveInventoryTab, selectedPlanIds]);
+  }, [batchDingTalkLoading, batchDraftConfirmLoading, canManageInventory, groupMessageLoading, planImporting, refreshActiveInventoryTab, selectedConfirmedPlans, selectedDraftPlans]);
 
   const togglePlanSelection = useCallback((planId: string) => {
     if (!selectablePlanIds.has(planId)) return;
@@ -1398,24 +1465,60 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
 
         <section className="panel table-panel replenishment-plan-panel">
           <div className="table-toolbar">
-            <div><h2>备货计划</h2><p>下载模板后可一次导入多个规格；勾选已确认计划可批量提交钉钉表或发送群消息</p></div>
+            <div><h2>备货计划</h2><p>草稿可多选后一键确认并提交钉钉；已确认计划可批量重试钉钉表或发送群消息</p></div>
             <span className="soft-tag">本页 {overview.plansPagination.returned} / 共 {overview.plansPagination.total} 项</span>
             <div className="inventory-toolbar-actions">
               {canManageInventory && <>
                 <a className="row-action" href="/api/inventory/replenishment/import" download>下载导入模板</a>
                 <input ref={planImportInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onChange={(event) => void importReplenishmentPlans(event.target.files?.[0])} />
-                <button type="button" className="row-action" disabled={planImporting || batchDingTalkLoading || groupMessageLoading} onClick={() => planImportInputRef.current?.click()}>{planImporting ? "正在导入…" : "导入备货计划"}</button>
-                <button type="button" className="primary-button" disabled={selectedPlanIds.size === 0 || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchSyncPlansToDingTalk()}>{batchDingTalkLoading ? "正在批量提交…" : `批量提交钉钉表（${selectedPlanIds.size}）`}</button>
-                <button type="button" className="primary-button plan-group-send-button" title={groupSelectionReady ? "按采购与工厂汇总后发送群消息" : "发送群消息要求所选计划均填写对应采购和供应商"} disabled={!groupSelectionReady || groupMessageLoading || batchDingTalkLoading || planImporting} onClick={() => void previewDingTalkGroupMessage()}>{groupMessageLoading && !groupPreview ? "正在核验钉钉…" : `发送钉钉群（${selectedPlanIds.size}）`}</button>
+                <button type="button" className="row-action" disabled={planImporting || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading} onClick={() => planImportInputRef.current?.click()}>{planImporting ? "正在导入…" : "导入备货计划"}</button>
+                <button type="button" className="primary-button" disabled={selectedDraftPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchConfirmDraftPlans()}>{batchDraftConfirmLoading ? "正在确认并提交…" : `一键确认并提交钉钉（${selectedDraftPlans.length}）`}</button>
+                <button type="button" className="primary-button" disabled={selectedConfirmedPlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading || groupMessageLoading || planImporting} onClick={() => void batchSyncPlansToDingTalk()}>{batchDingTalkLoading ? "正在批量提交…" : `批量提交钉钉表（${selectedConfirmedPlans.length}）`}</button>
+                <button type="button" className="primary-button plan-group-send-button" title={groupSelectionReady ? "按采购与工厂汇总后发送群消息" : "发送群消息要求全部所选计划均为已确认，且填写对应采购和供应商"} disabled={!groupSelectionReady || groupMessageLoading || batchDraftConfirmLoading || batchDingTalkLoading || planImporting} onClick={() => void previewDingTalkGroupMessage()}>{groupMessageLoading && !groupPreview ? "正在核验钉钉…" : `发送钉钉群（${selectedConfirmedPlans.length}）`}</button>
               </>}
               <button type="button" className="row-action" disabled={overview.plans.length === 0} onClick={() => downloadInventoryCsv(`备货计划_${overview.sync.inventoryAsOf ?? "snapshot"}_第${overview.plansPagination.page}页.csv`, [["计划ID", "货品编号", "货品名称", "品牌", "分类", "供应商", "入库库房", "对应采购", "对应运营", "部门", "备货类型", "现有库存", "近30天销量", "预计消耗周期(天)", "系统建议", "备货数量", "下单日期", "预计到货日", "状态", "是否验货", "备注", "创建时间", "更新时间"], ...overview.plans.map((plan) => [plan.id, plan.productCode, plan.productName, plan.brand, plan.category, plan.supplier, plan.warehouse, plan.buyer, plan.operatorName, plan.department, plan.planType, plan.currentStockQuantity, plan.sales30dQuantity, plan.coverageDays, plan.suggestedQuantity, plan.plannedQuantity, plan.orderDate, plan.expectedArrivalDate, planStatusLabel[plan.status], plan.requiresInspection ? "是" : "否", plan.notes, plan.createdAt, plan.updatedAt])])}>导出当前页 CSV</button>
               <button className="secondary-button" onClick={() => onModuleViewChange("overview")}>返回库存明细</button>
             </div>
           </div>
-          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th className="plan-selection-cell"><input type="checkbox" aria-label="全选本页已确认备货计划" checked={allSelectablePlansSelected} disabled={selectablePlans.length === 0} onChange={toggleAllPlanSelections} /></th><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
+          <div className="data-table-wrap data-refresh-region" aria-busy={loading}><table className="data-table replenishment-plan-table"><thead><tr><th className="plan-selection-cell"><input type="checkbox" aria-label="全选本页草稿和已确认备货计划" checked={allSelectablePlansSelected} disabled={selectablePlans.length === 0 || batchDraftConfirmLoading || batchDingTalkLoading} onChange={toggleAllPlanSelections} /></th><th>货品</th><th>品牌 / 供应商</th><th>入库库房</th><th>采购 / 运营</th><th>类型 / 部门</th><th>库存 / 近30天销量</th><th>预计消耗周期</th><th>备货数量</th><th>下单 / 到货</th><th>状态 / 验货</th><th>操作</th></tr></thead><tbody>
             {overview.plans.map((plan) => {
               const selectable = selectablePlanIds.has(plan.id);
-              return <tr key={plan.id}><td className="plan-selection-cell"><input type="checkbox" aria-label={`选择 ${plan.productName}`} checked={selectedPlanIds.has(plan.id)} disabled={!selectable} title={selectable ? "加入批量钉钉操作" : "仅已确认计划可批量提交钉钉"} onChange={() => togglePlanSelection(plan.id)} /></td><td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.category || "未分类"}</small></span></div></td><td><div className="inventory-number-cell"><strong>{plan.brand || "—"}</strong><small>{plan.supplier || "未映射供应商"}</small></div></td><td>{plan.warehouse}</td><td><div className="inventory-number-cell"><strong>{plan.buyer || "—"}</strong><small>运营 {plan.operatorName || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{plan.planType || "—"}</strong><small>{plan.department || "—"}</small></div></td><td><div className="inventory-number-cell"><strong>{formatCount(plan.currentStockQuantity)}</strong><small>销量 {plan.sales30dQuantity === null ? "—" : formatCount(plan.sales30dQuantity)}</small></div></td><td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td><td>{plan.status === "draft" && canManageInventory ? <input className="plan-quantity-input" type="number" min={1} max={10000000} value={planQuantities[plan.id] ?? plan.plannedQuantity} onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))} aria-label={`${plan.productName}计划数量`} /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}<small className="cell-note">建议 {formatCount(plan.suggestedQuantity)}</small></td><td><div className="inventory-number-cell"><strong>{plan.orderDate || "—"}</strong><small>到货 {plan.expectedArrivalDate || "—"}</small></div></td><td><div className="inventory-number-cell"><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span><small>{plan.requiresInspection ? "需要验货" : "无需验货"}</small>{plan.dingTalkSync.status === "failed" && <small className="plan-sync-error">钉钉同步失败：{plan.dingTalkSync.error || "请稍后重试原备货计划"}</small>}</div></td><td><div className="plan-row-actions">{canManageInventory ? <>{plan.status === "draft" && <><button className="row-action primary-row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认并提交钉钉</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "confirmed" && <>{plan.dingTalkSync.status === "synced" ? <><span className="plan-done">✓ 钉钉已提交</span><button className="row-action" title="把历史标记更新为运营管理系统，并回查现有记录" disabled={planActionId === plan.id} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id ? "更新中…" : "更新钉钉记录"}</button></> : <button className="row-action primary-row-action" title={plan.dingTalkSync.error || "提交到钉钉备货管理表"} disabled={planActionId === plan.id || plan.dingTalkSync.status === "syncing"} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id || plan.dingTalkSync.status === "syncing" ? "提交中…" : plan.dingTalkSync.status === "failed" ? "重试提交钉钉" : "提交钉钉"}</button>}<button className="row-action" onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={planActionId === plan.id} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}{plan.status === "completed" && <><span className="plan-done">✓ 已完成</span>{plan.dingTalkSync.status === "synced" && <span className="plan-done">✓ 钉钉已提交</span>}</>}{plan.status === "cancelled" && <span className="soft-text">已取消</span>}</> : <span className="soft-text">只读</span>}</div></td></tr>;
+              const rowBusy = planActionId === plan.id || batchDraftConfirmLoading || batchDingTalkLoading;
+              return <tr key={plan.id}>
+                <td className="plan-selection-cell"><input
+                  type="checkbox"
+                  aria-label={`选择 ${plan.productName}`}
+                  checked={selectedPlanIds.has(plan.id)}
+                  disabled={!selectable || rowBusy}
+                  title={selectable ? (plan.status === "draft" ? "加入批量确认并提交钉钉" : "加入批量钉钉操作") : "只有草稿或已确认计划可批量操作"}
+                  onChange={() => togglePlanSelection(plan.id)}
+                /></td>
+                <td><div className="product-cell"><span className="product-thumb">{plan.productName.slice(0, 1) || "货"}</span><span><strong>{plan.productName}</strong><small>{plan.productCode} · {plan.category || "未分类"}</small></span></div></td>
+                <td><div className="inventory-number-cell"><strong>{plan.brand || "—"}</strong><small>{plan.supplier || "未映射供应商"}</small></div></td>
+                <td>{plan.warehouse}</td>
+                <td><div className="inventory-number-cell"><strong>{plan.buyer || "—"}</strong><small>运营 {plan.operatorName || "—"}</small></div></td>
+                <td><div className="inventory-number-cell"><strong>{plan.planType || "—"}</strong><small>{plan.department || "—"}</small></div></td>
+                <td><div className="inventory-number-cell"><strong>{formatCount(plan.currentStockQuantity)}</strong><small>销量 {plan.sales30dQuantity === null ? "—" : formatCount(plan.sales30dQuantity)}</small></div></td>
+                <td>{plan.coverageDays === null ? "—" : `${plan.coverageDays.toFixed(1)} 天`}</td>
+                <td>{plan.status === "draft" && canManageInventory ? <input
+                  className="plan-quantity-input"
+                  type="number"
+                  min={1}
+                  max={10000000}
+                  disabled={rowBusy}
+                  value={planQuantities[plan.id] ?? plan.plannedQuantity}
+                  onChange={(event) => setPlanQuantities((current) => ({ ...current, [plan.id]: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))}
+                  aria-label={`${plan.productName}计划数量`}
+                /> : <strong>{formatCount(plan.plannedQuantity)}</strong>}<small className="cell-note">建议 {formatCount(plan.suggestedQuantity)}</small></td>
+                <td><div className="inventory-number-cell"><strong>{plan.orderDate || "—"}</strong><small>到货 {plan.expectedArrivalDate || "—"}</small></div></td>
+                <td><div className="inventory-number-cell"><span className={`status status-${plan.status === "draft" ? "warning" : plan.status === "confirmed" ? "success" : "purple"}`}><Dot tone={plan.status === "draft" ? "orange" : plan.status === "confirmed" ? "green" : "purple"} />{planStatusLabel[plan.status]}</span><small>{plan.requiresInspection ? "需要验货" : "无需验货"}</small>{plan.dingTalkSync.status === "failed" && <small className="plan-sync-error">钉钉同步失败：{plan.dingTalkSync.error || "请稍后重试原备货计划"}</small>}</div></td>
+                <td><div className="plan-row-actions">{canManageInventory ? <>
+                  {plan.status === "draft" && <><button className="row-action primary-row-action" disabled={rowBusy} onClick={() => void updatePlanStatus(plan, "confirmed")}>确认并提交钉钉</button><button className="row-action" disabled={rowBusy} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}
+                  {plan.status === "confirmed" && <>{plan.dingTalkSync.status === "synced" ? <><span className="plan-done">✓ 钉钉已提交</span><button className="row-action" title="把历史标记更新为运营管理系统，并回查现有记录" disabled={rowBusy} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id ? "更新中…" : "更新钉钉记录"}</button></> : <button className="row-action primary-row-action" title={plan.dingTalkSync.error || "提交到钉钉备货管理表"} disabled={rowBusy || plan.dingTalkSync.status === "syncing"} onClick={() => void syncPlanToDingTalk(plan)}>{planActionId === plan.id || plan.dingTalkSync.status === "syncing" ? "提交中…" : plan.dingTalkSync.status === "failed" ? "重试提交钉钉" : "提交钉钉"}</button>}<button className="row-action" disabled={rowBusy} onClick={() => openProcurementWorkItem(plan)}>生成采购任务</button><button className="row-action" disabled={rowBusy} onClick={() => void updatePlanStatus(plan, "completed")}>完成</button><button className="row-action" disabled={rowBusy} onClick={() => void updatePlanStatus(plan, "cancelled")}>取消</button></>}
+                  {plan.status === "completed" && <><span className="plan-done">✓ 已完成</span>{plan.dingTalkSync.status === "synced" && <span className="plan-done">✓ 钉钉已提交</span>}</>}
+                  {plan.status === "cancelled" && <span className="soft-text">已取消</span>}
+                </> : <span className="soft-text">只读</span>}</div></td>
+              </tr>;
             })}
             {overview.plans.length === 0 && <tr><td colSpan={12}><div className="table-state">暂无备货计划。请在“库存总览”中创建备货计划。</div></td></tr>}
           </tbody></table></div>
