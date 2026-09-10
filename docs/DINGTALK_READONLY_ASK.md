@@ -1,6 +1,6 @@
 # 志高助手：钉钉只读问数
 
-2026-09-09 开发候选。尚未在本机生产应用迁移、安装接收器依赖或开启监听；不能把代码验证当作已上线。
+2026-09-10 已按用户“合并后一起发布并清理分支”的授权在本机生产采用：应用迁移 AI 0007、安装可选依赖、启用受保护配置及 Stream 监听。用户在本人单聊和测试群 @ 验收请求后确认“已经收到私聊回复”。此确认不等于销售、库存、网店三类真实模型分析均已验收。
 
 ## 使用范围
 
@@ -34,7 +34,7 @@
 
 接收回调只做身份检查与持久入队，模型在独立工作线程运行。单实例 PostgreSQL advisory lock 持有到所有线程结束。发送前先持久化 sending；回执不明不重发。重启后 running/sending 变为 unknown，关联未完成 AI 回执也置为 unknown，不重复付费分析；已完成 ready 结果可继续受控发送。unknown 状态需操作员检查，用户可另发新问题。这里采用“至多一次发送尝试”，不承诺分布式网络上的恰好一次送达。
 
-DWS 管理平台授权和机器人发送；应用凭据仅在内存中取得。消息中的 sessionWebhook、access token、Stream ticket 和原始外部回执不写入业务表或日志。Stream 建联失败最多连续五次后退出，保留脱敏错误码，不无限重试认证。
+DWS 管理平台授权和机器人发送；应用凭据仅在内存中取得。每次核验机器人前调用当前用户只读接口，使 DWS 可以用既有 refresh grant 自动续期；refresh grant 本身失效时仍失败关闭，不扩大授权。发送必须收到 `success=true`、有效 `processQueryKey` 且无无效/限流接收者才记为平台接受；这不是用户已读证明。消息中的 sessionWebhook、access token、Stream ticket 和原始外部回执不写入业务表或日志。Stream 建联失败最多连续五次后退出，保留脱敏错误码，不无限重试认证。
 
 ## 配置与本机发布
 
@@ -59,7 +59,7 @@ DWS 管理平台授权和机器人发送；应用凭据仅在内存中取得。�
 
 StartDingTalk 使用现有 DPAPI AI writer 凭据与精确进程回执，后台启动接收器；不调用 Codex、DWS 的任意 agent 命令或个人账号自动回复。日志出现 `connected` 才代表已建立 Stream 连接，进程启动本身不代表端到端可用。停止 AI 栈会先停止接收器。
 
-本候选不自动加入登录启动或外层 supervisor 的常驻监控；机器重启或接收器连续建联失败退出后，需要显式 StartDingTalk。当前用户 DWS 授权也需要保持有效。
+首版不自动加入登录启动或外层 supervisor 的常驻监控；机器重启或接收器连续建联失败退出后，需要显式 StartDingTalk。当前用户 DWS refresh 授权也需要保持有效。
 
 回退优先关闭问数配置并 StopDingTalk，网页 AI 与销售事实不受影响。保留两张新表、迁移、权限和投递审计；使用兼容修复或 PostgreSQL 前向恢复，禁止删除表后恢复旧 D1。恢复旧 45/46 表备份时，先在隔离环境按迁移版本验证，再前向补齐迁移；备份校验不能按最新表数错误拒绝合法旧备份。
 
@@ -71,6 +71,6 @@ StartDingTalk 使用现有 DPAPI AI writer 凭据与精确进程回执，后台�
 
 库存 GuangdongMonitorItem 的六个已有 override 字段原先漏记于通用清单，本次明确列为 excludedFields，保持不对通用数据集开放并补齐覆盖检查。部分原数据集测试使用简化 authority 夹具，缺少正式 PostgreSQL 要求的字段；这些测试在 SQLite 通过，PostgreSQL 本次采用相关聊天/问数/品牌测试和真实角色门禁，未放宽生产约束。
 
-候选验证：Django 129 项（128 通过、1 跳过），PostgreSQL 59 项相关测试及 48 表迁移/恢复通过，Node 全量单元测试无失败，构建及 20 项构建产物测试通过，lint 无错误（9 条已有警告）。详细证据见 [候选验证记录](evidence/dingtalk-readonly-candidate-20260909.json)。真实 Stream 建联、本人单聊与群 @ 往返仍待生产授权后的验收。
+初始候选验证见 [候选验证记录](evidence/dingtalk-readonly-candidate-20260909.json)。统一候选进一步通过 Django 145 项（144 通过、1 跳过）、Node 2073 项（2053 通过、20 跳过）、构建及 20 项构建产物测试，lint 无错误（9 条已有警告）；最后的 DWS 续期/回执修复通过 50 项针对性测试（49 通过、1 跳过），新增京东修复及 AI 控制器测试全部通过。最终部署与备份恢复摘要见 [统一发布记录](evidence/unified-release-20260910.json)。
 
 官方参考：[应用机器人](https://open-dingtalk.github.io/developerpedia/docs/learn/bot/overview/)、[Stream 模式](https://open-dingtalk.github.io/developerpedia/docs/learn/stream/overview/)、[Python SDK](https://github.com/open-dingtalk/dingtalk-stream-sdk-python)。
