@@ -588,6 +588,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             total = 0
             per_tool = {}
             finish_only = False
+            empty_finalization_used = False
             system = (
                 SYSTEM
                 + "\n业务时区 Asia/Shanghai，当前日期 "
@@ -616,16 +617,23 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     + "</page_context>"
                 )
             for ordinal in range(1, model.max_tool_rounds + 1):
-                transport.remaining_budget()
+                remaining_seconds = transport.remaining_budget(default=3600)
                 if dingtalk_session is not None:
                     live(receipt.id)
                 # Reserve the last existing provider turn for an answer. Never
                 # enlarge configured rounds, tool counts or paid-call quotas.
-                final_turn = finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                final_turn = (finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                              or (ordinal > 1 and remaining_seconds <= model.timeout_ms / 1000 + 10))
                 offered_tools = [] if final_turn else _remaining_tools(tools, per_tool, model.max_total_tool_calls - total)
                 turn_system = system
                 if not offered_tools:
                     turn_system += "\n本轮只生成最终回答，不再调用工具。请依据已有成功查询说明结论、来源和缺口；若没有可用结果，明确说明未能取得数据并建议缩小问题，不得编造。"
+                provider_arguments = {
+                    "modelId": model.id, "ordinal": ordinal,
+                    "phase": "final" if final_turn else "query",
+                    "thinkingParameter": "disabled" if model.protocol == "openai_compatible" and model.reasoning_mode == "disabled" else "omitted",
+                    "toolsOffered": len(offered_tools),
+                }
                 with mutation(principal):
                     row = live(receipt.id)
                     current = resolve_model(model.id)
@@ -649,21 +657,37 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                         request_id,
                         "ai_chat_provider",
                         "started",
-                        arguments={"modelId": model.id, "ordinal": ordinal},
+                        arguments=provider_arguments,
                     )
                 provider_started = time.monotonic()
                 try:
-                    response = provider.turn(model, frames, turn_system, offered_tools)
+                    # A model name does not identify the serving endpoint's
+                    # capabilities. Finalization changes tools/instructions only;
+                    # every dispatch preserves the saved provider parameters.
+                    response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True)
                 except Exception as error:
                     with mutation(principal):
                         audit(
                             principal, request_id, "ai_chat_provider", "failed",
-                            arguments={"modelId": model.id, "ordinal": ordinal},
+                            arguments={**provider_arguments,
+                                       **({"responseDiagnostics": error.diagnostics}
+                                          if isinstance(error, (provider.EmptyProviderResponse, transport.ProviderHttpError)) else {})},
                             duration=int((time.monotonic() - provider_started) * 1000),
                             error_code=(error.code if isinstance(error, AiError)
                                         else "provider_timeout" if isinstance(error, TimeoutError)
                                         else "provider_unavailable"),
                         )
+                    if (isinstance(error, provider.EmptyProviderResponse) and error.can_finalize
+                            and not empty_finalization_used
+                            and not final_turn and ordinal < model.max_tool_rounds
+                            and transport.remaining_budget(default=3600) >= 15):
+                        # The provider completed this dispatch. Spend at most one
+                        # remaining ordinal on finalization, without repeating tools
+                        # or replaying a timeout / unknown paid dispatch.
+                        empty_finalization_used = True
+                        finish_only = True
+                        system += "\n上一轮已结束但没有生成正文。本轮直接依据已取得结果给出简短最终回答；没有取得所需数据时明确说明缺口。"
+                        continue
                     raise
                 with mutation(principal):
                     audit(
@@ -671,7 +695,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                         request_id,
                         "ai_chat_provider",
                         "succeeded",
-                        arguments={"modelId": model.id, "ordinal": ordinal},
+                        arguments=provider_arguments,
                         duration=int((time.monotonic() - provider_started) * 1000),
                         result={
                             "providerRequestId": response.get("providerRequestId", ""),

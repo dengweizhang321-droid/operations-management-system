@@ -235,6 +235,19 @@ class ModelDnsTests(SimpleTestCase):
                 self.assertEqual(sock.connect.call_count, 1)
                 self.assertEqual(connections[0].request.call_args.args[0], "GET")
 
+    def test_http_rejection_retains_only_status_without_retry_or_response_body(self):
+        for status in (400, 429, 503):
+            with self.subTest(status=status):
+                _, _, connections = self.wire({"error": {"message": "private-provider-body-fixture"}})
+                connections[0].getresponse.return_value.status = status
+                with patch.object(transport, "resolve_addresses", return_value=addresses("8.8.4.4")):
+                    with self.assertRaises(transport.ProviderHttpError) as caught:
+                        transport.bounded_json(URL, {}, {"Authorization": "Bearer private-key-fixture"})
+                self.assertEqual(caught.exception.diagnostics, {"httpStatus": status})
+                self.assertEqual(caught.exception.code, "provider_rate_limited" if status == 429 else "provider_error")
+                self.assertNotIn("private-", str(caught.exception))
+                connections[0].request.assert_called_once()
+
     def test_tls_failure_never_posts_or_retries(self):
         sock, context, connections = self.wire({})
         context.wrap_socket.side_effect = ssl.SSLCertVerificationError("fixture")

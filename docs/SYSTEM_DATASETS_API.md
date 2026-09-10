@@ -92,9 +92,11 @@ AI 调用示例：
 | 客服 | `customer_service` |
 | 运营事务 | `workflow_tasks`、`workflow_operations`、`workflow_launch_projects`、`workflow_templates` |
 
-分析数据集保留各自参数及分页契约；例如 `sales_summary` 接受 `{"range":"custom","startDate":"2026-09-01","endDate":"2026-09-07"}`。固定选择器由服务端注入，调用方不能覆盖。沿用上海业务日界；金额按字段单位解释，人民币分不能当元，网店访客不能当去重店铺 UV。查询仍须遵守 [业务数据查询规范](OPERATIONS_DATA_QUERY.md)。
+分析数据集保留各自参数及分页契约；例如 `sales_summary` 接受 `{"range":"custom","startDate":"2026-09-01","endDate":"2026-09-07"}`。销售分析工具与页面的起止日期均包含当天，上例覆盖 9 月 1—7 日；单日填写相同起止日。2026-09-09 的适配修复在销售汇总工具边界将结束日加一天，再传给既有左闭右开的 Django consumer，不能由调用方再加一天；此前单日拒绝和多日少算末日是缺陷。`sales_category.trend` 保留 Django 的对象结构（`items/returned/truncated/granularity/categoryLimit`），不是直接的数组。固定选择器由服务端注入，调用方不能覆盖。沿用上海业务日界；金额按字段单位解释，人民币分不能当元，网店访客不能当去重店铺 UV。查询仍须遵守 [业务数据查询规范](OPERATIONS_DATA_QUERY.md)。
 
 ## 响应与边界
+
+销售品类分析提供 `categoryOptions.items/total/truncated`，沿用权威接口在当前账号与日期范围内的有界品类候选，最多 200 个。未确认品类时先仅传日期和 `limit=1` 获取候选，再将实际名称放入 `categories`。`productQueries` 只精确匹配完整货品名称或编码，不支持品类词/名称片段的模糊包含；错误筛选返回零行不能作为该品类没有销量的证据。
 
 外层包含 `schemaVersion/dataset/source/requestId/queriedAt/freshness/dataCutoffDate/data`。`freshness` 为查询前读取的销售/库存水位，只代表这两个域；未知截止日期为 `null`。AI revision 不是业务版本或快照令牌。
 

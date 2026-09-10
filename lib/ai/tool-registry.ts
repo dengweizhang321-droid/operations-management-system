@@ -276,7 +276,7 @@ export const aiToolRegistry = [
   {
     name: "get_sales_summary",
     title: "销售经营汇总",
-    description: "按统计周期读取销售额、退款、毛利、订单、渠道、平台和每日趋势。大毛利率统一按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；订单毛利仍为导入毛利合计。返回 filtersApplied、daily 等汇总字段；所有金额字段单位均为人民币分。custom 时必须提供 startDate 和 endDate。",
+    description: "按统计周期读取销售额、退款、毛利、订单、渠道、平台和每日趋势。大毛利率统一按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；订单毛利仍为导入毛利合计。返回 daily 等汇总字段；所有金额字段单位均为人民币分。custom 的 startDate 和 endDate 均包含当天；查询某一天时两者填写同一天，不要自行加一天。具体品类或货品问题使用 get_sales_category_analysis 携带对应筛选。",
     inputSchema: {
       type: "object",
       properties: {
@@ -285,8 +285,8 @@ export const aiToolRegistry = [
           enum: ["today", "last7", "month", "quarter", "custom", "all"],
           description: "统计周期；custom 时必须同时提供 startDate 和 endDate。",
         },
-        startDate: { type: "string", description: "自定义开始日期，YYYY-MM-DD。" },
-        endDate: { type: "string", description: "自定义结束日期，YYYY-MM-DD。" },
+        startDate: { type: "string", description: "自定义开始日期，YYYY-MM-DD，包含当天。" },
+        endDate: { type: "string", description: "自定义结束日期，YYYY-MM-DD，包含当天；单日查询与 startDate 相同，最多 366 天。" },
       },
       additionalProperties: false,
     },
@@ -300,17 +300,17 @@ export const aiToolRegistry = [
   {
     name: "get_sales_category_analysis",
     title: "销售品类分析",
-    description: "按自定义日期和真实用户数据范围只读查询品类净销售额、贡献率、净销量、退货率、退款、毛利、大毛利率、同比、环比上周、排名和月度趋势。大毛利率按（分摊后金额合计−货品成本合计）÷分摊后金额合计计算，不扣费用分摊；环比上周固定使用截止日近 7 天对比此前 7 天；品类优先来自 ERP 商品主数据，销售明细品类为可追溯兜底，未匹配商品归入未分类；金额单位均为人民币分。",
+    description: "查询品类在某天卖了多少时优先使用本工具。品类名称未确认时，先只传日期和 limit=1，从 categoryOptions.items 获取该日期/账号范围内的真实品类，再用 categories 精确选择相关品类；应说明实际合并了哪些品类。切勿将品类词放入 productQueries：它只精确匹配完整货品名称或编码，不做模糊包含，未匹配不等于该品类无销量。startDate、endDate 均包含当天，单日填写相同日期。返回 summary 全量汇总、净销售额/净销量/退款/毛利、排名和趋势；trend 是带 items、returned、truncated 的对象。金额单位为人民币分，大毛利率按（分摊后金额−货品成本）÷分摊后金额，不扣费用；环比上周固定比较近 7 天与此前 7 天。品类优先来自 ERP 主数据，销售明细品类为兜底。",
     inputSchema: {
       type: "object",
       properties: {
         brands: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "按 ERP 当前主数据品牌精确筛选，如志高；不使用商品名关键词代替品牌。缺少品牌映射的货品不计入。" },
         startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "开始日期，YYYY-MM-DD。" },
         endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "结束日期，YYYY-MM-DD。" },
-        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        categories: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "精确品类名称；未知时先不传 categories/productQueries，limit=1 读取 categoryOptions 后再选择。" },
         channels: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
         platforms: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
-        productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20 },
+        productQueries: { type: "array", items: { type: "string", maxLength: 120 }, maxItems: 20, description: "仅完整货品名称或货品编码精确匹配。不要填品类、简称或模糊关键词；品类提问使用 categories。" },
         sortBy: { type: "string", enum: ["netSalesCents", "shareRate", "netQuantity", "refundRate", "refundAmountCents", "grossProfitCents", "grossMarginRate", "weekOverWeekRate", "yearOverYearRate"], default: "netSalesCents" },
         direction: { type: "string", enum: ["asc", "desc"], default: "desc" },
         limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
