@@ -36,7 +36,7 @@ AI 对话已于 2026-09-09 在本机修复代理虚拟 DNS 地址拦截与完整
 
 ## 启动方式
 
-BI 看板复用库存总览的广东仓健康规则，BI 只读账号必须具备广东仓监控清单及供应商周期配置的读取权限。排障验收除总控状态和首页外，还须实际验证 `/api/bi/overview`；首页可打开不代表看板聚合查询成功。权限契约、隔离验证及生产采用边界见 [BI 只读聚合契约](docs/DJANGO_BI_MIGRATION.md)。
+BI 看板复用库存总览的广东仓健康规则，BI 只读账号必须具备广东仓监控清单及供应商周期配置的读取权限。2026-09-11 已补齐本机权限和就绪检查，默认、近 7 天、自定义看板及浏览器页面均通过验收；无新增数据库迁移，网页版本保留。排障验收除总控状态和首页外，还须实际验证 `/api/bi/overview`；首页可打开不代表看板聚合查询成功。权限契约见 [BI 只读聚合契约](docs/DJANGO_BI_MIGRATION.md)，部署、权限和备份证据见 [本机修复记录](docs/evidence/bi-guangdong-permissions-production-20260911.json)。
 
 2026-09-06 本机已正式完成 D1 控制链脱钩：业务统一使用 Django/PostgreSQL，Worker/Django 日常启动、自动子进程恢复和后续发布不再读取历史 D1 文件。当前采用 release 为 `20260906T035823Z-fceee410b71f79b0`，23 个 Django 服务及网页已回查正常。不可变发布链继续绑定全局退役证明；历史 D1、永久 guard 和审计证据保留，R2 图片/附件边界不变。正式采用与验证证据见 [`docs/GLOBAL_D1_CONTROL_RETIREMENT.md`](docs/GLOBAL_D1_CONTROL_RETIREMENT.md)，原始评估见 [`docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md`](docs/GLOBAL_D1_RETIREMENT_ASSESSMENT.md)。本结论只覆盖当前 Windows 本机，不代表远程部署或 D1 物理销毁。
 

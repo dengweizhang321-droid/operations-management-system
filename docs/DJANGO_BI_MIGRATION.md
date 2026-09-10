@@ -28,6 +28,8 @@ BI 看板是跨领域只读投影，不是新的业务事实域。销售事实�
 
 库存总览使用广东仓统一健康规则，因此 BI reader 还必须读取 `inventory_guangdong_monitor_items` 和 `inventory_guangdong_supplier_cycles`。角色配置仅增加这两张配置表的 `SELECT`，不开放监控审计表或写权限。BI readiness 同时验证配置表结构、全部 ORM 列的实际读取权限和写权限拒绝，避免端口与旧 schema 检查通过却在看板查询时失败。此修复需要通过受控部署更新 runtime 并执行 `ProvisionRole`；代码提交不代表生产权限已更新。
 
+2026-09-11 已在本机完成该修复的受控生产采用。BI 真实角色只读回查、默认/近 7 天/自定义公开 API、非法参数拒绝、内部无签名拒绝及 Chrome 页面均已通过，整栈 Running / Ready / exact_release，守护进程 running / healthy。无新迁移，Worker release 保留；上线前备份成功独立恢复，上线后备份已重新校验并沿用本次恢复验证。完整记录见 [BI 权限修复生产证据](evidence/bi-guangdong-permissions-production-20260911.json)。
+
 ## 3. 一致性与失败关闭
 
 一次 BI 请求在查询前后分别读取销售/ERP 与库存 revision。两次结果一致才返回；变化时重试一次，仍变化则返回 503，不拼接跨版本页面。组合 revision 为：
