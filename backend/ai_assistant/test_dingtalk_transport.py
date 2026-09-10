@@ -3,9 +3,31 @@ from django.test import SimpleTestCase
 from types import SimpleNamespace
 from . import dingtalk_transport as platform
 from .policy import AiError
+from . import transport
 
 
 class DingTalkTransportTests(SimpleTestCase):
+    def test_stream_dns_does_not_extend_model_or_arbitrary_origins(self):
+        with patch.object(transport, "resolve_addresses") as lookup:
+            for url in ("https://example.com/connect", "https://api.dingtalk.com/other", "http://api.dingtalk.com/v1.0/gateway/connections/open"):
+                with self.assertRaises(AiError):
+                    platform.stream_addresses(url)
+            lookup.assert_not_called()
+
+    def test_stream_rejects_private_and_synthetic_addresses_after_resolution(self):
+        for ip in ("127.0.0.1", "198.18.1.31", "10.0.0.1"):
+            addresses = [(2, 1, 6, "", (ip, 443))]
+            with patch.object(transport, "resolve_addresses", return_value=addresses), patch.object(transport, "_public_addresses", return_value=addresses), self.assertRaises(AiError):
+                platform.stream_addresses(platform.STREAM_API)
+
+    def test_open_stream_pins_verified_addresses_without_model_allowlist_change(self):
+        addresses = [(2, 1, 6, "", ("8.8.8.8", 443))]
+        with patch.object(platform, "stream_addresses", return_value=addresses), patch.object(transport, "_bounded_json", return_value={"ticket": "fixture"}) as request:
+            platform.open_stream("fixture-key", "fixture-secret")
+        self.assertEqual(request.call_args.args[0], platform.STREAM_API)
+        self.assertEqual(request.call_args.kwargs["fixed_addresses"], addresses)
+        self.assertEqual(request.call_args.kwargs["maximum"], 16384)
+
     config = {"profile": "corp:operator", "corpId": "corp", "unifiedAppId": "app", "robotCode": "bot",
               "robotName": "志高助手", "groups": [{"id": "group", "name": "测试群聊"}]}
 

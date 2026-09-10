@@ -72,16 +72,19 @@ def bounded_json(
 
 
 def public_model_addresses(url, addresses, timeout):
+    from .configuration import endpoint
+    return _public_addresses(url, addresses, timeout, endpoint)
+
+
+def _public_addresses(url, addresses, timeout, origin_guard):
     """Replace proxy synthetic DNS only; never connect to or allowlist fake IPs."""
     ips = [ipaddress.ip_address(addr[4][0]) for addr in addresses]
     if not any(ip in _synthetic_network for ip in ips):
         return addresses
     if any(not ip.is_global and ip not in _synthetic_network for ip in ips):
         raise AiError("请求目标解析到非公网地址", "access_denied", 403)
-    # Only configured, exact HTTPS model origins may use this recovery path.
-    from .configuration import endpoint
-
-    endpoint(url)
+    # Each caller supplies its own exact origin policy before DNS recovery.
+    origin_guard(url)
     parts = urlsplit(url)
     host = parts.hostname
     try:

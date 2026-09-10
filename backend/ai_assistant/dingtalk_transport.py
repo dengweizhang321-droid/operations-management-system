@@ -3,9 +3,35 @@ import json
 import os
 import shutil
 import subprocess
+import ipaddress
+from urllib.parse import urlsplit
 from pathlib import Path
 from .dingtalk import guard
 from .policy import AiError
+
+STREAM_API = "https://api.dingtalk.com/v1.0/gateway/connections/open"
+STREAM_SOCKET = "https://wss-open-connection.dingtalk.com/connect"
+
+
+def stream_addresses(url):
+    from . import transport
+    def official(value):
+        if value not in (STREAM_API, STREAM_SOCKET):
+            raise AiError("钉钉连接地址不在固定官方入口", "access_denied", 403)
+    official(url)
+    addresses = transport.resolve_addresses(urlsplit(url).hostname, 443, 5)
+    addresses = transport._public_addresses(url, addresses, 5, official)
+    if not addresses or len(addresses) > 32 or any(not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast for a in addresses):
+        raise AiError("钉钉地址未解析到公网", "access_denied", 403)
+    return addresses
+
+
+def open_stream(key, secret):
+    from . import transport
+    return transport._bounded_json(STREAM_API,
+        {"clientId": key, "clientSecret": secret, "ua": "teruisi-readonly/1", "localIp": "127.0.0.1",
+         "subscriptions": [{"type": "CALLBACK", "topic": "/v1.0/im/bot/messages/get"}]},
+        timeout=15, maximum=16384, fixed_addresses=stream_addresses(STREAM_API))
 
 
 def dws(args, profile):

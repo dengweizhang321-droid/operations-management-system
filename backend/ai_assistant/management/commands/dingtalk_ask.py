@@ -7,7 +7,7 @@ from threading import Event
 from urllib.parse import quote_plus, urlsplit
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, close_old_connections
-from ai_assistant import dingtalk as service, dingtalk_transport as platform, transport
+from ai_assistant import dingtalk as service, dingtalk_transport as platform
 from ai_assistant.policy import AiError, authority
 
 
@@ -101,16 +101,13 @@ class Command(BaseCommand):
                     return
                 try:
                     # Bound SDK connection creation; the stock helper has no HTTP timeout.
-                    reply = await loop.run_in_executor(ingress, lambda: transport.bounded_json(
-                        "https://api.dingtalk.com/v1.0/gateway/connections/open",
-                        {"clientId": key, "clientSecret": secret, "ua": "teruisi-readonly/1", "localIp": "127.0.0.1",
-                         "subscriptions": [{"type": "CALLBACK", "topic": "/v1.0/im/bot/messages/get"}]},
-                        timeout=15, maximum=16384))
+                    reply = await loop.run_in_executor(ingress, lambda: platform.open_stream(key, secret))
                     endpoint = urlsplit(reply.get("endpoint", ""))
                     if endpoint.scheme != "wss" or endpoint.hostname != "wss-open-connection.dingtalk.com" or endpoint.port not in (None, 443) or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment or endpoint.path != "/connect":
                         raise AiError("Stream endpoint 无效")
                     ticket = service.opaque(reply.get("ticket"), "ticket", 4096)
-                    async with websockets.connect(reply["endpoint"] + "?ticket=" + quote_plus(ticket), open_timeout=15, close_timeout=5, max_size=32768, max_queue=16, ping_interval=30, ping_timeout=30, logger=silent) as websocket:
+                    addresses = await loop.run_in_executor(ingress, lambda: platform.stream_addresses(platform.STREAM_SOCKET))
+                    async with websockets.connect(reply["endpoint"] + "?ticket=" + quote_plus(ticket), host=addresses[0][4][0], port=443, proxy=None, server_hostname=endpoint.hostname, open_timeout=15, close_timeout=5, max_size=32768, max_queue=16, ping_interval=30, ping_timeout=30, logger=silent) as websocket:
                         client.websocket = websocket
                         self.stdout.write('{"status":"connected"}')
                         failures = 0
