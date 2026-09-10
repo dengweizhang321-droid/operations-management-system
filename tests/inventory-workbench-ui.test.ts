@@ -96,9 +96,12 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
   assert.match(view, /preservedConfirmedIds/);
   assert.match(view, /发送钉钉群（/);
   assert.match(view, /确认发送/);
-  assert.match(groupRoute, /WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH/);
+  assert.match(groupRoute, /志高\/特睿思备货计划群/);
+  assert.doesNotMatch(groupRoute, /WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH/);
   assert.match(groupRoute, /INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH/);
-  assert.match(groupService, /▸ 对应工厂：/);
+  assert.match(groupService, /\*\*▸ \{supplier\}（\{len\(items\)\} 条）\*\*/);
+  assert.match(groupService, /--markdown/);
+  assert.match(groupService, /providerMessageSha256/);
   assert.match(groupService, /--at-user-ids/);
   assert.match(groupService, /ReplenishmentGroupDelivery/);
   assert.match(importRoute, /parseReplenishmentWorkbook/);
