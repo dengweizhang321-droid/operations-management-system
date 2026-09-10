@@ -44,7 +44,7 @@
 
 ### 2.1 Django 后端渐进迁移决策
 
-- 2026-09-10，钉钉 AI 群对话增强与库存备货计划批量导入已统一合入 main 并受控发布。当前本机 Worker/helper effective release 为 `20260910T083226Z-2c53e5a99e7232d9`，Worker manifest SHA 为 `54bcaa9845be609c7251bc23d36c74cda5bc81c9052e0bf1e22d1ec24daac170`，Django 部署清单 SHA 为 `7de0c05d2d9a4025cf60c57aa4fb165e3388e6d3391a7035b51e188236bb1f84`；整栈为 Running / Ready / exact_release，全部组件就绪。AI 0008 与最小权限角色已采用，钉钉 Stream 已连接；只读验收确认 27 个工具和 243 个数据集覆盖 12 个领域，外发消息与付费模型调用均为 0。备货模板下载生产回读通过，导入不会自动写钉钉。发布前后备份均通过独立恢复；正式证据见 `docs/evidence/inventory-dingtalk-unified-release-20260910.json`。真实群消息与付费模型端到端调用尚未执行，不能据此宣称所有模型问数场景已通过验收；以下旧版本继续作为历史证据。
+- 2026-09-10，库存备货计划草稿多选和“一键确认并提交钉钉”已合入 main 并受控增量发布。当前本机 Worker/helper effective release 为 `20260910T100749Z-a4eaa6fb400fd7e5`，Worker manifest SHA 为 `258628cea22b668807c5d952b3e1b6daa816757ce5053c66ec2b96005416d8c6`，Django 部署清单 SHA 继续为 `7de0c05d2d9a4025cf60c57aa4fb165e3388e6d3391a7035b51e188236bb1f84`；整栈为 Running / Ready / exact_release，全部组件就绪。此增量不含数据库迁移或 Django 部署，只短暂停止 Worker；生产构建已回读新入口，发布前后备份均通过独立恢复，验收未创建备货计划、未写钉钉表、未发送群消息。增量证据见 `docs/evidence/inventory-draft-bulk-confirm-production-20260910.json`；此前钉钉 AI、模板导入和已确认计划批量提交的统一采用证据继续见 `docs/evidence/inventory-dingtalk-unified-release-20260910.json`。真实群消息与付费模型端到端调用尚未执行，不能据此宣称所有模型问数场景已通过验收；以下旧版本继续作为历史证据。
 
 - 2026-09-06 后续已完成本机全局 D1 控制链正式脱钩。当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`，Django 部署清单 SHA 为 `28587a32ef44290b974f3dc4af5cec01d4583c8da2cb3b02d91943e1bdab4114`；23 服务、Worker/helper、启动绑定、生产只读 API 和发布前后备份独立恢复均通过。详细门禁见第 8 节及 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`。以下聚合与各域记录中的旧版本均保留为历史采用证据。
 

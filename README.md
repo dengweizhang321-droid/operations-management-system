@@ -1,6 +1,6 @@
 # 电扇运营管理系统
 
-钉钉 AI 群对话增强与库存备货计划批量导入已于 **2026-09-10 在本机生产统一采用**：系统设置新增独立 AI 对话群设置，群内 @ 在原群回复、私聊在原私聊回复，并按现有账号权限接入 12 个系统领域的只读查询；备货计划支持标准 Excel 模板原子导入和多选已确认计划一键顺序提交钉钉。AI 0008、reader/writer 最小权限、Django runtime 与 Worker 已完成受控采用，接收器已连接。发布、备份恢复和只读验收证据见 [统一发布证据](docs/evidence/inventory-dingtalk-unified-release-20260910.json)，业务说明见 [钉钉 AI 对话说明](docs/DINGTALK_READONLY_ASK.md) 与 [库存管理说明](docs/INVENTORY_MANAGEMENT.md)。未执行真实群消息或付费模型端到端调用，不能据此宣称所有自然语言分析场景已验收。
+钉钉 AI 群对话增强与库存备货计划批量导入已于 **2026-09-10 在本机生产统一采用**：系统设置新增独立 AI 对话群设置，群内 @ 在原群回复、私聊在原私聊回复，并按现有账号权限接入 12 个系统领域的只读查询；备货计划支持标准 Excel 模板原子导入和多选已确认计划一键顺序提交钉钉。同日后续版本已上线草稿计划多选和“一键确认并提交钉钉”，混合选择会保留未处理状态及失败项。AI 0008、reader/writer 最小权限、Django runtime 与 Worker 已完成受控采用，接收器已连接。首轮发布、备份恢复和只读验收见 [统一发布证据](docs/evidence/inventory-dingtalk-unified-release-20260910.json)，草稿批量确认发布见 [增量发布证据](docs/evidence/inventory-draft-bulk-confirm-production-20260910.json)，业务说明见 [钉钉 AI 对话说明](docs/DINGTALK_READONLY_ASK.md) 与 [库存管理说明](docs/INVENTORY_MANAGEMENT.md)。未执行真实群消息或付费模型端到端调用，不能据此宣称所有自然语言分析场景已验收。
 
 钉钉“志高助手”只读问数于 **2026-09-10 在本机生产启用**。支持本人单聊和“测试群聊”内 @ 提问，结果私聊回复，查询范围为销售、库存和网店，包含 ERP 当前品牌精确销售筛选。用户已确认收到私聊回复；经营分析答案仍受现有模型稳定性和数据覆盖限制。配置、发布证据及重启后需显式启动接收器的限制见 [钉钉问数说明](docs/DINGTALK_READONLY_ASK.md)。
 
