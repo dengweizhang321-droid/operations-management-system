@@ -44,6 +44,8 @@
 
 ### 2.1 Django 后端渐进迁移决策
 
+- 2026-09-10，备货计划 Excel 日期一致性与钉钉群投递修复已合入 main 并完成受控生产发布。当前本机 Worker/helper effective release 为 `20260910T131216Z-674af827668202c9`，Worker manifest SHA 为 `f66ee662e9ba6c36b6d532315356e8529d09f6bd88cd2c3a8a508e2d2fb5650c`；Django 部署清单 SHA 为 `600a5b49a2ed00b075327cc892688c87cb08e303eee012e47886d36245161c7f`，app fingerprint 为 `109feeb4aaba4665e91332844531a20e440009b2ba6f84a3f247c060d5fb0b49`。整栈为 Running / Ready / exact_release，全部组件就绪；首页与备货计划导入模板均回读 200。Excel 数值日期现按工作簿日历日解析，不再因 UTC+8 转换回退一天；钉钉发送重新精确定位“志高/特睿思备货计划群”，按采购负责人分组并 @ 对应采购，供应商标题使用 Markdown。此次无数据库迁移；发布前后备份均通过 SHA 校验及独立恢复，验收未创建或修改备货计划、未写钉钉表、未发送真实群消息。证据见 `docs/evidence/inventory-replenishment-date-dingtalk-production-20260910.json`。
+
 - 2026-09-10，库存备货计划草稿多选和“一键确认并提交钉钉”已合入 main 并受控增量发布。当前本机 Worker/helper effective release 为 `20260910T100749Z-a4eaa6fb400fd7e5`，Worker manifest SHA 为 `258628cea22b668807c5d952b3e1b6daa816757ce5053c66ec2b96005416d8c6`，Django 部署清单 SHA 继续为 `7de0c05d2d9a4025cf60c57aa4fb165e3388e6d3391a7035b51e188236bb1f84`；整栈为 Running / Ready / exact_release，全部组件就绪。此增量不含数据库迁移或 Django 部署，只短暂停止 Worker；生产构建已回读新入口，发布前后备份均通过独立恢复，验收未创建备货计划、未写钉钉表、未发送群消息。增量证据见 `docs/evidence/inventory-draft-bulk-confirm-production-20260910.json`；此前钉钉 AI、模板导入和已确认计划批量提交的统一采用证据继续见 `docs/evidence/inventory-dingtalk-unified-release-20260910.json`。真实群消息与付费模型端到端调用尚未执行，不能据此宣称所有模型问数场景已通过验收；以下旧版本继续作为历史证据。
 
 - 2026-09-06 后续已完成本机全局 D1 控制链正式脱钩。当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`，Django 部署清单 SHA 为 `28587a32ef44290b974f3dc4af5cec01d4583c8da2cb3b02d91943e1bdab4114`；23 服务、Worker/helper、启动绑定、生产只读 API 和发布前后备份独立恢复均通过。详细门禁见第 8 节及 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`。以下聚合与各域记录中的旧版本均保留为历史采用证据。
