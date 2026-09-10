@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { assertJdMarketImageCoverage, isJdMarketRankRequestForTarget, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig, withSingleJdMarketFilterSelectionRetry, withSingleJdMarketRequestRefresh } from "../tools/jd-market-ranking-daily";
+import { assertJdMarketImageCoverage, isJdMarketRankRequestForTarget, jdMarketDropdownClickMode, jdMarketHelperRequestError, jdMarketReplayableHeaders, parseJdMarketImageRows, validateJdMarketDailyConfig, withSingleJdMarketFilterSelectionRetry, withSingleJdMarketRequestRefresh } from "../tools/jd-market-ranking-daily";
 import { parseJdSilentNoWindowHeader } from "../tools/tmall-sycm-cookie-pipeline";
 
 test("JD silent-window header is strict and shared by multi-store and market plans", () => {
@@ -53,6 +53,25 @@ test("JD market filter selection retries one ignored click and still fails close
     /连续两次未精确生效.*仍为 SPU/,
   );
   assert.equal(failedSelections, 2);
+});
+
+test("JD market category control bypasses only the known AI helper pointer overlay", () => {
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["AIHELPER-EXTENSION-EMBEDDED", "BODY"],
+  }), "native_dispatch");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["DIV", "AIHELPER-PANEL"],
+  }), "native_dispatch");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: true,
+    hitTagNames: ["AIHELPER-EXTENSION-EMBEDDED"],
+  }), "pointer");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
+    hitTagNames: ["DIV", "UNKNOWN-OVERLAY"],
+  }), "pointer");
 });
 
 test("JD market image responses accept array and SKU-keyed shapes but fail closed on missing images", () => {
@@ -297,6 +316,9 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.match(runner, /未缩短日期范围或导入空集合/);
   assert.match(runner, /readyDates = dates\.at\(-1\) === cutoffDate/);
   assert.match(runner, /dates: \[cutoffDate\]/);
+  const controlHelper = runner.slice(runner.indexOf("export function jdMarketDropdownClickMode"), runner.indexOf("async function triggerUniqueDropdownOption"));
+  assert.match(controlHelper, /jdMarketDropdownClickMode\(hitTest\)/);
+  assert.match(controlHelper, /await control\.dispatchEvent\("click"\)/);
   const selectorHelper = runner.slice(runner.indexOf("async function triggerUniqueDropdownOption"), runner.indexOf("function activeExportPanel"));
   assert.match(selectorHelper, /jmtd-dropdown-option/);
   assert.match(selectorHelper, /hasText: exactLabel/);
@@ -310,7 +332,6 @@ test("JD market runner fixes the requested identities and requires completed imp
   assert.doesNotMatch(selectorHelper, /candidate\.innerText/);
   assert.match(selectorHelper, /hover\(\{ timeout: 3_000, force: true \}\)/);
   assert.match(selectorHelper, /click\(\{ timeout: 3_000, force: true \}\)/);
-  assert.doesNotMatch(selectorHelper, /dispatchEvent/);
   assert.match(runner, /selectUniqueCategoryPath\(surface, frame, categoryControl, target\.categoryPath\)/);
   assert.match(runner, /parents\.first\(\)\.hover\(\{ timeout: 3_000, force: true \}\)/);
   assert.doesNotMatch(runner, /parents\.first\(\)\.click\(/);
