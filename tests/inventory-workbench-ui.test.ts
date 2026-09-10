@@ -37,10 +37,12 @@ test("库存五个工作页补充缺口明细、全量汇总和执行闭环", as
 });
 
 test("库存健康明细与备货计划钉钉协作使用统一受控口径", async () => {
-  const [view, query, route, dingTalkRoute, groupRoute, model, service, groupService] = await Promise.all([
+  const [view, query, route, importRoute, importWorkbook, dingTalkRoute, groupRoute, model, service, groupService] = await Promise.all([
     source("../app/inventory-module-view.tsx"),
     source("../backend/inventory/query.py"),
     source("../app/api/inventory/replenishment/route.ts"),
+    source("../app/api/inventory/replenishment/import/route.ts"),
+    source("../lib/inventory/replenishment-workbook.ts"),
     source("../app/api/inventory/replenishment/dingtalk/route.ts"),
     source("../app/api/inventory/replenishment/dingtalk/group/route.ts"),
     source("../backend/inventory/models.py"),
@@ -85,7 +87,10 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
   assert.match(service, /legacy_markers/);
   assert.match(service, /TERUISI备货计划ID/);
   assert.match(service, /_verify_record/);
-  assert.match(view, /全选本页可发送备货计划/);
+  assert.match(view, /下载导入模板/);
+  assert.match(view, /导入备货计划/);
+  assert.match(view, /批量提交钉钉表（/);
+  assert.match(view, /全选本页已确认备货计划/);
   assert.match(view, /发送钉钉群（/);
   assert.match(view, /确认发送/);
   assert.match(groupRoute, /WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH/);
@@ -93,6 +98,10 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
   assert.match(groupService, /▸ 对应工厂：/);
   assert.match(groupService, /--at-user-ids/);
   assert.match(groupService, /ReplenishmentGroupDelivery/);
+  assert.match(importRoute, /parseReplenishmentWorkbook/);
+  assert.match(importRoute, /replenishment-import:/);
+  assert.match(importWorkbook, /单次最多导入/);
+  assert.match(importWorkbook, /留空默认“已确认”/);
 });
 
 test("库存工作台继续披露既有数据质量与业务边界", async () => {

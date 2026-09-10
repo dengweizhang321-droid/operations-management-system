@@ -18,8 +18,8 @@ from .dingtalk_sync import sync_replenishment_plan
 from .dingtalk_group_message import preview_group_message, send_group_message
 from .errors import InventoryApiError
 from .import_service import import_inventory_payload, list_import_batches, record_edge_rejection
-from .plans import plan_payload, plan_summary, query_plans, update_plan, upsert_plan
-from .query import inventory_age_analysis, inventory_inbound_monitor, inventory_overview
+from .plans import import_plans, plan_payload, plan_summary, query_plans, update_plan, upsert_plan
+from .query import inventory_age_analysis, inventory_inbound_monitor, inventory_overview, replenishment_plan_sources
 from .revisions import revision_value
 from .settings_service import read_settings, update_settings
 from .uploads import CHUNK_SIZE_BYTES, MAX_FILE_SIZE_BYTES, execute_upload_action, read_chunk, receive_chunk
@@ -160,6 +160,55 @@ def _body_date(payload: dict[str, object], key: str, label: str) -> date | None:
     if parsed.isoformat() != value:
         raise InventoryApiError(f"{label}无效")
     return parsed
+
+
+REPLENISHMENT_IMPORT_ROW_KEYS = {
+    "productCode", "warehouse", "plannedQuantity", "buyer", "operatorName",
+    "department", "planType", "orderDate", "expectedArrivalDate",
+    "expectedConsumptionDays", "status", "requiresInspection", "notes",
+}
+
+
+def _replenishment_import_row(value: object, row_number: int) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != REPLENISHMENT_IMPORT_ROW_KEYS:
+        raise InventoryApiError(f"第{row_number}行备货计划字段不完整")
+    product_code = _body_text(value, "productCode", f"第{row_number}行货品编码", 100)
+    warehouse = _body_text(value, "warehouse", f"第{row_number}行入库库房", 100)
+    if not product_code or not warehouse:
+        raise InventoryApiError(f"第{row_number}行货品编码和入库库房不能为空")
+    quantity = value.get("plannedQuantity")
+    if isinstance(quantity, bool) or not isinstance(quantity, int) or not 1 <= quantity <= 10_000_000:
+        raise InventoryApiError(f"第{row_number}行备货数量必须是1到10,000,000之间的整数")
+    status = value.get("status")
+    if status not in {"draft", "confirmed"}:
+        raise InventoryApiError(f"第{row_number}行计划状态无效")
+    inspection = value.get("requiresInspection")
+    if not isinstance(inspection, bool):
+        raise InventoryApiError(f"第{row_number}行是否验货无效")
+    days = value.get("expectedConsumptionDays")
+    if days is not None and (
+        isinstance(days, bool)
+        or not isinstance(days, (int, float))
+        or not math.isfinite(float(days))
+        or not 0 <= float(days) <= 3_650
+        or abs(float(days) * 10 - round(float(days) * 10)) >= 1e-9
+    ):
+        raise InventoryApiError(f"第{row_number}行预计消耗周期无效")
+    return {
+        "productCode": product_code,
+        "warehouse": warehouse,
+        "plannedQuantity": quantity,
+        "buyer": _body_text(value, "buyer", f"第{row_number}行对应采购", 200),
+        "operatorName": _body_text(value, "operatorName", f"第{row_number}行对应运营", 200),
+        "department": _body_text(value, "department", f"第{row_number}行部门", 200),
+        "planType": _body_text(value, "planType", f"第{row_number}行备货类型", 100),
+        "orderDate": _body_date(value, "orderDate", f"第{row_number}行下单日期"),
+        "expectedArrivalDate": _body_date(value, "expectedArrivalDate", f"第{row_number}行预计到货日"),
+        "expectedConsumptionDays": round(float(days), 1) if days is not None else None,
+        "status": status,
+        "requiresInspection": inspection,
+        "notes": _body_text(value, "notes", f"第{row_number}行备注", 1_000),
+    }
 
 
 def _selections(request: HttpRequest, key: str, maximum: int, allowed: set[str] | None = None) -> list[str]:
@@ -395,6 +444,92 @@ def replenishment(request: HttpRequest) -> JsonResponse:
         return _replay_write(request, principal, patch)
     except Exception as error:
         return _error(error, "备货计划处理失败")
+
+
+@require_POST
+def replenishment_import(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"operator", "admin"})
+        body = _body(request)
+        if set(body) != {"rows", "acknowledgeStale", "fileSha256"}:
+            raise InventoryApiError("备货计划导入请求无效")
+        raw_rows = body.get("rows")
+        if not isinstance(raw_rows, list) or not 1 <= len(raw_rows) <= 200:
+            raise InventoryApiError("单次必须导入1到200行备货计划")
+        acknowledge_stale = body.get("acknowledgeStale")
+        if not isinstance(acknowledge_stale, bool):
+            raise InventoryApiError("acknowledgeStale 必须是布尔值")
+        file_sha256 = body.get("fileSha256")
+        if not isinstance(file_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", file_sha256):
+            raise InventoryApiError("备货计划导入文件摘要无效")
+        rows = [_replenishment_import_row(value, index + 2) for index, value in enumerate(raw_rows)]
+        seen: set[str] = set()
+        for index, row in enumerate(rows, start=2):
+            key = f"{row['warehouse']}\x1f{row['productCode']}"
+            if key in seen:
+                raise InventoryApiError(f"第{index}行与前面行重复：同一货品编码和入库库房只能出现一次")
+            seen.add(key)
+
+        def create() -> tuple[dict[str, object], int]:
+            sources = replenishment_plan_sources(principal)
+            if not sources["latestBatchId"]:
+                raise InventoryApiError("当前没有可用于创建备货计划的库存快照", code="conflict", status=409)
+            if sources["inventoryStale"] and not acknowledge_stale:
+                raise InventoryApiError("库存快照已过期，请先同步或明确确认继续", code="conflict", status=409)
+            by_key = sources["itemsByKey"]
+            if not isinstance(by_key, dict):
+                raise InventoryApiError("当前库存快照无法生成备货计划", code="service_unavailable", status=503)
+            payloads: list[dict[str, object]] = []
+            for index, row in enumerate(rows, start=2):
+                key = f"{row['warehouse']}\x1f{row['productCode']}"
+                item = by_key.get(key)
+                if not isinstance(item, dict):
+                    raise InventoryApiError(
+                        f"第{index}行在最新库存快照中未找到该货品编码与入库库房",
+                        code="not_found",
+                        status=404,
+                    )
+                coverage = row["expectedConsumptionDays"] if row["expectedConsumptionDays"] is not None else item.get("coverageDays")
+                payloads.append({
+                    "sourceBatchId": sources["latestBatchId"],
+                    "productCode": item["productCode"],
+                    "productName": item["productName"],
+                    "brand": item["brand"],
+                    "category": item["category"],
+                    "supplier": item["supplier"],
+                    "warehouse": item["warehouse"],
+                    "buyer": row["buyer"],
+                    "operatorName": row["operatorName"],
+                    "department": row["department"],
+                    "planType": row["planType"],
+                    "orderDate": row["orderDate"],
+                    "expectedArrivalDate": row["expectedArrivalDate"],
+                    "requiresInspection": row["requiresInspection"],
+                    "currentStockQuantity": item["availableQuantity"],
+                    "sales30dQuantity": item.get("productSales30d"),
+                    "suggestedQuantity": item.get("suggestedQuantity") or 0,
+                    "plannedQuantity": row["plannedQuantity"],
+                    "coverageDays": coverage,
+                    "reason": f"表格导入备货计划；{item['reason']}",
+                    "notes": row["notes"],
+                    "status": row["status"],
+                })
+            plans = import_plans(payloads, principal.email, file_sha256, str(sources["latestBatchId"]))
+            confirmed_ids = [plan.id for plan in plans if plan.status == "confirmed"]
+            return {
+                "ok": True,
+                "status": "imported",
+                "importedCount": len(plans),
+                "confirmedCount": len(confirmed_ids),
+                "draftCount": len(plans) - len(confirmed_ids),
+                "confirmedPlanIds": confirmed_ids,
+                "items": [plan_payload(plan) for plan in plans],
+                "inventoryAsOf": sources["inventoryAsOf"],
+            }, 201
+
+        return _replay_write(request, principal, create)
+    except Exception as error:
+        return _error(error, "备货计划导入失败", import_shape=True)
 
 
 @require_POST

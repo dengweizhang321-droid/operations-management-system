@@ -13,6 +13,7 @@ export const INVENTORY_INBOUND_MONITOR_PATH = "/api/inventory/inbound-monitor";
 export const INVENTORY_GUANGDONG_PATH = "/api/inventory/guangdong-monitor";
 export const INVENTORY_IMPORTS_PATH = "/api/inventory/imports";
 export const INVENTORY_REPLENISHMENT_PATH = "/api/inventory/replenishment";
+export const INVENTORY_REPLENISHMENT_IMPORT_PATH = "/api/inventory/replenishment/import";
 export const INVENTORY_REPLENISHMENT_DINGTALK_PATH = "/api/inventory/replenishment/dingtalk";
 export const INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH = "/api/inventory/replenishment/dingtalk/group";
 export const INVENTORY_SETTINGS_PATH = "/api/inventory/settings";
@@ -44,6 +45,7 @@ const writerMethods = new Set([
   `PUT ${INVENTORY_UPLOAD_CHUNK_PATH}`,
   `POST ${INVENTORY_REPLENISHMENT_PATH}`,
   `PATCH ${INVENTORY_REPLENISHMENT_PATH}`,
+  `POST ${INVENTORY_REPLENISHMENT_IMPORT_PATH}`,
   `POST ${INVENTORY_REPLENISHMENT_DINGTALK_PATH}`,
   `POST ${INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH}`,
   `PUT ${INVENTORY_SETTINGS_PATH}`,
