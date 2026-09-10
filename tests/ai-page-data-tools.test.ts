@@ -513,12 +513,27 @@ test("import status enforces source-specific authorization and removes hashes, w
   assert.equal("raw" in payload.items[0], false);
 });
 
-test("automation status reports an explicit unavailable gap without probing localhost", async () => {
-  const result = await getAutomationRunStatusPageData({ workflowKey: "tmall" }, { principal: restrictedAnalyst });
-  assert.equal(result.available, false);
-  assert.equal(result.status, "unavailable");
-  assert.equal(result.gapCode, "automation_status_projection_unavailable");
-  assert.match(result.message, /未调用本机 helper/);
+test("automation status rejects restricted scope before reading n8n metadata", async () => {
+  let called = false;
+  await assert.rejects(() => getAutomationRunStatusPageData({ workflowKey: "tmall" }, { principal: restrictedAnalyst }, {
+    readAutomationStatus: async () => { called = true; return {}; },
+  }));
+  assert.equal(called, false);
+});
+
+test("automation status limits output to requested workflow and excludes unknown metadata", async () => {
+  const item = { workflowId: "JdPromotionDaily2026", state: "completed", active: true, completedToday: true, completedAt: "2026-09-10T01:00:00Z", executionId: "1", startedAt: "2026-09-10T00:00:00Z", finishedAt: "2026-09-10T01:00:00Z", secret: "must-not-return" };
+  const result = await getAutomationRunStatusPageData({ workflowKey: "jd_promotion" }, { principal: unrestrictedAnalyst }, {
+    readAutomationStatus: async () => ({ date: "2026-09-10", timezone: "Asia/Shanghai", checkedAt: "2026-09-10T02:00:00Z", source: "n8n_execution_metadata", items: [item, { ...item, workflowId: "JdPromotionCutMeat2026" }] }),
+  });
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].workflowId, "JdPromotionDaily2026");
+  assert.equal("secret" in result.items[0], false);
+});
+
+test("automation status does not invent completion on unavailable or malformed responses", async () => {
+  await assert.rejects(() => getAutomationRunStatusPageData({ workflowKey: "tmall" }, { principal: unrestrictedAnalyst }, { readAutomationStatus: async () => { throw new Error("offline"); } }), /offline/);
+  await assert.rejects(() => getAutomationRunStatusPageData({ workflowKey: "tmall" }, { principal: unrestrictedAnalyst }, { readAutomationStatus: async () => ({ items: [] }) }), /无效/);
 });
 
 test("market comparison requires exact identities and bounds trend history", async () => {

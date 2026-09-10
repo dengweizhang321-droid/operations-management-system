@@ -13,6 +13,7 @@ import {
   WORKFLOW_LAUNCH_PROJECTS_PATH,
   WORKFLOW_OPERATION_RECORDS_PATH,
   WORKFLOW_TASKS_PATH,
+  WORKFLOW_IMPORT_CHAIN_STATUS_PATH,
   WORKFLOW_TEMPLATES_PATH,
 } from "../lib/django/workflow-service";
 import { readDjangoWorkflowConsumer } from "../lib/django/workflow-consumer-reader";
@@ -143,6 +144,7 @@ test("full workflow paths use strict reader and writer method allowlists", async
     return Response.json({}, { headers: { "x-workflow-data-revision": "10:abcdef123456" } });
   };
   const requests = [
+    { method: "GET", path: WORKFLOW_IMPORT_CHAIN_STATUS_PATH, service: "reader" },
     { method: "GET", path: WORKFLOW_TASKS_PATH, service: "reader" },
     { method: "POST", path: `${WORKFLOW_TASKS_PATH}/${taskId}/comments`, service: "writer", payload: { content: "复核" } },
     { method: "GET", path: `${WORKFLOW_TASKS_PATH}/${taskId}/attachments/${attachmentId}`, service: "reader" },
@@ -164,7 +166,7 @@ test("full workflow paths use strict reader and writer method allowlists", async
   assert.equal(observed.length, requests.length);
   assert.equal(
     observed.filter((request) => new URL(request.url).origin === config.readerBaseUrl).length,
-    5,
+    6,
   );
   assert.equal(
     observed.filter((request) => new URL(request.url).origin === config.writerBaseUrl).length,
@@ -227,6 +229,8 @@ test("workflow consumer search stays on the reader with a fixed bounded contract
 test("workflow allowlists, loopback config, upstream errors and revision failures fail closed", async () => {
   const neverFetch: typeof fetch = async () => assert.fail("request must fail before fetch");
   for (const input of [
+    { method: "GET", path: WORKFLOW_IMPORT_CHAIN_STATUS_PATH, service: "writer" },
+    { method: "POST", path: WORKFLOW_IMPORT_CHAIN_STATUS_PATH, service: "reader" },
     { method: "GET", path: WORKFLOW_LAUNCH_PROJECTS_PATH, service: "writer" },
     { method: "POST", path: WORKFLOW_LAUNCH_PROJECTS_PATH, payload: {}, service: "reader" },
     { method: "PATCH", path: `${projectPath}/stages/unknown`, payload: {}, service: "writer" },

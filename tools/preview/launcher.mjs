@@ -222,6 +222,10 @@ async function main() {
         env.TERUISI_DJANGO_SQLITE_PATH = privateDatabase(data.database);
         if (!existsSync(env.TERUISI_DJANGO_SQLITE_PATH))
             throw new Error("预览数据库缺失；使用 preview:prepare 准备新版本");
+        // This independent, explicitly marked fixture contains only synthetic
+        // n8n metadata. Never inherit a production n8n path into the preview.
+        env.TERUISI_N8N_STATUS_DATABASE_PATH = privateDatabase(freshName("demo"));
+        await run(python, ["tools/preview/n8n_status.py", env.TERUISI_N8N_STATUS_DATABASE_PATH], env);
         // Detect conflicts before starting any persistent children.
         for (const port of [ports.port, ports.reader, ports.writer]) {
             const probe = await reserve(port);

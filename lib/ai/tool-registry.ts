@@ -752,7 +752,7 @@ export const aiToolRegistry = [
   {
     name: "get_automation_run_status",
     title: "自动化运行状态投影",
-    description: "读取受控自动化工作流状态投影。当前没有安全、按身份授权的持久状态底座时会明确返回 unavailable；不会探测 localhost、读取 Cookie/Profile 路径或猜测运行状态。",
+    description: "通过 Django 只读读取上海今天对应 n8n 工作流的自动执行状态、完成时间和执行编号。仅无数据范围限制账号可查；共用多店工作流表示整链状态，不包含手动调试，不读取节点数据、Cookie 或凭据。来源不可用时拒绝推测完成。",
     inputSchema: {
       type: "object",
       properties: { workflowKey: { type: "string", enum: ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"] } },
@@ -762,7 +762,7 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations,
     risk: "read_only",
     allowedRoles: allRoles,
-    scopePolicy: "metadata_safe",
+    scopePolicy: "unscoped_only",
     execution: { ...dingTalkReadOnlyExecution, maxCallsPerRequest: 2, maxResultCharacters: 8_000 },
     handler: (args, context) => getAutomationRunStatusPageData(args, context),
   },

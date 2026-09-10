@@ -38,7 +38,10 @@ import {
   WORKFLOW_OPERATION_RECORDS_PATH,
   WORKFLOW_TASKS_PATH,
   WORKFLOW_TEMPLATES_PATH,
+  WORKFLOW_IMPORT_CHAIN_STATUS_PATH,
 } from "@/lib/django/workflow-service";
+import importChainCatalog from "@/lib/imports/chain-catalog.generated.json";
+import { validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
 import { RegistryToolError } from "@/lib/ai/tool-registry-contract";
 
 /**
@@ -218,6 +221,7 @@ export type PageImportSource =
   | "customer_service";
 
 export type PageDataToolServices = {
+  readAutomationStatus(principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readFinanceAnalysis(input: FinanceAnalysisInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readFinanceTargets(input: { page: number; pageSize: number }, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
   readInventoryAge(input: InventoryAgeInput, principal: AppPrincipal, signal?: AbortSignal): Promise<unknown>;
@@ -244,6 +248,10 @@ export type PageDataToolServices = {
 };
 
 const defaultPageDataToolServices: PageDataToolServices = {
+  async readAutomationStatus(principal, signal) {
+    return (await createDjangoWorkflowService().requestJson(principal,
+      { method: "GET", path: WORKFLOW_IMPORT_CHAIN_STATUS_PATH, service: "reader" }, { signal })).data;
+  },
   async readFinanceAnalysis(input, principal, signal) {
     const query = new URLSearchParams();
     if (input.allMonths) query.append("month", "*");
@@ -1421,22 +1429,25 @@ export async function getImportStatusPageData(
 export async function getAutomationRunStatusPageData(
   args: unknown,
   context: PageDataToolContext,
+  overrides?: Partial<PageDataToolServices>,
 ) {
-  requirePrincipal(context);
+  const principal = requirePrincipal(context);
+  requireUnrestrictedDataScope(principal, "自动导入运行状态");
   const input = inputObject(args);
   assertOnlyKeys(input, ["workflowKey"]);
   const workflowKey = requiredText(input.workflowKey, "workflowKey", 40);
   const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"] as const;
   if (!allowed.includes(workflowKey as (typeof allowed)[number])) failInput("workflowKey 不受支持");
-  return {
-    page: "workflow.automation",
-    available: false,
-    status: "unavailable",
-    workflowKey,
-    gapCode: "automation_status_projection_unavailable",
-    source: "persisted_execution_projection",
-    message: "当前没有可由 Worker 安全读取、按身份授权且可审计的持久化自动化运行状态投影；未调用本机 helper，也未推测实时状态。",
-  };
+  const payload = await serviceSet(overrides).readAutomationStatus(principal, context.signal) as ChainTodayResponse;
+  if (!validateTodayStatus(payload)) throw new Error("自动运行状态响应无效，无法核实今天是否完成。");
+  const ids = new Set(importChainCatalog.rules.filter(rule => workflowKey === "jd_promotion_cut_meat"
+    ? rule.workflowId === "JdPromotionCutMeat2026" : workflowKey === "jd_promotion"
+      ? rule.workflowId === "JdPromotionDaily2026" : rule.chainKey === workflowKey).map(rule => rule.workflowId));
+  return { page: "workflow.automation", available: true, workflowKey, date: payload.date, checkedAt: payload.checkedAt,
+    source: payload.source, timezone: payload.timezone,
+    items: boundedRecords(payload.items.filter(item => ids.has(item.workflowId)), 11,
+      ["workflowId", "active", "state", "completedToday", "completedAt", "executionId", "startedAt", "finishedAt"]),
+    message: "仅上海今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
 }
 
 function parseMarketSelections(value: unknown): MarketSelection[] {

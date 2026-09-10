@@ -11,6 +11,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Opt-in metadata-only n8n reader. Never falls back to a user's home/profile.
+N8N_STATUS_DATABASE_PATH = os.getenv("TERUISI_N8N_STATUS_DATABASE_PATH", "")
+
 
 TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"0", "false", "no", "off"}

@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
 import type { ImportSourceKey, ModuleViewKey } from "./shell/navigation-catalog";
+import ImportChainRulesView from "./import-chain-rules-view";
+import ImportRunRecordsView from "./import-run-records-view";
+import "./import-monitor.css";
 import CustomerServiceImportCard from "./customer-service-import-card";
 import {
   type CurrentUser,
@@ -30,14 +33,10 @@ import {
   formatFileSize,
   addIsoDays,
   shanghaiIsoToday,
-  formatDateTime,
   issueText,
-  Dot,
 } from "./module-view-shared";
 
 type ImportTab = ModuleViewKey<"import">;
-const IMPORT_HISTORY_DOMAIN_COUNT = 7;
-
 function resolveImportHistoryDomain<T>(
   label: string,
   result: PromiseSettledResult<{ items?: T[] } | null>,
@@ -80,7 +79,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDomainErrors, setHistoryDomainErrors] = useState<string[]>([]);
-  const historyVisible = activeSection === "history" || activeSection === "continuity";
+  const historyVisible = activeSection === "history";
   const historyRequestGenerationRef = useRef(0);
   const historyRequestControllerRef = useRef<AbortController | null>(null);
 
@@ -134,15 +133,17 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
         ...erpDomain.items.map((item) => ({ ...item, sourceKey: item.sourceKey, sourceLabel: item.sourceLabel })),
         ...financeDomain.items.map((item) => ({ ...item, sourceKey: "finance" as const, sourceLabel: "月度财报 · 志高事业部" })),
         ...netshopDomain.items
-          .filter((item) => item.source === "jd_product_master" || item.source === "jd_yimei_sku" || item.source.startsWith("tmall_") || item.dataset === "spu_daily" || item.dataset === "sku_daily")
-          .map((item) => item.source === "tmall_product_master"
-            ? { ...item, sourceKey: "tmall_product_master" as const, sourceLabel: "天猫亿玖 · 店铺货品" }
+          .filter((item) => item.source === "jd_promotion" || item.source === "jd_product_master" || item.source === "jd_yimei_sku" || item.source.startsWith("tmall_") || item.dataset === "spu_daily" || item.dataset === "sku_daily")
+          .map((item) => item.source === "jd_promotion"
+            ? { ...item, sourceKey: "jd_promotion" as const, sourceLabel: "京准通 · 推广商品日数据" }
+            : item.source === "tmall_product_master"
+            ? { ...item, sourceKey: "tmall_product_master" as const, sourceLabel: "天猫店铺 · 店铺货品" }
             : item.source === "tmall_product_assets"
               ? { ...item, sourceKey: "tmall_product_assets" as const, sourceLabel: `${item.shopName.replace(/^天猫-/, "") || "天猫店铺"} · SPU 商品图` }
             : item.source === "tmall_product_daily"
-              ? { ...item, sourceKey: "tmall_product_daily" as const, sourceLabel: "天猫亿玖 · 生意参谋商品日数据" }
+              ? { ...item, sourceKey: "tmall_product_daily" as const, sourceLabel: "天猫店铺 · 生意参谋商品日数据" }
               : item.source === "tmall_promotion"
-                ? { ...item, sourceKey: "tmall_promotion" as const, sourceLabel: "天猫亿玖 · 推广商品日数据" }
+                ? { ...item, sourceKey: "tmall_promotion" as const, sourceLabel: "天猫店铺 · 推广商品日数据" }
             : item.dataset === "spu_daily"
             ? { ...item, sourceKey: "jd_spu_daily" as const, sourceLabel: "京东店铺 · 商品 SPU 日数据" }
             : item.dataset === "sku_daily"
@@ -150,7 +151,7 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
             : item.source === "jd_yimei_sku"
               ? { ...item, sourceKey: "jd_sku_images" as const, sourceLabel: "京东店铺 · SKU 主图" }
               : { ...item, sourceKey: "jd_sku" as const, sourceLabel: "京东店铺 · 商品 SKU" }),
-        ...customerServiceDomain.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, createdAt: item.createdAt, completedAt: item.completedAt })),
+        ...customerServiceDomain.items.map((item) => ({ id: item.id, sourceKey: "customer_service" as const, sourceLabel: `客服会话 · ${item.shopName || "志高商用设备"}`, fileName: `${item.sessionFileName} + ${item.chatFileName}`, status: item.status, rowCount: item.conversationCount, insertedCount: item.matchedCount, warningCount: item.warnings.length, shopName: item.shopName, warnings: item.warnings.map((message) => ({ message })), createdAt: item.createdAt, completedAt: item.completedAt })),
         ...shippingRateDomain.items.map((item) => ({ ...item, sourceKey: "sku_shipping_rates" as const, sourceLabel: "年度利润表 · SKU 快递费率" })),
       ].sort((left, right) => Date.parse(right.completedAt || right.createdAt) - Date.parse(left.completedAt || left.createdAt));
       setHistory((current) => combined.length > 0 || domainErrors.length === 0 ? combined : current);
@@ -410,17 +411,12 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
     }
   };
 
-  const latestBySource = new Map<ImportSourceKey, UnifiedHistoryItem>();
-  for (const item of history) {
-    if (!latestBySource.has(item.sourceKey)) latestBySource.set(item.sourceKey, item);
-  }
-
   return (
     <>
       <div className="subnav" role="tablist" aria-label="数据导入工作区">
         <button type="button" role="tab" aria-selected={activeSection === "files"} className={activeSection === "files" ? "active" : ""} onClick={() => onModuleViewChange("files")}>文件导入</button>
-        <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => onModuleViewChange("history")}>导入历史</button>
-        <button type="button" role="tab" aria-selected={activeSection === "continuity"} className={activeSection === "continuity" ? "active" : ""} onClick={() => onModuleViewChange("continuity")}>数据连续性</button>
+        <button type="button" role="tab" aria-selected={activeSection === "history"} className={activeSection === "history" ? "active" : ""} onClick={() => onModuleViewChange("history")}>运行记录</button>
+        <button type="button" role="tab" aria-selected={activeSection === "chains"} className={activeSection === "chains" ? "active" : ""} onClick={() => onModuleViewChange("chains")}>链路规则</button>
       </div>
       {activeSection === "files" && <>
       <section className="import-grid">
@@ -470,33 +466,8 @@ export default function ImportView({ importSource, currentUser, moduleView, onMo
       </section>
       {feedback && <section className={`import-feedback import-feedback-${feedback.tone}`} role={feedback.tone === "error" ? "alert" : "status"} aria-live="polite"><span className="feedback-symbol">{feedback.tone === "success" ? "✓" : feedback.tone === "duplicate" ? "≡" : feedback.tone === "warning" ? "!" : "×"}</span><div><strong>{feedback.title}</strong><p>{feedback.message}</p>{feedback.details.length > 0 && <ul>{feedback.details.map((detail, index) => <li key={`${detail}-${index}`}>{detail}</li>)}</ul>}</div></section>}
       </>}
-      {activeSection === "continuity" && <>
-        {historyLoading && !historyLoaded && <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在核对数据连续性</strong><p>正在分别读取销售、库存、ERP 主数据、财报、网店、客服和 SKU 快递费率导入记录…</p></section>}
-        {!historyLoading && historyDomainErrors.length > 0 && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>{historyDomainErrors.length === IMPORT_HISTORY_DOMAIN_COUNT ? "导入记录暂时不可用" : "部分导入来源读取失败"}</strong><p>{historyDomainErrors.join("；")}</p></div><button type="button" className="row-action" onClick={() => void loadHistory()}>重新读取</button></section>}
-        {historyLoaded && <section className="import-overview-grid data-refresh-region" aria-busy={historyLoading}>{sourceOptions.map((source) => { const item = latestBySource.get(source.key); return <article className="panel import-overview-card" key={source.key}><span>{source.label}</span><strong>{item?.fileName ?? "尚未导入"}</strong><small>{item ? `${item.snapshotDate ? `快照 ${item.snapshotDate} · ` : ""}${formatCount(item.insertedCount)} 行 · ${formatDateTime(item.completedAt || item.createdAt)}` : `等待导入${source.report}`}</small></article>; })}</section>}
-      </>}
-      {activeSection === "history" &&
-      <section className="panel table-panel import-history-panel data-refresh-region" aria-busy={historyLoading}>
-        <div className="section-header"><div><h2>最近导入记录</h2><p>来自导入接口的真实批次记录</p></div><button className="text-button" disabled={historyLoading} onClick={() => void loadHistory()}>{historyLoading ? "刷新中…" : "刷新记录"} <span>↻</span></button></div>
-        <div className="data-table-wrap"><table className="data-table" data-column-filter-scope="none"><thead><tr><th>数据来源</th><th>文件名称</th><th>文件大小</th><th>数据行数</th><th>导入结果</th><th>完成时间</th></tr></thead><tbody>
-          {historyLoading && !historyLoaded && <tr><td colSpan={6}><div className="table-state"><span className="state-spinner" />正在读取导入记录…</div></td></tr>}
-          {!historyLoading && historyDomainErrors.length > 0 && <tr><td colSpan={6}><div className="table-state table-state-error" role="alert"><span>{historyDomainErrors.length === IMPORT_HISTORY_DOMAIN_COUNT ? "导入记录读取失败" : "部分来源读取失败"}：{historyDomainErrors.join("；")}</span><button className="row-action" onClick={() => void loadHistory()}>重试</button></div></td></tr>}
-          {historyLoaded && historyDomainErrors.length === 0 && history.length === 0 && <tr><td colSpan={6}><div className="table-state">暂无导入记录，请先上传业务报表。</div></td></tr>}
-          {history.map((row) => {
-            const rejected = row.status === "rejected";
-            const duplicate = row.status === "duplicate";
-            const warned = row.warningCount > 0;
-            const resultText = rejected ? "导入失败" : duplicate ? "内容一致，已跳过" : warned ? `成功 · ${row.warningCount} 条警告` : "成功";
-            const statusClass = rejected ? "status-danger" : duplicate || warned ? "status-warning" : "status-success";
-            const dotTone = rejected ? "red" : duplicate || warned ? "orange" : "green";
-            const countNote = row.sourceKey === "products" || row.sourceKey === "combos" || row.sourceKey === "sku_shipping_rates"
-              ? `新增 ${formatCount(row.insertedCount)} · 更新 ${formatCount(row.updatedCount)}`
-              : `新增 ${formatCount(row.insertedCount)}${row.excludedCount ? ` · 剔除 ${formatCount(row.excludedCount)}` : row.duplicateCount ? ` · 重复 ${formatCount(row.duplicateCount)}` : ""}`;
-            return <tr key={`${row.sourceKey}-${row.id}`}><td><strong>{row.sourceLabel}</strong>{row.snapshotDate && <small className="history-source-date">快照 {row.snapshotDate}</small>}</td><td><div className="history-file"><strong>{row.fileName}</strong>{row.sheetName && <small>工作表：{row.sheetName}</small>}</div></td><td>{row.fileSizeBytes === undefined ? "—" : formatFileSize(row.fileSizeBytes)}</td><td><div className="history-count"><strong>{formatCount(row.rowCount)}</strong><small>{countNote}</small></div></td><td><span className={`status ${statusClass}`}><Dot tone={dotTone} />{resultText}</span></td><td>{formatDateTime(row.completedAt || row.createdAt)}</td></tr>;
-          })}
-        </tbody></table></div>
-      </section>
-      }
+      {activeSection === "chains" && <ImportChainRulesView currentUser={currentUser} />}
+      {activeSection === "history" && <ImportRunRecordsView history={history} loading={historyLoading} loaded={historyLoaded} errors={historyDomainErrors} onRefresh={() => void loadHistory()} onShowChains={() => onModuleViewChange("chains")} />}
     </>
   );
 }

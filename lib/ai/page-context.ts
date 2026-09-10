@@ -48,7 +48,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   import: {
     label: "数据导入",
-    views: ["files", "history", "continuity"],
+    views: ["files", "history", "chains"],
     suggestedTools: ["get_data_freshness", "get_import_status", "search_system_data"],
   },
   settings: {

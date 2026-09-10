@@ -14,6 +14,7 @@ export const WORKFLOW_NEW_PRODUCT_LINE_LEARN_PATH = "/api/workflow/new-product-l
 export const WORKFLOW_NEW_PRODUCT_WEEKLY_FOLLOWUP_PATH = "/api/workflow/new-product-weekly-followup";
 export const WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH = "/api/workflow/new-product-weekly-report-config";
 export const WORKFLOW_TASKS_PATH = "/api/workflow/tasks";
+export const WORKFLOW_IMPORT_CHAIN_STATUS_PATH = "/api/workflow/import-chain-status";
 export const WORKFLOW_TEMPLATES_PATH = "/api/workflow/templates";
 export const WORKFLOW_OPERATION_RECORDS_PATH = "/api/workflow/operations-records";
 export const WORKFLOW_ATTACHMENT_CLEANUP_PATH = "/api/workflow/attachment-cleanup";
@@ -206,7 +207,7 @@ function validateRequest(input: WorkflowServiceRequest) {
   const inventoryWorkItems = input.path === WORKFLOW_INVENTORY_WORK_ITEMS_PATH;
   const allowed = input.service === "reader"
     ? (input.method === "GET" && (collection || project || productLines || productLineImage || weeklyFollowup || weeklyReportConfig
-      || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
+      || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
       || (input.method === "POST" && consumer)
     : (input.method === "GET" && attachmentCleanup)
       || (input.method === "POST" && (collection || productLines || productLineLearning || tasks || taskWritableCollection
