@@ -26,6 +26,7 @@
 .import-chain-matrix small { margin-top: 6px; color: var(--ink-2); font-size: 13px; font-weight: 400; }
 .import-chain-matrix tbody tr:nth-child(even) { background: color-mix(in srgb, var(--card), var(--line) 14%); }
 .import-rule-cell { display: grid; justify-items: start; gap: 6px; min-width: 215px; }
+.import-chain-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .import-rule-cell small { margin-top: 0; }
 .import-run-badge { display: inline-flex; align-items: center; padding: 3px 8px; margin-top: 2px; border: 1px solid transparent; border-radius: 5px; font-size: 13px; white-space: nowrap; line-height: 1.5; }
 .import-run-badge.is-success { color: #287344; background: #edf8ef; border-color: #c8e6ce; }

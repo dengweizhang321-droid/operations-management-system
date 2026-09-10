@@ -1,10 +1,11 @@
 from django.conf import settings
 from django.urls import path
 
-from . import operations_views, views
+from . import import_chain_views, operations_views, views
 
 
 read_patterns = [
+    path("import-chain-status", import_chain_views.today_status, name="workflow-import-chain-status"),
     path("launch-projects", views.launch_projects, name="workflow-launch-projects"),
     path("launch-projects/<uuid:project_id>", views.launch_project, name="workflow-launch-project"),
     path("new-product-lines", views.new_product_lines, name="workflow-new-product-lines"),

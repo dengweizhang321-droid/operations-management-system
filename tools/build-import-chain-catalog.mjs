@@ -42,5 +42,7 @@ export async function buildImportChainCatalog() {
 }
 
 if (process.argv[1] && import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]).href) {
-  await writeFile(new URL("lib/imports/chain-catalog.generated.json", root), `${JSON.stringify(await buildImportChainCatalog(), null, 2)}\n`);
+  const catalog = await buildImportChainCatalog();
+  await writeFile(new URL("lib/imports/chain-catalog.generated.json", root), `${JSON.stringify(catalog, null, 2)}\n`);
+  await writeFile(new URL("backend/workflow/import_chain_catalog.json", root), `${JSON.stringify({ workflowIds: catalog.rules.map(r => r.workflowId) }, null, 2)}\n`);
 }

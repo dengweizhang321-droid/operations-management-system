@@ -3,6 +3,10 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { importRunDuration, importRunStatus } from "../lib/imports/run-presentation";
 import { normalizeShellLocation } from "../app/shell/navigation-contract";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import ImportChainRulesView from "../app/import-chain-rules-view";
+import { formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "../lib/imports/chain-status";
 
 test("in-flight, failed and unknown imports never acquire a green completed status", () => {
   for (const status of ["processing", "running", "pending", "queued", "rejected", "failed", "expired", "future_status", ""]) {
@@ -33,6 +37,8 @@ test("display catalog matches allowlisted workflow definitions without bundling 
   const text = await readFile(new URL("../lib/imports/chain-catalog.generated.json", import.meta.url), "utf8");
   const catalog = JSON.parse(text);
   assert.deepEqual(catalog, await buildImportChainCatalog());
+  const backend = JSON.parse(await readFile(new URL("../backend/workflow/import_chain_catalog.json", import.meta.url), "utf8"));
+  assert.deepEqual(backend.workflowIds, catalog.rules.map((r: { workflowId: string }) => r.workflowId));
   assert.equal(new Set(catalog.rules.map((r: { workflowId: string }) => r.workflowId)).size, catalog.rules.length);
   assert.doesNotMatch(text, /userDataDir|profileDir|debugPort|downloadDir|credentials|httpRequest|localhost:5791/);
   assert.doesNotMatch(text, /"active"|"lastRun"|"nextRun"/);
@@ -41,4 +47,26 @@ test("display catalog matches allowlisted workflow definitions without bundling 
     assert.ok(rule.entityKeys.every((key: string) => entities.has(key)));
     assert.ok(catalog.chains.some((c: { key: string }) => c.key === rule.chainKey));
   }
+});
+
+test("matrix renders workflows across columns and shops down rows", () => {
+  const html = renderToStaticMarkup(createElement(ImportChainRulesView, { currentUser: null }));
+  const head = html.match(/<thead>([\s\S]*?)<\/thead>/)?.[1] || "";
+  const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] || "";
+  assert.match(head, /n8n 工作流/);
+  assert.match(head, /京东 · 商品数据/);
+  assert.doesNotMatch(head, /志高商用设备旗舰店/);
+  assert.match(body, /<th scope="row"><strong>志高商用设备旗舰店/);
+  assert.match(body, /读取今天状态/);
+});
+
+test("today status rejects impossible completion and shows later failure distinctly", () => {
+  assert.equal(formatChainStatusTime("2026-09-09T16:30:00+00:00"), "09/10 00:30");
+  const item = { workflowId: "test", active: true, state: "failed" as const, completedToday: true, completedAt: "2026-09-10T01:00:00Z", executionId: "1", startedAt: null, finishedAt: null };
+  const response: ChainTodayResponse = { date: "2026-09-10", timezone: "Asia/Shanghai", checkedAt: "2026-09-10T02:00:00Z", source: "n8n_execution_metadata", items: [item] };
+  assert.equal(validateTodayStatus(response), true);
+  assert.equal(todayStatusLabel(item).tone, "danger");
+  assert.equal(todayStatusLabel().label, "今天：无法核实");
+  assert.equal(validateTodayStatus({ ...response, items: [{ ...item, state: "completed", completedAt: null }] }), false);
+  assert.equal(validateTodayStatus({ ...response, items: [item, item] }), false);
 });
