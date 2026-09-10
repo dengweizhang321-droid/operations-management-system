@@ -681,7 +681,7 @@ export default function Home() {
         />}
       >
         <div className="content">
-          <div className={`module-stage${moduleTransitionPending ? " module-stage-pending" : ""}`} aria-busy={moduleTransitionPending}>
+          <div className={`module-stage${active === "ai" && activeModuleView === "assistant" ? " module-stage-ai-chat" : ""}${moduleTransitionPending ? " module-stage-pending" : ""}`} aria-busy={moduleTransitionPending}>
             <ModuleErrorBoundary
               resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`}
               onRetry={() => { resetReloadableLazyScope(active); }}

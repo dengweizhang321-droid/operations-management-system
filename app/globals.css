@@ -2978,6 +2978,11 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
   min-height: 330px;
 }
 
+/* The full-page chat lives in AiWorkspaceHost below this tabs-only stage. */
+.module-stage.module-stage-ai-chat {
+  min-height: 0;
+}
+
 .module-stage > *,
 .data-refresh-region > * {
   transition: opacity 180ms ease, filter 180ms ease;
