@@ -1,3 +1,4 @@
+import { AI_CHAT_RELAY_TIMEOUT_MS } from "@/lib/ai/model-generation";
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { aiEnvironment, aiHeaders } from "./ai-service";
 import { PublicApiError } from "@/lib/http/api-error";
@@ -18,7 +19,7 @@ export async function requestDjangoAiStream(principal: AppPrincipal, payload: Re
   headers.set("accept", "text/event-stream");
   const controller = new AbortController(); let cancelled = false;
   const abort = () => { controller.abort(); if (!cancelled) { cancelled = true; options.onCancel?.(); } };
-  const timer = setTimeout(abort, 930000);
+  const timer = setTimeout(abort, AI_CHAT_RELAY_TIMEOUT_MS);
   const cleanup = () => { clearTimeout(timer); options.signal?.removeEventListener("abort", abort); };
   options.signal?.addEventListener("abort", abort, { once: true });
   if (options.signal?.aborted) { abort(); cleanup(); throw unavailable(); }

@@ -1,3 +1,5 @@
+export const MAX_AI_CHAT_SECONDS = 1_000_000;
+export const AI_CHAT_RELAY_TIMEOUT_MS = (MAX_AI_CHAT_SECONDS + 30) * 1000;
 export const MAX_AI_REPLY_CHARACTERS = 524288;
 export const MAX_AI_STREAM_BYTES = 32 * 1024 * 1024;
 export type AiGenerationOptions = {
@@ -9,7 +11,7 @@ export type AiGenerationOptions = {
   thinkingBudgetTokens: number; includeStreamUsage: boolean; systemPrompt: string;
 };
 export const DEFAULT_AI_GENERATION: AiGenerationOptions = {
-  contextWindowTokens: 128000, taskTimeoutMs: 260000, outputTokenParameter: "max_tokens",
+  contextWindowTokens: 128000, taskTimeoutMs: MAX_AI_CHAT_SECONDS * 1000, outputTokenParameter: "max_tokens",
   temperatureMode: "custom", reasoningFormat: "default", reasoningEffort: "default",
   thinkingBudgetTokens: 4096, includeStreamUsage: false, systemPrompt: "",
 };

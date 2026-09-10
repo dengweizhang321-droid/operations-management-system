@@ -310,7 +310,7 @@ class ModelDnsTests(SimpleTestCase):
                 self.assertIn("尚未完整生成", result["text"])
                 self.assertTrue(result["text"].startswith("部分分析"))
                 send.assert_called_once()
-                self.assertEqual(send.call_args.kwargs["timeout"], 120)
+                self.assertEqual(send.call_args.kwargs["timeout"], 260)
 
     def test_timeout_is_distinct_from_invalid_json_and_never_retried(self):
         for failure, expected in ((TimeoutError("sensitive fixture"), "provider_timeout"),
@@ -351,6 +351,7 @@ class ModelDnsTests(SimpleTestCase):
                     server.shutdown(socket.SHUT_WR)
                     wrapped = MagicMock(wraps=client)
                     wrapped.connect = MagicMock()
+                    wrapped.do_handshake = MagicMock()
                     context = MagicMock()
                     context.wrap_socket.return_value = wrapped
                     with patch.object(

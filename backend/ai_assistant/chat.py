@@ -17,7 +17,7 @@ from . import (
     artifacts as artifact_service,
 )
 from .configuration import model_record, resolve_model
-from .model_capabilities import options as generation_options, fit_context, usage_numbers, MAX_REPLY_CHARACTERS
+from .model_capabilities import options as generation_options, fit_context, usage_numbers, MAX_REPLY_CHARACTERS, MAX_CHAT_SECONDS
 from .policy import (
     AiError,
     canonical,
@@ -430,7 +430,7 @@ def _artifacts(results, conv, message, principal):
     return assets
 
 
-@transport.request_budget(900)
+@transport.request_budget(MAX_CHAT_SECONDS)
 def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None, on_event=None):
     started_at = time.monotonic()
     execution = {"inputTokens": None, "outputTokens": None, "reasoningTokens": None, "providerCalls": 0, "usageReportedCalls": 0,
@@ -545,7 +545,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             transport.limit_request_budget(generation_options(model)["taskTimeoutMs"] / 1000)
             active = m.AiChatRequestReceipts.objects.filter(
                 status__in=["processing", "dispatched"],
-                admitted_at__gte=timezone.now() - timedelta(minutes=240),
+                admitted_at__gte=timezone.now() - timedelta(seconds=MAX_CHAT_SECONDS),
             )
             if (
                 active.count() >= 24
@@ -638,13 +638,13 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     + "</page_context>"
                 )
             for ordinal in range(1, model.max_tool_rounds + 1):
-                remaining_seconds = transport.remaining_budget(default=3600)
+                remaining_seconds = transport.remaining_budget(default=MAX_CHAT_SECONDS)
                 if dingtalk_session is not None:
                     live(receipt.id)
                 # Reserve the last existing provider turn for an answer. Never
                 # enlarge configured rounds, tool counts or paid-call quotas.
                 final_turn = (finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
-                              or (ordinal > 1 and remaining_seconds <= model.timeout_ms / 1000 + 10))
+                              or (ordinal > 1 and remaining_seconds <= 15))
                 offered_tools = [] if final_turn else _remaining_tools(tools, per_tool, model.max_total_tool_calls - total)
                 turn_system = system
                 if not offered_tools:
@@ -714,7 +714,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     if (isinstance(error, provider.EmptyProviderResponse) and error.can_finalize
                             and not empty_finalization_used
                             and not final_turn and ordinal < model.max_tool_rounds
-                            and transport.remaining_budget(default=3600) >= 15):
+                            and transport.remaining_budget(default=MAX_CHAT_SECONDS) >= 15):
                         # The provider completed this dispatch. Spend at most one
                         # remaining ordinal on finalization, without repeating tools
                         # or replaying a timeout / unknown paid dispatch.

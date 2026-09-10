@@ -186,7 +186,7 @@ class ChatToolBudgetTests(TestCase):
         self.model.save()
         patches = self.run_chat([wire("openai_compatible", "get_data_freshness", {}),
                                  wire("openai_compatible", answer="按已取得数据回答。")])
-        with patches[0], patches[1] as source, patches[2], patches[3] as http, patch.object(chat.transport, "remaining_budget", side_effect=[260, 125]):
+        with patches[0], patches[1] as source, patches[2], patches[3] as http, patch.object(chat.transport, "remaining_budget", side_effect=[260, 15]):
             chat.answer({"clientRequestId": "time-finalize", "message": "查询"}, self.owner, "time-finalize")
             self.assertEqual(source.call_count, 1)
             self.assertNotIn("tools", http.call_args.args[1])

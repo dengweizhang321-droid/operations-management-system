@@ -1,4 +1,7 @@
 import json
+import socket
+import threading
+import time
 from unittest.mock import patch
 from django.test import TestCase, SimpleTestCase, override_settings
 from . import model_capabilities as c, provider, chat, transport, tests as support, models as m
@@ -8,11 +11,11 @@ from .configuration import save_model, model_record
 
 class CapabilityValidationTests(SimpleTestCase):
     def validate(self, value, **kw):
-        return c.validate(value, **{"protocol":"openai_compatible", "max_tokens":65536, "timeout_ms":120000, "reasoning_mode":"auto", **kw})
+        return c.validate(value, **{"protocol":"openai_compatible", "max_tokens":65536, "reasoning_mode":"auto", **kw})
 
     def test_high_output_context_and_long_budget_are_explicit(self):
         self.assertEqual(self.validate({"contextWindowTokens":128000, "taskTimeoutMs":600000})["taskTimeoutMs"], 600000)
-        for value in [{"contextWindowTokens":65536}, {"taskTimeoutMs":120000}, {"contextWindowTokens":2000001}, {"taskTimeoutMs":900001}, {"unknown":1}, {"includeStreamUsage":1}]:
+        for value in [{"contextWindowTokens":65536}, {"taskTimeoutMs":29999}, {"contextWindowTokens":2000001}, {"taskTimeoutMs":1000000001}, {"unknown":1}, {"includeStreamUsage":1}]:
             with self.subTest(value=value), self.assertRaises(AiError): self.validate(value)
 
     def test_protocol_mismatch_and_incompatible_thinking_are_rejected(self):
@@ -26,6 +29,38 @@ class CapabilityValidationTests(SimpleTestCase):
                 transport.limit_request_budget(600)
                 self.assertLessEqual(transport.remaining_budget(1000), before)
 
+    def test_long_task_defaults_do_not_retain_a_hidden_single_call_limit(self):
+        self.assertEqual(self.validate({})["taskTimeoutMs"], 1_000_000_000)
+        self.assertEqual(self.validate({"taskTimeoutMs": 30000})["taskTimeoutMs"], 30000)
+        with transport.request_budget(c.MAX_CHAT_SECONDS):
+            transport.limit_request_budget(1_000_000)
+            self.assertGreater(transport.remaining_budget(c.MAX_CHAT_SECONDS), 999_000)
+
+    def test_cancellation_interrupts_a_socket_wait_without_waiting_for_task_timeout(self):
+        waiting, peer = socket.socketpair()
+        cancelled = threading.Event()
+        def check():
+            if cancelled.is_set(): raise AiError("已停止", "ai_request_cancelled", 499)
+        try:
+            waiting.settimeout(2)
+            with transport.request_cancellation(check):
+                stop = transport.watch_socket_cancellation(lambda: waiting)
+                try:
+                    cancelled.set()
+                    started = time.monotonic()
+                    with waiting.makefile("rb") as reader:
+                        try:
+                            self.assertEqual(reader.read(1), b"")
+                        except TimeoutError:
+                            self.fail("Cancellation did not wake the socket")
+                        except OSError:
+                            pass  # Windows reports the closed handle, Unix returns EOF.
+                    self.assertLess(time.monotonic() - started, 1.5)
+                finally:
+                    stop()
+        finally:
+            waiting.close(); peer.close()
+
     def test_usage_absence_is_not_zero_and_only_bounded_numbers_are_exposed(self):
         self.assertEqual(c.usage_numbers({}), {"inputTokens":None,"outputTokens":None,"reasoningTokens":None})
         self.assertEqual(c.usage_numbers({"prompt_tokens":3,"completion_tokens":8,"completion_tokens_details":{"reasoning_tokens":5},"secret":"x"}), {"inputTokens":3,"outputTokens":8,"reasoningTokens":5})
@@ -37,6 +72,23 @@ class CapabilityChatTests(TestCase):
     user = support.AiDomainTests.user
     call = support.AiDomainTests.call
     setUp = support.AiDomainTests.setUp
+
+    def test_new_model_defaults_and_legacy_edits(self):
+        admin = self.user("defaults-admin@example.invalid", "admin", None)
+        body = {"name":"默认模型", "modelName":"fixture", "baseUrl":self.model.base_url, "apiKey":"fixture-only", "protocol":"openai_compatible", "modelType":"text"}
+        with patch("ai_assistant.configuration.encrypt", return_value="opaque-fixture"), mutation(admin):
+            saved = save_model(body, admin)
+        row = m.AiModels.objects.get(id=saved["id"])
+        self.assertEqual(row.max_tokens, 65536)
+        self.assertEqual(c.options(row)["taskTimeoutMs"], 1_000_000_000)
+        self.model.timeout_ms = 3000; self.model.save()
+        legacy_tokens = self.model.max_tokens
+        with patch("ai_assistant.configuration.encrypt", return_value="opaque-fixture"), mutation(admin):
+            save_model({**body, "id":self.model.id, "expectedVersion":self.model.version}, admin)
+        self.model.refresh_from_db()
+        self.assertEqual(self.model.timeout_ms, 3000)
+        self.assertEqual(self.model.max_tokens, legacy_tokens)
+        self.assertEqual(c.options(self.model)["taskTimeoutMs"], 260000)
 
     def test_save_high_limits_cas_and_readback_preserve_options_without_touching_old_defaults(self):
         admin = self.user("capability-admin@example.invalid", "admin", None)
@@ -54,7 +106,10 @@ class CapabilityChatTests(TestCase):
         seen=[]
         def request(url, body, headers, **kw):
             seen.append(body)
+            self.assertEqual(kw["timeout"], 1_000_000)
             return {"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":20}}
+        self.model.timeout_ms = 3000
+        self.model.generation_options_json = canonical({**json.loads(self.model.generation_options_json), "taskTimeoutMs":1_000_000_000})
         with patch.object(provider,"decrypt",return_value="fixture"),patch.object(provider,"bounded_sse",side_effect=request):
             result=provider.turn(self.model,[{"role":"user","content":"问题"}],"system",[],on_text=lambda _:None)
         self.assertEqual(seen[0]["max_completion_tokens"],65536)

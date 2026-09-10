@@ -6,9 +6,9 @@ from .policy import AiError, canonical, fields, integer, text, choice, boolean
 MAX_REPLY_CHARACTERS = 524288
 MAX_PROVIDER_BYTES = 8 * 1024 * 1024
 MAX_PROVIDER_STREAM_BYTES = 64 * 1024 * 1024  # SSE repeats protocol metadata per delta.
-MAX_CHAT_SECONDS = 900
+MAX_CHAT_SECONDS = 1_000_000
 DEFAULTS = {
-    "contextWindowTokens": 128000, "taskTimeoutMs": 260000,
+    "contextWindowTokens": 128000, "taskTimeoutMs": MAX_CHAT_SECONDS * 1000,
     "outputTokenParameter": "max_tokens", "temperatureMode": "custom",
     "reasoningFormat": "default", "reasoningEffort": "default",
     "thinkingBudgetTokens": 4096, "includeStreamUsage": False, "systemPrompt": "",
@@ -19,12 +19,12 @@ def options(model):
     try:
         value = json.loads(getattr(model, "generation_options_json", "{}"))
         if not isinstance(value, dict) or set(value) - set(DEFAULTS): raise ValueError()
-        return {**DEFAULTS, **value}
+        return {**DEFAULTS, "taskTimeoutMs": 260000, **value}  # Preserve pre-option configurations.
     except (ValueError, TypeError) as error:
         raise AiError("模型生成参数损坏，请重新保存配置", "invalid_request", 400) from error
 
 
-def validate(value, *, protocol, max_tokens, timeout_ms, reasoning_mode):
+def validate(value, *, protocol, max_tokens, reasoning_mode):
     if not isinstance(value, dict):
         raise AiError("生成参数必须为对象")
     fields(value, set(DEFAULTS))
@@ -41,8 +41,6 @@ def validate(value, *, protocol, max_tokens, timeout_ms, reasoning_mode):
     reserve = max(2048, math.ceil(result["contextWindowTokens"] * .05))
     if max_tokens + reserve + 1024 > result["contextWindowTokens"]:
         raise AiError("上下文窗口须容纳最大输出、安全余量及至少 1024 Token 输入空间")
-    if timeout_ms + 10000 > result["taskTimeoutMs"]:
-        raise AiError("任务总时限必须比单轮请求至少多 10 秒")
     mode = result["reasoningFormat"]
     if protocol == "anthropic":
         if result["outputTokenParameter"] != "max_tokens" or mode in {"thinking", "reasoning_effort"} or result["includeStreamUsage"]:

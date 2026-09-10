@@ -71,7 +71,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
             base + "/messages",
             body,
             {"x-api-key": key, "anthropic-version": "2023-06-01"},
-            timeout=model.timeout_ms / 1000,
+            timeout=cfg["taskTimeoutMs"] / 1000,
         )
         blocks = result.get("content")
         if not isinstance(blocks, list):
@@ -114,7 +114,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
             base + "/chat/completions",
             body,
             {"Authorization": "Bearer " + key},
-            timeout=model.timeout_ms / 1000,
+            timeout=cfg["taskTimeoutMs"] / 1000,
         )
         choices = result.get("choices")
         if (

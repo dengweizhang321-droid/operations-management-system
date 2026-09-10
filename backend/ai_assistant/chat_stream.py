@@ -9,6 +9,7 @@ import threading
 from django.db import connections
 from django.http import StreamingHttpResponse
 from . import chat, transport
+from .model_capabilities import MAX_CHAT_SECONDS
 from .policy import AiError, canonical, revision
 
 
@@ -48,7 +49,7 @@ class ChatStream:
 
     def run(self):
         try:
-            with transport.request_budget(900), transport.request_cancellation(self.check):
+            with transport.request_budget(MAX_CHAT_SECONDS), transport.request_cancellation(self.check):
                 self.check()
                 result = chat.answer(self.payload, self.principal, self.request_id, on_event=self.emit)
                 self.emit("done", result)

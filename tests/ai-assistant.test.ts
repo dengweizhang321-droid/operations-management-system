@@ -319,7 +319,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.doesNotMatch(authorization, /ALTER TABLE ai_tool_audit_logs ADD COLUMN/);
   assert.match(toolAudit, /supportsInvocationCorrelation/);
   assert.match(toolAudit, /request_id, actor_email, actor_role, surface, tool_name/);
-  assert.match(page, /timeoutMs: 60000/);
+  assert.doesNotMatch(page, /单轮请求超时|modelDraft\.timeoutMs/);
+  assert.match(page, /maxTokens: 65536/);
   assert.match(pipelineMigration, /message_kind/);
   assert.match(pipelineMigration, /max_total_tool_calls/);
   assert.match(reasoningMigration, /reasoning_mode/);

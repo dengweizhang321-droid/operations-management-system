@@ -1,3 +1,4 @@
+import { AI_CHAT_RELAY_TIMEOUT_MS } from "@/lib/ai/model-generation";
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import { PublicApiError } from "@/lib/http/api-error";
@@ -55,7 +56,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const query = input.query?.toString() ?? "";
   const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: options.requestId ?? crypto.randomUUID() });
   try {
-    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: input.path === "/api/ai/chat" && method === "POST" ? 930_000 : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? 220_000 : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
+    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? 220_000 : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
     if (!result.data || typeof result.data !== "object" || Array.isArray(result.data) || !/application\/json/i.test(result.response.headers.get("content-type") ?? "")) throw unavailable();
     if (!result.response.ok) {
       const error = result.data as { error?: string; code?: string };

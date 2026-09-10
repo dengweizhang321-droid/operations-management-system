@@ -30,7 +30,7 @@ class ProviderEndpointContractTests(TestCase):
             return wire("openai_compatible", "get_data_freshness", {}) if body.get("tools") else wire("openai_compatible", answer="已按现有证据完成回答。")
 
         patches = self.run_chat([])
-        with patches[0], patches[1], patches[2], patch.dict("os.environ", {"AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST": "https://ark.cn-beijing.volces.com"}), patch.object(provider, "bounded_json", side_effect=ark_contract), patch.object(chat.transport, "remaining_budget", side_effect=[260, 216, 182, 122]):
+        with patches[0], patches[1], patches[2], patch.dict("os.environ", {"AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST": "https://ark.cn-beijing.volces.com"}), patch.object(provider, "bounded_json", side_effect=ark_contract), patch.object(chat.transport, "remaining_budget", side_effect=[260, 216, 182, 15]):
             result = chat.answer({"clientRequestId": "ark-time-final", "message": "802昨天卖了多少台"}, self.owner, "ark-time-final")
         self.assertEqual(result["outcome"], "answered")
         self.assertEqual(len(sent), 4)

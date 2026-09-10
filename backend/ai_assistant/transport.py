@@ -14,7 +14,7 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, Event, Thread
 from urllib.parse import urlencode, urlsplit
 from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
@@ -71,6 +71,37 @@ def request_cancellation(check):
         yield
     finally:
         _cancel_check.reset(token)
+
+
+def watch_socket_cancellation(current_socket):
+    """Wake a blocked HTTP read on disconnect, even with a long task deadline."""
+    check = _cancel_check.get()
+    stopped = Event()
+    def watch():
+        while not stopped.wait(.25):
+            try:
+                check()
+            except Exception:
+                owned_socket = current_socket()
+                try:
+                    owned_socket.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                # Windows select is not woken by local shutdown alone. Detach
+                # transfers ownership so HTTP makefile references cannot defer
+                # closing the handle, and later cleanup cannot close it twice.
+                handle = owned_socket.detach()
+                if handle != -1:
+                    socket.close(handle)
+                    return
+    thread = Thread(target=watch, name="ai-http-cancellation", daemon=True) if check else None
+    if thread:
+        thread.start()
+    def stop():
+        stopped.set()
+        if thread:
+            thread.join(timeout=1)
+    return stop
 
 
 def bounded_sse(url, body, headers, *, timeout, collector):
@@ -255,6 +286,7 @@ def _bounded_json(
     sock = socket.socket(family, socktype, proto)
     sock.settimeout(remaining)
     connection = None
+    stop_watching = watch_socket_cancellation(lambda: sock)
 
     def bounded_socket():
         remaining = timeout - (time.monotonic() - started)
@@ -266,7 +298,9 @@ def _bounded_json(
         sock.connect(target)
         if parts.scheme == "https":
             bounded_socket()
-            sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+            sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host, do_handshake_on_connect=False)
+            remaining_budget(timeout)
+            sock.do_handshake()
         connection = http.client.HTTPConnection(host, port, timeout=remaining)
         connection.sock = sock
         data = canonical(body).encode() if method == "POST" else None
@@ -316,12 +350,14 @@ def _bounded_json(
                     break
         if not 200 <= response.status < 300:
             raise ProviderHttpError(response.status)
+        remaining_budget(timeout)
         value = (stream_collector.finish() if stream_collector is not None
                  else json.loads(b"".join(chunks).decode("utf-8")))
         if not isinstance(value, dict):
             raise AiError("响应 JSON 无效", "invalid_provider_response", 503)
         return value
     except TimeoutError as error:
+        remaining_budget(timeout)
         raise AiError(
             "模型或工具服务等待超时，本次请求未自动重试。请稍后重新发送或缩小分析范围。",
             "provider_timeout", 503,
@@ -331,10 +367,12 @@ def _bounded_json(
             "服务返回了无效的 JSON 响应", "invalid_provider_response", 503
         ) from error
     except (OSError, ValueError, http.client.HTTPException) as error:
+        remaining_budget(timeout)
         raise AiError(
             "服务请求失败或响应格式无效", "provider_unavailable", 503
         ) from error
     finally:
+        stop_watching()
         if connection:
             connection.close()
         sock.close()

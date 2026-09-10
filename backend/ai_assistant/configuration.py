@@ -170,7 +170,7 @@ def save_model(body, principal, *, image=False):
             body.get("status", "enabled"), ["enabled", "disabled"], "状态"
         ),
         "timeout_ms": integer(
-            body.get("timeoutMs", 90000 if image else 60000), "timeoutMs", 3000, 120000 if image else 600000
+            body.get("timeoutMs", row.timeout_ms if row else 90000 if image else 60000), "timeoutMs", 3000, 120000 if image else 600000
         ),
         "updated_at": timezone.now(),
         "version": row.version + 1 if row else 1,
@@ -183,7 +183,7 @@ def save_model(body, principal, *, image=False):
             is_default_text_model=boolean(
                 body.get("isDefaultTextModel", False), "isDefaultTextModel"
             ),
-            max_tokens=integer(body.get("maxTokens", 4096), "maxTokens", 128, 131072),
+            max_tokens=integer(body.get("maxTokens", row.max_tokens if row else 65536), "maxTokens", 128, 131072),
             reasoning_mode=choice(
                 body.get("reasoningMode", "auto"), ["auto", "disabled"], "推理模式"
             ),
@@ -200,7 +200,7 @@ def save_model(body, principal, *, image=False):
         from .policy import canonical
         values["generation_options_json"] = canonical(capabilities.validate(
             body.get("generationOptions", capabilities.options(row) if row else {}),
-            protocol=protocol, max_tokens=values["max_tokens"], timeout_ms=values["timeout_ms"], reasoning_mode=values["reasoning_mode"]))
+            protocol=protocol, max_tokens=values["max_tokens"], reasoning_mode=values["reasoning_mode"]))
         if values["is_default_text_model"]:
             if values["status"] != "enabled" or values["model_type"] != "text":
                 raise AiError("默认文本模型必须启用且为文本能力")

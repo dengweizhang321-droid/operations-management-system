@@ -22,6 +22,7 @@ from . import (
     datasets,
     dingtalk_settings,
 )
+from .model_capabilities import MAX_CHAT_SECONDS
 from .control_models import AiWriteReceipt, AiMutationAudit
 from .policy import (
     AiError,
@@ -675,7 +676,7 @@ def dispatch(request, path=""):
         )
     try:
         with transport.request_budget(
-            28 if dataset_request else 900 if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else 120
+            28 if dataset_request else MAX_CHAT_SECONDS if path == "chat" else 610 if path == "models" else 195 if path == "scheduler" else 120
         ):
             result = _dispatch(request, path)
         if result.status_code < 400:
