@@ -75,8 +75,10 @@ test("filter-driven requests keep the last successful layout mounted", async () 
   assert.match(sales, /loading && !targetsLoaded \? <div className="table-state">/);
   assert.match(product, /const productDetail = productDetailSnapshot\?\.productCode === detailProductCode/);
   assert.match(product, /setProductDetailSnapshot\(\{ productCode: requestedProductCode, detail: payload \}\)/);
-  assert.match(importView, /historyLoading && !historyLoaded/);
-  assert.match(importView, /import-overview-grid data-refresh-region" aria-busy=\{historyLoading\}/);
+  assert.match(importView, /<ImportRunRecordsView history=\{history\} loading=\{historyLoading\} loaded=\{historyLoaded\}/);
+  const importRecords = await readSource("../app/import-run-records-view.tsx");
+  assert.match(importRecords, /loading && !loaded/);
+  assert.match(importRecords, /import-history-panel data-refresh-region" aria-busy=\{loading\}/);
 });
 
 test("refresh feedback is a non-blocking gradient with reduced-motion support", async () => {

@@ -196,7 +196,7 @@ test("netshop promotion, catalog, and daily filters select page one before their
 test("ImportView loads history only for history views and isolates seven domain failures", async () => {
   const importView = await readFile(importPath, "utf8");
 
-  assert.match(importView, /useState\(false\)[\s\S]+historyVisible = activeSection === "history" \|\| activeSection === "continuity"/);
+  assert.match(importView, /useState\(false\)[\s\S]+historyVisible = activeSection === "history"/);
   assert.ok(importView.indexOf("if (!historyVisible) return;") < importView.indexOf("Promise.allSettled(["));
   assert.equal((importView.match(/requestJson<[^\n]+\("\/api\//g) ?? []).length, 7);
   assert.match(importView, /Promise\.allSettled\(\[/);

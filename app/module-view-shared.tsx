@@ -611,8 +611,11 @@ export type UnifiedImportResponse = {
 };
 
 export type UnifiedHistoryItem = {
+  shopName?: string;
+  warnings?: ImportIssue[];
+  errors?: ImportIssue[];
   id: string;
-  sourceKey: ImportSourceKey;
+  sourceKey: ImportSourceKey | "jd_promotion";
   sourceLabel: string;
   fileName: string;
   fileSizeBytes?: number;

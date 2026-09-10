@@ -74,8 +74,9 @@ test("data import navigation switches real workspaces instead of rendering inert
   assert.match(importView, /const activeSection = moduleView/);
   assert.match(importView, /role="tablist" aria-label="数据导入工作区"/);
   assert.match(importView, /onClick=\{\(\) => onModuleViewChange\("history"\)\}/);
-  assert.match(importView, /activeSection === "continuity" && <>[\s\S]*?<section className="import-overview-grid/);
-  assert.match(importView, /activeSection === "history" &&[\s\S]*?<section className="panel table-panel import-history-panel/);
+  assert.match(importView, /activeSection === "chains" && <ImportChainRulesView/);
+  assert.doesNotMatch(importView, /数据连续性|latestBySource/);
+  assert.match(importView, /activeSection === "history" && <ImportRunRecordsView/);
 });
 
 test("operational navigation and tables use the balanced density baseline", async () => {
