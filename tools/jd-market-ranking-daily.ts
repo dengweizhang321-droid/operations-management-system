@@ -463,15 +463,19 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
       if (expanded) {
         for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
           await frame.waitForTimeout(150);
-          const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
-          childCount = await children.count();
-          const revealedChildren: Locator[] = [];
-          for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
-            const child = children.nth(childIndex);
-            const revealed = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
-              .then(() => child.isVisible()).catch(() => false);
-            if (revealed) revealedChildren.push(child);
-          }
+          const findRevealedChildren = async () => {
+            const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
+            childCount = await children.count();
+            const revealed: Locator[] = [];
+            for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
+              const child = children.nth(childIndex);
+              const visible = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
+                .then(() => child.isVisible()).catch(() => false);
+              if (visible) revealed.push(child);
+            }
+            return revealed;
+          };
+          let revealedChildren = await findRevealedChildren();
           revealedChildCount = revealedChildren.length;
           if (revealedChildCount === 1) {
             const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
@@ -507,6 +511,15 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
           );
           await frame.page().mouse.wheel(0, 60);
           await frame.waitForTimeout(50);
+          // The cascader virtualizes the final child while the submenu is at
+          // scrollTop=0. Re-query while it is scrolled before restoring the
+          // top position for the next parent-hover attempt.
+          revealedChildren = await findRevealedChildren();
+          revealedChildCount = revealedChildren.length;
+          if (revealedChildCount === 1) {
+            const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
+            if (clicked) return;
+          }
           await frame.page().mouse.wheel(0, -10_000);
           submenuScrolls += 1;
         }
