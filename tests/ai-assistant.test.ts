@@ -333,7 +333,8 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(toolBudget, /ai-model-tool-budget-increase-2026-07-30/);
   assert.match(budgetMigration, /ai-model-tool-budget-increase-2026-07-30/);
   assert.match(guide, /AI_SECRET_ENCRYPTION_KEY/);
-  assert.match(guide, /reasoning_tokens/);
+  assert.match(guide, /不应盲目继承上一模型的思考参数/);
+  assert.match(guide, /模型派发审计记录失败类型及单轮耗时/);
   assert.match(guide, /仅文本请求成功不能证明模型支持主图识别/);
   assert.match(rolloutGuide, /数据与知识层/);
   assert.match(rolloutGuide, /产物与投递层/);
