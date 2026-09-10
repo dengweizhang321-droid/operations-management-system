@@ -26,6 +26,8 @@ BI 看板是跨领域只读投影，不是新的业务事实域。销售事实�
 
 数据库角色只获得 BI 审计表及生成当前看板所需销售、ERP 主数据、库存和库龄表的 `SELECT`。它没有 writer、序列权限、DDL 权限或上游表 DML 权限。`sales_data_revisions` 的 RLS 只允许读取 `sales` 与 `erp` 两个 revision。
 
+库存总览使用广东仓统一健康规则，因此 BI reader 还必须读取 `inventory_guangdong_monitor_items` 和 `inventory_guangdong_supplier_cycles`。角色配置仅增加这两张配置表的 `SELECT`，不开放监控审计表或写权限。BI readiness 同时验证配置表结构、全部 ORM 列的实际读取权限和写权限拒绝，避免端口与旧 schema 检查通过却在看板查询时失败。此修复需要通过受控部署更新 runtime 并执行 `ProvisionRole`；代码提交不代表生产权限已更新。
+
 ## 3. 一致性与失败关闭
 
 一次 BI 请求在查询前后分别读取销售/ERP 与库存 revision。两次结果一致才返回；变化时重试一次，仍变化则返回 503，不拼接跨版本页面。组合 revision 为：
@@ -76,3 +78,5 @@ Worker 通过 append-only successor 计划 `0de08035d40d360af57f7c879e5ff8c42681
 - 运行时：8081 单 reader、DPAPI 凭据、只读角色、迁移收据、统一启停和聚合状态；
 - 迁移：空旧 BI 事实、陈旧 plan 拒绝、apply 幂等、verify 重算；
 - 备份：包含 `bi_migration_runs`，恢复演练创建 `teruisi_bi_reader`，并继续覆盖全部上游权威表。
+
+广东仓权限回归使用 `pwsh -NoProfile -File tests/bi-permissions-postgres.ps1`。该测试只读取本机 PostgreSQL/Python 程序文件，在当前 worktree 的随机 `.runtime/bi-permissions-*` 目录创建独立 cluster，监听独立高端口，使用合成数据；不会使用生产连接或凭据。测试执行控制器中的原始角色配置代码，再用真实 `teruisi_bi_reader` 连接验证完整看板、缺任一配置表权限、列级写权限误授和只读事务。测试结束停止该 cluster，保留隔离日志。

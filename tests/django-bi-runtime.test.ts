@@ -49,6 +49,8 @@ test("BI role sees only the bounded source projection and audit receipt", async 
     "inventory_data_revisions",
     "replenishment_plan_items",
     "inventory_operating_settings",
+    "inventory_guangdong_monitor_items",
+    "inventory_guangdong_supplier_cycles",
   ]) {
     assert.match(source, new RegExp(`"${table}"`));
   }

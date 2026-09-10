@@ -115,6 +115,7 @@ tables = (
     "erp_reference_import_scope_heads", "erp_reference_write_authority",
     "inventory_import_batches", "inventory_stock_lines", "inventory_age_lines", "inventory_data_revisions",
     "replenishment_plan_items", "inventory_operating_settings",
+    "inventory_guangdong_monitor_items", "inventory_guangdong_supplier_cycles",
 )
 connection = psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"])
 connection.autocommit = True

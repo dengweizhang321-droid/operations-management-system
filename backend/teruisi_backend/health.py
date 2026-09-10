@@ -1365,11 +1365,9 @@ def _validate_products_writer_permissions(cursor) -> None:
                 raise ReadinessError("products_writer_database_privilege_missing")
 
 
-def _validate_inventory_schema(cursor, *, writer: bool, include_monitor_configuration: bool = True) -> None:
+def _validate_inventory_schema(cursor, *, writer: bool) -> None:
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_INVENTORY_WRITER_COLUMNS if writer else REQUIRED_INVENTORY_COLUMNS
-    if not include_monitor_configuration:
-        expected = {table: columns for table, columns in expected.items() if not table.startswith("inventory_guangdong_")}
     for table, expected_columns in expected.items():
         if table not in tables:
             raise ReadinessError(
@@ -1421,8 +1419,9 @@ def _validate_bi_reader_state(cursor) -> None:
     constraints = connection.introspection.get_constraints(cursor, "bi_migration_runs")
     if "bi_migration_status_idx" not in constraints:
         raise ReadinessError("bi_reader_indexes_incomplete")
-    # BI consumes inventory facts, not Guangdong monitoring configuration.
-    _validate_inventory_schema(cursor, writer=False, include_monitor_configuration=False)
+    # BI uses the same Guangdong health rules as the inventory overview.
+    _validate_inventory_schema(cursor, writer=False)
+    _validate_bi_monitor_permissions(cursor)
     _validate_inventory_revision(cursor)
     _validate_reader_state(cursor)
     cursor.execute(
@@ -1437,6 +1436,21 @@ def _validate_bi_reader_state(cursor) -> None:
         or not HEX_64.fullmatch(str(row[2] or ""))
     ):
         raise ReadinessError("bi_reader_migration_unverified")
+
+
+def _validate_bi_monitor_permissions(cursor) -> None:
+    for table in ("inventory_guangdong_monitor_items", "inventory_guangdong_supplier_cycles"):
+        # A schema/introspection check alone does not prove SELECT permission.
+        # LIMIT 0 checks every ORM column without reading business records.
+        cursor.execute(f'SELECT * FROM "{table}" LIMIT 0')
+        if connection.vendor == "postgresql" and settings.DJANGO_EXPECT_READ_ONLY:
+            cursor.execute(
+                "SELECT has_table_privilege(current_user,%s,'INSERT,UPDATE,DELETE,TRUNCATE'),"
+                "has_any_column_privilege(current_user,%s,'INSERT,UPDATE')",
+                [table, table],
+            )
+            if any(cursor.fetchone()):
+                raise ReadinessError("bi_reader_database_privilege_excessive")
 
 
 def _validate_inventory_writer_authority(cursor) -> None:
