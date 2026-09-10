@@ -1,6 +1,8 @@
 # AI 对话工作台
 
-本变更把已确认的演示布局接入现有 React 对话控制器。代码候选不等于本机生产采用；正式运行版本继续以受控 release 证据为准。
+本变更把已确认的演示布局接入现有 React 对话控制器，已于 2026-09-10 完成本机生产采用，见 [生产采用证据](evidence/ai-workbench-production-20260910.json)。正式 SSE 通道已用无效输入验证派发前的流式错误返回；真实供应商调用仍以具体端点验收为准。
+
+Worker 使用 `redirect: manual` 并拒绝全部重定向响应，避免 workerd 不支持 `redirect: error` 导致请求在发送前失败。真实隔离 workerd 回归覆盖签名、中文 SSE 与拒绝跟随重定向。
 
 后续模型参数增强的输出、时限、上下文与新增字段以 [模型生成能力配置](AI_MODEL_GENERATION_CAPABILITIES.md) 为准；下文 260 秒、2 MiB、48000 字符及“没有新增字段”描述的是最初工作台提交的范围。
 

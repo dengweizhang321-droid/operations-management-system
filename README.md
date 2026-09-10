@@ -1,8 +1,8 @@
 # 电扇运营管理系统
 
-AI 管理的生成参数候选已贯通 Django 配置、provider 和 Web 对话：支持更高输出额度、上下文预算、按端点选择推理格式、默认温度、任务时限、附加业务提示词，以及消息用量与停止原因。新建模型默认输出 65536、对话总时限 1000000 秒，移除单轮超时配置，自定义温度合并到温度设置。包含 AI `0009`，旧配置不自动增额；具体范围、兼容边界与升级演练见 [模型生成能力配置](docs/AI_MODEL_GENERATION_CAPABILITIES.md)。正式采用前继续遵循现有 release 记录。
+AI 管理的生成参数已于 2026-09-10 完成本机生产采用，贯通 Django 配置、provider 和 Web 对话：支持更高输出额度、上下文预算、按端点选择推理格式、默认温度、任务时限、附加业务提示词，以及消息用量与停止原因。新建模型默认输出 65536、对话总时限 1000000 秒，移除单轮超时配置，自定义温度合并到温度设置。AI `0009` 已应用，旧配置不自动增额；具体范围见 [模型生成能力配置](docs/AI_MODEL_GENERATION_CAPABILITIES.md)，运行版本、数据回查与备份恢复见 [生产采用证据](docs/evidence/ai-workbench-production-20260910.json)。
 
-AI 对话工作台支持个人会话侧栏、页面上下文、格式化 Markdown 和 SSE 增量正文；用户消息与输入框为 13px，AI 正文为 14px。实现与隔离验收边界见 [AI 对话工作台说明](docs/AI_CHAT_WORKBENCH.md)。此代码变更尚未作为本机生产 release 采用，正式运行状态以以下发布记录为准。
+AI 对话工作台已随本次版本上线，支持个人会话侧栏、页面上下文、格式化 Markdown 和 SSE 增量正文；用户消息与输入框为 13px，AI 正文为 14px。实现与验收边界见 [AI 对话工作台说明](docs/AI_CHAT_WORKBENCH.md)。当前 effective release 为 `20260910T140701Z-0194554bc4bcead5`；正式 SSE 验收使用派发前拒绝的无效输入，不产生付费模型调用。
 
 钉钉 AI 群对话增强与库存备货计划批量导入已于 **2026-09-10 在本机生产统一采用**：系统设置新增独立 AI 对话群设置，群内 @ 在原群回复、私聊在原私聊回复，并按现有账号权限接入 12 个系统领域的只读查询；备货计划支持标准 Excel 模板原子导入和多选已确认计划一键顺序提交钉钉。同日后续版本已上线草稿计划多选和“一键确认并提交钉钉”，混合选择会保留未处理状态及失败项。AI 0008、reader/writer 最小权限、Django runtime 与 Worker 已完成受控采用，接收器已连接。首轮发布、备份恢复和只读验收见 [统一发布证据](docs/evidence/inventory-dingtalk-unified-release-20260910.json)，草稿批量确认发布见 [增量发布证据](docs/evidence/inventory-draft-bulk-confirm-production-20260910.json)，业务说明见 [钉钉 AI 对话说明](docs/DINGTALK_READONLY_ASK.md) 与 [库存管理说明](docs/INVENTORY_MANAGEMENT.md)。未执行真实群消息或付费模型端到端调用，不能据此宣称所有自然语言分析场景已验收。
 

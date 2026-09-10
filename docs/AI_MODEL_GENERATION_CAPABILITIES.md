@@ -1,6 +1,6 @@
 # 模型生成能力配置
 
-本变更为待采用候选，包含 Django AI `0009`。不自动修改既有模型额度、密钥、推理开关或温度；不代表已发布生产或已验证真实供应商。新建页面默认输出 65536、对话总时限 1000000 秒、温度跟随供应商，已有配置保留原值。API 老客户端省略新增选项时保留已有选项。
+本变更于 2026-09-10 完成本机生产采用，Django AI `0009` 已应用，见 [生产采用证据](evidence/ai-workbench-production-20260910.json)。未改写既有 5 个模型及 69 条历史消息的原有字段；真实供应商付费问答未作为发布验收。新建页面默认输出 65536、对话总时限 1000000 秒、温度跟随供应商，已有配置保留原值。API 老客户端省略新增选项时保留已有选项。
 
 ## 管理界面
 
@@ -32,7 +32,7 @@ Web AI 对话正文上限提高为 524288 字符；供应商 JSON 响应 8 MiB�
 
 ## 数据与验证
 
-首版隔离验证结果见 [2026-09-10 验证记录](evidence/ai-model-generation-capabilities-20260910.json)，后续默认值与统一时限调整见 [表单调整验证记录](evidence/ai-model-form-adjustments-20260910.json)。两者均为候选验证，正式采用与真实端点验收尚未执行。
+首版隔离验证结果见 [2026-09-10 验证记录](evidence/ai-model-generation-capabilities-20260910.json)，后续默认值与统一时限调整见 [表单调整验证记录](evidence/ai-model-form-adjustments-20260910.json)。这两份保留为候选验证，正式采用、数据回查及备份恢复结果以本页顶部的生产采用证据为准。
 
 AI `0009` 仅给 `ai_models` 增加 `generation_options_json`、给 `ai_conversation_messages` 增加 `execution_json`，默认均为 `{}`。PostgreSQL 限制其为 JSON 对象并分别限制 64 KiB / 16 KiB。沿用同表 writer、principal、scope、revision 和 mutation 审计；历史迁移兼容代码明确排除新列，不恢复旧业务读写。
 
