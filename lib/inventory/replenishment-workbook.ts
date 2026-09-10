@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import * as XLSX from "xlsx";
+import { read, utils, write } from "xlsx";
 
 export const REPLENISHMENT_IMPORT_HEADERS = [
   "货品编码",
@@ -53,12 +53,20 @@ function integer(value: unknown, rowNumber: number) {
   return Number(value);
 }
 
-function dateValue(value: unknown, rowNumber: number, label: string): string | null {
+function dateValue(value: unknown, rowNumber: number, label: string, date1904 = false): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) throw new Error(`第${rowNumber}行“${label}”不是有效日期`);
-    return `${String(parsed.y).padStart(4, "0")}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+    const wholeDays = Math.floor(value);
+    if (!Number.isFinite(value) || wholeDays < 0 || (!date1904 && wholeDays === 60)) {
+      throw new Error(`第${rowNumber}行“${label}”不是有效日期`);
+    }
+    const base = date1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 31);
+    const adjustedDays = date1904 || wholeDays < 60 ? wholeDays : wholeDays - 1;
+    const parsed = new Date(base + adjustedDays * 86_400_000);
+    if (!Number.isFinite(parsed.getTime()) || parsed.getUTCFullYear() < 1 || parsed.getUTCFullYear() > 9_999) {
+      throw new Error(`第${rowNumber}行“${label}”不是有效日期`);
+    }
+    return `${String(parsed.getUTCFullYear()).padStart(4, "0")}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
   }
   if (value instanceof Date && Number.isFinite(value.getTime())) {
     return `${value.getFullYear().toString().padStart(4, "0")}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -89,7 +97,7 @@ function consumptionDays(value: unknown, rowNumber: number) {
   return Math.round(value * 10) / 10;
 }
 
-export function parseReplenishmentGrid(grid: unknown[][]): ReplenishmentImportRow[] {
+export function parseReplenishmentGrid(grid: unknown[][], options: { date1904?: boolean } = {}): ReplenishmentImportRow[] {
   const populated = grid.filter((row) => row.some((cell) => cell !== null && cell !== undefined && String(cell).trim() !== ""));
   if (populated.length < 2) throw new Error("请在模板中填写至少1行备货计划");
   if (populated.length > MAX_REPLENISHMENT_IMPORT_ROWS + 1) throw new Error(`单次最多导入${MAX_REPLENISHMENT_IMPORT_ROWS}行备货计划`);
@@ -126,8 +134,8 @@ export function parseReplenishmentGrid(grid: unknown[][]): ReplenishmentImportRo
       operatorName: text(row[4], rowNumber, "对应运营", 200),
       department: text(row[5], rowNumber, "部门", 200) || "志高项目组",
       planType: text(row[6], rowNumber, "备货类型", 100),
-      orderDate: dateValue(row[7], rowNumber, "下单日期"),
-      expectedArrivalDate: dateValue(row[8], rowNumber, "预计到货日"),
+      orderDate: dateValue(row[7], rowNumber, "下单日期", options.date1904),
+      expectedArrivalDate: dateValue(row[8], rowNumber, "预计到货日", options.date1904),
       expectedConsumptionDays: consumptionDays(row[9], rowNumber),
       status: statusLabel === "草稿" ? "draft" : "confirmed",
       requiresInspection: inspectionLabel === "是",
@@ -150,10 +158,13 @@ export function parseReplenishmentWorkbook(bytes: ArrayBuffer): ReplenishmentImp
       return false;
     },
   });
-  const workbook = XLSX.read(bytes, { type: "array", cellFormula: true, cellDates: true, sheetRows: MAX_REPLENISHMENT_IMPORT_ROWS + 2 });
+  // Keep Excel dates as serial numbers and decode their calendar components.
+  // Converting them to JavaScript Date first can round an
+  // exact local midnight to 23:59:59.999 on the previous day in UTC+8.
+  const workbook = read(bytes, { type: "array", cellFormula: true, cellDates: false, sheetRows: MAX_REPLENISHMENT_IMPORT_ROWS + 2 });
   const sheet = workbook.Sheets["备货计划导入"];
   if (!sheet) throw new Error("工作簿必须包含名为“备货计划导入”的工作表");
-  const range = XLSX.utils.decode_range(sheet["!fullref"] || sheet["!ref"] || "A1");
+  const range = utils.decode_range(sheet["!fullref"] || sheet["!ref"] || "A1");
   if (range.e.r > MAX_REPLENISHMENT_IMPORT_ROWS || range.e.c >= REPLENISHMENT_IMPORT_HEADERS.length) {
     throw new Error(`导入表超过${MAX_REPLENISHMENT_IMPORT_ROWS}行或包含模板外的列`);
   }
@@ -162,20 +173,23 @@ export function parseReplenishmentWorkbook(bytes: ArrayBuffer): ReplenishmentImp
       throw new Error("备货计划导入不接受公式，请粘贴为值");
     }
   }
-  return parseReplenishmentGrid(XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: true }));
+  return parseReplenishmentGrid(
+    utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: true }),
+    { date1904: workbook.Workbook?.WBProps?.date1904 === true },
+  );
 }
 
 export function replenishmentTemplateWorkbook(): Uint8Array {
-  const workbook = XLSX.utils.book_new();
-  const importSheet = XLSX.utils.aoa_to_sheet([[...REPLENISHMENT_IMPORT_HEADERS]]);
+  const workbook = utils.book_new();
+  const importSheet = utils.aoa_to_sheet([[...REPLENISHMENT_IMPORT_HEADERS]]);
   for (let row = 2; row <= MAX_REPLENISHMENT_IMPORT_ROWS + 1; row += 1) {
     importSheet[`A${row}`] = { t: "s", v: "", z: "@" };
   }
   importSheet["!ref"] = `A1:M${MAX_REPLENISHMENT_IMPORT_ROWS + 1}`;
   importSheet["!cols"] = REPLENISHMENT_IMPORT_HEADERS.map((header, index) => ({ wch: index === 0 ? 22 : Math.max(14, header.length * 2 + 2) }));
   importSheet["!autofilter"] = { ref: "A1:M1" };
-  XLSX.utils.book_append_sheet(workbook, importSheet, "备货计划导入");
-  const instructions = XLSX.utils.aoa_to_sheet([
+  utils.book_append_sheet(workbook, importSheet, "备货计划导入");
+  const instructions = utils.aoa_to_sheet([
     ["填写说明", "内容"],
     ["必填字段", "货品编码、入库库房、备货数量"],
     ["货品与仓库", "必须存在于系统最新库存快照，系统会回填货品名称、品牌、供应商、库存和近30天销量"],
@@ -186,6 +200,6 @@ export function replenishmentTemplateWorkbook(): Uint8Array {
     ["安全限制", `单次最多${MAX_REPLENISHMENT_IMPORT_ROWS}行；不接受公式、重复货品与仓库组合或额外列`],
   ]);
   instructions["!cols"] = [{ wch: 18 }, { wch: 88 }];
-  XLSX.utils.book_append_sheet(workbook, instructions, "填写说明");
-  return XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  utils.book_append_sheet(workbook, instructions, "填写说明");
+  return write(workbook, { type: "array", bookType: "xlsx" });
 }

@@ -26,6 +26,25 @@ test("备货计划导入模板保留文本编码并按默认已确认解析", ()
   assert.equal(row.department, "志高项目组");
   assert.equal(row.requiresInspection, true);
   assert.equal(row.expectedConsumptionDays, 45.5);
+  assert.equal(row.orderDate, "2026-09-10");
+  assert.equal(row.expectedArrivalDate, "2026-09-18");
+});
+
+test("备货计划 Excel 日期单元格按原日历日期导入，不因时区提前一天", () => {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([
+    [...REPLENISHMENT_IMPORT_HEADERS],
+    ["P1", "广东仓", 10, "", "", "", "", new Date(2026, 8, 10), new Date(2026, 8, 18), "", "草稿", "", ""],
+  ]);
+  sheet.H2.z = "yyyy-mm-dd";
+  sheet.I2.z = "yyyy-mm-dd";
+  XLSX.utils.book_append_sheet(workbook, sheet, "备货计划导入");
+  const bytes = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+
+  const [row] = parseReplenishmentWorkbook(bytes);
+
+  assert.equal(row.orderDate, "2026-09-10");
+  assert.equal(row.expectedArrivalDate, "2026-09-18");
 });
 
 test("备货计划导入拒绝重复规格、公式和模板外字段", () => {

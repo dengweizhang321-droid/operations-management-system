@@ -18,6 +18,8 @@ from .write_requests import lock_active_authority
 
 PLAN_ID_RE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 MAX_PLAN_COUNT = 50
+APPROVED_GROUP_NAME = "志高/特睿思备货计划群"
+APPROVED_ROBOT_NAME = "志高助手"
 
 
 def _records(value: object) -> Iterable[dict[str, object]]:
@@ -155,14 +157,10 @@ class DingTalkGroupGateway:
     def send(self, *, group_id: str, robot_code: str, message: str, user_ids: list[str]) -> dict[str, object]:
         payload = self.cli.run(
             "chat", "+messages-send", "--as", "bot",
-            "--robot-code", robot_code, "--group", group_id,
-            "--text", message, "--at-user-ids", ",".join(user_ids), "--yes",
+            "--robot-code", robot_code, "--groups", group_id,
+            "--markdown", message, "--at-user-ids", ",".join(user_ids), "--yes",
         )
-        if payload.get("ok") is not True:
-            raise InventoryApiError("钉钉消息发送回执未确认成功", code="service_unavailable", status=503)
-        result = payload.get("result")
-        if isinstance(result, dict) and result.get("success") is False:
-            raise InventoryApiError("钉钉消息发送回执标记失败", code="service_unavailable", status=503)
+        _assert_send_receipt(payload)
         return payload
 
 
@@ -197,23 +195,56 @@ def _load_plans(plan_ids: list[str]) -> list[ReplenishmentPlanItem]:
     return ordered
 
 
-def _message(plans: list[ReplenishmentPlanItem]) -> tuple[str, list[str]]:
+def _message(
+    plans: list[ReplenishmentPlanItem],
+    mention_by_buyer: dict[str, str] | None = None,
+) -> tuple[str, list[str]]:
     grouped: dict[str, dict[str, list[ReplenishmentPlanItem]]] = defaultdict(lambda: defaultdict(list))
     for plan in plans:
         buyer = next(name.strip() for name in NAME_SPLIT_RE.split(plan.buyer) if name.strip())
         grouped[buyer][plan.supplier.strip()].append(plan)
     sections: list[str] = []
     for buyer in sorted(grouped, key=lambda value: value.casefold()):
-        lines = [f"@{buyer}"]
-        for supplier in sorted(grouped[buyer], key=lambda value: value.casefold()):
+        mention = (mention_by_buyer or {}).get(buyer, buyer)
+        lines = [f"@{mention}"]
+        for supplier in sorted(
+            grouped[buyer],
+            key=lambda value: (
+                min((plan.product_code.casefold(), plan.id) for plan in grouped[buyer][value]),
+                value.casefold(),
+            ),
+        ):
             items = sorted(grouped[buyer][supplier], key=lambda plan: (plan.product_code.casefold(), plan.id))
-            lines.append(f"▸ 对应工厂：{supplier}（{len(items)} 条）")
+            lines.append(f"**▸ {supplier}（{len(items)} 条）**")
             lines.extend(
                 f"{plan.product_code} {plan.product_name}，× {int(plan.planned_quantity)}台"
                 for plan in items
             )
-        sections.append("\n".join(lines))
+        sections.append("  \n".join(lines))
     return "\n\n".join(sections), sorted(grouped, key=lambda value: value.casefold())
+
+
+def _assert_send_receipt(payload: dict[str, object]) -> None:
+    if payload.get("ok") is True:
+        result = payload.get("result")
+        if not isinstance(result, dict) or result.get("success") is not False:
+            return
+    requested = payload.get("requestedCount")
+    succeeded = payload.get("succeededCount")
+    failed = payload.get("failedCount")
+    results = payload.get("results")
+    failures = payload.get("failures")
+    if (
+        requested == 1
+        and succeeded == 1
+        and failed == 0
+        and isinstance(results, list)
+        and len(results) == 1
+        and isinstance(failures, list)
+        and len(failures) == 0
+    ):
+        return
+    raise InventoryApiError("钉钉消息发送回执未确认成功", code="service_unavailable", status=503)
 
 
 def _target_name(value: object, label: str, maximum: int) -> str:
@@ -232,16 +263,26 @@ def build_group_preview(
     plan_ids = _normalize_plan_ids(plan_ids_value)
     group_name = _target_name(target_group_name, "钉钉群", 200)
     resolved_robot_name = _target_name(robot_name, "钉钉机器人", 160)
+    if group_name != APPROVED_GROUP_NAME or resolved_robot_name != APPROVED_ROBOT_NAME:
+        raise InventoryApiError(
+            f"备货群消息只允许由“{APPROVED_ROBOT_NAME}”发送到“{APPROVED_GROUP_NAME}”",
+            code="conflict",
+            status=409,
+        )
     plans = _load_plans(plan_ids)
     message, buyers = _message(plans)
     active_gateway = gateway or DingTalkGroupGateway()
     group_id, robot_code, user_ids = active_gateway.preflight(group_name, resolved_robot_name, buyers)
+    if len(user_ids) != len(buyers):
+        raise InventoryApiError("钉钉采购人员解析结果不完整", code="service_unavailable", status=503)
+    provider_message, _ = _message(plans, dict(zip(buyers, user_ids)))
     canonical = json.dumps({
         "planIds": sorted(plan_ids),
         "targetGroupName": group_name,
         "robotName": resolved_robot_name,
         "message": message,
         "buyerNames": buyers,
+        "providerMessageSha256": hashlib.sha256(provider_message.encode("utf-8")).hexdigest(),
     }, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     token = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return {
@@ -257,6 +298,7 @@ def build_group_preview(
         "_groupId": group_id,
         "_robotCode": robot_code,
         "_userIds": user_ids,
+        "_providerMessage": provider_message,
     }
 
 
@@ -331,7 +373,7 @@ def send_group_message(
         receipt = active_gateway.send(
             group_id=str(preview["_groupId"]),
             robot_code=str(preview["_robotCode"]),
-            message=message,
+            message=str(preview["_providerMessage"]),
             user_ids=[str(value) for value in preview["_userIds"]],
         )
     except Exception as error:

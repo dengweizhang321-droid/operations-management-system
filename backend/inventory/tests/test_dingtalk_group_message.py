@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from inventory.dingtalk_group_message import (
+    DingTalkGroupGateway,
     build_group_preview,
     preview_group_message,
     send_group_message,
@@ -36,6 +37,16 @@ class FakeGroupGateway:
         return {"ok": True, "result": {"success": True, "messageId": "message-1"}}
 
 
+class FakeDwsCli:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self.payload = payload
+        self.calls: list[tuple[str, ...]] = []
+
+    def run(self, *args: str) -> dict[str, object]:
+        self.calls.append(args)
+        return self.payload
+
+
 def make_plan(code: str, name: str, buyer: str, supplier: str, quantity: int) -> ReplenishmentPlanItem:
     return ReplenishmentPlanItem.objects.create(
         id=str(uuid.uuid4()),
@@ -63,40 +74,43 @@ class DingTalkGroupMessageTests(TestCase):
         )
 
     def test_preview_groups_by_buyer_and_supplier_with_exact_wording(self) -> None:
-        first = make_plan("TRS-ZK-60-033", "特睿思ZK-60水尺款开水器70L(JP)220v-316发热管", "梁家明", "羽骏", 30)
-        second = make_plan("TRS-ZK-60-041", "特睿思ZK-60水尺款开水器70L（JP）380v-316发热管", "梁家明", "羽骏", 20)
-        third = make_plan("TRS-ZK-30-097", "特睿思ZK-30一开一常温吧台机三级过滤（黑钢60L/h）", "梁家明", "羽骏", 3)
+        first = make_plan("TRS-QRLS-400-007", "特睿思QRLS-400-7绞切机（2.2KW全不锈钢）", "采购甲", "百轮", 12)
+        second = make_plan("TRS-BL-SXC-12-012", "特睿思SXC-12全钢款台式绞肉机（纯铜电机带把手带急停开关）1.3kw", "采购甲", "百轮", 4)
+        third = make_plan("TRS-BL-TS-90-04", "特睿思TS-90台式脱卸切肉机3.5mm（1.1KW不锈钢外壳）", "采购甲", "百轮", 3)
+        fourth = make_plan("TRS-MY-KC-17-01", "特睿思MY-KC-17型数控切菜机（快拆款）", "采购甲", "旻盈", 13)
         gateway = FakeGroupGateway()
 
         preview = preview_group_message(
-            [third.id, first.id, second.id], "测试群聊", "志高助手", gateway=gateway,
+            [third.id, first.id, fourth.id, second.id], "志高/特睿思备货计划群", "志高助手", gateway=gateway,
         )
 
-        self.assertEqual(preview["targetGroupName"], "测试群聊")
-        self.assertEqual(preview["buyerNames"], ["梁家明"])
+        self.assertEqual(preview["targetGroupName"], "志高/特睿思备货计划群")
+        self.assertEqual(preview["buyerNames"], ["采购甲"])
         self.assertEqual(preview["message"], "\n".join([
-            "@梁家明",
-            "▸ 对应工厂：羽骏（3 条）",
-            "TRS-ZK-30-097 特睿思ZK-30一开一常温吧台机三级过滤（黑钢60L/h），× 3台",
-            "TRS-ZK-60-033 特睿思ZK-60水尺款开水器70L(JP)220v-316发热管，× 30台",
-            "TRS-ZK-60-041 特睿思ZK-60水尺款开水器70L（JP）380v-316发热管，× 20台",
+            "@采购甲  ",
+            "**▸ 百轮（3 条）**  ",
+            "TRS-BL-SXC-12-012 特睿思SXC-12全钢款台式绞肉机（纯铜电机带把手带急停开关）1.3kw，× 4台  ",
+            "TRS-BL-TS-90-04 特睿思TS-90台式脱卸切肉机3.5mm（1.1KW不锈钢外壳），× 3台  ",
+            "TRS-QRLS-400-007 特睿思QRLS-400-7绞切机（2.2KW全不锈钢），× 12台  ",
+            "**▸ 旻盈（1 条）**  ",
+            "TRS-MY-KC-17-01 特睿思MY-KC-17型数控切菜机（快拆款），× 13台",
         ]))
         self.assertRegex(str(preview["previewToken"]), r"^[0-9a-f]{64}$")
         self.assertNotIn("_groupId", preview)
-        self.assertEqual(gateway.preflights, [("测试群聊", "志高助手", ["梁家明"])])
+        self.assertEqual(gateway.preflights, [("志高/特睿思备货计划群", "志高助手", ["采购甲"])])
 
     @patch("inventory.dingtalk_group_message.sync_replenishment_plan")
     def test_send_mentions_resolved_buyers_and_prevents_duplicate_delivery(self, sync_plan) -> None:
         plan = make_plan("P-001", "测试货品", "采购甲", "工厂甲", 8)
         gateway = FakeGroupGateway()
-        preview = build_group_preview([plan.id], "测试群聊", "志高助手", gateway=gateway)
+        preview = build_group_preview([plan.id], "志高/特睿思备货计划群", "志高助手", gateway=gateway)
 
         first = send_group_message(
-            [plan.id], "测试群聊", "志高助手", preview["previewToken"],
+            [plan.id], "志高/特睿思备货计划群", "志高助手", preview["previewToken"],
             "operator@example.test", gateway=gateway,
         )
         repeated = send_group_message(
-            [plan.id], "测试群聊", "志高助手", preview["previewToken"],
+            [plan.id], "志高/特睿思备货计划群", "志高助手", preview["previewToken"],
             "operator@example.test", gateway=gateway,
         )
 
@@ -104,6 +118,8 @@ class DingTalkGroupMessageTests(TestCase):
         self.assertEqual(repeated["status"], "already_delivered")
         self.assertEqual(len(gateway.sends), 1)
         self.assertEqual(gateway.sends[0]["user_ids"], ["user-采购甲"])
+        self.assertIn("@user-采购甲", gateway.sends[0]["message"])
+        self.assertNotIn("@采购甲", gateway.sends[0]["message"])
         self.assertEqual(sync_plan.call_count, 2)
         delivery = ReplenishmentGroupDelivery.objects.get()
         self.assertEqual(delivery.status, "delivered")
@@ -113,11 +129,11 @@ class DingTalkGroupMessageTests(TestCase):
     def test_ambiguous_external_failure_is_fenced_as_uncertain(self, _sync_plan) -> None:
         plan = make_plan("P-002", "测试货品二", "采购乙", "工厂乙", 5)
         gateway = FakeGroupGateway(fail_send=True)
-        preview = build_group_preview([plan.id], "测试群聊", "志高助手", gateway=gateway)
+        preview = build_group_preview([plan.id], "志高/特睿思备货计划群", "志高助手", gateway=gateway)
 
         with self.assertRaisesMessage(InventoryApiError, "模拟发送结果不明确"):
             send_group_message(
-                [plan.id], "测试群聊", "志高助手", preview["previewToken"],
+                [plan.id], "志高/特睿思备货计划群", "志高助手", preview["previewToken"],
                 "operator@example.test", gateway=gateway,
             )
 
@@ -129,5 +145,54 @@ class DingTalkGroupMessageTests(TestCase):
         gateway = FakeGroupGateway()
 
         with self.assertRaisesMessage(InventoryApiError, "对应采购"):
+            preview_group_message([plan.id], "志高/特睿思备货计划群", "志高助手", gateway=gateway)
+        self.assertEqual(gateway.preflights, [])
+
+    def test_gateway_uses_markdown_mentions_and_accepts_batch_ledger(self) -> None:
+        cli = FakeDwsCli({
+            "contractVersion": "im.batch-write.v1",
+            "requestedCount": 1,
+            "succeededCount": 1,
+            "failedCount": 0,
+            "results": [{"status": "succeeded"}],
+            "failures": [],
+        })
+        gateway = DingTalkGroupGateway.__new__(DingTalkGroupGateway)
+        gateway.cli = cli
+
+        gateway.send(
+            group_id="group-1",
+            robot_code="robot-1",
+            message="@user-1\n\n**▸ 百轮（1 条）**\n货品，× 1台",
+            user_ids=["user-1"],
+        )
+
+        command = cli.calls[0]
+        self.assertIn("--groups", command)
+        self.assertIn("--markdown", command)
+        self.assertIn("--at-user-ids", command)
+        self.assertNotIn("--text", command)
+
+        cli.payload = {
+            "contractVersion": "im.batch-write.v1",
+            "requestedCount": 1,
+            "succeededCount": 0,
+            "failedCount": 1,
+            "results": [{"status": "failed"}],
+            "failures": [{"status": "failed"}],
+        }
+        with self.assertRaisesMessage(InventoryApiError, "回执未确认成功"):
+            gateway.send(
+                group_id="group-1",
+                robot_code="robot-1",
+                message="@user-1",
+                user_ids=["user-1"],
+            )
+
+    def test_inventory_group_target_is_independent_from_weekly_report_target(self) -> None:
+        plan = make_plan("P-004", "测试货品四", "采购甲", "工厂甲", 1)
+        gateway = FakeGroupGateway()
+
+        with self.assertRaisesMessage(InventoryApiError, "志高/特睿思备货计划群"):
             preview_group_message([plan.id], "测试群聊", "志高助手", gateway=gateway)
         self.assertEqual(gateway.preflights, [])

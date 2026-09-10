@@ -3,11 +3,10 @@ import {
   createDjangoInventoryService,
   INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH,
 } from "@/lib/django/inventory-service";
-import {
-  createDjangoWorkflowService,
-  WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH,
-} from "@/lib/django/workflow-service";
 import { safeApiErrorResponse } from "@/lib/http/api-error";
+
+const INVENTORY_REPLENISHMENT_DINGTALK_GROUP = "志高/特睿思备货计划群";
+const INVENTORY_REPLENISHMENT_DINGTALK_ROBOT = "志高助手";
 
 type GroupRequest = {
   action?: unknown;
@@ -37,24 +36,11 @@ export async function POST(request: Request) {
       return invalid("请先预览并确认本次钉钉消息");
     }
 
-    const configResult = await createDjangoWorkflowService().requestJson<{
-      targetGroupName?: unknown;
-      robotName?: unknown;
-    }>(
-      principal,
-      { method: "GET", path: WORKFLOW_NEW_PRODUCT_WEEKLY_REPORT_CONFIG_PATH, service: "reader" },
-      { signal: request.signal },
-    );
-    const { targetGroupName, robotName } = configResult.data;
-    if (typeof targetGroupName !== "string" || !targetGroupName.trim()
-      || typeof robotName !== "string" || !robotName.trim()) {
-      return invalid("请先在系统设置中维护钉钉机器人和目标群");
-    }
     const payload = {
       action: body.action as "preview" | "send",
       planIds: planIds.map((id) => String(id).trim()),
-      targetGroupName: targetGroupName.trim(),
-      robotName: robotName.trim(),
+      targetGroupName: INVENTORY_REPLENISHMENT_DINGTALK_GROUP,
+      robotName: INVENTORY_REPLENISHMENT_DINGTALK_ROBOT,
       ...(body.action === "send" ? { previewToken: body.previewToken as string } : {}),
     };
     const result = await createDjangoInventoryService().requestJson<Record<string, unknown>>(
