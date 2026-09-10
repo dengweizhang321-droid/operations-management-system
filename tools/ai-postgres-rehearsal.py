@@ -15,9 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
+parser.add_argument("--generation-upgrade", action="store_true", help="Rehearse 0008 to 0009 in the fresh isolated database before testing")
+parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
-PORT = 55443
+PORT = arguments.port
+if not 55440 <= PORT <= 55999:
+    raise RuntimeError("Rehearsal port must stay in the isolated range")
 RUN = ROOT / ".runtime" / ("ai-pg-" + secrets.token_hex(6))
 RUN.mkdir(parents=True)
 RUN = RUN.resolve()
@@ -110,6 +114,7 @@ try:
         "TERUISI_DJANGO_PROCESS_ROLE": "development",
         "DJANGO_SETTINGS_MODULE": "teruisi_backend.settings",
         "PYTHONUTF8": "1",
+        "TERUISI_AI_REHEARSAL_PORT": str(PORT),
     }
     print(
         json.dumps(
@@ -121,6 +126,10 @@ try:
         ),
         flush=True,
     )
+    if arguments.generation_upgrade:
+        upgrade = run([sys.executable, ROOT / "tools/ai-generation-upgrade-rehearsal.py"], env=django_env)
+        (RUN / "generation-upgrade.json").write_text(upgrade, encoding="utf-8")
+        print(upgrade.strip(), flush=True)
     tests = run(
         [
             sys.executable,

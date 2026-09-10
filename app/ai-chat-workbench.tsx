@@ -7,7 +7,9 @@ import { SearchableSelect } from "./ui/searchable-select";
 
 const MarkdownContent = lazy(() => import("./ai-markdown"));
 
-type Message = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: string; createdAt: string; contentTruncated: boolean };
+import type { AiExecutionInfo } from "@/lib/ai/model-generation";
+
+type Message = { execution?: AiExecutionInfo; id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: string; createdAt: string; contentTruncated: boolean };
 type Conversation = { id: string; title: string; updatedAt: string };
 type ChatModel = { id: string; name: string; modelType: string; isDefault: boolean };
 export type LiveAiAnswer = { prompt: string; content: string; stage: string; tools: string[]; incomplete?: boolean };
@@ -19,7 +21,7 @@ export type AiWorkbenchProps = {
   draft: string; error: string; notice: string; context: AiPageContext | null; contextError: string; liveAnswer: LiveAiAnswer | null;
   onDraft: (value: string) => void; onSend: () => void; onStop: () => void; onNew: () => void;
   onOpen: (id: string) => void; onDelete: (id: string) => void; onModel: (id: string) => void;
-  onMore: () => void; onOlder: () => void; onRefresh: () => void; onRemoveContext: () => void;
+  onExpand: (id: string) => void; onMore: () => void; onOlder: () => void; onRefresh: () => void; onRemoveContext: () => void;
   renderArtifacts: (messageId: string) => ReactNode;
 };
 
@@ -30,6 +32,19 @@ function Symbol({ name }: { name: "spark" | "plus" | "chat" | "arrow" | "stop" |
 
 export function AiMarkdown({ content, partial = false }: { content: string; partial?: boolean }) {
   return <Suspense fallback={<span className="ai-workbench-stage" role="status">正在排版…</span>}><MarkdownContent content={content} partial={partial} /></Suspense>;
+}
+
+function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
+  if (!value?.durationMs && !value?.providerCalls) return null;
+  const number = (n: number | null | undefined) => n == null ? "未报告" : n.toLocaleString();
+  const stops: Record<string, string> = { stop: "正常完成", end_turn: "正常完成", completed: "正常完成", length: "达到输出上限", max_tokens: "达到输出上限", output_limit: "达到输出上限", shortcut: "快捷回复", stop_sequence: "停止序列", tool_calls: "工具调用", tool_use: "工具调用" };
+  return <details className="ai-workbench-execution"><summary>{((value.durationMs ?? 0) / 1000).toFixed(1)} 秒 · {value.outputTruncated ? "达到输出上限" : stops[value.stopReason ?? ""] ?? "已完成"} · 查看用量</summary><dl>
+    <div><dt>已报告输入 / 输出 Token</dt><dd>{number(value.inputTokens)} / {number(value.outputTokens)}</dd></div>
+    <div><dt>已报告思考 Token</dt><dd>{number(value.reasoningTokens)}</dd></div>
+    <div><dt>模型 / 工具调用</dt><dd>{value.providerCalls ?? 0} / {value.toolCalls ?? 0}</dd></div>
+    <div><dt>本轮估算输入 / 上下文预算</dt><dd>{number(value.context?.estimatedInputTokens)} / {number(value.context?.contextWindowTokens)}</dd></div>
+    {!!value.context?.droppedMessages && <div><dt>因预算移出上下文的旧消息</dt><dd>{value.context.droppedMessages} 条（历史记录保留）</dd></div>}
+  </dl><small>上下文为估算值，实际用量以供应商返回为准。{(value.usageReportedCalls ?? 0) < (value.providerCalls ?? 0) ? "部分调用未报告完整用量，以上不代表总计。" : ""}</small></details>;
 }
 
 function date(value: string) { const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
@@ -78,8 +93,8 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
             {visible.map(message => <div key={message.id} className={`ai-workbench-message ai-workbench-${message.role} ${message.messageKind === "context_reset" ? "ai-workbench-reset" : ""}`}>
               {message.role === "assistant" && <div className="ai-workbench-message-heading"><span className="ai-workbench-brand"><Symbol name="spark" /></span><strong>{message.messageKind === "context_reset" ? "上下文断点" : "小特"}</strong></div>}
               <div className="ai-workbench-message-content">{message.role === "assistant" ? <AiMarkdown content={message.content} /> : <p>{message.content}</p>}
-                {message.contentTruncated && <small role="status">历史消息较长，当前显示已按响应上限截断。</small>}{props.renderArtifacts(message.id)}
-                <div className="ai-workbench-message-actions">{message.role === "assistant" && <button type="button" className="ai-workbench-text" onClick={() => void copy(message)}><Symbol name={copied === message.id ? "check" : "copy"} />{copied === message.id ? "已复制" : "复制"}</button>}<time dateTime={message.createdAt}>{date(message.createdAt)}</time></div>
+                {message.contentTruncated && <small role="status">历史消息较长。<button type="button" className="ai-workbench-text" onClick={() => props.onExpand(message.id)}>展开完整回复</button></small>}{props.renderArtifacts(message.id)}
+                <ExecutionDetails value={message.execution} /><div className="ai-workbench-message-actions">{message.role === "assistant" && <button type="button" className="ai-workbench-text" onClick={() => void copy(message)}><Symbol name={copied === message.id ? "check" : "copy"} />{copied === message.id ? "已复制" : "复制"}</button>}<time dateTime={message.createdAt}>{date(message.createdAt)}</time></div>
               </div>{message.role === "user" && <span className="ai-workbench-user-avatar">我</span>}
             </div>)}
             {props.liveAnswer && <>{showPendingPrompt && <div className="ai-workbench-message ai-workbench-user"><div className="ai-workbench-message-content"><p>{props.liveAnswer.prompt}</p></div><span className="ai-workbench-user-avatar">我</span></div>}<div className="ai-workbench-message ai-workbench-assistant"><div className="ai-workbench-message-heading"><span className="ai-workbench-brand"><Symbol name="spark" /></span><strong>小特</strong><span className="ai-workbench-stage" role="status">{props.sending && <i className="ai-workbench-spinner" />}{props.liveAnswer.stage}</span></div><div className="ai-workbench-message-content">{props.liveAnswer.tools.length > 0 && <details className="ai-workbench-tools"><summary>本次已查询 {props.liveAnswer.tools.length} 项</summary><ul>{props.liveAnswer.tools.map((tool, index) => <li key={`${tool}-${index}`}>{tool}</li>)}</ul></details>}<AiMarkdown content={props.liveAnswer.content} partial />{props.sending && <span className="ai-workbench-cursor" />}{props.liveAnswer.incomplete && <p className="ai-workbench-incomplete">部分内容尚未确认完整保存，请刷新核对服务端记录。</p>}</div></div></>}

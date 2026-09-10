@@ -18,7 +18,7 @@ export async function requestDjangoAiStream(principal: AppPrincipal, payload: Re
   headers.set("accept", "text/event-stream");
   const controller = new AbortController(); let cancelled = false;
   const abort = () => { controller.abort(); if (!cancelled) { cancelled = true; options.onCancel?.(); } };
-  const timer = setTimeout(abort, 300000);
+  const timer = setTimeout(abort, 930000);
   const cleanup = () => { clearTimeout(timer); options.signal?.removeEventListener("abort", abort); };
   options.signal?.addEventListener("abort", abort, { once: true });
   if (options.signal?.aborted) { abort(); cleanup(); throw unavailable(); }
@@ -52,7 +52,7 @@ export async function requestDjangoAiStream(principal: AppPrincipal, payload: Re
         const part = await reader.read();
         if (part.done) { cleanup(); reader.releaseLock(); output.close(); return; }
         bytes += part.value.byteLength;
-        if (bytes > 2 * 1024 * 1024) throw unavailable();
+        if (bytes > 32 * 1024 * 1024) throw unavailable();
         output.enqueue(part.value);
       } catch { abort(); cleanup(); await reader.cancel().catch(() => undefined); output.error(unavailable()); }
     },

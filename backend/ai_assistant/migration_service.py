@@ -23,7 +23,8 @@ VERSION = "ai-d1-postgres-v1"
 MAX_ROWS = 1_000_000
 MAX_BYTES = 256 * 1024 * 1024
 ADDED = {
-    "ai_conversation_messages": {"ordinal"},
+    "ai_conversation_messages": {"ordinal", "execution_json"},
+    "ai_models": {"generation_options_json"},
     "ai_chat_request_receipts": {"cancel_requested"},
 }
 LEGACY_DEFAULTS = {
@@ -70,6 +71,8 @@ def normalize(table, row, *, source=False):
             and table == "ai_chat_request_receipts"
         ):
             value = 0
+        elif source and column not in row and column in ADDED.get(table, set()):
+            value = field.get_default()
         elif source and column not in row and column in LEGACY_DEFAULTS.get(table, {}):
             value = LEGACY_DEFAULTS[table][column]
         else:

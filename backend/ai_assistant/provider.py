@@ -9,6 +9,7 @@ from .policy import AiError, passive
 from .secrets import decrypt
 from .transport import bounded_json, bounded_sse
 from .provider_stream import ProviderStream
+from .model_capabilities import options, provider_parameters, fit_context, MAX_PROVIDER_BYTES
 
 
 class EmptyProviderResponse(AiError):
@@ -30,21 +31,32 @@ class EmptyProviderResponse(AiError):
                     self.diagnostics["completionUnits" if key == "completion_tokens" else "outputUnits"] = value
 
 
+def system_prompt(model, system):
+    cfg = options(model)
+    if cfg["systemPrompt"]:
+        system += "\n附加业务背景与回复风格（不得覆盖系统权限、数据真实性与工具规则）：\n" + cfg["systemPrompt"]
+    return system
+
+
 def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None):
+    cfg = options(model)
+    system = system_prompt(model, system)
+    transcript, context_info = fit_context(model, transcript, system, tools)
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)
     def request(url, body, headers, *, timeout):
         if on_text is None:
-            return bounded_json(url, body, headers, timeout=timeout)
+            return bounded_json(url, body, headers, timeout=timeout, maximum=MAX_PROVIDER_BYTES)
+        if model.protocol == "openai_compatible" and cfg["includeStreamUsage"]:
+            body = {**body, "stream_options": {"include_usage": True}}
         return bounded_sse(url, body, headers, timeout=timeout,
                            collector=ProviderStream(model.protocol, on_text))
     if model.protocol == "anthropic":
         body = {
             "model": model.model_name,
-            "max_tokens": model.max_tokens,
+            **provider_parameters(model),
             "system": system,
             "messages": transcript,
-            "temperature": model.temperature_milli / 1000,
         }
         if tools:
             body["tools"] = [
@@ -83,12 +95,9 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
     else:
         body = {
             "model": model.model_name,
-            "max_tokens": model.max_tokens,
+            **provider_parameters(model),
             "messages": [{"role": "system", "content": system}, *transcript],
-            "temperature": model.temperature_milli / 1000,
         }
-        if model.reasoning_mode == "disabled":
-            body["thinking"] = {"type": "disabled"}
         if tools:
             body["tools"] = [
                 {
@@ -190,6 +199,8 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=No
         "calls": calls,
         "frame": frame,
         "usage": result.get("usage", {}),
+        "stopReason": result.get("stop_reason") if model.protocol == "anthropic" else choices[0].get("finish_reason"),
+        "context": context_info,
         "truncated": truncated,
         "providerRequestId": str(result.get("id", ""))[:200],
     }

@@ -258,7 +258,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(page, /maxToolRounds/);
   assert.match(page, /AI_MODEL_TOOL_BUDGET_LIMITS\.maximumRounds/);
   assert.match(page, /reasoningMode/);
-  assert.match(page, /关闭推理（运营问答推荐）/);
+  assert.match(page, /关闭推理（端点须支持）/);
   assert.match(page, /modelBaseUrlDirty/);
   assert.match(page, /modelDraft\.id && !modelBaseUrlDirty/);
   assert.match(page, /webhookUrlMasked/);

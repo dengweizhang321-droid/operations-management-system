@@ -36,7 +36,9 @@ class ProviderHttpError(AiError):
 
 @contextmanager
 def request_budget(seconds):
-    token = _deadline.set(time.monotonic() + seconds)
+    parent = _deadline.get()
+    deadline = time.monotonic() + seconds
+    token = _deadline.set(min(parent, deadline) if parent is not None else deadline)
     try:
         yield
     finally:
@@ -56,6 +58,12 @@ def remaining_budget(default=120):
     return remaining
 
 
+def limit_request_budget(seconds):
+    current = _deadline.get()
+    desired = time.monotonic() + seconds
+    _deadline.set(min(current, desired) if current is not None else desired)
+
+
 @contextmanager
 def request_cancellation(check):
     token = _cancel_check.set(check)
@@ -66,8 +74,9 @@ def request_cancellation(check):
 
 
 def bounded_sse(url, body, headers, *, timeout, collector):
+    from .model_capabilities import MAX_PROVIDER_STREAM_BYTES
     return _bounded_json(url, {**body, "stream": True}, {**headers, "Accept": "text/event-stream"},
-                         timeout=timeout, stream_collector=collector)
+                         timeout=timeout, stream_collector=collector, maximum=MAX_PROVIDER_STREAM_BYTES)
 
 
 def resolve_addresses(host, port, timeout):

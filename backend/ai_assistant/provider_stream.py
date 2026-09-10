@@ -7,6 +7,7 @@ import codecs
 import json
 import re
 from .policy import AiError
+from .model_capabilities import MAX_REPLY_CHARACTERS
 
 
 def invalid():
@@ -27,7 +28,7 @@ class ProviderStream:
         if not isinstance(value, str):
             raise invalid()
         self.text_count += len(value)
-        if self.text_count > 48000:
+        if self.text_count > MAX_REPLY_CHARACTERS:
             raise AiError("模型回复超过系统消息上限", "response_too_large", 503)
         if value:
             self.on_text(value)

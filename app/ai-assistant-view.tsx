@@ -11,6 +11,9 @@ import { SearchableSelect } from "./ui/searchable-select";
 import AiChatWorkbench, { type LiveAiAnswer } from "./ai-chat-workbench";
 import { readAiChatStream, AiChatStreamError } from "@/lib/ai/chat-stream";
 
+import AiModelGenerationFields from "./ai-model-generation-fields";
+import { DEFAULT_AI_GENERATION, MAX_AI_REPLY_CHARACTERS, type AiGenerationOptions, type AiExecutionInfo } from "@/lib/ai/model-generation";
+
 type CurrentUser = AppCurrentUser;
 type AiModelProtocol = "openai_compatible" | "anthropic";
 type AiModelType = "text" | "vision";
@@ -19,7 +22,7 @@ type AiModelReasoningMode = "auto" | "disabled";
 type AiChannelKind = "dingtalk_group_bot" | "dingtalk_app" | "wechat_work_group_bot" | "wechat_work_app";
 type AiArtifactCell = string | number | boolean | null;
 type AiTableArtifact = { id: string; kind: "table"; title: string; sourceTool: string; columns: string[]; rows: AiArtifactCell[][]; rowCount: number; truncated: boolean; fileName: string; mimeType: "text/csv; charset=utf-8"; contentDigest: string; downloadUrl: string; createdAt: string };
-type AiConversationMessage = { id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string; artifacts: AiTableArtifact[]; contentBytes: number; contentTruncated: boolean };
+type AiConversationMessage = { execution?: AiExecutionInfo; id: string; conversationId: string; role: "user" | "assistant"; content: string; messageKind: "message" | "context_reset" | "help"; createdAt: string; artifacts: AiTableArtifact[]; contentBytes: number; contentTruncated: boolean };
 type AiAvailableChatModel = { id: string; name: string; protocol: AiModelProtocol; modelType: AiModelType; modelName: string; isDefault: boolean };
 type AiConversationPagination = { page: number; pageSize: number; total: number; returned: number; truncated: boolean; hasMore: boolean };
 type AiMessagePagination = { pageSize: number; total: number; returned: number; truncated: boolean; hasMore: boolean; nextBefore: number | null };
@@ -39,6 +42,7 @@ type AiModelRecord = {
   status: AiModelStatus;
   timeoutMs: number;
   maxTokens: number;
+  generationOptions: AiGenerationOptions;
   reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
@@ -90,6 +94,7 @@ type AiModelDraft = {
   isDefaultTextModel: boolean;
   timeoutMs: number;
   maxTokens: number;
+  generationOptions: AiGenerationOptions;
   reasoningMode: AiModelReasoningMode;
   temperatureMilli: number;
   maxToolRounds: number;
@@ -349,7 +354,8 @@ function newAiModelDraft(): AiModelDraft {
     status: "enabled",
     isDefaultTextModel: false,
     timeoutMs: 60000,
-    maxTokens: 4096,
+    maxTokens: 16384,
+    generationOptions: { ...DEFAULT_AI_GENERATION, temperatureMode: "default" },
     reasoningMode: "auto",
     temperatureMilli: 200,
     maxToolRounds: 6,
@@ -611,6 +617,23 @@ function AiAssistantView({
     }
   }, [workspaceModule, rememberPending]);
 
+  const expandMessage = async (id: string) => {
+    const conversationId = activeConversationId;
+    const generation = messageGenerationRef.current;
+    try {
+      const params = new URLSearchParams({ conversationId, messageId: id });
+      if (workspaceModule) params.set("workspaceModule", workspaceModule);
+      const response = await fetch(`/api/ai/chat?${params}`, { cache: "no-store" });
+      const payload = await response.json() as { items?: AiConversationMessage[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "读取完整回复失败");
+      const item = payload.items?.find(message => message.id === id && message.conversationId === conversationId);
+      if (!item) throw new Error("消息响应不匹配");
+      if (mountedRef.current && generation === messageGenerationRef.current) setMessages(current => current.map(message => message.id === id ? item : message));
+    } catch (reason) {
+      if (mountedRef.current && generation === messageGenerationRef.current) setError(reason instanceof Error ? reason.message : "读取失败");
+    }
+  };
+
   const recoverPending = useCallback(async (signal: AbortSignal) => {
     if (!recoveryKey || !workspaceModule) return;
     let id: string | null = null;
@@ -720,6 +743,13 @@ function AiAssistantView({
     sendControllerRef.current = controller;
     setSending(true); setError(""); setNotice("");
     setLiveAnswer({ prompt: text, content: "", stage: "正在连接", tools: [] });
+    let deltaBuffer = "";
+    let deltaTimer: ReturnType<typeof setTimeout> | undefined;
+    const flushDelta = () => {
+      clearTimeout(deltaTimer); deltaTimer = undefined;
+      const content = deltaBuffer; deltaBuffer = "";
+      if (content && mountedRef.current) setLiveAnswer(current => current ? { ...current, content: (current.content + content).slice(0, MAX_AI_REPLY_CHARACTERS) } : null);
+    };
     try {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
@@ -730,11 +760,16 @@ function AiAssistantView({
       const payload = (response.ok && response.headers.get("content-type")?.includes("text/event-stream")
         ? await readAiChatStream(response, (event, value) => {
           if (!mountedRef.current) return;
+          if (event === "delta") {
+            deltaBuffer += value.content as string;
+            if (!deltaTimer) deltaTimer = setTimeout(flushDelta, 80);
+            return;
+          }
+          if (event === "reset") { clearTimeout(deltaTimer); deltaTimer = undefined; deltaBuffer = ""; }
           setLiveAnswer(current => {
             if (!current) return current;
             if (event === "reset") return { ...current, content: "", stage: typeof value.stage === "string" ? value.stage : "正在生成" };
             if (event === "status") return { ...current, stage: typeof value.stage === "string" ? value.stage : current.stage };
-            if (event === "delta") return { ...current, content: (current.content + value.content).slice(0, 48000), stage: "正在生成回答" };
             if (event === "tool" && value.ok === true && typeof value.title === "string") return { ...current, tools: [...current.tools, value.title].slice(0, 74) };
             return current;
           });
@@ -743,6 +778,7 @@ function AiAssistantView({
         conversationId?: string;
         assistantMessageId?: string;
         reply?: string;
+        execution?: AiExecutionInfo;
         modelId?: string | null;
         outcome?: AiConversationMessage["messageKind"] | "answered";
         artifacts?: AiTableArtifact[];
@@ -766,6 +802,7 @@ function AiAssistantView({
         conversationId,
         assistantMessageId: payload.assistantMessageId,
       });
+      clearTimeout(deltaTimer); deltaBuffer = "";
       setMessageDraft("");
       setLiveAnswer(null);
       if (payload?.modelId) setSelectedModelId(payload.modelId);
@@ -778,6 +815,7 @@ function AiAssistantView({
         messageKind: payload.outcome === "context_reset" || payload.outcome === "help" ? payload.outcome : "message",
         createdAt: new Date().toISOString(),
         artifacts: payload.artifacts ?? [],
+        execution: payload.execution,
         contentBytes: new TextEncoder().encode(payload.reply).byteLength,
         contentTruncated: false,
       };
@@ -794,7 +832,8 @@ function AiAssistantView({
         setNotice("消息已发送，但服务端同步尚未完整确认；原请求号已保留，再试只会读取原结果，不会重复调用模型。");
       }
     } catch (reason) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current) { clearTimeout(deltaTimer); return; }
+      flushDelta();
       if (reason instanceof AiChatStreamError && shouldReleasePendingAiChatRequest(reason.code)) {
         pendingChatRequestRef.current = null; rememberPending(null);
       }
@@ -1016,6 +1055,7 @@ function AiAssistantView({
       isDefaultTextModel: item.isDefaultTextModel,
       timeoutMs: item.timeoutMs,
       maxTokens: item.maxTokens,
+      generationOptions: item.generationOptions ?? { ...DEFAULT_AI_GENERATION },
       reasoningMode: item.reasoningMode,
       temperatureMilli: item.temperatureMilli,
       maxToolRounds: item.maxToolRounds,
@@ -1044,7 +1084,7 @@ function AiAssistantView({
       onNew={startNewConversation} onOpen={id => { setLiveAnswer(null); void openConversation(id); }}
       onDelete={id => { const item = conversationItems.find(item => item.id === id); if (item) void deleteConversation(item); }}
       onModel={id => void changeConversationModel(id)} onMore={() => void loadMoreConversations()}
-      onOlder={() => void loadOlderMessages()} onRefresh={() => { setLiveAnswer(null); void refresh(); }}
+      onExpand={id => void expandMessage(id)} onOlder={() => void loadOlderMessages()} onRefresh={() => { setLiveAnswer(null); void refresh(); }}
       onRemoveContext={() => setPageContext(null)}
       renderArtifacts={id => <AiMessageArtifacts artifacts={messages.find(item => item.id === id)?.artifacts ?? []} />}
     />}
@@ -1066,16 +1106,17 @@ function AiAssistantView({
           <label className="ai-form-wide"><span>API 地址</span><input value={modelDraft.baseUrl} required type="url" onChange={(event) => { setModelBaseUrlDirty(true); setModelDraft((current) => ({ ...current, baseUrl: event.target.value })); }} placeholder="https://api.example.com/v1" /><small>生产环境仅接受 HTTPS，且地址查询参数不能携带 API Key 或 Token；编辑时未修改地址会保留原配置。</small></label>
           <label><span>API Key</span><input value={modelDraft.apiKey} type="password" autoComplete="new-password" onChange={(event) => setModelDraft((current) => ({ ...current, apiKey: event.target.value }))} placeholder={isEditingModel ? "同一协议与 origin 可留空保留" : "输入模型密钥"} /><small>{isEditingModel ? "更换协议或服务 origin 时必须同时填写新密钥；原密钥不会转发。" : "保存后仅显示掩码。"}</small></label>
           <label><span>状态</span><SearchableSelect value={modelDraft.status} onChange={(value) => setModelDraft((current) => ({ ...current, status: value as AiModelStatus }))} ariaLabel="模型状态" searchPlaceholder="搜索模型状态" options={[{ value: "enabled", label: "启用" }, { value: "disabled", label: "停用" }]} /></label>
-          <label><span>文本请求超时（毫秒）</span><input type="number" min={3000} max={120000} step={1000} disabled={modelDraft.modelType !== "text"} value={modelDraft.timeoutMs} onChange={(event) => setModelDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /><small>3,000—120,000，覆盖响应头和完整响应体。</small></label>
-          <label><span>文本最大输出 Token</span><input type="number" min={128} max={8192} step={128} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /></label>
-          <label><span>文本推理模式</span><SearchableSelect value={modelDraft.reasoningMode} onChange={(value) => setModelDraft((current) => ({ ...current, reasoningMode: value as AiModelReasoningMode }))} ariaLabel="文本推理模式" searchPlaceholder="搜索推理模式" disabled={modelDraft.modelType !== "text" || modelDraft.protocol !== "openai_compatible"} options={[{ value: "auto", label: "跟随供应商默认" }, { value: "disabled", label: "关闭推理（运营问答推荐）" }]} /><small>GLM 等默认深度思考模型建议关闭，避免推理占满输出 Token；其他模型保持“跟随供应商默认”。</small></label>
-          <label><span>文本温度（千分数）</span><input type="number" min={0} max={1000} step={50} disabled={modelDraft.modelType !== "text"} value={modelDraft.temperatureMilli} onChange={(event) => setModelDraft((current) => ({ ...current, temperatureMilli: Number(event.target.value) }))} /><small>200 = 0.2；服务端按 0—1,000 校验。</small></label>
+          <label><span>单轮请求超时（毫秒）</span><input type="number" min={3000} max={600000} step={1000} value={modelDraft.timeoutMs} onChange={(event) => setModelDraft((current) => ({ ...current, timeoutMs: Number(event.target.value) }))} /><small>3,000—600,000，覆盖单轮完整响应；还受任务总时限约束。</small></label>
+          <label><span>最大输出 Token</span><input type="number" min={128} max={131072} step={1} value={modelDraft.maxTokens} onChange={(event) => setModelDraft((current) => ({ ...current, maxTokens: Number(event.target.value) }))} /></label>
+          <label><span>推理开关</span><SearchableSelect value={modelDraft.reasoningMode} onChange={(value) => setModelDraft((current) => ({ ...current, reasoningMode: value as AiModelReasoningMode }))} ariaLabel="文本推理模式" searchPlaceholder="搜索推理模式" disabled={modelDraft.protocol !== "openai_compatible"} options={[{ value: "auto", label: "跟随供应商默认" }, { value: "disabled", label: "关闭推理（端点须支持）" }]} /><small>仅在端点明确支持时关闭；需要更多思考空间可调整输出额度与下方推理参数。</small></label>
+          <label><span>自定义温度（千分数）</span><input type="number" min={0} max={modelDraft.protocol === "anthropic" ? 1000 : 2000} step={50} disabled={modelDraft.generationOptions.temperatureMode === "default"} value={modelDraft.temperatureMilli} onChange={(event) => setModelDraft((current) => ({ ...current, temperatureMilli: Number(event.target.value) }))} /><small>200 = 0.2；Anthropic 最高 1.0，OpenAI 兼容最高 2.0，具体模型可能另有限制。</small></label>
+          <AiModelGenerationFields value={modelDraft.generationOptions} protocol={modelDraft.protocol} onChange={generationOptions => setModelDraft(current => ({ ...current, generationOptions }))} />
           <label><span>最大工具轮数</span><input type="number" min={1} max={AI_MODEL_TOOL_BUDGET_LIMITS.maximumRounds} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxToolRounds} onChange={(event) => setModelDraft((current) => ({ ...current, maxToolRounds: Number(event.target.value) }))} /></label>
           <label><span>工具调用总数</span><input type="number" min={1} max={AI_MODEL_TOOL_BUDGET_LIMITS.maximumTotalCalls} disabled={modelDraft.modelType !== "text"} value={modelDraft.maxTotalToolCalls} onChange={(event) => setModelDraft((current) => ({ ...current, maxTotalToolCalls: Number(event.target.value) }))} /><small>单轮不再另限 4 次；仍以此总数、执行时长和取消机制防止死循环，不能设置为真正无限。</small></label>
           <label className="ai-check-field"><input type="checkbox" checked={modelDraft.isDefaultTextModel} disabled={modelDraft.modelType !== "text" || modelDraft.status !== "enabled"} onChange={(event) => setModelDraft((current) => ({ ...current, isDefaultTextModel: event.target.checked }))} /><span>设为默认文本模型</span></label>
           <div className="ai-form-actions"><button type="submit" className="primary-button" disabled={savingModel}>{savingModel ? "保存中…" : isEditingModel ? "保存修改" : "新增模型"}</button></div>
         </form>
-        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{item.modelType === "text" && <small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 推理 {item.reasoningMode === "disabled" ? "关闭" : "供应商默认"} · 温度 {(item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
+        <div className="ai-config-list">{modelItems.length === 0 && <p className="soft-text">暂无模型配置。新增并测试成功后，小特才能对话。</p>}{modelItems.map((item) => <div key={item.id} className="ai-config-card"><div><strong>{item.name}</strong><small>{aiModelTypeLabel(item.modelType)} · {item.protocol === "anthropic" ? "Anthropic" : "OpenAI 兼容"} · {item.modelName} · 密钥 {item.apiKeySuffix || "未配置"}</small>{<small>超时 {item.timeoutMs}ms · 输出 {item.maxTokens} · 上下文 {(item.generationOptions?.contextWindowTokens ?? DEFAULT_AI_GENERATION.contextWindowTokens).toLocaleString()} · 推理 {item.reasoningMode === "disabled" ? "关闭" : item.generationOptions?.reasoningFormat && item.generationOptions.reasoningFormat !== "default" ? "自定义" : "供应商默认"} · 温度 {item.generationOptions?.temperatureMode === "default" ? "供应商默认" : (item.temperatureMilli / 1000).toFixed(2)} · 工具 {item.maxToolRounds} 轮/{item.maxTotalToolCalls} 次</small>}<small>{item.isDefaultTextModel ? "默认文本模型 · " : ""}{item.lastTestedAt ? `最近测试：${formatDateTime(item.lastTestedAt)} · ${item.lastTestResult || "完成"}` : "尚未测试"}</small></div><span className={`status ${item.status === "enabled" ? "status-success" : "status-warning"}`}>{item.status === "enabled" ? "启用" : "停用"}</span><div className="ai-card-actions"><button type="button" className="row-action" onClick={() => editModel(item)}>编辑</button><button type="button" className="row-action" disabled={busyConfigId === `model:${item.id}`} onClick={() => void testConfiguration("model", item.id)}>{busyConfigId === `model:${item.id}` ? "测试中…" : item.modelType === "vision" ? "测试图片识别" : "测试连接"}</button><button type="button" className="row-action danger" disabled={busyConfigId === `model:${item.id}`} onClick={() => void deleteConfiguration("model", item.id, item.name, item.version)}>删除</button></div></div>)}</div>
       </article>
       <article className="panel ai-admin-card data-refresh-region" aria-busy={configurationState === "loading"}>
         <div className="section-header"><div><h3>{isEditingChannel ? "编辑聊天渠道" : "新增聊天渠道"}</h3><p>钉钉和企业微信群机器人可主动发送测试消息；企业微信应用回调会验签、解密并只记录去重凭据，不会自动执行消息内容。</p></div>{isEditingChannel && <button type="button" className="text-button" onClick={() => setChannelDraft(newAiChannelDraft())}>取消编辑</button>}</div>

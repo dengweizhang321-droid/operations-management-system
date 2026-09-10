@@ -678,6 +678,7 @@ class AiConversationDeletionAudits(models.Model):
 
 
 class AiConversationMessages(models.Model):
+    execution_json = models.TextField(default="{}")
     ordinal = models.PositiveBigIntegerField(default=0, db_index=True)
     id = models.TextField(primary_key=True)
     conversation_id = models.TextField()
@@ -916,6 +917,7 @@ class AiMemoryEntries(models.Model):
 
 
 class AiModels(models.Model):
+    generation_options_json = models.TextField(default="{}")
     id = models.TextField(primary_key=True)
     version = models.BigIntegerField(default=1)
     name = models.TextField()

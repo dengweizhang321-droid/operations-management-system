@@ -30,6 +30,12 @@ test("Markdown renders actual content safely and does not execute embedded HTML 
 });
 const principal = { email:"analyst@example.invalid", displayName:"测试", role:"analyst" as const, scope:null };
 const environment = { TERUISI_DJANGO_AI_READER_BASE_URL:"http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL:"http://127.0.0.1:18112", TERUISI_DJANGO_INTERNAL_SECRET:"stream-isolated-13579-abcdefghijklmnopqrstuvwxyz" };
+test("long SSE answers pass the former 48000 character limit and preserve completion metadata", async () => {
+  const reply = "长回答".repeat(20000);
+  const execution = { outputTokens: 30000, stopReason: "length", outputTruncated: true };
+  const result = await readAiChatStream<{reply:string;execution:typeof execution}>(response(frame(1,"delta",{content:reply}) + frame(2,"done",{reply,execution}),65536),()=>{});
+  assert.equal(result.reply,reply); assert.deepEqual(result.execution,execution);
+});
 test("thin SSE relay signs original body and streams only from configured writer", async () => {
   let calls=0;
   const result=await requestDjangoAiStream(principal,{message:"test",clientRequestId:"request"},{environment,fetchImpl:async(url,init)=>{

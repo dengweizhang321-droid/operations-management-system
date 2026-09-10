@@ -1,0 +1,19 @@
+"use client";
+import type { AiGenerationOptions } from "@/lib/ai/model-generation";
+
+export default function AiModelGenerationFields({ value, protocol, onChange }: { value: AiGenerationOptions; protocol: string; onChange: (value: AiGenerationOptions) => void }) {
+  function set<K extends keyof AiGenerationOptions>(key: K, next: AiGenerationOptions[K]) { onChange({ ...value, [key]: next }); }
+  const anthropic = protocol === "anthropic";
+  return <>
+    <div className="ai-model-section-title"><strong>生成能力与执行预算</strong><small>按实际供应商端点支持范围填写。更大的额度不会自动提升模型等级。</small></div>
+    <label><span>上下文窗口 Token（输入 + 输出）</span><input type="number" min={8192} max={2000000} step={1} value={value.contextWindowTokens} onChange={e => set("contextWindowTokens", Number(e.target.value))} /><small>按模型文档填写；系统预留输出空间，以保守估算整理历史，不额外调用模型压缩。</small></label>
+    <label><span>对话任务总时限（秒）</span><input type="number" min={30} max={900} value={value.taskTimeoutMs / 1000} onChange={e => set("taskTimeoutMs", Number(e.target.value) * 1000)} /><small>覆盖多轮生成与工具查询，须比单轮超时至少多 10 秒；Agent、钉钉等渠道仍受各自执行预算约束。</small></label>
+    <label><span>温度设置</span><select value={value.temperatureMode} onChange={e => set("temperatureMode", e.target.value as AiGenerationOptions["temperatureMode"])}><option value="default">跟随供应商默认（不发送温度参数）</option><option value="custom">使用自定义温度</option></select><small>推理模型不支持温度时使用默认。</small></label>
+    {!anthropic && <label><span>输出额度参数格式</span><select value={value.outputTokenParameter} onChange={e => set("outputTokenParameter", e.target.value as AiGenerationOptions["outputTokenParameter"])}><option value="max_tokens">兼容格式 · max_tokens</option><option value="max_completion_tokens">推理模型格式 · max_completion_tokens</option></select><small>以端点文档为准，不根据模型名称猜测。</small></label>}
+    <label><span>推理参数格式</span><select value={value.reasoningFormat} onChange={e => onChange({ ...value, reasoningFormat: e.target.value as AiGenerationOptions["reasoningFormat"], reasoningEffort: "default", ...(e.target.value.startsWith("anthropic_") ? { temperatureMode: "default" as const } : {}) })}><option value="default">保持原有方式 / 供应商默认</option>{anthropic ? <><option value="anthropic_budget">Anthropic · 固定思考预算</option><option value="anthropic_adaptive">Anthropic · 自适应思考</option></> : <><option value="thinking">Thinking 开关（端点须支持）</option><option value="reasoning_effort">Reasoning effort（端点须支持）</option></>}</select><small>只发送所选格式，不会在失败后自动换参数再次请求。</small></label>
+    {["thinking", "reasoning_effort", "anthropic_adaptive"].includes(value.reasoningFormat) && <label><span>推理强度</span><select value={value.reasoningEffort} onChange={e => set("reasoningEffort", e.target.value as AiGenerationOptions["reasoningEffort"])}>{(["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"] as const).filter(v => value.reasoningFormat !== "anthropic_adaptive" || ["default", "low", "medium", "high", "max"].includes(v)).map(v => <option value={v} key={v}>{({ default:"跟随供应商默认", none:"无", minimal:"最少", low:"低", medium:"中", high:"高", xhigh:"极高", max:"最大" })[v]}</option>)}</select><small>支持的档位因端点和模型而异。</small></label>}
+    {value.reasoningFormat === "anthropic_budget" && <label><span>思考预算 Token</span><input type="number" min={1024} max={131071} value={value.thinkingBudgetTokens} onChange={e => set("thinkingBudgetTokens", Number(e.target.value))} /><small>必须小于最大输出，给最终正文留出空间。</small></label>}
+    {!anthropic && <label className="checkbox-field"><input type="checkbox" checked={value.includeStreamUsage} onChange={e => set("includeStreamUsage", e.target.checked)} /><span>请求流式 Token 用量</span><small>端点须支持 stream_options.include_usage；未返回用量时显示“未报告”。</small></label>}
+    <label className="ai-model-system-prompt"><span>附加系统提示词</span><textarea rows={3} maxLength={8000} value={value.systemPrompt} placeholder="业务背景、分析重点、回复风格…" onChange={e => set("systemPrompt", e.target.value)} /><small>适用于该模型的业务背景与风格；系统数据权限和工具规则始终生效。</small></label>
+  </>;
+}

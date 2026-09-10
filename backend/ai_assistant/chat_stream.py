@@ -48,7 +48,7 @@ class ChatStream:
 
     def run(self):
         try:
-            with transport.request_budget(260), transport.request_cancellation(self.check):
+            with transport.request_budget(900), transport.request_cancellation(self.check):
                 self.check()
                 result = chat.answer(self.payload, self.principal, self.request_id, on_event=self.emit)
                 self.emit("done", result)

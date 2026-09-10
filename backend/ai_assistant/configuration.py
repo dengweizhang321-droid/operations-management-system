@@ -19,6 +19,7 @@ from .policy import (
     uid,
 )
 from .secrets import encrypt
+from . import model_capabilities as capabilities
 
 
 def origin(value):
@@ -76,11 +77,13 @@ def model_record(row, *, available=False):
         result = record(row, "id name protocol model_type model_name")
         result["isDefault"] = bool(row.is_default_text_model)
         return result
-    return record(
+    result = record(
         row,
         "id version name protocol model_type model_name base_url api_key_suffix is_default_text_model status timeout_ms max_tokens reasoning_mode temperature_milli max_tool_rounds max_total_tool_calls last_test_result last_tested_at created_at updated_at",
         bool_fields={"is_default_text_model"},
     )
+    result["generationOptions"] = capabilities.options(row)
+    return result
 
 
 def resolve_model(model_id=None):
@@ -120,6 +123,7 @@ def save_model(body, principal, *, image=False):
             "temperatureMilli",
             "maxToolRounds",
             "maxTotalToolCalls",
+            "generationOptions",
         }
     fields(body, allowed, {"name", "modelName"})
     cls = m.AiSpaceModelProfiles if image else m.AiModels
@@ -166,7 +170,7 @@ def save_model(body, principal, *, image=False):
             body.get("status", "enabled"), ["enabled", "disabled"], "状态"
         ),
         "timeout_ms": integer(
-            body.get("timeoutMs", 90000 if image else 60000), "timeoutMs", 3000, 120000
+            body.get("timeoutMs", 90000 if image else 60000), "timeoutMs", 3000, 120000 if image else 600000
         ),
         "updated_at": timezone.now(),
         "version": row.version + 1 if row else 1,
@@ -179,12 +183,12 @@ def save_model(body, principal, *, image=False):
             is_default_text_model=boolean(
                 body.get("isDefaultTextModel", False), "isDefaultTextModel"
             ),
-            max_tokens=integer(body.get("maxTokens", 4096), "maxTokens", 128, 8192),
+            max_tokens=integer(body.get("maxTokens", 4096), "maxTokens", 128, 131072),
             reasoning_mode=choice(
                 body.get("reasoningMode", "auto"), ["auto", "disabled"], "推理模式"
             ),
             temperature_milli=integer(
-                body.get("temperatureMilli", 200), "temperatureMilli", 0, 1000
+                body.get("temperatureMilli", 200), "temperatureMilli", 0, 1000 if protocol == "anthropic" else 2000
             ),
             max_tool_rounds=integer(
                 body.get("maxToolRounds", 6), "maxToolRounds", 1, 62
@@ -193,6 +197,10 @@ def save_model(body, principal, *, image=False):
                 body.get("maxTotalToolCalls", 12), "maxTotalToolCalls", 1, 74
             ),
         )
+        from .policy import canonical
+        values["generation_options_json"] = canonical(capabilities.validate(
+            body.get("generationOptions", capabilities.options(row) if row else {}),
+            protocol=protocol, max_tokens=values["max_tokens"], timeout_ms=values["timeout_ms"], reasoning_mode=values["reasoning_mode"]))
         if values["is_default_text_model"]:
             if values["status"] != "enabled" or values["model_type"] != "text":
                 raise AiError("默认文本模型必须启用且为文本能力")

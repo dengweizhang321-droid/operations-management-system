@@ -17,6 +17,7 @@ from . import (
     artifacts as artifact_service,
 )
 from .configuration import model_record, resolve_model
+from .model_capabilities import options as generation_options, fit_context, usage_numbers, MAX_REPLY_CHARACTERS
 from .policy import (
     AiError,
     canonical,
@@ -160,7 +161,7 @@ def messages(params, principal):
         )
     )
     query = query.defer("content").annotate(
-        _bounded_content=Substr("content", 1, 6144), _content_bytes=byte_length
+        _bounded_content=Substr("content", 1, MAX_REPLY_CHARACTERS if "messageId" in params else 6144), _content_bytes=byte_length
     )
     rows = list(query.order_by("-ordinal")[: size + 1])
     more = len(rows) > size
@@ -177,17 +178,18 @@ def messages(params, principal):
             artifacts.setdefault(asset.message_id, []).append(item)
             artifact_budget -= size
     items = []
-    remaining = 256 * 1024
+    remaining = 2 * 1024 * 1024 if "messageId" in params else 256 * 1024
     for row in rows:
         result = record(row, "id conversation_id role message_kind created_at")
         raw = row._bounded_content.encode()
-        bounded = raw[: min(24 * 1024, remaining)].decode("utf-8", errors="ignore")
+        bounded = raw[: min(2 * 1024 * 1024 if "messageId" in params else 24 * 1024, remaining)].decode("utf-8", errors="ignore")
         remaining -= len(bounded.encode())
         result.update(
             content=bounded,
             contentBytes=row._content_bytes,
             contentTruncated=len(bounded.encode()) < row._content_bytes,
             artifacts=artifacts.get(row.id, []),
+            execution=json.loads(row.execution_json),
         )
         items.append(result)
     return {
@@ -367,11 +369,14 @@ def _context(conv, principal, prompt, *, private_context=True):
     )
     if reset:
         query = query.filter(ordinal__gt=reset.ordinal)
-    rows = list(
-        query.defer("content")
-        .annotate(_bounded_content=Substr("content", 1, 12000))
-        .order_by("-ordinal")[:20]
-    )
+    rows, history_bytes = [], 0
+    candidates = (query.defer("content")
+        .annotate(_bounded_content=Substr("content", 1, MAX_REPLY_CHARACTERS))
+        .order_by("-ordinal")[:200])
+    for row in candidates.iterator(chunk_size=1):
+        history_bytes += len(row._bounded_content.encode())
+        if history_bytes > 4 * 1024 * 1024: break
+        rows.append(row)
     rows.reverse()
     frames = [{"role": r.role, "content": r._bounded_content} for r in rows]
     if not private_context:
@@ -425,7 +430,11 @@ def _artifacts(results, conv, message, principal):
     return assets
 
 
+@transport.request_budget(900)
 def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None, on_event=None):
+    started_at = time.monotonic()
+    execution = {"inputTokens": None, "outputTokens": None, "reasoningTokens": None, "providerCalls": 0, "usageReportedCalls": 0,
+                 "toolCalls": 0, "stopReason": "shortcut", "outputTruncated": False, "context": {}}
     # Only the trusted Stream worker can supply these keyword arguments.
     surface = "dingtalk_chat" if dingtalk_session is not None else "ai_chat"
     if dingtalk_session is not None:
@@ -533,6 +542,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             else None
         )
         if not shortcut:
+            transport.limit_request_budget(generation_options(model)["taskTimeoutMs"] / 1000)
             active = m.AiChatRequestReceipts.objects.filter(
                 status__in=["processing", "dispatched"],
                 admitted_at__gte=timezone.now() - timedelta(minutes=240),
@@ -639,6 +649,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 turn_system = system
                 if not offered_tools:
                     turn_system += "\n本轮只生成最终回答，不再调用工具。请依据已有成功查询说明结论、来源和缺口；若没有可用结果，明确说明未能取得数据并建议缩小问题，不得编造。"
+                frames, context_info = fit_context(model, frames, provider.system_prompt(model, turn_system), offered_tools)
+                previous_dropped = execution["context"].get("droppedMessages", 0)
+                execution["context"] = {**context_info, "droppedMessages": previous_dropped + context_info["droppedMessages"]}
                 provider_arguments = {
                     "modelId": model.id, "ordinal": ordinal,
                     "phase": "final" if final_turn else "query",
@@ -677,7 +690,15 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     # every dispatch preserves the saved provider parameters.
                     emit("reset", {"stage": "正在生成回答" if final_turn else "正在分析问题", "ordinal": ordinal})
                     stream_options = {"on_text": lambda content: emit("delta", {"content": content})} if on_event else {}
+                    execution["providerCalls"] += 1
                     response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True, **stream_options)
+                    reported_usage = usage_numbers(response.get("usage"))
+                    if reported_usage["inputTokens"] is not None and reported_usage["outputTokens"] is not None:
+                        execution["usageReportedCalls"] += 1
+                    for key, value in reported_usage.items():
+                        if value is not None: execution[key] = (execution[key] or 0) + value
+                    execution["stopReason"] = response.get("stopReason") or ("output_limit" if response.get("truncated") else "completed")
+                    execution["outputTruncated"] = bool(response.get("truncated"))
                 except Exception as error:
                     with mutation(principal):
                         audit(
@@ -719,7 +740,11 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 live(receipt.id)
                 frames.append(response["frame"])
                 if not response["calls"]:
-                    reply = text(response["text"], "模型回复", 48000)
+                    reply = text(response["text"], "模型回复", MAX_REPLY_CHARACTERS)
+                    if dingtalk_session is not None and len(reply) > 48000:
+                        reply = reply[:47900] + "\n（达到渠道正文上限，请缩小范围继续提问。）"
+                        execution["outputTruncated"] = True
+                        execution["stopReason"] = "channel_limit"
                     break
                 emit("reset", {"stage": "正在查询系统数据", "ordinal": ordinal})
                 outputs = []
@@ -758,6 +783,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                         raise AiError("工具审计不可用", "service_unavailable", 503)
                     emit("tool", {"title": entry["title"], "ok": result.get("ok") is True})
                     results.append((call["name"], result))
+                    execution["toolCalls"] += 1
                     outputs.append(result)
                 frames += provider.tool_frames(model, response["calls"], outputs)
             else:
@@ -767,6 +793,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
         with mutation(principal):
             row = live(receipt.id)
             message = append(conv.id, "assistant", reply, shortcut or "message")
+            execution["durationMs"] = int((time.monotonic() - started_at) * 1000)
+            message.execution_json = canonical(execution)
+            message.save(update_fields=["execution_json"])
             assets = _artifacts(results, conv, message, principal) if dingtalk_session is None else []
             result = {
                 "conversationId": conv.id,
@@ -775,6 +804,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 "modelId": conv.model_id,
                 "outcome": shortcut or "answered",
                 "artifacts": assets,
+                "execution": execution,
             }
             row.status = "succeeded"
             row.result_json = canonical(result)
