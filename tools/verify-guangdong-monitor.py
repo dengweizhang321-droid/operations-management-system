@@ -123,10 +123,26 @@ def main():
             assert cursor.fetchone() == (False, False)
         print(json.dumps({"stage": "minimum-roles-and-readback", "status": "passed"}), flush=True)
 
+        from inventory.plans import upsert_plan
+        from inventory.models import ReplenishmentPlanItem
+        with connection.cursor() as cursor:
+            cursor.execute("SET ROLE gd_writer")
+        plan = upsert_plan({"sourceBatchId": "mirror", "productCode": "00123", "productName": "镜像测试风扇",
+                            "warehouse": "广东仓", "plannedQuantity": 20, "suggestedQuantity": 20, "reason": "镜像备货"},
+                           "mirror@example.invalid")
+        with connection.cursor() as cursor:
+            cursor.execute("RESET ROLE")
+            cursor.execute("SET ROLE gd_reader")
+        assert ReplenishmentPlanItem.objects.get(id=plan.id).guangdong_health["active"] is True
+        item = gd.monitor(Principal("mirror@example.invalid", "Mirror", "admin", None), {})["items"][0]
+        assert (item["risk"], item["riskSource"]) == ("healthy", "备货跟进")
+        with connection.cursor() as cursor:
+            cursor.execute("RESET ROLE")
+
         def summary(db):
             with psycopg.connect(host="127.0.0.1", port=PORT, user="gd_owner", password=password, dbname=db) as conn:
                 result = {}
-                for table in TABLES:
+                for table in (*TABLES, "replenishment_plan_items", "inventory_data_revisions"):
                     rows = conn.execute(sql.SQL("SELECT row_to_json(t)::text FROM {} t ORDER BY row_to_json(t)::text").format(sql.Identifier(table))).fetchall()
                     result[table] = {"rows": len(rows), "sha256": hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()}
                 return result
@@ -135,7 +151,7 @@ def main():
         command([BIN / "createdb.exe", "gd_restore"], "restore-create")
         command([BIN / "pg_restore.exe", "--no-owner", "--no-privileges", "--exit-on-error", "-d", "gd_restore", run / "mirror.dump"], "restore")
         assert summary("gd_restore") == before
-        evidence = {"status": "passed", "postgresPort": PORT, "syntheticDataOnly": True, "migration": "0009_guangdong_item_risk_overrides", "tables": before, "minimumRoleChecks": "passed", "restoreMatches": True}
+        evidence = {"status": "passed", "postgresPort": PORT, "syntheticDataOnly": True, "migration": "0010_replenishment_health", "tables": before, "minimumRoleChecks": "passed", "restoreMatches": True}
         (run / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
         print(json.dumps({"stage": "restore-readback", "status": "passed", "evidence": str(run / "result.json")}), flush=True)
         connection.close()

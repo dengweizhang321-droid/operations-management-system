@@ -9,6 +9,7 @@ from django.db.models import Case, IntegerField, Q, Sum, When
 from .errors import InventoryApiError
 from .models import InventoryImportScopeHead, InventoryStockLine, ReplenishmentPlanItem
 from .revisions import bump_revision
+from .replenishment_health import lock_stock_scope, start_cycle
 from .write_requests import lock_active_authority
 
 
@@ -209,9 +210,13 @@ def _upsert_plan_locked(data: dict[str, object], actor_email: str) -> Replenishm
                 **lookup,
                 **defaults,
             )
+            start_cycle(plan)
+            plan.save(update_fields=["guangdong_health"])
         else:
+            previous_quantity = plan.planned_quantity
             for field, value in defaults.items():
                 setattr(plan, field, value)
+            start_cycle(plan, previous_quantity)
             plan.save()
         return plan
     except IntegrityError as error:
@@ -221,6 +226,8 @@ def _upsert_plan_locked(data: dict[str, object], actor_email: str) -> Replenishm
 def upsert_plan(data: dict[str, object], actor_email: str) -> ReplenishmentPlanItem:
     with transaction.atomic():
         lock_active_authority()
+        if data.get("warehouse") == "广东仓":
+            lock_stock_scope()
         plan = _upsert_plan_locked(data, actor_email)
         bump_revision({"kind": "replenishment_upsert", "planId": plan.id})
         return plan
@@ -256,6 +263,8 @@ def update_plan(plan_id: str, status: str, planned_quantity: int | None) -> Repl
         raise InventoryApiError("备货计划状态无效")
     with transaction.atomic():
         lock_active_authority()
+        if ReplenishmentPlanItem.objects.filter(id=plan_id, warehouse="广东仓").exists():
+            lock_stock_scope()
         plan = ReplenishmentPlanItem.objects.select_for_update().filter(id=plan_id).first()
         if plan is None:
             return None
@@ -267,9 +276,11 @@ def update_plan(plan_id: str, status: str, planned_quantity: int | None) -> Repl
             )
         if planned_quantity is not None and plan.status != "draft":
             raise InventoryApiError("只有备货草稿可以调整计划数量", code="conflict", status=409)
+        previous_quantity = plan.planned_quantity
         plan.status = status
         if planned_quantity is not None:
             plan.planned_quantity = planned_quantity
+        start_cycle(plan, previous_quantity)
         plan.save()
         bump_revision({"kind": "replenishment_update", "planId": plan.id, "status": status})
         return plan

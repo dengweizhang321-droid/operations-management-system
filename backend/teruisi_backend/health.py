@@ -465,7 +465,7 @@ REQUIRED_INVENTORY_COLUMNS = {
         "status", "migration_generation", "brand", "category", "supplier", "buyer",
         "operator_name", "department", "plan_type", "order_date",
         "expected_arrival_date", "requires_inspection", "current_stock_quantity",
-        "sales_30d_quantity", "notes",
+        "sales_30d_quantity", "notes", "guangdong_health",
     },
     "inventory_operating_settings": {
         "id", "target_days", "critical_days", "slow_days", "stagnant_days",

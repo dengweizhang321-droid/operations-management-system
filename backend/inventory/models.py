@@ -409,6 +409,7 @@ class ReplenishmentPlanItem(models.Model):
     sales_30d_quantity = models.BigIntegerField(null=True, blank=True)
     suggested_quantity = models.BigIntegerField()
     planned_quantity = models.BigIntegerField()
+    guangdong_health = models.JSONField(default=dict)
     coverage_days_tenths = models.IntegerField(null=True, blank=True)
     reason = models.TextField(default="")
     notes = models.TextField(default="")

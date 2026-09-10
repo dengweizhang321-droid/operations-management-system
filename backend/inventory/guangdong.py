@@ -25,6 +25,7 @@ from .models import (
 from .query import _latest_batch, _sales_query, _sales_revision, _warehouse_key
 from .revisions import revision_value, bump_revision
 from .write_requests import lock_active_authority
+from .replenishment_health import waiting_for_stock
 
 MAX_ITEMS = 5000
 RISK_LABELS = {"no_stock": "无可用库存", "urgent": "紧急补货", "warning": "补货预警", "stale": "积压风险", "unknown": "待完善/待观察", "healthy": "健康"}
@@ -322,9 +323,7 @@ def risk_fields(*, available, sales30, lead, buffer, snapshot):
     return {"risk": risk, "riskLabel": RISK_LABELS[risk], "riskReasons": reasons, "turnoverDays": turnover, "latestOrderDate": order_date}
 
 
-def monitor(principal, options, *, export=False):
-    before = version()
-    watched = [row for row in _bounded_items() if row.active]
+def _project_items(principal, watched):
     codes = [row.product_code for row in watched]
     latest, stock = _stock(codes)
     age_latest, ages = _ages(codes)
@@ -405,8 +404,34 @@ def monitor(principal, options, *, export=False):
                 riskLabel=RISK_LABELS[watched_row.risk_override],
                 riskReasons=[f"人工设置：{watched_row.risk_reason_override}", f"系统原判：{item['autoRiskLabel']}（{auto_reason}）"],
             )
+        if waiting_for_stock(plan):
+            item.update(
+                risk="healthy", riskLabel=RISK_LABELS["healthy"], riskSource="备货跟进",
+                riskReasons=["已增加备货数量，已关注并下单备货；等待广东仓实物库存首次增加后重新检测库存健康状态"],
+            )
         item["riskReason"] = "；".join(item["riskReasons"])
         items.append(item)
+    return items, latest, age_latest, sales, stale
+
+
+def overview_risks(principal, codes):
+    """Apply identical Guangdong rules to every exact-warehouse overview SKU."""
+    if not codes:
+        return {}
+    configured = {row.product_code: row for row in _bounded_items() if row.active}
+    result = {}
+    for offset in range(0, len(codes), MAX_ITEMS):
+        watched = [configured.get(code) or GuangdongMonitorItem(product_code=code)
+                   for code in codes[offset:offset + MAX_ITEMS]]
+        items, *_ = _project_items(principal, watched)
+        result.update({item["productCode"]: item for item in items})
+    return result
+
+
+def monitor(principal, options, *, export=False):
+    before = version()
+    watched = [row for row in _bounded_items() if row.active]
+    items, latest, age_latest, sales, stale = _project_items(principal, watched)
     facets = {key: sorted({row[field] for row in items if row[field]}) for key, field in (("brands", "brand"), ("categories", "category"), ("suppliers", "supplier"))}
     keywords = list(dict.fromkeys(re.split(r"[\s,，;；]+", str(options.get("query") or "").strip().lower())))[:8]
     filtered = [row for row in items if (not any(keywords) or any(keyword in str(row[key]).lower() for keyword in keywords if keyword for key in ("productCode", "productName", "specification", "supplier", "brand", "category"))) and all(not options.get(key) or row[field] in options[key] for key, field in (("brands", "brand"), ("categories", "category"), ("suppliers", "supplier")))]
@@ -427,7 +452,7 @@ def monitor(principal, options, *, export=False):
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
         "items": filtered if export else filtered[(page - 1) * size:page * size],
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
     }
     if version() != before: _conflict()
     if export and options.get("version") != before: _conflict()

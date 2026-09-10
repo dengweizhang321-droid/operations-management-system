@@ -357,6 +357,8 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
         row.product_code: row
         for row in ErpProductMaster.objects.filter(product_code__in=product_codes)
     }
+    from .guangdong import overview_risks
+    guangdong = overview_risks(principal, sorted({row.product_code for row in stock_rows if row.warehouse == "广东仓"}))
     plans = defaultdict(lambda: {"quantity": 0, "draft": False})
     for plan in ReplenishmentPlanItem.objects.filter(
         Q(status__in=["draft", "confirmed"])
@@ -394,6 +396,12 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
             settings,
             30,
         )
+        gd = guangdong.get(row.product_code) if row.warehouse == "广东仓" else None
+        if gd:
+            status = {"no_stock": "urgent", "urgent": "urgent", "warning": "replenish",
+                      "healthy": "healthy", "stale": "stagnant", "unknown": "no_sales"}[gd["risk"]]
+            label, reason = gd["riskLabel"], gd["riskReason"] or "库存覆盖处于广东仓目标区间"
+            coverage_days = gd["turnoverDays"]
         plan = plans[(row.product_code, row.warehouse)]
         suggested = (
             max(

@@ -787,6 +787,9 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
         head.current_batch_id = batch_id
         head.heartbeat_at = now
         head.save()
+        if dataset == "stock":
+            from .replenishment_health import advance_cycles
+            advance_cycles(batch)
         bump_revision(
             {
                 "kind": "import",
