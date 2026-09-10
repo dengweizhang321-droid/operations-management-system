@@ -1232,6 +1232,7 @@ function Invoke-WranglerRuntimeProcess(
 
   $process = [Diagnostics.Process]::new()
   $process.StartInfo = $startInfo
+  $operation = (@($Arguments | Select-Object -First 3) -join " ")
   try {
     if (-not $process.Start()) { throw "受保护 Wrangler CLI 无法启动" }
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
@@ -1243,7 +1244,7 @@ function Invoke-WranglerRuntimeProcess(
       if (-not $process.WaitForExit(5000)) {
         throw "受保护 Wrangler CLI 超时后无法在 5 秒内终止"
       }
-      throw "受保护 Wrangler CLI 执行超时"
+      throw "受保护 Wrangler CLI 执行超时（operation=$operation；timeoutSeconds=$TimeoutSeconds）"
     }
     $process.WaitForExit()
     return [pscustomobject]@{
