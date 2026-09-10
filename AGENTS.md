@@ -44,7 +44,7 @@
 
 ### 2.1 Django 后端渐进迁移决策
 
-- 2026-09-10，用户授权将现有功能分支统一合入 main、发布并清理。当前本机 Worker/helper effective release 为 `20260910T033345Z-954b74d3e05a6399`，Django 部署清单 SHA 为 `eab2932578b3427497083e496406e7e9ab977f22b102f26410e5d3c07e1d0724`；23 服务及网页/helper 健康检查通过。钉钉只读问数已应用 AI 0007、配置既有角色并启用 Stream，首版接收器仍需显式启动，不能据此宣称所有模型问数场景已通过验收。正式发布、备份恢复及分支来源见 `docs/evidence/unified-release-20260910.json`；以下旧版本继续作为历史证据。
+- 2026-09-10，钉钉 AI 群对话增强与库存备货计划批量导入已统一合入 main 并受控发布。当前本机 Worker/helper effective release 为 `20260910T083226Z-2c53e5a99e7232d9`，Worker manifest SHA 为 `54bcaa9845be609c7251bc23d36c74cda5bc81c9052e0bf1e22d1ec24daac170`，Django 部署清单 SHA 为 `7de0c05d2d9a4025cf60c57aa4fb165e3388e6d3391a7035b51e188236bb1f84`；整栈为 Running / Ready / exact_release，全部组件就绪。AI 0008 与最小权限角色已采用，钉钉 Stream 已连接；只读验收确认 27 个工具和 243 个数据集覆盖 12 个领域，外发消息与付费模型调用均为 0。备货模板下载生产回读通过，导入不会自动写钉钉。发布前后备份均通过独立恢复；正式证据见 `docs/evidence/inventory-dingtalk-unified-release-20260910.json`。真实群消息与付费模型端到端调用尚未执行，不能据此宣称所有模型问数场景已通过验收；以下旧版本继续作为历史证据。
 
 - 2026-09-06 后续已完成本机全局 D1 控制链正式脱钩。当前 effective release 为 `20260906T035823Z-fceee410b71f79b0`，Django 部署清单 SHA 为 `28587a32ef44290b974f3dc4af5cec01d4583c8da2cb3b02d91943e1bdab4114`；23 服务、Worker/helper、启动绑定、生产只读 API 和发布前后备份独立恢复均通过。详细门禁见第 8 节及 `docs/GLOBAL_D1_CONTROL_RETIREMENT.md`。以下聚合与各域记录中的旧版本均保留为历史采用证据。
 
