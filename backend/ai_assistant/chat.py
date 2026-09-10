@@ -425,7 +425,7 @@ def _artifacts(results, conv, message, principal):
     return assets
 
 
-def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None):
+def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None, on_event=None):
     # Only the trusted Stream worker can supply these keyword arguments.
     surface = "dingtalk_chat" if dingtalk_session is not None else "ai_chat"
     if dingtalk_session is not None:
@@ -438,6 +438,16 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
         if channel_guard and not connection.in_atomic_block:
             channel_guard()
         return _live(receipt_id, principal)
+    last_stream_check = 0
+    def emit(event, value):
+        nonlocal last_stream_check
+        if on_event:
+            # Do not publish data after a principal/scope/receipt revocation.
+            # Check at most once a second, in addition to the existing turn fences.
+            if time.monotonic() - last_stream_check >= 1:
+                live(receipt.id)
+                last_stream_check = time.monotonic()
+            on_event(event, value)
     fields(
         body,
         {
@@ -573,6 +583,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
         append(conv.id, "user", prompt, "help" if shortcut == "help" else "message")
     results = []
     try:
+        emit("status", {"stage": "正在准备查询", "conversationId": conv.id})
         if shortcut:
             tools = (
                 transport.catalog(principal, surface) if shortcut == "help" else []
@@ -664,7 +675,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     # A model name does not identify the serving endpoint's
                     # capabilities. Finalization changes tools/instructions only;
                     # every dispatch preserves the saved provider parameters.
-                    response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True)
+                    emit("reset", {"stage": "正在生成回答" if final_turn else "正在分析问题", "ordinal": ordinal})
+                    stream_options = {"on_text": lambda content: emit("delta", {"content": content})} if on_event else {}
+                    response = provider.turn(model, frames, turn_system, offered_tools, retain_reasoning=True, **stream_options)
                 except Exception as error:
                     with mutation(principal):
                         audit(
@@ -708,6 +721,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 if not response["calls"]:
                     reply = text(response["text"], "模型回复", 48000)
                     break
+                emit("reset", {"stage": "正在查询系统数据", "ordinal": ordinal})
                 outputs = []
                 for call in response["calls"]:
                     live(receipt.id)
@@ -742,6 +756,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     )
                     if result.get("auditStatus") == "unavailable":
                         raise AiError("工具审计不可用", "service_unavailable", 503)
+                    emit("tool", {"title": entry["title"], "ok": result.get("ok") is True})
                     results.append((call["name"], result))
                     outputs.append(result)
                 frames += provider.tool_frames(model, response["calls"], outputs)

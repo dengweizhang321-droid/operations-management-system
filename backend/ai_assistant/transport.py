@@ -20,6 +20,7 @@ from django.conf import settings
 from .policy import AiError, canonical, current_principal, uid
 
 _deadline = ContextVar("ai_network_deadline", default=None)
+_cancel_check = ContextVar("ai_network_cancel_check", default=None)
 _dns_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-dns")
 _dns_slots = BoundedSemaphore(4)
 _synthetic_network = ipaddress.ip_network("198.18.0.0/15")
@@ -43,6 +44,9 @@ def request_budget(seconds):
 
 
 def remaining_budget(default=120):
+    check = _cancel_check.get()
+    if check:
+        check()
     deadline = _deadline.get()
     remaining = (
         default if deadline is None else min(default, deadline - time.monotonic())
@@ -50,6 +54,20 @@ def remaining_budget(default=120):
     if remaining <= 0:
         raise AiError("AI 请求已达到总时间上限", "provider_timeout", 503)
     return remaining
+
+
+@contextmanager
+def request_cancellation(check):
+    token = _cancel_check.set(check)
+    try:
+        yield
+    finally:
+        _cancel_check.reset(token)
+
+
+def bounded_sse(url, body, headers, *, timeout, collector):
+    return _bounded_json(url, {**body, "stream": True}, {**headers, "Accept": "text/event-stream"},
+                         timeout=timeout, stream_collector=collector)
 
 
 def resolve_addresses(host, port, timeout):
@@ -180,6 +198,7 @@ def _bounded_json(
     internal=False,
     method="POST",
     fixed_addresses=None,
+    stream_collector=None,
 ):
     parts = urlsplit(url)
     if (
@@ -261,9 +280,15 @@ def _bounded_json(
         length = response.getheader("Content-Length")
         if length and (not length.isdigit() or int(length) > maximum):
             raise AiError("响应超限", "response_too_large", 503)
+        if stream_collector is not None:
+            if not 200 <= response.status < 300:
+                raise ProviderHttpError(response.status)
+            if "text/event-stream" not in (response.getheader("Content-Type") or "").lower():
+                raise AiError("模型端点未返回 SSE，未自动重发请求", "invalid_provider_response", 503)
         chunks = []
         count = 0
         while not response.isclosed():
+            remaining_budget(timeout)
             remaining = timeout - (time.monotonic() - started)
             if remaining <= 0:
                 raise AiError("请求超时", "provider_timeout", 503)
@@ -274,10 +299,16 @@ def _bounded_json(
             count += len(part)
             if count > maximum:
                 raise AiError("响应超限", "response_too_large", 503)
-            chunks.append(part)
+            if stream_collector is None:
+                chunks.append(part)
+            else:
+                stream_collector.feed(part)
+                if stream_collector.done:
+                    break
         if not 200 <= response.status < 300:
             raise ProviderHttpError(response.status)
-        value = json.loads(b"".join(chunks).decode("utf-8"))
+        value = (stream_collector.finish() if stream_collector is not None
+                 else json.loads(b"".join(chunks).decode("utf-8")))
         if not isinstance(value, dict):
             raise AiError("响应 JSON 无效", "invalid_provider_response", 503)
         return value

@@ -201,6 +201,9 @@ def _dispatch(request, path=""):
             fields(params, set())
             return response(datasets.query(parts[1], payload, principal, request_id))
         if root == "chat" and len(parts) == 1 and request.method == "POST":
+            if "text/event-stream" in request.headers.get("Accept", ""):
+                from .chat_stream import response as stream_response
+                return stream_response(payload, principal, request_id)
             return response(chat.answer(payload, principal, request_id))
         if (
             root in {"agent-jobs", "workflow-runs"}
@@ -677,6 +680,11 @@ def dispatch(request, path=""):
             result = _dispatch(request, path)
         if result.status_code < 400:
             result["X-AI-Revision"] = revision()
+        if getattr(result, "ai_stream", None) is not None and gate:
+            # Transfer the existing permit to the producer. Returning headers or
+            # closing the browser must not admit extra concurrent provider calls.
+            result.ai_stream.release = gate.release
+            gate = None
         return result
     finally:
         if gate:

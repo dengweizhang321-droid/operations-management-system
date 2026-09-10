@@ -7,7 +7,8 @@ import re
 from .configuration import endpoint
 from .policy import AiError, passive
 from .secrets import decrypt
-from .transport import bounded_json
+from .transport import bounded_json, bounded_sse
+from .provider_stream import ProviderStream
 
 
 class EmptyProviderResponse(AiError):
@@ -29,9 +30,14 @@ class EmptyProviderResponse(AiError):
                     self.diagnostics["completionUnits" if key == "completion_tokens" else "outputUnits"] = value
 
 
-def turn(model, transcript, system, tools, *, retain_reasoning=False):
+def turn(model, transcript, system, tools, *, retain_reasoning=False, on_text=None):
     base = endpoint(model.base_url)
     key = decrypt(model.api_key_encrypted)
+    def request(url, body, headers, *, timeout):
+        if on_text is None:
+            return bounded_json(url, body, headers, timeout=timeout)
+        return bounded_sse(url, body, headers, timeout=timeout,
+                           collector=ProviderStream(model.protocol, on_text))
     if model.protocol == "anthropic":
         body = {
             "model": model.model_name,
@@ -49,7 +55,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False):
                 }
                 for t in tools
             ]
-        result = bounded_json(
+        result = request(
             base + "/messages",
             body,
             {"x-api-key": key, "anthropic-version": "2023-06-01"},
@@ -95,7 +101,7 @@ def turn(model, transcript, system, tools, *, retain_reasoning=False):
                 }
                 for t in tools
             ]
-        result = bounded_json(
+        result = request(
             base + "/chat/completions",
             body,
             {"Authorization": "Bearer " + key},

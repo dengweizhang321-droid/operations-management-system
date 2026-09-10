@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
+@import "./ai-chat-workbench.css";
 
 /* Unified market SKU database */
 .settings-market-master-live > .panel:has(.market-price-review-table) { display: none; }

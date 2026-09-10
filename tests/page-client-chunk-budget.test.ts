@@ -203,8 +203,10 @@ test("page keeps the AI workspace and customer service behind direct lazy bounda
   assert.match(aiAssistant, /generation !== conversationGenerationRef\.current/);
   assert.match(aiAssistant, /messageGenerationRef/);
   assert.match(aiAssistant, /deleteConversation/);
-  assert.match(aiAssistant, /加载更多对话/);
-  assert.match(aiAssistant, /加载更早消息/);
+  const aiWorkbench = await readFile(new URL("../app/ai-chat-workbench.tsx", import.meta.url), "utf8");
+  assert.match(aiAssistant, /<AiChatWorkbench/);
+  assert.match(aiWorkbench, /加载更多对话/);
+  assert.match(aiWorkbench, /加载更早消息/);
 
   assert.match(customerService, /listControllerRef\.current\?\.abort\(\)/);
   assert.match(customerService, /listGenerationRef\.current === generation/);

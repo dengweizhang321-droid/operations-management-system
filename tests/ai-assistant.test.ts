@@ -248,8 +248,10 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.doesNotMatch(page, /\{ value: "image"/);
   assert.match(page, /新增聊天渠道/);
   assert.match(page, /停止生成/);
-  assert.match(page, /本对话模型/);
-  assert.match(page, /文本和视觉模型均可用于对话/);
+  const workbench = await readFile(new URL("../app/ai-chat-workbench.tsx", import.meta.url), "utf8");
+  assert.match(workbench, /本对话模型/);
+  assert.match(workbench, /model\.modelType === "vision"/);
+  assert.match(page, /onModel=\{id => void changeConversationModel\(id\)\}/);
   assert.match(page, /deleteConversation/);
   assert.match(page, /AiMessageArtifacts/);
   assert.match(page, /下载 CSV/);

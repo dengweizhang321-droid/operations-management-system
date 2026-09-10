@@ -1548,6 +1548,7 @@ test("enabled WeCom callbacks require an exact receiver identity at save and ver
 
 test("AI assistant UI aborts stale list and message requests and exposes incremental loading", async () => {
   const page = await readFile(new URL("../app/ai-assistant-view.tsx", import.meta.url), "utf8");
+  const workbench = await readFile(new URL("../app/ai-chat-workbench.tsx", import.meta.url), "utf8");
   assert.match(page, /conversationGenerationRef/);
   assert.match(page, /messageGenerationRef/);
   assert.match(page, /conversationControllerRef\.current\?\.abort\(\)/);
@@ -1556,8 +1557,10 @@ test("AI assistant UI aborts stale list and message requests and exposes increme
   assert.match(page, /generation !== messageGenerationRef\.current/);
   assert.match(page, /controller\.signal\.aborted \|\| generation !== messageGenerationRef\.current\) return;\s*throw reason;/);
   assert.match(page, /return \(\) => \{\s*messageControllerRef\.current\?\.abort\(\);\s*messageGenerationRef\.current \+= 1;/);
-  assert.match(page, /加载更多对话/);
-  assert.match(page, /加载更早消息/);
+  assert.match(workbench, /加载更多对话/);
+  assert.match(workbench, /加载更早消息/);
+  assert.match(page, /onMore=\{\(\) => void loadMoreConversations\(\)\}/);
+  assert.match(page, /onOlder=\{\(\) => void loadOlderMessages\(\)\}/);
   assert.match(page, /contentTruncated/);
   assert.match(page, /expectedVersion: item\.version/);
   assert.match(page, /deleteConfiguration\("model", item\.id, item\.name, item\.version\)/);

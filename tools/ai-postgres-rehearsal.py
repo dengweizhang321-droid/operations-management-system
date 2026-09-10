@@ -14,6 +14,7 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--all-backend-tests", action="store_true")
+parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
 arguments = parser.parse_args()
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 PORT = 55443
@@ -133,6 +134,9 @@ try:
         env=django_env,
     )
     (RUN / "tests.log").write_text(tests, encoding="utf-8")
+    if arguments.tests_only:
+        print(json.dumps({"status": "passed", "mode": "tests-only", "tests": str(RUN / "tests.log"), "productionWrites": False}), flush=True)
+        sys.exit(0)  # finally still stops this exact isolated cluster.
     if arguments.all_backend_tests:
         # Existing domain unit suites include SQLite-specific fixtures. Exercise
         # their supported unit environment separately from AI's PostgreSQL gates.

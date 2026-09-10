@@ -151,7 +151,8 @@ class DatasetEndpointTests(TestCase):
     def setUp(self):
         AiDataRevision.objects.get_or_create(domain="ai-assistant")
         AiWriteAuthority.objects.update_or_create(id=1, defaults={
-            "status": "postgres", "authority_epoch": "ab3213bd-2e10-4da1-b7a9-b0127eb76aaf", "cutover_id": "dataset-fixture"})
+            "status": "postgres", "authority_epoch": "ab3213bd-2e10-4da1-b7a9-b0127eb76aaf", "cutover_id": "dataset-fixture",
+            "migration_verify_run_id": "dataset-fixture-verify", "activated_at": timezone.now()})
         self.owner = ADMIN
 
     @patch.object(datasets.transport, "catalog", side_effect=lambda *_: catalog_fixture())

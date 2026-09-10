@@ -3,6 +3,7 @@ import { isPublicAiPath, requestDjangoAi } from "@/lib/django/ai-service";
 import { aiJsonResponse, aiRouteErrorResponse, readAiJsonObject, requireAiSameOriginWrite } from "@/app/api/ai/route-helpers";
 import { PublicApiError } from "@/lib/http/api-error";
 import { normalizeAiPageContext } from "@/lib/ai/page-context";
+import { requestDjangoAiStream } from "@/lib/django/ai-stream";
 
 export async function forwardAiRequest(request: Request) {
   try {
@@ -21,6 +22,12 @@ export async function forwardAiRequest(request: Request) {
       const context = normalizeAiPageContext(payload.pageContext);
       if (!context) throw new PublicApiError(400, "invalid_request", "AI 页面上下文无效。");
       payload.pageContext = context;
+    }
+    if (url.pathname === "/api/ai/chat" && request.method === "POST" && request.headers.get("accept")?.includes("text/event-stream")) {
+      if (url.search || !payload || typeof payload.clientRequestId !== "string") throw new PublicApiError(400, "invalid_request", "AI 流式请求无效。");
+      return await requestDjangoAiStream(principal, payload, { signal: request.signal, onCancel: () => {
+        void requestDjangoAi(principal, { path: "/api/ai/chat/cancel", method: "POST", payload: { clientRequestId: payload.clientRequestId } }).catch(() => undefined);
+      } });
     }
     let cancellation: Promise<unknown> | undefined;
     const abort = () => {

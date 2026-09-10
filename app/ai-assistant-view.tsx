@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AI_MODEL_TOOL_BUDGET_LIMITS } from "@/lib/ai/model-tool-budget";
-import { aiPageFilterSummary, normalizeAiPageContext, type AiPageModule, type AiPageContext } from "@/lib/ai/page-context";
+import { normalizeAiPageContext, type AiPageModule, type AiPageContext } from "@/lib/ai/page-context";
 import { recoverAiWorkspaceRequest } from "@/lib/ai/workspace-recovery";
 import { ApiError } from "@/lib/http/api-error";
 import type { AppCurrentUser } from "./shell/view-contract";
 import { SearchableSelect } from "./ui/searchable-select";
+import AiChatWorkbench, { type LiveAiAnswer } from "./ai-chat-workbench";
+import { readAiChatStream, AiChatStreamError } from "@/lib/ai/chat-stream";
 
 type CurrentUser = AppCurrentUser;
 type AiModelProtocol = "openai_compatible" | "anthropic";
@@ -429,6 +431,7 @@ function AiAssistantView({
   const [configurationError, setConfigurationError] = useState("");
   const [configurationNotice, setConfigurationNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [liveAnswer, setLiveAnswer] = useState<LiveAiAnswer | null>(null);
   const [busyConversationId, setBusyConversationId] = useState("");
   const [switchingModel, setSwitchingModel] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
@@ -451,7 +454,6 @@ function AiAssistantView({
   const appliedContextPromptRef = useRef("");
   const mountedRef = useRef(true);
   const [recoveryBlocked, setRecoveryBlocked] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(!compact);
   const [activatingConversation, setActivatingConversation] = useState(false);
   const conversationMutationRef = useRef(false);
   const conversationLoadedRef = useRef(false);
@@ -706,7 +708,7 @@ function AiAssistantView({
       conversationId: activeConversationId || undefined,
       modelId: selectedModelId || undefined,
       message: text,
-      title: workspaceModule ? Array.from(text).slice(0, 40).join("") : "小特对话",
+      title: Array.from(text).slice(0, 40).join(""),
       workspaceModule,
       pageContext: workspaceModule ? pageContext : pageContext ?? undefined,
     } satisfies AiChatPostPayload;
@@ -717,14 +719,27 @@ function AiAssistantView({
     const controller = new AbortController();
     sendControllerRef.current = controller;
     setSending(true); setError(""); setNotice("");
+    setLiveAnswer({ prompt: text, content: "", stage: "正在连接", tools: [] });
     try {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", accept: "text/event-stream" },
         body: JSON.stringify({ ...pendingRequest.requestPayload, clientRequestId }),
         signal: controller.signal,
       });
-      const payload = await response.json().catch(() => null) as {
+      const payload = (response.ok && response.headers.get("content-type")?.includes("text/event-stream")
+        ? await readAiChatStream(response, (event, value) => {
+          if (!mountedRef.current) return;
+          setLiveAnswer(current => {
+            if (!current) return current;
+            if (event === "reset") return { ...current, content: "", stage: typeof value.stage === "string" ? value.stage : "正在生成" };
+            if (event === "status") return { ...current, stage: typeof value.stage === "string" ? value.stage : current.stage };
+            if (event === "delta") return { ...current, content: (current.content + value.content).slice(0, 48000), stage: "正在生成回答" };
+            if (event === "tool" && value.ok === true && typeof value.title === "string") return { ...current, tools: [...current.tools, value.title].slice(0, 74) };
+            return current;
+          });
+        }, controller.signal)
+        : await response.json().catch(() => null)) as {
         conversationId?: string;
         assistantMessageId?: string;
         reply?: string;
@@ -752,6 +767,7 @@ function AiAssistantView({
         assistantMessageId: payload.assistantMessageId,
       });
       setMessageDraft("");
+      setLiveAnswer(null);
       if (payload?.modelId) setSelectedModelId(payload.modelId);
       setActiveConversationId(conversationId);
       const visibleMessage: AiConversationMessage = {
@@ -779,6 +795,10 @@ function AiAssistantView({
       }
     } catch (reason) {
       if (!mountedRef.current) return;
+      if (reason instanceof AiChatStreamError && shouldReleasePendingAiChatRequest(reason.code)) {
+        pendingChatRequestRef.current = null; rememberPending(null);
+      }
+      setLiveAnswer(current => current ? { ...current, incomplete: true, stage: controller.signal.aborted ? "已停止生成" : "生成中断" } : null);
       if (controller.signal.aborted) {
         setNotice("已停止等待；请求号已保留，系统会阻止同一消息重复调用模型。请刷新对话记录确认结果。");
         if (activeConversationId) await loadMessages(activeConversationId).catch(() => undefined);
@@ -799,6 +819,7 @@ function AiAssistantView({
     messageGenerationRef.current += 1;
     setActiveConversationId("");
     setMessages([]);
+    setLiveAnswer(null);
     setMessagePagination({ pageSize: 30, total: 0, returned: 0, truncated: false, hasMore: false, nextBefore: null });
     setMessageDraft("");
     pendingChatRequestRef.current = null;
@@ -1011,16 +1032,22 @@ function AiAssistantView({
 
   return <section className={`ai-assistant-grid${compact ? " ai-chat-compact" : ""}`}>
     {contextError && pageContext && <p className="inventory-feedback inventory-feedback-error" role="alert">{contextError}</p>}
-    {showChat && <article className="panel ai-chat-card data-refresh-region" aria-busy={chatLoading}>
-      <div className="section-header"><div><h2>AI 助理</h2><p>结合页面筛选提问，历史会话自动保存。</p></div><button type="button" className="secondary-button" onClick={() => void refresh()} disabled={chatLoading}>{chatLoading ? "刷新中…" : "刷新"}</button></div>
-      {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "操作失败" : "操作成功"}</strong><p>{error || notice}</p></div></div>}
-      {pageContext && <details className="ai-page-context-card"><summary>{pageContext.moduleLabel} · {pageContext.period ? `${pageContext.period.startDate} 至 ${pageContext.period.endDate}` : "日期以实际数据为准"}</summary><ul>{aiPageFilterSummary(pageContext.filters).map(item => <li key={item}>{item}</li>)}</ul><small>历史回复保留原统计口径；新问题使用当前页面条件。</small></details>}
-      {compact && <button type="button" className="secondary-button" aria-expanded={historyOpen} onClick={() => setHistoryOpen(value => !value)}>{historyOpen ? "收起会话记录" : "查看历史 / 新建对话"}</button>}
-      <div className="ai-chat-layout">
-        <aside className="ai-sidebar" hidden={compact && !historyOpen}><div className="ai-sidebar-heading"><h3>对话记录</h3><small>已加载 {conversationItems.length} / {conversationPagination.total}</small></div><button type="button" className="ai-new-conversation" onClick={startNewConversation} disabled={conversationBusy}>＋ 新对话</button><div className="ai-conversation-list">{conversationItems.length === 0 && <p className="soft-text">发送第一条消息后会自动建立对话。</p>}{conversationItems.map((item) => <div key={item.id} className={`ai-conversation-row ${item.id === activeConversationId ? "active" : ""}`}><button type="button" className="ai-conversation-open" disabled={conversationBusy} onClick={() => void openConversation(item.id)}><strong>{item.title}</strong><small>{formatDateTime(item.updatedAt)}</small></button>{canChat && <button type="button" className="ai-conversation-delete" aria-label={`删除对话 ${item.title}`} title="删除对话" disabled={conversationBusy} onClick={() => void deleteConversation(item)}>{busyConversationId === item.id ? "…" : "×"}</button>}</div>)}</div>{conversationPagination.hasMore && <button type="button" className="secondary-button" disabled={loadingMoreConversations} onClick={() => void loadMoreConversations()}>{loadingMoreConversations ? "加载中…" : "加载更多对话"}</button>}</aside>
-        <div className="ai-chat-panel"><div className="ai-chat-toolbar"><label><span>本对话模型</span><SearchableSelect value={selectedModelId} onChange={(value) => void changeConversationModel(value)} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={conversationBusy || recoveryBlocked || availableChatModels.length === 0} options={availableChatModels.map((model) => ({ value: model.id, label: `${model.name} · ${model.modelType === "vision" ? "视觉" : "文本"}${model.isDefault ? "（默认）" : ""}` }))} /></label><small>{switchingModel ? "正在切换模型…" : "文本和视觉模型均可用于对话；切换后从下一条消息起生效。输入“帮助”或“新话题”可走免模型短路。"}</small></div>{pageContext && <div className="ai-page-context" role="status"><span><strong>当前页面</strong> · {pageContext.moduleLabel}{pageContext.period ? ` · ${pageContext.period.startDate} 至 ${pageContext.period.endDate}` : ""}</span><button type="button" className="secondary-button" onClick={() => setPageContext(null)} disabled={sending}>移除上下文</button></div>}<div className="ai-message-list">{messagePagination.hasMore && <button type="button" className="secondary-button" disabled={loadingOlderMessages} onClick={() => void loadOlderMessages()}>{loadingOlderMessages ? "加载中…" : `加载更早消息（共 ${messagePagination.total} 条）`}</button>}{messages.length === 0 && <div className="ai-empty-chat"><strong>开始一段新对话</strong><p>可询问已导入运营数据；确定性帮助与上下文重置不会调用模型。</p></div>}{messages.filter(item => item.conversationId === activeConversationId).map((item) => <div key={item.id} className={`ai-message ai-message-${item.role} ${item.messageKind === "context_reset" ? "ai-message-reset" : ""} ${item.artifacts?.length ? "ai-message-has-artifacts" : ""}`}><strong>{item.messageKind === "context_reset" ? "上下文断点" : item.role === "user" ? "你" : "小特"}</strong><p>{item.content}</p>{item.contentTruncated && <small role="status">此条历史消息内容较长，已按安全响应上限截断显示。</small>}<AiMessageArtifacts artifacts={item.artifacts ?? []} /><small>{formatDateTime(item.createdAt)}</small></div>)}</div><div className="ai-chat-compose"><textarea value={messageDraft} maxLength={12000} onChange={(event) => setMessageDraft(event.target.value)} placeholder={canChat ? "输入问题；也可输入“帮助”或“新话题”" : "登录并获得操作权限后可发送消息"} disabled={!canChat || sending} />{sending ? <button type="button" className="secondary-button ai-stop-button" onClick={() => sendControllerRef.current?.abort()}>停止生成</button> : <button type="button" className="primary-button" disabled={!canChat || !messageDraft.trim() || conversationBusy || recoveryBlocked || Boolean(contextError && pageContext)} onClick={() => void sendMessage()}>发送</button>}</div></div>
-      </div>
-    </article>}
+    {showChat && <AiChatWorkbench
+      compact={compact} currentTitle={conversationItems.find(item => item.id === activeConversationId)?.title || ""}
+      activeConversationId={activeConversationId} conversations={conversationItems} conversationTotal={conversationPagination.total}
+      hasMoreConversations={conversationPagination.hasMore} loadingMoreConversations={loadingMoreConversations}
+      messages={messages} hasOlderMessages={messagePagination.hasMore} loadingOlderMessages={loadingOlderMessages}
+      models={availableChatModels} selectedModelId={selectedModelId} canChat={canChat} busy={conversationBusy}
+      sending={sending} loading={chatLoading} recoveryBlocked={recoveryBlocked} draft={messageDraft}
+      error={error} notice={notice} context={pageContext} contextError={contextError} liveAnswer={liveAnswer}
+      onDraft={setMessageDraft} onSend={() => void sendMessage()} onStop={() => sendControllerRef.current?.abort()}
+      onNew={startNewConversation} onOpen={id => { setLiveAnswer(null); void openConversation(id); }}
+      onDelete={id => { const item = conversationItems.find(item => item.id === id); if (item) void deleteConversation(item); }}
+      onModel={id => void changeConversationModel(id)} onMore={() => void loadMoreConversations()}
+      onOlder={() => void loadOlderMessages()} onRefresh={() => { setLiveAnswer(null); void refresh(); }}
+      onRemoveContext={() => setPageContext(null)}
+      renderArtifacts={id => <AiMessageArtifacts artifacts={messages.find(item => item.id === id)?.artifacts ?? []} />}
+    />}
     {showManagement && (isAdmin ? <>
       <article className="panel ai-permission-card">
         <div className="section-header"><div><h2>AI 管理</h2><p>集中维护对话模型与聊天渠道；密钥始终加密保存，列表仅显示脱敏信息。</p></div><button type="button" className="secondary-button" onClick={() => void loadConfiguration()} disabled={configurationState === "loading"}>{configurationState === "loading" ? "刷新中…" : "刷新配置"}</button></div>
