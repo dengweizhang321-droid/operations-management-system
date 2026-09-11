@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ProjectRoot = 'D:\运营管理系统',
-  [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'TERUISI\N8nLauncher'),
+  [string]$InstallRoot = 'D:\teruisi-runtime\n8n-launcher',
   [switch]$BuildOnly
 )
 

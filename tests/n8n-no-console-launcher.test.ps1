@@ -40,6 +40,7 @@ $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Probe compilation failed.' }
 $script = Join-Path $testRoot '中文 service probe.ps1'
 @'
+Get-NetTCPConnection -State Listen -ErrorAction Stop | Out-Null
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class ConsoleProbe { [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow(); }'
 [ConsoleProbe]::GetConsoleWindow().ToInt64() | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'powershell-console.txt')
 & (Join-Path $PSScriptRoot 'Probe.exe') (Join-Path $PSScriptRoot 'grandchild-console.txt')
@@ -60,6 +61,7 @@ Assert-Equal (Invoke-Launcher 'relative.ps1') 64 'Relative path rejection'
 Assert-Equal (Invoke-Launcher ('"' + $script + '"')) 0 'Success exit code'
 # Verify the actual Windows scheduler lifecycle, using only a disposable probe task.
 @'
+Get-NetTCPConnection -State Listen -ErrorAction Stop | Out-Null
 $PID | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'scheduled-child.txt')
 & (Join-Path $PSScriptRoot 'Probe.exe') (Join-Path $PSScriptRoot 'scheduled-console.txt') (Join-Path $PSScriptRoot 'scheduled-native.txt')
 '@ | Set-Content -LiteralPath $script -Encoding UTF8

@@ -27,7 +27,7 @@
 & .\tools\install-n8n-no-console.ps1 -ProjectRoot 'D:\运营管理系统'
 ```
 
-安装程序编译到当前用户 `%LOCALAPPDATA%\TERUISI\N8nLauncher\<源码 SHA256>`，先导出 `task-before.xml`，仅更换精确匹配旧命令的任务 Action，再回读验证 Principal、Trigger 和 Settings 均未变化。它不会自动启停 n8n，不修改工作流、数据库或其他服务。已存在发布目录和不匹配的任务动作均拒绝覆盖。
+安装程序编译到固定运行目录 `D:\teruisi-runtime\n8n-launcher\<源码 SHA256>`，先导出 `task-before.xml`，仅更换精确匹配旧命令的任务 Action，再回读验证 Principal、Trigger 和 Settings 均未变化。它不会自动启停 n8n，不修改工作流、数据库或其他服务。已存在发布目录和不匹配的任务动作均拒绝覆盖。标准输入输出绑定有效 NUL 句柄，避免 PowerShell 在调用网络查询或原生程序时自行分配控制台；Job 句柄禁止继承。
 
 更换动作不改变已经运行的进程。受控切换前确认没有 new/running execution、helper 空闲；waiting execution 必须另行评估恢复时间。备份 n8n SQLite 时使用 SQLite backup API，不直接复制正在写入的数据库。对经过 PID/创建时间/命令行确认的旧控制台发送 Ctrl+C，让 n8n 正常收尾；确认旧进程退出且 5678 释放后，从同一计划任务启动新入口。回读 healthz、回环监听、唯一进程树、无新 Terminal/OpenConsole/conhost、工作流版本/active 和 Webhook 摘要。禁止通过演练触发业务下载或导入。
 

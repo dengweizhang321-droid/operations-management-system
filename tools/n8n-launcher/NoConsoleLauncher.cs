@@ -19,6 +19,8 @@ internal class NoConsoleLauncher
     [StructLayout(LayoutKind.Sequential)]
     private struct ProcessInfo { public IntPtr process, thread; public uint processId, threadId; }
     [StructLayout(LayoutKind.Sequential)]
+    private struct SecurityAttributes { public uint length; public IntPtr descriptor; public int inherit; }
+    [StructLayout(LayoutKind.Sequential)]
     private struct BasicLimit
     {
         public long processTime, jobTime;
@@ -39,6 +41,9 @@ internal class NoConsoleLauncher
     }
     [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
     private static extern IntPtr CreateJobObject(IntPtr attributes, string name);
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern IntPtr CreateFile(string name, uint access, uint share,
+        ref SecurityAttributes attributes, uint disposition, uint flags, IntPtr template);
     [DllImport("kernel32.dll", SetLastError=true)]
     private static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref ExtendedLimit info, uint length);
     [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
@@ -62,6 +67,7 @@ internal class NoConsoleLauncher
     private static int Main(string[] args)
     {
         IntPtr job = IntPtr.Zero;
+        IntPtr nullIo = new IntPtr(-1);
         var child = new ProcessInfo();
         bool assigned = false;
         try
@@ -80,10 +86,18 @@ internal class NoConsoleLauncher
             if (!SetInformationJobObject(job, 9, ref limits, (uint)Marshal.SizeOf(limits))) return 70;
             var startup = new StartupInfo();
             startup.cb = (uint)Marshal.SizeOf(startup);
+            var attributes = new SecurityAttributes();
+            attributes.length = (uint)Marshal.SizeOf(attributes);
+            attributes.inherit = 1;
+            nullIo = CreateFile("NUL", 0xc0000000, 3, ref attributes, 3, 0, IntPtr.Zero);
+            if (nullIo == new IntPtr(-1)) return 70;
+            startup.flags = 0x100; // STARTF_USESTDHANDLES
+            startup.stdin = startup.stdout = startup.stderr = nullIo;
             var command = new StringBuilder("\"" + shell + "\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + script + "\"");
             // CREATE_NO_WINDOW | CREATE_SUSPENDED: assign ownership before any script can run.
-            // No inherited handles: children cannot keep the ownership job alive.
-            if (!CreateProcess(shell, command, IntPtr.Zero, IntPtr.Zero, false, 0x08000004,
+            // Only NUL is inheritable; the job handle is not. Valid redirected handles
+            // prevent PowerShell from allocating a console for native command I/O.
+            if (!CreateProcess(shell, command, IntPtr.Zero, IntPtr.Zero, true, 0x08000004,
                 IntPtr.Zero, Path.GetDirectoryName(script), ref startup, out child)) return 70;
             if (!AssignProcessToJobObject(job, child.process)) return 70;
             assigned = true;
@@ -99,6 +113,7 @@ internal class NoConsoleLauncher
             if (job != IntPtr.Zero) CloseHandle(job);
             if (child.thread != IntPtr.Zero) CloseHandle(child.thread);
             if (child.process != IntPtr.Zero) CloseHandle(child.process);
+            if (nullIo != new IntPtr(-1)) CloseHandle(nullIo);
         }
     }
 }
