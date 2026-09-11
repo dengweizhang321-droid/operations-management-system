@@ -49,3 +49,9 @@ node tools/n8n-command-no-console.mjs --apply $module 'D:\teruisi-runtime\n8n-la
 ```
 
 启动脚本每次只读 `--verify`，防止 n8n 升级覆盖补丁后悄悄恢复弹窗。升级后须重新审查当前模块，再显式采用；未知版本或补丁缺失时失败关闭，不自动修改安装包。取消此功能时，受控停服后恢复原模块并同步恢复启动校验，不允许仅删除补丁导致持续启动失败。
+
+## 2026-09-12 模块环境修复
+
+天猫维护窗口曾直接从 PowerShell 7 启动 n8n，继承的 `PSModulePath` 只包含 PowerShell 7 模块目录。新品周报的 Execute Command 实际启动 Windows PowerShell 5，因而找不到 `ConvertTo-SecureString`，execution 1060–1064 失败；只读复现和仅使用系统/Windows PowerShell 模块路径的探针均证明凭据密文没有损坏。
+
+在 0 个 new/running/waiting execution、helper 空闲并完成 SQLite 在线备份后，受控停止精确旧进程树，改由已安装的 `TERUISI-n8n-Service` 无控制台计划任务启动。新进程只监听 `127.0.0.1:5678`；未修改凭据，未重发新品周报，未重启 PostgreSQL、Django、Worker 或 helper。重启后的自然新品周报 execution 1065、1080、1089、1097 均成功，确认 Windows PowerShell 模块环境和原 DPAPI 解密链已恢复。私有运行回执位于 `D:\teruisi-runtime\tmall-store-isolation-20260912\n8n-clean-environment-restart.json`，重启前 SQLite 备份为同目录 `n8n-before-clean-environment-restart.sqlite`。

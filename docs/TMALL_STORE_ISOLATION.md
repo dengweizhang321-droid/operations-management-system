@@ -21,7 +21,7 @@
 
 保留既有 `TeruisiHourlyRetry2026`。每条自动执行失败生成自己的错误 execution，等待 60 分钟后只请求该 workflow 的本机 Webhook，创建新的完整 execution。等待不占本店已正常释放的线程，不要求其他天猫店铺结束；同店仍有活跃任务时不能重入。
 
-“约一小时”是 n8n 等待设置，不是系统宕机或调度延迟下的硬实时保证。验证码、登录/身份错误、未知提交结果、任务歧义、内容/覆盖校验失败以及线程收尾未知仍转人工，不承诺所有错误无限自动重试。手动/CLI execution 继续不自动重试。自然失败→等待→新完整执行的生产端到端证据仍待补齐，不用模板测试代替。
+“约一小时”是 n8n 等待设置，不是系统宕机或调度延迟下的硬实时保证。验证码、登录/身份错误、未知提交结果、任务歧义、内容/覆盖校验失败以及线程收尾未知仍转人工，不承诺所有错误无限自动重试。手动/CLI execution 继续不自动重试。2026-09-12 已取得自然失败→等待→新完整执行的生产端到端证据，详见本文“今晚缺口优先补齐”。
 
 ## 受控采用顺序
 
@@ -54,4 +54,15 @@
 - 亿玖 M：同日快照，128 商品、7 批、2624 行、3 类源数据告警，精确 completed 批次及全部文件 SHA 回查通过。两店 cadence 均为 lastSuccessDate/lastSnapshotDate `2026-09-12`、nextDueDate `2026-09-13`，两店调试端口关闭，helper 无 owner。
 - 丽力本轮商品日/推广日为 9 月 7 日，分别 81/50 行、0 告警；亿玖为 9 月 9 日，分别 51/43 行、0 告警。四个精确批次均通过本机公开只读 API 的 completed/来源/平台/店铺/行数独立回查，C/P 同日覆盖复核通过。数据来源为授权本机 Django/PostgreSQL 只读替代来源；本轮不等于历史补齐：规划截止上海 9 月 11 日，丽力仍余 9 月 8–11 日，亿玖仍余 9 月 10–11 日。
 - 发布后备份 `daily-20260911T171150Z-d797f82589ee` 与 SHA 复验通过，manifest SHA `bd1c0ef18d1544ebbf0c83f6618d52c6f08a373f9b43f082479b04f2e6decc4a`；本次未重复恢复发布后备份。
-- 尚待关闭的维护问题：本轮从 PowerShell 7 启动 n8n 时继承其模块路径，随后新品周报 1060/1061 报 databaseOwner 解密错误。只读复现实际为 PowerShell 5 子进程无法加载 `ConvertTo-SecureString`，非密码损坏；对子进程仅使用 Machine PSModulePath 后同一探针通过。天猫两店不受影响，但不能宣称所有 n8n 命令类任务正常。已请求额外一次空闲维护授权，以恢复已安装正式无窗口启动入口，不修改凭据、不重发周报或重启数据库。
+- 维护窗口从 PowerShell 7 启动 n8n 曾使 Windows PowerShell 5 子进程无法加载 `ConvertTo-SecureString`，并非凭据损坏。获得一次性授权后，在 0 个活跃/等待 execution、helper 空闲且完成 SQLite 在线备份时，改由已安装的无控制台计划任务受控重启；未改凭据，未重发周报，未重启 PostgreSQL、Django、Worker 或 helper。重启后新品周报 execution 1065 起持续自然成功，模块环境问题已关闭；详见 `docs/N8N_NO_CONSOLE_STARTUP.md`。
+
+## 2026-09-12 今晚缺口优先补齐
+
+- 01:31 以授权本机 Django/PostgreSQL 只读公开 API（`teruisi_operations` MCP 本轮不可用）查询注册起始日至上海 9 月 11 日的实际覆盖。六店联合缺口共 40 个店铺日：亿玖 2、丽力 4、拓丰 9、亿用 10、炊之王 8、马思图 7；商品日与推广日分别规划，任一侧已覆盖时不重复补该侧。
+- 01:35 只通过六条 live workflow 的各自本机 POST Webhook 同时创建完整 execution 1066–1071。每店成功并回查覆盖确实减少后，才为该店创建下一次完整 execution；同店串行，六店互不等待。未绕过 n8n 调用天猫业务 helper，也未使用仓库中尚未采用的多日循环候选定义。
+- 第一阶段已把亿玖、丽力、拓丰、炊之王分别补到只剩 9 月 11 日；这四店的该日 B 均返回 `SOURCE_NOT_READY (NO_DATA_ROWS, MISSING_EXPECTED_DATES)`，未误记完成。亿用 execution 1069 已成功补入 8 月 31 日的商品日和推广日后，在 M 读取导出记录时失败；活动清单证明 10 个批次仍为 planned 且没有 `exportSubmittedAt`，可由完整流程安全重试。马思图 execution 1071 已补入 9 月 1 日商品日，C 覆盖回查遇到 HTTP 503，推广日仍缺。
+- 马思图 retry execution 1072 等待至上海 02:36:06；亿用 retry execution 1075 等待至 02:36:55。两条 Wait 不持有 helper 或本店浏览器，也未阻塞其他四店。永久策略仍只自动重试可安全自动重放的定时/Webhook失败；验证码、登录/身份、点击/提交结果未决、来源未出数和内容完整性错误停止自动重试。
+- 亿用 1110 在 60 分钟后由 n8n 自动创建完整 execution 并成功，随后 1117–1127 逐日补到 9 月 10 日。马思图先后由 1109、1143、1160、1176 自动恢复；每次 A/B/C/P 成功发布的日事实均保留，M 对原 6 条分页导出任务只等待/续接、没有重复提交。1176 等到原任务齐备并完整成功后，1177、1178、1180 连续补完 9 月 9–11 日。该链证明等待不占其他店铺、失败店铺约一小时后从 A 重新开始完整流程、已发布日事实不因末段 M 失败回滚。
+- 9 月 11 日最初尚未出数，亿玖/丽力/拓丰/炊之王在首次失败约一小时后各做一次完整流程复查仍返回 `SOURCE_NOT_READY`，没有高频重试。06:16 马思图 1180 首先证明该日源数据已可用；随后只通过其余五店 live Webhook 同时创建 1181–1185，五店均成功。06:19 的最终权威覆盖回查显示六店商品日和推广日从各自注册起始日至 9 月 11 日均无缺口，初始 40 个店铺日已全部补齐。
+- 最终 n8n 无 new/running/waiting execution，六条 live workflow 均 active 且 current=published，共享小时重试版本未变；helper `ready/busy=false/storeExecutions=[]`，六个店铺调试端口均无监听，n8n healthz 为 200。最终私有只读证据为 `D:\teruisi-runtime\tmall-store-isolation-20260912\tmall-gap-audit-final-0619.json` 与同目录 `tmall-n8n-runtime-final-0619.json`；仓库脱敏证据见 `docs/evidence/tmall-gap-fill-production-20260912.json`。
+- 补缺完成后 PostgreSQL 正式备份 `daily-20260911T222115Z-97d86afcb804` 已通过清单、dump 和内容 SHA 复验，manifest SHA 为 `2d56d3952c3a67ff394d58e2e75b0da8b0e037cfc57a8a5907c5883420e8b7c1`；`serviceStateChanged=false`，未为备份重启任何服务。本次未重复执行隔离恢复演练。
