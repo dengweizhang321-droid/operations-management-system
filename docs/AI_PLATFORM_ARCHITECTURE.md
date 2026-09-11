@@ -38,7 +38,8 @@
 ### 4. 代码执行沙箱
 
 - Cloudflare Worker 内不开放任意 Python、JavaScript、SQL、`eval`、子进程或网络代码执行。
-- 当前安全沙箱采用白名单数据集和确定性 JSON AST，支持 `filter / select / derive / group / sort / limit`。
+- 既有页面安全沙箱采用白名单数据集和确定性 JSON AST，支持 `filter / select / derive / group / sort / limit`。
+- 新增候选 `run_pandas_analysis` 中央工具：经真实权限导出系统数据集，再由独立 Linux/rootless 容器执行 pandas，返回有界表格。源码、配额、签名、防重、资源/清理门禁与尚未执行的真实容器验收见 [pandas 容器分析说明](AI_PANDAS_SANDBOX.md)。未部署独立 broker 时工具失败关闭，不在 Django 或 Worker 内执行代码。
 - 数据先按真实 principal 查询，再进入无网络转换阶段；源行、步骤、列、结果行和序列化字符数都有硬上限。
 - PostgreSQL 只保存 owner、scope、数据集、操作名、截止日、行数和摘要哈希，不保存完整结果或原始查询内容。
 - 若未来需要通用 Python/Node，必须使用独立隔离执行服务，至少具备无默认网络、只读输入挂载、临时工作区、CPU/内存/时长/输出配额、镜像白名单和可验证清理；不能直接在 Worker 内 `eval`。
@@ -50,7 +51,7 @@
 - 每步产生 checkpoint 与追加式事件；任务支持 CAS 取消/恢复，并限制活动任务、最大 64 步和最多 16 次恢复。
 - 正式 Agent 创建时固定模型版本和完整工具策略；每轮派发前重新核验 owner 仍有效、角色仍获准、当前 scope 仍覆盖创建快照、模型版本未变化且工具策略摘要完全一致，任一条件漂移都失败关闭。
 - provider 与工具调用各有不可变派发/结果 ledger。派发后若无法确定外部调用是否完成，任务进入非重试失败，不会自动重放付费 provider 或工具；已持久化的结果可在检查点丢失后被安全消费。
-- executor 不运行任意 Python、JavaScript、SQL、浏览器自动化或运营写入；Agent 只能使用中央注册表明确开放给 `ai_agent` surface 的有界只读工具。确定性 JSON AST 分析仍由独立沙箱承担。
+- Agent executor 本身不运行任意 Python、JavaScript、SQL、浏览器自动化或运营写入；Agent 只能使用中央注册表明确开放给 `ai_agent` surface 的工具。pandas 工具的代码仅由独立容器执行，既有 JSON AST 分析继续保留。
 
 ### 6. 多 Agent 工作流
 

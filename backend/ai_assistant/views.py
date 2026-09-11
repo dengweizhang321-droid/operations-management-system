@@ -495,6 +495,9 @@ def mutate(parts, params, payload, principal, request_id, method):
 
 def consumer(payload, principal, request_id):
     operation = payload.get("operation")
+    if operation == "pandas-analysis":
+        from .pandas_sandbox import run
+        return run(payload, principal, request_id)
     if operation == "tool-audit":
         fields(payload, {"operation", "entry"}, {"operation", "entry"})
         entry = payload["entry"]
@@ -662,7 +665,7 @@ def dispatch(request, path=""):
             except AiError:
                 operation = None
             dataset_request = operation in {"datasets-describe", "datasets-query"}
-            if operation in {"analysis-reply", "analysis-plan"}:
+            if operation in {"analysis-reply", "analysis-plan", "pandas-analysis"}:
                 gate = _consumer_slots
         else:
             gate = _primary_slots

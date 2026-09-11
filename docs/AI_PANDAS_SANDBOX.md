@@ -1,0 +1,107 @@
+# 小特 pandas 容器分析工具
+
+## 状态与使用方式
+
+`run_pandas_analysis` 是独立的容器工具，保留既有 JSON AST 分析沙箱。候选代码接入网页对话、钉钉对话和 Agent 中央工具目录，分析员、操作员和管理员可调用；viewer 不可调用，通用 MCP 暂不开放。本次没有生产部署、服务重启、生产数据查询、付费模型调用或业务迁移。真实 Linux 容器验收完成前，不得宣称已经上线或全面可用。
+
+用户可以向小特提出“把两个数据集按货品编码关联，按供应商汇总”“按日透视这些商品的表现”等问题。小特先通过 `describe_system_datasets` 取得实际 ID、字段、单位和 querySchema，再用工具生成一次临时分析。业务写入仍通过现有对应模块完成。
+
+工具参数：
+
+- `inputsJson`：1 至 3 项的 JSON 数组字符串，每项有 `name`、`dataset`、`query`，可选 `collection`。别名为小写英文，不能重复；collection 是实际响应中的记录数组路径，逐行数据固定 `rows`，分析数据默认 `items`，支持如 `trend.items` 的路径。
+- `code`：Python 代码，`pd` 是 pandas，`frames['别名']` 是本次导出的 DataFrame。把最终表格赋给 `result`；Series 会转成表格。不通过 print 返回结果。
+- 输入不能指定宿主文件、挂载、URL、连接、SQL、凭据、代码运行参数或自行上传的数据行。允许代码在隔离容器内使用 Python；容器内临时文件与内存全部是一次性的。
+
+仅说明代码约定的合成示例（dataset/query 必须由实际目录发现，不复制虚构 ID）：
+
+```python
+sales = frames['sales'].copy()
+sales['amount_cents'] = pd.to_numeric(sales['amount_cents'], errors='raise')
+result = sales.groupby('product_code', as_index=False)['amount_cents'].sum()
+result = result.sort_values('amount_cents', ascending=False).head(20)
+```
+
+金额默认沿用字段的人民币分口径，不自动乘除 100；净销售额保留负退款。大毛利率、正向销量、库存窗口、刷刷仓排除、精确平台/店铺身份及 TOP 榜单覆盖等继续遵守 `AGENTS.md`，代码生成不能另定义业务事实。
+
+## 数据导出与完整性
+
+应用层复用 `ai_assistant.datasets.query`，每页都通过中央工具目录、当前真实 principal、字段白名单、角色/scope、水位与查询审计，不给 AI 账号添加业务表权限。219 个逐行数据集继续只允许无限制管理员，私有 AI 行仍按 owner 过滤。
+
+逐行数据从第一页开始，在限额内沿签名游标连续读取。重复游标、空页仍有后续、孤立游标、文本字段截断或未读完的单元格均失败关闭。分析数据接口保留各自原契约，只接收显式证明完整的记录集合；不猜分页方式，也不把 TOP/单页结果当全量。输入字段目前须为标量；需要嵌套数据时先选择可导出的标量列。
+
+每个来源返回查询、来源域、查询起止时间、水位、业务截止日期、导出行数、页数和内容 SHA-256。只将清洗后的数据行与代码通过 stdin 送入容器；principal、来源查询、签名密钥及业务连接不进入容器。stdin 不提供宿主文件路径或可写共享输入卷。
+
+`complete=true` 只表示该查询按当前源契约导出完毕，不代表日期覆盖无缺口、跨页/跨域原子快照或完整行业市场。逐行查询是 `live_per_page`，可能跨业务更新；回答必须披露这一限制。分析前后重新核验账号，停用、角色变化或范围收窄时拒绝返回结果。
+
+## 配额与回传
+
+| 项目 | 固定上限 |
+| --- | --- |
+| 数据集数 / 总输入行数 | 3 / 2000 |
+| 每数据集分页 | 20 页 |
+| 导出网络预算 | 8 秒 |
+| 数据与代码输入 | 2 MiB，代码最多 16000 UTF-8 字节 |
+| 容器计算 | 8 秒；创建/检查/计算合计预算 14 秒，清理另有 6 秒 |
+| 容器资源 | 1 CPU、512 MiB 内存、无额外 swap、64 个 PID |
+| 临时空间 | `/work` 32 MiB、`/tmp` 16 MiB、共享内存 16 MiB |
+| 输出 | 100 行、20 列、24000 UTF-8 字节，单文本单元格 1000 字符 |
+| 并发 | 每 AI writer 进程 1 个 pandas 请求，独立 broker 全局串行 |
+| 单次对话工具预算 | 1 次，整个工具仍为 30 秒 |
+
+超限拒绝整个结果，不静默截断。调用方应缩小筛选、选择所需字段、优先使用业务聚合数据。不同 native 分析工具可能有更小的源上限。
+
+结果以被动表格回到对话，可形成原有 owner/scope 隔离的表格/CSV 产物。该产物沿用最多 50 行、12 列与安全字段过滤，有截断时仍显式标记。计算结果须按源口径复核，容器隔离不保证模型编写的公式正确。
+
+中央审计只存代码/参数摘要、状态、耗时、行数与结果摘要。Django 原有私有 receipt 保存结果供精确请求回读，对话可能保存模型工具调用及结果，继续受原有 owner/scope 规则约束；本工具不承诺对话中绝不存代码。broker 仅保存防重 nonce 和时间，不保存原始数据或代码，也关闭容器日志。
+
+## 隔离边界
+
+执行服务在 `backend/pandas_runner/`，独立于 Django 启动，不加载 Django、数据库环境或凭据。固定监听 `127.0.0.1:8121/v1/pandas`，双向 HMAC 绑定版本、路径、请求时间、nonce 和正文摘要。签名密钥与业务/edge 密钥独立；请求有 60 秒时钟窗口、持久防重账本、10000 条日内限额和单进程文件锁。签名响应必须绑定配置中的精确镜像 ID，并证明清理已完成。
+
+仅支持 Linux 非 root 服务账号和该账号的 rootless Docker Unix socket，要求 cgroup v2 + systemd、内存/交换/PID/CPU 支持及默认 seccomp。镜像必须是本地 `sha256:<64位摘要>`，禁止拉取、可变标签、镜像声明卷和改变入口。容器内启动器在读取数据前再次检查实际 cgroup CPU、内存和 PID 配额。
+
+容器固定 `network=none`、非 root、只读根文件系统、`cap-drop=ALL`、`no-new-privileges`、私有 IPC、无宿主挂载、无 Docker socket、无业务环境变量、无额外设备。临时 tmpfs 使用 noexec/nosuid/nodev；Python 仍可解释临时文件，安全边界是容器而非这些挂载标记。启动器中的 `exec` 只存在于容器镜像内，不在 Worker、Django 或 broker 中执行。
+
+成功、代码失败、超时、输出洪泛等路径都必须精确删除本次容器，并通过 Docker 再查证明不存在。清理不确定时抑制结果并禁止该 broker 继续接任务；重启时发现历史同命名空间容器也拒绝启动，由操作员核验后处理。无自动降级至宿主 Python、无自动重放未知结果、无新业务 writer。
+
+Docker 参数及 rootless cgroup 条件依据官方文档：[运行容器](https://docs.docker.com/engine/containers/run/)、[Rootless 资源限制](https://docs.docker.com/engine/security/rootless/tips/)、[默认 seccomp](https://docs.docker.com/engine/security/seccomp/)。容器仍共享 Linux 内核，需保持宿主、Docker、内核与已审查镜像更新；这是受控隔离，不是对任意恶意代码的绝对安全证明。
+
+## 独立环境准备及受控采用
+
+本机检查未发现可用 Docker/Podman 或 Linux 发行版。先准备独立 Linux 虚拟机/WSL2 发行版、独立服务账号与 rootless Docker；WSL2 需确认 systemd、cgroup 委派和 Windows→Linux localhost 转发。不得把缺少这几项的 Docker Desktop 默认模式当作已通过准入，禁止暴露 TCP Docker daemon。
+
+1. 在隔离构建环境中审查并固定 Python 3.12 slim 基础镜像 digest，按仓库根目录作为 build context，使用 `containers/pandas-sandbox/Dockerfile` 构建。`PYTHON_BASE` 必须由操作员传入带 digest 的已审查引用。镜像固定 pandas 2.3.3 和 numpy 2.3.5；构建后记录实际镜像 ID 与构建材料摘要。运行阶段不安装包、不联网。
+2. 为 broker 创建权限 0700 的状态目录、0600 的独立随机密钥及配置文件，属于独立 Linux 服务账号。broker 配置必须恰好包含 `docker`（绝对 CLI 路径）、`socket`（该账号 rootless Unix socket）、`image`（精确 sha256 ID）、`keyFile`、`stateDirectory`。不接受业务账号密码或生产目录。
+3. 从独立服务安装目录的 `backend` 启动 `python3 -m pandas_runner.server --config <私有配置绝对路径>`。仅 broker 账号拥有 Docker socket 权限，Django 账号不拥有它；不要在生产 Django 进程内启动 broker。可参考下述用户 systemd unit，正式采用须纳入当前部署、状态和回滚流程。
+4. 用专用测试配置运行 `TERUISI_PANDAS_TEST_CONFIG=<私有配置路径> python3 -m unittest pandas_runner.test_runner`，仅合成数据。真实容器检查涵盖 pandas 关联/中文/退款、网络和根文件系统限制、无业务密钥、超时、输出洪泛、内存限制及清理后再次正常执行。
+5. 同时完成镜像 PostgreSQL 的真实角色、scope、审计与 receipt 集成回查、进程崩溃/清理核验及失败关闭演练。三项真实容器测试因环境缺失被跳过时属于未验收，不能视为通过。
+6. 测试及必要复审通过后，才可按项目规则合并。生产采用另行授权：备份与独立恢复验证、部署 Django 新模块及 Worker 工具、为 Django AI writer 配置 `TERUISI_PANDAS_RUNNER_KEY_FILE` 与 `TERUISI_PANDAS_RUNNER_IMAGE`。Windows 密钥文件必须为 CurrentUser DPAPI 密文 JSON，结构为 `version=1` 与 `keyDpapiBase64`（无附加 entropy），仅授予运行身份读取 ACL；不允许明文密钥文件，不复制到 worktree、Git 或容器。同一随机密钥在 Linux 端按独立服务账号 0600 文件保护。该密钥仅用于 broker 通道，不是系统通用访问密钥。
+7. 当前总控不会自动管理新 broker；生产启用前必须完成其独立启动、监控与受控停止管理。任何一端未配置或停止时，该工具明确不可用，其余业务接口沿用现有行为。回退为停用该工具/停止 broker 的前向兼容操作，保留 PostgreSQL 私有结果与审计；不恢复 D1，不回滚业务事实。
+
+建议的独立账号 user unit（路径须对应审查后的安装目录，不应直接指向开发 worktree）：
+
+```ini
+[Unit]
+Description=TERUISI pandas container broker
+After=docker.service
+Requires=docker.service
+
+[Service]
+WorkingDirectory=%h/.local/share/teruisi-pandas/backend
+ExecStart=/usr/bin/python3 -m pandas_runner.server --config %h/.config/teruisi-pandas/broker.json
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+Restart=no
+
+[Install]
+WantedBy=default.target
+```
+
+## 本次验证边界
+
+隔离测试使用合成输入、临时 SQLite、固定 HTTP/模型协议夹具；未在宿主执行模型生成代码。已有数据集/AI 回归、双模型协议工具结果与私有表格、签名 HTTP、防重、权限收窄、字段截断/分页超限、清理失败抑制结果均覆盖。源码构建及后端边界检查通过。全仓 `tsc --noEmit` 存在其他既有文件诊断，需与当前 main 做同一配置差异核对，不能报告全仓类型检查通过。
+
+候选验证计数及未执行范围见 [候选证据](evidence/pandas-sandbox-candidate-20260911.json)：83 项 Python 测试中 79 项通过、4 项跳过；41 项工具链与 20 项构建产物测试通过。类型诊断与 main 基线均为 146 项，无本次新增；Windows CurrentUser DPAPI 使用随机合成密钥完成往返与拒绝明文测试。
+
+生产部署、真实容器隔离、真实 PostgreSQL 镜像联调、付费模型和真实钉钉消息未执行；待满足这些门槛后再标注实际采用版本与验收证据。

@@ -30,7 +30,7 @@ function summarize(value: unknown, depth: number): unknown {
   if (Array.isArray(value)) return value.slice(0, 20).map((item) => summarize(item, depth + 1));
   const output: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value).slice(0, 40)) {
-    output[key] = /secret|password|token|api.?key|authorization/i.test(key)
+    output[key] = /secret|password|token|api.?key|authorization|^code$|^inputsJson$/i.test(key)
       ? "[redacted]"
       : summarize(item, depth + 1);
   }

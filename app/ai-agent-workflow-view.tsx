@@ -400,7 +400,7 @@ export default function AiAgentWorkflowView({
       <div className="ai-sandbox-badges"><span>逐轮派发账本</span><span>持久任务状态</span><span>最多 24 节点</span><span>支持 dry-run</span></div>
     </article>
 
-    <div className="inventory-feedback inventory-feedback-warning" role="note"><span>i</span><div><strong>当前执行边界</strong><p>正式 Agent 只使用中央注册表中的有界只读工具；每轮都会重验账号、数据范围、模型版本和工具策略。任一外部调用结果未知时会失败关闭且不自动重试。代码沙箱仍只接受确定性 JSON 分析计划，不执行任意 Python、JavaScript、SQL、浏览器操作或运营写入。</p></div></div>
+    <div className="inventory-feedback inventory-feedback-warning" role="note"><span>i</span><div><strong>当前执行边界</strong><p>正式 Agent 只使用中央注册表中的有界只读工具；每轮都会重验账号、数据范围、模型版本和工具策略。任一外部调用结果未知时会失败关闭且不自动重试。JSON 分析沙箱继续保留；pandas 临时分析需要独立容器服务就绪，只能使用当前账号获准的数据，不修改业务记录。</p></div></div>
     {!canMutate && <section className="panel ai-permission-card" role="status"><h3>当前为只读模式</h3><p>viewer 可以查看和刷新自己的任务与工作流；创建、取消、恢复和人工复核需要 analyst、operator 或 admin。</p></section>}
     {(error || notice) && <div className={`inventory-feedback ${error ? "inventory-feedback-error" : "inventory-feedback-success"}`} role={error ? "alert" : "status"}><span>{error ? "!" : "✓"}</span><div><strong>{error ? "Agent 平台操作失败" : "Agent 平台已更新"}</strong><p>{error || notice}</p></div></div>}
 

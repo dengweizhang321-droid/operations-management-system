@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+小特新增候选 **pandas 容器分析工具**：按当前账号权限导出系统数据集，在独立 Linux/rootless Docker 容器中做临时关联、分组和透视，并返回对话表格。保留原 JSON 分析沙箱；没有配置容器时明确不可用。当前尚未生产部署，真实容器与镜像 PostgreSQL 联调仍待完成；使用方式、配额和采用门禁见 [pandas 容器分析说明](docs/AI_PANDAS_SANDBOX.md)。
+
 库存健康指标、广东入仓型号编辑保存和各板块 AI 对话框布局已于 **2026-09-11 在本机生产统一上线**。库存健康分布只统计京东仓、天猫履约仓、精确广东仓和自营仓，统一六类状态并以库存周转严格大于 180 天判定低周转；型号编辑继续通过独立库存 writer 执行版本 fencing 与写后回查。板块 AI 对话工作台现填满抽屉可用高度，输入区下移到底部并缩小占用，更多空间用于显示历史对话。当前 Worker/helper effective release 为 `20260911T035534Z-683ed76137b93190`，Django deployment manifest SHA 为 `da378980df03116093a14e03b4f4c1a599a5ea0365223d9d2d53437d63afba5d`；整栈 Running / Ready / exact_release，发布前备份独立恢复及发布后备份复验通过。详见 [统一发布证据](docs/evidence/inventory-health-ai-panel-production-20260911.json)。
 
 AI 管理的生成参数已于 2026-09-10 完成本机生产采用，贯通 Django 配置、provider 和 Web 对话：支持更高输出额度、上下文预算、按端点选择推理格式、默认温度、任务时限、附加业务提示词，以及消息用量与停止原因。新建模型默认输出 65536、对话总时限 1000000 秒，移除单轮超时配置，自定义温度合并到温度设置。AI `0009` 已应用，旧配置不自动增额；具体范围见 [模型生成能力配置](docs/AI_MODEL_GENERATION_CAPABILITIES.md)，运行版本、数据回查与备份恢复见 [生产采用证据](docs/evidence/ai-workbench-production-20260910.json)。

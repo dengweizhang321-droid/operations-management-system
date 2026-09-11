@@ -21,7 +21,7 @@ export type AiToolSurface = (typeof aiToolSurfaces)[number];
 export type AiToolScopePolicy = "unscoped_only" | "principal_scope" | "metadata_safe";
 export type AiToolExecutionMode = "direct" | "confirmation_required" | "background_job";
 export type AiToolExecutionPolicy = {
-  environment: "worker_inline";
+  environment: "worker_inline" | "isolated_container";
   mode: AiToolExecutionMode;
   allowedSurfaces: readonly AiToolSurface[];
   timeoutMs: number;
@@ -122,7 +122,7 @@ export function validateToolRegistry(entries: readonly AiToolEntry[]): void {
       throw new Error(`AI 工具 scope 策略无效：${entry.name}`);
     }
     const policy = entry.execution;
-    if (!policy || policy.environment !== "worker_inline") throw new Error(`AI 工具未声明受支持的执行环境：${entry.name}`);
+    if (!policy || !["worker_inline", "isolated_container"].includes(policy.environment)) throw new Error(`AI 工具未声明受支持的执行环境：${entry.name}`);
     if (!["direct", "confirmation_required", "background_job"].includes(policy.mode)) {
       throw new Error(`AI 工具执行模式无效：${entry.name}`);
     }
@@ -156,7 +156,7 @@ export function getToolsForPrincipal(
 ): readonly AiToolEntry[] {
   return entries.filter((entry) => entry.allowedRoles.includes(principal.role)
     && entry.execution.allowedSurfaces.includes(surface)
-    && entry.execution.environment === "worker_inline"
+    && ["worker_inline", "isolated_container"].includes(entry.execution.environment)
     && entry.execution.mode === "direct"
     && entry.risk === "read_only"
     && (principal.scope === null || entry.scopePolicy !== "unscoped_only"));
@@ -247,8 +247,8 @@ export async function executeToolCallWithRegistry(
     if (!entry.execution.allowedSurfaces.includes(context.surface)) {
       throw new RegistryToolError("forbidden", "当前入口无权调用此工具");
     }
-    if (entry.execution.environment !== "worker_inline") {
-      throw new RegistryToolError("unsupported_execution_environment", "当前执行器只允许 worker_inline 工具");
+    if (!["worker_inline", "isolated_container"].includes(entry.execution.environment)) {
+      throw new RegistryToolError("unsupported_execution_environment", "当前执行器不支持该工具环境");
     }
     if (context.principal.scope !== null && entry.scopePolicy === "unscoped_only") {
       throw new RegistryToolError("forbidden", "此工具不能安全应用当前账号的数据范围");
