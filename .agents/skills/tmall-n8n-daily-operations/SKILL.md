@@ -5,7 +5,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 # 天猫 n8n 每日运维
 
-2026-09-12 最新用户决策覆盖下文旧目标：丽力每日 MTOP 分批 M、指定旧任务归档、天猫不同店铺独立执行与各自安全小时重试，同店仍串行。候选尚未生产采用；遇到该任务须完整阅读 [独立执行门禁](../../../docs/TMALL_STORE_ISOLATION.md)，并按实际 release/live 定义区分旧版现状与新目标。不自动扩展 P 协议或带入未采用的逐日回填循环。
+2026-09-12 已受控采用丽力每日 MTOP 分批 M、指定旧任务归档、天猫不同店铺独立执行与各自安全小时重试，同店仍串行。遇到该任务须完整阅读 [独立执行门禁与验收](../../../docs/TMALL_STORE_ISOLATION.md)，并按实际 release/live 定义核验。不自动扩展 P 协议或带入未采用的逐日回填循环。发布就绪和并行运行证据不能代替各店导入终态证明。
 
 ## 先读资料
 
@@ -23,7 +23,7 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 
 ## 必守契约
 
-- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口。亿玖、亿用的持久节奏为每日一次；丽力、拓丰、炊之王、马思图四店只在各自三日节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，下一次必须从新的完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
+- 当前五段顺序固定为 `A→B→C→P→M`；A/B/C/P 每日执行，M 作为每日安全终态入口。亿玖、亿用、丽力的持久节奏为每日一次；拓丰、炊之王、马思图三店只在各自三日节奏到期、存在未决货品活动清单或 n8n 手动完整运行明确强制时产生货品导出与导入动作。定时未到期返回 `status=not_due`，不创建货品任务、不推进节奏，但仍关闭本店 Chromium 并释放 helper；M 到期失败不得推进日期，下一次必须从新的完整 execution 补跑。定时和手动入口都必须先通过原子协调门禁领取 helper execution owner，未获授权时只在 A 前等待。天猫领取和五个业务节点还必须携带同一个 `X-TERUISI-TMALL-STORE-KEY`，helper 将 execution ID 与店铺键一并锁定。A 是唯一进入业务计划和浏览器阶段的入口。
 - 不直接调用 `127.0.0.1:5791` 的 `/plan`、`/fetch`、`/import`、`/promotion`、`/product-master` 或其他天猫业务接口，不直接运行天猫下载/导入脚本代替 n8n。只读 `/health` 可以用于状态核验。
 - 不单独重跑节点。任何恢复都从 n8n 正式页面或受控 n8n 能力创建新的完整 workflow execution，并使用新的 execution ID。
 - `export_submitted`、`export_confirmed`、`downloaded`、推广已提交等状态只能按原店铺、原业务日期和原任务续接；禁止删除清单、倒退阶段或重复业务点击。`export_submitting` 必须转人工核对。
@@ -48,11 +48,11 @@ description: 监控、诊断并安全恢复 TERUISI 天猫 n8n 每日下载与�
 ## 特殊判断
 
 - 商品日/推广日的下载计划与验收还须读取 [缺失日规划](../../../docs/天猫商品与推广缺失日规划.md)，先核验其中的本机采用状态。采用后 A 分别核对注册起始日至上海昨天的商品日与推广日缺口，按并集选择最早一天；B/C 只补商品缺口，P 复核同日商品覆盖后只补推广缺口。`already_covered` 是无新增导入的正常结果，不是新批次完成；空日期计划必须复查覆盖仍完整且无未决推广活动清单。剩余缺口不授权监控绕过 n8n 或自动创建连续补跑。
-- 亿玖与亿用现行模板分别为 `tmall-yijiu-direct-pm-candidate.workflow.json` 与 `tmall-yiyong-direct-pm-candidate.workflow.json`，固定原 workflow ID；文件名中的 candidate 不代表可以发布旧基线。P/M 直连分别要求 `yijiu-direct-pm-v1` / `yiyong-direct-pm-v1`，不能跨店互换，也不扩展至另外四店。详情见对应店铺直连文档。
+- 亿玖与亿用现行模板分别为 `tmall-yijiu-direct-pm-candidate.workflow.json` 与 `tmall-yiyong-direct-pm-candidate.workflow.json`，固定原 workflow ID；文件名中的 candidate 不代表可以发布旧基线。P/M 直连分别要求 `yijiu-direct-pm-v1` / `yiyong-direct-pm-v1`，不能跨店互换，P 不扩展至另外四店；丽力仅 M 使用独立 `lili-direct-m-v1`。详情见对应店铺直连文档。
 - C/P 的表现回查必须使用项目领域函数生成的复合 `outlet`（平台 + 店铺），不能使用旧的单独 `shop` 参数。
 - 若导入接口已发布 completed 批次但覆盖回查失败，保留已发布事实；修复回查后通过新完整 execution 让内容幂等返回 duplicate 或精确替换。
 - M 位于末段。未到期 `not_due` 且浏览器关闭属于预期成功，不得误报为跳过失败；到期 M 失败不会回滚已完成回查的商品日和推广事实，但整个 workflow 仍失败，节奏日期保持不变，通知必须写成部分成功和 M 的人工下一步/翌日补跑状态。每店只在完整 A→B→C→P→M 工作流达到契约终态、精确批次/覆盖回查及资源收尾通过后发送一条完成汇总；不得分别发送 C/P/M 完成或六店重复汇总。人工协助立即提醒，持续卡点达到统一规则的无进展条件时知会，同一故障不重复发送，恢复更换 execution 仍关联原逻辑运行防重。发送时机、阻塞条件和防重统一遵守 [工作流钉钉通知规则](../../../docs/WORKFLOW_DINGTALK_NOTIFICATIONS.md)。
-- 多店铺必须串行；每店的 profile/端口/下载目录/签收单/恢复清单/凭据项和批次身份必须隔离。
+- 不同天猫店铺可独立运行，同店 execution 和同店导出批次仍串行；每店的 Chromium userDataDir/profile/端口/下载目录/签收单/恢复清单/凭据项和批次身份必须隔离。京东/吉客云仍与天猫保持原共享互斥边界。
 - 新店首次登录允许读取 `enabled=false` 的已注册浏览器配置，但任何 A/B/C/P/M 业务执行仍必须要求 `enabled=true`；不能为了登录测试提前开放导入。
 
 ## 停止条件
