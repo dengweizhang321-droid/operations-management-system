@@ -698,6 +698,8 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
             },
         )
         if dataset == "stock":
+            from .guangdong_risk_reset import healthy_stock_baseline
+            healthy_baseline = healthy_stock_baseline()
             InventoryStockLine.objects.filter(snapshot_date=snapshot_date).delete()
             InventoryStockLine.objects.bulk_create(
                 [
@@ -790,6 +792,8 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
         if dataset == "stock":
             from .replenishment_health import advance_cycles
             advance_cycles(batch)
+            from .guangdong_risk_reset import reset_changed_healthy
+            reset_changed_healthy(batch, healthy_baseline, actor_email)
         bump_revision(
             {
                 "kind": "import",

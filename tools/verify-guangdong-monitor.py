@@ -79,7 +79,7 @@ def main():
                 cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
             for table in REQUIRED_INVENTORY_COLUMNS:
                 cursor.execute(sql.SQL("GRANT SELECT ON {} TO gd_reader").format(sql.Identifier(table)))
-                if not table.startswith("inventory_guangdong_"):
+                if table != "inventory_guangdong_monitor_audits":
                     cursor.execute(sql.SQL("GRANT SELECT ON {} TO gd_bi").format(sql.Identifier(table)))
             # Reader dependencies are taken from the writer's SELECT-only contracts.
             for table, privileges in INVENTORY_WRITER_TABLE_PRIVILEGES.items():
@@ -111,10 +111,10 @@ def main():
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
             cursor.execute("SET ROLE gd_bi")
-            _validate_inventory_schema(cursor, writer=False, include_monitor_configuration=False)
+            _validate_inventory_schema(cursor, writer=False)
             for table in TABLES:
                 cursor.execute("SELECT has_table_privilege(current_user, %s, 'SELECT')", [table])
-                assert cursor.fetchone() == (False,)
+                assert cursor.fetchone() == (table != "inventory_guangdong_monitor_audits",)
             cursor.execute("RESET ROLE")
             for table in TABLES:
                 cursor.execute("SELECT has_table_privilege('gd_reader', %s, 'INSERT'), has_table_privilege('gd_reader', %s, 'UPDATE'), has_table_privilege('gd_writer', %s, 'DELETE')", [table] * 3)
@@ -138,6 +138,26 @@ def main():
         assert (item["risk"], item["riskSource"]) == ("healthy", "备货跟进")
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
+
+        # Exercise stock-triggered reset with the real minimum writer grants.
+        from inventory.import_service import import_inventory_payload
+        from inventory.tests.test_imports import stock_payload, stock_row
+        from inventory.models import GuangdongMonitorItem, GuangdongMonitorAudit
+        from inventory.warehouse_mapping import classify_warehouse
+        with connection.cursor() as cursor:
+            cursor.execute("SET ROLE gd_writer")
+        for quantity in (100, 90):
+            row = stock_row("00123", 2, warehouse="广东仓", available=quantity)
+            mapping = classify_warehouse("广东仓")
+            row.update(warehouseType=mapping.warehouse_type, warehouseCategory=mapping.category,
+                       includeInInventory=mapping.include_in_inventory, onHandQuantity=quantity)
+            import_inventory_payload(stock_payload(row, raw_seed=uuid.uuid4().hex), "mirror@example.invalid")
+        assert GuangdongMonitorItem.objects.get(product_code="00123").risk_override is None
+        assert GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").count() == 1
+        assert ReplenishmentPlanItem.objects.get(id=plan.id).guangdong_health["active"] is False
+        with connection.cursor() as cursor:
+            cursor.execute("RESET ROLE")
+        print(json.dumps({"stage": "minimum-writer-stock-risk-reset", "status": "passed"}), flush=True)
 
         def summary(db):
             with psycopg.connect(host="127.0.0.1", port=PORT, user="gd_owner", password=password, dbname=db) as conn:
