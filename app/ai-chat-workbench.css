@@ -126,7 +126,9 @@
 .ai-workbench-tools ul { padding-left:18px; line-height:1.8; }
 .ai-workbench-incomplete { font-size:12px; color:#a48854; line-height:1.8; background:#fdf9f0; padding:10px; border-radius:6px; }
 .ai-workbench-history-toggle { display:none; }
-.ai-workbench-compact .ai-workbench-layout { height:65vh; min-height:420px; }
+.ai-workbench-compact { display:flex; flex:1; min-height:0; flex-direction:column; }
+.ai-workbench-compact .ai-workbench-layout { height:auto; min-height:0; flex:1; }
+.ai-workbench-compact .ai-workbench-conversation { min-height:0; }
 .ai-workbench-compact .ai-workbench-history-toggle { display:flex; }
 .ai-workbench-compact .ai-workbench-history { display:none; }
 .ai-workbench-compact .ai-workbench-history.is-open { display:flex; position:absolute; inset:0 auto 0 0; z-index:8; width:225px; box-shadow:5px 0 20px #263e3022; }
@@ -134,6 +136,13 @@
 .ai-workbench-compact .ai-workbench-subtitle { display:none; }
 .ai-workbench-compact .ai-workbench-details { position:absolute; inset:0 0 0 auto; z-index:9; box-shadow:-5px 0 20px #263e3022; }
 .ai-workbench-compact .ai-workbench-messages,.ai-workbench-compact .ai-workbench-composer-area { padding-left:17px; padding-right:17px; }
+.ai-workbench-compact .ai-workbench-conversation-title { padding:16px 17px 10px; }
+.ai-workbench-compact .ai-workbench-composer-area { padding-top:8px; padding-bottom:8px; }
+.ai-workbench-compact .ai-workbench-context { margin-bottom:6px; }
+.ai-workbench-compact .ai-workbench-composer { padding:9px 12px 7px; }
+.ai-workbench-compact .ai-workbench-composer-toolbar { margin-top:4px; }
+.ai-workbench-compact .ai-workbench-composer-note { margin-top:5px; }
+.ai-workbench-compact .ai-workbench-composer textarea { min-height:36px; max-height:96px; line-height:1.55; }
 .ai-workbench-compact .ai-workbench-assistant>.ai-workbench-message-content { margin-left:0; }
 .ai-workbench-compact .ai-workbench-empty>div { grid-template-columns:1fr; gap:8px; margin-top:24px; }
 .ai-workbench-compact .ai-workbench-empty>div button { padding:12px; gap:7px; display:grid; grid-template-columns:auto 1fr; }
