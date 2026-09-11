@@ -34,5 +34,6 @@ New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 Set-Location -LiteralPath $projectRoot
 
 $env:N8N_LISTEN_ADDRESS = "127.0.0.1"
+$env:NODES_EXCLUDE = '["n8n-nodes-base.localFileTrigger"]'
 & $nodeCommand $n8nEntry start 1>> $stdoutLog 2>> $stderrLog
 exit $LASTEXITCODE

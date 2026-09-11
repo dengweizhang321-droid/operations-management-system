@@ -13,6 +13,8 @@ test("n8n service launcher is hidden-task safe and refuses an unhealthy occupied
   assert.match(source, /Get-NetTCPConnection -State Listen -LocalPort 5678/);
   assert.match(source, /http:\/\/127\.0\.0\.1:5678\/healthz/);
   assert.match(source, /Port 5678 is occupied, but the n8n health endpoint is unavailable/);
+  assert.match(source, /\$env:NODES_EXCLUDE = '\["n8n-nodes-base\.localFileTrigger"\]'/);
+  assert.doesNotMatch(source, /\$env:NODES_EXCLUDE = '\[\]'/);
   assert.match(source, /& \$nodeCommand \$n8nEntry start/);
   assert.doesNotMatch(source, /password|cookie|token|webhook/i);
 });
