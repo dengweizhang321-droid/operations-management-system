@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     });
     normalizeInventorySelections(params.getAll("status"), {
       maximum: 6,
-      allowed: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"],
+      allowed: ["no_stock", "urgent", "warning", "stale", "slow", "healthy"],
       label: "库存状态",
     });
     const planStatus = params.get("planStatus");

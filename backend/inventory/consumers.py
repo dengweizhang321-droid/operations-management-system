@@ -69,7 +69,7 @@ def validate_consumer_request(payload: object) -> dict[str, object]:
         if set(payload) != allowed:
             raise _error("库存健康消费查询字段集合无效")
         status = payload["status"]
-        if status is not None and status not in {"urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"}:
+        if status is not None and status not in {"no_stock", "urgent", "warning", "stale", "slow", "healthy"}:
             raise _error("status 无效")
         return {
             "operation": operation,

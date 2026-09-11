@@ -6,6 +6,7 @@ import type { AppPrincipal } from "../lib/auth/authorization";
 import {
   DjangoInventoryServiceResponseError,
   INVENTORY_CONSUMER_QUERY_PATH,
+  INVENTORY_GUANGDONG_PATH,
   INVENTORY_IMPORTS_PATH,
   INVENTORY_OVERVIEW_PATH,
   INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH,
@@ -135,6 +136,34 @@ test("inventory consumers stay reader-only while imports and plans use writer", 
   assert.equal(new URL(observed[3]!.url).origin, config.writerBaseUrl);
   assert.equal(imported.replayed, true);
   verifySignature(observed[1]!, INVENTORY_IMPORTS_PATH);
+});
+
+test("Guangdong item edits are allowlisted on the inventory writer", async () => {
+  let observed: Request | undefined;
+  await requestDjangoInventoryJson(
+    principal,
+    {
+      method: "PATCH",
+      path: `${INVENTORY_GUANGDONG_PATH}/items`,
+      service: "writer",
+      payload: { action: "item", productCode: "SKU-1", version: "1:abcdef123456/sales:1" },
+    },
+    {
+      config,
+      requestId: () => "guangdong-item-edit-1",
+      fetchImpl: async (input, init) => {
+        observed = new Request(input, init);
+        return Response.json(
+          { status: "saved" },
+          { headers: { "x-inventory-data-revision": "11:abcdef123456" } },
+        );
+      },
+    },
+  );
+  assert.ok(observed);
+  assert.equal(observed.method, "PATCH");
+  assert.equal(new URL(observed.url).origin, config.writerBaseUrl);
+  verifySignature(observed, `${INVENTORY_GUANGDONG_PATH}/items`);
 });
 
 test("inventory allowlists and loopback-only configuration fail closed", async () => {

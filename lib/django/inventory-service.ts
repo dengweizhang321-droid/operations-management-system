@@ -39,6 +39,7 @@ const readerMethods = new Set([
 const writerMethods = new Set([
   `POST ${INVENTORY_GUANGDONG_PATH}/import`,
   `PATCH ${INVENTORY_GUANGDONG_PATH}/suppliers`,
+  `PATCH ${INVENTORY_GUANGDONG_PATH}/items`,
   `POST ${INVENTORY_IMPORTS_PATH}`,
   `POST ${INVENTORY_UPLOADS_PATH}`,
   `GET ${INVENTORY_UPLOAD_CHUNK_PATH}`,

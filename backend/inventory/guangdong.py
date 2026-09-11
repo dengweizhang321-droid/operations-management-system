@@ -28,7 +28,7 @@ from .write_requests import lock_active_authority
 from .replenishment_health import waiting_for_stock
 
 MAX_ITEMS = 5000
-RISK_LABELS = {"no_stock": "无可用库存", "urgent": "紧急补货", "warning": "补货预警", "stale": "积压风险", "unknown": "待完善/待观察", "healthy": "健康"}
+RISK_LABELS = {"no_stock": "无库存可用", "urgent": "紧急补货", "warning": "补货预警", "stale": "低周转", "unknown": "积压风险", "healthy": "库存健康"}
 RISK_PRIORITY = ("no_stock", "stale", "urgent", "warning")
 
 
@@ -302,8 +302,8 @@ def risk_fields(*, available, sales30, lead, buffer, snapshot):
         reasons.append("最新快照缺少该型号广东仓记录")
     elif available <= 0:
         risks.append("no_stock"); reasons.append("广东仓可用库存小于等于0")
-    if turnover is not None and turnover >= 180:
-        risks.append("stale"); reasons.append("销售周转达到180天")
+    if turnover is not None and turnover > 180:
+        risks.append("stale"); reasons.append("库存周转大于180天")
     if turnover is not None and lead is not None:
         if turnover <= lead:
             risks.append("urgent"); reasons.append("销售周转不超过生产周期")

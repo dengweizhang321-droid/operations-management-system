@@ -200,12 +200,12 @@ function downloadInventoryCsv(fileName: string, rows: Array<Array<string | numbe
 }
 
 const inventoryStatusMeta: Record<InventoryHealthStatus, { label: string; tone: string }> = {
+  no_stock: { label: "无库存可用", tone: "danger" },
   urgent: { label: "紧急补货", tone: "danger" },
-  replenish: { label: "建议补货", tone: "warning" },
-  healthy: { label: "库存健康", tone: "success" },
+  warning: { label: "补货预警", tone: "warning" },
+  stale: { label: "积压风险", tone: "danger" },
   slow: { label: "低周转", tone: "purple" },
-  stagnant: { label: "呆滞风险", tone: "danger" },
-  no_sales: { label: "无销量数据", tone: "gray" },
+  healthy: { label: "库存健康", tone: "success" },
 };
 
 const inventoryAgeStatusMeta: Record<InventoryAgeStatus, { label: string; tone: string }> = {
@@ -1400,7 +1400,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     return <>{subnav}{syncBar}{feedback}{refreshError}{sharedFilterBar}<section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">库</span><strong>还没有库存快照</strong><p>请上传吉客云“分仓库存查询” .xlsx 报表。系统会保留批次、自动读取实盘库存与成本，并联动销售生成备货建议。</p>{canSyncInventory && <button className="primary-button" onClick={() => syncInputRef.current?.click()}>选择库存报表</button>}</section></>;
   }
 
-  const totalHealth = Math.max(1, overview?.metrics.skuWarehouseCount ?? 0);
+  const totalHealth = Math.max(1, overview ? overview.health.noStock + overview.health.urgent
+    + overview.health.warning + overview.health.stale + overview.health.slow + overview.health.healthy : 0);
   const planStatusLabel: Record<ReplenishmentPlanItem["status"], string> = {
     draft: "草稿",
     confirmed: "已确认",
@@ -1423,20 +1424,20 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       {activeTab === "overview" && overview ? <>
         <section className="inventory-diagnosis-grid">
           <article className="panel inventory-health-panel">
-            <SectionHeader title="库存健康分布" note="按 SKU × 仓库实时诊断" />
+            <SectionHeader title="库存健康分布" note="仅统计京东仓、天猫仓、广东仓、自营仓" />
             <div className="health-stack" aria-label="库存健康状态分布">
               {([
-                ["urgent", overview.health.urgent], ["replenish", overview.health.replenish], ["healthy", overview.health.healthy],
-                ["slow", overview.health.slow], ["stagnant", overview.health.stagnant], ["no_sales", overview.health.noSales],
+                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
+                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
               ] as [InventoryHealthStatus, number][]).map(([status, count]) => count > 0 && <i className={`health-${status}`} style={{ width: `${count / totalHealth * 100}%` }} title={`${inventoryStatusMeta[status].label} ${count}`} key={status} />)}
             </div>
             <div className="health-legend">
               {([
-                ["urgent", overview.health.urgent], ["replenish", overview.health.replenish], ["healthy", overview.health.healthy],
-                ["slow", overview.health.slow], ["stagnant", overview.health.stagnant], ["no_sales", overview.health.noSales],
+                ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
+                ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
               ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" onClick={() => updateFilters({ ...filters, healthStatuses: [status] })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
             </div>
-            <div className="inventory-health-note"><span>低周转与呆滞货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>{overview.metrics.noSalesCount} 个 SKU × 仓库暂无有效销量</small></div>
+            <div className="inventory-health-note"><span>积压风险与低周转货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>低周转：库存周转大于 180 天；工厂代发仓不计入</small></div>
           </article>
 
           <article className="panel replenishment-opportunity-panel">

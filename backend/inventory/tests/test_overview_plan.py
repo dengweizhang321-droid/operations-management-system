@@ -10,7 +10,14 @@ from django.utils import timezone
 
 from inventory.models import InventoryImportScopeHead, InventoryWriteAuthority, ReplenishmentPlanItem
 from inventory.plans import plan_payload, upsert_plan
-from inventory.query import _filtered_overview, _mapping_samples, _sales_period
+from inventory.query import (
+    _filtered_overview,
+    _health,
+    _health_distribution_items,
+    _mapping_samples,
+    _metrics,
+    _sales_period,
+)
 from inventory.warehouse_mapping import classify_warehouse
 from inventory.views import replenishment, replenishment_import
 from sales.auth import Principal
@@ -45,14 +52,53 @@ def overview_item(
         "productSales30d": sales if product_sales is None else product_sales,
         "coverageDays": available / (sales / 30) if sales else None,
         "suggestedQuantity": 4 if sales else None,
-        "status": "replenish" if sales else "no_sales",
-        "statusLabel": "建议补货" if sales else "无销量数据",
+        "status": "warning" if sales else "stale",
+        "statusLabel": "补货预警" if sales else "积压风险",
         "reason": "测试原因",
         "inDraftPlan": False,
     }
 
 
 class InventoryMappingWorkbenchTests(SimpleTestCase):
+    def test_health_statuses_use_six_labels_and_strict_180_day_boundary(self) -> None:
+        settings = {"criticalDays": 7, "replenishDays": 30}
+
+        self.assertEqual(_health(0, 1, 0, None, settings, 30)[:2], ("no_stock", "无库存可用"))
+        self.assertEqual(_health(7, 1, 7, None, settings, 30)[:2], ("urgent", "紧急补货"))
+        self.assertEqual(_health(20, 1, 20, None, settings, 30)[:2], ("warning", "补货预警"))
+        self.assertEqual(_health(10, 0, None, 30, settings, 30)[:2], ("stale", "积压风险"))
+        self.assertEqual(_health(180, 1, 180, None, settings, 30)[:2], ("healthy", "库存健康"))
+        self.assertEqual(_health(181, 1, 181, None, settings, 30)[:2], ("slow", "低周转"))
+
+    def test_health_distribution_only_counts_jd_tmall_guangdong_and_self_operated(self) -> None:
+        statuses = ["no_stock", "urgent", "warning", "stale", "slow", "healthy"]
+        categories = ["jd", "cainiao", "guangdong", "selfOperated", "dropship", "afterSales"]
+        items = []
+        for index, (status, category) in enumerate(zip(statuses, categories, strict=True), start=1):
+            items.append({
+                "warehouseCategory": category,
+                "availableQuantity": index,
+                "costCoverageRate": 1,
+                "knownStockValueCents": index * 100,
+                "averageDailySales": 1,
+                "sales30d": 30,
+                "suggestedQuantity": 0,
+                "status": status,
+            })
+        scoped = _health_distribution_items(items)
+        metrics, health = _metrics(
+            items,
+            {"recommendationsSuppressed": False, "issues": []},
+            True,
+            health_items=scoped,
+        )
+
+        self.assertEqual([item["warehouseCategory"] for item in scoped], ["jd", "cainiao", "guangdong", "selfOperated"])
+        self.assertEqual((health["noStock"], health["urgent"], health["warning"], health["stale"]), (1, 1, 1, 1))
+        self.assertEqual((health["slow"], health["healthy"]), (0, 0))
+        self.assertEqual(metrics["skuWarehouseCount"], 6)
+        self.assertEqual(metrics["slowMovingValueCents"], 400)
+
     def test_inventory_sales_window_is_always_the_latest_thirty_days(self) -> None:
         start, end, coverage = _sales_period(
             {"startDate": "2025-01-01", "endDate": "2025-01-31"},

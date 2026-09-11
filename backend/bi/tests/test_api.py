@@ -136,7 +136,7 @@ class BiApiContractTests(BiFixtureMixin, TestCase):
                 "recommendationsSuppressed": False,
                 "urgentCount": 2,
             },
-            "health": {"stagnant": 3},
+            "health": {"stale": 3},
         })
         self.assertEqual(score, 78)
 

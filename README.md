@@ -20,6 +20,8 @@ AI 板块独立会话首批优化已于 **2026-09-09 在本机正式上线**：�
 
 广东备货健康跟进规则已于 **2026-09-11 在本机生产采用**：新增或增加备货数量后显示健康，实物库存首次增加后恢复检测；库存总览的广东仓同步同一规则。库存迁移 `0010_replenishment_health` 已应用，53 条原备货计划的业务字段摘要不变；详见 [备货健康口径](docs/INVENTORY_MANAGEMENT.md#广东入仓监控) 和 [统一发布证据](docs/evidence/guangdong-replenishment-health-production-20260911.json)。
 
+库存总览的“库存健康分布”统一只统计京东仓、天猫履约仓、精确广东仓和自营仓，不再把工厂代发、售后、样品及海外等仓别计入分布指标；状态名称统一为无库存可用、紧急补货、补货预警、积压风险、低周转和库存健康，其中库存周转严格大于 180 天才属于低周转。广东入仓型号设置通过独立写侧 `PATCH` 保存并执行版本冲突与写后回查。
+
 吉客云五表“会话接口下载”已于 2026-09-08 在本机替换原“网页校验 + HTTP 导出”工作流。浏览器负责 DPAPI 登录与会话核验，五类报表使用同一登录会话直接查询、提交导出、轮询和下载。原 n8n ID 保持不变，已设为每天本机时间 00:10 自动运行（Asia/Shanghai，UTC+08:00），同时保留手动入口，现行定义为 `automation/n8n/jackyun-five-dataset-api.workflow.json`；销售仍先匹配成本、校验通过后导入。此次发布没有新增正式导入；此前执行 896 的正式导入和精确批次回查记录保留，销售覆盖截至 2026-09-07。当前版本与采用证据见 [`docs/JACKYUN_SESSION_API_EXPORT.md`](docs/JACKYUN_SESSION_API_EXPORT.md)，历史网页校验版见 [`docs/JACKYUN_HTTP_EXPORT.md`](docs/JACKYUN_HTTP_EXPORT.md)。
 
 本机用户、固定角色、数据范围与权限变更审计已于 2026-09-05 正式切换至 Django/PostgreSQL（reader/writer：8101/8102），入口保持“系统设置 → 权限”。旧 D1 权限表已终态退役，不存在 D1 权限回退；D1 历史审计证据及其他域仍使用的 R2 对象保留。迁移、系统测试、备份与恢复证据见 [`docs/DJANGO_ACCESS_CONTROL_MIGRATION.md`](docs/DJANGO_ACCESS_CONTROL_MIGRATION.md)。

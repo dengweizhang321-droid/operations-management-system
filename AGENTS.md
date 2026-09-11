@@ -28,6 +28,7 @@
 - 主要业务域及代码目录：
   - 销售事实、导入、查询和分析权威实现：`backend/sales/`；Worker 适配与消费者：`lib/django/`、`lib/sales/*-contract.ts`
   - 库存、库龄、补货、设置、原始分片、迁移和审计权威实现：`backend/inventory/`；Worker 薄适配与有界消费者为 `lib/django/inventory-*.ts`、`lib/inventory/django-*.ts`、`lib/inventory/system-cost-reference.ts` 和 `lib/inventory/work-items.ts`。旧 D1 库存领域路径只允许作为隔离迁移、终态退役审计或测试材料保留
+    - 库存总览“库存健康分布”只统计京东仓、天猫履约仓（仓库映射分类 `cainiao`）、精确广东仓和自营仓；工厂代发、售后、样品、海外等仓别不得计入。六类状态固定显示为无库存可用、紧急补货、补货预警、积压风险、低周转、库存健康；库存周转严格大于 180 天才属于低周转。广东入仓型号编辑必须经库存 writer 的 `PATCH /api/inventory/guangdong-monitor/items`，继续保留版本 fencing、最小权限和写后回查。
   - 商品经营汇总、SKU 快递费率、原始分片、库存投影、迁移和审计权威实现：`backend/products/`；Worker 薄适配为 `lib/django/products-*.ts`、`lib/products/summary.ts`、`lib/products/chunked-upload.ts` 与 `lib/products/inventory-projection-sync.ts`。旧 `lib/products/shipping-rate-database.ts` 只允许作为隔离迁移、退役审计或测试材料保留；商品经营消费库存 Django consumer 的版本化完整投影，不形成库存第二写入源
   - 京东/天猫网店 SKU/SPU、推广与商品主数据权威实现：`backend/netshop/`；Worker 适配为 `lib/django/netshop-*.ts`，旧 `lib/netshop/`、`lib/jd/` D1 路径只允许作为已隔离的迁移、审计或测试材料保留
   - 吉客云自动化：`lib/jackyun/`、`tools/jackyun-*`

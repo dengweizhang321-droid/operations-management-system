@@ -147,7 +147,7 @@ export async function callOperationsTool(
 
   if (name === "get_inventory_health") {
     assertOnlyKeys(args, ["warehouse", "category", "status", "query", "limit"]);
-    const status = optionalEnum(args.status, ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"] as const);
+    const status = optionalEnum(args.status, ["no_stock", "urgent", "warning", "stale", "slow", "healthy"] as const);
     const warehouse = optionalString(args.warehouse);
     const category = optionalString(args.category);
     const query = optionalString(args.query);

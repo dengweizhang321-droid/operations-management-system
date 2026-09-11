@@ -98,7 +98,7 @@ def _inventory_health_score(inventory: dict[str, object]) -> int | None:
     if not metrics.get("inventoryAlertsEnabled") or metrics.get("recommendationsSuppressed"):
         return None
     urgent = metrics.get("urgentCount")
-    stagnant = health.get("stagnant")
+    stagnant = health.get("stale")
     if isinstance(urgent, bool) or not isinstance(urgent, int) or urgent < 0:
         raise BiApiError("库存预警计数无效", code="service_unavailable", status=503)
     if isinstance(stagnant, bool) or not isinstance(stagnant, int) or stagnant < 0:

@@ -6,7 +6,7 @@ import { readInventorySharedFilters } from "../app/inventory-filter-bar";
 import { updateModuleViewLocation } from "../app/shell/navigation-contract";
 
 test("库存公共筛选从 URL 去重、去空并恢复公共与各 Tab 专属条件", () => {
-  const filters = readInventorySharedFilters("https://example.test/?module=inventory&inventoryQuery=SKU-1&inventoryWarehouse=%E5%8D%8E%E4%B8%9C%E4%BB%93&inventoryWarehouse=%E5%8D%8E%E4%B8%9C%E4%BB%93&inventoryWarehouse=%20&inventoryBrand=%E5%93%81%E7%89%8C%E7%94%B2&inventoryCategory=%E5%87%80%E6%B0%B4&inventoryWarehouseType=owned&inventoryWarehouseType=invalid&inventoryHealthStatus=replenish&inventoryAgeStatus=stagnant&inventoryAgeBucket=91-120&inventorySupplier=%E4%BE%9B%E5%BA%94%E5%95%86%E7%94%B2&inventoryPlanStatus=confirmed");
+  const filters = readInventorySharedFilters("https://example.test/?module=inventory&inventoryQuery=SKU-1&inventoryWarehouse=%E5%8D%8E%E4%B8%9C%E4%BB%93&inventoryWarehouse=%E5%8D%8E%E4%B8%9C%E4%BB%93&inventoryWarehouse=%20&inventoryBrand=%E5%93%81%E7%89%8C%E7%94%B2&inventoryCategory=%E5%87%80%E6%B0%B4&inventoryWarehouseType=owned&inventoryWarehouseType=invalid&inventoryHealthStatus=warning&inventoryAgeStatus=stagnant&inventoryAgeBucket=91-120&inventorySupplier=%E4%BE%9B%E5%BA%94%E5%95%86%E7%94%B2&inventoryPlanStatus=confirmed");
 
   assert.deepEqual(filters, {
     productQuery: "SKU-1",
@@ -14,7 +14,7 @@ test("库存公共筛选从 URL 去重、去空并恢复公共与各 Tab 专属�
     brands: ["品牌甲"],
     categories: ["净水"],
     warehouseTypes: ["owned"],
-    healthStatuses: ["replenish"],
+    healthStatuses: ["warning"],
     ageStatuses: ["stagnant"],
     ageBuckets: ["91-120"],
     suppliers: ["供应商甲"],

@@ -29,7 +29,7 @@ export type InventorySharedFilterOptions = {
 };
 
 const inventoryWarehouseTypes = ["owned", "jd_rdc", "other"] as const;
-const inventoryHealthStatuses = ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"] as const;
+const inventoryHealthStatuses = ["no_stock", "urgent", "warning", "stale", "slow", "healthy"] as const;
 const inventoryAgeStatuses = ["healthy", "aged", "slow", "stagnant", "no_stock"] as const;
 const inventoryPlanStatuses = ["draft", "confirmed", "completed", "cancelled"] as const;
 const defaultAgeBucketOptions = [
@@ -53,12 +53,12 @@ const warehouseTypeOptions: SearchableSelectOption[] = [
   { value: "other", label: "其他仓" },
 ];
 const healthStatusOptions: SearchableSelectOption[] = [
+  { value: "no_stock", label: "无库存可用" },
   { value: "urgent", label: "紧急补货" },
-  { value: "replenish", label: "建议补货" },
-  { value: "healthy", label: "库存健康" },
+  { value: "warning", label: "补货预警" },
+  { value: "stale", label: "积压风险" },
   { value: "slow", label: "低周转" },
-  { value: "stagnant", label: "呆滞风险" },
-  { value: "no_sales", label: "无销量数据" },
+  { value: "healthy", label: "库存健康" },
 ];
 const ageStatusOptions: SearchableSelectOption[] = [
   { value: "healthy", label: "库龄健康" },

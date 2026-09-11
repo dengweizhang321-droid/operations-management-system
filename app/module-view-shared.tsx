@@ -209,7 +209,7 @@ export type ProductSummaryPageResponse = {
   items: ProductSummaryItem[];
 };
 
-export type InventoryHealthStatus = "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales";
+export type InventoryHealthStatus = "no_stock" | "urgent" | "warning" | "stale" | "slow" | "healthy";
 export type InventoryAgeStatus = "healthy" | "aged" | "slow" | "stagnant" | "no_stock";
 
 export type InventoryOverviewItem = {
@@ -327,12 +327,12 @@ export type InventoryOverviewResponse = {
     }>;
   };
   health: {
+    noStock: number;
     urgent: number;
-    replenish: number;
-    healthy: number;
+    warning: number;
+    stale: number;
     slow: number;
-    stagnant: number;
-    noSales: number;
+    healthy: number;
   };
   controls: {
     autoReplenishmentEnabled: boolean;

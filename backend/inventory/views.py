@@ -236,7 +236,7 @@ def _overview_options(request: HttpRequest) -> dict[str, object]:
     return {
         "view": view, "startDate": _one(request, "startDate"), "endDate": _one(request, "endDate"), "query": query.strip() if query else None,
         "warehouses": _selections(request, "warehouse", 10), "brands": _selections(request, "brand", 20), "categories": _selections(request, "category", 20),
-        "warehouseTypes": _selections(request, "warehouseType", 3, {"owned", "jd_rdc", "other"}), "statuses": _selections(request, "status", 6, set(("urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"))),
+        "warehouseTypes": _selections(request, "warehouseType", 3, {"owned", "jd_rdc", "other"}), "statuses": _selections(request, "status", 6, set(("no_stock", "urgent", "warning", "stale", "slow", "healthy"))),
         "page": _positive(_one(request, "page"), 1, "page", 10_000), "pageSize": _positive(_one(request, "pageSize"), 50, "pageSize", 100),
         "planPage": _positive(_one(request, "planPage"), 1, "planPage", 10_000), "planPageSize": _positive(_one(request, "planPageSize"), 50, "planPageSize", 100),
         "planStatus": plan_status, "includeCancelledPlans": include_cancelled == "true" or plan_status == "cancelled",

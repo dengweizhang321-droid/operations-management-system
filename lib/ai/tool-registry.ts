@@ -328,7 +328,7 @@ export const aiToolRegistry = [
   {
     name: "get_inventory_health",
     title: "库存健康分析",
-    description: "用于库存总览（inventory overview），读取最新库存健康、缺货风险、滞销库存、覆盖天数和补货建议。返回 filtersApplied、totalMatched、returned、truncated 和 items；所有金额字段单位均为人民币分。",
+    description: "用于库存总览（inventory overview），读取最新库存健康、缺货风险、积压/低周转库存、覆盖天数和补货建议。健康分布只统计京东仓、天猫履约仓、精确广东仓和自营仓，状态为无库存可用、紧急补货、补货预警、积压风险、低周转、库存健康。返回 filtersApplied、totalMatched、returned、truncated 和 items；所有金额字段单位均为人民币分。",
     inputSchema: {
       type: "object",
       properties: {
@@ -336,7 +336,7 @@ export const aiToolRegistry = [
         category: { type: "string", description: "可选，精确商品品类。" },
         status: {
           type: "string",
-          enum: ["urgent", "replenish", "healthy", "slow", "stagnant", "no_sales"],
+          enum: ["no_stock", "urgent", "warning", "stale", "slow", "healthy"],
         },
         query: { type: "string", description: "可选，匹配商品编码或名称。" },
         limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },

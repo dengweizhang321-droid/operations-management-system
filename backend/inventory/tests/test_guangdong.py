@@ -37,17 +37,17 @@ class RiskTests(SimpleTestCase):
         self.assertEqual(self.fields(available=None)["risk"], "unknown")
         self.assertEqual(self.fields(available=0)["risk"], "no_stock")
         self.assertEqual(self.fields(available=-5)["risk"], "no_stock")
-        result = self.fields(available=1800, lead=200)
+        result = self.fields(available=1801, lead=200)
         self.assertEqual(result["risk"], "stale")
-        self.assertIn("销售周转达到180天", result["riskReasons"])
+        self.assertIn("库存周转大于180天", result["riskReasons"])
         self.assertIn("销售周转不超过生产周期", result["riskReasons"])
 
     def test_missing_cycle_zero_sales_and_unmatched_sales(self):
         self.assertEqual(self.fields(lead=None)["risk"], "unknown")
         self.assertEqual(self.fields(sales30=None)["risk"], "unknown")
         self.assertEqual(self.fields(sales30=0)["risk"], "unknown")
-        self.assertEqual(self.fields(available=1799)["risk"], "healthy")
-        self.assertEqual(self.fields(available=1800)["risk"], "stale")
+        self.assertEqual(self.fields(available=1800)["risk"], "healthy")
+        self.assertEqual(self.fields(available=1801)["risk"], "stale")
 
 
 class GuangdongTests(TestCase):

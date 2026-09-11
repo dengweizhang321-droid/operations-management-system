@@ -13,7 +13,7 @@ type Watchlist = { version: string; items: Array<GuangdongWatchRow & GuangdongId
 type Cycles = { version: string; items: Array<{ supplier: string; leadDays: number | null; bufferDays: number }> };
 const numberText = (value: number | null) => value === null ? "—" : formatCount(value);
 const daysText = (value: number | null) => value === null ? "—" : `${value.toFixed(1)} 天`;
-const riskOptions = [["no_stock", "无可用库存"], ["urgent", "紧急补货"], ["warning", "补货预警"], ["stale", "积压风险"], ["unknown", "待完善/待观察"], ["healthy", "健康"]] as const;
+const riskOptions = [["no_stock", "无库存可用"], ["urgent", "紧急补货"], ["warning", "补货预警"], ["unknown", "积压风险"], ["stale", "低周转"], ["healthy", "库存健康"]] as const;
 
 async function jsonRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, { cache: "no-store", ...init });

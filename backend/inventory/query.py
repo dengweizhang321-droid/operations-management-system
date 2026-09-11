@@ -26,7 +26,9 @@ from .plans import plan_summary, query_plans
 from .warehouse_mapping import classify_warehouse
 
 
-HEALTH_STATUSES = ("urgent", "replenish", "healthy", "slow", "stagnant", "no_sales")
+HEALTH_STATUSES = ("no_stock", "urgent", "warning", "stale", "slow", "healthy")
+HEALTH_WAREHOUSE_CATEGORIES = frozenset({"jd", "cainiao", "guangdong", "selfOperated"})
+LOW_TURNOVER_DAYS = 180
 AGE_STATUSES = ("healthy", "aged", "slow", "stagnant", "no_stock")
 AGE_BUCKETS = (
     ("0-7", "0–7 天", 0, 7),
@@ -243,24 +245,19 @@ def _health(
     settings: dict[str, object],
     window_days: int,
 ) -> tuple[str, str, str]:
+    if available <= 0:
+        return "no_stock", "无库存可用", "当前可用库存小于等于 0"
     if daily_sales is None:
-        return "no_sales", "未匹配销量", f"所选 {window_days} 日周期未匹配到同货品、同仓库的销售明细，暂不生成补货量"
+        return "stale", "积压风险", f"所选 {window_days} 日周期未匹配到同货品、同仓库的销售明细，暂无法核算库存周转"
     if daily_sales <= 0:
-        if available > 0 and (age_days or 0) >= int(settings["stagnantDays"]):
-            return "stagnant", "呆滞风险", f"库龄已达到 {age_days} 天且所选 {window_days} 日周期无有效销量"
-        return "no_sales", "无销量数据", (
-            f"所选 {window_days} 日周期无有效销量，暂不生成补货量"
-            if available > 0
-            else f"暂无库存且所选 {window_days} 日周期无有效销量"
-        )
-    if available <= 0 or (coverage_days or math.inf) <= int(settings["criticalDays"]):
-        return "urgent", "库存告急" if available <= 0 else "紧急补货", f"预计可售不超过 {settings['criticalDays']} 天"
+        age_note = f"，库龄 {age_days} 天" if age_days is not None else ""
+        return "stale", "积压风险", f"所选 {window_days} 日周期无有效销量{age_note}"
+    if (coverage_days or math.inf) <= int(settings["criticalDays"]):
+        return "urgent", "紧急补货", f"预计可售不超过 {settings['criticalDays']} 天"
     if (coverage_days or math.inf) < int(settings["replenishDays"]):
-        return "replenish", "建议补货", f"预计可售低于 {settings['replenishDays']} 天"
-    if (coverage_days or 0) >= int(settings["stagnantDays"]):
-        return "stagnant", "呆滞风险", f"预计可售达到 {settings['stagnantDays']} 天以上"
-    if (coverage_days or 0) >= int(settings["slowDays"]):
-        return "slow", "低周转", f"预计可售达到 {settings['slowDays']} 天以上"
+        return "warning", "补货预警", f"预计可售低于 {settings['replenishDays']} 天"
+    if (coverage_days or 0) > LOW_TURNOVER_DAYS:
+        return "slow", "低周转", f"库存周转大于 {LOW_TURNOVER_DAYS} 天"
     return "healthy", "库存健康", "库存覆盖处于目标区间"
 
 
@@ -398,8 +395,8 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
         )
         gd = guangdong.get(row.product_code) if row.warehouse == "广东仓" else None
         if gd:
-            status = {"no_stock": "urgent", "urgent": "urgent", "warning": "replenish",
-                      "healthy": "healthy", "stale": "stagnant", "unknown": "no_sales"}[gd["risk"]]
+            status = {"no_stock": "no_stock", "urgent": "urgent", "warning": "warning",
+                      "healthy": "healthy", "stale": "slow", "unknown": "stale"}[gd["risk"]]
             label, reason = gd["riskLabel"], gd["riskReason"] or "库存覆盖处于广东仓目标区间"
             coverage_days = gd["turnoverDays"]
         plan = plans[(row.product_code, row.warehouse)]
@@ -495,6 +492,14 @@ def _filtered_overview(
     ]
 
 
+def _health_distribution_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Limit health indicators to the four trusted fulfillment warehouse groups."""
+    return [
+        item for item in items
+        if item.get("warehouseCategory") in HEALTH_WAREHOUSE_CATEGORIES
+    ]
+
+
 def replenishment_plan_sources(
     principal: Principal,
 ) -> dict[str, object]:
@@ -511,13 +516,20 @@ def replenishment_plan_sources(
     }
 
 
-def _metrics(items: list[dict[str, object]], quality: dict[str, object], alerts: bool) -> tuple[dict[str, object], dict[str, int]]:
+def _metrics(
+    items: list[dict[str, object]],
+    quality: dict[str, object],
+    alerts: bool,
+    *,
+    health_items: list[dict[str, object]] | None = None,
+) -> tuple[dict[str, object], dict[str, int]]:
     positive = sum(max(0, int(item["availableQuantity"])) for item in items)
     covered = sum(round(max(0, int(item["availableQuantity"])) * float(item["costCoverageRate"])) for item in items)
     known_value = sum(int(item["knownStockValueCents"]) for item in items)
     total_daily = sum(float(item["averageDailySales"] or 0) for item in items)
     demand_available = sum(max(0, int(item["availableQuantity"])) for item in items if float(item["averageDailySales"] or 0) > 0)
-    health = {status: sum(item["status"] == status for item in items) for status in HEALTH_STATUSES}
+    scoped_health_items = items if health_items is None else health_items
+    health = {status: sum(item["status"] == status for item in scoped_health_items) for status in HEALTH_STATUSES}
     suppressed = bool(quality["recommendationsSuppressed"])
     metrics = {
         "skuWarehouseCount": len(items),
@@ -528,22 +540,22 @@ def _metrics(items: list[dict[str, object]], quality: dict[str, object], alerts:
         "costCoverageRate": covered / positive if positive > 0 else 1,
         "salesDemandMatchRate": sum(item["sales30d"] is not None for item in items) / len(items) if items else 0,
         "averageCoverageDays": None if suppressed or total_daily <= 0 else demand_available / total_daily,
-        "urgentCount": health["urgent"],
-        "replenishCount": health["replenish"],
-        "slowMovingValueCents": sum(int(item["knownStockValueCents"]) for item in items if item["status"] in {"slow", "stagnant", "no_sales"}),
-        "noSalesCount": health["no_sales"],
+        "urgentCount": health["no_stock"] + health["urgent"],
+        "replenishCount": health["warning"],
+        "slowMovingValueCents": sum(int(item["knownStockValueCents"]) for item in scoped_health_items if item["status"] in {"stale", "slow"}),
+        "noSalesCount": sum(item["sales30d"] is None or int(item["sales30d"]) <= 0 for item in scoped_health_items),
         "recommendationCount": 0 if suppressed else sum(int(item["suggestedQuantity"] or 0) > 0 for item in items),
         "inventoryAlertsEnabled": alerts,
         "recommendationsSuppressed": suppressed,
         "qualityIssues": quality["issues"],
     }
     return metrics, {
+        "noStock": health["no_stock"],
         "urgent": health["urgent"],
-        "replenish": health["replenish"],
-        "healthy": health["healthy"],
+        "warning": health["warning"],
+        "stale": health["stale"],
         "slow": health["slow"],
-        "stagnant": health["stagnant"],
-        "noSales": health["no_sales"],
+        "healthy": health["healthy"],
     }
 
 
@@ -662,7 +674,13 @@ def inventory_overview(principal: Principal, options: dict[str, object]) -> dict
             str(item["warehouse"]),
         )
     )
-    metrics, health = _metrics(filtered, quality, bool(settings["inventoryAlert"]))
+    health_filtered = _health_distribution_items(filtered)
+    metrics, health = _metrics(
+        filtered,
+        quality,
+        bool(settings["inventoryAlert"]),
+        health_items=health_filtered,
+    )
     suppressed = bool(quality["recommendationsSuppressed"])
     if suppressed:
         for item in filtered:

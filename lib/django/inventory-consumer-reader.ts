@@ -12,7 +12,7 @@ export type InventoryConsumerRequestMap = {
     operation: "inventory_health";
     warehouse: string | null;
     category: string | null;
-    status: "urgent" | "replenish" | "healthy" | "slow" | "stagnant" | "no_sales" | null;
+    status: "no_stock" | "urgent" | "warning" | "stale" | "slow" | "healthy" | null;
     query: string | null;
     limit: number;
   };
