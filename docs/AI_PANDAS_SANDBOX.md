@@ -2,7 +2,7 @@
 
 ## 状态与使用方式
 
-`run_pandas_analysis` 是独立的容器工具，保留既有 JSON AST 分析沙箱。候选代码接入网页对话、钉钉对话和 Agent 中央工具目录，分析员、操作员和管理员可调用；viewer 不可调用，通用 MCP 暂不开放。本次没有生产部署、服务重启、生产数据查询、付费模型调用或业务迁移。真实 Linux 容器验收完成前，不得宣称已经上线或全面可用。
+`run_pandas_analysis` 已于 **2026-09-11 在本机生产上线**，保留既有 JSON AST 分析沙箱。网页对话、钉钉对话和 Agent 中央工具目录已接入，分析员、操作员和管理员可调用；viewer 不可调用，通用 MCP 暂不开放。当前 Worker 为 `20260911T081342Z-6b7a6a81082f9a5b`；真实容器、镜像 PostgreSQL、正式工具链与审计验收通过，完整记录见 [生产采用证据](evidence/pandas-sandbox-production-20260911.json)。未调用付费模型或发送真实钉钉消息，不能据此声称所有模型自动问数场景都已验收。
 
 用户可以向小特提出“把两个数据集按货品编码关联，按供应商汇总”“按日透视这些商品的表现”等问题。小特先通过 `describe_system_datasets` 取得实际 ID、字段、单位和 querySchema，再用工具生成一次临时分析。业务写入仍通过现有对应模块完成。
 
@@ -80,7 +80,7 @@ Docker 参数及 rootless cgroup 条件依据官方文档：[运行容器](https
 
 Linux 首次安装使用 `python3 -B -m pandas_runner.install_linux --image <精确ID> --approved-source-sha256 <package_digest()>`，独立 32 字节随机密钥仅从 stdin 传入。安装器仅接受固定非特权账号和精确来源摘要，按摘要创建 root 所有、不可写的 `/opt/teruisi-pandas/releases/<摘要>`，创建私有配置和 `/etc/systemd/user/teruisi-pandas.service`，不启动服务。已有安装拒绝覆盖；更新需准备新的已审查 release，并在 AI 停止期间受控切换 unit。`/v1/status` 是独立路径签名探针，返回镜像和源码摘要，不执行模型代码；Windows 必须核对与当前部署的源码一致。SIGTERM 等待本次有界请求及清理完成，超过 unit 的 35 秒停止预算或留有容器均失败关闭。
 
-建议的独立账号 user unit（路径须对应审查后的安装目录，不应直接指向开发 worktree）：
+以下仅展示 user unit 的关键项；正式 unit 由安装器创建于 `/etc/systemd/user/`，路径绑定不可变 release，完整停止和输出策略以安装器为准：
 
 ```ini
 [Unit]
@@ -89,16 +89,18 @@ After=docker.service
 Requires=docker.service
 
 [Service]
-WorkingDirectory=%h/.local/share/teruisi-pandas/backend
-ExecStart=/usr/bin/python3 -m pandas_runner.server --config %h/.config/teruisi-pandas/broker.json
+WorkingDirectory=/opt/teruisi-pandas/releases/<approved-source-sha256>/backend
+ExecStart=/usr/bin/python3 -B -m pandas_runner.server --config %h/.config/teruisi-pandas/broker.json
 UMask=0077
 NoNewPrivileges=yes
 PrivateTmp=yes
 Restart=no
 
-[Install]
-WantedBy=default.target
+KillMode=mixed
+TimeoutStopSec=35
 ```
+
+broker 由 AI 控制器显式启动，不单独启用 user unit 的自启动。AI Status 和总控 AggregateStatus 会进行签名就绪检查；既有持续守护继续监测 Django 进程及 HTTP 就绪，本次不增加 broker 自动恢复或任务重放。沙箱不可用时工具失败关闭；通过 `PandasCheck`、AI Status 或总控状态定位后受控处理。
 
 ## 本次验证边界
 
