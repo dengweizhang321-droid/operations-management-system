@@ -27,11 +27,13 @@ if($errors.Count){throw 'Controller syntax error'}
 $wrapper=$ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Invoke-WithAiEnvironment'},$true)
 if(-not $wrapper){throw 'Missing environment wrapper'}
 . ([scriptblock]::Create($wrapper.Extent.Text))
+function Read-PandasConfig { return [pscustomobject]@{ image='sha256:fixture' } }
+$PandasKeyPath='fixture-dpapi-file'
 function Invoke-WithDjangoEnvironment($Secrets,$DatabaseUrl,$ProcessRole,$ReadOnly,$BodyBytes,$AuthorityEpoch,$CutoverId,[scriptblock]$Operation) {
   if($AuthorityEpoch -cne 'test-epoch' -or $CutoverId -cne 'test-cutover' -or $DatabaseUrl -cne 'fixture-database'){throw 'Authority transport changed'}
-  $names=@('AI_SECRET_ENCRYPTION_KEY','AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST','TERUISI_DJANGO_AI_EDGE_BASE_URL')
+  $names=@('AI_SECRET_ENCRYPTION_KEY','AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST','TERUISI_DJANGO_AI_EDGE_BASE_URL','TERUISI_PANDAS_RUNNER_KEY_FILE','TERUISI_PANDAS_RUNNER_IMAGE')
   $previous=@{}; foreach($name in $names){$previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
-  try { & $Operation } finally {foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}}
+  try { $env:TERUISI_PANDAS_RUNNER_KEY_FILE=''; $env:TERUISI_PANDAS_RUNNER_IMAGE=''; & $Operation } finally {foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}}
 }
 $env:AI_SECRET_ENCRYPTION_KEY='outer-sentinel'
 $testSecrets=[pscustomobject]@{ModelEncryptionKey='test-only-key';ModelOriginAllowlist='https://example.com'}
@@ -42,6 +44,8 @@ foreach($testRole in @('ai_writer','ai_reader')) {
     $script:called++
     $expected=if($testRole -ceq 'ai_writer'){'test-only-key'}else{''}
     if([string]$env:AI_SECRET_ENCRYPTION_KEY -cne $expected -or $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST -cne 'https://example.com' -or $env:TERUISI_DJANGO_AI_EDGE_BASE_URL -cne 'http://127.0.0.1:3000'){throw 'AI environment mismatch'}
+    $expectedPandas=if($testRole -ceq 'ai_writer'){'fixture-dpapi-file'}else{''}
+    if([string]$env:TERUISI_PANDAS_RUNNER_KEY_FILE -cne $expectedPandas){throw 'Pandas credential leaked to reader or missing in writer'}
   }
   if($script:called -ne 1 -or $env:AI_SECRET_ENCRYPTION_KEY -cne 'outer-sentinel'){throw 'Callback count or restoration failed'}
 }

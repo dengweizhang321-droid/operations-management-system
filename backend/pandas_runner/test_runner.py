@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from http.server import HTTPServer
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from .protocol import decode, encode, signature, validate_job, validate_result
 from .server import Broker, private_file, Handler
@@ -142,6 +142,33 @@ class BrokerTests(unittest.TestCase):
 
 
 class BrokerHttpTests(unittest.TestCase):
+    def test_signed_health_has_distinct_path_and_never_executes_code(self):
+        from .protocol import HEALTH_PATH, package_digest
+        import http.client
+        broker = Mock(key=b"k" * 32, image=IMAGE, poisoned=False, package_digest=package_digest())
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        server.broker = broker
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        stamp, nonce = str(int(time.time())), "c" * 32
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        try:
+            connection.request("POST", HEALTH_PATH, body=b"{}", headers={"Content-Type": "application/json", "X-Nonce": nonce,
+                "X-Timestamp": stamp, "X-Signature": signature(broker.key, stamp, nonce, b"{}", path=HEALTH_PATH)})
+            response = connection.getresponse()
+            body = response.read()
+            self.assertEqual(response.status, 200)
+            self.assertEqual(decode(body)["runnerSha256"], package_digest())
+            self.assertEqual(response.getheader("X-Signature"), signature(broker.key, stamp, nonce, body, "response", path=HEALTH_PATH))
+            self.assertNotEqual(signature(broker.key, stamp, nonce, body), signature(broker.key, stamp, nonce, body, path=HEALTH_PATH))
+            broker.preflight.assert_called_once()
+            broker.execute.assert_not_called()
+        finally:
+            connection.close()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_signed_http_replay_tampering_and_result_evidence(self):
         broker = Mock()
         broker.key = b"k" * 32
@@ -180,6 +207,23 @@ class BrokerHttpTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
+
+
+@unittest.skipUnless(os.name == "nt", "Windows operator lifecycle only")
+class WindowsLifecycleTests(unittest.TestCase):
+    def test_stop_checks_orphans_and_does_not_forward_application_secrets(self):
+        from .wsl_control import control
+        with patch.dict(os.environ, {"WSLENV": "DATABASE_URL", "DATABASE_URL": "never-forward"}), \
+                patch("pandas_runner.wsl_control.subprocess.run", return_value=Mock(stdout=b"")) as run:
+            control("stop")
+            self.assertEqual(run.call_count, 2)
+            for call in run.call_args_list:
+                self.assertNotIn("DATABASE_URL", call.kwargs["env"])
+                self.assertNotIn("WSLENV", call.kwargs["env"])
+                self.assertLessEqual(call.kwargs["timeout"], 45)
+                self.assertEqual(call.args[0][1:5], ["-d", "TERUISI-Pandas", "-u", "teruisi-pandas"])
+        with patch("pandas_runner.wsl_control.subprocess.run", side_effect=[Mock(stdout=b""), Mock(stdout=b"orphan\n")]), self.assertRaises(ValueError):
+            control("stop")
 
 
 @unittest.skipUnless(os.name == "posix" and os.getenv("TERUISI_PANDAS_TEST_CONFIG"), "requires dedicated Linux rootless container test configuration")

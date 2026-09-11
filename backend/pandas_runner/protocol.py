@@ -4,6 +4,7 @@ import hmac
 import json
 import math
 import re
+from pathlib import Path
 
 MAX_INPUT = 2 * 1024 * 1024
 MAX_OUTPUT = 24000
@@ -11,6 +12,16 @@ MAX_ROWS = 2000
 MAX_CODE = 16000
 PORT = 8121
 PATH = "/v1/pandas"
+HEALTH_PATH = "/v1/status"
+
+
+def package_digest():
+    value = hashlib.sha256()
+    for file in sorted(Path(__file__).parent.glob("*.py")):
+        if file.name.startswith("test_"):
+            continue
+        value.update(file.name.encode() + b"\0" + file.read_bytes())
+    return value.hexdigest()
 
 
 def encode(value):
@@ -28,8 +39,8 @@ def decode(raw):
     return json.loads(raw, object_pairs_hook=pairs, parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite")))
 
 
-def signature(key, stamp, nonce, raw, direction="request"):
-    message = "\n".join(["pandas-v1", direction, "POST", PATH, stamp, nonce, hashlib.sha256(raw).hexdigest()])
+def signature(key, stamp, nonce, raw, direction="request", path=PATH):
+    message = "\n".join(["pandas-v1", direction, "POST", path, stamp, nonce, hashlib.sha256(raw).hexdigest()])
     return hmac.new(key, message.encode(), hashlib.sha256).hexdigest()
 
 

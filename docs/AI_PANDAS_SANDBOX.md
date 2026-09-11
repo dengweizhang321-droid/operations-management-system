@@ -68,7 +68,7 @@ Docker 参数及 rootless cgroup 条件依据官方文档：[运行容器](https
 
 ## 独立环境准备及受控采用
 
-本机检查未发现可用 Docker/Podman 或 Linux 发行版。先准备独立 Linux 虚拟机/WSL2 发行版、独立服务账号与 rootless Docker；WSL2 需确认 systemd、cgroup 委派和 Windows→Linux localhost 转发。不得把缺少这几项的 Docker Desktop 默认模式当作已通过准入，禁止暴露 TCP Docker daemon。
+2026-09-11 已准备独立 `TERUISI-Pandas` WSL2 发行版：Ubuntu 24.04.5、systemd、cgroup v2、Docker 29.8.0 rootless、独立 UID 1000 服务账号。发行版存放于 `D:\teruisi-runtime\pandas-sandbox-wsl`；Windows 磁盘自动挂载和程序互通关闭，系统级 rootful Docker/容器服务被 mask，Windows→Linux localhost 签名请求已实测。仅启用账号私有 Unix Docker socket，不开放 TCP daemon。
 
 1. 在隔离构建环境中审查并固定 Python 3.12 slim 基础镜像 digest，按仓库根目录作为 build context，使用 `containers/pandas-sandbox/Dockerfile` 构建。`PYTHON_BASE` 必须由操作员传入带 digest 的已审查引用。镜像固定 pandas 2.3.3 和 numpy 2.3.5；构建后记录实际镜像 ID 与构建材料摘要。运行阶段不安装包、不联网。
 2. 为 broker 创建权限 0700 的状态目录、0600 的独立随机密钥及配置文件，属于独立 Linux 服务账号。broker 配置必须恰好包含 `docker`（绝对 CLI 路径）、`socket`（该账号 rootless Unix socket）、`image`（精确 sha256 ID）、`keyFile`、`stateDirectory`。不接受业务账号密码或生产目录。
@@ -76,7 +76,9 @@ Docker 参数及 rootless cgroup 条件依据官方文档：[运行容器](https
 4. 用专用测试配置运行 `TERUISI_PANDAS_TEST_CONFIG=<私有配置路径> python3 -m unittest pandas_runner.test_runner`，仅合成数据。真实容器检查涵盖 pandas 关联/中文/退款、网络和根文件系统限制、无业务密钥、超时、输出洪泛、内存限制及清理后再次正常执行。
 5. 同时完成镜像 PostgreSQL 的真实角色、scope、审计与 receipt 集成回查、进程崩溃/清理核验及失败关闭演练。三项真实容器测试因环境缺失被跳过时属于未验收，不能视为通过。
 6. 测试及必要复审通过后，才可按项目规则合并。生产采用另行授权：备份与独立恢复验证、部署 Django 新模块及 Worker 工具、为 Django AI writer 配置 `TERUISI_PANDAS_RUNNER_KEY_FILE` 与 `TERUISI_PANDAS_RUNNER_IMAGE`。Windows 密钥文件必须为 CurrentUser DPAPI 密文 JSON，结构为 `version=1` 与 `keyDpapiBase64`（无附加 entropy），仅授予运行身份读取 ACL；不允许明文密钥文件，不复制到 worktree、Git 或容器。同一随机密钥在 Linux 端按独立服务账号 0600 文件保护。该密钥仅用于 broker 通道，不是系统通用访问密钥。
-7. 当前总控不会自动管理新 broker；生产启用前必须完成其独立启动、监控与受控停止管理。任何一端未配置或停止时，该工具明确不可用，其余业务接口沿用现有行为。回退为停用该工具/停止 broker 的前向兼容操作，保留 PostgreSQL 私有结果与审计；不恢复 D1，不回滚业务事实。
+7. `django-ai.ps1` 已接入独立 broker 管理：`ConfigurePandas -PandasImage <精确镜像ID>` 在 AI reader/writer 停止时，从固定 `D:\teruisi-runtime\pandas-sandbox\channel.dpapi.json` 导入独立 DPAPI 密钥，签名探针与合成计算通过后才创建配置。AI Start 建立带 PID/创建时间/命令行/fingerprint 的 WSL 保活进程并启动固定 user unit；AI Stop 先停止 writer，再正常结束 broker、回查零残留容器，最后停止精确保活进程。已配置后的 AI Status 包含 `PandasReadiness`，探针失败会影响 writer 就绪；`PandasCheck` 可单独检查。配置、镜像或密钥指纹不匹配拒绝复用进程；只有 writer 获得通道配置，其余 Django 域主动清空同名环境变量。配置不存在时其他业务保持既有行为。回退采用停止 broker、停用工具的前向兼容操作，不恢复 D1。
+
+Linux 首次安装使用 `python3 -B -m pandas_runner.install_linux --image <精确ID> --approved-source-sha256 <package_digest()>`，独立 32 字节随机密钥仅从 stdin 传入。安装器仅接受固定非特权账号和精确来源摘要，按摘要创建 root 所有、不可写的 `/opt/teruisi-pandas/releases/<摘要>`，创建私有配置和 `/etc/systemd/user/teruisi-pandas.service`，不启动服务。已有安装拒绝覆盖；更新需准备新的已审查 release，并在 AI 停止期间受控切换 unit。`/v1/status` 是独立路径签名探针，返回镜像和源码摘要，不执行模型代码；Windows 必须核对与当前部署的源码一致。SIGTERM 等待本次有界请求及清理完成，超过 unit 的 35 秒停止预算或留有容器均失败关闭。
 
 建议的独立账号 user unit（路径须对应审查后的安装目录，不应直接指向开发 worktree）：
 
@@ -104,4 +106,4 @@ WantedBy=default.target
 
 候选验证计数及未执行范围见 [候选证据](evidence/pandas-sandbox-candidate-20260911.json)：83 项 Python 测试中 79 项通过、4 项跳过；41 项工具链与 20 项构建产物测试通过。类型诊断与 main 基线均为 146 项，无本次新增；Windows CurrentUser DPAPI 使用随机合成密钥完成往返与拒绝明文测试。
 
-生产部署、真实容器隔离、真实 PostgreSQL 镜像联调、付费模型和真实钉钉消息未执行；待满足这些门槛后再标注实际采用版本与验收证据。
+后续发布准备已补齐真实验证，见 [发布前证据](evidence/pandas-sandbox-pre-release-20260911.json)：164 项 AI 测试在独立 PostgreSQL 55447 端口通过，新增用例通过真实数据集 SQL reader 导出合成数据、签名调用真实容器，并回查 receipt、防重复执行、scope 拒绝和逐页审计；仅 edge 网络传输以直接调用所属 reader 的夹具替代。Linux 容器测试 13 项通过，2 项 Windows 专属测试在 Windows 单独覆盖；Windows 共 12 项通过，3 项 Linux 容器测试由前述环境覆盖。48 项相关 Node/PowerShell 测试、构建及后端边界通过。受控生命周期在独立 runtime 目录实测首次/重复启动、正常停止、零残留、停止后拒绝与重启。付费模型和真实钉钉消息仍未执行，不据此宣称所有模型自动问数场景已经验收。

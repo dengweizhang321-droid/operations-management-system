@@ -2269,6 +2269,9 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   if ((Resolve-OwnedProcess "django-ai-reader" $DjangoAiReaderPidPath $Waitress) -or (Resolve-OwnedProcess "django-ai-writer" $DjangoAiWriterPidPath $Waitress) -or @(Get-PortListeners 8111).Count -gt 0 -or @(Get-PortListeners 8112).Count -gt 0) {
     throw "$Operation 前必须通过 AI 控制器 Stop 停止 AI 服务并核验端口身份"
   }
+  if (@(Get-PortListeners 8121).Count -gt 0 -or (Resolve-OwnedProcess "ai-pandas-wsl" (Join-Path $RunDirectory "ai-pandas-wsl.pid.json") (Join-Path $env:SystemRoot "System32\wsl.exe"))) {
+    throw "$Operation requires the pandas broker and owned WSL keepalive to be stopped"
+  }
   if (Resolve-OwnedProcess "django-access-control-reader" $DjangoAccessControlReaderPidPath $Waitress) {
     throw "$Operation 前必须通过权限控制器 Stop 停止 Django access-control reader"
   }
@@ -2571,6 +2574,7 @@ function Invoke-WithDjangoEnvironment(
     "TERUISI_DJANGO_ACCESS_CONTROL_CUTOVER_ID",
     "TERUISI_DJANGO_AI_AUTHORITY_EPOCH", "TERUISI_DJANGO_AI_CUTOVER_ID",
     "AI_SECRET_ENCRYPTION_KEY", "AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST", "AI_ALLOW_LOCAL_MODEL_ENDPOINTS", "TERUISI_DJANGO_AI_EDGE_BASE_URL",
+    "TERUISI_PANDAS_RUNNER_KEY_FILE", "TERUISI_PANDAS_RUNNER_IMAGE",
     "TERUISI_DJANGO_ERP_AUTHORITY_EPOCH", "TERUISI_DJANGO_ERP_CUTOVER_ID",
     "TERUISI_DJANGO_MAX_HEADER_BYTES", "TERUISI_DJANGO_MAX_BODY_BYTES",
     "DJANGO_SETTINGS_MODULE", "PYTHONUTF8", "PYTHONPATH", "PYTHONHOME"
@@ -2604,6 +2608,8 @@ function Invoke-WithDjangoEnvironment(
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = ""
     $env:AI_ALLOW_LOCAL_MODEL_ENDPOINTS = ""
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = ""
+    $env:TERUISI_PANDAS_RUNNER_KEY_FILE = ""
+    $env:TERUISI_PANDAS_RUNNER_IMAGE = ""
     $env:TERUISI_DJANGO_ERP_AUTHORITY_EPOCH = ""
     $env:TERUISI_DJANGO_ERP_CUTOVER_ID = ""
     if ($ProcessRole -eq "workflow_writer") {
@@ -3818,6 +3824,20 @@ function Show-AggregateServiceStatus {
   $ai = if (Test-Path -LiteralPath $AiStartupEnabledPath -PathType Leaf) {
     Get-SimpleDjangoDomainStatus "django-ai-reader" $DjangoAiReaderPidPath $DjangoAiWriterPidPath 8111 8112 $DjangoAiReaderHealthUrl $DjangoAiWriterHealthUrl "AiReader" "AiWriter"
   } else { $null }
+  if ($null -ne $ai -and (Test-Path -LiteralPath (Join-Path $RuntimeRoot "config\pandas-sandbox.json"))) {
+    $pandasReadiness = "not_ready"
+    try {
+      $pandas = Read-JsonFile (Join-Path $RuntimeRoot "config\pandas-sandbox.json") "pandas configuration"
+      $pandasKey = Join-Path $RuntimeRoot "secrets\pandas-sandbox.dpapi.json"
+      if (-not (Test-ExactObjectPropertyNames $pandas @("version", "image", "keySha256")) -or [int]$pandas.version -ne 1 -or
+          (Get-FileHash -LiteralPath $pandasKey -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$pandas.keySha256) { throw "invalid pandas configuration" }
+      $probeRun = Invoke-BoundedNativeProcess $Python @("-B", "-m", "pandas_runner.probe", "--key-file", $pandasKey, "--image", [string]$pandas.image) $BackendRoot
+      $probe = ConvertFrom-UniqueNativeJson $probeRun "pandas readiness"
+      if ([string]$probe.status -ceq "ready") { $pandasReadiness = "ready" }
+    } catch {}
+    $ai | Add-Member -NotePropertyName PandasReadiness -NotePropertyValue $pandasReadiness
+    if ($pandasReadiness -cne "ready") { $ai.WriterReadiness = "not_ready" }
+  }
   $bi = Get-SimpleDjangoReaderStatus `
     "django-bi-reader" $DjangoBiReaderPidPath 8081 $DjangoBiReaderHealthUrl "BiReader"
   $timer.Stop()

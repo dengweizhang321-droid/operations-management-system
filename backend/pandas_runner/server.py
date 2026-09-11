@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import signal
 import stat
 import subprocess
 import threading
@@ -16,7 +17,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from .protocol import MAX_INPUT, MAX_OUTPUT, PATH, PORT, decode, encode, signature, validate_job, validate_result
+from .protocol import MAX_INPUT, MAX_OUTPUT, PATH, HEALTH_PATH, PORT, decode, encode, signature, validate_job, validate_result, package_digest
 
 LABEL = "teruisi.pandas-broker=v1"
 NAME = re.compile(r"teruisi-pandas-[a-f0-9]{32}")
@@ -43,6 +44,7 @@ class Broker:
         if not socket.is_absolute() or not stat.S_ISSOCK(socket.lstat().st_mode) or socket.lstat().st_uid != os.getuid():
             raise ValueError("owned_rootless_socket_required")
         self.image = config["image"]
+        self.package_digest = package_digest()
         self.key = private_file(config["keyFile"]).read_bytes()
         if not 32 <= len(self.key) <= 128:
             raise ValueError("invalid_key")
@@ -216,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         nonce, stamp = self.headers.get("X-Nonce", ""), self.headers.get("X-Timestamp", "")
         authenticated = False
         try:
-            if (self.path != PATH or self.client_address[0] != "127.0.0.1"
+            if (self.path not in {PATH, HEALTH_PATH} or self.client_address[0] != "127.0.0.1"
                     or self.headers.get("Content-Type") != "application/json" or self.headers.get("Transfer-Encoding")
                     or any(len(self.headers.get_all(k, [])) != 1 for k in ["Content-Type", "Content-Length", "X-Nonce", "X-Timestamp", "X-Signature"])):
                 raise ValueError("invalid_request")
@@ -224,11 +226,17 @@ class Handler(BaseHTTPRequestHandler):
             if not 1 <= size <= MAX_INPUT:
                 raise ValueError("input_limit")
             raw = self.rfile.read(size)
-            if len(raw) != size or not hmac.compare_digest(signature(broker.key, stamp, nonce, raw), self.headers["X-Signature"]):
+            if len(raw) != size or not hmac.compare_digest(signature(broker.key, stamp, nonce, raw, path=self.path), self.headers["X-Signature"]):
                 raise ValueError("invalid_signature")
             authenticated = True
             broker.reserve(nonce, stamp)
-            result = broker.execute(decode(raw))
+            if self.path == HEALTH_PATH:
+                if raw != b"{}" or broker.poisoned:
+                    raise ValueError("not_ready")
+                broker.preflight()
+                result = {"status": "ready", "image": broker.image, "cleanupVerified": True, "runnerSha256": broker.package_digest}
+            else:
+                result = broker.execute(decode(raw))
             status = 200
         except Exception:
             # Failure never becomes an empty successful result; unknown dispatches
@@ -240,7 +248,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         if authenticated:
-            self.send_header("X-Signature", signature(broker.key, stamp, nonce, raw, "response"))
+            self.send_header("X-Signature", signature(broker.key, stamp, nonce, raw, "response", path=self.path))
         self.end_headers()
         self.wfile.write(raw)
 
@@ -255,7 +263,10 @@ def main():
     # is prevented by the process lock, including after HTTP disconnects.
     server = HTTPServer(("127.0.0.1", PORT), Handler)
     server.broker = broker
+    # Finish the current bounded request and its mandatory cleanup before exit.
+    signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
     server.serve_forever()
+    server.server_close()
 
 
 if __name__ == "__main__":

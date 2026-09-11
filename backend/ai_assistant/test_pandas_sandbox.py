@@ -1,5 +1,8 @@
 """Synthetic inputs only. Never execute generated Python in the test host."""
 from copy import deepcopy
+import os
+import json
+from unittest import skipUnless
 from unittest.mock import patch
 from django.test import SimpleTestCase, TestCase, override_settings
 from sales.auth import Principal
@@ -192,3 +195,53 @@ class PandasDispatchTests(TestCase):
             self.assertEqual(response.status_code, 200, response.content)
             self.assertEqual(http.call_count, 2)
             self.assertEqual(response.json()["artifacts"][0]["rows"], [[800]])
+
+
+@skipUnless(os.getenv("TERUISI_PANDAS_INTEGRATION_TEST") == "1", "requires explicit isolated PostgreSQL and signed real broker")
+@override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
+class PandasRealDatabaseBrokerTests(TestCase):
+    user = support.AiDomainTests.user
+    call = support.AiDomainTests.call
+
+    def setUp(self):
+        from django.db import connection
+        self.assertEqual(connection.vendor, "postgresql")
+        self.assertTrue(55440 <= int(connection.settings_dict["PORT"]) <= 55999)
+        support.AiDomainTests.setUp(self)
+
+    def test_real_export_compute_receipt_replay_scope_and_audit(self):
+        from erp_reference.models import ErpProductMaster
+        from django.utils import timezone
+        from system_datasets.reader import query
+        from .control_models import AiWriteReceipt
+        admin = self.user("pandas-admin@example.invalid", "admin", None)
+        for number in range(3):
+            ErpProductMaster.objects.create(product_code=f"合成-{number}", product_name="合成商品", brand="合成品牌",
+                source_row_number=number+1, last_import_batch_id="synthetic-pandas", created_at=timezone.now().isoformat(), updated_at=timezone.now().isoformat())
+        entries = catalog_fixture()
+        entry = deepcopy(entries[0])
+        entry.update(name="get_system_dataset_records", allowedRoles=["admin"], scopePolicy="unscoped_only")
+        entries.append(entry)
+
+        def edge(name, args, principal, **kwargs):
+            # Replace only edge transport with the real owning-domain SQL reader.
+            data = {} if name == "get_data_freshness" else query(args["dataset"], json.loads(args["queryJson"]), principal)
+            chat.audit(principal, kwargs["request_id"], name, "success", arguments=args)
+            return {"ok": True, "toolName": name, "data": data}
+
+        payload = {**PAYLOAD, "code": "result = pd.DataFrame([{'count': len(frames['sales'])}])"}
+        with patch.object(datasets.transport, "catalog", return_value=entries), patch.object(datasets.transport, "execute_tool", side_effect=edge), \
+                patch.object(sandbox, "call_runner", wraps=sandbox.call_runner) as runner:
+            first = self.call("/api/ai/consumer", payload, admin, request_id="real-pandas-fixture")
+            second = self.call("/api/ai/consumer", payload, admin, request_id="real-pandas-fixture")
+            denied = self.call("/api/ai/consumer", payload, self.owner, request_id="real-pandas-denied")
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.json(), first.json())
+        self.assertGreaterEqual(denied.status_code, 400)
+        self.assertEqual(runner.call_count, 1)
+        self.assertEqual(first.json()["items"], [{"count": 3}])
+        self.assertEqual(first.json()["sources"][0]["pages"], 3)
+        receipt = AiWriteReceipt.objects.get(request_id="real-pandas-fixture")
+        self.assertEqual(receipt.response_status, 200)
+        self.assertEqual(receipt.response_payload["items"], [{"count": 3}])
+        self.assertEqual(m.AiToolAuditLogs.objects.filter(tool_name="get_system_dataset_records").count(), 3)
