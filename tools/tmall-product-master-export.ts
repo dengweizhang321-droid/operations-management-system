@@ -27,6 +27,11 @@ import {
 
 export const TMALL_SELLER_ON_SALE_URL = "https://myseller.taobao.com/home.htm/SellManage/on_sale?current=1&pageSize=20";
 export const TMALL_MASTER_EXPORT_PROMPT = "导出全部商品";
+export const TMALL_LILI_MASTER_EXPORT_PROMPT = "查询[商品状态:出售中]的商品，并批量导出到excel";
+
+export function resolveTmallMasterExportPrompt(storeKey: string) {
+  return storeKey === "tmall-lili" ? TMALL_LILI_MASTER_EXPORT_PROMPT : TMALL_MASTER_EXPORT_PROMPT;
+}
 export const TMALL_PRODUCT_MANAGER_LABEL = "商品管家";
 export const TMALL_IMPORTANT_NOTICE_LABEL = "重要通知";
 export const TMALL_IMPORTANT_MESSAGE_LABEL = "重要消息";
@@ -262,6 +267,34 @@ export function hasCompletedTmallExportResult(text: string) {
   return /成功导出\s*\d+\s*个商品到Excel文件|所有任务已完成/.test(text.replace(/\s+/g, " "));
 }
 
+export function summarizeTmallExportAcknowledgement(text: string, promptStillInInput: boolean) {
+  // Persist only classifications/counts, never chat text, item IDs, URLs or credentials.
+  const normalized = text.replace(/\s+/g, "");
+  return {
+    promptStillInInput,
+    searchResultPresent: /商品查询结果[（(]共\d+个[）)]/.test(normalized),
+    acceptedTaskCount: countAcceptedTmallExportTasks(text),
+    completedResultPresent: hasCompletedTmallExportResult(text),
+  };
+}
+
+export async function waitForTmallExportAcknowledgement(
+  probe: () => Promise<{ ready: boolean; diagnostic: ReturnType<typeof summarizeTmallExportAcknowledgement> }>,
+  options: { timeoutMs?: number; now?: () => number; pause?: () => Promise<void> } = {},
+) {
+  const now = options.now ?? Date.now;
+  const pause = options.pause ?? (() => new Promise<void>((resolve) => setTimeout(resolve, 1_000)));
+  const deadline = now() + (options.timeoutMs ?? 90_000);
+  let diagnostic: ReturnType<typeof summarizeTmallExportAcknowledgement> | undefined;
+  while (now() < deadline) {
+    const observation = await probe();
+    diagnostic = observation.diagnostic;
+    if (observation.ready) return;
+    await pause();
+  }
+  throw new Error(`商品管家未出现导出确认、任务受理或下载结果；响应诊断=${JSON.stringify(diagnostic ?? null)}；请人工核对原会话，禁止重复提交`);
+}
+
 export function chooseTmallResumeSellerPageIndex(pages: readonly { hasCompletedResult: boolean }[]) {
   const completedIndexes = pages.flatMap((page, index) => page.hasCompletedResult ? [index] : []);
   if (completedIndexes.length > 1) {
@@ -308,6 +341,13 @@ export function chooseLatestTmallDownloadSignature(candidates: readonly TmallDow
     throw new Error("多个成功下载链接位置并列，无法唯一确认最新商品管家任务");
   }
   return ordered.at(-1)!.signature;
+}
+
+export function chooseTmallResumedDownloadSignature(candidates: readonly TmallDownloadChoice[]) {
+  // A resumed task is already submitted: existing completed cards must remain
+  // visible to recovery, even after page reflow. The export-record timestamp
+  // check still binds the eventual download to the original submission.
+  return chooseLatestTmallDownloadSignature(candidates.filter((candidate) => hasCompletedTmallExportResult(candidate.contextText)));
 }
 
 function clusterTmallDownloadChoices(candidates: readonly TmallDownloadChoice[]) {
@@ -1793,6 +1833,7 @@ async function browserExport(options: {
   snapshotDate: string;
   runId: string;
   taskStartedAt: string;
+  prompt: string;
   exportSubmittedAt?: string;
   resumeStage?: "export_submitted" | "export_confirmed";
   entryMode?: MasterExportAudit["entryMode"];
@@ -1849,7 +1890,7 @@ async function browserExport(options: {
         input.frame,
         chatScope ?? undefined,
       )).length;
-      await input.locator.fill(TMALL_MASTER_EXPORT_PROMPT, { timeout: 10_000 });
+      await input.locator.fill(options.prompt, { timeout: 10_000 });
       await options.onStage("export_submitting", { entryMode, noticeState });
       await clickSendOrPressEnter(input);
       options.exportSubmittedAt = new Date().toISOString();
@@ -1861,7 +1902,13 @@ async function browserExport(options: {
     }
 
     if (options.resumeStage !== "export_confirmed") {
-      await waitUntil(90_000, async () => {
+      await waitForTmallExportAcknowledgement(async () => {
+        const promptStillInInput = await input.locator.evaluate((element, prompt) => {
+          const value = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+            ? element.value : element.textContent ?? "";
+          return value.trim() === prompt;
+        }, options.prompt);
+        const diagnostic = summarizeTmallExportAcknowledgement(await chatText(), promptStillInInput);
         const confirmations = await textCandidates(
           page!,
           tmallExportConfirmationLabels,
@@ -1875,12 +1922,15 @@ async function browserExport(options: {
             throw new Error("商品管家存在多个同等导出确认候选，为防止误点已停止");
           }
           await best.locator.click({ timeout: 10_000 });
-          return true;
+          return { ready: true, diagnostic };
         }
         const downloads = await downloadCandidates(page!, input.frame, chatScope ?? undefined);
-        return Boolean(chooseFreshTmallDownloadSignature(downloads, baselineCompletedDownloadCount))
-          || countAcceptedTmallExportTasks(await chatText()) > baselineAcceptedTaskCount;
-      }, "商品管家未出现导出确认、任务受理或下载结果");
+        return {
+          ready: Boolean(chooseFreshTmallDownloadSignature(downloads, baselineCompletedDownloadCount))
+            || diagnostic.acceptedTaskCount > baselineAcceptedTaskCount,
+          diagnostic,
+        };
+      });
       await options.onStage("export_confirmed", { entryMode, noticeState });
     }
 
@@ -1898,9 +1948,8 @@ async function browserExport(options: {
       // same page as a fallback and still require the eventual export-record time match.
       if (options.resumeStage && (!selected || !hasCompletedTmallExportResult(selected.contextText))) {
         const pageWide = (await downloadCandidates(page!))
-          .filter((candidate) => !baselineDownloads.has(candidate.signature))
           .filter((candidate) => hasCompletedTmallExportResult(candidate.contextText));
-        const pageWideSignature = chooseLatestTmallDownloadSignature(pageWide);
+        const pageWideSignature = chooseTmallResumedDownloadSignature(pageWide);
         selected = pageWideSignature
           ? pageWide.find((candidate) => candidate.signature === pageWideSignature)
           : selected;
@@ -2005,7 +2054,7 @@ export async function runTmallProductMasterStage(options: {
       shopName: store.shopName,
       snapshotDate,
       targetUrl: TMALL_SELLER_ON_SALE_URL,
-      prompt: TMALL_MASTER_EXPORT_PROMPT,
+      prompt: resolveTmallMasterExportPrompt(store.storeKey),
       startedAt: now,
       updatedAt: now,
       stage: "planned",
@@ -2020,6 +2069,7 @@ export async function runTmallProductMasterStage(options: {
         snapshotDate,
         runId: activeAudit.runId,
         taskStartedAt: activeAudit.startedAt,
+        prompt: activeAudit.prompt,
         exportSubmittedAt: activeAudit.exportSubmittedAt,
         resumeStage: isResumableTmallExportStage(activeAudit.stage)
           ? activeAudit.stage as "export_submitted" | "export_confirmed"

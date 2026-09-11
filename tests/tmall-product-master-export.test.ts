@@ -11,6 +11,7 @@ import {
   compareTmallNoticeActionCandidates,
   chooseFreshTmallDownloadSignature,
   chooseLatestTmallDownloadSignature,
+  chooseTmallResumedDownloadSignature,
   chooseTmallExportRecordSignature,
   chooseTmallResumeSellerPageIndex,
   createTmallBrowserDownloadSession,
@@ -35,6 +36,9 @@ import {
   productManagerChatOpenTimeoutMs,
   productManagerFloatingClusterKey,
   resolveTmallStagedDownloadPath,
+  resolveTmallMasterExportPrompt,
+  summarizeTmallExportAcknowledgement,
+  waitForTmallExportAcknowledgement,
   sameTmallNoticeActionTarget,
   scoreChatSendCandidate,
   scoreImportantNoticeCloseCandidate,
@@ -46,6 +50,70 @@ import {
   tmallBrowserDownloadOutcome,
   waitForTmallSellerSessionUrl,
 } from "../tools/tmall-product-master-export";
+
+test("丽力新任务采用已人工验证的出售中指令，不影响其他店铺", () => {
+  const prompt = resolveTmallMasterExportPrompt("tmall-lili");
+  assert.equal(prompt, "查询[商品状态:出售中]的商品，并批量导出到excel");
+  assert.equal(countAcceptedTmallExportTasks(prompt), 0, "不能把用户指令回显当成任务受理");
+  for (const store of ["tmall-yiyong", "tmall-yijiu", "tmall-tuofeng", "tmall-masitu", "tmall-cuizhiwang"]) {
+    assert.equal(resolveTmallMasterExportPrompt(store), "导出全部商品");
+  }
+});
+
+test("丽力截图中搜索、导出完成与输入未发送诊断只返回脱敏结构", () => {
+  const search = summarizeTmallExportAcknowledgement("商品查询结果（共109个） 商品ID 123456 Cookie=secret", false);
+  assert.deepEqual(search, { promptStillInInput: false, searchResultPresent: true, acceptedTaskCount: 0, completedResultPresent: false });
+  const completed = summarizeTmallExportAcknowledgement("任务2：导出商品到Excel，共有2个任务，还剩0个任务待执行\n任务已执行\n成功导出 109 个商品到Excel文件，前往下载", false);
+  assert.equal(completed.acceptedTaskCount, 2);
+  assert.equal(completed.completedResultPresent, true);
+  assert.equal(summarizeTmallExportAcknowledgement("", true).promptStillInInput, true);
+  assert.doesNotMatch(JSON.stringify(search), /secret|123456|Cookie/);
+});
+
+test("响应等待在搜索后继续观察到受理，保持有界且不重发", async () => {
+  let ticks = 0;
+  let calls = 0;
+  await waitForTmallExportAcknowledgement(async () => {
+    calls += 1;
+    return { ready: calls === 3, diagnostic: summarizeTmallExportAcknowledgement(calls < 3 ? "商品查询结果（共109个）" : "任务2：导出商品到Excel", false) };
+  }, { timeoutMs: 4, now: () => ticks, pause: async () => { ticks += 1; } });
+  assert.equal(calls, 3);
+  assert.equal(ticks, 2);
+});
+
+test("响应超时保留分类诊断并停止；不因搜索结果或输入回显自动成功", async () => {
+  let ticks = 0;
+  let calls = 0;
+  await assert.rejects(waitForTmallExportAcknowledgement(async () => {
+    calls += 1;
+    return { ready: false, diagnostic: summarizeTmallExportAcknowledgement("商品查询结果（共109个） 商品ID 123456", true) };
+  }, { timeoutMs: 3, now: () => ticks, pause: async () => { ticks += 1; } }), (error: Error) => {
+    assert.match(error.message, /未出现导出确认/);
+    assert.match(error.message, /"promptStillInInput":true/);
+    assert.match(error.message, /"searchResultPresent":true/);
+    assert.match(error.message, /禁止重复提交/);
+    assert.doesNotMatch(error.message, /123456/);
+    return true;
+  });
+  assert.equal(calls, 3);
+});
+
+test("响应等待不吞掉任务歧义和页面读取异常", async () => {
+  let calls = 0;
+  await assert.rejects(waitForTmallExportAcknowledgement(async () => {
+    calls += 1;
+    throw new Error("多个同等导出确认候选");
+  }), /多个同等导出确认候选/);
+  assert.equal(calls, 1);
+});
+
+test("恢复分支使用原清单指令且不再引用不存在的下载基线", async () => {
+  const source = await readFile(new URL("../tools/tmall-product-master-export.ts", import.meta.url), "utf8");
+  assert.match(source, /prompt: activeAudit\.prompt/);
+  assert.match(source, /input\.locator\.fill\(options\.prompt/);
+  assert.doesNotMatch(source, /baselineDownloads/);
+  assert.match(source, /expectedRunStartedAt: options\.exportSubmittedAt \?\? options\.taskStartedAt/);
+});
 
 test("识别千牛卖家专用登录跳转并拒绝普通业务页", () => {
   assert.equal(isTmallSellerLoginUrl("https://loginmyseller.taobao.com/?redirect_url=https%3A%2F%2Fmyseller.taobao.com"), true);
@@ -359,6 +427,16 @@ test("商品管家下载候选合并嵌套按钮并只选择最下方成功结�
   assert.throws(() => chooseLatestTmallDownloadSignature([
     candidate(),
     candidate({ signature: "other-frame", frameUrl: "https://other.example/chat", top: 620, contextText: "" }),
+  ]), /不同页面/);
+  assert.equal(chooseTmallResumedDownloadSignature([
+    candidate({ signature: "pending", contextText: "任务执行中", top: 700 }),
+  ]), null);
+  assert.equal(chooseTmallResumedDownloadSignature([
+    candidate({ signature: "existing-completed-after-reflow", top: 540 }),
+  ]), "existing-completed-after-reflow");
+  assert.throws(() => chooseTmallResumedDownloadSignature([
+    candidate(),
+    candidate({ signature: "other-frame", frameUrl: "https://other.example/chat", top: 620 }),
   ]), /不同页面/);
 });
 
