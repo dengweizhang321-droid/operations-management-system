@@ -1,5 +1,7 @@
 # n8n 无控制台启动
 
+2026-09-11 已在本机受控采用服务启动与命令节点两处修复。10:30 自然触发的新品周报检查 execution 956 成功，观察到其 cmd/PowerShell 子进程，未新增 Windows Terminal/OpenConsole；服务健康、13 条启用工作流及工作流/Webhook/owner 摘要回查通过。详见 [采用证据](evidence/n8n-no-console-production-20260911.json)。
+
 `TERUISI-n8n-Service` 继续使用当前用户的交互登录身份，保留登录触发、失败每分钟重试、最多 999 次、忽略重复实例和不限运行时长。交互身份供原有浏览器自动化及当前用户 DPAPI 使用，不切换 SYSTEM，也不改变全局 Windows Terminal 设置。
 
 后台服务和失败重试是正常行为，弹出空白终端不是必需行为。直接把 `powershell.exe -WindowStyle Hidden` 作为计划任务动作，仍会先创建控制台并可能激活 Windows Terminal。
