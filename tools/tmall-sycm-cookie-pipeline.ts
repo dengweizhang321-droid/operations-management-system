@@ -5,6 +5,8 @@ import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { isMainThread, parentPort, workerData } from "node:worker_threads";
+import { isolatedHelperProtocol, isolatedHelperTokenHeader, isolatedRequestIdentity, serveIsolatedHelper, type SlotIdentity } from "./tmall-isolated-helper";
 
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
@@ -1264,7 +1266,18 @@ function scheduleOneShotServerClose(server: Pick<Server, "close" | "closeAllConn
 }
 
 async function serveCommand(argv: string[]) {
-  const port = integerPort(cliValue(argv, "--port"));
+  if (isMainThread) {
+    const stores = (await loadTmallStores()).filter(store => store.enabled);
+    return serveIsolatedHelper({
+      port: integerPort(cliValue(argv, "--port")), entryFile: process.argv[1]!,
+      allowedStores: new Set(stores.map(store => store.storeKey)),
+      health: helperProfileHealth, cors: helperHealthCorsHeaders,
+    });
+  }
+  if (workerData?.protocol !== isolatedHelperProtocol || typeof workerData.token !== "string"
+    || !/^[a-f0-9]{64}$/.test(workerData.token) || !workerData.identity) throw new Error("invalid_helper_slot_bootstrap");
+  const slotIdentity = workerData.identity as SlotIdentity;
+  const port = 0; // OS-assigned loopback port; only the parent receives it via IPC.
   let stage: HelperStage = "ready";
   let busy = false;
   let activeWorkflow: CoordinatedWorkflow | null = null;
@@ -1286,18 +1299,13 @@ async function serveCommand(argv: string[]) {
   let jdPromotionPlan: JdPromotionN8nPlan | null = null;
   let claimedTmallExecutionId: string | null = null;
   let claimedTmallStoreKey: string | null = null;
+  let tmallBrowserMayBeOpen = false;
   let claimedJackyunExecutionId: string | null = null;
   let claimedJdExecutionId: string | null = null;
   let claimedJdMarketExecutionId: string | null = null;
   let claimedJdPromotionExecutionId: string | null = null;
   let inactivityReaper: ReturnType<typeof createHelperInactivityReaper> | null = null;
   const server = createServer(async (request, response) => {
-    const healthCorsHeaders = request.url === "/health"
-      ? helperHealthCorsHeaders(
-          request.headers.origin,
-          request.headers["access-control-request-private-network"] === "true",
-        )
-      : {};
     const reply = (status: number, payload: unknown) => {
       const body = JSON.stringify(payload);
       response.writeHead(status, {
@@ -1305,39 +1313,14 @@ async function serveCommand(argv: string[]) {
         "Content-Length": Buffer.byteLength(body),
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
-        ...healthCorsHeaders,
       });
       response.end(body);
     };
-    if (request.method === "OPTIONS" && request.url === "/health") {
-      if (!("Access-Control-Allow-Origin" in healthCorsHeaders)) {
-        reply(403, { ok: false, error: "origin_not_allowed" });
-        return;
-      }
-      response.writeHead(204, healthCorsHeaders);
-      response.end();
-      return;
-    }
-    if (request.method === "GET" && request.url === "/health") {
-      const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile] = await Promise.all([
-        getCookieSourceStatus(),
-        loadTmallStores()
-          .then((stores) => getTmallProfilesStatus(stores.filter((store) => store.enabled)))
-          .catch(() => "invalid" as const),
-        getJackyunProfileStatus(),
-        loadJdStores().then((stores) => getJdProfilesStatus(stores.filter((store) => store.enabled))).catch(() => "invalid" as const),
-        loadJdMarketDailyConfig()
-          .then((config) => getJdStore(config.storeKey))
-          .then((store) => getJdProfilesStatus([store]))
-          .catch(() => "invalid" as const),
-        getJdStore("jd-yiyong-director")
-          .then((store) => getJdProfilesStatus([store]))
-          .catch(() => "invalid" as const),
-        getJdStore("jd-maidehao-operator1")
-          .then((store) => getJdProfilesStatus([store]))
-          .catch(() => "invalid" as const),
-      ]);
-      reply(200, { ok: true, stage, busy, activeWorkflow, cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile });
+    const incomingIdentity = isolatedRequestIdentity(request.url ?? "", request.headers);
+    if (request.headers[isolatedHelperTokenHeader] !== workerData.token || request.method !== "POST"
+      || !incomingIdentity || incomingIdentity.key !== slotIdentity.key
+      || incomingIdentity.executionId !== slotIdentity.executionId || incomingIdentity.workflow !== slotIdentity.workflow) {
+      reply(403, { ok: false, error: "helper_slot_identity_mismatch" });
       return;
     }
     if (request.method === "POST" && request.url === "/coordination/claim") {
@@ -1632,6 +1615,7 @@ async function serveCommand(argv: string[]) {
         inactivityReaper?.arm();
       } else if (request.url === "/plan" || request.url === "/plan-backfill") {
         const startedAt = Date.now();
+        tmallBrowserMayBeOpen = true;
         const authentication = await ensureTmallStoreAuthenticatedSession(claimedTmallStoreKey!);
         const explicitDates = parseTmallPlanDateRangeHeaders(
           request.headers[tmallPlanStartDateHeader],
@@ -1719,15 +1703,45 @@ async function serveCommand(argv: string[]) {
     close: () => closeOneShotServer(server),
     isBusy: () => busy,
   });
+  server.once("close", () => {
+    inactivityReaper?.clear();
+    const finish = async () => {
+      if (slotIdentity.storeKey && tmallBrowserMayBeOpen) await closeTmallWorkflowBrowser(await getRegisteredTmallStore(slotIdentity.storeKey));
+    };
+    const timeout = setTimeout(() => parentPort?.postMessage({ type: "finished", clean: false }), 30_000);
+    void finish().then(() => {
+      clearTimeout(timeout);
+      parentPort?.postMessage({ type: "finished", clean: true });
+    }, () => {
+      clearTimeout(timeout);
+      parentPort?.postMessage({ type: "finished", clean: false });
+    });
+  });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", () => resolve());
   });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("helper_slot_address_invalid");
+  parentPort?.postMessage({ type: "ready", port: address.port });
   return { ok: true, stage: "serve", address: "127.0.0.1", port, oneShot: true };
 }
 
+async function helperProfileHealth() {
+  const [cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile] = await Promise.all([
+    getCookieSourceStatus(),
+    loadTmallStores().then(stores => getTmallProfilesStatus(stores.filter(store => store.enabled))).catch(() => "invalid" as const),
+    getJackyunProfileStatus(),
+    loadJdStores().then(stores => getJdProfilesStatus(stores.filter(store => store.enabled))).catch(() => "invalid" as const),
+    loadJdMarketDailyConfig().then(config => getJdStore(config.storeKey)).then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
+    getJdStore("jd-yiyong-director").then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
+    getJdStore("jd-maidehao-operator1").then(store => getJdProfilesStatus([store])).catch(() => "invalid" as const),
+  ]);
+  return { cookieSource, tmallProfile, jackyunProfile, jdProfiles, jdMarketProfile, jdPromotionProfile, jdPromotionCutMeatProfile };
+}
+
 async function main() {
-  const argv = process.argv.slice(2);
+  const argv = isMainThread ? process.argv.slice(2) : ["serve"];
   const command = argv[0] as PipelineCommand | undefined;
   if (!command || !["master", "plan", "fetch", "import", "promotion", "serve"].includes(command)) {
     throw new Error("用法: tmall-sycm-cookie-pipeline.ts <master|plan|fetch|import|promotion|serve> [参数]");
