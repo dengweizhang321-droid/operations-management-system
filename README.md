@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+2026-09-11 晚丽力商品管家修复代码已受控发布，当前 Worker/helper 为 `20260911T143402Z-fc575f36864bbb8d`；**完整验证 1029 仍在 M 等待响应阶段失败，不能视为丽力导出已修好**。新清单保留，禁止重复提交；需人工查看 22:44:54 原会话。n8n 定义与数据库服务未改动，详情见 [发布及失败证据](docs/evidence/tmall-lili-export-repair-production-20260911.json)。
+
 小特 **pandas 容器分析工具已于 2026-09-11 本机上线**：按当前账号权限导出系统数据集，在独立 Linux/rootless Docker 容器中做临时关联、分组和透视，并返回对话表格。保留原 JSON 分析沙箱；单次最多 3 个数据集、2000 行，计算最多 8 秒。真实容器、镜像 PostgreSQL 联调、受控启动停止及正式工具调用与审计验收已通过。使用方式与实际采用证据见 [pandas 容器分析说明](docs/AI_PANDAS_SANDBOX.md)。
 
 库存健康指标、广东入仓型号编辑保存和各板块 AI 对话框布局已于 **2026-09-11 在本机生产统一上线**。库存健康分布只统计京东仓、天猫履约仓、精确广东仓和自营仓，统一六类状态并以库存周转严格大于 180 天判定低周转；型号编辑继续通过独立库存 writer 执行版本 fencing 与写后回查。板块 AI 对话工作台现填满抽屉可用高度，输入区下移到底部并缩小占用，更多空间用于显示历史对话。当前 Worker/helper effective release 为 `20260911T035534Z-683ed76137b93190`，Django deployment manifest SHA 为 `da378980df03116093a14e03b4f4c1a599a5ea0365223d9d2d53437d63afba5d`；整栈 Running / Ready / exact_release，发布前备份独立恢复及发布后备份复验通过。详见 [统一发布证据](docs/evidence/inventory-health-ai-panel-production-20260911.json)。
