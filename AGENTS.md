@@ -31,6 +31,7 @@
     - 库存总览“库存健康分布”只统计京东仓、天猫履约仓（仓库映射分类 `cainiao`）、精确广东仓和自营仓；工厂代发、售后、样品、海外等仓别不得计入。六类状态固定显示为无库存可用、紧急补货、补货预警、积压风险、低周转、库存健康；库存周转严格大于 180 天才属于低周转。广东入仓型号编辑必须经库存 writer 的 `PATCH /api/inventory/guangdong-monitor/items`，继续保留版本 fencing、最小权限和写后回查。
   - 商品经营汇总、SKU 快递费率、原始分片、库存投影、迁移和审计权威实现：`backend/products/`；Worker 薄适配为 `lib/django/products-*.ts`、`lib/products/summary.ts`、`lib/products/chunked-upload.ts` 与 `lib/products/inventory-projection-sync.ts`。旧 `lib/products/shipping-rate-database.ts` 只允许作为隔离迁移、退役审计或测试材料保留；商品经营消费库存 Django consumer 的版本化完整投影，不形成库存第二写入源
   - 京东/天猫网店 SKU/SPU、推广与商品主数据权威实现：`backend/netshop/`；Worker 适配为 `lib/django/netshop-*.ts`，旧 `lib/netshop/`、`lib/jd/` D1 路径只允许作为已隔离的迁移、审计或测试材料保留
+    - 京东四店每日商品工作流固定每天更新一次各店商品主数据；SKU/SPU 分天在下载前必须按“上海昨天所在月 1 日至昨天”逐店、逐维度查询 PostgreSQL 权威覆盖，只下载和导入连续缺口区间，无缺口不创建日数据任务。覆盖响应截断、实际日期与缺失日期不完整互斥或导入后仍有缺口必须失败关闭；C 必须复核每个精确批次并回查全范围零缺口。
   - 吉客云自动化：`lib/jackyun/`、`tools/jackyun-*`
   - 市场 TOP 榜单、价格、标注、任务和缓存元数据权威实现：`backend/market/`；薄 Worker 和受控执行适配为 `lib/django/market-service.ts` 与 `lib/market/django-*`，旧 `lib/market/` D1 领域路径只允许作为已隔离的迁移、退役审计或测试材料保留
   - 客服会话、配对导入、分析标注、原始分片、迁移和审计权威实现：`backend/customer_service/`；Worker 薄适配与有界 consumer：`lib/django/customer-service*.ts`、`lib/customer-service/`。旧 D1 客服对象只允许作为空 tombstone、永久 guard、隔离恢复研究或测试夹具保留；旧 `inventory-upload/` R2 前缀已终态下线
