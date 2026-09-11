@@ -29,6 +29,21 @@
 
 安装程序编译到固定运行目录 `D:\teruisi-runtime\n8n-launcher\<源码 SHA256>`，先导出 `task-before.xml`，仅更换精确匹配旧命令的任务 Action，再回读验证 Principal、Trigger 和 Settings 均未变化。它不会自动启停 n8n，不修改工作流、数据库或其他服务。已存在发布目录和不匹配的任务动作均拒绝覆盖。标准输入输出绑定有效 NUL 句柄，避免 PowerShell 在调用网络查询或原生程序时自行分配控制台；Job 句柄禁止继承。
 
-更换动作不改变已经运行的进程。受控切换前确认没有 new/running execution、helper 空闲；waiting execution 必须另行评估恢复时间。备份 n8n SQLite 时使用 SQLite backup API，不直接复制正在写入的数据库。对经过 PID/创建时间/命令行确认的旧控制台发送 Ctrl+C，让 n8n 正常收尾；确认旧进程退出且 5678 释放后，从同一计划任务启动新入口。回读 healthz、回环监听、唯一进程树、无新 Terminal/OpenConsole/conhost、工作流版本/active 和 Webhook 摘要。禁止通过演练触发业务下载或导入。
+更换动作不改变已经运行的进程。受控切换前确认没有 new/running execution、helper 空闲；waiting execution 必须另行评估恢复时间。备份 n8n SQLite 时使用 SQLite backup API，不直接复制正在写入的数据库。对经过 PID/创建时间/命令行确认的旧控制台发送 Ctrl+C，让 n8n 正常收尾；确认旧进程退出且 5678 释放后，从同一计划任务启动新入口。回读 healthz、回环监听、唯一进程树、无新增可见终端/控制台窗口、工作流版本/active 和 Webhook 摘要。Windows 内部不可见 conhost 进程不等于控制台窗口。禁止通过演练触发业务下载或导入。
 
 若验收失败，先确认本任务持有的新进程已停止，再从 `task-before.xml` 取原 Action 通过 `Set-ScheduledTask -Action` 恢复，保留当前其他任务设置。备份和发布目录保留作为回滚证据；不要覆盖或删除 n8n 业务数据。
+
+## 工作流命令子进程
+
+新品周报的正式 Schedule Trigger 每 5 分钟检查一次发送条件。n8n 2.32.7 的 Execute Command 实现使用 `shell: true, detached: true` 且未设置 `windowsHide`，因此服务启动无窗口后，该命令仍可能另外弹出 PowerShell。
+
+`tools/n8n-command-no-console.mjs` 只替换两个精确匹配的 spawn 调用：Windows 不使用 detached，命令及取消时的 taskkill 都设置 `windowsHide: true`。保留 stdout/stderr、退出码、Windows taskkill 进程树取消、POSIX 进程组及业务命令。工具拒绝未知、重复或部分补丁；已完整采用时幂等。`--apply` 必须先验证正式任务停止且 5678 无监听，再备份原始模块与 SHA 并写入回读。示例：
+
+```powershell
+$module = Join-Path $env:APPDATA 'npm\node_modules\n8n\node_modules\n8n-nodes-base\dist\nodes\ExecuteCommand\ExecuteCommand.node.js'
+node tools/n8n-command-no-console.mjs --check $module
+# 受控停止 n8n 后执行；不更新或触发工作流。
+node tools/n8n-command-no-console.mjs --apply $module 'D:\teruisi-runtime\n8n-launcher\vendor-patches'
+```
+
+启动脚本每次只读 `--verify`，防止 n8n 升级覆盖补丁后悄悄恢复弹窗。升级后须重新审查当前模块，再显式采用；未知版本或补丁缺失时失败关闭，不自动修改安装包。取消此功能时，受控停服后恢复原模块并同步恢复启动校验，不允许仅删除补丁导致持续启动失败。

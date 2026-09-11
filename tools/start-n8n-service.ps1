@@ -13,6 +13,10 @@ if (-not (Test-Path -LiteralPath $n8nEntry -PathType Leaf)) {
   throw "The local n8n entry point is unavailable."
 }
 
+$commandModule = Join-Path $env:APPDATA 'npm\node_modules\n8n\node_modules\n8n-nodes-base\dist\nodes\ExecuteCommand\ExecuteCommand.node.js'
+& $nodeCommand (Join-Path $PSScriptRoot 'n8n-command-no-console.mjs') --verify $commandModule | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'n8n command no-console patch verification failed; review the installed n8n version.' }
+
 $existingListener = @(Get-NetTCPConnection -State Listen -LocalPort 5678 -ErrorAction SilentlyContinue)
 if ($existingListener.Count -gt 0) {
   $nonLoopbackListener = @($existingListener | Where-Object { $_.LocalAddress -notin @("127.0.0.1", "::1") })
