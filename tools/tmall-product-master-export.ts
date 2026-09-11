@@ -350,6 +350,21 @@ export function chooseTmallResumedDownloadSignature(candidates: readonly TmallDo
   return chooseLatestTmallDownloadSignature(candidates.filter((candidate) => hasCompletedTmallExportResult(candidate.contextText)));
 }
 
+export async function findTmallResumedCompletedDownload<T extends TmallDownloadChoice>(
+  readScoped: () => Promise<readonly T[]>,
+  readSamePage: () => Promise<readonly T[]>,
+): Promise<T | null> {
+  // Read-only recovery: the completed card can live outside the input overlay.
+  // This does not establish file ownership; the original export-record time
+  // and completion checks remain mandatory before accepting any download.
+  for (const read of [readScoped, readSamePage]) {
+    const candidates = await read();
+    const signature = chooseTmallResumedDownloadSignature(candidates);
+    if (signature) return candidates.find((candidate) => candidate.signature === signature) ?? null;
+  }
+  return null;
+}
+
 function clusterTmallDownloadChoices(candidates: readonly TmallDownloadChoice[]) {
   const visualClusters = new Map<string, TmallDownloadChoice>();
   for (const candidate of candidates) {
@@ -1909,6 +1924,15 @@ async function browserExport(options: {
           return value.trim() === prompt;
         }, options.prompt);
         const diagnostic = summarizeTmallExportAcknowledgement(await chatText(), promptStillInInput);
+        if (options.resumeStage === "export_submitted") {
+          const completed = await findTmallResumedCompletedDownload(
+            () => downloadCandidates(page!, input.frame, chatScope ?? undefined),
+            () => downloadCandidates(page!),
+          );
+          if (completed) {
+            return { ready: true, diagnostic: summarizeTmallExportAcknowledgement(completed.contextText, promptStillInInput) };
+          }
+        }
         const confirmations = await textCandidates(
           page!,
           tmallExportConfirmationLabels,

@@ -14,6 +14,7 @@ import {
   chooseTmallResumedDownloadSignature,
   chooseTmallExportRecordSignature,
   chooseTmallResumeSellerPageIndex,
+  findTmallResumedCompletedDownload,
   createTmallBrowserDownloadSession,
   countAcceptedTmallExportTasks,
   countTmallCompletedDownloadCards,
@@ -105,6 +106,66 @@ test("响应等待不吞掉任务歧义和页面读取异常", async () => {
     throw new Error("多个同等导出确认候选");
   }), /多个同等导出确认候选/);
   assert.equal(calls, 1);
+});
+
+const resumedCompletedCard = {
+  signature: "original-completed-card",
+  frameUrl: "https://myseller.taobao.com/chat",
+  href: "https://myseller.taobao.com/export-records",
+  left: 1000, top: 700, width: 80, height: 24,
+  contextText: "任务已执行 成功导出 109 个商品到Excel文件，前往下载",
+};
+
+test("已提交恢复在输入区域无响应时先读同页完成卡片，不再卡在受理等待", async () => {
+  let scopedReads = 0;
+  let pageReads = 0;
+  let pauses = 0;
+  await waitForTmallExportAcknowledgement(async () => {
+    const completed = await findTmallResumedCompletedDownload(
+      async () => { scopedReads += 1; return []; },
+      async () => { pageReads += 1; return [resumedCompletedCard]; },
+    );
+    return { ready: completed !== null, diagnostic: summarizeTmallExportAcknowledgement(completed?.contextText ?? "", false) };
+  }, { timeoutMs: 2, now: () => pauses, pause: async () => { pauses += 1; } });
+  assert.equal(scopedReads, 1);
+  assert.equal(pageReads, 1);
+  assert.equal(pauses, 0);
+});
+
+test("原会话区域已有完成卡片时不扩大恢复扫描", async () => {
+  const completed = await findTmallResumedCompletedDownload(
+    async () => [resumedCompletedCard],
+    async () => { throw new Error("不应读取同页其他区域"); },
+  );
+  assert.equal(completed, resumedCompletedCard);
+});
+
+test("恢复扫描不把查询结果、待执行或普通下载入口当成完成", async () => {
+  for (const contextText of ["商品查询结果（共109个）", "任务2：导出商品到Excel，还剩1个任务待执行", "前往下载"]) {
+    assert.equal(await findTmallResumedCompletedDownload(
+      async () => [{ ...resumedCompletedCard, contextText }], async () => [],
+    ), null);
+  }
+});
+
+test("恢复扫描的并列链接、跨页面候选与读取错误仍失败关闭", async () => {
+  const tied = { ...resumedCompletedCard, signature: "tied", left: 1300 };
+  await assert.rejects(findTmallResumedCompletedDownload(async () => [], async () => [resumedCompletedCard, tied]), /位置并列/);
+  await assert.rejects(findTmallResumedCompletedDownload(async () => [], async () => [resumedCompletedCard,
+    { ...tied, frameUrl: "https://other.example/chat" }]), /不同页面/);
+  let fallbackCalls = 0;
+  await assert.rejects(findTmallResumedCompletedDownload(async () => { throw new Error("原区域读取失败"); },
+    async () => { fallbackCalls += 1; return [resumedCompletedCard]; }), /原区域读取失败/);
+  assert.equal(fallbackCalls, 0);
+});
+
+test("已提交恢复完成卡片检查位于受理探针内，且保留原任务时间门禁", async () => {
+  const source = await readFile(new URL("../tools/tmall-product-master-export.ts", import.meta.url), "utf8");
+  const probe = source.slice(source.indexOf("await waitForTmallExportAcknowledgement(async () => {"));
+  assert.match(probe, /if \(options\.resumeStage === "export_submitted"\) \{\s+const completed = await findTmallResumedCompletedDownload/);
+  assert.ok(probe.indexOf("findTmallResumedCompletedDownload") < probe.indexOf("const confirmations ="));
+  assert.match(source, /expectedRunStartedAt: options\.exportSubmittedAt \?\? options\.taskStartedAt/);
+  assert.match(source, /chooseTmallExportRecordSignature\(records, options\.expectedRunStartedAt\)/);
 });
 
 test("恢复分支使用原清单指令且不再引用不存在的下载基线", async () => {
