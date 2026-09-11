@@ -130,7 +130,7 @@ test("the local n8n launcher binds retry webhooks to loopback", async () => {
   const source = await readFile(new URL("../tools/start-n8n-service.ps1", import.meta.url), "utf8");
   const bind = source.indexOf('$env:N8N_LISTEN_ADDRESS = "127.0.0.1"');
   const nodePolicy = source.indexOf('$env:NODES_EXCLUDE = \'["n8n-nodes-base.localFileTrigger"]\'');
-  const start = source.indexOf("& $nodeCommand $n8nEntry start");
+  const start = source.indexOf("Invoke-N8nNativeProcess -NodePath $nodeCommand -EntryPath $n8nEntry");
   assert.ok(bind >= 0 && nodePolicy > bind && start > nodePolicy);
   assert.match(source, /non-loopback address/);
   assert.match(source, /LocalAddress -notin @\("127\.0\.0\.1", "::1"\)/);

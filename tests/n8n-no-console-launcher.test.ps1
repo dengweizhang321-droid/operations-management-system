@@ -59,6 +59,40 @@ Assert-Equal (Invoke-Launcher ('"' + $script + '" extra')) 64 'Extra arguments r
 Assert-Equal (Invoke-Launcher 'relative.ps1') 64 'Relative path rejection'
 'exit 0' | Set-Content -LiteralPath $script -Encoding UTF8
 Assert-Equal (Invoke-Launcher ('"' + $script + '"')) 0 'Success exit code'
+# Real Node warning + large concurrent stdout/stderr through Windows PS 5.1
+# and the production Job launcher. This must survive stderr and retain bytes.
+$nativeFixture = Join-Path $testRoot 'native warning fixture.cjs'
+@'
+const fs = require('node:fs');
+const path = require('node:path');
+const root = __dirname;
+process.emitWarning('synthetic warning', 'DeprecationWarning');
+const content = '测试UTF8\n' + 'x'.repeat(1024 * 1024) + '\n';
+Promise.all([
+  new Promise(resolve => process.stdout.write(content, resolve)),
+  new Promise(resolve => process.stderr.write(content, resolve)),
+]).then(() => setTimeout(() => {
+  fs.writeFileSync(path.join(root, 'native-survived.txt'), 'survived');
+  process.exit(37);
+}, 300));
+'@ | Set-Content -LiteralPath $nativeFixture -Encoding UTF8
+$nativeWrapper = Join-Path $testRoot 'native-wrapper.ps1'
+@'
+$ErrorActionPreference = 'Stop'
+. (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'tools\n8n-native-process.ps1')
+$code = Invoke-N8nNativeProcess -NodePath (Get-Command node.exe).Source -EntryPath (Join-Path $PSScriptRoot 'native warning fixture.cjs') -StdoutPath (Join-Path $PSScriptRoot 'native.stdout.log') -StderrPath (Join-Path $PSScriptRoot 'native.stderr.log')
+exit $code
+'@ | Set-Content -LiteralPath $nativeWrapper -Encoding UTF8
+Assert-Equal (Invoke-Launcher ('"' + $nativeWrapper + '"')) 37 'Warning does not override native exit code'
+Assert-Equal ([IO.File]::ReadAllText((Join-Path $testRoot 'native-survived.txt'))) 'survived' 'Native process survived warning'
+$nativeOut = [IO.File]::ReadAllText((Join-Path $testRoot 'native.stdout.log'), [Text.Encoding]::UTF8)
+$nativeErr = [IO.File]::ReadAllText((Join-Path $testRoot 'native.stderr.log'), [Text.Encoding]::UTF8)
+if (-not $nativeOut.StartsWith('测试UTF8') -or -not $nativeErr.Contains('测试UTF8') -or
+    -not $nativeErr.Contains('synthetic warning') -or $nativeOut.Length -lt 1048576 -or $nativeErr.Length -lt 1048576) {
+  throw 'Native log streams were truncated, lost, or corrupted.'
+}
+Assert-Equal (Invoke-Launcher ('"' + $nativeWrapper + '"')) 37 'Native log append exit code'
+Assert-Equal ([IO.File]::ReadAllText((Join-Path $testRoot 'native.stdout.log')).Length) ($nativeOut.Length * 2) 'Native logs append without truncation'
 # Verify the actual Windows scheduler lifecycle, using only a disposable probe task.
 @'
 Get-NetTCPConnection -State Listen -ErrorAction Stop | Out-Null
@@ -94,4 +128,37 @@ try {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
   }
 }
-[pscustomobject]@{ Result='passed'; NoConsole=$true; NativeGrandchildNoConsole=$true; ExitCodes=@(0,37,64); UnattachedOutput='passed'; SchedulerStopTree='passed'; TestRoot=$testRoot } | ConvertTo-Json
+# Verify installation keeps unrelated scheduler settings but makes the service
+# resilient to brief AC/battery transitions.
+$policyTaskName = 'TERUISI-NoConsole-Policy-Test-' + [guid]::NewGuid().ToString('N')
+$policyRegistered = $false
+try {
+  $serviceScript = Join-Path $repo 'tools\start-n8n-service.ps1'
+  $legacyAction = New-ScheduledTaskAction `
+    -Execute 'powershell.exe' `
+    -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $serviceScript + '"') `
+    -WorkingDirectory $repo
+  $policySettings = New-ScheduledTaskSettingsSet `
+    -RestartCount 7 `
+    -RestartInterval (New-TimeSpan -Minutes 3) `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) `
+    -MultipleInstances IgnoreNew
+  $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
+  Register-ScheduledTask -TaskName $policyTaskName -Action $legacyAction -Principal $principal -Settings $policySettings | Out-Null
+  $policyRegistered = $true
+  $policyInstallRoot = Join-Path $testRoot 'policy-install'
+  $policyResult = & (Join-Path $repo 'tools\install-n8n-no-console.ps1') `
+    -ProjectRoot $repo `
+    -InstallRoot $policyInstallRoot `
+    -TaskName $policyTaskName | ConvertFrom-Json
+  $policyReadback = Get-ScheduledTask -TaskName $policyTaskName
+  Assert-Equal $policyReadback.Settings.DisallowStartIfOnBatteries $false 'Task allows battery start'
+  Assert-Equal $policyReadback.Settings.StopIfGoingOnBatteries $false 'Task continues on battery'
+  Assert-Equal $policyReadback.Settings.RestartCount 7 'Restart count preserved'
+  Assert-Equal $policyReadback.Settings.RestartInterval 'PT3M' 'Restart interval preserved'
+  Assert-Equal $policyReadback.Settings.ExecutionTimeLimit 'PT0S' 'Execution limit preserved'
+  Assert-Equal $policyResult.ContinueOnBattery $true 'Installer power policy result'
+} finally {
+  if ($policyRegistered) { Unregister-ScheduledTask -TaskName $policyTaskName -Confirm:$false }
+}
+[pscustomobject]@{ Result='passed'; NoConsole=$true; NativeGrandchildNoConsole=$true; ExitCodes=@(0,37,64); UnattachedOutput='passed'; SchedulerStopTree='passed'; ContinueOnBattery='passed'; TestRoot=$testRoot } | ConvertTo-Json
