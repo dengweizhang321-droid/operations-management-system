@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-09-11T09:02:13.1694894+08:00",
+  "recordedAt": "2026-09-11T09:24:34.0138933+08:00",
   "scope": "local-production-n8n-hourly-safe-retry",
   "sourceCommit": "21d0f4413b2a58034184451f3472be22ce62151b",
   "n8nVersion": "2.32.7",
@@ -50,19 +50,35 @@
     "productionExecutionsCreated": 0
   },
   "runtime": {
+    "runtimeCommit": "4768af9c",
     "listenAddress": "127.0.0.1",
     "port": 5678,
     "healthStatus": 200,
+    "scheduledTaskState": "Running",
+    "continuousHealthyObservationSeconds": 322,
     "allTargetVersionsPublished": true,
     "allTargetOwnersMatchSharedWorkflow": true,
     "nonterminalExecutionsAfterRestart": 0
+  },
+  "runtimeCompatibility": {
+    "initialRestartIssue": "The pre-existing active NewProductWeeklyDingTalk2026 workflow could not load n8n-nodes-base.executeCommand because n8n v2 excludes it by default.",
+    "resolution": "The controlled launcher now excludes only n8n-nodes-base.localFileTrigger, preserving the existing Execute Command workflow without enabling Local File Trigger.",
+    "allActiveWorkflowsActivated": true,
+    "naturalScheduledExecutionAfterRestart": {
+      "id": 942,
+      "workflowId": "NewProductWeeklyDingTalk2026",
+      "status": "success",
+      "startedAt": "2026-09-11T09:20:00.033+08:00",
+      "stoppedAt": "2026-09-11T09:20:23.306+08:00",
+      "triggeredByDeployment": false
+    }
   },
   "compatibilityTemplates": [
     { "id": "JdN8nM3uL7tI2026", "active": false, "definitionUnchanged": true },
     { "id": "JdMarketDaily2026", "active": false, "definitionUnchanged": true }
   ],
   "verification": {
-    "focusedTests": { "passed": 5, "failed": 0 },
+    "focusedTests": { "passed": 6, "failed": 0 },
     "businessNodesAndConnectionsUnchanged": true,
     "errorClassifierNegativeCasesPassed": true,
     "liveFailureInjectionPerformed": false,
