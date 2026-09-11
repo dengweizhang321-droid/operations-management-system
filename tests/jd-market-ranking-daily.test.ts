@@ -75,6 +75,11 @@ test("JD market category control bypasses only known JD overlays", () => {
   }), "native_dispatch");
   assert.equal(jdMarketDropdownClickMode({
     hitInsideControl: false,
+    hitTagNames: ["SPAN", "LI", "UL", "DIV"],
+    hitClassNames: ["top-menu-item-text", "top-menu-item", "menu-list", "header-menu"],
+  }), "native_dispatch");
+  assert.equal(jdMarketDropdownClickMode({
+    hitInsideControl: false,
     hitTagNames: ["DIV", "UL"],
     hitClassNames: ["menu-list", "header-menu"],
   }), "pointer");

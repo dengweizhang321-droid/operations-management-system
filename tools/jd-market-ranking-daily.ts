@@ -359,8 +359,8 @@ async function installRequestCapture(page: Page) {
 }
 
 export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[]; hitClassNames?: string[] }) {
-  const hitIsJdMenuList = input.hitTagNames[0]?.toUpperCase() === "UL"
-    && String(input.hitClassNames?.[0] ?? "").split(/\s+/).includes("menu-list");
+  const hitIsJdMenuList = input.hitTagNames.some((tagName, index) => tagName.toUpperCase() === "UL"
+    && String(input.hitClassNames?.[index] ?? "").split(/\s+/).includes("menu-list"));
   return !input.hitInsideControl && (input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName)) || hitIsJdMenuList)
     ? "native_dispatch" as const
     : "pointer" as const;
