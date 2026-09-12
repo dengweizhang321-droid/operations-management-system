@@ -4,6 +4,8 @@ AI_TABLES = (
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions",
     "ai_dingtalk_receipts",
+    "ai_dingtalk_schedules",
+    "ai_dingtalk_schedule_runs",
     "ai_conversation_workspaces",
     "ai_agent_checkpoints",
     "ai_agent_events",

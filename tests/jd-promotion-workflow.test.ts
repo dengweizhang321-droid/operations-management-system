@@ -16,10 +16,13 @@ import type { JdStore } from "../lib/jd/store-registry";
 import { parseNetshopCsv } from "../lib/netshop/import-service";
 import {
   assertJdPromotionAccount,
+  dismissJdPromotionMigrationGuide,
   importJdPromotionFile,
+  isJdPromotionMigrationGuideInterception,
   jdPromotionReportListUrl,
   jdPromotionReportName,
   normalizeJdPromotionDownloadFile,
+  openJdPromotionReport,
   parseJdPromotionArgs,
   type JdPromotionExportResult,
 } from "../tools/jd-promotion-export";
@@ -308,6 +311,97 @@ test("京准通命令行默认使用上海昨天，并接受同月显式范围",
 test("京准通推广从当前店铺报表列表按名称进入，不能复用另一店的报表 id", () => {
   assert.equal(jdPromotionReportListUrl, "https://jzt.jd.com/custom-report/#/list");
   assert.equal(jdPromotionReportName, "AI推广数据自动下载");
+});
+
+test("京准通只关闭唯一且文案匹配的迁移引导，不点击跳转按钮", async () => {
+  let visible = true;
+  const clicks: string[] = [];
+  const modal = {
+    filter: () => modal,
+    count: async () => visible ? 1 : 0,
+    innerText: async () => "自定义报表已迁移至「报表 - 报表工具」；当前入口仍可正常使用。立即前往 知道了",
+    getByRole: (_role: string, options: { name: string }) => ({
+      count: async () => 1,
+      click: async () => { clicks.push(options.name); visible = false; },
+    }),
+    waitFor: async ({ state }: { state: string }) => assert.equal(state, "hidden"),
+  };
+  const page = { locator: (selector: string) => { assert.equal(selector, ".migration-guide-modal"); return modal; } };
+  assert.equal(await dismissJdPromotionMigrationGuide(page as never), true);
+  assert.deepEqual(clicks, ["知道了"]);
+  assert.equal(await dismissJdPromotionMigrationGuide(page as never), false);
+});
+
+test("京准通未知或不唯一弹窗失败关闭，不能猜测关闭控件", async () => {
+  let count = 2;
+  let text = "自定义报表已迁移至「报表 - 报表工具」；当前入口仍可正常使用";
+  let buttonCount = 1;
+  let clicks = 0;
+  const modal = {
+    filter: () => modal,
+    count: async () => count,
+    innerText: async () => text,
+    getByRole: () => ({ count: async () => buttonCount, click: async () => { clicks += 1; } }),
+  };
+  const page = { locator: () => modal };
+  await assert.rejects(() => dismissJdPromotionMigrationGuide(page as never), /弹窗不唯一/);
+  count = 1;
+  text = "请进行安全验证";
+  await assert.rejects(() => dismissJdPromotionMigrationGuide(page as never), /未知弹窗/);
+  text = "自定义报表已迁移至「报表 - 报表工具」；当前入口仍可正常使用";
+  buttonCount = 2;
+  await assert.rejects(() => dismissJdPromotionMigrationGuide(page as never), /控件不唯一/);
+  assert.equal(clicks, 0);
+});
+
+test("京准通迁移引导延迟挂载时仅在精确遮挡错误后补一次可逆报表入口点击", async () => {
+  let modalVisible = false;
+  let reportClicks = 0;
+  let guideClicks = 0;
+  const modal = {
+    filter: () => modal,
+    count: async () => modalVisible ? 1 : 0,
+    innerText: async () => "自定义报表已迁移至「报表 - 报表工具」；当前入口仍可正常使用",
+    getByRole: (_role: string, options: { name: string }) => ({
+      count: async () => 1,
+      click: async () => { assert.equal(options.name, "知道了"); guideClicks += 1; modalVisible = false; },
+    }),
+    waitFor: async () => undefined,
+  };
+  const report = {
+    filter: () => report,
+    first: () => report,
+    waitFor: async () => undefined,
+    count: async () => 1,
+    click: async () => {
+      reportClicks += 1;
+      if (reportClicks === 1) {
+        modalVisible = true;
+        throw new Error("migration-guide-modal intercepts pointer events");
+      }
+    },
+  };
+  const page = {
+    waitForFunction: async () => undefined,
+    locator: (selector: string) => selector === "body" ? { innerText: async () => "志高亿用-总监" } : modal,
+    getByText: () => report,
+    getByRole: () => ({ waitFor: async () => undefined }),
+  };
+  await openJdPromotionReport(page as never, store());
+  assert.deepEqual([reportClicks, guideClicks], [2, 1]);
+  assert.equal(isJdPromotionMigrationGuideInterception(new Error("unknown overlay intercepts pointer events")), false);
+  assert.equal(isJdPromotionMigrationGuideInterception(new Error("migration-guide-modal timeout")), false);
+
+  let unknownClicks = 0;
+  const unknownReport = {
+    ...report,
+    filter: () => unknownReport,
+    first: () => unknownReport,
+    click: async () => { unknownClicks += 1; throw new Error("unknown overlay intercepts pointer events"); },
+  };
+  await assert.rejects(() => openJdPromotionReport({ ...page, getByText: () => unknownReport } as never, store()), /unknown overlay/);
+  assert.equal(unknownClicks, 1);
+  assert.equal(guideClicks, 1);
 });
 
 test("京准通推广等待列表页异步渲染受控账号，并继续拒绝缺失身份", async () => {

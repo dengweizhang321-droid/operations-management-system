@@ -12,10 +12,11 @@ const AiMemoryView = lazy(() => import("./ai-memory-view"));
 const AiSandboxView = lazy(() => import("./ai-sandbox-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
+const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
 
-const aiViews: readonly AiView[] = ["assistant", "agents", "memory", "sandbox", "space", "management"];
+const aiViews: readonly AiView[] = ["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"];
 const aiViewLabels: Record<AiView, string> = {
   assistant: "AI 对话",
   agents: "Agent 工作流",
@@ -23,6 +24,7 @@ const aiViewLabels: Record<AiView, string> = {
   sandbox: "分析沙箱",
   space: "AI 空间",
   management: "AI 管理",
+  scheduled: "AI定时任务",
 };
 
 function AiViewLoading({ label }: { label: string }) {
@@ -49,7 +51,7 @@ export default function AiModuleView({
   onModuleViewChange: (view: AiView) => void;
 }) {
   const canManage = currentUser?.role === "admin" && !currentUser.scopeRestricted;
-  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management");
+  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled");
   const changeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: AiView) => {
     if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
     event.preventDefault();
@@ -114,6 +116,14 @@ export default function AiModuleView({
         <AiSpaceManagementView currentUser={currentUser} />
       </Suspense>
     </div>}
+    {moduleView === "scheduled" && canManage && <div id="ai-panel-scheduled" role="tabpanel" aria-labelledby="ai-tab-scheduled" tabIndex={0}>
+      <Suspense fallback={<AiViewLoading label={aiViewLabels.scheduled} />}>
+        <AiDingTalkSchedulesView />
+      </Suspense>
+    </div>}
+    {moduleView === "scheduled" && !canManage && <section className="panel ai-permission-card" role="alert">
+      <h2>AI定时任务不可用</h2><p>仅无数据范围限制的管理员可见并维护 AI定时任务。</p>
+    </section>}
     {moduleView === "management" && !canManage && <section className="panel ai-permission-card" role="alert">
       <h2>AI 管理不可用</h2><p>仅无数据范围限制的管理员可见并维护 AI 管理工作区。</p>
     </section>}

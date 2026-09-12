@@ -1,0 +1,135 @@
+from datetime import datetime, timedelta, timezone as utc
+from unittest.mock import Mock, patch
+from django.test import TestCase, override_settings
+
+from . import dingtalk_schedules as schedules, dingtalk_settings, models as m
+from .policy import AiError
+from .tests import ADMIN, AiDomainTests
+
+
+def background(*args, **kwargs):
+    return {"ok": True, "principal": {"role": "admin"}}
+
+
+@override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
+class DingTalkScheduleTests(TestCase):
+    user = AiDomainTests.user
+
+    def setUp(self):
+        AiDomainTests.setUp(self)
+        self.config = {"version": 1, "enabled": True, "profile": "corp:operator", "corpId": "corp",
+            "unifiedAppId": "app", "robotCode": "robot", "robotName": "志高助手",
+            "groups": [{"id": "group", "name": "测试群聊"}],
+            "bindings": [{"senderId": "staff", "ownerEmail": self.owner.email, "role": self.owner.role, "scope": self.owner.scope}]}
+        dingtalk_settings.initialize(self.config)
+        self.payload = {"name": "日报", "prompt": "查询昨日经营概览", "cadence": "daily", "hour": 9, "minute": 0,
+            "day": 1, "targetType": "person", "targetId": "staff", "senderId": "staff", "enabled": True}
+
+    def test_shanghai_next_slot_and_month_boundary(self):
+        at = datetime(2026, 1, 31, 1, 0, tzinfo=utc.utc)
+        self.assertEqual(schedules.next_slot("daily", 9, 0, 1, at).isoformat(), "2026-02-01T01:00:00+00:00")
+        self.assertEqual(schedules.next_slot("monthly", 9, 0, 28, at).isoformat(), "2026-02-28T01:00:00+00:00")
+        self.assertEqual(schedules.next_slot("weekly", 9, 0, 1, at).weekday(), 0)
+
+    def test_denies_unbound_person_target_bad_group_scope_and_conflict(self):
+        for invalid in ({"targetId": "other"}, {"targetType": "group", "targetId": "unknown"}, {"day": 29}, {"hour": 24}):
+            with self.assertRaises(AiError):
+                schedules.save({**self.payload, **invalid}, ADMIN)
+        with self.assertRaises(AiError):
+            schedules.save(self.payload, self.owner)
+        item = schedules.save(self.payload, ADMIN)["item"]
+        with self.assertRaises(AiError):
+            schedules.save({**self.payload, "id": item["id"], "expectedVersion": 9}, ADMIN)
+        self.assertEqual(m.AiDingTalkSchedule.objects.get(pk=item["id"]).version, 1)
+
+    def test_public_api_admin_gate_and_request_receipt(self):
+        self.assertEqual(AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=self.owner, method="GET").status_code, 403)
+        forbidden = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, self.owner, request_id="ding-schedule-forbidden")
+        self.assertEqual(forbidden.status_code, 403)
+        created = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
+        self.assertEqual(created.status_code, 200, created.content)
+        replayed = AiDomainTests.call(self, "/api/ai/dingtalk-schedules", self.payload, ADMIN, request_id="ding-schedule-create")
+        self.assertEqual(replayed.status_code, 200)
+        self.assertEqual(m.AiDingTalkSchedule.objects.count(), 1)
+        self.assertEqual(AiDomainTests.call(self, "/api/ai/dingtalk-schedules", principal=ADMIN, method="GET").json()["items"][0]["id"], created.json()["item"]["id"])
+
+    def test_manual_run_is_single_queued_slot_then_sends_once(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        queued = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
+        with self.assertRaises(AiError):
+            schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
+        sender = Mock()
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", return_value={"reply": "经营结论"}) as answer:
+            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=queued["id"]).status, "sent")
+        self.assertEqual(sender.call_count, 1)
+        self.assertEqual(sender.call_args.args[0].sender_id, "staff")
+        self.assertEqual(sender.call_args.args[1], "经营结论")
+        self.assertEqual(answer.call_count, 1)
+
+    def test_revocation_before_dispatch_and_unknown_send_do_not_retry(self):
+        item = schedules.save({**self.payload, "targetType": "group", "targetId": "group"}, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
+        dingtalk_settings.save({"enabled": True, "groups": [{"id": "group", "name": "测试群聊", "enabled": False}], "expectedVersion": 1}, ADMIN)
+        sender = Mock()
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer") as answer:
+            schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
+        answer.assert_not_called(); sender.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "denied")
+        dingtalk_settings.save({"enabled": True, "groups": [{"id": "group", "name": "测试群聊", "enabled": True}], "expectedVersion": 2}, ADMIN)
+        run2 = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", return_value={"reply": "经营结论"}):
+            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(side_effect=TimeoutError()))
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run2["id"]).status, "unknown")
+        self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender))
+        sender.assert_not_called()
+
+    def test_edit_fences_queued_run_and_restart_marks_unknown(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        schedules.save({**self.payload, "id": item["id"], "expectedVersion": 1, "prompt": "更新后的任务"}, ADMIN)
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer") as answer:
+            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock())
+        answer.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "denied")
+        another = schedules.run_now({"id": item["id"], "expectedVersion": 2}, ADMIN)
+        m.AiDingTalkScheduleRun.objects.filter(pk=another["id"]).update(status="sending")
+        schedules.recover_interrupted()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=another["id"]).status, "unknown")
+
+    def test_missed_automatic_slot_is_skipped_without_model_or_send(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        old = datetime.now(utc.utc) - timedelta(days=2)
+        m.AiDingTalkSchedule.objects.filter(pk=item["id"]).update(next_run_at=old)
+        with patch.object(schedules.chat, "answer") as answer:
+            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), Mock()))
+        answer.assert_not_called()
+        self.assertFalse(m.AiDingTalkScheduleRun.objects.exists())
+        self.assertGreater(m.AiDingTalkSchedule.objects.get(pk=item["id"]).next_run_at, datetime.now(utc.utc))
+
+    def test_admin_revocation_after_queue_prevents_ai_and_delivery(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        with patch("ai_assistant.transport.edge", side_effect=AiError("权限失效", "access_denied", 403)), patch.object(schedules.chat, "answer") as answer:
+            sender = Mock()
+            schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
+        answer.assert_not_called(); sender.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "denied")
+
+    def test_stale_binding_and_inflight_edit_cannot_send(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        altered = {**self.config, "bindings": [{**self.config["bindings"][0], "senderId": "different"}]}
+        sender = Mock()
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer") as answer:
+            schedules.step(lambda: dingtalk_settings.effective(altered), sender)
+        answer.assert_not_called(); sender.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "denied")
+        run2 = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        def edit_while_running(*args, **kwargs):
+            m.AiDingTalkSchedule.objects.filter(pk=item["id"]).update(version=2, enabled=False)
+            return {"reply": "不应外发"}
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.chat, "answer", side_effect=edit_while_running):
+            schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
+        sender.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run2["id"]).status, "denied")

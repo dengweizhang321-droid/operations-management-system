@@ -79,6 +79,7 @@ test("retry classification permits transient failures and stops unsafe or human-
     "HTTP 503 service unavailable",
     "coordination_wait_expired",
     "browser page load timed out before any business action",
+    "migration-guide-modal intercepts pointer events before selecting the report",
   ]) {
     const result = classifyHourlyRetryFailure(payload(message));
     assert.equal(result.retry, true, message);

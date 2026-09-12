@@ -60,6 +60,20 @@ test("AI production entry points contain no retired D1 domain implementation or 
   assert.equal(isPublicAiPath("/api/ai/internal/edge"), false);
   assert.equal(isPublicAiPath("/api/ai/consumer"), false);
   assert.equal(isPublicAiPath("/api/ai/space/assets/one/content"), true);
+  assert.equal(isPublicAiPath("/api/ai/dingtalk-schedules"), true);
+  assert.equal(isPublicAiPath("/api/ai/dingtalk-schedules/run"), true);
+  assert.equal(isPublicAiPath("/api/ai/dingtalk-schedules/arbitrary"), false);
+});
+
+test("DingTalk schedules use the admin-gated thin route and disjoint reader/writer", async () => {
+  const edge = await readFile(new URL("../lib/ai/django-route.ts", import.meta.url), "utf8");
+  assert.ok(edge.includes("dingtalk-schedules(?:\\/run)?"));
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({ items: [] }); };
+  await requestDjangoAi(principal, { path: "/api/ai/dingtalk-schedules" }, { environment, fetchImpl });
+  await requestDjangoAi(principal, { path: "/api/ai/dingtalk-schedules/run", method: "POST", payload: { id: "fixture", expectedVersion: 1 } }, { environment, fetchImpl });
+  assert.equal(new URL(requests[0].url).port, "18111");
+  assert.equal(new URL(requests[1].url).port, "18112");
 });
 
 

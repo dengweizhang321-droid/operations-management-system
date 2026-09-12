@@ -54,6 +54,8 @@ node --import tsx --test tests/n8n-hourly-retry-workflow.test.ts
 
 2026-09-11 已在本机生产受控采用：共享错误工作流 `TeruisiHourlyRetry2026` 与 11 条现行正式流程均已发布，所有者一致，11 个专用 POST Webhook 已注册；n8n 2.32.7 重启后仅监听 `127.0.0.1:5678`，`/healthz` 返回 200。重启期间还发现 n8n v2 默认禁用 `Execute Command`，导致既有 `NewProductWeeklyDingTalk2026` 无法激活；启动器现只恢复该工作流所需节点，并继续禁用 `Local File Trigger`，随后全部 active 工作流成功激活且计划任务持续运行。两个京东兼容模板保持未激活且定义未变。本次从 live 已发布定义只追加重试节点、连线、`errorWorkflow` 设置和策略元数据，没有带入仓库中其他尚未采用的候选业务改动，也没有由部署创建真实下载、导入或平台点击。为避免制造业务副作用，未主动注入生产失败；首次自然可重试失败仍须验证错误 execution 进入 60 分钟等待态并生成新的完整 Webhook execution。脱敏证据见 [`evidence/n8n-hourly-safe-retry-production-20260911.json`](evidence/n8n-hourly-safe-retry-production-20260911.json)。
 
+2026-09-12 的首次自然故障已证实完整重试链：京准通商用设备工作流 13:00 的 trigger execution `1268` 因报表列表迁移引导遮挡而失败；共享错误 execution `1269` 等待至 14:00，随后从同一工作流的协调领取入口创建新的完整 webhook execution `1287`，而非单独重放 B。`1287` 在同一站点弹窗处再次失败，新的错误 execution `1288` 等待至 15:01 后创建完整 webhook execution `1303`；`1303` 于 15:01:58 成功，精确导入 2026-09-11 商用设备店 9,496 行，批次 completed、告警 0、重复 0，落库覆盖零缺口。此证据仅适用于已分类为可安全重试的失败；验证码、身份不符、业务点击结果未决等停止条件仍须失败关闭。
+
 后续生产更新仍需单独授权，并按以下顺序进行：
 
 1. 只读备份 n8n 数据库和现有 11 条正式工作流的当前/已发布版本、active 状态、owner、settings、nodes 与 connections。

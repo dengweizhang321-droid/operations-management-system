@@ -37,7 +37,7 @@ const expectedViews = {
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "chains"] },
   settings: { defaultView: "parameters", views: ["parameters", "master", "dingtalk", "permissions"] },
-  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management"] },
+  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"] },
 } as const;
 
 test("module view registry covers every shell module with a unique, legal default", () => {

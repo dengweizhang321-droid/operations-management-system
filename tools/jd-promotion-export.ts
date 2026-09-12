@@ -215,12 +215,45 @@ export async function assertJdPromotionAccount(page: Page, store: JdStore, requi
   if (!bodyText.includes(store.accountLabel)) throw new Error(`京准通登录身份不一致：页面未显示受控账号 ${store.accountLabel}`);
 }
 
-async function openJdPromotionReport(page: Page, store: JdStore) {
+export async function dismissJdPromotionMigrationGuide(page: Page) {
+  const guide = page.locator(".migration-guide-modal").filter({ visible: true });
+  const count = await guide.count();
+  if (count === 0) return false;
+  if (count !== 1) throw new Error("京准通迁移引导弹窗不唯一，拒绝自动关闭");
+  const text = await guide.innerText();
+  if (!text.includes("自定义报表已迁移至「报表 - 报表工具」")
+    || !text.includes("当前入口仍可正常使用")) {
+    throw new Error("京准通出现未知弹窗，拒绝自动关闭");
+  }
+  const acknowledge = guide.getByRole("button", { name: "知道了", exact: true });
+  const navigate = guide.getByRole("button", { name: "立即前往", exact: true });
+  if (await acknowledge.count() !== 1 || await navigate.count() !== 1) {
+    throw new Error("京准通迁移引导控件不唯一，拒绝自动关闭");
+  }
+  await acknowledge.click();
+  await guide.waitFor({ state: "hidden", timeout: 5_000 });
+  return true;
+}
+
+export function isJdPromotionMigrationGuideInterception(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("migration-guide-modal") && message.includes("intercepts pointer events");
+}
+
+export async function openJdPromotionReport(page: Page, store: JdStore) {
   await assertJdPromotionAccount(page, store);
+  if (await dismissJdPromotionMigrationGuide(page)) await assertJdPromotionAccount(page, store);
   const reportName = page.getByText(jdPromotionReportName, { exact: true }).filter({ visible: true });
   await reportName.first().waitFor({ state: "visible", timeout: 30_000 });
   if (await reportName.count() !== 1) throw new Error(`京准通自定义报表列表无法唯一定位“${jdPromotionReportName}”`);
-  await reportName.click();
+  try {
+    await reportName.click();
+  } catch (error) {
+    if (!isJdPromotionMigrationGuideInterception(error) || !await dismissJdPromotionMigrationGuide(page)) throw error;
+    await assertJdPromotionAccount(page, store);
+    if (await reportName.count() !== 1) throw new Error(`京准通自定义报表列表无法唯一定位“${jdPromotionReportName}”`);
+    await reportName.click();
+  }
   await assertJdPromotionAccount(page, store, true);
 }
 
