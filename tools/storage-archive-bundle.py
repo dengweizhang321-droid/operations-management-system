@@ -18,6 +18,11 @@ def ordinary(path):
     return info
 
 
+def ordinary_ancestors(path):
+    for ancestor in (path, *path.parents):
+        ordinary(ancestor)
+
+
 def safe_name(name):
     path = PurePosixPath(name)
     if (not name or "\\" in name or ":" in name or "\x00" in name
@@ -36,7 +41,8 @@ def safe_name(name):
 def pack(source, archive):
     source = Path(source).absolute()
     archive = Path(archive).absolute()
-    ordinary(source)
+    ordinary_ancestors(source)
+    ordinary_ancestors(archive.parent)
     if not source.is_dir() or archive.is_relative_to(source) or archive.exists():
         raise ValueError("invalid archive output")
     count = total = 0
@@ -62,7 +68,8 @@ def pack(source, archive):
 
 def unpack(archive, destination):
     archive, destination = Path(archive).absolute(), Path(destination).absolute()
-    ordinary(archive)
+    ordinary_ancestors(archive)
+    ordinary_ancestors(destination.parent)
     # Extraction can ONLY create a new, empty scratch directory.
     destination.mkdir()
     ordinary(destination)

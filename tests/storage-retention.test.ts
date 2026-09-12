@@ -4,11 +4,19 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { fixture, approvedRecord, installCandidateEntrypoints } from "./fixtures/worker-release-rotation";
 import { resolveEffectiveReleaseChain, publishSuccessorRecord } from "../tools/worker-local-release-rotation.mjs";
 import { assertReleaseWorkerLaunchAllowed } from "../tools/worker-authority-guard.mjs";
 import { candidatePath } from "../tools/storage-dependency-cleanup.mjs";
+import { runProcess } from "../tools/worker-local-release.mjs";
+
+test("native cleanup operator rejects active or uninspectable processes and escaped paths", { skip: process.platform !== "win32" }, async () => {
+  const script = fileURLToPath(new URL("./storage-dependency-cleanup.test.ps1", import.meta.url));
+  const result = await runProcess("powershell.exe", ["-NoProfile", "-NonInteractive", "-File", script], { label: "isolated cleanup operator tests" });
+  assert.match(result.stdout.toString(), /checks passed/);
+});
 
 test("cleanup only accepts exact historical dependency targets and rejects retained or unrelated releases", () => {
   const old = "20260901T010000Z-0123456789abcdef";

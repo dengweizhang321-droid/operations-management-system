@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import os
 from pathlib import Path
 import tarfile
 import tempfile
@@ -11,6 +12,20 @@ spec.loader.exec_module(bundle)
 
 
 class ArchiveTest(unittest.TestCase):
+    def test_linked_parent_cannot_redirect_extraction(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            (root / "outside").mkdir()
+            try:
+                os.symlink(root / "outside", root / "linked", target_is_directory=True)
+            except OSError:
+                self.skipTest("Creating symbolic links is unavailable")
+            with tarfile.open(root / "empty.tar.gz", "w:gz"):
+                pass
+            with self.assertRaises(ValueError):
+                bundle.unpack(root / "empty.tar.gz", root / "linked/output")
+            self.assertFalse((root / "outside/output").exists())
+
     def test_round_trip_includes_dot_files_unicode_and_empty_directories(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)

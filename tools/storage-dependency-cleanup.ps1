@@ -41,9 +41,13 @@ function Assert-ExactTarget([string]$Target, [string]$ReleaseId) {
 }
 function Assert-NoProcessReference([string]$ReleaseRoot) {
   # Only the count leaves this function; process arguments may contain secrets.
-  $References = @(Get-CimInstance Win32_Process -OperationTimeoutSec 30 -ErrorAction Stop | Where-Object {
-    ($_.CommandLine -and $_.CommandLine.IndexOf($ReleaseRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0) -or
-    ($_.ExecutablePath -and $_.ExecutablePath.IndexOf($ReleaseRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+  $Processes = @(Get-CimInstance Win32_Process -OperationTimeoutSec 30 -ErrorAction Stop)
+  if (@($Processes | Where-Object { $_.Name -in @('node.exe', 'workerd.exe') -and (-not $_.CommandLine -or -not $_.ExecutablePath) }).Count -ne 0) {
+    throw 'Cannot verify all Worker process identities'
+  }
+  $References = @($Processes | Where-Object {
+    ($_.CommandLine -and $_.CommandLine.Replace('/', '\').IndexOf($ReleaseRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0) -or
+    ($_.ExecutablePath -and $_.ExecutablePath.Replace('/', '\').IndexOf($ReleaseRoot, [StringComparison]::OrdinalIgnoreCase) -ge 0)
   })
   if ($References.Count -ne 0) { throw 'Candidate release is referenced by a running process' }
 }
