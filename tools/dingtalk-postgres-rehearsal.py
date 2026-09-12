@@ -66,7 +66,7 @@ try:
     m.AiConversations.objects.create(id="rehearsal-old", title="Synthetic retained conversation", created_by="fixture@example.invalid")
     manage("migrate", "--noinput")
     assert m.AiConversations.objects.get(pk="rehearsal-old").title == "Synthetic retained conversation"
-    tests = manage("test", "ai_assistant.test_dingtalk", "ai_assistant.test_dingtalk_transport", "ai_assistant.test_dingtalk_settings", "ai_assistant.test_conversation_workspaces", "ai_assistant.test_chat_tool_budget", "sales.tests.test_api.SalesApiContractTests.test_brand_filter_uses_exact_erp_identity_and_preserves_refunds", "--noinput")
+    tests = manage("test", "ai_assistant", "sales.tests.test_api.SalesApiContractTests.test_brand_filter_uses_exact_erp_identity_and_preserves_refunds", "--noinput")
     (RUN / "tests.log").write_text(tests, encoding="utf-8")
     epoch = str(uuid.uuid4())
     AiDataRevision.objects.filter(domain="ai-assistant").update(revision=1, source_digest="c"*64)
@@ -85,7 +85,7 @@ try:
             "PYTHONPATH": str(ROOT / "backend")}
         run([sys.executable, "-c", "import django; django.setup(); from ai_assistant.health import check; print(check()['status'])"], role_env)
         with psycopg.connect(role_url, autocommit=True) as limited:
-            for query in ("DELETE FROM ai_dingtalk_receipts", "TRUNCATE ai_dingtalk_sessions",
+            for query in ("DELETE FROM ai_dingtalk_receipts", "TRUNCATE ai_dingtalk_sessions", "DELETE FROM ai_dingtalk_schedules", "TRUNCATE ai_dingtalk_schedule_runs",
                           "UPDATE sales_order_lines SET allocated_amount_cents=0", "CREATE TABLE public.forbidden_test(id int)"):
                 try:
                     limited.execute(query)
@@ -97,6 +97,16 @@ try:
     session = m.AiDingTalkSession.objects.create(id="a"*64, config_digest="b"*64, corp_id="fixture", robot_code="fixture",
         sender_id="fixture", conversation_type="1", external_conversation_id="fixture", owner_email="fixture@example.invalid", conversation_id="rehearsal-old")
     m.AiDingTalkReceipt.objects.create(id="d"*64, session=session, payload_digest="e"*64, prompt="synthetic")
+    m.AiDingTalkSchedule.objects.create(id="fixture-schedule", name="Synthetic schedule", prompt="Synthetic query", cadence="daily", hour=9, minute=0,
+        target_type="person", target_id="fixture", sender_id="fixture", owner_email="fixture@example.invalid")
+    with psycopg.connect(f"postgresql://teruisi_ai_reader:{reader_password}@127.0.0.1:{PORT}/ding_fixture", autocommit=True) as reader:
+        assert reader.execute("SELECT count(*) FROM ai_dingtalk_schedules").fetchone()[0] == 1
+        try:
+            reader.execute("UPDATE ai_dingtalk_schedules SET enabled=true")
+        except psycopg.Error:
+            pass
+        else:
+            raise AssertionError("Reader modified schedule")
     with psycopg.connect(f"postgresql://teruisi_ai_writer:{writer_password}@127.0.0.1:{PORT}/ding_fixture", autocommit=True) as writer:
         try:
             writer.execute("UPDATE ai_dingtalk_receipts SET status='running'")
@@ -107,9 +117,11 @@ try:
         writer.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','ding-synthetic',false)", [epoch])
         writer.execute("UPDATE ai_dingtalk_receipts SET status='running'")
         writer.execute("UPDATE ai_dingtalk_settings SET enabled=false,version=version+1")
+        writer.execute("UPDATE ai_dingtalk_schedules SET version=version+1")
         for query in ("UPDATE ai_dingtalk_sessions SET sender_id='other'", "UPDATE ai_dingtalk_sessions SET conversation_id=NULL",
                       "UPDATE ai_dingtalk_settings SET identity_json='{}'", "UPDATE ai_dingtalk_settings SET version=0",
-                      "UPDATE ai_dingtalk_receipts SET session_id='unknown'", "UPDATE ai_dingtalk_receipts SET status='invalid'"):
+                      "UPDATE ai_dingtalk_receipts SET session_id='unknown'", "UPDATE ai_dingtalk_receipts SET status='invalid'",
+                      "UPDATE ai_dingtalk_schedules SET owner_email='other'", "UPDATE ai_dingtalk_schedules SET hour=24"):
             try:
                 writer.execute(query)
             except psycopg.Error:

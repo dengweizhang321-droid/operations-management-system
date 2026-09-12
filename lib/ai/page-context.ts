@@ -58,7 +58,7 @@ export const AI_PAGE_CONTEXT_CATALOG = {
   },
   ai: {
     label: "AI 助理",
-    views: ["assistant", "agents", "memory", "sandbox", "space", "management"],
+    views: ["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"],
     suggestedTools: ["list_my_agent_jobs", "list_my_agent_workflows", "search_personal_memory", "describe_analysis_datasets", "run_analysis_plan", "search_system_knowledge"],
   },
 } as const;
