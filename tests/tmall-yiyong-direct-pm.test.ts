@@ -20,7 +20,9 @@ test("亿用直连有独立协议，两条路由拒绝错店、错协议、空�
     }
     assert.deepEqual(tmallDirectPmProtocolError({ route, storeKey: "tmall-yijiu", protocol: TMALL_YIYONG_DIRECT_PM_PROTOCOL }), { error: "missing_or_invalid_tmall_direct_pm_protocol" });
     for (const storeKey of [null, "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "constructor", "__proto__"]) {
-      assert.deepEqual(tmallDirectPmProtocolError({ route, storeKey, protocol: TMALL_YIYONG_DIRECT_PM_PROTOCOL }), { error: "tmall_direct_pm_store_not_allowed" });
+      assert.deepEqual(tmallDirectPmProtocolError({ route, storeKey, protocol: TMALL_YIYONG_DIRECT_PM_PROTOCOL }), {
+        error: storeKey === "tmall-lili" && route === "/product-master-direct-v1" ? "missing_or_invalid_tmall_direct_pm_protocol" : "tmall_direct_pm_store_not_allowed",
+      });
       assert.throws(() => assertTmallDirectPmStore(storeKey ?? ""), /只允许/);
     }
   }
@@ -63,7 +65,7 @@ test("亿用每日节奏迁移保留最后成功事实，重复迁移拒绝，�
     const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as { stores: TmallStore[] };
     const store = registry.stores.find((item) => item.storeKey === "tmall-yiyong")!;
     assert.equal(store.productMasterCadence?.intervalDays, 1);
-    for (const item of registry.stores.filter((item) => item.enabled && !["tmall-yijiu", "tmall-yiyong"].includes(item.storeKey))) assert.equal(item.productMasterCadence?.intervalDays, 3);
+    for (const item of registry.stores.filter((item) => item.enabled && !["tmall-yijiu", "tmall-yiyong", "tmall-lili"].includes(item.storeKey))) assert.equal(item.productMasterCadence?.intervalDays, 3);
     const file = path.join(root, "tmall-yiyong.json");
     const old = { version: 1, storeKey: store.storeKey, intervalDays: 3, lastSuccessDate: "2026-08-26", lastSnapshotDate: "2026-08-26", nextDueDate: "2026-08-29", updatedAt: "2026-08-26T06:00:00Z" };
     await writeFile(file, JSON.stringify(old));

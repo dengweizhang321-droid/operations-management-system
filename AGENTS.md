@@ -4,6 +4,8 @@
 
 ## 1. 任务开始与事实来源
 
+2026-09-12 天猫已受控发布 `20260911T165424Z-941a792a6c05e33e`：丽力使用浏览器登录态 MTOP 分批 M 和每日 cadence；指定 9 月 11 日 22:44:54 原任务已保留证据归档；不同天猫店铺独立执行并各自安全小时重试，同店仍串行。丽力 1058 与亿玖 1059 已真实同时运行，业务终态证据见 `docs/TMALL_STORE_ISOLATION.md`。n8n 在空闲窗口获额外授权重启一次，数据库/Django 未重启。此采用不覆盖 P 协议扩店、不采用未发布逐日回填循环，也不绕过服务维护授权与 n8n 全流程验收。
+
 1. 开始任何任务前，先读取仓库根目录的 `README.md` 和 `AGENTS.md`，再按任务需要加载相关代码、测试和 `docs/` 文档。不再读取外部 Obsidian 记忆作为项目上下文。
 2. 以当前代码、测试、数据库迁移、`README.md`、`AGENTS.md` 和仍在生效的操作文档为事实来源。若文档与代码冲突，先验证当前行为，再更新过期文档，不能为了匹配旧文档回退正确实现。
 3. 修改前先检查 `git status` 和相关差异。工作区中已有的改动默认属于用户；不得覆盖、格式化、暂存或提交无关文件。
@@ -45,6 +47,8 @@
 - 新增业务模块时，应同时补齐 API、领域服务、权限、审计、测试、必要文档，以及可被 AI 检索时的有界只读工具。不要把复杂业务继续堆进页面组件或路由文件。
 
 ### 2.1 Django 后端渐进迁移决策
+
+- 2026-09-11，小特 pandas 容器分析工具已合入 main 并在本机生产采用。Worker/helper effective release 为 `20260911T081342Z-6b7a6a81082f9a5b`，manifest SHA 为 `fa1ff44c85aa3ab64fb276738742d9964590dd9aa9b9484e9f79fe5d43dfc8ff`；Django manifest SHA 为 `d337f14cf64caad2e8efe01c9ecb00f34f2cdca8abc65af6d4f11c2c41dfb0dc`，app fingerprint 为 `e9803056d3e2815796a4484a1e5f4531493f9a6c3fa988a8792dfc6a3c059d8f`。独立 `TERUISI-Pandas` WSL2 使用 rootless Docker、固定本地镜像、无网络/只读根/CPU/内存/PID 限额；Windows 磁盘自动挂载与互通关闭。AI writer 独立 DPAPI 通道连接 `127.0.0.1:8121`，受控 AI 启停负责 broker 和精确 WSL 保活进程，状态探针绑定镜像与源码摘要。真实容器、164 项镜像 PostgreSQL AI 测试、正式数据集计算及审计回查通过；无业务迁移、付费模型调用或真实消息发送。禁止回退为宿主 Python、绕过源权限、自动重放未知任务或忽略清理失败。见 `docs/AI_PANDAS_SANDBOX.md` 与 `docs/evidence/pandas-sandbox-production-20260911.json`。
 
 - 2026-09-11，库存健康指标、广东入仓型号编辑保存与各板块 AI 对话框布局已合并 main 并受控上线。Worker/helper effective release 为 `20260911T035534Z-683ed76137b93190`，manifest SHA 为 `7160fc50304bd888282a09d9bf1c1eed1ab862e2994fd1e25a7d181deb965ede`；Django 部署清单 SHA 为 `da378980df03116093a14e03b4f4c1a599a5ea0365223d9d2d53437d63afba5d`，app fingerprint 为 `9be969e1f9f2c68407e6df512cb57280c3a7475c1569d5b165e0d7fd84329f8b`。库存健康分布固定只统计京东仓、天猫履约仓、精确广东仓和自营仓，六类状态及严格大于 180 天低周转口径不变；广东型号编辑继续经 inventory writer 的 `PATCH`、版本 fencing 和写后回查。板块 AI 对话输入区已下移到抽屉底部并缩小占用，其余高度用于历史内容。整栈 Running / Ready / exact_release，发布前备份独立恢复及发布后备份复验通过；生产 UI 验收只打开并取消编辑器，未保存业务记录，未调用付费模型。证据见 `docs/evidence/inventory-health-ai-panel-production-20260911.json`。
 
@@ -170,6 +174,8 @@
 - 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
 
 ## 7. 中央 AI 工具注册表
+
+- `run_pandas_analysis` 的 Python 代码只能在独立 Linux/rootless 容器执行；Worker 与 Django 仅做权限内数据集导出、签名传输和被动结果验证，不得使用宿主 Python 或 AST/eval 过滤模拟隔离。容器必须无网络、无宿主挂载/业务凭据、固定镜像与资源配额，成功或失败都须核验精确清理；源分页/字段截断、权限变化、未知执行或清理失败均失败关闭。源码接入不代表独立运行环境已部署，采用门禁见 `docs/AI_PANDAS_SANDBOX.md`。
 
 - 钉钉“志高助手”问数使用独立 `dingtalk_chat` surface，在中央注册表逐项开放跨系统领域的只读工具，嵌套数据集查询必须保留此 surface；不得把未来新增工具自动开放给机器人。AI 群设置独立于周报，由 AI 0008 的 `ai_dingtalk_settings` 保存，仅无范围限制的管理员可改；受控接收器首次启动采用 runtime 中已有应用身份和群，后续启动不得覆盖管理员设置。组织/应用/staffId 与系统 principal 仍显式绑定，接收、执行、发送前重查；群名、精确 ID 和机器人入群关系在外发前动态核验。群内 @ 的回执和结果回复原群，私聊回复原提问者；禁止失败后改投私聊或其他群。群、用户和单聊历史隔离，配置版本变化撤销旧请求，不附加个人记忆或知识库，不开放凭据、原始客户聊天或其他用户私有内容。接收/投递账本属于 Django AI 域，使用既有 authority，外发未知结果不重试。新增表进入角色、readiness、备份和恢复清单；旧 45/46/48 表备份按其迁移版本继续验证。此增强须经受控发布后才改变首版生产行为，未经授权不得启动真实监听。销售品牌仍按 ERP 当前品牌精确关联。详见 `docs/DINGTALK_READONLY_ASK.md`。
 

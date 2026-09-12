@@ -238,7 +238,7 @@ test("M 默认续跑未完成快照，显式冲突和非法日期失败关闭", 
   assert.throws(() => resolveTmallDirectProductMasterSnapshotDate(undefined, undefined, "bad"), /YYYY-MM-DD/);
 });
 
-test("亿玖现行协议保持兼容，P/M 两个直连路由都要求显式版本头且不开放丽力", () => {
+test("亿玖现行协议保持兼容，丽力不能使用亿玖协议", () => {
   for (const route of [tmallDirectPromotionRoute, tmallDirectProductMasterRoute]) {
     assert.equal(tmallDirectPmProtocolError({
       route,
@@ -254,7 +254,7 @@ test("亿玖现行协议保持兼容，P/M 两个直连路由都要求显式版�
       route,
       storeKey: "tmall-lili",
       protocol: TMALL_YIJIU_DIRECT_PM_PROTOCOL,
-    }), { error: "tmall_direct_pm_store_not_allowed" });
+    }), { error: route === tmallDirectProductMasterRoute ? "missing_or_invalid_tmall_direct_pm_protocol" : "tmall_direct_pm_store_not_allowed" });
   }
   assert.equal(tmallDirectPmProtocolError({ route: "/promotion", storeKey: "tmall-lili", protocol: undefined }), null);
 });

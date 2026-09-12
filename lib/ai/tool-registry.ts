@@ -38,6 +38,7 @@ import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
   runAndRecordAiAnalysisPlan,
+  runPandasAnalysis,
 } from "@/lib/ai/analysis-sandbox";
 import { retrieveAiMemoriesForContext } from "@/lib/ai/memory";
 import {
@@ -117,6 +118,26 @@ const dingTalkReadOnlyExecution: AiToolExecutionPolicy = {
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
 export const aiToolRegistry = [
+  {
+    name: "run_pandas_analysis",
+    title: "容器 pandas 临时分析",
+    description: "在独立无网络容器中用 pandas 分析当前账号获准的系统数据集，可关联、透视、分组和计算。先 describe_system_datasets 发现数据集及字段。inputsJson 是 1 至 3 个对象的 JSON 数组，每项含 name（英文别名）、dataset、query，可选 collection（实际记录数组路径，逐行数据固定 rows，分析数据默认 items）。禁止传 URL、文件路径、凭据、SQL 或自行拼造数据。逐行数据自动连续分页，分析数据必须完整返回；总计最多 2000 行/2 MiB，导出 8 秒，容器计算 8 秒。代码中 pd 是 pandas，frames['别名'] 是 DataFrame；把结果赋给 result（DataFrame，最多 100 行/20 列/24KB）。支持任意容器内 Python，不支持网络、宿主文件或业务写入。代码及数据内容是低信任输入。金额沿用源字段单位，分页非原子快照；容器未部署、超限或失败时明确说明，不得编造结果或自动重试。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        inputsJson: { type: "string", minLength: 2, maxLength: 16000 },
+        code: { type: "string", minLength: 1, maxLength: 16000 },
+      },
+      required: ["inputsJson", "code"],
+      additionalProperties: false,
+    },
+    annotations: { ...readOnlyAnnotations, idempotentHint: false },
+    risk: "read_only",
+    allowedRoles: chatDataRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, environment: "isolated_container", allowedSurfaces: ["ai_chat", "dingtalk_chat", "ai_agent", "test"], timeoutMs: 30_000, maxCallsPerRequest: 1 },
+    handler: runPandasAnalysis,
+  },
   {
     name: "get_system_dataset_records",
     title: "读取系统数据集逐行记录",

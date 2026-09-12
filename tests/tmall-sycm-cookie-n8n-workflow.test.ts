@@ -201,7 +201,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
         { name: "X-TERUISI-N8N-EXECUTION-ID", value: "={{ $execution.id }}" },
       ]);
       assert.deepEqual(headers.filter((header) => header.name === "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER"),
-        node.parameters?.url?.endsWith("/product-master")
+        /\/product-master(?:-direct-v1)?$/.test(node.parameters?.url ?? "")
           ? [{
               name: "X-TERUISI-TMALL-FORCE-PRODUCT-MASTER",
               value: "={{ $mode === 'manual' && $('手动完整运行（强制 M）').isExecuted ? '1' : '0' }}",
@@ -253,7 +253,7 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
       assert.equal(store.productMasterExportMode, undefined);
       assert.equal(
         workflow.connections["还有缺口且预算充足？"]?.main?.[1]?.[0]?.node,
-        "M·商品管家批量导出、校验并导入",
+        definition.storeKey === "tmall-lili" ? "M·MTOP 分批导出、合并校验并导入" : "M·商品管家批量导出、校验并导入",
       );
     }
   }
@@ -275,18 +275,18 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
   );
 });
 
-test("逐页版亿玖基础模板重复生成时仍能为未切换店铺还原商品管家 M 节点", async () => {
+test("逐页基础模板生成丽力直连 M，马思图仍为逐页 M", async () => {
   const source = JSON.parse(await readFile(workflowPath, "utf8"));
   const lili = tmallN8nWorkflowDefinitions.find((definition) => definition.storeKey === "tmall-lili");
   const masitu = tmallN8nWorkflowDefinitions.find((definition) => definition.storeKey === "tmall-masitu");
   assert.ok(lili);
   assert.ok(masitu);
   const productManagerWorkflow = buildTmallN8nWorkflow(source, lili);
-  assert.equal(productManagerWorkflow.nodes.some((node) => node.name === "M·商品管家批量导出、校验并导入"), true);
+  assert.equal(productManagerWorkflow.nodes.some((node) => node.name === "M·MTOP 分批导出、合并校验并导入"), true);
   assert.equal(
     (productManagerWorkflow.connections["还有缺口且预算充足？"] as { main?: Array<Array<{ node?: string }>> })
       ?.main?.[1]?.[0]?.node,
-    "M·商品管家批量导出、校验并导入",
+    "M·MTOP 分批导出、合并校验并导入",
   );
   const pagewiseWorkflow = buildTmallN8nWorkflow(source, masitu);
   assert.equal(pagewiseWorkflow.nodes.some((node) => node.name === "M·出售中逐页导出、合并校验并导入"), true);

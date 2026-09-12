@@ -2,6 +2,8 @@
 param(
   [string]$ProjectRoot = 'D:\运营管理系统',
   [string]$InstallRoot = 'D:\teruisi-runtime\n8n-launcher',
+  [string]$TaskName = 'TERUISI-n8n-Service',
+  [string]$TaskPath = '\',
   [switch]$BuildOnly
 )
 
@@ -25,34 +27,46 @@ if ($BuildOnly) {
 $project = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $script = Join-Path $project 'tools\start-n8n-service.ps1'
 if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw 'n8n service script unavailable.' }
-$taskName = 'TERUISI-n8n-Service'
-$task = Get-ScheduledTask -TaskName $taskName -TaskPath '\' -ErrorAction Stop
+$task = Get-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath -ErrorAction Stop
+if ($task.State -eq 'Running') { throw 'n8n task must be stopped before its launcher or power policy is updated.' }
 $expectedArguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $script + '"'
 if (@($task.Actions).Count -ne 1 -or $task.Actions[0].Execute -ne 'powershell.exe' -or
     $task.Actions[0].Arguments -ne $expectedArguments -or $task.Actions[0].WorkingDirectory -ne $project) {
   throw 'Task action differs from the verified original; refusing to replace it.'
 }
 # Preserve a reviewable rollback artifact before changing only the executable/action.
-$before = Export-ScheduledTask -TaskName $taskName -TaskPath '\'
+$before = Export-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath
 $backup = Join-Path $release 'task-before.xml'
 [IO.File]::WriteAllText($backup, $before, [Text.Encoding]::Unicode)
-if ((Export-ScheduledTask -TaskName $taskName -TaskPath '\') -ne $before) { throw 'Task changed during preparation.' }
+if ((Export-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath) -ne $before) { throw 'Task changed during preparation.' }
 $newAction = New-ScheduledTaskAction -Execute $executable -Argument ('"' + $script + '"') -WorkingDirectory $project
-Set-ScheduledTask -TaskName $taskName -TaskPath '\' -Action $newAction | Out-Null
-$after = Export-ScheduledTask -TaskName $taskName -TaskPath '\'
+$updatedSettings = $task.Settings
+$updatedSettings.DisallowStartIfOnBatteries = $false
+$updatedSettings.StopIfGoingOnBatteries = $false
+Set-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath -Action $newAction -Settings $updatedSettings | Out-Null
+$after = Export-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath
 [xml]$beforeXml = $before
 [xml]$afterXml = $after
 $beforeXml.Task.RemoveChild($beforeXml.Task.Actions) | Out-Null
 $afterXml.Task.RemoveChild($afterXml.Task.Actions) | Out-Null
-$readback = Get-ScheduledTask -TaskName $taskName -TaskPath '\'
+foreach ($settingName in @('DisallowStartIfOnBatteries', 'StopIfGoingOnBatteries')) {
+  foreach ($document in @($beforeXml, $afterXml)) {
+    $node = $document.Task.Settings.SelectSingleNode("./*[local-name()='$settingName']")
+    if ($node) { $document.Task.Settings.RemoveChild($node) | Out-Null }
+  }
+}
+$readback = Get-ScheduledTask -TaskName $TaskName -TaskPath $TaskPath
 if ($beforeXml.OuterXml -ne $afterXml.OuterXml -or
     $readback.Actions[0].Execute -ne $executable -or
     $readback.Actions[0].Arguments -ne ('"' + $script + '"') -or
-    $readback.Actions[0].WorkingDirectory -ne $project) {
+    $readback.Actions[0].WorkingDirectory -ne $project -or
+    $readback.Settings.DisallowStartIfOnBatteries -or
+    $readback.Settings.StopIfGoingOnBatteries) {
   throw "Task readback mismatch; original task is preserved at $backup."
 }
 [IO.File]::WriteAllText((Join-Path $release 'task-after.xml'), $after, [Text.Encoding]::Unicode)
 [pscustomobject]@{
   Executable=$executable; SourceSha256=$sourceHash; BinarySha256=$binaryHash
-  Task=$taskName; Backup=$backup; SettingsPreserved=$true; Restarted=$false
+  Task=$TaskName; Backup=$backup; UnrelatedSettingsPreserved=$true
+  ContinueOnBattery=$true; Restarted=$false
 } | ConvertTo-Json

@@ -2,19 +2,21 @@
 param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
-    "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk"
+    "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk", "ConfigurePandas", "PandasCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$OrchestratedLifecycleAclToken = "",
   [string]$AiEncryptionSource = "D:\运营管理系统\.dev.vars",
   [string]$ModelOriginAllowlist = "",
+  [string]$PandasImage = "",
   [switch]$Json
 )
 
 $ErrorActionPreference = "Stop"
 $RequestedAiEncryptionSource = $AiEncryptionSource
 $RequestedModelOriginAllowlist = $ModelOriginAllowlist
+$RequestedPandasImage = $PandasImage
 $RequestedAction = $Action
 $RequestedJson = $Json.IsPresent
 $RequestedOrchestratedLifecycleAclToken = $OrchestratedLifecycleAclToken
@@ -41,6 +43,83 @@ $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
 $DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
 $AiReaderMaxBodyBytes = 1048576
 $AiWriterMaxBodyBytes = 1048576
+$PandasConfigPath = Join-Path $RuntimeRoot "config\pandas-sandbox.json"
+$PandasKeyPath = Join-Path $RuntimeRoot "secrets\pandas-sandbox.dpapi.json"
+$PandasPidPath = Join-Path $RunDirectory "ai-pandas-wsl.pid.json"
+$PandasWsl = Join-Path $env:SystemRoot "System32\wsl.exe"
+$PandasKeepaliveArguments = @("-d", "TERUISI-Pandas", "-u", "teruisi-pandas", "--exec", "/usr/bin/sleep", "infinity")
+
+function Read-PandasConfig {
+  if (-not (Test-Path -LiteralPath $PandasConfigPath)) { return $null }
+  $config = Read-JsonFile $PandasConfigPath "pandas sandbox configuration"
+  if (-not (Test-ExactObjectPropertyNames $config @("version", "image", "keySha256")) -or [int]$config.version -ne 1 -or
+      [string]$config.image -cnotmatch '^sha256:[a-f0-9]{64}$' -or
+      (Get-FileHash -LiteralPath $PandasKeyPath -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$config.keySha256) {
+    throw "pandas sandbox configuration or credential fingerprint is invalid"
+  }
+  return $config
+}
+
+function Invoke-PandasProbe([object]$Config, [bool]$SelfTest = $false) {
+  $arguments = @("-B", "-m", "pandas_runner.probe", "--key-file", $PandasKeyPath, "--image", [string]$Config.image)
+  if ($SelfTest) { $arguments += "--self-test" }
+  $nativeRun = Invoke-BoundedNativeProcess $Python $arguments $BackendRoot
+  return ConvertFrom-UniqueNativeJson $nativeRun "pandas signed readiness"
+}
+
+function Invoke-PandasSystemctl([string]$Verb) {
+  if ($Verb -cnotin @("start", "stop")) { throw "invalid pandas lifecycle verb" }
+  $nativeRun = Invoke-BoundedNativeProcess $Python @("-B", "-m", "pandas_runner.wsl_control", $Verb) $BackendRoot
+  ConvertFrom-UniqueNativeJson $nativeRun "pandas Linux service lifecycle" | Out-Null
+}
+
+function Start-PandasSandbox {
+  $config = Read-PandasConfig
+  if ($null -eq $config) { return $false }
+  $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "ai-pandas-wsl" $PandasWsl $PandasKeepaliveArguments) +
+    (Get-FileHash -LiteralPath $PandasConfigPath -Algorithm SHA256).Hash)
+  if (Resolve-OwnedProcess "ai-pandas-wsl" $PandasPidPath $PandasWsl $PandasKeepaliveArguments $fingerprint) {
+    Invoke-PandasProbe $config | Out-Null
+    return $false
+  }
+  $previousWslEnv = [Environment]::GetEnvironmentVariable("WSLENV", "Process")
+  try {
+    $env:WSLENV = ""
+    Start-ManagedProcess "ai-pandas-wsl" $PandasWsl $PandasKeepaliveArguments $BackendRoot $PandasPidPath $fingerprint `
+      (Join-Path $LogDirectory "ai-pandas-wsl.$RunId.stdout.log") (Join-Path $LogDirectory "ai-pandas-wsl.$RunId.stderr.log") | Out-Null
+    Invoke-PandasSystemctl "start"
+    Invoke-PandasProbe $config | Out-Null
+    Invoke-PandasProbe $config $true | Out-Null
+    return $true
+  } catch {
+    # Preserve uncertain Linux state for inspection; never retry an unknown job.
+    throw
+  } finally { [Environment]::SetEnvironmentVariable("WSLENV", $previousWslEnv, "Process") }
+}
+
+function Stop-PandasSandbox {
+  if ($null -eq (Read-PandasConfig)) { return }
+  Invoke-PandasSystemctl "stop"
+  Stop-OwnedProcess "ai-pandas-wsl" $PandasPidPath $PandasWsl
+}
+
+function Configure-PandasSandbox {
+  Assert-AiRuntimeEntry
+  Assert-AiPortsFree "ConfigurePandas"
+  if ($null -ne (Read-PandasConfig)) { throw "pandas is already configured; rotation requires a reviewed forward deployment" }
+  if ($RequestedPandasImage -cnotmatch '^sha256:[a-f0-9]{64}$') { throw "exact pandas image ID required" }
+  $source = "D:\teruisi-runtime\pandas-sandbox\channel.dpapi.json"
+  $item = Get-Item -LiteralPath $source
+  if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "invalid pandas key source" }
+  Copy-Item -LiteralPath $source -Destination $PandasKeyPath
+  $config = [ordered]@{ version = 1; image = $RequestedPandasImage; keySha256 = (Get-FileHash -LiteralPath $PandasKeyPath -Algorithm SHA256).Hash.ToLowerInvariant() }
+  Set-RuntimeAcl
+  Invoke-PandasProbe ([pscustomobject]$config) | Out-Null
+  Invoke-PandasProbe ([pscustomobject]$config) $true | Out-Null
+  Write-AtomicJson $PandasConfigPath $config
+  Set-RuntimeAcl
+  Write-Output "pandas sandbox configured with signed probe and synthetic calculation verified"
+}
 
 function Assert-AiRuntimeEntry([string]$LifecycleAclToken = "") {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
@@ -207,6 +286,13 @@ function Invoke-WithAiEnvironment(
     $env:AI_SECRET_ENCRYPTION_KEY = if ($Role -ceq "ai_writer") { $AiSecrets.ModelEncryptionKey } else { "" }
     $env:AI_MODEL_ENDPOINT_ORIGIN_ALLOWLIST = $AiSecrets.ModelOriginAllowlist
     $env:TERUISI_DJANGO_AI_EDGE_BASE_URL = "http://127.0.0.1:3000"
+    if ($Role -ceq "ai_writer") {
+      $pandas = Read-PandasConfig
+      if ($null -ne $pandas) {
+        $env:TERUISI_PANDAS_RUNNER_KEY_FILE = $PandasKeyPath
+        $env:TERUISI_PANDAS_RUNNER_IMAGE = [string]$pandas.image
+      }
+    }
     & $AiOperation
   }
 }
@@ -243,6 +329,7 @@ function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
     "--no-expose-tracebacks", "teruisi_backend.wsgi:application"
   )
   $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-writer" $Waitress $arguments) + (Get-FileHash -LiteralPath $AiCredentialPath -Algorithm SHA256).Hash + [string]$Authority.authorityEpoch + [string]$Authority.cutoverId)
+  if ($null -ne (Read-PandasConfig)) { $fingerprint = Get-Sha256Text ($fingerprint + (Get-FileHash -LiteralPath $PandasConfigPath -Algorithm SHA256).Hash) }
   if (Resolve-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress $arguments $fingerprint) {
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"; return $false
   }
@@ -285,6 +372,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
         throw "Django AI 助理开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
+    Start-PandasSandbox | Out-Null
     $readerStarted = Start-AiReader $runtimeSecrets $aiSecrets $authority
     $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority
     Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"
@@ -303,6 +391,7 @@ function Stop-AiStack([string]$LifecycleAclToken = "") {
   Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python
   Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress
   Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress
+  Stop-PandasSandbox
   Write-Output "Django AI 助理 reader/writer 已停止；其他业务域、ERP 与 PostgreSQL 未改变。"
 }
 
@@ -373,13 +462,21 @@ function Show-AiStatus {
   $readerReady = "not_ready"; $writerReady = "not_ready"
   try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiReaderHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8111" }).StatusCode -eq 200) { $readerReady = "ready" } } catch {}
   try { if ((Invoke-WebRequest -UseBasicParsing -Uri $AiWriterHealthUrl -TimeoutSec 2 -Headers @{ Host = "127.0.0.1:8112" }).StatusCode -eq 200) { $writerReady = "ready" } } catch {}
+  $pandasReady = "disabled"
+  try {
+    $pandas = Read-PandasConfig
+    if ($null -ne $pandas) { Invoke-PandasProbe $pandas | Out-Null; $pandasReady = "ready" }
+  } catch { $pandasReady = "not_ready"; $writerReady = "not_ready" }
   $status = [pscustomobject][ordered]@{ AiReader = $reader; AiWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
+  $status | Add-Member -NotePropertyName PandasReadiness -NotePropertyValue $pandasReady
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }
 
 try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-AiCredentials } }
+    "ConfigurePandas" { Invoke-WithServiceMutex { Configure-PandasSandbox } }
+    "PandasCheck" { Assert-AiRuntimeEntry; $config = Read-PandasConfig; if ($null -eq $config) { throw "pandas is not configured" }; Invoke-PandasProbe $config | ConvertTo-Json -Compress }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-AiRoles } }
     "Start" { Invoke-WithServiceMutex { Start-AiStack $OrchestratedLifecycleAclToken } }
     "Stop" { Invoke-WithServiceMutex { Stop-AiStack $OrchestratedLifecycleAclToken } }
