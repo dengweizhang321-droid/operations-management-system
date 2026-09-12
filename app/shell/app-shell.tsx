@@ -59,10 +59,23 @@ export default function AppShell({
   header,
   children,
 }: AppShellProps) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const mastheadRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const [mobileViewport, setMobileViewport] = useState(false);
   const mobileDrawerActive = mobileOpen && mobileViewport;
   const mobileDrawerHidden = mobileViewport && !mobileDrawerActive;
+
+  useEffect(() => {
+    const masthead = mastheadRef.current;
+    const shell = shellRef.current;
+    if (!masthead || !shell) return;
+    const measure = () => shell.style.setProperty("--app-sticky-offset", `${masthead.getBoundingClientRect().height}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(masthead);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 860px)");
@@ -132,39 +145,41 @@ export default function AppShell({
   }, [mobileDrawerActive, onCloseMobile]);
 
   return (
-    <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
-      <aside
-        ref={sidebarRef}
-        id="primary-navigation"
-        className={`sidebar ${mobileDrawerActive ? "mobile-open" : ""}`}
-        aria-label="应用导航"
-        aria-hidden={mobileDrawerHidden || undefined}
-        aria-modal={mobileDrawerActive || undefined}
-        inert={mobileDrawerHidden || undefined}
-        role={mobileDrawerActive ? "dialog" : undefined}
-        tabIndex={mobileDrawerActive ? -1 : undefined}
-      >
-        {sidebar}
-        <button
-          type="button"
-          className="mobile-navigation-close"
-          onClick={onCloseMobile}
-          aria-label="关闭主导航"
+    <div ref={shellRef} className={`app-shell top-navigation-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <div ref={mastheadRef} className="shell-masthead">
+        <section
+          ref={sidebarRef}
+          id="primary-navigation"
+          className={`sidebar ${mobileDrawerActive ? "mobile-open" : ""}`}
+          aria-label="顶部应用导航"
+          aria-hidden={mobileDrawerHidden || undefined}
+          aria-modal={mobileDrawerActive || undefined}
+          inert={mobileDrawerHidden || undefined}
+          role={mobileDrawerActive ? "dialog" : undefined}
+          tabIndex={mobileDrawerActive ? -1 : undefined}
         >
-          <span aria-hidden="true">×</span>
-        </button>
-      </aside>
-      {mobileDrawerActive && (
-        <button
-          type="button"
-          className="mobile-overlay"
-          onClick={onCloseMobile}
-          aria-label="关闭导航"
-          tabIndex={-1}
-        />
-      )}
+          {sidebar}
+          <button
+            type="button"
+            className="mobile-navigation-close"
+            onClick={onCloseMobile}
+            aria-label="关闭主导航"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </section>
+        {mobileDrawerActive && (
+          <button
+            type="button"
+            className="mobile-overlay"
+            onClick={onCloseMobile}
+            aria-label="关闭导航"
+            tabIndex={-1}
+          />
+        )}
+        <div inert={mobileDrawerActive || undefined}>{header}</div>
+      </div>
       <main id="main-content" className="workspace" inert={mobileDrawerActive || undefined}>
-        {header}
         {children}
       </main>
     </div>

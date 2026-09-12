@@ -34,6 +34,7 @@ export default function SidebarNavigation({
     label: string;
     description: string;
     top: number;
+    left: number;
   } | null>(null);
   const showTooltip = (element: HTMLElement, item: NavItem, id: string) => {
     if (!collapsed) return;
@@ -43,7 +44,8 @@ export default function SidebarNavigation({
       id,
       label: item.label,
       description: item.description,
-      top: linkRect.top - (navRect?.top ?? 0) + linkRect.height / 2,
+      top: linkRect.bottom - (navRect?.top ?? 0) + 8,
+      left: Math.max(0, Math.min(linkRect.left - (navRect?.left ?? 0), (navRect?.width ?? 220) - 220)),
     });
   };
   const hideTooltip = (event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>) => {
@@ -116,7 +118,7 @@ export default function SidebarNavigation({
           className="sidebar-navigation-tooltip"
           id={tooltip.id}
           role="tooltip"
-          style={{ top: tooltip.top }}
+          style={{ top: tooltip.top, left: tooltip.left }}
         >
           <strong aria-hidden="true">{tooltip.label}</strong>
           <span>{tooltip.description}</span>
@@ -125,7 +127,7 @@ export default function SidebarNavigation({
       <button
         type="button"
         className="collapse-button sidebar-collapse-button"
-        aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
+        aria-label={collapsed ? "展开菜单文字" : "紧凑显示菜单"}
         aria-controls="primary-navigation"
         aria-expanded={!collapsed}
         onClick={() => {
