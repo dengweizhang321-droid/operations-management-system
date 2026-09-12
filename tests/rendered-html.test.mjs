@@ -59,7 +59,7 @@ test("build emits the operations console", async () => {
     readFile(new URL(salesAsset, assetRoot), "utf8"),
     readFile(new URL(importAsset, assetRoot), "utf8"),
   ]);
-  const page = pageChunks.find((chunk) => chunk.includes("我的工作台"));
+  const page = pageChunks.find((chunk) => chunk.includes("shell-account"));
   assert.ok(page, "client page entry bundle is missing");
   assert.match(server, /api\/imports\/sales/);
   assert.match(server, /api\/sales\/summary/);
@@ -74,7 +74,8 @@ test("build emits the operations console", async () => {
   assert.match(server, /api\/settings/);
   assert.match(server, /api\/auth\/me/);
   assert.match(server, /api\/search/);
-  assert.match(page, /我的工作台/);
+  assert.match(page, /shell-account/);
+  assert.doesNotMatch(page, /我的工作台/);
   assert.match(page, /销售分析/);
   assert.doesNotMatch(page, /渠道经营诊断|channel-detail-panel/);
   assert.match(sales, /渠道经营诊断/);
@@ -93,7 +94,8 @@ test("searches all allowlisted system data through the grouped authenticated sea
   ]);
 
   assert.match(page, /\/api\/search\?q=/);
-  assert.match(page, /搜索系统全部数据/);
+  assert.doesNotMatch(page, /className="global-search"/);
+  assert.match(page, /event\.metaKey \|\| event\.ctrlKey/);
   assert.match(page, /AbortController/);
   assert.match(page, /globalSearchGroupRequestKeyRef/);
   assert.match(page, /seenIds/);
@@ -817,7 +819,7 @@ test("requires an authenticated principal for reads and keeps writes on their de
 
   assert.match(page, /\/api\/auth\/me/);
   assert.match(page, /signin-with-chatgpt/);
-  assert.match(page, /只读查看者/);
+  assert.match(page, /signout-with-chatgpt/);
   assert.doesNotMatch(page, /IdentityGate/);
   assert.doesNotMatch(page, /林晓 · 管理员/);
   assert.doesNotMatch(schema, /sqliteTable\(\s*["']app_users["']/);

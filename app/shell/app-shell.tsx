@@ -177,7 +177,7 @@ export default function AppShell({
             tabIndex={-1}
           />
         )}
-        <div inert={mobileDrawerActive || undefined}>{header}</div>
+        <div className="masthead-tools" inert={mobileDrawerActive || undefined}>{header}</div>
       </div>
       <main id="main-content" className="workspace" inert={mobileDrawerActive || undefined}>
         {children}

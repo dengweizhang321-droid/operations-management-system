@@ -13,6 +13,8 @@ export const shellPeriodKeys = [
   "yesterday",
   "last7",
   "last15",
+  "last30",
+  "previous_year",
   "current_month",
   "calendar_month",
   "custom",
@@ -21,9 +23,9 @@ export const shellPeriodKeys = [
 export type ShellPeriodKey = (typeof shellPeriodKeys)[number];
 
 export type ShellPeriodState =
-  | { kind: "today" | "yesterday" | "last7" | "last15" | "current_month" }
+  | { kind: "today" | "yesterday" | "last7" | "last15" | "last30" | "current_month" }
   | { kind: "calendar_month"; month: string }
-  | { kind: "custom"; from: string; to: string };
+  | { kind: "custom" | "previous_year"; from: string; to: string };
 
 export type ShellLocationState<M extends ModuleKey = ModuleKey> = {
   module: M;
@@ -42,6 +44,7 @@ const relativeOrCurrentPeriodKeys: ReadonlySet<string> = new Set([
   "yesterday",
   "last7",
   "last15",
+  "last30",
   "current_month",
 ]);
 
@@ -77,7 +80,7 @@ function parsePeriod(params: URLSearchParams): ShellPeriodState {
   const period = singleQueryValue(params, "period");
   if (period === null || period === "current_month") return { kind: "current_month" };
   if (relativeOrCurrentPeriodKeys.has(period)) {
-    return { kind: period as "today" | "yesterday" | "last7" | "last15" };
+    return { kind: period as "today" | "yesterday" | "last7" | "last15" | "last30" };
   }
   if (period === "calendar_month") {
     const month = singleQueryValue(params, "month");
@@ -85,11 +88,11 @@ function parsePeriod(params: URLSearchParams): ShellPeriodState {
       ? { kind: "calendar_month", month }
       : { kind: "current_month" };
   }
-  if (period === "custom") {
+  if (period === "custom" || period === "previous_year") {
     const from = singleQueryValue(params, "from");
     const to = singleQueryValue(params, "to");
     return from !== null && to !== null && isIsoDate(from) && isIsoDate(to) && from <= to
-      ? { kind: "custom", from, to }
+      ? { kind: period, from, to }
       : { kind: "current_month" };
   }
   return { kind: "current_month" };
@@ -138,7 +141,7 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
   if (state.period.kind === "current_month") return;
   url.searchParams.append("period", state.period.kind);
   if (state.period.kind === "calendar_month") url.searchParams.append("month", state.period.month);
-  if (state.period.kind === "custom") {
+  if (state.period.kind === "custom" || state.period.kind === "previous_year") {
     url.searchParams.append("from", state.period.from);
     url.searchParams.append("to", state.period.to);
   }

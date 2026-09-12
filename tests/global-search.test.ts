@@ -584,7 +584,8 @@ test("API、分组 UI 和 AI 注册入口复用同一搜索核心", async () => 
   assert.doesNotMatch(route, /error instanceof Error \? error\.message/);
   assert.match(page, /const GlobalSearchDialog = lazy/);
   assert.match(dialog, /result\.groups/);
-  assert.match(page, /搜索系统全部数据/);
+  assert.doesNotMatch(page, /className="global-search"/);
+  assert.match(page, /event\.metaKey \|\| event\.ctrlKey/);
   assert.doesNotMatch(tool, /ToolDefinition/);
   assert.match(tool, /searchSystemDataForAi/);
   assert.match(guide, /字段白名单/);

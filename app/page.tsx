@@ -48,6 +48,7 @@ import {
   startOfIsoMonth,
   endOfIsoMonth,
   addIsoMonths,
+  previousYearPeriod,
   clampIsoDate,
 } from "./module-view-shared";
 export { canManageFinanceTargets, validateFinanceTargetDeletionReason } from "./module-view-shared";
@@ -263,7 +264,7 @@ export default function Home() {
   const [globalSearchGroupError, setGlobalSearchGroupError] = useState("");
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitleRef = useRef<HTMLHeadingElement>(null);
-  const globalSearchButtonRef = useRef<HTMLButtonElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
   const globalSearchGenerationRef = useRef(0);
   const globalSearchControllerRef = useRef<AbortController | null>(null);
   const globalSearchGroupGenerationRef = useRef(0);
@@ -346,6 +347,9 @@ export default function Home() {
       setCustomStartDate(period.startDate);
       setCustomEndDate(period.endDate > today ? today : period.endDate);
       appliedPeriod = { kind: "calendar_month", month };
+    } else if (state.period.kind === "previous_year") {
+      setCustomStartDate(state.period.from);
+      setCustomEndDate(state.period.to);
     } else if (state.period.kind === "custom") {
       const endDate = state.period.to > today ? today : state.period.to < minDate ? minDate : state.period.to;
       const startDate = state.period.from < minDate ? minDate : state.period.from > endDate ? endDate : state.period.from;
@@ -610,9 +614,15 @@ export default function Home() {
     closeGlobalSearch();
   }, [closeGlobalSearch, selectModule]);
   const selectRange = (nextRange: SalesRangeLabel) => {
+    if (nextRange === "去年同期" && range === "去年同期") return;
     setRange(nextRange);
     setStatPeriodPickerOpen(nextRange === "自定义");
-    if (nextRange === "月度") {
+    if (nextRange === "去年同期") {
+      const period = previousYearPeriod(globalPeriod);
+      setCustomStartDate(period.startDate);
+      setCustomEndDate(period.endDate);
+      replacePeriodUrl({ kind: "previous_year", from: period.startDate, to: period.endDate });
+    } else if (nextRange === "月度") {
       const period = selectedMonthPeriod(selectedMonth);
       setCustomStartDate(period.startDate);
       setCustomEndDate(period.endDate > customMaxDate ? customMaxDate : period.endDate);
@@ -653,14 +663,7 @@ export default function Home() {
         collapsed={collapsed}
         mobileOpen={mobileMenu}
         onCloseMobile={closeMobileMenu}
-        sidebar={<>
-        <div className="brand">
-          <div className="brand-mark"><span>T</span></div>
-          <div className="brand-copy"><strong>我的工作台</strong><small>电商运营中台</small></div>
-        </div>
-        <SidebarNavigation active={active} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />
-        <div className="sidebar-user"><span>{avatarText}</span><div><strong>{currentUser ? `${currentUser.displayName} · ${currentUser.roleLabel}` : "访客 · 只读查看者"}</strong><small>{currentUser ? currentUser.email : "可查看经营数据"}</small></div><button onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
-        </>}
+        sidebar={<SidebarNavigation active={active} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />}
         header={<GlobalHeader
           title={current.label}
           description={`${current.description}${active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}`}
@@ -669,14 +672,14 @@ export default function Home() {
           mobileOpen={mobileMenu}
           onOpenMobile={() => setMobileMenu(true)}
           actions={<>
-            <button ref={globalSearchButtonRef} className="global-search" onClick={() => setSearchOpen(true)} aria-label="搜索系统全部数据" aria-haspopup="dialog" aria-expanded={searchOpen} aria-controls="global-search-dialog"><span>⌕</span><em>搜索系统全部数据</em><kbd>⌘ K</kbd></button>
             {active !== "ai" && <button type="button" className="secondary-button ai-context-button" onClick={askAiAboutCurrentPage} aria-label={`让 AI 分析当前${current.label}页面`}>问当前页面</button>}
-            {active !== "n8n_workflows" && <div className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
+            {active !== "n8n_workflows" && <div title={`${globalPeriod.startDate} 至 ${globalPeriod.endDate}`} className={`date-selector ${range === "月度" || (range === "自定义" && statPeriodPickerOpen) ? "date-selector-expanded" : ""}`}>
               <span>统计周期</span>
-              <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "本月", "月度", "自定义"].map((value) => ({ value, label: value }))} />
+              <SearchableSelect value={range} onChange={(value) => selectRange(value as SalesRangeLabel)} ariaLabel="统计周期" searchPlaceholder="搜索统计周期" options={["今日", "昨天", "近7天", "近15天", "近30天", "本月", "月度", "去年同期", "自定义"].map((value) => ({ value, label: value }))} />
               {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
               {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
             </div>}
+            <div className="shell-account"><span className="shell-account-avatar" aria-hidden="true">{avatarText}</span><strong title={currentUser?.displayName}>{currentUser?.displayName || "访客"}</strong><button ref={accountButtonRef} type="button" onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"} title={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
           </>}
         />}
       >
@@ -705,8 +708,8 @@ export default function Home() {
 
       <TableColumnFilters />
 
-      {searchOpen && <GlobalSearchLoadBoundary resetKey={globalSearchLoadVersion} onRetry={retryGlobalSearchDialog} onClose={closeGlobalSearch} returnFocusRef={globalSearchButtonRef}>
-        <Suspense fallback={<GlobalSearchLoadingDialog onClose={closeGlobalSearch} returnFocusRef={globalSearchButtonRef} />}>
+      {searchOpen && <GlobalSearchLoadBoundary resetKey={globalSearchLoadVersion} onRetry={retryGlobalSearchDialog} onClose={closeGlobalSearch} returnFocusRef={accountButtonRef}>
+        <Suspense fallback={<GlobalSearchLoadingDialog onClose={closeGlobalSearch} returnFocusRef={accountButtonRef} />}>
         <GlobalSearchDialogView
           open={searchOpen}
           query={globalSearchQuery}
@@ -717,7 +720,7 @@ export default function Home() {
           loadMoreError={globalSearchGroupError}
           onQueryChange={updateGlobalSearchQuery}
           onClose={closeGlobalSearch}
-          returnFocusRef={globalSearchButtonRef}
+          returnFocusRef={accountButtonRef}
           onSelectItem={(item) => void selectGlobalSearchItem(item)}
           onSelectQuickModule={(module) => {
             if (!isModuleKey(module)) return;
