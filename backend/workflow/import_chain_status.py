@@ -49,7 +49,9 @@ def summarize_workflow(workflow_id, active, rows):
             state = "unknown"
     return {"workflowId": workflow_id, "active": active, "state": state,
             "completedToday": bool(success), "completedAt": success[0]["stoppedAt"] if success else None,
+            "completedMode": success[0]["mode"] if success else None,
             "executionId": str(latest["id"]) if latest else None,
+            "executionMode": latest["mode"] if latest else None,
             "startedAt": latest["startedAt"] if latest else None,
             "finishedAt": latest["stoppedAt"] if latest else None}
 
@@ -82,7 +84,7 @@ def read_today_status(*, now=None):
         workflows = {r["id"]: bool(r["active"]) for r in connection.execute(
             f'SELECT id, active FROM workflow_entity WHERE id IN ({marks}) AND "isArchived" = 0', workflow_ids)}
         rows = connection.execute(f'''
-            SELECT id, "workflowId", status, COALESCE("startedAt", "createdAt") AS "startedAt", "stoppedAt"
+            SELECT id, "workflowId", status, mode, COALESCE("startedAt", "createdAt") AS "startedAt", "stoppedAt"
             FROM execution_entity
             WHERE "workflowId" IN ({marks}) AND "deletedAt" IS NULL
               AND mode IN ('trigger', 'webhook')
@@ -99,7 +101,8 @@ def read_today_status(*, now=None):
         for workflow_id in workflow_ids:
             if workflow_id not in workflows:
                 items.append({"workflowId": workflow_id, "active": None, "state": "unavailable", "completedToday": False,
-                              "completedAt": None, "executionId": None, "startedAt": None, "finishedAt": None})
+                              "completedAt": None, "completedMode": None, "executionId": None, "executionMode": None,
+                              "startedAt": None, "finishedAt": None})
             else:
                 items.append(summarize_workflow(workflow_id, workflows[workflow_id], [dict(r) for r in rows if r["workflowId"] == workflow_id]))
         return {"date": local_day.isoformat(), "timezone": "Asia/Shanghai", "checkedAt": now.isoformat(),

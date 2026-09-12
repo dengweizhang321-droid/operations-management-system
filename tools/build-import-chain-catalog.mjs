@@ -29,7 +29,7 @@ export async function buildImportChainCatalog() {
       timezone: definition.settings?.timezone || "未配置", schedules, definitionFile: `automation/n8n/${file}.workflow.json`, ...extra });
   };
   await add("jackyun", ["jackyun"], "jackyun-five-dataset-api");
-  await add("jd", jd.map((s) => s.storeKey), "jd-multi-store-daily");
+  await add("jd", jd.map((s) => s.storeKey), "jd-multi-store-daily.chromium-silent-copy");
   await add("jd_market", [market.storeKey], "jd-market-ranking-daily.chromium-silent-copy");
   await add("jd_promotion", ["jd-yiyong-director"], "jd-promotion-daily");
   await add("jd_promotion", ["jd-maidehao-operator1"], "jd-promotion-cut-meat-20260813-14");

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import catalog from "@/lib/imports/chain-catalog.generated.json";
 import { describeSchedule } from "@/lib/imports/run-presentation";
 import { requestJson } from "@/lib/http/api-client";
-import { formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
+import { completedAtLabel, formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "@/lib/imports/chain-status";
 import { shanghaiIsoToday, type CurrentUser } from "./module-view-shared";
 
 type Rule = typeof catalog.rules[number];
@@ -76,7 +76,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
               const label = todayStatusLabel(item);
               return <div className="import-rule-cell" key={rule.workflowId}>
               <span className={`import-run-badge is-${label.tone}`}>{loading && !currentStatus ? "读取今天状态…" : label.label}</span>
-              {item?.completedToday && <small>今日完成于 {formatChainStatusTime(item.completedAt || "")}{item.state !== "completed" ? " · 后续执行状态见上" : ""}</small>}
+              {item?.completedToday && <small>{completedAtLabel(item)} {formatChainStatusTime(item.completedAt || "")}{item.state !== "completed" ? " · 后续执行状态见上" : ""}</small>}
               {rule.entityKeys.length > 1 && <small>共用 {rule.entityKeys.length} 店 · 整链状态</small>}
               <span>{rule.schedules.map(describeSchedule).join("、") || "手动触发"}</span>
               {rule.masterIntervalDays && <small>主数据每 {rule.masterIntervalDays} 天更新</small>}
@@ -92,7 +92,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
       {selection && selectedChain && <>
         <header><div><span className="import-monitor-muted">链路规则详情</span><h2 id="import-rule-title">{selectedChain.label}</h2><p>{selectedEntity?.name}</p></div><button type="button" className="secondary-button" onClick={() => setSelection(null)} aria-label="关闭规则详情">关闭</button></header>
         <div className="import-rule-dialog-body">
-          <dl className="import-run-facts"><div><dt>工作流</dt><dd>{selection.rule.name}</dd></div><div><dt>配置频率</dt><dd>{selection.rule.schedules.map(describeSchedule).join("、") || "手动触发"}</dd></div><div><dt>时区</dt><dd>{selection.rule.timezone}</dd></div><div><dt>今天状态</dt><dd>{todayStatusLabel(selectedStatus).label}{selectedStatus?.executionId ? ` · 执行 #${selectedStatus.executionId}` : ""}</dd></div><div><dt>今天完成时间</dt><dd>{selectedStatus?.completedAt ? formatChainStatusTime(selectedStatus.completedAt) : "未查到完成记录"}</dd></div><div><dt>下次运行</dt><dd>在 n8n 查看已发布调度</dd></div>{selection.rule.masterIntervalDays && <div><dt>主数据更新周期</dt><dd>每 {selection.rule.masterIntervalDays} 天；到期情况由执行记录决定</dd></div>}</dl>
+          <dl className="import-run-facts"><div><dt>工作流</dt><dd>{selection.rule.name}</dd></div><div><dt>配置频率</dt><dd>{selection.rule.schedules.map(describeSchedule).join("、") || "手动触发"}</dd></div><div><dt>时区</dt><dd>{selection.rule.timezone}</dd></div><div><dt>今天状态</dt><dd>{todayStatusLabel(selectedStatus).label}{selectedStatus?.executionId ? ` · 执行 #${selectedStatus.executionId}` : ""}</dd></div><div><dt>今天完成时间</dt><dd>{selectedStatus?.completedAt ? `${completedAtLabel(selectedStatus)} ${formatChainStatusTime(selectedStatus.completedAt)}` : "未查到完成记录"}</dd></div><div><dt>下次运行</dt><dd>在 n8n 查看已发布调度</dd></div>{selection.rule.masterIntervalDays && <div><dt>主数据更新周期</dt><dd>每 {selection.rule.masterIntervalDays} 天；到期情况由执行记录决定</dd></div>}</dl>
           <h3>数据模块</h3><div className="import-rule-modules">{selectedChain.modules.map((m) => <span key={m}>{m}</span>)}</div>
           <h3>执行步骤</h3><ol className="import-rule-steps">{selectedChain.steps.map((step) => <li key={step}>{step}</li>)}</ol>
           <h3>共用此工作流的主体</h3><p>{catalog.entities.filter((e) => selection.rule.entityKeys.includes(e.key)).map((e) => e.name).join("、")}</p>
