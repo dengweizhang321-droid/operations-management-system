@@ -4,6 +4,8 @@
 
 已提供只读计划、依赖打包/下载/解包验证和默认不删除的受控清理工具。生产采用以本次审计结果为准；数据库自动备份尚未采用。不能把此文档或一次上传成功当成恢复验收或清理授权。
 
+2026-09-13，两套依赖及恢复索引已上传私有GitHub Release并完整回下载验证，137个候选目录仍全部保留。只读清理预检因现有Worker运行回执未正常收尾而拒绝继续，正式清理尚未采用；临时目录删除亦被执行环境自动审批阻止。详见 [本轮证据](evidence/storage-dependency-archive-20260913.json)。
+
 ## 依赖归档范围
 
 `node tools/storage-retention-plan.mjs` 使用现有完整 successor 验证器读取真实 effective head，核对安装入口，并在读取全部清单后再次采样链摘要。保留当前版本和最近两个前驱的完整依赖；只把已在验证链中且更早的 `node_modules` 列为候选。链外目录、失败候选、暂存、数据库、源码、dist、helper、工具、凭据、所有清单/审计/activation fence 和 successor 记录均保留。
