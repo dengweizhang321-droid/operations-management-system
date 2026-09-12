@@ -44,6 +44,9 @@ async function verifyHead(plan) {
 
 export async function prepareCleanup(repository, scratch, approvedPlanSha256, output) {
   const plan = await exactPlan(approvedPlanSha256);
+  // Reject an unclean lifecycle state before creating more download/extraction
+  // files. The same full verification is repeated after cloud recovery checks.
+  await verifyHead(plan);
   scratch = path.resolve(scratch);
   const runtimeParent = path.dirname(path.resolve(workerRuntimeRoot)).toLowerCase();
   if (scratch.toLowerCase() === runtimeParent || scratch.toLowerCase().startsWith(runtimeParent + path.sep)
