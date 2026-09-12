@@ -106,16 +106,16 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_evidence_accepts_both_backup_generations_with_stable_content_digest(self):
-        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings"}
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
         legacy_migrations = [("ai_assistant", "0001_initial"), ("ai_assistant", "0005_postgres_image_payload")]
         legacy = _ai_evidence(legacy_tables, legacy_migrations)
-        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly"), ("ai_assistant", "0008_dingtalk_settings")])
-        pre_settings = _ai_evidence(set(AI_TABLES) - {"ai_dingtalk_settings"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly")])
+        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly"), ("ai_assistant", "0008_dingtalk_settings"), ("ai_assistant", "0009_model_generation_capabilities"), ("ai_assistant", "0010_dingtalk_schedules")])
+        pre_settings = _ai_evidence(set(AI_TABLES) - {"ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly")])
         self.assertEqual(len([name for name in pre_settings["tables"] if name.startswith("ai_")]), 48)
-        pre_dingtalk = _ai_evidence(set(AI_TABLES) - {"ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
+        pre_dingtalk = _ai_evidence(set(AI_TABLES) - {"ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
         self.assertEqual(len([name for name in pre_dingtalk["tables"] if name.startswith("ai_")]), 46)
         self.assertEqual(len([name for name in legacy["tables"] if name.startswith("ai_")]), 45)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 49)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 51)
         self.assertEqual(legacy["contentSha256"], _ai_evidence(legacy_tables, legacy_migrations)["contentSha256"])
         self.assertNotEqual(legacy["contentSha256"], current["contentSha256"])
         self.assertEqual(legacy["aiAssistant"], current["aiAssistant"])
@@ -123,7 +123,7 @@ class ConsistentBackupTests(unittest.TestCase):
     def test_evidence_rejects_inconsistent_ai_schema_and_migration_inventory(self):
         initial = ("ai_assistant", "0001_initial")
         workspace = ("ai_assistant", "0006_conversation_workspaces")
-        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings"}
+        legacy_tables = set(AI_TABLES) - {"ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
         for tables, migrations in [
             (legacy_tables, [initial, workspace]),
             (AI_TABLES, [initial]),

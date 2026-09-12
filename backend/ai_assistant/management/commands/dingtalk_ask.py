@@ -7,7 +7,7 @@ from threading import Event
 from urllib.parse import quote_plus, urlsplit
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, close_old_connections
-from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings
+from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings, dingtalk_schedules
 from ai_assistant.policy import AiError, authority
 
 
@@ -42,6 +42,7 @@ class Command(BaseCommand):
             try:
                 dingtalk_settings.initialize(base)
                 service.recover_interrupted()
+                dingtalk_schedules.recover_interrupted()
                 self.stdout.write('{"status":"starting","replyMode":"source","queryScope":"authorized_system_modules"}')
                 asyncio.run(self.run_stream(reader))
             finally:
@@ -95,6 +96,7 @@ class Command(BaseCommand):
         async def work():
             while True:
                 await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
+                await loop.run_in_executor(worker, lambda: db_call(lambda: dingtalk_schedules.step(reader, lambda session, content: platform.send(reader, session, content))))
                 await asyncio.sleep(0.5)
         async def listen():
             failures = 0

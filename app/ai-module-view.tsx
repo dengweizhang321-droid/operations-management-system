@@ -12,6 +12,7 @@ const AiMemoryView = lazy(() => import("./ai-memory-view"));
 const AiSandboxView = lazy(() => import("./ai-sandbox-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
+const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
 
@@ -111,6 +112,7 @@ export default function AiModuleView({
     {moduleView === "management" && canManage && <div id="ai-panel-management" role="tabpanel" aria-labelledby="ai-tab-management" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.management} />}>
         <AiAssistantView currentUser={currentUser} workspace="management" />
+        <AiDingTalkSchedulesView />
         <AiSpaceManagementView currentUser={currentUser} />
       </Suspense>
     </div>}

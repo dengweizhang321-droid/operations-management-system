@@ -1475,6 +1475,14 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .launch-followup-robot-notice { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-top: 14px; padding: 13px 15px; border: 1px solid #b8d5ff; border-radius: 12px; background: #eef6ff; color: #315272; font-size: 13px; }
 .launch-followup-schedule { display: grid; grid-template-columns: minmax(180px, .5fr) minmax(180px, .5fr) minmax(260px, 1fr); gap: 12px; align-items: end; margin-top: 16px; }
 .launch-followup-schedule .workflow-checkbox-field { min-height: 42px; display: flex; align-items: center; }
+.ai-ding-schedules { margin: 18px 0; }
+.ai-ding-table-wrap { overflow-x: auto; }
+.ai-ding-table-wrap table { width: 100%; border-collapse: collapse; min-width: 980px; text-align: left; }
+.ai-ding-table-wrap th,.ai-ding-table-wrap td { padding: 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.ai-ding-prompt { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-ding-error { color: #b42318; }.ai-ding-notice { color: #087443; }
+.ai-ding-modal-backdrop { position: fixed; inset: 0; z-index: 100; background: #10182899; display: grid; place-items: center; padding: 20px; }
+.ai-ding-modal { width: min(640px, 100%); max-height: 90vh; overflow-y: auto; background: var(--surface, #fff); border-radius: 12px; padding: 24px; box-shadow: 0 24px 70px #10182855; }
 .launch-followup-robot > small { display: block; margin-top: 12px; color: var(--muted); }
 .launch-followup-robot-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 16px; }
 .launch-followup-robot-actions span { margin-right: auto; color: var(--muted); font-size: 12px; }

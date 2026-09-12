@@ -57,3 +57,42 @@ class AiDingTalkReceipt(models.Model):
             models.CheckConstraint(condition=models.Q(status__in=["queued", "running", "ready", "sending", "sent", "unknown", "denied", "failed"]), name="ai_ding_receipt_status"),
             models.CheckConstraint(condition=models.Q(ack_status__in=["pending", "sending", "sent", "unknown"]), name="ai_ding_ack_status"),
         ]
+
+
+class AiDingTalkSchedule(models.Model):
+    id = models.CharField(primary_key=True, max_length=64)
+    name = models.CharField(max_length=100)
+    prompt = models.TextField()
+    cadence = models.CharField(max_length=8)
+    hour = models.PositiveSmallIntegerField()
+    minute = models.PositiveSmallIntegerField()
+    day = models.PositiveSmallIntegerField(default=1)
+    target_type = models.CharField(max_length=8)
+    target_id = models.CharField(max_length=256)
+    sender_id = models.CharField(max_length=160)
+    owner_email = models.CharField(max_length=320)
+    enabled = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    next_run_at = models.DateTimeField(null=True)
+    last_run_at = models.DateTimeField(null=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_dingtalk_schedules"
+        indexes = [models.Index(fields=["enabled", "next_run_at"], name="ai_ding_schedule_due")]
+
+
+class AiDingTalkScheduleRun(models.Model):
+    id = models.CharField(primary_key=True, max_length=64)
+    schedule = models.ForeignKey(AiDingTalkSchedule, on_delete=models.PROTECT)
+    schedule_version = models.PositiveIntegerField()
+    scheduled_at = models.DateTimeField()
+    status = models.CharField(max_length=16, default="running")
+    error_code = models.CharField(max_length=64, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    completed_at = models.DateTimeField(null=True)
+
+    class Meta:
+        db_table = "ai_dingtalk_schedule_runs"
+        indexes = [models.Index(fields=["schedule", "created_at"], name="ai_ding_schedule_history")]
+        constraints = [models.UniqueConstraint(fields=["schedule", "scheduled_at"], name="ai_ding_schedule_slot_uq")]

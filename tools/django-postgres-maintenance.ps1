@@ -399,6 +399,9 @@ function Assert-MaintenanceEvidence(
       if ($workspaceMigration.Count -ne 1) { throw "钉钉问数迁移缺少前置会话迁移" }
       $requiredTables += @("ai_dingtalk_sessions", "ai_dingtalk_receipts")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0010_dingtalk_schedules" }).Count -gt 0) {
+      $requiredTables += @("ai_dingtalk_schedules", "ai_dingtalk_schedule_runs")
+    }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
     }
