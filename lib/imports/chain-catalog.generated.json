@@ -237,7 +237,7 @@
         "40 13 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-lili-sycm-cookie-daily.workflow.json",
-      "masterIntervalDays": 3
+      "masterIntervalDays": 1
     },
     {
       "chainKey": "tmall",

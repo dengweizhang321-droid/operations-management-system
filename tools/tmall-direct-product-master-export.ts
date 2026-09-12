@@ -18,7 +18,7 @@ import {
   tmallAutomationProjectRoot,
   type TmallProductMasterStageResult,
 } from "./tmall-product-master-export";
-import { assertTmallDirectPmStore } from "./tmall-yijiu-direct-pm-contract";
+import { assertTmallDirectMasterStore } from "./tmall-yijiu-direct-pm-contract";
 
 export const TMALL_MTOP_URL = "https://h5api.m.taobao.com/h5/mtop.tmall.sell.pc.manage.async/1.0/";
 export const TMALL_MTOP_API = "mtop.tmall.sell.pc.manage.async";
@@ -637,7 +637,7 @@ export async function runTmallDirectProductMasterStage(options: {
   auditDirectory?: string;
 }): Promise<TmallProductMasterStageResult> {
   const store = await getTmallStore(options.storeKey);
-  assertTmallDirectPmStore(store.storeKey);
+  assertTmallDirectMasterStore(store.storeKey);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
   const auditDirectory = path.resolve(options.auditDirectory ?? defaultAuditDirectory);
   await assertNoLegacyMasterAction(store);

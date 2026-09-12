@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   TMALL_YIJIU_DIRECT_PM_PROTOCOL,
+  TMALL_LILI_DIRECT_M_PROTOCOL,
   tmallDirectPmProtocolForStore,
   tmallDirectPmProtocolHeader,
   tmallDirectProductMasterRoute,
@@ -56,7 +57,7 @@ export const tmallN8nWorkflowDefinitions: readonly TmallN8nWorkflowDefinition[] 
     fileName: "tmall-lili-sycm-cookie-daily.workflow.json",
     cronExpression: "40 13 * * *",
     scheduleName: "每天 13:40 运行",
-    productMasterCadence: { intervalDays: 3, initialDueDate: "2026-08-27" },
+    productMasterCadence: { intervalDays: 1, initialDueDate: "2026-08-27" },
   },
   {
     storeKey: "tmall-tuofeng",
@@ -286,6 +287,7 @@ export function buildTmallN8nWorkflow(
   }
   adaptManualTrigger(workflow);
   adaptProductMasterNode(workflow, definition);
+  if (definition.storeKey === "tmall-lili") adaptLiliDirectMaster(workflow);
   addDailyBackfillLoop(workflow);
   attachHourlyRetryTarget(workflow);
   return workflow;
@@ -358,6 +360,33 @@ function addCandidateProtocolHeader(node: WorkflowNode, protocol: string = TMALL
     ...headers.filter((header) => String(header.name ?? "").toLowerCase() !== tmallDirectPmProtocolHeader),
     { name: "X-TERUISI-TMALL-CANDIDATE-PROTOCOL", value: protocol },
   ];
+}
+
+// Also accepts a live single-day definition: production adoption must not pull
+// the unrelated, not-yet-adopted daily-backfill loop into the live workflow.
+export function adaptLiliDirectMaster(workflow: WorkflowTemplate) {
+  if (workflow.id !== "TmallLiliDaily2026") throw new Error("丽力 M 适配拒绝其他工作流");
+  const masters = workflow.nodes.filter(node => node.name.startsWith("M·"));
+  if (masters.length !== 1) throw new Error("丽力必须有唯一 M 节点");
+  const master = masters[0]!;
+  if (master.type !== "n8n-nodes-base.httpRequest" || master.parameters?.method !== "POST"
+    || !["http://127.0.0.1:5791/product-master", `http://127.0.0.1:5791${tmallDirectProductMasterRoute}`].includes(String(master.parameters?.url))) {
+    throw new Error("丽力 M 原路由或节点类型不符合受控适配契约");
+  }
+  const storeHeaders = master.parameters?.headerParameters?.parameters?.filter(
+    header => String(header.name).toLowerCase() === "x-teruisi-tmall-store-key",
+  ) ?? [];
+  if (storeHeaders.length !== 1 || storeHeaders[0]?.value !== "tmall-lili") throw new Error("丽力 M 店铺头不匹配");
+  master.parameters ??= {};
+  master.parameters.url = `http://127.0.0.1:5791${tmallDirectProductMasterRoute}`;
+  addCandidateProtocolHeader(master, TMALL_LILI_DIRECT_M_PROTOCOL);
+  renameWorkflowNode(workflow, master, "M·MTOP 分批导出、合并校验并导入");
+  workflow.meta = { ...(workflow.meta ?? {}), liliDirectMaster: { protocol: TMALL_LILI_DIRECT_M_PROTOCOL, intervalDays: 1 } };
+  const note = workflow.nodes.find(node => node.name === "流程说明");
+  if (note?.parameters && typeof note.parameters.content === "string" && !note.parameters.content.includes("## 丽力 M 接口分批")) {
+    note.parameters.content += "\n\n## 丽力 M 接口分批\n丽力 M 改为浏览器登录态 MTOP 每 20 个商品一批串行导出，逐批校验后合并为一个文件并单次导入回查；不使用商品管家。P 不切换直连。M 每日更新，失败不推进节奏；旧管家活动任务必须先经明确确认归档，禁止跨协议接管。";
+  }
+  return workflow;
 }
 
 export function buildTmallYijiuDirectPmCandidateWorkflow(source: WorkflowTemplate): WorkflowTemplate {

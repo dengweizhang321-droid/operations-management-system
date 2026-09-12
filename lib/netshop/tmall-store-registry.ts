@@ -71,6 +71,7 @@ export function validateTmallStoreRegistry(
   const shopNames = new Set<string>();
   const ports = new Set<number>();
   const profiles = new Set<string>();
+  const browserRoots = new Set<string>();
   const downloads = new Set<string>();
   return registry.stores.map((rawStore, index) => {
     if (!rawStore || typeof rawStore !== "object") throw new Error(`天猫店铺注册表第 ${index + 1} 项无效`);
@@ -116,6 +117,12 @@ export function validateTmallStoreRegistry(
     }
     const storeKey = store.storeKey.toLowerCase();
     const shopKey = store.shopName.toLocaleLowerCase("zh-CN");
+    const browserRoot = (userDataDir ?? profileDir).toLowerCase();
+    // Different Profile names within one Chromium root still share the process
+    // singleton. Store-isolated helper workers require distinct launch roots.
+    if (browserRoots.has(browserRoot)) {
+      throw new Error(`天猫店铺注册表存在重复 Chromium userDataDir，不能跨店并行: ${store.storeKey}`);
+    }
     if (storeKeys.has(storeKey) || shopNames.has(shopKey) || ports.has(store.browser.debugPort)
       || profiles.has(profileDir.toLowerCase()) || downloads.has(downloadDir.toLowerCase())) {
       throw new Error(`天猫店铺注册表存在重复键、店铺、端口、profileDir 或 downloadDir: ${store.storeKey}`);
@@ -124,6 +131,7 @@ export function validateTmallStoreRegistry(
     shopNames.add(shopKey);
     ports.add(store.browser.debugPort);
     profiles.add(profileDir.toLowerCase());
+    browserRoots.add(browserRoot);
     downloads.add(downloadDir.toLowerCase());
     return { ...store, browser: { ...store.browser, executablePath, userDataDir, profileDir, downloadDir } };
   });

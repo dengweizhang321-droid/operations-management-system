@@ -44,7 +44,9 @@ test("AI Agent 工作流视图明确声明安全执行边界", async () => {
   assert.match(source, /逐轮派发账本/);
   assert.match(source, /每轮都会重验账号、数据范围、模型版本和工具策略/);
   assert.match(source, /任一外部调用结果未知时会失败关闭且不自动重试/);
-  assert.match(source, /不执行任意 Python、JavaScript、SQL、浏览器操作或运营写入/);
+  assert.match(source, /正式 Agent 只使用中央注册表中的有界只读工具/);
+  assert.match(source, /pandas 临时分析需要独立容器服务就绪/);
+  assert.match(source, /只能使用当前账号获准的数据，不修改业务记录/);
   assert.match(source, /取消只能阻止尚未派发的下一步/);
   assert.match(source, /每个 Agent 节点都可能产生模型费用/);
 });

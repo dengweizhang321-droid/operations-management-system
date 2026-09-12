@@ -62,7 +62,7 @@ test("天猫店铺注册表拒绝敏感字段和跨店重复资源", () => {
   }), /字段无效/);
 });
 
-test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile", () => {
+test("天猫店铺注册表支持显式 Chromium 根目录和 Profile", () => {
   const shared = store("tmall-yijiu", "天猫-志高亿玖专卖店", 9334);
   shared.browser = {
     ...shared.browser,
@@ -85,6 +85,15 @@ test("天猫店铺注册表支持共享 Chromium 根目录下的独立 Profile",
     profileDirectory: result!.browser.userDataDir,
     profileName: "Profile 4",
   });
+});
+
+test("跨店不同 Profile 也不能复用同一个 Chromium userDataDir", () => {
+  const stores = [store("a", "A店", 9301), store("b", "B店", 9302)];
+  for (const [index, item] of stores.entries()) {
+    const profileName = `Profile ${index + 1}`;
+    item.browser = { ...item.browser, executablePath: "browser/chrome.exe", userDataDir: "shared-root", profileName, profileDir: `shared-root/${profileName}` };
+  }
+  assert.throws(() => validateTmallStoreRegistry({ version: 1, stores }), /重复 Chromium userDataDir/);
 });
 
 test("天猫店铺注册表拒绝 userDataDir 与 profileDir 错位", () => {
@@ -130,7 +139,7 @@ test("新增五店完成首次登录后启用且继续使用独立 Chromium 根�
   assert.equal(selected.every((item) => item.loginMode === "windows_dpapi_credentials"), true);
   assert.equal(selected.every((item) => item.initialStartDate === "2026-08-01"), true);
   for (const item of selected) {
-    assert.equal(item.productMasterCadence?.intervalDays, item.storeKey === "tmall-yiyong" ? 1 : 3);
+    assert.equal(item.productMasterCadence?.intervalDays, ["tmall-yiyong", "tmall-lili"].includes(item.storeKey) ? 1 : 3);
   }
   assert.deepEqual(
     ["tmall-yijiu", "tmall-lili", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu", "tmall-yiyong"]
