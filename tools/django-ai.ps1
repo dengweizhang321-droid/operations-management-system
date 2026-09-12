@@ -2,7 +2,8 @@
 param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
-    "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk", "ConfigurePandas", "PandasCheck"
+    "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigurePandas", "PandasCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -41,6 +42,7 @@ $AiWriterHealthUrl = "http://127.0.0.1:8112/health/ready"
 $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
 $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
 $DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
+$DingTalkStartupPath = Join-Path $RuntimeRoot "config\dingtalk-startup.json"
 $AiReaderMaxBodyBytes = 1048576
 $AiWriterMaxBodyBytes = 1048576
 $PandasConfigPath = Join-Path $RuntimeRoot "config\pandas-sandbox.json"
@@ -395,7 +397,61 @@ function Stop-AiStack([string]$LifecycleAclToken = "") {
   Write-Output "Django AI 助理 reader/writer 已停止；其他业务域、ERP 与 PostgreSQL 未改变。"
 }
 
-function Invoke-DingTalkReceiver([bool]$CheckOnly) {
+function Read-DingTalkStartup {
+  if (-not (Test-Path -LiteralPath $DingTalkStartupPath)) { return $false }
+  $state = Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup"
+  if (-not (Test-ExactObjectPropertyNames $state @("version", "enabled", "configSha256", "authorityEpoch", "cutoverId")) -or
+      ($state.version -isnot [int] -and $state.version -isnot [long]) -or
+      $state.version -ne 1 -or $state.enabled -isnot [bool]) { throw "Invalid DingTalk automatic startup configuration" }
+  if (-not $state.enabled) { return $false }
+  $aiStartup = Read-JsonFile $AiStartupPath "AI startup authority"
+  if ([string]$state.configSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+      (Get-FileSha256 $DingTalkConfigPath) -cne [string]$state.configSha256 -or
+      [string]::IsNullOrWhiteSpace([string]$state.authorityEpoch) -or
+      [string]::IsNullOrWhiteSpace([string]$state.cutoverId) -or
+      [string]$aiStartup.authorityEpoch -cne [string]$state.authorityEpoch -or
+      [string]$aiStartup.cutoverId -cne [string]$state.cutoverId) {
+    throw "DingTalk automatic startup approval no longer matches configuration or authority"
+  }
+  return $true
+}
+
+function Set-DingTalkStartup([bool]$Enabled) {
+  Assert-AiRuntimeEntry
+  $configSha = ""; $epoch = ""; $cutover = ""
+  if ($Enabled) {
+    $config = Read-JsonFile $DingTalkConfigPath "DingTalk receiver configuration"
+    if ($config.enabled -isnot [bool] -or -not $config.enabled) { throw "Enable the approved receiver configuration first" }
+    $aiStartup = Read-JsonFile $AiStartupPath "AI startup authority"
+    if ([string]::IsNullOrWhiteSpace([string]$aiStartup.authorityEpoch) -or [string]::IsNullOrWhiteSpace([string]$aiStartup.cutoverId)) {
+      throw "AI startup authority is invalid"
+    }
+    # Existing operator verifies live PostgreSQL authority, bindings and DWS identity without sending.
+    $configSha = Get-FileSha256 $DingTalkConfigPath
+    Invoke-DingTalkReceiver $true ([pscustomobject]@{
+      configSha256 = $configSha; authorityEpoch = [string]$aiStartup.authorityEpoch; cutoverId = [string]$aiStartup.cutoverId
+    }) | Out-Null
+    if ((Get-FileSha256 $DingTalkConfigPath) -cne $configSha) { throw "Receiver configuration changed during verification" }
+    $epoch = [string]$aiStartup.authorityEpoch; $cutover = [string]$aiStartup.cutoverId
+  }
+  Write-AtomicJson $DingTalkStartupPath ([ordered]@{
+    version = 1; enabled = $Enabled; configSha256 = $configSha; authorityEpoch = $epoch; cutoverId = $cutover
+  })
+  Write-LauncherEvent "INFO" "dingtalk_automatic_startup_changed" "enabled=$Enabled"
+}
+
+function Start-ConfiguredDingTalkReceiver {
+  # Invoked after the single system startup engine has made the Worker and all backends ready.
+  # Both the setting and process check run under the same service mutex as manual StopDingTalk.
+  Assert-AiRuntimeEntry
+  if (-not (Read-DingTalkStartup)) {
+    Write-Output "DingTalk automatic startup is disabled."
+    return
+  }
+  Invoke-DingTalkReceiver $false (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup")
+}
+
+function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null) {
   Assert-AiRuntimeEntry
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪" }
@@ -405,6 +461,12 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly) {
   try {
     $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
     if ([string]$authority.status -cne "postgres") { throw "AI 写入权威未激活" }
+    if ($null -ne $StartupApproval -and (
+        [string]$StartupApproval.authorityEpoch -cne [string]$authority.authorityEpoch -or
+        [string]$StartupApproval.cutoverId -cne [string]$authority.cutoverId -or
+        [string]$StartupApproval.configSha256 -cne (Get-FileSha256 $DingTalkConfigPath))) {
+      throw "DingTalk startup approval differs from live authority or receiver configuration"
+    }
     $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
     $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
     if ($CheckOnly) {
@@ -469,6 +531,11 @@ function Show-AiStatus {
   } catch { $pandasReady = "not_ready"; $writerReady = "not_ready" }
   $status = [pscustomobject][ordered]@{ AiReader = $reader; AiWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   $status | Add-Member -NotePropertyName PandasReadiness -NotePropertyValue $pandasReady
+  $dingStartup = "disabled"; $dingProcess = "stopped"
+  try { if (Read-DingTalkStartup) { $dingStartup = "enabled" } } catch { $dingStartup = "invalid" }
+  try { if (Resolve-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python) { $dingProcess = "running" } } catch { $dingProcess = "ownership_error" }
+  $status | Add-Member -NotePropertyName DingTalkStartup -NotePropertyValue $dingStartup
+  $status | Add-Member -NotePropertyName DingTalkReceiver -NotePropertyValue $dingProcess
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }
 
@@ -485,6 +552,9 @@ try {
     "DisableStartup" { Invoke-WithServiceMutex { Disable-AiStartup } }
     "DingTalkCheck" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $true } }
     "StartDingTalk" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $false } }
-    "StopDingTalk" { Invoke-WithServiceMutex { Assert-AiRuntimeEntry; Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python } }
+    "StopDingTalk" { Invoke-WithServiceMutex { Set-DingTalkStartup $false; Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python } }
+    "EnableDingTalkStartup" { Invoke-WithServiceMutex { Set-DingTalkStartup $true } }
+    "DisableDingTalkStartup" { Invoke-WithServiceMutex { Set-DingTalkStartup $false } }
+    "AutoStartDingTalk" { Invoke-WithServiceMutex { Start-ConfiguredDingTalkReceiver } }
   }
 } catch { Write-LauncherEvent "ERROR" "ai_action_failed" $_.Exception.Message; throw }
