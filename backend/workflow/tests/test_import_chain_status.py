@@ -55,8 +55,12 @@ class ImportChainStatusTests(SimpleTestCase):
         item = self.read()["items"][0]
         self.assertEqual(item["state"], "failed")
         self.assertTrue(item["completedToday"])
+        self.assertEqual(item["completedMode"], "trigger")
+        self.assertEqual(item["executionMode"], "trigger")
         self.add(status="running", start="2026-09-10T00:03:00Z", stop=None)
-        self.assertEqual(self.read()["items"][0]["state"], "running")
+        item = self.read()["items"][0]
+        self.assertEqual(item["state"], "running")
+        self.assertEqual(item["executionMode"], "trigger")
 
     def test_manual_deleted_future_and_unregistered_runs_do_not_mark_success(self):
         self.add(mode="manual")
@@ -80,6 +84,17 @@ class ImportChainStatusTests(SimpleTestCase):
         self.assertFalse(item["active"])
         self.assertTrue(item["completedToday"])
         self.assertEqual(item["completedAt"], "2026-09-10T01:00:00.123000+00:00")
+        self.assertEqual(item["completedMode"], "trigger")
+
+    def test_webhook_completion_is_identified_as_automatic_retry(self):
+        self.add(status="error", stop="2026-09-10T00:01:00Z", mode="trigger")
+        self.add(start="2026-09-10T01:00:00Z", stop="2026-09-10T01:07:00Z", mode="webhook")
+        item = self.read()["items"][0]
+        self.assertEqual(item["state"], "completed")
+        self.assertTrue(item["completedToday"])
+        self.assertEqual(item["completedAt"], "2026-09-10T01:07:00+00:00")
+        self.assertEqual(item["completedMode"], "webhook")
+        self.assertEqual(item["executionMode"], "webhook")
 
     def test_truncation_and_missing_database_fail_closed_without_creating_files(self):
         self.add()
