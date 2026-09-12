@@ -653,10 +653,6 @@ export default function Home() {
     replacePeriodUrl({ kind: "custom", from: startDate, to: endDate });
   };
 
-  const avatarText = currentUser
-    ? [...currentUser.displayName.trim()][0]?.toUpperCase() ?? "管"
-    : "访";
-
   return (
     <>
       <AppShell
@@ -679,7 +675,12 @@ export default function Home() {
               {range === "月度" && <label className="month-selector"><span>选择月份</span><input type="month" value={selectedMonth} max={customMaxDate.slice(0, 7)} onChange={(event) => updateSelectedMonth(event.target.value)} aria-label="选择统计月份" /></label>}
               {range === "自定义" && statPeriodPickerOpen && <StatisticalPeriodPicker minDate={customMinDate} maxDate={customMaxDate} startDate={customStartDate} endDate={customEndDate} onApply={applyCustomPeriod} />}
             </div>}
-            <div className="shell-account"><span className="shell-account-avatar" aria-hidden="true">{avatarText}</span><strong title={currentUser?.displayName}>{currentUser?.displayName || "访客"}</strong><button ref={accountButtonRef} type="button" onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")} aria-label={currentUser ? "退出登录" : "管理员登录"} title={currentUser ? "退出登录" : "管理员登录"}>{currentUser ? "⋮" : "登录"}</button></div>
+            <div className="shell-account">
+              <button ref={accountButtonRef} type="button" className="shell-account-avatar" popoverTarget="shell-account-actions" aria-label="打开账号操作" title="账号操作">章</button>
+              <div id="shell-account-actions" className="shell-account-popover" popover="auto" role="group" aria-label="账号操作">
+                <button type="button" onClick={() => window.location.assign(currentUser ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F")}>{currentUser ? "退出登录" : "管理员登录"}</button>
+              </div>
+            </div>
           </>}
         />}
       >

@@ -37,8 +37,9 @@
   box-shadow: none;
 }
 .top-navigation-shell .main-nav { min-width: 0; align-items: center; gap: 8px; }
-.top-navigation-shell .sidebar-navigation-scroll { padding: 0; overflow: visible; }
-.top-navigation-shell .sidebar-navigation-groups { display: flex; flex-wrap: wrap; gap: 4px; }
+.top-navigation-shell .sidebar-navigation-scroll { min-width: 0; padding: 3px 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: #53637d transparent; }
+.top-navigation-shell .sidebar-navigation-scroll::-webkit-scrollbar { display: block; height: 4px; }
+.top-navigation-shell .sidebar-navigation-groups { display: flex; flex-wrap: nowrap; gap: 2px; }
 .top-navigation-shell .nav-group, .top-navigation-shell .nav-group > ul { display: contents; }
 .top-navigation-shell .nav-group > p {
   position: absolute;
@@ -48,8 +49,8 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.top-navigation-shell .nav-group > ul > li { margin: 0; }
-.top-navigation-shell .sidebar-navigation-link { width: auto; min-height: 40px; gap: 6px; padding: 6px 8px; }
+.top-navigation-shell .nav-group > ul > li { flex: 0 0 auto; margin: 0; }
+.top-navigation-shell .sidebar-navigation-link { width: auto; min-height: 40px; gap: 6px; padding: 6px; }
 .top-navigation-shell .sidebar-navigation-link.active::before { left: 8px; right: 8px; top: auto; bottom: 0; width: auto; height: 2px; }
 .top-navigation-shell .nav-icon { width: 24px; height: 24px; flex-basis: 24px; }
 .top-navigation-shell .nav-copy b { font-size: 13px; }
@@ -66,10 +67,11 @@
   box-shadow: none;
 }
 .top-navigation-shell .sidebar-navigation-tooltip { width: 220px; transform: none; }
-.shell-account { display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid #ffffff25; color: #e1e7f0; }
-.shell-account-avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #385aaa; background: #d9e5ff; font-size: 12px; }
-.shell-account > strong { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
-.shell-account > button { min-width: 32px; min-height: 36px; padding: 4px; border: 0; background: transparent; color: inherit; }
+.shell-account { display: flex; align-items: center; padding-left: 4px; }
+.shell-account-avatar { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; color: #385aaa; background: #d9e5ff; font-size: 14px; }
+.shell-account-popover { position: fixed; inset: calc(var(--app-sticky-offset) + 6px) 18px auto auto; margin: 0; padding: 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-overlay); }
+.shell-account-popover > button { min-width: 112px; min-height: 40px; padding: 8px 14px; border: 0; border-radius: 6px; background: transparent; }
+.shell-account-popover > button:hover { background: var(--surface-soft); }
 
 /* Observe the actual masthead height: tool wrapping and zoom must not cover tabs. */
 .top-navigation-shell .module-stage .subnav,
@@ -101,6 +103,7 @@
   }
   .top-navigation-shell .sidebar.mobile-open { display: flex; flex-direction: column; align-items: stretch; gap: 18px; }
   .top-navigation-shell .main-nav { flex: 0 0 auto; }
+  .top-navigation-shell .sidebar-navigation-scroll { overflow: visible; }
   .top-navigation-shell .sidebar-navigation-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .top-navigation-shell .sidebar .nav-copy { display: flex; }
   .top-navigation-shell .sidebar .sidebar-navigation-link { justify-content: flex-start; min-height: 44px; }
