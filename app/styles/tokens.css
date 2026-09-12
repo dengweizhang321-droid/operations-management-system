@@ -2,29 +2,31 @@
   color-scheme: light;
 
   /* Brand */
-  --color-brand: #4776e6;
-  --color-brand-hover: #315bc5;
-  --color-brand-active: #284ca7;
-  --color-brand-soft: #edf3ff;
+  --color-brand: #396149;
+  --color-brand-hover: #293f32;
+  --color-brand-active: #24382c;
+  --color-brand-soft: #f3f7f4;
+  --color-brand-tint: #cce8d9;
+  --color-brand-border: #abc4b4;
 
   /* Surfaces */
-  --color-bg-app: #f4f6f9;
+  --color-bg-app: #f5f7f6;
   --color-bg-surface: #ffffff;
-  --color-bg-subtle: #f8fafc;
+  --color-bg-subtle: #f3f7f4;
   --color-bg-elevated: #ffffff;
-  --color-bg-inverse: #172033;
+  --color-bg-inverse: #293f32;
 
   /* Text */
-  --color-text-primary: #18212f;
-  --color-text-secondary: #536075;
-  --color-text-muted: #6f7d91;
-  --color-text-inverse: #f5f7fb;
-  --color-text-link: #315bc5;
+  --color-text-primary: #33453a;
+  --color-text-secondary: #526959;
+  --color-text-muted: #7b8780;
+  --color-text-inverse: #f3f7f4;
+  --color-text-link: #396149;
 
   /* Borders and focus */
-  --color-border-default: #e1e6ee;
-  --color-border-strong: #cbd4e0;
-  --color-focus-ring: rgba(71, 118, 230, 0.35);
+  --color-border-default: #e7ebe9;
+  --color-border-strong: #c9d6ce;
+  --color-focus-ring: rgba(103, 157, 131, 0.35);
 
   /* System feedback */
   --color-success: #16825d;
@@ -84,10 +86,10 @@
   --surface: var(--color-bg-surface);
   --surface-soft: var(--color-bg-subtle);
   --text: var(--color-text-primary);
-  --muted: #788597;
-  --line: #e6eaf0;
+  --muted: var(--color-text-muted);
+  --line: var(--color-border-default);
   --nav: var(--color-bg-inverse);
-  --nav-soft: #222e45;
+  --nav-soft: #396149;
   --blue: var(--color-brand);
   --blue-dark: var(--color-brand-hover);
   --blue-soft: var(--color-brand-soft);

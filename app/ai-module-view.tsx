@@ -9,19 +9,17 @@ import type { AppCurrentUser } from "./shell/view-contract";
 const AiAssistantView = lazy(() => import("./ai-assistant-view"));
 const AiAgentWorkflowView = lazy(() => import("./ai-agent-workflow-view"));
 const AiMemoryView = lazy(() => import("./ai-memory-view"));
-const AiSandboxView = lazy(() => import("./ai-sandbox-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
 const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
 
-const aiViews: readonly AiView[] = ["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"];
+const aiViews: readonly AiView[] = ["assistant", "agents", "memory", "space", "management", "scheduled"];
 const aiViewLabels: Record<AiView, string> = {
   assistant: "AI 对话",
   agents: "Agent 工作流",
   memory: "全局记忆",
-  sandbox: "分析沙箱",
   space: "AI 空间",
   management: "AI 管理",
   scheduled: "AI定时任务",
@@ -98,11 +96,6 @@ export default function AiModuleView({
     {moduleView === "memory" && <div id="ai-panel-memory" role="tabpanel" aria-labelledby="ai-tab-memory" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.memory} />}>
         <AiMemoryView currentUser={currentUser} />
-      </Suspense>
-    </div>}
-    {moduleView === "sandbox" && <div id="ai-panel-sandbox" role="tabpanel" aria-labelledby="ai-tab-sandbox" tabIndex={0}>
-      <Suspense fallback={<AiViewLoading label={aiViewLabels.sandbox} />}>
-        <AiSandboxView currentUser={currentUser} />
       </Suspense>
     </div>}
     {moduleView === "space" && <div id="ai-panel-space" role="tabpanel" aria-labelledby="ai-tab-space" tabIndex={0}>

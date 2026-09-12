@@ -2,7 +2,7 @@
 .import-monitor h2 { margin: 0 0 6px; font-size: 18px; }
 .import-monitor h3 { font-size: 14px; margin: 20px 0 12px; }
 .import-monitor p { margin: 6px 0; line-height: 1.7; }
-.import-monitor-note { padding: 14px 18px; border: 1px solid #bdd5fb; border-radius: 8px; background: #f2f7ff; color: #294569; }
+.import-monitor-note { padding: 14px 18px; border: 1px solid var(--color-brand-border); border-radius: 8px; background: var(--color-brand-soft); color: var(--color-text-primary); }
 .import-monitor-note strong { font-weight: 600; }
 .import-monitor-note p { font-size: 13px; }
 .import-monitor-muted { color: var(--ink-2); font-size: 13px; }
@@ -21,7 +21,7 @@
 .import-chain-matrix { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
 .import-chain-matrix thead th { min-width: 230px; background: var(--card); }
 .import-chain-matrix thead tr:first-child > th:first-child, .import-chain-matrix tbody th { position: sticky; left: 0; z-index: 1; min-width: 260px; max-width: 300px; border-right: 1px solid var(--line); background: var(--card); text-align: left; }
-.import-chain-matrix .import-matrix-group { text-align: center; background: #f7f9fc; }
+.import-chain-matrix .import-matrix-group { text-align: center; background: var(--color-brand-soft); }
 .import-chain-matrix strong, .import-chain-matrix small { display: block; }
 .import-chain-matrix small { margin-top: 6px; color: var(--ink-2); font-size: 13px; font-weight: 400; }
 .import-chain-matrix tbody tr:nth-child(even) { background: color-mix(in srgb, var(--card), var(--line) 14%); }

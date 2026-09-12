@@ -53,12 +53,11 @@ test("full-scope routing only activates explicit filter controls and fails close
 });
 
 test("known bounded result tables declare an explicit safe column-filter scope", async () => {
-  const [assistant, sandbox, imports, market, marketAdmin, salesCategory, sales, shops, shared] = await Promise.all([
-    "ai-assistant-view.tsx", "ai-sandbox-view.tsx", "import-run-records-view.tsx", "market-view.tsx",
+  const [assistant, imports, market, marketAdmin, salesCategory, sales, shops, shared] = await Promise.all([
+    "ai-assistant-view.tsx", "import-run-records-view.tsx", "market-view.tsx",
     "market-master-admin-panel.tsx", "sales-category-view.tsx", "sales-module-view.tsx", "shop-module-view.tsx", "module-view-shared.tsx",
   ].map((file) => readFile(new URL(`../app/${file}`, import.meta.url), "utf8")));
   assert.match(assistant, /data-column-filter-scope=\{artifact\.truncated \? "none" : "full"\}/);
-  assert.match(sandbox, /data-column-filter-scope=\{result\.truncated \? "none" : "full"\}/);
   assert.match(imports, /import-history-panel[\s\S]{0,1800}data-column-filter-scope="none"/);
   assert.ok((market.match(/data-column-filter-scope="none"/g) ?? []).length >= 2);
   assert.match(market, /data-column-filter-scope=\{data\.truncated \? "none" : "full"\} data-column-filter-total=\{data\.totalMonths\}/);

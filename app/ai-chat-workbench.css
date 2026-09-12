@@ -1,4 +1,4 @@
-.ai-workbench { --chat-line:#e7ebe9; --chat-muted:#7b8780; --chat-ink:#33453a; width:100%; min-width:0; border:1px solid var(--chat-line); border-radius:13px; overflow:hidden; background:#fff; color:var(--chat-ink); }
+.ai-workbench { --chat-line:var(--color-border-default); --chat-muted:var(--color-text-muted); --chat-ink:var(--color-text-primary); width:100%; min-width:0; border:1px solid var(--chat-line); border-radius:13px; overflow:hidden; background:#fff; color:var(--chat-ink); }
 .ai-workbench button,.ai-workbench input,.ai-workbench textarea { font-family:inherit; }
 .ai-workbench button { cursor:pointer; }
 .ai-workbench button:disabled { opacity:.45; cursor:not-allowed; }

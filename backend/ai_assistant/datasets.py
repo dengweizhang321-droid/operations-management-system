@@ -99,6 +99,14 @@ def descriptor(dataset_id, entry, *, detail=False):
                 "dataCutoffDate": "仅取来源明确给出的 dataCutoffDate；未知为 null，不能解释为今日或无数据。",
                 "consistency": "live_per_source：多次只读查询，不保证跨域或跨页原子快照。",
             },
+            "pandasExport": {
+                "collection": "trend.items" if dataset_id == "sales_category" else (
+                    "items" if dataset_id in {"inventory_age", "inventory_inbound", "inventory_guangdong",
+                    "inventory_health", "product_performance", "replenishment_plans", "finance_targets",
+                    "netshop_catalog", "netshop_products", "customer_service", "workflow_operations", "workflow_tasks",
+                    "workflow_launch_projects"} else None),
+                "instructions": "先 query_system_dataset 检查实际数组和标量字段；inputsJson 可用 columns 选择所需字段，排除嵌套对象。分页分析数据从 page=1 开始，完整性由来源分页信息验证；没有完整性证明的数组不能计算全量。",
+            },
         })
     return item
 

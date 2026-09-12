@@ -3,7 +3,7 @@
 .root h2 { font-size: 20px; font-weight: 650; }
 .root h3 { font-size: 16px; font-weight: 650; }
 .healthPanel { padding: 24px; }
-.root p { color: #64748b; line-height: 1.65; }
+.root p { color: var(--color-text-secondary); line-height: 1.65; }
 .actions, .heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .heading { justify-content: space-between; margin-bottom: 16px; }
 .distribution { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -25,17 +25,17 @@
 p.warning { padding: 12px 16px; background: #fff7ed; color: #9a3412; }
 .reason { min-width: 240px; max-width: 340px; white-space: normal; }
 .management { display: grid; gap: 16px; padding: 24px; }
-.itemEditor { padding: 24px; border-color: #bfdbfe; background: #f8fbff; }
+.itemEditor { padding: 24px; border-color: var(--color-brand-border); background: var(--color-brand-soft); }
 .editorGrid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; align-items: end; }
-.editorGrid label { display: grid; gap: 7px; color: #475569; font-size: 13px; }
+.editorGrid label { display: grid; gap: 7px; color: var(--color-text-secondary); font-size: 13px; }
 .editorGrid input, .editorGrid select { width: 100%; min-width: 0; box-sizing: border-box; }
 .reasonField { grid-column: span 3; }
 .editorActions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.editorActions small { color: #64748b; }
-.root input, .root textarea, .root select { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 12px; background: white; color: #0f172a; }
+.editorActions small { color: var(--color-text-muted); }
+.root input, .root textarea, .root select { border: 1px solid var(--color-border-strong); border-radius: 7px; padding: 9px 12px; background: white; color: var(--color-text-primary); }
 .root textarea { display: block; width: 100%; margin-top: 8px; resize: vertical; }
 .root input[type="number"] { width: 115px; }
-.preview { border: 1px solid #bfdbfe; padding: 18px; border-radius: 10px; background: #eff6ff; }
+.preview { border: 1px solid var(--color-brand-border); padding: 18px; border-radius: 10px; background: var(--color-brand-soft); }
 .searchResults { display: grid; gap: 8px; max-height: 220px; overflow: auto; margin: 12px 0; }
 @media (max-width: 900px) { .distribution { grid-template-columns: repeat(2, minmax(0, 1fr)); } .editorGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .reasonField { grid-column: span 1; } }
 @media (max-width: 540px) { .distribution, .editorGrid { grid-template-columns: 1fr; } }

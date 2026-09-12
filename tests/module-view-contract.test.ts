@@ -37,7 +37,7 @@ const expectedViews = {
   workflow: { defaultView: "plan", views: ["plan", "inspection", "reviews", "launch", "launch-followup", "variables"] },
   import: { defaultView: "files", views: ["files", "history", "chains"] },
   settings: { defaultView: "parameters", views: ["parameters", "master", "dingtalk", "permissions"] },
-  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"] },
+  ai: { defaultView: "assistant", views: ["assistant", "agents", "memory", "space", "management", "scheduled"] },
 } as const;
 
 test("module view registry covers every shell module with a unique, legal default", () => {
@@ -50,6 +50,8 @@ test("module view registry covers every shell module with a unique, legal defaul
   }
   assert.equal(isModuleViewKey("sales", "finance"), true);
   assert.equal(isModuleViewKey("sales", "ranking"), false);
+  assert.equal(isModuleViewKey("ai", "sandbox"), false);
+  assert.equal(parseModuleView("ai", "/?module=ai&view=sandbox"), "assistant");
 });
 
 test("every registered view round-trips as a refresh-safe deep link", () => {

@@ -19,6 +19,63 @@ from .policy import AiError, canonical, current_principal, digest, fields, scope
 
 _slots = BoundedSemaphore(1)
 
+# These dataset adapters explicitly accept page/limit and return pagination.
+# Do not infer paging for arbitrary native tool responses.
+PAGED_DATASETS = frozenset({
+    "inventory_age", "inventory_inbound", "inventory_guangdong", "finance_targets",
+    "netshop_catalog", "netshop_products", "customer_service", "workflow_operations", "workflow_tasks",
+    "workflow_launch_projects",
+})
+
+
+def native_page(dataset, data, path, parent, rows, args, expected_total):
+    pagination = data.get("pagination") if dataset in PAGED_DATASETS and path == "items" else None
+    if pagination is not None:
+        if not isinstance(pagination, dict):
+            raise AiError("分析数据集分页信息无效")
+        page, size, total = (pagination.get(k) for k in ("page", "pageSize", "total"))
+        more = pagination.get("truncated")
+        # Guangdong's source contract uses totalPages instead of truncated.
+        # Only this exact dataset may derive the flag, after validating all counts.
+        if dataset == "inventory_guangdong" and "truncated" not in pagination:
+            total_pages = pagination.get("totalPages")
+            if (type(size) is not int or size <= 0 or type(total) is not int or total < 0
+                    or type(total_pages) is not int or total_pages != (total + size - 1) // size
+                    or type(page) is not int):
+                raise AiError("广东库存分页计数无效")
+            more = page < total_pages
+        if (type(page) is not int or page != args.get("page", 1)
+                or type(size) is not int or not 1 <= size <= 50
+                or "limit" in args and size != args["limit"]
+                or type(total) is not int or total < 0
+                or type(more) is not bool or more != (page * size < total)
+                or len(rows) != max(0, min(size, total - (page - 1) * size))
+                or pagination.get("returned", len(rows)) != len(rows)
+                or expected_total is not None and total != expected_total
+                or incomplete({k: v for k, v in data.items() if k != "pagination"})):
+            raise AiError("分析数据集分页不完整或查询期间总行数变化，请缩小范围")
+        return more, total
+    complete = parent.get("truncated") is False or parent.get("hasMore") is False
+    total = parent.get("totalMatched", parent.get("total"))
+    if (not complete or incomplete(parent) or data.get("truncated") is True
+            or data.get("hasMore") is True or type(total) is int and total != len(rows)):
+        raise AiError("分析数据集未证明完整返回，请缩小范围或使用逐行数据集")
+    return False, None
+
+
+def select_columns(rows, columns):
+    if columns is None:
+        return rows
+    if (not isinstance(columns, list) or not 1 <= len(columns) <= 100
+            or any(not isinstance(c, str) or not 1 <= len(c) <= 128 for c in columns)
+            or len(set(columns)) != len(columns)):
+        raise AiError("columns 必须是非重复字段名数组")
+    if any(any(c not in row for c in columns) for row in rows):
+        raise AiError("columns 含来源中不存在的字段，请先查询数据集确认字段")
+    # Only project already-authorized source fields; never flatten nested objects
+    # or turn missing keys into fabricated nulls.
+    return [{c: row[c] for c in columns} for row in rows]
+
 
 def unavailable():
     return AiError("pandas 容器沙箱未就绪、执行失败或结果未知；请勿自动重试。", "service_unavailable", 503)
@@ -93,7 +150,7 @@ def export_frames(inputs, principal, request_id, surface):
         raise AiError("一次分析需要 1 至 3 个数据集")
     frames, sources = {}, []
     for item in inputs:
-        fields(item, {"name", "dataset", "query", "collection"}, {"name", "dataset", "query"})
+        fields(item, {"name", "dataset", "query", "collection", "columns"}, {"name", "dataset", "query"})
         name, dataset = item["name"], item["dataset"]
         if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,31}", name) or name in frames:
             raise AiError("数据集别名无效或重复")
@@ -102,6 +159,8 @@ def export_frames(inputs, principal, request_id, surface):
         query = item["query"]
         if not isinstance(query, dict) or set(query) & {"cursor", "textOffset"}:
             raise AiError("导出必须从完整范围第一页开始")
+        if "page" in query and (type(query["page"]) is not int or query["page"] != 1):
+            raise AiError("导出必须从第一页开始，不能把最后一页当作全量")
         path = item.get("collection", "rows" if dataset.startswith("rows_") else "items")
         if not isinstance(path, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*){0,3}", path):
             raise AiError("collection 无效")
@@ -110,6 +169,7 @@ def export_frames(inputs, principal, request_id, surface):
             raise AiError("逐行数据集必须使用 rows")
         args = dict(query)
         rows, cursors, pages, first, last = [], set(), 0, None, None
+        expected_total = None
         while True:
             transport.remaining_budget()
             if pages >= 20:
@@ -132,27 +192,26 @@ def export_frames(inputs, principal, request_id, surface):
                         or not more and (cursor is not None or data.get("truncated"))):
                     raise AiError("源分页或截断状态不一致")
             else:
-                # Native tools have heterogeneous paging. Only explicitly complete
-                # collections are admitted; never invent an offset/page contract.
-                complete = parent.get("truncated") is False or parent.get("hasMore") is False
-                total = parent.get("totalMatched", parent.get("total"))
-                if not complete or incomplete(data) or type(total) is int and total != len(current):
-                    raise AiError("分析数据集未证明完整返回，请缩小范围或使用逐行数据集")
-                more, cursor = False, None
-            rows.extend(current)
+                more, expected_total = native_page(dataset, data, path, parent, current, args, expected_total)
+                cursor = None
+            rows.extend(select_columns(current, item.get("columns")))
             frames[name] = rows
             if sum(len(v) for v in frames.values()) > MAX_ROWS or len(encode(frames)) > MAX_INPUT - MAX_CODE:
                 raise AiError("导出超过 2000 行或 2 MiB，请缩小范围", "payload_too_large", 413)
             if not more:
                 break
-            cursors.add(cursor)
-            args = {**query, "cursor": cursor}
+            if records:
+                cursors.add(cursor)
+                args = {**query, "cursor": cursor}
+            else:
+                args = {**query, "page": pages + 1, "limit": data["pagination"]["pageSize"]}
         sources.append({"name": name, "dataset": dataset, "collection": path, "query": query,
             "source": first["source"], "dataCutoffDate": last.get("dataCutoffDate"),
             "queriedAt": first.get("queriedAt"), "completedAt": last.get("queriedAt"),
             "freshness": first.get("freshness"), "rows": len(rows), "pages": pages,
             "sha256": hashlib.sha256(encode(rows)).hexdigest(), "complete": True,
-            "consistency": "live_per_page" if records else "live_per_source"})
+            "columns": item.get("columns"),
+            "consistency": "live_per_page" if records or pages > 1 else "live_per_source"})
     return frames, sources
 
 

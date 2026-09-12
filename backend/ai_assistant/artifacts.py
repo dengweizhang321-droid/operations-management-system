@@ -23,6 +23,14 @@ def column(value):
     )
 
 
+def pandas_column(value):
+    # Keep units in validated calculation headers (e.g. 销售额（元）), while
+    # retaining sensitive-field exclusion and passive table/CSV rendering.
+    return (isinstance(value, str) and 1 <= len(value) <= 64
+            and re.fullmatch(r"[^\W\d][\w ()（）%/.-]*", value)
+            and not UNSAFE.search(value))
+
+
 def scalar(value):
     return (
         value is None
@@ -62,7 +70,7 @@ def candidate(name, data):
             k
             for row in collection[:50]
             for k, v in row.items()
-            if column(k) and scalar(v)
+            if (pandas_column(k) if name == "run_pandas_analysis" else column(k)) and scalar(v)
         )
     )
     if not columns:
@@ -105,7 +113,7 @@ def payload(row):
         row.kind != "table"
         or not isinstance(columns, list)
         or not 1 <= len(columns) <= 12
-        or not all(column(k) for k in columns)
+        or not all((pandas_column(k) if row.source_tool == "run_pandas_analysis" else column(k)) for k in columns)
         or not isinstance(rows, list)
         or len(rows) > 50
         or any(

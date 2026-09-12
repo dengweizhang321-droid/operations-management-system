@@ -681,8 +681,8 @@ test("AI Space routes and UI preserve role, private-object, and six-workspace co
   assert.match(gate, /"x-ai-generated": "true"/);
   assert.match(gate, /"x-ai-review-required": "true"/);
   assert.doesNotMatch(contentRoute, /object_key|objectKey/);
-  assert.match(moduleView, /\["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"\]/);
-  assert.match(catalog, /ai: \{ defaultView: "assistant", views: \["assistant", "agents", "memory", "sandbox", "space", "management", "scheduled"\] \}/);
+  assert.match(moduleView, /\["assistant", "agents", "memory", "space", "management", "scheduled"\]/);
+  assert.match(catalog, /ai: \{ defaultView: "assistant", views: \["assistant", "agents", "memory", "space", "management", "scheduled"\] \}/);
   assert.match(worker, /wakeAiQueue\("space"\)/);
   assert.match(worker, /return \{ aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \}/);
 });

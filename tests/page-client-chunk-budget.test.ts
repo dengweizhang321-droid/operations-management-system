@@ -158,13 +158,13 @@ function collectStaticClientFiles(
 }
 
 test("page keeps the AI workspace and customer service behind direct lazy boundaries", async () => {
-  const [page, aiModule, aiAssistant, aiAgents, aiMemory, aiSandbox, aiSpace, aiSpaceManagement, customerService] = await Promise.all([
+  const [page, aiModule, aiAssistant, aiAgents, aiMemory, aiScheduled, aiSpace, aiSpaceManagement, customerService] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-module-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-assistant-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-agent-workflow-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-memory-view.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/ai-sandbox-view.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/ai-dingtalk-schedules-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-space-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/ai-space-management-view.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/customer-service-view.tsx", import.meta.url), "utf8"),
@@ -184,7 +184,7 @@ test("page keeps the AI workspace and customer service behind direct lazy bounda
     ["AiAssistantView", "ai-assistant-view"],
     ["AiAgentWorkflowView", "ai-agent-workflow-view"],
     ["AiMemoryView", "ai-memory-view"],
-    ["AiSandboxView", "ai-sandbox-view"],
+    ["AiDingTalkSchedulesView", "ai-dingtalk-schedules-view"],
     ["AiSpaceView", "ai-space-view"],
     ["AiSpaceManagementView", "ai-space-management-view"],
   ]) {
@@ -195,7 +195,8 @@ test("page keeps the AI workspace and customer service behind direct lazy bounda
   assert.match(aiModule, /<AiAssistantView[^>]+workspace="chat"/);
   assert.match(aiModule, /<AiAgentWorkflowView[\s\S]*?currentUser=\{currentUser\}/);
   assert.match(aiModule, /<AiMemoryView currentUser={currentUser}/);
-  assert.match(aiModule, /<AiSandboxView currentUser={currentUser}/);
+  assert.doesNotMatch(aiModule, /AiSandboxView|ai-sandbox-view/);
+  assert.match(aiModule, /<AiDingTalkSchedulesView/);
   assert.match(aiModule, /<AiSpaceView/);
   assert.match(aiModule, /<AiSpaceManagementView/);
 
@@ -215,7 +216,7 @@ test("page keeps the AI workspace and customer service behind direct lazy bounda
   assert.match(customerService, /dialogId="customer-service-conversation-detail"/);
   assert.match(customerService, /messageTotalCount|messagesTruncated/);
 
-  for (const lazyView of [aiModule, aiAssistant, aiAgents, aiMemory, aiSandbox, aiSpace, aiSpaceManagement, customerService]) {
+  for (const lazyView of [aiModule, aiAssistant, aiAgents, aiMemory, aiScheduled, aiSpace, aiSpaceManagement, customerService]) {
     assert.doesNotMatch(lazyView, /from "\.\/page"|import\("\.\/page"\)/);
   }
 });
