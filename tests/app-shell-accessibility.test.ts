@@ -17,7 +17,7 @@ test("mobile drawer focus wrapping is deterministic without a browser DOM", () =
 
 test("application landmarks and the mobile navigation state stay accessible", async () => {
   const shell = await source("../app/shell/app-shell.tsx");
-  assert.match(shell, /<div className=\{`app-shell/);
+  assert.match(shell, /<div ref=\{shellRef\} className=\{`app-shell/);
   assert.match(shell, /<main id="main-content" className="workspace"/);
   assert.match(shell, /aria-hidden=\{mobileDrawerHidden \|\| undefined\}/);
   assert.match(shell, /inert=\{mobileDrawerHidden \|\| undefined\}/);

@@ -23,7 +23,7 @@ export function validateFinanceTargetDeletionReason(value: string | null):
   return { status: "accepted", reason };
 }
 
-export type SalesRangeLabel = "今日" | "昨天" | "近7天" | "近15天" | "本月" | "月度" | "自定义";
+export type SalesRangeLabel = "今日" | "昨天" | "近7天" | "近15天" | "近30天" | "本月" | "月度" | "去年同期" | "自定义";
 export type SalesRange = "today" | "yesterday" | "last7" | "last15" | "month" | "quarter" | "custom";
 
 export type SalesStats = {
@@ -944,8 +944,10 @@ export const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
   昨天: "yesterday",
   近7天: "last7",
   近15天: "last15",
+  近30天: "custom",
   本月: "month",
   月度: "custom",
+  去年同期: "custom",
   自定义: "custom",
 };
 
@@ -1025,7 +1027,8 @@ export const skuSalesPeriod = (range: SalesRangeLabel, customStartDate: string, 
   }
   if (range === "近7天") return { startDate: addIsoDays(today, -6), endDate: today };
   if (range === "近15天") return { startDate: addIsoDays(today, -14), endDate: today };
-  if (range === "月度" || range === "自定义") return { startDate: customStartDate, endDate: customEndDate };
+  if (range === "近30天") return { startDate: addIsoDays(today, -29), endDate: today };
+  if (range === "月度" || range === "自定义" || range === "去年同期") return { startDate: customStartDate, endDate: customEndDate };
   return { startDate: `${today.slice(0, 7)}-01`, endDate: today };
 };
 
@@ -1039,8 +1042,10 @@ export const shellPeriodForRange = (
   if (range === "昨天") return { kind: "yesterday" };
   if (range === "近7天") return { kind: "last7" };
   if (range === "近15天") return { kind: "last15" };
+  if (range === "近30天") return { kind: "last30" };
   if (range === "月度") return { kind: "calendar_month", month: selectedMonth };
   if (range === "自定义") return { kind: "custom", from: customStartDate, to: customEndDate };
+  if (range === "去年同期") return { kind: "previous_year", from: customStartDate, to: customEndDate };
   return { kind: "current_month" };
 };
 
@@ -1049,6 +1054,8 @@ export const rangeForShellPeriod = (period: ShellPeriodState): SalesRangeLabel =
   if (period.kind === "yesterday") return "昨天";
   if (period.kind === "last7") return "近7天";
   if (period.kind === "last15") return "近15天";
+  if (period.kind === "last30") return "近30天";
+  if (period.kind === "previous_year") return "去年同期";
   if (period.kind === "calendar_month") return "月度";
   if (period.kind === "custom") return "自定义";
   return "本月";
@@ -1062,6 +1069,11 @@ export const moveIsoYears = (value: string, offset: number) => {
   const targetLastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();
   return `${targetYear}-${String(month).padStart(2, "0")}-${String(Math.min(day, targetLastDay)).padStart(2, "0")}`;
 };
+
+export const previousYearPeriod = (period: { startDate: string; endDate: string }) => ({
+  startDate: moveIsoYears(period.startDate, -1),
+  endDate: moveIsoYears(period.endDate, -1),
+});
 
 export const productComparisonPeriod = (
   current: { startDate: string; endDate: string },
