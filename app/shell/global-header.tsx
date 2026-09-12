@@ -43,7 +43,7 @@ export default function GlobalHeader({
         >
           <span aria-hidden="true">☰</span>
         </button>
-        <div>
+        <div className="shell-page-heading">
           <h1 id="global-page-title" ref={titleRef} tabIndex={-1}>{title}</h1>
           <span id="global-page-description">{description}</span>
         </div>
