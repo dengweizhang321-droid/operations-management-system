@@ -65,6 +65,7 @@ try:
     from ai_assistant.table_manifest import AI_TABLES
     m.AiConversations.objects.create(id="rehearsal-old", title="Synthetic retained conversation", created_by="fixture@example.invalid")
     manage("migrate", "--noinput")
+    manage("makemigrations", "--check", "--dry-run")
     assert m.AiConversations.objects.get(pk="rehearsal-old").title == "Synthetic retained conversation"
     tests = manage("test", "ai_assistant", "sales.tests.test_api.SalesApiContractTests.test_brand_filter_uses_exact_erp_identity_and_preserves_refunds", "--noinput")
     (RUN / "tests.log").write_text(tests, encoding="utf-8")
@@ -136,12 +137,19 @@ try:
                 result[table] = sorted(json.dumps(row, sort_keys=True, default=str) for row in rows)
         return hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
     before = snapshot("ding_fixture")
+    writer_url = f"postgresql://teruisi_ai_writer:{writer_password}@127.0.0.1:{PORT}/ding_fixture"
+    with psycopg.connect(writer_url, autocommit=True) as first, psycopg.connect(writer_url, autocommit=True) as second:
+        assert first.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
+        assert not second.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
+        assert first.execute("SELECT pg_advisory_unlock(841327,1909)").fetchone()[0]
+        assert second.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
+        assert second.execute("SELECT pg_advisory_unlock(841327,1909)").fetchone()[0]
     run([BIN / "pg_dump.exe", "-Fc", "-f", RUN / "fixture.dump", "ding_fixture"])
     run([BIN / "createdb.exe", "ding_restored"])
     run([BIN / "pg_restore.exe", "--exit-on-error", "-d", "ding_restored", RUN / "fixture.dump"])
     assert before == snapshot("ding_restored")
     result = {"status": "passed", "port": PORT, "aiTables": len(AI_TABLES), "oldConversationRetained": True,
-        "readerWriterReadiness": True, "negativePermissions": True, "immutableIdentities": True,
+        "readerWriterReadiness": True, "negativePermissions": True, "immutableIdentities": True, "receiverSingleton": True,
         "dumpRestoreDigest": before, "productionTouched": False, "externalMessages": 0}
     (RUN / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({**result, "evidence": str(RUN / "result.json")}), flush=True)
