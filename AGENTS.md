@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+本机存储保留：GitHub归档必须使用独立私有仓库，禁止向公开源码仓库上传业务数据库、附件、配置和恢复密钥。旧Worker依赖只能按完整验证链规划，保留当前与最近两个前驱，按原始依赖树摘要归档并完整下载/解包验证；正式清理须持有生命周期互斥、逐目录复验与进程引用检查、写持久审计，仅删除精确历史`node_modules`，保留所有manifest、回执、fence、successor、源码、dist及helper。数据库云端归档须先完成认证加密、独立离线密钥与隔离恢复验收，尚未满足时不缩短原本机保留期。详见 `docs/STORAGE_RETENTION.md`。
+
 2026-09-12，绿色主题与跨模块沙箱修复已合入 main 并在本机采用。源码 `9237d53ebba8b06886d473f7f8236b3f8d0644ca`；Worker/helper `20260912T143827Z-79e971ff2b5bce03`，manifest SHA `35bd57a7ac3025fcafa85ae15e0062c0c244357c76bc6acd9eaa5a97921b547a`；Django manifest SHA `1a2e4773dc874f8303b6b1104862b3ba6806921f53fe1c8ae08a50570d3d19e1`。公共 UI 使用 AI 对话共享森林绿主题；沙箱仅移除配置页面，JSON/pandas 后端、权限与审计继续保留。跨 app 导出必须逐页验证完整性，仅可显式投影授权标量列，不放宽 3 数据集、2000 行、2 MiB、20 页等边界；结果允许中文单位列，保留 CSV 公式防护。无迁移、无 broker 镜像变更；正式状态、资源、签名探针/合成容器计算、发布前独立恢复及发布后备份复验通过。付费模型自然语言端到端尚未验收。证据见 `docs/evidence/unified-theme-cross-app-sandbox-production-20260912.json`。
 
 2026-09-12，顶部单行导航、冻结模块 Tab、“章”账号菜单及统计周期新增选项已在本机采用。源码提交 `627ea7f104d4bcaa08fc989c31a64413ab1bc590`，Worker/helper 为 `20260912T095027Z-43c06ff99569edfa`，manifest SHA 为 `cf2bc75ea8030818e99aae06ea12201adc06b45eb76fb89d7b91efc879a9bb66`。近30天包含上海当天；去年同期以当前选中区间回退一年、重复选择不递减、闰日夹至二月末，并保留 URL 日期与原操作能力。全量 2121 通过/0 失败/20 跳过，正式资源字节、Running/Ready/exact_release、启动绑定、发布前备份独立恢复和发布后备份复验通过。此次仅切换 Worker/helper，无数据库迁移或 Django/n8n 重启；证据见 `docs/evidence/top-navigation-production-20260912.json`。
