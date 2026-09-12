@@ -1,6 +1,6 @@
 # n8n 无控制台启动
 
-2026-09-11 晚间已恢复本机 n8n：确认并修复 Windows PowerShell 5.1 将普通原生 stderr 警告升级为终止错误的问题。计划任务现使用独立运行目录 `D:\teruisi-runtime\n8n-service\20260911-daf263377b07`，首页、健康和就绪检查均为 200，21:20 自然周报检查成功且为 `not_due`。源码已推送 `codex/n8n-power-resilience`；完整测试中的既有 AI 文案断言未通过，尚未合入 main。部署期间修正包装脚本编码曾中断过期重试 1006，该执行现为 `crashed`，未手动重放；丽丽店原商品导出失败仍需单独处理。详见 [晚间恢复证据](evidence/n8n-native-stderr-recovery-20260911.json)。
+2026-09-11 晚间已恢复本机 n8n：确认并修复 Windows PowerShell 5.1 将普通原生 stderr 警告升级为终止错误的问题。计划任务现使用独立运行目录 `D:\teruisi-runtime\n8n-service\20260911-daf263377b07`，首页、健康和就绪检查均为 200，21:20 自然周报检查成功且为 `not_due`。2026-09-12 同步最新主线后重新验证，聚焦测试 6/6、全量单元测试 2109 通过/23 跳过/0 失败、lint 0 错误，并已合入 `main`；生产继续复用此前受控采用的相同源码字节，无需重复中断 n8n。部署期间修正包装脚本编码曾中断过期重试 1006，该执行现为 `crashed`，未手动重放；丽丽店原商品导出失败仍需单独处理。详见 [晚间恢复证据](evidence/n8n-native-stderr-recovery-20260911.json)。
 
 2026-09-11 已在本机受控采用服务启动与命令节点两处修复。10:30 自然触发的新品周报检查 execution 956 成功，观察到其 cmd/PowerShell 子进程，未新增 Windows Terminal/OpenConsole；服务健康、13 条启用工作流及工作流/Webhook/owner 摘要回查通过。详见 [采用证据](evidence/n8n-no-console-production-20260911.json)。
 

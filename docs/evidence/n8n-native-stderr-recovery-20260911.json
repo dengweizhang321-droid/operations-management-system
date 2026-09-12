@@ -61,5 +61,17 @@
     "mainMerge": "not performed: full-suite gate is not green; retain branch and worktree",
     "workerOrDjangoDeployment": false,
     "manualBusinessExecutionOrNotification": false
+  },
+  "mainIntegration": {
+    "date": "2026-09-12",
+    "integrationCommit": "c2e280e6e813fb2a21935e96a78d3cd361386c81",
+    "focusedNodeTests": {"passed": 6, "failed": 0},
+    "nativeLauncherIntegration": "passed",
+    "fullUnit": {"passed": 2109, "failed": 0, "skipped": 23, "total": 2132},
+    "lint": {"exitCode": 0, "errors": 0, "warnings": 11},
+    "buildOnly": "passed",
+    "diffCheck": "passed",
+    "productionAction": "No repeat restart: the scheduled task was already running the exact adopted source bytes from the immutable 20260911-daf263377b07 runtime.",
+    "mainPush": "completed"
   }
 }
