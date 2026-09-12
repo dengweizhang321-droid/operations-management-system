@@ -1446,7 +1446,7 @@ export async function getAutomationRunStatusPageData(
   return { page: "workflow.automation", available: true, workflowKey, date: payload.date, checkedAt: payload.checkedAt,
     source: payload.source, timezone: payload.timezone,
     items: boundedRecords(payload.items.filter(item => ids.has(item.workflowId)), 11,
-      ["workflowId", "active", "state", "completedToday", "completedAt", "executionId", "startedAt", "finishedAt"]),
+      ["workflowId", "active", "state", "completedToday", "completedAt", "completedMode", "executionId", "executionMode", "startedAt", "finishedAt"]),
     message: "仅上海今天自动触发或完整自动重试的 n8n 记录；共用工作流表示整链状态，手动调试不计入。" };
 }
 

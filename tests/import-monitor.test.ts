@@ -6,7 +6,7 @@ import { normalizeShellLocation } from "../app/shell/navigation-contract";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ImportChainRulesView from "../app/import-chain-rules-view";
-import { formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "../lib/imports/chain-status";
+import { completedAtLabel, formatChainStatusTime, todayStatusLabel, validateTodayStatus, type ChainTodayResponse } from "../lib/imports/chain-status";
 
 test("in-flight, failed and unknown imports never acquire a green completed status", () => {
   for (const status of ["processing", "running", "pending", "queued", "rejected", "failed", "expired", "future_status", ""]) {
@@ -40,6 +40,9 @@ test("display catalog matches allowlisted workflow definitions without bundling 
   const backend = JSON.parse(await readFile(new URL("../backend/workflow/import_chain_catalog.json", import.meta.url), "utf8"));
   assert.deepEqual(backend.workflowIds, catalog.rules.map((r: { workflowId: string }) => r.workflowId));
   assert.equal(new Set(catalog.rules.map((r: { workflowId: string }) => r.workflowId)).size, catalog.rules.length);
+  const jdRule = catalog.rules.find((r: { chainKey: string }) => r.chainKey === "jd");
+  assert.equal(jdRule?.workflowId, "JdN8nSilentCopy2026");
+  assert.equal(catalog.rules.some((r: { workflowId: string }) => r.workflowId === "JdN8nM3uL7tI2026"), false);
   assert.doesNotMatch(text, /userDataDir|profileDir|debugPort|downloadDir|credentials|httpRequest|localhost:5791/);
   assert.doesNotMatch(text, /"active"|"lastRun"|"nextRun"/);
   const entities = new Set(catalog.entities.map((e: { key: string }) => e.key));
@@ -69,4 +72,15 @@ test("today status rejects impossible completion and shows later failure distinc
   assert.equal(todayStatusLabel().label, "今天：无法核实");
   assert.equal(validateTodayStatus({ ...response, items: [{ ...item, state: "completed", completedAt: null }] }), false);
   assert.equal(validateTodayStatus({ ...response, items: [item, item] }), false);
+});
+
+test("today status distinguishes scheduled completion from an automatic retry", () => {
+  const base = { workflowId: "test", active: true, state: "completed" as const, completedToday: true,
+    completedAt: "2026-09-10T01:00:00Z", executionId: "1", startedAt: "2026-09-10T00:00:00Z", finishedAt: "2026-09-10T01:00:00Z" };
+  const scheduled = { ...base, completedMode: "trigger" as const, executionMode: "trigger" as const };
+  const retried = { ...base, completedMode: "webhook" as const, executionMode: "webhook" as const };
+  assert.equal(todayStatusLabel(scheduled).label, "今天定时已完成");
+  assert.equal(completedAtLabel(scheduled), "今日定时完成于");
+  assert.equal(todayStatusLabel(retried).label, "今天重试已完成");
+  assert.equal(completedAtLabel(retried), "今日重试完成于");
 });

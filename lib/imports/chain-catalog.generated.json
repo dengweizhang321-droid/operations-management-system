@@ -164,13 +164,13 @@
         "jd-maidehao-operator1",
         "jd-cuizhiwang-dengweizhang"
       ],
-      "workflowId": "JdN8nM3uL7tI2026",
-      "name": "京东多店铺商品数据统一下载与导入",
+      "workflowId": "JdN8nSilentCopy2026",
+      "name": "京东多店铺商品数据统一下载与导入（Chromium静默下载副本）",
       "timezone": "Asia/Shanghai",
       "schedules": [
         "0 10 * * *"
       ],
-      "definitionFile": "automation/n8n/jd-multi-store-daily.workflow.json"
+      "definitionFile": "automation/n8n/jd-multi-store-daily.chromium-silent-copy.workflow.json"
     },
     {
       "chainKey": "jd_market",
