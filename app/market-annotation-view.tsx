@@ -13,6 +13,7 @@ import {
 } from "@/lib/market/annotation-limits";
 import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-template";
 import { remainingInferenceUnitsForJob } from "@/lib/market/annotation-progress";
+import { AnnotationReadError, createAnnotationReadChannel } from "@/lib/market/annotation-read-channel";
 import { canSelectAnnotationReviewItem } from "@/lib/market/annotation-review-state";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
@@ -117,6 +118,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [savingConcurrencyKey, setSavingConcurrencyKey] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [progressError, setProgressError] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [progressReader] = useState(() => createAnnotationReadChannel({ label: "任务进度读取", onError: setProgressError }));
+  const [reviewReader] = useState(() => createAnnotationReadChannel({ label: "复核列表读取", onError: setReviewError }));
   const [staleCandidateId, setStaleCandidateId] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
@@ -126,7 +131,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const dirtyDraftIdsRef = useRef(new Set<string>());
   const loadSequenceRef = useRef(0);
   const reviewLoadSequenceRef = useRef(0);
-  const reviewControllerRef = useRef<AbortController | null>(null);
   const candidateCountsGenerationRef = useRef(0);
   const candidateCountsControllerRef = useRef<AbortController | null>(null);
   const candidateCountsScopeRef = useRef("");
@@ -251,60 +255,47 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
   const loadReview = useCallback(async (resetDrafts = false) => {
     const loadSequence = ++reviewLoadSequenceRef.current;
-    reviewControllerRef.current?.abort();
+    reviewReader.cancel();
     const params = new URLSearchParams({ view: "review", itemPage: String(itemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
     reviewCategories.forEach((value) => params.append("itemCategory", value));
     itemSegments.forEach((value) => params.append("itemSegment", value));
     storageStatuses.forEach((value) => params.append("storageStatus", value));
     recognitionSources.forEach((value) => params.append("recognitionSource", value));
-    const controller = new AbortController();
-    reviewControllerRef.current = controller;
     setReviewLoading(true);
-    let timedOut = false;
-    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, LOAD_TIMEOUT_MS);
-    let response: Response;
-    let payload: ReviewWorkspace | null;
     try {
-      response = await fetch("/api/market/annotations?" + params, { cache: "no-store", signal: controller.signal });
-      payload = await response.json().catch(() => null) as ReviewWorkspace | null;
-    } catch (reason) {
-      if (loadSequence !== reviewLoadSequenceRef.current) return;
-      if (timedOut) throw new Error("读取人工复核列表超时，请重试");
-      if (controller.signal.aborted) return;
-      throw reason;
+      await reviewReader.read<ReviewWorkspace>("/api/market/annotations?" + params,
+        (value): value is ReviewWorkspace => Boolean(value && typeof value === "object" && Array.isArray((value as ReviewWorkspace).items) && (value as ReviewWorkspace).itemPagination && (value as ReviewWorkspace).selection),
+        (payload) => {
+          setLoadedReviewScopeKey(annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources }));
+          setData((current) => current ? { ...current, ...payload } : current);
+          setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
+            const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
+            const existing = current[item.id];
+            const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
+            if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
+            return [item.id, preserve ? existing : serverDraft];
+          })));
+        });
     } finally {
-      window.clearTimeout(timeout);
-      if (reviewControllerRef.current === controller) reviewControllerRef.current = null;
       if (loadSequence === reviewLoadSequenceRef.current) setReviewLoading(false);
     }
-    if (loadSequence !== reviewLoadSequenceRef.current) return;
-    if (!response.ok || !payload) throw new Error(payload?.error || "读取人工复核列表失败");
-    setLoadedReviewScopeKey(annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources }));
-    setData((current) => current ? { ...current, ...payload } : current);
-    setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
-      const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
-      const existing = current[item.id];
-      const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
-      if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
-      return [item.id, preserve ? existing : serverDraft];
-    })));
-  }, [itemPage, itemPageSize, reviewCategories, itemSegments, storageStatuses, recognitionSources]);
+  }, [itemPage, itemPageSize, reviewCategories, itemSegments, storageStatuses, recognitionSources, reviewReader]);
 
-  const loadJobProgress = useCallback(async (targetJobId: string) => {
+  const loadJobProgress = useCallback(async (targetJobId: string, signal?: AbortSignal) => {
     const params = new URLSearchParams({ view: "progress", jobId: targetJobId });
-    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as JobProgress | null;
-    if (!response.ok || !payload?.job) throw new Error(payload?.error || "读取标注任务进度失败");
-    setCloudProgress(payload);
-    setData((current) => current ? {
-      ...current,
-      jobs: current.jobs.map((item) => item.id === payload.job.id ? payload.job : item),
-      cloudRuns: payload.cloudRun
-        ? [...current.cloudRuns.filter((item) => item.jobId !== payload.job.id), payload.cloudRun]
-        : current.cloudRuns,
-    } : current);
-    return payload;
-  }, []);
+    return progressReader.read<JobProgress>("/api/market/annotations?" + params,
+      (value): value is JobProgress => Boolean(value && typeof value === "object" && (value as JobProgress).job?.id === targetJobId),
+      (payload) => {
+        setCloudProgress(payload);
+        setData((current) => current ? {
+          ...current,
+          jobs: current.jobs.map((item) => item.id === payload.job.id ? payload.job : item),
+          cloudRuns: payload.cloudRun
+            ? [...current.cloudRuns.filter((item) => item.jobId !== payload.job.id), payload.cloudRun]
+            : current.cloudRuns,
+        } : current);
+      }, signal);
+  }, [progressReader]);
 
   const loadInitial = useCallback(async () => {
     setInitialLoading(true);
@@ -325,25 +316,24 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       mountedRef.current = false;
       loadSequenceRef.current += 1;
       reviewLoadSequenceRef.current += 1;
-      reviewControllerRef.current?.abort();
-      reviewControllerRef.current = null;
+      reviewReader.cancel();
       candidateCountsGenerationRef.current += 1;
       candidateCountsScopeRef.current = "";
       candidateCountsControllerRef.current?.abort();
       candidateCountsControllerRef.current = null;
+      progressReader.cancel();
     };
-  }, []);
+  }, [progressReader, reviewReader]);
   useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!initialReadyRef.current) return;
-    const timer = window.setTimeout(() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败")), 0);
+    const timer = window.setTimeout(() => void loadReview().catch(() => undefined), 0);
     return () => {
       window.clearTimeout(timer);
       reviewLoadSequenceRef.current += 1;
-      reviewControllerRef.current?.abort();
-      reviewControllerRef.current = null;
+      reviewReader.cancel();
     };
-  }, [loadReview]);
+  }, [loadReview, reviewReader]);
   const post = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
@@ -375,7 +365,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     try { await fn(); }
     catch (reason) {
       const message = reason instanceof Error ? reason.message : "操作失败";
-      setError(message);
+      if (!(reason instanceof AnnotationReadError)) setError(message);
       setStaleCandidateId(message.match(/候选项 (market-item-[0-9a-f-]{36}) 对应的榜单身份、价格快照或图片版本已变化/i)?.[1] ?? "");
     } finally { setBusy(""); }
   };
@@ -407,29 +397,37 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const backgroundJobId = currentJob?.id ?? "";
   const backgroundExecutor = currentJob?.executor ?? "";
   useEffect(() => {
+    progressReader.cancel();
+    setCloudProgress(null);
+    setProgressError("");
+    return () => progressReader.cancel();
+  }, [backgroundJobId, progressReader]);
+  useEffect(() => {
     if (!backgroundJobId || backgroundExecutor !== "cloud" || !currentCloudRunIsRunning) return;
     let disposed = false;
+    const controller = new AbortController();
     let polling = false;
     let reviewedCompletedCount = -1;
     const tick = async () => {
       if (disposed || polling) return;
       polling = true;
       try {
-        const progress = await loadJobProgress(backgroundJobId);
-        if (!disposed && progress.job.completedCount !== reviewedCompletedCount) {
+        const progress = await loadJobProgress(backgroundJobId, controller.signal);
+        if (!progress || disposed) return;
+        if (!disposed && (progress.job.completedCount !== reviewedCompletedCount || reviewReader.hasError())) {
           await loadReview();
           reviewedCompletedCount = progress.job.completedCount;
         }
-      } catch (reason) {
-        if (!disposed) setError(reason instanceof Error ? reason.message : "读取云端后台进度失败");
+      } catch {
+        // Each read channel retains its own failure until that same read succeeds.
       } finally {
         polling = false;
       }
     };
     void tick();
     const timer = window.setInterval(() => void tick(), 5_000);
-    return () => { disposed = true; window.clearInterval(timer); };
-  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview]);
+    return () => { disposed = true; controller.abort(); window.clearInterval(timer); };
+  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview, reviewReader]);
   const concurrencyFor = (targetCategory: string, targetExecutor: MarketAnnotationExecutor) => {
     const key = annotationConcurrencyKey(targetCategory, targetExecutor);
     const stored = data?.concurrencySettings.find((item) => item.category === targetCategory && item.executor === targetExecutor)?.concurrency;
@@ -519,6 +517,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         await post({ action: "set_cloud_run_state", jobId: id, state: "running" });
       }
       const progress = await loadJobProgress(id);
+      if (!progress) return;
       await load(id, 1);
       setJobId(id);
       setCloudProgress(progress);
@@ -542,6 +541,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
     const progress = await loadJobProgress(currentJob.id);
+    if (!progress) return;
     setNotice(progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
       ? "云端识别队列已经处理完毕，可进入人工复核与批量入库"
       : alreadyRunning
@@ -743,6 +743,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   };
 
   return <div className="market-annotation-module">
+    {progressError && <div className="market-feedback error" role="alert"><span>{progressError}</span><button className="secondary-button" disabled={!jobId} onClick={() => void loadJobProgress(jobId).catch(() => undefined)}>重新读取进度</button></div>}
+    {reviewError && <div className="market-feedback error" role="alert"><span>{reviewError}</span><button className="secondary-button" disabled={reviewLoading} onClick={() => void loadReview().catch(() => undefined)}>重新读取复核列表</button></div>}
     {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")} role={error ? "alert" : "status"}><span>{error || notice}</span>{error && staleCandidateId && <button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={rebuildStaleCandidate}>{busy === "rebuild-stale" ? "重建中…" : "重建这条失效候选"}</button>}</div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
@@ -806,8 +808,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         }} />全选当前页可入库项（{importableItems.length} 条）</label>
         <label className="annotation-select-page annotation-select-filtered" title={filteredSelectionBlockReason || "选择所有页面中符合当前筛选的可入库候选"}><input type="checkbox" checked={allFilteredChecked} disabled={Boolean(filteredSelectionBlockReason)} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
         <small>{filteredSelectionBlockReason || "已完成识别的候选可先复核入库，无需等待整项任务结束；保留任务 Prompt 与当前字典校验。跨页最多 50,000 条，入库每批处理 500 条。"}</small>
-        <button className="secondary-button" disabled={busy !== "" || reviewLoading} onClick={() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败"))}>{reviewLoading ? "刷新中…" : "刷新复核结果"}</button>
-        {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败"))}>重新加载筛选结果</button>}
+        <button className="secondary-button" disabled={busy !== "" || reviewLoading} onClick={() => void loadReview().catch(() => undefined)}>{reviewLoading ? "刷新中…" : "刷新复核结果"}</button>
+        {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch(() => undefined)}>重新加载筛选结果</button>}
         <div className="market-view-switch" role="tablist" aria-label="AI 标注展示方式"><button type="button" role="tab" id="annotation-review-tab-list" aria-controls="annotation-review-panel-list" aria-selected={reviewView === "list"} tabIndex={reviewView === "list" ? 0 : -1} className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")} onKeyDown={handleRovingTabKey}>列表</button><button type="button" role="tab" id="annotation-review-tab-gallery" aria-controls="annotation-review-panel-gallery" aria-selected={reviewView === "gallery"} tabIndex={reviewView === "gallery" ? 0 : -1} className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")} onKeyDown={handleRovingTabKey}>大图</button></div>
       </div>
       {recognitionSources.includes("non_ai") && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
