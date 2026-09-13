@@ -12,11 +12,13 @@
 
 普通定时槽只在计划时间后 5 分钟内认领。接收器停机或 AI 群开关关闭期间错过的旧槽跳过，不追发历史报表；手动入队超过 5 分钟也标记为错过。执行前及模型处理期间重新验证任务版本、创建管理员身份、绑定员工身份/权限、AI 群策略；发送前还按已有钉钉通道核验应用、群名、精确群 ID 和机器人安装。任务编辑/停用会撤销旧版本的待执行项。外部发送前持久预留 `sending`；中断或超时无法确认的调用只记 `unknown`，不得自动调用付费模型或外发第二次。`sent` 表示 DWS 确认受理，不保证终端已读。
 
-## 接收器随系统自动启动（候选，尚未生产采用）
+## 接收器随系统自动启动
+
+2026-09-13 已在本机受控发布并启用。源码 `8b25c7005b6d6af4e04ee75937f2496b257ebf0e`，Worker/helper `20260912T234549Z-017f8196dda91b2b`，Django manifest SHA `8c87f48c44b850baa0c426d00ef26970db671d656ebdb7ffd1d558e88d0beaa5`。实际从停止状态启动 Worker 后，系统自行拉起接收器并记录 `connected`；再次系统启动返回 `already_running`，接收器 PID、创建时间与运行回执保持一致。启动项绑定回读通过；本次未重启 Windows，不能把系统启动验证称为整机重启验收。完整证据见 [正式发布记录](evidence/dingtalk-receiver-autostart-production-20260913.json)。
 
 接收器可通过系统启动配置，在 Windows 登录后的既有启动链或手动启动运营系统时自动开启，无需保留 PowerShell 窗口。它在数据库、各域服务和 Worker 就绪之后启动；对已运行的系统再次执行“启动”也会检查接收器。仍复用现有受控 AI operator、进程回执和 PostgreSQL 单例锁，不创建第二个定时任务执行器。
 
-此功能默认关闭。须先受控发布配套 `django-ai.ps1` 和 `worker-local-service.ps1`，再执行以下配置。**未发布的现有 runtime 不支持这些新命令。**
+此功能新安装时默认关闭，本机已启用。其他环境须先受控发布配套 `django-ai.ps1` 和 `worker-local-service.ps1`，再执行以下配置：
 
 ```powershell
 $aiController = "D:\teruisi-runtime\django-sales\app\tools\django-ai.ps1"
@@ -27,9 +29,9 @@ $aiController = "D:\teruisi-runtime\django-sales\app\tools\django-ai.ps1"
 
 `DisableDingTalkStartup` 关闭以后随系统自动启动，保持当前接收器运行；`StopDingTalk` 则同时关闭自动启动并停止当前接收器。整套系统正常停止保留自动启动配置，下次系统启动会再次带起。`StartDingTalk` 仍仅为单次手动启动，不撤销持久停用设置。`Status` 增加 `DingTalkStartup` 和 `DingTalkReceiver`，进程 `running` 不等于平台连接确认，连接仍须核验本轮日志的 `connected`。
 
-自动启动失败会明确报告接收器失败，已就绪的业务服务不因此被停止。本候选仅接入系统启动链，不新增接收器自身的无限重启或认证重试；连续建联失败退出后仍需排障并重新启动系统入口。当前 Windows 启动链要求登录原用户（DPAPI 身份），不支持重启后无人登录即运行。超过 5 分钟的旧执行槽仍不补发。
+自动启动失败会明确报告接收器失败，已就绪的业务服务不因此被停止。本次仅接入系统启动链，不新增接收器自身的无限重启或认证重试；连续建联失败退出后仍需排障并重新启动系统入口。当前 Windows 启动链要求登录原用户（DPAPI 身份），不支持重启后无人登录即运行。超过 5 分钟的旧执行槽仍不补发。
 
-候选验证：Windows PowerShell 5.1/7 隔离启动与失败场景通过；全库 Node 2122 通过、0 失败、23 跳过，最终启动授权校验调整后的 6 项专项复测通过。lint 无错误（11 条已有警告），426 个后端入口/依赖模块边界检查无违规。本次没有数据库迁移、生产配置写入、服务切换或候选真实投递。见 [候选验证记录](evidence/dingtalk-receiver-autostart-candidate-20260913.json)。
+候选验证：Windows PowerShell 5.1/7 隔离启动与失败场景通过；全库 Node 2122 通过、0 失败、23 跳过，最终启动授权校验调整后的 6 项专项复测通过。lint 无错误（11 条已有警告），426 个后端入口/依赖模块边界检查无违规。候选开发阶段没有数据库迁移、生产配置写入、服务切换或真实投递。见 [候选验证记录](evidence/dingtalk-receiver-autostart-candidate-20260913.json)。
 
 ## 采用门禁
 
