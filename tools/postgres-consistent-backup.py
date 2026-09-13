@@ -234,6 +234,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0011_prompt_settings" in ai_migrations and "0010_dingtalk_schedules" not in ai_migrations:
+                raise RuntimeError("AI prompt settings schema has no schedule predecessor")
+            if "0011_prompt_settings" not in ai_migrations:
+                expected_ai_tables.remove("ai_prompt_settings_revisions")
             if "0010_dingtalk_schedules" in ai_migrations and "0009_model_generation_capabilities" not in ai_migrations:
                 raise RuntimeError("DingTalk schedule schema has no AI model predecessor")
             if "0010_dingtalk_schedules" not in ai_migrations:

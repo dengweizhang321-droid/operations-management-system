@@ -438,7 +438,8 @@ export default function Home() {
     return () => controller.abort();
   }, [debouncedGlobalSearchQuery, searchOpen]);
 
-  const current = navItems.find((item) => item.key === active) ?? navItems[0];
+  const isAiChat = active === "ai" && activeModuleView === "assistant";
+  const current = isAiChat ? { label: "AI 对话", description: "小特对话工作台" } : navItems.find((item) => item.key === active) ?? navItems[0];
   const View = viewMap[active];
 
   const replacePeriodUrl = useCallback((period: ShellPeriodState) => {
@@ -452,9 +453,9 @@ export default function Home() {
     if (nextUrl !== currentUrl) window.history.replaceState(null, "", nextUrl);
   }, [active, activeModuleView, importSource]);
 
-  const hrefForModule = useCallback((key: ModuleKey) => {
+  const hrefForModule = useCallback((key: ModuleKey, requestedView?: ModuleViewKey) => {
     const currentUrl = typeof window === "undefined" ? "/" : window.location.href;
-    return serializeShellLocation({ module: key, view: getDefaultModuleView(key), period: shellPeriod }, currentUrl);
+    return serializeShellLocation({ module: key, view: requestedView ?? getDefaultModuleView(key), period: shellPeriod }, currentUrl);
   }, [shellPeriod]);
 
   const selectModule = useCallback((key: ModuleKey, nextImportSource?: ImportSourceKey, requestedView?: ModuleViewKey) => {
@@ -510,10 +511,10 @@ export default function Home() {
     askAiWithContext("请结合当前页面的数据分析重点变化、异常及可能原因，并说明数据来源和统计范围。");
   }, [askAiWithContext]);
 
-  const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey) => {
+  const handleSidebarNavigate = useCallback((event: React.MouseEvent<HTMLAnchorElement>, key: ModuleKey, view?: ModuleViewKey) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    selectModule(key);
+    selectModule(key, undefined, view);
   }, [selectModule]);
 
   const loadMoreGlobalSearchGroup = useCallback(async (groupKey: GlobalSearchGroupKey, page: number) => {
@@ -659,7 +660,7 @@ export default function Home() {
         collapsed={collapsed}
         mobileOpen={mobileMenu}
         onCloseMobile={closeMobileMenu}
-        sidebar={<SidebarNavigation active={active} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />}
+        sidebar={<SidebarNavigation active={active} activeView={activeModuleView} collapsed={collapsed} hrefForModule={hrefForModule} onNavigate={handleSidebarNavigate} onToggleCollapsed={toggleCollapsed} />}
         header={<GlobalHeader
           title={current.label}
           description={`${current.description}${active !== "n8n_workflows" ? ` · ${globalPeriod.startDate} 至 ${globalPeriod.endDate}` : ""}`}
@@ -684,7 +685,7 @@ export default function Home() {
           </>}
         />}
       >
-        <div className="content">
+        <div className={`content${isAiChat ? " content-ai-chat" : ""}`}>
           <div className={`module-stage${active === "ai" && activeModuleView === "assistant" ? " module-stage-ai-chat" : ""}${moduleTransitionPending ? " module-stage-pending" : ""}`} aria-busy={moduleTransitionPending}>
             <ModuleErrorBoundary
               resetKey={`${active}:${activeModuleView}:${importSource ?? ""}`}
@@ -703,7 +704,7 @@ export default function Home() {
             open={aiPanelOpen} fullPage={active === "ai" && activeModuleView === "assistant"}
             onClose={closeAiPanel} prompt={aiContextPrompt} promptModule={aiPageContext?.module} promptId={aiPromptId}
           />}
-          <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>
+          {!isAiChat && <footer className="page-footer"><span>TERUISI 电商运营中台 · 业务数据中心</span><span>销售分析以最近成功导入批次为准</span></footer>}
         </div>
       </AppShell>
 

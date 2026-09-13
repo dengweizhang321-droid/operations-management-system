@@ -21,6 +21,7 @@ from . import (
     knowledge,
     datasets,
     dingtalk_settings,
+    prompt_settings,
     dingtalk_schedules,
 )
 from .model_capabilities import MAX_CHAT_SECONDS
@@ -123,6 +124,7 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"prompt-settings": {"GET", "POST"},
             r"dingtalk-settings": {"GET", "PATCH"},
             r"dingtalk-schedules": {"GET", "POST"},
             r"dingtalk-schedules/run": {"POST"},
@@ -190,12 +192,17 @@ def _dispatch(request, path=""):
             principal = current_principal(
                 principal, write=writer and root not in {"consumer", "artifacts"}
             )
-        if root in {"models", "channels", "dingtalk-settings", "dingtalk-schedules"} or parts[:2] in [
+        if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules"} or parts[:2] in [
             ["space", "profiles"],
             ["space", "templates"],
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "prompt-settings":
+            if request.method == "GET":
+                return response(prompt_settings.read(principal, params))
+            fields(params, set())
+            return write(request, principal, lambda: (prompt_settings.save(payload, principal), 200))
         if root == "datasets":
             if request.method == "GET":
                 fields(payload, set())

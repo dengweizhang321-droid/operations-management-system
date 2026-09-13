@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+2026-09-13 **AI 对话与配置设置已完成隔离开发，待预览验收**：AI 对话独立放在运营事务左侧、充分利用页面高度；新增全局提示词、领域业务口径及版本恢复。分支 `codex/ai-chat-settings` 尚未合并或上线，持久会话工作能力暂缓。使用说明与验证边界见 [AI 对话与配置设置](docs/AI_PROMPT_SETTINGS.md)。
+
 2026-09-13 **钉钉接收器随系统自动启动已上线并启用**：Windows 登录启动或手动启动运营系统，会在数据库、业务服务和网页就绪后自动开启接收器；无需保留 PowerShell 窗口。实际系统启动已自动拉起并连接钉钉，重复启动复用同一接收器。手动停止接收器会同时关闭自动启动，正常停止整套系统保留配置。说明见 [AI 定时任务](docs/AI_DINGTALK_SCHEDULES.md#接收器随系统自动启动)，采用证据见 [发布记录](docs/evidence/dingtalk-receiver-autostart-production-20260913.json)。
 
 2026-09-12 **绿色主题与跨模块沙箱修复已上线**：导航、Tab、公共筛选、视图切换、导入卡片和横幅参考 AI 对话统一配色，缩小自动化横幅并改善商品经营按钮可读性。移除沙箱配置页面，保留 AI 对话计算，修复分页数据集导出与中文单位结果列。Worker/helper 为 `20260912T143827Z-79e971ff2b5bce03`；系统 Running/Ready，正式资源、沙箱合成计算、发布前独立恢复及发布后备份复验通过。跨领域真实容器测试通过，尚未进行付费模型自然语言端到端验收。详见 [说明](docs/UNIFIED_THEME_CROSS_APP_SANDBOX.md) 和 [发布证据](docs/evidence/unified-theme-cross-app-sandbox-production-20260912.json)。

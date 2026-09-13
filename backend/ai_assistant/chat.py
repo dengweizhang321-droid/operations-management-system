@@ -607,6 +607,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
         else:
             tools = transport.catalog(principal, surface)
             frames = _context(conv, principal, prompt, private_context=dingtalk_session is None)
+            from . import prompt_settings
+            guidance_snapshot = prompt_settings.snapshot()
+            used_guidance_domains = set()
             total = 0
             per_tool = {}
             finish_only = False
@@ -638,7 +641,11 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     + canonical(effective_context).replace("<", "\\u003c")
                     + "</page_context>"
                 )
+            base_system = system
             for ordinal in range(1, model.max_tool_rounds + 1):
+                guidance, guidance_evidence = prompt_settings.compose(guidance_snapshot, prompt, effective_context, tools, used_guidance_domains)
+                system = base_system + guidance
+                execution["guidance"] = guidance_evidence
                 remaining_seconds = transport.remaining_budget(default=MAX_CHAT_SECONDS)
                 if dingtalk_session is not None:
                     live(receipt.id)
@@ -785,6 +792,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     emit("tool", {"title": entry["title"], "ok": result.get("ok") is True})
                     results.append((call["name"], result))
                     execution["toolCalls"] += 1
+                    used_guidance_domains.update(prompt_settings.tool_domains([entry]))
                     outputs.append(result)
                 frames += provider.tool_frames(model, response["calls"], outputs)
             else:

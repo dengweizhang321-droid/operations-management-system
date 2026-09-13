@@ -155,3 +155,35 @@
 @media(max-width:1150px) { .ai-workbench-details { position:absolute; inset:0 0 0 auto; z-index:9; box-shadow:-5px 0 20px #263e3015; } .ai-workbench-history { width:192px; } .ai-workbench-assistant>.ai-workbench-message-content { margin-left:0; } .ai-workbench-messages,.ai-workbench-composer-area { padding-left:22px; padding-right:22px; } }
 @media(max-width:760px) { .ai-workbench-history-toggle { display:flex; } .ai-workbench-history { display:none; } .ai-workbench-history.is-open { display:flex; position:absolute; inset:0 auto 0 0; z-index:8; width:218px; box-shadow:5px 0 20px #263e3022; } .ai-workbench-top { padding:13px 15px; } .ai-workbench-subtitle { display:none; } .ai-workbench-top>div { gap:8px; } .ai-workbench-layout { height:74vh; min-height:480px; } .ai-workbench-conversation-title { padding:19px 20px 13px; } .ai-workbench-messages,.ai-workbench-composer-area { padding-left:17px; padding-right:17px; } .ai-workbench-empty h3 { font-size:21px; } .ai-workbench-empty>div { grid-template-columns:1fr; margin-top:23px; gap:9px; } .ai-workbench-empty>div button { padding:13px; display:grid; grid-template-columns:auto 1fr; gap:8px 12px; } .ai-workbench-empty>div span { grid-column:2; } .ai-workbench-empty { padding:24px 0; } .ai-workbench-enter { display:none; } .ai-workbench-composer-note { font-size:10px; } .ai-workbench-model { max-width:76%; } }
 @media(prefers-reduced-motion:reduce) { .ai-workbench * { animation:none!important; scroll-behavior:auto!important; } }
+
+/* Dedicated conversation surface, filling the space under the measured masthead. */
+.top-navigation-shell .content.content-ai-chat { padding:10px 14px 0; height:calc(100dvh - var(--app-sticky-offset,66px)); display:flex; flex-direction:column; min-height:320px; }
+.content-ai-chat .ai-module-workspace { flex:1; min-height:0; display:flex; }
+.content-ai-chat .ai-module-workspace>.ai-workbench { display:flex; flex:1; flex-direction:column; min-height:0; }
+.content-ai-chat .ai-workbench-layout { flex:1; height:auto; min-height:0; }
+.content-ai-chat .ai-workbench-top { padding:9px 16px; min-height:48px; flex-shrink:0; }
+.content-ai-chat .ai-workbench-top>div:first-child { min-width:0; }
+.content-ai-chat .ai-workbench-subtitle { font-size:14px; color:#425b4b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.content-ai-chat .ai-workbench-history-toggle { display:flex; }
+@media(min-width:761px) { .content-ai-chat .ai-workbench-history.is-collapsed { display:none; } }
+.content-ai-chat .ai-workbench-history { padding-top:14px; }
+.content-ai-chat .ai-workbench-conversation { min-height:0; }
+.content-ai-chat .ai-workbench-messages { width:min(100%,1120px); padding:14px 28px 12px; }
+.content-ai-chat .ai-workbench-composer-area { width:min(100%,1120px); padding:6px 28px 9px; }
+.content-ai-chat .ai-workbench-composer { padding:8px 12px; display:flex; align-items:flex-end; gap:12px; }
+.content-ai-chat .ai-workbench-composer textarea { flex:1; min-height:28px; max-height:120px; resize:none; line-height:1.7; overflow-y:auto; }
+.content-ai-chat .ai-workbench-composer-toolbar { margin:0; flex-shrink:0; }
+.content-ai-chat .ai-workbench-model { display:none; }
+.content-ai-chat .ai-workbench-composer-note { margin-top:4px; }
+.content-ai-chat .ai-workbench-context { margin-bottom:5px; }
+.content-ai-chat .ai-workbench-message { margin-bottom:20px; }
+.content-ai-chat .ai-workbench-markdown { line-height:1.7; }
+.content-ai-chat .ai-workbench-markdown p { margin:6px 0 10px; }
+.content-ai-chat .ai-workbench-markdown li { margin:4px 0; }
+.ai-workbench-top-model { width:230px; max-width:28vw; }
+.ai-workbench-top-model .searchable-select-trigger { min-height:32px; height:32px; font-size:12px; }
+.ai-workbench-compact .ai-workbench-top-model { display:none; }
+@media(max-width:760px) { .content-ai-chat .ai-workbench-messages,.content-ai-chat .ai-workbench-composer-area { padding-left:12px; padding-right:12px; }.content-ai-chat .ai-workbench-top { padding:8px; }.content-ai-chat .ai-workbench-top-model { width:140px; }.content-ai-chat .ai-workbench-subtitle { max-width:25vw; }.content-ai-chat .ai-workbench-enter { display:none; }.content-ai-chat .ai-workbench-assistant>.ai-workbench-message-content { margin-left:0; } }
+
+.content-ai-chat .ai-module-workspace>.ai-assistant-grid { display:flex; flex:1; min-width:0; min-height:0; flex-direction:column; }
+.content-ai-chat .ai-assistant-grid>.ai-workbench { display:flex; flex:1; min-height:0; flex-direction:column; }

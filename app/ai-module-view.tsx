@@ -11,13 +11,15 @@ const AiAgentWorkflowView = lazy(() => import("./ai-agent-workflow-view"));
 const AiMemoryView = lazy(() => import("./ai-memory-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
+const AiPromptSettingsView = lazy(() => import("./ai-prompt-settings-view"));
 const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
 
-const aiViews: readonly AiView[] = ["assistant", "agents", "memory", "space", "management", "scheduled"];
+const aiViews: readonly AiView[] = ["agents", "memory", "space", "management", "scheduled", "configuration"];
 const aiViewLabels: Record<AiView, string> = {
   assistant: "AI 对话",
+  configuration: "配置设置",
   agents: "Agent 工作流",
   memory: "全局记忆",
   space: "AI 空间",
@@ -49,7 +51,7 @@ export default function AiModuleView({
   onModuleViewChange: (view: AiView) => void;
 }) {
   const canManage = currentUser?.role === "admin" && !currentUser.scopeRestricted;
-  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled");
+  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled" && view !== "configuration");
   const changeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: AiView) => {
     if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
     event.preventDefault();
@@ -64,7 +66,7 @@ export default function AiModuleView({
   };
 
   return <>
-    <div className="subnav ai-module-tabs" role="tablist" aria-label="AI 工作区">
+    {moduleView !== "assistant" && <div className="subnav ai-module-tabs" role="tablist" aria-label="AI 工作区">
       {availableViews.map((view) => <button
         key={view}
         id={`ai-tab-${view}`}
@@ -77,9 +79,10 @@ export default function AiModuleView({
         onClick={() => onModuleViewChange(view)}
         onKeyDown={(event) => changeWithKeyboard(event, view)}
       >{aiViewLabels[view]}</button>)}
-    </div>
+    </div>}
 
-    {moduleView === "assistant" && !externalChat && <div id="ai-panel-assistant" role="tabpanel" aria-labelledby="ai-tab-assistant" tabIndex={0}>
+    {moduleView === "configuration" && (canManage ? <div id="ai-panel-configuration" role="tabpanel" aria-labelledby="ai-tab-configuration"><Suspense fallback={<AiViewLoading label="配置设置" />}><AiPromptSettingsView /></Suspense></div> : <section className="panel" role="alert">配置设置仅允许无数据范围限制的管理员访问。</section>)}
+    {moduleView === "assistant" && !externalChat && <div id="ai-panel-assistant" role="region" aria-label="AI 对话" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.assistant} />}>
         <AiAssistantView currentUser={currentUser} initialContextPrompt={initialContextPrompt} initialPageContext={initialPageContext} workspace="chat" />
       </Suspense>

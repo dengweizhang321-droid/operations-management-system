@@ -17,6 +17,7 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    "ai_prompt_settings_revisions": m.AiPromptSettingsRevision,
     "ai_dingtalk_settings": m.AiDingTalkSettings,
     "ai_dingtalk_sessions": m.AiDingTalkSession,
     "ai_dingtalk_receipts": m.AiDingTalkReceipt,
@@ -28,6 +29,7 @@ MODELS = {
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_prompt_settings_revisions",
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions",
     "ai_dingtalk_schedules",
@@ -59,6 +61,7 @@ READ_TABLES = {
     "access_control_users",
 }
 APPEND_ONLY = {
+    "ai_prompt_settings_revisions",
     "ai_space_asset_payloads",
     "ai_chat_provider_dispatches",
     "ai_agent_checkpoints",
