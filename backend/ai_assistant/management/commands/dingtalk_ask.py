@@ -5,6 +5,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from urllib.parse import quote_plus, urlsplit
+from django.utils import timezone
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, close_old_connections
 from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings, dingtalk_schedules
@@ -17,6 +18,36 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--config", required=True)
         parser.add_argument("--check", action="store_true")
+
+    def ingress_event(self, event, **values):
+        # Only call with fixed labels. Never include SDK bodies, identifiers,
+        # exception messages, credentials, webhooks or connection tickets.
+        self.stdout.write(json.dumps({"event": event, "at": timezone.now().isoformat(), **values}))
+
+    def accept_message(self, reader, data):
+        stage = "configuration"
+        try:
+            config = reader()
+            stage = "acceptance"
+            service.accept(config, data)
+            self.ingress_event("callback_accepted")
+            return 200, "accepted"
+        except AiError as error:
+            permanent = error.status in (400, 403, 409, 413)
+            reasons = {
+                "dingtalk_invalid_envelope", "dingtalk_identity_mismatch",
+                "dingtalk_sender_unbound", "dingtalk_unsupported_message",
+                "dingtalk_group_not_allowed", "dingtalk_invalid_text",
+                "dingtalk_message_expired", "invalid_request", "access_denied",
+                "conflict", "payload_too_large", "ai_chat_quota_exceeded",
+            }
+            self.ingress_event("callback_rejected" if permanent else "callback_unavailable",
+                stage=stage, reason=error.code if error.code in reasons else "policy_error",
+                retryable=not permanent)
+            return (200, "ignored") if permanent else (503, "unavailable")
+        except Exception:
+            self.ingress_event("callback_unavailable", stage=stage, reason="internal_error", retryable=True)
+            return 503, "unavailable"
 
     def handle(self, *args, **options):
         reader = lambda: dingtalk_settings.effective(service.load_config(options["config"]))
@@ -78,15 +109,16 @@ class Command(BaseCommand):
                 close_old_connections()
         key, secret = await loop.run_in_executor(ingress, lambda: db_call(lambda: platform.credentials(reader())))
         client = sdk.DingTalkStreamClient(sdk.Credential(key, secret), logger=silent)
+        command = self
         class Handler(sdk.CallbackHandler):
             async def process(self, message):
+                command.ingress_event("callback_received")
                 try:
-                    await loop.run_in_executor(ingress, lambda: db_call(lambda: service.accept(reader(), message.data)))
-                    return sdk.AckMessage.STATUS_OK, "accepted"
-                except AiError as error:
-                    # Permanently invalid or unauthorized input is acknowledged and discarded.
-                    return (200, "ignored") if error.status in (400, 403, 409, 413) else (503, "unavailable")
+                    return await loop.run_in_executor(ingress,
+                        lambda: db_call(lambda: command.accept_message(reader, message.data)))
                 except Exception:
+                    command.ingress_event("callback_unavailable", stage="database_context",
+                        reason="internal_error", retryable=True)
                     return 503, "unavailable"
         handler = Handler()
         handler.logger = silent

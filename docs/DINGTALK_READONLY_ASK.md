@@ -104,6 +104,14 @@ StartDingTalk 使用现有 DPAPI AI writer 凭据与精确进程回执，后台�
 
 ## 验证入口与限制
 
+### 聊天无回执诊断（2026-09-13 候选，尚未生产采用）
+
+定时任务发送成功、进程 running、历史 connected 日志均不能证明聊天入队正常。排障应对照平台消息时间、`ai_dingtalk_receipts` 与 `ai_dingtalk_schedule_runs` 的有界状态查询，区分入队前失败和分析/投递失败；不重放旧消息或未知结果。
+
+候选接收器新增带时间的 `callback_received`、`callback_accepted`、`callback_rejected` 和 `callback_unavailable` 日志。拒绝原因区分组织/应用、未绑定发送人、不支持消息类型、未批准群或未 @、文本结构、时间有效期及其他权限/输入问题；配置读取与数据库上下文故障独立标明。只记录固定标签，不记录消息正文、人员/群/消息 ID、Webhook、凭据、ticket 或原始异常。永久拒绝仍 ACK 200，暂时不可用仍 ACK 503，防重、权限和发送行为保持原契约。
+
+这些事件须受控更新正式 Django 应用并重启接收器后才会出现；候选测试不代表本次真实聊天故障已修复。应用采用前，旧日志没有 callback 记录也不能据此推断平台未投递。
+
 - `python backend/manage.py test ai_assistant system_datasets sales.tests.test_api --noinput`
 - `python tools/dingtalk-postgres-rehearsal.py`：独立 55457 端口，合成数据，验证 0006→0007、旧会话保留、真实最小权限角色、AI readiness、错误 epoch/身份/状态拒绝和 48 表 dump/restore 一致；结束停止独立 cluster。
 - `npm run build`、`npm run test:unit`、`npm run lint`、`npm run check:backend-boundary`。
