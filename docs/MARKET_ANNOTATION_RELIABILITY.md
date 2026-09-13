@@ -81,3 +81,9 @@ TypeScript 行为测试覆盖并发总量、任务公平分配、失权拒绝、
 前端不再调用 Django 尚未实现的 `rebuild_stale_selected` / `rebuild_stale_item`。本次入库保留失效候选及其人工复核记录，不自动改写成新图、不重放模型、不触及结果未知的隔离候选。旧图候选须基于当前图片重新识别并人工复核；它们不再阻止其余有效项入库。
 
 镜像 PostgreSQL 覆盖混合候选、全部失效、月份/身份缺失、缓存哈希优先级、写入时图片再次变化、501 条跨批入库、幂等回执及整批失败回滚。真实 React 浏览器验收使用隔离合成 HTTP 响应，验证旧图禁选、跨页选择、编辑保存、连续两批入库和跳过提示；数据库写流程另由签名 API 和真实 PostgreSQL reader/writer 角色验证，未以合成浏览器响应替代后端验收。
+
+2026-09-14 已受控采用源码 `75c73f748de00eb2dfec9fbe45ecdab92fefdfac`，Worker/helper 为 `20260913T162304Z-3733181f1543a083`，Django manifest SHA 为 `c5651c760123f4652301b3bceaa55b2e0b6ee1bb6cfd3f980bd96ca8c2943411`。正式新浏览器只读验收显示 184 条旧图排除提示，批量入库按钮数量为 16,554，接口、实际 JS 字节和后端源码与发布包一致，整栈 Running/Ready/exact_release。正式验收没有代用户入库；写流程以 61 项隔离 PostgreSQL 测试验证，全量 Node 2147 项通过、20 跳过。
+
+本次先通过正式 API 暂停 4 条原运行计划，00:14:29 与 00:14:49 两次确认包括过期领取在内的在途数为零、helper 空闲，再执行受控停止。恢复后 00:32:52 逐条恢复上述计划；00:34:09 回查自然新增完成 24、23、12、12 条，合计 71 条。全部 74 条既有隔离记录的完整行摘要、已完成第 5 条云端计划记录保持一致。没有重置隔离项、人工模型调用或 n8n 重启。
+
+发布前备份已在独立 55484 端口完整恢复并核对内容摘要，发布后备份及归档摘要复验通过。Django staging 的两次 local R2 自检在上传完成后因 CLI 未退出而超时，均发生在应用原子替换之前；沿用项目已记录的进程级 `WRANGLER_HIDE_BANNER=true` 后，原 operator 的完整 put/get/hash/delete/缺失检查通过，没有扩大时间、修改依赖或跳过门禁。完整证据见 [候选检查](evidence/market-stale-candidates-validation-20260914.json) 与 [生产核验](evidence/market-stale-candidates-production-20260914.json)。
