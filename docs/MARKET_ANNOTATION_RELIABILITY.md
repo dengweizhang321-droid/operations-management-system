@@ -69,3 +69,5 @@ TypeScript 行为测试覆盖并发总量、任务公平分配、失权拒绝、
 上述修复已受控采用，源码 `0b96b86cd23f44f40ab6d557fedc0819a4069d1c`，Django manifest SHA `bb1d44779115d8b0fdc5b8caceae9b3b14a7f9e725c2039bb4bd2a650927354d`，Worker/helper 保持 `20260913T143708Z-cd14607ae3bd71e3`。受控整栈停启、正式 Running/Ready/exact_release、源码字节、只读接口、启动绑定、发布前备份独立恢复和发布后备份复验通过；未执行生产入库验收或数据库迁移。验证细节见 [候选记录](evidence/market-annotation-commit-json-validation-20260913.json) 和 [生产记录](evidence/market-annotation-commit-json-production-20260913.json)。
 
 切换前 23:16:25 的只读快照为 4 条计划均无有效推理租约、helper 空闲；此快照未锁住之后的定时派发。受控停止期间又有领取，恢复后 45 条候选被自动标为结果未知，4 条计划暂停。已通过生产 market reader 的只读事务核验隔离状态和 `attempt_count>=3`，没有重放这些图片、重置失败项或人工补写结果；恢复其余未处理图片已单独向用户请求确认。后续发布不能把一次空闲快照视为排空证明，应先通过受控机制停止新派发，再等待已有推理结束后进入停机。
+
+用户随后明确要求“恢复其余图 片”。23:40:37 经正式公开 API 对上述 4 条原计划逐条执行 `set_cloud_run_state=running`，4 次均返回 200；23:41:17 回查均为 running，完成候选分别新增 13、20、24、12 条，已有定时调度自然继续推理和写入。恢复前及自然推进后只读核验，全部 74 条历史隔离候选的完整行摘要一致；已完成的第 5 条计划云端记录未变。没有重置隔离项、创建新计划、人工调用模型或入库，也没有服务重启。完成候选增量可包含跨月复用，不等于付费调用次数。见 [恢复核验](evidence/market-annotation-remaining-resume-20260913.json)。

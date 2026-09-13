@@ -339,13 +339,20 @@
     "unknownResultsReplayed": false,
     "failedItemsReset": false,
     "manualBusinessImport": false,
-    "remainingQueueResume": "awaiting_user_authorization",
+    "remainingQueueResume": {
+      "status": "resumed_after_explicit_user_authorization",
+      "at": "2026-09-13T23:40:37+08:00",
+      "jobs": 4,
+      "allJobsNaturallyProgressed": true,
+      "all74QuarantinedCandidatesUnchanged": true,
+      "evidence": "docs/evidence/market-annotation-remaining-resume-20260913.json"
+    },
     "futureGate": "Require controlled dispatch quiescence and in-flight drainage, not a point-in-time idle snapshot."
   },
   "startupCallerNote": "Canonical Start emitted Running/Ready/exact_release, but the outer caller shell retained inherited pipe handles. Independent status and HTTP passed; only the exact verified caller shell was closed. No service or supervisor process was stopped.",
   "limitations": [
     "No production commit or paid model call was manually issued for acceptance; signed API writes and real writer grants were verified in isolated PostgreSQL.",
     "Known writer HTTP connection-capacity warnings and master-list timeout were not changed.",
-    "Four inference plans remain paused pending user confirmation to resume other work; unknown-result candidates remain quarantined."
+    "Four inference plans were subsequently resumed on explicit user instruction; all 74 unknown-result candidates remain unchanged and quarantined. This does not claim the remaining queues have completed."
   ]
 }
