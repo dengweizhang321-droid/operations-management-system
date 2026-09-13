@@ -41,7 +41,7 @@ def role_probe() -> None:
     django.setup()
     from django.db import connection, transaction
     from market.annotations import execute_annotation_command, execute_annotation_query
-    from market.models import MarketAnnotationItem
+    from market.models import MarketAnnotationCommitReceipt, MarketAnnotationItem, MarketSkuAnnotation
     from sales.auth import Principal
 
     principal = Principal("fixture@example.invalid", "Fixture", "admin", None)
@@ -71,8 +71,22 @@ def role_probe() -> None:
             }, principal)
         if not completion.get("ok") or MarketAnnotationItem.objects.get(pk=task["itemId"]).status != "review_pending":
             raise AssertionError("Least-privilege writer could not save a synthetic completion")
+        item = MarketAnnotationItem.objects.get(pk=task["itemId"])
+        with transaction.atomic():
+            execute_annotation_command({"action": "review", "jobId": item.job_id, "updates": [{
+                "id": item.id, "version": item.version, "segment": "Synthetic", "imagePriceCents": 12300, "selected": True,
+            }]}, principal)
+        with transaction.atomic():
+            committed = execute_annotation_command({
+                "action": "commit_selected", "aggregateJobs": True, "idempotencyKey": "role-probe-commit",
+            }, principal)
+        receipt = MarketAnnotationCommitReceipt.objects.get(job_item_id=item.id)
+        if committed.get("committed") != 1 or not isinstance(receipt.before_json.get("reviewed_at"), str):
+            raise AssertionError("Least-privilege writer could not audit the existing annotation")
+        if MarketSkuAnnotation.objects.get(pk="role-probe-annotation").version != 2:
+            raise AssertionError("Existing annotation was not updated exactly once")
     connection.close()
-    print(json.dumps({"role": role, "readQueries": True, "claimComplete": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
+    print(json.dumps({"role": role, "readQueries": True, "claimComplete": role.endswith("writer"), "commitExistingAnnotation": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
 
 
 def main() -> None:
@@ -187,7 +201,8 @@ def main() -> None:
             from market.models import (
                 MarketAnnotationCloudRun, MarketAnnotationConcurrencySetting,
                 MarketAnnotationItem, MarketAnnotationJob, MarketAnnotationPromptVersion,
-                MarketWriteAuthority,
+                MarketPriceSnapshot, MarketRankingEntry, MarketSkuAnnotation,
+                MarketSubcategoryTaxonomy, MarketWriteAuthority,
             )
             epoch = str(uuid.uuid4())
             MarketWriteAuthority.objects.filter(pk=1).update(status="postgres", authority_epoch=epoch,
@@ -201,6 +216,14 @@ def main() -> None:
             MarketAnnotationItem.objects.create(id="role-probe-item", job_id="role-probe-job", category="Role probe",
                 scope="pop", sku_code="fixture-sku", month="2026-09", image_content_sha256="a" * 64,
                 source_image_url="https://example.invalid/no-network.jpg")
+            identity = dict(category="Role probe", scope="pop", sku_code="fixture-sku", ranking_dimension="SKU")
+            MarketSubcategoryTaxonomy.objects.create(id="role-probe-taxonomy", category="Role probe", subcategory="Synthetic")
+            MarketPriceSnapshot.objects.create(id="role-probe-snapshot", **identity, month="2026-09", image_content_sha256="a" * 64)
+            MarketRankingEntry.objects.create(natural_key="role-probe-ranking", **identity, period_start="2026-09-01",
+                period_end="2026-09-12", source_row_number=1, last_import_batch_id="fixture")
+            MarketSkuAnnotation.objects.create(id="role-probe-annotation", **identity, image_content_sha256="a" * 64,
+                segment="Previous", source_job_item_id="historical-item", prompt_version_id="role-probe-prompt",
+                reviewed_by="fixture@example.invalid", reviewed_at=timezone.now())
             connections.close_all()
             role_results = []
             for role, secret in (("reader", reader_password), ("writer", writer_password)):

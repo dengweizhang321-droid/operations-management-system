@@ -5,7 +5,7 @@ import math
 import secrets
 import uuid
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import connection, transaction
@@ -1498,7 +1498,10 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
                 "sku_code": item.sku_code,
                 "image_content_sha256": item.image_content_sha256,
             }
-            before = MarketSkuAnnotation.objects.filter(**annotation_identity).values().first() or {}
+            before_row = MarketSkuAnnotation.objects.filter(**annotation_identity).values().first() or {}
+            # Existing annotations include native DateTimeField values. Keep the
+            # complete audit snapshot, using the same ISO timestamps as the API.
+            before = {key: iso(value) if isinstance(value, datetime) else value for key, value in before_row.items()}
             annotation, created = MarketSkuAnnotation.objects.get_or_create(
                 **annotation_identity,
                 defaults={
