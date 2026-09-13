@@ -75,18 +75,59 @@ test("dispatch has a hard operation budget even with immediately resolved provid
   assert.equal(count, 200);
 });
 
-test("slow preparation consumes the launch budget and releases its lease without inference", async () => {
+test("slow bounded preparation leaves a full launch window and releases its lease", async () => {
   let clock = 0;
   let launched = 0;
   let released = 0;
-  await dispatchAnnotationJobs({
-    jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 10 }],
+  const result = await dispatchAnnotationJobs({
+    jobs: [{ jobId: "a", ownerEmail: "owner@example.test", availableSlots: 1 }],
     prepare: async () => { clock = 10_001; return true; }, now: () => clock,
-    run: async () => { launched += 1; return { processedCount: 1 }; },
+    run: async () => { launched += 1; clock += 10_001; return { processedCount: 1 }; },
     release: async () => { released += 1; },
   });
-  assert.equal(launched, 0);
+  assert.equal(launched, 1);
   assert.equal(released, 1);
+  assert.equal(result.idle, false);
+  assert.equal(result.preparationMs, 10_001);
+  assert.equal(result.launchCount, 1);
+  assert.equal(result.jobCount, 1);
+  assert.equal(result.dispatchErrors, 0);
+});
+
+test("a slower plan preparation does not starve either plan of its fair first wave", async () => {
+  let clock = 0;
+  let finishPreparation!: (handle: string) => void;
+  const slowPreparation = new Promise<string>((resolve) => { finishPreparation = resolve; });
+  let active = 0;
+  let peak = 0;
+  const starts: string[] = [];
+  const releases: string[] = [];
+  const dispatch = dispatchAnnotationJobs({
+    jobs: ["fast", "slow"].map((jobId) => ({ jobId, ownerEmail: "owner@example.test", availableSlots: 50 })),
+    prepare: async ({ jobId }) => jobId === "slow" ? slowPreparation : jobId,
+    run: async ({ jobId }) => {
+      starts.push(jobId);
+      peak = Math.max(peak, ++active);
+      await Promise.resolve();
+      active -= 1;
+      return { processedCount: 1, done: true };
+    },
+    release: async ({ jobId }) => { releases.push(jobId); },
+    now: () => clock,
+  });
+  await Promise.resolve();
+  assert.equal(starts.length, 0);
+  clock = 13_000;
+  finishPreparation("slow");
+  const result = await dispatch;
+  assert.equal(peak, 50);
+  assert.deepEqual(["fast", "slow"].map((id) => starts.filter((value) => value === id).length), [25, 25]);
+  assert.deepEqual(releases, ["fast", "slow"]);
+  assert.equal(result.preparationMs, 13_000);
+  assert.equal(result.launchCount, 50);
+  assert.equal(result.processedCount, 50);
+  assert.equal(result.jobCount, 2);
+  assert.equal(result.dispatchErrors, 0);
 });
 
 test("a database acknowledgement failure never becomes a second model/failure completion", async () => {

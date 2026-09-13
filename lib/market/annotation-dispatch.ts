@@ -15,13 +15,14 @@ export type AnnotationStepResult = {
 
 export async function dispatchAnnotationJobs<Handle>(input: {
   jobs: AnnotationDispatchJob[];
+  /** Preparation must retain its own bounded authorization and lease requests. */
   prepare: (job: AnnotationDispatchJob) => Promise<Handle | null>;
   run: (job: AnnotationDispatchJob, handle: Handle) => Promise<AnnotationStepResult>;
   release: (job: AnnotationDispatchJob, handle: Handle) => Promise<void>;
   now?: () => number;
 }) {
   const now = input.now ?? Date.now;
-  const deadline = now() + 10_000;
+  const preparationStartedAt = now();
   const jobs = input.jobs.slice(0, 50).map((job) => {
     if (!job.jobId || !job.ownerEmail || !Number.isSafeInteger(job.availableSlots)
       || job.availableSlots < 0 || job.availableSlots > 50) throw new Error("市场派发容量返回无效");
@@ -41,7 +42,7 @@ export async function dispatchAnnotationJobs<Handle>(input: {
     }
     if (!added) break;
   }
-  const totals = { idle: true, processedCount: 0, failedCount: 0, dispatchErrors: 0, jobCount: 0 };
+  const totals = { idle: true, processedCount: 0, failedCount: 0, dispatchErrors: 0, jobCount: 0, preparationMs: 0, launchCount: 0 };
   let launches = 0;
   try {
     await Promise.all(jobs.filter(({ lanes }) => lanes > 0).map(async (entry) => {
@@ -49,6 +50,11 @@ export async function dispatchAnnotationJobs<Handle>(input: {
       catch { totals.dispatchErrors += 1; }
       if (entry.handle !== null) totals.jobCount += 1;
     }));
+    const preparedAt = now();
+    totals.preparationMs = Math.max(0, preparedAt - preparationStartedAt);
+    // Authorization and coordinator acquisition have their own request limits.
+    // A slower preparation must not exhaust every prepared job's launch window.
+    const deadline = preparedAt + 10_000;
     const lane = async (entry: typeof jobs[number]) => {
       while (entry.handle !== null && launches < 200 && now() < deadline) {
         launches += 1;
@@ -70,5 +76,6 @@ export async function dispatchAnnotationJobs<Handle>(input: {
     }));
   }
   totals.idle = launches === 0;
+  totals.launchCount = launches;
   return totals;
 }

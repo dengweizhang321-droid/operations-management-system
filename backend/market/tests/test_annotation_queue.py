@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.db import close_old_connections, connection, connections
 from django.test import TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from market.annotations import (
@@ -50,6 +51,21 @@ class QueueFixtures:
 
 
 class AnnotationQueueTests(QueueFixtures, TestCase):
+    def test_dispatch_and_claim_without_expired_leases_skip_backlog_quarantine_update(self):
+        job = self.job("no-expired-leases", concurrency=2)
+        self.item(job, "one")
+        self.item(job, "two")
+        with CaptureQueriesContext(connection) as queries:
+            lease = _dispatch_lease({"jobId": job.id}, release=False)
+            first = self.claim(job, coordinatorToken=lease["coordinatorToken"])["task"]
+            second = self.claim(job, coordinatorToken=lease["coordinatorToken"])["task"]
+        self.assertEqual({first["itemId"], second["itemId"]}, {"one", "two"})
+        quarantine_updates = [query["sql"] for query in queries.captured_queries
+                              if query["sql"].startswith('UPDATE "market_annotation_items"')
+                              and "EXISTS" in query["sql"]]
+        self.assertEqual(quarantine_updates, [])
+        self.assertEqual(MarketAnnotationCloudRun.objects.get(job_id=job.id).state, "running")
+
     def test_full_oldest_job_does_not_starve_another_plan(self):
         first = self.job("old", concurrency=1)
         second = self.job("new", concurrency=1)

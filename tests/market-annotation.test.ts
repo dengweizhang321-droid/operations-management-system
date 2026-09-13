@@ -327,7 +327,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(ui, /const LOAD_TIMEOUT_MS = 30_000/);
   assert.match(ui, /const ACTION_TIMEOUT_MS = 110_000/);
   assert.match(ui, /lastFailureCode.*lastFailureMessage/);
-  assert.match(ui, /关闭浏览器或电脑后仍会由 Cloudflare 继续执行/);
+  assert.match(ui, /关闭浏览器可继续，本机部署需要电脑和运营系统保持运行/);
+  assert.doesNotMatch(ui, /关闭浏览器或电脑后仍会由 Cloudflare 继续执行/);
   assert.match(ui, /总耗时.*模型.*取图.*图片处理/s);
   assert.match(ui, /当前 AI 标注任务模型并发数/);
   assert.match(ui, /保存并应用/);

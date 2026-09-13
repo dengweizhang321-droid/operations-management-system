@@ -252,6 +252,10 @@ def _expire_cloud_claims(job: MarketAnnotationJob, run: MarketAnnotationCloudRun
     unknown = MarketAnnotationItem.objects.filter(
         job_id=job.id, status__in=["claimed", "inferencing"],
     ).filter(Q(lease_expires_at__lte=now) | Q(lease_expires_at__isnull=True))
+    # Most dispatches have no expired inference. Avoid a correlated scan of the
+    # entire queued backlog while holding the shared model lock in that case.
+    if not unknown.exists():
+        return False
     same_unknown = unknown.filter(**{field: OuterRef(field) for field in (
         "category", "scope", "sku_code", "ranking_dimension", "image_content_sha256",
     )})
