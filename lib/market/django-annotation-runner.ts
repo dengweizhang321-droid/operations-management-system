@@ -5,6 +5,8 @@ import {
   requestDjangoMarketService,
 } from "@/lib/django/market-service";
 import { PublicApiError } from "@/lib/http/api-error";
+import { annotationFailure } from "@/lib/market/annotation-failure";
+import { executeAnnotationAttempt } from "@/lib/market/annotation-attempt";
 import {
   runVisionAnnotation,
   visionAnnotationTiming,
@@ -24,6 +26,8 @@ type ClaimedTask = {
   fixedSegment: string | null;
   modelId: string;
   leaseToken: string;
+  ownerEmail: string;
+  leaseExpiresAt: string;
 };
 
 function text(value: unknown): string {
@@ -51,16 +55,19 @@ function claimedTask(value: unknown): ClaimedTask | null {
     fixedSegment: text(task.fixedSegment) || null,
     modelId: text(task.modelId),
     leaseToken: text(task.leaseToken),
+    ownerEmail: text(task.ownerEmail),
+    leaseExpiresAt: text(task.leaseExpiresAt),
   };
   if (!normalized.itemId || !normalized.jobId || !normalized.skuCode
     || !normalized.promptBody || !normalized.segments.length
-    || !normalized.modelId || !normalized.leaseToken) {
+    || !normalized.modelId || !normalized.leaseToken || !normalized.ownerEmail
+    || !Number.isFinite(Date.parse(normalized.leaseExpiresAt))) {
     throw new PublicApiError(503, "service_unavailable", "Django 市场标注任务返回不完整。");
   }
   return normalized;
 }
 
-async function query<T extends JsonRecord>(
+export async function annotationQuery<T extends JsonRecord>(
   principal: AppPrincipal,
   view: string,
   params: JsonRecord,
@@ -77,10 +84,11 @@ async function query<T extends JsonRecord>(
   );
 }
 
-async function command<T extends JsonRecord>(
+export async function annotationCommand<T extends JsonRecord>(
   principal: AppPrincipal,
   value: JsonRecord,
   signal?: AbortSignal,
+  requestId?: string,
 ) {
   return requestDjangoMarketService<{ ok: boolean; result: T }>(
     principal,
@@ -93,7 +101,7 @@ async function command<T extends JsonRecord>(
         command: value,
       },
     },
-    { signal },
+    { signal, ...(requestId ? { requestId: () => requestId } : {}) },
   );
 }
 
@@ -101,16 +109,17 @@ export async function runClaimedDjangoMarketVisionTask(input: {
   principal: AppPrincipal;
   jobId?: string;
   signal?: AbortSignal;
+  coordinatorToken?: string;
 }) {
-  const claimed = await command<{ task: unknown }>(
+  const claimed = await annotationCommand<{ task: unknown }>(
     input.principal,
-    { action: "claim_task", executor: "cloud", jobId: text(input.jobId) },
+    { action: "claim_task", executor: "cloud", jobId: text(input.jobId), ...(input.coordinatorToken ? { coordinatorToken: input.coordinatorToken } : {}) },
     input.signal,
   );
   const task = claimedTask(claimed.data.result.task);
   if (!task) {
     const progress = input.jobId
-      ? await query<JsonRecord>(input.principal, "progress", { jobId: input.jobId }, input.signal)
+      ? await annotationQuery<JsonRecord>(input.principal, "progress", { jobId: input.jobId }, input.signal)
       : null;
     const remaining = Number(progress?.data.remainingInferenceUnits ?? 0);
     return {
@@ -128,9 +137,26 @@ export async function runClaimedDjangoMarketVisionTask(input: {
       },
     };
   }
-  try {
-    const prediction = await runVisionAnnotation({
-      principal: input.principal,
+  // One idempotent completion envelope per lease. Retrying storage never reruns inference.
+  const completionRequestId = crypto.randomUUID();
+  const inferenceDeadline = Math.min(Date.now() + 140_000, Date.parse(task.leaseExpiresAt) - 15_000);
+  const complete = async (value: JsonRecord) => {
+    try { return await annotationCommand<JsonRecord>(input.principal, value, AbortSignal.timeout(5_000), completionRequestId); }
+    catch (error) {
+      const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 0;
+      if (status && status !== 503) throw error;
+      return annotationCommand<JsonRecord>(input.principal, value, AbortSignal.timeout(5_000), completionRequestId);
+    }
+  };
+  return executeAnnotationAttempt({
+    infer: async () => {
+      const { resolveAiBackgroundPrincipal } = await import("@/lib/ai/background-principal");
+      const owner = await resolveAiBackgroundPrincipal(task.ownerEmail, "null");
+      if (!owner.ok || !["operator", "admin"].includes(owner.principal.role) || owner.principal.scope !== null) {
+        throw new PublicApiError(403, "access_denied", "标注任务发起账号或数据权限已变化");
+      }
+      return runVisionAnnotation({
+      principal: owner.principal,
       modelId: task.modelId,
       promptBody: task.promptBody,
       segments: task.segments,
@@ -139,10 +165,11 @@ export async function runClaimedDjangoMarketVisionTask(input: {
       brand: task.brand,
       imageUrl: task.sourceImageUrl,
       fixedSegment: task.fixedSegment ?? undefined,
-    });
-    const completed = await command<JsonRecord>(
-      input.principal,
-      {
+      deadlineAt: inferenceDeadline,
+      });
+    },
+    complete: async (prediction) => {
+      const completed = await complete({
         action: "complete_task",
         itemId: task.itemId,
         leaseToken: task.leaseToken,
@@ -159,46 +186,42 @@ export async function runClaimedDjangoMarketVisionTask(input: {
           imageSource: prediction.imageSource,
           timing: prediction.timing,
         },
-      },
-      input.signal,
-    );
-    const progress = await query<JsonRecord>(
-      input.principal,
-      "progress",
-      { jobId: task.jobId },
-      input.signal,
+      });
+    // Background lanes do not re-aggregate a 10,000-row job after every image.
+    const progress = input.coordinatorToken ? null : await annotationQuery<JsonRecord>(
+      input.principal, "progress", { jobId: task.jobId }, input.signal,
     );
     return {
       status: 200,
-      revision: progress.revision,
+      revision: progress?.revision ?? completed.revision,
       replayed: completed.replayed,
       data: {
         ok: true,
         result: {
           ...completed.data.result,
-          done: Number(progress.data.remainingInferenceUnits ?? 0) === 0,
+          done: progress ? Number(progress.data.remainingInferenceUnits ?? 0) === 0 : completed.data.result.done === true,
           waiting: false,
           processedCount: 1,
-          job: progress.data.job,
+          job: progress?.data.job ?? null,
         },
       },
     };
-  } catch (error) {
-    const message = (error instanceof Error ? error.message : "视觉识别失败").slice(0, 300);
-    await command<JsonRecord>(
-      input.principal,
-      {
+    },
+    fail: async (error) => {
+    const failure = annotationFailure(error);
+    const completed = await complete({
         action: "complete_task",
         itemId: task.itemId,
         leaseToken: task.leaseToken,
-        error: message,
+        error: failure.failureMessage,
+        failureCode: failure.failureCode,
+        failureKind: failure.failureKind,
+        retryAfterMs: failure.retryAfterMs,
         timing: visionAnnotationTiming(error),
-      },
-      input.signal,
-    ).catch(() => undefined);
+      });
     return {
       status: 200,
-      revision: claimed.revision,
+      revision: completed.revision,
       replayed: false,
       data: {
         ok: true,
@@ -207,11 +230,10 @@ export async function runClaimedDjangoMarketVisionTask(input: {
           waiting: false,
           processedCount: 0,
           failedCount: 1,
-          failureKind: "permanent",
-          failureCode: "annotation_failed",
-          failureMessage: message,
+          ...failure,
         },
       },
     };
-  }
+    },
+  });
 }

@@ -215,7 +215,7 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(service, /status<>'deleted'/);
   assert.match(service, /reuseAnnotationHistory/);
   assert.match(service, /fanOutInferenceUnitResult/);
-  assert.match(djangoRunner, /query<JsonRecord>\(input\.principal, "progress"/);
+  assert.match(djangoRunner, /annotationQuery<JsonRecord>\(input\.principal, "progress"/);
   assert.match(backendAnnotations, /if view == "progress":/);
   assert.match(ui, /loadJobProgress/);
   assert.match(ui, /currentCloudRunHasUnfinishedItems/);
@@ -233,7 +233,8 @@ test("annotation implementation wires real cloud images, idempotency, permission
   assert.match(model, /不要重新分类，只识别当前新主图价格/);
   assert.match(model, /boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\)/);
   assert.match(model, /VISION_ANNOTATION_TIMEOUT_MAX_MS = 90_000/);
-  assert.match(model, /Math\.min\(boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\), VISION_ANNOTATION_TIMEOUT_MAX_MS\)/);
+  assert.match(model, /Math\.min\(remaining, boundedModelSetting\(model\.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000\), VISION_ANNOTATION_TIMEOUT_MAX_MS\)/);
+  assert.match(model, /if \(remaining <= 0\) throw new Error/);
   assert.match(imageCache, /getCachedMarketImageForAnnotation/);
   assert.match(imageCache, /annotationModelImageObjectKey/);
   assert.match(masterRoute, /domain: "master"/);
