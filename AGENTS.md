@@ -191,6 +191,8 @@
 
 ## 7. 中央 AI 工具注册表
 
+- AI 面向用户的自我介绍、系统称呼和连接测试文案使用中文名称，不添加 TERUISI 英文品牌前缀。保留既有内部标识、协议字段、数据库角色、环境变量及路径；不得以清理显示文案为由改动这些运行契约。
+
 - 钉钉无响应排障必须区分 Stream 建联、callback 接收/拒绝、持久入队、模型处理与外部投递。进程 running、历史 connected 或定时任务 sent 不能替代新聊天验收；使用 `callback_received/accepted/rejected/unavailable` 固定标签及账本状态定位，不输出原始消息、身份 ID、凭据、Webhook 或 ticket，不自动重放旧消息和未知结果。诊断日志上线不等于聊天故障已修复，说明见 `docs/DINGTALK_READONLY_ASK.md`。
 
 - `run_pandas_analysis` 的 Python 代码只能在独立 Linux/rootless 容器执行；Worker 与 Django 仅做权限内数据集导出、签名传输和被动结果验证，不得使用宿主 Python 或 AST/eval 过滤模拟隔离。容器必须无网络、无宿主挂载/业务凭据、固定镜像与资源配额，成功或失败都须核验精确清理；源分页/字段截断、权限变化、未知执行或清理失败均失败关闭。源码接入不代表独立运行环境已部署，采用门禁见 `docs/AI_PANDAS_SANDBOX.md`。
