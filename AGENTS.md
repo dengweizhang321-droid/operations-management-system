@@ -1,8 +1,20 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-14，市场 AI 旧图候选阻塞批量入库修复已合入 main 并在本机采用。源码 `75c73f748de00eb2dfec9fbe45ecdab92fefdfac`；Worker/helper `20260913T162304Z-3733181f1543a083`，manifest SHA `2c9cfc1661a48c66e4f3bfa805040775d7be76083829cf63506445b944dcb8b8`；Django manifest SHA `c5651c760123f4652301b3bceaa55b2e0b6ee1bb6cfd3f980bd96ca8c2943411`。复核、数量、选择与入库共用精确月份/身份/当前图片哈希；旧图不可选或编辑，入库先筛最多 500 条有效项并锁快照复验，回执记录跳过数，全部失效有界零入库。保留旧图人工复核，不调用尚未实现的 rebuild API，不自动重放模型或未知结果。镜像 PostgreSQL 61/61、全量 Node 2147 通过/0 失败/20 跳过、正式页面/API/资源字节、Running/Ready/exact_release、启动绑定及备份独立恢复通过。生产验收不执行人工入库；4 条原计划先暂停并两次排空，再停启发布，恢复后自然新增完成 71 条，74 条隔离完整行摘要不变。无新迁移、角色变更或 n8n 重启；主数据默认列表超时与既有连接容量告警单独保留。详见 `docs/MARKET_ANNOTATION_RELIABILITY.md` 和 `docs/evidence/market-stale-candidates-production-20260914.json`。
+
+2026-09-13，市场批量入库审计日期序列化修复已合入 main 并在本机采用。源码 `0b96b86cd23f44f40ab6d557fedc0819a4069d1c`；Django manifest SHA `bb1d44779115d8b0fdc5b8caceae9b3b14a7f9e725c2039bb4bd2a650927354d`，Worker/helper 继续使用 `20260913T143708Z-cd14607ae3bd71e3`。正式标注旧值快照中的 ORM 日期须转换为保留时区和微秒的 ISO 字符串，再写入 JSON 审计；其余类型、空值和版本不得改变，禁止删减审计以回避序列化失败。真实 PostgreSQL 市场 55 项测试及 reader/writer 权限验证通过，无迁移。停机前单次 `activeClaims=0`/helper 空闲快照不能阻止之后的定时领取；后续维护须有受控停派与在途任务排空的证据，结果未知项继续隔离，不得自动重放。采用、备份恢复与本次切换竞态见 `docs/evidence/market-annotation-commit-json-production-20260913.json`。
+
+2026-09-13，市场标注读取恢复与 AI 回复黑色字体已合入 main 并在本机采用。源码 `8f93ec2f5beea4475656da514f4d60546e73c5e9`；Worker/helper `20260913T143708Z-cd14607ae3bd71e3`，manifest SHA `fe1255754246e12c3f2c5264ed4a06b7d032766943a3f4292a75e4fb070deb6f`。进度与复核采用独立错误通道，只有同通道最新请求成功才能清除错误，后台刷新不能清除写操作错误；读取及响应体限 30 秒，切换任务/筛选和卸载须取消并隔离迟到响应。重试仅限只读，不重放创建、入库或模型调用。无数据库迁移、Django/n8n 重启；正式资源、标注 API、Running/Ready/exact_release、发布前备份独立恢复及发布后备份复验通过。最初 503 原因未复现，主数据列表超时仍未解决。见 `docs/evidence/market-annotation-refresh-production-20260913.json`。
+
+2026-09-13，AI 对话布局与配置设置第一阶段已合入 main 并在本机受控上线。源码 `5520b3d7d51e3c32fbf90898fb3baac508335894`；Worker/helper `20260913T083423Z-5b9bc1d755228cae`，manifest SHA `dcba1b2342da4163cc25de91f9a7140b94597eb8a646bde29fc1e61f7dc5e06c`；Django manifest SHA `d6bbf9f727475c7dab0a347f33a6ccc1523604bab55af074ba3659644c6d211e`。AI `0011_prompt_settings` 与 reader/writer grants、健康及备份清单已采用，AI 自有表52张；原51张AI表迁移前后摘要一致。默认六类口径已通过正式API保存为v1并由页面刷新回读，旧版本覆盖409、跨站写403、无签名内部读401。普通聊天、板块、钉钉和定时问数共用每次提问固定快照，从下一次提问生效；权限与计算公式继续由代码控制，独立Agent/DAG不接入。持久会话工作区/长任务仍为第二阶段，不扩大沙箱边界。整栈Running/Ready/exact_release；付费模型完整对话效果未验收。具体实现、备份恢复与采用证据见 `docs/AI_PROMPT_SETTINGS.md`、`docs/evidence/ai-chat-settings-production-20260913.json`。
+
+2026-09-13，市场 AI 标注多计划派发与跨页复核已合入 main 并在本机受控上线。源码 `2a1867c244fc1c8d3b4cb55675b8dd71d11044a7`；Worker/helper `20260913T024434Z-bc351d47b7209e2b`，manifest SHA `33d3c8c0e7b7d2809a2076f983ca5ff5b5016d70cd0c0f9026384e5c057b16e0`；Django manifest SHA `77251eba11f4cc925e323bcafcbd52a5c05ac24ce686cf575887ce0ec66903b2`。调度必须复验真实创建人，公平选择最多 5 条计划、共享最多 50 个并发通道；准备完成后才开启 10 秒领取窗口。不存在过期推理时跳过关联积压扫描，避免持有模型锁拖慢派发；同模型共享限流退避，同图跨月复用，未知结果不得自动重放。已完成单条结果可跨页筛选复核，每次入库最多 500 条，继续保留资格、版本、权限及审计校验。镜像 PostgreSQL 52/52、全量 2138 通过/0 失败/20 跳过，正式 Running/Ready/exact_release、资源字节、5 条原计划自然推进、发布前备份独立恢复和发布后备份复验均通过。无数据库迁移、n8n 重启、历史失败重置或人工批量入库；既有启用计划自然恢复包含真实模型调用与结果写入。“主数据与价格”默认列表另有约 30 秒超时，尚未解决，不能据此宣称市场全页面性能通过。见 `docs/MARKET_ANNOTATION_RELIABILITY.md` 和 `docs/evidence/market-annotation-reliability-production-20260913.json`。
+
+2026-09-13，钉钉接收器随系统自动启动已合入 main 并在本机受控启用。源码 `8b25c7005b6d6af4e04ee75937f2496b257ebf0e`；Worker/helper `20260912T234549Z-017f8196dda91b2b`，manifest SHA `908f4920a699240cbd241ae442eb2e6267baef470d976e09a8b8cadfef586e48`；Django manifest SHA `8c87f48c44b850baa0c426d00ef26970db671d656ebdb7ffd1d558e88d0beaa5`。受保护 `config/dingtalk-startup.json` 必须绑定接收器配置摘要和 AI authority；唯一系统 Start 引擎在后端与 Worker HTTP 就绪后调用 `AutoStartDingTalk`，继续保留服务 mutex、进程身份和 PostgreSQL 单例。`EnableDingTalkStartup` 只核验并保存配置；`StopDingTalk` 同时持久停用自动启动；整栈 Stop 保留配置，单次 `StartDingTalk` 不取消持久停用。已验证系统从停止状态自动拉起并 connected、重复 Start 复用原进程及启动绑定；没有实际重启 Windows，不新增无人登录运行、接收器崩溃自动恢复或过期任务补发。见 `docs/AI_DINGTALK_SCHEDULES.md` 和 `docs/evidence/dingtalk-receiver-autostart-production-20260913.json`。
+
 2026-09-13已按固定计划受控清理137份旧Worker `node_modules`，D盘可用空间净增加99.899 GiB；当前版本、最近两个前驱、另11个链外版本的依赖，以及全部151个发布目录和版本链仍保留。删除后完整链、当前版本及Running / Ready / exact_release复验通过，见 `docs/evidence/storage-dependency-cleanup-20260913.json`。这些历史依赖目录缺失是已验证的归档状态，不得作为损坏批量重新安装或据此删除整个旧发布目录；恢复必须绑定原始依赖树摘要、从私有归档完整下载/解包验证后按受控路径处理，恢复依赖不授予旧版启动资格。业务数据库及旧备份保留规则未改变。
 
-用户于2026-09-13指定业务数据库备份副本保存到 `E:\运营管理系统业务数据`；首次新备份已复制校验，每日22:30由当前Codex任务自动化（ID `e`）生成并归档，依赖电脑、桌面应用及数据库正常运行。受保护程序仍先在D盘生成备份，D盘旧备份未删除，业务数据库未上传GitHub。详见 `docs/STORAGE_RETENTION.md`。
+用户于2026-09-13指定业务数据库备份副本保存到 `E:\运营管理系统业务数据`；首次新备份已复制校验，每日22:30由“清理无用文件释放D盘空间”任务中的自动化（ID `e`）生成并归档，依赖电脑、桌面应用及数据库正常运行。受保护程序仍先在D盘生成备份，D盘旧备份未删除，业务数据库未上传GitHub。详见 `docs/STORAGE_RETENTION.md`。
 
 本机存储保留：GitHub归档必须使用独立私有仓库，禁止向源码仓库上传业务数据库、附件、配置和恢复密钥。2026-09-13已按用户要求将账号全部4个仓库设为私有并核验仅所有者具有协作者权限，个人资料亦已设为私有；后续新仓库默认私有，不主动添加他人访问权限。旧Worker依赖只能按完整验证链规划，保留当前与最近两个前驱，按原始依赖树摘要归档并完整下载/解包验证；正式清理须持有生命周期互斥、逐目录复验与进程引用检查、写持久审计，仅删除精确历史`node_modules`，保留所有manifest、回执、fence、successor、源码、dist及helper。数据库云端归档须先完成认证加密、独立离线密钥与隔离恢复验收，尚未满足时不缩短原本机保留期。详见 `docs/STORAGE_RETENTION.md`。
 
@@ -190,6 +202,10 @@
 - 外部回调必须验签、解密、校验接收方并防重。聊天平台消息不能绕过后台权限直接修改运营数据。
 
 ## 7. 中央 AI 工具注册表
+
+- AI 面向用户的自我介绍、系统称呼和连接测试文案使用中文名称，不添加 TERUISI 英文品牌前缀。保留既有内部标识、协议字段、数据库角色、环境变量及路径；不得以清理显示文案为由改动这些运行契约。
+
+- 钉钉无响应排障必须区分 Stream 建联、callback 接收/拒绝、持久入队、模型处理与外部投递。进程 running、历史 connected 或定时任务 sent 不能替代新聊天验收；使用 `callback_received/accepted/rejected/unavailable` 固定标签及账本状态定位，不输出原始消息、身份 ID、凭据、Webhook 或 ticket，不自动重放旧消息和未知结果。诊断日志上线不等于聊天故障已修复，说明见 `docs/DINGTALK_READONLY_ASK.md`。
 
 - `run_pandas_analysis` 的 Python 代码只能在独立 Linux/rootless 容器执行；Worker 与 Django 仅做权限内数据集导出、签名传输和被动结果验证，不得使用宿主 Python 或 AST/eval 过滤模拟隔离。容器必须无网络、无宿主挂载/业务凭据、固定镜像与资源配额，成功或失败都须核验精确清理；源分页/字段截断、权限变化、未知执行或清理失败均失败关闭。源码接入不代表独立运行环境已部署，采用门禁见 `docs/AI_PANDAS_SANDBOX.md`。
 

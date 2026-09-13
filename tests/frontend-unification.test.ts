@@ -63,7 +63,7 @@ test("left navigation follows the task-oriented groups and exact order", async (
   assert.match(catalog, /label: "商品与供应链",[\s\S]*?keys: \["inventory", "product", "import"\]/);
   assert.match(catalog, /label: "系统与智能",[\s\S]*?keys: \["settings", "ai"\]/);
   assert.match(navigation, /navGroups\.map\(\(group, groupIndex\)/);
-  assert.match(navigation, /<a[\s\S]*?href=\{hrefForModule\(moduleKey\)\}/);
+  assert.match(navigation, /<a[\s\S]*?href=\{hrefForModule\(moduleKey, moduleKey === "ai" \? "agents" : undefined\)\}/);
   assert.match(navigation, /aria-current=\{selected \? "page" : undefined\}/);
   assert.match(page, /<SidebarNavigation active=\{active\}/);
 });

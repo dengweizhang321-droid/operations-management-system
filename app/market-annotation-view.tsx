@@ -13,16 +13,18 @@ import {
 } from "@/lib/market/annotation-limits";
 import { defaultAnnotationPromptBody } from "@/lib/market/annotation-prompt-template";
 import { remainingInferenceUnitsForJob } from "@/lib/market/annotation-progress";
+import { AnnotationReadError, createAnnotationReadChannel } from "@/lib/market/annotation-read-channel";
+import { canSelectAnnotationReviewItem } from "@/lib/market/annotation-review-state";
 
 type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "admin" } | null;
 type Model = { id: string; name: string; protocol: string; modelName: string };
 type Prompt = { id: string; category: string; version: number; parentId: string | null; source: string; status: string; segments: string[]; promptBody: string; changeNote: string; metrics: Record<string, unknown>; createdAt: string };
 type Job = { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; status: string; totalCount: number; completedCount: number; failedCount: number; reviewedCount: number; committedCount: number; remainingInferenceCount: number; createdAt: string };
-type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; selected: boolean; version: number; errorMessage: string; createdAt: string };
+type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
-type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number; staleSelectedCount?: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CandidateCountsPayload = { categories: Array<{ value: string; candidateCount: number }>; error?: string };
 type CandidateCountsStatus = "idle" | "loading" | "ready" | "error";
@@ -54,7 +56,8 @@ const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "a
   if (recognized) return "AI 已识别";
   return item.status === "failed" ? "AI 识别失败" : "未生成 AI 结果";
 };
-const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource">) => {
+const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource" | "snapshotValid">) => {
+  if (item.snapshotValid === false && ["review_pending", "approved", "rejected"].includes(item.status)) return "图片或对应月份数据已变化，已排除入库；请按当前图片重新识别并复核。";
   if (item.reviewPriceSource === "history_same_image") return "主图与历史已确认图片一致，默认沿用上次标准售价，请人工复核后入库";
   if (item.aiReason) return item.aiReason;
   if (/状态码\s*429/.test(item.errorMessage)) return `${item.errorMessage}：模型供应商限流或额度不足，请稍后重试并检查额度`;
@@ -116,7 +119,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [savingConcurrencyKey, setSavingConcurrencyKey] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [staleCandidateId, setStaleCandidateId] = useState("");
+  const [progressError, setProgressError] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [progressReader] = useState(() => createAnnotationReadChannel({ label: "任务进度读取", onError: setProgressError }));
+  const [reviewReader] = useState(() => createAnnotationReadChannel({ label: "复核列表读取", onError: setReviewError }));
   const [initialLoading, setInitialLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [candidateCountsStatus, setCandidateCountsStatus] = useState<CandidateCountsStatus>("idle");
@@ -125,7 +131,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const dirtyDraftIdsRef = useRef(new Set<string>());
   const loadSequenceRef = useRef(0);
   const reviewLoadSequenceRef = useRef(0);
-  const reviewControllerRef = useRef<AbortController | null>(null);
   const candidateCountsGenerationRef = useRef(0);
   const candidateCountsControllerRef = useRef<AbortController | null>(null);
   const candidateCountsScopeRef = useRef("");
@@ -250,60 +255,47 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
 
   const loadReview = useCallback(async (resetDrafts = false) => {
     const loadSequence = ++reviewLoadSequenceRef.current;
-    reviewControllerRef.current?.abort();
+    reviewReader.cancel();
     const params = new URLSearchParams({ view: "review", itemPage: String(itemPage), itemPageSize: String(itemPageSize), aggregateJobs: "1" });
     reviewCategories.forEach((value) => params.append("itemCategory", value));
     itemSegments.forEach((value) => params.append("itemSegment", value));
     storageStatuses.forEach((value) => params.append("storageStatus", value));
     recognitionSources.forEach((value) => params.append("recognitionSource", value));
-    const controller = new AbortController();
-    reviewControllerRef.current = controller;
     setReviewLoading(true);
-    let timedOut = false;
-    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, LOAD_TIMEOUT_MS);
-    let response: Response;
-    let payload: ReviewWorkspace | null;
     try {
-      response = await fetch("/api/market/annotations?" + params, { cache: "no-store", signal: controller.signal });
-      payload = await response.json().catch(() => null) as ReviewWorkspace | null;
-    } catch (reason) {
-      if (loadSequence !== reviewLoadSequenceRef.current) return;
-      if (timedOut) throw new Error("读取人工复核列表超时，请重试");
-      if (controller.signal.aborted) return;
-      throw reason;
+      await reviewReader.read<ReviewWorkspace>("/api/market/annotations?" + params,
+        (value): value is ReviewWorkspace => Boolean(value && typeof value === "object" && Array.isArray((value as ReviewWorkspace).items) && (value as ReviewWorkspace).itemPagination && (value as ReviewWorkspace).selection),
+        (payload) => {
+          setLoadedReviewScopeKey(annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources }));
+          setData((current) => current ? { ...current, ...payload } : current);
+          setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
+            const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
+            const existing = current[item.id];
+            const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
+            if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
+            return [item.id, preserve ? existing : serverDraft];
+          })));
+        });
     } finally {
-      window.clearTimeout(timeout);
-      if (reviewControllerRef.current === controller) reviewControllerRef.current = null;
       if (loadSequence === reviewLoadSequenceRef.current) setReviewLoading(false);
     }
-    if (loadSequence !== reviewLoadSequenceRef.current) return;
-    if (!response.ok || !payload) throw new Error(payload?.error || "读取人工复核列表失败");
-    setLoadedReviewScopeKey(annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources }));
-    setData((current) => current ? { ...current, ...payload } : current);
-    setDrafts((current) => Object.fromEntries(payload.items.map((item) => {
-      const serverDraft = { segment: item.reviewedSegment || item.aiSegment, price: yuanInput(item.reviewedImagePriceCents), selected: item.selected, version: item.version };
-      const existing = current[item.id];
-      const preserve = !resetDrafts && Boolean(existing) && dirtyDraftIdsRef.current.has(item.id) && existing.version === serverDraft.version;
-      if (!preserve) dirtyDraftIdsRef.current.delete(item.id);
-      return [item.id, preserve ? existing : serverDraft];
-    })));
-  }, [itemPage, itemPageSize, reviewCategories, itemSegments, storageStatuses, recognitionSources]);
+  }, [itemPage, itemPageSize, reviewCategories, itemSegments, storageStatuses, recognitionSources, reviewReader]);
 
-  const loadJobProgress = useCallback(async (targetJobId: string) => {
+  const loadJobProgress = useCallback(async (targetJobId: string, signal?: AbortSignal) => {
     const params = new URLSearchParams({ view: "progress", jobId: targetJobId });
-    const response = await fetch("/api/market/annotations?" + params, { cache: "no-store" });
-    const payload = await response.json().catch(() => null) as JobProgress | null;
-    if (!response.ok || !payload?.job) throw new Error(payload?.error || "读取标注任务进度失败");
-    setCloudProgress(payload);
-    setData((current) => current ? {
-      ...current,
-      jobs: current.jobs.map((item) => item.id === payload.job.id ? payload.job : item),
-      cloudRuns: payload.cloudRun
-        ? [...current.cloudRuns.filter((item) => item.jobId !== payload.job.id), payload.cloudRun]
-        : current.cloudRuns,
-    } : current);
-    return payload;
-  }, []);
+    return progressReader.read<JobProgress>("/api/market/annotations?" + params,
+      (value): value is JobProgress => Boolean(value && typeof value === "object" && (value as JobProgress).job?.id === targetJobId),
+      (payload) => {
+        setCloudProgress(payload);
+        setData((current) => current ? {
+          ...current,
+          jobs: current.jobs.map((item) => item.id === payload.job.id ? payload.job : item),
+          cloudRuns: payload.cloudRun
+            ? [...current.cloudRuns.filter((item) => item.jobId !== payload.job.id), payload.cloudRun]
+            : current.cloudRuns,
+        } : current);
+      }, signal);
+  }, [progressReader]);
 
   const loadInitial = useCallback(async () => {
     setInitialLoading(true);
@@ -324,25 +316,24 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       mountedRef.current = false;
       loadSequenceRef.current += 1;
       reviewLoadSequenceRef.current += 1;
-      reviewControllerRef.current?.abort();
-      reviewControllerRef.current = null;
+      reviewReader.cancel();
       candidateCountsGenerationRef.current += 1;
       candidateCountsScopeRef.current = "";
       candidateCountsControllerRef.current?.abort();
       candidateCountsControllerRef.current = null;
+      progressReader.cancel();
     };
-  }, []);
+  }, [progressReader, reviewReader]);
   useEffect(() => { const timer = window.setTimeout(() => void loadInitial(), 0); return () => window.clearTimeout(timer); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!initialReadyRef.current) return;
-    const timer = window.setTimeout(() => void loadReview().catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败")), 0);
+    const timer = window.setTimeout(() => void loadReview().catch(() => undefined), 0);
     return () => {
       window.clearTimeout(timer);
       reviewLoadSequenceRef.current += 1;
-      reviewControllerRef.current?.abort();
-      reviewControllerRef.current = null;
+      reviewReader.cancel();
     };
-  }, [loadReview]);
+  }, [loadReview, reviewReader]);
   const post = async (body: Record<string, unknown>) => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), ACTION_TIMEOUT_MS);
@@ -370,12 +361,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     return payload?.result as Record<string, unknown> | undefined;
   };
   const act = async (name: string, fn: () => Promise<void>) => {
-    setBusy(name); setError(""); setNotice(""); setStaleCandidateId("");
+    setBusy(name); setError(""); setNotice("");
     try { await fn(); }
     catch (reason) {
       const message = reason instanceof Error ? reason.message : "操作失败";
-      setError(message);
-      setStaleCandidateId(message.match(/候选项 (market-item-[0-9a-f-]{36}) 对应的榜单身份、价格快照或图片版本已变化/i)?.[1] ?? "");
+      if (!(reason instanceof AnnotationReadError)) setError(message);
+      if ((reason as { status?: number })?.status === 409 && ["commit", "save-review", "select-filtered"].includes(name)) {
+        await loadReview(true).catch(() => undefined);
+      }
     } finally { setBusy(""); }
   };
   const activePrompt = data?.prompts.find((item) => item.category === category && item.status === "active");
@@ -394,8 +387,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const currentRemainingInferenceCount = remainingInferenceUnitsForJob(currentJob, cloudProgress);
   const currentCloudRunHasUnfinishedItems = currentJob?.executor === "cloud" && currentRemainingInferenceCount > 0;
   const currentCloudRunIsRunning = currentCloudRun?.state === "running" && currentCloudRunHasUnfinishedItems;
+  const currentCloudRunHasUnknownResult = currentCloudRun?.lastFailureCode === "inference_result_unknown";
   const currentJobPendingReviewCount = currentJob ? Math.max(0, currentJob.totalCount - currentJob.committedCount - currentJob.failedCount) : 0;
-  const currentJobSettledMessage = currentJob?.status === "committed"
+  const currentJobSettledMessage = currentCloudRunHasUnknownResult
+    ? "有识别结果尚未确认，已暂停并保留原记录；请先核验异常项，避免重复识别"
+    : currentJob?.status === "committed"
     ? "已全部正式入库，无需重复识别"
     : currentJob?.status === "review_ready"
       ? `识别已结束${currentJobPendingReviewCount ? `，待复核/入库 ${currentJobPendingReviewCount} 条` : ""}${currentJob.failedCount ? `，失败封顶 ${currentJob.failedCount} 条` : ""}；请在下方复核或归档旧任务`
@@ -403,25 +399,37 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const backgroundJobId = currentJob?.id ?? "";
   const backgroundExecutor = currentJob?.executor ?? "";
   useEffect(() => {
+    progressReader.cancel();
+    setCloudProgress(null);
+    setProgressError("");
+    return () => progressReader.cancel();
+  }, [backgroundJobId, progressReader]);
+  useEffect(() => {
     if (!backgroundJobId || backgroundExecutor !== "cloud" || !currentCloudRunIsRunning) return;
     let disposed = false;
+    const controller = new AbortController();
     let polling = false;
+    let reviewedCompletedCount = -1;
     const tick = async () => {
       if (disposed || polling) return;
       polling = true;
       try {
-        const progress = await loadJobProgress(backgroundJobId);
-        if (progress.job.status === "review_ready" || progress.cloudRun?.state === "completed") await loadReview(true);
-      } catch (reason) {
-        if (!disposed) setError(reason instanceof Error ? reason.message : "读取云端后台进度失败");
+        const progress = await loadJobProgress(backgroundJobId, controller.signal);
+        if (!progress || disposed) return;
+        if (!disposed && (progress.job.completedCount !== reviewedCompletedCount || reviewReader.hasError())) {
+          await loadReview();
+          reviewedCompletedCount = progress.job.completedCount;
+        }
+      } catch {
+        // Each read channel retains its own failure until that same read succeeds.
       } finally {
         polling = false;
       }
     };
     void tick();
     const timer = window.setInterval(() => void tick(), 5_000);
-    return () => { disposed = true; window.clearInterval(timer); };
-  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview]);
+    return () => { disposed = true; controller.abort(); window.clearInterval(timer); };
+  }, [backgroundExecutor, backgroundJobId, currentCloudRunIsRunning, loadJobProgress, loadReview, reviewReader]);
   const concurrencyFor = (targetCategory: string, targetExecutor: MarketAnnotationExecutor) => {
     const key = annotationConcurrencyKey(targetCategory, targetExecutor);
     const stored = data?.concurrencySettings.find((item) => item.category === targetCategory && item.executor === targetExecutor)?.concurrency;
@@ -448,14 +456,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       setSavingConcurrencyKey("");
     }
   };
-  const reviewableIds = new Set((data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
+  const reviewableIds = new Set((data?.items ?? []).filter((item) => item.snapshotValid !== false && ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
   const activeReviewScopeKey = annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources });
   const reviewScopeReady = loadedReviewScopeKey === activeReviewScopeKey;
   const importableIds = new Set((data?.items ?? []).filter((item) => {
-    if (!reviewableIds.has(item.id)) return false;
-    const job = data?.jobs.find((candidate) => candidate.id === item.jobId);
-    const prompt = data?.prompts.find((candidate) => candidate.id === job?.promptVersionId);
-    return job?.status === "review_ready" && Boolean(prompt?.segments.includes(drafts[item.id]?.segment ?? ""));
+    return canSelectAnnotationReviewItem(item, drafts[item.id]?.segment ?? "");
   }).map((item) => item.id));
   const updateDraft = (id: string, patch: Partial<Draft>) => { dirtyDraftIdsRef.current.add(id); setDrafts((current) => ({ ...current, [id]: { ...current[id]!, ...patch } })); };
 
@@ -514,6 +519,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         await post({ action: "set_cloud_run_state", jobId: id, state: "running" });
       }
       const progress = await loadJobProgress(id);
+      if (!progress) return;
       await load(id, 1);
       setJobId(id);
       setCloudProgress(progress);
@@ -537,11 +543,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const savedConcurrency = await persistConcurrency(currentJob.category, "cloud", concurrencyFor(currentJob.category, "cloud"));
     await post({ action: "set_cloud_run_state", jobId: currentJob.id, state: "running" });
     const progress = await loadJobProgress(currentJob.id);
+    if (!progress) return;
     setNotice(progress.cloudRun?.state === "completed" || progress.job.status === "review_ready"
       ? "云端识别队列已经处理完毕，可进入人工复核与批量入库"
       : alreadyRunning
         ? `已安全唤醒云端后台（目标并发 ${savedConcurrency}）；如已有执行器正在工作，本次不会重置并发退避或重复领取。`
-        : `云端后台已接管任务（目标并发 ${savedConcurrency}），将在一分钟内开始领取；关闭浏览器或电脑后仍会由 Cloudflare 继续执行。`);
+        : `云端后台已接管任务（目标并发 ${savedConcurrency}），将由后台定时领取；关闭浏览器可继续，本机部署需要电脑和运营系统保持运行。`);
   });
   const pauseCloud = () => act("pause-cloud", async () => {
     if (!currentJob || currentJob.executor !== "cloud") throw new Error("请选择需要暂停的云端标注任务");
@@ -569,6 +576,8 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   });
   const setFilteredSelection = (selected: boolean) => act("select-filtered", async () => {
     if (!reviewScopeReady) throw new Error("三级品类筛选仍在刷新，请等待列表更新后再全选");
+    const editedIds = (data?.items ?? []).filter((item) => reviewableIds.has(item.id) && dirtyDraftIdsRef.current.has(item.id)).map((item) => item.id);
+    if (editedIds.length) await saveReviewGroups(editedIds);
     const result = await post({ action: "select_filtered", aggregateJobs: true, categories: reviewCategories, selected, itemSegments, storageStatuses, recognitionSources });
     dirtyDraftIdsRef.current.clear(); await loadReview(true);
     setNotice(selected ? `已跨页全选当前筛选结果 ${String(result?.changed ?? 0)} 条` : `已清空当前筛选结果 ${String(result?.changed ?? 0)} 条选择`);
@@ -581,13 +590,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const operationId = "ui_aggregate_" + Date.now().toString(36);
     let committed = 0;
     let duplicates = 0;
-    let staleSelected = 0;
+    let skippedStale = 0;
     for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
       setNotice(`正在分批入库：已完成 ${committed} 条，本批最多处理 500 条`);
       const result = await post({ action: "commit_selected", aggregateJobs: true, categories: reviewCategories, idempotencyKey: `${operationId}_${batch}` });
       committed += Number(result?.committed ?? 0);
       duplicates += Number(result?.duplicates ?? 0);
-      staleSelected = Math.max(staleSelected, Number(result?.staleSelected ?? 0));
+      skippedStale = Math.max(skippedStale, Number(result?.skippedStaleCount ?? 0));
       if (result?.ok === false || result?.partial) {
         await loadReview(true);
         throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条；页面已刷新，可重新点击续跑`));
@@ -595,43 +604,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (!result?.hasMore) break;
       if (batch === MAX_COMMIT_BATCHES) throw new Error(`已连续处理 ${committed} 条，但仍有剩余选择；请再次点击批量入库继续`);
     }
-    let rebuilt = 0;
-    let priceOnly = 0;
-    let fullRecognition = 0;
-    const resumedJobs = new Set<string>();
-    if (staleSelected > 0) {
-      for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
-        setNotice(`有效候选已入库 ${committed} 条；正在重建图片已变化的候选 ${rebuilt}/${staleSelected}`);
-        const result = await post({ action: "rebuild_stale_selected", aggregateJobs: true, categories: reviewCategories });
-        rebuilt += Number(result?.rebuilt ?? 0);
-        priceOnly += Number(result?.priceOnly ?? 0);
-        fullRecognition += Number(result?.fullRecognition ?? 0);
-        for (const jobId of Array.isArray(result?.resumedJobIds) ? result.resumedJobIds : []) resumedJobs.add(String(jobId));
-        if (result?.ok === false || result?.partial) {
-          await loadReview(true);
-          throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条并重建 ${rebuilt} 条；页面已刷新，可重新点击续跑`));
-        }
-        if (!result?.hasMore) break;
-        if (batch === MAX_COMMIT_BATCHES) throw new Error(`已入库 ${committed} 条并重建 ${rebuilt} 条，仍有过期候选；请再次点击批量入库继续`);
-      }
-    }
     selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id));
     await loadReview(true);
-    const rebuildNotice = rebuilt
-      ? `；已重建过期候选 ${rebuilt} 条（仅重识别价格 ${priceOnly} 条，完整重识别 ${fullRecognition} 条），恢复云端任务 ${resumedJobs.size} 个`
+    const skippedNotice = skippedStale
+      ? `；跳过图片或对应月份数据已变化的候选 ${skippedStale} 条，保留原复核记录，需按当前图片重新识别并复核`
       : "";
-    setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条${rebuildNotice}`);
-  });
-  const rebuildStaleCandidate = () => act("rebuild-stale", async () => {
-    if (!staleCandidateId) throw new Error("没有可重建的失效候选");
-    const result = await post({ action: "rebuild_stale_item", candidateId: staleCandidateId });
-    dirtyDraftIdsRef.current.delete(staleCandidateId);
-    const replacementId = String(result?.replacementCandidateId ?? "");
-    const recognitionMode = result?.recognitionMode === "price_only" ? "已沿用人工细分类目，只需重新识别新图价格" : "需要按新图重新完成分类与价格识别";
-    setItemPage(1);
-    await loadReview(true);
-    setStaleCandidateId("");
-    setNotice(`失效候选已安全重建为 ${replacementId}；${recognitionMode}。请启动/恢复原任务识别。`);
+    setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条${skippedNotice}`);
   });
   const savePrompt = (mode: "manual" | "generate") => act("prompt", async () => {
     if (!category) throw new Error("“全部三级类目”仅用于浏览和筛选；保存 Prompt 前请选择一个具体类目");
@@ -710,6 +688,11 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const selectedCount = Math.max(0, data.selection.scopeSelectedCount - serverSelectedOnPage + draftSelectedOnPage);
   const filteredSelectedCount = Math.max(0, data.selection.filteredSelectedCount - serverSelectedOnPage + draftSelectedOnPage);
   const allFilteredChecked = data.selection.filteredReviewableCount > 0 && filteredSelectedCount === data.selection.filteredReviewableCount;
+  const filteredSelectionBlockReason = !canEdit ? "当前账号没有人工复核权限"
+    : !reviewScopeReady ? "正在应用复核筛选，请等待列表更新"
+      : busy !== "" ? "正在处理其他操作，请稍候"
+        : !data.selection.filteredReviewableCount ? "当前筛选中没有已完成识别且细分品类有效的候选，可调整筛选或刷新结果"
+          : "";
   const hasDirtyDrafts = data.items.some((item) => { const draft = drafts[item.id]; return Boolean(draft) && (draft.segment !== (item.reviewedSegment || item.aiSegment) || draft.price !== yuanInput(item.reviewedImagePriceCents) || draft.selected !== item.selected); });
   const visibleJobs = data.jobs.filter((item) => !category || item.category === category);
   const createBlockReason = createJobBlockReason();
@@ -726,14 +709,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     setReviewCategories((current) => checked ? [...new Set([...current, value])] : current.filter((item) => item !== value));
   };
   const reviewSegmentsFor = (item: Item) => {
-    const taxonomyValues = data.taxonomy.filter((entry) => entry.category === item.category).map((entry) => entry.value);
-    const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
-    const itemPrompt = data.prompts.find((entry) => entry.id === itemJob?.promptVersionId);
-    return taxonomyValues.length ? taxonomyValues : itemPrompt?.segments ?? [];
+    if (!reviewableIds.has(item.id)) return [...new Set([item.reviewedSegment || item.aiSegment, ...(item.reviewSegments ?? [])])].filter(Boolean);
+    return item.reviewSegments ?? [];
   };
 
   return <div className="market-annotation-module">
-    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")} role={error ? "alert" : "status"}><span>{error || notice}</span>{error && staleCandidateId && <button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={rebuildStaleCandidate}>{busy === "rebuild-stale" ? "重建中…" : "重建这条失效候选"}</button>}</div>}
+    {progressError && <div className="market-feedback error" role="alert"><span>{progressError}</span><button className="secondary-button" disabled={!jobId} onClick={() => void loadJobProgress(jobId).catch(() => undefined)}>重新读取进度</button></div>}
+    {reviewError && <div className="market-feedback error" role="alert"><span>{reviewError}</span><button className="secondary-button" disabled={reviewLoading} onClick={() => void loadReview().catch(() => undefined)}>重新读取复核列表</button></div>}
+    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")} role={error ? "alert" : "status"}><span>{error || notice}</span></div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
     <section className="panel annotation-task-card">
@@ -769,7 +752,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       </div>
 
       {currentJob && <div className="annotation-current-run">
-        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunIsRunning ? `运行中（当前 ${currentCloudRun!.runConcurrency}/${currentCloudRun!.targetConcurrency} 路）` : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
+        <div className="annotation-current-run-summary"><span>当前任务</span><strong>{currentJob.category}</strong><small>{currentJob.executor} · {currentJob.status} · {currentJob.completedCount}/{currentJob.totalCount}</small>{cloudProgress?.job.id === currentJob.id && <small>有效租约 {cloudProgress.activeClaims} · 唯一推理单元剩余 {cloudProgress.remainingInferenceUnits}/{cloudProgress.uniqueInferenceUnits}</small>}{currentJob.executor === "cloud" && <small>云端后台：{currentCloudRunHasUnknownResult ? "结果待核验（已暂停）" : currentCloudRunIsRunning ? `运行中（当前 ${currentCloudRun!.runConcurrency}/${currentCloudRun!.targetConcurrency} 路）` : currentCloudRunHasUnfinishedItems ? currentCloudRun?.state === "completed" ? "已停止（仍有未完成项，可恢复）" : "已暂停" : "已完成"}</small>}{cloudProgress?.job.id === currentJob.id && cloudProgress.performance.measuredCount > 0 && <small>最近 {cloudProgress.performance.measuredCount} 张平均：总耗时 {duration(cloudProgress.performance.averageTotalInferenceMs)} · 模型 {duration(cloudProgress.performance.averageModelCallMs)} · 取图 {duration(cloudProgress.performance.averageImageLoadMs)} · 图片处理 {duration(cloudProgress.performance.averageImagePrepareMs)} · 输入 {bytes(cloudProgress.performance.averageModelInputBytes)}</small>}{currentCloudRun?.lastFailureMessage && <small>最近异常：{currentCloudRun.lastFailureMessage}</small>}</div>
         <label><span>当前任务并发（可运行中调整）</span><div className="annotation-concurrency-control"><input aria-label="当前 AI 标注任务模型并发数" type="number" min={MARKET_ANNOTATION_CONCURRENCY_LIMITS.minimum} max={MARKET_ANNOTATION_CONCURRENCY_LIMITS.maximum} value={currentJobConcurrency} disabled={!canEdit || savingConcurrencyKey === currentJobConcurrencyKey} onChange={(event) => setConcurrencyDrafts((current) => ({ ...current, [currentJobConcurrencyKey]: Number(event.target.value) }))} /><button className="secondary-button" disabled={!canEdit || !isValidAnnotationConcurrency(currentJobConcurrency) || savingConcurrencyKey !== ""} onClick={() => void saveConcurrency(currentJob.category, currentJobExecutor)}>{savingConcurrencyKey === currentJobConcurrencyKey ? "保存中…" : "保存并应用"}</button></div></label>
         {currentJob.executor === "cloud" ? currentCloudRunHasUnfinishedItems ? <div className="annotation-current-run-actions"><button className="primary-button" disabled={!canEdit || busy !== ""} onClick={pumpCloud}>{busy === "run-cloud" ? (currentCloudRunIsRunning ? `正在安全唤醒云端后台（目标并发 ${currentJobConcurrency}）…` : `正在交给云端后台（目标并发 ${currentJobConcurrency}）…`) : currentCloudRun?.state === "completed" ? "恢复剩余识别" : currentCloudRunIsRunning ? `重新唤醒云端后台（并发 ${currentJobConcurrency}）` : `开始/恢复云端后台识别（并发 ${currentJobConcurrency}）`}</button><button className="secondary-button" disabled={!canEdit || busy !== "" || !currentCloudRunIsRunning} onClick={pauseCloud}>{busy === "pause-cloud" ? "正在暂停…" : "完成当前条后暂停"}</button></div> : <small className="annotation-current-run-local">{currentJobSettledMessage}</small> : <small className="annotation-current-run-local">本地任务由 Ollama agent 主动领取；保存后新领取会立即按该并发执行。</small>}
       </div>}
@@ -783,6 +766,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <div><h3>2. 人工复核与批量入库</h3><p>汇总当前类目全部历史 AI 标注任务；支持跨任务筛选、复核、全选和分组入库。</p></div>
         <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !reviewScopeReady || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !reviewScopeReady || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
       </div>
+      {Number(data.selection.staleSelectedCount ?? 0) > 0 && <p className="orange-text" role="status">原勾选中有 {data.selection.staleSelectedCount} 条候选的图片或对应月份数据已变化，已排除本次入库；原复核记录保留，需按当前图片重新识别并复核。</p>}
       <div className="annotation-review-toolbar">
         <div className="annotation-review-category-filter"><span>三级类目（可多选）</span><details><summary aria-label="AI 标注三级类目多选">{reviewCategoryLabel}</summary><div className="annotation-review-category-menu"><button type="button" disabled={!reviewCategories.length} onClick={() => { setReviewCategories([]); setItemSegments([]); setItemPage(1); }}>全部三级类目</button>{data.reviewCategories.map((item) => <label key={item.value}><input type="checkbox" checked={reviewCategories.includes(item.value)} onChange={(event) => toggleReviewCategory(item.value, event.target.checked)} /><span>{item.value}</span><small>{item.jobCount} 个任务 / {item.recordCount} 条</small></label>)}</div></details></div>
         <AnnotationMultiFilter label="细分品类" allLabel="全部细分品类" values={itemSegments} options={reviewSegments.map((value) => ({ value, label: value }))} onChange={(values) => { setItemSegments(values); setItemPage(1); }} />
@@ -794,9 +778,10 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
           setDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, importableIds.has(id) ? { ...draft, selected } : draft])));
           setNotice(selected ? `当前页已选择 ${importableItems.length} 条可入库项` : "已清空当前页选择");
         }} />全选当前页可入库项（{importableItems.length} 条）</label>
-        <label className="annotation-select-page annotation-select-filtered"><input type="checkbox" checked={allFilteredChecked} disabled={!canEdit || !reviewScopeReady || !data.selection.filteredReviewableCount || busy !== ""} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
-        <small>{reviewScopeReady ? "仅选择识别任务已完成、且细分品类仍符合任务 Prompt 的记录；跨页全选支持最多 50,000 条，超过 500 条会在入库时自动分批续跑。" : "正在应用三级品类与复核筛选，请稍候……"}</small>
-        {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch((reason) => setError(reason instanceof Error ? reason.message : "读取人工复核列表失败"))}>重新加载筛选结果</button>}
+        <label className="annotation-select-page annotation-select-filtered" title={filteredSelectionBlockReason || "选择所有页面中符合当前筛选的可入库候选"}><input type="checkbox" checked={allFilteredChecked} disabled={Boolean(filteredSelectionBlockReason)} onChange={(event) => void setFilteredSelection(event.target.checked)} />全选筛选结果（跨页 {data.selection.filteredReviewableCount} 条）</label>
+        <small>{filteredSelectionBlockReason || "已完成识别的候选可先复核入库，无需等待整项任务结束；保留任务 Prompt 与当前字典校验。跨页最多 50,000 条，入库每批处理 500 条。"}</small>
+        <button className="secondary-button" disabled={busy !== "" || reviewLoading} onClick={() => void loadReview().catch(() => undefined)}>{reviewLoading ? "刷新中…" : "刷新复核结果"}</button>
+        {!reviewScopeReady && <button className="secondary-button" disabled={busy !== ""} onClick={() => void loadReview(true).catch(() => undefined)}>重新加载筛选结果</button>}
         <div className="market-view-switch" role="tablist" aria-label="AI 标注展示方式"><button type="button" role="tab" id="annotation-review-tab-list" aria-controls="annotation-review-panel-list" aria-selected={reviewView === "list"} tabIndex={reviewView === "list" ? 0 : -1} className={reviewView === "list" ? "active" : ""} onClick={() => setReviewView("list")} onKeyDown={handleRovingTabKey}>列表</button><button type="button" role="tab" id="annotation-review-tab-gallery" aria-controls="annotation-review-panel-gallery" aria-selected={reviewView === "gallery"} tabIndex={reviewView === "gallery" ? 0 : -1} className={reviewView === "gallery" ? "active" : ""} onClick={() => setReviewView("gallery")} onKeyDown={handleRovingTabKey}>大图</button></div>
       </div>
       {recognitionSources.includes("non_ai") && <p className="annotation-filter-note">此筛选不会调用模型；它显示尚未生成 AI 结果的候选，包括等待识别和此前识别失败的记录。</p>}
@@ -816,7 +801,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <tr key={item.id}>
-          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
+          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={item.snapshotValid === false ? "图片或对应月份数据已变化，不能将旧图结果入库" : reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
           <td>{imageUrl ? (href ? <a className="annotation-image-link" href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td>
           <td>{href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName || "未命名商品"}</small><span>打开商品链接 ↗</span></a> : <><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small></>}<code>{item.candidateId}</code></td>
           <td><strong>{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)}</strong><small>{itemJob?.executor || "—"} · {itemJob?.status || "—"}</small><code>{item.jobId.slice(0, 18)}…</code></td>
@@ -834,7 +819,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <article key={item.id}>
-          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务尚未完成，或细分品类不符合该任务 Prompt" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
+          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={item.snapshotValid === false ? "图片或对应月份数据已变化，不能将旧图结果入库" : reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
           <div className="annotation-gallery-image">{imageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span>无图</span>}</div>
           {href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><h4>{item.productName || item.skuCode}</h4><span>打开商品链接 ↗</span></a> : <h4>{item.productName || item.skuCode}</h4>}
           <small>{item.skuCode} · {annotationRecognitionLabel(item)} · {item.imageSource}</small>
@@ -856,6 +841,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     <article className="panel annotation-validation-card"><div className="section-header"><div><h3>冻结抽样验证</h3><p>默认 50 条，按品类分层并以 seed+hash 冻结；逐条错例永久保留。</p></div></div>{currentRun ? <><div className="annotation-validation-summary"><strong>{currentRun.status}</strong><span>{currentRun.sampleCount} 条 · hash {currentRun.sampleHash?.slice(0, 12)}</span><em className={currentRun.gate?.passed ? "green-text" : "orange-text"}>{currentRun.gate?.passed ? "门禁通过" : (currentRun.gate?.reasons || []).join("；") || "待完成"}</em></div><div className="annotation-validation-errors">{currentResults.filter((item) => !item.isCorrect || item.errorMessage).slice(0, 80).map((item) => <div key={item.id}><strong>{item.skuCode} · {item.goldSegment} → {item.predictedSegment || "失败"}</strong><small>{item.productName}</small><span>{item.errorMessage}</span></div>)}</div></> : <p className="soft-text">尚无冻结验证运行。</p>}</article>
     </section>
 
-    <section className="panel annotation-agent-card"><div className="section-header"><div><h3>4. 本地 Ollama 容灾 runner</h3><p>云端模型任务已经由 Cloudflare 定时接管，关闭浏览器或电脑仍会继续。本机 runner 只用于 Ollama 等 localhost 模型，通过一次性 token 主动领取带租约的任务。</p></div>{isAdmin && <button className="secondary-button" onClick={createAgent}>创建 agent</button>}</div>{agentToken && <div className="annotation-token"><strong>仅显示一次</strong><code>{agentToken}</code></div>}<pre>TERUISI_SITE_URL=https://你的站点{`\n`}TERUISI_ANNOTATION_AGENT_TOKEN=创建时的一次性token{`\n`}OLLAMA_BASE_URL=http://127.0.0.1:11434{`\n`}npm run market:annotation-agent</pre><div className="annotation-agent-list">{data.agents.map((agent) => <div key={agent.id}><strong>{agent.name}</strong><span>{agent.status} · 最近心跳 {agent.lastSeenAt || "从未"}</span>{isAdmin && agent.status === "enabled" && <button className="row-action danger" onClick={() => void act("revoke", async () => { await post({ action: "revoke_agent", agentId: agent.id }); await load(jobId); })}>撤销</button>}</div>)}</div></section>
+    <section className="panel annotation-agent-card"><div className="section-header"><div><h3>4. 本地 Ollama 容灾 runner</h3><p>云端模型任务由后台定时接管，关闭浏览器可继续；本机部署需要电脑和运营系统保持运行。本机 runner 只用于 Ollama 等 localhost 模型，通过一次性 token 主动领取带租约的任务。</p></div>{isAdmin && <button className="secondary-button" onClick={createAgent}>创建 agent</button>}</div>{agentToken && <div className="annotation-token"><strong>仅显示一次</strong><code>{agentToken}</code></div>}<pre>TERUISI_SITE_URL=https://你的站点{`\n`}TERUISI_ANNOTATION_AGENT_TOKEN=创建时的一次性token{`\n`}OLLAMA_BASE_URL=http://127.0.0.1:11434{`\n`}npm run market:annotation-agent</pre><div className="annotation-agent-list">{data.agents.map((agent) => <div key={agent.id}><strong>{agent.name}</strong><span>{agent.status} · 最近心跳 {agent.lastSeenAt || "从未"}</span>{isAdmin && agent.status === "enabled" && <button className="row-action danger" onClick={() => void act("revoke", async () => { await post({ action: "revoke_agent", agentId: agent.id }); await load(jobId); })}>撤销</button>}</div>)}</div></section>
   </div>;
 }

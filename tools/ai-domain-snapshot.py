@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
 
 TABLES = set(AI_TABLES) - {
+    "ai_prompt_settings_revisions",
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions", "ai_dingtalk_receipts",
     "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs",

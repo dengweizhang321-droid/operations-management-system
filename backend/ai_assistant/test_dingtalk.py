@@ -59,6 +59,20 @@ class DingTalkTests(TestCase):
             self.accept(text={"content": "修改后的问题"})
         self.assertEqual(m.AiDingTalkReceipt.objects.count(), 1)
 
+    def test_ingress_reasons_distinguish_rejection_without_changing_permissions(self):
+        for changes, code in (
+            ({"senderCorpId": "other"}, "dingtalk_identity_mismatch"),
+            ({"senderStaffId": "other"}, "dingtalk_sender_unbound"),
+            ({"msgtype": "image"}, "dingtalk_unsupported_message"),
+            ({"conversationType": "2", "isInAtList": False}, "dingtalk_group_not_allowed"),
+            ({"text": None}, "dingtalk_invalid_text"),
+            ({"createAt": 1}, "dingtalk_message_expired"),
+        ):
+            with self.subTest(code=code), self.assertRaises(AiError) as failure:
+                self.accept(**changes)
+            self.assertEqual(failure.exception.code, code)
+        self.assertFalse(m.AiDingTalkReceipt.objects.exists())
+
     def test_group_and_dm_and_senders_have_distinct_sessions(self):
         self.accept()
         self.accept(msgId="group-1", conversationType="2", conversationId="group", isInAtList=True)

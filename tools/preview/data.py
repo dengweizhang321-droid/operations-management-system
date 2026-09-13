@@ -68,6 +68,23 @@ def seed():
         for domain in ("sales", "erp"):
             SalesDataRevision.objects.update_or_create(domain=domain, defaults={"revision":1})
         InventoryDataRevision.objects.update_or_create(domain="inventory", defaults={"revision":1})
+        from ai_assistant.models import AiConversations, AiConversationMessages, AiConversationScopes, AiConversationWorkspace
+        from ai_assistant.prompt_settings import snapshot, compose
+        conversation = AiConversations.objects.create(id="preview-chat", title="广东仓库存复盘 · 合成演示", created_by="local-admin@teruisi.local")
+        AiConversationWorkspace.objects.create(conversation=conversation, module_key="ai")
+        AiConversationScopes.objects.create(conversation=conversation, scope_json="null")
+        _, guidance = compose(snapshot(), "库存健康", None, [{"name":"get_inventory_health"}])
+        content = "\n\n".join([
+            "## 广东仓库存复盘\n这是页面排版演示，以下为合成数据，不代表实际经营结果。",
+            "### 结论\n优先关注库存偏低的演示型号，随后复核积压商品。缺少记录的型号应核验数据覆盖，不能直接判断为零库存。",
+            "### 数据范围\n- 来源：独立预览环境的合成库存\n- 范围：6 个演示型号、精确广东仓\n- 单位：件；以下风险说明只用于展示长回复",
+            "### 型号明细\n| 型号 | 当前库存 | 建议动作 |\n|---|---:|---|\n| DEMO-001 | 0 | 核验后优先补货 |\n| DEMO-002 | 8 | 复核到货安排 |\n| DEMO-003 | 30 | 关注周转与供应周期 |\n| DEMO-004 | 90 | 持续观察 |\n| DEMO-005 | 200 | 复核需求变化 |\n| DEMO-006 | 500 | 复核库存结构 |",
+            "### 下一步建议\n1. 核对在途、供应周期和当前销售趋势。\n2. 将需要备货的型号整理为待确认清单。\n3. 持续区分库存总览、广东人工监控及备货计划的范围。",
+            "### 口径说明\n库存结论应携带数据截止日期、仓库范围和计算依据；广东监控清单不能代表全仓。实际值与估算值分开说明。",
+        ])
+        AiConversationMessages.objects.create(id="preview-chat-user", conversation_id=conversation.id, role="user", content="帮我复盘广东仓库存，给出结论、明细与下一步建议。", ordinal=1)
+        AiConversationMessages.objects.create(id="preview-chat-answer", conversation_id=conversation.id, role="assistant", content=content, ordinal=2,
+            execution_json=json.dumps({"durationMs":3200,"providerCalls":1,"toolCalls":1,"stopReason":"stop","guidance":guidance},ensure_ascii=False))
     print(json.dumps({"fixture":"synthetic-v1", "anchorDate":str(today), "sales":180, "products":6, "stock":6, "age":6}, ensure_ascii=False))
 
 

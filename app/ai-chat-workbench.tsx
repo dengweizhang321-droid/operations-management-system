@@ -38,12 +38,14 @@ function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
   if (!value?.durationMs && !value?.providerCalls) return null;
   const number = (n: number | null | undefined) => n == null ? "未报告" : n.toLocaleString();
   const stops: Record<string, string> = { stop: "正常完成", end_turn: "正常完成", completed: "正常完成", length: "达到输出上限", max_tokens: "达到输出上限", output_limit: "达到输出上限", shortcut: "快捷回复", stop_sequence: "停止序列", tool_calls: "工具调用", tool_use: "工具调用" };
-  return <details className="ai-workbench-execution"><summary>{((value.durationMs ?? 0) / 1000).toFixed(1)} 秒 · {value.outputTruncated ? "达到输出上限" : stops[value.stopReason ?? ""] ?? "已完成"} · 查看用量</summary><dl>
+  return <details className="ai-workbench-execution"><summary>{((value.durationMs ?? 0) / 1000).toFixed(1)} 秒 · {value.outputTruncated ? "达到输出上限" : stops[value.stopReason ?? ""] ?? "已完成"} · 执行详情</summary><dl>
     <div><dt>已报告输入 / 输出 Token</dt><dd>{number(value.inputTokens)} / {number(value.outputTokens)}</dd></div>
     <div><dt>已报告思考 Token</dt><dd>{number(value.reasoningTokens)}</dd></div>
     <div><dt>模型 / 工具调用</dt><dd>{value.providerCalls ?? 0} / {value.toolCalls ?? 0}</dd></div>
     <div><dt>本轮估算输入 / 上下文预算</dt><dd>{number(value.context?.estimatedInputTokens)} / {number(value.context?.contextWindowTokens)}</dd></div>
     {!!value.context?.droppedMessages && <div><dt>因预算移出上下文的旧消息</dt><dd>{value.context.droppedMessages} 条（历史记录保留）</dd></div>}
+    {value.guidance && <div><dt>配置版本</dt><dd>{value.guidance.version === 0 ? "系统默认" : `v${value.guidance.version}`}</dd></div>}
+    {value.guidance && <div><dt>本次业务口径</dt><dd>{value.guidance.rules.length ? value.guidance.rules.map(rule => rule.name).join("、") : "通用口径"}</dd></div>}
   </dl><small>上下文为估算值，实际用量以供应商返回为准。{(value.usageReportedCalls ?? 0) < (value.providerCalls ?? 0) ? "部分调用未报告完整用量，以上不代表总计。" : ""}</small></details>;
 }
 
@@ -51,19 +53,35 @@ function date(value: string) { const parsed = new Date(value); return Number.isN
 
 export default function AiChatWorkbench(props: AiWorkbenchProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [narrow, setNarrow] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState("");
   const scroll = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const pinned = useRef(true);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width:760px)");
+    const update = () => setNarrow(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   useEffect(() => { pinned.current = true; }, [props.activeConversationId]);
   useEffect(() => {
     if (pinned.current && scroll.current && !props.loadingOlderMessages) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [props.messages, props.liveAnswer, props.activeConversationId, props.loadingOlderMessages]);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(""), 2200); return () => clearTimeout(timer); }, [copied]);
+  useEffect(() => {
+    const element = input.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 120)}px`;
+  }, [props.draft]);
   const visible = props.messages.filter(m => m.conversationId === props.activeConversationId);
   const lastMessage = visible.at(-1);
+  const latestGuidance = visible.filter(m => m.role === "assistant").at(-1)?.execution?.guidance;
   const showPendingPrompt = lastMessage?.role !== "user" || lastMessage.content !== props.liveAnswer?.prompt;
   const canSend = props.canChat && !props.busy && !props.recoveryBlocked && !(props.contextError && props.context) && !!props.draft.trim();
   async function copy(message: Message) {
@@ -72,9 +90,9 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
   function newChat() { props.onNew(); setHistoryOpen(false); input.current?.focus(); }
   function suggest(value: string) { props.onDraft(value); input.current?.focus(); }
   return <article className={`ai-workbench ${props.compact ? "ai-workbench-compact" : ""}`} aria-label="AI 对话工作台">
-    <header className="ai-workbench-top"><div><button type="button" className="ai-workbench-icon ai-workbench-history-toggle" aria-label="展开对话记录" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}><Symbol name="panel" /></button><span className="ai-workbench-brand"><Symbol name="spark" /></span><strong>小特</strong><span className="ai-workbench-subtitle">运营 AI 助理</span></div><div><button type="button" className="ai-workbench-text" disabled={props.loading || props.sending} onClick={props.onRefresh}><Symbol name="refresh" />{props.loading ? "刷新中" : "刷新"}</button><button type="button" className="ai-workbench-text" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(!detailsOpen)}><Symbol name="panel" />对话详情</button></div></header>
+    <header className="ai-workbench-top"><div><button type="button" className="ai-workbench-icon ai-workbench-history-toggle" aria-label="显示或收起对话记录" aria-expanded={props.compact || narrow ? historyOpen : !historyCollapsed} onClick={() => { if (props.compact || narrow) setHistoryOpen(!historyOpen); else setHistoryCollapsed(!historyCollapsed); }}><Symbol name="panel" /></button><span className="ai-workbench-brand"><Symbol name="spark" /></span><strong>小特</strong><span className="ai-workbench-subtitle">{props.currentTitle || "新对话"}</span></div><div>{!props.compact && <div className="ai-workbench-top-model"><SearchableSelect value={props.selectedModelId} onChange={props.onModel} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={props.busy || props.recoveryBlocked || !props.models.length} options={props.models.map(model => ({ value: model.id, label: `${model.name}${model.isDefault ? " · 默认" : ""}` }))} /></div>}<button type="button" className="ai-workbench-text" disabled={props.loading || props.sending} onClick={props.onRefresh}><Symbol name="refresh" />{props.loading ? "刷新中" : "刷新"}</button><button type="button" className="ai-workbench-text" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(!detailsOpen)}><Symbol name="panel" />对话详情</button></div></header>
     <div className="ai-workbench-layout">
-      <aside className={`ai-workbench-history ${historyOpen ? "is-open" : ""}`} aria-label="个人会话">
+      <aside className={`ai-workbench-history ${historyOpen ? "is-open" : ""} ${historyCollapsed ? "is-collapsed" : ""}`} aria-label="个人会话">
         <button type="button" className="ai-workbench-new" onClick={newChat} disabled={props.busy}><Symbol name="plus" />新建对话</button>
         <div className="ai-workbench-history-title"><span>最近对话</span><small>{props.conversations.length} / {props.conversationTotal}</small></div>
         <label className="ai-workbench-search"><Symbol name="search" /><input aria-label="搜索已加载对话" placeholder="搜索已加载对话" value={query} onChange={e => setQuery(e.target.value)} /></label>
@@ -84,7 +102,7 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
         <div className="ai-workbench-history-foot">个人会话 · 按账号权限查询</div>
       </aside>
       <section className="ai-workbench-conversation">
-        <div className="ai-workbench-conversation-title"><div><h2>{props.currentTitle || "新的对话"}</h2><span>{props.context ? `${props.context.moduleLabel} · 当前页面条件` : "历史会话自动保存"}</span></div></div>
+        {props.compact && <div className="ai-workbench-conversation-title"><h3>{props.currentTitle || "新对话"}</h3></div>}
         {(props.error || props.notice) && <div className={`ai-workbench-feedback ${props.error ? "is-error" : ""}`} role={props.error ? "alert" : "status"}>{props.error || props.notice}</div>}
         <div className="ai-workbench-scroll" ref={scroll} onScroll={() => { const element = scroll.current; if (element) pinned.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80; }}>
           <div className="ai-workbench-messages">
@@ -101,12 +119,12 @@ export default function AiChatWorkbench(props: AiWorkbenchProps) {
           </div>
         </div>
         <div className="ai-workbench-composer-area">{props.context && <div className="ai-workbench-context"><span>{props.context.moduleLabel}{props.context.period ? ` · ${props.context.period.startDate} 至 ${props.context.period.endDate}` : " · 日期以查询结果为准"}</span><button type="button" aria-label="移除当前页面上下文" onClick={props.onRemoveContext} disabled={props.sending}><Symbol name="close" /></button></div>}
-          <div className="ai-workbench-composer"><textarea ref={input} aria-label="输入 AI 问题" value={props.draft} maxLength={12000} rows={2} placeholder={props.canChat ? "向小特提问，或继续追问…" : "登录并获得操作权限后可发送消息"} disabled={!props.canChat || props.sending} onChange={e => props.onDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !e.repeat) { e.preventDefault(); if (canSend) props.onSend(); } }} />
-            <div className="ai-workbench-composer-toolbar"><div className="ai-workbench-model"><Symbol name="spark" /><SearchableSelect value={props.selectedModelId} onChange={props.onModel} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={props.busy || props.recoveryBlocked || !props.models.length} options={props.models.map(model => ({ value: model.id, label: `${model.name}${model.modelType === "vision" ? " · 视觉" : ""}${model.isDefault ? " · 默认" : ""}` }))} /></div><div><span className="ai-workbench-enter">Enter 发送</span><button type="button" className="ai-workbench-send" aria-label={props.sending ? "停止生成" : "发送消息"} disabled={!props.sending && !canSend} onClick={props.sending ? props.onStop : props.onSend}><Symbol name={props.sending ? "stop" : "arrow"} /></button></div></div>
+          <div className="ai-workbench-composer"><textarea ref={input} aria-label="输入 AI 问题" value={props.draft} maxLength={12000} rows={1} placeholder={props.canChat ? "向小特提问，或继续追问…" : "登录并获得操作权限后可发送消息"} disabled={!props.canChat || props.sending} onChange={e => props.onDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !e.repeat) { e.preventDefault(); if (canSend) props.onSend(); } }} />
+            <div className="ai-workbench-composer-toolbar">{props.compact && <div className="ai-workbench-model"><Symbol name="spark" /><SearchableSelect value={props.selectedModelId} onChange={props.onModel} ariaLabel="本对话模型" searchPlaceholder="搜索对话模型" disabled={props.busy || props.recoveryBlocked || !props.models.length} options={props.models.map(model => ({ value: model.id, label: `${model.name}${model.modelType === "vision" ? " · 视觉" : ""}${model.isDefault ? " · 默认" : ""}` }))} /></div>}<div><span className="ai-workbench-enter">Enter 发送</span><button type="button" className="ai-workbench-send" aria-label={props.sending ? "停止生成" : "发送消息"} disabled={!props.sending && !canSend} onClick={props.sending ? props.onStop : props.onSend}><Symbol name={props.sending ? "stop" : "arrow"} /></button></div></div>
           </div><div className="ai-workbench-composer-note"><span>回答请结合数据来源与统计口径复核</span><span>Shift + Enter 换行</span></div>
         </div>
       </section>
-      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
+      {detailsOpen && <aside className="ai-workbench-details"><header><h3>对话详情</h3><button type="button" className="ai-workbench-icon" aria-label="关闭对话详情" onClick={() => setDetailsOpen(false)}><Symbol name="close" /></button></header><h4>当前模型</h4><p>{props.models.find(model => model.id === props.selectedModelId)?.name || "尚未选择"}</p><small>切换模型后从下一条消息起生效。</small><h4>页面上下文</h4>{props.context ? <><p>{props.context.moduleLabel}</p><ul>{aiPageFilterSummary(props.context.filters).map(item => <li key={item}>{item}</li>)}</ul><small>页面筛选不是查询结果，回复以实际读取的数据为准。</small></> : <p>未附加页面条件。</p>}<h4>最近回复采用的配置</h4>{latestGuidance ? <p>{latestGuidance.version === 0 ? "系统默认" : `版本 v${latestGuidance.version}`} · {latestGuidance.rules.map(r => r.name).join("、") || "通用口径"}</p> : <p>暂无配置版本记录。新回复将在执行详情中记录。</p>}<h4>会话与权限</h4><p>仅显示你有权访问的个人会话。查询按当前账号的数据范围执行。</p><small>断线后核对原请求回执，不自动重发模型请求。</small></aside>}
     </div>{copied === "failed" && <p role="status" className="ai-workbench-feedback">复制不可用，请选择正文手动复制。</p>}
   </article>;
 }

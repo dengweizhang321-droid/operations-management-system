@@ -16,8 +16,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
 parser.add_argument("--generation-upgrade", action="store_true", help="Rehearse 0008 to 0009 in the fresh isolated database before testing")
+parser.add_argument("--prompt-settings-upgrade", action="store_true", help="Rehearse 0010 to 0011, roles and backup restoration in the fresh isolated database")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.generation_upgrade and arguments.prompt_settings_upgrade:
+    parser.error("Choose only one fresh database upgrade rehearsal")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 PORT = arguments.port
 if not 55440 <= PORT <= 55999:
@@ -130,12 +133,17 @@ try:
         upgrade = run([sys.executable, ROOT / "tools/ai-generation-upgrade-rehearsal.py"], env=django_env)
         (RUN / "generation-upgrade.json").write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
+    if arguments.prompt_settings_upgrade:
+        upgrade = run([sys.executable, ROOT / "tools/ai-prompt-settings-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
+        (RUN / "prompt-settings-upgrade.json").write_text(upgrade, encoding="utf-8")
+        print(upgrade.strip(), flush=True)
     tests = run(
         [
             sys.executable,
             ROOT / "backend/manage.py",
             "test",
             "ai_assistant",
+            *(["system_datasets"] if arguments.prompt_settings_upgrade else []),
             "--noinput",
             "--verbosity",
             "1",

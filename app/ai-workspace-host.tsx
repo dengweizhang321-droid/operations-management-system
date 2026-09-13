@@ -40,8 +40,7 @@ export default function AiWorkspaceHost({ currentUser, module, context, contextE
   }, [open, fullPage, onClose]);
   return <>{visited.map(key => <section key={key}
     id={fullPage && key === "ai" ? "ai-panel-assistant" : undefined}
-    role={fullPage && key === "ai" ? "tabpanel" : "region"}
-    aria-labelledby={fullPage && key === "ai" ? "ai-tab-assistant" : undefined}
+    role="region"
     hidden={key !== module || (!open && !fullPage)}
     className={fullPage && key === "ai" ? "ai-module-workspace" : "ai-module-drawer"}
     aria-label={`${AI_PAGE_CONTEXT_CATALOG[key].label} AI 对话`}>

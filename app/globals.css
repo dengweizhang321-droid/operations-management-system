@@ -1,3 +1,4 @@
+@import "./ai-prompt-settings.css";
 @import "tailwindcss";
 @import "./styles/tokens.css";
 @import "./ai-chat-workbench.css";

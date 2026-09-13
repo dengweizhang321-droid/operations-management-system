@@ -9,14 +9,15 @@ import {
   type MouseEvent,
 } from "react";
 
-import { navGroups, navItems, type ModuleKey, type NavItem } from "./navigation-catalog";
+import { navGroups, navItems, type ModuleKey, type ModuleViewKey, type NavItem } from "./navigation-catalog";
 import { ShellModuleIcon, SidebarCollapseIcon } from "./shell-icons";
 
 export type SidebarNavigationProps = {
   active: ModuleKey;
+  activeView?: ModuleViewKey;
   collapsed: boolean;
-  hrefForModule: (moduleKey: ModuleKey) => string;
-  onNavigate: (event: MouseEvent<HTMLAnchorElement>, moduleKey: ModuleKey) => void;
+  hrefForModule: (moduleKey: ModuleKey, view?: ModuleViewKey) => string;
+  onNavigate: (event: MouseEvent<HTMLAnchorElement>, moduleKey: ModuleKey, view?: ModuleViewKey) => void;
   onToggleCollapsed: () => void;
 };
 
@@ -26,6 +27,7 @@ const navItemsByKey: ReadonlyMap<ModuleKey, NavItem> = new Map(
 
 export default function SidebarNavigation({
   active,
+  activeView = "assistant",
   collapsed,
   hrefForModule,
   onNavigate,
@@ -48,7 +50,7 @@ export default function SidebarNavigation({
     const observer = new ResizeObserver(revealCurrent);
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [active, collapsed]);
+  }, [active, activeView, collapsed]);
   const [tooltip, setTooltip] = useState<{
     id: string;
     label: string;
@@ -89,17 +91,23 @@ export default function SidebarNavigation({
                   aria-label={collapsed ? group.label : undefined}
                   aria-labelledby={collapsed ? undefined : groupLabelId}
                 >
+                  {groupIndex === 0 && <li><a href={hrefForModule("ai", "assistant")}
+                    className={`sidebar-navigation-link${active === "ai" && activeView === "assistant" ? " active" : ""}`}
+                    aria-current={active === "ai" && activeView === "assistant" ? "page" : undefined}
+                    title="AI 对话" aria-label="AI 对话" onClick={event => onNavigate(event, "ai", "assistant")}
+                  ><span className="nav-icon" aria-hidden="true"><ShellModuleIcon moduleKey="ai" /></span>
+                    <span className="nav-copy"><b>AI 对话</b><small>小特对话工作台</small></span></a></li>}
                   {group.keys.map((moduleKey) => {
                     const item = navItemsByKey.get(moduleKey);
                     if (!item) return null;
                     const tooltipId = `sidebar-navigation-tooltip-${moduleKey}`;
-                    const selected = active === moduleKey;
+                    const selected = active === moduleKey && (moduleKey !== "ai" || activeView !== "assistant");
                     const tooltipVisible = collapsed && tooltip?.id === tooltipId;
 
                     return (
                       <li key={moduleKey}>
                         <a
-                          href={hrefForModule(moduleKey)}
+                          href={hrefForModule(moduleKey, moduleKey === "ai" ? "agents" : undefined)}
                           className={`sidebar-navigation-link${selected ? " active" : ""}`}
                           aria-current={selected ? "page" : undefined}
                           aria-label={collapsed ? item.label : undefined}
@@ -107,7 +115,7 @@ export default function SidebarNavigation({
                           title={collapsed ? `${item.label} · ${item.description}` : undefined}
                           onClick={(event) => {
                             setTooltip(null);
-                            onNavigate(event, moduleKey);
+                            onNavigate(event, moduleKey, moduleKey === "ai" ? "agents" : undefined);
                           }}
                           onMouseEnter={(event) => showTooltip(event.currentTarget, item, tooltipId)}
                           onMouseLeave={hideTooltip}

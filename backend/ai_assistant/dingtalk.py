@@ -75,7 +75,7 @@ def principal_for(config, sender):
         raise AiError("钉钉问数未启用", "access_denied", 403)
     binding = next((b for b in config["bindings"] if b["senderId"] == sender), None)
     if not binding:
-        raise AiError("钉钉用户尚未绑定", "access_denied", 403)
+        raise AiError("钉钉用户尚未绑定", "dingtalk_sender_unbound", 403)
     principal = Principal(binding["ownerEmail"], binding["ownerEmail"], binding["role"], binding["scope"])
     return current_principal(principal, write=True, background=True)
 
@@ -84,20 +84,20 @@ def accept(config, data):
     """Called only with SDK-authenticated application messages, never HTTP bodies."""
     validate_config(config)
     if not isinstance(data, dict) or len(canonical(data).encode()) > 32768:
-        raise AiError("钉钉消息格式无效")
+        raise AiError("钉钉消息格式无效", "dingtalk_invalid_envelope")
     if data.get("robotCode") != config["robotCode"] or data.get("senderCorpId") != config["corpId"]:
-        raise AiError("钉钉消息应用或组织不匹配", "access_denied", 403)
+        raise AiError("钉钉消息应用或组织不匹配", "dingtalk_identity_mismatch", 403)
     sender = opaque(data.get("senderStaffId"), "senderStaffId")
     principal = principal_for(config, sender)
     kind = data.get("conversationType")
     external = opaque(data.get("conversationId"), "conversationId", 256)
     if kind not in ("1", "2") or data.get("msgtype") != "text":
-        raise AiError("首批仅支持文本单聊和群内 @ 提问")
+        raise AiError("首批仅支持文本单聊和群内 @ 提问", "dingtalk_unsupported_message")
     if kind == "2" and (data.get("isInAtList") is not True or external not in {g["id"] for g in config["groups"]}):
-        raise AiError("只接收指定群内 @ 机器人的提问", "access_denied", 403)
+        raise AiError("只接收指定群内 @ 机器人的提问", "dingtalk_group_not_allowed", 403)
     message_id = opaque(data.get("msgId"), "msgId", 256)
     if not isinstance(data.get("text"), dict):
-        raise AiError("文本消息正文无效")
+        raise AiError("文本消息正文无效", "dingtalk_invalid_text")
     prompt = text(data["text"].get("content"), "消息", 4000)
     config_sha = digest(config)
     session_key = digest([config_sha, sender, kind, external, principal.email, principal.scope])
@@ -112,7 +112,7 @@ def accept(config, data):
         created = data.get("createAt")
         now_ms = int(timezone.now().timestamp() * 1000)
         if type(created) is not int or not now_ms - 600000 <= created <= now_ms + 60000:
-            raise AiError("消息已过期或时间无效")
+            raise AiError("消息已过期或时间无效", "dingtalk_message_expired")
         if (m.AiDingTalkReceipt.objects.filter(status__in=ACTIVE).count() >= 24 or
                 m.AiDingTalkReceipt.objects.filter(session__sender_id=sender, updated_at__gte=timezone.now()-timedelta(minutes=1)).count() >= 6):
             raise AiError("问数队列繁忙", "ai_chat_quota_exceeded", 429)

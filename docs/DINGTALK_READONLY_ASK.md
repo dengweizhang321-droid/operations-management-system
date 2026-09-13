@@ -98,11 +98,23 @@ DWS 管理平台授权和机器人发送；应用凭据仅在内存中取得。�
 
 StartDingTalk 使用现有 DPAPI AI writer 凭据与精确进程回执，后台启动接收器；不调用 Codex、DWS 的任意 agent 命令或个人账号自动回复。日志出现 `connected` 才代表已建立 Stream 连接，进程启动本身不代表端到端可用。停止 AI 栈会先停止接收器。
 
-首版不自动加入登录启动或外层 supervisor 的常驻监控；机器重启或接收器连续建联失败退出后，需要显式 StartDingTalk。当前用户 DWS refresh 授权也需要保持有效。
+首版没有自动加入登录启动或外层 supervisor 的常驻监控。2026-09-13 本机已发布并启用 [接收器随系统自动启动](AI_DINGTALK_SCHEDULES.md#接收器随系统自动启动)：由既有系统启动引擎在 Worker 和各域服务就绪后调用受控 AI operator；手动 StopDingTalk 同时关闭自动启动，整套系统停止保留配置。仍要求登录原 Windows 用户，DWS refresh 授权需保持有效；接收器连续建联失败退出后的独立自动恢复尚未启用。
 
 回退优先关闭问数配置并 StopDingTalk，网页 AI 与销售事实不受影响。保留两张新表、迁移、权限和投递审计；使用兼容修复或 PostgreSQL 前向恢复，禁止删除表后恢复旧 D1。恢复旧 45/46 表备份时，先在隔离环境按迁移版本验证，再前向补齐迁移；备份校验不能按最新表数错误拒绝合法旧备份。
 
 ## 验证入口与限制
+
+### 聊天无回执诊断（2026-09-13 已生产采用）
+
+定时任务发送成功、进程 running、历史 connected 日志均不能证明聊天入队正常。排障应对照平台消息时间、`ai_dingtalk_receipts` 与 `ai_dingtalk_schedule_runs` 的有界状态查询，区分入队前失败和分析/投递失败；不重放旧消息或未知结果。
+
+接收器新增带时间的 `callback_received`、`callback_accepted`、`callback_rejected` 和 `callback_unavailable` 日志。拒绝原因区分组织/应用、未绑定发送人、不支持消息类型、未批准群或未 @、文本结构、时间有效期及其他权限/输入问题；配置读取与数据库上下文故障独立标明。只记录固定标签，不记录消息正文、人员/群/消息 ID、Webhook、凭据、ticket 或原始异常。永久拒绝仍 ACK 200，暂时不可用仍 ACK 503，防重、权限和发送行为保持原契约。
+
+源码 `c14f8090` 已合入 main 并受控采用，Django manifest SHA 为 `eb6aeed6c8ad45a4335bd05dfc04c2b2267af643f14c765c261cf5dbba9d2e63`。本机通过整栈启动恢复，接收器自动连接；配置与自动启动文件摘要保持一致，无迁移、未知结果重放或人工外发。发布记录见 [诊断补丁采用证据](evidence/dingtalk-ingress-diagnostics-production-20260913.json)。补丁上线本身不代表真实聊天故障已修复；必须对照一条新提问的接收、入队、处理与投递证据。采用前的旧日志没有 callback 记录，也不能据此推断平台未投递。
+
+同日 15:15 用户发送的新私聊已通过接收、持久入队、AI 生成及原私聊投递，约 15 秒后回执和结果均为 `sent`，错误码为空。用户随后提供的截图确认终端已收到该回复。此证据说明重启后该次私聊链路恢复；群聊与长期稳定性仍须分别验证。中午无响应的具体原因因缺少旧接收日志仍未确定，不把诊断补丁称为已确认的根因修复。
+
+同日按用户要求，将当前 5 个模型的 `generationOptions.systemPrompt` 在线设置为使用“运营管理系统 AI 助理”中文称呼，不添加英文品牌前缀，并通过版本校验保存与回读验证其他配置保留。新请求读取该配置，历史消息不改写。默认源码文案同步清理，但该源码清理尚未执行生产部署；在线配置修改不需要重启接收器。见 [中文称呼配置记录](evidence/ai-chinese-identity-20260913.json)。
 
 - `python backend/manage.py test ai_assistant system_datasets sales.tests.test_api --noinput`
 - `python tools/dingtalk-postgres-rehearsal.py`：独立 55457 端口，合成数据，验证 0006→0007、旧会话保留、真实最小权限角色、AI readiness、错误 epoch/身份/状态拒绝和 48 表 dump/restore 一致；结束停止独立 cluster。

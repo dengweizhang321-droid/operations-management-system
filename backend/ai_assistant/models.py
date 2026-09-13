@@ -1687,3 +1687,14 @@ HISTORICAL_MODELS = {
     "ai_workflow_node_runs": AiWorkflowNodeRuns,
     "ai_workflow_runs": AiWorkflowRuns,
 }
+
+
+class AiPromptSettingsRevision(models.Model):
+    version = models.PositiveIntegerField(primary_key=True)
+    config_json = models.TextField()
+    created_by = models.CharField(max_length=320)
+    created_at = models.DateTimeField(default=timezone.now)
+    restored_from = models.PositiveIntegerField(null=True)
+
+    class Meta:
+        db_table = "ai_prompt_settings_revisions"

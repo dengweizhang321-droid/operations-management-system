@@ -1571,7 +1571,8 @@
           "unit": null
         }
       },
-      "excludedFields": {},
+      "excludedFields": {
+        "execution_json": "Private execution evidence is available only through authorized conversation APIs"},
       "keys": [
         "id"
       ],
@@ -2083,6 +2084,7 @@
         }
       },
       "excludedFields": {
+        "generation_options_json": "Model runtime configuration is available only through administrator APIs",
         "api_key_encrypted": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露",
         "api_key_suffix": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露",
         "max_tokens": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露",
@@ -14530,6 +14532,7 @@
         }
       },
       "excludedFields": {
+        "guangdong_health": "Derived monitoring state is available through the inventory plan API",
         "dingtalk_sync_owner_token": "凭据、执行栅栏或内部存储定位信息不对 AI 暴露"
       },
       "keys": [
@@ -17673,6 +17676,9 @@
     }
   ],
   "excludedModels": [
+    {"model": "ai_assistant.AiDingTalkSchedule", "coveredBy": null, "reason": "钉钉 AI 定时任务定义含目标与权限绑定，仅通过管理员定时任务接口访问"},
+    {"model": "ai_assistant.AiDingTalkScheduleRun", "coveredBy": null, "reason": "钉钉 AI 定时投递账本与执行控制证据，不作为通用分析数据集公开"},
+    {"model": "ai_assistant.AiPromptSettingsRevision", "coveredBy": null, "reason": "管理员业务指导与版本历史仅通过专属配置接口管理，运行时按授权领域注入，不经通用数据集外泄"},
     {"model": "ai_assistant.AiDingTalkSettings", "coveredBy": null, "reason": "钉钉 AI 群路由授权配置，仅通过管理员设置接口访问"},
     {
       "model": "ai_assistant.AiDingTalkSession",

@@ -29,6 +29,8 @@
 
 不得为了追求“直到成功”而缩小以上失败关闭范围。人工处理并闭合旧证据后，只能从原工作流创建新的完整 execution。
 
+需要人工处理的异常通知按 [工作流钉钉通知规则](WORKFLOW_DINGTALK_NOTIFICATIONS.md) 投递用户本人单聊，不发群；通知路由不能改变失败关闭或人工确认门禁。
+
 ## 连续三次失败后的 AI 升级
 
 Codex heartbeat `ai`（“数据工作流三连败 AI 诊断与优化”）每小时只读检查 11 条现行正式工作流。对每个 workflow ID，它只统计 `mode=trigger/webhook` 且已经终止为 `error/crashed` 的不同 execution；最近一次 `success` 会把连续失败数归零，`running/waiting` 不计入失败，也不会触发并发处置。最新三个生产 execution 连续失败且中间没有成功时，才启动 AI 根因分析。

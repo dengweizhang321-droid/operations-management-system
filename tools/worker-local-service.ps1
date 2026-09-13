@@ -128,9 +128,12 @@ function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [st
   catch { throw "$Label did not return valid JSON" }
 }
 
-function Invoke-DjangoStartProcess {
-  if (-not (Test-Path -LiteralPath $DjangoService -PathType Leaf)) {
-    throw "Missing installed Django controller: $DjangoService"
+function Invoke-DjangoStartProcess(
+  [string]$Controller = $DjangoService,
+  [ValidateSet("Start", "AutoStartDingTalk")][string]$ControlAction = "Start"
+) {
+  if (-not (Test-Path -LiteralPath $Controller -PathType Leaf)) {
+    throw "Missing installed Django controller: $Controller"
   }
 
   # Django Start creates durable PostgreSQL, Waitress, and ERP descendants.
@@ -144,7 +147,7 @@ function Invoke-DjangoStartProcess {
   $stderrPath = Join-Path $invocationLogRoot "django-start-$invocationId.stderr.log"
   $arguments = @(
     "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-    "-File", "`"$DjangoService`"", "-Action", "Start",
+    "-File", "`"$Controller`"", "-Action", $ControlAction,
     "-RuntimeRoot", "`"$FixedDjangoRuntimeRoot`""
   )
   $process = $null
@@ -180,6 +183,24 @@ function Invoke-DjangoStartProcess {
     StdoutTail = $stdoutTail
     StderrTail = $stderrTail
   }
+}
+
+function Start-SystemDingTalkReceiver {
+  if (Test-IsIsolatedTestRuntime) { return }
+  $startup = Join-Path $FixedDjangoRuntimeRoot "config\dingtalk-startup.json"
+  if (-not (Test-Path -LiteralPath $startup)) { return }
+  $controller = Join-Path $DjangoRuntimeTools "django-ai.ps1"
+  Assert-NoReparsePath $startup
+  Assert-NoReparsePath $controller
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec 10 -MaximumRedirection 0
+  if ($page.StatusCode -ne 200) { throw "Worker HTTP is not ready for DingTalk automatic startup" }
+  # The deployed AI operator owns configuration, authority, mutex and exact process identity.
+  # Do not start from Django's pre-Worker phase: scheduled tools require the ready Worker.
+  $result = Invoke-DjangoStartProcess $controller "AutoStartDingTalk"
+  if ([int]$result.ExitCode -ne 0) {
+    throw "System services are running, but configured DingTalk receiver startup failed; check the AI runtime logs."
+  }
+  if (-not $Json) { Write-Host "DingTalk automatic startup configuration checked by the AI runtime controller" }
 }
 
 function Test-DjangoDomainReady(
@@ -1481,6 +1502,7 @@ try {
 
     $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "exact_release") {
+      Start-SystemDingTalkReceiver
       Write-Result ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
       exit 0
     }
@@ -1501,7 +1523,9 @@ try {
     if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
       throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
     }
-    Write-Result (Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started")
+    $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
+    Start-SystemDingTalkReceiver
+    Write-Result $startResult
     exit 0
   }
 

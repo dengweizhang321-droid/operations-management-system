@@ -31,8 +31,8 @@ export async function listAnnotationModels(principal?: AppPrincipal) {
 export async function listPromptTextModels(principal?: AppPrincipal) {
   return (await aiConsumer<{ items: PublicModel[] }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-list", modelType: "text" })).items.map(({ id, name, protocol, modelName }) => ({ id, name, protocol, modelName }));
 }
-async function getModel(id: string, type: "vision" | "text", principal?: AppPrincipal) {
-  return (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false })).model;
+async function getModel(id: string, type: "vision" | "text", principal?: AppPrincipal, signal?: AbortSignal) {
+  return (await aiConsumer<{ model: ModelRow }>(principal ?? (await (await import("@/lib/auth/authorization")).requireAppPrincipal()), { operation: "model-runtime", id, modelType: type, allowFallback: false }, { signal })).model;
 }
 
 export async function probeVisionModelConnection(model: AnnotationModelConfig): Promise<string> {
@@ -57,11 +57,18 @@ export async function probeVisionModelConnection(model: AnnotationModelConfig): 
 export async function runVisionAnnotation(input: {
   principal?: AppPrincipal; modelId: string; promptBody: string; segments: readonly string[];
   skuCode: string; productName: string; brand: string; imageUrl: string; fixedSegment?: string;
+  deadlineAt?: number;
 }): Promise<VisionAnnotation & { imageSource: "imgzone" | "n5" | "none"; resolvedImageUrl: string; rawDigest: string; timing: VisionAnnotationTiming }> {
   const startedAt = Date.now();
   const timing: VisionAnnotationTiming = { imageLoadMs: 0, imagePrepareMs: 0, modelCallMs: 0, totalMs: 0, inputBytes: 0 };
+  const deadlineAt = Math.min(input.deadlineAt ?? startedAt + 140_000, startedAt + 140_000);
+  const remaining = () => {
+    const ms = Math.floor(deadlineAt - Date.now());
+    if (ms <= 0) throw new Error("视觉任务处理超时");
+    return ms;
+  };
   try {
-    const model = await getModel(input.modelId, "vision", input.principal);
+    const model = await getModel(input.modelId, "vision", input.principal, AbortSignal.timeout(Math.min(15_000, remaining())));
     const imageLoadStartedAt = Date.now();
     const sourceImage = (input.imageUrl ? await fetchAnnotationImage(input.imageUrl) : { kind: "no-image" as const, reason: "invalid_url" as const, message: "没有图片地址" });
     timing.imageLoadMs = Date.now() - imageLoadStartedAt;
@@ -78,8 +85,8 @@ export async function runVisionAnnotation(input: {
     let raw: unknown;
     try {
       raw = model.protocol === "anthropic"
-        ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX)
-        : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX);
+        ? await callAnthropicVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX, deadlineAt)
+        : await callOpenAiVision(model, text, outputSegments, image, fixedSegment ? VISION_PRICE_ONLY_OUTPUT_TOKEN_MAX : VISION_ANNOTATION_OUTPUT_TOKEN_MAX, deadlineAt);
     } finally {
       timing.modelCallMs = Date.now() - modelCallStartedAt;
     }
@@ -94,7 +101,7 @@ export async function runVisionAnnotation(input: {
     };
   } catch (error) {
     timing.totalMs = Date.now() - startedAt;
-    throw new VisionAnnotationExecutionError(error instanceof Error ? error.message : "视觉识别失败", timing);
+    throw new VisionAnnotationExecutionError(error instanceof Error ? error.message : "视觉识别失败", timing, error);
   }
 }
 
@@ -107,9 +114,15 @@ export type VisionAnnotationTiming = {
 };
 
 export class VisionAnnotationExecutionError extends Error {
-  constructor(message: string, readonly timing: VisionAnnotationTiming) {
+  readonly status?: number;
+  readonly retryAfterMs?: number;
+  constructor(message: string, readonly timing: VisionAnnotationTiming, cause?: unknown) {
     super(message);
     this.name = "VisionAnnotationExecutionError";
+    if (cause && typeof cause === "object") {
+      if ("status" in cause) this.status = Number(cause.status);
+      if ("retryAfterMs" in cause) this.retryAfterMs = Number(cause.retryAfterMs);
+    }
   }
 }
 
@@ -179,17 +192,20 @@ function modelErrorDetail(data: unknown) {
     .slice(0, 180);
 }
 
-function modelCallError(kind: "文本" | "视觉", status: number, data: unknown) {
+function modelCallError(kind: "文本" | "视觉", status: number, data: unknown, retryAfter: string | null = null) {
   const detail = modelErrorDetail(data);
   const hint = status === 429
     ? "模型供应商限流或额度不足，请稍后重试并检查额度"
     : status === 400
       ? "请求被接口拒绝，请核对模型标识、图片输入及结构化输出兼容性"
       : "请检查模型服务状态和接口配置";
-  return new Error(`${kind}模型调用失败（状态码 ${status}：${detail || hint}）`);
+  const parsed = retryAfter && /^\d+(?:\.\d+)?$/.test(retryAfter) ? Number(retryAfter) * 1_000 : Date.parse(retryAfter ?? "") - Date.now();
+  return Object.assign(new Error(`${kind}模型调用失败（状态码 ${status}：${detail || hint}）`), {
+    status, retryAfterMs: Number.isFinite(parsed) ? Math.min(300_000, Math.max(0, parsed)) : 0,
+  });
 }
 
-async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
+async function callOpenAiVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number) {
   const endpointSecurityContext = await loadAiEndpointSecurityContext();
   const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "openai_compatible", endpointSecurityContext);
   const key = await decryptSecret(model.api_key_encrypted);
@@ -205,13 +221,13 @@ async function callOpenAiVision(model: ModelRow, text: string, segments: readonl
       messages: [{ role: "user", content }],
       response_format: { type: "json_schema", json_schema: { name: "market_sku_annotation", strict: true, schema: annotationJsonSchema(segments) } },
     }),
-  }, Math.min(boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS));
-  if (!response.ok) throw modelCallError("视觉", response.status, data);
+  }, visionRequestTimeout(model, deadlineAt));
+  if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
   const contentValue = data?.choices?.[0]?.message?.content;
   return typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("") || "";
 }
 
-async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number) {
+async function callAnthropicVision(model: ModelRow, text: string, segments: readonly string[], image: LoadedImage | null, outputTokenCap?: number, deadlineAt?: number) {
   const endpointSecurityContext = await loadAiEndpointSecurityContext();
   const endpointUrl = resolveAiModelEndpointUrl(model.base_url, "anthropic", endpointSecurityContext);
   const key = await decryptSecret(model.api_key_encrypted);
@@ -226,11 +242,17 @@ async function callAnthropicVision(model: ModelRow, text: string, segments: read
       tools: [{ name: "submit_market_sku_annotation", description: "提交结构化识别结果", input_schema: annotationJsonSchema(segments) }],
       tool_choice: { type: "tool", name: "submit_market_sku_annotation" },
     }),
-  }, Math.min(boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS));
-  if (!response.ok) throw modelCallError("视觉", response.status, data);
+  }, visionRequestTimeout(model, deadlineAt));
+  if (!response.ok) throw modelCallError("视觉", response.status, data, response.headers.get("retry-after"));
   const tool = data?.content?.find((part) => part.type === "tool_use" && part.name === "submit_market_sku_annotation");
   if (!tool?.input) throw new Error("Anthropic 视觉模型没有返回结构化工具结果");
   return tool.input;
+}
+
+function visionRequestTimeout(model: ModelRow, deadlineAt?: number) {
+  const remaining = deadlineAt === undefined ? VISION_ANNOTATION_TIMEOUT_MAX_MS : Math.floor(deadlineAt - Date.now());
+  if (remaining <= 0) throw new Error("视觉任务处理超时");
+  return Math.min(remaining, boundedModelSetting(model.timeout_ms, DEFAULT_MODEL_TIMEOUT_MS, 3_000, 120_000), VISION_ANNOTATION_TIMEOUT_MAX_MS);
 }
 
 function disableVisionThinking(model: ModelRow) {
