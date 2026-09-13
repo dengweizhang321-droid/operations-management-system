@@ -112,6 +112,8 @@ StartDingTalk 使用现有 DPAPI AI writer 凭据与精确进程回执，后台�
 
 源码 `c14f8090` 已合入 main 并受控采用，Django manifest SHA 为 `eb6aeed6c8ad45a4335bd05dfc04c2b2267af643f14c765c261cf5dbba9d2e63`。本机通过整栈启动恢复，接收器自动连接；配置与自动启动文件摘要保持一致，无迁移、未知结果重放或人工外发。发布记录见 [诊断补丁采用证据](evidence/dingtalk-ingress-diagnostics-production-20260913.json)。补丁上线本身不代表真实聊天故障已修复；必须对照一条新提问的接收、入队、处理与投递证据。采用前的旧日志没有 callback 记录，也不能据此推断平台未投递。
 
+同日 15:15 用户发送的新私聊已通过接收、持久入队、AI 生成及原私聊投递，约 15 秒后回执和结果均为 `sent`，错误码为空。此证据说明重启后该次私聊链路恢复；平台受理不等于终端已读，群聊与长期稳定性仍须分别验证。中午无响应的具体原因因缺少旧接收日志仍未确定，不把诊断补丁称为已确认的根因修复。
+
 - `python backend/manage.py test ai_assistant system_datasets sales.tests.test_api --noinput`
 - `python tools/dingtalk-postgres-rehearsal.py`：独立 55457 端口，合成数据，验证 0006→0007、旧会话保留、真实最小权限角色、AI readiness、错误 epoch/身份/状态拒绝和 48 表 dump/restore 一致；结束停止独立 cluster。
 - `npm run build`、`npm run test:unit`、`npm run lint`、`npm run check:backend-boundary`。

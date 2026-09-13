@@ -1,6 +1,6 @@
 {
   "date": "2026-09-13",
-  "status": "diagnostics_deployed_awaiting_new_user_message",
+  "status": "diagnostics_deployed_private_chat_verified_group_pending",
   "sourceCommit": "c14f80908fb111b1825f88ea006708c85a9b2d96",
   "authorization": "User explicitly approved controlled diagnostic deployment, backup/restore workflow and required service maintenance in this conversation.",
   "preflight": {
@@ -63,9 +63,26 @@
     "independentVerify": "completed",
     "secondRestoreRehearsalPerformed": false
   },
+  "postDeploymentPrivateChat": {
+    "source": "New user-originated DM; receiver logs and read-only PostgreSQL receipt metadata",
+    "messageCreatedAt": "2026-09-13T15:15:52.639000+08:00",
+    "callbackReceivedAt": "2026-09-13T15:15:53.081656+08:00",
+    "callbackAcceptedAt": "2026-09-13T15:15:53.180384+08:00",
+    "aiStartedAt": "2026-09-13T15:15:56.425455+08:00",
+    "aiCompletedAt": "2026-09-13T15:16:04.748133+08:00",
+    "aiStatus": "succeeded",
+    "deliveryUpdatedAt": "2026-09-13T15:16:07.718796+08:00",
+    "ackStatus": "sent",
+    "deliveryStatus": "sent",
+    "errorCode": "",
+    "conversationType": "1",
+    "replyCharacters": 402,
+    "recipientReadConfirmation": "pending",
+    "groupChatVerification": "pending"
+  },
   "limitations": [
-    "This deployment adds diagnosis only. The underlying no-response cause remains unconfirmed until a new user-originated message is correlated with callback, receipt and delivery evidence.",
-    "No old message or unknown result was replayed and no external message or paid model test was manually triggered.",
+    "The new DM passed callback, durable acceptance, AI generation and platform-accepted source-DM delivery after controlled restart. This does not identify the earlier no-response cause because historical callback diagnostics were absent, nor establish long-term reliability or group-chat success.",
+    "No old message or unknown result was replayed. Deployment checks sent no messages or model requests; the subsequent new DM was sent by the user and naturally triggered the normal AI reply.",
     "Previously enabled background jobs may naturally resume through the existing system startup path."
   ]
 }
