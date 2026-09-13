@@ -34,12 +34,22 @@ class MarketAnnotationReviewTests(TestCase):
 
     def item(self, item_id, *, job=None, **kwargs):
         job = job or self.job
-        return MarketAnnotationItem.objects.create(
+        item = MarketAnnotationItem.objects.create(
             id=item_id, job_id=job.id, category=job.category, sku_code=item_id,
+            scope="全部", month="2026-09", image_content_sha256="a" * 64,
             status=kwargs.pop("status", "review_pending"),
             reviewed_segment=kwargs.pop("reviewed_segment", "台式"),
             ai_segment=kwargs.pop("ai_segment", "台式"), **kwargs,
         )
+        MarketPriceSnapshot.objects.create(
+            id=item_id, category=job.category, scope=item.scope, sku_code=item_id,
+            month=item.month, image_content_sha256=item.image_content_sha256,
+        )
+        MarketRankingEntry.objects.create(
+            natural_key=item_id, category=job.category, scope=item.scope, sku_code=item_id,
+            period_start="2026-09-01", period_end="2026-09-12", source_row_number=1, last_import_batch_id="fixture",
+        )
+        return item
 
     def test_filter_counts_and_selection_share_completed_item_rules(self):
         self.item("ai-ready")
@@ -90,6 +100,10 @@ class MarketAnnotationReviewTests(TestCase):
 
     def test_commit_uses_500_item_batches_while_other_items_keep_running(self):
         self.item("unfinished", status="queued")
+        self.item("000-stale", status="approved", selected=True)
+        MarketPriceSnapshot.objects.filter(pk="000-stale").update(image_content_sha256="b" * 64)
+        self.item("unknown-result", status="failed", attempt_count=3, error_message="inference_result_unknown")
+        preserved = list(MarketAnnotationItem.objects.filter(id__in=["000-stale", "unknown-result"]).order_by("id").values())
         items = []
         snapshots = []
         rankings = []
@@ -114,6 +128,7 @@ class MarketAnnotationReviewTests(TestCase):
         first = _commit(first_command, self.principal)
         self.assertEqual(first["committed"], 500)
         self.assertTrue(first["hasMore"])
+        self.assertEqual(first["skippedStaleCount"], 1)
         replay = _commit(first_command, self.principal)
         self.assertEqual(replay["committed"], 0)
         self.assertEqual(replay["duplicates"], 500)
@@ -121,6 +136,8 @@ class MarketAnnotationReviewTests(TestCase):
         second = _commit({"aggregateJobs": True, "idempotencyKey": "review-batch-2"}, self.principal)
         self.assertEqual(second["committed"], 1)
         self.assertFalse(second["hasMore"])
+        self.assertEqual(second["skippedStaleCount"], 1)
+        self.assertEqual(list(MarketAnnotationItem.objects.filter(id__in=["000-stale", "unknown-result"]).order_by("id").values()), preserved)
         self.assertEqual(MarketSkuAnnotation.objects.count(), 501)
         self.assertEqual(MarketAnnotationItem.objects.get(id="unfinished").status, "queued")
         self.job.refresh_from_db()

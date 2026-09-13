@@ -20,11 +20,11 @@ type CurrentUser = { email: string; role: "viewer" | "analyst" | "operator" | "a
 type Model = { id: string; name: string; protocol: string; modelName: string };
 type Prompt = { id: string; category: string; version: number; parentId: string | null; source: string; status: string; segments: string[]; promptBody: string; changeNote: string; metrics: Record<string, unknown>; createdAt: string };
 type Job = { id: string; category: string; promptVersionId: string; executor: string; modelId: string | null; localModelName: string; status: string; totalCount: number; completedCount: number; failedCount: number; reviewedCount: number; committedCount: number; remainingInferenceCount: number; createdAt: string };
-type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; selected: boolean; version: number; errorMessage: string; createdAt: string };
+type Item = { id: string; candidateId: string; jobId: string; category: string; skuCode: string; productName: string; brand: string; sourceImageUrl: string; resolvedImageUrl: string; imageSource: string; status: string; aiSegment: string; aiImagePriceCents: number | null; aiConfidenceBps: number | null; aiReason: string; modelInputBytes: number; imageLoadMs: number; imagePrepareMs: number; modelCallMs: number; totalInferenceMs: number; reviewedSegment: string; reviewedImagePriceCents: number | null; reviewPriceSource: "history_same_image" | "ai" | "manual"; reviewJobReady: boolean; reviewSegments: string[]; snapshotValid?: boolean; selected: boolean; version: number; errorMessage: string; createdAt: string };
 type ValidationRun = { id: string; category: string; candidatePromptId: string; baselinePromptId?: string; status: string; sampleCount: number; sampleHash: string; metrics: Record<string, unknown>; gate: { passed?: boolean; reasons?: string[] } };
 type ValidationResult = { id: string; runId: string; status: string; skuCode: string; productName: string; goldSegment: string; predictedSegment: string; isCorrect: number; errorMessage: string };
 type CloudRun = { jobId: string; state: "running" | "paused" | "completed"; runConcurrency: number; targetConcurrency: number; recovering: boolean; nextRunAt: string | null; lastFailureCode: string; lastFailureMessage: string; lastStartedAt: string | null; lastHeartbeatAt: string | null; completedAt: string | null; updatedAt: string };
-type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
+type Workspace = { categories: Array<{ value: string; count: number; candidateCount: number | null }>; reviewCategories: Array<{ value: string; jobCount: number; recordCount: number }>; taxonomy: Array<{ category: string; value: string }>; prompts: Prompt[]; jobs: Job[]; concurrencySettings: Array<{ category: string; executor: MarketAnnotationExecutor; concurrency: number; updatedBy: string; updatedAt: string }>; cloudRuns: CloudRun[]; items: Item[]; itemPagination: { page: number; pageSize: number; pageCount: number; total: number }; reviewSummary: { jobCount: number; recordCount: number; uniqueCandidateCount: number }; selection: { filteredReviewableCount: number; filteredSelectedCount: number; scopeSelectedCount: number; staleSelectedCount?: number }; models: Model[]; textModels: Model[]; validationRuns: ValidationRun[]; validationResults: ValidationResult[]; agents: Array<{ id: string; name: string; status: string; lastSeenAt?: string; revokedAt?: string }>; error?: string };
 type ReviewWorkspace = Pick<Workspace, "items" | "itemPagination" | "reviewSummary" | "selection"> & { error?: string };
 type CandidateCountsPayload = { categories: Array<{ value: string; candidateCount: number }>; error?: string };
 type CandidateCountsStatus = "idle" | "loading" | "ready" | "error";
@@ -56,7 +56,8 @@ const annotationRecognitionLabel = (item: Pick<Item, "status" | "aiSegment" | "a
   if (recognized) return "AI 已识别";
   return item.status === "failed" ? "AI 识别失败" : "未生成 AI 结果";
 };
-const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource">) => {
+const annotationResultMessage = (item: Pick<Item, "aiReason" | "errorMessage" | "status" | "reviewPriceSource" | "snapshotValid">) => {
+  if (item.snapshotValid === false && ["review_pending", "approved", "rejected"].includes(item.status)) return "图片或对应月份数据已变化，已排除入库；请按当前图片重新识别并复核。";
   if (item.reviewPriceSource === "history_same_image") return "主图与历史已确认图片一致，默认沿用上次标准售价，请人工复核后入库";
   if (item.aiReason) return item.aiReason;
   if (/状态码\s*429/.test(item.errorMessage)) return `${item.errorMessage}：模型供应商限流或额度不足，请稍后重试并检查额度`;
@@ -122,7 +123,6 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   const [reviewError, setReviewError] = useState("");
   const [progressReader] = useState(() => createAnnotationReadChannel({ label: "任务进度读取", onError: setProgressError }));
   const [reviewReader] = useState(() => createAnnotationReadChannel({ label: "复核列表读取", onError: setReviewError }));
-  const [staleCandidateId, setStaleCandidateId] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [candidateCountsStatus, setCandidateCountsStatus] = useState<CandidateCountsStatus>("idle");
@@ -361,12 +361,14 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     return payload?.result as Record<string, unknown> | undefined;
   };
   const act = async (name: string, fn: () => Promise<void>) => {
-    setBusy(name); setError(""); setNotice(""); setStaleCandidateId("");
+    setBusy(name); setError(""); setNotice("");
     try { await fn(); }
     catch (reason) {
       const message = reason instanceof Error ? reason.message : "操作失败";
       if (!(reason instanceof AnnotationReadError)) setError(message);
-      setStaleCandidateId(message.match(/候选项 (market-item-[0-9a-f-]{36}) 对应的榜单身份、价格快照或图片版本已变化/i)?.[1] ?? "");
+      if ((reason as { status?: number })?.status === 409 && ["commit", "save-review", "select-filtered"].includes(name)) {
+        await loadReview(true).catch(() => undefined);
+      }
     } finally { setBusy(""); }
   };
   const activePrompt = data?.prompts.find((item) => item.category === category && item.status === "active");
@@ -454,7 +456,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       setSavingConcurrencyKey("");
     }
   };
-  const reviewableIds = new Set((data?.items ?? []).filter((item) => ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
+  const reviewableIds = new Set((data?.items ?? []).filter((item) => item.snapshotValid !== false && ["review_pending", "approved", "rejected"].includes(item.status)).map((item) => item.id));
   const activeReviewScopeKey = annotationReviewScopeKey({ page: itemPage, pageSize: itemPageSize, categories: reviewCategories, segments: itemSegments, storageStatuses, recognitionSources });
   const reviewScopeReady = loadedReviewScopeKey === activeReviewScopeKey;
   const importableIds = new Set((data?.items ?? []).filter((item) => {
@@ -588,13 +590,13 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
     const operationId = "ui_aggregate_" + Date.now().toString(36);
     let committed = 0;
     let duplicates = 0;
-    let staleSelected = 0;
+    let skippedStale = 0;
     for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
       setNotice(`正在分批入库：已完成 ${committed} 条，本批最多处理 500 条`);
       const result = await post({ action: "commit_selected", aggregateJobs: true, categories: reviewCategories, idempotencyKey: `${operationId}_${batch}` });
       committed += Number(result?.committed ?? 0);
       duplicates += Number(result?.duplicates ?? 0);
-      staleSelected = Math.max(staleSelected, Number(result?.staleSelected ?? 0));
+      skippedStale = Math.max(skippedStale, Number(result?.skippedStaleCount ?? 0));
       if (result?.ok === false || result?.partial) {
         await loadReview(true);
         throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条；页面已刷新，可重新点击续跑`));
@@ -602,43 +604,12 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
       if (!result?.hasMore) break;
       if (batch === MAX_COMMIT_BATCHES) throw new Error(`已连续处理 ${committed} 条，但仍有剩余选择；请再次点击批量入库继续`);
     }
-    let rebuilt = 0;
-    let priceOnly = 0;
-    let fullRecognition = 0;
-    const resumedJobs = new Set<string>();
-    if (staleSelected > 0) {
-      for (let batch = 1; batch <= MAX_COMMIT_BATCHES; batch += 1) {
-        setNotice(`有效候选已入库 ${committed} 条；正在重建图片已变化的候选 ${rebuilt}/${staleSelected}`);
-        const result = await post({ action: "rebuild_stale_selected", aggregateJobs: true, categories: reviewCategories });
-        rebuilt += Number(result?.rebuilt ?? 0);
-        priceOnly += Number(result?.priceOnly ?? 0);
-        fullRecognition += Number(result?.fullRecognition ?? 0);
-        for (const jobId of Array.isArray(result?.resumedJobIds) ? result.resumedJobIds : []) resumedJobs.add(String(jobId));
-        if (result?.ok === false || result?.partial) {
-          await loadReview(true);
-          throw new Error(String(result?.error || `部分成功：已入库 ${committed} 条并重建 ${rebuilt} 条；页面已刷新，可重新点击续跑`));
-        }
-        if (!result?.hasMore) break;
-        if (batch === MAX_COMMIT_BATCHES) throw new Error(`已入库 ${committed} 条并重建 ${rebuilt} 条，仍有过期候选；请再次点击批量入库继续`);
-      }
-    }
     selectedPageIds.forEach((id) => dirtyDraftIdsRef.current.delete(id));
     await loadReview(true);
-    const rebuildNotice = rebuilt
-      ? `；已重建过期候选 ${rebuilt} 条（仅重识别价格 ${priceOnly} 条，完整重识别 ${fullRecognition} 条），恢复云端任务 ${resumedJobs.size} 个`
+    const skippedNotice = skippedStale
+      ? `；跳过图片或对应月份数据已变化的候选 ${skippedStale} 条，保留原复核记录，需按当前图片重新识别并复核`
       : "";
-    setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条${rebuildNotice}`);
-  });
-  const rebuildStaleCandidate = () => act("rebuild-stale", async () => {
-    if (!staleCandidateId) throw new Error("没有可重建的失效候选");
-    const result = await post({ action: "rebuild_stale_item", candidateId: staleCandidateId });
-    dirtyDraftIdsRef.current.delete(staleCandidateId);
-    const replacementId = String(result?.replacementCandidateId ?? "");
-    const recognitionMode = result?.recognitionMode === "price_only" ? "已沿用人工细分类目，只需重新识别新图价格" : "需要按新图重新完成分类与价格识别";
-    setItemPage(1);
-    await loadReview(true);
-    setStaleCandidateId("");
-    setNotice(`失效候选已安全重建为 ${replacementId}；${recognitionMode}。请启动/恢复原任务识别。`);
+    setNotice(`已分批入库 ${committed} 条，重复请求 ${duplicates} 条${skippedNotice}`);
   });
   const savePrompt = (mode: "manual" | "generate") => act("prompt", async () => {
     if (!category) throw new Error("“全部三级类目”仅用于浏览和筛选；保存 Prompt 前请选择一个具体类目");
@@ -745,7 +716,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
   return <div className="market-annotation-module">
     {progressError && <div className="market-feedback error" role="alert"><span>{progressError}</span><button className="secondary-button" disabled={!jobId} onClick={() => void loadJobProgress(jobId).catch(() => undefined)}>重新读取进度</button></div>}
     {reviewError && <div className="market-feedback error" role="alert"><span>{reviewError}</span><button className="secondary-button" disabled={reviewLoading} onClick={() => void loadReview().catch(() => undefined)}>重新读取复核列表</button></div>}
-    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")} role={error ? "alert" : "status"}><span>{error || notice}</span>{error && staleCandidateId && <button className="secondary-button" disabled={!canEdit || busy !== ""} onClick={rebuildStaleCandidate}>{busy === "rebuild-stale" ? "重建中…" : "重建这条失效候选"}</button>}</div>}
+    {(error || notice) && <div className={"market-feedback " + (error ? "error" : "success")} role={error ? "alert" : "status"}><span>{error || notice}</span></div>}
     <section className={`panel annotation-hero ${embedded ? "annotation-hero-embedded" : ""}`}><div><span className="eyebrow">HUMAN-IN-THE-LOOP VISION</span><h2>{embedded ? "SKU 数据库 · AI 标注与入库" : "市场 SKU 细分品类 AI 标注"}</h2><p>云端视觉为默认执行器；同一 SKUID 与图片已入库的标准售价会自动沿用，新图片的 AI 候选必须人工复核后才能批量入库。</p></div><div className="annotation-progress"><strong>{currentJob ? currentJob.completedCount + "/" + currentJob.totalCount : "尚未创建"}</strong><span>{currentJob?.status || "等待任务"}</span></div></section>
 
     <section className="panel annotation-task-card">
@@ -795,6 +766,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         <div><h3>2. 人工复核与批量入库</h3><p>汇总当前类目全部历史 AI 标注任务；支持跨任务筛选、复核、全选和分组入库。</p></div>
         <div className="annotation-actions"><button className="secondary-button" disabled={!canEdit || !reviewScopeReady || busy !== ""} onClick={() => void saveReview()}>保存复核</button><button className="primary-button" disabled={!isAdmin || !reviewScopeReady || !selectedCount || busy !== ""} onClick={commit}>批量入库（{selectedCount}）</button></div>
       </div>
+      {Number(data.selection.staleSelectedCount ?? 0) > 0 && <p className="orange-text" role="status">原勾选中有 {data.selection.staleSelectedCount} 条候选的图片或对应月份数据已变化，已排除本次入库；原复核记录保留，需按当前图片重新识别并复核。</p>}
       <div className="annotation-review-toolbar">
         <div className="annotation-review-category-filter"><span>三级类目（可多选）</span><details><summary aria-label="AI 标注三级类目多选">{reviewCategoryLabel}</summary><div className="annotation-review-category-menu"><button type="button" disabled={!reviewCategories.length} onClick={() => { setReviewCategories([]); setItemSegments([]); setItemPage(1); }}>全部三级类目</button>{data.reviewCategories.map((item) => <label key={item.value}><input type="checkbox" checked={reviewCategories.includes(item.value)} onChange={(event) => toggleReviewCategory(item.value, event.target.checked)} /><span>{item.value}</span><small>{item.jobCount} 个任务 / {item.recordCount} 条</small></label>)}</div></details></div>
         <AnnotationMultiFilter label="细分品类" allLabel="全部细分品类" values={itemSegments} options={reviewSegments.map((value) => ({ value, label: value }))} onChange={(values) => { setItemSegments(values); setItemPage(1); }} />
@@ -829,7 +801,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <tr key={item.id}>
-          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
+          <td><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={item.snapshotValid === false ? "图片或对应月份数据已变化，不能将旧图结果入库" : reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} /></td>
           <td>{imageUrl ? (href ? <a className="annotation-image-link" href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img className="annotation-image" src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span className="annotation-no-image">无图</span>}<small className={item.imageSource === "imgzone" ? "green-text" : "orange-text"}>{item.imageSource === "imgzone" ? "imgzone 大图" : item.imageSource === "n5" ? "n5 回退" : "未取到安全图片"}</small></td>
           <td>{href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName || "未命名商品"}</small><span>打开商品链接 ↗</span></a> : <><strong>{item.skuCode}</strong><small title={item.productName}>{item.productName}</small></>}<code>{item.candidateId}</code></td>
           <td><strong>{itemJob?.createdAt?.slice(0, 10) || item.createdAt.slice(0, 10)}</strong><small>{itemJob?.executor || "—"} · {itemJob?.status || "—"}</small><code>{item.jobId.slice(0, 18)}…</code></td>
@@ -847,7 +819,7 @@ export default function MarketAnnotationView({ currentUser, embedded = false }: 
         const itemJob = data.jobs.find((entry) => entry.id === item.jobId);
         const itemSegments = reviewSegmentsFor(item);
         return <article key={item.id}>
-          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
+          <label className="annotation-gallery-select"><input type="checkbox" checked={importable && (draft?.selected ?? false)} disabled={!canEdit || !reviewScopeReady || !importable} title={item.snapshotValid === false ? "图片或对应月份数据已变化，不能将旧图结果入库" : reviewable && !importable ? "任务已归档，或细分品类不符合任务 Prompt 与当前字典" : undefined} onChange={(event) => updateDraft(item.id, { selected: event.target.checked })} />{item.status === "committed" ? "已入库" : importable ? "加入本次入库" : "暂不可入库"}</label>
           <div className="annotation-gallery-image">{imageUrl ? (href ? <a href={href} target="_blank" rel="noreferrer" aria-label={`打开商品 ${item.productName || item.skuCode}`}><img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" /></a> : <img src={imageUrl} alt={item.productName || item.skuCode} loading="lazy" />) : <span>无图</span>}</div>
           {href ? <a className="annotation-product-link" href={href} target="_blank" rel="noreferrer"><h4>{item.productName || item.skuCode}</h4><span>打开商品链接 ↗</span></a> : <h4>{item.productName || item.skuCode}</h4>}
           <small>{item.skuCode} · {annotationRecognitionLabel(item)} · {item.imageSource}</small>

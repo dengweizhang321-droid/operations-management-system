@@ -7,13 +7,16 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from market.annotations import _review, _select_filtered, _update_review
+from market.errors import MarketApiError
 from market.models import (
     MarketAnnotationCommitReceipt, MarketAnnotationItem, MarketAnnotationJob,
     MarketAnnotationPromptVersion, MarketDataRevision, MarketMasterAuditLog,
-    MarketPriceSnapshot, MarketRankingEntry, MarketSkuAnnotation,
+    MarketImageCache, MarketPriceSnapshot, MarketRankingEntry, MarketSkuAnnotation,
     MarketSubcategoryTaxonomy, MarketWriteAuthority, MarketWriteRequestReceipt,
 )
 from sales.tests.factories import TEST_SECRET, signed_headers
+from sales.auth import Principal
 
 from .factories import body_bytes
 from .test_api import AUTHORITY_EPOCH, CUTOVER_ID
@@ -127,3 +130,77 @@ class MarketAnnotationCommitReceiptTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(MarketSkuAnnotation.objects.values().get(pk=self.annotation.pk), self.before)
         self.assertFalse(MarketAnnotationCommitReceipt.objects.exists())
+
+    def test_changed_image_does_not_block_valid_selected_candidate_or_replay(self):
+        MarketPriceSnapshot.objects.filter(pk="2026-08").update(image_content_sha256="b" * 64)
+        stale_before = MarketAnnotationItem.objects.values().get(pk="2026-08")
+        response = self.commit()
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["result"]["committed"], 1)
+        self.assertEqual(response.json()["result"]["skippedStaleCount"], 1)
+        self.assertFalse(response.json()["result"]["hasMore"])
+        self.assertEqual(MarketAnnotationItem.objects.values().get(pk="2026-08"), stale_before)
+        self.assertIsNone(MarketPriceSnapshot.objects.get(pk="2026-08").confirmed_market_price_cents)
+        self.assertEqual(MarketPriceSnapshot.objects.get(pk="2026-09").confirmed_market_price_cents, 19900)
+        self.assertFalse(MarketAnnotationCommitReceipt.objects.filter(job_item_id="2026-08").exists())
+        self.assertEqual(self.commit("stale-business-replay").json()["result"]["skippedStaleCount"], 1)
+        self.annotation.refresh_from_db()
+        self.assertEqual(self.annotation.version, 5)
+
+    def test_all_stale_is_bounded_noop_with_receipt_and_preserves_candidates(self):
+        MarketPriceSnapshot.objects.all().update(image_content_sha256="b" * 64)
+        before = list(MarketAnnotationItem.objects.order_by("id").values())
+        response = self.commit()
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["result"]["committed"], 0)
+        self.assertEqual(response.json()["result"]["skippedStaleCount"], 2)
+        self.assertFalse(response.json()["result"]["hasMore"])
+        self.assertEqual(list(MarketAnnotationItem.objects.order_by("id").values()), before)
+        self.assertEqual(MarketSkuAnnotation.objects.values().get(pk=self.annotation.pk), self.before)
+        self.assertEqual(self.commit("all-stale-replay").json()["result"]["skippedStaleCount"], 2)
+
+    def test_snapshot_validity_is_shared_by_rows_counts_selection_and_review(self):
+        principal = Principal("admin@example.test", "test", "admin", None)
+        MarketPriceSnapshot.objects.filter(pk="2026-08").update(image_content_sha256="b" * 64)
+        review = _review({"aggregateJobs": True})
+        self.assertEqual(review["selection"]["scopeSelectedCount"], 1)
+        self.assertEqual(review["selection"]["filteredReviewableCount"], 1)
+        self.assertEqual(review["selection"]["staleSelectedCount"], 1)
+        self.assertEqual({r["id"]: r["snapshotValid"] for r in review["items"]}, {"2026-08": False, "2026-09": True})
+        _select_filtered({"aggregateJobs": True, "selected": False}, principal)
+        self.assertFalse(MarketAnnotationItem.objects.filter(selected=True).exists())
+        self.assertEqual(_select_filtered({"aggregateJobs": True, "selected": True}, principal)["changed"], 1)
+        stale = MarketAnnotationItem.objects.get(pk="2026-08")
+        with self.assertRaises(MarketApiError) as caught:
+            _update_review({"jobId": stale.job_id, "updates": [{"id": stale.id, "version": stale.version, "segment": "台式", "selected": True}]}, principal)
+        self.assertEqual(caught.exception.status, 409)
+
+    def test_missing_snapshot_or_ranking_does_not_admit_other_month(self):
+        MarketPriceSnapshot.objects.filter(pk="2026-08").delete()
+        MarketRankingEntry.objects.filter(period_end__startswith="2026-09").delete()
+        response = self.commit()
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["result"]["committed"], 0)
+        self.assertEqual(response.json()["result"]["skippedStaleCount"], 2)
+
+    def test_ready_cache_hash_wins_but_empty_cache_hash_uses_snapshot(self):
+        MarketPriceSnapshot.objects.filter(pk="2026-08").update(image_url="https://example.test/current.png")
+        MarketImageCache.objects.create(source_url="https://example.test/current.png", status="ready", content_sha256="b" * 64)
+        self.assertEqual(_review({"aggregateJobs": True})["selection"]["filteredReviewableCount"], 1)
+        MarketImageCache.objects.all().update(content_sha256="")
+        self.assertEqual(_review({"aggregateJobs": True})["selection"]["filteredReviewableCount"], 2)
+
+    def test_image_change_after_batch_selection_is_skipped_without_rolling_back_valid_work(self):
+        from market.annotations import _current_snapshot
+
+        def change_during_commit(item, **kwargs):
+            if item.id == "2026-09":
+                MarketPriceSnapshot.objects.filter(pk=item.id).update(image_content_sha256="b" * 64)
+            return _current_snapshot(item, **kwargs)
+
+        with patch("market.annotations._current_snapshot", side_effect=change_during_commit):
+            response = self.commit()
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["result"]["committed"], 1)
+        self.assertEqual(response.json()["result"]["skippedStaleCount"], 1)
+        self.assertEqual(MarketAnnotationItem.objects.get(pk="2026-09").status, "approved")

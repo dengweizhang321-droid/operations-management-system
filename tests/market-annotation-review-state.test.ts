@@ -9,4 +9,6 @@ test("finished review items remain selectable independently of the recent-job wi
   assert.equal(canSelectAnnotationReviewItem({ ...item, status: "inferencing" }, "台式"), false);
   assert.equal(canSelectAnnotationReviewItem({ ...item, status: "committed" }, "台式"), false);
   assert.equal(canSelectAnnotationReviewItem({ ...item, reviewJobReady: false }, "台式"), false);
+  assert.equal(canSelectAnnotationReviewItem({ ...item, snapshotValid: false }, "台式"), false);
+  assert.equal(canSelectAnnotationReviewItem({ ...item, snapshotValid: true }, "台式"), true);
 });

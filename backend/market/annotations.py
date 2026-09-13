@@ -410,29 +410,38 @@ def _refresh_job(job_id: str) -> MarketAnnotationJob:
     return job
 
 
-def _current_snapshot(item: MarketAnnotationItem) -> MarketPriceSnapshot | None:
-    snapshot = MarketPriceSnapshot.objects.filter(
+def _snapshot_context(query):
+    cache_hash = MarketImageCache.objects.filter(
+        source_url=OuterRef("image_url"), status="ready",
+    ).exclude(content_sha256="").values("content_sha256")[:1]
+    ranking = MarketRankingEntry.objects.filter(
+        category=OuterRef("category"), scope=OuterRef("scope"), sku_code=OuterRef("sku_code"),
+        ranking_dimension=OuterRef("ranking_dimension"),
+    ).annotate(snapshot_month=Substr("period_end", 1, 7)).filter(snapshot_month=OuterRef("month"))
+    return query.alias(current_hash=Coalesce(Subquery(cache_hash), F("image_content_sha256"))).filter(
+        Exists(ranking),
+    ).exclude(current_hash="")
+
+
+def _matching_snapshot():
+    """Correlate the same current-image rule used by the final locked write."""
+    return _snapshot_context(MarketPriceSnapshot.objects.filter(
+        category=OuterRef("category"), scope=OuterRef("scope"), sku_code=OuterRef("sku_code"),
+        ranking_dimension=OuterRef("ranking_dimension"), month=OuterRef("month"),
+    )).filter(current_hash=OuterRef("image_content_sha256"))
+
+
+def _current_snapshot(item: MarketAnnotationItem, *, lock: bool = False) -> MarketPriceSnapshot | None:
+    query = _snapshot_context(MarketPriceSnapshot.objects.filter(
         category=item.category,
         scope=item.scope,
         sku_code=item.sku_code,
         ranking_dimension=item.ranking_dimension,
         month=item.month,
-    ).first()
-    if snapshot is None:
-        return None
-    cache = MarketImageCache.objects.filter(source_url=snapshot.image_url, status="ready").first()
-    current_hash = cache.content_sha256 if cache and cache.content_sha256 else snapshot.image_content_sha256
-    if current_hash != item.image_content_sha256:
-        return None
-    if not MarketRankingEntry.objects.filter(
-        category=item.category,
-        scope=item.scope,
-        sku_code=item.sku_code,
-        ranking_dimension=item.ranking_dimension,
-        period_end__startswith=item.month,
-    ).exists():
-        return None
-    return snapshot
+    )).filter(current_hash=item.image_content_sha256)
+    if lock:
+        query = query.select_for_update()
+    return query.first()
 
 
 def _taxonomy(category: str) -> list[str]:
@@ -575,7 +584,7 @@ def _filter_review_items(query, params: dict[str, object]):
     return query
 
 
-def _review_eligibility(scope_query):
+def _review_eligibility(scope_query, *, require_snapshot: bool = True):
     """Use the same completed-item and Prompt rules for counts, rows and writes.
 
     Task metadata is intentionally independent of the workspace's recent-job
@@ -606,7 +615,10 @@ def _review_eligibility(scope_query):
         eligible |= Q(category=category, job_id__in=job_ids) & (
             Q(reviewed_segment__in=segments) | Q(reviewed_segment="", ai_segment__in=segments)
         )
-    return Q(status__in=["review_pending", "approved", "rejected"]) & eligible, contexts
+    eligible &= Q(status__in=["review_pending", "approved", "rejected"])
+    if require_snapshot:
+        eligible &= Q(Exists(_matching_snapshot()))
+    return eligible, contexts
 
 
 def _review(params: dict[str, object]) -> dict[str, object]:
@@ -617,11 +629,11 @@ def _review(params: dict[str, object]) -> dict[str, object]:
     eligibility, contexts = _review_eligibility(scope_query)
     selectable = query.filter(eligibility)
     total = query.count()
-    page_rows = list(query.order_by("-created_at", "id")[(item_page - 1) * item_page_size : item_page * item_page_size])
+    page_rows = list(query.annotate(snapshot_valid=Exists(_matching_snapshot())).order_by("-created_at", "id")[(item_page - 1) * item_page_size : item_page * item_page_size])
     items = []
     for row in page_rows:
         context = contexts.get(row.job_id, {"segments": [], "ready": False})
-        items.append({**_item_value(row), "reviewJobReady": context["ready"], "reviewSegments": context["segments"]})
+        items.append({**_item_value(row), "reviewJobReady": context["ready"], "reviewSegments": context["segments"], "snapshotValid": row.snapshot_valid})
     reviewable = selectable.count()
     selected = selectable.filter(selected=True).count()
     return {
@@ -636,6 +648,7 @@ def _review(params: dict[str, object]) -> dict[str, object]:
             "filteredReviewableCount": reviewable,
             "filteredSelectedCount": selected,
             "scopeSelectedCount": scope_query.filter(eligibility, selected=True).count(),
+            "staleSelectedCount": scope_query.filter(status="approved", selected=True).exclude(Exists(_matching_snapshot())).count(),
         },
     }
 
@@ -1401,6 +1414,8 @@ def _update_review(payload: dict[str, object], principal: Principal) -> dict[str
             expected_version = _integer(value.get("version"), "version", minimum=0)
             if item.version != expected_version:
                 raise _error("标注候选版本已变化", code="version_conflict", status=409)
+            if value.get("selected") is True and _current_snapshot(item, lock=True) is None:
+                raise _error("此候选的图片或对应月份数据已变化，不能勾选入库；请刷新复核列表", code="version_conflict", status=409)
             segment = _text(value.get("segment"), "segment", 200, required=True)
             if segment not in prompt.segments_json or segment not in _taxonomy(item.category):
                 raise _error("标注细分品类不在 Prompt 枚举中")
@@ -1433,7 +1448,7 @@ def _select_filtered(payload: dict[str, object], principal: Principal) -> dict[s
             status__in=["review_pending", "approved", "rejected"]
         ).values("job_id")
     ).order_by("id").values_list("id", flat=True))
-    eligibility, _contexts = _review_eligibility(scope_query)
+    eligibility, _contexts = _review_eligibility(scope_query, require_snapshot=selected)
     query = _filter_review_items(scope_query, payload).filter(eligibility)
     total = query.count()
     if selected and total > MAX_FILTERED_SELECTION:
@@ -1457,15 +1472,21 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
     if existing:
         if existing.request_digest != request_digest:
             raise _error("入库幂等键已绑定其他候选集合", code="version_conflict", status=409)
-        return {"ok": True, "committed": 0, "duplicate": True, "duplicates": int(existing.after_json.get("committed", 0)), "batchId": existing.batch_id, "hasMore": existing.after_json.get("hasMore") is True}
+        return {"ok": True, "committed": 0, "duplicate": True, "duplicates": int(existing.after_json.get("committed", 0)), "batchId": existing.batch_id, "hasMore": existing.after_json.get("hasMore") is True, "skippedStaleCount": int(existing.after_json.get("skippedStaleCount", 0))}
     scope_query = _review_scope(payload)
-    eligibility, _contexts = _review_eligibility(scope_query)
-    query = scope_query.filter(eligibility, status="approved", selected=True)
+    eligibility, _contexts = _review_eligibility(scope_query, require_snapshot=False)
+    selected_query = scope_query.filter(eligibility, status="approved", selected=True)
     if candidate_ids:
-        query = query.filter(id__in=candidate_ids)
+        selected_query = selected_query.filter(id__in=candidate_ids)
+    query = selected_query.filter(Exists(_matching_snapshot()))
     batch_ids = list(query.order_by("job_id", "id").values_list("id", flat=True)[:500])
+    lock_jobs = list(query.filter(id__in=batch_ids).values_list("job_id", flat=True).distinct())
+    if not lock_jobs:
+        # Even an all-stale no-op gets one stable job lock, so simultaneous
+        # retries cannot race to create the same business receipt.
+        lock_jobs = list(selected_query.order_by("job_id", "id").values_list("job_id", flat=True)[:1])
     list(MarketAnnotationJob.objects.select_for_update().filter(
-        id__in=query.filter(id__in=batch_ids).values("job_id")
+        id__in=lock_jobs
     ).order_by("id").values_list("id", flat=True))
     # Another request for the same batch may have completed while this request
     # waited for its job locks. Return that receipt instead of reapplying it.
@@ -1473,20 +1494,21 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
     if existing:
         if existing.request_digest != request_digest:
             raise _error("入库幂等键已绑定其他候选集合", code="version_conflict", status=409)
-        return {"ok": True, "committed": 0, "duplicate": True, "duplicates": int(existing.after_json.get("committed", 0)), "batchId": existing.batch_id, "hasMore": existing.after_json.get("hasMore") is True}
-    query = query.exclude(job_id__in=MarketAnnotationJob.objects.filter(
+        return {"ok": True, "committed": 0, "duplicate": True, "duplicates": int(existing.after_json.get("committed", 0)), "batchId": existing.batch_id, "hasMore": existing.after_json.get("hasMore") is True, "skippedStaleCount": int(existing.after_json.get("skippedStaleCount", 0))}
+    selected_query = selected_query.exclude(job_id__in=MarketAnnotationJob.objects.filter(
         status__in=["deleted", "cancelled", "committed"]
     ).values("id"))
+    query = selected_query.filter(Exists(_matching_snapshot()))
     batch_id = f"market-annotation-commit-{uuid.uuid4()}"
     committed = 0
     with transaction.atomic():
         items = list(query.filter(id__in=batch_ids).select_for_update().order_by("job_id", "id"))
-        if not items:
-            raise _error("没有可入库的已选候选项", code="version_conflict", status=409)
         for item in items:
-            snapshot = _current_snapshot(item)
+            snapshot = _current_snapshot(item, lock=True)
             if snapshot is None:
-                raise _error("候选项对应的当前快照或图片哈希已变化", code="version_conflict", status=409)
+                # Imports/cache completion may change the image after selection.
+                # Preserve this candidate and continue the remaining valid items.
+                continue
             prompt = MarketAnnotationPromptVersion.objects.get(id=MarketAnnotationJob.objects.get(id=item.job_id).prompt_version_id)
             segment = item.reviewed_segment or item.ai_segment
             if segment not in prompt.segments_json or segment not in set(_taxonomy(item.category)):
@@ -1562,6 +1584,9 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
                 request_digest=request_digest,
             )
             committed += 1
+        skipped_stale = selected_query.exclude(Exists(_matching_snapshot())).count()
+        if not committed and not skipped_stale:
+            raise _error("没有可入库的已选候选项", code="version_conflict", status=409)
         has_more = query.exists()
         MarketAnnotationCommitReceipt.objects.create(
             id=f"market-annotation-receipt-{uuid.uuid4()}",
@@ -1569,16 +1594,17 @@ def _commit(payload: dict[str, object], principal: Principal) -> dict[str, objec
             annotation_id="",
             idempotency_key=idempotency_key,
             before_json={},
-            after_json={"committed": committed, "hasMore": has_more},
+            after_json={"committed": committed, "hasMore": has_more, "skippedStaleCount": skipped_stale},
             committed_by=principal.email.lower(),
             batch_id=batch_id,
             request_digest=request_digest,
         )
         for affected in sorted({item.job_id for item in items}):
             _refresh_job(affected)
-        _audit(principal, "commit_market_annotations", "market_annotation_commit", batch_id, {}, {"committed": committed})
-        bump_revision({"kind": "annotation_commit", "batchId": batch_id, "committed": committed})
-    return {"ok": True, "committed": committed, "batchId": batch_id, "hasMore": has_more}
+        _audit(principal, "commit_market_annotations", "market_annotation_commit", batch_id, {}, {"committed": committed, "skippedStaleCount": skipped_stale})
+        if committed:
+            bump_revision({"kind": "annotation_commit", "batchId": batch_id, "committed": committed})
+    return {"ok": True, "committed": committed, "batchId": batch_id, "hasMore": has_more, "skippedStaleCount": skipped_stale}
 
 
 @transaction.atomic
