@@ -77,7 +77,7 @@
     "errorCode": "",
     "conversationType": "1",
     "replyCharacters": 402,
-    "recipientReadConfirmation": "pending",
+    "recipientReadConfirmation": "confirmed_by_user_screenshot",
     "groupChatVerification": "pending"
   },
   "limitations": [

@@ -137,7 +137,7 @@ def send(body, principal):
     if not row:
         raise AiError("发送渠道不可用", "not_found", 404)
     content = (
-        "TERUISI AI 助理连接测试"
+        "AI 助理连接测试"
         if action == "test"
         else text(body.get("text"), "text", 4000)
     )
