@@ -46,6 +46,7 @@ function ExecutionDetails({ value }: { value?: AiExecutionInfo }) {
     {!!value.context?.droppedMessages && <div><dt>因预算移出上下文的旧消息</dt><dd>{value.context.droppedMessages} 条（历史记录保留）</dd></div>}
     {value.guidance && <div><dt>配置版本</dt><dd>{value.guidance.version === 0 ? "系统默认" : `v${value.guidance.version}`}</dd></div>}
     {value.guidance && <div><dt>本次业务口径</dt><dd>{value.guidance.rules.length ? value.guidance.rules.map(rule => rule.name).join("、") : "通用口径"}</dd></div>}
+    {value.skills && <div><dt>本次技能 · v{value.skills.version}</dt><dd>{value.skills.skills.length ? value.skills.skills.map(skill => skill.name).join("、") : "未匹配技能"}</dd></div>}
   </dl><small>上下文为估算值，实际用量以供应商返回为准。{(value.usageReportedCalls ?? 0) < (value.providerCalls ?? 0) ? "部分调用未报告完整用量，以上不代表总计。" : ""}</small></details>;
 }
 

@@ -406,6 +406,10 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0010_dingtalk_schedules" }).Count -ne 1) { throw "AI 配置迁移缺少前置定时任务迁移" }
       $requiredTables += @("ai_prompt_settings_revisions")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0012_report_library" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0011_prompt_settings" }).Count -ne 1) { throw "AI 报告迁移缺少前置配置迁移" }
+      $requiredTables += @("ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries")
+    }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
     }

@@ -11,13 +11,17 @@ const AiAgentWorkflowView = lazy(() => import("./ai-agent-workflow-view"));
 const AiMemoryView = lazy(() => import("./ai-memory-view"));
 const AiSpaceView = lazy(() => import("./ai-space-view"));
 const AiSpaceManagementView = lazy(() => import("./ai-space-management-view"));
+const AiReportWorkbenchView = lazy(() => import("./ai-report-workbench-view"));
 const AiPromptSettingsView = lazy(() => import("./ai-prompt-settings-view"));
 const AiDingTalkSchedulesView = lazy(() => import("./ai-dingtalk-schedules-view"));
 
 type AiView = ModuleViewKey<"ai">;
 
-const aiViews: readonly AiView[] = ["agents", "memory", "space", "management", "scheduled", "configuration"];
+const aiViews: readonly AiView[] = ["reports", "skills", "pipelines", "agents", "memory", "space", "management", "scheduled", "configuration"];
 const aiViewLabels: Record<AiView, string> = {
+  reports: "报告模板",
+  skills: "Skill 管理",
+  pipelines: "AI 流水线",
   assistant: "AI 对话",
   configuration: "配置设置",
   agents: "Agent 工作流",
@@ -51,7 +55,7 @@ export default function AiModuleView({
   onModuleViewChange: (view: AiView) => void;
 }) {
   const canManage = currentUser?.role === "admin" && !currentUser.scopeRestricted;
-  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled" && view !== "configuration");
+  const availableViews = canManage ? aiViews : aiViews.filter((view) => view !== "management" && view !== "scheduled" && view !== "configuration" && view !== "reports" && view !== "skills" && view !== "pipelines");
   const changeWithKeyboard = (event: KeyboardEvent<HTMLButtonElement>, current: AiView) => {
     if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
     event.preventDefault();
@@ -81,6 +85,7 @@ export default function AiModuleView({
       >{aiViewLabels[view]}</button>)}
     </div>}
 
+    {(["reports", "skills", "pipelines"] as string[]).includes(moduleView) && (canManage ? <div id={"ai-panel-" + moduleView} role="tabpanel" aria-labelledby={"ai-tab-" + moduleView}><Suspense fallback={<AiViewLoading label={aiViewLabels[moduleView]} />}><AiReportWorkbenchView key={moduleView} kind={moduleView === "reports" ? "templates" : moduleView === "skills" ? "skills" : "pipelines"} /></Suspense></div> : <section className="panel" role="alert">报告与方法管理仅允许无数据范围限制的管理员访问。</section>)}
     {moduleView === "configuration" && (canManage ? <div id="ai-panel-configuration" role="tabpanel" aria-labelledby="ai-tab-configuration"><Suspense fallback={<AiViewLoading label="配置设置" />}><AiPromptSettingsView /></Suspense></div> : <section className="panel" role="alert">配置设置仅允许无数据范围限制的管理员访问。</section>)}
     {moduleView === "assistant" && !externalChat && <div id="ai-panel-assistant" role="region" aria-label="AI 对话" tabIndex={0}>
       <Suspense fallback={<AiViewLoading label={aiViewLabels.assistant} />}>

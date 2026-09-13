@@ -1,6 +1,11 @@
 """Closed AI backup inventory; checked against the ORM in readiness and tests."""
 
 AI_TABLES = (
+    "ai_library_revisions",
+    "ai_execution_guidance",
+    "ai_report_runs",
+    "ai_report_deliveries",
+
     "ai_prompt_settings_revisions",
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions",

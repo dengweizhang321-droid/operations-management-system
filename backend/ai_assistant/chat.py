@@ -607,8 +607,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
         else:
             tools = transport.catalog(principal, surface)
             frames = _context(conv, principal, prompt, private_context=dingtalk_session is None)
-            from . import prompt_settings
+            from . import prompt_settings, report_library
             guidance_snapshot = prompt_settings.snapshot()
+            library_snapshot = report_library.snapshot()
             used_guidance_domains = set()
             total = 0
             per_tool = {}
@@ -641,7 +642,9 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     + canonical(effective_context).replace("<", "\\u003c")
                     + "</page_context>"
                 )
-            base_system = system
+            skill_prompt, skill_evidence = report_library.guidance(prompt, effective_context, tools, library=library_snapshot)
+            execution["skills"] = skill_evidence
+            base_system = system + skill_prompt
             for ordinal in range(1, model.max_tool_rounds + 1):
                 guidance, guidance_evidence = prompt_settings.compose(guidance_snapshot, prompt, effective_context, tools, used_guidance_domains)
                 system = base_system + guidance

@@ -17,7 +17,7 @@ VIEWS = {
     "product": {"overview", "calculator"},
     "workflow": {"plan", "inspection", "reviews", "launch", "launch-followup", "variables"},
     "import": {"files", "history", "continuity"}, "settings": {"parameters", "master", "dingtalk", "permissions"},
-    "ai": {"assistant", "agents", "memory", "sandbox", "space", "management", "scheduled", "configuration"},
+    "ai": {"assistant", "agents", "memory", "sandbox", "space", "management", "scheduled", "configuration", "reports", "skills", "pipelines"},
 }
 FILTERS = {
     "platforms", "shops", "channels", "categories", "warehouses", "brands",

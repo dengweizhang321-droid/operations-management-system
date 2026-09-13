@@ -20,5 +20,6 @@ export type AiExecutionInfo = {
   durationMs?: number; providerCalls?: number; usageReportedCalls?: number; toolCalls?: number;
   stopReason?: string; outputTruncated?: boolean;
   guidance?: { version: number; digest: string; rules: { id: string; name: string; source: string }[] };
+  skills?: { version: number; digest: string; skills: { id: string; name: string }[] };
   context?: { estimatedInputTokens?: number; contextWindowTokens?: number; droppedMessages?: number; tokenCountMethod?: string };
 };

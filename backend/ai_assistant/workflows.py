@@ -175,7 +175,7 @@ def event(row, principal, kind, previous=None, node=None):
         m.AiAgentEvents.objects.create(job_id=row.id, job_version=row.version, **values)
 
 
-def create(body, principal, workflow=False):
+def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None):
     allowed = {"clientRequestId", "input", "modelId"} | (
         {"name", "graph", "dryRun"} if workflow else {"task"}
     )
@@ -195,7 +195,7 @@ def create(body, principal, workflow=False):
         "name" if workflow else "task",
         120 if workflow else 8000,
     )
-    admitted, _ = admission(principal, body.get("modelId")) if not dry else ({}, [])
+    admitted, entries = admission(principal, body.get("modelId")) if not dry else ({}, [])
     request_digest = digest({"payload": body, "admission": admitted})
     cls = m.AiWorkflowRuns if workflow else m.AiAgentJobs
     with mutation(principal):
@@ -233,6 +233,9 @@ def create(body, principal, workflow=False):
         else:
             values.update(task=title)
         row = cls.objects.create(**values)
+        if not dry:
+            from . import report_library
+            report_library.pin(row.id, title, None, entries, skill_ids=skill_ids, library=library_snapshot)
         if workflow:
             for position, node in enumerate(graph["nodes"]):
                 m.AiWorkflowNodeRuns.objects.create(
@@ -328,6 +331,9 @@ def review(run_id, node_key, body, principal):
     comment = text(body.get("comment", ""), "comment", 2000, empty=True)
     with mutation(principal):
         row = get(run_id, principal, True)
+        if decision == "approve":
+            from . import reports
+            reports.validate_review(row.id, principal)
         node = m.AiWorkflowNodeRuns.objects.filter(
             run_id=row.id, node_key=identifier(node_key)
         ).first()
@@ -603,7 +609,7 @@ def agent_tick():
                 policy_digest=row.tool_policy_digest,
             )
             if pending
-            else provider.turn(model, frames, SYSTEM, entries)
+            else provider.turn(model, frames, SYSTEM + execution_guidance(row.id), entries)
         )
         passive(result, 256 * 1024)
         if result.get("auditStatus") == "unavailable":
@@ -842,6 +848,8 @@ def workflow_tick():
                     workflow_run_id=row.id,
                     workflow_node_key=ready.node_key,
                 )
+                from . import report_library
+                report_library.pin(child.id, child.task, None, [], parent_id=row.id)
                 event(child, principal, "created")
                 ready.agent_job_id = child.id
                 ready.status = "running"
@@ -861,3 +869,8 @@ def workflow_tick():
             previous,
         )
         return {"status": row.status, "runId": row.id}
+
+
+def execution_guidance(entity_id):
+    row = m.AiExecutionGuidance.objects.filter(pk=entity_id).first()
+    return json.loads(row.snapshot_json)["prompt"] if row else ""  # Legacy jobs keep their original prompt.

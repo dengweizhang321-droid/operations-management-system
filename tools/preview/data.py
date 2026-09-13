@@ -85,6 +85,8 @@ def seed():
         AiConversationMessages.objects.create(id="preview-chat-user", conversation_id=conversation.id, role="user", content="帮我复盘广东仓库存，给出结论、明细与下一步建议。", ordinal=1)
         AiConversationMessages.objects.create(id="preview-chat-answer", conversation_id=conversation.id, role="assistant", content=content, ordinal=2,
             execution_json=json.dumps({"durationMs":3200,"providerCalls":1,"toolCalls":1,"stopReason":"stop","guidance":guidance},ensure_ascii=False))
+    from report_fixture import seed_report
+    seed_report(today)
     print(json.dumps({"fixture":"synthetic-v1", "anchorDate":str(today), "sales":180, "products":6, "stock":6, "age":6}, ensure_ascii=False))
 
 
