@@ -26,6 +26,7 @@ from .query import _latest_batch, _sales_query, _sales_revision, _warehouse_key
 from .revisions import revision_value, bump_revision
 from .write_requests import lock_active_authority
 from .replenishment_health import waiting_for_stock
+from .guangdong_replenishment import add_remaining_quantities
 
 MAX_ITEMS = 5000
 RISK_LABELS = {"no_stock": "无库存可用", "urgent": "紧急补货", "warning": "补货预警", "stale": "低周转", "unknown": "积压风险", "healthy": "库存健康"}
@@ -446,13 +447,15 @@ def monitor(principal, options, *, export=False):
     if options.get("risk"): filtered = [row for row in filtered if row["risk"] == options["risk"]]
     filtered.sort(key=lambda row: (list(RISK_LABELS).index(row["risk"]), -row["knownStockValueCents"], row["productCode"]))
     page, size = options.get("page", 1), options.get("pageSize", 50)
+    displayed = filtered if export else filtered[(page - 1) * size:page * size]
+    add_remaining_quantities(displayed, latest)
     result = {"version": before, "hasInventory": latest is not None,
         "sync": {"inventoryAsOf": latest.snapshot_date.isoformat() if latest else None, "inventoryAgeAsOf": age_latest.snapshot_date.isoformat() if age_latest else None, "salesThrough": sales.get("asOfDate"), "latestInventoryBatchId": latest.id if latest else None, "inventoryStale": stale},
         "filters": facets, "distribution": distribution, "watchCount": len(watched),
         "metrics": {"itemCount": len(filtered), "availableQuantity": sum(row["availableQuantity"] or 0 for row in filtered), "inTransitQuantity": sum(row["inTransitQuantity"] or 0 for row in filtered), "knownStockValueCents": sum(row["knownStockValueCents"] for row in filtered), "missingCostCount": sum(row["costMissing"] for row in filtered), "missingStockCount": sum(row["availableQuantity"] is None for row in filtered)},
         "pagination": {"page": page, "pageSize": size, "total": len(filtered), "totalPages": math.ceil(len(filtered) / size)},
-        "items": filtered if export else filtered[(page - 1) * size:page * size],
-        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
+        "items": displayed,
+        "disclosures": ["仅人工清单内启用型号，仓库精确限定广东仓。", "销售周转=当前可用库存÷广东仓近30日平均正向出库；在途不抵减预警。", "库龄只取最新吉客云库龄表格中仓名精确为广东仓的记录。", "备货数量与最新下单日期取备货计划中同货品、同广东仓的最新非取消计划。", "下单剩余库存=备货数量−下单日期之后广东仓实物库存逐日正向增量之和；下降不抵扣，结果可为负。下单当日为基线，缺失每日快照时待核算；快照增量不等于入库流水。", "新增或增加正数备货量后按健康跟进，广东仓实物库存首次增加后恢复风险检测；库存下降不会重新开启旧备货周期。", "金额单位为人民币分，仅汇总已覆盖固定成本。", "健康分布按搜索、品牌、品类及供应商范围统计，风险点击筛选明细。"],
     }
     if version() != before: _conflict()
     if export and options.get("version") != before: _conflict()

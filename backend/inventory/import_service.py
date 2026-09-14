@@ -792,8 +792,8 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
         if dataset == "stock":
             from .replenishment_health import advance_cycles
             advance_cycles(batch)
-            from .guangdong_risk_reset import reset_changed_healthy
-            reset_changed_healthy(batch, healthy_baseline, actor_email)
+            from .guangdong_risk_reset import reset_increased_healthy
+            reset_increased_healthy(batch, healthy_baseline, actor_email)
         bump_revision(
             {
                 "kind": "import",
