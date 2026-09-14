@@ -82,6 +82,15 @@ for role, password in (("reader", reader_password), ("writer", writer_password))
     if result.returncode:
         (run_root / "role-health-error.log").write_bytes(result.stderr)
         raise RuntimeError("Isolated role health failed; see role-health-error.log")
+    if role == "reader":
+        with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"], autocommit=True) as guard_owner:
+            for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries"):
+                guard_owner.execute(sql.SQL("ALTER TABLE {} DISABLE TRIGGER ai_write_fence").format(sql.Identifier(table)))
+                try:
+                    missing = subprocess.run([sys.executable, "-c", "import django; django.setup(); from ai_assistant.health import check; check()"], env=role_env, capture_output=True, timeout=30)
+                    assert missing.returncode != 0 and b"guards missing" in missing.stderr
+                finally:
+                    guard_owner.execute(sql.SQL("ALTER TABLE {} ENABLE TRIGGER ai_write_fence").format(sql.Identifier(table)))
     with psycopg.connect(url, autocommit=True) as limited:
         denied(limited, insert, [json.dumps(DEFAULT_CONFIG)])
         limited.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','prompt-synthetic',false)", [epoch])
@@ -108,6 +117,6 @@ for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_
     subprocess.run([str(bin_path / executable), *arguments], check=True, capture_output=True, timeout=60)
 assert snapshot("teruisi_report_restore") == before_digest
 print(json.dumps({"upgrade":"0011->0012", "existingConversationsAndMessagesPreserved":True, "defaultsRequireNoSeed":True,
-    "secondApplyNoop":True, "migrationDryRun":True, "realRoleHealth":True, "readerReadOnly":True,
+    "secondApplyNoop":True, "migrationDryRun":True, "realRoleHealth":True, "missingReportFencesRejected":True, "readerReadOnly":True,
     "writerAppendOnlyAndFenced":True, "businessWritesDenied":True, "tables":len(AI_TABLES),
     "dumpRestoreDigest":before_digest, "productionWrites":False, "externalCalls":0}))
