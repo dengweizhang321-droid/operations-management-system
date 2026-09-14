@@ -303,7 +303,11 @@ def _bounded_json(
             sock.do_handshake()
         connection = http.client.HTTPConnection(host, port, timeout=remaining)
         connection.sock = sock
-        data = canonical(body).encode() if method == "POST" else None
+        # Fixed, audited media adapters may supply a bounded multipart body.
+        # Model and tool JSON callers retain the canonical serialization path.
+        if isinstance(body, bytes) and len(body) > 3 * 1024 * 1024:
+            raise AiError("请求正文超过上限", "payload_too_large", 413)
+        data = (body if isinstance(body, bytes) else canonical(body).encode()) if method == "POST" else None
         request_headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",

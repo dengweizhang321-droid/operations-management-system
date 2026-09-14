@@ -372,9 +372,13 @@ test("maintenance validates complete AI backup evidence before and after activat
   delete promptMissing.tables.ai_prompt_settings_revisions;
   const promptUnbound = structuredClone(active);
   promptUnbound.migrations = promptUnbound.migrations.filter(item => item.name !== "0011_prompt_settings");
+  const media = structuredClone(active);
+  media.migrations.push({ app: "ai_assistant", name: "0013_dingtalk_schedule_media" });
+  const mediaWithoutReport = structuredClone(media);
+  mediaWithoutReport.migrations = mediaWithoutReport.migrations.filter(item => item.name !== "0012_report_library");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
-    ...[promptMissing, promptUnbound, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
   const command = `

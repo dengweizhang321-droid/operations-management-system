@@ -43,6 +43,7 @@ $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
 $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
 $DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
 $DingTalkStartupPath = Join-Path $RuntimeRoot "config\dingtalk-startup.json"
+$DingTalkScreenshotProfile = Join-Path $RuntimeRoot "config\dingtalk-screenshot-profile"
 $AiReaderMaxBodyBytes = 1048576
 $AiWriterMaxBodyBytes = 1048576
 $PandasConfigPath = Join-Path $RuntimeRoot "config\pandas-sandbox.json"
@@ -469,6 +470,9 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $n
     }
     $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
     $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
+    if ($DingTalkScreenshotProfile -and (Test-Path -LiteralPath $DingTalkScreenshotProfile -PathType Container)) {
+      $arguments += @("--screenshot-profile", $DingTalkScreenshotProfile)
+    }
     if ($CheckOnly) {
       $arguments += "--check"
       Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {

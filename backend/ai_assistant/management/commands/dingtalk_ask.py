@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from urllib.parse import quote_plus, urlsplit
@@ -18,6 +19,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--config", required=True)
         parser.add_argument("--check", action="store_true")
+        parser.add_argument("--screenshot-profile", default="")
 
     def ingress_event(self, event, **values):
         # Only call with fixed labels. Never include SDK bodies, identifiers,
@@ -50,6 +52,8 @@ class Command(BaseCommand):
             return 503, "unavailable"
 
     def handle(self, *args, **options):
+        if options["screenshot_profile"]:
+            os.environ["TERUISI_DINGTALK_SCREENSHOT_PROFILE"] = options["screenshot_profile"]
         reader = lambda: dingtalk_settings.effective(service.load_config(options["config"]))
         try:
             base = service.load_config(options["config"])
@@ -128,7 +132,9 @@ class Command(BaseCommand):
         async def work():
             while True:
                 await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
-                await loop.run_in_executor(worker, lambda: db_call(lambda: dingtalk_schedules.step(reader, lambda session, content: platform.send(reader, session, content))))
+                await loop.run_in_executor(worker, lambda: db_call(lambda: dingtalk_schedules.step(reader,
+                    lambda session, content: platform.send(reader, session, content),
+                    lambda session, raw, name, kind: platform.send_media(reader, session, raw, name, kind))))
                 await asyncio.sleep(0.5)
         async def listen():
             failures = 0
