@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+2026-09-15，分类统计卡片“点击筛选、再次点击取消”、编辑产品线学习代码、新品店铺规划与可见备注、店铺销售/利润年度目标已合入 main 并在本机采用。实际完成额自动累计月度财报，纯金额/比率卡片保留展示。正式页面、只读学习、权限和数据摘要验证通过，备份已独立恢复并归档 E 盘；详见 `docs/WORKFLOW_ANNUAL_TARGETS.md`、`docs/SUMMARY_CARD_FILTERS.md` 和 `docs/evidence/workflow-annual-cards-production-20260915.json`。
+
 2026-09-14 **AI 定时任务的指定页面截图与已复核 Excel 报告已在本机生产采用**：按企业应用机器人身份发送，沿用创建人身份、群审批和发送前持久预留。AI `0013` 已迁移，专用浏览器目录及正式 BI 页面截图验证通过，接收器已连接；尚未创建媒体任务或执行真实钉钉图片/文件投递。发布前独立恢复、发布后备份校验及 E 盘归档通过。见 [功能与限制](docs/AI_DINGTALK_SCHEDULES.md#指定页面截图与已复核报告文件) 和 [采用证据](docs/evidence/dingtalk-scheduled-media-production-20260914.json)。
 
 2026-09-14 **报告模板、Skill 管理和 AI 流水线已上线**：AI 助理新增三类模板与方法的版本管理、持久取数分析、人工复核及 HTML/Excel 交付。AI 0012 与最小权限已采用，原 52 张 AI 表摘要不变；2165 项 Node 回归、20 项页面测试及隔离 PostgreSQL 验证通过。保留同期财务修复和 3 GB 内存配置。正式页面已验证，真实付费模型与通知未做生产实跑。详见 [AI 报告库](docs/AI_REPORT_LIBRARY.md) 和 [发布核验](docs/evidence/ai-report-library-production-20260914.json)。

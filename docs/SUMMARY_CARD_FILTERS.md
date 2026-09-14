@@ -34,4 +34,4 @@ BI、销售/财务、网店、市场分析中的金额、比例、均价、覆�
 - 浏览器实际验证工作计划4→2→4（键盘取消同样有效）、逾期4→1且合计仍为4、巡店紧急3→1→3、库龄零结果6→0→6。
 - 构建、应用类型、ESLint、Django 边界和20项渲染检查通过。本轮验证日志保存在本 worktree `.runtime/checks/summary-*`。
 
-状态：预览待用户确认，未合并 main、未发布；保留预览 worktree。
+状态：用户确认后已合入 main，于 2026-09-15 完成本机受控上线；正式新品卡片实测 13→6→13，整栈 Running / Ready / exact_release。店铺规划迁移亦已采用，原有数据摘要保持一致。最终 PostgreSQL 169 项通过；完整测试、只读 API/权限、发布前恢复和发布后备份归档证据见 [上线记录](evidence/workflow-annual-cards-production-20260915.json)。预览已停止。
