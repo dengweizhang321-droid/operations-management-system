@@ -9,6 +9,7 @@ type Draft = Pick<Schedule, "name" | "prompt" | "contentType" | "sourceRef" | "c
 type Group = { id: string; name: string; enabled: boolean };
 type Report = { id: string; name: string; status: string; dryRun: boolean };
 const pages = [
+  ["workflow:launch-followup", "运营事务 · 上新跟进 · 钉钉周报完整表格（最近完整周）"],
   ["dashboard:overview", "BI 看板 · 总览"], ["shop:analysis", "网店分析 · 总览"],
   ["shop:products", "网店分析 · 商品"], ["shop:promotion", "网店分析 · 推广"],
   ["sales:overview", "销售分析 · 总览"], ["inventory:overview", "库存管理 · 总览"],
@@ -75,8 +76,8 @@ export default function AiDingTalkSchedulesView() {
       <form className="ai-config-form" onSubmit={event => void save(event)}>
         <label className="ai-form-wide"><span>任务名称</span><input required maxLength={100} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label>
         <label><span>发送内容</span><select value={draft.contentType} onChange={e => setDraft({ ...draft, contentType: e.target.value as Draft["contentType"], sourceRef: "", prompt: "" })}><option value="text">只读 AI 文字</option><option value="screenshot">运营系统页面截图</option><option value="report_file">已复核的 Excel 报告</option></select></label>
-        {draft.contentType === "text" && <label className="ai-form-wide"><span>执行内容（只读 AI 指令）</span><textarea required maxLength={4000} rows={5} value={draft.prompt} onChange={e => setDraft({ ...draft, prompt: e.target.value })} /></label>}
-        {draft.contentType === "screenshot" && <label className="ai-form-wide"><span>截图页面</span><select required value={draft.sourceRef} onChange={e => setDraft({ ...draft, sourceRef: e.target.value })}><option value="">选择页面</option>{pages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><small>使用专用已登录浏览器截取该页面当前内容，登录账号必须与任务创建人一致。</small></label>}
+        {draft.contentType === "text" && <label className="ai-form-wide"><span>执行内容（只读 AI 指令）</span><textarea required maxLength={4000} rows={5} value={draft.prompt} onChange={e => setDraft({ ...draft, prompt: e.target.value })} /><small>此类型生成文字回复。要发送表格截图，请将“发送内容”改为“运营系统页面截图”，再选择对应表格。</small></label>}
+        {draft.contentType === "screenshot" && <label className="ai-form-wide"><span>截图页面</span><select required value={draft.sourceRef} onChange={e => setDraft({ ...draft, sourceRef: e.target.value })}><option value="">选择页面</option>{pages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><small>{draft.sourceRef === "workflow:launch-followup" ? "按上海时间取最近一个完整周（周一至周日），截取周报标题、产品图、趋势、全部行和累计周列；超出图片上限会报错，不会截掉内容。" : "使用专用已登录浏览器截取该页面当前内容。"} 登录账号必须与任务创建人一致。</small></label>}
         {draft.contentType === "report_file" && <label className="ai-form-wide"><span>报告文件</span><select required value={draft.sourceRef} onChange={e => setDraft({ ...draft, sourceRef: e.target.value })}><option value="">选择已复核报告</option>{draft.sourceRef && !reports.some(r => r.id === draft.sourceRef) && <option value={draft.sourceRef}>{draft.sourceRef}（不在最近 50 条列表中）</option>}{reports.map(report => <option key={report.id} value={report.id}>{report.name} · {report.id}</option>)}</select><small>每次发送从该报告已保存的证据生成 Excel；报告必须仍归任务创建人所有。</small></label>}
         <label><span>周期</span><select value={draft.cadence} onChange={e => setDraft({ ...draft, cadence: e.target.value as Draft["cadence"], day: 1 })}><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月（1–28日）</option></select></label>
         {draft.cadence !== "daily" && <label><span>{draft.cadence === "weekly" ? "星期（1=周一）" : "日期（1–28）"}</span><input type="number" min={1} max={draft.cadence === "weekly" ? 7 : 28} value={draft.day} onChange={e => setDraft({ ...draft, day: Number(e.target.value) })} /></label>}

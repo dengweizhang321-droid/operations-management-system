@@ -9,6 +9,7 @@ import time
 from urllib.request import Request, urlopen
 
 from .policy import AiError
+from .weekly_table_capture import capture_weekly_table, previous_complete_week
 
 PAGES = {
     "dashboard:overview": ("dashboard", "overview"),
@@ -19,6 +20,7 @@ PAGES = {
     "inventory:overview": ("inventory", "overview"),
     "inventory:guangdong": ("inventory", "guangdong"),
     "market:ranking": ("market", "ranking"),
+    "workflow:launch-followup": ("workflow", "launch-followup"),
 }
 ORIGIN = "http://127.0.0.1:3000"
 IDENTITY_TIMEOUT = 25
@@ -110,7 +112,13 @@ def _capture_tab(websocket_url, module, view, owner_email):
             raise AiError("截图页面响应超时", "channel_unavailable", 503)
         command("Page.enable")
         command("Runtime.enable")
-        command("Page.navigate", {"url": f"{ORIGIN}/?module={module}&view={view}"})
+        command("Emulation.setTimezoneOverride", {"timezoneId": "Asia/Shanghai"})
+        weekly = (module, view) == PAGES["workflow:launch-followup"]
+        week_start, week_end = previous_complete_week()
+        url = f"{ORIGIN}/?module={module}&view={view}"
+        if weekly:
+            url += f"&reportCapture=weekly&reportWeek={week_start}"
+        command("Page.navigate", {"url": url})
         identity_script = "fetch('/api/ai/screenshot-identity',{cache:'no-store'}).then(async r=>r.ok?await r.json():null)"
         deadline = time.monotonic() + IDENTITY_TIMEOUT
         identity = None
@@ -122,11 +130,14 @@ def _capture_tab(websocket_url, module, view, owner_email):
             time.sleep(.5)
         if not isinstance(identity, dict) or identity.get("email") != owner_email.lower():
             raise AiError("截图登录账号与任务创建人不一致或权限已失效", "access_denied", 403)
-        time.sleep(3)
-        result = command("Runtime.evaluate", {"expression": "document.body?.innerText?.length || 0", "returnByValue": True})
-        if result.get("result", {}).get("value", 0) < 100:
-            raise AiError("截图页面内容尚未就绪", "channel_unavailable", 503)
-        image = command("Page.captureScreenshot", {"format": "png", "captureBeyondViewport": False}).get("data")
+        if weekly:
+            image = capture_weekly_table(command, week_start, week_end)
+        else:
+            time.sleep(3)
+            result = command("Runtime.evaluate", {"expression": "document.body?.innerText?.length || 0", "returnByValue": True})
+            if result.get("result", {}).get("value", 0) < 100:
+                raise AiError("截图页面内容尚未就绪", "channel_unavailable", 503)
+            image = command("Page.captureScreenshot", {"format": "png", "captureBeyondViewport": False}).get("data")
         if not isinstance(image, str):
             raise AiError("截图字节缺失", "channel_unavailable", 503)
         raw = base64.b64decode(image, validate=True)
