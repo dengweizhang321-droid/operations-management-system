@@ -22,6 +22,8 @@ from . import (
     datasets,
     dingtalk_settings,
     prompt_settings,
+    report_library,
+    reports,
     dingtalk_schedules,
 )
 from .model_capabilities import MAX_CHAT_SECONDS
@@ -124,6 +126,10 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"report-library": {"GET", "POST"},
+            r"reports": {"GET", "POST"},
+            r"reports/[A-Za-z0-9_-]{1,160}(?:/content)?": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/send": {"POST"},
             r"prompt-settings": {"GET", "POST"},
             r"dingtalk-settings": {"GET", "PATCH"},
             r"dingtalk-schedules": {"GET", "POST"},
@@ -179,7 +185,7 @@ def _dispatch(request, path=""):
             "datasets-query",
         }
         writer = (
-            request.method != "GET" or root in {"artifacts"}
+            request.method != "GET" or root in {"artifacts"} or root == "reports" and parts[-1] == "content"
         ) and not consumer_read and root != "datasets"
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
@@ -190,7 +196,7 @@ def _dispatch(request, path=""):
         params = request.GET.dict()
         if root not in {"callback", "scheduler"}:
             principal = current_principal(
-                principal, write=writer and root not in {"consumer", "artifacts"}
+                principal, write=writer and root not in {"consumer", "artifacts", "reports"}
             )
         if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules"} or parts[:2] in [
             ["space", "profiles"],
@@ -198,6 +204,23 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "report-library":
+            if request.method == "GET":
+                return response(report_library.read(principal, params))
+            fields(params, set())
+            return write(request, principal, lambda: (report_library.save(payload, principal), 200))
+        if root == "reports":
+            if request.method == "GET":
+                if len(parts) == 1:
+                    return response(reports.listing(params, principal))
+                if parts[-1] == "content":
+                    return response(reports.download(parts[1], params, principal))
+                fields(params, set())
+                return response(reports.detail(parts[1], principal))
+            fields(params, set())
+            if len(parts) == 1:
+                return write(request, principal, lambda: (reports.create(payload, principal), 200))
+            return write(request, principal, lambda: (reports.send(parts[1], payload, principal), 200), external=True)
         if root == "prompt-settings":
             if request.method == "GET":
                 return response(prompt_settings.read(principal, params))

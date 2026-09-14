@@ -1698,3 +1698,5 @@ class AiPromptSettingsRevision(models.Model):
 
     class Meta:
         db_table = "ai_prompt_settings_revisions"
+
+from .report_models import AiLibraryRevision, AiExecutionGuidance, AiReportRun, AiReportDelivery  # noqa: E402,F401

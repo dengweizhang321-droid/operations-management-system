@@ -17,6 +17,11 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    "ai_library_revisions": m.AiLibraryRevision,
+    "ai_execution_guidance": m.AiExecutionGuidance,
+    "ai_report_runs": m.AiReportRun,
+    "ai_report_deliveries": m.AiReportDelivery,
+
     "ai_prompt_settings_revisions": m.AiPromptSettingsRevision,
     "ai_dingtalk_settings": m.AiDingTalkSettings,
     "ai_dingtalk_sessions": m.AiDingTalkSession,
@@ -29,6 +34,11 @@ MODELS = {
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_library_revisions",
+    "ai_execution_guidance",
+    "ai_report_runs",
+    "ai_report_deliveries",
+
     "ai_prompt_settings_revisions",
     "ai_dingtalk_settings",
     "ai_dingtalk_sessions",
@@ -61,6 +71,10 @@ READ_TABLES = {
     "access_control_users",
 }
 APPEND_ONLY = {
+    "ai_library_revisions",
+    "ai_execution_guidance",
+    "ai_report_runs",
+
     "ai_prompt_settings_revisions",
     "ai_space_asset_payloads",
     "ai_chat_provider_dispatches",
@@ -107,6 +121,7 @@ for table in {
     "ai_agent_tool_dispatches",
 }:
     WRITER_PRIVILEGES[table] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_report_deliveries"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 
 

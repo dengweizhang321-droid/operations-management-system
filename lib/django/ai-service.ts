@@ -6,7 +6,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 type Environment = Record<string, string | undefined>;
 const encoder = new TextEncoder();
 const ENTITY = "[A-Za-z0-9_-]{1,160}";
-const PUBLIC_PATH = new RegExp(`^/api/ai/(?:datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
+const PUBLIC_PATH = new RegExp(`^/api/ai/(?:report-library|reports(?:/${ENTITY}(?:/(?:content|send))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
 export const AI_INTERNAL_PATHS = new Set(["/api/ai/consumer", "/api/ai/scheduler"]);
 
 export async function aiEnvironment(): Promise<Environment> {
@@ -44,7 +44,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   if (!isPublicAiPath(input.path) && !AI_INTERNAL_PATHS.has(input.path) && !new RegExp(`^/api/ai/callback/${ENTITY}$`).test(input.path)) throw unavailable();
   const environment = options.environment ?? await aiEnvironment();
   const method = input.method ?? "GET";
-  const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/")) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
+  const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }

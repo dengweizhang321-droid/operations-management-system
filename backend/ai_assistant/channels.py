@@ -57,6 +57,7 @@ def mapping(row):
     )
     parts = urlsplit(row.webhook_url)
     result.update(
+        targetDigest=target_digest(row),
         webhookUrlMasked=urlunsplit(
             (parts.scheme, parts.netloc, parts.path, "***" if parts.query else "", "")
         ),
@@ -127,7 +128,11 @@ def save(body, principal):
     return {"item": mapping(row)}
 
 
-def send(body, principal):
+def target_digest(row):
+    return digest([row.id, row.kind, row.webhook_url, row.callback_token_encrypted, row.receiver_id, row.status, row.send_enabled])
+
+
+def send(body, principal, *, expected_target_digest=None):
     current_principal(principal, write=True, admin=True)
     fields(body, {"id", "action", "text"}, {"id", "action"})
     action = choice(body["action"], ["test", "send"], "action")
@@ -136,6 +141,8 @@ def send(body, principal):
     ).first()
     if not row:
         raise AiError("发送渠道不可用", "not_found", 404)
+    if expected_target_digest is not None and target_digest(row) != expected_target_digest:
+        raise AiError("通知渠道配置已变化，禁止改投", "conflict", 409)
     content = (
         "AI 助理连接测试"
         if action == "test"

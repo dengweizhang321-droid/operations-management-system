@@ -17676,6 +17676,10 @@
     }
   ],
   "excludedModels": [
+    {"model": "ai_assistant.AiLibraryRevision", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
+    {"model": "ai_assistant.AiExecutionGuidance", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
+    {"model": "ai_assistant.AiReportRun", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
+    {"model": "ai_assistant.AiReportDelivery", "coveredBy": null, "reason": "AI报告、方法配置与执行证据仅经本人或管理员专用接口读取"},
     {"model": "ai_assistant.AiDingTalkSchedule", "coveredBy": null, "reason": "钉钉 AI 定时任务定义含目标与权限绑定，仅通过管理员定时任务接口访问"},
     {"model": "ai_assistant.AiDingTalkScheduleRun", "coveredBy": null, "reason": "钉钉 AI 定时投递账本与执行控制证据，不作为通用分析数据集公开"},
     {"model": "ai_assistant.AiPromptSettingsRevision", "coveredBy": null, "reason": "管理员业务指导与版本历史仅通过专属配置接口管理，运行时按授权领域注入，不经通用数据集外泄"},

@@ -294,7 +294,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 52);
+  assert.equal(new Set(aiTables).size, 56);
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -307,7 +307,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   const candidate = {
     ...structuredClone(base),
     tables: { ...base.tables, ...Object.fromEntries(aiTables.map(name => [name, 0])) },
-    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }, { app: "ai_assistant", name: "0007_dingtalk_readonly" }, { app: "ai_assistant", name: "0008_dingtalk_settings" }, { app: "ai_assistant", name: "0009_model_generation_capabilities" }, { app: "ai_assistant", name: "0010_dingtalk_schedules" }, { app: "ai_assistant", name: "0011_prompt_settings" }],
+    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }, { app: "ai_assistant", name: "0007_dingtalk_readonly" }, { app: "ai_assistant", name: "0008_dingtalk_settings" }, { app: "ai_assistant", name: "0009_model_generation_capabilities" }, { app: "ai_assistant", name: "0010_dingtalk_schedules" }, { app: "ai_assistant", name: "0011_prompt_settings" }, { app: "ai_assistant", name: "0012_report_library" }],
     aiAssistant: { revision: 0, sourceDigest: "", status: "d1", authorityEpoch: "", cutoverId: "", migrationRunId: "" },
   };
   const adopted = structuredClone(candidate);
@@ -363,6 +363,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   workspaceMigrationMissing.migrations = workspaceMigrationMissing.migrations.filter(item => item.name !== "0006_conversation_workspaces");
   const beforePrompt = structuredClone(active);
   for (const evidence of [beforePrompt, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings]) {
+    for (const name of ["ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries"]) delete evidence.tables[name];
+    evidence.migrations = evidence.migrations.filter(item => item.name !== "0012_report_library");
     delete evidence.tables.ai_prompt_settings_revisions;
     evidence.migrations = evidence.migrations.filter(item => item.name !== "0011_prompt_settings");
   }

@@ -91,6 +91,9 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {(table, "ai_write_fence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries")}
+            | {(table, "ai_immutable_evidence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs")}
+            |
             {(table, "ai_write_fence") for table in fencing.TABLES}
             | {(table, "ai_immutable_evidence") for table in fencing.APPEND_ONLY}
             | {(table, "ai_immutable_identity") for table in fencing.IDENTITIES}
@@ -136,6 +139,10 @@ def check():
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
         for table, expected in (
+            ("ai_library_revisions", {"ai_library_revisions_bound"}),
+            ("ai_execution_guidance", {"ai_execution_guidance_bound"}),
+            ("ai_report_runs", {"ai_report_runs_bound", "ai_report_client_uq"}),
+            ("ai_report_deliveries", {"ai_report_deliveries_bound"}),
             ("ai_prompt_settings_revisions", {"ai_prompt_revision_bound"}),
             ("ai_dingtalk_settings", {"ai_ding_settings_singleton", "ai_ding_settings_version", "ai_ding_settings_size"}),
             ("ai_dingtalk_sessions", {"ai_ding_session_type", "ai_ding_scope_size"}),
