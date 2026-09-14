@@ -1,11 +1,12 @@
 """Administrator-defined Shanghai schedules; no missed-slot replay or ambiguous resend."""
+import base64
 from datetime import datetime, timedelta, timezone as utc
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 from sales.auth import Principal
 
-from . import chat, dingtalk, dingtalk_settings, models as m
+from . import chat, dingtalk, dingtalk_settings, models as m, reports, scheduled_page_capture
 from .policy import AiError, current_principal, fields, identifier, integer, mutation, text, uid, digest, canonical
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -27,6 +28,7 @@ def next_slot(cadence, hour, minute, day, after):
 
 def record(row):
     return {"id": row.id, "name": row.name, "prompt": row.prompt,
+        "contentType": row.content_type, "sourceRef": row.source_ref,
         "cadence": row.cadence, "hour": row.hour, "minute": row.minute, "day": row.day,
         "targetType": row.target_type, "targetId": row.target_id, "senderId": row.sender_id,
         "enabled": row.enabled, "version": row.version,
@@ -48,9 +50,31 @@ def listing(principal):
 def save(body, principal):
     current_principal(principal, admin=True)
     required = {"name", "prompt", "cadence", "hour", "minute", "day", "targetType", "targetId", "senderId", "enabled"}
-    fields(body, required | {"id", "expectedVersion"}, required)
+    fields(body, required | {"id", "expectedVersion", "contentType", "sourceRef"}, required)
     name = text(body["name"], "名称", 100)
-    prompt = text(body["prompt"], "执行内容", 4000)
+    content_type = body.get("contentType", "text")
+    source_ref = body.get("sourceRef", "")
+    if not isinstance(content_type, str):
+        raise AiError("投递内容类型无效")
+    if content_type == "text":
+        prompt = text(body["prompt"], "执行内容", 4000)
+        if source_ref != "":
+            raise AiError("文本任务不能指定文件或页面")
+    elif content_type in {"screenshot", "report_file"}:
+        if not isinstance(source_ref, str):
+            raise AiError("媒体来源无效")
+        if body["prompt"] != "":
+            raise AiError("截图和文件任务不执行 AI 指令")
+        prompt = ""
+        source_ref = identifier(source_ref) if content_type == "report_file" else source_ref
+        if content_type == "screenshot" and source_ref not in scheduled_page_capture.PAGES:
+            raise AiError("截图页面不在允许列表")
+        if content_type == "report_file":
+            report = reports.get(source_ref, principal)
+            if report.workflow.status != "completed" or report.workflow.dry_run:
+                raise AiError("报告尚未完成复核，不能定时投递", "conflict", 409)
+    else:
+        raise AiError("投递内容类型无效")
     cadence = body["cadence"]
     if cadence not in ("daily", "weekly", "monthly"):
         raise AiError("周期无效")
@@ -82,6 +106,7 @@ def save(body, principal):
                 raise AiError("任务数量已达上限或版本无效")
             row = m.AiDingTalkSchedule(id=uid("ding-schedule"), owner_email=principal.email.lower())
         row.name, row.prompt, row.cadence = name, prompt, cadence
+        row.content_type, row.source_ref = content_type, source_ref
         row.hour, row.minute, row.day = hour, minute, day
         row.target_type, row.target_id, row.sender_id = body["targetType"], target, sender
         row.enabled, row.updated_at = body["enabled"], now
@@ -101,8 +126,12 @@ def run_now(body, principal):
             raise AiError("任务版本已变化", "version_conflict", 409)
         if m.AiDingTalkScheduleRun.objects.filter(schedule=row, status__in=["queued", "running", "ready", "sending"]).exists():
             raise AiError("任务已有待执行项", "conflict", 409)
+        scheduled_at = timezone.now()
+        previous = m.AiDingTalkScheduleRun.objects.filter(schedule=row).order_by("-scheduled_at").values_list("scheduled_at", flat=True).first()
+        if previous and scheduled_at <= previous:
+            scheduled_at = previous + timedelta(microseconds=1)
         run = m.AiDingTalkScheduleRun.objects.create(id=uid("ding-run"), schedule=row,
-            schedule_version=row.version, scheduled_at=timezone.now(), status="queued")
+            schedule_version=row.version, scheduled_at=scheduled_at, status="queued")
     return {"id": run.id, "status": run.status}
 
 
@@ -112,7 +141,7 @@ def recover_interrupted():
             status="unknown", error_code="interrupted_result_unknown", completed_at=timezone.now())
 
 
-def step(config_reader, sender):
+def step(config_reader, sender, media_sender=None):
     """Called by the singleton Stream receiver; a slot is never replayed after dispatch."""
     if not config_reader()["enabled"]:
         return False
@@ -153,6 +182,8 @@ def step(config_reader, sender):
     sending = False
     try:
         config, principal = live()
+        if row.content_type != "text" and (principal.email.lower() != row.owner_email.lower() or principal.role != "admin" or principal.scope is not None):
+            raise AiError("媒体任务只允许创建管理员本人无范围限制的绑定账号执行", "access_denied", 403)
         session_key = digest(["schedule", config, row.id, version, row.sender_id, row.target_type, row.target_id, principal.email, principal.scope])
         with mutation(principal):
             session, _ = m.AiDingTalkSession.objects.get_or_create(pk=session_key, defaults={
@@ -163,10 +194,18 @@ def step(config_reader, sender):
         def channel_guard():
             live()
             return dingtalk.guard(session, config_reader())
-        answer = chat.answer({"clientRequestId": "ding-scheduled-" + run.id, "message": row.prompt,
-            "conversationId": session.conversation_id, "workspaceModule": "ai", "title": "志高助手 · 定时任务"},
-            principal, run.id, dingtalk_session=session, channel_guard=channel_guard, channel_time=run.scheduled_at)
-        content = dingtalk.plain_reply(answer["reply"])
+        if row.content_type == "text":
+            answer = chat.answer({"clientRequestId": "ding-scheduled-" + run.id, "message": row.prompt,
+                "conversationId": session.conversation_id, "workspaceModule": "ai", "title": "志高助手 · 定时任务"},
+                principal, run.id, dingtalk_session=session, channel_guard=channel_guard, channel_time=run.scheduled_at)
+            content = dingtalk.plain_reply(answer["reply"])
+            attachment = None
+        elif row.content_type == "screenshot":
+            attachment = (scheduled_page_capture.capture(row.source_ref, row.owner_email),
+                          "系统页面-" + row.source_ref.replace(":", "-") + ".png", "image")
+        else:
+            result = reports.download(row.source_ref, {"format": "xlsx"}, principal)
+            attachment = (base64.b64decode(result["base64"], validate=True), "报告-" + run.id + ".xlsx", "file")
         channel_guard()
         with mutation(principal):
             run.status = "ready"
@@ -177,7 +216,12 @@ def step(config_reader, sender):
             run.save(update_fields=["status"])
         sending = True
         channel_guard()
-        sender(session, content)
+        if attachment is None:
+            sender(session, content)
+        elif media_sender is None:
+            raise AiError("机器人媒体投递器不可用", "channel_unavailable", 503)
+        else:
+            media_sender(session, *attachment)
         with mutation():
             run.status, run.completed_at = "sent", timezone.now()
             run.save(update_fields=["status", "completed_at"])

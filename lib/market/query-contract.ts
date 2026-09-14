@@ -51,7 +51,7 @@ export function parseMarketOverviewQuery(params: URLSearchParams) {
   const pagination = view === "ranking" ? {
     page: boundedInteger(params.get("page"), 1, 1, 10_000, "page"),
     pageSize: boundedInteger(params.get("pageSize"), 20, 10, 50, "pageSize"),
-  } : { page: 1, pageSize: 200 };
+  } : { page: 1, pageSize: 50 };
   const query = params.get("q")?.trim() || undefined;
   if (query && query.length > 100) throw new PublicApiError(400, "invalid_request", "q 不能超过 100 个字符。");
   const categories = facetValues(params, "category", 30);

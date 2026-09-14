@@ -63,6 +63,8 @@ class AiDingTalkSchedule(models.Model):
     id = models.CharField(primary_key=True, max_length=64)
     name = models.CharField(max_length=100)
     prompt = models.TextField()
+    content_type = models.CharField(max_length=16, default="text")
+    source_ref = models.CharField(max_length=160, default="")
     cadence = models.CharField(max_length=8)
     hour = models.PositiveSmallIntegerField()
     minute = models.PositiveSmallIntegerField()

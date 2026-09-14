@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone as utc
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 from django.test import TestCase, override_settings
 
 from . import dingtalk_schedules as schedules, dingtalk_settings, models as m
@@ -67,6 +68,17 @@ class DingTalkScheduleTests(TestCase):
         self.assertEqual(sender.call_args.args[1], "经营结论")
         self.assertEqual(answer.call_count, 1)
 
+    def test_manual_runs_on_same_clock_tick_get_distinct_slots(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        instant = datetime(2026, 9, 14, 1, 0, tzinfo=utc.utc)
+        with patch.object(schedules.timezone, "now", return_value=instant):
+            first = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+            m.AiDingTalkScheduleRun.objects.filter(pk=first["id"]).update(status="denied")
+            second = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        first_at = m.AiDingTalkScheduleRun.objects.get(pk=first["id"]).scheduled_at
+        second_at = m.AiDingTalkScheduleRun.objects.get(pk=second["id"]).scheduled_at
+        self.assertEqual(second_at - first_at, timedelta(microseconds=1))
+
     def test_revocation_before_dispatch_and_unknown_send_do_not_retry(self):
         item = schedules.save({**self.payload, "targetType": "group", "targetId": "group"}, ADMIN)["item"]
         run = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)
@@ -133,3 +145,47 @@ class DingTalkScheduleTests(TestCase):
             schedules.step(lambda: dingtalk_settings.effective(self.config), sender)
         sender.assert_not_called()
         self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run2["id"]).status, "denied")
+
+    def test_screenshot_is_bounded_to_allowlisted_page_and_bot_media_sender(self):
+        for source in ("settings:permissions", "https://example.com", "../inventory"):
+            with self.assertRaises(AiError):
+                schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": source, "prompt": ""}, ADMIN)
+        with self.assertRaises(AiError):
+            schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": [], "prompt": ""}, ADMIN)
+        self.config["bindings"] = [{**self.config["bindings"][0], "ownerEmail": ADMIN.email, "role": "admin", "scope": None}]
+        item = schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": "dashboard:overview", "prompt": ""}, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        image = b"\x89PNG\r\n\x1a\nfixture"
+        media_sender, text_sender = Mock(), Mock()
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture", return_value=image) as capture, patch.object(schedules.chat, "answer") as answer:
+            self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), text_sender, media_sender))
+        capture.assert_called_once_with("dashboard:overview", ADMIN.email)
+        answer.assert_not_called(); text_sender.assert_not_called()
+        self.assertEqual(media_sender.call_args.args[1:], (image, "系统页面-dashboard-overview.png", "image"))
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "sent")
+
+    def test_report_file_requires_completed_review_and_unknown_media_is_not_retried(self):
+        with patch.object(schedules.reports, "get", return_value=SimpleNamespace(workflow=SimpleNamespace(status="waiting_review", dry_run=False))):
+            with self.assertRaises(AiError):
+                schedules.save({**self.payload, "contentType": "report_file", "sourceRef": "report-1", "prompt": ""}, ADMIN)
+        self.config["bindings"] = [{**self.config["bindings"][0], "ownerEmail": ADMIN.email, "role": "admin", "scope": None}]
+        with patch.object(schedules.reports, "get", return_value=SimpleNamespace(workflow=SimpleNamespace(status="completed", dry_run=False))):
+            item = schedules.save({**self.payload, "contentType": "report_file", "sourceRef": "report-1", "prompt": ""}, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        sender = Mock(side_effect=TimeoutError())
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.reports, "download", return_value={"base64": "UEsDBA=="}), patch.object(schedules.chat, "answer") as answer:
+            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(), sender)
+        answer.assert_not_called()
+        self.assertEqual(sender.call_count, 1)
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "unknown")
+        self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(), sender))
+        self.assertEqual(sender.call_count, 1)
+
+    def test_media_sender_scope_mismatch_denies_before_capture_or_upload(self):
+        item = schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": "dashboard:overview", "prompt": ""}, ADMIN)["item"]
+        run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture") as capture:
+            sender = Mock()
+            schedules.step(lambda: dingtalk_settings.effective(self.config), Mock(), sender)
+        capture.assert_not_called(); sender.assert_not_called()
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "denied")

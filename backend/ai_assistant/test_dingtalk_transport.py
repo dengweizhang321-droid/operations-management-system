@@ -7,6 +7,16 @@ from . import transport
 
 
 class DingTalkTransportTests(SimpleTestCase):
+    def test_media_urls_are_fixed_and_private_dns_is_rejected(self):
+        with patch.object(transport, "resolve_addresses") as lookup:
+            for url in ("https://example.com/media/upload", "http://api.dingtalk.com/v1.0/oauth2/accessToken", "https://api.dingtalk.com/v1.0/robot/other"):
+                with self.assertRaises(AiError):
+                    platform.media_addresses(url)
+            lookup.assert_not_called()
+        private = [(2, 1, 6, "", ("127.0.0.1", 443))]
+        with patch.object(transport, "resolve_addresses", return_value=private), patch.object(transport, "_public_addresses", return_value=private), self.assertRaises(AiError):
+            platform.media_addresses(platform.TOKEN_API)
+
     def test_stream_dns_does_not_extend_model_or_arbitrary_origins(self):
         with patch.object(transport, "resolve_addresses") as lookup:
             for url in ("https://example.com/connect", "https://api.dingtalk.com/other", "http://api.dingtalk.com/v1.0/gateway/connections/open"):
@@ -112,3 +122,23 @@ class DingTalkTransportTests(SimpleTestCase):
             platform.robot(self.config)
         self.assertEqual(calls.call_args_list[0].args[0], ["contact", "user", "get-self"])
         self.assertEqual(calls.call_args_list[1].args[0], ["profile", "list"])
+
+    def test_bot_media_upload_and_send_are_separate_bounded_official_calls(self):
+        session = SimpleNamespace(sender_id="bound-staff", conversation_type="2", external_conversation_id="group")
+        image = b"\x89PNG\r\n\x1a\nfixture"
+        replies = [{"accessToken": "opaque-token"}, {"errcode": 0, "media_id": "@media"}, {"processQueryKey": "receipt"}]
+        with patch.object(platform, "guard"), patch.object(platform, "credentials", return_value=("key", "secret")), patch.object(platform, "robot"), patch.object(platform, "verify_group"), patch.object(platform, "media_addresses", return_value=[(2, 1, 6, "", ("8.8.8.8", 443))]), patch.object(transport, "_bounded_json", side_effect=replies) as calls:
+            platform.send_media(lambda: self.config, session, image, "系统页面.png", "image")
+        self.assertEqual(calls.call_count, 3)
+        self.assertEqual(calls.call_args_list[0].args[0], platform.TOKEN_API)
+        self.assertIn("&type=image", calls.call_args_list[1].args[0])
+        self.assertEqual(calls.call_args_list[2].args[1]["msgKey"], "sampleImageMsg")
+        self.assertEqual(calls.call_args_list[2].args[1]["openConversationId"], "group")
+
+    def test_media_rejects_bad_format_before_credentials_or_upload(self):
+        session = SimpleNamespace(sender_id="bound-staff", conversation_type="1", external_conversation_id="dm")
+        with patch.object(platform, "credentials") as credentials:
+            for raw, name, kind in ((b"bad", "screenshot.png", "image"), (b"PK", "report.html", "file"), (b"PK", "../report.xlsx", "file")):
+                with self.assertRaises(AiError):
+                    platform.send_media(lambda: self.config, session, raw, name, kind)
+        credentials.assert_not_called()

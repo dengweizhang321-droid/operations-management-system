@@ -4,6 +4,8 @@ import os
 import shutil
 import subprocess
 import ipaddress
+import secrets
+import re
 from urllib.parse import urlsplit
 from pathlib import Path
 from .dingtalk import guard
@@ -11,6 +13,10 @@ from .policy import AiError
 
 STREAM_API = "https://api.dingtalk.com/v1.0/gateway/connections/open"
 STREAM_SOCKET = "https://wss-open-connection.dingtalk.com/connect"
+TOKEN_API = "https://api.dingtalk.com/v1.0/oauth2/accessToken"
+GROUP_MEDIA_API = "https://api.dingtalk.com/v1.0/robot/groupMessages/send"
+PERSON_MEDIA_API = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend"
+UPLOAD_API = "https://oapi.dingtalk.com/media/upload"
 
 
 def stream_addresses(url):
@@ -24,6 +30,90 @@ def stream_addresses(url):
     if not addresses or len(addresses) > 32 or any(not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast for a in addresses):
         raise AiError("钉钉地址未解析到公网", "access_denied", 403)
     return addresses
+
+
+def media_addresses(url):
+    """Pin only the four exact DingTalk media endpoints to verified public DNS."""
+    from . import transport
+    parts = urlsplit(url)
+    if (parts.scheme != "https" or parts.username or parts.password or parts.fragment
+            or (parts.hostname, parts.path) not in {
+                ("api.dingtalk.com", "/v1.0/oauth2/accessToken"),
+                ("api.dingtalk.com", "/v1.0/robot/groupMessages/send"),
+                ("api.dingtalk.com", "/v1.0/robot/oToMessages/batchSend"),
+                ("oapi.dingtalk.com", "/media/upload"),
+            } or (parts.query and parts.path != "/media/upload")):
+        raise AiError("钉钉媒体地址不在固定官方入口", "access_denied", 403)
+    addresses = transport.resolve_addresses(parts.hostname, 443, 5)
+    addresses = transport._public_addresses(url, addresses, 5, lambda value: media_addresses_origin(value))
+    if not addresses or len(addresses) > 32 or any(
+            not ipaddress.ip_address(a[4][0]).is_global or ipaddress.ip_address(a[4][0]).is_multicast
+            for a in addresses):
+        raise AiError("钉钉媒体地址未解析到公网", "access_denied", 403)
+    return addresses
+
+
+def media_addresses_origin(url):
+    parts = urlsplit(url)
+    if parts.scheme != "https" or parts.hostname not in {"api.dingtalk.com", "oapi.dingtalk.com"}:
+        raise AiError("钉钉媒体地址不在固定官方入口", "access_denied", 403)
+
+
+def send_media(config_reader, session, raw, file_name, kind):
+    """One bot-authored attachment. The caller reserves its run before this call."""
+    from . import transport
+    if kind not in {"image", "file"} or not isinstance(raw, bytes) or not 0 < len(raw) <= 2 * 1024 * 1024:
+        raise AiError("钉钉媒体内容无效", "payload_too_large", 413)
+    if not isinstance(file_name, str) or not 0 < len(file_name) <= 120 or any(c in file_name for c in "\\/:*?\"<>|\r\n"):
+        raise AiError("钉钉文件名无效")
+    extension = file_name.rsplit(".", 1)[-1].lower()
+    if (kind == "image" and (extension != "png" or not raw.startswith(b"\x89PNG\r\n\x1a\n"))
+            or kind == "file" and (extension not in {"xlsx", "pdf"}
+                                   or extension == "xlsx" and not raw.startswith(b"PK\x03\x04")
+                                   or extension == "pdf" and not raw.startswith(b"%PDF-"))):
+        raise AiError("钉钉媒体格式无效")
+    config = config_reader()
+    guard(session, config)
+    key, secret = credentials(config)
+    token_reply = transport._bounded_json(TOKEN_API, {"appKey": key, "appSecret": secret},
+        timeout=15, maximum=4096, fixed_addresses=media_addresses(TOKEN_API))
+    token = token_reply.get("accessToken")
+    if not isinstance(token, str) or not 0 < len(token) <= 4096 or not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+        raise AiError("钉钉应用令牌未确认", "channel_unavailable", 503)
+    boundary = secrets.token_hex(16)
+    name = file_name.encode("utf-8")
+    body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"".encode()
+        + name + b"\"\r\nContent-Type: application/octet-stream\r\n\r\n" + raw
+        + f"\r\n--{boundary}--\r\n".encode())
+    upload_url = UPLOAD_API + "?access_token=" + token + "&type=" + kind
+    uploaded = transport._bounded_json(upload_url, body,
+        headers={"Content-Type": "multipart/form-data; boundary=" + boundary},
+        timeout=30, maximum=4096, fixed_addresses=media_addresses(upload_url))
+    media_id = uploaded.get("media_id")
+    if uploaded.get("errcode") != 0 or not isinstance(media_id, str) or not media_id.startswith("@") or len(media_id) > 4096:
+        raise AiError("钉钉媒体上传未确认", "channel_unavailable", 503)
+    # Recheck the exact source and destination after upload, before external send.
+    guard(session, config_reader())
+    robot(config)
+    if session.conversation_type == "2":
+        group = next((g for g in config["groups"] if g["id"] == session.external_conversation_id), None)
+        if not group:
+            raise AiError("群聊已撤销授权", "access_denied", 403)
+        verify_group(config, group)
+        endpoint = GROUP_MEDIA_API
+        target = {"openConversationId": session.external_conversation_id}
+    else:
+        endpoint = PERSON_MEDIA_API
+        target = {"userIds": [session.sender_id]}
+    params = {"photoURL": media_id} if kind == "image" else {
+        "mediaId": media_id, "fileName": file_name, "fileType": extension}
+    reply = transport._bounded_json(endpoint, {"robotCode": config["robotCode"],
+        "msgKey": "sampleImageMsg" if kind == "image" else "sampleFile",
+        "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target},
+        headers={"x-acs-dingtalk-access-token": token},
+        timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint))
+    if not isinstance(reply.get("processQueryKey"), str) or not reply["processQueryKey"]:
+        raise AiError("钉钉媒体投递回执未确认", "delivery_unknown", 503)
 
 
 def open_stream(key, secret):

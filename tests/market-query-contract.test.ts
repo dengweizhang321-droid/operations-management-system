@@ -28,6 +28,7 @@ test("market overview rejects single, duplicate, impossible, and reversed dates 
 });
 
 test("market overview pagination is strict decimal and facet selection has a shared hard ceiling", () => {
+  assert.deepEqual(parseMarketOverviewQuery(params([["view", "full"]])).pagination, { page: 1, pageSize: 50 });
   for (const value of ["0", "1.5", "1e2", "+1", " 1 ", "10001"]) {
     assert.throws(
       () => parseMarketOverviewQuery(params([["view", "ranking"], ["page", value]])),
