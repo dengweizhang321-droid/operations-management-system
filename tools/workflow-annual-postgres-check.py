@@ -45,7 +45,7 @@ try:
     run([BIN / "createdb.exe", "annual_fixture"], "createdb")
     run([sys.executable, ROOT / "backend/manage.py", "migrate", "--noinput"], "migrations")
     run([sys.executable, ROOT / "backend/manage.py", "makemigrations", "--check", "--dry-run"], "migration-drift")
-    run([sys.executable, ROOT / "backend/manage.py", "test", "workflow.tests", "finance.tests", "--noinput"], "tests", timeout=600)
+    run([sys.executable, ROOT / "backend/manage.py", "test", *(sys.argv[1:] or ["workflow.tests", "finance.tests"]), "--noinput"], "tests", timeout=600)
 finally:
     if started:
         run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-m", "fast", "-w", "-t", "30", "stop"], "stop")

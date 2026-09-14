@@ -908,6 +908,13 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
         and (not buckets or item["ageBucketKey"] in buckets)
         and (exact_key is None or item["key"] == exact_key)
     ]
+    card_filter = options.get("cardFilter")
+    if card_filter == "stagnant":
+        filtered = [item for item in filtered if item["status"] == "stagnant"]
+    elif card_filter == "aged90":
+        filtered = [item for item in filtered if item["inventoryAgeDays"] is not None and int(item["inventoryAgeDays"]) >= 90 and int(item["availableQuantity"]) > 0]
+    elif card_filter == "zero_sales":
+        filtered = [item for item in filtered if item["sales30dQuantity"] is not None and int(item["sales30dQuantity"]) <= 0 and int(item["availableQuantity"]) > 0]
     order = {"stagnant": 0, "slow": 1, "aged": 2, "healthy": 3, "no_stock": 4}
     filtered.sort(
         key=lambda item: (
@@ -1015,6 +1022,8 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
     facets = {key: sorted({str(item[field]) for item in items if item[field]}) for key, field in (("warehouses", "warehouse"), ("brands", "brand"), ("categories", "category"), ("suppliers", "supplier"))}
     warehouses = set(_selected(options, "warehouses", 10)); brands = set(_selected(options, "brands", 20)); categories = set(_selected(options, "categories", 20)); suppliers = set(_selected(options, "suppliers", 20))
     filtered = [item for item in items if _matches_text(item, options.get("query"), ("productCode", "productName", "brand", "category", "supplier", "warehouse")) and (not warehouses or item["warehouse"] in warehouses) and (not brands or item["brand"] in brands) and (not categories or item["category"] in categories) and (not suppliers or item["supplier"] in suppliers)]
+    if options.get("cardFilter") == "stale":
+        filtered = [item for item in filtered if item["risk"] == "stale"]
     filtered.sort(key=lambda item: (0 if item["risk"] == "stale" else 1, -int(item["knownStockValueCents"]), str(item["productCode"]), str(item["warehouse"])))
     total = len(filtered); positive = sum(max(0, int(item["availableQuantity"])) for item in filtered); priced = sum(int(item["_pricedQuantity"]) for item in filtered); sales_30_total = sum(max(0, int(item["outbound30dQuantity"] or 0)) for item in filtered)
     regions: list[dict[str, object]] = []

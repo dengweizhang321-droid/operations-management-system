@@ -105,7 +105,7 @@ def _task_options(request: HttpRequest) -> dict[str, object]:
 
 
 def _record_options(request: HttpRequest) -> dict[str, object]:
-    _unknown(request, {"type", "status", "shopName", "platform", "owner", "query", "from", "to", "page", "pageSize"}, "运营记录列表")
+    _unknown(request, {"type", "status", "priority", "shopName", "platform", "owner", "query", "from", "to", "page", "pageSize"}, "运营记录列表")
     from_time = _datetime(_one(request, "from"), "开始时间", nullable=True)
     to_time = _datetime(_one(request, "to"), "结束时间", nullable=True)
     if from_time and to_time and from_time >= to_time:
@@ -117,6 +117,7 @@ def _record_options(request: HttpRequest) -> dict[str, object]:
     allowed_statuses = set().union(*RECORD_STATUSES.values())
     return {
         "types": _selections(request, "type", 20, RECORD_TYPES),
+        "priorities": _selections(request, "priority", 3, PRIORITIES),
         "statuses": _selections(request, "status", 20, allowed_statuses),
         "shop_names": _selections(request, "shopName", 20),
         "platforms": _selections(request, "platform", 20),

@@ -165,12 +165,16 @@ export default function InventoryFilterBar({
   options,
   updating,
   onChange,
+  extraFilterActive = false,
+  onResetExtra,
 }: {
   activeTab: InventoryFilterTab;
   filters: InventorySharedFilters;
   options: InventorySharedFilterOptions;
   updating: boolean;
   onChange: (filters: InventorySharedFilters) => void;
+  extraFilterActive?: boolean;
+  onResetExtra?: () => void;
 }) {
   const patch = (next: Partial<InventorySharedFilters>) => onChange({ ...filters, ...next });
   const usesAgeFilters = activeTab === "age" || activeTab === "stale";
@@ -197,7 +201,7 @@ export default function InventoryFilterBar({
     || (activeTab !== "guangdong" && filters.warehouses.length > 0)
     || filters.brands.length > 0
     || filters.categories.length > 0;
-  const hasApplicableFilter = hasCommonFilter
+  const hasApplicableFilter = extraFilterActive || hasCommonFilter
     || (activeTab === "overview" && (filters.warehouseTypes.length > 0 || filters.healthStatuses.length > 0))
     || (usesAgeFilters && (filters.ageBuckets.length > 0 || applicableAgeStatuses.length > 0))
     || ((activeTab === "inbound" || activeTab === "guangdong") && filters.suppliers.length > 0)
@@ -243,7 +247,7 @@ export default function InventoryFilterBar({
         {activeTab === "inbound" && <label><span>供应商</span><SearchableMultiSelect values={filters.suppliers} onChange={(suppliers) => patch({ suppliers })} ariaLabel="京东入仓供应商" allLabel="全部供应商" searchPlaceholder="搜索供应商" options={optionsWithSelections(options.suppliers, filters.suppliers)} /></label>}
         {activeTab === "guangdong" && <label><span>供应商</span><SearchableMultiSelect values={filters.suppliers} onChange={(suppliers) => patch({ suppliers })} ariaLabel="广东入仓供应商" allLabel="全部供应商" searchPlaceholder="搜索供应商" options={optionsWithSelections(options.suppliers, filters.suppliers)} /></label>}
         {activeTab === "plan" && <label><span>计划状态</span><SearchableSelect value={filters.planStatus} onChange={(planStatus) => patch({ planStatus: planStatus as InventoryPlanStatus })} ariaLabel="备货计划状态" searchPlaceholder="搜索计划状态" options={planStatusOptions} /></label>}
-        {hasApplicableFilter && <button type="button" className="secondary-button inventory-shared-filter-reset" onClick={resetApplicable}>清空当前页筛选</button>}
+        {hasApplicableFilter && <button type="button" className="secondary-button inventory-shared-filter-reset" onClick={() => { resetApplicable(); onResetExtra?.(); }}>清空当前页筛选</button>}
       </div>
     </div>
     {usesAgeFilters && <div className="inventory-shared-age-buckets" role="group" aria-label="库龄区间多选">

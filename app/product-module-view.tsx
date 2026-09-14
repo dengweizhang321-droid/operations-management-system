@@ -393,7 +393,7 @@ export default function ProductView({ range, customStartDate, customEndDate, mod
 
       {activeTab === "overview" && !detailOpen ? <>
         <section className="inventory-kpi-grid product-kpi-grid data-refresh-region" aria-busy={loading}>
-          {marginBucketCards.map((bucket) => <article className={`inventory-kpi-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{formatCount(bucket.value)} 个</strong><p>{bucket.note}</p><button type="button" onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])}>{marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</button></article>)}
+          {marginBucketCards.map((bucket) => <button type="button" aria-pressed={marginFilters.includes(bucket.filter)} onClick={() => setMarginFilters((current) => current.includes(bucket.filter) ? current.filter((value) => value !== bucket.filter) : [...current, bucket.filter])} className={`inventory-kpi-card summary-filter-card product-margin-kpi ${marginFilters.includes(bucket.filter) ? "active" : ""}`} key={bucket.filter}><div><span>{bucket.label}</span><i className={`inventory-kpi-icon ${bucket.tone}`}>{bucket.icon}</i></div><strong>{formatCount(bucket.value)} 个</strong><p>{bucket.note}</p><span className="summary-filter-hint">{marginFilters.includes(bucket.filter) ? "取消筛选" : "加入筛选 →"}</span></button>)}
         </section>
 
         <section className="panel product-filter-panel">

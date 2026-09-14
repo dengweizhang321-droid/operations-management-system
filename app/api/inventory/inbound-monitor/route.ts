@@ -19,8 +19,9 @@ export async function GET(request: Request) {
     const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
     requireUnrestrictedDataScope(principal, "京东入仓库存监控");
     const params = new URL(request.url).searchParams;
-    const allowed = new Set(["q", "warehouse", "brand", "category", "supplier", "page", "pageSize"]);
+    const allowed = new Set(["cardFilter", "q", "warehouse", "brand", "category", "supplier", "page", "pageSize"]);
     if ([...params.keys()].some((key) => !allowed.has(key))) throw new InventoryQueryContractError("京东入仓监控包含未知查询参数");
+    if (params.getAll("cardFilter").length > 1 || (params.get("cardFilter") && !["stale"].includes(params.get("cardFilter")!))) throw new InventoryQueryContractError("统计卡片筛选无效");
     const query = params.get("q")?.trim();
     if (query && query.length > 100) throw new InventoryQueryContractError("搜索词不能超过 100 个字符");
     parseInventoryPaginationParameter(params.get("page"), "page");

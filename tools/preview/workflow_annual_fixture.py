@@ -15,6 +15,12 @@ def seed_workflow_annual(today):
     if settings.DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3" or database.parent != root / ".runtime/preview" or os.getenv("TERUISI_DJANGO_DATABASE_URL"):
         raise RuntimeError("This fixture requires the worktree's synthetic preview SQLite")
     stamp = timezone.now().isoformat()
+    from workflow.models import WorkflowTask, WorkflowOperationRecord
+    for index, (status, days) in enumerate((("待开始", 3), ("工作中", -1), ("工作中", 0), ("已完成", -2))):
+        WorkflowTask.objects.create(id=f"preview-card-task-{index}", title=f"合成卡片任务 {index + 1}", status=status, due_date=(today + timedelta(days=days)).isoformat(), owner="演示负责人", shop_name="演示店铺", created_by="preview@teruisi.local", updated_by="preview@teruisi.local")
+    for kind in ("inspection", "review"):
+        for index, status in enumerate(("待处理", "处理中", "已关闭") if kind == "inspection" else ("待回复", "处理中", "已回复")):
+            WorkflowOperationRecord.objects.create(id=f"preview-card-{kind}-{index}", record_type=kind, title=f"合成{kind}记录 {index + 1}", status=status, priority="high" if index == 1 else "normal", occurred_at=timezone.now(), created_by="preview@teruisi.local", updated_by="preview@teruisi.local")
     line = NewProductLine.objects.create(name="商用设备 · 合成演示", match_terms=["商用"], monitoring_start_date=today-timedelta(days=30), created_by="preview@teruisi.local", updated_by="preview@teruisi.local")
     NewProductLineCode.objects.create(product_line=line, product_code="DEMO-001", product_name="商用电风扇", source="manual", added_by="preview@teruisi.local")
     for index, status in enumerate(("in_progress", "blocked", "completed", "not_started")):

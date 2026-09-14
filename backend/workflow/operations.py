@@ -651,7 +651,7 @@ def _assert_record_scope(principal: Principal, platform: str, channel: str) -> N
 
 def list_records(options: dict[str, object], principal: Principal) -> dict[str, object]:
     query = WorkflowOperationRecord.objects.filter(deleted_at__isnull=True).filter(_scope_query(principal))
-    mapping = {"types": "record_type__in", "statuses": "status__in", "shop_names": "shop_name__in", "platforms": "platform__in", "owners": "owner__in"}
+    mapping = {"priorities": "priority__in", "types": "record_type__in", "statuses": "status__in", "shop_names": "shop_name__in", "platforms": "platform__in", "owners": "owner__in"}
     for key, lookup in mapping.items():
         if options.get(key): query = query.filter(**{lookup: options[key]})
     search = str(options.get("query") or "")

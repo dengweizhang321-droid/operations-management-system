@@ -1,4 +1,5 @@
 "use client";
+import { toggleSingleFilter, workCardStatuses, applyWorkCardDates, type WorkCard } from "@/lib/ui/summary-filter";
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
@@ -331,12 +332,13 @@ function OperationsRecordWorkspace({ type, canWrite }: { type: RecordType; canWr
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [recordCard, setRecordCard] = useState<"" | "active" | "terminal" | "urgent">("");
   const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: TASK_PAGE_SIZE, total: 0 });
   const [editing, setEditing] = useState<OperationsRecord | null>(null);
   const [activityRecord, setActivityRecord] = useState<OperationsRecord | null>(null);
   useAiPageDetails("workflow", {
     period: null,
-    filters: { dataset: "workflow_operations", query: query.trim(), status, selectedIds: activityRecord ? [activityRecord.id] : [] },
+    filters: { dataset: "workflow_operations", query: query.trim(), status: recordCard === "active" ? meta.activeStatuses : recordCard === "terminal" ? meta.terminalStatuses : status, priorities: recordCard === "urgent" ? ["high"] : [], selectedIds: activityRecord ? [activityRecord.id] : [] },
   });
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -354,6 +356,9 @@ function OperationsRecordWorkspace({ type, canWrite }: { type: RecordType; canWr
       const params = new URLSearchParams({ type, page: String(targetPage), pageSize: String(TASK_PAGE_SIZE) });
       if (query.trim()) params.set("query", query.trim());
       if (status) params.append("status", status);
+      if (recordCard === "active") meta.activeStatuses.forEach(value => params.append("status", value));
+      if (recordCard === "terminal") meta.terminalStatuses.forEach(value => params.append("status", value));
+      if (recordCard === "urgent") params.append("priority", "high");
       const payload = await requestJson<{ items: OperationsRecord[]; pagination?: Partial<Pagination> }>(`/api/workflow/operations-records?${params}`, { signal });
       if (generation !== requestGeneration.current) return;
       const nextItems = Array.isArray(payload.items) ? payload.items : [];
@@ -380,7 +385,7 @@ function OperationsRecordWorkspace({ type, canWrite }: { type: RecordType; canWr
         setLoadingMore(false);
       }
     }
-  }, [meta.title, query, status, type]);
+  }, [meta, query, status, type, recordCard]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -428,13 +433,13 @@ function OperationsRecordWorkspace({ type, canWrite }: { type: RecordType; canWr
     <section className="workflow-toolbar workflow-section-hero"><div><span className="eyebrow">{meta.eyebrow}</span><h2>{meta.title}</h2><p>{meta.note}</p></div><button type="button" className="primary-button" disabled={!canWrite} onClick={() => openEditor()}>{canWrite ? `＋ ${meta.create}` : "仅查看"}</button></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭提示" onClick={() => setFeedback("")}>×</button></div>}
     <section className="workflow-summary-grid operations-record-summary">
-      <article className="tone-slate"><span>全部记录</span><strong>{pagination.total}</strong><small>符合当前服务端筛选</small></article>
-      <article className="tone-blue"><span>处理中</span><strong>{activeCount}</strong><small>当前已加载 {loadedCount} 条</small></article>
-      <article className="tone-green"><span>已闭环</span><strong>{terminalCount}</strong><small>当前已加载，含所有终态</small></article>
-      <article className="tone-orange"><span>紧急事项</span><strong>{urgentCount}</strong><small>当前已加载，优先处理</small></article>
+      <button type="button" className={`tone-slate${recordCard === "" && !status ? " active" : ""}`} aria-pressed={recordCard === "" && !status} onClick={() => { setRecordCard(current => toggleSingleFilter(current, "", "")); setStatus(""); }}><span>全部记录</span><strong>{pagination.total}</strong><small>符合当前服务端筛选</small></button>
+      <button type="button" className={`tone-blue${recordCard === "active" && !status ? " active" : ""}`} aria-pressed={recordCard === "active" && !status} onClick={() => { setRecordCard(current => toggleSingleFilter(current, "active", "")); setStatus(""); }}><span>处理中</span><strong>{activeCount}</strong><small>当前已加载记录</small></button>
+      <button type="button" className={`tone-green${recordCard === "terminal" && !status ? " active" : ""}`} aria-pressed={recordCard === "terminal" && !status} onClick={() => { setRecordCard(current => toggleSingleFilter(current, "terminal", "")); setStatus(""); }}><span>已闭环</span><strong>{terminalCount}</strong><small>当前已加载，含所有终态</small></button>
+      <button type="button" className={`tone-orange${recordCard === "urgent" && !status ? " active" : ""}`} aria-pressed={recordCard === "urgent" && !status} onClick={() => { setRecordCard(current => toggleSingleFilter(current, "urgent", "")); setStatus(""); }}><span>紧急事项</span><strong>{urgentCount}</strong><small>当前已加载，优先处理</small></button>
     </section>
     <section className="panel workflow-table-panel data-refresh-region" aria-busy={loading}>
-      <div className="table-toolbar"><div><h2>{meta.title}记录</h2><p>不展示演示数据；筛选、搜索与分页均由服务端执行。</p></div><div className="workflow-filter-row"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索${meta.title}记录`} aria-label={`搜索${meta.title}记录`} /><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label={`${meta.title}状态`}><option value="">全部状态</option>{meta.statuses.map((value) => <option key={value}>{value}</option>)}</select><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button></div></div>
+      <div className="table-toolbar"><div><h2>{meta.title}记录</h2><p>不展示演示数据；筛选、搜索与分页均由服务端执行。</p></div><div className="workflow-filter-row"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索${meta.title}记录`} aria-label={`搜索${meta.title}记录`} /><select value={status} onChange={(event) => { setStatus(event.target.value); setRecordCard(""); }} aria-label={`${meta.title}状态`}><option value="">全部状态</option>{meta.statuses.map((value) => <option key={value}>{value}</option>)}</select><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button></div></div>
       {error && items.length > 0 && <div className="workflow-feedback workflow-feedback-error" role="alert"><span>!</span><p>{error}，已保留当前已加载记录。</p><button type="button" aria-label="重试加载记录" onClick={() => void load()}>重试</button></div>}
       {loading && items.length === 0 ? <DataState kind="loading" title={`正在读取${meta.title}`} note="正在同步最新记录…" /> : error && items.length === 0 ? <DataState kind="error" title={`${meta.title}加载失败`} note={error} onRetry={() => void load()} /> : items.length === 0 ? <DataState kind="empty" title={query || status ? "没有符合筛选条件的记录" : meta.empty} note={query || status ? "调整搜索词或状态后重试。" : canWrite ? `点击“${meta.create}”开始沉淀真实业务记录。` : "当前账号可以查看记录，但没有新增权限。"} /> : <>
         <div className="data-table-wrap">
@@ -730,7 +735,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"open" | "pending" | "active" | "completed">("open");
+  const [statusFilter, setStatusFilter] = useState<WorkCard>("all");
   const [taskStatuses, setTaskStatuses] = useState<Status[]>([]);
   const [taskPriorities, setTaskPriorities] = useState<Priority[]>([]);
   const [taskOwners, setTaskOwners] = useState<string[]>([]);
@@ -749,14 +754,16 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   const [draft, setDraft] = useState<DraftTask>(EMPTY_TASK);
   const [taskEditorError, setTaskEditorError] = useState("");
   const [exporting, setExporting] = useState(false);
-  const aiTaskStatusScope: Status[] = statusFilter === "open" ? ["待开始", "工作中"] : statusFilter === "pending" ? ["待开始"] : statusFilter === "active" ? ["工作中"] : ["已完成"];
+  const aiTaskStatusScope: Status[] = workCardStatuses(statusFilter);
   const aiTaskStatuses = taskStatuses.length > 0 ? aiTaskStatusScope.filter(value => taskStatuses.includes(value)) : aiTaskStatusScope;
+  const aiCardDates = new URLSearchParams({ dueFrom: taskDueFrom, dueTo: taskDueTo ? calendarDateWithOffset(taskDueTo, 1) : "" });
+  applyWorkCardDates(aiCardDates, statusFilter, shanghaiDateWithOffset(), shanghaiDateWithOffset(1));
   useAiPageDetails("workflow", {
     period: null,
     blockedReason: activeTab === "plan" && aiTaskStatuses.length === 0 ? "当前状态筛选没有交集。请调整筛选，或移除页面上下文后提问。" : undefined,
     filters: activeTab === "variables" ? { dataset: "workflow_templates" } : {
       dataset: "workflow_tasks", query: query.trim(), status: aiTaskStatuses, priorities: taskPriorities, owner: taskOwners, shops: taskShops, categories: taskCategories, sources: taskSources,
-      dueFrom: taskDueFrom, dueTo: taskDueTo ? calendarDateWithOffset(taskDueTo, 1) : "", selectedIds: selectedTask ? [selectedTask.id] : [],
+      dueFrom: aiCardDates.get("dueFrom") || "", dueTo: aiCardDates.get("dueTo") || "", selectedIds: selectedTask ? [selectedTask.id] : [],
     },
   }, activeTab === "plan" || activeTab === "variables");
 
@@ -769,7 +776,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
 
   const loadTasks = useCallback(async (signal?: AbortSignal, targetPage = 1, append = false) => {
     const generation = ++taskGeneration.current;
-    const scopeStatuses: Status[] = statusFilter === "open" ? ["待开始", "工作中"] : statusFilter === "pending" ? ["待开始"] : statusFilter === "active" ? ["工作中"] : ["已完成"];
+    const scopeStatuses: Status[] = workCardStatuses(statusFilter);
     const effectiveStatuses = taskStatuses.length > 0 ? scopeStatuses.filter((value) => taskStatuses.includes(value)) : scopeStatuses;
     if (effectiveStatuses.length === 0) {
       setTasks([]);
@@ -792,14 +799,18 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     if (taskDueFrom) commonParams.set("dueFrom", taskDueFrom);
     if (taskDueTo) commonParams.set("dueTo", calendarDateWithOffset(taskDueTo, 1));
     const listParams = new URLSearchParams(commonParams);
+    applyWorkCardDates(listParams, statusFilter, shanghaiDateWithOffset(), shanghaiDateWithOffset(1));
+    if (listParams.get("dueFrom") && listParams.get("dueTo") && listParams.get("dueFrom")! >= listParams.get("dueTo")!) {
+      setTasks([]); setPagination({ page: 1, pageSize: TASK_PAGE_SIZE, total: 0 }); setLoading(false); setLoadingMore(false); setError(""); return;
+    }
     effectiveStatuses.forEach((value) => listParams.append("status", value));
     listParams.set("page", String(targetPage));
     listParams.set("pageSize", String(TASK_PAGE_SIZE));
 
     const today = shanghaiDateWithOffset();
     const tomorrow = calendarDateWithOffset(today, 1);
-    const overdueParams = new URLSearchParams();
-    const todayParams = new URLSearchParams();
+    const overdueParams = new URLSearchParams(commonParams);
+    const todayParams = new URLSearchParams(commonParams);
     if (query.trim()) { overdueParams.set("q", query.trim()); todayParams.set("q", query.trim()); }
     taskPriorities.forEach((value) => { overdueParams.append("priority", value); todayParams.append("priority", value); });
     taskOwners.forEach((value) => { overdueParams.append("owner", value); todayParams.append("owner", value); });
@@ -807,16 +818,18 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     taskCategories.forEach((value) => { overdueParams.append("category", value); todayParams.append("category", value); });
     taskSources.forEach((value) => { overdueParams.append("source", value); todayParams.append("source", value); });
     (["待开始", "工作中"] as Status[]).forEach((value) => { overdueParams.append("status", value); todayParams.append("status", value); });
-    overdueParams.set("dueTo", today);
-    todayParams.set("dueFrom", today);
-    todayParams.set("dueTo", tomorrow);
+    applyWorkCardDates(overdueParams, "overdue", today, tomorrow);
+    applyWorkCardDates(todayParams, "today", today, tomorrow);
     for (const params of [overdueParams, todayParams]) { params.set("page", "1"); params.set("pageSize", "1"); }
 
     try {
-      const [payload, overduePayload, todayPayload] = await Promise.all([
+      const summaryParams = new URLSearchParams(commonParams);
+      summaryParams.set("page", "1"); summaryParams.set("pageSize", "1");
+      const [payload, overduePayload, todayPayload, commonSummaryPayload] = await Promise.all([
         requestJson<TaskListPayload>(`/api/workflow/tasks?${listParams}`, { signal }),
-        requestJson<TaskListPayload>(`/api/workflow/tasks?${overdueParams}`, { signal }),
-        requestJson<TaskListPayload>(`/api/workflow/tasks?${todayParams}`, { signal }),
+        (overdueParams.get("dueFrom") && overdueParams.get("dueTo") && overdueParams.get("dueFrom")! >= overdueParams.get("dueTo")! ? Promise.resolve({ items: [], pagination: { total: 0 } } as TaskListPayload) : requestJson<TaskListPayload>(`/api/workflow/tasks?${overdueParams}`, { signal })),
+        (todayParams.get("dueFrom") && todayParams.get("dueTo") && todayParams.get("dueFrom")! >= todayParams.get("dueTo")! ? Promise.resolve({ items: [], pagination: { total: 0 } } as TaskListPayload) : requestJson<TaskListPayload>(`/api/workflow/tasks?${todayParams}`, { signal })),
+        statusFilter === "overdue" || statusFilter === "today" ? requestJson<TaskListPayload>(`/api/workflow/tasks?${summaryParams}`, { signal }) : Promise.resolve(null),
       ]);
       if (generation !== taskGeneration.current) return;
       const rawItems = Array.isArray(payload.items) ? payload.items : [];
@@ -857,7 +870,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
         completed: legacyPool.filter((item) => item.status === "已完成").length,
         open: legacyPool.filter((item) => item.status !== "已完成").length,
       };
-      setTaskSummary(payload.summary ?? fallbackSummary);
+      setTaskSummary(commonSummaryPayload?.summary ?? payload.summary ?? fallbackSummary);
       const overdueFallback = (overduePayload.items ?? []).filter((item) => item.status !== "已完成" && item.due !== "待排期" && item.due < today).length;
       const todayFallback = (todayPayload.items ?? []).filter((item) => item.status !== "已完成" && item.due === today).length;
       setDueKpis({
@@ -1000,7 +1013,7 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     if (exporting) return;
     setExporting(true); setFeedback("");
     try {
-      const scopeStatuses: Status[] = statusFilter === "open" ? ["待开始", "工作中"] : statusFilter === "pending" ? ["待开始"] : statusFilter === "active" ? ["工作中"] : ["已完成"];
+      const scopeStatuses: Status[] = workCardStatuses(statusFilter);
       const effectiveStatuses = taskStatuses.length > 0 ? scopeStatuses.filter((value) => taskStatuses.includes(value)) : scopeStatuses;
       const params = new URLSearchParams({ page: "1", pageSize: "100" });
       if (query.trim()) params.set("q", query.trim());
@@ -1012,6 +1025,8 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
       taskSources.forEach((value) => params.append("source", value));
       if (taskDueFrom) params.set("dueFrom", taskDueFrom);
       if (taskDueTo) params.set("dueTo", calendarDateWithOffset(taskDueTo, 1));
+      applyWorkCardDates(params, statusFilter, shanghaiDateWithOffset(), shanghaiDateWithOffset(1));
+      if (params.get("dueFrom") && params.get("dueTo") && params.get("dueFrom")! >= params.get("dueTo")!) { setFeedback("当前筛选没有可导出的事项。"); return; }
       const exported: Task[] = [];
       let page = 1;
       let total = 0;
@@ -1059,8 +1074,8 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
   if (activeTab === "launch-followup") return <>{subnav}<div role="tabpanel" id="operations-panel-launch-followup" aria-labelledby="operations-tab-launch-followup"><NewProductSalesFollowupView canWrite={canWrite} /></div></>;
   if (activeTab === "variables") return <>{subnav}<div role="tabpanel" id="operations-panel-variables" aria-labelledby="operations-tab-variables"><TemplateWorkspace templates={templates} loading={templatesLoading} error={templatesError} canWrite={canWrite} onReload={() => void loadTemplates()} onUse={useTemplate} /></div></>;
 
-  const listTitle = statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";
-  const listNote = statusFilter === "completed" ? "已完成事项统一归档在这里，可按需返还到未开始或进行中。" : "工作事项只呈现未开始和进行中；完成后自动归入已完成。";
+  const listTitle = statusFilter === "all" ? "全部工作事项" : statusFilter === "overdue" ? "已逾期事项" : statusFilter === "today" ? "今日到期事项" : statusFilter === "open" ? "工作事项清单" : statusFilter === "pending" ? "未开始事项" : statusFilter === "active" ? "进行中事项" : "已完成事项";
+  const listNote = statusFilter === "completed" ? "已完成事项统一归档在这里，可按需返还到未开始或进行中。" : "按当前状态与日期条件展示；再次点击已选卡片可取消筛选。";
   const loadMore = hasMore ? <div className="operations-load-more"><button type="button" className="secondary-button" disabled={loadingMore} onClick={() => void loadTasks(undefined, pagination.page + 1, true)}>{loadingMore ? "加载中…" : `继续加载（${tasks.length} / ${pagination.total}）`}</button></div> : null;
 
   return <>{subnav}<div role="tabpanel" id="operations-panel-plan" aria-labelledby="operations-tab-plan">
@@ -1080,17 +1095,17 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
         <MultiSelectFilter values={taskCategories} onChange={setTaskCategories} ariaLabel="工作计划事项分类" allLabel="全部分类" options={categoryOptions.map((category) => ({ value: category, label: category }))} />
         <MultiSelectFilter values={taskSources} onChange={setTaskSources} ariaLabel="工作计划来源" allLabel="全部来源" options={sourceOptions.map((source) => ({ value: source, label: source }))} />
         <label className="workflow-date-filter"><span>截止日期</span><input type="date" value={taskDueFrom} max={taskDueTo || undefined} onChange={(event) => setTaskDueFrom(event.target.value)} aria-label="截止从" /><i>至</i><input type="date" value={taskDueTo} min={taskDueFrom || undefined} onChange={(event) => setTaskDueTo(event.target.value)} aria-label="截止到（含）" /></label>
-        <button type="button" className="row-action operations-filter-reset" onClick={() => { setQuery(""); setTaskStatuses([]); setTaskPriorities([]); setTaskOwners([]); setTaskShops([]); setTaskCategories([]); setTaskSources([]); setTaskDueFrom(""); setTaskDueTo(""); }}>清除筛选</button>
+        <button type="button" className="row-action operations-filter-reset" onClick={() => { setQuery(""); setStatusFilter("all"); setTaskStatuses([]); setTaskPriorities([]); setTaskOwners([]); setTaskShops([]); setTaskCategories([]); setTaskSources([]); setTaskDueFrom(""); setTaskDueTo(""); }}>清除筛选</button>
       </div>
       <div className="workflow-view-switch" role="radiogroup" aria-label="工作计划视图"><button type="button" role="radio" aria-checked={taskViewMode === "table"} className={taskViewMode === "table" ? "active" : ""} onClick={() => setTaskViewMode("table")}>☷ 表格</button><button type="button" role="radio" aria-checked={taskViewMode === "timeline"} className={taskViewMode === "timeline" ? "active" : ""} onClick={() => setTaskViewMode("timeline")}>⌁ 时间轴</button></div>
     </section>
 
     <section className="workflow-summary-grid">
-      <article className="tone-blue"><span>进行中</span><strong>{counts.active}</strong><small>正在推进</small></article>
-      <article className="tone-red"><span>已逾期</span><strong>{dueKpis.overdue}</strong><small>上海时区，需优先闭环</small></article>
-      <article className="tone-orange"><span>今日到期</span><strong>{dueKpis.dueToday}</strong><small>{shanghaiDateWithOffset()}</small></article>
-      <article className="tone-green"><span>已完成</span><strong>{counts.completed}</strong><small>完成率 {Math.round(completedShare)}%</small></article>
-      <article className="tone-slate"><span>合计</span><strong>{counts.total}</strong><small>当前清单 {pagination.total} 项</small></article>
+      <button type="button" className={`tone-blue${statusFilter === "active" ? " active" : ""}`} aria-pressed={statusFilter === "active"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "active", "all")); setTaskStatuses([]); }}><span>进行中</span><strong>{counts.active}</strong><small>正在推进</small></button>
+      <button type="button" className={`tone-red${statusFilter === "overdue" ? " active" : ""}`} aria-pressed={statusFilter === "overdue"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "overdue", "all")); setTaskStatuses([]); }}><span>已逾期</span><strong>{dueKpis.overdue}</strong><small>上海时区，需优先闭环</small></button>
+      <button type="button" className={`tone-orange${statusFilter === "today" ? " active" : ""}`} aria-pressed={statusFilter === "today"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "today", "all")); setTaskStatuses([]); }}><span>今日到期</span><strong>{dueKpis.dueToday}</strong><small>当日未完成事项</small></button>
+      <button type="button" className={`tone-green${statusFilter === "completed" ? " active" : ""}`} aria-pressed={statusFilter === "completed"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "completed", "all")); setTaskStatuses([]); }}><span>已完成</span><strong>{counts.completed}</strong><small>已完成事项</small></button>
+      <button type="button" className={`tone-slate${statusFilter === "all" ? " active" : ""}`} aria-pressed={statusFilter === "all"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "all", "all")); setTaskStatuses([]); }}><span>合计</span><strong>{counts.total}</strong><small>全部状态</small></button>
     </section>
 
     <section className="workflow-insight-grid">
@@ -1102,10 +1117,10 @@ export default function OperationsView({ currentUser, moduleView, onModuleViewCh
     {canWrite ? <section id="operations-task-editor" className="panel workflow-quick-create"><header><div><span className="eyebrow">{editingTask ? "EDIT WORK ITEM" : "QUICK ENTRY"}</span><h3>{editingTask ? "编辑工作事项" : "快速录入工作项"}</h3></div>{editingTask && <button type="button" className="row-action" onClick={() => { setEditingTask(null); setDraft(EMPTY_TASK); setTaskEditorError(""); }}>取消编辑</button>}</header><form className="workflow-task-create-fields" noValidate onSubmit={(event) => { event.preventDefault(); void saveTask(); }}><label><span>事项分类</span><input list="workflow-category-options" maxLength={80} value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} /></label><label><span>工作事项（必填）</span><input required maxLength={160} value={draft.title} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, title: event.target.value })); }} /></label><label className="workflow-create-content"><span>工作内容</span><input maxLength={2000} value={draft.workContent} onChange={(event) => setDraft((current) => ({ ...current, workContent: event.target.value }))} /></label><label><span>店铺名称</span><input list="workflow-shop-options" maxLength={160} value={draft.shopName} onChange={(event) => setDraft((current) => ({ ...current, shopName: event.target.value }))} /></label><label><span>紧急程度</span><select value={draft.priority} onChange={(event) => setDraft((current) => ({ ...current, priority: event.target.value as Priority }))}><option value="high">紧急</option><option value="normal">普通</option><option value="low">低</option></select></label><label><span>开始时间</span><input type="date" max={draft.due || undefined} value={draft.startDate} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, startDate: event.target.value })); }} /></label><label><span>截止时间</span><input type="date" min={draft.startDate || undefined} value={draft.due} onChange={(event) => { setTaskEditorError(""); setDraft((current) => ({ ...current, due: event.target.value })); }} /></label><label><span>跟进人</span><input list="workflow-owner-options" maxLength={120} value={draft.owner} onChange={(event) => setDraft((current) => ({ ...current, owner: event.target.value }))} /></label>{taskEditorError && <p className="workflow-edit-validation" role="alert">{taskEditorError}</p>}<button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : editingTask ? "保存修改" : "＋ 添加工作项"}</button></form><datalist id="workflow-category-options">{categoryOptions.map((value) => <option key={value} value={value} />)}</datalist><datalist id="workflow-shop-options">{shopOptions.map((value) => <option key={value} value={value} />)}</datalist><datalist id="workflow-owner-options">{ownerOptions.map((value) => <option key={value} value={value} />)}</datalist><small>分类、店铺和负责人会优先复用现有标准选项；状态自动记录，逾期按 Asia/Shanghai 判定。编辑保存使用版本校验，冲突时请刷新后重试。</small></section> : <DataState kind="permission" title="当前为只读模式" note="你可以查看任务与协作详情；新增、编辑、评论和附件上传需要运营或管理员权限。" />}
 
     <section className="workflow-task-buckets" aria-label="工作事项分类">
-      <button type="button" className={statusFilter === "open" ? "active" : ""} onClick={() => { setStatusFilter("open"); setTaskStatuses([]); }}><span>工作事项</span><strong>{counts.open}</strong><small>未开始 + 进行中</small></button>
-      <button type="button" className={statusFilter === "pending" ? "active" : ""} onClick={() => { setStatusFilter("pending"); setTaskStatuses([]); }}><span>未开始</span><strong>{counts.pending}</strong><small>等待启动</small></button>
-      <button type="button" className={statusFilter === "active" ? "active" : ""} onClick={() => { setStatusFilter("active"); setTaskStatuses([]); }}><span>进行中</span><strong>{counts.active}</strong><small>正在推进</small></button>
-      <button type="button" className={statusFilter === "completed" ? "active completed" : "completed"} onClick={() => { setStatusFilter("completed"); setTaskStatuses([]); }}><span>已完成</span><strong>{counts.completed}</strong><small>完成归档</small></button>
+      <button type="button" className={statusFilter === "open" ? "active" : ""} aria-pressed={statusFilter === "open"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "open", "all")); setTaskStatuses([]); }}><span>工作事项</span><strong>{counts.open}</strong><small>未开始 + 进行中</small></button>
+      <button type="button" className={statusFilter === "pending" ? "active" : ""} aria-pressed={statusFilter === "pending"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "pending", "all")); setTaskStatuses([]); }}><span>未开始</span><strong>{counts.pending}</strong><small>等待启动</small></button>
+      <button type="button" className={statusFilter === "active" ? "active" : ""} aria-pressed={statusFilter === "active"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "active", "all")); setTaskStatuses([]); }}><span>进行中</span><strong>{counts.active}</strong><small>正在推进</small></button>
+      <button type="button" className={statusFilter === "completed" ? "active completed" : "completed"} aria-pressed={statusFilter === "completed"} onClick={() => { setStatusFilter(current => toggleSingleFilter(current, "completed", "all")); setTaskStatuses([]); }}><span>已完成</span><strong>{counts.completed}</strong><small>完成归档</small></button>
     </section>
 
     {error && tasks.length > 0 && <div className="workflow-feedback workflow-feedback-error" role="alert"><span>!</span><p>{error}，已保留当前已加载清单。</p><button type="button" aria-label="重试加载工作计划" onClick={() => void loadTasks()}>重试</button></div>}

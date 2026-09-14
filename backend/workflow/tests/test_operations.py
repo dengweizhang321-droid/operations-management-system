@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import quote
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -24,6 +25,24 @@ def body_bytes(payload: dict[str, object]) -> bytes:
 
 @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
 class WorkflowOperationsApiTests(TestCase):
+    def test_record_priority_card_filters_before_pagination_and_preserves_scope(self):
+        url = "/api/workflow/operations-records"
+        for index, priority in enumerate(("normal", "high", "normal", "high")):
+            response = self.request_json("POST", url, {
+                "type": "inspection", "title": f"巡店 {index}", "status": "待处理", "priority": priority,
+                "shopName": "京东一店" if index < 3 else "天猫二店", "owner": "运营组",
+                "occurredAt": "2026-09-03T10:00:00+08:00",
+            }, f"card-record-{index}")
+            self.assertEqual(response.status_code, 201, response.content)
+        response = self.signed_get(url + "?type=inspection&priority=high&pageSize=1", "card-priority")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["pagination"]["total"], 2)
+        self.assertTrue(all(row["priority"] == "high" for row in response.json()["items"]))
+        response = self.signed_get(url + "?type=inspection&priority=high&shopName=" + quote("京东一店"), "card-shop")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["pagination"]["total"], 1)
+        self.assertEqual(self.signed_get(url + "?priority=unknown", "card-invalid").status_code, 400)
+
     def setUp(self) -> None:
         WorkflowOperationsWriteAuthority.objects.filter(id=1).update(status="postgres")
 

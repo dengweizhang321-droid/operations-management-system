@@ -28,19 +28,24 @@ export function InventoryKpiCard({
   note,
   tone,
   icon,
+  selected,
+  onClick,
 }: {
   label: string;
   value: string;
   note: string;
   tone: "blue" | "green" | "orange" | "purple";
   icon: string;
+  selected?: boolean;
+  onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "article";
   return (
-    <article className="inventory-kpi-card">
+    <Tag className={`inventory-kpi-card${onClick ? " summary-filter-card" : ""}`} type={onClick ? "button" : undefined} aria-pressed={onClick ? selected : undefined} onClick={onClick}>
       <div><span>{label}</span><i className={`inventory-kpi-icon ${tone}`}>{icon}</i></div>
       <strong>{value}</strong>
       <p>{note}</p>
-    </article>
+    </Tag>
   );
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { toggleSingleFilter, toggleFilterGroup } from "@/lib/ui/summary-filter";
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
@@ -479,8 +480,11 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       ? filters.ageStatuses.filter(value => ["stagnant", "slow", "aged"].includes(value))
       : ["stagnant", "slow", "aged"])
     : filters.ageStatuses;
+  const [ageCard, setAgeCard] = useState<"" | "stagnant" | "aged90" | "zero_sales">("");
+  const [inboundCard, setInboundCard] = useState<"" | "stale">("");
   useAiPageDetails("inventory", {
     period: null,
+    blockedReason: ((activeTab === "age" || activeTab === "stale") && ageCard) || (activeTab === "inbound" && inboundCard) ? "当前统计卡片的精确条件尚未接入 AI 页面取数；请取消卡片筛选后提问，或移除页面上下文。" : undefined,
     filters: {
       query: debouncedInventoryQuery.trim(), warehouses: filters.warehouses, brands: filters.brands, categories: filters.categories,
       ...(activeTab === "overview" ? { warehouseTypes: filters.warehouseTypes, healthStatuses: filters.healthStatuses } : {}),
@@ -506,6 +510,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     status: filters.planStatus,
   });
   const agePageScopeKey = usesInventoryAgeAnalysis ? JSON.stringify({
+    cardFilter: ageCard,
     tab: activeTab,
     query: debouncedInventoryQuery.trim(),
     warehouses: [...filters.warehouses].sort(),
@@ -515,6 +520,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     ageBuckets: [...filters.ageBuckets].sort(),
   }) : "inactive";
   const inboundPageScopeKey = usesInboundMonitor ? JSON.stringify({
+    cardFilter: inboundCard,
     query: debouncedInventoryQuery.trim(),
     warehouses: [...filters.warehouses].sort(),
     brands: [...filters.brands].sort(),
@@ -654,6 +660,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       filters.warehouses.forEach((warehouse) => params.append("warehouse", warehouse));
       filters.brands.forEach((brand) => params.append("brand", brand));
       filters.categories.forEach((category) => params.append("category", category));
+      if (ageCard) params.set("cardFilter", ageCard);
       filters.ageBuckets.forEach((bucket) => params.append("ageBucket", bucket));
       const cleanupStatuses = ["stagnant", "slow", "aged"];
       const selectedCleanupStatuses = filters.ageStatuses.filter((status) => cleanupStatuses.includes(status));
@@ -675,7 +682,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (ageControllerRef.current === controller) ageControllerRef.current = null;
       }
     }
-  }, [debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
+  }, [ageCard, debouncedInventoryQuery, effectiveAgePage, filters.ageBuckets, filters.ageStatuses, filters.brands, filters.categories, filters.warehouses]);
 
   useEffect(() => {
     if (!usesInventoryAgeAnalysis) return;
@@ -701,6 +708,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
       filters.warehouses.forEach((warehouse) => params.append("warehouse", warehouse));
       filters.brands.forEach((brand) => params.append("brand", brand));
       filters.categories.forEach((category) => params.append("category", category));
+      if (inboundCard) params.set("cardFilter", inboundCard);
       filters.suppliers.forEach((supplier) => params.append("supplier", supplier));
       const response = await fetch(`/api/inventory/inbound-monitor?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as (InventoryInboundMonitorResponse & { error?: string }) | null;
@@ -716,7 +724,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         if (inboundControllerRef.current === controller) inboundControllerRef.current = null;
       }
     }
-  }, [debouncedInventoryQuery, effectiveInboundPage, filters.brands, filters.categories, filters.suppliers, filters.warehouses]);
+  }, [inboundCard, debouncedInventoryQuery, effectiveInboundPage, filters.brands, filters.categories, filters.suppliers, filters.warehouses]);
 
   useEffect(() => {
     if (!usesInboundMonitor) return;
@@ -1317,6 +1325,8 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
     filters={filters}
     options={sharedFilterOptions}
     updating={usesInventoryAgeAnalysis ? ageLoading : usesInboundMonitor ? inboundLoading : loading}
+    extraFilterActive={usesInventoryAgeAnalysis ? Boolean(ageCard) : usesInboundMonitor && Boolean(inboundCard)}
+    onResetExtra={() => { if (usesInventoryAgeAnalysis) setAgeCard(""); if (usesInboundMonitor) setInboundCard(""); }}
     onChange={updateFilters}
   />;
 
@@ -1435,7 +1445,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
               {([
                 ["no_stock", overview.health.noStock], ["urgent", overview.health.urgent], ["warning", overview.health.warning],
                 ["stale", overview.health.stale], ["slow", overview.health.slow], ["healthy", overview.health.healthy],
-              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" onClick={() => updateFilters({ ...filters, healthStatuses: [status] })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
+              ] as [InventoryHealthStatus, number][]).map(([status, count]) => <button type="button" aria-pressed={filters.healthStatuses.length === 1 && filters.healthStatuses[0] === status} onClick={() => updateFilters({ ...filters, healthStatuses: toggleFilterGroup(filters.healthStatuses, [status]) })} key={status}><span className={`health-swatch health-${status}`} /><div><small>{inventoryStatusMeta[status].label}</small><strong>{formatCount(count)}</strong></div></button>)}
             </div>
             <div className="inventory-health-note"><span>积压风险与低周转货值</span><strong>{formatCurrencyFromCents(overview.metrics.slowMovingValueCents)}</strong><small>低周转：库存周转大于 180 天；工厂代发仓不计入</small></div>
           </article>
@@ -1456,10 +1466,10 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         </section>
       </> : activeTab === "plan" && overview ? <>
         <section className="inventory-kpi-grid inventory-plan-kpis data-refresh-region" aria-busy={loading}>
-          <InventoryKpiCard label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
-          <InventoryKpiCard label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
+          <InventoryKpiCard selected={filters.planStatus === "draft"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "draft", "") })} label="待确认草稿" value={`${formatCount(overview.planSummary.draftCount)} 项`} note="确认后进入执行队列" tone="orange" icon="草" />
+          <InventoryKpiCard selected={filters.planStatus === "confirmed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "confirmed", "") })} label="已确认计划" value={`${formatCount(overview.planSummary.confirmedCount)} 项`} note="已计入在途库存" tone="blue" icon="确" />
           <InventoryKpiCard label="计划待回写量" value={`${formatCount(overview.planSummary.activeQuantity)} 件`} note="含完成后等待库存快照回写的数量" tone="purple" icon="途" />
-          <InventoryKpiCard label="已完成计划" value={`${formatCount(overview.planSummary.completedCount)} 项`} note="保留历史执行记录" tone="green" icon="完" />
+          <InventoryKpiCard selected={filters.planStatus === "completed"} onClick={() => updateFilters({ ...filters, planStatus: toggleSingleFilter(filters.planStatus, "completed", "") })} label="已完成计划" value={`${formatCount(overview.planSummary.completedCount)} 项`} note="保留历史执行记录" tone="green" icon="完" />
         </section>
 
         <InventoryPlanWorkflowPanel summary={overview.planSummary} />
@@ -1531,7 +1541,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <InventoryKpiCard label="京东入仓库存" value={`${formatCount(inboundMonitor.metrics.availableQuantity)} 件`} note={`${formatCount(inboundMonitor.metrics.itemCount)} 个 SKU × 仓库 · ${formatCount(inboundMonitor.metrics.warehouseCount)} 个仓`} tone="blue" icon="仓" />
           <InventoryKpiCard label="固定成本货值" value={formatCurrencyFromCents(inboundMonitor.metrics.knownStockValueCents)} note={`成本覆盖 ${formatRate(inboundMonitor.metrics.costCoverageRate)} · 暂无供应价口径`} tone="purple" icon="值" />
           <InventoryKpiCard label="30日计算周转" value={inboundMonitor.metrics.turnoverDays === null ? "待匹配" : `${inboundMonitor.metrics.turnoverDays.toFixed(1)} 天`} note={`出库 ${formatCount(inboundMonitor.metrics.outbound30dQuantity)} 件 · 销量匹配 ${formatRate(inboundMonitor.metrics.salesMatchRate)}`} tone="green" icon="转" />
-          <InventoryKpiCard label="滞销 / 长库龄" value={`${formatCount(inboundMonitor.metrics.staleItemCount)} 项`} note={`${formatCurrencyFromCents(inboundMonitor.metrics.staleValueCents)} · 供应商缺口 ${formatCount(inboundMonitor.metrics.missingSupplierCount)}`} tone="orange" icon="险" />
+          <InventoryKpiCard selected={inboundCard === "stale"} onClick={() => setInboundCard(current => toggleSingleFilter(current, "stale", ""))} label="滞销 / 长库龄" value={`${formatCount(inboundMonitor.metrics.staleItemCount)} 项`} note={`${formatCurrencyFromCents(inboundMonitor.metrics.staleValueCents)} · 供应商缺口 ${formatCount(inboundMonitor.metrics.missingSupplierCount)}`} tone="orange" icon="险" />
         </section>
         <section className="inventory-feedback inventory-feedback-warning inbound-disclosure" role="status"><span>!</span><div><strong>口径边界</strong><p>{inboundMonitor.disclosures.join("；")}</p></div></section>
         <section className="panel inbound-region-panel data-refresh-region" aria-busy={inboundLoading}><div className="table-toolbar"><div><h2>RDC / DC 区域概览</h2><p>库存、在途、固定成本货值和 30 日计算周转按入仓仓库拆分</p></div><span className="soft-tag">计算口径，非京东原生指标</span></div><div className="inbound-region-grid">{inboundMonitor.regions.map((region) => <article key={region.warehouse}><span>{region.warehouse}</span><strong>{formatCount(region.availableQuantity)} 件</strong><small>{formatCurrencyFromCents(region.knownStockValueCents)} · 在途 {formatCount(region.inTransitQuantity)}</small><div><em>30日出库 {formatCount(region.outbound30dQuantity)}</em><em>周转 {region.turnoverDays === null ? "—" : `${region.turnoverDays.toFixed(1)}天`}</em></div><small>销量匹配 {formatRate(region.salesMatchRate)}</small></article>)}</div></section>
@@ -1549,7 +1559,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
         {ageLoading && !ageAnalysis && <section className="panel data-state inventory-data-state" role="status"><span className="state-spinner" /><strong>正在汇总库龄与动销数据</strong><p>正在读取最新库存快照中的库龄、前 7 天与前 30 天销量…</p></section>}
         {!ageLoading && !ageError && ageAnalysis && !ageAnalysis.hasInventory && <section className="panel data-state inventory-data-state inventory-empty-state"><span className="state-symbol">龄</span><strong>还没有可分析的库存快照</strong><p>请同步包含库龄字段的库存报表后再查看库龄分析和滞销清理。</p></section>}
         {ageAnalysis?.hasInventory && activeTab === "age" && <>
-          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
+          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="库龄明细" value={`${formatCount(ageAnalysis.metrics.skuWarehouseCount)} 条`} note={`快照日期 ${ageAnalysis.sync.inventoryAsOf ?? "—"}`} tone="blue" icon="龄" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "90天以上货值" : "已覆盖90天以上货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.aged90ValueCents)} note={ageAnalysis.metrics.stockValueComplete ? `${formatCount(ageAnalysis.metrics.aged90Count)} 个 SKU × 仓库` : "缺少成本的库存未计入货值"} tone="orange" icon="90" /><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="滞销清理" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note={ageAnalysis.sync.hasAgeSales ? "库龄≥90天且前30天销量为0" : "报表未提供前30天销量"} tone="purple" icon="清" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="30天零销量" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="仅统计有可用库存的商品" tone="green" icon="零" /></section>
           {ageAnalysis.coverage.unagedStockCount > 0 && <section className="inventory-feedback inventory-feedback-warning" role="status"><span>!</span><div><strong>部分库存缺少库龄</strong><p>{formatCount(ageAnalysis.coverage.unagedStockCount)} 个 SKU × 仓库、{formatCount(ageAnalysis.coverage.unagedQuantity)} 件库存未进入库龄区间占比。</p></div></section>}
           <section className="panel inventory-age-distribution-panel data-refresh-region" aria-labelledby="inventory-age-distribution-title" aria-busy={ageLoading}>
             <div className="table-toolbar inventory-age-distribution-heading"><div><h2 id="inventory-age-distribution-title">库龄分布图</h2><p>库存数量按可用库存件数统计；库存金额按固定成本价 × 可用库存计算</p></div><div className="age-distribution-legend" aria-label="库龄分布图图例"><span><i className="quantity" />库存数量</span><span><i className="value" />库存金额</span></div></div>
@@ -1583,7 +1593,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
           <footer className="jd-sku-pagination"><span>第 {ageAnalysis.pagination.page} / {Math.max(1, ageAnalysis.pagination.totalPages)} 页</span><div><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page <= 1} onClick={() => setAgePage((value) => Math.max(1, value - 1))}>上一页</button><button type="button" className="row-action" disabled={ageLoading || ageAnalysis.pagination.page >= Math.max(1, ageAnalysis.pagination.totalPages)} onClick={() => setAgePage((value) => value + 1)}>下一页</button></div></footer>
         </>}
         {ageAnalysis?.hasInventory && activeTab === "stale" && <>
-          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
+          <section className="inventory-kpi-grid age-kpi-grid data-refresh-region" aria-busy={ageLoading}><InventoryKpiCard selected={ageCard === "stagnant"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "stagnant", ""))} label="优先清理项" value={`${formatCount(ageAnalysis.metrics.stagnantCount)} 项`} note="库龄≥90天且近30日无销量" tone="orange" icon="清" /><InventoryKpiCard label={ageAnalysis.metrics.stockValueComplete ? "待处理货值" : "已覆盖待处理货值"} value={formatCurrencyFromCents(ageAnalysis.metrics.stagnantValueCents)} note={ageAnalysis.metrics.stockValueComplete ? "按固定成本价与可用库存计算" : "缺少成本的库存未计入货值"} tone="purple" icon="值" /><InventoryKpiCard selected={ageCard === "aged90"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "aged90", ""))} label="高库龄商品" value={`${formatCount(ageAnalysis.metrics.aged90Count)} 项`} note="库龄超过90天且仍有可用库存" tone="blue" icon="龄" /><InventoryKpiCard selected={ageCard === "zero_sales"} onClick={() => setAgeCard(current => toggleSingleFilter(current, "zero_sales", ""))} label="零销量库存" value={ageAnalysis.sync.hasAgeSales ? `${formatCount(ageAnalysis.metrics.zeroSalesCount)} 项` : "—"} note="前30天销量为0" tone="green" icon="零" /></section>
           <InventoryStalePlaybookPanel metrics={ageAnalysis.metrics} hasAgeSales={ageAnalysis.sync.hasAgeSales} />
           <section className="panel table-panel stale-cleanup-panel data-refresh-region" aria-busy={ageLoading}>
             <div className="table-toolbar">

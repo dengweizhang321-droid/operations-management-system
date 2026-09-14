@@ -3104,3 +3104,14 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .ai-page-context-card ul { padding-left:20px; overflow-wrap:anywhere; font-size:13px; max-height:150px; overflow:auto; }
 .ai-page-context-card small { font-size:13px; }
 @media (max-width:640px) { .ai-module-drawer { inset:0; width:100%; border-radius:0; }.ai-chat-compact .ai-chat-compose { flex-wrap:wrap; }.ai-chat-compact .ai-message-list { max-height:50dvh; } }
+
+/* Classification cards share selection and keyboard feedback. */
+.summary-filter-card { color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.summary-filter-card[aria-pressed="true"], .workflow-summary-grid > button[aria-pressed="true"], .health-legend button[aria-pressed="true"] { border-color: var(--color-brand-border, #385e49); background: var(--color-brand-soft, #edf5ef); box-shadow: inset 0 0 0 1px var(--color-brand-border, #385e49); }
+.summary-filter-card:focus-visible, .workflow-summary-grid > button:focus-visible { outline: 2px solid #385e49; outline-offset: 3px; }
+.workflow-summary-grid > button { display: grid; gap: 9px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: white; color: inherit; text-align: left; cursor: pointer; }
+.workflow-summary-grid > button > strong { font-size: 28px; }
+.workflow-summary-grid > button > small { color: var(--muted); }
+.summary-filter-hint { display: block; margin-top: 12px; color: var(--color-brand, #385e49); }
+.launch-followup-summary > button { display: grid; gap: 8px; padding: 18px; }
+.launch-followup-summary > button > strong { font-size: 26px; }

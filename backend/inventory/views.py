@@ -257,8 +257,12 @@ def overview(request: HttpRequest) -> JsonResponse:
 def age_analysis(request: HttpRequest) -> JsonResponse:
     try:
         _principal(request, {"viewer", "analyst", "operator", "admin"})
-        _unknown(request, {"q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"}, "库龄分析")
+        _unknown(request, {"cardFilter", "q", "warehouse", "brand", "category", "status", "ageBucket", "page", "pageSize"}, "库龄分析")
         options = {"query": _one(request, "q"), "warehouses": _selections(request, "warehouse", 10), "brands": _selections(request, "brand", 20), "categories": _selections(request, "category", 20), "statuses": _selections(request, "status", 5, {"healthy", "aged", "slow", "stagnant", "no_stock"}), "ageBuckets": _selections(request, "ageBucket", 10, {"0-7", "8-15", "16-30", "31-60", "61-90", "91-120", "121-150", "151-180", "181-360", "361+"}), "page": _positive(_one(request, "page"), 1, "page", 10_000), "pageSize": _positive(_one(request, "pageSize"), 50, "pageSize", 100)}
+        card_filter = _one(request, "cardFilter") or ""
+        if card_filter and card_filter not in {"stagnant", "aged90", "zero_sales"}:
+            raise InventoryApiError("统计卡片筛选无效")
+        options["cardFilter"] = card_filter
         payload, revision = _consistent_read(lambda: inventory_age_analysis(options))
         return _json(payload, revision=revision)
     except Exception as error:
@@ -269,8 +273,12 @@ def age_analysis(request: HttpRequest) -> JsonResponse:
 def inbound_monitor(request: HttpRequest) -> JsonResponse:
     try:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
-        _unknown(request, {"q", "warehouse", "brand", "category", "supplier", "page", "pageSize"}, "京东入仓监控")
+        _unknown(request, {"cardFilter", "q", "warehouse", "brand", "category", "supplier", "page", "pageSize"}, "京东入仓监控")
         options = {"query": _one(request, "q"), "warehouses": _selections(request, "warehouse", 10), "brands": _selections(request, "brand", 20), "categories": _selections(request, "category", 20), "suppliers": _selections(request, "supplier", 20), "page": _positive(_one(request, "page"), 1, "page", 10_000), "pageSize": _positive(_one(request, "pageSize"), 50, "pageSize", 100)}
+        card_filter = _one(request, "cardFilter") or ""
+        if card_filter and card_filter not in {"stale"}:
+            raise InventoryApiError("统计卡片筛选无效")
+        options["cardFilter"] = card_filter
         payload, revision = _consistent_read(lambda: inventory_inbound_monitor(principal, options))
         return _json(payload, revision=revision)
     except Exception as error:
