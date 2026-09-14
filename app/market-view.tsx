@@ -1148,7 +1148,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     </section>}
     {error && activeSection !== "settings" && <div className="market-feedback error" role="alert">{error}</div>}
     {activeSection === "ranking" && data && <RankingTable data={data} compareKeys={compareKeys} loadingMore={loadingMore} onLoadMore={() => void loadMore()} onToggleCompare={toggleCompare} onTrend={setTrendItem} onOpenCompare={() => selectMarketSection("compare")} />}
-    {activeSection === "overview" && data && data.view !== "full" ? <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && data && <>
+    {activeSection === "overview" && data && data.view !== "full" ? loading && !error && <section className="panel data-state" role="status" aria-live="polite"><span className="state-spinner" /><strong>正在生成行业汇报</strong><p>商品榜单已可用，趋势、结构、竞争和机会矩阵正在按需汇总…</p></section> : activeSection === "overview" && data && <>
       <IndustryExecutiveSummary data={data} />
       <MarketKpis data={data} />
       <TrendSection data={data} />
