@@ -94,6 +94,41 @@ class WorkflowApiContractTests(TestCase):
     def create_project(self, request_id: str = "workflow-create-1"):
         return self.request_json("POST", "/api/workflow/launch-projects", project_payload(), request_id)
 
+    def test_free_text_shop_plan_can_start_blank_and_preserves_legacy_targets(self):
+        payload = project_payload()
+        payload.pop("targets")
+        payload["shopPlan"] = ""
+        response = self.request_json("POST", "/api/workflow/launch-projects", payload, "text-create")
+        self.assertEqual(response.status_code, 201, response.content)
+        created = response.json()["item"]
+        self.assertEqual(created["shopPlan"], "")
+        self.assertEqual(created["targets"], [])
+        self.assertEqual(len(created["stages"]), 7)
+        legacy = self.create_project("legacy-targets").json()["item"]
+        self.assertIsNone(legacy["shopPlan"])
+        url = f"/api/workflow/launch-projects/{legacy['id']}"
+        text = "京东：先上旗舰店\n天猫：图片确认后再上架"
+        response = self.request_json("PATCH", url, {"expectedVersion": 1, "shopPlan": text, "notes": "等供应商确认\n下周跟进"}, "text-update")
+        self.assertEqual(response.status_code, 200, response.content)
+        item = response.json()["item"]
+        self.assertEqual(item["shopPlan"], text)
+        self.assertEqual(item["targets"], legacy["targets"])
+        self.assertEqual(item["notes"], "等供应商确认\n下周跟进")
+        reread = self.client.get(url, headers=signed_headers(url)).json()["item"]
+        self.assertEqual(reread["shopPlan"], text)
+        conflict = self.request_json("PATCH", url, {"expectedVersion": 1, "shopPlan": "覆盖"}, "text-conflict")
+        self.assertEqual(conflict.status_code, 409)
+        cleared = self.request_json("PATCH", url, {"expectedVersion": 2, "shopPlan": ""}, "text-clear")
+        self.assertEqual(cleared.status_code, 200, cleared.content)
+        self.assertEqual(cleared.json()["item"]["shopPlan"], "")
+        self.assertEqual(cleared.json()["item"]["targets"], legacy["targets"])
+        invalid = self.request_json("PATCH", url, {"expectedVersion": 3, "shopPlan": "长" * 4001}, "text-limit")
+        self.assertEqual(invalid.status_code, 400)
+        denied = self.request_json("PATCH", url, {"expectedVersion": 3, "shopPlan": "越权"}, "text-viewer", role="viewer")
+        self.assertEqual(denied.status_code, 403)
+        activity = NewProductActivity.objects.filter(project_id=legacy["id"], action="project.updated").first()
+        self.assertIn("shopPlan", activity.changed_fields)
+
     def test_status_and_overdue_filters_apply_before_pagination(self):
         from datetime import timedelta
         from django.utils import timezone

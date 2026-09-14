@@ -293,6 +293,7 @@ def serialize_project(project: NewProductProject, *, include_activity: bool = Fa
         "source": project.source,
         "sourceRef": project.source_ref,
         "notes": project.notes,
+        "shopPlan": project.shop_plan,
         "version": int(project.version),
         "progressPercent": round(completed / len(applicable) * 100) if applicable else 100,
         "currentStageKey": current.stage_key if current else None,
@@ -339,6 +340,8 @@ def list_projects(options: dict[str, object]) -> dict[str, object]:
             | Q(spu_code__icontains=needle)
             | Q(owner__icontains=needle)
             | Q(targets__shop_name__icontains=needle)
+            | Q(shop_plan__icontains=needle)
+            | Q(notes__icontains=needle)
         ).distinct()
     for key, field in (
         ("suppliers", "supplier_name__in"),
@@ -475,6 +478,7 @@ def search_projects(query_text: str, *, offset: int, limit: int) -> dict[str, ob
         | Q(owner__icontains=query_text)
         | Q(source_ref__icontains=query_text)
         | Q(notes__icontains=query_text)
+        | Q(shop_plan__icontains=query_text)
         | Q(targets__platform__icontains=query_text)
         | Q(targets__shop_name__icontains=query_text)
         | Q(targets__listing_sku__icontains=query_text)
@@ -500,7 +504,7 @@ def search_projects(query_text: str, *, offset: int, limit: int) -> dict[str, ob
             f"{target['platform']}/{target['shopName']}"
             for target in payload["targets"][:3]
         )
-        detail_parts = [code, str(payload.get("owner") or ""), shops, str(payload.get("notes") or "")]
+        detail_parts = [code, str(payload.get("owner") or ""), payload.get("shopPlan") if payload.get("shopPlan") is not None else shops, str(payload.get("notes") or "")]
         amount = payload.get("approvedPriceCents")
         if amount is None:
             amount = payload.get("recommendedPriceCents")
@@ -519,7 +523,7 @@ CREATE_FIELDS = {
     "productName", "supplierName", "brand", "category", "erpProductCode", "skuCode", "spuCode",
     "productImageUrl", "proposedBy", "proposedDate", "owner", "targetLaunchDate", "lifecycleStatus",
     "priority", "recommendedPriceCents", "approvedPriceCents", "estimatedGrossMarginBps", "source",
-    "sourceRef", "notes", "targets", "stages",
+    "sourceRef", "notes", "shopPlan", "targets", "stages",
 }
 UPDATE_FIELDS = (CREATE_FIELDS - {"stages"}) | {"expectedVersion"}
 
@@ -542,6 +546,8 @@ def _normalized_project_fields(payload: dict[str, object], *, partial: bool) -> 
     for public, internal, label, maximum, required in mappings:
         if public in payload or not partial:
             output[internal] = _text(payload.get(public), label, maximum, required=required)
+    if "shopPlan" in payload:
+        output["shop_plan"] = _text(payload["shopPlan"], "店铺规划", 4_000)
     if "productImageUrl" in payload or not partial:
         output["product_image_url"] = _url(payload.get("productImageUrl"), "商品图片链接")
     if "proposedDate" in payload or not partial:
@@ -570,7 +576,7 @@ def _normalized_project_fields(payload: dict[str, object], *, partial: bool) -> 
 def create_project(payload: object, principal: Principal) -> dict[str, object]:
     data = _strict_object(payload, CREATE_FIELDS, "新品项目")
     fields = _normalized_project_fields(data, partial=False)
-    targets = _normalize_targets(data.get("targets"), required=True)
+    targets = _normalize_targets(data.get("targets"), required="shopPlan" not in data)
     stages = _normalize_stage_seeds(
         data.get("stages"),
         owner=str(fields.get("owner") or ""),
@@ -640,7 +646,7 @@ def update_project(project_id: object, payload: object, principal: Principal) ->
             "proposed_date": "proposedDate", "owner": "owner", "target_launch_date": "targetLaunchDate",
             "lifecycle_status": "lifecycleStatus", "priority": "priority", "recommended_price_cents": "recommendedPriceCents",
             "approved_price_cents": "approvedPriceCents", "estimated_gross_margin_bps": "estimatedGrossMarginBps",
-            "source": "source", "source_ref": "sourceRef", "notes": "notes",
+            "source": "source", "source_ref": "sourceRef", "notes": "notes", "shop_plan": "shopPlan",
         }
         for field, value in fields.items():
             if getattr(project, field) != value:

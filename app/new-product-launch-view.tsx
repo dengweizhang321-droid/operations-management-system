@@ -71,6 +71,7 @@ type LaunchProject = {
   estimatedGrossMarginBps: number | null;
   source: "manual" | "system" | "import" | "integration";
   sourceRef: string;
+  shopPlan: string | null;
   notes: string;
   version: number;
   progressPercent: number;
@@ -124,7 +125,7 @@ type LaunchDraft = {
   approvedPriceYuan: string;
   estimatedGrossMarginPercent: string;
   notes: string;
-  targets: LaunchTarget[];
+  shopPlan: string;
 };
 type StageDraft = {
   status: StageStatus;
@@ -175,17 +176,13 @@ function datePlus(value: string, days: number) {
   return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days)).toISOString().slice(0, 10);
 }
 
-function emptyTarget(): LaunchTarget {
-  return { platform: "", shopName: "", channel: "线上", listingSku: "", listingUrl: "", status: "pending" };
-}
-
 function emptyDraft(): LaunchDraft {
   const today = shanghaiToday();
   return {
     productName: "", supplierName: "", brand: "", category: "", erpProductCode: "", skuCode: "", spuCode: "",
     productImageUrl: "", proposedBy: "", proposedDate: today, owner: "", targetLaunchDate: datePlus(today, 14),
     lifecycleStatus: "active", priority: "normal", recommendedPriceYuan: "", approvedPriceYuan: "",
-    estimatedGrossMarginPercent: "", notes: "", targets: [emptyTarget()],
+    estimatedGrossMarginPercent: "", notes: "", shopPlan: "",
   };
 }
 
@@ -236,10 +233,6 @@ export function validateNewProductDraft(draft: LaunchDraft): string {
   if (!draft.productName.trim()) return "请填写商品名称。";
   if (!draft.proposedDate) return "请选择提出日期。";
   if (draft.targetLaunchDate && draft.targetLaunchDate < draft.proposedDate) return "目标上架日期不能早于提出日期。";
-  if (!draft.targets.length) return "请至少添加一个目标店铺。";
-  if (draft.targets.some((target) => !target.platform.trim() || !target.shopName.trim())) return "每个目标店铺都必须填写平台和店铺名称。";
-  const identities = draft.targets.map((target) => `${target.platform.trim()}\u001f${target.shopName.trim()}`);
-  if (new Set(identities).size !== identities.length) return "同一平台与店铺不能重复添加。";
   try {
     decimalToScaledInteger(draft.recommendedPriceYuan, 100, "建议售价", 10_000_000_000_000);
     decimalToScaledInteger(draft.approvedPriceYuan, 100, "核准售价", 10_000_000_000_000);
@@ -264,7 +257,7 @@ function projectDraft(project: LaunchProject): LaunchDraft {
     priority: project.priority, recommendedPriceYuan: centsToYuan(project.recommendedPriceCents),
     approvedPriceYuan: centsToYuan(project.approvedPriceCents),
     estimatedGrossMarginPercent: project.estimatedGrossMarginBps === null ? "" : (project.estimatedGrossMarginBps / 100).toFixed(2).replace(/\.00$/, ""),
-    notes: project.notes, targets: project.targets.map((target) => ({ ...target })),
+    notes: project.notes, shopPlan: shopPlanText(project),
   };
 }
 
@@ -290,6 +283,32 @@ function LoadingState() {
   return <section className="panel data-state operations-data-state" role="status"><span className="state-spinner" /><strong>正在读取新品项目</strong><p>同步项目、目标店铺与阶段状态…</p></section>;
 }
 
+function shopPlanText(project: LaunchProject): string {
+  return project.shopPlan ?? project.targets.map((target) => `${target.platform} · ${target.shopName}`).join("\n");
+}
+
+function ProjectTextEditor({ project, field, saving, onClose, onSave }: {
+  project: LaunchProject; field: "shopPlan" | "notes"; saving: boolean;
+  onClose: () => void; onSave: (value: string) => Promise<void>;
+}) {
+  const initial = field === "shopPlan" ? shopPlanText(project) : project.notes;
+  const [value, setValue] = useState(initial);
+  const [error, setError] = useState("");
+  const label = field === "shopPlan" ? "店铺规划" : "备注";
+  return <Dialog open onClose={() => !saving && onClose()} dialogId="launch-project-text-editor" ariaLabel={`编辑${label}`} className="workflow-edit-modal launch-text-modal">
+    <h2>编辑{label}</h2><p>{project.productName}</p>
+    <form className="workflow-edit-form" onSubmit={async (event) => {
+      event.preventDefault(); setError("");
+      if (value === initial) { onClose(); return; }
+      try { await onSave(value); } catch (reason) { setError(messageOf(reason, `${label}保存失败`)); }
+    }}>
+      <label className="workflow-edit-content-field"><span>{label}</span><textarea autoFocus rows={7} maxLength={4000} value={value} onChange={(event) => setValue(event.target.value)} /></label>
+      {error && <p role="alert">{error}</p>}
+      <div className="workflow-edit-actions"><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>取消</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : `保存${label}`}</button></div>
+    </form>
+  </Dialog>;
+}
+
 function ProjectEditor({ project, facets, saving, onClose, onSave }: {
   project: LaunchProject | null;
   facets: LaunchFacets;
@@ -299,10 +318,6 @@ function ProjectEditor({ project, facets, saving, onClose, onSave }: {
 }) {
   const [draft, setDraft] = useState<LaunchDraft>(() => project ? projectDraft(project) : emptyDraft());
   const [error, setError] = useState("");
-  const updateTarget = (index: number, changes: Partial<LaunchTarget>) => setDraft((current) => ({
-    ...current,
-    targets: current.targets.map((target, targetIndex) => targetIndex === index ? { ...target, ...changes } : target),
-  }));
   const submit = async () => {
     const validation = validateNewProductDraft(draft);
     if (validation) { setError(validation); return; }
@@ -331,15 +346,7 @@ function ProjectEditor({ project, facets, saving, onClose, onSave }: {
       <label><span>核准售价（元）</span><input inputMode="decimal" value={draft.approvedPriceYuan} onChange={(event) => setDraft((current) => ({ ...current, approvedPriceYuan: event.target.value }))} /></label>
       <label><span>预估毛利率（%）</span><input inputMode="decimal" value={draft.estimatedGrossMarginPercent} onChange={(event) => setDraft((current) => ({ ...current, estimatedGrossMarginPercent: event.target.value }))} /></label>
       <label className="workflow-edit-content-field"><span>工作状态备注</span><textarea rows={3} maxLength={4000} value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} /></label>
-      <fieldset className="launch-target-editor workflow-edit-content-field"><legend>店铺规划（至少 1 个）</legend>{draft.targets.map((target, index) => <div key={`${index}-${target.id ?? "new"}`}>
-        <label><span>平台</span><input required list="launch-platform-options" maxLength={80} value={target.platform} onChange={(event) => { setError(""); updateTarget(index, { platform: event.target.value }); }} /></label>
-        <label><span>店铺</span><input required list="launch-shop-options" maxLength={160} value={target.shopName} onChange={(event) => { setError(""); updateTarget(index, { shopName: event.target.value }); }} /></label>
-        <label><span>渠道</span><input maxLength={80} value={target.channel} onChange={(event) => updateTarget(index, { channel: event.target.value })} /></label>
-        <label><span>平台 SKU</span><input maxLength={160} value={target.listingSku} onChange={(event) => updateTarget(index, { listingSku: event.target.value })} /></label>
-        <label><span>状态</span><select value={target.status} onChange={(event) => updateTarget(index, { status: event.target.value as TargetStatus })}><option value="pending">待准备</option><option value="ready">可上架</option><option value="listed">已上架</option><option value="paused">暂停</option></select></label>
-        <label><span>商品链接</span><input type="url" maxLength={1000} value={target.listingUrl} onChange={(event) => updateTarget(index, { listingUrl: event.target.value })} /></label>
-        <button type="button" className="row-action danger" disabled={draft.targets.length === 1} onClick={() => setDraft((current) => ({ ...current, targets: current.targets.filter((_item, targetIndex) => targetIndex !== index) }))}>移除</button>
-      </div>)}<button type="button" className="secondary-button" onClick={() => setDraft((current) => ({ ...current, targets: [...current.targets, emptyTarget()] }))}>＋ 添加店铺规划</button></fieldset>
+      <label className="workflow-edit-content-field"><span>店铺规划</span><textarea rows={4} maxLength={4000} value={draft.shopPlan} onChange={(event) => setDraft((current) => ({ ...current, shopPlan: event.target.value }))} /></label>
       <datalist id="launch-supplier-options">{facets.suppliers.map((value) => <option key={value} value={value} />)}</datalist>
       <datalist id="launch-category-options">{facets.categories.map((value) => <option key={value} value={value} />)}</datalist>
       <datalist id="launch-owner-options">{facets.owners.map((value) => <option key={value} value={value} />)}</datalist>
@@ -399,7 +406,7 @@ function ProjectDetail({ project, canWrite, saving, onClose, onEdit, onEditStage
     <button type="button" className="workflow-modal-close" aria-label="关闭项目详情" onClick={onClose}>×</button>
     <div className="launch-detail-header">{project.productImageUrl ? <img src={project.productImageUrl} alt="" /> : <span aria-hidden="true">新</span>}<div><span className="eyebrow">PROJECT DETAIL</span><h2>{project.productName}</h2><p>{project.supplierName || "供应商待补充"} · {project.category || "品类待补充"}</p></div><StatusBadge status={project.status} /></div>
     <dl className="launch-detail-facts"><div><dt>项目负责人</dt><dd>{project.owner || "未指定"}</dd></div><div><dt>提出 / 目标</dt><dd>{project.proposedDate} → {project.targetLaunchDate || "待排期"}</dd></div><div><dt>编码</dt><dd>{project.erpProductCode || project.skuCode || project.spuCode || "未填写"}</dd></div><div><dt>定价</dt><dd>{project.approvedPriceCents !== null ? `核准 ¥${(project.approvedPriceCents / 100).toFixed(2)}` : project.recommendedPriceCents !== null ? `建议 ¥${(project.recommendedPriceCents / 100).toFixed(2)}` : "待分析"}</dd></div><div><dt>来源</dt><dd>{sourceLabel(project.source)}{project.sourceRef ? ` · ${project.sourceRef}` : ""}</dd></div><div><dt>整体进度</dt><dd>{project.progressPercent}%</dd></div></dl>
-    <section className="launch-detail-targets"><h3>店铺规划</h3><div>{project.targets.map((target) => <article key={`${target.platform}-${target.shopName}`}><strong>{target.platform} · {target.shopName}</strong><span>{target.status === "listed" ? "已上架" : target.status === "ready" ? "可上架" : target.status === "paused" ? "暂停" : "待准备"}</span><small>{target.listingSku || "SKU 待补充"}</small>{target.listingUrl && <a href={target.listingUrl} target="_blank" rel="noreferrer">打开商品链接</a>}</article>)}</div></section>
+    <section className="launch-detail-targets"><h3>店铺规划</h3>{project.shopPlan != null ? <p className="launch-visible-text">{project.shopPlan || "暂未填写"}</p> : <div>{project.targets.map((target) => <article key={`${target.platform}-${target.shopName}`}><strong>{target.platform} · {target.shopName}</strong><span>{target.status === "listed" ? "已上架" : target.status === "ready" ? "可上架" : target.status === "paused" ? "暂停" : "待准备"}</span><small>{target.listingSku || "SKU 待补充"}</small>{target.listingUrl && <a href={target.listingUrl} target="_blank" rel="noreferrer">打开商品链接</a>}</article>)}</div>}</section>
     <section className="launch-detail-stages"><header><h3>阶段交付</h3><span>{project.stages.some((stage) => stage.status === "blocked") ? "有阻塞节点" : project.overdueStageCount ? `${project.overdueStageCount} 个阶段已逾期` : "节点正常"}</span></header><div>{project.stages.map((stage) => <article key={stage.stageKey} className={`stage-${stage.status}`}><header><strong>{stage.label}</strong><StageBadge stage={stage} /></header><dl><div><dt>负责人</dt><dd>{stage.owner || "未指定"}</dd></div><div><dt>截止</dt><dd>{stage.plannedDueDate || "待排期"}</dd></div></dl>{stage.blocker && <p className="launch-stage-blocker">阻塞：{stage.blocker}</p>}{stage.notes && <p>{stage.notes}</p>}<footer>{stage.evidenceUrl ? <a href={stage.evidenceUrl} target="_blank" rel="noreferrer">{stage.evidenceLabel || "查看交付证据"}</a> : <span>暂无交付证据</span>}{canWrite && <button type="button" className="row-action" disabled={saving} onClick={() => onEditStage(stage)}>编辑节点</button>}</footer></article>)}</div></section>
     {project.notes && <section className="launch-detail-notes"><h3>工作状态备注</h3><p>{project.notes}</p></section>}
     {project.activity && <section className="launch-detail-activity"><h3>最近活动</h3><ol>{project.activity.map((activity) => <li key={activity.id}><i /><div><strong>{activity.action === "project.created" ? "创建项目" : activity.action === "project.deleted" ? "删除项目" : activity.action === "stage.updated" ? `更新${STAGES.find((item) => item.key === activity.stageKey)?.label ?? "阶段"}` : "更新项目"}</strong><p>{activity.actorEmail} · {formatDateTime(activity.createdAt)}</p></div></li>)}</ol></section>}
@@ -430,6 +437,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [editor, setEditor] = useState<LaunchProject | "create" | null>(null);
+  const [textEditor, setTextEditor] = useState<{ project: LaunchProject; field: "shopPlan" | "notes" } | null>(null);
   const [detail, setDetail] = useState<LaunchProject | null>(null);
   const [stageEditor, setStageEditor] = useState<{ project: LaunchProject; stage: LaunchStage } | null>(null);
   useAiPageDetails("workflow", {
@@ -494,6 +502,20 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
     return payload.item;
   };
 
+  const saveText = async (value: string) => {
+    if (!textEditor) return;
+    const { project, field } = textEditor;
+    setSaving(true);
+    try {
+      await requestJson(`/api/workflow/launch-projects/${encodeURIComponent(project.id)}`, {
+        method: "PATCH", body: { expectedVersion: project.version, [field]: value },
+      });
+      setTextEditor(null);
+      setFeedback(`${field === "shopPlan" ? "店铺规划" : "备注"}已保存。`);
+      await load(undefined, 1, false);
+    } finally { setSaving(false); }
+  };
+
   const saveProject = async (draft: LaunchDraft) => {
     const payload = {
       productName: draft.productName, supplierName: draft.supplierName, brand: draft.brand, category: draft.category,
@@ -505,7 +527,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
       approvedPriceCents: decimalToScaledInteger(draft.approvedPriceYuan, 100, "核准售价", 10_000_000_000_000),
       estimatedGrossMarginBps: decimalToScaledInteger(draft.estimatedGrossMarginPercent, 100, "预估毛利率", 10_000),
       notes: draft.notes,
-      targets: draft.targets.map(({ platform, shopName, channel, listingSku, listingUrl, status: targetStatus }) => ({ platform, shopName, channel, listingSku, listingUrl, status: targetStatus })),
+      shopPlan: draft.shopPlan,
       ...((editor && editor !== "create") ? { expectedVersion: editor.version } : { source: "manual" }),
     };
     setSaving(true);
@@ -573,27 +595,28 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
         { key: "overdue", label: "阶段逾期", count: quickSummary.overdue, note: "存在逾期阶段", tone: "orange" },
         { key: "completed", label: "已完成", count: quickSummary.completed, note: "已含上新复盘", tone: "green" },
         { key: "", label: "全部项目", count: quickSummary.total, note: "全部状态", tone: "slate" },
-      ] as const).map((item) => { const selected = item.key === "overdue" ? overdueOnly : !overdueOnly && status === item.key; return <button type="button" key={item.key} aria-pressed={selected} className={`tone-${item.tone}${selected ? " active" : ""}`} onClick={() => { setOverdueOnly(item.key === "overdue"); setStatus(item.key === "overdue" ? "" : item.key); }}><span>{item.label}</span><strong>{item.count}</strong><small>{item.note}</small></button>; })}
+      ] as const).map((item) => { const selected = item.key === "overdue" ? overdueOnly : !overdueOnly && status === item.key; return <button type="button" key={item.key} aria-pressed={selected} className={`tone-${item.tone}${selected ? " active" : ""}`} onClick={() => { setOverdueOnly(!selected && item.key === "overdue"); setStatus(selected || item.key === "overdue" ? "" : item.key); }}><span>{item.label}</span><strong>{item.count}</strong><small>{item.note}</small></button>; })}
     </section>
     <section className="panel launch-stage-overview"><header><div><h3>各阶段推进</h3><p>展示当前筛选下每个节点的完成、推进与阻塞数量。</p></div><span>{summary.total} 个项目</span></header><div>{summary.stageSummary.map((stage) => { const total = STAGE_STATUS_OPTIONS.reduce((sum, option) => sum + Number(stage[option.value] ?? 0), 0); return <article key={stage.stageKey}><header><strong>{stage.label}</strong><span>{stage.completed}/{total}</span></header><i><b className="completed" style={{ width: `${Number(stage.completed ?? 0) / stageMax * 100}%` }} /><b className="active" style={{ width: `${Number(stage.in_progress ?? 0) / stageMax * 100}%` }} /><b className="blocked" style={{ width: `${Number(stage.blocked ?? 0) / stageMax * 100}%` }} /></i><small>完成 {stage.completed} · 进行 {stage.in_progress} · 受阻 {stage.blocked}</small></article>; })}</div></section>
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品项目加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}
     {loading && items.length === 0 ? <LoadingState /> : view === "matrix" ? <section className="panel launch-matrix-panel data-refresh-region" aria-busy={loading}>
-      <header className="workflow-list-heading"><div><h3>新品阶段矩阵</h3><p>店铺规划可直接编辑；建模、分析定价、图片、视频和备货只需选择状态。</p></div><span>已加载 {items.length} / {pagination.total}</span></header>
-      <div className="data-table-wrap"><table className="data-table launch-matrix-table"><thead><tr><th>商品 / 供应商</th><th>店铺规划</th><th>提出 / 上架</th><th>负责人</th><th>工作状态备注</th>{STAGES.map((stage) => <th key={stage.key}>{stage.label}</th>)}<th>整体</th><th>操作</th></tr></thead><tbody>
+      <header className="workflow-list-heading"><div><h3>新品阶段矩阵</h3><p>店铺规划可自由填写，备注直接展示；建模、分析定价、图片、视频和备货只需选择状态。</p></div><span>已加载 {items.length} / {pagination.total}</span></header>
+      <div className="data-table-wrap"><table className="data-table launch-matrix-table"><thead><tr><th>商品 / 供应商</th><th data-column-filter-disabled="true">店铺规划</th><th>提出 / 上架</th><th>负责人</th>{STAGES.map((stage) => <th key={stage.key}>{stage.label}</th>)}<th>整体</th><th>备注</th><th>操作</th></tr></thead><tbody>
         {items.map((project) => <tr key={project.id}>
           <td><div className="launch-product-cell">{project.productImageUrl ? <img src={project.productImageUrl} alt="" /> : <span>新</span>}<div><strong>{project.productName}</strong><small>{project.supplierName || "供应商待补充"}</small><em>{project.erpProductCode || project.skuCode || project.category || "编码待补充"}</em></div></div></td>
-          <td><button type="button" className="launch-planning-cell" disabled={!canWrite || saving} onClick={() => setEditor(project)}><span className="launch-target-chips">{project.targets.map((target) => <span key={`${target.platform}-${target.shopName}`} title={`${target.platform} · ${target.shopName}`}>{target.platform} · {target.shopName}</span>)}</span><small>{canWrite ? "编辑店铺规划" : "店铺规划"}</small></button></td>
+          <td><button type="button" className="launch-planning-cell" aria-label={`编辑店铺规划：${project.productName}`} disabled={!canWrite || saving} onClick={() => setTextEditor({ project, field: "shopPlan" })}><span className="launch-visible-text">{shopPlanText(project)}</span><small>{canWrite ? "点击填写店铺规划" : "店铺规划"}</small></button></td>
           <td><time>{project.proposedDate}</time><small>目标 {project.targetLaunchDate || "待排期"}</small></td>
           <td><span className="launch-owner-cell">{project.owner || "未指定"}</span></td>
-          <td><div className="launch-work-note"><strong>{projectStatusLabel(project.status)}</strong><small title={project.notes}>{project.notes || "暂无备注"}</small></div></td>
           {STAGES.map((definition) => { const stage = project.stages.find((item) => item.stageKey === definition.key); const statusOnly = STATUS_ONLY_STAGE_KEYS.has(definition.key); return <td key={definition.key}>{stage ? <button type="button" className="launch-stage-cell" disabled={!canWrite} onClick={() => canWrite && setStageEditor({ project, stage })}><StageBadge stage={stage} compact />{!statusOnly && <><small>{stage.owner || "未指定"}</small><time>{stage.plannedDueDate || "待排期"}</time>{stage.evidenceUrl && <em>有证据</em>}</>}</button> : "—"}</td>; })}
-          <td><div className="launch-progress"><StatusBadge status={project.status} /><i><b style={{ width: `${project.progressPercent}%` }} /></i><small>{project.progressPercent}%{project.overdue ? ` · ${project.overdueStageCount} 项逾期` : ""}</small></div></td>
+          <td><div className="launch-overall-progress"><StatusBadge status={project.status} /><i><b style={{ width: `${project.progressPercent}%` }} /></i><small>{project.progressPercent}%{project.overdue ? ` · ${project.overdueStageCount} 项逾期` : ""}</small></div></td>
+          <td><button type="button" className="launch-planning-cell launch-notes-cell" aria-label={`编辑备注：${project.productName}`} disabled={!canWrite || saving} onClick={() => setTextEditor({ project, field: "notes" })}><span className="launch-visible-text">{project.notes || "暂无备注"}</span><small>{canWrite ? "编辑备注" : "备注"}</small></button></td>
           <td><div className="workflow-plan-actions"><button type="button" className="row-action" onClick={() => void openDetail(project)}>详情</button><button type="button" className="row-action" disabled={!canWrite || saving} onClick={() => setEditor(project)}>编辑</button><button type="button" className="row-action danger" disabled={!canWrite || saving} onClick={() => void deleteProject(project)}>删除</button></div></td>
         </tr>)}
         {items.length === 0 && <tr><td colSpan={14}><div className="table-state">暂无符合条件的新品项目。</div></td></tr>}
       </tbody></table></div>
-    </section> : <section className="launch-kanban data-refresh-region" aria-busy={loading}>{kanban.map((column) => <article className={`panel kanban-${column.value}`} key={column.value}><header><span>{column.label}</span><strong>{column.items.length}</strong></header><div>{column.items.map((project) => <button type="button" key={project.id} onClick={() => void openDetail(project)}><header><b className={`priority-${project.priority}`}>{priorityLabel(project.priority)}</b><small>{project.targetLaunchDate || "待排期"}</small></header><strong>{project.productName}</strong><p>{project.supplierName || "供应商待补充"}</p><div className="launch-mini-stages">{project.stages.map((stage) => <i key={stage.stageKey} className={`stage-${stage.status}`} title={`${stage.label}：${stageStatusLabel(stage.status)}`} />)}</div><footer><span>{project.owner || "未指定负责人"}</span><em>{project.progressPercent}%</em></footer>{project.targets.slice(0, 2).map((target) => <small key={`${target.platform}-${target.shopName}`}>{target.platform} · {target.shopName}</small>)}</button>)}{column.items.length === 0 && <p className="launch-kanban-empty">暂无项目</p>}</div></article>)}</section>}
+    </section> : <section className="launch-kanban data-refresh-region" aria-busy={loading}>{kanban.map((column) => <article className={`panel kanban-${column.value}`} key={column.value}><header><span>{column.label}</span><strong>{column.items.length}</strong></header><div>{column.items.map((project) => <button type="button" key={project.id} onClick={() => void openDetail(project)}><header><b className={`priority-${project.priority}`}>{priorityLabel(project.priority)}</b><small>{project.targetLaunchDate || "待排期"}</small></header><strong>{project.productName}</strong><p>{project.supplierName || "供应商待补充"}</p><div className="launch-mini-stages">{project.stages.map((stage) => <i key={stage.stageKey} className={`stage-${stage.status}`} title={`${stage.label}：${stageStatusLabel(stage.status)}`} />)}</div><footer><span>{project.owner || "未指定负责人"}</span><em>{project.progressPercent}%</em></footer><small className="launch-visible-text">{shopPlanText(project)}</small></button>)}{column.items.length === 0 && <p className="launch-kanban-empty">暂无项目</p>}</div></article>)}</section>}
     {pagination.truncated && <div className="operations-load-more"><button type="button" className="secondary-button" disabled={loadingMore} onClick={() => void load(undefined, pagination.page + 1, true)}>{loadingMore ? "加载中…" : `继续加载（${items.length} / ${pagination.total}）`}</button></div>}
+    {textEditor && <ProjectTextEditor key={`${textEditor.project.id}-${textEditor.field}-${textEditor.project.version}`} project={textEditor.project} field={textEditor.field} saving={saving} onClose={() => setTextEditor(null)} onSave={saveText} />}
     {editor && <ProjectEditor key={editor === "create" ? "create" : `${editor.id}-${editor.version}`} project={editor === "create" ? null : editor} facets={facets} saving={saving} onClose={() => setEditor(null)} onSave={saveProject} />}
     {stageEditor && <StageEditor key={`${stageEditor.project.id}-${stageEditor.stage.stageKey}-${stageEditor.stage.version}`} project={stageEditor.project} stage={stageEditor.stage} saving={saving} onClose={() => setStageEditor(null)} onSave={saveStage} />}
     {detail && !stageEditor && <ProjectDetail project={detail} canWrite={canWrite} saving={saving} onClose={() => setDetail(null)} onEdit={() => { setEditor(detail); setDetail(null); }} onEditStage={(stage) => setStageEditor({ project: detail, stage })} />}

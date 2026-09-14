@@ -367,6 +367,7 @@ class NewProductProject(models.Model):
     estimated_gross_margin_bps = models.IntegerField(null=True, blank=True)
     source = models.CharField(max_length=24, default="manual", db_index=True)
     source_ref = models.CharField(max_length=200, default="")
+    shop_plan = models.TextField(null=True, blank=True, default=None)
     notes = models.TextField(default="")
     version = models.PositiveBigIntegerField(default=1)
     created_by = models.CharField(max_length=320)

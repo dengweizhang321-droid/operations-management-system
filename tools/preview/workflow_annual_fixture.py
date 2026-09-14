@@ -19,6 +19,9 @@ def seed_workflow_annual(today):
     NewProductLineCode.objects.create(product_line=line, product_code="DEMO-001", product_name="商用电风扇", source="manual", added_by="preview@teruisi.local")
     for index, status in enumerate(("in_progress", "blocked", "completed", "not_started")):
         project = NewProductProject.objects.create(product_name=f"合成演示商品 {index+1}", supplier_name="演示供应商", owner="演示负责人", proposed_by="演示负责人", proposed_date=today-timedelta(days=10), created_by="preview@teruisi.local", updated_by="preview@teruisi.local")
+        project.shop_plan = "京东演示店：先上架\n天猫演示店：图片确认后上架" if index == 0 else ""
+        project.notes = "等待供应商确认样品。\n图片确认后安排上架，负责人下周继续跟进。" if index == 1 else ""
+        project.save(update_fields=["shop_plan", "notes"])
         for stage in ("modeling", "pricing", "image", "video", "listing", "stocking", "review"):
             NewProductStage.objects.create(project=project, stage_key=stage, status=status if stage == "modeling" or status == "completed" else "not_started", planned_due_date=today+timedelta(days=-2 if index == 1 else 10), updated_by="preview@teruisi.local")
     year = str(today.year)

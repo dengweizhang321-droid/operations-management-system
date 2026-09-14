@@ -571,7 +571,7 @@ REQUIRED_WORKFLOW_COLUMNS = {
     "workflow_operation_activities": {"id", "record_id", "action", "actor_email", "actor_role", "from_version", "to_version", "detail"},
     "workflow_new_product_projects": {
         "id", "product_name", "supplier_name", "brand", "category",
-        "erp_product_code", "sku_code", "spu_code", "proposed_date", "owner",
+        "erp_product_code", "sku_code", "spu_code", "proposed_date", "owner", "shop_plan",
         "target_launch_date", "lifecycle_status", "priority", "source_ref", "version",
         "created_at", "updated_at", "deleted_at",
     },

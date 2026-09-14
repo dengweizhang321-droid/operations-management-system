@@ -241,7 +241,7 @@ test("work plan exposes server facets, standardized suggestions and complete fil
   assert.doesNotMatch(route, /getD1Database|listWorkflowTasks/);
 });
 
-test("new-product editor validates multi-store identity, dates, money and optional stage details", async () => {
+test("new-product editor accepts blank planning and validates dates, money and optional stage details", async () => {
   const draft = {
     productName: "大通量商用净水器",
     supplierName: "供应商甲",
@@ -261,13 +261,13 @@ test("new-product editor validates multi-store identity, dates, money and option
     approvedPriceYuan: "",
     estimatedGrossMarginPercent: "32.50",
     notes: "",
-    targets: [{ platform: "京东", shopName: "测试店", channel: "线上", listingSku: "", listingUrl: "", status: "pending" as const }],
+    shopPlan: "",
   };
   assert.equal(validateNewProductDraft(draft), "");
   assert.match(validateNewProductDraft({ ...draft, productName: "" }), /商品名称/);
   assert.match(validateNewProductDraft({ ...draft, targetLaunchDate: "2026-09-01" }), /不能早于/);
   assert.match(validateNewProductDraft({ ...draft, recommendedPriceYuan: "1.999" }), /最多保留 2 位/);
-  assert.match(validateNewProductDraft({ ...draft, targets: [...draft.targets, { ...draft.targets[0]! }] }), /不能重复/);
+  assert.equal(validateNewProductDraft({ ...draft, shopPlan: "京东测试店\n天猫测试店：下周上架" }), "");
   assert.equal(validateStageDraft({ status: "blocked", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "", evidenceLabel: "" }), "");
   assert.match(validateStageDraft({ status: "completed", owner: "", plannedDueDate: "", blocker: "", notes: "", evidenceUrl: "ftp://invalid", evidenceLabel: "" }), /http/);
 });

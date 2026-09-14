@@ -310,7 +310,8 @@ export default function TableColumnFilters() {
       }
       const label = headerLabel(header);
       const controls = partialDataset && !explicitlyDisabled ? externalFilterControls(table, header) : [];
-      if (explicitlyDisabled || (partialDataset && controls.length === 0)) {
+      if (explicitlyDisabled || header.dataset.columnFilterDisabled === "true" || (partialDataset && controls.length === 0)) {
+        filtersFor(table).delete(header.cellIndex);
         clearHeaderFilterUi(header);
         continue;
       }
