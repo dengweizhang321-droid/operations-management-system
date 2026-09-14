@@ -44,7 +44,7 @@ for (const kind of ["worker", "helper"] as const) test(`real ${kind} child resta
     const manifest = JSON.parse(await readFile(release.manifestPath, "utf8"));
     const childRelative = "helper/mirror-http-child.mjs";
     await mkdir(path.join(release.releaseRoot, "helper"));
-    const childRaw = Buffer.from('import http from "node:http"; const server=http.createServer((req,res)=>{res.setHeader("content-type","application/json");res.end(JSON.stringify({pid:process.pid}));}); server.listen(Number(process.argv[2]),"127.0.0.1");\n');
+    const childRaw = Buffer.from('import http from "node:http"; let live=true,failuresRemaining=0; const server=http.createServer((req,res)=>{if(req.url==="/disable" && req.method==="POST"){live=false;res.end("ok");return}if(req.url==="/transient" && req.method==="POST"){failuresRemaining=1;res.end("ok");return}if(req.url==="/_teruisi/local/health/live"){const healthy=live && failuresRemaining-- <= 0;res.statusCode=healthy?200:503;res.end(JSON.stringify({status:healthy?"live":"unavailable"}));return}res.setHeader("content-type","application/json");res.end(JSON.stringify({pid:process.pid}));}); server.listen(Number(process.argv[2]),"127.0.0.1");\n');
     await writeFile(path.join(release.releaseRoot, childRelative), childRaw);
     if (kind === "worker") {
       manifest.processIdentity.wranglerEntrypoint = childRelative;
@@ -100,9 +100,23 @@ for (const kind of ["worker", "helper"] as const) test(`real ${kind} child resta
       throw new Error("Supervisor readiness timeout: " + output);
     };
     const firstPid = await ready();
+    let lastPid = firstPid;
+    if (kind === "worker") {
+      const transient = await fetch(`http://127.0.0.1:${port}/transient`, { method: "POST" });
+      assert.equal(transient.status, 200);
+      await new Promise(resolve => setTimeout(resolve, 700));
+      assert.equal(await ready(), firstPid, "a single failed probe must not restart the worker");
+      // The HTTP worker is unhealthy while its outer Node process stays alive.
+      // A bounded liveness takeover must terminate only this owned process tree.
+      const response = await fetch(`http://127.0.0.1:${port}/disable`, { method: "POST" });
+      assert.equal(response.status, 200);
+      const recoveredPid = await ready(firstPid);
+      assert.notEqual(recoveredPid, firstPid);
+      lastPid = recoveredPid;
+    }
     killExactChild();
-    const secondPid = await ready(firstPid);
-    assert.notEqual(secondPid, firstPid);
+    const secondPid = await ready(lastPid);
+    assert.notEqual(secondPid, lastPid);
     const rejection = once(driver, "message");
     await writeFile(path.join(release.releaseRoot, "audit/global-d1-retirement.json"), "{}\n");
     killExactChild();

@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import {
   createLocalScheduledTriggerSupervisor,
   ensureRuntimeDevVarsLink,
+  localLivenessFailureThreshold,
+  monitorLocalWorkerLiveness,
+  probeLocalWorkerLiveness,
+  terminateOwnedProcessTree,
 } from "./start-local-worker.mjs";
 import { assertReleaseWorkerLaunchAllowed } from "./worker-authority-guard.mjs";
 import {
@@ -177,6 +181,20 @@ function observeChild(child, signal) {
   });
 }
 
+async function waitForTerminatedChild(childExit) {
+  let timeout;
+  try {
+    return await Promise.race([
+      childExit,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("不可变 Worker 子进程未在15秒内退出，停止自动恢复")), 15_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function waitForPortRelease(port, label, signal) {
   const started = Date.now();
   // An exact loopback connect probe is insufficient here: a wildcard,
@@ -237,7 +255,11 @@ export async function superviseImmutableHelper({ releaseRoot, manifest, manifest
   }
 }
 
-export async function superviseImmutableWorker({ releaseRoot, manifest, manifestPath, manifestSha256, runtimeRoot, signal }) {
+export async function superviseImmutableWorker({
+  releaseRoot, manifest, manifestPath, manifestSha256, runtimeRoot, signal,
+  livenessMonitor = monitorLocalWorkerLiveness,
+  terminateWorkerTree = terminateOwnedProcessTree,
+}) {
   let restartTimestamps = [];
   let restartCount = 0;
   while (!signal.aborted) {
@@ -269,8 +291,46 @@ export async function superviseImmutableWorker({ releaseRoot, manifest, manifest
       path.join(releaseRoot, ...manifest.processIdentity.wranglerEntrypoint.split("/")),
       ...manifest.processIdentity.fixedWranglerArguments,
     ], { cwd: releaseRoot, env: workerEnvironment, stdio: "inherit", windowsHide: true });
-    const outcome = await observeChild(child, signal);
-    if (signal.aborted) return;
+    // Shutdown must terminate the owned Wrangler tree, not just the parent
+    // process: an inner workerd can outlive Wrangler after a fatal error.
+    const childExit = observeChild(child);
+    const monitorController = new AbortController();
+    const abortMonitor = () => monitorController.abort();
+    if (signal.aborted) abortMonitor();
+    else signal.addEventListener("abort", abortMonitor, { once: true });
+    const liveness = Promise.resolve().then(() => livenessMonitor({
+      signal: monitorController.signal,
+      failureThreshold: localLivenessFailureThreshold,
+      probe: ({ signal: probeSignal }) => probeLocalWorkerLiveness({
+        url: `http://${workerHost}:${workerPort}/_teruisi/local/health/live`,
+        signal: probeSignal,
+      }),
+    })).catch((error) => ({ status: "unhealthy", error }));
+    let first;
+    try {
+      first = await Promise.race([
+        childExit.then((result) => ({ source: "process", result })),
+        liveness.then((result) => ({ source: "liveness", result })),
+      ]);
+    } finally {
+      monitorController.abort();
+      signal.removeEventListener("abort", abortMonitor);
+    }
+    if (signal.aborted) {
+      await terminateWorkerTree(child);
+      await waitForTerminatedChild(childExit);
+      await waitForPortRelease(workerPort, "不可变 Worker", signal);
+      return;
+    }
+    if (first.source === "liveness") {
+      await terminateWorkerTree(child);
+      if (first.result.status === "aborted") {
+        await waitForTerminatedChild(childExit);
+        await waitForPortRelease(workerPort, "不可变 Worker", signal);
+        throw new Error("不可变 Worker 存活观察器意外停止");
+      }
+    }
+    const outcome = first.source === "liveness" ? await waitForTerminatedChild(childExit) : await childExit;
     await waitForPortRelease(workerPort, "不可变 Worker", signal);
     const now = Date.now();
     restartTimestamps = restartTimestamps.filter((value) => now - value < restartWindowMs);
@@ -279,7 +339,9 @@ export async function superviseImmutableWorker({ releaseRoot, manifest, manifest
       throw new Error("不可变 Worker 在10分钟内重启超过5次，已失败关闭");
     }
     restartCount += 1;
-    const reason = outcome.signal ? `signal=${outcome.signal}` : `exit=${outcome.code ?? "unknown"}`;
+    const reason = first.source === "liveness"
+      ? `存活检查连续 ${first.result.consecutiveFailures ?? localLivenessFailureThreshold} 次失败`
+      : outcome.signal ? `signal=${outcome.signal}` : `exit=${outcome.code ?? "unknown"}`;
     const delay = Math.min(30_000, 1_000 * (2 ** Math.min(restartCount - 1, 5)));
     process.stderr.write(`不可变 Worker 已退出（${reason}），${delay}ms 后受控重启\n`);
     if (!(await waitForDelay(delay, signal))) return;
