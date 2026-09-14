@@ -146,6 +146,26 @@ class NewProductWeeklyFollowupTests(TestCase):
         own = preview_product_line_codes(line["id"], "油水分离器", [])
         self.assertEqual({row["productCode"] for row in own["candidates"]}, {"YS-001", "YS-002"})
 
+    def test_production_reader_routes_learning_get_and_rejects_post(self):
+        from django.test import RequestFactory
+        from django.urls import URLResolver
+        from django.urls.resolvers import RegexPattern
+        from workflow.urls import read_patterns
+        from urllib.parse import urlencode
+
+        line = self.create_line().json()["item"]
+        path = "/api/workflow/new-product-lines/learn"
+        url = path + "?" + urlencode({"lineId": line["id"], "name": "编辑产品线", "term": "净水机"})
+        match = URLResolver(RegexPattern(r"^api/workflow/"), read_patterns).resolve(path.lstrip("/"))
+        self.assertIsNotNone(match)
+        before = list(NewProductLineCode.objects.values())
+        response = match.func(RequestFactory().get(url, headers=signed_headers(url)))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(json.loads(response.content)["candidates"][0]["productCode"], "OTHER-1")
+        rejected = match.func(RequestFactory().post(path, data="{}", content_type="application/json"))
+        self.assertEqual(rejected.status_code, 405)
+        self.assertEqual(list(NewProductLineCode.objects.values()), before)
+
     def test_draft_learning_rejects_truncation_and_bad_terms(self):
         from workflow.followup import preview_product_line_codes
         from workflow.errors import WorkflowApiError
