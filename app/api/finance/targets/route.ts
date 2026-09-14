@@ -13,12 +13,12 @@ import {
 import { parsePositiveIntegerQuery, PublicApiError, requirePositiveSafeIntegerNumber, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FINANCE_TARGET_AMOUNT_CENTS = 10_000_000_000_000;
-type FinanceTargetReadView = "full" | "items" | "options";
+type FinanceTargetReadView = "full" | "items" | "options" | "annual";
 
 function readFinanceTargetView(values: string[]): FinanceTargetReadView {
   if (values.length === 0) return "full";
-  if (values.length !== 1 || !(["full", "items", "options"] as const).includes(values[0] as FinanceTargetReadView)) {
-    throw new PublicApiError(400, "invalid_request", "view 必须且只能是 full、items 或 options");
+  if (values.length !== 1 || !(["full", "items", "options", "annual"] as const).includes(values[0] as FinanceTargetReadView)) {
+    throw new PublicApiError(400, "invalid_request", "view 必须且只能是 full、items、options 或 annual");
   }
   return values[0] as FinanceTargetReadView;
 }
@@ -75,6 +75,12 @@ async function getDjangoTargets(
   signal: AbortSignal,
 ) {
   const view = readFinanceTargetView(params.getAll("view"));
+  if (view === "annual") {
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal, { method: "GET", path: FINANCE_TARGETS_PATH, query: params, service: "reader" }, { signal },
+    );
+    return requireDjangoRecord(result.data);
+  }
   if (view === "items") {
     const result = await createDjangoFinanceService().request<Record<string, unknown>>(
       principal,

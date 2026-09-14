@@ -101,6 +101,7 @@ type LaunchPayload = {
   items?: LaunchProject[];
   pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean };
   summary?: LaunchSummary;
+  quickSummary?: Pick<LaunchSummary, 'total' | 'inProgress' | 'blocked' | 'completed' | 'overdue'>;
   facets?: LaunchFacets;
 };
 
@@ -410,10 +411,12 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   const requestGeneration = useRef(0);
   const [items, setItems] = useState<LaunchProject[]>([]);
   const [summary, setSummary] = useState<LaunchSummary>({ total: 0, notStarted: 0, inProgress: 0, blocked: 0, completed: 0, paused: 0, cancelled: 0, overdue: 0, stageSummary: [] });
+  const [quickSummary, setQuickSummary] = useState({ total: 0, inProgress: 0, blocked: 0, completed: 0, overdue: 0 });
   const [facets, setFacets] = useState<LaunchFacets>({ suppliers: [], owners: [], categories: [], platforms: [], shopNames: [], sources: [] });
   const [pagination, setPagination] = useState({ page: 1, pageSize: PAGE_SIZE, total: 0, returned: 0, truncated: false });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProjectStatus | "">("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [supplier, setSupplier] = useState("");
   const [owner, setOwner] = useState("");
   const [stageKey, setStageKey] = useState<StageKey | "">("");
@@ -439,6 +442,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
     const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
     if (query.trim()) params.set("q", query.trim());
     if (status) params.append("status", status);
+    if (overdueOnly) params.set("overdue", "true");
     if (supplier) params.append("supplier", supplier);
     if (owner) params.append("owner", owner);
     if (stageKey) params.set("stage", stageKey);
@@ -446,7 +450,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
     if (proposedFrom) params.set("proposedFrom", proposedFrom);
     if (dueTo) params.set("dueTo", datePlus(dueTo, 1));
     return params;
-  }, [dueTo, owner, proposedFrom, query, stageKey, stageStatus, status, supplier]);
+  }, [dueTo, owner, proposedFrom, query, stageKey, stageStatus, status, supplier, overdueOnly]);
 
   const load = useCallback(async (signal?: AbortSignal, page = 1, append = false) => {
     const generation = ++requestGeneration.current;
@@ -458,6 +462,7 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
       const next = Array.isArray(payload.items) ? payload.items : [];
       setItems((current) => append ? Array.from(new Map([...current, ...next].map((item) => [item.id, item])).values()) : next);
       if (payload.summary) setSummary(payload.summary);
+      if (payload.quickSummary) setQuickSummary(payload.quickSummary);
       if (payload.facets) setFacets((current) => ({
         suppliers: Array.from(new Set([...current.suppliers, ...payload.facets!.suppliers])).sort((left, right) => left.localeCompare(right, "zh-CN")),
         owners: Array.from(new Set([...current.owners, ...payload.facets!.owners])).sort((left, right) => left.localeCompare(right, "zh-CN")),
@@ -560,8 +565,16 @@ export default function NewProductLaunchView({ canWrite }: { canWrite: boolean }
   return <div className="launch-workspace">
     <section className="workflow-toolbar workflow-section-hero launch-hero"><div><span className="eyebrow">NEW PRODUCT PIPELINE</span><h2>新品上新</h2><p>从提出到复盘统一管理商品、店铺规划、负责人、工作状态备注与节点状态。</p></div><div className="workflow-hero-actions"><span>{canWrite ? "可协作编辑" : "只读访问"}</span><button type="button" className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>{canWrite ? "＋ 新建新品项目" : "仅查看"}</button></div></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭新品提示" onClick={() => setFeedback("")}>×</button></div>}
-    <section className="panel launch-controls"><div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品、供应商、编码、店铺或负责人" aria-label="搜索新品项目" /><select value={supplier} onChange={(event) => setSupplier(event.target.value)} aria-label="供应商筛选"><option value="">全部供应商</option>{facets.suppliers.map((value) => <option key={value}>{value}</option>)}</select><select value={owner} onChange={(event) => setOwner(event.target.value)} aria-label="负责人筛选"><option value="">全部负责人</option>{facets.owners.map((value) => <option key={value}>{value}</option>)}</select><select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | "")} aria-label="整体状态筛选"><option value="">全部状态</option>{PROJECT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><select value={stageKey} onChange={(event) => setStageKey(event.target.value as StageKey | "")} aria-label="阶段筛选"><option value="">全部阶段</option>{STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}</select><select value={stageStatus} onChange={(event) => setStageStatus(event.target.value as StageStatus | "")} aria-label="阶段状态筛选"><option value="">全部节点状态</option>{STAGE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><label><span>提出日期起</span><input type="date" value={proposedFrom} onChange={(event) => setProposedFrom(event.target.value)} /></label><label><span>目标上架止</span><input type="date" value={dueTo} onChange={(event) => setDueTo(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setQuery(""); setStatus(""); setSupplier(""); setOwner(""); setStageKey(""); setStageStatus(""); setProposedFrom(""); setDueTo(""); }}>清除筛选</button></div><div className="workflow-view-switch" role="radiogroup" aria-label="新品项目视图"><button type="button" role="radio" aria-checked={view === "matrix"} className={view === "matrix" ? "active" : ""} onClick={() => setView("matrix")}>☷ 阶段矩阵</button><button type="button" role="radio" aria-checked={view === "kanban"} className={view === "kanban" ? "active" : ""} onClick={() => setView("kanban")}>▥ 看板</button></div></section>
-    <section className="workflow-summary-grid launch-summary-grid"><article className="tone-blue"><span>进行中</span><strong>{summary.inProgress}</strong><small>正在推进</small></article><article className="tone-red"><span>受阻</span><strong>{summary.blocked}</strong><small>需优先排障</small></article><article className="tone-orange"><span>阶段逾期</span><strong>{summary.overdue}</strong><small>Asia/Shanghai</small></article><article className="tone-green"><span>已完成</span><strong>{summary.completed}</strong><small>已含上新复盘</small></article><article className="tone-slate"><span>全部项目</span><strong>{summary.total}</strong><small>{summary.paused + summary.cancelled} 个暂停/取消</small></article></section>
+    <section className="panel launch-controls"><div><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索商品、供应商、编码、店铺或负责人" aria-label="搜索新品项目" /><select value={supplier} onChange={(event) => setSupplier(event.target.value)} aria-label="供应商筛选"><option value="">全部供应商</option>{facets.suppliers.map((value) => <option key={value}>{value}</option>)}</select><select value={owner} onChange={(event) => setOwner(event.target.value)} aria-label="负责人筛选"><option value="">全部负责人</option>{facets.owners.map((value) => <option key={value}>{value}</option>)}</select><select value={status} onChange={(event) => { setStatus(event.target.value as ProjectStatus | ""); setOverdueOnly(false); }} aria-label="整体状态筛选"><option value="">全部状态</option>{PROJECT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><select value={stageKey} onChange={(event) => setStageKey(event.target.value as StageKey | "")} aria-label="阶段筛选"><option value="">全部阶段</option>{STAGES.map((stage) => <option key={stage.key} value={stage.key}>{stage.label}</option>)}</select><select value={stageStatus} onChange={(event) => setStageStatus(event.target.value as StageStatus | "")} aria-label="阶段状态筛选"><option value="">全部节点状态</option>{STAGE_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><label><span>提出日期起</span><input type="date" value={proposedFrom} onChange={(event) => setProposedFrom(event.target.value)} /></label><label><span>目标上架止</span><input type="date" value={dueTo} onChange={(event) => setDueTo(event.target.value)} /></label><button type="button" className="row-action" onClick={() => { setQuery(""); setStatus(""); setOverdueOnly(false); setSupplier(""); setOwner(""); setStageKey(""); setStageStatus(""); setProposedFrom(""); setDueTo(""); }}>清除筛选</button></div><div className="workflow-view-switch" role="radiogroup" aria-label="新品项目视图"><button type="button" role="radio" aria-checked={view === "matrix"} className={view === "matrix" ? "active" : ""} onClick={() => setView("matrix")}>☷ 阶段矩阵</button><button type="button" role="radio" aria-checked={view === "kanban"} className={view === "kanban" ? "active" : ""} onClick={() => setView("kanban")}>▥ 看板</button></div></section>
+    <section className="workflow-summary-grid launch-summary-grid" aria-label="新品项目快捷筛选">
+      {([
+        { key: "in_progress", label: "进行中", count: quickSummary.inProgress, note: "正在推进", tone: "blue" },
+        { key: "blocked", label: "受阻", count: quickSummary.blocked, note: "需优先排障", tone: "red" },
+        { key: "overdue", label: "阶段逾期", count: quickSummary.overdue, note: "存在逾期阶段", tone: "orange" },
+        { key: "completed", label: "已完成", count: quickSummary.completed, note: "已含上新复盘", tone: "green" },
+        { key: "", label: "全部项目", count: quickSummary.total, note: "全部状态", tone: "slate" },
+      ] as const).map((item) => { const selected = item.key === "overdue" ? overdueOnly : !overdueOnly && status === item.key; return <button type="button" key={item.key} aria-pressed={selected} className={`tone-${item.tone}${selected ? " active" : ""}`} onClick={() => { setOverdueOnly(item.key === "overdue"); setStatus(item.key === "overdue" ? "" : item.key); }}><span>{item.label}</span><strong>{item.count}</strong><small>{item.note}</small></button>; })}
+    </section>
     <section className="panel launch-stage-overview"><header><div><h3>各阶段推进</h3><p>展示当前筛选下每个节点的完成、推进与阻塞数量。</p></div><span>{summary.total} 个项目</span></header><div>{summary.stageSummary.map((stage) => { const total = STAGE_STATUS_OPTIONS.reduce((sum, option) => sum + Number(stage[option.value] ?? 0), 0); return <article key={stage.stageKey}><header><strong>{stage.label}</strong><span>{stage.completed}/{total}</span></header><i><b className="completed" style={{ width: `${Number(stage.completed ?? 0) / stageMax * 100}%` }} /><b className="active" style={{ width: `${Number(stage.in_progress ?? 0) / stageMax * 100}%` }} /><b className="blocked" style={{ width: `${Number(stage.blocked ?? 0) / stageMax * 100}%` }} /></i><small>完成 {stage.completed} · 进行 {stage.in_progress} · 受阻 {stage.blocked}</small></article>; })}</div></section>
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品项目加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}
     {loading && items.length === 0 ? <LoadingState /> : view === "matrix" ? <section className="panel launch-matrix-panel data-refresh-region" aria-busy={loading}>

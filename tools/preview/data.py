@@ -87,6 +87,8 @@ def seed():
             execution_json=json.dumps({"durationMs":3200,"providerCalls":1,"toolCalls":1,"stopReason":"stop","guidance":guidance},ensure_ascii=False))
     from report_fixture import seed_report
     seed_report(today)
+    from workflow_annual_fixture import seed_workflow_annual
+    seed_workflow_annual(today)
     print(json.dumps({"fixture":"synthetic-v1", "anchorDate":str(today), "sales":180, "products":6, "stock":6, "age":6}, ensure_ascii=False))
 
 

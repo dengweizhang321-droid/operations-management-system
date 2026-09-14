@@ -94,6 +94,28 @@ class WorkflowApiContractTests(TestCase):
     def create_project(self, request_id: str = "workflow-create-1"):
         return self.request_json("POST", "/api/workflow/launch-projects", project_payload(), request_id)
 
+    def test_status_and_overdue_filters_apply_before_pagination(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from workflow.models import NewProductStage
+        first = self.create_project("quick-first").json()["item"]
+        self.create_project("quick-second")
+        NewProductStage.objects.filter(project_id=first["id"], stage_key="modeling").update(
+            status="in_progress", planned_due_date=timezone.localdate() - timedelta(days=1))
+        for query in ("status=in_progress", "overdue=true", "status=in_progress&overdue=true"):
+            url = "/api/workflow/launch-projects?" + query + "&page=1&pageSize=1"
+            response = self.client.get(url, headers=signed_headers(url))
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()["pagination"]["total"], 1)
+            self.assertEqual(response.json()["quickSummary"]["total"], 2)
+            self.assertEqual(response.json()["items"][0]["id"], first["id"])
+        url = "/api/workflow/launch-projects?overdue=invalid"
+        self.assertEqual(self.client.get(url, headers=signed_headers(url)).status_code, 400)
+        url = "/api/workflow/launch-projects?pageSize=1"
+        response = self.client.get(url, headers=signed_headers(url))
+        self.assertEqual(response.json()["pagination"]["total"], 2)
+        self.assertTrue(response.json()["pagination"]["truncated"])
+
     def test_workflow_reader_readiness_validates_schema_indexes_and_revision(self) -> None:
         self.assertEqual(self.create_project("workflow-ready-reader").status_code, 201)
         with override_settings(DJANGO_PROCESS_ROLE="workflow_reader", DJANGO_EXPECT_READ_ONLY=False):
@@ -126,7 +148,26 @@ class WorkflowApiContractTests(TestCase):
             WORKFLOW_OPERATIONS_WRITE_AUTHORITY_EPOCH=str(operations_epoch),
             WORKFLOW_OPERATIONS_WRITE_CUTOVER_ID=operations_cutover_id,
         ):
-            response = self.client.get("/health/ready")
+            # The test owner has DDL rights; exercise the writer contract as a
+            # real restricted role instead of weakening the production guard.
+            from django.db import connection
+            if connection.vendor == "postgresql":
+                from psycopg import sql
+                from teruisi_backend.health import WORKFLOW_WRITER_TABLE_PRIVILEGES
+                role = "wf_writer_test_" + uuid.uuid4().hex[:12]
+                with connection.cursor() as cursor:
+                    cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN").format(sql.Identifier(role)))
+                    cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(sql.Identifier(role)))
+                    for table, privileges in WORKFLOW_WRITER_TABLE_PRIVILEGES.items():
+                        cursor.execute(sql.SQL("GRANT {} ON TABLE {} TO {}").format(
+                            sql.SQL(", ").join(sql.SQL(value) for value in privileges), sql.Identifier(table), sql.Identifier(role)))
+                    cursor.execute(sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(role)))
+                    try:
+                        response = self.client.get("/health/ready")
+                    finally:
+                        cursor.execute("RESET ROLE")
+            else:
+                response = self.client.get("/health/ready")
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()["workflowWriter"], "ready")
 

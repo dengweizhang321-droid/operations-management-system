@@ -362,7 +362,7 @@ function lineToDraft(line: ProductLine): LineDraft {
   };
 }
 
-function ProductLineEditor({ line, saving, onClose, onSave }: {
+export function ProductLineEditor({ line, saving, onClose, onSave }: {
   line: ProductLine | null;
   saving: boolean;
   onClose: () => void;
@@ -370,6 +370,32 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
 }) {
   const [draft, setDraft] = useState<LineDraft>(() => line ? lineToDraft(line) : { ...EMPTY_DRAFT, monitoringStartDate: localIsoDate() });
   const [error, setError] = useState("");
+  const [learningDraft, setLearningDraft] = useState(false);
+  const [learningFeedback, setLearningFeedback] = useState("");
+  const [ambiguousCodes, setAmbiguousCodes] = useState<Array<{ productCode: string; productName: string; reason: string }>>([]);
+  const learningController = useRef<AbortController | null>(null);
+  useEffect(() => () => learningController.current?.abort(), []);
+  const learnDraft = async () => {
+    if (learningDraft || saving) return;
+    const params = new URLSearchParams({ name: draft.name, ...(line ? { lineId: line.id } : {}) });
+    draft.matchTerms.split(/[,，、;；\n]+/).map((value) => value.trim()).filter(Boolean).forEach((term) => params.append("term", term));
+    const controller = new AbortController();
+    learningController.current = controller;
+    const timeout = window.setTimeout(() => { if (!controller.signal.aborted) { setError("学习代码读取超时，请重试。"); setLearningDraft(false); controller.abort(); } }, 30_000);
+    setLearningDraft(true); setError(""); setLearningFeedback(""); setAmbiguousCodes([]);
+    try {
+      const result = await requestJson<{ candidates: Array<{ productCode: string }>; ambiguous: Array<{ productCode: string; productName: string; reason: string }> }>(`/api/workflow/new-product-lines/learn?${params}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const existing = new Set(draft.productCodes.split(/[\s,，、;；]+/).map((code) => code.trim()).filter(Boolean));
+      const additions = result.candidates.map((row) => row.productCode).filter((code) => !existing.has(code));
+      const merged = [...new Set([...existing, ...additions])];
+      if (merged.length > 500) throw new Error("合并后超过 500 个代码，请缩小关键词范围后学习。");
+      setDraft((current) => ({ ...current, productCodes: merged.join("\n") }));
+      setAmbiguousCodes(result.ambiguous);
+      setLearningFeedback(`${additions.length ? `已补充 ${additions.length} 个新代码` : "没有新代码"}，保存产品线后生效。${result.ambiguous.length ? `另有 ${result.ambiguous.length} 个代码需人工判断。` : ""}`);
+    } catch (reason) { if (!controller.signal.aborted) setError(messageOf(reason, "学习代码失败。")); }
+    finally { window.clearTimeout(timeout); if (!controller.signal.aborted) setLearningDraft(false); }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(() => draft.productImageFile ? URL.createObjectURL(draft.productImageFile) : "", [draft.productImageFile]);
   useEffect(() => {
@@ -384,6 +410,7 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
     setDraft((current) => ({ ...current, productImageFile: file, removeProductImage: false }));
   };
   const submit = async () => {
+    if (learningDraft) return;
     if (!draft.name.trim()) return setError("请填写你希望展示的产品线名称。");
     if (!draft.monitoringStartDate) return setError("请选择监控开始日期。");
     setError("");
@@ -394,15 +421,17 @@ function ProductLineEditor({ line, saving, onClose, onSave }: {
     <span className="eyebrow">JACKYUN PRODUCT LINE</span><h2>{line ? "编辑新品产品线" : "新建新品产品线"}</h2>
     <p className="launch-modal-intro">名称由你定义；产品线从监控开始日持续跟踪，销售统计只按吉客云货品代码归集。</p>
     <form className="workflow-edit-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <label className="workflow-edit-title-field"><span>产品线名称（必填）</span><input autoFocus maxLength={160} value={draft.name} placeholder="例如：油水分离器" onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-      <label><span>吉客云名称（学习关键词）</span><input maxLength={500} value={draft.matchTerms} placeholder="填写吉客云货品名称关键词，多个用顿号或逗号分隔" onChange={(event) => setDraft({ ...draft, matchTerms: event.target.value })} /><small>货品名称只命中一个产品线时会自动学习归入，多产品线命中时保留人工判断。</small></label>
+      <label className="workflow-edit-title-field"><span>产品线名称（必填）</span><input disabled={learningDraft || saving} autoFocus maxLength={160} value={draft.name} placeholder="例如：油水分离器" onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+      <div className="new-product-line-learning-field"><label><span>吉客云名称（学习关键词）</span><input disabled={learningDraft || saving} maxLength={500} value={draft.matchTerms} placeholder="填写吉客云货品名称关键词，多个用顿号或逗号分隔" onChange={(event) => setDraft({ ...draft, matchTerms: event.target.value })} /><small>货品名称只命中一个产品线时会自动学习归入，多产品线命中时保留人工判断。</small></label><button type="button" className="secondary-button" disabled={learningDraft || saving} onClick={() => void learnDraft()}>{learningDraft ? "学习中…" : "学习新代码"}</button></div>
       <div className="new-product-line-image-field"><span>产品图</span><input ref={fileInputRef} className="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => { chooseImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className="new-product-line-image-picker">{displayedImage ? <img src={displayedImage} alt="产品图预览" /> : <span aria-hidden="true">图片</span>}<div><strong>{draft.productImageFile?.name || line?.productImageFileName || (displayedImage ? "已有产品图" : "尚未选择图片")}</strong><small>支持 JPG、PNG、WebP，原图最大 15MB；保存时自动压缩上传。</small><div><button type="button" className="secondary-button" disabled={saving} onClick={() => fileInputRef.current?.click()}>打开本地文件夹选择图片</button>{displayedImage && <button type="button" className="row-action danger" disabled={saving} onClick={() => setDraft((current) => ({ ...current, productImageFile: null, removeProductImage: true }))}>移除图片</button>}</div></div></div></div>
       <label><span>监控开始日期</span><input type="date" value={draft.monitoringStartDate} onChange={(event) => setDraft({ ...draft, monitoringStartDate: event.target.value })} /></label>
       <label><span>每周销量目标（件）</span><input type="number" min={0} step={1} value={draft.weeklyUnitTarget} onChange={(event) => setDraft({ ...draft, weeklyUnitTarget: event.target.value })} /></label>
       <label><span>每周净销售额目标（元）</span><input type="number" min={0} step="0.01" value={draft.weeklySalesTargetYuan} onChange={(event) => setDraft({ ...draft, weeklySalesTargetYuan: event.target.value })} /></label>
-      <label className="new-product-line-codes"><span>吉客云货品代码</span><textarea rows={8} value={draft.productCodes} placeholder="每行填写一个代码；货品名称从吉客云主数据读取" onChange={(event) => setDraft({ ...draft, productCodes: event.target.value })} /><small>保存时会校验代码真实存在；后续导入出现名称唯一匹配的新代码会自动补入。</small></label>
+      <label className="new-product-line-codes"><span>吉客云货品代码</span><textarea disabled={learningDraft || saving} rows={8} value={draft.productCodes} placeholder="每行填写一个代码；货品名称从吉客云主数据读取" onChange={(event) => setDraft({ ...draft, productCodes: event.target.value })} /><small>保存时会校验代码真实存在；后续导入出现名称唯一匹配的新代码会自动补入。</small></label>
+      {learningFeedback && <p role="status" className="new-product-line-codes">{learningFeedback}</p>}
+      {ambiguousCodes.length > 0 && <details className="new-product-line-codes"><summary>需人工判断的代码（{ambiguousCodes.length}）</summary>{ambiguousCodes.map((row) => <p key={row.productCode}>{row.productCode} · {row.productName} · {row.reason}</p>)}</details>}
       {error && <p className="workflow-edit-validation" role="alert">{error}</p>}
-      <div className="workflow-modal-actions workflow-edit-actions"><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>取消</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "保存中…" : "保存产品线"}</button></div>
+      <div className="workflow-modal-actions workflow-edit-actions"><button type="button" className="secondary-button" disabled={saving} onClick={onClose}>取消</button><button type="submit" className="primary-button" disabled={saving || learningDraft}>{saving ? "保存中…" : "保存产品线"}</button></div>
     </form>
   </Dialog>;
 }
@@ -452,8 +481,6 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
     finally { setLearning(false); }
   };
 
-  useEffect(() => { if (canWrite && !loading && lines.length > 0) void learn(true); }, [canWrite, loading]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const saveLine = async (draft: LineDraft) => {
     if (saving) return;
     setSaving(true);
@@ -477,7 +504,7 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
       }
       setEditor(null);
       await load();
-      await learn(true);
+
     } finally { setSaving(false); }
   };
 

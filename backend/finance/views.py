@@ -17,6 +17,7 @@ from .consumers import execute_consumer_query, parse_consumer_body
 from .errors import FinanceApiError
 from .import_service import import_finance_payload, list_import_batches
 from .models import FinanceDataRevision, FinanceWriteRequestReceipt
+from .annual_progress import annual_progress, validate_year
 from .target_service import delete_target, list_targets, target_options, upsert_target
 
 
@@ -253,13 +254,22 @@ def targets(request: HttpRequest) -> JsonResponse:
             page = _positive(request.GET.get("page"), 1, "page", 10_000)
             page_size = _positive(request.GET.get("pageSize"), 50, "pageSize", 100)
             views = request.GET.getlist("view")
-            if len(views) > 1 or (views and views[0] not in {"full", "items", "options"}):
-                raise FinanceApiError("view 必须且只能是 full、items 或 options")
+            if len(views) > 1 or (views and views[0] not in {"full", "items", "options", "annual"}):
+                raise FinanceApiError("view 必须且只能是 full、items、options 或 annual")
             view = views[0] if views else "full"
 
+            year_values = request.GET.getlist("year")
+            if len(year_values) > 1:
+                raise FinanceApiError("year 不能重复")
+            year = validate_year(year_values[0]) if year_values else None
+            if view == "annual" and year is None:
+                raise FinanceApiError("年度进度必须提供年份")
+
             def load() -> dict[str, object]:
+                if view == "annual":
+                    return annual_progress(year, page, page_size)
                 if view == "items":
-                    return list_targets(page, page_size)
+                    return list_targets(page, page_size, annual_year=year) if year is not None else list_targets(page, page_size)
                 if view == "options":
                     return {"financeOptions": target_options()}
                 return {**list_targets(page, page_size), "financeOptions": target_options()}

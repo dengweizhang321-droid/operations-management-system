@@ -200,7 +200,7 @@ test("初始财务月份回退保持显式且手动选择后恢复严格读取",
   assert.match(source, /allowInitialMonthFallback && selectedMonths !== null && selectedMonths\.length > 0/);
   assert.match(source, /query\.set\("initialMonthFallback", "latest_completed"\)/);
   assert.match(source, /const selectMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(months\)/);
-  assert.equal((source.match(/onChange=\{selectMonthsStrictly\}/g) ?? []).length, 3);
+  assert.equal((source.match(/onChange=\{selectMonthsStrictly\}/g) ?? []).length, 2);
   assert.match(source, /const resetMonthsStrictly[\s\S]*?setAllowInitialMonthFallback\(false\);[\s\S]*?setSelectedMonths\(globalMonths\)/);
   assert.match(source, /已显示最新可用财报[\s\S]*?手动选择月份后将严格按选择读取/);
 });

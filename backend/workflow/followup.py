@@ -440,6 +440,44 @@ def update_product_line(line_id: object, payload: object, principal: Principal) 
     return _serialize_line(NewProductLine.objects.prefetch_related("codes").get(id=line.id))
 
 
+def preview_product_line_codes(line_id: str, name: str, match_terms: list[str]) -> dict[str, object]:
+    """Read-only candidate discovery; draft changes never update another product line."""
+    name = _text(name, "产品线名称", 160, required=True)
+    terms = _terms(match_terms)
+    line_id = line_id.lower()
+    if line_id and not NewProductLine.objects.filter(id=line_id, deleted_at__isnull=True).exists():
+        raise _error("产品线不存在", code="not_found", status=404)
+    lines = list(NewProductLine.objects.filter(deleted_at__isnull=True, active=True).exclude(id=line_id or None)[:MAX_LINES + 1])
+    if len(lines) > MAX_LINES:
+        raise _error("产品线超过学习安全上限", code="payload_too_large", status=413)
+    normalize = lambda values: [term for value in values if len(term := _normalized_match_text(str(value))) >= 2]
+    current_terms = normalize([name, *terms])
+    if not current_terms:
+        raise _error("请填写至少两个字符的学习关键词或产品线名称")
+    other_terms = [(line.name, normalize([line.name, *(line.match_terms or [])])) for line in lines]
+    catalog = list(ErpProductMaster.objects.order_by("product_code").values("product_code", "product_name")[:MAX_CATALOG_SCAN + 1])
+    if len(catalog) > MAX_CATALOG_SCAN:
+        raise _error("吉客云货品主数据超过学习安全上限", code="payload_too_large", status=413)
+    matching = [row for row in catalog if any(term in _normalized_match_text(str(row["product_name"] or "")) for term in current_terms)]
+    codes = [str(row["product_code"]) for row in matching]
+    if len(codes) > MAX_CODES_PER_LINE:
+        raise _error("匹配代码超过 500 个，请缩小关键词范围后学习", code="payload_too_large", status=413)
+    owned = dict(NewProductLineCode.objects.filter(product_code__in=codes).values_list("product_code", "product_line_id"))
+    candidates, ambiguous = [], []
+    for master in matching:
+        code = str(master["product_code"])
+        normalized_name = _normalized_match_text(str(master["product_name"] or ""))
+        conflicts = [label for label, matcher in other_terms if any(term in normalized_name for term in matcher)]
+        row = {"productCode": code, "productName": str(master["product_name"] or code)}
+        if code in owned and str(owned[code]) != line_id:
+            ambiguous.append({**row, "reason": "已归属其他产品线"})
+        elif conflicts:
+            ambiguous.append({**row, "reason": "同时匹配：" + "、".join(conflicts[:5]) + (f"等 {len(conflicts)} 条产品线" if len(conflicts) > 5 else "")})
+        else:
+            candidates.append(row)
+    return {"candidates": candidates, "ambiguous": ambiguous, "scanned": len(catalog)}
+
+
 def learn_product_line_codes(principal: Principal, *, expected_source_batch_id: str = "") -> dict[str, object]:
     actor = principal.email.strip().lower()
     with transaction.atomic():

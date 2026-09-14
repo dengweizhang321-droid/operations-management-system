@@ -67,7 +67,7 @@ test("finance filters preserve search and multiple selections through loading, e
         pending.at(-1)!.resolve(Response.json(body, { status }));
       }, { status, body });
     };
-    for (let index = 0; index < 3; index++) {
+    for (let index = 0; index < 2; index++) {
       await page.getByRole("button", { name: "月份多选", exact: true }).nth(index).click();
       const search = page.getByRole("searchbox", { name: "搜索月份", exact: true });
       await search.fill("2026");

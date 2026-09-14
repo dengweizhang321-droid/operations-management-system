@@ -206,7 +206,7 @@ function validateRequest(input: WorkflowServiceRequest) {
   const attachmentCleanup = input.path === WORKFLOW_ATTACHMENT_CLEANUP_PATH;
   const inventoryWorkItems = input.path === WORKFLOW_INVENTORY_WORK_ITEMS_PATH;
   const allowed = input.service === "reader"
-    ? (input.method === "GET" && (collection || project || productLines || productLineImage || weeklyFollowup || weeklyReportConfig
+    ? (input.method === "GET" && (collection || project || productLines || productLineImage || productLineLearning || weeklyFollowup || weeklyReportConfig
       || input.path === WORKFLOW_IMPORT_CHAIN_STATUS_PATH || tasks || taskSubresource || taskAttachment || templates || records || record || recordActivity))
       || (input.method === "POST" && consumer)
     : (input.method === "GET" && attachmentCleanup)

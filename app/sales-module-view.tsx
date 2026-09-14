@@ -1,5 +1,6 @@
 "use client";
 
+import FinanceAnnualProgressView from "./finance-annual-progress-view";
 import { useAiPageDetails } from "./ai-page-context-provider";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -637,7 +638,7 @@ function FinanceAnalysisView({
         </table>
       </div>}
     </section>
-    <section className="panel finance-shop-panel"><div className="finance-panel-heading"><div><span className="eyebrow">SHOP TARGETS</span><h2>店铺目标进度</h2><p>店铺实际净销售、利润和小毛利率与所选月份目标同步对照。</p></div><span className="soft-tag">{data?.shops.length ?? 0} 家店铺</span></div><div className="finance-shop-filter-bar"><div><strong>店铺进度口径</strong><small>{selectedPeriodName}</small></div><FinanceMultiFilterSelect label="月份" allLabel="全部月份" options={monthOptions} selected={activeMonthSelection} onChange={selectMonthsStrictly} /></div>{data?.hasData && <div className="data-table-wrap"><table className="data-table finance-shop-table" data-column-filter-scope={data.shopPagination?.truncated === false ? "full" : "none"}><thead><tr><th>店铺</th><th>负责人</th><th>净销售额</th><th>销售目标进度</th><th>利润</th><th>利润目标进度</th><th>小毛利率</th><th>推广费占比</th></tr></thead><tbody>{data.shops.map((shop) => <tr key={shop.key}><td><div className="finance-shop-name"><strong>{shop.name}</strong><small>{shop.groupName || "未分组"}</small></div></td><td>{shop.manager || "—"}</td><td>{formatCurrencyFromCents(shop.actual.netSalesCents)}</td><td><div className="table-progress"><span><i style={{ width: financeProgressWidth(shop.progress.sales) }} /></span><small>{shop.progress.sales === null ? "未设目标" : `${(shop.progress.sales * 100).toFixed(1)}%`}</small></div></td><td>{formatCurrencyFromCents(shop.actual.profitCents)}</td><td>{shop.progress.profit === null ? "未设目标" : `${(shop.progress.profit * 100).toFixed(1)}%`}</td><td>{formatFinanceBps(shop.actual.smallMarginBps)}</td><td>{formatFinanceBps(shop.actual.promotionFeeRatioBps)}</td></tr>)}</tbody></table></div>}</section>
+
   </div>;
 }
 
@@ -663,8 +664,8 @@ const currentShanghaiMonth = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toI
 const emptyFinanceTargetForm = (): FinanceTargetFormState => ({
   id: "",
   expectedVersion: null,
-  periodType: "month",
-  periodKey: currentShanghaiMonth(),
+  periodType: "year",
+  periodKey: currentShanghaiMonth().slice(0, 4),
   shopKey: "",
   platform: "",
   shopName: "",
@@ -683,6 +684,8 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   const [options, setOptions] = useState<FinanceTargetOptions>({ shops: [], categories: [], projects: ["8系列"] });
   const [form, setForm] = useState<FinanceTargetFormState>(emptyFinanceTargetForm);
   const [targetPage, setTargetPage] = useState(1);
+  const [targetYear, setTargetYear] = useState(() => currentShanghaiMonth().slice(0, 4));
+  const [annualRefresh, setAnnualRefresh] = useState(0);
   const [targetPagination, setTargetPagination] = useState({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false });
   const [loading, setLoading] = useState(true);
   const [targetsLoaded, setTargetsLoaded] = useState(false);
@@ -704,7 +707,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     const generation = ++targetRequestGenerationRef.current;
     setLoading(true);
     try {
-      const response = await fetch(`/api/finance/targets?view=items&page=${targetPage}&pageSize=100`, { cache: "no-store", signal: controller.signal });
+      const response = await fetch(`/api/finance/targets?view=items&page=${targetPage}&pageSize=100&year=${targetYear}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as { items?: FinanceTarget[]; pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean }; error?: string } | null;
       if (!response.ok || !Array.isArray(payload?.items) || !payload.pagination) throw new Error(payload?.error || "目标设置读取失败");
       if (controller.signal.aborted || generation !== targetRequestGenerationRef.current) return;
@@ -720,7 +723,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
         if (targetRequestControllerRef.current === controller) targetRequestControllerRef.current = null;
       }
     }
-  }, [targetPage]);
+  }, [targetPage, targetYear]);
 
   const loadOptions = useCallback(async () => {
     if (!canManageTargets) return;
@@ -799,8 +802,9 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
         }
         throw new Error(payload?.error || "目标保存失败");
       }
-      setMessage({ tone: "success", text: "目标已保存，财报分析进度已同步更新。" });
-      setForm(emptyFinanceTargetForm());
+      setMessage({ tone: "success", text: "全年目标已保存，年累计进度已同步更新。" });
+      setAnnualRefresh((value) => value + 1);
+      setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear });
       await loadTargets();
     } catch (error) {
       setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标保存失败" });
@@ -860,6 +864,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
         return;
       }
       setMessage({ tone: "success", text: "目标已删除。" });
+      setAnnualRefresh((value) => value + 1);
       if (items.length === 1 && targetPage > 1) setTargetPage((value) => value - 1);
       else await loadTargets();
     } catch (error) {
@@ -870,28 +875,30 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   };
 
   return <div className="finance-target-page">
-    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">TARGET MANAGEMENT</span><h2>经营目标设置</h2><p>按月度或年度设置店铺/店铺+品类目标，并单独管理 8 系列呆滞库存项目。</p></div><span className="soft-tag">共 {targetPagination.total} 项</span></section>
+    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">ANNUAL TARGET MANAGEMENT</span><h2>年度目标设置</h2><p>每个店铺只需填写全年销售目标与利润目标，已完成金额自动累计财报数据。</p></div><label>目标年份 <select aria-label="目标年份" value={targetYear} disabled={saving || deletingTargetId !== null} onChange={(event) => { setItems([]); setTargetsLoaded(false); setTargetPagination({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false }); setTargetYear(event.target.value); setTargetPage(1); setForm({ ...emptyFinanceTargetForm(), periodKey: event.target.value }); }}>{Array.from({ length: 201 }, (_, index) => String(1900 + index)).map((year) => <option key={year} value={year}>{year} 年</option>)}</select></label></section>
+    <FinanceAnnualProgressView key={targetYear} year={targetYear} refreshKey={annualRefresh} canManageTargets={canManageTargets} onEdit={(row) => { if (saving || deletingTargetId !== null) return; if (row.target) editTarget(row.target); else setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear, shopKey: row.key, platform: row.platform, shopName: row.shopName }); document.getElementById("annual-target-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} />
     {message && <div className={`inline-feedback ${message.tone}`}><strong>{message.tone === "success" ? "操作成功" : "操作失败"}</strong><span>{message.text}</span></div>}
     {canManageTargets && optionsLoading && <div className="inline-feedback" role="status"><strong>管理选项加载中</strong><span>目标列表已独立读取；正在后台加载店铺和品类选项…</span></div>}
     {canManageTargets && optionsError && <div className="inline-feedback error" role="alert"><strong>管理选项加载失败</strong><span>{optionsError}</span><button type="button" className="row-action" onClick={() => void loadOptions()}>重试加载</button></div>}
     {options.pagination?.shops.truncated && <div className="inline-feedback warning" role="status"><strong>店铺选项已设上限</strong><span>当前展示 {options.pagination.shops.returned} / {options.pagination.shops.total} 个平台店铺，请先在财报数据中核对目标店铺或缩小历史数据范围。</span></div>}
     {canManageTargets ? <section className="panel finance-target-form-panel">
-      <div className="finance-panel-heading"><div><span className="eyebrow">{form.id ? "EDIT TARGET" : "NEW TARGET"}</span><h2>{form.id ? "编辑目标" : "新增目标"}</h2><p>金额单位为元，比率单位为百分比；同周期、同平台、同店铺和同品类只能保留一项，冲突时请刷新后编辑。</p></div>{form.id && <button className="secondary-button" onClick={() => setForm(emptyFinanceTargetForm())}>取消编辑</button>}</div>
-      <div className="finance-target-period-tabs" role="group" aria-label="目标类型">{(["month", "year", "project"] as const).map((type) => <button type="button" key={type} className={form.periodType === type ? "active" : ""} onClick={() => patchForm({ periodType: type, periodKey: type === "month" ? currentShanghaiMonth() : type === "year" ? currentShanghaiMonth().slice(0, 4) : "8系列", shopKey: type === "project" ? "" : form.shopKey, platform: type === "project" ? "" : form.platform, shopName: type === "project" ? "" : form.shopName, category: type === "project" ? "" : form.category })}>{type === "month" ? "月度目标" : type === "year" ? "年度目标" : "项目目标"}</button>)}</div>
+      <div id="annual-target-editor" className="finance-panel-heading"><div><span className="eyebrow">{form.id ? "EDIT TARGET" : "NEW TARGET"}</span><h2>{form.id ? "编辑目标" : "新增目标"}</h2><p>金额单位为元；同年份、同平台、同店铺只设置一组全年目标。</p></div>{form.id && <button className="secondary-button" onClick={() => setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear })}>取消编辑</button>}</div>
       <div className="finance-target-form-grid">
-        <label><span>{form.periodType === "project" ? "项目名称" : "目标周期"}</span>{form.periodType === "month" ? <input type="month" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : form.periodType === "year" ? <input type="number" min="2020" max="2100" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} /> : <input list="finance-project-options" value={form.periodKey} onChange={(event) => patchForm({ periodKey: event.target.value })} />}</label>
-        {form.periodType !== "project" && <><label><span>平台 · 店铺</span><SearchableSelect value={form.shopKey} onChange={(value) => { const selected = options.shops.find((item) => item.key === value); patchForm({ shopKey: value, platform: selected?.platform ?? "", shopName: selected?.name ?? "" }); }} ariaLabel="经营目标平台与店铺" searchPlaceholder="搜索平台或店铺" options={options.shops.map((item) => ({ value: item.key, label: `${item.platform} · ${item.name}` }))} /></label><label><span>品类（可选）</span><input list="finance-category-options" value={form.category} onChange={(event) => patchForm({ category: event.target.value })} placeholder="留空表示整店" /></label><label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label></>}
-        {form.periodType === "project" ? <label><span>呆滞库存目标（元）</span><input type="number" min="0" step="0.01" value={form.stagnantInventoryTarget} onChange={(event) => patchForm({ stagnantInventoryTarget: event.target.value })} /></label> : <><label><span>销售额目标（元）</span><input type="number" min="0" step="0.01" value={form.salesTarget} onChange={(event) => patchForm({ salesTarget: event.target.value })} /></label><label><span>利润目标（元）</span><input type="number" min="0" step="0.01" value={form.profitTarget} onChange={(event) => patchForm({ profitTarget: event.target.value })} /></label><label><span>小毛利率目标（%）</span><input type="number" min="0" step="0.01" value={form.smallMargin} onChange={(event) => patchForm({ smallMargin: event.target.value })} /></label><label><span>库存清理目标（元）</span><input type="number" min="0" step="0.01" value={form.inventoryCleanupTarget} onChange={(event) => patchForm({ inventoryCleanupTarget: event.target.value })} /></label><label><span>推广费占比目标（%）</span><input type="number" min="0" step="0.01" value={form.promotionFeeRatio} onChange={(event) => patchForm({ promotionFeeRatio: event.target.value })} /></label></>}
+        <label><span>目标年份</span><input type="text" value={form.periodKey} readOnly /></label>
+        <label><span>平台 · 店铺</span><SearchableSelect value={form.shopKey} onChange={(value) => { const selected = options.shops.find((item) => item.key === value); patchForm({ shopKey: value, platform: selected?.platform ?? "", shopName: selected?.name ?? "" }); }} ariaLabel="经营目标平台与店铺" searchPlaceholder="搜索平台或店铺" options={options.shops.map((item) => ({ value: item.key, label: `${item.platform} · ${item.name}` }))} /></label>
+        <label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label>
+        <label><span>全年销售目标（元）</span><input type="number" min="0" step="0.01" value={form.salesTarget} onChange={(event) => patchForm({ salesTarget: event.target.value })} /></label>
+        <label><span>全年利润目标（元）</span><input type="number" min="0" step="0.01" value={form.profitTarget} onChange={(event) => patchForm({ profitTarget: event.target.value })} /></label>
       </div>
       <datalist id="finance-category-options">{options.categories.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-project-options">{options.projects.map((item) => <option key={item} value={item} />)}</datalist>
-      <div className="finance-target-actions"><span>{form.periodType === "project" ? "项目目标独立统计呆滞库存清理进度" : "品类留空时按整店目标统计；平台与店铺必须成对选择"}</span><button type="button" className="primary-button" disabled={saving || (form.periodType !== "project" && !form.shopKey)} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
+      <div className="finance-target-actions"><span>全年目标按整店统计，实际完成额自动读取财报</span><button type="button" className="primary-button" disabled={saving || (form.periodType !== "project" && !form.shopKey)} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
     </section> : <div className="inline-feedback warning" role="status"><strong>当前为只读模式</strong><span>仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。</span></div>}
     <section className="panel finance-target-list-panel data-refresh-region" aria-busy={loading}>
-      <div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>目标保存后立即参与财报分析中的月度、年度和店铺进度计算。</p></div><span className="soft-tag">本页 {targetPagination.returned} / 共 {targetPagination.total} 项</span></div>
+      <div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>本年度整店目标；保存后立即更新上方年累计进度。</p></div><span className="soft-tag">本页 {targetPagination.returned} / 共 {targetPagination.total} 项</span></div>
       {loading && !targetsLoaded ? <div className="table-state">正在读取目标…</div> : <>
-        <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>类型 / 周期</th><th>店铺 / 品类</th><th>负责人</th><th>销售目标</th><th>利润目标</th><th>小毛利率</th><th>库存清理 / 呆滞目标</th><th>推广费占比</th><th>{canManageTargets ? "操作" : "权限"}</th></tr></thead><tbody>
-          {items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.periodType === "project" ? "呆滞库存" : `${item.platform || "旧目标 · 平台待确认"}${item.category ? ` · ${item.category}` : " · 整店"}`}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.smallMarginBps)}</td><td>{formatCurrencyFromCents(item.periodType === "project" ? item.stagnantInventoryTargetCents : item.inventoryCleanupTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatFinanceBps(item.promotionFeeRatioBps)}</td><td>{canManageTargets ? <div className="finance-target-row-actions"><button type="button" disabled={saving || deletingTargetId !== null} onClick={() => editTarget(item)}>编辑</button><button type="button" className="danger" disabled={saving || deletingTargetId !== null} onClick={() => void removeTarget(item)}>{deletingTargetId === item.id ? "删除中…" : "删除"}</button></div> : <span className="soft-text">只读</span>}</td></tr>)}
-          {items.length === 0 && <tr><td colSpan={9}><div className="table-state">{canManageTargets ? "还没有目标，先在上方新增一项。" : "当前没有可查看的经营目标。"}</div></td></tr>}
+        <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>目标年份</th><th>店铺</th><th>负责人</th><th>全年销售目标</th><th>全年利润目标</th><th>{canManageTargets ? "操作" : "权限"}</th></tr></thead><tbody>
+          {items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.periodType === "project" ? "呆滞库存" : `${item.platform || "旧目标 · 平台待确认"}${item.category ? ` · ${item.category}` : " · 整店"}`}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{canManageTargets ? <div className="finance-target-row-actions"><button type="button" disabled={saving || deletingTargetId !== null} onClick={() => editTarget(item)}>编辑</button><button type="button" className="danger" disabled={saving || deletingTargetId !== null} onClick={() => void removeTarget(item)}>{deletingTargetId === item.id ? "删除中…" : "删除"}</button></div> : <span className="soft-text">只读</span>}</td></tr>)}
+          {items.length === 0 && <tr><td colSpan={6}><div className="table-state">{canManageTargets ? "还没有目标，先在上方新增一项。" : "当前没有可查看的经营目标。"}</div></td></tr>}
         </tbody></table></div>
         {(targetPage > 1 || targetPagination.truncated) && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={targetPage <= 1} onClick={() => setTargetPage((value) => value - 1)}>上一页</button><span>第 {targetPage} 页 · 每页最多 100 项</span><button type="button" className="row-action" disabled={!targetPagination.truncated} onClick={() => setTargetPage((value) => value + 1)}>下一页</button></div>}
       </>}

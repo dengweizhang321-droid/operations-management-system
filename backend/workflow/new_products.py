@@ -368,8 +368,6 @@ def list_projects(options: dict[str, object]) -> dict[str, object]:
     projects = list(query.order_by("-updated_at", "-id"))
     items = [serialize_project(project) for project in projects]
     statuses = options.get("statuses") or []
-    if statuses:
-        items = [item for item in items if item["status"] in statuses]
     stage_key = str(options.get("stage_key") or "")
     stage_statuses = set(options.get("stage_statuses") or [])
     if stage_key:
@@ -382,6 +380,18 @@ def list_projects(options: dict[str, object]) -> dict[str, object]:
         ]
     elif stage_statuses:
         items = [item for item in items if any(stage["status"] in stage_statuses for stage in item["stages"])]
+
+    quick_summary = {
+        "total": len(items),
+        "inProgress": sum(item["status"] == "in_progress" for item in items),
+        "blocked": sum(item["status"] == "blocked" for item in items),
+        "completed": sum(item["status"] == "completed" for item in items),
+        "overdue": sum(bool(item["overdue"]) for item in items),
+    }
+    if statuses:
+        items = [item for item in items if item["status"] in statuses]
+    if options.get("overdue"):
+        items = [item for item in items if item["overdue"]]
 
     status_counts = {value: 0 for value in DERIVED_STATUSES}
     overdue = 0
@@ -404,6 +414,7 @@ def list_projects(options: dict[str, object]) -> dict[str, object]:
     shop_names = sorted({str(target["shopName"]) for item in items for target in item["targets"] if target["shopName"]})
     return {
         "items": paged,
+        "quickSummary": quick_summary,
         "pagination": {
             "page": page,
             "pageSize": page_size,

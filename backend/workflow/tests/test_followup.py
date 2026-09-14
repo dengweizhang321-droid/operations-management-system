@@ -122,6 +122,40 @@ class NewProductWeeklyFollowupTests(TestCase):
         repeated = self.request_json("POST", "/api/workflow/new-product-lines/learn", {}, "followup-learn-repeat")
         self.assertEqual(repeated.json()["result"]["added"], [])
 
+    def test_draft_learning_is_read_only_and_uses_unsaved_keywords(self):
+        from urllib.parse import urlencode
+        line = self.create_line().json()["item"]
+        before_lines = list(NewProductLine.objects.values())
+        before_codes = list(NewProductLineCode.objects.values())
+        url = "/api/workflow/new-product-lines/learn?" + urlencode({"lineId": line["id"], "name": "编辑中的产品线", "term": "净水机"})
+        response = self.client.get(url, headers=signed_headers(url))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([row["productCode"] for row in response.json()["candidates"]], ["OTHER-1"])
+        self.assertEqual(list(NewProductLine.objects.values()), before_lines)
+        self.assertEqual(list(NewProductLineCode.objects.values()), before_codes)
+        viewer = self.client.get(url, headers=signed_headers(url, role="viewer"))
+        self.assertEqual(viewer.status_code, 403)
+
+    def test_draft_learning_conflicts_and_existing_ownership_are_not_auto_added(self):
+        from workflow.followup import preview_product_line_codes
+        line = self.create_line().json()["item"]
+        result = preview_product_line_codes("", "第二产品线", ["油水分离器"])
+        self.assertEqual(result["candidates"], [])
+        self.assertEqual({row["productCode"] for row in result["ambiguous"]}, {"YS-001", "YS-002"})
+        self.assertEqual(NewProductLineCode.objects.count(), 1)
+        own = preview_product_line_codes(line["id"], "油水分离器", [])
+        self.assertEqual({row["productCode"] for row in own["candidates"]}, {"YS-001", "YS-002"})
+
+    def test_draft_learning_rejects_truncation_and_bad_terms(self):
+        from workflow.followup import preview_product_line_codes
+        from workflow.errors import WorkflowApiError
+        with patch("workflow.followup.MAX_CATALOG_SCAN", 1), self.assertRaises(WorkflowApiError):
+            preview_product_line_codes("", "油水分离器", [])
+        with self.assertRaises(WorkflowApiError):
+            preview_product_line_codes("", "a", [])
+        with patch("workflow.followup.MAX_CODES_PER_LINE", 1), self.assertRaises(WorkflowApiError):
+            preview_product_line_codes("", "油水分离器", [])
+
     def test_import_trigger_defers_until_expected_erp_projection_batch_is_visible(self) -> None:
         self.create_line()
         deferred = self.request_json(

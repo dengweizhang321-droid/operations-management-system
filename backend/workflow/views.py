@@ -20,6 +20,7 @@ from .followup import (
     get_product_line_image,
     get_report_config,
     learn_product_line_codes,
+    preview_product_line_codes,
     list_product_lines,
     update_product_line,
     update_report_config,
@@ -191,7 +192,7 @@ def _list_options(request: HttpRequest) -> dict[str, object]:
         {
             "q", "query", "status", "supplier", "owner", "category", "platform", "shopName",
             "priority", "source", "lifecycleStatus", "stage", "stageStatus", "proposedFrom",
-            "proposedTo", "dueFrom", "dueTo", "page", "pageSize",
+            "proposedTo", "dueFrom", "dueTo", "page", "pageSize", "overdue",
         },
         "新品项目列表",
     )
@@ -212,7 +213,11 @@ def _list_options(request: HttpRequest) -> dict[str, object]:
         raise WorkflowApiError("提出日期范围必须满足开始日期早于结束日期")
     if due_from and due_to and due_from >= due_to:
         raise WorkflowApiError("上架日期范围必须满足开始日期早于结束日期")
+    overdue = _one(request, "overdue")
+    if overdue not in (None, "true", "false"):
+        raise WorkflowApiError("overdue 必须为 true 或 false")
     return {
+        "overdue": overdue == "true",
         "query": query,
         "statuses": _selections(request, "status", 10, DERIVED_STATUSES),
         "suppliers": _selections(request, "supplier", 20),
@@ -325,10 +330,19 @@ def new_product_line_image(request: HttpRequest, line_id: object) -> JsonRespons
         return _error(error, "新品产品线图片读取失败")
 
 
-@require_POST
+@require_http_methods(["GET", "POST"])
 def new_product_line_learning(request: HttpRequest) -> JsonResponse:
     try:
         principal = _principal(request, {"operator", "admin"})
+        if request.method == "GET":
+            _unknown(request, {"lineId", "name", "term"}, "新品代码预览")
+            line_id = _one(request, "lineId") or ""
+            if line_id and not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", line_id):
+                raise WorkflowApiError("产品线 ID 无效")
+            payload, revision = _consistent_read(lambda: preview_product_line_codes(
+                line_id, _one(request, "name") or "", request.GET.getlist("term"),
+            ))
+            return _json(payload, revision=revision)
         payload = _body(request)
         if not isinstance(payload, dict) or not set(payload).issubset({"expectedSourceBatchId"}):
             raise WorkflowApiError("新品代码学习参数无效")

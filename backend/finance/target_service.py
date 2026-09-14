@@ -96,7 +96,7 @@ def validate_target_payload(payload: object) -> dict[str, object]:
     }
 
 
-def list_targets(page: int, page_size: int) -> dict[str, object]:
+def list_targets(page: int, page_size: int, *, annual_year: str | None = None) -> dict[str, object]:
     offset = (page - 1) * page_size
     queryset = FinanceTarget.objects.annotate(
         period_rank=Case(
@@ -106,6 +106,8 @@ def list_targets(page: int, page_size: int) -> dict[str, object]:
             output_field=IntegerField(),
         )
     ).order_by("period_rank", "-period_key", "platform", "shop_name", "category")
+    if annual_year is not None:
+        queryset = queryset.filter(period_type="year", period_key=annual_year, category="")
     total = queryset.count()
     selected = list(queryset[offset : offset + page_size])
     return {

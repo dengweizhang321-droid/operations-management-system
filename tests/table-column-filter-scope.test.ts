@@ -65,7 +65,8 @@ test("known bounded result tables declare an explicit safe column-filter scope",
   assert.match(salesCategory, /data-column-filter-scope=\{data\.pagination\.truncated \? "none" : "full"\}/);
   assert.match(sales, /dimensionPagination\?\.truncated === false \? "full" : "none"/);
   assert.match(sales, /data\.expensePagination\?\.truncated === false \? "full" : "none"/);
-  assert.match(sales, /data\.shopPagination\?\.truncated === false \? "full" : "none"/);
+  const annual = await readFile(new URL("../app/finance-annual-progress-view.tsx", import.meta.url), "utf8");
+  assert.match(annual, /page === 1 && !data\.pagination\.truncated \? "full" : "none"/);
   assert.match(shops, /dimensionPagination\?\.truncated === false \? "full" : "none"/);
   assert.match(shops, /summary\.trendTruncated === false[\s\S]{0,120}promotion\?\.dailyPagination\.truncated === false/);
   assert.match(shared, /groupPagination\?:/);
