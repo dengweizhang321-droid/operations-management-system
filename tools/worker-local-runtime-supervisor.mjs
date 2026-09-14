@@ -30,6 +30,15 @@ const hex64 = /^[0-9a-f]{64}$/;
 const restartWindowMs = 10 * 60_000;
 const maxRestartsPerWindow = 5;
 export const miniflareCacheRelativePath = "cache/miniflare";
+export const workerdOldSpaceMiB = 3072;
+export const heapPatchedMiniflareSha256 = "2b2a89fb96a270e678b4aa87e65aa1282049b18d28a1e30ff7fe7f2736b648c7";
+
+export async function assertWorkerdHeapAdapter(root) {
+  const adapter = await readFile(path.join(root, "node_modules/miniflare/dist/src/index.js"));
+  if (sha256Bytes(adapter) !== heapPatchedMiniflareSha256) {
+    throw new Error("workerd 3072 MiB heap adapter digest mismatch");
+  }
+}
 
 export function resolveImmutableMiniflareCacheDirectory(runtimeRoot) {
   if (typeof runtimeRoot !== "string" || runtimeRoot.trim() === "") {
@@ -92,6 +101,7 @@ export function immutableWorkerEnvironment({
     "MINIFLARE_CACHE_DIR",
     "CLOUDFLARE_CF_FETCH_PATH",
     "CLOUDFLARE_CF_FETCH_ENABLED",
+    "TERUISI_WORKERD_HEAP_MB",
   ]);
   for (const [name, value] of Object.entries(inheritedEnvironment ?? {})) {
     if (!controlledNames.has(name.toUpperCase()) && value !== undefined) environment[name] = value;
@@ -103,6 +113,8 @@ export function immutableWorkerEnvironment({
   // so bind both inputs to the same verified external cache location.
   environment.CLOUDFLARE_CF_FETCH_PATH = cacheBinding.cacheFile;
   environment.CLOUDFLARE_CF_FETCH_ENABLED = "true";
+  // Consumed by the digest-pinned Miniflare config backport, not by Node.
+  environment.TERUISI_WORKERD_HEAP_MB = String(workerdOldSpaceMiB);
   return environment;
 }
 
@@ -265,6 +277,8 @@ export async function superviseImmutableWorker({ releaseRoot, manifest, manifest
       || windowsPathSha256(workerEnvironment.CLOUDFLARE_CF_FETCH_PATH) !== miniflareCache.cacheFilePathSha256) {
       throw new Error("Miniflare cache 环境未绑定受控 runtime cache 目录");
     }
+    await assertWorkerdHeapAdapter(releaseRoot);
+    process.stdout.write(`workerd heap policy: max-old-space-size=${workerdOldSpaceMiB} MiB; adapter=${heapPatchedMiniflareSha256}\n`);
     const child = spawn(process.execPath, [
       path.join(releaseRoot, ...manifest.processIdentity.wranglerEntrypoint.split("/")),
       ...manifest.processIdentity.fixedWranglerArguments,

@@ -47,6 +47,9 @@ for (const kind of ["worker", "helper"] as const) test(`real ${kind} child resta
     const childRaw = Buffer.from('import http from "node:http"; const server=http.createServer((req,res)=>{res.setHeader("content-type","application/json");res.end(JSON.stringify({pid:process.pid}));}); server.listen(Number(process.argv[2]),"127.0.0.1");\n');
     await writeFile(path.join(release.releaseRoot, childRelative), childRaw);
     if (kind === "worker") {
+      const adapterRelative = "node_modules/miniflare/dist/src/index.js";
+      await mkdir(path.dirname(path.join(release.releaseRoot, adapterRelative)), { recursive: true });
+      await copyFile(path.resolve(adapterRelative), path.join(release.releaseRoot, adapterRelative));
       manifest.processIdentity.wranglerEntrypoint = childRelative;
       manifest.processIdentity.fixedWranglerArguments = [String(port)];
       await writeFile(path.join(release.releaseRoot, ".dev.vars"), "MIRROR_ONLY=true\n");
