@@ -1,5 +1,7 @@
 # 电扇运营管理系统
 
+2026-09-14 **AI 定时任务的指定页面截图与已复核 Excel 报告已在本机生产采用**：按企业应用机器人身份发送，沿用创建人身份、群审批和发送前持久预留。AI `0013` 已迁移，专用浏览器目录及正式 BI 页面截图验证通过，接收器已连接；尚未创建媒体任务或执行真实钉钉图片/文件投递。发布前独立恢复、发布后备份校验及 E 盘归档通过。见 [功能与限制](docs/AI_DINGTALK_SCHEDULES.md#指定页面截图与已复核报告文件) 和 [采用证据](docs/evidence/dingtalk-scheduled-media-production-20260914.json)。
+
 2026-09-14 **报告模板、Skill 管理和 AI 流水线已上线**：AI 助理新增三类模板与方法的版本管理、持久取数分析、人工复核及 HTML/Excel 交付。AI 0012 与最小权限已采用，原 52 张 AI 表摘要不变；2165 项 Node 回归、20 项页面测试及隔离 PostgreSQL 验证通过。保留同期财务修复和 3 GB 内存配置。正式页面已验证，真实付费模型与通知未做生产实跑。详见 [AI 报告库](docs/AI_REPORT_LIBRARY.md) 和 [发布核验](docs/evidence/ai-report-library-production-20260914.json)。
 
 2026-09-14 **本机 workerd 老生代内存上限已调整为 3072 MiB（3 GiB）**：通过精确摘要绑定的 Miniflare 配置适配传入内部运行时，未修改系统级 Node 内存设置。隔离配置实测、2163 项单元测试、20 项页面测试和备份独立恢复通过；网页已受控重启，后端保持运行。此次缓解约 1.4 GB 堆耗尽，不代表已修复内存增长或自动恢复缺口。详见 [内存配置](docs/WORKER_HEAP_LIMIT.md) 与 [采用记录](docs/evidence/workerd-heap-3gb-production-20260914.json)。
