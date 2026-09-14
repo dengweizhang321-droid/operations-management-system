@@ -43,7 +43,8 @@ $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
 $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
 $DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
 $DingTalkStartupPath = Join-Path $RuntimeRoot "config\dingtalk-startup.json"
-$DingTalkScreenshotProfile = Join-Path $RuntimeRoot "config\dingtalk-screenshot-profile"
+$DingTalkScreenshotRoot = "$RuntimeRoot-screenshot-profile"
+$DingTalkScreenshotProfile = Join-Path $DingTalkScreenshotRoot "Chrome"
 $AiReaderMaxBodyBytes = 1048576
 $AiWriterMaxBodyBytes = 1048576
 $PandasConfigPath = Join-Path $RuntimeRoot "config\pandas-sandbox.json"
@@ -452,6 +453,43 @@ function Start-ConfiguredDingTalkReceiver {
   Invoke-DingTalkReceiver $false (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup")
 }
 
+function Assert-DingTalkScreenshotProfile {
+  $expected = [IO.Path]::GetFullPath("$RuntimeRoot-screenshot-profile")
+  if ([IO.Path]::GetFullPath($DingTalkScreenshotRoot) -cne $expected -or
+      [IO.Path]::GetFullPath($DingTalkScreenshotProfile) -cne [IO.Path]::GetFullPath((Join-Path $expected "Chrome"))) {
+    throw "定时截图目录未绑定独立受保护路径"
+  }
+  $allowed = @(
+    "S-1-5-18", "S-1-5-32-544",
+    [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  )
+  foreach ($entry in @(
+      @{ path = $DingTalkScreenshotRoot; root = $true },
+      @{ path = $DingTalkScreenshotProfile; root = $false }
+    )) {
+    $item = Get-Item -LiteralPath $entry.path -Force -ErrorAction Stop
+    if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+      throw "定时截图目录不是受控实体目录"
+    }
+    $acl = Get-Acl -LiteralPath $entry.path
+    $rules = @($acl.Access)
+    if ($acl.AreAccessRulesProtected -cne [bool]$entry.root -or $rules.Count -ne 3) {
+      throw "定时截图目录 ACL 不符合受保护契约"
+    }
+    $seen = @()
+    foreach ($rule in $rules) {
+      $sid = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+      if ($sid -notin $allowed -or $sid -in $seen -or
+          $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+          ([int]$rule.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne [int][Security.AccessControl.FileSystemRights]::FullControl -or
+          $rule.IsInherited -eq [bool]$entry.root) {
+        throw "定时截图目录 ACL 包含未授权主体或权限"
+      }
+      $seen += $sid
+    }
+  }
+}
+
 function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null) {
   Assert-AiRuntimeEntry
   Assert-PostgresListenerOwnership | Out-Null
@@ -471,6 +509,7 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $n
     $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
     $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
     if ($DingTalkScreenshotProfile -and (Test-Path -LiteralPath $DingTalkScreenshotProfile -PathType Container)) {
+      Assert-DingTalkScreenshotProfile
       $arguments += @("--screenshot-profile", $DingTalkScreenshotProfile)
     }
     if ($CheckOnly) {
