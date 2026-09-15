@@ -80,22 +80,25 @@ class AnnualTargetImportTests(TestCase):
 
     def test_unique_trailing_note_alias_resolves_to_canonical_shop(self):
         canonical = upsert_target({
-            "periodType": "year", "periodKey": "2026", "platform": "京东",
-            "shopName": "志高商用设备旗舰店（亿用）", "salesTargetCents": 1,
+            "periodType": "year", "periodKey": "2026", "platform": "志高京东组",
+            "shopName": "京东-志高商用设备旗舰店（亿用）", "salesTargetCents": 1,
         })[0]
         result = import_annual_targets(import_payload(
             target_row(15, "京东-志高商用设备旗舰店", salesTargetCents=16_000_000),
         ))
         self.assertEqual((result["createdCount"], result["updatedCount"]), (0, 1))
         updated = FinanceTarget.objects.get(id=canonical["id"])
-        self.assertEqual(updated.shop_name, "志高商用设备旗舰店（亿用）")
+        self.assertEqual(updated.shop_name, "京东-志高商用设备旗舰店（亿用）")
         self.assertEqual(updated.sales_target_cents, 16_000_000)
-        self.assertFalse(FinanceTarget.objects.filter(shop_name="志高商用设备旗舰店").exists())
+        self.assertFalse(FinanceTarget.objects.filter(shop_name="京东-志高商用设备旗舰店").exists())
 
     def test_trailing_note_alias_rejects_multiple_candidates(self):
-        for shop_name in ("志高商用设备旗舰店（亿用）", "志高商用设备旗舰店（另一店）"):
+        for platform, shop_name in (
+            ("志高京东组", "京东-志高商用设备旗舰店（亿用）"),
+            ("另一业务组", "京东-志高商用设备旗舰店（另一店）"),
+        ):
             upsert_target({
-                "periodType": "year", "periodKey": "2026", "platform": "京东",
+                "periodType": "year", "periodKey": "2026", "platform": platform,
                 "shopName": shop_name, "salesTargetCents": 1,
             })
         with self.assertRaisesMessage(Exception, "匹配到多个候选"):

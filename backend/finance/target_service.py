@@ -296,7 +296,7 @@ def _resolve_import_shops(rows: list[dict[str, object]]) -> list[dict[str, objec
                 matches.update(alias_matches)
                 if len(alias_matches) == 1:
                     pair = next(iter(alias_matches))
-        elif pair is None:
+        if pair is None:
             alias_matches = by_alias.get(label, set())
             matches.update(alias_matches)
             if len(alias_matches) == 1:
