@@ -50,9 +50,9 @@ Invoke-RestMethod http://127.0.0.1:5791/health
 Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331,9334 -ErrorAction SilentlyContinue
 ```
 
-### 2.2 13:32 起的六店监控判定
+### 2.2 14:25 统一监控中的六店判定
 
-- 13:32 先查 13:30 的亿玖 execution，随后守候 13:40、13:50、14:00、14:10、14:20 五条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。
+- 14:25 由统一 Codex Agent 一次读取六店批量状态，核验 13:30、13:40、13:50、14:00、14:10、14:20 六条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。正常店铺不重复读取专项手册，只有缺失触发、失败、结果未决或终态证据不完整时才进入本节后续诊断。
 - 若某店正在运行或在 A 前等待 helper，持续监控到终态；同店已有 owner 或京东/吉客云占用时协调等待是正常状态，其他天猫店运行不应导致本店排队，不以此创建重复 execution。
 - 若到某店计划时间后 5 分钟仍无当日 `mode=trigger` execution，检查同一 workflow ID 的当前发布版本、启用状态、trigger 注册、时区和 n8n 服务；不得新建同名副本或并发业务流水线。
 - 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。单店失败后仍要继续核验其余五店；只隔离资源收尾未知的目标店；其他天猫店不应因该店失败而等待。
