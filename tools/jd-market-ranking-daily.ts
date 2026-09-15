@@ -401,21 +401,22 @@ export function assertJdMarketNativeDownloadRequest(
   date: string,
 ) {
   const url = new URL(request.url, targetUrl);
-  if (request.method !== "POST" || url.protocol !== "https:" || url.hostname !== "jdsz.jd.com"
+  if (request.method !== "POST" || url.protocol !== "https:" || url.hostname !== "szgateway.jd.com"
     || url.pathname !== "/api/lowcode/industryTop/indProductRank/downloadProductRank.ajax") {
     throw new Error("京东行业榜单下载请求地址或方法已变化");
   }
   const payload = nativeDownloadPayload(request);
   const scalar = (key: string) => flattenedStrings(payload[key]);
-  const hasExact = (keys: string[], expected: string) => keys.some((key) => scalar(key).length === 1 && scalar(key)[0] === expected);
-  if (!hasExact(["skuSpuType"], "sku") || !hasExact(["rankTab"], "hot")
-    || !hasExact(["startDate"], date) || !hasExact(["endDate"], date)
-    || !hasExact(["bsIndCate2", "secCatId", "secondIndId"], target.secondIndId)
-    || !hasExact(["bsIndCate3", "thirdCatId", "thirdIndId"], target.thirdIndId)) {
+  const exact = (key: string, expected: string) => scalar(key).length === 1 && scalar(key)[0] === expected;
+  if (!exact("skuSpuType", "sku") || !exact("rankTab", "hot")
+    || !exact("startDate", date) || !exact("endDate", date)
+    || !exact("saleOrdCate3", target.thirdIndId)
+    || (scalar("saleOrdCate2").length > 0 && !exact("saleOrdCate2", target.secondIndId))
+    || payload.realtime !== false || !exact("interval", "DAY")
+    || !exact("dateType", "custom") || !exact("channel", "all")) {
     throw new Error("京东行业榜单下载请求的商品榜、热销排名、SKU、类目或日期身份不一致");
   }
-  const operationMode = ["popBusiness", "businessType", "operationMode"].flatMap((key) => scalar(key));
-  if (operationMode.length && !operationMode.some((value) => value.toLowerCase() === "pop")) {
+  if (!exact("popBusiness", "pop")) {
     throw new Error("京东行业榜单下载请求不是 POP 经营模式");
   }
   return Object.freeze({ payload });
@@ -433,7 +434,7 @@ async function clickDropdownControl(control: Locator) {
   const count = await control.count();
   const className = count === 1 ? String(await control.getAttribute("class") ?? "") : "";
   const eventName = count === 1 ? String(await control.getAttribute("data-event-name") ?? "") : "";
-  if (count !== 1 || !className.split(/\s+/).includes("jmtd-base-input") || eventName !== "open") {
+  if (count !== 1 || !className.split(/\s+/).includes("jmt-selector") || eventName !== "open") {
     throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
   }
   const hitTest = await control.evaluate((element) => {
@@ -460,136 +461,20 @@ async function clickDropdownControl(control: Locator) {
 }
 
 async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control: Locator, categoryPath: [string, string]) {
-  const exact = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
-  let parentCount = 0;
-  let childCount = 0;
-  let revealedChildCount = 0;
-  let submenuScrolls = 0;
-  let controlClicks = 0;
-  let lastControlError = "";
-  let controlEvidence = "";
-  let lastMenuEvidence = "";
-  let lastVisibleLabels: string[] = [];
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    let parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
-    parentCount = await parents.count();
-    if (parentCount === 0) {
-      const clicked = await clickDropdownControl(control)
-        .then(() => true)
-        .catch((error) => {
-          lastControlError = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0]!.slice(0, 240);
-          return false;
-        });
-      if (clicked) controlClicks += 1;
-      for (let waitAttempt = 0; waitAttempt < 10; waitAttempt += 1) {
-        await frame.waitForTimeout(100);
-        parents = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exact(categoryPath[0]) });
-        parentCount = await parents.count();
-        if (parentCount > 0) break;
-      }
-    }
-    if (parentCount === 1) {
-      const expanded = await parents.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
-      if (expanded) {
-        for (let scrollAttempt = 0; scrollAttempt < 20; scrollAttempt += 1) {
-          await frame.waitForTimeout(150);
-          const findRevealedChildren = async () => {
-            const children = surface.locator(".jmtd-dropdown-option").filter({ hasText: exact(categoryPath[1]) });
-            childCount = await children.count();
-            const revealed: Locator[] = [];
-            for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
-              const child = children.nth(childIndex);
-              const visible = await child.scrollIntoViewIfNeeded({ timeout: 1_000 })
-                .then(() => child.isVisible()).catch(() => false);
-              if (visible) revealed.push(child);
-            }
-            return revealed;
-          };
-          let revealedChildren = await findRevealedChildren();
-          revealedChildCount = revealedChildren.length;
-          if (revealedChildCount === 1) {
-            const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
-            if (clicked) return;
-          }
-          const visibleOptions = surface.locator(".jmtd-dropdown-option").filter({ visible: true });
-          const visibleOptionCount = await visibleOptions.count();
-          if (visibleOptionCount > 1) {
-            const menu = await visibleOptions.last().evaluate((element) => {
-              const ancestors: Array<Record<string, unknown>> = [];
-              let current: HTMLElement | null = element as HTMLElement;
-              for (let depth = 0; current && current !== document.body && depth < 6; depth += 1) {
-                const box = current.getBoundingClientRect();
-                ancestors.push({
-                  tag: current.tagName,
-                  className: String(current.className).slice(0, 100),
-                  client: [current.clientWidth, current.clientHeight],
-                  scroll: [current.scrollWidth, current.scrollHeight],
-                  box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
-                });
-                current = current.parentElement;
-              }
-              return ancestors;
-            }).catch(() => []);
-            if (menu.length) lastMenuEvidence = JSON.stringify(menu).slice(0, 650);
-          }
-          const submenuBox = visibleOptionCount > 1 ? await visibleOptions.last().boundingBox().catch(() => null) : null;
-          if (!submenuBox) break;
-          await frame.page().mouse.move(
-            submenuBox.x + submenuBox.width / 2,
-            submenuBox.y + submenuBox.height / 2,
-            { steps: 10 },
-          );
-          await frame.page().mouse.wheel(0, 60);
-          await frame.waitForTimeout(50);
-          // The cascader virtualizes the final child while the submenu is at
-          // scrollTop=0. Re-query while it is scrolled before restoring the
-          // top position for the next parent-hover attempt.
-          revealedChildren = await findRevealedChildren();
-          revealedChildCount = revealedChildren.length;
-          if (revealedChildCount === 1) {
-            const clicked = await revealedChildren[0]!.click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
-            if (clicked) return;
-          }
-          await frame.page().mouse.wheel(0, -10_000);
-          submenuScrolls += 1;
-        }
-      }
-    }
-    if (attempt === 29) {
-      lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
-        .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
-      const evidence = await control.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return {
-          control: `${element.tagName}.${element.className}`.slice(0, 180),
-          hit: hit ? `${hit.tagName}.${hit.className}`.slice(0, 180) : "",
-          box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
-        };
-      }).catch(() => null);
-      const totalOptions = await surface.locator(".jmtd-dropdown-option").count().catch(() => -1);
-      const lastVisibleOption = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).last();
-      const menu = await lastVisibleOption.evaluate((element) => {
-        const ancestors: Array<Record<string, unknown>> = [];
-        let current: HTMLElement | null = element as HTMLElement;
-        for (let depth = 0; current && current !== document.body && depth < 6; depth += 1) {
-          const box = current.getBoundingClientRect();
-          ancestors.push({
-            tag: current.tagName,
-            className: String(current.className).slice(0, 100),
-            client: [current.clientWidth, current.clientHeight],
-            scroll: [current.scrollWidth, current.scrollHeight],
-            box: [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)],
-          });
-          current = current.parentElement;
-        }
-        return ancestors;
-      }).catch(() => []);
-      controlEvidence = JSON.stringify({ totalOptions, evidence, menu }).slice(0, 850);
-    }
-    await frame.waitForTimeout(100);
-  }
-  throw new Error(`京东商品榜单二级类目无法原子选择：${categoryPath.join(" > ")}；父候选=${parentCount}；子候选=${childCount}；可滚动可见子项=${revealedChildCount}；子菜单滚动=${submenuScrolls}；控件点击=${controlClicks}；点击错误=${lastControlError || "无"}；菜单证据=${lastMenuEvidence || "无"}；控件证据=${controlEvidence}；可见选项=${lastVisibleLabels.join("|").slice(0, 400)}`);
+  await clickDropdownControl(control);
+  const panel = surface.locator(".jmt-cascader-panel").filter({ visible: true });
+  await panel.waitFor({ state: "visible", timeout: 5_000 });
+  if (await panel.count() !== 1) throw new Error("京东新版类目菜单不唯一");
+  const option = (label: string) => panel.locator(".jmt-dropdown-option")
+    .filter({ has: frame.getByText(label, { exact: true }) });
+  const parent = option(categoryPath[0]);
+  if (await parent.count() !== 1) throw new Error("京东新版二级类目不唯一");
+  await parent.hover({ timeout: 5_000 });
+  const child = option(categoryPath[1]);
+  await child.waitFor({ state: "visible", timeout: 5_000 });
+  if (await child.count() !== 1) throw new Error("京东新版三级类目不唯一");
+  await child.scrollIntoViewIfNeeded();
+  await child.click({ timeout: 5_000 });
 }
 
 async function waitForSelectorText(control: Locator, frame: Frame, expected: string, exact: boolean) {
@@ -638,7 +523,7 @@ async function waitForRankingIdentityControls(surface: Locator, frame: Frame) {
     const filterContent = surface.locator(".industry-top-head-filter-content").filter({ visible: true });
     const dimensionArea = filterContent.locator(".industry-top-head-filter-sku-spu").filter({ visible: true });
     const dimensionControl = dimensionArea.getByText("SKU", { exact: true }).filter({ visible: true });
-    const categoryControl = filterContent.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"], [data-component-name="Select"][data-event-name="open"]')
+    const categoryControl = filterContent.locator('.jmt-selector[data-component-name="Selector"][data-event-name="open"]')
       .filter({ visible: true }).filter({ hasText: /商用/ });
     if (await filterContent.count() === 1 && await dimensionArea.count() === 1
       && await dimensionControl.count() === 1 && await categoryControl.count() === 1) {
@@ -649,7 +534,7 @@ async function waitForRankingIdentityControls(surface: Locator, frame: Frame) {
   throw new Error("京东新版行业榜单商品榜的 SKU 或商用类目控件未在有界时间内唯一稳定");
 }
 
-async function selectRankingIdentity(page: Page, target: JdMarketDailyCategoryConfig) {
+export async function selectRankingIdentity(page: Page, target: JdMarketDailyCategoryConfig) {
   const frame = page.mainFrame();
   if (!isJdMarketRankingPageUrl(frame.url())) throw new Error("京东新版行业榜单主框架地址无效");
   const surface = await waitForRankingSurface(frame);
@@ -666,11 +551,15 @@ async function selectRankingIdentity(page: Page, target: JdMarketDailyCategoryCo
   }
   await dimensionControl.click();
   await frame.waitForTimeout(1_000);
-  if ((await dimensionControl.innerText()).trim() !== "SKU" || !(await categoryControl.innerText()).includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
+  if (await dimensionControl.getAttribute("aria-selected") !== "true" || !(await categoryControl.innerText()).includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
   const hotRanking = surface.getByText("热销排名", { exact: true }).filter({ visible: true });
   await hotRanking.waitFor({ state: "visible", timeout: 30_000 });
   if (await hotRanking.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别热销排名");
   await hotRanking.click();
+  const query = surface.getByText("查询", { exact: true }).filter({ visible: true });
+  if (await query.count() !== 1) throw new Error("京东新版行业榜单查询按钮不唯一");
+  await query.click();
+  await frame.waitForTimeout(500);
   const downloadButton = surface.getByText("下载数据", { exact: true }).filter({ visible: true });
   await downloadButton.waitFor({ state: "visible", timeout: 30_000 });
   if (await downloadButton.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别下载数据按钮");
@@ -694,7 +583,7 @@ async function waitForRankingDateEcho(frame: Frame, date: string, timeoutMs = 10
   throw new Error(`京东新版行业榜单自定义日期未生效：目标 ${date}，页面显示 ${observed.replace(/\s+/g, " ")}`);
 }
 
-async function selectRankingDate(frame: Frame, date: string) {
+export async function selectRankingDate(frame: Frame, date: string) {
   const echo = frame.locator(".jmt-combo-date-picker-echo-wrap").filter({ visible: true });
   if (await echo.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单当前时间入口");
   const customSelector = '[data-event-content="当前时间_自定义"]';
@@ -708,45 +597,30 @@ async function selectRankingDate(frame: Frame, date: string) {
   await frame.waitForTimeout(300);
 
   const cellSelector = `td[data-event-content="当前时间自定义_${date}"]`;
-  const popup = frame.locator(".jmt-date-picker, .jmt-date-picker-panel, [class*='date-picker']").filter({ visible: true }).first();
-  const targetMonth = date.slice(0, 7);
-  const monthLabel = `${targetMonth.slice(0, 4)}年${Number(targetMonth.slice(5))}月`;
-  const getHeaderText = async () => {
-    for (const candidate of [
-      frame.locator(".jmt-date-picker-header").filter({ visible: true }).first(),
-      frame.locator(".jmt-date-picker-calendar-header").filter({ visible: true }).first(),
-      popup.getByText(/\d{4}年\d{1,2}月/).first(),
-    ]) {
-      if (await candidate.count().catch(() => 0)) return candidate.innerText().catch(() => "");
-    }
-    return "";
-  };
-  const clickCalendarNav = async (direction: "prev" | "next") => {
-    const selectors = direction === "prev"
-      ? ["button[aria-label*='上一月']", "button[title*='上一月']", ".jmt-date-picker-prev-btn", ".jmt-date-picker-calendar-prev-btn"]
-      : ["button[aria-label*='下一月']", "button[title*='下一月']", ".jmt-date-picker-next-btn", ".jmt-date-picker-calendar-next-btn"];
-    for (const selector of selectors) {
-      const button = popup.locator(selector).filter({ visible: true }).first();
-      if (await button.count().catch(() => 0)) {
-        await button.click();
-        return true;
-      }
-    }
-    return false;
-  };
+  const popup = frame.locator(".jmt-date-picker-dropdown-wrapper").filter({ visible: true });
+  if (await popup.count() !== 1) throw new Error("京东新版自定义日期面板不唯一");
+  // The range picker shows two months; a unique visible target day is sufficient.
+  // Navigate only when neither month contains that exact date.
   const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    const headerText = await getHeaderText();
-    if (headerText.includes(monthLabel)) break;
-    const current = headerText.match(/(\d{4})年\s*(\d{1,2})月/);
-    if (!current) throw new Error("京东新版行业榜单日历月份无法识别");
-    const currentMonth = `${current[1]}-${String(Number(current[2])).padStart(2, "0")}`;
-    if (!await clickCalendarNav(currentMonth < targetMonth ? "next" : "prev")) {
-      throw new Error("京东新版行业榜单日历月份无法切换");
+  while (await frame.locator(cellSelector).filter({ visible: true }).count() === 0) {
+    if (Date.now() >= deadline) throw new Error("京东新版行业榜单日历月份切换超时");
+    const headers = await popup.locator(".jmt-date-picker-header-date-content").allTextContents();
+    const months = headers.map(text => {
+      const m = text.match(/(\d{4})年\s*(\d{1,2})月/);
+      return m ? m[1] + "-" + m[2]!.padStart(2, "0") : "";
+    }).filter(Boolean).sort();
+    if (months.length !== 2) throw new Error("京东新版行业榜单日历月份无法识别");
+    const direction = date.slice(0, 7) < months[0]! ? "prev" : "next";
+    const nav = popup.locator(".jmt-date-picker-header-" + direction + "-month-icon")
+      .filter({ visible: true }).filter({ hasNot: frame.locator("[disabled]") });
+    const enabled: Locator[] = [];
+    for (let i = 0; i < await nav.count(); i++) {
+      if (!(await nav.nth(i).getAttribute("class") ?? "").includes("btn-disabled")) enabled.push(nav.nth(i));
     }
+    if (enabled.length !== 1) throw new Error("京东新版行业榜单日历月份切换按钮不唯一");
+    await enabled[0]!.click();
     await frame.waitForTimeout(200);
   }
-  if (!(await getHeaderText()).includes(monthLabel)) throw new Error(`京东新版行业榜单日历未到达 ${monthLabel}`);
 
   const cell = frame.locator(cellSelector).filter({ visible: true });
   await cell.waitFor({ state: "visible", timeout: 10_000 });
@@ -788,9 +662,15 @@ async function selectRankingDate(frame: Frame, date: string) {
   }
   if (endDecision !== "confirmed_echo") throw new Error(`京东新版行业榜单结束日期 ${date} 未获得严格日期回显`);
   const confirm = frame.locator('[data-event-name="confirm"][data-event-content="true"]').filter({ visible: true });
-  await confirm.waitFor({ state: "visible", timeout: 5_000 });
-  if (await confirm.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单日期确认按钮");
-  await confirm.dispatchEvent("click");
+  const confirmCount = await confirm.count();
+  if (confirmCount > 1) throw new Error("京东新版行业榜单日期确认按钮不唯一");
+  if (confirmCount === 1) await confirm.click();
+  // Current industry picker applies the two endpoint clicks immediately.
+  // Only the strict date echo authorizes download when no confirmation exists.
+  await frame.getByRole("heading", { name: "行业榜单", exact: true }).hover();
+  const closeDeadline = Date.now() + 5_000;
+  while (await popup.count() > 0 && Date.now() < closeDeadline) await frame.waitForTimeout(100);
+  if (await popup.count() > 0) throw new Error("京东新版日期浮层尚未关闭");
   await frame.waitForTimeout(200);
   await waitForRankingDateEcho(frame, date);
   const loading = frame.locator(".jd-spin-spinning, .jmt-spin-spinning, [aria-busy='true']").filter({ visible: true });

@@ -70,28 +70,29 @@ test("JD market accepts only the exact new industry-top page", () => {
 
 test("JD market native XLSX download requires exact product, hot, SKU, category and day identity", () => {
   const target = { secondIndId: "44744", thirdIndId: "44811" };
-  const payload = { skuSpuType: "sku", rankTab: "hot", startDate: "2026-09-14", endDate: "2026-09-14", bsIndCate2: "44744", bsIndCate3: "44811", operationMode: "POP" };
+  const payload = { skuSpuType: "sku", rankTab: "hot", startDate: "2026-09-14", endDate: "2026-09-14", saleOrdCate3: ["44811"], popBusiness: "pop", channel: "all", realtime: false, interval: "DAY", dateType: "custom" };
   const request = {
     contentType: "application/json;charset=UTF-8",
     method: "POST",
     postData: JSON.stringify(payload),
-    url: "https://jdsz.jd.com/api/lowcode/industryTop/indProductRank/downloadProductRank.ajax",
+    url: "https://szgateway.jd.com/api/lowcode/industryTop/indProductRank/downloadProductRank.ajax",
     capturedAt: 1,
   } as const;
   assert.deepEqual(assertJdMarketNativeDownloadRequest(request, target, "2026-09-14").payload, payload);
   assert.doesNotThrow(() => assertJdMarketNativeDownloadRequest({
     ...request,
-    contentType: "application/x-www-form-urlencoded",
-    postData: "skuSpuType=sku&rankTab=hot&startDate=2026-09-14&endDate=2026-09-14&secondIndId=44744&thirdIndId=44811&businessType=pop",
+    postData: JSON.stringify({ ...payload, saleOrdCate2: ["44744"] }),
   }, target, "2026-09-14"));
   for (const mutation of [
     { rankTab: "flow" }, { skuSpuType: "spu" }, { startDate: "2026-09-13" },
-    { endDate: "2026-09-13" }, { bsIndCate3: "44757" }, { operationMode: "self" },
+    { endDate: "2026-09-13" }, { saleOrdCate3: ["44757"] }, { popBusiness: "self" },
+    { saleOrdCate2: ["44739"] }, { saleOrdCate3: ["44811", "44757"] },
+    { saleOrdCate3: [] }, { realtime: true }, { interval: "MONTH" }, { channel: "self" },
   ]) {
     assert.throws(() => assertJdMarketNativeDownloadRequest({ ...request, postData: JSON.stringify({ ...payload, ...mutation }) }, target, "2026-09-14"), /身份不一致|不是 POP/);
   }
   assert.throws(() => assertJdMarketNativeDownloadRequest({ ...request, method: "GET" }, target, "2026-09-14"), /地址或方法已变化/);
-  assert.throws(() => assertJdMarketNativeDownloadRequest({ ...request, url: request.url.replace("jdsz.jd.com", "example.com") }, target, "2026-09-14"), /地址或方法已变化/);
+  assert.throws(() => assertJdMarketNativeDownloadRequest({ ...request, url: request.url.replace("szgateway.jd.com", "example.com") }, target, "2026-09-14"), /地址或方法已变化/);
 });
 
 test("JD market n8n workflow stays inactive and preserves the hidden Profile 3 three-stage chain", async () => {
