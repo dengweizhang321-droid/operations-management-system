@@ -23,7 +23,7 @@ test("finance target write controls are restricted to administrators", async () 
   assert.match(sales, /\{canManageTargets \? <section className="panel finance-target-form-panel">/);
   assert.match(sales, /\{canManageTargets \? <div className="finance-target-row-actions">/);
   assert.match(sales, /仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。/);
-  assert.match(sales, /if \(!canManageTargets \|\| saving \|\| deletingTargetId !== null\) return;/);
+  assert.match(sales, /if \(!canManageTargets \|\| saving \|\| importing \|\| deletingTargetId !== null\) return;/);
 });
 
 test("finance target deletion requires confirmation and a bounded reason", async () => {

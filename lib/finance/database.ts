@@ -371,6 +371,7 @@ function mapTarget(row: FinanceTargetRow): FinanceTarget {
     manager: row.manager,
     salesTargetCents: Number(row.sales_target_cents),
     profitTargetCents: Number(row.profit_target_cents),
+    grossMarginBps: 0,
     smallMarginBps: Number(row.small_margin_bps),
     inventoryCleanupTargetCents: Number(row.inventory_cleanup_target_cents),
     promotionFeeRatioBps: Number(row.promotion_fee_ratio_bps),

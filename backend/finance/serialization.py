@@ -37,6 +37,7 @@ def target_payload(target: FinanceTarget) -> dict[str, object]:
         "manager": target.manager,
         "salesTargetCents": int(target.sales_target_cents),
         "profitTargetCents": int(target.profit_target_cents),
+        "grossMarginBps": int(target.gross_margin_bps),
         "smallMarginBps": int(target.small_margin_bps),
         "inventoryCleanupTargetCents": int(target.inventory_cleanup_target_cents),
         "promotionFeeRatioBps": int(target.promotion_fee_ratio_bps),

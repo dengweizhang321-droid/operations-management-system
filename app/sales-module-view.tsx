@@ -654,6 +654,7 @@ type FinanceTargetFormState = {
   manager: string;
   salesTarget: string;
   profitTarget: string;
+  grossMargin: string;
   smallMargin: string;
   inventoryCleanupTarget: string;
   promotionFeeRatio: string;
@@ -673,6 +674,7 @@ const emptyFinanceTargetForm = (): FinanceTargetFormState => ({
   manager: "",
   salesTarget: "",
   profitTarget: "",
+  grossMargin: "",
   smallMargin: "",
   inventoryCleanupTarget: "",
   promotionFeeRatio: "",
@@ -692,6 +694,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [deletingTargetId, setDeletingTargetId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const targetRequestGenerationRef = useRef(0);
@@ -699,6 +702,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   const optionsRequestGenerationRef = useRef(0);
   const optionsRequestControllerRef = useRef<AbortController | null>(null);
   const optionsLoadedRef = useRef(false);
+  const annualTargetFileRef = useRef<HTMLInputElement | null>(null);
 
   const loadTargets = useCallback(async () => {
     targetRequestControllerRef.current?.abort();
@@ -770,7 +774,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   const toCents = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
   const toBps = (value: string) => Number.isFinite(Number(value)) ? Math.max(0, Math.round(Number(value) * 100)) : 0;
   const saveTarget = async () => {
-    if (!canManageTargets || saving || deletingTargetId !== null) return;
+    if (!canManageTargets || saving || importing || deletingTargetId !== null) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -788,6 +792,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
           manager: form.manager,
           salesTargetCents: toCents(form.salesTarget),
           profitTargetCents: toCents(form.profitTarget),
+          grossMarginBps: toBps(form.grossMargin),
           smallMarginBps: toBps(form.smallMargin),
           inventoryCleanupTargetCents: toCents(form.inventoryCleanupTarget),
           promotionFeeRatioBps: toBps(form.promotionFeeRatio),
@@ -813,7 +818,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     }
   };
   const editTarget = (item: FinanceTarget) => {
-    if (!canManageTargets || saving || deletingTargetId !== null) return;
+    if (!canManageTargets || saving || importing || deletingTargetId !== null) return;
     setForm({
       id: item.id,
       expectedVersion: item.version,
@@ -826,6 +831,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
       manager: item.manager,
       salesTarget: item.salesTargetCents ? String(item.salesTargetCents / 100) : "",
       profitTarget: item.profitTargetCents ? String(item.profitTargetCents / 100) : "",
+      grossMargin: item.grossMarginBps ? String(item.grossMarginBps / 100) : "",
       smallMargin: item.smallMarginBps ? String(item.smallMarginBps / 100) : "",
       inventoryCleanupTarget: item.inventoryCleanupTargetCents ? String(item.inventoryCleanupTargetCents / 100) : "",
       promotionFeeRatio: item.promotionFeeRatioBps ? String(item.promotionFeeRatioBps / 100) : "",
@@ -833,7 +839,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     });
   };
   const removeTarget = async (item: FinanceTarget) => {
-    if (!canManageTargets || saving || deletingTargetId !== null) return;
+    if (!canManageTargets || saving || importing || deletingTargetId !== null) return;
     const confirmed = window.confirm(`确认删除“${item.periodKey}”经营目标？此操作不可撤销。`);
     if (!confirmed) return;
     const providedReason = window.prompt("请输入删除原因（1—200 个字符）：", "");
@@ -874,9 +880,46 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     }
   };
 
+  const importAnnualTargets = async (file: File) => {
+    if (!canManageTargets || importing || saving || deletingTargetId !== null) return;
+    if (!/\.xlsx$/i.test(file.name)) {
+      setMessage({ tone: "error", text: "年度目标仅支持 .xlsx 文件。" });
+      return;
+    }
+    if (file.size <= 0 || file.size > 2 * 1024 * 1024) {
+      setMessage({ tone: "error", text: "年度目标文件必须大于 0 且不超过 2MB。" });
+      return;
+    }
+    setImporting(true);
+    setMessage(null);
+    try {
+      const body = new FormData();
+      body.set("year", targetYear);
+      body.set("file", file);
+      const response = await fetch("/api/finance/targets/import", { method: "POST", body });
+      const payload = await response.json().catch(() => null) as {
+        importedCount?: number; createdCount?: number; updatedCount?: number; skippedCount?: number; error?: string;
+      } | null;
+      if (!response.ok || !Number.isSafeInteger(payload?.importedCount)) {
+        throw new Error(payload?.error || "年度目标导入失败");
+      }
+      setMessage({
+        tone: "success",
+        text: `${targetYear} 年目标已导入 ${payload?.importedCount ?? 0} 家店铺（新增 ${payload?.createdCount ?? 0}、更新 ${payload?.updatedCount ?? 0}、空白目标跳过 ${payload?.skippedCount ?? 0}）。未出现在文件中的原目标保持不变。`,
+      });
+      setAnnualRefresh((value) => value + 1);
+      if (targetPage !== 1) setTargetPage(1);
+      else await loadTargets();
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "年度目标导入失败" });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return <div className="finance-target-page">
-    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">ANNUAL TARGET MANAGEMENT</span><h2>年度目标设置</h2><p>每个店铺只需填写全年销售目标与利润目标，已完成金额自动累计财报数据。</p></div><label>目标年份 <select aria-label="目标年份" value={targetYear} disabled={saving || deletingTargetId !== null} onChange={(event) => { setItems([]); setTargetsLoaded(false); setTargetPagination({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false }); setTargetYear(event.target.value); setTargetPage(1); setForm({ ...emptyFinanceTargetForm(), periodKey: event.target.value }); }}>{Array.from({ length: 201 }, (_, index) => String(1900 + index)).map((year) => <option key={year} value={year}>{year} 年</option>)}</select></label></section>
-    <FinanceAnnualProgressView key={targetYear} year={targetYear} refreshKey={annualRefresh} canManageTargets={canManageTargets} onEdit={(row) => { if (saving || deletingTargetId !== null) return; if (row.target) editTarget(row.target); else setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear, shopKey: row.key, platform: row.platform, shopName: row.shopName }); document.getElementById("annual-target-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} />
+    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">ANNUAL TARGET MANAGEMENT</span><h2>年度目标设置</h2><p>导入或填写全年销售、利润、大毛利率和推广费率目标，实际完成情况自动累计财报数据。</p></div><div className="annual-target-hero-actions"><label>目标年份 <select aria-label="目标年份" value={targetYear} disabled={saving || importing || deletingTargetId !== null} onChange={(event) => { setItems([]); setTargetsLoaded(false); setTargetPagination({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false }); setTargetYear(event.target.value); setTargetPage(1); setForm({ ...emptyFinanceTargetForm(), periodKey: event.target.value }); }}>{Array.from({ length: 201 }, (_, index) => String(1900 + index)).map((year) => <option key={year} value={year}>{year} 年</option>)}</select></label>{canManageTargets && <><input ref={annualTargetFileRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importAnnualTargets(file); }} /><button type="button" className="secondary-button" disabled={importing || saving || deletingTargetId !== null} onClick={() => annualTargetFileRef.current?.click()}>{importing ? "导入中…" : "导入年度目标"}</button><small>模板金额单位：万元；导入到当前年份</small></>}</div></section>
+    <FinanceAnnualProgressView key={targetYear} year={targetYear} refreshKey={annualRefresh} canManageTargets={canManageTargets} busy={saving || importing || deletingTargetId !== null} onEdit={(row) => { if (saving || importing || deletingTargetId !== null) return; if (row.target) editTarget(row.target); else setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear, shopKey: row.key, platform: row.platform, shopName: row.shopName }); document.getElementById("annual-target-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} />
     {message && <div className={`inline-feedback ${message.tone}`}><strong>{message.tone === "success" ? "操作成功" : "操作失败"}</strong><span>{message.text}</span></div>}
     {canManageTargets && optionsLoading && <div className="inline-feedback" role="status"><strong>管理选项加载中</strong><span>目标列表已独立读取；正在后台加载店铺和品类选项…</span></div>}
     {canManageTargets && optionsError && <div className="inline-feedback error" role="alert"><strong>管理选项加载失败</strong><span>{optionsError}</span><button type="button" className="row-action" onClick={() => void loadOptions()}>重试加载</button></div>}
@@ -889,16 +932,18 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
         <label><span>店长 / 负责人</span><input value={form.manager} onChange={(event) => patchForm({ manager: event.target.value })} placeholder="输入姓名" /></label>
         <label><span>全年销售目标（元）</span><input type="number" min="0" step="0.01" value={form.salesTarget} onChange={(event) => patchForm({ salesTarget: event.target.value })} /></label>
         <label><span>全年利润目标（元）</span><input type="number" min="0" step="0.01" value={form.profitTarget} onChange={(event) => patchForm({ profitTarget: event.target.value })} /></label>
+        <label><span>大毛利率目标（%）</span><input type="number" min="0" max="100" step="0.01" value={form.grossMargin} onChange={(event) => patchForm({ grossMargin: event.target.value })} /></label>
+        <label><span>推广费目标（%）</span><input type="number" min="0" max="100" step="0.01" value={form.promotionFeeRatio} onChange={(event) => patchForm({ promotionFeeRatio: event.target.value })} /></label>
       </div>
       <datalist id="finance-category-options">{options.categories.map((item) => <option key={item} value={item} />)}</datalist><datalist id="finance-project-options">{options.projects.map((item) => <option key={item} value={item} />)}</datalist>
-      <div className="finance-target-actions"><span>全年目标按整店统计，实际完成额自动读取财报</span><button type="button" className="primary-button" disabled={saving || (form.periodType !== "project" && !form.shopKey)} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
+      <div className="finance-target-actions"><span>全年目标按整店统计，实际完成额自动读取财报</span><button type="button" className="primary-button" disabled={saving || importing || (form.periodType !== "project" && !form.shopKey)} onClick={() => void saveTarget()}>{saving ? "保存中…" : form.id ? "保存修改" : "保存目标"}</button></div>
     </section> : <div className="inline-feedback warning" role="status"><strong>当前为只读模式</strong><span>仅管理员可新增、编辑或删除经营目标；你仍可查看全部目标并使用分页。</span></div>}
     <section className="panel finance-target-list-panel data-refresh-region" aria-busy={loading}>
       <div className="finance-panel-heading"><div><span className="eyebrow">TARGET LIST</span><h2>已设置目标</h2><p>本年度整店目标；保存后立即更新上方年累计进度。</p></div><span className="soft-tag">本页 {targetPagination.returned} / 共 {targetPagination.total} 项</span></div>
       {loading && !targetsLoaded ? <div className="table-state">正在读取目标…</div> : <>
-        <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>目标年份</th><th>店铺</th><th>负责人</th><th>全年销售目标</th><th>全年利润目标</th><th>{canManageTargets ? "操作" : "权限"}</th></tr></thead><tbody>
-          {items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.periodType === "project" ? "呆滞库存" : `${item.platform || "旧目标 · 平台待确认"}${item.category ? ` · ${item.category}` : " · 整店"}`}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{canManageTargets ? <div className="finance-target-row-actions"><button type="button" disabled={saving || deletingTargetId !== null} onClick={() => editTarget(item)}>编辑</button><button type="button" className="danger" disabled={saving || deletingTargetId !== null} onClick={() => void removeTarget(item)}>{deletingTargetId === item.id ? "删除中…" : "删除"}</button></div> : <span className="soft-text">只读</span>}</td></tr>)}
-          {items.length === 0 && <tr><td colSpan={6}><div className="table-state">{canManageTargets ? "还没有目标，先在上方新增一项。" : "当前没有可查看的经营目标。"}</div></td></tr>}
+        <div className="data-table-wrap"><table className="data-table finance-target-table"><thead><tr><th>目标年份</th><th>店铺</th><th>负责人</th><th>全年销售目标</th><th>全年利润目标</th><th>大毛利率目标</th><th>推广费目标</th><th>{canManageTargets ? "操作" : "权限"}</th></tr></thead><tbody>
+          {items.map((item) => <tr key={item.id}><td><strong>{item.periodType === "month" ? "月度" : item.periodType === "year" ? "年度" : "项目"}</strong><small>{item.periodKey}</small></td><td><strong>{item.periodType === "project" ? item.periodKey : item.shopName}</strong><small>{item.periodType === "project" ? "呆滞库存" : `${item.platform || "旧目标 · 平台待确认"}${item.category ? ` · ${item.category}` : " · 整店"}`}</small></td><td>{item.manager || "—"}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.salesTargetCents)}</td><td>{item.periodType === "project" ? "—" : formatCurrencyFromCents(item.profitTargetCents)}</td><td>{item.periodType === "project" || item.grossMarginBps <= 0 ? "—" : `${(item.grossMarginBps / 100).toFixed(1)}%`}</td><td>{item.periodType === "project" || item.promotionFeeRatioBps <= 0 ? "—" : `${(item.promotionFeeRatioBps / 100).toFixed(1)}%`}</td><td>{canManageTargets ? <div className="finance-target-row-actions"><button type="button" disabled={saving || importing || deletingTargetId !== null} onClick={() => editTarget(item)}>编辑</button><button type="button" className="danger" disabled={saving || importing || deletingTargetId !== null} onClick={() => void removeTarget(item)}>{deletingTargetId === item.id ? "删除中…" : "删除"}</button></div> : <span className="soft-text">只读</span>}</td></tr>)}
+          {items.length === 0 && <tr><td colSpan={8}><div className="table-state">{canManageTargets ? "还没有目标，先在上方新增或导入一份年度目标。" : "当前没有可查看的经营目标。"}</div></td></tr>}
         </tbody></table></div>
         {(targetPage > 1 || targetPagination.truncated) && <div className="customer-service-pagination"><button type="button" className="row-action" disabled={targetPage <= 1} onClick={() => setTargetPage((value) => value - 1)}>上一页</button><span>第 {targetPage} 页 · 每页最多 100 项</span><button type="button" className="row-action" disabled={!targetPagination.truncated} onClick={() => setTargetPage((value) => value + 1)}>下一页</button></div>}
       </>}

@@ -62,6 +62,7 @@ function parseTarget(body: Record<string, unknown>): FinanceTargetInput {
     manager,
     salesTargetCents: finiteInteger(body.salesTargetCents, "销售额目标"),
     profitTargetCents: finiteInteger(body.profitTargetCents, "利润目标"),
+    grossMarginBps: finiteInteger(body.grossMarginBps, "大毛利率目标", 10_000),
     smallMarginBps: finiteInteger(body.smallMarginBps, "小毛利率目标", 10_000),
     inventoryCleanupTargetCents: finiteInteger(body.inventoryCleanupTargetCents, "库存清理目标"),
     promotionFeeRatioBps: finiteInteger(body.promotionFeeRatioBps, "推广费占比目标", 10_000),

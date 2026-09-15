@@ -128,6 +128,29 @@ test("finance writer sends normalized JSON only to the writer and preserves repl
   assert.equal(result.replayed, true);
 });
 
+test("annual target imports use the dedicated finance writer path", async () => {
+  const observed: Request[] = [];
+  await requestDjangoFinanceService<Record<string, unknown>>(
+    principal,
+    {
+      method: "POST",
+      path: "/api/finance/targets/import",
+      payload: { schemaVersion: "finance-annual-target-import-v1", year: "2026" },
+      service: "writer",
+    },
+    {
+      config,
+      requestId: () => "annual-target-write",
+      fetchImpl: async (input, init) => {
+        observed.push(new Request(input, init));
+        return Response.json({ ok: true, status: "imported" }, { status: 201 });
+      },
+    },
+  );
+  assert.equal(new URL(observed[0].url).origin, "http://127.0.0.1:8012");
+  verifySignature(observed[0], "/api/finance/targets/import", "");
+});
+
 test("finance service keeps reader/writer surfaces disjoint and sales signer remains sales-only", async () => {
   const neverFetch: typeof fetch = async () => {
     assert.fail("invalid service/path combinations must fail before fetch");

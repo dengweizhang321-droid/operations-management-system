@@ -105,6 +105,7 @@ class FinanceTarget(models.Model):
     manager = models.CharField(max_length=120, default="")
     sales_target_cents = models.BigIntegerField(default=0)
     profit_target_cents = models.BigIntegerField(default=0)
+    gross_margin_bps = models.BigIntegerField(default=0)
     small_margin_bps = models.BigIntegerField(default=0)
     inventory_cleanup_target_cents = models.BigIntegerField(default=0)
     promotion_fee_ratio_bps = models.BigIntegerField(default=0)

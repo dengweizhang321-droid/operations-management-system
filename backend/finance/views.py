@@ -18,7 +18,7 @@ from .errors import FinanceApiError
 from .import_service import import_finance_payload, list_import_batches
 from .models import FinanceDataRevision, FinanceWriteRequestReceipt
 from .annual_progress import annual_progress, validate_year
-from .target_service import delete_target, list_targets, target_options, upsert_target
+from .target_service import delete_target, import_annual_targets, list_targets, target_options, upsert_target
 
 
 logger = logging.getLogger(__name__)
@@ -306,6 +306,20 @@ def targets(request: HttpRequest) -> JsonResponse:
             "DELETE": "目标删除失败。",
         }[request.method]
         return _error(error, fallback)
+
+
+@require_POST
+def target_import(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        payload = _body(request)
+
+        def execute() -> tuple[dict[str, object], int]:
+            return import_annual_targets(payload), 201
+
+        return _replay_fenced_write(request, principal, execute)
+    except Exception as error:
+        return _error(error, "店铺年度目标导入失败。")
 
 
 @require_POST

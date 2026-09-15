@@ -77,6 +77,7 @@ export type FinanceTargetInput = {
   manager?: string;
   salesTargetCents?: number;
   profitTargetCents?: number;
+  grossMarginBps?: number;
   smallMarginBps?: number;
   inventoryCleanupTargetCents?: number;
   promotionFeeRatioBps?: number;

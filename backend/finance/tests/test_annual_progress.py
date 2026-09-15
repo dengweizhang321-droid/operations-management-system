@@ -19,7 +19,8 @@ class AnnualProgressTests(TestCase):
 
     def target(self, **overrides):
         return upsert_target({"periodType": "year", "periodKey": "2026", "platform": "京东", "shopName": "同名店",
-                              "salesTargetCents": 360_000, "profitTargetCents": 90_000, **overrides})[0]
+                              "salesTargetCents": 360_000, "profitTargetCents": 90_000,
+                              "grossMarginBps": 4_500, "promotionFeeRatioBps": 600, **overrides})[0]
 
     def test_annual_uses_only_whole_shop_year_target_and_monthly_facts(self):
         self.target()
@@ -32,10 +33,15 @@ class AnnualProgressTests(TestCase):
         self.assertEqual(jd["profitCents"], 45_000)
         self.assertEqual(jd["salesProgress"], 0.5)
         self.assertEqual(jd["profitProgress"], 0.5)
+        self.assertEqual(jd["grossMarginBps"], 4_000)
+        self.assertEqual(jd["grossMarginGapBps"], -500)
+        self.assertEqual(jd["promotionFeeRatioBps"], 500)
+        self.assertEqual(jd["promotionFeeGapBps"], -100)
         self.assertEqual(tm["netSalesCents"], 120_000)
         self.assertIsNone(tm["salesProgress"])
         self.assertEqual(payload["cutoffMonth"], "2026-03")
         self.assertEqual(jd["missingMonths"], ["2026-02"])
+        self.assertEqual(jd["missingGrossMarginMonths"], ["2026-02"])
 
     def test_same_name_shops_remain_separate_across_pages(self):
         self.target()

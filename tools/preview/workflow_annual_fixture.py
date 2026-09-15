@@ -35,6 +35,7 @@ def seed_workflow_annual(today):
     for month in months:
         FinanceMonth.objects.create(month=month, batch_id="preview-finance", sheet_name="合成财报", business_name="演示事业部", source_file_name="合成示例", status="completed", shop_count=2, subject_count=3, imported_at=stamp)
         for platform, name, sales, profit in (("京东", "演示店铺1", 1_000_000, 180_000), ("天猫", "演示店铺2", 800_000, 120_000)):
-            for metric, amount in (("net_sales", sales), ("gross_sales", sales), ("profit", profit)):
+            for metric, amount in (("net_sales", sales), ("gross_sales", sales), ("gross_profit", sales * 4 // 10), ("profit", profit)):
                 FinanceLine.objects.create(month=month, section="summary", metric_key=metric, subject_name=metric, scope_key=f"shop:{platform}:{name}", scope_type="shop", scope_name=name, group_name=platform, value_type="amount", amount_cents=amount, created_at=stamp)
-    FinanceTarget.objects.create(id="preview-annual-target", period_type="year", period_key=year, platform="京东", shop_name="演示店铺1", manager="演示负责人", sales_target_cents=6_000_000, profit_target_cents=1_000_000, created_at=stamp, updated_at=stamp)
+            FinanceLine.objects.create(month=month, section="kingdee", metric_key="", subject_name=f"销售费用_推广费用_{platform}", scope_key=f"shop:{platform}:{name}", scope_type="shop", scope_name=name, group_name=platform, value_type="amount", amount_cents=sales * 5 // 100, created_at=stamp)
+    FinanceTarget.objects.create(id="preview-annual-target", period_type="year", period_key=year, platform="京东", shop_name="演示店铺1", manager="演示负责人", sales_target_cents=6_000_000, profit_target_cents=1_000_000, gross_margin_bps=4_200, promotion_fee_ratio_bps=600, created_at=stamp, updated_at=stamp)
