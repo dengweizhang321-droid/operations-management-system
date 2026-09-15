@@ -1,6 +1,6 @@
 # TERUISI 运营管理系统协作规范
 
-2026-09-15 **标题与截图合成一条钉钉图文消息的修复已验证，尚未上线**：源码 `4d0757cd` 已合入 main；Node 2167 通过、后端 230 通过、页面 20 项通过，备份独立恢复通过。生产启停部署命令被自动审批以 `blocked by policy` 在执行前拒绝；生产服务、原任务 v3 及当前分开发送方式未改变。后续需重新取得发布操作授权并复核生产状态，不能把本次候选视作已采用。见 `docs/evidence/scheduled-single-message-candidate-20260915.json`。
+2026-09-15，单条钉钉图文已在用户重新明确授权短暂停服后受控上线。源码 `4d0757cd`；Worker/helper `20260915T031124Z-50915712d427032f`，manifest SHA `6b5a86de7e2d57b7bc73819890af62fa12cf474f2cb46edcd97863e332971b78`；Django manifest SHA `d1305a381c2dd259fe3c04bd880d14100773d3ee36c21c55777950cbccdad138`。截图非空文案使用企业机器人 `sampleMarkdown` 与内部 MediaId 合成一次消息调用；上传后复验版本/权限，失败不拆分、不重放。原任务 v3、09:00、目标和历史保持原样，无迁移。Node 2167 通过、隔离 PostgreSQL 230 通过、页面 20 项及正式编辑页通过；Running/Ready/exact_release、接收器 connected、Django 守护 healthy。尚未触发真实新版消息验收。维护时需先协调其他活跃任务暂缓共享服务恢复；此次京东监控并发启动旧 Worker 导致首轮目录移动中断，经原文件逐项摘要恢复后重新受控部署成功。后台守护须以受保护 runtime 为 WorkingDirectory，避免占用开发 worktree。证据见 `docs/evidence/scheduled-single-message-production-20260915.json`；此前审批拒绝记录保留在 candidate 证据中。
 
 2026-09-15，定时截图固定文案已合入 main 并在本机采用。源码 `4507d966`，Worker/helper `20260915T022221Z-62869892e2c72ed9`，Django manifest SHA `31cae8dd96cb323ee9ecb39bdcef335a71890aecd873914142780bb5339fae58`。截图任务复用 `prompt` 保存最多 4000 字原文，不调用 AI；先准备截图，再由同一机器人依次发文案和图片，第二次发送前复验版本与权限。部分发送和未知结果不自动重放，无迁移。原新品周报 v3 标题为“新品周销量趋势数据”，原目标/时间/历史保留；真实组合未立即投递。Node 2167 通过、20 跳过，隔离 PostgreSQL 227 通过、2 跳过，页面 20 项及正式编辑窗口回读通过；备份独立恢复、发布后备份/E盘归档与 Running/Ready/exact_release 均通过。见 `docs/AI_DINGTALK_SCHEDULES.md`、`docs/evidence/scheduled-caption-production-20260915.json`。
 
