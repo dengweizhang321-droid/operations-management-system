@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Frame, Locator, Page } from "playwright-core";
@@ -13,6 +13,13 @@ import { withJdChromiumRunLock } from "../lib/jd/chromium-run-lock";
 import { assertJdProductDetailStoreIdentity, parseJdProductDetailStoreIdentity } from "../lib/jd/product-detail-store-identity";
 import { ensureJdStoreAuthenticatedSession } from "./jd-saved-login";
 import {
+  isVerifiedJdDateRangeEcho,
+  jdCalendarCellState,
+  jdCalendarDateDispatchDecision,
+  jdCalendarEndSelectionDecision,
+  jdDateRangeSelectionPlan,
+} from "./jdsz-product-detail-export";
+import {
   assertJdMarketImportProof,
   claimExactJdMarketPlan,
   claimRecoverableJdMarketPlan,
@@ -23,16 +30,32 @@ import {
 } from "../lib/jd/market-ranking-import-contract";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const targetUrl = "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html?sz=%2Fszweb%2Fsz%2Fview%2FindustryMarket%2FproductRanks.html";
+export const jdMarketRankingPageUrl = "https://jdsz.jd.com/szweb/view/industry/industry-top.html";
+const targetUrl = jdMarketRankingPageUrl;
 const outputRoot = path.join(projectRoot, "outputs", "jd-market-ranking-daily");
 const configPath = path.join(projectRoot, "config", "jd-market-ranking-daily.json");
 const lockPath = path.join(outputRoot, "run.lock");
 const coverageRequestTimeoutMs = 120_000;
 const importRequestTimeoutMs = 900_000;
-export type JdMarketRankRequest = Readonly<{ headers: Readonly<Record<string, string>>; url: string; capturedAt: number }>;
-const capturedRankRequests = new WeakMap<Page, JdMarketRankRequest>();
-const capturedImageRequests = new WeakMap<Page, { headers: Readonly<Record<string, string>>; capturedAt: number }>();
-const replayableHeaderNames = new Set(["accept", "p-pin", "user-mnp", "user-mup", "uuid", "x-requested-with"]);
+
+export function isJdMarketRankingPageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "jdsz.jd.com"
+      && url.pathname === "/szweb/view/industry/industry-top.html"
+      && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+}
+export type JdMarketNativeDownloadRequest = Readonly<{
+  contentType: string;
+  method: string;
+  postData: string;
+  url: string;
+  capturedAt: number;
+}>;
+const capturedNativeDownloadRequests = new WeakMap<Page, JdMarketNativeDownloadRequest>();
 
 export type JdMarketDailyCategoryConfig = {
   key: string;
@@ -43,7 +66,7 @@ export type JdMarketDailyCategoryConfig = {
 };
 
 export type JdMarketDailyConfig = {
-  version: 3;
+  version: 4;
   enabled: boolean;
   storeKey: string;
   silentNoWindow: true;
@@ -74,12 +97,12 @@ export type JdMarketDailyTargetPlan = {
   identity: { category: string; scope: string; rankingDimension: "SKU"; priceBandFilter: string; secondIndId: string; thirdIndId: string };
   missingDates: string[];
   chunks: JdMarketDailyChunk[];
-  screenshots?: { filters?: string; exportPanel?: string; imported?: string };
+  screenshots?: { filters?: string; downloadReady?: string; imported?: string };
   evidenceWarnings?: string[];
 };
 
 export type JdMarketDailyPlan = {
-  version: 3;
+  version: 4;
   runId: string;
   ownerExecutionId: string;
   createdAt: string;
@@ -131,7 +154,7 @@ export function validateJdMarketDailyConfig(value: unknown): JdMarketDailyConfig
   const systemCategories = categories.map((target) => target?.systemCategory);
   const categoryPaths = categories.map((target) => JSON.stringify(target?.categoryPath));
   const industryIds = categories.map((target) => `${target?.secondIndId}:${target?.thirdIndId}`);
-  if (config.version !== 3 || !config.enabled || config.silentNoWindow !== true || config.dimension !== "SKU" || categories.length !== 7
+  if (config.version !== 4 || !config.enabled || config.silentNoWindow !== true || config.dimension !== "SKU" || categories.length !== 7
     || categories.some((target) => !target || !/^[a-z0-9-]{1,80}$/.test(target.key)
       || !Array.isArray(target.categoryPath) || target.categoryPath.length !== 2 || !target.categoryPath.every(Boolean) || !target.systemCategory
       || !/^\d+$/.test(String(target.secondIndId ?? "")) || !/^\d+$/.test(String(target.thirdIndId ?? "")))
@@ -139,7 +162,7 @@ export function validateJdMarketDailyConfig(value: unknown): JdMarketDailyConfig
     || new Set(industryIds).size !== categories.length
     || !config.storeKey || config.scope !== "pop" || config.priceBandFilter !== "全部" || !validDate(String(config.earliestDate ?? ""))
     || !Number.isInteger(config.requestDelayMs) || Number(config.requestDelayMs) < 300 || Number(config.requestDelayMs) > 10_000
-    || !Number.isInteger(config.maxDaysPerFile) || Number(config.maxDaysPerFile) < 1 || Number(config.maxDaysPerFile) > 20) {
+    || config.maxDaysPerFile !== 1) {
     throw new Error("京东市场商品榜单日补齐配置无效");
   }
   return config as JdMarketDailyConfig;
@@ -193,7 +216,7 @@ async function persistPlan(plan: JdMarketDailyPlan) {
   await writeJsonAtomic(planFile(plan), plan);
 }
 
-async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, target: JdMarketDailyTargetPlan, name: "filters" | "exportPanel" | "imported") {
+async function saveEvidenceScreenshot(page: Page, plan: JdMarketDailyPlan, target: JdMarketDailyTargetPlan, name: "filters" | "downloadReady" | "imported") {
   const evidenceDirectory = path.join(outputRoot, plan.runId, "evidence");
   await mkdir(evidenceDirectory, { recursive: true });
   const filePath = path.join(evidenceDirectory, `${target.key}-${name}.png`);
@@ -229,7 +252,7 @@ function expectedJdMarketPlanIdentity(
   endDate: string,
 ) {
   return {
-    version: 3,
+    version: 4,
     baseUrl,
     silentNoWindow: true,
     storeKey: store.storeKey,
@@ -293,7 +316,7 @@ export async function planJdMarketDailyRun(options: {
       });
     }
     const plan: JdMarketDailyPlan = {
-      version: 3, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      version: 4, runId, ownerExecutionId: options.executionId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       baseUrl, silentNoWindow: true, stage: "planned",
       storeKey: store.storeKey, shopId: store.shopId, shopName: store.shopName,
       browserProfileName: store.browser.profileName, browserDebugPort: store.browser.debugPort,
@@ -317,7 +340,7 @@ export function publicJdMarketPlan(plan: JdMarketDailyPlan) {
 }
 
 async function assertStoreIdentity(page: Page, expected: { shopId: string; shopName: string }) {
-  const links = page.locator('.user-info .shop-name a[href*="mall.jd.com/index-"]').filter({ visible: true });
+  const links = page.locator('a[href*="mall.jd.com/index-"]').filter({ visible: true });
   await links.first().waitFor({ state: "visible", timeout: 30_000 });
   const candidates: Array<{ href: string | null; text: string }> = [];
   for (let index = 0; index < await links.count(); index += 1) {
@@ -327,35 +350,75 @@ async function assertStoreIdentity(page: Page, expected: { shopId: string; shopN
   return assertJdProductDetailStoreIdentity(parseJdProductDetailStoreIdentity(candidates), expected);
 }
 
-export function jdMarketReplayableHeaders(headers: Record<string, string>) {
-  return Object.freeze(Object.fromEntries(Object.entries(headers).filter(([name]) => replayableHeaderNames.has(name.toLowerCase()))));
-}
-
-export function isJdMarketRankRequestForTarget(urlValue: string, target: Pick<JdMarketDailyCategoryConfig, "secondIndId" | "thirdIndId">) {
-  try {
-    const url = new URL(urlValue, targetUrl);
-    const exactly = (name: string, expected: string) => {
-      const values = url.searchParams.getAll(name);
-      return values.length === 1 && values[0] === expected;
-    };
-    return url.protocol === "https:" && url.hostname === "jdsz.jd.com"
-      && /\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax$/.test(url.pathname)
-      && exactly("unitType", "1") && exactly("secondIndId", target.secondIndId) && exactly("thirdIndId", target.thirdIndId);
-  } catch {
-    return false;
-  }
-}
-
 async function installRequestCapture(page: Page) {
   page.on("request", (request) => {
-    const headers = jdMarketReplayableHeaders(request.headers());
-    if (/\/sz\/api\/industry\/getImageURL\.ajax/.test(request.url())) {
-      capturedImageRequests.set(page, { headers, capturedAt: Date.now() });
-      return;
+    if (/\/api\/lowcode\/industryTop\/indProductRank\/downloadProductRank\.ajax(?:\?|$)/.test(request.url())) {
+      capturedNativeDownloadRequests.set(page, Object.freeze({
+        contentType: request.headers()["content-type"] ?? "",
+        method: request.method(),
+        postData: request.postData() ?? "",
+        url: request.url(),
+        capturedAt: Date.now(),
+      }));
     }
-    if (!/\/sz\/api\/industryMarket\/getProductBillBoardDealData\.ajax/.test(request.url())) return;
-    capturedRankRequests.set(page, Object.freeze({ url: request.url(), headers, capturedAt: Date.now() }));
   });
+}
+
+function nativeDownloadPayload(request: Pick<JdMarketNativeDownloadRequest, "contentType" | "postData" | "url">) {
+  const result: Record<string, unknown> = {};
+  const url = new URL(request.url, targetUrl);
+  for (const key of new Set([...url.searchParams.keys()])) {
+    const values = url.searchParams.getAll(key);
+    result[key] = values.length === 1 ? values[0] : values;
+  }
+  const source = request.postData.trim();
+  if (!source) return result;
+  if (/json/i.test(request.contentType) || source.startsWith("{") || source.startsWith("[")) {
+    const parsed = JSON.parse(source) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("京东行业榜单下载请求体不是对象");
+    return { ...result, ...parsed as Record<string, unknown> };
+  }
+  const form = new URLSearchParams(source);
+  for (const key of new Set([...form.keys()])) {
+    const values = form.getAll(key);
+    result[key] = values.length === 1 ? values[0] : values;
+  }
+  return result;
+}
+
+function flattenedStrings(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(flattenedStrings);
+  if (value === null || value === undefined || value === "") return [];
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try { return flattenedStrings(JSON.parse(value)); } catch { /* Treat it as a scalar below. */ }
+  }
+  return [String(value)];
+}
+
+export function assertJdMarketNativeDownloadRequest(
+  request: JdMarketNativeDownloadRequest,
+  target: Pick<JdMarketDailyCategoryConfig, "secondIndId" | "thirdIndId">,
+  date: string,
+) {
+  const url = new URL(request.url, targetUrl);
+  if (request.method !== "POST" || url.protocol !== "https:" || url.hostname !== "jdsz.jd.com"
+    || url.pathname !== "/api/lowcode/industryTop/indProductRank/downloadProductRank.ajax") {
+    throw new Error("京东行业榜单下载请求地址或方法已变化");
+  }
+  const payload = nativeDownloadPayload(request);
+  const scalar = (key: string) => flattenedStrings(payload[key]);
+  const hasExact = (keys: string[], expected: string) => keys.some((key) => scalar(key).length === 1 && scalar(key)[0] === expected);
+  if (!hasExact(["skuSpuType"], "sku") || !hasExact(["rankTab"], "hot")
+    || !hasExact(["startDate"], date) || !hasExact(["endDate"], date)
+    || !hasExact(["bsIndCate2", "secCatId", "secondIndId"], target.secondIndId)
+    || !hasExact(["bsIndCate3", "thirdCatId", "thirdIndId"], target.thirdIndId)) {
+    throw new Error("京东行业榜单下载请求的商品榜、热销排名、SKU、类目或日期身份不一致");
+  }
+  const operationMode = ["popBusiness", "businessType", "operationMode"].flatMap((key) => scalar(key));
+  if (operationMode.length && !operationMode.some((value) => value.toLowerCase() === "pop")) {
+    throw new Error("京东行业榜单下载请求不是 POP 经营模式");
+  }
+  return Object.freeze({ payload });
 }
 
 export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[]; hitClassNames?: string[] }) {
@@ -394,43 +457,6 @@ async function clickDropdownControl(control: Locator) {
     return;
   }
   await control.click({ timeout: 3_000, force: true });
-}
-
-async function triggerUniqueDropdownOption(surface: Locator, frame: Frame, label: string, action: "click" | "hover", control?: Locator) {
-  const exactLabel = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
-  let lastCandidateCount = 0;
-  let controlClicks = 0;
-  let lastVisibleLabels: string[] = [];
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const candidates = surface.locator(".jmtd-dropdown-option").filter({ visible: true }).filter({ hasText: exactLabel });
-    lastCandidateCount = await candidates.count();
-    if (lastCandidateCount === 1) {
-      const applied = action === "hover"
-        ? await candidates.first().hover({ timeout: 3_000, force: true }).then(() => true).catch(() => false)
-        : await candidates.first().click({ timeout: 3_000, force: true }).then(() => true).catch(() => false);
-      if (applied) return;
-    }
-    if (lastCandidateCount === 0 && control && attempt % 10 === 0) {
-      const visibleOptionCount = await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).count();
-      if (visibleOptionCount === 0 || attempt >= 20) {
-        const clicked = await clickDropdownControl(control).then(() => true).catch(() => false);
-        if (clicked) {
-          controlClicks += 1;
-          await frame.waitForTimeout(300);
-        }
-      }
-    }
-    if (attempt === 99) {
-      lastVisibleLabels = (await surface.locator(".jmtd-dropdown-option").filter({ visible: true }).allTextContents())
-        .map((value) => value.replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 40);
-    }
-    await frame.waitForTimeout(100);
-  }
-  throw new Error(`京东商品榜单下拉选项无法唯一定位：${label}；候选=${lastCandidateCount}；控件点击=${controlClicks}；可见选项=${lastVisibleLabels.join("|").slice(0, 600)}`);
-}
-
-async function clickUniqueDropdownOption(surface: Locator, frame: Frame, label: string, control?: Locator) {
-  await triggerUniqueDropdownOption(surface, frame, label, "click", control);
 }
 
 async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control: Locator, categoryPath: [string, string]) {
@@ -597,267 +623,220 @@ export async function withSingleJdMarketFilterSelectionRetry(
   throw new Error("京东商品榜单筛选重试状态异常");
 }
 
-function activeExportPanel(frame: Frame) {
-  return frame.locator("xpath=//*[@id='jdsz-export-panel' and not(ancestor::*[@id='sz-old-version'])]");
-}
-
 async function waitForRankingSurface(frame: Frame) {
   for (let attempt = 0; attempt < 300; attempt += 1) {
-    const surfaces = frame.locator("#sz-old-version").filter({ visible: true });
-    if (await surfaces.count() === 1 && await surfaces.first().locator(".jmtd-base-input-top").filter({ visible: true }).count() >= 3) return surfaces.first();
+    const surfaces = frame.locator("#jdsz-container").filter({ visible: true });
+    const title = frame.getByText("行业榜单", { exact: true }).filter({ visible: true });
+    if (await surfaces.count() === 1 && await title.count() >= 1) return surfaces.first();
     await frame.waitForTimeout(100);
   }
-  throw new Error("京东商品榜单受控业务容器未就绪或不唯一");
+  throw new Error("京东新版行业榜单受控业务容器未就绪或不唯一");
 }
 
 async function waitForRankingIdentityControls(surface: Locator, frame: Frame) {
-  const selectOpeners = surface.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"]').filter({ visible: true });
-  await selectOpeners.first().waitFor({ state: "visible", timeout: 30_000 });
   for (let attempt = 0; attempt < 300; attempt += 1) {
-    const dimensionControl = selectOpeners.filter({ hasText: /^(?:SKU|SPU)$/ });
-    const categoryControl = selectOpeners.filter({ hasText: /商用/ });
-    if (await selectOpeners.count() >= 3 && await dimensionControl.count() === 1 && await categoryControl.count() === 1) {
+    const filterContent = surface.locator(".industry-top-head-filter-content").filter({ visible: true });
+    const dimensionArea = filterContent.locator(".industry-top-head-filter-sku-spu").filter({ visible: true });
+    const dimensionControl = dimensionArea.getByText("SKU", { exact: true }).filter({ visible: true });
+    const categoryControl = filterContent.locator('.jmtd-base-input[data-component-name="Select"][data-event-name="open"], [data-component-name="Select"][data-event-name="open"]')
+      .filter({ visible: true }).filter({ hasText: /商用/ });
+    if (await filterContent.count() === 1 && await dimensionArea.count() === 1
+      && await dimensionControl.count() === 1 && await categoryControl.count() === 1) {
       return { dimensionControl, categoryControl };
     }
     await frame.waitForTimeout(100);
   }
-  throw new Error("京东商品榜单 SKU/SPU 或商用类目筛选控件未在有界时间内唯一稳定");
+  throw new Error("京东新版行业榜单商品榜的 SKU 或商用类目控件未在有界时间内唯一稳定");
 }
 
-async function selectRankingIdentity(page: Page, config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig) {
-  const frame = page.frames().find((candidate) => /productRanks\.html/.test(candidate.url()));
-  if (!frame) throw new Error("未找到京东商品榜单业务框架");
+async function selectRankingIdentity(page: Page, target: JdMarketDailyCategoryConfig) {
+  const frame = page.mainFrame();
+  if (!isJdMarketRankingPageUrl(frame.url())) throw new Error("京东新版行业榜单主框架地址无效");
   const surface = await waitForRankingSurface(frame);
+  const productTab = surface.getByText("商品榜", { exact: true }).filter({ visible: true });
+  await productTab.waitFor({ state: "visible", timeout: 30_000 });
+  if (await productTab.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别商品榜入口");
+  await productTab.click();
   const { dimensionControl, categoryControl } = await waitForRankingIdentityControls(surface, frame);
-  const currentDimension = (await dimensionControl.innerText()).trim();
-  if (currentDimension !== "SKU") {
-    await withSingleJdMarketFilterSelectionRetry(
-      () => clickUniqueDropdownOption(surface, frame, "SKU", dimensionControl),
-      () => waitForSelectorText(dimensionControl, frame, "SKU", true),
-    );
-  }
   const categoryLabel = target.categoryPath.join(" > ");
   const currentCategory = (await categoryControl.innerText()).trim();
-  if (currentCategory.includes(categoryLabel)) {
-    const alternate = config.categories.find((candidate) => candidate.key !== target.key);
-    if (!alternate) throw new Error("京东商品榜单缺少用于刷新同类目请求的受控备用类目");
-    await selectUniqueCategoryPath(surface, frame, categoryControl, alternate.categoryPath);
-    await waitForSelectorText(categoryControl, frame, alternate.categoryPath.join(" > "), false);
+  if (!currentCategory.includes(categoryLabel)) {
+    await selectUniqueCategoryPath(frame.locator("body"), frame, categoryControl, target.categoryPath);
+    await waitForSelectorText(categoryControl, frame, categoryLabel, false);
   }
-  const categorySelectionStartedAt = Date.now();
-  capturedRankRequests.delete(page);
-  capturedImageRequests.delete(page);
-  await selectUniqueCategoryPath(surface, frame, categoryControl, target.categoryPath);
-  await waitForSelectorText(categoryControl, frame, categoryLabel, false);
+  await dimensionControl.click();
   await frame.waitForTimeout(1_000);
   if ((await dimensionControl.innerText()).trim() !== "SKU" || !(await categoryControl.innerText()).includes(categoryLabel)) throw new Error("京东商品榜单 SKU 或类目选择未精确生效");
-  const exportPanel = activeExportPanel(frame);
-  const exportPanelCount = await exportPanel.count();
-  if (exportPanelCount > 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
-  if (exportPanelCount === 1) {
-    await exportPanel.waitFor({ state: "visible", timeout: 10_000 });
-    const dayGranularity = exportPanel.locator('input[name="jdsz-gran"][value="day"]');
-    await dayGranularity.check();
-    if (!(await dayGranularity.isChecked())) throw new Error("京东商品榜单导出增强未切换到按日");
-  }
-  let value: JdMarketRankRequest | undefined;
-  let imageHeaders: Readonly<Record<string, string>> | undefined;
-  for (let attempt = 0; attempt < 300; attempt += 1) {
-    const candidate = capturedRankRequests.get(page);
-    if (candidate && candidate.capturedAt >= categorySelectionStartedAt && isJdMarketRankRequestForTarget(candidate.url, target)) { value = candidate; break; }
+  const hotRanking = surface.getByText("热销排名", { exact: true }).filter({ visible: true });
+  await hotRanking.waitFor({ state: "visible", timeout: 30_000 });
+  if (await hotRanking.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别热销排名");
+  await hotRanking.click();
+  const downloadButton = surface.getByText("下载数据", { exact: true }).filter({ visible: true });
+  await downloadButton.waitFor({ state: "visible", timeout: 30_000 });
+  if (await downloadButton.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别下载数据按钮");
+  return Object.freeze({ frame, surface, dimensionControl, categoryControl, downloadButton });
+}
+
+async function currentRankingDateEcho(frame: Frame) {
+  const echo = frame.locator(".jmt-combo-date-picker-echo-wrap").filter({ visible: true });
+  if (await echo.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单当前日期显示区域");
+  return echo.innerText();
+}
+
+async function waitForRankingDateEcho(frame: Frame, date: string, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  let observed = "";
+  while (Date.now() < deadline) {
+    observed = await currentRankingDateEcho(frame);
+    if (isVerifiedJdDateRangeEcho(observed, date, date)) return observed;
     await frame.waitForTimeout(100);
   }
-  if (!value) throw new Error("未捕获到京东商品榜单 SKU 原生请求");
-  for (let attempt = 0; attempt < 300; attempt += 1) {
-    const candidate = capturedImageRequests.get(page);
-    if (candidate && candidate.capturedAt >= categorySelectionStartedAt) { imageHeaders = candidate.headers; break; }
-    await frame.waitForTimeout(100);
+  throw new Error(`京东新版行业榜单自定义日期未生效：目标 ${date}，页面显示 ${observed.replace(/\s+/g, " ")}`);
+}
+
+async function selectRankingDate(frame: Frame, date: string) {
+  const echo = frame.locator(".jmt-combo-date-picker-echo-wrap").filter({ visible: true });
+  if (await echo.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单当前时间入口");
+  const customSelector = '[data-event-content="当前时间_自定义"]';
+  if (await frame.locator(customSelector).filter({ visible: true }).count() === 0) {
+    await echo.click();
+    await frame.waitForTimeout(200);
   }
-  if (!imageHeaders) throw new Error("未捕获到京东商品图片接口原生请求头");
-  return Object.freeze({ frame, imageHeaders, rankRequest: value });
-}
+  const custom = frame.locator(customSelector).filter({ visible: true });
+  if (await custom.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单自定义时间入口");
+  await custom.click();
+  await frame.waitForTimeout(300);
 
-type RankBlock = { metaIndex: Record<string, number>; data: unknown[][] };
-type JdMarketImage = { imageUrl: string; productUrl: string };
-
-export async function withSingleJdMarketRequestRefresh<TState, TResult>(
-  state: TState,
-  request: (current: TState) => Promise<TResult>,
-  refresh: () => Promise<TState>,
-) {
-  try {
-    return { state, result: await request(state), refreshed: false as const };
-  } catch (firstError) {
-    let refreshedState: TState;
-    try {
-      refreshedState = await refresh();
-    } catch (refreshError) {
-      const message = refreshError instanceof Error ? refreshError.message : String(refreshError);
-      throw new Error(`京东商品榜单原生请求重新捕获失败：${message}`, { cause: firstError });
+  const cellSelector = `td[data-event-content="当前时间自定义_${date}"]`;
+  const popup = frame.locator(".jmt-date-picker, .jmt-date-picker-panel, [class*='date-picker']").filter({ visible: true }).first();
+  const targetMonth = date.slice(0, 7);
+  const monthLabel = `${targetMonth.slice(0, 4)}年${Number(targetMonth.slice(5))}月`;
+  const getHeaderText = async () => {
+    for (const candidate of [
+      frame.locator(".jmt-date-picker-header").filter({ visible: true }).first(),
+      frame.locator(".jmt-date-picker-calendar-header").filter({ visible: true }).first(),
+      popup.getByText(/\d{4}年\d{1,2}月/).first(),
+    ]) {
+      if (await candidate.count().catch(() => 0)) return candidate.innerText().catch(() => "");
     }
-    try {
-      return { state: refreshedState, result: await request(refreshedState), refreshed: true as const };
-    } catch (secondError) {
-      const message = secondError instanceof Error ? secondError.message : String(secondError);
-      throw new Error(`京东商品榜单使用新鲜原生请求后仍失败：${message}`, { cause: firstError });
-    }
-  }
-}
-
-function recordValue(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-
-function normalizeJdMarketImageUrl(value: unknown) {
-  const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" || !/^img\d+\.360buyimg\.com$/i.test(url.hostname)) return "";
-    url.search = "";
-    url.hash = "";
-    url.pathname = url.pathname.replace(/\/n\d+\//, "/n5/");
-    return url.toString();
-  } catch {
     return "";
-  }
-}
-
-function normalizeJdMarketProductUrl(value: unknown) {
-  const raw = String(value ?? "").trim().replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://");
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" || !/(^|\.)jd\.com$/i.test(url.hostname)) return "";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return "";
-  }
-}
-
-/** Normalizes the array and SKU-keyed response shapes returned by JD's image endpoint. */
-export function parseJdMarketImageRows(body: unknown): Record<string, JdMarketImage> {
-  const root = recordValue(body);
-  const content = recordValue(root?.content);
-  const candidate = content?.data ?? root?.data ?? root?.content;
-  const rows: Array<Record<string, unknown>> = [];
-  if (Array.isArray(candidate)) {
-    for (const value of candidate) {
-      const row = recordValue(value);
-      if (row) rows.push(row);
-    }
-  } else {
-    const keyed = recordValue(candidate);
-    if (keyed) {
-      for (const [skuId, value] of Object.entries(keyed)) {
-        const row = recordValue(value);
-        rows.push(row ? { skuId, ...row } : { skuId, imgSrc: value });
+  };
+  const clickCalendarNav = async (direction: "prev" | "next") => {
+    const selectors = direction === "prev"
+      ? ["button[aria-label*='上一月']", "button[title*='上一月']", ".jmt-date-picker-prev-btn", ".jmt-date-picker-calendar-prev-btn"]
+      : ["button[aria-label*='下一月']", "button[title*='下一月']", ".jmt-date-picker-next-btn", ".jmt-date-picker-calendar-next-btn"];
+    for (const selector of selectors) {
+      const button = popup.locator(selector).filter({ visible: true }).first();
+      if (await button.count().catch(() => 0)) {
+        await button.click();
+        return true;
       }
     }
-  }
-  const result: Record<string, JdMarketImage> = {};
-  for (const row of rows) {
-    const skuId = String(row.skuId ?? row.skuID ?? row.sku ?? row.id ?? "").trim();
-    if (!skuId) continue;
-    result[skuId] = {
-      imageUrl: normalizeJdMarketImageUrl(row.imgSrc ?? row.imageUrl ?? row.imgUrl),
-      productUrl: normalizeJdMarketProductUrl(row.proUrl ?? row.productUrl),
-    };
-  }
-  return result;
-}
-
-export function assertJdMarketImageCoverage(skuIds: string[], images: Record<string, JdMarketImage>) {
-  const missing = [...new Set(skuIds)].filter((skuId) => !images[skuId]?.imageUrl);
-  if (missing.length) {
-    throw new Error(`京东商品榜单图片接口缺少 ${missing.length} 个 SKU 主图：${missing.slice(0, 5).join(",")}；已停止生成和导入空图片榜单`);
-  }
-}
-
-type JdMarketRequestState = Readonly<{
-  frame: Frame;
-  imageHeaders: Readonly<Record<string, string>>;
-  rankRequest: JdMarketRankRequest;
-}>;
-
-async function fetchRankDay(state: JdMarketRequestState, date: string): Promise<RankBlock> {
-  let lastError = "未知错误";
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      if (Date.now() - state.rankRequest.capturedAt > 60 * 60_000) throw new Error("榜单请求头缺失或已过期");
-      return await state.frame.evaluate(async ({ targetDate, rankRequest }) => {
-        const url = new URL(rankRequest.url, location.origin);
-        url.searchParams.set("date", targetDate.replaceAll("-", ""));
-        url.searchParams.set("startDate", targetDate);
-        url.searchParams.set("endDate", targetDate);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30_000);
-        try {
-          const response = await fetch(url, { credentials: "include", headers: rankRequest.headers, signal: controller.signal });
-          const body = await response.json();
-          const block = body?.content?.trade;
-          if (!response.ok || !block?.metaIndex || !Array.isArray(block.data)) throw new Error("京东榜单接口未返回可验证的交易榜单数据");
-          return block as RankBlock;
-        } finally {
-          clearTimeout(timeout);
-        }
-      }, { targetDate: date, rankRequest: state.rankRequest });
-    } catch (error) {
-      lastError = (error instanceof Error ? error.message : String(error)).split("\n", 1)[0]!.slice(0, 300);
-      if (attempt < 2) await state.frame.waitForTimeout(1_000);
+    return false;
+  };
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const headerText = await getHeaderText();
+    if (headerText.includes(monthLabel)) break;
+    const current = headerText.match(/(\d{4})年\s*(\d{1,2})月/);
+    if (!current) throw new Error("京东新版行业榜单日历月份无法识别");
+    const currentMonth = `${current[1]}-${String(Number(current[2])).padStart(2, "0")}`;
+    if (!await clickCalendarNav(currentMonth < targetMonth ? "next" : "prev")) {
+      throw new Error("京东新版行业榜单日历月份无法切换");
     }
+    await frame.waitForTimeout(200);
   }
-  throw new Error(`京东商品榜单单日请求连续 3 次失败：${date}；${lastError}`);
-}
+  if (!(await getHeaderText()).includes(monthLabel)) throw new Error(`京东新版行业榜单日历未到达 ${monthLabel}`);
 
-async function fetchImages(frame: Page | import("playwright-core").Frame, skuIds: string[], imageHeaders: Readonly<Record<string, string>>) {
-  const result: Record<string, JdMarketImage> = {};
-  for (let index = 0; index < skuIds.length; index += 50) {
-    const chunk = skuIds.slice(index, index + 50);
-    const body = await frame.evaluate(async ({ ids, headers }) => {
-      const response = await fetch(`/sz/api/industry/getImageURL.ajax?ids=${ids.join(",")}`, { credentials: "include", headers });
-      const body = await response.json();
-      if (!response.ok) throw new Error("京东商品图片接口请求失败");
-      return body as unknown;
-    }, { ids: chunk, headers: imageHeaders });
-    Object.assign(result, parseJdMarketImageRows(body));
+  const cell = frame.locator(cellSelector).filter({ visible: true });
+  await cell.waitFor({ state: "visible", timeout: 10_000 });
+  if (await cell.count() !== 1) throw new Error(`京东新版行业榜单日期 ${date} 的可选单元格不唯一`);
+  if (jdCalendarDateDispatchDecision(await cell.getAttribute("class")) === "blocked_disabled") {
+    throw new Error(`京东新版行业榜单日期 ${date} 尚未开放`);
   }
-  assertJdMarketImageCoverage(skuIds, result);
-  return result;
-}
-
-function displayMetric(value: unknown) {
-  if (!value || typeof value !== "object") return value == null ? "" : String(value);
-  const item = value as Record<string, unknown>;
-  return `${item.leftPrefix ?? ""}${item.left ?? ""}${item.leftUnit ?? ""}${item.separator ?? ""}${item.rightPrefix ?? ""}${item.right ?? ""}${item.rightUnit ?? ""}`;
-}
-
-function csvCell(value: unknown) {
-  const text = String(value ?? "");
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function buildCsv(config: JdMarketDailyConfig, target: JdMarketDailyCategoryConfig, results: Array<{ date: string; block: RankBlock }>, images: Record<string, { imageUrl: string; productUrl: string }>) {
-  const header = ["period_start", "period_end", "category", "scope", "dimension", "rank", "sku_code", "product_name", "gmv", "quantity", "visitors", "search_clicks", "image_url", "product_url"];
-  const rows: unknown[][] = [header];
-  for (const { date, block } of results) {
-    const meta = block.metaIndex;
-    for (const row of block.data) {
-      const get = (key: string) => meta[key] === undefined ? "" : row[meta[key]!];
-      const sku = String(get("skuId"));
-      rows.push([
-        date, date, target.systemCategory, config.scope, "SKU", displayMetric(get("OrdAmtIndexRank")), sku,
-        displayMetric(get("ProName")), displayMetric(get("OrdAmtIndex")), displayMetric(get("OrdNumIndex")),
-        displayMetric(get("UVIndex")), displayMetric(get("SearchClickIndex")), images[sku]?.imageUrl ?? "",
-        images[sku]?.productUrl || `https://item.jd.com/${sku}.html`,
-      ]);
+  const [startDate, endDate] = jdDateRangeSelectionPlan(date, date);
+  await cell.dispatchEvent("click");
+  const waitForStart = async (timeoutMs: number) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const state = jdCalendarCellState(await cell.getAttribute("class").catch(() => ""));
+      if (!state.disabled && state.start && state.selected) return state;
+      await frame.waitForTimeout(50);
     }
+    return jdCalendarCellState(await cell.getAttribute("class").catch(() => ""));
+  };
+  let startState = await waitForStart(1_000);
+  if (!startState.disabled && (!startState.start || !startState.selected)) {
+    await cell.dispatchEvent("click");
+    startState = await waitForStart(5_000);
   }
-  return new TextEncoder().encode(`\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`);
+  if (startDate !== date || !startState.start || !startState.selected || startState.disabled) {
+    throw new Error(`京东新版行业榜单起始日期 ${date} 未进入已选状态`);
+  }
+  await cell.dispatchEvent("click");
+  const endDeadline = Date.now() + 5_000;
+  let endDecision = "unconfirmed" as ReturnType<typeof jdCalendarEndSelectionDecision>;
+  while (Date.now() < endDeadline) {
+    endDecision = jdCalendarEndSelectionDecision({
+      className: await cell.getAttribute("class").catch(() => ""),
+      echoText: await currentRankingDateEcho(frame).catch(() => ""),
+      startDate,
+      endDate,
+    });
+    if (endDecision === "confirmed_echo" || endDecision === "blocked_disabled") break;
+    await frame.waitForTimeout(50);
+  }
+  if (endDecision !== "confirmed_echo") throw new Error(`京东新版行业榜单结束日期 ${date} 未获得严格日期回显`);
+  const confirm = frame.locator('[data-event-name="confirm"][data-event-content="true"]').filter({ visible: true });
+  await confirm.waitFor({ state: "visible", timeout: 5_000 });
+  if (await confirm.count() !== 1) throw new Error("无法唯一识别京东新版行业榜单日期确认按钮");
+  await confirm.dispatchEvent("click");
+  await frame.waitForTimeout(200);
+  await waitForRankingDateEcho(frame, date);
+  const loading = frame.locator(".jd-spin-spinning, .jmt-spin-spinning, [aria-busy='true']").filter({ visible: true });
+  const loadingDeadline = Date.now() + 30_000;
+  while (Date.now() < loadingDeadline && await loading.count() > 0) await frame.waitForTimeout(200);
+  if (await loading.count() > 0) throw new Error("京东新版行业榜单日期切换后仍在加载");
+}
+
+async function downloadRankingWorkbook(
+  page: Page,
+  identity: Awaited<ReturnType<typeof selectRankingIdentity>>,
+  target: JdMarketDailyCategoryConfig,
+  chunk: JdMarketDailyChunk,
+  runDirectory: string,
+) {
+  if (chunk.startDate !== chunk.endDate || chunk.dates.length !== 1 || chunk.dates[0] !== chunk.startDate) {
+    throw new Error("京东新版行业榜单原生下载只允许单个自然日分块");
+  }
+  const date = chunk.startDate;
+  await selectRankingDate(identity.frame, date);
+  await waitForSelectorText(identity.dimensionControl, identity.frame, "SKU", true);
+  await waitForSelectorText(identity.categoryControl, identity.frame, target.categoryPath.join(" > "), false);
+  capturedNativeDownloadRequests.delete(page);
+  const startedAt = Date.now();
+  const downloadPromise = page.waitForEvent("download", { timeout: 180_000 });
+  await identity.downloadButton.click();
+  const download = await downloadPromise;
+  const nativeRequest = capturedNativeDownloadRequests.get(page);
+  if (!nativeRequest || nativeRequest.capturedAt < startedAt) throw new Error("未捕获到京东新版行业榜单原生下载请求");
+  assertJdMarketNativeDownloadRequest(nativeRequest, target, date);
+  const suggestedName = download.suggestedFilename();
+  if (!/\.xlsx$/i.test(suggestedName)) throw new Error(`京东新版行业榜单下载文件不是 XLSX：${suggestedName.slice(0, 120)}`);
+  const filePath = path.join(runDirectory, canonicalChunkFileName(target, chunk));
+  if (!inside(runDirectory, filePath)) throw new Error("市场榜单下载文件路径越界");
+  await download.saveAs(filePath);
+  const failure = await download.failure();
+  if (failure) throw new Error(`京东新版行业榜单 XLSX 下载失败：${failure.slice(0, 240)}`);
+  const bytes = new Uint8Array(await readFile(filePath));
+  if (bytes.byteLength < 150 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+    throw new Error("京东新版行业榜单下载文件不是有效的 XLSX 容器");
+  }
+  return { filePath, bytes };
 }
 
 function canonicalChunkFileName(target: JdMarketDailyCategoryConfig, chunk: JdMarketDailyChunk) {
-  return `京东商智_交易榜单_SKU_${target.systemCategory}_${chunk.startDate}至${chunk.endDate}.csv`;
+  return `京东商智_行业榜单_商品榜_SKU_${target.systemCategory}_${chunk.startDate}至${chunk.endDate}.xlsx`;
 }
 
 async function inspectSignedChunk(
@@ -895,7 +874,7 @@ async function inspectSignedChunk(
   return { bytes, evidence };
 }
 
-async function importCsv(
+async function importRankingFile(
   plan: JdMarketDailyPlan,
   config: JdMarketDailyConfig,
   target: JdMarketDailyCategoryConfig,
@@ -905,7 +884,9 @@ async function importCsv(
   request: typeof fetch = fetch,
 ) {
   const form = new FormData();
-  form.set("file", new Blob([bytes], { type: "text/csv;charset=utf-8" }), evidence.fileName);
+  const uploadBytes = new Uint8Array(bytes.byteLength);
+  uploadBytes.set(bytes);
+  form.set("file", new Blob([uploadBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), evidence.fileName);
   form.set("sourceType", "market_ranking");
   form.set("periodStart", chunk.startDate);
   form.set("periodEnd", chunk.endDate);
@@ -945,7 +926,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
       secondIndId: target.identity.secondIndId, thirdIndId: target.identity.thirdIndId,
       scope: target.identity.scope, rankingDimension: target.identity.rankingDimension, priceBandFilter: target.identity.priceBandFilter,
     }));
-    if (plan.version !== 3 || !plan.silentNoWindow || JSON.stringify(configuredTargets) !== JSON.stringify(plannedTargets)) {
+    if (plan.version !== 4 || !plan.silentNoWindow || JSON.stringify(configuredTargets) !== JSON.stringify(plannedTargets)) {
       throw new Error("市场榜单计划类目清单或隐藏 Chromium 约束与当前受控配置不一致");
     }
     const totalChunks = plan.targets.reduce((sum, target) => sum + target.chunks.length, 0);
@@ -972,7 +953,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
             }
             continue;
           }
-          const proof = await importCsv(plan, config, target, chunk, bytes, evidence, options.request);
+          const proof = await importRankingFile(plan, config, target, chunk, bytes, evidence, options.request);
           chunk.importProof = proof;
           chunk.batchId = proof.batchId;
           chunk.rowCount = proof.rowCount;
@@ -1014,15 +995,14 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
         throw new Error(`京东商品榜单目标页面导航失败：HTTP ${navigation?.status() ?? "unknown"}`);
       }
       await ensureJdStoreAuthenticatedSession(page, store);
-      const targetUrlRegex = /^https:\/\/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html(?:\?|$)/i;
-      if (!targetUrlRegex.test(page.url())) {
+      if (!isJdMarketRankingPageUrl(page.url())) {
         const resumedNavigation = await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
         if (!resumedNavigation?.ok()) {
           throw new Error(`京东商品榜单登录后目标页面导航失败：HTTP ${resumedNavigation?.status() ?? "unknown"}`);
         }
         await ensureJdStoreAuthenticatedSession(page, store);
       }
-      if (!targetUrlRegex.test(page.url())) {
+      if (!isJdMarketRankingPageUrl(page.url())) {
         throw new Error("京东商品榜单登录后未回到唯一受控榜单地址。");
       }
       await assertStoreIdentity(page, plan);
@@ -1031,67 +1011,29 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
         activeTargetPlan = targetPlan;
         const target = config.categories.find((candidate) => candidate.key === targetPlan.key);
         if (!target) throw new Error(`市场榜单受控类目不存在：${targetPlan.key}`);
-        const captureTargetRequest = async () => {
-          await assertStoreIdentity(page, plan);
-          return selectRankingIdentity(page, config, target);
-        };
+        await assertStoreIdentity(page, plan);
+        const identity = await selectRankingIdentity(page, target);
+        await saveEvidenceScreenshot(page, plan, targetPlan, "filters");
         let evidencePrepared = false;
         for (const chunk of targetPlan.chunks) {
           if (chunk.importProof) continue;
-          let requestState = await captureTargetRequest();
-          if (!evidencePrepared) {
-            await saveEvidenceScreenshot(page, plan, targetPlan, "filters");
-            const exportPanel = activeExportPanel(requestState.frame);
-            const exportPanelCount = await exportPanel.count();
-            if (exportPanelCount > 1) throw new Error("京东商品榜单当前版本导出增强面板不唯一");
-            if (exportPanelCount === 1) {
-              const fromInput = exportPanel.locator("#jdsz-from");
-              const toInput = exportPanel.locator("#jdsz-to");
-              const startDate = targetPlan.chunks[0]!.startDate;
-              const endDate = targetPlan.chunks.at(-1)!.endDate;
-              await fromInput.fill(startDate);
-              await toInput.fill(endDate);
-              if (await fromInput.inputValue() !== startDate || await toInput.inputValue() !== endDate) {
-                throw new Error("京东商品榜单导出增强日期未精确生效");
-              }
-              await saveEvidenceScreenshot(page, plan, targetPlan, "exportPanel");
-            }
-            evidencePrepared = true;
-          }
-          const results: Array<{ date: string; block: RankBlock }> = [];
-          for (const date of chunk.dates) {
-            const fetched = await withSingleJdMarketRequestRefresh(
-              requestState,
-              (current) => fetchRankDay(current, date),
-              captureTargetRequest,
-            );
-            requestState = fetched.state;
-            results.push({ date, block: fetched.result });
-            await requestState.frame.waitForTimeout(config.requestDelayMs);
-          }
-          const first = results[0]?.block;
-          const emptyDate = results.find((result) => result.block.data.length === 0)?.date;
-          if (emptyDate === plan.endDate) {
-            throw new Error(`京东商智昨日数据尚未开放：${target.systemCategory} ${emptyDate}；已按安全规则停止，未缩短日期范围或导入空集合`);
-          }
-          if (!first || emptyDate || !results.every((result) => result.block.data.length <= 200)) throw new Error(`京东商品榜单返回空日或超过 SKU 榜单行数上限：${target.systemCategory}`);
-          const skuIds = [...new Set(results.flatMap(({ block }) => block.data.map((row) => String(row[block.metaIndex.skuId!]))))];
-          const images = await fetchImages(requestState.frame, skuIds, requestState.imageHeaders);
-          const bytes = buildCsv(config, target, results, images);
-          const fileName = canonicalChunkFileName(target, chunk);
-          const filePath = path.join(runDirectory, fileName);
-          if (!inside(runDirectory, filePath)) throw new Error("市场榜单下载文件路径越界");
-          await writeFile(filePath, bytes);
+          await assertStoreIdentity(page, plan);
+          const { filePath, bytes } = await downloadRankingWorkbook(page, identity, target, chunk, runDirectory);
           chunk.filePath = filePath;
           chunk.fileHash = createHash("sha256").update(bytes).digest("hex");
           chunk.fileSizeBytes = bytes.byteLength;
           await persistPlan(plan);
+          if (!evidencePrepared) {
+            await saveEvidenceScreenshot(page, plan, targetPlan, "downloadReady");
+            evidencePrepared = true;
+          }
           const signed = await inspectSignedChunk(plan, config, target, chunk);
-          const proof = await importCsv(plan, config, target, chunk, signed.bytes, signed.evidence, options.request);
+          const proof = await importRankingFile(plan, config, target, chunk, signed.bytes, signed.evidence, options.request);
           chunk.importProof = proof;
           chunk.batchId = proof.batchId;
           chunk.rowCount = proof.rowCount;
           await persistPlan(plan);
+          await identity.frame.waitForTimeout(config.requestDelayMs);
         }
         await saveEvidenceScreenshot(page, plan, targetPlan, "imported");
       }

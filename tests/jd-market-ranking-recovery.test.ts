@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import * as XLSX from "xlsx";
 
 import {
   assertJdMarketImportProof,
@@ -41,6 +42,16 @@ function signed(bytes = csv(), dates = ["2026-08-13"]) {
     dates,
     identity,
   });
+}
+
+function nativeXlsx() {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ["排名", "SKU", "商品信息", "成交金额", "成交单量", "成交商品件数", "访客数", "浏览量", "搜索点击次数", "主图", "商品链接"],
+    [1, "SKU-1", "测试商品", "¥1万~¥2万", "0~5", "0~5", "10~20", "20~30", "5~10", "https://img10.360buyimg.com/n5/test.jpg", "https://item.jd.com/SKU-1.html"],
+  ]);
+  XLSX.utils.book_append_sheet(workbook, sheet, "商品榜");
+  return new Uint8Array(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
 }
 
 function responsePayload(evidence = signed(), patch: Record<string, unknown> = {}) {
@@ -107,6 +118,21 @@ test("JD market signed CSV is bound to exact hash, identity, dates, warnings, an
   }), /大小或 SHA-256/);
 });
 
+test("JD market accepts the new native product-rank XLSX headers under the plan-bound defaults", () => {
+  const bytes = nativeXlsx();
+  const evidence = inspectJdMarketSignedCsv({
+    bytes,
+    fileName: "京东商智_行业榜单_商品榜_SKU_商用磨粉机粉碎机_2026-08-13至2026-08-13.xlsx",
+    expectedFileSizeBytes: bytes.byteLength,
+    expectedRawFileSha256: createHash("sha256").update(bytes).digest("hex"),
+    dates: ["2026-08-13"],
+    identity,
+  });
+  assert.equal(evidence.rowCount, 1);
+  assert.equal(evidence.warningCount, 0);
+  assert.deepEqual(evidence.ranges, [{ ...identity, periodStart: "2026-08-13", periodEnd: "2026-08-13" }]);
+});
+
 test("JD market import response accepts only strict 201 imported or 200 duplicate receipts", () => {
   const evidence = signed();
   const imported = validateJdMarketImportResponse(201, responsePayload(evidence), evidence);
@@ -157,7 +183,7 @@ test("JD market import response accepts only strict 201 imported or 200 duplicat
 
 function planIdentity(): JdMarketPlanIdentity {
   return {
-    version: 3,
+    version: 4,
     baseUrl: "http://localhost:3000",
     silentNoWindow: true,
     storeKey: "store-key",
@@ -251,7 +277,7 @@ test("JD market runner retries signed evidence before any Chromium launch and C 
   const recovery = runner.indexOf("const { bytes, evidence } = await inspectSignedChunk");
   const launch = runner.indexOf("const launched = await launchDedicatedChrome");
   assert.ok(recovery >= 0 && launch > recovery);
-  assert.match(runner.slice(recovery, launch), /importCsv[\s\S]*chunk\.importProof = proof/);
+  assert.match(runner.slice(recovery, launch), /importRankingFile[\s\S]*chunk\.importProof = proof/);
   assert.match(runner, /assertJdMarketImportProof\(chunk\.importProof, evidence\)/);
   assert.match(runner, /targetPlan\.missingDates\.filter/);
   assert.doesNotMatch(runner, /if \(chunk\.batchId\) continue/);

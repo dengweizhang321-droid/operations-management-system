@@ -89,9 +89,9 @@ test("JD refuses a named page that has navigated outside the requested target", 
   const browser = { contexts: () => [context] };
 
   const result = await connectPlaywrightJackyunTarget(browser as never, {
-    startUrl: "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html",
+    startUrl: "https://jdsz.jd.com/szweb/view/industry/industry-top.html",
     workerName: "teruisi-jd-market-ranking",
-    targetUrlPattern: /industry-product-rank-temp\.html/i,
+    targetUrlPattern: /industry-top\.html/i,
     requireMini: false,
   });
 

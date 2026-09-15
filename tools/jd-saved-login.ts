@@ -199,8 +199,8 @@ export type JdSessionSurface = "authenticated" | "login" | "pending";
 export function jdSessionSurfaceDecision(url: string, bodyText: string, hasPassword: boolean): JdSessionSurface {
   if (/passport|login/i.test(url)
     || (hasPassword && /登录/.test(bodyText) && /账号|账户|手机|用户名/.test(bodyText))) return "login";
-  if (/jdsz\.jd\.com\/szweb\/view\/industry\/industry-product-rank-temp\.html/i.test(url)
-    && /商品榜单|交易榜单/.test(bodyText)) return "authenticated";
+  if (/^https:\/\/jdsz\.jd\.com\/szweb\/view\/industry\/industry-top\.html(?:$|[?#])/i.test(url)
+    && /行业榜单/.test(bodyText) && /商品榜/.test(bodyText) && /下载数据/.test(bodyText)) return "authenticated";
   if (/商品明细|下载中心|导出查询商品|批量操作|商品管理|出售中的商品|商品列表/.test(bodyText)) return "authenticated";
   return "pending";
 }

@@ -174,8 +174,8 @@ test("JD session guard waits through a blank business URL and catches the delaye
   assert.equal(jdSessionSurfaceDecision("https://passport.jd.com/new/login.aspx", "", false), "login");
   assert.equal(jdSessionSurfaceDecision("https://jdsz.jd.com/product", "商品明细", false), "authenticated");
   assert.equal(jdSessionSurfaceDecision(
-    "https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html",
-    "商品榜单 交易榜单",
+    "https://jdsz.jd.com/szweb/view/industry/industry-top.html",
+    "行业榜单 商品榜 下载数据",
     false,
   ), "authenticated");
   let sample = 0;
@@ -201,7 +201,7 @@ test("JD session guard gives a child passport frame precedence over an authentic
   }) as unknown as Frame;
   const page = {
     frames: () => [
-      frame("https://jdsz.jd.com/szweb/view/industry/industry-product-rank-temp.html", "商品榜单 交易榜单", false),
+      frame("https://jdsz.jd.com/szweb/view/industry/industry-top.html", "行业榜单 商品榜 下载数据", false),
       frame("https://passport.jd.com/new/login.aspx", "账号 密码 登录", true),
     ],
     waitForTimeout: async () => undefined,

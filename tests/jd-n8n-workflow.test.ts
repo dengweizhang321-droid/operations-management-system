@@ -143,7 +143,9 @@ test("JD market main and silent workflows preserve the latest seven-category A/B
       ]);
     }
     assert.match(raw, /7 (?:个)?类目|7 类目/);
-    assert.match(raw, /每个未完成分块/);
+    assert.match(raw, /一个自然日一个京东原生 XLSX|每个缺失自然日独立选择和下载一个原生 XLSX/);
+    assert.match(raw, /industry-top\.html/);
+    assert.match(raw, /行业榜单/);
     assert.match(raw, /completed proof/);
     assert.match(raw, /不得同时启用/);
   }
