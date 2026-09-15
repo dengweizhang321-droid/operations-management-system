@@ -534,6 +534,18 @@ async function waitForRankingIdentityControls(surface: Locator, frame: Frame) {
   throw new Error("京东新版行业榜单商品榜的 SKU 或商用类目控件未在有界时间内唯一稳定");
 }
 
+export async function dismissRankingNotice(page: Page, waitMs = 5_000) {
+  const notice = page.locator(".jd-modal-wrap")
+    .filter({ has: page.locator('img[alt="公告图片"]') }).filter({ visible: true });
+  await notice.first().waitFor({ state: "visible", timeout: waitMs }).catch(() => undefined);
+  if (await notice.count() === 0) return;
+  if (await notice.count() !== 1) throw new Error("京东行业榜单公告不唯一");
+  const close = notice.locator('button[aria-label="Close"], .close-modal').filter({ visible: true });
+  if (await close.count() !== 1) throw new Error("京东行业榜单公告关闭按钮不唯一");
+  await close.click({ timeout: 3_000 });
+  await notice.waitFor({ state: "hidden", timeout: 5_000 });
+}
+
 export async function selectRankingIdentity(page: Page, target: JdMarketDailyCategoryConfig) {
   const frame = page.mainFrame();
   if (!isJdMarketRankingPageUrl(frame.url())) throw new Error("京东新版行业榜单主框架地址无效");
@@ -541,7 +553,13 @@ export async function selectRankingIdentity(page: Page, target: JdMarketDailyCat
   const productTab = surface.getByText("商品榜", { exact: true }).filter({ visible: true });
   await productTab.waitFor({ state: "visible", timeout: 30_000 });
   if (await productTab.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别商品榜入口");
-  await productTab.click();
+  try {
+    await productTab.click({ timeout: 3_000 });
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("公告图片")) throw error;
+    await dismissRankingNotice(page, 1_000);
+    await productTab.click({ timeout: 3_000 });
+  }
   const { dimensionControl, categoryControl } = await waitForRankingIdentityControls(surface, frame);
   const categoryLabel = target.categoryPath.join(" > ");
   const currentCategory = (await categoryControl.innerText()).trim();
@@ -886,6 +904,7 @@ export async function runJdMarketDailyPlan(plan: JdMarketDailyPlan, options: { r
         throw new Error("京东商品榜单登录后未回到唯一受控榜单地址。");
       }
       await assertStoreIdentity(page, plan);
+      await dismissRankingNotice(page);
       for (const targetPlan of plan.targets) {
         if (!targetPlan.chunks.length) continue;
         activeTargetPlan = targetPlan;
