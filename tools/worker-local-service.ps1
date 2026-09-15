@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet("Deploy", "Verify", "Start", "Restart", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup")]
+  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus")]
   [string]$Action = "Status",
   [string]$SourceRoot,
   [string]$RuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales",
@@ -10,6 +10,8 @@
   [string]$StartupShortcutPath,
   [switch]$Json,
   [switch]$AllowTestRuntimeRoot,
+  [switch]$IncludeBackend,
+  [string]$MaintenanceId,
   [switch]$FunctionsOnly
 )
 
@@ -48,7 +50,7 @@ $StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
   if (-not [System.IO.Path]::IsPathRooted($StartupShortcutPath)) { throw "StartupShortcutPath must be absolute" }
   [System.IO.Path]::GetFullPath($StartupShortcutPath)
 }
-$MutatingActions = @("Deploy", "Start", "Restart", "Stop", "InstallStartup", "RemoveStartup")
+$MutatingActions = @("Deploy", "Start", "Restart", "RestartFull", "Stop", "InstallStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance")
 $ServiceMutex = $null
 
 if (-not ("Teruisi.NativeCommandLine" -as [type])) {
@@ -80,12 +82,22 @@ namespace Teruisi {
 "@
 }
 
-if ($Action -in $MutatingActions) {
-  $ServiceMutex = [System.Threading.Mutex]::new($false, "Local\TERUISI.Worker.LocalService.v1")
+function Get-WorkerServiceMutexName {
+  $name = "Local\TERUISI.Worker.LocalService.v1"
+  if ($AllowTestRuntimeRoot -and [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\') -ine $FixedRuntimeRoot) {
+    $hash = [Security.Cryptography.SHA256]::Create()
+    try { $name += ".test." + ([BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($RuntimeRoot).ToLowerInvariant())))).Replace("-", "") }
+    finally { $hash.Dispose() }
+  }
+  return $name
+}
+
+if (-not $FunctionsOnly -and $Action -in $MutatingActions) {
+  $ServiceMutex = [System.Threading.Mutex]::new($false, (Get-WorkerServiceMutexName))
   $lockAcquired = $false
-  try { $lockAcquired = $ServiceMutex.WaitOne([TimeSpan]::FromMinutes(30)) }
+  try { $lockAcquired = $ServiceMutex.WaitOne([TimeSpan]::Zero) }
   catch [System.Threading.AbandonedMutexException] { $lockAcquired = $true }
-  if (-not $lockAcquired) { throw "Timed out waiting for the immutable Worker service mutex" }
+  if (-not $lockAcquired) { $ServiceMutex.Dispose(); throw "Another Worker/system lifecycle operation is in progress; request rejected" }
 }
 
 function Assert-FixedRuntimeRoot {
@@ -130,7 +142,7 @@ function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [st
 
 function Invoke-DjangoStartProcess(
   [string]$Controller = $DjangoService,
-  [ValidateSet("Start", "AutoStartDingTalk")][string]$ControlAction = "Start"
+  [ValidateSet("Start", "Stop", "AutoStartDingTalk")][string]$ControlAction = "Start"
 ) {
   if (-not (Test-Path -LiteralPath $Controller -PathType Leaf)) {
     throw "Missing installed Django controller: $Controller"
@@ -1429,6 +1441,139 @@ function Start-VerifiedWorkerSupervisor(
   }
 }
 
+function Read-WorkerSystemMaintenance {
+  $path = Join-Path $FixedDjangoRuntimeRoot "run\system-maintenance.json"
+  Assert-NoReparsePath $path -AllowMissingLeaf
+  if (-not (Test-Path -LiteralPath $path)) { return $null }
+  $entry = Get-Item -LiteralPath $path -Force
+  if ($entry.PSIsContainer -or $entry.Length -gt 4096) { throw "Invalid maintenance state file" }
+  try { $record = [IO.File]::ReadAllText($path) | ConvertFrom-Json -ErrorAction Stop }
+  catch { throw "Unreadable system maintenance state; refusing startup" }
+  if ($record.version -cne "teruisi-system-maintenance-v1" -or [string]$record.id -cnotmatch "^[0-9a-f]{32}$" -or
+      [IO.Path]::GetFullPath([string]$record.runtimeRoot).TrimEnd('\') -ine [IO.Path]::GetFullPath($FixedDjangoRuntimeRoot).TrimEnd('\')) {
+    throw "Invalid system maintenance binding; refusing startup"
+  }
+  return $record
+}
+
+function Assert-WorkerMaintenanceInactive {
+  $record = Read-WorkerSystemMaintenance
+  if ($record) { throw "System maintenance is active: $($record.id). Start and restart are disabled until ExitMaintenance." }
+}
+
+function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "") {
+  if ($ControlAction -in @("BeginMaintenance", "EndMaintenance")) {
+    if ($OperationId -cnotmatch "^[0-9a-f]{32}$") { throw "Invalid maintenance operation id" }
+    # A reviewed source checkout can establish the gate for its first upgrade;
+    # immutable Worker releases use the already-deployed Django controller.
+    $maintenanceLibrary = Join-Path $PSScriptRoot "django-local-service.ps1"
+    if (-not (Test-Path -LiteralPath $maintenanceLibrary -PathType Leaf)) { $maintenanceLibrary = $DjangoService }
+    Assert-NoReparsePath $maintenanceLibrary
+    # Keep both mutexes on this same thread: Worker -> Django. Maintenance
+    # mutation has no separate CLI path that could bypass the Worker mutex.
+    # Library scope prevents Django variables from changing Worker bindings.
+    & {
+      param($maintenanceController, $maintenanceRuntime, $maintenanceOperation, $maintenanceOperationId)
+      $previousLibraryMode = $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
+      try {
+        $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
+        . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId
+        # Dot-sourcing creates the base controller's ValidateSet on Action.
+        # The internal library operation is deliberately not a public CLI verb.
+        Remove-Variable -Name Action -Scope Local -Force
+        $Action = $maintenanceOperation
+        Invoke-WithServiceMutex {
+          if ($maintenanceOperation -eq "BeginMaintenance") { Begin-SystemMaintenance }
+          else { End-SystemMaintenance }
+        }
+      } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibraryMode }
+    } $maintenanceLibrary $FixedDjangoRuntimeRoot $ControlAction $OperationId
+    return
+  }
+  $result = Invoke-DjangoStartProcess $DjangoService $ControlAction
+  if ([int]$result.ExitCode -ne 0) { throw "Django $ControlAction failed: $($result.StdoutTail) $($result.StderrTail)" }
+}
+
+function Invoke-WorkerSystemStop([object]$identity, [switch]$WithBackend) {
+  $result = Stop-WorkerOnly $identity
+  if ($WithBackend) {
+    Invoke-DjangoLifecycleAction "Stop"
+    $result["backendStopped"] = $true
+  }
+  return $result
+}
+
+function Invoke-WorkerFullRestart([object]$identity) {
+  Assert-WorkerMaintenanceInactive
+  [void](Invoke-WorkerSystemStop $identity -WithBackend)
+  $result = Invoke-WorkerSystemStart $identity
+  $result["status"] = "restarted"
+  $result["backendRestarted"] = $true
+  return $result
+}
+
+function Invoke-WorkerSystemStart([object]$identity) {
+    Assert-WorkerMaintenanceInactive
+    $status = Get-WorkerStatusInternal $identity
+    if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
+    $preflightStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
+    if ($status.State -notin @("stopped", "exact_release") -and -not $preflightStaleReceipt) {
+      throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover"
+    }
+
+    Ensure-DjangoSystemReady
+
+    $status = Get-WorkerStatusInternal $identity
+    if ($status.State -eq "exact_release") {
+      Start-SystemDingTalkReceiver
+      return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+    }
+    if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
+    $repairStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
+    if ($status.State -ne "stopped" -and -not $repairStaleReceipt) {
+      throw "Worker ownership changed while Django was starting; refusing takeover"
+    }
+    if ($repairStaleReceipt) {
+      Remove-ExactProcessReceipt $identity
+      $status = Get-WorkerStatusInternal $identity
+      if ($status.State -ne "stopped") {
+        throw "Validated stale Worker receipt was cleared but the service did not stabilize as stopped"
+      }
+    }
+    $releaseVerification = Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt
+    $startupVerificationReceiptSha256 = [string]$releaseVerification.supervisorPrelaunchReceiptSha256
+    if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
+      throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
+    }
+    $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
+    Start-SystemDingTalkReceiver
+    return $startResult
+}
+
+function Stop-WorkerOnly([object]$identity) {
+    $status = Get-WorkerStatusInternal $identity
+    if ($status.State -eq "stopped") {
+      return ([ordered]@{ status = "already_stopped"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+    }
+    if ($status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt) {
+      Remove-ExactProcessReceipt $identity
+      return ([ordered]@{ status = "stale_receipt_cleared"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+    }
+    if ($status.State -notin @("starting_exact_release", "exact_release")) { throw "Port/process receipt is not owned by the exact immutable release; refusing stop" }
+    Stop-ExactWorkerSnapshot $status
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
+      if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -eq 0 -and
+          (Get-PortProcessIds $HelperPort $HelperHost).Count -eq 0) { break }
+      Start-Sleep -Milliseconds 250
+    }
+    if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -gt 0 -or
+        (Get-PortProcessIds $HelperPort $HelperHost).Count -gt 0) {
+      throw "Immutable Worker/helper did not release ports 3000/5791 within 15 seconds"
+    }
+    Remove-ExactProcessReceipt $identity
+    return ([ordered]@{ status = "stopped"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+}
+
 if ($FunctionsOnly) { return }
 
 Assert-FixedRuntimeRoot
@@ -1479,6 +1624,8 @@ try {
   $resolvedManifest = Get-CurrentManifestPath
   $identity = if ($resolvedManifest) { Get-ManifestIdentity $resolvedManifest } else { $null }
 
+  if ($Action -eq "MaintenanceStatus") { Write-Result (@{ maintenance = Read-WorkerSystemMaintenance }); exit 0 }
+
   if ($Action -eq "Status") {
     Write-Result (Get-PublicStatus (Get-WorkerStatusInternal $identity))
     exit 0
@@ -1490,46 +1637,10 @@ try {
     exit 0
   }
 
-  if ($Action -eq "Start") {
-    $status = Get-WorkerStatusInternal $identity
-    if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
-    $preflightStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
-    if ($status.State -notin @("stopped", "exact_release") -and -not $preflightStaleReceipt) {
-      throw "Port 3000/5791 or process receipt is unknown/ambiguous; refusing takeover"
-    }
-
-    Ensure-DjangoSystemReady
-
-    $status = Get-WorkerStatusInternal $identity
-    if ($status.State -eq "exact_release") {
-      Start-SystemDingTalkReceiver
-      Write-Result ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
-      exit 0
-    }
-    if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
-    $repairStaleReceipt = $status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt
-    if ($status.State -ne "stopped" -and -not $repairStaleReceipt) {
-      throw "Worker ownership changed while Django was starting; refusing takeover"
-    }
-    if ($repairStaleReceipt) {
-      Remove-ExactProcessReceipt $identity
-      $status = Get-WorkerStatusInternal $identity
-      if ($status.State -ne "stopped") {
-        throw "Validated stale Worker receipt was cleared but the service did not stabilize as stopped"
-      }
-    }
-    $releaseVerification = Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt
-    $startupVerificationReceiptSha256 = [string]$releaseVerification.supervisorPrelaunchReceiptSha256
-    if ($startupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
-      throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
-    }
-    $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
-    Start-SystemDingTalkReceiver
-    Write-Result $startResult
-    exit 0
-  }
+  if ($Action -eq "Start") { Write-Result (Invoke-WorkerSystemStart $identity); exit 0 }
 
   if ($Action -eq "Restart") {
+    Assert-WorkerMaintenanceInactive
     $hotRestartTimer = [Diagnostics.Stopwatch]::StartNew()
     if (-not (Test-DjangoAggregateStatusSupported)) {
       throw "Hot restart requires the aggregate-status Django runtime deployment"
@@ -1580,30 +1691,20 @@ try {
     exit 0
   }
 
-  if ($Action -eq "Stop") {
-    $status = Get-WorkerStatusInternal $identity
-    if ($status.State -eq "stopped") {
-      Write-Result ([ordered]@{ status = "already_stopped"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
-      exit 0
-    }
-    if ($status.State -eq "stale_or_invalid_receipt" -and -not $status.Supervisor -and $status.Receipt) {
-      Remove-ExactProcessReceipt $identity
-      Write-Result ([ordered]@{ status = "stale_receipt_cleared"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
-      exit 0
-    }
-    if ($status.State -notin @("starting_exact_release", "exact_release")) { throw "Port/process receipt is not owned by the exact immutable release; refusing stop" }
-    Stop-ExactWorkerSnapshot $status
-    for ($attempt = 0; $attempt -lt 60; $attempt++) {
-      if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -eq 0 -and
-          (Get-PortProcessIds $HelperPort $HelperHost).Count -eq 0) { break }
-      Start-Sleep -Milliseconds 250
-    }
-    if ((Get-PortProcessIds $WorkerPort $WorkerHost).Count -gt 0 -or
-        (Get-PortProcessIds $HelperPort $HelperHost).Count -gt 0) {
-      throw "Immutable Worker/helper did not release ports 3000/5791 within 15 seconds"
-    }
-    Remove-ExactProcessReceipt $identity
-    Write-Result ([ordered]@{ status = "stopped"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+  if ($Action -eq "Stop") { Write-Result (Invoke-WorkerSystemStop $identity -WithBackend:$IncludeBackend); exit 0 }
+  if ($Action -eq "RestartFull") { Write-Result (Invoke-WorkerFullRestart $identity); exit 0 }
+  if ($Action -eq "EnterMaintenance") {
+    if (-not $MaintenanceId) { $MaintenanceId = [Guid]::NewGuid().ToString("N") }
+    Invoke-DjangoLifecycleAction "BeginMaintenance" $MaintenanceId
+    try { $stopped = Invoke-WorkerSystemStop $identity -WithBackend }
+    catch { throw "Maintenance $MaintenanceId remains active after stop failure: $($_.Exception.Message)" }
+    Write-Result ([ordered]@{ status = "maintenance"; maintenanceId = $MaintenanceId; backendStopped = $true })
+    exit 0
+  }
+  if ($Action -eq "ExitMaintenance") {
+    if ((Get-WorkerStatusInternal $identity).State -ne "stopped") { throw "Worker must be stopped before ending maintenance" }
+    Invoke-DjangoLifecycleAction "EndMaintenance" $MaintenanceId
+    Write-Result ([ordered]@{ status = "maintenance_ended"; maintenanceId = $MaintenanceId })
     exit 0
   }
 
@@ -1650,4 +1751,6 @@ try {
 } catch {
   [Console]::Error.WriteLine($_.Exception.Message)
   exit 1
+} finally {
+  if ($ServiceMutex -and $lockAcquired) { $ServiceMutex.ReleaseMutex(); $ServiceMutex.Dispose() }
 }

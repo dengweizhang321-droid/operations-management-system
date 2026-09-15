@@ -1630,8 +1630,8 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
   const supervisor = await readFile("tools/worker-local-runtime-supervisor.mjs", "utf8");
   const service = await readFile("tools/worker-local-service.ps1", "utf8");
   const serviceStartBlock = service.slice(
-    service.indexOf('if ($Action -eq "Start")'),
-    service.indexOf('if ($Action -eq "Restart")'),
+    service.indexOf("function Invoke-WorkerSystemStart"),
+    service.indexOf("function Stop-WorkerOnly"),
   );
   const fullPrelaunchVerifyAt = serviceStartBlock.indexOf('Invoke-ReleaseVerification $identity "stopped" -WriteSupervisorPrelaunchReceipt');
   const verifiedLaunchAt = serviceStartBlock.indexOf("Start-VerifiedWorkerSupervisor");
@@ -1641,7 +1641,7 @@ test("supervisor prelaunch policy binds its own exact starting identity instead 
   );
   const verifiedLaunchFunction = service.slice(
     service.indexOf("function Start-VerifiedWorkerSupervisor"),
-    service.indexOf("if ($FunctionsOnly) { return }"),
+    service.indexOf("function Read-WorkerSystemMaintenance"),
   );
   assert.match(verifiedLaunchFunction, /\$process = Start-Process/);
   assert.match(supervisor, /consumeSupervisorPrelaunchVerificationReceipt\(\{/);

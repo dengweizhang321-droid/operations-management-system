@@ -17,11 +17,12 @@ for (const shell of ["powershell.exe", "pwsh.exe"]) {
 
 test("system startup invokes the approved receiver after Worker readiness, including an already running system", () => {
   const source = readFileSync("tools/worker-local-service.ps1", "utf8");
-  const start = source.slice(source.indexOf('if ($Action -eq "Start") {', source.indexOf("if ($FunctionsOnly)")), source.indexOf('if ($Action -eq "Restart") {', source.indexOf("if ($FunctionsOnly)")));
+  const start = source.slice(source.indexOf("function Invoke-WorkerSystemStart"), source.indexOf("function Stop-WorkerOnly"));
   assert.equal((start.match(/Start-SystemDingTalkReceiver/g) || []).length, 2);
   assert.ok(start.indexOf("Ensure-DjangoSystemReady") < start.indexOf("Start-SystemDingTalkReceiver"));
   assert.match(start, /if \(\$status.State -eq "exact_release"\) \{\s+Start-SystemDingTalkReceiver/);
-  assert.match(start, /\$startResult = Start-VerifiedWorkerSupervisor[^\r\n]+\s+Start-SystemDingTalkReceiver\s+Write-Result \$startResult/);
+  assert.match(start, /\$startResult = Start-VerifiedWorkerSupervisor[^\r\n]+\s+Start-SystemDingTalkReceiver\s+return \$startResult/);
+  assert.match(source, /if \(\$Action -eq "Start"\) \{ Write-Result \(Invoke-WorkerSystemStart \$identity\)/);
   const ai = readFileSync("tools/django-ai.ps1", "utf8");
   assert.match(ai, /"AutoStartDingTalk" \{ Invoke-WithServiceMutex \{ Start-ConfiguredDingTalkReceiver \} \}/);
   assert.match(ai, /"StopDingTalk" \{ Invoke-WithServiceMutex \{ Set-DingTalkStartup \$false; Stop-OwnedProcess/);

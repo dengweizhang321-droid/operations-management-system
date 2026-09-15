@@ -235,18 +235,15 @@ function Invoke-Start {
 }
 
 function Invoke-StopWorkerOnly {
-  $stopStatus = Invoke-ControlledScript $WindowsPowerShellPath $WorkerServicePath @("-Action", "Stop") "stop-worker" -CaptureJson
+  $arguments = @("-Action", "Stop")
+  if (-not $KeepBackend) { $arguments += "-IncludeBackend" }
+  $stopStatus = Invoke-ControlledScript $WindowsPowerShellPath $WorkerServicePath $arguments "stop-worker" -CaptureJson
   if ([string]$stopStatus.status -notin @("stopped", "already_stopped", "stale_receipt_cleared")) {
     throw "不可变 Worker 停止回执无效：$([string]$stopStatus.status)"
   }
+  if (-not $KeepBackend -and $stopStatus.backendStopped -ne $true) { throw "Full system stop did not confirm backend shutdown" }
   Write-Line "网页 Worker：$([string]$stopStatus.status)"
   return [string]$stopStatus.status
-}
-
-function Invoke-StopDjango {
-  Write-Line "停止各域 Django 服务与 PostgreSQL……"
-  Invoke-ControlledScript $DjangoPowerShellPath $DjangoServicePath @("-Action", "Stop", "-RuntimeRoot", "`"$DjangoRuntimeRoot`"") "stop-django" | Out-Null
-  Write-Line "Django/PostgreSQL 已停止"
 }
 
 function Invoke-Stop {
@@ -257,7 +254,6 @@ function Invoke-Stop {
       throw "唯一总控正在启动或停止系统；为避免交错，本次停止请求已拒绝，请稍后重试"
     }
     $workerStatus = Invoke-StopWorkerOnly
-    if (-not $KeepBackend) { Invoke-StopDjango }
   } finally {
     Exit-SystemControlMutex $lease
   }
@@ -307,8 +303,18 @@ function Invoke-Restart {
     })
     return
   }
-  Invoke-Stop
-  Invoke-Start
+  Assert-Dependencies -RequireDjango:$true
+  $lease = Enter-SystemControlMutex
+  try {
+    if (-not $lease.Acquired) { throw "Another system lifecycle operation is in progress" }
+    $result = Invoke-ControlledScript $WindowsPowerShellPath $WorkerServicePath @("-Action", "RestartFull") "restart-full" -CaptureJson
+    if ($result.status -ne "restarted" -or $result.backendRestarted -ne $true) { throw "Full restart receipt is invalid" }
+    if ($Open) { Start-Process $ServerUrl | Out-Null }
+    Write-ServiceResult ([pscustomobject]@{
+      version = $ServiceVersion; action = "Restart"; status = "restarted"; mode = "full"
+      backendRestarted = $true; message = "运营管理系统已完成完整重启。"; checkedAt = (Get-Date).ToString("o")
+    })
+  } finally { Exit-SystemControlMutex $lease }
 }
 
 function Get-ProcessStartUnixMilliseconds([object]$Process) {

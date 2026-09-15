@@ -130,8 +130,8 @@ test("controller waits only for the direct start-engine process instead of a dur
 
 test("canonical start engine enforces Django readiness before Worker verification", () => {
   const startBlock = workerService.slice(
-    workerService.indexOf('if ($Action -eq "Start")'),
-    workerService.indexOf('if ($Action -eq "Stop")'),
+    workerService.indexOf("function Invoke-WorkerSystemStart"),
+    workerService.indexOf("function Stop-WorkerOnly"),
   );
   assert.ok(startBlock.indexOf("Ensure-DjangoSystemReady") < startBlock.indexOf("Invoke-ReleaseVerification"));
   assert.match(workerService, /DjangoNetshopService/);
@@ -198,8 +198,8 @@ test("concurrent-start wait reuses a ten-second exact status result", () => {
 
 test("canonical engine clears only an exact validated stale receipt", () => {
   const startBlock = workerService.slice(
-    workerService.indexOf('if ($Action -eq "Start")'),
-    workerService.indexOf('if ($Action -eq "Stop")'),
+    workerService.indexOf("function Invoke-WorkerSystemStart"),
+    workerService.indexOf("function Stop-WorkerOnly"),
   );
   assert.match(startBlock, /status\.State -eq "stale_or_invalid_receipt" -and -not \$status\.Supervisor -and \$status\.Receipt/);
   assert.match(startBlock, /Remove-ExactProcessReceipt \$identity/);

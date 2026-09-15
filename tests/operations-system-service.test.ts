@@ -36,16 +36,16 @@ test("Start never bypasses the unified controller and the single start engine", 
 test("Stop halts the Worker through its identity gate before the Django stack, under the panel mutex", () => {
   const stopBlock = block("function Invoke-Stop {", "function Invoke-Restart");
   assert.ok(stopBlock.indexOf("Enter-SystemControlMutex") < stopBlock.indexOf("Invoke-StopWorkerOnly"));
-  assert.ok(stopBlock.indexOf("Invoke-StopWorkerOnly") < stopBlock.indexOf("Invoke-StopDjango"));
-  assert.match(stopBlock, /if \(-not \$KeepBackend\) \{ Invoke-StopDjango \}/);
+  assert.doesNotMatch(stopBlock, /Invoke-StopDjango/);
   assert.match(stopBlock, /Exit-SystemControlMutex \$lease/);
   assert.match(service, /Local\\TERUISI\.Operations\.SystemControl\.v2/);
   assert.match(service, /WaitOne\(\[TimeSpan\]::Zero\)/);
-  const workerStop = block("function Invoke-StopWorkerOnly", "function Invoke-StopDjango");
-  assert.match(workerStop, /\$WorkerServicePath @\("-Action", "Stop"\)/);
+  const workerStop = block("function Invoke-StopWorkerOnly", "function Invoke-Stop {");
+  assert.match(workerStop, /\$arguments = @\("-Action", "Stop"\)/);
+  assert.match(workerStop, /if \(-not \$KeepBackend\) \{ \$arguments \+= "-IncludeBackend" \}/);
+  assert.match(workerStop, /backendStopped -ne \$true/);
   assert.match(workerStop, /@\("stopped", "already_stopped", "stale_receipt_cleared"\)/);
-  const djangoStop = block("function Invoke-StopDjango", "function Invoke-Stop {");
-  assert.match(djangoStop, /\$DjangoPowerShellPath \$DjangoServicePath @\("-Action", "Stop"/);
+  assert.doesNotMatch(service, /\$DjangoPowerShellPath \$DjangoServicePath @\("-Action", "Stop"/);
 });
 
 test("hot restart keeps Django/PostgreSQL running and performs one gated Worker restart", () => {
@@ -56,7 +56,7 @@ test("hot restart keeps Django/PostgreSQL running and performs one gated Worker 
   assert.match(restartBlock, /status -ne "restarted"/);
   assert.match(restartBlock, /backendRestarted = \$false/);
   assert.match(restartBlock, /elapsedMilliseconds = if \(\$restartStatus\.PSObject\.Properties\.Name -contains "elapsedMilliseconds"\)/);
-  assert.ok(restartBlock.indexOf("if ($KeepBackend)") < restartBlock.indexOf("Invoke-Stop"));
+  assert.match(restartBlock, /\$WorkerServicePath @\("-Action", "RestartFull"\)/);
   assert.doesNotMatch(
     restartBlock.slice(restartBlock.indexOf("if ($KeepBackend)"), restartBlock.indexOf("return") + "return".length),
     /Invoke-StopDjango|Invoke-StopWorkerOnly/,

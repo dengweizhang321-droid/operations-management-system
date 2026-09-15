@@ -5,7 +5,7 @@ param(
     "ProvisionFinanceRoles", "RollbackApp",
     "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
-    "CreateSalesCutoverSmokeReceipt"
+    "CreateSalesCutoverSmokeReceipt", "MaintenanceStatus"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -17,6 +17,7 @@ param(
   [string]$SmokeReceiptPath = "",
   [string]$SmokeReceiptSha256 = "",
   [string]$SupervisorExpectedDesiredStateSha256 = "",
+  [string]$MaintenanceId = "",
   [switch]$Json,
   [switch]$Execute
 )
@@ -59,6 +60,7 @@ $Python = Join-Path $RuntimeRoot "venv\Scripts\python.exe"
 $Waitress = Join-Path $RuntimeRoot "venv\Scripts\waitress-serve.exe"
 $LogDirectory = Join-Path $RuntimeRoot "logs"
 $RunDirectory = Join-Path $RuntimeRoot "run"
+$MaintenancePath = Join-Path $RunDirectory "system-maintenance.json"
 $DjangoReaderPidPath = Join-Path $RunDirectory "django-reader.pid.json"
 $DjangoWriterPidPath = Join-Path $RunDirectory "django-writer.pid.json"
 $DjangoFinanceReaderPidPath = Join-Path $RunDirectory "django-finance-reader.pid.json"
@@ -1620,6 +1622,7 @@ function Copy-WranglerRuntimeClosure([string]$RuntimeToolsRoot) {
 }
 
 function Deploy-Application {
+  Assert-ProductionMaintenance "DeployApp"
   if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
@@ -1764,6 +1767,7 @@ function Deploy-Application {
 }
 
 function Rollback-Application {
+  Assert-ProductionMaintenance "RollbackApp"
   Assert-ServiceStackStopped "RollbackApp"
   $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
   if (-not (Test-Path -LiteralPath $InstalledAppRoot -PathType Container)) {
@@ -3884,6 +3888,74 @@ function Install-StartupShortcut {
   Write-Output "已安装当前 Windows 用户登录自启动。"
 }
 
+function Read-SystemMaintenance {
+  $candidate = Assert-RuntimeChildPath $MaintenancePath
+  while ($candidate) {
+    if (Test-Path -LiteralPath $candidate) {
+      $entry = Get-Item -LiteralPath $candidate -Force
+      if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Maintenance paths must not contain reparse points" }
+    }
+    $candidate = Split-Path -Parent $candidate
+  }
+  if (-not (Test-Path -LiteralPath $MaintenancePath)) { return $null }
+  $entry = Get-Item -LiteralPath $MaintenancePath -Force
+  if ($entry.PSIsContainer -or $entry.Length -gt 4096) { throw "Invalid maintenance state file" }
+  try { $record = [IO.File]::ReadAllText($MaintenancePath) | ConvertFrom-Json -ErrorAction Stop }
+  catch { throw "Maintenance state is unreadable; refusing lifecycle changes" }
+  if ($record.version -cne "teruisi-system-maintenance-v1" -or
+      [string]$record.id -cnotmatch "^[0-9a-f]{32}$" -or
+      [string]$record.runtimeRoot -ine (Get-CanonicalPath $RuntimeRoot)) {
+    throw "Maintenance state binding is invalid; refusing lifecycle changes"
+  }
+  return $record
+}
+
+function Assert-NoSystemMaintenance {
+  $record = Read-SystemMaintenance
+  if ($record) { throw "System maintenance is active: $($record.id). Explicitly end that maintenance before starting services." }
+}
+
+function Assert-ProductionMaintenance([string]$Operation) {
+  # Existing disposable runtime deployment fixtures remain usable. Production
+  # deployments require a durable gate that survives the stop/deploy gap.
+  if ((Get-CanonicalPath $RuntimeRoot) -ine (Get-CanonicalPath "D:\teruisi-runtime\django-sales")) { return }
+  if (-not (Read-SystemMaintenance)) { throw "$Operation requires EnterMaintenance through the Worker lifecycle controller" }
+  Assert-SalesRetirementWorkerStopped $Operation
+  # An idle port alone is insufficient: a live supervisor can be between
+  # children. Successful Worker Stop removes this identity-bound receipt.
+  if (Test-Path -LiteralPath "D:\teruisi-runtime\teruisi-worker-sales\state\worker-process.json") {
+    throw "$Operation requires the Worker supervisor receipt to be cleared by its controlled Stop"
+  }
+}
+
+function Begin-SystemMaintenance {
+  if ($MaintenanceId -cnotmatch "^[0-9a-f]{32}$") { throw "MaintenanceId must be an explicit 32-character lowercase operation id" }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  $existing = Read-SystemMaintenance
+  if ($existing) {
+    if ($existing.id -cne $MaintenanceId) { throw "Another maintenance operation is active: $($existing.id)" }
+    return
+  }
+  Write-AtomicJson $MaintenancePath ([ordered]@{
+    version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
+    runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
+  })
+  Write-LauncherEvent "INFO" "system_maintenance_entered" $MaintenanceId
+}
+
+function End-SystemMaintenance {
+  if ($MaintenanceId -cnotmatch "^[0-9a-f]{32}$") { throw "An exact MaintenanceId is required" }
+  $record = Read-SystemMaintenance
+  if (-not $record -or $record.id -cne $MaintenanceId) { throw "Maintenance ownership changed; refusing to clear the gate" }
+  Assert-DeployedApplication
+  Assert-RuntimeAclHardened
+  Assert-ServiceStackStopped "EndMaintenance"
+  Assert-SalesRetirementWorkerStopped "EndMaintenance"
+  [IO.File]::Delete((Assert-RuntimeChildPath $MaintenancePath))
+  Write-LauncherEvent "INFO" "system_maintenance_ended" $MaintenanceId
+}
+
 function Invoke-WithServiceMutex([scriptblock]$Operation) {
   $name = "Local\TERUISI-DjangoSales-" + (Get-Sha256Text (Get-CanonicalPath $RuntimeRoot)).Substring(0, 24)
   $mutex = [Threading.Mutex]::new($false, $name)
@@ -3896,6 +3968,7 @@ function Invoke-WithServiceMutex([scriptblock]$Operation) {
       Write-LauncherEvent "WARN" "abandoned_mutex_recovered"
     }
     if (-not $acquired) { throw "另一个 Django 本机服务操作仍在运行" }
+    if ($Action -match "^(Start|AutoStart)") { Assert-NoSystemMaintenance }
     & $Operation
   } finally {
     if ($acquired) { $mutex.ReleaseMutex() }
@@ -4033,6 +4106,7 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
       "DeployApp" { Invoke-WithServiceMutex { Deploy-Application } }
       "RollbackApp" { Invoke-WithServiceMutex { Rollback-Application } }
       "HardenAcl" { Invoke-WithServiceMutex { Set-RuntimeAcl } }
+      "MaintenanceStatus" { @{ maintenance = Read-SystemMaintenance } | ConvertTo-Json -Depth 4 -Compress }
       "Start" {
         $previousAclContextVariable = Get-Variable -Scope Global `
           -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
@@ -4047,10 +4121,10 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
               Assert-SupervisorStartFence $SupervisorExpectedDesiredStateSha256
               Start-ServiceStack
             }
+            $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
+            Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
+            Invoke-EnabledDjangoDomainStarts $orchestratedLifecycleAclToken
           }
-          $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
-          Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
-          Invoke-EnabledDjangoDomainStarts $orchestratedLifecycleAclToken
         } finally {
           if ($hadPreviousAclContext) {
             Set-Variable -Scope Global -Name $OrchestratedLifecycleAclContextVariable `
@@ -4071,11 +4145,9 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
             Write-ServiceDesiredState "stopped" "explicit_stop"
             Assert-DeployedApplication
             Assert-RuntimeAclHardened
-          }
-          $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
-          Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
-          Invoke-InstalledDjangoDomainStops $orchestratedLifecycleAclToken
-          Invoke-WithServiceMutex {
+            $orchestratedLifecycleAclToken = New-OrchestratedLifecycleAclToken
+            Set-OrchestratedLifecycleAclContext $orchestratedLifecycleAclToken
+            Invoke-InstalledDjangoDomainStops $orchestratedLifecycleAclToken
             Stop-ServiceStack
           }
         } finally {
