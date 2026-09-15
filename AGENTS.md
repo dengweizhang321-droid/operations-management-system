@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-15，三项竞态修复为源码候选，尚未生产采用。完整 Stop/Restart 必须由 Worker 唯一引擎连续持锁覆盖后端，Django 核心与子域保持同线程连续互斥；部署维护须使用 `EnterMaintenance`/精确 ID 的 `ExitMaintenance`，标记保存在受保护 runtime、异常后保留，不得因 PID 消失或超时删除。生产 DeployApp/RollbackApp 还须核验 Worker/helper 端口和 supervisor 回执已清除；首次采用需协调旧启动入口并同时升级两侧，旧代码不认识新门禁。周报读取须隔离迟到数据/错误/loading，写后刷新采用当前周；市场 Prompt 同类目在事务锁内分配版本，空类目也必须锁定，保留唯一约束和审计回滚。详见 `docs/RACE_CONDITION_FIXES.md`。本记录不授予生产停服或发布授权。
+
 2026-09-15，市场榜单分页及错误恢复已合入 main 并在本机采用。Worker/helper `20260915T054303Z-5704048d5158895c`，manifest SHA `821d7d88314910fda858abf8ce90ace40121c8d370f42ce1646f4a9465054de0`；补充 Django 源码 `2c8d1059`，manifest SHA `f0d4dc882cdc6bbf235d8107bdb92100b87ed89018ea9a90e2ab31bfa8233def`。数据库内去重、筛选、投影排序后只取当前页，关联销售也只查当前页；价格带按不同键计算，网店投影只聚合一次，页身份确定后计算其历史排名。失败保留导航/日期/筛选，独立选项读取，每页20条替换显示，30秒只读期限覆盖响应体。正式31.8万条全范围、第二页及未确认价格筛选均200、约12–13秒，浏览器通过；最终隔离PostgreSQL66项及真实角色负向探针通过。无迁移、权限扩展或SQL超时放宽；行业汇报仍有界，主数据列表与长期内存增长未在此解决。第二轮在两次排空后切换，Running/Ready/exact_release、Django守护healthy、钉钉connected及前备份独立恢复/后备份/E盘归档通过。首次接收器stream连接失败后由既有控制器恢复，未重放；首轮维护天猫2146失败交原n8n重试，n8n未重启。隐藏启动Windows PowerShell守护应使用其系统模块路径和受保护runtime工作目录，避免继承不兼容模块路径。见 `docs/MARKET_QUERY_PAGINATION.md`、`docs/evidence/market-query-recovery-production-20260915.json`。
 
 2026-09-15，数据工作流 Codex 监控已合并为单一 heartbeat `automation-5`，每天上海时间 14:25 统一核验吉客云五表、京东四店、京东市场、京准通两店及天猫六店共 11 条现行正式 n8n 工作流。原 `automation`、`automation-2`、`ai-n8n`、`11-n8n` 与每小时 `ai` 均暂停后续调度；n8n 共享错误工作流及 60 分钟完整 execution 安全重试保持不变。统一监控默认禁止子 Agent，先用有界只读批量快照，只有异常才读取对应专项手册；只做脱敏诊断、终态核验和既有通知，不在监控任务中修改源码/配置、部署、迁移或启停服务。数据库备份与钉钉事项归档不属于数据工作流监控，继续独立运行。
