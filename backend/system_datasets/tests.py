@@ -78,6 +78,30 @@ class RecordQueryTests(TestCase):
         self.secret = patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": SECRET})
         self.secret.start(); self.addCleanup(self.secret.stop)
 
+    def test_new_business_fields_preserve_units_null_empty_and_permissions(self):
+        from finance.models import FinanceTarget
+        from workflow.models import NewProductProject
+        FinanceTarget.objects.create(id="annual-fixture", period_type="year", period_key="2026",
+            gross_margin_bps=3250, created_at="2026-09-16", updated_at="2026-09-16")
+        targets = query("rows_finance_targets_scoped", {"columns": ["id", "gross_margin_bps"]}, ADMIN)
+        self.assertEqual(targets["rows"], [{"id": "annual-fixture", "gross_margin_bps": 3250}])
+        self.assertEqual(describe(SPECS["rows_finance_targets_scoped"], True)["fields"]["gross_margin_bps"]["unit"], "basis_point")
+        for name, plan in [("legacy", None), ("cleared", ""), ("planned", "测试店铺规划")]:
+            NewProductProject.objects.create(product_name=name, proposed_date="2026-09-16", shop_plan=plan,
+                created_by=ADMIN.email, updated_by=ADMIN.email)
+        projects=query("rows_workflow_new_product_projects", {"columns": ["product_name", "shop_plan"]}, ADMIN)
+        self.assertEqual({row["product_name"]:row["shop_plan"] for row in projects["rows"]},
+                         {"legacy":None,"cleared":"","planned":"测试店铺规划"})
+        for dataset, field in [("rows_finance_targets_scoped","gross_margin_bps"),
+                               ("rows_workflow_new_product_projects","shop_plan")]:
+            for role in ["viewer", "analyst", "operator"]:
+                with self.subTest(dataset=dataset,role=role), self.assertRaises(AiError):
+                    query(dataset, {"columns":[field]}, Principal("limited@example.invalid","Limited",role,None))
+            with self.assertRaises(AiError):
+                query(dataset, {"columns":[field]}, Principal(ADMIN.email,"Admin","admin",{"shops":["limited"]}))
+            with override_settings(DJANGO_PROCESS_ROLE="finance_writer"), self.assertRaises(AiError):
+                query(dataset, {"columns":[field]}, ADMIN)
+
     def test_every_dataset_reads_all_declared_columns_on_migrated_schema(self):
         for spec in SPECS.values():
             columns = list(spec["fields"])

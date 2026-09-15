@@ -41,6 +41,20 @@ CUTOVER_ID = "market-test-cutover"
 )
 class MarketApiContractTests(TestCase):
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_system_kpis_keep_signed_read_scope_and_response_contract(self):
+        payload = {"operation": "master", "view": "system_kpis", "params": {}}
+        response = self.post_query(payload, "kpi-read", role="viewer")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(set(response.json()), {"marketIdentityTotal", "pendingPriceCount", "pendingAiCount",
+            "completedAiCount", "sameImageReuseCount", "priceOnlyRecognitionCount", "fullRecognitionCount",
+            "blockedRecognitionCount"})
+        self.assertEqual(response["Cache-Control"], "no-store")
+        rejected = self.post_query(payload, "kpi-scoped", scope={"warehouses":[],"channels":[],"platforms":["京东"]})
+        self.assertEqual(rejected.status_code, 403)
+        unsigned = self.client.post("/api/market/queries", data=body_bytes(payload), content_type="application/json")
+        self.assertEqual(unsigned.status_code, 401)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_independent_filters_keep_query_auth_and_strict_shape(self):
         response = self.post_query({"operation": "filter_options"}, "filters-read", role="analyst")
         self.assertEqual(response.status_code, 200, response.content)

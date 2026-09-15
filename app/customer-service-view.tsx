@@ -71,6 +71,8 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   const [data, setData] = useState<CustomerServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [annotationError, setAnnotationError] = useState("");
+  const annotationSavingRef = useRef(false);
   const [selected, setSelected] = useState<CustomerServiceConversation | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | "batch" | null>(null);
@@ -174,6 +176,9 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     }
   }, [agents, categories, conversionStatuses, debouncedCustomerQuery, debouncedSkuIds, debouncedSpuIds, effectivePage, endDate, problemTypes, robotScopes, shopNames, startDate, statuses]);
 
+  const latestLoadRef = useRef(load);
+  useEffect(() => { latestLoadRef.current = load; }, [load]);
+
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => () => {
     listGenerationRef.current += 1;
@@ -232,8 +237,10 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
   };
 
   const saveAnnotation = async (item: CustomerServiceConversation, patch: Partial<Pick<CustomerServiceConversation, "robotScope" | "problemType" | "conversionStatus" | "serviceIssues" | "summaryText">>) => {
-    if (!canAnnotate) return;
-    setBusyId(item.id); setError("");
+    if (!canAnnotate || busyId !== null || annotationSavingRef.current) return;
+    annotationSavingRef.current = true;
+    setBusyId(item.id);
+    const listGeneration = listGenerationRef.current;
     const next = { ...item, ...patch, analysisSource: "manual" as const };
     setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? next : row) } : current);
     setSelected((current) => current?.id === item.id ? next : current);
@@ -245,23 +252,31 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
         if (response.status === 409) {
           const hadDetailOpen = selected?.id === item.id;
           const preservedDraft = hadDetailOpen ? { ...detailDraft } : undefined;
-          await load();
+          await latestLoadRef.current();
           if (hadDetailOpen) await openConversation(item.id, item, preservedDraft);
           throw new Error("该会话已被其他操作更新，数据已刷新；请核对后重新修改。");
         }
         throw new Error(payload?.error || "保存客服标注失败");
       }
       const confirmed = { ...next, version: nextVersion };
-      setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? confirmed : row) } : current);
+      if (listGenerationRef.current === listGeneration) {
+        setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? confirmed : row) } : current);
+      } else {
+        await latestLoadRef.current();
+      }
       setSelected((current) => current?.id === item.id ? { ...current, ...confirmed } : current);
+      setAnnotationError("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "保存客服标注失败");
+      setAnnotationError(reason instanceof Error ? reason.message : "保存客服标注失败");
       if (!(reason instanceof Error) || !reason.message.includes("已被其他操作更新")) {
         setSelected((current) => current?.id === item.id ? item : current);
-        await load();
+        if (listGenerationRef.current === listGeneration) {
+          setData((current) => current ? { ...current, items: current.items.map((row) => row.id === item.id ? item : row) } : current);
+        }
+        await latestLoadRef.current();
       }
     }
-    finally { setBusyId(null); }
+    finally { annotationSavingRef.current = false; setBusyId(null); }
   };
 
   const saveDetailAnnotation = async () => {
@@ -348,7 +363,7 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
     <CustomerServiceImportCard canImport={canImport} onCompleted={load} />
     <section className="customer-service-data-source panel"><strong>客服会话数据</strong><span>可在本页直接导入；「数据导入 → 客服会话」也保留相同入口。</span><div className="customer-service-shop-select"><span>店铺</span><SearchableMultiSelect values={shopNames} onChange={setShopNames} ariaLabel="客服店铺筛选" allLabel="全部店铺" searchPlaceholder="搜索店铺" options={(data?.shops ?? []).map((value) => ({ value, label: value }))} /></div></section>
     {analysisNotice && <section className="customer-service-feedback" role="status">{analysisNotice}</section>}
-    {error && <section className="customer-service-feedback error" role="alert">{error}</section>}
+    {(annotationError || error) && <section className="customer-service-feedback error" role="alert">{[annotationError, error].filter(Boolean).join("；")}</section>}
     {canAnnotate && analysisReady === false && <section className="customer-service-feedback error customer-service-analysis-setup" role="status"><span>客服会话已导入；AI 标注尚缺文本模型。配置并测试成功后即可分批分析本页全部未标注记录。</span><button type="button" className="row-action" onClick={() => onNavigate("ai")}>前往 AI 助理配置</button></section>}
     <section className="customer-service-filters panel">
       <div className="global-period-context customer-global-period"><span>全局统计周期</span><strong>{startDate} 至 {endDate}</strong></div>
@@ -372,9 +387,9 @@ function CustomerServiceView({ customStartDate, customEndDate, currentUser, onNa
         <td><strong>{item.matchedSkuId ? `SKUID ${item.matchedSkuId}` : item.productSku || "—"}</strong><small>{item.productSpuId ? `SPU ${item.productSpuId}` : item.productName || "未关联商品"}</small>{item.erpProductCode && <small>吉客云编号 {item.erpProductCode}</small>}{item.matchedSkuId && item.productSku !== item.matchedSkuId && <small>会话规格 {item.productSku}</small>}</td>
         <td><span className="customer-category" title={item.productCategory}>{item.productCategory || "未匹配类目"}</span></td>
         <td><strong>{item.messageTotalCount}</strong><small>会话消息总数</small></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.robotScope} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}机器人内容`} searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "待标注", disabled: true }, ...customerRobotOptions]} onChange={(value) => void saveAnnotation(item, { robotScope: value as CustomerServiceConversation["robotScope"] })} /></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.problemType} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}问题类型`} searchPlaceholder="搜索问题类型" options={[{ value: "", label: "待标注", disabled: true }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} onChange={(value) => void saveAnnotation(item, { problemType: value as CustomerServiceConversation["problemType"] })} /></td>
-        <td><SearchableSelect className="customer-annotation-select" value={item.conversionStatus} disabled={!canAnnotate || busyId === item.id} ariaLabel={`${item.id}订单转化`} searchPlaceholder="搜索转化状态" options={[{ value: "", label: "待标注", disabled: true }, ...customerConversionOptions]} onChange={(value) => void saveAnnotation(item, { conversionStatus: value as CustomerServiceConversation["conversionStatus"] })} /></td>
+        <td><SearchableSelect className="customer-annotation-select" value={item.robotScope} disabled={!canAnnotate || busyId !== null} ariaLabel={`${item.id}机器人内容`} searchPlaceholder="搜索机器人标注" options={[{ value: "", label: "待标注", disabled: true }, ...customerRobotOptions]} onChange={(value) => void saveAnnotation(item, { robotScope: value as CustomerServiceConversation["robotScope"] })} /></td>
+        <td><SearchableSelect className="customer-annotation-select" value={item.problemType} disabled={!canAnnotate || busyId !== null} ariaLabel={`${item.id}问题类型`} searchPlaceholder="搜索问题类型" options={[{ value: "", label: "待标注", disabled: true }, ...customerProblemTypes.map((value) => ({ value, label: value }))]} onChange={(value) => void saveAnnotation(item, { problemType: value as CustomerServiceConversation["problemType"] })} /></td>
+        <td><SearchableSelect className="customer-annotation-select" value={item.conversionStatus} disabled={!canAnnotate || busyId !== null} ariaLabel={`${item.id}订单转化`} searchPlaceholder="搜索转化状态" options={[{ value: "", label: "待标注", disabled: true }, ...customerConversionOptions]} onChange={(value) => void saveAnnotation(item, { conversionStatus: value as CustomerServiceConversation["conversionStatus"] })} /></td>
         <td><div className="customer-ai-summary"><strong title={item.serviceIssues}>{item.serviceIssues || "待 AI 分析服务问题"}</strong><small title={item.summaryText}>{item.summaryText || "暂无小结"}</small>{item.analyzedAt && <em>AI · {formatDateTime(item.analyzedAt)}</em>}</div></td>
         <td><span className={`customer-match customer-match-${item.matchStatus}`}>{customerServiceStatusLabel(item.matchStatus)}<small>{item.matchConfidence === "exact" ? "时间 + 顾客" : item.matchConfidence === "time_only" ? "仅时间" : "待补充"}</small></span></td>
         <td><div className="customer-row-actions">{canAnnotate && <button type="button" className="row-action" disabled={busyId !== null} onClick={() => void analyze([item.id], item.id)}>{busyId === item.id ? "分析中…" : "AI分析"}</button>}<button type="button" className="row-action" disabled={detailLoadingId !== null || busyId !== null} onClick={() => void openConversation(item.id, item)}>{detailLoadingId === item.id ? "读取中…" : item.messageTotalCount > 0 ? "查看会话" : "查看详情"}</button></div></td>

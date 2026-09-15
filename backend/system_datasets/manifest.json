@@ -6604,6 +6604,11 @@
           "column": "profit_target_cents",
           "unit": "CNY_cent"
         },
+        "gross_margin_bps": {
+          "type": "BigIntegerField",
+          "column": "gross_margin_bps",
+          "unit": "basis_point"
+        },
         "small_margin_bps": {
           "type": "BigIntegerField",
           "column": "small_margin_bps",
@@ -15963,6 +15968,11 @@
         "source_ref": {
           "type": "CharField",
           "column": "source_ref",
+          "unit": null
+        },
+        "shop_plan": {
+          "type": "TextField",
+          "column": "shop_plan",
           "unit": null
         },
         "notes": {

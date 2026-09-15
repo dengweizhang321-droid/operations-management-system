@@ -40,6 +40,7 @@ from .models import (
 from .query import FORMAL_OFFICIAL_PRICE_TYPES, _price_band, _price_band_versions, item_trend
 from .revisions import bump_revision, canonical_json, iso
 from .serialization import batch_payload
+from .system_kpis import system_kpis
 
 
 MAX_PAGE = 10_000
@@ -371,26 +372,6 @@ def settings_status() -> dict[str, object]:
         "dataRange": {"startDate": span["start"], "endDate": span["end"]},
         "batches": [batch_payload(item) for item in MarketImportBatch.objects.order_by("-created_at")[:8]],
         "imageCache": _image_summary(),
-    }
-
-
-def system_kpis() -> dict[str, int]:
-    identities = MarketMasterIdentity.objects.count()
-    pending = MarketPriceSnapshot.objects.filter(confirmed_market_price_cents__isnull=True).count()
-    annotation_count = MarketSkuAnnotation.objects.count()
-    same_image = MarketPriceSnapshot.objects.filter(
-        confirmed_market_price_cents__isnull=True,
-        image_content_sha256__gt="",
-    ).count()
-    return {
-        "marketIdentityTotal": identities,
-        "pendingPriceCount": pending,
-        "pendingAiCount": max(0, identities - annotation_count),
-        "completedAiCount": min(identities, annotation_count),
-        "sameImageReuseCount": same_image,
-        "priceOnlyRecognitionCount": 0,
-        "fullRecognitionCount": max(0, identities - annotation_count - same_image),
-        "blockedRecognitionCount": 0,
     }
 
 
