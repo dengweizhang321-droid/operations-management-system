@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, mkdtemp } from "node:fs/promises";
+import { readFile, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { apiSha, permissionCanonical, buildApiParameters, prepareApiExport, readApiScope, type ApiTemplates } from "../lib/jackyun/api-plan";
-import { apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import { JackyunHttpSession } from "../lib/jackyun/direct-http";
-import { runApiExports } from "../tools/jackyun-api-export";
+import { inspectSubmittedApiTask, runApiExports } from "../tools/jackyun-api-export";
 import { selectNewWebSessionTask } from "../lib/jackyun/web-session-export";
 import { jackyunCaptureDate } from "../lib/jackyun/run-contract";
 
@@ -30,7 +30,9 @@ function fake(overrides: Record<string, unknown> = {}) {
         owners: [{ id: "123", jlinkOwnerId: "123", name: "自营", memberName: "fixture" }],
         inventoryCount: "25734", goodsCount: 1942, ageCount: 5684, salesCount: "6556", validateExport: null, tasks: [], ...overrides,
       };
-      return { data: data[operation], pageInfo: operation === "tasks" ? { total: 0 } : null, noPrivilegeItem: null, desensitizationItem: null };
+      const result = data[operation];
+      return { data: result, pageInfo: operation === "tasks" ? { total: Array.isArray(result) ? result.length : 0 } : null,
+        noPrivilegeItem: null, desensitizationItem: null };
     } } as unknown as JackyunHttpSession;
   return { http, calls };
 }
@@ -85,6 +87,45 @@ test("platform time calibration finds a new task one second behind local time wi
   assert.equal(selectNewWebSessionTask({ records: [{ ...task, taskId: "sys-100" }, task], failedIds: [] }, expected).result?.binding.taskId, "sys-123");
   assert.throws(() => selectNewWebSessionTask({ records: [task, { ...task, taskId: "sys-124" }], failedIds: [] }, expected), /不唯一/);
   for (const bad of [undefined, { ...clock, serverDate: "2026-09-07T00:00:00Z" }, { ...clock, receivedAt: "2026-09-08T04:43:20Z" }]) assert.throws(() => apiTaskWindowStart(bad, intent));
+});
+
+test("platform task observations use the same clock when the server is ahead of the local host", () => {
+  const clock = { requestStartedAt: "2026-09-15T16:10:12.891Z", receivedAt: "2026-09-15T16:10:13.099Z", serverDate: "2026-09-15T16:10:14.000Z" };
+  const intent = "2026-09-15T16:10:13.101Z";
+  const observed = "2026-09-15T16:10:13.200Z";
+  assert.equal(apiTaskWindowStart(clock, intent), clock.serverDate);
+  assert.equal(apiTaskWindowObserved(clock, observed), "2026-09-15T16:10:14.101Z");
+  assert.throws(() => selectNewWebSessionTask({ records: [], failedIds: [] }, { module: "inventory", sourceRows: 25871,
+    exportIntentAt: apiTaskWindowStart(clock, intent), observedAt: observed, allowedHosts: ["oss.example.invalid"], baselineIds: [] }), /绑定条件/);
+  assert.doesNotThrow(() => selectNewWebSessionTask({ records: [], failedIds: [] }, { module: "inventory", sourceRows: 25871,
+    exportIntentAt: apiTaskWindowStart(clock, intent), observedAt: apiTaskWindowObserved(clock, observed),
+    allowedHosts: ["oss.example.invalid"], baselineIds: [] }));
+  assert.throws(() => apiTaskWindowObserved(clock, "2026-09-15T16:10:12.000Z"));
+});
+
+test("submitted API task inspection binds the original completed task without another export POST", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jackyun-api-inspect-"));
+  const runId = "n8n-export-first-2285";
+  const directory = path.join(root, runId);
+  await mkdir(directory);
+  const clock = { requestStartedAt: "2026-09-15T16:10:12.891Z", receivedAt: "2026-09-15T16:10:13.099Z", serverDate: "2026-09-15T16:10:14.000Z" };
+  await writeFile(path.join(directory, "api-controller-state.json"), JSON.stringify({ version: 1, runId, transport: "session_api_v1",
+    runDate: "2026-09-16", asOfDate: "2026-09-15", templateSha256: apiSha(JSON.stringify(templates)), tenantId: "fixture",
+    modules: { inventory: { status: "submitted", serverClock: clock, preflightStartedAt: "2026-09-15T16:10:12.164Z",
+      queryIntentAt: "2026-09-15T16:10:12.164Z", queryCompletedAt: "2026-09-15T16:10:12.768Z", sourceRows: 25871,
+      payloadSha256: "a".repeat(64), querySha256: "b".repeat(64), permissionSha256: templates.permissionFieldsSha256,
+      templateSha256: apiSha(JSON.stringify(templates)), baselineIds: ["sys-100"], exportIntentAt: "2026-09-15T16:10:13.101Z" } } }));
+  const f = fake({ tasks: [{ id: "101", gmtCreate: Date.parse(clock.serverDate), taskTitle: "【成功】【导出任务-密文】分仓库存查询(25871条)",
+    taskStatus: 4, attachmentList: [{ attachmentUrl: "https://oss.example.invalid/inventory.xlsx?signature=fixture" }] }] });
+  const binding = await inspectSubmittedApiTask({ runId, outputRoot: root, allowedHosts: ["oss.example.invalid"] }, { http: f.http, tenantId: "fixture" });
+  assert.equal(binding.taskId, "sys-101");
+  assert.equal(binding.sourceRows, 25871);
+  assert.deepEqual(f.calls, ["tasks"]);
+  const rebound = await inspectSubmittedApiTask({ runId, outputRoot: root, allowedHosts: ["oss.example.invalid"], binding },
+    { http: f.http, tenantId: "fixture" });
+  assert.deepEqual(rebound, binding);
+  await assert.rejects(inspectSubmittedApiTask({ runId, outputRoot: root, allowedHosts: ["oss.example.invalid"],
+    binding: { ...binding, taskId: "sys-999" } }, { http: f.http, tenantId: "fixture" }), /替换/);
 });
 
 test("an uncertain API submission is durably fenced and resumes polling without replaying its POST", async () => {

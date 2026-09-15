@@ -7,7 +7,7 @@ import { connectPlaywrightBrowser, PlaywrightPageClient } from "../lib/jackyun/p
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { inspectJackyunLoginSurface, submitJackyunDpapiLogin, verifyJackyunBrowserBinding, waitForJackyunDpapiSession, isJackyunLoginOrigin, resolveJackyunChromiumExecutable } from "../lib/jackyun/dpapi-login";
 import { createDirectSession, readDirectTasks } from "../lib/jackyun/direct-export";
-import { apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock, JackyunHttpSession } from "../lib/jackyun/direct-http";
 import { apiSha, jackyunApiTransport, readApiScope, prepareApiExport, type ApiTemplates } from "../lib/jackyun/api-plan";
 import { selectNewWebSessionTask } from "../lib/jackyun/web-session-export";
@@ -26,7 +26,8 @@ type ModuleState = { status: "prepared" | "submit_intent" | "submitted" | "hande
   serverClock?: JackyunServerClock; exportIntentAt?: string; pendingTaskId?: string; binding?: JackyunExportTaskBinding; filePath?: string; provenance?: JackyunDownloadProvenance; handoffSha256?: string };
 type ApiState = { version: 1; runId: string; tenantId?: string; transport: typeof jackyunApiTransport; runDate: string; asOfDate: string; templateSha256: string; modules: Partial<Record<JackyunModule, ModuleState>> };
 export type ApiExportOptions = { runId: string; runDate: string; asOfDate: string; outputRoot: string; eventRoot: string; downloadDirectory: string;
-  beforeModule?: (module: JackyunModule) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal };
+  beforeModule?: (module: JackyunModule) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal;
+  resumeTaskBinding?: JackyunExportTaskBinding };
 
 /** Caller owns the profile/run lock. Browser is used only for authentication and token publication. */
 export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSession, tenantId: string) => Promise<T>): Promise<T> {
@@ -93,6 +94,15 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         || entry.status !== "prepared" && !entry.exportIntentAt) throw new Error("API_STATE_EVIDENCE_INVALID");
       if (entry.exportIntentAt) apiTaskWindowStart(entry.serverClock, entry.exportIntentAt);
     }
+    if (options.resumeTaskBinding) {
+      const firstIncomplete = jackyunExportOrder.find(moduleKey => state.modules[moduleKey]?.status !== "handed_off");
+      const entry = firstIncomplete ? state.modules[firstIncomplete] : undefined;
+      if (!firstIncomplete || options.resumeTaskBinding.module !== firstIncomplete || entry?.status !== "submitted"
+        || entry.pendingTaskId || entry.binding || entry.filePath || entry.provenance || entry.handoffSha256
+        || options.resumeTaskBinding.sourceRows !== entry.sourceRows || entry.baselineIds.includes(options.resumeTaskBinding.taskId)) {
+        throw new Error("API_RESUME_BINDING_INVALID");
+      }
+    }
     for (const moduleKey of jackyunExportOrder) {
       options.signal?.throwIfAborted();
       if (jackyunCaptureDate(new Date().toISOString()) !== options.runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
@@ -136,8 +146,10 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
       while (Date.now() < deadline) {
         options.signal?.throwIfAborted();
         const snapshot = await readDirectTasks(http, moduleKey, taskWindowStartAt);
-        const task = selectNewWebSessionTask(snapshot, { module: moduleKey, sourceRows: entry.sourceRows, exportIntentAt: taskWindowStartAt, observedAt: new Date().toISOString(), allowedHosts,
-          baselineIds: entry.baselineIds, pendingTaskId: entry.pendingTaskId, binding: entry.binding });
+        const resumed = options.resumeTaskBinding?.module === moduleKey ? options.resumeTaskBinding : undefined;
+        const task = selectNewWebSessionTask(snapshot, { module: moduleKey, sourceRows: entry.sourceRows, exportIntentAt: taskWindowStartAt,
+          observedAt: apiTaskWindowObserved(entry.serverClock, new Date().toISOString()), allowedHosts,
+          baselineIds: entry.baselineIds, pendingTaskId: entry.pendingTaskId ?? resumed?.taskId, binding: entry.binding ?? resumed });
         if (task.taskId && !entry.pendingTaskId) { entry.pendingTaskId = task.taskId; await writeJsonAtomic(statePath, state); }
         if (task.result) { selected = task.result; break; }
         await new Promise(resolve => setTimeout(resolve, deps.pollIntervalMs ?? 1500));
@@ -171,4 +183,31 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
     return { status: "exported" as const, runId: options.runId, transport: jackyunApiTransport, statePath };
   };
   return deps.http && deps.tenantId ? execute(deps.http, deps.tenantId) : withJackyunApiSession(execute);
+}
+
+export async function inspectSubmittedApiTask(options: { runId: string; outputRoot: string; allowedHosts: string[]; binding?: JackyunExportTaskBinding },
+  deps: { http?: JackyunHttpSession; tenantId?: string } = {}) {
+  if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId) || !path.isAbsolute(options.outputRoot)
+    || !Array.isArray(options.allowedHosts) || !options.allowedHosts.length) throw new Error("API_RESUME_SCOPE_INVALID");
+  const statePath = path.join(options.outputRoot, options.runId, "api-controller-state.json");
+  const state = JSON.parse(await readFile(statePath, "utf8")) as ApiState;
+  const entry = state.modules.inventory;
+  if (state.version !== 1 || state.runId !== options.runId || state.transport !== jackyunApiTransport
+    || state.templateSha256 !== apiSha(JSON.stringify(calibratedTemplates)) || Object.keys(state.modules).length !== 1
+    || !state.tenantId || entry?.status !== "submitted" || !entry.exportIntentAt || entry.pendingTaskId || entry.binding
+    || entry.filePath || entry.provenance || entry.handoffSha256 || !Number.isSafeInteger(entry.sourceRows) || entry.sourceRows <= 0
+    || !Array.isArray(entry.baselineIds) || new Set(entry.baselineIds).size !== entry.baselineIds.length
+    || !entry.baselineIds.every(value => /^sys-\d{1,20}$/.test(value))) throw new Error("API_RESUME_STATE_INVALID");
+  const inspect = async (http: JackyunHttpSession, tenantId: string) => {
+    if (state.tenantId !== tenantId) throw new Error("API_TENANT_BINDING_CHANGED");
+    const taskWindowStartAt = apiTaskWindowStart(entry.serverClock, entry.exportIntentAt!);
+    const snapshot = await readDirectTasks(http, "inventory", taskWindowStartAt);
+    const selected = selectNewWebSessionTask(snapshot, { module: "inventory", sourceRows: entry.sourceRows,
+      exportIntentAt: taskWindowStartAt, observedAt: apiTaskWindowObserved(entry.serverClock, new Date().toISOString()),
+      allowedHosts: options.allowedHosts, baselineIds: entry.baselineIds,
+      pendingTaskId: options.binding?.taskId, binding: options.binding });
+    if (!selected.result) throw new Error(selected.taskId ? "API_ORIGINAL_EXPORT_TASK_PENDING" : "API_ORIGINAL_EXPORT_TASK_NOT_FOUND");
+    return selected.result.binding;
+  };
+  return deps.http && deps.tenantId ? inspect(deps.http, deps.tenantId) : withJackyunApiSession(inspect);
 }

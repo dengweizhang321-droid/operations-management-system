@@ -1,4 +1,4 @@
-import { apiTaskWindowStart } from "../lib/jackyun/api-clock";
+import { apiTaskWindowObserved, apiTaskWindowStart } from "../lib/jackyun/api-clock";
 import type { JackyunServerClock } from "../lib/jackyun/direct-http";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
@@ -16,6 +16,7 @@ import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recovery";
 import { claimHttpScopeRecovery } from "../lib/jackyun/http-scope-recovery";
 import { claimImportRecovery, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
+import { claimJackyunApiResumePermit } from "../lib/jackyun/api-execution-resume";
 import { runController } from "./jackyun-browser-controller";
 import { jackyunWebSessionTransport } from "../lib/jackyun/web-session-export";
 import { jackyunDirectTransport } from "../lib/jackyun/direct-export";
@@ -142,12 +143,15 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
     || handoff.evidence.apiPreflightStartedAt !== handoff.navigationIntentAt || handoff.evidence.apiQueryCompletedAt !== handoff.tableStableAt
     || ["apiQuerySha256", "permissionSha256", "templateSha256"].some(key => !/^[a-f0-9]{64}$/.test(String(handoff.evidence?.[key]))))) throw new Error("纯接口查询、权限或参数模板证据不完整。");
   const taskWindowStartAt = plan.exportTransport === jackyunApiTransport ? apiTaskWindowStart(handoff.evidence?.serverClock as JackyunServerClock | undefined, handoff.exportIntentAt) : handoff.exportIntentAt;
+  const taskObservedUpperAt = plan.exportTransport === jackyunApiTransport
+    ? apiTaskWindowObserved(handoff.evidence?.serverClock as JackyunServerClock | undefined, handoff.downloadProvenance.completedAt)
+    : handoff.downloadProvenance.completedAt;
   if (taskBinding && (taskBinding.version !== 1 || taskBinding.module !== module || taskBinding.sourceRows !== handoff.expectedSourceRows
     || taskBinding.sourceUrlHash !== handoff.downloadProvenance.sourceUrlHash || !/^sys-\d{1,20}$/.test(taskBinding.taskId)
     || !Number.isFinite(Date.parse(taskBinding.createdAt)) || !Number.isFinite(Date.parse(taskBinding.observedAt))
     || Date.parse(taskBinding.createdAt) < Math.floor(Date.parse(taskWindowStartAt) / 1000) * 1000
     || Date.parse(taskBinding.observedAt) < Date.parse(taskBinding.createdAt)
-    || Date.parse(taskBinding.observedAt) > Date.parse(handoff.downloadProvenance.completedAt))) {
+    || Date.parse(taskBinding.observedAt) > Date.parse(taskObservedUpperAt))) {
     throw new Error("导出任务记录与本轮文件交接不一致。");
   }
   if (handoff.downloadEventAt !== handoff.downloadProvenance.completedAt) throw new Error("下载时间不匹配。");
@@ -261,6 +265,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
     let resumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
+    let apiResumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
     let webConfirmationRecovery: Awaited<ReturnType<typeof claimWebConfirmationRecovery>> | undefined;
     let httpScopeRecovery: Awaited<ReturnType<typeof claimHttpScopeRecovery>> | undefined;
     let importRecovery: ImportRecoveryBinding | undefined;
@@ -284,6 +289,8 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           try {
             if (previous.exportTransport === jackyunWebSessionTransport) {
               webConfirmationRecovery = await claimWebConfirmationRecovery(root, active.executionId, executionId, action, nowOf(deps));
+            } else if (previous.exportTransport === jackyunApiTransport) {
+              apiResumeTaskBinding = await claimJackyunApiResumePermit(root, active.executionId, executionId, action, nowOf(deps));
             } else if (previous.exportTransport === jackyunDirectTransport) {
               if (["importing", "imported"].includes(previous.phase)) {
                 importRecovery = await claimImportRecovery(root, active.executionId, executionId, action, nowOf(deps));
@@ -347,7 +354,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       };
       const result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
         runId, runDate: plan.runDate, asOfDate: plan.asOfDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
-        downloadDirectory: policy.browser.downloadDirectory, ...callbacks,
+        downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, ...callbacks,
       }) : await (deps.runBrowser ?? runController)({
         runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
         eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,

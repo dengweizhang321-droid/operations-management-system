@@ -132,7 +132,8 @@ test("API plan dispatches only its adapter and a sales cost validation failure b
       handoff.evidence = { ...handoff.evidence, controller: "authenticated_http_api", exportTransport: "session_api_v1",
         apiPreflightStartedAt: handoff.navigationIntentAt, apiQueryCompletedAt: handoff.tableStableAt,
         apiQuerySha256: "a".repeat(64), permissionSha256: "b".repeat(64), templateSha256: "c".repeat(64),
-        serverClock: { requestStartedAt: at(4), receivedAt: at(4), serverDate: at(4) } };
+        serverClock: { requestStartedAt: "2026-09-06T01:00:03.891Z", receivedAt: "2026-09-06T01:00:04.099Z", serverDate: at(5) } };
+      handoff.evidence.exportTaskBinding.observedAt = "2026-09-06T01:00:06.901Z";
       await writeJsonAtomic(eventPath, handoff);
       await options.afterModule?.(moduleKey);
     }

@@ -30,6 +30,16 @@
 
 平台 `gmtCreate` 只有秒精度，且可能比本机时间早一秒。新版本保存提交前任务基线响应的 HTTP `Date`、本机请求开始和接收时刻，用已验证的平台时刻确定任务窗口下界；禁止从候选任务反推或放宽窗口。校准请求往返超过 5 秒、提交距接收超过 5 秒、时钟差超过 10 秒或缺少时间头均停止。任务 ID、原始平台创建时刻、标签和附件哈希仍完整保留。
 
+任务窗口的上界也必须换算到同一份已验证的平台时钟。不能把平台 `Date` 作为下界、再直接把本机 `new Date()` 作为上界；平台时钟略快时，这会形成“上界早于下界”的假失败。换算只使用提交前已保存的 `serverDate - receivedAt` 偏差，原有 5 秒往返、5 秒提交间隔和 10 秒时钟差门禁不变。
+
+若旧版本已经完成唯一库存导出 POST、状态停在 `submitted`，并因精确错误“导出任务绑定条件无效。”终止，可使用 `tools/jackyun-api-resume.ts` 做受控恢复：
+
+1. `plan <executionId>` 持有原全局锁，只读 n8n 失败证据、活动清单、原计划、API controller 和平台任务列表；必须找到不在原基线内、模块/行数/平台时刻完全一致、已完成且只有一个允许来源附件的库存任务。
+2. `apply <proposal.json> <approvedSha256>` 再次读取同一平台任务并复验附件摘要，以 create-only 方式发布续跑许可；不下载、不导入，也不修改原计划、controller、active 或 n8n 历史。
+3. 许可只允许同一上海日期内、30 分钟内由一个新的完整 n8n execution 从 `plan-api` 领取。B 节点复用已绑定的原库存任务，禁止再次发送库存导出 POST；后续四表仍按原顺序新导出，C/D/E 屏障与精确批次回查不变。
+
+该恢复仅接受首个库存模块、`submitted`、没有 pending task/binding/文件/handoff/验证或导入效果的精确现场。任务缺失、仍在生成、失败、重复、附件改变、跨日、其他 execution 已领取或任一证据变化均停止。不能通过删除 `active.json`、重写状态或直接调用导入接口绕过。
+
 `api-controller-state.json` 与历史浏览器 controller 分离。交接仍使用现有 importer 的 schema 2：`navigationIntentAt/tableStableAt` 是兼容字段，分别对应接口预检开始和接口数量查询完成；`evidence.controller=authenticated_http_api` 及显式 API 时刻字段标明来源，不能解释为实际发生了页面导航或表格渲染。
 
 专用浏览器在 HTTP 阶段离线，只有持有原 profile/run lock 的所有者可以刷新和发布令牌。登录失败、刷新不确定或权限错误不通过反复重试掩盖。工作流业务节点不自动重试；跨 execution 恢复仍须审核原运行的许可，不能删除 active 文件或把旧计划改成 API 计划。
