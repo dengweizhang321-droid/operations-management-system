@@ -173,9 +173,9 @@ class ReplenishmentHealthTests(TestCase):
             buyer_override="采购甲", notes="保留备注",
         )
 
-    def test_manual_healthy_resets_on_increase_or_decrease_and_expires_old_hold(self):
+    def test_manual_healthy_resets_on_increase_and_expires_old_hold(self):
         from inventory.models import GuangdongMonitorAudit
-        for quantity in (101, 50):
+        for quantity in (101, 102):
             self.manual_healthy()
             plan = self.plan(quantity=quantity)
             timestamp = plan.updated_at
@@ -192,6 +192,52 @@ class ReplenishmentHealthTests(TestCase):
             self.assertEqual(overview["items"][0]["status"], monitor["items"][0]["autoRisk"])
         self.assertEqual(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").count(), 2)
 
+    def test_manual_healthy_survives_declines_then_resets_on_first_increase(self):
+        from inventory.models import GuangdongMonitorAudit
+        self.manual_healthy()
+        original = GuangdongMonitorItem.objects.get(product_code="P")
+        for quantity in (50, 20, 0):
+            self.publish(quantity)
+            item = GuangdongMonitorItem.objects.get(product_code="P")
+            self.assertEqual((item.risk_override, item.risk_reason_override), ("healthy", "已手动备货"))
+            self.assertEqual((item.updated_at, item.updated_by), (original.updated_at, original.updated_by))
+            monitor, overview = self.read_both()
+            self.assertEqual((monitor["items"][0]["risk"], monitor["items"][0]["riskSource"]), ("healthy", "型号设置"))
+            self.assertEqual(overview["items"][0]["status"], "healthy")
+            self.assertFalse(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").exists())
+        self.publish(1)
+        item.refresh_from_db()
+        self.assertIsNone(item.risk_override)
+        self.assertIsNone(item.risk_reason_override)
+        audit = GuangdongMonitorAudit.objects.get(action="stock_risk_reset")
+        self.assertEqual((audit.result["previousOnHandQuantity"], audit.result["onHandQuantity"]), (0, 1))
+        monitor, overview = self.read_both()
+        self.assertEqual((monitor["items"][0]["risk"], monitor["items"][0]["riskSource"]), ("urgent", "系统判定"))
+        self.assertEqual(overview["items"][0]["status"], "urgent")
+        self.publish(0)
+        item.refresh_from_db()
+        self.assertIsNone(item.risk_override)
+        self.assertEqual(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").count(), 1)
+
+    def test_manual_healthy_decline_preserves_pending_plan_until_increase(self):
+        from inventory.models import GuangdongMonitorAudit
+        self.manual_healthy()
+        plan = self.plan()
+        timestamp = plan.updated_at
+        for quantity in (50, 49):
+            self.publish(quantity)
+            plan.refresh_from_db()
+            self.assertTrue(waiting_for_stock(plan))
+            self.assertEqual(plan.updated_at, timestamp)
+            self.assertEqual(GuangdongMonitorItem.objects.get(product_code="P").risk_override, "healthy")
+            self.assertFalse(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").exists())
+        self.publish(50)
+        plan.refresh_from_db()
+        self.assertFalse(waiting_for_stock(plan))
+        self.assertEqual(plan.updated_at, timestamp)
+        self.assertIsNone(GuangdongMonitorItem.objects.get(product_code="P").risk_override)
+        self.assertEqual(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").count(), 1)
+
     def test_manual_healthy_ignores_duplicates_available_changes_and_historical_import(self):
         self.manual_healthy()
         self.publish(100)
@@ -206,6 +252,8 @@ class ReplenishmentHealthTests(TestCase):
         self.publish(200)
         self.assertEqual(GuangdongMonitorItem.objects.get(product_code="P").risk_override, "healthy")
         self.publish(199)
+        self.assertEqual(GuangdongMonitorItem.objects.get(product_code="P").risk_override, "healthy")
+        self.publish(200)
         self.assertIsNone(GuangdongMonitorItem.objects.get(product_code="P").risk_override)
 
     def test_manual_healthy_reset_and_audit_roll_back_with_import(self):
@@ -214,7 +262,7 @@ class ReplenishmentHealthTests(TestCase):
         plan = self.plan()
         with patch("inventory.import_service.bump_revision", side_effect=RuntimeError("rollback")):
             with self.assertRaises(RuntimeError):
-                self.publish(90)
+                self.publish(101)
         self.assertEqual(GuangdongMonitorItem.objects.get(product_code="P").risk_override, "healthy")
         self.assertFalse(GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").exists())
         plan.refresh_from_db()

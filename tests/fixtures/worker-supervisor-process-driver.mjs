@@ -28,12 +28,16 @@ registerHooks({ load(url, context, nextLoad) {
   return { ...result, source };
 } });
 const supervisor = await import(pathToFileURL(path.join(config.sourceRoot, "tools/worker-local-runtime-supervisor.mjs")).href);
+const { monitorLocalWorkerLiveness } = await import(pathToFileURL(path.join(config.sourceRoot, "tools/start-local-worker.mjs")).href);
 const abort = new AbortController();
 process.on("message", message => { if (message === "stop") abort.abort(); });
 try {
   await supervisor[config.kind === "worker" ? "superviseImmutableWorker" : "superviseImmutableHelper"]({
     releaseRoot: config.releaseRoot, manifest: config.manifest, manifestPath: config.manifestPath,
     manifestSha256: config.manifestSha256, runtimeRoot: config.runtime, signal: abort.signal,
+    ...(config.kind === "worker" ? { livenessMonitor: (options) => monitorLocalWorkerLiveness({
+      ...options, initialDelayMs: 100, intervalMs: 100, failureThreshold: 3,
+    }) } : {}),
   });
 } catch (error) {
   process.send?.({ outcome: "rejected", message: error.message });

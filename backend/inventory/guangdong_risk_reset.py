@@ -1,4 +1,4 @@
-"""Expire manual healthy settings atomically with a current stock publication."""
+"""Expire manual healthy settings only when current physical stock increases."""
 from .models import GuangdongMonitorAudit, GuangdongMonitorItem, InventoryStockLine, ReplenishmentPlanItem
 from .query import _latest_batch
 
@@ -13,7 +13,7 @@ def healthy_stock_baseline():
     ).values_list("product_code", "on_hand_quantity"))
 
 
-def reset_changed_healthy(batch, baseline, actor):
+def reset_increased_healthy(batch, baseline, actor):
     latest = _latest_batch("stock")
     if not baseline or latest is None or latest.id != batch.id:
         return
@@ -23,7 +23,7 @@ def reset_changed_healthy(batch, baseline, actor):
     ).values_list("product_code", "on_hand_quantity"))
     for item in GuangdongMonitorItem.objects.select_for_update().filter(risk_override="healthy").order_by("product_code"):
         code = item.product_code
-        if code not in baseline or code not in current or baseline[code] == current[code]:
+        if code not in baseline or code not in current or current[code] <= baseline[code]:
             continue
         before = {"risk": item.risk_override, "riskReason": item.risk_reason_override}
         item.risk_override = None
