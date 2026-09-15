@@ -96,7 +96,22 @@ class RankingPaginationTests(TestCase):
         self.assertEqual(len(result["items"]), 10)
         self.assertEqual(len(metrics.call_args.args[1]), 10)
         self.assertEqual(len(self.query(page=2)["items"]), 10)
+        pending = self.query(filters={"priceBands": ["未确认价格"]})
+        self.assertEqual(pending["pagination"]["total"], 250002)
+        self.assertEqual([row["id"] for row in pending["items"]], [row["id"] for row in result["items"]])
         with self.assertRaises(MarketApiError) as raised:
             self.query("full")
         self.assertEqual(raised.exception.status, 413)
         self.assertEqual(filter_options()["categories"], [{"value": "净水", "count": 250002}])
+
+    def test_confirmed_price_without_matching_band_keeps_price_and_pending_count(self):
+        row = self.entry("outside-bands")
+        MarketPriceSnapshot.objects.create(id="outside", category=row.category, scope=row.scope,
+            sku_code=row.sku_code, month="2026-08", confirmation_status="confirmed", ai_price_type="到手价",
+            image_content_sha256="b" * 64, confirmed_market_price_cents=30000)
+        self.entry("no-price")
+        filters = {"priceBands": ["未确认价格"]}
+        ranking, report = self.query(filters=filters), self.query("full", filters=filters)
+        self.assertEqual(ranking["items"], report["items"])
+        self.assertEqual(ranking["pagination"]["total"], 2)
+        self.assertEqual(ranking["summary"]["pendingAiCount"], 1)

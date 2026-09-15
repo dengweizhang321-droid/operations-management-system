@@ -1114,6 +1114,8 @@ def overview(
     ranking_stats = None
     ranking_bands = None
     ranking_details = {}
+    # Load the independent, inexpensive filter aggregates before ranking joins.
+    global_options = filter_options() if view == "ranking" else None
     if view == "ranking":
         ranking_stats, ranking_bands, page_rows = ranking_page(_queryset(filters), filters["priceBands"], page, page_size)
         ranking_details = {item["id"]: item for item in page_rows}
@@ -1385,7 +1387,8 @@ def overview(
                 ),
             }
         )
-    global_options = filter_options()
+    if global_options is None:
+        global_options = filter_options()
     image_counts = Counter({row["status"]: row["count"] for row in MarketImageCache.objects.order_by().values("status").annotate(count=Count("pk"))})
     total_images = MarketRankingEntry.objects.exclude(image_url="").values("image_url").distinct().count()
     official_prices = sorted(int(item["official"]) for item in summary_rows if item["official"] is not None)

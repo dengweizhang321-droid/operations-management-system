@@ -13,7 +13,7 @@ def _read(sql, params):
         return [dict(zip(names, row)) for row in cursor.fetchall()]
 
 
-def _scope(queryset, price_bands, *, include_bands=True, include_prices=True):
+def _scope(queryset, price_bands, *, include_bands=True, include_prices=True, selected_columns="*"):
     # Compile the existing ORM predicates: search escaping, dates and all domain
     # filters stay identical to the report path, before price-band preference.
     columns = ("id", "period_start", "period_end", "category", "scope",
@@ -45,8 +45,10 @@ def _scope(queryset, price_bands, *, include_bands=True, include_prices=True):
           AND s.sku_code=p.sku_code AND s.month=SUBSTR(p.period_end,1,7)
         {preferred_filter}
     """ if include_prices else f"SELECT p.*,CAST(NULL AS BIGINT) official FROM preferred p {preferred_filter}"
-    banded = """SELECT p.*,COALESCE(b.price_band,'未确认价格') price_band FROM priced p
-        LEFT JOIN band_lookup b ON b.category=p.category AND b.period_end=p.period_end AND b.official=p.official""" if include_bands else "SELECT p.*,NULL price_band FROM priced p"
+    banded = """SELECT p.*,'未确认价格' price_band FROM priced p WHERE p.official IS NULL
+        UNION ALL SELECT p.*,COALESCE(b.price_band,'未确认价格') price_band FROM priced p
+        LEFT JOIN band_lookup b ON b.category=p.category AND b.period_end=p.period_end AND b.official=p.official
+        WHERE p.official IS NOT NULL""" if include_bands else "SELECT p.*,NULL price_band FROM priced p"
     return f"""WITH source AS ({source}),
       preferred AS ({preferred}), priced AS ({priced}), price_keys AS (
         SELECT DISTINCT category,period_end,official FROM priced WHERE official IS NOT NULL
@@ -60,13 +62,14 @@ def _scope(queryset, price_bands, *, include_bands=True, include_prices=True):
           ORDER BY CASE WHEN v.category='*' THEN 1 ELSE 0 END,
             v.effective_from DESC,v.version DESC,b.sort_order,b.id LIMIT 1), '未确认价格') price_band
         FROM price_keys p
-      ), banded AS ({banded}), selected AS (SELECT * FROM banded {band_filter})
+      ), banded AS ({banded}), selected AS (SELECT {selected_columns} FROM banded {band_filter})
     """, [*params, *price_bands]
 
 
 def ranking_page(queryset, price_bands, page, page_size):
     cte, params = _scope(queryset, price_bands)
-    stats_cte, _ = _scope(queryset, price_bands, include_bands=bool(price_bands))
+    stats_cte, _ = _scope(queryset, price_bands, include_bands=bool(price_bands),
+                         selected_columns="category,scope,ranking_dimension,sku_code,brand,official")
     rows_cte, _ = _scope(queryset, price_bands, include_bands=bool(price_bands), include_prices=bool(price_bands))
     inline = "NOT MATERIALIZED" if connection.vendor == "postgresql" else ""
     materialized = "MATERIALIZED" if connection.vendor == "postgresql" else ""
