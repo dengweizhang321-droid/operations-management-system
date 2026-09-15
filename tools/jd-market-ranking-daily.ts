@@ -18,7 +18,7 @@ import {
   jdCalendarDateDispatchDecision,
   jdCalendarEndSelectionDecision,
   jdDateRangeSelectionPlan,
-} from "./jdsz-product-detail-export";
+} from "../lib/jd/calendar-range-selection";
 import {
   assertJdMarketImportProof,
   claimExactJdMarketPlan,
