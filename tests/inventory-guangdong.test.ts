@@ -38,17 +38,19 @@ test("广东监控导出使用7/15/30、销售周转、生产安全与备货字�
     filters: { brands: [], categories: [], suppliers: [] },
     metrics: { itemCount: 1, availableQuantity: 10, inTransitQuantity: 0, knownStockValueCents: 5000, missingCostCount: 0, missingStockCount: 0 },
     distribution: [], pagination: { page: 1, pageSize: 50, total: 1, totalPages: 1 }, disclosures: [],
-    items: [{ productCode: "SKU-1", productName: "商品", specification: "白色", brand: "", category: "", supplier: "工厂", supplierSource: "ERP档案", warehouse: "广东仓", notes: "", availableQuantity: 10, inTransitQuantity: 0, inventoryAgeDays: 20, unitCostCents: 500, knownStockValueCents: 5000, costMissing: false, outbound7dQuantity: 7, outbound15dQuantity: 15, outbound30dQuantity: 30, leadDays: 10, bufferDays: 7, supplierLeadDays: 10, supplierBufferDays: 7, leadDaysOverride: null, bufferDaysOverride: null, cycleSource: "供应商设置", inventoryStale: false, replenishmentQuantity: 25, latestReplenishmentOrderDate: "2026-09-08", operatorName: "运营甲", operatorNameOverride: null, planOperatorName: "运营甲", operatorNameSource: "最新备货计划", buyer: "采购甲", buyerOverride: null, planBuyer: "采购甲", buyerSource: "最新备货计划", turnoverDays: 10, latestOrderDate: "2026-09-09", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], autoRisk: "urgent", autoRiskLabel: "紧急补货", autoRiskReasons: ["销售周转不超过生产周期"], riskOverride: null, riskReasonOverride: null, riskSource: "系统判定" }],
+    items: [{ productCode: "SKU-1", productName: "商品", specification: "白色", brand: "", category: "", supplier: "工厂", supplierSource: "ERP档案", warehouse: "广东仓", notes: "", availableQuantity: 10, inTransitQuantity: 0, inventoryAgeDays: 20, unitCostCents: 500, knownStockValueCents: 5000, costMissing: false, outbound7dQuantity: 7, outbound15dQuantity: 15, outbound30dQuantity: 30, leadDays: 10, bufferDays: 7, supplierLeadDays: 10, supplierBufferDays: 7, leadDaysOverride: null, bufferDaysOverride: null, cycleSource: "供应商设置", inventoryStale: false, replenishmentQuantity: 25, replenishmentRemainingQuantity: -5, replenishmentStockIncreaseQuantity: 30, replenishmentRemainingReason: "", latestReplenishmentOrderDate: "2026-09-08", operatorName: "运营甲", operatorNameOverride: null, planOperatorName: "运营甲", operatorNameSource: "最新备货计划", buyer: "采购甲", buyerOverride: null, planBuyer: "采购甲", buyerSource: "最新备货计划", turnoverDays: 10, latestOrderDate: "2026-09-09", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], autoRisk: "urgent", autoRiskLabel: "紧急补货", autoRiskReasons: ["销售周转不超过生产周期"], riskOverride: null, riskReasonOverride: null, riskSource: "系统判定" }],
   });
   const book = XLSX.read(bytes, { type: "array" });
   const rows = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets["广东入仓监控"], { header: 1, defval: "" });
-  assert.deepEqual(rows[0], ["货品编码", "货品名称", "规格编码", "规格", "品牌", "品类", "供应商", "供应商来源", "运营负责人", "采购负责人", "仓库", "可用库存", "在途", "7日出库", "15日出库", "30日出库", "销售周转天数", "库龄天数", "生产周期天", "安全天数", "最晚下单日期", "备货数量", "最新下单日期", "风险", "风险原因", "备注"]);
+  assert.deepEqual(rows[0], ["货品编码", "货品名称", "规格编码", "规格", "品牌", "品类", "供应商", "供应商来源", "运营负责人", "采购负责人", "仓库", "可用库存", "在途", "7日出库", "15日出库", "30日出库", "销售周转天数", "库龄天数", "生产周期天", "安全天数", "最晚下单日期", "备货数量", "下单剩余库存", "下单后累计增库", "核算说明", "最新下单日期", "风险", "风险原因", "备注"]);
   assert.equal(rows[0].includes("成本元"), false);
   assert.equal(rows[0].includes("已覆盖货值元"), false);
   assert.equal(rows[1][8], "运营甲");
   assert.equal(rows[1][9], "采购甲");
   assert.equal(rows[1][14], 15);
   assert.equal(rows[1][21], 25);
+  assert.equal(rows[1][22], -5);
+  assert.equal(rows[1][23], 30);
 });
 
 test("广东网关允许有界reader读取，拒绝向reader提交清单写入", async () => {

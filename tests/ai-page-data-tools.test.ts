@@ -63,11 +63,13 @@ test("广东AI工具固定reader、真实签名、20行上限和数据scope拒�
     assert.equal(url.searchParams.get("risk"), "urgent");
     assert.equal(url.searchParams.has("warehouse"), false);
     assert.deepEqual(JSON.parse(Buffer.from(new Headers(init?.headers).get("x-teruisi-principal")!, "base64url").toString()), unrestrictedAnalyst);
-    return Response.json({ items: Array.from({ length: 30 }, (_, i) => ({ productCode: String(i), risk: "urgent", leadDays: 14, riskReason: "周期内耗尽" })), pagination: { page: 1, total: 30 } }, { headers: { "x-inventory-data-revision": "1:abcdef123456" } });
+    return Response.json({ items: Array.from({ length: 30 }, (_, i) => ({ productCode: String(i), risk: "urgent", leadDays: 14, riskReason: "周期内耗尽", replenishmentQuantity: 25, replenishmentStockIncreaseQuantity: 30, replenishmentRemainingQuantity: -5, replenishmentRemainingReason: "" })), pagination: { page: 1, total: 30 } }, { headers: { "x-inventory-data-revision": "1:abcdef123456" } });
   });
   const result = await getInventoryGuangdongPageData({ limit: 20, risk: "urgent" }, { principal: unrestrictedAnalyst });
   assert.equal(result.items.length, 20);
   assert.equal(result.items[0].riskReason, "周期内耗尽");
+  assert.equal(result.items[0].replenishmentRemainingQuantity, -5);
+  assert.equal(result.items[0].replenishmentStockIncreaseQuantity, 30);
   const fixedWarehouse = await getInventoryGuangdongPageData({ limit: 20, risk: "urgent", warehouses: ["广东仓"] }, { principal: unrestrictedAnalyst });
   assert.deepEqual(fixedWarehouse, result);
   await assert.rejects(() => getInventoryGuangdongPageData({ warehouses: ["京东仓"] }, { principal: unrestrictedAnalyst }));
