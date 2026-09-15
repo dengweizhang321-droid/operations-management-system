@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-15 **标题与截图合成一条钉钉图文消息的修复已验证，尚未上线**：源码 `4d0757cd` 已合入 main；Node 2167 通过、后端 230 通过、页面 20 项通过，备份独立恢复通过。生产启停部署命令被自动审批以 `blocked by policy` 在执行前拒绝；生产服务、原任务 v3 及当前分开发送方式未改变。后续需重新取得发布操作授权并复核生产状态，不能把本次候选视作已采用。见 `docs/evidence/scheduled-single-message-candidate-20260915.json`。
+
 2026-09-15，定时截图固定文案已合入 main 并在本机采用。源码 `4507d966`，Worker/helper `20260915T022221Z-62869892e2c72ed9`，Django manifest SHA `31cae8dd96cb323ee9ecb39bdcef335a71890aecd873914142780bb5339fae58`。截图任务复用 `prompt` 保存最多 4000 字原文，不调用 AI；先准备截图，再由同一机器人依次发文案和图片，第二次发送前复验版本与权限。部分发送和未知结果不自动重放，无迁移。原新品周报 v3 标题为“新品周销量趋势数据”，原目标/时间/历史保留；真实组合未立即投递。Node 2167 通过、20 跳过，隔离 PostgreSQL 227 通过、2 跳过，页面 20 项及正式编辑窗口回读通过；备份独立恢复、发布后备份/E盘归档与 Running/Ready/exact_release 均通过。见 `docs/AI_DINGTALK_SCHEDULES.md`、`docs/evidence/scheduled-caption-production-20260915.json`。
 
 2026-09-15，上新跟进“钉钉周报表格预览”完整截图已合入 main 并在本机采用。源码 `e09a46da`，Worker/helper `20260914T174729Z-5d49f49fa3939989`，manifest SHA `695bb18f3e139c97d342371d7569cfd5782b80321a46a0bd3918d9d7481d3c7d`；Django manifest SHA `39020d49c6e18331b00ef9acfd971ff57cf0688b5a28d64ce2a0131c811b6c39`。来源 `workflow:launch-followup` 固定上海最近完整周，等待精确日期、完整行列和图片/字体，再截取全部表格；不裁切超限内容。原“新品上新周销量趋势”由文字改为截图 v2，保留每天 09:00、本人目标和历史；截图与真实机器人投递分开验收。本机周报 12 行/6 周完整截图通过，225 项 PostgreSQL 通过/2 跳过，20 项页面通过；Node 2166 通过/1 超时取消/20 跳过，超时所在文件独立复测 10/10 通过。无数据库迁移；详见 `docs/AI_DINGTALK_SCHEDULES.md` 与 `docs/evidence/weekly-table-capture-production-20260915.json`。
