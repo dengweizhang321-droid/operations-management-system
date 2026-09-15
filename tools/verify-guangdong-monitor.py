@@ -6,6 +6,7 @@ production controllers; PostgreSQL binaries are a read-only input.
 from __future__ import annotations
 
 import hashlib
+from datetime import timedelta
 import json
 import os
 from pathlib import Path
@@ -128,7 +129,8 @@ def main():
         with connection.cursor() as cursor:
             cursor.execute("SET ROLE gd_writer")
         plan = upsert_plan({"sourceBatchId": "mirror", "productCode": "00123", "productName": "镜像测试风扇",
-                            "warehouse": "广东仓", "plannedQuantity": 20, "suggestedQuantity": 20, "reason": "镜像备货"},
+                            "warehouse": "广东仓", "plannedQuantity": 20, "suggestedQuantity": 20, "reason": "镜像备货",
+                            "orderDate": (timezone.localdate() - timedelta(days=2)).isoformat()},
                            "mirror@example.invalid")
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
@@ -146,18 +148,32 @@ def main():
         from inventory.warehouse_mapping import classify_warehouse
         with connection.cursor() as cursor:
             cursor.execute("SET ROLE gd_writer")
-        for quantity in (100, 90):
+        for quantity, day_offset in ((100, -2), (90, -1), (91, 0)):
             row = stock_row("00123", 2, warehouse="广东仓", available=quantity)
             mapping = classify_warehouse("广东仓")
             row.update(warehouseType=mapping.warehouse_type, warehouseCategory=mapping.category,
                        includeInInventory=mapping.include_in_inventory, onHandQuantity=quantity)
-            import_inventory_payload(stock_payload(row, raw_seed=uuid.uuid4().hex), "mirror@example.invalid")
+            row["snapshotDate"] = (timezone.localdate() + timedelta(days=day_offset)).isoformat()
+            payload = stock_payload(row, raw_seed=uuid.uuid4().hex)
+            payload["snapshotDate"] = row["snapshotDate"]
+            import_inventory_payload(payload, "mirror@example.invalid")
+            if quantity in (100, 90):
+                assert GuangdongMonitorItem.objects.get(product_code="00123").risk_override == "healthy"
+                assert not GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").exists()
+                assert ReplenishmentPlanItem.objects.get(id=plan.id).guangdong_health["active"] is True
         assert GuangdongMonitorItem.objects.get(product_code="00123").risk_override is None
         assert GuangdongMonitorAudit.objects.filter(action="stock_risk_reset").count() == 1
         assert ReplenishmentPlanItem.objects.get(id=plan.id).guangdong_health["active"] is False
         with connection.cursor() as cursor:
             cursor.execute("RESET ROLE")
         print(json.dumps({"stage": "minimum-writer-stock-risk-reset", "status": "passed"}), flush=True)
+        with connection.cursor() as cursor:
+            cursor.execute("SET ROLE gd_reader")
+        item = gd.monitor(Principal("mirror@example.invalid", "Mirror", "admin", None), {})["items"][0]
+        assert (item["replenishmentQuantity"], item["replenishmentStockIncreaseQuantity"], item["replenishmentRemainingQuantity"]) == (20, 1, 19)
+        with connection.cursor() as cursor:
+            cursor.execute("RESET ROLE")
+        print(json.dumps({"stage": "minimum-reader-order-remaining", "status": "passed"}), flush=True)
 
         def summary(db):
             with psycopg.connect(host="127.0.0.1", port=PORT, user="gd_owner", password=password, dbname=db) as conn:

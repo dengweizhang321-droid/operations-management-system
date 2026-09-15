@@ -27,7 +27,7 @@ try {
   const identity = { productCode: "00123", productName: "志高循环风扇", specification: "ZG-18", brand: "志高", category: "电风扇", supplier: "测试供应商", supplierSource: "库存快照" };
   let watch = [{ ...identity, active: true, notes: "关注补货" }];
   let cycle = { supplier: "测试供应商", leadDays: 10, bufferDays: 7 };
-  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound15dQuantity: 150, outbound30dQuantity: 300, turnoverDays: 10, latestOrderDate: "2026-09-09", replenishmentQuantity: 35, latestReplenishmentOrderDate: "2026-09-08", supplierLeadDays: 10, supplierBufferDays: 7, planOperatorName: "运营甲", planBuyer: "采购甲", autoRisk: "urgent", autoRiskLabel: "紧急补货", autoRiskReasons: ["销售周转不超过生产周期"], inventoryStale: false };
+  const base = { ...identity, warehouse: "广东仓", notes: "关注补货", availableQuantity: 100, inTransitQuantity: 200, inventoryAgeDays: 20, unitCostCents: 5000, knownStockValueCents: 500000, costMissing: false, outbound7dQuantity: 70, outbound15dQuantity: 150, outbound30dQuantity: 300, turnoverDays: 10, latestOrderDate: "2026-09-09", replenishmentQuantity: 35, replenishmentRemainingQuantity: 20, replenishmentStockIncreaseQuantity: 15, replenishmentRemainingReason: "", latestReplenishmentOrderDate: "2026-09-08", supplierLeadDays: 10, supplierBufferDays: 7, planOperatorName: "运营甲", planBuyer: "采购甲", autoRisk: "urgent", autoRiskLabel: "紧急补货", autoRiskReasons: ["销售周转不超过生产周期"], inventoryStale: false };
   let itemSettings = { leadDays: 10, bufferDays: 7, leadDaysOverride: null, bufferDaysOverride: null, cycleSource: "供应商设置", operatorName: "运营甲", operatorNameOverride: null, operatorNameSource: "最新备货计划", buyer: "采购甲", buyerOverride: null, buyerSource: "最新备货计划", risk: "urgent", riskLabel: "紧急补货", riskReasons: ["销售周转不超过生产周期"], riskOverride: null, riskReasonOverride: null, riskSource: "系统判定" };
   const labels = { no_stock: "无可用库存", urgent: "紧急补货", warning: "补货预警", stale: "积压风险", unknown: "待完善/待观察", healthy: "健康" };
   const requests = [];
@@ -75,7 +75,9 @@ try {
   await page.getByRole("columnheader", { name: "7 / 15 / 30日出库" }).waitFor();
   await page.getByRole("columnheader", { name: "销售周转 / 库龄" }).waitFor();
   await page.getByRole("columnheader", { name: "生产周期 / 安全天数" }).waitFor();
-  await page.getByRole("columnheader", { name: "备货数量 / 最新下单时间" }).waitFor();
+  await page.getByRole("columnheader", { name: "备货数量 / 下单剩余库存" }).waitFor();
+  await page.getByText("剩余 20", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("columnheader", { name: "备货数量 / 最新下单时间" }).count(), 0);
   await page.getByRole("columnheader", { name: "运营负责人" }).waitFor();
   await page.getByRole("columnheader", { name: "采购负责人" }).waitFor();
   await page.locator("tbody td").filter({ hasText: "运营甲" }).first().waitFor();

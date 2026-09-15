@@ -9,6 +9,8 @@ export type GuangdongItem = GuangdongIdentity & {
   leadDaysOverride: number | null; bufferDaysOverride: number | null;
   cycleSource: "型号设置" | "供应商设置" | "待设置"; inventoryStale: boolean;
   replenishmentQuantity: number | null; latestReplenishmentOrderDate: string | null;
+  replenishmentStockIncreaseQuantity: number | null; replenishmentRemainingQuantity: number | null;
+  replenishmentRemainingReason: string;
   operatorName: string; operatorNameOverride: string | null; planOperatorName: string; operatorNameSource: "型号设置" | "最新备货计划" | "待设置";
   buyer: string; buyerOverride: string | null; planBuyer: string; buyerSource: "型号设置" | "最新备货计划" | "待设置";
   turnoverDays: number | null; latestOrderDate: string | null; risk: GuangdongRisk; riskLabel: string; riskReasons: string[];
