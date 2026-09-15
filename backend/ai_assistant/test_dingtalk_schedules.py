@@ -200,32 +200,32 @@ class DingTalkScheduleTests(TestCase):
             with self.assertRaises(AiError):
                 schedules.save({**payload, "prompt": invalid}, ADMIN)
 
-    def test_caption_delivery_order_partial_failure_and_edit_do_not_replay(self):
+    def test_caption_and_image_use_one_delivery_without_text_or_replay(self):
         self.config["bindings"] = [{**self.config["bindings"][0], "ownerEmail": ADMIN.email, "role": "admin", "scope": None}]
-        for scenario in ("success", "image_unknown", "caption_unknown", "edit_after_caption", "capture_failed"):
+        for scenario in ("success", "delivery_unknown", "edit_during_capture", "capture_failed"):
             with self.subTest(scenario=scenario):
                 item = schedules.save({**self.payload, "contentType": "screenshot", "sourceRef": "workflow:launch-followup", "prompt": "新品周销量趋势数据"}, ADMIN)["item"]
                 run = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
-                events = []
-                def media(*args):
-                    self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "sending")
-                    events.append("image")
-                    if scenario == "image_unknown":
-                        raise TimeoutError()
-                def send(*args):
-                    events.append("caption")
-                    self.assertEqual(args[1], "新品周销量趋势数据")
-                    if scenario == "caption_unknown":
-                        raise TimeoutError()
-                    if scenario == "edit_after_caption":
+                image = b"fixture"
+                def capture(*args):
+                    if scenario == "capture_failed":
+                        raise AiError("截图失败", "channel_unavailable", 503)
+                    if scenario == "edit_during_capture":
                         m.AiDingTalkSchedule.objects.filter(pk=item["id"]).update(version=2)
-                capture_error = AiError("截图失败", "channel_unavailable", 503) if scenario == "capture_failed" else None
-                with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture", return_value=b"image", side_effect=capture_error), patch.object(schedules.chat, "answer") as answer:
-                    schedules.step(lambda: dingtalk_settings.effective(self.config), send, media)
-                    self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), send, media))
-                answer.assert_not_called()
-                stored = m.AiDingTalkScheduleRun.objects.get(pk=run["id"])
-                self.assertEqual(stored.status, "sent" if scenario == "success" else "failed" if scenario == "capture_failed" else "unknown")
-                self.assertEqual(events, [] if scenario == "capture_failed" else ["caption"] if scenario in ("caption_unknown", "edit_after_caption") else ["caption", "image"])
-                if scenario in ("image_unknown", "edit_after_caption"):
-                    self.assertEqual(stored.error_code, "caption_sent_image_unknown")
+                    return image
+                def deliver(*args, **kwargs):
+                    self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status, "sending")
+                    if scenario == "delivery_unknown":
+                        raise TimeoutError()
+                media, sender = Mock(side_effect=deliver), Mock()
+                with patch("ai_assistant.transport.edge", side_effect=background), patch.object(schedules.scheduled_page_capture, "capture", side_effect=capture), patch.object(schedules.chat, "answer") as answer:
+                    schedules.step(lambda: dingtalk_settings.effective(self.config), sender, media)
+                    self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), sender, media))
+                answer.assert_not_called(); sender.assert_not_called()
+                if scenario in ("success", "delivery_unknown"):
+                    media.assert_called_once()
+                    self.assertEqual(media.call_args.args[1:], (image, "系统页面-workflow-launch-followup.png", "image", "新品周销量趋势数据"))
+                else:
+                    media.assert_not_called()
+                self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=run["id"]).status,
+                    {"success":"sent", "delivery_unknown":"unknown", "edit_during_capture":"denied", "capture_failed":"failed"}[scenario])

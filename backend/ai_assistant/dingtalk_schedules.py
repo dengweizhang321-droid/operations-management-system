@@ -180,7 +180,6 @@ def step(config_reader, sender, media_sender=None):
             raise AiError("目标群已撤销", "access_denied", 403)
         return config, dingtalk.principal_for(config, row.sender_id)
     sending = False
-    caption_sent = False
     try:
         config, principal = live()
         if row.content_type != "text" and (principal.email.lower() != row.owner_email.lower() or principal.role != "admin" or principal.scope is not None):
@@ -224,10 +223,9 @@ def step(config_reader, sender, media_sender=None):
             raise AiError("机器人媒体投递器不可用", "channel_unavailable", 503)
         else:
             if row.content_type == "screenshot" and content:
-                sender(session, content)
-                caption_sent = True
-                channel_guard()
-            media_sender(session, *attachment)
+                media_sender(session, *attachment, content, before_send=channel_guard)
+            else:
+                media_sender(session, *attachment, before_send=channel_guard)
         with mutation():
             run.status, run.completed_at = "sent", timezone.now()
             run.save(update_fields=["status", "completed_at"])
@@ -236,11 +234,11 @@ def step(config_reader, sender, media_sender=None):
     except AiError as error:
         with mutation():
             run.status = "unknown" if sending or error.code in ("delivery_unknown", "ai_chat_result_unknown") else "denied" if error.status == 403 else "failed"
-            run.error_code, run.completed_at = "caption_sent_image_unknown" if caption_sent else error.code, timezone.now()
+            run.error_code, run.completed_at = error.code, timezone.now()
             run.save(update_fields=["status", "error_code", "completed_at"])
     except Exception:
         with mutation():
             run.status = "unknown"
-            run.error_code, run.completed_at = "caption_sent_image_unknown" if caption_sent else "execution_result_unknown", timezone.now()
+            run.error_code, run.completed_at = "execution_result_unknown", timezone.now()
             run.save(update_fields=["status", "error_code", "completed_at"])
     return True

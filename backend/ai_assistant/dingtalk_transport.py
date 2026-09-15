@@ -1,5 +1,6 @@
 """DWS owns platform authorization; no credentials, tickets or raw receipts are logged."""
 import json
+import html
 import os
 import shutil
 import subprocess
@@ -59,9 +60,26 @@ def media_addresses_origin(url):
         raise AiError("钉钉媒体地址不在固定官方入口", "access_denied", 403)
 
 
-def send_media(config_reader, session, raw, file_name, kind):
+def image_markdown(caption, media_id):
+    """Render a literal caption and exactly one internal DingTalk image."""
+    if not re.fullmatch(r"@[A-Za-z0-9._~=-]{1,4095}", media_id):
+        raise AiError("钉钉图片标识无效", "channel_unavailable", 503)
+    literal = html.escape(caption, quote=False)
+    literal = re.sub(r"([\\`*_{}\[\]()#+.!|>~-])", r"\\\1", literal)
+    body = literal.replace("\n", "  \n") + "\n\n![完整截图](" + media_id + ")"
+    if len(body) > 5000 or len(body.encode("utf-8")) > 20000:
+        raise AiError("文案超出图文消息上限", "payload_too_large", 413)
+    return {"title": caption.splitlines()[0][:100], "text": body}
+
+
+def send_media(config_reader, session, raw, file_name, kind, caption="", *, before_send=None):
     """One bot-authored attachment. The caller reserves its run before this call."""
     from . import transport
+    if not isinstance(caption, str) or len(caption) > 4000 or (caption and kind != "image"):
+        raise AiError("图片附带文案无效")
+    caption = caption.strip()
+    if caption:
+        image_markdown(caption, "@media")  # Reject oversize literal text before any network call.
     if kind not in {"image", "file"} or not isinstance(raw, bytes) or not 0 < len(raw) <= 2 * 1024 * 1024:
         raise AiError("钉钉媒体内容无效", "payload_too_large", 413)
     if not isinstance(file_name, str) or not 0 < len(file_name) <= 120 or any(c in file_name for c in "\\/:*?\"<>|\r\n"):
@@ -107,12 +125,20 @@ def send_media(config_reader, session, raw, file_name, kind):
         target = {"userIds": [session.sender_id]}
     params = {"photoURL": media_id} if kind == "image" else {
         "mediaId": media_id, "fileName": file_name, "fileType": extension}
+    message_key = "sampleImageMsg" if kind == "image" else "sampleFile"
+    if caption:
+        params = image_markdown(caption, media_id)
+        message_key = "sampleMarkdown"
+    if before_send is not None:
+        before_send()
     reply = transport._bounded_json(endpoint, {"robotCode": config["robotCode"],
-        "msgKey": "sampleImageMsg" if kind == "image" else "sampleFile",
+        "msgKey": message_key,
         "msgParam": json.dumps(params, ensure_ascii=False, separators=(",", ":")), **target},
         headers={"x-acs-dingtalk-access-token": token},
         timeout=30, maximum=8192, fixed_addresses=media_addresses(endpoint))
-    if not isinstance(reply.get("processQueryKey"), str) or not reply["processQueryKey"]:
+    if (not isinstance(reply.get("processQueryKey"), str) or not reply["processQueryKey"]
+            or reply.get("invalidStaffIdList") not in (None, [])
+            or reply.get("flowControlledStaffIdList") not in (None, [])):
         raise AiError("钉钉媒体投递回执未确认", "delivery_unknown", 503)
 
 

@@ -1,4 +1,5 @@
-from unittest.mock import patch
+import json
+from unittest.mock import Mock, patch
 from django.test import SimpleTestCase
 from types import SimpleNamespace
 from . import dingtalk_transport as platform
@@ -142,3 +143,40 @@ class DingTalkTransportTests(SimpleTestCase):
                 with self.assertRaises(AiError):
                     platform.send_media(lambda: self.config, session, raw, name, kind)
         credentials.assert_not_called()
+
+    def test_caption_image_is_one_markdown_send_for_person_and_group(self):
+        for conversation_type in ("1", "2"):
+            session = SimpleNamespace(sender_id="bound-staff", conversation_type=conversation_type, external_conversation_id="group")
+            replies = [{"accessToken":"opaque-token"}, {"errcode":0,"media_id":"@media"}, {"processQueryKey":"receipt"}]
+            guard = Mock()
+            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"verify_group"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=replies) as calls:
+                platform.send_media(lambda:self.config,session,b"\x89PNG\r\n\x1a\nfixture","页面.png","image","新品周销量趋势数据",before_send=guard)
+            guard.assert_called_once()
+            self.assertEqual(calls.call_count,3)
+            endpoint,body=calls.call_args_list[-1].args
+            self.assertEqual(endpoint,platform.GROUP_MEDIA_API if conversation_type=="2" else platform.PERSON_MEDIA_API)
+            self.assertEqual(body["msgKey"],"sampleMarkdown")
+            params=json.loads(body["msgParam"])
+            self.assertEqual(params,{"title":"新品周销量趋势数据","text":"新品周销量趋势数据\n\n![完整截图](@media)"})
+
+    def test_markdown_caption_is_literal_and_bad_media_or_oversize_denied(self):
+        result=platform.image_markdown("标题\n![外部图](https://example.invalid) <img>","@media")
+        self.assertIn("\\!\\[外部图\\]\\(https://example",result["text"])
+        self.assertIn("&lt;img&gt;",result["text"])
+        self.assertTrue(result["text"].endswith("![完整截图](@media)"))
+        for media in ("@media)\n![injected](https://example.invalid)","https://example.invalid","@bad space"):
+            with self.assertRaises(AiError): platform.image_markdown("标题",media)
+        with patch.object(platform,"credentials") as credentials:
+            for caption in ([],"长"*4001,"*"*4000):
+                with self.assertRaises(AiError):
+                    platform.send_media(lambda:self.config,SimpleNamespace(),b"\x89PNG\r\n\x1a\nfixture","页面.png","image",caption)
+        credentials.assert_not_called()
+
+    def test_post_upload_revocation_and_bad_receipt_never_fall_back_to_separate_messages(self):
+        session=SimpleNamespace(sender_id="bound-staff",conversation_type="1",external_conversation_id="group")
+        for revoked in (True,False):
+            replies=[{"accessToken":"opaque-token"},{"errcode":0,"media_id":"@media"},{"processQueryKey":"receipt","invalidStaffIdList":["bound-staff"]}]
+            before=Mock(side_effect=AiError("配置已变化","access_denied",403) if revoked else None)
+            with patch.object(platform,"guard"), patch.object(platform,"credentials",return_value=("key","secret")), patch.object(platform,"robot"), patch.object(platform,"media_addresses",return_value=[]), patch.object(transport,"_bounded_json",side_effect=replies) as calls, self.assertRaises(AiError):
+                platform.send_media(lambda:self.config,session,b"\x89PNG\r\n\x1a\nfixture","页面.png","image","标题",before_send=before)
+            self.assertEqual(calls.call_count,2 if revoked else 3)

@@ -134,7 +134,7 @@ class Command(BaseCommand):
                 await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
                 await loop.run_in_executor(worker, lambda: db_call(lambda: dingtalk_schedules.step(reader,
                     lambda session, content: platform.send(reader, session, content),
-                    lambda session, raw, name, kind: platform.send_media(reader, session, raw, name, kind))))
+                    lambda session, raw, name, kind, caption="", before_send=None: platform.send_media(reader, session, raw, name, kind, caption, before_send=before_send))))
                 await asyncio.sleep(0.5)
         async def listen():
             failures = 0
