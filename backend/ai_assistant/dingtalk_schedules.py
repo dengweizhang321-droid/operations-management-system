@@ -63,9 +63,9 @@ def save(body, principal):
     elif content_type in {"screenshot", "report_file"}:
         if not isinstance(source_ref, str):
             raise AiError("媒体来源无效")
-        if body["prompt"] != "":
-            raise AiError("截图和文件任务不执行 AI 指令")
-        prompt = ""
+        prompt = text(body["prompt"], "附带文案", 4000, empty=True)
+        if content_type == "report_file" and prompt:
+            raise AiError("文件任务不执行 AI 指令")
         source_ref = identifier(source_ref) if content_type == "report_file" else source_ref
         if content_type == "screenshot" and source_ref not in scheduled_page_capture.PAGES:
             raise AiError("截图页面不在允许列表")
@@ -180,6 +180,7 @@ def step(config_reader, sender, media_sender=None):
             raise AiError("目标群已撤销", "access_denied", 403)
         return config, dingtalk.principal_for(config, row.sender_id)
     sending = False
+    caption_sent = False
     try:
         config, principal = live()
         if row.content_type != "text" and (principal.email.lower() != row.owner_email.lower() or principal.role != "admin" or principal.scope is not None):
@@ -201,6 +202,7 @@ def step(config_reader, sender, media_sender=None):
             content = dingtalk.plain_reply(answer["reply"])
             attachment = None
         elif row.content_type == "screenshot":
+            content = row.prompt
             attachment = (scheduled_page_capture.capture(row.source_ref, row.owner_email),
                           "系统页面-" + row.source_ref.replace(":", "-") + ".png", "image")
         else:
@@ -221,6 +223,10 @@ def step(config_reader, sender, media_sender=None):
         elif media_sender is None:
             raise AiError("机器人媒体投递器不可用", "channel_unavailable", 503)
         else:
+            if row.content_type == "screenshot" and content:
+                sender(session, content)
+                caption_sent = True
+                channel_guard()
             media_sender(session, *attachment)
         with mutation():
             run.status, run.completed_at = "sent", timezone.now()
@@ -230,11 +236,11 @@ def step(config_reader, sender, media_sender=None):
     except AiError as error:
         with mutation():
             run.status = "unknown" if sending or error.code in ("delivery_unknown", "ai_chat_result_unknown") else "denied" if error.status == 403 else "failed"
-            run.error_code, run.completed_at = error.code, timezone.now()
+            run.error_code, run.completed_at = "caption_sent_image_unknown" if caption_sent else error.code, timezone.now()
             run.save(update_fields=["status", "error_code", "completed_at"])
     except Exception:
         with mutation():
             run.status = "unknown"
-            run.error_code, run.completed_at = "execution_result_unknown", timezone.now()
+            run.error_code, run.completed_at = "caption_sent_image_unknown" if caption_sent else "execution_result_unknown", timezone.now()
             run.save(update_fields=["status", "error_code", "completed_at"])
     return True
