@@ -459,20 +459,50 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   useAiPageDetails("workflow", { period: null, filters: { weekStart, selectedIds: expanded ? [expanded] : [] } });
 
 
-  const load = useCallback(async (targetWeek = weekStart) => {
-    setLoading(true); setError("");
+  const weekStartRef = useRef(weekStart);
+  const loadControllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  const load = useCallback(async () => {
+    if (!mountedRef.current) return;
+    const targetWeek = weekStartRef.current;
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
+    const isCurrent = () => mountedRef.current && loadControllerRef.current === controller && !controller.signal.aborted;
+    setLoading(true); setError(""); setReport(null);
+    const timeout = window.setTimeout(() => {
+      if (!isCurrent()) return;
+      setError("新品销售跟进读取超时，请重试。"); setLoading(false); controller.abort();
+    }, 30_000);
     try {
       const [linePayload, reportPayload] = await Promise.all([
-        requestJson<{ items: ProductLine[] }>("/api/workflow/new-product-lines"),
-        requestJson<FollowupReport>(`/api/workflow/new-product-weekly-followup?weekStart=${encodeURIComponent(targetWeek)}`),
+        requestJson<{ items: ProductLine[] }>("/api/workflow/new-product-lines", { signal: controller.signal }),
+        requestJson<FollowupReport>(`/api/workflow/new-product-weekly-followup?weekStart=${encodeURIComponent(targetWeek)}`, { signal: controller.signal }),
       ]);
+      if (!isCurrent()) return;
       setLines(linePayload.items);
       setReport(reportPayload);
-    } catch (reason) { setError(messageOf(reason, "新品销售跟进读取失败。")); }
-    finally { setLoading(false); }
-  }, [weekStart]);
+    } catch (reason) { if (isCurrent()) setError(messageOf(reason, "新品销售跟进读取失败。")); }
+    finally {
+      window.clearTimeout(timeout);
+      if (isCurrent()) setLoading(false);
+      controller.abort();
+    }
+  }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    mountedRef.current = true;
+    void load();
+    return () => { mountedRef.current = false; loadControllerRef.current?.abort(); };
+  }, [load, weekStart]);
+
+  const changeWeek = (value: string) => {
+    if (weekStartRef.current === value) return;
+    weekStartRef.current = value;
+    loadControllerRef.current?.abort();
+    setReport(null); setLines([]); setLoading(true); setError("");
+    setWeekStart(value);
+  };
 
   const learn = async (quiet = false) => {
     if (!canWrite || learning) return;
@@ -547,7 +577,7 @@ export default function NewProductSalesFollowupView({ canWrite }: { canWrite: bo
   return <div className="new-product-followup-view" data-report-state={error ? "error" : loading ? "loading" : "ready"}>
     <section className="workflow-toolbar workflow-section-hero launch-followup-hero"><div><span className="eyebrow">NEW PRODUCT WEEKLY SALES</span><h2>上新销售跟进</h2><p>以吉客云货品代码归集销售，由你定义产品线名称；周报周期使用运行机器的本地时间。</p></div><div className="workflow-hero-actions"><span>{report?.timezone ?? "读取本机时区中"}</span><button type="button" className="secondary-button" disabled={learning || !canWrite} onClick={() => void learn()}>{learning ? "学习中…" : "学习新代码"}</button><button type="button" className="primary-button" disabled={!canWrite} onClick={() => setEditor("create")}>＋ 新建产品线</button></div></section>
     {feedback && <div className="workflow-feedback" role="status"><span>i</span><p>{feedback}</p><button type="button" aria-label="关闭提示" onClick={() => setFeedback("")}>×</button></div>}
-    <section className="panel launch-followup-controls"><label><span>报告周（星期一）</span><input type="date" min={REPORT_TIMELINE_START} value={weekStart} onChange={(event) => setWeekStart(event.target.value)} /></label><button type="button" className="secondary-button" disabled={loading} onClick={() => void load(weekStart)}>刷新周报</button><span>周维度自 {REPORT_TIMELINE_START} 起持续累积 · 销售数据截至：{report?.dataCutoffDate ?? "暂无"}</span>{report?.dataIncomplete && <strong>本周数据尚未完整</strong>}</section>
+    <section className="panel launch-followup-controls"><label><span>报告周（星期一）</span><input type="date" min={REPORT_TIMELINE_START} value={weekStart} onChange={(event) => changeWeek(event.target.value)} /></label><button type="button" className="secondary-button" disabled={loading} onClick={() => void load()}>刷新周报</button><span>周维度自 {REPORT_TIMELINE_START} 起持续累积 · 销售数据截至：{report?.dataCutoffDate ?? "暂无"}</span>{report?.dataIncomplete && <strong>本周数据尚未完整</strong>}</section>
     {error && <section className="panel data-state operations-data-state operations-data-state-error" role="alert"><span className="state-symbol">!</span><strong>新品销售跟进加载失败</strong><p>{error}</p><button type="button" className="secondary-button" onClick={() => void load()}>重新加载</button></section>}
     {loading && !report ? <section className="panel data-state operations-data-state"><span className="state-spinner" /><strong>正在生成新品销售周报</strong><p>读取产品线、吉客云代码与销售事实…</p></section> : report && <>
       <section className="launch-followup-summary"><button type="button" className="panel summary-filter-card" aria-pressed={followCard === "monitoring"} onClick={() => { setExpanded(null); setFollowCard(current => current === "monitoring" ? "" : "monitoring"); }}><span>监控产品线</span><strong>{report.summary.lineCount}</strong><small>已销售 {report.summary.sellingCount} · 达标 {report.summary.targetAchievedCount}</small></button><article className="panel"><span>本周净销量</span><strong>{report.summary.netQuantity.toLocaleString("zh-CN")}</strong><small>吉客云代码口径</small></article><article className="panel"><span>本周净销售额</span><strong>{money(report.summary.netSalesCents)}</strong><small>退款 {money(report.summary.refundAmountCents)}</small></article><button type="button" className="panel summary-filter-card" aria-pressed={followCard === "attention"} onClick={() => { setExpanded(null); setFollowCard(current => current === "attention" ? "" : "attention"); }}><span>需要跟进</span><strong>{report.summary.noSalesCount + report.summary.stalledCount}</strong><small>未开单 {report.summary.noSalesCount} · 停滞 {report.summary.stalledCount}</small></button></section>
