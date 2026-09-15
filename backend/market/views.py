@@ -21,7 +21,7 @@ from .images import execute_image_command, execute_image_query
 from .import_service import import_market_payload
 from .models import MarketWriteRequestReceipt
 from .projection import execute_projection_command
-from .query import daily_coverage, item_trend, overview
+from .query import daily_coverage, filter_options, item_trend, overview
 from .revisions import assert_write_authority, revision_value
 
 
@@ -250,6 +250,8 @@ def _replay_fenced_write(
 
 def _execute_query(principal: Principal, payload: dict[str, object]) -> dict[str, object]:
     operation = payload.get("operation")
+    if operation == "filter_options" and set(payload) == {"operation"}:
+        return {"filters": filter_options()}
     if operation == "overview":
         return overview(principal, payload)
     if operation == "trend":

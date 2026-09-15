@@ -55,6 +55,15 @@ def role_probe() -> None:
     if progress["job"]["id"] != "role-probe-job":
         raise AssertionError("Runtime progress did not return the synthetic job")
     execute_annotation_query({"operation": "annotations", "view": "review", "params": {"category": "Role probe"}}, principal)
+    from market.query import filter_options, overview
+    filters = filter_options()
+    if not filters["categories"]:
+        raise AssertionError("Runtime role could not read independent market filters")
+    ranking = overview(principal, {"operation": "overview", "view": "ranking", "page": 1, "pageSize": 20,
+        "filters": {"categories": ["Role probe"]}}, sales_loader=lambda _principal, request: (
+            {"rows": [{"productCode": code, "owned": False, "ownSalesCents": 0} for code in request["productCodes"]]}, "1:1"))
+    if len(ranking["items"]) != 1:
+        raise AssertionError("Runtime role could not read database-paginated ranking")
     dispatch = execute_annotation_query({"operation": "annotations", "view": "dispatch", "params": {"limit": 5}}, principal)
     if not any(job["jobId"] == "role-probe-job" for job in dispatch["jobs"]):
         raise AssertionError("Least-privilege role could not read synthetic dispatch capacity")
@@ -86,7 +95,7 @@ def role_probe() -> None:
         if MarketSkuAnnotation.objects.get(pk="role-probe-annotation").version != 2:
             raise AssertionError("Existing annotation was not updated exactly once")
     connection.close()
-    print(json.dumps({"role": role, "readQueries": True, "claimComplete": role.endswith("writer"), "commitExistingAnnotation": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
+    print(json.dumps({"role": role, "readQueries": True, "rankingPagination": True, "independentFilters": True, "claimComplete": role.endswith("writer"), "commitExistingAnnotation": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
 
 
 def main() -> None:

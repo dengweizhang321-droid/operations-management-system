@@ -41,6 +41,17 @@ CUTOVER_ID = "market-test-cutover"
 )
 class MarketApiContractTests(TestCase):
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_independent_filters_keep_query_auth_and_strict_shape(self):
+        response = self.post_query({"operation": "filter_options"}, "filters-read", role="analyst")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn("categories", response.json()["filters"])
+        rejected = self.post_query({"operation": "filter_options", "arbitrary": "value"}, "filters-invalid")
+        self.assertEqual(rejected.status_code, 400)
+        scoped = self.post_query({"operation": "filter_options"}, "filters-scoped",
+            scope={"warehouses": [], "channels": [], "platforms": ["京东"]})
+        self.assertEqual(scoped.status_code, 403)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_annotation_progress_is_read_only_and_derives_live_counts(self) -> None:
         job = MarketAnnotationJob.objects.create(
             id="progress-job", category="净水", prompt_version_id="prompt",
@@ -411,7 +422,7 @@ class MarketApiContractTests(TestCase):
         self.assertEqual(response.json()["industryReport"]["definition"]["metricScope"], "当前 TOP 榜单覆盖市场")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
-    def test_ranking_overview_chunks_large_sales_product_sets(self) -> None:
+    def test_ranking_overview_reads_sales_only_for_current_page(self) -> None:
         MarketRankingEntry.objects.bulk_create(
             [
                 MarketRankingEntry(
@@ -471,7 +482,7 @@ class MarketApiContractTests(TestCase):
 
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()["pagination"]["total"], 1_001)
-        self.assertEqual(sorted(len(item["productCodes"]) for item in requests), [1, 1_000])
+        self.assertEqual(sorted(len(item["productCodes"]) for item in requests), [20])
 
     def create_industry_fixture(self, *, missing_month: str = "", invalid_price_month: str = "") -> None:
         MarketPriceBandVersion.objects.create(

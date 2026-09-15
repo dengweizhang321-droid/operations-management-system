@@ -68,6 +68,15 @@ def seed():
         for domain in ("sales", "erp"):
             SalesDataRevision.objects.update_or_create(domain=domain, defaults={"revision":1})
         InventoryDataRevision.objects.update_or_create(domain="inventory", defaults={"revision":1})
+        from market.models import MarketRankingEntry
+        yesterday = today - timedelta(days=1)
+        for i in range(40):
+            MarketRankingEntry.objects.create(natural_key=f"preview-market-{i}", source_row_number=i+1,
+                period_start=str(yesterday.replace(day=1)), period_end=str(yesterday),
+                category="演示净水设备" if i < 20 else "演示厨房设备", scope="全部", ranking_dimension="SKU",
+                operation_mode="POP" if i % 2 else "自营", subcategory="演示细分类目", rank=i+1,
+                sku_code=f"MARKET-DEMO-{i+1:03d}", product_name=f"合成演示商品 {i+1:02d}", brand="演示品牌",
+                gmv_cents=10000*(40-i), quantity=40-i, visitors=(40-i)*10, last_import_batch_id="preview-market")
         from ai_assistant.models import AiConversations, AiConversationMessages, AiConversationScopes, AiConversationWorkspace
         from ai_assistant.prompt_settings import snapshot, compose
         conversation = AiConversations.objects.create(id="preview-chat", title="广东仓库存复盘 · 合成演示", created_by="local-admin@teruisi.local")

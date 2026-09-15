@@ -49,7 +49,7 @@ export function parseMarketOverviewQuery(params: URLSearchParams) {
   }
   const view: "full" | "ranking" = requestedView;
   const pagination = view === "ranking" ? {
-    page: boundedInteger(params.get("page"), 1, 1, 10_000, "page"),
+    page: boundedInteger(params.get("page"), 1, 1, 1_000_000, "page"),
     pageSize: boundedInteger(params.get("pageSize"), 20, 10, 50, "pageSize"),
   } : { page: 1, pageSize: 50 };
   const query = params.get("q")?.trim() || undefined;

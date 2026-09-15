@@ -452,7 +452,9 @@ test("market UI requests lightweight ranking data and aborts superseded requests
   assert.match(view, /MARKET_RANKING_PAGE_SIZE = 20/);
   assert.match(view, /params\.set\("page", String\(page\)\)/);
   assert.match(view, /params\.set\("pageSize", String\(MARKET_RANKING_PAGE_SIZE\)\)/);
-  assert.match(view, /加载更多（每批/);
+  assert.match(view, /上一页/);
+  assert.match(view, /下一页/);
+  assert.doesNotMatch(view, /items: \[\.\.\.current\.items/);
   assert.match(view, /loadMoreController\.current\?\.abort\(\)/);
   assert.match(route, /page: pagination\.page/);
   assert.match(route, /pageSize: pagination\.pageSize/);

@@ -39,11 +39,12 @@ from .models import (
     MarketSubcategoryTaxonomy,
 )
 from .revisions import iso
+from .ranking_query import ranking_page
 from .serialization import batch_payload
 
 
 MAX_ANALYTICS_ROWS = 250_000
-MAX_PAGE = 10_000
+MAX_PAGE = 1_000_000
 MAX_PAGE_SIZE = 100
 MAX_FILTER_VALUES = 100
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
@@ -261,7 +262,15 @@ def _snapshot_map(rows: Iterable[MarketRankingEntry]) -> dict[tuple[str, str, st
     categories = {key[0] for key in keys}
     if not categories:
         return result
-    for snapshot in MarketPriceSnapshot.objects.filter(category__in=categories).iterator(chunk_size=2_000):
+    identity_filter = Q()
+    # Pages/trends have few identities; use their full key rather than scanning
+    # every historical snapshot in the selected categories.
+    if len(keys) <= 100:
+        for category, scope, code, dimension, month in keys:
+            identity_filter |= Q(category=category, scope=scope, sku_code=code, ranking_dimension=dimension, month=month)
+    else:
+        identity_filter = Q(category__in=categories, month__in={key[4] for key in keys})
+    for snapshot in MarketPriceSnapshot.objects.filter(identity_filter).iterator(chunk_size=2_000):
         key = (
             snapshot.category,
             snapshot.scope,
@@ -335,7 +344,10 @@ def _projection_metrics(rows: list[MarketRankingEntry]) -> tuple[dict[int, int],
     spu_codes = {row.sku_code for row in rows if row.ranking_dimension == "SPU"}
     owned: set[str] = set()
     base = MarketNetshopProjection.objects.filter(projection_revision=control.active_revision)
-    for sku_id, spu_id, product_code in base.filter(kind="identity").values_list(
+    identities = base.filter(kind="identity")
+    if len(sku_codes) + len(spu_codes) <= 1_000:
+        identities = identities.filter(Q(sku_id__in=sku_codes) | Q(spu_id__in=spu_codes) | Q(product_code__in=sku_codes))
+    for sku_id, spu_id, product_code in identities.values_list(
         "sku_id", "spu_id", "product_code"
     ).iterator(chunk_size=2_000):
         if sku_id in sku_codes or spu_id in spu_codes or product_code in sku_codes:
@@ -347,7 +359,10 @@ def _projection_metrics(rows: list[MarketRankingEntry]) -> tuple[dict[int, int],
         source="jd_sku_daily",
         business_date__gte=min(row.period_start for row in rows),
         business_date__lte=max(row.period_end for row in rows),
-    ).values_list(
+    )
+    if len(sku_codes) + len(spu_codes) <= 1_000:
+        metric_rows = metric_rows.filter(Q(dataset="sku_daily", sku_id__in=sku_codes) | Q(dataset="spu_daily", spu_id__in=spu_codes))
+    metric_rows = metric_rows.values_list(
         "dataset",
         "sku_id",
         "spu_id",
@@ -488,6 +503,26 @@ def _option(values: Iterable[str]) -> list[dict[str, object]]:
         for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         if value
     ]
+
+
+def _database_options(queryset, field: str) -> list[dict[str, object]]:
+    return [{"value": row[field], "count": row["count"]}
+            for row in queryset.exclude(**{field: ""}).order_by().values(field)
+            .annotate(count=Count("pk")).order_by("-count", field)]
+
+
+def filter_options() -> dict[str, object]:
+    """Independent of overview success, including an empty/oversized range."""
+    query = MarketRankingEntry.objects.all()
+    options = {name: _database_options(query, field) for name, field in (
+        ("categories", "category"), ("scopes", "scope"), ("brands", "brand"),
+        ("rankingDimensions", "ranking_dimension"), ("operationModes", "operation_mode"),
+        ("subcategories", "subcategory"),
+    )}
+    # Published labels provide a recovery control without evaluating all rows.
+    labels = MarketPriceBandItem.objects.filter(version_id__in=MarketPriceBandVersion.objects.filter(
+        status="published").values("id")).values_list("label", flat=True).distinct()
+    return {**options, "priceBands": [{"value": label, "count": 0} for label in sorted({UNCONFIRMED_PRICE, *labels})]}
 
 
 def _batch_list(limit: int = 8) -> list[dict[str, object]]:
@@ -1076,7 +1111,16 @@ def overview(
     page = _integer(request["page"], 1, 1, MAX_PAGE, "page")
     page_size = _integer(request["pageSize"], 20, 10, 50, "pageSize")
     filters = validate_filters(request["filters"])
-    rows = _preferred_rows(filters)
+    ranking_stats = None
+    ranking_bands = None
+    ranking_details = {}
+    if view == "ranking":
+        ranking_stats, ranking_bands, page_rows = ranking_page(_queryset(filters), filters["priceBands"], page, page_size)
+        ranking_details = {item["id"]: item for item in page_rows}
+        by_id = MarketRankingEntry.objects.filter(id__in=ranking_details).defer("raw_json").in_bulk()
+        rows = [by_id[item["id"]] for item in page_rows]
+    else:
+        rows = _preferred_rows(filters)
     snapshots = _snapshot_map(rows)
     versions = _price_band_versions()
     effective_gmv, projection_owned = _projection_metrics(rows)
@@ -1115,17 +1159,17 @@ def overview(
             item["row"].id,
         )
     )
-    sales, sales_revision = _sales_metrics(
-        principal, [item["row"] for item in enriched], filters, sales_loader
-    )
+    sales, sales_revision = _sales_metrics(principal, [item["row"] for item in enriched], filters, sales_loader)
     previous_rank: dict[tuple[str, str, str, str, str], int | None] = {}
     for item in sorted(enriched, key=lambda value: value["row"].period_end):
         row = item["row"]
         key = (row.category, row.scope, row.ranking_dimension, row.sku_code)
         item["previousRank"] = previous_rank.get(key)
         previous_rank[key] = row.rank
-    total = len(enriched)
-    ranking_source = enriched[(page - 1) * page_size : page * page_size]
+        if ranking_stats is not None:
+            item["previousRank"] = ranking_details[row.id]["previous_rank"]
+    total = int(ranking_stats["total"]) if ranking_stats is not None else len(enriched)
+    ranking_source = enriched if ranking_stats is not None else enriched[(page - 1) * page_size : page * page_size]
     image_status = {
         item.source_url: item
         for item in MarketImageCache.objects.filter(
@@ -1190,7 +1234,7 @@ def overview(
                 "sourceImageUrl": row.image_url,
                 "imageCacheStatus": cached.status if cached else "missing" if not row.image_url else "pending",
                 "productUrl": row.product_url,
-                "periodCount": sum(
+                "periodCount": int(ranking_details[row.id]["period_count"]) if ranking_stats is not None else sum(
                     1
                     for candidate in enriched
                     if candidate["row"].category == row.category
@@ -1341,16 +1385,8 @@ def overview(
                 ),
             }
         )
-    global_rows = MarketRankingEntry.objects.all()
-    global_options = {
-        "categories": _option(global_rows.values_list("category", flat=True)),
-        "scopes": _option(global_rows.values_list("scope", flat=True)),
-        "brands": _option(global_rows.values_list("brand", flat=True)),
-        "rankingDimensions": _option(global_rows.values_list("ranking_dimension", flat=True)),
-        "operationModes": _option(global_rows.values_list("operation_mode", flat=True)),
-        "subcategories": _option(global_rows.values_list("subcategory", flat=True)),
-    }
-    image_counts = Counter(MarketImageCache.objects.values_list("status", flat=True))
+    global_options = filter_options()
+    image_counts = Counter({row["status"]: row["count"] for row in MarketImageCache.objects.order_by().values("status").annotate(count=Count("pk"))})
     total_images = MarketRankingEntry.objects.exclude(image_url="").values("image_url").distinct().count()
     official_prices = sorted(int(item["official"]) for item in summary_rows if item["official"] is not None)
     weighted_denominator = sum(int(item["gmv"]) for item in summary_rows if item["official"] is not None)
@@ -1376,16 +1412,16 @@ def overview(
         "view": view,
         "salesRevision": sales_revision,
         "summary": {
-            "productCount": len(product_keys),
-            "categoryCount": len({item["row"].category for item in (summary_rows if view == "full" else enriched)}),
-            "brandCount": len({item["row"].brand or "未识别品牌" for item in (summary_rows if view == "full" else enriched)}),
+            "productCount": int(ranking_stats["product_count"]) if ranking_stats is not None else len(product_keys),
+            "categoryCount": int(ranking_stats["category_count"]) if ranking_stats is not None else len({item["row"].category for item in summary_rows}),
+            "brandCount": int(ranking_stats["brand_count"]) if ranking_stats is not None else len({item["row"].brand or "未识别品牌" for item in summary_rows}),
             "gmvCents": gmv_total,
             "quantity": quantity_total,
             "pageViews": sum(int(item["row"].page_views) for item in summary_rows),
             "visitors": sum(int(item["row"].visitors) for item in summary_rows),
             "ownProductCount": own_count,
-            "activeSkuCount": len(product_keys),
-            "pendingAiCount": len({_identity(item) for item in (summary_rows if view == "full" else enriched) if item["official"] is None}),
+            "activeSkuCount": int(ranking_stats["product_count"]) if ranking_stats is not None else len(product_keys),
+            "pendingAiCount": int(ranking_stats["pending_count"]) if ranking_stats is not None else len({_identity(item) for item in summary_rows if item["official"] is None}),
             "selfOperatedGmvCents": self_gmv,
             "selfOperatedShareBps": round(self_gmv / gmv_total * 10_000) if gmv_total else None,
             "medianMarketPriceCents": official_prices[(len(official_prices) - 1) // 2] if official_prices else None,
@@ -1402,7 +1438,7 @@ def overview(
         "trend": trend,
         "trendTotal": len(months),
         "trendTruncated": len(months) > len(trend),
-        "priceBands": _option(str(item["priceBand"]) for item in enriched),
+        "priceBands": ranking_bands if ranking_bands is not None else _option(str(item["priceBand"]) for item in enriched),
         "priceBandSummary": price_band_summary,
         "priceBandTrend": price_band_trend,
         "brandAnalysis": {
@@ -1413,7 +1449,7 @@ def overview(
         },
         "subcategorySummary": subcategory_summary,
         "industryReport": industry,
-        "filters": {**global_options, "priceBands": _option(str(item["priceBand"]) for item in enriched)},
+        "filters": {**global_options, "priceBands": ranking_bands if ranking_bands is not None else _option(str(item["priceBand"]) for item in enriched)},
         "dataRange": {"startDate": data_range["start"], "endDate": data_range["end"]},
         "batches": _batch_list(),
         "imageCache": {

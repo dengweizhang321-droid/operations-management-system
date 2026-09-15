@@ -1,0 +1,102 @@
+from unittest import skipUnless
+from unittest.mock import patch
+
+from django.db import connection
+from django.test import TestCase
+from market.errors import MarketApiError
+from market.models import (MarketRankingEntry, MarketPriceSnapshot, MarketPriceBandVersion,
+                           MarketPriceBandItem, MarketNetshopProjection, MarketNetshopProjectionControl)
+from market.query import overview, filter_options
+from .test_query import PRINCIPAL
+
+
+def sales(_principal, request):
+    return {"rows": [{"productCode": code, "owned": code == "own", "ownSalesCents": 123 if code == "own" else 0}
+                     for code in request["productCodes"]]}, "11:7"
+
+
+class RankingPaginationTests(TestCase):
+    def entry(self, code="sku", **values):
+        values = {"natural_key": str(MarketRankingEntry.objects.count()), "source_row_number": 1,
+                  "period_start": "2026-08-01", "period_end": "2026-08-31", "category": "净水",
+                  "scope": "全部", "sku_code": code, "ranking_dimension": "SKU", "rank": 1,
+                  "gmv_cents": 100, "quantity": 2, "last_import_batch_id": "fixture", **values}
+        return MarketRankingEntry.objects.create(**values)
+
+    def query(self, view="ranking", page=1, filters=None):
+        return overview(PRINCIPAL, {"operation": "overview", "view": view, "page": page,
+                                   "pageSize": 10, "filters": filters}, sales_loader=sales)
+
+    def test_page_matches_report_dedup_identity_price_rank_and_projection(self):
+        self.entry("own", period_start="2026-07-01", period_end="2026-07-31", rank=5)
+        self.entry("own", price_band_filter="200以上", gmv_cents=99999, rank=9)
+        own = self.entry("own", gmv_cents=2)
+        self.entry("own", period_start="2026-08-15", rank=4, gmv_cents=999)
+        self.entry("own", category="跨类目", rank=None)
+        self.entry("own", scope="其他榜单", rank=7)
+        self.entry("own", ranking_dimension="SPU", rank=8)
+        for i in range(22):
+            self.entry(f"sku-{i:02}", rank=i % 3, gmv_cents=i, brand="" if i % 2 else "测试品牌")
+        MarketPriceSnapshot.objects.create(id="price", category=own.category, scope=own.scope,
+            sku_code=own.sku_code, month="2026-08", confirmation_status="confirmed", ai_price_type="到手价",
+            image_content_sha256="a" * 64, confirmed_market_price_cents=10000, ai_image_price_cents=12000)
+        MarketPriceBandVersion.objects.create(id="bands", category="净水", version=1, status="published")
+        MarketPriceBandItem.objects.create(id="low", version_id="bands", label="低价", min_cents=0, max_cents=20000)
+        MarketNetshopProjectionControl.objects.update_or_create(id=1, defaults={"active_revision": "r"})
+        MarketNetshopProjection.objects.create(projection_revision="r", projection_key="m", kind="metric",
+            dataset="sku_daily", source="jd_sku_daily", sku_id="own", business_date="2026-08-01", transaction_amount_cents=800)
+        for filters in (None, {"priceBands": ["低价"]}, {"priceBands": ["未确认价格"]},
+                        {"rankingDimensions": ["SPU"]}, {"query": "own", "categories": ["净水"]},
+                        {"startDate": "2026-07-15", "endDate": "2026-08-01"}):
+            with self.subTest(filters=filters):
+                report = self.query("full", filters=filters)
+                pages = [self.query(page=p, filters=filters) for p in range(1, report["pagination"]["pageCount"] + 1)]
+                expected = [item for p in range(1, report["pagination"]["pageCount"] + 1)
+                            for item in self.query("full", page=p, filters=filters)["items"]]
+                self.assertEqual([item for result in pages for item in result["items"]], expected)
+                for name in ("productCount", "categoryCount", "brandCount", "activeSkuCount", "pendingAiCount"):
+                    self.assertEqual(pages[0]["summary"][name], report["summary"][name], name)
+                self.assertEqual(pages[0]["priceBands"], report["priceBands"])
+        self.assertEqual(self.query(page=100)["items"], [])
+
+    def test_price_boundaries_invalid_confirmation_and_category_precedence(self):
+        for category, label, minimum, maximum in (("*", "通用", 0, None), ("净水", "专属", 10000, 20000)):
+            MarketPriceBandVersion.objects.create(id=category, category=category, version=1, status="published")
+            MarketPriceBandItem.objects.create(id=category, version_id=category, label=label, min_cents=minimum, max_cents=maximum)
+        for i, (amount, price_type, digest, status) in enumerate(((10000, "标准售价", "a"*64, "confirmed"),
+                (20000, "券后价", "a"*64, "confirmed"), (5000, "到手价", "a"*64, "confirmed"),
+                (15000, "定金", "a"*64, "confirmed"), (15000, "标准售价", "bad", "confirmed"),
+                (15000, "标准售价", "a"*64, "pending"), (15000, "标准售价", "a"*63+"\n", "confirmed"))):
+            row = self.entry(str(i))
+            MarketPriceSnapshot.objects.create(id=str(i), category=row.category, scope=row.scope, sku_code=row.sku_code,
+                month="2026-08", confirmation_status=status, ai_price_type=price_type,
+                image_content_sha256=digest, confirmed_market_price_cents=amount)
+        for band, codes in (("专属", ["0"]), ("通用", ["1", "2"]), ("未确认价格", ["3", "4", "5", "6"])):
+            self.assertEqual([item["skuCode"] for item in self.query(filters={"priceBands": [band]})["items"]], codes)
+        self.assertEqual(self.query(filters={"query": "%' OR 1=1 --"})["pagination"]["total"], 0)
+        self.assertEqual(self.query(filters={"categories": ["不存在"]})["summary"]["productCount"], 0)
+        with self.assertRaises(MarketApiError):
+            self.query(page=0)
+        self.assertIn("净水", [item["value"] for item in filter_options()["categories"]])
+
+    @skipUnless(connection.vendor == "postgresql", "Real scale verification requires PostgreSQL")
+    def test_more_than_250000_rows_uses_bounded_page_and_keeps_report_guard(self):
+        self.entry("seed")
+        fields = [field.column for field in MarketRankingEntry._meta.concrete_fields if field.column != "id"]
+        quote = connection.ops.quote_name
+        values = ["'scale-' || g::text" if field in ("natural_key", "sku_code") else "g" if field == "rank" else "s." + quote(field) for field in fields]
+        with connection.cursor() as cursor:
+            cursor.execute("INSERT INTO market_ranking_entries (" + ",".join(map(quote, fields)) + ") SELECT " +
+                           ",".join(values) + " FROM market_ranking_entries s CROSS JOIN generate_series(1,250001) g WHERE s.sku_code='seed'")
+        with patch("market.query._preferred_rows", side_effect=AssertionError("Unbounded ranking load")), patch(
+                "market.query._sales_metrics", wraps=__import__("market.query", fromlist=["_sales_metrics"])._sales_metrics) as metrics:
+            result = self.query()
+        self.assertEqual(result["pagination"]["total"], 250002)
+        self.assertEqual(result["summary"]["activeSkuCount"], 250002)
+        self.assertEqual(len(result["items"]), 10)
+        self.assertEqual(len(metrics.call_args.args[1]), 10)
+        self.assertEqual(len(self.query(page=2)["items"]), 10)
+        with self.assertRaises(MarketApiError) as raised:
+            self.query("full")
+        self.assertEqual(raised.exception.status, 413)
+        self.assertEqual(filter_options()["categories"], [{"value": "净水", "count": 250002}])

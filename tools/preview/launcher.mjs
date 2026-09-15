@@ -172,6 +172,10 @@ async function main() {
     process.on("SIGTERM", shutdown);
     const env = { ...cleanEnvironment(), PYTHONDONTWRITEBYTECODE: "1", PYTHONUNBUFFERED: "1",
         TERUISI_DJANGO_ENVIRONMENT: "development", TERUISI_DJANGO_PROCESS_ROLE: "development",
+        // Market/netshop's signed sales consumer must never use its default
+        // service port. The second isolated server handles internal read calls
+        // so the public reader's request pool cannot wait on itself.
+        TERUISI_DJANGO_SALES_READER_BASE_URL: `http://127.0.0.1:${ports.writer}`,
         DJANGO_DEBUG: "false", DJANGO_ALLOWED_HOSTS: "127.0.0.1,localhost",
         DJANGO_SECRET_KEY: randomBytes(48).toString("hex"), TERUISI_DJANGO_INTERNAL_SECRET: randomBytes(48).toString("hex") };
     const python = path.join(runtime, process.platform === "win32" ? "venv/Scripts/python.exe" : "venv/bin/python");
