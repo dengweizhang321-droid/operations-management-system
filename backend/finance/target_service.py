@@ -252,6 +252,11 @@ def _annual_import_row(payload: object) -> dict[str, object]:
     }
 
 
+def _trailing_note_alias(value: str) -> str | None:
+    alias = re.sub(r"\s*(?:（[^（）]{1,80}）|\([^()]{1,80}\))\s*$", "", value).strip()
+    return alias if alias and alias != value else None
+
+
 def _resolve_import_shops(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     known = {
         (str(platform or "未分组").strip(), str(name).strip())
@@ -266,13 +271,19 @@ def _resolve_import_shops(rows: list[dict[str, object]]) -> list[dict[str, objec
     if len(known) > 5000:
         raise FinanceApiError("可匹配店铺数量超过导入上限", code="service_unavailable", status=503)
     by_name: dict[str, set[tuple[str, str]]] = {}
+    by_alias: dict[str, set[tuple[str, str]]] = {}
+    by_platform_alias: dict[tuple[str, str], set[tuple[str, str]]] = {}
     for pair in known:
         by_name.setdefault(pair[1], set()).add(pair)
+        alias = _trailing_note_alias(pair[1])
+        if alias is not None:
+            by_alias.setdefault(alias, set()).add(pair)
+            by_platform_alias.setdefault((pair[0], alias), set()).add(pair)
     resolved = []
     identities: dict[tuple[str, str], int] = {}
     for row in rows:
         label = str(row["storeLabel"])
-        matches = by_name.get(label, set())
+        matches = set(by_name.get(label, set()))
         pair: tuple[str, str] | None = next(iter(matches)) if len(matches) == 1 else None
         normalized = re.sub(r"[－—–]", "-", label)
         if pair is None and "-" in normalized:
@@ -280,8 +291,18 @@ def _resolve_import_shops(rows: list[dict[str, object]]) -> list[dict[str, objec
             candidate = (platform, shop_name)
             if platform and shop_name and candidate in known:
                 pair = candidate
+            elif platform and shop_name:
+                alias_matches = by_platform_alias.get(candidate, set())
+                matches.update(alias_matches)
+                if len(alias_matches) == 1:
+                    pair = next(iter(alias_matches))
+        elif pair is None:
+            alias_matches = by_alias.get(label, set())
+            matches.update(alias_matches)
+            if len(alias_matches) == 1:
+                pair = next(iter(alias_matches))
         if pair is None:
-            reason = "匹配到多个平台" if len(matches) > 1 else "未在财报或现有目标中找到"
+            reason = "匹配到多个候选" if len(matches) > 1 else "未在财报或现有目标中找到"
             raise FinanceApiError(f"第 {row['rowNumber']} 行店铺{reason}：{label}")
         previous = identities.get(pair)
         if previous is not None:

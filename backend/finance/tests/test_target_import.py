@@ -78,6 +78,35 @@ class AnnualTargetImportTests(TestCase):
                 import_annual_targets(import_payload(target_row(5, "京东-同名店"), target_row(6, label)))
             self.assertFalse(FinanceTarget.objects.filter(period_type="year", period_key="2026").exists())
 
+    def test_unique_trailing_note_alias_resolves_to_canonical_shop(self):
+        canonical = upsert_target({
+            "periodType": "year", "periodKey": "2026", "platform": "京东",
+            "shopName": "志高商用设备旗舰店（亿用）", "salesTargetCents": 1,
+        })[0]
+        result = import_annual_targets(import_payload(
+            target_row(15, "京东-志高商用设备旗舰店", salesTargetCents=16_000_000),
+        ))
+        self.assertEqual((result["createdCount"], result["updatedCount"]), (0, 1))
+        updated = FinanceTarget.objects.get(id=canonical["id"])
+        self.assertEqual(updated.shop_name, "志高商用设备旗舰店（亿用）")
+        self.assertEqual(updated.sales_target_cents, 16_000_000)
+        self.assertFalse(FinanceTarget.objects.filter(shop_name="志高商用设备旗舰店").exists())
+
+    def test_trailing_note_alias_rejects_multiple_candidates(self):
+        for shop_name in ("志高商用设备旗舰店（亿用）", "志高商用设备旗舰店（另一店）"):
+            upsert_target({
+                "periodType": "year", "periodKey": "2026", "platform": "京东",
+                "shopName": shop_name, "salesTargetCents": 1,
+            })
+        with self.assertRaisesMessage(Exception, "匹配到多个候选"):
+            import_annual_targets(import_payload(
+                target_row(15, "京东-志高商用设备旗舰店", salesTargetCents=16_000_000),
+            ))
+        self.assertEqual(
+            list(FinanceTarget.objects.order_by("shop_name").values_list("sales_target_cents", flat=True)),
+            [1, 1],
+        )
+
     def test_writer_endpoint_is_replay_fenced(self):
         payload = import_payload(target_row(5, "京东-同名店"))
         body = body_bytes(payload)
