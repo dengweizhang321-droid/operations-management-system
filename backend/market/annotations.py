@@ -813,6 +813,7 @@ def execute_annotation_query(payload: dict[str, object], principal: Principal) -
     raise _error("不支持的市场标注视图")
 
 
+@transaction.atomic
 def _create_prompt(payload: dict[str, object], principal: Principal) -> dict[str, object]:
     category = _text(payload.get("category"), "category", 200, required=True)
     segments = _texts(payload.get("segments"), "segments", 200)
@@ -823,6 +824,13 @@ def _create_prompt(payload: dict[str, object], principal: Principal) -> dict[str
         raise _error("Prompt 枚举必须与当前细分品类字典完全一致", code="version_conflict", status=409)
     body = _text(payload.get("promptBody"), "promptBody", 50_000, required=True)
     parent_id = _text(payload.get("parentId", ""), "parentId", 128)
+    if connection.vendor == "postgresql":
+        # Lock the category even when it has no rows yet. Request-id locks do
+        # not serialize two independent creates; the unique constraint remains
+        # the final integrity guard. The lock lives through insertion + audit.
+        key = int.from_bytes(hashlib.sha256(f"market-prompt-version\n{category}".encode()).digest()[:8], "big", signed=True)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_xact_lock(%s)", [key])
     version = (MarketAnnotationPromptVersion.objects.filter(category=category).aggregate(value=Max("version"))["value"] or 0) + 1
     row = MarketAnnotationPromptVersion.objects.create(
         id=f"market-prompt-{uuid.uuid4()}",

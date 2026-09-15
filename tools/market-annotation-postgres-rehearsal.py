@@ -69,6 +69,11 @@ def role_probe() -> None:
         raise AssertionError("Least-privilege role could not read synthetic dispatch capacity")
     if role == "teruisi_market_writer":
         with transaction.atomic():
+            prompt = execute_annotation_command({"action": "create_prompt", "category": "Role probe",
+                "segments": ["Synthetic"], "promptBody": "Synthetic category lock probe"}, principal)
+        if prompt.get("version") != 2:
+            raise AssertionError("Least-privilege writer could not allocate the next category prompt version")
+        with transaction.atomic():
             claim = execute_annotation_command({"action": "claim_task", "jobId": "role-probe-job"}, principal)
         task = claim.get("task")
         if not task:
@@ -95,7 +100,7 @@ def role_probe() -> None:
         if MarketSkuAnnotation.objects.get(pk="role-probe-annotation").version != 2:
             raise AssertionError("Existing annotation was not updated exactly once")
     connection.close()
-    print(json.dumps({"role": role, "readQueries": True, "rankingPagination": True, "independentFilters": True, "claimComplete": role.endswith("writer"), "commitExistingAnnotation": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
+    print(json.dumps({"role": role, "readQueries": True, "rankingPagination": True, "independentFilters": True, "promptVersionAllocation": role.endswith("writer"), "claimComplete": role.endswith("writer"), "commitExistingAnnotation": role.endswith("writer"), "externalModelCalls": 0}), flush=True)
 
 
 def main() -> None:
