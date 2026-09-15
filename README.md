@@ -1,6 +1,6 @@
 # 电扇运营管理系统
 
-2026-09-15，广东仓手动健康规则已按要求修订，待受控发布：库存减少或不变时保留人工健康，只有实物库存较上一当前快照增加时恢复系统判定；先降后升也生效。型号明细列同步改为“备货数量 / 下单剩余库存”，剩余量按备货数量减去下单后每日实物库存正向增量累计，缺数显示待核算。详见 [广东入仓监控规则](docs/INVENTORY_MANAGEMENT.md)。
+2026-09-15，广东仓规则与 Worker 存活自愈已合并为受控发布候选：库存减少或不变时保留人工健康，只有精确广东仓实物库存较上一当前快照增加时恢复系统判定；型号明细新增“备货数量 / 下单剩余库存”。不可变 Worker supervisor 同时使用独立存活端点识别“外层进程存活但 workerd 不可用”，连续 14 次失败后受控终止所属进程树并恢复，保留 3 GiB 堆适配、就绪降级不重启和 10 分钟最多 5 次的重启风暴门禁。候选验证无未解决失败，详见 [广东入仓监控规则](docs/INVENTORY_MANAGEMENT.md)、[Worker 存活自愈](docs/WORKER_LIVENESS_RECOVERY.md) 和 [候选证据](docs/evidence/guangdong-worker-liveness-candidate-20260915.json)。
 
 2026-09-15 **店铺年度目标 Excel 导入及四项进度已上线**：在“销售分析 → 目标设置”选择年份后可导入 `店铺年度目标.xlsx`，销售/利润金额按万元转换，大毛利率/推广费率按百分比保存；正式导入 21 家，6 行空白目标跳过，未列目标保持不变。页面按成功月度财报累计销售、利润、大毛利率和推广费率，当前显示财报截至 2026-08。源码 `71ce54cb`，Worker/helper `20260915T113701Z-5c7c6173998295bb`，Django manifest SHA `788cd95480c09af4fcedff2c246998b92e4d0e06353d51051c55b29bd6cdc969`；前备份独立恢复、发布后备份及 E 盘归档、Running/Ready/exact_release、钉钉 connected 均通过，n8n 未重启。详见 [年度目标说明](docs/WORKFLOW_ANNUAL_TARGETS.md) 和 [生产采用证据](docs/evidence/store-annual-target-import-production-20260915.json)。
 
