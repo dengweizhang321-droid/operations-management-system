@@ -10,12 +10,12 @@
 
 | 计划 | n8n workflow ID | 店铺注册键 | 店铺 | 仓库模板 | 调试端口 |
 | --- | --- | --- | --- | --- | ---: |
-| 13:30 | `M4xY8kQ2vR6sT9pC` | `tmall-yijiu` | 天猫-志高亿玖专卖店 | `tmall-yijiu-direct-pm-candidate.workflow.json`（历史文件名，现行模板） | 9334 |
-| 13:40 | `TmallLiliDaily2026` | `tmall-lili` | 天猫-志高丽力专卖店 | `tmall-lili-sycm-cookie-daily.workflow.json` | 9325 |
-| 13:50 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
-| 14:00 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
-| 14:10 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
-| 14:20 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-direct-pm-candidate.workflow.json`（现行直连试点模板） | 9328 |
+| 11:00 | `M4xY8kQ2vR6sT9pC` | `tmall-yijiu` | 天猫-志高亿玖专卖店 | `tmall-yijiu-direct-pm-candidate.workflow.json`（历史文件名，现行模板） | 9334 |
+| 11:10 | `TmallLiliDaily2026` | `tmall-lili` | 天猫-志高丽力专卖店 | `tmall-lili-sycm-cookie-daily.workflow.json` | 9325 |
+| 11:20 | `TmallTuofengDaily2026` | `tmall-tuofeng` | 天猫-志高拓丰专卖店 | `tmall-tuofeng-sycm-cookie-daily.workflow.json` | 9327 |
+| 11:30 | `TmallCuizhiwangDaily2026` | `tmall-cuizhiwang` | 天猫-志高炊之王专卖店 | `tmall-cuizhiwang-sycm-cookie-daily.workflow.json` | 9329 |
+| 11:40 | `TmallMasituDaily2026` | `tmall-masitu` | 天猫-志高马思图专卖店 | `tmall-masitu-sycm-cookie-daily.workflow.json` | 9331 |
+| 11:50 | `TmallYiyongDaily2026` | `tmall-yiyong` | 天猫-志高亿用专卖店 | `tmall-yiyong-direct-pm-candidate.workflow.json`（现行直连试点模板） | 9328 |
 
 六条流程均使用 `Asia/Shanghai`，共享 `127.0.0.1:5791` 的原子协调门禁；不同天猫店铺的 A→B→C→P→M 可独立并行，同店 execution 与导出批次仍串行；京东/吉客云保持原互斥边界。A/B/C/P 每日执行；亿玖、亿用、丽力 M 每日执行，拓丰、炊之王、马思图 M 按各店持久三日节奏错峰执行。亿用直连采用与恢复门禁见 [亿用试点](天猫亿用直连每日M试点.md)；独立协议为 `yiyong-direct-pm-v1`，不能把亿玖身份、协议头或旧亿用管家模板用作当前配置。
 
@@ -39,7 +39,7 @@
 1. 读取 `README.md`、`AGENTS.md`、本手册、`config/tmall-store-accounts.json` 和当前工作流模板。
 2. 检查 `git status --short`。工作区已有改动属于用户，不得覆盖、格式化、暂存或提交无关文件。
 3. 逐店比较 n8n 当前版本及 `activeVersionId` 对应已发布历史与各自仓库模板的 `nodes`、`connections` 和 `settings`。模板保留 `active=false` 是正常的；实际发布实例的启用状态单独核验。
-4. 确认六店恰好各有一条 active 日调度，时区均为 `Asia/Shanghai`，cron 按亿玖、丽力、拓丰、炊之王、马思图、亿用依次为 `30 13 * * *`、`40 13 * * *`、`50 13 * * *`、`0 14 * * *`、`10 14 * * *`、`20 14 * * *`；不得残留第二条 active 天猫业务流水线。定时和“手动完整运行（强制 M）”入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。M 请求只有手动 mode 才发送强制标记，定时或 CLI 恢复不得伪造。
+4. 确认六店恰好各有一条 active 日调度，时区均为 `Asia/Shanghai`，cron 按亿玖、丽力、拓丰、炊之王、马思图、亿用依次为 `0 11 * * *`、`10 11 * * *`、`20 11 * * *`、`30 11 * * *`、`40 11 * * *`、`50 11 * * *`；不得残留第二条 active 天猫业务流水线。定时和“手动完整运行（强制 M）”入口都先进入 `领取共享 helper → helper 领取成功？` 门禁，授权后节点顺序为 `A→B→C→P→M`。M 请求只有手动 mode 才发送强制标记，定时或 CLI 恢复不得伪造。
 5. 从注册表逐店解析 `shopName`、`executablePath`、`userDataDir`、`profileName`、`profileDir`、`debugPort` 和 `downloadDir`，并确认资源互不重复；不得回退到默认 Chrome、旧 `.runtime` profile 或另一店铺配置。
 6. 只读核验 `5678`、`5791` 和六店调试端口。空闲时调试端口都应关闭；执行中只允许由当前 execution 占用对应店铺端口。
 
@@ -50,9 +50,9 @@ Invoke-RestMethod http://127.0.0.1:5791/health
 Get-NetTCPConnection -State Listen -LocalPort 5678,5791,9325,9327,9328,9329,9331,9334 -ErrorAction SilentlyContinue
 ```
 
-### 2.2 14:25 统一监控中的六店判定
+### 2.2 每 10 分钟统一监控中的六店判定
 
-- 14:25 由统一 Codex Agent 一次读取六店批量状态，核验 13:30、13:40、13:50、14:00、14:10、14:20 六条触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。正常店铺不重复读取专项手册，只有缺失触发、失败、结果未决或终态证据不完整时才进入本节后续诊断。
+- 统一 Codex Agent 在每小时 05、15、25、35、45、55 分读取六店批量状态，只核验已经到计划时间至少 5 分钟的触发；逐店记录当日 `mode=trigger` execution ID 与固定店铺键。`enabled=false` 店铺不应出现 active 调度。正常店铺不重复读取专项手册，只有缺失触发、失败、结果未决或终态证据不完整时才进入本节后续诊断。
 - 若某店正在运行或在 A 前等待 helper，持续监控到终态；同店已有 owner 或京东/吉客云占用时协调等待是正常状态，其他天猫店运行不应导致本店排队，不以此创建重复 execution。
 - 若到某店计划时间后 5 分钟仍无当日 `mode=trigger` execution，检查同一 workflow ID 的当前发布版本、启用状态、trigger 注册、时区和 n8n 服务；不得新建同名副本或并发业务流水线。
 - 任一阶段失败时，先保存 execution ID、店铺、目标业务日期、失败节点、脱敏错误、活动清单阶段和浏览器所有权，再决定是否可自动恢复。单店失败后仍要继续核验其余五店；只隔离资源收尾未知的目标店；其他天猫店不应因该店失败而等待。

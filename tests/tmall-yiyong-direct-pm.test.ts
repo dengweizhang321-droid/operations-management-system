@@ -40,7 +40,7 @@ test("亿用试点使用原 ID 与调度，A/B/C 完全不变，候选生成确�
   assert.equal(workflow.active, false);
   assert.equal(workflow.settings?.timezone, "Asia/Shanghai");
   assert.equal(definition.productMasterCadence.intervalDays, 1);
-  for (const name of ["领取共享 helper", "A·计划目标日期", "B·逐日下载并验证 XLS", "C·签收、导入并覆盖回查", "每天 14:20 运行", "手动完整运行（强制 M）"]) {
+  for (const name of ["领取共享 helper", "A·计划目标日期", "B·逐日下载并验证 XLS", "C·签收、导入并覆盖回查", "每天 11:50 运行", "手动完整运行（强制 M）"]) {
     assert.deepEqual(workflow.nodes.find((node) => node.name === name), legacy.nodes.find((node) => node.name === name));
   }
   const requests = workflow.nodes.filter((node) => node.type === "n8n-nodes-base.httpRequest");

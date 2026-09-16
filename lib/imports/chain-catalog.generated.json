@@ -194,7 +194,7 @@
       "name": "京东志高商用设备AI推广数据下载与导入",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 13 * * *"
+        "40 10 * * *"
       ],
       "definitionFile": "automation/n8n/jd-promotion-daily.workflow.json"
     },
@@ -207,7 +207,7 @@
       "name": "京东志高切肉机AI推广数据下载与导入",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "10 13 * * *"
+        "50 10 * * *"
       ],
       "definitionFile": "automation/n8n/jd-promotion-cut-meat-20260813-14.workflow.json"
     },
@@ -220,7 +220,7 @@
       "name": "天猫店铺数据导入（亿玖 P/M 直连·每日 M）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "30 13 * * *"
+        "0 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json",
       "masterIntervalDays": 1
@@ -234,7 +234,7 @@
       "name": "天猫店铺数据导入-丽力",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "40 13 * * *"
+        "10 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-lili-sycm-cookie-daily.workflow.json",
       "masterIntervalDays": 1
@@ -248,7 +248,7 @@
       "name": "天猫店铺数据导入-拓丰",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "50 13 * * *"
+        "20 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-tuofeng-sycm-cookie-daily.workflow.json",
       "masterIntervalDays": 3
@@ -262,7 +262,7 @@
       "name": "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "20 14 * * *"
+        "50 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-yiyong-direct-pm-candidate.workflow.json",
       "masterIntervalDays": 1
@@ -276,7 +276,7 @@
       "name": "天猫店铺数据导入-炊之王",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "0 14 * * *"
+        "30 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
       "masterIntervalDays": 3
@@ -290,7 +290,7 @@
       "name": "天猫店铺数据导入-马思图",
       "timezone": "Asia/Shanghai",
       "schedules": [
-        "10 14 * * *"
+        "40 11 * * *"
       ],
       "definitionFile": "automation/n8n/tmall-masitu-sycm-cookie-daily.workflow.json",
       "masterIntervalDays": 3

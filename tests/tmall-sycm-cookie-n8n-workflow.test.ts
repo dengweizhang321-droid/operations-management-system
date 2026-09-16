@@ -43,8 +43,8 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.equal(workflow.settings.timezone, "Asia/Shanghai");
   assert.equal(workflow.nodes.find((node) => node.type === "n8n-nodes-base.manualTrigger")?.name, "手动完整运行（强制 M）");
   const scheduleNode = workflow.nodes.find((node) => node.type === "n8n-nodes-base.scheduleTrigger");
-  assert.equal(scheduleNode?.name, "每天 13:30 运行");
-  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "30 13 * * *");
+  assert.equal(scheduleNode?.name, "每天 11:00 运行");
+  assert.equal(scheduleNode?.parameters?.rule?.interval?.[0]?.expression, "0 11 * * *");
   const coordination = workflow.nodes.find((node) => node.name === "领取共享 helper");
   assert.equal(coordination?.parameters?.url, "http://127.0.0.1:5791/coordination/claim");
   assert.deepEqual(coordination?.parameters?.headerParameters?.parameters, [
@@ -105,7 +105,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.doesNotMatch(raw, /批量导出表格/);
   assert.equal(workflow.connections["手动完整运行（强制 M）"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["手动运行"], undefined);
-  assert.equal(workflow.connections["每天 13:30 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
+  assert.equal(workflow.connections["每天 11:00 运行"]?.main?.[0]?.[0]?.node, "领取共享 helper");
   assert.equal(workflow.connections["领取共享 helper"]?.main?.[0]?.[0]?.node, "helper 领取成功？");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[0]?.[0]?.node, "A·计划目标日期");
   assert.equal(workflow.connections["helper 领取成功？"]?.main?.[1]?.[0]?.node, "等待前序流程释放 helper");
@@ -127,7 +127,7 @@ test("Cookie 直连 n8n 副本保持商品日和推广前置、货品收尾五�
   assert.doesNotMatch(raw, /localhost:8000|teruisi123|_tb_token_=|cookie2=/i);
 });
 
-test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板默认未激活", async () => {
+test("六店 n8n 模板固定绑定独立店铺键、上午错峰调度且仓库模板默认未激活", async () => {
   const pagewiseStoreKeys = new Set(["tmall-yijiu", "tmall-tuofeng", "tmall-cuizhiwang", "tmall-masitu"]);
   const registry = JSON.parse(await readFile(new URL("../config/tmall-store-accounts.json", import.meta.url), "utf8")) as {
     stores: Array<{
@@ -150,12 +150,12 @@ test("六店 n8n 模板固定绑定独立店铺键、错峰调度且仓库模板
   assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.workflowId)).size, tmallN8nWorkflowDefinitions.length);
   assert.equal(new Set(tmallN8nWorkflowDefinitions.map((definition) => definition.fileName)).size, tmallN8nWorkflowDefinitions.length);
   assert.deepEqual(tmallN8nWorkflowDefinitions.map((definition) => definition.cronExpression), [
-    "30 13 * * *",
-    "40 13 * * *",
-    "50 13 * * *",
-    "0 14 * * *",
-    "10 14 * * *",
-    "20 14 * * *",
+    "0 11 * * *",
+    "10 11 * * *",
+    "20 11 * * *",
+    "30 11 * * *",
+    "40 11 * * *",
+    "50 11 * * *",
   ]);
   assert.equal(new Set(selectedStores.map((store) => store.browser.userDataDir)).size, selectedStores.length);
   assert.equal(new Set(selectedStores.map((store) => store.browser.profileDir)).size, selectedStores.length);
@@ -397,7 +397,7 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.ok(dashboardNavigation >= 0 && workflowNavigation >= 0);
   assert.match(page, /n8n_workflows: \(\{ currentUser, moduleView, onModuleViewChange \}\) => <N8nWorkflowView currentUser=\{currentUser\} moduleView=/);
   assert.match(view, /tmall-yijiu-direct-pm-candidate\.workflow\.json/);
-  assert.match(view, /jackyun-five-dataset-http\.workflow\.json/);
+  assert.match(view, /jackyun-five-dataset-api\.workflow\.json/);
   assert.match(view, /A → B → C → D → E/);
   assert.match(view, /五表全部下载并通过校验后才开始导入/);
   assert.match(view, /jd-multi-store-daily\.workflow\.json/);
@@ -414,8 +414,8 @@ test("运营系统在左侧自动化中心受控嵌入天猫 n8n 画布", async 
   assert.match(view, /业务范围与规范化后的完整业务内容都一致时返回 duplicate/);
   assert.match(view, /A → B → C → P → M/);
   assert.match(view, /商品推广报表/);
-  assert.match(view, /scheduleMetric: "13:30"/);
-  assert.match(view, /jackyun:[\s\S]*?scheduleMetric: "已停用"/);
+  assert.match(view, /scheduleMetric: "11:00"/);
+  assert.match(view, /jackyun:[\s\S]*?scheduleMetric: "00:10"/);
   assert.match(view, /scheduleTriggerLabel: "每天"/);
   assert.match(view, /scheduleMetric: "10:00"/);
   assert.match(view, /\{config\.scheduleMetric\} \{config\.scheduleTriggerLabel\}/);
