@@ -143,6 +143,7 @@ def _dispatch(request, path=""):
             r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json)": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
@@ -255,6 +256,9 @@ def _dispatch(request, path=""):
                     return response(business_files.listing(parts[1], principal))
                 return write(request, principal, lambda: (business_files.create(parts[1], payload, principal), 200))
             if request.method == "GET":
+                if len(parts) == 6:
+                    from .business_volume_files import chunk as volume_chunk
+                    return response(volume_chunk(parts[1], parts[3], parts[5], params, principal))
                 if len(parts) == 4:
                     return response(business_files.chunk(parts[1], parts[3], params, principal))
                 fields(params, set())

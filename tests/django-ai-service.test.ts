@@ -24,6 +24,23 @@ test("business file routes keep reads and writes on their owning process", async
   for (const path of ["/api/ai/business-files", "/api/ai/business-files/file_1/chunks/csv", "/api/ai/business-files/file_1/internal"]) assert.equal(isPublicAiPath(path), false);
 });
 
+test("volume chunk routes keep bounded coordinates and read-only forwarding", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  for (const suffix of ["0/chunks/json", "1/chunks/html", "100/chunks/xlsx"]) {
+    const path = `/api/ai/business-files/file_1/volumes/${suffix}`;
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(calls.at(-1)!.url).port, "18111");
+  }
+  for (const suffix of ["01/chunks/html", "101/chunks/xlsx", "-1/chunks/json", "1/chunks/csv", "1/chunks/html/extra"]) {
+    assert.equal(isPublicAiPath(`/api/ai/business-files/file_1/volumes/${suffix}`), false);
+  }
+  const route = await readFile("app/api/ai/business-files/[id]/volumes/[volumeIndex]/chunks/[format]/route.ts", "utf8");
+  assert.ok(route.includes("export const GET = forwardAiRequest"));
+  assert.doesNotMatch(route, /export const (?:POST|PATCH|PUT|DELETE)/);
+});
+
 test("business planning preview is an explicit reader POST and evidence list is read only", async () => {
   const requests: Request[] = [];
   const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({}); };

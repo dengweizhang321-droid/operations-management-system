@@ -31,6 +31,7 @@ try {
     const url = new URL(route.request().url());
     assert.equal(url.origin, "http://127.0.0.1:3119", "no external requests");
     if (!url.pathname.startsWith("/api/")) return route.continue();
+    if (url.pathname === "/api/ai/business-evidence") return route.fulfill({ json: { principalKey: "c".repeat(64), items: [] } });
     if (route.request().method() === "POST") {
       if (rejectWrite) return route.fulfill({ status: 409, json: { error: "合成版本冲突" } });
       const body = route.request().postDataJSON();

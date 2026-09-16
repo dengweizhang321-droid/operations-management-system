@@ -23,11 +23,15 @@ BUILD_SECONDS = 600
 RENDERER_VERSION = 3
 
 
-def binding(report, principal, draft):
+def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
-    if business_reports.is_v2_snapshot(snapshot):
+    if business_reports.is_v2_snapshot(snapshot) and renderer_version != 4:
         raise AiError("v2证据文件交付尚未接入，请保留分析结果", "conflict", 409)
+    if renderer_version == 4:
+        if not business_reports.is_v2_snapshot(snapshot):
+            raise AiError("多卷文件须使用v2经营报告", "conflict", 409)
+        business_reports.bound_reference(snapshot, principal)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA or report.workflow.dry_run:
         raise AiError("只有已分析的经营报告可以构建文件", "conflict", 409)
     if not draft and report.workflow.status != "completed":
@@ -64,6 +68,9 @@ def listing(report_id, principal):
 
 
 def create(report_id, body, principal):
+    if body.get("deliveryMode") == "volumes":
+        from .business_volume_files import create as create_volumes
+        return create_volumes(report_id, body, principal)
     fields(body, {"draft"})
     draft = bool(boolean(body.get("draft", False), "draft"))
     current_principal(principal, admin=True, write=True)
@@ -93,7 +100,7 @@ def control(run_id, body, principal):
         if body["action"] in {"resume", "rebuild"}:
             if row.status != "paused":
                 raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
-            if binding(row.report, principal, row.draft) != row.binding_digest:
+            if binding(row.report, principal, row.draft, renderer_version=row.renderer_version) != row.binding_digest:
                 raise AiError("报告内容已变化，须创建新文件版本", "conflict", 409)
             if body["action"] == "rebuild":
                 row.manifest_json = "{}"
@@ -117,6 +124,8 @@ def chunk(run_id, format, params, principal):
     except (TypeError, ValueError) as error:
         raise AiError("文件分块序号无效") from error
     row = get(run_id, principal)
+    if row.renderer_version == 4:
+        raise AiError("多卷文件须使用指定卷下载入口", "conflict", 409)
     if row.status != "ready":
         raise AiError("完整双文件尚未就绪", "conflict", 409)
     if binding(row.report, principal, row.draft) != row.binding_digest:
@@ -272,7 +281,7 @@ def tick():
         try:
             principal = workflows.background(row)
             current_principal(principal, admin=True)
-            if binding(row.report, principal, row.draft) != row.binding_digest:
+            if binding(row.report, principal, row.draft, renderer_version=row.renderer_version) != row.binding_digest:
                 raise AiError("报告内容绑定已变化", "conflict", 409)
             if row.manifest_json == "{}" and row.attempt >= 5:
                 raise AiError("文件构建次数已达到上限", "conflict", 409)
@@ -289,6 +298,9 @@ def tick():
                 saved.save()
                 audit(saved, principal, "claimed")
             state.update(version=saved.version, attempt=saved.attempt)
+            if saved.renderer_version == 4:
+                from .business_volume_files import build
+                return build(saved, principal, state)
             return _build(saved, principal, state)
         except Exception as caught:
             error = caught if isinstance(caught, AiError) else AiError("文件构建失败", "file_build_failed", 503)

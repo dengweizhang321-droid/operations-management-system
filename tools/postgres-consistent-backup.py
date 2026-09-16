@@ -234,6 +234,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0020_business_volume_files" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_volume_chunks")
+            elif "0019_business_source_directory" not in ai_migrations:
+                raise RuntimeError("AI volume files schema has no source directory predecessor")
             if "0019_business_source_directory" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_evidence_sources")
             elif not {"0014_business_evidence", "0015_business_collection", "0016_business_files",

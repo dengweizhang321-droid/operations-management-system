@@ -19,6 +19,7 @@ CONTROL_MODELS = (
 MODELS = {
     "ai_business_file_runs": m.AiBusinessFileRun,
     "ai_business_file_chunks": m.AiBusinessFileChunk,
+    "ai_business_volume_chunks": m.AiBusinessVolumeChunk,
     "ai_business_evidence_runs": m.AiBusinessEvidenceRun,
     "ai_business_evidence_chunks": m.AiBusinessEvidenceChunk,
     "ai_business_evidence_sources": m.AiBusinessEvidenceSource,
@@ -41,6 +42,7 @@ MODELS = {
 READ_TABLES = {
     "ai_business_file_runs",
     "ai_business_file_chunks",
+    "ai_business_volume_chunks",
     "ai_business_evidence_runs",
     "ai_business_evidence_chunks",
     "ai_business_evidence_sources",
@@ -82,6 +84,7 @@ READ_TABLES = {
 }
 APPEND_ONLY = {
     "ai_business_file_chunks",
+    "ai_business_volume_chunks",
     "ai_business_evidence_chunks",
     "ai_library_revisions",
     "ai_execution_guidance",

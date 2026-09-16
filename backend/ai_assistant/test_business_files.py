@@ -89,7 +89,7 @@ class BusinessFileTests(TestCase):
             m.AiBusinessFileRun.objects.filter(pk=old.pk).update(renderer_version=2)
         with self.assertRaises(DatabaseError), transaction.atomic():
             m.AiBusinessFileRun.objects.create(id="unsupported-files", report=self.report, owner_email=self.admin.email,
-                binding_digest=old.binding_digest, renderer_version=4)
+                binding_digest=old.binding_digest, renderer_version=5)
         seen = []
         original = files.business_export.build
         def observe(*args, **kwargs):

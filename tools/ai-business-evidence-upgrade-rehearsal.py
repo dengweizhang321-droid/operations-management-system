@@ -1,4 +1,4 @@
-"""0013 -> 0019, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0020, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -38,7 +38,10 @@ executor.migrate(old_target)
 old = executor.loader.project_state(old_target).apps
 old.get_model("ai_assistant", "AiConversations").objects.create(id="retained-fixture", title="合成旧会话", created_by="fixture@example.invalid")
 old.get_model("ai_assistant", "AiConversationMessages").objects.create(id="retained-message", conversation_id="retained-fixture", role="assistant", content="历史内容", ordinal=1)
-new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources"}
+volume_table = "ai_business_volume_chunks"
+new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", volume_table}
+directory_target = [("ai_assistant", "0019_business_source_directory")]
+volume_target = [("ai_assistant", "0020_business_volume_files")]
 
 def snapshot(dbname, tables):
     result = {}
@@ -76,22 +79,17 @@ for renderer in (1, 2, 3):
     previous_apps.get_model("ai_assistant", "AiBusinessFileRun").objects.create(
         id="legacy-renderer-"+str(renderer), owner_email=legacy_workflow.owner_email,
         report=legacy_report, binding_digest="6"*64, renderer_version=renderer)
-previous_tables = set(AI_TABLES)-{"ai_business_evidence_sources"}
+previous_tables = set(AI_TABLES)-{"ai_business_evidence_sources", volume_table}
 previous_digest = snapshot(database["NAME"], previous_tables)
-call_command("migrate", interactive=False, verbosity=0)
+MigrationExecutor(connection).migrate(directory_target)
 assert snapshot(database["NAME"], previous_tables) == previous_digest
-assert MigrationExecutor(connection).migration_plan([("ai_assistant", "0019_business_source_directory")]) == []
-call_command("makemigrations", check=True, dry_run=True, verbosity=0)
+assert MigrationExecutor(connection).migration_plan(directory_target) == []
 from ai_assistant.control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from ai_assistant.database_contract import provision
 epoch = str(uuid.uuid4())
 AiDataRevision.objects.filter(domain="ai-assistant").update(revision=1, source_digest="c"*64)
 AiWriteAuthority.objects.filter(pk=1).update(status="postgres", authority_epoch=epoch, cutover_id="business-synthetic", migration_verify_run_id="ai-apply-"+"d"*32, activated_at=timezone.now())
 AiMigrationRun.objects.create(id="ai-apply-"+"d"*32, mode="apply", status="verified", source_path_digest="0"*64, source_snapshot_digest="c"*64, target_snapshot_digest="c"*64, source_counts={}, target_counts={})
-passwords = {role: secrets.token_hex(32) for role in ("reader", "writer")}
-with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"]) as owner:
-    provision(owner, passwords["reader"], passwords["writer"])
-
 # Synthetic transport fixture only: verify bytea preservation and restricted
 # writer guards independently of analysis/report content acceptance.
 from ai_assistant import models as m
@@ -123,12 +121,71 @@ m.AiBusinessFileRun.objects.create(id="excel-file-restore", owner_email=workflow
 binary_payload = bytes(range(256))*2048
 binary_digest = hashlib.sha256(binary_payload).hexdigest()
 
-def denied(db, statement):
+# Exercise the directory rollback guard before renderer 4 exists; otherwise the
+# later volume guard would mask this older, independently required protection.
+directory_tables = set(AI_TABLES)-{volume_table}
+directory_digest = snapshot(database["NAME"], directory_tables)
+try:
+    MigrationExecutor(connection).migrate(previous_target)
+except RuntimeError as error:
+    assert "v2" in str(error).lower(), str(error)
+else:
+    raise AssertionError("Reverse migration discarded a v2 directory")
+assert snapshot(database["NAME"], directory_tables) == directory_digest
+assert MigrationExecutor(connection).migration_plan(directory_target) == []
+
+executor = MigrationExecutor(connection)
+assert [(m.app_label, m.name) for m, backwards in executor.migration_plan(volume_target)] == volume_target
+executor.migrate(volume_target)
+assert snapshot(database["NAME"], directory_tables) == directory_digest
+assert MigrationExecutor(connection).migration_plan(volume_target) == []
+call_command("migrate", interactive=False, verbosity=0)
+call_command("makemigrations", check=True, dry_run=True, verbosity=0)
+passwords = {role: secrets.token_hex(32) for role in ("reader", "writer")}
+with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"]) as owner:
+    provision(owner, passwords["reader"], passwords["writer"])
+
+# This is intentionally a paused partial delivery, not a forged ready report.
+# Its arbitrary transport bytes prove persistence/role guards, not file format
+# validity or acceptance by the public download API.
+m.AiBusinessFileRun.objects.create(id="volume-file-restore", owner_email=workflow.owner_email, report=report,
+    binding_digest="b"*64, renderer_version=4)
+with connection.cursor() as cursor:
+    cursor.execute("UPDATE ai_business_file_runs SET status='building',version=2,attempt=1 WHERE id='volume-file-restore' AND version=1")
+    assert cursor.rowcount == 1
+volume_payloads = [
+    ("volume-json", 0, "json", 1, canonical({"synthetic": True, "meaning": "未完成交付"}).encode("utf-8")),
+    ("volume-1-html", 1, "html", 1, "<p>合成第一卷，未完成交付</p>".encode("utf-8")),
+    ("volume-1-xlsx", 1, "xlsx", 1, binary_payload),
+    ("volume-2-html", 2, "html", 1, "<p>合成第二卷，未完成交付</p>".encode("utf-8")),
+    ("volume-2-xlsx-1", 2, "xlsx", 1, binary_payload),
+    ("volume-2-xlsx-2", 2, "xlsx", 2, b"synthetic-last-block"),
+]
+volume_bytes = sum(len(item[4]) for item in volume_payloads)
+volume_insert = "INSERT INTO ai_business_volume_chunks(id,run_id,attempt,volume_index,format,sequence,content,content_digest,created_at) VALUES (%s,%s,1,%s,%s,%s,%s,%s,now())"
+
+def volume_parameters(item, *, run_id="volume-file-restore"):
+    key, volume, format, sequence, content = item
+    return [key, run_id, volume, format, sequence, content, hashlib.sha256(content).hexdigest()]
+
+def denied(db, statement, parameters=None):
     try:
-        db.execute(statement)
+        db.execute(statement, parameters)
     except psycopg.Error:
         return
     raise AssertionError("Forbidden database action accepted")
+
+def denied_volume_with_parent(db, item):
+    """Do not let the missing-parent-byte guard mask bad coordinates/sequence."""
+    try:
+        with db.transaction():
+            db.execute("SELECT id FROM ai_business_file_runs WHERE id='volume-file-restore' FOR UPDATE")
+            db.execute(volume_insert, volume_parameters(item))
+            result = db.execute("UPDATE ai_business_file_runs SET stored_bytes=%s,version=3 WHERE id='volume-file-restore' AND version=2", [len(item[4])])
+            assert result.rowcount == 1
+    except psycopg.Error:
+        return
+    raise AssertionError("Invalid volume coordinates/sequence accepted with matching parent bytes")
 
 insert = "INSERT INTO ai_business_evidence_runs(id,owner_email,scope_json,client_request_id,request_digest,plan_json,state_json,status,version,stored_bytes,created_at,collection_status,next_collect_at,collection_failures,collection_error_code) VALUES ('synthetic','fixture@example.invalid','null','client',repeat('a',64),'{}','{}','collecting',1,0,now(),'manual',now(),0,'')"
 for role in ("reader", "writer"):
@@ -144,6 +201,7 @@ for role in ("reader", "writer"):
         raise RuntimeError("Role health failed; see role-health-error.log")
     with psycopg.connect(url, autocommit=True) as limited:
         denied(limited, insert)
+        denied(limited, volume_insert, volume_parameters(volume_payloads[0]))
         limited.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','business-synthetic',false)", [epoch])
         if role == "writer":
             limited.execute(insert)
@@ -164,9 +222,28 @@ for role in ("reader", "writer"):
                 limited.execute("UPDATE ai_business_evidence_sources SET checkpoint_json='{\"synthetic\":true}',version=2,checkpoint_run_version=2,page_count=1,stored_bytes=2 WHERE id='directory-source-1'")
                 limited.execute("UPDATE ai_business_evidence_runs SET version=2,stored_bytes=2 WHERE id='directory-restore'")
             denied(limited, "UPDATE ai_business_evidence_runs SET status='sealed',version=3 WHERE id='directory-restore'")
+            # Every attempted write is individually rolled back by autocommit,
+            # including deferred failures at the end of its statement.
+            denied(limited, volume_insert, volume_parameters(volume_payloads[0]))  # parent bytes/CAS absent
+            denied(limited, volume_insert, volume_parameters(volume_payloads[0], run_id="file-restore"))
+            denied(limited, "INSERT INTO ai_business_file_chunks(id,run_id,attempt,format,sequence,content,content_digest,created_at) VALUES ('wrong-v4-table','volume-file-restore',1,'html',1,%s,%s,now())", [b"x", hashlib.sha256(b"x").hexdigest()])
+            for volume, format, sequence in ((0, "html", 1), (1, "json", 1), (101, "html", 1), (1, "xlsx", 513), (1, "xlsx", 2)):
+                denied_volume_with_parent(limited, ("invalid-volume-block", volume, format, sequence, b"x"))
+            with limited.transaction():
+                limited.execute("SELECT id FROM ai_business_file_runs WHERE id='volume-file-restore' FOR UPDATE")
+                for item in volume_payloads:
+                    limited.execute(volume_insert, volume_parameters(item))
+                result = limited.execute("UPDATE ai_business_file_runs SET stored_bytes=%s,version=3 WHERE id='volume-file-restore' AND version=2", [volume_bytes])
+                assert result.rowcount == 1
+            denied(limited, "UPDATE ai_business_volume_chunks SET content='broken'::bytea")
+            denied(limited, "UPDATE ai_business_volume_chunks SET volume_index=2 WHERE id='volume-1-html'")
+            denied(limited, "UPDATE ai_business_file_runs SET status='ready',version=4 WHERE id='volume-file-restore'")
+            limited.execute("UPDATE ai_business_file_runs SET status='paused',version=4 WHERE id='volume-file-restore'")
+            denied(limited, volume_insert, volume_parameters(("paused-volume-block", 2, "xlsx", 3, b"paused")))
         else:
             denied(limited, insert)
             denied(limited, "UPDATE ai_business_evidence_sources SET version=2,checkpoint_run_version=2 WHERE id='directory-source-1'")
+            denied(limited, volume_insert, volume_parameters(volume_payloads[0]))
         for table in new_tables:
             limited.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
             denied(limited, "DELETE FROM " + table)
@@ -182,13 +259,13 @@ for role in ("reader", "writer"):
 
 complete = snapshot(database["NAME"], AI_TABLES)
 try:
-    MigrationExecutor(connection).migrate(previous_target)
+    MigrationExecutor(connection).migrate(directory_target)
 except RuntimeError as error:
-    assert "v2" in str(error).lower(), str(error)
+    assert "v4" in str(error).lower() or "renderer 4" in str(error).lower(), str(error)
 else:
-    raise AssertionError("Reverse migration discarded a v2 directory")
+    raise AssertionError("Reverse migration discarded renderer-4 volume persistence")
 assert snapshot(database["NAME"], AI_TABLES) == complete
-assert MigrationExecutor(connection).migration_plan([("ai_assistant", "0019_business_source_directory")]) == []
+assert MigrationExecutor(connection).migration_plan(volume_target) == []
 binary = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
@@ -204,8 +281,20 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi
     assert restored.execute("SELECT version,checkpoint_run_version,checkpoint_json FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (2,2,'{"synthetic":true}')
     assert restored.execute("SELECT page_count,stored_bytes FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (1,2)
     assert restored.execute("SELECT payload_json,payload_digest FROM ai_business_evidence_chunks WHERE id='directory-v2-page'").fetchone() == ('{}',hashlib.sha256(b'{}').hexdigest())
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019", "oldAiTablesDigestPreserved": before,
+    assert restored.execute("SELECT renderer_version,status,version,attempt,stored_bytes,manifest_json FROM ai_business_file_runs WHERE id='volume-file-restore'").fetchone() == (4, "paused", 4, 1, volume_bytes, "{}")
+    volume_rows = restored.execute("SELECT id,volume_index,format,sequence,content,content_digest FROM ai_business_volume_chunks WHERE run_id='volume-file-restore' ORDER BY id").fetchall()
+    expected_rows = sorted(volume_payloads, key=lambda item: item[0])
+    assert len(volume_rows) == len(expected_rows)
+    for actual, expected in zip(volume_rows, expected_rows):
+        assert actual[:4] == expected[:4]
+        assert bytes(actual[4]) == expected[4]
+        assert hashlib.sha256(actual[4]).hexdigest() == actual[5] == hashlib.sha256(expected[4]).hexdigest()
+    assert restored.execute("SELECT count(*) FROM ai_business_file_chunks WHERE run_id='volume-file-restore'").fetchone() == (0,)
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020", "oldAiTablesDigestPreserved": before,
     "previous60TablesDigestPreserved": previous_digest, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
+    "previous61TablesDigestPreserved": directory_digest, "renderer4PausedDeliveryRestored": True,
+    "volumeChunkCountRestored": len(volume_payloads), "volumeChunkBytesRestored": volume_bytes,
+    "volumeRollbackWithDataDenied": True, "volumeReadyAcceptanceExercised": False,
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,
     "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete,
     "directorySourceCountRestored": len(directory["entries"]), "directoryCatalogDigest": directory["header"]["catalogDigest"], "directoryRollbackWithDataDenied": True,

@@ -91,6 +91,13 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {("ai_business_volume_chunks", "ai_write_fence"),
+             ("ai_business_volume_chunks", "ai_immutable_evidence"),
+             ("ai_business_volume_chunks", "ai_business_volume_chunk_state"),
+             ("ai_business_volume_chunks", "ai_business_volume_complete"),
+             ("ai_business_file_runs", "ai_business_volume_complete"),
+             ("ai_business_file_runs", "ai_business_volume_initial")}
+            |
             {(table, "ai_write_fence") for table in ("ai_business_file_runs", "ai_business_file_chunks")}
             | {("ai_business_file_runs", "ai_immutable_identity"), ("ai_business_file_runs", "ai_business_file_state"),
                ("ai_business_file_chunks", "ai_immutable_evidence"), ("ai_business_file_chunks", "ai_business_file_chunk_state")}
@@ -155,6 +162,7 @@ def check():
         for table, expected in (
             ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),
             ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
+            ("ai_business_volume_chunks", {"ai_business_volume_chunk_bound", "ai_business_volume_chunk_uq"}),
             ("ai_business_evidence_runs", {"ai_business_run_bound", "ai_business_client_uq"}),
             ("ai_business_evidence_chunks", {"ai_business_chunk_bound", "ai_business_chunk_uq"}),
             ("ai_business_evidence_sources", {"ai_business_source_bound", "ai_business_source_key_uq", "ai_business_source_ord_uq", "ai_business_source_query_uq"}),

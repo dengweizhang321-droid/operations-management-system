@@ -294,8 +294,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(currentAiTables).size, 61);
-  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources"].includes(name));
+  assert.equal(new Set(currentAiTables).size, 62);
+  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -388,6 +388,20 @@ test("maintenance validates complete AI backup evidence before and after activat
   const directory = structuredClone(files);
   directory.migrations.push({ app: "ai_assistant", name: "0017_business_file_renderer" }, { app: "ai_assistant", name: "0018_business_excel_renderer" }, { app: "ai_assistant", name: "0019_business_source_directory" });
   directory.tables.ai_business_evidence_sources = 0;
+  assert.equal(Object.keys(directory.tables).filter(name => name.startsWith("ai_")).length, 61);
+  const volumes = structuredClone(directory);
+  volumes.migrations.push({ app: "ai_assistant", name: "0020_business_volume_files" });
+  volumes.tables.ai_business_volume_chunks = 0;
+  assert.equal(Object.keys(volumes.tables).filter(name => name.startsWith("ai_")).length, 62);
+  const volumesMissing = structuredClone(volumes);
+  delete volumesMissing.tables.ai_business_volume_chunks;
+  const volumesUnbound = structuredClone(volumes);
+  volumesUnbound.migrations = volumesUnbound.migrations.filter(item => item.name !== "0020_business_volume_files");
+  const volumePredecessorsMissing = ["0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory"].map(name => {
+    const evidence = structuredClone(volumes);
+    evidence.migrations = evidence.migrations.filter(item => item.name !== name);
+    return evidence;
+  });
   const directoryMissing = structuredClone(directory);
   delete directoryMissing.tables.ai_business_evidence_sources;
   const directoryUnbound = structuredClone(directory);
@@ -406,7 +420,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   const businessMissingPredecessor = structuredClone(business);
   businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[volumesMissing, volumesUnbound, ...volumePredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[businessMissingChunk, businessMissingPredecessor, filesMissing, filesPredecessorMissing, directoryMissing, directoryUnbound, ...directoryPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
@@ -422,7 +437,7 @@ foreach($case in $cases) {
   try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
   if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
 }
-Write-Output '15 AI backup evidence cases passed'
+Write-Output '${cases.length} AI backup evidence cases passed'
 `;
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
   try {
@@ -430,7 +445,7 @@ Write-Output '15 AI backup evidence cases passed'
     await writeFile(scriptPath, command);
     const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /15 AI backup evidence cases passed/);
+    assert.match(result.stdout, new RegExp(`${cases.length} AI backup evidence cases passed`));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

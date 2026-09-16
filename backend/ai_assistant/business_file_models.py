@@ -40,3 +40,19 @@ class AiBusinessFileChunk(models.Model):
     class Meta:
         db_table = "ai_business_file_chunks"
         constraints = [models.UniqueConstraint(fields=["run", "attempt", "format", "sequence"], name="ai_business_file_chunk_uq")]
+
+
+class AiBusinessVolumeChunk(models.Model):
+    id = models.CharField(primary_key=True, max_length=160)
+    run = models.ForeignKey(AiBusinessFileRun, on_delete=models.PROTECT)
+    attempt = models.PositiveIntegerField()
+    volume_index = models.PositiveIntegerField()
+    format = models.CharField(max_length=4)
+    sequence = models.PositiveIntegerField()
+    content = models.BinaryField()
+    content_digest = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_business_volume_chunks"
+        constraints = [models.UniqueConstraint(fields=["run", "attempt", "volume_index", "format", "sequence"], name="ai_business_volume_chunk_uq")]
