@@ -234,6 +234,11 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0019_business_source_directory" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_evidence_sources")
+            elif not {"0014_business_evidence", "0015_business_collection", "0016_business_files",
+                      "0017_business_file_renderer", "0018_business_excel_renderer"} <= ai_migrations:
+                raise RuntimeError("AI source directory schema has incomplete evidence/file predecessors")
             if "0014_business_evidence" not in ai_migrations:
                 expected_ai_tables.difference_update({"ai_business_evidence_runs", "ai_business_evidence_chunks"})
             elif "0013_dingtalk_schedule_media" not in ai_migrations:

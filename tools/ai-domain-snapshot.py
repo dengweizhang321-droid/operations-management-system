@@ -12,7 +12,7 @@ from ai_assistant.table_manifest import AI_TABLES
 
 TABLES = set(AI_TABLES) - {
     "ai_business_file_runs", "ai_business_file_chunks",
-    "ai_business_evidence_runs", "ai_business_evidence_chunks",
+    "ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_evidence_sources",
     "ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries",
     "ai_prompt_settings_revisions",
     "ai_dingtalk_settings",

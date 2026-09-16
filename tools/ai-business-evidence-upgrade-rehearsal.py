@@ -1,4 +1,4 @@
-"""0013 -> 0018, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0019, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -17,7 +17,7 @@ import psycopg
 from psycopg import sql
 from django.conf import settings
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 from ai_assistant.table_manifest import AI_TABLES
@@ -38,7 +38,7 @@ executor.migrate(old_target)
 old = executor.loader.project_state(old_target).apps
 old.get_model("ai_assistant", "AiConversations").objects.create(id="retained-fixture", title="合成旧会话", created_by="fixture@example.invalid")
 old.get_model("ai_assistant", "AiConversationMessages").objects.create(id="retained-message", conversation_id="retained-fixture", role="assistant", content="历史内容", ordinal=1)
-new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks"}
+new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources"}
 
 def snapshot(dbname, tables):
     result = {}
@@ -53,7 +53,34 @@ assert [(m.app_label, m.name) for m, backwards in executor.migration_plan(target
 executor.migrate(target)
 assert snapshot(database["NAME"], set(AI_TABLES) - new_tables) == before
 assert MigrationExecutor(connection).migration_plan(target) == []
+# Seed the previous schema before installing the directory table. These are
+# synthetic persistence fixtures, not accepted business reports or source facts.
+previous_target = [("ai_assistant", "0018_business_excel_renderer")]
+executor = MigrationExecutor(connection)
+executor.migrate(previous_target)
+previous_apps = executor.loader.project_state(previous_target).apps
+legacy_run = previous_apps.get_model("ai_assistant", "AiBusinessEvidenceRun")
+for name, status, collection in (("manual", "collecting", "manual"), ("queued", "collecting", "queued"),
+        ("paused", "collecting", "paused"), ("sealed", "sealed", "manual"), ("cancelled", "cancelled", "manual")):
+    legacy_run.objects.create(id="legacy-directory-"+name, owner_email="legacy@example.invalid",
+        client_request_id="legacy-"+name, request_digest="9"*64,
+        plan_json=json.dumps({"schemaVersion": "business-evidence-v1", "sources": []}),
+        status=status, collection_status=collection)
+legacy_workflow = previous_apps.get_model("ai_assistant", "AiWorkflowRuns").objects.create(
+    id="legacy-file-workflow", owner_email="legacy@example.invalid", client_request_id="legacy-file-workflow",
+    request_digest="8"*64, scope_json="null", name="旧版合成持久任务", graph_json="{}", graph_digest="7"*64)
+legacy_report = previous_apps.get_model("ai_assistant", "AiReportRun").objects.create(
+    id="legacy-file-report", owner_email=legacy_workflow.owner_email, client_request_id="legacy-file-report",
+    request_digest="8"*64, workflow=legacy_workflow, snapshot_json="{}")
+for renderer in (1, 2, 3):
+    previous_apps.get_model("ai_assistant", "AiBusinessFileRun").objects.create(
+        id="legacy-renderer-"+str(renderer), owner_email=legacy_workflow.owner_email,
+        report=legacy_report, binding_digest="6"*64, renderer_version=renderer)
+previous_tables = set(AI_TABLES)-{"ai_business_evidence_sources"}
+previous_digest = snapshot(database["NAME"], previous_tables)
 call_command("migrate", interactive=False, verbosity=0)
+assert snapshot(database["NAME"], previous_tables) == previous_digest
+assert MigrationExecutor(connection).migration_plan([("ai_assistant", "0019_business_source_directory")]) == []
 call_command("makemigrations", check=True, dry_run=True, verbosity=0)
 from ai_assistant.control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from ai_assistant.database_contract import provision
@@ -70,6 +97,18 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"]) as owner:
 from ai_assistant import models as m
 with connection.cursor() as cursor:
     cursor.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','business-synthetic',false)", [epoch])
+from business_analysis.evidence_v2 import build_catalog
+from business_analysis.contracts import canonical
+directory = build_catalog([{"key": "source-"+str(i), "domain": "sales", "query": {
+    "platform": "京东", "shop": "合成目录店", "channel": "合成渠道"+str(i),
+    "startDate": "2026-08-01", "endDate": "2026-08-01"}} for i in range(2)])
+with transaction.atomic():
+    directory_run = m.AiBusinessEvidenceRun.objects.create(id="directory-restore", owner_email="fixture@example.invalid",
+        client_request_id="directory-restore", request_digest=directory["planDigest"], plan_json=canonical(directory["header"]))
+    for entry in directory["entries"]:
+        m.AiBusinessEvidenceSource.objects.create(id="directory-source-"+str(entry["ordinal"]), run=directory_run,
+            source_key=entry["key"], ordinal=entry["ordinal"], domain=entry["domain"],
+            query_json=canonical(entry["query"]), query_digest=entry["queryDigest"])
 workflow = m.AiWorkflowRuns.objects.create(id="file-restore-workflow", owner_email="fixture@example.invalid",
     client_request_id="file-restore", request_digest="e"*64, scope_json="null", name="合成文件恢复",
     graph_json="{}", graph_digest="f"*64)
@@ -117,8 +156,17 @@ for role in ("reader", "writer"):
             limited.execute("UPDATE ai_business_file_runs SET stored_bytes=524288,version=2 WHERE id='file-restore'")
             denied(limited, "UPDATE ai_business_file_chunks SET content='broken'::bytea")
             denied(limited, "UPDATE ai_business_file_runs SET status='ready',version=3 WHERE id='file-restore'")
+            denied(limited, "UPDATE ai_business_evidence_sources SET query_digest=repeat('f',64),version=2 WHERE id='directory-source-1'")
+            denied(limited, "UPDATE ai_business_evidence_sources SET version=2,checkpoint_run_version=2 WHERE id='directory-source-1'")
+            denied(limited, "INSERT INTO ai_business_evidence_chunks(id,run_id,source_key,sequence,payload_json,payload_digest,created_at) VALUES ('orphan-v2-page','directory-restore','source-0',1,'{}',repeat('d',64),now())")
+            with limited.transaction():
+                limited.execute("INSERT INTO ai_business_evidence_chunks(id,run_id,source_key,sequence,payload_json,payload_digest,created_at) VALUES ('directory-v2-page','directory-restore',%s,1,'{}',%s,now())", [directory["entries"][0]["key"], hashlib.sha256(b'{}').hexdigest()])
+                limited.execute("UPDATE ai_business_evidence_sources SET checkpoint_json='{\"synthetic\":true}',version=2,checkpoint_run_version=2,page_count=1,stored_bytes=2 WHERE id='directory-source-1'")
+                limited.execute("UPDATE ai_business_evidence_runs SET version=2,stored_bytes=2 WHERE id='directory-restore'")
+            denied(limited, "UPDATE ai_business_evidence_runs SET status='sealed',version=3 WHERE id='directory-restore'")
         else:
             denied(limited, insert)
+            denied(limited, "UPDATE ai_business_evidence_sources SET version=2,checkpoint_run_version=2 WHERE id='directory-source-1'")
         for table in new_tables:
             limited.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
             denied(limited, "DELETE FROM " + table)
@@ -133,6 +181,14 @@ for role in ("reader", "writer"):
                 owner.execute(sql.SQL("ALTER TABLE {} ENABLE TRIGGER ai_write_fence").format(sql.Identifier(table)))
 
 complete = snapshot(database["NAME"], AI_TABLES)
+try:
+    MigrationExecutor(connection).migrate(previous_target)
+except RuntimeError as error:
+    assert "v2" in str(error).lower(), str(error)
+else:
+    raise AssertionError("Reverse migration discarded a v2 directory")
+assert snapshot(database["NAME"], AI_TABLES) == complete
+assert MigrationExecutor(connection).migration_plan([("ai_assistant", "0019_business_source_directory")]) == []
 binary = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
@@ -141,8 +197,16 @@ assert snapshot("teruisi_business_restore", AI_TABLES) == complete
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")) as restored:
     content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
     assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
-    assert restored.execute("SELECT renderer_version FROM ai_business_file_runs ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
+    assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id IN ('file-restore','offline-file-restore','excel-file-restore') ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
+    assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id LIKE 'legacy-renderer-%' ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
+    assert restored.execute("SELECT source_key,ordinal,domain,query_json,query_digest FROM ai_business_evidence_sources ORDER BY ordinal").fetchall() == [
+        (entry["key"], entry["ordinal"], entry["domain"], canonical(entry["query"]), entry["queryDigest"]) for entry in directory["entries"]]
+    assert restored.execute("SELECT version,checkpoint_run_version,checkpoint_json FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (2,2,'{"synthetic":true}')
+    assert restored.execute("SELECT page_count,stored_bytes FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (1,2)
+    assert restored.execute("SELECT payload_json,payload_digest FROM ai_business_evidence_chunks WHERE id='directory-v2-page'").fetchone() == ('{}',hashlib.sha256(b'{}').hexdigest())
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019", "oldAiTablesDigestPreserved": before,
+    "previous60TablesDigestPreserved": previous_digest, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,
     "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete,
+    "directorySourceCountRestored": len(directory["entries"]), "directoryCatalogDigest": directory["header"]["catalogDigest"], "directoryRollbackWithDataDenied": True,
     "binaryRestoreBytes": len(binary_payload), "binaryRestoreSha256": binary_digest, "productionWrites": False}))

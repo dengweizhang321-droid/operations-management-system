@@ -97,6 +97,13 @@ def check():
             |
             {(table, "ai_write_fence") for table in ("ai_business_evidence_runs", "ai_business_evidence_chunks")}
             | {("ai_business_evidence_runs", "ai_immutable_identity"), ("ai_business_evidence_runs", "ai_business_terminal"), ("ai_business_evidence_chunks", "ai_immutable_evidence")}
+            | {("ai_business_evidence_sources", "ai_write_fence"),
+               ("ai_business_evidence_sources", "ai_immutable_identity"),
+               ("ai_business_evidence_sources", "ai_business_source_state"),
+               ("ai_business_evidence_sources", "ai_business_directory_complete"),
+               ("ai_business_evidence_runs", "ai_business_directory_complete"),
+               ("ai_business_evidence_chunks", "ai_business_v2_chunk_source"),
+               ("ai_business_evidence_chunks", "ai_business_directory_complete")}
             |
             {(table, "ai_write_fence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries")}
             | {(table, "ai_immutable_evidence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs")}
@@ -150,6 +157,7 @@ def check():
             ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
             ("ai_business_evidence_runs", {"ai_business_run_bound", "ai_business_client_uq"}),
             ("ai_business_evidence_chunks", {"ai_business_chunk_bound", "ai_business_chunk_uq"}),
+            ("ai_business_evidence_sources", {"ai_business_source_bound", "ai_business_source_key_uq", "ai_business_source_ord_uq", "ai_business_source_query_uq"}),
             ("ai_library_revisions", {"ai_library_revisions_bound"}),
             ("ai_execution_guidance", {"ai_execution_guidance_bound"}),
             ("ai_report_runs", {"ai_report_runs_bound", "ai_report_client_uq"}),

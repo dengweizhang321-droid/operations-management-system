@@ -18,7 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
-PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks"}
+PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources"}
 
 
 class _EvidenceCursor:
@@ -107,15 +107,22 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_business_evidence_tables_require_exact_migration_generation(self):
-        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 16)
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 19)
         migrations = [("ai_assistant", name) for name in names]
         current = _ai_evidence(AI_TABLES, migrations)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 60)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 61)
+        before_directory = _ai_evidence(set(AI_TABLES)-{"ai_business_evidence_sources"}, [m for m in migrations if int(m[1][:4]) <= 18])
+        self.assertEqual(len([name for name in before_directory["tables"] if name.startswith("ai_")]), 60)
         previous = [item for item in migrations if int(item[1][:4]) <= 13]
         self.assertEqual(len([name for name in _ai_evidence(PRE_EVIDENCE_TABLES, previous)["tables"] if name.startswith("ai_")]), 56)
         for tables, history in [(set(AI_TABLES)-{"ai_business_evidence_chunks"}, migrations), (set(AI_TABLES)-{"ai_business_file_chunks"}, migrations), (AI_TABLES, previous), (AI_TABLES, [m for m in migrations if m[1] != "0013_dingtalk_schedule_media"]), (AI_TABLES, [m for m in migrations if m[1] != "0015_business_collection"])]:
             with self.assertRaises(RuntimeError):
                 _ai_evidence(tables, history)
+        for missing in ("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory"):
+            with self.subTest(missing=missing), self.assertRaises(RuntimeError):
+                _ai_evidence(AI_TABLES, [m for m in migrations if m[1] != missing])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(set(AI_TABLES)-{"ai_business_evidence_sources"}, migrations)
 
     def test_evidence_accepts_both_backup_generations_with_stable_content_digest(self):
         legacy_tables = set(PRE_EVIDENCE_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}

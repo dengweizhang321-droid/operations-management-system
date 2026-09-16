@@ -37,3 +37,32 @@ class AiBusinessEvidenceChunk(models.Model):
     class Meta:
         db_table = "ai_business_evidence_chunks"
         constraints = [models.UniqueConstraint(fields=["run", "source_key", "sequence"], name="ai_business_chunk_uq")]
+
+
+class AiBusinessEvidenceSource(models.Model):
+    """Candidate v2 directory; existing v1 run/chunk bytes are unchanged."""
+    id = models.CharField(primary_key=True, max_length=160)
+    run = models.ForeignKey(AiBusinessEvidenceRun, on_delete=models.PROTECT)
+    source_key = models.CharField(max_length=160)
+    ordinal = models.PositiveIntegerField()
+    domain = models.CharField(max_length=20)
+    query_json = models.TextField()
+    query_digest = models.CharField(max_length=64)
+    checkpoint_json = models.TextField(default="{}")
+    version = models.PositiveIntegerField(default=1)
+    checkpoint_run_version = models.PositiveIntegerField(default=1)
+    page_count = models.PositiveIntegerField(default=0)
+    stored_bytes = models.PositiveBigIntegerField(default=0)
+    row_count = models.PositiveBigIntegerField(default=0)
+    finished = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_business_evidence_sources"
+        constraints = [
+            models.UniqueConstraint(fields=["run", "source_key"], name="ai_business_source_key_uq"),
+            models.UniqueConstraint(fields=["run", "ordinal"], name="ai_business_source_ord_uq"),
+            models.UniqueConstraint(fields=["run", "domain", "query_digest"], name="ai_business_source_query_uq"),
+        ]
+        indexes = [models.Index(fields=["run", "finished", "ordinal"], name="ai_business_source_next_idx")]

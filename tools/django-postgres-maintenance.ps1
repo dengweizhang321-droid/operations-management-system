@@ -422,6 +422,12 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0015_business_collection" }).Count -ne 1 -or @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -ne 1) { throw "AI 报告文件迁移缺少前置采集迁移" }
       $requiredTables += @("ai_business_file_runs", "ai_business_file_chunks")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -gt 0) {
+      foreach ($sourceDirectoryPredecessor in @("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $sourceDirectoryPredecessor }).Count -ne 1) { throw "AI 来源目录迁移缺少完整前置证据/文件迁移" }
+      }
+      $requiredTables += @("ai_business_evidence_sources")
+    }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
     }
