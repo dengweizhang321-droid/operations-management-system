@@ -58,6 +58,8 @@ class _Result:
         self._available()
         return {"sourcePages": self._source_pages, "sourceBytes": self._source_bytes,
             "sources": json.loads(canonical(self._source_stats)), "groupCount": self._groups,
+            "scratchLimitBytes": self._db.execute("PRAGMA max_page_count").fetchone()[0]
+                * self._db.execute("PRAGMA page_size").fetchone()[0],
             "scratchBytes": self._db.execute("PRAGMA page_count").fetchone()[0]
                 * self._db.execute("PRAGMA page_size").fetchone()[0]}
 
@@ -202,8 +204,11 @@ class _Result:
 
 
 @contextmanager
-def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master_expected=None):
+def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master_expected=None, max_scratch_bytes=None):
     """Yield fully verified results; all scans/pages must stay inside this block."""
+    scratch_limit = MAX_SCRATCH_BYTES if max_scratch_bytes is None else max_scratch_bytes
+    _require(type(scratch_limit) is int and 0 < scratch_limit <= MAX_SCRATCH_BYTES,
+        "临时关联空间额度无效或超过固定上限")
     result = None
     with TemporaryDirectory(prefix="teruisi-product-mapping-") as directory:
         db = None
@@ -214,8 +219,8 @@ def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master
             db.execute("PRAGMA cache_size=-2048")
             db.execute("PRAGMA temp_store=FILE")
             page_size = db.execute("PRAGMA page_size").fetchone()[0]
-            _require(MAX_SCRATCH_BYTES >= page_size, "临时关联空间不足")
-            db.execute(f"PRAGMA max_page_count={MAX_SCRATCH_BYTES // page_size}")
+            _require(scratch_limit >= page_size, "临时关联空间不足")
+            db.execute(f"PRAGMA max_page_count={scratch_limit // page_size}")
             db.execute("CREATE TABLE candidates(code TEXT COLLATE BINARY,pair TEXT COLLATE BINARY,PRIMARY KEY(code,pair)) WITHOUT ROWID")
             db.execute("CREATE TABLE groups(identity TEXT COLLATE BINARY PRIMARY KEY,payload TEXT NOT NULL) WITHOUT ROWID")
             result = _Result(db)

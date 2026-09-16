@@ -25,9 +25,13 @@ def _current(row, principal):
     store.assert_current(row)
 
 
-@contextmanager
-def reconciled(run_id, sales_key, master_key, principal):
-    """Yield only after both exact sources have been consumed in full."""
+def describe(run_id, sales_key, master_key, principal):
+    """Internal trusted descriptors only; does not certify any fact traversal.
+
+    The actual opener must still run reconciled() and match its final binding.
+    Kept here so derived readers never duplicate or trust client-supplied source
+    binding construction. No source pages, mapping result, or model are read.
+    """
     sales_key, master_key = identifier(sales_key), identifier(master_key)
     row = business_evidence.get_run(run_id, principal)
     if row.status != "sealed" or not store.is_v2(row):
@@ -49,9 +53,20 @@ def reconciled(run_id, sales_key, master_key, principal):
         "algorithmVersion": identity_partitioned.ALGORITHM_VERSION,
         "sales": {"sourceKey": sales_key, "queryDigest": digest(sales["query"]), "sourceRef": expected["sales"]["sourceRef"]},
         "master": {"sourceKey": master_key, "queryDigest": digest(master["query"]), "sourceRef": expected["master"]["sourceRef"]}}
+    _current(row, principal)
+    return row, reader, sales, master, binding
+
+
+@contextmanager
+def reconciled(run_id, sales_key, master_key, principal, *, max_scratch_bytes=None):
+    """Yield only after both exact sources have been consumed in full."""
+    row, reader, sales, master, binding = describe(run_id, sales_key, master_key, principal)
+    sales_key, master_key = sales["key"], master["key"]
+    expected = {"sales": reader.info(sales_key)["expected"], "master": reader.info(master_key)["expected"]}
     try:
         with identity_partitioned.reconcile_products(reader.pages(sales_key), reader.pages(master_key),
-                sales_expected=expected["sales"], master_expected=expected["master"]) as result:
+                sales_expected=expected["sales"], master_expected=expected["master"],
+                **({"max_scratch_bytes": max_scratch_bytes} if max_scratch_bytes is not None else {})) as result:
             _current(row, principal)
             yield result, binding
             _current(row, principal)

@@ -76,7 +76,7 @@ class BusinessIdentityTests(TestCase):
         for actor in (self.viewer, self.user("mapping-other@example.invalid", "admin", None)):
             with self.assertRaises(AiError): self.page(actor)
         with patch("ai_assistant.business_sealed.Reader.pages", side_effect=AiError("late broken fact")), self.assertRaises(AiError): self.page()
-        with patch.object(identity, "_current", side_effect=[None, AiError("late revoked principal")]), self.assertRaises(AiError): self.page()
+        with patch.object(identity, "_current", side_effect=[None, None, AiError("late revoked principal")]), self.assertRaises(AiError): self.page()
 
     def test_context_rejects_reads_after_close_and_scope_changes(self):
         with identity.reconciled(self.run_id, "sales", "master", self.admin) as (result, binding):

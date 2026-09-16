@@ -55,6 +55,17 @@ class Once:
 
 
 class PartitionedIdentityTests(TestCase):
+    def test_private_scratch_budget_can_only_reduce_fixed_limit(self):
+        for invalid in (True, False, 0, -1, 1.5, "4096", partitioned.MAX_SCRATCH_BYTES+1):
+            with self.subTest(invalid=invalid), self.assertRaises(AnalysisContractError):
+                with partitioned.reconcile_products(pages("sales", 1), pages("master", 1),
+                        max_scratch_bytes=invalid):
+                    self.fail("invalid scratch limit accepted")
+        with partitioned.reconcile_products(pages("sales", 2), pages("master", 2),
+                max_scratch_bytes=128*1024*1024) as result:
+            self.assertEqual(result.stats()["scratchLimitBytes"], 128*1024*1024)
+            self.assertEqual(result.summary()["rowCount"], 2)
+
     def test_small_sample_matches_old_groups_totals_and_semantics(self):
         sales = list(pages("sales", 8))[0]["items"]
         masters = list(pages("master", 8))[0]["items"]
