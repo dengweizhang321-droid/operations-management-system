@@ -487,6 +487,8 @@ def agent_tick():
         admitted, entries = admission(principal, row.model_id)
         if any(getattr(row, k) != v for k, v in admitted.items()):
             raise AiError("执行策略已变化", "executor_policy_changed", 409)
+        from . import business_reports
+        entries = business_reports.restricted_entries(row, entries)
         model = resolve_model(row.model_id)
         providers = list(
             m.AiAgentProviderDispatches.objects.filter(job_id=row.id).order_by(
@@ -558,6 +560,7 @@ def agent_tick():
                 return _complete(row, principal, final)
             if pending:
                 parent, call = pending
+                business_reports.validate_call(row, call)
                 entry = next((e for e in entries if e["name"] == call["name"]), None)
                 if (
                     not entry
@@ -689,6 +692,8 @@ def _leased(lease):
 
 
 def _complete(row, principal, answer):
+    from . import business_reports
+    business_reports.validate_output(row, answer)
     output = {"answer": text(answer, "answer", 12000)}
     row.output_json = canonical(output)
     row.status = "completed"

@@ -54,7 +54,7 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
     indexed = [{canonical(item["entity"]): item for item in rows} for rows in (current, baseline)]
     keys = sorted(set(indexed[0]) | set(indexed[1]))
     result = []
-    for key in keys:
+    for row_index, key in enumerate(keys):
         a, b = (index.get(key) for index in indexed)
         item = a or b
         metrics, rates, comparisons = {}, {}, {}
@@ -69,9 +69,10 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
             rates[metric] = left
             if previous_header:
                 comparisons[metric] = compare(left, right, comparable=complete_dates, is_rate=metric in RATE_METRICS)
-        result.append({"id": digest([expected["evidenceDigest"], baseline_expected, dimension, item["entity"]]),
+        result.append({"id": digest([expected["evidenceDigest"], baseline_expected, dimension, item["entity"]]), "rowIndex": row_index,
             "entity": item["entity"], "currentRowCount": a["rowCount"] if a else None,
             "baselineRowCount": b["rowCount"] if b else None, "metrics": metrics, "ratios": rates,
+            "baselineMetrics": b["metrics"] if b else None,
             "comparisons": comparisons, "dimensionMissing": any(item["entity"].get(d) is None for d in VIEWS[dimension])})
     return {"schemaVersion": "business-result-table-v1", "dimension": dimension, "source": expected,
         "baselineSource": baseline_expected, "sourceMetadata": header, "baselineMetadata": previous_header,

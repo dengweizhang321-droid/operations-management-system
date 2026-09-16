@@ -1,6 +1,6 @@
 from copy import deepcopy
 from unittest import TestCase
-from .contracts import AnalysisContractError, PageReconciler, SCHEMA_VERSION, comparison_periods, coverage, digest
+from .contracts import AnalysisContractError, PageReconciler, SCHEMA_VERSION, MAX_SAFE_INTEGER, compare, comparison_periods, coverage, digest
 from .results import build_table
 
 
@@ -89,3 +89,5 @@ class ResultTableTests(TestCase):
             self.assertIsNone(table["rows"][0]["comparisons"]["spendCents"]["changeRate"])
         empty, none = fixture(rows=[])
         self.assertEqual(build_table([empty], "shop", none)["rows"], [])
+        with self.assertRaises(AnalysisContractError):
+            compare(MAX_SAFE_INTEGER, -MAX_SAFE_INTEGER)

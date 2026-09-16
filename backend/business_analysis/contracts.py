@@ -71,8 +71,10 @@ def compare(current, baseline, *, is_rate=False, comparable=True):
         return {"current": current, "baseline": baseline, "difference": None,
                 "changeRate": None, "percentagePoints": None, "status": "unavailable"}
     change = Decimal(str(current)) - Decimal(str(baseline))
+    if type(current) is int and type(baseline) is int and abs(change) > MAX_SAFE_INTEGER:
+        raise AnalysisContractError("比较差额超出无损整数范围")
     status = "comparable" if baseline > 0 else "zero_baseline" if baseline == 0 else "negative_baseline"
-    return {"current": current, "baseline": baseline, "difference": float(change),
+    return {"current": current, "baseline": baseline, "difference": int(change) if type(current) is int and type(baseline) is int else float(change),
             "changeRate": ratio(change, baseline) if baseline > 0 else None,
             "percentagePoints": float(change * 100) if is_rate else None, "status": status}
 

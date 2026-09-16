@@ -25,6 +25,7 @@ from . import (
     report_library,
     reports,
     business_evidence,
+    business_reports,
     dingtalk_schedules,
 )
 from .model_capabilities import MAX_CHAT_SECONDS
@@ -137,6 +138,7 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"business-reports": {"POST"},
             r"business-evidence": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
@@ -221,6 +223,9 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "business-reports":
+            fields(params, set())
+            return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
         if root == "business-evidence":
             current_principal(principal, admin=True)
             if request.method == "GET":
