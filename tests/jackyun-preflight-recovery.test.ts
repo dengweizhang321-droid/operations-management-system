@@ -48,6 +48,72 @@ async function fixture897() {
   await writeFile(f.activePath, JSON.stringify({ runId, executionId: "897" }));
   return { ...f, planPath, controllerPath, runId };
 }
+
+const proof2621: PreflightEvidence = {
+  executionId: "2621", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-09-16T16:10:01.909Z", stoppedAt: "2026-09-16T16:10:12.384Z", retrySuccessId: null,
+  lastNode: "B·接口校验与五表下载",
+  runNodes: ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+  error: "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（initialize）。", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "27aac9dd30454319f2158b7b9428549e026762f9701c9a0d98c9b6e71064f24f", activeExecutions: 0,
+};
+async function fixture2621() {
+  const f = await fixture(), runId = "n8n-export-first-2621";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  await writeFile(planPath, JSON.stringify({ version: 1, protocol: "2026-09-06.export-first.1", executionId: "2621", runId,
+    runDate: "2026-09-17", asOfDate: "2026-09-16", baseUrl: "http://localhost:3000", createdAt: "2026-09-16T16:10:04.007Z",
+    phase: "exporting", exports: {}, exportTransport: "session_api_v1" }, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "2621" }));
+  return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-16T17:00:00Z") } };
+}
+
+test("2621 closure preserves original failure and permits only a new full API plan", async () => {
+  const f = await fixture2621(), before = await readFile(f.planPath), active = await readFile(f.activePath);
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "2623", f.deps), /尚未闭合/);
+  const proposal = await inspectPreflightClosure(f.root, "2621", proof2621, "2026-09-16T16:59:00Z");
+  assert.equal(proposal.reason, "audited_2621_dpapi_before_api_exports");
+  await publishPreflightClosure(f.root, proposal, proof2621, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "2621");
+  assert.deepEqual(await readFile(f.planPath), before);
+  assert.deepEqual(await readFile(f.activePath), active);
+  await assert.rejects(publishPreflightClosure(f.root, proposal, proof2621, recoverySha(JSON.stringify(proposal))));
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2621", f.deps), /已经闭合/);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2623", f.deps), /缺少/);
+  const next = await runJackyunExportFirstAction("plan-api", "2623", f.deps);
+  assert.equal(next.exportTransport, "session_api_v1");
+  const nextPlan = JSON.parse(await readFile(path.join(f.pipeline, "n8n-export-first-2623.json"), "utf8"));
+  assert.equal(nextPlan.runDate, "2026-09-17");
+  assert.equal(nextPlan.asOfDate, "2026-09-16");
+  assert.deepEqual(await readFile(f.planPath), before);
+});
+
+test("2621 rejects changed evidence, any business artifact and late writes after closure", async () => {
+  for (const change of ["plan", "active", "live", "hash", "retry", "other-id", "later-node", "error", "time", "imports", "events", "validation", "download", "late-imports"]) {
+    const f = await fixture2621(), evidence = { ...proof2621 };
+    const imports = path.join(f.root, "outputs/jackyun-import-runs", f.runId);
+    if (change === "late-imports") {
+      const proposal = await inspectPreflightClosure(f.root, "2621", evidence, "2026-09-16T16:59:00Z");
+      await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+      await mkdir(imports, { recursive: true });
+      await assert.rejects(runJackyunExportFirstAction("plan-api", "2623", f.deps), /尚未闭合/);
+      continue;
+    }
+    if (change === "plan") await writeFile(f.planPath, (await readFile(f.planPath, "utf8")) + " ");
+    if (change === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-2623", executionId: "2623" }));
+    if (change === "live") evidence.activeExecutions = 1;
+    if (change === "hash") evidence.executionDataSha256 = "f".repeat(64);
+    if (change === "retry") evidence.retrySuccessId = "2623";
+    if (change === "other-id") evidence.executionId = "2623";
+    if (change === "later-node") evidence.runNodes = [...evidence.runNodes, "D·统一导入运营管理系统"];
+    if (change === "error") evidence.error = "提交结果未决";
+    if (change === "time") evidence.stoppedAt = "2026-09-16T16:10:13.384Z";
+    const paths = { imports, events: path.join(f.root, "outputs/jackyun-browser-events", f.runId),
+      validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), download: path.join(f.download, "jackyun", f.runId) };
+    if (change in paths) await mkdir(paths[change as keyof typeof paths], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "2621", evidence, "2026-09-16T16:59:00Z"));
+  }
+});
 test("audited 897 closes before export without altering original bytes and allows a fresh API plan", async () => {
   const f = await fixture897(), before = await readFile(f.planPath), controller = await readFile(f.controllerPath), active = await readFile(f.activePath);
   const proposal = await inspectPreflightClosure(f.root, "897", proof897, "2026-09-08T06:00:00Z");

@@ -81,13 +81,14 @@ export async function invokeJackyunVault(
         let errorId = "";
         try {
           const diagnostic = JSON.parse(result) as { stage?: string; errorId?: string };
-          if (["initialize", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
+          if (["initialize", "binding", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
           if (/^[A-Za-z][A-Za-z0-9.,_-]{0,159}$/.test(diagnostic.errorId ?? "")) errorId = diagnostic.errorId!;
         } catch { /* secret-bearing output and raw errors are never propagated */ }
         reject(new Error(`waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}）。`));
       }
     };
-    child.stdout.on("data", chunk => { stdout += String(chunk); if (stdout.length > 32768) finish(false); });
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", chunk => { stdout += chunk; if (stdout.length > 32768) finish(false); });
     // Never propagate PowerShell diagnostics or child output in an error object.
     child.stderr.resume();
     child.once("error", () => finish(false));

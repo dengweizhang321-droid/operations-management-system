@@ -39,6 +39,20 @@ const audited897 = {
   },
 } as const;
 export const recoverySha = (raw: string | Uint8Array) => createHash("sha256").update(raw).digest("hex");
+// Audited 2621: session initialization failed before runApiExports entered its
+// execute callback. No beforeModule intent, controller or downloaded file exists.
+const audited2621 = {
+  planSha256: "aaf9ffe080605d152213aab8e3225fc4b164fbd1d0f92c8ff2a31fa38d694b7c",
+  evidence: {
+    executionId: "2621", workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-09-16T16:10:01.909Z", stoppedAt: "2026-09-16T16:10:12.384Z", retrySuccessId: null,
+    lastNode: "B·接口校验与五表下载",
+    runNodes: ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+    error: "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（initialize）。", httpCode: "500",
+    requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "27aac9dd30454319f2158b7b9428549e026762f9701c9a0d98c9b6e71064f24f", activeExecutions: 0,
+  },
+} as const;
 export type PreflightEvidence = {
   executionId: string; workflowId: string; status: string; startedAt: string; stoppedAt: string;
   lastNode: string; runNodes: string[]; error: string; httpCode: string; requestUrl: string;
@@ -50,7 +64,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export";
+  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -173,7 +187,10 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const plan = parse<EmptyPlan>(planRaw), active = parse<{ runId: string; executionId: string }>(activeRaw);
   const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
   const controlsOnly = executionId === "897";
-  if (controlsOnly) {
+  const apiLoginOnly = executionId === "2621";
+  if (apiLoginOnly) {
+    if (recoverySha(planRaw) !== audited2621.planSha256 || !isDeepStrictEqual(evidence, audited2621.evidence)) throw new Error("2621 原失败运行身份或证据已变化。");
+  } else if (controlsOnly) {
     if (recoverySha(planRaw) !== audited897.planSha256 || !isDeepStrictEqual(evidence, audited897.evidence)) throw new Error("897 原失败运行身份或证据已变化。");
   } else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
   if (!isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
@@ -192,6 +209,9 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   }
   const absentPaths = queryOnly || legacyMenuOnly || controlsOnly ? effects.filter((_, index) => index !== 1) : effects;
   await assertAbsentEffects(absentPaths);
+  if (apiLoginOnly) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_2621_dpapi_before_api_exports" };
   if (controlsOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_897_controls_before_query_and_export", controllerEvidence,
@@ -225,7 +245,8 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed && !controlsClosed)) {
+  const apiLoginClosed = receipt.status === "closed_before_business" && receipt.reason === "audited_2621_dpapi_before_api_exports";
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);

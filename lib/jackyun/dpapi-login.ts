@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { Page } from "playwright-core";
 import { readChromeBrowserProcessId } from "./cdp-client";
+import { jackyunPowerShellUtf8Pipes } from "./dpapi-program";
 import { readJackyunRuntimeCredential, windowsPowerShellEnvironment, type JackyunCredential, type JackyunLoginConfig } from "./windows-dpapi";
 
 const execFileAsync = promisify(execFile);
@@ -42,14 +43,20 @@ export function assertJackyunBrowserIdentity(identity: { executablePath: string;
   }
 }
 
+export function jackyunBrowserIdentityProgram(pid: number) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("吉客云浏览器进程 ID 无效。");
+  return `$ErrorActionPreference='Stop'; ${jackyunPowerShellUtf8Pipes}
+    $p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}';
+    $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid;
+    $pipeWriter.WriteLine((@{executablePath=$p.ExecutablePath;commandLine=$p.CommandLine;ownedByCurrentUser=($owner.Sid -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value)} | ConvertTo-Json -Compress))`;
+}
+
 export async function verifyJackyunBrowserBinding(expected: JackyunBrowserBinding) {
   const pid = await readChromeBrowserProcessId(expected.port);
   if (expected.processId !== undefined && pid !== expected.processId) {
     throw new Error("waiting_login：调试端口不属于本次启动的独立浏览器，已停止接管。");
   }
-  const script = `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false); $p=Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}';
-    $owner=Invoke-CimMethod -InputObject $p -MethodName GetOwnerSid;
-    @{executablePath=$p.ExecutablePath;commandLine=$p.CommandLine;ownedByCurrentUser=($owner.Sid -eq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value)} | ConvertTo-Json -Compress`;
+  const script = jackyunBrowserIdentityProgram(pid);
   let stdout = "";
   try {
     const result = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], {

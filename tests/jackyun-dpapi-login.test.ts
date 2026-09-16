@@ -7,12 +7,48 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { chromium } from "playwright-core";
-import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
+import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, jackyunBrowserIdentityProgram, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
 import { assertJackyunLoginConfig, invokeJackyunVault, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { jackyunDpapiProgram } from "../lib/jackyun/dpapi-program";
 
 const config: JackyunLoginConfig = { version: 1, loginMode: "windows_dpapi_credentials", tenantId: "771168",
-  profileDirectory: "D:\\test profiles\\jackyun", debuggingPort: 19223, initialWaitMs: 1000, afterSubmitWaitMs: 1000 };
+  profileDirectory: "D:\\test profiles\\吉客云", debuggingPort: 19223, initialWaitMs: 1000, afterSubmitWaitMs: 1000 };
+
+// Detach only this disposable PowerShell child. Pipes remain connected, but
+// Console.InputEncoding now reproduces ERROR_INVALID_HANDLE from background runs.
+const withoutConsole = String.raw`
+Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public class JackyunTestConsole { [DllImport("kernel32.dll")] public static extern bool FreeConsole(); }'
+[JackyunTestConsole]::FreeConsole() | Out-Null
+`;
+
+function runWithoutConsole(program: string, input = "") {
+  return spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand",
+    Buffer.from(withoutConsole + program, "utf16le").toString("base64")], {
+    input, windowsHide: true, env: windowsPowerShellEnvironment(), encoding: "utf8", timeout: 15000, maxBuffer: 32768,
+  });
+}
+
+function detachedVault(action: "read" | "status", vaultRoot: string, login = config) {
+  return runWithoutConsole(jackyunDpapiProgram, JSON.stringify({ action, vaultRoot, tenantId: login.tenantId, profileDirectory: login.profileDirectory }));
+}
+
+test("background child reproduces old console failure and can verify process ownership with UTF-8 pipes", {
+  skip: process.platform !== "win32", timeout: 30000,
+}, () => {
+  const old = runWithoutConsole(String.raw`
+$ErrorActionPreference='Stop'
+try { [Console]::InputEncoding=New-Object Text.UTF8Encoding($false); exit 2 }
+catch { @{failed=$true;type=$_.Exception.GetType().FullName} | ConvertTo-Json -Compress; exit 1 }
+`);
+  assert.equal(old.status, 1);
+  assert.equal(JSON.parse(old.stdout).failed, true);
+  const identity = runWithoutConsole(jackyunBrowserIdentityProgram(process.pid));
+  assert.equal(identity.status, 0);
+  const observed = JSON.parse(identity.stdout);
+  assert.equal(observed.executablePath.toLowerCase(), process.execPath.toLowerCase());
+  assert.equal(observed.ownedByCurrentUser, true);
+  for (const invalid of [0, -1, NaN, 1.5, Infinity]) assert.throws(() => jackyunBrowserIdentityProgram(invalid));
+});
 
 function sessionHarness(surfaces: JackyunLoginSurface[]) {
   let now = 0;
@@ -157,13 +193,14 @@ test("Windows DPAPI roundtrip rejects copied bindings, corrupted ciphertext and 
   const key = createHash("sha256").update(binding).digest("hex");
   const fixture = String.raw`
     $ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Security
-    $r=[Console]::In.ReadToEnd()|ConvertFrom-Json
+    $inputReader=New-Object IO.StreamReader([Console]::OpenStandardInput(),(New-Object Text.UTF8Encoding($false,$true)),$false)
+    $r=$inputReader.ReadToEnd()|ConvertFrom-Json
     $acl=New-Object Security.AccessControl.DirectorySecurity
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
     $acl.SetOwner($sid); $acl.SetAccessRuleProtection($true,$false)
     $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
     Set-Acl -LiteralPath $r.root -AclObject $acl
-    $plain=@{tenantId=$r.tenant;profile=$r.profile;username='fixture-user';password='fixture-password'}|ConvertTo-Json -Compress
+    $plain=@{tenantId=$r.tenant;profile=$r.profile;username='模拟账号🧪';password='模拟密码🔐'}|ConvertTo-Json -Compress
     $cipher=[Security.Cryptography.ProtectedData]::Protect([Text.Encoding]::UTF8.GetBytes($plain),[Text.Encoding]::UTF8.GetBytes($r.binding),[Security.Cryptography.DataProtectionScope]::CurrentUser)
     @{version=1;binding=$r.key;ciphertext=[Convert]::ToBase64String($cipher)}|ConvertTo-Json -Compress|Set-Content -LiteralPath (Join-Path $r.root ($r.key+'.json')) -Encoding UTF8
   `;
@@ -175,21 +212,36 @@ test("Windows DPAPI roundtrip rejects copied bindings, corrupted ciphertext and 
     });
     assert.equal(prepared.status, 0, prepared.stderr.toString().slice(0, 3000));
     assert.equal(JSON.parse(await invokeJackyunVault("status", config, root)).ready, true);
-    assert.deepEqual(JSON.parse(await invokeJackyunVault("read", config, root)), { username: "fixture-user", password: "fixture-password" });
+    const fakeCredential = { username: "模拟账号🧪", password: "模拟密码🔐" };
+    assert.deepEqual(JSON.parse(await invokeJackyunVault("read", config, root)), fakeCredential);
+    const detachedStatus = detachedVault("status", root);
+    assert.equal(detachedStatus.status, 0);
+    assert.deepEqual(JSON.parse(detachedStatus.stdout), { ok: true, ready: true, status: "ready" });
+    const detachedRead = detachedVault("read", root);
+    assert.equal(detachedRead.status, 0);
+    assert.deepEqual(JSON.parse(detachedRead.stdout), fakeCredential);
     const file = path.join(root, `${key}.json`);
     const bytes = await readFile(file, "utf8");
-    assert.doesNotMatch(bytes, /fixture-user|fixture-password/);
+    assert.doesNotMatch(bytes, /模拟账号|模拟密码/);
     const wrong = { ...config, tenantId: "999999" };
     const wrongKey = createHash("sha256").update(`TERUISI-JACKYUN:v1:999999:${config.profileDirectory.toLowerCase()}`).digest("hex");
     await writeFile(path.join(root, `${wrongKey}.json`), JSON.stringify({ ...JSON.parse(bytes.replace(/^\uFEFF/, "")), binding: wrongKey }));
     await assert.rejects(invokeJackyunVault("read", wrong, root), /waiting_login/);
+    const wrongBinding = detachedVault("read", root, wrong);
+    assert.equal(wrongBinding.status, 1);
+    assert.equal(JSON.parse(wrongBinding.stdout).stage, "read");
     await writeFile(file, JSON.stringify({ version: 1, binding: key, ciphertext: "corrupt" }));
     await assert.rejects(invokeJackyunVault("read", config, root), /waiting_login/);
+    const corrupted = detachedVault("read", root);
+    assert.equal(corrupted.status, 1);
+    assert.equal(JSON.parse(corrupted.stdout).stage, "read");
+    assert.doesNotMatch(corrupted.stdout + corrupted.stderr, /模拟账号|模拟密码|ciphertext/);
     await writeFile(file, bytes);
     // Copying otherwise-valid ciphertext into a directory with inherited ACLs
     // must be refused, even though DPAPI itself would still decrypt it.
     await writeFile(path.join(exposedRoot, `${key}.json`), bytes);
     await assert.rejects(invokeJackyunVault("read", config, exposedRoot), /waiting_login/);
+    assert.equal(detachedVault("read", exposedRoot).status, 1);
   } finally {
     assert.ok(path.resolve(root).startsWith(path.resolve(tmpdir()) + path.sep));
     assert.ok(path.basename(root).startsWith("jackyun-dpapi-fixture-"));

@@ -1,15 +1,28 @@
 // This fixed program is bundled into the immutable helper. It accepts only
 // non-secret binding metadata on stdin; setup collects secrets in a local form.
+// Standard pipes remain available without a console. Console.*Encoding setters
+// call console APIs and can fail with an invalid handle in a background process.
+export const jackyunPowerShellUtf8Pipes = String.raw`
+$utf8 = New-Object Text.UTF8Encoding($false,$true)
+$pipeReader = New-Object IO.StreamReader([Console]::OpenStandardInput(),$utf8,$false)
+$pipeWriter = New-Object IO.StreamWriter([Console]::OpenStandardOutput(),$utf8)
+$pipeWriter.AutoFlush = $true
+`;
+
 export const jackyunDpapiProgram = String.raw`
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $stage = 'initialize'
-trap { @{ok=$false;status='failed';stage=$script:stage;exceptionType=$_.Exception.GetType().FullName;errorId=$_.FullyQualifiedErrorId} | ConvertTo-Json -Compress; exit 1 }
+$pipeWriter = $null
+trap {
+  $diagnostic = @{ok=$false;status='failed';stage=$script:stage;exceptionType=$_.Exception.GetType().FullName;errorId=$_.FullyQualifiedErrorId} | ConvertTo-Json -Compress
+  if ($null -ne $script:pipeWriter) { $script:pipeWriter.WriteLine($diagnostic) } else { $diagnostic }
+  exit 1
+}
+${jackyunPowerShellUtf8Pipes}
 Add-Type -AssemblyName System.Security
-$utf8 = New-Object Text.UTF8Encoding($false)
-[Console]::InputEncoding = $utf8
-[Console]::OutputEncoding = $utf8
-$request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$stage = 'binding'
+$request = $pipeReader.ReadToEnd() | ConvertFrom-Json
 if ($request.action -notin @('setup','status','read')) { throw 'Invalid action' }
 if ($request.tenantId -notmatch '^[0-9]{4,12}$') { throw 'Invalid tenant binding' }
 foreach ($value in @($request.vaultRoot, $request.profileDirectory)) {
@@ -141,7 +154,7 @@ if ($request.action -eq 'setup') {
     $form.CancelButton = $cancel
     if ($form.ShowDialog() -ne [Windows.Forms.DialogResult]::OK) {
       $account.Clear(); $password.Clear(); $form.Dispose()
-      @{ok=$false;status='cancelled'} | ConvertTo-Json -Compress
+      $pipeWriter.WriteLine((@{ok=$false;status='cancelled'} | ConvertTo-Json -Compress))
       exit 0
     }
     $plainBytes = $null
@@ -164,7 +177,7 @@ if ($request.action -eq 'setup') {
       $stage = 'setup_verify'
       $verified = Read-Credential
       $verified.username = ''; $verified.password = ''
-      @{ok=$true;status='stored';ready=$true} | ConvertTo-Json -Compress
+      $pipeWriter.WriteLine((@{ok=$true;status='stored';ready=$true} | ConvertTo-Json -Compress))
     } finally {
       if ($null -ne $plainBytes) { [Array]::Clear($plainBytes,0,$plainBytes.Length) }
       $plainJson=$null; $account.Clear(); $password.Clear(); $form.Dispose()
@@ -174,13 +187,13 @@ if ($request.action -eq 'setup') {
   exit 0
 }
 if (-not (Test-Path -LiteralPath $vaultFile)) {
-  if ($request.action -eq 'status') { @{ok=$true;ready=$false;status='missing'} | ConvertTo-Json -Compress; exit 0 }
+  if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$false;status='missing'} | ConvertTo-Json -Compress)); exit 0 }
   throw 'Credential missing'
 }
 $stage = 'read'
 $credential = Read-Credential
 try {
-  if ($request.action -eq 'status') { @{ok=$true;ready=$true;status='ready'} | ConvertTo-Json -Compress }
-  else { @{username=$credential.username;password=$credential.password} | ConvertTo-Json -Compress }
+  if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$true;status='ready'} | ConvertTo-Json -Compress)) }
+  else { $pipeWriter.WriteLine((@{username=$credential.username;password=$credential.password} | ConvertTo-Json -Compress)) }
 } finally { $credential.username=''; $credential.password='' }
 `;

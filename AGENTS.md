@@ -225,6 +225,8 @@
 
 ## 6. 鉴权、密钥与敏感数据
 
+- 吉客云后台 PowerShell 凭据/进程核验使用显式 UTF-8 标准流，禁止依赖控制台编码设置；Node 按流解码多字节字符。凭据状态验收必须包含无控制台子进程和隔离 DPAPI 夹具，不能仅用交互终端的 ready 判断后台可用。原 ACL、CurrentUser、身份绑定及凭据类失败停止规则保持不变；详见 `docs/吉客云DPAPI登录配置.md`。
+
 - 应用角色固定为 `viewer`、`analyst`、`operator`、`admin`。所有权限和数据 scope 均使用服务端 `requireAppPrincipal()` 得到的真实身份；客户端、模型参数和请求正文中的身份/角色声明不可信。
 - 读取也要应用 principal scope；写入、配置、导入、发布、回滚、删除等操作按现有角色契约收紧，不能为了修复页面流程绕过鉴权。
 - `.dev.vars`、API Key、Token、Webhook、AES Key、浏览器登录状态和原始客户聊天不得提交、打印到日志、写进审计摘要或持久记忆。列表接口只返回掩码。
