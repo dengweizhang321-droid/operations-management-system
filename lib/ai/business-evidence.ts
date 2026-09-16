@@ -49,6 +49,47 @@ export const readBusinessIntegratedDirectoryV1 = (raw: unknown, principal: AppPr
 export const readBusinessIntegratedAnalysisTableV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => integratedRead(raw, principal, "analysis-table", signal);
 export const readBusinessIntegratedBudgetV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => integratedRead(raw, principal, "budget", signal);
 
+const screeningRoles = ["commerce", "promotion", "market_b2b", "independent_review", "report"];
+async function screeningRead(raw: unknown, principal: AppPrincipal, kind: "package" | "analysis" | "budget", signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const invalid = (): never => { throw new PublicApiError(400, "invalid_request", "筛查工具参数无效，须使用报告固定身份与角色"); };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+  const input = raw as Record<string, unknown>;
+  const allowed = ["runId", "reportId", "screeningId", "offset", ...(kind === "package" ? ["role"] : kind === "analysis" ? ["mode", "dimension", "sourceKey", "baselineKey", "pairKey", "baselinePairKey"] : [])];
+  if (Object.keys(input).some(key => !allowed.includes(key))) invalid();
+  for (const key of ["runId", "reportId", "screeningId"]) if (typeof input[key] !== "string" || !/^[A-Za-z0-9_-]{1,160}$/.test(input[key] as string)) invalid();
+  const maximum = kind === "package" ? 9999 : kind === "budget" ? 99 : 250000;
+  if (input.offset !== undefined && (!Number.isSafeInteger(input.offset) || (input.offset as number) < 0 || (input.offset as number) > maximum)) invalid();
+  if (kind === "package" && (typeof input.role !== "string" || !screeningRoles.includes(input.role))) invalid();
+  if (kind === "analysis") {
+    const { screeningId: _screeningId, ...analysis } = input;
+    void _screeningId;
+    integratedArguments(analysis, "analysis-table");
+  }
+  const query = new URLSearchParams({ runId: input.runId as string, screeningId: input.screeningId as string, offset: String(input.offset ?? 0) });
+  for (const key of ["role", "mode", "dimension", "sourceKey", "baselineKey", "pairKey", "baselinePairKey"]) if (input[key] !== undefined) query.set(key, input[key] as string);
+  const result = await requestDjangoAi<Record<string, unknown>>(principal, {
+    path: `/api/ai/reports/${input.reportId}/screening/${kind}`, method: "GET", query,
+  }, { signal });
+  const value = result.data;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new PublicApiError(409, "conflict", "筛查回执格式无效");
+  if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 38_000) throw new PublicApiError(413, "payload_too_large", "筛查完整页超过工具字节容量，不得截断");
+  const reference = kind === "package" ? value : value.reference;
+  const bound = reference && typeof reference === "object" && !Array.isArray(reference) ? reference as Record<string, unknown> : null;
+  const intent = bound?.screeningIntent;
+  // Package pages already use the entire byte envelope. Its screening ID is
+  // checked by the owning reader, while report/run/role are echoed in the page.
+  if (value.schemaVersion !== ({ package: "business-screening-role-package-v1", analysis: "business-screening-analysis-v1", budget: "business-screening-budget-v1" }[kind])
+    || bound?.reportId !== input.reportId || bound?.evidenceRunId !== input.runId
+    || (kind === "package" ? value.role !== input.role : !intent || typeof intent !== "object" || Array.isArray(intent) || (intent as Record<string, unknown>).id !== input.screeningId)) {
+    throw new PublicApiError(409, "conflict", "筛查回执协议或固定身份不一致");
+  }
+  return value;
+}
+export const readBusinessScreeningPackageV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => screeningRead(raw, principal, "package", signal);
+export const readBusinessScreeningAnalysisTableV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => screeningRead(raw, principal, "analysis", signal);
+export const readBusinessScreeningBudgetV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => screeningRead(raw, principal, "budget", signal);
+
 export async function readBusinessEvidenceDirectoryV2(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
   requireAnalysisPrincipal(principal);
   const args = raw as { runId: string; offset?: number };

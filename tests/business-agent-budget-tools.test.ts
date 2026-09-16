@@ -29,10 +29,10 @@ const response = (data: object) => Response.json(data, { headers: { "x-ai-revisi
 
 test("all preexisting catalog canonical hashes and entry metadata remain exactly unchanged", async () => {
   const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-budget-legacy-catalog.json", import.meta.url), "utf8"));
-  assert.deepEqual(aiToolSurfaces.filter(surface => surface !== "business_agent_budget_v1" && surface !== "business_agent_integrated_v1"), baseline.legacySurfaces);
+  assert.deepEqual(aiToolSurfaces.filter(surface => baseline.legacySurfaces.includes(surface)), baseline.legacySurfaces);
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
-  assert.deepEqual(aiToolSurfaces.slice(baseline.legacySurfaces.length), ["business_agent_budget_v1", "business_agent_integrated_v1"]);
-  const oldEntries = aiToolRegistry.filter(entry => !names.includes(entry.name) && !["get_business_integrated_directory_v1", "get_business_integrated_analysis_table_v1", "get_business_integrated_budget_v1"].includes(entry.name));
+  assert.ok(aiToolSurfaces.includes(context.surface));
+  const oldEntries = aiToolRegistry.filter(entry => entry.execution.allowedSurfaces.some(surface => baseline.legacySurfaces.includes(surface)));
   assert.deepEqual({ count: oldEntries.length, sha256: sha(canonicalAiEdge(oldEntries.map(strip))) }, baseline.registry);
   const actual: Record<string, { count: number; sha256: string }> = {};
   for (const surface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {

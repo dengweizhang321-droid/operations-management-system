@@ -16,7 +16,7 @@ export type AiToolAnnotations = {
 };
 
 export type AiToolRisk = "read_only" | "write" | "dangerous";
-export const aiToolSurfaces = ["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "market_ai", "customer_service_ai", "codex_mcp", "test", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1"] as const;
+export const aiToolSurfaces = ["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "market_ai", "customer_service_ai", "codex_mcp", "test", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1"] as const;
 export type AiToolSurface = (typeof aiToolSurfaces)[number];
 export type AiToolScopePolicy = "unscoped_only" | "principal_scope" | "metadata_safe";
 export type AiToolExecutionMode = "direct" | "confirmation_required" | "background_job";
