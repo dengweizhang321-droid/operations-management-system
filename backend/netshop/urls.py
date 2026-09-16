@@ -7,6 +7,7 @@ from . import views
 
 read_patterns = [
     path("imports", require_GET(views.imports), name="netshop-imports"),
+    path("analysis-records", views.analysis_records, name="netshop-analysis-records"),
     path("overview", views.overview, name="netshop-overview"),
     path("products", views.products, name="netshop-products"),
     path("product-performance", views.product_performance, name="netshop-product-performance"),

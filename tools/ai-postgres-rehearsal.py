@@ -15,11 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
+parser.add_argument("--test-label", action="append", default=[], help="Explicit Django test labels; only with --tests-only, without upgrade flags")
 parser.add_argument("--generation-upgrade", action="store_true", help="Rehearse 0008 to 0009 in the fresh isolated database before testing")
 parser.add_argument("--prompt-settings-upgrade", action="store_true", help="Rehearse 0010 to 0011, roles and backup restoration in the fresh isolated database")
 parser.add_argument("--report-library-upgrade", action="store_true")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade):
+    parser.error("Explicit test labels require --tests-only and cannot narrow upgrade verification")
 if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade]) > 1:
     parser.error("Choose only one fresh database upgrade rehearsal")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
@@ -147,7 +150,7 @@ try:
             sys.executable,
             ROOT / "backend/manage.py",
             "test",
-            "ai_assistant",
+            *(arguments.test_label or ["ai_assistant"]),
             *(["system_datasets"] if arguments.prompt_settings_upgrade or arguments.report_library_upgrade else []),
             "--noinput",
             "--verbosity",

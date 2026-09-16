@@ -16,8 +16,10 @@ export const NETSHOP_PROMOTION_OVERVIEW_PATH = "/api/netshop/promotion-performan
 export const NETSHOP_PROMOTION_ITEMS_PATH = "/api/netshop/promotion-performance/items";
 export const NETSHOP_CONSUMER_QUERY_PATH = "/api/netshop/consumers/query";
 export const NETSHOP_ASSET_UPLOADS_PATH = "/api/netshop/asset-uploads";
+export const NETSHOP_ANALYSIS_RECORDS_PATH = "/api/netshop/analysis-records";
 
 const STATIC_PATHS = new Set([
+  NETSHOP_ANALYSIS_RECORDS_PATH,
   NETSHOP_IMPORTS_PATH,
   NETSHOP_OVERVIEW_PATH,
   NETSHOP_PRODUCTS_PATH,
