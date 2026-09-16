@@ -110,20 +110,35 @@ def prepare(prepared_packages, role, principal):
     A fresh bounded build is used once to reject a substituted input container.
     Subsequent resolve calls only decode this role's already-held package.
     """
-    role = _role(role)
+    return prepare_many(prepared_packages, (role,), principal)[role]
+
+
+def prepare_many(prepared_packages, roles, principal):
+    """One actual storage rebuild, separate fixed index per explicitly named role.
+
+    This saves mathematical reconstruction only; it supplies no Agent ledger
+    proof and every subsequent resolve still reloads current owning authority.
+    """
+    if type(roles) not in (list,tuple) or not 1 <= len(roles) <= len(contract.ROLES):
+        raise AiError("候选角色列表无效")
+    roles = tuple(_role(role) for role in roles)
+    if len(set(roles)) != len(roles): raise AiError("候选角色不能重复")
     row = _call(packages._checked,prepared_packages,principal)
-    _, original_digest = _selected(prepared_packages,role,row)
     fresh = packages.prepare(row.id,principal)
-    actual, actual_digest = _selected(fresh,role,row)
-    if original_digest != actual_digest:
-        _conflict("传入角色包与实际已发布筛查不一致")
-    decoded = _call(contract.decode_pages,actual.pages())
-    if decoded["role"] != role:
-        _conflict()
-    index_json = _call(_index,decoded)
-    value = VerifiedClaims(_TOKEN,prepared_packages,role,actual_digest,row,index_json)
-    _checked(value,principal)
-    return value
+    values = {}
+    for role in roles:
+        _, original_digest = _selected(prepared_packages,role,row)
+        actual, actual_digest = _selected(fresh,role,row)
+        if original_digest != actual_digest:
+            _conflict("传入角色包与实际已发布筛查不一致")
+        decoded = _call(contract.decode_pages,actual.pages())
+        if decoded["role"] != role: _conflict()
+        index_json = _call(_index,decoded)
+        value = VerifiedClaims(_TOKEN,prepared_packages,role,actual_digest,row,index_json)
+        _checked(value,principal)
+        values[role] = value
+    for value in values.values(): _checked(value,principal)
+    return values
 
 
 def resolve(verified, request, principal):

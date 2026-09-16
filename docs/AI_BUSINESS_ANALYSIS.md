@@ -360,6 +360,14 @@ Chrome 共 25 项检查通过，覆盖超限完整显示、异常预览拒绝、
 
 真实领域读取器、封存服务、五 Agent 调度、独立与人工复核、文件生成及下载组成合成验收；仅模型和网络边界使用夹具，不证明真实模型经营判断质量。测试与限制见 [第二十三批候选证据](evidence/ai-business-budget-execution-candidate.json)。
 
+## 第四十九批：专业诊断、独立读取与短事务复核
+
+三个专业结果和整合结果统一验证，五个 Agent 各自具备完整持久读取证明。报告保留来源、日期、请求、表、分区覆盖与保留/省略数量。人工复核先完整核验，再于短事务检查真实账本 SHA、身份和版本；公开 JSON 不能充当通过许可。候选/原生/映射数值可追溯，数值正确不代表因果或建议有效。见 [内容说明](AI_BUSINESS_SCREENING_CONTENT.md) 与 [候选证据](evidence/ai-business-screening-content-candidate.json)。
+
+## 第四十八批：固定筛查报告的原子创建
+
+新筛查模式固定模型、目录、范围、可选关联与预算，原子建立报告和六节点工作流。完整预算和目录准备在事务外，提交前重验当前元数据；相同完整请求复用原报告，禁止 dryRun、自选协议及超量活动任务。创建不表示完成扫描、容量准入或模型分析。见 [创建说明](AI_BUSINESS_SCREENING_CREATION.md) 与 [候选证据](evidence/ai-business-screening-creation-candidate.json)。公开 HTTP 与调度在后续批次接通。
+
 ## 第四十七批：工作流准备租约
 
 规则扫描与容量准入分两步，在全局写事务外计算；发布事务内核同一token/epoch/version，迟到、取消和超时不能继续。6项生命周期、2项双连接并发和6项旧发布测试通过，另纯时钟1项通过；事件只作审计。见 [准备租约](AI_BUSINESS_SCREENING_READINESS.md)。

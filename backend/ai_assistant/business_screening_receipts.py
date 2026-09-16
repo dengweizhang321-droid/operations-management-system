@@ -24,7 +24,7 @@ def _reject(message="筛查包读取证明无效，保留原回执"):
     raise AiError(message,"screening_read_incomplete",409)
 
 
-def _trusted(job, snapshot, principal):
+def _trusted(job, snapshot, principal, *, _prepared=None):
     current_principal(principal,admin=True)
     actual_job = m.AiAgentJobs.objects.filter(pk=job.id).first()
     if actual_job is None: _reject("读取证明没有实际Agent任务")
@@ -61,13 +61,22 @@ def _trusted(job, snapshot, principal):
             _reject("筛查读取证明跨报告、实际节点或固定图")
     except (ValueError,TypeError,KeyError,AttributeError,RecursionError) as error:
         raise AiError("筛查报告或任务协议无效","screening_read_incomplete",409) from error
-    prepared = tools.prepare_for_report(report,principal,resolve_budget=True)
+    if _prepared is None:
+        prepared = tools.prepare_for_report(report,principal,resolve_budget=True)
+    else:
+        actual, fixed, _, _, _ = tools._checked(_prepared,principal)
+        if (actual.id != report.id or actual.workflow_id != report.workflow_id
+                or canonical(fixed) != report.snapshot_json or not _same(fixed,snapshot)
+                or bool(report.budget_plan_id) != (_prepared.budget is not None)):
+            _reject("复用准备对象不属于当前实际报告或缺少固定预算")
+        prepared = _prepared
     package_pages,budget_pages = tools.expected_pages(prepared,actual_job.workflow_node_key,principal)
     return report,prepared,package_pages,budget_pages
 
 
-def progress(job, snapshot, principal):
-    actual,prepared,package_pages,budget_pages = _trusted(job,snapshot,principal)
+def progress(job, snapshot, principal, *, _prepared=None):
+    actual,prepared,package_pages,budget_pages = _trusted(job,snapshot,principal,
+        **({"_prepared":_prepared} if _prepared is not None else {}))
     decoded = screening_package.decode_pages(list(package_pages.values()))
     role = job.workflow_node_key
     if decoded["role"] != role: _reject("固定角色包与实际任务角色不一致")
@@ -149,8 +158,8 @@ def progress(job, snapshot, principal):
         "catalogDigest":reference["catalogDigest"]}
 
 
-def validate_complete(job, snapshot, principal):
-    proof = progress(job,snapshot,principal)
+def validate_complete(job, snapshot, principal, *, _prepared=None):
+    proof = progress(job,snapshot,principal,**({"_prepared":_prepared} if _prepared is not None else {}))
     if not proof["package"]["complete"]: _reject("当前Agent尚未独立读完固定角色包")
     budget = proof["budget"]
     if (budget["required"] or budget["started"]) and not budget["complete"]:
