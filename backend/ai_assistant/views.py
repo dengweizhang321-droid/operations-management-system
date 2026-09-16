@@ -143,7 +143,7 @@ def _dispatch(request, path=""):
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
-            r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish)": {"POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish|control)": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"report-library": {"GET", "POST"},
             r"reports": {"GET", "POST"},
@@ -242,6 +242,9 @@ def _dispatch(request, path=""):
                 return write(request, principal, lambda: (business_evidence.create(payload, principal), 200))
             if parts[-1] == "collect":
                 return write(request, principal, lambda commit: business_evidence.collect(parts[1], payload, principal, request_id, commit=commit), external=True, commit_in_handler=True)
+            if parts[-1] == "control":
+                from .business_collection import control
+                return write(request, principal, lambda: (control(parts[1], payload, principal), 200))
             return write(request, principal, lambda: (business_evidence.finish(parts[1], payload, principal), 200))
         if root == "report-library":
             if request.method == "GET":
@@ -299,8 +302,10 @@ def _dispatch(request, path=""):
                 raise AiError("调度身份无效", "access_denied", 403)
             fields(payload, {"queue"}, {"queue"})
             from .business_parallel import agent_queue_tick
+            from .business_collection import tick as collection_tick
             runner = {
                 "agent": agent_queue_tick,
+                "evidence": collection_tick,
                 "workflow": workflows.workflow_tick,
                 "space": space.tick,
             }.get(payload["queue"])

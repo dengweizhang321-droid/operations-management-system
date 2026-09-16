@@ -13,6 +13,10 @@ class AiBusinessEvidenceRun(models.Model):
     status = models.CharField(max_length=20, default="collecting")
     version = models.PositiveIntegerField(default=1)
     stored_bytes = models.PositiveBigIntegerField(default=0)
+    collection_status = models.CharField(max_length=20, default="manual")
+    next_collect_at = models.DateTimeField(default=timezone.now)
+    collection_failures = models.PositiveIntegerField(default=0)
+    collection_error_code = models.CharField(max_length=64, default="")
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

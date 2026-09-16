@@ -1,4 +1,4 @@
-"""0013 -> 0014, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0015, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -72,7 +72,7 @@ def denied(db, statement):
         return
     raise AssertionError("Forbidden database action accepted")
 
-insert = "INSERT INTO ai_business_evidence_runs(id,owner_email,scope_json,client_request_id,request_digest,plan_json,state_json,status,version,stored_bytes,created_at) VALUES ('synthetic','fixture@example.invalid','null','client',repeat('a',64),'{}','{}','collecting',1,0,now())"
+insert = "INSERT INTO ai_business_evidence_runs(id,owner_email,scope_json,client_request_id,request_digest,plan_json,state_json,status,version,stored_bytes,created_at,collection_status,next_collect_at,collection_failures,collection_error_code) VALUES ('synthetic','fixture@example.invalid','null','client',repeat('a',64),'{}','{}','collecting',1,0,now(),'manual',now(),0,'')"
 for role in ("reader", "writer"):
     url = f"postgresql://teruisi_ai_{role}:{passwords[role]}@127.0.0.1:{database['PORT']}/teruisi_ai_rehearsal"
     env = {**os.environ, "TERUISI_DJANGO_DATABASE_URL": url, "TERUISI_DJANGO_PROCESS_ROLE": "ai_"+role,
@@ -115,6 +115,6 @@ dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
     subprocess.run([str(binary / executable), *arguments], check=True, capture_output=True, timeout=60)
 assert snapshot("teruisi_business_restore", AI_TABLES) == complete
-print(json.dumps({"upgrade": "0013->0014", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES),
+print(json.dumps({"upgrade": "0013->0014->0015", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES),
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,
     "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete, "productionWrites": False}))

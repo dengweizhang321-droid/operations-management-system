@@ -9,7 +9,7 @@ from django.utils import timezone
 from business_analysis.contracts import PageReconciler, AnalysisContractError, comparison_periods
 from . import models as m, transport
 from .datasets import _result
-from .policy import AiError, authorize_owner, canonical, cas, current_principal, digest, fields, identifier, integer, mutation, passive, uid
+from .policy import AiError, authorize_owner, boolean, canonical, cas, current_principal, digest, fields, identifier, integer, mutation, passive, uid
 
 MAX_BYTES = 64 * 1024 * 1024
 MAX_PAGES = 2000
@@ -36,6 +36,8 @@ def _restore(state):
 def mapping(row):
     state = json.loads(row.state_json)
     return {"id": row.id, "status": row.status, "version": row.version, "storedBytes": row.stored_bytes,
+        "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
+            "nextAttemptAt": row.next_collect_at.isoformat(), "consecutiveFailures": row.collection_failures, "errorCode": row.collection_error_code},
         "createdAt": row.created_at.isoformat(),
         "plan": json.loads(row.plan_json), "sources": {key: {"pageCount": value["pageCount"], "sourceRef": value["verifier"]["source_ref"],
             "rowCount": value["verifier"]["rows"], "complete": value["verifier"]["finished"], "metadata": value["metadata"],
@@ -45,10 +47,13 @@ def mapping(row):
 
 def create(body, principal):
     current_principal(principal, admin=True)
-    fields(body, {"clientRequestId", "sources", "collectionMode"}, {"clientRequestId", "sources"})
+    fields(body, {"clientRequestId", "sources", "collectionMode", "autoCollect"}, {"clientRequestId", "sources"})
     mode = body.get("collectionMode", "standard")
     if mode not in ("standard", "bulk"):
         raise AiError("采集模式无效")
+    automatic = bool(boolean(body.get("autoCollect", False), "autoCollect"))
+    if automatic and mode != "bulk":
+        raise AiError("后台取数须使用 bulk 模式")
     client = identifier(body["clientRequestId"])
     sources = body["sources"]
     if not isinstance(sources, list) or not 1 <= len(sources) <= 12:
@@ -89,6 +94,7 @@ def create(body, principal):
             raise AiError("不得重复声明同一来源查询")
         queries.add(signature)
     plan = passive({"schemaVersion": "business-evidence-v1", "sources": sources,
+        **({"autoCollect": True} if automatic else {}),
         **({"collector": {"version": 1, "surface": "business_collection", "pageSize": 100}} if mode == "bulk" else {})}, 16000)
     identity = digest(plan)
     with mutation(principal):
@@ -102,7 +108,7 @@ def create(body, principal):
         if m.AiBusinessEvidenceRun.objects.count() >= 10000:
             raise AiError("证据任务存储容量已满", "rate_limited", 429)
         row = m.AiBusinessEvidenceRun.objects.create(id=uid("evidence"), owner_email=principal.email.lower(),
-            client_request_id=client, request_digest=identity, plan_json=canonical(plan))
+            client_request_id=client, request_digest=identity, plan_json=canonical(plan), collection_status="queued" if automatic else "manual")
     return {"item": mapping(row), "replayed": False}
 
 

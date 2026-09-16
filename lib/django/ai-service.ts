@@ -6,7 +6,7 @@ import { PublicApiError } from "@/lib/http/api-error";
 type Environment = Record<string, string | undefined>;
 const encoder = new TextEncoder();
 const ENTITY = "[A-Za-z0-9_-]{1,160}";
-const PUBLIC_PATH = new RegExp(`^/api/ai/(?:business-reports|business-evidence(?:/${ENTITY}(?:/(?:collect|finish|mapping|analysis)|/chunks/${ENTITY})?)?|report-library|reports(?:/${ENTITY}(?:/(?:content|send))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
+const PUBLIC_PATH = new RegExp(`^/api/ai/(?:business-reports|business-evidence(?:/${ENTITY}(?:/(?:collect|finish|control|mapping|analysis)|/chunks/${ENTITY})?)?|report-library|reports(?:/${ENTITY}(?:/(?:content|send))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
 export const AI_INTERNAL_PATHS = new Set(["/api/ai/consumer", "/api/ai/scheduler"]);
 
 export async function aiEnvironment(): Promise<Environment> {
@@ -76,6 +76,6 @@ export async function aiConsumer<T>(principal: AppPrincipal, payload: Record<str
   return (await requestDjangoAi<T>(principal, { path: "/api/ai/consumer", method: "POST", payload, service: read ? "reader" : "writer" }, options)).data;
 }
 
-export async function wakeAiQueue(queue: "agent" | "workflow" | "space") {
+export async function wakeAiQueue(queue: "agent" | "workflow" | "space" | "evidence") {
   return (await requestDjangoAi({ email: "ai-scheduler@teruisi.internal", displayName: "AI scheduler", role: "operator", scope: null }, { path: "/api/ai/scheduler", method: "POST", payload: { queue } })).data;
 }

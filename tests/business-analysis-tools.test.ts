@@ -68,7 +68,7 @@ test("ERP analysis tool uses the owning signed reader and retains exact three-fi
 
 test("evidence paths remain finite and use separate reader/writer routes", async () => {
   const { isPublicAiPath, requestDjangoAi } = await import("../lib/django/ai-service");
-  for (const suffix of ["", "/run", "/run/collect", "/run/finish", "/run/mapping", "/run/analysis", "/run/chunks/sales"]) assert.ok(isPublicAiPath("/api/ai/business-evidence" + suffix));
+  for (const suffix of ["", "/run", "/run/collect", "/run/finish", "/run/control", "/run/mapping", "/run/analysis", "/run/chunks/sales"]) assert.ok(isPublicAiPath("/api/ai/business-evidence" + suffix));
   assert.equal(isPublicAiPath("/api/ai/business-evidence/run/exec"), false);
   for (const [method, suffix, port] of [["GET", "/run", "18001"], ["POST", "/run/collect", "18002"]] as const) {
     await requestDjangoAi(admin, { path: "/api/ai/business-evidence" + suffix, method }, {
