@@ -152,6 +152,8 @@ proof 不来自模型自报、其他 job 文本或纯 prepared。known provider 
 
 ## 7. 诊断引用与同证据文件交付
 
+第三十九批已实现 [内部候选数值解析](AI_BUSINESS_SCREENING_CLAIMS.md)，固定候选的本期/基期/差额可以从实际角色包核验。尚未接入下述实际job证明、诊断输出及文件，因此不能据此允许旧报告自动获得新引用能力。
+
 新诊断协议可接受固定 candidateId，服务解析至 ready 快照中的规则、原 rowId/rowIndex、source/pair、current/baseline 精确数值。模型不能修改这些字段来“解释”另一条候选。引用校验应核规则条件与原始数值证明；额外自由观察仍走既有原生/映射 owning resolver，并标为额外观察，不扩张筛查覆盖。
 
 保留人工作为因果判断和正式发布门禁。`prepared_unpublished`、成功 run 存在、某 Agent 已读完页都不等于人已复核；三者也不能直接允许正式文件。新版 content 首先核所有必需 job 的新 proof，再生成结构化诊断和覆盖说明，最后沿原人审流程。
