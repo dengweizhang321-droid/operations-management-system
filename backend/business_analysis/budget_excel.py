@@ -26,6 +26,7 @@ class Sheet:
     widths: dict = field(default_factory=dict)
     headers: set = field(default_factory=lambda: {4})
     merges: list = field(default_factory=list)
+    row_heights: dict = field(default_factory=dict)
 
     def header(self, row, col, value):
         self.put(row, col, value)
@@ -61,7 +62,7 @@ def write_sheet(archive, number, sheet):
             out(f'<col min="{c}" max="{c}" width="{sheet.widths.get(c, 22)}" customWidth="1"/>')
         out('</cols><sheetData>')
         for r in range(1, max_row+1):
-            out(f'<row r="{r}" ht="{44 if r in sheet.headers else 28}" customHeight="1">')
+            out(f'<row r="{r}" ht="{sheet.row_heights.get(r, 44 if r in sheet.headers else 28)}" customHeight="1">')
             for c in range(1, max_col+1):
                 if (r, c) not in sheet.cells: continue
                 value, formula, style = sheet.cells[r, c]
@@ -176,11 +177,13 @@ def build(value, names):
         low=bool(facts.get("clicks") is not None and facts.get("reportedOrderLines") is not None and (facts["clicks"]<plan["minimumClicks"] or facts["reportedOrderLines"]<plan["minimumOrderLines"]))
         allocation.put(r,29,int(low),f'IF(AND(COUNT(G{r}:H{r})=2,OR(G{r}<{mr(10)},H{r}<{mr(11)})),1,0)')
 
-    headings=("对象","分配预算（分）","基期花费（分）","基期归因金额（分）","点击成本乘数基点","订单效率乘数基点","订单金额乘数基点","贡献率基点（可空）","基数可测算","情景归因金额（分）","归因产出比","假设贡献扣推广（分）","提前复盘花费（分）","等天数基期花费（分）","预算差额（分）","试算状态","观察天数","责任角色","最低归因产出比","复算精度状态")
+    headings=("对象","分配预算（分）","基期花费（分）","基期归因金额（分）","点击成本乘数基点","订单效率乘数基点","订单金额乘数基点","贡献率基点（可空）","基数可测算","情景归因金额（分）","归因产出比","假设贡献扣推广（分）","提前复盘花费（分）","等天数基期花费（分）","预算差额（分）","试算状态","观察天数","责任角色","最低归因产出比","复算精度状态","基期对比状态")
     for c,label in enumerate(headings,1): forecast.put(4,c,label)
+    forecast.widths.update({16: 45, 21: 32})
     outputs=[]; a=plan["scenarios"][0]
     for i,(t,b) in enumerate(zip(targets,bases)):
-        r=i+5; expected_row=expected["scenarios"][0]["rows"][i]; facts=b["metrics"]; cursor=21
+        r=i+5; expected_row=expected["scenarios"][0]["rows"][i]; facts=b["metrics"]; cursor=22
+        forecast.row_heights[r] = 56
         usable=expected_row["status"]!="unavailable"
         for c,value_,formula in ((1,allocation.cells[r,1][0],ar(1,r)),(2,amounts[i],ar(27,r)),(3,facts.get("spendCents"),f'IF(COUNT({ar(6,r)})=1,{ar(6,r)},"")'),(4,facts.get("reportedGmvCents"),f'IF(COUNT({ar(9,r)})=1,{ar(9,r)},"")')): forecast.put(r,c,value_,formula)
         for c,key,sourcecol in ((5,"cpcFactorBps",3),(6,"orderRateFactorBps",4),(7,"orderValueFactorBps",5)):
@@ -224,10 +227,13 @@ def build(value, names):
         normok=facts.get("spendCents") is not None and facts["spendCents"]>=0 and b["datesPresent"]
         norm=rational("基期等天数",[(f'C{r}',facts.get("spendCents") or 0),(mr(7),plan["horizonDays"])],[(ar(10,r),b["days"])],f'AND({ar(8,1)},COUNT(C{r})=1,C{r}>=0,{ar(11,r)}=1)',normok)
         forecast.put(r,14,norm[1],f'IF({norm[2]},{norm[0]},"")'); forecast.put(r,15,amounts[i]-norm[1] if norm[1] is not None else None,f'IF(COUNT(B{r},N{r})=2,B{r}-N{r},"")')
+        baseline_status = "基期对比不可测算" if not normok else "基期对比可测算" if norm[1] is not None else "基期对比需高精度复算"
+        forecast.put(r,21,baseline_status,f'IF(NOT({ar(8,1)}),"参数无效",IF(NOT(AND(COUNT(C{r})=1,C{r}>=0,{ar(11,r)}=1)),"基期对比不可测算",IF(COUNT(N{r})=1,"基期对比可测算","基期对比需高精度复算")))')
         precision=gmv[1] is not None and (a["contributionMarginBps"] is None or cv is not None) and (not amounts[i] or roas[1] is not None)
         status="不可测算" if not usable else "需高精度复算" if not precision else "低样本假设" if expected_row["status"]=="low_sample_scenario" else "假设情景"
+        if baseline_status == "基期对比需高精度复算": status += "；"+baseline_status
         forecast.put(r,20,int(precision),f'IF(AND(COUNT(J{r})=1,OR(H{r}="",COUNT(L{r})=1),OR(B{r}=0,COUNT(K{r})=1)),1,0)')
-        forecast.put(r,16,status,f'IF(NOT({ar(8,1)}),"参数无效",IF(NOT(I{r}),"不可测算",IF(NOT(T{r}),"需高精度复算",IF({ar(29,r)},"低样本假设","假设情景"))))')
+        forecast.put(r,16,status,f'IF(NOT({ar(8,1)}),"参数无效",IF(NOT(I{r}),"不可测算",IF(NOT(T{r}),"需高精度复算",IF({ar(29,r)},"低样本假设","假设情景"))))&IF(U{r}="基期对比需高精度复算","；"&U{r},"")')
         for c,v,f in ((17,plan["observationDays"],mr(8)),(18,t["ownerRole"],ar(30,r)),(19,t["minimumRoasBps"]/10000,ar(5,r))): forecast.put(r,c,v,f)
         for key,actual in (("projectedAttributedGmvCents",gmv[1]),("projectedRoas",roas[1]),("assumedContributionAfterAdCents",cv),("reviewAfterSpendCents",review[1]),("equivalentBaselineSpendCents",norm[1])):
             if actual is not None and actual!=expected_row[key]: raise AnalysisContractError("Excel 情景初值与同源结果不一致")
@@ -247,6 +253,7 @@ def build(value, names):
     for c,label in enumerate(("对象","预算（元）","情景归因金额（元）","归因产出比","假设贡献余额（元）","提前复盘花费（元）","观察天数","状态"),1): main.header(26,c,label)
     for i,(gmv,cv,status) in enumerate(outputs):
         r=i+5; row=i+27
+        main.row_heights[row] = 56
         for c,source,scale in ((1,1,1),(2,2,100),(3,10,100),(4,11,1),(5,12,100),(6,13,100),(7,17,1),(8,16,1)):
             v=forecast.cells[r,source][0]
             f=fr(source,r)

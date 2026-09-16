@@ -27,21 +27,26 @@ for(const test of expected.cases){
     assert.equal(value(0,'E6'),test.allocation.unallocatedCents/100,test.name);
     for(let i=0;i<test.rows.length;i++){
       const row=test.rows[i],r=i+5;
+      const baselinePrecision=(test.baselinePrecisionTargets||[]).includes(i);
       for(const [c,key] of Object.entries({B:'budgetCents',J:'projectedAttributedGmvCents',K:'projectedRoas',L:'assumedContributionAfterAdCents',M:'reviewAfterSpendCents',N:'equivalentBaselineSpendCents',O:'budgetChangeCents'})){
         const actual=value(2,c+r);
         if(test.precision && i===0 && ['J','K','L'].includes(c)){assert.equal(actual,'',test.name+' '+c+r);continue;}
+        if(baselinePrecision && ['N','O'].includes(c)){assert.equal(actual,'',test.name+' '+c+r);continue;}
         assert.equal(actual===''?null:actual,row[key],test.name+' '+c+r+' '+key);checked++;
       }
-      assert.equal(value(2,'P'+r),test.precision&&i===0?'需高精度复算':
-        {unavailable:'不可测算',low_sample_scenario:'低样本假设',assumption_scenario:'假设情景'}[row.status],test.name);
+      const status=(test.precision&&i===0?'需高精度复算':
+        {unavailable:'不可测算',low_sample_scenario:'低样本假设',assumption_scenario:'假设情景'}[row.status])+(baselinePrecision?'；基期对比需高精度复算':'');
+      assert.equal(value(2,'P'+r),status,test.name);
+      assert.equal(value(0,'H'+(i+27)),status,test.name+' main status');
+      assert.equal(value(2,'U'+r),baselinePrecision?'基期对比需高精度复算':row.equivalentBaselineSpendCents===null?'基期对比不可测算':'基期对比可测算',test.name+' baseline status');
     }
     for(const [address,key] of [['E7','projectedAttributedGmvCents'],['E8','assumedContributionAfterAdCents']]){
       const v=test.summary[key];
       assert.equal(value(0,address),test.precision||v===null?'不可合计或不可测算':v/100,test.name+' '+address);
     }
-    if(test.name==='original'){
+    if(['original','baseline_precision'].includes(test.name)){
       const image=await book.render({sheetName:expected.sheets[0],range:'A1:H29',scale:1.3,format:'png'});
-      await fs.writeFile(path.join(root,'xlsx-model.png'),new Uint8Array(await image.arrayBuffer()));
+      await fs.writeFile(path.join(root,test.name==='original'?'xlsx-model.png':'xlsx-baseline-precision.png'),new Uint8Array(await image.arrayBuffer()));
     }
   }
   console.log(JSON.stringify({case:test.name,passed:true}));

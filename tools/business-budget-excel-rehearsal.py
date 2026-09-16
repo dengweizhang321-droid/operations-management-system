@@ -27,10 +27,10 @@ proof=generate('report',plan,bases)
 cases=[]
 
 
-def add_case(name, plan, bases, edits, scenario=0, filename='report.xlsx', precision=False):
+def add_case(name, plan, bases, edits, scenario=0, filename='report.xlsx', precision=False, baseline_precision=()):
     computed=calculate(plan,bases);sc=computed['scenarios'][scenario]
     cases.append({'name':name,'file':filename,'edits':edits,'allocation':computed['allocation'],
-                  'rows':sc['rows'],'summary':sc['summary'],'precision':precision})
+                  'rows':sc['rows'],'summary':sc['summary'],'precision':precision,'baselinePrecisionTargets':list(baseline_precision)})
 
 
 for kind in ("original","stress","money","weights","caps","unknown_margin","zero_margin","zero_budget","minima","low_sample","days","fractional_assumptions"):
@@ -61,7 +61,7 @@ for i in range(20):
         edits.extend([[1,'B'+str(j+5),weight],[1,'D'+str(j+5),cap/100]])
     add_case('random-'+str(i),changed,bases,edits)
 
-for variant in ('hundred','missing','mixed','precision','initial_blank','maximum'):
+for variant in ('hundred','missing','mixed','precision','initial_blank','maximum','baseline_precision'):
     changed,bb=fixture()
     if variant=='hundred':
         t,b=deepcopy(changed['targets'][0]),deepcopy(bb[0]);changed['targets']=[];bb=[]
@@ -78,8 +78,16 @@ for variant in ('hundred','missing','mixed','precision','initial_blank','maximum
     if variant=='maximum':
         changed['totalBudgetCents']=10**12
         for target in changed['targets']: target['maxBudgetCents']=10**12
+    if variant=='baseline_precision':
+        changed['horizonDays']=93
+        bb[0]['days']=1
+        bb[0]['metrics'].update(spendCents=9999999999999,reportedGmvCents=9999999999999)
     generate(variant,changed,bb)
-    add_case(variant,changed,bb,[],filename=variant+'.xlsx',precision=variant=='precision')
+    add_case(variant,changed,bb,[],filename=variant+'.xlsx',precision=variant=='precision',baseline_precision=[0] if variant=='baseline_precision' else [])
+    if variant=='baseline_precision':
+        recovered=deepcopy(changed);recovered['horizonDays']=7
+        add_case('baseline_precision_recovered',recovered,bb,[[0,'B7',7]],filename=variant+'.xlsx')
+        add_case('baseline_precision_reintroduced',changed,bb,[[0,'B7',7],[0,'B7',93]],filename=variant+'.xlsx',baseline_precision=[0])
 
 invalid=[{'name':name,'edits':edits,'invalid':True,'file':'report.xlsx'} for name,edits in (
     ('text_total',[[0,'B5','bad']]),('blank_total',[[0,'B5',None]]),('negative_weight',[[1,'B5',-1]]),

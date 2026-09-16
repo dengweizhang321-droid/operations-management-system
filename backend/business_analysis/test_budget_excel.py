@@ -84,3 +84,26 @@ class ExcelBudgetTests(unittest.TestCase):
         sheets,_=excel.build(self.model(plan,bases),excel.TITLES)
         self.assertEqual(sheets[0].cells[7,5][0],'不可合计或不可测算')
         self.assertEqual(sheets[0].cells[8,5][0],'不可合计或不可测算')
+
+    def test_baseline_precision_status_preserves_usable_forecast_and_is_visible_on_main(self):
+        plan, bases = fixture()
+        plan['horizonDays'] = 93
+        bases[0]['days'] = 1
+        bases[0]['metrics'].update(spendCents=9999999999999, reportedGmvCents=9999999999999)
+        sheets, proof = excel.build(self.model(plan, bases), excel.TITLES)
+        self.assertEqual(sheets[2].cells[5,10][0], 6000)
+        self.assertIsNone(sheets[2].cells[5,14][0])
+        self.assertIsNone(sheets[2].cells[5,15][0])
+        self.assertEqual(sheets[2].cells[5,21][0], '基期对比需高精度复算')
+        self.assertEqual(sheets[2].cells[5,16][0], '假设情景；基期对比需高精度复算')
+        self.assertEqual(sheets[0].cells[27,8][0], sheets[2].cells[5,16][0])
+        self.assertEqual(proof['initialUnmeasurableTargets'], 0)
+        self.assertEqual(sheets[0].row_heights[27], 56)
+        plan['horizonDays'] = 7
+        sheets, _ = excel.build(self.model(plan, bases), excel.TITLES)
+        self.assertEqual(sheets[2].cells[5,21][0], '基期对比可测算')
+        self.assertEqual(sheets[0].cells[27,8][0], '假设情景')
+        bases[0]['datesPresent'] = False
+        sheets, _ = excel.build(self.model(plan, bases), excel.TITLES)
+        self.assertEqual(sheets[2].cells[5,21][0], '基期对比不可测算')
+        self.assertEqual(sheets[0].cells[27,8][0], '不可测算')
