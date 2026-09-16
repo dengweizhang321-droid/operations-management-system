@@ -278,6 +278,7 @@ def reconcile_products(run_id, params, principal):
 
 def analysis_table(run_id, params, principal):
     from business_analysis.results import build_table
+    from business_analysis.partitioned import MAX_RESULT_GROUPS
     fields(params, {"sourceKey", "dimension", "baselineKey", "offset", "limit"}, {"sourceKey", "dimension"})
     row = get_run(run_id, principal)
     if row.status != "sealed":
@@ -288,7 +289,7 @@ def analysis_table(run_id, params, principal):
         raise AiError("分析来源不存在", "not_found", 404)
     try:
         offset, limit = int(params.get("offset", "0")), int(params.get("limit", "20"))
-        integer(offset, "offset", lo=0, hi=25000)
+        integer(offset, "offset", lo=0, hi=MAX_RESULT_GROUPS)
         integer(limit, "limit", hi=100)
     except (ValueError, TypeError) as error:
         raise AiError("分析分页参数无效") from error
@@ -303,11 +304,10 @@ def analysis_table(run_id, params, principal):
             raise AnalysisContractError("证据块数量变化")
     expected = {key: _restore(state[key]["verifier"]).result() for key in keys}
     try:
-        table = build_table(pages(keys[0]), params["dimension"], expected[keys[0]],
+        table = build_table(pages(keys[0]), params["dimension"], expected[keys[0]], offset=offset, limit=limit,
             **({"baseline_pages": pages(keys[1]), "baseline_expected": expected[keys[1]]} if len(keys) == 2 else {}))
     except (AnalysisContractError, KeyError, TypeError, ValueError) as error:
         raise AiError(str(error), "conflict", 409) from error
-    table["rows"] = table["rows"][offset:offset+limit]
     table.update(evidenceRunId=run_id, sourceKey=keys[0], baselineKey=keys[1] if len(keys) == 2 else None,
         pagination={"offset": offset, "limit": limit, "hasMore": offset+len(table["rows"]) < table["total"]})
     if len(canonical(table).encode()) > 1500000:

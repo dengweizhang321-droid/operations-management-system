@@ -52,6 +52,10 @@ class BusinessEvidenceTests(TestCase):
             table = evidence.analysis_table(run_id, {"sourceKey": "sales", "dimension": "shop"}, self.admin)
             self.assertEqual(table["rows"][0]["metrics"]["netSalesCents"]["value"], 120000)
             self.assertFalse(table["pagination"]["hasMore"])
+            tail = evidence.analysis_table(run_id, {"sourceKey": "sales", "dimension": "shop", "offset": "30000"}, self.admin)
+            self.assertEqual(tail["rows"], [])
+            self.assertEqual(tail["total"], table["total"])
+            self.assertFalse(tail["pagination"]["hasMore"])
             remote.assert_not_called()
         url = f"/api/ai/business-evidence/{run_id}/analysis?sourceKey=sales&dimension=shop"
         with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET, DJANGO_PROCESS_ROLE="ai_reader"), patch("ai_assistant.views.authority"):

@@ -7,12 +7,14 @@ VIEWS = {"shop": ["shopName"], "category": ["category"], "spu": ["spuId"],
 RATE_METRICS = {"ctr", "orderLineConversionRate"}
 
 
-def _group(pages, dimension, expected):
+def _group(pages, dimension, expected, *, store=None, side=0):
     verifier = PageReconciler()
     metrics = sorted(expected["metrics"])
     if not metrics:
         raise AnalysisContractError("身份主数据没有可加总经营指标")
-    accumulator = DimensionAccumulator(VIEWS[dimension], metrics)
+    accumulator = DimensionAccumulator(VIEWS[dimension], metrics) if store is None else None
+    if store is not None:
+        store.configure(side, VIEWS[dimension], metrics)
     header = None
     for page in pages:
         if header is None:
@@ -23,10 +25,16 @@ def _group(pages, dimension, expected):
         if any((r["platform"], r["shopName"]) != scope for r in page["items"]):
             raise AnalysisContractError("来源包含其他店铺")
         verifier.consume(page, request_cursor=verifier.expected_cursor)
-        accumulator.consume(page["items"])
+        if store is None:
+            accumulator.consume(page["items"])
+        else:
+            store.consume(side, page["items"])
     actual = verifier.result()
     if actual != expected:
         raise AnalysisContractError("分析结果与封存核对记录不一致")
+    if store is not None:
+        store.verify(side, actual)
+        return header, None
     return header, accumulator.result(actual)["items"]
 
 
@@ -39,9 +47,26 @@ def _compatible(current, baseline):
             and {k: v for k, v in a.items() if k not in ignored} == {k: v for k, v in b.items() if k not in ignored})
 
 
-def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None):
+def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None, offset=0, limit=None):
+    from .partitioned import MAX_RESULT_GROUPS, PartitionedGroups
     if not isinstance(dimension, str) or dimension not in VIEWS:
         raise AnalysisContractError("分析表维度无效")
+    if type(offset) is not int or not 0 <= offset <= MAX_RESULT_GROUPS or (limit is not None and (type(limit) is not int or not 1 <= limit <= 100)):
+        raise AnalysisContractError("分析分页参数无效")
+    if baseline_pages is not None and dimension == "daily":
+        raise AnalysisContractError("日表不得按日期字符串直接比较不同期间")
+    if limit is not None:
+        with PartitionedGroups() as store:
+            header, _ = _group(pages, dimension, expected, store=store)
+            previous_header = None
+            if baseline_pages is not None:
+                previous_header, _ = _group(baseline_pages, dimension, baseline_expected, store=store, side=1)
+                if not _compatible(header, previous_header):
+                    raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
+            total, pairs = store.page(offset, limit)
+        return _assemble(header, previous_header, dimension, expected, baseline_expected, pairs, total, offset)
+    if offset:
+        raise AnalysisContractError("分页偏移须指定页长")
     header, current = _group(pages, dimension, expected)
     baseline, previous_header = [], None
     if baseline_pages is not None:
@@ -50,13 +75,17 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
         previous_header, baseline = _group(baseline_pages, dimension, baseline_expected)
         if not _compatible(header, previous_header):
             raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
-    complete_dates = bool(previous_header and all((h.get("coverage") or {}).get("status") == "dates_present" for h in (header, previous_header)))
-    market_sample = header["source"] == "market_daily_top"
     indexed = [{canonical(item["entity"]): item for item in rows} for rows in (current, baseline)]
     keys = sorted(set(indexed[0]) | set(indexed[1]))
+    return _assemble(header, previous_header, dimension, expected, baseline_expected,
+        [(indexed[0].get(key), indexed[1].get(key)) for key in keys], len(keys), 0)
+
+
+def _assemble(header, previous_header, dimension, expected, baseline_expected, pairs, total, offset):
+    complete_dates = bool(previous_header and all((h.get("coverage") or {}).get("status") == "dates_present" for h in (header, previous_header)))
+    market_sample = header["source"] == "market_daily_top"
     result = []
-    for row_index, key in enumerate(keys):
-        a, b = (index.get(key) for index in indexed)
+    for row_index, (a, b) in enumerate(pairs, offset):
         item = a or b
         metrics, rates, comparisons = {}, {}, {}
         for metric in sorted(set((a or {}).get("metrics", {})) | set((b or {}).get("metrics", {}))):
@@ -90,6 +119,6 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
     return {"schemaVersion": "business-result-table-v1", "dimension": dimension, "source": expected,
         "baselineSource": baseline_expected, "sourceMetadata": header, "baselineMetadata": previous_header,
         "comparisonWindow": previous_header["filters"]["window"] if previous_header else None,
-        "dateCoverageComparable": complete_dates, "total": len(result), "rows": result,
+        "dateCoverageComparable": complete_dates, "total": total, "rows": result,
         "limitations": ["缺失分组不补零，缺日或字段缺失不计算增长率", "店铺表为所选来源金额汇总，不是跨源相加或店铺去重UV",
             "关键词与搜索词分开，原生SPU不等于SKU映射，空身份单独保留", "数据日期存在不证明结算完成或因果关系"]}

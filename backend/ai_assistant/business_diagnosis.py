@@ -1,6 +1,7 @@
 """Resolve report claims to immutable calculated facts; never trust supplied numbers."""
 from . import business_evidence
 from .policy import AiError, canonical, fields, identifier, integer, passive, text
+from business_analysis.partitioned import MAX_RESULT_GROUPS
 
 REFERENCE_FIELDS = {"sourceKey", "dimension", "baselineKey", "rowIndex", "rowId", "metric", "field"}
 VALUE_FIELDS = {"value", "ratio", "baseline", "difference", "changeRate", "percentagePoints"}
@@ -35,7 +36,7 @@ def validate(value, evidence_id, principal):
             for field in ("sourceKey", "baselineKey", "rowId", "metric"):
                 if field in reference:
                     identifier(reference[field], field)
-            integer(reference["rowIndex"], "rowIndex", lo=0, hi=24999)
+            integer(reference["rowIndex"], "rowIndex", lo=0, hi=MAX_RESULT_GROUPS-1)
             if not isinstance(reference["field"], str) or reference["field"] not in VALUE_FIELDS:
                 raise AiError("引用数值类型无效")
             query = {key: reference[key] for key in ("sourceKey", "dimension", "baselineKey") if key in reference}

@@ -647,7 +647,7 @@ export const aiToolRegistry = [
       sourceKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
       baselineKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
       dimension: { type: "string", enum: ["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily", "brand"] },
-      offset: { type: "integer", minimum: 0, maximum: 25000, default: 0 },
+      offset: { type: "integer", minimum: 0, maximum: 250000, default: 0 },
       limit: { type: "integer", minimum: 1, maximum: 20, default: 10 },
     }, required: ["runId", "sourceKey", "dimension"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",

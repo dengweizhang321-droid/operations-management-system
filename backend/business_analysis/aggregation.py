@@ -15,6 +15,18 @@ RATIOS = {"ctr": ("clicks", "impressions"), "cpcCents": ("spendCents", "clicks")
           "roas": ("reportedGmvCents", "spendCents"), "orderLineConversionRate": ("reportedOrderLines", "clicks")}
 
 
+def group_result(group, metric_keys):
+    metrics = {key: {"value": group["sums"].get(key, 0) if group["present"].get(key) else None,
+                     "presentRows": group["present"].get(key, 0),
+                     "missingRows": group["rowCount"]-group["present"].get(key, 0)} for key in metric_keys}
+    rates = {}
+    for name, (numerator, denominator) in RATIOS.items():
+        if numerator in metrics and denominator in metrics:
+            a, b = metrics[numerator], metrics[denominator]
+            rates[name] = ratio(a["value"], b["value"]) if not a["missingRows"] and not b["missingRows"] else None
+    return {"entity": group["entity"], "rowCount": group["rowCount"], "metrics": metrics, "ratios": rates}
+
+
 class DimensionAccumulator:
     def __init__(self, dimensions, metric_keys, *, max_groups=25000):
         if not dimensions or len(dimensions) > 8 or len(set(dimensions)) != len(dimensions) or not set(dimensions) <= DIMENSIONS:
@@ -67,15 +79,7 @@ class DimensionAccumulator:
                 raise AnalysisContractError("分组结果与源核对记录不一致")
         output = []
         for group in self.groups.values():
-            metrics = {key: {"value": group["sums"].get(key, 0) if group["present"].get(key) else None,
-                             "presentRows": group["present"].get(key, 0),
-                             "missingRows": group["rowCount"]-group["present"].get(key, 0)} for key in self.metric_keys}
-            rates = {}
-            for name, (numerator, denominator) in RATIOS.items():
-                if numerator in metrics and denominator in metrics:
-                    a, b = metrics[numerator], metrics[denominator]
-                    rates[name] = ratio(a["value"], b["value"]) if not a["missingRows"] and not b["missingRows"] else None
-            output.append({"entity": group["entity"], "rowCount": group["rowCount"], "metrics": metrics, "ratios": rates})
+            output.append(group_result(group, self.metric_keys))
         return {"sourceRef": reconciliation["sourceRef"], "evidenceDigest": reconciliation["evidenceDigest"],
                 "dimensions": self.dimensions, "items": output, "rowCount": reconciliation["rowCount"], "truncated": False}
 
