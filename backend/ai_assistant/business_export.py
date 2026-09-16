@@ -1,13 +1,15 @@
 """Prepare paired files from the exact sealed report snapshot, without source I/O."""
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 import json
 import sqlite3
 from tempfile import TemporaryDirectory
 
-from business_analysis.contracts import AnalysisContractError, PageReconciler, comparison_periods
-from business_analysis.report_files import Column, Table, MAX_COLUMNS, write_pair
+from business_analysis.contracts import AnalysisContractError, comparison_periods
+from business_analysis.report_files import Column, Table, MAX_COLUMNS, MAX_FILE_BYTES, write_pair
 from business_analysis.results import VIEWS, stream_table
-from . import business_evidence, business_reports, models as m
+from . import business_evidence, business_reports
+from .business_sealed import Reader
 from .policy import AiError, authorize_owner, canonical, digest
 
 DIMENSION_NAMES = {"shop": "店铺", "category": "品类", "spu": "SPU", "sku": "SKU", "keyword": "关键词", "searchTerm": "搜索词", "daily": "逐日", "brand": "品牌"}
@@ -121,37 +123,36 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     snapshot = json.loads(report.snapshot_json)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA:
         raise AiError("此构建器仅支持经营分析报告")
+    v2 = business_reports.is_v2_snapshot(snapshot)
+    if v2 and renderer_version != 4:
+        raise AiError("v2证据只能使用内部多卷构建器，旧双文件渲染器不支持", "conflict", 409)
     if not draft and report.workflow.status != "completed":
         raise AiError("正式报告须先通过人工复核", "conflict", 409)
     value = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
     evidence = business_evidence.get_run(snapshot["evidenceRunId"], principal)
     if evidence.status != "sealed" or evidence.version != snapshot["evidenceVersion"] or digest(evidence.plan_json) != snapshot["evidencePlanDigest"]:
         raise AiError("报告证据快照不一致", "conflict", 409)
-    plan, state = json.loads(evidence.plan_json), json.loads(evidence.state_json)
-    source_by_key = {s["key"]: s for s in plan["sources"]}
+    reader = Reader(evidence, principal)
+    sources = reader.sources
+    source_by_key = {s["key"]: s for s in sources}
+    info = {source["key"]: reader.info(source["key"]) for source in sources}
     def pages(key):
-        sequence = 0
-        for row in m.AiBusinessEvidenceChunk.objects.filter(run=evidence, source_key=key).order_by("sequence").iterator(chunk_size=10):
-            sequence += 1
-            if checkpoint and sequence % 20 == 1:
-                checkpoint({"stage": "preparing", "sourceKey": key, "sourcePage": sequence})
-            if row.sequence != sequence or digest(row.payload_json) != row.payload_digest:
-                raise AiError("来源分块缺失或摘要不一致", "conflict", 409)
-            yield json.loads(row.payload_json)
-        if sequence != state[key]["pageCount"]:
-            raise AiError("来源分块数量不一致", "conflict", 409)
-    expected = {key: business_evidence._restore(entry["verifier"]).result() for key, entry in state.items()}
+        return reader.pages(key, checkpoint=checkpoint)
+    expected = {key: entry["expected"] for key, entry in info.items()}
     metadata = {"reportId": report.id, "evidenceRunId": evidence.id, "evidenceVersion": evidence.version,
         "planDigest": snapshot["evidencePlanDigest"], "scope": snapshot["scope"], "question": snapshot["question"],
         "status": "待复核草稿" if draft else "已通过人工复核", "schemaVersion": "business-files-v1",
         "limitations": ["金额字段保留原分单位；缺失不补零", "市场数据是TOP样本区间，不代表全行业或份额", "当前商品主数据不是历史映射", "建议不自动执行"]}
+    if v2:
+        metadata.update(schemaVersion="business-files-v2", rendererVersion=4,
+            catalogDigest=snapshot["catalogDigest"], sealedDigest=snapshot["sealedDigest"], sourceCount=len(sources))
     with TableSpool() as spool:
         spool.add("overview", "报告范围", "固定来源、期间与报告版本。", ({"项目": key, "内容": canonical(item) if isinstance(item, (dict, list)) else item} for key, item in metadata.items()))
         spool.add("diagnosis", "深度诊断", "解释与因果仍需人工判断；以下文字来自已持久化的专业分析与复核。", ({"章节": section["title"], "正文": section["body"][start:start+300]} for section in value["sections"] for start in range(0, len(section["body"]), 300)))
         findings = value["diagnosis"]["findings"]
         spool.add("actions", "调整规划", "每条动作保留前提、观察期、责任角色与回退条件。", ({"结论ID": f["id"], "类型": f["kind"], "标题": f["title"], "解释": f["explanation"], **f.get("action", {})} for f in findings))
         spool.add("citations", "结论证据", "数值由服务端重新核验；不代表文字中的因果关系已自动证明。", ({"结论ID": f["id"], **fact} for f in findings for fact in f["facts"]))
-        spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。", ({"sourceKey": s["key"], "来源": s["domain"], "查询范围": canonical(s["query"]), "核对": canonical(expected[s["key"]]), "覆盖与口径": canonical(state[s["key"]]["metadata"])} for s in plan["sources"]))
+        spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。", ({"sourceKey": s["key"], "来源": s["domain"], "查询范围": canonical(s["query"]), "核对": canonical(expected[s["key"]]), "覆盖与口径": canonical(info[s["key"]]["metadata"])} for s in sources))
         if value.get("budget"):
             budget = value["budget"]
             budget_note = "；".join(budget["limitations"])
@@ -161,30 +162,23 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
             spool.add("budget-summary", "预算情景汇总", "缺失对象时完整预测为空，仅展示已知对象合计；不是店铺净利润。", ({"scenario": s["assumptions"]["name"], **s["summary"]} for s in budget["scenarios"]))
             for index, scenario in enumerate(budget["scenarios"]):
                 spool.add("budget-scenario-"+str(index), "情景_"+scenario["assumptions"]["name"], budget_note, scenario["rows"])
-        for source in plan["sources"]:
+        for source in sources:
             key = source["key"]
             def records(key=key):
-                verifier = PageReconciler()
                 for page in pages(key):
-                    scope = (page["filters"]["platform"], page["filters"]["shop"])
-                    if any((row["platform"], row["shopName"]) != scope for row in page["items"]):
-                        raise AiError("来源明细包含其他店铺身份", "conflict", 409)
-                    verifier.consume(page, request_cursor=verifier.expected_cursor)
                     yield from page["items"]
-                if verifier.result() != expected[key]:
-                    raise AiError("原始明细与封存核对不一致", "conflict", 409)
             query = source["query"]
             window = query.get("window", "current")
             period = comparison_periods(query["startDate"], query["endDate"])[window]
             period_name = {"current": "本期", "previous": "环比基期", "yearAgo": "同比基期"}[window]
             note = f'{period_name}：{period["startDate"]} 至 {period["endDate"]}。完整规范明细；金额字段单位为分；推广、ERP和B端口径分别保留。'
             spool.add("raw-"+key, "来源_"+key, note, records(), expected[key]["rowCount"])
-        for source in plan["sources"]:
+        for source in sources:
             key, query = source["key"], source["query"]
             if query.get("window", "current") != "current" or not expected[key]["metrics"]:
                 continue
             bases = [None]
-            for candidate in plan["sources"]:
+            for candidate in sources:
                 q = candidate["query"]
                 if candidate["domain"] == source["domain"] and q.get("window") in {"previous", "yearAgo"} and {k: v for k, v in q.items() if k != "window"} == {k: v for k, v in query.items() if k != "window"}:
                     bases.append(candidate["key"])
@@ -212,5 +206,97 @@ def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=No
         with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=renderer_version) as (metadata, tables, calculator):
             return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint,
                 offline_budget=calculator, excel_budget=calculator if renderer_version >= 3 else None)
+    except AnalysisContractError as error:
+        raise AiError(str(error), "conflict", 409) from error
+
+
+@dataclass(frozen=True)
+class PreparedVolumes:
+    """Internal one-shot package, usable only inside prepare_volumes' context."""
+    metadata: dict
+    tables: tuple
+    plan: dict
+    calculator: object
+    report_id: str
+    evidence_digest: str
+    policy: dict
+    active: bool = True
+    consumed: bool = False
+    _binding_digest: str = field(init=False, repr=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "_binding_digest", _prepared_binding(self))
+
+
+def _prepared_binding(prepared):
+    """Bind passive preparation fields, including column semantics, not rows."""
+    from business_analysis.volume_files import _snapshot_json
+    try:
+        if type(prepared.tables) is not tuple or len(prepared.tables) > 12000:
+            raise AnalysisContractError("完整派生表数量超限")
+        table_digests = []
+        for table in prepared.tables:
+            if type(table) is not Table or len(table.columns) > MAX_COLUMNS:
+                raise AnalysisContractError("派生表或列数无效")
+            descriptor = {"key": table.key, "title": table.title, "note": table.note, "rowCount": table.row_count,
+                "columns": [{"key": c.key, "label": c.label, "kind": c.kind, "total": c.total, "ratioOf": c.ratio_of}
+                    for c in table.columns]}
+            table_digests.append(digest(_snapshot_json(descriptor, "多卷单表绑定")))
+        value = {"metadata": prepared.metadata, "plan": prepared.plan, "calculator": prepared.calculator,
+            "reportId": prepared.report_id, "evidenceDigest": prepared.evidence_digest, "policy": prepared.policy,
+            "tables": table_digests}
+        # Prepared input comes from <=48 source identities and the unchanged
+        # bounded spool. Cap passive aliases before hashing mutated structures.
+        return digest({key: _snapshot_json(item, "多卷准备绑定") for key, item in value.items()})
+    except (AnalysisContractError, TypeError, ValueError, RecursionError, AttributeError) as error:
+        raise AiError("多卷准备绑定超限或结构无效", "conflict", 409) from error
+
+
+@contextmanager
+def prepare_volumes(report, principal, *, draft=False, checkpoint=None,
+                    max_tables=120, max_rows=1_000_000, max_volumes=100):
+    """Prepare complete v2 tables and a trusted renderer-4 plan without outputs.
+
+The existing spool limits are unchanged. Closing this context releases its
+SQLite spool; render before leaving it. Nothing is persisted or published.
+"""
+    from business_analysis import volume_files, volume_plan
+    authorize_owner(report, principal)
+    if not business_reports.is_v2_snapshot(json.loads(report.snapshot_json)):
+        raise AiError("内部多卷入口须绑定v2经营报告", "conflict", 409)
+    try:
+        with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=4) as (metadata, tables, calculator):
+            policy = {"max_tables": max_tables, "max_rows": max_rows, "max_volumes": max_volumes}
+            request = volume_files.request_for(tables, report_id=report.id,
+                evidence_digest=metadata["sealedDigest"], renderer_version=4)
+            plan = volume_plan.build(request, native_budget_sheets=3 if calculator is not None else 0, **policy)
+            prepared = PreparedVolumes(metadata, tuple(tables), plan, calculator, report.id, metadata["sealedDigest"], policy)
+            try:
+                yield prepared
+            finally:
+                object.__setattr__(prepared, "active", False)
+    except AnalysisContractError as error:
+        raise AiError(str(error), "conflict", 409) from error
+
+
+def build_volumes(prepared, outputs, *, checkpoint=None, max_file_bytes=MAX_FILE_BYTES):
+    """Render caller-owned temporary stream pairs once; errors publish nothing.
+
+`outputs` is a sequence of volume_files.VolumeStreams(xlsx=..., html=...).
+Allocate exactly prepared.plan['volumeCount'] empty, readable, writable,
+seekable streams. They remain caller-owned on both success and failure.
+"""
+    from business_analysis import volume_files
+    if type(prepared) is not PreparedVolumes or not prepared.active or prepared.consumed:
+        raise AiError("多卷准备包已关闭或消费；不得重放部分渲染", "conflict", 409)
+    object.__setattr__(prepared, "consumed", True)
+    if _prepared_binding(prepared) != prepared._binding_digest:
+        raise AiError("多卷准备范围、计划或文件身份已变化", "conflict", 409)
+    try:
+        return volume_files.render(prepared.tables, outputs, report_id=prepared.report_id,
+            evidence_digest=prepared.evidence_digest, renderer_version=4, plan=prepared.plan,
+            title="深度经营分析 · "+prepared.metadata["scope"]["shop"], metadata=prepared.metadata,
+            offline_budget=prepared.calculator, excel_budget=prepared.calculator,
+            checkpoint=checkpoint, max_file_bytes=max_file_bytes, **prepared.policy)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error

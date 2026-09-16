@@ -23,6 +23,16 @@ MAX_FILE_BYTES = 256 * 1024 * 1024
 NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
+# Opt-in layout for renderer 4+. Keep HTML_HEAD and the default writer byte
+# stream unchanged for existing renderer 1/2/3 deliverables.
+HTML_LAYOUT_V2 = '''<style id="business-html-layout-v2">
+.toolbar>*{min-width:0;max-width:100%}.toolbar input{flex-basis:220px}
+.toolbar select,details select{min-width:0;max-width:100%}
+.pager{flex-wrap:wrap}.pager>*{min-width:0;max-width:100%}
+header h1,h2,.note,nav button,.pager span{overflow-wrap:anywhere}
+details{min-width:0;max-width:100%}pre.meta{white-space:pre-wrap}
+</style>'''
+
 
 @dataclass(frozen=True)
 class Column:
@@ -105,12 +115,14 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None, html_layout_version=1):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
     late row can leave temporary output bytes but never a successful manifest.
     """
+    if type(html_layout_version) is not int or html_layout_version not in (1, 2):
+        raise AnalysisContractError("HTML布局版本不受支持")
     text(title)
     if not 1 <= len(tables) <= MAX_TABLES or len({t.key for t in tables}) != len(tables):
         raise AnalysisContractError("报告表数量或身份无效")
@@ -133,7 +145,10 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
         if html_file.tell()+len(raw) > MAX_FILE_BYTES:
             raise AnalysisContractError("文件超过当前容量，须显式分片，禁止截断")
         html_file.write(raw)
-    out(HTML_HEAD.replace("REPORT_TITLE", html.escape(title)))
+    head = HTML_HEAD.replace("REPORT_TITLE", html.escape(title))
+    if html_layout_version == 2:
+        head = head.replace("</head>", HTML_LAYOUT_V2+"</head>", 1)
+    out(head)
     out('<script type="application/json" id="report-data">{"title":'+_json(title)+',"metadata":'+_json(metadata)+',"tables":[')
     names, manifest = _sheet_names(tables), []
     model_sheets, model_proof = [], None

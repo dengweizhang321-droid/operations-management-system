@@ -4,7 +4,8 @@ import json
 from business_analysis import budget
 from business_analysis.contracts import AnalysisContractError
 from business_analysis.results import stream_table
-from . import business_evidence, models as m
+from . import business_evidence
+from .business_sealed import Reader
 from .policy import AiError, authorize_owner, digest, fields, integer, passive
 
 
@@ -14,8 +15,8 @@ def resolve(evidence_id, raw_plan, principal):
         raise AiError("预算测算须使用已封存证据", "conflict", 409)
     try:
         plan = budget.normalize(raw_plan)
-        sources = {s["key"]: s for s in json.loads(evidence.plan_json)["sources"]}
-        state = json.loads(evidence.state_json)
+        reader = Reader(evidence, principal)
+        sources = {s["key"]: s for s in reader.sources}
         groups, scopes, dates = {}, {}, set()
         for position, target in enumerate(plan["targets"]):
             source = sources.get(target["sourceKey"])
@@ -33,20 +34,11 @@ def resolve(evidence_id, raw_plan, principal):
             raise AiError("预算对象须使用相同本期区间", "conflict", 409)
         baselines = [None]*len(plan["targets"])
         for (key, dimension), targets in groups.items():
-            expected = business_evidence._restore(state[key]["verifier"]).result()
-            def pages():
-                count = 0
-                for chunk in m.AiBusinessEvidenceChunk.objects.filter(run=evidence, source_key=key).order_by("sequence").iterator(chunk_size=10):
-                    count += 1
-                    if chunk.sequence != count or digest(chunk.payload_json) != chunk.payload_digest:
-                        raise AiError("预算来源分块不完整", "conflict", 409)
-                    yield json.loads(chunk.payload_json)
-                if count != state[key]["pageCount"]:
-                    raise AiError("预算来源分块数量变化", "conflict", 409)
+            expected = reader.info(key)["expected"]
             selected = {target["rowIndex"]: (position, target) for position, target in targets}
             if len(selected) != len(targets):
                 raise AiError("预算对象行位置重复", "conflict", 409)
-            with stream_table(pages(), dimension, expected) as (table, rows):
+            with stream_table(reader.pages(key), dimension, expected) as (table, rows):
                 header = table["sourceMetadata"]
                 for row in rows:
                     if row["rowIndex"] not in selected:

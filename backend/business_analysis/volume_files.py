@@ -263,7 +263,8 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         proof = report_files.write_pair(_LimitedStream(output.xlsx, max_file_bytes), _LimitedStream(output.html, max_file_bytes),
             title=f"{title} · 第{index}/{planned['volumeCount']}卷", metadata={**metadata, "volumeDelivery": binding},
             tables=fragments, checkpoint=progress if checkpoint else None,
-            offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None)
+            offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
+            html_layout_version=2 if renderer_version >= 4 else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
         table_proofs = []

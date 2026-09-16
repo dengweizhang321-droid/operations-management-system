@@ -61,6 +61,16 @@ def run(tables, outputs, plan, **kwargs):
 
 
 class VolumeFilesTests(TestCase):
+    def test_only_renderer_four_selects_narrow_layout(self):
+        for renderer_version in (1, 2, 3, 4):
+            tables = [table("layout")]
+            request = request_for(tables, report_id="layout", evidence_digest="a"*64, renderer_version=renderer_version)
+            plan = volume_plan.build(request)
+            outputs = [VolumeStreams(io.BytesIO(), io.BytesIO())]
+            render(tables, outputs, report_id="layout", evidence_digest="a"*64, renderer_version=renderer_version,
+                plan=plan, title="合成宽列", metadata={})
+            self.assertEqual(b"business-html-layout-v2" in outputs[0].html.getvalue(), renderer_version == 4)
+
     def test_131_156_tables_all_preserved_and_actual_file_hashes(self):
         for count in (131, 156):
             with self.subTest(count=count):

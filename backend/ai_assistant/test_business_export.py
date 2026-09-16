@@ -63,7 +63,7 @@ class BusinessExportTests(TestCase):
         original = m.AiBusinessEvidenceChunk.objects.all().order_by("sequence")
         chunks = list(original)
         chunks[-1].payload_digest = "0"*64
-        with patch("ai_assistant.business_reports.content", return_value=self.content), patch("ai_assistant.business_export.m.AiBusinessEvidenceChunk.objects.filter") as query:
+        with patch("ai_assistant.business_reports.content", return_value=self.content), patch("ai_assistant.business_sealed.m.AiBusinessEvidenceChunk.objects.filter") as query:
             query.return_value.order_by.return_value.iterator.side_effect = lambda **kwargs: iter(deepcopy(chunks))
             with self.assertRaises(AiError):
                 business_export.build(self.report, self.admin, io.BytesIO(), io.BytesIO(), draft=True)

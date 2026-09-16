@@ -39,6 +39,24 @@ def pair(tables):
 
 
 class ReportFilesTests(TestCase):
+    def test_layout_v2_is_opt_in_and_leaves_legacy_file_bytes_unchanged(self):
+        def render(**kwargs):
+            xlsx, html = io.BytesIO(), io.BytesIO()
+            proof = write_pair(xlsx, html, title="窄屏合成", metadata={"synthetic": True}, tables=[self.table()], **kwargs)
+            return xlsx.getvalue(), html.getvalue(), proof
+        with patch("zipfile.time.localtime", return_value=(2026, 1, 1, 0, 0, 0, 3, 1, 0)):
+            default, legacy, current = render(), render(html_layout_version=1), render(html_layout_version=2)
+        self.assertEqual(default, legacy)
+        self.assertEqual(current[0], legacy[0])
+        self.assertEqual(current[2], legacy[2])
+        self.assertNotIn(b"business-html-layout-v2", legacy[1])
+        self.assertIn(b".toolbar>*{min-width:0;max-width:100%}", current[1])
+        self.assertIn(b".toolbar select,details select{min-width:0;max-width:100%}", current[1])
+        self.assertEqual(ReportData(current[1].decode()).value, ReportData(legacy[1].decode()).value)
+        for version in (True, 0, 3, "2"):
+            with self.assertRaises(AnalysisContractError):
+                render(html_layout_version=version)
+
     def table(self, rows=None, title="推广与搜索"):
         rows = [["词A", 100, 2, .02], ["词B", 0, 0, None], ["缺失", None, None, None]] if rows is None else rows
         return Table("promotion", title, "曝光、点击采用完整来源；比率缺失不补零。", (
