@@ -115,3 +115,52 @@ class RankingPaginationTests(TestCase):
         self.assertEqual(ranking["items"], report["items"])
         self.assertEqual(ranking["pagination"]["total"], 2)
         self.assertEqual(ranking["summary"]["pendingAiCount"], 1)
+
+    def test_rank_boundary_keeps_all_ties_and_projects_history_outside_candidates(self):
+        MarketNetshopProjectionControl.objects.update_or_create(id=1, defaults={"active_revision": "r"})
+        for i in range(35):
+            code = f"tie-{i}"
+            self.entry(code, rank=1 if i<25 else None, gmv_cents=100+i)
+            self.entry(code, rank=50, period_start="2026-07-01", period_end="2026-07-31")
+            # Another period with the same end date: projection must also order
+            # historical ties, even when their rank is outside page candidates.
+            self.entry(code, rank=50, period_start="2026-07-15", period_end="2026-07-31", gmv_cents=999)
+            for month in ("07", "08"):
+                MarketNetshopProjection.objects.create(projection_revision="r", projection_key=f"{i}-{month}",
+                    kind="metric", dataset="sku_daily", source="jd_sku_daily", sku_id=code,
+                    business_date=f"2026-{month}-01", transaction_amount_cents=10000 if i==0 else 10*i)
+        for page in (1,2,3,8,11,99):
+            with self.subTest(page=page):
+                ranking, report = self.query(page=page), self.query("full",page=page)
+                self.assertEqual(ranking["items"], report["items"])
+        self.assertEqual(self.query()["items"][0]["skuCode"], "tie-0")
+
+    def test_dedup_source_preference_and_filtered_rows_match_report(self):
+        for code, sources in (("all", ["", "z", "a", "全部"]), ("empty", ["", "a"]), ("other", ["z", "a"])):
+            for band in sources:
+                self.entry(code, price_band_filter=band, brand="before" if band=="全部" else "after")
+        for filters in (None, {"brands": ["after"]}, {"query": "other"}, {"priceBands": ["未确认价格"]}):
+            self.assertEqual(self.query(filters=filters)["items"], self.query("full",filters=filters)["items"])
+
+    def test_global_facets_match_independent_counts_including_empty_values(self):
+        from market.query import _database_options
+        for i in range(12):
+            self.entry(str(i), category=f"类目{i%3}", brand="" if i%4==0 else f"品牌{i%2}",
+                       operation_mode="" if i%2 else "自营", subcategory=f"细分{i%4}")
+        result = filter_options()
+        for name, field in (("categories","category"), ("scopes","scope"), ("brands","brand"),
+                            ("rankingDimensions","ranking_dimension"), ("operationModes","operation_mode"),
+                            ("subcategories","subcategory")):
+            self.assertEqual(result[name], _database_options(MarketRankingEntry.objects.all(),field))
+
+    def test_paging_keeps_valid_long_identity_and_brand_inputs(self):
+        # Covering the long brand plus the complete source key can exceed the
+        # PostgreSQL B-tree tuple limit. The query must keep accepting fields
+        # within the existing import limits without a new covering index.
+        import random
+        rng = random.Random(42)
+        text = lambda length: ''.join(chr(rng.randrange(0x4e00,0x9fff)) for _ in range(length))
+        row = self.entry(text(200),category=text(200),scope=text(200),price_band_filter=text(200),brand=text(300))
+        result = self.query()
+        self.assertEqual(result['items'][0]['id'], row.id)
+        self.assertEqual(result['items'][0]['brand'], row.brand)

@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from datetime import date, timedelta
 
+from django.db import connection
 from django.db.models import Count, F, Max, Min, Q, Sum
 
 from netshop.sales_client import read_sales_consumer
@@ -514,11 +515,27 @@ def _database_options(queryset, field: str) -> list[dict[str, object]]:
 def filter_options() -> dict[str, object]:
     """Independent of overview success, including an empty/oversized range."""
     query = MarketRankingEntry.objects.all()
-    options = {name: _database_options(query, field) for name, field in (
+    fields = (
         ("categories", "category"), ("scopes", "scope"), ("brands", "brand"),
         ("rankingDimensions", "ranking_dimension"), ("operationModes", "operation_mode"),
         ("subcategories", "subcategory"),
-    )}
+    )
+    if connection.vendor == "postgresql":
+        # All six global facets read the same table. GROUPING SETS scans it once
+        # while preserving independent counts (not combinations of the facets).
+        cases = " ".join(f"WHEN GROUPING({field})=0 THEN '{name}'" for name, field in fields)
+        values = " ".join(f"WHEN GROUPING({field})=0 THEN {field}" for _, field in fields)
+        groups = ",".join(f"({field})" for _, field in fields)
+        options = {name: [] for name, _ in fields}
+        with connection.cursor() as cursor:
+            cursor.execute(f"""SELECT CASE {cases} END facet,CASE {values} END value,COUNT(*) count
+                FROM market_ranking_entries GROUP BY GROUPING SETS ({groups})
+                ORDER BY facet,count DESC,value""")
+            for facet, value, count in cursor.fetchall():
+                if value:
+                    options[facet].append({"value": value, "count": count})
+    else:
+        options = {name: _database_options(query, field) for name, field in fields}
     # Published labels provide a recovery control without evaluating all rows.
     labels = MarketPriceBandItem.objects.filter(version_id__in=MarketPriceBandVersion.objects.filter(
         status="published").values("id")).values_list("label", flat=True).distinct()

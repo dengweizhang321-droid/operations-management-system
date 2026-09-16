@@ -41,6 +41,7 @@ from .query import FORMAL_OFFICIAL_PRICE_TYPES, _price_band, _price_band_version
 from .revisions import bump_revision, canonical_json, iso
 from .serialization import batch_payload
 from .system_kpis import system_kpis
+from .master_query import identity as _master_identity, master_page, page_context
 
 
 MAX_PAGE = 10_000
@@ -180,7 +181,7 @@ def _snapshot_value(snapshot: MarketPriceSnapshot | None) -> dict[str, object]:
     }
 
 
-def _master_item(row: MarketRankingEntry) -> dict[str, object]:
+def _master_item(row: MarketRankingEntry, *, context=None) -> dict[str, object]:
     month = row.period_end[:7]
     snapshot = MarketPriceSnapshot.objects.filter(
         category=row.category,
@@ -188,15 +189,15 @@ def _master_item(row: MarketRankingEntry) -> dict[str, object]:
         sku_code=row.sku_code,
         ranking_dimension=row.ranking_dimension,
         month=month,
-    ).first()
-    cache = MarketImageCache.objects.filter(source_url=row.image_url).first() if row.image_url else None
+    ).first() if context is None else context["snapshots"].get((*_master_identity(row), month))
+    cache = (MarketImageCache.objects.filter(source_url=row.image_url).first() if row.image_url else None) if context is None else context["caches"].get(row.image_url)
     suggestion = MarketBrandSuggestion.objects.filter(
         category=row.category,
         scope=row.scope,
         ranking_dimension=row.ranking_dimension,
         sku_code=row.sku_code,
-    ).first()
-    total = MarketSkuGmvTotal.objects.filter(sku_code=row.sku_code).first()
+    ).first() if context is None else context["suggestions"].get(_master_identity(row))
+    total = MarketSkuGmvTotal.objects.filter(sku_code=row.sku_code).first() if context is None else context["totals"].get(row.sku_code)
     official = (
         snapshot.confirmed_market_price_cents
         if snapshot
@@ -224,7 +225,7 @@ def _master_item(row: MarketRankingEntry) -> dict[str, object]:
         int(official) if official is not None else None,
         category=row.category,
         period_end=row.period_end,
-        versions=_price_band_versions(),
+        versions=_price_band_versions() if context is None else context["versions"],
     )
     image_hash = cache.content_sha256 if cache and cache.status == "ready" else snapshot.image_content_sha256 if snapshot else ""
     annotation = MarketSkuAnnotation.objects.filter(
@@ -233,7 +234,7 @@ def _master_item(row: MarketRankingEntry) -> dict[str, object]:
         ranking_dimension=row.ranking_dimension,
         sku_code=row.sku_code,
         image_content_sha256=image_hash,
-    ).first()
+    ).first() if context is None else context["annotations"].get((*_master_identity(row), image_hash))
     return {
         "id": row.id,
         "periodStart": row.period_start,
@@ -311,39 +312,17 @@ def list_master(params: dict[str, object], *, pending: bool = False) -> dict[str
     candidate_sources = set(_list(params.get("candidatePriceSources"), "candidatePriceSources"))
     price_statuses = set(_list(params.get("priceStatuses"), "priceStatuses"))
     annotation_statuses = set(_list(params.get("annotationStatuses"), "annotationStatuses"))
-    values: list[dict[str, object]] = []
-    seen: set[tuple[str, str, str, str, str]] = set()
-    for row in query.iterator(chunk_size=500):
-        item = _master_item(row)
-        identity = (row.category, row.scope, row.ranking_dimension, row.sku_code, item["month"] if history else "")
-        if identity in seen:
-            continue
-        seen.add(identity)
-        official = item["officialMarketPriceCents"]
-        candidate = item["candidatePriceCents"]
-        status = "confirmed" if official is not None else "pending" if candidate is not None else "missing"
-        if pending and status == "confirmed":
-            continue
-        if price_statuses and status not in price_statuses:
-            continue
-        source_group = "ai" if item["candidatePriceSource"] == "ai_suggestion" else "non_ai"
-        if candidate_sources and source_group not in candidate_sources:
-            continue
-        if annotation_statuses and item["annotationStatus"] not in annotation_statuses:
-            continue
-        values.append(item)
-    values.sort(key=lambda item: (-int(item["gmvTotalCents"]), str(item["periodEnd"]), int(item["id"])))
-    total = len(values)
-    safe_page = min(page, max(1, math.ceil(total / page_size)))
-    start = (safe_page - 1) * page_size
+    ids, pagination = master_page(query, history=history, pending=pending,
+        price_statuses=price_statuses, candidate_sources=candidate_sources,
+        annotation_statuses=annotation_statuses, page=page, page_size=page_size)
+    by_id = MarketRankingEntry.objects.filter(id__in=ids).defer("raw_json").in_bulk()
+    if len(by_id) != len(ids):
+        raise _error("市场数据版本已变化，请重试读取", code="service_unavailable", status=503)
+    rows = [by_id[row_id] for row_id in ids]
+    context = page_context(rows, _price_band_versions()) if rows else {}
     return {
-        "items": values[start : start + page_size],
-        "pagination": {
-            "page": safe_page,
-            "pageSize": page_size,
-            "total": total,
-            "pageCount": max(1, math.ceil(total / page_size)),
-        },
+        "items": [_master_item(row, context=context) for row in rows],
+        "pagination": pagination,
     }
 
 

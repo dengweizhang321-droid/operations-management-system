@@ -15,6 +15,8 @@ function App(){const [view,setView]=useState('ranking'); const [period,setPeriod
 return <main style={{padding:24}}><p>演示预览 · 合成数据 · 仅查询</p><View customStartDate={period[0]} customEndDate={period[1]} currentUser={{email:'fixture@example.invalid',role:'analyst'}} moduleView={view} onModuleViewChange={setView} onApplyPeriod={(s,e)=>setPeriod([s,e])}/></main>}
 createRoot(document.getElementById('root')).render(<App/>);`);
 const server = await createServer({ configFile: false, root, plugins: [react()],
+  cacheDir: resolve(output, "vite-cache"),
+  optimizeDeps: { include: ["react", "react-dom", "react-dom/client"] },
   resolve: { alias: { "@": root } }, server: { host: "127.0.0.1", port: 3108, strictPort: true } });
 const filters = { categories: [{ value: "合成类目", count: 250002 }], scopes: [{ value: "全部", count: 250002 }],
   brands: [], rankingDimensions: [{ value: "SKU", count: 250002 }], operationModes: [], subcategories: [], priceBands: [] };

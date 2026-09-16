@@ -41,6 +41,19 @@ CUTOVER_ID = "market-test-cutover"
 )
 class MarketApiContractTests(TestCase):
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_master_pagination_preserves_auth_revision_and_read_only_contract(self):
+        for view in ("database_primary", "pending_prices"):
+            payload = {"operation": "master", "view": view, "params": {"page": 100, "pageSize": 30}}
+            response = self.post_query(payload, "master-paging-"+view, role="viewer")
+            self.assertEqual(response.status_code, 200, response.content)
+            result = response.json()["masterData"] if view == "database_primary" else response.json()
+            self.assertEqual(result["pagination"], {"page":1,"pageSize":30,"total":0,"pageCount":1})
+            self.assertEqual(response["Cache-Control"], "no-store")
+            self.assertIn("X-Market-Data-Revision", response)
+            rejected = self.post_query(payload, "master-scoped-"+view, scope={"warehouses":[],"channels":[],"platforms":["京东"]})
+            self.assertEqual(rejected.status_code, 403)
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_system_kpis_keep_signed_read_scope_and_response_contract(self):
         payload = {"operation": "master", "view": "system_kpis", "params": {}}
         response = self.post_query(payload, "kpi-read", role="viewer")
