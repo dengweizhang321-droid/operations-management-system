@@ -10,12 +10,13 @@ RATE_METRICS = {"ctr", "orderLineConversionRate"}
 
 
 @contextmanager
-def stream_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None):
+def stream_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None, checkpoint=None):
     """Full export of the same API rows; callers must consume inside the context."""
-    from .partitioned import PartitionedGroups
+    from .partitioned import PartitionedGroups, Checkpoint
+    checkpoint = Checkpoint.wrap(checkpoint)
     if dimension not in VIEWS or baseline_pages is not None and dimension == "daily":
         raise AnalysisContractError("分析导出维度或期间无效")
-    with PartitionedGroups() as store:
+    with PartitionedGroups(**({"checkpoint":checkpoint} if checkpoint is not None else {})) as store:
         header, _ = _group(pages, dimension, expected, store=store)
         previous = None
         if baseline_pages is not None:
@@ -27,12 +28,18 @@ def stream_table(pages, dimension, expected, *, baseline_pages=None, baseline_ex
         def rows():
             offset = 0
             while batch := list(islice(pairs, 100)):
+                if checkpoint is not None: checkpoint({"stage":"native_rows","rowOffset":offset})
                 result = _assemble(header, previous, dimension, expected, baseline_expected, batch, total, offset)
                 yield from result["rows"]
                 offset += len(batch)
             if offset != total:
                 raise AnalysisContractError("完整表导出行数变化")
-        yield table, rows()
+        iterator = rows()
+        try:
+            yield table, iterator
+        finally:
+            iterator.close()
+            pairs.close()
 
 
 def _group(pages, dimension, expected, *, store=None, side=0):

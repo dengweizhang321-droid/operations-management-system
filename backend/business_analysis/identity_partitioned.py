@@ -12,6 +12,7 @@ import sqlite3
 from tempfile import TemporaryDirectory
 
 from .contracts import AnalysisContractError, MAX_SAFE_INTEGER, PageReconciler, canonical, digest
+from .partitioned import Checkpoint
 
 SCHEMA_VERSION = "business-product-mapping-v2"
 ALGORITHM_VERSION = "exact-product-partition-v1"
@@ -40,8 +41,9 @@ def _json(value):
 
 
 class _Result:
-    def __init__(self, db):
+    def __init__(self, db, checkpoint=None):
         self._db, self._active, self._summary = db, False, None
+        self._checkpoint = checkpoint
         self._source_pages, self._source_bytes = 0, 0
         self._groups = 0
         self._source_stats = {}
@@ -101,6 +103,8 @@ class _Result:
         try:
             while True:
                 self._available()
+                if self._checkpoint is not None and count % 100 == 0:
+                    self._checkpoint({"stage":"identity_scan","rowOffset":count})
                 record = cursor.fetchone()
                 if record is None:
                     break
@@ -116,6 +120,7 @@ class _Result:
     def _read(self, pages, kind, consume, expected):
         verifier, scope, count = PageReconciler(), None, 0
         for page in pages:
+            if self._checkpoint is not None: self._checkpoint({"stage":"identity_source_page","sourceKind":kind,"sourcePage":count+1})
             _require(type(page) is dict and type(page.get("items")) is list and len(page["items"]) <= 100,
                 "来源页超过固定行容量")
             size = _json(page)[1]
@@ -179,11 +184,16 @@ class _Result:
         _require(master_scope == sales_scope, "销售与主数据店铺不一致")
         sums, counts, rows, count = defaultdict(int), defaultdict(int), 0, 0
         chain = digest([])
-        for key, payload in self._db.execute("SELECT identity,payload FROM groups ORDER BY identity COLLATE BINARY"):
+        cursor = self._db.execute("SELECT identity,payload FROM groups ORDER BY identity COLLATE BINARY")
+        self._cursors.add(cursor)
+        for key, payload in cursor:
+            if self._checkpoint is not None and count % 100 == 0:
+                self._checkpoint({"stage":"identity_verify","rowOffset":count})
             group = json.loads(payload)
             rows += group["rowCount"]; count += 1; counts[group["status"]] += group["rowCount"]
             for metric, value in group["metrics"].items(): sums[metric] += value
             chain = digest([chain, group, count])
+        self._cursors.remove(cursor); cursor.close()
         _require(rows == sales["rowCount"] and count == self._groups, "关联行数未通过来源核对")
         _require(not any(value["missingRows"] or sums[key] != (value["value"] or 0)
             for key, value in sales["metrics"].items()), "关联金额未通过源核对")
@@ -197,15 +207,21 @@ class _Result:
         self._summary = canonical(summary)
         # Validate every possible singleton response before publishing anything.
         _require(_json(self._page([], 0))[1] <= MAX_RESULT_BYTES, "关联汇总超过分页容量")
-        for index, (key, payload) in enumerate(self._db.execute("SELECT identity,payload FROM groups ORDER BY identity COLLATE BINARY")):
+        cursor = self._db.execute("SELECT identity,payload FROM groups ORDER BY identity COLLATE BINARY")
+        self._cursors.add(cursor)
+        for index, (key, payload) in enumerate(cursor):
+            if self._checkpoint is not None and index % 100 == 0:
+                self._checkpoint({"stage":"identity_rows","rowOffset":index})
             _require(_json(self._page([self._row(key, payload, index)], index, 100))[1] <= MAX_RESULT_BYTES,
                 "单个完整关联行超过分页字节容量")
+        self._cursors.remove(cursor); cursor.close()
         self._active = True
 
 
 @contextmanager
-def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master_expected=None, max_scratch_bytes=None):
+def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master_expected=None, max_scratch_bytes=None, checkpoint=None):
     """Yield fully verified results; all scans/pages must stay inside this block."""
+    checkpoint = Checkpoint.wrap(checkpoint)
     scratch_limit = MAX_SCRATCH_BYTES if max_scratch_bytes is None else max_scratch_bytes
     _require(type(scratch_limit) is int and 0 < scratch_limit <= MAX_SCRATCH_BYTES,
         "临时关联空间额度无效或超过固定上限")
@@ -214,6 +230,7 @@ def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master
         db = None
         try:
             db = sqlite3.connect(str(Path(directory) / "mapping.sqlite"))
+            if checkpoint is not None: checkpoint.attach(db,"identity_sqlite")
             db.execute("PRAGMA journal_mode=OFF")
             db.execute("PRAGMA synchronous=OFF")
             db.execute("PRAGMA cache_size=-2048")
@@ -223,12 +240,17 @@ def reconcile_products(sales_pages, master_pages, *, sales_expected=None, master
             db.execute(f"PRAGMA max_page_count={scratch_limit // page_size}")
             db.execute("CREATE TABLE candidates(code TEXT COLLATE BINARY,pair TEXT COLLATE BINARY,PRIMARY KEY(code,pair)) WITHOUT ROWID")
             db.execute("CREATE TABLE groups(identity TEXT COLLATE BINARY PRIMARY KEY,payload TEXT NOT NULL) WITHOUT ROWID")
-            result = _Result(db)
+            result = _Result(db,checkpoint) if checkpoint is not None else _Result(db)
             result._build(sales_pages, master_pages, sales_expected, master_expected)
             yield result
-        except (sqlite3.DatabaseError, KeyError, ValueError, TypeError, UnicodeError, RecursionError) as error:
-            raise AnalysisContractError("分区商品关联数据或临时空间无效") from error
+            if checkpoint is not None: checkpoint.raise_if_failed()
+        except BaseException as error:
+            if checkpoint is not None: checkpoint.raise_if_failed()
+            if isinstance(error,(sqlite3.DatabaseError, KeyError, ValueError, TypeError, UnicodeError, RecursionError)):
+                raise AnalysisContractError("分区商品关联数据或临时空间无效") from error
+            raise
         finally:
+            if db is not None and checkpoint is not None: db.set_progress_handler(None,0)
             if result is not None:
                 result._active = False
                 # sqlite connections retain open statement handles; explicitly

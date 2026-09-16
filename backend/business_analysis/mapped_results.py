@@ -7,6 +7,7 @@ single disposable aggregation database gets the other 128 MiB.
 """
 from collections import defaultdict
 from contextlib import contextmanager
+from .partitioned import Checkpoint
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -133,8 +134,9 @@ def _compatible(current, baseline):
 
 
 class _Table:
-    def __init__(self, db, dimension):
+    def __init__(self, db, dimension, checkpoint=None):
         self._db, self._dimension, self._active = db, dimension, False
+        self._checkpoint = checkpoint
         self._cursors, self._infos, self._proofs = set(), [], []
         self._total, self._high_water, self._mapping_high_water = 0, 0, 0
         self._header = None
@@ -162,6 +164,8 @@ class _Table:
             _require((summary["platform"], summary["shopName"]) == (query["platform"], query["shop"]))
             sums, statuses, row_count, group_count, chain, previous_key = defaultdict(int), defaultdict(int), 0, 0, digest([]), None
             for raw in result.scan():
+                if self._checkpoint is not None and group_count % 100 == 0:
+                    self._checkpoint({"stage":"mapped_aggregate","side":side,"rowOffset":group_count})
                 _require(type(raw) is dict and set(raw) == GROUP_FIELDS | {"rowIndex", "id"})
                 group = {k: raw[k] for k in GROUP_FIELDS}
                 key = canonical([group["status"], group["skuId"], group["spuId"]])
@@ -210,8 +214,10 @@ class _Table:
         cursor = self._db.execute("SELECT entity,side,payload FROM groups ORDER BY entity COLLATE BINARY,side")
         self._cursors.add(cursor)
         try:
-            previous, pair = None, [None,None]
+            previous, pair, count = None, [None,None], 0
             while True:
+                if self._checkpoint is not None and count % 100 == 0:
+                    self._checkpoint({"stage":"mapped_scan","rowOffset":count})
                 record = cursor.fetchone()
                 if record is None: break
                 entity, side, payload = record
@@ -219,6 +225,7 @@ class _Table:
                     yield previous, pair
                     pair = [None,None]
                 pair[side] = json.loads(payload); previous = entity
+                count += 1
             if previous is not None: yield previous, pair
         finally:
             if cursor in self._cursors:
@@ -318,7 +325,8 @@ class _Table:
 
 
 @contextmanager
-def mapped_table(current, dimension, *, baseline=None):
+def mapped_table(current, dimension, *, baseline=None, checkpoint=None):
+    checkpoint = Checkpoint.wrap(checkpoint)
     _require(type(current) is MappingSource and (baseline is None or type(baseline) is MappingSource))
     _require(type(dimension) is str and dimension in {"sku","spu"}, "映射分析仅支持SKU或SPU")
     if baseline is not None: _compatible(current,baseline)
@@ -326,22 +334,27 @@ def mapped_table(current, dimension, *, baseline=None):
     with TemporaryDirectory(prefix="teruisi-mapped-result-") as directory:
         try:
             db=sqlite3.connect(str(Path(directory)/"mapped.sqlite"))
+            if checkpoint is not None: checkpoint.attach(db,"mapped_sqlite")
             db.execute("PRAGMA journal_mode=OFF"); db.execute("PRAGMA synchronous=OFF")
             db.execute("PRAGMA cache_size=-2048"); db.execute("PRAGMA temp_store=FILE")
             size=db.execute("PRAGMA page_size").fetchone()[0]
             _require(MAX_SCRATCH_BYTES>=size and MAX_SCRATCH_BYTES+MAX_MAPPING_SCRATCH_BYTES<=MAX_COMBINED_SCRATCH_BYTES)
             db.execute(f"PRAGMA max_page_count={MAX_SCRATCH_BYTES//size}")
             db.execute("CREATE TABLE groups(entity TEXT COLLATE BINARY,side INTEGER,payload TEXT NOT NULL,PRIMARY KEY(entity,side)) WITHOUT ROWID")
-            table=_Table(db,dimension)
+            table=_Table(db,dimension,checkpoint) if checkpoint is not None else _Table(db,dimension)
             table._ingest(current,0)
             if baseline is not None: table._ingest(baseline,1)
             table._finish()
             yield table
-        except AnalysisContractError:
+            if checkpoint is not None: checkpoint.raise_if_failed()
+        except BaseException as error:
+            if checkpoint is not None: checkpoint.raise_if_failed()
+            if isinstance(error,AnalysisContractError): raise
+            if isinstance(error,(sqlite3.DatabaseError, KeyError, TypeError, ValueError, UnicodeError, RecursionError)):
+                raise AnalysisContractError("映射分析未通过完整计算或临时容量核验") from error
             raise
-        except (sqlite3.DatabaseError, KeyError, TypeError, ValueError, UnicodeError, RecursionError) as error:
-            raise AnalysisContractError("映射分析未通过完整计算或临时容量核验") from error
         finally:
+            if db is not None and checkpoint is not None: db.set_progress_handler(None,0)
             if table is not None:
                 table._active=False
                 for cursor in table._cursors: cursor.close()

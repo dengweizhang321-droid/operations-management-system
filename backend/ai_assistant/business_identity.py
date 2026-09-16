@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 from business_analysis.contracts import AnalysisContractError
 from business_analysis import identity_partitioned
+from business_analysis.partitioned import Checkpoint
 from . import business_evidence, business_evidence_store as store
 from .business_sealed import Reader
 from .policy import AiError, canonical, current_principal, digest, fields, identifier
@@ -58,20 +59,28 @@ def describe(run_id, sales_key, master_key, principal):
 
 
 @contextmanager
-def reconciled(run_id, sales_key, master_key, principal, *, max_scratch_bytes=None):
+def reconciled(run_id, sales_key, master_key, principal, *, max_scratch_bytes=None, checkpoint=None):
     """Yield only after both exact sources have been consumed in full."""
+    checkpoint = Checkpoint.wrap(checkpoint)
+    options = {"checkpoint":checkpoint} if checkpoint is not None else {}
+    if checkpoint is not None: checkpoint({"stage":"identity_descriptor","phase":"before"})
     row, reader, sales, master, binding = describe(run_id, sales_key, master_key, principal)
+    if checkpoint is not None: checkpoint({"stage":"identity_descriptor","phase":"after"})
     sales_key, master_key = sales["key"], master["key"]
     expected = {"sales": reader.info(sales_key)["expected"], "master": reader.info(master_key)["expected"]}
     try:
-        with identity_partitioned.reconcile_products(reader.pages(sales_key), reader.pages(master_key),
+        with identity_partitioned.reconcile_products(reader.pages(sales_key,**options), reader.pages(master_key,**options),
                 sales_expected=expected["sales"], master_expected=expected["master"],
+                **options,
                 **({"max_scratch_bytes": max_scratch_bytes} if max_scratch_bytes is not None else {})) as result:
             _current(row, principal)
             yield result, binding
             _current(row, principal)
-    except (AnalysisContractError, ValueError, TypeError, KeyError) as error:
-        raise AiError("商品关联未通过完整封存核验", "conflict", 409) from error
+    except BaseException as error:
+        if checkpoint is not None: checkpoint.raise_if_failed()
+        if isinstance(error,(AnalysisContractError, ValueError, TypeError, KeyError)):
+            raise AiError("商品关联未通过完整封存核验", "conflict", 409) from error
+        raise
 
 
 def page(run_id, params, principal):

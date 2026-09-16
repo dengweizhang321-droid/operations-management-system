@@ -12,6 +12,7 @@ from business_analysis import diagnostic_screening, mapping_plan
 from business_analysis.contracts import AnalysisContractError
 from business_analysis.planning import validate_analysis_request
 from business_analysis.results import stream_table
+from business_analysis.partitioned import Checkpoint
 from . import business_evidence, business_integrated, business_mapped_analysis, business_reports, models as m
 from .business_sealed import Reader
 from .policy import AiError, authorize_owner, canonical, current_principal, digest, identifier
@@ -130,10 +131,25 @@ def describe_for_report(report_id, principal):
     return value
 
 
-def prepare_for_report(report_id, principal):
+def prepare_for_report(report_id, principal, *, checkpoint=None):
+    """Cooperative hooks are internal only and never authorize partial results."""
+    checkpoint = Checkpoint.wrap(checkpoint)
+    try:
+        return _prepare_for_report(report_id,principal,checkpoint)
+    except BaseException:
+        # Reader.pages and existing owning adapters may translate ValueError;
+        # cancellation must retain the original caller's exception instance.
+        if checkpoint is not None: checkpoint.raise_if_failed()
+        raise
+
+
+def _prepare_for_report(report_id, principal, checkpoint):
+    options = {"checkpoint":checkpoint} if checkpoint is not None else {}
+    if checkpoint is not None: checkpoint({"stage":"screen_prepare","phase":"before"})
     loaded = _load(report_id, principal)
     binding, reader, _, fixed_mapping, _, infos = loaded
     plan = _describe(loaded)["plan"]
+    if checkpoint is not None: checkpoint({"stage":"screen_prepare","phase":"after_describe"})
     if not plan["canScreen"]:
         reason = plan.get("reason") or "; ".join(
             f"{item['reason']} ({item['actual']}/{item['limit']})" for item in plan["admissionFailures"])
@@ -146,21 +162,21 @@ def prepare_for_report(report_id, principal):
             mapped = descriptor["mapping"]
             with business_mapped_analysis.table(binding["evidenceRunId"], fixed_mapping,
                     mapped["pairKey"], descriptor["dimension"], principal,
-                    baseline_pair_key=mapped["baselinePairKey"]) as table:
+                    baseline_pair_key=mapped["baselinePairKey"],**options) as table:
                 yield table.header(), table.scan()
         else:
             key = descriptor["source"]["key"]
             baseline = descriptor["baseline"]
-            kwargs = ({"baseline_pages":reader.pages(baseline["key"]),
+            kwargs = ({"baseline_pages":reader.pages(baseline["key"],**options),
                 "baseline_expected":infos[baseline["key"]]["expected"]} if baseline else {})
-            with stream_table(reader.pages(key), descriptor["dimension"], infos[key]["expected"], **kwargs) as opened:
+            with stream_table(reader.pages(key,**options), descriptor["dimension"], infos[key]["expected"], **kwargs,**options) as opened:
                 yield opened
         _revalidate(binding, principal)
 
     try:
         result = diagnostic_screening.prepare({key:binding[key] for key in (
             "reportId", "evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest")},
-            plan["descriptors"], open_table, limits=plan["limits"])
+            plan["descriptors"], open_table, limits=plan["limits"],**options)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error
     _revalidate(binding, principal)
@@ -182,6 +198,9 @@ def prepare_for_report(report_id, principal):
     value = {"schemaVersion":"business-diagnostic-screening-v1", "authority":authority,
         "bindingDigest":digest(binding), "planDigest":plan["planDigest"], "plan":plan, "prepared":result}
     value["resultDigest"] = digest(value)
+    if checkpoint is not None:
+        checkpoint({"stage":"screen_complete"})
+        _revalidate(binding,principal)
     return VerifiedScreening(_TOKEN, binding, value)
 
 

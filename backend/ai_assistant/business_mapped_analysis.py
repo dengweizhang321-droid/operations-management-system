@@ -9,6 +9,7 @@ import re
 
 from business_analysis import mapped_results, mapping_plan
 from business_analysis.contracts import AnalysisContractError
+from business_analysis.partitioned import Checkpoint
 from . import business_evidence, business_evidence_store as store, business_identity
 from .business_sealed import Reader
 from .policy import AiError, canonical, digest, fields, identifier
@@ -17,13 +18,15 @@ MAX_RESPONSE_BYTES = 65536
 
 
 @contextmanager
-def table(run_id, plan, pair_key, dimension, principal, *, baseline_pair_key=None):
+def table(run_id, plan, pair_key, dimension, principal, *, baseline_pair_key=None, checkpoint=None):
     """Fixed-plan entry for future report consumers, never an authority bypass.
 
     The caller must obtain plan from its immutable report snapshot. This checks
     its complete structure and source compatibility again; source key hashes
     alone do not bind evidence contents, which the live table also verifies.
     """
+    checkpoint = Checkpoint.wrap(checkpoint)
+    options = {"checkpoint":checkpoint} if checkpoint is not None else {}
     row = business_evidence.get_run(run_id, principal)
     reader = Reader(row, principal)
     try:
@@ -36,34 +39,39 @@ def table(run_id, plan, pair_key, dimension, principal, *, baseline_pair_key=Non
         if baseline is not None:
             mapping_plan.validate_baseline_pair(reader.sources, checked, pair_key, baseline_pair_key)
         with analyzed(run_id, pair["salesKey"], pair["masterKey"], dimension, principal,
-                baseline={key: baseline[key] for key in ("salesKey", "masterKey")} if baseline else None) as (value, _):
+                baseline={key: baseline[key] for key in ("salesKey", "masterKey")} if baseline else None,**options) as (value, _):
             business_identity._current(row, principal)
             yield value
             business_identity._current(row, principal)
-    except (AnalysisContractError, KeyError, TypeError, ValueError) as error:
-        raise AiError("固定映射计划未通过完整核验", "conflict", 409) from error
+    except BaseException as error:
+        if checkpoint is not None: checkpoint.raise_if_failed()
+        if isinstance(error,(AnalysisContractError, KeyError, TypeError, ValueError)):
+            raise AiError("固定映射计划未通过完整核验", "conflict", 409) from error
+        raise
 
 
-def _source(run_id, pair, principal):
+def _source(run_id, pair, principal, *, checkpoint=None):
     _, reader, sales, master, binding = business_identity.describe(
         run_id, pair["salesKey"], pair["masterKey"], principal)
 
     def open_mapping(*, max_scratch_bytes):
         return business_identity.reconciled(run_id, sales["key"], master["key"], principal,
-            max_scratch_bytes=max_scratch_bytes)
+            max_scratch_bytes=max_scratch_bytes,**({"checkpoint":checkpoint} if checkpoint is not None else {}))
 
     return mapped_results.MappingSource(binding, sales, master, reader.info(sales["key"]),
         reader.info(master["key"]), open_mapping)
 
 
 @contextmanager
-def analyzed(run_id, sales_key, master_key, dimension, principal, *, baseline=None):
+def analyzed(run_id, sales_key, master_key, dimension, principal, *, baseline=None, checkpoint=None):
     """Yield (live_table, fixed_binding) after both windows are fully verified.
 
     baseline is an explicit {salesKey,masterKey}, never an inferred source. The
     pure mapped_table serially opens each pair with its combined scratch limit;
     Reader.pages is traversed once per sales/master pair, not during describe.
     """
+    checkpoint = Checkpoint.wrap(checkpoint)
+    options = {"checkpoint":checkpoint} if checkpoint is not None else {}
     if type(dimension) is not str or dimension not in {"sku", "spu"}:
         raise AiError("ERP商品映射分析仅支持SKU或SPU")
     row = business_evidence.get_run(run_id, principal)
@@ -82,9 +90,9 @@ def analyzed(run_id, sales_key, master_key, dimension, principal, *, baseline=No
         current_key = by_sales[sales_key]["pairKey"]
         comparison = (mapping_plan.validate_baseline_pair(reader.sources, built["plan"], current_key,
             by_sales[baseline["salesKey"]]["pairKey"]) if baseline is not None else None)
-        current = _source(run_id, pair, principal)
-        previous = _source(run_id, baseline, principal) if baseline is not None else None
-        with mapped_results.mapped_table(current, dimension, baseline=previous) as table:
+        current = _source(run_id, pair, principal,**options)
+        previous = _source(run_id, baseline, principal,**options) if baseline is not None else None
+        with mapped_results.mapped_table(current, dimension, baseline=previous,**options) as table:
             business_identity._current(row, principal)
             header = table.header()
             binding = {"schemaVersion": "business-mapped-analysis-binding-v1", **built,
@@ -98,8 +106,11 @@ def analyzed(run_id, sales_key, master_key, dimension, principal, *, baseline=No
                 "tableBindingDigest": header["bindingDigest"]}
             yield table, binding
             business_identity._current(row, principal)
-    except (AnalysisContractError, KeyError, TypeError, ValueError) as error:
-        raise AiError("ERP商品映射分析未通过完整范围或封存核验", "conflict", 409) from error
+    except BaseException as error:
+        if checkpoint is not None: checkpoint.raise_if_failed()
+        if isinstance(error,(AnalysisContractError, KeyError, TypeError, ValueError)):
+            raise AiError("ERP商品映射分析未通过完整范围或封存核验", "conflict", 409) from error
+        raise
 
 
 def page(run_id, params, principal):

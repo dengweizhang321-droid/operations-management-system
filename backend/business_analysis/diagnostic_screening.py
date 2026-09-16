@@ -302,7 +302,7 @@ class _Candidate:
         return self.score < other.score or self.score == other.score and self.row_id > other.row_id
 
 
-def prepare(binding, descriptors, open_table, *, limits=None):
+def prepare(binding, descriptors, open_table, *, limits=None, checkpoint=None):
     """Return untrusted-authority prepared JSON after every source context exits.
 
     open_table receives a fresh descriptor copy and yields (header, rows) from a
@@ -310,6 +310,8 @@ def prepare(binding, descriptors, open_table, *, limits=None):
     a tool page. Even a caller that fabricates every input can obtain only an
     explicitly unpublished result, never a factual authorization certificate.
     """
+    from .partitioned import Checkpoint
+    checkpoint = Checkpoint.wrap(checkpoint)
     bounds = dict(LIMITS)
     _require(callable(open_table), "筛查须使用内部表context opener")
     if limits is not None:
@@ -322,7 +324,8 @@ def prepare(binding, descriptors, open_table, *, limits=None):
     binding = deepcopy(binding)
     _require(type(descriptors) is list and 1 <= len(descriptors) <= bounds["maxTables"], "筛查完整表计划超过容量或为空")
     entries, plan_bytes, identities, source_keys = [], 0, set(), {}
-    for value in descriptors:
+    for descriptor_index,value in enumerate(descriptors):
+        if checkpoint is not None: checkpoint({"stage":"screen_descriptor","descriptorIndex":descriptor_index,"phase":"before"})
         plan_bytes += len(_bounded(value, bounds["maxHeaderBytes"]))
         _require(plan_bytes <= bounds["maxDescriptorBytes"], "筛查完整描述超过容量")
         entry = _descriptor(deepcopy(value))
@@ -335,6 +338,7 @@ def prepare(binding, descriptors, open_table, *, limits=None):
                 _require(source_keys.get(source["key"], raw) == raw, "筛查同名来源绑定不一致")
                 source_keys[source["key"]] = raw
         entries.append((identity, entry))
+        if checkpoint is not None: checkpoint({"stage":"screen_descriptor","descriptorIndex":descriptor_index,"phase":"after"})
     _require(len(source_keys) <= 48, "筛查来源超过完整目录容量")
     entries.sort(key=lambda item:item[0])
     _require(sum(len(entry["ruleIds"]) for _,entry in entries) <= bounds["maxPartitions"], "筛查候选分区超过容量")
@@ -342,6 +346,7 @@ def prepare(binding, descriptors, open_table, *, limits=None):
     plan_digest = digest(plan)
     tables, partitions, visits, candidate_bytes = [], [], 0, 0
     for table_key, entry in entries:
+        if checkpoint is not None: checkpoint({"stage":"screen_table","tableKey":table_key,"phase":"before"})
         states = {rule:{"ruleId":rule, "eligibleRows":0, "matchedRows":0, "ineligibleReasons":{}, "heap":[]} for rule in entry["ruleIds"]}
         row_hash, ids, scanned, exhausted = hashlib.sha256(), set(), 0, False
         with open_table(deepcopy(entry)) as opened:
@@ -350,6 +355,8 @@ def prepare(binding, descriptors, open_table, *, limits=None):
             _header(header, entry, binding, bounds)
             header = deepcopy(header)
             for row in rows:
+                if checkpoint is not None and scanned % 100 == 0:
+                    checkpoint({"stage":"screen_candidates","tableKey":table_key,"rowOffset":scanned})
                 _require(scanned < header["total"] and visits < bounds["maxRowVisits"], "筛查行数超过完整计划或访问容量")
                 raw = _row(row, scanned, entry, ids, bounds)
                 row_hash.update(len(raw).to_bytes(8, "big")); row_hash.update(raw)
@@ -379,9 +386,11 @@ def prepare(binding, descriptors, open_table, *, limits=None):
             _require(scanned == header["total"], "筛查未消费完整行数")
             exhausted = True
         # Also catches a hostile context manager suppressing an iterator error.
+        if checkpoint is not None: checkpoint.raise_if_failed()
         _require(exhausted, "筛查context吞掉未完成流错误")
         counts = []
         for rule, state in states.items():
+            if checkpoint is not None: checkpoint({"stage":"screen_partition","tableKey":table_key,"ruleId":rule})
             candidates = [item.data for item in sorted(state.pop("heap"), key=lambda item:(-item.score, item.row_id))]
             ineligible = sum(state["ineligibleReasons"].values())
             _require(state["eligibleRows"]+ineligible == scanned, "筛查规则计数不守恒")
@@ -401,6 +410,7 @@ def prepare(binding, descriptors, open_table, *, limits=None):
             "baselinePeriod":comparison_periods(entry["baseline"]["query"]["startDate"], entry["baseline"]["query"]["endDate"])[entry["baseline"]["query"]["window"]] if baseline_metadata else None,
             "dateCoverageComparable":header["dateCoverageComparable"]})
         _require(len(canonical(tables).encode("utf-8")) <= bounds["maxCoverageBytes"], "筛查覆盖证明超过容量")
+        if checkpoint is not None: checkpoint({"stage":"screen_table","tableKey":table_key,"phase":"after"})
     result = {"schemaVersion":SCHEMA_VERSION, "algorithmVersion":ALGORITHM_VERSION,
         "status":"prepared_unpublished", "authorityVerified":False, "binding":binding,
         "plan":plan, "planDigest":plan_digest, "coverage":{"streamScanComplete":True,
