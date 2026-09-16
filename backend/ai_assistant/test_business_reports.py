@@ -110,11 +110,27 @@ class BusinessReportTests(TestCase):
             for _ in range(6):
                 workflows.workflow_tick()
                 workflows.agent_tick()
-        self.assertEqual(provider.call_count, 1)
-        dispatch = m.AiAgentProviderDispatches.objects.get()
-        self.assertEqual(dispatch.state, "unknown")
+        self.assertEqual(provider.call_count, 3)
+        self.assertEqual(m.AiAgentProviderDispatches.objects.filter(state="unknown").count(), 3)
+        self.assertEqual(m.AiAgentProviderDispatches.objects.values("job_id").distinct().count(), 3)
         flow = m.AiWorkflowRuns.objects.get(pk=item["workflowId"])
         self.assertEqual(flow.status, "failed")
         self.assertFalse(flow.retryable)
         with self.assertRaises(AiError):
             workflows.control(flow.id, {"expectedVersion": flow.version}, self.admin, "resume", True)
+
+    def test_failed_specialist_does_not_skip_siblings_waiting_for_capacity(self):
+        with patch("ai_assistant.transport.catalog", return_value=self.tools):
+            for index in range(7):
+                workflows.create({"clientRequestId": f"capacity-{index}", "task": "合成队列占位"}, self.admin)
+        item = self.create()
+        workflows.workflow_tick()
+        jobs = m.AiAgentJobs.objects.filter(workflow_run_id=item["workflowId"])
+        self.assertEqual(jobs.count(), 1)
+        first = jobs.get()
+        with patch("ai_assistant.transport.catalog", side_effect=AiError("offline", "service_unavailable", 503)):
+            workflows.agent_tick(job_id=first.id)
+        workflows.workflow_tick()
+        self.assertEqual(jobs.count(), 2)
+        flow = m.AiWorkflowRuns.objects.get(pk=item["workflowId"])
+        self.assertEqual(flow.status, "running")

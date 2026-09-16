@@ -298,8 +298,9 @@ def _dispatch(request, path=""):
             ):
                 raise AiError("调度身份无效", "access_denied", 403)
             fields(payload, {"queue"}, {"queue"})
+            from .business_parallel import agent_queue_tick
             runner = {
-                "agent": workflows.agent_tick,
+                "agent": agent_queue_tick,
                 "workflow": workflows.workflow_tick,
                 "space": space.tick,
             }.get(payload["queue"])

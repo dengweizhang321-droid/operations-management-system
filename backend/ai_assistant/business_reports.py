@@ -55,7 +55,7 @@ def create(body, principal):
     start, end = next(iter(dates))
     scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台", "shop": next(iter(shops)) if len(shops) == 1 else "多店铺" if shops else "市场样本",
         "startDate": start, "endDate": end}
-    snapshot = {"schemaVersion": SCHEMA, "evidenceRunId": evidence_id, "evidenceVersion": evidence.version,
+    snapshot = {"schemaVersion": SCHEMA, "executionMode": "parallel-v1", "evidenceRunId": evidence_id, "evidenceVersion": evidence.version,
         "evidencePlanDigest": digest(evidence.plan_json), "question": question, "scope": scope, "libraryVersion": 0,
         "pipeline": {"name": "深度经营分析"}, "template": {"name": "多Agent经营诊断", "format": "html", "sections": SECTIONS}, "skills": []}
     with mutation(principal):

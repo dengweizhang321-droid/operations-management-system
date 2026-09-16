@@ -63,7 +63,7 @@ async function runScheduledMarketMaintenance(
     "AI workflow scheduled runner failed",
     () => wakeAiQueue("workflow"),
   );
-  // 正式 Agent 一次只允许一次 provider HTTP 或一次中央注册表只读工具调用。
+  // 每个 Agent 微步仍只允许一次外部调用；Django 为新版经营报告最多并行三个独立微步，普通任务保持串行。
   const aiAgent = await runScheduledMarketTask(
     "AI Agent scheduled runner failed",
     () => wakeAiQueue("agent"),

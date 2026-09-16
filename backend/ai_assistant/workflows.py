@@ -1,4 +1,4 @@
-"""Durable, fenced, one-call microsteps and serial DAG orchestration."""
+"""Durable one-call microsteps; serial DAGs and pinned parallel business DAGs."""
 
 from __future__ import annotations
 import json
@@ -452,11 +452,17 @@ def prepared_candidate(query):
         return row, Principal(row.owner_email, "", "operator", None), error
 
 
-def agent_tick():
-    eligible = m.AiAgentJobs.objects.filter(
+def agent_candidates():
+    return m.AiAgentJobs.objects.filter(
         Q(status="queued") | Q(status="running", lease_expires_at__lte=timezone.now()),
         next_run_at__lte=timezone.now(),
     )
+
+
+def agent_tick(*, job_id=None):
+    eligible = agent_candidates()
+    if job_id is not None:
+        eligible = eligible.filter(pk=job_id)
     candidate, principal, error = prepared_candidate(eligible)
     if not candidate:
         return {"status": "idle"}
@@ -759,6 +765,9 @@ def workflow_tick():
         nodes = list(
             m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by("position")[:24]
         )
+        from . import business_parallel
+        if not row.dry_run and business_parallel.is_parallel(row.id):
+            return business_parallel.workflow_step(row, principal, nodes)
         by_key = {n.node_key: n for n in nodes}
         active = next((n for n in nodes if n.status == "running"), None)
         if active:
