@@ -2,7 +2,7 @@
 
 状态：**设计，未注册新 profile、工具或调度行为**。第 33 批内部服务已作为候选提交 `3a5091be` 完成 18 项隔离 PostgreSQL 验证；仍未接公开运行时。本文基于当前 integrated runtime、持久回执、预验和 renderer 4 代码，提出下一步最小完整接入；不表示已有报告自动获得筛查能力，不授予上线或模型调用权限。
 
-后续实现：第三十五批已完成 [固定存储](AI_BUSINESS_SCREENING_STORAGE.md)，第三十七批已完成 [五角色无损包及内部读取](AI_BUSINESS_SCREENING_PACKAGES.md)。本文保留此前完整方案；实际包的固定字段、源绑定、100记录分页与实测容量以实现说明和代码为准。运行时准入、job回执和文件接线仍未完成。
+后续实现：第三十五批已完成 [固定存储](AI_BUSINESS_SCREENING_STORAGE.md)，第三十七批已完成 [五角色无损包及内部读取](AI_BUSINESS_SCREENING_PACKAGES.md)，第三十八批已完成 [完整 graph 容量预览](AI_BUSINESS_SCREENING_PREFLIGHT.md)。本文保留此前完整方案；实际包的固定字段、源绑定、100记录分页与实测容量以实现说明和代码为准。完整预览已证实55分区低候选样例报告204916字节，超过192 KiB；不得用前期仅工具帧探针宣称整图准入通过。运行时准入、job回执和文件接线仍未完成。
 
 ## 1. 推荐生命周期：每报告一次成功筛查，五个 Agent 各自阅读
 
