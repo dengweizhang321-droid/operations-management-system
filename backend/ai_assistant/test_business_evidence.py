@@ -82,6 +82,32 @@ class BusinessEvidenceTests(TestCase):
             evidence.collect(run_id, {"sourceKey": "sales", "expectedVersion": 2}, self.admin, "failed")
         self.assertEqual(m.AiBusinessEvidenceChunk.objects.count(), 1)
 
+    def test_market_sample_persists_without_store_identity_or_point_estimates(self):
+        from market.analysis import read_page as market_page
+        from market.models import MarketRankingEntry
+        MarketRankingEntry.objects.create(natural_key="synthetic-market", source_row_number=1,
+            period_start="2026-08-01", period_end="2026-08-01", category="饮水机", scope="POP",
+            ranking_dimension="SKU", price_band_filter="全部", sku_code="SKU1", product_name="合成",
+            brand="合成品牌", rank=1, gmv_cents=99999, gmv_low_cents=100, gmv_high_cents=300, last_import_batch_id="synthetic")
+        query = {"platform": "京东", "category": "饮水机", "scope": "POP", "rankingDimension": "SKU",
+            "priceBandFilter": "全部", "startDate": "2026-08-01", "endDate": "2026-08-01"}
+        run_id = evidence.create({"clientRequestId": "market-evidence", "sources": [{"key": "market", "domain": "market", "query": query}]}, self.admin)["item"]["id"]
+        def execute(name, args, principal, **kwargs):
+            if name != "get_market_analysis_records":
+                return self.execute(name, args, principal, **kwargs)
+            return {"toolName": name, "ok": True, "auditStatus": "recorded", "data": market_page(principal, {"operation": "analysis_records", **args})}
+        catalog = self.catalog + [{**fixtures.CATALOG[0], "name": "get_market_analysis_records"}]
+        with patch("ai_assistant.transport.catalog", return_value=catalog), patch("ai_assistant.transport.execute_tool", side_effect=execute):
+            evidence.collect(run_id, {"sourceKey": "market", "expectedVersion": 1}, self.admin, "market")
+        evidence.finish(run_id, {"expectedVersion": 2, "action": "seal"}, self.admin)
+        with patch("ai_assistant.transport.execute_tool") as remote:
+            table = evidence.analysis_table(run_id, {"sourceKey": "market", "dimension": "brand"}, self.admin)
+            remote.assert_not_called()
+        row = table["rows"][0]
+        self.assertEqual(row["metrics"]["sampleGmvLowerCents"]["value"], 100)
+        self.assertEqual(row["metrics"]["sampleGmvUpperCents"]["value"], 300)
+        self.assertNotIn("99999", canonical(table))
+
     def test_owner_role_plan_identity_and_input_payload_protection(self):
         run_id = evidence.create(self.body, self.admin)["item"]["id"]
         other = self.user("other-admin@example.invalid", "admin", None)

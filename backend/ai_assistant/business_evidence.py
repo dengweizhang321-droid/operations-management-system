@@ -13,7 +13,7 @@ from .policy import AiError, authorize_owner, canonical, cas, current_principal,
 
 MAX_BYTES = 64 * 1024 * 1024
 MAX_PAGES = 2000
-TOOLS = {"sales": "get_sales_analysis_records", "netshop": "get_netshop_analysis_records"}
+TOOLS = {"sales": "get_sales_analysis_records", "netshop": "get_netshop_analysis_records", "market": "get_market_analysis_records"}
 
 
 def get_run(run_id, principal):
@@ -58,7 +58,8 @@ def create(body, principal):
             raise AiError("来源键重复或来源域无效")
         keys.add(key)
         query = source["query"]
-        allowed = {"platform", "shop", "startDate", "endDate", "window"} | ({"channel"} if source["domain"] == "sales" else {"dataset"})
+        allowed = ({"platform", "startDate", "endDate", "window", "category", "scope", "rankingDimension", "priceBandFilter"} if source["domain"] == "market"
+            else {"platform", "shop", "startDate", "endDate", "window"} | ({"channel"} if source["domain"] == "sales" else {"dataset"}))
         fields(query, allowed, allowed - {"window"})
         for field in ("platform", "shop", "channel"):
             if field in query and (not isinstance(query[field], str) or not query[field] or query[field] != query[field].strip() or len(query[field]) > 100 or any(ord(c) < 32 for c in query[field])):
@@ -73,6 +74,13 @@ def create(body, principal):
             from netshop.analysis import SOURCES
             if not isinstance(query.get("dataset"), str) or query["dataset"] not in SOURCES or query["platform"] not in SOURCES[query["dataset"]]:
                 raise AiError("网店来源组合无效")
+        elif source["domain"] == "market":
+            from market.analysis import validate
+            from market.errors import MarketApiError
+            try:
+                validate({"operation": "analysis_records", **query})
+            except MarketApiError as error:
+                raise AiError(str(error)) from error
         signature = digest({"domain": source["domain"], "query": {"window": "current", **query}})
         if signature in queries:
             raise AiError("不得重复声明同一来源查询")
@@ -150,6 +158,7 @@ def collect(run_id, body, principal, request_id, *, commit=None):
         m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=row, source_key=source["key"], sequence=sequence,
             payload_json=encoded, payload_digest=digest(encoded))
         metadata = entry["metadata"] if entry else {"sourceRevision": page.get("sourceRevision"), "coverage": page.get("coverage"),
+            "excludedOverlappingPeriodRows": page.get("excludedOverlappingPeriodRows"),
             "identityCheck": page.get("identityCheck"),
             "availableDates": page.get("availableDates"), "metricSemantics": page.get("metricSemantics"), "freshness": freshness,
             "firstCollectedAt": timezone.now().isoformat()}

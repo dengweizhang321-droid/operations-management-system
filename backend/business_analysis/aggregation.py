@@ -10,7 +10,7 @@ from .contracts import AnalysisContractError, MAX_SAFE_INTEGER, PageReconciler, 
 
 
 DIMENSIONS = {"platform", "shopName", "category", "skuId", "spuId", "date", "keyword", "searchTerm",
-              "planId", "unitId", "matchType", "promotedSkuId", "triggerSkuId", "attributedSkuId"}
+              "planId", "unitId", "matchType", "promotedSkuId", "triggerSkuId", "attributedSkuId", "brand", "marketScope", "operationMode"}
 RATIOS = {"ctr": ("clicks", "impressions"), "cpcCents": ("spendCents", "clicks"),
           "roas": ("reportedGmvCents", "spendCents"), "orderLineConversionRate": ("reportedOrderLines", "clicks")}
 

@@ -1,9 +1,9 @@
 """Versioned report tables from complete evidence, never model arithmetic."""
 from .aggregation import DimensionAccumulator
-from .contracts import AnalysisContractError, PageReconciler, canonical, compare, digest
+from .contracts import AnalysisContractError, PageReconciler, canonical, compare, digest, ratio
 
 VIEWS = {"shop": ["shopName"], "category": ["category"], "spu": ["spuId"],
-         "sku": ["skuId"], "keyword": ["keyword"], "searchTerm": ["searchTerm"], "daily": ["date"]}
+         "sku": ["skuId"], "keyword": ["keyword"], "searchTerm": ["searchTerm"], "daily": ["date"], "brand": ["brand"]}
 RATE_METRICS = {"ctr", "orderLineConversionRate"}
 
 
@@ -51,6 +51,7 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
         if not _compatible(header, previous_header):
             raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
     complete_dates = bool(previous_header and all((h.get("coverage") or {}).get("status") == "dates_present" for h in (header, previous_header)))
+    market_sample = header["source"] == "market_daily_top"
     indexed = [{canonical(item["entity"]): item for item in rows} for rows in (current, baseline)]
     keys = sorted(set(indexed[0]) | set(indexed[1]))
     result = []
@@ -63,17 +64,29 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
             metrics[metric] = left
             if previous_header:
                 comparisons[metric] = compare(left["value"] if left else None, right["value"] if right else None,
-                    comparable=complete_dates and bool(left and right and not left["missingRows"] and not right["missingRows"]))
+                    comparable=complete_dates and not market_sample and bool(left and right and not left["missingRows"] and not right["missingRows"]))
         for metric in sorted(set((a or {}).get("ratios", {})) | set((b or {}).get("ratios", {}))):
             left, right = ((record or {}).get("ratios", {}).get(metric) for record in (a, b))
             rates[metric] = left
             if previous_header:
                 comparisons[metric] = compare(left, right, comparable=complete_dates, is_rate=metric in RATE_METRICS)
+        sample_comparisons = {}
+        if market_sample and previous_header:
+            for measure, lower, upper in (("gmv", "sampleGmvLowerCents", "sampleGmvUpperCents"), ("quantity", "sampleQuantityLower", "sampleQuantityUpper")):
+                bounds = [(record or {}).get("metrics", {}).get(key) for record, key in ((a, lower), (a, upper), (b, lower), (b, upper))]
+                valid = complete_dates and all(bound and not bound["missingRows"] and bound["value"] is not None for bound in bounds)
+                values = [bound["value"] if bound else None for bound in bounds]
+                if valid and values[2] > 0 and values[3] > 0:
+                    sample_comparisons[measure] = {"status": "observed_sample_interval", "lowerChangeRate": ratio(values[0], values[3])-1,
+                        "upperChangeRate": ratio(values[1], values[2])-1, "meaning": "TOP样本区间变化；不代表全行业增长或份额，样本成员可能变化。"}
+                else:
+                    sample_comparisons[measure] = {"status": "unavailable", "lowerChangeRate": None, "upperChangeRate": None}
         result.append({"id": digest([expected["evidenceDigest"], baseline_expected, dimension, item["entity"]]), "rowIndex": row_index,
             "entity": item["entity"], "currentRowCount": a["rowCount"] if a else None,
             "baselineRowCount": b["rowCount"] if b else None, "metrics": metrics, "ratios": rates,
             "baselineMetrics": b["metrics"] if b else None,
-            "comparisons": comparisons, "dimensionMissing": any(item["entity"].get(d) is None for d in VIEWS[dimension])})
+            "comparisons": comparisons, "sampleComparisons": sample_comparisons,
+            "dimensionMissing": any(item["entity"].get(d) in (None, "") for d in VIEWS[dimension])})
     return {"schemaVersion": "business-result-table-v1", "dimension": dimension, "source": expected,
         "baselineSource": baseline_expected, "sourceMetadata": header, "baselineMetadata": previous_header,
         "comparisonWindow": previous_header["filters"]["window"] if previous_header else None,

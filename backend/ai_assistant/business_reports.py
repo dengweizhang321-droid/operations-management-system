@@ -51,9 +51,9 @@ def create(body, principal):
     dates = {(q["startDate"], q["endDate"]) for q in queries}
     if len(dates) != 1:
         raise AiError("一份报告须使用同一原始比较区间", "conflict", 409)
-    platforms, shops = {q["platform"] for q in queries}, {q["shop"] for q in queries}
+    platforms, shops = {q["platform"] for q in queries}, {q["shop"] for q in queries if q.get("shop")}
     start, end = next(iter(dates))
-    scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台", "shop": next(iter(shops)) if len(shops) == 1 else "多店铺",
+    scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台", "shop": next(iter(shops)) if len(shops) == 1 else "多店铺" if shops else "市场样本",
         "startDate": start, "endDate": end}
     snapshot = {"schemaVersion": SCHEMA, "evidenceRunId": evidence_id, "evidenceVersion": evidence.version,
         "evidencePlanDigest": digest(evidence.plan_json), "question": question, "scope": scope, "libraryVersion": 0,

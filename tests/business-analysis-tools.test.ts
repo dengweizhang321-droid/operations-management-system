@@ -13,6 +13,30 @@ const admin = { email: "analysis@example.test", displayName: "Fixture", role: "a
 const entry = aiToolRegistry.find(e => e.name === "get_netshop_analysis_records")!;
 const args = { platform: "京东", shop: "样例店A", dataset: "promotion", startDate: "2026-09-01", endDate: "2026-09-03" };
 
+test("market analysis preserves the exact sample identity on its owning reader", async t => {
+  const entry = aiToolRegistry.find(e => e.name === "get_market_analysis_records")!;
+  const query = { platform: "京东", category: "饮水机", scope: "POP", rankingDimension: "SKU", priceBandFilter: "全部", startDate: args.startDate, endDate: args.endDate };
+  validateToolArguments(query, entry.inputSchema);
+  assert.throws(() => validateToolArguments({ ...query, shop: "样例店A" }, entry.inputSchema));
+  assert.ok(!getToolsForPrincipal(admin, "dingtalk_chat").some(e => e.name === entry.name));
+  const oldFetch = globalThis.fetch;
+  const environment = { TERUISI_DJANGO_MARKET_READER_BASE_URL: "http://127.0.0.1:18031", TERUISI_DJANGO_MARKET_WRITER_BASE_URL: "http://127.0.0.1:18032", TERUISI_DJANGO_INTERNAL_SECRET: "analysis-fixture-internal-secret-at-least-32-bytes" };
+  const saved = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]));
+  Object.assign(process.env, environment);
+  t.after(() => { globalThis.fetch = oldFetch; for (const [key, value] of Object.entries(saved)) {
+    if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  } });
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), "http://127.0.0.1:18031/api/market/consumers/query");
+    const body = JSON.parse(new TextDecoder().decode(init?.body as Uint8Array));
+    assert.deepEqual(body, { ...query, limit: 10, operation: "analysis_records" });
+    assert.ok(new Headers(init?.headers).get("X-Teruisi-Signature"));
+    return Response.json({ schemaVersion: "business-analysis-v1" }, { headers: { "x-market-data-revision": "7:aaaaaaaaaaaa" } });
+  };
+  const result = await entry.handler(query, { principal: admin, surface: "ai_agent", requestId: "market-test" });
+  assert.equal(result.schemaVersion, "business-analysis-v1");
+});
+
 test("ERP analysis tool uses the owning signed reader and retains exact three-field identity", async t => {
   const sales = aiToolRegistry.find(e => e.name === "get_sales_analysis_records")!;
   const oldFetch = globalThis.fetch;

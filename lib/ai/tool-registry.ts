@@ -36,6 +36,7 @@ import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
 import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
+import { getMarketAnalysisRecords } from "@/lib/market/analysis-tool";
 import { readBusinessEvidence, readBusinessAnalysisTable } from "@/lib/ai/business-evidence";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
@@ -605,13 +606,28 @@ export const aiToolRegistry = [
     handler: (args, context) => getSalesAnalysisRecords(args, context.principal, context.signal),
   },
   {
+    name: "get_market_analysis_records", title: "市场逐日TOP样本规范明细",
+    description: "精确类目、榜单范围、SKU/SPU维度和价格筛选的逐日TOP样本，不是全行业。保留成交和数量区间上下界，缺失不补零；排除重叠周/月榜。沿游标完整读取并核对控制汇总才能使用。不将估计中点当真实成交，不将样本金额当市场份额。",
+    inputSchema: { type: "object", properties: {
+      platform: { type: "string", enum: ["京东"] }, category: { type: "string", minLength: 1, maxLength: 200 },
+      scope: { type: "string", minLength: 1, maxLength: 200 }, rankingDimension: { type: "string", enum: ["SKU", "SPU"] },
+      priceBandFilter: { type: "string", minLength: 1, maxLength: 200 },
+      startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      window: { type: "string", enum: ["current", "previous", "yearAgo"], default: "current" },
+      limit: { type: "integer", minimum: 1, maximum: 20, default: 10 }, cursor: { type: "string", maxLength: 1600 },
+    }, required: ["platform", "category", "scope", "rankingDimension", "priceBandFilter", "startDate", "endDate"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => getMarketAnalysisRecords(args, context.principal, context.signal),
+  },
+  {
     name: "get_business_analysis_table", title: "读取核对后的经营分析表",
     description: "从本人已封存的完整证据计算店铺、品类、SPU、SKU、关键词、搜索词或逐日表。可指定同范围前期/去年同期来源作对比，缺日、缺字段和不存在分组不补零。比率为汇总分子除以汇总分母；金额单位为分。返回稳定行ID供引用，须沿分页读完才可声称全量。不调用模型或重新取数，不推断因果。",
     inputSchema: { type: "object", properties: {
       runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
       sourceKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
       baselineKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
-      dimension: { type: "string", enum: ["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily"] },
+      dimension: { type: "string", enum: ["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily", "brand"] },
       offset: { type: "integer", minimum: 0, maximum: 25000, default: 0 },
       limit: { type: "integer", minimum: 1, maximum: 20, default: 10 },
     }, required: ["runId", "sourceKey", "dimension"], additionalProperties: false },
