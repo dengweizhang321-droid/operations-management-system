@@ -175,7 +175,7 @@ def event(row, principal, kind, previous=None, node=None):
         m.AiAgentEvents.objects.create(job_id=row.id, job_version=row.version, **values)
 
 
-def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None, budget_prepared=None):
+def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None, budget_prepared=None, integrated_prepared=None):
     allowed = {"clientRequestId", "input", "modelId"} | (
         {"name", "graph", "dryRun"} if workflow else {"task"}
     )
@@ -197,16 +197,23 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
     )
     if execution_profile is not None:
         from . import business_reports
-        if not workflow or execution_profile not in {business_reports.V2_PROFILE, business_reports.BUDGET_PROFILE}:
+        if not workflow or execution_profile not in {business_reports.V2_PROFILE, business_reports.BUDGET_PROFILE, business_reports.integrated.PROFILE}:
             raise AiError("工作流执行协议无效")
         if execution_profile == business_reports.BUDGET_PROFILE:
             from .business_budget_store import PreparedBudget
             from .policy import _mutation_depth
             if type(budget_prepared) is not PreparedBudget or _mutation_depth.get() < 1:
                 raise AiError("预算工作流仅可在完整报告创建事务中使用固定参数")
+        if execution_profile == business_reports.integrated.PROFILE:
+            from .policy import _mutation_depth
+            if type(integrated_prepared) is not business_reports.integrated.Prepared or _mutation_depth.get() < 1:
+                raise AiError("集成工作流仅可在完整报告事务中使用固定关联参数")
+    if integrated_prepared is not None and execution_profile != "business-agent-integrated-reference-v1":
+        raise AiError("关联参数与工作流协议不一致")
     if budget_prepared is not None and execution_profile != "business-agent-budget-reference-v1":
         raise AiError("预算参数与工作流执行协议不一致")
-    surface = ("business_agent_budget_v1" if execution_profile == "business-agent-budget-reference-v1" else
+    surface = ("business_agent_integrated_v1" if execution_profile == "business-agent-integrated-reference-v1" else
+               "business_agent_budget_v1" if execution_profile == "business-agent-budget-reference-v1" else
                "business_agent_v2" if execution_profile is not None else "ai_agent")
     admitted, entries = (admission(principal, body.get("modelId"), surface=surface) if execution_profile is not None
                          else admission(principal, body.get("modelId"))) if not dry else ({}, [])
@@ -253,7 +260,10 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
             from . import report_library
             report_library.pin(row.id, title, None, entries, skill_ids=skill_ids, library=library_snapshot)
         if execution_profile is not None:
-            if execution_profile == business_reports.BUDGET_PROFILE:
+            if execution_profile == business_reports.integrated.PROFILE:
+                from .business_integrated_preflight import preflight
+                preflight(row, principal, graph, entries, prepared=integrated_prepared)
+            elif execution_profile == business_reports.BUDGET_PROFILE:
                 from .business_budget_preflight import preflight
                 preflight(row, principal, graph, entries, prepared=budget_prepared)
             else:
@@ -309,6 +319,10 @@ def control(entity_id, body, principal, action, workflow=False):
                 or row.resume_count >= 16
             ):
                 raise AiError("此任务不能恢复", "conflict", 409)
+            from . import business_integrated
+            report = m.AiReportRun.objects.filter(workflow_id=row.id if workflow else row.workflow_run_id).first()
+            if report and business_integrated.is_snapshot(json.loads(report.snapshot_json)):
+                business_integrated.bound(report, principal)
             row.status = "queued"
             row.resume_count += 1
             row.completed_at = None

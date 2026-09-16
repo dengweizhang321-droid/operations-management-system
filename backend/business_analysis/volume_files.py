@@ -306,4 +306,9 @@ success. No source iterator is consumed for rejected plans or budget-only input.
                 "byteCapacity": {"verified": True, "maxFileBytes": max_file_bytes, "dynamicByteSplitting": False},
                 "tables": source_proofs, "volumes": volumes,
                 **({"budgetPlanDigest": (offline_budget or excel_budget)["planDigest"]} if offline_budget is not None or excel_budget is not None else {})}
+    mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
+    if mapping_keys & metadata.keys():
+        if not mapping_keys <= metadata.keys():
+            raise AnalysisContractError("商品关联文件绑定字段不完整")
+        manifest.update({key:metadata[key] for key in mapping_keys})
     return {**manifest, "manifestDigest": digest(manifest)}

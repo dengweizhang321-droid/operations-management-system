@@ -146,6 +146,11 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     if v2:
         metadata.update(schemaVersion="business-files-v2", rendererVersion=4,
             catalogDigest=snapshot["catalogDigest"], sealedDigest=snapshot["sealedDigest"], sourceCount=len(sources))
+    if business_reports.integrated.is_snapshot(snapshot):
+        from business_analysis import mapped_results
+        business_reports.integrated.bound(report, principal)
+        metadata.update(mappingPlanDigest=snapshot["mappingPlanDigest"],
+            mappingAlgorithmVersion=snapshot["mappingPlan"]["algorithmVersion"], mappedTableAlgorithmVersion=mapped_results.ALGORITHM_VERSION)
     if v2 and "budgetRef" in snapshot:
         from . import business_budget, business_budget_store
         fixed = business_budget_store.binding_for_report(report, principal)
@@ -200,6 +205,9 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
                         note = "；".join(table["limitations"])+"。来源="+key+("，基期="+base if base else "")
                         spool.add("analysis-"+digest([key, dimension, base])[:24], f"{key}_{DIMENSION_NAMES[dimension]}_{period}", note,
                             ({"sourceKey": key, "baselineKey": base, **row} for row in rows), table["total"])
+        if business_reports.integrated.is_snapshot(snapshot):
+            from .business_mapped_export import append
+            append(spool, report, principal, checkpoint=checkpoint)
         calculator = None
         if renderer_version >= 2 and value.get("budget"):
             from business_analysis.budget_offline import payload

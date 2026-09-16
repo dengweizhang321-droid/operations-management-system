@@ -3,6 +3,52 @@ import { requestDjangoAi } from "@/lib/django/ai-service";
 import { PublicApiError } from "@/lib/http/api-error";
 import { requireAnalysisPrincipal } from "@/lib/netshop/analysis-tool";
 
+type IntegratedArguments = { reportId: string; runId: string; offset?: number; mode?: "native" | "mapped"; dimension?: string; sourceKey?: string; baselineKey?: string; pairKey?: string; baselinePairKey?: string };
+function integratedArguments(raw: unknown, kind: "directory" | "analysis-table" | "budget"): IntegratedArguments {
+  const invalid = (): never => { throw new PublicApiError(400, "invalid_request", "综合经营分析工具参数无效，须使用报告固定来源与关联身份"); };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+  const args = raw as IntegratedArguments;
+  const allowed = kind === "analysis-table" ? ["reportId", "runId", "offset", "mode", "dimension", "sourceKey", "baselineKey", "pairKey", "baselinePairKey"] : ["reportId", "runId", "offset"];
+  if (Object.keys(args).some(key => !allowed.includes(key))) invalid();
+  const id = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_-]{1,160}$/.test(value);
+  const sha = (value: unknown) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+  if (!id(args.runId) || !id(args.reportId) || (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || args.offset < 0 || args.offset > (kind === "directory" ? 47 : kind === "budget" ? 99 : 250000)))) invalid();
+  if (kind === "analysis-table") {
+    if (!args.dimension || !["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily", "brand"].includes(args.dimension)) invalid();
+    if (args.mode === "native") {
+      if (!id(args.sourceKey) || (args.baselineKey !== undefined && !id(args.baselineKey)) || "pairKey" in args || "baselinePairKey" in args) invalid();
+    } else if (args.mode === "mapped") {
+      if (!sha(args.pairKey) || (args.baselinePairKey !== undefined && !sha(args.baselinePairKey)) || "sourceKey" in args || "baselineKey" in args || !["sku", "spu"].includes(args.dimension ?? "")) invalid();
+    } else invalid();
+  }
+  return args;
+}
+async function integratedRead(raw: unknown, principal: AppPrincipal, kind: "directory" | "analysis-table" | "budget", signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const args = integratedArguments(raw, kind);
+  const query = new URLSearchParams({ runId: args.runId, offset: String(args.offset ?? 0) });
+  if (kind === "analysis-table") for (const key of ["mode", "dimension", "sourceKey", "baselineKey", "pairKey", "baselinePairKey"] as const) {
+    if (args[key] !== undefined) query.set(key, args[key]!);
+  }
+  // Page size and all report/evidence/plan bindings are fixed and checked by
+  // the owning backend. Model arguments never supply digests or authority.
+  const result = await requestDjangoAi<Record<string, unknown>>(principal, {
+    path: `/api/ai/reports/${args.reportId}/integrated-${kind}`, method: "GET", query,
+  }, { signal });
+  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) throw new PublicApiError(409, "conflict", "综合经营分析回执格式无效");
+  if (new TextEncoder().encode(JSON.stringify(result.data)).byteLength > 38_000) throw new PublicApiError(413, "payload_too_large", "综合经营分析完整页超过工具字节容量，不得截断");
+  const expectedSchema = { directory: "business-integrated-directory-v1", "analysis-table": "business-integrated-analysis-v1", budget: "business-integrated-budget-v1" }[kind];
+  const reference = result.data.reference;
+  if (result.data.schemaVersion !== expectedSchema || !reference || typeof reference !== "object" || Array.isArray(reference)
+    || (reference as Record<string, unknown>).evidenceRunId !== args.runId || (reference as Record<string, unknown>).reportId !== args.reportId) {
+    throw new PublicApiError(409, "conflict", "综合经营分析回执协议或报告证据身份不一致");
+  }
+  return result.data;
+}
+export const readBusinessIntegratedDirectoryV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => integratedRead(raw, principal, "directory", signal);
+export const readBusinessIntegratedAnalysisTableV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => integratedRead(raw, principal, "analysis-table", signal);
+export const readBusinessIntegratedBudgetV1 = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => integratedRead(raw, principal, "budget", signal);
+
 export async function readBusinessEvidenceDirectoryV2(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
   requireAnalysisPrincipal(principal);
   const args = raw as { runId: string; offset?: number };

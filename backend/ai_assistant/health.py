@@ -96,7 +96,8 @@ def check():
              ("ai_business_budget_plans", "ai_business_budget_initial"),
              ("ai_business_budget_plans", "ai_business_budget_complete"),
              ("ai_report_runs", "ai_business_budget_report_binding"),
-             ("ai_report_runs", "ai_business_budget_complete")}
+             ("ai_report_runs", "ai_business_budget_complete"),
+             ("ai_report_runs", "ai_business_integrated_report_binding")}
             |
             {("ai_business_volume_chunks", "ai_write_fence"),
              ("ai_business_volume_chunks", "ai_immutable_evidence"),
@@ -166,6 +167,25 @@ def check():
         }
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
+        integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
+        for signature, definition, volatility in (
+            ("public.ai_business_mapping_plan_json(text)", integrated.PLAN_GUARD, "i"),
+            ("public.ai_business_integrated_report_guard()", integrated.REPORT_GUARD, "v"),
+            ("public.ai_business_budget_report_guard()", integrated.NEW_BUDGET_GUARD, "v"),
+        ):
+            cursor.execute("""SELECT p.prosrc,p.provolatile,p.prosecdef,p.proconfig,l.lanname
+                FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)""", [signature])
+            function = cursor.fetchone()
+            if (function is None or function[0] != definition.split("$$")[1]
+                    or function[1:3] != (volatility, False) or function[4] != "plpgsql"
+                    or {item.replace(" ", "") for item in (function[3] or [])} != {"search_path=pg_catalog,public"}):
+                raise ValueError("AI integrated function contract missing or changed")
+        cursor.execute("""SELECT tgtype,tgdeferrable,tginitdeferred,
+            tgfoid='public.ai_business_integrated_report_guard()'::regprocedure
+            FROM pg_trigger WHERE tgrelid='public.ai_report_runs'::regclass
+            AND tgname='ai_business_integrated_report_binding' AND tgenabled='O'""")
+        if cursor.fetchone() != (7, False, False, True):
+            raise ValueError("AI integrated report trigger contract changed")
         for table, expected in (
             ("ai_business_budget_plans", {"ai_business_budget_bound"}),
             ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),

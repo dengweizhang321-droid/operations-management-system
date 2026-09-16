@@ -108,6 +108,16 @@ def _verify_staged(row, principal, checkpoint):
     full = _contract(volume_delivery.verify_full, compact, bytes(manifest_bytes), binding_digest=row.binding_digest,
         attempt=row.attempt, draft=row.draft, report_id=row.report_id, evidence_digest=reference["sealedDigest"])
     snapshot = json.loads(row.report.snapshot_json)
+    mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
+    if business_reports.integrated.is_snapshot(snapshot):
+        from business_analysis import mapped_results
+        business_reports.integrated.bound(row.report, principal)
+        expected = {"mappingPlanDigest":snapshot["mappingPlanDigest"],
+            "mappingAlgorithmVersion":snapshot["mappingPlan"]["algorithmVersion"], "mappedTableAlgorithmVersion":mapped_results.ALGORITHM_VERSION}
+        if any(full.get(key) != value for key,value in expected.items()):
+            raise AiError("多卷商品关联清单与固定计划不一致", "conflict", 409)
+    elif mapping_keys & full.keys():
+        raise AiError("旧报告不能附加商品关联清单", "conflict", 409)
     if "budgetRef" in snapshot:
         from .business_budget_store import binding_for_report
         fixed = binding_for_report(row.report, principal)

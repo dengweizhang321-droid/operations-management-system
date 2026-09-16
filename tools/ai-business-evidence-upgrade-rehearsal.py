@@ -1,4 +1,4 @@
-"""0013 -> 0021, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0022, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -8,6 +8,7 @@ import secrets
 import subprocess
 import sys
 import uuid
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -44,6 +45,7 @@ new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_bu
 directory_target = [("ai_assistant", "0019_business_source_directory")]
 volume_target = [("ai_assistant", "0020_business_volume_files")]
 budget_target = [("ai_assistant", "0021_business_budget_plans")]
+integrated_target = [("ai_assistant", "0022_business_integrated_reports")]
 
 def snapshot(dbname, tables, *, original_report_columns=False):
     result = {}
@@ -156,7 +158,9 @@ else:
     raise AssertionError("Reverse migration discarded renderer-4 volume persistence")
 assert snapshot(database["NAME"], volume_tables, original_report_columns=True) == volume_before
 assert MigrationExecutor(connection).migration_plan(volume_target) == []
-call_command("migrate", interactive=False, verbosity=0)
+executor = MigrationExecutor(connection)
+# Finish all business fixture schemas while explicitly leaving AI at 0021.
+executor.migrate([node for node in executor.loader.graph.leaf_nodes() if node[0] != "ai_assistant"]+budget_target)
 assert snapshot(database["NAME"], volume_tables, original_report_columns=True) == volume_before
 assert MigrationExecutor(connection).migration_plan(budget_target) == []
 assert not m.AiReportRun.objects.exclude(budget_plan_id=None).exists()
@@ -178,6 +182,63 @@ assert business_budget_store.load(budget_report, budget_principal).result_json =
 budget_row = m.AiBusinessBudgetPlan.objects.get(pk=prepared_budget.id)
 budget_expected = (budget_row.plan_json, budget_row.binding_json, budget_row.plan_digest,
                    budget_row.binding_digest, budget_report.snapshot_json)
+
+# Exercise 0021 rollback before 0022 can mask its independent rejection gate.
+budget_schema_before = snapshot(database["NAME"], AI_TABLES)
+try:
+    MigrationExecutor(connection).migrate(volume_target)
+except RuntimeError as error:
+    assert "预算" in str(error), str(error)
+else:
+    raise AssertionError("Reverse migration discarded immutable budget parameters")
+assert snapshot(database["NAME"], AI_TABLES) == budget_schema_before
+assert MigrationExecutor(connection).migration_plan(budget_target) == []
+executor = MigrationExecutor(connection)
+assert [(migration.app_label,migration.name) for migration,backwards in executor.migration_plan(integrated_target)] == integrated_target
+executor.migrate(integrated_target)
+assert snapshot(database["NAME"], AI_TABLES) == budget_schema_before
+assert MigrationExecutor(connection).migration_plan(integrated_target) == []
+assert len(AI_TABLES) == 63
+
+# Reuse real owning-reader fixture setup without recreating its already-seeded
+# access users/model. This patches test setup only, never a runtime data reader.
+from ai_assistant.test_business_integrated_guard import BusinessIntegratedGuardTests
+from ai_assistant import business_integrated, business_integrated_tools
+from ai_assistant.policy import mutation
+integrated_fixture = BusinessIntegratedGuardTests(methodName="runTest")
+with patch.object(AiDomainTests, "setUp", return_value=None):
+    integrated_fixture.setUp()
+integrated_principal = integrated_fixture.admin
+integrated_expected = {}
+for with_budget in (False,True):
+    report_id = "integrated-upgrade-"+("budget" if with_budget else "mapping")
+    optional_budget = business_budget_store.prepare(integrated_fixture.parent, integrated_fixture.budget_plan,
+        integrated_principal, report_id) if with_budget else None
+    fixed = business_integrated.prepare(integrated_fixture.parent,[{"salesKey":"sales","masterKey":"master"}],
+        integrated_principal,report_id,"合成关联恢复验证，不调用模型",budget=optional_budget)
+    with mutation(integrated_principal):
+        # Explicit inert workflow: tests persistence and reading, not model admission.
+        integrated_report = integrated_fixture.insert((fixed.snapshot,fixed.reference,optional_budget))
+    actual, snapshot_value, fixed_reference, _, _ = business_integrated.bound(integrated_report,integrated_principal)
+    mapped = business_integrated_tools.read(report_id,"analysis",{"runId":snapshot_value["evidenceRunId"],
+        "mode":"mapped","pairKey":snapshot_value["mappingPlan"]["pairs"][0]["pairKey"],"dimension":"sku","offset":"0"},integrated_principal)
+    integrated_expected[report_id] = {"snapshot":actual.snapshot_json,"reference":canonical(fixed_reference),
+        "mappingPlanDigest":snapshot_value["mappingPlanDigest"],"mappedDigest":hashlib.sha256(canonical(mapped).encode()).hexdigest(),
+        "budgetResultDigest":hashlib.sha256(business_budget_store.load(actual,integrated_principal).result_json.encode()).hexdigest() if with_budget else None}
+    # First iteration proves even a mapping-only report prevents rollback.
+    frozen = snapshot(database["NAME"],AI_TABLES)
+    try:
+        MigrationExecutor(connection).migrate(budget_target)
+    except RuntimeError as error:
+        assert "integrated" in str(error),str(error)
+    else:
+        raise AssertionError("Reverse migration discarded integrated report references")
+    assert snapshot(database["NAME"],AI_TABLES)==frozen
+    assert MigrationExecutor(connection).migration_plan(integrated_target)==[]
+# 0022 did not reinterpret the earlier budget plan or binding.
+budget_row.refresh_from_db();budget_report.refresh_from_db()
+assert (budget_row.plan_json,budget_row.binding_json,budget_row.plan_digest,budget_row.binding_digest,budget_report.snapshot_json)==budget_expected
+assert business_budget_store.load(budget_report,budget_principal).result_json==prepared_budget.result_json
 budget_insert = """INSERT INTO ai_business_budget_plans
     (id,owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,created_at)
     SELECT 'orphan-budget',owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,now()
@@ -204,10 +265,12 @@ def volume_parameters(item, *, run_id="volume-file-restore"):
     key, volume, format, sequence, content = item
     return [key, run_id, volume, format, sequence, content, hashlib.sha256(content).hexdigest()]
 
-def denied(db, statement, parameters=None):
+def denied(db, statement, parameters=None, *, contains=None):
     try:
         db.execute(statement, parameters)
-    except psycopg.Error:
+    except psycopg.Error as error:
+        if contains is not None:
+            assert contains in str(error),str(error)
         return
     raise AssertionError("Forbidden database action accepted")
 
@@ -224,6 +287,10 @@ def denied_volume_with_parent(db, item):
     raise AssertionError("Invalid volume coordinates/sequence accepted with matching parent bytes")
 
 insert = "INSERT INTO ai_business_evidence_runs(id,owner_email,scope_json,client_request_id,request_digest,plan_json,state_json,status,version,stored_bytes,created_at,collection_status,next_collect_at,collection_failures,collection_error_code) VALUES ('synthetic','fixture@example.invalid','null','client',repeat('a',64),'{}','{}','collecting',1,0,now(),'manual',now(),0,'')"
+integrated_insert = """INSERT INTO ai_report_runs
+    (id,owner_email,scope_json,client_request_id,request_digest,workflow_id,snapshot_json,budget_plan_id,created_at)
+    SELECT 'forged-integrated-report',owner_email,scope_json,'forged-integrated-report',request_digest,workflow_id,snapshot_json,NULL,now()
+    FROM ai_report_runs WHERE id='integrated-upgrade-mapping'"""
 for role in ("reader", "writer"):
     url = f"postgresql://teruisi_ai_{role}:{passwords[role]}@127.0.0.1:{database['PORT']}/teruisi_ai_rehearsal"
     env = {**os.environ, "TERUISI_DJANGO_DATABASE_URL": url, "TERUISI_DJANGO_PROCESS_ROLE": "ai_"+role,
@@ -284,6 +351,9 @@ for role in ("reader", "writer"):
         denied(limited, budget_insert, [budget_row.id])
         denied(limited, "UPDATE ai_business_budget_plans SET plan_json='{}' WHERE id=%s", [budget_row.id])
         denied(limited, "UPDATE ai_report_runs SET budget_plan_id=NULL WHERE id=%s", [budget_report.id])
+        denied(limited,integrated_insert,contains="ai_integrated_snapshot_shape" if role=="writer" else None)
+        denied(limited,"UPDATE ai_report_runs SET snapshot_json='{}' WHERE id='integrated-upgrade-mapping'")
+        assert limited.execute("SELECT count(*) FROM ai_report_runs WHERE id LIKE 'integrated-upgrade-%'").fetchone()==(2,)
         for table in new_tables:
             limited.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
             denied(limited, "DELETE FROM " + table)
@@ -296,16 +366,30 @@ for role in ("reader", "writer"):
                 assert health().returncode != 0
             finally:
                 owner.execute(sql.SQL("ALTER TABLE {} ENABLE TRIGGER ai_write_fence").format(sql.Identifier(table)))
+        owner.execute("ALTER TABLE ai_report_runs DISABLE TRIGGER ai_business_integrated_report_binding")
+        try:
+            assert health().returncode != 0
+        finally:
+            owner.execute("ALTER TABLE ai_report_runs ENABLE TRIGGER ai_business_integrated_report_binding")
+        from importlib import import_module
+        integrated_migration=import_module("ai_assistant.migrations.0022_business_integrated_reports")
+        helper_sql=integrated_migration.PLAN_GUARD.replace("CREATE FUNCTION ","CREATE OR REPLACE FUNCTION ",1)
+        owner.execute(helper_sql.replace("RETURN expected;","RETURN raw;"))
+        try:
+            assert health().returncode != 0
+        finally:
+            owner.execute(helper_sql)
+        assert health().returncode == 0
 
 complete = snapshot(database["NAME"], AI_TABLES)
 try:
-    MigrationExecutor(connection).migrate(volume_target)
+    MigrationExecutor(connection).migrate(budget_target)
 except RuntimeError as error:
-    assert "预算" in str(error), str(error)
+    assert "integrated" in str(error), str(error)
 else:
-    raise AssertionError("Reverse migration discarded immutable budget parameters")
+    raise AssertionError("Reverse migration discarded integrated report references")
 assert snapshot(database["NAME"], AI_TABLES) == complete
-assert MigrationExecutor(connection).migration_plan(budget_target) == []
+assert MigrationExecutor(connection).migration_plan(integrated_target) == []
 binary = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
@@ -314,6 +398,8 @@ assert snapshot("teruisi_business_restore", AI_TABLES) == complete
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")) as restored:
     assert restored.execute("""SELECT p.plan_json,p.binding_json,p.plan_digest,p.binding_digest,r.snapshot_json
         FROM ai_business_budget_plans p JOIN ai_report_runs r ON r.budget_plan_id=p.id WHERE r.id=%s""", [budget_report.id]).fetchone() == budget_expected
+    for report_id, expected in integrated_expected.items():
+        assert restored.execute("SELECT r.snapshot_json,w.input_json FROM ai_report_runs r JOIN ai_workflow_runs w ON w.id=r.workflow_id WHERE r.id=%s",[report_id]).fetchone()==(expected["snapshot"],expected["reference"])
     content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
     assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
     assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id IN ('file-restore','offline-file-restore','excel-file-restore') ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
@@ -334,27 +420,64 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi
     assert restored.execute("SELECT count(*) FROM ai_business_file_chunks WHERE run_id='volume-file-restore'").fetchone() == (0,)
 restore_env = {**os.environ, "PYTHONPATH": str(ROOT / "backend"),
     "TERUISI_DJANGO_DATABASE_URL": os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")}
+integrated_expected_path=run_root/"integrated-restore-expected.json"
+integrated_expected_path.write_text(json.dumps({"principalEmail":integrated_principal.email,"reports":integrated_expected},ensure_ascii=False),encoding="utf-8")
 restore_code = """import django; django.setup()
-import hashlib
-from ai_assistant import business_budget_store, models
+import hashlib,json,sys
+from pathlib import Path
+from ai_assistant import business_budget_store,business_integrated,business_integrated_tools,models
+from ai_assistant.policy import canonical
 from sales.auth import Principal
 report = models.AiReportRun.objects.get(pk='budget-upgrade-report')
 value = business_budget_store.load(report, Principal('budget-upgrade@example.invalid','fixture','admin',None))
 assert value.result['allocation']['allocatedCents']==9000
-print(hashlib.sha256(value.result_json.encode()).hexdigest())
+old_budget=hashlib.sha256(value.result_json.encode()).hexdigest()
+expected=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+principal=Principal(expected['principalEmail'],'fixture','admin',None)
+digests={}
+for report_id,wanted in expected['reports'].items():
+    report=models.AiReportRun.objects.select_related('workflow').get(pk=report_id)
+    actual,snapshot,reference,evidence,sources=business_integrated.bound(report,principal)
+    assert actual.snapshot_json==wanted['snapshot']
+    assert canonical(reference)==wanted['reference']
+    assert snapshot['mappingPlanDigest']==wanted['mappingPlanDigest']
+    mapped=business_integrated_tools.read(report_id,'analysis',{'runId':evidence.id,'mode':'mapped',
+        'pairKey':snapshot['mappingPlan']['pairs'][0]['pairKey'],'dimension':'sku','offset':'0'},principal)
+    mapped_digest=hashlib.sha256(canonical(mapped).encode()).hexdigest()
+    assert mapped_digest==wanted['mappedDigest']
+    fixed_budget=business_budget_store.load(actual,principal) if wanted['budgetResultDigest'] else None
+    budget_digest=hashlib.sha256(fixed_budget.result_json.encode()).hexdigest() if fixed_budget else None
+    assert budget_digest==wanted['budgetResultDigest']
+    if not fixed_budget: assert actual.budget_plan_id is None and 'budgetRef' not in snapshot
+    digests[report_id]={'mappedDigest':mapped_digest,'budgetResultDigest':budget_digest}
+print(json.dumps({'oldBudgetDigest':old_budget,'integrated':digests},sort_keys=True))
 """
-restored_budget = subprocess.run([sys.executable, "-c", restore_code], env=restore_env, capture_output=True, timeout=60)
+restored_budget = subprocess.run([sys.executable, "-c", restore_code,str(integrated_expected_path)], env=restore_env, capture_output=True, timeout=60)
 if restored_budget.returncode:
     (run_root / "budget-restore-read-error.log").write_bytes(restored_budget.stderr)
     raise RuntimeError("Restored budget verification failed; see budget-restore-read-error.log")
-assert restored_budget.stdout.decode().strip() == hashlib.sha256(prepared_budget.result_json.encode()).hexdigest()
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->0021", "oldAiTablesDigestPreserved": before,
+restored_checks=json.loads(restored_budget.stdout)
+assert restored_checks['oldBudgetDigest']==hashlib.sha256(prepared_budget.result_json.encode()).hexdigest()
+assert set(restored_checks['integrated'])==set(integrated_expected)
+for role in ("reader","writer"):
+    env={**restore_env,"TERUISI_DJANGO_DATABASE_URL":f"postgresql://teruisi_ai_{role}:{passwords[role]}@127.0.0.1:{database['PORT']}/teruisi_business_restore",
+        "TERUISI_DJANGO_PROCESS_ROLE":"ai_"+role,"TERUISI_DJANGO_EXPECT_READ_ONLY":str(role=="reader").lower(),
+        "TERUISI_DJANGO_AI_AUTHORITY_EPOCH":epoch,"TERUISI_DJANGO_AI_CUTOVER_ID":"business-synthetic"}
+    checked=health()
+    if checked.returncode:
+        (run_root/"restored-role-health-error.log").write_bytes(checked.stderr)
+        raise RuntimeError("Restored restricted role health failed")
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->0021->0022", "oldAiTablesDigestPreserved": before,
     "previous60TablesDigestPreserved": previous_digest, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
     "previous61TablesDigestPreserved": directory_digest, "renderer4PausedDeliveryRestored": True,
     "previous62TableOriginalColumnDigestPreserved": volume_before, "oldReportBudgetFkNull": True,
-    "budgetParametersRestored": 1, "budgetPlanBytes": len(prepared_budget.plan_json.encode()),
+    "budgetParametersRestored": 2, "budgetPlanBytes": len(prepared_budget.plan_json.encode()),
     "budgetBindingBytes": len(prepared_budget.binding_json.encode()), "budgetRollbackWithDataDenied": True,
     "budgetReaderReconciledAfterRestore": True,
+    "previous63TablesDigestPreserved":budget_schema_before,"integratedReportsRestored":2,
+    "integratedMappingAndBudgetReadersAfterRestore":restored_checks['integrated'],
+    "integratedRollbackWithoutBudgetDenied":True,"integratedRollbackWithBudgetDenied":True,
+    "integratedTriggerAndFunctionHealthProbes":True,"restoredRestrictedRoleHealth":True,
     "volumeChunkCountRestored": len(volume_payloads), "volumeChunkBytesRestored": volume_bytes,
     "volumeRollbackWithDataDenied": True, "volumeReadyAcceptanceExercised": False,
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,

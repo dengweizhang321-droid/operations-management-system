@@ -150,7 +150,14 @@ def _budget(value, report_id, plan_digest):
 
 
 def _full(value, *, max_tables, max_rows, max_volumes):
-    _fields(value, FULL_FIELDS, {"budgetPlanDigest"})
+    mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
+    _fields(value, FULL_FIELDS, {"budgetPlanDigest"} | mapping_keys)
+    if mapping_keys & value.keys():
+        if not mapping_keys <= value.keys():
+            _fail("商品关联完整清单绑定缺失")
+        _sha(value["mappingPlanDigest"])
+        _equal(value["mappingAlgorithmVersion"], "exact-product-partition-v1")
+        _equal(value["mappedTableAlgorithmVersion"], "business-mapped-results-v1")
     _equal(value["schemaVersion"], "business-volume-files-v1")
     _equal(value["status"], "complete")
     _equal(value["rendererVersion"], 4)

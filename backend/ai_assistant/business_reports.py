@@ -1,6 +1,7 @@
 """Specialist DAGs sharing sealed evidence and existing durable dispatch fences."""
 import json
 from . import business_evidence, models as m, workflows
+from . import business_integrated as integrated
 from .policy import AiError, authorize_owner, boolean, canonical, current_principal, digest, fields, identifier, mutation, passive, text, uid
 
 SCHEMA = "business-report-v1"
@@ -39,6 +40,8 @@ def is_budget_snapshot(snapshot):
 
 
 def is_v2_snapshot(snapshot):
+    if integrated.is_snapshot(snapshot):
+        return True
     if is_budget_snapshot(snapshot):
         return True
     if snapshot.get("executionProfile") == V2_PROFILE:
@@ -51,6 +54,8 @@ def is_v2_snapshot(snapshot):
 
 
 def required_tools(snapshot):
+    if integrated.is_snapshot(snapshot):
+        return integrated.TOOLS
     if is_budget_snapshot(snapshot):
         return BUDGET_TOOLS
     if is_v2_snapshot(snapshot):
@@ -94,7 +99,7 @@ def graph(with_budget=False):
 
 def create(body, principal):
     current_principal(principal, admin=True, write=True)
-    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "previousReportId", "expectedPrincipalKey"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
+    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "mappingPairs", "previousReportId", "expectedPrincipalKey"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
     if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != business_evidence.principal_key(principal):
         raise AiError("当前账号与已确认分析请求不一致", "access_denied", 403)
     client, evidence_id = identifier(body["clientRequestId"]), identifier(body["evidenceRunId"])
@@ -105,7 +110,11 @@ def create(body, principal):
         raise AiError("分析须从已封存证据启动", "conflict", 409)
     plan = json.loads(evidence.plan_json)
     if plan.get("schemaVersion") == "business-evidence-v2":
+        if "mappingPairs" in body:
+            return integrated.create(body, principal, evidence, client, question, dry)
         return _create_v2(body, principal, evidence, client, question, dry)
+    if "mappingPairs" in body:
+        raise AiError("固定关联报告需要v2封存证据", "conflict", 409)
     if plan.get("schemaVersion") != "business-evidence-v1":
         raise AiError("此版本证据尚未接入报告分析，请保留封存任务", "conflict", 409)
     queries = [source["query"] for source in plan["sources"]]
@@ -155,7 +164,7 @@ def context(job):
     if not report:
         return None
     snapshot = json.loads(report.snapshot_json)
-    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
+    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE, integrated.PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
         raise AiError("报告执行身份不一致", "access_denied", 403)
     return snapshot if snapshot.get("schemaVersion") == SCHEMA else None
 
@@ -167,7 +176,7 @@ def has_v2_profile(job):
 
 def execution_surface(job, principal):
     snapshot = context(job)
-    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS) & set(json.loads(job.allowed_tools_json)):
+    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS | integrated.TOOLS) & set(json.loads(job.allowed_tools_json)):
         raise AiError("v2任务缺少固定报告执行身份", "conflict", 409)
     if snapshot is None or not is_v2_snapshot(snapshot):
         return "ai_agent"
@@ -176,7 +185,7 @@ def execution_surface(job, principal):
     if (canonical(json.loads(flow.input_json)) != canonical(reference) or canonical(json.loads(job.input_json).get("workflowInput")) != canonical(reference)
             or job.workflow_node_key not in V2_NODES or flow.owner_email != job.owner_email or flow.scope_json != job.scope_json):
         raise AiError("工作流轻量引用与固定报告不一致", "conflict", 409)
-    return BUDGET_SURFACE if is_budget_snapshot(snapshot) else V2_SURFACE
+    return integrated.SURFACE if integrated.is_snapshot(snapshot) else BUDGET_SURFACE if is_budget_snapshot(snapshot) else V2_SURFACE
 
 
 def restricted_entries(job, entries):
@@ -195,6 +204,24 @@ def validate_call(job, call, principal=None):
     if snapshot and (call["name"] not in required_tools(snapshot) or call["arguments"].get("runId") != snapshot["evidenceRunId"] or
             call["name"] in {BUDGET_TOOL, BUDGET_REFERENCE_TOOL} and call["arguments"].get("reportId") != snapshot.get("reportId")):
         raise AiError("分析任务只能读取本次封存证据", "access_denied", 403)
+    if snapshot and integrated.is_snapshot(snapshot):
+        from .business_integrated_receipts import progress
+        if call["arguments"].get("reportId") != snapshot["reportId"]:
+            raise AiError("集成工具只能读取固定报告", "access_denied", 403)
+        principal = principal or workflows.background(job)
+        proof, args = progress(job, snapshot, principal), call["arguments"]
+        if call["name"] == integrated.DIRECTORY_TOOL:
+            if (set(args)-{"runId","reportId","offset"} or type(args.get("offset",0)) is not int
+                    or proof["directory"]["complete"] or args.get("offset",0) != proof["directory"]["nextOffset"]):
+                raise AiError("集成目录须顺序完整读取", "directory_read_incomplete", 409)
+        elif not proof["directory"]["complete"]:
+            raise AiError("须先完整读取固定来源和关联目录", "directory_read_incomplete", 409)
+        elif call["name"] == integrated.BUDGET_TOOL:
+            if ("budgetRef" not in snapshot or set(args)-{"runId","reportId","offset"}
+                    or type(args.get("offset",0)) is not int or proof["budget"]["complete"]
+                    or args.get("offset",0) != proof["budget"]["nextOffset"]):
+                raise AiError("固定预算须顺序完整读取", "budget_read_incomplete", 409)
+        return
     if snapshot and is_budget_snapshot(snapshot):
         from .business_budget_receipts import progress
         principal = principal or workflows.background(job)
@@ -227,14 +254,19 @@ def validate_output(job, answer, principal=None):
     snapshot = context(job)
     if snapshot is None:
         return
-    if is_budget_snapshot(snapshot):
+    if integrated.is_snapshot(snapshot):
+        from .business_integrated_receipts import validate_complete
+        validate_complete(job, snapshot, principal or workflows.background(job))
+    elif is_budget_snapshot(snapshot):
         from .business_budget_receipts import validate_complete
         validate_complete(job, snapshot, principal or workflows.background(job))
     elif is_v2_snapshot(snapshot):
         from .business_evidence_receipts import validate_directory_complete
         validate_directory_complete(job, snapshot)
     budget = 15000 if job.workflow_node_key == "report" else 2000 if job.workflow_node_key == "independent_review" else 3000
-    if is_budget_snapshot(snapshot):
+    if integrated.is_snapshot(snapshot):
+        budget = integrated.OUTPUT_LIMITS[job.workflow_node_key]
+    elif is_budget_snapshot(snapshot):
         budget = BUDGET_OUTPUT_LIMITS[job.workflow_node_key]
     if len(answer.encode()) > budget:
         raise AiError("专业分析输出超过下游可复核容量，保留原回执", "payload_too_large", 413)
@@ -249,7 +281,10 @@ def validate_output(job, answer, principal=None):
 def validate_provider_turn(job, principal=None):
     """Do not send a persisted, malformed directory receipt to a model."""
     snapshot = context(job)
-    if snapshot is not None and is_budget_snapshot(snapshot):
+    if snapshot is not None and integrated.is_snapshot(snapshot):
+        from .business_integrated_receipts import progress
+        progress(job, snapshot, principal or workflows.background(job))
+    elif snapshot is not None and is_budget_snapshot(snapshot):
         from .business_budget_receipts import progress
         progress(job, snapshot, principal or workflows.background(job))
     elif snapshot is not None and is_v2_snapshot(snapshot):
@@ -275,7 +310,10 @@ def content(row, principal):
             if job is None:
                 raise AiError("专业节点缺少独立完成回执", "conflict", 409)
             execution_surface(job, principal)
-            if is_budget_snapshot(snapshot):
+            if integrated.is_snapshot(snapshot):
+                from .business_integrated_receipts import validate_complete
+                validate_complete(job, snapshot, principal)
+            elif is_budget_snapshot(snapshot):
                 from .business_budget_receipts import validate_complete
                 validate_complete(job, snapshot, principal)
             else:
@@ -301,7 +339,8 @@ def content(row, principal):
         if section["title"] != title:
             raise AiError("报告章节不匹配", "conflict", 409)
         section["body"] = text(section["body"], "body", 10000)
-    diagnosis = validate(value["diagnosis"], snapshot["evidenceRunId"], principal)
+    diagnosis = validate(value["diagnosis"], snapshot["evidenceRunId"], principal,
+        fixed_mapping_plan=snapshot["mappingPlan"] if integrated.is_snapshot(snapshot) else None)
     from .business_budget import for_report
     budget_result = for_report(row, principal)
     return {"sections": sections, "diagnosis": diagnosis, "independentReview": review, **({"budget": budget_result} if budget_result else {})}
@@ -316,7 +355,7 @@ def validate_review(row, principal):
             tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name="get_business_analysis_evidence")
         if not any(json.loads(item.result_json).get("ok") is True and json.loads(item.result_json).get("auditStatus") == "recorded" for item in receipts):
             raise AiError("专业分析或独立复核缺少成功的共享证据读取回执", "conflict", 409)
-    if value.get("budget") and not is_budget_snapshot(json.loads(row.snapshot_json)):
+    if value.get("budget") and not is_budget_snapshot(json.loads(row.snapshot_json)) and not integrated.is_snapshot(json.loads(row.snapshot_json)):
         target_count = value["budget"]["allocation"]["targetCount"]
         for key in ("promotion", "independent_review"):
             covered = set()
@@ -350,6 +389,12 @@ def _reference(evidence, question):
 
 
 def bound_reference(snapshot, principal):
+    if integrated.is_snapshot(snapshot):
+        from .reports import get
+        report = get(snapshot["reportId"], principal)
+        if report.snapshot_json != canonical(snapshot):
+            raise AiError("集成报告快照不一致", "conflict", 409)
+        return integrated.bound(report, principal)[2]
     evidence = business_evidence.get_run(snapshot["evidenceRunId"], principal)
     reference, _ = _reference(evidence, snapshot["question"])
     keys = ("evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest", "sourceCount")

@@ -32,6 +32,11 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, veri
         if not business_reports.is_v2_snapshot(snapshot):
             raise AiError("多卷文件须使用v2经营报告", "conflict", 409)
         business_reports.bound_reference(snapshot, principal)
+        content = None
+        if business_reports.integrated.is_snapshot(snapshot) and verify_budget:
+            # The shared flag means full validation at create/resume/publish;
+            # immutable chunk reads keep the lightweight reference-only path.
+            content = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
         if "budgetRef" in snapshot:
             from . import business_budget_store
             fixed = business_budget_store.binding_for_report(report, principal)
@@ -40,7 +45,8 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, veri
             if verify_budget:
                 # Creation, resume and publication re-read the selected facts;
                 # individual immutable chunks use only the bound parameter row.
-                content = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
+                if content is None:
+                    content = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
                 resolved = content.get("budget")
                 if resolved is None or resolved["planDigest"] != fixed.reference["planDigest"]:
                     raise AiError("文件预算未通过完整重算", "conflict", 409)

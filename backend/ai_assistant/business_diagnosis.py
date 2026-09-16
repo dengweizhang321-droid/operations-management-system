@@ -8,7 +8,7 @@ VALUE_FIELDS = {"value", "ratio", "baseline", "difference", "changeRate", "perce
 ACTION_FIELDS = {"object", "change", "prerequisites", "successMetric", "observationDays", "rollback", "priority", "ownerRole", "budgetImpact"}
 
 
-def validate(value, evidence_id, principal):
+def validate(value, evidence_id, principal, *, fixed_mapping_plan=None):
     fields(value, {"summary", "findings"}, {"summary", "findings"})
     passive(value, 48000)
     summary = text(value["summary"], "summary", 2000)
@@ -29,10 +29,14 @@ def validate(value, evidence_id, principal):
             raise AiError("结论缺少证据引用或引用过多")
         facts = []
         for reference in references:
-            fields(reference, REFERENCE_FIELDS, REFERENCE_FIELDS - {"baselineKey"})
             count += 1
             if count > 32:
                 raise AiError("单份诊断引用超过 32 项", "payload_too_large", 413)
+            if fixed_mapping_plan is not None and type(reference) is dict and "pairKey" in reference:
+                from .business_mapped_claims import resolve
+                facts.append(resolve(reference, evidence_id, fixed_mapping_plan, principal))
+                continue
+            fields(reference, REFERENCE_FIELDS, REFERENCE_FIELDS - {"baselineKey"})
             for field in ("sourceKey", "baselineKey", "rowId", "metric"):
                 if field in reference:
                     identifier(reference[field], field)

@@ -144,7 +144,13 @@ def binding_for_report(report, principal):
         raise AiError("固定预算工作流身份与报告不一致", "conflict", 409)
     try:
         snapshot = json.loads(actual.snapshot_json)
-        if (snapshot.get("executionProfile") != contract.PROFILE or snapshot.get("evidenceProtocol") != "reference-v2"
+        from . import business_integrated
+        integrated = business_integrated.is_snapshot(snapshot)
+        if integrated:
+            # The integrated binder revalidates the complete mapping plan and
+            # workflow; omit only this budget check to avoid mutual recursion.
+            business_integrated.bound(actual, principal, check_budget=False)
+        if (snapshot.get("executionProfile") != contract.PROFILE and not integrated or snapshot.get("evidenceProtocol") != "reference-v2"
                 or snapshot.get("schemaVersion") != "business-report-v1" or "budgetPlan" in snapshot
                 or snapshot.get("reportId") != actual.id or not actual.budget_plan_id):
             raise AiError("报告未绑定独立固定预算协议", "conflict", 409)
