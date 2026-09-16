@@ -42,7 +42,7 @@ export async function forwardAiRequest(request: Request) {
     request.signal.addEventListener("abort", abort, { once: true });
     try {
       const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
-        ...((url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/reports\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST" ? { service: "reader" as const } : {}) }, { signal: request.signal });
+        ...((url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/(?:reports|business-evidence)\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST" ? { service: "reader" as const } : {}) }, { signal: request.signal });
       const generatedContent = /^\/api\/ai\/(?:reports|space\/assets)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
       if (url.pathname.startsWith("/api/ai/artifacts/") || generatedContent) {
         const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };

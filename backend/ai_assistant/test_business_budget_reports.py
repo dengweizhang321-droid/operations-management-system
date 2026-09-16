@@ -90,6 +90,14 @@ class BusinessBudgetReportTests(TransactionTestCase):
         self.assertGreaterEqual(self.call(path, principal=self.admin).status_code, 400)
 
     def test_five_agents_own_receipts_review_and_persistent_budget_files(self):
+        from . import business_budget_builder
+        choices = business_budget_builder.targets(self.run_id, {"sourceKey": "ads", "dimension": "sku"}, self.admin)
+        selected_plan = self.prepared.plan
+        for target, choice in zip(selected_plan["targets"], choices["rows"]):
+            target.update(rowId=choice["id"], rowIndex=choice["rowIndex"])
+        trial = business_budget_builder.preview(self.run_id, {"evidenceBinding": choices["evidenceBinding"], "budgetPlan": selected_plan}, self.admin)
+        self.assertTrue(trial["previewOnly"])
+        self.body["budgetPlan"] = trial["budget"]["plan"]
         item = self.create()["item"]
         report = m.AiReportRun.objects.get(pk=item["id"])
         flow = m.AiWorkflowRuns.objects.get(pk=item["workflowId"])

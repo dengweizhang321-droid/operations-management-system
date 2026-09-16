@@ -152,6 +152,8 @@ def _dispatch(request, path=""):
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-targets": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/sources(?:/[A-Za-z0-9_-]{1,160})?": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish|control)": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
@@ -216,7 +218,7 @@ def _dispatch(request, path=""):
         writer = (
             request.method != "GET" or root in {"artifacts"} or root == "reports" and parts[-1] == "content"
         ) and not consumer_read and root != "datasets"
-        if re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
+        if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
         if endpoint == "business-plan/preview" and request.method == "POST":
             writer = False
@@ -282,6 +284,10 @@ def _dispatch(request, path=""):
             return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
         if root == "business-evidence":
             current_principal(principal, admin=True)
+            if parts[-1] == "budget-preview":
+                from .business_budget_builder import preview as preview_initial_budget
+                fields(params, set())
+                return response(preview_initial_budget(parts[1], payload, principal))
             if request.method == "GET":
                 if len(parts) == 1:
                     return response(business_evidence.listing(params, principal))
@@ -292,6 +298,9 @@ def _dispatch(request, path=""):
                     return response(business_evidence.source_detail(parts[1], parts[3], principal))
                 if parts[-1] == "analysis":
                     return response(business_evidence.analysis_table(parts[1], params, principal))
+                if parts[-1] == "budget-targets":
+                    from .business_budget_builder import targets as initial_budget_targets
+                    return response(initial_budget_targets(parts[1], params, principal))
                 if parts[-1] == "mapping":
                     return response(business_evidence.reconcile_products(parts[1], params, principal))
                 if len(parts) == 4:
