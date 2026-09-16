@@ -5,6 +5,11 @@ from .policy import AiError, authorize_owner, boolean, canonical, current_princi
 
 SCHEMA = "business-report-v1"
 TOOLS = frozenset({"get_business_analysis_evidence", "get_business_analysis_table"})
+BUDGET_TOOL = "get_business_budget_scenarios"
+
+
+def required_tools(snapshot):
+    return TOOLS | ({BUDGET_TOOL} if snapshot.get("budgetPlan") is not None else set())
 SECTIONS = ["范围与数据完整性", "店铺与商品诊断", "推广与搜索诊断", "市场与B端机会", "调整规划与观察指标"]
 FINDING_SHAPE = {"summary": "摘要", "findings": [{"id": "finding-1", "kind": "observation|hypothesis|action|gap",
     "title": "标题", "explanation": "有证据的解释，假设必须标明", "references": [{"sourceKey": "来源键", "dimension": "shop",
@@ -19,7 +24,7 @@ RULES = ("只使用 workflowInput.evidenceRunId 对应的已封存证据和服�
     "不自动执行任何业务调整。文字中的数字与因果解释仍需复核。")
 
 
-def graph():
+def graph(with_budget=False):
     roles = [("commerce", "核对店铺、品类、SPU、SKU及ERP销售，识别金额贡献、退款、成本和身份缺口。"),
              ("promotion", "分析推广、关键词与搜索词效率、集中度及同比环比；区分流量、点击、转化和客单因素。"),
              ("market_b2b", "核对市场样本、价格区间、B端成交及历史覆盖；没有对应来源时明确缺口，不以商用商品替代B端成交。")]
@@ -34,12 +39,16 @@ def graph():
         "。diagnosis结构："+canonical(FINDING_SHAPE)+"。最多12条findings、32个引用。调整规划说明前提、观察期和回退条件。"})
     nodes.append({"key": "human_review", "type": "human_review", "dependsOn": ["report"],
         "instruction": "核对来源覆盖、专业分析冲突、自动核验的引用数值与解释、具体调整动作和观察条件。通过后才可交付正式报告；不自动修改业务。"})
+    if with_budget:
+        for node in nodes:
+            if node["key"] in {"promotion", "independent_review", "report"}:
+                node["instruction"] += "本任务有用户固定预算参数。用get_business_budget_scenarios按input中的reportId和evidenceRunId读取全部预算对象分页，核对预留、上下限、假设、不可测算对象与回退条件。不得擅改参数或把假设情景当实际利润/保证收益。"
     return {"nodes": nodes}
 
 
 def create(body, principal):
     current_principal(principal, admin=True, write=True)
-    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
+    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "previousReportId"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
     client, evidence_id = identifier(body["clientRequestId"]), identifier(body["evidenceRunId"])
     question = text(body["question"], "question", 1000)
     dry = bool(boolean(body["dryRun"], "dryRun"))
@@ -55,9 +64,20 @@ def create(body, principal):
     start, end = next(iter(dates))
     scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台", "shop": next(iter(shops)) if len(shops) == 1 else "多店铺" if shops else "市场样本",
         "startDate": start, "endDate": end}
+    from . import business_budget
+    budget_result = business_budget.resolve(evidence_id, body["budgetPlan"], principal) if "budgetPlan" in body else None
+    report_id = uid("ai-report")
     snapshot = {"schemaVersion": SCHEMA, "executionMode": "parallel-v1", "evidenceRunId": evidence_id, "evidenceVersion": evidence.version,
         "evidencePlanDigest": digest(evidence.plan_json), "question": question, "scope": scope, "libraryVersion": 0,
         "pipeline": {"name": "深度经营分析"}, "template": {"name": "多Agent经营诊断", "format": "html", "sections": SECTIONS}, "skills": []}
+    if budget_result is not None:
+        snapshot.update(reportId=report_id, budgetPlan=budget_result["plan"], budgetPlanDigest=budget_result["planDigest"])
+    if "previousReportId" in body:
+        from .reports import get
+        previous = get(identifier(body["previousReportId"]), principal)
+        if budget_result is None or json.loads(previous.snapshot_json).get("evidenceRunId") != evidence_id:
+            raise AiError("预算新版本须与前一报告使用相同封存证据", "conflict", 409)
+        snapshot["previousReportId"] = previous.id
     with mutation(principal):
         old = m.AiReportRun.objects.select_related("workflow").filter(owner_email=principal.email.lower(), client_request_id=client).first()
         if old:
@@ -65,12 +85,13 @@ def create(body, principal):
             if old.request_digest != digest(body):
                 raise AiError("请求标识已绑定其他报告", "conflict", 409)
             return {"item": {"id": old.id, "workflowId": old.workflow_id}, "replayed": True}
-        input_value = passive({"evidenceRunId": evidence_id, "question": question, "sources": plan["sources"]}, 8000)
+        input_value = passive({"evidenceRunId": evidence_id, "question": question, "sources": plan["sources"],
+            **({"reportId": report_id, "budgetPlanDigest": budget_result["planDigest"], "budgetAllocation": budget_result["allocation"]} if budget_result else {})}, 8000)
         flow = workflows.create({"clientRequestId": "business-"+digest([principal.email.lower(), client]), "name": "深度经营分析",
-            "graph": graph(), "input": input_value, "dryRun": dry}, principal, True)
-        if not dry and not TOOLS <= set(flow["item"]["allowedTools"]):
+            "graph": graph(budget_result is not None), "input": input_value, "dryRun": dry}, principal, True)
+        if not dry and not required_tools(snapshot) <= set(flow["item"]["allowedTools"]):
             raise AiError("共享证据分析工具未就绪", "service_unavailable", 503)
-        row = m.AiReportRun.objects.create(id=uid("ai-report"), owner_email=principal.email.lower(), scope_json=canonical(principal.scope),
+        row = m.AiReportRun.objects.create(id=report_id, owner_email=principal.email.lower(), scope_json=canonical(principal.scope),
             client_request_id=client, request_digest=digest(body), workflow_id=flow["item"]["id"], snapshot_json=canonical(snapshot))
     return {"item": {"id": row.id, "workflowId": row.workflow_id}, "replayed": False}
 
@@ -89,15 +110,17 @@ def restricted_entries(job, entries):
     snapshot = context(job)
     if snapshot is None:
         return entries
-    allowed = [entry for entry in entries if entry["name"] in TOOLS]
-    if {entry["name"] for entry in allowed} != TOOLS:
+    required = required_tools(snapshot)
+    allowed = [entry for entry in entries if entry["name"] in required]
+    if {entry["name"] for entry in allowed} != required:
         raise AiError("共享证据工具目录变化", "executor_policy_changed", 409)
     return allowed
 
 
 def validate_call(job, call):
     snapshot = context(job)
-    if snapshot and (call["name"] not in TOOLS or call["arguments"].get("runId") != snapshot["evidenceRunId"]):
+    if snapshot and (call["name"] not in required_tools(snapshot) or call["arguments"].get("runId") != snapshot["evidenceRunId"] or
+            call["name"] == BUDGET_TOOL and call["arguments"].get("reportId") != snapshot.get("reportId")):
         raise AiError("分析任务只能读取本次封存证据", "access_denied", 403)
 
 
@@ -146,7 +169,9 @@ def content(row, principal):
             raise AiError("报告章节不匹配", "conflict", 409)
         section["body"] = text(section["body"], "body", 10000)
     diagnosis = validate(value["diagnosis"], snapshot["evidenceRunId"], principal)
-    return {"sections": sections, "diagnosis": diagnosis, "independentReview": review}
+    from .business_budget import for_report
+    budget_result = for_report(row, principal)
+    return {"sections": sections, "diagnosis": diagnosis, "independentReview": review, **({"budget": budget_result} if budget_result else {})}
 
 
 def validate_review(row, principal):
@@ -158,4 +183,17 @@ def validate_review(row, principal):
             tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name="get_business_analysis_evidence")
         if not any(json.loads(item.result_json).get("ok") is True and json.loads(item.result_json).get("auditStatus") == "recorded" for item in receipts):
             raise AiError("专业分析或独立复核缺少成功的共享证据读取回执", "conflict", 409)
+    if value.get("budget"):
+        target_count = value["budget"]["allocation"]["targetCount"]
+        for key in ("promotion", "independent_review"):
+            covered = set()
+            receipts = m.AiAgentToolResults.objects.filter(tool_dispatch__job__workflow_run_id=row.workflow_id,
+                tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name=BUDGET_TOOL)
+            for receipt in receipts:
+                result = json.loads(receipt.result_json)
+                data = result.get("data", {})
+                if result.get("ok") is True and result.get("auditStatus") == "recorded" and data.get("reportId") == row.id and data.get("planDigest") == value["budget"]["planDigest"]:
+                    covered.update(item["rowIndex"] for item in data.get("rows", []))
+            if covered != set(range(target_count)):
+                raise AiError("推广分析或独立复核尚未完整读取固定预算情景", "conflict", 409)
     return value

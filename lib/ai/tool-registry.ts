@@ -37,7 +37,7 @@ import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
 import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
 import { getMarketAnalysisRecords } from "@/lib/market/analysis-tool";
-import { readBusinessEvidence, readBusinessAnalysisTable } from "@/lib/ai/business-evidence";
+import { readBusinessEvidence, readBusinessAnalysisTable, readBusinessBudget } from "@/lib/ai/business-evidence";
 import { readBusinessSourcePage } from "@/lib/ai/business-source-page";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
@@ -653,6 +653,19 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
     handler: (args, context) => readBusinessAnalysisTable(args, context.principal, context.signal),
+  },
+  {
+    name: "get_business_budget_scenarios", title: "读取固定预算情景",
+    description: "读取本人经营报告固定预算参数的确定性情景：总额、预留、对象上下限、分配和复盘条件。按完整封存推广事实计算，输入乘数和贡献率是假设，不是保证收益、增量销售或真实利润；缺失不可测算。沿分页读取全部对象，不修改参数，不启动模型或投放。报告与证据ID必须同时匹配。",
+    inputSchema: { type: "object", properties: {
+      runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      offset: { type: "integer", minimum: 0, maximum: 100, default: 0 },
+      limit: { type: "integer", minimum: 1, maximum: 20, default: 10 },
+    }, required: ["runId", "reportId"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessBudget(args, context.principal, context.signal),
   },
   {
     name: "get_business_analysis_evidence", title: "读取经营分析共享证据",

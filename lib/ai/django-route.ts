@@ -37,7 +37,8 @@ export async function forwardAiRequest(request: Request) {
     };
     request.signal.addEventListener("abort", abort, { once: true });
     try {
-      const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload }, { signal: request.signal });
+      const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
+        ...(/^\/api\/ai\/reports\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname) && request.method === "POST" ? { service: "reader" as const } : {}) }, { signal: request.signal });
       if (url.pathname.startsWith("/api/ai/artifacts/") || url.pathname.endsWith("/content")) {
         const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };
         const bytes = file.base64 ? Uint8Array.from(atob(file.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(file.content ?? "");

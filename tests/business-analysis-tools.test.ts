@@ -13,6 +13,33 @@ const admin = { email: "analysis@example.test", displayName: "Fixture", role: "a
 const entry = aiToolRegistry.find(e => e.name === "get_netshop_analysis_records")!;
 const args = { platform: "京东", shop: "样例店A", dataset: "promotion", startDate: "2026-09-01", endDate: "2026-09-03" };
 
+test("budget tool binds report and evidence on the reader without accepting model assumptions", async t => {
+  const budget = aiToolRegistry.find(e => e.name === "get_business_budget_scenarios")!;
+  const query = { runId: "sealed", reportId: "report", offset: 1, limit: 1 };
+  validateToolArguments(query, budget.inputSchema);
+  for (const bad of [{ ...query, budgetPlan: {} }, { ...query, limit: 21 }, { ...query, reportId: "../secret" }]) assert.throws(() => validateToolArguments(bad, budget.inputSchema));
+  for (const surface of ["dingtalk_chat", "business_collection"] as const) assert.ok(!getToolsForPrincipal(admin, surface).some(e => e.name === budget.name));
+  for (const role of ["viewer", "analyst", "operator"] as const) assert.ok(!getToolsForPrincipal({ ...admin, role }, "ai_agent").some(e => e.name === budget.name));
+  assert.ok(getOpenAiTools(admin, "ai_agent").some(e => e.function.name === budget.name));
+  assert.ok(getAnthropicTools(admin, "ai_agent").some(e => e.name === budget.name));
+  const environment = { TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112", TERUISI_DJANGO_INTERNAL_SECRET: "budget-fixture-internal-secret-at-least-32-bytes" };
+  const saved = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]])), oldFetch = globalThis.fetch;
+  Object.assign(process.env, environment);
+  t.after(() => { globalThis.fetch = oldFetch; for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  globalThis.fetch = async (url, init) => {
+    const u = new URL(String(url));
+    assert.equal(u.origin, "http://127.0.0.1:18111");
+    assert.equal(u.pathname, "/api/ai/reports/report/budget");
+    assert.equal(u.searchParams.get("runId"), "sealed");
+    assert.equal(u.searchParams.get("offset"), "1");
+    assert.equal(init?.method, "GET");
+    return Response.json({ schemaVersion: "business-budget-v1" }, { headers: { "x-ai-revision": "1" } });
+  };
+  await budget.handler(query, { principal: admin, surface: "ai_agent", requestId: "budget-fixture" });
+  globalThis.fetch = async () => Response.json({ text: "x".repeat(38001) }, { headers: { "x-ai-revision": "1" } });
+  await assert.rejects(budget.handler(query, { principal: admin, surface: "ai_agent", requestId: "budget-large" }), /不得截断/);
+});
+
 test("market analysis preserves the exact sample identity on its owning reader", async t => {
   const entry = aiToolRegistry.find(e => e.name === "get_market_analysis_records")!;
   const query = { platform: "京东", category: "饮水机", scope: "POP", rankingDimension: "SKU", priceBandFilter: "全部", startDate: args.startDate, endDate: args.endDate };

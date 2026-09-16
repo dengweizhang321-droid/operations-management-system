@@ -143,6 +143,8 @@ def _dispatch(request, path=""):
             r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
@@ -210,6 +212,8 @@ def _dispatch(request, path=""):
         writer = (
             request.method != "GET" or root in {"artifacts"} or root == "reports" and parts[-1] == "content"
         ) and not consumer_read and root != "datasets"
+        if re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
+            writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -227,6 +231,13 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "reports" and parts[-1] == "budget":
+            from .business_budget import read as read_budget_scenarios
+            return response(read_budget_scenarios(parts[1], params, principal))
+        if root == "reports" and parts[-1] == "budget-preview":
+            from .business_budget import preview
+            fields(params, set())
+            return response(preview(parts[1], payload, principal))
         if root == "business-files" or root == "reports" and parts[-1] == "files":
             from . import business_files
             current_principal(principal, admin=True)

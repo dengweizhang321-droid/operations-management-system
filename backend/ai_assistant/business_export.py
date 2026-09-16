@@ -22,7 +22,16 @@ LABELS = {"rowId": "来源行ID", "id": "分析行ID", "rowIndex": "分析行位
     "reportedOrderLines": "平台订单口径", "paymentCents": "支付金额（分）", "ctr": "点击率", "cpcCents": "点击成本（分）", "roas": "归因产出比",
     "metrics": "指标", "baselineMetrics": "基期指标", "comparisons": "比较", "ratios": "比率", "entity": "身份", "dimensions": "来源维度",
     "dimensionMissing": "维度缺失", "sampleComparisons": "市场样本比较", "object": "调整对象", "change": "具体动作", "prerequisites": "执行前提",
-    "successMetric": "观察指标", "observationDays": "观察天数", "rollback": "回退条件", "priority": "优先级", "ownerRole": "责任角色", "budgetImpact": "预算影响"}
+    "successMetric": "观察指标", "observationDays": "观察天数", "rollback": "回退条件", "priority": "优先级", "ownerRole": "责任角色", "budgetImpact": "预算影响",
+    "totalBudgetCents": "预算总上限（分）", "reserveCents": "预留预算（分）", "reservedCents": "预留预算（分）", "allocatedCents": "已分配预算（分）", "unallocatedCents": "未分配余额（分）",
+    "budgetCents": "对象预算（分）", "minBudgetCents": "对象最低预算（分）", "maxBudgetCents": "对象最高预算（分）", "horizonDays": "规划天数", "weight": "分配权重",
+    "scenario": "情景", "name": "名称", "cpcFactorBps": "点击成本乘数（10000=不变）", "orderRateFactorBps": "订单效率乘数（10000=不变）", "orderValueFactorBps": "订单金额乘数（10000=不变）",
+    "contributionMarginBps": "假设贡献率（基点）", "minimumClicks": "样本点击门槛", "minimumOrderLines": "样本订单口径门槛", "reviewAfterSpendBps": "复盘花费占预算（基点）",
+    "projectedClicks": "情景点击次数", "projectedOrderLines": "情景订单口径", "projectedAttributedGmvCents": "情景归因金额（分）", "knownAttributedGmvCents": "已知对象情景归因金额（分）",
+    "assumedContributionAfterAdCents": "假设贡献扣推广余额（分，非利润）", "projectedRoas": "情景归因产出比", "breakEvenRoas": "假设贡献收支平衡产出比",
+    "equivalentBaselineSpendCents": "等规划天数基期花费（分）", "budgetChangeCents": "预算较等天数花费差额（分）", "reviewAfterSpendCents": "提前复盘花费（分）",
+    "minimumRoasBps": "最低归因产出比（10000=1倍）", "unavailableTargets": "不可测算对象数", "targetCount": "预算对象数", "mixedReportingBases": "包含不同报告口径",
+    "byReportingBasis": "各报告口径分别汇总", "rollbackRule": "复盘与回退条件", "limitations": "限制说明", "missingMetrics": "缺失指标", "days": "基期天数", "datesPresent": "日期覆盖存在"}
 
 
 def flatten(value, prefix=()):
@@ -143,6 +152,15 @@ def package(report, principal, *, draft, checkpoint=None):
         spool.add("actions", "调整规划", "每条动作保留前提、观察期、责任角色与回退条件。", ({"结论ID": f["id"], "类型": f["kind"], "标题": f["title"], "解释": f["explanation"], **f.get("action", {})} for f in findings))
         spool.add("citations", "结论证据", "数值由服务端重新核验；不代表文字中的因果关系已自动证明。", ({"结论ID": f["id"], **fact} for f in findings for fact in f["facts"]))
         spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。", ({"sourceKey": s["key"], "来源": s["domain"], "查询范围": canonical(s["query"]), "核对": canonical(expected[s["key"]]), "覆盖与口径": canonical(state[s["key"]]["metadata"])} for s in plan["sources"]))
+        if value.get("budget"):
+            budget = value["budget"]
+            budget_note = "；".join(budget["limitations"])
+            spool.add("budget-limits", "预算上限与预留", "固定输入及总额核对；本文件参数为该报告版本快照。", [{**budget["allocation"], **{k: v for k, v in budget["plan"].items() if k not in {"targets", "scenarios"}}, "planDigest": budget["planDigest"]}])
+            spool.add("budget-targets", "预算对象与约束", "对象权重、上下限和责任角色均来自固定输入。", budget["plan"]["targets"])
+            spool.add("budget-assumptions", "预算情景假设", budget_note, budget["plan"]["scenarios"])
+            spool.add("budget-summary", "预算情景汇总", "缺失对象时完整预测为空，仅展示已知对象合计；不是店铺净利润。", ({"scenario": s["assumptions"]["name"], **s["summary"]} for s in budget["scenarios"]))
+            for index, scenario in enumerate(budget["scenarios"]):
+                spool.add("budget-scenario-"+str(index), "情景_"+scenario["assumptions"]["name"], budget_note, scenario["rows"])
         for source in plan["sources"]:
             key = source["key"]
             def records(key=key):

@@ -26,3 +26,14 @@ export async function readBusinessAnalysisTable(raw: unknown, principal: AppPrin
   if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "分析表页过大，请减小页长，不得截断");
   return result.data;
 }
+
+export async function readBusinessBudget(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const { reportId, ...args } = raw as { reportId: string; runId: string; offset?: number; limit?: number };
+  const query = new URLSearchParams({ limit: "10" });
+  for (const [key, value] of Object.entries(args)) query.set(key, String(value));
+  const result = await requestDjangoAi<Record<string, unknown>>(principal,
+    { path: `/api/ai/reports/${reportId}/budget`, method: "GET", query }, { signal });
+  if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "预算情景页过大，请减小页长，不得截断");
+  return result.data;
+}
