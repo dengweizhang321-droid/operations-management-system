@@ -1,8 +1,8 @@
 # 经营分析权威范围选项：最小接口设计
 
-2026-09-17。网店最小只读 GET 已候选实现，主线程隔离 PostgreSQL 验证新增12项与既有9项，共21项通过；ERP、市场元数据目录、AI账号回显适配和工作台选择器仍是后续设计。本文的独立审查与文档工作没有查询生产、启动数据库或调用模型。不自动改别名、不读取客户或订单明细、不将选项存在称为事实完整。
+2026-09-17。第三十批实现网店最小只读 GET，隔离 PostgreSQL 新增12项与既有9项共21项通过；第三十二批已完成本文 A/B/C 的实时账号适配、分页组件和工作台添加入口，52项Node与68项新旧Chrome通过。ERP、市场元数据目录及自然语言范围建议仍为后续设计。下文保留设计依据，当前实现与边界以 [第三十二批证据](evidence/ai-business-source-picker-candidate.json) 为准。不自动改别名、不读取客户或订单明细、不将选项存在称为事实完整。
 
-**当前可用候选合同：** `/api/netshop/analysis-options`，每项 `identity={platform,shop,dataset}`，不是datasets数组；完整规范JSON最多38000 UTF-8字节，超限整页拒绝，不裁前缀。响应没有principalKey，签名游标内部绑定账号/权限、筛选与revision。前端已有原样薄转发，尚未接工作台；不是跨域选项已全部完成。下文跨域统一形状均为建议，不覆盖此已实现协议。
+**当前可用候选合同：** `/api/netshop/analysis-options`，每项 `identity={platform,shop,dataset}`，不是datasets数组；完整规范JSON最多38000 UTF-8字节，超限整页拒绝，不裁前缀。原响应没有principalKey，签名游标内部绑定账号/权限、筛选与revision。工作台已使用独立 `/api/ai/business-plan/netshop-options` 账号封套，保留原领域页摘要；跨域选项尚未全部完成。下文跨域统一形状均为建议，不覆盖此已实现协议。
 
 ## 结论
 
@@ -94,7 +94,7 @@ limitations
 
 ## 网店最小片之后：工作台接入实施建议
 
-本节以新候选 [netshop.analysis_options](../backend/netshop/analysis_options.py) 与 [Next 薄路由](../app/api/netshop/analysis-options/route.ts) 为准。前文是跨域总设计；网店最小片实际选择**独立 GET**，不新增 consumer operation。每项 `identity={platform,shop,dataset}`，另有 source/sourceDataset/dateMetadata/provenance，不是前文设想的整店 datasets 数组。一个店铺的多个数据集可能跨页出现，当前页绝不能当该店全部可用数据集。主线程已完成该候选的21项定向PG，本节所列UI组件与组合验收仍未实施。
+本节以新候选 [netshop.analysis_options](../backend/netshop/analysis_options.py) 与 [Next 薄路由](../app/api/netshop/analysis-options/route.ts) 为准。前文是跨域总设计；网店最小片实际选择**独立 GET**，不新增 consumer operation。每项 `identity={platform,shop,dataset}`，另有 source/sourceDataset/dateMetadata/provenance，不是前文设想的整店 datasets 数组。一个店铺的多个数据集可能跨页出现，当前页绝不能当该店全部可用数据集。主线程已完成该候选的21项定向PG，本节的A/B/C已在第三十二批实现并通过组件、父级及旧工作台组合验证；以下保留其设计与验收依据。
 
 ### 小批次 A：固定前端协议与账号绑定的只读适配
 

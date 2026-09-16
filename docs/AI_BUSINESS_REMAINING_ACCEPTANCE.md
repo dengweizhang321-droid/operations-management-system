@@ -49,6 +49,8 @@
 
 进度更新：第三十批已实现网店精确来源元数据 GET 和签名分页，后端新旧接口 21 项测试通过；未接 UI，也未实现 ERP/市场独立选项。历史导入日期明确不证明事实完整，见 [选项证据](evidence/ai-business-source-options-candidate.json)。
 
+第三十二批进一步接通工作台网店选择与实时账号封套，完整来源页核验后逐项添加，同店合并而不改日期/渠道/市场范围；52 项 Node、68 项新旧 Chrome 通过。ERP/市场目录和自然语言建议仍未实现，见 [选择器证据](evidence/ai-business-source-picker-candidate.json)。
+
 ### 3. 补店铺独立总览，并核清跨源指标（真正未开发 + 真实来源验收）
 
 [网店适配器的 SOURCES](../backend/netshop/analysis.py)只有 promotion/sku/spu/b2b/master；`productDayVisitors` 已正确标为商品×日累计，不能作为店铺去重 UV。现有 `dimension=shop` 是所选事实的店铺聚合，不是独立的店铺总览来源。系统其他页面可能有统计，但本经营证据协议尚未接入可证明区间去重的店铺 UV。
