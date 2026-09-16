@@ -1,6 +1,7 @@
 """Durable, owner-bound paired file delivery with isolated resumable attempts."""
 import base64
 from datetime import timedelta
+from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
@@ -26,6 +27,9 @@ RENDERER_VERSION = 3
 def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, verify_budget=True):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
+    if (snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
+            and verify_budget and connection.in_atomic_block):
+        raise AiError("筛查文件完整核验须在最外层事务之外", "conflict", 409)
     if business_reports.is_v2_snapshot(snapshot) and renderer_version != 4:
         raise AiError("v2证据文件交付尚未接入，请保留分析结果", "conflict", 409)
     if renderer_version == 4:
@@ -33,7 +37,7 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, veri
             raise AiError("多卷文件须使用v2经营报告", "conflict", 409)
         business_reports.bound_reference(snapshot, principal)
         content = None
-        if business_reports.integrated.is_snapshot(snapshot) and verify_budget:
+        if (business_reports.integrated.is_snapshot(snapshot) or snapshot.get("executionProfile") == "business-agent-screening-reference-v1") and verify_budget:
             # The shared flag means full validation at create/resume/publish;
             # immutable chunk reads keep the lightweight reference-only path.
             content = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
@@ -62,7 +66,67 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, veri
         raise AiError("专业分析或复核尚未完成", "conflict", 409)
     # Human review may complete after a draft was built. It does not change the
     # draft's professional contents or make that draft a formally approved file.
-    return digest([snapshot, [(key, output) for key, output in nodes if key != "human_review"], draft])
+    values = [snapshot, [(key, output) for key, output in nodes if key != "human_review"], draft]
+    if snapshot.get("executionProfile") == "business-agent-screening-reference-v1":
+        from .business_screening_export import binding as screening_binding
+        values.append(screening_binding(report, principal))
+    return digest(values)
+
+
+_SCREENING_FILE_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class _ScreeningFileBinding:
+    _raw: str
+    _digest: str
+
+    def __init__(self, token, value):
+        if token is not _SCREENING_FILE_TOKEN:
+            raise AiError("不能从JSON恢复筛查文件核验", "conflict", 409)
+        raw = canonical(passive(value, 32768))
+        object.__setattr__(self, "_raw", raw)
+        object.__setattr__(self, "_digest", digest(raw))
+
+    @property
+    def value(self):
+        if type(self._raw) is not str or len(self._raw.encode()) > 32768 or digest(self._raw) != self._digest:
+            raise AiError("筛查文件核验对象损坏", "conflict", 409)
+        return json.loads(self._raw)
+
+
+def _prepare_screening_binding(report, principal, draft):
+    """New profile only: full content/number/ledger validation outside mutation."""
+    if json.loads(report.snapshot_json).get("executionProfile") != "business-agent-screening-reference-v1":
+        return None
+    if connection.in_atomic_block:
+        raise AiError("筛查文件完整核验须在最外层事务之外", "conflict", 409)
+    from .business_screening_content_fence import fence
+    actual = reports.get(report.id, principal)
+    before = fence(actual, principal)
+    fingerprint = binding(actual, principal, draft, renderer_version=4)
+    if canonical(fence(actual, principal)) != canonical(before):
+        raise AiError("筛查文件核验期间读取账本发生变化", "conflict", 409)
+    return _ScreeningFileBinding(_SCREENING_FILE_TOKEN, {"reportId":actual.id,
+        "ownerEmail":principal.email.lower(),"role":principal.role,"scope":principal.scope,
+        "draft":draft,"bindingDigest":fingerprint,"ledgerFence":before})
+
+
+def _check_screening_binding(prepared, report, principal, draft):
+    """Only live metadata and bounded ledger hashes; never scans sealed facts."""
+    from .business_screening_content_fence import fence
+    if type(prepared) is not _ScreeningFileBinding:
+        raise AiError("缺少实际筛查文件核验", "conflict", 409)
+    value = prepared.value
+    current_principal(principal, admin=True, write=True)
+    actual = reports.get(report.id, principal)
+    expected = {"reportId":actual.id,"ownerEmail":principal.email.lower(),"role":principal.role,
+        "scope":principal.scope,"draft":draft,
+        "bindingDigest":binding(actual, principal, draft, renderer_version=4, verify_budget=False),
+        "ledgerFence":fence(actual, principal)}
+    if canonical(expected) != canonical(value):
+        raise AiError("筛查文件内容或实际读取账本已变化", "conflict", 409)
+    return value["bindingDigest"]
 
 
 def mapping(row, *, include_manifest=True):
@@ -85,10 +149,10 @@ def listing(report_id, principal):
     return {"items": [mapping(row, include_manifest=False) for row in m.AiBusinessFileRun.objects.filter(report_id=report_id, owner_email=principal.email.lower()).defer("manifest_json").order_by("-created_at")[:30]]}
 
 
-def create(report_id, body, principal):
+def create(report_id, body, principal, *, commit=None):
     if body.get("deliveryMode") == "volumes":
         from .business_volume_files import create as create_volumes
-        return create_volumes(report_id, body, principal)
+        return create_volumes(report_id, body, principal, commit=commit)
     fields(body, {"draft"})
     draft = bool(boolean(body.get("draft", False), "draft"))
     current_principal(principal, admin=True, write=True)
@@ -106,10 +170,18 @@ def create(report_id, body, principal):
     return {"item": mapping(row), "replayed": False}
 
 
-def control(run_id, body, principal):
+def control(run_id, body, principal, *, commit=None):
     fields(body, {"expectedVersion", "action"}, {"expectedVersion", "action"})
     if body["action"] not in ("pause", "resume", "rebuild", "cancel"):
         raise AiError("文件任务控制动作无效")
+    prepared = None
+    if body["action"] in {"resume", "rebuild"}:
+        candidate = get(run_id, principal)
+        if json.loads(candidate.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+            cas(candidate, body["expectedVersion"])
+            if candidate.status != "paused":
+                raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
+            prepared = _prepare_screening_binding(candidate.report, principal, candidate.draft)
     with mutation(principal):
         row = get(run_id, principal)
         cas(row, body["expectedVersion"])
@@ -118,7 +190,9 @@ def control(run_id, body, principal):
         if body["action"] in {"resume", "rebuild"}:
             if row.status != "paused":
                 raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
-            if binding(row.report, principal, row.draft, renderer_version=row.renderer_version) != row.binding_digest:
+            fingerprint = (_check_screening_binding(prepared, row.report, principal, row.draft) if prepared is not None
+                else binding(row.report, principal, row.draft, renderer_version=row.renderer_version))
+            if fingerprint != row.binding_digest:
                 raise AiError("报告内容已变化，须创建新文件版本", "conflict", 409)
             if body["action"] == "rebuild":
                 row.manifest_json = "{}"
@@ -129,7 +203,10 @@ def control(run_id, body, principal):
         row.lease_until = timezone.now()
         row.version += 1
         row.save()
-    return {"item": mapping(row)}
+        result = {"item": mapping(row)}
+        if commit is not None:
+            return commit(result, 200)
+    return result
 
 
 def chunk(run_id, format, params, principal):

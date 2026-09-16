@@ -15,8 +15,13 @@ def is_parallel(run_id):
     return report_ids().filter(workflow_id=run_id).exists()
 
 
-def workflow_step(row, principal, nodes):
+def workflow_step(row, principal, nodes, *, screening_permission=None):
     from . import workflows as w, report_library
+    from . import business_screening_readiness, business_screening_pipeline
+    if business_screening_readiness.report_for(row) is not None:
+        # Re-read actual nodes: a JSON ready event or a caller-supplied list
+        # cannot authorize a new specialist.
+        nodes = business_screening_pipeline.checked_nodes(row,screening_permission,principal)
     before, changed = row.status, False
     by_key = {n.node_key: n for n in nodes}
     for node in nodes:

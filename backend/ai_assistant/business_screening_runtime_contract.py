@@ -1,7 +1,7 @@
-"""Unregistered future five-Agent screening protocol; no runtime permission.
+"""Fixed five-Agent screening protocol; constants are not runtime permission.
 
-These constants and graph must be registered together in a later release.
-Importing this module does not extend any existing profile, catalog or route.
+Creation, scheduler and tool gates register this exact profile separately.
+Importing this module alone grants no reading or execution authority.
 """
 from business_analysis.screening_package import ROLES, POLICY as PACKAGE_POLICY
 from business_analysis.screening_plan import SELECTION_POLICY

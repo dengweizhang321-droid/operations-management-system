@@ -357,7 +357,7 @@ def control(entity_id, body, principal, action, workflow=False):
         return {"item": mapping(row)}
 
 
-def review(run_id, node_key, body, principal):
+def review(run_id, node_key, body, principal, *, commit=None):
     fields(
         body,
         {"expectedVersion", "decision", "comment"},
@@ -365,11 +365,21 @@ def review(run_id, node_key, body, principal):
     )
     decision = choice(body["decision"], ["approve", "reject"], "decision")
     comment = text(body.get("comment", ""), "comment", 2000, empty=True)
+    screening_review = None
+    if decision == "approve":
+        from . import business_screening_readiness, business_screening_content
+        candidate = get(run_id,principal,True)
+        screening_report = business_screening_readiness.report_for(candidate)
+        if screening_report is not None:
+            screening_review = business_screening_content.prepare_review(screening_report,principal)
     with mutation(principal):
         row = get(run_id, principal, True)
         if decision == "approve":
-            from . import reports
-            reports.validate_review(row.id, principal)
+            if screening_review is not None:
+                business_screening_content.revalidate_review(screening_review,principal)
+            else:
+                from . import reports
+                reports.validate_review(row.id, principal)
         node = m.AiWorkflowNodeRuns.objects.filter(
             run_id=row.id, node_key=identifier(node_key)
         ).first()
@@ -403,7 +413,8 @@ def review(run_id, node_key, body, principal):
             previous,
             node.node_key,
         )
-        return {"item": mapping(row)}
+        result = {"item": mapping(row)}
+        return commit(result,200) if commit is not None else result
 
 
 def background(row):
@@ -535,6 +546,10 @@ def agent_tick(*, job_id=None):
         from . import business_reports
         entries = business_reports.restricted_entries(row, entries)
         model = resolve_model(row.model_id)
+        screening_step = screening_answer = None
+        from . import business_screening_execution, business_screening_runtime_contract
+        if surface == business_screening_runtime_contract.SURFACE:
+            screening_step = business_screening_execution.prepare(row,principal)
         providers = list(
             m.AiAgentProviderDispatches.objects.filter(job_id=row.id).order_by(
                 "dispatch_ordinal"
@@ -596,16 +611,20 @@ def agent_tick(*, job_id=None):
             frames += provider.tool_frames(model, response["calls"], outputs)
         if len(canonical(frames).encode()) > 192 * 1024:
             raise AiError("任务上下文超限", "transcript_limit_exceeded", 409)
+        if screening_step is not None and final is not None:
+            screening_answer = business_screening_execution.validate_answer(screening_step,final,principal)
         with mutation(principal, background=True):
             row = _leased(lease)
+            if screening_step is not None:
+                business_screening_execution.check(screening_step,row,principal)
             current = resolve_model(row.model_id)
             if current.version != row.model_version:
                 raise AiError("模型版本已变化", "model_version_changed", 409)
             if final is not None:
-                return _complete(row, principal, final)
+                return _complete(row, principal, final, **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}))
             if pending:
                 parent, call = pending
-                business_reports.validate_call(row, call, principal)
+                business_reports.validate_call(row, call, principal, **({"screening_step":screening_step} if screening_step is not None else {}))
                 entry = next((e for e in entries if e["name"] == call["name"]), None)
                 if (
                     not entry
@@ -627,7 +646,7 @@ def agent_tick(*, job_id=None):
                     lease_epoch=row.lease_epoch,
                 )
             else:
-                business_reports.validate_provider_turn(row, principal)
+                business_reports.validate_provider_turn(row, principal, **({"screening_step":screening_step} if screening_step is not None else {}))
                 if len(providers) >= min(model.max_tool_rounds, 20):
                     raise AiError("模型轮数超限", "provider_limit_exceeded", 409)
                 dispatch_budget(principal.email.lower(), model.id)
@@ -663,8 +682,28 @@ def agent_tick(*, job_id=None):
         passive(result, 256 * 1024)
         if result.get("auditStatus") == "unavailable":
             raise AiError("工具审计不可用", "audit_unavailable", 503)
+        if screening_step is not None and not pending and not result["calls"]:
+            # Preserve the known external outcome before expensive owning
+            # numeric validation. A later failure must not erase and replay it.
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+                m.AiAgentProviderResults.objects.create(dispatch_id=dispatch.id,response_json=canonical(result),
+                    response_digest=digest(result),usage_json=canonical(result.get("usage",{})),
+                    provider_request_id=result.get("providerRequestId",""))
+                row.provider_round_count += 1
+                row.save(update_fields=["provider_round_count"])
+                dispatch.state,dispatch.completed_at = "succeeded",timezone.now()
+                dispatch.save()
+            screening_answer = business_screening_execution.validate_answer(screening_step,result["text"],principal)
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+                return _complete(row,principal,result["text"],screening_step=screening_step,screening_answer=screening_answer)
         with mutation(principal, background=True):
             row = _leased(lease)
+            if screening_step is not None:
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
             if pending:
                 m.AiAgentToolResults.objects.create(
                     tool_dispatch_id=dispatch.id,
@@ -737,13 +776,13 @@ def _leased(lease):
     return row
 
 
-def _complete(row, principal, answer):
+def _complete(row, principal, answer, *, screening_step=None, screening_answer=None):
     from . import business_reports
     # A received v2 answer can fail proof validation. Keep its provider receipt
     # and succeeded dispatch in this transaction; never relabel it as unknown.
     if business_reports.has_v2_profile(row):
         try:
-            business_reports.validate_output(row, answer, principal)
+            business_reports.validate_output(row, answer, principal, **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}))
             output = {"answer": text(answer, "answer", 12000)}
         except (AiError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
             return _fail(row, principal, error.code if isinstance(error, AiError) else "business_output_validation_failed")
@@ -775,12 +814,16 @@ def _complete(row, principal, answer):
 def workflow_tick():
     # No external request inside this transaction. A single domain mutex protects
     # child creation, stable node identity and parent observation atomically.
-    eligible = m.AiWorkflowRuns.objects.filter(
+    from . import business_screening_readiness, business_screening_pipeline
+    eligible = business_screening_readiness.available(m.AiWorkflowRuns.objects.filter(
         status__in=["queued", "running"], next_run_at__lte=timezone.now()
-    )
+    ))
     candidate, principal, error = prepared_candidate(eligible)
     if not candidate:
         return {"status": "idle"}
+    if not error and business_screening_readiness.report_for(candidate) is not None:
+        return business_screening_readiness.advance(candidate,principal,
+            on_ready=lambda row,prepared:business_screening_pipeline.step(row,prepared,principal))
     with mutation():
         row = eligible.filter(pk=candidate.pk, version=candidate.version).first()
         if not row:

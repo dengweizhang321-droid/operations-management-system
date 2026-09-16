@@ -251,7 +251,7 @@ def _dispatch(request, path=""):
         if root == "reports" and parts[-1] in {"integrated-directory", "integrated-analysis-table", "integrated-budget"}:
             from . import business_integrated_tools
             operation = {"integrated-directory":"directory", "integrated-analysis-table":"analysis", "integrated-budget":"budget"}[parts[-1]]
-            return business_integrated_tools.read(parts[1], operation, params, principal)
+            return response(business_integrated_tools.read(parts[1], operation, params, principal))
         if root == "reports" and len(parts)==4 and parts[2]=="screening":
             from . import business_screening_tools
             return response(business_screening_tools.read(parts[1],parts[3],params,principal))
@@ -280,6 +280,10 @@ def _dispatch(request, path=""):
                 fields(params, set())
                 if request.method == "GET":
                     return response(business_files.listing(parts[1], principal))
+                fixed = reports.get(parts[1], principal)
+                if json.loads(fixed.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                    return write(request, principal, lambda commit: business_files.create(parts[1], payload, principal, commit=commit),
+                        external=True, commit_in_handler=True)
                 return write(request, principal, lambda: (business_files.create(parts[1], payload, principal), 200))
             if request.method == "GET":
                 if len(parts) == 6:
@@ -290,9 +294,17 @@ def _dispatch(request, path=""):
                 fields(params, set())
                 return response({"item": business_files.mapping(business_files.get(parts[1], principal))})
             fields(params, set())
+            if payload.get("action") in {"resume", "rebuild"}:
+                fixed = business_files.get(parts[1], principal)
+                if json.loads(fixed.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                    return write(request, principal, lambda commit: business_files.control(parts[1], payload, principal, commit=commit),
+                        external=True, commit_in_handler=True)
             return write(request, principal, lambda: (business_files.control(parts[1], payload, principal), 200))
         if root == "business-reports":
             fields(params, set())
+            if "analysisMode" in payload:
+                return write(request, principal, lambda commit: business_reports.create(payload, principal, commit=commit),
+                    external=True, commit_in_handler=True)
             return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
         if root == "business-evidence":
             current_principal(principal, admin=True)
@@ -412,6 +424,12 @@ def _dispatch(request, path=""):
             return response(consumer(payload, principal, request_id))
         if not writer:
             return response(read(parts, params, principal))
+        if root == "workflow-runs" and len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
+            from .business_screening_readiness import report_for
+            if report_for(workflows.get(parts[1],principal,True)) is not None:
+                return write(request, principal,
+                    lambda commit: workflows.review(parts[1],parts[3],payload,principal,commit=commit),
+                    external=True, commit_in_handler=True)
         external = (
             root == "channels"
             and payload.get("action") in {"send", "test"}

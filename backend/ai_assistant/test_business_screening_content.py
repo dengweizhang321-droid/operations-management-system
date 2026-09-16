@@ -89,7 +89,18 @@ class ScreeningContentTests(djtest.TransactionTestCase):
     insert_screening=fixtures.ScreeningToolsTests.insert_screening
 
     def create_complete(self,*,mapped=False,budget=False,candidate=False,skip_role=None,bad_role=None,missing_budget=False):
-        if candidate: answers.candidate_evidence(self)
+        if candidate:
+            answers.candidate_evidence(self)
+            if budget:
+                # The candidate fixture creates a new sealed run. Resolve its
+                # actual row identities; never reuse the previous run's IDs.
+                from . import business_evidence
+                self.budget_plan=deepcopy(self.budget_plan)
+                for target in self.budget_plan["targets"]:
+                    page=business_evidence.analysis_table(self.parent.id,
+                        {"sourceKey":target["sourceKey"],"dimension":target["dimension"]},self.admin)
+                    row=next(item for item in page["rows"] if item["rowIndex"]==target["rowIndex"])
+                    target["rowId"]=row["id"]
         bundle=self.screening_bundle(mapped=mapped,budget=budget)
         with mutation(self.admin):
             report=self.insert_screening(bundle,flow_changes={"dry_run":0,"allowed_tools_json":canonical(sorted(service.contract.TOOLS)),

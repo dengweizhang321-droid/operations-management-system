@@ -146,9 +146,14 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     if v2:
         metadata.update(schemaVersion="business-files-v2", rendererVersion=4,
             catalogDigest=snapshot["catalogDigest"], sealedDigest=snapshot["sealedDigest"], sourceCount=len(sources))
-    if business_reports.integrated.is_snapshot(snapshot):
+    screening = snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
+    if screening:
+        from . import business_screening_export
+        metadata.update(business_screening_export.metadata(report, principal))
+    if business_reports.integrated.is_snapshot(snapshot) or (screening and "mappingPlan" in snapshot):
         from business_analysis import mapped_results
-        business_reports.integrated.bound(report, principal)
+        if not screening:
+            business_reports.integrated.bound(report, principal)
         metadata.update(mappingPlanDigest=snapshot["mappingPlanDigest"],
             mappingAlgorithmVersion=snapshot["mappingPlan"]["algorithmVersion"], mappedTableAlgorithmVersion=mapped_results.ALGORITHM_VERSION)
     if v2 and "budgetRef" in snapshot:
@@ -166,7 +171,10 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
         spool.add("diagnosis", "深度诊断", "解释与因果仍需人工判断；以下文字来自已持久化的专业分析与复核。", ({"章节": section["title"], "正文": section["body"][start:start+300]} for section in value["sections"] for start in range(0, len(section["body"]), 300)))
         findings = value["diagnosis"]["findings"]
         spool.add("actions", "调整规划", "每条动作保留前提、观察期、责任角色与回退条件。", ({"结论ID": f["id"], "类型": f["kind"], "标题": f["title"], "解释": f["explanation"], **f.get("action", {})} for f in findings))
-        spool.add("citations", "结论证据", "数值由服务端重新核验；不代表文字中的因果关系已自动证明。", ({"结论ID": f["id"], **fact} for f in findings for fact in f["facts"]))
+        citations = ({"结论ID": f["id"], **fact} for f in findings for fact in f["facts"])
+        if screening:
+            citations = business_screening_export._chunks(citations)
+        spool.add("citations", "结论证据", "数值由服务端重新核验；不代表文字中的因果关系已自动证明。", citations)
         spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。", ({"sourceKey": s["key"], "来源": s["domain"], "查询范围": canonical(s["query"]), "核对": canonical(expected[s["key"]]), "覆盖与口径": canonical(info[s["key"]]["metadata"])} for s in sources))
         if value.get("budget"):
             budget = value["budget"]
@@ -208,6 +216,14 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
         if business_reports.integrated.is_snapshot(snapshot):
             from .business_mapped_export import append
             append(spool, report, principal, checkpoint=checkpoint)
+        if screening:
+            if "mappingPlan" in snapshot:
+                from .business_mapped_export import _append_bound
+                from .business_screening_runtime import bound
+                actual, fixed, _, sealed, catalog, _ = bound(report, principal)
+                _append_bound(spool, fixed, sealed, catalog, principal, checkpoint=checkpoint)
+                bound(actual, principal)
+            business_screening_export.append(spool, report, principal, metadata, read_proofs=value["screening"]["readProofs"], checkpoint=checkpoint)
         calculator = None
         if renderer_version >= 2 and value.get("budget"):
             from business_analysis.budget_offline import payload

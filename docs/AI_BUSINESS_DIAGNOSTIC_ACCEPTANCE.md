@@ -11,7 +11,7 @@
 - 事实、假设、缺口、动作分开表达。`factsVerified` 只代表结构化数值引用核验，不能证明文字因果或方案有效。
 - 每个动作包含现有 `object/change/prerequisites/successMetric/observationDays/rollback/priority/ownerRole/budgetImpact`，对象必须落到精确店铺及渠道/商品/关键词或明确的数据核查范围。下面阈值均是**本验收小样的人工规则**，不是生产默认规则。
 - 至少两名专业分析 Agent 的结论应在整合稿中对账，独立复核应指出口径冲突；不能靠多 Agent 数量证明分析正确。每个 Agent 的读取证明单独检查。
-- 读完目录、读取一页分析表、下载全量文件是不同覆盖。没有完整扫描与可信覆盖证明，不准声称“全部商品均无异常”。现有纯筛查模块返回 `prepared_unpublished`，不能把内部结果当成已经接入报告的发布证明。
+- 读完目录、读取一页分析表、下载全量文件是不同覆盖。没有完整扫描与可信覆盖证明，不准声称“全部商品均无异常”。纯筛查模块返回 `prepared_unpublished`；第41–51批新增的持久发布、各角色包和真实回执必须共同核验，不能只凭纯计算返回值认定已发布或模型已阅读。
 - HTML、XLSX、结构化引用采用同一封存事实与固定参数。数字、空值、缺失状态、单位、来源和期间须一致；人工复算列不是凭空新增的源字段，也不能伪造为现有工具指标。
 
 代码依据：[网店字段](../backend/netshop/analysis.py)、[ERP 字段](../backend/sales/analysis.py)、[市场字段](../backend/market/analysis.py)、[期间/比较合同](../backend/business_analysis/contracts.py)、[分析表](../backend/business_analysis/results.py)、[诊断动作与引用](../backend/ai_assistant/business_diagnosis.py)、[内部筛查边界](../backend/business_analysis/diagnostic_screening.py)、[Agent 读取证明](../backend/ai_assistant/business_integrated_receipts.py)。

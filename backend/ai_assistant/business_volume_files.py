@@ -16,25 +16,32 @@ from . import business_evidence, business_export, business_files as files, busin
 from .policy import AiError, authorize_owner, boolean, canonical, current_principal, fields, integer, mutation, passive, uid
 
 
-def create(report_id, body, principal):
+def create(report_id, body, principal, *, commit=None):
     fields(body, {"deliveryMode", "draft", "expectedPrincipalKey"}, {"deliveryMode", "expectedPrincipalKey"})
     current_principal(principal, admin=True, write=True)
     if body["deliveryMode"] != "volumes" or body["expectedPrincipalKey"] != business_evidence.principal_key(principal):
         raise AiError("当前账号或多卷交付模式不一致", "conflict", 409)
     draft = bool(boolean(body.get("draft", False), "draft"))
     report = reports.get(report_id, principal)
-    fingerprint = files.binding(report, principal, draft, renderer_version=4)
+    prepared = files._prepare_screening_binding(report, principal, draft)
+    fingerprint = prepared.value["bindingDigest"] if prepared is not None else files.binding(report, principal, draft, renderer_version=4)
     with mutation(principal):
+        if prepared is not None:
+            files._check_screening_binding(prepared, report, principal, draft)
         old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=4, binding_digest=fingerprint).first()
         if old:
-            return {"item": files.mapping(authorize_owner(old, principal)), "replayed": True}
+            result = {"item": files.mapping(authorize_owner(old, principal)), "replayed": True}
+            return commit(result, 200) if commit is not None else result
         if m.AiBusinessFileRun.objects.filter(owner_email=principal.email.lower(), status__in=["queued", "building", "paused"]).count() >= 2:
             raise AiError("未完成文件任务已达到上限", "rate_limited", 429)
         if m.AiBusinessFileRun.objects.count() >= 1000:
             raise AiError("文件任务存储容量已满", "rate_limited", 429)
         row = m.AiBusinessFileRun.objects.create(id=uid("business-file"), report=report, owner_email=principal.email.lower(),
             draft=draft, renderer_version=4, binding_digest=fingerprint)
-    return {"item": files.mapping(row), "replayed": False}
+        result = {"item": files.mapping(row), "replayed": False}
+        if commit is not None:
+            return commit(result, 200)
+    return result
 
 
 class OutputBudget:
@@ -109,9 +116,18 @@ def _verify_staged(row, principal, checkpoint):
         attempt=row.attempt, draft=row.draft, report_id=row.report_id, evidence_digest=reference["sealedDigest"])
     snapshot = json.loads(row.report.snapshot_json)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    if business_reports.integrated.is_snapshot(snapshot):
+    screening = snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
+    if screening:
+        from .business_screening_export import metadata as screening_metadata
+        expected_screening = screening_metadata(row.report, principal)
+        if any(full.get(key) != value for key,value in expected_screening.items()):
+            raise AiError("多卷筛查清单与实际固定发布结果不一致", "conflict", 409)
+    elif volume_delivery.SCREENING_KEYS & full.keys():
+        raise AiError("旧报告不能附加筛查清单", "conflict", 409)
+    if business_reports.integrated.is_snapshot(snapshot) or (screening and "mappingPlan" in snapshot):
         from business_analysis import mapped_results
-        business_reports.integrated.bound(row.report, principal)
+        if not screening:
+            business_reports.integrated.bound(row.report, principal)
         expected = {"mappingPlanDigest":snapshot["mappingPlanDigest"],
             "mappingAlgorithmVersion":snapshot["mappingPlan"]["algorithmVersion"], "mappedTableAlgorithmVersion":mapped_results.ALGORITHM_VERSION}
         if any(full.get(key) != value for key,value in expected.items()):
@@ -225,9 +241,14 @@ def build(row, principal, state):
     checkpoint(force=True)
     _verify_staged(files._current(row.id, principal, state), principal, checkpoint)
     checkpoint(force=True)
+    current = files._current(row.id, principal, state)
+    prepared_binding = files._prepare_screening_binding(current.report, principal, current.draft)
+    checkpoint(force=True)
     with mutation(principal):
         saved = files._current(row.id, principal, state)
-        if files.binding(saved.report, principal, saved.draft, renderer_version=4) != saved.binding_digest:
+        fingerprint = (files._check_screening_binding(prepared_binding, saved.report, principal, saved.draft)
+            if prepared_binding is not None else files.binding(saved.report, principal, saved.draft, renderer_version=4))
+        if fingerprint != saved.binding_digest:
             raise AiError("生成期间报告内容已变化", "conflict", 409)
         saved.status, saved.error_code, saved.progress_json = "ready", "", canonical({"stage": "ready"})
         saved.version += 1

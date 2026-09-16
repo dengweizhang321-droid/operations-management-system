@@ -136,3 +136,27 @@ class ScreeningRouteTests(djtest.TransactionTestCase):
                     "mode": "native", "dimension": "sku", "sourceKey": "ads"}), ("budget", {})):
                 response = self.route(report, operation, params=params, actor=actor)
                 self.assertEqual(response.status_code, status, response.content)
+
+    def test_old_integrated_http_directory_analysis_budget_are_json_readonly_responses(self):
+        # The inherited actual report has no budget. Reuse it for directory and
+        # native analysis, and prepare one real old-profile fixed budget report.
+        budget_report,_ = self.seed(budget=True)
+        cases = ((self.report,'integrated-directory',{},'business-integrated-directory-v1'),
+            (self.report,'integrated-analysis-table',{'mode':'native','dimension':'sku','sourceKey':'ads'},'business-integrated-analysis-v1'),
+            (budget_report,'integrated-budget',{},'business-integrated-budget-v1'))
+        with (patch('ai_assistant.provider.turn') as model, patch('ai_assistant.transport.execute_tool') as remote,
+                CaptureQueriesContext(connection) as queries):
+            for report,operation,params,schema in cases:
+                with self.subTest(operation=operation):
+                    url=f'/api/ai/reports/{report.id}/{operation}?'+urlencode({'runId':self.parent.id,**params})
+                    headers=signed_headers(url,email=self.admin.email,role=self.admin.role,scope=self.admin.scope)
+                    with (patch.dict('os.environ',{'TERUISI_DJANGO_INTERNAL_SECRET':TEST_SECRET}),
+                            djtest.override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET,DJANGO_PROCESS_ROLE='ai_reader'),
+                            patch('ai_assistant.views.authority')):
+                        result=self.client.get(url,headers=headers)
+                    value=self.checked(result,schema)
+                    self.assertEqual(value['reference'],json.loads(report.workflow.input_json))
+        model.assert_not_called();remote.assert_not_called()
+        sql=[entry['sql'].lstrip().upper() for entry in queries]
+        self.assertFalse(any(statement.startswith(('INSERT','UPDATE','DELETE')) for statement in sql))
+        self.assertFalse(any('NETSHOP_ROWS' in statement or 'SALES_ORDER_LINES' in statement for statement in sql))

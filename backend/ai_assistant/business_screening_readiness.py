@@ -39,6 +39,30 @@ def report_for(row):
         return None
 
 
+def preparation_status(report, principal):
+    """Display actual persisted progress; never an execution permission."""
+    actual, snapshot, _, _, _, _ = runtime.bound(report,principal)
+    flow = m.AiWorkflowRuns.objects.get(pk=actual.workflow_id)
+    published = m.AiBusinessScreeningRun.objects.filter(
+        pk=snapshot["screeningIntent"]["id"],report_id=actual.id).exists()
+    started = m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).exists()
+    leased = bool(flow.lease_token and flow.lease_expires_at and flow.lease_expires_at > timezone.now())
+    if flow.cancel_requested or flow.status == "cancelled":
+        status = "cancelled"
+    elif flow.status in {"waiting_review", "completed", "failed", "paused"}:
+        status = flow.status
+    elif started:
+        status = "analyzing"
+    elif published:
+        status = "checking_capacity" if leased else "queued_admission"
+    else:
+        status = "scanning" if leased else "queued_scan"
+    result = {"status":status,"scanPublished":published,"agentsStarted":started}
+    if flow.error_code:
+        result.update(errorCode=flow.error_code,error="分析准备或执行未完成，请查看任务状态后处理。")
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class Lease:
     run_id: str

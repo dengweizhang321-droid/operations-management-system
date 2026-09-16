@@ -126,6 +126,10 @@ def content(row, principal=None):
 def detail(report_id, principal):
     row = get(report_id, principal)
     result = {"item": mapping(row), "snapshot": run_snapshot(row), "workflow": workflows.mapping(row.workflow)}
+    from .business_screening_runtime_contract import PROFILE as screening_profile
+    if result["snapshot"].get("executionProfile") == screening_profile:
+        from .business_screening_readiness import preparation_status
+        result["screeningPreparation"] = preparation_status(row,principal)
     try:
         if run_snapshot(row).get("schemaVersion") == "business-report-v1":
             from . import business_reports

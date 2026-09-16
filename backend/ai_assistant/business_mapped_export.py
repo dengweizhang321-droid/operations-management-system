@@ -13,6 +13,12 @@ def _metadata(value):
 
 def append(spool, report, principal, *, checkpoint=None):
     actual, snapshot, _, evidence, sources = business_integrated.bound(report, principal)
+    _append_bound(spool, snapshot, evidence, sources, principal, checkpoint=checkpoint)
+    business_integrated.bound(actual, principal)
+
+
+def _append_bound(spool, snapshot, evidence, sources, principal, *, checkpoint=None):
+    """Internal only: owning caller must revalidate its fixed report before/after."""
     plan = snapshot["mappingPlan"]
     indexed = {s["key"]:s for s in sources}
     note = "固定关联选择；当前主数据回溯历史金额，不证明历史商品归属或广告归因。"
@@ -51,4 +57,3 @@ def append(spool, report, principal, *, checkpoint=None):
                     # separate table so the fixed 160-column cap remains real.
                     spool.add("mapped-analysis-"+identity, title, "；".join(header["limitations"]),
                         ({"pairKey":key, "baselinePairKey":base, **row} for row in table.scan()), header["total"])
-    business_integrated.bound(actual, principal)

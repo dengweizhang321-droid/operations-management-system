@@ -149,9 +149,35 @@ def _budget(value, report_id, plan_digest):
     _integer(value["initialUnmeasurableTargets"], 0, 10000)
 
 
+SCREENING_KEYS = {"screeningRef", "screeningPackagePolicy", "screeningPackageDigests"}
+
+
+def screening_fields(value, report_id):
+    """Shape only; owning publication separately compares actual stored roots."""
+    if not SCREENING_KEYS & value.keys():
+        return {}
+    if not SCREENING_KEYS <= value.keys():
+        _fail("筛查完整清单绑定缺失")
+    ref = value["screeningRef"]
+    _fields(ref, {"schemaVersion", "id", "reportId", "bindingDigest", "selectionPlanDigest", "resultDigest", "contentRootDigest", "manifestDigest"})
+    _equal(ref["schemaVersion"], "business-screening-storage-reference-v1")
+    _equal(ref["reportId"], report_id)
+    if type(ref["id"]) is not str or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", ref["id"]):
+        _fail("筛查持久身份无效")
+    for key in ("bindingDigest", "selectionPlanDigest", "resultDigest", "contentRootDigest", "manifestDigest"):
+        _sha(ref[key])
+    _equal(value["screeningPackagePolicy"], "screening-role-package-policy-v1")
+    roles = {"commerce", "promotion", "market_b2b", "independent_review", "report"}
+    _fields(value["screeningPackageDigests"], roles)
+    for item in value["screeningPackageDigests"].values():
+        _sha(item)
+    return {key:value[key] for key in SCREENING_KEYS}
+
+
 def _full(value, *, max_tables, max_rows, max_volumes):
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    _fields(value, FULL_FIELDS, {"budgetPlanDigest"} | mapping_keys)
+    _fields(value, FULL_FIELDS, {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
+    screening_fields(value, value["reportId"])
     if mapping_keys & value.keys():
         if not mapping_keys <= value.keys():
             _fail("商品关联完整清单绑定缺失")

@@ -18,11 +18,11 @@ HTML 为6,772,587字节，包含经营判断、趋势、明细选择、搜索、
 | --- | --- | --- |
 | 经营总览、每日趋势、品类/SPU/SKU诊断、同比环比 | [结果表](../backend/business_analysis/results.py)、[完整导出](../backend/ai_assistant/business_export.py) | 确定性指标和比较已存在；当前按来源独立列示，不等于参考报告逐行并排的跨源经营视图。跨源列示不得直接相加归因成交、平台支付与ERP净销售 |
 | ERP商品归属、异常明细、退款/毛利 | [关联分析](../backend/ai_assistant/business_mapped_analysis.py)、[关联导出](../backend/ai_assistant/business_mapped_export.py) | 显式ERP→当前SKU/SPU关联已接通；当前主数据不是历史归属。ERP原生品类与平台品类归属必须分别证明，不能把SKU映射自动解释为已完成全部品类关联 |
-| 关键词、搜索词、计划、单元匹配、词货关联 | [网店规范源](../backend/netshop/analysis.py)、[结果维度](../backend/business_analysis/results.py) | 关键词/搜索词已有独立结果表，原始来源保留计划与单元字段；目前八维VIEWS没有计划、单元匹配或关键词×SKU联合诊断维度。原始字段可下载不等于联合分析已实现 |
+| 关键词、搜索词、计划、单元匹配、词货关联 | [网店规范源](../backend/netshop/analysis.py)、[结果维度](../backend/business_analysis/results.py) | 关键词/搜索词已有独立结果表；第34–36批另增推广计划与单元派生视图及真实封存接入。旧八维VIEWS保持兼容，关键词×SKU联合诊断和匹配方式仍须单独接入，不能因原始字段可下载而视为已完成 |
 | 市场品类/SKU、品牌价格带、榜单进出、SPU市场覆盖 | [市场规范源](../backend/market/analysis.py)、结果表及专业Agent | 保留TOP样本上下界，不能变为全行业规模或市场份额；品牌分组不等于精确价格带分组。原始sample.rank保留，但当前无独立进出榜、连续在榜及排名变化派生表；当前SPU归属与市场覆盖也需独立证据，不能仅凭Agent可读市场就全项勾选 |
 | 企业购验证与月度财报参照 | 网店独立b2b源、ERP销售源 | 有b2b适配不证明原始企业购已导入；月度财报口径尚未作为本经营分析证据源接通。不得用ERP毛利冒充财报净利润或把B端重复加到含B端的总销售 |
 | 预算规划和30天行动计划 | [预算](../backend/ai_assistant/business_budget_store.py)、[诊断动作合同](../backend/ai_assistant/business_diagnosis.py) | 已有可编辑预算、确定性试算和动作字段；真实建议仍需评价对象、证据、期限、复盘、停止/回退，不以字段齐全替代经营判断质量 |
-| 核对、覆盖、口径与提取证据 | 封存、来源目录、逐Agent回执、多卷清单 | 应清楚区分完整取数、规则扫描、模型读过的候选和未解读明细；第三十三批已有固定计划和重新授权的内部筛查服务，但尚未注册Agent工具或运行协议，不提前声称模型全量诊断 |
+| 核对、覆盖、口径与提取证据 | 封存、来源目录、逐Agent回执、多卷清单 | 应清楚区分完整取数、规则扫描、模型读过的候选和未解读明细；第41–51批已接通固定角色包、独立回执、调度及完整多卷。读取全部角色包仍不等于模型逐行解释全部原始明细；候选省略和来源缺口继续披露 |
 | HTML交互和工程级XLSX | [文件渲染](../backend/business_analysis/report_files.py)、[Excel预算](../backend/business_analysis/budget_excel.py) | 已有全表搜索/排序/缺失筛选/分页/CSV、数值图、完整多卷及预算公式。历史计算多数由服务器确定性计算后写值，与参考表大量历史公式的方式不同；应按可追溯、同数和预算联动验收，不用公式数量代替正确性 |
 
 ## 后续验收方法

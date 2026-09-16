@@ -311,4 +311,6 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         if not mapping_keys <= metadata.keys():
             raise AnalysisContractError("商品关联文件绑定字段不完整")
         manifest.update({key:metadata[key] for key in mapping_keys})
+    from .volume_delivery import screening_fields
+    manifest.update(screening_fields(metadata, report_id))
     return {**manifest, "manifestDigest": digest(manifest)}

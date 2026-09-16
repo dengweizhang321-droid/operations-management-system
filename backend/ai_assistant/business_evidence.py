@@ -437,6 +437,7 @@ def _mapping_v2(row):
         "consistency": "immutable_collected_source_versions_not_cross_domain_atomic_snapshot",
         "modelAnalysisCompleted": False, "reportGenerationSupported": True,
         "workbenchAnalysisEnabled": True, "fileGenerationSupported": True, "budgetSupported": True, "mappingSupported": True,
+        "screeningSupported": True,
         **({"analysisRequestMeaning": "requested_only_not_source_availability_or_dimension_coverage"}
             if "analysisRequest" in plan else {})}
     if row.status == "sealed":

@@ -2,6 +2,7 @@
 import json
 from . import business_evidence, models as m, workflows
 from . import business_integrated as integrated
+from . import business_screening_runtime as screening_runtime, business_screening_runtime_contract as screening_contract
 from .policy import AiError, authorize_owner, boolean, canonical, current_principal, digest, fields, identifier, mutation, passive, text, uid
 
 SCHEMA = "business-report-v1"
@@ -40,6 +41,8 @@ def is_budget_snapshot(snapshot):
 
 
 def is_v2_snapshot(snapshot):
+    if screening_runtime.is_snapshot(snapshot):
+        return True
     if integrated.is_snapshot(snapshot):
         return True
     if is_budget_snapshot(snapshot):
@@ -54,6 +57,8 @@ def is_v2_snapshot(snapshot):
 
 
 def required_tools(snapshot):
+    if screening_runtime.is_snapshot(snapshot):
+        return screening_contract.TOOLS
     if integrated.is_snapshot(snapshot):
         return integrated.TOOLS
     if is_budget_snapshot(snapshot):
@@ -97,7 +102,12 @@ def graph(with_budget=False):
     return {"nodes": nodes}
 
 
-def create(body, principal):
+def create(body, principal, *, commit=None):
+    if "analysisMode" in body:
+        from .business_screening_creation import create as create_screening
+        return create_screening(body,principal,commit=commit)
+    if commit is not None:
+        raise AiError("旧报告创建不支持筛查提交回调", "invalid_request", 400)
     current_principal(principal, admin=True, write=True)
     fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "mappingPairs", "previousReportId", "expectedPrincipalKey"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
     if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != business_evidence.principal_key(principal):
@@ -164,7 +174,7 @@ def context(job):
     if not report:
         return None
     snapshot = json.loads(report.snapshot_json)
-    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE, integrated.PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
+    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE, integrated.PROFILE, screening_contract.PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
         raise AiError("报告执行身份不一致", "access_denied", 403)
     return snapshot if snapshot.get("schemaVersion") == SCHEMA else None
 
@@ -176,7 +186,7 @@ def has_v2_profile(job):
 
 def execution_surface(job, principal):
     snapshot = context(job)
-    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS | integrated.TOOLS) & set(json.loads(job.allowed_tools_json)):
+    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS | integrated.TOOLS | screening_contract.TOOLS) & set(json.loads(job.allowed_tools_json)):
         raise AiError("v2任务缺少固定报告执行身份", "conflict", 409)
     if snapshot is None or not is_v2_snapshot(snapshot):
         return "ai_agent"
@@ -185,7 +195,7 @@ def execution_surface(job, principal):
     if (canonical(json.loads(flow.input_json)) != canonical(reference) or canonical(json.loads(job.input_json).get("workflowInput")) != canonical(reference)
             or job.workflow_node_key not in V2_NODES or flow.owner_email != job.owner_email or flow.scope_json != job.scope_json):
         raise AiError("工作流轻量引用与固定报告不一致", "conflict", 409)
-    return integrated.SURFACE if integrated.is_snapshot(snapshot) else BUDGET_SURFACE if is_budget_snapshot(snapshot) else V2_SURFACE
+    return screening_contract.SURFACE if screening_runtime.is_snapshot(snapshot) else integrated.SURFACE if integrated.is_snapshot(snapshot) else BUDGET_SURFACE if is_budget_snapshot(snapshot) else V2_SURFACE
 
 
 def restricted_entries(job, entries):
@@ -199,8 +209,14 @@ def restricted_entries(job, entries):
     return allowed
 
 
-def validate_call(job, call, principal=None):
+def validate_call(job, call, principal=None, *, screening_step=None):
     snapshot = context(job)
+    if snapshot and screening_runtime.is_snapshot(snapshot):
+        from . import business_screening_execution
+        if type(screening_step) is not business_screening_execution.PreparedStep:
+            raise AiError("筛查派发缺少当前步骤许可", "conflict", 409)
+        business_screening_execution.validate_call(screening_step,call)
+        return
     if snapshot and (call["name"] not in required_tools(snapshot) or call["arguments"].get("runId") != snapshot["evidenceRunId"] or
             call["name"] in {BUDGET_TOOL, BUDGET_REFERENCE_TOOL} and call["arguments"].get("reportId") != snapshot.get("reportId")):
         raise AiError("分析任务只能读取本次封存证据", "access_denied", 403)
@@ -250,9 +266,13 @@ def validate_call(job, call, principal=None):
             raise AiError("须先完整读取固定来源目录", "directory_read_incomplete", 409)
 
 
-def validate_output(job, answer, principal=None):
+def validate_output(job, answer, principal=None, *, screening_step=None, screening_answer=None):
     snapshot = context(job)
     if snapshot is None:
+        return
+    if screening_runtime.is_snapshot(snapshot):
+        from . import business_screening_execution
+        business_screening_execution.check_answer(screening_answer,screening_step,answer)
         return
     if integrated.is_snapshot(snapshot):
         from .business_integrated_receipts import validate_complete
@@ -278,9 +298,14 @@ def validate_output(job, answer, principal=None):
         raise AiError("专业分析结构无效", "conflict", 409)
 
 
-def validate_provider_turn(job, principal=None):
+def validate_provider_turn(job, principal=None, *, screening_step=None):
     """Do not send a persisted, malformed directory receipt to a model."""
     snapshot = context(job)
+    if snapshot is not None and screening_runtime.is_snapshot(snapshot):
+        from . import business_screening_execution
+        if type(screening_step) is not business_screening_execution.PreparedStep:
+            raise AiError("筛查模型派发缺少当前步骤许可", "conflict", 409)
+        return
     if snapshot is not None and integrated.is_snapshot(snapshot):
         from .business_integrated_receipts import progress
         progress(job, snapshot, principal or workflows.background(job))
@@ -293,6 +318,9 @@ def validate_provider_turn(job, principal=None):
 
 
 def content(row, principal):
+    if screening_runtime.is_snapshot(json.loads(row.snapshot_json)):
+        from .business_screening_content import content as screening_content
+        return screening_content(row,principal)
     if integrated.is_snapshot(json.loads(row.snapshot_json)):
         from .business_integrated_content_reuse import ContentReuse
         with ContentReuse(row, principal) as reuse:
@@ -360,6 +388,8 @@ def validate_review(row, principal):
     value = content(row, principal)
     if not value["independentReview"]["approved"] or value["independentReview"]["conflicts"]:
         raise AiError("独立复核仍有未解决冲突，不能交付正式报告", "conflict", 409)
+    if screening_runtime.is_snapshot(json.loads(row.snapshot_json)):
+        return value
     for key in (() if is_v2_snapshot(json.loads(row.snapshot_json)) else ("commerce", "promotion", "market_b2b", "independent_review")):
         receipts = m.AiAgentToolResults.objects.filter(tool_dispatch__job__workflow_run_id=row.workflow_id,
             tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name="get_business_analysis_evidence")
@@ -399,6 +429,12 @@ def _reference(evidence, question):
 
 
 def bound_reference(snapshot, principal):
+    if screening_runtime.is_snapshot(snapshot):
+        from .reports import get
+        report = get(snapshot["reportId"],principal)
+        if report.snapshot_json != canonical(snapshot):
+            raise AiError("筛查报告快照不一致", "conflict", 409)
+        return screening_runtime.bound(report,principal)[2]
     if integrated.is_snapshot(snapshot):
         from .reports import get
         report = get(snapshot["reportId"], principal)
