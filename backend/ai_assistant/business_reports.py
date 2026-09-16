@@ -48,7 +48,9 @@ def graph(with_budget=False):
 
 def create(body, principal):
     current_principal(principal, admin=True, write=True)
-    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "previousReportId"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
+    fields(body, {"clientRequestId", "evidenceRunId", "question", "dryRun", "budgetPlan", "previousReportId", "expectedPrincipalKey"}, {"clientRequestId", "evidenceRunId", "question", "dryRun"})
+    if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != business_evidence.principal_key(principal):
+        raise AiError("当前账号与已确认分析请求不一致", "access_denied", 403)
     client, evidence_id = identifier(body["clientRequestId"]), identifier(body["evidenceRunId"])
     question = text(body["question"], "question", 1000)
     dry = bool(boolean(body["dryRun"], "dryRun"))

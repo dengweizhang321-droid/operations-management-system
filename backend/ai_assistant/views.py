@@ -138,6 +138,7 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"business-plan/preview": {"POST"},
             r"business-reports": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
@@ -145,7 +146,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
-            r"business-evidence": {"POST"},
+            r"business-evidence": {"GET", "POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
@@ -214,6 +215,8 @@ def _dispatch(request, path=""):
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
+        if endpoint == "business-plan/preview" and request.method == "POST":
+            writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -231,6 +234,10 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "business-plan":
+            from .business_planning import preview
+            fields(params, set())
+            return response(preview(payload, principal))
         if root == "reports" and parts[-1] == "budget":
             from .business_budget import read as read_budget_scenarios
             return response(read_budget_scenarios(parts[1], params, principal))
@@ -259,6 +266,8 @@ def _dispatch(request, path=""):
         if root == "business-evidence":
             current_principal(principal, admin=True)
             if request.method == "GET":
+                if len(parts) == 1:
+                    return response(business_evidence.listing(params, principal))
                 if parts[-1] == "analysis":
                     return response(business_evidence.analysis_table(parts[1], params, principal))
                 if parts[-1] == "mapping":
@@ -266,7 +275,7 @@ def _dispatch(request, path=""):
                 if len(parts) == 4:
                     return response(business_evidence.chunk(parts[1], parts[3], params, principal))
                 fields(params, set())
-                return response({"item": business_evidence.mapping(business_evidence.get_run(parts[1], principal))})
+                return response(business_evidence.detail(parts[1], principal))
             fields(params, set())
             if len(parts) == 1:
                 return write(request, principal, lambda: (business_evidence.create(payload, principal), 200))

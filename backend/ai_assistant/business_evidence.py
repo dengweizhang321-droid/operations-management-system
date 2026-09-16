@@ -4,7 +4,9 @@ Collection advances one bounded page per request. Reads occur outside the AI
 mutation lock; version CAS commits the page and checkpoint together.
 """
 import json
-from django.db.models import Sum
+from django.db.models import Sum, JSONField
+from django.db.models.functions import Cast
+from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 from business_analysis.contracts import PageReconciler, AnalysisContractError, comparison_periods
 from . import models as m, transport
@@ -14,6 +16,50 @@ from .policy import AiError, authorize_owner, boolean, canonical, cas, current_p
 MAX_BYTES = 64 * 1024 * 1024
 MAX_PAGES = 2000
 TOOLS = {"sales": "get_sales_analysis_records", "netshop": "get_netshop_analysis_records", "market": "get_market_analysis_records"}
+
+
+def principal_key(principal):
+    return digest(["business-workbench", principal.email.lower()])
+
+
+def listing(params, principal):
+    current_principal(principal, admin=True)
+    fields(params, {"page", "pageSize", "clientRequestId"})
+    def number(name, default, maximum):
+        value = params.get(name, str(default))
+        if not isinstance(value, str) or len(value) > 5 or not value.isascii() or not value.isdigit() or value.startswith("0"):
+            raise AiError("分页参数无效")
+        return integer(int(value), name, hi=maximum)
+    page, size = number("page", 1, 10000), number("pageSize", 10, 20)
+    rows = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(), scope_json=canonical(principal.scope))
+    if "clientRequestId" in params:
+        rows = rows.filter(client_request_id=identifier(params["clientRequestId"]))
+    total = rows.count()
+    items = []
+    for row in rows.order_by("-created_at", "-id")[(page-1)*size:page*size]:
+        plan, state = json.loads(row.plan_json), json.loads(row.state_json)
+        items.append({"id": row.id, "clientRequestId": row.client_request_id,
+            "question": plan.get("analysisRequest", {}).get("question", ""), "status": row.status, "version": row.version,
+            "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
+                "nextAttemptAt": row.next_collect_at.isoformat(), "consecutiveFailures": row.collection_failures, "errorCode": row.collection_error_code},
+            "createdAt": row.created_at.isoformat(), "storedBytes": row.stored_bytes,
+            "sourceCount": len(plan.get("sources", [])), "completedSources": sum(bool(s["verifier"]["finished"]) for s in state.values()),
+            "rowCount": sum(s["verifier"]["rows"] for s in state.values())})
+    return {"items": items, "principalKey": principal_key(principal),
+        "pagination": {"page": page, "pageSize": size, "total": total, "hasMore": page*size < total}}
+
+
+def detail(run_id, principal):
+    row = get_run(run_id, principal)
+    related = list(m.AiReportRun.objects.filter(owner_email=principal.email.lower(), scope_json=canonical(principal.scope)).annotate(
+        evidence_id=KeyTextTransform("evidenceRunId", Cast("snapshot_json", JSONField())),
+        report_schema=KeyTextTransform("schemaVersion", Cast("snapshot_json", JSONField())),
+    ).filter(evidence_id=row.id, report_schema="business-report-v1").order_by("-created_at", "-id").values(
+        "id", "workflow_id", "workflow__status", "created_at")[:11])
+    return {"item": mapping(row), "principalKey": principal_key(principal),
+        "reportsPagination": {"limit": 10, "hasMore": len(related) > 10},
+        "reports": [{"id": r["id"], "workflowId": r["workflow_id"], "status": r["workflow__status"],
+            "createdAt": r["created_at"].isoformat()} for r in related[:10]]}
 
 
 def get_run(run_id, principal):
@@ -34,20 +80,24 @@ def _restore(state):
 
 
 def mapping(row):
-    state = json.loads(row.state_json)
+    state, plan = json.loads(row.state_json), json.loads(row.plan_json)
     return {"id": row.id, "status": row.status, "version": row.version, "storedBytes": row.stored_bytes,
         "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
             "nextAttemptAt": row.next_collect_at.isoformat(), "consecutiveFailures": row.collection_failures, "errorCode": row.collection_error_code},
         "createdAt": row.created_at.isoformat(),
-        "plan": json.loads(row.plan_json), "sources": {key: {"pageCount": value["pageCount"], "sourceRef": value["verifier"]["source_ref"],
+        "plan": plan, "sources": {key: {"pageCount": value["pageCount"], "sourceRef": value["verifier"]["source_ref"],
             "rowCount": value["verifier"]["rows"], "complete": value["verifier"]["finished"], "metadata": value["metadata"],
             "reconciliation": _restore(value["verifier"]).result() if value["verifier"]["finished"] else None} for key, value in state.items()},
-        "consistency": "immutable_collected_source_versions_not_cross_domain_atomic_snapshot", "modelAnalysisCompleted": False}
+        "consistency": "immutable_collected_source_versions_not_cross_domain_atomic_snapshot", "modelAnalysisCompleted": False,
+        **({"analysisRequestMeaning": "requested_only_not_source_availability_or_dimension_coverage"}
+            if "analysisRequest" in plan else {})}
 
 
 def create(body, principal):
     current_principal(principal, admin=True)
-    fields(body, {"clientRequestId", "sources", "collectionMode", "autoCollect"}, {"clientRequestId", "sources"})
+    fields(body, {"clientRequestId", "sources", "collectionMode", "autoCollect", "analysisRequest", "expectedPrincipalKey"}, {"clientRequestId", "sources"})
+    if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != principal_key(principal):
+        raise AiError("当前账号已变化，请重新确认分析范围", "access_denied", 403)
     mode = body.get("collectionMode", "standard")
     if mode not in ("standard", "bulk"):
         raise AiError("采集模式无效")
@@ -93,7 +143,16 @@ def create(body, principal):
         if signature in queries:
             raise AiError("不得重复声明同一来源查询")
         queries.add(signature)
+    request = None
+    if "analysisRequest" in body:
+        from .business_planning import analysis_request, validate_request_sources
+        request = analysis_request(body["analysisRequest"])
+        validate_request_sources(request, sources)
+        # Existing evidence requests preserve their original admission contract.
+        # New workbench requests reserve the exact 45-character generated ID.
+        passive({"evidenceRunId": "evidence-"+"0"*36, "question": request["question"], "sources": sources}, 8000)
     plan = passive({"schemaVersion": "business-evidence-v1", "sources": sources,
+        **({"analysisRequest": request} if request is not None else {}),
         **({"autoCollect": True} if automatic else {}),
         **({"collector": {"version": 1, "surface": "business_collection", "pageSize": 100}} if mode == "bulk" else {})}, 16000)
     identity = digest(plan)

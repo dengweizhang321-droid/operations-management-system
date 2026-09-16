@@ -4,6 +4,7 @@ import "./ai-report-workbench.css";
 import { parseReportSkill } from "@/lib/ai/report-skill-file";
 import AiBusinessReportFiles from "./ai-business-report-files";
 import AiBusinessBudget, { type BudgetResult } from "./ai-business-budget";
+import AiBusinessWorkbench from "./ai-business-workbench";
 
 type Kind = "templates" | "skills" | "pipelines";
 type Item = { id: string; name: string; enabled: boolean; scene?: string; description?: string; keywords?: string[]; domains?: string[]; body?: string; format?: string; sections?: string[]; dataSteps?: string; writingRules?: string; templateId?: string; skillIds?: string[] };
@@ -141,6 +142,7 @@ export default function AiReportWorkbenchView({ kind }: { kind: Kind }) {
   const isBusiness = detail?.snapshot?.schemaVersion === "business-report-v1";
   return <div className="ai-report-workbench">
     <section className="panel report-intro"><div><span className="eyebrow">{kind === "templates" ? "REPORT LIBRARY" : kind === "skills" ? "METHOD LIBRARY" : "REPEATABLE ANALYSIS"}</span><h2>{labels[kind]}</h2><p>{kind === "templates" ? "固定章节与写作要求，让每次交付都有一致结构和可核查来源。" : kind === "skills" ? "沉淀分析方法。按触发词加载正文，聊天与 Agent 共用；每个任务固定一个版本。" : "选择场景和范围，自动取数与分析，人工复核后交付报告。"}</p></div><div className="report-actions"><button className="secondary-button" onClick={() => void load()} disabled={loading}>刷新</button><button className="secondary-button" onClick={() => setHistoryOpen(!historyOpen)}>版本记录</button><button className="primary-button" onClick={add} disabled={!library || busy}>新增{kind === "skills" ? "技能" : kind === "templates" ? "模板" : "流水线"}</button></div></section>
+    {kind === "pipelines" && <AiBusinessWorkbench onReportCreated={id => { void openDetail(id); void load(); }} />}
     {readError && <div role="alert" className="report-error">读取失败：{readError}</div>}
     {writeError && <div role="alert" className="report-error">操作未完成：{writeError}</div>}
     {notice && <div role="status" className="report-note">{notice}</div>}

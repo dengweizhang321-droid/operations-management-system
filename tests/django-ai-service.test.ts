@@ -24,6 +24,21 @@ test("business file routes keep reads and writes on their owning process", async
   for (const path of ["/api/ai/business-files", "/api/ai/business-files/file_1/chunks/csv", "/api/ai/business-files/file_1/internal"]) assert.equal(isPublicAiPath(path), false);
 });
 
+test("business planning preview is an explicit reader POST and evidence list is read only", async () => {
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({}); };
+  assert.equal(isPublicAiPath('/api/ai/business-plan/preview'), true);
+  assert.equal(isPublicAiPath('/api/ai/business-plan/execute'), false);
+  await requestDjangoAi(principal, { path:'/api/ai/business-plan/preview', method:'POST', payload:{}, service:'reader' }, {environment,fetchImpl});
+  assert.equal(new URL(requests.at(-1)!.url).port,'18111');
+  await requestDjangoAi(principal, {path:'/api/ai/business-evidence'}, {environment,fetchImpl});
+  assert.equal(new URL(requests.at(-1)!.url).port,'18111');
+  const route=await readFile('lib/ai/django-route.ts','utf8');
+  assert.ok(route.includes('url.pathname === "/api/ai/business-plan/preview"'));
+  const endpoint=await readFile('app/api/ai/business-plan/preview/route.ts','utf8');
+  assert.ok(endpoint.includes('export const POST = forwardAiRequest'));
+});
+
 test("AI principal envelope binds exact Unicode identity, method, path, query, body and request ID", async () => {
   const input = { secret: environment.TERUISI_DJANGO_INTERNAL_SECRET, principal, method: "POST", path: "/api/ai/consumer", query: "page=1", body: '{"query":"大毛利"}', requestId: "idempotent-1", timestamp: 1800000000 };
   const headers = await aiHeaders(input);
