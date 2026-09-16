@@ -293,6 +293,15 @@ def validate_provider_turn(job, principal=None):
 
 
 def content(row, principal):
+    if integrated.is_snapshot(json.loads(row.snapshot_json)):
+        from .business_integrated_content_reuse import ContentReuse
+        with ContentReuse(row, principal) as reuse:
+            result = _content(row, principal, _reuse=reuse)
+        return result
+    return _content(row, principal)
+
+
+def _content(row, principal, *, _reuse=None):
     from .business_diagnosis import validate
     if row.workflow.dry_run:
         raise AiError("空跑不生成诊断", "conflict", 409)
@@ -312,7 +321,7 @@ def content(row, principal):
             execution_surface(job, principal)
             if integrated.is_snapshot(snapshot):
                 from .business_integrated_receipts import validate_complete
-                validate_complete(job, snapshot, principal)
+                validate_complete(job, snapshot, principal, **({"_reuse":_reuse} if _reuse is not None else {}))
             elif is_budget_snapshot(snapshot):
                 from .business_budget_receipts import validate_complete
                 validate_complete(job, snapshot, principal)
@@ -342,7 +351,8 @@ def content(row, principal):
     diagnosis = validate(value["diagnosis"], snapshot["evidenceRunId"], principal,
         fixed_mapping_plan=snapshot["mappingPlan"] if integrated.is_snapshot(snapshot) else None)
     from .business_budget import for_report
-    budget_result = for_report(row, principal)
+    budget_result = (_reuse.budget(row, principal).result if _reuse is not None and row.budget_plan_id
+        else for_report(row, principal))
     return {"sections": sections, "diagnosis": diagnosis, "independentReview": review, **({"budget": budget_result} if budget_result else {})}
 
 

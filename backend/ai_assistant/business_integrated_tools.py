@@ -74,9 +74,10 @@ def expected_pages(prepared, evidence, sources):
     return directories, budgets
 
 
-def prepare_for_report(report, principal, *, resolve_budget=False):
+def prepare_for_report(report, principal, *, resolve_budget=False, _reuse=None):
     actual, snapshot, reference, evidence, sources = contract.bound(report, principal)
-    budget = business_budget_store.load(actual, principal) if resolve_budget and actual.budget_plan_id else None
+    budget = ((_reuse.budget(actual, principal) if _reuse is not None else business_budget_store.load(actual, principal))
+        if resolve_budget and actual.budget_plan_id else None)
     prepared = contract.Prepared(actual.owner_email, actual.scope_json, actual.snapshot_json, canonical(reference), budget)
     return actual, prepared, evidence, sources
 
@@ -99,7 +100,14 @@ def _table_page(prepared, mode, selector, table, offset):
     raise AiError("单个完整分析行超过集成工具容量", "payload_too_large", 413)
 
 
-def analysis_from(prepared, evidence, sources, arguments, principal):
+def analysis_from(prepared, evidence, sources, arguments, principal, *, _reuse=None):
+    if _reuse is not None:
+        return _reuse.analysis(prepared, evidence, sources, arguments, principal,
+            lambda: _analysis_from(prepared, evidence, sources, arguments, principal))
+    return _analysis_from(prepared, evidence, sources, arguments, principal)
+
+
+def _analysis_from(prepared, evidence, sources, arguments, principal):
     fields(arguments, {"runId", "reportId", "mode", "dimension", "offset", "sourceKey", "baselineKey", "pairKey", "baselinePairKey"},
         {"runId", "reportId", "mode", "dimension"})
     if arguments["runId"] != evidence.id or arguments["reportId"] != prepared.snapshot["reportId"]:

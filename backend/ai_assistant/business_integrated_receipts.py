@@ -22,7 +22,7 @@ def _reject(message="集成分析读取证明无效，保留原回执"):
     raise AiError(message, "integrated_read_incomplete", 409)
 
 
-def _trusted(job, snapshot, principal):
+def _trusted(job, snapshot, principal, *, _reuse=None):
     current_principal(principal, admin=True)
     authorize_owner(job, principal)
     if (type(snapshot) is not dict or snapshot.get("executionProfile") != contract.PROFILE
@@ -36,16 +36,18 @@ def _trusted(job, snapshot, principal):
     if (report is None or report.owner_email != job.owner_email or report.scope_json != job.scope_json
             or not _same(snapshot, stored)):
         _reject("集成读取证明跨报告、任务或授权范围")
-    actual, prepared, evidence, sources = tools.prepare_for_report(report, principal, resolve_budget=True)
+    actual, prepared, evidence, sources = tools.prepare_for_report(report, principal, resolve_budget=True,
+        **({"_reuse":_reuse} if _reuse is not None else {}))
     if actual.workflow_id != job.workflow_run_id:
         _reject("集成报告与当前任务工作流不一致")
     directories, budgets = tools.expected_pages(prepared, evidence, sources)
     return actual, prepared, evidence, sources, directories, budgets
 
 
-def progress(job, snapshot, principal):
+def progress(job, snapshot, principal, *, _reuse=None):
     """Read <=40 dispatches and one bounded receipt at a time; never replay."""
-    actual, prepared, evidence, sources, directories, budgets = _trusted(job, snapshot, principal)
+    actual, prepared, evidence, sources, directories, budgets = _trusted(job, snapshot, principal,
+        **({"_reuse":_reuse} if _reuse is not None else {}))
     dispatches = list(m.AiAgentToolDispatches.objects.filter(job_id=job.id).order_by("tool_call_ordinal").annotate(
         argument_bytes=Func(F("arguments_json"), function="OCTET_LENGTH", output_field=BigIntegerField()),
         arguments_text=Substr("arguments_json", 1, MAX_ARGUMENT_BYTES+1)).values(
@@ -112,7 +114,8 @@ def progress(job, snapshot, principal):
                 budget_offset = expected["budget"]["pagination"]["nextOffset"]
                 budget_count += 1
             else:
-                expected = tools.analysis_from(prepared, evidence, sources, args, principal)
+                expected = tools.analysis_from(prepared, evidence, sources, args, principal,
+                    **({"_reuse":_reuse} if _reuse is not None else {}))
                 if not _same(result.get("data"), expected):
                     _reject("分析回执与固定来源重新计算的完整页不一致")
                 analysis_count += 1
@@ -128,8 +131,8 @@ def progress(job, snapshot, principal):
         "mappingRef": prepared.reference["mappingRef"], "budgetRef": prepared.reference.get("budgetRef")}
 
 
-def validate_complete(job, snapshot, principal):
-    proof = progress(job, snapshot, principal)
+def validate_complete(job, snapshot, principal, *, _reuse=None):
+    proof = progress(job, snapshot, principal, **({"_reuse":_reuse} if _reuse is not None else {}))
     if not proof["directory"]["complete"]:
         _reject("当前Agent尚未独立读完固定来源目录")
     budget = proof["budget"]
