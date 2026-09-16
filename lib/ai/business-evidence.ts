@@ -3,6 +3,25 @@ import { requestDjangoAi } from "@/lib/django/ai-service";
 import { PublicApiError } from "@/lib/http/api-error";
 import { requireAnalysisPrincipal } from "@/lib/netshop/analysis-tool";
 
+export async function readBusinessEvidenceDirectoryV2(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const args = raw as { runId: string; offset?: number };
+  if (!args || typeof args.runId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/.test(args.runId)
+    || !Number.isSafeInteger(args.offset ?? 0) || (args.offset ?? 0) < 0 || (args.offset ?? 0) > 47) {
+    throw new PublicApiError(400, "invalid_request", "来源目录参数无效");
+  }
+  // Version and digest are checked against the immutable report reference by
+  // the Django runtime, never accepted as model-controlled trust anchors here.
+  const result = await requestDjangoAi<Record<string, unknown>>(principal, {
+    path: `/api/ai/business-evidence/${args.runId}/sources`, method: "GET",
+    query: new URLSearchParams({ offset: String(args.offset ?? 0), limit: "20" }),
+  }, { signal });
+  if (new TextEncoder().encode(JSON.stringify(result.data)).byteLength > 38_000) {
+    throw new PublicApiError(413, "payload_too_large", "来源目录页超过工具字节容量，不得截断");
+  }
+  return result.data;
+}
+
 export async function readBusinessEvidence(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
   requireAnalysisPrincipal(principal);
   const args = raw as { runId: string; sourceKey?: string; sequence?: number; rowOffset?: number; rowLimit?: number };
@@ -29,6 +48,14 @@ export async function readBusinessAnalysisTable(raw: unknown, principal: AppPrin
     { path: `/api/ai/business-evidence/${runId}/analysis`, method: "GET", query }, { signal });
   if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "分析表页过大，请减小页长，不得截断");
   return result.data;
+}
+
+export async function readBusinessAnalysisTableV2(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
+  const result = await readBusinessAnalysisTable(raw, principal, signal);
+  if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 38_000) {
+    throw new PublicApiError(413, "payload_too_large", "分析表页超过工具字节容量，请减小页长，不得截断");
+  }
+  return result;
 }
 
 export async function readBusinessBudget(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {

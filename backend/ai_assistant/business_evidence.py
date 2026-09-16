@@ -435,7 +435,8 @@ def _mapping_v2(row):
         "plan": plan, "sources": store.compact_sources(row), "progress": store.progress(row),
         "sourceDirectory": {"path": f"/api/ai/business-evidence/{row.id}/sources", "paginated": True},
         "consistency": "immutable_collected_source_versions_not_cross_domain_atomic_snapshot",
-        "modelAnalysisCompleted": False, "reportGenerationSupported": False,
+        "modelAnalysisCompleted": False, "reportGenerationSupported": True,
+        "workbenchAnalysisEnabled": False, "fileGenerationSupported": False, "budgetSupported": False,
         **({"analysisRequestMeaning": "requested_only_not_source_availability_or_dimension_coverage"}
             if "analysisRequest" in plan else {})}
     if row.status == "sealed":

@@ -1,4 +1,4 @@
-"""Read-only source endpoints and explicit admission boundary for v2 reports."""
+"""Read-only source endpoints and rejection of unknown report evidence versions."""
 from types import SimpleNamespace
 from unittest.mock import patch
 from django.test import TestCase, override_settings
@@ -34,12 +34,12 @@ class BusinessSourceRouteTests(TestCase):
             self.assertEqual(directory.call_count, 1)
             self.assertEqual(detail.call_count, 1)
 
-    def test_non_v1_report_rejection_precedes_workflow_and_model_activity(self):
+    def test_unknown_report_evidence_rejection_precedes_workflow_and_model_activity(self):
         before = (m.AiReportRun.objects.count(), m.AiWorkflowRuns.objects.count())
         body = {"clientRequestId": "blocked-v2-report", "evidenceRunId": "v2-evidence", "question": "分析", "dryRun": False}
         with patch("ai_assistant.business_reports.workflows.create") as workflow, \
                 patch("ai_assistant.provider.turn") as provider:
-            for schema in ("business-evidence-v2", "business-evidence-v999"):
+            for schema in ("business-evidence-v999", "unknown"):
                 row = SimpleNamespace(status="sealed", plan_json=canonical({"schemaVersion": schema}))
                 with patch("ai_assistant.business_reports.business_evidence.get_run", return_value=row):
                     with self.assertRaises(AiError) as caught:

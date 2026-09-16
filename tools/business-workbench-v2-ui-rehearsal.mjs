@@ -80,7 +80,7 @@ try {
   await check("sealed_v2_blocks_both_report_actions", async () => {
     v2.status="sealed"; v2.collection.status="sealed"; v2.version++;
     await page.getByRole("button", { name: "刷新选中任务", exact: true }).click(); await detail().getByText("证据已封存", { exact: false }).waitFor();
-    assert.match(await detail().innerText(), /报告分析尚未接入/);
+    assert.match(await detail().innerText(), /工作台暂未开放分析启动/);
     for (const name of ["模拟分析（不调用模型）", "启动多 Agent 分析（调用模型）"]) assert.equal(await page.getByRole("button", { name, exact: true }).isDisabled(), true);
     assert.equal(requests.filter(r => r.path === "/api/ai/business-reports").length, 0);
   });

@@ -2,7 +2,7 @@
 
 这是 2026-09-16 开发期多 Agent 独立审查结果，不是已经采用的容量配置。当前 12 来源、64 MiB、2000 页、120 表限制继续有效；首次任务工作台必须完整展示超限来源并停止提交，不能默默缩小范围。
 
-2026-09-17 第十六批已实现 v2 纯目录合同、单一目录表及多卷拆分/渲染底座；第十七批接通显式 v2 API 的创建、采集、恢复、封存及有界读取，工作台可查看和控制。首次工作台仍创建 v1，v2 专用 Agent 工具、报告及持久多卷下载尚未接入。目录支持 48 项也不代表事实容量提高。实际进度及验证见实施说明中的第十六、十七批；下文未明确实现的部分仍是设计。
+2026-09-17 第十六批已实现 v2 纯目录合同、单一目录表及多卷拆分/渲染底座；第十七批接通显式 v2 API 的创建、采集、恢复、封存及有界读取，工作台可查看和控制。第十八批接入轻量报告引用、独立 Agent 工具、每个 Agent 的目录回执核验及三专业节点并行。首次工作台仍创建 v1；v2 预算及持久多卷下载尚未接入，因此工作台暂不开放 v2 分析启动。目录支持 48 项也不代表事实容量提高。实际进度及验证见实施说明中的第十六至十八批；下文未明确实现的部分仍是设计。
 
 ## 已确认的相互依赖
 
@@ -33,7 +33,7 @@
 
 ## 2026-09-17 精确实施设计：证据 v2 与轻量工作流
 
-本节是候选设计，**尚未实施**。依据当前候选代码读取核验；本次文档工作没有执行迁移、PostgreSQL、正式业务查询或模型调用。目标先解决来源目录结构和模型输入容量，不在同一批顺带放大事实存储、文件或模型额度。
+本节保留初始设计及兼容约束，部分已由第十六至十八批实现，以顶部实施状态和当前代码为准。目标先解决来源目录结构和模型输入容量，不顺带放大事实存储、文件或模型额度。
 
 ### 代码核验得到的兼容约束
 
@@ -107,7 +107,7 @@ v2 run 的 plan_json 继续不超过 **16000 字节**，仅包含 schemaVersion=
 - `workflows.admission()` 增加只供服务端调用的surface参数；通用任务默认ai_agent。新经营报告创建通过内部参数选择v2 surface，不把surface作为通用公开请求可指定字段。
 - 新工作流运行时，从已持久报告snapshot解析工具profile；新子Agent通过所属workflow的报告继承。数据库尚未创建报告时的初始admission使用受信内部参数，workflow+report创建仍同一事务；异常回滚不会留下无profile的可运行任务。
 - `workflows.py` 重新admission、工具execute_tool的surface和 `business_reports.restricted_entries/validate_call` 必须一致选择该profile。旧任务仍用ai_agent，原allowed_tools_json/tool_policy_digest不更新；原模型/权限/工具变更继续按既有策略失败关闭。
-- `lib/ai/tool-registry-contract.ts`、`tool-registry.ts`、`django-edge.ts` 的surface枚举/目录与桥接校验显式接入；`lib/ai/business-evidence.ts`增加新目录handler。新tool schema要求runId/evidenceVersion/catalogDigest，分页offset/limit有界；接收端先验证快照再查来源。
+- `lib/ai/tool-registry-contract.ts`、`tool-registry.ts`、`django-edge.ts` 的surface枚举/目录与桥接校验已显式接入；`lib/ai/business-evidence.ts`增加新目录handler。实际新工具只接受runId与可选offset，不接受模型提供的版本/摘要或页长；页长固定20。版本、目录摘要及封存摘要由服务端固定快照绑定，每次新模型派发前重验持久目录回执。新分析表另加38000 UTF-8字节限制；旧工具仍保留原字符限制和摘要。
 - 目录工具返回小型全局摘要＋当前页完整来源（缺日/金额口径详情可按单source继续读），total/returned/nextOffset齐全。默认每页10来源，最多20；48来源仅需5次目录调用，仍在现有单工具8次以内。若最宽单来源元数据导致一页超限则按字节减少实际returned，nextOffset用实际数量；单来源本身超限时拒绝并转精确详情分页，不截断字段。不能保证所有48来源最坏情况下5次调用，需预检/测试及明确“未读完整目录”的状态。
 - `lib/ai/tool-execution-runtime.ts`、`tool-registry-contract.ts` 的调用、取消、审计、输出限制均保持，新增负向测试验证两种surface隔离。不要让模型通过传入surface或任意runId读取其他任务。
 

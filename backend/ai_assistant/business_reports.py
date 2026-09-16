@@ -6,9 +6,32 @@ from .policy import AiError, authorize_owner, boolean, canonical, current_princi
 SCHEMA = "business-report-v1"
 TOOLS = frozenset({"get_business_analysis_evidence", "get_business_analysis_table"})
 BUDGET_TOOL = "get_business_budget_scenarios"
+V2_PROFILE = "business-agent-reference-v2"
+V2_SURFACE = "business_agent_v2"
+V2_DIRECTORY_TOOL = "get_business_evidence_directory_v2"
+V2_TABLE_TOOL = "get_business_analysis_table_v2"
+V2_TOOLS = frozenset({V2_DIRECTORY_TOOL, V2_TABLE_TOOL})
+V2_NODES = frozenset({"commerce", "promotion", "market_b2b", "independent_review", "report"})
+V2_ANALYSIS_RESPONSE_BYTES = 38000
+# The adapter bounds compact UTF-8 JSON. Embedding its JSON text in a tool
+# frame escapes quotes/backslashes; Python's separator spaces fit the same
+# 2x bound. Reserve an additional 4 KiB for envelopes/call identifiers/arguments.
+V2_ANALYSIS_TRANSCRIPT_RESERVE = 2*V2_ANALYSIS_RESPONSE_BYTES+4096
+
+
+def is_v2_snapshot(snapshot):
+    if snapshot.get("executionProfile") == V2_PROFILE:
+        if snapshot.get("evidenceProtocol") != "reference-v2" or "budgetPlan" in snapshot:
+            raise AiError("报告执行协议与证据不一致", "conflict", 409)
+        return True
+    if "executionProfile" in snapshot or "evidenceProtocol" in snapshot:
+        raise AiError("报告执行协议不支持", "conflict", 409)
+    return False
 
 
 def required_tools(snapshot):
+    if is_v2_snapshot(snapshot):
+        return V2_TOOLS
     return TOOLS | ({BUDGET_TOOL} if snapshot.get("budgetPlan") is not None else set())
 SECTIONS = ["范围与数据完整性", "店铺与商品诊断", "推广与搜索诊断", "市场与B端机会", "调整规划与观察指标"]
 FINDING_SHAPE = {"summary": "摘要", "findings": [{"id": "finding-1", "kind": "observation|hypothesis|action|gap",
@@ -58,6 +81,8 @@ def create(body, principal):
     if evidence.status != "sealed":
         raise AiError("分析须从已封存证据启动", "conflict", 409)
     plan = json.loads(evidence.plan_json)
+    if plan.get("schemaVersion") == "business-evidence-v2":
+        return _create_v2(body, principal, evidence, client, question, dry)
     if plan.get("schemaVersion") != "business-evidence-v1":
         raise AiError("此版本证据尚未接入报告分析，请保留封存任务", "conflict", 409)
     queries = [source["query"] for source in plan["sources"]]
@@ -107,7 +132,28 @@ def context(job):
     if not report:
         return None
     snapshot = json.loads(report.snapshot_json)
+    if snapshot.get("executionProfile") == V2_PROFILE and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
+        raise AiError("报告执行身份不一致", "access_denied", 403)
     return snapshot if snapshot.get("schemaVersion") == SCHEMA else None
+
+
+def has_v2_profile(job):
+    snapshot = context(job)
+    return snapshot is not None and is_v2_snapshot(snapshot)
+
+
+def execution_surface(job, principal):
+    snapshot = context(job)
+    if snapshot is None and V2_TOOLS & set(json.loads(job.allowed_tools_json)):
+        raise AiError("v2任务缺少固定报告执行身份", "conflict", 409)
+    if snapshot is None or not is_v2_snapshot(snapshot):
+        return "ai_agent"
+    reference = bound_reference(snapshot, principal)
+    flow = m.AiWorkflowRuns.objects.get(pk=job.workflow_run_id)
+    if (canonical(json.loads(flow.input_json)) != canonical(reference) or canonical(json.loads(job.input_json).get("workflowInput")) != canonical(reference)
+            or job.workflow_node_key not in V2_NODES or flow.owner_email != job.owner_email or flow.scope_json != job.scope_json):
+        raise AiError("工作流轻量引用与固定报告不一致", "conflict", 409)
+    return V2_SURFACE
 
 
 def restricted_entries(job, entries):
@@ -126,11 +172,25 @@ def validate_call(job, call):
     if snapshot and (call["name"] not in required_tools(snapshot) or call["arguments"].get("runId") != snapshot["evidenceRunId"] or
             call["name"] == BUDGET_TOOL and call["arguments"].get("reportId") != snapshot.get("reportId")):
         raise AiError("分析任务只能读取本次封存证据", "access_denied", 403)
+    if snapshot and is_v2_snapshot(snapshot):
+        from .business_evidence_receipts import directory_progress
+        proof = directory_progress(job, snapshot)
+        if call["name"] == V2_DIRECTORY_TOOL:
+            args = call["arguments"]
+            if (set(args)-{"runId", "offset"} or type(args.get("offset", 0)) is not int
+                    or proof["complete"] or args.get("offset", 0) != proof["nextOffset"]):
+                raise AiError("目录必须逐页连续读取，不能重复或跳页", "directory_read_incomplete", 409)
+        elif not proof["complete"]:
+            raise AiError("须先完整读取固定来源目录", "directory_read_incomplete", 409)
 
 
 def validate_output(job, answer):
-    if context(job) is None:
+    snapshot = context(job)
+    if snapshot is None:
         return
+    if is_v2_snapshot(snapshot):
+        from .business_evidence_receipts import validate_directory_complete
+        validate_directory_complete(job, snapshot)
     budget = 15000 if job.workflow_node_key == "report" else 2000 if job.workflow_node_key == "independent_review" else 3000
     if len(answer.encode()) > budget:
         raise AiError("专业分析输出超过下游可复核容量，保留原回执", "payload_too_large", 413)
@@ -142,6 +202,14 @@ def validate_output(job, answer):
         raise AiError("专业分析结构无效", "conflict", 409)
 
 
+def validate_provider_turn(job):
+    """Do not send a persisted, malformed directory receipt to a model."""
+    snapshot = context(job)
+    if snapshot is not None and is_v2_snapshot(snapshot):
+        from .business_evidence_receipts import directory_progress
+        directory_progress(job, snapshot)
+
+
 def content(row, principal):
     from .business_diagnosis import validate
     if row.workflow.dry_run:
@@ -151,6 +219,16 @@ def content(row, principal):
     nodes = {n.node_key: n for n in m.AiWorkflowNodeRuns.objects.filter(run_id=row.workflow_id, status="completed")}
     if not {"commerce", "promotion", "market_b2b", "independent_review", "report"} <= set(nodes):
         raise AiError("专业分析、独立复核或整合尚未完成", "conflict", 409)
+    if is_v2_snapshot(snapshot):
+        from .business_evidence_receipts import validate_directory_complete
+        bound_reference(snapshot, principal)
+        for key in sorted(V2_NODES):
+            job = m.AiAgentJobs.objects.filter(pk=nodes[key].agent_job_id, workflow_run_id=row.workflow_id,
+                workflow_node_key=key, owner_email=row.owner_email, status="completed").first()
+            if job is None:
+                raise AiError("专业节点缺少独立完成回执", "conflict", 409)
+            execution_surface(job, principal)
+            validate_directory_complete(job, snapshot)
     def parsed(key):
         try:
             return json.loads(json.loads(nodes[key].output_json)["answer"])
@@ -182,7 +260,7 @@ def validate_review(row, principal):
     value = content(row, principal)
     if not value["independentReview"]["approved"] or value["independentReview"]["conflicts"]:
         raise AiError("独立复核仍有未解决冲突，不能交付正式报告", "conflict", 409)
-    for key in ("commerce", "promotion", "market_b2b", "independent_review"):
+    for key in (() if is_v2_snapshot(json.loads(row.snapshot_json)) else ("commerce", "promotion", "market_b2b", "independent_review")):
         receipts = m.AiAgentToolResults.objects.filter(tool_dispatch__job__workflow_run_id=row.workflow_id,
             tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name="get_business_analysis_evidence")
         if not any(json.loads(item.result_json).get("ok") is True and json.loads(item.result_json).get("auditStatus") == "recorded" for item in receipts):
@@ -201,3 +279,135 @@ def validate_review(row, principal):
             if covered != set(range(target_count)):
                 raise AiError("推广分析或独立复核尚未完整读取固定预算情景", "conflict", 409)
     return value
+
+
+def _reference(evidence, question):
+    from business_analysis.evidence_v2 import workflow_reference
+    from business_analysis.contracts import AnalysisContractError
+    from . import business_evidence_store as store
+    if evidence.status != "sealed" or not store.is_v2(evidence):
+        raise AiError("引用需要已封存的v2证据", "conflict", 409)
+    store.verify_seal(evidence)
+    sources = store.catalog(evidence)
+    seal, header = json.loads(evidence.state_json), json.loads(evidence.plan_json)
+    try:
+        reference = workflow_reference(sources, run_id=evidence.id, evidence_version=evidence.version,
+            sealed_digest=seal["sealedDigest"], question=question, analysis_request=header.get("analysisRequest"))
+    except AnalysisContractError as error:
+        raise AiError(str(error), "conflict", 409) from error
+    return reference, sources
+
+
+def bound_reference(snapshot, principal):
+    evidence = business_evidence.get_run(snapshot["evidenceRunId"], principal)
+    reference, _ = _reference(evidence, snapshot["question"])
+    keys = ("evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest", "sourceCount")
+    if canonical({k: snapshot.get(k) for k in keys}) != canonical({k: reference[k] for k in keys}):
+        raise AiError("报告固定封存引用已变化", "conflict", 409)
+    return reference
+
+
+def graph_v2():
+    value = graph()
+    for node in value["nodes"]:
+        if node["type"] == "agent":
+            node["instruction"] += (
+                "本任务采用reference-v2轻量引用。必须本人逐页调用get_business_evidence_directory_v2，"
+                "从offset=0开始严格跟随nextOffset，直至null；目录未读完禁止调用分析表或提交答案。"
+                "目录读取完毕只证明掌握来源范围，不代表已读完所有事实或完成分析。"
+                "随后使用get_business_analysis_table_v2读取所需分析表；不得借用其他Agent的目录读取回执。")
+    return value
+
+
+def _create_v2(body, principal, evidence, client, question, dry):
+    if "budgetPlan" in body or "previousReportId" in body:
+        raise AiError("v2预算情景尚未接入，请保留原始参数", "conflict", 409)
+    reference, sources = _reference(evidence, question)
+    queries = [s["query"] for s in sources]
+    platforms, shops = {q["platform"] for q in queries}, {q["shop"] for q in queries if q.get("shop")}
+    scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台",
+        "shop": next(iter(shops)) if len(shops) == 1 else "多店铺" if shops else "市场样本",
+        "startDate": queries[0]["startDate"], "endDate": queries[0]["endDate"]}
+    snapshot = {"schemaVersion": SCHEMA, "executionMode": "parallel-v1", "executionProfile": V2_PROFILE,
+        "evidenceProtocol": "reference-v2", **{k: v for k, v in reference.items() if k != "inputMode"},
+        "scope": scope, "libraryVersion": 0, "pipeline": {"name": "深度经营分析"},
+        "template": {"name": "多Agent经营诊断", "format": "html", "sections": SECTIONS}, "skills": []}
+    with mutation(principal):
+        old = m.AiReportRun.objects.select_related("workflow").filter(owner_email=principal.email.lower(), client_request_id=client).first()
+        if old:
+            authorize_owner(old, principal)
+            if old.request_digest != digest(body):
+                raise AiError("请求标识已绑定其他报告", "conflict", 409)
+            return {"item": {"id": old.id, "workflowId": old.workflow_id}, "replayed": True}
+        # Admission precedes report persistence, so only this internal keyword
+        # selects the new catalog. The outer transaction publishes both or none.
+        flow = workflows.create({"clientRequestId": "business-"+digest([principal.email.lower(), client]),
+            "name": "深度经营分析", "graph": graph_v2(), "input": reference, "dryRun": dry}, principal, True,
+            execution_profile=V2_PROFILE)
+        if not dry and set(flow["item"]["allowedTools"]) != V2_TOOLS:
+            raise AiError("v2封存证据工具目录未就绪", "service_unavailable", 503)
+        row = m.AiReportRun.objects.create(id=uid("ai-report"), owner_email=principal.email.lower(), scope_json=canonical(principal.scope),
+            client_request_id=client, request_digest=digest(body), workflow_id=flow["item"]["id"], snapshot_json=canonical(passive(snapshot, 32768)))
+    return {"item": {"id": row.id, "workflowId": row.workflow_id}, "replayed": False}
+
+
+def preflight_v2(flow, principal, graph_value, entries):
+    """Measure actual whole-directory tool transcripts before any model call.
+
+    Reserve one maximum-size analysis response and downstream dependency outputs.
+    This is admission, not a guarantee of arbitrary later model prose/tool usage;
+    all existing live context and tool budgets still apply without truncation.
+    """
+    from types import SimpleNamespace
+    from business_analysis.evidence_v2 import directory_page
+    from . import provider
+    from .model_capabilities import fit_context
+    given = json.loads(flow.input_json)
+    evidence = business_evidence.get_run(given.get("evidenceRunId"), principal)
+    reference, sources = _reference(evidence, given.get("question"))
+    if canonical(given) != canonical(reference) or canonical(graph_value) != canonical(workflows.validate_graph(graph_v2())):
+        raise AiError("v2执行输入或固定步骤无效", "conflict", 409)
+    pages, offset = [], 0
+    while offset is not None:
+        page = directory_page(sources, run_id=evidence.id, evidence_version=evidence.version, offset=offset, limit=20,
+            analysis_request=json.loads(evidence.plan_json).get("analysisRequest"))
+        pages.append(page)
+        offset = page["nextOffset"]
+    model = workflows.resolve_model(flow.model_id) if not flow.dry_run else None
+    if model:
+        if {e["name"] for e in entries} != V2_TOOLS:
+            raise AiError("v2分析工具目录不完整", "service_unavailable", 503)
+        directory_tool = next(e for e in entries if e["name"] == V2_DIRECTORY_TOOL)
+        if (len(pages) > directory_tool["execution"]["maxCallsPerRequest"]
+                or len(pages)+1 > min(model.max_total_tool_calls, 40)
+                or len(pages)+2 > min(model.max_tool_rounds, 20)):
+            raise AiError("当前模型工具额度不足以完整读取目录并分析", "tool_limit_exceeded", 409)
+    protocol_model = model or SimpleNamespace(protocol="openai_compatible")
+    sizes = {"commerce": 3000, "promotion": 3000, "market_b2b": 3000, "independent_review": 2000, "report": 15000}
+    def append_tool(frames, name, args, data, ordinal):
+        call = {"id": "preflight-"+str(ordinal), "name": name, "arguments": args}
+        if protocol_model.protocol == "anthropic":
+            frame = {"role": "assistant", "content": [{"type": "tool_use", "id": call["id"], "name": name, "input": args}]}
+        else:
+            frame = {"role": "assistant", "content": None, "tool_calls": [{"id": call["id"], "type": "function",
+                "function": {"name": name, "arguments": canonical(args)}}]}
+        frames.append(frame)
+        frames.extend(provider.tool_frames(protocol_model, [call], [{"ok": True, "toolName": name, "auditStatus": "recorded", "data": data}]))
+    for node in graph_value["nodes"]:
+        if node["type"] != "agent":
+            continue
+        data = {"workflowInput": reference, "dependencies": {k: {"answer": 'x'*sizes[k]} for k in node["dependsOn"]}}
+        passive(data, 24*1024)
+        frames = [{"role": "user", "content": node["instruction"]+"\n<task_input>"+canonical(data).replace("<", "\\u003c")+"</task_input>"}]
+        for i, page in enumerate(pages):
+            append_tool(frames, V2_DIRECTORY_TOOL, {"runId": evidence.id, "offset": page["offset"]}, page, i)
+        # This is an encoded transcript reservation, not a fabricated wire page.
+        # It deliberately exceeds the wire JSON cap to cover nested escaping.
+        append_tool(frames, V2_TABLE_TOOL, {"runId": evidence.id, "sourceKey": sources[0]["key"], "dimension": "shop"},
+            {"preflightTranscriptByteReservation": "x"*V2_ANALYSIS_TRANSCRIPT_RESERVE}, len(pages))
+        if len(canonical(frames).encode()) > 192*1024:
+            raise AiError("完整目录及分析所需上下文超过192KiB，不能截断", "transcript_limit_exceeded", 409)
+        if model:
+            _, info = fit_context(model, frames, provider.system_prompt(model, workflows.SYSTEM+workflows.execution_guidance(flow.id)), entries)
+            if info["droppedMessages"]:
+                raise AiError("目录上下文不能通过删除已读取页压缩", "ai_context_budget_exceeded", 409)

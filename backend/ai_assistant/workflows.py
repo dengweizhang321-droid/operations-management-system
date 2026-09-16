@@ -143,10 +143,10 @@ def validate_graph(value):
     return {"nodes": output}
 
 
-def admission(principal, model_id=None):
+def admission(principal, model_id=None, *, surface="ai_agent"):
     current_principal(principal, write=True)
     model = resolve_model(model_id)
-    entries = transport.catalog(principal, "ai_agent")
+    entries = transport.catalog(principal, surface)
     if not entries or len(entries) > 64:
         raise AiError("Agent 工具目录无效", "service_unavailable", 503)
     return {
@@ -175,7 +175,7 @@ def event(row, principal, kind, previous=None, node=None):
         m.AiAgentEvents.objects.create(job_id=row.id, job_version=row.version, **values)
 
 
-def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None):
+def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None):
     allowed = {"clientRequestId", "input", "modelId"} | (
         {"name", "graph", "dryRun"} if workflow else {"task"}
     )
@@ -195,8 +195,16 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
         "name" if workflow else "task",
         120 if workflow else 8000,
     )
-    admitted, entries = admission(principal, body.get("modelId")) if not dry else ({}, [])
+    if execution_profile is not None:
+        from . import business_reports
+        if not workflow or execution_profile != business_reports.V2_PROFILE:
+            raise AiError("工作流执行协议无效")
+    surface = "business_agent_v2" if execution_profile is not None else "ai_agent"
+    admitted, entries = (admission(principal, body.get("modelId"), surface=surface) if execution_profile is not None
+                         else admission(principal, body.get("modelId"))) if not dry else ({}, [])
     request_digest = digest({"payload": body, "admission": admitted})
+    if execution_profile is not None:
+        request_digest = digest({"payload": body, "admission": admitted, "executionProfile": execution_profile})
     cls = m.AiWorkflowRuns if workflow else m.AiAgentJobs
     with mutation(principal):
         existing = cls.objects.filter(
@@ -236,6 +244,8 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
         if not dry:
             from . import report_library
             report_library.pin(row.id, title, None, entries, skill_ids=skill_ids, library=library_snapshot)
+        if execution_profile is not None:
+            business_reports.preflight_v2(row, principal, graph, entries)
         if workflow:
             for position, node in enumerate(graph["nodes"]):
                 m.AiWorkflowNodeRuns.objects.create(
@@ -490,7 +500,10 @@ def agent_tick(*, job_id=None):
         row.save()
         lease = (row.id, row.lease_token, row.lease_epoch)
     try:
-        admitted, entries = admission(principal, row.model_id)
+        from . import business_reports
+        surface = business_reports.execution_surface(row, principal)
+        admitted, entries = (admission(principal, row.model_id) if surface == "ai_agent"
+                             else admission(principal, row.model_id, surface=surface))
         if any(getattr(row, k) != v for k, v in admitted.items()):
             raise AiError("执行策略已变化", "executor_policy_changed", 409)
         from . import business_reports
@@ -588,6 +601,7 @@ def agent_tick(*, job_id=None):
                     lease_epoch=row.lease_epoch,
                 )
             else:
+                business_reports.validate_provider_turn(row)
                 if len(providers) >= min(model.max_tool_rounds, 20):
                     raise AiError("模型轮数超限", "provider_limit_exceeded", 409)
                 dispatch_budget(principal.email.lower(), model.id)
@@ -612,7 +626,7 @@ def agent_tick(*, job_id=None):
                 call["name"],
                 call["arguments"],
                 principal,
-                surface="ai_agent",
+                surface=surface,
                 request_id=dispatch.invocation_id,
                 provider_call_id=call["id"],
                 policy_digest=row.tool_policy_digest,
@@ -699,8 +713,17 @@ def _leased(lease):
 
 def _complete(row, principal, answer):
     from . import business_reports
-    business_reports.validate_output(row, answer)
-    output = {"answer": text(answer, "answer", 12000)}
+    # A received v2 answer can fail proof validation. Keep its provider receipt
+    # and succeeded dispatch in this transaction; never relabel it as unknown.
+    if business_reports.has_v2_profile(row):
+        try:
+            business_reports.validate_output(row, answer)
+            output = {"answer": text(answer, "answer", 12000)}
+        except (AiError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
+            return _fail(row, principal, error.code if isinstance(error, AiError) else "business_output_validation_failed")
+    else:
+        business_reports.validate_output(row, answer)
+        output = {"answer": text(answer, "answer", 12000)}
     row.output_json = canonical(output)
     row.status = "completed"
     row.phase = "completed"

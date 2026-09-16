@@ -26,6 +26,8 @@ RENDERER_VERSION = 3
 def binding(report, principal, draft):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
+    if business_reports.is_v2_snapshot(snapshot):
+        raise AiError("v2证据文件交付尚未接入，请保留分析结果", "conflict", 409)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA or report.workflow.dry_run:
         raise AiError("只有已分析的经营报告可以构建文件", "conflict", 409)
     if not draft and report.workflow.status != "completed":
