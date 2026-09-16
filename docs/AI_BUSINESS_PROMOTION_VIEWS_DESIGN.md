@@ -1,6 +1,6 @@
 # 推广计划与单元派生视图设计
 
-状态：**第一片纯算法已形成候选，第二批 owning 接入仍为设计，未注册新运行时能力**。本设计及纯测试不读取原业务文件、生产数据或平台，不证明真实店铺的计划/单元字段完整。第一批实现有界纯算法，第二批接 owning service；旧八维、旧工具 catalog 摘要和旧报告文件保持不变。
+状态：**纯算法与内部 owning 服务已形成候选，未注册新运行时能力**。第三十六批新增真实封存来源的内部页和精确行读取；公开工具、完整报告选择、规则及文件接线仍是下文设计。合成测试不读取原业务文件、生产数据或平台，不证明真实店铺的计划/单元字段完整；旧八维、旧工具 catalog 摘要和旧报告文件保持不变。
 
 当前纯候选为 [promotion_views.py](../backend/business_analysis/promotion_views.py) 和 [test_promotion_views.py](../backend/business_analysis/test_promotion_views.py)。实际签名是 `table(source, pages, expected, *, view, baseline_source=None, baseline_pages=None, baseline_expected=None, limits=None)`；context 内 `header()`、`page(offset=0, limit=20)`、`scan()`。测试允许仅降低 `maxGroups/maxScratchBytes/maxPages/maxSourceRows/maxResponseBytes`；两侧合计最多 2000 页、200000 原始行，单页结构最多 128KiB，分组/临时盘/响应仍各自限额。64MiB 封存任务配额和真实授权由后续 owning 层负责，此纯对象不是持久证据或授权凭证。新测试执行真实网店 `_project` 代码构造行，元数据沿实际 `read_page` 形状，不初始化 Django 或访问数据库；不能用此代替真实 reader 集成验收。
 
@@ -73,6 +73,8 @@
 纯测试通过只证明算法合同；没有账号、DB、真实来源或 Agent 完整诊断通过含义。
 
 ### 第二批：owning 接入，先内部闭环再显式开放
+
+第三十六批实际接口：`business_promotion_views.page(report_id, params, principal)`，params 固定 sourceKey/view、可选 baselineKey、整数 offset 与固定 limit=20；`read_row(report_id, source_key, view, row_index, row_id, principal, baseline_key=...)` 精确重算行引用。来源来自当前授权报告完整目录，双方事实全部读取并退出临时表后再次授权，整响应包含绑定仍不超过38000 UTF-8字节。该内部接口没有注册路由、工具、新 profile、规则或文件；不能据此认为下表已全部接通。测试证据见 [第三十六批候选记录](evidence/ai-business-promotion-owning-candidate.json)。
 
 新增 `backend/ai_assistant/business_promotion_views.py`，从实时 owner-authorized、已封存 v2 的 `Reader` 取得固定 sources/info/pages；按 sourceKey 精确选京东推广，基期须由同报告完整目录显式选择。前后重载 current principal、report/workflow 固定输入、封存摘要及完整来源，消费和 context 退出后复验；分页结果不是跨 owner 的凭证，不自动缓存持久化。
 
