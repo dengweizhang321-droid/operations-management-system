@@ -16,7 +16,7 @@
 
 ## 当前交付边界
 
-**已完成阶段一的前两批候选代码，不是阶段一整体或五阶段完成；尚未合入 main 或生产采用。**
+**已完成阶段一的前三批候选代码，不是阶段一整体或五阶段完成；尚未合入 main 或生产采用。用户已要求持续开发至五阶段完成，后续批次无需再次确认开发意图。**
 
 已实现：
 
@@ -28,6 +28,7 @@
 - 可复用的 `PageReconciler`、`VerifiedAnalysis` 结构化核对结果。
 - 第二批补齐 ERP 正向、退款、净销售、成本及数量规范页；平台/店铺/渠道精确隔离，ERP 网店规格编码与网店当前主数据精确关联，歧义和未匹配金额单独保留。
 - 第二批补齐持久证据任务、不可改写的来源分块、版本检查点、取消/封存、所属用户权限和只读 AI 证据工具；来源读取、页核验、持久化及写审计形成可恢复的受控路径。
+- 第三批提供统一分析表协议：从封存证据生成店铺、品类、SPU、SKU、关键词、搜索词、逐日分组，稳定行引用及同口径同比/环比；完整重验后分页返回。后续 Agent 和双文件共同使用该结构，不由模型各自计算。
 
 阶段一仍需完成：
 
@@ -77,6 +78,7 @@ ERP 日期为发货业务日 `business_date`。正向销售与退款按分摊金
 | `POST /api/ai/business-evidence/{id}/finish` | `expectedVersion/action`，`seal` 须全部完整；`cancel` 保留已有证据 |
 | `GET /api/ai/business-evidence/{id}/chunks/{sourceKey}?sequence=1` | 单块规范页与摘要 |
 | `GET /api/ai/business-evidence/{id}/mapping?sales=源键&master=源键` | 仅对封存证据重验全页并作商品关联 |
+| `GET /api/ai/business-evidence/{id}/analysis?sourceKey=源键&dimension=shop` | 统一分析表，支持 `baselineKey`、`offset`、`limit` |
 
 来源格式为 `{key, domain: sales|netshop, query}`。query 只接受固定身份、数据集/渠道、日期及比较窗口，不接受调用方提供的事实页面。中央只读工具 `get_business_analysis_evidence` 可读取本人任务摘要或单块，未接入钉钉。不同专业 Agent 未来可在同一发起人权限下引用相同证据；本批没有自动派发 Agent、付费推理或报告生成。
 
@@ -85,6 +87,16 @@ ERP 日期为发货业务日 `business_date`。正向销售与退款按分摊金
 当前有界容量：每人最多 4 个未完成任务；每任务最多 2,000 页、64 MiB，每人累计 256 MiB，全局累计 2 GiB 和 10,000 个任务；每页固定请求 10 行。商品关联每个来源最多 5,000 行、输出最多 1.5 MB。达到上限明确失败并保留检查点，绝不截断后声明完成。尚无历史证据清理或大型分区执行能力，不能据此宣称达到参考报告规模。
 
 新增 AI 迁移 `0014_business_evidence`，自有表从 56 张增至 58 张。分块只增不改，任务身份和计划不可改，封存/取消后为终态；数据库触发器、最小 reader/writer grants、健康检查、历史备份清单及恢复校验同步维护。本批未迁移正式数据库。
+
+## 第三批：统一分析表
+
+`business-result-table-v1` 保存来源核对摘要、筛选/日期、每组值与缺失数、加权比率、比较结果及稳定行 ID。`dimension` 限 `shop/category/spu/sku/keyword/searchTerm/daily`；`baselineKey` 仅接受同来源、同店铺、同原始查询日期的 `previous/yearAgo`，不将不同业务口径作增长比较。日表禁止直接按日期字符串匹配跨期。
+
+当前或基期不存在的分组不补零；缺日或字段缺失不计算增长率；零/负基期保留差额并标记状态。CTR/转化率变化为百分点，CPC 和 ROAS 不误用百分点。空维度单列并标记，商品访客不冒充店铺去重 UV。一个表只表达所选来源，未混加推广成交、ERP 净销售和 B2B 金额。
+
+服务端只从本人封存证据重算，逐块核验摘要和完整控制汇总，不重新查询业务源或调用模型；每次 API 返回最多 100 组，中央工具 `get_business_analysis_table` 默认 10、最多 20 组。沿 `offset/limit` 可读取完整组表，读取一页不能声称全量分析。大型跨源分区和导出仍属后续工作。
+
+第三批验证：隔离 PostgreSQL 27 项通过，中央工具 7 项通过，构建及修改的 TypeScript lint 通过。首次 API 测试把查询串错误地签入 path，改为已有支持独立 query 签名的测试工厂后通过；没有放宽身份或签名校验。日志为 `.runtime/ai-pg-0556957c8f0c/tests.log`、`.runtime/batch3-tools-final.log`、`.runtime/batch3-build.log`、`.runtime/batch3-lint.log`。
 
 ## 验证方式
 

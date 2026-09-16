@@ -230,3 +230,42 @@ def reconcile_products(run_id, params, principal):
     if len(canonical(result).encode()) > 1500000:
         raise AiError("关联结果超过单次交付容量，须分区处理", "payload_too_large", 413)
     return result
+
+
+def analysis_table(run_id, params, principal):
+    from business_analysis.results import build_table
+    fields(params, {"sourceKey", "dimension", "baselineKey", "offset", "limit"}, {"sourceKey", "dimension"})
+    row = get_run(run_id, principal)
+    if row.status != "sealed":
+        raise AiError("分析表需要已封存的完整证据", "conflict", 409)
+    state = json.loads(row.state_json)
+    keys = [params["sourceKey"]] + ([params["baselineKey"]] if "baselineKey" in params else [])
+    if any(key not in state for key in keys):
+        raise AiError("分析来源不存在", "not_found", 404)
+    try:
+        offset, limit = int(params.get("offset", "0")), int(params.get("limit", "20"))
+        integer(offset, "offset", lo=0, hi=25000)
+        integer(limit, "limit", hi=100)
+    except (ValueError, TypeError) as error:
+        raise AiError("分析分页参数无效") from error
+    def pages(key):
+        sequence = 0
+        for record in m.AiBusinessEvidenceChunk.objects.filter(run=row, source_key=key).order_by("sequence").iterator(chunk_size=20):
+            sequence += 1
+            if sequence != record.sequence or digest(record.payload_json) != record.payload_digest:
+                raise AnalysisContractError("证据块缺失或摘要变化")
+            yield json.loads(record.payload_json)
+        if sequence != state[key]["pageCount"]:
+            raise AnalysisContractError("证据块数量变化")
+    expected = {key: _restore(state[key]["verifier"]).result() for key in keys}
+    try:
+        table = build_table(pages(keys[0]), params["dimension"], expected[keys[0]],
+            **({"baseline_pages": pages(keys[1]), "baseline_expected": expected[keys[1]]} if len(keys) == 2 else {}))
+    except (AnalysisContractError, KeyError, TypeError, ValueError) as error:
+        raise AiError(str(error), "conflict", 409) from error
+    table["rows"] = table["rows"][offset:offset+limit]
+    table.update(evidenceRunId=run_id, sourceKey=keys[0], baselineKey=keys[1] if len(keys) == 2 else None,
+        pagination={"offset": offset, "limit": limit, "hasMore": offset+len(table["rows"]) < table["total"]})
+    if len(canonical(table).encode()) > 1500000:
+        raise AiError("分析页过大，请减小页长", "payload_too_large", 413)
+    return table

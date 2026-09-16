@@ -36,7 +36,7 @@ import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
 import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
-import { readBusinessEvidence } from "@/lib/ai/business-evidence";
+import { readBusinessEvidence, readBusinessAnalysisTable } from "@/lib/ai/business-evidence";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
@@ -603,6 +603,21 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
     handler: (args, context) => getSalesAnalysisRecords(args, context.principal, context.signal),
+  },
+  {
+    name: "get_business_analysis_table", title: "读取核对后的经营分析表",
+    description: "从本人已封存的完整证据计算店铺、品类、SPU、SKU、关键词、搜索词或逐日表。可指定同范围前期/去年同期来源作对比，缺日、缺字段和不存在分组不补零。比率为汇总分子除以汇总分母；金额单位为分。返回稳定行ID供引用，须沿分页读完才可声称全量。不调用模型或重新取数，不推断因果。",
+    inputSchema: { type: "object", properties: {
+      runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      sourceKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      baselineKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      dimension: { type: "string", enum: ["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily"] },
+      offset: { type: "integer", minimum: 0, maximum: 25000, default: 0 },
+      limit: { type: "integer", minimum: 1, maximum: 20, default: 10 },
+    }, required: ["runId", "sourceKey", "dimension"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessAnalysisTable(args, context.principal, context.signal),
   },
   {
     name: "get_business_analysis_evidence", title: "读取经营分析共享证据",

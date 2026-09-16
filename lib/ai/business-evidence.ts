@@ -14,3 +14,14 @@ export async function readBusinessEvidence(raw: unknown, principal: AppPrincipal
   if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "证据响应超过工具容量，不得截断；请从任务接口读取完整内容");
   return result.data;
 }
+
+export async function readBusinessAnalysisTable(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const { runId, ...args } = raw as { runId: string; sourceKey: string; dimension: string; baselineKey?: string; offset?: number; limit?: number };
+  const query = new URLSearchParams({ limit: "10" });
+  for (const [key, value] of Object.entries(args)) query.set(key, String(value));
+  const result = await requestDjangoAi<Record<string, unknown>>(principal,
+    { path: `/api/ai/business-evidence/${runId}/analysis`, method: "GET", query }, { signal });
+  if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "分析表页过大，请减小页长，不得截断");
+  return result.data;
+}

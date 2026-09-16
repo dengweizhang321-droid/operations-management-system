@@ -140,6 +140,7 @@ def _dispatch(request, path=""):
             r"business-evidence": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish)": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"report-library": {"GET", "POST"},
@@ -223,6 +224,8 @@ def _dispatch(request, path=""):
         if root == "business-evidence":
             current_principal(principal, admin=True)
             if request.method == "GET":
+                if parts[-1] == "analysis":
+                    return response(business_evidence.analysis_table(parts[1], params, principal))
                 if parts[-1] == "mapping":
                     return response(business_evidence.reconcile_products(parts[1], params, principal))
                 if len(parts) == 4:

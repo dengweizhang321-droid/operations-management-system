@@ -44,7 +44,7 @@ test("ERP analysis tool uses the owning signed reader and retains exact three-fi
 
 test("evidence paths remain finite and use separate reader/writer routes", async () => {
   const { isPublicAiPath, requestDjangoAi } = await import("../lib/django/ai-service");
-  for (const suffix of ["", "/run", "/run/collect", "/run/finish", "/run/mapping", "/run/chunks/sales"]) assert.ok(isPublicAiPath("/api/ai/business-evidence" + suffix));
+  for (const suffix of ["", "/run", "/run/collect", "/run/finish", "/run/mapping", "/run/analysis", "/run/chunks/sales"]) assert.ok(isPublicAiPath("/api/ai/business-evidence" + suffix));
   assert.equal(isPublicAiPath("/api/ai/business-evidence/run/exec"), false);
   for (const [method, suffix, port] of [["GET", "/run", "18001"], ["POST", "/run/collect", "18002"]] as const) {
     await requestDjangoAi(admin, { path: "/api/ai/business-evidence" + suffix, method }, {
@@ -110,6 +110,18 @@ test("analysis handler preserves exact identity, date and cursor on the signed r
     { headers: { "X-Netshop-Data-Revision": "7:aaaaaaaaaaaa" } });
   await assert.rejects(() => entry.handler(args,
     { principal: admin, surface: "ai_agent", requestId: "analysis-overflow" }), /不得截断/);
+});
+
+test("derived table tools have finite dimensions and cannot ask for arbitrary computations", () => {
+  const table = aiToolRegistry.find(e => e.name === "get_business_analysis_table")!;
+  const query = { runId: "sealed-run", sourceKey: "promotion", dimension: "keyword", baselineKey: "previous" };
+  validateToolArguments(query, table.inputSchema);
+  for (const bad of [{ ...query, dimension: "customer" }, { ...query, sql: "SELECT" }, { ...query, limit: 21 }]) {
+    assert.throws(() => validateToolArguments(bad, table.inputSchema));
+  }
+  assert.equal(table.risk, "read_only");
+  assert.ok(!getToolsForPrincipal(admin, "dingtalk_chat").some(e => e.name === table.name));
+  assert.ok(!getToolsForPrincipal({ ...admin, role: "viewer" }, "ai_chat").some(e => e.name === table.name));
 });
 
 test("audit failure prevents analysis data access", async () => {

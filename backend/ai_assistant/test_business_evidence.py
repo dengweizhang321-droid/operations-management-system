@@ -2,7 +2,7 @@ from copy import deepcopy
 from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.db import connection, transaction, DatabaseError
-from sales.tests.factories import make_line
+from sales.tests.factories import make_line, signed_headers, TEST_SECRET
 from sales.analysis import read_page
 from business_analysis.contracts import SCHEMA_VERSION, digest as page_digest, comparison_periods
 from business_analysis.identity import product_reconciliation
@@ -48,6 +48,17 @@ class BusinessEvidenceTests(TestCase):
         sealed = evidence.finish(run_id, {"expectedVersion": 3, "action": "seal"}, self.admin)["item"]
         self.assertEqual(sealed["status"], "sealed")
         self.assertEqual(m.AiBusinessEvidenceChunk.objects.filter(run_id=run_id).count(), 2)
+        with patch("ai_assistant.transport.execute_tool") as remote:
+            table = evidence.analysis_table(run_id, {"sourceKey": "sales", "dimension": "shop"}, self.admin)
+            self.assertEqual(table["rows"][0]["metrics"]["netSalesCents"]["value"], 120000)
+            self.assertFalse(table["pagination"]["hasMore"])
+            remote.assert_not_called()
+        url = f"/api/ai/business-evidence/{run_id}/analysis?sourceKey=sales&dimension=shop"
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET, DJANGO_PROCESS_ROLE="ai_reader"), patch("ai_assistant.views.authority"):
+            denied = self.client.get(url, headers=signed_headers(url, email=self.viewer.email, role="viewer"))
+            self.assertEqual(denied.status_code, 403)
+            response = self.client.get(url, headers=signed_headers(url, email=self.admin.email))
+            self.assertEqual(response.status_code, 200, response.content)
         chunk = evidence.chunk(run_id, "sales", {"sequence": "2"}, self.admin)
         self.assertEqual(chunk["page"]["pageEvidence"]["rowCount"], 2)
         with self.assertRaises(AiError):
