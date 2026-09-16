@@ -116,6 +116,37 @@ class RankingPaginationTests(TestCase):
         self.assertEqual(ranking["pagination"]["total"], 2)
         self.assertEqual(ranking["summary"]["pendingAiCount"], 1)
 
+    @skipUnless(connection.vendor == "postgresql", "Query planning needs PostgreSQL statistics")
+    def test_correlated_price_states_keep_full_scale_read_within_statement_budget(self):
+        # Real imports correlate confirmed state, price type, positive amount
+        # and hash validity. Independent selectivity estimates can collapse
+        # this substantial matching set to one row and create a quadratic join.
+        seed = self.entry("planner-seed")
+        MarketPriceSnapshot.objects.create(id="planner-seed", category=seed.category, scope=seed.scope,
+            sku_code=seed.sku_code, month="2026-08", confirmation_status="confirmed", ai_price_type="到手价",
+            image_content_sha256="a"*64, confirmed_market_price_cents=10000)
+        quote = connection.ops.quote_name
+        with connection.cursor() as cursor:
+            for model, overrides in (
+                (MarketRankingEntry, {"natural_key":"'planner-'||g::text", "sku_code":"'planner-'||g::text", "rank":"g"}),
+                (MarketPriceSnapshot, {"id":"'planner-'||g::text", "sku_code":"'planner-'||g::text",
+                  "confirmation_status":"CASE WHEN g%4=0 THEN 'confirmed' ELSE 'source_table' END",
+                  "ai_price_type":"CASE WHEN g%4=0 THEN '到手价' ELSE '' END",
+                  "confirmed_market_price_cents":"CASE WHEN g%4=0 THEN 10000 ELSE NULL END",
+                  "image_content_sha256":"CASE WHEN g%20=0 THEN 'invalid' ELSE repeat('a',64) END"}),
+            ):
+                fields = [f.column for f in model._meta.concrete_fields if not (model is MarketRankingEntry and f.column=="id")]
+                values = [overrides.get(f, "s."+quote(f)) for f in fields]
+                cursor.execute("INSERT INTO "+quote(model._meta.db_table)+" ("+",".join(map(quote,fields))+") SELECT "+
+                    ",".join(values)+" FROM "+quote(model._meta.db_table)+" s CROSS JOIN generate_series(1,100000) g WHERE s.sku_code='planner-seed'")
+            cursor.execute("ANALYZE market_ranking_entries")
+            cursor.execute("ANALYZE market_price_snapshots")
+            cursor.execute("SET LOCAL statement_timeout='6s'")
+        result = self.query()
+        self.assertEqual(result["pagination"]["total"], 100001)
+        self.assertEqual(result["summary"]["pendingAiCount"], 80000)
+        self.assertEqual(len(result["items"]), 10)
+
     def test_rank_boundary_keeps_all_ties_and_projects_history_outside_candidates(self):
         MarketNetshopProjectionControl.objects.update_or_create(id=1, defaults={"active_revision": "r"})
         for i in range(35):

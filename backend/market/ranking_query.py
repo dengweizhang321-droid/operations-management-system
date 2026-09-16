@@ -49,13 +49,18 @@ def _scope(queryset, price_bands, *, include_bands=True, include_prices=True, se
     # full SHA256 regex, including rejection of a trailing newline.
     valid_hash = "TRANSLATE(s.image_content_sha256,'0123456789abcdef','')=''" if connection.vendor == "postgresql" else "s.image_content_sha256 REGEXP '^[a-f0-9]{64}$'"
     priced_columns = ','.join('p.'+name for name in columns if name != 'price_band_filter')
+    # Hash-expression filters have no column statistics. Combining both as
+    # WHERE predicates can estimate a large price set as one row and choose
+    # an unindexed nested loop across every preferred entry. Keep invalid
+    # hashes as a NULL price; the unique snapshot identity preserves semantics
+    # while ordinary status/type/amount predicates retain useful estimates.
     priced = f"""
         SELECT {priced_columns},s.confirmed_market_price_cents official
         FROM preferred p LEFT JOIN (SELECT category,scope,ranking_dimension,sku_code,month,
-          confirmed_market_price_cents FROM market_price_snapshots s WHERE s.confirmation_status='confirmed'
+          CASE WHEN LENGTH(s.image_content_sha256)=64 AND {valid_hash}
+            THEN confirmed_market_price_cents ELSE NULL END confirmed_market_price_cents
+          FROM market_price_snapshots s WHERE s.confirmation_status='confirmed'
           AND s.ai_price_type IN ('标准售价','到手价','券后价')
-          AND LENGTH(s.image_content_sha256)=64
-          AND {valid_hash}
           AND s.confirmed_market_price_cents>0) s ON
           s.category=p.category AND s.scope=p.scope AND s.ranking_dimension=p.ranking_dimension
           AND s.sku_code=p.sku_code AND s.month=SUBSTR(p.period_end,1,7)
