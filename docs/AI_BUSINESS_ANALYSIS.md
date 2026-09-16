@@ -360,6 +360,10 @@ Chrome 共 25 项检查通过，覆盖超限完整显示、异常预览拒绝、
 
 真实领域读取器、封存服务、五 Agent 调度、独立与人工复核、文件生成及下载组成合成验收；仅模型和网络边界使用夹具，不证明真实模型经营判断质量。测试与限制见 [第二十三批候选证据](evidence/ai-business-budget-execution-candidate.json)。
 
+## 第四十批：筛查意图、报告与发布身份固定
+
+新报告首次固定筛查ID、完整选择计划及规则版本，映射和预算可分别选用；扫描完成后按原意图原子发布，快照/输入不回填。迁移0024只加约束，仍65张表；升级旧行摘要、真实受限writer发布、四份新旧结果独立恢复及旧预算/关联回归通过。尚未开放新执行入口，详见 [固定意图](AI_BUSINESS_SCREENING_INTENT.md) 与 [证据](evidence/ai-business-screening-intent-candidate.json)。
+
 ## 第三十九批：固定候选数值引用
 
 从实际已发布角色包解析候选本期、基期及差值，模型只能提交候选ID/指标/字段，不能自填数字；保留原生、映射、来源日期与规则绑定。8项隔离PostgreSQL测试通过，独立复审无阻断；读取证明、因果判断与正式文件仍须后续接入，见 [候选引用](AI_BUSINESS_SCREENING_CLAIMS.md) 和 [证据](evidence/ai-business-screening-claims-candidate.json)。

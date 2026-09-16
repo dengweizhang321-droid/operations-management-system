@@ -265,6 +265,10 @@ class BusinessIntegratedGuardTests(TransactionTestCase):
                 cursor.execute("SELECT prosrc FROM pg_proc WHERE proname='ai_business_budget_report_guard'")
                 self.assertEqual(cursor.fetchone()[0],migration.OLD_BUDGET_GUARD.split("$$")[1])
             migration.install(apps,editor)
+            # Later migrations may have extended these functions. Exercise
+            # the historical downgrade inside this savepoint, then restore
+            # the schema present on entry instead of leaving a 0022 body.
+            transaction.set_rollback(True)
         self.seed()
         with self.assertRaisesRegex(RuntimeError,"integrated"):
             migration.uninstall(apps,editor)

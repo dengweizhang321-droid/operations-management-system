@@ -55,10 +55,15 @@ def _load(report_id, principal):
         _conflict("报告与工作流身份不一致")
     try:
         snapshot = json.loads(report.snapshot_json)
+        from . import business_screening_runtime
+        screening_profile = type(snapshot) is dict and business_screening_runtime.is_snapshot(snapshot)
         if (type(snapshot) is not dict or canonical(snapshot) != report.snapshot_json
-                or snapshot.get("schemaVersion") != business_reports.SCHEMA or not business_reports.is_v2_snapshot(snapshot)):
+                or snapshot.get("schemaVersion") != business_reports.SCHEMA
+                or not (screening_profile or business_reports.is_v2_snapshot(snapshot))):
             _conflict("筛查仅支持固定封存v2报告")
-        if business_integrated.is_snapshot(snapshot):
+        if screening_profile:
+            report, snapshot, reference, evidence, _, _ = business_screening_runtime.bound(report, principal)
+        elif business_integrated.is_snapshot(snapshot):
             report, snapshot, reference, evidence, _ = business_integrated.bound(report, principal)
         else:
             if any(key in snapshot for key in ("mappingPlan", "mappingPlanDigest")):

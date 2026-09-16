@@ -436,6 +436,9 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -ne 1) { throw "AI 固定预算迁移缺少前置多卷迁移" }
       $requiredTables += @("ai_business_budget_plans")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0024_business_screening_runtime" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -ne 1) { throw "AI 筛查执行迁移缺少前置固定筛查存储迁移" }
+    }
     if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -gt 0) {
       foreach ($screeningPredecessor in @("0022_business_integrated_reports", "0021_business_budget_plans")) {
         if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $screeningPredecessor }).Count -ne 1) { throw "AI 固定筛查存储缺少前置集成报告迁移" }

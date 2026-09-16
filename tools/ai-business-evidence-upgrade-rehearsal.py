@@ -1,4 +1,4 @@
-"""0013 -> 0023, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0024, live restricted roles and independent restore; synthetic only."""
 from copy import deepcopy
 import argparse
 import hashlib
@@ -50,6 +50,7 @@ volume_target = [("ai_assistant", "0020_business_volume_files")]
 budget_target = [("ai_assistant", "0021_business_budget_plans")]
 integrated_target = [("ai_assistant", "0022_business_integrated_reports")]
 screening_target = [("ai_assistant", "0023_business_screening_storage")]
+screening_runtime_target = [("ai_assistant", "0024_business_screening_runtime")]
 
 def snapshot(dbname, tables, *, original_report_columns=False):
     result = {}
@@ -272,6 +273,49 @@ for group in screen_description["manifest"]["groups"]:
             "offset":offset,"digest":hashlib.sha256(canonical(page).encode()).hexdigest()})
         offset = page["pagination"]["nextOffset"]
         if offset is None: break
+# Exercise 0023's independent rollback gate before 0024's report-intent gate
+# can mask it. The next migration adds guards only: all 65 row hashes persist.
+screening_runtime_before = snapshot(database["NAME"],AI_TABLES)
+try:
+    MigrationExecutor(connection).migrate(integrated_target)
+except RuntimeError as error:
+    assert "screen" in str(error).lower() or "筛查" in str(error),str(error)
+else:
+    raise AssertionError("0023 reverse discarded screening publication")
+assert snapshot(database["NAME"],AI_TABLES)==screening_runtime_before
+executor=MigrationExecutor(connection)
+assert [(item.app_label,item.name) for item,backwards in executor.migration_plan(screening_runtime_target)]==screening_runtime_target
+executor.migrate(screening_runtime_target)
+assert snapshot(database["NAME"],AI_TABLES)==screening_runtime_before
+assert MigrationExecutor(connection).migration_plan(screening_runtime_target)==[]
+from ai_assistant import business_screening_runtime as screening_runtime, business_screening_runtime_contract as runtime_contract
+runtime_report_id="screening-runtime-upgrade-budget"
+runtime_screening_id="screening-runtime-upgrade-fixed"
+runtime_budget=business_budget_store.prepare(integrated_fixture.parent,integrated_fixture.budget_plan,
+    integrated_principal,runtime_report_id)
+runtime_prepared=screening_runtime.prepare(integrated_fixture.parent,integrated_principal,runtime_report_id,
+    "合成筛查意图及预算恢复，不调用模型",runtime_screening_id,
+    choices=[{"salesKey":"sales","masterKey":"master"}],budget=runtime_budget)
+runtime_graph=runtime_contract.graph(True)
+with mutation(integrated_principal):
+    runtime_report=integrated_fixture.insert((runtime_prepared.snapshot,runtime_prepared.reference,runtime_budget),
+        flow_changes={"graph_json":canonical(runtime_graph),"graph_digest":hashlib.sha256(canonical(runtime_graph).encode()).hexdigest()})
+assert not m.AiBusinessScreeningRun.objects.filter(report=runtime_report).exists()
+unpublished_runtime_digest=snapshot(database["NAME"],AI_TABLES)
+try:
+    MigrationExecutor(connection).migrate(screening_target)
+except RuntimeError as error:
+    assert "screening" in str(error),str(error)
+else:
+    raise AssertionError("0024 reverse accepted an unpublished screening report")
+assert snapshot(database["NAME"],AI_TABLES)==unpublished_runtime_digest
+assert MigrationExecutor(connection).migration_plan(screening_runtime_target)==[]
+with patch("ai_assistant.provider.turn",side_effect=AssertionError("no model")):
+    runtime_verified=business_diagnostic_screening.prepare_for_report(runtime_report.id,integrated_principal)
+    runtime_publication=business_screening_store.publish(runtime_verified,integrated_principal)
+assert runtime_publication["reference"]["id"]==runtime_screening_id and runtime_publication["replayed"] is False
+assert business_screening_store.publish(runtime_verified,integrated_principal)["replayed"] is True
+screening_runtime.bound(runtime_report,integrated_principal)
 budget_insert = """INSERT INTO ai_business_budget_plans
     (id,owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,created_at)
     SELECT 'orphan-budget',owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,now()
@@ -338,18 +382,21 @@ for role in ("reader", "writer"):
     screen_role_code = """import django; django.setup()
 import sys
 from ai_assistant import business_diagnostic_screening as screening,business_screening_store as store
+from ai_assistant import business_screening_runtime as runtime,business_screening_runtime_contract as contract,business_evidence,models
+from ai_assistant.policy import canonical,digest,mutation
 from sales.auth import Principal
 from unittest.mock import patch
 actor=Principal(sys.argv[1],'synthetic','admin',None)
 with patch.object(screening.Reader,'pages',side_effect=AssertionError('fixed read must not rescan')):
-    description=store.describe(sys.argv[2],actor)
-    for group in description['manifest']['groups']:
-        offset=0
-        while True:
-            page=(store.read_coverage(sys.argv[2],actor,offset=offset) if group['kind']=='coverage'
-                else store.read_candidates(sys.argv[2],actor,group['partitionKey'],offset=offset))
-            offset=page['pagination']['nextOffset']
-            if offset is None: break
+    for screening_id in (sys.argv[2],sys.argv[5]):
+        description=store.describe(screening_id,actor)
+        for group in description['manifest']['groups']:
+            offset=0
+            while True:
+                page=(store.read_coverage(screening_id,actor,offset=offset) if group['kind']=='coverage'
+                    else store.read_candidates(screening_id,actor,group['partitionKey'],offset=offset))
+                offset=page['pagination']['nextOffset']
+                if offset is None: break
 if sys.argv[3]=='writer':
     with patch('ai_assistant.provider.turn',side_effect=AssertionError('no model')):
         verified=screening.prepare_for_report(sys.argv[4],actor)
@@ -357,10 +404,27 @@ if sys.argv[3]=='writer':
         assert result['replayed'] is False
         replay=store.publish(verified,actor)
         assert replay['reference']==result['reference'] and replay['replayed'] is True
+        evidence=business_evidence.get_run(sys.argv[6],actor)
+        report_id='screening-runtime-upgrade-writer'
+        result_id='screening-runtime-upgrade-writer-fixed'
+        fixed=runtime.prepare(evidence,actor,report_id,'受限writer固定筛查，不调用模型',result_id)
+        graph=contract.graph(False)
+        with mutation(actor):
+            flow=models.AiWorkflowRuns.objects.create(id='flow-'+report_id,owner_email=actor.email,scope_json='null',
+                client_request_id='flow-'+report_id,request_digest=digest(fixed.reference),name='合成筛查恢复',
+                graph_json=canonical(graph),graph_digest=digest(graph),input_json=fixed.reference_json,dry_run=1)
+            report=models.AiReportRun.objects.create(id=report_id,owner_email=actor.email,scope_json='null',
+                client_request_id=report_id,request_digest=digest(fixed.snapshot),workflow=flow,snapshot_json=fixed.snapshot_json)
+        runtime.bound(report,actor)
+        verified=screening.prepare_for_report(report.id,actor)
+        result=store.publish(verified,actor)
+        assert result['reference']['id']==result_id and result['replayed'] is False
+        replay=store.publish(verified,actor)
+        assert replay['reference']==result['reference'] and replay['replayed'] is True
 print('screening restricted service checks passed')
 """
     screen_role = subprocess.run([sys.executable,"-c",screen_role_code,integrated_principal.email,
-        screen_reference["id"],role,screen_writer_report.id],env=env,capture_output=True,timeout=60)
+        screen_reference["id"],role,screen_writer_report.id,runtime_screening_id,integrated_fixture.parent.id],env=env,capture_output=True,timeout=60)
     if screen_role.returncode:
         (run_root/"screening-role-error.log").write_bytes(screen_role.stderr)
         raise RuntimeError("Restricted screening service check failed; see screening-role-error.log")
@@ -452,17 +516,55 @@ print('screening restricted service checks passed')
             assert health().returncode != 0
         finally:
             owner.execute(helper_sql)
+        if role == "writer":
+            for table,trigger in (("ai_report_runs","ai_business_screening_report_binding"),
+                    ("ai_workflow_runs","ai_business_screening_workflow_binding")):
+                owner.execute(sql.SQL("ALTER TABLE {} DISABLE TRIGGER {}").format(sql.Identifier(table),sql.Identifier(trigger)))
+                try:
+                    assert health().returncode != 0
+                finally:
+                    owner.execute(sql.SQL("ALTER TABLE {} ENABLE TRIGGER {}").format(sql.Identifier(table),sql.Identifier(trigger)))
+            runtime_migration=import_module("ai_assistant.migrations.0024_business_screening_runtime")
+            # Restore the latest installed body, never the obsolete 0023
+            # profile whitelist or the 0022 integrated/budget permissions.
+            for definition in (runtime_migration.SCREEN_INITIAL,runtime_migration.INTEGRATED_REPORT_GUARD,
+                    runtime_migration.NEW_BUDGET_GUARD):
+                assert "RETURN NEW;" in definition
+                owner.execute(definition.replace("RETURN NEW;","RAISE EXCEPTION 'synthetic changed guard';",1))
+                try:
+                    assert health().returncode != 0
+                finally:
+                    owner.execute(definition)
         assert health().returncode == 0
 
+# Capture all old/new publications, including the two produced by the actual
+# restricted writer. Restoration must read these original bytes, not rescan.
+screenings_expected={}
+for report_id in (screen_report.id,screen_writer_report.id,runtime_report.id,"screening-runtime-upgrade-writer"):
+    record=m.AiBusinessScreeningRun.objects.get(report_id=report_id)
+    report=m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
+    description=business_screening_store.describe(record.id,integrated_principal)
+    wanted={"reference":description["reference"],"snapshot":report.snapshot_json,"input":report.workflow.input_json,"pages":[]}
+    for group in description["manifest"]["groups"]:
+        offset=0
+        while True:
+            page=(business_screening_store.read_coverage(record.id,integrated_principal,offset=offset)
+                if group["kind"]=="coverage" else business_screening_store.read_candidates(record.id,integrated_principal,group["partitionKey"],offset=offset))
+            wanted["pages"].append({"kind":group["kind"],"partitionKey":group["partitionKey"],"offset":offset,
+                "digest":hashlib.sha256(canonical(page).encode()).hexdigest()})
+            offset=page["pagination"]["nextOffset"]
+            if offset is None: break
+    screenings_expected[record.id]=wanted
+assert len(screenings_expected)==4
 complete = snapshot(database["NAME"], AI_TABLES)
 try:
-    MigrationExecutor(connection).migrate(integrated_target)
+    MigrationExecutor(connection).migrate(screening_target)
 except RuntimeError as error:
     assert "screen" in str(error).lower() or "筛查" in str(error), str(error)
 else:
     raise AssertionError("Reverse migration discarded screening publication")
 assert snapshot(database["NAME"], AI_TABLES) == complete
-assert MigrationExecutor(connection).migration_plan(screening_target) == []
+assert MigrationExecutor(connection).migration_plan(screening_runtime_target) == []
 binary = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
@@ -473,6 +575,9 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi
         FROM ai_business_budget_plans p JOIN ai_report_runs r ON r.budget_plan_id=p.id WHERE r.id=%s""", [budget_report.id]).fetchone() == budget_expected
     for report_id, expected in integrated_expected.items():
         assert restored.execute("SELECT r.snapshot_json,w.input_json FROM ai_report_runs r JOIN ai_workflow_runs w ON w.id=r.workflow_id WHERE r.id=%s",[report_id]).fetchone()==(expected["snapshot"],expected["reference"])
+    for expected in screenings_expected.values():
+        assert restored.execute("SELECT r.snapshot_json,w.input_json FROM ai_report_runs r JOIN ai_workflow_runs w ON w.id=r.workflow_id WHERE r.id=%s",
+            [expected["reference"]["reportId"]]).fetchone()==(expected["snapshot"],expected["input"])
     content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
     assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
     assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id IN ('file-restore','offline-file-restore','excel-file-restore') ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
@@ -494,11 +599,12 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi
 restore_env = {**os.environ, "PYTHONPATH": str(ROOT / "backend"),
     "TERUISI_DJANGO_DATABASE_URL": os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")}
 integrated_expected_path=run_root/"integrated-restore-expected.json"
-integrated_expected_path.write_text(json.dumps({"principalEmail":integrated_principal.email,"reports":integrated_expected,"screening":screen_expected},ensure_ascii=False),encoding="utf-8")
+integrated_expected_path.write_text(json.dumps({"principalEmail":integrated_principal.email,"reports":integrated_expected,
+    "screening":screen_expected,"screenings":screenings_expected},ensure_ascii=False),encoding="utf-8")
 restore_code = """import django; django.setup()
 import hashlib,json,sys
 from pathlib import Path
-from ai_assistant import business_budget_store,business_integrated,business_integrated_tools,business_screening_store,business_diagnostic_screening,models
+from ai_assistant import business_budget_store,business_integrated,business_integrated_tools,business_screening_store,business_diagnostic_screening,business_screening_runtime,models
 from unittest.mock import patch
 from ai_assistant.policy import canonical
 from sales.auth import Principal
@@ -526,13 +632,19 @@ for report_id,wanted in expected['reports'].items():
     digests[report_id]={'mappedDigest':mapped_digest,'budgetResultDigest':budget_digest}
 screen = expected['screening']
 with patch.object(business_diagnostic_screening.Reader,'pages',side_effect=AssertionError('restore reads cannot recompute facts')):
-    restored_screen = business_screening_store.describe(screen['reference']['id'],principal)
-    assert restored_screen['reference'] == screen['reference']
-    for wanted in screen['pages']:
-        actual = (business_screening_store.read_coverage(screen['reference']['id'],principal,offset=wanted['offset'])
-            if wanted['kind']=='coverage' else business_screening_store.read_candidates(screen['reference']['id'],principal,wanted['partitionKey'],offset=wanted['offset']))
-        assert hashlib.sha256(canonical(actual).encode()).hexdigest()==wanted['digest']
-print(json.dumps({'oldBudgetDigest':old_budget,'integrated':digests,'screening':screen['reference']},sort_keys=True))
+    for result_id,fixed in expected['screenings'].items():
+        restored_screen = business_screening_store.describe(result_id,principal)
+        assert restored_screen['reference'] == fixed['reference']
+        report=models.AiReportRun.objects.select_related('workflow').get(pk=fixed['reference']['reportId'])
+        assert report.snapshot_json==fixed['snapshot'] and report.workflow.input_json==fixed['input']
+        if json.loads(report.snapshot_json)['executionProfile']==business_screening_runtime.PROFILE:
+            _,snapshot,reference,_,_,_=business_screening_runtime.bound(report,principal)
+            assert snapshot['screeningIntent']['id']==result_id and canonical(reference)==fixed['input']
+        for wanted in fixed['pages']:
+            actual = (business_screening_store.read_coverage(result_id,principal,offset=wanted['offset'])
+                if wanted['kind']=='coverage' else business_screening_store.read_candidates(result_id,principal,wanted['partitionKey'],offset=wanted['offset']))
+            assert hashlib.sha256(canonical(actual).encode()).hexdigest()==wanted['digest']
+print(json.dumps({'oldBudgetDigest':old_budget,'integrated':digests,'screening':screen['reference'],'screeningIds':sorted(expected['screenings'])},sort_keys=True))
 """
 restored_budget = subprocess.run([sys.executable, "-c", restore_code,str(integrated_expected_path)], env=restore_env, capture_output=True, timeout=60)
 if restored_budget.returncode:
@@ -542,6 +654,29 @@ restored_checks=json.loads(restored_budget.stdout)
 assert restored_checks['oldBudgetDigest']==hashlib.sha256(prepared_budget.result_json.encode()).hexdigest()
 assert set(restored_checks['integrated'])==set(integrated_expected)
 assert restored_checks['screening']==screen_reference
+assert restored_checks['screeningIds']==sorted(screenings_expected)
+restored_role_read_code="""import django; django.setup()
+import hashlib,json,sys
+from pathlib import Path
+from unittest.mock import patch
+from sales.auth import Principal
+from ai_assistant import business_screening_store as store,business_diagnostic_screening as screening,business_screening_runtime as runtime,models
+from ai_assistant.policy import canonical
+expected=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+actor=Principal(expected['principalEmail'],'synthetic','admin',None)
+with patch.object(screening.Reader,'pages',side_effect=AssertionError('restricted restore must not rescan')):
+    for result_id,fixed in expected['screenings'].items():
+        assert store.describe(result_id,actor)['reference']==fixed['reference']
+        report=models.AiReportRun.objects.select_related('workflow').get(pk=fixed['reference']['reportId'])
+        assert report.snapshot_json==fixed['snapshot'] and report.workflow.input_json==fixed['input']
+        if json.loads(report.snapshot_json)['executionProfile']==runtime.PROFILE:
+            assert runtime.bound(report,actor)[1]['screeningIntent']['id']==result_id
+        for wanted in fixed['pages']:
+            page=(store.read_coverage(result_id,actor,offset=wanted['offset']) if wanted['kind']=='coverage'
+                else store.read_candidates(result_id,actor,wanted['partitionKey'],offset=wanted['offset']))
+            assert hashlib.sha256(canonical(page).encode()).hexdigest()==wanted['digest']
+print('restricted new and old screening restore reads passed')
+"""
 for role in ("reader","writer"):
     env={**restore_env,"TERUISI_DJANGO_DATABASE_URL":f"postgresql://teruisi_ai_{role}:{passwords[role]}@127.0.0.1:{database['PORT']}/teruisi_business_restore",
         "TERUISI_DJANGO_PROCESS_ROLE":"ai_"+role,"TERUISI_DJANGO_EXPECT_READ_ONLY":str(role=="reader").lower(),
@@ -550,11 +685,15 @@ for role in ("reader","writer"):
     if checked.returncode:
         (run_root/"restored-role-health-error.log").write_bytes(checked.stderr)
         raise RuntimeError("Restored restricted role health failed")
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->0021->0022->0023", "oldAiTablesDigestPreserved": before,
+    read_result=subprocess.run([sys.executable,"-c",restored_role_read_code,str(integrated_expected_path)],env=env,capture_output=True,timeout=60)
+    if read_result.returncode:
+        (run_root/"restored-screening-role-error.log").write_bytes(read_result.stderr)
+        raise RuntimeError("Restored restricted screening read failed; see restored-screening-role-error.log")
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->0021->0022->0023->0024", "oldAiTablesDigestPreserved": before,
     "previous60TablesDigestPreserved": previous_digest, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
     "previous61TablesDigestPreserved": directory_digest, "renderer4PausedDeliveryRestored": True,
     "previous62TableOriginalColumnDigestPreserved": volume_before, "oldReportBudgetFkNull": True,
-    "budgetParametersRestored": 2, "budgetPlanBytes": len(prepared_budget.plan_json.encode()),
+    "budgetParametersRestored": m.AiBusinessBudgetPlan.objects.count(), "budgetPlanBytes": len(prepared_budget.plan_json.encode()),
     "budgetBindingBytes": len(prepared_budget.binding_json.encode()), "budgetRollbackWithDataDenied": True,
     "budgetReaderReconciledAfterRestore": True,
     "previous63TablesDigestPreserved":budget_schema_before,"integratedReportsRestored":2,
@@ -562,6 +701,10 @@ print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->00
     "screeningReferenceRestored":screen_reference,"screeningPagesRestored":len(screen_expected["pages"]),
     "screeningRestoreReadsWithoutFactRescan":True,"screeningRollbackWithDataDenied":True,
     "screeningRestrictedReaderAndWriterPages":True,"screeningRestrictedWriterPublicationAndReplay":True,
+    "previous65TablesBeforeRuntimeDigestPreserved":screening_runtime_before,
+    "screeningRuntimeUnpublishedReportRollbackDenied":True,"screeningRuntimeFixedIdsRestored":restored_checks['screeningIds'],
+    "screeningRuntimeRestrictedWriterPrepareCreateScanPublishReplay":True,"screeningRuntimeRestrictedRestoreReads":True,
+    "screeningRuntimeTriggerAndLatestFunctionHealthProbes":True,"screeningRuntimeModelDispatched":False,
     "integratedMappingAndBudgetReadersAfterRestore":restored_checks['integrated'],
     "integratedRollbackWithoutBudgetDenied":True,"integratedRollbackWithBudgetDenied":True,
     "integratedTriggerAndFunctionHealthProbes":True,"restoredRestrictedRoleHealth":True,

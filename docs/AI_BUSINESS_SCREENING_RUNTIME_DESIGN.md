@@ -28,6 +28,8 @@
 
 ## 3. 先固定 intent，再原子发布成功快照
 
+第四十批已经实现本文的固定意图与真实发布绑定，详见 [实现及升级恢复](AI_BUSINESS_SCREENING_INTENT.md)。扫描前调度门禁和模型准入尚未接入；创建API继续不接受新profile。
+
 建议新 profile `business-agent-screening-reference-v1`、新 surface `business_agent_screening_v1`。命名为提案，实施时一次固定。可选 mapping/budget 继续显式固定；未选择时不能推断。旧 profile 的创建、恢复、graph、工具目录 SHA 和数据库 guard 语义全部保留。
 
 首次创建的新 snapshot/reference 固定：

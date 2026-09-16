@@ -234,6 +234,8 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0024_business_screening_runtime" in ai_migrations and "0023_business_screening_storage" not in ai_migrations:
+                raise RuntimeError("AI screening runtime schema has no screening storage predecessor")
             if "0023_business_screening_storage" not in ai_migrations:
                 expected_ai_tables.difference_update({"ai_business_screening_runs", "ai_business_screening_pages"})
             elif "0022_business_integrated_reports" not in ai_migrations or "0021_business_budget_plans" not in ai_migrations:

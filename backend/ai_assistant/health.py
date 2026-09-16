@@ -91,7 +91,9 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
-            {(table, trigger) for table in ("ai_business_screening_runs", "ai_business_screening_pages")
+            {("ai_report_runs", "ai_business_screening_report_binding"),
+             ("ai_workflow_runs", "ai_business_screening_workflow_binding")}
+            | {(table, trigger) for table in ("ai_business_screening_runs", "ai_business_screening_pages")
              for trigger in ("ai_write_fence", "ai_immutable_evidence", "ai_screen_complete")}
             | {("ai_business_screening_runs", "ai_screen_initial"), ("ai_business_screening_pages", "ai_screen_page_initial")}
             |
@@ -173,15 +175,18 @@ def check():
             raise ValueError("AI write fences or immutable audit guards missing")
         integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
         screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
+        screening_runtime = importlib.import_module("ai_assistant.migrations.0024_business_screening_runtime")
         for signature, definition, volatility in (
             ("public.ai_screen_fields(json,text[])", screening.FIELDS, "i"),
             ("public.ai_screen_uint(json,bigint,bigint)", screening.UINT, "i"),
-            ("public.ai_screen_initial_guard()", screening.INITIAL, "v"),
+            ("public.ai_screen_initial_guard()", screening_runtime.SCREEN_INITIAL, "v"),
             ("public.ai_screen_page_guard()", screening.PAGE, "v"),
             ("public.ai_screen_complete_guard()", screening.COMPLETE, "v"),
             ("public.ai_business_mapping_plan_json(text)", integrated.PLAN_GUARD, "i"),
-            ("public.ai_business_integrated_report_guard()", integrated.REPORT_GUARD, "v"),
-            ("public.ai_business_budget_report_guard()", integrated.NEW_BUDGET_GUARD, "v"),
+            ("public.ai_business_integrated_report_guard()", screening_runtime.INTEGRATED_REPORT_GUARD, "v"),
+            ("public.ai_business_budget_report_guard()", screening_runtime.NEW_BUDGET_GUARD, "v"),
+            ("public.ai_business_screening_report_guard()", screening_runtime.REPORT_GUARD, "v"),
+            ("public.ai_business_screening_workflow_guard()", screening_runtime.WORKFLOW_GUARD, "v"),
         ):
             cursor.execute("""SELECT p.prosrc,p.provolatile,p.prosecdef,p.proconfig,l.lanname
                 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)""", [signature])
@@ -197,6 +202,8 @@ def check():
         if cursor.fetchone() != (7, False, False, True):
             raise ValueError("AI integrated report trigger contract changed")
         for table, name, expected_type, deferred, function in (
+            ("ai_report_runs", "ai_business_screening_report_binding", 7, False, "ai_business_screening_report_guard"),
+            ("ai_workflow_runs", "ai_business_screening_workflow_binding", 5, True, "ai_business_screening_workflow_guard"),
             ("ai_business_screening_runs", "ai_screen_initial", 7, False, "ai_screen_initial_guard"),
             ("ai_business_screening_pages", "ai_screen_page_initial", 7, False, "ai_screen_page_guard"),
             ("ai_business_screening_runs", "ai_screen_complete", 5, True, "ai_screen_complete_guard"),

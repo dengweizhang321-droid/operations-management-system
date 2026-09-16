@@ -402,6 +402,12 @@ test("maintenance validates complete AI backup evidence before and after activat
   screenings.tables.ai_business_screening_runs = 0;
   screenings.tables.ai_business_screening_pages = 0;
   assert.equal(Object.keys(screenings.tables).filter(name => name.startsWith("ai_")).length, 65);
+  const screeningRuntime = structuredClone(screenings);
+  screeningRuntime.migrations.push({ app: "ai_assistant", name: "0024_business_screening_runtime" });
+  const runtimeWithoutStorage = structuredClone(screeningRuntime);
+  runtimeWithoutStorage.migrations = runtimeWithoutStorage.migrations.filter(item => item.name !== "0023_business_screening_storage");
+  delete runtimeWithoutStorage.tables.ai_business_screening_runs;
+  delete runtimeWithoutStorage.tables.ai_business_screening_pages;
   const screeningsInvalid = ["ai_business_screening_runs", "ai_business_screening_pages"].map(name => {
     const evidence = structuredClone(screenings); delete evidence.tables[name]; return evidence;
   });
@@ -444,7 +450,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   const businessMissingPredecessor = structuredClone(business);
   businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, screenings, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, screenings, screeningRuntime, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    { valid: false, evidence: runtimeWithoutStorage },
     ...screeningsInvalid.map(evidence => ({ valid: false, evidence })),
     ...[budgetsMissing, budgetsUnbound, ...budgetPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[volumesMissing, volumesUnbound, ...volumePredecessorsMissing].map(evidence => ({ valid: false, evidence })),

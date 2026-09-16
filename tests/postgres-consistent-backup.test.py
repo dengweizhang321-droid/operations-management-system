@@ -108,10 +108,17 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_business_evidence_tables_require_exact_migration_generation(self):
-        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 23)
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 24)
         migrations = [("ai_assistant", name) for name in names]
         current = _ai_evidence(AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 65)
+        before_runtime = _ai_evidence(AI_TABLES, [m for m in migrations if int(m[1][:4]) <= 23])
+        self.assertEqual(len([name for name in before_runtime["tables"] if name.startswith("ai_")]),65)
+        self.assertNotEqual(current["contentSha256"],before_runtime["contentSha256"])
+        # Removing both storage tables must not disguise 0024 without 0023 as a
+        # legitimate historical 63-table backup.
+        with self.assertRaisesRegex(RuntimeError,"storage predecessor"):
+            _ai_evidence(set(AI_TABLES)-SCREENING_TABLES,[m for m in migrations if m[1] != "0023_business_screening_storage"])
         old_tables = set(AI_TABLES)-SCREENING_TABLES
         old_migrations = [m for m in migrations if int(m[1][:4]) <= 22]
         before_screening = _ai_evidence(old_tables, old_migrations)
