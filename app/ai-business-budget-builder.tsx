@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import { canonical, dimensions, eligible, makePlan, validateBinding, validateTargetPage, type BudgetPlan, type BudgetResult, type BudgetRun, type EvidenceBinding, type SelectedTarget, type Source, type TargetPage } from "@/lib/ai/business-budget-builder";
 
-export type BusinessBudgetBuilderProps = { run: BudgetRun; principalKey: string; disabled?: boolean; onSubmit: (plan: BudgetPlan, dryRun: boolean) => void | Promise<void> };
+export type BusinessBudgetBuilderProps = { run: BudgetRun; principalKey: string; disabled?: boolean; allowDryRun?: boolean; onSubmit: (plan: BudgetPlan, dryRun: boolean) => void | Promise<void> };
 type Directory = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string; offset: number; total: number; returned: number; nextOffset: number | null; items: Source[] };
 const message = (error: unknown) => error instanceof Error ? error.message : "预算读取失败，请重新核验。";
 const money = (value: number | null | undefined) => value == null ? "不可测算" : (value/100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -26,7 +26,7 @@ export default function AiBusinessBudgetBuilder(props: BusinessBudgetBuilderProp
   if (!principalKey || run.status !== "sealed" || run.plan.schemaVersion !== "business-evidence-v2" || !Number.isSafeInteger(run.version) || run.version < 1 || !Number.isSafeInteger(run.plan.sourceCount) || run.plan.sourceCount! < 1 || run.plan.sourceCount! > 48 || !/^[a-f0-9]{64}$/.test(run.plan.catalogDigest ?? "")) return <p>固定预算需要当前账号下已封存且目录完整的 v2 证据。</p>;
   return <Builder key={`${principalKey}:${run.id}:${run.version}:${run.plan.catalogDigest}`} {...props} />;
 }
-function Builder({ run, disabled = false, onSubmit }: BusinessBudgetBuilderProps) {
+function Builder({ run, disabled = false, allowDryRun = true, onSubmit }: BusinessBudgetBuilderProps) {
   const [directory, setDirectory] = useState<Directory | null>(null), [directoryOffset, setDirectoryOffset] = useState(0), [directoryHistory, setDirectoryHistory] = useState<number[]>([]), [directoryError, setDirectoryError] = useState("");
   const [source, setSource] = useState<Source | null>(null), [dimension, setDimension] = useState(""), [offset, setOffset] = useState(0), [history, setHistory] = useState<number[]>([]), [page, setPage] = useState<TargetPage | null>(null), [targetError, setTargetError] = useState("");
   const [selected, setSelected] = useState<SelectedTarget[]>([]), [fields, setFields] = useState<Record<string, string>>({}), [scenarios, setScenarios] = useState<Record<string, string>[]>([{}]);
@@ -87,7 +87,7 @@ function Builder({ run, disabled = false, onSubmit }: BusinessBudgetBuilderProps
     finally { if (alive.current && controller.current === ctl) { setBusy(false); controller.current = null; } }
   }
   async function submit(dryRun: boolean) {
-    if (!preview || disabled || submitting || busy) return;
+    if (!preview || disabled || submitting || busy || dryRun && !allowDryRun) return;
     const current = revision.current; setSubmitting(true);
     try {
       if (canonical(makePlan(fields, selected, scenarios)) !== canonical(preview.plan)) throw new Error("参数已变化，请重新试算。");
@@ -116,6 +116,6 @@ function Builder({ run, disabled = false, onSubmit }: BusinessBudgetBuilderProps
     </fieldset>
     {error && <p role="alert">{error}</p>}
     {preview && <section aria-label="当前预算试算"><h4>当前参数试算</h4><p>总预算 {money(preview.budget.allocation.totalBudgetCents)} 元，预留 {money(preview.budget.allocation.reservedCents)} 元，已分配 {money(preview.budget.allocation.allocatedCents)} 元，未分配 {money(preview.budget.allocation.unallocatedCents)} 元。</p>{preview.budget.scenarios.map((scenario, i) => <div key={i}><h5>{scenario.assumptions.name}</h5><p>假设归因成交 {money(scenario.summary.projectedAttributedGmvCents)} 元；假设贡献扣推广 {money(scenario.summary.assumedContributionAfterAdCents)} 元；不可测算目标 {scenario.summary.unavailableTargets} 个。</p>{scenario.summary.mixedReportingBases && <p>上报口径不同，不能合计预测成交。</p>}<ul>{scenario.rows.map((row, j) => <li key={j}>{entity(row.entity)}：分配 {money(row.budgetCents)} 元；{statuses[row.status] ?? "未知测算状态，请核验"}；消耗 {money(row.reviewAfterSpendCents)} 元后复核，负责人：{row.ownerRole}</li>)}</ul></div>)}</section>}
-    <p>试算通过后仍须后端检查模型容量与权限。正式分析会调用模型，可能产生费用；不会自动启动。</p><div className="bw-actions"><button disabled={locked || busy || !preview} onClick={() => void submit(true)}>创建预算模拟分析（不调用模型）</button><button disabled={locked || busy || !preview} onClick={() => void submit(false)}>创建预算正式分析（调用模型）</button></div>
+    <p>试算通过后仍须后端检查模型容量与权限。正式分析会调用模型，可能产生费用；不会自动启动。</p>{!allowDryRun && <p>完整规则筛查模式不支持模拟分析；上方免费预算试算仍可使用。</p>}<div className="bw-actions">{allowDryRun && <button disabled={locked || busy || !preview} onClick={() => void submit(true)}>创建预算模拟分析（不调用模型）</button>}<button disabled={locked || busy || !preview} onClick={() => void submit(false)}>创建预算正式分析（调用模型）</button></div>
   </section>;
 }
