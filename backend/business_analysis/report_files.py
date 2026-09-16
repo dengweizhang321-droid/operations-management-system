@@ -105,7 +105,7 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
@@ -227,7 +227,11 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
             manifest.append(proof)
             out('],"proof":'+_json(proof)+'}')
         archive.writestr("teruisi-manifest.json", canonical({"schemaVersion": "business-files-v1", "title": title, "metadata": metadata, "tables": manifest}))
-    out(']}</script>'+HTML_SCRIPT+'</body></html>')
+    out(']}</script>'+HTML_SCRIPT)
+    if offline_budget is not None:
+        from .budget_offline import render
+        out(render(offline_budget))
+    out('</body></html>')
     if xlsx_file.tell() > MAX_FILE_BYTES:
         raise AnalysisContractError("工作簿超过当前容量，须显式分片")
     return {"schemaVersion": "business-files-v1", "tables": manifest}

@@ -116,7 +116,7 @@ class TableSpool:
 
 
 @contextmanager
-def package(report, principal, *, draft, checkpoint=None):
+def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA:
@@ -196,12 +196,18 @@ def package(report, principal, *, draft, checkpoint=None):
                         note = "；".join(table["limitations"])+"。来源="+key+("，基期="+base if base else "")
                         spool.add("analysis-"+digest([key, dimension, base])[:24], f"{key}_{DIMENSION_NAMES[dimension]}_{period}", note,
                             ({"sourceKey": key, "baselineKey": base, **row} for row in rows), table["total"])
-        yield metadata, spool.tables
+        calculator = None
+        if renderer_version >= 2 and value.get("budget"):
+            from business_analysis.budget_offline import payload
+            calculator = payload(value["budget"], report.id)
+        yield metadata, spool.tables, calculator
 
 
-def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=None):
+def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=None, renderer_version=1):
     try:
-        with package(report, principal, draft=draft, checkpoint=checkpoint) as (metadata, tables):
-            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint)
+        if renderer_version not in (1, 2):
+            raise AnalysisContractError("报告渲染版本不受支持")
+        with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=renderer_version) as (metadata, tables, calculator):
+            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint, offline_budget=calculator)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error

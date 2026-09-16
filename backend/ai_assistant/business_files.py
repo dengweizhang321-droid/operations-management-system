@@ -20,6 +20,7 @@ OWNER_BYTES = 2 * RUN_BYTES
 GLOBAL_BYTES = 8 * RUN_BYTES
 LEASE_SECONDS = 650
 BUILD_SECONDS = 600
+RENDERER_VERSION = 2
 
 
 def binding(report, principal, draft):
@@ -67,14 +68,14 @@ def create(report_id, body, principal):
     report = reports.get(report_id, principal)
     fingerprint = binding(report, principal, draft)
     with mutation(principal):
-        old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=1, binding_digest=fingerprint).first()
+        old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=RENDERER_VERSION, binding_digest=fingerprint).first()
         if old:
             return {"item": mapping(authorize_owner(old, principal)), "replayed": True}
         if m.AiBusinessFileRun.objects.filter(owner_email=principal.email.lower(), status__in=["queued", "building", "paused"]).count() >= 2:
             raise AiError("未完成文件任务已达到上限", "rate_limited", 429)
         if m.AiBusinessFileRun.objects.count() >= 1000:
             raise AiError("文件任务存储容量已满", "rate_limited", 429)
-        row = m.AiBusinessFileRun.objects.create(id=uid("business-file"), report=report, owner_email=principal.email.lower(), draft=draft, binding_digest=fingerprint)
+        row = m.AiBusinessFileRun.objects.create(id=uid("business-file"), report=report, owner_email=principal.email.lower(), draft=draft, renderer_version=RENDERER_VERSION, binding_digest=fingerprint)
     return {"item": mapping(row), "replayed": False}
 
 
@@ -151,7 +152,8 @@ def _check_quota(row, size):
 
 def _verify_staged(row):
     manifest = json.loads(row.manifest_json)
-    if manifest.get("schemaVersion") != "business-file-delivery-v1" or manifest.get("attempt") != row.attempt or manifest.get("bindingDigest") != row.binding_digest:
+    if (manifest.get("schemaVersion") != "business-file-delivery-v1" or manifest.get("attempt") != row.attempt
+            or manifest.get("bindingDigest") != row.binding_digest or manifest.get("rendererVersion", 1) != row.renderer_version):
         raise AiError("已保存文件清单不完整", "conflict", 409)
     for format in ("html", "xlsx"):
         sha, size, count = hashlib.sha256(), 0, 0
@@ -192,7 +194,7 @@ def _build(row, principal, state):
         with TemporaryDirectory(prefix="teruisi-file-build-") as directory:
             paths = {format: Path(directory)/("report."+format) for format in ("html", "xlsx")}
             with paths["xlsx"].open("wb") as xlsx, paths["html"].open("wb") as html:
-                proof = business_export.build(row.report, principal, xlsx, html, draft=row.draft, checkpoint=checkpoint)
+                proof = business_export.build(row.report, principal, xlsx, html, draft=row.draft, checkpoint=checkpoint, renderer_version=row.renderer_version)
             files = {}
             for format in ("html", "xlsx"):
                 checkpoint(force=True)
@@ -230,7 +232,7 @@ def _build(row, principal, state):
             with mutation(principal):
                 saved = _current(row.id, principal, state)
                 saved.manifest_json = canonical(passive({"schemaVersion": "business-file-delivery-v1", "attempt": row.attempt,
-                    "bindingDigest": row.binding_digest, "draft": row.draft, "files": files, "tables": proof["tables"]}, 131072))
+                    "bindingDigest": row.binding_digest, "rendererVersion": row.renderer_version, "draft": row.draft, "files": files, "tables": proof["tables"]}, 131072))
                 saved.progress_json = canonical({"stage": "verifying"})
                 saved.version += 1
                 saved.save()

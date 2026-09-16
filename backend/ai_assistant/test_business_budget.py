@@ -135,6 +135,20 @@ class BusinessBudgetTests(TestCase):
         with self.assertRaisesMessage(AiError, "尚未完整读取固定预算情景"):
             reports.validate_review(report, self.admin)
 
+    def test_offline_renderer_keeps_original_tables_and_legacy_version(self):
+        report = self.run_workflow()
+        original = []
+        for version in (1, 2):
+            xlsx, html = io.BytesIO(), io.BytesIO()
+            business_export.build(report, self.admin, xlsx, html, draft=True, renderer_version=version)
+            document = html.getvalue().decode()
+            original.append(ReportData(document).value)
+            self.assertEqual('id="budget-data"' in document, version == 2)
+            if version == 2:
+                self.assertIn("unreviewed_local_scenario", document)
+                self.assertIn("Excel 当前保留原报告参数快照", document)
+        self.assertEqual(original[0], original[1])
+
     def test_stale_ref_overlap_nonpromotion_and_missing_dimension_rejected(self):
         for change in ("id", "dimension", "row", "source"):
             plan = deepcopy(self.plan)

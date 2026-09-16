@@ -72,6 +72,36 @@ class BusinessFileTests(TestCase):
         self.assertEqual(files.get(run_id, self.admin).status, "cancelled")
         self.assertEqual(m.AiBusinessFileChunk.objects.count(), 0)
 
+    def test_old_and_new_renderer_tasks_remain_distinct_and_immutable(self):
+        with mutation(self.admin):
+            old = m.AiBusinessFileRun.objects.create(id="legacy-files", report=self.report, owner_email=self.admin.email,
+                binding_digest=files.binding(self.report, self.admin, False), renderer_version=1)
+        new = files.get(self.start(), self.admin)
+        self.assertEqual(new.renderer_version, 2)
+        self.assertNotEqual(new.id, old.id)
+        self.assertEqual(self.start(), new.id)
+        from importlib import import_module
+        from django.apps import apps
+        reverse = import_module("ai_assistant.migrations.0017_business_file_renderer").restore_legacy_constraint
+        with self.assertRaisesMessage(RuntimeError, "不能回退渲染约束"):
+            reverse(apps, None)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            m.AiBusinessFileRun.objects.filter(pk=old.pk).update(renderer_version=2)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            m.AiBusinessFileRun.objects.create(id="unsupported-files", report=self.report, owner_email=self.admin.email,
+                binding_digest=old.binding_digest, renderer_version=3)
+        seen = []
+        original = files.business_export.build
+        def observe(*args, **kwargs):
+            self.assertEqual(kwargs["renderer_version"], m.AiBusinessFileRun.objects.get(status="building").renderer_version)
+            seen.append(kwargs["renderer_version"])
+            return original(*args, **kwargs)
+        with patch("ai_assistant.business_export.build", side_effect=observe):
+            self.assertEqual(files.tick()["status"], "ready")
+            self.assertEqual(files.tick()["status"], "ready")
+        # Creation timestamps may tie; queue order is not renderer-version order.
+        self.assertCountEqual(seen, [1, 2])
+
     def test_ready_audit_failure_resumes_staged_files_without_rebuilding(self):
         run_id = self.start()
         original = files.audit
