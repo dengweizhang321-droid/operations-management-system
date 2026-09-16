@@ -293,8 +293,9 @@ test("maintenance validates complete AI backup evidence before and after activat
     return;
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
-  const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 56);
+  const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(currentAiTables).size, 58);
+  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -376,8 +377,17 @@ test("maintenance validates complete AI backup evidence before and after activat
   media.migrations.push({ app: "ai_assistant", name: "0013_dingtalk_schedule_media" });
   const mediaWithoutReport = structuredClone(media);
   mediaWithoutReport.migrations = mediaWithoutReport.migrations.filter(item => item.name !== "0012_report_library");
+  const business = structuredClone(media);
+  business.migrations.push({ app: "ai_assistant", name: "0014_business_evidence" });
+  business.tables.ai_business_evidence_runs = 0;
+  business.tables.ai_business_evidence_chunks = 0;
+  const businessMissingChunk = structuredClone(business);
+  delete businessMissingChunk.tables.ai_business_evidence_chunks;
+  const businessMissingPredecessor = structuredClone(business);
+  businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[businessMissingChunk, businessMissingPredecessor].map(evidence => ({ valid: false, evidence })),
     ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
@@ -417,6 +427,6 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 7 tests/);
+  assert.match(result.stderr, /Ran 8 tests/);
   assert.match(result.stderr, /OK/);
 });

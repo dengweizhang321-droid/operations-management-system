@@ -19,11 +19,12 @@ parser.add_argument("--test-label", action="append", default=[], help="Explicit 
 parser.add_argument("--generation-upgrade", action="store_true", help="Rehearse 0008 to 0009 in the fresh isolated database before testing")
 parser.add_argument("--prompt-settings-upgrade", action="store_true", help="Rehearse 0010 to 0011, roles and backup restoration in the fresh isolated database")
 parser.add_argument("--report-library-upgrade", action="store_true")
+parser.add_argument("--business-evidence-upgrade", action="store_true")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
-if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade):
+if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade):
     parser.error("Explicit test labels require --tests-only and cannot narrow upgrade verification")
-if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade]) > 1:
+if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade]) > 1:
     parser.error("Choose only one fresh database upgrade rehearsal")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 PORT = arguments.port
@@ -144,6 +145,10 @@ try:
     if arguments.report_library_upgrade:
         upgrade = run([sys.executable, ROOT / "tools/ai-report-library-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
         (RUN / "report-library-upgrade.json").write_text(upgrade, encoding="utf-8")
+        print(upgrade.strip(), flush=True)
+    if arguments.business_evidence_upgrade:
+        upgrade = run([sys.executable, ROOT / "tools/ai-business-evidence-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
+        (RUN / "business-evidence-upgrade.json").write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
     tests = run(
         [

@@ -13,6 +13,56 @@ const admin = { email: "analysis@example.test", displayName: "Fixture", role: "a
 const entry = aiToolRegistry.find(e => e.name === "get_netshop_analysis_records")!;
 const args = { platform: "京东", shop: "样例店A", dataset: "promotion", startDate: "2026-09-01", endDate: "2026-09-03" };
 
+test("ERP analysis tool uses the owning signed reader and retains exact three-field identity", async t => {
+  const sales = aiToolRegistry.find(e => e.name === "get_sales_analysis_records")!;
+  const oldFetch = globalThis.fetch;
+  const priorUrl = process.env.TERUISI_DJANGO_SALES_READER_BASE_URL;
+  const priorSecret = process.env.TERUISI_DJANGO_INTERNAL_SECRET;
+  process.env.TERUISI_DJANGO_SALES_READER_BASE_URL = "http://127.0.0.1:18011";
+  process.env.TERUISI_DJANGO_INTERNAL_SECRET = "analysis-fixture-internal-secret-at-least-32-bytes";
+  t.after(() => { globalThis.fetch = oldFetch;
+    if (priorUrl === undefined) delete process.env.TERUISI_DJANGO_SALES_READER_BASE_URL; else process.env.TERUISI_DJANGO_SALES_READER_BASE_URL = priorUrl;
+    if (priorSecret === undefined) delete process.env.TERUISI_DJANGO_INTERNAL_SECRET; else process.env.TERUISI_DJANGO_INTERNAL_SECRET = priorSecret;
+  });
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), "http://127.0.0.1:18011/api/sales/consumers/query");
+    const body = JSON.parse(new TextDecoder().decode(init?.body as Uint8Array));
+    assert.equal(body.operation, "analysis_records");
+    assert.equal(body.channel, "京东-样例店A");
+    assert.equal(body.shop, "样例店A");
+    assert.equal(body.platform, "京东");
+    assert.equal(body.limit, 10);
+    assert.ok(new Headers(init?.headers).get("X-Teruisi-Signature"));
+    return Response.json({ operation: "analysis_records", data: { schemaVersion: "business-analysis-v1" } },
+      { headers: { "x-sales-data-revision": "7:3", "x-sales-source-revision": "7:3" } });
+  };
+  const query = { platform: args.platform, shop: args.shop, channel: "京东-样例店A", startDate: args.startDate, endDate: args.endDate };
+  validateToolArguments(query, sales.inputSchema);
+  await sales.handler(query, { principal: admin, surface: "ai_agent", requestId: "erp-test" });
+  assert.ok(!getToolsForPrincipal(admin, "dingtalk_chat").some(e => e.name === sales.name));
+});
+
+test("evidence paths remain finite and use separate reader/writer routes", async () => {
+  const { isPublicAiPath, requestDjangoAi } = await import("../lib/django/ai-service");
+  for (const suffix of ["", "/run", "/run/collect", "/run/finish", "/run/mapping", "/run/chunks/sales"]) assert.ok(isPublicAiPath("/api/ai/business-evidence" + suffix));
+  assert.equal(isPublicAiPath("/api/ai/business-evidence/run/exec"), false);
+  for (const [method, suffix, port] of [["GET", "/run", "18001"], ["POST", "/run/collect", "18002"]] as const) {
+    await requestDjangoAi(admin, { path: "/api/ai/business-evidence" + suffix, method }, {
+      environment: { TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18001", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18002", TERUISI_DJANGO_INTERNAL_SECRET: "analysis-fixture-internal-secret-at-least-32-bytes" },
+      fetchImpl: async url => { assert.equal(new URL(String(url)).port, port); return Response.json({}, { headers: { "x-ai-revision": "1" } }); },
+    });
+  }
+});
+
+test("shared evidence tool is read-only, bounded and cannot accept a partial chunk locator", async () => {
+  const shared = aiToolRegistry.find(e => e.name === "get_business_analysis_evidence")!;
+  assert.equal(shared.risk, "read_only");
+  validateToolArguments({ runId: "evidence-example", sourceKey: "sales", sequence: 1 }, shared.inputSchema);
+  assert.throws(() => validateToolArguments({ runId: "../secret" }, shared.inputSchema));
+  await assert.rejects(() => shared.handler({ runId: "example", sourceKey: "sales" }, { principal: admin, surface: "ai_agent", requestId: "partial" }), /同时指定/);
+  assert.ok(!getToolsForPrincipal({ ...admin, role: "viewer" }, "ai_chat").some(e => e.name === shared.name));
+});
+
 test("analysis tool has a single schema, two provider projections and bounded surfaces", () => {
   validateToolRegistry(aiToolRegistry);
   assert.equal(aiToolRegistry.filter(e => e.name === entry.name).length, 1);

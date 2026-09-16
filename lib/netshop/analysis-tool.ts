@@ -17,7 +17,7 @@ export async function getNetshopAnalysisRecords(raw: unknown, principal: AppPrin
     principal, { method: "GET", path: NETSHOP_ANALYSIS_RECORDS_PATH, service: "reader", query }, { signal },
   );
   if (JSON.stringify(result.data).length > 38_000) {
-    throw new PublicApiError(422, "analysis_page_too_large", "分析页超过工具容量，请减小 limit 并从首页重新读取；不得截断后使用");
+    throw new PublicApiError(422, "payload_too_large", "分析页超过工具容量，请减小 limit 并从首页重新读取；不得截断后使用");
   }
   return result.data;
 }

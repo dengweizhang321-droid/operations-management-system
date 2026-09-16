@@ -24,6 +24,7 @@ from . import (
     prompt_settings,
     report_library,
     reports,
+    business_evidence,
     dingtalk_schedules,
 )
 from .model_capabilities import MAX_CHAT_SECONDS
@@ -69,7 +70,7 @@ def body(request):
     return result
 
 
-def write(request, principal, handler, *, external=False, audit_only=False):
+def write(request, principal, handler, *, external=False, audit_only=False, commit_in_handler=False):
     request_id = request.headers["X-Teruisi-Request-Id"]
     identity = {
         "actor_email": principal.email.lower(),
@@ -95,6 +96,16 @@ def write(request, principal, handler, *, external=False, audit_only=False):
         if not external:
             payload, status = handler()
             return finish(receipt, principal, payload, status)
+    if commit_in_handler:
+        def complete(payload, status):
+            from django.db import connection
+            if not connection.in_atomic_block:
+                raise AiError("证据提交缺少事务", "conflict", 409)
+            receipt = AiWriteReceipt.objects.select_for_update().get(request_id=request_id)
+            if receipt.status != "processing":
+                raise AiError("请求完成栅栏失效", "conflict", 409)
+            return finish(receipt, principal, payload, status)
+        return handler(complete)
     payload, status = handler()
     with mutation(principal, audit_only=audit_only):
         receipt = AiWriteReceipt.objects.select_for_update().get(request_id=request_id)
@@ -126,6 +137,11 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"business-evidence": {"POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish)": {"POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"report-library": {"GET", "POST"},
             r"reports": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}(?:/content)?": {"GET"},
@@ -204,6 +220,21 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "business-evidence":
+            current_principal(principal, admin=True)
+            if request.method == "GET":
+                if parts[-1] == "mapping":
+                    return response(business_evidence.reconcile_products(parts[1], params, principal))
+                if len(parts) == 4:
+                    return response(business_evidence.chunk(parts[1], parts[3], params, principal))
+                fields(params, set())
+                return response({"item": business_evidence.mapping(business_evidence.get_run(parts[1], principal))})
+            fields(params, set())
+            if len(parts) == 1:
+                return write(request, principal, lambda: (business_evidence.create(payload, principal), 200))
+            if parts[-1] == "collect":
+                return write(request, principal, lambda commit: business_evidence.collect(parts[1], payload, principal, request_id, commit=commit), external=True, commit_in_handler=True)
+            return write(request, principal, lambda: (business_evidence.finish(parts[1], payload, principal), 200))
         if root == "report-library":
             if request.method == "GET":
                 return response(report_library.read(principal, params))

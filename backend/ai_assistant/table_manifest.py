@@ -1,6 +1,8 @@
 """Closed AI backup inventory; checked against the ORM in readiness and tests."""
 
 AI_TABLES = (
+    "ai_business_evidence_runs",
+    "ai_business_evidence_chunks",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",

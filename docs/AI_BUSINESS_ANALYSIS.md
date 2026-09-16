@@ -16,7 +16,7 @@
 
 ## 当前交付边界
 
-**本批是阶段一的首批代码，不是阶段一整体或五阶段完成；尚未生产采用。**
+**已完成阶段一的前两批候选代码，不是阶段一整体或五阶段完成；尚未合入 main 或生产采用。**
 
 已实现：
 
@@ -25,12 +25,14 @@
 - 本期、前一等长期间、去年同期夹闰日；人民币分、缺失 `null`、零/负基期状态、比率百分点。
 - 连续签名游标、页摘要、来源版本、完整行数与控制金额核对；数据变化拒绝拼页。
 - 流式分组、按汇总分子分母计算比率、跨店隔离、原生 SPU 与 SKU 身份分离、商家编码歧义不扇出销售事实。
-- 可复用的 `PageReconciler`、`VerifiedAnalysis` 结构化核对结果；尚无持久任务或共享证据存储。
+- 可复用的 `PageReconciler`、`VerifiedAnalysis` 结构化核对结果。
+- 第二批补齐 ERP 正向、退款、净销售、成本及数量规范页；平台/店铺/渠道精确隔离，ERP 网店规格编码与网店当前主数据精确关联，歧义和未匹配金额单独保留。
+- 第二批补齐持久证据任务、不可改写的来源分块、版本检查点、取消/封存、所属用户权限和只读 AI 证据工具；来源读取、页核验、持久化及写审计形成可恢复的受控路径。
 
 阶段一仍需完成：
 
-1. 店铺自身总览与 ERP 正向/退款/净销售/成本的规范适配及对账；商品日访客不能代替店铺去重 UV。
-2. 跨域只读来源清单、各自 revision/截止日期、身份映射覆盖、持久分块与检查点、共享报告结果协议。
+1. 店铺自身总览及跨源指标口径对齐；商品日访客不能代替店铺去重 UV。ERP 适配器与合成对账通过不等于正式店铺业务对账完成。
+2. 扩充跨域只读来源清单，验收真实身份映射覆盖，建立统一的诊断、建议和双文件报告结果协议；现有持久证据协议仅记录原始规范页及核对结果。
 3. 市场区间销量及 TOP 榜样本边界、正式 B 端来源、去年同期历史的实数覆盖验收；没有记录时同时核验真实店铺枚举和源覆盖，不能直接断言没有经营活动。
 4. 正式规模的只读查询计划与容量验证。十万行合成计算验证不代表正式数据库查询性能通过。
 
@@ -49,7 +51,7 @@ AI 工具 `get_netshop_analysis_records` 在中央注册，单页最多 20 行�
 首页返回 `control`（完整行数、已有 typed 指标总额）、`coverage`、`availableDates`；每页都有 `sourceRef`、`sourceRevision`、`pageEvidence` 和 `pagination`。依次将未改写的页面交给 `VerifiedAnalysis.consume(page, request_cursor=...)`，仅在 `result()` 成功后发布该分组结果。
 
 - 游标绑定参数、页长、网店 revision 和主数据批次，1 小时有效；版本变化/过期须重启该来源收集，不能混合旧页。
-- 页内读前读后核对 revision。这是单来源版本围栏，**不是跨领域数据库快照**。持久任务执行器和跨源更新策略属于后续工作。
+- 页内读前读后核对 revision。这是单来源版本围栏，**不是跨领域数据库快照**。第二批保存各来源版本、水位和采集时刻；自动持续执行、跨源更新决策属于后续工作。
 - `dates_present` 只说明每天有记录，不说明平台已结算；缺日不能补零。
 - 京东 `reportedGmvCents` 是平台总订单归因金额；天猫是源净成交口径；两者均不是 ERP 净销售或利润。归因窗口未验证时标记 unknown。
 - 订单行不保证跨商品去重，商品×日访客不能当店铺 UV；部分缺失的分子/分母不计算比率。
@@ -57,13 +59,43 @@ AI 工具 `get_netshop_analysis_records` 在中央注册，单页最多 20 行�
 - 商品名、关键词、搜索词等来源文本只作为数据，不能充当 Agent 指令。
 - 累计数值超出 JavaScript 无损整数范围时失败；内存分组最多 25,000 组，超限拒绝结果，不截断。超大词×商品组合的持久分区尚未实现。
 
+## 第二批：ERP 与持久共享证据
+
+ERP 通过既有 sales owning reader 的签名 consumer 操作 `analysis_records` 读取，AI 中央工具为 `get_sales_analysis_records`。参数为精确 `platform/shop/channel`、`startDate/endDate`，以及可选 `window/limit/cursor`；窗口、分页、摘要及金额单位沿用前述规范。后端每页最多 100 行，AI 工具每页最多 20 行、默认 10 行，单请求最多 8 次。没有客户、订单号或任意 SQL 输出。
+
+ERP 日期为发货业务日 `business_date`。正向销售与退款按分摊金额符号拆分，净销售保留配件及补差价，排除刷刷仓；数量遵守原 `is_net_quantity_row` 投影。成本保留源符号，计算毛利为净销售减成本，不扣费用；源报告毛利、费用和排除配件的销售额另列。没有数据时返回精确平台/店铺的有界历史渠道枚举供核验，不自动换渠道，也不把空结果解释为零经营。
+
+商品关联只用 ERP `online_spec_code` 对网店当前主数据 `merchantCode`，不回退到 ERP `product_code`。唯一 SKU/SPU 配对才计入匹配组；重复编码对应多个商品时不扇出金额，未匹配和歧义金额仍参加源总额核对。当前主数据不能证明历史映射；该结果不能证明推广归因成交等于 ERP 销售，更不能用于虚构关键词利润。
+
+证据任务接口均走现有 AI reader/writer、实时权限及审计链：
+
+| 接口 | 行为 |
+| --- | --- |
+| `POST /api/ai/business-evidence` | `clientRequestId` 与最多 12 个固定来源，重复标识只允许同一计划 |
+| `GET /api/ai/business-evidence/{id}` | 计划、来源进度、水位、版本、核对结果 |
+| `POST /api/ai/business-evidence/{id}/collect` | `sourceKey/expectedVersion`，每次读取并提交一页 |
+| `POST /api/ai/business-evidence/{id}/finish` | `expectedVersion/action`，`seal` 须全部完整；`cancel` 保留已有证据 |
+| `GET /api/ai/business-evidence/{id}/chunks/{sourceKey}?sequence=1` | 单块规范页与摘要 |
+| `GET /api/ai/business-evidence/{id}/mapping?sales=源键&master=源键` | 仅对封存证据重验全页并作商品关联 |
+
+来源格式为 `{key, domain: sales|netshop, query}`。query 只接受固定身份、数据集/渠道、日期及比较窗口，不接受调用方提供的事实页面。中央只读工具 `get_business_analysis_evidence` 可读取本人任务摘要或单块，未接入钉钉。不同专业 Agent 未来可在同一发起人权限下引用相同证据；本批没有自动派发 Agent、付费推理或报告生成。
+
+取数在 AI 写锁外执行，提交时重新核对身份、状态和版本。分块、检查点、写回执及审计同事务提交；取消后的迟到结果或审计失败不会留下新分块。中断后可从已提交检查点继续逐页请求，但游标过期或源 revision 变化须重新创建收集任务；不得把旧页和新页拼接封存。封存仅表示来源完整核对，`modelAnalysisCompleted` 仍为 false，不表示诊断复核通过。
+
+当前有界容量：每人最多 4 个未完成任务；每任务最多 2,000 页、64 MiB，每人累计 256 MiB，全局累计 2 GiB 和 10,000 个任务；每页固定请求 10 行。商品关联每个来源最多 5,000 行、输出最多 1.5 MB。达到上限明确失败并保留检查点，绝不截断后声明完成。尚无历史证据清理或大型分区执行能力，不能据此宣称达到参考报告规模。
+
+新增 AI 迁移 `0014_business_evidence`，自有表从 56 张增至 58 张。分块只增不改，任务身份和计划不可改，封存/取消后为终态；数据库触发器、最小 reader/writer grants、健康检查、历史备份清单及恢复校验同步维护。本批未迁移正式数据库。
+
 ## 验证方式
 
 在独立 worktree 中运行：
 
 ```powershell
 & '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --test-label business_analysis --test-label netshop --port 55485
+& '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --test-label ai_assistant --test-label business_analysis --test-label sales.tests.test_analysis --test-label sales.tests.test_consumers_api --test-label netshop --port 55485
+& '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --business-evidence-upgrade --port 55485
 node --import tsx --test tests/business-analysis-tools.test.ts tests/django-netshop-service.test.ts
+node --import tsx --test tests/django-postgres-maintenance.test.ts tests/django-sales-consumer-reader.test.ts
 npm run build
 npm run test:unit
 node tools/check-django-production-boundary.mjs
@@ -71,4 +103,4 @@ node tools/check-django-production-boundary.mjs
 
 PostgreSQL 启动器使用独立随机目录、凭据、数据库与 55440—55999 端口，禁止在正式检出运行。新增 `--test-label` 只能用于 `--tests-only`，不能缩减迁移升级演练的验证范围。测试中的 B2B、金额和店铺均为合成数据。
 
-本批无数据库模型或迁移，不改变 reader grants，不重启生产、不调用付费模型、不创建真实报告或发送通知。验证结果见 `docs/evidence/ai-business-analysis-foundation-candidate.json`。
+首批无数据库模型或迁移，验证见 `docs/evidence/ai-business-analysis-foundation-candidate.json`。第二批包含迁移与权限变更的候选源码，已在隔离 PostgreSQL 演练升级、旧 56 表行摘要不变、真实角色权限、终态保护和独立 dump/restore；验证见 `docs/evidence/ai-business-analysis-evidence-candidate.json`。两批均未重启生产、调用付费模型、创建真实报告或发送通知。

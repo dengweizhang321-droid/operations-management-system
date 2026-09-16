@@ -234,6 +234,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0014_business_evidence" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_business_evidence_runs", "ai_business_evidence_chunks"})
+            elif "0013_dingtalk_schedule_media" not in ai_migrations:
+                raise RuntimeError("AI business evidence schema has no media predecessor")
             if "0012_report_library" in ai_migrations and "0011_prompt_settings" not in ai_migrations:
                 raise RuntimeError("AI report schema has no prompt predecessor")
             if "0012_report_library" not in ai_migrations:
