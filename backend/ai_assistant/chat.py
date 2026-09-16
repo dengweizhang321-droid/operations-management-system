@@ -49,13 +49,16 @@ page_context 只表示当前页面选择，不表示已查询到数据。调用�
 
 def _remaining_tools(tools, per_tool, remaining):
     """Provider hints are derived copies; the signed registry digest stays intact."""
-    return [
-        {**entry, "description": entry["description"] + (
-            f" 本次提问剩余最多 {min(remaining, entry['execution']['maxCallsPerRequest'] - per_tool.get(entry['name'], 0))} 次调用（含参数失败），请复用已有结果。"
-        )}
-        for entry in tools
-        if remaining > 0 and per_tool.get(entry["name"], 0) < entry["execution"]["maxCallsPerRequest"]
-    ]
+    result = []
+    for entry in tools:
+        available = entry["execution"]["maxCallsPerRequest"] - per_tool.get(entry["name"], 0)
+        if remaining is not None:
+            available = min(remaining, available)
+        if available > 0:
+            result.append({**entry, "description": entry["description"] + (
+                f" 本次提问剩余最多 {available} 次调用（含参数失败），请复用已有结果。"
+            )})
+    return result
 
 
 def conversations(principal):
@@ -432,12 +435,15 @@ def _artifacts(results, conv, message, principal):
 
 
 @transport.request_budget(MAX_CHAT_SECONDS)
-def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None, on_event=None):
+def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbounded_total=False,
+           channel_guard=None, channel_time=None, on_event=None):
     started_at = time.monotonic()
     execution = {"inputTokens": None, "outputTokens": None, "reasoningTokens": None, "providerCalls": 0, "usageReportedCalls": 0,
                  "toolCalls": 0, "stopReason": "shortcut", "outputTruncated": False, "context": {}}
     # Only the trusted Stream worker can supply these keyword arguments.
     surface = "dingtalk_chat" if dingtalk_session is not None else "ai_chat"
+    if dingtalk_unbounded_total and dingtalk_session is None:
+        raise AiError("钉钉工具总数策略不能用于其他入口", "access_denied", 403)
     if dingtalk_session is not None:
         if (not callable(channel_guard) or dingtalk_session.owner_email != principal.email
                 or body.get("conversationId") != dingtalk_session.conversation_id
@@ -647,6 +653,12 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             skill_prompt, skill_evidence = report_library.guidance(prompt, effective_context, tools, library=library_snapshot)
             execution["skills"] = skill_evidence
             base_system = system + skill_prompt
+            # Interactive DingTalk questions may need to discover and page
+            # across many domains. Group and direct-message entry points opt out
+            # of the aggregate count ceiling while the 260-second channel
+            # deadline, model rounds and every registry tool's per-request cap
+            # remain bounded. Web and scheduled surfaces keep the model budget.
+            total_limit = None if dingtalk_unbounded_total else model.max_total_tool_calls
             for ordinal in range(1, model.max_tool_rounds + 1):
                 guidance, guidance_evidence = prompt_settings.compose(guidance_snapshot, prompt, effective_context, tools, used_guidance_domains)
                 system = base_system + guidance
@@ -655,10 +667,14 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 if dingtalk_session is not None:
                     live(receipt.id)
                 # Reserve the last existing provider turn for an answer. Never
-                # enlarge configured rounds, tool counts or paid-call quotas.
-                final_turn = (finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                # enlarge configured rounds or paid-call quotas; the aggregate
+                # tool count follows the trusted surface policy above.
+                final_turn = (finish_only or ordinal == model.max_tool_rounds
+                              or (total_limit is not None and total >= total_limit)
                               or (ordinal > 1 and remaining_seconds <= 15))
-                offered_tools = [] if final_turn else _remaining_tools(tools, per_tool, model.max_total_tool_calls - total)
+                offered_tools = [] if final_turn else _remaining_tools(
+                    tools, per_tool, None if total_limit is None else total_limit - total
+                )
                 turn_system = system
                 if not offered_tools:
                     turn_system += "\n本轮只生成最终回答，不再调用工具。请依据已有成功查询说明结论、来源和缺口；若没有可用结果，明确说明未能取得数据并建议缩小问题，不得编造。"
@@ -769,7 +785,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                             audit(principal, request_id, call["name"][:100], "denied",
                                   provider_call_id=call["id"], error_code="access_denied")
                         raise AiError("模型请求了当前账号未获授权的工具", "access_denied", 403)
-                    if (final_turn or total >= model.max_total_tool_calls
+                    if (final_turn or (total_limit is not None and total >= total_limit)
                             or per_tool.get(call["name"], 0) >= entry["execution"]["maxCallsPerRequest"]):
                         result = {"ok": False, "toolName": call["name"], "error": {
                             "code": "tool_limit_exceeded",

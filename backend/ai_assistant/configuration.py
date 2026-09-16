@@ -194,7 +194,7 @@ def save_model(body, principal, *, image=False):
                 body.get("maxToolRounds", 6), "maxToolRounds", 1, 62
             ),
             max_total_tool_calls=integer(
-                body.get("maxTotalToolCalls", 12), "maxTotalToolCalls", 1, 74
+                body.get("maxTotalToolCalls", 12), "maxTotalToolCalls", 1, 300
             ),
         )
         from .policy import canonical

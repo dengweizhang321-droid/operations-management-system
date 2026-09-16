@@ -1,8 +1,10 @@
+import importlib
 import json
 import socket
 import threading
 import time
 from unittest.mock import patch
+from django.apps import apps
 from django.test import TestCase, SimpleTestCase, override_settings
 from . import model_capabilities as c, provider, chat, transport, tests as support, models as m
 from .policy import AiError, canonical, mutation
@@ -89,6 +91,47 @@ class CapabilityChatTests(TestCase):
         self.assertEqual(self.model.timeout_ms, 3000)
         self.assertEqual(self.model.max_tokens, legacy_tokens)
         self.assertEqual(c.options(self.model)["taskTimeoutMs"], 260000)
+
+    def test_model_tool_call_limit_accepts_300_and_rejects_301(self):
+        admin = self.user("tool-budget-admin@example.invalid", "admin", None)
+        body = {
+            "id": self.model.id,
+            "expectedVersion": self.model.version,
+            "name": self.model.name,
+            "modelName": self.model.model_name,
+            "baseUrl": self.model.base_url,
+            "protocol": self.model.protocol,
+            "modelType": "text",
+            "maxTotalToolCalls": 300,
+        }
+        with mutation(admin):
+            saved = save_model(body, admin)
+        self.model.refresh_from_db()
+        self.assertEqual(self.model.max_total_tool_calls, 300)
+        with self.assertRaises(AiError), mutation(admin):
+            save_model({**body, "expectedVersion": saved["version"], "maxTotalToolCalls": 301}, admin)
+
+    def test_budget_migration_promotes_only_models_at_former_ceiling(self):
+        self.model.max_total_tool_calls = 74
+        self.model.save(update_fields=["max_total_tool_calls"])
+        unchanged = m.AiModels.objects.create(
+            id="model-under-old-ceiling", name="under", protocol="openai_compatible",
+            model_type="text", model_name="fixture", status="enabled",
+            max_total_tool_calls=62,
+        )
+        vision = m.AiModels.objects.create(
+            id="vision-at-old-ceiling", name="vision", protocol="openai_compatible",
+            model_type="vision", model_name="fixture-vision", status="enabled",
+            max_total_tool_calls=74,
+        )
+        migration = importlib.import_module("ai_assistant.migrations.0014_model_tool_budget_300")
+        migration.raise_budget(apps, None)
+        self.model.refresh_from_db()
+        unchanged.refresh_from_db()
+        vision.refresh_from_db()
+        self.assertEqual(self.model.max_total_tool_calls, 300)
+        self.assertEqual(unchanged.max_total_tool_calls, 62)
+        self.assertEqual(vision.max_total_tool_calls, 300)
 
     def test_save_high_limits_cas_and_readback_preserve_options_without_touching_old_defaults(self):
         admin = self.user("capability-admin@example.invalid", "admin", None)
