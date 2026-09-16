@@ -151,6 +151,7 @@ def _dispatch(request, path=""):
             r"business-evidence": {"GET", "POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping-v2": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-targets": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
@@ -303,6 +304,9 @@ def _dispatch(request, path=""):
                     return response(initial_budget_targets(parts[1], params, principal))
                 if parts[-1] == "mapping":
                     return response(business_evidence.reconcile_products(parts[1], params, principal))
+                if parts[-1] == "mapping-v2":
+                    from .business_identity import page as product_mapping_page
+                    return response(product_mapping_page(parts[1], params, principal))
                 if len(parts) == 4:
                     return response(business_evidence.chunk(parts[1], parts[3], params, principal))
                 fields(params, set())
