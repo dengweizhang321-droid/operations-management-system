@@ -79,13 +79,17 @@ def _quota(owner, added):
             raise AiError("固定筛查存储额度不足，历史结果仍计入额度", "rate_limited", 429)
 
 
-def publish(verified, principal):
+def publish(verified, principal, *, before_write=None):
     """Only accept this process's completed object; atomically publish all pages."""
     current_principal(principal, admin=True, write=True)
     binding, value = screening._verified(verified, principal)
     bundle = _call(contract.materialize, value)
     fixed = _call(contract.validate, bundle)
     with mutation(principal):
+        # Internal lifecycle CAS runs after materialization, while holding the
+        # same write lock as publication. Never expose this callback in an API.
+        if before_write is not None:
+            before_write()
         screening._revalidate(binding, principal)
         # The fixed selector itself is metadata-only, but its current version
         # must still agree with the prepared result at publication time.
