@@ -62,6 +62,9 @@ def resolve(evidence_id, raw_plan, principal):
 def for_report(report, principal):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
+    if "budgetRef" in snapshot or getattr(report, "budget_plan_id", None) or snapshot.get("executionProfile") == "business-agent-budget-reference-v1":
+        from .business_budget_store import resolve_fixed
+        return resolve_fixed(report, principal)
     if snapshot.get("budgetPlan") is None:
         return None
     result = resolve(snapshot["evidenceRunId"], snapshot["budgetPlan"], principal)
@@ -104,6 +107,13 @@ def preview(report_id, payload, principal):
     fields(payload, {"budgetPlan"}, {"budgetPlan"})
     report = get(report_id, principal)
     snapshot = json.loads(report.snapshot_json)
+    if "budgetRef" in snapshot or getattr(report, "budget_plan_id", None) or snapshot.get("executionProfile") == "business-agent-budget-reference-v1":
+        from .business_budget_store import load
+        fixed = load(report, principal)
+        result = resolve(fixed.binding["evidenceRunId"], payload["budgetPlan"], principal)
+        if (result["evidenceVersion"], result["evidencePlanDigest"]) != (fixed.binding["evidenceVersion"], fixed.binding["evidencePlanDigest"]):
+            raise AiError("试算来源与原报告版本不一致", "conflict", 409)
+        return passive({"previewOnly": True, "reportId": report.id, "originalPlanDigest": fixed.binding["planDigest"], "budget": result}, 1024*1024)
     if snapshot.get("budgetPlan") is None:
         raise AiError("该报告没有预算分析配置", "not_found", 404)
     result = resolve(snapshot["evidenceRunId"], payload["budgetPlan"], principal)

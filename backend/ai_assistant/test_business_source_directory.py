@@ -69,7 +69,7 @@ class BusinessSourceDirectoryTests(TestCase):
         self.assertIn("ai_business_evidence_sources", READ_TABLES)
         self.assertEqual(MODELS["ai_business_evidence_sources"], m.AiBusinessEvidenceSource)
         self.assertEqual(WRITER_PRIVILEGES["ai_business_evidence_sources"], ("SELECT", "INSERT", "UPDATE"))
-        self.assertEqual(len(AI_TABLES), 62)
+        self.assertEqual(len(AI_TABLES), 63)
 
     def test_missing_source_gap_duplicate_and_49th_are_rejected(self):
         for mode in ("missing", "ordinal_gap", "same_key", "same_ordinal", "same_query", "49"):

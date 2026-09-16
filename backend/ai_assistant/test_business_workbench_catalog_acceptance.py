@@ -39,7 +39,9 @@ class BusinessWorkbenchCatalogAcceptanceTests(TransactionTestCase):
         # TransactionTestCase flushes migration seed rows between tests; own
         # the source revision fixture instead of depending on test order.
         from market.models import MarketDataRevision
+        from netshop.models import NetshopDataRevision
         MarketDataRevision.objects.get_or_create(domain="market", defaults={"revision": 0, "source_digest": "0"*64})
+        NetshopDataRevision.objects.get_or_create(domain="netshop", defaults={"revision": 0, "source_digest": "0"*64})
         BusinessExportCatalogAcceptanceTests.setUp(self)
 
     def test_planned_19_sources_complete_five_agent_review_and_persistent_156_tables(self):

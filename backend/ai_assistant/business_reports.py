@@ -21,7 +21,7 @@ V2_ANALYSIS_TRANSCRIPT_RESERVE = 2*V2_ANALYSIS_RESPONSE_BYTES+4096
 
 def is_v2_snapshot(snapshot):
     if snapshot.get("executionProfile") == V2_PROFILE:
-        if snapshot.get("evidenceProtocol") != "reference-v2" or "budgetPlan" in snapshot:
+        if snapshot.get("evidenceProtocol") != "reference-v2" or "budgetPlan" in snapshot or "budgetRef" in snapshot:
             raise AiError("报告执行协议与证据不一致", "conflict", 409)
         return True
     if "executionProfile" in snapshot or "evidenceProtocol" in snapshot:

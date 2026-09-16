@@ -1,4 +1,4 @@
-"""0013 -> 0020, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0021, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -39,15 +39,18 @@ old = executor.loader.project_state(old_target).apps
 old.get_model("ai_assistant", "AiConversations").objects.create(id="retained-fixture", title="合成旧会话", created_by="fixture@example.invalid")
 old.get_model("ai_assistant", "AiConversationMessages").objects.create(id="retained-message", conversation_id="retained-fixture", role="assistant", content="历史内容", ordinal=1)
 volume_table = "ai_business_volume_chunks"
-new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", volume_table}
+budget_table = "ai_business_budget_plans"
+new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", volume_table, budget_table}
 directory_target = [("ai_assistant", "0019_business_source_directory")]
 volume_target = [("ai_assistant", "0020_business_volume_files")]
+budget_target = [("ai_assistant", "0021_business_budget_plans")]
 
-def snapshot(dbname, tables):
+def snapshot(dbname, tables, *, original_report_columns=False):
     result = {}
     with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/"+dbname)) as db:
         for table in sorted(tables):
-            result[table] = sorted(json.dumps(r[0], sort_keys=True, default=str) for r in db.execute(sql.SQL("SELECT row_to_json(t) FROM {} t").format(sql.Identifier(table))))
+            projection = "to_jsonb(t)-'budget_plan_id'" if original_report_columns and table == "ai_report_runs" else "row_to_json(t)"
+            result[table] = sorted(json.dumps(r[0], sort_keys=True, default=str) for r in db.execute(sql.SQL("SELECT "+projection+" FROM {} t").format(sql.Identifier(table))))
     return hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
 
 before = snapshot(database["NAME"], set(AI_TABLES) - new_tables)
@@ -79,7 +82,7 @@ for renderer in (1, 2, 3):
     previous_apps.get_model("ai_assistant", "AiBusinessFileRun").objects.create(
         id="legacy-renderer-"+str(renderer), owner_email=legacy_workflow.owner_email,
         report=legacy_report, binding_digest="6"*64, renderer_version=renderer)
-previous_tables = set(AI_TABLES)-{"ai_business_evidence_sources", volume_table}
+previous_tables = set(AI_TABLES)-{"ai_business_evidence_sources", volume_table, budget_table}
 previous_digest = snapshot(database["NAME"], previous_tables)
 MigrationExecutor(connection).migrate(directory_target)
 assert snapshot(database["NAME"], previous_tables) == previous_digest
@@ -110,20 +113,21 @@ with transaction.atomic():
 workflow = m.AiWorkflowRuns.objects.create(id="file-restore-workflow", owner_email="fixture@example.invalid",
     client_request_id="file-restore", request_digest="e"*64, scope_json="null", name="合成文件恢复",
     graph_json="{}", graph_digest="f"*64)
-report = m.AiReportRun.objects.create(id="file-restore-report", owner_email=workflow.owner_email,
-    client_request_id="file-restore", request_digest="e"*64, workflow=workflow, snapshot_json="{}")
-m.AiBusinessFileRun.objects.create(id="file-restore", owner_email=workflow.owner_email, report=report,
+directory_apps = MigrationExecutor(connection).loader.project_state(directory_target).apps
+report = directory_apps.get_model("ai_assistant", "AiReportRun").objects.create(id="file-restore-report", owner_email=workflow.owner_email,
+    client_request_id="file-restore", request_digest="e"*64, workflow_id=workflow.id, snapshot_json="{}")
+m.AiBusinessFileRun.objects.create(id="file-restore", owner_email=workflow.owner_email, report_id=report.id,
     binding_digest="a"*64, status="building", attempt=1)
-m.AiBusinessFileRun.objects.create(id="offline-file-restore", owner_email=workflow.owner_email, report=report,
+m.AiBusinessFileRun.objects.create(id="offline-file-restore", owner_email=workflow.owner_email, report_id=report.id,
     binding_digest="a"*64, renderer_version=2)
-m.AiBusinessFileRun.objects.create(id="excel-file-restore", owner_email=workflow.owner_email, report=report,
+m.AiBusinessFileRun.objects.create(id="excel-file-restore", owner_email=workflow.owner_email, report_id=report.id,
     binding_digest="a"*64, renderer_version=3)
 binary_payload = bytes(range(256))*2048
 binary_digest = hashlib.sha256(binary_payload).hexdigest()
 
 # Exercise the directory rollback guard before renderer 4 exists; otherwise the
 # later volume guard would mask this older, independently required protection.
-directory_tables = set(AI_TABLES)-{volume_table}
+directory_tables = set(AI_TABLES)-{volume_table, budget_table}
 directory_digest = snapshot(database["NAME"], directory_tables)
 try:
     MigrationExecutor(connection).migrate(previous_target)
@@ -139,17 +143,49 @@ assert [(m.app_label, m.name) for m, backwards in executor.migration_plan(volume
 executor.migrate(volume_target)
 assert snapshot(database["NAME"], directory_tables) == directory_digest
 assert MigrationExecutor(connection).migration_plan(volume_target) == []
+# Check the volume guard while no later migration can mask it or be removed.
+m.AiBusinessFileRun.objects.create(id="volume-file-restore", owner_email=workflow.owner_email, report_id=report.id,
+    binding_digest="b"*64, renderer_version=4)
+volume_tables = set(AI_TABLES)-{budget_table}
+volume_before = snapshot(database["NAME"], volume_tables, original_report_columns=True)
+try:
+    MigrationExecutor(connection).migrate(directory_target)
+except RuntimeError as error:
+    assert "v4" in str(error).lower() or "renderer 4" in str(error).lower(), str(error)
+else:
+    raise AssertionError("Reverse migration discarded renderer-4 volume persistence")
+assert snapshot(database["NAME"], volume_tables, original_report_columns=True) == volume_before
+assert MigrationExecutor(connection).migration_plan(volume_target) == []
 call_command("migrate", interactive=False, verbosity=0)
+assert snapshot(database["NAME"], volume_tables, original_report_columns=True) == volume_before
+assert MigrationExecutor(connection).migration_plan(budget_target) == []
+assert not m.AiReportRun.objects.exclude(budget_plan_id=None).exists()
 call_command("makemigrations", check=True, dry_run=True, verbosity=0)
 passwords = {role: secrets.token_hex(32) for role in ("reader", "writer")}
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"]) as owner:
     provision(owner, passwords["reader"], passwords["writer"])
 
+# A real sealed synthetic source backs the immutable parameters. No new Agent
+# profile is enabled: its generic dry workflow is an inert persistence fixture.
+from ai_assistant.tests import AiDomainTests
+from ai_assistant.test_business_budget_store import seed_fixed_report
+from ai_assistant import business_budget_store
+fixture = AiDomainTests(methodName="runTest")
+fixture.setUp()
+budget_principal = fixture.user("budget-upgrade@example.invalid", "admin", None)
+budget_report, prepared_budget = seed_fixed_report(budget_principal, report_id="budget-upgrade-report")
+assert business_budget_store.load(budget_report, budget_principal).result_json == prepared_budget.result_json
+budget_row = m.AiBusinessBudgetPlan.objects.get(pk=prepared_budget.id)
+budget_expected = (budget_row.plan_json, budget_row.binding_json, budget_row.plan_digest,
+                   budget_row.binding_digest, budget_report.snapshot_json)
+budget_insert = """INSERT INTO ai_business_budget_plans
+    (id,owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,created_at)
+    SELECT 'orphan-budget',owner_email,scope_json,evidence_id,evidence_version,plan_json,plan_digest,binding_json,binding_digest,now()
+    FROM ai_business_budget_plans WHERE id=%s"""
+
 # This is intentionally a paused partial delivery, not a forged ready report.
 # Its arbitrary transport bytes prove persistence/role guards, not file format
 # validity or acceptance by the public download API.
-m.AiBusinessFileRun.objects.create(id="volume-file-restore", owner_email=workflow.owner_email, report=report,
-    binding_digest="b"*64, renderer_version=4)
 with connection.cursor() as cursor:
     cursor.execute("UPDATE ai_business_file_runs SET status='building',version=2,attempt=1 WHERE id='volume-file-restore' AND version=1")
     assert cursor.rowcount == 1
@@ -202,6 +238,7 @@ for role in ("reader", "writer"):
     with psycopg.connect(url, autocommit=True) as limited:
         denied(limited, insert)
         denied(limited, volume_insert, volume_parameters(volume_payloads[0]))
+        denied(limited, budget_insert, [budget_row.id])
         limited.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','business-synthetic',false)", [epoch])
         if role == "writer":
             limited.execute(insert)
@@ -244,6 +281,9 @@ for role in ("reader", "writer"):
             denied(limited, insert)
             denied(limited, "UPDATE ai_business_evidence_sources SET version=2,checkpoint_run_version=2 WHERE id='directory-source-1'")
             denied(limited, volume_insert, volume_parameters(volume_payloads[0]))
+        denied(limited, budget_insert, [budget_row.id])
+        denied(limited, "UPDATE ai_business_budget_plans SET plan_json='{}' WHERE id=%s", [budget_row.id])
+        denied(limited, "UPDATE ai_report_runs SET budget_plan_id=NULL WHERE id=%s", [budget_report.id])
         for table in new_tables:
             limited.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
             denied(limited, "DELETE FROM " + table)
@@ -259,24 +299,26 @@ for role in ("reader", "writer"):
 
 complete = snapshot(database["NAME"], AI_TABLES)
 try:
-    MigrationExecutor(connection).migrate(directory_target)
+    MigrationExecutor(connection).migrate(volume_target)
 except RuntimeError as error:
-    assert "v4" in str(error).lower() or "renderer 4" in str(error).lower(), str(error)
+    assert "预算" in str(error), str(error)
 else:
-    raise AssertionError("Reverse migration discarded renderer-4 volume persistence")
+    raise AssertionError("Reverse migration discarded immutable budget parameters")
 assert snapshot(database["NAME"], AI_TABLES) == complete
-assert MigrationExecutor(connection).migration_plan(volume_target) == []
+assert MigrationExecutor(connection).migration_plan(budget_target) == []
 binary = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
     subprocess.run([str(binary / executable), *arguments], check=True, capture_output=True, timeout=60)
 assert snapshot("teruisi_business_restore", AI_TABLES) == complete
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")) as restored:
+    assert restored.execute("""SELECT p.plan_json,p.binding_json,p.plan_digest,p.binding_digest,r.snapshot_json
+        FROM ai_business_budget_plans p JOIN ai_report_runs r ON r.budget_plan_id=p.id WHERE r.id=%s""", [budget_report.id]).fetchone() == budget_expected
     content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
     assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
     assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id IN ('file-restore','offline-file-restore','excel-file-restore') ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
     assert restored.execute("SELECT renderer_version FROM ai_business_file_runs WHERE id LIKE 'legacy-renderer-%' ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
-    assert restored.execute("SELECT source_key,ordinal,domain,query_json,query_digest FROM ai_business_evidence_sources ORDER BY ordinal").fetchall() == [
+    assert restored.execute("SELECT source_key,ordinal,domain,query_json,query_digest FROM ai_business_evidence_sources WHERE run_id='directory-restore' ORDER BY ordinal").fetchall() == [
         (entry["key"], entry["ordinal"], entry["domain"], canonical(entry["query"]), entry["queryDigest"]) for entry in directory["entries"]]
     assert restored.execute("SELECT version,checkpoint_run_version,checkpoint_json FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (2,2,'{"synthetic":true}')
     assert restored.execute("SELECT page_count,stored_bytes FROM ai_business_evidence_sources WHERE id='directory-source-1'").fetchone() == (1,2)
@@ -290,9 +332,29 @@ with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi
         assert bytes(actual[4]) == expected[4]
         assert hashlib.sha256(actual[4]).hexdigest() == actual[5] == hashlib.sha256(expected[4]).hexdigest()
     assert restored.execute("SELECT count(*) FROM ai_business_file_chunks WHERE run_id='volume-file-restore'").fetchone() == (0,)
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020", "oldAiTablesDigestPreserved": before,
+restore_env = {**os.environ, "PYTHONPATH": str(ROOT / "backend"),
+    "TERUISI_DJANGO_DATABASE_URL": os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")}
+restore_code = """import django; django.setup()
+import hashlib
+from ai_assistant import business_budget_store, models
+from sales.auth import Principal
+report = models.AiReportRun.objects.get(pk='budget-upgrade-report')
+value = business_budget_store.load(report, Principal('budget-upgrade@example.invalid','fixture','admin',None))
+assert value.result['allocation']['allocatedCents']==9000
+print(hashlib.sha256(value.result_json.encode()).hexdigest())
+"""
+restored_budget = subprocess.run([sys.executable, "-c", restore_code], env=restore_env, capture_output=True, timeout=60)
+if restored_budget.returncode:
+    (run_root / "budget-restore-read-error.log").write_bytes(restored_budget.stderr)
+    raise RuntimeError("Restored budget verification failed; see budget-restore-read-error.log")
+assert restored_budget.stdout.decode().strip() == hashlib.sha256(prepared_budget.result_json.encode()).hexdigest()
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018->0019->0020->0021", "oldAiTablesDigestPreserved": before,
     "previous60TablesDigestPreserved": previous_digest, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
     "previous61TablesDigestPreserved": directory_digest, "renderer4PausedDeliveryRestored": True,
+    "previous62TableOriginalColumnDigestPreserved": volume_before, "oldReportBudgetFkNull": True,
+    "budgetParametersRestored": 1, "budgetPlanBytes": len(prepared_budget.plan_json.encode()),
+    "budgetBindingBytes": len(prepared_budget.binding_json.encode()), "budgetRollbackWithDataDenied": True,
+    "budgetReaderReconciledAfterRestore": True,
     "volumeChunkCountRestored": len(volume_payloads), "volumeChunkBytesRestored": volume_bytes,
     "volumeRollbackWithDataDenied": True, "volumeReadyAcceptanceExercised": False,
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,

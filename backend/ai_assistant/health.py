@@ -91,6 +91,13 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {("ai_business_budget_plans", "ai_write_fence"),
+             ("ai_business_budget_plans", "ai_immutable_evidence"),
+             ("ai_business_budget_plans", "ai_business_budget_initial"),
+             ("ai_business_budget_plans", "ai_business_budget_complete"),
+             ("ai_report_runs", "ai_business_budget_report_binding"),
+             ("ai_report_runs", "ai_business_budget_complete")}
+            |
             {("ai_business_volume_chunks", "ai_write_fence"),
              ("ai_business_volume_chunks", "ai_immutable_evidence"),
              ("ai_business_volume_chunks", "ai_business_volume_chunk_state"),
@@ -160,6 +167,7 @@ def check():
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
         for table, expected in (
+            ("ai_business_budget_plans", {"ai_business_budget_bound"}),
             ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),
             ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
             ("ai_business_volume_chunks", {"ai_business_volume_chunk_bound", "ai_business_volume_chunk_uq"}),
@@ -180,6 +188,21 @@ def check():
             cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=%s::regclass AND convalidated", [table])
             if not expected <= {row[0] for row in cursor.fetchall()}:
                 raise ValueError("AI DingTalk constraints missing")
+        # Check FK/uniqueness by columns rather than Django-generated names.
+        for table, column, target in (("ai_report_runs", "budget_plan_id", "ai_business_budget_plans"),
+                                      ("ai_business_budget_plans", "evidence_id", "ai_business_evidence_runs")):
+            cursor.execute("""SELECT c.contype,c.confrelid=%s::regclass FROM pg_constraint c
+                JOIN pg_attribute a ON a.attrelid=c.conrelid AND c.conkey=ARRAY[a.attnum]::smallint[]
+                WHERE c.conrelid=%s::regclass AND a.attname=%s AND c.convalidated""", [target, table, column])
+            constraints = cursor.fetchall()
+            if ("f", True) not in constraints or table == "ai_report_runs" and not any(kind == "u" for kind, _ in constraints):
+                raise ValueError("AI fixed budget reference constraints missing")
+        cursor.execute("""SELECT c.relname,t.tgdeferrable,t.tginitdeferred FROM pg_trigger t
+            JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relname IN ('ai_business_budget_plans','ai_report_runs')
+            AND t.tgname='ai_business_budget_complete' AND t.tgenabled='O'""")
+        if set(cursor.fetchall()) != {("ai_business_budget_plans", True, True), ("ai_report_runs", True, True)}:
+            raise ValueError("AI fixed budget deferred completeness missing")
         cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid='public.ai_conversation_workspaces'::regclass AND convalidated")
         if not {"ai_workspace_module", "ai_workspace_context_size"} <= {row[0] for row in cursor.fetchall()}:
             raise ValueError("AI conversation workspace constraints missing")

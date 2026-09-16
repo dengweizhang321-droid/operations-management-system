@@ -18,7 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
-PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks"}
+PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"}
 
 
 class _EvidenceCursor:
@@ -107,11 +107,16 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_business_evidence_tables_require_exact_migration_generation(self):
-        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 20)
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 21)
         migrations = [("ai_assistant", name) for name in names]
         current = _ai_evidence(AI_TABLES, migrations)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 62)
-        directory_tables = set(AI_TABLES)-{"ai_business_volume_chunks"}
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 63)
+        volume_tables = set(AI_TABLES)-{"ai_business_budget_plans"}
+        volume_migrations = [m for m in migrations if int(m[1][:4]) <= 20]
+        before_budgets = _ai_evidence(volume_tables, volume_migrations)
+        self.assertEqual(len([name for name in before_budgets["tables"] if name.startswith("ai_")]), 62)
+        self.assertNotEqual(current["contentSha256"], before_budgets["contentSha256"])
+        directory_tables = volume_tables-{"ai_business_volume_chunks"}
         directory_migrations = [m for m in migrations if int(m[1][:4]) <= 19]
         before_volumes = _ai_evidence(directory_tables, directory_migrations)
         self.assertEqual(len([name for name in before_volumes["tables"] if name.startswith("ai_")]), 61)
@@ -124,7 +129,7 @@ class ConsistentBackupTests(unittest.TestCase):
         for tables, history in [(set(AI_TABLES)-{"ai_business_evidence_chunks"}, migrations), (set(AI_TABLES)-{"ai_business_file_chunks"}, migrations), (AI_TABLES, previous), (AI_TABLES, [m for m in migrations if m[1] != "0013_dingtalk_schedule_media"]), (AI_TABLES, [m for m in migrations if m[1] != "0015_business_collection"])]:
             with self.assertRaises(RuntimeError):
                 _ai_evidence(tables, history)
-        for missing in ("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory", "0020_business_volume_files"):
+        for missing in ("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory", "0020_business_volume_files", "0021_business_budget_plans"):
             with self.subTest(missing=missing), self.assertRaises(RuntimeError):
                 _ai_evidence(AI_TABLES, [m for m in migrations if m[1] != missing])
         with self.assertRaises(RuntimeError):

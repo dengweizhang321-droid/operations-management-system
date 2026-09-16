@@ -234,6 +234,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0021_business_budget_plans" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_budget_plans")
+            elif "0020_business_volume_files" not in ai_migrations:
+                raise RuntimeError("AI fixed budget schema has no volume predecessor")
             if "0020_business_volume_files" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_volume_chunks")
             elif "0019_business_source_directory" not in ai_migrations:
