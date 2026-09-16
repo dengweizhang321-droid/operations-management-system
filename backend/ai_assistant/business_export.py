@@ -107,7 +107,7 @@ class TableSpool:
 
 
 @contextmanager
-def package(report, principal, *, draft):
+def package(report, principal, *, draft, checkpoint=None):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA:
@@ -124,6 +124,8 @@ def package(report, principal, *, draft):
         sequence = 0
         for row in m.AiBusinessEvidenceChunk.objects.filter(run=evidence, source_key=key).order_by("sequence").iterator(chunk_size=10):
             sequence += 1
+            if checkpoint and sequence % 20 == 1:
+                checkpoint({"stage": "preparing", "sourceKey": key, "sourcePage": sequence})
             if row.sequence != sequence or digest(row.payload_json) != row.payload_digest:
                 raise AiError("来源分块缺失或摘要不一致", "conflict", 409)
             yield json.loads(row.payload_json)
@@ -179,9 +181,9 @@ def package(report, principal, *, draft):
         yield metadata, spool.tables
 
 
-def build(report, principal, xlsx_file, html_file, *, draft=False):
+def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=None):
     try:
-        with package(report, principal, draft=draft) as (metadata, tables):
-            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables)
+        with package(report, principal, draft=draft, checkpoint=checkpoint) as (metadata, tables):
+            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error

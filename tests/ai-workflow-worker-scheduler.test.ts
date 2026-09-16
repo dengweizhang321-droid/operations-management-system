@@ -13,7 +13,7 @@ test("scheduled and protected local ticks run one isolated workflow and one form
   const maintenanceEnd = source.indexOf("function allowsLoopbackDevelopmentRequest", maintenanceStart);
   const maintenance = source.slice(maintenanceStart, maintenanceEnd);
   assert.ok(maintenanceStart >= 0 && maintenanceEnd > maintenanceStart);
-  for (const queue of ["evidence", "workflow", "agent", "space"]) {
+  for (const queue of ["evidence", "workflow", "agent", "space", "files"]) {
     assert.equal(maintenance.split(`wakeAiQueue("${queue}")`).length - 1, 1);
   }
 
@@ -27,7 +27,8 @@ test("scheduled and protected local ticks run one isolated workflow and one form
     "workflow and Agent queues must not starve behind market projection work");
   assert.ok(netshopProjectionAt < imageCacheAt, "the PostgreSQL market projection refresh must precede derived image work");
   assert.ok(imageCacheAt < aiSpaceAt && aiSpaceAt < annotationsAt, "existing runner order must remain stable");
-  assert.match(maintenance, /return \{ aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \};/);
+  assert.match(maintenance, /const aiFilesPending = runScheduledMarketTask\(/);
+  assert.match(maintenance, /return \{ aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \};/);
 
   const localScheduled = source.slice(
     source.indexOf("if (url.pathname === localScheduledPath)"),

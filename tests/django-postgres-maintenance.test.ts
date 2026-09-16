@@ -294,8 +294,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(currentAiTables).size, 58);
-  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks"].includes(name));
+  assert.equal(new Set(currentAiTables).size, 60);
+  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -381,13 +381,21 @@ test("maintenance validates complete AI backup evidence before and after activat
   business.migrations.push({ app: "ai_assistant", name: "0014_business_evidence" });
   business.tables.ai_business_evidence_runs = 0;
   business.tables.ai_business_evidence_chunks = 0;
+  const files = structuredClone(business);
+  files.migrations.push({ app: "ai_assistant", name: "0015_business_collection" }, { app: "ai_assistant", name: "0016_business_files" });
+  files.tables.ai_business_file_runs = 0;
+  files.tables.ai_business_file_chunks = 0;
+  const filesMissing = structuredClone(files);
+  delete filesMissing.tables.ai_business_file_chunks;
+  const filesPredecessorMissing = structuredClone(files);
+  filesPredecessorMissing.migrations = filesPredecessorMissing.migrations.filter(item => item.name !== "0015_business_collection");
   const businessMissingChunk = structuredClone(business);
   delete businessMissingChunk.tables.ai_business_evidence_chunks;
   const businessMissingPredecessor = structuredClone(business);
   businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, business, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
-    ...[businessMissingChunk, businessMissingPredecessor].map(evidence => ({ valid: false, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, files, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[businessMissingChunk, businessMissingPredecessor, filesMissing, filesPredecessorMissing].map(evidence => ({ valid: false, evidence })),
     ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");

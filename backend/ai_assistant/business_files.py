@@ -1,0 +1,303 @@
+"""Durable, owner-bound paired file delivery with isolated resumable attempts."""
+import base64
+from datetime import timedelta
+import hashlib
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import time
+from django.db import connection
+from django.db.models import Q, Sum
+from django.utils import timezone
+
+from . import business_evidence, business_export, business_reports, models as m, reports, workflows
+from .control_models import AiMutationAudit
+from .policy import AiError, authorize_owner, boolean, canonical, cas, current_principal, digest, fields, identifier, integer, mutation, passive, revision, uid
+
+CHUNK_BYTES = 512 * 1024
+RUN_BYTES = 1024 * 1024 * 1024
+OWNER_BYTES = 2 * RUN_BYTES
+GLOBAL_BYTES = 8 * RUN_BYTES
+LEASE_SECONDS = 650
+BUILD_SECONDS = 600
+
+
+def binding(report, principal, draft):
+    authorize_owner(report, principal)
+    snapshot = json.loads(report.snapshot_json)
+    if snapshot.get("schemaVersion") != business_reports.SCHEMA or report.workflow.dry_run:
+        raise AiError("只有已分析的经营报告可以构建文件", "conflict", 409)
+    if not draft and report.workflow.status != "completed":
+        raise AiError("正式文件须先通过人工复核", "conflict", 409)
+    evidence = business_evidence.get_run(snapshot["evidenceRunId"], principal)
+    if evidence.status != "sealed" or evidence.version != snapshot["evidenceVersion"] or digest(evidence.plan_json) != snapshot["evidencePlanDigest"]:
+        raise AiError("报告证据快照已变化", "conflict", 409)
+    nodes = list(m.AiWorkflowNodeRuns.objects.filter(run_id=report.workflow_id, status="completed").order_by("node_key").values_list("node_key", "output_json"))
+    if not {"commerce", "promotion", "market_b2b", "independent_review", "report"} <= {key for key, _ in nodes}:
+        raise AiError("专业分析或复核尚未完成", "conflict", 409)
+    # Human review may complete after a draft was built. It does not change the
+    # draft's professional contents or make that draft a formally approved file.
+    return digest([snapshot, [(key, output) for key, output in nodes if key != "human_review"], draft])
+
+
+def mapping(row, *, include_manifest=True):
+    return {"id": row.id, "reportId": row.report_id, "draft": row.draft, "rendererVersion": row.renderer_version,
+        "bindingDigest": row.binding_digest, "status": row.status, "version": row.version, "attempt": row.attempt,
+        "storedBytes": row.stored_bytes, "progress": json.loads(row.progress_json), "errorCode": row.error_code,
+        "createdAt": row.created_at.isoformat(), "manifest": json.loads(row.manifest_json) if include_manifest and row.status == "ready" else None}
+
+
+def get(run_id, principal):
+    current_principal(principal, admin=True)
+    row = m.AiBusinessFileRun.objects.select_related("report__workflow").filter(pk=identifier(run_id)).first()
+    if row is None:
+        raise AiError("报告文件任务不存在", "not_found", 404)
+    return authorize_owner(row, principal)
+
+
+def listing(report_id, principal):
+    reports.get(report_id, principal)
+    return {"items": [mapping(row, include_manifest=False) for row in m.AiBusinessFileRun.objects.filter(report_id=report_id, owner_email=principal.email.lower()).defer("manifest_json").order_by("-created_at")[:30]]}
+
+
+def create(report_id, body, principal):
+    fields(body, {"draft"})
+    draft = bool(boolean(body.get("draft", False), "draft"))
+    current_principal(principal, admin=True, write=True)
+    report = reports.get(report_id, principal)
+    fingerprint = binding(report, principal, draft)
+    with mutation(principal):
+        old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=1, binding_digest=fingerprint).first()
+        if old:
+            return {"item": mapping(authorize_owner(old, principal)), "replayed": True}
+        if m.AiBusinessFileRun.objects.filter(owner_email=principal.email.lower(), status__in=["queued", "building", "paused"]).count() >= 2:
+            raise AiError("未完成文件任务已达到上限", "rate_limited", 429)
+        if m.AiBusinessFileRun.objects.count() >= 1000:
+            raise AiError("文件任务存储容量已满", "rate_limited", 429)
+        row = m.AiBusinessFileRun.objects.create(id=uid("business-file"), report=report, owner_email=principal.email.lower(), draft=draft, binding_digest=fingerprint)
+    return {"item": mapping(row), "replayed": False}
+
+
+def control(run_id, body, principal):
+    fields(body, {"expectedVersion", "action"}, {"expectedVersion", "action"})
+    if body["action"] not in ("pause", "resume", "rebuild", "cancel"):
+        raise AiError("文件任务控制动作无效")
+    with mutation(principal):
+        row = get(run_id, principal)
+        cas(row, body["expectedVersion"])
+        if row.status in {"ready", "cancelled"}:
+            raise AiError("文件任务已结束", "conflict", 409)
+        if body["action"] in {"resume", "rebuild"}:
+            if row.status != "paused":
+                raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
+            if binding(row.report, principal, row.draft) != row.binding_digest:
+                raise AiError("报告内容已变化，须创建新文件版本", "conflict", 409)
+            if body["action"] == "rebuild":
+                row.manifest_json = "{}"
+            if row.attempt >= 5 and row.manifest_json == "{}":
+                raise AiError("文件重建次数已达到上限", "conflict", 409)
+        row.status = {"pause": "paused", "resume": "queued", "rebuild": "queued", "cancel": "cancelled"}[body["action"]]
+        row.error_code = ""
+        row.lease_until = timezone.now()
+        row.version += 1
+        row.save()
+    return {"item": mapping(row)}
+
+
+def chunk(run_id, format, params, principal):
+    fields(params, {"sequence"}, {"sequence"})
+    if format not in {"html", "xlsx"}:
+        raise AiError("文件格式无效")
+    try:
+        sequence = int(params["sequence"])
+        integer(sequence, "sequence", hi=512)
+    except (TypeError, ValueError) as error:
+        raise AiError("文件分块序号无效") from error
+    row = get(run_id, principal)
+    if row.status != "ready":
+        raise AiError("完整双文件尚未就绪", "conflict", 409)
+    if binding(row.report, principal, row.draft) != row.binding_digest:
+        raise AiError("报告内容绑定已变化", "conflict", 409)
+    manifest = json.loads(row.manifest_json)
+    record = m.AiBusinessFileChunk.objects.filter(run=row, attempt=row.attempt, format=format, sequence=sequence).first()
+    if record is None:
+        raise AiError("文件分块不存在", "not_found", 404)
+    content = bytes(record.content)
+    if hashlib.sha256(content).hexdigest() != record.content_digest:
+        raise AiError("文件分块未通过摘要校验", "conflict", 409)
+    return {"schemaVersion": "business-file-chunk-v1", "runId": row.id, "format": format, "attempt": row.attempt,
+        "sequence": sequence, "bytes": len(content), "sha256": record.content_digest, "fileSha256": manifest["files"][format]["sha256"],
+        "base64": base64.b64encode(content).decode()}
+
+
+def audit(row, principal, action):
+    AiMutationAudit.objects.create(request_id=uid("file-audit"), actor_email=principal.email.lower(), actor_role=principal.role,
+        action="business_files_"+action, scope_digest=digest([principal.scope, row.id]), response_digest=digest(mapping(row)), revision=int(revision())+1)
+
+
+def _current(run_id, principal, state):
+    row = get(run_id, principal)
+    if row.status != "building" or row.version != state["version"] or row.attempt != state["attempt"]:
+        raise AiError("文件任务已暂停、取消或被其他版本接管", "file_superseded", 409)
+    return row
+
+
+def _check_quota(row, size):
+    owner = m.AiBusinessFileRun.objects.filter(owner_email=row.owner_email).aggregate(n=Sum("stored_bytes"))["n"] or 0
+    total = m.AiBusinessFileRun.objects.aggregate(n=Sum("stored_bytes"))["n"] or 0
+    if row.stored_bytes+size > RUN_BYTES or owner+size > OWNER_BYTES or total+size > GLOBAL_BYTES:
+        raise AiError("报告文件存储额度已满，已有分块保留", "payload_too_large", 413)
+
+
+def _verify_staged(row):
+    manifest = json.loads(row.manifest_json)
+    if manifest.get("schemaVersion") != "business-file-delivery-v1" or manifest.get("attempt") != row.attempt or manifest.get("bindingDigest") != row.binding_digest:
+        raise AiError("已保存文件清单不完整", "conflict", 409)
+    for format in ("html", "xlsx"):
+        sha, size, count = hashlib.sha256(), 0, 0
+        for part in m.AiBusinessFileChunk.objects.filter(run=row, attempt=row.attempt, format=format).order_by("sequence").iterator(chunk_size=4):
+            count += 1
+            content = bytes(part.content)
+            if part.sequence != count or hashlib.sha256(content).hexdigest() != part.content_digest:
+                raise AiError("已保存分块顺序或摘要不符", "conflict", 409)
+            sha.update(content)
+            size += len(content)
+        expected = manifest.get("files", {}).get(format, {})
+        if count != expected.get("chunkCount") or size != expected.get("bytes") or sha.hexdigest() != expected.get("sha256"):
+            raise AiError("完整文件摘要或长度不符", "conflict", 409)
+
+
+def _build(row, principal, state):
+    started, last_check, last_saved = time.monotonic(), 0, 0
+    def checkpoint(progress=None, force=False):
+        nonlocal last_check, last_saved
+        now = time.monotonic()
+        if now-started > BUILD_SECONDS:
+            raise AiError("文件构建超过本轮时间预算，保留检查点", "file_build_timeout", 409)
+        if not force and now-last_check < 1:
+            return
+        current_principal(principal, admin=True)
+        _current(row.id, principal, state)
+        last_check = now
+        if progress is not None and now-last_saved >= 5:
+            with mutation(principal):
+                saved = _current(row.id, principal, state)
+                saved.progress_json = canonical(passive(progress, 4096))
+                saved.lease_until = timezone.now()+timedelta(seconds=LEASE_SECONDS)
+                saved.version += 1
+                saved.save()
+                audit(saved, principal, "progress")
+            state["version"], last_saved = saved.version, now
+    if row.manifest_json == "{}":
+        with TemporaryDirectory(prefix="teruisi-file-build-") as directory:
+            paths = {format: Path(directory)/("report."+format) for format in ("html", "xlsx")}
+            with paths["xlsx"].open("wb") as xlsx, paths["html"].open("wb") as html:
+                proof = business_export.build(row.report, principal, xlsx, html, draft=row.draft, checkpoint=checkpoint)
+            files = {}
+            for format in ("html", "xlsx"):
+                checkpoint(force=True)
+                sha, size, sequence = hashlib.sha256(), 0, 0
+                with paths[format].open("rb") as stream:
+                    while True:
+                        batch = []
+                        for _ in range(16):
+                            content = stream.read(CHUNK_BYTES)
+                            if not content:
+                                break
+                            sequence += 1
+                            size += len(content)
+                            sha.update(content)
+                            batch.append(m.AiBusinessFileChunk(id=uid("file-chunk"), run=row, attempt=state["attempt"], format=format,
+                                sequence=sequence, content=content, content_digest=hashlib.sha256(content).hexdigest()))
+                        if not batch:
+                            break
+                        checkpoint(force=True)
+                        with mutation(principal):
+                            saved = _current(row.id, principal, state)
+                            added = sum(len(part.content) for part in batch)
+                            _check_quota(saved, added)
+                            m.AiBusinessFileChunk.objects.bulk_create(batch, batch_size=16)
+                            saved.stored_bytes += added
+                            saved.progress_json = canonical({"stage": "saving", "format": format, "chunks": sequence, "bytes": size})
+                            saved.version += 1
+                            saved.lease_until = timezone.now()+timedelta(seconds=LEASE_SECONDS)
+                            saved.save()
+                            audit(saved, principal, "chunks_saved")
+                        state["version"] = saved.version
+                files[format] = {"bytes": size, "chunkCount": sequence, "sha256": sha.hexdigest(), "chunkBytes": CHUNK_BYTES,
+                    "mimeType": "text/html; charset=utf-8" if format == "html" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "fileName": f'经营分析-{row.report_id}-{"草稿" if row.draft else "已复核"}.{format}'}
+            with mutation(principal):
+                saved = _current(row.id, principal, state)
+                saved.manifest_json = canonical(passive({"schemaVersion": "business-file-delivery-v1", "attempt": row.attempt,
+                    "bindingDigest": row.binding_digest, "draft": row.draft, "files": files, "tables": proof["tables"]}, 131072))
+                saved.progress_json = canonical({"stage": "verifying"})
+                saved.version += 1
+                saved.save()
+                audit(saved, principal, "staged")
+            state["version"] = saved.version
+    checkpoint(force=True)
+    row = _current(row.id, principal, state)
+    _verify_staged(row)
+    checkpoint(force=True)
+    with mutation(principal):
+        saved = _current(row.id, principal, state)
+        if binding(saved.report, principal, saved.draft) != saved.binding_digest:
+            raise AiError("生成期间报告内容已变化", "conflict", 409)
+        saved.status, saved.error_code, saved.progress_json = "ready", "", canonical({"stage": "ready"})
+        saved.version += 1
+        saved.save()
+        audit(saved, principal, "ready")
+    return {"status": "ready", "runId": saved.id, "version": saved.version}
+
+
+def tick():
+    if connection.vendor != "postgresql":
+        raise AiError("文件构建需要 PostgreSQL 互斥", "service_unavailable", 503)
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_try_advisory_lock(%s,%s)", [192839, 7303])
+        if not cursor.fetchone()[0]:
+            return {"status": "file_builder_busy"}
+    try:
+        row = m.AiBusinessFileRun.objects.select_related("report__workflow").filter(Q(status="queued") | Q(status="building", lease_until__lte=timezone.now())).order_by("lease_until", "created_at", "id").first()
+        if row is None:
+            return {"status": "idle"}
+        state = {"version": row.version, "attempt": row.attempt}
+        principal = None
+        try:
+            principal = workflows.background(row)
+            current_principal(principal, admin=True)
+            if binding(row.report, principal, row.draft) != row.binding_digest:
+                raise AiError("报告内容绑定已变化", "conflict", 409)
+            if row.manifest_json == "{}" and row.attempt >= 5:
+                raise AiError("文件构建次数已达到上限", "conflict", 409)
+            with mutation(principal):
+                saved = get(row.id, principal)
+                if saved.version != state["version"]:
+                    return {"status": "superseded"}
+                saved.status, saved.error_code = "building", ""
+                if saved.manifest_json == "{}":
+                    saved.attempt += 1
+                saved.lease_until = timezone.now()+timedelta(seconds=LEASE_SECONDS)
+                saved.progress_json = canonical({"stage": "verifying" if saved.manifest_json != "{}" else "preparing"})
+                saved.version += 1
+                saved.save()
+                audit(saved, principal, "claimed")
+            state.update(version=saved.version, attempt=saved.attempt)
+            return _build(saved, principal, state)
+        except Exception as caught:
+            error = caught if isinstance(caught, AiError) else AiError("文件构建失败", "file_build_failed", 503)
+            from sales.auth import Principal
+            actor = principal or Principal("ai-scheduler@teruisi.internal", "AI scheduler", "operator", None)
+            with mutation():
+                saved = m.AiBusinessFileRun.objects.get(pk=row.id)
+                if saved.version != state["version"] or saved.status in {"ready", "cancelled", "paused"}:
+                    return {"status": "superseded", "runId": saved.id}
+                saved.status, saved.error_code = "paused", error.code
+                saved.version += 1
+                saved.save()
+                audit(saved, actor, "paused")
+            return {"status": "paused", "runId": saved.id, "errorCode": error.code}
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_advisory_unlock(%s,%s)", [192839, 7303])

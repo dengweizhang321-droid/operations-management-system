@@ -17,6 +17,8 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    "ai_business_file_runs": m.AiBusinessFileRun,
+    "ai_business_file_chunks": m.AiBusinessFileChunk,
     "ai_business_evidence_runs": m.AiBusinessEvidenceRun,
     "ai_business_evidence_chunks": m.AiBusinessEvidenceChunk,
     "ai_library_revisions": m.AiLibraryRevision,
@@ -36,6 +38,8 @@ MODELS = {
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_business_file_runs",
+    "ai_business_file_chunks",
     "ai_business_evidence_runs",
     "ai_business_evidence_chunks",
     "ai_library_revisions",
@@ -75,6 +79,7 @@ READ_TABLES = {
     "access_control_users",
 }
 APPEND_ONLY = {
+    "ai_business_file_chunks",
     "ai_business_evidence_chunks",
     "ai_library_revisions",
     "ai_execution_guidance",

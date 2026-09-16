@@ -1701,3 +1701,4 @@ class AiPromptSettingsRevision(models.Model):
 
 from .report_models import AiLibraryRevision, AiExecutionGuidance, AiReportRun, AiReportDelivery  # noqa: E402,F401
 from .business_models import AiBusinessEvidenceRun, AiBusinessEvidenceChunk  # noqa: E402,F401
+from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk  # noqa: E402,F401

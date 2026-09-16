@@ -9,6 +9,21 @@ const principal = { email: "owner@example.invalid", displayName: "镜像操作�
 const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-hmac-transport-secret-0123456789", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
 const json = (payload: unknown, status = 200, headers = {}) => Response.json(payload, { status, headers: { "x-ai-revision": "42", ...headers } });
 
+test("business file routes keep reads and writes on their owning process", async () => {
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({}); };
+  for (const path of ["/api/ai/reports/report_1/files", "/api/ai/business-files/file_1", "/api/ai/business-files/file_1/chunks/xlsx"]) {
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(requests.at(-1)!.url).port, "18111");
+  }
+  for (const path of ["/api/ai/reports/report_1/files", "/api/ai/business-files/file_1/control"]) {
+    await requestDjangoAi(principal, { path, method: "POST", payload: {} }, { environment, fetchImpl });
+    assert.equal(new URL(requests.at(-1)!.url).port, "18112");
+  }
+  for (const path of ["/api/ai/business-files", "/api/ai/business-files/file_1/chunks/csv", "/api/ai/business-files/file_1/internal"]) assert.equal(isPublicAiPath(path), false);
+});
+
 test("AI principal envelope binds exact Unicode identity, method, path, query, body and request ID", async () => {
   const input = { secret: environment.TERUISI_DJANGO_INTERNAL_SECRET, principal, method: "POST", path: "/api/ai/consumer", query: "page=1", body: '{"query":"大毛利"}', requestId: "idempotent-1", timestamp: 1800000000 };
   const headers = await aiHeaders(input);

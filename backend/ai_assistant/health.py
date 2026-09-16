@@ -91,6 +91,10 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {(table, "ai_write_fence") for table in ("ai_business_file_runs", "ai_business_file_chunks")}
+            | {("ai_business_file_runs", "ai_immutable_identity"), ("ai_business_file_runs", "ai_business_file_state"),
+               ("ai_business_file_chunks", "ai_immutable_evidence"), ("ai_business_file_chunks", "ai_business_file_chunk_state")}
+            |
             {(table, "ai_write_fence") for table in ("ai_business_evidence_runs", "ai_business_evidence_chunks")}
             | {("ai_business_evidence_runs", "ai_immutable_identity"), ("ai_business_evidence_runs", "ai_business_terminal"), ("ai_business_evidence_chunks", "ai_immutable_evidence")}
             |
@@ -142,6 +146,8 @@ def check():
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
         for table, expected in (
+            ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),
+            ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
             ("ai_business_evidence_runs", {"ai_business_run_bound", "ai_business_client_uq"}),
             ("ai_business_evidence_chunks", {"ai_business_chunk_bound", "ai_business_chunk_uq"}),
             ("ai_library_revisions", {"ai_library_revisions_bound"}),

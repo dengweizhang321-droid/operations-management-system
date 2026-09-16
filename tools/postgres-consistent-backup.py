@@ -238,6 +238,10 @@ def collect_evidence(
                 expected_ai_tables.difference_update({"ai_business_evidence_runs", "ai_business_evidence_chunks"})
             elif "0013_dingtalk_schedule_media" not in ai_migrations:
                 raise RuntimeError("AI business evidence schema has no media predecessor")
+            if "0016_business_files" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_business_file_runs", "ai_business_file_chunks"})
+            elif not {"0014_business_evidence", "0015_business_collection"} <= set(ai_migrations):
+                raise RuntimeError("AI business files schema has no collection predecessor")
             if "0012_report_library" in ai_migrations and "0011_prompt_settings" not in ai_migrations:
                 raise RuntimeError("AI report schema has no prompt predecessor")
             if "0012_report_library" not in ai_migrations:

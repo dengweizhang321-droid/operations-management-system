@@ -18,7 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
-PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks"}
+PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks"}
 
 
 class _EvidenceCursor:
@@ -107,13 +107,13 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_business_evidence_tables_require_exact_migration_generation(self):
-        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 14)
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 16)
         migrations = [("ai_assistant", name) for name in names]
         current = _ai_evidence(AI_TABLES, migrations)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 58)
-        previous = [item for item in migrations if item[1] != "0014_business_evidence"]
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 60)
+        previous = [item for item in migrations if int(item[1][:4]) <= 13]
         self.assertEqual(len([name for name in _ai_evidence(PRE_EVIDENCE_TABLES, previous)["tables"] if name.startswith("ai_")]), 56)
-        for tables, history in [(set(AI_TABLES)-{"ai_business_evidence_chunks"}, migrations), (AI_TABLES, previous), (AI_TABLES, [m for m in migrations if m[1] != "0013_dingtalk_schedule_media"])]:
+        for tables, history in [(set(AI_TABLES)-{"ai_business_evidence_chunks"}, migrations), (set(AI_TABLES)-{"ai_business_file_chunks"}, migrations), (AI_TABLES, previous), (AI_TABLES, [m for m in migrations if m[1] != "0013_dingtalk_schedule_media"]), (AI_TABLES, [m for m in migrations if m[1] != "0015_business_collection"])]:
             with self.assertRaises(RuntimeError):
                 _ai_evidence(tables, history)
 

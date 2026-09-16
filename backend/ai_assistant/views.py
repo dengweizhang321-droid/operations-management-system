@@ -139,6 +139,10 @@ def _dispatch(request, path=""):
         endpoint = path.strip("/")
         routes = {
             r"business-reports": {"POST"},
+            r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
             r"business-evidence": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
@@ -223,6 +227,21 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "business-files" or root == "reports" and parts[-1] == "files":
+            from . import business_files
+            current_principal(principal, admin=True)
+            if root == "reports":
+                fields(params, set())
+                if request.method == "GET":
+                    return response(business_files.listing(parts[1], principal))
+                return write(request, principal, lambda: (business_files.create(parts[1], payload, principal), 200))
+            if request.method == "GET":
+                if len(parts) == 4:
+                    return response(business_files.chunk(parts[1], parts[3], params, principal))
+                fields(params, set())
+                return response({"item": business_files.mapping(business_files.get(parts[1], principal))})
+            fields(params, set())
+            return write(request, principal, lambda: (business_files.control(parts[1], payload, principal), 200))
         if root == "business-reports":
             fields(params, set())
             return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
@@ -302,9 +321,11 @@ def _dispatch(request, path=""):
                 raise AiError("调度身份无效", "access_denied", 403)
             fields(payload, {"queue"}, {"queue"})
             from .business_parallel import agent_queue_tick
+            from .business_files import tick as file_tick
             from .business_collection import tick as collection_tick
             runner = {
                 "agent": agent_queue_tick,
+                "files": file_tick,
                 "evidence": collection_tick,
                 "workflow": workflows.workflow_tick,
                 "space": space.tick,

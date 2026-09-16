@@ -1,4 +1,4 @@
-"""0013 -> 0015, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0016, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -38,7 +38,7 @@ executor.migrate(old_target)
 old = executor.loader.project_state(old_target).apps
 old.get_model("ai_assistant", "AiConversations").objects.create(id="retained-fixture", title="合成旧会话", created_by="fixture@example.invalid")
 old.get_model("ai_assistant", "AiConversationMessages").objects.create(id="retained-message", conversation_id="retained-fixture", role="assistant", content="历史内容", ordinal=1)
-new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks"}
+new_tables = {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks"}
 
 def snapshot(dbname, tables):
     result = {}
@@ -64,6 +64,21 @@ AiMigrationRun.objects.create(id="ai-apply-"+"d"*32, mode="apply", status="verif
 passwords = {role: secrets.token_hex(32) for role in ("reader", "writer")}
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"]) as owner:
     provision(owner, passwords["reader"], passwords["writer"])
+
+# Synthetic transport fixture only: verify bytea preservation and restricted
+# writer guards independently of analysis/report content acceptance.
+from ai_assistant import models as m
+with connection.cursor() as cursor:
+    cursor.execute("SELECT set_config('teruisi.ai_epoch',%s,false),set_config('teruisi.ai_cutover','business-synthetic',false)", [epoch])
+workflow = m.AiWorkflowRuns.objects.create(id="file-restore-workflow", owner_email="fixture@example.invalid",
+    client_request_id="file-restore", request_digest="e"*64, scope_json="null", name="合成文件恢复",
+    graph_json="{}", graph_digest="f"*64)
+report = m.AiReportRun.objects.create(id="file-restore-report", owner_email=workflow.owner_email,
+    client_request_id="file-restore", request_digest="e"*64, workflow=workflow, snapshot_json="{}")
+m.AiBusinessFileRun.objects.create(id="file-restore", owner_email=workflow.owner_email, report=report,
+    binding_digest="a"*64, status="building", attempt=1)
+binary_payload = bytes(range(256))*2048
+binary_digest = hashlib.sha256(binary_payload).hexdigest()
 
 def denied(db, statement):
     try:
@@ -94,6 +109,10 @@ for role in ("reader", "writer"):
             denied(limited, "UPDATE ai_business_evidence_runs SET owner_email='other',version=2")
             limited.execute("UPDATE ai_business_evidence_runs SET status='sealed',version=2 WHERE id='synthetic'")
             denied(limited, "UPDATE ai_business_evidence_runs SET status='collecting',version=3")
+            limited.execute("INSERT INTO ai_business_file_chunks(id,run_id,attempt,format,sequence,content,content_digest,created_at) VALUES ('binary-restore','file-restore',1,'xlsx',1,%s,%s,now())", [binary_payload, binary_digest])
+            limited.execute("UPDATE ai_business_file_runs SET stored_bytes=524288,version=2 WHERE id='file-restore'")
+            denied(limited, "UPDATE ai_business_file_chunks SET content='broken'::bytea")
+            denied(limited, "UPDATE ai_business_file_runs SET status='ready',version=3 WHERE id='file-restore'")
         else:
             denied(limited, insert)
         for table in new_tables:
@@ -115,6 +134,10 @@ dump = run_root / "business-evidence.dump"
 for executable, arguments in [("pg_dump.exe", ["-Fc", "-f", str(dump), "teruisi_ai_rehearsal"]), ("createdb.exe", ["teruisi_business_restore"]), ("pg_restore.exe", ["--exit-on-error", "-d", "teruisi_business_restore", str(dump)])]:
     subprocess.run([str(binary / executable), *arguments], check=True, capture_output=True, timeout=60)
 assert snapshot("teruisi_business_restore", AI_TABLES) == complete
-print(json.dumps({"upgrade": "0013->0014->0015", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES),
+with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")) as restored:
+    content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
+    assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
+print(json.dumps({"upgrade": "0013->0014->0015->0016", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES),
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,
-    "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete, "productionWrites": False}))
+    "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete,
+    "binaryRestoreBytes": len(binary_payload), "binaryRestoreSha256": binary_digest, "productionWrites": False}))

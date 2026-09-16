@@ -7,6 +7,7 @@ from django.test import TransactionTestCase, override_settings
 class CollectionUpgradeTests(TransactionTestCase):
     def test_old_rows_and_terminal_guard_survive_new_manual_defaults(self):
         executor = MigrationExecutor(connection)
+        latest = executor.loader.graph.leaf_nodes()
         old, new = [("ai_assistant", "0014_business_evidence")], [("ai_assistant", "0015_business_collection")]
         try:
             executor.migrate(old)
@@ -27,4 +28,4 @@ class CollectionUpgradeTests(TransactionTestCase):
             with self.assertRaises(DatabaseError), transaction.atomic():
                 AiBusinessEvidenceRun.objects.filter(pk="legacy-1").update(collection_status="queued", version=2)
         finally:
-            MigrationExecutor(connection).migrate(new)
+            MigrationExecutor(connection).migrate(latest)

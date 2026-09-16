@@ -105,7 +105,7 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
@@ -139,6 +139,8 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables):
     with zipfile.ZipFile(xlsx_file, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         _static_parts(archive, names)
         for table_index, (table, name) in enumerate(zip(tables, names), 1):
+            if checkpoint:
+                checkpoint({"stage": "rendering", "table": table_index, "totalTables": len(tables)})
             if table_index > 1:
                 out(',')
             out('{"key":'+_json(table.key)+',"title":'+_json(table.title)+',"note":'+_json(table.note)+',"columns":'+_json([{"key": c.key, "label": c.label, "kind": c.kind} for c in table.columns])+',"rows":[')
@@ -155,6 +157,8 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables):
                 xml('<row r="2" ht="48" customHeight="1">'+cell(table.note, "A2")+'</row>')
                 xml('<row r="3" ht="32" customHeight="1">'+''.join(cell(col.label, column_name(i)+"3", 1) for i, col in enumerate(table.columns, 1))+'</row>')
                 for row in table.rows:
+                    if checkpoint and count % 1000 == 0:
+                        checkpoint({"stage": "rendering", "table": table_index, "rows": count, "totalRows": table.row_count})
                     if not isinstance(row, (list, tuple)) or len(row) != len(table.columns) or count >= table.row_count:
                         raise AnalysisContractError("表格行宽或完整行数不一致")
                     values = list(row)
