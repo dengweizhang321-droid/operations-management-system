@@ -10,7 +10,7 @@
 | --- | --- |
 | 工作流 ID | 原 `TmallYiyongDaily2026`，禁止新建第二条 ID |
 | 候选模板 | `automation/n8n/tmall-yiyong-direct-pm-candidate.workflow.json` |
-| 店铺与日调度 | `tmall-yiyong`，Asia/Shanghai，每天 14:20 |
+| 店铺与日调度 | `tmall-yiyong`，Asia/Shanghai，每天 11:50 |
 | 顺序 | 原子认领 → A → B → C → P → M |
 | P/M 协议头 | `yiyong-direct-pm-v1`，不得使用亿玖协议头 |
 | M 节奏 | 持久 intervalDays=1，实际成功上海日 +1，失败不推进 |

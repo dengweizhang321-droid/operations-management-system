@@ -19,13 +19,13 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "30 13 * * *"
+              "expression": "0 11 * * *"
             }
           ]
         }
       },
       "id": "89948ab3-2be8-4f02-85a2-8aba79578082",
-      "name": "每天 13:30 运行",
+      "name": "每天 11:00 运行",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
@@ -532,17 +532,6 @@
         ]
       ]
     },
-    "每天 13:30 运行": {
-      "main": [
-        [
-          {
-            "node": "领取共享 helper",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "手动完整运行（强制 M）": {
       "main": [
         [
@@ -596,6 +585,17 @@
       ]
     },
     "失败后每小时安全重试入口": {
+      "main": [
+        [
+          {
+            "node": "领取共享 helper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每天 11:00 运行": {
       "main": [
         [
           {

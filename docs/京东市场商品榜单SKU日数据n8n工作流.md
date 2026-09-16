@@ -52,7 +52,7 @@
 
 新版普通公告可能在登录后异步出现并阻挡“商品榜”。执行器仅关闭唯一可见、包含 `img[alt="公告图片"]` 的 `.jd-modal-wrap`，关闭控件也必须唯一；不关闭其他弹层，不处理验证码或安全验证。此行为使用独立临时浏览器的合成页面回归验证，不使用店铺登录目录。
 
-当前发布调度使用仓库模板 `automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json`，工作流 ID 为 `JdMarketSilentCopy2026`，上海时区每天 10:30 触发，同时保留手动触发入口。京东四店流程已在 10:00 启动；市场榜单的定时分支仍保留 1 分钟安全等待，再向 `127.0.0.1:5791/coordination/claim` 提交 `workflow key + n8n execution ID + 当前领取次数`，由 helper 在同一事件循环内原子判定并绑定唯一 owner。未获授权时每 5 分钟重试，定时和手动入口都必须经过该门禁；累计 72 次、约 6 小时仍未领取时以 `coordination_wait_expired` 失败关闭，防止无限等待和跨日堆积。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`。仓库 JSON 为安全起见仍保持 `active=false`，本机 n8n 实例在核验后单独发布并启用；未激活的主模板 `JdMarketDaily2026` 不得同时启用。统一 Codex 监控每天 14:25 核验 n8n execution、业务终态和通知，不直接调用 helper 执行 A/B/C。
+当前发布调度使用仓库模板 `automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json`，工作流 ID 为 `JdMarketSilentCopy2026`，上海时区每天 10:30 触发，同时保留手动触发入口。京东四店流程已在 10:00 启动；市场榜单的定时分支仍保留 1 分钟安全等待，再向 `127.0.0.1:5791/coordination/claim` 提交 `workflow key + n8n execution ID + 当前领取次数`，由 helper 在同一事件循环内原子判定并绑定唯一 owner。未获授权时每 5 分钟重试，定时和手动入口都必须经过该门禁；累计 72 次、约 6 小时仍未领取时以 `coordination_wait_expired` 失败关闭，防止无限等待和跨日堆积。A/B/C 三个节点均固定发送 `X-TERUISI-JD-SILENT-NO-WINDOW: 1`，后端配置也固定 `silentNoWindow=true`。仓库 JSON 为安全起见仍保持 `active=false`，本机 n8n 实例在核验后单独发布并启用；未激活的主模板 `JdMarketDaily2026` 不得同时启用。统一 Codex 监控每 10 分钟核验已到计划时间至少 5 分钟的 n8n execution、业务终态和通知，不直接调用 helper 执行 A/B/C。
 
 ![n8n 三段式工作流画布](images/jd-market-ranking-daily/03-n8n-workflow-canvas.png)
 

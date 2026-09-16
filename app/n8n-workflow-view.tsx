@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-http.workflow.json";
+import jackyunWorkflowDefinition from "@/automation/n8n/jackyun-five-dataset-api.workflow.json";
 import tmallWorkflowDefinition from "@/automation/n8n/tmall-yijiu-direct-pm-candidate.workflow.json";
 import jdWorkflowDefinition from "@/automation/n8n/jd-multi-store-daily.workflow.json";
 import jdMarketWorkflowDefinition from "@/automation/n8n/jd-market-ranking-daily.chromium-silent-copy.workflow.json";
@@ -80,9 +80,9 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "五表先导出后导入",
     pipelineDescription: "手动启动后，依次完成五表导出、完整校验、统一导入和结果核验。",
     workflowMetric: "吉客云导入系统",
-    scheduleMetric: "已停用",
-    scheduleDescription: "手动启动完整五表流程",
-    scheduleTriggerLabel: "自动定时",
+    scheduleMetric: "00:10",
+    scheduleDescription: "上海时区 · 每天运行一次",
+    scheduleTriggerLabel: "每天",
     iframeTitle: "吉客云导入系统 n8n 工作流",
     safetyNote: "页面只嵌入本机编辑器，吉客云账号、密码、Cookie、Token 和 Session 均不进入运营系统。五表全部下载并通过校验后才开始导入；库存和库龄使用实际采集日，销售按发货时间从月初统计至昨天。最终以五类精确批次核验结果为准。",
     stageDetails: {
@@ -102,7 +102,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "五段式安全导入链路",
     pipelineDescription: "每日从商品日计划开始并完成推广；M 到期时更新货品主数据，未到期则安全关闭本店浏览器并释放 helper。",
     workflowMetric: "天猫店铺数据导入",
-    scheduleMetric: "13:30",
+    scheduleMetric: "11:00",
     scheduleDescription: "上海时区 · 每天运行一次",
     scheduleTriggerLabel: "每天",
     iframeTitle: "天猫店铺数据导入 n8n 工作流",
@@ -164,7 +164,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "三段式京准通推广安全导入链路",
     pipelineDescription: "默认处理上海时区昨天；任务、文件、范围和批次任一不唯一都会停止。",
     workflowMetric: "京东 AI 推广数据导入",
-    scheduleMetric: "13:00",
+    scheduleMetric: "10:40",
     scheduleDescription: "上海时区 · 每天处理昨天",
     scheduleTriggerLabel: "每日",
     iframeTitle: "京东志高商用设备 AI 推广数据下载与导入 n8n 工作流",
@@ -184,7 +184,7 @@ const workflowConfigs: Record<WorkflowKey, WorkflowConfig> = {
     pipelineTitle: "切肉机旗舰店三段式推广安全导入链路",
     pipelineDescription: "默认处理上海时区昨天；店铺、日期、任务、文件和批次任一不唯一都会停止。",
     workflowMetric: "切肉机店 AI 推广导入",
-    scheduleMetric: "13:10",
+    scheduleMetric: "10:50",
     scheduleDescription: "上海时区 · 每天处理昨天",
     scheduleTriggerLabel: "每日",
     iframeTitle: "京东志高切肉机 AI 推广数据下载与导入 n8n 工作流",
