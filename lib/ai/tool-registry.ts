@@ -176,7 +176,11 @@ export const aiToolRegistry = [
     risk: "read_only",
     allowedRoles: allRoles,
     scopePolicy: "principal_scope",
-    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000 },
+    // Dataset discovery may legitimately span many business domains in one
+    // DingTalk question. Keep it bounded by the registry contract, while
+    // avoiding the generic four-call ceiling that previously forced a final
+    // answer before the model could reach the ERP dataset.
+    execution: { ...dingTalkReadOnlyExecution, timeoutMs: 20_000, maxCallsPerRequest: 24 },
     handler: describeSystemDatasets,
   },
   {

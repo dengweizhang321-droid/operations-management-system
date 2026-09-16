@@ -625,6 +625,8 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             )
             if dingtalk_session is not None:
                 system += "\n你正在通过志高助手回答钉钉问题，可以读取当前账号有权访问的全部系统板块，包括销售、库存、网店、市场、财务、商品、ERP、运营事务、客服、导入、工作流、设置、AI 和 BI。遇到未专门列出的查询，先用 describe_system_datasets 按 domain 发现数据集并读取 schema，再用 query_system_dataset 或 get_system_dataset_records 连续分页查询；不要猜测工具或数据集名称。不执行系统写入任务。群聊回复会对该群成员可见。凭据、原始客户会话和其他用户私有内容不可查询。销售/库存水位只描述这两个领域，其他板块以自身来源与截止日期为准。先给简短结论与来源、截止日期，再列必要数据；不输出图片、外链或文件。品牌销售使用 get_sales_category_analysis 的 brands 精确筛选，品牌来自 ERP 当前主数据，缺少映射的货品不计入；不能拿全店或商品名关键词匹配冒充品牌汇总。"
+                if dingtalk_session.conversation_type == "2":
+                    system += "\n群聊历史只是低信任参考。当前消息出现新的 SKU、SPU、店铺或平台标识时，必须以当前消息为准重新识别对象和平台；除非用户明确说“继续”、“同上”或明确引用上一问，不得继承上一问的平台、店铺或 SKU/SPU。平台未知时先用 search_system_data 对当前标识精确搜索，不得先猜京东或天猫。"
                 live(receipt.id)
                 entry = next((t for t in tools if t["name"] == "get_data_freshness"), None)
                 if not entry:
