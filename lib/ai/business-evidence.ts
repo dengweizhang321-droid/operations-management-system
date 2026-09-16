@@ -68,3 +68,26 @@ export async function readBusinessBudget(raw: unknown, principal: AppPrincipal, 
   if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "预算情景页过大，请减小页长，不得截断");
   return result.data;
 }
+
+export async function readBusinessBudgetReferenceV1(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const args = raw as { reportId: string; runId: string; offset?: number };
+  if (!args || typeof args !== "object" || Array.isArray(args)
+    || Object.keys(args).some(key => !["reportId", "runId", "offset"].includes(key))
+    || typeof args.reportId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/.test(args.reportId)
+    || typeof args.runId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/.test(args.runId)
+    || (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || args.offset < 0 || args.offset > 99))) {
+    throw new PublicApiError(400, "invalid_request", "固定预算引用参数无效");
+  }
+  const result = await requestDjangoAi<Record<string, unknown>>(principal, {
+    path: `/api/ai/reports/${args.reportId}/budget-reference`, method: "GET",
+    query: new URLSearchParams({ runId: args.runId, offset: String(args.offset ?? 0), limit: "20" }),
+  }, { signal });
+  if (new TextEncoder().encode(JSON.stringify(result.data)).byteLength > 38_000) {
+    throw new PublicApiError(413, "payload_too_large", "固定预算页超过工具字节容量，不得截断");
+  }
+  if (result.data?.schemaVersion !== "business-budget-page-v1") {
+    throw new PublicApiError(409, "conflict", "固定预算页协议不匹配");
+  }
+  return result.data;
+}

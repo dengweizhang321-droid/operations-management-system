@@ -60,7 +60,7 @@ class BusinessReportV2Tests(TestCase):
         self.assertFalse(m.AiWorkflowNodeRuns.objects.exists())
         self.assertFalse(m.AiExecutionGuidance.objects.exists())
 
-    def test_budget_and_files_are_explicitly_unavailable(self):
+    def test_invalid_budget_unbound_previous_and_legacy_file_mode_rejected(self):
         for values in ({"budgetPlan": {}}, {"previousReportId": "previous"}):
             with self.assertRaises(AiError):
                 self.create(**values)

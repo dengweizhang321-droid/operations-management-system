@@ -146,6 +146,16 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     if v2:
         metadata.update(schemaVersion="business-files-v2", rendererVersion=4,
             catalogDigest=snapshot["catalogDigest"], sealedDigest=snapshot["sealedDigest"], sourceCount=len(sources))
+    if v2 and "budgetRef" in snapshot:
+        from . import business_budget, business_budget_store
+        fixed = business_budget_store.binding_for_report(report, principal)
+        resolved = business_budget.for_report(report, principal)
+        if (snapshot["budgetRef"] != fixed.reference or resolved is None
+                or resolved["planDigest"] != fixed.reference["planDigest"]
+                or canonical(value.get("budget")) != canonical(resolved)):
+            raise AiError("报告预算内容与固定参数重算不一致", "conflict", 409)
+        metadata.update(budgetRef=fixed.reference, budgetPlanDigest=resolved["planDigest"],
+                        budgetBindingDigest=fixed.reference["bindingDigest"])
     with TableSpool() as spool:
         spool.add("overview", "报告范围", "固定来源、期间与报告版本。", ({"项目": key, "内容": canonical(item) if isinstance(item, (dict, list)) else item} for key, item in metadata.items()))
         spool.add("diagnosis", "深度诊断", "解释与因果仍需人工判断；以下文字来自已持久化的专业分析与复核。", ({"章节": section["title"], "正文": section["body"][start:start+300]} for section in value["sections"] for start in range(0, len(section["body"]), 300)))

@@ -175,7 +175,7 @@ def event(row, principal, kind, previous=None, node=None):
         m.AiAgentEvents.objects.create(job_id=row.id, job_version=row.version, **values)
 
 
-def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None):
+def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None, budget_prepared=None):
     allowed = {"clientRequestId", "input", "modelId"} | (
         {"name", "graph", "dryRun"} if workflow else {"task"}
     )
@@ -197,9 +197,17 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
     )
     if execution_profile is not None:
         from . import business_reports
-        if not workflow or execution_profile != business_reports.V2_PROFILE:
+        if not workflow or execution_profile not in {business_reports.V2_PROFILE, business_reports.BUDGET_PROFILE}:
             raise AiError("工作流执行协议无效")
-    surface = "business_agent_v2" if execution_profile is not None else "ai_agent"
+        if execution_profile == business_reports.BUDGET_PROFILE:
+            from .business_budget_store import PreparedBudget
+            from .policy import _mutation_depth
+            if type(budget_prepared) is not PreparedBudget or _mutation_depth.get() < 1:
+                raise AiError("预算工作流仅可在完整报告创建事务中使用固定参数")
+    if budget_prepared is not None and execution_profile != "business-agent-budget-reference-v1":
+        raise AiError("预算参数与工作流执行协议不一致")
+    surface = ("business_agent_budget_v1" if execution_profile == "business-agent-budget-reference-v1" else
+               "business_agent_v2" if execution_profile is not None else "ai_agent")
     admitted, entries = (admission(principal, body.get("modelId"), surface=surface) if execution_profile is not None
                          else admission(principal, body.get("modelId"))) if not dry else ({}, [])
     request_digest = digest({"payload": body, "admission": admitted})
@@ -245,7 +253,11 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
             from . import report_library
             report_library.pin(row.id, title, None, entries, skill_ids=skill_ids, library=library_snapshot)
         if execution_profile is not None:
-            business_reports.preflight_v2(row, principal, graph, entries)
+            if execution_profile == business_reports.BUDGET_PROFILE:
+                from .business_budget_preflight import preflight
+                preflight(row, principal, graph, entries, prepared=budget_prepared)
+            else:
+                business_reports.preflight_v2(row, principal, graph, entries)
         if workflow:
             for position, node in enumerate(graph["nodes"]):
                 m.AiWorkflowNodeRuns.objects.create(
@@ -579,7 +591,7 @@ def agent_tick(*, job_id=None):
                 return _complete(row, principal, final)
             if pending:
                 parent, call = pending
-                business_reports.validate_call(row, call)
+                business_reports.validate_call(row, call, principal)
                 entry = next((e for e in entries if e["name"] == call["name"]), None)
                 if (
                     not entry
@@ -601,7 +613,7 @@ def agent_tick(*, job_id=None):
                     lease_epoch=row.lease_epoch,
                 )
             else:
-                business_reports.validate_provider_turn(row)
+                business_reports.validate_provider_turn(row, principal)
                 if len(providers) >= min(model.max_tool_rounds, 20):
                     raise AiError("模型轮数超限", "provider_limit_exceeded", 409)
                 dispatch_budget(principal.email.lower(), model.id)
@@ -717,12 +729,12 @@ def _complete(row, principal, answer):
     # and succeeded dispatch in this transaction; never relabel it as unknown.
     if business_reports.has_v2_profile(row):
         try:
-            business_reports.validate_output(row, answer)
+            business_reports.validate_output(row, answer, principal)
             output = {"answer": text(answer, "answer", 12000)}
         except (AiError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
             return _fail(row, principal, error.code if isinstance(error, AiError) else "business_output_validation_failed")
     else:
-        business_reports.validate_output(row, answer)
+        business_reports.validate_output(row, answer, principal)
         output = {"answer": text(answer, "answer", 12000)}
     row.output_json = canonical(output)
     row.status = "completed"

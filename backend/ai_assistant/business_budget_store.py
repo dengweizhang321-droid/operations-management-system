@@ -22,16 +22,14 @@ def _call(function, *args, **kwargs):
 
 
 @dataclass(frozen=True)
-class PreparedBudget:
+class BudgetBinding:
     id: str
     plan_json: str
     binding_json: str
-    result_json: str
 
     def __post_init__(self):
         identifier(self.id)
-        for raw, maximum in ((self.plan_json, contract.MAX_PLAN_BYTES), (self.binding_json, contract.MAX_BINDING_BYTES),
-                             (self.result_json, 2*1024*1024)):
+        for raw, maximum in ((self.plan_json, contract.MAX_PLAN_BYTES), (self.binding_json, contract.MAX_BINDING_BYTES)):
             try:
                 if type(raw) is not str or len(raw) > maximum or len(raw.encode("utf-8")) > maximum:
                     raise ValueError("预算准备JSON超过容量")
@@ -50,12 +48,27 @@ class PreparedBudget:
         return json.loads(self.binding_json)
 
     @property
-    def result(self):
-        return json.loads(self.result_json)
-
-    @property
     def reference(self):
         return _call(contract.make_reference, self.id, self.binding)
+
+
+@dataclass(frozen=True)
+class PreparedBudget(BudgetBinding):
+    result_json: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        try:
+            if type(self.result_json) is not str or len(self.result_json) > 2*1024*1024 or len(self.result_json.encode()) > 2*1024*1024:
+                raise ValueError("预算结果超过容量")
+            if type(json.loads(self.result_json)) is not dict:
+                raise ValueError("预算结果须为对象")
+        except (ValueError, TypeError, UnicodeError, RecursionError) as error:
+            raise AiError("预算准备结果无效", "conflict", 409) from error
+
+    @property
+    def result(self):
+        return json.loads(self.result_json)
 
 
 def _prepare(evidence, raw_plan, principal, report_id, plan_id):
@@ -119,8 +132,8 @@ def insert(prepared, principal):
         binding_json=prepared.binding_json, binding_digest=digest(prepared.binding_json))
 
 
-def load(report, principal):
-    """Reload authoritative immutable records, rebind and recalculate every time."""
+def binding_for_report(report, principal):
+    """Check immutable references and seal; does not certify calculated rows."""
     current_principal(principal, admin=True)
     actual = m.AiReportRun.objects.filter(pk=identifier(report.id)).select_related("workflow").first()
     if actual is None:
@@ -141,21 +154,51 @@ def load(report, principal):
         authorize_owner(row, principal)
         binding = _call(contract.validate_binding, json.loads(row.binding_json))
         evidence = business_evidence.get_run(binding["evidenceRunId"], principal)
-        fresh = _prepare(evidence, json.loads(row.plan_json), principal, actual.id, row.id)
-        _call(contract.validate_record, json.loads(row.plan_json), binding, snapshot.get("budgetRef"), expected_binding=fresh.binding)
+        if evidence.status != "sealed" or not evidence_store.is_v2(evidence):
+            raise AiError("固定预算证据不再是封存v2", "conflict", 409)
+        evidence_store.verify_seal(evidence)
         header = json.loads(evidence.plan_json)
+        plan = _call(contract.normalize_plan, json.loads(row.plan_json))
+        expected_binding = _call(contract.make_binding, plan, report_id=actual.id, owner_email=principal.email.lower(),
+            scope=principal.scope, evidence_run_id=evidence.id, evidence_version=evidence.version,
+            evidence_plan_digest=digest(evidence.plan_json), catalog_digest=header["catalogDigest"],
+            sealed_digest=json.loads(evidence.state_json)["sealedDigest"], analysis_request=header.get("analysisRequest"))
+        _call(contract.validate_record, plan, binding, snapshot.get("budgetRef"), expected_binding=expected_binding)
         expected = {k: binding[k] for k in ("evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest")}
         expected["sourceCount"] = header["sourceCount"]
         if (row.owner_email != actual.owner_email or row.scope_json != actual.scope_json
                 or row.evidence_id != evidence.id or row.evidence_version != evidence.version
                 or row.plan_digest != binding["planDigest"] or row.binding_digest != digest(row.binding_json)
-                or row.plan_json != fresh.plan_json or row.binding_json != fresh.binding_json
+                or row.plan_json != canonical(plan) or row.binding_json != canonical(expected_binding)
                 or any(type(snapshot.get(k)) is not type(v) or snapshot[k] != v for k, v in expected.items())
                 or snapshot["budgetRef"]["id"] != row.id):
             raise AiError("固定预算参数、报告及封存绑定不一致", "conflict", 409)
-        return fresh
+        evidence_store.assert_current(evidence)
+        return BudgetBinding(row.id, row.plan_json, row.binding_json)
     except (ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
         raise AiError("固定预算持久参数无效，禁止降级", "conflict", 409) from error
+
+
+def revalidate(prepared, principal):
+    """Recompute a prepared object, including before report persistence."""
+    if type(prepared) is not PreparedBudget:
+        raise AiError("预算准备对象无效", "conflict", 409)
+    binding = _call(contract.validate_binding, prepared.binding)
+    evidence = business_evidence.get_run(binding["evidenceRunId"], principal)
+    fresh = _prepare(evidence, prepared.plan, principal, binding["reportId"], prepared.id)
+    if prepared != fresh:
+        raise AiError("预算准备结果已变化", "conflict", 409)
+    return fresh
+
+
+def load(report, principal):
+    """Full reader reconciliation and arithmetic, beyond lightweight binding."""
+    fixed = binding_for_report(report, principal)
+    evidence = business_evidence.get_run(fixed.binding["evidenceRunId"], principal)
+    fresh = _prepare(evidence, fixed.plan, principal, report.id, fixed.id)
+    if (fresh.plan_json, fresh.binding_json) != (fixed.plan_json, fixed.binding_json):
+        raise AiError("预算重算期间绑定变化", "conflict", 409)
+    return fresh
 
 
 def resolve_fixed(report, principal):

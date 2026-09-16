@@ -72,7 +72,7 @@ class BusinessBudgetV2Tests(TestCase):
         before.refresh_from_db()
         self.assertEqual((before.plan_json, before.state_json, before.request_digest), original)
 
-    def test_v2_wrong_reference_owner_scope_and_report_admission_remain_closed(self):
+    def test_v2_wrong_reference_owner_scope_rejected_and_valid_budget_admitted(self):
         for principal in (self.viewer, self.user("budget-v2-other@example.invalid", "admin", None)):
             with self.assertRaises(AiError): business_budget.resolve(self.v2_id, self.v2_plan, principal)
         wrong = deepcopy(self.v2_plan)
@@ -82,11 +82,12 @@ class BusinessBudgetV2Tests(TestCase):
         wrong["targets"][0]["sourceKey"] = "missing"
         with self.assertRaises(AiError): business_budget.resolve(self.v2_id, wrong, self.admin)
         count = m.AiWorkflowRuns.objects.count()
-        with patch("ai_assistant.transport.catalog") as catalog, patch("ai_assistant.provider.turn") as provider, self.assertRaises(AiError):
-            business_reports.create({"clientRequestId": "v2-budget-still-closed", "evidenceRunId": self.v2_id,
-                "question": "预算", "dryRun": True, "budgetPlan": self.v2_plan}, self.admin)
+        with patch("ai_assistant.transport.catalog") as catalog, patch("ai_assistant.provider.turn") as provider:
+            item = business_reports.create({"clientRequestId": "v2-budget-admitted", "evidenceRunId": self.v2_id,
+                "question": "预算", "dryRun": True, "budgetPlan": self.v2_plan}, self.admin)["item"]
         catalog.assert_not_called(); provider.assert_not_called()
-        self.assertEqual(m.AiWorkflowRuns.objects.count(), count)
+        self.assertEqual(m.AiWorkflowRuns.objects.count(), count+1)
+        self.assertTrue(m.AiReportRun.objects.get(pk=item["id"]).budget_plan_id)
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")

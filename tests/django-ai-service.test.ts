@@ -149,3 +149,18 @@ test("AI production image path has no R2 binding or storage bridge", async () =>
   assert.doesNotMatch(space, /transport\.edge\(\s*["']storage_/);
   assert.match(space, /AiSpaceAssetPayload\.objects\.create/);
 });
+
+
+test("fixed budget reference is an exact reader route with GET-only Next export", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  const path = "/api/ai/reports/report_1/budget-reference";
+  assert.equal(isPublicAiPath(path), true);
+  await requestDjangoAi(principal, { path, query: new URLSearchParams({ runId: "run_1", offset: "0", limit: "20" }) }, { environment, fetchImpl });
+  assert.equal(new URL(calls[0].url).port, "18111");
+  assert.equal(calls[0].method, "GET");
+  for (const suffix of ["/", "/extra", "-preview"]) assert.equal(isPublicAiPath(path+suffix), false);
+  const source = await readFile("app/api/ai/reports/[reportId]/budget-reference/route.ts", "utf8");
+  assert.match(source, /export const GET = forwardAiRequest/);
+  assert.doesNotMatch(source, /export const (POST|PUT|PATCH|DELETE)/);
+});

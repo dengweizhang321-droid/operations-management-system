@@ -146,6 +146,7 @@ def _dispatch(request, path=""):
             r"business-files/[A-Za-z0-9_-]{1,160}/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json)": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget-reference": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence": {"GET", "POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
@@ -240,6 +241,17 @@ def _dispatch(request, path=""):
             from .business_planning import preview
             fields(params, set())
             return response(preview(payload, principal))
+        if root == "reports" and parts[-1] == "budget-reference":
+            from . import business_budget_store
+            fields(params, {"runId", "offset", "limit"}, {"runId"})
+            report = reports.get(parts[1], principal)
+            snapshot = json.loads(report.snapshot_json)
+            if not business_reports.is_budget_snapshot(snapshot) or params["runId"] != snapshot.get("evidenceRunId"):
+                raise AiError("预算报告与固定证据不一致", "access_denied", 403)
+            offset = params.get("offset", "0")
+            if not re.fullmatch(r"0|[1-9][0-9]?", offset) or params.get("limit", "20") != "20":
+                raise AiError("固定预算分页无效")
+            return response(business_budget_store.page(report, principal, offset=int(offset), limit=20))
         if root == "reports" and parts[-1] == "budget":
             from .business_budget import read as read_budget_scenarios
             return response(read_budget_scenarios(parts[1], params, principal))

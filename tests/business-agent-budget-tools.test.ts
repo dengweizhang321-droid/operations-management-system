@@ -13,12 +13,12 @@ const { aiToolRegistry, getToolsForPrincipal, getOpenAiTools, getAnthropicTools,
 const { canonicalAiEdge, handleAiEdge } = await import("../lib/ai/django-edge");
 const { aiHeaders } = await import("../lib/django/ai-service");
 const admin: AppPrincipal = { email: "synthetic@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
-const names = ["get_business_evidence_directory_v2", "get_business_analysis_table_v2"];
+const names = ["get_business_budget_directory_v1", "get_business_budget_analysis_table_v1", "get_business_budget_scenarios_v1"];
 const directory = aiToolRegistry.find(entry => entry.name === names[0])!;
 const table = aiToolRegistry.find(entry => entry.name === names[1])!;
 const strip = ({ handler, ...entry }: AiToolEntry) => { void handler; return entry; };
 const sha = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
-const context = { principal: admin, surface: "business_agent_v2" as const, requestId: "synthetic-v2" };
+const context = { principal: admin, surface: "business_agent_budget_v1" as const, requestId: "synthetic-v2" };
 const environment = { TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18191", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18192", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-v2-internal-secret-at-least-32-bytes" };
 function isolated(t: TestContext) {
   const previous = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]])), oldFetch = globalThis.fetch;
@@ -28,9 +28,9 @@ function isolated(t: TestContext) {
 const response = (data: object) => Response.json(data, { headers: { "x-ai-revision": "1" } });
 
 test("all preexisting catalog canonical hashes and entry metadata remain exactly unchanged", async () => {
-  const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-v2-legacy-catalog.json", import.meta.url), "utf8"));
-  assert.deepEqual(aiToolSurfaces.filter(surface => surface !== "business_agent_v2" && surface !== "business_agent_budget_v1"), baseline.legacySurfaces);
-  const oldEntries = aiToolRegistry.filter(entry => !names.includes(entry.name) && !["get_business_budget_directory_v1", "get_business_budget_analysis_table_v1", "get_business_budget_scenarios_v1"].includes(entry.name));
+  const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-budget-legacy-catalog.json", import.meta.url), "utf8"));
+  assert.deepEqual(aiToolSurfaces.filter(surface => surface !== "business_agent_budget_v1"), baseline.legacySurfaces);
+  const oldEntries = aiToolRegistry.filter(entry => !names.includes(entry.name));
   assert.deepEqual({ count: oldEntries.length, sha256: sha(canonicalAiEdge(oldEntries.map(strip))) }, baseline.registry);
   const actual: Record<string, { count: number; sha256: string }> = {};
   for (const surface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {
@@ -38,19 +38,19 @@ test("all preexisting catalog canonical hashes and entry metadata remain exactly
     actual[`${surface}/${role}/${scoped ? "scoped" : "unscoped"}`] = { count: entries.length, sha256: sha(canonicalAiEdge(entries)) };
   }
   assert.deepEqual(actual, baseline.catalogs);
-  await mkdir(".runtime/business-agent-v2-catalog", { recursive: true });
-  await writeFile(".runtime/business-agent-v2-catalog/after.json", JSON.stringify({ passed: true, syntheticOnly: true, registry: baseline.registry, catalogs: actual }, null, 2));
+  await mkdir(".runtime/business-agent-budget-catalog", { recursive: true });
+  await writeFile(".runtime/business-agent-budget-catalog/after.json", JSON.stringify({ passed: true, syntheticOnly: true, registry: baseline.registry, catalogs: actual }, null, 2));
 });
 
-test("new surface contains exactly two admin-only tools and never widens old surfaces", () => {
+test("new surface contains exactly three admin-only tools and never widens old surfaces", () => {
   validateToolRegistry(aiToolRegistry);
-  assert.deepEqual(getToolsForPrincipal(admin, "business_agent_v2").map(entry => entry.name), names);
-  assert.deepEqual(getOpenAiTools(admin, "business_agent_v2").map(entry => entry.function.name), names);
-  assert.deepEqual(getAnthropicTools(admin, "business_agent_v2").map(entry => entry.name), names);
-  for (const surface of aiToolSurfaces.filter(value => value !== "business_agent_v2")) assert.equal(getToolsForPrincipal(admin, surface).some(entry => names.includes(entry.name)), false);
-  for (const role of ["viewer", "analyst", "operator"] as const) assert.deepEqual(getToolsForPrincipal({ ...admin, role }, "business_agent_v2"), []);
-  assert.deepEqual(getToolsForPrincipal({ ...admin, scope: { warehouses: [], channels: [], platforms: [] } }, "business_agent_v2"), []);
-  for (const entry of [directory, table]) assert.deepEqual(entry.execution.allowedSurfaces, ["business_agent_v2"]);
+  assert.deepEqual(getToolsForPrincipal(admin, "business_agent_budget_v1").map(entry => entry.name), names);
+  assert.deepEqual(getOpenAiTools(admin, "business_agent_budget_v1").map(entry => entry.function.name), names);
+  assert.deepEqual(getAnthropicTools(admin, "business_agent_budget_v1").map(entry => entry.name), names);
+  for (const surface of aiToolSurfaces.filter(value => value !== "business_agent_budget_v1")) assert.equal(getToolsForPrincipal(admin, surface).some(entry => names.includes(entry.name)), false);
+  for (const role of ["viewer", "analyst", "operator"] as const) assert.deepEqual(getToolsForPrincipal({ ...admin, role }, "business_agent_budget_v1"), []);
+  assert.deepEqual(getToolsForPrincipal({ ...admin, scope: { warehouses: [], channels: [], platforms: [] } }, "business_agent_budget_v1"), []);
+  for (const entry of [directory, table, aiToolRegistry.find(entry => entry.name === names[2])!]) assert.deepEqual(entry.execution.allowedSurfaces, ["business_agent_budget_v1"]);
   assert.deepEqual(table.inputSchema, aiToolRegistry.find(entry => entry.name === "get_business_analysis_table")!.inputSchema);
 });
 
@@ -137,7 +137,7 @@ test("signed edge accepts only the new isolated catalog and matching policy dige
   isolated(t); const seen: string[] = [];
   globalThis.fetch = async (url, init) => {
     const target = new URL(String(url)); seen.push(target.pathname);
-    if (target.pathname === "/api/ai/consumer") { const body = JSON.parse(String(init?.body)); assert.equal(body.operation, "tool-audit"); assert.equal(body.entry.surface, "business_agent_v2"); return response({ ok: true }); }
+    if (target.pathname === "/api/ai/consumer") { const body = JSON.parse(String(init?.body)); assert.equal(body.operation, "tool-audit"); assert.equal(body.entry.surface, "business_agent_budget_v1"); return response({ ok: true }); }
     assert.equal(target.pathname, "/api/ai/business-evidence/run-1/sources"); return response({ items: [], nextOffset: null });
   };
   async function edge(body: object, actor = admin) {
@@ -145,15 +145,56 @@ test("signed edge accepts only the new isolated catalog and matching policy dige
     const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET, principal: actor, method: "POST", path: pathname, query: "", body: raw, requestId: "fixture-edge" });
     return handleAiEdge(new Request("https://synthetic.invalid"+pathname, { method: "POST", headers, body: raw }));
   }
-  const catalogResponse = await edge({ action: "catalog", surface: "business_agent_v2" }); assert.equal(catalogResponse.status, 200);
+  const catalogResponse = await edge({ action: "catalog", surface: "business_agent_budget_v1" }); assert.equal(catalogResponse.status, 200);
   const catalog = (await catalogResponse.json() as { entries: AiToolEntry[] }).entries;
   assert.deepEqual(catalog.map(entry => entry.name), names);
-  const body = { action: "execute", name: directory.name, arguments: { runId: "run-1" }, surface: "business_agent_v2", requestId: "fixture-v2", policyDigest: sha(canonicalAiEdge(catalog)) };
+  const body = { action: "execute", name: directory.name, arguments: { runId: "run-1" }, surface: "business_agent_budget_v1", requestId: "fixture-v2", policyDigest: sha(canonicalAiEdge(catalog)) };
   assert.equal((await edge({ ...body, policyDigest: "0".repeat(64) })).status, 403); assert.equal(seen.length, 0);
   const success = await edge(body); assert.equal(success.status, 200); assert.equal((await success.json() as { ok: boolean }).ok, true);
   assert.deepEqual(seen, ["/api/ai/consumer", "/api/ai/business-evidence/run-1/sources", "/api/ai/consumer"]);
   assert.equal((await edge({ ...body, surface: "ai_agent" })).status, 403);
   assert.equal((await edge({ action: "catalog", surface: "unknown_v2" })).status, 403);
-  const scoped = await edge({ action: "catalog", surface: "business_agent_v2" }, { ...admin, scope: { warehouses: [], channels: [], platforms: [] } });
+  const scoped = await edge({ action: "catalog", surface: "business_agent_budget_v1" }, { ...admin, scope: { warehouses: [], channels: [], platforms: [] } });
   assert.deepEqual(await scoped.json(), { entries: [] });
+});
+
+const budget = aiToolRegistry.find(entry => entry.name === names[2])!;
+test("fixed budget schema only accepts bound IDs and next offset", async () => {
+  validateToolArguments({ reportId: "report-1", runId: "run-1" }, budget.inputSchema);
+  validateToolArguments({ reportId: "report-1", runId: "run-1", offset: 99 }, budget.inputSchema);
+  for (const extra of [{ limit: 20 }, { offset: 100 }, { offset: null }, { offset: true }, { offset: 0.5 }, { budgetRef: {} }, { bindingDigest: "a".repeat(64) }, { plan: {} }]) {
+    const args = { reportId: "report-1", runId: "run-1", ...extra };
+    assert.throws(() => validateToolArguments(args, budget.inputSchema));
+    await assert.rejects(budget.handler(args, context), /参数无效/);
+  }
+  for (const reportId of ["../private", "", "x".repeat(161)]) assert.throws(() => validateToolArguments({ reportId, runId: "run-1" }, budget.inputSchema));
+});
+
+test("fixed budget forwards signed owning-reader query and preserves complete bound page", async t => {
+  isolated(t);
+  let payload: Record<string, unknown> = { schemaVersion: "business-budget-page-v1", reportId: "report-1", budgetRef: { id: "parameter-1" }, binding: { evidenceRunId: "run-1" }, rows: [], pagination: { nextOffset: null } };
+  const calls: URL[] = [];
+  globalThis.fetch = async (url, init) => {
+    const target = new URL(String(url)); calls.push(target);
+    assert.equal(target.origin, environment.TERUISI_DJANGO_AI_READER_BASE_URL);
+    assert.equal(target.pathname, "/api/ai/reports/report-1/budget-reference");
+    assert.equal(target.searchParams.get("limit"), "20");
+    assert.equal(target.searchParams.get("runId"), "run-1");
+    assert.equal(init?.method, "GET"); assert.ok(new Headers(init?.headers).has("x-teruisi-signature"));
+    return response(payload);
+  };
+  const args = { reportId: "report-1", runId: "run-1" };
+  assert.deepEqual(await budget.handler(args, context), payload);
+  assert.equal(calls[0].searchParams.get("offset"), "0");
+  await budget.handler({ ...args, offset: 20 }, context); assert.equal(calls[1].searchParams.get("offset"), "20");
+  payload = { schemaVersion: "business-budget-page-v1", text: "" };
+  payload.text = "a".repeat(38_000-Buffer.byteLength(JSON.stringify(payload)));
+  assert.equal(Buffer.byteLength(JSON.stringify(payload)), 38_000);
+  assert.deepEqual(await budget.handler(args, context), payload);
+  for (const text of [String(payload.text)+"a", "中".repeat(13_000), '中\n"'.repeat(6000)]) {
+    payload = { schemaVersion: "business-budget-page-v1", text };
+    await assert.rejects(budget.handler(args, context), /不得截断/);
+  }
+  payload = { schemaVersion: "business-budget-v1", rows: [] };
+  await assert.rejects(budget.handler(args, context), /协议不匹配/);
 });

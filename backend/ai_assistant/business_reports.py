@@ -17,9 +17,30 @@ V2_ANALYSIS_RESPONSE_BYTES = 38000
 # frame escapes quotes/backslashes; Python's separator spaces fit the same
 # 2x bound. Reserve an additional 4 KiB for envelopes/call identifiers/arguments.
 V2_ANALYSIS_TRANSCRIPT_RESERVE = 2*V2_ANALYSIS_RESPONSE_BYTES+4096
+BUDGET_PROFILE = "business-agent-budget-reference-v1"
+BUDGET_SURFACE = "business_agent_budget_v1"
+BUDGET_DIRECTORY_TOOL = "get_business_budget_directory_v1"
+BUDGET_TABLE_TOOL = "get_business_budget_analysis_table_v1"
+BUDGET_REFERENCE_TOOL = "get_business_budget_scenarios_v1"
+BUDGET_TOOLS = frozenset({BUDGET_DIRECTORY_TOOL, BUDGET_TABLE_TOOL, BUDGET_REFERENCE_TOOL})
+BUDGET_OUTPUT_LIMITS = {"commerce": 2000, "promotion": 2000, "market_b2b": 2000, "independent_review": 1500, "report": 8000}
+
+
+def is_budget_snapshot(snapshot):
+    if snapshot.get("executionProfile") != BUDGET_PROFILE:
+        return False
+    reference = snapshot.get("budgetRef")
+    if (snapshot.get("evidenceProtocol") != "reference-v2" or "budgetPlan" in snapshot
+            or snapshot.get("schemaVersion") != SCHEMA or not snapshot.get("reportId")
+            or type(reference) is not dict or set(reference) != {"schemaVersion", "id", "planDigest", "bindingDigest"}
+            or reference.get("schemaVersion") != "business-budget-reference-v1"):
+        raise AiError("固定预算执行协议与引用不一致", "conflict", 409)
+    return True
 
 
 def is_v2_snapshot(snapshot):
+    if is_budget_snapshot(snapshot):
+        return True
     if snapshot.get("executionProfile") == V2_PROFILE:
         if snapshot.get("evidenceProtocol") != "reference-v2" or "budgetPlan" in snapshot or "budgetRef" in snapshot:
             raise AiError("报告执行协议与证据不一致", "conflict", 409)
@@ -30,6 +51,8 @@ def is_v2_snapshot(snapshot):
 
 
 def required_tools(snapshot):
+    if is_budget_snapshot(snapshot):
+        return BUDGET_TOOLS
     if is_v2_snapshot(snapshot):
         return V2_TOOLS
     return TOOLS | ({BUDGET_TOOL} if snapshot.get("budgetPlan") is not None else set())
@@ -132,7 +155,7 @@ def context(job):
     if not report:
         return None
     snapshot = json.loads(report.snapshot_json)
-    if snapshot.get("executionProfile") == V2_PROFILE and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
+    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
         raise AiError("报告执行身份不一致", "access_denied", 403)
     return snapshot if snapshot.get("schemaVersion") == SCHEMA else None
 
@@ -144,7 +167,7 @@ def has_v2_profile(job):
 
 def execution_surface(job, principal):
     snapshot = context(job)
-    if snapshot is None and V2_TOOLS & set(json.loads(job.allowed_tools_json)):
+    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS) & set(json.loads(job.allowed_tools_json)):
         raise AiError("v2任务缺少固定报告执行身份", "conflict", 409)
     if snapshot is None or not is_v2_snapshot(snapshot):
         return "ai_agent"
@@ -153,7 +176,7 @@ def execution_surface(job, principal):
     if (canonical(json.loads(flow.input_json)) != canonical(reference) or canonical(json.loads(job.input_json).get("workflowInput")) != canonical(reference)
             or job.workflow_node_key not in V2_NODES or flow.owner_email != job.owner_email or flow.scope_json != job.scope_json):
         raise AiError("工作流轻量引用与固定报告不一致", "conflict", 409)
-    return V2_SURFACE
+    return BUDGET_SURFACE if is_budget_snapshot(snapshot) else V2_SURFACE
 
 
 def restricted_entries(job, entries):
@@ -167,11 +190,27 @@ def restricted_entries(job, entries):
     return allowed
 
 
-def validate_call(job, call):
+def validate_call(job, call, principal=None):
     snapshot = context(job)
     if snapshot and (call["name"] not in required_tools(snapshot) or call["arguments"].get("runId") != snapshot["evidenceRunId"] or
-            call["name"] == BUDGET_TOOL and call["arguments"].get("reportId") != snapshot.get("reportId")):
+            call["name"] in {BUDGET_TOOL, BUDGET_REFERENCE_TOOL} and call["arguments"].get("reportId") != snapshot.get("reportId")):
         raise AiError("分析任务只能读取本次封存证据", "access_denied", 403)
+    if snapshot and is_budget_snapshot(snapshot):
+        from .business_budget_receipts import progress
+        principal = principal or workflows.background(job)
+        proof = progress(job, snapshot, principal)
+        args = call["arguments"]
+        if call["name"] == BUDGET_DIRECTORY_TOOL:
+            if (set(args)-{"runId", "offset"} or type(args.get("offset", 0)) is not int
+                    or proof["directory"]["complete"] or args.get("offset", 0) != proof["directory"]["nextOffset"]):
+                raise AiError("预算任务目录须连续完整读取", "directory_read_incomplete", 409)
+        elif not proof["directory"]["complete"]:
+            raise AiError("须先完整读取固定来源目录", "directory_read_incomplete", 409)
+        elif call["name"] == BUDGET_REFERENCE_TOOL:
+            if (set(args)-{"runId", "reportId", "offset"} or type(args.get("offset", 0)) is not int
+                    or proof["budget"]["complete"] or args.get("offset", 0) != proof["budget"]["nextOffset"]):
+                raise AiError("固定预算须逐页连续读取", "budget_read_incomplete", 409)
+        return
     if snapshot and is_v2_snapshot(snapshot):
         from .business_evidence_receipts import directory_progress
         proof = directory_progress(job, snapshot)
@@ -184,14 +223,19 @@ def validate_call(job, call):
             raise AiError("须先完整读取固定来源目录", "directory_read_incomplete", 409)
 
 
-def validate_output(job, answer):
+def validate_output(job, answer, principal=None):
     snapshot = context(job)
     if snapshot is None:
         return
-    if is_v2_snapshot(snapshot):
+    if is_budget_snapshot(snapshot):
+        from .business_budget_receipts import validate_complete
+        validate_complete(job, snapshot, principal or workflows.background(job))
+    elif is_v2_snapshot(snapshot):
         from .business_evidence_receipts import validate_directory_complete
         validate_directory_complete(job, snapshot)
     budget = 15000 if job.workflow_node_key == "report" else 2000 if job.workflow_node_key == "independent_review" else 3000
+    if is_budget_snapshot(snapshot):
+        budget = BUDGET_OUTPUT_LIMITS[job.workflow_node_key]
     if len(answer.encode()) > budget:
         raise AiError("专业分析输出超过下游可复核容量，保留原回执", "payload_too_large", 413)
     try:
@@ -202,10 +246,13 @@ def validate_output(job, answer):
         raise AiError("专业分析结构无效", "conflict", 409)
 
 
-def validate_provider_turn(job):
+def validate_provider_turn(job, principal=None):
     """Do not send a persisted, malformed directory receipt to a model."""
     snapshot = context(job)
-    if snapshot is not None and is_v2_snapshot(snapshot):
+    if snapshot is not None and is_budget_snapshot(snapshot):
+        from .business_budget_receipts import progress
+        progress(job, snapshot, principal or workflows.background(job))
+    elif snapshot is not None and is_v2_snapshot(snapshot):
         from .business_evidence_receipts import directory_progress
         directory_progress(job, snapshot)
 
@@ -228,7 +275,11 @@ def content(row, principal):
             if job is None:
                 raise AiError("专业节点缺少独立完成回执", "conflict", 409)
             execution_surface(job, principal)
-            validate_directory_complete(job, snapshot)
+            if is_budget_snapshot(snapshot):
+                from .business_budget_receipts import validate_complete
+                validate_complete(job, snapshot, principal)
+            else:
+                validate_directory_complete(job, snapshot)
     def parsed(key):
         try:
             return json.loads(json.loads(nodes[key].output_json)["answer"])
@@ -265,7 +316,7 @@ def validate_review(row, principal):
             tool_dispatch__job__workflow_node_key=key, tool_dispatch__tool_name="get_business_analysis_evidence")
         if not any(json.loads(item.result_json).get("ok") is True and json.loads(item.result_json).get("auditStatus") == "recorded" for item in receipts):
             raise AiError("专业分析或独立复核缺少成功的共享证据读取回执", "conflict", 409)
-    if value.get("budget"):
+    if value.get("budget") and not is_budget_snapshot(json.loads(row.snapshot_json)):
         target_count = value["budget"]["allocation"]["targetCount"]
         for key in ("promotion", "independent_review"):
             covered = set()
@@ -304,6 +355,14 @@ def bound_reference(snapshot, principal):
     keys = ("evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest", "sourceCount")
     if canonical({k: snapshot.get(k) for k in keys}) != canonical({k: reference[k] for k in keys}):
         raise AiError("报告固定封存引用已变化", "conflict", 409)
+    if is_budget_snapshot(snapshot):
+        from . import business_budget_store
+        from .reports import get
+        report = get(snapshot["reportId"], principal)
+        if report.snapshot_json != canonical(snapshot):
+            raise AiError("固定预算报告快照不一致", "conflict", 409)
+        fixed = business_budget_store.binding_for_report(report, principal)
+        reference = {**reference, "reportId": report.id, "budgetRef": fixed.reference}
     return reference
 
 
@@ -319,9 +378,84 @@ def graph_v2():
     return value
 
 
+def graph_budget():
+    """Independent immutable instructions; no edits to old pinned graphs."""
+    value = graph(with_budget=True)
+    for node in value["nodes"]:
+        key = node["key"]
+        if node["type"] != "agent":
+            continue
+        node["instruction"] = node["instruction"].replace(BUDGET_TOOL, BUDGET_REFERENCE_TOOL)
+        old_limit = 15000 if key == "report" else 2000 if key == "independent_review" else 3000
+        node["instruction"] = node["instruction"].replace(str(old_limit)+"个UTF-8字节", str(BUDGET_OUTPUT_LIMITS[key])+"个UTF-8字节")
+        node["instruction"] += (
+            "本任务采用固定预算引用，先本人从offset=0调用get_business_budget_directory_v1，严格跟随nextOffset直至null。"
+            "读完目录再调用get_business_budget_analysis_table_v1查询证据；目录只证明掌握范围，不代表已读全量事实。"
+            "推广、独立复核与报告整合节点必须本人从offset=0调用get_business_budget_scenarios_v1读取全部预算页，跟随nextOffset直到null。"
+            "其他节点一旦开始读预算也必须读完。不得借用其他Agent回执，预算参数固定，不得把情景假设当实际收益。"
+            "输出上限包括JSON字段名和转义字符；完整明细通过文件交付，正文聚焦证据、诊断和可执行规划。")
+    return value
+
+
+def _create_budget_reference(body, principal, evidence, client, question, dry):
+    from . import business_budget_store
+
+    def replay():
+        old = m.AiReportRun.objects.select_related("workflow").filter(owner_email=principal.email.lower(), client_request_id=client).first()
+        if old is None:
+            return None
+        authorize_owner(old, principal)
+        if old.request_digest != digest(body):
+            raise AiError("请求标识已绑定其他报告", "conflict", 409)
+        bound_reference(json.loads(old.snapshot_json), principal)
+        return {"item": {"id": old.id, "workflowId": old.workflow_id}, "replayed": True}
+
+    old = replay()
+    if old is not None:
+        return old
+    reference, sources = _reference(evidence, question)
+    report_id = uid("ai-report")
+    prepared = business_budget_store.prepare(evidence, body["budgetPlan"], principal, report_id)
+    queries = [source["query"] for source in sources]
+    platforms, shops = {q["platform"] for q in queries}, {q["shop"] for q in queries if q.get("shop")}
+    scope = {"platform": next(iter(platforms)) if len(platforms) == 1 else "多平台",
+        "shop": next(iter(shops)) if len(shops) == 1 else "多店铺" if shops else "市场样本",
+        "startDate": queries[0]["startDate"], "endDate": queries[0]["endDate"]}
+    snapshot = {"schemaVersion": SCHEMA, "executionMode": "parallel-v1", "executionProfile": BUDGET_PROFILE,
+        "evidenceProtocol": "reference-v2", **{k: v for k, v in reference.items() if k != "inputMode"},
+        "reportId": report_id, "budgetRef": prepared.reference, "scope": scope, "libraryVersion": 0,
+        "pipeline": {"name": "固定预算深度经营分析"}, "template": {"name": "多Agent经营诊断", "format": "html", "sections": SECTIONS}, "skills": []}
+    if "previousReportId" in body:
+        from .reports import get
+        previous = get(identifier(body["previousReportId"]), principal)
+        prior = json.loads(previous.snapshot_json)
+        if not is_v2_snapshot(prior) or any(prior.get(key) != snapshot.get(key) for key in
+                ("evidenceRunId", "evidenceVersion", "evidencePlanDigest", "catalogDigest", "sealedDigest", "question", "scope")):
+            raise AiError("预算新版本须使用前一报告相同的封存与分析范围", "conflict", 409)
+        bound_reference(prior, principal)
+        snapshot["previousReportId"] = previous.id
+    input_value = passive({**reference, "reportId": report_id, "budgetRef": prepared.reference}, 8000)
+    with mutation(principal):
+        old = replay()
+        if old is not None:
+            return old
+        parameters = business_budget_store.insert(prepared, principal)
+        flow = workflows.create({"clientRequestId": "business-"+digest([principal.email.lower(), client]),
+            "name": "固定预算深度经营分析", "graph": graph_budget(), "input": input_value, "dryRun": dry}, principal, True,
+            execution_profile=BUDGET_PROFILE, budget_prepared=prepared)
+        if not dry and set(flow["item"]["allowedTools"]) != BUDGET_TOOLS:
+            raise AiError("固定预算分析工具目录未就绪", "service_unavailable", 503)
+        row = m.AiReportRun.objects.create(id=report_id, owner_email=principal.email.lower(), scope_json=canonical(principal.scope),
+            client_request_id=client, request_digest=digest(body), workflow_id=flow["item"]["id"],
+            snapshot_json=canonical(passive(snapshot, 32768)), budget_plan=parameters)
+    return {"item": {"id": row.id, "workflowId": row.workflow_id}, "replayed": False}
+
+
 def _create_v2(body, principal, evidence, client, question, dry):
-    if "budgetPlan" in body or "previousReportId" in body:
-        raise AiError("v2预算情景尚未接入，请保留原始参数", "conflict", 409)
+    if "budgetPlan" in body:
+        return _create_budget_reference(body, principal, evidence, client, question, dry)
+    if "previousReportId" in body:
+        raise AiError("预算新版本须提供固定预算参数", "conflict", 409)
     reference, sources = _reference(evidence, question)
     queries = [s["query"] for s in sources]
     platforms, shops = {q["platform"] for q in queries}, {q["shop"] for q in queries if q.get("shop")}

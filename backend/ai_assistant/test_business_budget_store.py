@@ -1,4 +1,4 @@
-"""Internal budget references: real sealed readers, no new runnable profile."""
+"""Fixed budget references with real sealed readers and immutable bindings."""
 from copy import deepcopy
 from dataclasses import replace
 import json
@@ -23,7 +23,7 @@ def seed_fixed_report(principal, *, report_id="budget-store-report"):
     """Upgrade/recovery fixture. Caller initializes admin/model and test authority.
 
 Uses actual netshop reader pages and real collect/seal/resolve. The generic dry
-workflow is an inert fixture: the new execution profile remains unimplemented.
+workflow is an inert restoration fixture, not an admitted budget execution.
 Returns (report, PreparedBudget), and performs no paid or remote business call.
 """
     shop = "预算合成"+digest(report_id)[:12]
@@ -134,12 +134,12 @@ class BusinessBudgetStoreTests(TestCase):
             self.assertEqual(caught.exception.status,429)
         self.assertEqual(m.AiBusinessBudgetPlan.objects.count(),1)
 
-    def test_new_profile_remains_disabled_and_legacy_profile_with_ref_refused(self):
+    def test_new_profile_requires_internal_prepared_and_legacy_profile_with_ref_refused(self):
         with patch("ai_assistant.provider.turn") as model,patch("ai_assistant.transport.catalog") as catalog:
             with self.assertRaises(AiError):
                 workflows.create({"clientRequestId":"closed-profile","name":"关闭","graph":business_reports.graph_v2(),"dryRun":True},
                     self.admin,True,execution_profile=contract.PROFILE)
-            with self.assertRaises(AiError): business_reports.is_v2_snapshot(json.loads(self.report.snapshot_json))
+            self.assertTrue(business_reports.is_v2_snapshot(json.loads(self.report.snapshot_json)))
             with self.assertRaises(AiError): business_reports.is_v2_snapshot({"executionProfile":business_reports.V2_PROFILE,
                 "evidenceProtocol":"reference-v2","budgetRef":self.prepared.reference})
         model.assert_not_called(); catalog.assert_not_called()

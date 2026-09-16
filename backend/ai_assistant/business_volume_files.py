@@ -105,8 +105,19 @@ def _verify_staged(row, principal, checkpoint):
     if m.AiBusinessVolumeChunk.objects.filter(run=row, attempt=row.attempt).count() != total_parts:
         raise AiError("存在未声明卷分片", "conflict", 409)
     reference = business_reports.bound_reference(json.loads(row.report.snapshot_json), principal)
-    _contract(volume_delivery.verify_full, compact, bytes(manifest_bytes), binding_digest=row.binding_digest,
+    full = _contract(volume_delivery.verify_full, compact, bytes(manifest_bytes), binding_digest=row.binding_digest,
         attempt=row.attempt, draft=row.draft, report_id=row.report_id, evidence_digest=reference["sealedDigest"])
+    snapshot = json.loads(row.report.snapshot_json)
+    if "budgetRef" in snapshot:
+        from .business_budget_store import binding_for_report
+        fixed = binding_for_report(row.report, principal)
+        first = full["volumes"][0]
+        if (full.get("budgetPlanDigest") != fixed.reference["planDigest"]
+                or first["nativeBudgetSheets"] != 3 or first["offlineBudgetEnabled"] is not True
+                or first.get("budgetCalculator", {}).get("planDigest") != fixed.reference["planDigest"]):
+            raise AiError("多卷预算清单与报告固定参数不一致", "conflict", 409)
+    elif "budgetPlanDigest" in full:
+        raise AiError("无预算报告不能发布额外预算清单", "conflict", 409)
     return compact
 
 
@@ -228,7 +239,7 @@ def chunk(run_id, volume_index, kind, params, principal):
     row = files.get(run_id, principal)
     if row.renderer_version != 4 or row.status != "ready":
         raise AiError("完整多卷交付尚未就绪", "conflict", 409)
-    if files.binding(row.report, principal, row.draft, renderer_version=4) != row.binding_digest:
+    if files.binding(row.report, principal, row.draft, renderer_version=4, verify_budget=False) != row.binding_digest:
         raise AiError("报告内容绑定已变化", "conflict", 409)
     manifest = _compact(row)
     descriptor = next((item for item in [*manifest["files"], manifest["manifestFile"]]

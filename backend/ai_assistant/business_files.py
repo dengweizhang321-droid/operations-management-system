@@ -23,7 +23,7 @@ BUILD_SECONDS = 600
 RENDERER_VERSION = 3
 
 
-def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION):
+def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, verify_budget=True):
     authorize_owner(report, principal)
     snapshot = json.loads(report.snapshot_json)
     if business_reports.is_v2_snapshot(snapshot) and renderer_version != 4:
@@ -32,6 +32,18 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION):
         if not business_reports.is_v2_snapshot(snapshot):
             raise AiError("多卷文件须使用v2经营报告", "conflict", 409)
         business_reports.bound_reference(snapshot, principal)
+        if "budgetRef" in snapshot:
+            from . import business_budget_store
+            fixed = business_budget_store.binding_for_report(report, principal)
+            if snapshot.get("budgetRef") != fixed.reference:
+                raise AiError("文件预算引用与固定参数不一致", "conflict", 409)
+            if verify_budget:
+                # Creation, resume and publication re-read the selected facts;
+                # individual immutable chunks use only the bound parameter row.
+                content = business_reports.content(report, principal) if draft else business_reports.validate_review(report, principal)
+                resolved = content.get("budget")
+                if resolved is None or resolved["planDigest"] != fixed.reference["planDigest"]:
+                    raise AiError("文件预算未通过完整重算", "conflict", 409)
     if snapshot.get("schemaVersion") != business_reports.SCHEMA or report.workflow.dry_run:
         raise AiError("只有已分析的经营报告可以构建文件", "conflict", 409)
     if not draft and report.workflow.status != "completed":
