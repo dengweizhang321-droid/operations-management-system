@@ -120,6 +120,16 @@ ERP 日期为发货业务日 `business_date`。正向销售与退款按分摊金
 
 验证：市场、既有市场消费查询、纯计算及证据/报告相关隔离 PostgreSQL 41 项通过；补充市场证据封存回读后 15 项通过。中央分析工具 8 项通过，生产构建及修改 TypeScript lint 通过。日志 `.runtime/ai-pg-0c9d36213485/tests.log`、`.runtime/ai-pg-a1205a5e1a35/tests.log`、`.runtime/batch5-tools.log`、`.runtime/batch5-build.log`。没有正式取数、付费模型或生产发布。
 
+## 第六批：后台批量取数入口与证据切片
+
+创建证据可显式指定 `collectionMode: bulk`，不可变计划固定采集器版本、专用 `business_collection` 入口及每页 100 行上限。旧任务默认标准模式，继续每页 10 行，不能在续传中切换页长。新入口只向无范围限制管理员的内部签名采集调用开放，经中央目录摘要、执行权限和审计，再到各域 owning reader；不会投影给模型、聊天、钉钉或 Codex MCP。普通工具 40k 字符上限不变，独立采集页同时受 128 KiB 字节上限约束。
+
+三类来源按 UTF-8 字节选择完整行前缀，超过容量只减小本页行数，游标绑定实际末行；单行过大明确失败。不会截断文本后宣称完整。`get_business_analysis_evidence` 读取分块时默认每次 10 行，支持 `rowOffset/rowLimit`；返回完整页摘要、切片范围与明确的部分读取标记，不能将切片摘要冒充整页核对。
+
+本批没有提高任务 64 MiB/2000 页、聚合 25k 分组或映射 5000 行的限制，也尚未接入自动后台轮询；大规模持久分区、自动采集及完整文件交付仍待完成。批量入口不是全量规模验收。
+
+验证：隔离 PostgreSQL 78 项通过，分块切片及报告补充 15 项通过；工具与契约 46 项通过。全量 Node 2221 项中 2200 通过、1 项 Windows 进程谱系变化失败、20 跳过；该受保护 venv 启动器测试独立复测 powershell.exe/pwsh.exe 两项均通过，未改进程安全规则。最终构建、lint、后端边界通过；类型检查仍为原有 153 条诊断，无新增。日志 `.runtime/ai-pg-18bc467a5bb0/tests.log`、`.runtime/ai-pg-4479e23eef23/tests.log`、`.runtime/batch6-tools-final.log`、`.runtime/batch6-unit.log`、`.runtime/batch6-process-retest.log`、`.runtime/batch6-build-final.log`、`.runtime/batch6-typecheck-slices.log`。
+
 ## 持续开发的剩余验收清单
 
 2026-09-16 只读检查参考 XLSX 的工作表 XML：文件 42,715,563 字节、30 个工作表；含表头的行号上界分别为词货关联 149,842、市场日榜 84,006、搜索词诊断 38,091、推广日 SKU 23,985、销售明细 7,396。它们是规模参考，不能将含表头的行号当业务记录数，也不能以这些示例数据替代系统来源。

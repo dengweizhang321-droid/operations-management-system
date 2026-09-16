@@ -183,10 +183,15 @@ def read_page(spec, limit, cursor):
     has_more = len(raw_page) > limit
     selected = raw_page[:limit]
     items = [_project(row, metrics) for row in selected]
+    from business_analysis.contracts import bounded_page_items
+    try:
+        items, has_more = bounded_page_items(items, has_more)
+    except AnalysisContractError as error:
+        raise NetshopApiError(str(error), status=422) from error
     after = revision_value()
     if before != after:
         raise NetshopApiError("取数期间网店版本发生变化，请重新核验", code="analysis_revision_changed", status=409)
-    next_cursor = signing.dumps({"binding": binding, "lastId": selected[-1]["id"]}, salt=CURSOR_SALT, compress=True) if has_more else None
+    next_cursor = signing.dumps({"binding": binding, "lastId": int(items[-1]["rowId"])}, salt=CURSOR_SALT, compress=True) if has_more else None
     return {"schemaVersion": SCHEMA_VERSION, "sourceRef": binding, "sourceRevision": before,
             "filters": spec, "source": source, "sourceDataset": dataset,
             "monetaryUnit": "CNY_CENT", "consistency": "revision_fenced_pages_not_cross_domain_snapshot",

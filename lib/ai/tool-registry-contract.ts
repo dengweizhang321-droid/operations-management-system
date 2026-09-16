@@ -16,7 +16,7 @@ export type AiToolAnnotations = {
 };
 
 export type AiToolRisk = "read_only" | "write" | "dangerous";
-export const aiToolSurfaces = ["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "market_ai", "customer_service_ai", "codex_mcp", "test"] as const;
+export const aiToolSurfaces = ["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "market_ai", "customer_service_ai", "codex_mcp", "test", "business_collection"] as const;
 export type AiToolSurface = (typeof aiToolSurfaces)[number];
 export type AiToolScopePolicy = "unscoped_only" | "principal_scope" | "metadata_safe";
 export type AiToolExecutionMode = "direct" | "confirmation_required" | "background_job";
@@ -132,7 +132,11 @@ export function validateToolRegistry(entries: readonly AiToolEntry[]): void {
       throw new Error(`AI 工具入口范围无效：${entry.name}`);
     }
     validatePolicyInteger(entry.name, "timeoutMs", policy.timeoutMs, AI_TOOL_EXECUTION_POLICY_LIMITS.timeoutMs);
-    validatePolicyInteger(entry.name, "maxResultCharacters", policy.maxResultCharacters, AI_TOOL_EXECUTION_POLICY_LIMITS.maxResultCharacters);
+    const collector = entry.name === "get_business_source_page" && policy.allowedSurfaces.length === 1
+      && policy.allowedSurfaces[0] === "business_collection" && entry.risk === "read_only"
+      && entry.allowedRoles.length === 1 && entry.allowedRoles[0] === "admin" && entry.scopePolicy === "unscoped_only";
+    validatePolicyInteger(entry.name, "maxResultCharacters", policy.maxResultCharacters,
+      collector ? { minimum: 1000, maximum: 131_072 } : AI_TOOL_EXECUTION_POLICY_LIMITS.maxResultCharacters);
     validatePolicyInteger(entry.name, "maxCallsPerRequest", policy.maxCallsPerRequest, AI_TOOL_EXECUTION_POLICY_LIMITS.maxCallsPerRequest);
     if (policy.mode === "direct" && entry.risk !== "read_only") {
       throw new Error(`写入或危险工具不能以内联直接模式执行：${entry.name}`);
@@ -163,6 +167,7 @@ export function getToolsForPrincipal(
 }
 
 export function getOpenAiTools(principal: AppPrincipal, surface: AiToolSurface, entries: readonly AiToolEntry[]): OpenAiToolDefinition[] {
+  if (surface === "business_collection") return [];
   return getToolsForPrincipal(principal, surface, entries).map((entry) => ({
     type: "function",
     function: { name: entry.name, description: entry.description, parameters: entry.inputSchema },
@@ -170,6 +175,7 @@ export function getOpenAiTools(principal: AppPrincipal, surface: AiToolSurface, 
 }
 
 export function getAnthropicTools(principal: AppPrincipal, surface: AiToolSurface, entries: readonly AiToolEntry[]): AnthropicToolDefinition[] {
+  if (surface === "business_collection") return [];
   return getToolsForPrincipal(principal, surface, entries).map((entry) => ({
     name: entry.name,
     description: entry.description,

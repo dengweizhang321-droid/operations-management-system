@@ -26,6 +26,24 @@ def digest(value):
     return hashlib.sha256(canonical(value).encode("utf-8")).hexdigest()
 
 
+def bounded_page_items(items, has_more, max_bytes=65536):
+    """Return a complete row prefix. The cursor must use its final actual row.
+
+    Reserve half of the 128 KiB persisted page for metadata, control totals and
+    signatures. Never truncate a field or drop an oversized row silently.
+    """
+    size, count = 2, 0
+    for item in items:
+        item_size = len(canonical(item).encode("utf-8")) + (1 if count else 0)
+        if size + item_size > max_bytes:
+            if not count:
+                raise AnalysisContractError("单条规范记录超过证据页容量")
+            return items[:count], True
+        size += item_size
+        count += 1
+    return items, has_more
+
+
 def strict_date(value):
     if not isinstance(value, str):
         raise AnalysisContractError("日期必须为 YYYY-MM-DD")

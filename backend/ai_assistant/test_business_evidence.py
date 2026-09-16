@@ -108,6 +108,37 @@ class BusinessEvidenceTests(TestCase):
         self.assertEqual(row["metrics"]["sampleGmvUpperCents"]["value"], 300)
         self.assertNotIn("99999", canonical(table))
 
+    def test_bulk_mode_pins_collector_and_keeps_legacy_cursor_contract(self):
+        body = {**self.body, "collectionMode": "bulk", "clientRequestId": "bulk"}
+        run_id = evidence.create(body, self.admin)["item"]["id"]
+        catalog = [fixtures.CATALOG[0], {**fixtures.CATALOG[0], "name": "get_business_source_page"}]
+        def execute(name, args, principal, **kwargs):
+            self.assertEqual(kwargs["surface"], "business_collection")
+            if name == "get_data_freshness":
+                return self.execute(name, args, principal, **kwargs)
+            self.assertEqual(args["limit"], 100)
+            self.assertEqual(args["domain"], "sales")
+            query = {k: v for k, v in args.items() if k != "domain"}
+            return {"toolName": name, "ok": True, "auditStatus": "recorded", "data": read_page(principal, {"operation": "analysis_records", **query})}
+        with patch("ai_assistant.transport.catalog", return_value=catalog) as load, patch("ai_assistant.transport.execute_tool", side_effect=execute):
+            result = evidence.collect(run_id, {"sourceKey": "sales", "expectedVersion": 1}, self.admin, "bulk")
+            load.assert_called_once_with(self.admin, "business_collection")
+        self.assertEqual(result["item"]["sources"]["sales"]["rowCount"], 12)
+        self.assertTrue(result["item"]["sources"]["sales"]["complete"])
+        self.assertEqual(m.AiBusinessEvidenceChunk.objects.filter(run_id=run_id).count(), 1)
+        first = evidence.chunk(run_id, "sales", {"sequence": "1", "rowOffset": "0", "rowLimit": "10"}, self.admin)
+        second = evidence.chunk(run_id, "sales", {"sequence": "1", "rowOffset": "10", "rowLimit": "10"}, self.admin)
+        self.assertFalse(first["completeChunkInResponse"])
+        self.assertEqual(first["rowPagination"]["nextOffset"], 10)
+        self.assertEqual(len(first["items"]) + len(second["items"]), 12)
+        self.assertEqual(first["payloadDigest"], second["payloadDigest"])
+        self.assertEqual(first["fullPageEvidence"]["rowCount"], 12)
+        self.assertNotIn("pageEvidence", first)
+        with self.assertRaises(AiError):
+            evidence.chunk(run_id, "sales", {"sequence": "1", "rowOffset": "99"}, self.admin)
+        with self.assertRaises(AiError):
+            evidence.create({**body, "collectionMode": "standard"}, self.admin)
+
     def test_owner_role_plan_identity_and_input_payload_protection(self):
         run_id = evidence.create(self.body, self.admin)["item"]["id"]
         other = self.user("other-admin@example.invalid", "admin", None)

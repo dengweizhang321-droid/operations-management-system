@@ -90,6 +90,11 @@ def read_page(principal, query):
             "dimensions": {"brand": row["brand"] or None, "marketScope": row["scope"], "operationMode": row["operation_mode"]},
             "sample": {"rank": row["rank"], "priceLowerCents": row["price_low_cents"], "priceUpperCents": row["price_high_cents"], "priceEstimated": row["price_estimated"]},
             "metrics": values})
+    from business_analysis.contracts import bounded_page_items
+    try:
+        items, more = bounded_page_items(items, more)
+    except AnalysisContractError as error:
+        raise MarketApiError(str(error), status=422) from error
     if revision_value() != before:
         raise MarketApiError("市场来源在读取期间变化", code="analysis_revision_changed", status=409)
     return {"schemaVersion": SCHEMA_VERSION, "source": "market_daily_top", "sourceDataset": "market_daily_top", "sourceRef": binding,

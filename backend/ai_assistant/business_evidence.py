@@ -45,7 +45,10 @@ def mapping(row):
 
 def create(body, principal):
     current_principal(principal, admin=True)
-    fields(body, {"clientRequestId", "sources"}, {"clientRequestId", "sources"})
+    fields(body, {"clientRequestId", "sources", "collectionMode"}, {"clientRequestId", "sources"})
+    mode = body.get("collectionMode", "standard")
+    if mode not in ("standard", "bulk"):
+        raise AiError("采集模式无效")
     client = identifier(body["clientRequestId"])
     sources = body["sources"]
     if not isinstance(sources, list) or not 1 <= len(sources) <= 12:
@@ -85,7 +88,8 @@ def create(body, principal):
         if signature in queries:
             raise AiError("不得重复声明同一来源查询")
         queries.add(signature)
-    plan = passive({"schemaVersion": "business-evidence-v1", "sources": sources}, 16000)
+    plan = passive({"schemaVersion": "business-evidence-v1", "sources": sources,
+        **({"collector": {"version": 1, "surface": "business_collection", "pageSize": 100}} if mode == "bulk" else {})}, 16000)
     identity = digest(plan)
     with mutation(principal):
         old = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(), client_request_id=client).first()
@@ -108,7 +112,8 @@ def collect(run_id, body, principal, request_id, *, commit=None):
     cas(row, body["expectedVersion"])
     if row.status != "collecting":
         raise AiError("任务已结束", "conflict", 409)
-    source = next((s for s in json.loads(row.plan_json)["sources"] if s["key"] == body["sourceKey"]), None)
+    plan = json.loads(row.plan_json)
+    source = next((s for s in plan["sources"] if s["key"] == body["sourceKey"]), None)
     if source is None:
         raise AiError("来源不存在", "not_found", 404)
     state = json.loads(row.state_json)
@@ -116,16 +121,21 @@ def collect(run_id, body, principal, request_id, *, commit=None):
     verifier = _restore(entry["verifier"] if entry else {})
     if verifier.finished:
         raise AiError("来源已完整收集", "conflict", 409)
-    entries = transport.catalog(principal, "ai_agent")
-    tool = TOOLS[source["domain"]]
+    collector = plan.get("collector")
+    if collector is not None and collector != {"version": 1, "surface": "business_collection", "pageSize": 100}:
+        raise AiError("采集器版本不支持", "conflict", 409)
+    surface = "business_collection" if collector else "ai_agent"
+    entries = transport.catalog(principal, surface)
+    tool = "get_business_source_page" if collector else TOOLS[source["domain"]]
     names = {e["name"] for e in entries if e.get("risk") == "read_only" and e.get("execution", {}).get("mode") == "direct"}
     if not {tool, "get_data_freshness"} <= names:
         raise AiError("来源工具或水位查询不可用", "access_denied", 403)
     def execute(name, args):
-        return _result(transport.execute_tool(name, args, principal, surface="ai_agent", request_id=request_id, policy_digest=digest(entries)), name)
+        return _result(transport.execute_tool(name, args, principal, surface=surface, request_id=request_id, policy_digest=digest(entries)), name)
     with transport.request_budget(30):
         freshness = execute("get_data_freshness", {}) if entry is None else None
-        page = execute(tool, {**source["query"], "limit": 10, **({"cursor": verifier.expected_cursor} if verifier.expected_cursor else {})})
+        page = execute(tool, {**source["query"], "limit": 100 if collector else 10,
+            **({"domain": source["domain"]} if collector else {}), **({"cursor": verifier.expected_cursor} if verifier.expected_cursor else {})})
     try:
         filters = page["filters"]
         query = source["query"]
@@ -196,7 +206,7 @@ def finish(run_id, body, principal):
 
 def chunk(run_id, source_key, params, principal):
     get_run(run_id, principal)
-    fields(params, {"sequence"}, {"sequence"})
+    fields(params, {"sequence", "rowOffset", "rowLimit"}, {"sequence"})
     try:
         sequence = int(params["sequence"])
     except (TypeError, ValueError) as error:
@@ -207,7 +217,26 @@ def chunk(run_id, source_key, params, principal):
         raise AiError("分块不存在", "not_found", 404)
     if digest(record.payload_json) != record.payload_digest:
         raise AiError("分块摘要不匹配", "conflict", 409)
-    return {"sourceKey": source_key, "sequence": sequence, "payloadDigest": record.payload_digest, "page": json.loads(record.payload_json)}
+    page = json.loads(record.payload_json)
+    if "rowOffset" in params or "rowLimit" in params:
+        try:
+            offset, limit = int(params.get("rowOffset", 0)), int(params.get("rowLimit", 10))
+        except (TypeError, ValueError) as error:
+            raise AiError("分块行分页无效") from error
+        integer(offset, "rowOffset", lo=0, hi=100)
+        integer(limit, "rowLimit", hi=10)
+        rows = page["items"]
+        if offset > len(rows):
+            raise AiError("分块行偏移超出范围")
+        end = min(offset + limit, len(rows))
+        return {"schemaVersion": "business-evidence-slice-v1", "sourceKey": source_key, "sequence": sequence,
+            "payloadDigest": record.payload_digest, "fullPageEvidence": page["pageEvidence"],
+            "sourceMetadata": {k: v for k, v in page.items() if k not in {"items", "pageEvidence", "pagination"}},
+            "sourcePagination": page["pagination"], "items": rows[offset:end],
+            "rowPagination": {"offset": offset, "limit": limit, "total": len(rows), "hasMore": end < len(rows), "nextOffset": end if end < len(rows) else None},
+            "completeChunkInResponse": offset == 0 and end == len(rows),
+            "meaning": "此响应只是不可变分块的行切片；完整页摘要不等于切片摘要，不能把切片当全量来源核对。"}
+    return {"sourceKey": source_key, "sequence": sequence, "payloadDigest": record.payload_digest, "page": page}
 
 
 def reconcile_products(run_id, params, principal):

@@ -7,6 +7,18 @@ from .contracts import (
 
 
 class AnalysisContractTests(SimpleTestCase):
+    def test_page_budget_counts_utf8_and_never_slices_a_row(self):
+        from .contracts import bounded_page_items, canonical
+        items = [{"rowId": str(i), "name": "汉" * 10} for i in range(3)]
+        budget = len(canonical(items[:2]).encode())
+        selected, more = bounded_page_items(items, False, budget)
+        self.assertEqual(selected, items[:2])
+        self.assertTrue(more)
+        self.assertEqual(bounded_page_items(items, False, len(canonical(items).encode())), (items, False))
+        self.assertEqual(bounded_page_items([], False, 2), ([], False))
+        with self.assertRaises(AnalysisContractError):
+            bounded_page_items(items, False, 5)
+
     def test_dates_compare_equal_length_and_clamp_leap_day(self):
         result = comparison_periods("2024-02-29", "2024-03-01")
         self.assertEqual(result["previous"]["startDate"], "2024-02-27")

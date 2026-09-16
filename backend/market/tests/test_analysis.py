@@ -88,6 +88,18 @@ class MarketAnalysisTests(TestCase):
         with self.assertRaises(MarketApiError):
             read_page(Principal(self.admin.email, "Scoped", "admin", {"platforms": ["京东"]}), self.query)
 
+    def test_bulk_page_byte_budget_keeps_cursor_and_control_complete(self):
+        for i in range(105):
+            self.seed(f"bulk-{i}", "2026-09-01", 1, 2, product_name="测"*400)
+        pages, proof = self.pages(limit=100)
+        self.assertLess(len(pages[0]["items"]), 100)
+        self.assertGreater(len(pages), 2)
+        self.assertEqual(proof["rowCount"], 107)
+        self.assertEqual(proof["metrics"]["sampleGmvLowerCents"]["value"], 505)
+        ids = [row["rowId"] for page in pages for row in page["items"]]
+        self.assertEqual(len(set(ids)), 107)
+        self.assertTrue(all(len(json.dumps(page, ensure_ascii=False).encode()) <= 131072 for page in pages))
+
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     @override_settings(MARKET_WRITE_AUTHORITY_EPOCH="11111111-1111-4111-8111-111111111111", MARKET_WRITE_CUTOVER_ID="analysis-test")
     def test_signed_owning_consumer_and_role_guards(self):

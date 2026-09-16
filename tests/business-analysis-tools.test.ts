@@ -34,7 +34,7 @@ test("market analysis preserves the exact sample identity on its owning reader",
     return Response.json({ schemaVersion: "business-analysis-v1" }, { headers: { "x-market-data-revision": "7:aaaaaaaaaaaa" } });
   };
   const result = await entry.handler(query, { principal: admin, surface: "ai_agent", requestId: "market-test" });
-  assert.equal(result.schemaVersion, "business-analysis-v1");
+  assert.equal((result as Record<string, unknown>).schemaVersion, "business-analysis-v1");
 });
 
 test("ERP analysis tool uses the owning signed reader and retains exact three-field identity", async t => {
@@ -156,4 +156,58 @@ test("audit failure prevents analysis data access", async () => {
       audit: async () => { throw new Error("audit unavailable"); } });
   assert.equal(result.ok, false);
   assert.equal(calls, 0);
+});
+
+test("bulk collector is absent from providers and cannot widen a chat tool budget", async () => {
+  const bulk = aiToolRegistry.find(e => e.name === "get_business_source_page")!;
+  assert.deepEqual(getToolsForPrincipal(admin, "business_collection").map(e => e.name).sort(), ["get_business_source_page", "get_data_freshness"]);
+  assert.deepEqual(getOpenAiTools(admin, "business_collection"), []);
+  assert.deepEqual(getAnthropicTools(admin, "business_collection"), []);
+  for (const surface of ["ai_chat", "ai_agent", "ai_sandbox", "dingtalk_chat", "codex_mcp", "test"] as const) {
+    assert.ok(!getToolsForPrincipal(admin, surface).some(e => e.name === bulk.name));
+  }
+  assert.throws(() => validateToolRegistry([{ ...bulk, execution: { ...bulk.execution, allowedSurfaces: ["ai_chat"] } }]));
+  assert.throws(() => validateToolRegistry([{ ...entry, execution: { ...entry.execution, maxResultCharacters: 131072 } }]));
+  const query = { ...args, domain: "netshop", limit: 100 };
+  validateToolArguments(query, bulk.inputSchema);
+  assert.throws(() => validateToolArguments({ ...query, limit: 101 }, bulk.inputSchema));
+  let calls = 0;
+  const entries = [{ ...bulk, handler: async () => { calls++; return { text: "a".repeat(45000) }; } }];
+  const audits: string[] = [];
+  const options = { entries, audit: async (value: { status: string }) => { audits.push(value.status); } };
+  const result = await executeRegisteredToolCall(bulk.name, query, { principal: admin, surface: "business_collection", requestId: "bulk" }, options);
+  assert.equal(result.ok, true);
+  assert.equal(calls, 1);
+  assert.deepEqual(audits, ["started", "succeeded"]);
+  const rejected = await executeRegisteredToolCall(bulk.name, query, { principal: admin, surface: "ai_chat", requestId: "wrong-surface" }, options);
+  assert.equal(rejected.ok, false);
+  assert.equal(calls, 1);
+});
+
+test("bulk handler signs the owning request and enforces UTF8 byte capacity", async t => {
+  const bulk = aiToolRegistry.find(e => e.name === "get_business_source_page")!;
+  const environment = { TERUISI_DJANGO_NETSHOP_READER_BASE_URL: "http://127.0.0.1:18021",
+    TERUISI_DJANGO_NETSHOP_WRITER_BASE_URL: "http://127.0.0.1:18022",
+    TERUISI_DJANGO_INTERNAL_SECRET: "analysis-fixture-internal-secret-at-least-32-bytes" };
+  const saved = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]));
+  const oldFetch = globalThis.fetch;
+  Object.assign(process.env, environment);
+  t.after(() => { globalThis.fetch = oldFetch; for (const [key, value] of Object.entries(saved)) {
+    if (value === undefined) delete process.env[key]; else process.env[key] = value;
+  } });
+  const payload = { items: [{ text: "a".repeat(45000) }] };
+  globalThis.fetch = async (url, init) => {
+    const target = new URL(String(url));
+    assert.equal(target.pathname, "/api/netshop/analysis-records");
+    assert.equal(target.searchParams.get("limit"), "100");
+    assert.equal(target.searchParams.get("shop"), args.shop);
+    assert.equal(target.searchParams.has("domain"), false);
+    assert.ok(new Headers(init?.headers).has("x-teruisi-signature"));
+    return Response.json(payload, { headers: { "X-Netshop-Data-Revision": "7:aaaaaaaaaaaa" } });
+  };
+  const context = { principal: admin, surface: "business_collection" as const, requestId: "bulk-reader" };
+  assert.deepEqual(await bulk.handler({ ...args, domain: "netshop" }, context), payload);
+  payload.items[0].text = "汉".repeat(45000);
+  await assert.rejects(() => bulk.handler({ ...args, domain: "netshop" }, context), /不得截断/);
+  await assert.rejects(() => bulk.handler({ ...args, domain: "netshop" }, { ...context, surface: "ai_agent" }), /仅限/);
 });

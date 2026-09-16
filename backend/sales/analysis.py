@@ -100,6 +100,11 @@ def read_page(principal, request):
             "platform": request["platform"], "shopName": request["shop"], "channel": request["channel"],
             "date": row["business_date"].isoformat(), "productCode": row["product_code"], "onlineSpecCode": row["online_spec_code"] or None,
             "category": row["resolved_category"], "metrics": values})
+    from business_analysis.contracts import bounded_page_items
+    try:
+        items, more = bounded_page_items(items, more)
+    except AnalysisContractError as error:
+        raise SalesRequestError(str(error)) from error
     if control and any(abs(v) > MAX_SAFE_INTEGER for v in control["typedTotals"].values()):
         raise SalesRequestError("销售控制汇总超出无损整数范围")
     if before != revision_token():
