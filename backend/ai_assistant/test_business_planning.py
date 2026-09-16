@@ -1,5 +1,6 @@
 """Workbench admission and discovery never dispatch business/model work."""
 import json
+from datetime import datetime, timedelta, timezone
 from copy import deepcopy
 from unittest.mock import patch
 from django.db import connection
@@ -166,9 +167,14 @@ class BusinessPlanningTests(TestCase):
         self.assertFalse(m.AiWorkflowRuns.objects.exists())
 
     def test_list_is_compact_paginated_owner_bound_and_exact_recovery(self):
-        first = self.create("first")
-        self.create("second")
-        self.create("first", self.other_admin)
+        # Windows clock resolution may give both records the same timestamp;
+        # that correctly falls back to UUID ordering, not insertion order.
+        stamp = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        field = m.AiBusinessEvidenceRun._meta.get_field("created_at")
+        with patch.object(field, "_get_default", side_effect=[stamp, stamp+timedelta(seconds=1), stamp+timedelta(seconds=2)]):
+            first = self.create("first")
+            self.create("second")
+            self.create("first", self.other_admin)
         page = evidence.listing({"pageSize": "1"}, self.admin)
         self.assertEqual(page["pagination"], {"page": 1, "pageSize": 1, "total": 2, "hasMore": True})
         self.assertEqual(page["items"][0]["clientRequestId"], "second")

@@ -7,10 +7,10 @@ type Shop = { platform: string; shop: string; datasets: string[]; salesChannels:
 type Market = { platform: string; category: string; scope: string; rankingDimension: string; priceBandFilter: string };
 type Request = { question: string; startDate: string; endDate: string; shops: Shop[]; windows: string[]; markets: Market[] };
 type Source = { key: string; domain: string; query: Record<string, string> };
-type Preview = { principalKey: string; canCollect: boolean; planDigest: string; request: Request; evidenceRequest: Record<string, unknown>; capacity: Record<string, number>; limitations: string[]; coverage: { domain: string; query: Record<string, string>; status: string; availability: string; reason: string; sourceKey?: string }[] };
+type Preview = { schemaVersion: string; principalKey: string; canCollect: boolean; planDigest: string | null; catalogDigest: string | null; request: Request & { schemaVersion: string }; evidenceRequest: Record<string, unknown>; capacity: Record<string, number | null>; limitations: string[]; coverage: { domain: string; query: Record<string, string>; status: string; availability: string; reason: string; sourceKey?: string }[] };
 type Collection = { status: string; errorCode?: string; consecutiveFailures?: number; nextAttemptAt?: string };
 type Item = { id: string; clientRequestId?: string; question?: string; status: string; version: number; collection: Collection; createdAt: string; storedBytes: number; sourceCount?: number; completedSources?: number; rowCount?: number };
-type Detail = Item & { plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
+type Detail = Item & { workbenchAnalysisEnabled?: boolean; plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
 type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string; offset: number; total: number; returned: number; nextOffset: number | null; items: (Source & { ordinal: number })[] };
 type Report = { id: string; workflowId: string; status: string; createdAt: string };
 type Pending = { schemaVersion: 1; principalKey: string; kind: "evidence" | "report"; bodyJson: string; label: string; createdAt: string; outcome: "prepared" | "unknown" };
@@ -19,6 +19,37 @@ const initial = (): Request => ({ question: "", startDate: "", endDate: "", shop
 const storageKey = (key: string) => "ai-business-workbench-pending-v1:"+key;
 const message = (error: unknown) => error instanceof Error ? error.message : "请求失败，请刷新后核验状态。";
 const summary = (query: Record<string, string>) => Object.entries(query).map(([key, value]) => `${({ platform: "平台", shop: "店铺", dataset: "数据集", channel: "ERP渠道", category: "类目", scope: "范围", rankingDimension: "榜单维度", priceBandFilter: "价格带", startDate: "开始", endDate: "结束", window: "周期" } as Record<string, string>)[key] ?? key}：${["dataset", "window"].includes(key) ? names[value] ?? value : value}`).join(" · ");
+// New previews are explicitly v2; persisted legacy submissions bypass this
+// validator and replay their original, identity-bound body without conversion.
+function validatePreview(value: Preview) {
+  const bad = (): never => { throw new Error("来源预览协议或完整性不匹配，请重新预览；未发起采集。"); };
+  if (value.schemaVersion !== "business-plan-preview-v2" || value.request?.schemaVersion !== "business-plan-request-v2" || value.evidenceRequest?.schemaVersion !== "business-evidence-v2") bad();
+  if (!Array.isArray(value.coverage) || !Array.isArray(value.limitations) || !value.limitations.every(item => typeof item === "string") || typeof value.canCollect !== "boolean" || !value.capacity) bad();
+  const capacity = value.capacity;
+  for (const name of ["sourceCount", "maxSources", "maxPlanBytes", "maxWorkflowBytes", "queryBytes", "maxQueryBytes", "directoryQueryBytes", "maxDirectoryQueryBytes", "factBytes", "factPages"]) if (!Number.isSafeInteger(capacity[name]) || capacity[name]! < 0) bad();
+  for (const name of ["planBytes", "workflowBytes"]) if (capacity[name] !== null && (!Number.isSafeInteger(capacity[name]) || capacity[name]! < 0)) bad();
+  if (capacity.maxSources !== 48 || capacity.maxPlanBytes !== 16000 || capacity.maxWorkflowBytes !== 8000 || capacity.maxQueryBytes !== 4096 || capacity.maxDirectoryQueryBytes !== 131072 || capacity.factBytes !== 67108864 || capacity.factPages !== 2000) bad();
+  const sources = value.evidenceRequest.sources;
+  if (!Array.isArray(sources) || sources.length !== capacity.sourceCount || value.evidenceRequest.collectionMode !== "bulk" || value.evidenceRequest.autoCollect !== true) bad();
+  const queryKey = (query: Record<string, string>) => {
+    if (!query || typeof query !== "object" || Array.isArray(query) || !Object.values(query).every(item => typeof item === "string")) bad();
+    return JSON.stringify(Object.entries(query).sort(([left], [right]) => left.localeCompare(right)));
+  };
+  const sourceKeys = new Set<string>();
+  for (const source of sources as Source[]) {
+    if (!source || typeof source.key !== "string" || !source.key || sourceKeys.has(source.key) || typeof source.domain !== "string") bad();
+    sourceKeys.add(source.key);
+    const match = value.coverage.filter(row => row.sourceKey === source.key && row.status === "planned");
+    if (match.length !== 1 || match[0].domain !== source.domain || queryKey(match[0].query) !== queryKey(source.query)) bad();
+  }
+  for (const row of value.coverage) {
+    if (!row || !["planned", "unsupported"].includes(row.status) || row.availability !== "not_collected" || typeof row.reason !== "string" || typeof row.domain !== "string") bad();
+    queryKey(row.query);
+    if (row.status === "planned" && !sourceKeys.has(row.sourceKey!)) bad();
+  }
+  for (const digest of [value.planDigest, value.catalogDigest]) if (digest !== null && (typeof digest !== "string" || !/^[a-f0-9]{64}$/.test(digest))) bad();
+  if (value.canCollect && (!value.planDigest || !value.catalogDigest || capacity.sourceCount === 0 || value.coverage.some(row => row.status !== "planned") || capacity.planBytes === null || capacity.workflowBytes === null || [["sourceCount", "maxSources"], ["planBytes", "maxPlanBytes"], ["workflowBytes", "maxWorkflowBytes"], ["queryBytes", "maxQueryBytes"], ["directoryQueryBytes", "maxDirectoryQueryBytes"]].some(([size, limit]) => capacity[size]! > capacity[limit]!))) bad();
+}
 function TextInput({ label, value, onChange, type = "text", maxLength = 100 }: { label: string; value: string; onChange: (value: string) => void; type?: string; maxLength?: number }) {
   return <label>{label}<input aria-label={label} required value={value} maxLength={maxLength} type={type} onChange={event => onChange(event.target.value)} /></label>;
 }
@@ -146,9 +177,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     setPreviewBusy(true); setPreviewError(""); setPreview(null); setConfirmed(false);
     const current = () => live.current && previewController.current === ctl && !ctl.signal.aborted;
     try {
-      const result = await api<Preview>("/api/ai/business-plan/preview", ctl.signal, JSON.stringify(form));
+      const result = await api<Preview>("/api/ai/business-plan/preview", ctl.signal, JSON.stringify({ ...form, schemaVersion: "business-plan-request-v2" }));
       if (!current()) return;
-      if (!Array.isArray(result.coverage) || !Array.isArray(result.limitations) || typeof result.canCollect !== "boolean" || !result.capacity || !result.evidenceRequest) throw new Error("范围预览响应无效。");
+      validatePreview(result);
       principal(result.principalKey); if (!current()) return;
       setPreview(result);
     } catch (error) { if (current()) setPreviewError(message(error)); }
@@ -221,6 +252,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const shopEdit = (i: number, change: Partial<Shop>) => edit({ ...form, shops: form.shops.map((shop, j) => j === i ? { ...shop, ...change } : shop) });
   const visibleItems = listedPage === page ? items : [];
   const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
+  const analysisAllowed = Boolean(detail && detail.status === "sealed" && detail.plan.analysisRequest?.question && (!detailV2 || detail.workbenchAnalysisEnabled === true));
   return <section className="business-workbench" aria-label="经营分析工作台">
     <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。这里根据你选择的范围生成来源计划，尚未自动解析问题或确认数据已存在。</p>
     {storageError && <div role="alert" className="bw-error">{storageError}<button onClick={() => actor.current && restore(actor.current)}>重新检查会话存储</button></div>}
@@ -243,7 +275,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       <div className="bw-actions"><button type="submit" disabled={previewBusy}>预览完整来源计划</button>{previewBusy && <button type="button" onClick={() => { previewController.current?.abort(); previewController.current = null; setPreviewBusy(false); }}>取消预览</button>}</div>
     </fieldset></form>
     {previewError && <p role="alert" className="bw-error">{previewError}</p>}
-    {preview && <section className="bw-card" aria-label="来源范围预览"><h4>完整来源矩阵</h4><p>拟采集 {preview.capacity.sourceCount} / {preview.capacity.maxSources} 个来源；计划 {preview.capacity.planBytes} / {preview.capacity.maxPlanBytes} 字节；分析输入估算 {preview.capacity.workflowBytes} / {preview.capacity.maxWorkflowBytes} 字节。</p>
+    {preview && <section className="bw-card" aria-label="来源范围预览"><h4>完整来源矩阵</h4><p>拟采集 {preview.capacity.sourceCount} / {preview.capacity.maxSources} 个来源；计划 {preview.capacity.planBytes ?? "尚不可测算"} / {preview.capacity.maxPlanBytes} 字节；分析输入估算 {preview.capacity.workflowBytes ?? "尚不可测算"} / {preview.capacity.maxWorkflowBytes} 字节。</p><p>单来源查询最大 {preview.capacity.queryBytes} / {preview.capacity.maxQueryBytes} 字节；目录查询合计 {preview.capacity.directoryQueryBytes} / {preview.capacity.maxDirectoryQueryBytes} 字节。事实采集仍限 {preview.capacity.factBytes! / 1024 / 1024} MiB / {preview.capacity.factPages} 总页；更多来源不代表事实容量增加，轻量分析输入估算也不代表模型上下文已经通过核验。</p>
       <div className="bw-scroll" tabIndex={0}><table><thead><tr><th>领域</th><th>精确查询条件</th><th>支持状态</th><th>数据状态</th><th>说明</th></tr></thead><tbody>{preview.coverage.map((row, i) => <tr key={i}><td>{row.domain}</td><td>{summary(row.query)}</td><td>{names[row.status] ?? row.status}</td><td>{names[row.availability] ?? row.availability}</td><td>{row.reason}</td></tr>)}</tbody></table></div>
       <ul>{preview.limitations.map((limit, i) => <li key={i}>{limit}</li>)}</ul>{!preview.canCollect && <p className="bw-error" role="alert">范围存在缺口或超过容量，不能开始采集。请明确调整范围后重新预览；系统不会截断来源。</p>}
       <label className="bw-confirm"><input type="checkbox" checked={confirmed} disabled={locked || !preview.canCollect} onChange={event => setConfirmed(event.target.checked)} />我已核对精确范围与限制，确认采集以上全部来源</label><button disabled={locked || !confirmed || !preview.canCollect || preview.principalKey !== principalKey} onClick={() => create("evidence", preview.evidenceRequest, preview.request.question)}>确认范围并开始后台采集</button>
@@ -256,7 +288,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       {!detail && !detailError && <p role="status">正在读取任务…</p>}{detail && <><p className="bw-question">{detail.plan.analysisRequest?.question || "此历史证据任务未保存分析问题。"}</p><p>{names[detail.collection.status] ?? detail.collection.status} · 版本 {detail.version} · {(detail.storedBytes/1024).toFixed(1)} KiB</p>{detail.collection.errorCode && <p role="alert">采集错误：{detail.collection.errorCode}；连续失败 {detail.collection.consecutiveFailures ?? 0} 次。请核验来源后恢复。</p>}
         <p>下列窗口是已安排的查询范围。分页采集完成不等于业务日期齐全，缺日期与缺字段仍须在分析中核验。</p>{detailV2 ? <><p>来源总数 {detail.plan.sourceCount} · 分页采集完成 {Object.values(detail.sources).filter(source => source.complete).length} · 已保存 {Object.values(detail.sources).reduce((sum, source) => sum+source.pageCount, 0)} 页 / {Object.values(detail.sources).reduce((sum, source) => sum+source.rowCount, 0)} 行</p><SourceDirectory key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} detail={detail} /></> : <div className="bw-scroll"><table><thead><tr><th>来源</th><th>条件</th><th>已保存页数</th><th>行数</th><th>采集完整性</th></tr></thead><tbody>{detail.plan.sources!.map(source => { const progress = detail.sources[source.key]; return <tr key={source.key}><td>{source.domain}</td><td>{summary(source.query)}</td><td>{progress?.pageCount ?? 0}</td><td>{progress?.rowCount ?? 0}</td><td>{progress?.complete ? "分页采集完成" : "未完成核验"}</td></tr>; })}</tbody></table></div>}
         {detail.status === "collecting" && !detail.plan.collector && <p>此历史任务使用手动采集模式，不提供后台暂停或恢复。</p>}<div className="bw-actions">{detail.status === "collecting" && <>{detail.plan.collector && <button disabled={locked} onClick={() => void control(detail.collection.status === "paused" ? "resume" : "pause")}>{detail.collection.status === "paused" ? "恢复后台采集" : "暂停后台采集"}</button>}<button disabled={locked} onClick={() => void control("cancel")}>取消采集任务</button></>}</div>
-        {detailV2 ? <p role="status">此任务的完整文件交付仍在接入，工作台暂未开放分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。</p>}<div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={detailV2 || locked || detail.status !== "sealed" || !detail.plan.analysisRequest?.question} onClick={() => { if (!detailV2) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
+        {detailV2 && detail.workbenchAnalysisEnabled !== true ? <p role="status">服务端尚未开放此任务的工作台分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能手动启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。{detailV2 && "此版本支持无固定预算分析，报告页面可选择多卷交付；当前未开放固定预算分析。"}</p>}<div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={locked || !analysisAllowed} onClick={() => { if (analysisAllowed) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
         <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {names[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
       </>}
     </section>}

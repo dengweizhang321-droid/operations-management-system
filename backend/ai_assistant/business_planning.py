@@ -45,8 +45,12 @@ def preview(body, principal):
             raise AnalysisContractError(str(error)) from error
 
     try:
-        result = planning.preview(body, max_sources=12, max_plan_bytes=16000, max_workflow_bytes=8000,
-            netshop_sources=SOURCES, market_validator=market_validator)
+        if isinstance(body, dict) and "schemaVersion" in body:
+            from business_analysis import planning_v2
+            result = planning_v2.preview(body, netshop_sources=SOURCES, market_validator=market_validator)
+        else:
+            result = planning.preview(body, max_sources=12, max_plan_bytes=16000, max_workflow_bytes=8000,
+                netshop_sources=SOURCES, market_validator=market_validator)
     except AnalysisContractError as error:
         raise AiError(str(error)) from error
     return {**result, "principalKey": principal_key(principal)}

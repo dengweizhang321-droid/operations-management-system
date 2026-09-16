@@ -65,6 +65,9 @@ class BusinessExportCatalogAcceptanceTests(TestCase):
             self.sources.append({"key": "market-"+window, "domain": "market", "query": {**common, "category": "饮水机", "scope": "POP", "rankingDimension": "SKU", "priceBandFilter": "全部", "window": window}})
         self.sources.append({"key": "master", "domain": "netshop", "query": {**common, "shop": self.shop, "dataset": "master", "window": "current"}})
         body = {"schemaVersion": "business-evidence-v2", "clientRequestId": "complete-catalog", "collectionMode": "bulk", "sources": self.sources}
+        if hasattr(self, "planned_evidence_body"):
+            body = self.planned_evidence_body(common)
+            self.sources = body["sources"]
         self.run_id = evidence.create(body, self.admin)["item"]["id"]
         tools = [{**fixtures.CATALOG[0], "name": name} for name in ("get_data_freshness", "get_business_source_page")]
         def transport(name, args, principal, **kwargs):
@@ -86,8 +89,9 @@ class BusinessExportCatalogAcceptanceTests(TestCase):
                 version = result["item"]["version"]
                 self.assertTrue(result["item"]["sources"][source["key"]]["complete"])
         evidence.finish(self.run_id, {"expectedVersion": version, "action": "seal"}, self.admin)
-        created = reports.create({"clientRequestId": "volume-draft", "evidenceRunId": self.run_id, "question": "合成三周期完整来源验收", "dryRun": True}, self.admin)
-        self.report = m.AiReportRun.objects.select_related("workflow").get(pk=created["item"]["id"])
+        if not getattr(self, "skip_draft_report", False):
+            created = reports.create({"clientRequestId": "volume-draft", "evidenceRunId": self.run_id, "question": "合成三周期完整来源验收", "dryRun": True}, self.admin)
+            self.report = m.AiReportRun.objects.select_related("workflow").get(pk=created["item"]["id"])
         self.content = {"sections": [{"title": "合成范围", "body": "三周期完整来源；主数据为空明确保留，非真实经营结论。"}],
             "diagnosis": {"findings": [{"id": "gap", "kind": "gap", "title": "仍需真实验收", "explanation": "此处只验证文件完整性", "facts": []}]}}
 

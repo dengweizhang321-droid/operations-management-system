@@ -9,7 +9,7 @@ import { chromium } from "playwright-core";
 const root = process.cwd(), directory = path.resolve(process.argv[2] || ".runtime/business-workbench-v2-ui");
 await fs.mkdir(directory, { recursive: true });
 const entry = path.join(directory, "entry.tsx");
-await fs.writeFile(entry, `import React from 'react';import{createRoot}from'react-dom/client';import Workbench from ${JSON.stringify(path.join(root, "app/ai-business-workbench.tsx"))};createRoot(document.getElementById('root')!).render(<Workbench onReportCreated={()=>{throw new Error('unexpected report');}}/>);`);
+await fs.writeFile(entry, `import React from 'react';import{createRoot}from'react-dom/client';import Workbench from ${JSON.stringify(path.join(root, "app/ai-business-workbench.tsx"))};createRoot(document.getElementById('root')!).render(<Workbench onReportCreated={id=>{document.getElementById('report-result')!.textContent=id;}}/>);`);
 await build({ entryPoints: [entry], bundle: true, outfile: path.join(directory, "app.js"), format: "iife", platform: "browser", jsx: "automatic", logLevel: "silent", define: { "process.env.NODE_ENV": '"production"' }, tsconfig: path.join(root, "tsconfig.json") });
 const principalA = "a".repeat(64), principalB = "b".repeat(64), catalog = "c".repeat(64);
 let principal = principalA, delayNext = false, wrongVersion = false;
@@ -30,6 +30,7 @@ const server = http.createServer(async (req, res) => {
       const raw = Buffer.concat(chunks).toString(), body = raw ? JSON.parse(raw) : null;
       requests.push({ path: url.pathname, query: url.search, method: req.method, body });
       if (url.pathname === "/api/ai/business-evidence") return send({ principalKey: principal, items: principal === principalA ? [v2, v1] : [], pagination: { total: principal === principalA ? 2 : 0 } });
+      if(url.pathname === "/api/ai/business-reports"){assert.equal(body.expectedPrincipalKey,principal);assert.equal(body.evidenceRunId,v2.id);assert.equal(v2.workbenchAnalysisEnabled,true);assert.equal("budgetPlan" in body,false);return send({item:{id:body.dryRun?"report-v2-dry":"report-v2-paid"}});}
       const match = url.pathname.match(/^\/api\/ai\/business-evidence\/(evidence-v[12])(?:\/(sources|control|finish))?$/);
       if (!match || principal !== principalA) return send({ error: "不存在" }, 404);
       const item = match[1] === v2.id ? v2 : v1;
@@ -49,7 +50,7 @@ const server = http.createServer(async (req, res) => {
       return send({ item, reports: [], reportsPagination: { hasMore: false }, principalKey: principal });
     }
     if (["/app.js", "/app.css"].includes(url.pathname)) { res.setHeader("content-type", url.pathname.endsWith("css") ? "text/css" : "text/javascript"); res.end(await fs.readFile(path.join(directory, url.pathname.slice(1)))); return; }
-    res.setHeader("content-type", "text/html;charset=utf-8"); res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body style="margin:8px;font-family:Arial"><main id="root"></main><script src="/app.js"></script></body></html>');
+    res.setHeader("content-type", "text/html;charset=utf-8"); res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body style="margin:8px;font-family:Arial"><main id="root"></main><div id="report-result"></div><script src="/app.js"></script></body></html>');
   } catch (error) { res.statusCode=500; res.end(JSON.stringify({ error: String(error) })); }
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -80,9 +81,18 @@ try {
   await check("sealed_v2_blocks_both_report_actions", async () => {
     v2.status="sealed"; v2.collection.status="sealed"; v2.version++;
     await page.getByRole("button", { name: "刷新选中任务", exact: true }).click(); await detail().getByText("证据已封存", { exact: false }).waitFor();
-    assert.match(await detail().innerText(), /工作台暂未开放分析启动/);
+    assert.match(await detail().innerText(), /服务端尚未开放此任务的工作台分析启动/);
     for (const name of ["模拟分析（不调用模型）", "启动多 Agent 分析（调用模型）"]) assert.equal(await page.getByRole("button", { name, exact: true }).isDisabled(), true);
     assert.equal(requests.filter(r => r.path === "/api/ai/business-reports").length, 0);
+  });
+  await check("server_flag_requires_sealed_question_then_manual_dry_and_paid_navigation", async () => {
+    const refresh = async()=>{v2.version++;await page.getByRole("button",{name:"刷新选中任务",exact:true}).click();await detail().getByText(`版本 ${v2.version}`,{exact:false}).first().waitFor();};
+    v2.workbenchAnalysisEnabled=false;await refresh();assert.equal(await page.getByRole("button",{name:"模拟分析（不调用模型）",exact:true}).isDisabled(),true);
+    v2.workbenchAnalysisEnabled=true;v2.status="collecting";await refresh();assert.equal(await page.getByRole("button",{name:"模拟分析（不调用模型）",exact:true}).isDisabled(),true);
+    v2.status="sealed";const question=v2.plan.analysisRequest.question;delete v2.plan.analysisRequest.question;await refresh();assert.equal(await page.getByRole("button",{name:"模拟分析（不调用模型）",exact:true}).isDisabled(),true);
+    v2.plan.analysisRequest.question=question;await refresh();assert.equal(requests.filter(r=>r.path==="/api/ai/business-reports").length,0);assert.match(await detail().innerText(),/当前未开放固定预算分析/);
+    for(const [name,id,dryRun]of [["模拟分析（不调用模型）","report-v2-dry",true],["启动多 Agent 分析（调用模型）","report-v2-paid",false]]){await page.getByRole("button",{name,exact:true}).click();await page.locator("#report-result").filter({hasText:id}).waitFor();const request=requests.filter(r=>r.path==="/api/ai/business-reports").at(-1);assert.equal(request.body.dryRun,dryRun);assert.equal("budgetPlan" in request.body,false);}
+    assert.equal(requests.filter(r=>r.path==="/api/ai/business-reports").length,2);
   });
   await check("late_directory_isolated_after_task_switch_and_v1_still_works", async () => {
     delayNext=true; await page.getByRole("button", { name: "下一页来源", exact: true }).click();
