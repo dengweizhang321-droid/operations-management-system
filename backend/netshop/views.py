@@ -43,6 +43,18 @@ SUPPORTED_PLATFORMS = ("京东", "天猫")
 
 
 @require_GET
+def analysis_options(request: HttpRequest) -> JsonResponse:
+    from .analysis_options import read_page, validate_request
+    try:
+        principal = _principal(request, {"admin"})
+        query, cursor = validate_request(request.GET)
+        payload = read_page(principal, query, cursor)
+        return _json(payload, revision=payload["revision"])
+    except Exception as error:
+        return _error(error, "经营分析来源选项读取失败")
+
+
+@require_GET
 def analysis_records(request: HttpRequest) -> JsonResponse:
     from .analysis import read_page, validate_request
     try:
