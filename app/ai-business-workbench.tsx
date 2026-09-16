@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import AiBusinessBudgetBuilder from "./ai-business-budget-builder";
+import AiBusinessMappingBuilder from "./ai-business-mapping-builder";
+import { mappingBindingKey, type MappingSelection } from "@/lib/ai/business-mapping-builder";
 import "./ai-business-workbench.css";
 
 type Shop = { platform: string; shop: string; datasets: string[]; salesChannels: string[] };
@@ -11,10 +13,12 @@ type Source = { key: string; domain: string; query: Record<string, string> };
 type Preview = { schemaVersion: string; principalKey: string; canCollect: boolean; planDigest: string | null; catalogDigest: string | null; request: Request & { schemaVersion: string }; evidenceRequest: Record<string, unknown>; capacity: Record<string, number | null>; limitations: string[]; coverage: { domain: string; query: Record<string, string>; status: string; availability: string; reason: string; sourceKey?: string }[] };
 type Collection = { status: string; errorCode?: string; consecutiveFailures?: number; nextAttemptAt?: string };
 type Item = { id: string; clientRequestId?: string; question?: string; status: string; version: number; collection: Collection; createdAt: string; storedBytes: number; sourceCount?: number; completedSources?: number; rowCount?: number };
-type Detail = Item & { workbenchAnalysisEnabled?: boolean; budgetSupported?: boolean; plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
+type Detail = Item & { workbenchAnalysisEnabled?: boolean; budgetSupported?: boolean; mappingSupported?: boolean; plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
 type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string; offset: number; total: number; returned: number; nextOffset: number | null; items: (Source & { ordinal: number })[] };
 type Report = { id: string; workflowId: string; status: string; createdAt: string };
 type Pending = { schemaVersion: 1; principalKey: string; kind: "evidence" | "report"; bodyJson: string; label: string; createdAt: string; outcome: "prepared" | "unknown" };
+type MappingIntent = MappingSelection & { intent: boolean };
+const emptyMapping = (): MappingIntent => ({ bindingKey: "", pairs: [], ready: false, reason: "loading", intent: false });
 const names: Record<string, string> = { current: "本期", previous: "环比", yearAgo: "同比", promotion: "推广与关键词", master: "商品主数据", sku: "SKU 销售", spu: "SPU 销售", b2b: "B 端销售", collecting: "采集中", queued: "等待后台采集", reading: "后台读取中", paused: "已暂停", sealed: "证据已封存", cancelled: "已取消", completed: "已完成", running: "分析中", planned: "已列入计划", unsupported: "不支持", not_collected: "尚未取数" };
 const initial = (): Request => ({ question: "", startDate: "", endDate: "", shops: [{ platform: "京东", shop: "", datasets: ["promotion", "master"], salesChannels: [] }], windows: ["current"], markets: [] });
 const storageKey = (key: string) => "ai-business-workbench-pending-v1:"+key;
@@ -102,8 +106,20 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const [moreReports, setMoreReports] = useState(false);
   const [listError, setListError] = useState(""), [detailError, setDetailError] = useState(""), [previewError, setPreviewError] = useState(""), [writeError, setWriteError] = useState(""), [storageError, setStorageError] = useState("");
   const [pending, setPending] = useState<Pending | null>(null), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [previewBusy, setPreviewBusy] = useState(false), [notice, setNotice] = useState("");
+  const [mapping, setMapping] = useState<MappingIntent>(emptyMapping);
+  const [mappingReset, setMappingReset] = useState(0);
+  const mappingRef = useRef<MappingIntent>(emptyMapping()), detailRef = useRef<Detail | null>(null), detailFailed = useRef(false);
   const live = useRef(true), actor = useRef(""), pendingRef = useRef<Pending | null>(null), selectedRef = useRef("");
   const listController = useRef<AbortController | null>(null), detailController = useRef<AbortController | null>(null), previewController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
+  const updateMapping = useCallback((value: MappingIntent) => { mappingRef.current = value; setMapping(value); }, []);
+  const mappingChanged = useCallback((value: MappingSelection) => {
+    const current = detailRef.current;
+    if (!live.current || !current || selectedRef.current !== current.id || value.bindingKey !== mappingBindingKey(current, actor.current) || current.mappingSupported !== true) return;
+    // Only the explicit clear action discards an earlier selection intent.
+    // Directory reloads (including successful empty selection) cannot downgrade it.
+    const intent = value.reason === "cleared" ? false : mappingRef.current.intent || value.pairs.length > 0;
+    updateMapping({ ...value, pairs: value.pairs.map(pair => ({ ...pair })), ready: value.ready && !detailFailed.current, intent });
+  }, [updateMapping]);
   const restore = useCallback((key: string) => {
     setReady(false); setStorageError("");
     try {
@@ -127,11 +143,12 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       if (changed) {
         writeController.current?.abort(); previewController.current?.abort(); detailController.current?.abort(); listController.current?.abort(); listController.current = null;
         setPreview(null); setConfirmed(false); setDetail(null); setReports([]); setItems([]); setForm(initial());
+        detailRef.current = null; detailFailed.current = false; updateMapping(emptyMapping());
         selectedRef.current = ""; setSelected(""); setPage(1); setMoreReports(false); setWriteError("账号已变化，请重新核验当前账号的范围及待确认提交。");
       }
       pendingRef.current = null; setPending(null); restore(key);
     }
-  }, [restore]);
+  }, [restore, updateMapping]);
   const loadList = useCallback(async (force = false) => {
     if (listController.current && !force) return;
     listController.current?.abort(); const ctl = new AbortController(); listController.current = ctl;
@@ -155,14 +172,19 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       const validPlan = v2 ? Number.isInteger(item.plan.sourceCount) && item.plan.sourceCount! >= 1 && item.plan.sourceCount! <= 48 && /^[a-f0-9]{64}$/.test(item.plan.catalogDigest ?? "") && item.sources && !Array.isArray(item.sources) && Object.keys(item.sources).length === item.plan.sourceCount && Object.values(item.sources).every(value => value && Number.isSafeInteger(value.pageCount) && value.pageCount >= 0 && Number.isSafeInteger(value.rowCount) && value.rowCount >= 0 && typeof value.complete === "boolean") : (!item?.plan?.schemaVersion || item.plan.schemaVersion === "business-evidence-v1") && Array.isArray(item?.plan?.sources);
       if (item?.id !== id || !Number.isSafeInteger(item.version) || item.version < 1 || !validPlan || !Array.isArray(result.reports)) throw new Error("任务详情回执无效。");
       principal(result.principalKey); if (!current()) return;
+      const binding = mappingBindingKey(item, result.principalKey);
+      if (mappingRef.current.bindingKey !== binding || item.mappingSupported !== true) updateMapping({ ...emptyMapping(), bindingKey: binding, intent: mappingRef.current.intent });
+      detailRef.current = item; detailFailed.current = false;
       setDetail(result.item); setReports(result.reports); setMoreReports(result.reportsPagination?.hasMore === true); setDetailError("");
-    } catch (error) { if (current()) setDetailError(message(error)); }
+    } catch (error) { if (current()) { detailFailed.current = true; if (mappingRef.current.intent) updateMapping({ ...mappingRef.current, ready: false, pairs: [] }); setDetailError(message(error)); } }
     finally { if (detailController.current === ctl) detailController.current = null; }
-  }, [principal]);
+  }, [principal, updateMapping]);
   const choose = useCallback((id: string) => {
+    if (selectedRef.current !== id) updateMapping(emptyMapping());
+    detailRef.current = null; detailFailed.current = false;
     detailController.current?.abort(); selectedRef.current = id; setSelected(id); setDetail(null); setReports([]); setMoreReports(false); setDetailError("");
     void loadDetail(id, true);
-  }, [loadDetail]);
+  }, [loadDetail, updateMapping]);
   useEffect(() => { live.current = true; return () => { live.current = false; for (const ref of [listController, detailController, previewController, writeController]) ref.current?.abort(); }; }, []);
   useEffect(() => { void loadList(true); return () => { listController.current?.abort(); listController.current = null; }; }, [loadList]);
   useEffect(() => {
@@ -229,9 +251,20 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   }
   function create(kind: Pending["kind"], payload: Record<string, unknown>, label: string) {
     if (pendingRef.current || !ready || busy || !actor.current) return;
-    const value: Pending = { schemaVersion: 1, principalKey: actor.current, kind, bodyJson: JSON.stringify({ ...payload, expectedPrincipalKey: actor.current, clientRequestId: "workbench-"+crypto.randomUUID() }), label, createdAt: new Date().toISOString(), outcome: "prepared" };
+    let value: Pending, serialized: string;
     try {
-      const serialized = JSON.stringify(value); sessionStorage.setItem(storageKey(value.principalKey), serialized);
+      if (kind === "report" && mappingRef.current.intent) {
+        const current = detailRef.current, selectedMapping = mappingRef.current;
+        if (!current || current.id !== selectedRef.current || payload.evidenceRunId !== current.id || detailFailed.current || current.mappingSupported !== true || !selectedMapping.ready || !selectedMapping.pairs.length || selectedMapping.bindingKey !== mappingBindingKey(current, actor.current)) throw new Error("原商品关联选择尚未重新核验。请重新选择或明确清空关联，不能自动改为无关联报告。");
+        payload = { ...payload, mappingPairs: selectedMapping.pairs.map(pair => ({ ...pair })) };
+      }
+      value = { schemaVersion: 1, principalKey: actor.current, kind, bodyJson: JSON.stringify({ ...payload, expectedPrincipalKey: actor.current, clientRequestId: "workbench-"+crypto.randomUUID() }), label, createdAt: new Date().toISOString(), outcome: "prepared" };
+      if (kind === "report" && new TextEncoder().encode(value.bodyJson).byteLength > 65536) throw new Error("完整报告请求超过 65536 UTF-8 字节。请明确缩小关联或预算参数后重试；尚未保存或发送请求。");
+      serialized = JSON.stringify(value);
+      if (serialized.length > 100000) throw new Error("完整待确认提交记录超过 100000 字符。请明确缩小参数后重试；尚未保存或发送请求。");
+    } catch (error) { setWriteError(message(error)); return; }
+    try {
+      sessionStorage.setItem(storageKey(value.principalKey), serialized);
       if (sessionStorage.getItem(storageKey(value.principalKey)) !== serialized) throw new Error("提交记录写入后校验失败。");
       pendingRef.current = value; setPending(value); void send(value);
     } catch (error) { setReady(false); setStorageError(message(error)+" 无法保存待确认请求，未发起提交。请检查会话存储。"); }
@@ -254,6 +287,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const visibleItems = listedPage === page ? items : [];
   const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
   const analysisAllowed = Boolean(detail && detail.status === "sealed" && detail.plan.analysisRequest?.question && (!detailV2 || detail.workbenchAnalysisEnabled === true));
+  const mappingBlocked = mapping.intent && (!detail || Boolean(detailError) || detail.mappingSupported !== true || mapping.bindingKey !== mappingBindingKey(detail, principalKey) || !mapping.ready || !mapping.pairs.length);
   return <section className="business-workbench" aria-label="经营分析工作台">
     <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。这里根据你选择的范围生成来源计划，尚未自动解析问题或确认数据已存在。</p>
     {storageError && <div role="alert" className="bw-error">{storageError}<button onClick={() => actor.current && restore(actor.current)}>重新检查会话存储</button></div>}
@@ -289,9 +323,11 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       {!detail && !detailError && <p role="status">正在读取任务…</p>}{detail && <><p className="bw-question">{detail.plan.analysisRequest?.question || "此历史证据任务未保存分析问题。"}</p><p>{names[detail.collection.status] ?? detail.collection.status} · 版本 {detail.version} · {(detail.storedBytes/1024).toFixed(1)} KiB</p>{detail.collection.errorCode && <p role="alert">采集错误：{detail.collection.errorCode}；连续失败 {detail.collection.consecutiveFailures ?? 0} 次。请核验来源后恢复。</p>}
         <p>下列窗口是已安排的查询范围。分页采集完成不等于业务日期齐全，缺日期与缺字段仍须在分析中核验。</p>{detailV2 ? <><p>来源总数 {detail.plan.sourceCount} · 分页采集完成 {Object.values(detail.sources).filter(source => source.complete).length} · 已保存 {Object.values(detail.sources).reduce((sum, source) => sum+source.pageCount, 0)} 页 / {Object.values(detail.sources).reduce((sum, source) => sum+source.rowCount, 0)} 行</p><SourceDirectory key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} detail={detail} /></> : <div className="bw-scroll"><table><thead><tr><th>来源</th><th>条件</th><th>已保存页数</th><th>行数</th><th>采集完整性</th></tr></thead><tbody>{detail.plan.sources!.map(source => { const progress = detail.sources[source.key]; return <tr key={source.key}><td>{source.domain}</td><td>{summary(source.query)}</td><td>{progress?.pageCount ?? 0}</td><td>{progress?.rowCount ?? 0}</td><td>{progress?.complete ? "分页采集完成" : "未完成核验"}</td></tr>; })}</tbody></table></div>}
         {detail.status === "collecting" && !detail.plan.collector && <p>此历史任务使用手动采集模式，不提供后台暂停或恢复。</p>}<div className="bw-actions">{detail.status === "collecting" && <>{detail.plan.collector && <button disabled={locked} onClick={() => void control(detail.collection.status === "paused" ? "resume" : "pause")}>{detail.collection.status === "paused" ? "恢复后台采集" : "暂停后台采集"}</button>}<button disabled={locked} onClick={() => void control("cancel")}>取消采集任务</button></>}</div>
-        {detailV2 && detail.workbenchAnalysisEnabled !== true ? <p role="status">服务端尚未开放此任务的工作台分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能手动启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。{detailV2 && (detail.budgetSupported === true ? "可直接启动分析，或先在下方配置固定预算。报告页面支持多卷交付。" : "此版本支持无固定预算分析，报告页面可选择多卷交付；当前未开放固定预算分析。")}</p>}<div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={locked || !analysisAllowed} onClick={() => { if (analysisAllowed) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
-        {detailV2 && detail.budgetSupported === true && analysisAllowed && <AiBusinessBudgetBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} run={detail} principalKey={principalKey} disabled={locked} onSubmit={(budgetPlan, dryRun) => {
-          if (actor.current === principalKey && selectedRef.current === detail.id && analysisAllowed && !locked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun, budgetPlan }, `${detail.plan.analysisRequest!.question} · 固定预算${dryRun ? "模拟" : "分析"}`);
+        {detailV2 && detail.mappingSupported === true && analysisAllowed && <AiBusinessMappingBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}:${detailError ? "unverified" : "verified"}:${mappingReset}`} run={detail} principalKey={principalKey} disabled={locked} onChange={mappingChanged} />}
+        {mappingBlocked && <div className="bw-error" role="alert"><p>原商品关联选择已失效或尚未重新核验。请重新选择关联，或明确清空后继续；不会自动降级为无关联报告。</p><button disabled={locked} onClick={() => { updateMapping({ ...emptyMapping(), bindingKey: detail ? mappingBindingKey(detail, principalKey) : "", reason: "cleared" }); setMappingReset(value => value+1); }}>明确清空原关联意图</button></div>}
+        {detailV2 && detail.workbenchAnalysisEnabled !== true ? <p role="status">服务端尚未开放此任务的工作台分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能手动启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。{detailV2 && (detail.budgetSupported === true ? "可直接启动分析，或先在下方配置固定预算。报告页面支持多卷交付。" : "此版本支持无固定预算分析，报告页面可选择多卷交付；当前未开放固定预算分析。")}</p>}<div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={locked || !analysisAllowed || mappingBlocked} onClick={() => { if (analysisAllowed && !mappingBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
+        {detailV2 && detail.budgetSupported === true && analysisAllowed && <AiBusinessBudgetBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} run={detail} principalKey={principalKey} disabled={locked || mappingBlocked} onSubmit={(budgetPlan, dryRun) => {
+          if (actor.current === principalKey && selectedRef.current === detail.id && analysisAllowed && !locked && !mappingBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun, budgetPlan }, `${detail.plan.analysisRequest!.question} · 固定预算${dryRun ? "模拟" : "分析"}`);
         }} />}
         <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {names[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
       </>}
