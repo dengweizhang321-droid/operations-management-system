@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from .contracts import AnalysisContractError, MAX_SAFE_INTEGER, PageReconciler, digest
 from .partitioned import PartitionedGroups
-from .results import VIEWS, build_table
+from .results import VIEWS, build_table, stream_table
 from .test_results import fixture
 
 
@@ -36,6 +36,8 @@ class PartitionedTableTests(TestCase):
             for dimension in VIEWS:
                 args = {} if dimension == "daily" else {"baseline_pages": [baseline], "baseline_expected": before}
                 complete = build_table([current], dimension, expected, **args)
+                with stream_table([current], dimension, expected, **args) as (metadata, streamed):
+                    self.assertEqual({**metadata, "rows": list(streamed)}, complete)
                 for offset in range(complete["total"]+1):
                     result = build_table([current], dimension, expected, offset=offset, limit=1, **args)
                     self.assertEqual(result, {**complete, "rows": complete["rows"][offset:offset+1]})

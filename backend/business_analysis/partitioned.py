@@ -116,3 +116,19 @@ class PartitionedGroups:
                 pair.append(group_result(json.loads(record[0]), self.metrics[side]) if record else None)
             result.append(pair)
         return total, result
+
+    def scan(self):
+        """One sorted pass for full-file exports, without repeated OFFSET scans."""
+        if self.verified != set(self.dimensions):
+            raise AnalysisContractError("分区未完成核对")
+        total = self.db.execute("SELECT count(*) FROM (SELECT entity FROM groups GROUP BY entity)").fetchone()[0]
+        if total > MAX_RESULT_GROUPS:
+            raise AnalysisContractError("比较分组并集超过容量，禁止截断")
+        def rows():
+            for (key,) in self.db.execute("SELECT entity FROM groups GROUP BY entity ORDER BY entity COLLATE BINARY"):
+                pair = []
+                for side in (0, 1):
+                    record = self.db.execute("SELECT payload FROM groups WHERE side=? AND entity=?", (side, key)).fetchone()
+                    pair.append(group_result(json.loads(record[0]), self.metrics[side]) if record else None)
+                yield pair
+        return total, rows()

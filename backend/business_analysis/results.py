@@ -1,10 +1,38 @@
 """Versioned report tables from complete evidence, never model arithmetic."""
 from .aggregation import DimensionAccumulator
 from .contracts import AnalysisContractError, PageReconciler, canonical, compare, digest, ratio
+from contextlib import contextmanager
+from itertools import islice
 
 VIEWS = {"shop": ["shopName"], "category": ["category"], "spu": ["spuId"],
          "sku": ["skuId"], "keyword": ["keyword"], "searchTerm": ["searchTerm"], "daily": ["date"], "brand": ["brand"]}
 RATE_METRICS = {"ctr", "orderLineConversionRate"}
+
+
+@contextmanager
+def stream_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None):
+    """Full export of the same API rows; callers must consume inside the context."""
+    from .partitioned import PartitionedGroups
+    if dimension not in VIEWS or baseline_pages is not None and dimension == "daily":
+        raise AnalysisContractError("分析导出维度或期间无效")
+    with PartitionedGroups() as store:
+        header, _ = _group(pages, dimension, expected, store=store)
+        previous = None
+        if baseline_pages is not None:
+            previous, _ = _group(baseline_pages, dimension, baseline_expected, store=store, side=1)
+            if not _compatible(header, previous):
+                raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
+        total, pairs = store.scan()
+        table = _assemble(header, previous, dimension, expected, baseline_expected, [], total, 0)
+        def rows():
+            offset = 0
+            while batch := list(islice(pairs, 100)):
+                result = _assemble(header, previous, dimension, expected, baseline_expected, batch, total, offset)
+                yield from result["rows"]
+                offset += len(batch)
+            if offset != total:
+                raise AnalysisContractError("完整表导出行数变化")
+        yield table, rows()
 
 
 def _group(pages, dimension, expected, *, store=None, side=0):
