@@ -9,13 +9,32 @@ from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone
 from business_analysis.contracts import PageReconciler, AnalysisContractError, comparison_periods
-from . import models as m, transport
+from . import models as m, transport, business_evidence_store as store
 from .datasets import _result
 from .policy import AiError, authorize_owner, boolean, canonical, cas, current_principal, digest, fields, identifier, integer, mutation, passive, uid
 
 MAX_BYTES = 64 * 1024 * 1024
 MAX_PAGES = 2000
 TOOLS = {"sales": "get_sales_analysis_records", "netshop": "get_netshop_analysis_records", "market": "get_market_analysis_records"}
+
+is_v2 = store.is_v2
+
+
+def next_source(row):
+    if is_v2(row):
+        sources = store.catalog(row)
+        key = m.AiBusinessEvidenceSource.objects.filter(run_id=row.id, finished=False).order_by("ordinal").values_list("source_key", flat=True).first()
+        return next((s for s in sources if s["key"] == key), None)
+    plan, state = json.loads(row.plan_json), json.loads(row.state_json)
+    return next((s for s in plan["sources"] if not state.get(s["key"], {}).get("verifier", {}).get("finished")), None)
+
+
+def all_finished(row):
+    if is_v2(row):
+        sources = store.catalog(row)
+        return store.progress(row)["completedSources"] == len(sources)
+    state = json.loads(row.state_json)
+    return len(state) == len(json.loads(row.plan_json)["sources"]) and all(s["verifier"]["finished"] for s in state.values())
 
 
 def principal_key(principal):
@@ -38,13 +57,17 @@ def listing(params, principal):
     items = []
     for row in rows.order_by("-created_at", "-id")[(page-1)*size:page*size]:
         plan, state = json.loads(row.plan_json), json.loads(row.state_json)
+        progress = store.progress(row) if is_v2(row) else None
         items.append({"id": row.id, "clientRequestId": row.client_request_id,
             "question": plan.get("analysisRequest", {}).get("question", ""), "status": row.status, "version": row.version,
             "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
                 "nextAttemptAt": row.next_collect_at.isoformat(), "consecutiveFailures": row.collection_failures, "errorCode": row.collection_error_code},
             "createdAt": row.created_at.isoformat(), "storedBytes": row.stored_bytes,
-            "sourceCount": len(plan.get("sources", [])), "completedSources": sum(bool(s["verifier"]["finished"]) for s in state.values()),
-            "rowCount": sum(s["verifier"]["rows"] for s in state.values())})
+            "sourceCount": progress["sourceCount"] if progress is not None else len(plan.get("sources", [])),
+            "completedSources": progress["completedSources"] if progress is not None else sum(bool(s["verifier"]["finished"]) for s in state.values()),
+            "rowCount": progress["rowCount"] if progress is not None else sum(s["verifier"]["rows"] for s in state.values())})
+        if progress is not None:
+            store.assert_current(row)
     return {"items": items, "principalKey": principal_key(principal),
         "pagination": {"page": page, "pageSize": size, "total": total, "hasMore": page*size < total}}
 
@@ -80,6 +103,8 @@ def _restore(state):
 
 
 def mapping(row):
+    if is_v2(row):
+        return _mapping_v2(row)
     state, plan = json.loads(row.state_json), json.loads(row.plan_json)
     return {"id": row.id, "status": row.status, "version": row.version, "storedBytes": row.stored_bytes,
         "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
@@ -94,6 +119,8 @@ def mapping(row):
 
 
 def create(body, principal):
+    if isinstance(body, dict) and body.get("schemaVersion") == "business-evidence-v2":
+        return _create_v2(body, principal)
     current_principal(principal, admin=True)
     fields(body, {"clientRequestId", "sources", "collectionMode", "autoCollect", "analysisRequest", "expectedPrincipalKey"}, {"clientRequestId", "sources"})
     if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != principal_key(principal):
@@ -174,6 +201,8 @@ def create(body, principal):
 def collect(run_id, body, principal, request_id, *, commit=None):
     fields(body, {"sourceKey", "expectedVersion"}, {"sourceKey", "expectedVersion"})
     row = get_run(run_id, principal)
+    if is_v2(row):
+        return _collect_v2(row, body, principal, request_id, commit=commit)
     cas(row, body["expectedVersion"])
     if row.status != "collecting":
         raise AiError("任务已结束", "conflict", 409)
@@ -225,10 +254,13 @@ def collect(run_id, body, principal, request_id, *, commit=None):
         state = json.loads(row.state_json)
         if sum(value["pageCount"] for value in state.values()) >= MAX_PAGES or row.stored_bytes + size > MAX_BYTES:
             raise AiError("证据容量已满；保留现有检查点，不得截断后完成", "payload_too_large", 413)
-        owner_bytes = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower()).aggregate(n=Sum("stored_bytes"))["n"] or 0
-        global_bytes = m.AiBusinessEvidenceRun.objects.aggregate(n=Sum("stored_bytes"))["n"] or 0
-        if owner_bytes + size > MAX_BYTES * 4 or global_bytes + size > MAX_BYTES * 32:
-            raise AiError("共享证据存储额度已满", "payload_too_large", 413)
+        if m.AiBusinessEvidenceSource.objects.exists():
+            store.check_quota(principal, size, MAX_BYTES)
+        else:
+            owner_bytes = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower()).aggregate(n=Sum("stored_bytes"))["n"] or 0
+            global_bytes = m.AiBusinessEvidenceRun.objects.aggregate(n=Sum("stored_bytes"))["n"] or 0
+            if owner_bytes + size > MAX_BYTES * 4 or global_bytes + size > MAX_BYTES * 32:
+                raise AiError("共享证据存储额度已满", "payload_too_large", 413)
         sequence = state.get(source["key"], {}).get("pageCount", 0) + 1
         m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=row, source_key=source["key"], sequence=sequence,
             payload_json=encoded, payload_digest=digest(encoded))
@@ -257,6 +289,17 @@ def finish(run_id, body, principal):
         cas(row, body["expectedVersion"])
         if row.status != "collecting":
             raise AiError("任务已结束", "conflict", 409)
+        if is_v2(row):
+            row = authorize_owner(m.AiBusinessEvidenceRun.objects.select_for_update().get(pk=row.id), principal)
+            cas(row, body["expectedVersion"])
+            if body["action"] == "seal":
+                sealed = canonical(store.seal_value(row, target_version=row.version+1))
+                store.check_quota(principal, len(sealed.encode())-len(row.state_json.encode()), MAX_BYTES)
+                row.state_json = sealed
+            row.status = "sealed" if body["action"] == "seal" else "cancelled"
+            row.version += 1
+            row.save(update_fields=["status", "version", "state_json"])
+            return {"item": mapping(row)}
         if body["action"] == "seal":
             state = json.loads(row.state_json)
             if len(state) != len(json.loads(row.plan_json)["sources"]) or any(not value["verifier"]["finished"] for value in state.values()):
@@ -310,7 +353,11 @@ def reconcile_products(run_id, params, principal):
     fields(params, {"sales", "master"}, {"sales", "master"})
     if row.status != "sealed":
         raise AiError("只有封存的完整证据可以关联", "conflict", 409)
-    state = json.loads(row.state_json)
+    if is_v2(row):
+        store.verify_seal(row)
+        state = {key: store.source_state(row, key) for key in (params["sales"], params["master"])}
+    else:
+        state = json.loads(row.state_json)
     for key in (params["sales"], params["master"]):
         if key not in state or state[key]["verifier"]["rows"] > 5000:
             raise AiError("来源不存在或超过当前 5000 行关联容量", "payload_too_large", 413)
@@ -342,8 +389,12 @@ def analysis_table(run_id, params, principal):
     row = get_run(run_id, principal)
     if row.status != "sealed":
         raise AiError("分析表需要已封存的完整证据", "conflict", 409)
-    state = json.loads(row.state_json)
     keys = [params["sourceKey"]] + ([params["baselineKey"]] if "baselineKey" in params else [])
+    if is_v2(row):
+        store.verify_seal(row)
+        state = {key: store.source_state(row, key) for key in keys}
+    else:
+        state = json.loads(row.state_json)
     if any(key not in state for key in keys):
         raise AiError("分析来源不存在", "not_found", 404)
     try:
@@ -372,3 +423,193 @@ def analysis_table(run_id, params, principal):
     if len(canonical(table).encode()) > 1500000:
         raise AiError("分析页过大，请减小页长", "payload_too_large", 413)
     return table
+
+
+def _mapping_v2(row):
+    store.catalog(row)
+    plan = json.loads(row.plan_json)
+    result = {"id": row.id, "status": row.status, "version": row.version, "storedBytes": row.stored_bytes,
+        "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
+            "nextAttemptAt": row.next_collect_at.isoformat(), "consecutiveFailures": row.collection_failures,
+            "errorCode": row.collection_error_code}, "createdAt": row.created_at.isoformat(),
+        "plan": plan, "sources": store.compact_sources(row), "progress": store.progress(row),
+        "sourceDirectory": {"path": f"/api/ai/business-evidence/{row.id}/sources", "paginated": True},
+        "consistency": "immutable_collected_source_versions_not_cross_domain_atomic_snapshot",
+        "modelAnalysisCompleted": False, "reportGenerationSupported": False,
+        **({"analysisRequestMeaning": "requested_only_not_source_availability_or_dimension_coverage"}
+            if "analysisRequest" in plan else {})}
+    if row.status == "sealed":
+        store.verify_seal(row)
+        result["seal"] = json.loads(row.state_json)
+    store.assert_current(row)
+    return result
+
+
+def _create_v2(body, principal):
+    from business_analysis.evidence_v2 import build_catalog
+    current_principal(principal, admin=True)
+    fields(body, {"schemaVersion", "clientRequestId", "sources", "collectionMode", "autoCollect", "analysisRequest", "expectedPrincipalKey"},
+        {"schemaVersion", "clientRequestId", "sources"})
+    if "expectedPrincipalKey" in body and body["expectedPrincipalKey"] != principal_key(principal):
+        raise AiError("当前账号已变化，请重新确认分析范围", "access_denied", 403)
+    if body.get("collectionMode", "bulk") != "bulk":
+        raise AiError("v2目录只支持bulk采集")
+    automatic = bool(boolean(body.get("autoCollect", False), "autoCollect"))
+    client = identifier(body["clientRequestId"])
+    try:
+        built = build_catalog(body["sources"], analysis_request=body.get("analysisRequest"))
+    except (AnalysisContractError, ValueError, TypeError) as error:
+        raise AiError(str(error)) from error
+    if "analysisRequest" in body and body["analysisRequest"] is None:
+        raise AiError("分析请求元信息不能为null")
+    # Pure contracts do not replace the owning reader's real supported surface.
+    from netshop.analysis import SOURCES
+    from market.analysis import validate
+    from market.errors import MarketApiError
+    for source in built["entries"]:
+        query = source["query"]
+        if source["domain"] == "netshop" and query["platform"] not in SOURCES.get(query["dataset"], ()):
+            raise AiError("网店来源组合无效")
+        if source["domain"] == "market":
+            try:
+                validate({"operation": "analysis_records", **query})
+            except MarketApiError as error:
+                raise AiError(str(error)) from error
+    identity = digest({"schemaVersion": "business-evidence-create-v2", "header": built["header"], "autoCollect": automatic})
+    with mutation(principal):
+        old = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(), client_request_id=client).first()
+        if old:
+            authorize_owner(old, principal)
+            if old.request_digest != identity:
+                raise AiError("请求标识对应的分析范围已变化", "conflict", 409)
+            return {"item": mapping(old), "replayed": True}
+        if m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(), status="collecting").count() >= 4:
+            raise AiError("未完成证据任务已达到上限", "rate_limited", 429)
+        if m.AiBusinessEvidenceRun.objects.count() >= 10000:
+            raise AiError("证据任务存储容量已满", "rate_limited", 429)
+        new_bytes = len(canonical(built["header"]).encode())+2+sum(len(canonical(s["query"]).encode())+2 for s in built["entries"])
+        store.check_quota(principal, new_bytes, MAX_BYTES)
+        row = m.AiBusinessEvidenceRun.objects.create(id=uid("evidence"), owner_email=principal.email.lower(),
+            client_request_id=client, request_digest=identity, plan_json=canonical(built["header"]),
+            collection_status="queued" if automatic else "manual")
+        for entry in built["entries"]:
+            m.AiBusinessEvidenceSource.objects.create(id=uid("source"), run=row, source_key=entry["key"],
+                ordinal=entry["ordinal"], domain=entry["domain"], query_json=canonical(entry["query"]), query_digest=entry["queryDigest"])
+        return {"item": mapping(row), "replayed": False}
+
+
+def _page_number(params, name, default, maximum, *, minimum=0):
+    value = params.get(name, str(default))
+    if type(value) is not str or not 1 <= len(value) <= 4 or not value.isascii() or not value.isdigit():
+        raise AiError("目录分页参数无效")
+    return integer(int(value), name, lo=minimum, hi=maximum)
+
+
+def directory(run_id, params, principal):
+    from business_analysis.evidence_v2 import directory_page
+    row = get_run(run_id, principal)
+    fields(params, {"offset", "limit"})
+    if not is_v2(row):
+        raise AiError("此任务没有v2来源目录", "conflict", 409)
+    sources = store.catalog(row)
+    offset = _page_number(params, "offset", 0, len(sources)-1)
+    limit = _page_number(params, "limit", 10, 20, minimum=1)
+    try:
+        result = directory_page(sources, run_id=row.id, evidence_version=row.version, offset=offset, limit=limit,
+            analysis_request=json.loads(row.plan_json).get("analysisRequest"))
+    except AnalysisContractError as error:
+        raise AiError(str(error), "conflict", 409) from error
+    store.assert_current(row)
+    return result
+
+
+def source_detail(run_id, source_key, principal):
+    row = get_run(run_id, principal)
+    if not is_v2(row):
+        raise AiError("此任务没有v2来源目录", "conflict", 409)
+    store.catalog(row)
+    source = store.source_record(row, identifier(source_key))
+    value = store.checkpoint(source)
+    result = {"runId": row.id, "evidenceVersion": row.version, "sourceKey": source.source_key,
+        "version": source.version, "pageCount": source.page_count, "rowCount": source.row_count,
+        "storedBytes": source.stored_bytes, "complete": source.finished,
+        "metadata": value["metadata"] if value else None,
+        "sourceRef": value["verifier"]["source_ref"] if value else None,
+        "reconciliation": _restore(value["verifier"]).result() if value and source.finished else None}
+    store.assert_current(row)
+    return result
+
+
+def _collect_v2(initial, body, principal, request_id, *, commit=None):
+    cas(initial, body["expectedVersion"])
+    if initial.status != "collecting":
+        raise AiError("任务已结束", "conflict", 409)
+    sources = store.catalog(initial)
+    source = next((s for s in sources if s["key"] == body["sourceKey"]), None)
+    if source is None:
+        raise AiError("来源不存在", "not_found", 404)
+    initial_source = store.source_record(initial, source["key"])
+    entry = store.checkpoint(initial_source)
+    verifier = _restore(entry["verifier"] if entry else {})
+    if verifier.finished:
+        raise AiError("来源已完整收集", "conflict", 409)
+    entries = transport.catalog(principal, "business_collection")
+    names = {e["name"] for e in entries if e.get("risk") == "read_only" and e.get("execution", {}).get("mode") == "direct"}
+    if not {"get_business_source_page", "get_data_freshness"} <= names:
+        raise AiError("来源工具或水位查询不可用", "access_denied", 403)
+    def execute(name, args):
+        return _result(transport.execute_tool(name, args, principal, surface="business_collection",
+            request_id=request_id, policy_digest=digest(entries)), name)
+    with transport.request_budget(30):
+        freshness = execute("get_data_freshness", {}) if entry is None else None
+        page = execute("get_business_source_page", {**source["query"], "domain": source["domain"], "limit": 100,
+            **({"cursor": verifier.expected_cursor} if verifier.expected_cursor else {})})
+    try:
+        expected = {k: v for k, v in source["query"].items() if k not in {"startDate", "endDate"}}
+        if any(page["filters"].get(k) != v for k, v in expected.items()) or page["filters"].get("periods") != comparison_periods(source["query"]["startDate"], source["query"]["endDate"]):
+            raise AnalysisContractError("来源未回显精确筛选范围")
+        if not isinstance(page.get("sourceRevision"), str) or not 1 <= len(page["sourceRevision"]) <= 128:
+            raise AnalysisContractError("来源版本无效")
+        verifier.consume(page, request_cursor=verifier.expected_cursor)
+        if verifier.finished:
+            verifier.result()
+    except (AnalysisContractError, KeyError, TypeError, ValueError) as error:
+        raise AiError("来源页未通过完整性核验", "conflict", 409) from error
+    encoded = canonical(passive(page, 131072))
+    size = len(encoded.encode())
+    metadata = entry["metadata"] if entry else {"sourceRevision": page["sourceRevision"], "coverage": page.get("coverage"),
+        "excludedOverlappingPeriodRows": page.get("excludedOverlappingPeriodRows"), "identityCheck": page.get("identityCheck"),
+        "availableDates": page.get("availableDates"), "metricSemantics": page.get("metricSemantics"),
+        "freshness": freshness, "firstCollectedAt": timezone.now().isoformat()}
+    metadata["lastCollectedAt"] = timezone.now().isoformat()
+    checkpoint = canonical(passive({"pageCount": initial_source.page_count+1, "verifier": verifier.__dict__, "metadata": metadata}, 32768))
+    with mutation(principal):
+        current_principal(principal, admin=True)
+        row = authorize_owner(m.AiBusinessEvidenceRun.objects.select_for_update().get(pk=initial.id), principal)
+        cas(row, body["expectedVersion"])
+        if row.status != "collecting":
+            raise AiError("任务已结束", "conflict", 409)
+        record = store.source_record(row, source["key"], lock=True)
+        if record.version != initial_source.version or record.checkpoint_json != initial_source.checkpoint_json:
+            raise AiError("来源检查点已变化", "version_conflict", 409)
+        if store.progress(row)["pageCount"] >= MAX_PAGES or row.stored_bytes+size > MAX_BYTES:
+            raise AiError("证据容量已满；保留现有检查点，不得截断后完成", "payload_too_large", 413)
+        store.check_quota(principal, size+len(checkpoint.encode())-len(record.checkpoint_json.encode()), MAX_BYTES)
+        # Insert before marking finished; the DB rejects pages for finished sources.
+        m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=row, source_key=record.source_key,
+            sequence=record.page_count+1, payload_json=encoded, payload_digest=digest(encoded))
+        record.page_count += 1
+        record.stored_bytes += size
+        record.row_count = verifier.rows
+        record.finished = verifier.finished
+        record.checkpoint_json = checkpoint
+        record.checkpoint_run_version = row.version+1
+        record.version += 1
+        record.updated_at = timezone.now()
+        record.save(update_fields=["page_count", "stored_bytes", "row_count", "finished", "checkpoint_json", "checkpoint_run_version", "version", "updated_at"])
+        row.stored_bytes += size
+        row.version += 1
+        row.save(update_fields=["stored_bytes", "version"])
+        if commit:
+            return commit({"item": mapping(row)}, 200)
+        return {"item": mapping(row)}

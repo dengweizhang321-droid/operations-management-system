@@ -43,10 +43,11 @@ export async function forwardAiRequest(request: Request) {
     try {
       const result = await requestDjangoAi<Record<string, unknown>>(principal, { path: url.pathname, method: request.method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE", query: url.searchParams, payload,
         ...((url.pathname === "/api/ai/business-plan/preview" || /^\/api\/ai\/reports\/[A-Za-z0-9_-]{1,160}\/budget-preview$/.test(url.pathname)) && request.method === "POST" ? { service: "reader" as const } : {}) }, { signal: request.signal });
-      if (url.pathname.startsWith("/api/ai/artifacts/") || url.pathname.endsWith("/content")) {
+      const generatedContent = /^\/api\/ai\/(?:reports|space\/assets)\/[A-Za-z0-9_-]{1,160}\/content$/.test(url.pathname);
+      if (url.pathname.startsWith("/api/ai/artifacts/") || generatedContent) {
         const file = result.data as { base64?: string; content?: string; mimeType: string; fileName: string };
         const bytes = file.base64 ? Uint8Array.from(atob(file.base64), c => c.charCodeAt(0)) : new TextEncoder().encode(file.content ?? "");
-        return new Response(bytes, { headers: { "content-type": file.mimeType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", ...(url.pathname.endsWith("/content") ? { "x-ai-generated": "true", "x-ai-review-required": "true" } : {}) } });
+        return new Response(bytes, { headers: { "content-type": file.mimeType, "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", ...(generatedContent ? { "x-ai-generated": "true", "x-ai-review-required": "true" } : {}) } });
       }
       return aiJsonResponse(result.data, { status: result.status, headers: { "x-ai-revision": result.revision } });
     } finally { request.signal.removeEventListener("abort", abort); if (cancellation) await cancellation; }

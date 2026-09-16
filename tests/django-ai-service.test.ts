@@ -53,6 +53,24 @@ test("AI principal envelope binds exact Unicode identity, method, path, query, b
   }
 });
 
+test("business source catalog routes stay bounded and use the owning reader", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  for (const path of ["/api/ai/business-evidence/run_1/sources", "/api/ai/business-evidence/run_1/sources/source_1", "/api/ai/business-evidence/run_1/sources/analysis"]) {
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(calls.at(-1)!.url).port, "18111");
+  }
+  for (const path of ["/api/ai/business-evidence/run_1/sources/", "/api/ai/business-evidence/run_1/sources/source_1/extra", "/api/ai/business-evidence/run_1/source", "/api/ai/business-evidence/run_1/sources/" + "x".repeat(161)]) {
+    assert.equal(isPublicAiPath(path), false);
+  }
+  for (const path of ["app/api/ai/business-evidence/[id]/sources/route.ts", "app/api/ai/business-evidence/[id]/sources/[sourceKey]/route.ts"]) {
+    const route = await readFile(path, "utf8");
+    assert.ok(route.includes("export const GET = forwardAiRequest"));
+    assert.doesNotMatch(route, /export const (?:POST|PATCH|DELETE|PUT)/);
+  }
+});
+
 test("AI thin transport selects independent reader/writer and preserves revision and replay", async () => {
   const calls: Request[] = [];
   const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({ ok: true }, 201, { "x-teruisi-write-replay": "1" }); };

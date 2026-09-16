@@ -10,9 +10,17 @@ from .policy import AiError, cas, current_principal, digest, fields, mutation, r
 
 
 def audit(row, principal, action, request_id):
+    # Failure audits must not reload the very catalog that failed validation.
+    # Preserve legacy audit bytes; v2 binds the parent receipt independently.
+    value = ({"schemaVersion": "business-collection-audit-v2", "runId": row.id,
+        "version": row.version, "status": row.status, "collectionStatus": row.collection_status,
+        "planDigest": digest(row.plan_json), "stateDigest": digest(row.state_json),
+        "storedBytes": row.stored_bytes, "errorCode": row.collection_error_code,
+        "consecutiveFailures": row.collection_failures, "nextAttemptAt": row.next_collect_at.isoformat()}
+        if json.loads(row.plan_json).get("schemaVersion") == "business-evidence-v2" else evidence.mapping(row))
     AiMutationAudit.objects.create(request_id=request_id, actor_email=principal.email.lower(), actor_role=principal.role,
         action="business_collection_" + action, scope_digest=digest([principal.scope, row.id]),
-        response_digest=digest(evidence.mapping(row)), revision=int(revision())+1)
+        response_digest=digest(value), revision=int(revision())+1)
 
 
 def control(run_id, body, principal):
@@ -90,9 +98,8 @@ def _advance():
         current.save()
         audit(current, principal, "claimed", request_id)
         version = current.version
-    plan, state = json.loads(current.plan_json), json.loads(current.state_json)
-    source = next((s for s in plan["sources"] if not state.get(s["key"], {}).get("verifier", {}).get("finished")), None)
     try:
+        source = evidence.next_source(current)
         if source is None:
             with mutation(principal):
                 result = evidence.finish(row.id, {"expectedVersion": version, "action": "seal"}, principal)
@@ -104,8 +111,7 @@ def _advance():
             saved.next_collect_at = timezone.now()
             saved.version += 1
             saved.save()
-            progress = json.loads(saved.state_json)
-            if len(progress) == len(plan["sources"]) and all(s["verifier"]["finished"] for s in progress.values()):
+            if evidence.all_finished(saved):
                 evidence.finish(saved.id, {"expectedVersion": saved.version, "action": "seal"}, principal)
                 saved.refresh_from_db()
             audit(saved, principal, "page_committed", request_id)

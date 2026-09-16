@@ -58,6 +58,8 @@ def create(body, principal):
     if evidence.status != "sealed":
         raise AiError("分析须从已封存证据启动", "conflict", 409)
     plan = json.loads(evidence.plan_json)
+    if plan.get("schemaVersion") != "business-evidence-v1":
+        raise AiError("此版本证据尚未接入报告分析，请保留封存任务", "conflict", 409)
     queries = [source["query"] for source in plan["sources"]]
     dates = {(q["startDate"], q["endDate"]) for q in queries}
     if len(dates) != 1:

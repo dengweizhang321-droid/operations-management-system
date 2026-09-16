@@ -12,6 +12,10 @@ export async function readBusinessEvidence(raw: unknown, principal: AppPrincipal
     path: `/api/ai/business-evidence/${args.runId}${args.sourceKey ? `/chunks/${args.sourceKey}` : ""}`,
     method: "GET", ...(args.sourceKey ? { query: new URLSearchParams({ sequence: String(args.sequence), rowOffset: String(args.rowOffset ?? 0), rowLimit: String(args.rowLimit ?? 10) }) } : {}),
   }, { signal });
+  if (!args.sourceKey) {
+    const item = result.data.item as { plan?: { schemaVersion?: string } } | undefined;
+    if (item?.plan?.schemaVersion !== "business-evidence-v1") throw new PublicApiError(409, "conflict", "此证据版本使用分页来源目录，当前工具尚未接入，不能声明已读取完整来源");
+  }
   if (JSON.stringify(result.data).length > 38_000) throw new PublicApiError(413, "payload_too_large", "证据响应超过工具容量，不得截断；请从任务接口读取完整内容");
   return result.data;
 }

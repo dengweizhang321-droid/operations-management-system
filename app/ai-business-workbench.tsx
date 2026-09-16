@@ -10,7 +10,8 @@ type Source = { key: string; domain: string; query: Record<string, string> };
 type Preview = { principalKey: string; canCollect: boolean; planDigest: string; request: Request; evidenceRequest: Record<string, unknown>; capacity: Record<string, number>; limitations: string[]; coverage: { domain: string; query: Record<string, string>; status: string; availability: string; reason: string; sourceKey?: string }[] };
 type Collection = { status: string; errorCode?: string; consecutiveFailures?: number; nextAttemptAt?: string };
 type Item = { id: string; clientRequestId?: string; question?: string; status: string; version: number; collection: Collection; createdAt: string; storedBytes: number; sourceCount?: number; completedSources?: number; rowCount?: number };
-type Detail = Item & { plan: { analysisRequest?: { question: string }; sources: Source[]; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
+type Detail = Item & { plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
+type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string; offset: number; total: number; returned: number; nextOffset: number | null; items: (Source & { ordinal: number })[] };
 type Report = { id: string; workflowId: string; status: string; createdAt: string };
 type Pending = { schemaVersion: 1; principalKey: string; kind: "evidence" | "report"; bodyJson: string; label: string; createdAt: string; outcome: "prepared" | "unknown" };
 const names: Record<string, string> = { current: "本期", previous: "环比", yearAgo: "同比", promotion: "推广与关键词", master: "商品主数据", sku: "SKU 销售", spu: "SPU 销售", b2b: "B 端销售", collecting: "采集中", queued: "等待后台采集", reading: "后台读取中", paused: "已暂停", sealed: "证据已封存", cancelled: "已取消", completed: "已完成", running: "分析中", planned: "已列入计划", unsupported: "不支持", not_collected: "尚未取数" };
@@ -27,6 +28,38 @@ async function api<T>(url: string, signal: AbortSignal, bodyJson?: string): Prom
   if (!response.ok) throw Object.assign(new Error(data && typeof data === "object" && "error" in data ? String(data.error) : `请求失败（${response.status}）`), { status: response.status });
   if (!data || typeof data !== "object") throw new Error("服务端回执无效，请核验同一次请求。");
   return data as T;
+}
+
+function SourceDirectory({ detail }: { detail: Detail }) {
+  const [offset, setOffset] = useState(0), [history, setHistory] = useState<number[]>([]), [retry, setRetry] = useState(0);
+  const [page, setPage] = useState<DirectoryPage | null>(null), [error, setError] = useState(""), [loading, setLoading] = useState(true);
+  const sourceKeys = JSON.stringify(Object.keys(detail.sources).sort());
+  // The parent keys this component by account, run, version and immutable catalog.
+  // Every page is replaced, never combined with a different evidence version.
+  useEffect(() => {
+    const ctl = new AbortController(); let active = true;
+    const knownSources = new Set<string>(JSON.parse(sourceKeys));
+    setPage(null); setError(""); setLoading(true);
+    void (async () => {
+      try {
+        const value = await api<DirectoryPage>(`/api/ai/business-evidence/${encodeURIComponent(detail.id)}/sources?offset=${offset}&limit=10`, ctl.signal);
+        if (!active || ctl.signal.aborted) return;
+        if (value.evidenceVersion !== detail.version || value.catalogDigest !== detail.plan.catalogDigest) throw new Error("目录版本已变化，请刷新选中任务后重新查看。");
+        if (value.schemaVersion !== "business-evidence-directory-page-v2" || value.runId !== detail.id || value.offset !== offset || value.total !== detail.plan.sourceCount || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 10 || value.returned !== value.items.length || offset+value.returned > value.total || value.nextOffset !== (offset+value.returned < value.total ? offset+value.returned : null) || new Set(value.items.map(item => item.key)).size !== value.items.length || value.items.some((item, index) => !item || item.ordinal !== offset+index+1 || typeof item.key !== "string" || !knownSources.has(item.key) || typeof item.domain !== "string" || !item.query || typeof item.query !== "object" || Array.isArray(item.query) || Object.values(item.query).some(v => typeof v !== "string"))) throw new Error("来源目录回执无效，请刷新选中任务后核验。");
+        setPage(value);
+      } catch (caught) { if (active && !ctl.signal.aborted) setError(message(caught)); }
+      finally { if (active && !ctl.signal.aborted) setLoading(false); }
+    })();
+    return () => { active = false; ctl.abort(); };
+  }, [detail.id, detail.version, detail.plan.catalogDigest, detail.plan.sourceCount, sourceKeys, offset, retry]);
+  // Hide the preceding page immediately, before the next effect begins.
+  const visible = page?.offset === offset ? page : null;
+  return <section aria-label="精确来源目录"><h4>精确来源目录</h4><p>逐页显示已安排的精确查询条件；本页不代表全部来源。</p>
+    {error && <p role="alert" className="bw-error">{error}<button onClick={() => setRetry(value => value+1)}>重试来源目录</button></p>}
+    {(loading || (!visible && !error)) && <p role="status">正在读取来源目录…</p>}
+    {visible && <><p>来源 {visible.offset+1}–{visible.offset+visible.returned} / {visible.total} · 任务版本 {visible.evidenceVersion}</p><div className="bw-scroll"><table><thead><tr><th>来源编号</th><th>领域</th><th>精确条件</th><th>已保存页数</th><th>行数</th><th>采集完整性</th></tr></thead><tbody>{visible.items.map(source => { const progress = detail.sources[source.key]; return <tr key={source.key}><td>{source.key}</td><td>{source.domain}</td><td>{summary(source.query)}</td><td>{progress.pageCount}</td><td>{progress.rowCount}</td><td>{progress.complete ? "分页采集完成" : "未完成核验"}</td></tr>; })}</tbody></table></div></>}
+    <div className="bw-actions"><button disabled={loading || !history.length} onClick={() => { setOffset(history[history.length-1]); setHistory(values => values.slice(0, -1)); }}>上一页来源</button><button disabled={loading || !visible || visible.nextOffset === null} onClick={() => { if (visible?.nextOffset != null) { setHistory(values => [...values, offset]); setOffset(visible.nextOffset); } }}>下一页来源</button></div>
+  </section>;
 }
 
 export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreated: (id: string) => void }) {
@@ -86,7 +119,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     try {
       const result = await api<{ item: Detail; reports: Report[]; principalKey: string; reportsPagination?: { hasMore: boolean } }>(`/api/ai/business-evidence/${encodeURIComponent(id)}`, ctl.signal);
       if (!current()) return;
-      if (result.item?.id !== id || !Array.isArray(result.item?.plan?.sources) || !Array.isArray(result.reports)) throw new Error("任务详情回执无效。");
+      const item = result.item, v2 = item?.plan?.schemaVersion === "business-evidence-v2";
+      const validPlan = v2 ? Number.isInteger(item.plan.sourceCount) && item.plan.sourceCount! >= 1 && item.plan.sourceCount! <= 48 && /^[a-f0-9]{64}$/.test(item.plan.catalogDigest ?? "") && item.sources && !Array.isArray(item.sources) && Object.keys(item.sources).length === item.plan.sourceCount && Object.values(item.sources).every(value => value && Number.isSafeInteger(value.pageCount) && value.pageCount >= 0 && Number.isSafeInteger(value.rowCount) && value.rowCount >= 0 && typeof value.complete === "boolean") : (!item?.plan?.schemaVersion || item.plan.schemaVersion === "business-evidence-v1") && Array.isArray(item?.plan?.sources);
+      if (item?.id !== id || !Number.isSafeInteger(item.version) || item.version < 1 || !validPlan || !Array.isArray(result.reports)) throw new Error("任务详情回执无效。");
       principal(result.principalKey); if (!current()) return;
       setDetail(result.item); setReports(result.reports); setMoreReports(result.reportsPagination?.hasMore === true); setDetailError("");
     } catch (error) { if (current()) setDetailError(message(error)); }
@@ -185,6 +220,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const locked = busy || Boolean(pending) || !ready;
   const shopEdit = (i: number, change: Partial<Shop>) => edit({ ...form, shops: form.shops.map((shop, j) => j === i ? { ...shop, ...change } : shop) });
   const visibleItems = listedPage === page ? items : [];
+  const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
   return <section className="business-workbench" aria-label="经营分析工作台">
     <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。这里根据你选择的范围生成来源计划，尚未自动解析问题或确认数据已存在。</p>
     {storageError && <div role="alert" className="bw-error">{storageError}<button onClick={() => actor.current && restore(actor.current)}>重新检查会话存储</button></div>}
@@ -218,9 +254,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     </section>
     {selected && <section className="bw-card" aria-label="选中任务详情"><div className="bw-actions"><h4>任务详情</h4><button onClick={() => void loadDetail(selected, true)}>刷新选中任务</button></div>{detailError && <p role="alert" className="bw-error">{detailError}</p>}
       {!detail && !detailError && <p role="status">正在读取任务…</p>}{detail && <><p className="bw-question">{detail.plan.analysisRequest?.question || "此历史证据任务未保存分析问题。"}</p><p>{names[detail.collection.status] ?? detail.collection.status} · 版本 {detail.version} · {(detail.storedBytes/1024).toFixed(1)} KiB</p>{detail.collection.errorCode && <p role="alert">采集错误：{detail.collection.errorCode}；连续失败 {detail.collection.consecutiveFailures ?? 0} 次。请核验来源后恢复。</p>}
-        <p>下列窗口是已安排的查询范围。分页采集完成不等于业务日期齐全，缺日期与缺字段仍须在分析中核验。</p><div className="bw-scroll"><table><thead><tr><th>来源</th><th>条件</th><th>已保存页数</th><th>行数</th><th>采集完整性</th></tr></thead><tbody>{detail.plan.sources.map(source => { const progress = detail.sources[source.key]; return <tr key={source.key}><td>{source.domain}</td><td>{summary(source.query)}</td><td>{progress?.pageCount ?? 0}</td><td>{progress?.rowCount ?? 0}</td><td>{progress?.complete ? "分页采集完成" : "未完成核验"}</td></tr>; })}</tbody></table></div>
+        <p>下列窗口是已安排的查询范围。分页采集完成不等于业务日期齐全，缺日期与缺字段仍须在分析中核验。</p>{detailV2 ? <><p>来源总数 {detail.plan.sourceCount} · 分页采集完成 {Object.values(detail.sources).filter(source => source.complete).length} · 已保存 {Object.values(detail.sources).reduce((sum, source) => sum+source.pageCount, 0)} 页 / {Object.values(detail.sources).reduce((sum, source) => sum+source.rowCount, 0)} 行</p><SourceDirectory key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} detail={detail} /></> : <div className="bw-scroll"><table><thead><tr><th>来源</th><th>条件</th><th>已保存页数</th><th>行数</th><th>采集完整性</th></tr></thead><tbody>{detail.plan.sources!.map(source => { const progress = detail.sources[source.key]; return <tr key={source.key}><td>{source.domain}</td><td>{summary(source.query)}</td><td>{progress?.pageCount ?? 0}</td><td>{progress?.rowCount ?? 0}</td><td>{progress?.complete ? "分页采集完成" : "未完成核验"}</td></tr>; })}</tbody></table></div>}
         {detail.status === "collecting" && !detail.plan.collector && <p>此历史任务使用手动采集模式，不提供后台暂停或恢复。</p>}<div className="bw-actions">{detail.status === "collecting" && <>{detail.plan.collector && <button disabled={locked} onClick={() => void control(detail.collection.status === "paused" ? "resume" : "pause")}>{detail.collection.status === "paused" ? "恢复后台采集" : "暂停后台采集"}</button>}<button disabled={locked} onClick={() => void control("cancel")}>取消采集任务</button></>}</div>
-        <p>证据封存后才能启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。</p><div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={locked || detail.status !== "sealed" || !detail.plan.analysisRequest?.question} onClick={() => create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`)}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
+        {detailV2 ? <p role="status">此任务使用 v2 来源目录，报告分析尚未接入。模拟分析与多 Agent 分析暂不可用；证据封存不代表报告已生成。</p> : <p>证据封存后才能启动分析。模拟分析不调用模型；正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。</p>}<div className="bw-actions">{[true, false].map(dryRun => <button key={String(dryRun)} disabled={detailV2 || locked || detail.status !== "sealed" || !detail.plan.analysisRequest?.question} onClick={() => { if (!detailV2) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
         <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {names[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
       </>}
     </section>}

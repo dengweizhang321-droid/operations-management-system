@@ -150,6 +150,7 @@ def _dispatch(request, path=""):
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/sources(?:/[A-Za-z0-9_-]{1,160})?": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish|control)": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"report-library": {"GET", "POST"},
@@ -268,6 +269,11 @@ def _dispatch(request, path=""):
             if request.method == "GET":
                 if len(parts) == 1:
                     return response(business_evidence.listing(params, principal))
+                if len(parts) >= 3 and parts[2] == "sources":
+                    if len(parts) == 3:
+                        return response(business_evidence.directory(parts[1], params, principal))
+                    fields(params, set())
+                    return response(business_evidence.source_detail(parts[1], parts[3], principal))
                 if parts[-1] == "analysis":
                     return response(business_evidence.analysis_table(parts[1], params, principal))
                 if parts[-1] == "mapping":
