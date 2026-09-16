@@ -59,6 +59,9 @@ def header(desc, count, *, dates=True):
         "comparisonWindow":before["query"]["window"] if before else None,
         "dateCoverageComparable":bool(before and dates), "rows":[]}
     if desc["mode"] == "mapped":
+        for key in ("sourceMetadata", "baselineMetadata"):
+            if result[key] is not None:
+                result[key] = {"coverage":result[key]["coverage"], "sourceRevision":"synthetic-1"}
         def mapped_binding(src):
             return {"schemaVersion":"business-product-mapping-binding-v1",
                 **{k:v for k,v in binding().items() if k != "reportId"}, "algorithmVersion":"exact-product-partition-v1",
@@ -66,6 +69,7 @@ def header(desc, count, *, dates=True):
                     for role,entry in (("sales",src),("master",desc["mapping"]["master"]))}}
         result.update(schemaVersion="business-mapped-result-table-v1", algorithmVersion="business-mapped-results-v1",
             mappingAlgorithmVersion="exact-product-partition-v1", historicalMapping=False,
+            sourceWindow=desc["source"]["query"]["window"],
             binding=mapped_binding(desc["source"]), baselineBinding=mapped_binding(before) if before else None,
             bindingDigest=digest(["table",desc]))
     return result
@@ -216,6 +220,13 @@ class DiagnosticScreeningTests(TestCase):
             with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
         h=header(desc,0);h["binding"]["evidenceVersion"]+=1
         with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
+        h=header(desc,0);h["binding"]["sales"]["queryDigest"]=digest("wrong period")
+        with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
+        h=header(desc,0);h["sourceWindow"]="previous"
+        with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
+        h=header(desc,0);h["sourceMetadata"].pop("sourceRevision")
+        with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
+        desc=descriptor(baseline=True)
         h=header(desc,0);h["sourceMetadata"]["filters"]["periods"]["current"]["endDate"]="2026-09-01"
         with self.assertRaises(AnalysisContractError): run(desc,[],head=h)
 
@@ -299,7 +310,6 @@ class DiagnosticScreeningTests(TestCase):
             src=spec[role+"_source"];proof=spec[role+"_info"]["expected"]
             return {**src,**{key:proof[key] for key in ("sourceRef","evidenceDigest")}}
         src,master=entry("sales"),entry("master")
-        spec["sales_info"]["metadata"]={**metadata(src),**spec["sales_info"]["metadata"]}
         mapped_source=mapped_results.MappingSource(**spec)
         desc={"schemaVersion":screening.DESCRIPTOR_SCHEMA,"mode":"mapped","dimension":"sku",
             "source":src,"baseline":None,"mapping":{"planDigest":digest("fixed-mapping"),

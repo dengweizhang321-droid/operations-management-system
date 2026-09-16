@@ -348,6 +348,8 @@ npm run dingtalk:robot:send -- --text "hello"
 
 第三十二批候选工作台已可从历史导入中分页选择精确网店来源，添加前核验当前账号与目录版本；同店仅合并明确选中的数据集，不改日期、ERP 渠道或市场条件。52 项 Node 与 68 项新旧浏览器检查通过；自然语言匹配、跨域来源目录及真实业务验收继续开发，见 [来源选择证据](docs/evidence/ai-business-source-picker-candidate.json)。
 
+第三十三批候选已将固定完整筛查计划接到真实封存流，分别披露请求覆盖、扫描完成和日期完整；超容量完整拒绝，分页实时复验账号权限。62项纯测试与18项隔离数据库新旧报告测试通过，尚未接入Agent运行与文件交付。原参考文件及新增诊断质量门禁见 [参考质量对照](docs/AI_BUSINESS_REFERENCE_QUALITY.md) 和 [六张验收卡](docs/AI_BUSINESS_DIAGNOSTIC_ACCEPTANCE.md)。
+
 - `README.md` 维护面向使用者的当前系统说明、启动方式、主要能力和必要限制。
 - `AGENTS.md` 维护开发、数据处理、自动化和 AI 协作时必须遵守的业务口径与工程规则。
 - 本项目不再使用外部 Obsidian 作为项目记忆。只有长期、稳定、可复用的信息才写入上述两个文件；临时运行结果和敏感数据不写入。

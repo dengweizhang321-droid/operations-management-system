@@ -146,16 +146,24 @@ def _descriptor(value):
     return {**value, "source": source, "baseline": baseline, "mapping": mapping, "ruleIds": sorted(rules)}
 
 
-def _metadata(metadata, source):
-    _require(type(metadata) is dict and type(metadata.get("filters")) is dict, "筛查来源元信息缺失")
+def _metadata(metadata, source, *, mapped=False):
+    _require(type(metadata) is dict, "筛查来源元信息缺失")
+    coverage = metadata.get("coverage")
+    _require(type(coverage) is dict and type(coverage.get("status")) is str
+        and coverage["status"] in {"dates_present", "missing_dates", "no_records"}, "筛查来源日期覆盖缺失或无效")
+    if mapped:
+        # Mapped headers retain the sealed checkpoint metadata, which does not
+        # contain raw page filters. The exact query is verified below through
+        # the mapping binding; never manufacture missing page metadata here.
+        _require(source["domain"] == "sales" and type(metadata.get("sourceRevision")) is str
+            and 1 <= len(metadata["sourceRevision"]) <= 128, "筛查映射来源版本缺失")
+        return
+    _require(type(metadata.get("filters")) is dict, "筛查来源元信息缺失")
     filters = metadata["filters"]
     domain, query = source["domain"], source["query"]
     checked_query = query if domain == "sales" else {k:v for k,v in query.items() if k not in {"startDate", "endDate"}}
     _require(all(filters.get(k, "current" if k == "window" else None) == v for k,v in checked_query.items())
         and canonical(filters.get("periods")) == canonical(comparison_periods(query["startDate"], query["endDate"])), "筛查来源查询被替换")
-    coverage = metadata.get("coverage")
-    _require(type(coverage) is dict and type(coverage.get("status")) is str
-        and coverage["status"] in {"dates_present", "missing_dates", "no_records"}, "筛查来源日期覆盖缺失或无效")
     if domain == "sales": _require(metadata.get("source") == "erp_sales", "筛查ERP来源身份无效")
     elif domain == "market": _require(metadata.get("source") == "market_daily_top" and filters.get("shop") == "", "筛查市场来源身份无效")
     else:
@@ -176,13 +184,14 @@ def _header(header, descriptor, binding, limits):
             _require(proof is None and metadata is None, "筛查基期被添加")
         else:
             _require(type(proof) is dict and all(proof.get(k) == source[k] for k in ("sourceRef", "evidenceDigest")), "筛查来源证明被替换")
-            _metadata(metadata, source)
+            _metadata(metadata, source, mapped=mapped)
     baseline = descriptor["baseline"]
     _require(header.get("comparisonWindow") == (baseline["query"]["window"] if baseline else None), "筛查比较窗口被替换")
     comparable = bool(baseline and all(type(header[key].get("coverage")) is dict
         and header[key]["coverage"].get("status") == "dates_present" for key in ("sourceMetadata", "baselineMetadata")))
     _require(type(header.get("dateCoverageComparable")) is bool and header["dateCoverageComparable"] == comparable, "筛查日期比较标志无效")
     if mapped:
+        _require(header.get("sourceWindow") == descriptor["source"]["query"]["window"], "筛查映射本期窗口被替换")
         _require(header.get("algorithmVersion") == "business-mapped-results-v1"
             and header.get("mappingAlgorithmVersion") == "exact-product-partition-v1"
             and header.get("historicalMapping") is False, "筛查映射算法/历史口径无效")
@@ -388,8 +397,8 @@ def prepare(binding, descriptors, open_table, *, limits=None):
             "scannedRows":scanned, "rowDigest":row_hash.hexdigest(), "rules":counts,
             "sourceCoverage":deepcopy(source_metadata.get("coverage")),
             "baselineCoverage":deepcopy(baseline_metadata.get("coverage")) if baseline_metadata else None,
-            "sourcePeriod":deepcopy(source_metadata["filters"]["periods"][entry["source"]["query"]["window"]]),
-            "baselinePeriod":deepcopy(baseline_metadata["filters"]["periods"][entry["baseline"]["query"]["window"]]) if baseline_metadata else None,
+            "sourcePeriod":comparison_periods(entry["source"]["query"]["startDate"], entry["source"]["query"]["endDate"])[entry["source"]["query"]["window"]],
+            "baselinePeriod":comparison_periods(entry["baseline"]["query"]["startDate"], entry["baseline"]["query"]["endDate"])[entry["baseline"]["query"]["window"]] if baseline_metadata else None,
             "dateCoverageComparable":header["dateCoverageComparable"]})
         _require(len(canonical(tables).encode("utf-8")) <= bounds["maxCoverageBytes"], "筛查覆盖证明超过容量")
     result = {"schemaVersion":SCHEMA_VERSION, "algorithmVersion":ALGORITHM_VERSION,
