@@ -360,6 +360,14 @@ Chrome 共 25 项检查通过，覆盖超限完整显示、异常预览拒绝、
 
 真实领域读取器、封存服务、五 Agent 调度、独立与人工复核、文件生成及下载组成合成验收；仅模型和网络边界使用夹具，不证明真实模型经营判断质量。测试与限制见 [第二十三批候选证据](evidence/ai-business-budget-execution-candidate.json)。
 
+## 第三十五批：筛查结果持久复用
+
+完整成功筛查现在可以由可信内部对象原子保存，并由后续使用者按固定页复用。读取重新核验账号、报告、来源与封存绑定，不重复扫描事实；不同 Agent 的读取证明仍须分别建立。候选、遗漏数量及覆盖缺口完整保存，没有把保留候选改称全部异常。
+
+迁移0023新增两张仅追加表，AI自有表增至65；单次16MiB、单用户64MiB/20份、全局256MiB/200份，计入全部页与元数据。数据库核对完整页链、真实字节和并发额度，审计失败全部回滚。真实受限writer演练发现的父行锁权限问题已修正，未扩大表权限；升级与独立恢复核验65表摘要、旧报告和新页，恢复读取不重新计算事实。实现见 [固定存储](AI_BUSINESS_SCREENING_STORAGE.md)。
+
+本批没有注册新Agent工具或执行协议。下一步为五角色构造无损必读包，再接模型容量准入、各自回执和交付文件，不能把存储验证当作五阶段完成。
+
 ## 第三十四批：推广计划和单元派生视图
 
 新增京东推广计划、单元及单元匹配方式三种纯计算视图。按平台、店铺和完整父级身份聚合，两期金额、空值与控制合计守恒；缺身份记录保留核查桶，不冒充同一实体比较。来源流全部核对后才可读取临时表，页内完整字段保留，超容量拒绝。天猫目前多计划已按商品日合并，本片明确不支持计划粒度，不能反推分摊。
@@ -457,7 +465,7 @@ AI 只读适配要求当前账号摘要，并使用同一实时 principal 签名
 ```powershell
 & '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --test-label business_analysis --test-label netshop --port 55485
 & '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --test-label ai_assistant --test-label business_analysis --test-label sales.tests.test_analysis --test-label sales.tests.test_consumers_api --test-label netshop --port 55485
-& '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --tests-only --business-evidence-upgrade --port 55485
+& '.runtime\test-venv\Scripts\python.exe' -X utf8 tools/ai-postgres-rehearsal.py --upgrade-only --business-evidence-upgrade --port 55485
 node --import tsx --test tests/business-analysis-tools.test.ts tests/django-netshop-service.test.ts
 node --import tsx --test tests/django-postgres-maintenance.test.ts tests/django-sales-consumer-reader.test.ts
 npm run build
@@ -465,6 +473,6 @@ npm run test:unit
 node tools/check-django-production-boundary.mjs
 ```
 
-PostgreSQL 启动器使用独立随机目录、凭据、数据库与 55440—55999 端口，禁止在正式检出运行。新增 `--test-label` 只能用于 `--tests-only`，不能缩减迁移升级演练的验证范围。测试中的 B2B、金额和店铺均为合成数据。
+PostgreSQL 启动器使用独立随机目录、凭据、数据库与 55440—55999 端口，禁止在正式检出运行。`--test-label` 只能用于 `--tests-only`，不能缩减迁移升级演练的验证范围。`--upgrade-only` 执行完整选定升级及恢复，测试另按有界套件串行运行；每个子进程仍限制300秒。测试中的 B2B、金额和店铺均为合成数据。
 
 首批无数据库模型或迁移，验证见 `docs/evidence/ai-business-analysis-foundation-candidate.json`。第二批包含迁移与权限变更的候选源码，已在隔离 PostgreSQL 演练升级、旧 56 表行摘要不变、真实角色权限、终态保护和独立 dump/restore；验证见 `docs/evidence/ai-business-analysis-evidence-candidate.json`。两批均未重启生产、调用付费模型、创建真实报告或发送通知。

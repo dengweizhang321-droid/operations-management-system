@@ -18,7 +18,8 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
-PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"}
+SCREENING_TABLES = {"ai_business_screening_runs", "ai_business_screening_pages"}
+PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"} - SCREENING_TABLES
 
 
 class _EvidenceCursor:
@@ -107,11 +108,20 @@ class _SnapshotConnection:
 
 class ConsistentBackupTests(unittest.TestCase):
     def test_business_evidence_tables_require_exact_migration_generation(self):
-        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 21)
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 23)
         migrations = [("ai_assistant", name) for name in names]
         current = _ai_evidence(AI_TABLES, migrations)
-        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 63)
-        volume_tables = set(AI_TABLES)-{"ai_business_budget_plans"}
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 65)
+        old_tables = set(AI_TABLES)-SCREENING_TABLES
+        old_migrations = [m for m in migrations if int(m[1][:4]) <= 22]
+        before_screening = _ai_evidence(old_tables, old_migrations)
+        self.assertEqual(len([name for name in before_screening["tables"] if name.startswith("ai_")]), 63)
+        self.assertNotEqual(current["contentSha256"],before_screening["contentSha256"])
+        for table in SCREENING_TABLES:
+            with self.assertRaises(RuntimeError): _ai_evidence(set(AI_TABLES)-{table}, migrations)
+        for name in ("0022_business_integrated_reports","0023_business_screening_storage"):
+            with self.assertRaises(RuntimeError): _ai_evidence(AI_TABLES,[m for m in migrations if m[1] != name])
+        volume_tables = old_tables-{"ai_business_budget_plans"}
         volume_migrations = [m for m in migrations if int(m[1][:4]) <= 20]
         before_budgets = _ai_evidence(volume_tables, volume_migrations)
         self.assertEqual(len([name for name in before_budgets["tables"] if name.startswith("ai_")]), 62)

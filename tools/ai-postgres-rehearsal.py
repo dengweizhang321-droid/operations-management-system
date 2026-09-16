@@ -20,8 +20,12 @@ parser.add_argument("--generation-upgrade", action="store_true", help="Rehearse 
 parser.add_argument("--prompt-settings-upgrade", action="store_true", help="Rehearse 0010 to 0011, roles and backup restoration in the fresh isolated database")
 parser.add_argument("--report-library-upgrade", action="store_true")
 parser.add_argument("--business-evidence-upgrade", action="store_true")
+parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.upgrade_only and (arguments.tests_only or arguments.test_label or arguments.all_backend_tests
+        or not any((arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade))):
+    parser.error("--upgrade-only requires one full upgrade rehearsal and cannot include test-selection options")
 if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade):
     parser.error("Explicit test labels require --tests-only and cannot narrow upgrade verification")
 if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade]) > 1:
@@ -150,6 +154,10 @@ try:
         upgrade = run([sys.executable, ROOT / "tools/ai-business-evidence-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
         (RUN / "business-evidence-upgrade.json").write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
+    if arguments.upgrade_only:
+        print(json.dumps({"status":"passed", "mode":"upgrade-only", "testSuitesRun":False,
+            "runRoot":str(RUN), "productionWrites":False}),flush=True)
+        sys.exit(0)  # The same finally stops only this isolated cluster.
     tests = run(
         [
             sys.executable,

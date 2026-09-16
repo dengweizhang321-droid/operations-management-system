@@ -91,6 +91,10 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {(table, trigger) for table in ("ai_business_screening_runs", "ai_business_screening_pages")
+             for trigger in ("ai_write_fence", "ai_immutable_evidence", "ai_screen_complete")}
+            | {("ai_business_screening_runs", "ai_screen_initial"), ("ai_business_screening_pages", "ai_screen_page_initial")}
+            |
             {("ai_business_budget_plans", "ai_write_fence"),
              ("ai_business_budget_plans", "ai_immutable_evidence"),
              ("ai_business_budget_plans", "ai_business_budget_initial"),
@@ -168,7 +172,13 @@ def check():
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
         integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
+        screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
         for signature, definition, volatility in (
+            ("public.ai_screen_fields(json,text[])", screening.FIELDS, "i"),
+            ("public.ai_screen_uint(json,bigint,bigint)", screening.UINT, "i"),
+            ("public.ai_screen_initial_guard()", screening.INITIAL, "v"),
+            ("public.ai_screen_page_guard()", screening.PAGE, "v"),
+            ("public.ai_screen_complete_guard()", screening.COMPLETE, "v"),
             ("public.ai_business_mapping_plan_json(text)", integrated.PLAN_GUARD, "i"),
             ("public.ai_business_integrated_report_guard()", integrated.REPORT_GUARD, "v"),
             ("public.ai_business_budget_report_guard()", integrated.NEW_BUDGET_GUARD, "v"),
@@ -186,7 +196,20 @@ def check():
             AND tgname='ai_business_integrated_report_binding' AND tgenabled='O'""")
         if cursor.fetchone() != (7, False, False, True):
             raise ValueError("AI integrated report trigger contract changed")
+        for table, name, expected_type, deferred, function in (
+            ("ai_business_screening_runs", "ai_screen_initial", 7, False, "ai_screen_initial_guard"),
+            ("ai_business_screening_pages", "ai_screen_page_initial", 7, False, "ai_screen_page_guard"),
+            ("ai_business_screening_runs", "ai_screen_complete", 5, True, "ai_screen_complete_guard"),
+            ("ai_business_screening_pages", "ai_screen_complete", 5, True, "ai_screen_complete_guard"),
+        ):
+            cursor.execute("""SELECT tgtype,tgdeferrable,tginitdeferred,tgfoid=to_regprocedure(%s)
+                FROM pg_trigger WHERE tgrelid=%s::regclass AND tgname=%s AND tgenabled='O'""",
+                ["public."+function+"()", "public."+table, name])
+            if cursor.fetchone() != (expected_type, deferred, deferred, True):
+                raise ValueError("AI screening publication trigger contract changed")
         for table, expected in (
+            ("ai_business_screening_runs", {"ai_screen_run_bound", "ai_screen_binding_uq"}),
+            ("ai_business_screening_pages", {"ai_screen_page_bound", "ai_screen_page_sequence_uq", "ai_screen_page_offset_uq"}),
             ("ai_business_budget_plans", {"ai_business_budget_bound"}),
             ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),
             ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
@@ -209,7 +232,10 @@ def check():
             if not expected <= {row[0] for row in cursor.fetchall()}:
                 raise ValueError("AI DingTalk constraints missing")
         # Check FK/uniqueness by columns rather than Django-generated names.
-        for table, column, target in (("ai_report_runs", "budget_plan_id", "ai_business_budget_plans"),
+        for table, column, target in (("ai_business_screening_runs", "report_id", "ai_report_runs"),
+                                      ("ai_business_screening_runs", "evidence_id", "ai_business_evidence_runs"),
+                                      ("ai_business_screening_pages", "run_id", "ai_business_screening_runs"),
+                                      ("ai_report_runs", "budget_plan_id", "ai_business_budget_plans"),
                                       ("ai_business_budget_plans", "evidence_id", "ai_business_evidence_runs")):
             cursor.execute("""SELECT c.contype,c.confrelid=%s::regclass FROM pg_constraint c
                 JOIN pg_attribute a ON a.attrelid=c.conrelid AND c.conkey=ARRAY[a.attnum]::smallint[]

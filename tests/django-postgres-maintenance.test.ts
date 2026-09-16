@@ -294,8 +294,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
   const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(currentAiTables).size, 63);
-  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"].includes(name));
+  assert.equal(new Set(currentAiTables).size, 65);
+  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -397,6 +397,17 @@ test("maintenance validates complete AI backup evidence before and after activat
   budgets.migrations.push({ app: "ai_assistant", name: "0021_business_budget_plans" });
   budgets.tables.ai_business_budget_plans = 0;
   assert.equal(Object.keys(budgets.tables).filter(name => name.startsWith("ai_")).length, 63);
+  const screenings = structuredClone(budgets);
+  screenings.migrations.push({ app: "ai_assistant", name: "0022_business_integrated_reports" }, { app: "ai_assistant", name: "0023_business_screening_storage" });
+  screenings.tables.ai_business_screening_runs = 0;
+  screenings.tables.ai_business_screening_pages = 0;
+  assert.equal(Object.keys(screenings.tables).filter(name => name.startsWith("ai_")).length, 65);
+  const screeningsInvalid = ["ai_business_screening_runs", "ai_business_screening_pages"].map(name => {
+    const evidence = structuredClone(screenings); delete evidence.tables[name]; return evidence;
+  });
+  for (const name of ["0021_business_budget_plans", "0022_business_integrated_reports", "0023_business_screening_storage"]) {
+    const evidence = structuredClone(screenings); evidence.migrations = evidence.migrations.filter(item => item.name !== name); screeningsInvalid.push(evidence);
+  }
   const budgetsMissing = structuredClone(budgets);
   delete budgetsMissing.tables.ai_business_budget_plans;
   const budgetsUnbound = structuredClone(budgets);
@@ -433,7 +444,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   const businessMissingPredecessor = structuredClone(business);
   businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, screenings, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...screeningsInvalid.map(evidence => ({ valid: false, evidence })),
     ...[budgetsMissing, budgetsUnbound, ...budgetPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[volumesMissing, volumesUnbound, ...volumePredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[businessMissingChunk, businessMissingPredecessor, filesMissing, filesPredecessorMissing, directoryMissing, directoryUnbound, ...directoryPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
