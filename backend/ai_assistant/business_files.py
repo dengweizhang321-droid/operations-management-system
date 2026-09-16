@@ -20,7 +20,7 @@ OWNER_BYTES = 2 * RUN_BYTES
 GLOBAL_BYTES = 8 * RUN_BYTES
 LEASE_SECONDS = 650
 BUILD_SECONDS = 600
-RENDERER_VERSION = 2
+RENDERER_VERSION = 3
 
 
 def binding(report, principal, draft):
@@ -232,7 +232,8 @@ def _build(row, principal, state):
             with mutation(principal):
                 saved = _current(row.id, principal, state)
                 saved.manifest_json = canonical(passive({"schemaVersion": "business-file-delivery-v1", "attempt": row.attempt,
-                    "bindingDigest": row.binding_digest, "rendererVersion": row.renderer_version, "draft": row.draft, "files": files, "tables": proof["tables"]}, 131072))
+                    "bindingDigest": row.binding_digest, "rendererVersion": row.renderer_version, "draft": row.draft, "files": files, "tables": proof["tables"],
+                    **({"budgetCalculator": proof["budgetCalculator"]} if proof.get("budgetCalculator") else {})}, 131072))
                 saved.progress_json = canonical({"stage": "verifying"})
                 saved.version += 1
                 saved.save()

@@ -200,14 +200,17 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
         if renderer_version >= 2 and value.get("budget"):
             from business_analysis.budget_offline import payload
             calculator = payload(value["budget"], report.id)
+            if renderer_version >= 3:
+                calculator["excelEnabled"] = True
         yield metadata, spool.tables, calculator
 
 
 def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=None, renderer_version=1):
     try:
-        if renderer_version not in (1, 2):
+        if renderer_version not in (1, 2, 3):
             raise AnalysisContractError("报告渲染版本不受支持")
         with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=renderer_version) as (metadata, tables, calculator):
-            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint, offline_budget=calculator)
+            return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint,
+                offline_budget=calculator, excel_budget=calculator if renderer_version >= 3 else None)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error

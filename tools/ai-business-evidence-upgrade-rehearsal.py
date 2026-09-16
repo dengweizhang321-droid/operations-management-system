@@ -1,4 +1,4 @@
-"""0013 -> 0017, live restricted roles and independent restore; synthetic only."""
+"""0013 -> 0018, live restricted roles and independent restore; synthetic only."""
 import argparse
 import hashlib
 import json
@@ -79,6 +79,8 @@ m.AiBusinessFileRun.objects.create(id="file-restore", owner_email=workflow.owner
     binding_digest="a"*64, status="building", attempt=1)
 m.AiBusinessFileRun.objects.create(id="offline-file-restore", owner_email=workflow.owner_email, report=report,
     binding_digest="a"*64, renderer_version=2)
+m.AiBusinessFileRun.objects.create(id="excel-file-restore", owner_email=workflow.owner_email, report=report,
+    binding_digest="a"*64, renderer_version=3)
 binary_payload = bytes(range(256))*2048
 binary_digest = hashlib.sha256(binary_payload).hexdigest()
 
@@ -139,8 +141,8 @@ assert snapshot("teruisi_business_restore", AI_TABLES) == complete
 with psycopg.connect(os.environ["TERUISI_DJANGO_DATABASE_URL"].replace("/teruisi_ai_rehearsal", "/teruisi_business_restore")) as restored:
     content, digest = restored.execute("SELECT content,content_digest FROM ai_business_file_chunks WHERE id='binary-restore'").fetchone()
     assert bytes(content) == binary_payload and hashlib.sha256(content).hexdigest() == digest == binary_digest
-    assert restored.execute("SELECT renderer_version FROM ai_business_file_runs ORDER BY renderer_version").fetchall() == [(1,), (2,)]
-print(json.dumps({"upgrade": "0013->0014->0015->0016->0017", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES), "bothRendererVersionsRestored": True,
+    assert restored.execute("SELECT renderer_version FROM ai_business_file_runs ORDER BY renderer_version").fetchall() == [(1,), (2,), (3,)]
+print(json.dumps({"upgrade": "0013->0014->0015->0016->0017->0018", "oldAiTablesDigestPreserved": before, "tables": len(AI_TABLES), "allThreeRendererVersionsRestored": True,
     "secondApplyNoop": True, "migrationDryRun": True, "realRoleHealth": True, "fencesAndAppendOnly": True,
     "ownerAndTerminalGuards": True, "businessWritesDenied": True, "dumpRestoreDigest": complete,
     "binaryRestoreBytes": len(binary_payload), "binaryRestoreSha256": binary_digest, "productionWrites": False}))

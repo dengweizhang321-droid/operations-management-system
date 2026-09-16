@@ -138,16 +138,30 @@ class BusinessBudgetTests(TestCase):
     def test_offline_renderer_keeps_original_tables_and_legacy_version(self):
         report = self.run_workflow()
         original = []
-        for version in (1, 2):
+        for version in (1, 2, 3):
             xlsx, html = io.BytesIO(), io.BytesIO()
-            business_export.build(report, self.admin, xlsx, html, draft=True, renderer_version=version)
+            proof = business_export.build(report, self.admin, xlsx, html, draft=True, renderer_version=version)
             document = html.getvalue().decode()
             original.append(ReportData(document).value)
-            self.assertEqual('id="budget-data"' in document, version == 2)
+            self.assertEqual('id="budget-data"' in document, version >= 2)
             if version == 2:
                 self.assertIn("unreviewed_local_scenario", document)
                 self.assertIn("Excel 当前保留原报告参数快照", document)
+            if version == 3:
+                self.assertIn("Excel 附有独立可编辑试算页", document)
+                self.assertEqual(len(proof['budgetCalculator']['sheets']), 3)
+                self.assertEqual(proof['budgetCalculator']['reportId'], report.id)
+                self.assertNotIn("Excel 当前保留原报告参数快照", document)
         self.assertEqual(original[0], original[1])
+        self.assertEqual(original[1], original[2])
+        from . import business_files
+        file_id = business_files.create(report.id, {'draft': True}, self.admin)['item']['id']
+        with patch('ai_assistant.provider.turn') as model, patch('ai_assistant.transport.execute_tool') as source:
+            self.assertEqual(business_files.tick()['status'], 'ready')
+            model.assert_not_called(); source.assert_not_called()
+        item = business_files.mapping(business_files.get(file_id, self.admin))
+        self.assertEqual(item['manifest']['rendererVersion'], 3)
+        self.assertEqual(item['manifest']['budgetCalculator'], proof['budgetCalculator'])
 
     def test_stale_ref_overlap_nonpromotion_and_missing_dimension_rejected(self):
         for change in ("id", "dimension", "row", "source"):

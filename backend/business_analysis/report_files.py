@@ -92,12 +92,12 @@ def _sheet_names(tables):
     return names
 
 
-def _static_parts(archive, names):
+def _static_parts(archive, names, style_transform=lambda value: value):
     archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+''.join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' for i in range(1, len(names)+1))+'</Types>')
     archive.writestr("_rels/.rels", f'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>')
     archive.writestr("xl/workbook.xml", f'<workbook xmlns="{NS}" xmlns:r="{REL}"><bookViews><workbookView/></bookViews><sheets>'+''.join(f'<sheet name={quoteattr(name)} sheetId="{i}" r:id="rId{i}"/>' for i, name in enumerate(names, 1))+'</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>')
     archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+''.join(f'<Relationship Id="rId{i}" Type="{REL}/worksheet" Target="worksheets/sheet{i}.xml"/>' for i in range(1, len(names)+1))+f'<Relationship Id="rStyles" Type="{REL}/styles" Target="styles.xml"/></Relationships>')
-    archive.writestr("xl/styles.xml", f'<styleSheet xmlns="{NS}"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);0"/><numFmt numFmtId="165" formatCode="#,##0.00;[Red](#,##0.00);0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="16"/><color rgb="FF225B43"/><name val="Microsoft YaHei"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF225B43"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
+    archive.writestr("xl/styles.xml", style_transform(f'<styleSheet xmlns="{NS}"><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0;[Red](#,##0);0"/><numFmt numFmtId="165" formatCode="#,##0.00;[Red](#,##0.00);0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="16"/><color rgb="FF225B43"/><name val="Microsoft YaHei"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF225B43"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="10" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'))
 
 
 def _json(value):
@@ -105,7 +105,7 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
@@ -136,8 +136,16 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
     out(HTML_HEAD.replace("REPORT_TITLE", html.escape(title)))
     out('<script type="application/json" id="report-data">{"title":'+_json(title)+',"metadata":'+_json(metadata)+',"tables":[')
     names, manifest = _sheet_names(tables), []
+    model_sheets, model_proof = [], None
+    if excel_budget is not None:
+        from . import budget_excel
+        if len(tables)+len(budget_excel.TITLES) > MAX_TABLES:
+            raise AnalysisContractError("预算试算工作表超过报告容量")
+        placeholders = [Table("calculator-"+str(i), title, "", (), (), 0) for i, title in enumerate(budget_excel.TITLES)]
+        names = _sheet_names([*tables, *placeholders])
+        model_sheets, model_proof = budget_excel.build(excel_budget, names[len(tables):])
     with zipfile.ZipFile(xlsx_file, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        _static_parts(archive, names)
+        _static_parts(archive, names, budget_excel.styles if excel_budget is not None else lambda value: value)
         for table_index, (table, name) in enumerate(zip(tables, names), 1):
             if checkpoint:
                 checkpoint({"stage": "rendering", "table": table_index, "totalTables": len(tables)})
@@ -226,7 +234,11 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
             proof = {"key": table.key, "sheet": name, "rowCount": count, "columnCount": len(table.columns), "rowDigest": row_digest.hexdigest(), "precisionTextCells": precision_text}
             manifest.append(proof)
             out('],"proof":'+_json(proof)+'}')
-        archive.writestr("teruisi-manifest.json", canonical({"schemaVersion": "business-files-v1", "title": title, "metadata": metadata, "tables": manifest}))
+        for index, sheet in enumerate(model_sheets, len(tables)+1):
+            if checkpoint: checkpoint({"stage": "rendering", "table": index, "rows": 0, "totalRows": len(excel_budget["plan"]["targets"])})
+            budget_excel.write_sheet(archive, index, sheet)
+        archive.writestr("teruisi-manifest.json", canonical({"schemaVersion": "business-files-v1", "title": title, "metadata": metadata, "tables": manifest,
+            **({"budgetCalculator": model_proof} if model_proof else {})}))
     out(']}</script>'+HTML_SCRIPT)
     if offline_budget is not None:
         from .budget_offline import render
@@ -234,7 +246,7 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
     out('</body></html>')
     if xlsx_file.tell() > MAX_FILE_BYTES:
         raise AnalysisContractError("工作簿超过当前容量，须显式分片")
-    return {"schemaVersion": "business-files-v1", "tables": manifest}
+    return {"schemaVersion": "business-files-v1", "tables": manifest, **({"budgetCalculator": model_proof} if model_proof else {})}
 
 
 HTML_HEAD = '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>REPORT_TITLE</title><style>

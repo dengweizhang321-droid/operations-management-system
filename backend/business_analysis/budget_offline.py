@@ -22,7 +22,8 @@ def payload(result, report_id):
 
 def render(value):
     data = canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-    return '<script type="application/json" id="budget-data">'+data+'</script><script>'+ENGINE+UI+'</script>'
+    ui = UI.replace("Excel 当前保留原报告参数快照。", "Excel 附有独立可编辑试算页；超出其精确计算范围时请使用本页，原报告仍保留。") if value.get("excelEnabled") else UI
+    return '<script type="application/json" id="budget-data">'+data+'</script><script>'+ENGINE+ui+'</script>'
 
 
 # BigInt intermediates preserve cent allocation and half-up rounding. The
