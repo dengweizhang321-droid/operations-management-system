@@ -68,6 +68,79 @@ async function fixture2621() {
   return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-16T17:00:00Z") } };
 }
 
+const proof2879: PreflightEvidence = {
+  executionId: "2879", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-09-17T16:10:00.237Z", stoppedAt: "2026-09-17T16:10:07.842Z", retrySuccessId: null,
+  lastNode: "B·接口校验与五表下载",
+  runNodes: ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+  error: "waiting_login：吉客云登录已停止（challenge_present）。", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "626de79d3f1f84c4e45a3654ef4692d6a34e9db8cce05786bff7b664c15cb3e0", activeExecutions: 0,
+};
+async function fixture2879() {
+  const f = await fixture(), runId = "n8n-export-first-2879";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  const plan = { version: 1, protocol: "2026-09-06.export-first.1", executionId: "2879", runId,
+    runDate: "2026-09-18", asOfDate: "2026-09-17", baseUrl: "http://localhost:3000", createdAt: "2026-09-17T16:10:01.825Z",
+    phase: "exporting", exports: {}, exportTransport: "session_api_v1" };
+  await writeFile(planPath, JSON.stringify(plan, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "2879" }));
+  return { ...f, plan, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-17T17:20:00Z") } };
+}
+
+test("API login challenge closes only a zero-effect pre-export run and permits a new full execution", async () => {
+  const f = await fixture2879(), before = await readFile(f.planPath), active = await readFile(f.activePath);
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "2881", f.deps), /尚未闭合/);
+  const proposal = await inspectPreflightClosure(f.root, "2879", proof2879, "2026-09-17T17:15:00Z");
+  assert.equal(proposal.reason, "verified_api_login_challenge_without_business_effects");
+  assert.equal(proposal.absentPaths.length, 4);
+  await publishPreflightClosure(f.root, proposal, proof2879, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "2879");
+  assert.deepEqual(await readFile(f.planPath), before); assert.deepEqual(await readFile(f.activePath), active);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2879", f.deps), /已经闭合/);
+  const next = await runJackyunExportFirstAction("plan-api", "2881", f.deps);
+  assert.equal(next.exportTransport, "session_api_v1");
+  assert.equal(next.snapshotDate, "2026-09-18"); assert.equal(next.salesEndDate, "2026-09-17");
+});
+
+test("API login challenge closure rejects any uncertain identity, stage, intent or business artifact", async () => {
+  for (const fault of ["intent", "export", "phase", "transport", "extra-key", "active", "live", "retry", "hash", "trigger", "node", "later-node", "error", "request", "time", "events", "imports", "validation", "download", "late-effect"]) {
+    const f = await fixture2879(), evidence = { ...proof2879, runNodes: [...proof2879.runNodes] };
+    const effects = { events: path.join(f.root, "outputs/jackyun-browser-events", f.runId),
+      imports: path.join(f.root, "outputs/jackyun-import-runs", f.runId),
+      validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), download: path.join(f.download, "jackyun", f.runId) };
+    if (fault === "late-effect" || fault === "hash") {
+      const proposal = await inspectPreflightClosure(f.root, "2879", evidence, "2026-09-17T17:15:00Z");
+      if (fault === "hash") {
+        await assert.rejects(publishPreflightClosure(f.root, proposal, { ...evidence, executionDataSha256: "f".repeat(64) }, recoverySha(JSON.stringify(proposal))));
+      } else {
+        await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+        await mkdir(effects.imports, { recursive: true });
+        await assert.rejects(runJackyunExportFirstAction("plan-api", "2881", f.deps), /尚未闭合/);
+      }
+      continue;
+    }
+    const plan = JSON.parse(await readFile(f.planPath, "utf8"));
+    if (fault === "intent") plan.exportIntent = "inventory";
+    if (fault === "export") plan.exports.inventory = { taskId: "uncertain" };
+    if (fault === "phase") plan.phase = "exported";
+    if (fault === "transport") plan.exportTransport = "direct_http_v1";
+    if (fault === "extra-key") plan.unexpected = true;
+    if (["intent", "export", "phase", "transport", "extra-key"].includes(fault)) await writeFile(f.planPath, JSON.stringify(plan));
+    if (fault === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-2881", executionId: "2881" }));
+    if (fault === "live") evidence.activeExecutions = 1;
+    if (fault === "retry") evidence.retrySuccessId = "2881";
+    if (fault === "trigger") evidence.runNodes[0] = "未知触发";
+    if (fault === "node") evidence.lastNode = "D·统一导入运营管理系统";
+    if (fault === "later-node") evidence.runNodes.push("D·统一导入运营管理系统");
+    if (fault === "error") evidence.error = "waiting_login：密码被拒绝。";
+    if (fault === "request") evidence.requestUrl = "http://127.0.0.1:5791/jackyun/export-first/import";
+    if (fault === "time") evidence.stoppedAt = "2026-09-17T16:10:01.000Z";
+    if (fault in effects) await mkdir(effects[fault as keyof typeof effects], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "2879", evidence, "2026-09-17T17:15:00Z"));
+  }
+});
+
 test("2621 closure preserves original failure and permits only a new full API plan", async () => {
   const f = await fixture2621(), before = await readFile(f.planPath), active = await readFile(f.activePath);
   await assert.rejects(runJackyunExportFirstAction("plan-api", "2623", f.deps), /尚未闭合/);

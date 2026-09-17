@@ -53,6 +53,9 @@ const audited2621 = {
     executionDataSha256: "27aac9dd30454319f2158b7b9428549e026762f9701c9a0d98c9b6e71064f24f", activeExecutions: 0,
   },
 } as const;
+const apiDownloadNode = "B·接口校验与五表下载";
+const apiLoginChallengeFailure = "waiting_login：吉客云登录已停止（challenge_present）。";
+const apiPlanTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全完整重跑"]);
 export type PreflightEvidence = {
   executionId: string; workflowId: string; status: string; startedAt: string; stoppedAt: string;
   lastNode: string; runNodes: string[]; error: string; httpCode: string; requestUrl: string;
@@ -64,7 +67,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports";
+  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -156,6 +159,27 @@ function assertEmptyPlan(plan: EmptyPlan, executionId: string) {
     || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)
     || plan.asOfDate !== date.toISOString().slice(0, 10)) throw new Error("原计划不属于无业务结果的首次登录失败。");
 }
+function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: string }, executionId: string, evidence: PreflightEvidence) {
+  const date = new Date(`${plan.runDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1);
+  const expectedRunNodes = [evidence.runNodes[0], "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", apiDownloadNode];
+  if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
+    || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportTransport !== "session_api_v1"
+    || !plan.exports || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
+    || Object.prototype.hasOwnProperty.call(plan, "exportIntent")
+    || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
+    || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)
+    || plan.asOfDate !== date.toISOString().slice(0, 10)
+    || evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
+    || evidence.retrySuccessId !== null || evidence.activeExecutions !== 0 || evidence.lastNode !== apiDownloadNode
+    || !apiPlanTriggers.has(evidence.runNodes[0] ?? "") || !isDeepStrictEqual(evidence.runNodes, expectedRunNodes)
+    || evidence.error !== apiLoginChallengeFailure || evidence.httpCode !== "500"
+    || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
+    || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
+    || !Number.isFinite(Date.parse(evidence.startedAt)) || !Number.isFinite(Date.parse(evidence.stoppedAt))
+    || Date.parse(evidence.startedAt) > Date.parse(plan.createdAt) || Date.parse(evidence.stoppedAt) < Date.parse(plan.createdAt)) {
+    throw new Error("仅允许闭合 API 五表下载前、没有导出意图或业务产物的精确登录安全验证失败。");
+  }
+}
 function effectPaths(root: string, downloadDirectory: string, runId: string) {
   return [path.join(root, "outputs", "jackyun-browser-events", runId),
     path.join(root, "outputs", "jackyun-import-runs", runId),
@@ -188,11 +212,14 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
   const controlsOnly = executionId === "897";
   const apiLoginOnly = executionId === "2621";
+  const apiChallengeOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
+    && evidence.error === apiLoginChallengeFailure;
   if (apiLoginOnly) {
     if (recoverySha(planRaw) !== audited2621.planSha256 || !isDeepStrictEqual(evidence, audited2621.evidence)) throw new Error("2621 原失败运行身份或证据已变化。");
   } else if (controlsOnly) {
     if (recoverySha(planRaw) !== audited897.planSha256 || !isDeepStrictEqual(evidence, audited897.evidence)) throw new Error("897 原失败运行身份或证据已变化。");
-  } else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
+  } else if (apiChallengeOnly) assertEmptyApiChallengePlan(plan, executionId, evidence);
+  else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
   if (!isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
     || !path.isAbsolute(policy.browser.downloadDirectory) || !Number.isFinite(Date.parse(closedAt))
     || Date.parse(closedAt) < Date.parse(evidence.stoppedAt)) throw new Error("活动运行、策略或恢复时间不一致。");
@@ -216,6 +243,9 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_897_controls_before_query_and_export", controllerEvidence,
     historicalCodeEvidence: { releaseId: audited897.releaseId, controllerSourceSha256: audited897.controllerSourceSha256 } };
+  if (apiChallengeOnly) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "verified_api_login_challenge_without_business_effects" };
   if (legacyMenuOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_843_menu_lookup_before_export_click", controllerEvidence,
@@ -242,11 +272,12 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const raw = await readRegular(preflightClosurePath(root, executionId));
   const receipt = parse<PreflightClosure>(raw);
   const loginClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_login_failure_without_business_effects";
+  const apiChallengeClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_login_challenge_without_business_effects";
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
   const apiLoginClosed = receipt.status === "closed_before_business" && receipt.reason === "audited_2621_dpapi_before_api_exports";
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);
