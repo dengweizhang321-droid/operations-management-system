@@ -2,6 +2,7 @@ import { readFile, mkdir, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { closeChromeBrowser, launchDedicatedChrome } from "../lib/jackyun/cdp-client";
 import { connectPlaywrightBrowser, PlaywrightPageClient } from "../lib/jackyun/playwright-client";
 import { readJackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
@@ -97,8 +98,12 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
     if (options.resumeTaskBinding) {
       const firstIncomplete = jackyunExportOrder.find(moduleKey => state.modules[moduleKey]?.status !== "handed_off");
       const entry = firstIncomplete ? state.modules[firstIncomplete] : undefined;
+      const taskAlreadyBound = entry?.pendingTaskId === options.resumeTaskBinding.taskId
+        && isDeepStrictEqual(entry.binding, options.resumeTaskBinding);
+      const hasStoredBinding = entry?.pendingTaskId !== undefined || entry?.binding !== undefined;
       if (!firstIncomplete || options.resumeTaskBinding.module !== firstIncomplete || entry?.status !== "submitted"
-        || entry.pendingTaskId || entry.binding || entry.filePath || entry.provenance || entry.handoffSha256
+        || hasStoredBinding && !taskAlreadyBound
+        || entry.filePath || entry.provenance || entry.handoffSha256
         || options.resumeTaskBinding.sourceRows !== entry.sourceRows || entry.baselineIds.includes(options.resumeTaskBinding.taskId)) {
         throw new Error("API_RESUME_BINDING_INVALID");
       }
@@ -194,7 +199,10 @@ export async function inspectSubmittedApiTask(options: { runId: string; outputRo
   const entry = state.modules.inventory;
   if (state.version !== 1 || state.runId !== options.runId || state.transport !== jackyunApiTransport
     || state.templateSha256 !== apiSha(JSON.stringify(calibratedTemplates)) || Object.keys(state.modules).length !== 1
-    || !state.tenantId || entry?.status !== "submitted" || !entry.exportIntentAt || entry.pendingTaskId || entry.binding
+    || !state.tenantId || entry?.status !== "submitted" || !entry.exportIntentAt
+    || (entry.pendingTaskId === undefined) !== (entry.binding === undefined)
+    || entry.pendingTaskId !== undefined && (entry.pendingTaskId !== entry.binding?.taskId || entry.binding.module !== "inventory"
+      || entry.binding.sourceRows !== entry.sourceRows || entry.baselineIds.includes(entry.binding.taskId))
     || entry.filePath || entry.provenance || entry.handoffSha256 || !Number.isSafeInteger(entry.sourceRows) || entry.sourceRows <= 0
     || !Array.isArray(entry.baselineIds) || new Set(entry.baselineIds).size !== entry.baselineIds.length
     || !entry.baselineIds.every(value => /^sys-\d{1,20}$/.test(value))) throw new Error("API_RESUME_STATE_INVALID");
@@ -205,7 +213,7 @@ export async function inspectSubmittedApiTask(options: { runId: string; outputRo
     const selected = selectNewWebSessionTask(snapshot, { module: "inventory", sourceRows: entry.sourceRows,
       exportIntentAt: taskWindowStartAt, observedAt: apiTaskWindowObserved(entry.serverClock, new Date().toISOString()),
       allowedHosts: options.allowedHosts, baselineIds: entry.baselineIds,
-      pendingTaskId: options.binding?.taskId, binding: options.binding });
+      pendingTaskId: entry.pendingTaskId ?? options.binding?.taskId, binding: entry.binding ?? options.binding });
     if (!selected.result) throw new Error(selected.taskId ? "API_ORIGINAL_EXPORT_TASK_PENDING" : "API_ORIGINAL_EXPORT_TASK_NOT_FOUND");
     return selected.result.binding;
   };

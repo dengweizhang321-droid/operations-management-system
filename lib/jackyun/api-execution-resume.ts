@@ -57,12 +57,14 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
     inventory?.exportIntentAt, evidence.stoppedAt, createdAt].map(value => Date.parse(value));
   const windowStart = apiTaskWindowStart(inventory?.serverClock, inventory?.exportIntentAt);
   const observedByCreatedAt = apiTaskWindowObserved(inventory?.serverClock, createdAt);
+  const taskAlreadyBound = inventory?.pendingTaskId === task.taskId && isDeepStrictEqual(inventory?.binding, task);
+  const taskNotYetBound = inventory?.pendingTaskId === undefined && inventory?.binding === undefined;
   const allowedTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全重试入口"]);
   const expectedTail = ["领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"];
   if (evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.activeExecutions !== 0 || evidence.retrySuccessId !== null || evidence.httpCode !== "500"
     || evidence.lastNode !== "B·接口校验与五表下载" || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
-    || evidence.error !== "导出任务绑定条件无效。" || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
+    || evidence.error !== (taskAlreadyBound ? "fetch failed" : "导出任务绑定条件无效。") || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
     || evidence.runNodes.length !== 5 || !allowedTriggers.has(evidence.runNodes[0])
     || !isDeepStrictEqual(evidence.runNodes.slice(1), expectedTail)
     || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting"
@@ -76,7 +78,7 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
     || controller.version !== 1 || controller.runId !== plan.runId || controller.transport !== jackyunApiTransport
     || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || !/^[a-f0-9]{64}$/.test(controller.templateSha256)
     || Object.keys(controller.modules ?? {}).length !== 1 || !controller.tenantId
-    || inventory?.status !== "submitted" || inventory.pendingTaskId || inventory.binding || inventory.filePath
+    || inventory?.status !== "submitted" || (!taskNotYetBound && !taskAlreadyBound) || inventory.filePath
     || inventory.provenance || inventory.handoffSha256 || !Number.isSafeInteger(inventory.sourceRows) || inventory.sourceRows <= 0
     || ![inventory.payloadSha256, inventory.querySha256, inventory.permissionSha256, inventory.templateSha256].every(
       (value: unknown) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value))
@@ -96,11 +98,22 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
     throw new Error("API 原运行已有额外下载或导入证据，不能使用续跑许可。");
   }
   for (const target of [path.join(root, "outputs/jackyun-browser-events", plan.runId),
-    path.join(root, "outputs/jackyun-export-first-validation", plan.runId),
-    path.join(policy.browser.downloadDirectory, "jackyun", plan.runId)]) {
+    path.join(root, "outputs/jackyun-export-first-validation", plan.runId)]) {
     const existing = await lstat(target).catch(error => { if (error.code === "ENOENT") return null; throw error; });
     if (existing) throw new Error("API 原运行已有额外下载或导入证据，不能使用续跑许可。");
   }
+  const downloadRun = path.join(policy.browser.downloadDirectory, "jackyun", plan.runId);
+  const existingDownload = await lstat(downloadRun).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+  if (taskAlreadyBound) {
+    const inventoryDirectory = path.join(downloadRun, "inventory");
+    const inventoryInfo = existingDownload?.isDirectory() && !existingDownload.isSymbolicLink()
+      ? await lstat(inventoryDirectory).catch(() => null) : null;
+    if (!inventoryInfo?.isDirectory() || inventoryInfo.isSymbolicLink()
+      || !isDeepStrictEqual((await readdir(downloadRun)).sort(), ["inventory"])
+      || (await readdir(inventoryDirectory)).length !== 0) {
+      throw new Error("API 原运行的下载目录不能证明绑定任务在文件落地前停止。");
+    }
+  } else if (existingDownload) throw new Error("API 原运行已有额外下载或导入证据，不能使用续跑许可。");
   return { version: 1, root, executionId, runId: plan.runId, createdAt, evidence, task,
     planSha256: recoverySha(planRaw), controllerSha256: recoverySha(controllerRaw),
     policySha256: recoverySha(policyRaw), activeSha256: recoverySha(activeRaw) };

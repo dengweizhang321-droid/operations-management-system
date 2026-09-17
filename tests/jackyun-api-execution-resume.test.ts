@@ -68,6 +68,36 @@ test("approved API resume preserves the submitted run and binds one full n8n exe
   assert.deepEqual(await claimJackyunApiResumePermit(f.root, "2285", "2300", "plan-api", at(9)), task);
 });
 
+test("approved API resume reuses an already-bound task after download fetch failed before file creation", async () => {
+  const f = await fixture();
+  const inventory = f.controller.modules.inventory as typeof f.controller.modules.inventory & { pendingTaskId?: string; binding?: JackyunExportTaskBinding };
+  inventory.pendingTaskId = task.taskId;
+  inventory.binding = task;
+  await writeFile(f.statePath, JSON.stringify(f.controller));
+  await mkdir(path.join(f.root, "downloads/jackyun", f.runId, "inventory"), { recursive: true });
+  const fetchEvidence = { ...evidence, error: "fetch failed" };
+  const permit = await inspectJackyunApiResumePermit(f.root, "2285", fetchEvidence, task, at(8));
+  await publishJackyunApiResumePermit(permit, fetchEvidence, recoverySha(JSON.stringify(permit)));
+  await runJackyunExportFirstAction("plan-api", "2300", f.deps);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2300", f.deps), /resumed API adapter reached/);
+  assert.deepEqual(f.passedBinding(), task);
+});
+
+test("bound-task fetch recovery rejects an unbound task, changed failure or any partial download", async () => {
+  for (const fault of ["pending", "binding", "failure", "file"]) {
+    const f = await fixture();
+    const inventory = f.controller.modules.inventory as typeof f.controller.modules.inventory & { pendingTaskId?: string; binding?: JackyunExportTaskBinding };
+    inventory.pendingTaskId = fault === "pending" ? "sys-999" : task.taskId;
+    inventory.binding = fault === "binding" ? { ...task, sourceRows: task.sourceRows - 1 } : task;
+    await writeFile(f.statePath, JSON.stringify(f.controller));
+    const directory = path.join(f.root, "downloads/jackyun", f.runId, "inventory");
+    await mkdir(directory, { recursive: true });
+    if (fault === "file") await writeFile(path.join(directory, "partial.xlsx"), "partial");
+    await assert.rejects(inspectJackyunApiResumePermit(f.root, "2285",
+      { ...evidence, error: fault === "failure" ? "network timeout" : "fetch failed" }, task, at(8)));
+  }
+});
+
 test("API resume rejects changed evidence, extra effects and mismatched task identity", async () => {
   for (const fault of ["controller", "plan", "active", "policy", "extra", "download", "proof", "task", "digest"]) {
     const f = await fixture();
