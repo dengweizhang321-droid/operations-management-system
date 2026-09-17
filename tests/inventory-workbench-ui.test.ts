@@ -52,7 +52,8 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
 
   for (const label of [
     "货品编号", "货品名称", "品牌", "分类", "供应商", "京东仓库", "京东仓销量",
-    "供应商库存", "供应商销量", "供应商周转", "售后仓库存", "广东仓库存", "样品仓库存", "菜鸟仓库存", "自营库存",
+    "供应商库存", "供应商销量", "供应商周转", "售后仓库存", "广东仓库存", "样品仓库存", "菜鸟仓库存",
+    "海外仓库存", "虚拟仓库存", "异常仓库存", "自营库存",
     "总库存金额", "总周转天数", "建议补货", "预警", "创建备货计划",
   ]) assert.match(view, new RegExp(label));
   for (const label of [
@@ -69,6 +70,8 @@ test("库存健康明细与备货计划钉钉协作使用统一受控口径", as
   assert.doesNotMatch(view, /InventoryKpiCard label="待补货货品"/);
   assert.doesNotMatch(view, /库存数据质量门禁已暂停精确补货/);
   assert.match(view, /仅统计京东仓、天猫仓、广东仓、自营仓/);
+  assert.match(view, /item\.warehouseLabel/);
+  assert.match(view, /item\.includedInInventory \? "计入库存" : "排除库存"/);
   for (const label of ["无库存可用", "紧急补货", "补货预警", "积压风险", "低周转", "库存健康"]) {
     assert.match(view, new RegExp(label));
   }

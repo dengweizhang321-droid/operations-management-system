@@ -52,6 +52,9 @@ WAREHOUSE_GROUPS = (
     "guangdong",
     "sample",
     "cainiao",
+    "overseas",
+    "virtual",
+    "exception",
     "selfOperated",
 )
 
@@ -855,6 +858,10 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
         warehouse = str(raw.warehouse)  # type: ignore[attr-defined]
         if warehouse.strip() == "刷刷仓":
             continue
+        warehouse_classification = classify_warehouse(
+            warehouse,
+            stored_type=str(raw.warehouse_type),  # type: ignore[attr-defined]
+        )
         available = int(raw.available_quantity)  # type: ignore[attr-defined]
         unit_cost = int(raw.unit_cost_cents)  # type: ignore[attr-defined]
         stock_value = None if available > 0 and unit_cost <= 0 else max(available, 0) * unit_cost
@@ -873,7 +880,10 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
                 "specification": str(raw.specification or (master.specification if master else "")),  # type: ignore[attr-defined]
                 "category": str(raw.category or (master.category if master else "") or "未分类"),  # type: ignore[attr-defined]
                 "warehouse": warehouse,
-                "warehouseType": _warehouse_type(warehouse, str(raw.warehouse_type)),  # type: ignore[attr-defined]
+                "warehouseType": warehouse_classification.warehouse_type,
+                "warehouseCategory": warehouse_classification.category,
+                "warehouseLabel": warehouse_classification.label,
+                "includedInInventory": warehouse_classification.include_in_inventory,
                 "availableQuantity": available,
                 "stockValueCents": stock_value,
                 "inventoryAgeDays": age_days,

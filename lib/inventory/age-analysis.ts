@@ -11,6 +11,7 @@ import {
 } from "@/lib/inventory/query-contract";
 import { findLatestCompletedErpReferenceBatch } from "@/lib/erp-reference/database";
 import {
+  classifyInventoryWarehouse,
   resolvedGroupedWarehouseTypeSql,
   resolvedWarehouseTypeSql,
 } from "@/lib/inventory/warehouse-classification";
@@ -26,6 +27,9 @@ export type InventoryAgeItem = {
   category: string;
   warehouse: string;
   warehouseType: "owned" | "jd_rdc" | "other";
+  warehouseCategory: ReturnType<typeof classifyInventoryWarehouse>["warehouseCategory"];
+  warehouseLabel: string;
+  includedInInventory: boolean;
   availableQuantity: number;
   stockValueCents: number | null;
   inventoryAgeDays: number | null;
@@ -221,6 +225,7 @@ function mapItem(row: AgeRow): InventoryAgeItem {
   const sales30dQuantity = row.sales_30d_quantity === null ? null : Number(row.sales_30d_quantity);
   const classified = classifyInventoryAge({ availableQuantity, inventoryAgeDays, sales30dQuantity });
   const copy = statusCopy(classified.status);
+  const warehouseClassification = classifyInventoryWarehouse(row.warehouse);
   const ageBucket = inventoryAgeDays === null
     ? null
     : inventoryAgeBuckets.find((bucket) => inventoryAgeDays >= bucket.minDays && (bucket.maxDays === null || inventoryAgeDays <= bucket.maxDays)) ?? null;
@@ -232,7 +237,12 @@ function mapItem(row: AgeRow): InventoryAgeItem {
     specification: row.specification || "",
     category: row.category || "未分类",
     warehouse: row.warehouse,
-    warehouseType: normalizeWarehouseType(row.warehouse_type),
+    warehouseType: warehouseClassification.mappingSource === "inferred" && warehouseClassification.warehouseCategory === "selfOperated"
+      ? normalizeWarehouseType(row.warehouse_type)
+      : warehouseClassification.warehouseType,
+    warehouseCategory: warehouseClassification.warehouseCategory,
+    warehouseLabel: warehouseClassification.mappingLabel,
+    includedInInventory: warehouseClassification.includeInInventory,
     availableQuantity,
     stockValueCents: row.stock_value_cents === null ? null : Number(row.stock_value_cents),
     inventoryAgeDays,

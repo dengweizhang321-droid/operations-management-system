@@ -367,7 +367,7 @@ export type InventoryOverviewResponse = {
       brand: string;
       category: string;
       supplier: string;
-      warehouses: Record<"jd" | "dropship" | "afterSales" | "guangdong" | "sample" | "cainiao" | "selfOperated", {
+      warehouses: Record<"jd" | "dropship" | "afterSales" | "guangdong" | "sample" | "cainiao" | "overseas" | "virtual" | "exception" | "selfOperated", {
         inventoryQuantity: number;
         salesQuantity: number | null;
         turnoverDays: number | null;
@@ -430,6 +430,9 @@ export type InventoryAgeItem = {
   category: string;
   warehouse: string;
   warehouseType: "owned" | "jd_rdc" | "other";
+  warehouseCategory: "jd" | "dropship" | "afterSales" | "guangdong" | "sample" | "cainiao" | "overseas" | "virtual" | "exception" | "selfOperated";
+  warehouseLabel: string;
+  includedInInventory: boolean;
   availableQuantity: number;
   stockValueCents: number | null;
   inventoryAgeDays: number | null;

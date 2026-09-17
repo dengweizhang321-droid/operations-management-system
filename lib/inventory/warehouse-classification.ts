@@ -13,6 +13,36 @@ export type InventoryWarehouseCategory =
   | "exception"
   | "selfOperated";
 
+export const inventoryWarehouseCategoryOrder: readonly InventoryWarehouseCategory[] = [
+  "jd",
+  "dropship",
+  "afterSales",
+  "guangdong",
+  "sample",
+  "cainiao",
+  "overseas",
+  "virtual",
+  "exception",
+  "selfOperated",
+];
+
+export const inventoryWarehouseCategoryLabels: Record<InventoryWarehouseCategory, string> = {
+  jd: "京东仓",
+  dropship: "代发仓",
+  afterSales: "售后仓",
+  guangdong: "广东仓",
+  sample: "样品仓",
+  cainiao: "菜鸟仓",
+  overseas: "海外仓",
+  virtual: "虚拟仓",
+  exception: "异常仓",
+  selfOperated: "自营仓",
+};
+
+export function inventoryWarehouseCategoryLabel(category: InventoryWarehouseCategory) {
+  return inventoryWarehouseCategoryLabels[category];
+}
+
 type WarehouseMappingEntry = {
   category: Exclude<InventoryWarehouseCategory, "selfOperated">;
   label: string;

@@ -32,6 +32,19 @@ class InventorySummaryCardTests(TestCase):
         result = inventory_age_analysis({"page": 1, "pageSize": 100, "cardFilter": "aged90", "query": "CARD-2"})
         self.assertEqual(result["pagination"]["total"], 1)
 
+    def test_age_items_disclose_the_controlled_warehouse_mapping(self):
+        InventoryStockLine.objects.filter(product_code="CARD-0").update(
+            warehouse="膳师傅仓库",
+            warehouse_type="other",
+            warehouse_category="dropship",
+            include_in_inventory=True,
+        )
+        result = inventory_age_analysis({"page": 1, "pageSize": 100})
+        item = next(row for row in result["items"] if row["productCode"] == "CARD-0")
+        self.assertEqual(item["warehouseCategory"], "dropship")
+        self.assertEqual(item["warehouseLabel"], "代发仓")
+        self.assertTrue(item["includedInInventory"])
+
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_unknown_and_duplicate_card_parameters_are_rejected(self):
         for path in ("age-analysis", "inbound-monitor"):

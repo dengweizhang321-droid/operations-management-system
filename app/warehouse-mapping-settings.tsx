@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 
 import warehouseMappingData from "@/config/inventory-warehouse-mapping.json";
-import type { InventoryWarehouseCategory } from "@/lib/inventory/warehouse-classification";
+import {
+  inventoryWarehouseCategoryLabels,
+  inventoryWarehouseCategoryOrder,
+  type InventoryWarehouseCategory,
+} from "@/lib/inventory/warehouse-classification";
 
 type WarehouseMappingEntry = {
   category: Exclude<InventoryWarehouseCategory, "selfOperated">;
@@ -19,18 +23,6 @@ export type WarehouseMappingFilters = {
   query: string;
   category: "all" | WarehouseMappingEntry["category"];
   inventory: "all" | "included" | "excluded";
-};
-
-const categoryLabels: Record<WarehouseMappingEntry["category"], string> = {
-  jd: "京东仓",
-  dropship: "代发仓",
-  afterSales: "售后仓",
-  guangdong: "广东仓",
-  sample: "样品仓",
-  cainiao: "菜鸟仓",
-  overseas: "海外仓",
-  virtual: "虚拟仓",
-  exception: "异常仓",
 };
 
 const PAGE_SIZE = 20;
@@ -49,7 +41,7 @@ export function filterWarehouseMappings(
     if (filters.inventory === "included" && !row.includeInInventory) return false;
     if (filters.inventory === "excluded" && row.includeInInventory) return false;
     if (!query) return true;
-    return [row.warehouse, row.label, categoryLabels[row.category], row.category]
+    return [row.warehouse, row.label, inventoryWarehouseCategoryLabels[row.category], row.category]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   });
 }
@@ -64,7 +56,12 @@ export default function WarehouseMappingSettings() {
   const [inventory, setInventory] = useState<WarehouseMappingFilters["inventory"]>("all");
   const [page, setPage] = useState(1);
 
-  const categoryOptions = useMemo(() => Array.from(new Set(warehouseMappingRows.map((row) => row.category))), []);
+  const categoryOptions = useMemo(() => {
+    const available = new Set(warehouseMappingRows.map((row) => row.category));
+    return inventoryWarehouseCategoryOrder.filter(
+      (value): value is WarehouseMappingEntry["category"] => value !== "selfOperated" && available.has(value),
+    );
+  }, []);
   const categoryCount = categoryOptions.length;
   const includedCount = warehouseMappingRows.filter((row) => row.includeInInventory).length;
   const excludedCount = warehouseMappingRows.length - includedCount;
@@ -101,7 +98,7 @@ export default function WarehouseMappingSettings() {
         <div className="warehouse-mapping-filters">
           <label><span>仓库类型</span><select aria-label="仓库类型" value={category} onChange={(event) => updateCategory(event.target.value as WarehouseMappingFilters["category"])}>
             <option value="all">全部类型</option>
-            {categoryOptions.map((value) => <option key={value} value={value}>{categoryLabels[value]}</option>)}
+            {categoryOptions.map((value) => <option key={value} value={value}>{inventoryWarehouseCategoryLabels[value]}</option>)}
           </select></label>
           <label><span>库存口径</span><select aria-label="库存口径" value={inventory} onChange={(event) => updateInventory(event.target.value as WarehouseMappingFilters["inventory"])}>
             <option value="all">全部</option>
@@ -118,7 +115,7 @@ export default function WarehouseMappingSettings() {
             {visibleRows.map((row) => <tr key={row.warehouse}>
               <td><strong>{row.warehouse}</strong></td>
               <td><span className="warehouse-category-tag">{row.label}</span></td>
-              <td><span>{categoryLabels[row.category]}</span><small className="cell-note">{row.category}</small></td>
+              <td><span>{inventoryWarehouseCategoryLabels[row.category]}</span><small className="cell-note">{row.category}</small></td>
               <td><span className={`status ${row.includeInInventory ? "status-success" : "status-danger"}`}>{row.includeInInventory ? "计入" : "排除"}</span></td>
               <td><span className="soft-tag">配置映射</span></td>
             </tr>)}

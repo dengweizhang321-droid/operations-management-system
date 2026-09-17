@@ -1,5 +1,6 @@
 "use client";
 import { toggleSingleFilter, toggleFilterGroup } from "@/lib/ui/summary-filter";
+import { inventoryWarehouseCategoryLabel } from "@/lib/inventory/warehouse-classification";
 
 import { useAiPageDetails } from "./ai-page-context-provider";
 
@@ -306,6 +307,9 @@ function InventoryThirtyDayTable({
     <th>广东仓库存</th><th>广东仓销量</th><th>广东仓周转</th><th>广东仓在途</th>
     <th>样品仓库存</th><th>样品仓销量</th><th>样品仓在途</th>
     <th>菜鸟仓库存</th><th>菜鸟仓销量</th><th>菜鸟仓周转</th><th>菜鸟仓在途</th>
+    <th>海外仓库存</th><th>海外仓销量</th>
+    <th>虚拟仓库存</th><th>虚拟仓销量</th>
+    <th>异常仓库存</th><th>异常仓销量</th>
     <th>自营库存</th><th>自营销量</th><th>自营周转</th><th>自营在途</th>
     <th>总库存</th><th>总库存金额</th><th>总在途</th><th>总销量</th><th>总周转天数</th><th>建议补货</th><th>预警</th><th>创建备货计划</th>
   </tr></thead><tbody>{samples.map((gap) => {
@@ -320,10 +324,13 @@ function InventoryThirtyDayTable({
       <td>{formatCount(metric.guangdong.inventoryQuantity)}</td><td>{quantity(metric.guangdong.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.guangdong)}</td><td>{formatCount(metric.guangdong.inTransitQuantity)}</td>
       <td>{formatCount(metric.sample.inventoryQuantity)}</td><td>{quantity(metric.sample.salesQuantity)}</td><td>{formatCount(metric.sample.inTransitQuantity)}</td>
       <td>{formatCount(metric.cainiao.inventoryQuantity)}</td><td>{quantity(metric.cainiao.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.cainiao)}</td><td>{formatCount(metric.cainiao.inTransitQuantity)}</td>
+      <td>{formatCount(metric.overseas.inventoryQuantity)}</td><td>{quantity(metric.overseas.salesQuantity)}</td>
+      <td>{formatCount(metric.virtual.inventoryQuantity)}</td><td>{quantity(metric.virtual.salesQuantity)}</td>
+      <td>{formatCount(metric.exception.inventoryQuantity)}</td><td>{quantity(metric.exception.salesQuantity)}</td>
       <td>{formatCount(metric.selfOperated.inventoryQuantity)}</td><td>{quantity(metric.selfOperated.salesQuantity)}</td><td>{warehouseTurnoverLabel(metric.selfOperated)}</td><td>{formatCount(metric.selfOperated.inTransitQuantity)}</td>
       <td><strong>{formatCount(gap.totalInventoryQuantity)}</strong></td><td>{formatCurrencyFromCents(gap.totalStockValueCents)}</td><td>{formatCount(gap.totalInTransitQuantity)}</td><td>{quantity(gap.totalSalesQuantity)}</td><td>{warehouseTurnoverLabel({ inventoryQuantity: gap.totalInventoryQuantity, salesQuantity: gap.totalSalesQuantity, turnoverDays: gap.totalTurnoverDays })}</td><td className={(gap.suggestedQuantity ?? 0) > 0 ? "orange-text" : ""}><strong>{quantity(gap.suggestedQuantity)}</strong></td><td><span className={`status status-${alert.tone}`} title={`${gap.alertReason}；${gap.unmatchedWarehouseCount} 个仓库未匹配销量`}><Dot tone={alert.tone === "danger" ? "red" : alert.tone === "warning" ? "orange" : alert.tone === "success" ? "green" : alert.tone} />{gap.alertLabel}</span></td><td>{canManageInventory ? <button type="button" className="row-action primary-row-action" disabled={gap.warehouseOptions.every((option) => option.inDraftPlan) || planActionId === gap.key} onClick={() => onCreatePlan(gap.productCode)}>{gap.warehouseOptions.every((option) => option.inDraftPlan) ? "已在草稿" : "创建备货计划"}</button> : <span className="soft-text">只读</span>}</td>
     </tr>;
-  })}{samples.length === 0 && <tr><td colSpan={38}><div className="table-state">当前筛选范围没有近30天销量或库存记录。</div></td></tr>}</tbody></table></div>;
+  })}{samples.length === 0 && <tr><td colSpan={44}><div className="table-state">当前筛选范围没有近30天销量或库存记录。</div></td></tr>}</tbody></table></div>;
 }
 
 function inventoryThirtyDayCsvRows(samples: InventoryMappingItem[]): Array<Array<string | number | null>> {
@@ -335,6 +342,9 @@ function inventoryThirtyDayCsvRows(samples: InventoryMappingItem[]): Array<Array
     "广东仓库存", "广东仓销量", "广东仓周转", "广东仓在途",
     "样品仓库存", "样品仓销量", "样品仓在途",
     "菜鸟仓库存", "菜鸟仓销量", "菜鸟仓周转", "菜鸟仓在途",
+    "海外仓库存", "海外仓销量",
+    "虚拟仓库存", "虚拟仓销量",
+    "异常仓库存", "异常仓销量",
     "自营库存", "自营销量", "自营周转", "自营在途",
     "总库存", "总库存金额（元）", "总在途", "总销量", "总周转天数", "建议补货", "预警", "预警说明",
   ]];
@@ -348,6 +358,9 @@ function inventoryThirtyDayCsvRows(samples: InventoryMappingItem[]): Array<Array
       metric.guangdong.inventoryQuantity, metric.guangdong.salesQuantity, metric.guangdong.turnoverDays, metric.guangdong.inTransitQuantity,
       metric.sample.inventoryQuantity, metric.sample.salesQuantity, metric.sample.inTransitQuantity,
       metric.cainiao.inventoryQuantity, metric.cainiao.salesQuantity, metric.cainiao.turnoverDays, metric.cainiao.inTransitQuantity,
+      metric.overseas.inventoryQuantity, metric.overseas.salesQuantity,
+      metric.virtual.inventoryQuantity, metric.virtual.salesQuantity,
+      metric.exception.inventoryQuantity, metric.exception.salesQuantity,
       metric.selfOperated.inventoryQuantity, metric.selfOperated.salesQuantity, metric.selfOperated.turnoverDays, metric.selfOperated.inTransitQuantity,
       item.totalInventoryQuantity, (item.totalStockValueCents / 100).toFixed(2), item.totalInTransitQuantity, item.totalSalesQuantity,
       item.totalTurnoverDays, item.suggestedQuantity, item.alertLabel, item.alertReason,
@@ -1571,7 +1584,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
             <div className="table-toolbar">
               <div><h2>库龄分析明细</h2><p>{ageAnalysis.sync.hasAgeSales ? "库龄、前 7 天销量与前 30 天销量来自本次库龄报表" : "当前报表未提供销量列，系统仅展示库龄风险"}</p></div>
               <span className="soft-tag">显示 {formatCount(ageAnalysis.items.length)} / {formatCount(ageAnalysis.pagination.total)}</span>
-              <button type="button" className="row-action" disabled={ageAnalysis.items.length === 0} onClick={() => downloadInventoryCsv(`库龄分析_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "品类", "仓库类型", "仓库", "库龄分布", "库龄天数", "库存数", "库存金额（元）", "前7天销量", "前30天销量", "状态"], ...ageAnalysis.items.map((item) => [item.productCode, item.productName, item.brand, item.category, item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他", item.warehouse, item.ageBucketLabel, item.inventoryAgeDays, item.availableQuantity, item.stockValueCents === null ? null : (item.stockValueCents / 100).toFixed(2), item.sales7dQuantity, item.sales30dQuantity, item.statusLabel])])}>导出当前页 CSV</button>
+              <button type="button" className="row-action" disabled={ageAnalysis.items.length === 0} onClick={() => downloadInventoryCsv(`库龄分析_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "品类", "仓库类型", "仓库", "计入库存", "库龄分布", "库龄天数", "库存数", "库存金额（元）", "前7天销量", "前30天销量", "状态"], ...ageAnalysis.items.map((item) => [item.productCode, item.productName, item.brand, item.category, item.warehouseLabel, item.warehouse, item.includedInInventory ? "是" : "否", item.ageBucketLabel, item.inventoryAgeDays, item.availableQuantity, item.stockValueCents === null ? null : (item.stockValueCents / 100).toFixed(2), item.sales7dQuantity, item.sales30dQuantity, item.statusLabel])])}>导出当前页 CSV</button>
             </div>
             <div className="data-table-wrap"><table className="data-table inventory-age-table"><thead><tr><th>货品</th><th>品牌 / 品类</th><th>库存类型 / 仓库</th><th>库龄分布</th><th>库龄天数</th><th>库存数</th><th>库存金额</th><th>前7天销量</th><th>前30天销量</th><th>状态</th></tr></thead><tbody>{ageAnalysis.items.map((item) => {
               const meta = inventoryAgeStatusMeta[item.status];
@@ -1579,7 +1592,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
               return <tr key={item.key}>
                 <td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}{item.specification ? ` · ${item.specification}` : ""}</small></span></div></td>
                 <td><div className="inventory-dimension-cell"><strong>{item.brand || "未设置品牌"}</strong><small>{item.category || "未分类"}</small></div></td>
-                <td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他"}</span><small>{item.warehouse}</small></div></td>
+                <td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseLabel || inventoryWarehouseCategoryLabel(item.warehouseCategory)}</span><small>{item.warehouse} · {item.includedInInventory ? "计入库存" : "排除库存"}</small></div></td>
                 <td><span className={`age-bucket-tag ${item.ageBucketKey ? "" : "unknown"}`}>{item.ageBucketLabel}</span></td>
                 <td><strong>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</strong></td>
                 <td><strong>{formatCount(item.availableQuantity)}</strong></td>
@@ -1599,9 +1612,9 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
             <div className="table-toolbar">
               <div><h2>滞销清理清单</h2><p>创建清理事项后进入“运营事务”跟进；系统不会自动改库存或删除数据。</p></div>
               <span className="soft-tag">优先处理 {formatCount(ageAnalysis.metrics.cleanupCount)} 项</span>
-              <button type="button" className="row-action" disabled={cleanupItems.length === 0} onClick={() => downloadInventoryCsv(`滞销清理_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "品类", "仓库类型", "仓库", "库龄天数", "前30天销量", "可用库存", "库存货值（元）", "清理策略", "清理建议", "风险状态"], ...cleanupItems.map((item) => {
+              <button type="button" className="row-action" disabled={cleanupItems.length === 0} onClick={() => downloadInventoryCsv(`滞销清理_${ageAnalysis.sync.inventoryAsOf ?? "snapshot"}_第${ageAnalysis.pagination.page}页.csv`, [["货品编码", "货品名称", "品牌", "品类", "仓库类型", "仓库", "计入库存", "库龄天数", "前30天销量", "可用库存", "库存货值（元）", "清理策略", "清理建议", "风险状态"], ...cleanupItems.map((item) => {
                 const strategy = getInventoryCleanupStrategy(item.status);
-                return [item.productCode, item.productName, item.brand, item.category, item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他", item.warehouse, item.inventoryAgeDays, item.sales30dQuantity, item.availableQuantity, item.stockValueCents === null ? null : (item.stockValueCents / 100).toFixed(2), strategy.label, item.recommendation, item.statusLabel];
+                return [item.productCode, item.productName, item.brand, item.category, item.warehouseLabel, item.warehouse, item.includedInInventory ? "是" : "否", item.inventoryAgeDays, item.sales30dQuantity, item.availableQuantity, item.stockValueCents === null ? null : (item.stockValueCents / 100).toFixed(2), strategy.label, item.recommendation, item.statusLabel];
               })])}>导出当前页 CSV</button>
             </div>
             <div className="data-table-wrap"><table className="data-table stale-cleanup-table"><thead><tr><th>货品</th><th>品牌 / 品类</th><th>库存类型 / 仓库</th><th>库龄</th><th>前30天销量</th><th>可用库存</th><th>库存货值</th><th>清理策略</th><th>清理建议</th><th>风险状态</th><th>执行</th></tr></thead><tbody>{cleanupItems.map((item) => {
@@ -1611,7 +1624,7 @@ export default function InventoryView({ customStartDate, customEndDate, currentU
               return <tr key={item.key}>
                 <td><div className="product-cell inventory-product-cell"><span className="product-thumb">{item.productName.slice(0, 1) || "货"}</span><span><strong title={item.productName}>{item.productName}</strong><small>{item.productCode}</small></span></div></td>
                 <td><div className="inventory-dimension-cell"><strong>{item.brand || "未设置品牌"}</strong><small>{item.category || "未分类"}</small></div></td>
-                <td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseType === "owned" ? "自有仓" : item.warehouseType === "jd_rdc" ? "京东仓" : "其他"}</span><small>{item.warehouse}</small></div></td>
+                <td><div className="inventory-warehouse-cell"><span className={`warehouse-type warehouse-type-${item.warehouseType}`}>{item.warehouseLabel || inventoryWarehouseCategoryLabel(item.warehouseCategory)}</span><small>{item.warehouse} · {item.includedInInventory ? "计入库存" : "排除库存"}</small></div></td>
                 <td>{item.inventoryAgeDays === null ? "—" : `${formatCount(item.inventoryAgeDays)} 天`}</td>
                 <td>{item.sales30dQuantity === null ? "—" : formatCount(item.sales30dQuantity)}</td>
                 <td>{formatCount(item.availableQuantity)}</td>
