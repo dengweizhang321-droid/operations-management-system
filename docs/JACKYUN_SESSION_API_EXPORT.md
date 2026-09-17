@@ -32,13 +32,20 @@
 
 任务窗口的上界也必须换算到同一份已验证的平台时钟。不能把平台 `Date` 作为下界、再直接把本机 `new Date()` 作为上界；平台时钟略快时，这会形成“上界早于下界”的假失败。换算只使用提交前已保存的 `serverDate - receivedAt` 偏差，原有 5 秒往返、5 秒提交间隔和 10 秒时钟差门禁不变。
 
-若旧版本已经完成唯一库存导出 POST、状态停在 `submitted`，并因精确错误“导出任务绑定条件无效。”终止，可使用 `tools/jackyun-api-resume.ts` 做受控恢复：
+若原 execution 已经完成唯一库存导出 POST、状态停在 `submitted`，可使用 `tools/jackyun-api-resume.ts` 做受控恢复。恢复只接受以下两种精确现场：
+
+- 未绑定任务：错误必须精确为“导出任务绑定条件无效。”，`pendingTaskId`、`binding` 和本轮下载目录均不存在。
+- 已绑定但文件未落地：错误必须精确为 `fetch failed`，`pendingTaskId` 与完整 `binding` 必须共同指向同一个库存任务；本轮下载目录只能包含唯一、真实且为空的 `inventory` 子目录，不得出现临时文件或其他模块目录。
+
+两种现场都必须没有 handoff、验证或导入效果，并按同一流程恢复：
 
 1. `plan <executionId>` 持有原全局锁，只读 n8n 失败证据、活动清单、原计划、API controller 和平台任务列表；必须找到不在原基线内、模块/行数/平台时刻完全一致、已完成且只有一个允许来源附件的库存任务。
 2. `apply <proposal.json> <approvedSha256>` 再次读取同一平台任务并复验附件摘要，以 create-only 方式发布续跑许可；不下载、不导入，也不修改原计划、controller、active 或 n8n 历史。
 3. 许可只允许同一上海日期内、30 分钟内由一个新的完整 n8n execution 从 `plan-api` 领取。B 节点复用已绑定的原库存任务，禁止再次发送库存导出 POST；后续四表仍按原顺序新导出，C/D/E 屏障与精确批次回查不变。
 
-该恢复仅接受首个库存模块、`submitted`、没有 pending task/binding/文件/handoff/验证或导入效果的精确现场。任务缺失、仍在生成、失败、重复、附件改变、跨日、其他 execution 已领取或任一证据变化均停止。不能通过删除 `active.json`、重写状态或直接调用导入接口绕过。
+该恢复仅接受首个库存模块和 `submitted` 状态；是否允许存在 pending task/binding，严格取决于上面两种失败现场。任务缺失、仍在生成、失败、重复、附件改变、文件已开始落地、跨日、其他 execution 已领取或任一证据变化均停止。许可必须在创建后 30 分钟内，由一个新的完整 n8n execution 从 `plan-api` 单次领取；领取后复用原任务并禁止重发库存导出 POST。不能通过删除 `active.json`、重写状态或直接调用导入接口绕过。
+
+API 登录安全验证和专用浏览器端口占用属于另一类“导出前零业务效果”闭合，不使用任务续跑许可。`tools/jackyun-preflight-recovery.ts` 只在原计划为 `session_api_v1`、`exports` 为空且不存在 `exportIntent`，n8n 精确停在 B 节点，并且浏览器事件、导入运行、验证结果和下载目录四条业务效果路径全部不存在时，允许 create-only 闭合。可接受的错误只有精确 `challenge_present` 和“专用浏览器端口已占用，自动任务不会接管已打开的浏览器”；原计划、原 active 指针和 n8n 失败历史均保留，只有后续新的完整 execution 可以推进 active。
 
 `api-controller-state.json` 与历史浏览器 controller 分离。交接仍使用现有 importer 的 schema 2：`navigationIntentAt/tableStableAt` 是兼容字段，分别对应接口预检开始和接口数量查询完成；`evidence.controller=authenticated_http_api` 及显式 API 时刻字段标明来源，不能解释为实际发生了页面导航或表格渲染。
 
@@ -96,3 +103,13 @@
 
 使用本机已安装 n8n 的 cron 库验证跨日边界：2026-09-09 00:09 的下一次为当天 00:10。本机必须保持开机，n8n 和配套服务运行；离线时不承诺自动补跑。如以后更改 Windows 时区，需要同步调整工作流时区。更改前定义备份及发布回查证据保存在 `D:\codex-artifacts\jackyun-schedule-20260909`。
 实际触发已核验：n8n execution 912 于本机 2026-09-09 00:10:00.029 自动开始，模式为 trigger（不是手工/CLI 触发）。发布与首次触发证据见 [调度采用记录](evidence/jackyun-daily-0010-20260909.json)。
+
+## 2026-09-18 零业务效果闭合与已绑定任务续跑
+
+00:10 定时 execution `2879` 在 API 登录阶段因精确 `challenge_present` 失败。经复验空 API 计划和四条业务效果路径全部不存在后，以 `verified_api_login_challenge_without_business_effects` create-only 闭合；后续 execution `2902` 因人工登录浏览器仍占用专用端口，同样在零业务效果现场以 `verified_api_browser_occupied_without_business_effects` 闭合。两次闭合都保留原计划、active 指针和 n8n 历史，不能解释为原运行成功。
+
+execution `2906` 随后通过 DPAPI 自动登录，唯一提交并绑定库存任务 `sys-113277891`（源查询 25,911 行），但在文件落地前因 `fetch failed` 停止。本轮下载目录只有空的 `inventory` 子目录，且不存在 handoff、验证或导入效果；因此发布 30 分钟、单 execution、create-only 续跑许可。execution `2910` 领取该许可后复用原库存任务，没有重发库存导出 POST，并继续完成其余四表、导入和精确批次回查。
+
+`2910` 于上海时间 02:06:06 至 02:08:37 成功：货品 8,508 行、库存 22,807 行、库龄 5,684 行、销售 15,567 行、组合装 4,434 行；库存和库龄快照为 2026-09-18，销售覆盖 2026-09-01 至 2026-09-17。原始数据告警保留为库存 5、销售 51、组合装 2，没有隐藏或改写。过期等待重试 `2894`、`2903`、`2907` 已取消，最终无非终态 n8n execution。
+
+源码为 `12211061b0d418adcc2db62ea8a9efdf45cc8bc3`，不可变 Worker/helper release 为 `20260917T175957Z-94a4e718fdfb027f`，manifest SHA-256 为 `044ce49e17130ed496645c942d4e36fad89199a1eceaa0e6f2164cd9a4bfbf4b`。最终 `Running / Ready / exact_release`、12 组件、启动绑定、helper 空闲和钉钉 connected 通过；没有 Django/PostgreSQL/n8n 重启，也没有数据库迁移。完整闭合摘要、续跑许可、五个批次和前后备份证据见 [2026-09-18 正式恢复记录](evidence/jackyun-zero-effect-recovery-production-20260918.json)。
