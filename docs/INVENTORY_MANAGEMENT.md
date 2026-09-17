@@ -15,6 +15,8 @@
 
 库存后端已完成 Django/PostgreSQL 正式单写切换：Worker 负责真实鉴权、XLSX 解析、HMAC 和有界传输，库存 reader/writer 固定使用 `127.0.0.1:8051/8052`。实现、迁移证据和运维边界见 [`DJANGO_INVENTORY_MIGRATION.md`](DJANGO_INVENTORY_MIGRATION.md)。
 
+2026-09-17，仓库映射设置已按用户明确发布授权在本机受控采用。源码 `410be5ff`；Worker/helper release `20260917T145034Z-ecd2f00bb0c113b5`，manifest SHA `4b6f2ef8e37d5cb47bbfa43fa6ebc02d88e8a570a713e57aaa97c753316ac228`；Django app fingerprint `337030b85ad590e04aaf29cd378b6012368318547af0868dd36f9289014174cf`。`inventory.0011_inventory_warehouse_mapping_settings` 已迁移；正式 API 回读 284 条、66 条计入、218 条排除、待确认 0，库存总览与库龄明细均回显同一映射分类及计入口径。新仓只在成功库存/库龄导入事务中加入并标记待确认，失败导入不留映射；本次未触发导入或修改业务映射。最终 Running/Ready/exact_release、12 组件、启动绑定及钉钉 connected 通过；发布前备份独立恢复、前后备份与 E 盘逐文件摘要归档通过。详见 [`warehouse-mapping-production-20260917.json`](evidence/warehouse-mapping-production-20260917.json)；本记录不授予未来停服或数据导入授权。
+
 ## 2. 公共筛选与跨 Tab 持久化
 
 库存管理的六个 Tab 共用一套顶部筛选组件。货品编码或名称、仓库、品牌、品类属于公共业务范围，切换库存总览、库龄分析、备货计划、滞销清理或京东入仓监控时会保留并同步应用；各 Tab 的专属条件仍独立保留，例如总览的库存类型和健康状态、库龄页的风险状态和库龄区间、备货计划状态、入仓供应商。广东入仓监控固定使用精确名称“广东仓”，忽略其他页面遗留的仓库筛选，并以独立 URL 参数 `inventoryGuangdongRisk` 保存风险分类。
