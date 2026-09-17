@@ -7,6 +7,7 @@ from inventory.import_service import import_inventory_payload
 from inventory.query import inventory_age_analysis, inventory_inbound_monitor
 from sales.auth import Principal
 from inventory.tests.test_imports import stock_row, stock_payload
+from inventory.warehouse_mapping_service import mapping_payload, update_mapping
 from sales.tests.factories import TEST_SECRET, signed_headers
 
 
@@ -44,6 +45,21 @@ class InventorySummaryCardTests(TestCase):
         self.assertEqual(item["warehouseCategory"], "dropship")
         self.assertEqual(item["warehouseLabel"], "代发仓")
         self.assertTrue(item["includedInInventory"])
+
+        current = mapping_payload()
+        update_mapping({
+            "expectedMappingRevision": current["mappingRevision"],
+            "mappings": [{
+                "warehouse": "膳师傅仓库",
+                "category": "sample",
+                "includeInInventory": False,
+            }],
+        }, "admin@example.test")
+        refreshed = inventory_age_analysis({"page": 1, "pageSize": 100})
+        refreshed_item = next(row for row in refreshed["items"] if row["productCode"] == "CARD-0")
+        self.assertEqual(refreshed_item["warehouseCategory"], "sample")
+        self.assertEqual(refreshed_item["warehouseLabel"], "样品仓")
+        self.assertFalse(refreshed_item["includedInInventory"])
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_unknown_and_duplicate_card_parameters_are_rejected(self):

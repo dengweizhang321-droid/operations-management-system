@@ -43,13 +43,15 @@ export function inventoryWarehouseCategoryLabel(category: InventoryWarehouseCate
   return inventoryWarehouseCategoryLabels[category];
 }
 
-type WarehouseMappingEntry = {
+export type InventoryWarehouseMappingEntry = {
   category: Exclude<InventoryWarehouseCategory, "selfOperated">;
   label: string;
   includeInInventory: boolean;
 };
 
-const warehouseMapping = warehouseMappingData.warehouses as Record<string, WarehouseMappingEntry>;
+export type InventoryWarehouseMapping = Record<string, InventoryWarehouseMappingEntry>;
+
+const warehouseMapping = warehouseMappingData.warehouses as InventoryWarehouseMapping;
 
 const JD_EXPLICIT_WAREHOUSE = /京东|rdc|dc仓|配送中心/i;
 const JD_PLATFORM_WAREHOUSE = /(?:平台仓|中件(?:消费品)?)[^\r\n]*-chn$/i;
@@ -67,7 +69,7 @@ export function inferInventoryWarehouseType(warehouse: string): ClassifiedInvent
   return classifyInventoryWarehouse(warehouse).warehouseType;
 }
 
-export function classifyInventoryWarehouse(warehouse: string): {
+export function classifyInventoryWarehouse(warehouse: string, mapping: InventoryWarehouseMapping = warehouseMapping): {
   warehouseType: ClassifiedInventoryWarehouseType;
   warehouseCategory: InventoryWarehouseCategory;
   includeInInventory: boolean;
@@ -75,7 +77,7 @@ export function classifyInventoryWarehouse(warehouse: string): {
   mappingSource: "configured" | "inferred";
 } {
   const normalized = warehouse.trim();
-  const configured = warehouseMapping[normalized];
+  const configured = mapping[normalized];
   if (configured) {
     const warehouseType: ClassifiedInventoryWarehouseType = configured.category === "jd"
       ? "jd_rdc"

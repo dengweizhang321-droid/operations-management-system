@@ -72,9 +72,10 @@ def classify_warehouse(
     stored_type: str = "",
     stored_category: str = "",
     stored_include_in_inventory: bool = True,
+    mapping: dict[str, dict[str, object]] | None = None,
 ) -> WarehouseClassification:
     normalized = warehouse.strip()
-    configured = WAREHOUSE_MAPPING.get(normalized)
+    configured = (mapping if mapping is not None else WAREHOUSE_MAPPING).get(normalized)
     if configured is not None:
         category = str(configured["category"])
         return WarehouseClassification(

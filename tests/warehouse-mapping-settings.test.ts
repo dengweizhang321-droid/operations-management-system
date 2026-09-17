@@ -10,6 +10,11 @@ import {
   inventoryWarehouseCategoryLabels,
   inventoryWarehouseCategoryOrder,
 } from "../lib/inventory/warehouse-classification";
+import {
+  buildWarehouseMappingWorkbook,
+  parseWarehouseMappingWorkbook,
+  WarehouseMappingWorkbookError,
+} from "../lib/inventory/warehouse-mapping-workbook";
 
 test("warehouse mapping workspace exposes the complete verified source", () => {
   assert.equal(warehouseMappingRows.length, 284);
@@ -62,4 +67,33 @@ test("inventory views and settings share the same warehouse category contract", 
     mappingLabel: "代发仓",
     mappingSource: "configured",
   });
+});
+
+test("warehouse mapping workbook export round-trips through the guarded importer", () => {
+  const bytes = buildWarehouseMappingWorkbook(warehouseMappingRows);
+  const parsed = parseWarehouseMappingWorkbook(bytes);
+  assert.equal(parsed.length, 284);
+  assert.deepEqual(parsed.find((row) => row.warehouse === "一个小太阳仓"), {
+    warehouse: "一个小太阳仓",
+    category: "dropship",
+    includeInInventory: false,
+  });
+  assert.deepEqual(parsed.find((row) => row.warehouse === "膳师傅仓库"), {
+    warehouse: "膳师傅仓库",
+    category: "dropship",
+    includeInInventory: true,
+  });
+});
+
+test("warehouse mapping workbook importer rejects duplicate warehouses", async () => {
+  const { utils, write } = await import("xlsx");
+  const sheet = utils.aoa_to_sheet([
+    ["仓库", "自定义仓库类型", "计入库存", "备注"],
+    ["重复仓", "代发仓", "是", ""],
+    ["重复仓", "京东仓", "否", ""],
+  ]);
+  const workbook = utils.book_new();
+  utils.book_append_sheet(workbook, sheet, "mapping");
+  const bytes = write(workbook, { type: "array", bookType: "xlsx" }) as Uint8Array;
+  assert.throws(() => parseWarehouseMappingWorkbook(bytes), WarehouseMappingWorkbookError);
 });

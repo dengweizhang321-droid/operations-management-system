@@ -470,6 +470,8 @@ REQUIRED_INVENTORY_COLUMNS = {
     "inventory_operating_settings": {
         "id", "target_days", "critical_days", "slow_days", "stagnant_days",
         "auto_replenishment", "inventory_alert", "allow_negative_inventory",
+        "warehouse_mapping_json", "warehouse_mapping_updated_by",
+        "warehouse_mapping_updated_at",
     },
 }
 REQUIRED_INVENTORY_WRITER_COLUMNS = {

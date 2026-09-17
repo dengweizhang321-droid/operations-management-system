@@ -17,6 +17,7 @@ export const INVENTORY_REPLENISHMENT_IMPORT_PATH = "/api/inventory/replenishment
 export const INVENTORY_REPLENISHMENT_DINGTALK_PATH = "/api/inventory/replenishment/dingtalk";
 export const INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH = "/api/inventory/replenishment/dingtalk/group";
 export const INVENTORY_SETTINGS_PATH = "/api/inventory/settings";
+export const INVENTORY_WAREHOUSE_MAPPINGS_PATH = "/api/inventory/warehouse-mappings";
 export const INVENTORY_CONSUMER_QUERY_PATH = "/api/inventory/consumers/query";
 export const INVENTORY_UPLOADS_PATH = "/api/inventory/uploads";
 export const INVENTORY_UPLOAD_CHUNK_PATH = "/api/inventory/uploads/chunk";
@@ -34,6 +35,7 @@ const readerMethods = new Set([
   `GET ${INVENTORY_IMPORTS_PATH}`,
   `GET ${INVENTORY_REPLENISHMENT_PATH}`,
   `GET ${INVENTORY_SETTINGS_PATH}`,
+  `GET ${INVENTORY_WAREHOUSE_MAPPINGS_PATH}`,
   `POST ${INVENTORY_CONSUMER_QUERY_PATH}`,
 ]);
 const writerMethods = new Set([
@@ -50,6 +52,7 @@ const writerMethods = new Set([
   `POST ${INVENTORY_REPLENISHMENT_DINGTALK_PATH}`,
   `POST ${INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH}`,
   `PUT ${INVENTORY_SETTINGS_PATH}`,
+  `PUT ${INVENTORY_WAREHOUSE_MAPPINGS_PATH}`,
 ]);
 
 const encoder = new TextEncoder();

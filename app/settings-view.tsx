@@ -582,7 +582,7 @@ export default function SettingsView({
       tabIndex={0}
     >
       <Suspense fallback={<LoadingState>正在加载仓库映射</LoadingState>}>
-        <LazyWarehouseMappingSettings />
+        <LazyWarehouseMappingSettings canEdit={canEdit} />
       </Suspense>
     </section>}
 

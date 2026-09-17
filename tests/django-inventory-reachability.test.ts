@@ -11,6 +11,7 @@ const productionEntryPoints = [
   "app/api/imports/inventory/route.ts",
   "app/api/imports/inventory/chunks/route.ts",
   "app/api/settings/route.ts",
+  "app/api/settings/warehouse-mappings/route.ts",
   "lib/products/inventory-projection-sync.ts",
   "lib/inventory/system-cost-reference.ts",
   "lib/ai/operations-tools.ts",
@@ -33,7 +34,7 @@ test("reachable inventory entry points use Django and cannot fall back to D1", a
     assert.doesNotMatch(entry.text, retiredImports, `${entry.path} still reaches a retired D1 inventory module`);
   }
 
-  const djangoInventoryEndpoints = productionEntryPoints.slice(0, 8).filter(
+  const djangoInventoryEndpoints = productionEntryPoints.slice(0, 9).filter(
     (path) => path !== "app/api/inventory/work-items/route.ts",
   );
   for (const path of djangoInventoryEndpoints) {

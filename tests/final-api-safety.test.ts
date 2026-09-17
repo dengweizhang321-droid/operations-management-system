@@ -15,6 +15,7 @@ const sensitiveRoutePaths = [
   "../app/api/market/master/execute/route.ts",
   "../app/api/market/trend/route.ts",
   "../app/api/settings/route.ts",
+  "../app/api/settings/warehouse-mappings/route.ts",
   "../app/api/jackyun/session/open/route.ts",
 ] as const;
 
@@ -47,6 +48,7 @@ test("global market writes and operating settings reject restricted principals",
     "../app/api/market/master/route.ts",
     "../app/api/market/master/execute/route.ts",
     "../app/api/settings/route.ts",
+    "../app/api/settings/warehouse-mappings/route.ts",
     "../app/api/jackyun/session/open/route.ts",
   ] as const;
   for (const path of scopeProtectedRoutes) {

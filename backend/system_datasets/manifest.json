@@ -14677,6 +14677,16 @@
           "column": "allow_negative_inventory",
           "unit": null
         },
+        "warehouse_mapping_updated_by": {
+          "type": "CharField",
+          "column": "warehouse_mapping_updated_by",
+          "unit": null
+        },
+        "warehouse_mapping_updated_at": {
+          "type": "DateTimeField",
+          "column": "warehouse_mapping_updated_at",
+          "unit": null
+        },
         "updated_by": {
           "type": "CharField",
           "column": "updated_by",
@@ -14688,7 +14698,9 @@
           "unit": null
         }
       },
-      "excludedFields": {},
+      "excludedFields": {
+        "warehouse_mapping_json": "仓库映射由系统设置专用接口受控维护，不作为通用 AI 原始字段开放"
+      },
       "keys": [
         "id"
       ],

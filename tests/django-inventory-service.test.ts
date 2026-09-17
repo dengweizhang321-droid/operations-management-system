@@ -12,6 +12,7 @@ import {
   INVENTORY_REPLENISHMENT_DINGTALK_GROUP_PATH,
   INVENTORY_REPLENISHMENT_DINGTALK_PATH,
   INVENTORY_REPLENISHMENT_PATH,
+  INVENTORY_WAREHOUSE_MAPPINGS_PATH,
   requestDjangoInventoryBytes,
   requestDjangoInventoryJson,
 } from "../lib/django/inventory-service";
@@ -136,6 +137,35 @@ test("inventory consumers stay reader-only while imports and plans use writer", 
   assert.equal(new URL(observed[3]!.url).origin, config.writerBaseUrl);
   assert.equal(imported.replayed, true);
   verifySignature(observed[1]!, INVENTORY_IMPORTS_PATH);
+});
+
+test("warehouse mappings use the inventory reader for reads and writer for edits", async () => {
+  const observed: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    observed.push(new Request(input, init));
+    return Response.json(
+      { rows: [], mappingRevision: "a".repeat(64), updatedAt: null, updatedBy: null },
+      { headers: { "x-inventory-data-revision": "10:abcdef123456" } },
+    );
+  };
+  await requestDjangoInventoryJson(
+    principal,
+    { method: "GET", path: INVENTORY_WAREHOUSE_MAPPINGS_PATH, service: "reader" },
+    { config, fetchImpl },
+  );
+  await requestDjangoInventoryJson(
+    principal,
+    {
+      method: "PUT",
+      path: INVENTORY_WAREHOUSE_MAPPINGS_PATH,
+      service: "writer",
+      payload: { expectedMappingRevision: "a".repeat(64), mappings: [] },
+    },
+    { config, fetchImpl },
+  );
+  assert.equal(new URL(observed[0]!.url).origin, config.readerBaseUrl);
+  assert.equal(new URL(observed[1]!.url).origin, config.writerBaseUrl);
+  verifySignature(observed[1]!, INVENTORY_WAREHOUSE_MAPPINGS_PATH);
 });
 
 test("Guangdong item edits are allowlisted on the inventory writer", async () => {

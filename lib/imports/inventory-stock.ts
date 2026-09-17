@@ -7,6 +7,7 @@ import {
 import { normalizeSalesLedgerDate } from "./sales-ledger";
 import {
   classifyInventoryWarehouse,
+  type InventoryWarehouseMapping,
   type InventoryWarehouseCategory,
 } from "@/lib/inventory/warehouse-classification";
 
@@ -84,6 +85,7 @@ export type InventoryStockParseResult = {
 export type InventoryStockParseOptions = {
   maxDataRows?: number;
   xlsx?: XlsxParseOptions;
+  warehouseMapping?: InventoryWarehouseMapping;
 };
 
 export type InventoryStockParseErrorCode =
@@ -184,7 +186,7 @@ export function parseInventoryStockXlsx(
   const rows: InventoryStockRow[] = [];
   const errors: InventoryStockIssue[] = [];
   for (const row of candidateRows) {
-    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors);
+    const parsed = parseRow(row, header.indexByCanonical, workbook.date1904, errors, options.warehouseMapping);
     if (parsed) rows.push(parsed);
     if (errors.length >= 200) break;
   }
@@ -276,6 +278,7 @@ function parseRow(
   indexes: Map<CanonicalHeader, number>,
   date1904: boolean,
   errors: InventoryStockIssue[],
+  warehouseMapping?: InventoryWarehouseMapping,
 ): InventoryStockRow | null {
   const beforeErrors = errors.length;
   const raw = (field: CanonicalHeader) => {
@@ -312,7 +315,7 @@ function parseRow(
   const sales30dQuantity = optionalInteger(raw("sales30dQuantity"), "sales30dQuantity", "前30天销量", row.rowNumber, errors);
 
   if (errors.length > beforeErrors) return null;
-  const classification = classifyInventoryWarehouse(warehouse);
+  const classification = classifyInventoryWarehouse(warehouse, warehouseMapping);
   return {
     sourceRowNumber: row.rowNumber,
     rowKey: `${warehouse}\u001f${productCode}`,

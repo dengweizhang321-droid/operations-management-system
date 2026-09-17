@@ -179,7 +179,12 @@ def _validate_identity(warehouse: str, product_code: str, product_name: str, row
         raise _error(f"第 {row_number} 行是合计或汇总行，不能导入")
 
 
-def _stock_row(item: object, snapshot_date: date, allow_negative: bool) -> dict[str, object]:
+def _stock_row(
+    item: object,
+    snapshot_date: date,
+    allow_negative: bool,
+    warehouse_mapping: dict[str, dict[str, object]],
+) -> dict[str, object]:
     if not isinstance(item, dict) or set(item) != STOCK_FIELDS:
         raise _error("库存行字段集合无效")
     source_row = int(_integer(item["sourceRowNumber"], "sourceRowNumber", 1, 1_000_000) or 0)
@@ -204,7 +209,7 @@ def _stock_row(item: object, snapshot_date: date, allow_negative: bool) -> dict[
         raise _error(f"第 {source_row} 行库存货值超过 10 亿元安全上限")
     from .warehouse_mapping import classify_warehouse
 
-    classification = classify_warehouse(warehouse)
+    classification = classify_warehouse(warehouse, mapping=warehouse_mapping)
     warehouse_type = _warehouse_type(item["warehouseType"])
     warehouse_category = _warehouse_category(item["warehouseCategory"])
     include_in_inventory = item["includeInInventory"]
@@ -293,8 +298,10 @@ def _normalized_payload(payload: object) -> dict[str, object]:
     if len(rows_value) + excluded_count > source_row_count:
         raise _error("业务行数与排除行数超过来源行数")
     settings = InventoryOperatingSettings.objects.get(id=1)
+    from .warehouse_mapping_service import effective_mapping
+    warehouse_mapping = effective_mapping(settings)
     rows = [
-        _stock_row(item, snapshot_date, settings.allow_negative_inventory)
+        _stock_row(item, snapshot_date, settings.allow_negative_inventory, warehouse_mapping)
         if dataset == "stock"
         else _age_row(item)
         for item in rows_value

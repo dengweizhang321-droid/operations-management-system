@@ -17,6 +17,7 @@ read_patterns = [
     path("imports", views.imports, name="inventory-imports"),
     path("replenishment", views.replenishment, name="inventory-replenishment"),
     path("settings", views.settings_view, name="inventory-settings"),
+    path("warehouse-mappings", views.warehouse_mappings, name="inventory-warehouse-mappings"),
     path("consumers/query", views.consumer_query, name="inventory-consumer-query"),
 ]
 write_patterns = [
@@ -31,6 +32,7 @@ write_patterns = [
     path("replenishment/dingtalk", views.replenishment_dingtalk, name="inventory-replenishment-dingtalk"),
     path("replenishment/dingtalk/group", views.replenishment_dingtalk_group, name="inventory-replenishment-dingtalk-group"),
     path("settings", views.settings_view, name="inventory-settings"),
+    path("warehouse-mappings", views.warehouse_mappings, name="inventory-warehouse-mappings"),
 ]
 
 urlpatterns: list[object] = []

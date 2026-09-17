@@ -24,6 +24,7 @@ from .models import (
 )
 from .plans import plan_summary, query_plans
 from .warehouse_mapping import classify_warehouse
+from .warehouse_mapping_service import effective_mapping
 
 
 HEALTH_STATUSES = ("no_stock", "urgent", "warning", "stale", "slow", "healthy")
@@ -142,8 +143,12 @@ def _warehouse_key(value: str) -> str:
     return normalized
 
 
-def _is_jd_warehouse(warehouse: str, warehouse_type: str) -> bool:
-    return classify_warehouse(warehouse, stored_type=warehouse_type).warehouse_type == "jd_rdc"
+def _is_jd_warehouse(
+    warehouse: str,
+    warehouse_type: str,
+    mapping: dict[str, dict[str, object]] | None = None,
+) -> bool:
+    return classify_warehouse(warehouse, stored_type=warehouse_type, mapping=mapping).warehouse_type == "jd_rdc"
 
 
 def _warehouse_type(warehouse: str, stored: str) -> str:
@@ -151,6 +156,8 @@ def _warehouse_type(warehouse: str, stored: str) -> str:
 
 
 def _warehouse_group(warehouse: str, warehouse_type: str, warehouse_category: str = "") -> str:
+    if warehouse_category in WAREHOUSE_GROUPS:
+        return warehouse_category
     category = classify_warehouse(
         warehouse,
         stored_type=warehouse_type,
@@ -336,6 +343,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
 ]:
     latest = _latest_batch("stock")
     settings_row, settings = _settings()
+    warehouse_mapping = effective_mapping(settings_row)
     revision = _sales_revision()
     freshness = _sales_query(principal, {"operation": "freshness"})
     if _sales_revision() != revision:
@@ -424,6 +432,7 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
             stored_type=row.warehouse_type,
             stored_category=row.warehouse_category,
             stored_include_in_inventory=bool(row.include_in_inventory),
+            mapping=warehouse_mapping,
         )
         product_name = row.product_name or (str(sales.get("productName")) if sales else "") or (master.product_name if master else "") or row.product_code
         items.append(
@@ -853,6 +862,7 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
         row.product_code: row
         for row in ErpProductMaster.objects.filter(product_code__in=product_codes)
     }
+    warehouse_mapping = effective_mapping()
     items: list[dict[str, object]] = []
     for raw in source_rows:
         warehouse = str(raw.warehouse)  # type: ignore[attr-defined]
@@ -861,6 +871,9 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
         warehouse_classification = classify_warehouse(
             warehouse,
             stored_type=str(raw.warehouse_type),  # type: ignore[attr-defined]
+            stored_category=str(getattr(raw, "warehouse_category", "")),
+            stored_include_in_inventory=bool(getattr(raw, "include_in_inventory", True)),
+            mapping=warehouse_mapping,
         )
         available = int(raw.available_quantity)  # type: ignore[attr-defined]
         unit_cost = int(raw.unit_cost_cents)  # type: ignore[attr-defined]
@@ -985,7 +998,8 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
             "regions": [], "items": [],
             "disclosures": ["当前没有库存快照。", "京东原生库存/周转指标尚未接入，暂不输出原生差异或残差结论。"],
         }
-    stock = [row for row in InventoryStockLine.objects.filter(batch_id=latest.id).order_by("product_code", "warehouse", "id") if row.warehouse.strip() != "刷刷仓" and _is_jd_warehouse(row.warehouse, row.warehouse_type)]
+    warehouse_mapping = effective_mapping()
+    stock = [row for row in InventoryStockLine.objects.filter(batch_id=latest.id).order_by("product_code", "warehouse", "id") if row.warehouse.strip() != "刷刷仓" and _is_jd_warehouse(row.warehouse, row.warehouse_type, warehouse_mapping)]
     product_codes = sorted({row.product_code for row in stock})
     if len(product_codes) > MAX_INBOUND_PRODUCTS:
         raise InventoryApiError("京东入仓货品数量超过销售消费查询上限", code="service_unavailable", status=503)

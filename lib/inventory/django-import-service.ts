@@ -3,6 +3,7 @@ import {
   createDjangoInventoryService,
   INVENTORY_IMPORTS_PATH,
   INVENTORY_SETTINGS_PATH,
+  INVENTORY_WAREHOUSE_MAPPINGS_PATH,
   type DjangoInventoryServiceOptions,
 } from "@/lib/django/inventory-service";
 import { validateInventoryImportRows } from "@/lib/inventory/data-quality";
@@ -12,6 +13,10 @@ import {
   type InventoryStockRow,
 } from "@/lib/imports/inventory-stock";
 import { isXlsxSignature } from "@/lib/sales/import-service";
+import {
+  parseWarehouseMappingPayload,
+  warehouseMappingRecord,
+} from "@/lib/inventory/warehouse-mapping-contract";
 
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -137,9 +142,15 @@ export async function importInventoryStockToDjango(
   if (!isXlsxSignature(input.bytes)) {
     return reject({ ok: false, status: "rejected", message: "文件签名不是有效的 .xlsx（ZIP）格式", warnings: [], errors: [{ code: "INVALID_XLSX_SIGNATURE", message: "文件签名无效" }], errorCount: 1 });
   }
+  const mapping = await service.requestJson<Record<string, unknown>>(
+    input.principal,
+    { method: "GET", path: INVENTORY_WAREHOUSE_MAPPINGS_PATH, service: "reader" },
+    options,
+  );
+  const warehouseMapping = warehouseMappingRecord(parseWarehouseMappingPayload(mapping.data).rows);
   let parsed: ReturnType<typeof parseInventoryStockXlsx>;
   try {
-    parsed = parseInventoryStockXlsx(input.bytes);
+    parsed = parseInventoryStockXlsx(input.bytes, { warehouseMapping });
   } catch {
     return reject({ ok: false, status: "rejected", message: "库存 Excel 文件解析失败，请确认文件格式和模板", warnings: [], errors: [{ code: "XLSX_PARSE_ERROR", message: "库存 Excel 文件解析失败，请确认文件格式和模板" }], errorCount: 1 });
   }

@@ -474,6 +474,9 @@ class InventoryOperatingSettings(models.Model):
     auto_replenishment = models.BooleanField(default=False)
     inventory_alert = models.BooleanField(default=True)
     allow_negative_inventory = models.BooleanField(default=False)
+    warehouse_mapping_json = models.JSONField(default=dict)
+    warehouse_mapping_updated_by = models.CharField(max_length=320, default="")
+    warehouse_mapping_updated_at = models.DateTimeField(null=True, blank=True)
     updated_by = models.CharField(max_length=320, default="")
     updated_at = models.DateTimeField(auto_now=True)
 

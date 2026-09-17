@@ -157,7 +157,7 @@
 | `rows_inventory_raw_upload_chunks` | `InventoryRawUploadChunk` | 6 | 2 | 管理员 |
 | `rows_replenishment_plan_items` | `ReplenishmentPlanItem` | 34 | 1 | 管理员 |
 | `rows_inventory_replenishment_group_deliveries` | `ReplenishmentGroupDelivery` | 12 | 2 | 管理员 |
-| `rows_inventory_operating_settings` | `InventoryOperatingSettings` | 10 | 0 | 管理员 |
+| `rows_inventory_operating_settings` | `InventoryOperatingSettings` | 12 | 1 | 管理员 |
 | `rows_inventory_migration_runs` | `InventoryMigrationRun` | 10 | 2 | 管理员 |
 
 ## market

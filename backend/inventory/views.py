@@ -22,6 +22,7 @@ from .plans import import_plans, plan_payload, plan_summary, query_plans, update
 from .query import inventory_age_analysis, inventory_inbound_monitor, inventory_overview, replenishment_plan_sources
 from .revisions import revision_value
 from .settings_service import read_settings, update_settings
+from .warehouse_mapping_service import mapping_payload, update_mapping
 from .uploads import CHUNK_SIZE_BYTES, MAX_FILE_SIZE_BYTES, execute_upload_action, read_chunk, receive_chunk
 from .write_requests import claim_write_request, complete_write_request, fail_write_request
 
@@ -608,3 +609,21 @@ def settings_view(request: HttpRequest) -> JsonResponse:
         return _replay_write(request, principal, lambda: (update_settings(payload, principal.email), 200))
     except Exception as error:
         return _error(error, "系统设置处理失败")
+
+
+@require_http_methods(["GET", "PUT"])
+def warehouse_mappings(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "GET":
+            _principal(request, {"viewer", "analyst", "operator", "admin"})
+            payload, revision = _consistent_read(mapping_payload)
+            return _json(payload, revision=revision)
+        principal = _principal(request, {"admin"})
+        payload = _body(request)
+        return _replay_write(
+            request,
+            principal,
+            lambda: (update_mapping(payload, principal.email), 200),
+        )
+    except Exception as error:
+        return _error(error, "仓库映射处理失败")
