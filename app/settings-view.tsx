@@ -24,6 +24,7 @@ const { Component: LazyMarketWorkflowPanel } = createReloadableLazy<MarketWorkfl
   default: module.MarketWorkflowPanel,
 })));
 const { Component: LazyMarketAnnotationView } = createReloadableLazy("settings", () => import("./market-annotation-view"));
+const { Component: LazyWarehouseMappingSettings } = createReloadableLazy("settings", () => import("./warehouse-mapping-settings"));
 const { Component: LazyDingTalkRobotSettings } = createReloadableLazy<{ canWrite: boolean }>("settings", () => import("./dingtalk-robot-settings"));
 const { Component: LazyAccessControlManagement } = createReloadableLazy<{ canManage: boolean }>("settings", () => import("./access-control-management"));
 
@@ -61,12 +62,13 @@ type NumericSettingKey = "targetDays" | "criticalDays" | "slowDays" | "stagnantD
 type BooleanSettingKey = "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory";
 export type MarketSettingsPane = "master-data" | "imports" | "annotation";
 
-const settingsTabs = ["parameters", "master", "dingtalk", "permissions"] as const satisfies readonly SettingsTab[];
+const settingsTabs = ["parameters", "master", "warehouses", "dingtalk", "permissions"] as const satisfies readonly SettingsTab[];
 const marketSettingsPanes = ["master-data", "imports", "annotation"] as const satisfies readonly MarketSettingsPane[];
 
 const settingsTabLabels: Record<SettingsTab, string> = {
   parameters: "系统参数",
   master: "主数据与映射",
+  warehouses: "仓库映射",
   dingtalk: "钉钉机器人",
   permissions: "权限管理",
 };
@@ -571,6 +573,17 @@ export default function SettingsView({
           <LazyMarketAnnotationView currentUser={currentUser} />
         </Suspense>
       </section>}
+    </section>}
+
+    {activeTab === "warehouses" && <section
+      id="settings-panel-warehouses"
+      role="tabpanel"
+      aria-labelledby="settings-tab-warehouses"
+      tabIndex={0}
+    >
+      <Suspense fallback={<LoadingState>正在加载仓库映射</LoadingState>}>
+        <LazyWarehouseMappingSettings />
+      </Suspense>
     </section>}
 
     {activeTab === "dingtalk" && <section

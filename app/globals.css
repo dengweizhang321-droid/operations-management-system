@@ -3115,3 +3115,32 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .summary-filter-hint { display: block; margin-top: 12px; color: var(--color-brand, #385e49); }
 .launch-followup-summary > button { display: grid; gap: 8px; padding: 18px; }
 .launch-followup-summary > button > strong { font-size: 26px; }
+
+/* System settings warehouse mapping uses the same compact filter-and-table rhythm as the reference system. */
+.warehouse-mapping-workspace { display: grid; gap: 15px; }
+.warehouse-mapping-overview { display: grid; grid-template-columns: minmax(260px,.75fr) minmax(560px,1.25fr); align-items: center; gap: 24px; padding: 19px 20px; background: linear-gradient(125deg,#fff 0%,var(--color-brand-soft) 100%); }
+.warehouse-mapping-eyebrow { color: var(--color-brand); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.warehouse-mapping-overview h2 { margin: 4px 0; color: var(--color-text-secondary); font-size: 18px; }
+.warehouse-mapping-overview p { max-width: 620px; margin: 0; color: var(--color-text-muted); font-size: 10px; line-height: 1.7; }
+.warehouse-mapping-summary { display: grid; grid-template-columns: repeat(4,minmax(110px,1fr)); gap: 8px; }
+.warehouse-mapping-summary article { min-width: 0; display: grid; gap: 4px; padding: 11px 12px; border: 1px solid var(--color-border-default); border-radius: 8px; background: rgba(255,255,255,.9); }
+.warehouse-mapping-summary span,.warehouse-mapping-summary small { overflow: hidden; color: var(--color-text-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.warehouse-mapping-summary strong { color: var(--color-text-secondary); font-size: 17px; }
+.warehouse-mapping-panel { padding: 0; }
+.warehouse-mapping-toolbar { align-items: flex-end; }
+.warehouse-mapping-filters { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: flex-end; gap: 8px; }
+.warehouse-mapping-filters label { min-width: 130px; display: grid; gap: 4px; color: var(--color-text-secondary); font-size: 8px; font-weight: 700; }
+.warehouse-mapping-filters select,.warehouse-mapping-filters input { height: 34px; padding: 0 10px; border: 1px solid var(--color-border-default); border-radius: 7px; outline: 0; color: var(--color-text-secondary); background: #fff; font-size: 9px; }
+.warehouse-mapping-filters select:focus,.warehouse-mapping-filters input:focus { border-color: var(--color-brand-border); box-shadow: 0 0 0 3px rgba(43,143,105,.12); }
+.warehouse-mapping-search { width: 220px; }
+.warehouse-mapping-table { min-width: 880px; }
+.warehouse-mapping-table th:first-child,.warehouse-mapping-table td:first-child { padding-left: 18px; }
+.warehouse-mapping-table th:last-child,.warehouse-mapping-table td:last-child { padding-right: 18px; }
+.warehouse-mapping-table td:nth-child(3) small { display: block; margin-top: 3px; color: var(--color-text-muted); }
+.warehouse-category-tag { min-width: 66px; display: inline-flex; justify-content: center; padding: 4px 8px; border: 1px solid var(--color-brand-border); border-radius: 6px; color: var(--color-brand); background: var(--color-brand-soft); font-weight: 700; }
+.warehouse-mapping-pagination { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--color-border-default); color: var(--color-text-muted); font-size: 9px; }
+.warehouse-mapping-pagination > div { display: flex; gap: 7px; }
+.warehouse-mapping-pagination .secondary-button { min-width: 74px; }
+.warehouse-mapping-pagination .secondary-button:disabled { cursor: not-allowed; opacity: .45; }
+@media (max-width:1100px) { .warehouse-mapping-overview { grid-template-columns: 1fr; }.warehouse-mapping-summary { grid-template-columns: repeat(2,minmax(120px,1fr)); }.warehouse-mapping-toolbar { align-items: flex-start; }.warehouse-mapping-filters { width: 100%; justify-content: flex-start; }.warehouse-mapping-search { flex: 1 1 220px; } }
+@media (max-width:620px) { .warehouse-mapping-summary { grid-template-columns: 1fr 1fr; }.warehouse-mapping-filters label,.warehouse-mapping-search { width: 100%; }.warehouse-mapping-pagination { align-items: flex-start; flex-direction: column; }.warehouse-mapping-pagination > div { width: 100%; }.warehouse-mapping-pagination .secondary-button { flex: 1; } }

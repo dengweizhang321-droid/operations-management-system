@@ -1,7 +1,7 @@
 {
-  "version": "2026-09-03",
+  "version": "2026-09-17",
   "sourceFile": "仓库类型映射.xlsx",
-  "sourceSha256": "caf15164d0388fc03dd15938ee1405afbf22e2302e75cc622b97ab3d638b2d2e",
+  "sourceSha256": "bb1cee9899e2a7c4f1d4c2aaa6a92fa3f1fc9253c9134c1be8ca62d617fdb923",
   "warehouses": {
     "ZA菜鸟华中武汉黄陂标准03仓": {
       "category": "cainiao",
@@ -1152,6 +1152,11 @@
       "category": "dropship",
       "label": "代发仓",
       "includeInInventory": false
+    },
+    "膳师傅仓库": {
+      "category": "dropship",
+      "label": "代发仓",
+      "includeInInventory": true
     },
     "自营异常仓（不要审核发货）": {
       "category": "exception",

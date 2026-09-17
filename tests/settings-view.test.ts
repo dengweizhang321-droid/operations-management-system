@@ -17,7 +17,8 @@ test("settings tabs implement deterministic automatic-activation roving", () => 
   assert.equal(nextSettingsTab("parameters", "ArrowRight"), "master");
   assert.equal(nextSettingsTab("parameters", "ArrowLeft"), "permissions");
   assert.equal(nextSettingsTab("permissions", "ArrowRight"), "parameters");
-  assert.equal(nextSettingsTab("master", "ArrowDown"), "dingtalk");
+  assert.equal(nextSettingsTab("master", "ArrowDown"), "warehouses");
+  assert.equal(nextSettingsTab("warehouses", "ArrowRight"), "dingtalk");
   assert.equal(nextSettingsTab("master", "ArrowUp"), "parameters");
   assert.equal(nextSettingsTab("master", "Home"), "parameters");
   assert.equal(nextSettingsTab("master", "End"), "permissions");
@@ -125,6 +126,7 @@ test("settings tab and panel semantics are linked and keyboard operable", async 
   assert.match(settings, /role="tabpanel"/);
   assert.match(settings, /aria-labelledby="settings-tab-parameters"/);
   assert.match(settings, /aria-labelledby="settings-tab-master"/);
+  assert.match(settings, /aria-labelledby="settings-tab-warehouses"/);
   assert.match(settings, /aria-labelledby="settings-tab-dingtalk"/);
   assert.match(settings, /aria-labelledby="settings-tab-permissions"/);
   assert.match(settings, /role="tablist" aria-label="主数据与映射工作区"/);
@@ -146,7 +148,7 @@ test("DingTalk robot is a dedicated system settings workspace", async () => {
     source("../app/new-product-sales-followup-view.tsx"),
     source("../app/shell/navigation-catalog.ts"),
   ]);
-  assert.match(navigation, /settings: \{ defaultView: "parameters", views: \["parameters", "master", "dingtalk", "permissions"\] \}/);
+  assert.match(navigation, /settings: \{ defaultView: "parameters", views: \["parameters", "master", "warehouses", "dingtalk", "permissions"\] \}/);
   assert.match(settings, /dingtalk: "钉钉机器人"/);
   assert.match(settings, /<LazyDingTalkRobotSettings canWrite=\{canEditDingTalk\}/);
   for (const label of ["钉钉机器人", "Stream 模式", "机器人名称", "目标群名称", "图片投递方式", "保存机器人配置"]) {
@@ -167,4 +169,19 @@ test("page lazy-loads the extracted settings implementation", async () => {
   assert.match(page, /settings: \([^\n]+<SettingsView/);
   assert.doesNotMatch(page, /type OperatingSettings =/);
   assert.doesNotMatch(page, /MarketMasterAdminPanel|MarketDataImportPanel|MarketWorkflowPanel|MarketAnnotationView/);
+});
+
+test("warehouse mapping is a dedicated lazy-loaded system settings workspace", async () => {
+  const [settings, mapping, config] = await Promise.all([
+    source("../app/settings-view.tsx"),
+    source("../app/warehouse-mapping-settings.tsx"),
+    source("../config/inventory-warehouse-mapping.json"),
+  ]);
+  assert.match(settings, /createReloadableLazy\("settings", \(\) => import\("\.\/warehouse-mapping-settings"\)\)/);
+  assert.match(settings, /warehouses: "仓库映射"/);
+  assert.match(settings, /activeTab === "warehouses"[\s\S]*?<LazyWarehouseMappingSettings/);
+  for (const label of ["仓库归类明细", "自定义仓库类型", "系统归类", "计入库存", "搜索仓库映射"]) {
+    assert.match(mapping, new RegExp(label));
+  }
+  assert.match(config, /"膳师傅仓库"[\s\S]*?"label": "代发仓"[\s\S]*?"includeInInventory": true/);
 });

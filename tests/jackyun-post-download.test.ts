@@ -145,12 +145,12 @@ test("controlled warehouse mapping preserves the verified workbook coverage", as
   const entries = Object.values(mapping.warehouses);
   const count = (category: string) => entries.filter((entry) => entry.category === category).length;
 
-  assert.equal(mapping.sourceSha256, "caf15164d0388fc03dd15938ee1405afbf22e2302e75cc622b97ab3d638b2d2e");
-  assert.equal(entries.length, 283);
-  assert.equal(count("dropship"), 219);
+  assert.equal(mapping.sourceSha256, "bb1cee9899e2a7c4f1d4c2aaa6a92fa3f1fc9253c9134c1be8ca62d617fdb923");
+  assert.equal(entries.length, 284);
+  assert.equal(count("dropship"), 220);
   assert.equal(count("jd"), 45);
   assert.equal(count("cainiao"), 3);
-  assert.equal(entries.filter((entry) => entry.includeInInventory).length, 65);
+  assert.equal(entries.filter((entry) => entry.includeInInventory).length, 66);
 });
 
 test("inventory age uses the same exact warehouse filter and required schema", () => {
