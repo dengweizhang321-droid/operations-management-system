@@ -55,7 +55,8 @@ const audited2621 = {
 } as const;
 const apiDownloadNode = "B·接口校验与五表下载";
 const apiLoginChallengeFailure = "waiting_login：吉客云登录已停止（challenge_present）。";
-const apiPlanTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全完整重跑"]);
+const apiBrowserOccupiedFailure = "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。";
+const apiPlanTriggers = new Set(["手动运行", "每天本机时间 00:10", "失败后每小时安全完整重跑", "失败后每小时安全重试入口"]);
 export type PreflightEvidence = {
   executionId: string; workflowId: string; status: string; startedAt: string; stoppedAt: string;
   lastNode: string; runNodes: string[]; error: string; httpCode: string; requestUrl: string;
@@ -67,7 +68,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports";
+  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -172,7 +173,7 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
     || evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.retrySuccessId !== null || evidence.activeExecutions !== 0 || evidence.lastNode !== apiDownloadNode
     || !apiPlanTriggers.has(evidence.runNodes[0] ?? "") || !isDeepStrictEqual(evidence.runNodes, expectedRunNodes)
-    || evidence.error !== apiLoginChallengeFailure || evidence.httpCode !== "500"
+    || (evidence.error !== apiLoginChallengeFailure && evidence.error !== apiBrowserOccupiedFailure) || evidence.httpCode !== "500"
     || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
     || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
     || !Number.isFinite(Date.parse(evidence.startedAt)) || !Number.isFinite(Date.parse(evidence.stoppedAt))
@@ -213,7 +214,7 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const controlsOnly = executionId === "897";
   const apiLoginOnly = executionId === "2621";
   const apiChallengeOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
-    && evidence.error === apiLoginChallengeFailure;
+    && (evidence.error === apiLoginChallengeFailure || evidence.error === apiBrowserOccupiedFailure);
   if (apiLoginOnly) {
     if (recoverySha(planRaw) !== audited2621.planSha256 || !isDeepStrictEqual(evidence, audited2621.evidence)) throw new Error("2621 原失败运行身份或证据已变化。");
   } else if (controlsOnly) {
@@ -245,7 +246,8 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     historicalCodeEvidence: { releaseId: audited897.releaseId, controllerSourceSha256: audited897.controllerSourceSha256 } };
   if (apiChallengeOnly) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
-    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "verified_api_login_challenge_without_business_effects" };
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths,
+    reason: evidence.error === apiLoginChallengeFailure ? "verified_api_login_challenge_without_business_effects" : "verified_api_browser_occupied_without_business_effects" };
   if (legacyMenuOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_843_menu_lookup_before_export_click", controllerEvidence,
@@ -273,11 +275,12 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const receipt = parse<PreflightClosure>(raw);
   const loginClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_login_failure_without_business_effects";
   const apiChallengeClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_login_challenge_without_business_effects";
+  const apiBrowserOccupiedClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_browser_occupied_without_business_effects";
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
   const apiLoginClosed = receipt.status === "closed_before_business" && receipt.reason === "audited_2621_dpapi_before_api_exports";
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);

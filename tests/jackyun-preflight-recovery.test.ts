@@ -88,6 +88,26 @@ async function fixture2879() {
   return { ...f, plan, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-17T17:20:00Z") } };
 }
 
+const proof2902: PreflightEvidence = {
+  executionId: "2902", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-09-17T17:46:42.053Z", stoppedAt: "2026-09-17T17:46:43.059Z", retrySuccessId: null,
+  lastNode: "B·接口校验与五表下载",
+  runNodes: ["失败后每小时安全重试入口", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+  error: "waiting_login：专用浏览器端口已占用，自动任务不会接管已打开的浏览器。", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "a3177d9626effd83c517c4b4dd10dca9bc8ad75dfa44ed1896f2b8b7dd98e26e", activeExecutions: 0,
+};
+async function fixture2902() {
+  const f = await fixture(), runId = "n8n-export-first-2902";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  const plan = { version: 1, protocol: "2026-09-06.export-first.1", executionId: "2902", runId,
+    runDate: "2026-09-18", asOfDate: "2026-09-17", baseUrl: "http://localhost:3000", createdAt: "2026-09-17T17:46:42.952Z",
+    phase: "exporting", exports: {}, exportTransport: "session_api_v1" };
+  await writeFile(planPath, JSON.stringify(plan, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "2902" }));
+  return { ...f, plan, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-17T17:55:00Z") } };
+}
+
 test("API login challenge closes only a zero-effect pre-export run and permits a new full execution", async () => {
   const f = await fixture2879(), before = await readFile(f.planPath), active = await readFile(f.activePath);
   await assert.rejects(runJackyunExportFirstAction("plan-api", "2881", f.deps), /尚未闭合/);
@@ -101,6 +121,17 @@ test("API login challenge closes only a zero-effect pre-export run and permits a
   const next = await runJackyunExportFirstAction("plan-api", "2881", f.deps);
   assert.equal(next.exportTransport, "session_api_v1");
   assert.equal(next.snapshotDate, "2026-09-18"); assert.equal(next.salesEndDate, "2026-09-17");
+});
+
+test("API run refuses an already-open manual browser before business effects and remains strictly closable", async () => {
+  const f = await fixture2902();
+  const proposal = await inspectPreflightClosure(f.root, "2902", proof2902, "2026-09-17T17:50:00Z");
+  assert.equal(proposal.reason, "verified_api_browser_occupied_without_business_effects");
+  assert.equal(proposal.absentPaths.length, 4);
+  await publishPreflightClosure(f.root, proposal, proof2902, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "2902");
+  const next = await runJackyunExportFirstAction("plan-api", "2904", f.deps);
+  assert.equal(next.exportTransport, "session_api_v1");
 });
 
 test("API login challenge closure rejects any uncertain identity, stage, intent or business artifact", async () => {
