@@ -18,6 +18,7 @@ from inventory.models import (
 from inventory.query import _latest_batch
 from inventory.uploads import begin_upload, claim_upload, finish_upload, receive_chunk
 from inventory.views import _replay_write
+from inventory.warehouse_mapping_service import mapping_payload, update_mapping
 from sales.auth import Principal
 
 
@@ -74,6 +75,38 @@ def stock_payload(
         "rows": list(rows),
         "warnings": [],
         "totals": {"excludedBrushWarehouseRows": excluded},
+    }
+
+
+def age_payload(warehouse: str) -> dict[str, object]:
+    return {
+        "dataset": "age",
+        "file": {
+            "name": "库龄分析.xlsx",
+            "sizeBytes": 2048,
+            "rawFileHash": hashlib.sha256(warehouse.encode()).hexdigest(),
+            "sheetName": "库龄分析",
+        },
+        "snapshotDate": "2026-09-01",
+        "sourceRowCount": 1,
+        "excludedCount": 0,
+        "rows": [{
+            "sourceRowNumber": 2,
+            "warehouse": warehouse,
+            "warehouseType": "owned",
+            "productCode": "AGE-P1",
+            "productName": "库龄货品",
+            "specification": "标准装",
+            "category": "厨房电器",
+            "availableQuantity": 10,
+            "inventoryAgeDays": 30,
+            "sales7dQuantity": 1,
+            "sales30dQuantity": 3,
+            "unitCostCents": 500,
+            "stockValueCents": 5000,
+        }],
+        "warnings": [],
+        "totals": {},
     }
 
 
@@ -134,6 +167,79 @@ class InventoryImportTests(TestCase):
         self.assertEqual(InventoryImportBatch.objects.count(), 2)
         self.assertEqual(InventoryDataRevision.objects.get(domain="inventory").revision, 2)
         self.assertEqual(str(_latest_batch("stock").id), replacement["batch"]["id"])
+
+    def test_new_warehouse_is_added_as_pending_until_an_admin_confirms_it(self) -> None:
+        result = import_inventory_payload(
+            stock_payload(stock_row("P1", 2, warehouse="首次发现测试仓"), excluded=0),
+            "admin@example.test",
+        )
+
+        self.assertEqual(result["status"], "imported")
+        self.assertIn(
+            "NEW_WAREHOUSES_PENDING_CONFIRMATION",
+            {warning["code"] for warning in result["warnings"]},
+        )
+        pending_payload = mapping_payload()
+        pending = next(
+            row for row in pending_payload["rows"]
+            if row["warehouse"] == "首次发现测试仓"
+        )
+        self.assertEqual(pending["category"], "selfOperated")
+        self.assertTrue(pending["includeInInventory"])
+        self.assertTrue(pending["pendingConfirmation"])
+        self.assertEqual(pending_payload["rows"][0]["warehouse"], "首次发现测试仓")
+
+        confirmed_payload = update_mapping(
+            {
+                "expectedMappingRevision": pending_payload["mappingRevision"],
+                "mappings": [{
+                    "warehouse": "首次发现测试仓",
+                    "category": "sample",
+                    "includeInInventory": False,
+                }],
+            },
+            "admin@example.test",
+        )
+        confirmed = next(
+            row for row in confirmed_payload["rows"]
+            if row["warehouse"] == "首次发现测试仓"
+        )
+        self.assertEqual(confirmed["category"], "sample")
+        self.assertFalse(confirmed["includeInInventory"])
+        self.assertFalse(confirmed["pendingConfirmation"])
+
+    def test_age_import_also_discovers_a_new_warehouse_for_confirmation(self) -> None:
+        result = import_inventory_payload(
+            age_payload("库龄首次发现仓"),
+            "admin@example.test",
+        )
+
+        self.assertEqual(result["status"], "imported")
+        discovered = next(
+            row for row in mapping_payload()["rows"]
+            if row["warehouse"] == "库龄首次发现仓"
+        )
+        self.assertTrue(discovered["pendingConfirmation"])
+        self.assertEqual(discovered["category"], "selfOperated")
+
+    def test_failed_import_does_not_leave_a_discovered_warehouse_mapping(self) -> None:
+        import_inventory_payload(stock_payload(stock_row("P1", 2)), "admin@example.test")
+        InventoryStockLine.objects.filter(product_code="P1").update(available_quantity=999)
+
+        with self.assertRaises(InventoryApiError):
+            import_inventory_payload(
+                stock_payload(
+                    stock_row("P2", 2, warehouse="失败事务测试仓"),
+                    raw_seed="failed-new-warehouse",
+                    excluded=0,
+                ),
+                "admin@example.test",
+            )
+
+        self.assertNotIn(
+            "失败事务测试仓",
+            {row["warehouse"] for row in mapping_payload()["rows"]},
+        )
 
     def test_v1_current_batch_remains_verifiable_before_the_first_supplier_aware_import(self) -> None:
         import_inventory_payload(stock_payload(stock_row("P1", 2)), "admin@example.test")

@@ -10,7 +10,7 @@ from django.utils import timezone
 from .errors import InventoryApiError
 from .models import InventoryOperatingSettings
 from .revisions import bump_revision
-from .warehouse_mapping import WAREHOUSE_MAPPING
+from .warehouse_mapping import WAREHOUSE_MAPPING, classify_warehouse
 from .write_requests import lock_active_authority
 
 
@@ -25,26 +25,33 @@ CATEGORY_LABELS = {
     "overseas": "海外仓",
     "virtual": "虚拟仓",
     "exception": "异常仓",
+    "selfOperated": "自营仓",
 }
 EDITABLE_CATEGORIES = frozenset(CATEGORY_LABELS)
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 def _normalized_entry(value: object, *, warehouse: str) -> dict[str, object]:
-    if not isinstance(value, dict) or not set(value).issubset({"category", "label", "includeInInventory"}):
+    if not isinstance(value, dict) or not set(value).issubset(
+        {"category", "label", "includeInInventory", "pendingConfirmation"}
+    ):
         raise InventoryApiError(f"仓库“{warehouse}”的映射字段无效")
     category = value.get("category")
     included = value.get("includeInInventory")
+    pending = value.get("pendingConfirmation", False)
     if category not in EDITABLE_CATEGORIES:
         raise InventoryApiError(f"仓库“{warehouse}”的仓库类型无效")
     if not isinstance(included, bool):
         raise InventoryApiError(f"仓库“{warehouse}”的计入库存字段无效")
+    if not isinstance(pending, bool):
+        raise InventoryApiError(f"仓库“{warehouse}”的确认状态无效")
     if warehouse == "刷刷仓" and included:
         raise InventoryApiError("刷刷仓是固定业务排除仓，不能设置为计入库存")
     return {
         "category": str(category),
         "label": CATEGORY_LABELS[str(category)],
         "includeInInventory": included,
+        "pendingConfirmation": pending,
     }
 
 
@@ -83,16 +90,51 @@ def mapping_revision(mapping: dict[str, dict[str, object]]) -> str:
 def mapping_payload(settings: InventoryOperatingSettings | None = None) -> dict[str, object]:
     row = settings or InventoryOperatingSettings.objects.get(id=1)
     mapping = effective_mapping(row)
-    rows = [
+    rows = sorted([
         {"warehouse": warehouse, **entry}
         for warehouse, entry in mapping.items()
-    ]
+    ], key=lambda item: (not bool(item["pendingConfirmation"]), str(item["warehouse"])))
     return {
         "rows": rows,
         "mappingRevision": mapping_revision(mapping),
+        "pendingConfirmationCount": sum(bool(item["pendingConfirmation"]) for item in rows),
         "updatedAt": row.warehouse_mapping_updated_at.isoformat() if row.warehouse_mapping_updated_at else None,
         "updatedBy": row.warehouse_mapping_updated_by or None,
     }
+
+
+def discover_pending_mappings(
+    settings: InventoryOperatingSettings,
+    warehouses: set[str],
+    actor_email: str,
+) -> list[str]:
+    """Merge newly observed warehouses into a locked settings row.
+
+    The caller owns the inventory authority and transaction. Persisting through the
+    same transaction keeps discovery atomic with the successful inventory import.
+    """
+    current = effective_mapping(settings)
+    additions: dict[str, dict[str, object]] = {}
+    for warehouse in sorted(warehouses):
+        if warehouse in current:
+            continue
+        classification = classify_warehouse(warehouse, mapping=current)
+        additions[warehouse] = _normalized_entry(
+            {
+                "category": classification.category,
+                "includeInInventory": classification.include_in_inventory,
+                "pendingConfirmation": True,
+            },
+            warehouse=warehouse,
+        )
+    if not additions:
+        return []
+    merged = normalize_mapping({**current, **additions})
+    settings.warehouse_mapping_json = merged
+    settings.warehouse_mapping_updated_by = actor_email[:320]
+    settings.warehouse_mapping_updated_at = timezone.now()
+    settings.save(update_fields=["warehouse_mapping_json", "warehouse_mapping_updated_by", "warehouse_mapping_updated_at"])
+    return list(additions)
 
 
 def update_mapping(payload: object, actor_email: str) -> dict[str, object]:

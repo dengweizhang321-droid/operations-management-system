@@ -180,7 +180,7 @@ test("warehouse mapping is a dedicated lazy-loaded system settings workspace", a
   assert.match(settings, /createReloadableLazy\("settings", \(\) => import\("\.\/warehouse-mapping-settings"\)\)/);
   assert.match(settings, /warehouses: "仓库映射"/);
   assert.match(settings, /activeTab === "warehouses"[\s\S]*?<LazyWarehouseMappingSettings/);
-  for (const label of ["仓库归类明细", "自定义仓库类型", "系统归类", "计入库存", "搜索仓库映射", "导出映射", "导入映射", "编辑"]) {
+  for (const label of ["仓库归类明细", "自定义仓库类型", "系统归类", "计入库存", "确认状态", "待确认", "搜索仓库映射", "导出映射", "导入映射", "编辑"]) {
     assert.match(mapping, new RegExp(label));
   }
   assert.match(config, /"膳师傅仓库"[\s\S]*?"label": "代发仓"[\s\S]*?"includeInInventory": true/);

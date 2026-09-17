@@ -28,6 +28,8 @@ class WarehouseMappingSettingsTests(TestCase):
         payload = mapping_payload()
         self.assertEqual(len(payload["rows"]), 284)
         self.assertEqual(sum(bool(row["includeInInventory"]) for row in payload["rows"]), 66)
+        self.assertEqual(payload["pendingConfirmationCount"], 0)
+        self.assertFalse(any(bool(row["pendingConfirmation"]) for row in payload["rows"]))
         self.assertRegex(str(payload["mappingRevision"]), r"^[a-f0-9]{64}$")
 
     def test_single_edit_persists_and_becomes_the_effective_classifier(self):
@@ -46,6 +48,7 @@ class WarehouseMappingSettingsTests(TestCase):
         row = next(item for item in after["rows"] if item["warehouse"] == "一个小太阳仓")
         self.assertEqual(row["label"], "售后仓")
         self.assertTrue(row["includeInInventory"])
+        self.assertFalse(row["pendingConfirmation"])
         stored = InventoryOperatingSettings.objects.get(id=1)
         classification = classify_warehouse("一个小太阳仓", mapping=effective_mapping(stored))
         self.assertEqual((classification.category, classification.label), ("afterSales", "售后仓"))

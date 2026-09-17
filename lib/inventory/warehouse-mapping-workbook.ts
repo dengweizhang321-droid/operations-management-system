@@ -7,11 +7,10 @@ import {
 import type { WarehouseMappingRow } from "@/lib/inventory/warehouse-mapping-contract";
 
 
-const HEADERS = ["仓库", "自定义仓库类型", "计入库存", "备注"] as const;
+const HEADERS = ["仓库", "自定义仓库类型", "计入库存", "确认状态", "备注"] as const;
 const MAX_ROWS = 2_000;
 const categoryByLabel = new Map(
   Object.entries(inventoryWarehouseCategoryLabels)
-    .filter(([category]) => category !== "selfOperated")
     .map(([category, label]) => [label, category as WarehouseMappingRow["category"]]),
 );
 
@@ -65,8 +64,8 @@ export function parseWarehouseMappingWorkbook(input: ArrayBuffer | Uint8Array): 
     const warehouse = text(row[indexes["仓库"]]);
     const categoryValue = text(row[indexes["自定义仓库类型"]]);
     const category = categoryByLabel.get(categoryValue)
-      ?? (Object.hasOwn(inventoryWarehouseCategoryLabels, categoryValue) && categoryValue !== "selfOperated"
-        ? categoryValue as Exclude<InventoryWarehouseCategory, "selfOperated">
+      ?? (Object.hasOwn(inventoryWarehouseCategoryLabels, categoryValue)
+        ? categoryValue as InventoryWarehouseCategory
         : undefined);
     if (!warehouse || warehouse.length > 240 || /[\x00-\x1f\x7f]/.test(warehouse)) {
       throw new WarehouseMappingWorkbookError(`第 ${rowNumber} 行仓库名称无效`);
@@ -85,10 +84,16 @@ export function parseWarehouseMappingWorkbook(input: ArrayBuffer | Uint8Array): 
 export function buildWarehouseMappingWorkbook(rows: readonly WarehouseMappingRow[]): Uint8Array {
   const data = [
     [...HEADERS],
-    ...rows.map((row) => [row.warehouse, row.label, row.includeInInventory ? "是" : "否", ""]),
+    ...rows.map((row) => [
+      row.warehouse,
+      row.label,
+      row.includeInInventory ? "是" : "否",
+      row.pendingConfirmation ? "待确认" : "已确认",
+      "",
+    ]),
   ];
   const sheet = XLSX.utils.aoa_to_sheet(data);
-  sheet["!cols"] = [{ wch: 42 }, { wch: 18 }, { wch: 14 }, { wch: 30 }];
+  sheet["!cols"] = [{ wch: 42 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 30 }];
   sheet["!autofilter"] = { ref: `A1:D${data.length}` };
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "mapping");

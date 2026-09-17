@@ -3122,7 +3122,7 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .warehouse-mapping-eyebrow { color: var(--color-brand); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .warehouse-mapping-overview h2 { margin: 4px 0; color: var(--color-text-secondary); font-size: 18px; }
 .warehouse-mapping-overview p { max-width: 620px; margin: 0; color: var(--color-text-muted); font-size: 10px; line-height: 1.7; }
-.warehouse-mapping-summary { display: grid; grid-template-columns: repeat(4,minmax(110px,1fr)); gap: 8px; }
+.warehouse-mapping-summary { display: grid; grid-template-columns: repeat(5,minmax(100px,1fr)); gap: 8px; }
 .warehouse-mapping-summary article { min-width: 0; display: grid; gap: 4px; padding: 11px 12px; border: 1px solid var(--color-border-default); border-radius: 8px; background: rgba(255,255,255,.9); }
 .warehouse-mapping-summary span,.warehouse-mapping-summary small { overflow: hidden; color: var(--color-text-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .warehouse-mapping-summary strong { color: var(--color-text-secondary); font-size: 17px; }

@@ -15,6 +15,7 @@ import {
   parseWarehouseMappingWorkbook,
   WarehouseMappingWorkbookError,
 } from "../lib/inventory/warehouse-mapping-workbook";
+import { parseWarehouseMappingPayload } from "../lib/inventory/warehouse-mapping-contract";
 
 test("warehouse mapping workspace exposes the complete verified source", () => {
   assert.equal(warehouseMappingRows.length, 284);
@@ -27,6 +28,7 @@ test("warehouse mapping workspace exposes the complete verified source", () => {
       category: "dropship",
       label: "代发仓",
       includeInInventory: true,
+      pendingConfirmation: false,
     },
   );
 });
@@ -36,6 +38,7 @@ test("warehouse mapping filters combine category, inventory scope, and search", 
     query: "膳师傅",
     category: "dropship",
     inventory: "included",
+    confirmation: "all",
   });
   assert.deepEqual(includedDropship.map((row) => row.warehouse), ["膳师傅仓库"]);
 
@@ -43,6 +46,7 @@ test("warehouse mapping filters combine category, inventory scope, and search", 
     query: "",
     category: "jd",
     inventory: "excluded",
+    confirmation: "all",
   });
   assert.equal(excludedJd.length, 0);
 
@@ -50,9 +54,37 @@ test("warehouse mapping filters combine category, inventory scope, and search", 
     query: "异常仓",
     category: "all",
     inventory: "all",
+    confirmation: "all",
   });
   assert.equal(labelSearch.length, 1);
   assert.equal(labelSearch[0]?.warehouse, "自营异常仓（不要审核发货）");
+});
+
+test("newly discovered warehouses can be isolated for manual confirmation", () => {
+  const pending = {
+    ...warehouseMappingRows[0]!,
+    warehouse: "首次发现测试仓",
+    category: "selfOperated" as const,
+    label: "自营仓",
+    pendingConfirmation: true,
+  };
+  const filtered = filterWarehouseMappings([...warehouseMappingRows, pending], {
+    query: "",
+    category: "all",
+    inventory: "all",
+    confirmation: "pending",
+  });
+  assert.deepEqual(filtered, [pending]);
+
+  const parsed = parseWarehouseMappingPayload({
+    rows: [pending],
+    mappingRevision: "a".repeat(64),
+    pendingConfirmationCount: 1,
+    updatedAt: null,
+    updatedBy: null,
+  });
+  assert.equal(parsed.pendingConfirmationCount, 1);
+  assert.equal(parsed.rows[0]?.category, "selfOperated");
 });
 
 test("inventory views and settings share the same warehouse category contract", () => {

@@ -575,8 +575,46 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
     content_hash = _content_hash(data)
     scope_key = SCOPE_KEYS[dataset]
     now = timezone.now()
+    warnings: list[dict[str, object]] = list(data["warnings"])  # type: ignore[arg-type]
+    discovery_warnings: list[dict[str, object]] = []
     with transaction.atomic():
         lock_active_authority()
+        settings = InventoryOperatingSettings.objects.select_for_update().get(id=1)
+        from .warehouse_mapping import classify_warehouse
+        from .warehouse_mapping_service import discover_pending_mappings, effective_mapping
+
+        locked_mapping = effective_mapping(settings)
+        if dataset == "stock":
+            for row in rows:
+                classification = classify_warehouse(str(row["warehouse"]), mapping=locked_mapping)
+                if (
+                    str(row["warehouseType"]) != classification.warehouse_type
+                    or str(row["warehouseCategory"]) != classification.category
+                    or bool(row["includeInInventory"]) != classification.include_in_inventory
+                ):
+                    raise _error(
+                        "仓库映射在库存文件解析后发生变化，请重新上传文件",
+                        code="version_conflict",
+                        status=409,
+                    )
+        discovered_warehouses = discover_pending_mappings(
+            settings,
+            {str(row["warehouse"]) for row in rows},
+            actor_email,
+        )
+        if discovered_warehouses:
+            discovery_warning = {
+                "code": "NEW_WAREHOUSES_PENDING_CONFIRMATION",
+                "message": (
+                    f"发现 {len(discovered_warehouses)} 个新仓库，已加入仓库映射并标记为待确认："
+                    + "、".join(discovered_warehouses[:10])
+                    + ("等" if len(discovered_warehouses) > 10 else "")
+                ),
+            }
+            if len(warnings) >= MAX_WARNINGS:
+                warnings = warnings[: MAX_WARNINGS - 1]
+            warnings.append(discovery_warning)
+            discovery_warnings.append(discovery_warning)
         head = _lock_scope(dataset)
         previous = head.state_token
         current = (
@@ -639,12 +677,18 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
                 metadata={"fileName": file_value["name"]},
                 completed_at=now,
             )
+            if discovered_warehouses:
+                bump_revision({
+                    "kind": "warehouse_discovery",
+                    "dataset": dataset,
+                    "warehouses": discovered_warehouses,
+                })
             return {
                 "ok": True,
                 "status": "duplicate",
                 "message": "全部标准化库存资料与当前快照一致，无需重复导入",
                 "batch": _batch_payload(existing),
-                "warnings": existing.warnings_json,
+                "warnings": [*existing.warnings_json, *discovery_warnings],
             }
         attempt_hash = _sha(
             f"inventory-attempt-v1\n{dataset}\n{snapshot_date.isoformat()}\n{content_hash}\n{previous}"
@@ -673,7 +717,6 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
             metadata={"fileName": file_value["name"]},
         )
         next_state = _state_token(previous, batch_id, content_hash, len(rows))
-        warnings: list[dict[str, object]] = data["warnings"]  # type: ignore[assignment]
         batch = InventoryImportBatch.objects.create(
             id=batch_id,
             dataset=dataset,
@@ -808,6 +851,7 @@ def _import_inventory_payload(payload: object, actor_email: str) -> dict[str, ob
                 "batchId": batch_id,
                 "snapshotDate": snapshot_date.isoformat(),
                 "contentHash": content_hash,
+                "discoveredWarehouses": discovered_warehouses,
             }
         )
         batch.refresh_from_db()

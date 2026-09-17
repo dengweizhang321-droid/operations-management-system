@@ -23,6 +23,7 @@ export type WarehouseMappingFilters = {
   query: string;
   category: "all" | WarehouseMappingEntry["category"];
   inventory: "all" | "included" | "excluded";
+  confirmation: "all" | "pending" | "confirmed";
 };
 
 type WarehouseMappingSettingsProps = {
@@ -33,8 +34,8 @@ const PAGE_SIZE = 20;
 const apiPath = "/api/settings/warehouse-mappings";
 
 export const warehouseMappingRows: readonly WarehouseMappingRow[] = Object.entries(
-  warehouseMappingData.warehouses as Record<string, WarehouseMappingEntry>,
-).map(([warehouse, entry]) => ({ warehouse, ...entry }));
+  warehouseMappingData.warehouses as Record<string, Omit<WarehouseMappingEntry, "pendingConfirmation">>,
+).map(([warehouse, entry]) => ({ warehouse, ...entry, pendingConfirmation: false }));
 
 export function filterWarehouseMappings(
   rows: readonly WarehouseMappingRow[],
@@ -45,6 +46,8 @@ export function filterWarehouseMappings(
     if (filters.category !== "all" && row.category !== filters.category) return false;
     if (filters.inventory === "included" && !row.includeInInventory) return false;
     if (filters.inventory === "excluded" && row.includeInInventory) return false;
+    if (filters.confirmation === "pending" && !row.pendingConfirmation) return false;
+    if (filters.confirmation === "confirmed" && row.pendingConfirmation) return false;
     if (!query) return true;
     return [row.warehouse, row.label, inventoryWarehouseCategoryLabels[row.category], row.category]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
@@ -85,6 +88,7 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<WarehouseMappingFilters["category"]>("all");
   const [inventory, setInventory] = useState<WarehouseMappingFilters["inventory"]>("all");
+  const [confirmation, setConfirmation] = useState<WarehouseMappingFilters["confirmation"]>("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,18 +122,14 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
 
   useEffect(() => { void loadMappings(); }, [loadMappings]);
 
-  const categoryOptions = useMemo(
-    () => inventoryWarehouseCategoryOrder.filter(
-      (value): value is WarehouseMappingEntry["category"] => value !== "selfOperated",
-    ),
-    [],
-  );
+  const categoryOptions = useMemo(() => [...inventoryWarehouseCategoryOrder], []);
   const categoryCount = new Set(rows.map((row) => row.category)).size;
   const includedCount = rows.filter((row) => row.includeInInventory).length;
   const excludedCount = rows.length - includedCount;
+  const pendingConfirmationCount = rows.filter((row) => row.pendingConfirmation).length;
   const filteredRows = useMemo(
-    () => filterWarehouseMappings(rows, { query, category, inventory }),
-    [category, inventory, query, rows],
+    () => filterWarehouseMappings(rows, { query, category, inventory, confirmation }),
+    [category, confirmation, inventory, query, rows],
   );
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -138,6 +138,7 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
   const updateQuery = (value: string) => { setQuery(value); setPage(1); };
   const updateCategory = (value: WarehouseMappingFilters["category"]) => { setCategory(value); setPage(1); };
   const updateInventory = (value: WarehouseMappingFilters["inventory"]) => { setInventory(value); setPage(1); };
+  const updateConfirmation = (value: WarehouseMappingFilters["confirmation"]) => { setConfirmation(value); setPage(1); };
 
   const saveMappings = async (
     mappings: Array<Pick<WarehouseMappingRow, "warehouse" | "category" | "includeInInventory">>,
@@ -178,7 +179,7 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
       warehouse: editingWarehouse,
       category: draftCategory,
       includeInInventory: draftIncluded,
-    }], `已更新仓库“${editingWarehouse}”，库存管理将立即采用新归类。`);
+    }], `已确认仓库“${editingWarehouse}”，库存管理将立即采用所选归类。`);
     if (saved) setEditingWarehouse("");
   };
 
@@ -205,11 +206,12 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
       <div>
         <span className="warehouse-mapping-eyebrow">库存统一口径</span>
         <h2>仓库映射</h2>
-        <p>编辑结果统一用于库存总览、库龄、滞销清理、库存导入和备货计划。表格导入只新增或更新，不删除未列仓库。</p>
+        <p>新仓库首次出现在库存或库龄资料后会自动加入并标记“待确认”；管理员确认的结果统一用于库存总览、库龄、滞销清理、库存导入和备货计划。</p>
       </div>
       <div className="warehouse-mapping-summary" aria-label="仓库映射汇总">
         <SummaryCard label="仓库总数" value={rows.length} note={`默认版本 ${warehouseMappingData.version}`} />
         <SummaryCard label="仓库类型" value={categoryCount} note="按当前自定义类型统计" />
+        <SummaryCard label="待确认" value={pendingConfirmationCount} note="新发现仓库优先显示" />
         <SummaryCard label="计入库存" value={includedCount} note="进入库存分析与备货口径" />
         <SummaryCard label="不计入库存" value={excludedCount} note="保留明细但不计入总览" />
       </div>
@@ -237,13 +239,18 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
             <option value="included">计入库存</option>
             <option value="excluded">不计入库存</option>
           </select></label>
+          <label><span>确认状态</span><select aria-label="确认状态" value={confirmation} onChange={(event) => updateConfirmation(event.target.value as WarehouseMappingFilters["confirmation"])}>
+            <option value="all">全部状态</option>
+            <option value="pending">待确认</option>
+            <option value="confirmed">已确认</option>
+          </select></label>
           <label className="warehouse-mapping-search"><span>搜索</span><input aria-label="搜索仓库映射" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="仓库名或类型" /></label>
         </div>
       </div>
       {!canEdit && <p className="warehouse-mapping-readonly">当前账号可查看和导出映射；只有管理员可以编辑或导入。</p>}
       <div className="data-table-wrap">
         <table className="data-table warehouse-mapping-table">
-          <thead><tr><th>仓库</th><th>自定义仓库类型</th><th>系统归类</th><th>计入库存</th><th>映射来源</th><th>操作</th></tr></thead>
+          <thead><tr><th>仓库</th><th>自定义仓库类型</th><th>系统归类</th><th>计入库存</th><th>确认状态</th><th>操作</th></tr></thead>
           <tbody>
             {visibleRows.map((row) => {
               const editing = editingWarehouse === row.warehouse;
@@ -256,7 +263,9 @@ export default function WarehouseMappingSettings({ canEdit }: WarehouseMappingSe
                 <td>{editing
                   ? <label className="warehouse-mapping-checkbox"><input type="checkbox" checked={draftIncluded} disabled={row.warehouse === "刷刷仓"} onChange={(event) => setDraftIncluded(event.target.checked)} /><span>{draftIncluded ? "计入库存" : "不计入库存"}</span></label>
                   : <span className={`status ${row.includeInInventory ? "status-success" : "status-danger"}`}>{row.includeInInventory ? "计入" : "不计入"}</span>}</td>
-                <td><span className="soft-tag">统一库存配置</span></td>
+                <td>{row.pendingConfirmation
+                  ? <span className="status status-warning">待确认</span>
+                  : <span className="status status-success">已确认</span>}</td>
                 <td><div className="warehouse-mapping-row-actions">{editing
                   ? <><button type="button" className="primary-button" disabled={saving} onClick={() => void saveEdit()}>{saving ? "保存中…" : "保存"}</button><button type="button" className="secondary-button" disabled={saving} onClick={() => setEditingWarehouse("")}>取消</button></>
                   : <button type="button" className="row-action" disabled={!canEdit || !mappingRevision || saving} onClick={() => beginEdit(row)}>编辑</button>}</div></td>

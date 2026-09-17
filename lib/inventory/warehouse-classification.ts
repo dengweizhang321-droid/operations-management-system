@@ -44,7 +44,7 @@ export function inventoryWarehouseCategoryLabel(category: InventoryWarehouseCate
 }
 
 export type InventoryWarehouseMappingEntry = {
-  category: Exclude<InventoryWarehouseCategory, "selfOperated">;
+  category: InventoryWarehouseCategory;
   label: string;
   includeInInventory: boolean;
 };
