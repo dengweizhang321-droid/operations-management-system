@@ -145,3 +145,64 @@ GET 只读这两类元数据及原市场 revision。不得读取 `MarketRankingE
 与旧代码的差异已明确保留：导入 `validate_import_payload()` 日期只校验形状及先后，可能存在旧 `2026-02-30`；纯目录要求真实日历日期。旧导入文本可能包含 Cc/Cs 字符，新目录拒绝这些字符及非规范首尾空格。因此旧批次可以在导入层曾合法、在新目录层却不可用；这必须让历史初始化失败或标记 not_ready，不能静默丢弃之后声称目录完整，也未修改旧导入和分析 API 的接受范围。
 
 纯测试直接抽取现有导入规范化和 analysis.validate 的原函数 AST 做格式对照（不启动 Django/数据库），覆盖合法真实导入形状及旧坏日期差异；另验证5000/5001范围、10000/10001身份、7000宽身份触发16MiB、页面恰好38000字节与多1字节拒绝、非单日排除、缺失/空/乱序/重复历史范围、原始价格筛选独立、深层/循环类型拒绝、摘要绑定及别名隔离。这些是合成纯合同证据，不是历史数据库完整性、权限、性能或生产容量验收。
+
+## 11. 第54批 owning 候选实现（2026-09-18，隔离验收待完成）
+
+本节记录第54批已落盘候选代码，替代第3节中尚未定稿的存储实现选择。第53批纯合同保持原样。未部署、未执行正式迁移、未初始化正式目录，也未接入市场选择器前端或新模型工具。
+
+### 存储与实际发布路径
+
+候选 `market.0005_analysis_options` 依赖 `0004_projection_sync_fencing`，新增 `market_analysis_options` 和 `market_analysis_options_state`。采用**唯一当前索引 + 单例 state 的 generation**；没有多代索引保留。重建或导入同步在同一事务原子替换当前索引并更新 generation/digest/count/bytes。GET 前后复验 state 和全局市场 revision，拒绝混合两代数据。
+
+`analysis_options_projection.prepare_rebuild(principal)` 只允许事务外调用，读取真实 completed 批次元数据，逐批完整核验；最多10000批、原始 scope 总64MiB、单批16MiB，并继续受每批5000范围、目录10000身份/16MiB规范载荷约束。范围数不能大于该批成功行数，sourceType须等于批次原值，completed_at须存在。任何坏批次、缺失范围、超容量或前后 revision/权限变化均失败，不返回可发布的部分结果。
+
+准备结果是进程内 `PreparedProjection`，不能从客户端 JSON 恢复。`publish_rebuild(prepared,principal)` 复验实际写入 authority、真实账号与准备绑定，取得原 `MarketDataRevision` 行锁后核验来源 revision，才在同一事务发布全部索引和 ready 状态。此内部函数不是公开管理 API，也没有自动执行的 management command；当前发布/初始化只能由后续受控 owning 调用，不能向浏览器暴露准备胶囊。
+
+实际 `import_market_payload()` 成功分支在 `bump_revision()` 后、原事务提交前调用 `synchronize_import(scope,revision)`。锁序为 revision→options state，和显式重建一致。原目录未初始化或已 blocked 时，新批次不会自动宣称历史完整。原目录 ready 时先核全部有界元数据及目录摘要，再合并新批次原范围；坏范围、损坏目录或超容量使该目录同事务变为 blocked，不将新来源静默遗漏，也不拒绝原来合法的业务导入。其他数据库异常仍导致原事务回滚；未吞掉写入失败。同步只处理目录元数据，但当前实现在导入事务内完整替换最多10000条索引，正式时延尚未测量，不能将其表述为恒定耗时或已达到生产性能目标。
+
+### 只读 GET 与实时授权
+
+`GET /api/market/analysis-options` 只在 market_reader/development 注册，market_writer 不提供该 GET。读取仅访问新索引/state、市场 revision 和 AppUser 的五列授权元数据；不读取市场事实、历史批次、销售明细或 AI 表。每次读取前后均验证实际 active/admin/scope=None，并绑定账号 version；无真实 AppUser、停用、撤权、受限范围或本地保留身份没有记录时返回403，不回退免登身份。
+
+参数为第5节严格字段集，limit省略或字符串20。精确身份筛选与四字段 keyset 使用 COLLATE C，SQL LIMIT 21，返回最多20项，不在 Python 加载全目录。搜索使用规范持久 `search_casefold` 与 `q.casefold()` 的 C contains，避免 PostgreSQL icontains 与 Python Unicode casefold 对 ß/İ 等处理不一致；字段之间使用查询不允许包含的换行分隔，防止跨字段拼接伪匹配。输出的原始身份不做大小写归一。每项回读会核原列、规范 entry JSON、行摘要和搜索投影完全一致。
+
+1小时签名游标绑定精确查询、实际账号邮箱/role/scope/version、当前市场 revision、generation、目录 digest、limit20以及最后一项完整身份。账号变更403，游标/查询/来源代次变化409，未初始化或blocked503，只有完整初始化后的真实无命中为200空页。非导入引起的全局 revision 变化只作废旧游标，不永久禁用已建立目录。
+
+owning 成功页将纯 DTO 的 `authorityVerified` 改为 true 并重新计算 pageDigest；它仅表示**该次已授权历史目录读取**，所有 dateMetadata.coverageVerified 仍为 false。最终实际 HTTP JSON 使用同一规范序列化，完整响应≤38000 UTF-8字节，超限整页拒绝，无名称截断或部分前缀成功。
+
+### 部署、备份与权限配套文件
+
+- `tools/django-market-service.ps1`：reader对两表仅SELECT；writer对索引SELECT/INSERT/UPDATE/DELETE及其id序列USAGE，对既有单例state仅SELECT/UPDATE。两角色新增 access_control_users 的 email/role/status/scope/version 五列SELECT，无整表用户权限、权限写入或AI表授权。
+- `backend/teruisi_backend/health.py`：检查新表字段、选项索引与约束，以及真实五列SELECT权限；未初始化目录不等于整个市场服务不健康。
+- `tools/postgres-consistent-backup.py` 与 `tools/django-postgres-maintenance.ps1`：只在备份实际迁移含0005时要求两新表及0004依赖；旧0004备份缺两表继续合法，出现新表却无0005依据则拒绝。
+- `market/management/commands/migrate_market_from_d1.py`：真实D1 apply完成业务数据迁移时，同事务清除旧PG-only选项索引，并把state置not_ready；不从D1导入推断新目录已经完整。未来显式初始化仍须全量历史元数据核验。
+- 已初始化或有选项数据时拒绝直接逆迁移；需要独立明确的受控重置。当前没有提供自动清理/重置命令。
+
+### 当前验证状态与未完成项
+
+暂停前无数据库检查已完成：Python编译通过、Django system checks为0、migration state autodetect无market漂移。专用隔离测试标签 `market.tests.test_analysis_options.MarketOptionsOwningTests` 共11项已经收集，包含真实导入→初始化→两页GET、无事实SQL/无写入、Unicode搜索、撤权/跨scope/本地身份拒绝、游标版本/过期、初始化失败、同步回滚、损坏索引和真实受限reader/writer最小权限。暂停时这11项尚未执行；2026-09-18恢复后的实际结果见下方复测记录，现已全部通过。测试代码存在本身不代替真实角色验收。
+
+根任务已统一完成隔离PostgreSQL、旧market回归、0004→0005升级/备份独立恢复和真实角色验收，详见下方日志。正式历史元数据是否足以初始化、正式执行计划/导入耗时、工作台选择器及真实业务覆盖均未验收；本片不声明五阶段全部完成。
+
+### 第54批首次隔离结果与修正记录
+
+2026-09-18，根任务执行11项隔离 PostgreSQL：9通过、2失败，耗时30.173秒，日志 `.runtime/ai-pg-727c937310ba/failure.log`。失败原因已定位，不能将首轮写为通过：
+
+1. writer 路由断言的测试只 reload 子URLConf，根 `include()` 仍捕获此前reader的 urlpatterns 列表。测试现同时 reload 子与根URLConf并恢复，额外断言writer路由集合无analysis-options；实际冷启动角色注册未改。
+2. 旧导入替换循环用 `scope` 表示一项榜单标签，覆盖了同函数此前的完整规范scope对象。新同步改为显式传 `normalized['scope']`，并断言真实导入调用收到完整对象、目录保持ready、两项精确身份均保留。原event/fingerprint使用该既有变量的历史行为未在本片更改，避免无关摘要变化；这项旧shadowing问题应单独评估。
+
+两处修正编译和差异检查通过，随后完整11项重跑及独立升级恢复均已通过，见下方记录。实际受限reader/writer测试也在首轮其余9项中通过；该单项结果本身不替代完整回归。
+
+### 第54批隔离复测更新
+
+2026-09-18，根任务复跑新 owning 11 项全部通过，31.040 秒，日志 `.runtime/ai-pg-a3e180821043/tests.log`；旧 `market.tests.test_api` 与 `market.tests.test_analysis` 共22项全部通过，0.917 秒，日志 `.runtime/ai-pg-c3b0fde09a41/tests.log`。这些结果覆盖实际受限 reader/writer 权限，不是用纯合成 DTO 代替授权验收。前述首轮失败记录仍保留。
+
+独立升级/恢复首轮在完整备份收集前发现合成库缺 sales/erp revision 控制夹具，日志 `.runtime/ai-pg-14ca2344ae68/failure.log`。候选 harness 已补齐各域空库控制前提、市场迁移记录 ID 格式及原生 PostgreSQL 工具显式连接绑定，未削弱备份 collector；根任务随后重跑通过，实际证据见下段。
+
+独立市场 GET 边缘转发已经写入候选代码，仍只转发完整 owning 协议；工作台授权封套及来源选择器 UI 尚未接入。正式历史初始化、正式性能、真实业务覆盖和生产采用均未验收。
+
+### 第54批升级恢复与边缘转发最终候选证据
+
+根任务隔离重跑 `.runtime/ai-pg-05136156c352/market-options-upgrade.json` 为 passed：market.0004→0005 前后40张旧市场表行摘要一致；新两表不自动初始化，显式 owning 重建发布1项合成身份，初始化后逆迁移明确拒绝；旧0004备份依据继续通过。独立 pg_dump/pg_restore 后，全部备份表 evidence、市场旧新表行摘要及重新切换 Django 数据库后的真实 owning 页完全相等。该夹具使用规范成功历史批次元数据，验证目录迁移/恢复，不能冒充正式历史数据完整性或事实日期覆盖。此前 sales/erp revision 缺失属于完整备份夹具前提遗漏，已补足各域控制状态而非降低 collector 校验。
+
+新9项边缘转发与旧10项市场/签名回归共19项通过，日志 `.runtime/batch54-market-edge.log`；4个相关 TypeScript 文件 lint 通过。已实现固定只读 GET 桥与完整参数签名、reader路径、权限、取消、38KB响应及 revision 头体一致校验；工作台授权封套和选择器 UI 尚未接入。以上均为候选隔离验收，未执行正式迁移、正式历史初始化、生产发布或付费模型调用。

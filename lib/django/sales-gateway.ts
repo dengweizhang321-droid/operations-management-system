@@ -480,11 +480,13 @@ export async function createMarketGatewayAuthHeaders(
   input: SalesGatewaySignatureInput,
 ): Promise<Headers> {
   const method = input.method.toUpperCase();
-  if (method !== "POST" || !input.path.startsWith("/api/market/")) {
+  const optionsRead = method === "GET" && input.path === "/api/market/analysis-options";
+  if ((!optionsRead && method !== "POST") || !input.path.startsWith("/api/market/")) {
     throw marketConfigurationUnavailable();
   }
   const bodySha256 = input.bodySha256?.trim().toLowerCase() ?? "";
   if (!/^[a-f0-9]{64}$/.test(bodySha256)) throw marketConfigurationUnavailable();
+  if (optionsRead && bodySha256 !== EMPTY_SHA256) throw marketConfigurationUnavailable();
   if (!Number.isSafeInteger(input.timestamp) || input.timestamp <= 0) {
     throw marketConfigurationUnavailable();
   }

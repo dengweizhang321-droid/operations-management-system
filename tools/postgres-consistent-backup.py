@@ -137,6 +137,14 @@ def collect_evidence(
         market_tables = {name for name in tables if name.startswith("market_")}
         if market_tables:
             required.update(market_required)
+        market_options_tables = {"market_analysis_options", "market_analysis_options_state"}
+        market_migrations = {item["name"] for item in migrations if item["app"] == "market"}
+        if "0005_analysis_options" in market_migrations:
+            if "0004_projection_sync_fencing" not in market_migrations:
+                raise RuntimeError("Market options migration dependency is missing")
+            required.update(market_options_tables)
+        elif market_tables & market_options_tables:
+            raise RuntimeError("Market options tables lack their migration receipt")
         products_required = {
             "product_data_revisions",
             "product_shipping_rate_import_batches",

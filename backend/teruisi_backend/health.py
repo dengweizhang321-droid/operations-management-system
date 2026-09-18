@@ -258,6 +258,8 @@ NETSHOP_WRITER_AUTO_ID_TABLES = (
     "netshop_asset_upload_chunks",
 )
 REQUIRED_MARKET_COLUMNS = {
+    "market_analysis_options": {"id", "category", "scope", "ranking_dimension", "price_band_filter", "first_date", "last_date", "entry_json", "entry_digest", "search_casefold"},
+    "market_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_revision", "reason"},
     "market_import_batches": {
         "id", "source_type", "status", "raw_file_hash", "content_hash",
         "scope_json", "published_state_token", "migration_generation",
@@ -323,6 +325,8 @@ REQUIRED_MARKET_INDEXES = {
     "mkt_entry_period_idx", "mkt_entry_category_idx", "mkt_entry_identity_idx",
 }
 MARKET_WRITER_TABLE_PRIVILEGES = {
+    "market_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_analysis_options_state": ("SELECT", "UPDATE"),
     "market_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "market_ranking_entries": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "market_master_identities": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -364,6 +368,7 @@ MARKET_WRITER_TABLE_PRIVILEGES = {
     "market_netshop_projection_control": ("SELECT", "INSERT", "UPDATE"),
 }
 MARKET_WRITER_AUTO_ID_TABLES = (
+    "market_analysis_options",
     "market_ranking_entries", "market_master_identities", "market_import_fingerprints",
     "market_image_cache_job_items", "market_annotation_concurrency_settings",
     "market_netshop_projection",
@@ -1117,6 +1122,11 @@ def _validate_netshop_writer_permissions(cursor) -> None:
 
 
 def _validate_market_schema(cursor, *, writer: bool) -> None:
+    if connection.vendor == "postgresql":
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user, 'access_control_users', %s, 'SELECT')", [column])
+            if not cursor.fetchone()[0]:
+                raise ReadinessError("market_current_principal_columns_missing")
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_MARKET_WRITER_COLUMNS if writer else REQUIRED_MARKET_COLUMNS
     for table, expected_columns in expected.items():
@@ -1136,6 +1146,12 @@ def _validate_market_schema(cursor, *, writer: bool) -> None:
     }
     if not REQUIRED_MARKET_INDEXES.issubset(present_indexes):
         raise ReadinessError("market_projection_indexes_incomplete")
+    if connection.vendor == "postgresql":
+        option_constraints = connection.introspection.get_constraints(cursor, "market_analysis_options")
+        if not {"mkt_options_page_idx", "mkt_options_shape_ck"}.issubset(option_constraints):
+            raise ReadinessError("market_options_constraints_incomplete")
+        if "mkt_options_state_ck" not in connection.introspection.get_constraints(cursor, "market_analysis_options_state"):
+            raise ReadinessError("market_options_constraints_incomplete")
 
 
 def _validate_market_revision(cursor) -> None:

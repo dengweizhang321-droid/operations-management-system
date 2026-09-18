@@ -539,6 +539,12 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  $marketOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0005_analysis_options" }).Count
+  $marketOptionsTables = @("market_analysis_options", "market_analysis_options_state")
+  if ($marketOptionsMigration -eq 1) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0004_projection_sync_fencing" }).Count -ne 1) { throw "市场选项迁移缺少前置迁移" }
+    $requiredTables += $marketOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $marketOptionsTables }).Count -gt 0) { throw "市场选项表缺少对应迁移依据" }
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }

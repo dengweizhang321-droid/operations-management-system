@@ -5,6 +5,7 @@ from . import views
 
 
 read_patterns = [
+    path("analysis-options", views.analysis_options, name="market-analysis-options"),
     path("queries", views.queries, name="market-queries"),
     path("consumers/query", views.consumers, name="market-consumers"),
 ]

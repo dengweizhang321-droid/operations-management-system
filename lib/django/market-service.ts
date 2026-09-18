@@ -10,6 +10,7 @@ export const MARKET_QUERIES_PATH = "/api/market/queries";
 export const MARKET_CONSUMER_QUERY_PATH = "/api/market/consumers/query";
 export const MARKET_COMMANDS_PATH = "/api/market/commands";
 export const MARKET_IMPORTS_PATH = "/api/market/imports";
+export const MARKET_ANALYSIS_OPTIONS_PATH = "/api/market/analysis-options";
 
 const READER_PATHS = new Set([MARKET_QUERIES_PATH, MARKET_CONSUMER_QUERY_PATH]);
 const WRITER_PATHS = new Set([MARKET_COMMANDS_PATH, MARKET_IMPORTS_PATH]);
@@ -280,4 +281,35 @@ export function createDjangoMarketService(config?: DjangoMarketServiceConfig) {
       options: Omit<DjangoMarketServiceOptions, "config"> = {},
     ) => requestDjangoMarketService<T>(principal, input, { ...options, config }),
   };
+}
+
+/** A fixed read-only endpoint; existing POST query/command contracts stay closed. */
+export async function requestMarketAnalysisOptions<T>(
+  principal: AppPrincipal, query: URLSearchParams, options: DjangoMarketServiceOptions = {},
+): Promise<DjangoMarketServiceResult<T>> {
+  const config = normalizedConfig(options.config ?? await loadConfig());
+  const rawQuery = query.toString();
+  const headers = await createMarketGatewayAuthHeaders({
+    secret: config.internalSecret, principal, method: "GET", path: MARKET_ANALYSIS_OPTIONS_PATH,
+    rawQuery, bodySha256: await salesGatewayBodySha256(new Uint8Array()),
+    timestamp: Math.floor((options.now ?? Date.now)() / 1_000),
+    requestId: (options.requestId ?? (() => crypto.randomUUID()))(),
+  });
+  const target = new URL(MARKET_ANALYSIS_OPTIONS_PATH, config.readerBaseUrl);
+  target.search = rawQuery;
+  try {
+    const { response, data } = await fetchBoundedJson({
+      url: target.toString(), init: { method: "GET", headers, cache: "no-store" },
+      timeoutMs: config.timeoutMs, maxBytes: Math.min(config.maxResponseBytes, 38_000),
+      fetcher: options.fetchImpl, signal: options.signal,
+    });
+    if (!jsonContentType(response.headers.get("content-type")) || !isRecord(data)) throw unavailable();
+    if (!response.ok) throw upstreamError(response.status, data);
+    const revision = response.headers.get("x-market-data-revision") ?? "";
+    if (!/^\d+:[a-f0-9]{12}$/.test(revision) || revision !== data.revision) throw unavailable();
+    return { status: response.status, data: data as T, replayed: false, revision };
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
+    throw unavailable();
+  }
 }

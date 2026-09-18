@@ -1042,3 +1042,36 @@ class MarketNetshopProjectionControl(models.Model):
     class Meta:
         db_table = "market_netshop_projection_control"
         constraints = [models.CheckConstraint(condition=models.Q(id=1), name="mkt_netshop_control_ck")]
+
+class MarketAnalysisOption(models.Model):
+    """Current historical publication directory; replaced atomically on rebuild."""
+    id = models.BigAutoField(primary_key=True)
+    category = models.CharField(max_length=200)
+    scope = models.CharField(max_length=200)
+    ranking_dimension = models.CharField(max_length=3)
+    price_band_filter = models.CharField(max_length=200)
+    first_date = models.CharField(max_length=10)
+    last_date = models.CharField(max_length=10)
+    entry_json = models.TextField()
+    entry_digest = models.CharField(max_length=64)
+    search_casefold = models.CharField(max_length=2000)
+
+    class Meta:
+        db_table = "market_analysis_options"
+        constraints = [models.UniqueConstraint(fields=["category", "scope", "ranking_dimension", "price_band_filter"],
+                                               name="mkt_options_identity_uq")]
+
+
+class MarketAnalysisOptionsState(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    status = models.CharField(max_length=16, default="not_ready")
+    generation = models.CharField(max_length=64, default="")
+    directory_digest = models.CharField(max_length=64, default="")
+    identity_count = models.PositiveIntegerField(default=0)
+    stored_bytes = models.PositiveIntegerField(default=0)
+    source_revision = models.CharField(max_length=160, default="")
+    reason = models.CharField(max_length=64, default="not_initialized")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "market_analysis_options_state"

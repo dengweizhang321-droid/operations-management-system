@@ -9,7 +9,7 @@ from datetime import timedelta
 from django.db import connection, transaction
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from sales.auth import Principal, PrincipalEnvelopeError, verify_principal
 
@@ -26,6 +26,23 @@ from .revisions import assert_write_authority, revision_value
 
 
 logger = logging.getLogger(__name__)
+
+
+@require_GET
+def analysis_options(request: HttpRequest) -> JsonResponse:
+    try:
+        from .analysis_options import read_page, validate_request
+        principal = _principal(request, {"admin"})
+        query, cursor = validate_request(request.GET)
+        result = read_page(principal, query, cursor)
+        # Use the same canonical byte representation measured by the contract.
+        response = JsonResponse(result, json_dumps_params={"ensure_ascii": False, "sort_keys": True, "separators": (",", ":")})
+        response["Cache-Control"] = "no-store"
+        response["X-Market-Data-Revision"] = result["revision"]
+        return response
+    except Exception as error:
+        return _error(error, "市场来源选项读取失败")
+
 ADMIN_ANNOTATION_ACTIONS = {
     "commit",
     "commit_selected",
