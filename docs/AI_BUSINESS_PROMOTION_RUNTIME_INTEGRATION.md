@@ -1,6 +1,18 @@
 # 关键词深诊断接入多 Agent 与工程文件：最小版本化路径
 
-2026-09-18，候选分支代码只读核查。本文件是实施方案，没有新增运行注册、修改旧报告或宣称新功能可用。
+2026-09-18，候选分支实施方案。第一片已增加内部AI reader GET，尚未注册模型工具、新profile或文件；不代表多Agent词货诊断完整接通。旧报告、迁移和renderer保持原样，尚未生产采用。
+
+## 第一片：内部reader接口（候选，待主线程PG验收）
+
+精确路径`GET /api/ai/reports/<reportId>/promotion-keyword-sku`，由[views](../backend/ai_assistant/views.py)的精确allowlist与三段路径分派进入[严格参数适配](../backend/ai_assistant/business_promotion_runtime_tools.py)。沿用签名身份、当前AI reader/authority、实时账号及报告所属权限。底层只调用[既有owning page/read_row](../backend/ai_assistant/business_promotion_keyword_sku.py)，因此仅适用于其已支持的真实固定封存v2报告（含已支持integrated/screening），不会把纯计算DTO变为授权证明。
+
+- 页模式：必须`sourceKey/view`，可选`baselineKey/offset/limit`；offset为规范非负整数字符串，limit如提供只能为`20`。
+- 行模式：`rowIndex/rowId`必须同时存在；可选baselineKey，禁止offset/limit以及混合模式。行索引与SHA行身份由owning完整重验。
+- 未知/重复参数拒绝；view仅支持现有`keyword_sku/keyword_sku_context`，来源与基期由owning固定目录验证。
+- 原样返回owning封套、摘要和authority边界，完整UTF-8响应最多38000字节；no-store与X-AI-Revision沿用views。GET不写业务事实、不调模型、不建立读取回执，也不等于后续Agent已阅读。
+- 错误不回传成功authority；容量不足整行拒绝，撤权或绑定变化不得返回旧结果。
+
+新增[真实报告路由测试](../backend/ai_assistant/test_business_promotion_runtime_tools.py)，标签`ai_assistant.test_business_promotion_runtime_tools`；包括签名、完整封套/基期、行引用、参数、身份/角色/方法、错误来源、容量和迟到撤权。另须运行既有`ai_assistant.test_business_screening_routes`核验旧路径。这里没有执行生产或实际模型，测试结果由主线程补录。
 
 ## 已有能力和准确缺口
 
@@ -68,3 +80,11 @@ PostgreSQL `0024_business_screening_runtime.py` 把 profile、snapshot 字段与
 7. **真实诊断质量单列**：合成运行通过不代表付费模型效果通过。后续有授权时用固定真实报告核对关键词商品诊断、同比环比和行动方向；不自动调整广告、不发送外部消息。
 
 首个可实施批次建议只做第 1—3 步的新 profile/工具/引用完整闭环及其测试；第二批接新 renderer 与文件验证。两批都通过之前，进度应写“关键词 SKU owning 已有、runtime/报告接入未完成”，不得写为五阶段已全部完成。
+
+## 2026-09-18 内部 reader 接线
+
+候选已增加精确 GET `/api/ai/reports/<reportId>/promotion-keyword-sku`，分页和行引用两种参数形态互斥。它只调用既有 owning `page/read_row`，保留完整报告、来源、基期、表摘要及 authority 封套，不把纯合同或请求参数当授权；没有注册模型工具、新 profile 或文件版本。
+
+新路由7项与旧 screening 路由4项在隔离 PostgreSQL 合跑共11项通过，日志 `.runtime/ai-pg-864340d94583/tests.log`。首轮唯一失败是测试把其他管理员不可见的报告预期为403，实际正确隐藏为404；测试修正后通过，失败日志 `.runtime/ai-pg-56a58e919116/failure.log` 保留，未放宽服务。覆盖两种视图、基期、精确行引用、重复/混合参数、路径/方法/角色、容量、撤权、禁止业务事实SQL及模型调用。
+
+下一步仍须实现本文第1—3步的新 profile、中央工具、节点独立读取回执和数值引用复验；内部 reader 存在不代表 Agent 已能调用。之后再进入新 renderer 和双格式文件。

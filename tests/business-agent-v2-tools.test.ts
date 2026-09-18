@@ -14,6 +14,7 @@ const { canonicalAiEdge, handleAiEdge } = await import("../lib/ai/django-edge");
 const { aiHeaders } = await import("../lib/django/ai-service");
 const admin: AppPrincipal = { email: "synthetic@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
 const names = ["get_business_evidence_directory_v2", "get_business_analysis_table_v2"];
+const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"];
 const directory = aiToolRegistry.find(entry => entry.name === names[0])!;
 const table = aiToolRegistry.find(entry => entry.name === names[1])!;
 const strip = ({ handler, ...entry }: AiToolEntry) => { void handler; return entry; };
@@ -32,11 +33,13 @@ test("all preexisting catalog canonical hashes and entry metadata remain exactly
   assert.deepEqual(aiToolSurfaces.filter(surface => baseline.legacySurfaces.includes(surface)), baseline.legacySurfaces);
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
   assert.ok(aiToolSurfaces.includes(context.surface));
-  const oldEntries = aiToolRegistry.filter(entry => entry.execution.allowedSurfaces.some(surface => baseline.legacySurfaces.includes(surface)));
+  const oldEntries = aiToolRegistry.filter(entry => !continuationNames.includes(entry.name)
+    && entry.execution.allowedSurfaces.some(surface => baseline.legacySurfaces.includes(surface)));
   assert.deepEqual({ count: oldEntries.length, sha256: sha(canonicalAiEdge(oldEntries.map(strip))) }, baseline.registry);
   const actual: Record<string, { count: number; sha256: string }> = {};
   for (const surface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {
-    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, surface).map(strip);
+    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, surface)
+      .filter(entry => !continuationNames.includes(entry.name)).map(strip);
     actual[`${surface}/${role}/${scoped ? "scoped" : "unscoped"}`] = { count: entries.length, sha256: sha(canonicalAiEdge(entries)) };
   }
   assert.deepEqual(actual, baseline.catalogs);

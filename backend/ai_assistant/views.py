@@ -151,6 +151,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/integrated-analysis-table": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/integrated-budget": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/screening/(?:package|analysis|budget)": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence": {"GET", "POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
@@ -255,6 +256,9 @@ def _dispatch(request, path=""):
         if root == "reports" and len(parts)==4 and parts[2]=="screening":
             from . import business_screening_tools
             return response(business_screening_tools.read(parts[1],parts[3],params,principal))
+        if root == "reports" and len(parts)==3 and parts[2]=="promotion-keyword-sku":
+            from . import business_promotion_runtime_tools
+            return response(business_promotion_runtime_tools.read(parts[1],params,principal))
         if root == "reports" and parts[-1] == "budget-reference":
             from . import business_budget_store
             fields(params, {"runId", "offset", "limit"}, {"runId"})

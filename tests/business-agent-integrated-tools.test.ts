@@ -13,6 +13,7 @@ const { aiHeaders } = await import("../lib/django/ai-service");
 const admin: AppPrincipal = { email: "synthetic@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
 const surface = "business_agent_integrated_v1" as const;
 const names = ["get_business_integrated_directory_v1", "get_business_integrated_analysis_table_v1", "get_business_integrated_budget_v1"];
+const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"];
 const [directory, table, budget] = names.map(name => aiToolRegistry.find(entry => entry.name === name)!);
 const strip = ({ handler, ...entry }: AiToolEntry) => { void handler; return entry; };
 const sha = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
@@ -39,7 +40,8 @@ test("44 legacy entries and every old surface/role/scope catalog remain byte-ide
   assert.deepEqual({ count: old.length, sha256: sha(canonicalAiEdge(old.map(strip))) }, baseline.registry);
   const catalogs: Record<string, unknown> = {};
   for (const oldSurface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {
-    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, oldSurface).map(strip);
+    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, oldSurface)
+      .filter(entry => !continuationNames.includes(entry.name)).map(strip);
     catalogs[`${oldSurface}/${role}/${scoped ? "scoped" : "unscoped"}`] = { count: entries.length, sha256: sha(canonicalAiEdge(entries)) };
   }
   assert.deepEqual(catalogs, baseline.catalogs);
