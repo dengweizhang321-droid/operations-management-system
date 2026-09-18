@@ -543,6 +543,7 @@ def source_detail(run_id, source_key, principal):
 
 
 def _collect_v2(initial, body, principal, request_id, *, commit=None):
+    from . import business_collection_continuation as continuation
     cas(initial, body["expectedVersion"])
     if initial.status != "collecting":
         raise AiError("任务已结束", "conflict", 409)
@@ -559,13 +560,24 @@ def _collect_v2(initial, body, principal, request_id, *, commit=None):
     names = {e["name"] for e in entries if e.get("risk") == "read_only" and e.get("execution", {}).get("mode") == "direct"}
     if not {"get_business_source_page", "get_data_freshness"} <= names:
         raise AiError("来源工具或水位查询不可用", "access_denied", 403)
+    continued = None
+    if source["domain"] == "netshop" and entry is not None:
+        if continuation.TOOL not in names:
+            raise AiError("网店续读工具不可用，请等待兼容版本就绪", "access_denied", 403)
+        continued = continuation.prepare(initial, source, initial_source, principal)
     def execute(name, args):
         return _result(transport.execute_tool(name, args, principal, surface="business_collection",
             request_id=request_id, policy_digest=digest(entries)), name)
     with transport.request_budget(30):
         freshness = execute("get_data_freshness", {}) if entry is None else None
-        page = execute("get_business_source_page", {**source["query"], "domain": source["domain"], "limit": 100,
+        page = execute(continuation.TOOL, continued.arguments()) if continued else execute("get_business_source_page", {
+            **source["query"], "domain": source["domain"], "limit": 100,
             **({"cursor": verifier.expected_cursor} if verifier.expected_cursor else {})})
+    if continued:
+        continuation.check(continued, principal)
+        if (not isinstance(page, dict) or page.get("sourceRevision") != continued.arguments()["expectedRevision"]
+                or page.get("sourceRef") != continued.arguments()["expectedSourceRef"]):
+            raise AiError("网店续读来源版本已变化", "conflict", 409)
     try:
         expected = {k: v for k, v in source["query"].items() if k not in {"startDate", "endDate"}}
         if any(page["filters"].get(k) != v for k, v in expected.items()) or page["filters"].get("periods") != comparison_periods(source["query"]["startDate"], source["query"]["endDate"]):
@@ -594,6 +606,8 @@ def _collect_v2(initial, body, principal, request_id, *, commit=None):
         record = store.source_record(row, source["key"], lock=True)
         if record.version != initial_source.version or record.checkpoint_json != initial_source.checkpoint_json:
             raise AiError("来源检查点已变化", "version_conflict", 409)
+        if continued:
+            continuation.check(continued, principal)
         if store.progress(row)["pageCount"] >= MAX_PAGES or row.stored_bytes+size > MAX_BYTES:
             raise AiError("证据容量已满；保留现有检查点，不得截断后完成", "payload_too_large", 413)
         store.check_quota(principal, size+len(checkpoint.encode())-len(record.checkpoint_json.encode()), MAX_BYTES)
@@ -612,6 +626,8 @@ def _collect_v2(initial, body, principal, request_id, *, commit=None):
         row.stored_bytes += size
         row.version += 1
         row.save(update_fields=["stored_bytes", "version"])
+        if continued:
+            continuation.check_actor(continued, principal)
         if commit:
             return commit({"item": mapping(row)}, 200)
         return {"item": mapping(row)}

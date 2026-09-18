@@ -132,7 +132,7 @@ export function validateToolRegistry(entries: readonly AiToolEntry[]): void {
       throw new Error(`AI 工具入口范围无效：${entry.name}`);
     }
     validatePolicyInteger(entry.name, "timeoutMs", policy.timeoutMs, AI_TOOL_EXECUTION_POLICY_LIMITS.timeoutMs);
-    const collector = entry.name === "get_business_source_page" && policy.allowedSurfaces.length === 1
+    const collector = ["get_business_source_page", "get_business_netshop_continuation_page"].includes(entry.name) && policy.allowedSurfaces.length === 1
       && policy.allowedSurfaces[0] === "business_collection" && entry.risk === "read_only"
       && entry.allowedRoles.length === 1 && entry.allowedRoles[0] === "admin" && entry.scopePolicy === "unscoped_only";
     validatePolicyInteger(entry.name, "maxResultCharacters", policy.maxResultCharacters,

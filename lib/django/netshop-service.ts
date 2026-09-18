@@ -17,10 +17,12 @@ export const NETSHOP_PROMOTION_ITEMS_PATH = "/api/netshop/promotion-performance/
 export const NETSHOP_CONSUMER_QUERY_PATH = "/api/netshop/consumers/query";
 export const NETSHOP_ASSET_UPLOADS_PATH = "/api/netshop/asset-uploads";
 export const NETSHOP_ANALYSIS_RECORDS_PATH = "/api/netshop/analysis-records";
+export const NETSHOP_ANALYSIS_CONTINUATION_PATH = "/api/netshop/analysis-records/continuation";
 export const NETSHOP_ANALYSIS_OPTIONS_PATH = "/api/netshop/analysis-options";
 
 const STATIC_PATHS = new Set([
   NETSHOP_ANALYSIS_RECORDS_PATH,
+  NETSHOP_ANALYSIS_CONTINUATION_PATH,
   NETSHOP_ANALYSIS_OPTIONS_PATH,
   NETSHOP_IMPORTS_PATH,
   NETSHOP_OVERVIEW_PATH,

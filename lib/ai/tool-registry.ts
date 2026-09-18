@@ -39,6 +39,7 @@ import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
 import { getMarketAnalysisRecords } from "@/lib/market/analysis-tool";
 import { readBusinessEvidence, readBusinessAnalysisTable, readBusinessAnalysisTableV2, readBusinessBudget, readBusinessEvidenceDirectoryV2, readBusinessBudgetReferenceV1, readBusinessIntegratedDirectoryV1, readBusinessIntegratedAnalysisTableV1, readBusinessIntegratedBudgetV1, readBusinessScreeningPackageV1, readBusinessScreeningAnalysisTableV1, readBusinessScreeningBudgetV1 } from "@/lib/ai/business-evidence";
 import { readBusinessSourcePage } from "@/lib/ai/business-source-page";
+import { readBusinessNetshopContinuation } from "@/lib/ai/business-netshop-continuation";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
@@ -734,6 +735,23 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_collection"], maxResultCharacters: 131_072, maxCallsPerRequest: 2 },
     handler: readBusinessSourcePage,
+  },
+  {
+    name: "get_business_netshop_continuation_page", title: "持久网店证据检查点续读",
+    description: "仅供服务端v2网店持久采集从已核验的末块和原检查点继续；数据所属服务区分真实过期签名。不得提供给模型或聊天。",
+    inputSchema: { type: "object", properties: {
+      platform: { type: "string", minLength: 1, maxLength: 100 }, shop: { type: "string", minLength: 1, maxLength: 100 },
+      dataset: { type: "string", enum: ["promotion", "sku", "spu", "b2b", "master"] },
+      startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      window: { type: "string", enum: ["current", "previous", "yearAgo"] },
+      limit: { type: "integer", enum: [100] }, cursor: { type: "string", minLength: 1, maxLength: 1600 },
+      expectedSourceRef: { type: "string", pattern: "^[a-f0-9]{64}$" },
+      expectedRevision: { type: "string", minLength: 1, maxLength: 128 },
+      expectedLastId: { type: "integer", minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+    }, required: ["platform", "shop", "dataset", "startDate", "endDate", "window", "limit", "cursor", "expectedSourceRef", "expectedRevision", "expectedLastId"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_collection"], maxResultCharacters: 131_072, maxCallsPerRequest: 2 },
+    handler: readBusinessNetshopContinuation,
   },
   {
     name: "get_netshop_analysis_records",

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "candidate-development-evidence-v1",
+  "date": "2026-09-18",
+  "scope": "netshop v2 continuation only",
+  "productionWrites": false,
+  "modelCalls": false,
+  "owningPostgresql": {
+    "passed": 17,
+    "log": ".runtime/ai-pg-a3f68ea917d3/tests.log"
+  },
+  "aiLedgerPostgresql": {
+    "passed": 12,
+    "log": ".runtime/ai-pg-1e45ad8c9b02/tests.log",
+    "crossProcessTransport": "test replacement calling actual owning entry"
+  },
+  "legacyCollectionPostgresql": {
+    "passed": 31,
+    "log": ".runtime/ai-pg-5d6d709b7a41/tests.log"
+  },
+  "relatedNode": {
+    "passed": 75,
+    "log": ".runtime/continuation-related-node.log"
+  },
+  "build": "passed",
+  "limits": [
+    "No production deployment or real HTTP multi-process acceptance",
+    "Sales and market continuation are not wired",
+    "Initial AI test run had one mock-fixture error, retained in .runtime/ai-pg-83fd99259a98/failure.log",
+    "Previous full Node run: 2422 pass, 1 metadata-label retirement false positive, 21 skip. Guard now exempts only two exact metadata expressions in one file; dedicated 40 and combined 75 pass. Full rerun pending."
+  ]
+}

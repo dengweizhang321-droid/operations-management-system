@@ -1043,6 +1043,12 @@ def _validate_finance_writer_permissions(cursor) -> None:
 
 
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
+    if connection.vendor == "postgresql" and not writer:
+        from netshop.analysis_permissions import validate_actor_read
+        try:
+            validate_actor_read(cursor)
+        except ValueError as error:
+            raise ReadinessError("netshop_analysis_identity_privilege_missing") from error
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_NETSHOP_WRITER_COLUMNS if writer else REQUIRED_NETSHOP_COLUMNS
     for table, expected_columns in expected.items():
