@@ -4,8 +4,10 @@ import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 import AiBusinessBudgetBuilder from "./ai-business-budget-builder";
 import AiBusinessMappingBuilder from "./ai-business-mapping-builder";
 import AiBusinessScopePicker from "./ai-business-scope-picker";
+import AiBusinessMarketPicker from "./ai-business-market-picker";
 import { mappingBindingKey, type MappingSelection } from "@/lib/ai/business-mapping-builder";
 import { mergeNetshopOption, type NetshopOptionSelection } from "@/lib/ai/business-scope-options";
+import { mergeMarketOption, type MarketOptionSelection } from "@/lib/ai/business-market-options";
 import "./ai-business-workbench.css";
 
 type Shop = { platform: string; shop: string; datasets: string[]; salesChannels: string[] };
@@ -112,6 +114,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const [mapping, setMapping] = useState<MappingIntent>(emptyMapping);
   const [mappingReset, setMappingReset] = useState(0);
   const [scopeOpen, setScopeOpen] = useState(false), [scopeError, setScopeError] = useState("");
+  const [marketOpen, setMarketOpen] = useState(false), [marketError, setMarketError] = useState("");
   const formRef = useRef(form), scopeLocked = useRef(true);
   const mappingRef = useRef<MappingIntent>(emptyMapping()), detailRef = useRef<Detail | null>(null), detailFailed = useRef(false);
   const live = useRef(true), actor = useRef(""), pendingRef = useRef<Pending | null>(null), selectedRef = useRef("");
@@ -149,7 +152,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
         screeningModeRef.current = false; setScreeningMode(false);
         writeController.current?.abort(); previewController.current?.abort(); detailController.current?.abort(); listController.current?.abort(); listController.current = null;
         setPreview(null); setConfirmed(false); setDetail(null); setReports([]); setItems([]);
-        formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError("");
+        formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError(""); setMarketOpen(false); setMarketError("");
         detailRef.current = null; detailFailed.current = false; updateMapping(emptyMapping());
         selectedRef.current = ""; setSelected(""); setPage(1); setMoreReports(false); setWriteError("账号已变化，请重新核验当前账号的范围及待确认提交。");
       }
@@ -306,6 +309,14 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       edit({ ...current, shops }); setScopeError(""); return true;
     } catch (error) { setScopeError(message(error)); return false; }
   }
+  function addMarket(selection: MarketOptionSelection) {
+    if (!live.current || scopeLocked.current || pendingRef.current || writeController.current || !actor.current || selection.principalKey !== actor.current) return false;
+    try {
+      const current = formRef.current;
+      const markets = mergeMarketOption(current.markets, selection, actor.current);
+      edit({ ...current, markets }); setMarketError(""); return true;
+    } catch (error) { setMarketError(message(error)); return false; }
+  }
   const shopEdit = (i: number, change: Partial<Shop>) => edit({ ...form, shops: form.shops.map((shop, j) => j === i ? { ...shop, ...change } : shop) });
   const visibleItems = listedPage === page ? items : [];
   const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
@@ -332,6 +343,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       </fieldset>)}
       <button type="button" disabled={form.shops.length >= 4} onClick={() => edit({ ...form, shops: [...form.shops, { platform: "京东", shop: "", datasets: ["promotion", "master"], salesChannels: [] }] })}>添加店铺（最多 4 家）</button>
       <h4>市场榜单条件</h4><p>仅按下列精确条件查询榜单样本，不代表全市场规模；不猜测类目、范围和价格带。</p>
+      <button type="button" disabled={!principalKey} onClick={() => setMarketOpen(value => !value)}>{marketOpen ? "收起市场来源选择" : "从历史导入选择市场来源"}</button>
+      {marketOpen && principalKey && <AiBusinessMarketPicker key={principalKey} principalKey={principalKey} disabled={locked} onSelect={addMarket} onIdentityMismatch={() => void loadList(true)} />}
+      {marketError && <p role="alert" className="bw-error">{marketError}</p>}
       {form.markets.map((market, i) => <fieldset className="bw-card" key={i}><legend>市场条件 {i+1}</legend><div className="bw-grid">{(["platform", "category", "scope", "rankingDimension", "priceBandFilter"] as const).map(key => <TextInput key={key} label={`市场 ${i+1} ${{ platform: "平台", category: "精确类目", scope: "精确范围", rankingDimension: "榜单维度", priceBandFilter: "精确价格带" }[key]}`} value={market[key]} onChange={value => edit({ ...form, markets: form.markets.map((m, j) => i === j ? { ...m, [key]: value } : m) })} maxLength={key === "platform" ? 100 : 200} />)}</div><button type="button" onClick={() => edit({ ...form, markets: form.markets.filter((_, j) => i !== j) })}>删除市场条件 {i+1}</button></fieldset>)}
       <button type="button" disabled={form.markets.length >= 7} onClick={() => edit({ ...form, markets: [...form.markets, { platform: "", category: "", scope: "", rankingDimension: "", priceBandFilter: "" }] })}>添加市场条件（最多 7 项）</button>
       <div className="bw-actions"><button type="submit" disabled={previewBusy}>预览完整来源计划</button>{previewBusy && <button type="button" onClick={() => { previewController.current?.abort(); previewController.current = null; setPreviewBusy(false); }}>取消预览</button>}</div>
