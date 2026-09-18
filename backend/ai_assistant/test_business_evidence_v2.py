@@ -2,10 +2,14 @@
 import json
 from copy import deepcopy
 from unittest.mock import patch
+from urllib.parse import urlencode
+from django.http import QueryDict
 from django.test import TestCase, override_settings
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from sales.analysis import read_page
+from sales.analysis_continuation import read_page as continuation_page
+from sales.models import SalesDataRevision
 from business_analysis.evidence_v2 import validate_directory_pages
 from . import business_evidence as evidence, business_evidence_store as store, models as m
 from . import test_business_evidence as fixtures
@@ -16,7 +20,10 @@ from .policy import AiError, canonical, digest, uid
 class BusinessEvidenceV2Tests(TestCase):
     user = fixtures.BusinessEvidenceTests.user
     call = fixtures.BusinessEvidenceTests.call
-    setUp = fixtures.BusinessEvidenceTests.setUp
+    def setUp(self):
+        fixtures.BusinessEvidenceTests.setUp(self)
+        for domain in ("sales", "erp"):
+            SalesDataRevision.objects.get_or_create(domain=domain, defaults={"revision": 1, "source_digest": "a"*64})
 
     def request(self, count=1, **values):
         sources = [{"key": "sales" if i == 0 else f"sales-{i}", "domain": "sales",
@@ -29,12 +36,17 @@ class BusinessEvidenceV2Tests(TestCase):
 
     def execute(self, name, args, principal, **kwargs):
         self.assertEqual(kwargs["surface"], "business_collection")
+        if name == "get_business_sales_continuation_page":
+            self.assertNotIn("domain", args)
+            return {"toolName": name, "ok": True, "auditStatus": "recorded",
+                "data": continuation_page(principal, QueryDict(urlencode(args)))}
         data = {"dataCutoffDate": "2026-08-01"} if name == "get_data_freshness" else read_page(principal,
             {"operation": "analysis_records", **{k: v for k, v in args.items() if k != "domain"}})
         return {"toolName": name, "ok": True, "auditStatus": "recorded", "data": data}
 
     def collect(self, run_id, version=1, *, execute=None, commit=None):
-        catalog = [self.catalog[0], {**self.catalog[0], "name": "get_business_source_page"}]
+        catalog = [self.catalog[0], *[{**self.catalog[0], "name": name} for name in (
+            "get_business_source_page", "get_business_sales_continuation_page")]]
         with patch("ai_assistant.transport.catalog", return_value=catalog), patch("ai_assistant.transport.execute_tool", side_effect=execute or self.execute):
             return evidence.collect(run_id, {"sourceKey": "sales", "expectedVersion": version}, self.admin, "v2-test", commit=commit)
 

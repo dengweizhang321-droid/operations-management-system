@@ -1,4 +1,4 @@
-"""Bind a netshop continuation to real AI ledger bytes; never read netshop ORM."""
+"""Bind owning-source continuation to AI ledger bytes; no business-domain ORM."""
 from dataclasses import dataclass
 import json
 import re
@@ -10,16 +10,18 @@ from . import models as m, business_evidence_store as store
 from .policy import AiError, canonical, digest
 
 TOOL = "get_business_netshop_continuation_page"
+TOOLS = {"netshop": TOOL, "sales": "get_business_sales_continuation_page",
+         "market": "get_business_market_continuation_page"}
 MAX_SAFE = 9007199254740991
 
 
-def reject(message="网店续读检查点未通过核验"):
+def reject(message="来源续读检查点未通过核验"):
     raise AiError(message, "conflict", 409)
 
 
 def actor_snapshot(principal):
     if principal.role != "admin" or principal.scope is not None:
-        raise AiError("网店续读仅允许当前无范围管理员", "access_denied", 403)
+        raise AiError("来源续读仅允许当前无范围管理员", "access_denied", 403)
     actor = AppUser.objects.filter(email=principal.email.lower()).values("email", "role", "scope", "status", "version").first()
     if (not actor or actor["role"] != "admin" or actor["scope"] is not None or actor["status"] != "active"
             or type(actor["version"]) is not int or actor["version"] < 1):
@@ -37,6 +39,7 @@ class Prepared:
     page_count: int
     actor: str
     arguments_json: str
+    tool: str
 
     def arguments(self):
         return json.loads(self.arguments_json)
@@ -60,7 +63,7 @@ def check(prepared, principal):
 
 def prepare(run, source, record, principal):
     actor = actor_snapshot(principal)
-    if (not store.is_v2(run) or source["domain"] != "netshop" or record.domain != "netshop"
+    if (not store.is_v2(run) or source["domain"] not in TOOLS or record.domain != source["domain"]
             or record.run_id != run.id or record.source_key != source["key"] or run.status != "collecting"
             or not 1 <= record.page_count < 2000 or record.finished
             or not 1 <= record.checkpoint_run_version <= run.version
@@ -111,10 +114,10 @@ def prepare(run, source, record, principal):
         if previous != state["last_id"] or record.row_count < len(items):
             reject()
     except (ValueError, TypeError, KeyError, AttributeError) as error:
-        raise AiError("网店续读末块未通过核验", "conflict", 409) from error
+        raise AiError("来源续读末块未通过核验", "conflict", 409) from error
     arguments = {**source["query"], "limit": 100, "cursor": state["expected_cursor"],
         "expectedSourceRef": state["source_ref"], "expectedRevision": metadata["sourceRevision"], "expectedLastId": state["last_id"]}
     prepared = Prepared(run.id, run.version, record.id, record.version, record.checkpoint_json,
-        record.page_count, actor, canonical(arguments))
+        record.page_count, actor, canonical(arguments), TOOLS[source["domain"]])
     check(prepared, principal)
     return prepared

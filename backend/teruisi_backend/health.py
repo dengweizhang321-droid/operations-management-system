@@ -1000,6 +1000,18 @@ def _validate_finance_revision(cursor) -> None:
         raise ReadinessError("finance_reader_revision_invalid")
 
 
+def _validate_finance_source_reader_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("finance_source_requires_postgresql")
+        return
+    from finance.business_source_permissions import FinanceSourcePermissionError, validate_reader
+    try:
+        validate_reader(cursor)
+    except FinanceSourcePermissionError as error:
+        raise ReadinessError(str(error)) from error
+
+
 def _validate_finance_writer_authority(cursor) -> None:
     cursor.execute(
         "SELECT status, authority_epoch, cutover_id FROM finance_write_authority WHERE id = 1"
@@ -2376,6 +2388,7 @@ def ready(_request):
             elif finance_reader_process:
                 _validate_finance_schema(cursor, writer=False)
                 _validate_finance_revision(cursor)
+                _validate_finance_source_reader_permissions(cursor)
                 if settings.DJANGO_EXPECT_READ_ONLY:
                     if connection.vendor != "postgresql":
                         raise ReadinessError("database_role_not_read_only")

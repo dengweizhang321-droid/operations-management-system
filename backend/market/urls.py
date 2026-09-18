@@ -2,9 +2,11 @@ from django.conf import settings
 from django.urls import path
 
 from . import views
+from .analysis_continuation import continuation
 
 
 read_patterns = [
+    path("analysis-records/continuation", continuation, name="market-analysis-continuation"),
     path("analysis-options", views.analysis_options, name="market-analysis-options"),
     path("queries", views.queries, name="market-queries"),
     path("consumers/query", views.consumers, name="market-consumers"),

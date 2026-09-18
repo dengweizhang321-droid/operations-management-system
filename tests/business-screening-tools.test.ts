@@ -37,15 +37,15 @@ const baseline = {"surfaces":["ai_chat","dingtalk_chat","ai_agent","ai_sandbox",
 test("all 47 legacy entries and their 96 catalog projections preserve exact canonical bytes", () => {
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.surfaces.length), baseline.surfaces);
   assert.deepEqual(aiToolSurfaces.slice(baseline.surfaces.length), [surface]);
-  const old = aiToolRegistry.filter(entry => !names.includes(entry.name) && entry.name !== "get_business_netshop_continuation_page");
+  const old = aiToolRegistry.filter(entry => !names.includes(entry.name) && !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"].includes(entry.name));
   assert.deepEqual(old.map(entry => entry.name), baseline.names);
   assert.deepEqual({count:old.length,sha256:sha(canonicalAiEdge(old.map(strip)))}, baseline.registry);
   const catalogs: Record<string, unknown> = {};
   for (const oldSurface of baseline.surfaces as AiToolSurface[]) for (const role of ["viewer","analyst","operator","admin"] as const) for (const scoped of [false,true]) {
-    // The new collector-only continuation is tested independently; retain the
+    // The new collector-only continuations are tested independently; retain the
     // exact old entry/schema bytes rather than replacing the stored baseline.
     const entries = getToolsForPrincipal({...admin,role,scope:scoped?{warehouses:[],channels:[],platforms:[]}:null},oldSurface)
-      .filter(entry => entry.name !== "get_business_netshop_continuation_page").map(strip);
+      .filter(entry => !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"].includes(entry.name)).map(strip);
     catalogs[`${oldSurface}/${role}/${scoped?"scoped":"unscoped"}`]={count:entries.length,sha256:sha(canonicalAiEdge(entries))};
   }
   assert.deepEqual(catalogs,baseline.catalogs);

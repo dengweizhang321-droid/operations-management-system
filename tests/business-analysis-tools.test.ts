@@ -13,6 +13,29 @@ const admin = { email: "analysis@example.test", displayName: "Fixture", role: "a
 const entry = aiToolRegistry.find(e => e.name === "get_netshop_analysis_records")!;
 const args = { platform: "京东", shop: "样例店A", dataset: "promotion", startDate: "2026-09-01", endDate: "2026-09-03" };
 
+test("sales and market continuations preserve exact schema and collector-only permissions", () => {
+  const checkpoint = { startDate: args.startDate, endDate: args.endDate, window: "current", limit: 100,
+    cursor: "original-signed-cursor", expectedSourceRef: "a".repeat(64), expectedLastId: 101 };
+  for (const [name, query] of [
+    ["get_business_sales_continuation_page", { ...checkpoint, platform: "京东", shop: "样例店A", channel: "批发", expectedRevision: "7:9" }],
+    ["get_business_market_continuation_page", { ...checkpoint, platform: "京东", category: "饮水机", scope: "POP", rankingDimension: "SKU", priceBandFilter: "全部", expectedRevision: "7:abcdefabcdef" }],
+  ] as const) {
+    const tool = aiToolRegistry.find(item => item.name === name)!;
+    validateToolArguments(query, tool.inputSchema);
+    for (const bad of [{ ...query, limit: 99 }, { ...query, domain: "netshop" }, { ...query, expectedLastId: Number.MAX_SAFE_INTEGER + 1 }])
+      assert.throws(() => validateToolArguments(bad, tool.inputSchema));
+    const { expectedSourceRef: omitted, ...withoutBinding } = query;
+    assert.ok(omitted); assert.throws(() => validateToolArguments(withoutBinding, tool.inputSchema));
+    assert.deepEqual(tool.execution.allowedSurfaces, ["business_collection"]);
+    for (const surface of ["ai_chat", "ai_agent", "dingtalk_chat", "codex_mcp", "test"] as const)
+      assert.ok(!getToolsForPrincipal(admin, surface).some(item => item.name === name));
+    assert.ok(!getToolsForPrincipal({ ...admin, role: "operator" }, "business_collection").some(item => item.name === name));
+    assert.ok(!getToolsForPrincipal({ ...admin, scope: { platforms: ["京东"], channels: [], warehouses: [] } }, "business_collection").some(item => item.name === name));
+  }
+  assert.deepEqual(getOpenAiTools(admin, "business_collection"), []);
+  assert.deepEqual(getAnthropicTools(admin, "business_collection"), []);
+});
+
 test("budget tool binds report and evidence on the reader without accepting model assumptions", async t => {
   const budget = aiToolRegistry.find(e => e.name === "get_business_budget_scenarios")!;
   const query = { runId: "sealed", reportId: "report", offset: 1, limit: 1 };
@@ -187,7 +210,7 @@ test("audit failure prevents analysis data access", async () => {
 
 test("bulk collector is absent from providers and cannot widen a chat tool budget", async () => {
   const bulk = aiToolRegistry.find(e => e.name === "get_business_source_page")!;
-  assert.deepEqual(getToolsForPrincipal(admin, "business_collection").map(e => e.name).sort(), ["get_business_netshop_continuation_page", "get_business_source_page", "get_data_freshness"]);
+  assert.deepEqual(getToolsForPrincipal(admin, "business_collection").map(e => e.name).sort(), ["get_business_market_continuation_page", "get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_source_page", "get_data_freshness"]);
   assert.deepEqual(getOpenAiTools(admin, "business_collection"), []);
   assert.deepEqual(getAnthropicTools(admin, "business_collection"), []);
   for (const surface of ["ai_chat", "ai_agent", "ai_sandbox", "dingtalk_chat", "codex_mcp", "test"] as const) {

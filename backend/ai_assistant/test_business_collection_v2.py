@@ -1,8 +1,12 @@
 """The existing collector contract also holds for the explicit v2 directory."""
 import json
+from urllib.parse import urlencode
 from unittest.mock import patch
 
 from django.test import override_settings
+from django.http import QueryDict
+from sales.analysis_continuation import read_page as continuation_page
+from sales.models import SalesDataRevision
 
 from . import business_collection as collection, business_evidence as evidence, models as m
 from . import test_business_collection as legacy
@@ -12,13 +16,27 @@ from sales.tests.factories import make_line
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
 class V2AutomaticCollectionTests(legacy.AutomaticCollectionTests):
+    def setUp(self):
+        super().setUp()
+        for domain in ("sales", "erp"):
+            SalesDataRevision.objects.get_or_create(domain=domain, defaults={"revision": 1, "source_digest": "a"*64})
+
     # Inherit the seven independent v1 scenarios: complete paging, late response
     # isolation, bounded retry, audit rollback, expired claims and role/owner gates.
     # Only admission changes; transport and the scheduler are the real implementations.
     def start(self):
         body = {**self.body, "schemaVersion": "business-evidence-v2", "collectionMode": "bulk", "autoCollect": True}
         self.catalog.append({**self.catalog[0], "name": "get_business_source_page"})
+        self.catalog.append({**self.catalog[0], "name": "get_business_sales_continuation_page"})
         return evidence.create(body, self.admin)["item"]["id"]
+
+    def execute(self, name, args, principal, **kwargs):
+        if name != "get_business_sales_continuation_page":
+            return super().execute(name, args, principal, **kwargs)
+        self.assertEqual(kwargs["surface"], "business_collection")
+        self.assertNotIn("domain", args)
+        return {"toolName": name, "ok": True, "auditStatus": "recorded",
+            "data": continuation_page(principal, QueryDict(urlencode(args)))}
 
     def advance_once(self, execute=None):
         with patch("ai_assistant.transport.catalog", return_value=self.catalog), patch(

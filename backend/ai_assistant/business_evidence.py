@@ -561,23 +561,23 @@ def _collect_v2(initial, body, principal, request_id, *, commit=None):
     if not {"get_business_source_page", "get_data_freshness"} <= names:
         raise AiError("来源工具或水位查询不可用", "access_denied", 403)
     continued = None
-    if source["domain"] == "netshop" and entry is not None:
-        if continuation.TOOL not in names:
-            raise AiError("网店续读工具不可用，请等待兼容版本就绪", "access_denied", 403)
+    if source["domain"] in continuation.TOOLS and entry is not None:
+        if continuation.TOOLS[source["domain"]] not in names:
+            raise AiError("来源续读工具不可用，请等待兼容版本就绪", "access_denied", 403)
         continued = continuation.prepare(initial, source, initial_source, principal)
     def execute(name, args):
         return _result(transport.execute_tool(name, args, principal, surface="business_collection",
             request_id=request_id, policy_digest=digest(entries)), name)
     with transport.request_budget(30):
         freshness = execute("get_data_freshness", {}) if entry is None else None
-        page = execute(continuation.TOOL, continued.arguments()) if continued else execute("get_business_source_page", {
+        page = execute(continued.tool, continued.arguments()) if continued else execute("get_business_source_page", {
             **source["query"], "domain": source["domain"], "limit": 100,
             **({"cursor": verifier.expected_cursor} if verifier.expected_cursor else {})})
     if continued:
         continuation.check(continued, principal)
         if (not isinstance(page, dict) or page.get("sourceRevision") != continued.arguments()["expectedRevision"]
                 or page.get("sourceRef") != continued.arguments()["expectedSourceRef"]):
-            raise AiError("网店续读来源版本已变化", "conflict", 409)
+            raise AiError("续读来源版本已变化", "conflict", 409)
     try:
         expected = {k: v for k, v in source["query"].items() if k not in {"startDate", "endDate"}}
         if any(page["filters"].get(k) != v for k, v in expected.items()) or page["filters"].get("periods") != comparison_periods(source["query"]["startDate"], source["query"]["endDate"]):

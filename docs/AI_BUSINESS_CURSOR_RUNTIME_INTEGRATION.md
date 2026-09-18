@@ -1,6 +1,6 @@
 # 网店过期游标接入实际 v2 采集器：最小实现设计
 
-2026-09-18，网店候选已接中央采集工具与实际 v2 检查点；没有改变旧游标或持久协议，也没有部署正式服务。以下设计描述保留原问题与实现边界，以本节验收结果为当前状态。
+2026-09-18，网店、ERP 销售与市场三域候选均已接中央采集工具与实际 v2 检查点；没有改变旧游标或持久协议，也没有部署正式服务。以下设计描述保留原问题与实现边界，以本节验收结果为当前状态。
 
 ## 当前实现与验收
 
@@ -11,6 +11,16 @@
 - 原v1/v2采集与证据回归31项通过：`.runtime/ai-pg-5d6d709b7a41/tests.log`。
 - 桥接/注册/原工具/销售退役边界相关Node75项通过：`.runtime/continuation-related-node.log`。新工具7项包括独立HMAC、全JSON恰131072字节/多1拒绝、三种版本错位及非collection拒绝。旧47工具规范字节和96旧工具目录投影摘要保留；实际collection目录明确新增一个工具。
 - 构建通过：`.runtime/netshop-continuation-build.log`，相关ESLint通过。不是生产HTTP或真实模型验收；销售/市场续读仍缺。
+
+后续销售和市场切片使用独立工具 `get_business_sales_continuation_page`、`get_business_market_continuation_page` 及各自 reader GET。两域拥有各自 salt、参数、版本和事实查询，不复用网店签名公式。销售要求真实存在的 `sales:erp` 双版本；市场保留精确平台、类目、范围、榜单维度及价格带。三域 continuation 工具都只向 `business_collection` 的无范围管理员开放，模型和聊天目录保持为空。
+
+- 销售/市场 owning、原 reader 回归共 26 项通过：`.runtime/ai-pg-46a3d40a14f7/tests.log`。
+- 三域 AI 账本新增销售/市场 6 项通过：`.runtime/ai-pg-8b7513a8f51e/tests.log`。首轮 22 项中销售夹具没有显式建立双版本而被正确拒绝，市场子案受遗留 queued 状态影响；失败日志 `.runtime/ai-pg-ffc09154f7e4/failure.log` 保留，修正合成夹具后通过，未放宽实现。
+- 原 collection v2/evidence v2 共 24 项通过：`.runtime/ai-pg-1074fa9129cc/tests.log`；5001 行身份任务 6 项通过：`.runtime/ai-pg-ea24349de185/tests.log`。
+- 三域 schema/目录/桥接相关 Node 43 项通过：`.runtime/three-source-continuation-node.log`；销售与市场固定 GET 薄桥及既有服务 31 项通过：`.runtime/other-continuation-edge.log`。
+- 三域组合构建通过：`.runtime/three-source-continuation-build.log`，相关 ESLint 通过。
+
+以上仍是隔离 PostgreSQL 与合成跨进程调用。生产的多进程 HTTP、超一小时真实暂停、服务重启后恢复及正式规模耗时未执行；不能据此宣称长任务生产验收完成。
 
 ## 当前真实调用链与故障信息
 

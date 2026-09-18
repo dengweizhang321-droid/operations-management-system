@@ -2908,6 +2908,8 @@ with connection.cursor() as c:
         "GRANT SELECT ON finance_import_batches, finance_months, finance_lines, "
         "finance_targets_scoped, finance_data_revisions TO teruisi_finance_reader"
     )
+    from finance.business_source_permissions import grant_actor_read as grant_finance_source_actor
+    grant_finance_source_actor(c)
 
     c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")

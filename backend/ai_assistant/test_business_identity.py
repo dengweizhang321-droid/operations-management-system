@@ -9,8 +9,9 @@ from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from netshop.analysis import read_page as master_page, validate_request
 from netshop.models import NetshopImportBatch, NetshopRow
-from sales.models import SalesOrderLine
+from sales.models import SalesOrderLine, SalesDataRevision
 from sales.analysis import read_page as sales_page
+from sales.analysis_continuation import read_page as sales_continuation_page
 from sales.tests.factories import signed_headers, TEST_SECRET, make_line
 from . import business_evidence as evidence, business_identity as identity, tests as fixtures
 from . import test_business_evidence as evidence_fixtures
@@ -24,6 +25,8 @@ class BusinessIdentityTests(TestCase):
 
     def setUp(self):
         evidence_fixtures.BusinessEvidenceTests.setUp(self)
+        for domain in ("sales", "erp"):
+            SalesDataRevision.objects.get_or_create(domain=domain, defaults={"revision": 1, "source_digest": "a"*64})
         SalesOrderLine.objects.filter(pk=1).update(online_spec_code="")
         NetshopImportBatch.objects.create(id="master", source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
             file_name="synthetic.xlsx", file_size_bytes=1, file_hash="a"*64, raw_file_hash="a"*64, content_hash="a"*64, scope_key="a"*64,
@@ -38,11 +41,15 @@ class BusinessIdentityTests(TestCase):
         self.run_id = evidence.create(body, self.admin)["item"]["id"]
         def execute(name, args, actor, **kwargs):
             if name == "get_data_freshness": data = {"dataCutoffDate": "2026-08-01"}
+            elif name == "get_business_sales_continuation_page":
+                self.assertNotIn("domain", args)
+                data = sales_continuation_page(actor, QueryDict(urlencode(args)))
             else:
                 values = {k:v for k,v in args.items() if k != "domain"}
                 data = sales_page(actor, {"operation": "analysis_records", **values}) if args["domain"] == "sales" else master_page(*validate_request(QueryDict(urlencode(values))))
             return {"toolName": name, "ok": True, "auditStatus": "recorded", "data": data}
-        tools = [fixtures.CATALOG[0], {**fixtures.CATALOG[0], "name": "get_business_source_page"}]
+        tools = [fixtures.CATALOG[0], *[{**fixtures.CATALOG[0], "name": name} for name in (
+            "get_business_source_page", "get_business_sales_continuation_page")]]
         self.source_tools, self.source_execute = tools, execute
         with patch("ai_assistant.transport.catalog", return_value=tools), patch("ai_assistant.transport.execute_tool", side_effect=execute):
             evidence.collect(self.run_id, {"sourceKey": "sales", "expectedVersion": 1}, self.admin, "sales-seed")
