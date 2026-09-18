@@ -106,6 +106,14 @@ def collect_evidence(
             "sales_write_authority",
             "erp_product_master",
         }
+        sales_options_tables = {"sales_analysis_options", "sales_analysis_options_state"}
+        sales_migrations = {item["name"] for item in migrations if item["app"] == "sales"}
+        if "0010_analysis_options" in sales_migrations:
+            if "0009_postgres_raw_upload_payload" not in sales_migrations:
+                raise RuntimeError("ERP options migration dependency is missing")
+            required.update(sales_options_tables)
+        elif set(tables) & sales_options_tables:
+            raise RuntimeError("ERP options tables lack their migration receipt")
         erp_reference_required = {
             "erp_product_master", "erp_combo_items",
             "erp_reference_import_batches_pg", "erp_reference_import_scope_heads",

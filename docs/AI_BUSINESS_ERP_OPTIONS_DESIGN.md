@@ -1,6 +1,6 @@
 # ERP 精确来源选项：设计与候选纯合同
 
-2026-09-18。当前只实现 `backend/sales/analysis_options_contract.py` 与11项纯测试；没有 owning 服务、URL、权限变更、索引表或迁移，也没有数据库或生产规模验收。
+2026-09-18。纯合同已实现；随后新增 owning 服务、只读 URL、精确身份索引和单例状态的候选 `sales.0010_analysis_options`。新增模块已静态冻结，14项纯测试、备份兼容新3项/原8项、维护12项通过；13项隔离 PostgreSQL owning 测试交主任务运行，尚未记录结果。没有生产迁移、初始化、部署或规模验收。
 
 ## 已核验事实
 
@@ -14,7 +14,7 @@
 
 ## 推荐最小正确实现顺序
 
-先合入独立纯合同，再由根确认新增目录索引模式。本片不提供“GET直接DISTINCT事实”的临时降级。建议后续新增 sales owning 精确索引和单例状态两表，SQL迁移名随当时最新 sales migration 决定，不提前占号。
+独立纯合同先行后，根已确认新增目录索引模式。本片不提供“GET直接DISTINCT事实”的临时降级。候选 `sales.0010_analysis_options` 依赖原 `0009_postgres_raw_upload_payload`，增加两表，不自动扫描或初始化。
 
 索引每项保存精确三字段、firstDate/lastDate、正 rowCount、规范 item 和摘要；唯一约束使用完整三字段。state 保存 ready/not_ready/blocked、generation、directoryDigest、identityCount/canonicalBytes、准备时 salesRevision。建议首档最多10000身份、16MiB规范目录；这只是待单独合同/PG验证的设计上限，本片没有证明已达到该容量。不得只留下前10000项。
 
@@ -34,7 +34,7 @@ D1重新初始化、PG历史恢复没有已核实目录时显式 not_ready。导
 
 每页固定上限20条、完整UTF-8响应38000字节，长身份不能裁切；整页超限明确拒绝，不能伪称已到末页。1小时签名cursor应绑定协议/真实principal email、role、scope、version、三项query、sales:erp修订、directory generation/digest、limit20、最后完整三字段。账号变化403，来源/筛选变化409。选中前重新读取该页绑定，不改用户的分析日期或请求窗口。
 
-新 GET 必须前后读取真实 AppUser，要求 active/admin/scope=None；现有 sales.auth.verify_principal 仅证明签名，不证明签名后未撤权。只授 sales reader 必要的用户 email/role/status/scope/version 五列SELECT并在health验证，不能扩整表用户权限；是否已有相关grants需未来 owning实施时检查。不能复用旧免登fallback当真实授权。新目录不新增模型工具，也不改变旧工具catalog、原生ERP明细、预算或映射算法。
+新 GET 前后读取真实 AppUser，要求 active/admin/scope=None；现有 sales.auth.verify_principal 仅证明签名，不证明签名后未撤权。候选 grant helper 只为 reader/writer 增加用户 email/role/status/scope/version 五列SELECT，health验证这些列，不扩整表用户权限。不能复用旧免登fallback当真实授权。新目录不新增模型工具，也不改变旧工具catalog、原生ERP明细、预算或映射算法。
 
 ## 已实现纯模块接口与边界
 
@@ -49,4 +49,22 @@ D1重新初始化、PG历史恢复没有已核实目录时显式 not_ready。导
 
 本片 `PYTHONPATH=backend python -m unittest sales.test_analysis_options_contract -v`：11项通过。覆盖跨平台/多渠道不合并、空及trim/fallback拒绝、成功批次/主数据不能猜身份、精确filter、无q别名、坏日期/数字混同/Unicode、输入变异隔离、页摘要、20/21条、跨页乱序/重复、完整UTF-8超限、sales:erp版本格式。仅纯测试，没有PG、生产或模型调用。
 
-后续 owning 必须另测：真实销售导入与替换删除/日期缩小、raw==key可查询边界、刷刷仓排除、初始空/未就绪区分、原生查询结果身份一致；真实受限reader成功且事实/用户敏感列无权读；GET SQL只能目录/auth/revision，初始化事实SQL独立；失败/超时不发部分目录；并发导入与准备/发布互斥、修订变化、撤权/跨scope、游标篡改/过期与Unicode排序；10001组和长字段完整拒绝、旧备份兼容/独立恢复。若实际聚合计划无法在原查询期限内完成，先设计专门初始化预算或增量索引，不能放宽正式API超时掩盖成本。
+后续 owning 必须另测：真实销售导入与替换删除/日期缩小、raw==key可查询边界、刷刷仓排除、初始空/未就绪区分、原生查询结果身份一致；真实受限reader成功、用户敏感列拒读；GET SQL只能目录/auth/revision，初始化事实SQL独立；失败/超时不发部分目录；并发导入与准备/发布互斥、修订变化、撤权/跨scope、游标篡改/过期与Unicode排序；10001组和长字段完整拒绝、旧备份兼容/独立恢复。原 production sales reader 已有销售查询事实权限，本片不撤销，也不能宣称它不能读事实；新用例另用无事实权限的最小角色证明新 GET 不依赖事实。若实际聚合计划无法在原查询期限内完成，先设计专门初始化预算或增量索引，不能放宽正式API超时掩盖成本。
+
+## Owning 候选实现与部署边界
+
+`sales.analysis_options_projection.prepare_rebuild(principal)` 要求最外层事务之外，核实际管理员、sales/erp修订、原销售切换回执及原 ERP runtime guard，随后有界读取精确身份聚合。该既有 runtime guard 仍完整核验 ERP 主数据，本片未改写它或宣称其成本只是元数据读取。准备对象仅可在本进程使用；不提供 JSON 恢复或公网初始化接口。
+
+`publish_rebuild(prepared, principal)` 持原 sales authority 共享锁、sales revision 行锁和目录 state 行锁，再核权威/完整原回执/修订/实际账号，原子替换目录与 generation。锁内不重新扫描销售或 ERP 主数据。并发业务导入不被初始化接管：合法导入仍走原流程及原 revision 发布；一旦 sales revision 改变，旧目录 GET 503，不能继续返回旧身份或自动重建。ERP-only revision改变令旧游标409，但不把不受该变化影响的目录永久标为陈旧。
+
+原始身份超过200字符或空/回退/raw与key不等者不是旧精确 reader 可查询集合，因此不进入新目录；在可查询集合中的控制字符/无效日期元数据整次拒绝。`business_date` 现有字段是 NOT NULL DateField，投影从 ship_time 严格解析；新聚合读取也显式检查 date 类型，异常不转成空目录。
+
+`sales.analysis_options.read_page` 仅查目录、state、revision及实际用户五列，固定 C 排序 LIMIT21。已发布空目录可以200，未发布或陈旧503、当前权限变化403、游标/分页绑定变化409、完整页超38000 UTF-8字节413。GET `api/sales/analysis-options` 只在 reader/development 注册，writer不提供；页面状态、工作台封套和选择器尚未在此候选片接线。
+
+部署需要：候选0010迁移、新 `analysis_options_permissions.provision` 最小增量授权（已接 `django-local-service.ps1`）、sales reader/writer health 两表/约束/用户五列校验。旧业务写入权限不扩。迁移初态 not_ready；有目录或非初态时逆迁移拒绝。D1 actual apply 同事务清除这份 PG-only 索引、置 not_ready，verify-only 不写，即使来源恢复到相同 revision 也不会误沿用之前 ready。
+
+备份收集与 Windows 维护校验已增加条件：sales0010要求0009前驱及两张新表；旧0009备份无需新表仍有效；出现新表却没有0010记录明确拒绝。完整升级、角色、旧表摘要不变及独立恢复仍交主任务执行，不能用纯证据 fixture 替代。候选证据见 `docs/evidence/erp-source-options-candidate-20260918.json`。
+
+## 2026-09-18 隔离验收补充
+
+实际 owning PostgreSQL 13项通过（34.935秒）；边缘接口新增10项与原gateway6项共16项通过。0009→0010升级、未初始化逆迁移/再次升级、已初始化逆迁移拒绝、17张既有sales表摘要保留及独立pg_dump/pg_restore后的完整备份表证据与实际owning页一致，均通过。证据路径见候选JSON；前两次演练仅合成market revision种子错误，保留失败日志，未放宽备份收集器。生产初始化、目录失效后的产品入口、前端ERP选择器及实际规模仍未验收。

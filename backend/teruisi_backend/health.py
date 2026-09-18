@@ -107,7 +107,12 @@ ACCESS_CONTROL_WRITER_TABLE_PRIVILEGES = {
 }
 ACCESS_CONTROL_WRITER_AUTO_ID_TABLES = ("access_control_permission_audits",)
 
+REQUIRED_SALES_OPTIONS_COLUMNS = {
+    "sales_analysis_options": {"id", "platform", "shop", "channel", "first_date", "last_date", "row_count", "entry_json", "entry_digest"},
+    "sales_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_sales_revision", "reason"},
+}
 REQUIRED_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "business_date",
         "platform_key",
@@ -793,6 +798,7 @@ ERP_REFERENCE_WRITER_AUTO_ID_TABLES = (
     "erp_reference_raw_upload_chunks",
 )
 REQUIRED_WRITER_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "source_line_key",
         "last_import_batch_id",
@@ -864,6 +870,8 @@ REQUIRED_WRITER_COLUMNS = {
     **REQUIRED_ERP_RUNTIME_COLUMNS,
 }
 WRITER_TABLE_PRIVILEGES = {
+    "sales_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_analysis_options_state": ("SELECT", "UPDATE"),
     "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "sales_data_revisions": ("SELECT", "INSERT", "UPDATE"),
@@ -894,6 +902,7 @@ WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
     "sales_legacy_upload_audits": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
 }
 WRITER_AUTO_ID_TABLES = (
+    "sales_analysis_options",
     "sales_order_lines",
     "sales_import_fingerprints",
     "sales_raw_upload_chunks",
@@ -917,7 +926,27 @@ def _column_names(cursor, table: str) -> set[str]:
     return {item.name for item in connection.introspection.get_table_description(cursor, table)}
 
 
+def _validate_sales_options(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    constraints = connection.introspection.get_constraints(cursor, "sales_analysis_options")
+    if not {"sales_options_shape_ck", "sales_options_page_idx"}.issubset(constraints):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if "sales_options_state_ck" not in connection.introspection.get_constraints(cursor, "sales_analysis_options_state"):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if settings.DJANGO_PROCESS_ROLE in {"reader", "sales_writer"}:
+        for table in REQUIRED_SALES_OPTIONS_COLUMNS:
+            cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT')", [table])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_privilege_missing")
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user,'access_control_users',%s,'SELECT')", [column])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_identity_privilege_missing")
+
+
 def _validate_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_COLUMNS.items():
         if table not in tables:
@@ -932,6 +961,7 @@ def _validate_schema(cursor) -> None:
 
 
 def _validate_writer_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_WRITER_COLUMNS.items():
         if table not in tables:

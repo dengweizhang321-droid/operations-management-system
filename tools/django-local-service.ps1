@@ -2881,6 +2881,8 @@ with connection.cursor() as c:
     from system_datasets.permissions import grant_columns
     grant_columns(c, "sales")
     grant_columns(c, "finance")
+    from sales.analysis_options_permissions import provision as grant_sales_options
+    grant_sales_options(c)
 
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON sales_order_lines TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE ON sales_import_batches, sales_data_revisions, sales_import_scope_heads, sales_import_attempts, sales_raw_upload_sessions, sales_staged_import_sessions, sales_write_request_receipts TO teruisi_sales_writer")

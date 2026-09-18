@@ -5,6 +5,7 @@ from . import views, write_views
 
 
 analytics_patterns = [
+    path("analysis-options", views.analysis_options, name="sales-analysis-options"),
     path("summary", views.summary, name="sales-summary"),
     path("category-analysis", views.category_analysis, name="sales-category-analysis"),
     path("category-analysis/detail", views.category_detail, name="sales-category-detail"),

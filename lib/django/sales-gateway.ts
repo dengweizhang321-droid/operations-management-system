@@ -1,5 +1,6 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { PublicApiError } from "@/lib/http/api-error";
+import { fetchBoundedJson } from "@/lib/ai/bounded-fetch";
 
 export const SALES_GATEWAY_RESPONSE_HEADER_ALLOWLIST = [
   "content-type",
@@ -14,7 +15,44 @@ const MAX_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 export const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+export const SALES_ANALYSIS_OPTIONS_PATH = "/api/sales/analysis-options";
 const encoder = new TextEncoder();
+
+/** Fixed metadata GET; preserve query bytes, deadline and cancellation. */
+export async function requestSalesAnalysisOptions(
+  principal: AppPrincipal, query: URLSearchParams,
+  options: { config?: SalesGatewayConfig; fetchImpl?: typeof fetch; signal?: AbortSignal } = {},
+): Promise<Record<string, unknown>> {
+  // Snapshot mutable query parameters before the asynchronous config/signature work.
+  const rawQuery = query.toString();
+  if (options.signal?.aborted) throw serviceUnavailable();
+  const config = normalizeConfig(options.config ?? await loadRuntimeConfig());
+  const base = normalizeDjangoBaseUrl(config.djangoBaseUrl), secret = requireSecret(config.internalSecret);
+  const headers = await createSalesGatewayAuthHeaders({ secret, principal, method:"GET", path:SALES_ANALYSIS_OPTIONS_PATH,
+    rawQuery, timestamp:Math.floor(Date.now()/1000), requestId:crypto.randomUUID() });
+  const target = new URL(SALES_ANALYSIS_OPTIONS_PATH,base); target.search=rawQuery;
+  try {
+    const { response, data } = await fetchBoundedJson({ url:target.toString(),
+      init:{method:"GET",headers,cache:"no-store",redirect:"manual"},
+      timeoutMs:config.timeoutMs,maxBytes:Math.min(config.maxResponseBytes,38_000),fetcher:options.fetchImpl,signal:options.signal });
+    if (options.signal?.aborted || !isJsonContentType(response.headers.get("content-type")) || !data || typeof data!=="object" || Array.isArray(data)) throw serviceUnavailable();
+    const value=data as Record<string,unknown>;
+    if (!response.ok) {
+      const status=response.status;
+      if (status===400 || status===403 || status===409 || status===413 || status===422 || status===503)
+        throw new PublicApiError(status,status===403?"access_denied":status===409?"conflict":status===413?"payload_too_large":status===503?"service_unavailable":"invalid_request",
+          typeof value.error==="string"?value.error:typeof value.message==="string"?value.message:"ERP来源选项读取失败");
+      throw serviceUnavailable();
+    }
+    const revision=response.headers.get("x-sales-data-revision");
+    if (!revision || !/^(0|[1-9]\d*):(0|[1-9]\d*)$/.test(revision)
+      || response.headers.get("x-sales-source-revision")!==revision || value.revision!==revision) throw serviceUnavailable();
+    return value;
+  } catch(error) {
+    if(error instanceof PublicApiError) throw error;
+    throw serviceUnavailable();
+  }
+}
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
