@@ -39,6 +39,27 @@ def pair(tables):
 
 
 class ReportFilesTests(TestCase):
+    def test_opc_v2_declares_manifest_and_changes_no_other_part_or_html(self):
+        def render(**kwargs):
+            xlsx, html = io.BytesIO(), io.BytesIO()
+            proof = write_pair(xlsx, html, title="仅合成", metadata={}, tables=[self.table()], **kwargs)
+            return xlsx.getvalue(), html.getvalue(), proof
+        with patch("zipfile.time.localtime", return_value=(2026, 1, 1, 0, 0, 0, 3, 1, 0)):
+            old, explicit, new = render(), render(xlsx_opc_version=1), render(xlsx_opc_version=2)
+        self.assertEqual(old, explicit)
+        self.assertEqual(old[1:], new[1:])
+        with zipfile.ZipFile(io.BytesIO(old[0])) as before, zipfile.ZipFile(io.BytesIO(new[0])) as after:
+            self.assertEqual(before.namelist(), after.namelist())
+            for name in before.namelist():
+                if name != "[Content_Types].xml":
+                    self.assertEqual(before.read(name), after.read(name), name)
+            declaration = b'<Default Extension="json" ContentType="application/json"/>'
+            self.assertNotIn(declaration, before.read("[Content_Types].xml"))
+            self.assertEqual(after.read("[Content_Types].xml").replace(declaration, b""), before.read("[Content_Types].xml"))
+        for bad in (True, "2", 0, 3, None):
+            with self.assertRaises(AnalysisContractError):
+                render(xlsx_opc_version=bad)
+
     def test_layout_v2_is_opt_in_and_leaves_legacy_file_bytes_unchanged(self):
         def render(**kwargs):
             xlsx, html = io.BytesIO(), io.BytesIO()

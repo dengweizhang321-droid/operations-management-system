@@ -86,7 +86,18 @@ def write_sheet(archive, number, sheet):
         out('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9"/></worksheet>')
 
 
-def build(value, names):
+def build(value, names, *, formula_version=1):
+    if type(formula_version) is not int or formula_version not in (1, 2):
+        raise AnalysisContractError("预算公式版本不受支持")
+    def rem(numerator, denominator):
+        # Excel MOD can return #NUM for large integer quotients. All callers
+        # are nonnegative integers bounded by 1e14 (allocation <=1e12).
+        # Quotient*divisor and subtraction therefore remain exact integers
+        # below 2**53. Preserve the historical formula bytes by default.
+        if formula_version == 1:
+            return f'MOD({numerator},{denominator})'
+        return f'({numerator}-QUOTIENT({numerator},{denominator})*{denominator})'
+
     plan, bases = value["plan"], value["baselines"]
     expected = calculate(plan, bases)
     n, s = len(bases), len(plan["scenarios"])
@@ -163,13 +174,13 @@ def build(value, names):
         f=f'AND(COUNT(B{r}:E{r})=4,B{r}>=1,B{r}<=10000,B{r}=INT(B{r}),C{r}>=0,C{r}<=D{r},D{r}<=10000000000,C{r}=ROUND(C{r},2),D{r}=ROUND(D{r},2),E{r}>=0,E{r}<=100,E{r}=ROUND(E{r},4))'
         allocation.put(r,13,1,f'IF(COUNT(B{r}:E{r})=4,IF({f},1,0),0)')
         allocation.put(r,14,minima[i],f'IF(M{r},ROUND(C{r}*100,0),0)'); allocation.put(r,15,caps[i],f'IF(M{r},ROUND(D{r}*100,0)-N{r},0)')
-        allocation.put(r,16,caps[i]//weights[i],f'IF($H$1,QUOTIENT(O{r},B{r}),0)'); allocation.put(r,17,caps[i]%weights[i],f'IF($H$1,MOD(O{r},B{r}),0)')
+        allocation.put(r,16,caps[i]//weights[i],f'IF($H$1,QUOTIENT(O{r},B{r}),0)'); allocation.put(r,17,caps[i]%weights[i],f'IF($H$1,{rem(f"O{r}", f"B{r}")},0)')
         allocation.put(r,18,ranks[i],f'IF($H$1,1+COUNTIF({rng(16)},"<"&P{r})+SUMPRODUCT(({rng(16)}=P{r})*({rng(17)}*B{r}<Q{r}*{rng(2)}))+SUMPRODUCT(({rng(16)}=P{r})*({rng(17)}*B{r}=Q{r}*{rng(2)})*({rng(19)}<S{r})),0)')
         allocation.put(r,20,prefix[i],f'SUMIF({rng(18)},"<"&R{r},{rng(15)})'); allocation.put(r,21,suffix[i],f'SUMIF({rng(18)},">="&R{r},{rng(2)})')
         allocation.put(r,22,candidate[i],f'MAX(0,$F$1-T{r})')
-        allocation.put(r,23,capped[i],f'IF($H$1,IF(QUOTIENT(V{r},U{r})*B{r}+QUOTIENT(MOD(V{r},U{r})*B{r},U{r})>=O{r},1,0),0)')
-        allocation.put(r,24,floors[i],f'IF($H$1,IF(W{r},0,QUOTIENT($B$2,$D$2)*B{r}+QUOTIENT(MOD($B$2,$D$2)*B{r},$D$2)),0)')
-        allocation.put(r,25,remainders[i],f'IF($H$1,IF(W{r},-1,MOD(MOD($B$2,$D$2)*B{r},$D$2)),-1)')
+        allocation.put(r,23,capped[i],f'IF($H$1,IF(QUOTIENT(V{r},U{r})*B{r}+QUOTIENT({rem(f"V{r}", f"U{r}")}*B{r},U{r})>=O{r},1,0),0)')
+        allocation.put(r,24,floors[i],f'IF($H$1,IF(W{r},0,QUOTIENT($B$2,$D$2)*B{r}+QUOTIENT({rem("$B$2", "$D$2")}*B{r},$D$2)),0)')
+        allocation.put(r,25,remainders[i],f'IF($H$1,IF(W{r},-1,{rem(rem("$B$2", "$D$2")+f"*B{r}", "$D$2")}),-1)')
         allocation.put(r,26,0 if capped[i] else rr.index(i)+1,f'IF(OR(NOT($H$1),W{r}),0,1+COUNTIF({rng(25)},">"&Y{r})+COUNTIFS({rng(25)},Y{r},{rng(19)},"<"&S{r}))')
         allocation.put(r,27,amounts[i],f'IF($H$1,N{r}+IF(W{r},O{r},X{r}+IF(Z{r}<=$F$2,1,0)),"")')
         usable=expected["scenarios"][0]["rows"][i]["status"]!="unavailable"
@@ -213,7 +224,7 @@ def build(value, names):
             vr,_=put("整数精度可用",int(valid),f'IF(AND({guard},{nr}>=0,{nr}<={INTEGER_LIMIT},{dr}>=1,{dr}<={INTEGER_LIMIT}),1,0)')
             result=rounded(Fraction(num,den))/10**places if valid else None
             if valid and not places: result=int(result)
-            out,_=put("四舍五入结果",result,f'IF({vr},(QUOTIENT({nr},{dr})+IF(MOD({nr},{dr})>={dr}-MOD({nr},{dr}),1,0))/{10**places},"")')
+            out,_=put("四舍五入结果",result,f'IF({vr},(QUOTIENT({nr},{dr})+IF({rem(nr, dr)}>={dr}-{rem(nr, dr)},1,0))/{10**places},"")')
             return out,result,vr
         gmv=rational("归因金额",[(f'B{r}',amounts[i]),(f'D{r}',facts.get("reportedGmvCents") or 0),(f'F{r}',a["orderRateFactorBps"]),(f'G{r}',a["orderValueFactorBps"])],[(f'C{r}',facts.get("spendCents") or 0),(f'E{r}',a["cpcFactorBps"]),("10000",10000)],f'I{r}',usable)
         forecast.put(r,10,gmv[1],f'IF({gmv[2]},{gmv[0]},"")')

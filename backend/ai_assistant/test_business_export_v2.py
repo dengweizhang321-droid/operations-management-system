@@ -90,6 +90,25 @@ class BusinessExportV2Tests(TestCase):
         self.report = SimpleNamespace(id="report-1", owner_email=self.principal.email, scope_json="null", snapshot_json=canonical(snapshot),
             workflow=SimpleNamespace(status="completed"))
 
+    def test_screening_summary_opt_in_v6_and_original_v4_overview_order(self):
+        from . import business_screening_export
+        snapshot = json.loads(self.report.snapshot_json)
+        snapshot["executionProfile"] = "business-agent-screening-reference-v1"
+        self.report.snapshot_json = canonical(snapshot)
+        self.value["diagnosis"]["summary"] = "仅合成经营结论"
+        self.value["screening"] = {"limitations": ["候选不证明因果"], "readProofs": {}}
+        with patch.object(export.business_reports, "is_v2_snapshot", return_value=True), patch.object(business_screening_export, "metadata", return_value={}), patch.object(business_screening_export, "append"):
+            keys = {}
+            for version in (4, 6):
+                with export.prepare_volumes(self.report, self.principal, renderer_version=version) as prepared:
+                    keys[version] = [t.key for t in prepared.tables]
+                    self.assertEqual(prepared.renderer_version, version)
+            self.assertEqual(keys[4][0], "overview")
+            self.assertNotIn("business-summary", keys[4])
+            self.assertEqual(keys[6][0], "business-summary")
+            self.assertGreater(keys[6].index("overview"), keys[6].index("actions"))
+            self.assertEqual(set(keys[6])-set(keys[4]), {"business-summary"})
+
     def outputs(self, prepared):
         return [VolumeStreams(xlsx=BytesIO(), html=BytesIO()) for _ in range(prepared.plan["volumeCount"])]
 

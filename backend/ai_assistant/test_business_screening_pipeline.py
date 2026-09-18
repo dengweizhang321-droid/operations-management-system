@@ -140,6 +140,6 @@ class ScreeningPipelineTests(TransactionTestCase):
             import os
             if os.environ.get("TERUISI_SCREENING_SYNTHETIC_FILE_FIXTURE") == "1":
                 from pathlib import Path
-                folder=Path(__file__).resolve().parents[2]/".runtime"/"screening-formal-files"
+                folder=Path(__file__).resolve().parents[2]/".runtime"/("screening-formal-files" if stored.renderer_version == 4 else f"screening-formal-files-v{stored.renderer_version}")
                 folder.mkdir(exist_ok=True)
                 (folder/f"volume-{item['volumeIndex']}.{item['format']}").write_bytes(raw)

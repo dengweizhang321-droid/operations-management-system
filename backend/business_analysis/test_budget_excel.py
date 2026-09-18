@@ -13,6 +13,40 @@ from .test_budget import fixture
 
 
 class ExcelBudgetTests(unittest.TestCase):
+    def test_formula_v2_preserves_values_and_limits_with_native_safe_remainders(self):
+        from .contracts import AnalysisContractError
+        plan, bases = fixture()
+        plan['totalBudgetCents'] = 10**12
+        plan['reserveCents'] = 0
+        for target in plan['targets']:
+            target['maxBudgetCents'] = 10**12
+        for base in bases:
+            base['metrics'].update(spendCents=9999999999999, reportedGmvCents=9999999999999)
+        model = self.model(plan, bases)
+        old, old_proof = excel.build(model, excel.TITLES)
+        explicit, proof = excel.build(model, excel.TITLES, formula_version=1)
+        new, new_proof = excel.build(model, excel.TITLES, formula_version=2)
+        self.assertEqual(old, explicit)
+        self.assertEqual(old_proof, proof)
+        self.assertEqual(old_proof, new_proof)
+        replaced = 0
+        for before, after in zip(old, new):
+            self.assertEqual(before.cells.keys(), after.cells.keys())
+            for key, (value, formula, style) in before.cells.items():
+                updated = after.cells[key]
+                self.assertEqual((value, style), (updated[0], updated[2]))
+                if formula and 'MOD(' in formula:
+                    replaced += 1
+                    self.assertNotIn('MOD(', updated[1])
+                    self.assertIn('QUOTIENT(', updated[1])
+                else:
+                    self.assertEqual(formula, updated[1])
+        self.assertGreater(replaced, 10)
+        self.assertEqual(new_proof['integerProductLimit'], 99999999999999)
+        for version in (True, None, 0, 3, '2'):
+            with self.assertRaises(AnalysisContractError):
+                excel.build(model, excel.TITLES, formula_version=version)
+
     def model(self, plan=None, bases=None):
         default_plan, default_bases = fixture()
         return payload(calculate(plan or default_plan, bases or default_bases), 'synthetic')

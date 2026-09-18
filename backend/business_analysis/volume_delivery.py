@@ -27,6 +27,11 @@ FULL_FIELDS = {"schemaVersion", "status", "reportId", "evidenceDigest", "rendere
                "volumeCount", "sourceTableCount", "fragmentCount", "totalRows", "byteCapacity", "tables", "volumes", "manifestDigest"}
 
 
+def _renderer(value):
+    if type(value) is not int or value not in (4, 6):
+        _fail("多卷持久渲染版本不受支持")
+
+
 def _fail(message):
     raise AnalysisContractError(message)
 
@@ -115,15 +120,16 @@ def _file(value, index, format, maximum):
     return size
 
 
-def validate(compact, *, binding_digest, attempt, draft):
+def validate(compact, *, binding_digest, attempt, draft, renderer_version=4):
     """Return an independent bounded compact receipt, or fail closed."""
+    _renderer(renderer_version)
     _sha(binding_digest)
     _integer(attempt, 1, 5)
     if type(draft) is not bool:
         _fail("多卷交付草稿标记须为布尔值")
     root = _snapshot(compact, MAX_ROOT_BYTES)
     _fields(root, ROOT_FIELDS)
-    for key, expected in (("schemaVersion", SCHEMA_VERSION), ("rendererVersion", 4),
+    for key, expected in (("schemaVersion", SCHEMA_VERSION), ("rendererVersion", renderer_version),
                           ("bindingDigest", binding_digest), ("attempt", attempt), ("draft", draft)):
         _equal(root[key], expected)
     count = _integer(root["volumeCount"], 1, 100)
@@ -174,7 +180,8 @@ def screening_fields(value, report_id):
     return {key:value[key] for key in SCREENING_KEYS}
 
 
-def _full(value, *, max_tables, max_rows, max_volumes):
+def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
+    _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
     _fields(value, FULL_FIELDS, {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
     screening_fields(value, value["reportId"])
@@ -186,7 +193,7 @@ def _full(value, *, max_tables, max_rows, max_volumes):
         _equal(value["mappedTableAlgorithmVersion"], "business-mapped-results-v1")
     _equal(value["schemaVersion"], "business-volume-files-v1")
     _equal(value["status"], "complete")
-    _equal(value["rendererVersion"], 4)
+    _equal(value["rendererVersion"], renderer_version)
     count = _integer(value["volumeCount"], 1, 100)
     for key in ("planDigest", "sourceDescriptorDigest", "manifestDigest", "evidenceDigest"):
         _sha(value[key])
@@ -207,7 +214,7 @@ def _full(value, *, max_tables, max_rows, max_volumes):
     if type(first) is not dict or type(first.get("nativeBudgetSheets")) is not int or first["nativeBudgetSheets"] not in (0, 3):
         _fail("首卷预算预留无效")
     request = {"schemaVersion": volume_plan.REQUEST_SCHEMA, "reportId": value["reportId"], "evidenceDigest": value["evidenceDigest"],
-               "rendererVersion": 4, "tables": descriptors}
+               "rendererVersion": renderer_version, "tables": descriptors}
     plan = volume_plan.build(request, max_tables=max_tables, max_rows=max_rows, max_volumes=max_volumes, native_budget_sheets=first["nativeBudgetSheets"])
     for key in ("planDigest", "sourceDescriptorDigest", "volumeCount", "sourceTableCount", "fragmentCount", "totalRows"):
         _equal(value[key], plan[key])
@@ -257,31 +264,31 @@ def _full(value, *, max_tables, max_rows, max_volumes):
     return files
 
 
-def make(full_manifest, *, binding_digest, attempt, draft, max_tables=120, max_rows=1_000_000, max_volumes=100):
+def make(full_manifest, *, binding_digest, attempt, draft, max_tables=120, max_rows=1_000_000, max_volumes=100, renderer_version=4):
     """Return (compact receipt, exact canonical full-JSON artifact bytes).
 
     Optional capacity arguments are trusted policy and can only tighten defaults;
     they support synthetic splitting. Production and recovery use defaults.
     """
     full = _snapshot(full_manifest, MAX_MANIFEST_BYTES)
-    files = _full(full, max_tables=max_tables, max_rows=max_rows, max_volumes=max_volumes)
+    files = _full(full, max_tables=max_tables, max_rows=max_rows, max_volumes=max_volumes, renderer_version=renderer_version)
     data = canonical(full).encode("utf-8")
-    compact = {"schemaVersion": SCHEMA_VERSION, "rendererVersion": 4, "bindingDigest": binding_digest, "attempt": attempt, "draft": draft,
+    compact = {"schemaVersion": SCHEMA_VERSION, "rendererVersion": renderer_version, "bindingDigest": binding_digest, "attempt": attempt, "draft": draft,
                "volumeCount": full["volumeCount"], "files": files,
                "manifestFile": {"volumeIndex": 0, "format": "json", "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
                                 "chunkCount": (len(data) + CHUNK_BYTES - 1) // CHUNK_BYTES}}
-    return validate(compact, binding_digest=binding_digest, attempt=attempt, draft=draft), data
+    return validate(compact, binding_digest=binding_digest, attempt=attempt, draft=draft, renderer_version=renderer_version), data
 
 
 def verify_full(compact, manifest_bytes, *, binding_digest, attempt, draft, report_id, evidence_digest, plan_digest=None,
-                max_tables=120, max_rows=1_000_000, max_volumes=100):
+                max_tables=120, max_rows=1_000_000, max_volumes=100, renderer_version=4):
     """Cross-check the stored JSON artifact with compact and trusted bindings.
 
     The deterministic plan is always rebuilt, including when plan_digest is not
     separately available during recovery. A SHA alone is not source authority.
     This does not re-read facts or concatenate fragment digests into source SHA.
     """
-    root = validate(compact, binding_digest=binding_digest, attempt=attempt, draft=draft)
+    root = validate(compact, binding_digest=binding_digest, attempt=attempt, draft=draft, renderer_version=renderer_version)
     if type(manifest_bytes) is not bytes or not 1 <= len(manifest_bytes) <= MAX_MANIFEST_BYTES:
         _fail("完整多卷清单须为有界UTF-8字节")
     _equal(len(manifest_bytes), root["manifestFile"]["bytes"])
@@ -300,7 +307,7 @@ def verify_full(compact, manifest_bytes, *, binding_digest, attempt, draft, repo
     except (ValueError, UnicodeError, RecursionError) as error:
         raise AnalysisContractError("完整多卷清单JSON无效") from error
     full = _snapshot(parsed, MAX_MANIFEST_BYTES)
-    files = _full(full, max_tables=max_tables, max_rows=max_rows, max_volumes=max_volumes)
+    files = _full(full, max_tables=max_tables, max_rows=max_rows, max_volumes=max_volumes, renderer_version=renderer_version)
     _equal(full["reportId"], report_id)
     _equal(full["evidenceDigest"], evidence_digest)
     if plan_digest is not None:

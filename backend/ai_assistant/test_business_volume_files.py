@@ -1,4 +1,4 @@
-"""Real v2 Agent queue and sealed facts through the durable renderer-4 ledger."""
+"""Real v2 Agent queue and sealed facts through the durable renderer-4/6 ledger."""
 import base64
 import hashlib
 import io
@@ -46,7 +46,7 @@ class BusinessVolumeFileTests(TransactionTestCase):
         run_id = self.start()
         self.assertEqual(self.start(), run_id)
         created = files.get(run_id, self.admin)
-        self.assertEqual(created.binding_digest, files.binding(self.report, self.admin, created.draft, renderer_version=4))
+        self.assertEqual(created.binding_digest, files.binding(self.report, self.admin, created.draft, renderer_version=6))
         with patch("ai_assistant.transport.execute_tool") as remote, patch("ai_assistant.provider.turn") as provider:
             result = files.tick()
             self.assertEqual(result["status"], "ready", result)
@@ -80,7 +80,26 @@ class BusinessVolumeFileTests(TransactionTestCase):
         self.assertEqual(response.json()["format"], "json")
 
     def test_complete_staged_attempt_recovers_without_rebuild(self):
-        run_id = self.start()
+        self._staged_recovery(self.start())
+
+    def test_legacy_v4_staged_recovery_keeps_bytes_and_version(self):
+        with mutation(self.admin):
+            old = m.AiBusinessFileRun.objects.create(id="legacy-staged-v4", report=self.report,
+                owner_email=self.admin.email, renderer_version=4,
+                binding_digest=files.binding(self.report, self.admin, False, renderer_version=4))
+        self._staged_recovery(old.id)
+        row = files.get(old.id, self.admin)
+        self.assertEqual(row.renderer_version, 4)
+        saved = list(m.AiBusinessVolumeChunk.objects.filter(run=row).values_list("id", "content_digest"))
+        compact = json.loads(row.manifest_json)
+        for item in [*compact["files"], compact["manifestFile"]]:
+            raw = b"".join(base64.b64decode(volumes.chunk(row.id, str(item["volumeIndex"]), item["format"],
+                {"sequence":str(i)}, self.admin)["base64"]) for i in range(1,item["chunkCount"]+1))
+            self.assertEqual(hashlib.sha256(raw).hexdigest(),item["sha256"])
+        self.assertNotEqual(self.start(), old.id)
+        self.assertEqual(saved,list(m.AiBusinessVolumeChunk.objects.filter(run=row).values_list("id", "content_digest")))
+
+    def _staged_recovery(self, run_id):
         original = files.audit
         def fail(row, principal, action):
             if action == "volumes_ready":

@@ -124,7 +124,7 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
     if snapshot.get("schemaVersion") != business_reports.SCHEMA:
         raise AiError("此构建器仅支持经营分析报告")
     v2 = business_reports.is_v2_snapshot(snapshot)
-    if v2 and renderer_version != 4:
+    if v2 and renderer_version not in (4, 6):
         raise AiError("v2证据只能使用内部多卷构建器，旧双文件渲染器不支持", "conflict", 409)
     if not draft and report.workflow.status != "completed":
         raise AiError("正式报告须先通过人工复核", "conflict", 409)
@@ -144,7 +144,7 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
         "status": "待复核草稿" if draft else "已通过人工复核", "schemaVersion": "business-files-v1",
         "limitations": ["金额字段保留原分单位；缺失不补零", "市场数据是TOP样本区间，不代表全行业或份额", "当前商品主数据不是历史映射", "建议不自动执行"]}
     if v2:
-        metadata.update(schemaVersion="business-files-v2", rendererVersion=4,
+        metadata.update(schemaVersion="business-files-v2", rendererVersion=renderer_version,
             catalogDigest=snapshot["catalogDigest"], sealedDigest=snapshot["sealedDigest"], sourceCount=len(sources))
     screening = snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
     if screening:
@@ -167,7 +167,16 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
         metadata.update(budgetRef=fixed.reference, budgetPlanDigest=resolved["planDigest"],
                         budgetBindingDigest=fixed.reference["bindingDigest"])
     with TableSpool() as spool:
-        spool.add("overview", "报告范围", "固定来源、期间与报告版本。", ({"项目": key, "内容": canonical(item) if isinstance(item, (dict, list)) else item} for key, item in metadata.items()))
+        overview = ({"项目": key, "内容": canonical(item) if isinstance(item, (dict, list)) else item} for key, item in metadata.items())
+        if screening and renderer_version == 6:
+            spool.add("business-summary", "经营摘要", "先阅读经营判断和调整规划，再结合完整来源、明细及缺口复核。", [
+                {"项目":"分析问题", "内容":metadata["question"]},
+                {"项目":"总体判断", "内容":value["diagnosis"]["summary"]},
+                {"项目":"复核状态", "内容":metadata["status"]},
+                *({"项目":"口径说明", "内容":item} for item in value["screening"]["limitations"]),
+            ])
+        else:
+            spool.add("overview", "报告范围", "固定来源、期间与报告版本。", overview)
         spool.add("diagnosis", "深度诊断", "解释与因果仍需人工判断；以下文字来自已持久化的专业分析与复核。", ({"章节": section["title"], "正文": section["body"][start:start+300]} for section in value["sections"] for start in range(0, len(section["body"]), 300)))
         findings = value["diagnosis"]["findings"]
         spool.add("actions", "调整规划", "每条动作保留前提、观察期、责任角色与回退条件。", ({"结论ID": f["id"], "类型": f["kind"], "标题": f["title"], "解释": f["explanation"], **f.get("action", {})} for f in findings))
@@ -176,6 +185,8 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
             citations = business_screening_export._chunks(citations)
         spool.add("citations", "结论证据", "数值由服务端重新核验；不代表文字中的因果关系已自动证明。", citations)
         spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。", ({"sourceKey": s["key"], "来源": s["domain"], "查询范围": canonical(s["query"]), "核对": canonical(expected[s["key"]]), "覆盖与口径": canonical(info[s["key"]]["metadata"])} for s in sources))
+        if screening and renderer_version == 6:
+            spool.add("overview", "报告范围与版本", "固定来源、期间与报告版本；用于核对和追溯。", overview)
         if value.get("budget"):
             budget = value["budget"]
             budget_note = "；".join(budget["limitations"])
@@ -235,11 +246,12 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
 
 def build(report, principal, xlsx_file, html_file, *, draft=False, checkpoint=None, renderer_version=1):
     try:
-        if renderer_version not in (1, 2, 3):
+        if type(renderer_version) is not int or renderer_version not in (1, 2, 3, 5):
             raise AnalysisContractError("报告渲染版本不受支持")
         with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=renderer_version) as (metadata, tables, calculator):
             return write_pair(xlsx_file, html_file, title="深度经营分析 · "+metadata["scope"]["shop"], metadata=metadata, tables=tables, checkpoint=checkpoint,
-                offline_budget=calculator, excel_budget=calculator if renderer_version >= 3 else None)
+                offline_budget=calculator, excel_budget=calculator if renderer_version >= 3 else None,
+                xlsx_opc_version=2 if renderer_version == 5 else 1)
     except AnalysisContractError as error:
         raise AiError(str(error), "conflict", 409) from error
 
@@ -254,6 +266,7 @@ class PreparedVolumes:
     report_id: str
     evidence_digest: str
     policy: dict
+    renderer_version: int = 4
     active: bool = True
     consumed: bool = False
     _binding_digest: str = field(init=False, repr=False)
@@ -278,7 +291,7 @@ def _prepared_binding(prepared):
             table_digests.append(digest(_snapshot_json(descriptor, "多卷单表绑定")))
         value = {"metadata": prepared.metadata, "plan": prepared.plan, "calculator": prepared.calculator,
             "reportId": prepared.report_id, "evidenceDigest": prepared.evidence_digest, "policy": prepared.policy,
-            "tables": table_digests}
+            "tables": table_digests, "rendererVersion": prepared.renderer_version}
         # Prepared input comes from <=48 source identities and the unchanged
         # bounded spool. Cap passive aliases before hashing mutated structures.
         return digest({key: _snapshot_json(item, "多卷准备绑定") for key, item in value.items()})
@@ -288,7 +301,7 @@ def _prepared_binding(prepared):
 
 @contextmanager
 def prepare_volumes(report, principal, *, draft=False, checkpoint=None,
-                    max_tables=120, max_rows=1_000_000, max_volumes=100):
+                    max_tables=120, max_rows=1_000_000, max_volumes=100, renderer_version=4):
     """Prepare complete v2 tables and a trusted renderer-4 plan without outputs.
 
 The existing spool limits are unchanged. Closing this context releases its
@@ -296,15 +309,17 @@ SQLite spool; render before leaving it. Nothing is persisted or published.
 """
     from business_analysis import volume_files, volume_plan
     authorize_owner(report, principal)
+    if type(renderer_version) is not int or renderer_version not in (4, 6):
+        raise AiError("多卷渲染版本不受支持", "conflict", 409)
     if not business_reports.is_v2_snapshot(json.loads(report.snapshot_json)):
         raise AiError("内部多卷入口须绑定v2经营报告", "conflict", 409)
     try:
-        with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=4) as (metadata, tables, calculator):
+        with package(report, principal, draft=draft, checkpoint=checkpoint, renderer_version=renderer_version) as (metadata, tables, calculator):
             policy = {"max_tables": max_tables, "max_rows": max_rows, "max_volumes": max_volumes}
             request = volume_files.request_for(tables, report_id=report.id,
-                evidence_digest=metadata["sealedDigest"], renderer_version=4)
+                evidence_digest=metadata["sealedDigest"], renderer_version=renderer_version)
             plan = volume_plan.build(request, native_budget_sheets=3 if calculator is not None else 0, **policy)
-            prepared = PreparedVolumes(metadata, tuple(tables), plan, calculator, report.id, metadata["sealedDigest"], policy)
+            prepared = PreparedVolumes(metadata, tuple(tables), plan, calculator, report.id, metadata["sealedDigest"], policy, renderer_version)
             try:
                 yield prepared
             finally:
@@ -328,7 +343,7 @@ seekable streams. They remain caller-owned on both success and failure.
         raise AiError("多卷准备范围、计划或文件身份已变化", "conflict", 409)
     try:
         return volume_files.render(prepared.tables, outputs, report_id=prepared.report_id,
-            evidence_digest=prepared.evidence_digest, renderer_version=4, plan=prepared.plan,
+            evidence_digest=prepared.evidence_digest, renderer_version=prepared.renderer_version, plan=prepared.plan,
             title="深度经营分析 · "+prepared.metadata["scope"]["shop"], metadata=prepared.metadata,
             offline_budget=prepared.calculator, excel_budget=prepared.calculator,
             checkpoint=checkpoint, max_file_bytes=max_file_bytes, **prepared.policy)

@@ -97,7 +97,7 @@ export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMod
       const identity = await businessFilePrincipal({ signal: controller.signal });
       if (!current() || !principal(identity)) return;
       const options = { signal: controller.signal, onProgress: (received: number, total: number) => { if (current()) setProgress(Math.floor(received/total*100)); } };
-      const result = item.rendererVersion === 4
+      const result = (item.rendererVersion === 4 || item.rendererVersion === 6)
         ? await downloadBusinessVolume(item.id, volumeIndex!, format, { ...options, expectedPrincipalKey: key })
         : format !== "json" ? await downloadBusinessFile(item.id, format, options) : null;
       if (!result || !current()) return;
@@ -119,7 +119,7 @@ export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMod
     {progress !== null && <p role="status">下载校验 {progress}% <button onClick={() => download.current?.abort()}>取消下载</button></p>}
     {items.map(item => <div className="report-review" key={item.id}><p><strong>{item.draft ? "草稿" : "已复核报告"}</strong> · {states[item.status] ?? item.status} · {stages[item.progress.stage ?? ""] ?? ""}{item.progress.table ? ` · 第 ${item.progress.table} 张表` : ""}{item.progress.rows ? ` · ${item.progress.rows} 行` : ""}</p>
       {item.errorCode && <p className="report-note">生成已暂停，错误标识：{item.errorCode}。恢复会优先核验已完整保存的文件；重新构建会保留旧记录。</p>}
-      <div className="report-actions">{item.status === "ready" && (item.rendererVersion === 4 ? <button disabled={disabled} onClick={() => void directory(item)}>查看分卷文件</button> : <><button className="primary-button" disabled={disabled} onClick={() => void save(item, "html")}>下载 HTML</button><button disabled={disabled} onClick={() => void save(item, "xlsx")}>下载 Excel</button></>)}
+      <div className="report-actions">{item.status === "ready" && ((item.rendererVersion === 4 || item.rendererVersion === 6) ? <button disabled={disabled} onClick={() => void directory(item)}>查看分卷文件</button> : <><button className="primary-button" disabled={disabled} onClick={() => void save(item, "html")}>下载 HTML</button><button disabled={disabled} onClick={() => void save(item, "xlsx")}>下载 Excel</button></>)}
         {["queued", "building"].includes(item.status) && <button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "pause", expectedVersion: item.version })}>暂停生成</button>}
         {item.status === "paused" && <><button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "resume", expectedVersion: item.version })}>恢复生成</button><button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "rebuild", expectedVersion: item.version })}>重新构建</button></>}
         {!["ready", "cancelled"].includes(item.status) && <button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "cancel", expectedVersion: item.version })}>取消生成任务</button>}</div>

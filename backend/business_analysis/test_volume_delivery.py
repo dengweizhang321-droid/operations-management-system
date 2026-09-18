@@ -47,6 +47,26 @@ def synthetic_manifest(count=1):
 
 
 class VolumeDeliveryTests(TestCase):
+    def test_v6_opc_and_trusted_version_binding_are_not_inferred_from_manifest(self):
+        import zipfile
+        tables = [Table("one", "仅合成", "", (Column("n", "值", "integer"),), [[7]], 1)]
+        request = volume_files.request_for(tables, report_id=BINDINGS["report_id"], evidence_digest=EVIDENCE, renderer_version=6)
+        plan = volume_plan.build(request)
+        outputs = [volume_files.VolumeStreams(io.BytesIO(), io.BytesIO())]
+        full = volume_files.render(tables, outputs, report_id=BINDINGS["report_id"], evidence_digest=EVIDENCE,
+            renderer_version=6, plan=plan, title="仅合成", metadata={})
+        with zipfile.ZipFile(outputs[0].xlsx) as archive:
+            self.assertIn(b'Extension="json" ContentType="application/json"', archive.read("[Content_Types].xml"))
+        compact, raw = delivery.make(full, **IDENTITY, renderer_version=6)
+        self.assertEqual(delivery.verify_full(compact, raw, **BINDINGS, renderer_version=6), full)
+        for version in (4, 5, True, "6", 7):
+            with self.subTest(version=version), self.assertRaises(AnalysisContractError):
+                delivery.verify_full(compact, raw, **BINDINGS, renderer_version=version)
+        changed = deepcopy(compact)
+        changed["rendererVersion"] = 4
+        with self.assertRaises(AnalysisContractError):
+            delivery.verify_full(changed, raw, **BINDINGS)
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

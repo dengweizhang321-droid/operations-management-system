@@ -21,7 +21,7 @@ OWNER_BYTES = 2 * RUN_BYTES
 GLOBAL_BYTES = 8 * RUN_BYTES
 LEASE_SECONDS = 650
 BUILD_SECONDS = 600
-RENDERER_VERSION = 3
+RENDERER_VERSION = 5
 
 
 def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, verify_budget=True):
@@ -30,9 +30,9 @@ def binding(report, principal, draft, *, renderer_version=RENDERER_VERSION, veri
     if (snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
             and verify_budget and connection.in_atomic_block):
         raise AiError("筛查文件完整核验须在最外层事务之外", "conflict", 409)
-    if business_reports.is_v2_snapshot(snapshot) and renderer_version != 4:
+    if business_reports.is_v2_snapshot(snapshot) and renderer_version not in (4, 6):
         raise AiError("v2证据文件交付尚未接入，请保留分析结果", "conflict", 409)
-    if renderer_version == 4:
+    if renderer_version in (4, 6):
         if not business_reports.is_v2_snapshot(snapshot):
             raise AiError("多卷文件须使用v2经营报告", "conflict", 409)
         business_reports.bound_reference(snapshot, principal)
@@ -95,7 +95,7 @@ class _ScreeningFileBinding:
         return json.loads(self._raw)
 
 
-def _prepare_screening_binding(report, principal, draft):
+def _prepare_screening_binding(report, principal, draft, *, renderer_version=4):
     """New profile only: full content/number/ledger validation outside mutation."""
     if json.loads(report.snapshot_json).get("executionProfile") != "business-agent-screening-reference-v1":
         return None
@@ -104,15 +104,15 @@ def _prepare_screening_binding(report, principal, draft):
     from .business_screening_content_fence import fence
     actual = reports.get(report.id, principal)
     before = fence(actual, principal)
-    fingerprint = binding(actual, principal, draft, renderer_version=4)
+    fingerprint = binding(actual, principal, draft, renderer_version=renderer_version)
     if canonical(fence(actual, principal)) != canonical(before):
         raise AiError("筛查文件核验期间读取账本发生变化", "conflict", 409)
     return _ScreeningFileBinding(_SCREENING_FILE_TOKEN, {"reportId":actual.id,
         "ownerEmail":principal.email.lower(),"role":principal.role,"scope":principal.scope,
-        "draft":draft,"bindingDigest":fingerprint,"ledgerFence":before})
+        "draft":draft,"rendererVersion":renderer_version,"bindingDigest":fingerprint,"ledgerFence":before})
 
 
-def _check_screening_binding(prepared, report, principal, draft):
+def _check_screening_binding(prepared, report, principal, draft, *, renderer_version=4):
     """Only live metadata and bounded ledger hashes; never scans sealed facts."""
     from .business_screening_content_fence import fence
     if type(prepared) is not _ScreeningFileBinding:
@@ -121,8 +121,8 @@ def _check_screening_binding(prepared, report, principal, draft):
     current_principal(principal, admin=True, write=True)
     actual = reports.get(report.id, principal)
     expected = {"reportId":actual.id,"ownerEmail":principal.email.lower(),"role":principal.role,
-        "scope":principal.scope,"draft":draft,
-        "bindingDigest":binding(actual, principal, draft, renderer_version=4, verify_budget=False),
+        "scope":principal.scope,"draft":draft,"rendererVersion":renderer_version,
+        "bindingDigest":binding(actual, principal, draft, renderer_version=renderer_version, verify_budget=False),
         "ledgerFence":fence(actual, principal)}
     if canonical(expected) != canonical(value):
         raise AiError("筛查文件内容或实际读取账本已变化", "conflict", 409)
@@ -181,7 +181,7 @@ def control(run_id, body, principal, *, commit=None):
             cas(candidate, body["expectedVersion"])
             if candidate.status != "paused":
                 raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
-            prepared = _prepare_screening_binding(candidate.report, principal, candidate.draft)
+            prepared = _prepare_screening_binding(candidate.report, principal, candidate.draft, renderer_version=candidate.renderer_version)
     with mutation(principal):
         row = get(run_id, principal)
         cas(row, body["expectedVersion"])
@@ -190,7 +190,7 @@ def control(run_id, body, principal, *, commit=None):
         if body["action"] in {"resume", "rebuild"}:
             if row.status != "paused":
                 raise AiError("只有暂停的文件任务可以恢复", "conflict", 409)
-            fingerprint = (_check_screening_binding(prepared, row.report, principal, row.draft) if prepared is not None
+            fingerprint = (_check_screening_binding(prepared, row.report, principal, row.draft, renderer_version=row.renderer_version) if prepared is not None
                 else binding(row.report, principal, row.draft, renderer_version=row.renderer_version))
             if fingerprint != row.binding_digest:
                 raise AiError("报告内容已变化，须创建新文件版本", "conflict", 409)
@@ -219,11 +219,11 @@ def chunk(run_id, format, params, principal):
     except (TypeError, ValueError) as error:
         raise AiError("文件分块序号无效") from error
     row = get(run_id, principal)
-    if row.renderer_version == 4:
+    if row.renderer_version in (4, 6):
         raise AiError("多卷文件须使用指定卷下载入口", "conflict", 409)
     if row.status != "ready":
         raise AiError("完整双文件尚未就绪", "conflict", 409)
-    if binding(row.report, principal, row.draft) != row.binding_digest:
+    if binding(row.report, principal, row.draft, renderer_version=row.renderer_version) != row.binding_digest:
         raise AiError("报告内容绑定已变化", "conflict", 409)
     manifest = json.loads(row.manifest_json)
     record = m.AiBusinessFileChunk.objects.filter(run=row, attempt=row.attempt, format=format, sequence=sequence).first()
@@ -351,7 +351,7 @@ def _build(row, principal, state):
     checkpoint(force=True)
     with mutation(principal):
         saved = _current(row.id, principal, state)
-        if binding(saved.report, principal, saved.draft) != saved.binding_digest:
+        if binding(saved.report, principal, saved.draft, renderer_version=saved.renderer_version) != saved.binding_digest:
             raise AiError("生成期间报告内容已变化", "conflict", 409)
         saved.status, saved.error_code, saved.progress_json = "ready", "", canonical({"stage": "ready"})
         saved.version += 1
@@ -393,7 +393,7 @@ def tick():
                 saved.save()
                 audit(saved, principal, "claimed")
             state.update(version=saved.version, attempt=saved.attempt)
-            if saved.renderer_version == 4:
+            if saved.renderer_version in (4, 6):
                 from .business_volume_files import build
                 return build(saved, principal, state)
             return _build(saved, principal, state)

@@ -16,6 +16,9 @@ from . import business_evidence, business_export, business_files as files, busin
 from .policy import AiError, authorize_owner, boolean, canonical, current_principal, fields, integer, mutation, passive, uid
 
 
+RENDERER_VERSION = 6
+
+
 def create(report_id, body, principal, *, commit=None):
     fields(body, {"deliveryMode", "draft", "expectedPrincipalKey"}, {"deliveryMode", "expectedPrincipalKey"})
     current_principal(principal, admin=True, write=True)
@@ -23,12 +26,12 @@ def create(report_id, body, principal, *, commit=None):
         raise AiError("当前账号或多卷交付模式不一致", "conflict", 409)
     draft = bool(boolean(body.get("draft", False), "draft"))
     report = reports.get(report_id, principal)
-    prepared = files._prepare_screening_binding(report, principal, draft)
-    fingerprint = prepared.value["bindingDigest"] if prepared is not None else files.binding(report, principal, draft, renderer_version=4)
+    prepared = files._prepare_screening_binding(report, principal, draft, renderer_version=RENDERER_VERSION)
+    fingerprint = prepared.value["bindingDigest"] if prepared is not None else files.binding(report, principal, draft, renderer_version=RENDERER_VERSION)
     with mutation(principal):
         if prepared is not None:
-            files._check_screening_binding(prepared, report, principal, draft)
-        old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=4, binding_digest=fingerprint).first()
+            files._check_screening_binding(prepared, report, principal, draft, renderer_version=RENDERER_VERSION)
+        old = m.AiBusinessFileRun.objects.filter(report=report, draft=draft, renderer_version=RENDERER_VERSION, binding_digest=fingerprint).first()
         if old:
             result = {"item": files.mapping(authorize_owner(old, principal)), "replayed": True}
             return commit(result, 200) if commit is not None else result
@@ -37,7 +40,7 @@ def create(report_id, body, principal, *, commit=None):
         if m.AiBusinessFileRun.objects.count() >= 1000:
             raise AiError("文件任务存储容量已满", "rate_limited", 429)
         row = m.AiBusinessFileRun.objects.create(id=uid("business-file"), report=report, owner_email=principal.email.lower(),
-            draft=draft, renderer_version=4, binding_digest=fingerprint)
+            draft=draft, renderer_version=RENDERER_VERSION, binding_digest=fingerprint)
         result = {"item": files.mapping(row), "replayed": False}
         if commit is not None:
             return commit(result, 200)
@@ -82,7 +85,7 @@ def _contract(call, *args, **kwargs):
 
 def _compact(row):
     return _contract(volume_delivery.validate, json.loads(row.manifest_json), binding_digest=row.binding_digest,
-        attempt=row.attempt, draft=row.draft)
+        attempt=row.attempt, draft=row.draft, renderer_version=row.renderer_version)
 
 
 def _verify_staged(row, principal, checkpoint):
@@ -113,7 +116,7 @@ def _verify_staged(row, principal, checkpoint):
         raise AiError("存在未声明卷分片", "conflict", 409)
     reference = business_reports.bound_reference(json.loads(row.report.snapshot_json), principal)
     full = _contract(volume_delivery.verify_full, compact, bytes(manifest_bytes), binding_digest=row.binding_digest,
-        attempt=row.attempt, draft=row.draft, report_id=row.report_id, evidence_digest=reference["sealedDigest"])
+        attempt=row.attempt, draft=row.draft, report_id=row.report_id, evidence_digest=reference["sealedDigest"], renderer_version=row.renderer_version)
     snapshot = json.loads(row.report.snapshot_json)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
     screening = snapshot.get("executionProfile") == "business-agent-screening-reference-v1"
@@ -211,7 +214,7 @@ def build(row, principal, state):
         budget = OutputBudget(files.RUN_BYTES-volume_delivery.MAX_MANIFEST_BYTES)
         with TemporaryDirectory(prefix="teruisi-volume-build-") as directory:
             paths = {}
-            with business_export.prepare_volumes(row.report, principal, draft=row.draft, checkpoint=checkpoint) as prepared:
+            with business_export.prepare_volumes(row.report, principal, draft=row.draft, checkpoint=checkpoint, renderer_version=row.renderer_version) as prepared:
                 with ExitStack() as stack:
                     outputs = []
                     for index in range(1, prepared.plan["volumeCount"]+1):
@@ -223,7 +226,7 @@ def build(row, principal, state):
                         outputs.append(VolumeStreams(**streams))
                     full = business_export.build_volumes(prepared, outputs, checkpoint=checkpoint)
             compact, raw_manifest = _contract(volume_delivery.make, full, binding_digest=row.binding_digest,
-                attempt=state["attempt"], draft=row.draft)
+                attempt=state["attempt"], draft=row.draft, renderer_version=row.renderer_version)
             manifest_path = Path(directory)/"manifest.json"
             manifest_path.write_bytes(raw_manifest)
             paths[0, "json"] = manifest_path
@@ -242,12 +245,12 @@ def build(row, principal, state):
     _verify_staged(files._current(row.id, principal, state), principal, checkpoint)
     checkpoint(force=True)
     current = files._current(row.id, principal, state)
-    prepared_binding = files._prepare_screening_binding(current.report, principal, current.draft)
+    prepared_binding = files._prepare_screening_binding(current.report, principal, current.draft, renderer_version=current.renderer_version)
     checkpoint(force=True)
     with mutation(principal):
         saved = files._current(row.id, principal, state)
-        fingerprint = (files._check_screening_binding(prepared_binding, saved.report, principal, saved.draft)
-            if prepared_binding is not None else files.binding(saved.report, principal, saved.draft, renderer_version=4))
+        fingerprint = (files._check_screening_binding(prepared_binding, saved.report, principal, saved.draft, renderer_version=saved.renderer_version)
+            if prepared_binding is not None else files.binding(saved.report, principal, saved.draft, renderer_version=saved.renderer_version))
         if fingerprint != saved.binding_digest:
             raise AiError("生成期间报告内容已变化", "conflict", 409)
         saved.status, saved.error_code, saved.progress_json = "ready", "", canonical({"stage": "ready"})
@@ -268,9 +271,9 @@ def chunk(run_id, volume_index, kind, params, principal):
     if not (index == 0 and kind == "json" or index > 0 and kind in {"html", "xlsx"}):
         raise AiError("卷号与文件格式不一致")
     row = files.get(run_id, principal)
-    if row.renderer_version != 4 or row.status != "ready":
+    if row.renderer_version not in (4, 6) or row.status != "ready":
         raise AiError("完整多卷交付尚未就绪", "conflict", 409)
-    if files.binding(row.report, principal, row.draft, renderer_version=4, verify_budget=False) != row.binding_digest:
+    if files.binding(row.report, principal, row.draft, renderer_version=row.renderer_version, verify_budget=False) != row.binding_digest:
         raise AiError("报告内容绑定已变化", "conflict", 409)
     manifest = _compact(row)
     descriptor = next((item for item in [*manifest["files"], manifest["manifestFile"]]

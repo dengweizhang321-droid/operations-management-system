@@ -11,6 +11,9 @@ from business_analysis.report_files import Column, Table, write_pair
 from business_analysis.test_budget import fixture
 
 directory=Path(sys.argv[1]).resolve(); directory.mkdir(parents=True,exist_ok=True)
+if sys.argv[2:] not in ([], ["--renderer-version=5"]):
+    raise ValueError("Only explicit renderer-version=5 is supported; default remains historical")
+xlsx_opc_version = 2 if sys.argv[2:] else 1
 
 
 def generate(name, plan, bases):
@@ -19,7 +22,7 @@ def generate(name, plan, bases):
     with (directory/(name+'.xlsx')).open('wb') as xlsx,(directory/(name+'.html')).open('wb') as html:
         return write_pair(xlsx,html,title="合成预算公式验收",metadata={"synthetic":True},
             tables=[Table("original","原报告固定数值","原表不随试算变化",(Column("gmv","情景金额（分）","integer"),),[[45000]],1)],
-            offline_budget=model,excel_budget=model)
+            offline_budget=model,excel_budget=model,xlsx_opc_version=xlsx_opc_version)
 
 
 plan,bases=fixture()

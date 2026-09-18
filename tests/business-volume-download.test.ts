@@ -107,3 +107,17 @@ test("manifest snapshot is detached from caller aliases", () => {
   f.item.manifest.files[0].sha256 = "b".repeat(64);
   assert.notEqual(value.files[0].sha256, f.item.manifest.files[0].sha256);
 });
+
+for (const version of [4, 6] as const) {
+  test(`renderer ${version} downloads only a matching-version manifest`, async () => {
+    const f = fixture(9);
+    f.item.rendererVersion = version;
+    assert.equal(f.item.manifest?.schemaVersion, "business-file-delivery-v2");
+    if (f.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
+    f.item.manifest.rendererVersion = version;
+    const result = await downloadBusinessVolume("file_1", 1, "xlsx", { fetcher: f.fetcher, expectedPrincipalKey: actor });
+    assert.deepEqual(Buffer.from(await result.blob.arrayBuffer()), f.bytes);
+    f.item.manifest.rendererVersion = version === 4 ? 6 : 4;
+    assert.throws(() => businessVolumeManifest(f.item, "file_1"));
+  });
+}

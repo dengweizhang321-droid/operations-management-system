@@ -102,8 +102,8 @@ def _sheet_names(tables):
     return names
 
 
-def _static_parts(archive, names, style_transform=lambda value: value):
-    archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+''.join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' for i in range(1, len(names)+1))+'</Types>')
+def _static_parts(archive, names, style_transform=lambda value: value, *, xlsx_opc_version=1):
+    archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+''.join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' for i in range(1, len(names)+1))+('<Default Extension="json" ContentType="application/json"/>' if xlsx_opc_version == 2 else '')+'</Types>')
     archive.writestr("_rels/.rels", f'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="{REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>')
     archive.writestr("xl/workbook.xml", f'<workbook xmlns="{NS}" xmlns:r="{REL}"><bookViews><workbookView/></bookViews><sheets>'+''.join(f'<sheet name={quoteattr(name)} sheetId="{i}" r:id="rId{i}"/>' for i, name in enumerate(names, 1))+'</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>')
     archive.writestr("xl/_rels/workbook.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+''.join(f'<Relationship Id="rId{i}" Type="{REL}/worksheet" Target="worksheets/sheet{i}.xml"/>' for i in range(1, len(names)+1))+f'<Relationship Id="rStyles" Type="{REL}/styles" Target="styles.xml"/></Relationships>')
@@ -115,7 +115,7 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None, html_layout_version=1):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None, html_layout_version=1, xlsx_opc_version=1):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
@@ -123,6 +123,8 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
     """
     if type(html_layout_version) is not int or html_layout_version not in (1, 2):
         raise AnalysisContractError("HTML布局版本不受支持")
+    if type(xlsx_opc_version) is not int or xlsx_opc_version not in (1, 2):
+        raise AnalysisContractError("XLSX OPC版本不受支持")
     text(title)
     if not 1 <= len(tables) <= MAX_TABLES or len({t.key for t in tables}) != len(tables):
         raise AnalysisContractError("报告表数量或身份无效")
@@ -158,9 +160,9 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
             raise AnalysisContractError("预算试算工作表超过报告容量")
         placeholders = [Table("calculator-"+str(i), title, "", (), (), 0) for i, title in enumerate(budget_excel.TITLES)]
         names = _sheet_names([*tables, *placeholders])
-        model_sheets, model_proof = budget_excel.build(excel_budget, names[len(tables):])
+        model_sheets, model_proof = budget_excel.build(excel_budget, names[len(tables):], **({"formula_version": 2} if xlsx_opc_version == 2 else {}))
     with zipfile.ZipFile(xlsx_file, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        _static_parts(archive, names, budget_excel.styles if excel_budget is not None else lambda value: value)
+        _static_parts(archive, names, budget_excel.styles if excel_budget is not None else lambda value: value, xlsx_opc_version=xlsx_opc_version)
         for table_index, (table, name) in enumerate(zip(tables, names), 1):
             if checkpoint:
                 checkpoint({"stage": "rendering", "table": table_index, "totalTables": len(tables)})

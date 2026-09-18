@@ -75,21 +75,21 @@ class BusinessFileTests(TestCase):
     def test_old_and_new_renderer_tasks_remain_distinct_and_immutable(self):
         with mutation(self.admin):
             old = m.AiBusinessFileRun.objects.create(id="legacy-files", report=self.report, owner_email=self.admin.email,
-                binding_digest=files.binding(self.report, self.admin, False), renderer_version=1)
+                binding_digest=files.binding(self.report, self.admin, False, renderer_version=1), renderer_version=1)
         new = files.get(self.start(), self.admin)
-        self.assertEqual(new.renderer_version, 3)
+        self.assertEqual(new.renderer_version, 5)
         self.assertNotEqual(new.id, old.id)
         self.assertEqual(self.start(), new.id)
         from importlib import import_module
         from django.apps import apps
-        reverse = import_module("ai_assistant.migrations.0018_business_excel_renderer").restore_offline_constraint
-        with self.assertRaisesMessage(RuntimeError, "不能回退渲染约束"):
+        reverse = import_module("ai_assistant.migrations.0025_business_file_opc").uninstall
+        with self.assertRaisesMessage(RuntimeError, "禁止逆迁移"):
             reverse(apps, None)
         with self.assertRaises(DatabaseError), transaction.atomic():
             m.AiBusinessFileRun.objects.filter(pk=old.pk).update(renderer_version=2)
         with self.assertRaises(DatabaseError), transaction.atomic():
             m.AiBusinessFileRun.objects.create(id="unsupported-files", report=self.report, owner_email=self.admin.email,
-                binding_digest=old.binding_digest, renderer_version=5)
+                binding_digest=old.binding_digest, renderer_version=7)
         seen = []
         original = files.business_export.build
         def observe(*args, **kwargs):
@@ -100,16 +100,44 @@ class BusinessFileTests(TestCase):
             self.assertEqual(files.tick()["status"], "ready")
             self.assertEqual(files.tick()["status"], "ready")
         # Creation timestamps may tie; queue order is not renderer-version order.
-        self.assertCountEqual(seen, [1, 3])
+        self.assertCountEqual(seen, [1, 5])
         with mutation(self.admin):
             m.AiBusinessFileRun.objects.create(id="offline-files", report=self.report, owner_email=self.admin.email,
                 binding_digest=old.binding_digest, renderer_version=2)
         with patch("ai_assistant.business_export.build", side_effect=observe):
             self.assertEqual(files.tick()["status"], "ready")
-        self.assertCountEqual(seen, [1, 2, 3])
+        self.assertCountEqual(seen, [1, 2, 5])
+        with mutation(self.admin):
+            m.AiBusinessFileRun.objects.create(id="old-native-files", report=self.report, owner_email=self.admin.email,
+                binding_digest=files.binding(self.report, self.admin, False, renderer_version=3), renderer_version=3)
+        with patch("ai_assistant.business_export.build", side_effect=observe):
+            self.assertEqual(files.tick()["status"], "ready")
+        self.assertCountEqual(seen, [1, 2, 3, 5])
+        for item in files.listing(self.report.id, self.admin)["items"]:
+            row = files.get(item["id"], self.admin)
+            manifest = json.loads(row.manifest_json)
+            for kind in ("html", "xlsx"):
+                raw = b"".join(base64.b64decode(files.chunk(row.id, kind, {"sequence":str(i)}, self.admin)["base64"])
+                    for i in range(1, manifest["files"][kind]["chunkCount"]+1))
+                self.assertEqual(hashlib.sha256(raw).hexdigest(), manifest["files"][kind]["sha256"])
+
 
     def test_ready_audit_failure_resumes_staged_files_without_rebuilding(self):
-        run_id = self.start()
+        self._staged_recovery(self.start())
+
+    def test_legacy_v3_staged_recovery_keeps_bytes_and_version(self):
+        with mutation(self.admin):
+            old = m.AiBusinessFileRun.objects.create(id="legacy-staged-v3", report=self.report,
+                owner_email=self.admin.email, renderer_version=3,
+                binding_digest=files.binding(self.report, self.admin, False, renderer_version=3))
+        self._staged_recovery(old.id)
+        row = files.get(old.id, self.admin)
+        self.assertEqual(row.renderer_version, 3)
+        saved = list(m.AiBusinessFileChunk.objects.filter(run=row).values_list("id", "content_digest"))
+        self.assertNotEqual(self.start(), old.id)
+        self.assertEqual(saved, list(m.AiBusinessFileChunk.objects.filter(run=row).values_list("id", "content_digest")))
+
+    def _staged_recovery(self, run_id):
         original = files.audit
         def fail_ready(row, principal, action):
             if action == "ready":
