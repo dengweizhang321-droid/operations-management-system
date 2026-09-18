@@ -1,5 +1,60 @@
 # 五阶段经营分析：剩余开发与验收顺序
 
+## 2026-09-18 当前代码复核：下一步执行清单
+
+本节以候选分支 `66107f69` 加当前未提交文件为检查时点，只读核对了实际入口、工具分派、来源及候选证据。本节优先于下文按批次保留的历史状态。并行开发中的测试结果须由主线程补录；未提交代码存在不算测试通过。没有运行生产查询、模型调用、数据库测试或发布。
+
+**结论：主要底座已经接通，仍有明确的功能接线缺口；之后还必须完成真实业务、模型质量、规模和上线验收。原五阶段没有哪一阶段能仅凭代码数量或测试总数关闭。**
+
+### 本轮已完成的后续核验
+
+ERP目录后端已提交 `383481c6`：13项真实PG、独立升级恢复、8项显式重建入口测试通过。ERP选择器已接完整工作台，16项组件与8项父工作台浏览器测试通过，相关62项Node和构建通过，详见 [ERP选择器](AI_BUSINESS_SALES_PICKER.md)。因此下表P0-1的代码/合成接线缺口已补齐；仍缺正式初始化/实际规模及受控采用，不新增自动后台重建。
+
+月度财务纯合同18项与内部owning 11项PG已通过，提交 `b3808876`、`2755597e`；仍未接正式权限安装、公开接口、持久采集、Agent与文件。网店内部过期续读8项再次通过，仍未接真实AI检查点。下面保留的检查时点表格不得覆盖本节新增验收结果。
+
+### A. 已有组件与实际运行路径
+
+| 能力 | 当前代码能证明什么 | 仍不能据此证明什么 |
+| --- | --- | --- |
+| 店铺/品类/SPU/SKU/关键词及同比环比 | [规范计算](../backend/business_analysis/results.py)、[期间合同](../backend/business_analysis/contracts.py)、[证据采集](../backend/ai_assistant/business_evidence.py)已存在；本期/环比/同比有封存、缺失和比较状态 | 真实店铺去年数据齐全；商品日访客等于店铺区间UV；市场TOP样本等于全市场销量 |
+| 市场、ERP/B端与网店来源 | [市场reader](../backend/market/analysis.py)、[ERP reader](../backend/sales/analysis.py)、[网店reader](../backend/netshop/analysis.py)已接；[ERP→网店主数据关联](../backend/business_analysis/mapping_plan.py)已有 | 市场竞品→自家SPU关联；推广归因成交、ERP销售和B端金额可相加；当前主数据证明历史归属 |
+| 系统多Agent | [筛查工具](../backend/ai_assistant/business_screening_tools.py)、[执行校验](../backend/ai_assistant/business_screening_execution.py)、[报告](../backend/ai_assistant/business_reports.py)已有运行路径和逐任务证明 | 真实模型已通过六张诊断卡；多Agent数量代表建议正确；开发Agent协作等于系统Agent验收 |
+| 报告与行动规划 | 结构化引用/行动、预算、人工复核、多卷HTML/XLSX已接；[Excel证据](AI_BUSINESS_EXCEL_NATIVE_ACCEPTANCE.md)记录了新版36表合成交付 | 所有新增派生视图都已进入报告；完整原生Excel验收；达到参考文件的业务深度和真实规模 |
+| 范围工作台 | [工作台](../app/ai-business-workbench.tsx)实际引用网店及市场选择器 | ERP选择器或自然语言建议已接：当前工作台仍需手填ERP条件 |
+
+### B. 优先补齐的开发工作
+
+下面是依赖顺序，不是新增阶段。P0可以按文件所有权并行；共享迁移、PG及整体集成由主线程串行协调。
+
+| 优先级 / 工作项 | 当前状态及准确依据 | 最小完成条件 |
+| --- | --- | --- |
+| **P0-1 ERP精确来源目录与工作台** | [owning接口](../backend/sales/analysis_options.py)、[投影](../backend/sales/analysis_options_projection.py)、[0010迁移](../backend/sales/migrations/0010_analysis_options.py)、[边缘GET](../app/api/sales/analysis-options/route.ts)在未提交工作树；[证据](evidence/erp-source-options-candidate-20260918.json)仍标记13项PG和升级恢复待主线程执行 | 完成PG/最小权限/升级恢复及边缘验证；接账号绑定的ERP选择器，保留精确平台/店铺/渠道；明确索引过期后的受控重建入口。成功销售变更会让索引失效，不能交付一个只首次可用的选择器，也不能把包络日期当覆盖完整 |
+| **P0-2 推广计划/单元/匹配方式与词货联合接线** | [推广视图服务](../backend/ai_assistant/business_promotion_views.py)和[关键词×推广SKU服务](../backend/ai_assistant/business_promotion_keyword_sku.py)已有；现有`business_screening_tools.analysis_from`只有native/mapped分支，未调用上述服务 | 将新视图纳入固定版本的任务计划、工具与角色包、独立读取证明、数值引用/诊断及双格式完整制表；回归旧协议。无明确推广SKU留缺口，不用跟单SKU补齐；天猫已合并掉的计划粒度明确不支持 |
+| **P0-3 长任务过期后续读接入真实检查点** | [纯续签提案](../backend/business_analysis/cursor_renewal.py)、[网店内部续读](../backend/netshop/analysis_cursor.py)存在；实际[采集器](../backend/ai_assistant/business_collection.py)和[持久采集](../backend/ai_assistant/business_evidence.py)尚未调用`read_expired_page`；ERP/市场仍是3600秒签名有效期 | 从真实最后分块与检查点加载期望值，在同一版本竞争校验下继续；源变化必须停，不拼旧新页；网店先闭环，再覆盖ERP/市场。用真实暂停超过有效期、取消竞态、权限撤销、篡改和重复请求验收，不把任意409都当过期 |
+| **P1-1 月度财务证据源** | [财务纯合同](../backend/business_analysis/finance_source.py)及[设计](AI_BUSINESS_FINANCE_SOURCE.md)已有，尚未进入owning、采集或Agent工具 | 新增实际财务reader的月份/批次/revision一致分页，接规划/封存/完整表/工具/诊断/文件；保留缺月、缺科目和null。自然月与最近30天不强行对齐，不把经营汇总与金蝶科目重复累加 |
+| **P1-2 独立店铺总览与UV口径** | [归一化导入](../lib/netshop/normalized-import.ts)和[后端导入](../backend/netshop/import_service.py)已有`jd_shop_overview/trade_overview`入口；经营分析来源合同尚未接可靠独立总览 | 先核验可信原字段、日粒度、重叠导入冲突和去重；建立独立来源合同再贯通封存/表/文件。若平台仅日去重UV，报告明确区间UV不可得，不把每日UV相加；不需为此重写已有通用导入 |
+| **P1-3 市场价格带、进出榜与自家商品关联** | [市场事实](../backend/market/analysis.py)已存在；[现有映射计划](../backend/business_analysis/mapping_plan.py)约束的是sales与master，不是市场竞品映射；旧字段不等于完整派生分析 | 固定同类目/粒度/价格带/榜单范围做样本内价格带及入榜出榜；市场商品关联自家SPU必须有可验证映射依据/显式确认，歧义保留。TOP榜未出现不能写成零销售，不猜全市场份额；新派生贯通工具与完整报告 |
+| **P1-4 自然语言辅助选范围** | 工作台已有问题文本、显式来源选择与预览，尚无问题到权威身份候选的实际入口 | 先以确定性日期/目的解析给候选，再从权威目录匹配身份；展示歧义、缺源及问题与表单冲突，确认后生成固定计划。保留手工入口；建议范围不自动创建付费分析 |
+| **P1-5 跨请求派生复用与规模** | [复用设计](AI_BUSINESS_DERIVED_REUSE_DESIGN.md)明确当前只在一次content复核内缓存；[普通分析分页](../backend/ai_assistant/business_evidence.py)及[映射分析](../backend/ai_assistant/business_mapped_analysis.py)仍会重算 | 先记录多页/多Agent的真实扫描次数和资源，按既定规模目标决定最小持久复用范围；若实施，固定owner/证据摘要/查询/算法键，原子完整发布、每次重授权、独立配额/失效/清理/恢复。不能把已有持久筛查结果等同于全部派生表已有缓存，也不为缓存无限扩展新事实库 |
+
+### C. 完成接线后必须实际执行的验收
+
+1. **业务对账与覆盖**：选择至少两店、本期/环比/同比、多个渠道的完整源和缺源两组场景；逐来源核对身份、金额、缺日/缺月、退货、B端包含关系及商品映射。真实历史不足要给缺口，不补零。各源revision只提供单源一致性，不宣称跨域同一数据库快照。
+2. **六卡诊断质量**：按[既有验收卡](AI_BUSINESS_DIAGNOSTIC_ACCEPTANCE.md)执行事实夹具、专业Agent、独立复核与整合。先验证工程链路，再在有授权的模型调用中记录实际模型、费用、遗漏、错误因果和修改结果。每条动作应有对象、证据、改动、前提、指标、观察期、责任角色和回退；文件全量与模型所读范围分别披露。
+3. **真实规模与参考质量**：按照[参考检查](AI_BUSINESS_REFERENCE_QUALITY.md)核验近似实际规模的字节/页数、组数、峰值内存、临时盘、耗时、模型输入和成本。超限完整拒绝而不悄悄截断；双格式逐指标/空值/比较/关联/预算同数，人工核验诊断深度与规划可执行性。48来源等协议上限不是规模测试结论。
+4. **剩余原生Excel验收**：[记录](AI_BUSINESS_EXCEL_NATIVE_ACCEPTANCE.md)为50案49通过，1案许可到期未完成，另8个预算边界和最新完整renderer6打开/复算仍待验证。有效许可是该项外部条件；HTML/PG通过不能替代，普通开发可继续。
+5. **最终组合回归与受控采用**：冻结实际待交付版本后按变更影响验证旧协议/文件字节、权限变化、重复提交、未知模型结果、取消恢复、迁移与独立恢复。现有大批回归只证明当时组合，不覆盖正在写的ERP/财务代码。生产发布、维护与真实模型费用按明确授权处理；采用后才记录精确release、真实页面/下载/业务验收。通知发送及自动改投流不是本轮完成条件。
+
+### D. 本轮边界与收口方法
+
+没有必要重新开发预算、多卷文件、五角色队列或已有筛查底座，也不需要为“多Agent”再建一套调度。最短路径是先完成P0三项的可靠接线，再补P1中用户要求的分析范围，最后集中完成C项验收。各项须同时记录“代码实现 / 接入运行路径 / 实际验收证据 / 生产采用”四栏，缺一栏就保留其对应缺口。
+
+当前无需用户参与日常开发。真正需要外部条件的只有原生Excel有效许可，以及在具体可审查方案准备好之后确认真实模型费用和受控采用范围；不能把这些条件当成其余开发暂停理由。本清单不授予生产操作或付费调用。
+
+---
+
+## 历史阶段记录与详细依据
+
 核对日期：2026-09-18。范围是当前独立候选工作区，包括正在集成的商品关联报告与工作台代码；不是 main、生产 release 或正式数据库的状态证明。开发验证使用隔离数据库及合成文件，没有读取生产数据、维护生产服务或调用付费模型。本文不改写历史批次记录。
 
 ## 判断口径

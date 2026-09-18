@@ -5,9 +5,11 @@ import AiBusinessBudgetBuilder from "./ai-business-budget-builder";
 import AiBusinessMappingBuilder from "./ai-business-mapping-builder";
 import AiBusinessScopePicker from "./ai-business-scope-picker";
 import AiBusinessMarketPicker from "./ai-business-market-picker";
+import AiBusinessSalesPicker from "./ai-business-sales-picker";
 import { mappingBindingKey, type MappingSelection } from "@/lib/ai/business-mapping-builder";
 import { mergeNetshopOption, type NetshopOptionSelection } from "@/lib/ai/business-scope-options";
 import { mergeMarketOption, type MarketOptionSelection } from "@/lib/ai/business-market-options";
+import { mergeSalesOption, type SalesOptionSelection } from "@/lib/ai/business-sales-options";
 import "./ai-business-workbench.css";
 
 type Shop = { platform: string; shop: string; datasets: string[]; salesChannels: string[] };
@@ -115,6 +117,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const [mappingReset, setMappingReset] = useState(0);
   const [scopeOpen, setScopeOpen] = useState(false), [scopeError, setScopeError] = useState("");
   const [marketOpen, setMarketOpen] = useState(false), [marketError, setMarketError] = useState("");
+  const [salesOpen, setSalesOpen] = useState(false), [salesError, setSalesError] = useState("");
   const formRef = useRef(form), scopeLocked = useRef(true);
   const mappingRef = useRef<MappingIntent>(emptyMapping()), detailRef = useRef<Detail | null>(null), detailFailed = useRef(false);
   const live = useRef(true), actor = useRef(""), pendingRef = useRef<Pending | null>(null), selectedRef = useRef("");
@@ -152,7 +155,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
         screeningModeRef.current = false; setScreeningMode(false);
         writeController.current?.abort(); previewController.current?.abort(); detailController.current?.abort(); listController.current?.abort(); listController.current = null;
         setPreview(null); setConfirmed(false); setDetail(null); setReports([]); setItems([]);
-        formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError(""); setMarketOpen(false); setMarketError("");
+        formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError(""); setMarketOpen(false); setMarketError(""); setSalesOpen(false); setSalesError("");
         detailRef.current = null; detailFailed.current = false; updateMapping(emptyMapping());
         selectedRef.current = ""; setSelected(""); setPage(1); setMoreReports(false); setWriteError("账号已变化，请重新核验当前账号的范围及待确认提交。");
       }
@@ -317,6 +320,14 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       edit({ ...current, markets }); setMarketError(""); return true;
     } catch (error) { setMarketError(message(error)); return false; }
   }
+  function addSales(selection: SalesOptionSelection) {
+    if (!live.current || scopeLocked.current || pendingRef.current || writeController.current || !actor.current || selection.principalKey !== actor.current) return false;
+    try {
+      const current = formRef.current;
+      const shops = mergeSalesOption(current.shops, selection, actor.current);
+      edit({ ...current, shops }); setSalesError(""); return true;
+    } catch (error) { setSalesError(message(error)); return false; }
+  }
   const shopEdit = (i: number, change: Partial<Shop>) => edit({ ...form, shops: form.shops.map((shop, j) => j === i ? { ...shop, ...change } : shop) });
   const visibleItems = listedPage === page ? items : [];
   const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
@@ -336,6 +347,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       <button type="button" disabled={!principalKey} onClick={() => setScopeOpen(value => !value)}>{scopeOpen ? "收起网店来源选择" : "从历史导入选择网店来源"}</button>
       {scopeOpen && principalKey && <><p>只添加你选择的店铺和数据集。日期、ERP 渠道及市场条件仍需自行确认；历史导入不表示所选期间完整。</p><AiBusinessScopePicker key={principalKey} principalKey={principalKey} disabled={locked} onSelect={addScope} onIdentityMismatch={() => void loadList(true)} /></>}
       {scopeError && <p role="alert" className="bw-error">{scopeError}</p>}
+      <button type="button" disabled={!principalKey} onClick={() => setSalesOpen(value => !value)}>{salesOpen ? "收起ERP来源选择" : "选择ERP店铺与销售渠道"}</button>
+      {salesOpen && principalKey && <AiBusinessSalesPicker key={principalKey} principalKey={principalKey} disabled={locked} onSelect={addSales} onIdentityMismatch={() => void loadList(true)} />}
+      {salesError && <p role="alert" className="bw-error">{salesError}</p>}
       {form.shops.map((shop, i) => <fieldset className="bw-card" key={i}><legend>店铺 {i+1}</legend><div className="bw-grid"><TextInput label={`店铺 ${i+1} 平台`} value={shop.platform} onChange={platform => shopEdit(i, { platform })} /><TextInput label={`店铺 ${i+1} 精确名称`} value={shop.shop} onChange={value => shopEdit(i, { shop: value })} /></div>
         <div className="bw-checks">{["promotion", "master", "sku", "spu", "b2b"].map(dataset => <label key={dataset}><input type="checkbox" checked={shop.datasets.includes(dataset)} onChange={event => shopEdit(i, { datasets: event.target.checked ? [...shop.datasets, dataset] : shop.datasets.filter(d => d !== dataset) })} />{names[dataset]}</label>)}</div><p>商品主数据仅使用本期最新快照。ERP 渠道须逐项输入系统中的精确身份；不会按店铺名称猜测关联。</p>
         {shop.salesChannels.map((channel, j) => <div className="bw-inline" key={j}><TextInput label={`店铺 ${i+1} ERP 渠道 ${j+1}`} value={channel} onChange={value => shopEdit(i, { salesChannels: shop.salesChannels.map((c, k) => j === k ? value : c) })} /><button type="button" onClick={() => shopEdit(i, { salesChannels: shop.salesChannels.filter((_, k) => k !== j) })}>删除渠道 {j+1}</button></div>)}
