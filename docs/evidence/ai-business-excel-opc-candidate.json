@@ -127,5 +127,28 @@
     },
     "nativeExcel": "pending_license",
     "paidModel": false
+  },
+  "finalIntegration": {
+    "build": "passed",
+    "node": {
+      "total": 2410,
+      "passed": 2390,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 20,
+      "seconds": 299.8074361,
+      "log": ".runtime/batch-market-excel-node-all.log"
+    },
+    "typecheck": {
+      "status": "unchanged_existing_errors",
+      "lines": 223,
+      "exactBaseline": ".runtime/batch52-types.log",
+      "log": ".runtime/batch-market-excel-tsc.log"
+    },
+    "productionBoundary": {
+      "checkedModules": 497,
+      "violations": 0
+    },
+    "diffWhitespace": "One intentional predecessor SQL whitespace-only line is preserved for exact reverse function bytes in migration 0025."
   }
 }

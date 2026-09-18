@@ -23,6 +23,7 @@ Excel 路径为 `C:\Program Files\Microsoft Office\Root\Office16\EXCEL.EXE`，�
 
 ## 当前结果与未通过项
 
+- 最终前端构建通过；全量Node 2410项中2390通过、20项既有跳过、0失败/取消（299.807秒）。全库类型检查223行既有错误与第52批逐字一致，无新增；497个生产边界模块无违规。迁移0025的一个空白行保留在精确前驱SQL字符串内，用于逐字逆函数恢复，不作格式化改写。
 - 58 项纯计算、导出及迁移合同测试通过：`.runtime/excel-opc-compatibility/pure-tests.log`。
 - 41 项单双文件/多卷下载 Node 测试通过，包含 4/6 跨版本清单拒绝。
 - 将 `HEAD` 原 writer 与原预算公式实际载入，固定 ZIP 时间，1/2/3/4 四组 HTML、XLSX 和证明逐字节一致：`.runtime/excel-opc-compatibility/legacy-bytes.json`。另有旧 4 筛查总览顺序、新 6 摘要优先的纯回归。
