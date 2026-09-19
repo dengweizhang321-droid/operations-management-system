@@ -2,6 +2,8 @@
 
 Windows 计划任务 `TERUISI Operations Watchdog` 在当前用户登录时、以及每分钟独立触发一次。执行文件安装在 `D:\teruisi-runtime\operations-watchdog`，不依赖 Codex 对话存活。任务使用原 Windows 用户与普通权限；现有 DPAPI 和钉钉身份仍要求用户已登录。电脑关机、注销或 Windows 计划任务服务停用时不提供检查。
 
+2026-09-20 修复每分钟空白终端弹窗：计划任务最外层使用 `tools/watchdog-launcher/NoConsoleLauncher.cs` 编译的 Windows GUI 启动器，以 `UseShellExecute=false`、`CreateNoWindow=true` 和重定向标准流创建 PowerShell。从进程创建时就不分配控制台，不能只依赖 PowerShell 的 `-WindowStyle Hidden`，后者在 Windows Terminal 接管时仍可能先弹窗。启动器等待直接检查进程并回传退出码，消费输出但不记录正文；不使用 kill-on-close job，避免结束看门狗时连带终止其恢复的业务服务。安装记录绑定脚本、启动器源码及二进制摘要；已有任务只替换受核验的 action，保留触发时间、身份和设置。
+
 ## 检查与恢复
 
 每轮通过现有控制器核验 12 个后端组件、Worker 的不可变版本和进程归属、Django supervisor 的实际状态；另查首页、Worker live/ready、helper HTTP 和 3000/5791/5432 监听。内部健康端点必须返回约定 JSON，不能把任意 HTTP 200 当作就绪。HTTP 请求有超时和响应体上限，状态子进程限 60 秒；正常页面访问不等待看门狗。全栈检查比单次 HTTP 探测耗时更长，以独立运行的实际耗时为准。
@@ -42,3 +44,5 @@ pwsh -NoProfile -File .\tools\operations-system-watchdog.ps1 -Action TestNotific
 ```
 
 自动检查执行受保护目录内的副本，并核验安装摘要。源码修改不自动进入已安装脚本，更新必须重新安装并验证任务 action、登录触发器、每分钟触发器、脚本摘要及至少两次独立任务成功。测试使用 `tests/operations-system-watchdog.test.ps1` 中的隔离目录和合成进程；禁止通过杀死正式服务验收恢复能力。
+
+无控制台验收另运行 `tests/watchdog-no-console.test.ps1`：核对可执行文件 GUI subsystem、子进程控制台句柄为零、长标准流无死锁、子进程退出码和无效参数拒绝。安装后还需观察实际计划任务连续运行期间没有新建 WindowsTerminal/OpenConsole；不能仅凭任务退出码 0 宣称弹窗已解决。更新前禁用下一次看门狗调度并等待当前检查自然结束，不中断其进程树；重新安装会恢复调度。

@@ -292,16 +292,35 @@ function Install-Watchdog {
   $target=Join-Path $root 'operations-system-watchdog.ps1'
   Copy-Item -LiteralPath $PSCommandPath -Destination $target -Force
   if((Get-WatchHash $target) -cne (Get-WatchHash $PSCommandPath)){throw 'installation_hash_mismatch'}
-  $config=@{version=$WatchdogVersion;scriptSha256=Get-WatchHash $target;installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
+  $launcherSource=Join-Path $PSScriptRoot 'watchdog-launcher\NoConsoleLauncher.cs'
+  $launcherSourceHash=Get-WatchHash $launcherSource
+  $launcher=Join-Path $root ("Watchdog.NoConsole-"+$launcherSourceHash.Substring(0,16)+'.exe')
+  if(-not(Test-Path -LiteralPath $launcher)){
+    $compiler=Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/out:$launcher" $launcherSource
+    if($LASTEXITCODE -ne 0){throw 'watchdog_launcher_compile_failed'}
+  }
+  $config=@{version=$WatchdogVersion;scriptSha256=Get-WatchHash $target;launcherSourceSha256=$launcherSourceHash;launcherSha256=Get-WatchHash $launcher;installedAt=[DateTimeOffset]::UtcNow.ToString('o')}
   Write-WatchJson (Join-Path $root 'installation.json') $config
-  $taskAction=New-ScheduledTaskAction -Execute $PowerShellPath -WorkingDirectory $root -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -File `"$target`" -Action Check -Execute"
+  $taskAction=New-ScheduledTaskAction -Execute $launcher -WorkingDirectory $root -Argument "`"$PowerShellPath`" `"$target`""
   $user=[Security.Principal.WindowsIdentity]::GetCurrent().Name
   $triggers=@((New-ScheduledTaskTrigger -AtLogOn -User $user),(New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)))
   $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
   $principal=New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $triggers -Settings $settings -Principal $principal -Force -ErrorAction Stop|Out-Null
+  $existing=Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  if($existing){
+    $expectedLegacy="-NoProfile -NonInteractive -WindowStyle Hidden -File `"$target`" -Action Check -Execute"
+    $knownLegacy=$existing.Actions.Execute -ceq $PowerShellPath -and $existing.Actions.Arguments -ceq $expectedLegacy
+    $knownLauncher=$existing.Actions.Execute -ceq $launcher -and $existing.Actions.Arguments -ceq $taskAction.Arguments
+    if(@($existing.Actions).Count -ne 1 -or -not($knownLegacy -or $knownLauncher) -or $existing.Actions.WorkingDirectory -cne $root){throw 'unrecognized_watchdog_task_action'}
+    if($existing.State -eq 'Running'){throw 'wait_for_existing_watchdog_check_to_finish'}
+    Set-ScheduledTask -TaskName $TaskName -Action $taskAction -ErrorAction Stop|Out-Null
+    Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop|Out-Null
+  }else{
+    Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $triggers -Settings $settings -Principal $principal -ErrorAction Stop|Out-Null
+  }
   $task=Get-ScheduledTask -TaskName $TaskName
-  if($task.Actions.Arguments -cne $taskAction.Arguments -or $task.Triggers.Count -ne 2 -or $task.Triggers[1].Repetition.Interval -ne 'PT1M'){throw 'task_readback_mismatch'}
+  if($task.Actions.Execute -cne $launcher -or $task.Actions.Arguments -cne $taskAction.Arguments -or $task.Triggers.Count -ne 2 -or $task.Triggers[1].Repetition.Interval -ne 'PT1M'){throw 'task_readback_mismatch'}
   Start-ScheduledTask -TaskName $TaskName
   return @{status='installed';cadence='independent_minutely_and_logon';task=$TaskName}
 }

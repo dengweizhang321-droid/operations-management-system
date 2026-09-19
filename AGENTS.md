@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+看门狗计划任务不得直接启动控制台 PowerShell：`-WindowStyle Hidden` 不能阻止 Windows Terminal 在进程创建时弹窗。使用 GUI subsystem 启动器和 `CreateNoWindow`/重定向标准流；等待直接子进程并保留退出码，不使用 kill-on-close job，以免误杀恢复后应持续运行的业务服务。更新只替换精确核验的任务 action、保留原触发器及身份，先等待旧检查自然结束；验收须覆盖真实子进程无控制台与至少两轮计划任务无新终端进程，见 `docs/OPERATIONS_WATCHDOG.md`。
+
 独立系统看门狗使用 `tools/operations-system-watchdog.ps1`，受保护安装目录 `D:\teruisi-runtime\operations-watchdog`，Windows 计划任务 `TERUISI Operations Watchdog`。每分钟及当前用户登录后独立检查，恢复持有原 Worker 生命周期锁、复验持久维护与运行意图摘要，只调用原唯一 Start 引擎并补齐原 Django supervisor；连续两次失败才判定，最多 3 次/15 分钟、间隔至少 5 分钟，两轮完整健康才闭合。人工完整停止/维护安静跳过，干净 Worker-only Stop 不被逆转；未知端口、PID 复用、损坏回执不接管。仅本看门狗异常通知动态核验本人单聊，发送前持久预留，unknown 不重发，不改变既有工作流和旧守护告警的收件人。正常快照覆盖、故障证据独立保留；源码修改后须重装并回读安装摘要与两次独立任务成功。不得杀死正式服务验收，详见 `docs/OPERATIONS_WATCHDOG.md`。
 
 2026-09-19，字号调整源码 `87fb9e0b` 已按本轮授权受控采用；Worker/helper `20260919T054421Z-8396938e0c741f6c`，manifest `7b0f2ee2989bdb7c28b94df6aa018a7afee085ee30fde17cdcd8da4746a1327e`。维护已结束，12 组件 Ready、exact_release、启动绑定、守护 healthy、钉钉 connected 与 15 份页面资源字节核验通过。备份前独立恢复及前后 E 盘归档通过；无迁移、Django 重新部署或 n8n 重启。维护期间亿用 3320 失败交原安全重试 3321，周报 3318/3319 失败、3322 自然成功，未人工补跑。全量测试 2208 通过/20 跳过，已有缺失 `color-surface-subtle` 变量测试失败在前驱复现；浏览器自动视觉验收未完成。详见 `docs/evidence/typography-production-20260919.json`，不授予未来维护授权。后续字号调整应按具体组件角色收敛，CSS 声明数量不能当成实际渲染字号统计；本次仍保留旧规则，不能宣称已消除全部过小文字。
