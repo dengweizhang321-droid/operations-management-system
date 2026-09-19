@@ -40,9 +40,11 @@ $aiController = "D:\teruisi-runtime\django-sales\app\tools\django-ai.ps1"
 
 启用时只核验现有身份和授权，不发送消息，也不立即启动进程；配置成功后通过系统正常“启动”入口生效。配置存于受保护 runtime 的 `config/dingtalk-startup.json`，绑定接收器配置摘要和 AI authority，配置文件变化需重新核验启用。网页 AI 对话开关、任务开关、绑定权限和群审批仍在实际处理前实时核验。
 
-`DisableDingTalkStartup` 关闭以后随系统自动启动，保持当前接收器运行；`StopDingTalk` 则同时关闭自动启动并停止当前接收器。整套系统正常停止保留自动启动配置，下次系统启动会再次带起。`StartDingTalk` 仍仅为单次手动启动，不撤销持久停用设置。`Status` 增加 `DingTalkStartup` 和 `DingTalkReceiver`，进程 `running` 不等于平台连接确认，连接仍须核验本轮日志的 `connected`。
+`DisableDingTalkStartup` 关闭以后随系统自动启动，保持当前接收器运行；`StopDingTalk` 则同时关闭自动启动并停止当前接收器。整套系统正常停止保留自动启动配置，下次系统启动会再次带起。`StartDingTalk` 仍仅为单次手动启动，不撤销持久停用设置。`Status` 增加 `DingTalkStartup`、`DingTalkReceiver` 和 `DingTalkConnection`；进程状态与平台连接状态分开回读。
 
-自动启动失败会明确报告接收器失败，已就绪的业务服务不因此被停止。本次仅接入系统启动链，不新增接收器自身的无限重启或认证重试；连续建联失败退出后仍需排障并重新启动系统入口。当前 Windows 启动链要求登录原用户（DPAPI 身份），不支持重启后无人登录即运行。超过 5 分钟的旧执行槽仍不补发。
+自动启动失败会明确报告接收器失败，已就绪的业务服务不因此被停止。接收器对 DWS 临时不可用、钉钉 Stream 开通或 WebSocket 建联失败执行同一有界恢复：保持 PostgreSQL 单例锁与定时任务工作线程，重新核验平台身份和临时凭据，按 2 秒至最多 5 分钟退避，不因连续 5 次失败退出。`Status` 同时区分进程状态与 `DingTalkConnection=starting/connected/recovering`；日志只记录固定的 `stream_unavailable` 和连接状态，不记录凭据、ticket、群或人员 ID。永久身份、配置、权限及本地 authority 错误仍失败关闭，不通过重连绕过。当前 Windows 启动链要求登录原用户（DPAPI 身份），不支持重启后无人登录即运行。超过 5 分钟的旧执行槽仍不补发。
+
+Stream 恢复与定时投递相互隔离：接收器进程存活期间，即使入站 Stream 正在恢复，定时执行循环仍可按原权限、目标复验和发送前持久预留处理当前执行槽；发送通道不可用时继续按既有 `failed/unknown` 规则闭合，绝不自动重放未知外发。首次采用机器人身份前仍须完成只读平台核验；临时平台故障只延迟采用，不会写入未经核验的身份。
 
 候选验证：Windows PowerShell 5.1/7 隔离启动与失败场景通过；全库 Node 2122 通过、0 失败、23 跳过，最终启动授权校验调整后的 6 项专项复测通过。lint 无错误（11 条已有警告），426 个后端入口/依赖模块边界检查无违规。候选开发阶段没有数据库迁移、生产配置写入、服务切换或真实投递。见 [候选验证记录](evidence/dingtalk-receiver-autostart-candidate-20260913.json)。
 
