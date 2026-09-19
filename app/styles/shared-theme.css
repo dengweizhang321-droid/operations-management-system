@@ -120,9 +120,11 @@ table th[data-column-filter-active="true"]::after { color: var(--color-brand); }
 .n8n-workflow-hero-status { gap: 6px; }
 .n8n-workflow-hero-status strong { font-size: 20px; letter-spacing: 2px; }
 .n8n-workflow-switcher > button.is-active > span { color: var(--color-brand-hover); background: var(--color-brand-tint); }
+.n8n-workflow-hero h2 { font-size: var(--font-size-display); line-height: var(--line-height-tight); }
+.n8n-workflow-hero-status strong { font-size: var(--font-size-page-title); line-height: var(--line-height-tight); }
 @media (max-width: 860px) {
   .n8n-workflow-hero { padding: 16px 18px; gap: 12px; }
-  .n8n-workflow-hero h2 { font-size: 21px; }
+  .n8n-workflow-hero h2 { font-size: var(--font-size-page-title); }
 }
 
 .stat-period-picker, .period-shortcuts, .period-picker-footer { border-color: var(--line); background: var(--surface); }

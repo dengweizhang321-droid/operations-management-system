@@ -28,6 +28,13 @@ p.warning { padding: 12px 16px; background: #fff7ed; color: #9a3412; }
 .itemEditor { padding: 24px; border-color: var(--color-brand-border); background: var(--color-brand-soft); }
 .editorGrid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 14px; align-items: end; }
 .editorGrid label { display: grid; gap: 7px; color: var(--color-text-secondary); font-size: 13px; }
+
+/* Keep the Guangdong warehouse view aligned with the shared inventory scale. */
+.root h2 { font-size: var(--font-size-section); line-height: var(--line-height-tight); }
+.root h3 { font-size: var(--font-size-card-title); line-height: var(--line-height-tight); }
+.riskCard b { font-size: var(--font-size-display); line-height: var(--line-height-tight); }
+.riskCard small, .note { font-size: var(--font-size-caption); }
+.editorGrid label { font-size: var(--font-size-label); }
 .editorGrid input, .editorGrid select { width: 100%; min-width: 0; box-sizing: border-box; }
 .reasonField { grid-column: span 3; }
 .editorActions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

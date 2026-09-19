@@ -3152,3 +3152,101 @@ table th[data-column-filter-active="true"]::after { content: "●"; border-color
 .warehouse-mapping-pagination .secondary-button:disabled { cursor: not-allowed; opacity: .45; }
 @media (max-width:1100px) { .warehouse-mapping-overview { grid-template-columns: 1fr; }.warehouse-mapping-summary { grid-template-columns: repeat(2,minmax(120px,1fr)); }.warehouse-mapping-toolbar { align-items: flex-start; }.warehouse-mapping-filters { width: 100%; justify-content: flex-start; }.warehouse-mapping-search { flex: 1 1 220px; } }
 @media (max-width:620px) { .warehouse-mapping-summary { grid-template-columns: 1fr 1fr; }.warehouse-mapping-filters label,.warehouse-mapping-search { width: 100%; }.warehouse-mapping-pagination { align-items: flex-start; flex-direction: column; }.warehouse-mapping-pagination > div { width: 100%; }.warehouse-mapping-pagination .secondary-button { flex: 1; } }
+
+/* Typography normalization: shared semantic sizes keep every business board on one scale. */
+body { font-size: var(--font-size-body); line-height: var(--line-height-body); }
+/* Transitional floor for legacy compact selectors; icons keep their own element rules. */
+.app-shell small,
+.app-shell time { font-size: var(--font-size-caption) !important; }
+.app-shell label { font-size: var(--font-size-label) !important; }
+.app-shell th,
+.app-shell td { font-size: var(--font-size-label) !important; }
+.app-shell em { font-size: var(--font-size-micro) !important; }
+.app-shell .title-area h1 { font-size: var(--font-size-page-title); line-height: var(--line-height-tight); }
+.app-shell .section-header h2,
+.app-shell .product-trend-toolbar h2,
+.app-shell .shop-distribution-header h2,
+.app-shell .sales-overview-filter-heading h2,
+.app-shell .channel-analysis-toolbar h2,
+.app-shell .warehouse-mapping-overview h2 { font-size: var(--font-size-section); line-height: var(--line-height-tight); }
+.app-shell .primary-button,
+.app-shell .secondary-button,
+.app-shell .filter-button,
+.app-shell .subnav button,
+.app-shell .segmented button,
+.app-shell .workflow-subnav button { font-size: var(--font-size-label); }
+.app-shell .data-table,
+.app-shell .data-table th,
+.app-shell .data-table td,
+.app-shell .outlet-data-table,
+.app-shell .workflow-data-table th,
+.app-shell .workflow-data-table td,
+.app-shell .warehouse-mapping-table th,
+.app-shell .warehouse-mapping-table td { font-size: var(--font-size-label); }
+.app-shell .data-table th,
+.app-shell .data-table td { line-height: var(--line-height-body); }
+.app-shell .metric-card p,
+.app-shell .form-grid label > span,
+.app-shell .settings-menu strong,
+.app-shell .warehouse-mapping-filters label,
+.app-shell .warehouse-mapping-checkbox { font-size: var(--font-size-label); }
+.app-shell .metric-card > strong,
+.app-shell .workflow-summary-grid > button > strong,
+.app-shell .launch-followup-summary > button > strong { font-size: var(--font-size-kpi); line-height: var(--line-height-tight); }
+.app-shell .metric-card > small,
+.app-shell .section-header p,
+.app-shell .warehouse-mapping-overview p,
+.app-shell .warehouse-mapping-summary span,
+.app-shell .warehouse-mapping-summary small,
+.app-shell .warehouse-mapping-readonly,
+.app-shell .warehouse-mapping-pagination { font-size: var(--font-size-caption); }
+.app-shell .warehouse-mapping-filters select,
+.app-shell .warehouse-mapping-filters input,
+.app-shell .warehouse-mapping-table td select,
+.app-shell .form-grid input { font-size: var(--font-size-body); }
+.app-shell .ai-space-hero h2,
+.app-shell .ai-management-summary h2,
+.app-shell .finance-analysis-hero h2 { font-size: var(--font-size-page-title); line-height: var(--line-height-tight); }
+.app-shell .ai-space-hero p,
+.app-shell .ai-management-summary p,
+.app-shell .ai-page-context-card,
+.app-shell .ai-chat-compact .ai-message p,
+.app-shell .ai-chat-compact textarea { font-size: var(--font-size-body); line-height: var(--line-height-readable); }
+.app-shell .ai-workbench .ai-workbench-markdown { font-size: var(--font-size-body); line-height: var(--line-height-readable); }
+.app-shell .ai-workbench .ai-workbench-markdown h1,
+.app-shell .ai-workbench .ai-workbench-markdown h2 { font-size: var(--font-size-section); line-height: var(--line-height-tight); }
+.app-shell .ai-workbench .ai-workbench-markdown h3,
+.app-shell .ai-workbench .ai-workbench-markdown h4 { font-size: var(--font-size-card-title); line-height: var(--line-height-tight); }
+.app-shell .ai-workbench .ai-workbench-message-actions time,
+.app-shell .ai-workbench .ai-workbench-message-content > small,
+.app-shell .ai-workbench .ai-workbench-subtitle { font-size: var(--font-size-caption); }
+.app-shell .ai-module-drawer-heading strong,
+.app-shell .ai-guidance-field > span,
+.app-shell .ai-guidance-history > button,
+.app-shell .report-editor label,
+.app-shell .report-review label { font-size: var(--font-size-body); }
+.app-shell .ai-guidance small,
+.app-shell .report-card-top,
+.app-shell .report-editor small,
+.app-shell .report-table small { font-size: var(--font-size-caption); }
+.app-shell .import-monitor,
+.app-shell .import-monitor .data-table,
+.app-shell .report-note,
+.app-shell .ai-guidance textarea,
+.app-shell .ai-guidance input:not([type=checkbox]),
+.app-shell .ai-guidance select { font-size: var(--font-size-body); }
+.app-shell .import-monitor h2 { font-size: var(--font-size-section); }
+.app-shell .import-monitor h3,
+.app-shell .import-monitor label,
+.app-shell .import-monitor .text-button,
+.app-shell .import-monitor .data-table thead th { font-size: var(--font-size-label); }
+.app-shell .import-monitor-note p,
+.app-shell .import-monitor-muted,
+.app-shell .import-monitor-footer,
+.app-shell .import-run-badge,
+.app-shell .import-run-table .import-time,
+.app-shell .import-run-subject small,
+.app-shell .import-run-facts dt,
+.app-shell .import-detail-counts,
+.app-shell .import-rule-dialog a,
+.app-shell .import-rule-provenance { font-size: var(--font-size-caption); }
