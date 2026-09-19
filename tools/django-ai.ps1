@@ -560,6 +560,20 @@ function Disable-AiStartup {
   Write-Output "Django AI 助理域已退出开机启动链；当前运行进程未改变。"
 }
 
+function Get-DingTalkConnectionState([string]$ReceiverRunId) {
+  if ($ReceiverRunId -cnotmatch '^[A-Za-z0-9-]{1,128}$') { return "unknown" }
+  $stdoutPath = Join-Path $LogDirectory "django-ai-dingtalk.$ReceiverRunId.stdout.log"
+  if (-not (Test-Path -LiteralPath $stdoutPath -PathType Leaf)) { return "starting" }
+  $state = "starting"
+  foreach ($line in @(Get-Content -LiteralPath $stdoutPath -Tail 200 -Encoding UTF8 -ErrorAction Stop)) {
+    try { $entry = $line | ConvertFrom-Json -ErrorAction Stop } catch { continue }
+    if ([string]$entry.status -cin @("starting", "connected", "recovering", "stopped")) {
+      $state = [string]$entry.status
+    }
+  }
+  return $state
+}
+
 function Show-AiStatus {
   $reader = "stopped"; $writer = "stopped"
   try { if (Resolve-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress) { $reader = "running" } elseif (@(Get-PortListeners 8111).Count -gt 0) { $reader = "foreign_port_owner" } } catch { $reader = "ownership_error" }
@@ -574,11 +588,18 @@ function Show-AiStatus {
   } catch { $pandasReady = "not_ready"; $writerReady = "not_ready" }
   $status = [pscustomobject][ordered]@{ AiReader = $reader; AiWriter = $writer; ReaderReadiness = $readerReady; WriterReadiness = $writerReady; CheckedAt = [DateTimeOffset]::UtcNow.ToString("o") }
   $status | Add-Member -NotePropertyName PandasReadiness -NotePropertyValue $pandasReady
-  $dingStartup = "disabled"; $dingProcess = "stopped"
+  $dingStartup = "disabled"; $dingProcess = "stopped"; $dingConnection = "stopped"
   try { if (Read-DingTalkStartup) { $dingStartup = "enabled" } } catch { $dingStartup = "invalid" }
-  try { if (Resolve-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python) { $dingProcess = "running" } } catch { $dingProcess = "ownership_error" }
+  try {
+    if (Resolve-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python) {
+      $dingProcess = "running"
+      $receipt = Read-JsonFile $DingTalkPidPath "DingTalk receiver process"
+      $dingConnection = Get-DingTalkConnectionState ([string]$receipt.runId)
+    }
+  } catch { $dingProcess = "ownership_error"; $dingConnection = "unknown" }
   $status | Add-Member -NotePropertyName DingTalkStartup -NotePropertyValue $dingStartup
   $status | Add-Member -NotePropertyName DingTalkReceiver -NotePropertyValue $dingProcess
+  $status | Add-Member -NotePropertyName DingTalkConnection -NotePropertyValue $dingConnection
   if ($RequestedJson) { Write-Output ($status | ConvertTo-Json -Compress) } else { $status | Format-List }
 }
 

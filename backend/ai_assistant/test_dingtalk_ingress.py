@@ -4,7 +4,7 @@ import json
 from contextlib import ExitStack
 from io import StringIO
 from unittest import skipUnless
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from django.test import SimpleTestCase
 from .management.commands import dingtalk_ask as receiver
@@ -14,7 +14,8 @@ from .policy import AiError
 class DingTalkIngressTests(SimpleTestCase):
     def setUp(self):
         self.output = StringIO()
-        self.command = receiver.Command(stdout=self.output)
+        self.errors = StringIO()
+        self.command = receiver.Command(stdout=self.output, stderr=self.errors)
 
     def events(self):
         return [json.loads(line) for line in self.output.getvalue().splitlines()]
@@ -48,6 +49,46 @@ class DingTalkIngressTests(SimpleTestCase):
                 self.assertEqual(self.command.accept_message(lambda: {}, {}), (503, "unavailable"))
         self.assertTrue(all(e["event"] == "callback_unavailable" and e["retryable"] for e in self.events()))
         self.assertNotIn("private", self.output.getvalue())
+
+    def test_startup_retries_transient_platform_validation_before_adoption(self):
+        config = {"enabled": True, "bindings": [{"senderId": "staff"}]}
+        cursor = Mock()
+        cursor.fetchone.return_value = (True,)
+        context = Mock()
+        context.__enter__ = Mock(return_value=cursor)
+        context.__exit__ = Mock(return_value=False)
+        database = Mock(vendor="postgresql")
+        database.cursor.return_value = context
+        missing = Mock()
+        missing.exists.return_value = False
+        run_stream = AsyncMock()
+        credentials = Mock(side_effect=[
+            AiError("private-network", "channel_unavailable", 503),
+            AiError("private-network", "channel_unavailable", 503),
+            ("fixture", "fixture"),
+        ])
+        with ExitStack() as stack:
+            for obj, attr, value in (
+                (receiver, "connection", database),
+                (receiver, "authority", Mock()),
+                (receiver.time, "sleep", Mock()),
+                (receiver.service, "load_config", Mock(return_value=config)),
+                (receiver.service.m.AiDingTalkSettings.objects, "filter", Mock(return_value=missing)),
+                (receiver.platform, "credentials", credentials),
+                (receiver.dingtalk_settings, "initialize", Mock()),
+                (receiver.dingtalk_settings, "effective", Mock(return_value=config)),
+                (receiver.service, "principal_for", Mock()),
+                (receiver.service, "recover_interrupted", Mock()),
+                (receiver.dingtalk_schedules, "recover_interrupted", Mock()),
+                (self.command, "run_stream", run_stream),
+            ):
+                stack.enter_context(patch.object(obj, attr, value))
+            self.command.handle(config="fixture", check=False, screenshot_profile="")
+        self.assertEqual(credentials.call_count, 3)
+        self.assertEqual(self.output.getvalue().count('"status":"recovering"'), 2)
+        self.assertEqual(self.errors.getvalue().count("stream_unavailable"), 2)
+        run_stream.assert_awaited_once()
+        self.assertNotIn("private", self.output.getvalue() + self.errors.getvalue())
 
     @skipUnless(importlib.util.find_spec("dingtalk_stream"), "optional Stream SDK not installed")
     def test_real_sdk_callback_routes_on_ingress_thread_and_returns_ack(self):
@@ -112,3 +153,42 @@ class DingTalkIngressTests(SimpleTestCase):
         self.assertEqual([e["event"] for e in self.events() if "event" in e],
                          ["callback_received", "callback_accepted"])
         self.assertNotIn("private", self.output.getvalue())
+
+    @skipUnless(importlib.util.find_spec("dingtalk_stream"), "optional Stream SDK not installed")
+    def test_repeated_stream_failures_keep_schedule_worker_alive_and_retry(self):
+        async def run():
+            real_sleep = asyncio.sleep
+            opened = Mock(side_effect=RuntimeError("private-ticket"))
+            scheduled = Mock(return_value=False)
+
+            async def fast_sleep(_delay):
+                await real_sleep(0)
+
+            with ExitStack() as stack:
+                for obj, attr, value in (
+                    (receiver, "close_old_connections", Mock()),
+                    (receiver.platform, "credentials", Mock(return_value=("fixture", "fixture"))),
+                    (receiver.platform, "open_stream", opened),
+                    (receiver.service, "step", Mock(return_value=False)),
+                    (receiver.dingtalk_schedules, "step", scheduled),
+                ):
+                    stack.enter_context(patch.object(obj, attr, value))
+                stack.enter_context(patch.object(receiver.asyncio, "sleep", side_effect=fast_sleep))
+                task = asyncio.create_task(self.command.run_stream(lambda: {"enabled": True}))
+                try:
+                    for _ in range(1000):
+                        if opened.call_count >= 6 and scheduled.call_count:
+                            break
+                        await real_sleep(0.001)
+                    self.assertGreaterEqual(opened.call_count, 6)
+                    self.assertGreater(scheduled.call_count, 0)
+                    self.assertFalse(task.done())
+                finally:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+
+        asyncio.run(run())
+        states = [json.loads(line).get("status") for line in self.output.getvalue().splitlines()]
+        self.assertIn("recovering", states)
+        self.assertGreaterEqual(self.errors.getvalue().count("stream_unavailable"), 6)
+        self.assertNotIn("private", self.output.getvalue() + self.errors.getvalue())

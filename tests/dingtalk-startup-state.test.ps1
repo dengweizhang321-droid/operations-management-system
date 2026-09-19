@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $tokens=$null; $parseErrors=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseInput([IO.File]::ReadAllText($Controller),[ref]$tokens,[ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Controller syntax errors' }
-foreach ($name in @('Read-DingTalkStartup','Set-DingTalkStartup','Start-ConfiguredDingTalkReceiver','Invoke-DingTalkReceiver')) {
+foreach ($name in @('Read-DingTalkStartup','Set-DingTalkStartup','Start-ConfiguredDingTalkReceiver','Invoke-DingTalkReceiver','Get-DingTalkConnectionState')) {
   $fn=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true)
   if (-not $fn) { throw "Missing $name" }
   . ([scriptblock]::Create($fn.Extent.Text))
@@ -14,6 +14,7 @@ New-Item -ItemType Directory -Path $fixture | Out-Null
 $DingTalkStartupPath=Join-Path $fixture 'startup.json'
 $DingTalkConfigPath=Join-Path $fixture 'config.json'
 $AiStartupPath=Join-Path $fixture 'ai.json'
+$LogDirectory=$fixture
 $script:calls=@(); $script:checkFails=$false
 function Assert-AiRuntimeEntry { $script:calls += 'guard' }
 function Read-JsonFile($Path,$Label) { Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json }
@@ -30,6 +31,12 @@ function Assert-Rejected([scriptblock]$Operation) {
   if(-not $denied){throw 'Expected rejection'}
 }
 try {
+  [IO.File]::WriteAllLines((Join-Path $fixture 'django-ai-dingtalk.fixture-run.stdout.log'), @(
+    '{"status":"starting"}', '{"event":"callback_accepted"}', '{"status":"connected"}', '{"status":"recovering"}'
+  ))
+  if((Get-DingTalkConnectionState 'fixture-run') -cne 'recovering' -or
+      (Get-DingTalkConnectionState '../invalid') -cne 'unknown' -or
+      (Get-DingTalkConnectionState 'missing-run') -cne 'starting') { throw 'Connection state parsing failed' }
   # Missing approval does not read credentials, call DWS, or start a receiver.
   Start-ConfiguredDingTalkReceiver | Out-Null
   if(($script:calls -join ',') -cne 'guard'){throw 'Missing approval dispatched'}
@@ -78,7 +85,7 @@ try {
   function Resolve-OwnedProcess { if($script:identityConflict){throw 'fixture identity conflict'}; if($script:processPresent){@{ProcessId=123}} }
   function Start-ManagedProcess { $script:launches++; $script:processPresent=$true }
   $script:identityConflict=$false; $script:processPresent=$true; $script:launches=0
-  $LogDirectory=$fixture; $RunId='fixture'
+  $RunId='fixture'
   Invoke-DingTalkReceiver $false | Out-Null
   if($script:launches -ne 0){throw 'Duplicate process launch'}
   $script:processPresent=$false

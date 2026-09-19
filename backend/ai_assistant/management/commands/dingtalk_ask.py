@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from urllib.parse import quote_plus, urlsplit
@@ -57,13 +58,13 @@ class Command(BaseCommand):
         reader = lambda: dingtalk_settings.effective(service.load_config(options["config"]))
         try:
             base = service.load_config(options["config"])
-            config = reader() if service.m.AiDingTalkSettings.objects.filter(pk=1).exists() else base
-            platform.robot(config)
-            for group in config["groups"]:
-                platform.verify_group(config, group)
-            for binding in config["bindings"]:
-                service.principal_for({**config, "enabled": True}, binding["senderId"])
             if options["check"]:
+                config = reader() if service.m.AiDingTalkSettings.objects.filter(pk=1).exists() else base
+                platform.robot(config)
+                for group in config["groups"]:
+                    platform.verify_group(config, group)
+                for binding in config["bindings"]:
+                    service.principal_for({**config, "enabled": True}, binding["senderId"])
                 self.stdout.write('{"status":"verified","connected":false,"sent":0}')
                 return
             if not base["enabled"] or connection.vendor != "postgresql":
@@ -75,7 +76,23 @@ class Command(BaseCommand):
                 if cursor.fetchone() != (True,):
                     raise AiError("已有钉钉问数接收器，拒绝重复启动")
             try:
+                config = reader() if service.m.AiDingTalkSettings.objects.filter(pk=1).exists() else base
+                failures = 0
+                while True:
+                    try:
+                        platform.credentials(config)
+                        break
+                    except AiError as error:
+                        if error.status < 500 and error.status != 429:
+                            raise
+                        failures = min(failures + 1, 9)
+                        self.stdout.write('{"status":"recovering"}')
+                        self.stderr.write('{"code":"stream_unavailable"}')
+                        time.sleep(min(300, 2 ** min(failures, 8)))
                 dingtalk_settings.initialize(base)
+                config = reader()
+                for binding in config["bindings"]:
+                    service.principal_for({**config, "enabled": True}, binding["senderId"])
                 service.recover_interrupted()
                 dingtalk_schedules.recover_interrupted()
                 self.stdout.write('{"status":"starting","replyMode":"source","queryScope":"authorized_system_modules"}')
@@ -111,8 +128,6 @@ class Command(BaseCommand):
                 return fn()
             finally:
                 close_old_connections()
-        key, secret = await loop.run_in_executor(ingress, lambda: db_call(lambda: platform.credentials(reader())))
-        client = sdk.DingTalkStreamClient(sdk.Credential(key, secret), logger=silent)
         command = self
         class Handler(sdk.CallbackHandler):
             async def process(self, message):
@@ -124,11 +139,6 @@ class Command(BaseCommand):
                     command.ingress_event("callback_unavailable", stage="database_context",
                         reason="internal_error", retryable=True)
                     return 503, "unavailable"
-        handler = Handler()
-        handler.logger = silent
-        client.system_handler.logger = silent
-        client.event_handler.logger = silent
-        client.register_callback_handler("/v1.0/im/bot/messages/get", handler)
         async def work():
             while True:
                 await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
@@ -146,6 +156,14 @@ class Command(BaseCommand):
                     await asyncio.sleep(2)
                     continue
                 try:
+                    key, secret = await loop.run_in_executor(
+                        ingress, lambda: db_call(lambda: platform.credentials(reader())))
+                    client = sdk.DingTalkStreamClient(sdk.Credential(key, secret), logger=silent)
+                    handler = Handler()
+                    handler.logger = silent
+                    client.system_handler.logger = silent
+                    client.event_handler.logger = silent
+                    client.register_callback_handler("/v1.0/im/bot/messages/get", handler)
                     # Bound SDK connection creation; the stock helper has no HTTP timeout.
                     reply = await loop.run_in_executor(ingress, lambda: platform.open_stream(key, secret))
                     endpoint = urlsplit(reply.get("endpoint", ""))
@@ -163,11 +181,13 @@ class Command(BaseCommand):
                 except asyncio.CancelledError:
                     raise
                 except Exception:
-                    failures += 1
+                    failures = min(failures + 1, 9)
+                    self.stdout.write('{"status":"recovering"}')
                     self.stderr.write('{"code":"stream_unavailable"}')
-                    if failures >= 5:
-                        raise AiError("Stream 连续失败，需重新核验授权")
-                await asyncio.sleep(min(30, 2 ** failures))
+                # Keep the singleton alive so scheduled work continues and the
+                # Stream can recover without a full system restart. Revalidation
+                # is read-only and every retry obtains fresh DWS credentials.
+                await asyncio.sleep(min(300, 2 ** min(failures, 8)))
         tasks = [asyncio.create_task(work()), asyncio.create_task(listen())]
         try:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
