@@ -1,0 +1,4 @@
+interface:
+  display_name: "京东多店铺链路审查"
+  short_description: "审查并修复京东多店铺下载、导入、恢复与数据隔离缺陷"
+  default_prompt: "使用 $jd-multi-store-pipeline-review 对京东多店铺统一下载与导入链路做对抗审查、修复交接和独立复审。"

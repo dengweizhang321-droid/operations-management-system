@@ -1,0 +1,1 @@
+ALTER TABLE `inventory_stock_lines` ADD `brand` text DEFAULT '' NOT NULL;

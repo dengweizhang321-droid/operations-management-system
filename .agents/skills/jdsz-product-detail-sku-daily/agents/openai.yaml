@@ -1,0 +1,4 @@
+interface:
+  display_name: "京东商智 SKU 日数据下载"
+  short_description: "稳定下载京东商智商品明细 SKU 日数据并验证落盘文件"
+  default_prompt: "Use $jdsz-product-detail-sku-daily to safely download and verify the missing JD Business Intelligence SKU daily date range."

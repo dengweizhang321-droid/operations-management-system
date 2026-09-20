@@ -1,0 +1,422 @@
+import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const operatorPath = path.join(root, "tools", "django-postgres-maintenance.ps1");
+const servicePath = path.join(root, "tools", "django-local-service.ps1");
+const helperPath = path.join(root, "tools", "postgres-consistent-backup.py");
+const powershell = path.join(
+  process.env.SystemRoot ?? "C:\\Windows",
+  "System32",
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+);
+const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
+
+test("PostgreSQL maintenance operators parse under Windows PowerShell 5", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const escapedPath = operatorPath.replaceAll("'", "''");
+  const command = [
+    "$tokens=$null; $errors=$null;",
+    `$source=[IO.File]::ReadAllText('${escapedPath}',[Text.Encoding]::UTF8);`,
+    "[System.Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors) | Out-Null;",
+    "if($errors.Count){$errors | ForEach-Object {$_.Message}; exit 1}",
+  ].join(" ");
+  const result = spawnSync(powershell, [
+    "-NoProfile", "-NonInteractive", "-Command", command,
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("Windows PowerShell 5 can generate the restore rehearsal secret", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const escapedPath = servicePath.replaceAll("'", "''");
+  const command = [
+    "$env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY='1';",
+    `. '${escapedPath}';`,
+    "$first=New-RandomSecret; $second=New-RandomSecret;",
+    "if($first -cnotmatch '^[0-9a-f]{96}$'){exit 2};",
+    "if($second -cnotmatch '^[0-9a-f]{96}$'){exit 3};",
+    "if($first -ceq $second){exit 4};",
+    "exit 0",
+  ].join(" ");
+  const result = spawnSync(powershell, [
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-Command", command,
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(result.stdout, "");
+});
+
+test("maintenance reuses the deployed service's strict configuration contract", async () => {
+  const script = await readFile(operatorPath, "utf8");
+  const context = script.match(
+    /function Assert-MaintenanceRuntimeContext \{([\s\S]*?)\r?\n\}/,
+  )?.[1];
+  assert.ok(context, "runtime context validator must remain discoverable");
+  assert.match(context, /\$config = Get-ServiceConfig/);
+  assert.match(context, /\$config\.postgresAddress -cne "127\.0\.0\.1:5432"/);
+  assert.doesNotMatch(context, /config\.version -ne 3/);
+});
+
+test("daily backup is online read-only and never changes managed service state", async () => {
+  const script = await readFile(operatorPath, "utf8");
+  const backupBlock = script.match(
+    /function Invoke-MaintenanceBackup \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Assert-MaintenanceRehearsalListenerOwnership/,
+  )?.[1];
+  assert.ok(backupBlock, "backup function must remain discoverable");
+  assert.match(backupBlock, /Assert-PostgresListenerOwnership/);
+  assert.match(backupBlock, /Test-PostgresReady/);
+  assert.match(backupBlock, /权威 PostgreSQL 当前未运行；日常备份不会自动启停服务/);
+  assert.match(backupBlock, /postgres-consistent-backup\.py|\$evidenceTool/);
+  assert.match(backupBlock, /serviceStateChanged = \$false/);
+  assert.doesNotMatch(backupBlock, /Start-Postgres|Stop-Postgres|Start-ServiceStack|Stop-ServiceStack/);
+  assert.doesNotMatch(script, /Invoke-WithServiceMutex/);
+});
+
+test("backup evidence and archive are bound to one exported PostgreSQL snapshot", async () => {
+  const helper = await readFile(helperPath, "utf8");
+  const operator = await readFile(operatorPath, "utf8");
+  assert.match(helper, /ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+  assert.match(helper, /SELECT pg_export_snapshot\(\)/);
+  assert.match(helper, /--snapshot=\{snapshot\}/);
+  assert.match(helper, /--format=custom/);
+  assert.match(helper, /--no-owner/);
+  assert.match(helper, /--no-privileges/);
+  assert.match(helper, /contentSha256/);
+  assert.match(helper, /canonicalSha256/);
+  assert.match(helper, /sales_write_authority/);
+  assert.match(helper, /netshop_write_authority/);
+  assert.match(helper, /netshop_data_revisions/);
+  assert.match(helper, /netshopRevisions/);
+  assert.match(helper, /netshopWriteAuthority/);
+  assert.match(helper, /market_data_revisions/);
+  assert.match(helper, /market_write_authority/);
+  assert.match(helper, /marketRevisions/);
+  assert.match(helper, /marketWriteAuthority/);
+  assert.match(helper, /product_data_revisions/);
+  assert.match(helper, /product_write_authority/);
+  assert.match(helper, /productsRevisions/);
+  assert.match(helper, /productsWriteAuthority/);
+  assert.match(helper, /inventory_data_revisions/);
+  assert.match(helper, /inventory_write_authority/);
+  assert.match(helper, /inventoryRevisions/);
+  assert.match(helper, /inventoryWriteAuthority/);
+  assert.match(helper, /inventory_replenishment_group_deliveries/);
+  assert.match(operator, /inventory_replenishment_group_deliveries/);
+  assert.match(helper, /customer_service_data_revisions/);
+  assert.match(helper, /customer_service_write_authority/);
+  assert.match(helper, /customerServiceRevisions/);
+  assert.match(helper, /customerServiceWriteAuthority/);
+  assert.match(helper, /erpReferenceWriteAuthority/);
+  assert.match(operator, /customer_service_raw_upload_chunks/);
+  assert.match(operator, /PostgreSQL 客服 revision 证据/);
+  assert.match(operator, /客服 PostgreSQL 写入权威证据/);
+  assert.match(helper, /django_migrations/);
+  assert.match(helper, /startswith\(ALLOWED_TABLE_PREFIXES\)/);
+  assert.match(helper, /"sales_", "erp_", "finance_", "netshop_", "market_", "product_"/);
+  assert.match(operator, /PostgreSQL 网店 revision 证据/);
+  assert.match(operator, /网店 PostgreSQL 写入权威证据/);
+  assert.match(operator, /PostgreSQL 市场 revision 证据/);
+  assert.match(operator, /市场 PostgreSQL 写入权威证据/);
+  assert.match(operator, /PostgreSQL 商品经营 revision 证据/);
+  assert.match(operator, /商品经营 PostgreSQL 写入权威证据/);
+  assert.match(operator, /PostgreSQL 库存 revision 证据/);
+  assert.match(operator, /库存 PostgreSQL 写入权威证据/);
+  assert.match(operator, /pg_restore\.exe/);
+  assert.match(operator, /@\("--list", \$dumpPath\)/);
+  assert.match(operator, /backup-manifest\.json\.sha256/);
+  assert.match(operator, /Read-MaintenanceArchive \$workingDirectory/);
+  assert.match(operator, /Move-Item -LiteralPath \$workingDirectory -Destination \$finalDirectory/);
+});
+
+test("credentials stay in bounded process environment and diagnostics are redacted", async () => {
+  const helper = await readFile(helperPath, "utf8");
+  const operator = await readFile(operatorPath, "utf8");
+  assert.match(operator, /Invoke-MaintenancePgEnvironment/);
+  assert.match(operator, /PGPASSWORD = \$secrets\.OwnerPassword/);
+  assert.match(operator, /\[Environment\]::SetEnvironmentVariable\(\$name, \$previous\[\$name\], "Process"\)/);
+  assert.doesNotMatch(operator, /--password|--database-url/i);
+  assert.match(helper, /psycopg\.connect\(""\)/);
+  assert.match(helper, /MAX_NATIVE_DIAGNOSTIC_BYTES/);
+  assert.match(helper, /outputSha256/);
+  assert.match(helper, /if ":\/\/" in message or "password" in message\.lower\(\)/);
+  assert.doesNotMatch(helper, /print\([^\n]*(?:stderr|stdout)/);
+});
+
+test("restore rehearsal uses a separate cluster and never creates or drops a production database", async () => {
+  const script = await readFile(operatorPath, "utf8");
+  const helper = await readFile(helperPath, "utf8");
+  const pgCtlStartBlock = script.match(
+    /function Invoke-MaintenancePgCtlStart\(([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Remove-MaintenanceRehearsalData/,
+  )?.[1];
+  const restoreBlock = script.match(
+    /function Invoke-MaintenanceRestoreRehearsal \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Get-MaintenancePrunePlan/,
+  )?.[1];
+  assert.ok(pgCtlStartBlock, "bounded pg_ctl start helper must remain discoverable");
+  assert.ok(restoreBlock, "restore function must remain discoverable");
+  assert.match(pgCtlStartBlock, /Start-Process -FilePath \$PgCtl/);
+  assert.match(pgCtlStartBlock, /-WindowStyle Hidden/);
+  assert.match(pgCtlStartBlock, /-RedirectStandardOutput \$stdoutPath/);
+  assert.match(pgCtlStartBlock, /-RedirectStandardError \$stderrPath/);
+  assert.match(pgCtlStartBlock, /\.WaitForExit\(45000\)/);
+  assert.doesNotMatch(pgCtlStartBlock, /Start-Process[^\r\n]*\s-Wait(?:\s|$)/);
+  assert.match(restoreBlock, /initdb\.exe/);
+  assert.match(restoreBlock, /createuser\.exe/);
+  assert.doesNotMatch(script, /createuser[\s\S]{0,800}--dbname/);
+  assert.match(restoreBlock, /rehearsals\\postgres-restore/);
+  assert.match(restoreBlock, /--auth-host=scram-sha-256/);
+  assert.match(restoreBlock, /-h 127\.0\.0\.1/);
+  assert.match(restoreBlock, /max_connections=10/);
+  assert.match(restoreBlock, /shared_buffers=128MB/);
+  assert.match(restoreBlock, /"restore"/);
+  assert.match(restoreBlock, /--timeout-seconds", "1800"/);
+  assert.match(helper, /"--single-transaction"/);
+  assert.match(helper, /subprocess\.TimeoutExpired/);
+  assert.match(restoreBlock, /expectedContentSha256/);
+  assert.match(restoreBlock, /restoredContentSha256/);
+  assert.match(restoreBlock, /productionDatabaseTouched = \$false/);
+  assert.match(restoreBlock, /serviceStateChanged = \$false/);
+  assert.match(restoreBlock, /Initialize-MaintenanceRehearsalRoles/);
+  assert.match(
+    restoreBlock,
+    /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?Initialize-MaintenanceRehearsalRoles/,
+  );
+  assert.ok(
+    restoreBlock.indexOf("Initialize-MaintenanceRehearsalRoles")
+      < restoreBlock.indexOf('"restore"'),
+    "policy roles must exist before pg_restore replays row-level policies",
+  );
+  for (const role of [
+    "teruisi_sales_owner",
+    "teruisi_sales_reader",
+    "teruisi_sales_writer",
+    "teruisi_erp_reference_reader",
+    "teruisi_erp_reference_writer",
+    "teruisi_finance_reader",
+    "teruisi_finance_writer",
+    "teruisi_netshop_reader",
+    "teruisi_netshop_writer",
+    "teruisi_market_reader",
+    "teruisi_market_writer",
+    "teruisi_products_reader",
+    "teruisi_products_writer",
+  ]) {
+    assert.match(script, new RegExp(`"${role}"`));
+  }
+  assert.match(
+    restoreBlock,
+    /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?\$isolatedStarted = \$true/,
+  );
+  assert.doesNotMatch(restoreBlock, /postgresSuperuser|Get-ErpRoleProvisioningSecrets/);
+  assert.doesNotMatch(restoreBlock, /DROP DATABASE|CREATE DATABASE/);
+  assert.doesNotMatch(restoreBlock, /(?:PGPORT|--port)[^\n]*5432/);
+});
+
+test("restore cleanup and retention deletion are constrained to exact child identities", async () => {
+  const script = await readFile(operatorPath, "utf8");
+  assert.match(script, /restore-\$ExpectedRehearsalId/);
+  assert.match(script, /\[IO\.Path\]::GetFileName\(\$data\) -cne "data"/);
+  assert.match(script, /@\(Get-PortListeners \$Port\)\.Count -ne 0/);
+  assert.match(script, /daily-\[0-9\]\{8\}T\[0-9\]\{6\}Z-\[0-9a-f\]\{12\}/);
+  assert.match(script, /minimumSuccessfulBackups/);
+  assert.match(script, /ConfirmedPrune/);
+  assert.match(script, /\.prune-\[0-9a-f\]\{32\}\\\.quarantine/);
+  assert.doesNotMatch(script, /Remove-Item[^\n]*(?:\$RuntimeRoot|\$MaintenanceRequest\.RuntimeRoot)[^\n]*-Recurse/);
+});
+
+test("maintenance pure validation rejects schema drift under library mode", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-pg-maintenance-"));
+  try {
+    const parent = path.join(tempRoot, "backups");
+    const child = path.join(parent, "daily-20260830T010203Z-012345abcdef");
+    const escapedScript = operatorPath.replaceAll("'", "''");
+    const escapedParent = parent.replaceAll("'", "''");
+    const escapedChild = child.replaceAll("'", "''");
+    const command = [
+      "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1';",
+      `. '${escapedScript}';`,
+      `New-Item -ItemType Directory -Path '${escapedChild}' -Force | Out-Null;`,
+      `$resolved=Resolve-MaintenanceDirectChildDirectory '${escapedChild}' '${escapedParent}' '^daily-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$' 'fixture';`,
+      `if($resolved -ine [IO.Path]::GetFullPath('${escapedChild}')){exit 2};`,
+      "$good=[pscustomobject][ordered]@{a=1;b=2};",
+      "Assert-MaintenanceExactPropertySet $good @('a','b') 'fixture';",
+      "try {Assert-MaintenanceExactPropertySet $good @('a') 'fixture'; exit 3} catch {};",
+      "if(-not (Test-MaintenanceInteger ([int64]1))){exit 4};",
+      "if(Test-MaintenanceInteger ([double]1)){exit 5};",
+      "exit 0",
+    ].join(" ");
+    const result = spawnSync(powershell, [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-Command", command,
+    ], { encoding: "utf8", windowsHide: true });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("Python helper imports with the controlled runtime", async (t) => {
+  if (!existsSync(runtimePython)) {
+    t.skip("controlled Django Python runtime is unavailable");
+    return;
+  }
+  const result = spawnSync(runtimePython, [helperPath, "--help"], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /\{backup,probe,restore\}/);
+  assert.equal(result.stderr, "");
+});
+
+test("maintenance validates complete AI backup evidence before and after activation", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
+  const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(aiTables).size, 56);
+  assert.ok(aiTables.includes("ai_conversation_workspaces"));
+  const base = {
+    database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
+    tables: Object.fromEntries(["django_migrations", "sales_data_revisions", "sales_import_batches", "sales_order_lines", "sales_write_authority", "erp_product_master"].map(name => [name, 0])),
+    migrations: [{ app: "sales", name: "0001_initial" }],
+    revisions: { sales: 1, erp: 1 },
+    writeAuthority: { status: "active", authorityEpoch: "11111111-1111-1111-1111-111111111111", cutoverId: "fixture-sales" },
+    contentSha256: "a".repeat(64), canonicalSha256: "b".repeat(64),
+  };
+  const candidate = {
+    ...structuredClone(base),
+    tables: { ...base.tables, ...Object.fromEntries(aiTables.map(name => [name, 0])) },
+    migrations: [...base.migrations, { app: "ai_assistant", name: "0001_initial" }, { app: "ai_assistant", name: "0006_conversation_workspaces" }, { app: "ai_assistant", name: "0007_dingtalk_readonly" }, { app: "ai_assistant", name: "0008_dingtalk_settings" }, { app: "ai_assistant", name: "0009_model_generation_capabilities" }, { app: "ai_assistant", name: "0010_dingtalk_schedules" }, { app: "ai_assistant", name: "0011_prompt_settings" }, { app: "ai_assistant", name: "0012_report_library" }],
+    aiAssistant: { revision: 0, sourceDigest: "", status: "d1", authorityEpoch: "", cutoverId: "", migrationRunId: "" },
+  };
+  const adopted = structuredClone(candidate);
+  Object.assign(adopted.aiAssistant, { revision: 1, sourceDigest: "c".repeat(64), migrationRunId: `ai-apply-${"d".repeat(32)}` });
+  const active = structuredClone(adopted);
+  Object.assign(active.aiAssistant, { status: "postgres", authorityEpoch: "22222222-2222-2222-2222-222222222222", cutoverId: "fixture-ai" });
+  const missing = structuredClone(active);
+  delete missing.tables.ai_models;
+  const unknown = structuredClone(active);
+  unknown.tables.ai_unregistered = 0;
+  const unbound = { ...structuredClone(base), tables: { ...base.tables, ai_models: 0 } };
+  const metadataMissing = structuredClone(active) as Partial<typeof active>;
+  delete metadataMissing.aiAssistant;
+  const orphanWorkspaceMigration = { ...structuredClone(base), migrations: [...base.migrations, { app: "ai_assistant", name: "0006_conversation_workspaces" }] };
+  const orphanSettingsMigration = { ...structuredClone(base), migrations: [...base.migrations, { app: "ai_assistant", name: "0008_dingtalk_settings" }] };
+  const beforeWorkspaceMigration = structuredClone(active);
+  const beforeSchedule = structuredClone(active);
+  delete beforeSchedule.tables.ai_dingtalk_schedules;
+  delete beforeSchedule.tables.ai_dingtalk_schedule_runs;
+  beforeSchedule.migrations = beforeSchedule.migrations.filter(item => item.name !== "0010_dingtalk_schedules");
+  const scheduleMissing = structuredClone(active);
+  delete scheduleMissing.tables.ai_dingtalk_schedule_runs;
+  for (const evidence of [beforeWorkspaceMigration]) {
+    delete evidence.tables.ai_dingtalk_schedules;
+    delete evidence.tables.ai_dingtalk_schedule_runs;
+  }
+  delete beforeWorkspaceMigration.tables.ai_dingtalk_settings;
+  delete beforeWorkspaceMigration.tables.ai_conversation_workspaces;
+  delete beforeWorkspaceMigration.tables.ai_dingtalk_sessions;
+  delete beforeWorkspaceMigration.tables.ai_dingtalk_receipts;
+  beforeWorkspaceMigration.migrations = beforeWorkspaceMigration.migrations.filter(item => !["0006_conversation_workspaces", "0007_dingtalk_readonly", "0008_dingtalk_settings", "0010_dingtalk_schedules"].includes(item.name));
+  const beforeDingTalk = structuredClone(active);
+  delete beforeDingTalk.tables.ai_dingtalk_schedules;
+  delete beforeDingTalk.tables.ai_dingtalk_schedule_runs;
+  delete beforeDingTalk.tables.ai_dingtalk_settings;
+  delete beforeDingTalk.tables.ai_dingtalk_sessions;
+  delete beforeDingTalk.tables.ai_dingtalk_receipts;
+  beforeDingTalk.migrations = beforeDingTalk.migrations.filter(item => !["0007_dingtalk_readonly", "0008_dingtalk_settings", "0010_dingtalk_schedules"].includes(item.name));
+  const beforeSettings = structuredClone(active);
+  delete beforeSettings.tables.ai_dingtalk_schedules;
+  delete beforeSettings.tables.ai_dingtalk_schedule_runs;
+  delete beforeSettings.tables.ai_dingtalk_settings;
+  beforeSettings.migrations = beforeSettings.migrations.filter(item => !["0008_dingtalk_settings", "0010_dingtalk_schedules"].includes(item.name));
+  const settingsMissing = structuredClone(active);
+  delete settingsMissing.tables.ai_dingtalk_settings;
+  const dingTalkMissing = structuredClone(active);
+  delete dingTalkMissing.tables.ai_dingtalk_receipts;
+  const dingTalkUnbound = structuredClone(active);
+  dingTalkUnbound.migrations = dingTalkUnbound.migrations.filter(item => item.name !== "0007_dingtalk_readonly");
+  const workspaceMissing = structuredClone(active);
+  delete workspaceMissing.tables.ai_conversation_workspaces;
+  const workspaceMigrationMissing = structuredClone(active);
+  workspaceMigrationMissing.migrations = workspaceMigrationMissing.migrations.filter(item => item.name !== "0006_conversation_workspaces");
+  const beforePrompt = structuredClone(active);
+  for (const evidence of [beforePrompt, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings]) {
+    for (const name of ["ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries"]) delete evidence.tables[name];
+    evidence.migrations = evidence.migrations.filter(item => item.name !== "0012_report_library");
+    delete evidence.tables.ai_prompt_settings_revisions;
+    evidence.migrations = evidence.migrations.filter(item => item.name !== "0011_prompt_settings");
+  }
+  const promptMissing = structuredClone(active);
+  delete promptMissing.tables.ai_prompt_settings_revisions;
+  const promptUnbound = structuredClone(active);
+  promptUnbound.migrations = promptUnbound.migrations.filter(item => item.name !== "0011_prompt_settings");
+  const media = structuredClone(active);
+  media.migrations.push({ app: "ai_assistant", name: "0013_dingtalk_schedule_media" });
+  const mediaWithoutReport = structuredClone(media);
+  mediaWithoutReport.migrations = mediaWithoutReport.migrations.filter(item => item.name !== "0012_report_library");
+  const cases = [
+    ...[base, beforePrompt, candidate, adopted, active, media, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
+  ];
+  const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
+  const command = `
+$ErrorActionPreference='Stop'
+$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1'
+$operator=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(operatorPath).toString("base64")}'))
+. $operator
+$cases=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${encoded}')) | ConvertFrom-Json
+foreach($case in $cases) {
+  $accepted=$false
+  try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
+  if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
+}
+Write-Output '15 AI backup evidence cases passed'
+`;
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
+  try {
+    const scriptPath = path.join(tempRoot, "validate.ps1");
+    await writeFile(scriptPath, command);
+    const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /15 AI backup evidence cases passed/);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("Python helper snapshot and restore behavior passes isolated unit fixtures", async (t) => {
+  if (!existsSync(runtimePython)) {
+    t.skip("controlled Django Python runtime is unavailable");
+    return;
+  }
+  const fixture = path.join(root, "tests", "postgres-consistent-backup.test.py");
+  const result = spawnSync(runtimePython, [fixture], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stderr, /Ran 7 tests/);
+  assert.match(result.stderr, /OK/);
+});

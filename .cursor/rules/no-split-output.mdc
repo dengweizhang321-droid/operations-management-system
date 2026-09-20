@@ -1,0 +1,5 @@
+globs: ["**/*"]
+alwaysApply: true
+---
+You must output full complete answers in one single turn.
+Do not split content into multiple replies, do not ask follow-up questions, do not prompt next step.

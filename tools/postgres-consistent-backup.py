@@ -1,0 +1,995 @@
+#!/usr/bin/env python
+"""Create and inspect a PostgreSQL backup with snapshot-bound evidence.
+
+Credentials and connection coordinates are read only from libpq's PG*
+environment variables.  The command prints one bounded JSON object and never
+prints a connection string or native stderr.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+from typing import Any
+
+import psycopg
+from psycopg import sql
+
+
+VERSION = "teruisi-postgres-consistent-backup-v1"
+ALLOWED_TABLE_PREFIXES = (
+    "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
+    "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_", "ai_",
+)
+MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _safe_native_diagnostic(completed: subprocess.CompletedProcess[bytes]) -> dict[str, Any]:
+    stdout = completed.stdout or b""
+    stderr = completed.stderr or b""
+    bounded = (stdout + b"\n" + stderr)[:MAX_NATIVE_DIAGNOSTIC_BYTES]
+    return {
+        "exitCode": int(completed.returncode),
+        "outputBytes": int(len(stdout) + len(stderr)),
+        "capturedBytes": int(len(bounded)),
+        "outputTruncated": len(stdout) + len(stderr) > len(bounded),
+        "outputSha256": _sha256_bytes(bounded),
+    }
+
+
+def _table_names(cursor: psycopg.Cursor[Any]) -> list[str]:
+    cursor.execute(
+        "SELECT tablename FROM pg_catalog.pg_tables "
+        "WHERE schemaname = 'public' ORDER BY tablename"
+    )
+    names = []
+    for (name,) in cursor.fetchall():
+        text = str(name)
+        if text == "django_migrations" or text.startswith(ALLOWED_TABLE_PREFIXES):
+            names.append(text)
+    return names
+
+
+def _canonical_loopback_address(value: Any) -> str:
+    address = str(value).split("/", 1)[0]
+    if address not in ("127.0.0.1", "::1"):
+        raise RuntimeError("database is not bound to a loopback address")
+    return address
+
+
+def collect_evidence(
+    connection: psycopg.Connection[Any],
+    expected_database: str,
+    expected_user: str,
+) -> dict[str, Any]:
+    """Collect exact, deterministic evidence from the current transaction."""
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT current_database(), current_user, "
+            "COALESCE(inet_server_addr()::text, ''), inet_server_port(), "
+            "pg_is_in_recovery(), current_setting('server_version_num')::integer"
+        )
+        identity = cursor.fetchone()
+        if identity is None:
+            raise RuntimeError("database identity probe returned no row")
+        database_name, database_user, server_address, server_port, recovery, version = identity
+        if str(database_name) != expected_database or str(database_user) != expected_user:
+            raise RuntimeError("database identity does not match the approved target")
+        canonical_server_address = _canonical_loopback_address(server_address)
+
+        tables = _table_names(cursor)
+        if "django_migrations" not in tables:
+            raise RuntimeError("required database tables are missing")
+        cursor.execute("SELECT app, name FROM django_migrations ORDER BY app, name")
+        migrations = [
+            {"app": str(app), "name": str(name)}
+            for app, name in cursor.fetchall()
+        ]
+        if not migrations:
+            raise RuntimeError("django migration evidence is empty")
+        required = {
+            "django_migrations",
+            "sales_data_revisions",
+            "sales_import_batches",
+            "sales_order_lines",
+            "sales_write_authority",
+            "erp_product_master",
+        }
+        erp_reference_required = {
+            "erp_product_master", "erp_combo_items",
+            "erp_reference_import_batches_pg", "erp_reference_import_scope_heads",
+            "erp_reference_import_fingerprints", "erp_reference_import_attempts",
+            "erp_reference_write_authority", "erp_reference_write_request_receipts",
+            "erp_reference_migration_runs", "erp_reference_raw_upload_sessions",
+            "erp_reference_raw_upload_chunks",
+        }
+        erp_reference_tables = {
+            name for name in tables if name.startswith("erp_reference_")
+        }
+        if "erp_reference_write_authority" in erp_reference_tables:
+            required.update(erp_reference_required)
+        netshop_required = {
+            "netshop_data_revisions",
+            "netshop_import_batches",
+            "netshop_rows",
+            "netshop_write_authority",
+        }
+        netshop_tables = {name for name in tables if name.startswith("netshop_")}
+        if netshop_tables:
+            required.update(netshop_required)
+        market_required = {
+            "market_data_revisions",
+            "market_import_batches",
+            "market_ranking_entries",
+            "market_write_authority",
+        }
+        market_tables = {name for name in tables if name.startswith("market_")}
+        if market_tables:
+            required.update(market_required)
+        products_required = {
+            "product_data_revisions",
+            "product_shipping_rate_import_batches",
+            "product_shipping_rates",
+            "product_inventory_projection",
+            "product_write_authority",
+        }
+        products_tables = {name for name in tables if name.startswith("product_")}
+        if products_tables:
+            required.update(products_required)
+        inventory_required = {
+            "inventory_data_revisions",
+            "inventory_import_batches",
+            "inventory_stock_lines",
+            "inventory_age_lines",
+            "inventory_write_authority",
+            "inventory_operating_settings",
+            "replenishment_plan_items",
+            "inventory_replenishment_group_deliveries",
+            "inventory_guangdong_monitor_items",
+            "inventory_guangdong_supplier_cycles",
+            "inventory_guangdong_monitor_audits",
+        }
+        inventory_tables = {
+            name for name in tables
+            if name.startswith("inventory_") or name.startswith("replenishment_")
+        }
+        if inventory_tables:
+            required.update(inventory_required)
+        workflow_required = {
+            "workflow_data_revisions",
+            "workflow_write_authority",
+            "workflow_operations_write_authority",
+            "workflow_new_product_projects",
+            "workflow_new_product_targets",
+            "workflow_new_product_stages",
+            "workflow_new_product_activities",
+            "workflow_new_product_lines",
+            "workflow_new_product_line_codes",
+            "workflow_new_product_weekly_report_config",
+            "workflow_new_product_weekly_deliveries",
+            "workflow_tasks",
+            "workflow_task_comments",
+            "workflow_task_activity_logs",
+            "workflow_task_reminders",
+            "workflow_task_templates",
+            "workflow_task_entity_links",
+            "workflow_task_attachments",
+            "workflow_attachment_cleanup_queue",
+            "workflow_operation_records",
+            "workflow_operation_activities",
+        }
+        workflow_tables = {name for name in tables if name.startswith("workflow_")}
+        if workflow_tables:
+            required.update(workflow_required)
+        customer_service_required = {
+            "customer_service_data_revisions",
+            "customer_service_import_batches",
+            "customer_service_conversations",
+            "customer_service_deletion_audits",
+            "customer_service_import_scope_heads",
+            "customer_service_import_fingerprints",
+            "customer_service_import_attempts",
+            "customer_service_write_authority",
+            "customer_service_write_request_receipts",
+            "customer_service_migration_runs",
+            "customer_service_raw_upload_sessions",
+            "customer_service_raw_upload_chunks",
+        }
+        customer_service_tables = {
+            name for name in tables if name.startswith("customer_service_")
+        }
+        if customer_service_tables:
+            required.update(customer_service_required)
+        bi_tables = {name for name in tables if name.startswith("bi_")}
+        if bi_tables:
+            required.add("bi_migration_runs")
+        access_control_tables = {name for name in tables if name.startswith("access_control_")}
+        if access_control_tables:
+            required.update({
+                "access_control_users", "access_control_roles", "access_control_permission_audits",
+                "access_control_data_revisions", "access_control_write_authority",
+                "access_control_write_request_receipts", "access_control_migration_runs",
+            })
+        ai_tables = {name for name in tables if name.startswith("ai_")}
+        ai_migrations = {
+            item["name"] for item in migrations if item["app"] == "ai_assistant"
+        }
+        if ai_tables or ai_migrations:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+            from ai_assistant.table_manifest import AI_TABLES
+            if "0001_initial" not in ai_migrations:
+                raise RuntimeError("AI table inventory has no initial migration evidence")
+            # Restore probes run with today's helper against the backup's schema.
+            # Use migrations from this same transaction, never the deployed schema,
+            # to retain the approved pre-workspace (45 table) backup contract.
+            expected_ai_tables = set(AI_TABLES)
+            if "0012_report_library" in ai_migrations and "0011_prompt_settings" not in ai_migrations:
+                raise RuntimeError("AI report schema has no prompt predecessor")
+            if "0012_report_library" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries"})
+            if "0011_prompt_settings" in ai_migrations and "0010_dingtalk_schedules" not in ai_migrations:
+                raise RuntimeError("AI prompt settings schema has no schedule predecessor")
+            if "0011_prompt_settings" not in ai_migrations:
+                expected_ai_tables.remove("ai_prompt_settings_revisions")
+            if "0010_dingtalk_schedules" in ai_migrations and "0009_model_generation_capabilities" not in ai_migrations:
+                raise RuntimeError("DingTalk schedule schema has no AI model predecessor")
+            if "0010_dingtalk_schedules" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"})
+            if "0008_dingtalk_settings" in ai_migrations and "0007_dingtalk_readonly" not in ai_migrations:
+                raise RuntimeError("DingTalk settings schema has no channel predecessor")
+            if "0008_dingtalk_settings" not in ai_migrations:
+                expected_ai_tables.remove("ai_dingtalk_settings")
+            if "0007_dingtalk_readonly" in ai_migrations and "0006_conversation_workspaces" not in ai_migrations:
+                raise RuntimeError("DingTalk schema has no workspace predecessor")
+            if "0007_dingtalk_readonly" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_dingtalk_sessions", "ai_dingtalk_receipts"})
+            if "0006_conversation_workspaces" not in ai_migrations:
+                expected_ai_tables.remove("ai_conversation_workspaces")
+            if ai_tables != expected_ai_tables:
+                raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+            required.update(expected_ai_tables)
+        missing = sorted(required.difference(tables))
+        if missing:
+            raise RuntimeError("required database tables are missing")
+
+        row_counts: dict[str, int] = {}
+        for table in tables:
+            cursor.execute(
+                sql.SQL("SELECT COUNT(*) FROM {}").format(
+                    sql.Identifier("public", table)
+                )
+            )
+            row_counts[table] = int(cursor.fetchone()[0])
+
+        cursor.execute(
+            "SELECT domain, revision FROM sales_data_revisions ORDER BY domain"
+        )
+        revisions = {
+            str(domain): int(revision) for domain, revision in cursor.fetchall()
+        }
+        if "sales" not in revisions or "erp" not in revisions:
+            raise RuntimeError("sales/erp revision evidence is incomplete")
+
+        cursor.execute(
+            "SELECT status, authority_epoch::text, cutover_id "
+            "FROM sales_write_authority WHERE id = 1"
+        )
+        authority = cursor.fetchone()
+        if authority is None:
+            raise RuntimeError("sales write authority singleton is missing")
+        authority_status, authority_epoch, cutover_id = authority
+        if str(authority_status) != "active" or not str(authority_epoch) or not str(cutover_id):
+            raise RuntimeError("sales write authority is not active")
+
+        erp_reference_authority: dict[str, str] | None = None
+        if "erp_reference_write_authority" in erp_reference_tables:
+            cursor.execute(
+                "SELECT status,COALESCE(authority_epoch::text,''),cutover_id,"
+                "COALESCE(migration_verify_run_id,'') "
+                "FROM erp_reference_write_authority WHERE id=1"
+            )
+            erp_authority = cursor.fetchone()
+            if erp_authority is None:
+                raise RuntimeError("ERP reference write authority singleton is missing")
+            erp_status, erp_epoch, erp_cutover, erp_run = map(str, erp_authority)
+            if erp_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", erp_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", erp_cutover) is None
+                    or re.fullmatch(r"erp-reference-[0-9a-f]{32}", erp_run) is None
+                ):
+                    raise RuntimeError("active ERP reference authority evidence is incomplete")
+            elif erp_status != "d1" or erp_epoch or erp_cutover:
+                raise RuntimeError("ERP reference authority evidence is invalid")
+            erp_reference_authority = {
+                "status": erp_status, "authorityEpoch": erp_epoch,
+                "cutoverId": erp_cutover, "migrationRunId": erp_run,
+            }
+
+        netshop_revisions: dict[str, dict[str, Any]] | None = None
+        netshop_authority: dict[str, str] | None = None
+        if netshop_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM netshop_data_revisions ORDER BY domain"
+            )
+            netshop_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = netshop_revisions.get("netshop")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+            ):
+                raise RuntimeError("netshop revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM netshop_write_authority WHERE id = 1"
+            )
+            netshop_authority_row = cursor.fetchone()
+            if netshop_authority_row is None:
+                raise RuntimeError("netshop write authority singleton is missing")
+            netshop_status, netshop_epoch, netshop_cutover, netshop_run = (
+                str(value or "") for value in netshop_authority_row
+            )
+            if netshop_status not in {"d1", "postgres"}:
+                raise RuntimeError("netshop write authority status is invalid")
+            if netshop_run and re.fullmatch(r"netshop-[0-9a-f]{24}", netshop_run) is None:
+                raise RuntimeError("netshop migration run evidence is invalid")
+            if netshop_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", netshop_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", netshop_cutover) is None
+                    or not netshop_run
+                ):
+                    raise RuntimeError("active netshop write authority evidence is incomplete")
+            elif netshop_epoch or netshop_cutover:
+                raise RuntimeError("inactive netshop write authority contains activation evidence")
+            netshop_authority = {
+                "status": netshop_status,
+                "authorityEpoch": netshop_epoch,
+                "cutoverId": netshop_cutover,
+                "migrationRunId": netshop_run,
+            }
+
+        market_revisions: dict[str, dict[str, Any]] | None = None
+        market_authority: dict[str, str] | None = None
+        if market_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM market_data_revisions ORDER BY domain"
+            )
+            market_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = market_revisions.get("market")
+            if (
+                revision is None
+                or int(revision["revision"]) < 1
+                or re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+            ):
+                raise RuntimeError("market revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM market_write_authority WHERE id = 1"
+            )
+            market_authority_row = cursor.fetchone()
+            if market_authority_row is None:
+                raise RuntimeError("market write authority singleton is missing")
+            market_status, market_epoch, market_cutover, market_run = (
+                str(value or "") for value in market_authority_row
+            )
+            if market_status not in {"d1", "postgres"}:
+                raise RuntimeError("market write authority status is invalid")
+            if market_run and re.fullmatch(r"market-[0-9a-f]{24}", market_run) is None:
+                raise RuntimeError("market migration run evidence is invalid")
+            if market_status == "postgres":
+                if (
+                    re.fullmatch(r"[0-9a-fA-F-]{36}", market_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", market_cutover) is None
+                    or not market_run
+                ):
+                    raise RuntimeError("active market write authority evidence is incomplete")
+            elif market_epoch or market_cutover:
+                raise RuntimeError("inactive market write authority contains activation evidence")
+            market_authority = {
+                "status": market_status,
+                "authorityEpoch": market_epoch,
+                "cutoverId": market_cutover,
+                "migrationRunId": market_run,
+            }
+
+        products_revisions: dict[str, dict[str, Any]] | None = None
+        products_authority: dict[str, str] | None = None
+        if products_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM product_data_revisions ORDER BY domain"
+            )
+            products_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = products_revisions.get("products")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("products revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM product_write_authority WHERE id = 1"
+            )
+            products_authority_row = cursor.fetchone()
+            if products_authority_row is None:
+                raise RuntimeError("products write authority singleton is missing")
+            products_status, products_epoch, products_cutover, products_run = (
+                str(value or "") for value in products_authority_row
+            )
+            if products_status not in {"d1", "postgres"}:
+                raise RuntimeError("products write authority status is invalid")
+            if products_run and re.fullmatch(r"products-apply-[0-9a-f]{32}", products_run) is None:
+                raise RuntimeError("products migration run evidence is invalid")
+            if products_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", products_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", products_cutover) is None
+                    or not products_run
+                ):
+                    raise RuntimeError("active products write authority evidence is incomplete")
+            elif products_epoch or products_cutover:
+                raise RuntimeError("inactive products write authority contains activation evidence")
+            products_authority = {
+                "status": products_status,
+                "authorityEpoch": products_epoch,
+                "cutoverId": products_cutover,
+                "migrationRunId": products_run,
+            }
+
+        inventory_revisions: dict[str, dict[str, Any]] | None = None
+        inventory_authority: dict[str, str] | None = None
+        if inventory_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM inventory_data_revisions ORDER BY domain"
+            )
+            inventory_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = inventory_revisions.get("inventory")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("inventory revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM inventory_write_authority WHERE id = 1"
+            )
+            inventory_authority_row = cursor.fetchone()
+            if inventory_authority_row is None:
+                raise RuntimeError("inventory write authority singleton is missing")
+            inventory_status, inventory_epoch, inventory_cutover, inventory_run = (
+                str(value or "") for value in inventory_authority_row
+            )
+            if inventory_status not in {"d1", "postgres"}:
+                raise RuntimeError("inventory write authority status is invalid")
+            if inventory_run and re.fullmatch(r"inventory-apply-[0-9a-f]{32}", inventory_run) is None:
+                raise RuntimeError("inventory migration run evidence is invalid")
+            if inventory_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", inventory_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", inventory_cutover) is None
+                    or not inventory_run
+                ):
+                    raise RuntimeError("active inventory write authority evidence is incomplete")
+            elif inventory_epoch or inventory_cutover:
+                raise RuntimeError("inactive inventory write authority contains activation evidence")
+            inventory_authority = {
+                "status": inventory_status,
+                "authorityEpoch": inventory_epoch,
+                "cutoverId": inventory_cutover,
+                "migrationRunId": inventory_run,
+            }
+
+        workflow_revisions: dict[str, dict[str, Any]] | None = None
+        workflow_authority: dict[str, str] | None = None
+        workflow_operations_authority: dict[str, str] | None = None
+        if workflow_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM workflow_data_revisions ORDER BY domain"
+            )
+            workflow_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = workflow_revisions.get("workflow")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("workflow revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM workflow_write_authority WHERE id=1"
+            )
+            authority_row = cursor.fetchone()
+            if authority_row is None:
+                raise RuntimeError("workflow write authority singleton is missing")
+            workflow_status, workflow_epoch, workflow_cutover, workflow_run = (
+                str(value or "") for value in authority_row
+            )
+            if workflow_status not in {"disabled", "postgres"}:
+                raise RuntimeError("workflow write authority status is invalid")
+            if workflow_run and re.fullmatch(r"workflow-[0-9a-f]{32}", workflow_run) is None:
+                raise RuntimeError("workflow migration run evidence is invalid")
+            if workflow_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", workflow_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", workflow_cutover) is None
+                    or not workflow_run
+                ):
+                    raise RuntimeError("active workflow write authority evidence is incomplete")
+            elif workflow_epoch or workflow_cutover:
+                raise RuntimeError("inactive workflow write authority contains activation evidence")
+            workflow_authority = {
+                "status": workflow_status,
+                "authorityEpoch": workflow_epoch,
+                "cutoverId": workflow_cutover,
+                "migrationRunId": workflow_run,
+            }
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM workflow_operations_write_authority WHERE id=1"
+            )
+            operations_authority_row = cursor.fetchone()
+            if operations_authority_row is None:
+                raise RuntimeError("workflow operations write authority singleton is missing")
+            operations_status, operations_epoch, operations_cutover, operations_run = (
+                str(value or "") for value in operations_authority_row
+            )
+            if operations_status not in {"disabled", "postgres"}:
+                raise RuntimeError("workflow operations write authority status is invalid")
+            if operations_run and re.fullmatch(r"workflow-ops-[0-9a-f]{32}", operations_run) is None:
+                raise RuntimeError("workflow operations migration run evidence is invalid")
+            if operations_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", operations_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", operations_cutover) is None
+                    or not operations_run
+                ):
+                    raise RuntimeError("active workflow operations authority evidence is incomplete")
+            elif operations_epoch or operations_cutover:
+                raise RuntimeError("inactive workflow operations authority contains activation evidence")
+            workflow_operations_authority = {
+                "status": operations_status,
+                "authorityEpoch": operations_epoch,
+                "cutoverId": operations_cutover,
+                "migrationRunId": operations_run,
+            }
+
+        customer_service_revisions: dict[str, dict[str, Any]] | None = None
+        customer_service_authority: dict[str, str] | None = None
+        if customer_service_tables:
+            cursor.execute(
+                "SELECT domain, revision, source_digest "
+                "FROM customer_service_data_revisions ORDER BY domain"
+            )
+            customer_service_revisions = {
+                str(domain): {
+                    "revision": int(revision),
+                    "sourceDigest": str(source_digest),
+                }
+                for domain, revision, source_digest in cursor.fetchall()
+            }
+            revision = customer_service_revisions.get("customer-service")
+            if (
+                revision is None
+                or int(revision["revision"]) < 0
+                or (
+                    int(revision["revision"]) > 0
+                    and re.fullmatch(r"[0-9a-f]{64}", str(revision["sourceDigest"])) is None
+                )
+            ):
+                raise RuntimeError("customer-service revision evidence is incomplete")
+            cursor.execute(
+                "SELECT status, COALESCE(authority_epoch::text, ''), cutover_id, "
+                "migration_verify_run_id FROM customer_service_write_authority WHERE id = 1"
+            )
+            customer_service_authority_row = cursor.fetchone()
+            if customer_service_authority_row is None:
+                raise RuntimeError("customer-service write authority singleton is missing")
+            customer_service_status, customer_service_epoch, customer_service_cutover, customer_service_run = (
+                str(value or "") for value in customer_service_authority_row
+            )
+            if customer_service_status not in {"d1", "postgres"}:
+                raise RuntimeError("customer-service write authority status is invalid")
+            if customer_service_run and re.fullmatch(r"customer-service-[0-9a-f]{32}", customer_service_run) is None:
+                raise RuntimeError("customer-service migration run evidence is invalid")
+            if customer_service_status == "postgres":
+                if (
+                    int(revision["revision"]) < 1
+                    or re.fullmatch(r"[0-9a-fA-F-]{36}", customer_service_epoch) is None
+                    or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", customer_service_cutover) is None
+                    or not customer_service_run
+                ):
+                    raise RuntimeError("active customer-service write authority evidence is incomplete")
+            elif customer_service_epoch or customer_service_cutover:
+                raise RuntimeError("inactive customer-service write authority contains activation evidence")
+            customer_service_authority = {
+                "status": customer_service_status,
+                "authorityEpoch": customer_service_epoch,
+                "cutoverId": customer_service_cutover,
+                "migrationRunId": customer_service_run,
+            }
+
+        access_control_evidence = None
+        if access_control_tables:
+            cursor.execute("SELECT revision, source_digest FROM access_control_data_revisions WHERE domain='access-control'")
+            revision_row = cursor.fetchone()
+            cursor.execute("SELECT status, COALESCE(authority_epoch::text,''), cutover_id, migration_verify_run_id FROM access_control_write_authority WHERE id=1")
+            authority_row = cursor.fetchone()
+            if not revision_row or not authority_row:
+                raise RuntimeError("access-control revision/authority evidence is missing")
+            revision_number, digest = revision_row
+            status, epoch, cutover, run_id = authority_row
+            if int(revision_number) < 0 or not re.fullmatch(r"[0-9a-f]{64}", digest) or status not in {"d1", "postgres"}:
+                raise RuntimeError("access-control revision/authority evidence is invalid")
+            if status == "postgres" and (
+                int(revision_number) < 1 or not re.fullmatch(r"[0-9a-f-]{36}", epoch)
+                or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", cutover)
+                or not re.fullmatch(r"access-control-[0-9a-f]{32}", run_id)
+            ):
+                raise RuntimeError("active access-control evidence is incomplete")
+            if status == "d1" and (epoch or cutover):
+                raise RuntimeError("inactive access-control contains activation evidence")
+            if run_id:
+                cursor.execute("SELECT status,source_snapshot_digest,target_snapshot_digest FROM access_control_migration_runs WHERE id=%s AND mode='apply'", (run_id,))
+                run = cursor.fetchone()
+                if not run or run[0] != "verified" or run[1] != run[2]:
+                    raise RuntimeError("access-control migration evidence is not verified")
+            access_control_evidence = {
+                "revision": int(revision_number), "sourceDigest": digest,
+                "status": status, "authorityEpoch": epoch, "cutoverId": cutover, "migrationRunId": run_id,
+            }
+
+        ai_evidence = None
+        if ai_tables:
+            cursor.execute("SELECT revision, source_digest FROM ai_data_revisions WHERE domain='ai-assistant'")
+            revision_row = cursor.fetchone()
+            cursor.execute("SELECT status, COALESCE(authority_epoch::text,''), cutover_id, migration_verify_run_id FROM ai_write_authority WHERE id=1")
+            authority_row = cursor.fetchone()
+            if not revision_row or not authority_row:
+                raise RuntimeError("AI revision/authority evidence is missing")
+            revision_number, digest = revision_row
+            status, epoch, cutover, run_id = authority_row
+            if int(revision_number) < 0 or status not in {"d1", "postgres"}:
+                raise RuntimeError("AI revision/authority evidence is invalid")
+            if status == "postgres" and (int(revision_number) < 1 or not re.fullmatch(r"[0-9a-f-]{36}", epoch) or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", cutover) or not re.fullmatch(r"ai-apply-[0-9a-f]{32}", run_id)):
+                raise RuntimeError("active AI evidence is incomplete")
+            if status == "d1" and (epoch or cutover):
+                raise RuntimeError("inactive AI contains activation evidence")
+            if run_id:
+                cursor.execute("SELECT status,source_snapshot_digest,target_snapshot_digest,source_counts,target_counts FROM ai_migration_runs WHERE id=%s AND mode='apply'", (run_id,))
+                run = cursor.fetchone()
+                if not run or run[0] != "verified" or run[1] != run[2] or run[1] != digest or run[3] != run[4] or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                    raise RuntimeError("AI migration evidence is not verified")
+            elif int(revision_number) != 0 or digest:
+                raise RuntimeError("AI pre-adoption evidence is inconsistent")
+            ai_evidence = {"revision": int(revision_number), "sourceDigest": digest, "status": status, "authorityEpoch": epoch, "cutoverId": cutover, "migrationRunId": run_id}
+
+    content = {
+        "tables": row_counts,
+        "migrations": migrations,
+        "revisions": revisions,
+        "writeAuthority": {
+            "status": str(authority_status),
+            "authorityEpoch": str(authority_epoch),
+            "cutoverId": str(cutover_id),
+        },
+    }
+    if erp_reference_authority is not None:
+        content["erpReferenceWriteAuthority"] = erp_reference_authority
+    if netshop_revisions is not None and netshop_authority is not None:
+        content["netshopRevisions"] = netshop_revisions
+        content["netshopWriteAuthority"] = netshop_authority
+    if market_revisions is not None and market_authority is not None:
+        content["marketRevisions"] = market_revisions
+        content["marketWriteAuthority"] = market_authority
+    if products_revisions is not None and products_authority is not None:
+        content["productsRevisions"] = products_revisions
+        content["productsWriteAuthority"] = products_authority
+    if inventory_revisions is not None and inventory_authority is not None:
+        content["inventoryRevisions"] = inventory_revisions
+        content["inventoryWriteAuthority"] = inventory_authority
+    if (
+        workflow_revisions is not None
+        and workflow_authority is not None
+        and workflow_operations_authority is not None
+    ):
+        content["workflowRevisions"] = workflow_revisions
+        content["workflowWriteAuthority"] = workflow_authority
+        content["workflowOperationsWriteAuthority"] = workflow_operations_authority
+    if customer_service_revisions is not None and customer_service_authority is not None:
+        content["customerServiceRevisions"] = customer_service_revisions
+        content["customerServiceWriteAuthority"] = customer_service_authority
+    if ai_evidence is not None:
+        content["aiAssistant"] = ai_evidence
+    if access_control_evidence is not None:
+        content["accessControl"] = access_control_evidence
+    content_bytes = json.dumps(
+        content, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("ascii")
+    canonical = {
+        "database": {
+            "name": str(database_name),
+            "user": str(database_user),
+            "serverAddress": canonical_server_address,
+            "serverPort": int(server_port),
+            "inRecovery": bool(recovery),
+            "serverVersionNumber": int(version),
+        },
+        **content,
+        "contentSha256": _sha256_bytes(content_bytes),
+    }
+    canonical_bytes = json.dumps(
+        canonical, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("ascii")
+    return {
+        **canonical,
+        "canonicalSha256": _sha256_bytes(canonical_bytes),
+    }
+
+
+def _validate_leaf(path_value: str, label: str) -> Path:
+    path = Path(path_value).resolve(strict=True)
+    if not path.is_file():
+        raise RuntimeError(f"{label} is not a regular file")
+    return path
+
+
+def _validate_new_output(path_value: str) -> Path:
+    path = Path(path_value).resolve(strict=False)
+    if path.exists():
+        raise RuntimeError("backup output already exists")
+    parent = path.parent.resolve(strict=True)
+    if not parent.is_dir() or path.parent != parent:
+        raise RuntimeError("backup output parent is invalid")
+    if path.suffix != ".dump":
+        raise RuntimeError("backup output must use the .dump extension")
+    return path
+
+
+def run_backup(args: argparse.Namespace) -> dict[str, Any]:
+    pg_dump = _validate_leaf(args.pg_dump, "pg_dump")
+    output = _validate_new_output(args.output)
+    completed: subprocess.CompletedProcess[bytes] | None = None
+
+    try:
+        with psycopg.connect("") as connection:
+            connection.execute(
+                "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+            )
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_export_snapshot()")
+                snapshot = str(cursor.fetchone()[0])
+            evidence = collect_evidence(
+                connection,
+                expected_database=args.expected_database,
+                expected_user=args.expected_user,
+            )
+            command = [
+                str(pg_dump),
+                "--host=127.0.0.1",
+                f"--port={int(args.port)}",
+                f"--username={args.expected_user}",
+                f"--dbname={args.expected_database}",
+                "--format=custom",
+                "--compress=6",
+                "--no-owner",
+                "--no-privileges",
+                "--lock-wait-timeout=5000",
+                f"--snapshot={snapshot}",
+                f"--file={output}",
+            ]
+            completed = subprocess.run(
+                command,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=int(args.timeout_seconds),
+                env=os.environ.copy(),
+            )
+            if completed.returncode != 0:
+                raise RuntimeError("pg_dump failed")
+            if not output.is_file() or output.stat().st_size < 1:
+                raise RuntimeError("pg_dump produced an empty archive")
+            connection.commit()
+        return {
+            "version": VERSION,
+            "status": "completed",
+            "snapshotIdSha256": _sha256_bytes(snapshot.encode("utf-8")),
+            "evidence": evidence,
+            "nativeDiagnostic": _safe_native_diagnostic(completed),
+        }
+    except subprocess.TimeoutExpired as exc:
+        bounded = ((exc.stdout or b"") + b"\n" + (exc.stderr or b""))[
+            :MAX_NATIVE_DIAGNOSTIC_BYTES
+        ]
+        raise RuntimeError(
+            "pg_dump timed out; diagnosticSha256=" + _sha256_bytes(bounded)
+        ) from None
+    except Exception:
+        if output.exists():
+            output.unlink()
+        raise
+
+
+def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+    with psycopg.connect("") as connection:
+        connection.execute(
+            "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+        )
+        evidence = collect_evidence(
+            connection,
+            expected_database=args.expected_database,
+            expected_user=args.expected_user,
+        )
+        connection.rollback()
+    return {
+        "version": VERSION,
+        "status": "completed",
+        "evidence": evidence,
+    }
+
+
+def run_restore(args: argparse.Namespace) -> dict[str, Any]:
+    pg_restore = _validate_leaf(args.pg_restore, "pg_restore")
+    archive = _validate_leaf(args.archive, "backup archive")
+    command = [
+        str(pg_restore),
+        "--host=127.0.0.1",
+        f"--port={int(args.port)}",
+        f"--username={args.expected_user}",
+        f"--dbname={args.expected_database}",
+        "--single-transaction",
+        "--no-owner",
+        "--no-privileges",
+        str(archive),
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=int(args.timeout_seconds),
+            env=os.environ.copy(),
+        )
+    except subprocess.TimeoutExpired as exc:
+        bounded = ((exc.stdout or b"") + b"\n" + (exc.stderr or b""))[
+            :MAX_NATIVE_DIAGNOSTIC_BYTES
+        ]
+        raise RuntimeError(
+            "pg_restore timed out; diagnosticSha256=" + _sha256_bytes(bounded)
+        ) from None
+    if completed.returncode != 0:
+        diagnostic = _safe_native_diagnostic(completed)
+        raise RuntimeError(
+            "pg_restore failed; diagnosticSha256=" + diagnostic["outputSha256"]
+        )
+    return {
+        "version": VERSION,
+        "status": "completed",
+        "nativeDiagnostic": _safe_native_diagnostic(completed),
+    }
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    backup = subparsers.add_parser("backup")
+    backup.add_argument("--pg-dump", required=True)
+    backup.add_argument("--output", required=True)
+    backup.add_argument("--expected-database", required=True)
+    backup.add_argument("--expected-user", required=True)
+    backup.add_argument("--port", required=True, type=int)
+    backup.add_argument("--timeout-seconds", type=int, default=1800)
+
+    probe = subparsers.add_parser("probe")
+    probe.add_argument("--expected-database", required=True)
+    probe.add_argument("--expected-user", required=True)
+
+    restore = subparsers.add_parser("restore")
+    restore.add_argument("--pg-restore", required=True)
+    restore.add_argument("--archive", required=True)
+    restore.add_argument("--expected-database", required=True)
+    restore.add_argument("--expected-user", required=True)
+    restore.add_argument("--port", required=True, type=int)
+    restore.add_argument("--timeout-seconds", type=int, default=1800)
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    try:
+        if args.command == "backup":
+            result = run_backup(args)
+        elif args.command == "restore":
+            result = run_restore(args)
+        else:
+            result = run_probe(args)
+        print(json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(",", ":")))
+        return 0
+    except Exception as exc:
+        message = str(exc)
+        # Never surface a URL or a credential-bearing native diagnostic.
+        if "://" in message or "password" in message.lower():
+            message = "database maintenance failed with redacted diagnostics"
+        print(
+            json.dumps(
+                {
+                    "version": VERSION,
+                    "status": "failed",
+                    "errorType": type(exc).__name__,
+                    "errorSha256": _sha256_bytes(message.encode("utf-8")),
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            file=sys.stderr,
+        )
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
