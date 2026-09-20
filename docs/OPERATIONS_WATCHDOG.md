@@ -6,6 +6,8 @@ Windows 计划任务 `TERUISI Operations Watchdog` 在当前用户登录时、�
 
 ## 检查与恢复
 
+2026-09-20 已增加市场业务的被动观测：市场 reader 只记录榜单/筛选真实读取的结果、耗时和时间，独立看门狗最多每 5 分钟读取一次，不为监控执行全表查询。连续业务失败仅告警，不重启存活服务；没有近期样本时为 unknown，已打开的业务故障必须获得新成功样本才闭合，不能因记录过期当作恢复。通知身份核验失败保存固定阶段/原因，每事件最多 3 次、间隔至少 15 分钟复核；sending/unknown/sent 不重发。正式采用及限制见 [市场查询与看门狗优化](MARKET_QUERY_WATCHDOG_RECOVERY.md)。
+
 每轮通过现有控制器核验 12 个后端组件、Worker 的不可变版本和进程归属、Django supervisor 的实际状态；另查首页、Worker live/ready、helper HTTP 和 3000/5791/5432 监听。内部健康端点必须返回约定 JSON，不能把任意 HTTP 200 当作就绪。HTTP 请求有超时和响应体上限，状态子进程限 60 秒；正常页面访问不等待看门狗。全栈检查比单次 HTTP 探测耗时更长，以独立运行的实际耗时为准。
 
 第一次失败只保存证据，连续第二次失败才进入恢复判定。恢复调用 `tools/worker-local-service.ps1` 的原唯一 Start 引擎，复用已就绪服务，顺序为 Django/PostgreSQL → Worker/helper → Django supervisor；没有新的 Stop/Restart、构建、部署或业务补跑入口。
