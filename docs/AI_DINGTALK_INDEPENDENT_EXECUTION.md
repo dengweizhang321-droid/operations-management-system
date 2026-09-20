@@ -1,6 +1,6 @@
 # 企业机器人独立认证与定时任务独立执行
 
-2026-09-20 候选实现，尚未生产采用。用户明确将本轮限定为这两项，不新增看门狗、调度心跳、告警、崩溃自启或补发机制。原有 Stream 有界重连保留；它不负责恢复定时执行器。
+2026-09-20 已按本轮发布授权在本机采用，源码 `243927e`，Django fingerprint `89df0589ddbb138bc47ac327c1e7720cf9726a197ba6932cd5ce26604afc9c24`，Worker/helper 保留 `20260919T054421Z-8396938e0c741f6c`。生产证据见 [采用记录](evidence/dingtalk-independent-production-20260920.json)。用户明确将本轮限定为这两项，不新增看门狗、调度心跳、告警、崩溃自启或补发机制。原有 Stream 有界重连保留；它不负责恢复定时执行器。
 
 ## 行为
 
@@ -24,18 +24,18 @@
 
 这是对旧“群名称搜索”核验方式的显式替换：群显示名称变化不会把消息引向别的群，也不再仅因改名拒绝同一批准 ID。应用的组织和机器人身份仍由采用时的核验与加密绑定固定，平台令牌及发送接口会复核应用有效性。
 
-2026-09-20 真实只读检查已取得企业应用令牌；所选群机器人查询接口明确返回 `Forbidden.AccessDenied.AccessTokenPermissionDenied`，要求 **`qyapi_chat_manage`（钉钉群基础信息管理权限）**。DWS 权限目录确认该权限存在、目前 `authed=false`，包含 34 个平台接口；本实现只增加上述只读查询入口，不使用新增权限修改群。开通权限属于应用权限扩大，尚未执行；DWS 命令契约为 `risk=high / confirmation=user_required`。不申请曾调研的 `AntDing.Read.Send` 或 `IM.Group.ReadWrite.Special`。
+2026-09-20 真实只读检查已取得企业应用令牌；所选群机器人查询接口明确返回 `Forbidden.AccessDenied.AccessTokenPermissionDenied`，要求 **`qyapi_chat_manage`（钉钉群基础信息管理权限）**。DWS 权限目录确认该权限存在、候选检查时 `authed=false`，包含 34 个平台接口；本实现只增加上述只读查询入口，不使用新增权限修改群。本轮已按用户发布授权开通该项权限，三个已批准群的真实企业认证查询均通过；DWS 命令契约为 `risk=high / confirmation=user_required`。不申请曾调研的 `AntDing.Read.Send` 或 `IM.Group.ReadWrite.Special`。
 
-接口字段参考已发布官方 Python SDK `alibabacloud-dingtalk==2.2.60` 的 `robot_1_0.GetBotListInGroup`。平台权限开通后的真实群查询、正式凭据读取、Stream 建联和最终客户端投递仍需分别验收；合成测试不代表这些已通过。
+接口字段参考已发布官方 Python SDK `alibabacloud-dingtalk==2.2.60` 的 `robot_1_0.GetBotListInGroup`。平台权限、正式凭据读取、三个群查询、两个独立进程及 Stream connected 已在生产分别验收。最终客户端真实投递未手动触发，不能把连接成功当成已发送。
 
 ## 受控采用
 
 生产切换须获得当轮维护和权限扩大授权，不能用本候选记录代替。步骤如下：
 
 1. 使用当前配置实时核验原企业应用，复验上述权限状态；仅在明确授权后申请 `qyapi_chat_manage`，再用企业应用令牌只读核验全部批准群。不创建群、修改成员、变更机器人或发送消息。若平台未授予权限或查询结果不符，停止采用。
-2. 完成现有发布前备份、独立恢复核验、归档和运行任务排空；通过持久维护及唯一服务引擎切换 Django runtime。不能覆盖运行中的 app，也不能绕过 runtime 摘要门禁。无业务数据迁移；n8n 无需重启。
+2. 完成现有发布前备份、独立恢复核验、归档和运行任务排空；临时关闭原钉钉自动启动，再复验排空，通过持久维护及唯一服务引擎切换 Django runtime 和核验 ACL。结束维护后先通过唯一引擎恢复核心服务，此时渠道启动仍关闭。不能覆盖运行中的 app，也不能绕过 runtime 摘要门禁。无业务数据迁移；n8n 无需重启。
 3. 从新部署的受保护 `app\tools\django-ai.ps1` 执行 `-Action ConfigureDingTalkBotCredentials`。该命令要求已采用的 AI 钉钉配置及 PostgreSQL authority；拒绝覆盖已有凭据，不启用或派发任务。
-4. 执行 `-Action DingTalkCheck` 验证企业认证、批准群和绑定账号。复验原启动授权；凭据存在并通过检查后，使用原系统 Start 入口启动。现有 `AutoStartDingTalk`/`StartDingTalk` 先启动独立调度，再启动接收器；每个进程独立核验回执与指纹。完整 Stop、手动 StopDingTalk 和部署门禁同时覆盖两类进程。
+4. 执行 `-Action DingTalkCheck` 核验企业认证、批准群及绑定账号，再恢复原自动启动批准。网页已经运行时必须调用 `tools/worker-local-service.ps1 -Action Start`；外层 `operations-system-control.ps1` 的 already-running 快速返回不会再次派发渠道启动。现有 `AutoStartDingTalk`/`StartDingTalk` 先启动独立调度，再启动接收器；每个进程独立核验回执与指纹。完整 Stop、手动 StopDingTalk 和部署门禁同时覆盖两类进程。
 5. 核对原两条任务定义/版本/目标/历史保留、两类进程身份、Stream 连接及全栈就绪。旧手动队列过期只记 `missed_window`，旧定时槽跳过；不得自动补发今天的消息。
 6. 如需立即发送验收，另获具体任务和目标的发送授权后入队一次，回查精确执行记录及钉钉客户端呈现。未知结果不得再次执行。
 
@@ -43,4 +43,6 @@
 
 ## 验证边界
 
-候选证据见 [独立执行候选验证](evidence/dingtalk-independent-candidate-20260920.json)。本轮未停止或重启正式服务，未创建正式凭据文件、修改钉钉权限、迁移生产数据库或发送真实消息。仅在本任务隔离 worktree 和临时 PostgreSQL cluster 中开发及测试。
+候选证据见 [独立执行候选验证](evidence/dingtalk-independent-candidate-20260920.json)。隔离 PostgreSQL 245 项（243 通过、2 跳过）、真实独立锁与队列、角色边界及备份恢复通过；启动专项 6、页面 20、构建、lint 与后端依赖边界通过。全量 Node 的 `color-surface-subtle` 缺失为已独立复现的基线问题。
+
+正式两条任务定义及原 20 条终态历史的完整摘要一致；旧 09:07 手动队列只转为 `denied/missed_window`，发送成功数未增加，下次均为 2026-09-21 09:00。生产 61 条迁移清单不变，发布前备份独立恢复及前后 E 盘归档通过。维护窗口周报检查 3586 失败，随后 3587/3590 自然成功；马思图 3588 失败交原安全重试 3589，未人工补跑。没有迁移、n8n 重启、付费模型调用或测试消息发送。

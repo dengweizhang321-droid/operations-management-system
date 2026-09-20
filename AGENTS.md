@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-20，企业机器人独立认证与 AI 定时执行器拆分已按本轮发布授权采用，源码 `243927e`；Django fingerprint `89df0589ddbb138bc47ac327c1e7720cf9726a197ba6932cd5ce26604afc9c24`，manifest `4261aa9f4618d0f67809dbcaf5f6f5bfbc6c7eedd71e4cf6562fe4ef4d481523`，Worker/helper 保留 `20260919T054421Z-8396938e0c741f6c`。企业身份与 AppSecret 整体 CurrentUser DPAPI 加密，DWS 只用于显式首次采用；日常文字/图片/文件使用应用令牌。定时进程保留旧锁 1909，聊天接收器使用 1910，各自恢复账本；当前两进程运行、Stream connected、12 组件就绪。群按批准的精确 ID 与实时机器人安装核验，已授权 `qyapi_chat_manage`，不按群名重新解析收件人。原两任务及 20 条终态历史摘要不变，旧手动队列仅过期关闭；61 条迁移清单不变、前备份独立恢复及前后 E 盘归档通过。维护期周报 3586 失败、3587/3590 自然成功，马思图 3588 交原安全重试 3589，未补跑。未新增监控/告警/崩溃恢复、未重启 n8n 或触发测试消息；真实投递待原自然计划验收。外层总控已运行时会快速返回，恢复渠道开机批准后须调用原 Worker Start 引擎复验。见 `docs/AI_DINGTALK_INDEPENDENT_EXECUTION.md` 和生产证据；本记录不授予未来停服、扩权或补发授权。
+
 看门狗计划任务不得直接启动控制台 PowerShell：`-WindowStyle Hidden` 不能阻止 Windows Terminal 在进程创建时弹窗。使用 GUI subsystem 启动器和 `CreateNoWindow`/重定向标准流；等待直接子进程并保留退出码，不使用 kill-on-close job，以免误杀恢复后应持续运行的业务服务。更新只替换精确核验的任务 action、保留原触发器及身份，先等待旧检查自然结束；验收须覆盖真实子进程无控制台与至少两轮计划任务无新终端进程，见 `docs/OPERATIONS_WATCHDOG.md`。
 
 独立系统看门狗使用 `tools/operations-system-watchdog.ps1`，受保护安装目录 `D:\teruisi-runtime\operations-watchdog`，Windows 计划任务 `TERUISI Operations Watchdog`。每分钟及当前用户登录后独立检查，恢复持有原 Worker 生命周期锁、复验持久维护与运行意图摘要，只调用原唯一 Start 引擎并补齐原 Django supervisor；连续两次失败才判定，最多 3 次/15 分钟、间隔至少 5 分钟，两轮完整健康才闭合。人工完整停止/维护安静跳过，干净 Worker-only Stop 不被逆转；未知端口、PID 复用、损坏回执不接管。仅本看门狗异常通知动态核验本人单聊，发送前持久预留，unknown 不重发，不改变既有工作流和旧守护告警的收件人。正常快照覆盖、故障证据独立保留；源码修改后须重装并回读安装摘要与两次独立任务成功。不得杀死正式服务验收，详见 `docs/OPERATIONS_WATCHDOG.md`。
