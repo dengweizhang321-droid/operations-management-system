@@ -139,7 +139,7 @@ export async function GET(request: Request) {
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);
     if (authResponse) return authResponse;
-    return safeApiErrorResponse(error, "目标设置读取失败。", { headers: { "cache-control": "no-store" } });
+    return safeApiErrorResponse(error, "目标进度情况读取失败。", { headers: { "cache-control": "no-store" } });
   }
 }
 
