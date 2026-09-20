@@ -16,6 +16,20 @@ def sales(_principal, request):
 
 
 class RankingPaginationTests(TestCase):
+    def test_optional_global_filters_do_not_block_ranking_and_keep_default_contract(self):
+        self.entry()
+        expected = self.query()
+        with patch("market.query.filter_options", side_effect=AssertionError("duplicate global scan")):
+            result = overview(PRINCIPAL, {"operation": "overview", "view": "ranking", "page": 1,
+                "pageSize": 10, "filters": None, "includeFilterOptions": False}, sales_loader=sales)
+        self.assertEqual(result["items"], expected["items"])
+        self.assertEqual(result["summary"], expected["summary"])
+        self.assertEqual(result["filters"]["categories"], [])
+        self.assertTrue(expected["filters"]["categories"])
+        with self.assertRaises(MarketApiError):
+            overview(PRINCIPAL, {"operation": "overview", "view": "ranking", "page": 1,
+                "pageSize": 10, "filters": None, "includeFilterOptions": "false"}, sales_loader=sales)
+
     def entry(self, code="sku", **values):
         values = {"natural_key": str(MarketRankingEntry.objects.count()), "source_row_number": 1,
                   "period_start": "2026-08-01", "period_end": "2026-08-31", "category": "净水",

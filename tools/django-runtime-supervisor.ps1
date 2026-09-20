@@ -392,17 +392,46 @@ function Invoke-SupervisorServiceStart([string]$ExpectedDesiredStateSha256) {
     throw "Django supervisor Start fence 摘要无效"
   }
   $powershell = (Get-Command "powershell.exe" -ErrorAction Stop).Source
-  $run = Invoke-BoundedNativeProcess $powershell @(
+  $arguments = @(
     "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
     "-File", $ServiceScriptPath,
     "-Action", "Start",
     "-RuntimeRoot", $SupervisorRequest.RuntimeRoot,
     "-SupervisorExpectedDesiredStateSha256", $ExpectedDesiredStateSha256
-  ) $InstalledAppRoot
+  )
+  return Invoke-SupervisorStartOperator $powershell $arguments
+}
+
+function Invoke-SupervisorStartOperator([string]$Executable,[string[]]$Arguments) {
+  # A service descendant can inherit a native pipeline handle after its parent
+  # exits. Waiting for pipeline EOF would freeze supervision indefinitely.
+  # Redirect to files and wait ONLY for the direct Start operator's exit code.
+  $id=[guid]::NewGuid().ToString('N')
+  $stdout=Join-Path $SupervisorMonitorDirectory "start-$id.stdout.log"
+  $stderr=Join-Path $SupervisorMonitorDirectory "start-$id.stderr.log"
+  $quoted=@($Arguments|ForEach-Object {ConvertTo-ProcessArgument $_})
+  $process=Start-Process -FilePath $Executable -ArgumentList $quoted -WorkingDirectory $InstalledAppRoot `
+    -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  try {
+    # Keep the native process handle before exit; Windows PowerShell 5 may
+    # otherwise expose a null ExitCode on Start-Process's returned wrapper.
+    $nativeHandle=$process.Handle
+    while(-not $process.WaitForExit(15000)) {
+      # Do not kill the Start operator or detach a second recovery. Its original
+      # lifecycle mutex and desired-state fence still own the in-flight action.
+      $pending=Read-SupervisorState
+      $pending.health='unknown';$pending.code='recovery_start_pending';$pending.recoverable=$false
+      Write-SupervisorState $pending
+    }
+    if($null -eq $process.ExitCode){throw 'supervisor_start_exit_unavailable'}
+    $exitCode=[int]$process.ExitCode
+    $output=@(foreach($path in @($stdout,$stderr)) { if(Test-Path -LiteralPath $path){Get-Content -LiteralPath $path -Tail 64} })
+    $diagnostic=Get-BoundedNativeDiagnostic $output
+  } finally { $process.Dispose() }
   return [pscustomobject][ordered]@{
-    success = $run.ExitCode -eq 0
-    exitCode = [int]$run.ExitCode
-    diagnosticSha256 = [string]$run.Diagnostic.OutputSha256
+    success = $exitCode -eq 0
+    exitCode = $exitCode
+    diagnosticSha256 = [string]$diagnostic.OutputSha256
   }
 }
 

@@ -18,6 +18,16 @@ const powershell = path.join(
   "powershell.exe",
 );
 
+test("supervisor completes direct Start without waiting for or killing inherited-output descendants", {
+  skip: process.platform !== "win32", timeout: 25_000,
+}, () => {
+  const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-File",
+    path.join(root, "tests/django-supervisor-start-output.test.ps1")],
+  { encoding: "utf8", windowsHide: true, timeout: 20_000 });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), { directExit: 23, descendantPreserved: true, noProductionChanges: true });
+});
+
 test("Django runtime supervisor and service operator parse under PowerShell 5", async (t) => {
   if (process.platform !== "win32" || !existsSync(powershell)) {
     t.skip("Windows PowerShell 5 is unavailable");

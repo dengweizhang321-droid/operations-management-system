@@ -472,7 +472,7 @@ test("aborting the prefetch subscriber does not cancel a joined page load", asyn
   context.after(deferred.restore);
   const startDate = "2026-08-03";
   const endDate = "2026-08-04";
-  const requestKey = `view=ranking&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
+  const requestKey = `view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
   const prefetchController = new AbortController();
   const pageController = new AbortController();
   const prefetch = prefetchMarketRankingOverview(startDate, endDate, prefetchController.signal);
@@ -492,7 +492,7 @@ test("aborting the page subscriber does not cancel a joined prefetch", async (co
   context.after(deferred.restore);
   const startDate = "2026-08-05";
   const endDate = "2026-08-06";
-  const requestKey = `view=ranking&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
+  const requestKey = `view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=${startDate}&endDate=${endDate}`;
   const pageController = new AbortController();
   const prefetchController = new AbortController();
   const page = requestMarketOverview(requestKey, pageController.signal);
@@ -510,7 +510,7 @@ test("aborting the page subscriber does not cancel a joined prefetch", async (co
 test("the shared market request aborts only after its last subscriber leaves", async (context) => {
   const deferred = installDeferredMarketOverviewFetch();
   context.after(deferred.restore);
-  const requestKey = "view=ranking&page=1&pageSize=20&dimension=SKU&startDate=2026-08-07&endDate=2026-08-08";
+  const requestKey = "view=ranking&includeFilterOptions=false&page=1&pageSize=20&dimension=SKU&startDate=2026-08-07&endDate=2026-08-08";
   const firstController = new AbortController();
   const secondController = new AbortController();
   const first = requestMarketOverview(requestKey, firstController.signal);

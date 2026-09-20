@@ -111,6 +111,10 @@ class MarketRankingEntry(models.Model):
             models.Index(fields=["category", "period_end"], name="mkt_entry_category_idx"),
             models.Index(fields=["sku_code", "period_end"], name="mkt_entry_sku_idx"),
             models.Index(fields=["brand", "period_end"], name="mkt_entry_brand_idx"),
+            models.Index(fields=["scope"], name="mkt_facet_scope_idx"),
+            models.Index(fields=["ranking_dimension"], name="mkt_facet_dimension_idx"),
+            models.Index(fields=["operation_mode"], name="mkt_facet_operation_idx"),
+            models.Index(fields=["subcategory"], name="mkt_facet_subcategory_idx"),
             models.Index(
                 fields=["category", "scope", "ranking_dimension", "sku_code", "-period_end", "-id"],
                 name="mkt_entry_identity_idx",

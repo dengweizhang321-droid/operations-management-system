@@ -28,6 +28,7 @@ try {
   # Exercise the real state persistence and cycle with only external effects replaced.
   function Start-Sleep {}
   function Get-WatchEvidence($Snapshot){@{snapshot=$Snapshot}}
+  function Get-WatchBusinessHealth {@{status='unknown';reason='synthetic_no_observation'}}
   function Send-WatchAlert {$script:alerts++}
   function Invoke-WatchRecovery {$script:recoveries++}
   $script:alerts=0;$script:recoveries=0
@@ -50,6 +51,18 @@ try {
   $r=Invoke-WatchCycle -Recover
   Assert-Watch ($r.status -eq 'healthy' -and (Read-WatchJson $StatePath).failures -eq 0) 'two healthy samples close incident'
 
+  function Get-WatchSnapshot {$v=Fixture-Snapshot;$v.healthy=$true;$v.worker='exact_release';$v.backend='Ready';$v.supervisor='running';return $v}
+  function Get-WatchBusinessHealth {@{status='degraded';reason='market_queries_failing'}}
+  Write-WatchJson $StatePath (New-WatchState)
+  $r=Invoke-WatchCycle -Recover;$r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'alert_only') 'confirmed query failures must alert without a restart'
+  function Get-WatchBusinessHealth {@{status='unknown';reason='no_recent_observation'}}
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'alert_only' -and (Read-WatchJson $StatePath).marketFailureOpen) 'aging out observations must not close a known business incident'
+  function Get-WatchBusinessHealth {@{status='healthy';reason='recent_reads_succeeded'}}
+  $r=Invoke-WatchCycle -Recover
+  Assert-Watch ($r.status -eq 'healthy' -and -not (Read-WatchJson $StatePath).marketFailureOpen) 'fresh successes are required to close the query incident'
+
   # Re-load the real delivery function to verify at-most-once admission even when remote result is unknown.
   $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '..\tools\operations-system-watchdog.ps1'),[ref]$null,[ref]$null)
   $function=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Send-WatchAlert'},$true)
@@ -68,6 +81,24 @@ try {
   Assert-Watch ($script:sends -eq 1) 'unknown result must never resend'
   $saved=Get-Content -LiteralPath (Join-Path $testRoot 'alerts\fixture.json') -Raw
   Assert-Watch ($saved -notmatch 'robotCode|userId|profile|credential') 'alert audit must omit recipient IDs and credentials'
+
+  $script:identityCalls=0
+  function Get-WatchRecipient {$script:identityCalls++;throw 'owner_mismatch'}
+  $state=New-WatchState;$state.incident='identity-fixture';$state.firstFailure=$now.ToString('o')
+  Send-WatchAlert $state (Fixture-Snapshot) 'alert_only'
+  Assert-Watch ($state.notification -eq 'identity_failed' -and $state.notificationReason -eq 'identity:owner_mismatch') 'pre-send failure needs a safe diagnosable reason'
+  Send-WatchAlert $state (Fixture-Snapshot) 'alert_only'
+  Assert-Watch ($script:identityCalls -eq 1) 'pre-send retry must obey cooldown'
+  $state.lastIdentityAttempt=$now.AddMinutes(-16).ToString('o')
+  Send-WatchAlert $state (Fixture-Snapshot) 'alert_only'
+  Assert-Watch ($script:identityCalls -eq 2 -and $script:sends -eq 1) 'identity recheck is allowed without replaying a send'
+  $state.identityAttempts=3;$state.lastIdentityAttempt=$now.AddMinutes(-16).ToString('o')
+  Send-WatchAlert $state (Fixture-Snapshot) 'alert_only'
+  Assert-Watch ($script:identityCalls -eq 2) 'identity retries are bounded per incident'
+
+  $s=Fixture-Snapshot;$s.system='Running';$s.backend='Ready';$s.worker='exact_release';$s.supervisor='running'
+  $s.business=@{status='degraded'};$state=New-WatchState;$state.failures=2
+  Assert-Watch ((Get-WatchDecision $s $state $now) -eq 'alert_only') 'business failure must not restart healthy processes'
 
   # Exercise recovery admission under a real OS mutex. Only the underlying service actions are fixtures.
   $restore=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-WatchRecovery'},$true)

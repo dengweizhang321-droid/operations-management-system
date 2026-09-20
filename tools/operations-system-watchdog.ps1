@@ -116,6 +116,35 @@ function Get-WatchSnapshot {
   $snapshot.healthy=(-not $snapshot.probeError -and $snapshot.system -ceq 'Running' -and $snapshot.backend -ceq 'Ready' -and $snapshot.worker -ceq 'exact_release' -and $snapshot.supervisor -ceq 'running' -and $snapshot.supervisorHealth -ceq 'healthy' -and $snapshot.components.Count -ge 12 -and @($snapshot.components.Values|Where-Object {-not $_}).Count -eq 0 -and @($snapshot.probes.Values|Where-Object {-not $_.ok}).Count -eq 0)
   return $snapshot
 }
+function Get-WatchBusinessHealth {
+  # Passive reader telemetry only: never create a full ranking scan every minute.
+  $path=Join-Path $WatchdogRoot 'business-health.json'
+  $now=[DateTimeOffset]::UtcNow
+  try {
+    $cached=Read-WatchJson $path
+    if($cached -and $cached.version -eq 'market-read-probe-v1' -and $cached.status -in @('healthy','degraded','observing','unknown') -and
+        ($now-[DateTimeOffset]$cached.checkedAt).TotalSeconds -ge 0 -and
+        ($now-[DateTimeOffset]$cached.checkedAt).TotalSeconds -lt 300){return $cached}
+  }catch{$cached=$null}
+  $result=@{version='market-read-probe-v1';checkedAt=$now.ToString('o');status='unknown';reason='no_recent_observation'}
+  $handler=[Net.Http.HttpClientHandler]::new();$handler.UseProxy=$false;$handler.AllowAutoRedirect=$false
+  $client=[Net.Http.HttpClient]::new($handler);$client.Timeout=[TimeSpan]::FromSeconds(3);$client.MaxResponseContentBufferSize=8192
+  try {
+    $response=$client.GetAsync('http://127.0.0.1:8031/api/market/health/reads').GetAwaiter().GetResult()
+    try {
+      if([int]$response.StatusCode -eq 404){$result.reason='reader_upgrade_required'}
+      elseif([int]$response.StatusCode -ne 200){$result.reason='probe_unavailable'}
+      else {
+        $body=$response.Content.ReadAsStringAsync().GetAwaiter().GetResult()|ConvertFrom-Json
+        if($body.version -cne 'market-read-health-v1' -or $body.status -notin @('healthy','degraded','observing','unknown')){throw 'business_probe_invalid'}
+        $result.status=[string]$body.status
+        $result.reason=if($body.status -eq 'degraded'){'market_queries_failing'}elseif($body.status -eq 'healthy'){'recent_reads_succeeded'}else{'no_confirmed_failure'}
+      }
+    }finally{$response.Dispose()}
+  }catch{$result.reason='probe_unavailable'}finally{$client.Dispose()}
+  Write-WatchJson $path $result
+  return $result
+}
 function New-WatchState {
   @{version=$WatchdogVersion;failures=0;lastCheck=$null;lastHealthy=$null;incident=$null;attempts=@();lastMode='unknown';lastFence=$null;notification=$null}
 }
@@ -209,26 +238,38 @@ function Get-WatchRecipient {
   return @{profile=$profile[0].profile;user=$employee.userId;bot=$exact[0].robotCode}
 }
 function Send-WatchAlert($State,$Snapshot,[string]$Outcome,[switch]$DryRun){
-  if(-not $DryRun -and $State.notification){return}
+  if(-not $DryRun -and $State.notification){
+    if($State.notification -ne 'identity_failed'){return}
+    # Only pre-send failures are retryable. Reservation/unknown/sent stay terminal.
+    if([int]$State.identityAttempts -ge 3){return}
+    if($State.lastIdentityAttempt -and ([DateTimeOffset]::UtcNow-[DateTimeOffset]$State.lastIdentityAttempt).TotalMinutes -lt 15){return}
+  }
   $alertPath=Join-Path $WatchdogRoot "alerts\$($State.incident).json"
   $alert=@{incident=$State.incident;at=[DateTimeOffset]::UtcNow.ToString('o');outcome=$Outcome;status='pending_identity';ports=$Snapshot.ports;businessData=$false}
   if(-not $DryRun){Write-WatchJson $alertPath $alert}
+  $stage='identity'
   try{
+    if(-not $DryRun){$State.identityAttempts=[int]$State.identityAttempts+1;$State.lastIdentityAttempt=[DateTimeOffset]::UtcNow.ToString('o');Write-WatchJson $StatePath $State}
     $recipient=Get-WatchRecipient
     $label=switch($Outcome){recovered{'已恢复，并通过两轮检查'} recovery_failed{'自动恢复未通过'} budget_exhausted{'已达到本轮自动恢复次数上限'} cooldown{'等待下一次有间隔的安全恢复'} alert_only{'需人工检查进程归属或服务状态'} default{$Outcome}}
     $ports=(@(3000,5791,5432)|ForEach-Object {"$_="+$(if(@($Snapshot.ports|Where-Object port -eq $_).Count -gt 0){'监听中'}else{'未监听'})}) -join '、'
-    $message="运营管理系统运行提醒。故障首次发现：$($State.firstFailure)。恢复结果：$label。首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。端口：$ports。需要人工处理："+$(if($Outcome -eq 'recovered'){'否。'}else{'是，请检查本机系统控制面板；未知进程或配置异常不会被强制接管。'})
+    $detail=if($Snapshot.business -and $Snapshot.business.status -eq 'degraded'){'市场查询连续失败；服务在线，未自动重启。'}elseif($Snapshot.supervisorHealth -eq 'stale'){'Django 守护状态超过 7 分钟未更新；需检查守护，业务服务未强制重启。'}else{''}
+    $message="运营管理系统运行提醒。故障首次发现：$($State.firstFailure)。恢复结果：$label。首页/后端状态：$($Snapshot.system)/$($Snapshot.backend)。$detail 端口：$ports。需要人工处理："+$(if($Outcome -eq 'recovered'){'否。'}else{'是，请检查本机系统控制面板；未知进程或配置异常不会被强制接管。'})
     $arguments=@('chat','+messages-send','--as','bot','--profile',$recipient.profile,'--robot-code',$recipient.bot,'--users',$recipient.user,'--text',$message)
     if($DryRun){$preview=Invoke-WatchDws ($arguments+@('--dry-run'));if(-not $preview.dry_run -or $preview.executed){throw 'preview_invalid'};return @{status='dry_run_verified';executed=$false;targets=1}}
     # Persist BEFORE the non-idempotent remote call. Crashes/unknown delivery are never replayed.
     $alert.status='sending';Write-WatchJson $alertPath $alert
     $State.notification='sending';Write-WatchJson $StatePath $State
+    $stage='delivery'
     $sent=Invoke-WatchDws ($arguments+@('--yes'))
     if($sent.success -ne $true -or $sent.failedCount -gt 0){throw 'delivery_unconfirmed'}
-    $alert.status='sent';$State.notification='sent'
+    $alert.status='sent';$State.notification='sent';$State.notificationReason=$null
   }catch{
     $alert.status=if($State.notification -eq 'sending'){'unknown'}else{'identity_failed'}
     $State.notification=$alert.status
+    $known=@('owner_profile_ambiguous','owner_ambiguous','owner_mismatch','owner_search_ambiguous','bot_ambiguous','dws_rejected','operator_failed','probe_timeout','delivery_unconfirmed')
+    $code=if($_.Exception.Message -cin $known){$_.Exception.Message}else{'preflight_failed'}
+    $alert.reason="$stage`:$code";$State.notificationReason=$alert.reason
   }
   if(-not $DryRun){Write-WatchJson $alertPath $alert;Write-WatchJson $StatePath $State}
   elseif($alert.status -ne 'pending_identity'){throw 'notification_preflight_failed'}
@@ -238,6 +279,13 @@ function Invoke-WatchCycle([switch]$Recover){
   $state=if($previous){$previous|ConvertTo-Json -Depth 10|ConvertFrom-Json -AsHashtable}else{New-WatchState}
   if($state.version -cne $WatchdogVersion){throw 'watchdog_state_invalid'}
   $snapshot=Get-WatchSnapshot;$now=[DateTimeOffset]::UtcNow
+  if($snapshot.admission.mode -eq 'running'){
+    $snapshot.business=Get-WatchBusinessHealth
+    if($snapshot.business.status -eq 'degraded'){$state.marketFailureOpen=$true}
+    elseif($snapshot.business.status -eq 'healthy'){$state.marketFailureOpen=$false}
+    elseif($state.marketFailureOpen){$snapshot.business=@{status='degraded';reason='awaiting_successful_reads';checkedAt=$now.ToString('o')}}
+    if($snapshot.business.status -eq 'degraded'){$snapshot.healthy=$false}
+  }
   $state.lastCheck=$now.ToString('o')
   if($snapshot.admission.mode -in @('stopped','maintenance')){
     $state.failures=0;$state.lastMode=$snapshot.admission.mode;$state.lastFence=$snapshot.admission.fence
@@ -251,6 +299,8 @@ function Invoke-WatchCycle([switch]$Recover){
   # First installation, maintenance exit, a new explicit Start or a recovered incident requires two healthy snapshots.
   if($snapshot.healthy -and ($state.incident -or $state.lastMode -ne 'running' -or $state.lastFence -ne $snapshot.admission.fence)){
     Start-Sleep -Seconds 5;$second=Get-WatchSnapshot
+    $second.business=$snapshot.business
+    if($second.business -and $second.business.status -eq 'degraded'){$second.healthy=$false}
     if(-not $second.healthy -or $second.admission.fence -ne $snapshot.admission.fence){$snapshot=$second;$decision='verification_pending'}
   }
   if($decision -eq 'recover' -and $Recover){
@@ -260,6 +310,8 @@ function Invoke-WatchCycle([switch]$Recover){
     try{
       Invoke-WatchRecovery $snapshot.admission.fence
       $first=Get-WatchSnapshot;Start-Sleep -Seconds 5;$second=Get-WatchSnapshot
+      $first.business=$snapshot.business;$second.business=$snapshot.business
+      if($snapshot.business -and $snapshot.business.status -eq 'degraded'){$first.healthy=$false;$second.healthy=$false}
       if($first.healthy -and $second.healthy -and $first.admission.fence -eq $second.admission.fence){$decision='recovered'}else{$decision='recovery_failed'}
       $snapshot=$second
     }catch{$decision='recovery_failed'}
@@ -268,7 +320,7 @@ function Invoke-WatchCycle([switch]$Recover){
     Write-WatchJson (Join-Path $WatchdogRoot "evidence\$($state.incident)-latest.json") (Get-WatchEvidence $snapshot)
     if($Recover -and [int]$state.failures -ge 2 -and $decision -notin @('confirm_failure','verification_pending')){Send-WatchAlert $state $snapshot $decision}
   }
-  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=$now.ToString('o');$state.incident=$null;$state.notification=$null}
+  if($decision -in @('healthy','recovered')){$state.failures=0;$state.lastHealthy=[DateTimeOffset]::UtcNow.ToString('o');$state.incident=$null;$state.notification=$null;$state.notificationReason=$null;$state.identityAttempts=0;$state.lastIdentityAttempt=$null}
   $state.lastMode=if($decision -eq 'verification_pending'){'verification_pending'}else{'running'}
   $state.lastFence=$snapshot.admission.fence;$state.decision=$decision
   Write-WatchJson $StatePath $state

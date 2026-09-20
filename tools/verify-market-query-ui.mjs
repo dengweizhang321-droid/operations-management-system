@@ -47,6 +47,7 @@ try {
     assert.equal(route.request().method(), "GET");
     if (url.pathname === "/api/market/filters") return route.fulfill({ status: failFilters ? 503 : 200, json: failFilters ? { error: "合成筛选服务中断" } : { filters } });
     if (url.pathname === "/api/market/overview") {
+      assert.equal(url.searchParams.get("includeFilterOptions"), "false", "ranking must not repeat global facet aggregation");
       if (url.searchParams.get("view") === "full" || failRanking) return route.fulfill({ status: 413, json: { error: "市场分析范围过大，请缩小日期或筛选范围" } });
       if (url.searchParams.get("q") === "旧查询") await new Promise((resolve) => setTimeout(resolve, 800));
       return route.fulfill({ json: ranking(Number(url.searchParams.get("page") || 1), url.searchParams.get("q")) }).catch(() => {});

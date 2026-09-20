@@ -2,9 +2,11 @@ from django.conf import settings
 from django.urls import path
 
 from . import views
+from .read_health import endpoint as read_health
 
 
 read_patterns = [
+    path("health/reads", read_health, name="market-read-health"),
     path("queries", views.queries, name="market-queries"),
     path("consumers/query", views.consumers, name="market-consumers"),
 ]

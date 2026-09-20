@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from time import monotonic
 from collections.abc import Callable
 from datetime import timedelta
 
@@ -23,6 +24,7 @@ from .models import MarketWriteRequestReceipt
 from .projection import execute_projection_command
 from .query import daily_coverage, filter_options, item_trend, overview
 from .revisions import assert_write_authority, revision_value
+from .read_health import record as record_read_health
 
 
 logger = logging.getLogger(__name__)
@@ -269,12 +271,24 @@ def _execute_query(principal: Principal, payload: dict[str, object]) -> dict[str
 
 @require_POST
 def queries(request: HttpRequest) -> JsonResponse:
+    started = monotonic()
+    operation = None
     try:
         principal = _principal(request, {"viewer", "analyst", "operator", "admin"})
         payload = _body(request)
+        operation = "ranking" if payload.get("operation") == "overview" and payload.get("view") == "ranking" else payload.get("operation")
         result, revision = _consistent_read(lambda: _execute_query(principal, payload))
+        record_read_health(operation, started)
         return _json(result, revision=revision)
     except Exception as error:
+        cause = error.__cause__
+        if getattr(cause, "sqlstate", None) == "57014":
+            record_read_health(operation, started, "query_timeout")
+            label = "筛选统计" if operation == "filter_options" else "商品榜单" if operation == "ranking" else "市场查询"
+            logger.warning("Market read timed out: operation=%s", operation if operation in {"ranking", "filter_options"} else "other")
+            return _json({"error": f"{label}超时，请稍后重新加载；服务仍在运行。", "code": "query_timeout"}, 503)
+        if not isinstance(error, (PrincipalEnvelopeError, MarketApiError)) or getattr(error, "status", 0) >= 500:
+            record_read_health(operation, started, "read_failed")
         return _error(error, "市场分析数据读取失败")
 
 

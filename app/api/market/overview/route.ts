@@ -28,6 +28,7 @@ export async function GET(request: Request) {
           page: pagination.page,
           pageSize: pagination.pageSize,
           filters,
+          ...(new URL(request.url).searchParams.get("includeFilterOptions") === "false" ? { includeFilterOptions: false } : {}),
         },
       },
       { signal: request.signal },

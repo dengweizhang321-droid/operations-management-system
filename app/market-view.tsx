@@ -166,6 +166,7 @@ const marketOverviewRequests = new Map<string, MarketOverviewSharedRequest>();
 function defaultMarketRankingParams(startDate: string, endDate: string) {
   const params = new URLSearchParams();
   params.set("view", "ranking");
+  params.set("includeFilterOptions", "false");
   params.set("page", "1");
   params.set("pageSize", String(MARKET_RANKING_PAGE_SIZE));
   params.append("dimension", "SKU");
@@ -982,6 +983,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const buildOverviewParams = useCallback((view: "ranking" | "full", page = 1) => {
     const params = new URLSearchParams();
     params.set("view", view);
+    params.set("includeFilterOptions", "false");
     if (view === "ranking") {
       params.set("page", String(page));
       params.set("pageSize", String(MARKET_RANKING_PAGE_SIZE));
@@ -1116,10 +1118,10 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
   const applyCommercialDirectDrinkingProfile = () => {
     if (!data) return;
     const profile = data.industryReport.definition.profile;
-    const preferredScope = data.filters.scopes.find((item) => item.value === "整体SKU")
-      ?? data.filters.scopes.find((item) => item.value.includes("整体") && item.value.toUpperCase().includes("SKU"))
-      ?? data.filters.scopes.find((item) => item.value === "全部SKU")
-      ?? data.filters.scopes[0];
+    const preferredScope = filterOptions.scopes.find((item) => item.value === "整体SKU")
+      ?? filterOptions.scopes.find((item) => item.value.includes("整体") && item.value.toUpperCase().includes("SKU"))
+      ?? filterOptions.scopes.find((item) => item.value === "全部SKU")
+      ?? filterOptions.scopes[0];
     setQuery("");
     setCategories([profile.category]);
     setScopes([preferredScope?.value ?? "整体SKU"]);
@@ -1132,7 +1134,7 @@ export default function MarketView({ customStartDate, customEndDate, currentUser
     onApplyPeriod?.(reportPeriod.startDate, reportPeriod.endDate);
     selectMarketSection("overview");
   };
-  const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...(data?.filters.operationModes ?? [])].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [data]);
+  const operationOptions = useMemo(() => [{ value: "POP", count: 0 }, { value: "自营", count: 0 }, { value: "未知", count: 0 }, ...filterOptions.operationModes].filter((item, index, array) => array.findIndex((next) => next.value === item.value) === index), [filterOptions]);
   const reportDimensionLabel = data ? marketReportDimensionLabel(data) : "商品";
   const sectionCopy: Record<Exclude<MarketSectionKey, "settings">, { eyebrow: string; title: string; note: string }> = {
     ranking: { eyebrow: "PRODUCT RANKING", title: "商品榜单工作台", note: "查看 TOP 商品表现、成交均价、主图价格、排名变化和单品趋势。" },

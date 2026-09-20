@@ -6,14 +6,16 @@ from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from datetime import date, timedelta
+from time import monotonic
 
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import Count, F, Max, Min, Q, Sum
 
 from netshop.sales_client import read_sales_consumer
 from sales.auth import Principal
 
 from .errors import MarketApiError
+from .filter_cache import cached_filters
 from .models import (
     MarketAnnotationCloudRun,
     MarketAnnotationConcurrencySetting,
@@ -513,6 +515,10 @@ def _database_options(queryset, field: str) -> list[dict[str, object]]:
 
 
 def filter_options() -> dict[str, object]:
+    return cached_filters(_load_filter_options)
+
+
+def _load_filter_options() -> dict[str, object]:
     """Independent of overview success, including an empty/oversized range."""
     query = MarketRankingEntry.objects.all()
     fields = (
@@ -521,19 +527,28 @@ def filter_options() -> dict[str, object]:
         ("subcategories", "subcategory"),
     )
     if connection.vendor == "postgresql":
-        # All six global facets read the same table. GROUPING SETS scans it once
-        # while preserving independent counts (not combinations of the facets).
-        cases = " ".join(f"WHEN GROUPING({field})=0 THEN '{name}'" for name, field in fields)
-        values = " ".join(f"WHEN GROUPING({field})=0 THEN {field}" for _, field in fields)
-        groups = ",".join(f"({field})" for _, field in fields)
-        options = {name: [] for name, _ in fields}
-        with connection.cursor() as cursor:
-            cursor.execute(f"""SELECT CASE {cases} END facet,CASE {values} END value,COUNT(*) count
-                FROM market_ranking_entries GROUP BY GROUPING SETS ({groups})
-                ORDER BY facet,count DESC,value""")
-            for facet, value, count in cursor.fetchall():
-                if value:
-                    options[facet].append({"value": value, "count": count})
+        # Each facet has a narrow index. Avoid reading wide raw import payloads
+        # and starting parallel workers for these low-cardinality aggregates.
+        # SET LOCAL is scoped to this read transaction; statement_timeout stays unchanged.
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SHOW max_parallel_workers_per_gather")
+                previous_parallelism = cursor.fetchone()[0]
+                cursor.execute("SELECT setting::integer FROM pg_settings WHERE name='statement_timeout'")
+                statement_timeout = cursor.fetchone()[0]
+                cursor.execute("SET LOCAL max_parallel_workers_per_gather = 0")
+            deadline = monotonic() + 20
+            options = {}
+            for name, field in fields:
+                remaining = int((deadline - monotonic()) * 1000)
+                if remaining <= 0:
+                    raise MarketApiError("筛选统计超时，请稍后重新加载。", status=503, code="query_timeout")
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT set_config('statement_timeout', %s, true)", [str(min(statement_timeout or 7000, remaining))])
+                options[name] = _database_options(query, field)
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('max_parallel_workers_per_gather', %s, true)", [previous_parallelism])
+                cursor.execute("SELECT set_config('statement_timeout', %s, true)", [str(statement_timeout)])
     else:
         options = {name: _database_options(query, field) for name, field in fields}
     # Published labels provide a recovery control without evaluating all rows.
@@ -1120,8 +1135,11 @@ def overview(
     sales_loader: Callable[[Principal, dict[str, object]], tuple[dict[str, object], str]] | None = None,
 ) -> dict[str, object]:
     allowed = {"operation", "view", "page", "pageSize", "filters"}
-    if set(request) != allowed or request.get("operation") != "overview":
+    if set(request) - {"includeFilterOptions"} != allowed or request.get("operation") != "overview":
         raise _error("市场概览请求字段无效")
+    include_filters = request.get("includeFilterOptions", True)
+    if type(include_filters) is not bool:
+        raise _error("includeFilterOptions 必须为布尔值")
     view = request["view"]
     if view not in {"ranking", "full"}:
         raise _error("view 仅支持 ranking 或 full")
@@ -1132,7 +1150,9 @@ def overview(
     ranking_bands = None
     ranking_details = {}
     # Load the independent, inexpensive filter aggregates before ranking joins.
-    global_options = filter_options() if view == "ranking" else None
+    global_options = filter_options() if include_filters and view == "ranking" else None
+    if not include_filters:
+        global_options = {name: [] for name in ("categories", "scopes", "brands", "rankingDimensions", "operationModes", "subcategories")}
     if view == "ranking":
         ranking_stats, ranking_bands, page_rows = ranking_page(_queryset(filters), filters["priceBands"], page, page_size)
         ranking_details = {item["id"]: item for item in page_rows}

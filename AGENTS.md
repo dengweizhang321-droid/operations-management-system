@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-20 市场查询/看门狗优化候选见 `docs/MARKET_QUERY_WATCHDOG_RECOVERY.md`，尚未生产采用。诊断须区分基础 readiness 与真实业务读取；数据库查询超时不自动授权重启在线服务。筛选缓存只能在鉴权后按数据库、角色、authority 和数据 revision 复用，计算后复验版本，不发布事务未提交内容或截断统计。被动业务错误不能因观测过期而自动关闭，通知 sending/unknown 不重发；本记录不授予停服、迁移或真实发送授权。
+
 2026-09-20，企业机器人独立认证与 AI 定时执行器拆分已按本轮发布授权采用，源码 `243927e`；Django fingerprint `89df0589ddbb138bc47ac327c1e7720cf9726a197ba6932cd5ce26604afc9c24`，manifest `4261aa9f4618d0f67809dbcaf5f6f5bfbc6c7eedd71e4cf6562fe4ef4d481523`，Worker/helper 保留 `20260919T054421Z-8396938e0c741f6c`。企业身份与 AppSecret 整体 CurrentUser DPAPI 加密，DWS 只用于显式首次采用；日常文字/图片/文件使用应用令牌。定时进程保留旧锁 1909，聊天接收器使用 1910，各自恢复账本；当前两进程运行、Stream connected、12 组件就绪。群按批准的精确 ID 与实时机器人安装核验，已授权 `qyapi_chat_manage`，不按群名重新解析收件人。原两任务及 20 条终态历史摘要不变，旧手动队列仅过期关闭；61 条迁移清单不变、前备份独立恢复及前后 E 盘归档通过。维护期周报 3586 失败、3587/3590 自然成功，马思图 3588 交原安全重试 3589，未补跑。未新增监控/告警/崩溃恢复、未重启 n8n 或触发测试消息；真实投递待原自然计划验收。外层总控已运行时会快速返回，恢复渠道开机批准后须调用原 Worker Start 引擎复验。见 `docs/AI_DINGTALK_INDEPENDENT_EXECUTION.md` 和生产证据；本记录不授予未来停服、扩权或补发授权。
 
 看门狗计划任务不得直接启动控制台 PowerShell：`-WindowStyle Hidden` 不能阻止 Windows Terminal 在进程创建时弹窗。使用 GUI subsystem 启动器和 `CreateNoWindow`/重定向标准流；等待直接子进程并保留退出码，不使用 kill-on-close job，以免误杀恢复后应持续运行的业务服务。更新只替换精确核验的任务 action、保留原触发器及身份，先等待旧检查自然结束；验收须覆盖真实子进程无控制台与至少两轮计划任务无新终端进程，见 `docs/OPERATIONS_WATCHDOG.md`。
