@@ -141,6 +141,10 @@ try:
     with psycopg.connect(writer_url, autocommit=True) as first, psycopg.connect(writer_url, autocommit=True) as second:
         assert first.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
         assert not second.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
+        # The new receiver uses a separate key and can coexist with schedules.
+        assert second.execute("SELECT pg_try_advisory_lock(841327,1910)").fetchone()[0]
+        assert not first.execute("SELECT pg_try_advisory_lock(841327,1910)").fetchone()[0]
+        assert second.execute("SELECT pg_advisory_unlock(841327,1910)").fetchone()[0]
         assert first.execute("SELECT pg_advisory_unlock(841327,1909)").fetchone()[0]
         assert second.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone()[0]
         assert second.execute("SELECT pg_advisory_unlock(841327,1909)").fetchone()[0]

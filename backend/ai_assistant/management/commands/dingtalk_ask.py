@@ -10,7 +10,7 @@ from urllib.parse import quote_plus, urlsplit
 from django.utils import timezone
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, close_old_connections
-from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings, dingtalk_schedules
+from ai_assistant import dingtalk as service, dingtalk_transport as platform, dingtalk_settings
 from ai_assistant.policy import AiError, authority
 
 
@@ -20,7 +20,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--config", required=True)
         parser.add_argument("--check", action="store_true")
-        parser.add_argument("--screenshot-profile", default="")
+        parser.add_argument("--bot-credentials", required=True)
 
     def ingress_event(self, event, **values):
         # Only call with fixed labels. Never include SDK bodies, identifiers,
@@ -53,16 +53,15 @@ class Command(BaseCommand):
             return 503, "unavailable"
 
     def handle(self, *args, **options):
-        if options["screenshot_profile"]:
-            os.environ["TERUISI_DINGTALK_SCREENSHOT_PROFILE"] = options["screenshot_profile"]
+        os.environ["TERUISI_DINGTALK_BOT_CREDENTIALS"] = options["bot_credentials"]
         reader = lambda: dingtalk_settings.effective(service.load_config(options["config"]))
         try:
             base = service.load_config(options["config"])
             if options["check"]:
                 config = reader() if service.m.AiDingTalkSettings.objects.filter(pk=1).exists() else base
-                platform.robot(config)
+                token = platform.access_token(config)
                 for group in config["groups"]:
-                    platform.verify_group(config, group)
+                    platform.verify_group(config, group, token)
                 for binding in config["bindings"]:
                     service.principal_for({**config, "enabled": True}, binding["senderId"])
                 self.stdout.write('{"status":"verified","connected":false,"sent":0}')
@@ -72,7 +71,7 @@ class Command(BaseCommand):
             authority()
             # Session lock belongs to this dedicated connection until process exit.
             with connection.cursor() as cursor:
-                cursor.execute("SELECT pg_try_advisory_lock(841327, 1909)")
+                cursor.execute("SELECT pg_try_advisory_lock(841327, 1910)")
                 if cursor.fetchone() != (True,):
                     raise AiError("已有钉钉问数接收器，拒绝重复启动")
             try:
@@ -94,17 +93,16 @@ class Command(BaseCommand):
                 for binding in config["bindings"]:
                     service.principal_for({**config, "enabled": True}, binding["senderId"])
                 service.recover_interrupted()
-                dingtalk_schedules.recover_interrupted()
                 self.stdout.write('{"status":"starting","replyMode":"source","queryScope":"authorized_system_modules"}')
                 asyncio.run(self.run_stream(reader))
             finally:
                 with connection.cursor() as cursor:
-                    cursor.execute("SELECT pg_advisory_unlock(841327, 1909)")
+                    cursor.execute("SELECT pg_advisory_unlock(841327, 1910)")
         except KeyboardInterrupt:
             self.stdout.write('{"status":"stopped"}')
         except Exception:
             # SDK exceptions can contain credentials, tickets, message bodies or URLs.
-            raise CommandError("钉钉问数未能运行；请核验配置、DWS 授权和本机 AI 服务。未自动重发消息。") from None
+            raise CommandError("钉钉问数未能运行；请核验企业机器人凭据、配置和本机 AI 服务。未自动重发消息。") from None
 
     async def run_stream(self, reader):
         import dingtalk_stream as sdk
@@ -142,9 +140,6 @@ class Command(BaseCommand):
         async def work():
             while True:
                 await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
-                await loop.run_in_executor(worker, lambda: db_call(lambda: dingtalk_schedules.step(reader,
-                    lambda session, content: platform.send(reader, session, content),
-                    lambda session, raw, name, kind, caption="", before_send=None: platform.send_media(reader, session, raw, name, kind, caption, before_send=before_send))))
                 await asyncio.sleep(0.5)
         async def listen():
             failures = 0
@@ -184,9 +179,8 @@ class Command(BaseCommand):
                     failures = min(failures + 1, 9)
                     self.stdout.write('{"status":"recovering"}')
                     self.stderr.write('{"code":"stream_unavailable"}')
-                # Keep the singleton alive so scheduled work continues and the
-                # Stream can recover without a full system restart. Revalidation
-                # is read-only and every retry obtains fresh DWS credentials.
+                # Preserve the existing inbound reconnect policy. Each attempt
+                # re-reads the bound enterprise credentials; schedules run elsewhere.
                 await asyncio.sleep(min(300, 2 ** min(failures, 8)))
         tasks = [asyncio.create_task(work()), asyncio.create_task(listen())]
         try:

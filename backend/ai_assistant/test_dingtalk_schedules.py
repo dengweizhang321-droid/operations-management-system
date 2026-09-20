@@ -79,6 +79,53 @@ class DingTalkScheduleTests(TestCase):
         second_at = m.AiDingTalkScheduleRun.objects.get(pk=second["id"]).scheduled_at
         self.assertEqual(second_at - first_at, timedelta(microseconds=1))
 
+    def test_independent_command_holds_real_postgres_lock_while_dispatching(self):
+        import io
+        from django.db import connection
+        from .management.commands import dingtalk_schedule as worker
+        if connection.vendor != "postgresql":
+            self.skipTest("Requires the isolated PostgreSQL rehearsal")
+        item = schedules.save(self.payload, ADMIN)["item"]
+        queued = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        delivered = []
+        def send(reader, session, content, *, before_send):
+            with connection.Database.connect(**connection.get_connection_params()) as contender:
+                self.assertEqual(contender.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone(), (False,))
+                # Chat reception is independent of the schedule lease.
+                self.assertEqual(contender.execute("SELECT pg_try_advisory_lock(841327,1910)").fetchone(), (True,))
+            before_send()
+            delivered.append(content)
+        with patch("ai_assistant.transport.edge", side_effect=background), \
+                patch.object(schedules.chat, "answer", return_value={"reply": "结果"}), \
+                patch.object(worker.dingtalk, "load_config", return_value=self.config), \
+                patch.object(worker.platform, "credentials", return_value=("fixture", "fixture")), \
+                patch.object(worker.platform, "send", side_effect=send), \
+                patch.object(worker.platform, "open_stream", side_effect=AssertionError("Stream must not run")) as stream, \
+                patch.object(worker.time, "sleep", side_effect=KeyboardInterrupt):
+            worker.Command(stdout=io.StringIO()).handle(config="fixture", bot_credentials="fixture", screenshot_profile="")
+        stream.assert_not_called()
+        self.assertEqual(delivered, ["结果"])
+        self.assertEqual(m.AiDingTalkScheduleRun.objects.get(pk=queued["id"]).status, "sent")
+        with connection.Database.connect(**connection.get_connection_params()) as contender:
+            self.assertEqual(contender.execute("SELECT pg_try_advisory_lock(841327,1909)").fetchone(), (True,))
+
+    def test_text_version_revoked_during_channel_preparation_is_checked_before_send(self):
+        item = schedules.save(self.payload, ADMIN)["item"]
+        queued = schedules.run_now({"id": item["id"], "expectedVersion": 1}, ADMIN)
+        actual_send = Mock()
+        def prepare_sender(session, content, *, before_send):
+            schedules.save({**self.payload, "id": item["id"], "expectedVersion": 1, "enabled": False}, ADMIN)
+            before_send()
+            actual_send(session, content)
+        with patch("ai_assistant.transport.edge", side_effect=background), \
+                patch.object(schedules.chat, "answer", return_value={"reply": "结果"}):
+            schedules.step(lambda: dingtalk_settings.effective(self.config), prepare_sender)
+        actual_send.assert_not_called()
+        run = m.AiDingTalkScheduleRun.objects.get(pk=queued["id"])
+        self.assertEqual(run.status, "unknown")  # The existing durable reservation stays terminal.
+        self.assertEqual(run.error_code, "access_denied")
+        self.assertFalse(schedules.step(lambda: dingtalk_settings.effective(self.config), actual_send))
+
     def test_revocation_before_dispatch_and_unknown_send_do_not_retry(self):
         item = schedules.save({**self.payload, "targetType": "group", "targetId": "group"}, ADMIN)["item"]
         run = schedules.run_now({"id": item["id"], "expectedVersion": item["version"]}, ADMIN)

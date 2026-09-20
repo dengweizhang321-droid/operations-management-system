@@ -2270,6 +2270,11 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   if (Resolve-OwnedProcess "django-customer-service-writer" $DjangoCustomerServiceWriterPidPath $Waitress) {
     throw "$Operation 前必须通过客服控制器 Stop 停止 Django customer-service writer"
   }
+  foreach ($dingService in @("django-ai-dingtalk", "django-ai-dingtalk-schedule")) {
+    if (Resolve-OwnedProcess $dingService (Join-Path $RunDirectory "$dingService.pid.json") $Python) {
+      throw "$Operation requires the owned DingTalk processes to be stopped"
+    }
+  }
   if ((Resolve-OwnedProcess "django-ai-reader" $DjangoAiReaderPidPath $Waitress) -or (Resolve-OwnedProcess "django-ai-writer" $DjangoAiWriterPidPath $Waitress) -or @(Get-PortListeners 8111).Count -gt 0 -or @(Get-PortListeners 8112).Count -gt 0) {
     throw "$Operation 前必须通过 AI 控制器 Stop 停止 AI 服务并核验端口身份"
   }

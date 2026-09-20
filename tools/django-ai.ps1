@@ -3,7 +3,7 @@ param(
   [ValidateSet(
     "ConfigureCredentials", "ProvisionRoles", "Start", "Stop", "Status",
     "EnableStartup", "DisableStartup", "DingTalkCheck", "StartDingTalk", "StopDingTalk",
-    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigurePandas", "PandasCheck"
+    "EnableDingTalkStartup", "DisableDingTalkStartup", "AutoStartDingTalk", "ConfigureDingTalkBotCredentials", "ConfigurePandas", "PandasCheck"
   )]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
@@ -41,6 +41,8 @@ $AiReaderHealthUrl = "http://127.0.0.1:8111/health/ready"
 $AiWriterHealthUrl = "http://127.0.0.1:8112/health/ready"
 $AiStartupPath = Join-Path $RuntimeRoot "ai-enabled.json"
 $DingTalkConfigPath = Join-Path $RuntimeRoot "config\dingtalk-ask.json"
+$DingTalkSchedulePidPath = Join-Path $RunDirectory "django-ai-dingtalk-schedule.pid.json"
+$DingTalkBotCredentialPath = Join-Path $RuntimeRoot "secrets\dingtalk-bot.dpapi.json"
 $DingTalkPidPath = Join-Path $RunDirectory "django-ai-dingtalk.pid.json"
 $DingTalkStartupPath = Join-Path $RuntimeRoot "config\dingtalk-startup.json"
 $DingTalkScreenshotRoot = "$RuntimeRoot-screenshot-profile"
@@ -392,6 +394,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
 
 function Stop-AiStack([string]$LifecycleAclToken = "") {
   Assert-AiRuntimeEntry $LifecycleAclToken
+  Stop-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python
   Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python
   Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress
   Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress
@@ -450,7 +453,7 @@ function Start-ConfiguredDingTalkReceiver {
     Write-Output "DingTalk automatic startup is disabled."
     return
   }
-  Invoke-DingTalkReceiver $false (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup")
+  Start-DingTalkWorkers (Read-JsonFile $DingTalkStartupPath "DingTalk automatic startup")
 }
 
 function Assert-DingTalkScreenshotProfile {
@@ -490,7 +493,31 @@ function Assert-DingTalkScreenshotProfile {
   }
 }
 
-function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null) {
+function Start-DingTalkWorkers([object]$StartupApproval = $null) {
+  # Start schedules first: an unavailable Stream SDK/connection cannot stop dispatch.
+  Invoke-DingTalkReceiver $false $StartupApproval -Schedules
+  Invoke-DingTalkReceiver $false $StartupApproval
+}
+
+function Configure-DingTalkBotCredentials {
+  Assert-AiRuntimeEntry
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) { throw "PostgreSQL is not ready" }
+  $runtimeSecrets = Read-Secrets; $aiSecrets = Read-AiCredentials
+  try {
+    $authority = Get-AiWriteAuthority $runtimeSecrets $aiSecrets
+    if ([string]$authority.status -cne "postgres") { throw "AI authority is not active" }
+    $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_bot_provision" $WriterStatementTimeoutMs
+    Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
+      $nativeRun = Invoke-BoundedNativeProcess $Python @("-B", (Join-Path $BackendRoot "manage.py"),
+        "dingtalk_bot_credentials", "--config", $DingTalkConfigPath, "--output", $DingTalkBotCredentialPath, "--provision") $BackendRoot
+      ConvertFrom-UniqueNativeJson $nativeRun "Enterprise bot credential adoption" | ConvertTo-Json -Compress
+    }
+    Set-RuntimeAcl
+  } finally { $runtimeSecrets = $null; $aiSecrets = $null; $url = $null }
+}
+
+function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $null, [switch]$Schedules) {
   Assert-AiRuntimeEntry
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪" }
@@ -507,8 +534,14 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $n
       throw "DingTalk startup approval differs from live authority or receiver configuration"
     }
     $url = Database-Url "teruisi_ai_writer" $aiSecrets.WriterPassword "teruisi_ai_dingtalk" $WriterStatementTimeoutMs
-    $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), "dingtalk_ask", "--config", $DingTalkConfigPath)
-    if ($DingTalkScreenshotProfile -and (Test-Path -LiteralPath $DingTalkScreenshotProfile -PathType Container)) {
+    $serviceName = if ($Schedules) { "django-ai-dingtalk-schedule" } else { "django-ai-dingtalk" }
+    $pidFile = if ($Schedules) { $DingTalkSchedulePidPath } else { $DingTalkPidPath }
+    $command = if ($Schedules) { "dingtalk_schedule" } else { "dingtalk_ask" }
+    if (-not (Test-Path -LiteralPath $DingTalkBotCredentialPath -PathType Leaf)) { throw "Enterprise bot credentials have not been adopted" }
+    $credentialHash = Get-FileSha256 $DingTalkBotCredentialPath
+    $arguments = @("-u", (Join-Path $BackendRoot "manage.py"), $command, "--config", $DingTalkConfigPath,
+      "--bot-credentials", $DingTalkBotCredentialPath)
+    if ($Schedules -and $DingTalkScreenshotProfile -and (Test-Path -LiteralPath $DingTalkScreenshotProfile -PathType Container)) {
       Assert-DingTalkScreenshotProfile
       $arguments += @("--screenshot-profile", $DingTalkScreenshotProfile)
     }
@@ -521,18 +554,20 @@ function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval = $n
       return
     }
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
+    if (-not $Schedules) {
+      Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
+        Invoke-BoundedNativeProcess $Python @("-c", "import dingtalk_stream, websockets; print('receiver_dependencies_available')") $BackendRoot | Out-Null
+      }
+    }
+    $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint $serviceName $Python $arguments) + (Get-FileHash -LiteralPath $DingTalkConfigPath -Algorithm SHA256).Hash + $credentialHash + [string]$authority.authorityEpoch + [string]$authority.cutoverId)
+    if (Resolve-OwnedProcess $serviceName $pidFile $Python $arguments $fingerprint) {
+      Write-Output "$serviceName already running."; return
+    }
     Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
-      Invoke-BoundedNativeProcess $Python @("-c", "import dingtalk_stream, websockets; print('receiver_dependencies_available')") $BackendRoot | Out-Null
+      Start-ManagedProcess $serviceName $Python $arguments $BackendRoot $pidFile $fingerprint `
+        (Join-Path $LogDirectory "$serviceName.$RunId.stdout.log") (Join-Path $LogDirectory "$serviceName.$RunId.stderr.log") | Out-Null
     }
-    $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "django-ai-dingtalk" $Python $arguments) + (Get-FileHash -LiteralPath $DingTalkConfigPath -Algorithm SHA256).Hash + [string]$authority.authorityEpoch + [string]$authority.cutoverId)
-    if (Resolve-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python $arguments $fingerprint) {
-      Write-Output "钉钉问数接收器已运行。"; return
-    }
-    Invoke-WithAiEnvironment $runtimeSecrets $aiSecrets $url "ai_writer" $false $AiWriterMaxBodyBytes $authority {
-      Start-ManagedProcess "django-ai-dingtalk" $Python $arguments $BackendRoot $DingTalkPidPath $fingerprint `
-        (Join-Path $LogDirectory "django-ai-dingtalk.$RunId.stdout.log") (Join-Path $LogDirectory "django-ai-dingtalk.$RunId.stderr.log") | Out-Null
-    }
-    Write-Output "钉钉问数接收器已启动；需在日志看到 connected，并用本人单聊完成端到端验收。"
+    Write-Output "$serviceName started; delivery acceptance must be verified separately."
   } finally { $runtimeSecrets = $null; $aiSecrets = $null; $url = $null }
 }
 
@@ -597,6 +632,9 @@ function Show-AiStatus {
       $dingConnection = Get-DingTalkConnectionState ([string]$receipt.runId)
     }
   } catch { $dingProcess = "ownership_error"; $dingConnection = "unknown" }
+  $dingSchedule = "stopped"
+  try { if (Resolve-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python) { $dingSchedule = "running" } } catch { $dingSchedule = "ownership_error" }
+  $status | Add-Member -NotePropertyName DingTalkScheduler -NotePropertyValue $dingSchedule
   $status | Add-Member -NotePropertyName DingTalkStartup -NotePropertyValue $dingStartup
   $status | Add-Member -NotePropertyName DingTalkReceiver -NotePropertyValue $dingProcess
   $status | Add-Member -NotePropertyName DingTalkConnection -NotePropertyValue $dingConnection
@@ -606,6 +644,7 @@ function Show-AiStatus {
 try {
   switch ($Action) {
     "ConfigureCredentials" { Invoke-WithServiceMutex { Configure-AiCredentials } }
+    "ConfigureDingTalkBotCredentials" { Invoke-WithServiceMutex { Configure-DingTalkBotCredentials } }
     "ConfigurePandas" { Invoke-WithServiceMutex { Configure-PandasSandbox } }
     "PandasCheck" { Assert-AiRuntimeEntry; $config = Read-PandasConfig; if ($null -eq $config) { throw "pandas is not configured" }; Invoke-PandasProbe $config | ConvertTo-Json -Compress }
     "ProvisionRoles" { Invoke-WithServiceMutex { Provision-AiRoles } }
@@ -615,8 +654,8 @@ try {
     "EnableStartup" { Invoke-WithServiceMutex { Enable-AiStartup } }
     "DisableStartup" { Invoke-WithServiceMutex { Disable-AiStartup } }
     "DingTalkCheck" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $true } }
-    "StartDingTalk" { Invoke-WithServiceMutex { Invoke-DingTalkReceiver $false } }
-    "StopDingTalk" { Invoke-WithServiceMutex { Set-DingTalkStartup $false; Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python } }
+    "StartDingTalk" { Invoke-WithServiceMutex { Start-DingTalkWorkers } }
+    "StopDingTalk" { Invoke-WithServiceMutex { Set-DingTalkStartup $false; Stop-OwnedProcess "django-ai-dingtalk-schedule" $DingTalkSchedulePidPath $Python; Stop-OwnedProcess "django-ai-dingtalk" $DingTalkPidPath $Python } }
     "EnableDingTalkStartup" { Invoke-WithServiceMutex { Set-DingTalkStartup $true } }
     "DisableDingTalkStartup" { Invoke-WithServiceMutex { Set-DingTalkStartup $false } }
     "AutoStartDingTalk" { Invoke-WithServiceMutex { Start-ConfiguredDingTalkReceiver } }

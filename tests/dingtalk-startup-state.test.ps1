@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $tokens=$null; $parseErrors=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseInput([IO.File]::ReadAllText($Controller),[ref]$tokens,[ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Controller syntax errors' }
-foreach ($name in @('Read-DingTalkStartup','Set-DingTalkStartup','Start-ConfiguredDingTalkReceiver','Invoke-DingTalkReceiver','Get-DingTalkConnectionState')) {
+foreach ($name in @('Read-DingTalkStartup','Set-DingTalkStartup','Start-ConfiguredDingTalkReceiver','Start-DingTalkWorkers','Invoke-DingTalkReceiver','Get-DingTalkConnectionState')) {
   $fn=$ast.Find({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true)
   if (-not $fn) { throw "Missing $name" }
   . ([scriptblock]::Create($fn.Extent.Text))
@@ -22,7 +22,7 @@ function Get-FileSha256($Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA
 function Test-ExactObjectPropertyNames($Value,$Names) { (@(Compare-Object @($Value.PSObject.Properties.Name | Sort-Object) @($Names | Sort-Object)).Count -eq 0) }
 function Write-AtomicJson($Path,$Value) { [IO.File]::WriteAllText($Path,($Value|ConvertTo-Json -Compress)) }
 function Write-LauncherEvent { }
-function Invoke-DingTalkReceiver([bool]$CheckOnly) {
+function Invoke-DingTalkReceiver([bool]$CheckOnly, [object]$StartupApproval=$null, [switch]$Schedules) {
   $script:calls += $(if($CheckOnly){'check'}else{'start'})
   if($CheckOnly -and $script:checkFails){throw 'fixture verification failure'}
 }
@@ -49,7 +49,7 @@ try {
   Set-DingTalkStartup $true
   if(($script:calls -join ',') -cne 'guard,check' -or -not (Read-DingTalkStartup)){throw 'Enable sent or did not verify'}
   $script:calls=@(); Start-ConfiguredDingTalkReceiver | Out-Null
-  if(($script:calls -join ',') -cne 'guard,start'){throw 'Enabled startup did not delegate exactly once'}
+  if(($script:calls -join ',') -cne 'guard,start,start'){throw 'Enabled startup did not delegate exactly once'}
   # Approval cannot silently survive a changed runtime identity/configuration.
   Write-AtomicJson $DingTalkConfigPath @{enabled=$true;changed=$true}
   $script:calls=@(); Assert-Rejected { Start-ConfiguredDingTalkReceiver }
@@ -69,7 +69,8 @@ try {
   # Execute the real receiver entry with isolated adapters: duplicate process never launches,
   # and an identity conflict fails closed instead of stopping or taking over a process.
   ${function:Invoke-DingTalkReceiver}=$originalReceiver
-  $DingTalkPidPath='fixture-pid'; $Python='fixture-python'; $BackendRoot='fixture-backend'
+  $DingTalkBotCredentialPath=Join-Path $fixture 'bot.json'; Write-AtomicJson $DingTalkBotCredentialPath @{fixture=$true}
+  $DingTalkSchedulePidPath='fixture-schedule-pid'; $DingTalkPidPath='fixture-pid'; $Python='fixture-python'; $BackendRoot='fixture-backend'
   $AiWriterHealthUrl='fixture-health'; $WriterStatementTimeoutMs=1; $AiWriterMaxBodyBytes=1
   function Assert-PostgresListenerOwnership {}
   function Test-PostgresReady { $true }
@@ -96,6 +97,23 @@ try {
   Assert-Rejected { Invoke-DingTalkReceiver $false @{authorityEpoch='fixture';cutoverId='fixture';configSha256=('b'*64)} }
   $script:identityConflict=$true
   Assert-Rejected { Invoke-DingTalkReceiver $false }
+  # Independent process ownership and startup: a Stream dependency failure must
+  # leave the already started scheduler untouched, with no duplicate on retry.
+  $script:workers=@{}; $script:workerStarts=@(); $script:dependencyFailure=$false
+  function Resolve-OwnedProcess($Service) { if($script:workers.ContainsKey($Service)){@{ProcessId=$script:workers[$Service]}} }
+  function Start-ManagedProcess($Service,$Executable,$Arguments) {
+    $script:workers[$Service]=100+$script:workerStarts.Count
+    $script:workerStarts += $Service
+    if($Service -ceq 'django-ai-dingtalk-schedule' -and $Arguments -notcontains 'dingtalk_schedule'){throw 'Wrong schedule command'}
+    if($Arguments -notcontains '--bot-credentials'){throw 'Unbound credentials'}
+  }
+  function Invoke-BoundedNativeProcess { if($script:dependencyFailure){throw 'Stream SDK unavailable'}; 'fixture-dependencies' }
+  Start-DingTalkWorkers | Out-Null
+  Start-DingTalkWorkers | Out-Null
+  if(($script:workerStarts -join ',') -cne 'django-ai-dingtalk-schedule,django-ai-dingtalk'){throw 'Independent singleton/start order failed'}
+  $script:workers=@{}; $script:workerStarts=@(); $script:dependencyFailure=$true
+  Assert-Rejected { Start-DingTalkWorkers }
+  if(($script:workerStarts -join ',') -cne 'django-ai-dingtalk-schedule' -or -not $script:workers.ContainsKey('django-ai-dingtalk-schedule')){throw 'Stream failure blocked or stopped scheduler'}
   Write-Output 'DingTalk startup isolated state and process tests passed'
 } finally {
   # Delete only the exact unique fixture directory under the OS temp directory.

@@ -218,7 +218,7 @@ def step(config_reader, sender, media_sender=None):
         sending = True
         channel_guard()
         if attachment is None:
-            sender(session, content)
+            sender(session, content, before_send=channel_guard)
         elif media_sender is None:
             raise AiError("机器人媒体投递器不可用", "channel_unavailable", 503)
         else:

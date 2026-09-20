@@ -11,7 +11,7 @@ test("optional DingTalk dependencies are checked only by explicit receiver start
   const receiver = source.slice(source.indexOf("function Invoke-DingTalkReceiver"), source.indexOf("function Enable-AiStartup"));
   assert.doesNotMatch(start, /dingtalk_stream|StartDingTalk|Invoke-DingTalkReceiver/);
   assert.match(receiver, /import dingtalk_stream, websockets/);
-  assert.ok(receiver.indexOf("import dingtalk_stream") < receiver.indexOf('Start-ManagedProcess "django-ai-dingtalk"'));
+  assert.ok(receiver.indexOf("import dingtalk_stream") < receiver.indexOf('Start-ManagedProcess $serviceName'));
   assert.match(source, /DingTalkConnection/);
   assert.match(source, /Get-DingTalkConnectionState/);
 });

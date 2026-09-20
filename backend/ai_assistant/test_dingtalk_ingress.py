@@ -79,11 +79,10 @@ class DingTalkIngressTests(SimpleTestCase):
                 (receiver.dingtalk_settings, "effective", Mock(return_value=config)),
                 (receiver.service, "principal_for", Mock()),
                 (receiver.service, "recover_interrupted", Mock()),
-                (receiver.dingtalk_schedules, "recover_interrupted", Mock()),
                 (self.command, "run_stream", run_stream),
             ):
                 stack.enter_context(patch.object(obj, attr, value))
-            self.command.handle(config="fixture", check=False, screenshot_profile="")
+            self.command.handle(config="fixture", check=False, bot_credentials="fixture")
         self.assertEqual(credentials.call_count, 3)
         self.assertEqual(self.output.getvalue().count('"status":"recovering"'), 2)
         self.assertEqual(self.errors.getvalue().count("stream_unavailable"), 2)
@@ -135,7 +134,6 @@ class DingTalkIngressTests(SimpleTestCase):
                     (receiver.platform, "open_stream", Mock(return_value={"endpoint": "wss://wss-open-connection.dingtalk.com/connect", "ticket": "fixture"})),
                     (receiver.platform, "stream_addresses", Mock(return_value=[(2, 1, 6, "", ("8.8.8.8", 443))])),
                     (receiver.service, "step", Mock(return_value=False)),
-                    (receiver.dingtalk_schedules, "step", Mock(return_value=False)),
                     (receiver.service, "accept", Mock(side_effect=accept)),
                 ):
                     stack.enter_context(patch.object(obj, attr, value))
@@ -155,11 +153,11 @@ class DingTalkIngressTests(SimpleTestCase):
         self.assertNotIn("private", self.output.getvalue())
 
     @skipUnless(importlib.util.find_spec("dingtalk_stream"), "optional Stream SDK not installed")
-    def test_repeated_stream_failures_keep_schedule_worker_alive_and_retry(self):
+    def test_repeated_stream_failures_preserve_existing_inbound_retry_only(self):
         async def run():
             real_sleep = asyncio.sleep
             opened = Mock(side_effect=RuntimeError("private-ticket"))
-            scheduled = Mock(return_value=False)
+            incoming = Mock(return_value=False)
 
             async def fast_sleep(_delay):
                 await real_sleep(0)
@@ -169,19 +167,18 @@ class DingTalkIngressTests(SimpleTestCase):
                     (receiver, "close_old_connections", Mock()),
                     (receiver.platform, "credentials", Mock(return_value=("fixture", "fixture"))),
                     (receiver.platform, "open_stream", opened),
-                    (receiver.service, "step", Mock(return_value=False)),
-                    (receiver.dingtalk_schedules, "step", scheduled),
+                    (receiver.service, "step", incoming),
                 ):
                     stack.enter_context(patch.object(obj, attr, value))
                 stack.enter_context(patch.object(receiver.asyncio, "sleep", side_effect=fast_sleep))
                 task = asyncio.create_task(self.command.run_stream(lambda: {"enabled": True}))
                 try:
                     for _ in range(1000):
-                        if opened.call_count >= 6 and scheduled.call_count:
+                        if self.errors.getvalue().count("stream_unavailable") >= 6 and incoming.call_count:
                             break
                         await real_sleep(0.001)
                     self.assertGreaterEqual(opened.call_count, 6)
-                    self.assertGreater(scheduled.call_count, 0)
+                    self.assertGreater(incoming.call_count, 0)
                     self.assertFalse(task.done())
                 finally:
                     task.cancel()
