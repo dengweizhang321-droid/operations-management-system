@@ -3,6 +3,8 @@
   "date": "2026-09-20",
   "initialBase": "c7723998403cb45135179501364b3a209aa7c630",
   "branch": "codex/market-query-watchdog-20260920",
+  "implementationCommit": "db23a4a2",
+  "integratedMain": "dd1956052ada7da0e9a99108b0b84d507985994e",
   "productionActions": {"deployed": false, "migrated": false, "servicesStopped": false, "businessDataWritten": false, "messagesSent": false},
   "diagnosis": {
     "databaseStatementTimeoutSeconds": 7,
@@ -19,6 +21,7 @@
     "browserSynthetic": {"passed": 7, "productionData": false, "artifact": ".runtime/market-query-ui/result.json"},
     "build": "passed",
     "renderedPages": {"passed": 20},
+    "afterMainIntegration": {"build": "passed", "renderedPagesPassed": 20, "targetedFinanceAndMarketPassed": 18, "watchdogIsolatedAssertions": 36},
     "lint": {"errors": 0, "existingWarnings": 11},
     "dingTalkPreflight": {"status": "dry_run_verified", "targets": 1, "executed": false},
     "fullNodeRun": {
@@ -28,7 +31,7 @@
         "Market route/prefetch contract adjusted and 48 related cases passed on recheck",
         "Unrelated combo browser timeout passed on isolated recheck",
         "Local worker test runner IPC deserialization cancellation passed on isolated recheck",
-        "Existing color-surface-subtle token omission remains; relevant CSS and test files match the initial base"
+        "Existing color-surface-subtle token omission remains; at the full-run recheck the relevant CSS and test files matched the initial base. Later main integration only adds the unrelated finance download-link rule"
       ]
     }
   },
