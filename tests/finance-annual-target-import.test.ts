@@ -69,3 +69,20 @@ test("annual target workbook always uses workbook order rather than a specially 
   assert.equal(parsed.sheetName, "年度目标");
   assert.equal(parsed.rows.length, 1);
 });
+
+test("annual target workbook accepts the new 销售目标 header exported by the template", () => {
+  const parsed = parseAnnualTargetWorkbook(workbookBytes([
+    ["店铺", "负责人", "销售目标", "利润目标", "大毛利率目标", "推广费目标"],
+    ["天猫-示例店", "张三", 1415, 120, "45%", "5%"],
+  ]));
+  assert.equal(parsed.rows.length, 1);
+  assert.deepEqual(parsed.rows[0], {
+    rowNumber: 2,
+    storeLabel: "天猫-示例店",
+    manager: "张三",
+    salesTargetCents: 1_415_000_000,
+    profitTargetCents: 120_000_000,
+    grossMarginBps: 4_500,
+    promotionFeeRatioBps: 500,
+  });
+});

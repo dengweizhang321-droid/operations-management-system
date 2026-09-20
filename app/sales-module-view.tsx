@@ -63,7 +63,7 @@ function SalesSubnav({ active, onChange }: { active: SalesTab; onChange: (tab: S
       <button type="button" role="tab" aria-selected={active === "channel"} className={active === "channel" ? "active" : ""} onClick={() => onChange("channel")}>渠道分析</button>
       <button type="button" role="tab" aria-selected={active === "category"} className={active === "category" ? "active" : ""} onClick={() => onChange("category")}>品类分析</button>
       <button type="button" role="tab" aria-selected={active === "finance"} className={active === "finance" ? "active" : ""} onClick={() => onChange("finance")}>财报分析</button>
-      <button type="button" role="tab" aria-selected={active === "targets"} className={active === "targets" ? "active" : ""} onClick={() => onChange("targets")}>目标设置</button>
+      <button type="button" role="tab" aria-selected={active === "targets"} className={active === "targets" ? "active" : ""} onClick={() => onChange("targets")}>目标进度情况</button>
     </div>
   );
 }
@@ -695,6 +695,7 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
   const [optionsError, setOptionsError] = useState("");
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [deletingTargetId, setDeletingTargetId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const targetRequestGenerationRef = useRef(0);
@@ -713,14 +714,14 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     try {
       const response = await fetch(`/api/finance/targets?view=items&page=${targetPage}&pageSize=100&year=${targetYear}`, { cache: "no-store", signal: controller.signal });
       const payload = await response.json().catch(() => null) as { items?: FinanceTarget[]; pagination?: { page: number; pageSize: number; total: number; returned: number; truncated: boolean }; error?: string } | null;
-      if (!response.ok || !Array.isArray(payload?.items) || !payload.pagination) throw new Error(payload?.error || "目标设置读取失败");
+      if (!response.ok || !Array.isArray(payload?.items) || !payload.pagination) throw new Error(payload?.error || "目标进度情况读取失败");
       if (controller.signal.aborted || generation !== targetRequestGenerationRef.current) return;
       setItems(payload.items);
       setTargetPagination(payload.pagination);
       setTargetsLoaded(true);
     } catch (error) {
       if (controller.signal.aborted || generation !== targetRequestGenerationRef.current) return;
-      setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标设置读取失败" });
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "目标进度情况读取失败" });
     } finally {
       if (!controller.signal.aborted && generation === targetRequestGenerationRef.current) {
         setLoading(false);
@@ -917,9 +918,42 @@ function FinanceTargetSettingsView({ canManageTargets }: { canManageTargets: boo
     }
   };
 
+  const exportAnnualTargets = async () => {
+    if (exporting || saving || importing || deletingTargetId !== null) return;
+    setExporting(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/finance/targets/export?year=${targetYear}`, { cache: "no-store" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error || "年度目标导出失败");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+      const fileName = match ? decodeURIComponent(match[1]) : `${targetYear}年度目标导出.xlsx`;
+      const url = URL.createObjectURL(blob);
+      try {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      setMessage({ tone: "success", text: `${targetYear} 年度目标已导出。` });
+    } catch (error) {
+      setMessage({ tone: "error", text: error instanceof Error ? error.message : "年度目标导出失败" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return <div className="finance-target-page">
-    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">ANNUAL TARGET MANAGEMENT</span><h2>年度目标设置</h2><p>导入或填写全年销售、利润、大毛利率和推广费率目标，实际完成情况自动累计财报数据。</p></div><div className="annual-target-hero-actions"><label>目标年份 <select aria-label="目标年份" value={targetYear} disabled={saving || importing || deletingTargetId !== null} onChange={(event) => { setItems([]); setTargetsLoaded(false); setTargetPagination({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false }); setTargetYear(event.target.value); setTargetPage(1); setForm({ ...emptyFinanceTargetForm(), periodKey: event.target.value }); }}>{Array.from({ length: 201 }, (_, index) => String(1900 + index)).map((year) => <option key={year} value={year}>{year} 年</option>)}</select></label>{canManageTargets && <><input ref={annualTargetFileRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importAnnualTargets(file); }} /><button type="button" className="secondary-button" disabled={importing || saving || deletingTargetId !== null} onClick={() => annualTargetFileRef.current?.click()}>{importing ? "导入中…" : "导入年度目标"}</button><small>模板金额单位：万元；导入到当前年份</small></>}</div></section>
-    <FinanceAnnualProgressView key={targetYear} year={targetYear} refreshKey={annualRefresh} canManageTargets={canManageTargets} busy={saving || importing || deletingTargetId !== null} onEdit={(row) => { if (saving || importing || deletingTargetId !== null) return; if (row.target) editTarget(row.target); else setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear, shopKey: row.key, platform: row.platform, shopName: row.shopName }); document.getElementById("annual-target-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} />
+    <section className="finance-analysis-hero target-hero"><div><span className="eyebrow">ANNUAL TARGET PROGRESS</span><h2>目标进度情况</h2><p>导入或填写全年销售、利润、大毛利率和推广费率目标，实际完成情况自动累计财报数据。</p></div><div className="annual-target-hero-actions"><label>目标年份 <select aria-label="目标年份" value={targetYear} disabled={saving || importing || deletingTargetId !== null} onChange={(event) => { setItems([]); setTargetsLoaded(false); setTargetPagination({ page: 1, pageSize: 100, total: 0, returned: 0, truncated: false }); setTargetYear(event.target.value); setTargetPage(1); setForm({ ...emptyFinanceTargetForm(), periodKey: event.target.value }); }}>{Array.from({ length: 201 }, (_, index) => String(1900 + index)).map((year) => <option key={year} value={year}>{year} 年</option>)}</select></label><a className="secondary-button" href="/api/finance/targets/import" download>下载导入模板</a><button type="button" className="secondary-button" disabled={saving || importing || deletingTargetId !== null} onClick={() => void exportAnnualTargets()}>{exporting ? "导出中…" : "导出年度目标"}</button>{canManageTargets && <><input ref={annualTargetFileRef} className="file-input-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importAnnualTargets(file); }} /><button type="button" className="secondary-button" disabled={importing || saving || deletingTargetId !== null} onClick={() => annualTargetFileRef.current?.click()}>{importing ? "导入中…" : "导入年度目标"}</button><small>模板金额单位：万元；导入到当前年份</small></>}</div></section>
+    <FinanceAnnualProgressView key={targetYear} year={targetYear} refreshKey={annualRefresh} canManageTargets={canManageTargets} busy={saving || importing || deletingTargetId !== null} onEdit={(row) => { if (saving || importing || deletingTargetId !== null) return; if (row.target) editTarget(row.target); else setForm({ ...emptyFinanceTargetForm(), periodKey: targetYear, shopKey: row.key, platform: row.platform, shopName: row.shopName }); document.getElementById("annual-target-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} onDelete={(row) => { if (!row.target) return; void removeTarget(row.target); }} />
     {message && <div className={`inline-feedback ${message.tone}`}><strong>{message.tone === "success" ? "操作成功" : "操作失败"}</strong><span>{message.text}</span></div>}
     {canManageTargets && optionsLoading && <div className="inline-feedback" role="status"><strong>管理选项加载中</strong><span>目标列表已独立读取；正在后台加载店铺和品类选项…</span></div>}
     {canManageTargets && optionsError && <div className="inline-feedback error" role="alert"><strong>管理选项加载失败</strong><span>{optionsError}</span><button type="button" className="row-action" onClick={() => void loadOptions()}>重试加载</button></div>}

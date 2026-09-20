@@ -1,10 +1,44 @@
 import { requireAppPrincipal, requireUnrestrictedDataScope, authorizationErrorResponse } from "@/lib/auth/authorization";
-import { createDjangoFinanceService, FINANCE_TARGET_IMPORT_PATH } from "@/lib/django/finance-service";
+import { createDjangoFinanceService, FINANCE_TARGETS_PATH, FINANCE_TARGET_IMPORT_PATH } from "@/lib/django/finance-service";
 import {
   MAX_ANNUAL_TARGET_FILE_BYTES,
   parseAnnualTargetWorkbook,
 } from "@/lib/finance/annual-target-import";
+import { annualTargetTemplateWorkbook, type AnnualTargetTemplateShop } from "@/lib/finance/annual-target-workbook";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
+
+const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * Load known finance shops so the template 店铺 column can be pre-filled.
+ * Falls back to a blank template when the shop list is temporarily unavailable.
+ */
+async function loadTemplateShops(
+  principal: Awaited<ReturnType<typeof requireAppPrincipal>>,
+): Promise<AnnualTargetTemplateShop[]> {
+  try {
+    const result = await createDjangoFinanceService().request<Record<string, unknown>>(
+      principal,
+      {
+        method: "GET",
+        path: FINANCE_TARGETS_PATH,
+        query: new URLSearchParams({ view: "options" }),
+        service: "reader",
+      },
+      {},
+    );
+    const options = result.data as { financeOptions?: { shops?: unknown } } | null;
+    const shops = options?.financeOptions?.shops;
+    if (!Array.isArray(shops)) return [];
+    return shops
+      .filter((shop): shop is { platform: unknown; name: unknown } =>
+        !!shop && typeof shop === "object" && !Array.isArray(shop))
+      .map((shop) => ({ platform: String(shop.platform ?? ""), name: String(shop.name ?? "") }))
+      .filter((shop) => shop.name !== "");
+  } catch {
+    return [];
+  }
+}
 
 async function sha256Hex(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest(
@@ -12,6 +46,25 @@ async function sha256Hex(bytes: Uint8Array) {
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
   );
   return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+export async function GET() {
+  try {
+    const principal = await requireAppPrincipal(["viewer", "analyst", "operator", "admin"]);
+    requireUnrestrictedDataScope(principal, "经营目标");
+    const shops = await loadTemplateShops(principal);
+    return new Response(new Uint8Array(annualTargetTemplateWorkbook(shops)), {
+      headers: {
+        "content-type": XLSX_CONTENT_TYPE,
+        "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent("店铺年度目标导入模板.xlsx")}`,
+        "cache-control": "no-store",
+      },
+    });
+  } catch (error) {
+    const authResponse = authorizationErrorResponse(error);
+    if (authResponse) return authResponse;
+    return safeApiErrorResponse(error, "下载年度目标导入模板失败。", { headers: { "cache-control": "no-store" } });
+  }
 }
 
 export async function POST(request: Request) {

@@ -301,7 +301,7 @@ def targets(request: HttpRequest) -> JsonResponse:
         return _replay_fenced_write(request, principal, execute_delete)
     except Exception as error:
         fallback = {
-            "GET": "目标设置读取失败。",
+            "GET": "目标进度情况读取失败。",
             "POST": "目标保存失败。",
             "DELETE": "目标删除失败。",
         }[request.method]

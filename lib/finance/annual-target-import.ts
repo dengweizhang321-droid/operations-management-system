@@ -23,7 +23,7 @@ export type ParsedAnnualTargetWorkbook = {
   rows: AnnualTargetImportRow[];
 };
 
-const REQUIRED_HEADERS = ["店铺", "负责人", "利润目标", "大毛利率目标", "推广费目标", "调整目标"] as const;
+const REQUIRED_HEADERS = ["店铺", "负责人", "利润目标", "大毛利率目标", "推广费目标", "调整目标", "销售目标"] as const;
 const MAX_TARGET_AMOUNT_CENTS = 10_000_000_000_000;
 
 function normalizedText(value: XlsxCellValue | undefined): string {
@@ -78,8 +78,8 @@ export function parseAnnualTargetWorkbook(input: ArrayBuffer | Uint8Array): Pars
       if (label && !indices.has(label)) indices.set(label, index);
     });
     return { row, indices };
-  }).find(({ indices }) => REQUIRED_HEADERS.every((label) => indices.has(label)));
-  if (!header) throw new Error(`未找到完整表头：${REQUIRED_HEADERS.join("、")}`);
+  }).find(({ indices }) => REQUIRED_HEADERS.slice(0, 5).every((label) => indices.has(label)) && (indices.has("调整目标") || indices.has("销售目标")));
+  if (!header) throw new Error(`未找到完整表头：${REQUIRED_HEADERS.slice(0, 5).join("、")}、调整目标或销售目标`);
 
   const rows: AnnualTargetImportRow[] = [];
   const seenLabels = new Map<string, number>();
@@ -96,7 +96,8 @@ export function parseAnnualTargetWorkbook(input: ArrayBuffer | Uint8Array): Pars
     const profit = moneyWanToCents(row.cells[header.indices.get("利润目标")!], row.rowNumber, "利润目标");
     const grossMargin = rateToBps(row.cells[header.indices.get("大毛利率目标")!], row.rowNumber, "大毛利率目标");
     const promotion = rateToBps(row.cells[header.indices.get("推广费目标")!], row.rowNumber, "推广费目标");
-    const sales = moneyWanToCents(row.cells[header.indices.get("调整目标")!], row.rowNumber, "调整目标");
+    const salesColumnIndex = header.indices.get("销售目标") ?? header.indices.get("调整目标")!;
+    const sales = moneyWanToCents(row.cells[salesColumnIndex], row.rowNumber, header.indices.get("销售目标") !== undefined ? "销售目标" : "调整目标");
     if (!manager && !profit.present && !grossMargin.present && !promotion.present && !sales.present) {
       skippedRowCount += 1;
       continue;
