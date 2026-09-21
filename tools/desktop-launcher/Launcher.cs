@@ -120,6 +120,38 @@ internal static class Launcher
 
     internal static string PsLiteral(string value) { return "'" + value.Replace("'", "''") + "'"; }
 
+    // The controller redirects JSON to a file which can remain open briefly (or be
+    // inherited by a durable descendant) after the direct controller exits. Read
+    // with sharing enabled so a successful start cannot be reported as a launcher
+    // failure merely because another process still has the receipt open.
+    private static string ReadSharedText(string path)
+    {
+        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete))
+        using (var reader = new StreamReader(stream, Encoding.UTF8, true))
+            return reader.ReadToEnd();
+    }
+
+    private static ControllerResponse ReadControllerReceipt(string path)
+    {
+        Exception last = null;
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            try
+            {
+                var text = ReadSharedText(path);
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    var receipt = Deserialize<ControllerResponse>(text);
+                    if (receipt != null) return receipt;
+                }
+            }
+            catch (Exception ex) { last = ex; }
+            Thread.Sleep(250);
+        }
+        throw new InvalidOperationException("启动器没有收到有效的总控结果，请查看日志。", last);
+    }
+
     // Capture to files and wait only for the direct controller process. Its durable
     // service descendants must never keep a redirected parent pipe alive.
     internal static async Task<Dictionary<string, object>> StartController(LauncherConfig config, string logDirectory)
@@ -146,7 +178,7 @@ internal static class Launcher
             if (process.ExitCode != 0)
                 throw new InvalidOperationException("受控启动未通过，请查看本次日志中的原因。");
         }
-        var receipt = Deserialize<ControllerResponse>(File.ReadAllText(output, Encoding.UTF8));
+        var receipt = ReadControllerReceipt(output);
         if (receipt == null
             || !object.Equals(receipt.Version, "teruisi-operations-system-control-v2")
             || string.IsNullOrEmpty(receipt.Status) || string.IsNullOrEmpty(receipt.State))
