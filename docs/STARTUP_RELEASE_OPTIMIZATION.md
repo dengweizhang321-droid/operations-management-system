@@ -1,6 +1,6 @@
-# 启动与发布诊断复核及优化候选
+# 启动与发布诊断复核及优化
 
-本候选基于 `ae3d0780`，对照同事的[诊断报告](https://claude.ai/artifact/DSjjmPVVwmKfLNPingSs4H)和 2026-09-21 本机日志核验。尚未部署，不能把下面的测试结果表述为正式停服时间已经缩短。
+基于 `ae3d0780`，对照同事的[诊断报告](https://claude.ai/artifact/DSjjmPVVwmKfLNPingSs4H)和本机日志核验。2026-09-21 已按用户明确上线授权采用源码 `313925f2`。下方候选验证记录保留其原始边界，正式采用结果见末节。
 
 ## 已核实的现状
 
@@ -53,6 +53,19 @@
 - 全量 Node：2243 项，2218 通过、23 跳过、2 失败。两项失败分别是财务静态路由断言、缺失 `color-surface-subtle`；在独立干净的原始 `ae3d0780` 副本复现，未修改这两项业务代码或用户已有修复。
 - 独立生产构建、456 个模块的后端边界检查通过；lint 0 错误、11 项既有警告。
 - 独立临时 runtime 的真实复制、摘要、Wrangler 版本/帮助及 R2 put/get/delete/缺失回查通过。首次准备 45.914 秒，文件切换及复验 12.589 秒，已有安装上的第二次准备 50.593 秒；准备前后已安装 manifest 不变。该演练只替代应用停机探针，不创建业务数据库、真实服务或生产凭据，不能作为生产进程切换验收。
-- 尚未执行正式维护、数据库迁移、生产停止/启动、Worker 在线完整候选的实际生产准备或新冷启动计时。首次采用需要备份恢复门禁、实际不可变候选校验及用户发布授权；不能据此承诺两至五分钟停服或冷启动减半。
+- 候选阶段没有执行正式维护、迁移、服务切换或生产完整在线构建。后续正式采用如下；仍不能承诺两至五分钟停服或冷启动减半。
 
 最小回归入口：`node --import tsx --test tests/startup-release-optimization.test.ts tests/django-local-service.test.ts tests/system-lifecycle-race.test.ts`。真实文件/R2 演练入口：`tests/django-prepared-app-runtime.test.ps1`，使用独立短路径 TEMP/TMP，避免长路径引入的额外变量。
+
+## 2026-09-21 正式采用
+
+- Worker/helper：`20260921T075914Z-c49fb8780f856435`，manifest `f5e1a1e6ea1a5729c76e55f03fe0e350422d627ee480b5afd006bc7c61839517`。Django manifest：`26e602bc02e83a32f80ea0bca8baf237c9058d8962c097ee4cffa380dd38c8bb`。
+- 新 Worker 已通过真正的 `plan --prepare-online` 在正式旧服务运行期间完成构建与完整校验；Django 的 `PrepareApp` 同样提前完成。两次排空确认全部 38 个市场计划 completed、推理领取为零、AI/图片任务无在途、helper 空闲、n8n 无非终态 execution 后，使用旧版完整维护完成首次采用。未来的保留 PostgreSQL 应用维护能力已部署，但本次没有额外停机演示该完整周期。
+- 准备清单中的 `deployedAt` 是候选生成时间；本次 Django 真正目录切换完成于 16:30:48。部署前后的 62 条迁移清单、233 张备份覆盖表集合数量一致，未新增迁移；保留候选基线 `ae3d0780` 的销售/BI 比较期修复，补充 9 项比较期测试通过。
+- 本轮 Django Start 从 **16:34:46.334 到 16:36:13.974，共 87.640 秒**。同域 reader/writer 的实际启动事件验证了重叠拉起。与此前 126.311 秒为不同负载下的单次观察，不能推导稳定百分比或整机可用时限。
+- Start 控制器已退出并返回精确 started 回执，但外层调用 shell 因继承管道未退出。复验新 release、正确请求头的 live/ready 和直接子进程已经消失后，只结束精确身份的本任务外壳，没有结束业务进程；Django supervisor 由原 `Restore-WatchSupervisor` 恢复。临时 HTTP 采样遗漏内部健康请求头，前后都返回 404，该采样未用于停服时间或就绪验收，原记录保留。
+- 最终 Running / Ready / exact_release、12 组件、启动绑定、Django supervisor healthy、AI 两服务/定时器/接收器运行、pandas ready 和钉钉 connected。15 份正式页面资源和 12 个变更 Django 文件逐字节核验通过；独立看门狗 16:42、16:46 两次计划任务退出码为 0，未修改其安装或调度。
+- 发布前 `daily-20260921T075850Z-bd920c7d5013` 在独立端口 55463 完整恢复，内容摘要一致且临时环境清理成功。发布后 `daily-20260921T084011Z-69912573e754` 通过 Verify；两份均完成 E 盘三文件逐项摘要归档。
+- 维护期间原周报检查 3865、3866 失败，恢复后 3867、3868 自然成功。未补跑业务、发送测试消息或重启 n8n。原有市场查询超时及看门狗通知身份预检失败仍保留，不能把组件就绪误报成该业务事件闭合。
+
+精确回执、时段、校验与备份证据见 [正式采用记录](evidence/startup-release-optimization-production-20260921.json)。本记录不授予后续维护、数据写入或补发授权。

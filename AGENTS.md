@@ -1,5 +1,7 @@
 # TERUISI 运营管理系统协作规范
 
+2026-09-21，启动与发布优化已按本轮明确上线授权采用。源码 `313925f2`，Worker/helper `20260921T075914Z-c49fb8780f856435`，manifest `f5e1a1e6ea1a5729c76e55f03fe0e350422d627ee480b5afd006bc7c61839517`；Django manifest `26e602bc02e83a32f80ea0bca8baf237c9058d8962c097ee4cffa380dd38c8bb`。正式在线构建与 Django 预置先完成，首次采用走完整维护；同域重叠启动实际通过，后端本轮 87.640 秒，不能与不同负载旧记录直接推导稳定性能。保留数据库的应用维护能力已部署，完整生产周期待下一次必要维护使用。62 条迁移清单不变，12 组件、版本/启动绑定、守护、钉钉连接、15 份资源、前备份独立恢复及前后 E 盘归档通过；周报 3865/3866 维护期失败，3867/3868 自然成功，未补跑或重启 n8n。控制器退出后的本任务外壳管道滞留仅精确结束外壳，未终止业务进程；原市场查询超时及通知身份预检失败继续保留。见 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 和正式证据；不授予后续维护或补发授权。
+
 2026-09-20，市场查询与看门狗优化已按本轮发布授权采用。源码 `f3f4a983`，保留财务 `dd195605`；Worker/helper `20260920T140333Z-59334faade4e48ec`、manifest `d6a3695c79fdf138983b0cbb1aeaff143c0425e232763733a92f114cf23c4e5a`；Django manifest `8c778b705b2dc263ee7ef631d1186d8416bfcb433b7bc138262da8d35341e7e5`。`market.0005_filter_facet_indexes` 已迁移、四索引有效，共 62 条迁移；筛选/榜单分离、数据库/角色/authority/revision 缓存复验与事务绕过，保留 7 秒单 SQL 限制。正式指定日期榜单首次 3.17 秒、重复 1.86 秒，筛选首次 6.51 秒、缓存 62 毫秒，不代表任意范围性能。看门狗每 5 分钟只读取被动业务观测，未知/过期不冒充成功；已打开的业务故障须新成功读取闭合，通知发送前失败限次复核、sending/unknown 不重发。新 supervisor 的直接子进程退出/输出通道处理已采用；维护中精确核验旧状态匹配前驱且进程/回执已消失后原样归档，由新版建立新状态，不自动删除未知状态。两次部署自检曾因 Wrangler Upload complete 后命令不退出超时；使用 npm 官方真实元数据刷新已过期版本检查缓存后原完整 R2 门禁通过，未改依赖、超时或强制成功。首次启动渠道未就绪经原看门狗/Start 路径恢复，最终 12 组件 Ready、exact_release、启动绑定、守护 healthy、钉钉 connected 与 22:41/22:42 两轮独立任务成功；前备份独立恢复、前后备份/E 盘逐文件归档通过。维护期周报 3718–3722 失败，3723–3727 自然成功，未补跑或重启 n8n。见 `docs/MARKET_QUERY_WATCHDOG_RECOVERY.md` 和生产证据；本记录不授予未来停服、迁移或补发授权。
 
 2026-09-20，企业机器人独立认证与 AI 定时执行器拆分已按本轮发布授权采用，源码 `243927e`；Django fingerprint `89df0589ddbb138bc47ac327c1e7720cf9726a197ba6932cd5ce26604afc9c24`，manifest `4261aa9f4618d0f67809dbcaf5f6f5bfbc6c7eedd71e4cf6562fe4ef4d481523`，Worker/helper 保留 `20260919T054421Z-8396938e0c741f6c`。企业身份与 AppSecret 整体 CurrentUser DPAPI 加密，DWS 只用于显式首次采用；日常文字/图片/文件使用应用令牌。定时进程保留旧锁 1909，聊天接收器使用 1910，各自恢复账本；当前两进程运行、Stream connected、12 组件就绪。群按批准的精确 ID 与实时机器人安装核验，已授权 `qyapi_chat_manage`，不按群名重新解析收件人。原两任务及 20 条终态历史摘要不变，旧手动队列仅过期关闭；61 条迁移清单不变、前备份独立恢复及前后 E 盘归档通过。维护期周报 3586 失败、3587/3590 自然成功，马思图 3588 交原安全重试 3589，未补跑。未新增监控/告警/崩溃恢复、未重启 n8n 或触发测试消息；真实投递待原自然计划验收。外层总控已运行时会快速返回，恢复渠道开机批准后须调用原 Worker Start 引擎复验。见 `docs/AI_DINGTALK_INDEPENDENT_EXECUTION.md` 和生产证据；本记录不授予未来停服、扩权或补发授权。
@@ -293,7 +295,7 @@
 
 ## 10. 验证与本地服务生命周期
 
-- 启动/发布优化候选中的 `plan --prepare-online` 只准备候选，必须复验原生效链、已安装入口与前驱精确进程，不能提前改生产保护入口或发放启动许可。Django `PrepareApp` 收据绑定前驱和完整候选指纹；`DeployApp` 仍在维护中复验并切换。应用维护仅通过唯一 Worker 的 `EnterMaintenance -KeepPostgres` 持久声明，普通维护继续完整停机；同域 reader 延迟等待必须由 stack 清理新进程并保留最终完整就绪屏障。首次采用仍需旧版受控维护；候选并不授予生产操作授权。见 `docs/STARTUP_RELEASE_OPTIMIZATION.md`。
+- 已采用的 `plan --prepare-online` 只准备候选，必须复验原生效链、已安装入口与前驱精确进程，不能提前改生产保护入口或发放启动许可。Django `PrepareApp` 收据绑定前驱和完整候选指纹；`DeployApp` 仍在维护中复验并切换。应用维护仅通过唯一 Worker 的 `EnterMaintenance -KeepPostgres` 持久声明，普通维护继续完整停机；同域 reader 延迟等待必须由 stack 清理新进程并保留最终完整就绪屏障。后续使用仍需对应生产操作授权。见 `docs/STARTUP_RELEASE_OPTIMIZATION.md`。
 
 - 根据改动范围运行最小充分验证：优先相关测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。仅文档变更无需运行生产构建，但必须检查链接、命令和当前代码一致。
 - `npm test` 会先执行生产构建。生产构建会改写 `dist`，而本地预构建 Worker 会监听该目录；构建前必须检查 `127.0.0.1:3000` 是否被本项目服务占用。
