@@ -217,7 +217,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessControlSecrets) {
+function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessControlSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8101", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-access-control-reader",
@@ -236,6 +236,8 @@ function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessContr
       (Join-Path $LogDirectory "django-access-control-reader.$RunId.stdout.log") (Join-Path $LogDirectory "django-access-control-reader.$RunId.stderr.log") | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"; return $true }
   catch { Stop-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress; throw }
 }
@@ -281,7 +283,7 @@ function Start-AccessControlStack([string]$LifecycleAclToken = "") {
         throw "Django 权限开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-AccessControlReader $runtimeSecrets $accessControlSecrets
+    $readerStarted = Start-AccessControlReader $runtimeSecrets $accessControlSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-AccessControlWriter $runtimeSecrets $accessControlSecrets $authority }
     Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"
     if ([string]$authority.status -ceq "postgres") {

@@ -1,7 +1,7 @@
 ﻿[CmdletBinding()]
 param(
   [ValidateSet(
-    "Configure", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
+    "Configure", "PrepareApp", "DeployApp", "HardenAcl", "Start", "Stop", "Status", "AggregateStatus",
     "ProvisionFinanceRoles", "RollbackApp",
     "StartFinance", "StopFinance", "FinanceStatus",
     "InstallStartup", "RemoveStartup", "PlanSalesD1Retirement", "RetireSalesD1",
@@ -18,6 +18,9 @@ param(
   [string]$SmokeReceiptSha256 = "",
   [string]$SupervisorExpectedDesiredStateSha256 = "",
   [string]$MaintenanceId = "",
+  [string]$PreparedAppId = "",
+  [string]$PreparedAppSha256 = "",
+  [switch]$KeepPostgres,
   [switch]$Json,
   [switch]$Execute
 )
@@ -1621,8 +1624,7 @@ function Copy-WranglerRuntimeClosure([string]$RuntimeToolsRoot) {
   return $manifest
 }
 
-function Deploy-Application {
-  Assert-ProductionMaintenance "DeployApp"
+function Prepare-Application {
   if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
@@ -1633,10 +1635,12 @@ function Deploy-Application {
   if (-not (Test-Path -LiteralPath $InventoryWarehouseMappingConfigSource -PathType Leaf)) {
     throw "源码缺少库存仓库类型映射配置"
   }
-  Assert-ServiceStackStopped "DeployApp"
   New-Item -ItemType Directory -Path $RuntimeRoot -Force | Out-Null
-  $staging = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.deploy-" + [Guid]::NewGuid().ToString("N")))
-  $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
+  $predecessor = Get-InstalledApplicationBinding
+  $id = [Guid]::NewGuid().ToString("N")
+  $staging = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.deploy-" + $id))
+  $receiptPath = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.prepare-" + $id + ".json"))
+  $prepared = $false
   try {
     New-Item -ItemType Directory -Path (Join-Path $staging "backend"), (Join-Path $staging "config"), (Join-Path $staging "tools"), (Join-Path $staging "drizzle"), (Join-Path $staging "runtime-tools") -Force | Out-Null
     Copy-ApplicationTree $BackendRoot (Join-Path $staging "backend")
@@ -1747,28 +1751,102 @@ function Deploy-Application {
       fileCount = [int64]$fingerprintEvidence.FileCount
       appFingerprint = $fingerprint
     })
-    if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
-    if (Test-Path -LiteralPath $InstalledAppRoot) {
-      Move-Item -LiteralPath $InstalledAppRoot -Destination $backup
-    }
-    try {
-      Move-Item -LiteralPath $staging -Destination $InstalledAppRoot
-      Assert-DeployedApplication
-    } catch {
-      if (Test-Path -LiteralPath $InstalledAppRoot) { Remove-Item -LiteralPath $InstalledAppRoot -Recurse -Force }
-      if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $InstalledAppRoot }
-      throw
-    }
-    Write-LauncherEvent "INFO" "runtime_app_deployed" $fingerprint
-    Write-Output "Django app 已复制到受控 runtime；安装自启动前还必须执行 HardenAcl。"
+    if ((Get-InstalledApplicationBinding) -cne $predecessor) { throw "Django predecessor changed during preparation" }
+    Write-AtomicJson $receiptPath ([ordered]@{
+      version = "teruisi-django-prepared-app-v1"; id = $id
+      runtimeRoot = Get-CanonicalPath $RuntimeRoot
+      predecessorManifestSha256 = $predecessor
+      candidateManifestSha256 = Get-FileSha256 (Join-Path $staging "deployment.json")
+    })
+    $prepared = $true
+    Write-LauncherEvent "INFO" "runtime_app_prepared" $fingerprint
+    return [pscustomobject]@{ id = $id; receiptSha256 = Get-FileSha256 $receiptPath; appFingerprint = $fingerprint }
   } finally {
-    if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
+    if (-not $prepared -and (Test-Path -LiteralPath $staging)) {
+      try { Remove-Item -LiteralPath $staging -Recurse -Force }
+      catch { Write-LauncherEvent "WARN" "prepared_cleanup_incomplete" $id }
+    }
   }
+}
+
+function Get-InstalledApplicationBinding {
+  if (-not (Test-Path -LiteralPath $InstalledAppRoot)) { return "absent" }
+  Assert-DeployedApplication
+  return Get-FileSha256 $DeploymentManifestPath
+}
+
+function Get-PreparedApplication([string]$Id, [string]$ApprovedSha256) {
+  if ($Id -cnotmatch "^[0-9a-f]{32}$" -or $ApprovedSha256 -cnotmatch "^[0-9a-f]{64}$") {
+    throw "Prepared app requires an exact id and approved receipt SHA-256"
+  }
+  $staging = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.deploy-" + $Id))
+  $receiptPath = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ("app.prepare-" + $Id + ".json"))
+  foreach ($candidatePath in @($staging, $receiptPath)) {
+    $cursor = $candidatePath
+    while ($cursor) {
+      $entry = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+      if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Prepared app contains a reparse point" }
+      $cursor = Split-Path -Parent $cursor
+    }
+  }
+  if ((Get-Item -LiteralPath $receiptPath).Length -gt 4096 -or (Get-FileSha256 $receiptPath) -cne $ApprovedSha256) {
+    throw "Prepared app receipt SHA-256 changed"
+  }
+  $receipt = Read-JsonFile $receiptPath "Prepared app receipt"
+  if (-not (Test-ExactObjectPropertyNames $receipt @("version", "id", "runtimeRoot", "predecessorManifestSha256", "candidateManifestSha256")) -or
+      $receipt.version -cne "teruisi-django-prepared-app-v1" -or $receipt.id -cne $Id -or
+      $receipt.runtimeRoot -ine (Get-CanonicalPath $RuntimeRoot) -or
+      [string]$receipt.candidateManifestSha256 -cnotmatch "^[0-9a-f]{64}$" -or
+      (Get-FileSha256 (Join-Path $staging "deployment.json")) -cne $receipt.candidateManifestSha256) {
+    throw "Prepared app receipt binding is invalid"
+  }
+  if ((Get-InstalledApplicationBinding) -cne $receipt.predecessorManifestSha256) { throw "Prepared app predecessor changed; prepare again" }
+  $directories = [Collections.Stack]::new()
+  $directories.Push([IO.DirectoryInfo]::new($staging))
+  while ($directories.Count -gt 0) {
+    $directory = [IO.DirectoryInfo]$directories.Pop()
+    foreach ($entry in $directory.EnumerateFileSystemInfos()) {
+      if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Prepared app contains a reparse point" }
+      if ($entry -is [IO.DirectoryInfo]) { $directories.Push($entry) }
+    }
+  }
+  Assert-ApplicationTreeManifest $staging "Prepared Django app" | Out-Null
+  return $staging
+}
+
+function Deploy-Application {
+  if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
+    throw "DeployApp must run from a source checkout, never from the installed app"
+  }
+  Assert-ProductionMaintenance "DeployApp"
+  Assert-ApplicationDeploymentStopped "DeployApp"
+  if ([string]::IsNullOrWhiteSpace($PreparedAppId) -and [string]::IsNullOrWhiteSpace($PreparedAppSha256)) {
+    $prepared = Prepare-Application
+    $id = $prepared.id; $approvedSha256 = $prepared.receiptSha256
+  } else { $id = $PreparedAppId; $approvedSha256 = $PreparedAppSha256 }
+  $staging = Get-PreparedApplication $id $approvedSha256
+  $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
+  Assert-ProductionMaintenance "DeployApp"
+  Assert-ApplicationDeploymentStopped "DeployApp"
+  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
+  if (Test-Path -LiteralPath $InstalledAppRoot) {
+    Move-Item -LiteralPath $InstalledAppRoot -Destination $backup
+  }
+  try {
+    Move-Item -LiteralPath $staging -Destination $InstalledAppRoot
+    Assert-DeployedApplication
+  } catch {
+    if (Test-Path -LiteralPath $InstalledAppRoot) { Remove-Item -LiteralPath $InstalledAppRoot -Recurse -Force }
+    if (Test-Path -LiteralPath $backup) { Move-Item -LiteralPath $backup -Destination $InstalledAppRoot }
+    throw
+  }
+  Write-LauncherEvent "INFO" "runtime_app_deployed" (Get-FileSha256 $DeploymentManifestPath)
+  Write-Output "Django app 已复制到受控 runtime；安装自启动前还必须执行 HardenAcl。"
 }
 
 function Rollback-Application {
   Assert-ProductionMaintenance "RollbackApp"
-  Assert-ServiceStackStopped "RollbackApp"
+  Assert-ApplicationDeploymentStopped "RollbackApp"
   $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
   if (-not (Test-Path -LiteralPath $InstalledAppRoot -PathType Container)) {
     throw "RollbackApp 缺少当前 runtime app"
@@ -2223,6 +2301,8 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
     @(Get-PortListeners 8071).Count -gt 0 -or
     @(Get-PortListeners 8072).Count -gt 0 -or
     @(Get-PortListeners 8081).Count -gt 0 -or
+    @(Get-PortListeners 8091).Count -gt 0 -or
+    @(Get-PortListeners 8092).Count -gt 0 -or
     @(Get-PortListeners 8101).Count -gt 0 -or
     @(Get-PortListeners 8102).Count -gt 0
   ) {
@@ -2302,6 +2382,20 @@ function Assert-ApplicationProcessesStopped([string]$Operation) {
   if (@(Get-ErpReferenceSyncCandidates).Count -gt 0) {
     throw "$Operation 发现未登记的 ERP reference sync 进程；拒绝修改或自动终止"
   }
+}
+
+function Test-MaintenanceKeepsPostgres([object]$Record) {
+  if ($null -eq $Record -or $Record.PSObject.Properties.Name -cnotcontains "keepPostgres") { return $false }
+  if ($Record.keepPostgres -isnot [bool]) { throw "Invalid maintenance PostgreSQL scope" }
+  return $Record.keepPostgres
+}
+
+function Assert-ApplicationDeploymentStopped([string]$Operation) {
+  if (Test-MaintenanceKeepsPostgres (Read-SystemMaintenance)) {
+    Assert-ApplicationProcessesStopped $Operation
+    Assert-PostgresListenerOwnership | Out-Null
+    if (-not (Test-PostgresReady)) { throw "$Operation requires the owned PostgreSQL to remain ready" }
+  } else { Assert-ServiceStackStopped $Operation }
 }
 
 function Assert-ServiceStackStopped([string]$Operation) {
@@ -3080,7 +3174,7 @@ function Wait-DjangoReady([string]$Label, [string]$HealthUrl, [string]$HostHeade
   throw "Django $Label 未在 ${Seconds} 秒内就绪（lastStatus=$lastStatus）"
 }
 
-function Start-DjangoReader([object]$Secrets) {
+function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
     "--listen=127.0.0.1:8001", "--threads=8", "--connection-limit=100",
@@ -3103,6 +3197,8 @@ function Start-DjangoReader([object]$Secrets) {
     Start-ManagedProcess "django-reader" $Waitress $arguments $BackendRoot $DjangoReaderPidPath $fingerprint $stdout $stderr | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
     return $true
@@ -3144,7 +3240,7 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority) {
   }
 }
 
-function Start-DjangoFinanceReader([object]$Secrets) {
+function Start-DjangoFinanceReader([object]$Secrets, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
     "--listen=127.0.0.1:8011", "--threads=6", "--connection-limit=60",
@@ -3167,6 +3263,8 @@ function Start-DjangoFinanceReader([object]$Secrets) {
     Start-ManagedProcess "django-finance-reader" $Waitress $arguments $BackendRoot $DjangoFinanceReaderPidPath $fingerprint $stdout $stderr | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
     return $true
@@ -3478,12 +3576,12 @@ function Start-ServiceStack {
     Assert-PostgresConnectionCapacity $secrets | Out-Null
     Invoke-DjangoMigrations $secrets
     $authority = Get-ActiveWriteAuthority $secrets
-    $readerStarted = Start-DjangoReader $secrets
+    $readerStarted = Start-DjangoReader $secrets -DeferReady
     $writerStarted = Start-DjangoWriter $secrets $authority
     Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
     Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
     $salesCoreReady = $true
-    $financeReaderStarted = Start-DjangoFinanceReader $secrets
+    $financeReaderStarted = Start-DjangoFinanceReader $secrets -DeferReady
     $financeAuthority = Get-FinanceWriteAuthority $secrets
     if ([string]$financeAuthority.status -ceq "postgres") {
       $financeWriterStarted = Start-DjangoFinanceWriter $secrets $financeAuthority
@@ -3534,6 +3632,9 @@ function Start-ServiceStack {
 }
 
 function Stop-ServiceStack {
+  if ($KeepPostgres -and -not (Test-MaintenanceKeepsPostgres (Read-SystemMaintenance))) {
+    throw "Keeping PostgreSQL requires application maintenance through the Worker controller"
+  }
   Stop-OwnedProcess "django-finance-writer" $DjangoFinanceWriterPidPath $Waitress
   Stop-OwnedProcess "django-finance-reader" $DjangoFinanceReaderPidPath $Waitress
   Stop-OwnedProcess "django-writer" $DjangoWriterPidPath $Waitress
@@ -3541,8 +3642,14 @@ function Stop-ServiceStack {
   if (@(Get-ErpReferenceSyncCandidates).Count -gt 0) {
     throw "Stop 发现终态禁止的 ERP reference sync 进程；拒绝自动终止该进程或停止其 PostgreSQL"
   }
-  Stop-Postgres
-  Write-Output "Django 本机服务已停止；数据目录未删除。"
+  if ($KeepPostgres) {
+    Assert-PostgresListenerOwnership | Out-Null
+    if (-not (Test-PostgresReady)) { throw "PostgreSQL was not preserved ready" }
+    Write-Output "Django 应用进程已停止；PostgreSQL 保持运行。"
+  } else {
+    Stop-Postgres
+    Write-Output "Django 本机服务已停止；数据目录未删除。"
+  }
 }
 
 function Start-FinanceStack {
@@ -3558,7 +3665,7 @@ function Start-FinanceStack {
   $readerStarted = $false
   $writerStarted = $false
   try {
-    $readerStarted = Start-DjangoFinanceReader $secrets
+    $readerStarted = Start-DjangoFinanceReader $secrets -DeferReady
     $authority = Get-FinanceWriteAuthority $secrets
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-DjangoFinanceWriter $secrets $authority
@@ -3940,11 +4047,13 @@ function Begin-SystemMaintenance {
   $existing = Read-SystemMaintenance
   if ($existing) {
     if ($existing.id -cne $MaintenanceId) { throw "Another maintenance operation is active: $($existing.id)" }
+    if ((Test-MaintenanceKeepsPostgres $existing) -ne [bool]$KeepPostgres) { throw "Maintenance scope changed" }
     return
   }
   Write-AtomicJson $MaintenancePath ([ordered]@{
     version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
     runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
+    keepPostgres = [bool]$KeepPostgres
   })
   Write-LauncherEvent "INFO" "system_maintenance_entered" $MaintenanceId
 }
@@ -3955,7 +4064,7 @@ function End-SystemMaintenance {
   if (-not $record -or $record.id -cne $MaintenanceId) { throw "Maintenance ownership changed; refusing to clear the gate" }
   Assert-DeployedApplication
   Assert-RuntimeAclHardened
-  Assert-ServiceStackStopped "EndMaintenance"
+  Assert-ApplicationDeploymentStopped "EndMaintenance"
   Assert-SalesRetirementWorkerStopped "EndMaintenance"
   [IO.File]::Delete((Assert-RuntimeChildPath $MaintenancePath))
   Write-LauncherEvent "INFO" "system_maintenance_ended" $MaintenanceId
@@ -4108,6 +4217,7 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
     Write-LauncherEvent "INFO" "action_started"
     switch ($Action) {
       "Configure" { Invoke-WithServiceMutex { Configure-Service } }
+      "PrepareApp" { Prepare-Application | ConvertTo-Json -Compress }
       "DeployApp" { Invoke-WithServiceMutex { Deploy-Application } }
       "RollbackApp" { Invoke-WithServiceMutex { Rollback-Application } }
       "HardenAcl" { Invoke-WithServiceMutex { Set-RuntimeAcl } }
@@ -4141,6 +4251,9 @@ if ($env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY -ne "1") {
         }
       }
       "Stop" {
+        if ($KeepPostgres -and -not (Test-MaintenanceKeepsPostgres (Read-SystemMaintenance))) {
+          throw "Keeping PostgreSQL requires application maintenance through the Worker controller"
+        }
         $previousAclContextVariable = Get-Variable -Scope Global `
           -Name $OrchestratedLifecycleAclContextVariable -ErrorAction SilentlyContinue
         $hadPreviousAclContext = $null -ne $previousAclContextVariable

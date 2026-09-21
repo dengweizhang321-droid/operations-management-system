@@ -230,7 +230,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerSecrets) {
+function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8071", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-customer-service-reader",
@@ -249,6 +249,8 @@ function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerS
       (Join-Path $LogDirectory "django-customer-service-reader.$RunId.stdout.log") (Join-Path $LogDirectory "django-customer-service-reader.$RunId.stderr.log") | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"; return $true }
   catch { Stop-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress; throw }
 }
@@ -294,7 +296,7 @@ function Start-CustomerServiceStack([string]$LifecycleAclToken = "") {
         throw "Django 客服开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-CustomerServiceReader $runtimeSecrets $customerSecrets
+    $readerStarted = Start-CustomerServiceReader $runtimeSecrets $customerSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-CustomerServiceWriter $runtimeSecrets $customerSecrets $authority }
     Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"
     if ([string]$authority.status -ceq "postgres") {

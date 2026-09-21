@@ -303,7 +303,7 @@ function Invoke-WithAiEnvironment(
   }
 }
 
-function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority) {
+function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8111", "--threads=2", "--connection-limit=30", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-ai-reader",
@@ -322,6 +322,8 @@ function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
       (Join-Path $LogDirectory "django-ai-reader.$RunId.stdout.log") (Join-Path $LogDirectory "django-ai-reader.$RunId.stderr.log") | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"; return $true }
   catch { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress; throw }
 }
@@ -379,7 +381,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
       }
     }
     Start-PandasSandbox | Out-Null
-    $readerStarted = Start-AiReader $runtimeSecrets $aiSecrets $authority
+    $readerStarted = Start-AiReader $runtimeSecrets $aiSecrets $authority -DeferReady
     $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority
     Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"

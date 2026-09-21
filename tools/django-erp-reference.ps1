@@ -246,7 +246,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets) {
+function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8091", "--threads=6", "--connection-limit=60", "--channel-timeout=35",
     "--cleanup-interval=30", "--ident=teruisi-django-erp-reference-reader",
@@ -265,6 +265,8 @@ function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets) 
       (Join-Path $LogDirectory "django-erp-reference-reader.$RunId.stdout.log") (Join-Path $LogDirectory "django-erp-reference-reader.$RunId.stderr.log") | Out-Null
   }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"; return $true }
   catch { Stop-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress; throw }
 }
@@ -310,7 +312,7 @@ function Start-ErpReferenceStack([string]$LifecycleAclToken = "") {
         throw "Django ERP 主数据开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-ErpReferenceReader $runtimeSecrets $erpSecrets
+    $readerStarted = Start-ErpReferenceReader $runtimeSecrets $erpSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-ErpReferenceWriter $runtimeSecrets $erpSecrets $authority }
     Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"
     if ([string]$authority.status -ceq "postgres") {

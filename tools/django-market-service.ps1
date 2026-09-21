@@ -364,7 +364,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets) {
+function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8031", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-market-reader",
@@ -389,6 +389,8 @@ function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets) {
         (Join-Path $LogDirectory "django-market-reader.$RunId.stderr.log") | Out-Null
     }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:8031"
     return $true
@@ -463,7 +465,7 @@ function Start-MarketStack([string]$LifecycleAclToken = "") {
         throw "Django 市场开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-MarketReader $runtimeSecrets $marketSecrets
+    $readerStarted = Start-MarketReader $runtimeSecrets $marketSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-MarketWriter $runtimeSecrets $marketSecrets $authority
     }

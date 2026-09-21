@@ -377,11 +377,12 @@ test("runtime deployment includes the exact inventory warehouse mapping", () => 
   );
 });
 
-test("configuration, deployment, and code rollback require a fully stopped stack", () => {
+test("configuration requires a stopped database and app deployment follows the persistent maintenance scope", () => {
   assert.match(script, /function Assert-ServiceStackStopped/);
   assert.match(script, /Assert-ServiceStackStopped "Configure"/);
-  assert.match(script, /Assert-ServiceStackStopped "DeployApp"/);
-  assert.match(script, /Assert-ServiceStackStopped "RollbackApp"/);
+  assert.match(script, /Assert-ApplicationDeploymentStopped "DeployApp"/);
+  assert.match(script, /Assert-ApplicationDeploymentStopped "RollbackApp"/);
+  assert.match(script, /function Assert-ApplicationDeploymentStopped[\s\S]*?Assert-ApplicationProcessesStopped[\s\S]*?Assert-PostgresListenerOwnership[\s\S]*?Test-PostgresReady/);
   assert.match(script, /Get-CimInstance Win32_Process -ErrorAction Stop/);
   assert.match(script, /Get-ErpReferenceSyncCandidates/);
   assert.match(script, /未登记的 ERP reference sync 进程/);

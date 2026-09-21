@@ -370,7 +370,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets) {
+function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8041", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-products-reader",
@@ -395,6 +395,8 @@ function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets)
         (Join-Path $LogDirectory "django-products-reader.$RunId.stderr.log") | Out-Null
     }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:8041"
     return $true
@@ -469,7 +471,7 @@ function Start-ProductsStack([string]$LifecycleAclToken = "") {
         throw "Django 商品经营开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-ProductsReader $runtimeSecrets $productsSecrets
+    $readerStarted = Start-ProductsReader $runtimeSecrets $productsSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-ProductsWriter $runtimeSecrets $productsSecrets $authority
     }

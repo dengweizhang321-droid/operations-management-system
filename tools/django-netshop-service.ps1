@@ -334,7 +334,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets) {
+function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8021", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-netshop-reader",
@@ -359,6 +359,8 @@ function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets) {
         (Join-Path $LogDirectory "django-netshop-reader.$RunId.stderr.log") | Out-Null
     }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:8021"
     return $true
@@ -433,7 +435,7 @@ function Start-NetshopStack([string]$LifecycleAclToken = "") {
         throw "Django 网店开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-NetshopReader $runtimeSecrets $netshopSecrets
+    $readerStarted = Start-NetshopReader $runtimeSecrets $netshopSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-NetshopWriter $runtimeSecrets $netshopSecrets $authority
     }

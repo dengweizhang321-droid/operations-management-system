@@ -376,7 +376,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets) {
+function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8061", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-workflow-reader",
@@ -401,6 +401,8 @@ function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets)
         (Join-Path $LogDirectory "django-workflow-reader.$RunId.stderr.log") | Out-Null
     }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
     return $true
@@ -484,7 +486,7 @@ function Start-WorkflowStack([string]$LifecycleAclToken = "") {
         throw "Django 运营事务新品开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-WorkflowReader $runtimeSecrets $workflowSecrets
+    $readerStarted = Start-WorkflowReader $runtimeSecrets $workflowSecrets -DeferReady
     if (
       [string]$authority.status -ceq "postgres" -and
       [string]$authority.operationsStatus -ceq "postgres"

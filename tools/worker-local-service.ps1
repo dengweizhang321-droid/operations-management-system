@@ -11,6 +11,7 @@
   [switch]$Json,
   [switch]$AllowTestRuntimeRoot,
   [switch]$IncludeBackend,
+  [switch]$KeepPostgres,
   [string]$MaintenanceId,
   [switch]$FunctionsOnly
 )
@@ -142,7 +143,8 @@ function Invoke-DjangoStatusJson([string]$ScriptPath, [string]$StatusAction, [st
 
 function Invoke-DjangoStartProcess(
   [string]$Controller = $DjangoService,
-  [ValidateSet("Start", "Stop", "AutoStartDingTalk")][string]$ControlAction = "Start"
+  [ValidateSet("Start", "Stop", "AutoStartDingTalk")][string]$ControlAction = "Start",
+  [switch]$PreservePostgres
 ) {
   if (-not (Test-Path -LiteralPath $Controller -PathType Leaf)) {
     throw "Missing installed Django controller: $Controller"
@@ -162,6 +164,7 @@ function Invoke-DjangoStartProcess(
     "-File", "`"$Controller`"", "-Action", $ControlAction,
     "-RuntimeRoot", "`"$FixedDjangoRuntimeRoot`""
   )
+  if ($PreservePostgres) { $arguments += "-KeepPostgres" }
   $process = $null
   $exitCode = $null
   $stdoutTail = $null
@@ -1461,7 +1464,7 @@ function Assert-WorkerMaintenanceInactive {
   if ($record) { throw "System maintenance is active: $($record.id). Start and restart are disabled until ExitMaintenance." }
 }
 
-function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "") {
+function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "", [switch]$PreservePostgres) {
   if ($ControlAction -in @("BeginMaintenance", "EndMaintenance")) {
     if ($OperationId -cnotmatch "^[0-9a-f]{32}$") { throw "Invalid maintenance operation id" }
     # A reviewed source checkout can establish the gate for its first upgrade;
@@ -1473,11 +1476,12 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
     # mutation has no separate CLI path that could bypass the Worker mutex.
     # Library scope prevents Django variables from changing Worker bindings.
     & {
-      param($maintenanceController, $maintenanceRuntime, $maintenanceOperation, $maintenanceOperationId)
+      param($maintenanceController, $maintenanceRuntime, $maintenanceOperation, $maintenanceOperationId, $preserveDatabase)
       $previousLibraryMode = $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
       try {
         $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = "1"
         . $maintenanceController -RuntimeRoot $maintenanceRuntime -MaintenanceId $maintenanceOperationId
+        $KeepPostgres = [bool]$preserveDatabase
         # Dot-sourcing creates the base controller's ValidateSet on Action.
         # The internal library operation is deliberately not a public CLI verb.
         Remove-Variable -Name Action -Scope Local -Force
@@ -1487,17 +1491,17 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
           else { End-SystemMaintenance }
         }
       } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibraryMode }
-    } $maintenanceLibrary $FixedDjangoRuntimeRoot $ControlAction $OperationId
+    } $maintenanceLibrary $FixedDjangoRuntimeRoot $ControlAction $OperationId ([bool]$PreservePostgres)
     return
   }
-  $result = Invoke-DjangoStartProcess $DjangoService $ControlAction
+  $result = Invoke-DjangoStartProcess $DjangoService $ControlAction -PreservePostgres:$PreservePostgres
   if ([int]$result.ExitCode -ne 0) { throw "Django $ControlAction failed: $($result.StdoutTail) $($result.StderrTail)" }
 }
 
-function Invoke-WorkerSystemStop([object]$identity, [switch]$WithBackend) {
+function Invoke-WorkerSystemStop([object]$identity, [switch]$WithBackend, [switch]$PreservePostgres) {
   $result = Stop-WorkerOnly $identity
   if ($WithBackend) {
-    Invoke-DjangoLifecycleAction "Stop"
+    Invoke-DjangoLifecycleAction "Stop" -PreservePostgres:$PreservePostgres
     $result["backendStopped"] = $true
   }
   return $result
@@ -1695,10 +1699,10 @@ try {
   if ($Action -eq "RestartFull") { Write-Result (Invoke-WorkerFullRestart $identity); exit 0 }
   if ($Action -eq "EnterMaintenance") {
     if (-not $MaintenanceId) { $MaintenanceId = [Guid]::NewGuid().ToString("N") }
-    Invoke-DjangoLifecycleAction "BeginMaintenance" $MaintenanceId
-    try { $stopped = Invoke-WorkerSystemStop $identity -WithBackend }
+    Invoke-DjangoLifecycleAction "BeginMaintenance" $MaintenanceId -PreservePostgres:$KeepPostgres
+    try { $stopped = Invoke-WorkerSystemStop $identity -WithBackend -PreservePostgres:$KeepPostgres }
     catch { throw "Maintenance $MaintenanceId remains active after stop failure: $($_.Exception.Message)" }
-    Write-Result ([ordered]@{ status = "maintenance"; maintenanceId = $MaintenanceId; backendStopped = $true })
+    Write-Result ([ordered]@{ status = "maintenance"; maintenanceId = $MaintenanceId; backendStopped = $true; postgresPreserved = [bool]$KeepPostgres })
     exit 0
   }
   if ($Action -eq "ExitMaintenance") {

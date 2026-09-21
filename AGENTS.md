@@ -293,6 +293,8 @@
 
 ## 10. 验证与本地服务生命周期
 
+- 启动/发布优化候选中的 `plan --prepare-online` 只准备候选，必须复验原生效链、已安装入口与前驱精确进程，不能提前改生产保护入口或发放启动许可。Django `PrepareApp` 收据绑定前驱和完整候选指纹；`DeployApp` 仍在维护中复验并切换。应用维护仅通过唯一 Worker 的 `EnterMaintenance -KeepPostgres` 持久声明，普通维护继续完整停机；同域 reader 延迟等待必须由 stack 清理新进程并保留最终完整就绪屏障。首次采用仍需旧版受控维护；候选并不授予生产操作授权。见 `docs/STARTUP_RELEASE_OPTIMIZATION.md`。
+
 - 根据改动范围运行最小充分验证：优先相关测试，再运行 `npm run test:unit`、`npm run lint` 和 `git diff --check`。仅文档变更无需运行生产构建，但必须检查链接、命令和当前代码一致。
 - `npm test` 会先执行生产构建。生产构建会改写 `dist`，而本地预构建 Worker 会监听该目录；构建前必须检查 `127.0.0.1:3000` 是否被本项目服务占用。
 - 未经用户在当前对话中明确批准，不得停止、重启或中断本地服务，也不得在运行中的 Worker 监听构建产物时原地构建。当前本机正式 Worker 只能由 `tools/worker-local-service.ps1` 解析并管理不可变 effective head；禁止直接运行 Wrangler、旧 release、`dist` 或 `tools/start-local-worker.mjs`。

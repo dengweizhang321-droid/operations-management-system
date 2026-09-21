@@ -635,7 +635,8 @@ async function readCutoverEvidence(authority) {
   };
 }
 
-async function verifyReleaseWithOwnVerifier(chain, { allowTestRuntimeRoot = false } = {}) {
+async function verifyReleaseWithOwnVerifier(chain, { allowTestRuntimeRoot = false, processPolicy = "stopped" } = {}) {
+  if (!["stopped", "stopped-or-exact-release"].includes(processPolicy)) fail("Invalid predecessor process policy");
   const releaseTool = path.join(path.dirname(chain.headManifestPath), "tools", "worker-local-release.mjs");
   await assertRegularFile(releaseTool, "predecessor self-verifier");
   const args = [
@@ -644,7 +645,7 @@ async function verifyReleaseWithOwnVerifier(chain, { allowTestRuntimeRoot = fals
     "--expected-source-d1-path-sha256", chain.bootstrap.authority.sourceD1PathSha256,
     "--expected-persist-root-path-sha256", chain.bootstrap.authority.persistRootPathSha256,
     "--expected-host", workerHost, "--expected-port", String(workerPort),
-    "--require-sales-retired-code-receipt", "--process-policy", "stopped", "--json",
+    "--require-sales-retired-code-receipt", "--process-policy", processPolicy, "--json",
   ];
   if (allowTestRuntimeRoot) args.push("--allow-test-runtime-root");
   await runProcess(process.execPath, args, { cwd: path.dirname(chain.headManifestPath), label: "predecessor immutable release 自校验" });
@@ -1006,7 +1007,20 @@ async function invokeStartupShortcutAction(candidateManifest, action) {
   return result;
 }
 
-export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false } = {}) {
+export async function verifyPreparationHeadUnchanged(before, after, verifyHead) {
+  if (![before?.chainStateSha256, after?.chainStateSha256, before?.head?.bindingSha256, after?.head?.bindingSha256]
+    .every((value) => typeof value === "string" && hex64.test(value)) || typeof verifyHead !== "function") {
+    fail("Online preparation requires complete predecessor bindings");
+  }
+  if (after.chainStateSha256 !== before.chainStateSha256 || after.head.bindingSha256 !== before.head.bindingSha256) {
+    fail("Online preparation predecessor changed; candidate cannot be planned");
+  }
+  await verifyHead(after);
+  return { status: "preparation_only", predecessorBindingSha256: before.head.bindingSha256 };
+}
+
+export async function planWorkerReleaseRotation({ now = new Date(), allowTestRuntimeRoot = false, adoptD1ControlRetirement = false, prepareOnline = false } = {}) {
+  if (prepareOnline && adoptD1ControlRetirement) fail("Initial retirement adoption still requires a stopped release");
   const releaseLock = await acquireRotationLock();
   let serviceLock;
   try {
@@ -1016,8 +1030,9 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
     // effective head is still the predecessor.  Resolve the append-only chain
     // without treating that intentional mismatch as an installed-head success;
     // the predecessor's immutable verifier below still proves it is stopped.
-    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
-    await verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot });
+    const before = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: prepareOnline });
+    await verifyReleaseWithOwnVerifier(before, { allowTestRuntimeRoot,
+      processPolicy: prepareOnline ? "stopped-or-exact-release" : "stopped" });
     const evidence = await readCutoverEvidence({ ...before.bootstrap.authority, rawSha256: before.bootstrap.authoritySha256 });
     if (before.records.length > 0) {
       const established = before.records[before.records.length - 1].value.lineage;
@@ -1037,6 +1052,18 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       retirementProof = await collectD1RetirementProof({ chain: before, sourceRoot: workerSourceRoot,
         djangoRuntimeRoot: djangoSalesRuntimeRoot, retainedEvidence: evidence, now });
     }
+    // Do not block service recovery throughout npm/build/hash preparation.
+    // Rotation remains serialized; each boundary reacquires the lifecycle lock
+    // and validates the current installed predecessor with its own verifier.
+    if (prepareOnline) { await serviceLock(); serviceLock = null; }
+    const verifyPreparationPredecessor = prepareOnline ? async () => {
+      const unlock = await acquireWorkerServiceMutex();
+      try {
+        const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+        return await verifyPreparationHeadUnchanged(before, current, (head) =>
+          verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
+      } finally { await unlock(); }
+    } : undefined;
     const built = await buildWorkerReleaseCandidate({
       sourceRoot: workerSourceRoot,
       runtimeRoot: workerRuntimeRoot,
@@ -1044,9 +1071,16 @@ export async function planWorkerReleaseRotation({ now = new Date(), allowTestRun
       persistRoot: workerPersistRoot,
       sourceD1Path: before.headManifest.runtime.sourceD1Path,
       retirementProof,
+      verifyPreparationPredecessor,
       now,
       allowTestRuntimeRoot,
     });
+    if (prepareOnline) {
+      serviceLock = await acquireWorkerServiceMutex();
+      const current = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: true });
+      await verifyPreparationHeadUnchanged(before, current, (head) =>
+        verifyReleaseWithOwnVerifier(head, { allowTestRuntimeRoot, processPolicy: "stopped-or-exact-release" }));
+    }
     const after = await resolveEffectiveReleaseChain({ allowTestRuntimeRoot, verifyInstalledHead: false });
     if (after.chainStateSha256 !== before.chainStateSha256 || after.head.bindingSha256 !== before.head.bindingSha256) {
       fail("rotation candidate 构建期间 effective head 发生变化；候选保留但不得生成计划");
@@ -1329,7 +1363,7 @@ function parseCli(argv) {
   const flags = new Set();
   for (let index = 1; index < argv.length; index += 1) {
     const token = argv[index];
-    if (["--json", "--allow-test-runtime-root", "--adopt-d1-control-retirement"].includes(token)) {
+    if (["--json", "--allow-test-runtime-root", "--adopt-d1-control-retirement", "--prepare-online"].includes(token)) {
       if (flags.has(token)) fail(`参数重复：${token}`);
       flags.add(token);
       continue;
@@ -1346,10 +1380,11 @@ async function main() {
   const { command, values, flags } = parseCli(process.argv.slice(2));
   const allowTestRuntimeRoot = flags.has("--allow-test-runtime-root");
   if (command !== "plan" && flags.has("--adopt-d1-control-retirement")) fail("D1 retirement adoption flag is plan-only");
+  if (command !== "plan" && flags.has("--prepare-online")) fail("Online preparation flag is plan-only");
   let result;
   if (command === "plan") {
     if (values.size > 0 || allowTestRuntimeRoot) fail("production plan 不接受路径、命令或测试覆盖");
-    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement") });
+    result = await planWorkerReleaseRotation({ adoptD1ControlRetirement: flags.has("--adopt-d1-control-retirement"), prepareOnline: flags.has("--prepare-online") });
   } else if (command === "apply") {
     if (values.size !== 1 || !values.has("--approved-plan-sha256") || allowTestRuntimeRoot) {
       fail("production apply 只接受 --approved-plan-sha256");

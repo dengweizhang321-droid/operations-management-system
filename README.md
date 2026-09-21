@@ -186,6 +186,8 @@ Worker release 的 source snapshot、`dist`、`node_modules`、helper、bundled 
 
 仍有意保留的成本包括每次 Start 的一次 Worker 完整逐文件校验、一次 Django 应用树校验、一次 runtime 全树 ACL 精确审计，以及当前的 migrate/最小权限重置。不得用 mtime、目录排除、旧回执或跳过规则来替代这些完整性证据。Windows Defender 排除属于主机安全策略变更，不由启动脚本自动执行。
 
+启动与发布优化候选增加在线准备 Worker、提前暂存 Django、保留 PostgreSQL 的应用维护和同域读写服务重叠启动。正式运行版本尚未采用；实测范围、报告建议取舍、采用顺序和限制见 [启动与发布优化](docs/STARTUP_RELEASE_OPTIMIZATION.md)。
+
 ### 前端一键演示预览
 
 在独立 `codex/*` worktree 中，双击 `预览系统.bat` 或运行 `npm run preview:isolated`。页面使用独立的 `127.0.0.1:3100`，代码保存自动更新；首次自动安装缺少的前端依赖、准备独立 Django/SQLite 与合成销售、货品、库存数据。`preview:prepare` 重新准备数据，`preview:snapshot` / `preview:restore` 保存和恢复预览数据，`preview:verify` 检查数据和隔离行为，`preview:stop` 停止预览。生产继续运行。当前仅开放查询和页面展示，其余领域以空态为主，完整写流程和 PostgreSQL 契约仍需领域镜像验收。使用和隔离边界见 [一键预览说明](docs/ISOLATED_PREVIEW.md)。

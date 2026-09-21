@@ -378,7 +378,7 @@ print(json.dumps({
   return $payload
 }
 
-function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecrets) {
+function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecrets, [switch]$DeferReady) {
   $arguments = @(
     "--listen=127.0.0.1:8051", "--threads=6", "--connection-limit=60",
     "--channel-timeout=35", "--cleanup-interval=30", "--ident=teruisi-django-inventory-reader",
@@ -403,6 +403,8 @@ function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecret
         (Join-Path $LogDirectory "django-inventory-reader.$RunId.stderr.log") | Out-Null
     }
   $readerUrl = $null
+  # The stack owns rollback after launch; its final readiness barrier remains mandatory.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:8051"
     return $true
@@ -477,7 +479,7 @@ function Start-InventoryStack([string]$LifecycleAclToken = "") {
         throw "Django 库存开机启动凭据与当前 PostgreSQL authority 不一致"
       }
     }
-    $readerStarted = Start-InventoryReader $runtimeSecrets $inventorySecrets
+    $readerStarted = Start-InventoryReader $runtimeSecrets $inventorySecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
       $writerStarted = Start-InventoryWriter $runtimeSecrets $inventorySecrets $authority
     }

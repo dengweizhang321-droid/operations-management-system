@@ -1635,8 +1635,13 @@ async function buildWorkerReleaseInternal({
   allowTestRuntimeRoot = false,
   publicationMode,
   retirementProof,
+  verifyPreparationPredecessor,
 } = {}) {
   if (!["first-deploy", "rotation-candidate"].includes(publicationMode)) fail("Worker release publication mode 无效");
+  if (verifyPreparationPredecessor !== undefined &&
+      (publicationMode !== "rotation-candidate" || typeof verifyPreparationPredecessor !== "function")) {
+    fail("Online preparation is restricted to a rotation candidate with a predecessor verifier");
+  }
   if (!/^v24\./.test(process.version)) fail("Worker 发布构建固定要求 Node 24.x");
   for (const [label, value] of Object.entries({ sourceRoot, devVarsSource, persistRoot, sourceD1Path })) {
     if (typeof value !== "string" || !path.win32.isAbsolute(value)) fail(`${label}必须是绝对路径`);
@@ -1669,11 +1674,15 @@ async function buildWorkerReleaseInternal({
   }
   await assertRegularFile(devVarsSource, ".dev.vars 源文件");
   await ensureRuntimeMarker(runtimeRoot, { allowTestRuntimeRoot });
-  if (await pathExists(path.join(runtimeRoot, "state", "worker-process.json"))) {
-    fail("Worker process receipt 在 Deploy 开始前仍存在");
-  }
-  if (await probeAnyLocalPort(workerPort) || await probeAnyLocalPort(workerHelperPort)) {
-    fail("3000/5791 端口在 Deploy 开始前被占用");
+  if (verifyPreparationPredecessor) {
+    await verifyPreparationPredecessor();
+  } else {
+    if (await pathExists(path.join(runtimeRoot, "state", "worker-process.json"))) {
+      fail("Worker process receipt 在 Deploy 开始前仍存在");
+    }
+    if (await probeAnyLocalPort(workerPort) || await probeAnyLocalPort(workerHelperPort)) {
+      fail("3000/5791 端口在 Deploy 开始前被占用");
+    }
   }
   if (publicationMode === "first-deploy") {
     await assertOrdinaryDeployAllowed({ runtimeRoot, sourceD1Path, allowTestRuntimeRoot });
@@ -1901,7 +1910,7 @@ async function buildWorkerReleaseInternal({
     const manifestPath = path.join(releaseRoot, manifestFileName);
     const manifestSha256 = sha256Bytes(await readFile(manifestPath));
     try {
-      await verifyWorkerRelease({
+      await verifyWorkerReleaseInternal({
         manifestPath,
         approvedManifestSha256: manifestSha256,
         expectedSourceD1PathSha256: windowsPathSha256(sourceD1Path),
@@ -1911,19 +1920,23 @@ async function buildWorkerReleaseInternal({
         requireSalesRetiredCodeReceipt: true,
         processPolicy: "stopped",
         allowTestRuntimeRoot,
-      });
+      }, verifyPreparationPredecessor);
     } catch (error) {
       await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
       throw error;
     }
-    const processReceiptPath = path.join(runtimeRoot, "state", "worker-process.json");
-    if (await pathExists(processReceiptPath)) {
-      await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
-      fail("Worker process receipt 仍存在，拒绝切换 current release");
-    }
-    if (await probeAnyLocalPort(workerPort) || await probeAnyLocalPort(workerHelperPort)) {
-      await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
-      fail("3000/5791 端口在 current pointer 发布前被占用，拒绝切换 release");
+    if (verifyPreparationPredecessor) {
+      await verifyPreparationPredecessor();
+    } else {
+      const processReceiptPath = path.join(runtimeRoot, "state", "worker-process.json");
+      if (await pathExists(processReceiptPath)) {
+        await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
+        fail("Worker process receipt 仍存在，拒绝切换 current release");
+      }
+      if (await probeAnyLocalPort(workerPort) || await probeAnyLocalPort(workerHelperPort)) {
+        await rm(releaseRoot, { recursive: true, force: true }).catch(() => {});
+        fail("3000/5791 端口在 current pointer 发布前被占用，拒绝切换 release");
+      }
     }
     if (publicationMode === "first-deploy") {
       try {
@@ -2532,7 +2545,14 @@ async function validateHelperReceipt(manifest, releaseRoot) {
   return { sha256: read.sha256, receipt };
 }
 
-export async function verifyWorkerRelease({
+export async function verifyWorkerRelease(options = {}) {
+  return verifyWorkerReleaseInternal(options);
+}
+
+// Only the candidate builder can substitute a fully verified predecessor for
+// candidate process admission. Public verification and all activation paths
+// always use the candidate's own strict process gate.
+async function verifyWorkerReleaseInternal({
   manifestPath,
   approvedManifestSha256,
   expectedSourceD1PathSha256,
@@ -2544,8 +2564,11 @@ export async function verifyWorkerRelease({
   expectedSupervisorPid,
   allowTestRuntimeRoot = false,
   writeSupervisorPrelaunchReceipt = false,
-} = {}) {
+} = {}, verifyPreparationPredecessor) {
   if (typeof manifestPath !== "string" || !path.win32.isAbsolute(manifestPath)) fail("manifest 路径必须为绝对路径");
+  if (verifyPreparationPredecessor && writeSupervisorPrelaunchReceipt) {
+    fail("Candidate preparation cannot issue a supervisor launch receipt");
+  }
   if (writeSupervisorPrelaunchReceipt && processPolicy !== "stopped") {
     fail("supervisor prelaunch verification receipt 只能由 stopped 完整校验发布");
   }
@@ -2739,16 +2762,18 @@ export async function verifyWorkerRelease({
   await validateHelperReceipt(manifest, releaseRoot);
   await verifyHardLinks(manifest, releaseRoot);
 
-  const processState = await verifyWorkerReleaseProcessState({
-    processPolicy,
-    runtimeRoot,
-    manifestPath,
-    releaseRoot,
-    expectedSupervisorPid,
-  });
+  const processState = verifyPreparationPredecessor
+    ? await verifyPreparationPredecessor()
+    : await verifyWorkerReleaseProcessState({
+      processPolicy,
+      runtimeRoot,
+      manifestPath,
+      releaseRoot,
+      expectedSupervisorPid,
+    });
 
   const verification = {
-    status: "verified",
+    status: verifyPreparationPredecessor ? "preparation_verified" : "verified",
     version: verificationVersion,
     manifestSha256: manifestRead.sha256,
     releaseId,
