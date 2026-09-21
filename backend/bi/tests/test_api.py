@@ -116,6 +116,8 @@ class BiApiContractTests(BiFixtureMixin, TestCase):
         self.assertEqual(payload["projection"], "dashboard")
         self.assertEqual(payload["contractVersion"], "bi-dashboard-read-model-v1")
         self.assertEqual(payload["sales"]["current"]["netSalesCents"], 14_000)
+        self.assertEqual(payload["sales"]["previousStartDate"], "2026-07-01")
+        self.assertEqual(payload["sales"]["previousEndDate"], "2026-07-02")
         self.assertEqual(payload["sales"]["latestBatch"]["id"], "batch-1")
         self.assertEqual(payload["inventory"]["sync"]["latestInventoryBatchId"], "inventory-batch-1")
         self.assertEqual(payload["sourceRevisions"], {"salesErp": "7:3", "inventory": "4:bbbbbbbbbbbb"})

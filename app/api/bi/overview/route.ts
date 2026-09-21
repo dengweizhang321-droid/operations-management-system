@@ -8,7 +8,7 @@ import { safeApiErrorResponse } from "@/lib/http/api-error";
 import { SalesReadRequestError } from "@/lib/sales/read-contract";
 
 
-const allowedRanges = new Set(["today", "yesterday", "last7", "last15", "month", "quarter", "custom"]);
+const allowedRanges = new Set(["today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom"]);
 
 function parseIsoDate(value: string | null, label: string) {
   if (value === null) return null;

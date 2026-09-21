@@ -60,6 +60,8 @@ class SalesApiContractTests(TestCase):
         self.assertEqual(payload["current"]["netQuantity"], 2)
         self.assertAlmostEqual(payload["current"]["grossMarginRate"], 0.3)
         self.assertEqual(payload["dataCutoffDate"], "2026-08-02")
+        self.assertEqual(payload["previousStartDate"], "2026-07-01")
+        self.assertEqual(payload["previousEndDate"], "2026-07-02")
         self.assertEqual(payload["latestBatch"]["id"], "batch-1")
         self.assertEqual(response["X-Sales-Data-Revision"], "7:3")
         self.assertEqual(response["X-Sales-Source-Revision"], "7:3")
@@ -86,6 +88,8 @@ class SalesApiContractTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["projection"], "dashboard")
+        self.assertEqual(payload["previousStartDate"], "2026-07-01")
+        self.assertEqual(payload["previousEndDate"], "2026-07-02")
         self.assertNotIn("filterOptions", payload)
         self.assertNotIn("yearAgoDaily", payload)
 

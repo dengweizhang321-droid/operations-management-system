@@ -25,7 +25,7 @@ from .query import (
 )
 
 
-SALES_RANGES = {"today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"}
+SALES_RANGES = {"today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom", "all"}
 MAX_TREND_DAYS = 366
 MAX_GROUP_ROWS = 500
 
@@ -53,17 +53,54 @@ def _period_for(range_name: str, today: str) -> dict[str, str]:
         return {"startDate": add_days(today, -6), "endDate": today, "previousStartDate": add_days(today, -13), "previousEndDate": add_days(today, -7)}
     if range_name == "last15":
         return {"startDate": add_days(today, -14), "endDate": today, "previousStartDate": add_days(today, -29), "previousEndDate": add_days(today, -15)}
+    if range_name == "last30":
+        return {"startDate": add_days(today, -29), "endDate": today, "previousStartDate": add_days(today, -59), "previousEndDate": add_days(today, -30)}
     parsed = date.fromisoformat(today)
     if range_name == "month":
         start = parsed.replace(day=1).isoformat()
         previous_start = _add_months(start, -1)
-        comparison_end = min(date.fromisoformat(add_days(previous_start, day_count(start, today) - 1)), date.fromisoformat(add_days(start, -1))).isoformat()
+        if parsed.day == monthrange(parsed.year, parsed.month)[1]:
+            comparison_end = add_days(start, -1)
+        else:
+            comparison_end = min(
+                date.fromisoformat(add_days(previous_start, day_count(start, today) - 1)),
+                date.fromisoformat(add_days(start, -1)),
+            ).isoformat()
         return {"startDate": start, "endDate": today, "previousStartDate": previous_start, "previousEndDate": comparison_end}
     quarter_month = ((parsed.month - 1) // 3) * 3 + 1
     start = date(parsed.year, quarter_month, 1).isoformat()
     previous_start = _add_months(start, -3)
-    comparison_end = min(date.fromisoformat(add_days(previous_start, day_count(start, today) - 1)), date.fromisoformat(add_days(start, -1))).isoformat()
+    quarter_end_month = quarter_month + 2
+    quarter_end = date(parsed.year, quarter_end_month, monthrange(parsed.year, quarter_end_month)[1])
+    if parsed == quarter_end:
+        comparison_end = add_days(start, -1)
+    else:
+        comparison_end = min(
+            date.fromisoformat(add_days(previous_start, day_count(start, today) - 1)),
+            date.fromisoformat(add_days(start, -1)),
+        ).isoformat()
     return {"startDate": start, "endDate": today, "previousStartDate": previous_start, "previousEndDate": comparison_end}
+
+
+def _custom_comparison_period(start_date: date, end_date: date) -> tuple[str, str]:
+    days = (end_date - start_date).days + 1
+    if days == 1:
+        previous = start_date - timedelta(days=1)
+        return previous.isoformat(), previous.isoformat()
+    if start_date.year == end_date.year and start_date.month == end_date.month:
+        previous_start = _add_months(start_date.isoformat(), -1)
+        if start_date.day == 1 and end_date.day == monthrange(end_date.year, end_date.month)[1]:
+            parsed_previous_start = date.fromisoformat(previous_start)
+            previous_end = date(
+                parsed_previous_start.year,
+                parsed_previous_start.month,
+                monthrange(parsed_previous_start.year, parsed_previous_start.month)[1],
+            ).isoformat()
+        else:
+            previous_end = _add_months(end_date.isoformat(), -1)
+        return previous_start, previous_end
+    previous_end = start_date - timedelta(days=1)
+    return (previous_end - timedelta(days=days - 1)).isoformat(), previous_end.isoformat()
 
 
 def _custom_period(start: str, end: str) -> dict[str, str]:
@@ -79,17 +116,17 @@ def _custom_period(start: str, end: str) -> dict[str, str]:
     days = (end_date - start_date).days + 1
     if days > 366:
         raise SalesRequestError("自定义统计周期最长支持 366 天")
-    previous_end = start_date - timedelta(days=1)
+    previous_start, previous_end = _custom_comparison_period(start_date, end_date)
     return {
         "startDate": start,
         "endDate": end,
-        "previousStartDate": (previous_end - timedelta(days=days - 1)).isoformat(),
-        "previousEndDate": previous_end.isoformat(),
+        "previousStartDate": previous_start,
+        "previousEndDate": previous_end,
     }
 
 
 def _align_to_cutoff(range_name: str, requested: dict[str, str], cutoff: str | None) -> tuple[dict[str, str], bool]:
-    if range_name not in {"last7", "last15", "month", "quarter", "custom"} or not cutoff:
+    if range_name not in {"last7", "last15", "last30", "month", "quarter", "custom"} or not cutoff:
         return dict(requested), False
     try:
         cutoff_date = date.fromisoformat(cutoff)
@@ -97,13 +134,17 @@ def _align_to_cutoff(range_name: str, requested: dict[str, str], cutoff: str | N
         return dict(requested), False
     if cutoff_date >= date.fromisoformat(requested["endDate"]) or cutoff_date < date.fromisoformat(requested["startDate"]):
         return dict(requested), False
-    rolling = 7 if range_name == "last7" else 15 if range_name == "last15" else None
+    rolling = {"last7": 7, "last15": 15, "last30": 30}.get(range_name)
     start = add_days(cutoff, -(rolling - 1)) if rolling else requested["startDate"]
     period = {"startDate": start, "endDate": cutoff}
     days = day_count(start, cutoff)
     if range_name in {"month", "quarter"} and requested.get("previousStartDate"):
         period["previousStartDate"] = requested["previousStartDate"]
         period["previousEndDate"] = add_days(requested["previousStartDate"], days - 1)
+    elif range_name == "custom":
+        custom_period = _custom_period(start, cutoff)
+        period["previousStartDate"] = custom_period["previousStartDate"]
+        period["previousEndDate"] = custom_period["previousEndDate"]
     elif requested.get("previousStartDate") and requested.get("previousEndDate"):
         previous_end = add_days(start, -1)
         period["previousStartDate"] = add_days(previous_end, -(days - 1))
@@ -284,7 +325,7 @@ def _filter_options(period: dict[str, str], product_codes: list[str], principal:
 
 def get_sales_summary(*, range_name: str, projection: str, start_date: str | None, end_date: str | None, product_queries: list[str], product_codes: list[str], platforms: list[str], shop: str | None, outlets: list[dict[str, str]], categories: list[str], principal: Principal | None = None) -> dict[str, object]:
     if range_name not in SALES_RANGES:
-        raise SalesRequestError(f"range 必须是 {', '.join(['today', 'yesterday', 'last7', 'last15', 'month', 'quarter', 'custom', 'all'])} 之一")
+        raise SalesRequestError(f"range 必须是 {', '.join(['today', 'yesterday', 'last7', 'last15', 'last30', 'month', 'quarter', 'custom', 'all'])} 之一")
     if projection not in {"full", "dashboard"}:
         raise SalesRequestError("view 必须是 dashboard。")
     filters: dict[str, object] = {
@@ -402,7 +443,8 @@ def get_sales_summary(*, range_name: str, projection: str, start_date: str | Non
 def dashboard_projection(payload: dict[str, object]) -> dict[str, object]:
     keys = [
         "range", "startDate", "endDate", "requestedStartDate", "requestedEndDate",
-        "dataCutoffDate", "periodAdjustedToDataCutoff", "comparisonDayCount", "current",
+        "dataCutoffDate", "periodAdjustedToDataCutoff", "comparisonDayCount",
+        "previousStartDate", "previousEndDate", "yearAgoStartDate", "yearAgoEndDate", "current",
         "previous", "yearAgo", "outlets", "daily", "latestBatch",
     ]
     return {"projection": "dashboard", **{key: payload[key] for key in keys if key in payload}}

@@ -8,7 +8,7 @@ test("last 30 days includes Shanghai today and crosses month/year boundaries", (
   assert.deepEqual(skuSalesPeriod("近30天", "2000-01-01", "2000-01-02"), {
     startDate: "2025-12-04", endDate: "2026-01-02",
   });
-  assert.equal(salesRangeMap["近30天"], "custom");
+  assert.equal(salesRangeMap["近30天"], "last30");
   const state = shellPeriodForRange("近30天", "2026-01", "", "");
   assert.deepEqual(state, { kind: "last30" });
   assert.equal(rangeForShellPeriod(parseShellLocation(serializeShellLocation({ module: "sales", period: state })).period), "近30天");

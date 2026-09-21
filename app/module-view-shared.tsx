@@ -24,7 +24,7 @@ export function validateFinanceTargetDeletionReason(value: string | null):
 }
 
 export type SalesRangeLabel = "今日" | "昨天" | "近7天" | "近15天" | "近30天" | "本月" | "月度" | "去年同期" | "自定义";
-export type SalesRange = "today" | "yesterday" | "last7" | "last15" | "month" | "quarter" | "custom";
+export type SalesRange = "today" | "yesterday" | "last7" | "last15" | "last30" | "month" | "quarter" | "custom";
 
 export type SalesStats = {
   grossSalesCents: number;
@@ -106,6 +106,7 @@ export type SalesSummaryResponse = {
 export type SalesDashboardResponse = Pick<SalesSummaryResponse,
   "range" | "startDate" | "endDate" | "requestedStartDate" | "requestedEndDate" |
   "dataCutoffDate" | "periodAdjustedToDataCutoff" | "comparisonDayCount" |
+  "previousStartDate" | "previousEndDate" | "yearAgoStartDate" | "yearAgoEndDate" |
   "current" | "previous" | "yearAgo" | "outlets" | "daily" | "latestBatch"
 > & { projection: "dashboard" };
 
@@ -948,7 +949,7 @@ export const salesRangeMap: Record<SalesRangeLabel, SalesRange> = {
   昨天: "yesterday",
   近7天: "last7",
   近15天: "last15",
-  近30天: "custom",
+  近30天: "last30",
   本月: "month",
   月度: "custom",
   去年同期: "custom",

@@ -1131,6 +1131,12 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
   const rangeNote = summary?.startDate && summary?.endDate
     ? `${summary.startDate} 至 ${summary.endDate}`
     : `${range}实时汇总`;
+  const comparisonPeriodNote = summary?.previousStartDate && summary?.previousEndDate
+    ? `环比：${summary.previousStartDate} 至 ${summary.previousEndDate}`
+    : "";
+  const sourceNote = [comparisonPeriodNote, summary?.latestBatch?.fileName ? `最近批次：${summary.latestBatch.fileName}` : ""]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
@@ -1138,7 +1144,7 @@ export default function SalesView({ range, customStartDate, customEndDate, curre
       <div className="sales-period-note">
         <span><Dot tone="green" />已加载真实明细</span>
         <strong>{rangeNote}</strong>
-        {summary?.latestBatch?.fileName && <small>最近批次：{summary.latestBatch.fileName}</small>}
+        {sourceNote && <small title={sourceNote}>{sourceNote}</small>}
       </div>
       {sharedFilterBar()}
       {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>销售数据刷新失败</strong><p>{error}；当前仍显示上一次成功结果。</p></div><button className="row-action" onClick={() => setRetryKey((key) => key + 1)}>重试</button></section>}

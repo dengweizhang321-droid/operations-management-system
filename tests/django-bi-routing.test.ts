@@ -12,11 +12,13 @@ test("BI public route is a thin authenticated adapter to the dedicated Django re
   assert.match(route, /requireAppPrincipal/);
   assert.match(route, /requireUnrestrictedDataScope/);
   assert.match(route, /requestDjangoBiOverview/);
+  assert.match(route, /last30/);
   assert.doesNotMatch(route, /getSalesSummary|getInventoryDashboardOverview|\.prepare\(/);
   assert.match(dashboard, /requestJson<BiDashboardResponse>\(`\/api\/bi\/overview\?/);
   assert.doesNotMatch(dashboard, /\/api\/sales\/summary|\/api\/inventory\/overview/);
   assert.doesNotMatch(dashboard, /100\s*-\s*inventory\.metrics\.urgentCount/);
   assert.match(backend, /get_sales_summary/);
+  assert.match(backend, /last30/);
   assert.match(backend, /inventory_overview/);
   assert.match(backend, /before == after/);
   assert.match(backend, /inventoryHealthScore/);

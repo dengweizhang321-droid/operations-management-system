@@ -66,7 +66,7 @@ export type SalesSummaryGroup = SalesSummaryMetric & {
 };
 
 export type SalesSummaryConsumerData = {
-  range: "today" | "yesterday" | "last7" | "last15" | "month" | "quarter" | "custom" | "all";
+  range: "today" | "yesterday" | "last7" | "last15" | "last30" | "month" | "quarter" | "custom" | "all";
   startDate: string;
   endDate: string;
   previousStartDate?: string;

@@ -13,7 +13,7 @@ from sales.summary import dashboard_projection, get_sales_summary
 from .errors import BiApiError
 
 
-BI_RANGES = {"today", "yesterday", "last7", "last15", "month", "quarter", "custom"}
+BI_RANGES = {"today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom"}
 BI_CONTRACT_VERSION = "bi-dashboard-read-model-v1"
 
 

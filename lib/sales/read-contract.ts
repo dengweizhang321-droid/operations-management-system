@@ -1,4 +1,4 @@
-export const salesRanges = ["today", "yesterday", "last7", "last15", "month", "quarter", "custom", "all"] as const;
+export const salesRanges = ["today", "yesterday", "last7", "last15", "last30", "month", "quarter", "custom", "all"] as const;
 export type SalesRange = (typeof salesRanges)[number];
 export const SALES_PRODUCT_QUERY_TEXT_MAX_LENGTH = 1000;
 
