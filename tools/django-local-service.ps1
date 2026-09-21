@@ -4070,19 +4070,36 @@ function End-SystemMaintenance {
   Write-LauncherEvent "INFO" "system_maintenance_ended" $MaintenanceId
 }
 
-function Invoke-WithServiceMutex([scriptblock]$Operation) {
+function Invoke-WithServiceMutex(
+  [scriptblock]$Operation,
+  [ValidateRange(0, 900)][int]$StartWaitSeconds = 900
+) {
   $name = "Local\TERUISI-DjangoSales-" + (Get-Sha256Text (Get-CanonicalPath $RuntimeRoot)).Substring(0, 24)
   $mutex = [Threading.Mutex]::new($false, $name)
   $acquired = $false
+  $joinedStart = $false
   try {
     try {
-      $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30))
+      $acquired = $mutex.WaitOne([TimeSpan]::Zero)
+      if (-not $acquired) {
+        $joinedStart = $Action -ceq "Start"
+        $waitSeconds = if ($joinedStart) { $StartWaitSeconds } else { 30 }
+        if ($joinedStart) { Write-LauncherEvent "INFO" "concurrent_start_waiting" }
+        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds($waitSeconds))
+      }
     } catch [Threading.AbandonedMutexException] {
       $acquired = $true
       Write-LauncherEvent "WARN" "abandoned_mutex_recovered"
     }
     if (-not $acquired) { throw "另一个 Django 本机服务操作仍在运行" }
     if ($Action -match "^(Start|AutoStart)") { Assert-NoSystemMaintenance }
+    if ($joinedStart) {
+      # A queued Start must not reverse a Stop or adopt a changed deployment.
+      # Only a valid running intent permits continuing the original Start path;
+      # the caller still rechecks its exact supervisor fence and full readiness.
+      Assert-SupervisorStartFence (Get-FileSha256 $SupervisorDesiredStatePath)
+      Write-LauncherEvent "INFO" "concurrent_start_resumed"
+    }
     & $Operation
   } finally {
     if ($acquired) { $mutex.ReleaseMutex() }

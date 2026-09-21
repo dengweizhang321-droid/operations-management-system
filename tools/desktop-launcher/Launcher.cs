@@ -47,6 +47,7 @@ internal sealed class ControllerResponse
 internal static class Launcher
 {
     internal const string PageUrl = "http://localhost:3000/";
+    internal static readonly TimeSpan StartupWaitTimeout = TimeSpan.FromMinutes(15);
 
     private static T Deserialize<T>(string text) where T : class
     {
@@ -119,6 +120,20 @@ internal static class Launcher
     }
 
     internal static string PsLiteral(string value) { return "'" + value.Replace("'", "''") + "'"; }
+
+    internal static async Task<bool> WaitForReady(Func<Task<bool>> probe, TimeSpan timeout, Func<bool> cancelled)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < timeout && !cancelled())
+        {
+            if (await probe()) return !cancelled();
+            if (cancelled()) return false;
+            var remaining = timeout - elapsed.Elapsed;
+            if (remaining <= TimeSpan.Zero) break;
+            await Task.Delay((int)Math.Min(2000, Math.Ceiling(remaining.TotalMilliseconds)));
+        }
+        return false;
+    }
 
     // The controller redirects JSON to a file which can remain open briefly (or be
     // inherited by a durable descendant) after the direct controller exits. Read
@@ -304,7 +319,7 @@ internal sealed class LauncherForm : Form
             {
                 if (IsDisposed) return;
                 status.Text = "正在启动本地服务器…";
-                detail.Text = "正在通过系统总控检查并启动服务，完成后自动打开。\n完整冷启动通常需要 1–2 分钟。";
+                detail.Text = "正在通过系统总控检查并启动服务，完成后自动打开。\n开机后可能需要几分钟，请保持此窗口打开，无需重复点击。";
                 Record("Delegating Start -Open to existing controller");
                 var result = await Launcher.StartController(config, logDirectory);
                 if (IsDisposed) return;
@@ -312,19 +327,14 @@ internal sealed class LauncherForm : Form
                 if (outcome == "start_in_progress")
                 {
                     status.Text = "已有启动任务，正在等待…";
-                    var deadline = DateTime.UtcNow.AddMinutes(3);
-                    while (DateTime.UtcNow < deadline)
+                    Record("Waiting for existing startup readiness");
+                    if (await Launcher.WaitForReady(Launcher.ProbeReady, Launcher.StartupWaitTimeout, () => IsDisposed))
                     {
-                        if (await Launcher.ProbeReady())
-                        {
-                            if (IsDisposed) return;
-                            Process.Start(config.ChromePath, Launcher.PageUrl);
-                            outcome = "already_running";
-                            break;
-                        }
                         if (IsDisposed) return;
-                        await Task.Delay(2000);
+                        Process.Start(config.ChromePath, Launcher.PageUrl);
+                        outcome = "already_running";
                     }
+                    if (IsDisposed) return;
                 }
                 if (outcome != "started" && outcome != "already_running" && outcome != "started_degraded")
                     throw new InvalidOperationException("系统尚未确认就绪，请查看启动日志后再试。");

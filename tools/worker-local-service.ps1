@@ -93,12 +93,34 @@ function Get-WorkerServiceMutexName {
   return $name
 }
 
+function Enter-WorkerServiceMutex([ValidateRange(0, 900)][int]$StartWaitSeconds = 900) {
+  $mutex = [System.Threading.Mutex]::new($false, (Get-WorkerServiceMutexName))
+  $acquired = $false
+  $joined = $false
+  try {
+    try {
+      $acquired = $mutex.WaitOne([TimeSpan]::Zero)
+      if (-not $acquired -and $Action -ceq "Start") {
+        $joined = $true
+        if (-not $Json) { Write-Host "An existing lifecycle operation is running; waiting to verify its result" }
+        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds($StartWaitSeconds))
+      }
+    } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
+    if (-not $acquired) { throw "Another Worker/system lifecycle operation is in progress; request rejected" }
+    return [pscustomobject]@{ Mutex = $mutex; Joined = $joined }
+  } catch {
+    if ($acquired) { $mutex.ReleaseMutex() }
+    $mutex.Dispose()
+    throw
+  }
+}
+
+$JoinedConcurrentLifecycle = $false
 if (-not $FunctionsOnly -and $Action -in $MutatingActions) {
-  $ServiceMutex = [System.Threading.Mutex]::new($false, (Get-WorkerServiceMutexName))
-  $lockAcquired = $false
-  try { $lockAcquired = $ServiceMutex.WaitOne([TimeSpan]::Zero) }
-  catch [System.Threading.AbandonedMutexException] { $lockAcquired = $true }
-  if (-not $lockAcquired) { $ServiceMutex.Dispose(); throw "Another Worker/system lifecycle operation is in progress; request rejected" }
+  $lease = Enter-WorkerServiceMutex
+  $ServiceMutex = $lease.Mutex
+  $lockAcquired = $true
+  $JoinedConcurrentLifecycle = $lease.Joined
 }
 
 function Assert-FixedRuntimeRoot {
@@ -1516,6 +1538,25 @@ function Invoke-WorkerFullRestart([object]$identity) {
   return $result
 }
 
+function Get-JoinedWorkerStartResult([object]$identity) {
+  # Joining is observation only: never restart after a concurrent Stop, failed
+  # Start, or maintenance operation. The existing owner decides all mutations.
+  Assert-WorkerMaintenanceInactive
+  $status = Get-WorkerStatusInternal $identity
+  if ($status.State -cne "exact_release") {
+    throw "Concurrent lifecycle operation finished without a ready exact Worker; state=$($status.State)"
+  }
+  $readiness = Get-DjangoSystemReadiness
+  if (-not $readiness.Ready) {
+    throw "Concurrent startup did not make the full backend ready; missing=$($readiness.Missing -join ',')"
+  }
+  $page = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:3000/" -TimeoutSec 10 -MaximumRedirection 0
+  if ($page.StatusCode -ne 200) { throw "Concurrent startup did not make the Worker homepage ready" }
+  $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
+  if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Concurrent startup did not make the helper ready" }
+  return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+}
+
 function Invoke-WorkerSystemStart([object]$identity) {
     Assert-WorkerMaintenanceInactive
     $status = Get-WorkerStatusInternal $identity
@@ -1641,7 +1682,11 @@ try {
     exit 0
   }
 
-  if ($Action -eq "Start") { Write-Result (Invoke-WorkerSystemStart $identity); exit 0 }
+  if ($Action -eq "Start") {
+    $startResult = if ($JoinedConcurrentLifecycle) { Get-JoinedWorkerStartResult $identity } else { Invoke-WorkerSystemStart $identity }
+    Write-Result $startResult
+    exit 0
+  }
 
   if ($Action -eq "Restart") {
     Assert-WorkerMaintenanceInactive

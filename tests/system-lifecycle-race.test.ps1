@@ -103,13 +103,13 @@ function End-SystemMaintenance { throw "synthetic library failure" }
   try {
     $startInfo = [Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = (Get-Command $ChildShell).Source
-    $startInfo.Arguments = '-NoProfile -NonInteractive -File "' + $worker + '" -Action Start -AllowTestRuntimeRoot -RuntimeRoot "' + $root + '"'
+    $startInfo.Arguments = '-NoProfile -NonInteractive -File "' + $worker + '" -Action Stop -AllowTestRuntimeRoot -RuntimeRoot "' + $root + '"'
     $startInfo.UseShellExecute = $false; $startInfo.CreateNoWindow = $true
     $startInfo.RedirectStandardError = $true; $startInfo.RedirectStandardOutput = $true
     $child = [Diagnostics.Process]::Start($startInfo)
-    if (-not $child.WaitForExit(15000)) { $child.Kill(); throw "A concurrent Start queued instead of rejecting" }
+    if (-not $child.WaitForExit(15000)) { $child.Kill(); throw "A concurrent Stop queued instead of rejecting" }
     $diagnostic = $child.StandardError.ReadToEnd()
-    if ($child.ExitCode -eq 0 -or $diagnostic -notmatch "lifecycle operation is in progress") { throw "Concurrent start was not rejected at the Worker gate: $diagnostic" }
+    if ($child.ExitCode -eq 0 -or $diagnostic -notmatch "lifecycle operation is in progress") { throw "Concurrent stop was not rejected at the Worker gate: $diagnostic" }
     $child.Dispose()
   } finally { $mutex.ReleaseMutex(); $mutex.Dispose() }
 
@@ -125,7 +125,7 @@ function End-SystemMaintenance { throw "synthetic library failure" }
   if ($script:order -contains "start") { throw "Restart continued after backend stop failure" }
   [IO.File]::WriteAllText((Join-Path $root "run\system-maintenance.json"), "{corrupt")
   try { Assert-WorkerMaintenanceInactive; throw "corrupt state allowed" } catch { if ($_.Exception.Message -notmatch "Unreadable") { throw } }
-  Write-Output "PASS: maintenance ownership/corruption, continuous Django mutex, competing Worker start, full restart ordering and stop failure"
+  Write-Output "PASS: maintenance ownership/corruption, continuous Django mutex, competing Worker stop, full restart ordering and stop failure"
 } finally {
   $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previous
   $resolved = [IO.Path]::GetFullPath($root)

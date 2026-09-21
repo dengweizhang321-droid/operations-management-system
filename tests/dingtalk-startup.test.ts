@@ -22,7 +22,9 @@ test("system startup invokes the approved receiver after Worker readiness, inclu
   assert.ok(start.indexOf("Ensure-DjangoSystemReady") < start.indexOf("Start-SystemDingTalkReceiver"));
   assert.match(start, /if \(\$status.State -eq "exact_release"\) \{\s+Start-SystemDingTalkReceiver/);
   assert.match(start, /\$startResult = Start-VerifiedWorkerSupervisor[^\r\n]+\s+Start-SystemDingTalkReceiver\s+return \$startResult/);
-  assert.match(source, /if \(\$Action -eq "Start"\) \{ Write-Result \(Invoke-WorkerSystemStart \$identity\)/);
+  assert.match(source, /if \(\$Action -eq "Start"\) \{\s+\$startResult = if \(\$JoinedConcurrentLifecycle\) \{ Get-JoinedWorkerStartResult \$identity \} else \{ Invoke-WorkerSystemStart \$identity \}/);
+  const joined = source.slice(source.indexOf("function Get-JoinedWorkerStartResult"), source.indexOf("function Invoke-WorkerSystemStart"));
+  assert.doesNotMatch(joined, /Start-SystemDingTalkReceiver|Invoke-DjangoStartProcess|Ensure-DjangoSystemReady/);
   const ai = readFileSync("tools/django-ai.ps1", "utf8");
   assert.match(ai, /"AutoStartDingTalk" \{ Invoke-WithServiceMutex \{ Start-ConfiguredDingTalkReceiver \} \}/);
   assert.match(ai, /"StopDingTalk" \{ Invoke-WithServiceMutex \{ Set-DingTalkStartup \$false; Stop-OwnedProcess/);
