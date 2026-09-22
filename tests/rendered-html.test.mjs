@@ -216,6 +216,7 @@ test("wires the sales import and PostgreSQL analytics capabilities", async () =>
   assert.match(clientSources, /type="file"/);
   assert.match(layout, /generateMetadata/);
   assert.match(layout, /const title = "电商运营中台"/);
+  assert.match(layout, /\/favicon\.svg\?v=xiaote-20260922/);
   assert.match(layout, /\/og\.png/);
   assert.doesNotMatch(schema, /sales_import_batches|sales_order_lines|sales_import_uploads/);
   assert.match(salesModels, /class SalesImportBatch/);

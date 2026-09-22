@@ -39,6 +39,13 @@ test("public headers cache hashed assets immutably and versionless root assets f
   assert.equal(versionlessRules.some((line) => line.includes("immutable")), false);
 });
 
+test("favicon uses the Xiao Te brand mark", async () => {
+  const favicon = await readFile(new URL("public/favicon.svg", projectRoot), "utf8");
+  assert.match(favicon, /fill="#293F32"/);
+  assert.match(favicon, /stroke="#CCE8D9"/);
+  assert.doesNotMatch(favicon, /#0C79D8|#2E9EFF|#68C4FF/i);
+});
+
 test("dynamic policy leaves fingerprinted bundles untouched", () => {
   assert.equal(policy({
     pathname: "/assets/page-deadbeef.js",
