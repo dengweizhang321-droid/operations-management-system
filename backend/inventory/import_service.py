@@ -203,7 +203,7 @@ def _stock_row(
     available = int(_integer(item["availableQuantity"], "availableQuantity", minimum, MAX_ABSOLUTE_QUANTITY) or 0)
     locked = int(_integer(item["lockedQuantity"], "lockedQuantity", -MAX_ABSOLUTE_QUANTITY, MAX_ABSOLUTE_QUANTITY) or 0)
     in_transit = int(_integer(item["inTransitQuantity"], "inTransitQuantity", -MAX_ABSOLUTE_QUANTITY, MAX_ABSOLUTE_QUANTITY) or 0)
-    unit_cost = int(_integer(item["unitCostCents"], "unitCostCents", 1, MAX_UNIT_COST_CENTS) or 0)
+    unit_cost = int(_integer(item["unitCostCents"], "unitCostCents", 0, MAX_UNIT_COST_CENTS) or 0)
     age = _integer(item["inventoryAgeDays"], "inventoryAgeDays", 0, MAX_INVENTORY_AGE_DAYS, nullable=True)
     if max(0, available) * unit_cost > MAX_ROW_STOCK_VALUE_CENTS:
         raise _error(f"第 {source_row} 行库存货值超过 10 亿元安全上限")

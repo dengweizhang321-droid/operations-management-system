@@ -193,7 +193,7 @@ class GuangdongTests(TestCase):
         self.assertEqual((restored["operatorName"], restored["buyer"]), ("运营默认", "采购默认"))
         self.assertEqual((restored["risk"], restored["riskSource"]), ("urgent", "系统判定"))
 
-    def test_pause_missing_coverage_cost_and_snapshot_age(self):
+    def test_pause_missing_coverage_and_snapshot_age_while_zero_cost_remains_valid(self):
         self.save_rows([{"productCode": "00123"}, {"productCode": "B", "active": False}])
         batch = self.batch()
         InventoryStockLine.objects.filter(warehouse="广东仓", product_code="00123").update(unit_cost_cents=0)
@@ -203,7 +203,8 @@ class GuangdongTests(TestCase):
         item = result["items"][0]
         self.assertIsNone(item["outbound30dQuantity"])
         self.assertIsNone(item["turnoverDays"])
-        self.assertTrue(item["costMissing"])
+        self.assertFalse(item["costMissing"])
+        self.assertEqual((item["unitCostCents"], item["knownStockValueCents"]), (0, 0))
         self.assertEqual(item["risk"], "unknown")
         batch.snapshot_date = self.today - timedelta(days=4); batch.save()
         GuangdongSupplierCycle.objects.create(supplier="供应商甲", lead_days=1, buffer_days=0, updated_by="test")

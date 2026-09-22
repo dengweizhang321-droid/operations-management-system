@@ -293,7 +293,7 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
       ${resolvedWarehouseTypeSql("age.warehouse", "age.warehouse_type")} AS warehouse_type,
       age.available_quantity,
       CASE
-        WHEN age.available_quantity > 0 AND age.unit_cost_cents <= 0 THEN NULL
+        WHEN age.available_quantity > 0 AND age.unit_cost_cents < 0 THEN NULL
         ELSE MAX(age.available_quantity, 0) * age.unit_cost_cents
       END AS stock_value_cents,
       age.inventory_age_days,
@@ -320,8 +320,8 @@ export async function getInventoryAgeAnalysis(db: InventoryDatabase, options: In
       ${resolvedGroupedWarehouseTypeSql("s.warehouse", "s.warehouse_type")} AS warehouse_type,
       COALESCE(SUM(s.available_quantity), 0) AS available_quantity,
       CASE
-        WHEN SUM(MAX(s.available_quantity, 0)) > SUM(CASE WHEN s.unit_cost_cents > 0 THEN MAX(s.available_quantity, 0) ELSE 0 END) THEN NULL
-        ELSE COALESCE(SUM(CASE WHEN s.unit_cost_cents > 0 THEN MAX(s.available_quantity, 0) * s.unit_cost_cents ELSE 0 END), 0)
+        WHEN SUM(MAX(s.available_quantity, 0)) > SUM(CASE WHEN s.unit_cost_cents >= 0 THEN MAX(s.available_quantity, 0) ELSE 0 END) THEN NULL
+        ELSE COALESCE(SUM(CASE WHEN s.unit_cost_cents >= 0 THEN MAX(s.available_quantity, 0) * s.unit_cost_cents ELSE 0 END), 0)
       END AS stock_value_cents,
       MAX(s.inventory_age_days) AS inventory_age_days,
       CASE WHEN ? = 1 THEN SUM(a.sales_7d_quantity) ELSE NULL END AS sales_7d_quantity,

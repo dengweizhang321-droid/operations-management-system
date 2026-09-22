@@ -104,7 +104,7 @@ function createFixture() {
 
 const expectedMetrics = {
   skuWarehouseCount: 6,
-  stockValueComplete: false,
+  stockValueComplete: true,
   aged90Count: 2,
   aged90ValueCents: 700,
   stagnantCount: 1,

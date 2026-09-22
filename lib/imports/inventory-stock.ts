@@ -307,7 +307,16 @@ function parseRow(
       errors.push({ code: "INVALID_DATE", message: "库存日期不是有效日期", sourceRowNumber: row.rowNumber, field: "snapshotDate" });
     }
   }
-  const unitCostCents = optionalMoneyCents(raw("unitCost"), "unitCost", "成本价", row.rowNumber, errors);
+  const unitCostValue = raw("unitCost");
+  if (!indexes.has("unitCost") || isBlank(unitCostValue)) {
+    errors.push({
+      code: "MISSING_VALUE",
+      message: "成本价不能为空；明确填写 0 可作为有效零成本",
+      sourceRowNumber: row.rowNumber,
+      field: "unitCost",
+    });
+  }
+  const unitCostCents = optionalMoneyCents(unitCostValue, "unitCost", "成本价", row.rowNumber, errors);
   const inventoryAgeDays = isBlank(raw("inventoryAgeDays"))
     ? null
     : optionalDays(raw("inventoryAgeDays"), "inventoryAgeDays", "库龄", row.rowNumber, errors);

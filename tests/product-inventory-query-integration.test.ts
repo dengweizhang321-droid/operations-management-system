@@ -304,7 +304,7 @@ test("库存 overview 保留缺省 full 兼容并支持唯一受控投影", () =
   assert.throws(() => parseInventoryOverviewView(new URLSearchParams("view=unknown")), /full、dashboard、overview 或 plan/);
 });
 
-test("库存真实 SQL 分页披露部分成本覆盖", async () => {
+test("库存真实 SQL 分页把明确零成本计为完整覆盖", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const db = sqliteAdapter(sqlite) as never;
   testEnvironment.DB = db;
@@ -337,10 +337,10 @@ test("库存真实 SQL 分页披露部分成本覆盖", async () => {
     pageSize: 1,
   });
   assert.equal(overview.pagination.total, 1);
-  assert.equal(overview.metrics.stockValueComplete, false);
+  assert.equal(overview.metrics.stockValueComplete, true);
   assert.equal(overview.metrics.knownStockValueCents, 1_000);
-  assert.equal(overview.metrics.costCoverageRate, 0.01);
-  assert.equal(overview.items[0]?.stockValueCents, null);
+  assert.equal(overview.metrics.costCoverageRate, 1);
+  assert.equal(overview.items[0]?.stockValueCents, 1_000);
 
   const fullSql: string[] = [];
   const fullOverview = await getInventoryOverview(sqliteAdapter(sqlite, (sql) => fullSql.push(sql)) as never, {
@@ -580,8 +580,8 @@ test("库存真实 SQL 分页披露部分成本覆盖", async () => {
 
   const age = await getInventoryAgeAnalysis(db, { query: "A", page: 1, pageSize: 1 });
   assert.equal(age.pagination.total, 1);
-  assert.equal(age.metrics.stockValueComplete, false);
-  assert.equal(age.items[0]?.stockValueCents, null);
+  assert.equal(age.metrics.stockValueComplete, true);
+  assert.equal(age.items[0]?.stockValueCents, 1_000);
   assert.equal(age.items[0]?.sales30dQuantity, null);
   sqlite.close();
 });

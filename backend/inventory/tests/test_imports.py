@@ -208,6 +208,17 @@ class InventoryImportTests(TestCase):
         self.assertFalse(confirmed["includeInInventory"])
         self.assertFalse(confirmed["pendingConfirmation"])
 
+    def test_explicit_zero_cost_inventory_is_preserved(self) -> None:
+        result = import_inventory_payload(
+            stock_payload(stock_row("ZERO-COST", 2, available=6, unit_cost=0), excluded=0),
+            "admin@example.test",
+        )
+
+        self.assertEqual(result["status"], "imported")
+        stored = InventoryStockLine.objects.get(product_code="ZERO-COST")
+        self.assertEqual((stored.available_quantity, stored.unit_cost_cents), (6, 0))
+        self.assertEqual(result["batch"]["excludedCount"], 0)
+
     def test_age_import_also_discovers_a_new_warehouse_for_confirmation(self) -> None:
         result = import_inventory_payload(
             age_payload("库龄首次发现仓"),

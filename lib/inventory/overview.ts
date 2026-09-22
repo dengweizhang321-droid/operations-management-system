@@ -638,8 +638,8 @@ function buildInventoryCte(input: {
       SUM(available_quantity) AS available_quantity,
       SUM(locked_quantity) AS locked_quantity,
       SUM(in_transit_quantity) AS in_transit_quantity,
-      SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END) AS imported_stock_value_cents,
-      SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END) AS priced_available_quantity,
+      SUM(CASE WHEN unit_cost_cents >= 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END) AS imported_stock_value_cents,
+      SUM(CASE WHEN unit_cost_cents >= 0 THEN MAX(available_quantity, 0) ELSE 0 END) AS priced_available_quantity,
       MAX(inventory_age_days) AS inventory_age_days,
       ${normalizedWarehouseSql("warehouse")} AS warehouse_key
     FROM inventory_stock_lines

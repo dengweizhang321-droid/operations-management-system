@@ -14,7 +14,8 @@ from inventory import guangdong as gd
 from inventory import query
 from inventory.import_service import import_inventory_payload
 from inventory.models import (GuangdongMonitorItem, GuangdongSupplierCycle,
-                              InventoryStockLine, InventoryWriteAuthority, ReplenishmentPlanItem)
+                              InventoryOperatingSettings, InventoryStockLine,
+                              InventoryWriteAuthority, ReplenishmentPlanItem)
 from inventory.plans import upsert_plan, update_plan
 from inventory.replenishment_health import waiting_for_stock
 from inventory.tests.test_imports import stock_payload, stock_row
@@ -76,6 +77,21 @@ class ReplenishmentHealthTests(TestCase):
         self.assertEqual(next(x for x in monitor["distribution"] if x["risk"] == "healthy")["itemCount"], 1)
         self.assertEqual(overview["items"][0]["status"], "healthy")
         self.assertEqual(overview["health"]["healthy"], 1)
+
+    def test_zero_cost_inventory_has_complete_zero_value_and_remains_replenishable(self):
+        InventoryStockLine.objects.filter(product_code="P", warehouse="广东仓").update(unit_cost_cents=0)
+        InventoryOperatingSettings.objects.filter(id=1).update(auto_replenishment=True)
+
+        with patch.object(query, "_sales_query", side_effect=self.sales):
+            overview = query.inventory_overview(self.principal, {})
+
+        item = overview["items"][0]
+        self.assertEqual(item["unitCostCents"], 0)
+        self.assertEqual(item["stockValueCents"], 0)
+        self.assertEqual(item["costCoverageRate"], 1)
+        self.assertTrue(overview["metrics"]["stockValueComplete"])
+        self.assertEqual(overview["recommendations"][0]["productCode"], "P")
+        self.assertGreater(overview["recommendations"][0]["suggestedQuantity"], 0)
 
     def test_first_increase_after_decline_releases_once_not_initial_baseline(self):
         plan = self.plan()

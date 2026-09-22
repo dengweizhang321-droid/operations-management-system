@@ -42,7 +42,7 @@ test("products validation uses unique product codes as the expected batch row co
   assert.equal(prepared.validation.duplicateKeyRows, 1);
 });
 
-test("inventory processing removes the exact brush warehouse and non-positive costs", () => {
+test("inventory processing keeps explicit zero costs and removes invalid costs", () => {
   const workbook = createXlsxWorkbookBytes([{
     name: "sheetTitle",
     rows: [
@@ -57,18 +57,37 @@ test("inventory processing removes the exact brush warehouse and non-positive co
 
   const prepared = prepareJackyunWorkbook("inventory", workbook, { minimumRows: 1, snapshotDate: "2026-07-15" });
   assert.equal(prepared.validation.sourceRowCount, 5);
-  assert.equal(prepared.validation.importRowCount, 2);
+  assert.equal(prepared.validation.importRowCount, 3);
   assert.equal(prepared.preprocessing.excludedBrushWarehouseRows, 1);
-  assert.equal(prepared.preprocessing.excludedZeroCostRows, 2);
+  assert.equal(prepared.preprocessing.retainedZeroCostRows, 1);
+  assert.equal(prepared.preprocessing.excludedInvalidCostRows, 1);
+  assert.equal(prepared.preprocessing.excludedZeroCostRows, 0);
   assert.deepEqual(prepared.preprocessing.similarWarehouseNames, ["刷刷仓备用"]);
 
   const parsed = parseXlsxFirstSheet(prepared.importBytes);
-  assert.equal(parsed.rows.length, 3);
-  assert.deepEqual(parsed.rows.map((row) => row.cells[4]), ["仓库", "正常仓", "刷刷仓备用"]);
-  assert.deepEqual(parsed.rows.map((row) => row.cells[5]), ["固定成本价", 10, 12]);
+  assert.equal(parsed.rows.length, 4);
+  assert.deepEqual(parsed.rows.map((row) => row.cells[4]), ["仓库", "正常仓", "刷刷仓备用", "正常仓"]);
+  assert.deepEqual(parsed.rows.map((row) => row.cells[5]), ["固定成本价", 10, 12, 0]);
   const inventoryRows = parseInventoryStockXlsx(prepared.importBytes).rows;
   assert.equal(inventoryRows.length, prepared.expectedBatchRowCount);
-  assert.ok(inventoryRows.every((row) => row.unitCostCents > 0));
+  assert.ok(inventoryRows.every((row) => row.unitCostCents >= 0));
+  assert.equal(inventoryRows.find((row) => row.productCode === "SKU-4")?.unitCostCents, 0);
+});
+
+test("inventory parser accepts explicit zero cost but rejects a missing cost value", () => {
+  const workbook = createXlsxWorkbookBytes([{
+    name: "库存",
+    rows: [
+      ["货品编号", "货品名称", "仓库", "固定成本价", "库存数量"],
+      ["ZERO", "零成本货品", "主仓", 0, 2],
+      ["MISSING", "缺成本货品", "主仓", "", 3],
+    ],
+  }]);
+
+  const parsed = parseInventoryStockXlsx(workbook);
+  assert.deepEqual(parsed.rows.map((row) => [row.productCode, row.unitCostCents]), [["ZERO", 0]]);
+  assert.equal(parsed.errors[0]?.field, "unitCost");
+  assert.match(parsed.errors[0]?.message ?? "", /明确填写 0/);
 });
 
 test("inventory processing removes negative on-hand or available quantity and implausible value rows", () => {
@@ -187,7 +206,7 @@ test("inventory age removes implausible supplier placeholder stock values", () =
   assert.equal(parseErpReferenceXlsx("inventory_age", prepared.importBytes).rows.length, 2);
 });
 
-test("inventory validation applies the minimum row gate after warehouse and cost filtering", () => {
+test("inventory validation applies the minimum row gate after warehouse filtering", () => {
   const workbook = createXlsxWorkbookBytes([{
     name: "sheetTitle",
     rows: [

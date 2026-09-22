@@ -357,7 +357,7 @@ def _project_items(principal, watched):
         def quantity(days):
             return int(sale[f"sales{days}dQuantity"]) if sale and cutoff and start and start <= cutoff - timedelta(days=days - 1) else None
         s7, s15, s30 = quantity(7), quantity(15), quantity(30)
-        cost = int(row.unit_cost_cents) if row and row.unit_cost_cents > 0 else None
+        cost = int(row.unit_cost_cents) if row else None
         plan = plans.get(code)
         has_cycle_override = watched_row.lead_days_override is not None and watched_row.buffer_days_override is not None
         supplier_lead_days = cycle.lead_days if cycle else None

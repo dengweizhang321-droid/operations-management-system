@@ -132,8 +132,8 @@ function buildInboundCte(input: {
         COALESCE(SUM(available_quantity), 0) AS available_quantity,
         COALESCE(SUM(in_transit_quantity), 0) AS in_transit_quantity,
         MAX(inventory_age_days) AS inventory_age_days,
-        COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END), 0) AS known_stock_value_cents,
-        COALESCE(SUM(CASE WHEN unit_cost_cents > 0 THEN MAX(available_quantity, 0) ELSE 0 END), 0) AS priced_quantity
+        COALESCE(SUM(CASE WHEN unit_cost_cents >= 0 THEN MAX(available_quantity, 0) * unit_cost_cents ELSE 0 END), 0) AS known_stock_value_cents,
+        COALESCE(SUM(CASE WHEN unit_cost_cents >= 0 THEN MAX(available_quantity, 0) ELSE 0 END), 0) AS priced_quantity
       FROM inventory_stock_lines
       WHERE batch_id = ? AND ${jdInboundWarehousePredicateSql("warehouse", "warehouse_type")} AND TRIM(warehouse) <> '刷刷仓'
       GROUP BY product_code, warehouse

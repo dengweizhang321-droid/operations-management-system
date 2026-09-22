@@ -73,7 +73,7 @@ function createFixture() {
       (1, '2026-08-24', '华东仓', 'owned', 'P1', '七天内', '', '类目甲', 2, 5, 1, 5, 100, 999999, 1, 'age-batch'),
       (2, '2026-08-24', '华东仓', 'owned', 'P2', '三十天内', '', '类目甲', 3, 20, 1, 5, 200, 999999, 2, 'age-batch'),
       (3, '2026-08-24', '华北仓', 'owned', 'P3', '一百天', '', '类目乙', 4, 100, 0, 0, 300, 999999, 3, 'age-batch'),
-      (4, '2026-08-24', '华北仓', 'owned', 'P4', '一年以上缺成本', '', '类目乙', 5, 400, 0, 0, 0, 999999, 4, 'age-batch'),
+      (4, '2026-08-24', '华北仓', 'owned', 'P4', '一年以上零成本', '', '类目乙', 5, 400, 0, 0, 0, 999999, 4, 'age-batch'),
       (5, '2026-08-24', '刷刷仓', 'other', 'X1', '排除货品', '', '排除类目', 99, 5, 0, 0, 100, 9900, 5, 'age-batch');
     INSERT INTO erp_product_master VALUES
       ('P1', '品牌甲'), ('P2', '品牌甲'), ('P3', '品牌乙'), ('P4', '品牌乙'), ('X1', '排除品牌');
@@ -145,7 +145,7 @@ test("品类筛选与库龄指标、分布和明细采用同一服务端口径",
   sqlite.close();
 });
 
-test("库龄金额不采用报表库存金额，固定成本缺失时保持未覆盖", async () => {
+test("库龄金额不采用报表库存金额，明确零成本按完整 0 元覆盖", async () => {
   const sqlite = createFixture();
   const result = await getInventoryAgeAnalysis(sqliteAdapter(sqlite) as never, {
     ageBuckets: ["361+"],
@@ -155,8 +155,8 @@ test("库龄金额不采用报表库存金额，固定成本缺失时保持未�
 
   assert.equal(result.pagination.total, 1);
   assert.equal(result.items[0]?.productCode, "P4");
-  assert.equal(result.items[0]?.stockValueCents, null);
-  assert.equal(result.metrics.stockValueComplete, false);
+  assert.equal(result.items[0]?.stockValueCents, 0);
+  assert.equal(result.metrics.stockValueComplete, true);
   assert.equal(result.fineDistribution.find((bucket) => bucket.key === "361+")?.valueCents, 0);
   sqlite.close();
 });

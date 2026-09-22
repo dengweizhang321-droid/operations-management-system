@@ -160,15 +160,15 @@ export async function importInventoryStockToDjango(
     return reject({ ok: false, status: "rejected", message: "文件校验未通过，未写入任何库存数据", warnings: [], errors: parseErrors, errorCount: parsed.errors.length || parseErrors.length });
   }
   let excludedBrushWarehouseRows = 0;
-  let excludedZeroCostRows = 0;
+  let retainedZeroCostRows = 0;
   const qualityRows: InventoryStockRow[] = [];
   const rows: InventoryStockRow[] = [];
   for (const row of parsed.rows) {
     if (row.warehouse.trim() === "刷刷仓") excludedBrushWarehouseRows += 1;
     else {
       qualityRows.push(row);
-      if (row.unitCostCents <= 0) excludedZeroCostRows += 1;
-      else rows.push(row);
+      if (row.unitCostCents === 0) retainedZeroCostRows += 1;
+      rows.push(row);
     }
   }
   const settings = await service.requestJson<{ allowNegativeInventory: boolean }>(
@@ -183,7 +183,7 @@ export async function importInventoryStockToDjango(
     return reject({ ok: false, status: "rejected", message: "库存数据质量门禁未通过，未写入任何库存数据", warnings: [], errors: qualityErrors.slice(0, 200), errorCount: qualityErrors.length });
   }
   if (rows.length === 0) {
-    return reject({ ok: false, status: "rejected", message: "剔除刷刷仓和成本价为 0 的明细后没有可导入的库存数据", warnings: excludedBrushWarehouseRows ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }] : [], errors: [{ code: "NO_DATA_ROWS_AFTER_FILTER", message: "没有符合经营分析口径的库存明细行" }], errorCount: 1 });
+    return reject({ ok: false, status: "rejected", message: "剔除刷刷仓后没有可导入的库存数据", warnings: excludedBrushWarehouseRows ? [{ code: "EXCLUDED_BRUSH_WAREHOUSE", message: `已识别刷刷仓 ${excludedBrushWarehouseRows} 行` }] : [], errors: [{ code: "NO_DATA_ROWS_AFTER_FILTER", message: "没有符合经营分析口径的库存明细行" }], errorCount: 1 });
   }
   const duplicateKeys = rows.map((row) => row.rowKey).filter((key, index, all) => all.indexOf(key) !== index);
   if (duplicateKeys.length > 0) {
@@ -206,7 +206,7 @@ export async function importInventoryStockToDjango(
   const missingSuppliers = rows.filter((row) => !row.supplier).length;
   const excludedByWarehouseMapping = rows.filter((row) => !row.includeInInventory).length;
   const warnings = [
-    ...(excludedZeroCostRows ? [{ code: "EXCLUDED_ZERO_UNIT_COST", message: `${excludedZeroCostRows} 行成本价为 0，已自动剔除` }] : []),
+    ...(retainedZeroCostRows ? [{ code: "RETAINED_ZERO_UNIT_COST", message: `${retainedZeroCostRows} 行明确零成本库存已保留，库存金额按 0 计并参与补货计算` }] : []),
     ...(missingNames ? [{ code: "MISSING_PRODUCT_NAME", message: `${missingNames} 行缺少货品名称，页面将使用销售明细中的名称补全` }] : []),
     ...(missingSuppliers ? [{ code: "MISSING_SPEC_SUPPLIER", message: `${missingSuppliers} 行缺少规格默认供应商，页面将回退 ERP 货品档案并标明来源` }] : []),
     ...(excludedByWarehouseMapping ? [{ code: "WAREHOUSE_NOT_COUNTED_IN_OVERVIEW", message: `${excludedByWarehouseMapping} 行按仓库类型映射保留为供应商/仓别明细，但不计入总览库存和备货计划` }] : []),
@@ -231,10 +231,10 @@ export async function importInventoryStockToDjango(
       file: { name: fileName, sizeBytes: input.fileSizeBytes, rawFileHash, sheetName: parsed.sheetName },
       snapshotDate,
       sourceRowCount: parsed.totals.sourceRowCount,
-      excludedCount: excludedBrushWarehouseRows + excludedZeroCostRows,
+      excludedCount: excludedBrushWarehouseRows,
       rows,
       warnings,
-      totals: { ...parsed.totals, ...summarize(rows, parsed.totals.sourceRowCount), coverage: parsed.coverage, excludedBrushWarehouseRows, excludedZeroCostRows },
+      totals: { ...parsed.totals, ...summarize(rows, parsed.totals.sourceRowCount), coverage: parsed.coverage, excludedBrushWarehouseRows, excludedZeroCostRows: 0, retainedZeroCostRows },
     },
   }, options);
   return result.data;

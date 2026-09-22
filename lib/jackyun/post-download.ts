@@ -35,6 +35,9 @@ export type JackyunValidationSummary = {
 export type JackyunPreprocessingSummary = {
   kind: "none" | "exact_warehouse_filter";
   excludedBrushWarehouseRows: number;
+  retainedZeroCostRows: number;
+  excludedInvalidCostRows: number;
+  /** @deprecated Kept for compatibility with historical audit readers. */
   excludedZeroCostRows: number;
   /** 单行库存货值超过门禁上限（¥10亿）的占位数据行，适用于 inventory 与 inventory_age。 */
   excludedImplausibleValueRows: number;
@@ -194,6 +197,8 @@ function noPreprocessing(rowCount: number): JackyunPreprocessingSummary {
   return {
     kind: "none",
     excludedBrushWarehouseRows: 0,
+    retainedZeroCostRows: 0,
+    excludedInvalidCostRows: 0,
     excludedZeroCostRows: 0,
     excludedImplausibleValueRows: 0,
     excludedNegativeQuantityRows: 0,
@@ -247,14 +252,15 @@ function prepareSingleSheet(
     ? header.indexes.get(normalizeHeader("可用库存"))
     : undefined;
   const excludedRows: XlsxRow[] = [];
-  const excludedZeroCostRows: XlsxRow[] = [];
+  const retainedZeroCostRows: XlsxRow[] = [];
+  const excludedInvalidCostRows: XlsxRow[] = [];
   const excludedImplausibleValueRows: XlsxRow[] = [];
   const excludedNegativeQuantityRows: XlsxRow[] = [];
   const retainedRows: XlsxRow[] = [];
   for (const row of sourceRows) {
     if (text(row.cells[warehouseColumn]) === "刷刷仓") excludedRows.push(row);
-    else if (module === "inventory" && costColumn !== undefined && positiveNumber(row.cells[costColumn]) === null) {
-      excludedZeroCostRows.push(row);
+    else if (module === "inventory" && costColumn !== undefined && nonNegativeNumber(row.cells[costColumn]) === null) {
+      excludedInvalidCostRows.push(row);
     }
     else if (module === "inventory" && quantityColumn !== undefined
       && hasNegativeInventoryQuantity(row.cells[quantityColumn], availableQuantityColumn === undefined ? undefined : row.cells[availableQuantityColumn])) {
@@ -267,7 +273,12 @@ function prepareSingleSheet(
       // 在预处理阶段剔除以保证其余真实数据可按快照日全量替换入库。
       excludedImplausibleValueRows.push(row);
     }
-    else retainedRows.push(row);
+    else {
+      if (module === "inventory" && costColumn !== undefined && nonNegativeNumber(row.cells[costColumn]) === 0) {
+        retainedZeroCostRows.push(row);
+      }
+      retainedRows.push(row);
+    }
   }
   assertRequiredValues(retainedRows, [
     { index: warehouseColumn, label: "仓库" },
@@ -282,7 +293,7 @@ function prepareSingleSheet(
     .filter((warehouse) => warehouse.includes("刷刷") && warehouse !== "刷刷仓"))]
     .sort((left, right) => left.localeCompare(right, "zh-CN"));
   const importFileName = module === "inventory"
-    ? "分仓库存查询_已剔除刷刷仓及零成本.xlsx"
+    ? "分仓库存查询_已剔除刷刷仓及无效成本.xlsx"
     : "库龄分析_已剔除刷刷仓及异常货值.xlsx";
   if (!options.snapshotDate || !/^\d{4}-\d{2}-\d{2}$/.test(options.snapshotDate)) {
     throw new JackyunValidationError(`${module} 必须提供快照日期以生成确定的本轮导入文件。`);
@@ -315,7 +326,9 @@ function prepareSingleSheet(
     preprocessing: {
       kind: "exact_warehouse_filter",
       excludedBrushWarehouseRows: excludedRows.length,
-      excludedZeroCostRows: excludedZeroCostRows.length,
+      retainedZeroCostRows: retainedZeroCostRows.length,
+      excludedInvalidCostRows: excludedInvalidCostRows.length,
+      excludedZeroCostRows: 0,
       excludedImplausibleValueRows: excludedImplausibleValueRows.length,
       excludedNegativeQuantityRows: excludedNegativeQuantityRows.length,
       retainedRows: retainedRows.length,
@@ -324,13 +337,18 @@ function prepareSingleSheet(
   };
 }
 
-function positiveNumber(value: XlsxCellValue | undefined) {
-  if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : null;
+function nonNegativeNumber(value: XlsxCellValue | undefined) {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
   if (typeof value !== "string") return null;
   const normalized = value.trim().replace(/,/g, "");
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function positiveNumber(value: XlsxCellValue | undefined) {
+  const parsed = nonNegativeNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
 }
 
 function parseNumberOrNull(value: XlsxCellValue | undefined) {

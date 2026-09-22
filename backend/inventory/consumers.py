@@ -132,9 +132,8 @@ def _stock_projection(request: dict[str, object]) -> dict[str, object]:
             item["brand"] = row.brand.strip()
         available = max(0, int(row.available_quantity))
         item["availableQuantity"] = int(item["availableQuantity"]) + available
-        if row.unit_cost_cents > 0:
-            item["knownStockValueCents"] = int(item["knownStockValueCents"]) + available * int(row.unit_cost_cents)
-            item["pricedAvailableQuantity"] = int(item["pricedAvailableQuantity"]) + available
+        item["knownStockValueCents"] = int(item["knownStockValueCents"]) + available * int(row.unit_cost_cents)
+        item["pricedAvailableQuantity"] = int(item["pricedAvailableQuantity"]) + available
     rows = [grouped[key] for key in sorted(grouped)]
     offset = int(request["offset"]); limit = int(request["limit"])
     return {"batchId": batch.id, "snapshotDate": batch.snapshot_date.isoformat(), "total": len(rows), "offset": offset, "rows": rows[offset : offset + limit], "truncated": offset + len(rows[offset : offset + limit]) < len(rows)}

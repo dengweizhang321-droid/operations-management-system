@@ -386,8 +386,8 @@ def _overview_items(principal: Principal, options: dict[str, object]) -> tuple[
         absolute_cost = int(sales.get("absoluteCostCents", 0)) if sales else 0
         fallback_cost = absolute_cost / absolute_quantity if absolute_quantity > 0 else 0
         available = int(row.available_quantity)
-        priced_quantity = max(available, 0) if row.unit_cost_cents > 0 else 0
-        imported_value = max(available, 0) * int(row.unit_cost_cents) if row.unit_cost_cents > 0 else 0
+        priced_quantity = max(available, 0)
+        imported_value = max(available, 0) * int(row.unit_cost_cents)
         missing_quantity = max(0, max(available, 0) - priced_quantity)
         fallback_quantity = missing_quantity if fallback_cost > 0 else 0
         covered = min(max(available, 0), priced_quantity + fallback_quantity)
@@ -877,7 +877,7 @@ def inventory_age_analysis(options: dict[str, object]) -> dict[str, object]:
         )
         available = int(raw.available_quantity)  # type: ignore[attr-defined]
         unit_cost = int(raw.unit_cost_cents)  # type: ignore[attr-defined]
-        stock_value = None if available > 0 and unit_cost <= 0 else max(available, 0) * unit_cost
+        stock_value = max(available, 0) * unit_cost
         age_days = raw.inventory_age_days  # type: ignore[attr-defined]
         sales_7d = raw.sales_7d_quantity  # type: ignore[attr-defined]
         sales_30d = raw.sales_30d_quantity  # type: ignore[attr-defined]
@@ -1024,7 +1024,7 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
         demand = sales.get((row.product_code, _warehouse_key(row.warehouse)))
         master = masters.get(row.product_code)
         available = int(row.available_quantity)
-        priced = max(available, 0) if row.unit_cost_cents > 0 else 0
+        priced = max(available, 0)
         known_value = priced * int(row.unit_cost_cents)
         sales_7 = int(demand["sales7dQuantity"]) if demand else None
         sales_30 = int(demand["sales30dQuantity"]) if demand else None
@@ -1038,7 +1038,7 @@ def inventory_inbound_monitor(principal: Principal, options: dict[str, object]) 
             "availableQuantity": available, "inTransitQuantity": int(row.in_transit_quantity), "inventoryAgeDays": row.inventory_age_days,
             "knownStockValueCents": known_value, "_pricedQuantity": priced,
             "costCoverageRate": priced / max(available, 0) if available > 0 else 1,
-            "unitCostCents": known_value / priced if priced > 0 else None,
+            "unitCostCents": int(row.unit_cost_cents),
             "outbound7dQuantity": sales_7, "outbound30dQuantity": sales_30, "outbound90dQuantity": sales_90,
             "turnoverDays": max(0, available) / (sales_30 / 30) if sales_30 is not None and sales_30 > 0 else None,
             "risk": risk,
