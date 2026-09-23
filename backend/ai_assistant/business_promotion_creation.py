@@ -122,14 +122,17 @@ def _revalidate_metadata(prepared, principal):
     return shape, capsule
 
 
-def create(body, principal):
+def create(body, principal, *, commit=None):
     """Create a queued immutable report, or fail atomically under old guards."""
     _require(not connection.in_atomic_block, "词货报告准备须在最外层事务之外", "invalid_request", 400)
     current_principal(principal, admin=True, write=True)
     body = _body(body, principal)
     old = _replay(body, principal)
     if old is not None:
-        return old
+        if commit is None:
+            return old
+        with mutation(principal):
+            return commit(old, 200)
     screening_creation._limits(principal)
     model = workflows.resolve_model()
     model_digest = screening_creation._model_digest(model)
@@ -182,4 +185,12 @@ def create(body, principal):
             current_principal(principal, admin=True, write=True)
             workflows.event(flow, principal, "created")
             result = {"item":{"id":row.id, "workflowId":flow.id}, "replayed":False}
-    return _replay(body, principal) if raced else result
+            if commit is not None:
+                return commit(result, 200)
+    if not raced:
+        return result
+    replayed = _replay(body, principal)
+    if commit is None:
+        return replayed
+    with mutation(principal):
+        return commit(replayed, 200)

@@ -1,5 +1,6 @@
 """Specialist DAGs sharing sealed evidence and existing durable dispatch fences."""
 import json
+from django.conf import settings
 from . import business_evidence, models as m, workflows
 from . import business_integrated as integrated
 from . import business_screening_runtime as screening_runtime, business_screening_runtime_contract as screening_contract
@@ -106,6 +107,15 @@ def graph(with_budget=False):
 
 
 def create(body, principal, *, commit=None):
+    if type(body) is dict and body.get("analysisMode") == "screening-promotion-v1":
+        if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is not True:
+            raise AiError("词货五角色分析尚未启用", "promotion_runtime_not_ready", 409)
+        if "dryRun" in body and boolean(body["dryRun"], "dryRun"):
+            raise AiError("词货五角色正式报告不支持空跑", "invalid_request", 400)
+        from .business_promotion_creation import create as create_promotion
+        request = {key:value for key,value in body.items()
+            if key not in {"analysisMode", "dryRun"}}
+        return create_promotion(request, principal, commit=commit)
     if "analysisMode" in body:
         from .business_screening_creation import create as create_screening
         return create_screening(body,principal,commit=commit)
