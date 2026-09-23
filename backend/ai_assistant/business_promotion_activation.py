@@ -18,10 +18,13 @@ future versioned activation rather than a general workflow resume endpoint.
 """
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.db import connection
+from django.utils import timezone
 
 from . import business_promotion_readiness as readiness
-from .policy import AiError, digest, mutation
+from . import models as m, workflows
+from .policy import AiError, current_principal, digest, mutation
 
 SCHEMA = "business-promotion-activation-candidate-v1"
 _TOKEN = object()
@@ -63,17 +66,53 @@ def inspect(prepared, principal):
     if not (plan["capacityVerified"] is True and plan["casApplied"] is False
             and plan["pipelineRegistered"] is False):
         raise AiError("词货启用前置状态不符合停靠协议", "conflict", 409)
+    enabled = getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is True
     return {"schemaVersion": SCHEMA, "runId": plan["runId"],
         "reportId": plan["reportId"], "expectedVersion": plan["expectedVersion"],
         "screeningReferenceDigest": digest(plan["screeningReference"]),
         "mandatoryCapacityVerified": True, "runtimeAdmissionGranted": False,
         "initialProviderCallAllowed": False, "casApplied": False,
-        "missingHooks": list(REQUIRED_HOOKS),
-        "activationSupported": False}
+        "missingHooks": [] if enabled else list(REQUIRED_HOOKS),
+        "activationSupported": enabled}
 
 
 def activate(prepared, principal):
-    """No caller can turn the candidate into a queued run in this version."""
+    """Internal opt-in CAS: resume and first three specialists atomically.
+
+    No public route calls this. The process flag defaults closed; the same
+    flag gates every subsequent Agent provider/tool reservation.
+    """
     inspect(prepared, principal)
-    raise AiError("词货恢复缺少正式调度路由及逐步派发账本门禁",
-        "promotion_activation_incomplete", 409)
+    if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is not True:
+        raise AiError("词货五角色真实派发尚未启用",
+            "promotion_activation_incomplete", 409)
+    from . import business_parallel, business_promotion_pipeline
+    with mutation(principal):
+        current_principal(principal, admin=True, write=True)
+        plan = readiness.check_resume_candidate(prepared._resume, principal)
+        row = m.AiWorkflowRuns.objects.filter(pk=plan["runId"],
+            version=plan["expectedVersion"], status="paused", retryable=0,
+            error_code=readiness.PARKED_CODE, cancel_requested=0).first()
+        if row is None or m.AiAgentJobs.objects.filter(workflow_run_id=row.id).exists():
+            raise AiError("词货停靠版本或实际子任务在启用前变化", "conflict", 409)
+        prior = row.status
+        row.status = "queued"
+        row.error_code = ""
+        row.error_message = ""
+        row.next_run_at = timezone.now()
+        row.updated_at = row.next_run_at
+        row.version += 1
+        row.save()
+        workflows.event(row, principal, "promotion_activated", prior)
+        nodes = list(m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by("position")[:7])
+        result = business_parallel.workflow_step(row, principal, nodes)
+        if (result.get("status") != "running"
+                or m.AiAgentJobs.objects.filter(workflow_run_id=row.id).count() != 3):
+            raise AiError("词货启用未在同一事务中建立三个独立专业任务", "conflict", 409)
+        # Verify the new children before committing; a token cannot be reused
+        # after the paused version has changed.
+        business_promotion_pipeline._check_children(row,
+            list(m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by("position")[:7]))
+        return {"status": "running", "runId": row.id,
+            "specialistsStarted": 3, "runtimeAdmissionGranted": True,
+            "modelDispatched": False}

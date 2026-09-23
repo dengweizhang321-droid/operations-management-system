@@ -940,6 +940,20 @@ def workflow_tick():
     if not error and business_promotion_readiness.report_for(candidate) is not None:
         if business_promotion_postreview.is_approved_candidate(candidate):
             return business_promotion_postreview.advance(candidate, principal)
+        if m.AiAgentJobs.objects.filter(workflow_run_id=candidate.id).exists():
+            if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is not True:
+                return {"status": "promotion_runtime_disabled", "runId": candidate.id}
+            from . import business_promotion_runtime_permission, business_promotion_pipeline
+            from . import business_parallel
+            report = business_promotion_readiness.report_for(candidate)
+            prepared = business_promotion_runtime_permission.prepare(report.id, principal, "commerce")
+            with mutation(principal):
+                row = eligible.filter(pk=candidate.pk, version=candidate.version).first()
+                if row is None:
+                    return {"status": "idle"}
+                business_promotion_runtime_permission.check(prepared, principal)
+                nodes = business_promotion_pipeline.checked_nodes(row, prepared, principal)
+                return business_parallel.workflow_step(row, principal, nodes)
         # This new profile may publish its fixed rule scan, then parks before
         # Agent creation until the independent four-tool admission is complete.
         return business_promotion_readiness.advance(candidate, principal)
