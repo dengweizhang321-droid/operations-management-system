@@ -425,19 +425,16 @@ export function assertJdMarketNativeDownloadRequest(
 export function jdMarketDropdownClickMode(input: { hitInsideControl: boolean; hitTagNames: string[]; hitClassNames?: string[] }) {
   const hitIsJdMenuList = input.hitTagNames.some((tagName, index) => tagName.toUpperCase() === "UL"
     && String(input.hitClassNames?.[index] ?? "").split(/\s+/).includes("menu-list"));
-  return !input.hitInsideControl && (input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName)) || hitIsJdMenuList)
+  const hitIsJdAiHelper = input.hitTagNames.some((tagName) => /^AIHELPER-/i.test(tagName))
+    || input.hitClassNames?.some((className) => String(className).split(/\s+/)
+      .some((token) => /^AiHelperOpenExtension(?:-|$)/i.test(token)));
+  return !input.hitInsideControl && (hitIsJdAiHelper || hitIsJdMenuList)
     ? "native_dispatch" as const
     : "pointer" as const;
 }
 
-async function clickDropdownControl(control: Locator) {
-  const count = await control.count();
-  const className = count === 1 ? String(await control.getAttribute("class") ?? "") : "";
-  const eventName = count === 1 ? String(await control.getAttribute("data-event-name") ?? "") : "";
-  if (count !== 1 || !className.split(/\s+/).includes("jmt-selector") || eventName !== "open") {
-    throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
-  }
-  const hitTest = await control.evaluate((element) => {
+async function readDropdownHitTest(locator: Locator) {
+  return locator.evaluate((element) => {
     const box = element.getBoundingClientRect();
     const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
     const hitTagNames: string[] = [];
@@ -450,6 +447,16 @@ async function clickDropdownControl(control: Locator) {
     }
     return { hitInsideControl: hit === element || Boolean(hit && element.contains(hit)), hitTagNames, hitClassNames };
   });
+}
+
+async function clickDropdownControl(control: Locator) {
+  const count = await control.count();
+  const className = count === 1 ? String(await control.getAttribute("class") ?? "") : "";
+  const eventName = count === 1 ? String(await control.getAttribute("data-event-name") ?? "") : "";
+  if (count !== 1 || !className.split(/\s+/).includes("jmt-selector") || eventName !== "open") {
+    throw new Error("京东商品榜单下拉控件真实触发层不唯一或契约已变化");
+  }
+  const hitTest = await readDropdownHitTest(control);
   if (jdMarketDropdownClickMode(hitTest) === "native_dispatch") {
     // 京东 AI 助手或京东自身的顶层 UL.menu-list 偶尔覆盖类目控件并吞掉
     // 坐标点击。控件已经通过唯一性、组件类型和 data-event-name 契约校验；
@@ -458,6 +465,23 @@ async function clickDropdownControl(control: Locator) {
     return;
   }
   await control.click({ timeout: 3_000, force: true });
+}
+
+async function clickUniqueCategoryOption(option: Locator, label: string) {
+  const className = String(await option.getAttribute("class") ?? "");
+  if (!className.split(/\s+/).includes("jmt-dropdown-option") || (await option.innerText()).trim() !== label) {
+    throw new Error("京东新版三级类目选项契约已变化");
+  }
+  if (jdMarketDropdownClickMode(await readDropdownHitTest(option)) === "native_dispatch") {
+    await option.dispatchEvent("click");
+    return;
+  }
+  try {
+    await option.click({ timeout: 5_000 });
+  } catch (error) {
+    if (jdMarketDropdownClickMode(await readDropdownHitTest(option)) !== "native_dispatch") throw error;
+    await option.dispatchEvent("click");
+  }
 }
 
 async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control: Locator, categoryPath: [string, string]) {
@@ -474,7 +498,7 @@ async function selectUniqueCategoryPath(surface: Locator, frame: Frame, control:
   await child.waitFor({ state: "visible", timeout: 5_000 });
   if (await child.count() !== 1) throw new Error("京东新版三级类目不唯一");
   await child.scrollIntoViewIfNeeded();
-  await child.click({ timeout: 5_000 });
+  await clickUniqueCategoryOption(child, categoryPath[1]);
 }
 
 async function waitForSelectorText(control: Locator, frame: Frame, expected: string, exact: boolean) {
