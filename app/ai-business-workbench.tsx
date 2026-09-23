@@ -344,6 +344,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       <label>分析问题<textarea aria-label="分析问题" required maxLength={1000} value={form.question} onChange={event => edit({ ...form, question: event.target.value })} placeholder="例如：推广费用上升但销售未增长，哪些商品和关键词需要调整？" /></label>
       <div className="bw-grid"><TextInput label="开始日期" value={form.startDate} onChange={startDate => edit({ ...form, startDate })} type="date" /><TextInput label="结束日期" value={form.endDate} onChange={endDate => edit({ ...form, endDate })} type="date" /></div>
       <div className="bw-checks">{["current", "previous", "yearAgo"].map(window => <label key={window}><input type="checkbox" checked={form.windows.includes(window)} disabled={window === "current"} onChange={event => edit({ ...form, windows: event.target.checked ? [...form.windows, window] : form.windows.filter(w => w !== window) })} />{names[window]}</label>)}</div>
+      <p>当前经营分析的环比使用本期之前的等长日期段；销售概览的同月自定义区间使用上月同期。请核对预览中的具体日期后再创建任务。</p>
       <button type="button" disabled={!principalKey} onClick={() => setScopeOpen(value => !value)}>{scopeOpen ? "收起网店来源选择" : "从历史导入选择网店来源"}</button>
       {scopeOpen && principalKey && <><p>只添加你选择的店铺和数据集。日期、ERP 渠道及市场条件仍需自行确认；历史导入不表示所选期间完整。</p><AiBusinessScopePicker key={principalKey} principalKey={principalKey} disabled={locked} onSelect={addScope} onIdentityMismatch={() => void loadList(true)} /></>}
       {scopeError && <p role="alert" className="bw-error">{scopeError}</p>}
