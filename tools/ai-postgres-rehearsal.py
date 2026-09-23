@@ -23,15 +23,16 @@ parser.add_argument("--business-evidence-upgrade", action="store_true")
 parser.add_argument("--market-options-upgrade", action="store_true")
 parser.add_argument("--sales-options-upgrade", action="store_true")
 parser.add_argument("--business-file-opc-upgrade", action="store_true")
+parser.add_argument("--business-promotion-profile-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
 if arguments.upgrade_only and (arguments.tests_only or arguments.test_label or arguments.all_backend_tests
-        or not any((arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade))):
+        or not any((arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade))):
     parser.error("--upgrade-only requires one full upgrade rehearsal and cannot include test-selection options")
-if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade or arguments.market_options_upgrade or arguments.sales_options_upgrade or arguments.business_file_opc_upgrade):
+if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade or arguments.market_options_upgrade or arguments.sales_options_upgrade or arguments.business_file_opc_upgrade or arguments.business_promotion_profile_upgrade):
     parser.error("Explicit test labels require --tests-only and cannot narrow upgrade verification")
-if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade]) > 1:
+if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade]) > 1:
     parser.error("Choose only one fresh database upgrade rehearsal")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 PORT = arguments.port
@@ -168,6 +169,10 @@ try:
     if arguments.business_file_opc_upgrade:
         upgrade = run([sys.executable, ROOT / "tools/business-file-opc-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
         (RUN / "business-file-opc-upgrade.json").write_text(upgrade, encoding="utf-8")
+        print(upgrade.strip(), flush=True)
+    if arguments.business_promotion_profile_upgrade:
+        upgrade = run([sys.executable, ROOT / "tools/business-promotion-profile-upgrade-rehearsal.py", "--run-root", RUN], env=django_env)
+        (RUN / "business-promotion-profile-upgrade.json").write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
     if arguments.upgrade_only:
         print(json.dumps({"status":"passed", "mode":"upgrade-only", "testSuitesRun":False,

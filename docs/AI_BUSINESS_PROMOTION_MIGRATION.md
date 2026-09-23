@@ -1,12 +1,14 @@
 # 词货多 Agent 报告的数据库迁移边界
 
-2026-09-24，整合分支只读核验结论。当前没有可安全安装的 `ai_assistant.0026`。`business_promotion_runtime.prepare_candidate` 只读取旧报告及已发布筛查结果，返回 `registered=false`、`readiness=requires_new_persistent_profile` 的候选；它没有创建新报告、工作流或 Agent 任务。`business_promotion_runtime_contract.freeze_snapshot` 的 `business-promotion-runtime-snapshot-candidate-v1` 也只是候选选择合同，不能直接作为 `AiReportRun.snapshot_json` 插入。旧 `business_screening_creation.create` 仅创建 `business-agent-screening-reference-v1`。
+2026-09-24，整合分支候选。前期只读审查时，新 profile 尚无持久形状；随后 `business_promotion_creation_contract.prepare_candidate` 已从真实封存根冻结 `snapshot`、`workflowInput`、五角色图与工具目录顺序，并通过隔离 PostgreSQL 形状测试。基于这份形状新增候选 `ai_assistant.0026_business_promotion_profile`，只覆盖报告、工作流和筛查发布约束。迁移已有 4 项隔离 PostgreSQL 测试通过，独立升级/备份恢复仍待验收；未正式采用。
+
+旧 `business_promotion_runtime.prepare_candidate` 仍只返回 `registered=false`、`readiness=requires_new_persistent_profile` 的旧报告派生候选，不具备写入或派发权限；它不能代替新的报告创建入口。
 
 ## 先冻结可持久的完整写入协议
 
 新创建入口须在同一原子事务内写入新的报告、工作流、预分配的 `screeningIntent`、固定的 `promotionSelector` 和现有预算/商品映射引用。创建前从真实已封存来源目录选定一个京东推广当前期 sourceKey、可选同店铺、同原日期范围的 `previous` 或 `yearAgo` baselineKey；拒绝猜测基期。持久报告应拥有自己的新 `executionProfile`，且明确列出 schemaVersion、全部允许字段、不可变 selector 的精确形状、两个固定视图、算法版本和 contextDigest。工作流 input 应精确说明如何复制或引用上述选择，必须绑定 reportId、证据 seal、筛查意图以及同一 owner/scope。新 profile 的允许工具目录、固定图和模型入场协议须与持久内容一致。
 
-该完整结构及一次实际 ORM 创建路径、错身份/来源/基期的负例定下来以后，才能写数据库触发器。当前仅靠纯候选 JSON 或后端 if 分支放行新 profile，会让数据库接受一个无法独立核对的报告或孤儿工作流。
+当前已冻结的持久字段由 `business_promotion_creation_contract` 给出。迁移从 `0024` 及其 `0023` 前驱精确派生旧函数，仅在独立新 profile 分支核对：报告封存 v2、`screeningIntent`、真实目录行重建的双 catalogDigest、当前京东推广来源/可选同店同期间基期、两视图、词货算法与 contextDigest，及与 workflow input 的 promotionRef 精确一致。新 workflow 保留既有“先工作流、后报告”的同事务顺序，由原 DEFERRABLE 提交时拒绝孤儿。
 
 ## 0026 报告与筛查 guard 的最小实现
 
@@ -47,3 +49,19 @@
 这仍只是写入协议的候选形状。当前 PostgreSQL `0024/0025` 保护不会接受上述新 profile，Python 创建/派发/读取回执也未注册。接下来的 `0026` 应只接受这份精确 shape，并在实际事务中重新绑定用户、来源目录、图和工具策略；任何候选摘要或 `registered=false` 对象都不能直接充当授权。真实隔离 PostgreSQL shape/负向测试由整合主线程运行，之后才能决定迁移实现。
 
 上述候选结构的 `PromotionCreationPgTests` 3项隔离 PostgreSQL 测试通过（10.727秒），日志 `.runtime/ai-pg-ed15939d72c8/tests.log`。验证真实封存来源、无预算/有预算与显式商品关联、角色和工具目录绑定、零持久写、错身份/基期/目录变化/伪造候选拒绝。仍未发布 `0026`，也未创建新 profile 报告或调用模型。
+
+## 2026-09-24 内部原子创建路径候选（待 0026 后真实 PostgreSQL 验收）
+
+新增未注册的 `business_promotion_creation.create`。调用方只提交新请求 ID、已封存 v2 证据 ID、问题与明确推广来源及可选基期、商品关联、预算；报告 ID 和筛查意图 ID 由服务生成。事务外重验真实证据、当前管理员、模型与四工具目录并构造上述持久 shape；事务内持有现有 AI mutation 版本锁，复核身份、模型摘要、来源目录、筛查准备与容量，然后同一事务写入可选预算、工作流、六节点、报告与创建事件。沿用旧筛查创建的预算胶囊、额度与元数据复验，预算事实扫描和中央目录网络读取留在事务外。失败由数据库事务整体回滚，重复请求须核对既有报告的来源、固定图、节点、预算和工具目录后才返回原 ID；不会重放模型调用。
+
+此模块没有公共路由、调度注册或新的数据库放行逻辑。当前 `0025` 的报告触发器仍会拒绝新 profile，任何尝试中的预算、工作流、节点和事件随事务回滚；不能据 Python 候选路径称新报告可创建。测试标签 `ai_assistant.test_business_promotion_creation` 的真实数据库成功/回滚用例须在 0026 安装到隔离 PostgreSQL 后运行；当前仅可执行静态及纯输入检查。SQLite 不能等同检验本系统 PostgreSQL 权限与触发器，不能用 SQLite 结果代替该验收。
+
+## 2026-09-24 0026 隔离 PostgreSQL 触发器验收
+
+`0026_business_promotion_profile` 从 0024 冻结的报告/工作流/筛查 SQL 精确派生，新增独立新 profile 报告触发器。对最多 48 个真实来源行重建规范目录：`catalogDigest` 核验目录 schema 包装后的 SHA，`promotionCatalogDigest` 核验条目数组 SHA；从所选京东推广当前期和可选同店同期间基期重算 `contextDigest`。新报告还必须匹配精确四工具顺序、当前固定五角色图摘要、非 dry run 工作流、筛查意图和 promotionRef。旧 profile 分支与 0025 的文件 1–6 守卫不变；本迁移不允许 renderer 7，也不注册模型或 Agent 派发。
+
+保留了三轮失败日志：首次 `.runtime/ai-pg-a1ac4eca1fd4/failure.log` 为 PL/pgSQL 内层 `CASE WHEN ... THEN` 被 IF 表达式解析为条件终点，改为互斥的预算/无预算图 SHA 条件；第二次 `.runtime/ai-pg-09c0d25255f0/failure.log` 为 JSON 提取与文本拼接优先级及逆迁移前驱函数已有 `CREATE OR REPLACE`，分别加括号、按已冻结前缀恢复；第三次 `.runtime/ai-pg-f99cf757099c/failure.log` 为原工作流 `dry_run` 是 bigint，改用精确整数零核验。没有放宽来源、图、工具或旧版本检查。
+
+修复后 `ai_assistant.test_business_promotion_profile_migration.PromotionProfileMigrationTests` 隔离 PostgreSQL 4 项通过，日志 `.runtime/ai-pg-69a46af29b48/tests.log`。覆盖真实封存新报告、预算与商品映射组合、错误身份/来源/selector/图/工具/上下文原子拒绝、工作流孤儿、空逆迁移恢复旧函数、新报告行拒绝逆迁移及旧文件函数体未变。此结果只证明候选迁移和合成范围，不代表新 Agent 运行、renderer 7 或正式报告已验收。
+
+同一候选另完成从 0025 到 0026 的独立升级/恢复演练，证据 `.runtime/ai-pg-216c0adcdbf4/business-promotion-profile-upgrade.json`。升级前 65 张 AI 表摘要保留，旧 renderer 1–6 合成文件的 manifest、分块和完整字节逐项不变，五个文件 guard 函数体与 reader/writer 表权限不变；0025 旧备份和 0026 新备份分别恢复到独立数据库。恢复后的新 profile 报告及 owning 来源页与源库一致。空逆迁移、再升级通过；存在新报告时逆迁移正确拒绝。演练没有模型调用或 renderer 7 文件，且只使用隔离合成数据。
