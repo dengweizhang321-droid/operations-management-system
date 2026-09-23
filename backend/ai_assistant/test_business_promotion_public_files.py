@@ -14,7 +14,7 @@ from . import business_promotion_volume_stage as stage
 from . import business_volume_files, models as m
 from . import test_business_promotion_file_ready as fixtures
 from .test_business_screening_http import process_role
-from .policy import AiError
+from .policy import AiError, mutation, uid
 
 
 @djtest.override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
@@ -122,6 +122,36 @@ class PromotionPublicFileTests(djtest.TransactionTestCase):
             changed = self._signed("GET", chunk_url,
                 request_id="promotion-file-public-fence-changed")
         self.assertEqual(changed.status_code, 409, changed.content)
+
+        class UndoProbe(Exception):
+            pass
+
+        def rejects_changed_graph(change):
+            with self.assertRaises(UndoProbe):
+                with mutation(self.admin):
+                    change()
+                    with self.assertRaises(AiError) as denied:
+                        business_volume_files.chunk(run_id, str(first["volumeIndex"]),
+                            first["format"], {"sequence": "1"}, self.admin)
+                    self.assertEqual(denied.exception.status, 409)
+                    raise UndoProbe()
+
+        rejects_changed_graph(lambda: m.AiWorkflowNodeRuns.objects.create(
+            id=uid("unexpected-file-node"), run_id=report.workflow_id,
+            node_key="unexpected", position=6, node_type="agent",
+            instruction="unexpected", depends_on_json="[]"))
+        rejects_changed_graph(lambda: m.AiWorkflowNodeRuns.objects.filter(
+            run_id=report.workflow_id, node_key="commerce").update(
+            instruction="changed after publication"))
+        rejects_changed_graph(lambda: m.AiAgentJobs.objects.create(
+            id=uid("unexpected-file-job"), owner_email=report.owner_email,
+            scope_json=report.scope_json, client_request_id=uid("unexpected-client"),
+            request_digest="0"*64, task="unexpected", workflow_run_id=report.workflow_id,
+            workflow_node_key="unexpected"))
+        self.assertEqual(business_volume_files.chunk(run_id,
+            str(first["volumeIndex"]), first["format"], {"sequence": "1"},
+            self.admin)["fileSha256"], first["sha256"])
+
         AppUser.objects.filter(email=self.admin.email).update(status="disabled")
         revoked = self._signed("GET", chunk_url,
             request_id="promotion-file-public-owner-revoked")

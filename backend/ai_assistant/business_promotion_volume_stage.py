@@ -235,24 +235,46 @@ def build(row, principal, state):
 def _publication_fence(report_id, principal, *, write=True):
     """Short database-only fence around the previously completed heavy proof."""
     from . import business_promotion_review as review
+    from . import business_promotion_runtime_contract as promotion_profile
     current_principal(principal, admin=True, write=write)
     report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
     flow = report.workflow
     roles = content_contract.ROLES
-    nodes = list(m.AiWorkflowNodeRuns.objects.filter(run=flow,
-        node_key__in=(*roles, "human_review")).order_by("position").values(
-        "id", "node_key", "version", "status", "output_json", "agent_job_id",
-        "reviewer_email", "reviewed_at", "completed_at"))
-    jobs = list(m.AiAgentJobs.objects.filter(workflow_run_id=flow.id,
-        workflow_node_key__in=roles).order_by("workflow_node_key").values(
-        "id", "workflow_node_key", "version", "status", "output_json",
-        "provider_round_count", "tool_call_count", "cancel_requested"))
+    nodes = list(m.AiWorkflowNodeRuns.objects.filter(run=flow).order_by(
+        "position", "id").values("id", "position", "node_key", "node_type",
+        "instruction", "depends_on_json", "input_json", "version", "status",
+        "output_json", "agent_job_id", "reviewer_email", "reviewed_at",
+        "completed_at")[:7])
+    jobs = list(m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).order_by(
+        "workflow_node_key", "id").values("id", "workflow_node_key",
+        "owner_email", "scope_json", "input_json", "version", "status",
+        "output_json", "provider_round_count", "tool_call_count",
+        "cancel_requested")[:6])
     events = list(m.AiWorkflowEvents.objects.filter(run=flow,
         node_key="human_review", event_type="review_approved").order_by("id").values(
         "id", "actor_email", "owner_email", "run_version", "from_status",
-        "to_status", "created_at"))
+        "to_status", "created_at")[:2])
     if len(nodes) != 6 or len(jobs) != 5 or len(events) != 1:
         _conflict("正式文件人审或五角色持久身份不完整")
+    graph = promotion_profile.graph(bool(report.budget_plan_id))["nodes"]
+    if (any((node["position"], node["node_key"], node["node_type"],
+            node["instruction"], node["depends_on_json"])
+            != (index, spec["key"], spec["type"], spec["instruction"],
+                canonical(spec["dependsOn"]))
+            for index, (node, spec) in enumerate(zip(nodes, graph)))
+            or len(graph) != len(nodes)
+            or {job["workflow_node_key"] for job in jobs} != set(roles)):
+        _conflict("正式文件六节点图或五角色任务集合已变化")
+    by_role = {job["workflow_node_key"]: job for job in jobs}
+    if (nodes[-1]["agent_job_id"] is not None
+            or any(node["agent_job_id"] != by_role[role]["id"]
+                or node["status"] != "completed" or job["status"] != "completed"
+                or node["output_json"] != job["output_json"]
+                or job["owner_email"] != report.owner_email
+                or job["scope_json"] != report.scope_json
+                for role, node in zip(roles, nodes[:5])
+                for job in (by_role[role],))):
+        _conflict("正式文件五角色实际任务与固定节点不一致")
     actual_ledger_digest = review._ledger([job["id"] for job in jobs])
     for item in (*nodes, *events):
         for key, value in item.items():
