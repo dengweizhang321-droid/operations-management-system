@@ -2,7 +2,7 @@
 
 2026-09-24。`ai_assistant.0031_business_daily_v3_source_pages` 在0030财务来源门禁之后，允许现有 v3 任务的 sales/netshop/market 日来源按不可变页→来源检查点→父版本及字节计数逐页推进。父仍固定 `collecting/manual`、`state_json={}`，日来源或财务来源单独完成都不使父封存，五 Agent、报告及文件仍关闭。没有新增表、列、角色或授权；0030财务分支及v1/v2来源物理规则保留。
 
-SQL只允许属于本来源且序号连续的 `business-analysis-v1` 只读页，每块至多131,072 UTF-8字节，来源页计数与检查点一增、来源版本与父版本CAS一增；延迟约束核对目录完整、全部来源块数/字节/连续序号、全局不超过1,999数据页及64 MiB扣除38,000字节终结清单预留。日来源检查点继续使用现有 `PageReconciler` 的 `pageCount/verifier/metadata`；SQL检查基本字段、来源身份、计数和末块，完整控制汇总与行语义由独立Reader复验。源改变时不能把新旧页混在同一检查点。0031只装物理守卫，**不注册签名日来源 advance 或过期游标续读**；不接受调用方上传页作为可信经营证据。
+SQL只允许属于本来源且序号连续的 `business-analysis-v1` 只读页，每块至多131,072 UTF-8字节，来源页计数与检查点一增、来源版本与父版本CAS一增；延迟约束核对目录完整、全部来源块数/字节/连续序号、全局不超过1,999数据页及64 MiB扣除38,000字节终结清单预留。日来源检查点继续使用现有 `PageReconciler` 的 `pageCount/verifier/metadata`；SQL检查基本字段、来源身份、计数和末块，完整控制汇总与行语义由独立Reader复验。源改变时不能把新旧页混在同一检查点。0031当时只装物理守卫，**尚未注册签名日来源 advance 或过期游标续读**；随后内部单页采集候选见 `AI_BUSINESS_V3_DAILY_SIGNED_COLLECTION.md`。两片均不接受调用方上传页作为可信经营证据。
 
 `business_v3_catalog.load` 在有已推进来源时从真实父计划及不超过48条目录行重建 v3 header、规范查询、摘要与顺序，核对总页/总字节及每个来源物理块数量，回读期间复验当前无范围管理员与父/来源版本。`business_daily_collection_v3.inspect` 只读实际不可变块，复用原 `business_sealed.Reader` 日来源身份规则及纯 `PageReconciler`，逐页核对真实来源/版本/查询、页 SHA、递增 rowId、控制总量、结束游标与保存的检查点原文；输出仍固定 `persistentEvidenceVerified=false`。该值只表示父混合任务尚未封存及没有正式来源调用授权；物理块自洽不能替代拥有方签名来源。
 
