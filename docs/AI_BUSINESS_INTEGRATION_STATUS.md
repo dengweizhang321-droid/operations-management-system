@@ -45,6 +45,8 @@
 
 推广新profile现已接入共享工作流调度的精确分支：只完成有租约的规则筛查和持久页链复验，随后停在 `promotion_admission_not_registered`，不创建Agent或调用模型。完整调度路径1项隔离PG通过，见 `.runtime/ai-pg-41fd23b2a223/tests.log`；四工具准入候选及旧筛查回归41项见 `.runtime/ai-pg-ff6a55233218/tests.log`。这一停靠状态需要后续独立准入与恢复路径，不能当作五Agent已运行。
 
+后续候选已补四工具的实际读取适配、单Agent持久回执、词货数值逐行重算、五角色答复结构校验、运行中最终回答校验与必读内容容量测算。它们保持未注册；容量测算不预留可选词货调用，最终回答 token 不证明模型来源或完成态报告。对应独立PG：前三工具/词货回执/数值引用11项 `.runtime/ai-pg-cc1d2a68f1ea/tests.log`，单Agent完整阅读4项 `.runtime/ai-pg-7bd455d2d0cf/tests.log`，诊断 `.runtime/ai-pg-d18c24435acc/tests.log`，执行4项 `.runtime/ai-pg-99e35d335700/tests.log`，必读容量4项 `.runtime/ai-pg-93245b143cbc/tests.log`。数据草稿两张全量词货表已用既有writer生成同源HTML/XLSX，5项PG见 `.runtime/ai-pg-d3bd7ced3b6b/tests.log`；仍不是含五Agent判断的正式文件。0027仅允许renderer 7暂存并拒绝ready，独立升级恢复证明旧1—6字节与权限不变，见 `.runtime/ai-pg-debffe9408d2/business-promotion-file-guard-upgrade.json`。正式Agent派发、完成态内容/人审和renderer 7发布依旧待开发。
+
 下列日志位于本隔离工作树 `.runtime`，是在当前主线整合过程中取得的结果。它们不覆盖此后尚未完成的新协议接线，也不代表正式业务数据验收。
 
 | 项目 | 已核验结果 | 本轮证据 |
