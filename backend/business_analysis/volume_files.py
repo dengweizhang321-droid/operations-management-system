@@ -265,7 +265,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             tables=fragments, checkpoint=progress if checkpoint else None,
             offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
             html_layout_version=2 if renderer_version >= 4 else 1,
-            xlsx_opc_version=2 if renderer_version == 6 else 1)
+            xlsx_opc_version=2 if renderer_version in (6, 7) else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
         table_proofs = []
@@ -314,4 +314,9 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         manifest.update({key:metadata[key] for key in mapping_keys})
     from .volume_delivery import screening_fields
     manifest.update(screening_fields(metadata, report_id))
+    if renderer_version == 7:
+        proof = metadata.get("promotionFileProof")
+        if type(proof) is not dict:
+            raise AnalysisContractError("renderer 7 缺少固定词货文件证明")
+        manifest["promotionFileProof"] = proof
     return {**manifest, "manifestDigest": digest(manifest)}

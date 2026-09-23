@@ -28,7 +28,7 @@ FULL_FIELDS = {"schemaVersion", "status", "reportId", "evidenceDigest", "rendere
 
 
 def _renderer(value):
-    if type(value) is not int or value not in (4, 6):
+    if type(value) is not int or value not in (4, 6, 7):
         _fail("多卷持久渲染版本不受支持")
 
 
@@ -156,6 +156,69 @@ def _budget(value, report_id, plan_digest):
 
 
 SCREENING_KEYS = {"screeningRef", "screeningPackagePolicy", "screeningPackageDigests"}
+PROMOTION_KEY = "promotionFileProof"
+
+
+def promotion_proof(value, report_id):
+    """Bound shape only; the owning writer must compare actual content/materials."""
+    _fields(value, {"schemaVersion", "rendererVersion", "reportId", "executionProfile",
+        "contentDtoDigest", "contentBindingDigest", "contentDigest", "snapshotDigest",
+        "workflowInputDigest", "ledgerDigest", "humanReviewDigest", "screeningRootDigest",
+        "contextDigest", "promotionSelector", "algorithmVersion", "materialManifestDigest",
+        "materialReportBindingDigest", "tables", "rowCount", "ndjsonBytes",
+        "tableExpensesAreAdditive", "requiredLimitations", "authorityVerified", "registered",
+        "proofDigest"})
+    _equal(value["schemaVersion"], "business-promotion-file-proof-v1")
+    _equal(value["rendererVersion"], 7)
+    _equal(value["reportId"], report_id)
+    _equal(value["executionProfile"], "business-agent-screening-promotion-reference-v1")
+    _equal(value["algorithmVersion"], "promotion-keyword-promoted-sku-v1")
+    for key in ("contentDtoDigest", "contentBindingDigest", "contentDigest", "snapshotDigest",
+                "workflowInputDigest", "ledgerDigest", "humanReviewDigest", "screeningRootDigest",
+                "contextDigest", "materialManifestDigest", "materialReportBindingDigest", "proofDigest"):
+        _sha(value[key])
+    _equal(value["authorityVerified"], False)
+    _equal(value["registered"], False)
+    _equal(value["tableExpensesAreAdditive"], False)
+    selector = value["promotionSelector"]
+    _fields(selector, {"sourceKey", "views"}, {"baselineKey"})
+    _equal(selector["views"], ["keyword_sku", "keyword_sku_context"])
+    if type(selector["sourceKey"]) is not str or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", selector["sourceKey"]):
+        _fail("词货文件来源身份无效")
+    if "baselineKey" in selector and (type(selector["baselineKey"]) is not str
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", selector["baselineKey"])
+            or selector["baselineKey"] == selector["sourceKey"]):
+        _fail("词货文件基期身份无效")
+    if type(value["tables"]) is not list or len(value["tables"]) != 2:
+        _fail("词货双视图证明缺失")
+    rows = size = 0
+    for view, table in zip(("keyword_sku", "keyword_sku_context"), value["tables"]):
+        _fields(table, {"view", "tableBindingDigest", "rowCount", "pageCount", "ndjsonBytes",
+            "ndjsonSha256", "missingPromotedSkuGroups", "unqualifiedIdentityGroups", "spendTotals"})
+        _equal(table["view"], view)
+        _sha(table["tableBindingDigest"]); _sha(table["ndjsonSha256"])
+        rows += _integer(table["rowCount"], 0, 250_000)
+        size += _integer(table["ndjsonBytes"], 0, 64*1024*1024)
+        _integer(table["pageCount"], 1, 20_000)
+        _integer(table["missingPromotedSkuGroups"], 0, table["rowCount"])
+        _integer(table["unqualifiedIdentityGroups"], table["missingPromotedSkuGroups"], table["rowCount"])
+        _fields(table["spendTotals"], {"current", "baseline"})
+        for side in ("current", "baseline"):
+            _fields(table["spendTotals"][side], {"value", "presentGroups", "missingFactRows"})
+    _equal(value["rowCount"], rows)
+    _equal(value["ndjsonBytes"], size)
+    if rows > 250_000 or size > 64*1024*1024:
+        _fail("词货材料超过固定容量")
+    for side in ("current", "baseline"):
+        left, right = [table["spendTotals"][side] for table in value["tables"]]
+        _equal((left["value"], left["missingFactRows"]),
+               (right["value"], right["missingFactRows"]))
+    if (type(value["requiredLimitations"]) is not list
+            or len(value["requiredLimitations"]) < 4
+            or not any(type(item) is str and "不可相加" in item for item in value["requiredLimitations"])):
+        _fail("词货文件必要口径说明缺失")
+    _equal(value["proofDigest"], digest({key: child for key, child in value.items() if key != "proofDigest"}))
+    return value
 
 
 def screening_fields(value, report_id):
@@ -183,7 +246,10 @@ def screening_fields(value, report_id):
 def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    _fields(value, FULL_FIELDS, {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
+    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version == 7 else set()),
+            {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
+    if renderer_version == 7:
+        promotion_proof(value[PROMOTION_KEY], value["reportId"])
     screening_fields(value, value["reportId"])
     if mapping_keys & value.keys():
         if not mapping_keys <= value.keys():
