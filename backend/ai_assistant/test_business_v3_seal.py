@@ -17,6 +17,7 @@ from sales.tests.factories import signed_headers, TEST_SECRET
 from . import business_daily_collection_v3 as daily, business_evidence_v3 as plan
 from . import business_evidence as legacy, business_finance_collection_v3 as finance
 from . import business_v3_catalog as catalog
+from . import business_report_candidate_v3 as candidate
 from . import business_v3_seal as seal, models as m, transport
 from .policy import AiError, digest, uid
 
@@ -164,3 +165,49 @@ class BusinessV3SealTests(TestCase):
         assert_hidden()
         self.collect(); seal.finish(self.run_id, 3, self.principal)
         assert_hidden()
+
+    def test_internal_v3_report_candidate_is_read_only_and_monthly_context_only(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        request = {"schemaVersion": candidate.REQUEST_SCHEMA,
+            "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}
+        with patch.object(transport, "execute_tool") as remote:
+            result = candidate.prepare(request, self.principal)
+            remote.assert_not_called()
+        value = result["candidate"]
+        self.assertEqual(value["reference"]["sealedDigest"], request["expectedSealDigest"])
+        self.assertEqual(len(value["financeMonthlyContext"]), 1)
+        self.assertEqual(value["financeMonthlyContext"][0]["role"], "monthly_context")
+        self.assertEqual(len(value["dailyFacts"]), 1)
+        self.assertFalse(value["policy"]["financeSkuProfitAttributionAllowed"])
+        self.assertFalse(value["policy"]["sumOverlappingErpB2bAdsAllowed"])
+        self.assertFalse(value["modelDispatchSupported"])
+        self.assertFalse(m.AiReportRun.objects.exists())
+
+    def test_candidate_rejects_wrong_profile_stale_seal_illicit_calculation_and_actor(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        request = {"schemaVersion": candidate.REQUEST_SCHEMA,
+            "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}
+        for change in ({"executionProfile": "business-agent-reference-v2"},
+                       {"expectedEvidenceVersion": sealed["version"] - 1},
+                       {"expectedSealDigest": "0" * 64},
+                       {"financeSkuProfit": True},
+                       {"sumOverlappingErpB2bAds": True}):
+            with self.subTest(change=change), self.assertRaises(AiError):
+                candidate.prepare({**request, **change}, self.principal)
+        with transaction.atomic():
+            self.actor.status = "inactive"; self.actor.save(update_fields=["status"])
+            with self.assertRaises(AiError): candidate.prepare(request, self.principal)
+            transaction.set_rollback(True)
+        old = legacy.create({"schemaVersion": "business-evidence-v2", "clientRequestId": uid("v2"),
+            "sources": [{"key": "sales", "domain": "sales", "query": self.daily_query}],
+            "analysisRequest": {"schemaVersion": "business-analysis-request-v1",
+                "question": "旧证据", "requestedDimensions": ["shop"],
+                "requestedWindows": ["current"]}}, self.principal)
+        with self.assertRaises(AiError):
+            candidate.prepare({**request, "evidenceRunId": old["item"]["id"]}, self.principal)
