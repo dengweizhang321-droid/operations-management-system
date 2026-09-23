@@ -30,7 +30,7 @@ from ai_assistant import business_evidence, models as m
 from ai_assistant.control_models import AiWriteAuthority, AiMigrationRun, AiDataRevision
 from ai_assistant.database_contract import provision
 from ai_assistant.policy import canonical, mutation
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 from ai_assistant.test_business_promotion_profile_migration import PromotionProfileMigrationTests
 from business_analysis import report_files, volume_delivery, volume_files, volume_plan
 

@@ -22,7 +22,7 @@ from django.core.management import call_command
 from django.db import connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)

@@ -25,7 +25,7 @@ from django.utils import timezone
 
 from ai_assistant import business_daily_collection_v3 as daily_reader, business_finance_collection_v3 as finance_reader
 from ai_assistant import models as m
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 from business_analysis.contracts import PageReconciler, canonical, comparison_periods, digest as page_digest
 from sales.auth import Principal
 

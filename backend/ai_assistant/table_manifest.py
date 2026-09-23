@@ -1,6 +1,8 @@
 """Closed AI backup inventory; checked against the ORM in readiness and tests."""
 
-AI_TABLES = (
+# Frozen pre-0032 inventory. Historical migration evidence must stay at these
+# exact 65 tables even when later migrations add new AI storage.
+AI_TABLES_PRE_TOOL_RECEIPTS = (
     "ai_business_screening_runs",
     "ai_business_screening_pages",
     "ai_business_budget_plans",
@@ -68,3 +70,6 @@ AI_TABLES = (
     "ai_write_authority",
     "ai_write_request_receipts",
 )
+
+# New migrations extend only the current manifest, not historical inventories.
+AI_TABLES = (*AI_TABLES_PRE_TOOL_RECEIPTS, "ai_business_source_tool_receipts")

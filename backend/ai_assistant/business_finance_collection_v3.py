@@ -12,7 +12,8 @@ from django.utils import timezone
 from business_analysis import finance_collection_state as verifier
 from business_analysis.contracts import AnalysisContractError
 
-from . import business_evidence_v3 as plan, business_evidence_store as store, business_v3_catalog as catalog, models as m, transport
+from . import business_evidence_v3 as plan, business_evidence_store as store, business_v3_catalog as catalog
+from . import business_v3_tool_receipts as receipts, models as m, transport
 from .datasets import _result
 from .policy import AiError, authorize_owner, canonical, cas, digest, identifier, integer, mutation, uid
 
@@ -128,6 +129,7 @@ def advance_finance_source(run_id, source_key, expected_version, principal, requ
     encoded = canonical(page)
     size = len(encoded.encode("utf-8"))
     saved = canonical(next_state)
+    audit = receipts.audit_for_page(principal, request_id=request_id, tool_name=TOOL, encoded=encoded)
     with mutation(principal):
         if plan._actor(principal) != actor:
             raise AiError("财报采集期间账号权限变化", "access_denied", 403)
@@ -146,8 +148,10 @@ def advance_finance_source(run_id, source_key, expected_version, principal, requ
             raise AiError("共享证据事实容量已满，保留原检查点", "payload_too_large", 413)
         store.check_quota(principal, size + len(saved.encode("utf-8")) - len(record.checkpoint_json.encode("utf-8")),
                           verifier.TOTAL_BYTES)
-        m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=row, source_key=source_key,
+        chunk = m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=row, source_key=source_key,
             sequence=record.page_count + 1, payload_json=encoded, payload_digest=digest(encoded))
+        receipts.bind_page(parent=row, source=record, chunk=chunk, principal=principal,
+            request_id=request_id, tool_name=TOOL, page=page, encoded=encoded, audit=audit)
         record.page_count = next_state["pageCount"]
         record.stored_bytes = next_state["storedBytes"]
         record.row_count = next_state["rowsRead"]

@@ -291,6 +291,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0032_business_source_tool_receipts" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_source_tool_receipts")
+            elif "0031_business_daily_v3_source_pages" not in ai_migrations:
+                raise RuntimeError("AI tool receipt schema has no v3 daily source predecessor")
             if "0024_business_screening_runtime" in ai_migrations and "0023_business_screening_storage" not in ai_migrations:
                 raise RuntimeError("AI screening runtime schema has no screening storage predecessor")
             if "0023_business_screening_storage" not in ai_migrations:

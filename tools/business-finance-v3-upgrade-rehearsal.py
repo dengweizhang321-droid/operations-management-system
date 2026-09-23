@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from access_control.models import AccessRole, AppUser
 from ai_assistant import models as m
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 from business_analysis import evidence_v2, evidence_v3
 from business_analysis.contracts import canonical, digest
 

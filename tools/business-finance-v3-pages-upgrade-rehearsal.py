@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from access_control.models import AccessRole, AppUser
 from ai_assistant import business_evidence_v3 as plan, models as m
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 from business_analysis import finance_collection_state as verifier
 from business_analysis.contracts import canonical
 from business_analysis.test_finance_collection_state import owned_page, sources as finance_fixture

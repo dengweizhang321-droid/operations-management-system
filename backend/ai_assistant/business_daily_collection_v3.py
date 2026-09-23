@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from business_analysis.contracts import AnalysisContractError, PageReconciler
 from . import business_daily_continuation_v3 as continuation, business_v3_catalog as catalog
-from . import business_evidence_store as store, models as m, transport
+from . import business_evidence_store as store, business_v3_tool_receipts as receipts, models as m, transport
 from .business_sealed import Reader
 from .datasets import _result
 from .policy import AiError, authorize_owner, canonical, cas, digest, identifier, integer, mutation, passive, uid
@@ -165,6 +165,7 @@ def advance_daily_source(run_id, source_key, expected_version, principal, reques
     except (AnalysisContractError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
         raise AiError("v3日来源签名页未通过精确身份、控制总量或页链核验", "conflict", 409) from error
     size = len(encoded.encode("utf-8"))
+    audit = receipts.audit_for_page(principal, request_id=request_id, tool_name=tool, encoded=encoded)
     with mutation(principal):
         if catalog.plan._actor(principal) != actor:
             raise AiError("v3日来源采集期间账号权限变化", "access_denied", 403)
@@ -185,9 +186,11 @@ def advance_daily_source(run_id, source_key, expected_version, principal, reques
             raise AiError("v3共享事实容量已满，原检查点保留", "payload_too_large", 413)
         store.check_quota(principal, size + len(saved.encode("utf-8")) - len(record.checkpoint_json.encode("utf-8")),
                           64 * 1024 * 1024)
-        m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=live,
+        chunk = m.AiBusinessEvidenceChunk.objects.create(id=uid("evidence-chunk"), run=live,
             source_key=source_key, sequence=record.page_count + 1,
             payload_json=encoded, payload_digest=digest(encoded))
+        receipts.bind_page(parent=live, source=record, chunk=chunk, principal=principal,
+            request_id=request_id, tool_name=tool, page=page, encoded=encoded, audit=audit)
         record.page_count += 1
         record.stored_bytes += size
         record.row_count = state.rows

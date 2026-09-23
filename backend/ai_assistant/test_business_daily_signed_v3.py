@@ -9,7 +9,8 @@ from access_control.models import AccessRole, AppUser
 from business_analysis.contracts import PageReconciler, canonical, comparison_periods, digest as row_digest
 from sales.auth import Principal
 
-from . import business_daily_collection_v3 as daily, business_evidence_v3 as plan, models as m, transport
+from . import business_daily_collection_v3 as daily, business_evidence_v3 as plan
+from . import business_v3_tool_receipts as receipts, models as m, transport
 from .policy import AiError, digest, uid
 
 
@@ -52,6 +53,12 @@ class BusinessDailySignedV3Tests(TestCase):
     def catalog(self):
         return [tool(daily.INITIAL_TOOL), tool("get_business_sales_continuation_page")]
 
+    def audit_page(self, request_id, tool_name, page):
+        m.AiToolAuditLogs.objects.create(id=uid("audit"), request_id=request_id,
+            invocation_id=uid("invocation"), actor_email=self.principal.email, actor_role="admin",
+            surface="business_collection", tool_name=tool_name, arguments_json="{}", status="succeeded",
+            duration_ms=1, response_digest=digest(canonical(page)))
+
     def manually_append_first(self, first):
         verifier = PageReconciler(); verifier.consume(first)
         metadata = {"sourceRevision": first["sourceRevision"], "coverage": None,
@@ -75,7 +82,9 @@ class BusinessDailySignedV3Tests(TestCase):
         seen = []
         def execute(name, args, principal, **kwargs):
             seen.append((name, args))
-            return {"ok": True, "toolName": name, "data": first if len(seen) == 1 else second}
+            page = first if len(seen) == 1 else second
+            self.audit_page(kwargs["request_id"], name, page)
+            return {"ok": True, "toolName": name, "data": page}
         with patch.object(transport, "catalog", return_value=self.catalog()), \
                 patch.object(transport, "execute_tool", side_effect=execute):
             one = daily.advance_daily_source(self.run_id, "sales-current", 1, self.principal, "daily-first")
@@ -89,6 +98,7 @@ class BusinessDailySignedV3Tests(TestCase):
         self.assertEqual(seen[1][1]["expectedRevision"], first["sourceRevision"])
         self.assertEqual(seen[1][1]["expectedLastId"], 1)
         self.assertEqual(m.AiBusinessEvidenceChunk.objects.filter(run_id=self.run_id).count(), 2)
+        self.assertTrue(receipts.require_complete(self.run_id, "sales-current", self.principal)["auditBound"])
         self.assertEqual(m.AiBusinessEvidenceRun.objects.get(pk=self.run_id).status, "collecting")
         self.assertEqual(m.AiBusinessEvidenceSource.objects.get(run_id=self.run_id, source_key="finance-context").page_count, 0)
 
@@ -116,6 +126,7 @@ class BusinessDailySignedV3Tests(TestCase):
         observed = []
         def continued(name, args, principal, **kwargs):
             observed.append((name, args))
+            self.audit_page(kwargs["request_id"], name, second)
             return {"ok": True, "toolName": name, "data": second}
         with patch.object(transport, "catalog", return_value=self.catalog()), \
                 patch.object(transport, "execute_tool", side_effect=continued):
@@ -157,6 +168,7 @@ class BusinessDailySignedV3Tests(TestCase):
         first = self.page(1, more=True, first=True)
         def race(*args, **kwargs):
             self.manually_append_first(first)
+            self.audit_page(kwargs["request_id"], daily.INITIAL_TOOL, first)
             return {"ok": True, "toolName": daily.INITIAL_TOOL, "data": first}
         with patch.object(transport, "catalog", return_value=self.catalog()), \
                 patch.object(transport, "execute_tool", side_effect=race):

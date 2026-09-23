@@ -17,7 +17,8 @@ assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 SCREENING_TABLES = {"ai_business_screening_runs", "ai_business_screening_pages"}
 PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"} - SCREENING_TABLES
 
@@ -107,6 +108,18 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_receipt_generation_has_explicit_66_table_boundary(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 32)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 66)
+        self.assertIn("ai_business_source_tool_receipts", current["tables"])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+
     def test_business_evidence_tables_require_exact_migration_generation(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 24)
         migrations = [("ai_assistant", name) for name in names]

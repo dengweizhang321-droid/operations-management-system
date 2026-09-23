@@ -66,3 +66,30 @@ class AiBusinessEvidenceSource(models.Model):
             models.UniqueConstraint(fields=["run", "domain", "query_digest"], name="ai_business_source_query_uq"),
         ]
         indexes = [models.Index(fields=["run", "finished", "ordinal"], name="ai_business_source_next_idx")]
+
+
+class AiBusinessSourceToolReceipt(models.Model):
+    """One immutable successful owning-tool audit bound to one v3 fact chunk."""
+    chunk = models.OneToOneField(AiBusinessEvidenceChunk, primary_key=True,
+        on_delete=models.PROTECT, db_column="chunk_id")
+    audit = models.OneToOneField("ai_assistant.AiToolAuditLogs", on_delete=models.PROTECT,
+        db_column="audit_id")
+    run = models.ForeignKey(AiBusinessEvidenceRun, on_delete=models.PROTECT)
+    source = models.ForeignKey(AiBusinessEvidenceSource, on_delete=models.PROTECT)
+    sequence = models.PositiveIntegerField()
+    request_id = models.CharField(max_length=128)
+    invocation_id = models.CharField(max_length=160)
+    actor_email = models.CharField(max_length=320)
+    tool_name = models.CharField(max_length=100)
+    surface = models.CharField(max_length=40, default="business_collection")
+    response_digest = models.CharField(max_length=64)
+    payload_bytes = models.PositiveIntegerField()
+    source_ref = models.CharField(max_length=64)
+    source_revision = models.CharField(max_length=128)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_business_source_tool_receipts"
+        constraints = [models.UniqueConstraint(fields=["run", "source", "sequence"],
+            name="ai_business_source_tool_seq_uq")]
+        indexes = [models.Index(fields=["run", "source", "sequence"], name="ai_business_tool_receipt_idx")]

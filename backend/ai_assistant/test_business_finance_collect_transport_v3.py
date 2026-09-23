@@ -11,7 +11,8 @@ from business_analysis.contracts import canonical, digest as content_digest
 from business_analysis.test_finance_collection_state import owned_page, sources as finance_fixture
 from sales.auth import Principal
 
-from . import business_evidence_v3 as plan, business_finance_collection_v3 as collector, models as m, transport
+from . import business_evidence_v3 as plan, business_finance_collection_v3 as collector
+from . import business_v3_tool_receipts as receipts, models as m, transport
 from .policy import AiError, digest, uid
 
 
@@ -48,9 +49,16 @@ class FinanceCollectorTransportTests(TestCase):
             if side_effect: side_effect()
             self.assertEqual(name, collector.TOOL)
             self.assertEqual(arguments["query"], self.query)
+            self.audit_page(kwargs["request_id"], name, page)
             return {"ok": True, "toolName": collector.TOOL, "data": page}
         return patch.object(transport, "catalog", return_value=entries if entries is not None else [entry()]), \
             patch.object(transport, "execute_tool", side_effect=execute)
+
+    def audit_page(self, request_id, tool_name, page):
+        m.AiToolAuditLogs.objects.create(id=uid("audit"), request_id=request_id,
+            invocation_id=uid("invocation"), actor_email=self.principal.email, actor_role="admin",
+            surface="business_collection", tool_name=tool_name, arguments_json="{}", status="succeeded",
+            duration_ms=1, response_digest=digest(canonical(page)))
 
     def persist_fixture_directly(self, page):
         """Test-only race writer: a completed prior page commits during fetch."""
@@ -75,7 +83,9 @@ class FinanceCollectorTransportTests(TestCase):
             self.assertEqual(kwargs["surface"], "business_collection")
             self.assertEqual(kwargs["policy_digest"], digest([entry()]))
             seen.append(arguments)
-            return {"ok": True, "toolName": name, "data": first if len(seen) == 1 else second}
+            page = first if len(seen) == 1 else second
+            self.audit_page(kwargs["request_id"], name, page)
+            return {"ok": True, "toolName": name, "data": page}
         with patch.object(transport, "catalog", return_value=[entry()]), \
                 patch.object(transport, "execute_tool", side_effect=execute):
             one = collector.advance_finance_source(self.run_id, "finance", 1, self.principal, "finance-step-1")
@@ -87,6 +97,8 @@ class FinanceCollectorTransportTests(TestCase):
         self.assertEqual(seen[1], verifier.next_arguments(verifier.consume(None, first, trusted_query=self.query),
             trusted_query=self.query))
         self.assertEqual(m.AiBusinessEvidenceChunk.objects.filter(run_id=self.run_id).count(), 2)
+        self.assertEqual(m.AiBusinessSourceToolReceipt.objects.filter(run_id=self.run_id).count(), 2)
+        self.assertTrue(receipts.require_complete(self.run_id, "finance", self.principal)["auditBound"])
         self.assertEqual(m.AiBusinessEvidenceRun.objects.get(pk=self.run_id).status, "collecting")
         self.assertEqual(m.AiBusinessEvidenceSource.objects.get(run_id=self.run_id, source_key="daily").page_count, 0)
         self.assertFalse(two["persistentEvidenceVerified"])

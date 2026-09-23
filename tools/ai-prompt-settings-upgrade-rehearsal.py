@@ -56,7 +56,7 @@ call_command("makemigrations", check=True, dry_run=True, verbosity=0)
 from ai_assistant.control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from ai_assistant.database_contract import provision
 from ai_assistant.prompt_settings import DEFAULT_CONFIG
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 epoch = str(uuid.uuid4())
 AiDataRevision.objects.filter(domain="ai-assistant").update(revision=1, source_digest="c"*64)
 AiWriteAuthority.objects.filter(pk=1).update(status="postgres", authority_epoch=epoch, cutover_id="prompt-synthetic", migration_verify_run_id="ai-apply-"+"d"*32, activated_at=timezone.now())

@@ -160,6 +160,10 @@ class BusinessDailyCollectionV3Tests(TestCase):
         finance_page = owned_page(finance_query, publication, source.page()["rows"], offset=0, total=1)
         tool_entry = {"name": finance_reader.TOOL, "risk": "read_only", "allowedRoles": ["admin"],
                       "scopePolicy": "unscoped_only", "execution": {"mode": "direct", "allowedSurfaces": ["business_collection"]}}
+        m.AiToolAuditLogs.objects.create(id=uid("audit"), request_id="daily-first-finance",
+            invocation_id=uid("invocation"), actor_email=self.principal.email, actor_role="admin",
+            surface="business_collection", tool_name=finance_reader.TOOL, arguments_json="{}",
+            status="succeeded", duration_ms=1, response_digest=digest(canonical(finance_page)))
         with patch.object(transport, "catalog", return_value=[tool_entry]), \
                 patch.object(transport, "execute_tool", return_value={"ok": True,
                     "toolName": finance_reader.TOOL, "data": finance_page}):

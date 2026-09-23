@@ -26,6 +26,7 @@ MODELS = {
     "ai_business_evidence_runs": m.AiBusinessEvidenceRun,
     "ai_business_evidence_chunks": m.AiBusinessEvidenceChunk,
     "ai_business_evidence_sources": m.AiBusinessEvidenceSource,
+    "ai_business_source_tool_receipts": m.AiBusinessSourceToolReceipt,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -52,6 +53,7 @@ READ_TABLES = {
     "ai_business_evidence_runs",
     "ai_business_evidence_chunks",
     "ai_business_evidence_sources",
+    "ai_business_source_tool_receipts",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -95,6 +97,7 @@ APPEND_ONLY = {
     "ai_business_file_chunks",
     "ai_business_volume_chunks",
     "ai_business_evidence_chunks",
+    "ai_business_source_tool_receipts",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -214,6 +217,13 @@ def provision(connection, reader_password, writer_password):
                 if role == "teruisi_ai_reader"
                 else WRITER_PRIVILEGES
             )
+            # Historical isolated upgrade rehearsals provision exact pre-0032
+            # schemas with today's code. Only the newly introduced receipt
+            # table is conditional; every predecessor grant remains unchanged.
+            cursor.execute("SELECT to_regclass('public.ai_business_source_tool_receipts')")
+            if cursor.fetchone()[0] is None:
+                privileges = {table: allowed for table, allowed in privileges.items()
+                              if table != "ai_business_source_tool_receipts"}
             for table, allowed in privileges.items():
                 cursor.execute(
                     sql.SQL("GRANT {} ON {} TO {}").format(

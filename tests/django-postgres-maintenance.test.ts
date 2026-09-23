@@ -293,9 +293,12 @@ test("maintenance validates complete AI backup evidence before and after activat
     return;
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
-  const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(currentAiTables).size, 65);
-  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
+  const frozenManifest = manifest.match(/AI_TABLES_PRE_TOOL_RECEIPTS = \(([\s\S]*?)\n\)/);
+  assert.ok(frozenManifest, "Historical pre-0032 AI table inventory is missing");
+  const historicalAiTables = [...frozenManifest[1].matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(historicalAiTables).size, 65);
+  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_TOOL_RECEIPTS, "ai_business_source_tool_receipts"\)/);
+  const aiTables = historicalAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -495,6 +498,6 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 8 tests/);
+  assert.match(result.stderr, /Ran 9 tests/);
   assert.match(result.stderr, /OK/);
 });
