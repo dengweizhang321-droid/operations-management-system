@@ -46,7 +46,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const environment = options.environment ?? await aiEnvironment();
   const method = input.method ?? "GET";
   const promotionRead = new RegExp(`^/api/ai/reports/${ENTITY}/promotion-keyword-sku$`).test(input.path);
-  if (promotionRead && (method !== "GET" || input.service === "writer")) throw new PublicApiError(405, "invalid_request", "推广词货接口仅允许reader GET。");
+  if (promotionRead && (method !== "GET" || input.service === "writer")) throw new PublicApiError(400, "invalid_request", "推广词货接口仅允许reader GET。");
   const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;

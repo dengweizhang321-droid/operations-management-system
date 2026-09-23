@@ -103,6 +103,14 @@ PostgreSQL `0024_business_screening_runtime.py` 把 profile、snapshot 字段与
 
 上述纯对象仍标记 `authorityVerified=false`、`registered=false`。传入目录与上下文本身不获得授权；后续 owning adapter 必须从持久报告和封存证据加载并最终复验真实身份。此批没有改旧 screening-v1 合同、已发布迁移、任务派发、读取回执或 renderer，也未运行模型。`python -m unittest ai_assistant.test_business_promotion_runtime_contract -v` 共 11 项通过（含旧图摘要、预算与无预算、五角色并行依赖、错误来源/基期/角色及伪造字段负向）。
 
+## 2026-09-24 真实封存根的只读候选适配
+
+新增 `business_promotion_runtime.prepare_candidate(reportId, screeningId, selector, principal)` 和 `checked_candidate`。仅接受当前无范围管理员，从持久报告、工作流输入、已封存证据目录和已发布筛查结果重载；完整验证筛查所有持久页，再从真实目录运行 `freeze_snapshot/checked_snapshot` 与五角色图。显式 `sourceKey` 和可选 `baselineKey` 只是候选选择约束，必须在同一份报告的封存目录中对应京东推广当前期及同店铺同数据集基期。返回前重新加载并比较完整根，账号撤权、报告快照、来源或筛查根变化均不得返回旧候选。
+
+返回仅含原报告身份摘要、新 profile 的拟议快照与五角色图，明确 `authorityVerified=false`、`registered=false` 和 `readiness=requires_new_persistent_profile`。旧报告的原 `executionProfile`、快照、工作流输入与筛查页不修改；此候选不能用于 Agent 派发、读取证明或正式报告。原报告没有持久 `promotionSelector`，因此当前显式选择尚不能充当可恢复的新报告身份。下一步必须通过新的报告创建和数据库 guard 将该选择持久化，才可连接调度与工具回执；不得将此候选直接标记为 ready。
+
+测试标签 `ai_assistant.test_business_promotion_runtime`；采用真实封存报告与发布筛查行，检查合法当前/基期、错来源/报告/筛查/账号、篡改候选、迟到撤权、旧字节不变及无模型/外部工具调用。3 项隔离 PostgreSQL 测试通过（22.443 秒），日志 `.runtime/ai-pg-4fa15d233537/tests.log`。首次测试夹具的来源窗口与固定分析请求不一致而被正确拒绝，修正合成目录后通过，失败日志 `.runtime/ai-pg-1fecd74e92ee/failure.log` 保留；未放宽业务门禁或执行生产。
+
 ## 完整词货导出材料候选（2026-09-23）
 
 新增 `business_promotion_export.prepare(report_id, source_key, principal, baseline_key=None)`：复用两种词货 owning context，严格跟随每页实际 nextOffset，验证页/行位置与摘要，完整采集两表。两种 context 均正常退出，再进行最终报告/当前账号复验后才返回不可变 NDJSON 页字节和独立 manifest 副本；失败、取消或迟到撤权不返回部分材料。
