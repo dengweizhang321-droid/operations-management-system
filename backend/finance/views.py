@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 
 from django.db import connection, transaction
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -18,7 +18,9 @@ from .errors import FinanceApiError
 from .import_service import import_finance_payload, list_import_batches
 from .models import FinanceDataRevision, FinanceWriteRequestReceipt
 from .annual_progress import annual_progress, validate_year
+from . import business_evidence_page as evidence_page
 from .target_service import delete_target, import_annual_targets, list_targets, target_options, upsert_target
+from business_analysis.contracts import canonical
 
 
 logger = logging.getLogger(__name__)
@@ -338,3 +340,32 @@ def consumer_query(request: HttpRequest) -> JsonResponse:
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "财务消费者查询失败。")
+
+
+@require_POST
+def business_evidence_page(request: HttpRequest) -> HttpResponse:
+    """Signed, reader-only boundary; no public AI tool or v3 collector grant."""
+    try:
+        principal = _principal(request, {"admin"})
+        if len(request.body) > 8192:
+            raise FinanceApiError("财报证据分页请求超过容量", status=413, code="payload_too_large")
+        body = _body(request)
+        required = {"query", "offset", "afterId"}
+        optional = {"expectedSourceRef", "expectedRevision"}
+        if set(body) - required - optional or required - set(body):
+            raise FinanceApiError("财报证据分页请求字段无效", status=422, code="invalid_request")
+        page = evidence_page.read_page(principal, body["query"], offset=body["offset"],
+            after_id=body["afterId"], expected_source_ref=body.get("expectedSourceRef"),
+            expected_revision=body.get("expectedRevision"))
+        raw = canonical(page).encode("utf-8")
+        if len(raw) > evidence_page.MAX_PAGE_BYTES:
+            raise FinanceApiError("财报证据响应超过完整页容量", status=413, code="payload_too_large")
+        revision, separator, full_digest = page["sourceRevision"].partition(":")
+        if separator != ":" or not revision.isdecimal() or len(full_digest) != 64:
+            raise FinanceApiError("财报证据版本回显无效", status=503, code="service_unavailable")
+        response = HttpResponse(raw, content_type="application/json; charset=utf-8")
+        response["Cache-Control"] = "no-store"
+        response["X-Finance-Data-Revision"] = f"{revision}:{full_digest[:12]}"
+        return response
+    except Exception as error:
+        return _error(error, "财报证据分页读取失败。")

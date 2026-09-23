@@ -12,6 +12,7 @@ export const FINANCE_ANALYSIS_PATH = "/api/finance/analysis";
 export const FINANCE_TARGETS_PATH = "/api/finance/targets";
 export const FINANCE_TARGET_IMPORT_PATH = "/api/finance/targets/import";
 export const FINANCE_CONSUMER_QUERY_PATH = "/api/finance/consumers/query";
+export const FINANCE_BUSINESS_EVIDENCE_PAGE_PATH = "/api/finance/business-evidence/page";
 
 const FINANCE_PATHS = new Set([
   FINANCE_IMPORTS_PATH,
@@ -19,6 +20,7 @@ const FINANCE_PATHS = new Set([
   FINANCE_TARGETS_PATH,
   FINANCE_TARGET_IMPORT_PATH,
   FINANCE_CONSUMER_QUERY_PATH,
+  FINANCE_BUSINESS_EVIDENCE_PAGE_PATH,
 ]);
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -212,7 +214,7 @@ export async function requestDjangoFinanceService<T>(
   if (!FINANCE_PATHS.has(input.path)) throw unavailable();
   const readerRequest = input.service === "reader" && (
     (input.method === "GET" && input.path !== FINANCE_CONSUMER_QUERY_PATH)
-    || (input.method === "POST" && input.path === FINANCE_CONSUMER_QUERY_PATH)
+    || (input.method === "POST" && (input.path === FINANCE_CONSUMER_QUERY_PATH || input.path === FINANCE_BUSINESS_EVIDENCE_PAGE_PATH))
   );
   const writerRequest = input.service === "writer" && (
     (input.method === "POST" && (input.path === FINANCE_IMPORTS_PATH || input.path === FINANCE_TARGETS_PATH || input.path === FINANCE_TARGET_IMPORT_PATH))
