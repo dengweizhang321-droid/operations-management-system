@@ -10,6 +10,8 @@ import { mappingBindingKey, type MappingSelection } from "@/lib/ai/business-mapp
 import { mergeNetshopOption, type NetshopOptionSelection } from "@/lib/ai/business-scope-options";
 import { mergeMarketOption, type MarketOptionSelection } from "@/lib/ai/business-market-options";
 import { mergeSalesOption, type SalesOptionSelection } from "@/lib/ai/business-sales-options";
+import { getOperationsBusinessDates } from "@/lib/ai/business-time";
+import { suggestBusinessQuestionScope, type QuestionSourceScalar, type QuestionSuggestion } from "@/lib/ai/business-question-suggestions";
 import "./ai-business-workbench.css";
 
 type Shop = { platform: string; shop: string; datasets: string[]; salesChannels: string[] };
@@ -24,6 +26,7 @@ type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: nu
 type Report = { id: string; workflowId: string; status: string; createdAt: string };
 type Pending = { schemaVersion: 1; principalKey: string; kind: "evidence" | "report"; bodyJson: string; label: string; createdAt: string; outcome: "prepared" | "unknown" };
 type MappingIntent = MappingSelection & { intent: boolean };
+type BoundQuestionSuggestion = { principalKey: string; businessToday: string; question: string; value: QuestionSuggestion };
 const emptyMapping = (): MappingIntent => ({ bindingKey: "", pairs: [], ready: false, reason: "loading", intent: false });
 const names: Record<string, string> = { current: "本期", previous: "环比", yearAgo: "同比", promotion: "推广与关键词", master: "商品主数据", sku: "SKU 销售", spu: "SPU 销售", b2b: "B 端销售", collecting: "采集中", queued: "等待后台采集", reading: "后台读取中", paused: "已暂停", sealed: "证据已封存", cancelled: "已取消", completed: "已完成", running: "分析中", planned: "已列入计划", unsupported: "不支持", not_collected: "尚未取数" };
 const initial = (): Request => ({ question: "", startDate: "", endDate: "", shops: [{ platform: "京东", shop: "", datasets: ["promotion", "master"], salesChannels: [] }], windows: ["current"], markets: [] });
@@ -118,7 +121,9 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const [scopeOpen, setScopeOpen] = useState(false), [scopeError, setScopeError] = useState("");
   const [marketOpen, setMarketOpen] = useState(false), [marketError, setMarketError] = useState("");
   const [salesOpen, setSalesOpen] = useState(false), [salesError, setSalesError] = useState("");
+  const [questionSuggestion, setQuestionSuggestion] = useState<BoundQuestionSuggestion | null>(null), [questionSuggestionError, setQuestionSuggestionError] = useState("");
   const formRef = useRef(form), scopeLocked = useRef(true);
+  const verifiedQuestionSources = useRef<{ principalKey: string; sources: QuestionSourceScalar[] }>({ principalKey: "", sources: [] });
   const mappingRef = useRef<MappingIntent>(emptyMapping()), detailRef = useRef<Detail | null>(null), detailFailed = useRef(false);
   const live = useRef(true), actor = useRef(""), pendingRef = useRef<Pending | null>(null), selectedRef = useRef("");
   const listController = useRef<AbortController | null>(null), detailController = useRef<AbortController | null>(null), previewController = useRef<AbortController | null>(null), writeController = useRef<AbortController | null>(null);
@@ -156,6 +161,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
         writeController.current?.abort(); previewController.current?.abort(); detailController.current?.abort(); listController.current?.abort(); listController.current = null;
         setPreview(null); setConfirmed(false); setDetail(null); setReports([]); setItems([]);
         formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError(""); setMarketOpen(false); setMarketError(""); setSalesOpen(false); setSalesError("");
+        verifiedQuestionSources.current = { principalKey: key, sources: [] }; setQuestionSuggestion(null); setQuestionSuggestionError("");
         detailRef.current = null; detailFailed.current = false; updateMapping(emptyMapping());
         selectedRef.current = ""; setSelected(""); setPage(1); setMoreReports(false); setWriteError("账号已变化，请重新核验当前账号的范围及待确认提交。");
       }
@@ -207,7 +213,36 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   }, [items, detail?.status, loadList, loadDetail]);
   function edit(next: Request) {
     previewController.current?.abort(); previewController.current = null; setPreviewBusy(false); setPreview(null); setConfirmed(false);
+    // A hand edit cannot turn an arbitrary matching string into a validated directory choice.
+    const owned = verifiedQuestionSources.current;
+    if (owned.principalKey === actor.current) owned.sources = owned.sources.filter(source => source.domain === "market"
+      ? next.markets.some(market => market.platform === source.platform && market.category === source.category
+        && market.scope === source.scope && market.rankingDimension === source.rankingDimension && market.priceBandFilter === source.priceBandFilter)
+      : next.shops.some(shop => shop.platform === source.platform && shop.shop === source.shop &&
+        (source.domain === "sales" ? shop.salesChannels.includes(source.channel) : shop.datasets.includes(source.dataset))));
+    setQuestionSuggestion(null); setQuestionSuggestionError("");
     formRef.current = next; setForm(next);
+  }
+  function suggestScope() {
+    if (!live.current || scopeLocked.current || !actor.current || actor.current !== principalKey) return;
+    try {
+      const businessToday = getOperationsBusinessDates(new Date()).today;
+      const current = formRef.current;
+      const owned = verifiedQuestionSources.current;
+      const value = suggestBusinessQuestionScope({ question: current.question, shanghaiToday: businessToday,
+        form: { startDate: current.startDate, endDate: current.endDate, windows: current.windows,
+          shops: current.shops.map(({ platform, shop }) => ({ platform, shop })), markets: current.markets.map(market => ({ ...market })) },
+        directory: owned.principalKey === actor.current ? owned.sources.map(source => ({ ...source })) : [] });
+      setQuestionSuggestion({ principalKey: actor.current, businessToday, question: current.question, value });
+      setQuestionSuggestionError("");
+    } catch (error) { setQuestionSuggestion(null); setQuestionSuggestionError(message(error)); }
+  }
+  function applySuggestedDates() {
+    const bound = questionSuggestion, current = formRef.current;
+    if (!bound || !bound.value.dates || bound.principalKey !== actor.current || bound.question !== current.question
+      || scopeLocked.current || pendingRef.current || writeController.current) return;
+    edit({ ...current, startDate: bound.value.dates.startDate, endDate: bound.value.dates.endDate,
+      windows: [...bound.value.windows] });
   }
   async function plan(event: React.FormEvent) {
     event.preventDefault(); previewController.current?.abort(); const ctl = new AbortController(); previewController.current = ctl;
@@ -309,7 +344,11 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     try {
       const current = formRef.current;
       const shops = mergeNetshopOption(current.shops, selection.identity);
-      edit({ ...current, shops }); setScopeError(""); return true;
+      edit({ ...current, shops });
+      if (verifiedQuestionSources.current.principalKey !== actor.current) verifiedQuestionSources.current = { principalKey: actor.current, sources: [] };
+      const source: QuestionSourceScalar = { domain: "netshop", ...selection.identity };
+      verifiedQuestionSources.current.sources = [...verifiedQuestionSources.current.sources.filter(value => JSON.stringify(value) !== JSON.stringify(source)), source];
+      setScopeError(""); return true;
     } catch (error) { setScopeError(message(error)); return false; }
   }
   function addMarket(selection: MarketOptionSelection) {
@@ -317,7 +356,11 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     try {
       const current = formRef.current;
       const markets = mergeMarketOption(current.markets, selection, actor.current);
-      edit({ ...current, markets }); setMarketError(""); return true;
+      edit({ ...current, markets });
+      if (verifiedQuestionSources.current.principalKey !== actor.current) verifiedQuestionSources.current = { principalKey: actor.current, sources: [] };
+      const source: QuestionSourceScalar = { domain: "market", ...selection.identity };
+      verifiedQuestionSources.current.sources = [...verifiedQuestionSources.current.sources.filter(value => JSON.stringify(value) !== JSON.stringify(source)), source];
+      setMarketError(""); return true;
     } catch (error) { setMarketError(message(error)); return false; }
   }
   function addSales(selection: SalesOptionSelection) {
@@ -325,7 +368,11 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     try {
       const current = formRef.current;
       const shops = mergeSalesOption(current.shops, selection, actor.current);
-      edit({ ...current, shops }); setSalesError(""); return true;
+      edit({ ...current, shops });
+      if (verifiedQuestionSources.current.principalKey !== actor.current) verifiedQuestionSources.current = { principalKey: actor.current, sources: [] };
+      const source: QuestionSourceScalar = { domain: "sales", ...selection.identity };
+      verifiedQuestionSources.current.sources = [...verifiedQuestionSources.current.sources.filter(value => JSON.stringify(value) !== JSON.stringify(source)), source];
+      setSalesError(""); return true;
     } catch (error) { setSalesError(message(error)); return false; }
   }
   const shopEdit = (i: number, change: Partial<Shop>) => edit({ ...form, shops: form.shops.map((shop, j) => j === i ? { ...shop, ...change } : shop) });
@@ -335,13 +382,26 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const screeningBlocked = screeningMode && (!detailV2 || !detail || Boolean(detailError) || detail.screeningSupported !== true || !Object.values(detail.sources).every(source => source.complete));
   const mappingBlocked = mapping.intent && (!detail || Boolean(detailError) || detail.mappingSupported !== true || mapping.bindingKey !== mappingBindingKey(detail, principalKey) || !mapping.ready || !mapping.pairs.length);
   return <section className="business-workbench" aria-label="经营分析工作台">
-    <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。这里根据你选择的范围生成来源计划，尚未自动解析问题或确认数据已存在。</p>
+    <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。可从问题生成日期和数据目的建议；来源计划与数据可用性仍须单独核验。</p>
     {storageError && <div role="alert" className="bw-error">{storageError}<button onClick={() => actor.current && restore(actor.current)}>重新检查会话存储</button></div>}
     {writeError && <p role="alert" className="bw-error" data-testid="write-error">{writeError}</p>}{notice && <p role="status">{notice}</p>}
     {pending && <div className="bw-pending" role="status"><strong>有一次提交等待确认</strong><p>{pending.label} · {pending.createdAt}</p><p>已冻结完整参数与请求编号。刷新后不会自动重发，请手动确认同一次提交；确认前不能另建任务。</p><details><summary>查看已保存的提交范围</summary><pre>{JSON.stringify(JSON.parse(pending.bodyJson), null, 2)}</pre></details><button disabled={busy || !ready} onClick={() => void send(pending)}>确认并重试同一次提交</button></div>}
     {busy && <button onClick={() => { writeController.current?.abort(); setWriteError("已取消等待；服务器可能已接收。新建请求会保留待确认记录，控制请求请刷新核验。"); }}>取消等待响应</button>}
     <form onSubmit={event => void plan(event)}><fieldset disabled={locked}><legend>问题与范围</legend>
       <label>分析问题<textarea aria-label="分析问题" required maxLength={1000} value={form.question} onChange={event => edit({ ...form, question: event.target.value })} placeholder="例如：推广费用上升但销售未增长，哪些商品和关键词需要调整？" /></label>
+      <button type="button" disabled={!principalKey} onClick={suggestScope}>从问题生成范围建议</button>
+      {questionSuggestionError && <p role="alert" className="bw-error">{questionSuggestionError}</p>}
+      {questionSuggestion && questionSuggestion.principalKey === principalKey && <section className="bw-card" aria-label="问题范围建议">
+        <h4>待确认的范围建议</h4><p>上海业务日期：{questionSuggestion.businessToday}。近30天截至昨天；这不证明来源已导入到昨天。</p>
+        <p>日期：{questionSuggestion.value.dates ? `${questionSuggestion.value.dates.startDate} 至 ${questionSuggestion.value.dates.endDate}` : "尚未确定"}；比较窗口：{questionSuggestion.value.windows.map(value => names[value]).join("、")}；数据目的：{questionSuggestion.value.purposes.length ? questionSuggestion.value.purposes.map(value => names[value] ?? ({ market: "市场" } as Record<string, string>)[value] ?? value).join("、") : "尚未确定"}。</p>
+        <p>已选择目录中的店铺候选：{questionSuggestion.value.shopCandidates.length ? questionSuggestion.value.shopCandidates.map(value => `${value.platform} · ${value.shop}`).join("；") : "无"}；市场候选：{questionSuggestion.value.marketCandidates.length ? questionSuggestion.value.marketCandidates.map(value => `${value.platform} · ${value.category} · ${value.scope} · ${value.rankingDimension} · ${value.priceBandFilter}`).join("；") : "无"}。</p>
+        {questionSuggestion.value.comparison.previousEqualLength && <p>经营分析环比基期（前一等长区间）：{questionSuggestion.value.comparison.previousEqualLength.startDate} 至 {questionSuggestion.value.comparison.previousEqualLength.endDate}。{questionSuggestion.value.comparison.previousMonthSameDates && `销售概览同月上月同期：${questionSuggestion.value.comparison.previousMonthSameDates.startDate} 至 ${questionSuggestion.value.comparison.previousMonthSameDates.endDate}。`}</p>}
+        <p>{questionSuggestion.value.comparison.note}</p>
+        {questionSuggestion.value.unresolved.length > 0 && <div><strong>待澄清</strong><ul>{questionSuggestion.value.unresolved.map((value, i) => <li key={i}>{value}</li>)}</ul></div>}
+        {questionSuggestion.value.missingSources.length > 0 && <div><strong>缺少精确来源</strong><ul>{questionSuggestion.value.missingSources.map((value, i) => <li key={i}>{value}</li>)}</ul></div>}
+        <p>本建议没有来源授权，不会添加店铺或市场条件。请在来源选择器中逐项确认，并重新预览完整来源计划。</p>
+        <div className="bw-actions"><button type="button" disabled={!questionSuggestion.value.dates} onClick={applySuggestedDates}>应用日期与比较窗口</button><button type="button" onClick={() => { setQuestionSuggestion(null); setQuestionSuggestionError(""); }}>关闭建议</button></div>
+      </section>}
       <div className="bw-grid"><TextInput label="开始日期" value={form.startDate} onChange={startDate => edit({ ...form, startDate })} type="date" /><TextInput label="结束日期" value={form.endDate} onChange={endDate => edit({ ...form, endDate })} type="date" /></div>
       <div className="bw-checks">{["current", "previous", "yearAgo"].map(window => <label key={window}><input type="checkbox" checked={form.windows.includes(window)} disabled={window === "current"} onChange={event => edit({ ...form, windows: event.target.checked ? [...form.windows, window] : form.windows.filter(w => w !== window) })} />{names[window]}</label>)}</div>
       <p>当前经营分析的环比使用本期之前的等长日期段；销售概览的同月自定义区间使用上月同期。请核对预览中的具体日期后再创建任务。</p>
