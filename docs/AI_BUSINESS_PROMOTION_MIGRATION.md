@@ -33,3 +33,17 @@
 第一批先实现真正的新报告创建、owning 复验和固定图/目录，不运行模型。随后编写 `0026` 与真实 PostgreSQL 测试：空库升级及逆迁移；旧 1–6 报告/文件行与摘要不变；新 profile 正确创建和筛查发布；错 actor、owner/scope、source、baseline、selector、contextDigest、意图 ID、孤儿工作流及重复 JSON 键原子拒绝；任意新报告存在时逆迁移拒绝。检查迁移前后数据库角色权限及独立 dump/restore，不能用纯 SQL 文本测试代替实际触发器验收。
 
 第二批接 renderer 7 的 HTML/XLSX 全量两表、发布/恢复/下载及 0025 五函数扩展，按同样方式验证旧版本字节兼容和新版本分片完整性。词货材料本身不等于已交付文件；两张表是同一推广事实的不同分组，费用不可相加。正式业务模型效果及生产采用分别验收。
+
+## 2026-09-24 候选持久结构已冻结（尚无创建或迁移）
+
+新增只读 `business_promotion_creation_contract.prepare_candidate`：输入真实已封存 v2 证据 ID、当前无范围管理员及精确请求 `reportId`、`screeningId`、`question`、`sourceKey`，可显式给 `baselineKey`、`mappingPairs`、`budgetPlan`。它先用原 `business_screening_runtime.prepare` 完整准备筛查意图、映射与预算引用，再从真实持久来源目录固定一个京东推广当前期来源、可选同店同范围基期及两种词货视图。返回前重新核验旧准备、证据版本和账号；`revalidate_candidate` 另会复查四工具目录及全部候选 JSON。两者都不插入行。
+
+候选根结构 `business-promotion-creation-candidate-v1` 包含真实 `ownerEmail`、`scopeJson`、证据 ID/版本、`snapshot`、`workflowInput`、六节点 `graph`、按顺序的四工具 `allowedTools` 与当前工具目录摘要；各 JSON 的规范 UTF-8 字节数与 SHA-256 单独记录。`authorityVerified=false`、`registered=false` 是候选根状态，不能写入正式报告快照作为数据库授权。
+
+拟议 `AiReportRun.snapshot_json` 保留旧筛查的全部字段、不可变 `screeningIntent`、映射与预算绑定，仅将 `executionProfile` 设为 `business-agent-screening-promotion-reference-v1` 并增加 `promotionSelector`、`contextDigest`、`promotionCatalogDigest`、`promotionAlgorithmVersion`。原 `sealedDigest` 与 `catalogDigest` 必须与当前封存证据一致。证据 `catalogDigest` 使用 v2 目录 schema 包装后的摘要；新 `promotionCatalogDigest` 是词货纯合同对规范目录条目的摘要，两种哈希口径不能直接比较或混用。`promotionSelector` 精确为 `{sourceKey, views}` 或 `{sourceKey, baselineKey, views}`，`views` 固定顺序为 `keyword_sku`、`keyword_sku_context`。
+
+拟议 `AiWorkflowRuns.input_json` 保留旧 `reference-v2` 全部字段、`screeningIntent`、可选 `mappingRef`/`budgetRef`，另增加唯一 `promotionRef`，字段精确为 `schemaVersion`、`promotionSelector`、`contextDigest`、`sealedDigest`、`catalogDigest`、`promotionCatalogDigest`、`promotionAlgorithmVersion`，与报告对应字段逐项一致。`graph_json` 使用新 profile 的五 Agent 加人审固定图；`allowed_tools_json` 是新 surface 的四工具固定顺序；`tool_policy_digest` 来自完整当前中央目录。旧报告字段、旧图和旧文件语义均未改。
+
+这仍只是写入协议的候选形状。当前 PostgreSQL `0024/0025` 保护不会接受上述新 profile，Python 创建/派发/读取回执也未注册。接下来的 `0026` 应只接受这份精确 shape，并在实际事务中重新绑定用户、来源目录、图和工具策略；任何候选摘要或 `registered=false` 对象都不能直接充当授权。真实隔离 PostgreSQL shape/负向测试由整合主线程运行，之后才能决定迁移实现。
+
+上述候选结构的 `PromotionCreationPgTests` 3项隔离 PostgreSQL 测试通过（10.727秒），日志 `.runtime/ai-pg-ed15939d72c8/tests.log`。验证真实封存来源、无预算/有预算与显式商品关联、角色和工具目录绑定、零持久写、错身份/基期/目录变化/伪造候选拒绝。仍未发布 `0026`，也未创建新 profile 报告或调用模型。
