@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { JackyunDownloadProvenance } from "./download-provenance";
 import type { JackyunModule } from "./post-download";
+import { jackyunSalesPeriod } from "./sales-period";
 
 export type JackyunInputContract = {
   runId: string;
@@ -10,6 +11,7 @@ export type JackyunInputContract = {
   snapshotDate?: string;
   snapshotEvidence?: JackyunSnapshotEvidence;
   asOfDate?: string;
+  salesStartDate?: string;
   expectedSourceRows: number;
   previousComboRows?: number;
   costOutputSha256?: string;
@@ -226,8 +228,12 @@ export function isValidJackyunSourceRowCountCorrection(
 }
 
 export function createJackyunInputContractHash(contract: JackyunInputContract) {
+  if (contract.salesStartDate !== undefined) {
+    if (contract.module !== "sales" || !contract.asOfDate) throw new Error("销售滚动范围不能绑定其他模块。");
+    jackyunSalesPeriod(contract.asOfDate, contract.salesStartDate);
+  }
   const stableContract = {
-    version: 3,
+    version: contract.salesStartDate === undefined ? 3 : 4,
     runId: contract.runId,
     policyVersion: contract.policyVersion,
     module: contract.module,
@@ -235,6 +241,7 @@ export function createJackyunInputContractHash(contract: JackyunInputContract) {
     snapshotDate: contract.snapshotDate ?? null,
     snapshotEvidence: contract.snapshotEvidence ?? null,
     asOfDate: contract.asOfDate ?? null,
+    ...(contract.salesStartDate !== undefined ? { salesStartDate: contract.salesStartDate } : {}),
     expectedSourceRows: contract.expectedSourceRows,
     previousComboRows: contract.previousComboRows ?? null,
     costOutputSha256: contract.costOutputSha256 ?? null,

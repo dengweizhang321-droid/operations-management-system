@@ -3,6 +3,7 @@ import type { Page, Route } from "playwright-core";
 import { evaluateValue, type BrowserAutomationClient } from "./cdp-client";
 import { JackyunHttpSession, signJackyunForm, type JackyunSession } from "./direct-http";
 import type { JackyunModule } from "./post-download";
+import { jackyunSalesPeriod } from "./sales-period";
 import { prepareWebSessionExport, submitWebSessionExport, type WebTaskSnapshot } from "./web-session-export";
 
 export const jackyunDirectTransport = "web_prepared_http_v1";
@@ -25,7 +26,7 @@ export function isShipmentTimeFilter(filter: Record<string, unknown> | undefined
     && (!current || filter.timeType === 4);
 }
 
-export function validateDirectExportPayload(module: JackyunModule, postData: string, moduleCode: string, asOfDate?: string) {
+export function validateDirectExportPayload(module: JackyunModule, postData: string, moduleCode: string, asOfDate?: string, salesStartDate?: string) {
   if (postData.length > 256 * 1024) throw new Error("HTTP_EXPORT_PAYLOAD_TOO_LARGE");
   const form = new URLSearchParams(postData), data: Record<string, string> = {};
   const seen = new Set<string>();
@@ -60,7 +61,7 @@ export function validateDirectExportPayload(module: JackyunModule, postData: str
     || !isShipmentTimeFilter(condition.filterOrderDetailDto as Record<string, unknown>))) throw new Error("HTTP_SALES_SCOPE_CHANGED");
   if (module === "sales") {
     const filter = condition.filterOrderDetailDto as Record<string, unknown>;
-    if (!asOfDate || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate) || filter.timeBegin !== `${asOfDate.slice(0, 8)}01 00:00:00`
+    if (!asOfDate || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate) || filter.timeBegin !== `${jackyunSalesPeriod(asOfDate, salesStartDate).startDate} 00:00:00`
       || filter.timeEnd !== `${asOfDate} 23:59:59`) throw new Error("HTTP_SALES_DATE_CHANGED");
   }
   return { data, moduleCode, payloadSha256: createHash("sha256").update(JSON.stringify(data)).digest("hex") };

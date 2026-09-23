@@ -55,7 +55,7 @@ if (apiOnly) {
     position: [-760, -160], parameters: { rule: { interval: [{ field: "cronExpression", expression: "10 0 * * *" }] } } };
   nodes.splice(1, 0, schedule);
   connections[schedule.name] = { main: [[edge(claim.name)]] };
-  nodes.find(node => node.name === "五表操作说明").parameters.content = "## 五表接口下载\n浏览器仅负责登录和会话初始化；报表阶段由同一个 HTTP 会话完成权限核验、获取全部授权仓库与自营货主、按本轮日期查询数量、服务端导出校验、提交任务、轮询和下载。没有报表页面导航、MiniUI 控件、右键或菜单点击。\n销售按发货时间，本月初至昨天；月初第一天沿用上月整月。组合装保留母件与子件，图片导出数量上限仍严格校验。库存和库龄记录实际采集日。";
+  nodes.find(node => node.name === "五表操作说明").parameters.content = "## 五表接口下载\n浏览器仅负责登录和会话初始化；报表阶段由同一个 HTTP 会话完成权限核验、获取全部授权仓库与自营货主、按本轮日期查询数量、服务端导出校验、提交任务、轮询和下载。没有报表页面导航、MiniUI 控件、右键或菜单点击。\n销售按发货时间，固定为截至昨天（含）的最近 45 天，跨月和月初仍为 45 天；每次成功完整导入按该范围更新明细，同内容不重复累计，范围外历史保留。组合装保留母件与子件，图片导出数量上限仍严格校验。库存和库龄记录实际采集日。";
   const note = nodes.find(node => node.name === "导入与运行说明");
   note.parameters.content = note.parameters.content.replace("页面总数", "接口查询总数");
   note.parameters.content = note.parameters.content.replace("默认手动、未激活，无定时器。", "每天本机时间 00:10 定时运行，同时保留手动入口。已核验本机 China Standard Time，对应工作流时区 Asia/Shanghai（UTC+08:00）；本机需保持开机且 n8n/helper 服务运行。仓库模板未激活，实际调度以 n8n 已发布版本为准。");

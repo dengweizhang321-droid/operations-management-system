@@ -267,6 +267,77 @@ class SalesWriteServiceTests(TestCase):
             SalesImportAttempt.objects.filter(outcome="duplicate").count(), 1
         )
 
+    def test_rolling_45_day_refresh_updates_orders_without_accumulation_and_preserves_outside_scope(self) -> None:
+        def row(number: int, day: str, **changes: object) -> dict[str, object]:
+            return normalized_row(number, orderTime=f"{day} 08:00:00", salesTime=f"{day} 09:00:00",
+                                  shipTime=f"{day} 10:00:00", lineShipTime=f"{day} 10:00:00", **changes)
+
+        def publish(rows: list[dict[str, object]], label: str, start: str, end: str,
+                    channels: list[str] | None = None) -> dict[str, object]:
+            session = self._begin_stage(rows, fingerprint=label, raw_hash=hashlib.sha256(label.encode()).hexdigest(),
+                                        start_date=start, end_date=end, expected_channels=channels)
+            return complete_staged_import(session, "admin@example.test")
+
+        first = [row(1, "2024-08-08"), row(2, "2024-08-09"), row(3, "2024-09-01"),
+                 row(4, "2024-09-22"), row(5, "2024-09-23"),
+                 row(6, "2024-09-15", channel=CHANNEL_B, platform="天猫")]
+        publish(first, "rolling-baseline", "2024-08-08", "2024-09-23")
+        latest = [row(2, "2024-08-09", quantity=3, allocatedAmountCents=15_000,
+                      costAmountCents=9_000, grossProfitCents=5_900), first[3], row(7, "2024-08-31")]
+        changed = publish(latest, "rolling-latest", "2024-08-09", "2024-09-22", [CHANNEL_A])
+        self.assertEqual(changed["status"], "imported")
+        updated = SalesOrderLine.objects.get(order_no="order-2")
+        self.assertEqual(updated.quantity, 3)
+        self.assertEqual(updated.allocated_amount_cents, 15_000)
+        self.assertEqual(SalesOrderLine.objects.filter(order_no="order-2").count(), 1)
+        self.assertFalse(SalesOrderLine.objects.filter(order_no="order-3").exists())
+        self.assertEqual(SalesOrderLine.objects.count(), 6)
+        for number in (1, 5, 6):
+            self.assertEqual(SalesOrderLine.objects.get(order_no=f"order-{number}").allocated_amount_cents, 5_000)
+        revision = SalesDataRevision.objects.get(domain="sales").revision
+        duplicate = publish(latest, "rolling-same-new-file", "2024-08-09", "2024-09-22", [CHANNEL_A])
+        self.assertEqual(duplicate["status"], "duplicate")
+        self.assertEqual(SalesDataRevision.objects.get(domain="sales").revision, revision)
+        self.assertEqual(SalesOrderLine.objects.count(), 6)
+
+        # The leftmost day leaves the next window and must remain as history.
+        shifted = [first[3], first[4], row(7, "2024-08-31", allocatedAmountCents=6_000, grossProfitCents=2_900)]
+        publish(shifted, "rolling-next-day", "2024-08-10", "2024-09-23", [CHANNEL_A])
+        self.assertEqual(SalesOrderLine.objects.get(order_no="order-2").quantity, 3)
+        self.assertEqual(SalesOrderLine.objects.get(order_no="order-7").allocated_amount_cents, 6_000)
+        self.assertEqual(SalesOrderLine.objects.count(), 6)
+
+        # A late failure after row updates and removals cannot publish a partial refresh.
+        fields = ("source_line_key", "quantity", "allocated_amount_cents", "last_import_batch_id")
+        facts = list(SalesOrderLine.objects.order_by("source_line_key").values_list(*fields))
+        revision = SalesDataRevision.objects.get(domain="sales").revision
+        with patch("sales.write_service._bump_sales_revision", side_effect=RuntimeError("fixture publication failure")):
+            with self.assertRaises(RuntimeError):
+                publish([row(7, "2024-08-31", allocatedAmountCents=7_000, grossProfitCents=3_900)],
+                        "rolling-rollback", "2024-08-10", "2024-09-23", [CHANNEL_A])
+        self.assertEqual(list(SalesOrderLine.objects.order_by("source_line_key").values_list(*fields)), facts)
+        self.assertEqual(SalesDataRevision.objects.get(domain="sales").revision, revision)
+
+    def test_rolling_scope_shift_with_unchanged_rows_publishes_exact_new_scope_receipt(self) -> None:
+        rows = [normalized_row(31, orderTime="2024-09-01 08:00:00", salesTime="2024-09-01 09:00:00",
+                               shipTime="2024-09-01 10:00:00", lineShipTime="2024-09-01 10:00:00")]
+        first = complete_staged_import(self._begin_stage(rows, fingerprint="rolling-edge-first", raw_hash="a" * 64,
+                                                         start_date="2024-08-09", end_date="2024-09-22"), "admin@example.test")
+        shifted = complete_staged_import(self._begin_stage(rows, fingerprint="rolling-edge-shifted", raw_hash="b" * 64,
+                                                           start_date="2024-08-10", end_date="2024-09-23"), "admin@example.test")
+        self.assertEqual(shifted["status"], "imported")
+        self.assertNotEqual(first["batch"]["id"], shifted["batch"]["id"])
+        batch = SalesImportBatch.objects.get(id=shifted["batch"]["id"])
+        self.assertEqual(batch.scope_json["startDate"], "2024-08-10")
+        self.assertEqual(batch.scope_json["endDate"], "2024-09-23")
+        self.assertEqual(batch.raw_file_hash, "b" * 64)
+        self.assertEqual(SalesOrderLine.objects.count(), 1)
+        self.assertEqual(SalesOrderLine.objects.get().last_import_batch_id, batch.id)
+        duplicate = complete_staged_import(self._begin_stage(rows, fingerprint="rolling-edge-repeat", raw_hash="c" * 64,
+                                                             start_date="2024-08-10", end_date="2024-09-23"), "admin@example.test")
+        self.assertEqual(duplicate["status"], "duplicate")
+        self.assertEqual(duplicate["batch"]["id"], batch.id)
+
     def test_first_post_cutover_upload_proves_composite_legacy_current_facts_duplicate(self) -> None:
         rows = [
             normalized_row(1),

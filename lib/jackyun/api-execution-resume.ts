@@ -6,6 +6,7 @@ import { jackyunApiTransport } from "./api-plan";
 import type { JackyunExportTaskBinding } from "./export-task";
 import { jackyunWorkflowId, recoverySha, type PreflightEvidence } from "./preflight-recovery";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
+import { jackyunSalesPeriod } from "./sales-period";
 
 export type JackyunApiResumePermit = {
   version: 1;
@@ -51,6 +52,10 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
   const controller = JSON.parse(controllerRaw.toString());
   const policy = JSON.parse(policyRaw.toString());
   const active = JSON.parse(activeRaw.toString());
+  jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate);
+  if (![1, 2].includes(plan.version) || (plan.version === 2 ? plan.salesStartDate === undefined : plan.salesStartDate !== undefined)) {
+    throw new Error("续跑计划的销售范围版本不一致。");
+  }
   const inventory = controller.modules?.inventory;
   const timeline = [evidence.startedAt, plan.createdAt, inventory?.preflightStartedAt, inventory?.queryIntentAt,
     inventory?.queryCompletedAt, inventory?.serverClock?.requestStartedAt, inventory?.serverClock?.receivedAt,
@@ -76,7 +81,7 @@ export async function inspectJackyunApiResumePermit(root: string, executionId: s
     || !Array.isArray(policy.browser?.allowedDownloadHosts) || !policy.browser.allowedDownloadHosts.length
     || timeline.some((time, index) => !Number.isFinite(time) || index > 0 && time < timeline[index - 1])
     || controller.version !== 1 || controller.runId !== plan.runId || controller.transport !== jackyunApiTransport
-    || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || !/^[a-f0-9]{64}$/.test(controller.templateSha256)
+    || controller.runDate !== plan.runDate || controller.asOfDate !== plan.asOfDate || controller.salesStartDate !== plan.salesStartDate || !/^[a-f0-9]{64}$/.test(controller.templateSha256)
     || Object.keys(controller.modules ?? {}).length !== 1 || !controller.tenantId
     || inventory?.status !== "submitted" || (!taskNotYetBound && !taskAlreadyBound) || inventory.filePath
     || inventory.provenance || inventory.handoffSha256 || !Number.isSafeInteger(inventory.sourceRows) || inventory.sourceRows <= 0

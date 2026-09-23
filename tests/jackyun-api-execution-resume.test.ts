@@ -3,6 +3,7 @@ import test from "node:test";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { rollingJackyunSalesStartDate } from "../lib/jackyun/sales-period";
 import { claimJackyunApiResumePermit, inspectJackyunApiResumePermit, publishJackyunApiResumePermit } from "../lib/jackyun/api-execution-resume";
 import type { JackyunExportTaskBinding } from "../lib/jackyun/export-task";
 import { jackyunWorkflowId, recoverySha, type PreflightEvidence } from "../lib/jackyun/preflight-recovery";
@@ -51,6 +52,22 @@ async function publish(f: Awaited<ReturnType<typeof fixture>>) {
   await publishJackyunApiResumePermit(permit, evidence, recoverySha(JSON.stringify(permit)));
   return permit;
 }
+
+test("rolling API resume retains its frozen range and rejects a monthly controller", async () => {
+  const f = await fixture();
+  const start = rollingJackyunSalesStartDate(f.plan.asOfDate);
+  Object.assign(f.plan, { version: 2, salesStartDate: start });
+  await writeFile(f.planPath, JSON.stringify(f.plan));
+  await assert.rejects(inspectJackyunApiResumePermit(f.root, "2285", evidence, task, at(8)));
+  Object.assign(f.controller, { salesStartDate: start });
+  await writeFile(f.statePath, JSON.stringify(f.controller));
+  await publish(f);
+  const result = await runJackyunExportFirstAction("plan-api", "2300", f.deps);
+  assert.equal(result.runId, f.runId);
+  assert.equal(result.salesStartDate, start);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "2300", f.deps), /resumed API adapter reached/);
+  assert.deepEqual(f.passedBinding(), task);
+});
 
 test("approved API resume preserves the submitted run and binds one full n8n execution", async () => {
   const f = await fixture();

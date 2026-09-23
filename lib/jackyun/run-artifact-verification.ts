@@ -7,6 +7,7 @@ import path from "node:path";
 import { assertBoundDownloadProvenance, type JackyunDownloadProvenance } from "./download-provenance";
 import { readJsonFile } from "./json-file";
 import type { JackyunModule } from "./post-download";
+import { jackyunSalesPeriod } from "./sales-period";
 import {
   assertJackyunSnapshotEvidence,
   assertJackyunHandoffEvidence,
@@ -59,6 +60,7 @@ export async function verifyJackyunModuleArtifact(options: {
   runId: string;
   module: JackyunModule;
   snapshotDate: string;
+  salesStartDate?: string;
   policyVersion: string;
   allowedDownloadHosts?: readonly string[];
   manifestModule: JackyunArtifactManifestModule;
@@ -179,6 +181,15 @@ export async function verifyJackyunModuleArtifact(options: {
   }
   if (options.module === "sales" && inputContract.asOfDate !== options.snapshotDate) {
     throw new Error(`吉客云 sales 截止日期不是 ${options.snapshotDate}`);
+  }
+  if (options.module === "sales") {
+    const period = jackyunSalesPeriod(options.snapshotDate, options.salesStartDate);
+    if (inputContract.salesStartDate !== options.salesStartDate) throw new Error("销售起始日期与输入契约不一致。");
+    if (options.salesStartDate !== undefined && !isDeepStrictEqual(record(imported?.result)?.salesPeriod, period)) {
+      throw new Error("销售处理范围未与滚动输入契约一致。");
+    }
+  } else if (inputContract.salesStartDate !== undefined || options.salesStartDate !== undefined) {
+    throw new Error("非销售模块不得携带销售起始日期。");
   }
 
   const outputPath = typeof output?.path === "string" ? path.resolve(output.path) : "";

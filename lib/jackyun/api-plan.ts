@@ -4,6 +4,7 @@ import { validateDirectExportPayload } from "./direct-export";
 import type { JackyunHttpSession, JackyunHttpOperation } from "./direct-http";
 import { jackyunExportOrder, jackyunCaptureDate } from "./run-contract";
 import type { JackyunModule } from "./post-download";
+import { jackyunSalesPeriod } from "./sales-period";
 
 export const jackyunApiTransport = "session_api_v1";
 export type ApiTemplate = { moduleCode: string; query: Record<string, string>; export: Record<string, string> };
@@ -61,7 +62,7 @@ export async function readApiScope(http: Http, templates: ApiTemplates, tenantId
   return { warehouseIds: warehouseIds.sort(), ownerId: id(self[0].id), permissionSha256, observedAt: new Date().toISOString() };
 }
 
-export function buildApiParameters(module: JackyunModule, template: ApiTemplate, scope: ApiScope, asOfDate: string) {
+export function buildApiParameters(module: JackyunModule, template: ApiTemplate, scope: ApiScope, asOfDate: string, salesStartDate?: string) {
   if (template.moduleCode !== code[module] || !/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)
     || new Date(asOfDate + "T00:00:00Z").toISOString().slice(0, 10) !== asOfDate) throw new Error("API_TEMPLATE_BINDING_INVALID");
   const query = structuredClone(template.query), data = structuredClone(template.export);
@@ -71,7 +72,7 @@ export function buildApiParameters(module: JackyunModule, template: ApiTemplate,
   if (module === "sales") {
     const filter = record(condition.filterOrderDetailDto), countFilter = record(JSON.parse(query.jsonStr));
     if (!isDeepStrictEqual(filter, countFilter) || filter.timeBegin !== "@sales_begin" || filter.timeEnd !== "@sales_end") throw new Error("API_SALES_SCOPE_INVALID");
-    filter.timeBegin = `${asOfDate.slice(0, 8)}01 00:00:00`; filter.timeEnd = `${asOfDate} 23:59:59`;
+    filter.timeBegin = `${jackyunSalesPeriod(asOfDate, salesStartDate).startDate} 00:00:00`; filter.timeEnd = `${asOfDate} 23:59:59`;
     query.jsonStr = JSON.stringify(filter);
   }
   data.conditionJson = JSON.stringify(condition);
@@ -82,14 +83,14 @@ export function buildApiParameters(module: JackyunModule, template: ApiTemplate,
     if (normalized !== value) throw new Error("API_COUNT_EXPORT_SCOPE_MISMATCH");
   }
   if (Object.keys(countCondition).some(key => /token|password|secret|sign|appkey/i.test(key))) throw new Error("API_TEMPLATE_SECRET_FIELD");
-  validateDirectExportPayload(module, new URLSearchParams({ ...data, exportTotal: "1" }).toString(), template.moduleCode, asOfDate);
+  validateDirectExportPayload(module, new URLSearchParams({ ...data, exportTotal: "1" }).toString(), template.moduleCode, asOfDate, salesStartDate);
   return { query, data, moduleCode: template.moduleCode };
 }
 
-export async function prepareApiExport(http: Http, templates: ApiTemplates, scope: ApiScope, module: JackyunModule, runDate: string, asOfDate: string) {
+export async function prepareApiExport(http: Http, templates: ApiTemplates, scope: ApiScope, module: JackyunModule, runDate: string, asOfDate: string, salesStartDate?: string) {
   const queryIntentAt = new Date().toISOString();
   if (jackyunCaptureDate(queryIntentAt) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
-  const prepared = buildApiParameters(module, templates.modules[module], scope, asOfDate);
+  const prepared = buildApiParameters(module, templates.modules[module], scope, asOfDate, salesStartDate);
   const response = await http.request<Result>(counts[module], prepared.query, prepared.moduleCode);
   const rawCount = response.data;
   if ((typeof rawCount !== "number" && (typeof rawCount !== "string" || !/^[1-9]\d*$/.test(rawCount)))
@@ -99,7 +100,7 @@ export async function prepareApiExport(http: Http, templates: ApiTemplates, scop
   const headers = JSON.parse(prepared.data.headersJson);
   if (module === "combos" && (headers as { enName: string[] }[]).some(sheet => sheet.enName.some(field => /imgurl/i.test(field))) && sourceRows > 2000) throw new Error("API_COMBO_IMAGE_EXPORT_WOULD_TRUNCATE");
   prepared.data.exportTotal = String(sourceRows);
-  const validated = validateDirectExportPayload(module, new URLSearchParams(prepared.data).toString(), prepared.moduleCode, asOfDate);
+  const validated = validateDirectExportPayload(module, new URLSearchParams(prepared.data).toString(), prepared.moduleCode, asOfDate, salesStartDate);
   const queryCompletedAt = new Date().toISOString();
   if (jackyunCaptureDate(queryCompletedAt) !== runDate) throw new Error("API_CAPTURE_DATE_CHANGED");
   return { ...validated, sourceRows, queryIntentAt, queryCompletedAt, querySha256: apiSha(JSON.stringify(prepared.query)), permissionSha256: scope.permissionSha256 };

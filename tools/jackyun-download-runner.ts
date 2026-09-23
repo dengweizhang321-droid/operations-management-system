@@ -24,6 +24,7 @@ import {
 } from "../lib/jackyun/post-download";
 import { runSalesImport, salesSourceRowCountSemantic } from "./sales-import-runner";
 import { readJsonFile, readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
 import {
   assertBoundDownloadProvenance,
   defaultJackyunDownloadHosts,
@@ -44,6 +45,7 @@ type CliOptions = {
   snapshotDate?: string;
   snapshotEvidence?: JackyunSnapshotEvidence;
   asOfDate?: string;
+  salesStartDate?: string;
   costSourcePath?: string;
   exportStart: string;
   expectedSourceRows: number;
@@ -649,6 +651,7 @@ async function processSales(
   if (!currentInventorySha256) throw new Error("本轮 inventory 清单缺少成本源 SHA，不能启动销售任务。");
   return runSalesImport({
     asOfDate: options.asOfDate!,
+    salesStartDate: options.salesStartDate,
     downloadPath: boundSalesPath,
     downloadBytes: rawBytes,
     preserveRawCopy: false,
@@ -727,6 +730,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       snapshotDate: options.snapshotDate,
       snapshotEvidence: options.snapshotEvidence,
       asOfDate: options.asOfDate,
+      ...(options.salesStartDate !== undefined ? { salesStartDate: options.salesStartDate } : {}),
       expectedSourceRows: options.expectedSourceRows,
       previousComboRows: options.previousComboRows,
       costOutputSha256: options.module === "sales" ? manifest.modules.inventory?.salesCostSourceSha256 : undefined,
@@ -749,6 +753,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
           runId: options.runId,
           module: options.module,
           snapshotDate: options.snapshotDate ?? options.asOfDate ?? "",
+          salesStartDate: options.salesStartDate,
           policyVersion: options.policyVersion,
           allowedDownloadHosts: options.allowedDownloadHosts,
           manifestModule: existing,
@@ -821,6 +826,12 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
       moveToStage("sales_filter_cost_match_import_verify");
       const salesResult = await processSales(options, manifest, rawCopyPath, rawHash, rawBytes);
       const salesAudit = salesResult.audit as Record<string, unknown> | undefined;
+      const expectedPeriod = jackyunSalesPeriod(options.asOfDate!, options.salesStartDate);
+      const childPeriod = salesAudit?.period as { startDate?: string; endDate?: string } | undefined;
+      if (options.salesStartDate !== undefined
+        && (childPeriod?.startDate !== expectedPeriod.startDate || childPeriod?.endDate !== expectedPeriod.endDate)) {
+        throw new Error("销售 child 处理范围与本轮滚动范围不一致。");
+      }
       const output = salesAudit?.output as Record<string, unknown> | undefined;
       if (typeof output?.path !== "string" || typeof output.bytes !== "number" || typeof output.sha256 !== "string") {
         throw new Error("销售 runner 未返回完整的处理文件证据。");
@@ -857,6 +868,7 @@ export async function runJackyunDownload(options: JackyunDownloadRunOptions) {
         salesRunId: typeof salesAudit?.runId === "string" ? salesAudit.runId : null,
         salesPolicyVersion: typeof salesAudit?.policyVersion === "string" ? salesAudit.policyVersion : null,
         postImportVerified: postImportVerification?.verified === true,
+        ...(options.salesStartDate !== undefined ? { salesPeriod: expectedPeriod } : {}),
       };
       if (!options.dryRun && (salesResult.status !== "verified_completed"
         || !batch || batch.status !== "completed" || postImportVerification?.verified !== true)) {

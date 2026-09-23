@@ -25,6 +25,7 @@ import { runApiExports } from "./jackyun-api-export";
 import { runJackyunDownload, type JackyunDownloadRunOptions } from "./jackyun-download-runner";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
 import { getJackyunProfileStatus, normalizeJackyunLocalBaseUrl, verifyPublishedJackyunBatches } from "./jackyun-n8n-pipeline";
+import { jackyunSalesPeriod, rollingJackyunSalesStartDate } from "../lib/jackyun/sales-period";
 
 export const jackyunExportFirstPrefix = "/jackyun/export-first/";
 export const jackyunWebSessionActions = ["plan-web-session", "export-all", "validate", "import", "verify"];
@@ -33,12 +34,13 @@ export const jackyunExportFirstActions = ["plan", ...jackyunExportOrder.map(modu
 type Phase = "exporting" | "exported" | "validating" | "validated" | "importing" | "imported" | "completed";
 type ExportReceipt = { handoffSha256: string; fileSha256: string; bytes: number };
 export type JackyunExportFirstPlan = {
-  version: 1;
+  version: 1 | 2;
   protocol: typeof jackyunExportFirstPolicyVersion;
   executionId: string;
   runId: string;
   runDate: string;
   asOfDate: string;
+  salesStartDate?: string;
   baseUrl: string;
   createdAt: string;
   phase: Phase;
@@ -75,7 +77,11 @@ function handoffPath(root: string, plan: JackyunExportFirstPlan, module: Jackyun
   return path.join(paths(root).eventRoot, plan.runId, `${String(jackyunModuleOrder.indexOf(module) + 1).padStart(2, "0")}-${module}.json`);
 }
 function checkPlan(plan: JackyunExportFirstPlan, executionId: string) {
-  if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
+  jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate);
+  if (plan.version === 2 ? plan.salesStartDate === undefined || plan.exportTransport !== jackyunApiTransport : plan.salesStartDate !== undefined) {
+    throw new Error("销售范围与计划版本不一致。");
+  }
+  if (![1, 2].includes(plan.version) || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
     || !/^[A-Za-z0-9._-]{1,96}$/.test(plan.runId)) throw new Error("运行身份或工作流协议不一致。");
   const yesterday = new Date(`${plan.runDate}T00:00:00Z`);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
@@ -168,8 +174,8 @@ async function readBoundHandoff(root: string, plan: JackyunExportFirstPlan, poli
   }
   if (module === "sales" && (!handoff.fieldChecks?.some(item => item.field === "统计时间类型" && item.value === "发货时间")
     || !handoff.fieldChecks.some(item => item.field === "日期区间"
-      && item.value === `${plan.asOfDate.slice(0, 8)}01 00:00:00 至 ${plan.asOfDate} 23:59:59`))) {
-    throw new Error("销售发货时间或本月至昨天的范围没有精确读回。");
+      && item.value === `${jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate).startDate} 00:00:00 至 ${plan.asOfDate} 23:59:59`))) {
+    throw new Error("销售发货时间或计划日期范围没有精确读回。");
   }
   const directory = path.resolve(policy.browser.downloadDirectory, "jackyun", plan.runId, module);
   if (path.dirname(path.resolve(handoff.filePath)) !== directory || path.extname(handoff.filePath).toLowerCase() !== ".xlsx") {
@@ -202,6 +208,7 @@ async function runImports(root: string, plan: JackyunExportFirstPlan, policy: Po
       module: moduleKey, filePath: handoff.filePath, runId: plan.runId, policyVersion: plan.protocol,
       snapshotDate: moduleKey === "inventory" || moduleKey === "inventory_age" ? plan.runDate : undefined,
       snapshotEvidence: handoff.snapshotEvidence, asOfDate: moduleKey === "sales" ? plan.asOfDate : undefined,
+      salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined,
       costSourcePath: moduleKey === "sales" ? costSourcePath : undefined,
       exportStart: handoff.exportIntentAt, expectedSourceRows: handoff.expectedSourceRows,
       baseUrl: plan.baseUrl, outputRoot, downloadDirectory: policy.browser.downloadDirectory,
@@ -228,7 +235,7 @@ export async function verifyJackyunPreparedImports(root: string, plan: JackyunEx
   for (const moduleKey of jackyunModuleOrder) {
     await readBoundHandoff(root, plan, policy, moduleKey);
     await verifyJackyunModuleArtifact({ runDirectory, runId: plan.runId, module: moduleKey,
-      snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate, policyVersion: plan.protocol,
+      snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate, salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined, policyVersion: plan.protocol,
       manifestModule: manifest.modules[moduleKey], expectedStatus: "prepared", allowedDownloadHosts: policy.browser.allowedDownloadHosts,
       handoffPath: handoffPath(root, plan, moduleKey), requireAtomicHandoff: true });
   }
@@ -242,6 +249,7 @@ async function verifyImports(root: string, plan: JackyunExportFirstPlan, policy:
     await readBoundHandoff(root, plan, policy, moduleKey);
     const verified = await verifyJackyunModuleArtifact({
       runDirectory, runId: plan.runId, module: moduleKey, snapshotDate: moduleKey === "sales" ? plan.asOfDate : plan.runDate,
+      salesStartDate: moduleKey === "sales" ? plan.salesStartDate : undefined,
       policyVersion: plan.protocol, manifestModule: manifest.modules[moduleKey],
       allowedDownloadHosts: policy.browser.allowedDownloadHosts, handoffPath: handoffPath(root, plan, moduleKey), requireAtomicHandoff: true,
     });
@@ -252,7 +260,7 @@ async function verifyImports(root: string, plan: JackyunExportFirstPlan, policy:
       djangoReceipt: audit.import.result.djangoReceipt });
   }
   return verifyPublishedJackyunBatches({ baseUrl: plan.baseUrl, asOfDate: plan.asOfDate,
-    snapshotDate: plan.runDate, modules, request: deps.request });
+    snapshotDate: plan.runDate, salesStartDate: plan.salesStartDate, modules, request: deps.request });
 }
 
 export async function runJackyunExportFirstAction(action: string, executionId: string, deps: ExportFirstDependencies) {
@@ -319,8 +327,9 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
       const runDate = jackyunCaptureDate(createdAt);
       const yesterday = new Date(`${runDate}T00:00:00Z`);
       yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-      plan = { version: 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId, runDate,
+      plan = { version: action === "plan-api" ? 2 : 1, protocol: jackyunExportFirstPolicyVersion, executionId, runId, runDate,
         asOfDate: yesterday.toISOString().slice(0, 10), baseUrl, createdAt, phase: "exporting", exports: {},
+        ...(action === "plan-api" ? { salesStartDate: rollingJackyunSalesStartDate(yesterday.toISOString().slice(0, 10)) } : {}),
         ...(action === "plan-web-session" ? { exportTransport: jackyunWebSessionTransport } : action === "plan-direct-http" ? { exportTransport: jackyunDirectTransport } : action === "plan-api" ? { exportTransport: jackyunApiTransport } : {}) };
       await mkdir(path.dirname(planPath), { recursive: true });
       await writeFile(planPath, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
@@ -353,7 +362,7 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         },
       };
       const result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
-        runId, runDate: plan.runDate, asOfDate: plan.asOfDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
+        runId, runDate: plan.runDate, asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
         downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, ...callbacks,
       }) : await (deps.runBrowser ?? runController)({
         runId, snapshotDate: plan.runDate, asOfDate: plan.asOfDate,
@@ -431,6 +440,6 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
 function publicExportFirstPlan(plan: JackyunExportFirstPlan) {
   return { ok: true, protocol: plan.protocol, runId: plan.runId, phase: plan.phase,
     exportTransport: plan.exportTransport ?? "browser_menu",
-    snapshotDate: plan.runDate, salesStartDate: `${plan.asOfDate.slice(0, 8)}01`, salesEndDate: plan.asOfDate,
+    snapshotDate: plan.runDate, salesStartDate: jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate).startDate, salesEndDate: plan.asOfDate,
     exported: jackyunExportOrder.filter(module => plan.exports[module]), importOrder: jackyunModuleOrder };
 }

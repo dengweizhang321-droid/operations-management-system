@@ -129,6 +129,10 @@ test("API plan dispatches only its adapter and a sales cost validation failure b
         headless: true, launchOnly: false, checkLoginOnly: false });
       const eventPath = path.join(options.eventRoot, options.runId, `${String(jackyunModuleOrder.indexOf(moduleKey) + 1).padStart(2, "0")}-${moduleKey}.json`);
       const handoff = JSON.parse(await readFile(eventPath, "utf8"));
+      if (moduleKey === "sales") {
+        assert.equal(options.salesStartDate, "2026-07-23");
+        handoff.fieldChecks.find((item: { field: string }) => item.field === "日期区间").value = "2026-07-23 00:00:00 至 2026-09-05 23:59:59";
+      }
       handoff.evidence = { ...handoff.evidence, controller: "authenticated_http_api", exportTransport: "session_api_v1",
         apiPreflightStartedAt: handoff.navigationIntentAt, apiQueryCompletedAt: handoff.tableStableAt,
         apiQuerySha256: "a".repeat(64), permissionSha256: "b".repeat(64), templateSha256: "c".repeat(64),
@@ -141,7 +145,7 @@ test("API plan dispatches only its adapter and a sales cost validation failure b
   };
   const prepare = f.deps.runDownload!;
   f.deps.runDownload = async options => {
-    if (options.module === "sales") throw new Error("COST_VALIDATION_FAILED");
+    if (options.module === "sales") { assert.equal(options.salesStartDate,"2026-07-23"); throw new Error("COST_VALIDATION_FAILED"); }
     assert.equal(options.dryRun, true);
     return prepare(options);
   };

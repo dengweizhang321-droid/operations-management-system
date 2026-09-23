@@ -20,13 +20,15 @@ import { jackyunModuleOrder, type JackyunModule } from "../lib/jackyun/post-down
 import calibratedTemplates from "../config/jackyun-api-templates.json";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
 import type { BrowserHandoff } from "./jackyun-daily-runner";
+import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 type ModuleState = { status: "prepared" | "submit_intent" | "submitted" | "handed_off"; preflightStartedAt: string; queryIntentAt: string; queryCompletedAt: string;
   sourceRows: number; payloadSha256: string; querySha256: string; permissionSha256: string; templateSha256: string; baselineIds: string[];
   serverClock?: JackyunServerClock; exportIntentAt?: string; pendingTaskId?: string; binding?: JackyunExportTaskBinding; filePath?: string; provenance?: JackyunDownloadProvenance; handoffSha256?: string };
-type ApiState = { version: 1; runId: string; tenantId?: string; transport: typeof jackyunApiTransport; runDate: string; asOfDate: string; templateSha256: string; modules: Partial<Record<JackyunModule, ModuleState>> };
+type ApiState = { version: 1; runId: string; tenantId?: string; transport: typeof jackyunApiTransport; runDate: string; asOfDate: string; salesStartDate?: string; templateSha256: string; modules: Partial<Record<JackyunModule, ModuleState>> };
 export type ApiExportOptions = { runId: string; runDate: string; asOfDate: string; outputRoot: string; eventRoot: string; downloadDirectory: string;
+  salesStartDate?: string;
   beforeModule?: (module: JackyunModule) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal;
   resumeTaskBinding?: JackyunExportTaskBinding };
 
@@ -111,15 +113,16 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
 }
 
 export async function runApiExports(options: ApiExportOptions, deps: { http?: JackyunHttpSession; tenantId?: string; templates?: ApiTemplates; taskTimeoutMs?: number; pollIntervalMs?: number } = {}) {
+  const salesPeriod = jackyunSalesPeriod(options.asOfDate, options.salesStartDate);
   if (!/^[A-Za-z0-9._-]{1,96}$/.test(options.runId) || jackyunCaptureDate(new Date().toISOString()) !== options.runDate
     || new Date(Date.parse(options.runDate + "T00:00:00Z") - 86400000).toISOString().slice(0, 10) !== options.asOfDate) throw new Error("API_RUN_SCOPE_INVALID");
   const templates = deps.templates ?? calibratedTemplates as ApiTemplates;
   const templateSha256 = apiSha(JSON.stringify(templates));
   const runDirectory = path.join(options.outputRoot, options.runId), eventDirectory = path.join(options.eventRoot, options.runId);
   const statePath = path.join(runDirectory, "api-controller-state.json");
-  const state = await readJsonFileOr<ApiState>(statePath, { version: 1, runId: options.runId, transport: jackyunApiTransport, runDate: options.runDate, asOfDate: options.asOfDate, templateSha256, modules: {} });
+  const state = await readJsonFileOr<ApiState>(statePath, { version: 1, runId: options.runId, transport: jackyunApiTransport, runDate: options.runDate, asOfDate: options.asOfDate, ...(options.salesStartDate !== undefined ? { salesStartDate: options.salesStartDate } : {}), templateSha256, modules: {} });
   if (state.version !== 1 || state.runId !== options.runId || state.transport !== jackyunApiTransport || state.templateSha256 !== templateSha256
-    || state.runDate !== options.runDate || state.asOfDate !== options.asOfDate) throw new Error("API_RUN_BINDING_CHANGED");
+    || state.runDate !== options.runDate || state.asOfDate !== options.asOfDate || state.salesStartDate !== options.salesStartDate) throw new Error("API_RUN_BINDING_CHANGED");
   const allowedHosts = ["jackyun-shortterm.oss-cn-zhangjiakou.aliyuncs.com"];
   const execute = async (http: JackyunHttpSession, tenantId: string) => {
     if (state.tenantId !== undefined ? state.tenantId !== tenantId : Object.keys(state.modules).length > 0) throw new Error("API_TENANT_BINDING_CHANGED");
@@ -170,7 +173,7 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
       }
       if (!entry?.exportIntentAt) {
         const preflightStartedAt = new Date().toISOString();
-        const prepared = await prepareApiExport(http, templates, scope, moduleKey, options.runDate, options.asOfDate);
+        const prepared = await prepareApiExport(http, templates, scope, moduleKey, options.runDate, options.asOfDate, options.salesStartDate);
         const validationData = { ...prepared.data }; delete validationData.isSyn;
         const validation = await http.request<{ data: unknown; noPrivilegeItem: unknown; desensitizationItem: unknown }>("validateExport", validationData, prepared.moduleCode);
         if (validation.data !== null || validation.noPrivilegeItem !== null || validation.desensitizationItem !== null) throw new Error("API_EXPORT_VALIDATION_CHANGED");
@@ -213,7 +216,7 @@ export async function runApiExports(options: ApiExportOptions, deps: { http?: Ja
         version: 1, module: moduleKey, runId: options.runId, source: "current_query", targetDate: options.runDate, queryIntentAt: entry.queryIntentAt,
         queryRefreshSource: "module_network_request", queryRefreshCompletedAt: entry.queryCompletedAt, tableStableAt: entry.queryCompletedAt,
       } : undefined;
-      const fieldChecks = moduleKey === "sales" ? [{ field: "统计时间类型", value: "发货时间", verifiedAt: entry.queryCompletedAt }, { field: "日期区间", value: `${options.asOfDate.slice(0, 8)}01 00:00:00 至 ${options.asOfDate} 23:59:59`, verifiedAt: entry.queryCompletedAt }]
+      const fieldChecks = moduleKey === "sales" ? [{ field: "统计时间类型", value: "发货时间", verifiedAt: entry.queryCompletedAt }, { field: "日期区间", value: `${salesPeriod.startDate} 00:00:00 至 ${options.asOfDate} 23:59:59`, verifiedAt: entry.queryCompletedAt }]
         : moduleKey === "products" ? [{ field: "模式", value: "规格模式(SKU)", verifiedAt: entry.queryCompletedAt }] : [];
       const handoff: BrowserHandoff = {
         schemaVersion: 2, runId: options.runId, module: moduleKey, policyVersion: jackyunExportFirstPolicyVersion, filePath: downloaded.filePath,

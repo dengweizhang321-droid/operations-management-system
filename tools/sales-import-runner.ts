@@ -11,6 +11,7 @@ import {
 import { createXlsxWorkbookBytes } from "../lib/imports/xlsx-write";
 import { normalizeSalesLedgerDate } from "../lib/imports/sales-ledger";
 import { readJsonFileOr, writeJsonAtomic } from "../lib/jackyun/json-file";
+import { jackyunSalesPeriod } from "../lib/jackyun/sales-period";
 
 type Policy = {
   version: string;
@@ -32,6 +33,7 @@ type Policy = {
 
 type CliOptions = {
   asOfDate: string;
+  salesStartDate?: string;
   downloadPath?: string;
   costSourcePath?: string;
   expectedDownloadSha256?: string;
@@ -537,6 +539,11 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   if (!policy.version || policy.dateRule.type !== "month_to_previous_day") throw new Error("销售导入策略文件无效。");
   if (!options.dryRun) await assertServerPolicyVersion(options.baseUrl, policy.version);
   const period = monthToPreviousDay(options.asOfDate);
+  if (options.salesStartDate !== undefined) {
+    const rolling = jackyunSalesPeriod(options.asOfDate, options.salesStartDate);
+    period.startDate = rolling.startDate;
+    period.startDateTime = `${rolling.startDate} 00:00:00`;
+  }
   const auditRoot = path.resolve(options.auditRootPath ?? defaultAuditRoot);
   const downloadPath = path.resolve(options.downloadPath);
   const useFileCost = options.useFileCost === true;

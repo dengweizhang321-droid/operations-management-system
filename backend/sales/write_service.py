@@ -2023,8 +2023,21 @@ def _reserve_scope(prepared: PreparedImport, session_owner: str) -> ScopeReserva
         # the caller's already validated scope to hash the current facts and
         # require an exact canonical-set match before treating the first
         # post-cutover upload as a duplicate.
-        current_scope_rows = list(_scope_rows(prepared))
-        if len(current_scope_rows) == len(prepared.rows) and _content_hash(
+        # A modern batch binds both content and its declared date/channel scope.
+        # When a rolling window moves, identical rows still need a new scoped
+        # receipt and coherent ownership. Do not mistake that for legacy data
+        # lacking scope metadata, or verification would reuse the old file/range.
+        scoped_batch_exists = (
+            SalesImportBatch.objects.filter(
+                id__in=_scope_rows(prepared).values("last_import_batch_id")
+            )
+            .exclude(content_hash="")
+            .exclude(scope_key="")
+            .exclude(scope_json={})
+            .exists()
+        )
+        current_scope_rows = [] if scoped_batch_exists else list(_scope_rows(prepared))
+        if not scoped_batch_exists and len(current_scope_rows) == len(prepared.rows) and _content_hash(
             prepared.scope,
             [_stored_line_content_row(line) for line in current_scope_rows],
         ) == prepared.content_hash:
