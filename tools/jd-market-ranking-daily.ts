@@ -605,7 +605,7 @@ export async function selectRankingIdentity(page: Page, target: JdMarketDailyCat
   const downloadButton = surface.getByText("下载数据", { exact: true }).filter({ visible: true });
   await downloadButton.waitFor({ state: "visible", timeout: 30_000 });
   if (await downloadButton.count() !== 1) throw new Error("京东新版行业榜单无法唯一识别下载数据按钮");
-  return Object.freeze({ frame, surface, dimensionControl, categoryControl, downloadButton });
+  return Object.freeze({ frame, surface, dimensionControl, categoryControl, query, downloadButton });
 }
 
 async function currentRankingDateEcho(frame: Frame) {
@@ -735,6 +735,19 @@ async function downloadRankingWorkbook(
   await selectRankingDate(identity.frame, date);
   await waitForSelectorText(identity.dimensionControl, identity.frame, "SKU", true);
   await waitForSelectorText(identity.categoryControl, identity.frame, target.categoryPath.join(" > "), false);
+  if (await identity.dimensionControl.getAttribute("aria-selected") !== "true") {
+    throw new Error("京东商品榜单选择日期后 SKU 维度未保持选中");
+  }
+  // The date picker can update its echo without applying the new day to the ranking.
+  await identity.query.click();
+  await identity.frame.waitForTimeout(500);
+  const loading = identity.frame.locator(".jd-spin-spinning, .jmt-spin-spinning, [aria-busy='true']").filter({ visible: true });
+  const loadingDeadline = Date.now() + 30_000;
+  while (Date.now() < loadingDeadline && await loading.count() > 0) await identity.frame.waitForTimeout(200);
+  if (await loading.count() > 0) throw new Error("京东新版行业榜单目标日期查询后仍在加载");
+  await waitForRankingDateEcho(identity.frame, date);
+  const empty = identity.surface.getByText("暂无数据", { exact: true }).filter({ visible: true });
+  if (await empty.count() > 0) throw new Error(`京东新版行业榜单 ${date} 的 SKU 查询结果暂无数据`);
   capturedNativeDownloadRequests.delete(page);
   const startedAt = Date.now();
   const downloadPromise = page.waitForEvent("download", { timeout: 180_000 });
