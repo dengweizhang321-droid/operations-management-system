@@ -111,6 +111,14 @@ PostgreSQL `0024_business_screening_runtime.py` 把 profile、snapshot 字段与
 
 测试标签 `ai_assistant.test_business_promotion_runtime`；采用真实封存报告与发布筛查行，检查合法当前/基期、错来源/报告/筛查/账号、篡改候选、迟到撤权、旧字节不变及无模型/外部工具调用。3 项隔离 PostgreSQL 测试通过（22.443 秒），日志 `.runtime/ai-pg-4fa15d233537/tests.log`。首次测试夹具的来源窗口与固定分析请求不一致而被正确拒绝，修正合成目录后通过，失败日志 `.runtime/ai-pg-1fecd74e92ee/failure.log` 保留；未放宽业务门禁或执行生产。
 
+## 2026-09-24 新持久报告的只读绑定（待隔离 PostgreSQL 验收）
+
+新增内部 `business_promotion_runtime.bound_persisted(reportId, principal)`，用于由 `business_promotion_creation.create` 和 `0026` 创建的新 profile。它从真实报告、工作流、已封存 v2 证据与目录重建词货选择、双目录摘要、工作流输入、六节点图、四工具目录与可选预算，并检查当前无范围管理员和模型配置版本；返回前复验账号、证据版本、报告、筛查发布状态和中央目录。旧 profile、错来源/基期/身份及版本变化均拒绝。
+
+返回 `screeningStatus=prepared_but_not_ready`、`contentReady=false` 表示报告和筛查意图已持久化，但筛查结果尚未发布。`rootBindings` 记录当前证据 ID/版本、seal、目录摘要与来源数。只有意图 ID 对应的持久筛查行经过 owning 服务及全部页链验证，才可能返回 `ready`。现有 `business_screening_store._loaded` 经旧 `business_diagnostic_screening._load`，尚不识别新 profile；发现此类行会拒绝读取，不会凭行存在宣称 ready。此时仍无模型派发或文件交付。
+
+下一步为旧 screening `_load` 增加新 profile 精确分派时，可从本适配器同一轮核验复用可信五元组：`report` 是已验证当前账号与 workflow owner/scope 的 `AiReportRun`；`snapshot` 是规范 JSON 且逐字节等于当前封存来源重建的 `shape.snapshot`；`reference` 是 `shape.workflowInput` 且逐字节等于 `workflow.input_json`；`evidence` 是通过封存版本复验的 v2 行；`sources` 是 `evidence_store.catalog(evidence)` 的真实目录。任何调用者提供的目录、摘要或候选对象都不能取代它们。实际页读取结束和返回前还须重验这些根。
+
 ## 完整词货导出材料候选（2026-09-23）
 
 新增 `business_promotion_export.prepare(report_id, source_key, principal, baseline_key=None)`：复用两种词货 owning context，严格跟随每页实际 nextOffset，验证页/行位置与摘要，完整采集两表。两种 context 均正常退出，再进行最终报告/当前账号复验后才返回不可变 NDJSON 页字节和独立 manifest 副本；失败、取消或迟到撤权不返回部分材料。
