@@ -210,7 +210,7 @@ test("audit failure prevents analysis data access", async () => {
 
 test("bulk collector is absent from providers and cannot widen a chat tool budget", async () => {
   const bulk = aiToolRegistry.find(e => e.name === "get_business_source_page")!;
-  assert.deepEqual(getToolsForPrincipal(admin, "business_collection").map(e => e.name).sort(), ["get_business_market_continuation_page", "get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_source_page", "get_data_freshness"]);
+  assert.deepEqual(getToolsForPrincipal(admin, "business_collection").map(e => e.name).sort(), ["get_business_finance_source_page", "get_business_market_continuation_page", "get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_source_page", "get_data_freshness"]);
   assert.deepEqual(getOpenAiTools(admin, "business_collection"), []);
   assert.deepEqual(getAnthropicTools(admin, "business_collection"), []);
   for (const surface of ["ai_chat", "ai_agent", "ai_sandbox", "dingtalk_chat", "codex_mcp", "test"] as const) {

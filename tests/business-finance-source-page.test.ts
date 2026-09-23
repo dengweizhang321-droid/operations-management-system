@@ -21,7 +21,7 @@ const page = { schemaVersion: "business-finance-owned-page-v1", sourceRef: "a".r
   pagination: { offset: 0, returned: 0, total: 0, nextOffset: null, nextLastId: null },
   sourceAuthorityVerified: false, persistentEvidenceVerified: false, pageDigest: "d".repeat(64) };
 
-test("unregistered finance bridge signs only its fixed reader POST and preserves full revision", async () => {
+test("internal finance bridge signs only its fixed reader POST and preserves full revision", async () => {
   let observed: Request | undefined;
   const actual = await readBusinessFinanceSourcePage(args, context, { config, now: () => 1_800_000_000_000,
     requestId: () => "finance-source-page", fetchImpl: async (input, init) => {

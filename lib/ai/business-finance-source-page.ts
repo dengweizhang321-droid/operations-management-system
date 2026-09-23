@@ -7,7 +7,7 @@ import {
 import { PublicApiError } from "@/lib/http/api-error";
 import { requireAnalysisPrincipal } from "@/lib/netshop/analysis-tool";
 
-/** Internal adapter only. Deliberately absent from the central tool catalog. */
+/** Registered only for the internal business_collection surface; never exposed to models. */
 export async function readBusinessFinanceSourcePage(
   raw: unknown,
   context: AiToolExecutionContext,

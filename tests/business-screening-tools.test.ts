@@ -37,7 +37,7 @@ const baseline = {"surfaces":["ai_chat","dingtalk_chat","ai_agent","ai_sandbox",
 test("all 47 legacy entries and their 96 catalog projections preserve exact canonical bytes", () => {
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.surfaces.length), baseline.surfaces);
   assert.deepEqual(aiToolSurfaces.slice(baseline.surfaces.length), [surface, "business_agent_screening_promotion_v1"]);
-  const old = aiToolRegistry.filter(entry => !["get_business_promotion_screening_package_v1", "get_business_promotion_screening_analysis_v1", "get_business_promotion_screening_budget_v1", "get_business_promotion_keyword_sku_v1"].includes(entry.name) && !names.includes(entry.name) && !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"].includes(entry.name));
+  const old = aiToolRegistry.filter(entry => !["get_business_promotion_screening_package_v1", "get_business_promotion_screening_analysis_v1", "get_business_promotion_screening_budget_v1", "get_business_promotion_keyword_sku_v1"].includes(entry.name) && !names.includes(entry.name) && !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page", "get_business_finance_source_page"].includes(entry.name));
   assert.deepEqual(old.map(entry => entry.name), baseline.names);
   assert.deepEqual({count:old.length,sha256:sha(canonicalAiEdge(old.map(strip)))}, baseline.registry);
   const catalogs: Record<string, unknown> = {};
@@ -45,7 +45,7 @@ test("all 47 legacy entries and their 96 catalog projections preserve exact cano
     // The new collector-only continuations are tested independently; retain the
     // exact old entry/schema bytes rather than replacing the stored baseline.
     const entries = getToolsForPrincipal({...admin,role,scope:scoped?{warehouses:[],channels:[],platforms:[]}:null},oldSurface)
-      .filter(entry => !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"].includes(entry.name)).map(strip);
+      .filter(entry => !["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page", "get_business_finance_source_page"].includes(entry.name)).map(strip);
     catalogs[`${oldSurface}/${role}/${scoped?"scoped":"unscoped"}`]={count:entries.length,sha256:sha(canonicalAiEdge(entries))};
   }
   assert.deepEqual(catalogs,baseline.catalogs);

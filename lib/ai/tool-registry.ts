@@ -40,6 +40,7 @@ import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
 import { getMarketAnalysisRecords } from "@/lib/market/analysis-tool";
 import { readBusinessEvidence, readBusinessAnalysisTable, readBusinessAnalysisTableV2, readBusinessBudget, readBusinessEvidenceDirectoryV2, readBusinessBudgetReferenceV1, readBusinessIntegratedDirectoryV1, readBusinessIntegratedAnalysisTableV1, readBusinessIntegratedBudgetV1, readBusinessScreeningPackageV1, readBusinessScreeningAnalysisTableV1, readBusinessScreeningBudgetV1 } from "@/lib/ai/business-evidence";
 import { readBusinessSourcePage } from "@/lib/ai/business-source-page";
+import { readBusinessFinanceSourcePage } from "@/lib/ai/business-finance-source-page";
 import { readBusinessNetshopContinuation } from "@/lib/ai/business-netshop-continuation";
 import { readBusinessSalesContinuation, readBusinessMarketContinuation } from "@/lib/ai/business-other-continuation";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
@@ -800,6 +801,31 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_collection"], maxResultCharacters: 131_072, maxCallsPerRequest: 2 },
     handler: readBusinessSourcePage,
+  },
+  {
+    name: "get_business_finance_source_page", title: "持久财报证据后台规范页",
+    description: "仅供服务端v3财报来源按可信自然月、精确范围和检查点取完整只读页；每页不超过38KB，不提供给模型或聊天。",
+    inputSchema: { type: "object", properties: {
+      query: { type: "object", properties: {
+        months: { type: "array", items: { type: "string", pattern: "^(?:19|20|21)\\d{2}-(?:0[1-9]|1[0-2])$" }, minItems: 1, maxItems: 24 },
+        scope: { type: "object", properties: {
+          scope_key: { type: "string", minLength: 1, maxLength: 2000 },
+          scope_type: { type: "string", enum: ["business", "group", "shop"] },
+          scope_name: { type: "string", maxLength: 1000 }, group_name: { type: "string", maxLength: 1000 },
+        }, required: ["scope_key", "scope_type", "scope_name", "group_name"], additionalProperties: false },
+        analysisPeriod: { type: "object", properties: {
+          startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+          endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        }, required: ["startDate", "endDate"], additionalProperties: false },
+      }, required: ["months", "scope", "analysisPeriod"], additionalProperties: false },
+      offset: { type: "integer", minimum: 0, maximum: 100_000 },
+      afterId: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+      expectedSourceRef: { type: "string", pattern: "^[a-f0-9]{64}$" },
+      expectedRevision: { type: "string", pattern: "^\\d+:[a-f0-9]{64}$" },
+    }, required: ["query", "offset", "afterId"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_collection"], maxResultCharacters: 40_000, maxCallsPerRequest: 2 },
+    handler: readBusinessFinanceSourcePage,
   },
   {
     name: "get_business_netshop_continuation_page", title: "持久网店证据检查点续读",

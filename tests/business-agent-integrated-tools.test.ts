@@ -13,7 +13,7 @@ const { aiHeaders } = await import("../lib/django/ai-service");
 const admin: AppPrincipal = { email: "synthetic@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
 const surface = "business_agent_integrated_v1" as const;
 const names = ["get_business_integrated_directory_v1", "get_business_integrated_analysis_table_v1", "get_business_integrated_budget_v1"];
-const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"];
+const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page", "get_business_finance_source_page"];
 const [directory, table, budget] = names.map(name => aiToolRegistry.find(entry => entry.name === name)!);
 const strip = ({ handler, ...entry }: AiToolEntry) => { void handler; return entry; };
 const sha = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");

@@ -14,7 +14,7 @@ const { canonicalAiEdge, handleAiEdge } = await import("../lib/ai/django-edge");
 const { aiHeaders } = await import("../lib/django/ai-service");
 const admin: AppPrincipal = { email: "synthetic@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
 const names = ["get_business_evidence_directory_v2", "get_business_analysis_table_v2"];
-const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page"];
+const continuationNames = ["get_business_netshop_continuation_page", "get_business_sales_continuation_page", "get_business_market_continuation_page", "get_business_finance_source_page"];
 const directory = aiToolRegistry.find(entry => entry.name === names[0])!;
 const table = aiToolRegistry.find(entry => entry.name === names[1])!;
 const strip = ({ handler, ...entry }: AiToolEntry) => { void handler; return entry; };
