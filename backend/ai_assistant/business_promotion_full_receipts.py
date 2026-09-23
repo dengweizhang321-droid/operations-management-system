@@ -55,7 +55,7 @@ def progress(job, principal):
                 or dispatch.tool_name not in contract.TOOLS):
             _reject("工具派发不属于本Agent的连续账本")
         provider, calls = providers[dispatch.provider_dispatch_id]
-        if (dispatch.lease_epoch != provider.lease_epoch
+        if (not 1 <= provider.lease_epoch <= dispatch.lease_epoch <= actual.lease_epoch
                 or dispatch.provider_call_id not in calls
                 or calls[dispatch.provider_call_id]["name"] != dispatch.tool_name):
             _reject("工具派发没有对应的模型调用")

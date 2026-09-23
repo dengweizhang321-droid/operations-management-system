@@ -122,6 +122,28 @@ class PromotionFullReceiptTests(djtest.TransactionTestCase):
         self.assertTrue(proof["budget"]["complete"])
         self.assertTrue(proof["fullAgentReadComplete"])
 
+    def test_provider_and_later_tool_lease_epochs_are_monotonic_not_equal(self):
+        report = self.create_fixed_report()
+        job = self.actual_job(report, role="promotion")
+        with mutation(self.admin):
+            m.AiAgentJobs.objects.filter(pk=job.id).update(lease_epoch=2)
+        job.refresh_from_db()
+        self.package(report, job)
+        provider = m.AiAgentProviderDispatches.objects.filter(job_id=job.id).order_by("dispatch_ordinal").first()
+        with mutation(self.admin):
+            m.AiAgentProviderDispatches.objects.filter(pk=provider.id).update(lease_epoch=1)
+        self.assertTrue(self.progress(job)["package"]["complete"])
+        with mutation(self.admin):
+            m.AiAgentProviderDispatches.objects.filter(pk=provider.id).update(lease_epoch=3)
+            m.AiAgentJobs.objects.filter(pk=job.id).update(lease_epoch=3)
+        job.refresh_from_db()
+        with self.assertRaises(AiError): self.progress(job)  # tool epoch 2 earlier than provider 3
+        with mutation(self.admin):
+            m.AiAgentProviderDispatches.objects.filter(pk=provider.id).update(lease_epoch=1)
+            m.AiAgentJobs.objects.filter(pk=job.id).update(lease_epoch=1)
+        job.refresh_from_db()
+        with self.assertRaises(AiError): self.progress(job)  # tool epoch 2 future to job 1
+
     def test_package_offset_and_cross_role_result_fail_closed(self):
         report = self.create_fixed_report()
         job = self.actual_job(report, role="promotion")

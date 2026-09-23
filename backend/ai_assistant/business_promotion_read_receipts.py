@@ -213,7 +213,10 @@ def progress(job, principal):
                 or dispatch.tool_name not in contract.TOOLS):
             _reject("工具派发序号、模型归属或目录无效")
         provider, calls = providers[dispatch.provider_dispatch_id]
-        if (dispatch.lease_epoch != provider.lease_epoch or dispatch.provider_call_id not in calls
+        # A model response and its tool are separate microsteps. Their leases
+        # may advance, but must stay ordered within this same actual job.
+        if (not 1 <= provider.lease_epoch <= dispatch.lease_epoch <= actual.lease_epoch
+                or dispatch.provider_call_id not in calls
                 or calls[dispatch.provider_call_id]["name"] != dispatch.tool_name):
             _reject("工具派发未绑定本Agent的模型调用")
         args = _json(dispatch.arguments_json, dispatch.arguments_digest, MAX_ARGUMENT_BYTES)
