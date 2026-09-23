@@ -4,6 +4,7 @@ Collection advances one bounded page per request. Reads occur outside the AI
 mutation lock; version CAS commits the page and checkpoint together.
 """
 import json
+from django.conf import settings
 from django.db.models import Sum, JSONField
 from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform
@@ -425,8 +426,32 @@ def analysis_table(run_id, params, principal):
     return table
 
 
+def _promotion_choices(sources):
+    """Exact sealed-directory choices; creation will revalidate the roots again."""
+    def eligible(source):
+        query = source["query"]
+        return (source["domain"] == "netshop" and query.get("platform") == "京东"
+            and query.get("dataset") == "promotion" and bool(query.get("shop")))
+
+    options = []
+    for source in sources:
+        if not eligible(source) or source["query"].get("window") != "current":
+            continue
+        query = source["query"]
+        baselines = [{"sourceKey": other["key"], "window": other["query"]["window"]}
+            for other in sources if other["key"] != source["key"] and eligible(other)
+            and other["query"].get("window") in ("previous", "yearAgo")
+            and {key: value for key, value in other["query"].items() if key != "window"}
+                == {key: value for key, value in query.items() if key != "window"}]
+        baselines.sort(key=lambda value: (0 if value["window"] == "previous" else 1, value["sourceKey"]))
+        options.append({"sourceKey": source["key"], "platform": "京东", "shop": query["shop"],
+            "startDate": query["startDate"], "endDate": query["endDate"],
+            "baselineChoices": baselines})
+    return options
+
+
 def _mapping_v2(row):
-    store.catalog(row)
+    sources = store.catalog(row)
     plan = json.loads(row.plan_json)
     result = {"id": row.id, "status": row.status, "version": row.version, "storedBytes": row.stored_bytes,
         "collection": {"status": row.collection_status if row.status == "collecting" else row.status,
@@ -443,6 +468,11 @@ def _mapping_v2(row):
     if row.status == "sealed":
         store.verify_seal(row)
         result["seal"] = json.loads(row.state_json)
+    choices = (_promotion_choices(sources) if row.status == "sealed"
+        and getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is True
+        and bool(plan.get("analysisRequest", {}).get("question")) else [])
+    result["promotionSupported"] = bool(choices)
+    result["promotionChoices"] = choices
     store.assert_current(row)
     return result
 

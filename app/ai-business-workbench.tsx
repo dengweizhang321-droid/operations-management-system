@@ -12,16 +12,20 @@ import { mergeMarketOption, type MarketOptionSelection } from "@/lib/ai/business
 import { mergeSalesOption, type SalesOptionSelection } from "@/lib/ai/business-sales-options";
 import { getOperationsBusinessDates } from "@/lib/ai/business-time";
 import { suggestBusinessQuestionScope, type QuestionSourceScalar, type QuestionSuggestion } from "@/lib/ai/business-question-suggestions";
+import { validatePromotionChoices, promotionSelectionPayload, type PromotionChoice, type PromotionSelection } from "@/lib/ai/business-promotion-choices";
 import "./ai-business-workbench.css";
 
 type Shop = { platform: string; shop: string; datasets: string[]; salesChannels: string[] };
 type Market = { platform: string; category: string; scope: string; rankingDimension: string; priceBandFilter: string };
 type Request = { question: string; startDate: string; endDate: string; shops: Shop[]; windows: string[]; markets: Market[] };
+type AnalysisMode = "legacy" | "screening-v1" | "screening-promotion-v1";
 type Source = { key: string; domain: string; query: Record<string, string> };
 type Preview = { schemaVersion: string; principalKey: string; canCollect: boolean; planDigest: string | null; catalogDigest: string | null; request: Request & { schemaVersion: string }; evidenceRequest: Record<string, unknown>; capacity: Record<string, number | null>; limitations: string[]; coverage: { domain: string; query: Record<string, string>; status: string; availability: string; reason: string; sourceKey?: string }[] };
 type Collection = { status: string; errorCode?: string; consecutiveFailures?: number; nextAttemptAt?: string };
 type Item = { id: string; clientRequestId?: string; question?: string; status: string; version: number; collection: Collection; createdAt: string; storedBytes: number; sourceCount?: number; completedSources?: number; rowCount?: number };
-type Detail = Item & { workbenchAnalysisEnabled?: boolean; budgetSupported?: boolean; mappingSupported?: boolean; screeningSupported?: boolean; plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
+type Detail = Item & { workbenchAnalysisEnabled?: boolean; budgetSupported?: boolean; mappingSupported?: boolean; screeningSupported?: boolean;
+  promotionSupported?: boolean; promotionChoices?: PromotionChoice[];
+  plan: { schemaVersion?: string; analysisRequest?: { question: string }; sources?: Source[]; sourceCount?: number; catalogDigest?: string; collector?: { version: number; surface: string; pageSize: number } }; sources: Record<string, { pageCount: number; rowCount: number; complete: boolean }> };
 type DirectoryPage = { schemaVersion: string; runId: string; evidenceVersion: number; catalogDigest: string; offset: number; total: number; returned: number; nextOffset: number | null; items: (Source & { ordinal: number })[] };
 type Report = { id: string; workflowId: string; status: string; createdAt: string };
 type Pending = { schemaVersion: 1; principalKey: string; kind: "evidence" | "report"; bodyJson: string; label: string; createdAt: string; outcome: "prepared" | "unknown" };
@@ -29,6 +33,7 @@ type MappingIntent = MappingSelection & { intent: boolean };
 type BoundQuestionSuggestion = { principalKey: string; businessToday: string; question: string; value: QuestionSuggestion };
 const emptyMapping = (): MappingIntent => ({ bindingKey: "", pairs: [], ready: false, reason: "loading", intent: false });
 const names: Record<string, string> = { current: "本期", previous: "环比", yearAgo: "同比", promotion: "推广与关键词", master: "商品主数据", sku: "SKU 销售", spu: "SPU 销售", b2b: "B 端销售", collecting: "采集中", queued: "等待后台采集", reading: "后台读取中", paused: "已暂停", sealed: "证据已封存", cancelled: "已取消", completed: "已完成", running: "分析中", planned: "已列入计划", unsupported: "不支持", not_collected: "尚未取数" };
+const reportStatus: Record<string, string> = { queued: "待执行", running: "分析中", waiting_review: "待人工复核", completed: "已完成", failed: "失败", paused: "已暂停", cancelled: "已取消" };
 const initial = (): Request => ({ question: "", startDate: "", endDate: "", shops: [{ platform: "京东", shop: "", datasets: ["promotion", "master"], salesChannels: [] }], windows: ["current"], markets: [] });
 const storageKey = (key: string) => "ai-business-workbench-pending-v1:"+key;
 const message = (error: unknown) => error instanceof Error ? error.message : "请求失败，请刷新后核验状态。";
@@ -113,7 +118,8 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const [listedPage, setListedPage] = useState(0), [principalKey, setPrincipalKey] = useState("");
   const [selected, setSelected] = useState(""), [detail, setDetail] = useState<Detail | null>(null), [reports, setReports] = useState<Report[]>([]);
   const [moreReports, setMoreReports] = useState(false);
-  const [screeningMode, setScreeningMode] = useState(false), screeningModeRef = useRef(false);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("legacy"), analysisModeRef = useRef<AnalysisMode>("legacy");
+  const [promotionSelection, setPromotionSelection] = useState<PromotionSelection | null>(null);
   const [listError, setListError] = useState(""), [detailError, setDetailError] = useState(""), [previewError, setPreviewError] = useState(""), [writeError, setWriteError] = useState(""), [storageError, setStorageError] = useState("");
   const [pending, setPending] = useState<Pending | null>(null), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [previewBusy, setPreviewBusy] = useState(false), [notice, setNotice] = useState("");
   const [mapping, setMapping] = useState<MappingIntent>(emptyMapping);
@@ -157,7 +163,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     if (actor.current !== key) {
       const changed = Boolean(actor.current); actor.current = key; setPrincipalKey(key);
       if (changed) {
-        screeningModeRef.current = false; setScreeningMode(false);
+        analysisModeRef.current = "legacy"; setAnalysisMode("legacy"); setPromotionSelection(null);
         writeController.current?.abort(); previewController.current?.abort(); detailController.current?.abort(); listController.current?.abort(); listController.current = null;
         setPreview(null); setConfirmed(false); setDetail(null); setReports([]); setItems([]);
         formRef.current = initial(); setForm(formRef.current); setScopeOpen(false); setScopeError(""); setMarketOpen(false); setMarketError(""); setSalesOpen(false); setSalesError("");
@@ -190,6 +196,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
       const item = result.item, v2 = item?.plan?.schemaVersion === "business-evidence-v2";
       const validPlan = v2 ? Number.isInteger(item.plan.sourceCount) && item.plan.sourceCount! >= 1 && item.plan.sourceCount! <= 48 && /^[a-f0-9]{64}$/.test(item.plan.catalogDigest ?? "") && item.sources && !Array.isArray(item.sources) && Object.keys(item.sources).length === item.plan.sourceCount && Object.values(item.sources).every(value => value && Number.isSafeInteger(value.pageCount) && value.pageCount >= 0 && Number.isSafeInteger(value.rowCount) && value.rowCount >= 0 && typeof value.complete === "boolean") : (!item?.plan?.schemaVersion || item.plan.schemaVersion === "business-evidence-v1") && Array.isArray(item?.plan?.sources);
       if (item?.id !== id || !Number.isSafeInteger(item.version) || item.version < 1 || !validPlan || !Array.isArray(result.reports)) throw new Error("任务详情回执无效。");
+      validatePromotionChoices(item);
       principal(result.principalKey); if (!current()) return;
       const binding = mappingBindingKey(item, result.principalKey);
       if (mappingRef.current.bindingKey !== binding || item.mappingSupported !== true) updateMapping({ ...emptyMapping(), bindingKey: binding, intent: mappingRef.current.intent });
@@ -199,7 +206,7 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     finally { if (detailController.current === ctl) detailController.current = null; }
   }, [principal, updateMapping]);
   const choose = useCallback((id: string) => {
-    if (selectedRef.current !== id) { updateMapping(emptyMapping()); screeningModeRef.current = false; setScreeningMode(false); }
+    if (selectedRef.current !== id) { updateMapping(emptyMapping()); analysisModeRef.current = "legacy"; setAnalysisMode("legacy"); setPromotionSelection(null); }
     detailRef.current = null; detailFailed.current = false;
     detailController.current?.abort(); selectedRef.current = id; setSelected(id); setDetail(null); setReports([]); setMoreReports(false); setDetailError("");
     void loadDetail(id, true);
@@ -302,7 +309,18 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
     if (pendingRef.current || !ready || busy || !actor.current) return;
     let value: Pending, serialized: string;
     try {
-      if (kind === "report" && screeningModeRef.current) {
+      if (kind === "report" && analysisModeRef.current === "screening-promotion-v1") {
+        const current = detailRef.current, selected = promotionSelection;
+        if (!current || current.id !== selectedRef.current || detailFailed.current || current.status !== "sealed"
+          || current.plan.schemaVersion !== "business-evidence-v2" || current.workbenchAnalysisEnabled !== true
+          || current.promotionSupported !== true || payload.evidenceRunId !== current.id || payload.dryRun !== false
+          || !selected || selected.principalKey !== actor.current || selected.runId !== current.id
+          || selected.version !== current.version)
+          throw new Error("词货专项须从当前账号已封存的京东推广本期来源中明确选择主来源与可选同店基期。请刷新核验；不会改走其他报告模式。");
+        payload = { ...payload, analysisMode: "screening-promotion-v1",
+          ...promotionSelectionPayload(current, selected, actor.current) };
+        label += " · 词货五角色专项";
+      } else if (kind === "report" && analysisModeRef.current === "screening-v1") {
         const current = detailRef.current;
         if (!current || current.id !== selectedRef.current || payload.evidenceRunId !== current.id || detailFailed.current || current.status !== "sealed" || current.plan.schemaVersion !== "business-evidence-v2" || current.workbenchAnalysisEnabled !== true || current.screeningSupported !== true || !Object.values(current.sources).every(source => source.complete) || payload.dryRun !== false) throw new Error("完整规则筛查需要当前账号下已封存、来源全部就绪且服务端支持的范围，并且不支持模拟分析。不会降级为旧模式。");
         payload = { ...payload, analysisMode: "screening-v1" };
@@ -379,7 +397,15 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
   const visibleItems = listedPage === page ? items : [];
   const detailV2 = detail?.plan.schemaVersion === "business-evidence-v2";
   const analysisAllowed = Boolean(detail && detail.status === "sealed" && detail.plan.analysisRequest?.question && (!detailV2 || detail.workbenchAnalysisEnabled === true));
+  const screeningMode = analysisMode === "screening-v1";
+  const promotionMode = analysisMode === "screening-promotion-v1";
   const screeningBlocked = screeningMode && (!detailV2 || !detail || Boolean(detailError) || detail.screeningSupported !== true || !Object.values(detail.sources).every(source => source.complete));
+  const promotionChoice = detail?.promotionChoices?.find(choice => choice.sourceKey === promotionSelection?.sourceKey);
+  const promotionSelectionCurrent = Boolean(detail && promotionSelection && promotionSelection.principalKey === principalKey
+    && promotionSelection.runId === detail.id && promotionSelection.version === detail.version && promotionChoice
+    && (!promotionSelection.baselineKey || promotionChoice.baselineChoices.some(choice => choice.sourceKey === promotionSelection.baselineKey)));
+  const promotionBlocked = promotionMode && (!detailV2 || !detail || Boolean(detailError) || detail.status !== "sealed"
+    || detail.workbenchAnalysisEnabled !== true || detail.promotionSupported !== true || !promotionSelectionCurrent);
   const mappingBlocked = mapping.intent && (!detail || Boolean(detailError) || detail.mappingSupported !== true || mapping.bindingKey !== mappingBindingKey(detail, principalKey) || !mapping.ready || !mapping.pairs.length);
   return <section className="business-workbench" aria-label="经营分析工作台">
     <h3>经营分析工作台</h3><p>先描述问题并确认精确范围，再采集证据。可从问题生成日期和数据目的建议；来源计划与数据可用性仍须单独核验。</p>
@@ -441,14 +467,35 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
         {detail.status === "collecting" && !detail.plan.collector && <p>此历史任务使用手动采集模式，不提供后台暂停或恢复。</p>}<div className="bw-actions">{detail.status === "collecting" && <>{detail.plan.collector && <button disabled={locked} onClick={() => void control(detail.collection.status === "paused" ? "resume" : "pause")}>{detail.collection.status === "paused" ? "恢复后台采集" : "暂停后台采集"}</button>}<button disabled={locked} onClick={() => void control("cancel")}>取消采集任务</button></>}</div>
         {detailV2 && detail.mappingSupported === true && analysisAllowed && <AiBusinessMappingBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}:${detailError ? "unverified" : "verified"}:${mappingReset}`} run={detail} principalKey={principalKey} disabled={locked} onChange={mappingChanged} />}
         {mappingBlocked && <div className="bw-error" role="alert"><p>原商品关联选择已失效或尚未重新核验。请重新选择关联，或明确清空后继续；不会自动降级为无关联报告。</p><button disabled={locked} onClick={() => { updateMapping({ ...emptyMapping(), bindingKey: detail ? mappingBindingKey(detail, principalKey) : "", reason: "cleared" }); setMappingReset(value => value+1); }}>明确清空原关联意图</button></div>}
-        {detailV2 && <label>分析方式<select aria-label="分析方式" value={screeningMode ? "screening-v1" : "legacy"} disabled={locked} onChange={event => { if (pendingRef.current || writeController.current) return; const enabled = event.target.value === "screening-v1"; screeningModeRef.current = enabled; setScreeningMode(enabled); }}><option value="legacy">现有多 Agent 分析</option><option value="screening-v1" disabled={detail.screeningSupported !== true}>完整规则筛查后分析</option></select></label>}
+        {detailV2 && <label>分析方式<select aria-label="分析方式" value={analysisMode} disabled={locked} onChange={event => {
+          if (pendingRef.current || writeController.current) return;
+          const mode = event.target.value as AnalysisMode;
+          if (!["legacy", "screening-v1", "screening-promotion-v1"].includes(mode)
+            || (mode === "screening-v1" && detail.screeningSupported !== true)
+            || (mode === "screening-promotion-v1" && detail.promotionSupported !== true)) return;
+          analysisModeRef.current = mode; setAnalysisMode(mode); setPromotionSelection(null);
+        }}><option value="legacy">现有多 Agent 分析</option><option value="screening-v1" disabled={detail.screeningSupported !== true}>完整规则筛查后分析</option><option value="screening-promotion-v1" disabled={detail.promotionSupported !== true}>京东推广关键词 × SKU 专项筛查</option></select></label>}
         {screeningMode && <p role="status">先在后台完整执行支持的规则，再由五个 Agent 分别读取固定候选与覆盖记录。候选不是全量明细；缺口和省略数量会保留。此模式不支持模拟分析，容量不足将停止，不自动缩小范围或切换模式。</p>}
+        {detailV2 && detail.promotionSupported !== true && <p role="status">京东推广专项尚未开放，或当前封存目录没有符合条件的京东推广本期来源。请核对来源、封存状态及运行配置；不会使用手填名称推断来源。</p>}
+        {promotionMode && <section className="bw-card" aria-label="推广专项来源选择"><h4>选择已封存的推广来源</h4>
+          <label>本期京东推广来源<select aria-label="本期京东推广来源" value={promotionSelectionCurrent ? promotionSelection!.sourceKey : ""} disabled={locked || detail.promotionSupported !== true} onChange={event => {
+            const exact = detail.promotionChoices?.find(choice => choice.sourceKey === event.target.value);
+            setPromotionSelection(exact ? { principalKey, runId: detail.id, version: detail.version, sourceKey: exact.sourceKey, baselineKey: "" } : null);
+          }}><option value="">请选择精确来源</option>{detail.promotionChoices?.map(choice => <option key={choice.sourceKey} value={choice.sourceKey}>{choice.platform} · {choice.shop} · {choice.startDate} 至 {choice.endDate} · {choice.sourceKey}</option>)}</select></label>
+          <label>可选比较基期<select aria-label="可选比较基期" value={promotionSelectionCurrent ? promotionSelection!.baselineKey : ""} disabled={locked || !promotionSelectionCurrent} onChange={event => {
+            if (!promotionSelectionCurrent || !promotionChoice || (event.target.value && !promotionChoice.baselineChoices.some(choice => choice.sourceKey === event.target.value))) return;
+            setPromotionSelection(value => value ? { ...value, baselineKey: event.target.value } : null);
+          }}><option value="">不使用基期</option>{promotionChoice?.baselineChoices.map(choice => <option key={choice.sourceKey} value={choice.sourceKey}>{names[choice.window]} · {choice.sourceKey}</option>)}</select></label>
+          <p>这里只列出服务端从当前已封存目录核验的京东推广来源。选择基期时要求同店、同原始日期区间，且窗口为环比或同比；创建时服务端会再次核对。</p>
+          <p>创建成功仅表示任务排队。请在报告详情查看规则筛查、五个 Agent、人工复核和正式 HTML / XLSX 文件的实际进度；未完成的阶段不会显示为已交付。</p>
+        </section>}
         {screeningBlocked && <p role="alert">当前筛查范围或目录尚未就绪，或服务端未开放此能力。请刷新核验；不会自动改为旧模式。</p>}
-        {detailV2 && detail.workbenchAnalysisEnabled !== true ? <p role="status">服务端尚未开放此任务的工作台分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能手动启动分析。{!screeningMode && "模拟分析不调用模型；"}正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。{detailV2 && (detail.budgetSupported === true ? "可直接启动分析，或先在下方配置固定预算。报告页面支持多卷交付。" : "此版本支持无固定预算分析，报告页面可选择多卷交付；当前未开放固定预算分析。")}</p>}<div className="bw-actions">{(screeningMode ? [false] : [true, false]).map(dryRun => <button key={String(dryRun)} disabled={locked || !analysisAllowed || mappingBlocked || screeningBlocked} onClick={() => { if (analysisAllowed && !mappingBlocked && !screeningBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : screeningMode ? "启动完整筛查与多 Agent 分析（调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
-        {detailV2 && detail.budgetSupported === true && analysisAllowed && <AiBusinessBudgetBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} run={detail} principalKey={principalKey} allowDryRun={!screeningMode} disabled={locked || mappingBlocked || screeningBlocked} onSubmit={(budgetPlan, dryRun) => {
+        {promotionBlocked && <p role="alert">词货专项需要当前账号的已封存来源和明确的本期京东推广选择；请刷新或选择来源后再启动。</p>}
+        {detailV2 && detail.workbenchAnalysisEnabled !== true ? <p role="status">服务端尚未开放此任务的工作台分析启动。可继续查看与管理采集任务；证据封存不代表报告已生成。</p> : <p>证据封存后才能手动启动分析。{analysisMode === "legacy" && "模拟分析不调用模型；"}正式多 Agent 分析会调用已配置模型，可能产生费用，需要独立复核。{detailV2 && (detail.budgetSupported === true ? "可直接启动分析，或先在下方配置固定预算。报告页面支持多卷交付。" : "此版本支持无固定预算分析，报告页面可选择多卷交付；当前未开放固定预算分析。")}</p>}<div className="bw-actions">{(analysisMode === "legacy" ? [true, false] : [false]).map(dryRun => <button key={String(dryRun)} disabled={locked || !analysisAllowed || mappingBlocked || screeningBlocked || promotionBlocked} onClick={() => { if (analysisAllowed && !mappingBlocked && !screeningBlocked && !promotionBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun }, `${detail.plan.analysisRequest!.question} · ${dryRun ? "模拟分析" : "多 Agent 分析"}`); }}>{dryRun ? "模拟分析（不调用模型）" : promotionMode ? "启动词货五角色专项分析（调用模型）" : screeningMode ? "启动完整筛查与多 Agent 分析（调用模型）" : "启动多 Agent 分析（调用模型）"}</button>)}</div>
+        {detailV2 && detail.budgetSupported === true && analysisAllowed && !promotionMode && <AiBusinessBudgetBuilder key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`} run={detail} principalKey={principalKey} allowDryRun={!screeningMode} disabled={locked || mappingBlocked || screeningBlocked} onSubmit={(budgetPlan, dryRun) => {
           if (actor.current === principalKey && selectedRef.current === detail.id && analysisAllowed && !locked && !mappingBlocked && !screeningBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun, budgetPlan }, `${detail.plan.analysisRequest!.question} · 固定预算${dryRun ? "模拟" : "分析"}`);
         }} />}
-        <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {names[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
+        <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {reportStatus[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
       </>}
     </section>}
   </section>;
