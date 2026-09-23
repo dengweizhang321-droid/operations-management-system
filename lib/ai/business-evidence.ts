@@ -109,6 +109,52 @@ export async function readBusinessEvidenceDirectoryV2(raw: unknown, principal: A
   return result.data;
 }
 
+/** Unregistered internal v3 reader bridge. A paused intent is never Agent dispatch. */
+function v3ReadArguments(raw: unknown, kind: "directory" | "page") {
+  const invalid = (): never => { throw new PublicApiError(400, "invalid_request", "v3 封存来源读取参数无效"); };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) invalid();
+  const args = raw as Record<string, unknown>;
+  const allowed = kind === "directory" ? ["intentId", "offset", "handle"] : ["intentId", "sourceKey", "sequence", "rowOffset", "rowLimit", "handle"];
+  if (Object.keys(args).some(key => !allowed.includes(key))) invalid();
+  const id = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_-]{1,160}$/.test(value);
+  const handle = (value: unknown) => typeof value === "string" && value.length <= 2400 && /^[A-Za-z0-9_-]+\.[0-9a-f]{64}$/.test(value);
+  if (!id(args.intentId) || (args.handle !== undefined && !handle(args.handle))) invalid();
+  if (kind === "directory") {
+    if (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || (args.offset as number) < 0 || (args.offset as number) > 47)) invalid();
+    if ((args.offset ?? 0) !== 0 && args.handle === undefined) invalid();
+  } else {
+    if (!id(args.sourceKey) || !handle(args.handle)
+      || !Number.isSafeInteger(args.sequence) || (args.sequence as number) < 1 || (args.sequence as number) > 1999
+      || (args.rowOffset !== undefined && (!Number.isSafeInteger(args.rowOffset) || (args.rowOffset as number) < 0 || (args.rowOffset as number) > 100))
+      || (args.rowLimit !== undefined && (!Number.isSafeInteger(args.rowLimit) || (args.rowLimit as number) < 1 || (args.rowLimit as number) > 10))) invalid();
+  }
+  return args;
+}
+
+async function v3Read(raw: unknown, principal: AppPrincipal, kind: "directory" | "page", signal?: AbortSignal) {
+  requireAnalysisPrincipal(principal);
+  const args = v3ReadArguments(raw, kind);
+  const path = `/api/ai/business-v3-source-read/${args.intentId}/${kind === "directory" ? "directory" : `pages/${args.sourceKey}`}`;
+  const payload = kind === "directory" ? { offset: args.offset ?? 0, ...(args.handle ? { handle: args.handle } : {}) }
+    : { handle: args.handle, sequence: args.sequence, rowOffset: args.rowOffset ?? 0, rowLimit: args.rowLimit ?? 10 };
+  const result = await requestDjangoAi<Record<string, unknown>>(principal, {
+    path, method: "POST", service: "writer", payload,
+  }, { signal });
+  const value = result.data;
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || new TextEncoder().encode(JSON.stringify(value)).byteLength > 38_000
+    || value.schemaVersion !== (kind === "directory" ? "business-v3-source-directory-v1" : "business-v3-source-slice-v1")
+    || value.intentId !== args.intentId || value.readOnlyOperationOnWriterProcess !== true
+    || value.agentReadReceiptRecorded !== false
+    || kind === "page" && value.sourceKey !== args.sourceKey) {
+    throw new PublicApiError(409, "conflict", "v3 来源页协议、身份或容量与固定意图不一致");
+  }
+  return value;
+}
+
+export const readBusinessV3DirectoryInternal = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => v3Read(raw, principal, "directory", signal);
+export const readBusinessV3PageInternal = (raw: unknown, principal: AppPrincipal, signal?: AbortSignal) => v3Read(raw, principal, "page", signal);
+
 export async function readBusinessEvidence(raw: unknown, principal: AppPrincipal, signal?: AbortSignal) {
   requireAnalysisPrincipal(principal);
   const args = raw as { runId: string; sourceKey?: string; sequence?: number; rowOffset?: number; rowLimit?: number };

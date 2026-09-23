@@ -1,5 +1,7 @@
 """Isolated PostgreSQL checks for the internal, non-reporting mixed-v3 seal."""
 import json
+import importlib
+import time
 from unittest.mock import patch
 
 from django.db import DatabaseError, connection, transaction
@@ -18,7 +20,8 @@ from . import business_daily_collection_v3 as daily, business_evidence_v3 as pla
 from . import business_evidence as legacy, business_finance_collection_v3 as finance
 from . import business_v3_catalog as catalog
 from . import business_report_candidate_v3 as candidate
-from . import business_v3_report_intent as intent, business_v3_seal as seal, models as m, transport
+from . import business_v3_report_intent as intent, business_v3_seal as seal
+from . import business_v3_source_read as source_read, models as m, transport
 from .policy import AiError, digest, uid
 
 
@@ -278,3 +281,103 @@ class BusinessV3SealTests(TestCase):
                 m.AiBusinessV3ReportIntent.objects.create(id=uid("intent"),
                     client_request_id=uid("forged"), **{**clone, **changed})
         self.assertEqual(m.AiBusinessV3ReportIntent.objects.count(), 1)
+
+    def test_prepared_v3_source_handles_are_source_bound_and_read_only(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        created = intent.create({"schemaVersion": intent.REQUEST_SCHEMA,
+            "clientRequestId": "prepared-reader-intent", "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}, self.principal)["item"]
+        before = (m.AiBusinessEvidenceChunk.objects.count(),
+                  m.AiBusinessSourceToolReceipt.objects.count(),
+                  m.AiToolAuditLogs.objects.count(), m.AiWriteReceipt.objects.count(),
+                  m.AiMutationAudit.objects.count())
+        with override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET):
+            directory = source_read.directory(created["id"], {"offset": 0}, self.principal)
+            self.assertTrue(directory["fullSealVerifiedForHandle"])
+            self.assertFalse(directory["agentReadReceiptRecorded"])
+            self.assertLessEqual(len(canonical(directory).encode("utf-8")), 38_000)
+            keys = {item["sourceKey"]: item for item in directory["items"]}
+            sales = keys["sales"]
+            # Reload simulates a different process: validity comes from HMAC
+            # and current immutable DB rows, never an in-memory handle cache.
+            importlib.reload(source_read)
+            page = source_read.page(created["id"], "sales", {"handle": sales["sourceHandle"],
+                "sequence": 1, "rowOffset": 0, "rowLimit": 1}, self.principal)
+            self.assertEqual(page["rows"][0]["shopName"], "测试店")
+            self.assertEqual(page["domain"], "sales")
+            self.assertEqual(page["chunkDigest"], digest(canonical(self.daily_page)))
+            self.assertFalse(page["agentReadReceiptRecorded"])
+            self.assertLessEqual(len(canonical(page).encode("utf-8")), 38_000)
+            with self.assertRaises(AiError):
+                source_read.page(created["id"], "finance", {"handle": sales["sourceHandle"],
+                    "sequence": 1}, self.principal)
+            with patch.object(source_read.time, "time", return_value=time.time() + 601):
+                with self.assertRaises(AiError):
+                    source_read.page(created["id"], "sales", {"handle": sales["sourceHandle"],
+                        "sequence": 1}, self.principal)
+            actual_context = source_read._context
+            checks = []
+            def revoke_before_final_fence(*args):
+                checks.append(1)
+                if len(checks) == 2:
+                    AppUser.objects.filter(email=self.principal.email).update(status="inactive")
+                return actual_context(*args)
+            with transaction.atomic():
+                with patch.object(source_read, "_context", side_effect=revoke_before_final_fence):
+                    with self.assertRaises(AiError):
+                        source_read.page(created["id"], "sales", {"handle": sales["sourceHandle"],
+                            "sequence": 1}, self.principal)
+                self.assertEqual(len(checks), 2)
+                transaction.set_rollback(True)
+            with patch.object(intent, "inspect", side_effect=AssertionError("full replay on continuation")):
+                again = source_read.directory(created["id"], {"offset": 1,
+                    "handle": directory["handle"]}, self.principal)
+                self.assertEqual(again["offset"], 1)
+            with patch.object(source_read, "MAX_PREPARED_PAGES", 0):
+                with self.assertRaises(AiError) as cap:
+                    source_read.directory(created["id"], {"offset": 0}, self.principal)
+                self.assertEqual(cap.exception.status, 413)
+            other = Principal("other-v3-reader@example.test", "Other", "admin", None)
+            AppUser.objects.create(email=other.email, display_name="Other",
+                role=AccessRole.objects.get(code="admin"), status="active", scope=None,
+                version=1, created_at=timezone.now(), updated_at=timezone.now())
+            with patch.object(source_read, "MAX_PREPARED_BYTES", 0):
+                with self.assertRaises(AiError) as denied:
+                    source_read.directory(created["id"], {"offset": 0}, other)
+                self.assertEqual(denied.exception.status, 404)
+        after = (m.AiBusinessEvidenceChunk.objects.count(),
+                 m.AiBusinessSourceToolReceipt.objects.count(),
+                 m.AiToolAuditLogs.objects.count(), m.AiWriteReceipt.objects.count(),
+                 m.AiMutationAudit.objects.count())
+        self.assertEqual(after, before)
+
+    def test_signed_v3_reader_post_uses_writer_process_without_write(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        created = intent.create({"schemaVersion": intent.REQUEST_SCHEMA,
+            "clientRequestId": "signed-reader-intent", "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}, self.principal)["item"]
+        url = f"/api/ai/business-v3-source-read/{created['id']}/directory"
+        body = json.dumps({"offset": 0}, separators=(",", ":"))
+        before = (m.AiWriteReceipt.objects.count(), m.AiMutationAudit.objects.count(),
+                  m.AiToolAuditLogs.objects.count())
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), \
+                override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET, DJANGO_PROCESS_ROLE="ai_writer",
+                                  DJANGO_ENVIRONMENT="test"), patch("ai_assistant.views.authority"):
+            response = self.client.post(url, data=body, content_type="application/json",
+                headers=signed_headers(url, email=self.principal.email, method="POST", body=body))
+            self.assertEqual(response.status_code, 200, response.content)
+            value = response.json()
+            self.assertEqual(value["schemaVersion"], "business-v3-source-directory-v1")
+            self.assertTrue(value["readOnlyOperationOnWriterProcess"])
+        with patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET}), \
+                override_settings(DJANGO_INTERNAL_SECRET=TEST_SECRET, DJANGO_PROCESS_ROLE="ai_reader",
+                                  DJANGO_ENVIRONMENT="test"), patch("ai_assistant.views.authority"):
+            denied = self.client.post(url, data=body, content_type="application/json",
+                headers=signed_headers(url, email=self.principal.email, method="POST", body=body))
+            self.assertEqual(denied.status_code, 403)
+        self.assertEqual((m.AiWriteReceipt.objects.count(), m.AiMutationAudit.objects.count(),
+                          m.AiToolAuditLogs.objects.count()), before)

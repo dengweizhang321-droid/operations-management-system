@@ -166,6 +166,8 @@ def _dispatch(request, path=""):
             r"business-evidence/[A-Za-z0-9_-]{1,160}/sources(?:/[A-Za-z0-9_-]{1,160})?": {"GET"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish|control)": {"POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
+            r"business-v3-source-read/[A-Za-z0-9_-]{1,160}/directory": {"POST"},
+            r"business-v3-source-read/[A-Za-z0-9_-]{1,160}/pages/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"report-library": {"GET", "POST"},
             r"reports": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}(?:/content)?": {"GET"},
@@ -336,6 +338,13 @@ def _dispatch(request, path=""):
                 return write(request, principal, lambda commit: business_reports.create(payload, principal, commit=commit),
                     external=True, commit_in_handler=True)
             return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
+        if root == "business-v3-source-read":
+            from . import business_v3_source_read
+            fields(params, set())
+            current_principal(principal, admin=True, write=True)
+            if parts[2] == "directory":
+                return response(business_v3_source_read.directory(parts[1], payload, principal))
+            return response(business_v3_source_read.page(parts[1], parts[3], payload, principal))
         if root == "business-evidence":
             current_principal(principal, admin=True)
             if parts[-1] == "budget-preview":
