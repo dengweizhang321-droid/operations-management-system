@@ -37,10 +37,15 @@ def _loaded(run_id, principal):
     binding, manifest = _call(contract.manifest, row.binding_json, row.manifest_json)
     actual = screening._load(row.report_id, principal)
     plan = screening._describe(actual)["plan"]
-    from . import business_screening_runtime
-    if binding["executionProfile"] == business_screening_runtime.PROFILE:
+    from . import business_screening_runtime, business_promotion_runtime_contract as promotion
+    if binding["executionProfile"] in (business_screening_runtime.PROFILE, promotion.PROFILE):
         report = m.AiReportRun.objects.get(pk=row.report_id)
-        _, snapshot, _, _, _, _ = business_screening_runtime.bound(report,principal)
+        if binding["executionProfile"] == business_screening_runtime.PROFILE:
+            _, snapshot, _, _, _, _ = business_screening_runtime.bound(report,principal)
+        else:
+            snapshot = json.loads(report.snapshot_json)
+            if canonical(actual[0]) != row.binding_json:
+                raise AiError("词货筛查记录的报告绑定不一致", "conflict", 409)
         intent = snapshot["screeningIntent"]
         if (row.id != intent["id"] or row.selection_plan_digest != intent["selectionPlanDigest"]
                 or row.algorithm_version != intent["algorithmVersion"]
@@ -108,11 +113,17 @@ def publish(verified, principal, *, before_write=None):
             screening._revalidate(binding, principal)
             return {"reference":_reference(saved), "replayed":True}
         _quota(principal.email.lower(),bundle["storedBytes"])
-        from . import business_screening_runtime
+        from . import business_screening_runtime, business_promotion_runtime_contract as promotion
         screen_id = uid("screening")
-        if binding["executionProfile"] == business_screening_runtime.PROFILE:
+        if binding["executionProfile"] in (business_screening_runtime.PROFILE, promotion.PROFILE):
             report = m.AiReportRun.objects.get(pk=binding["reportId"])
-            _, snapshot, _, _, _, _ = business_screening_runtime.bound(report,principal)
+            if binding["executionProfile"] == business_screening_runtime.PROFILE:
+                _, snapshot, _, _, _, _ = business_screening_runtime.bound(report,principal)
+            else:
+                loaded = screening._load(report.id, principal)
+                snapshot = json.loads(report.snapshot_json)
+                if canonical(loaded[0]) != canonical(binding):
+                    raise AiError("词货筛查发布的报告绑定不一致", "conflict", 409)
             intent = snapshot["screeningIntent"]
             if (intent["selectionPlanDigest"] != fixed["selectionPlanDigest"]
                     or intent["algorithmVersion"] != fixed["algorithmVersion"]
