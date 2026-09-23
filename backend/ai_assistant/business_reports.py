@@ -371,10 +371,19 @@ def validate_provider_turn(job, principal=None, *, screening_step=None,
 
 
 def content(row, principal):
-    if screening_runtime.is_snapshot(json.loads(row.snapshot_json)):
+    snapshot = json.loads(row.snapshot_json)
+    if snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        if row.workflow.status in {"queued", "completed"}:
+            from .business_promotion_approved_content import build
+            return build(row.id, principal)["content"]
+        if row.workflow.status == "waiting_review":
+            from .business_promotion_content import build
+            return build(row.id, principal)["content"]
+        raise AiError("词货五角色诊断尚未完成", "conflict", 409)
+    if screening_runtime.is_snapshot(snapshot):
         from .business_screening_content import content as screening_content
         return screening_content(row,principal)
-    if integrated.is_snapshot(json.loads(row.snapshot_json)):
+    if integrated.is_snapshot(snapshot):
         from .business_integrated_content_reuse import ContentReuse
         with ContentReuse(row, principal) as reuse:
             result = _content(row, principal, _reuse=reuse)
