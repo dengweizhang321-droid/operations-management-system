@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from business_analysis.contracts import AnalysisContractError, digest
 from . import business_promotion_runtime_contract as contract
+from . import business_screening_runtime_contract as screening
 
 
 def inputs():
@@ -22,6 +23,100 @@ def reference(args):
 
 
 class PromotionRuntimeContractTests(TestCase):
+    def test_new_graph_preserves_pinned_old_graph_and_five_role_dependencies(self):
+        expected = {
+            False: "b825ed989cd07e29fb0a463c636b7febe4a597baebac348cf99203d4f0d82430",
+            True: "606304c4dfd49f3d2fb5eafbc057e6bfda2fb63ca9b0e7ad73615fc2c73b6bd5",
+        }
+        for budget in (False, True):
+            old = screening.graph(budget)
+            self.assertEqual(digest(old), expected[budget])
+            proposed = contract.graph(budget)
+            self.assertEqual(digest(screening.graph(budget)), expected[budget])
+            self.assertNotEqual(digest(proposed), expected[budget])
+            nodes = proposed["nodes"]
+            self.assertEqual([node["key"] for node in nodes], [*screening.ROLES, "human_review"])
+            self.assertEqual([node["dependsOn"] for node in nodes],
+                [[], [], [], ["commerce", "promotion", "market_b2b"],
+                 ["commerce", "promotion", "market_b2b", "independent_review"], ["report"]])
+            self.assertEqual([node["type"] for node in nodes], ["agent"]*5+["human_review"])
+            self.assertEqual(set(contract.TOOL_ORDER), contract.TOOLS)
+            self.assertEqual(len(contract.TOOL_ORDER), 4)
+            for node in nodes[:5]:
+                instruction = node["instruction"]
+                self.assertIn(contract.PACKAGE_TOOL, instruction)
+                self.assertNotIn(screening.PACKAGE_TOOL, instruction)
+                self.assertNotIn(screening.TABLE_TOOL, instruction)
+                self.assertEqual(contract.PROMOTION_TOOL in instruction, node["key"] in contract.PROMOTION_ROLES)
+                self.assertIn(str(screening.OUTPUT_LIMITS[node["key"]]), instruction)
+                if budget and node["key"] in screening.BUDGET_NODES:
+                    self.assertIn("读完固定预算", instruction)
+                    self.assertIn(contract.BUDGET_TOOL, instruction)
+                elif not budget:
+                    self.assertNotIn("读完固定预算", instruction)
+        with self.assertRaises(AnalysisContractError): contract.graph(1)
+
+    def test_snapshot_freezes_both_views_source_base_context_and_algorithm(self):
+        sources, context, _ = inputs()
+        selector = {"sourceKey": "ads", "baselineKey": "ads-prior"}
+        fixed = contract.freeze_snapshot(sources, context, selector)
+        self.assertEqual(fixed["executionProfile"], contract.PROFILE)
+        self.assertEqual(fixed["promotionSelector"], {**selector, "views": list(contract.PROMOTION_VIEWS)})
+        self.assertEqual(fixed["sealedDigest"], context["sealedDigest"])
+        self.assertEqual(fixed["promotionAlgorithmVersion"], contract.ALGORITHM_VERSION)
+        self.assertFalse(fixed["authorityVerified"])
+        self.assertFalse(fixed["registered"])
+        self.assertEqual(contract.checked_snapshot(sources, context, fixed), fixed)
+        self.assertEqual(contract.freeze_snapshot(list(reversed(sources)), context, selector), fixed)
+        no_base = contract.freeze_snapshot(sources, context, {"sourceKey": "ads"})
+        self.assertEqual(no_base["promotionSelector"], {"sourceKey": "ads", "views": list(contract.PROMOTION_VIEWS)})
+        self.assertNotEqual(no_base["contextDigest"], fixed["contextDigest"])
+        selector["sourceKey"] = "ads-year"
+        self.assertEqual(fixed["promotionSelector"]["sourceKey"], "ads")
+        for change in (lambda a: a[0][0]["query"].update(shop="其他店"),
+                       lambda a: a[1].update(reportId="other"),
+                       lambda a: a[1].update(runId="other"),
+                       lambda a: a[1].update(screeningId="other"),
+                       lambda a: a[1].update(sealedDigest="d"*64)):
+            altered = [deepcopy(sources), deepcopy(context)]
+            change(altered)
+            with self.assertRaises(AnalysisContractError):
+                contract.checked_snapshot(*altered, fixed)
+        for mutation in (lambda v: v["promotionSelector"].update(baselineKey="ads-year"),
+                         lambda v: v["promotionSelector"].update(views=["keyword_sku"]),
+                         lambda v: v.update(contextDigest="0"*64),
+                         lambda v: v.update(sealedDigest="0"*64),
+                         lambda v: v.update(promotionAlgorithmVersion="v2"),
+                         lambda v: v.update(authorityVerified=True),
+                         lambda v: v.update(registered=0),
+                         lambda v: v.update(extra=True)):
+            altered = deepcopy(fixed); mutation(altered)
+            with self.assertRaises(AnalysisContractError):
+                contract.checked_snapshot(sources, context, altered)
+        for bad in ({"sourceKey": "ads-prior"}, {"sourceKey": "ads", "baselineKey": "ads"},
+                    {"sourceKey": "ads", "baselineKey": "ads-year", "extra": 1}):
+            with self.assertRaises(AnalysisContractError):
+                contract.freeze_snapshot(sources, context, bad)
+
+    def test_scoped_reference_rejects_wrong_role_selection_or_claimed_number(self):
+        sources, context, selector = inputs()
+        fixed = contract.freeze_snapshot(sources, context, {"sourceKey": "ads", "baselineKey": "ads-prior"})
+        raw = reference((sources, context, selector))
+        for role in contract.PROMOTION_ROLES:
+            result = contract.scoped_row_reference(role, sources, context, fixed, selector, raw)
+            self.assertEqual(result["role"], role)
+            self.assertFalse(result["authorityVerified"])
+            self.assertFalse(result["resolved"])
+        for role in ("commerce", "market_b2b", "human_review", "reporter", None):
+            with self.assertRaises(AnalysisContractError):
+                contract.scoped_row_reference(role, sources, context, fixed, selector, raw)
+        for bad in ({**selector, "baselineKey": "ads-year"}, {"sourceKey": "ads", "view": "keyword_sku"},
+                    {**selector, "view": "plan"}, {**selector, "extra": 1}):
+            with self.assertRaises(AnalysisContractError):
+                contract.scoped_row_reference("promotion", sources, context, fixed, bad, raw)
+        with self.assertRaises(AnalysisContractError):
+            contract.scoped_row_reference("promotion", sources, context, fixed, selector, {**raw, "value": 100})
+
     def test_prospective_four_tools_preserve_existing_responsibilities(self):
         self.assertEqual(len(contract.TOOLS), 4)
         self.assertEqual(dict(contract.TOOL_CAPABILITIES)[contract.TABLE_TOOL], ("native", "mapped"))

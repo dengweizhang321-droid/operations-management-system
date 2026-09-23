@@ -94,3 +94,21 @@ PostgreSQL `0024_business_screening_runtime.py` 把 profile、snapshot 字段与
 在最新主线整合分支新增独立 `business_agent_screening_promotion_v1` surface 及四个固定工具，保留原五角色所需的角色包、普通分析、预算与新增关键词×明确推广SKU读取职责。账号必须是无范围管理员；普通聊天和旧筛查 surface 的工具目录与历史固定摘要保留。词货读页与精确行引用调用上述 owning reader，页/行参数互斥，完整语义 JSON 限 38 KB；原始 HTTP 允许最多 48 KB 以容纳序列化空白，超过任一界限都拒绝而不截断。
 
 新工具及旧目录相关 Node 48 项通过，日志 `.runtime/promotion-tools-node-final.log`；静态 lint 通过。本片只注册中央工具及签名读取桥；Python 新 profile 的创建、调度、节点读取证明、数值引用、诊断和新文件版本仍未接入。任何固定为旧 profile 的报告仍按原协议解释。
+
+## 2026-09-23 新 profile 纯合同（候选）
+
+`backend/ai_assistant/business_promotion_runtime_contract.py` 现在提供独立五角色候选图、`freeze_snapshot`、`checked_snapshot` 和 `scoped_row_reference`。新图从旧筛查图的两个已固定摘要构造；旧图或预算版图发生任何变更时，新图生成会拒绝，避免新 profile 静默继承旧协议变动。五个 Agent 的职责、依赖顺序、输出字节上限和人工复核节点均保留；新图仅将工具名换成四个新 surface 工具，并规定词货数值引用只能由推广、独立复核、报告三个角色使用。
+
+纯快照要求一个明确的京东推广当前期来源、可选的同店铺同数据集且同原日期区间的环比或同比基期。它固定 `promotionSelector`（含两种视图）、`contextDigest`、`sealedDigest`、来源目录摘要和词货算法版本；两种视图是同一费用的不同分组，不得相加。复核从调用方提供的完整目录和上下文重新计算，拒绝错报告、证据、筛查任务、店铺、基期、视图、算法及额外字段。词货引用还绑定角色、选定视图和完整行身份；模型自填数值不能进入引用合同。
+
+上述纯对象仍标记 `authorityVerified=false`、`registered=false`。传入目录与上下文本身不获得授权；后续 owning adapter 必须从持久报告和封存证据加载并最终复验真实身份。此批没有改旧 screening-v1 合同、已发布迁移、任务派发、读取回执或 renderer，也未运行模型。`python -m unittest ai_assistant.test_business_promotion_runtime_contract -v` 共 11 项通过（含旧图摘要、预算与无预算、五角色并行依赖、错误来源/基期/角色及伪造字段负向）。
+
+## 完整词货导出材料候选（2026-09-23）
+
+新增 `business_promotion_export.prepare(report_id, source_key, principal, baseline_key=None)`：复用两种词货 owning context，严格跟随每页实际 nextOffset，验证页/行位置与摘要，完整采集两表。两种 context 均正常退出，再进行最终报告/当前账号复验后才返回不可变 NDJSON 页字节和独立 manifest 副本；失败、取消或迟到撤权不返回部分材料。
+
+清单绑定报告、来源/基期、词货算法及各自 tableBindingDigest，记录全量行数、页数、UTF-8字节数、原始NDJSON SHA256和缺推广SKU/不合格身份组数。两表当前/基期花费及缺失事实行数独立对账，明确 `tableExpensesAreAdditive=false`；两表费用不得相加，平台归因成交不是ERP净销售或利润。未改变旧renderer，不写文件数据库，不生成正式HTML/XLSX。
+
+整个材料合计最多25万行、2万页、64MiB（含manifest），调用者只能收紧上限。NDJSON保留完整行、缺身份桶、负值和空值，不截断。准备对象是内部材料而非可转让权限；未来实际文件发布/下载仍须复验固定报告授权。
+
+静态编译通过；新增 `ai_assistant.test_business_promotion_export` 6项真实封存PG测试通过（24.147秒），日志 `.runtime/ai-pg-b7e9e0fe2330/tests.log`，包括100+词货组多页、同词不同SKU/多计划、负值/缺身份、两表费用守恒、摘要校验、容量整批拒绝、取消及最终撤权。首轮6项中5通过，1项旧合成采集器工具目录缺少网店续读，被新检查点门禁正确拒绝；夹具增加实际续读服务后通过，失败日志 `.runtime/ai-pg-43a93ac6bea3/failure.log` 保留。没有模型或生产调用，尚未注册任何文件renderer或运行profile。
