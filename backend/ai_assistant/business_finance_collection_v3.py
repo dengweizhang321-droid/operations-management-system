@@ -25,9 +25,9 @@ def _reject(message="v3财报持久来源未通过完整页链核验"):
     raise AiError(message, "conflict", 409)
 
 
-def inspect(run_id, source_key, principal):
+def inspect(run_id, source_key, principal, *, allow_sealed=False):
     """Rebuild actual immutable chunks; return only a non-authorizing snapshot."""
-    row, built, records, actor = catalog.load(run_id, principal)
+    row, built, records, actor = catalog.load(run_id, principal, allow_sealed=allow_sealed)
     selected = next((item for item in records if item["source_key"] == identifier(source_key)), None)
     if selected is None or selected["domain"] != "finance":
         raise AiError("v3财报来源不存在", "not_found", 404)

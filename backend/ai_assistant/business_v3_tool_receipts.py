@@ -56,9 +56,9 @@ def bind_page(*, parent, source, chunk, principal, request_id, tool_name, page, 
         source_revision=page["sourceRevision"])
 
 
-def require_complete(run_id, source_key, principal):
+def require_complete(run_id, source_key, principal, *, allow_sealed=False):
     """Reject every old/direct v3 chunk without a bound immutable audit."""
-    row, built, sources, actor = catalog.load(run_id, principal)
+    row, built, sources, actor = catalog.load(run_id, principal, allow_sealed=allow_sealed)
     source = next((item for item in sources if item["source_key"] == source_key), None)
     if source is None:
         raise AiError("v3来源不存在", "not_found", 404)
@@ -101,7 +101,7 @@ def require_complete(run_id, source_key, principal):
         from . import business_finance_collection_v3 as owning
     else:
         from . import business_daily_collection_v3 as owning
-    replayed = owning.inspect(row.id, source_key, principal)
+    replayed = owning.inspect(row.id, source_key, principal, allow_sealed=allow_sealed)
     if (replayed["sourceId"] != source["id"] or replayed["pageCount"] != len(chunks)
             or replayed["storedBytes"] != source["stored_bytes"] or not replayed["finished"]):
         _reject("v3签名收据对应事实页未通过拥有方来源身份重建")

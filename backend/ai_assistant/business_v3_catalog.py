@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import json
 
-from business_analysis import evidence_v3
+from business_analysis import evidence_seal_v3, evidence_v3
 from business_analysis.contracts import AnalysisContractError
 from . import business_evidence_v3 as plan, models as m
-from .policy import AiError, authorize_owner, canonical, identifier
+from .policy import AiError, authorize_owner, canonical, digest, identifier
 
 MAX_DATA_BYTES = 64 * 1024 * 1024 - 38_000
 MAX_DATA_PAGES = 1_999
@@ -39,15 +39,29 @@ def unchanged(row, actor, original, principal):
         raise AiError("v3目录读取期间账号权限变化", "access_denied", 403)
 
 
-def load(run_id, principal):
+def load(run_id, principal, *, allow_sealed=False):
     actor = plan._actor(principal)
     row = m.AiBusinessEvidenceRun.objects.filter(pk=identifier(run_id)).first()
     if row is None:
         raise AiError("v3证据任务不存在", "not_found", 404)
     authorize_owner(row, principal)
-    if (row.status != "collecting" or row.collection_status != "manual" or row.scope_json != "null"
-            or row.state_json != "{}" or row.version < 1 or row.stored_bytes > MAX_DATA_BYTES):
-        _reject("v3父任务不是未封存的手工来源目录")
+    sealed = allow_sealed and row.status == "sealed"
+    if (row.status != ("sealed" if sealed else "collecting") or row.collection_status != "manual"
+            or row.scope_json != "null" or row.version < 1 or row.stored_bytes > MAX_DATA_BYTES):
+        _reject("v3父任务不是允许读取的手工来源目录")
+    if sealed:
+        try:
+            state = json.loads(row.state_json)
+            base = {key: value for key, value in state.items() if key != "sealedDigest"}
+            if (type(state) is not dict or state.get("schemaVersion") != evidence_seal_v3.SCHEMA
+                    or row.state_json != canonical(state) or state.get("runId") != row.id
+                    or state.get("evidenceVersion") != row.version
+                    or state.get("sealedDigest") != digest(base)):
+                _reject("v3封存状态摘要或父身份无效")
+        except (ValueError, TypeError, AttributeError) as error:
+            raise AiError("v3封存状态不可解码", "conflict", 409) from error
+    elif row.state_json != "{}":
+        _reject("v3未封存父任务含封存状态")
     current = records(row)
     try:
         header = json.loads(row.plan_json)

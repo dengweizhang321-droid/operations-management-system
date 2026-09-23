@@ -51,7 +51,8 @@ def listing(params, principal):
             raise AiError("分页参数无效")
         return integer(int(value), name, hi=maximum)
     page, size = number("page", 1, 10000), number("pageSize", 10, 20)
-    rows = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(), scope_json=canonical(principal.scope))
+    rows = m.AiBusinessEvidenceRun.objects.filter(owner_email=principal.email.lower(),
+        scope_json=canonical(principal.scope)).exclude(plan_json__contains='"schemaVersion":"business-evidence-v3"')
     if "clientRequestId" in params:
         rows = rows.filter(client_request_id=identifier(params["clientRequestId"]))
     total = rows.count()
@@ -90,6 +91,8 @@ def get_run(run_id, principal):
     current_principal(principal, admin=True)
     row = m.AiBusinessEvidenceRun.objects.filter(pk=identifier(run_id)).first()
     if not row:
+        raise AiError("证据任务不存在", "not_found", 404)
+    if json.loads(row.plan_json).get("schemaVersion") == "business-evidence-v3":
         raise AiError("证据任务不存在", "not_found", 404)
     return authorize_owner(row, principal)
 

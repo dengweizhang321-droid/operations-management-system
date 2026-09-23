@@ -32,8 +32,8 @@ def _reject(message="v3日来源完整页链与真实检查点不一致"):
     raise AiError(message, "conflict", 409)
 
 
-def inspect(run_id, source_key, principal):
-    row, built, records, actor = catalog.load(run_id, principal)
+def inspect(run_id, source_key, principal, *, allow_sealed=False):
+    row, built, records, actor = catalog.load(run_id, principal, allow_sealed=allow_sealed)
     key = identifier(source_key)
     selected = next((item for item in records if item["source_key"] == key), None)
     if selected is None or selected["domain"] not in DAILY:
