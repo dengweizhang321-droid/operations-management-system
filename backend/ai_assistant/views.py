@@ -446,8 +446,11 @@ def _dispatch(request, path=""):
         if not writer:
             return response(read(parts, params, principal))
         if root == "workflow-runs" and len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
-            from .business_screening_readiness import report_for
-            if report_for(workflows.get(parts[1],principal,True)) is not None:
+            from .business_screening_readiness import report_for as screening_report_for
+            from .business_promotion_readiness import report_for as promotion_report_for
+            candidate = workflows.get(parts[1],principal,True)
+            if (screening_report_for(candidate) is not None
+                    or promotion_report_for(candidate) is not None):
                 return write(request, principal,
                     lambda commit: workflows.review(parts[1],parts[3],payload,principal,commit=commit),
                     external=True, commit_in_handler=True)

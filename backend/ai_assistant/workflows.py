@@ -365,17 +365,24 @@ def review(run_id, node_key, body, principal, *, commit=None):
     )
     decision = choice(body["decision"], ["approve", "reject"], "decision")
     comment = text(body.get("comment", ""), "comment", 2000, empty=True)
-    screening_review = None
+    screening_review = promotion_review = None
     if decision == "approve":
         from . import business_screening_readiness, business_screening_content
+        from . import business_promotion_readiness, business_promotion_review
         candidate = get(run_id,principal,True)
-        screening_report = business_screening_readiness.report_for(candidate)
-        if screening_report is not None:
-            screening_review = business_screening_content.prepare_review(screening_report,principal)
+        promotion_report = business_promotion_readiness.report_for(candidate)
+        if promotion_report is not None:
+            promotion_review = business_promotion_review.prepare_review(promotion_report.id,principal)
+        else:
+            screening_report = business_screening_readiness.report_for(candidate)
+            if screening_report is not None:
+                screening_review = business_screening_content.prepare_review(screening_report,principal)
     with mutation(principal):
         row = get(run_id, principal, True)
         if decision == "approve":
-            if screening_review is not None:
+            if promotion_review is not None:
+                business_promotion_review.revalidate_review(promotion_review,principal)
+            elif screening_review is not None:
                 business_screening_content.revalidate_review(screening_review,principal)
             else:
                 from . import reports
@@ -815,7 +822,7 @@ def workflow_tick():
     # No external request inside this transaction. A single domain mutex protects
     # child creation, stable node identity and parent observation atomically.
     from . import business_screening_readiness, business_screening_pipeline
-    from . import business_promotion_readiness
+    from . import business_promotion_readiness, business_promotion_postreview
     eligible = business_screening_readiness.available(m.AiWorkflowRuns.objects.filter(
         status__in=["queued", "running"], next_run_at__lte=timezone.now()
     ))
@@ -823,6 +830,8 @@ def workflow_tick():
     if not candidate:
         return {"status": "idle"}
     if not error and business_promotion_readiness.report_for(candidate) is not None:
+        if business_promotion_postreview.is_approved_candidate(candidate):
+            return business_promotion_postreview.advance(candidate, principal)
         # This new profile may publish its fixed rule scan, then parks before
         # Agent creation until the independent four-tool admission is complete.
         return business_promotion_readiness.advance(candidate, principal)
