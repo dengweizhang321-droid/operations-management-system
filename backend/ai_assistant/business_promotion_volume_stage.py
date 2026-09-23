@@ -226,3 +226,86 @@ def build(row, principal, state):
         files.audit(saved, principal, "promotion_staged_unpublished")
     return {"status": "staged_unpublished", "runId": saved.id,
         "version": saved.version, "attempt": saved.attempt}
+
+
+def _publication_fence(report_id, principal):
+    """Short database-only fence around the previously completed heavy proof."""
+    from . import business_promotion_review as review
+    current_principal(principal, admin=True, write=True)
+    report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
+    flow = report.workflow
+    roles = content_contract.ROLES
+    nodes = list(m.AiWorkflowNodeRuns.objects.filter(run=flow,
+        node_key__in=(*roles, "human_review")).order_by("position").values(
+        "id", "node_key", "version", "status", "output_json", "agent_job_id",
+        "reviewer_email", "reviewed_at", "completed_at"))
+    jobs = list(m.AiAgentJobs.objects.filter(workflow_run_id=flow.id,
+        workflow_node_key__in=roles).order_by("workflow_node_key").values(
+        "id", "workflow_node_key", "version", "status", "output_json",
+        "provider_round_count", "tool_call_count", "cancel_requested"))
+    events = list(m.AiWorkflowEvents.objects.filter(run=flow,
+        node_key="human_review", event_type="review_approved").order_by("id").values(
+        "id", "actor_email", "owner_email", "run_version", "from_status",
+        "to_status", "created_at"))
+    if len(nodes) != 6 or len(jobs) != 5 or len(events) != 1:
+        _conflict("正式文件人审或五角色持久身份不完整")
+    actual_ledger_digest = review._ledger([job["id"] for job in jobs])
+    for item in (*nodes, *events):
+        for key, value in item.items():
+            if hasattr(value, "isoformat"):
+                item[key] = value.isoformat()
+    return digest({"reportId": report.id, "snapshotJson": report.snapshot_json,
+        "ownerEmail": report.owner_email, "scopeJson": report.scope_json,
+        "workflow": {key: getattr(flow, key) for key in
+            ("id", "version", "status", "current_node_key", "cancel_requested",
+             "input_json", "output_json", "graph_json", "graph_digest",
+             "tool_policy_digest", "allowed_tools_json", "model_id", "model_version")},
+        "nodes": nodes, "jobs": jobs, "reviewEvents": events,
+        "providerToolLedgerDigest": actual_ledger_digest})
+
+
+def publish(run_id, expected_version, principal):
+    """Internal verified paused→ready CAS; public download remains disconnected."""
+    if connection.in_atomic_block:
+        raise AiError("词货完整发布验证须在最外层事务之外", "invalid_request", 400)
+    row = files.get(run_id, principal)
+    cas(row, expected_version)
+    if (row.renderer_version != VERSION or row.draft or row.status != "paused"
+            or row.error_code != "renderer_unpublished" or row.manifest_json == "{}"
+            or json.loads(row.progress_json).get("stage") != "staged_unpublished"):
+        _conflict("只有已完整暂存且尚未发布的词货文件可以进入发布核验")
+    if row.report.workflow.status != "completed":
+        _conflict("正式文件发布须等待六节点工作流完成并保存总输出")
+    fingerprint = binding(row.report, principal)
+    if fingerprint != row.binding_digest:
+        _conflict("词货文件绑定与当前人审结果不同")
+    before = _publication_fence(row.report_id, principal)
+    compact = _verify_staged(row, principal, lambda *args, **kwargs: None)
+    if (_publication_fence(row.report_id, principal) != before
+            or binding(row.report, principal) != row.binding_digest):
+        _conflict("词货文件完整核验期间报告、人审或账本变化")
+    with mutation(principal):
+        saved = files.get(run_id, principal)
+        cas(saved, expected_version)
+        if (saved.renderer_version != VERSION or saved.draft or saved.status != "paused"
+                or saved.error_code != "renderer_unpublished"
+                or saved.attempt != row.attempt or saved.manifest_json != row.manifest_json
+                or saved.stored_bytes != row.stored_bytes
+                or json.loads(saved.progress_json).get("stage") != "staged_unpublished"
+                or _publication_fence(saved.report_id, principal) != before):
+            _conflict("词货文件发布事务内固定状态变化")
+        try:
+            checked = volume_delivery.validate(json.loads(saved.manifest_json),
+                binding_digest=saved.binding_digest, attempt=saved.attempt,
+                draft=False, renderer_version=VERSION)
+        except (AnalysisContractError, ValueError, TypeError, KeyError) as error:
+            raise AiError("词货发布事务内紧凑清单无效", "conflict", 409) from error
+        if checked != compact:
+            _conflict("词货文件发布事务内紧凑清单变化")
+        saved.status = "ready"
+        saved.error_code = ""
+        saved.progress_json = canonical({"stage": "ready"})
+        saved.version += 1
+        saved.save()
+        files.audit(saved, principal, "promotion_ready")
+    return {"item": files.mapping(saved)}
