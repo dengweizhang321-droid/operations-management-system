@@ -25,6 +25,55 @@ def _reject(message="已完成词货Agent的持久读取证明无效"):
     raise AiError(message, "promotion_completed_read_incomplete", 409)
 
 
+def _approved_parent(report, flow, nodes):
+    """Queued is valid only after the actual six-node human approval."""
+    human = nodes[-1]
+    try:
+        decision = json.loads(human.output_json)
+        events = list(m.AiWorkflowEvents.objects.filter(run=flow,
+            node_key="human_review", event_type="review_approved")[:2])
+        specialists = nodes[:5]
+        if (human.node_key != "human_review" or human.status != "completed"
+                or human.agent_job_id is not None or human.reviewer_email is None
+                or human.reviewer_email.lower() != report.owner_email
+                or human.reviewed_at is None or human.completed_at is None
+                or human.reviewed_at > human.completed_at
+                or type(decision) is not dict or set(decision) != {"decision", "comment"}
+                or decision["decision"] != "approve" or type(decision["comment"]) is not str
+                or len(decision["comment"]) > 2000
+                or human.output_json != canonical(decision)
+                or flow.current_node_key is not None or len(events) != 1
+                or events[0].actor_email.lower() != human.reviewer_email.lower()
+                or events[0].owner_email != report.owner_email
+                or events[0].from_status != "waiting_review"
+                or events[0].to_status != "queued"
+                or events[0].run_version > flow.version
+                or events[0].created_at < human.completed_at
+                or any(node.status != "completed" or not node.output_json
+                    or node.agent_job_id is None for node in specialists)
+                or len({node.agent_job_id for node in specialists}) != 5):
+            _reject("队列或完成态工作流缺少实际六节点人工批准")
+        siblings = {job.id: job for job in m.AiAgentJobs.objects.filter(
+            workflow_run_id=flow.id, pk__in=[node.agent_job_id for node in specialists])[:6]}
+        if (len(siblings) != 5 or any(siblings[node.agent_job_id].status != "completed"
+                or siblings[node.agent_job_id].output_json != node.output_json
+                for node in specialists)):
+            _reject("人工批准没有五个已完成的实际专业任务")
+        if flow.status == "queued":
+            if flow.output_json is not None or flow.completed_at is not None:
+                _reject("人工批准后的队列不能提前有正式结果")
+        elif flow.status == "completed":
+            expected = canonical({node.node_key: json.loads(node.output_json)
+                for node in nodes})
+            if (flow.output_json != expected or flow.completed_at is None
+                    or flow.completed_at < human.completed_at):
+                _reject("完成态工作流结果与已批准的六节点不同")
+    except AiError:
+        raise
+    except (ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
+        raise AiError("人工批准持久状态无法解析", "promotion_completed_read_incomplete", 409) from error
+
+
 def _root(job, principal):
     current_principal(principal, admin=True)
     if principal.scope is not None:
@@ -61,7 +110,7 @@ def _root(job, principal):
                 or actual.completed_at is None or actual.owner_email != report.owner_email
                 or actual.scope_json != report.scope_json or flow.owner_email != report.owner_email
                 or flow.scope_json != report.scope_json or flow.cancel_requested
-                or flow.status not in {"running", "waiting_review", "completed"}
+                or flow.status not in {"running", "waiting_review", "queued", "completed"}
                 or role not in screening_contract.ROLES
                 or node.status != "completed" or node.agent_job_id != actual.id
                 or node.output_json != actual.output_json or node.input_json != actual.input_json
@@ -82,6 +131,8 @@ def _root(job, principal):
                 or type(output["answer"]) is not str
                 or actual.output_json != canonical(output)):
             _reject("完成态Agent、节点、模型、输出或固定图不一致")
+        if flow.status in {"queued", "completed"}:
+            _approved_parent(report, flow, nodes)
         diagnosis.validate_answer(role, output["answer"])
         checkpoint = m.AiAgentCheckpoints.objects.filter(job=actual,
             ordinal=actual.step_index, kind="completed").first()

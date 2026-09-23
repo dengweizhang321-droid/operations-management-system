@@ -174,3 +174,35 @@ class PromotionCompletedReceiptTests(djtest.TransactionTestCase):
         self.assertEqual(proof["role"], "commerce")
         self.assertTrue(proof["completedAgentReadVerified"])
         self.assertEqual(sum(part["pages"] for part in proof["promotionViews"].values()), 0)
+
+    def test_post_review_queued_needs_actual_approved_human_and_five_jobs(self):
+        from . import test_business_promotion_content as content_fixture
+
+        self.running_job = content_fixture.PromotionContentTests.running_job.__get__(self)
+        report = content_fixture.PromotionContentTests.five_completed(self)
+        job = m.AiAgentJobs.objects.get(workflow_run_id=report.workflow_id,
+            workflow_node_key="promotion")
+        with mutation(self.admin):
+            flow = m.AiWorkflowRuns.objects.get(pk=report.workflow_id)
+            flow.status = "queued"
+            flow.current_node_key = None
+            flow.version += 1
+            flow.save()
+        with self.assertRaises(AiError): self.proof(job)
+        with mutation(self.admin):
+            flow = m.AiWorkflowRuns.objects.get(pk=report.workflow_id)
+            human = m.AiWorkflowNodeRuns.objects.get(run=flow,
+                node_key="human_review")
+            human.status = "completed"
+            human.output_json = canonical({"decision":"approve","comment":"已人工核验"})
+            human.reviewer_email = self.admin.email
+            human.reviewed_at = timezone.now()
+            human.completed_at = timezone.now()
+            human.version += 1
+            human.save()
+            flow.version += 1
+            flow.save()
+            from . import workflows
+            workflows.event(flow, self.admin, "review_approved", "waiting_review",
+                human.node_key)
+        self.assertTrue(self.proof(job)["completedAgentReadVerified"])
