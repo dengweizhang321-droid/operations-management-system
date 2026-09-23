@@ -152,6 +152,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/integrated-budget": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/screening/(?:package|analysis|budget)": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
+            r"promotion-tool-dispatch/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-dynamics": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence": {"GET", "POST"},
@@ -229,6 +230,8 @@ def _dispatch(request, path=""):
             writer = False
         if endpoint == "business-plan/preview" and request.method == "POST":
             writer = False
+        if root == "promotion-tool-dispatch" and request.method == "POST":
+            writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -246,6 +249,16 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "promotion-tool-dispatch":
+            from . import business_promotion_dispatch_tool
+            fields(params, set())
+            fields(payload, {"name", "arguments", "providerCallId"},
+                {"name", "arguments", "providerCallId"})
+            if request_id != parts[1]:
+                raise AiError("词货工具派发ID与签名请求不一致", "access_denied", 403)
+            return response(business_promotion_dispatch_tool.read(
+                parts[1], payload["name"], payload["arguments"],
+                payload["providerCallId"], principal))
         if root == "business-plan":
             from .business_planning import preview
             fields(params, set())

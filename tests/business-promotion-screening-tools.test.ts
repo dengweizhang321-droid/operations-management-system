@@ -13,7 +13,7 @@ const names = ["get_business_promotion_screening_package_v1", "get_business_prom
 const entries = names.map(name => aiToolRegistry.find(entry => entry.name === name)!);
 const keyword = entries[3];
 const admin: AppPrincipal = { email: "promotion@example.invalid", displayName: "Synthetic", role: "admin", scope: null };
-const context = { principal: admin, surface, requestId: "promotion-test" };
+const context = { principal: admin, surface, requestId: "promotion-dispatch-1", providerCallId: "provider-call-1" };
 const base = { reportId: "report-1", sourceKey: "ads", view: "keyword_sku" };
 const standard = { reportId: "report-1", runId: "run-1", screeningId: "screen-1" };
 const environment = { TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18191", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18192", TERUISI_DJANGO_INTERNAL_SECRET: "synthetic-promotion-secret-at-least-32-bytes" };
@@ -53,39 +53,55 @@ test("keyword validates both exclusive selectors before any transport", async t 
     { rowIndex: 7, rowId: "c".repeat(64), limit: 20 }, { offset: true }, { offset: "0" }, { offset: -1 }, { offset: 250001 },
     { limit: 10 }, { baselineKey: null }, { reportId: "../a" }, { view: "sku" }, { runId: "run-1" }]) await assert.rejects(keyword.handler({ ...base, ...extra }, context));
   for (const principal of [{ ...admin, role: "viewer" as const }, { ...admin, scope: { warehouses: [], channels: [], platforms: [] } }]) await assert.rejects(keyword.handler(base, { ...context, principal }));
+  for (const changed of [{ providerCallId: undefined }, { providerCallId: "" }, { requestId: "not valid" },
+    { surface: "business_agent_screening_v1" as const }]) await assert.rejects(keyword.handler(base, { ...context, ...changed }));
   assert.equal(calls, 0);
 });
 
-test("keyword signs exact reader GET and preserves full owning page and row", async t => {
+test("keyword signs exact dispatch-bound reader POST and preserves owning page and row", async t => {
   isolated(t); const seen: string[] = [];
   globalThis.fetch = async (url, init) => {
     const target = new URL(String(url)); seen.push(target.pathname);
     assert.equal(target.origin, environment.TERUISI_DJANGO_AI_READER_BASE_URL);
-    assert.equal(init?.method, "GET"); assert.equal(init?.cache, "no-store");
+    assert.equal(init?.method, "POST"); assert.equal(init?.cache, "no-store");
+    assert.equal(target.search, "");
+    const sent = JSON.parse(String(init?.body)) as { name: string; arguments: Record<string, unknown>; providerCallId: string };
+    assert.equal(sent.name, keyword.name); assert.equal(sent.providerCallId, context.providerCallId);
     const headers = new Headers(init?.headers);
-    const message = ["v1", headers.get("x-teruisi-timestamp"), headers.get("x-teruisi-request-id"), "GET", target.pathname,
-      target.search.slice(1), sha(""), headers.get("x-teruisi-principal")].join("\n");
+    assert.equal(headers.get("x-teruisi-request-id"), context.requestId);
+    const message = ["v1", headers.get("x-teruisi-timestamp"), headers.get("x-teruisi-request-id"), "POST", target.pathname,
+      "", sha(String(init?.body)), headers.get("x-teruisi-principal")].join("\n");
     assert.equal(headers.get("x-teruisi-signature"), "v1="+createHmac("sha256", environment.TERUISI_DJANGO_INTERNAL_SECRET).update(message).digest("hex"));
-    assert.equal(target.searchParams.get("sourceKey"), "ads");
-    return response(payload(target.searchParams.has("rowIndex")));
+    assert.equal(sent.arguments.sourceKey, "ads");
+    return response(payload(Object.hasOwn(sent.arguments, "rowIndex")));
   };
   assert.deepEqual(await keyword.handler(base, context), payload());
   assert.deepEqual(await keyword.handler({ ...base, rowIndex: 7, rowId: "c".repeat(64) }, context), payload(true));
-  assert.deepEqual(seen, Array(2).fill("/api/ai/reports/report-1/promotion-keyword-sku"));
+  assert.deepEqual(seen, Array(2).fill("/api/ai/promotion-tool-dispatch/promotion-dispatch-1"));
 });
 
-test("three responsibility handlers retain exact screening reader endpoints", async t => {
+test("new first-three handlers use dispatch POST while old screening names keep GET routes", async t => {
   isolated(t); const seen: string[] = [];
-  globalThis.fetch = async url => {
-    const target = new URL(String(url)); seen.push(target.pathname);
-    const kind = target.pathname.split("/").at(-1);
+  globalThis.fetch = async (url, init) => {
+    const target = new URL(String(url)); seen.push(`${init?.method} ${target.pathname}`);
+    const sent = init?.method === "POST" ? JSON.parse(String(init.body)) as { name: string } : null;
+    const kind = sent?.name.includes("package") || target.pathname.endsWith("/package") ? "package"
+      : sent?.name.includes("analysis") || target.pathname.endsWith("/analysis") ? "analysis" : "budget";
     return response(kind === "package" ? { schemaVersion: "business-screening-role-package-v1", reportId: "report-1", evidenceRunId: "run-1", role: "promotion" }
       : { schemaVersion: `business-screening-${kind}-v1`, reference: { reportId: "report-1", evidenceRunId: "run-1", screeningIntent: { id: "screen-1" } } });
   };
   await entries[0].handler({ ...standard, role: "promotion" }, context);
   await entries[1].handler({ ...standard, mode: "native", dimension: "keyword", sourceKey: "ads" }, context);
   await entries[2].handler(standard, context);
-  assert.deepEqual(seen, ["package", "analysis", "budget"].map(kind => `/api/ai/reports/report-1/screening/${kind}`));
+  assert.deepEqual(seen, Array(3).fill("POST /api/ai/promotion-tool-dispatch/promotion-dispatch-1"));
+  seen.length = 0;
+  const oldNames = ["get_business_screening_package_v1", "get_business_screening_analysis_table_v1", "get_business_screening_budget_v1"];
+  const old = oldNames.map(name => aiToolRegistry.find(entry => entry.name === name)!);
+  const oldContext = { ...context, surface: "business_agent_screening_v1" as const };
+  await old[0].handler({ ...standard, role: "promotion" }, oldContext);
+  await old[1].handler({ ...standard, mode: "native", dimension: "keyword", sourceKey: "ads" }, oldContext);
+  await old[2].handler(standard, oldContext);
+  assert.deepEqual(seen, ["package", "analysis", "budget"].map(kind => `GET /api/ai/reports/report-1/screening/${kind}`));
 });
 
 test("keyword rejects mismatched bindings, false authority, oversized UTF8 and upstream errors", async t => {
@@ -100,13 +116,19 @@ test("keyword rejects mismatched bindings, false authority, oversized UTF8 and u
   const ctl = new AbortController(); ctl.abort(); await assert.rejects(keyword.handler(base, { ...context, signal: ctl.signal })); assert.equal(calls, 0);
 });
 
-test("only exact new GET reader route is admitted", async t => {
+test("human GET remains public; dispatch POST stays internal and requires matching signed ID", async t => {
   isolated(t); const target = "/api/ai/reports/report-1/promotion-keyword-sku";
   assert.equal(isPublicAiPath(target), true);
+  const internal = "/api/ai/promotion-tool-dispatch/promotion-dispatch-1";
+  assert.equal(isPublicAiPath(internal), false);
   for (const value of [target+"/extra", target+"-other", "/api/ai/reports/../promotion-keyword-sku"]) assert.equal(isPublicAiPath(value), false);
   let calls = 0; globalThis.fetch = async () => { calls++; return response(payload()); };
   await assert.rejects(requestDjangoAi(admin, { path: target, method: "POST" }));
-  await assert.rejects(requestDjangoAi(admin, { path: target, method: "GET", service: "writer" })); assert.equal(calls, 0);
+  await assert.rejects(requestDjangoAi(admin, { path: target, method: "GET", service: "writer" }));
+  await assert.rejects(requestDjangoAi(admin, { path: internal, method: "GET", service: "reader" }));
+  await assert.rejects(requestDjangoAi(admin, { path: internal, method: "POST", service: "writer", payload: {} }, { requestId: context.requestId }));
+  await assert.rejects(requestDjangoAi(admin, { path: internal, method: "POST", service: "reader", payload: {} }, { requestId: "wrong" }));
+  assert.equal(calls, 0);
 });
 
 test("bounded HTTP whitespace margin never enlarges the complete semantic payload limit", async t => {
@@ -137,10 +159,11 @@ test("signed edge new catalog policy and audit work but old surface cannot dispa
   }
   const catalog = await edge({ action: "catalog", surface }); assert.equal(catalog.status, 200);
   const listed = (await catalog.json() as { entries: AiToolEntry[] }).entries; assert.deepEqual(listed.map(e => e.name), names);
-  const request = { action: "execute", surface, name: keyword.name, arguments: base, requestId: "promotion-edge", policyDigest: sha(canonicalAiEdge(listed)) };
+  const request = { action: "execute", surface, name: keyword.name, arguments: base,
+    requestId: context.requestId, providerCallId: context.providerCallId, policyDigest: sha(canonicalAiEdge(listed)) };
   assert.equal((await edge({ ...request, policyDigest: "0".repeat(64) })).status, 403); assert.deepEqual(seen, []);
   const success = await edge(request); assert.equal(success.status, 200); assert.equal((await success.json() as { ok: boolean }).ok, true);
-  assert.deepEqual(seen, ["/api/ai/consumer", "/api/ai/reports/report-1/promotion-keyword-sku", "/api/ai/consumer"]);
+  assert.deepEqual(seen, ["/api/ai/consumer", "/api/ai/promotion-tool-dispatch/promotion-dispatch-1", "/api/ai/consumer"]);
   const denied = await executeRegisteredToolCall(keyword.name, base, { ...context, surface: "business_agent_screening_v1" }, { audit: async () => {} });
   assert.equal(denied.ok, false);
 });

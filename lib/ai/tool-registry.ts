@@ -1,4 +1,4 @@
-import { readBusinessPromotionKeywordSkuV1 } from "@/lib/ai/business-promotion-screening-tools";
+import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
 import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
@@ -138,7 +138,7 @@ export const aiToolRegistry = [
     }, required: ["runId", "reportId", "screeningId", "role"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_agent_screening_promotion_v1"], maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
-    handler: (args, context) => readBusinessScreeningPackageV1(args, context.principal, context.signal),
+    handler: (args, context) => readBusinessPromotionDispatchTool("get_business_promotion_screening_package_v1", args, context),
   },
   {
     name: "get_business_promotion_screening_analysis_v1", title: "读取综合经营报告原生或ERP映射分析表",
@@ -157,7 +157,7 @@ export const aiToolRegistry = [
     }, required: ["runId", "reportId", "screeningId", "mode", "dimension"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_agent_screening_promotion_v1"], maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
-    handler: (args, context) => readBusinessScreeningAnalysisTableV1(args, context.principal, context.signal),
+    handler: (args, context) => readBusinessPromotionDispatchTool("get_business_promotion_screening_analysis_v1", args, context),
   },
   {
     name: "get_business_promotion_screening_budget_v1", title: "分页读取综合经营报告固定预算情景",
@@ -170,7 +170,7 @@ export const aiToolRegistry = [
     }, required: ["runId", "reportId", "screeningId"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_agent_screening_promotion_v1"], maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
-    handler: (args, context) => readBusinessScreeningBudgetV1(args, context.principal, context.signal),
+    handler: (args, context) => readBusinessPromotionDispatchTool("get_business_promotion_screening_budget_v1", args, context),
   },
   {
     name: "get_business_promotion_keyword_sku_v1", title: "读取固定报告关键词与明确推广SKU",
@@ -187,7 +187,7 @@ export const aiToolRegistry = [
     }, required: ["reportId", "sourceKey", "view"], additionalProperties: false },
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["business_agent_screening_promotion_v1"], maxResultCharacters: 38_000, maxCallsPerRequest: 8 },
-    handler: (args, context) => readBusinessPromotionKeywordSkuV1(args, context.principal, context.signal),
+    handler: (args, context) => readBusinessPromotionDispatchTool("get_business_promotion_keyword_sku_v1", args, context),
   },
   {
     name: "get_business_screening_package_v1", title: "分页读取固定筛查角色证据包",

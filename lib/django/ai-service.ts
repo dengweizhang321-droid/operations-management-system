@@ -9,6 +9,7 @@ const encoder = new TextEncoder();
 const ENTITY = "[A-Za-z0-9_-]{1,160}";
 const PUBLIC_PATH = new RegExp(`^/api/ai/(?:business-plan/preview|business-reports|business-files/${ENTITY}(?:/control|/chunks/(?:html|xlsx)|/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json))?|business-evidence(?:/${ENTITY}(?:/(?:collect|finish|control|mapping|mapping-v2|analysis|budget-targets|budget-preview)|/sources(?:/${ENTITY})?|/chunks/${ENTITY})?)?|report-library|reports(?:/${ENTITY}(?:/(?:content|send|files|budget|budget-preview|budget-reference|integrated-directory|integrated-analysis-table|integrated-budget|promotion-keyword-sku|screening/(?:package|analysis|budget)))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
 export const AI_INTERNAL_PATHS = new Set(["/api/ai/consumer", "/api/ai/scheduler"]);
+const INTERNAL_PROMOTION_DISPATCH_PATH = new RegExp(`^/api/ai/promotion-tool-dispatch/(${ENTITY})$`);
 
 export async function aiEnvironment(): Promise<Environment> {
   let worker: Environment = {};
@@ -17,6 +18,7 @@ export async function aiEnvironment(): Promise<Environment> {
 }
 
 export function isPublicAiPath(path: string) { return PUBLIC_PATH.test(path); }
+export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_PROMOTION_DISPATCH_PATH.test(path); }
 
 function unavailable() { return new PublicApiError(503, "service_unavailable", "Django AI 服务暂时不可用。"); }
 function hex(value: ArrayBuffer) { return Array.from(new Uint8Array(value), v => v.toString(16).padStart(2, "0")).join(""); }
@@ -42,11 +44,17 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   path: string; method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; query?: URLSearchParams; payload?: Record<string, unknown>; service?: "reader" | "writer";
 }, options: { environment?: Environment; fetchImpl?: typeof fetch; signal?: AbortSignal; requestId?: string } = {}): Promise<{ data: T; status: number; revision: string; replayed: boolean }> {
   if (options.signal?.aborted) throw unavailable();
-  if (!isPublicAiPath(input.path) && !AI_INTERNAL_PATHS.has(input.path) && !new RegExp(`^/api/ai/callback/${ENTITY}$`).test(input.path)) throw unavailable();
+  if (!isPublicAiPath(input.path) && !AI_INTERNAL_PATHS.has(input.path)
+    && !isInternalPromotionDispatchPath(input.path)
+    && !new RegExp(`^/api/ai/callback/${ENTITY}$`).test(input.path)) throw unavailable();
   const environment = options.environment ?? await aiEnvironment();
   const method = input.method ?? "GET";
   const promotionRead = new RegExp(`^/api/ai/reports/${ENTITY}/promotion-keyword-sku$`).test(input.path);
+  const promotionDispatch = INTERNAL_PROMOTION_DISPATCH_PATH.exec(input.path);
   if (promotionRead && (method !== "GET" || input.service === "writer")) throw new PublicApiError(400, "invalid_request", "推广词货接口仅允许reader GET。");
+  if (promotionDispatch && (method !== "POST" || input.service !== "reader"
+    || input.query?.toString() || options.requestId !== promotionDispatch[1] || input.payload === undefined))
+    throw new PublicApiError(400, "invalid_request", "词货工具派发必须使用内部精确签名请求。");
   const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
@@ -60,7 +68,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: options.requestId ?? crypto.randomUUID() });
   const reportDetail = method === "GET" && isReportDetailPath(input.path);
   try {
-    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: promotionRead ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
+    const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: promotionRead || promotionDispatch ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
     if (reportDetail && !allowReportDetailBytes(result.data, result.responseBytes, result.response.ok)) throw unavailable();
     if (!result.data || typeof result.data !== "object" || Array.isArray(result.data) || !/application\/json/i.test(result.response.headers.get("content-type") ?? "")) throw unavailable();
     if (!result.response.ok) {
