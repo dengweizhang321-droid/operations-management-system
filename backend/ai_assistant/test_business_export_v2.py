@@ -3,6 +3,8 @@ from copy import deepcopy
 from io import BytesIO
 import hashlib
 import json
+import time
+import zipfile
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
@@ -108,6 +110,37 @@ class BusinessExportV2Tests(TestCase):
             self.assertEqual(keys[6][0], "business-summary")
             self.assertGreater(keys[6].index("overview"), keys[6].index("actions"))
             self.assertEqual(set(keys[6])-set(keys[4]), {"business-summary"})
+
+    def test_sealed_source_table_extraction_keeps_v4_v6_html_xlsx_bytes(self):
+        """Pre-extraction golden bytes with a fixed ZIP creation clock."""
+        from . import business_screening_export
+        snapshot = json.loads(self.report.snapshot_json)
+        snapshot["executionProfile"] = "business-agent-screening-reference-v1"
+        self.report.snapshot_json = canonical(snapshot)
+        self.value["diagnosis"]["summary"] = "仅合成经营结论"
+        self.value["screening"] = {"limitations": ["候选不证明因果"], "readProofs": {}}
+        golden = {
+            4: ("d7aaccc9130c69fbff4bda623af3ca0e304a70e10bf7fe746366e64c367ebd1b",
+                "cecee04a7384a1b2159c5e4b179d9e544ade44e2cee6e32ee233c8606cca9c09", 14),
+            6: ("2ef0f39bdd3557f9688ab55b3a478af51d6c6ea9fd5a6a09a54a3f15f776fb76",
+                "7d51255cb51c09942c89022006f2d2853af740c7d34a8cd304196739889d3fce", 15),
+        }
+        fixed_clock = time.struct_time((2026, 1, 1, 0, 0, 0, 3, 1, -1))
+        with (patch.object(export.business_reports, "is_v2_snapshot", return_value=True),
+                patch.object(business_screening_export, "metadata", return_value={}),
+                patch.object(business_screening_export, "append"),
+                patch.object(zipfile.time, "localtime", return_value=fixed_clock)):
+            for version in (4, 6):
+                with export.prepare_volumes(self.report, self.principal, renderer_version=version) as prepared:
+                    outputs = self.outputs(prepared)
+                    manifest = export.build_volumes(prepared, outputs)
+                self.assertEqual(manifest["sourceTableCount"], golden[version][2])
+                self.assertEqual(manifest["volumeCount"], 1)
+                self.assertEqual(hashlib.sha256(outputs[0].html.getvalue()).hexdigest(), golden[version][0])
+                self.assertEqual(hashlib.sha256(outputs[0].xlsx.getvalue()).hexdigest(), golden[version][1])
+                keys = [table["key"] for table in manifest["tables"]]
+                self.assertEqual(keys.count("raw-source-0-current"), 1)
+                self.assertEqual(sum(key.startswith("analysis-") for key in keys), 8)
 
     def outputs(self, prepared):
         return [VolumeStreams(xlsx=BytesIO(), html=BytesIO()) for _ in range(prepared.plan["volumeCount"])]

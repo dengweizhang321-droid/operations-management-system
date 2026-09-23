@@ -5,11 +5,12 @@ import json
 import sqlite3
 from tempfile import TemporaryDirectory
 
-from business_analysis.contracts import AnalysisContractError, comparison_periods
+from business_analysis.contracts import AnalysisContractError
 from business_analysis.report_files import Column, Table, MAX_COLUMNS, MAX_FILE_BYTES, write_pair
-from business_analysis.results import VIEWS, stream_table
+from business_analysis.results import VIEWS
 from . import business_evidence, business_reports
 from .business_sealed import Reader
+from .business_sealed_source_tables import append as append_sealed_source_tables
 from .policy import AiError, authorize_owner, canonical, digest
 
 DIMENSION_NAMES = {"shop": "店铺", "category": "品类", "spu": "SPU", "sku": "SKU", "keyword": "关键词", "searchTerm": "搜索词", "daily": "逐日", "brand": "品牌"}
@@ -196,34 +197,7 @@ def package(report, principal, *, draft, checkpoint=None, renderer_version=1):
             spool.add("budget-summary", "预算情景汇总", "缺失对象时完整预测为空，仅展示已知对象合计；不是店铺净利润。", ({"scenario": s["assumptions"]["name"], **s["summary"]} for s in budget["scenarios"]))
             for index, scenario in enumerate(budget["scenarios"]):
                 spool.add("budget-scenario-"+str(index), "情景_"+scenario["assumptions"]["name"], budget_note, scenario["rows"])
-        for source in sources:
-            key = source["key"]
-            def records(key=key):
-                for page in pages(key):
-                    yield from page["items"]
-            query = source["query"]
-            window = query.get("window", "current")
-            period = comparison_periods(query["startDate"], query["endDate"])[window]
-            period_name = {"current": "本期", "previous": "环比基期", "yearAgo": "同比基期"}[window]
-            note = f'{period_name}：{period["startDate"]} 至 {period["endDate"]}。完整规范明细；金额字段单位为分；推广、ERP和B端口径分别保留。'
-            spool.add("raw-"+key, "来源_"+key, note, records(), expected[key]["rowCount"])
-        for source in sources:
-            key, query = source["key"], source["query"]
-            if query.get("window", "current") != "current" or not expected[key]["metrics"]:
-                continue
-            bases = [None]
-            for candidate in sources:
-                q = candidate["query"]
-                if candidate["domain"] == source["domain"] and q.get("window") in {"previous", "yearAgo"} and {k: v for k, v in q.items() if k != "window"} == {k: v for k, v in query.items() if k != "window"}:
-                    bases.append(candidate["key"])
-            for dimension in VIEWS:
-                for base in ([None] if dimension == "daily" else bases):
-                    args = {"baseline_pages": pages(base), "baseline_expected": expected[base]} if base else {}
-                    with stream_table(pages(key), dimension, expected[key], **args) as (table, rows):
-                        period = "环比" if base and source_by_key[base]["query"]["window"] == "previous" else "同比" if base else "本期"
-                        note = "；".join(table["limitations"])+"。来源="+key+("，基期="+base if base else "")
-                        spool.add("analysis-"+digest([key, dimension, base])[:24], f"{key}_{DIMENSION_NAMES[dimension]}_{period}", note,
-                            ({"sourceKey": key, "baselineKey": base, **row} for row in rows), table["total"])
+        append_sealed_source_tables(spool, sources, expected, pages, source_by_key, VIEWS, DIMENSION_NAMES)
         if business_reports.integrated.is_snapshot(snapshot):
             from .business_mapped_export import append
             append(spool, report, principal, checkpoint=checkpoint)
