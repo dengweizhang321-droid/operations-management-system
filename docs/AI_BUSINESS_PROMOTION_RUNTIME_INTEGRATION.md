@@ -88,3 +88,9 @@ PostgreSQL `0024_business_screening_runtime.py` 把 profile、snapshot 字段与
 新路由7项与旧 screening 路由4项在隔离 PostgreSQL 合跑共11项通过，日志 `.runtime/ai-pg-864340d94583/tests.log`。首轮唯一失败是测试把其他管理员不可见的报告预期为403，实际正确隐藏为404；测试修正后通过，失败日志 `.runtime/ai-pg-56a58e919116/failure.log` 保留，未放宽服务。覆盖两种视图、基期、精确行引用、重复/混合参数、路径/方法/角色、容量、撤权、禁止业务事实SQL及模型调用。
 
 下一步仍须实现本文第1—3步的新 profile、中央工具、节点独立读取回执和数值引用复验；内部 reader 存在不代表 Agent 已能调用。之后再进入新 renderer 和双格式文件。
+
+## 2026-09-23 中央工具候选接线
+
+在最新主线整合分支新增独立 `business_agent_screening_promotion_v1` surface 及四个固定工具，保留原五角色所需的角色包、普通分析、预算与新增关键词×明确推广SKU读取职责。账号必须是无范围管理员；普通聊天和旧筛查 surface 的工具目录与历史固定摘要保留。词货读页与精确行引用调用上述 owning reader，页/行参数互斥，完整语义 JSON 限 38 KB；原始 HTTP 允许最多 48 KB 以容纳序列化空白，超过任一界限都拒绝而不截断。
+
+新工具及旧目录相关 Node 48 项通过，日志 `.runtime/promotion-tools-node-final.log`；静态 lint 通过。本片只注册中央工具及签名读取桥；Python 新 profile 的创建、调度、节点读取证明、数值引用、诊断和新文件版本仍未接入。任何固定为旧 profile 的报告仍按原协议解释。
