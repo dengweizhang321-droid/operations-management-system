@@ -41,3 +41,13 @@
 authority明确 `wholeMarketCoverageVerified=false`、`ownProductIdentityVerified=false`；市场单日资格来自原 owning SQL 所生成的已封存 market_daily_top，服务不将竞品解释为自家商品、不声称全行业销量或真实份额。
 
 在最新main整合worktree静态编译通过，原pure11项再次通过（0.042秒）。新增 `ai_assistant.test_business_market_dynamics` 7项真实隔离PG测试通过（88.797秒），日志 `.runtime/ai-pg-c074849f3aa6/tests.log`：原市场SQL→多页封存→报告绑定、两视图与缺席状态、无外部调用/无live事实查询、错源/基期/账号范围、篡改/迟到源错误、最终撤权、精确行引用、完整38KB容量。未执行生产操作或模型调用；市场 Agent 工具和工程文件仍待接入。
+
+2026-09-23 新增固定报告的只读 GET `/api/ai/reports/<reportId>/market-dynamics`，只允许当前 AI reader 签名与真实无范围管理员。价格段 JSON 完整解析并拒绝重复键/非数值，进出榜需明确基期，页模式与精确行模式互斥。新路由7项与旧 screening 路由4项在隔离 PostgreSQL 合跑11项通过，日志 `.runtime/ai-pg-8f22cb2594bd/tests.log`。此时内部只读服务已可被系统调用，但尚未注册 Agent 工具、节点证据引用或 HTML/XLSX 文件目录。
+
+### 内部只读HTTP候选
+
+上述owning服务7项隔离PG已由root验证通过，整合提交 `a14d6924`。新增精确 GET `/api/ai/reports/<reportId>/market-dynamics`，沿原签名、当前账号及 `ai_reader` 进程门禁，响应保留原完整封套与 `no-store`，未新增Agent工具或profile。
+
+价格段选择必须给 sourceKey、view=price_band、bands JSON（最多8192 UTF-8字节），进出榜必须给 sourceKey、view=rank_entry_exit、baselineKey。列表默认offset=0/固定limit=20；精确行使用rowIndex和rowId，二者必须一起提供并与offset/limit互斥。未知/重复查询参数、JSON重复键和非有限数拒绝；bands仅允许明确段名与安全整数边界，完整范围规则继续交已有pure/owning核验。源范围、报告和末次账号复验不因HTTP接线而弱化。
+
+新增 `business_market_runtime_tools.py` 与 `test_business_market_runtime_tools.py`，7项新增真实封存报告HTTP测试待root串行执行。静态编译通过；覆盖两视图/精确行、严格参数和JSON、签名/角色/范围/错误方法、完整38KB及撤权、无外部调用和旧screening门禁。没有运行生产或数据库迁移。
