@@ -29,3 +29,15 @@
 ## 验证
 
 `PYTHONPATH=backend python -m unittest business_analysis.test_market_dynamics -v`：11项纯测试通过（0.034秒）。覆盖价格边界、跨段/缺界/估算桶、上下界独立累计、单日进出榜/缺日/SPU/明确去年同期、重复商品日、周月字段拒绝、区间和安全整数、来源与控制摘要、真实多页链、两期合计输入及输出容量、确定哈希与输入副本隔离。没有初始化数据库、读取正式数据或调用模型。
+
+## 2026-09-23：内部封存来源服务候选
+
+新增 `backend/ai_assistant/business_market_dynamics.py`，复用 `business_diagnostic_screening._load` 的真实报告/工作流/当前管理员绑定及 `business_sealed.Reader` 的完整封存链。支持 `page(report_id, params, principal)` 和固定位置/完整 rowId 的 `read_row`，未注册公开路由、模型工具、profile 或工程文件。
+
+价格带要求完整显式 bands，不接受临时基期；进出榜要求同一固定榜单身份的明确 current 与 previous/yearAgo 单日来源，不接受 bands。读取的是选定封存来源，完整消费后及返回前均复验当前报告与账号。没有实时市场查询、重新下载、模型调用或业务写入。内部 context 给出的纯表副本仍不具授权，正常退出后 `page/read_row` 才返回选定来源完整遍历与报告绑定证明。
+
+返回 binding 固定 report/source/baseline/view/algorithm/bandsDigest/tableBindingDigest。完整 pure tableDigest 保留为根摘要；分页结果另有 pageDigest，外层 responseDigest 绑定完整响应。每页最多20行，包含外层的规范UTF-8 JSON最多38,000字节；仅减少完整行前缀，不截单行、members 或未分配价格桶。单行或元数据超限时413，不发布部分成功。read_row 校验同视图、同价格段、同基期下的行位置与摘要，便于后续模型引用，当前尚未注册引用解析。
+
+authority明确 `wholeMarketCoverageVerified=false`、`ownProductIdentityVerified=false`；市场单日资格来自原 owning SQL 所生成的已封存 market_daily_top，服务不将竞品解释为自家商品、不声称全行业销量或真实份额。
+
+在最新main整合worktree静态编译通过，原pure11项再次通过（0.042秒）。新增 `ai_assistant.test_business_market_dynamics` 7项真实隔离PG测试通过（88.797秒），日志 `.runtime/ai-pg-c074849f3aa6/tests.log`：原市场SQL→多页封存→报告绑定、两视图与缺席状态、无外部调用/无live事实查询、错源/基期/账号范围、篡改/迟到源错误、最终撤权、精确行引用、完整38KB容量。未执行生产操作或模型调用；市场 Agent 工具和工程文件仍待接入。
