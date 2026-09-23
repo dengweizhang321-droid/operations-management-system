@@ -41,6 +41,8 @@
 
 随后从真实封存报告、工作流与筛查根准备新profile只读候选，3项隔离PG通过，见 `.runtime/ai-pg-4fa15d233537/tests.log`。候选明确 `registered=false`，当前不能启动新五Agent；[迁移边界](AI_BUSINESS_PROMOTION_MIGRATION.md)要求先固定新报告与工作流的持久创建形状，再做0026数据库guard和renderer7，旧报告协议不被重解释。TS类型检查尚有原223行基线错误，新增工具的类型错误已消除，日志 `.runtime/ai-integration-types-current.log`。
 
+2026-09-24 新检查点：已在隔离工作树完成 `ai_assistant.0026_business_promotion_profile`、内部原子报告创建和持久来源复核；新profile可用预分配意图发布并回读真实规则筛查页。0025→0026 的独立升级、旧新备份恢复、旧65张AI表和renderer 1—6文件字节保持验证见 `.runtime/ai-pg-216c0adcdbf4/business-promotion-profile-upgrade.json`。创建、持久绑定、迁移及旧筛查存储组合测试见 `.runtime/ai-pg-2f0a62ae7162/tests.log`；两张词货表的完整NDJSON→工程表校验含6项纯测试。另有内部只读文件材料适配器，草稿材料仍不等于已发布HTML/XLSX。**新profile尚未接入实际五Agent派发、独立读取回执、诊断引用、人工复核及renderer 7；正式文件入口继续关闭。** 本检查点不是生产采用或真实模型质量验收。
+
 下列日志位于本隔离工作树 `.runtime`，是在当前主线整合过程中取得的结果。它们不覆盖此后尚未完成的新协议接线，也不代表正式业务数据验收。
 
 | 项目 | 已核验结果 | 本轮证据 |
