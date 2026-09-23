@@ -30,6 +30,52 @@ export type ApiExportOptions = { runId: string; runDate: string; asOfDate: strin
   beforeModule?: (module: JackyunModule) => Promise<void>; afterModule?: (module: JackyunModule) => Promise<void>; signal?: AbortSignal;
   resumeTaskBinding?: JackyunExportTaskBinding };
 
+type LoginPage = { url(): string };
+type LoginPageContext<T extends LoginPage> = { pages(): T[] };
+
+/**
+ * Wait for the dedicated browser's eligible page set to settle before using it.
+ * A crashed or still-navigating profile can transiently expose zero or multiple
+ * pages; returning immediately turns that transient state into a false login
+ * failure and an unsafe retry loop.
+ */
+export async function waitForUniqueJackyunLoginPage<T extends LoginPage>(
+  context: LoginPageContext<T>,
+  { timeoutMs = 15_000, settleMs = 250 }: { timeoutMs?: number; settleMs?: number } = {},
+) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 60_000
+    || !Number.isSafeInteger(settleMs) || settleMs < 100 || settleMs > 2_000) {
+    throw new Error("吉客云登录页面等待参数无效。");
+  }
+  const deadline = Date.now() + timeoutMs;
+  let previousSignature = "";
+  let previousPage: T | undefined;
+  let stableSamples = 0;
+  let counts = { eligible: 0, total: 0, blank: 0, jackyun: 0, other: 0 };
+  while (Date.now() < deadline) {
+    const pages = context.pages();
+    const eligible = pages.filter((page) => page.url() === "about:blank" || isJackyunLoginOrigin(page.url()));
+    const blank = pages.filter(page => page.url() === "about:blank").length;
+    counts = { eligible: eligible.length, total: pages.length, blank, jackyun: eligible.length - blank, other: pages.length - eligible.length };
+    const signature = eligible.map((page) => page.url()).join("\u0000");
+    if (eligible.length === 1) {
+      if (eligible[0] === previousPage && signature === previousSignature) stableSamples += 1;
+      else stableSamples = 1;
+      previousPage = eligible[0];
+      previousSignature = signature;
+      if (stableSamples >= 2) return eligible[0];
+    } else {
+      stableSamples = 0;
+      previousPage = undefined;
+      previousSignature = signature;
+    }
+    await new Promise((resolve) => setTimeout(resolve, settleMs));
+  }
+  // URLs may carry session tokens. Only bounded counts leave this function.
+  const count = (value: number) => Math.min(value, 999999);
+  throw new Error(`API_LOGIN_PAGE_NOT_UNIQUE: eligible=${count(counts.eligible)}; total=${count(counts.total)}; blank=${count(counts.blank)}; jackyun=${count(counts.jackyun)}; other=${count(counts.other)}`);
+}
+
 /** Caller owns the profile/run lock. Browser is used only for authentication and token publication. */
 export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSession, tenantId: string) => Promise<T>): Promise<T> {
   const login = await readJackyunLoginConfig(projectRoot);
@@ -48,16 +94,15 @@ export async function withJackyunApiSession<T>(callback: (http: JackyunHttpSessi
     const context = browser.contexts()[0];
     let client: PlaywrightPageClient | undefined;
     try {
-      const pages = context.pages().filter(page => page.url() === "about:blank" || isJackyunLoginOrigin(page.url()));
-      if (pages.length !== 1) throw new Error("API_LOGIN_PAGE_NOT_UNIQUE");
-      const page = pages[0];
+      if (!context) throw new Error("API_LOGIN_PAGE_NOT_UNIQUE: no_context");
+      const page = await waitForUniqueJackyunLoginPage(context);
       if (page.url() === "about:blank") await page.goto("https://web.jackyun.com/home/mainframe_web_horizontal.html", { waitUntil: "domcontentloaded", timeout: 60000 });
       await waitForJackyunDpapiSession({ inspect: () => inspectJackyunLoginSurface(page, login.tenantId), submit: () => submitJackyunDpapiLogin(page, login), initialWaitMs: login.initialWaitMs, afterSubmitWaitMs: login.afterSubmitWaitMs });
       client = new PlaywrightPageClient(page, await context.newCDPSession(page));
       await context.setOffline(true);
       return await callback(await createDirectSession(client, login.tenantId), login.tenantId);
     } finally {
-      await context.setOffline(false); client?.close(); await browser.close();
+      await context?.setOffline(false); client?.close(); await browser.close();
     }
   } finally {
     if (ownedBrowserVerified) await closeChromeBrowser(login.debuggingPort);

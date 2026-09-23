@@ -23,6 +23,7 @@ export const hourlyRetryTargets = [
 const terminalFailurePatterns = [
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
   "credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]",
+  "API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\d{0,19} 尚未闭合",
   "店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store",
   "登录失效|需要登录|登录.*(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com",
   "多个候选|候选.*不唯一|任务.*歧义|ambiguous|multiple candidates",
