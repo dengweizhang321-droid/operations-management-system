@@ -247,9 +247,11 @@ def _publication_fence(report_id, principal, *, write=True):
         "completed_at")[:7])
     jobs = list(m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).order_by(
         "workflow_node_key", "id").values("id", "workflow_node_key",
-        "owner_email", "scope_json", "input_json", "version", "status",
-        "output_json", "provider_round_count", "tool_call_count",
-        "cancel_requested")[:6])
+        "owner_email", "scope_json", "input_json", "state_json",
+        "version", "status", "phase", "step_index", "output_json",
+        "provider_round_count", "tool_call_count", "cancel_requested",
+        "lease_token", "lease_epoch", "lease_expires_at",
+        "completed_at")[:6])
     events = list(m.AiWorkflowEvents.objects.filter(run=flow,
         node_key="human_review", event_type="review_approved").order_by("id").values(
         "id", "actor_email", "owner_email", "run_version", "from_status",
@@ -276,7 +278,12 @@ def _publication_fence(report_id, principal, *, write=True):
                 for job in (by_role[role],))):
         _conflict("正式文件五角色实际任务与固定节点不一致")
     actual_ledger_digest = review._ledger([job["id"] for job in jobs])
-    for item in (*nodes, *events):
+    for job in jobs:
+        state_json = job.pop("state_json")
+        if type(state_json) is not str or len(state_json.encode("utf-8")) > 65536:
+            _conflict("正式文件完成态Agent状态超出固定栅栏容量")
+        job["state_digest"] = digest(state_json)
+    for item in (*nodes, *jobs, *events):
         for key, value in item.items():
             if hasattr(value, "isoformat"):
                 item[key] = value.isoformat()
@@ -286,6 +293,8 @@ def _publication_fence(report_id, principal, *, write=True):
             ("id", "version", "status", "current_node_key", "cancel_requested",
              "input_json", "output_json", "graph_json", "graph_digest",
              "tool_policy_digest", "allowed_tools_json", "model_id", "model_version")},
+        "workflowCompletedAt": (flow.completed_at.isoformat()
+            if flow.completed_at is not None else None),
         "nodes": nodes, "jobs": jobs, "reviewEvents": events,
         "providerToolLedgerDigest": actual_ledger_digest})
 

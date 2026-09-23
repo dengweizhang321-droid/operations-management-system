@@ -1,5 +1,6 @@
 """Signed public renderer-7 creation, publication, and bounded chunk delivery."""
 import base64
+from datetime import timedelta
 import hashlib
 import json
 from unittest.mock import patch
@@ -148,6 +149,19 @@ class PromotionPublicFileTests(djtest.TransactionTestCase):
             scope_json=report.scope_json, client_request_id=uid("unexpected-client"),
             request_digest="0"*64, task="unexpected", workflow_run_id=report.workflow_id,
             workflow_node_key="unexpected"))
+        human = m.AiWorkflowNodeRuns.objects.get(run_id=report.workflow_id,
+            node_key="human_review")
+        rejects_changed_graph(lambda: m.AiWorkflowRuns.objects.filter(
+            pk=report.workflow_id).update(completed_at=None))
+        rejects_changed_graph(lambda: m.AiWorkflowRuns.objects.filter(
+            pk=report.workflow_id).update(
+            completed_at=human.completed_at-timedelta(seconds=1)))
+        rejects_changed_graph(lambda: m.AiAgentJobs.objects.filter(
+            workflow_run_id=report.workflow_id, workflow_node_key="commerce").update(
+            phase="executing"))
+        rejects_changed_graph(lambda: m.AiAgentJobs.objects.filter(
+            workflow_run_id=report.workflow_id, workflow_node_key="commerce").update(
+            state_json='{"tampered":true}'))
         self.assertEqual(business_volume_files.chunk(run_id,
             str(first["volumeIndex"]), first["format"], {"sequence": "1"},
             self.admin)["fileSha256"], first["sha256"])
