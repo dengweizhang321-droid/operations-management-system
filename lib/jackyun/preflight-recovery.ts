@@ -197,7 +197,7 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
   const expectedRunNodes = [evidence.runNodes[0], "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", apiDownloadNode];
   if (plan.version !== 1 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
     || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportTransport !== "session_api_v1"
-    || !plan.exports || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
+    || !plan.exports || typeof plan.exports !== "object" || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
     || Object.prototype.hasOwnProperty.call(plan, "exportIntent")
     || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
     || plan.baseUrl !== "http://localhost:3000" || plan.runDate !== jackyunCaptureDate(plan.createdAt)

@@ -87,7 +87,7 @@ test("generic page closure requires exact pre-export scope and rejects stale or 
     {executionDataSha256:"bad"},{stoppedAt:"2026-09-22T18:00:00Z"}]) {
     await assert.rejects(inspectPreflightClosure(f.root,"4102",{...f.evidence,...bad},"2026-09-23T09:00:00Z"));
   }
-  for (const mutation of [{exportIntent:"inventory"},{exports:{inventory:{}}},{phase:"importing"},{exportTransport:"direct_http_v1"},{extra:true}]) {
+  for (const mutation of [{exportIntent:"inventory"},{exports:1},{exports:{inventory:{}}},{phase:"importing"},{exportTransport:"direct_http_v1"},{extra:true}]) {
     await writeFile(path.join(f.pipeline,`${f.runId}.json`),JSON.stringify({...f.plan,...mutation}));
     await assert.rejects(inspectPreflightClosure(f.root,"4102",f.evidence,"2026-09-23T09:00:00Z"));
   }
