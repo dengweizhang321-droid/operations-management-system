@@ -137,6 +137,7 @@ roles = {
     "teruisi_market_writer": os.environ["TERUISI_PROVISION_MARKET_WRITER_PASSWORD"],
 }
 reader_tables = (
+    "market_analysis_options", "market_analysis_options_state",
     "market_import_batches", "market_ranking_entries", "market_master_identities",
     "market_sku_gmv_totals", "market_price_snapshots", "market_data_revisions",
     "market_import_scope_heads", "market_import_attempts", "market_import_fingerprints",
@@ -155,6 +156,8 @@ reader_tables = (
     "market_netshop_projection", "market_netshop_projection_control",
 )
 writer_privileges = {
+    "market_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_analysis_options_state": ("SELECT", "UPDATE"),
     "market_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "market_ranking_entries": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "market_master_identities": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -196,6 +199,7 @@ writer_privileges = {
     "market_netshop_projection_control": ("SELECT", "INSERT", "UPDATE"),
 }
 auto_id_tables = (
+    "market_analysis_options",
     "market_ranking_entries", "market_master_identities", "market_import_fingerprints",
     "market_image_cache_job_items", "market_annotation_concurrency_settings",
     "market_netshop_projection",
@@ -264,6 +268,8 @@ with connection.cursor() as cursor:
 
     from system_datasets.permissions import grant_columns
     grant_columns(cursor, "market")
+    for role in ("teruisi_market_reader", "teruisi_market_writer"):
+        cursor.execute(sql.SQL("GRANT SELECT (email, role, status, scope, version) ON access_control_users TO {}").format(sql.Identifier(role)))
     cursor.execute("ALTER ROLE teruisi_market_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_market_writer RESET default_transaction_read_only")
     for role in roles:

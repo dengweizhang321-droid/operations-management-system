@@ -3,10 +3,14 @@ from django.urls import path
 from django.views.decorators.http import require_GET, require_POST
 
 from . import views
+from .analysis_continuation import continuation
 
 
 read_patterns = [
     path("imports", require_GET(views.imports), name="netshop-imports"),
+    path("analysis-records", views.analysis_records, name="netshop-analysis-records"),
+    path("analysis-records/continuation", continuation, name="netshop-analysis-continuation"),
+    path("analysis-options", views.analysis_options, name="netshop-analysis-options"),
     path("overview", views.overview, name="netshop-overview"),
     path("products", views.products, name="netshop-products"),
     path("product-performance", views.product_performance, name="netshop-product-performance"),

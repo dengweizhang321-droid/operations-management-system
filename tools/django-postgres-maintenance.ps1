@@ -414,6 +414,37 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0012_report_library" }).Count -ne 1) { throw "AI 媒体任务迁移缺少前置报告迁移" }
       $requiredTables += @("ai_dingtalk_schedules", "ai_dingtalk_schedule_runs")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0013_dingtalk_schedule_media" }).Count -ne 1) { throw "AI 经营证据迁移缺少前置媒体迁移" }
+      $requiredTables += @("ai_business_evidence_runs", "ai_business_evidence_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0016_business_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0015_business_collection" }).Count -ne 1 -or @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -ne 1) { throw "AI 报告文件迁移缺少前置采集迁移" }
+      $requiredTables += @("ai_business_file_runs", "ai_business_file_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -gt 0) {
+      foreach ($sourceDirectoryPredecessor in @("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $sourceDirectoryPredecessor }).Count -ne 1) { throw "AI 来源目录迁移缺少完整前置证据/文件迁移" }
+      }
+      $requiredTables += @("ai_business_evidence_sources")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -ne 1) { throw "AI 多卷文件迁移缺少前置来源目录迁移" }
+      $requiredTables += @("ai_business_volume_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0021_business_budget_plans" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -ne 1) { throw "AI 固定预算迁移缺少前置多卷迁移" }
+      $requiredTables += @("ai_business_budget_plans")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0024_business_screening_runtime" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -ne 1) { throw "AI 筛查执行迁移缺少前置固定筛查存储迁移" }
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -gt 0) {
+      foreach ($screeningPredecessor in @("0022_business_integrated_reports", "0021_business_budget_plans")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $screeningPredecessor }).Count -ne 1) { throw "AI 固定筛查存储缺少前置集成报告迁移" }
+      }
+      $requiredTables += @("ai_business_screening_runs", "ai_business_screening_pages")
+    }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
     }
@@ -508,6 +539,20 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  $salesOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0010_analysis_options" }).Count
+  $salesOptionsTables = @("sales_analysis_options", "sales_analysis_options_state")
+  if ($salesOptionsMigration -eq 1) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0009_postgres_raw_upload_payload" }).Count -ne 1) { throw "ERP选项迁移缺少前置迁移" }
+    $requiredTables += $salesOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $salesOptionsTables }).Count -gt 0) { throw "ERP选项表缺少对应迁移依据" }
+  $marketOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0006_analysis_options" }).Count
+  $marketFacetMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0005_filter_facet_indexes" }).Count
+  $marketOptionsTables = @("market_analysis_options", "market_analysis_options_state")
+  if ($marketFacetMigration -eq 1 -and @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0004_projection_sync_fencing" }).Count -ne 1) { throw "市场筛选索引迁移缺少前置迁移" }
+  if ($marketOptionsMigration -eq 1) {
+    if ($marketFacetMigration -ne 1) { throw "市场选项迁移缺少前置筛选索引迁移" }
+    $requiredTables += $marketOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $marketOptionsTables }).Count -gt 0) { throw "市场选项表缺少对应迁移依据" }
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }

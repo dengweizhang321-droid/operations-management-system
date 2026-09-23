@@ -234,6 +234,8 @@ with connection.cursor() as cursor:
 
     from system_datasets.permissions import grant_columns
     grant_columns(cursor, "netshop")
+    from netshop.analysis_permissions import grant_actor_read
+    grant_actor_read(cursor)
     cursor.execute("ALTER ROLE teruisi_netshop_reader SET default_transaction_read_only=on")
     cursor.execute("ALTER ROLE teruisi_netshop_writer RESET default_transaction_read_only")
     for role in roles:

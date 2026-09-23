@@ -107,7 +107,12 @@ ACCESS_CONTROL_WRITER_TABLE_PRIVILEGES = {
 }
 ACCESS_CONTROL_WRITER_AUTO_ID_TABLES = ("access_control_permission_audits",)
 
+REQUIRED_SALES_OPTIONS_COLUMNS = {
+    "sales_analysis_options": {"id", "platform", "shop", "channel", "first_date", "last_date", "row_count", "entry_json", "entry_digest"},
+    "sales_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_sales_revision", "reason"},
+}
 REQUIRED_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "business_date",
         "platform_key",
@@ -258,6 +263,8 @@ NETSHOP_WRITER_AUTO_ID_TABLES = (
     "netshop_asset_upload_chunks",
 )
 REQUIRED_MARKET_COLUMNS = {
+    "market_analysis_options": {"id", "category", "scope", "ranking_dimension", "price_band_filter", "first_date", "last_date", "entry_json", "entry_digest", "search_casefold"},
+    "market_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_revision", "reason"},
     "market_import_batches": {
         "id", "source_type", "status", "raw_file_hash", "content_hash",
         "scope_json", "published_state_token", "migration_generation",
@@ -321,8 +328,12 @@ REQUIRED_MARKET_WRITER_COLUMNS = {
 }
 REQUIRED_MARKET_INDEXES = {
     "mkt_entry_period_idx", "mkt_entry_category_idx", "mkt_entry_identity_idx",
+    "mkt_facet_scope_idx", "mkt_facet_dimension_idx",
+    "mkt_facet_operation_idx", "mkt_facet_subcategory_idx",
 }
 MARKET_WRITER_TABLE_PRIVILEGES = {
+    "market_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_analysis_options_state": ("SELECT", "UPDATE"),
     "market_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "market_ranking_entries": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "market_master_identities": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -364,6 +375,7 @@ MARKET_WRITER_TABLE_PRIVILEGES = {
     "market_netshop_projection_control": ("SELECT", "INSERT", "UPDATE"),
 }
 MARKET_WRITER_AUTO_ID_TABLES = (
+    "market_analysis_options",
     "market_ranking_entries", "market_master_identities", "market_import_fingerprints",
     "market_image_cache_job_items", "market_annotation_concurrency_settings",
     "market_netshop_projection",
@@ -790,6 +802,7 @@ ERP_REFERENCE_WRITER_AUTO_ID_TABLES = (
     "erp_reference_raw_upload_chunks",
 )
 REQUIRED_WRITER_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "source_line_key",
         "last_import_batch_id",
@@ -861,6 +874,8 @@ REQUIRED_WRITER_COLUMNS = {
     **REQUIRED_ERP_RUNTIME_COLUMNS,
 }
 WRITER_TABLE_PRIVILEGES = {
+    "sales_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_analysis_options_state": ("SELECT", "UPDATE"),
     "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "sales_data_revisions": ("SELECT", "INSERT", "UPDATE"),
@@ -891,6 +906,7 @@ WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
     "sales_legacy_upload_audits": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
 }
 WRITER_AUTO_ID_TABLES = (
+    "sales_analysis_options",
     "sales_order_lines",
     "sales_import_fingerprints",
     "sales_raw_upload_chunks",
@@ -914,7 +930,27 @@ def _column_names(cursor, table: str) -> set[str]:
     return {item.name for item in connection.introspection.get_table_description(cursor, table)}
 
 
+def _validate_sales_options(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    constraints = connection.introspection.get_constraints(cursor, "sales_analysis_options")
+    if not {"sales_options_shape_ck", "sales_options_page_idx"}.issubset(constraints):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if "sales_options_state_ck" not in connection.introspection.get_constraints(cursor, "sales_analysis_options_state"):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if settings.DJANGO_PROCESS_ROLE in {"reader", "sales_writer"}:
+        for table in REQUIRED_SALES_OPTIONS_COLUMNS:
+            cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT')", [table])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_privilege_missing")
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user,'access_control_users',%s,'SELECT')", [column])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_identity_privilege_missing")
+
+
 def _validate_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_COLUMNS.items():
         if table not in tables:
@@ -929,6 +965,7 @@ def _validate_schema(cursor) -> None:
 
 
 def _validate_writer_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_WRITER_COLUMNS.items():
         if table not in tables:
@@ -965,6 +1002,18 @@ def _validate_finance_revision(cursor) -> None:
     row = cursor.fetchone()
     if row is None or int(row[0]) < 0 or not HEX_64.fullmatch(str(row[1] or "")):
         raise ReadinessError("finance_reader_revision_invalid")
+
+
+def _validate_finance_source_reader_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("finance_source_requires_postgresql")
+        return
+    from finance.business_source_permissions import FinanceSourcePermissionError, validate_reader
+    try:
+        validate_reader(cursor)
+    except FinanceSourcePermissionError as error:
+        raise ReadinessError(str(error)) from error
 
 
 def _validate_finance_writer_authority(cursor) -> None:
@@ -1010,6 +1059,12 @@ def _validate_finance_writer_permissions(cursor) -> None:
 
 
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
+    if connection.vendor == "postgresql" and not writer:
+        from netshop.analysis_permissions import validate_actor_read
+        try:
+            validate_actor_read(cursor)
+        except ValueError as error:
+            raise ReadinessError("netshop_analysis_identity_privilege_missing") from error
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_NETSHOP_WRITER_COLUMNS if writer else REQUIRED_NETSHOP_COLUMNS
     for table, expected_columns in expected.items():
@@ -1119,6 +1174,11 @@ def _validate_netshop_writer_permissions(cursor) -> None:
 
 
 def _validate_market_schema(cursor, *, writer: bool) -> None:
+    if connection.vendor == "postgresql":
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user, 'access_control_users', %s, 'SELECT')", [column])
+            if not cursor.fetchone()[0]:
+                raise ReadinessError("market_current_principal_columns_missing")
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_MARKET_WRITER_COLUMNS if writer else REQUIRED_MARKET_COLUMNS
     for table, expected_columns in expected.items():
@@ -1138,6 +1198,12 @@ def _validate_market_schema(cursor, *, writer: bool) -> None:
     }
     if not REQUIRED_MARKET_INDEXES.issubset(present_indexes):
         raise ReadinessError("market_projection_indexes_incomplete")
+    if connection.vendor == "postgresql":
+        option_constraints = connection.introspection.get_constraints(cursor, "market_analysis_options")
+        if not {"mkt_options_page_idx", "mkt_options_shape_ck"}.issubset(option_constraints):
+            raise ReadinessError("market_options_constraints_incomplete")
+        if "mkt_options_state_ck" not in connection.introspection.get_constraints(cursor, "market_analysis_options_state"):
+            raise ReadinessError("market_options_constraints_incomplete")
 
 
 def _validate_market_revision(cursor) -> None:
@@ -2326,6 +2392,7 @@ def ready(_request):
             elif finance_reader_process:
                 _validate_finance_schema(cursor, writer=False)
                 _validate_finance_revision(cursor)
+                _validate_finance_source_reader_permissions(cursor)
                 if settings.DJANGO_EXPECT_READ_ONLY:
                     if connection.vendor != "postgresql":
                         raise ReadinessError("database_role_not_read_only")

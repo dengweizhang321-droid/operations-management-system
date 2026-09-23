@@ -17,6 +17,15 @@ CONTROL_MODELS = (
     AiMigrationRun,
 )
 MODELS = {
+    "ai_business_screening_runs": m.AiBusinessScreeningRun,
+    "ai_business_screening_pages": m.AiBusinessScreeningPage,
+    "ai_business_budget_plans": m.AiBusinessBudgetPlan,
+    "ai_business_file_runs": m.AiBusinessFileRun,
+    "ai_business_file_chunks": m.AiBusinessFileChunk,
+    "ai_business_volume_chunks": m.AiBusinessVolumeChunk,
+    "ai_business_evidence_runs": m.AiBusinessEvidenceRun,
+    "ai_business_evidence_chunks": m.AiBusinessEvidenceChunk,
+    "ai_business_evidence_sources": m.AiBusinessEvidenceSource,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -34,6 +43,15 @@ MODELS = {
     **{model._meta.db_table: model for model in CONTROL_MODELS},
 }
 READ_TABLES = {
+    "ai_business_screening_runs",
+    "ai_business_screening_pages",
+    "ai_business_budget_plans",
+    "ai_business_file_runs",
+    "ai_business_file_chunks",
+    "ai_business_volume_chunks",
+    "ai_business_evidence_runs",
+    "ai_business_evidence_chunks",
+    "ai_business_evidence_sources",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -71,6 +89,12 @@ READ_TABLES = {
     "access_control_users",
 }
 APPEND_ONLY = {
+    "ai_business_screening_runs",
+    "ai_business_screening_pages",
+    "ai_business_budget_plans",
+    "ai_business_file_chunks",
+    "ai_business_volume_chunks",
+    "ai_business_evidence_chunks",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -122,6 +146,8 @@ for table in {
 }:
     WRITER_PRIVILEGES[table] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_report_deliveries"] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_business_evidence_runs"] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_business_evidence_sources"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 
 

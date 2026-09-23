@@ -252,7 +252,14 @@ test("all app and lib TypeScript consumers contain no retired sales SQL or runti
   ]) {
     for (const file of await typescriptFiles(root)) {
       const source = await readFile(file, "utf8");
-      assert.doesNotMatch(source, forbiddenLegacySales, file.pathname);
+      // This exact DTO validates the owning PostgreSQL dataset label. It does
+      // not query the retired D1 table. Exempt only its two fixed metadata
+      // expressions; SQL strings and legacy imports in this file still fail.
+      const checked = file.pathname.endsWith("/lib/ai/business-sales-options.ts")
+        ? source.replaceAll('sourceDataset: "sales_order_lines"', 'sourceDataset: "owning_dataset"')
+          .replaceAll('raw.sourceDataset === "sales_order_lines"', 'raw.sourceDataset === "owning_dataset"')
+        : source;
+      assert.doesNotMatch(checked, forbiddenLegacySales, file.pathname);
     }
   }
 });

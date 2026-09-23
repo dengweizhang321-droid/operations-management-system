@@ -67,6 +67,43 @@ def _canonical_loopback_address(value: Any) -> str:
     return address
 
 
+def _require_market_facet_indexes(cursor: psycopg.Cursor[Any]) -> None:
+    """The adopted market.0005 indexes must survive an options upgrade/restore."""
+    expected = {
+        "mkt_facet_scope_idx": "scope",
+        "mkt_facet_dimension_idx": "ranking_dimension",
+        "mkt_facet_operation_idx": "operation_mode",
+        "mkt_facet_subcategory_idx": "subcategory",
+    }
+    cursor.execute(
+        "SELECT index_table.relname, indexed_column.attname, access_method.amname, "
+        "index_info.indisvalid, index_info.indisready, index_info.indnatts, "
+        "index_info.indnkeyatts, index_info.indpred IS NULL, index_info.indexprs IS NULL "
+        "FROM pg_catalog.pg_index AS index_info "
+        "JOIN pg_catalog.pg_class AS fact_table ON fact_table.oid = index_info.indrelid "
+        "JOIN pg_catalog.pg_namespace AS fact_schema ON fact_schema.oid = fact_table.relnamespace "
+        "JOIN pg_catalog.pg_class AS index_table ON index_table.oid = index_info.indexrelid "
+        "JOIN pg_catalog.pg_am AS access_method ON access_method.oid = index_table.relam "
+        "JOIN pg_catalog.pg_attribute AS indexed_column "
+        "ON indexed_column.attrelid = fact_table.oid AND indexed_column.attnum = index_info.indkey[0] "
+        "WHERE fact_schema.nspname = 'public' AND fact_table.relname = 'market_ranking_entries' "
+        "AND index_table.relname = ANY(%s)",
+        (list(expected),),
+    )
+    found = {
+        str(name): (
+            str(column), str(method), bool(valid), bool(ready),
+            int(attributes), int(keys), bool(unfiltered), bool(uncomputed),
+        )
+        for name, column, method, valid, ready, attributes, keys, unfiltered, uncomputed in cursor.fetchall()
+    }
+    if found != {
+        name: (column, "btree", True, True, 1, 1, True, True)
+        for name, column in expected.items()
+    }:
+        raise RuntimeError("adopted market facet indexes are incomplete")
+
+
 def collect_evidence(
     connection: psycopg.Connection[Any],
     expected_database: str,
@@ -106,6 +143,14 @@ def collect_evidence(
             "sales_write_authority",
             "erp_product_master",
         }
+        sales_options_tables = {"sales_analysis_options", "sales_analysis_options_state"}
+        sales_migrations = {item["name"] for item in migrations if item["app"] == "sales"}
+        if "0010_analysis_options" in sales_migrations:
+            if "0009_postgres_raw_upload_payload" not in sales_migrations:
+                raise RuntimeError("ERP options migration dependency is missing")
+            required.update(sales_options_tables)
+        elif set(tables) & sales_options_tables:
+            raise RuntimeError("ERP options tables lack their migration receipt")
         erp_reference_required = {
             "erp_product_master", "erp_combo_items",
             "erp_reference_import_batches_pg", "erp_reference_import_scope_heads",
@@ -137,6 +182,18 @@ def collect_evidence(
         market_tables = {name for name in tables if name.startswith("market_")}
         if market_tables:
             required.update(market_required)
+        market_options_tables = {"market_analysis_options", "market_analysis_options_state"}
+        market_migrations = {item["name"] for item in migrations if item["app"] == "market"}
+        if "0005_filter_facet_indexes" in market_migrations:
+            if "0004_projection_sync_fencing" not in market_migrations:
+                raise RuntimeError("Market facet migration dependency is missing")
+            _require_market_facet_indexes(cursor)
+        if "0006_analysis_options" in market_migrations:
+            if "0005_filter_facet_indexes" not in market_migrations:
+                raise RuntimeError("Market options migration dependency is missing")
+            required.update(market_options_tables)
+        elif market_tables & market_options_tables:
+            raise RuntimeError("Market options tables lack their migration receipt")
         products_required = {
             "product_data_revisions",
             "product_shipping_rate_import_batches",
@@ -234,6 +291,33 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0024_business_screening_runtime" in ai_migrations and "0023_business_screening_storage" not in ai_migrations:
+                raise RuntimeError("AI screening runtime schema has no screening storage predecessor")
+            if "0023_business_screening_storage" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_business_screening_runs", "ai_business_screening_pages"})
+            elif "0022_business_integrated_reports" not in ai_migrations or "0021_business_budget_plans" not in ai_migrations:
+                raise RuntimeError("AI screening storage schema has no integrated report predecessor")
+            if "0021_business_budget_plans" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_budget_plans")
+            elif "0020_business_volume_files" not in ai_migrations:
+                raise RuntimeError("AI fixed budget schema has no volume predecessor")
+            if "0020_business_volume_files" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_volume_chunks")
+            elif "0019_business_source_directory" not in ai_migrations:
+                raise RuntimeError("AI volume files schema has no source directory predecessor")
+            if "0019_business_source_directory" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_evidence_sources")
+            elif not {"0014_business_evidence", "0015_business_collection", "0016_business_files",
+                      "0017_business_file_renderer", "0018_business_excel_renderer"} <= ai_migrations:
+                raise RuntimeError("AI source directory schema has incomplete evidence/file predecessors")
+            if "0014_business_evidence" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_business_evidence_runs", "ai_business_evidence_chunks"})
+            elif "0013_dingtalk_schedule_media" not in ai_migrations:
+                raise RuntimeError("AI business evidence schema has no media predecessor")
+            if "0016_business_files" not in ai_migrations:
+                expected_ai_tables.difference_update({"ai_business_file_runs", "ai_business_file_chunks"})
+            elif not {"0014_business_evidence", "0015_business_collection"} <= set(ai_migrations):
+                raise RuntimeError("AI business files schema has no collection predecessor")
             if "0012_report_library" in ai_migrations and "0011_prompt_settings" not in ai_migrations:
                 raise RuntimeError("AI report schema has no prompt predecessor")
             if "0012_report_library" not in ai_migrations:

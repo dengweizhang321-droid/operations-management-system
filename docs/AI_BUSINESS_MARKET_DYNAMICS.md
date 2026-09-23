@@ -1,0 +1,31 @@
+# 市场样本价格带与进出榜：纯计算候选
+
+2026-09-18。新增 `backend/business_analysis/market_dynamics.py` 与独立纯测试；未接 owning reader、Agent、报告、文件或生产。`authorityVerified=false` 固定，调用者提供的来源和摘要不能授予访问权限。
+
+## 真实可用字段
+
+核查 `backend/market/analysis.py`：规范来源为 `market_daily_top`，按固定京东/类目/scope/rankingDimension/priceBandFilter，SQL 明确筛 `period_start=period_end`，再按来源窗口读单日记录。每行保留 SKU 或 SPU、date、sample.rank、priceLowerCents、priceUpperCents、priceEstimated，及成交金额、数量、商品日访客六项上下界指标；首页含 control、coverage、excludedOverlappingPeriodRows。
+
+纯层接受这一规范形状，完整 PageReconciler 对账行数、逐页哈希、指标控制数和调用者固定 expected；验证范围、页间来源版本、真实日期覆盖、SKU/SPU身份、合法非负区间以及商品日唯一性。周/月附加字段、错误日期、不同榜单范围及重复商品日拒绝。已经被 reader 排除的重叠周/月数量保留披露，不再计入。
+
+必须说明：规范页没有原始 period_start，纯层无法独立证明输入确实曾经经过该 SQL。仅有一个 date 不能把伪造的月汇总变为单日事实；未来 owning 接入必须从真实规范 reader 和封存链提供来源。当前不声称原文件或业务来源真实性已验证。
+
+## 两个视图
+
+`price_band(source, pages, expected, bands)`：bands 必须预声明，1—20个不重叠、升序的 `[lowerCents, upperExclusiveCents)`，最后一段可无上界。源价格上下界都已知、非估算且整个闭区间完全落入一段才归入；跨段/段外为 `unallocated_interval`，缺界为 `unallocated_missing`，估算价为 `unallocated_estimated`。不取中点，不拆分成交，也不按比例分摊。
+
+每段各指标上下界独立累计，并记录 presentRows/missingRows；全部缺失保留 null，部分已知之和只是已知行小计，不能宣称完整样本区间。输出 members 保留每个商品日的 SKU/SPU、日期、排名/价格区间及源行哈希，按日期和精确商品标识排序。支持多日价格样本，但重复出现商品保留为不同商品日；不是独立商品销量或去重UV。`shareEstimated=false`，不估算份额。
+
+`rank_entry_exit(source, pages, expected, baseline_source, baseline_pages, baseline_expected)`：首片严格支持**一个当前日对一个明确 previous/yearAgo 日**；两来源原始日期和五项榜单身份须一致，窗口标签由调用方指定，按既有 comparison_periods 解释。多日窗口拒绝，不能把多日排名合并为一期排名或暗猜期末日期。多日价格分析不受此限制。
+
+同一 SKU/SPU 输出 current/baseline 的观察状态、排名及完整六项指标。缺席只写 `not_observed_in_top_sample`，排名和指标为 null。仅两日来源都有记录时标记 `entered_observed_top_sample` / `left_observed_top_sample`；整日来源缺口则为 `insufficient_date_coverage`。两个日期都观察到且排名存在才计算 `rankImprovement=baselineRank-currentRank`；不把进榜当新品上市，也不把离榜当退市或零销量。
+
+## 容量及可复核性
+
+每页最多100行、完整规范JSON至多128 KiB；输入最多2000页、20万行、64 MiB，进出榜两期合计也受相同限制。完整结果至多20万行、64 MiB，超过上限整表拒绝，不截字段、不丢未分配桶。结果当前是有界内存对象，不承诺峰值进程内存仅64 MiB，未来 provider/文件适配还需自己的38 KB分页或分卷。
+
+输入在接触处理前有界复制；结果规范JSON回读，不与输入共享嵌套对象。表、行摘要绑定算法版本、完整来源范围/元数据、价格段和输出数值；排序确定。同一金额可用于两种视图但不可相加，两个视图均不能代表全行业规模或真实份额。
+
+## 验证
+
+`PYTHONPATH=backend python -m unittest business_analysis.test_market_dynamics -v`：11项纯测试通过（0.034秒）。覆盖价格边界、跨段/缺界/估算桶、上下界独立累计、单日进出榜/缺日/SPU/明确去年同期、重复商品日、周月字段拒绝、区间和安全整数、来源与控制摘要、真实多页链、两期合计输入及输出容量、确定哈希与输入副本隔离。没有初始化数据库、读取正式数据或调用模型。

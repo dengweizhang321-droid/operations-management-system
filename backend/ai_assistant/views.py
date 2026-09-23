@@ -24,6 +24,8 @@ from . import (
     prompt_settings,
     report_library,
     reports,
+    business_evidence,
+    business_reports,
     dingtalk_schedules,
 )
 from .model_capabilities import MAX_CHAT_SECONDS
@@ -69,7 +71,7 @@ def body(request):
     return result
 
 
-def write(request, principal, handler, *, external=False, audit_only=False):
+def write(request, principal, handler, *, external=False, audit_only=False, commit_in_handler=False):
     request_id = request.headers["X-Teruisi-Request-Id"]
     identity = {
         "actor_email": principal.email.lower(),
@@ -95,6 +97,16 @@ def write(request, principal, handler, *, external=False, audit_only=False):
         if not external:
             payload, status = handler()
             return finish(receipt, principal, payload, status)
+    if commit_in_handler:
+        def complete(payload, status):
+            from django.db import connection
+            if not connection.in_atomic_block:
+                raise AiError("证据提交缺少事务", "conflict", 409)
+            receipt = AiWriteReceipt.objects.select_for_update().get(request_id=request_id)
+            if receipt.status != "processing":
+                raise AiError("请求完成栅栏失效", "conflict", 409)
+            return finish(receipt, principal, payload, status)
+        return handler(complete)
     payload, status = handler()
     with mutation(principal, audit_only=audit_only):
         receipt = AiWriteReceipt.objects.select_for_update().get(request_id=request_id)
@@ -126,6 +138,31 @@ def _dispatch(request, path=""):
         principal = verify_principal(request)
         endpoint = path.strip("/")
         routes = {
+            r"business-plan/preview": {"POST"},
+            r"business-reports": {"POST"},
+            r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
+            r"business-files/[A-Za-z0-9_-]{1,160}/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json)": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/files": {"GET", "POST"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget-reference": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/integrated-directory": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/integrated-analysis-table": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/integrated-budget": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/screening/(?:package|analysis|budget)": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
+            r"business-evidence": {"GET", "POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/mapping-v2": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/analysis": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-targets": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/sources(?:/[A-Za-z0-9_-]{1,160})?": {"GET"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/(?:collect|finish|control)": {"POST"},
+            r"business-evidence/[A-Za-z0-9_-]{1,160}/chunks/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"report-library": {"GET", "POST"},
             r"reports": {"GET", "POST"},
             r"reports/[A-Za-z0-9_-]{1,160}(?:/content)?": {"GET"},
@@ -187,6 +224,10 @@ def _dispatch(request, path=""):
         writer = (
             request.method != "GET" or root in {"artifacts"} or root == "reports" and parts[-1] == "content"
         ) and not consumer_read and root != "datasets"
+        if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
+            writer = False
+        if endpoint == "business-plan/preview" and request.method == "POST":
+            writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -204,6 +245,108 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "business-plan":
+            from .business_planning import preview
+            fields(params, set())
+            return response(preview(payload, principal))
+        if root == "reports" and parts[-1] in {"integrated-directory", "integrated-analysis-table", "integrated-budget"}:
+            from . import business_integrated_tools
+            operation = {"integrated-directory":"directory", "integrated-analysis-table":"analysis", "integrated-budget":"budget"}[parts[-1]]
+            return response(business_integrated_tools.read(parts[1], operation, params, principal))
+        if root == "reports" and len(parts)==4 and parts[2]=="screening":
+            from . import business_screening_tools
+            return response(business_screening_tools.read(parts[1],parts[3],params,principal))
+        if root == "reports" and len(parts)==3 and parts[2]=="promotion-keyword-sku":
+            from . import business_promotion_runtime_tools
+            return response(business_promotion_runtime_tools.read(parts[1],params,principal))
+        if root == "reports" and parts[-1] == "budget-reference":
+            from . import business_budget_store
+            fields(params, {"runId", "offset", "limit"}, {"runId"})
+            report = reports.get(parts[1], principal)
+            snapshot = json.loads(report.snapshot_json)
+            if not business_reports.is_budget_snapshot(snapshot) or params["runId"] != snapshot.get("evidenceRunId"):
+                raise AiError("预算报告与固定证据不一致", "access_denied", 403)
+            offset = params.get("offset", "0")
+            if not re.fullmatch(r"0|[1-9][0-9]?", offset) or params.get("limit", "20") != "20":
+                raise AiError("固定预算分页无效")
+            return response(business_budget_store.page(report, principal, offset=int(offset), limit=20))
+        if root == "reports" and parts[-1] == "budget":
+            from .business_budget import read as read_budget_scenarios
+            return response(read_budget_scenarios(parts[1], params, principal))
+        if root == "reports" and parts[-1] == "budget-preview":
+            from .business_budget import preview
+            fields(params, set())
+            return response(preview(parts[1], payload, principal))
+        if root == "business-files" or root == "reports" and parts[-1] == "files":
+            from . import business_files
+            current_principal(principal, admin=True)
+            if root == "reports":
+                fields(params, set())
+                if request.method == "GET":
+                    return response(business_files.listing(parts[1], principal))
+                fixed = reports.get(parts[1], principal)
+                if json.loads(fixed.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                    return write(request, principal, lambda commit: business_files.create(parts[1], payload, principal, commit=commit),
+                        external=True, commit_in_handler=True)
+                return write(request, principal, lambda: (business_files.create(parts[1], payload, principal), 200))
+            if request.method == "GET":
+                if len(parts) == 6:
+                    from .business_volume_files import chunk as volume_chunk
+                    return response(volume_chunk(parts[1], parts[3], parts[5], params, principal))
+                if len(parts) == 4:
+                    return response(business_files.chunk(parts[1], parts[3], params, principal))
+                fields(params, set())
+                return response({"item": business_files.mapping(business_files.get(parts[1], principal))})
+            fields(params, set())
+            if payload.get("action") in {"resume", "rebuild"}:
+                fixed = business_files.get(parts[1], principal)
+                if json.loads(fixed.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                    return write(request, principal, lambda commit: business_files.control(parts[1], payload, principal, commit=commit),
+                        external=True, commit_in_handler=True)
+            return write(request, principal, lambda: (business_files.control(parts[1], payload, principal), 200))
+        if root == "business-reports":
+            fields(params, set())
+            if "analysisMode" in payload:
+                return write(request, principal, lambda commit: business_reports.create(payload, principal, commit=commit),
+                    external=True, commit_in_handler=True)
+            return write(request, principal, lambda: (business_reports.create(payload, principal), 200))
+        if root == "business-evidence":
+            current_principal(principal, admin=True)
+            if parts[-1] == "budget-preview":
+                from .business_budget_builder import preview as preview_initial_budget
+                fields(params, set())
+                return response(preview_initial_budget(parts[1], payload, principal))
+            if request.method == "GET":
+                if len(parts) == 1:
+                    return response(business_evidence.listing(params, principal))
+                if len(parts) >= 3 and parts[2] == "sources":
+                    if len(parts) == 3:
+                        return response(business_evidence.directory(parts[1], params, principal))
+                    fields(params, set())
+                    return response(business_evidence.source_detail(parts[1], parts[3], principal))
+                if parts[-1] == "analysis":
+                    return response(business_evidence.analysis_table(parts[1], params, principal))
+                if parts[-1] == "budget-targets":
+                    from .business_budget_builder import targets as initial_budget_targets
+                    return response(initial_budget_targets(parts[1], params, principal))
+                if parts[-1] == "mapping":
+                    return response(business_evidence.reconcile_products(parts[1], params, principal))
+                if parts[-1] == "mapping-v2":
+                    from .business_identity import page as product_mapping_page
+                    return response(product_mapping_page(parts[1], params, principal))
+                if len(parts) == 4:
+                    return response(business_evidence.chunk(parts[1], parts[3], params, principal))
+                fields(params, set())
+                return response(business_evidence.detail(parts[1], principal))
+            fields(params, set())
+            if len(parts) == 1:
+                return write(request, principal, lambda: (business_evidence.create(payload, principal), 200))
+            if parts[-1] == "collect":
+                return write(request, principal, lambda commit: business_evidence.collect(parts[1], payload, principal, request_id, commit=commit), external=True, commit_in_handler=True)
+            if parts[-1] == "control":
+                from .business_collection import control
+                return write(request, principal, lambda: (control(parts[1], payload, principal), 200))
+            return write(request, principal, lambda: (business_evidence.finish(parts[1], payload, principal), 200))
         if root == "report-library":
             if request.method == "GET":
                 return response(report_library.read(principal, params))
@@ -259,8 +402,13 @@ def _dispatch(request, path=""):
             ):
                 raise AiError("调度身份无效", "access_denied", 403)
             fields(payload, {"queue"}, {"queue"})
+            from .business_parallel import agent_queue_tick
+            from .business_files import tick as file_tick
+            from .business_collection import tick as collection_tick
             runner = {
-                "agent": workflows.agent_tick,
+                "agent": agent_queue_tick,
+                "files": file_tick,
+                "evidence": collection_tick,
                 "workflow": workflows.workflow_tick,
                 "space": space.tick,
             }.get(payload["queue"])
@@ -280,6 +428,12 @@ def _dispatch(request, path=""):
             return response(consumer(payload, principal, request_id))
         if not writer:
             return response(read(parts, params, principal))
+        if root == "workflow-runs" and len(parts) == 5 and parts[2] == "nodes" and parts[4] == "review":
+            from .business_screening_readiness import report_for
+            if report_for(workflows.get(parts[1],principal,True)) is not None:
+                return write(request, principal,
+                    lambda commit: workflows.review(parts[1],parts[3],payload,principal,commit=commit),
+                    external=True, commit_in_handler=True)
         external = (
             root == "channels"
             and payload.get("action") in {"send", "test"}

@@ -1700,3 +1700,7 @@ class AiPromptSettingsRevision(models.Model):
         db_table = "ai_prompt_settings_revisions"
 
 from .report_models import AiLibraryRevision, AiExecutionGuidance, AiReportRun, AiReportDelivery  # noqa: E402,F401
+from .business_models import AiBusinessEvidenceRun, AiBusinessEvidenceChunk, AiBusinessEvidenceSource  # noqa: E402,F401
+from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
+from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401
+from .business_screening_models import AiBusinessScreeningRun, AiBusinessScreeningPage  # noqa: E402,F401

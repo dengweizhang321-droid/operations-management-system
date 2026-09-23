@@ -46,5 +46,8 @@ test("finance routes have no D1 branch and every write has one Django dispatch",
   assert.equal((importPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
   const targetPost = targets.slice(targets.indexOf("export async function POST"), targets.indexOf("export async function DELETE"));
   assert.equal((targetPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
-  assert.equal((targetImport.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
+  const targetImportPost = targetImport.slice(targetImport.indexOf("export async function POST"));
+  assert.equal((targetImportPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
+  // The template GET reads shop options once; importing still dispatches once.
+  assert.equal((targetImport.match(/createDjangoFinanceService\(\)/g) ?? []).length, 2);
 });

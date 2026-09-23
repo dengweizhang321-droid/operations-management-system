@@ -887,6 +887,10 @@ def import_market_payload(payload: object, actor_email: str) -> dict[str, object
                 "scope": scope,
             }
             revision = bump_revision(event)
+            from .analysis_options_projection import synchronize_import
+            # The replacement loop uses ``scope`` for one ranking label. Take
+            # the complete immutable import contract, not that loop variable.
+            synchronize_import(normalized["scope"], revision)
             state_token = hashlib.sha256(
                 canonical_json({"revision": revision, **event}).encode()
             ).hexdigest()

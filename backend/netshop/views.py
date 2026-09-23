@@ -40,6 +40,34 @@ from .query import (
 
 logger = logging.getLogger(__name__)
 SUPPORTED_PLATFORMS = ("京东", "天猫")
+
+
+@require_GET
+def analysis_options(request: HttpRequest) -> JsonResponse:
+    from .analysis_options import read_page, validate_request
+    try:
+        principal = _principal(request, {"admin"})
+        query, cursor = validate_request(request.GET)
+        payload = read_page(principal, query, cursor)
+        return _json(payload, revision=payload["revision"])
+    except Exception as error:
+        return _error(error, "经营分析来源选项读取失败")
+
+
+@require_GET
+def analysis_records(request: HttpRequest) -> JsonResponse:
+    from .analysis import read_page, validate_request
+    try:
+        principal = _principal(request, {"admin"})
+        if principal.scope is not None:
+            raise NetshopApiError("第一阶段分析明细仅向无范围限制管理员开放", code="access_denied", status=403)
+        spec, limit, cursor = validate_request(request.GET)
+        payload = read_page(spec, limit, cursor)
+        return _json(payload, revision=payload["sourceRevision"])
+    except Exception as error:
+        return _error(error, "经营分析数据读取失败")
+
+
 def _json(
     payload: object,
     status: int = 200,

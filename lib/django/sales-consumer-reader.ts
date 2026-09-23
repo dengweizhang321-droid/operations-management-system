@@ -13,6 +13,7 @@ import { PublicApiError } from "@/lib/http/api-error";
  */
 export const SALES_CONSUMER_QUERY_PATH = "/api/sales/consumers/query";
 export const salesConsumerOperations = [
+  "analysis_records",
   "freshness",
   "summary",
   "inventory_demand",
@@ -113,6 +114,7 @@ export type SalesProductAggregate = {
 };
 
 export type SalesConsumerRequestMap = {
+  analysis_records: { operation: "analysis_records"; platform: string; shop: string; channel: string; startDate: string; endDate: string; window?: "current" | "previous" | "yearAgo"; limit?: number; cursor?: string };
   freshness: {
     operation: "freshness";
   };
@@ -187,6 +189,7 @@ export type SalesConsumerRequestMap = {
 };
 
 export type SalesConsumerResponseMap = {
+  analysis_records: Record<string, unknown>;
   freshness: {
     dataStartDate: string | null;
     dataCutoffDate: string | null;
@@ -421,6 +424,7 @@ function assertRequest(request: SalesConsumerRequest): void {
   if (!isRecord(request) || !isOperation(request.operation)) throw unavailable();
   const keys = new Set(Object.keys(request));
   const allowed: Record<SalesConsumerOperation, readonly string[]> = {
+    analysis_records: ["operation", "platform", "shop", "channel", "startDate", "endDate", "window", "limit", "cursor"],
     freshness: ["operation"],
     summary: ["operation", "range", "startDate", "endDate", "productQueries", "platforms", "outlets", "categories"],
     inventory_demand: ["operation", "startDate", "endDate", "productCodes", "limit"],

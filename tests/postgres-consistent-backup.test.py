@@ -18,6 +18,8 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES
+SCREENING_TABLES = {"ai_business_screening_runs", "ai_business_screening_pages"}
+PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"} - SCREENING_TABLES
 
 
 class _EvidenceCursor:
@@ -105,14 +107,63 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_business_evidence_tables_require_exact_migration_generation(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py") if p.stem[:4].isdigit() and int(p.stem[:4]) <= 24)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 65)
+        before_runtime = _ai_evidence(AI_TABLES, [m for m in migrations if int(m[1][:4]) <= 23])
+        self.assertEqual(len([name for name in before_runtime["tables"] if name.startswith("ai_")]),65)
+        self.assertNotEqual(current["contentSha256"],before_runtime["contentSha256"])
+        # Removing both storage tables must not disguise 0024 without 0023 as a
+        # legitimate historical 63-table backup.
+        with self.assertRaisesRegex(RuntimeError,"storage predecessor"):
+            _ai_evidence(set(AI_TABLES)-SCREENING_TABLES,[m for m in migrations if m[1] != "0023_business_screening_storage"])
+        old_tables = set(AI_TABLES)-SCREENING_TABLES
+        old_migrations = [m for m in migrations if int(m[1][:4]) <= 22]
+        before_screening = _ai_evidence(old_tables, old_migrations)
+        self.assertEqual(len([name for name in before_screening["tables"] if name.startswith("ai_")]), 63)
+        self.assertNotEqual(current["contentSha256"],before_screening["contentSha256"])
+        for table in SCREENING_TABLES:
+            with self.assertRaises(RuntimeError): _ai_evidence(set(AI_TABLES)-{table}, migrations)
+        for name in ("0022_business_integrated_reports","0023_business_screening_storage"):
+            with self.assertRaises(RuntimeError): _ai_evidence(AI_TABLES,[m for m in migrations if m[1] != name])
+        volume_tables = old_tables-{"ai_business_budget_plans"}
+        volume_migrations = [m for m in migrations if int(m[1][:4]) <= 20]
+        before_budgets = _ai_evidence(volume_tables, volume_migrations)
+        self.assertEqual(len([name for name in before_budgets["tables"] if name.startswith("ai_")]), 62)
+        self.assertNotEqual(current["contentSha256"], before_budgets["contentSha256"])
+        directory_tables = volume_tables-{"ai_business_volume_chunks"}
+        directory_migrations = [m for m in migrations if int(m[1][:4]) <= 19]
+        before_volumes = _ai_evidence(directory_tables, directory_migrations)
+        self.assertEqual(len([name for name in before_volumes["tables"] if name.startswith("ai_")]), 61)
+        self.assertEqual(before_volumes["contentSha256"], _ai_evidence(directory_tables, directory_migrations)["contentSha256"])
+        self.assertNotEqual(current["contentSha256"], before_volumes["contentSha256"])
+        before_directory = _ai_evidence(directory_tables-{"ai_business_evidence_sources"}, [m for m in migrations if int(m[1][:4]) <= 18])
+        self.assertEqual(len([name for name in before_directory["tables"] if name.startswith("ai_")]), 60)
+        previous = [item for item in migrations if int(item[1][:4]) <= 13]
+        self.assertEqual(len([name for name in _ai_evidence(PRE_EVIDENCE_TABLES, previous)["tables"] if name.startswith("ai_")]), 56)
+        for tables, history in [(set(AI_TABLES)-{"ai_business_evidence_chunks"}, migrations), (set(AI_TABLES)-{"ai_business_file_chunks"}, migrations), (AI_TABLES, previous), (AI_TABLES, [m for m in migrations if m[1] != "0013_dingtalk_schedule_media"]), (AI_TABLES, [m for m in migrations if m[1] != "0015_business_collection"])]:
+            with self.assertRaises(RuntimeError):
+                _ai_evidence(tables, history)
+        for missing in ("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory", "0020_business_volume_files", "0021_business_budget_plans"):
+            with self.subTest(missing=missing), self.assertRaises(RuntimeError):
+                _ai_evidence(AI_TABLES, [m for m in migrations if m[1] != missing])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(set(AI_TABLES)-{"ai_business_evidence_sources"}, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(directory_tables, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(AI_TABLES, directory_migrations)
+
     def test_evidence_accepts_both_backup_generations_with_stable_content_digest(self):
-        legacy_tables = set(AI_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
+        legacy_tables = set(PRE_EVIDENCE_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
         legacy_migrations = [("ai_assistant", "0001_initial"), ("ai_assistant", "0005_postgres_image_payload")]
         legacy = _ai_evidence(legacy_tables, legacy_migrations)
-        current = _ai_evidence(AI_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly"), ("ai_assistant", "0008_dingtalk_settings"), ("ai_assistant", "0009_model_generation_capabilities"), ("ai_assistant", "0010_dingtalk_schedules"), ("ai_assistant", "0011_prompt_settings"), ("ai_assistant", "0012_report_library"), ("ai_assistant", "0013_dingtalk_schedule_media")])
-        pre_settings = _ai_evidence(set(AI_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly")])
+        current = _ai_evidence(PRE_EVIDENCE_TABLES, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly"), ("ai_assistant", "0008_dingtalk_settings"), ("ai_assistant", "0009_model_generation_capabilities"), ("ai_assistant", "0010_dingtalk_schedules"), ("ai_assistant", "0011_prompt_settings"), ("ai_assistant", "0012_report_library"), ("ai_assistant", "0013_dingtalk_schedule_media")])
+        pre_settings = _ai_evidence(set(PRE_EVIDENCE_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces"), ("ai_assistant", "0007_dingtalk_readonly")])
         self.assertEqual(len([name for name in pre_settings["tables"] if name.startswith("ai_")]), 48)
-        pre_dingtalk = _ai_evidence(set(AI_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
+        pre_dingtalk = _ai_evidence(set(PRE_EVIDENCE_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}, [*legacy_migrations, ("ai_assistant", "0006_conversation_workspaces")])
         self.assertEqual(len([name for name in pre_dingtalk["tables"] if name.startswith("ai_")]), 46)
         self.assertEqual(len([name for name in legacy["tables"] if name.startswith("ai_")]), 45)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 56)
@@ -123,15 +174,15 @@ class ConsistentBackupTests(unittest.TestCase):
     def test_evidence_rejects_inconsistent_ai_schema_and_migration_inventory(self):
         initial = ("ai_assistant", "0001_initial")
         workspace = ("ai_assistant", "0006_conversation_workspaces")
-        legacy_tables = set(AI_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
+        legacy_tables = set(PRE_EVIDENCE_TABLES) - {"ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries", "ai_prompt_settings_revisions", "ai_conversation_workspaces", "ai_dingtalk_sessions", "ai_dingtalk_receipts", "ai_dingtalk_settings", "ai_dingtalk_schedules", "ai_dingtalk_schedule_runs"}
         for tables, migrations in [
             (legacy_tables, [initial, workspace]),
-            (AI_TABLES, [initial]),
-            (AI_TABLES, [workspace]),
-            (AI_TABLES, []),
+            (PRE_EVIDENCE_TABLES, [initial]),
+            (PRE_EVIDENCE_TABLES, [workspace]),
+            (PRE_EVIDENCE_TABLES, []),
             (set(), [initial]),
             (set(), [workspace]),
-            (set(AI_TABLES) | {"ai_unknown"}, [initial, workspace]),
+            (set(PRE_EVIDENCE_TABLES) | {"ai_unknown"}, [initial, workspace]),
         ]:
             with self.subTest(tables=len(tables), migrations=migrations):
                 with self.assertRaisesRegex(RuntimeError, "AI .* (inventory|migration)"):

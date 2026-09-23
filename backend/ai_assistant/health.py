@@ -91,6 +91,41 @@ def check():
             "ai_assistant.migrations.0003_runtime_fencing"
         )
         required_triggers = (
+            {("ai_report_runs", "ai_business_screening_report_binding"),
+             ("ai_workflow_runs", "ai_business_screening_workflow_binding")}
+            | {(table, trigger) for table in ("ai_business_screening_runs", "ai_business_screening_pages")
+             for trigger in ("ai_write_fence", "ai_immutable_evidence", "ai_screen_complete")}
+            | {("ai_business_screening_runs", "ai_screen_initial"), ("ai_business_screening_pages", "ai_screen_page_initial")}
+            |
+            {("ai_business_budget_plans", "ai_write_fence"),
+             ("ai_business_budget_plans", "ai_immutable_evidence"),
+             ("ai_business_budget_plans", "ai_business_budget_initial"),
+             ("ai_business_budget_plans", "ai_business_budget_complete"),
+             ("ai_report_runs", "ai_business_budget_report_binding"),
+             ("ai_report_runs", "ai_business_budget_complete"),
+             ("ai_report_runs", "ai_business_integrated_report_binding")}
+            |
+            {("ai_business_volume_chunks", "ai_write_fence"),
+             ("ai_business_volume_chunks", "ai_immutable_evidence"),
+             ("ai_business_volume_chunks", "ai_business_volume_chunk_state"),
+             ("ai_business_volume_chunks", "ai_business_volume_complete"),
+             ("ai_business_file_runs", "ai_business_volume_complete"),
+             ("ai_business_file_runs", "ai_business_volume_initial")}
+            |
+            {(table, "ai_write_fence") for table in ("ai_business_file_runs", "ai_business_file_chunks")}
+            | {("ai_business_file_runs", "ai_immutable_identity"), ("ai_business_file_runs", "ai_business_file_state"),
+               ("ai_business_file_chunks", "ai_immutable_evidence"), ("ai_business_file_chunks", "ai_business_file_chunk_state")}
+            |
+            {(table, "ai_write_fence") for table in ("ai_business_evidence_runs", "ai_business_evidence_chunks")}
+            | {("ai_business_evidence_runs", "ai_immutable_identity"), ("ai_business_evidence_runs", "ai_business_terminal"), ("ai_business_evidence_chunks", "ai_immutable_evidence")}
+            | {("ai_business_evidence_sources", "ai_write_fence"),
+               ("ai_business_evidence_sources", "ai_immutable_identity"),
+               ("ai_business_evidence_sources", "ai_business_source_state"),
+               ("ai_business_evidence_sources", "ai_business_directory_complete"),
+               ("ai_business_evidence_runs", "ai_business_directory_complete"),
+               ("ai_business_evidence_chunks", "ai_business_v2_chunk_source"),
+               ("ai_business_evidence_chunks", "ai_business_directory_complete")}
+            |
             {(table, "ai_write_fence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs", "ai_report_deliveries")}
             | {(table, "ai_immutable_evidence") for table in ("ai_library_revisions", "ai_execution_guidance", "ai_report_runs")}
             |
@@ -138,7 +173,57 @@ def check():
         }
         if not required_triggers <= triggers:
             raise ValueError("AI write fences or immutable audit guards missing")
+        integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
+        screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
+        screening_runtime = importlib.import_module("ai_assistant.migrations.0024_business_screening_runtime")
+        for signature, definition, volatility in (
+            ("public.ai_screen_fields(json,text[])", screening.FIELDS, "i"),
+            ("public.ai_screen_uint(json,bigint,bigint)", screening.UINT, "i"),
+            ("public.ai_screen_initial_guard()", screening_runtime.SCREEN_INITIAL, "v"),
+            ("public.ai_screen_page_guard()", screening.PAGE, "v"),
+            ("public.ai_screen_complete_guard()", screening.COMPLETE, "v"),
+            ("public.ai_business_mapping_plan_json(text)", integrated.PLAN_GUARD, "i"),
+            ("public.ai_business_integrated_report_guard()", screening_runtime.INTEGRATED_REPORT_GUARD, "v"),
+            ("public.ai_business_budget_report_guard()", screening_runtime.NEW_BUDGET_GUARD, "v"),
+            ("public.ai_business_screening_report_guard()", screening_runtime.REPORT_GUARD, "v"),
+            ("public.ai_business_screening_workflow_guard()", screening_runtime.WORKFLOW_GUARD, "v"),
+        ):
+            cursor.execute("""SELECT p.prosrc,p.provolatile,p.prosecdef,p.proconfig,l.lanname
+                FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)""", [signature])
+            function = cursor.fetchone()
+            if (function is None or function[0] != definition.split("$$")[1]
+                    or function[1:3] != (volatility, False) or function[4] != "plpgsql"
+                    or {item.replace(" ", "") for item in (function[3] or [])} != {"search_path=pg_catalog,public"}):
+                raise ValueError("AI integrated function contract missing or changed")
+        cursor.execute("""SELECT tgtype,tgdeferrable,tginitdeferred,
+            tgfoid='public.ai_business_integrated_report_guard()'::regprocedure
+            FROM pg_trigger WHERE tgrelid='public.ai_report_runs'::regclass
+            AND tgname='ai_business_integrated_report_binding' AND tgenabled='O'""")
+        if cursor.fetchone() != (7, False, False, True):
+            raise ValueError("AI integrated report trigger contract changed")
+        for table, name, expected_type, deferred, function in (
+            ("ai_report_runs", "ai_business_screening_report_binding", 7, False, "ai_business_screening_report_guard"),
+            ("ai_workflow_runs", "ai_business_screening_workflow_binding", 5, True, "ai_business_screening_workflow_guard"),
+            ("ai_business_screening_runs", "ai_screen_initial", 7, False, "ai_screen_initial_guard"),
+            ("ai_business_screening_pages", "ai_screen_page_initial", 7, False, "ai_screen_page_guard"),
+            ("ai_business_screening_runs", "ai_screen_complete", 5, True, "ai_screen_complete_guard"),
+            ("ai_business_screening_pages", "ai_screen_complete", 5, True, "ai_screen_complete_guard"),
+        ):
+            cursor.execute("""SELECT tgtype,tgdeferrable,tginitdeferred,tgfoid=to_regprocedure(%s)
+                FROM pg_trigger WHERE tgrelid=%s::regclass AND tgname=%s AND tgenabled='O'""",
+                ["public."+function+"()", "public."+table, name])
+            if cursor.fetchone() != (expected_type, deferred, deferred, True):
+                raise ValueError("AI screening publication trigger contract changed")
         for table, expected in (
+            ("ai_business_screening_runs", {"ai_screen_run_bound", "ai_screen_binding_uq"}),
+            ("ai_business_screening_pages", {"ai_screen_page_bound", "ai_screen_page_sequence_uq", "ai_screen_page_offset_uq"}),
+            ("ai_business_budget_plans", {"ai_business_budget_bound"}),
+            ("ai_business_file_runs", {"ai_business_file_bound", "ai_business_file_binding_uq"}),
+            ("ai_business_file_chunks", {"ai_business_file_chunk_bound", "ai_business_file_chunk_uq"}),
+            ("ai_business_volume_chunks", {"ai_business_volume_chunk_bound", "ai_business_volume_chunk_uq"}),
+            ("ai_business_evidence_runs", {"ai_business_run_bound", "ai_business_client_uq"}),
+            ("ai_business_evidence_chunks", {"ai_business_chunk_bound", "ai_business_chunk_uq"}),
+            ("ai_business_evidence_sources", {"ai_business_source_bound", "ai_business_source_key_uq", "ai_business_source_ord_uq", "ai_business_source_query_uq"}),
             ("ai_library_revisions", {"ai_library_revisions_bound"}),
             ("ai_execution_guidance", {"ai_execution_guidance_bound"}),
             ("ai_report_runs", {"ai_report_runs_bound", "ai_report_client_uq"}),
@@ -153,6 +238,24 @@ def check():
             cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid=%s::regclass AND convalidated", [table])
             if not expected <= {row[0] for row in cursor.fetchall()}:
                 raise ValueError("AI DingTalk constraints missing")
+        # Check FK/uniqueness by columns rather than Django-generated names.
+        for table, column, target in (("ai_business_screening_runs", "report_id", "ai_report_runs"),
+                                      ("ai_business_screening_runs", "evidence_id", "ai_business_evidence_runs"),
+                                      ("ai_business_screening_pages", "run_id", "ai_business_screening_runs"),
+                                      ("ai_report_runs", "budget_plan_id", "ai_business_budget_plans"),
+                                      ("ai_business_budget_plans", "evidence_id", "ai_business_evidence_runs")):
+            cursor.execute("""SELECT c.contype,c.confrelid=%s::regclass FROM pg_constraint c
+                JOIN pg_attribute a ON a.attrelid=c.conrelid AND c.conkey=ARRAY[a.attnum]::smallint[]
+                WHERE c.conrelid=%s::regclass AND a.attname=%s AND c.convalidated""", [target, table, column])
+            constraints = cursor.fetchall()
+            if ("f", True) not in constraints or table == "ai_report_runs" and not any(kind == "u" for kind, _ in constraints):
+                raise ValueError("AI fixed budget reference constraints missing")
+        cursor.execute("""SELECT c.relname,t.tgdeferrable,t.tginitdeferred FROM pg_trigger t
+            JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relname IN ('ai_business_budget_plans','ai_report_runs')
+            AND t.tgname='ai_business_budget_complete' AND t.tgenabled='O'""")
+        if set(cursor.fetchall()) != {("ai_business_budget_plans", True, True), ("ai_report_runs", True, True)}:
+            raise ValueError("AI fixed budget deferred completeness missing")
         cursor.execute("SELECT conname FROM pg_constraint WHERE conrelid='public.ai_conversation_workspaces'::regclass AND convalidated")
         if not {"ai_workspace_module", "ai_workspace_context_size"} <= {row[0] for row in cursor.fetchall()}:
             raise ValueError("AI conversation workspace constraints missing")

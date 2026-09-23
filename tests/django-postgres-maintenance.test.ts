@@ -293,8 +293,9 @@ test("maintenance validates complete AI backup evidence before and after activat
     return;
   }
   const manifest = await readFile(path.join(root, "backend/ai_assistant/table_manifest.py"), "utf8");
-  const aiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
-  assert.equal(new Set(aiTables).size, 56);
+  const currentAiTables = [...manifest.matchAll(/"(ai_[a-z_]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(currentAiTables).size, 65);
+  const aiTables = currentAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {
     database: { name: "fixture", user: "fixture", serverAddress: "127.0.0.1", serverPort: 55449, inRecovery: false, serverVersionNumber: 170011 },
@@ -376,8 +377,85 @@ test("maintenance validates complete AI backup evidence before and after activat
   media.migrations.push({ app: "ai_assistant", name: "0013_dingtalk_schedule_media" });
   const mediaWithoutReport = structuredClone(media);
   mediaWithoutReport.migrations = mediaWithoutReport.migrations.filter(item => item.name !== "0012_report_library");
+  const business = structuredClone(media);
+  business.migrations.push({ app: "ai_assistant", name: "0014_business_evidence" });
+  business.tables.ai_business_evidence_runs = 0;
+  business.tables.ai_business_evidence_chunks = 0;
+  const files = structuredClone(business);
+  files.migrations.push({ app: "ai_assistant", name: "0015_business_collection" }, { app: "ai_assistant", name: "0016_business_files" });
+  files.tables.ai_business_file_runs = 0;
+  files.tables.ai_business_file_chunks = 0;
+  const directory = structuredClone(files);
+  directory.migrations.push({ app: "ai_assistant", name: "0017_business_file_renderer" }, { app: "ai_assistant", name: "0018_business_excel_renderer" }, { app: "ai_assistant", name: "0019_business_source_directory" });
+  directory.tables.ai_business_evidence_sources = 0;
+  assert.equal(Object.keys(directory.tables).filter(name => name.startsWith("ai_")).length, 61);
+  const volumes = structuredClone(directory);
+  volumes.migrations.push({ app: "ai_assistant", name: "0020_business_volume_files" });
+  volumes.tables.ai_business_volume_chunks = 0;
+  assert.equal(Object.keys(volumes.tables).filter(name => name.startsWith("ai_")).length, 62);
+  const budgets = structuredClone(volumes);
+  budgets.migrations.push({ app: "ai_assistant", name: "0021_business_budget_plans" });
+  budgets.tables.ai_business_budget_plans = 0;
+  assert.equal(Object.keys(budgets.tables).filter(name => name.startsWith("ai_")).length, 63);
+  const screenings = structuredClone(budgets);
+  screenings.migrations.push({ app: "ai_assistant", name: "0022_business_integrated_reports" }, { app: "ai_assistant", name: "0023_business_screening_storage" });
+  screenings.tables.ai_business_screening_runs = 0;
+  screenings.tables.ai_business_screening_pages = 0;
+  assert.equal(Object.keys(screenings.tables).filter(name => name.startsWith("ai_")).length, 65);
+  const screeningRuntime = structuredClone(screenings);
+  screeningRuntime.migrations.push({ app: "ai_assistant", name: "0024_business_screening_runtime" });
+  const runtimeWithoutStorage = structuredClone(screeningRuntime);
+  runtimeWithoutStorage.migrations = runtimeWithoutStorage.migrations.filter(item => item.name !== "0023_business_screening_storage");
+  delete runtimeWithoutStorage.tables.ai_business_screening_runs;
+  delete runtimeWithoutStorage.tables.ai_business_screening_pages;
+  const screeningsInvalid = ["ai_business_screening_runs", "ai_business_screening_pages"].map(name => {
+    const evidence = structuredClone(screenings); delete evidence.tables[name]; return evidence;
+  });
+  for (const name of ["0021_business_budget_plans", "0022_business_integrated_reports", "0023_business_screening_storage"]) {
+    const evidence = structuredClone(screenings); evidence.migrations = evidence.migrations.filter(item => item.name !== name); screeningsInvalid.push(evidence);
+  }
+  const budgetsMissing = structuredClone(budgets);
+  delete budgetsMissing.tables.ai_business_budget_plans;
+  const budgetsUnbound = structuredClone(budgets);
+  budgetsUnbound.migrations = budgetsUnbound.migrations.filter(item => item.name !== "0021_business_budget_plans");
+  const budgetPredecessorsMissing = ["0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory", "0020_business_volume_files"].map(name => {
+    const evidence = structuredClone(budgets);
+    evidence.migrations = evidence.migrations.filter(item => item.name !== name);
+    return evidence;
+  });
+  const volumesMissing = structuredClone(volumes);
+  delete volumesMissing.tables.ai_business_volume_chunks;
+  const volumesUnbound = structuredClone(volumes);
+  volumesUnbound.migrations = volumesUnbound.migrations.filter(item => item.name !== "0020_business_volume_files");
+  const volumePredecessorsMissing = ["0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer", "0019_business_source_directory"].map(name => {
+    const evidence = structuredClone(volumes);
+    evidence.migrations = evidence.migrations.filter(item => item.name !== name);
+    return evidence;
+  });
+  const directoryMissing = structuredClone(directory);
+  delete directoryMissing.tables.ai_business_evidence_sources;
+  const directoryUnbound = structuredClone(directory);
+  directoryUnbound.migrations = directoryUnbound.migrations.filter(item => item.name !== "0019_business_source_directory");
+  const directoryPredecessorsMissing = ["0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer"].map(name => {
+    const evidence = structuredClone(directory);
+    evidence.migrations = evidence.migrations.filter(item => item.name !== name);
+    return evidence;
+  });
+  const filesMissing = structuredClone(files);
+  delete filesMissing.tables.ai_business_file_chunks;
+  const filesPredecessorMissing = structuredClone(files);
+  filesPredecessorMissing.migrations = filesPredecessorMissing.migrations.filter(item => item.name !== "0015_business_collection");
+  const businessMissingChunk = structuredClone(business);
+  delete businessMissingChunk.tables.ai_business_evidence_chunks;
+  const businessMissingPredecessor = structuredClone(business);
+  businessMissingPredecessor.migrations = businessMissingPredecessor.migrations.filter(item => item.name !== "0013_dingtalk_schedule_media");
   const cases = [
-    ...[base, beforePrompt, candidate, adopted, active, media, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    ...[base, beforePrompt, candidate, adopted, active, media, business, files, directory, volumes, budgets, screenings, screeningRuntime, beforeSchedule, beforeWorkspaceMigration, beforeDingTalk, beforeSettings].map(evidence => ({ valid: true, evidence })),
+    { valid: false, evidence: runtimeWithoutStorage },
+    ...screeningsInvalid.map(evidence => ({ valid: false, evidence })),
+    ...[budgetsMissing, budgetsUnbound, ...budgetPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
+    ...[volumesMissing, volumesUnbound, ...volumePredecessorsMissing].map(evidence => ({ valid: false, evidence })),
+    ...[businessMissingChunk, businessMissingPredecessor, filesMissing, filesPredecessorMissing, directoryMissing, directoryUnbound, ...directoryPredecessorsMissing].map(evidence => ({ valid: false, evidence })),
     ...[promptMissing, promptUnbound, mediaWithoutReport, scheduleMissing, orphanSettingsMigration, settingsMissing, missing, unknown, unbound, metadataMissing, workspaceMissing, workspaceMigrationMissing, orphanWorkspaceMigration, dingTalkMissing, dingTalkUnbound].map(evidence => ({ valid: false, evidence })),
   ];
   const encoded = Buffer.from(JSON.stringify(cases)).toString("base64");
@@ -392,7 +470,7 @@ foreach($case in $cases) {
   try { Assert-MaintenanceEvidence $case.evidence 'fixture' 'fixture' 55449; $accepted=$true } catch { if($case.valid){throw} }
   if($accepted -ne $case.valid){throw 'AI evidence boundary failed'}
 }
-Write-Output '15 AI backup evidence cases passed'
+Write-Output '${cases.length} AI backup evidence cases passed'
 `;
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "teruisi-ai-backup-contract-"));
   try {
@@ -400,7 +478,7 @@ Write-Output '15 AI backup evidence cases passed'
     await writeFile(scriptPath, command);
     const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath], { encoding: "utf8", windowsHide: true, timeout: 30000 });
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /15 AI backup evidence cases passed/);
+    assert.match(result.stdout, new RegExp(`${cases.length} AI backup evidence cases passed`));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -417,6 +495,6 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 7 tests/);
+  assert.match(result.stderr, /Ran 8 tests/);
   assert.match(result.stderr, /OK/);
 });

@@ -9,6 +9,53 @@ const principal = { email: "owner@example.invalid", displayName: "镜像操作�
 const environment = { TERUISI_DJANGO_INTERNAL_SECRET: "Isolated-hmac-transport-secret-0123456789", TERUISI_DJANGO_AI_READER_BASE_URL: "http://127.0.0.1:18111", TERUISI_DJANGO_AI_WRITER_BASE_URL: "http://127.0.0.1:18112" };
 const json = (payload: unknown, status = 200, headers = {}) => Response.json(payload, { status, headers: { "x-ai-revision": "42", ...headers } });
 
+test("business file routes keep reads and writes on their owning process", async () => {
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({}); };
+  for (const path of ["/api/ai/reports/report_1/files", "/api/ai/business-files/file_1", "/api/ai/business-files/file_1/chunks/xlsx"]) {
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(requests.at(-1)!.url).port, "18111");
+  }
+  for (const path of ["/api/ai/reports/report_1/files", "/api/ai/business-files/file_1/control"]) {
+    await requestDjangoAi(principal, { path, method: "POST", payload: {} }, { environment, fetchImpl });
+    assert.equal(new URL(requests.at(-1)!.url).port, "18112");
+  }
+  for (const path of ["/api/ai/business-files", "/api/ai/business-files/file_1/chunks/csv", "/api/ai/business-files/file_1/internal"]) assert.equal(isPublicAiPath(path), false);
+});
+
+test("volume chunk routes keep bounded coordinates and read-only forwarding", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  for (const suffix of ["0/chunks/json", "1/chunks/html", "100/chunks/xlsx"]) {
+    const path = `/api/ai/business-files/file_1/volumes/${suffix}`;
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(calls.at(-1)!.url).port, "18111");
+  }
+  for (const suffix of ["01/chunks/html", "101/chunks/xlsx", "-1/chunks/json", "1/chunks/csv", "1/chunks/html/extra"]) {
+    assert.equal(isPublicAiPath(`/api/ai/business-files/file_1/volumes/${suffix}`), false);
+  }
+  const route = await readFile("app/api/ai/business-files/[id]/volumes/[volumeIndex]/chunks/[format]/route.ts", "utf8");
+  assert.ok(route.includes("export const GET = forwardAiRequest"));
+  assert.doesNotMatch(route, /export const (?:POST|PATCH|PUT|DELETE)/);
+});
+
+test("business planning preview is an explicit reader POST and evidence list is read only", async () => {
+  const requests: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { requests.push(new Request(input, init)); return json({}); };
+  assert.equal(isPublicAiPath('/api/ai/business-plan/preview'), true);
+  assert.equal(isPublicAiPath('/api/ai/business-plan/execute'), false);
+  await requestDjangoAi(principal, { path:'/api/ai/business-plan/preview', method:'POST', payload:{}, service:'reader' }, {environment,fetchImpl});
+  assert.equal(new URL(requests.at(-1)!.url).port,'18111');
+  await requestDjangoAi(principal, {path:'/api/ai/business-evidence'}, {environment,fetchImpl});
+  assert.equal(new URL(requests.at(-1)!.url).port,'18111');
+  const route=await readFile('lib/ai/django-route.ts','utf8');
+  assert.ok(route.includes('url.pathname === "/api/ai/business-plan/preview"'));
+  const endpoint=await readFile('app/api/ai/business-plan/preview/route.ts','utf8');
+  assert.ok(endpoint.includes('export const POST = forwardAiRequest'));
+});
+
 test("AI principal envelope binds exact Unicode identity, method, path, query, body and request ID", async () => {
   const input = { secret: environment.TERUISI_DJANGO_INTERNAL_SECRET, principal, method: "POST", path: "/api/ai/consumer", query: "page=1", body: '{"query":"大毛利"}', requestId: "idempotent-1", timestamp: 1800000000 };
   const headers = await aiHeaders(input);
@@ -20,6 +67,24 @@ test("AI principal envelope binds exact Unicode identity, method, path, query, b
   assert.equal(headers.get("x-teruisi-signature"), "v1=" + createHmac("sha256", input.secret).update(canonical).digest("hex"));
   for (const change of [{ query: "page=2" }, { body: "{}" }, { path: "/api/ai/models" }, { requestId: "idempotent-2" }]) {
     assert.notEqual((await aiHeaders({ ...input, ...change })).get("x-teruisi-signature"), headers.get("x-teruisi-signature"));
+  }
+});
+
+test("business source catalog routes stay bounded and use the owning reader", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  for (const path of ["/api/ai/business-evidence/run_1/sources", "/api/ai/business-evidence/run_1/sources/source_1", "/api/ai/business-evidence/run_1/sources/analysis"]) {
+    assert.equal(isPublicAiPath(path), true);
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(calls.at(-1)!.url).port, "18111");
+  }
+  for (const path of ["/api/ai/business-evidence/run_1/sources/", "/api/ai/business-evidence/run_1/sources/source_1/extra", "/api/ai/business-evidence/run_1/source", "/api/ai/business-evidence/run_1/sources/" + "x".repeat(161)]) {
+    assert.equal(isPublicAiPath(path), false);
+  }
+  for (const path of ["app/api/ai/business-evidence/[id]/sources/route.ts", "app/api/ai/business-evidence/[id]/sources/[sourceKey]/route.ts"]) {
+    const route = await readFile(path, "utf8");
+    assert.ok(route.includes("export const GET = forwardAiRequest"));
+    assert.doesNotMatch(route, /export const (?:POST|PATCH|DELETE|PUT)/);
   }
 });
 
@@ -83,4 +148,19 @@ test("AI production image path has no R2 binding or storage bridge", async () =>
   const space = await readFile(new URL("../backend/ai_assistant/space.py", import.meta.url), "utf8");
   assert.doesNotMatch(space, /transport\.edge\(\s*["']storage_/);
   assert.match(space, /AiSpaceAssetPayload\.objects\.create/);
+});
+
+
+test("fixed budget reference is an exact reader route with GET-only Next export", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => { calls.push(new Request(input, init)); return json({}); };
+  const path = "/api/ai/reports/report_1/budget-reference";
+  assert.equal(isPublicAiPath(path), true);
+  await requestDjangoAi(principal, { path, query: new URLSearchParams({ runId: "run_1", offset: "0", limit: "20" }) }, { environment, fetchImpl });
+  assert.equal(new URL(calls[0].url).port, "18111");
+  assert.equal(calls[0].method, "GET");
+  for (const suffix of ["/", "/extra", "-preview"]) assert.equal(isPublicAiPath(path+suffix), false);
+  const source = await readFile("app/api/ai/reports/[reportId]/budget-reference/route.ts", "utf8");
+  assert.match(source, /export const GET = forwardAiRequest/);
+  assert.doesNotMatch(source, /export const (POST|PUT|PATCH|DELETE)/);
 });

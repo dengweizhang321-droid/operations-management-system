@@ -698,3 +698,33 @@ class SalesCutoverAttestation(models.Model):
                 name="sales_cutover_d1_epoch_ck",
             )
         ]
+
+
+class SalesAnalysisOption(models.Model):
+    platform = models.CharField(max_length=200)
+    shop = models.CharField(max_length=200)
+    channel = models.CharField(max_length=200)
+    first_date = models.CharField(max_length=10)
+    last_date = models.CharField(max_length=10)
+    row_count = models.BigIntegerField()
+    entry_json = models.TextField()
+    entry_digest = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = "sales_analysis_options"
+        constraints = [models.UniqueConstraint(fields=("platform", "shop", "channel"), name="sales_options_identity_uq")]
+
+
+class SalesAnalysisOptionsState(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    status = models.CharField(max_length=16, default="not_ready")
+    generation = models.CharField(max_length=64, default="")
+    directory_digest = models.CharField(max_length=64, default="")
+    identity_count = models.PositiveIntegerField(default=0)
+    stored_bytes = models.PositiveIntegerField(default=0)
+    source_sales_revision = models.BigIntegerField(default=-1)
+    reason = models.CharField(max_length=64, default="not_initialized")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sales_analysis_options_state"
