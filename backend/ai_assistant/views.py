@@ -154,6 +154,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
             r"promotion-tool-dispatch/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-dynamics": {"GET"},
+            r"reports/[A-Za-z0-9_-]{1,160}/market-observation": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
             r"business-evidence": {"GET", "POST"},
             r"business-evidence/[A-Za-z0-9_-]{1,160}": {"GET"},
@@ -276,6 +277,9 @@ def _dispatch(request, path=""):
         if root == "reports" and len(parts)==3 and parts[2]=="market-dynamics":
             from . import business_market_runtime_tools
             return response(business_market_runtime_tools.read(parts[1],params,principal))
+        if root == "reports" and len(parts)==3 and parts[2]=="market-observation":
+            from . import business_market_observation_runtime_tools
+            return response(business_market_observation_runtime_tools.read(parts[1],params,principal))
         if root == "reports" and parts[-1] == "budget-reference":
             from . import business_budget_store
             fields(params, {"runId", "offset", "limit"}, {"runId"})

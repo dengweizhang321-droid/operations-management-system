@@ -7,3 +7,5 @@
 `market_dynamics_v2.rank_entry_exit` 已在纯层对两期**完整**多日来源逐页核验，然后仅比较所选两日。只有两日各有 TOP 样本记录，才把单边出现标为“进入/离开所观察 TOP 样本”；缺少观察日记为覆盖不足。商品某日未在 TOP 样本中出现时，名次与指标为 `null`，绝不补零或推断退市。市场 SKU/SPU、价格带汇总与成员行都不能直接记为本店、ERP 或 B 端销售；市场区间下界、上界、缺失桶分别保留。
 
 本批只有新纯协议、算法和测试。未修改旧 promotion profile、四工具目录、持久报告/迁移、人审、renderer7、公共创建入口或生产系统。后续正式交付须另行版本化完成 Agent 派发和本人已读回执、市场数值引用、人审、三张类型表与多卷证明；旧报告和文件保持原义。
+
+后续内部 owning Reader `business_market_observation` 已可针对同一报告中的本期/基期市场来源完整重放封存页，返回固定两日的有界表、分页与精确 `rowIndex + rowId`，并在交接后复核报告/当前角色。签名 Django reader GET `reports/<reportId>/market-observation` 与服务端 TS 只读适配器仅用于内部开发；它们没有加入 Next.js 公开路径、工作台入口或 Agent 工具目录。回执证明所选封存来源的完整读取及观察日覆盖，不证明全市场覆盖或本店、ERP、B 端销售归属。
