@@ -1,9 +1,11 @@
 """Actual approved five-Agent HTML/XLSX temporary pair, without file runs."""
 import io
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 import zipfile
+from business_analysis.report_files import Column, Table
 
 from django import test as djtest
 from access_control.models import AppUser
@@ -53,6 +55,15 @@ class PromotionFormalExportTests(djtest.TransactionTestCase):
                     if key != "receiptDigest"}))
                 self.assertEqual(len(receipt["fileProof"]["tables"]), 2)
                 self.assertFalse(receipt["fileProof"]["tableExpensesAreAdditive"])
+                source_keys = set(m.AiBusinessEvidenceSource.objects.filter(
+                    run_id=json.loads(report.snapshot_json)["evidenceRunId"]).values_list("source_key", flat=True))
+                rendered_keys = [item["key"] for item in receipt["renderedTables"]]
+                self.assertIn("sources", rendered_keys)
+                self.assertEqual({key[4:] for key in rendered_keys if key.startswith("raw-")}, source_keys)
+                self.assertGreater(sum(key.startswith("analysis-") for key in rendered_keys), 0)
+                self.assertEqual(receipt["sealedSourceCount"], len(source_keys))
+                self.assertEqual(receipt["sealedSourceTableCount"],
+                    1 + len(source_keys) + sum(key.startswith("analysis-") for key in rendered_keys))
                 self.assertEqual(receipt["fileProof"]["tables"][0]["spendTotals"]["current"]["value"],
                     receipt["fileProof"]["tables"][1]["spendTotals"]["current"]["value"])
                 html = prepared.path("html").read_bytes()
@@ -75,6 +86,23 @@ class PromotionFormalExportTests(djtest.TransactionTestCase):
             self.assertFalse(first_path.exists())
         model.assert_not_called(); remote.assert_not_called()
         self.assertEqual(m.AiBusinessFileRun.objects.count(), before)
+
+    def test_over_120_tables_is_all_or_nothing_for_single_pair(self):
+        report = self.five_completed()
+        self.approved(report)
+        @contextmanager
+        def over_capacity(*_):
+            columns = (Column("value", "值"),)
+            tables = tuple(Table(f"source-{index}", f"来源{index}", "合成容量边界", columns,
+                [], 0) for index in range(114))
+            yield tables, {"sourceCount": 1, "sourcesDigest": "a"*64,
+                "sourceTableCount": len(tables)}
+        with patch.object(service.file_tables.runtime.transport, "catalog", side_effect=self.current_catalog), patch.object(
+                service, "_source_tables", over_capacity), patch.object(service.report_files, "write_pair") as writer:
+            with self.assertRaises(AiError) as caught:
+                with service.open_files(report.id, self.admin): self.fail("overfull pair escaped")
+        self.assertEqual(caught.exception.status, 413)
+        writer.assert_not_called()
 
     def test_unapproved_or_conflicted_report_never_writes_formal_files(self):
         report = self.five_completed()

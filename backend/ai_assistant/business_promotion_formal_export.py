@@ -13,10 +13,13 @@ from tempfile import TemporaryDirectory
 
 from business_analysis import report_files
 from business_analysis.contracts import AnalysisContractError
+from business_analysis.results import VIEWS
 from . import business_promotion_approved_content as approved_content
 from . import business_promotion_content_contract as content_contract
 from . import business_promotion_file_proof as file_proof
 from . import business_promotion_file_tables as file_tables
+from . import business_evidence, business_export, business_sealed_source_tables, models as m
+from .business_sealed import Reader
 from .policy import AiError, canonical, current_principal, digest
 
 
@@ -82,6 +85,43 @@ def _tables(value, promotion):
     )
 
 
+@contextmanager
+def _source_tables(report_id, principal, fixed, checkpoint):
+    """Reuse the v6 append order against this report's immutable sealed Reader."""
+    report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
+    roots = fixed["rootBindings"]
+    if (digest(report.snapshot_json) != fixed["snapshotDigest"]
+            or digest(report.workflow.input_json) != fixed["workflowInputDigest"]):
+        _conflict("完整来源表不属于当前报告版本")
+    evidence = business_evidence.get_run(roots["evidenceRunId"], principal)
+    if (evidence.status != "sealed" or evidence.version != roots["evidenceVersion"]
+            or digest(evidence.plan_json) != json.loads(report.snapshot_json)["evidencePlanDigest"]):
+        _conflict("完整来源表证据不是当前封存版本")
+    reader = Reader(evidence, principal)
+    sources = reader.sources
+    if (len(sources) != roots["sourceCount"] or digest(sources) != roots["sourcesDigest"]):
+        _conflict("完整来源目录与已批准内容不同")
+    source_by_key = {source["key"]: source for source in sources}
+    info = {source["key"]: reader.info(source["key"]) for source in sources}
+    expected = {key: entry["expected"] for key, entry in info.items()}
+    def pages(key):
+        return reader.pages(key, checkpoint=checkpoint)
+    with business_export.TableSpool() as spool:
+        spool.add("sources", "来源与核对", "明细封存时的水位与逐页核对结果。",
+            ({"sourceKey": source["key"], "来源": source["domain"],
+                "查询范围": canonical(source["query"]),
+                "核对": canonical(expected[source["key"]]),
+                "覆盖与口径": canonical(info[source["key"]]["metadata"])}
+                for source in sources))
+        business_sealed_source_tables.append(spool, sources, expected, pages,
+            source_by_key, VIEWS, business_export.DIMENSION_NAMES)
+        yield tuple(spool.tables), {"sourceCount": len(sources),
+            "sourcesDigest": digest(sources), "sourceTableCount": len(spool.tables)}
+    latest = Reader(business_evidence.get_run(roots["evidenceRunId"], principal), principal)
+    if digest(latest.sources) != roots["sourcesDigest"]:
+        _conflict("完整来源表生成期间封存目录发生变化")
+
+
 def _file(path):
     sha = hashlib.sha256()
     size = 0
@@ -137,12 +177,21 @@ def open_files(report_id, principal, *, checkpoint=None, limits=None):
                     "fileProof": fragment, "deliveryAuthorized": False,
                     "registeredRenderer": False, "limitations": list(content_contract.LIMITATIONS)}
                 file_metadata["metadataDigest"] = digest(file_metadata)
-                tables = _tables(value, promotion)
-                with paths["xlsx"].open("w+b") as xlsx, paths["html"].open("w+b") as html:
-                    rendered = report_files.write_pair(xlsx, html,
-                        title="词货深度经营分析 · " + report_id,
-                        metadata=file_metadata, tables=tables, checkpoint=checkpoint,
-                        html_layout_version=2, xlsx_opc_version=2)
+                with _source_tables(report_id, principal, fixed["reportBinding"], checkpoint) as (sealed, source_proof):
+                    base = _tables(value, promotion)
+                    tables = (*base[:-2], *sealed, *base[-2:])
+                    if len(tables) > report_files.MAX_TABLES:
+                        raise AiError("完整封存来源表超过单卷120表容量，须使用后续多卷交付", "payload_too_large", 413)
+                    file_metadata.update(sealedSourceCount=source_proof["sourceCount"],
+                        sealedSourcesDigest=source_proof["sourcesDigest"],
+                        sealedSourceTableCount=source_proof["sourceTableCount"])
+                    file_metadata["metadataDigest"] = digest({key: item for key, item in file_metadata.items()
+                        if key != "metadataDigest"})
+                    with paths["xlsx"].open("w+b") as xlsx, paths["html"].open("w+b") as html:
+                        rendered = report_files.write_pair(xlsx, html,
+                            title="词货深度经营分析 · " + report_id,
+                            metadata=file_metadata, tables=tables, checkpoint=checkpoint,
+                            html_layout_version=2, xlsx_opc_version=2)
                 if ([part["rowCount"] for part in rendered["tables"][-2:]] !=
                         [part["rowCount"] for part in fragment["tables"]]):
                     _conflict("词货两表渲染行数与完整材料不同")
@@ -155,6 +204,9 @@ def open_files(report_id, principal, *, checkpoint=None, limits=None):
             receipt = {"schemaVersion": SCHEMA, "reportId": report_id,
                 "rendererVersion": 7, "fileProof": fragment,
                 "renderedTables": rendered["tables"], "files": files,
+                "sealedSourceCount": source_proof["sourceCount"],
+                "sealedSourcesDigest": source_proof["sourcesDigest"],
+                "sealedSourceTableCount": source_proof["sourceTableCount"],
                 "deliveryAuthorized": False, "registeredRenderer": False,
                 "authorityVerified": False}
             receipt["receiptDigest"] = digest(receipt)
