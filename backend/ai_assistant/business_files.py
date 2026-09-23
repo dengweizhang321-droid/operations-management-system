@@ -177,6 +177,9 @@ def control(run_id, body, principal, *, commit=None):
     prepared = None
     if body["action"] in {"resume", "rebuild"}:
         candidate = get(run_id, principal)
+        if candidate.renderer_version == 7:
+            from .business_promotion_volume_stage import control as promotion_control
+            return promotion_control(run_id, body["action"], body["expectedVersion"], principal)
         if json.loads(candidate.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
             cas(candidate, body["expectedVersion"])
             if candidate.status != "paused":
@@ -219,7 +222,7 @@ def chunk(run_id, format, params, principal):
     except (TypeError, ValueError) as error:
         raise AiError("文件分块序号无效") from error
     row = get(run_id, principal)
-    if row.renderer_version in (4, 6):
+    if row.renderer_version in (4, 6, 7):
         raise AiError("多卷文件须使用指定卷下载入口", "conflict", 409)
     if row.status != "ready":
         raise AiError("完整双文件尚未就绪", "conflict", 409)
@@ -376,7 +379,12 @@ def tick():
         try:
             principal = workflows.background(row)
             current_principal(principal, admin=True)
-            if binding(row.report, principal, row.draft, renderer_version=row.renderer_version) != row.binding_digest:
+            if row.renderer_version == 7:
+                from .business_promotion_volume_stage import binding as promotion_binding
+                fingerprint = promotion_binding(row.report, principal, row.draft)
+            else:
+                fingerprint = binding(row.report, principal, row.draft, renderer_version=row.renderer_version)
+            if fingerprint != row.binding_digest:
                 raise AiError("报告内容绑定已变化", "conflict", 409)
             if row.manifest_json == "{}" and row.attempt >= 5:
                 raise AiError("文件构建次数已达到上限", "conflict", 409)
@@ -393,6 +401,9 @@ def tick():
                 saved.save()
                 audit(saved, principal, "claimed")
             state.update(version=saved.version, attempt=saved.attempt)
+            if saved.renderer_version == 7:
+                from .business_promotion_volume_stage import build as promotion_build
+                return promotion_build(saved, principal, state)
             if saved.renderer_version in (4, 6):
                 from .business_volume_files import build
                 return build(saved, principal, state)
