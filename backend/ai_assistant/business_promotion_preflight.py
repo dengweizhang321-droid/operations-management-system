@@ -14,6 +14,7 @@ from django.db import connection
 from business_analysis import screening_package
 from business_analysis.contracts import AnalysisContractError
 from . import business_promotion_admission as policy, business_promotion_budget as budget
+from . import business_promotion_readiness as readiness
 from . import business_promotion_runtime as runtime, business_promotion_runtime_contract as contract
 from . import business_screening_packages as packages, business_screening_runtime_contract as old
 from . import business_screening_creation, model_capabilities, models as m, provider, transport, workflows
@@ -30,7 +31,7 @@ def _require(ok, message="词货容量固定绑定已变化", code="conflict", s
         raise AiError(message, code, status)
 
 
-def _current(report_id, principal):
+def _current(report_id, principal, *, allow_parked=False):
     current_principal(principal, admin=True)
     _require(principal.scope is None, "词货容量仅允许无范围管理员", "access_denied", 403)
     report_id = identifier(report_id, "reportId")
@@ -40,7 +41,12 @@ def _current(report_id, principal):
         "词货筛查尚未完整发布")
     report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
     flow = report.workflow
-    _require(flow.status in {"queued", "running"} and not flow.cancel_requested and flow.dry_run == 0
+    parked = (flow.status == "paused" and flow.retryable == 0
+        and flow.error_code == readiness.PARKED_CODE
+        and not flow.lease_token and flow.lease_expires_at is None
+        and not m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).exists())
+    _require((parked if allow_parked else flow.status in {"queued", "running"})
+        and not flow.cancel_requested and flow.dry_run == 0
         and flow.id == bound["workflowId"] and flow.model_id == bound["modelId"]
         and flow.model_version == bound["modelVersion"], "词货工作流状态或模型已变化")
     entries = policy._catalog(transport.catalog(principal, contract.SURFACE), flow)
@@ -58,7 +64,10 @@ def _current(report_id, principal):
     _require(type(guidance) is str and len(guidance.encode()) <= 32000,
         "词货执行指引超出容量")
     cfg = model_capabilities.options(model)
-    fixed = {"reportId": report_id, "ownerEmail": principal.email.lower(),
+    fixed = {"reportId": report_id, "workflowId": flow.id,
+        "ownerEmail": principal.email.lower(),
+        "workflowStatus": flow.status, "workflowVersion": flow.version,
+        "workflowErrorCode": flow.error_code,
         "scopeDigest": digest(principal.scope), "boundDigest": digest(bound),
         "snapshotDigest": bound["snapshotDigest"], "workflowInputDigest": bound["workflowInputDigest"],
         "graphDigest": flow.graph_digest, "toolCatalogDigest": digest(entries),
@@ -270,7 +279,8 @@ def revalidate(value, principal):
         "词货容量复验须在最外层事务之外", "invalid_request", 400)
     _require(principal.email.lower() == value._owner_email,
         "词货容量候选账号已变化", "access_denied", 403)
-    current = _current(value._report_id, principal)
+    current = _current(value._report_id, principal,
+        allow_parked=proof["workflowStatus"] == "paused")
     _require(canonical(current[-1]) == value._fixed_json,
         "词货容量报告、模型或目录已变化")
     description = packages.describe(packages.prepare(
@@ -282,11 +292,13 @@ def revalidate(value, principal):
     return proof
 
 
-def prepare(report_id, principal):
+def prepare(report_id, principal, *, allow_parked=False):
     """Measure complete mandatory pages; no scheduling, provider call or grant."""
     _require(not connection.in_atomic_block,
         "词货完整容量测算须在最外层事务之外", "invalid_request", 400)
-    report, bound, reference, model, guidance, entries, fixed = _current(report_id, principal)
+    _require(type(allow_parked) is bool, "停靠容量模式无效", "invalid_request", 400)
+    report, bound, reference, model, guidance, entries, fixed = _current(
+        report_id, principal, allow_parked=allow_parked)
     roles, description = _role_pages(bound["screeningId"], principal,
         bound["screeningReference"])
     budgets = _budget_pages(report.id, principal, "budgetRef" in json.loads(report.snapshot_json))

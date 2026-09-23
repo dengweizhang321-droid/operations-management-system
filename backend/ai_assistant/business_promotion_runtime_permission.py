@@ -89,10 +89,19 @@ def check(prepared, principal):
     authorize_owner(report, principal)
     flow = report.workflow
     authorize_owner(flow, principal)
-    _require(flow.status in {"queued", "running"} and not flow.cancel_requested
-        and flow.dry_run == 0,
+    parked = (proof["workflowStatus"] == "paused"
+        and flow.status == "paused" and flow.retryable == 0
+        and flow.error_code == proof["workflowErrorCode"]
+        and not flow.lease_token and flow.lease_expires_at is None
+        and not m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).exists())
+    _require((parked if proof["workflowStatus"] == "paused"
+        else flow.status in {"queued", "running"})
+        and flow.version == proof["workflowVersion"]
+        and flow.error_code == proof["workflowErrorCode"]
+        and not flow.cancel_requested and flow.dry_run == 0,
         "词货工作流未处于可检查状态；暂停后须独立 CAS 恢复")
-    _require(report.owner_email == flow.owner_email and report.scope_json == flow.scope_json
+    _require(flow.id == proof["workflowId"]
+        and report.owner_email == flow.owner_email and report.scope_json == flow.scope_json
         and report.scope_json == canonical(principal.scope)
         and digest(report.snapshot_json) == proof["snapshotDigest"]
         and digest(flow.input_json) == proof["workflowInputDigest"]
@@ -160,13 +169,14 @@ def check(prepared, principal):
         "reason": "requires_explicit_resume_and_per_microstep_dispatch_ledger"}
 
 
-def prepare(report_id, principal, role):
+def prepare(report_id, principal, role, *, allow_parked=False):
     """Create an in-process capacity object; no jobs or provider calls."""
     _require(not connection.in_atomic_block,
         "词货容量准备须在最外层事务之外", "invalid_request", 400)
     _require(type(role) is str and role in screening_package.ROLES,
         "词货容量角色无效", "invalid_request", 400)
-    capacity = preflight.prepare(report_id, principal)
+    _require(type(allow_parked) is bool, "停靠许可模式无效", "invalid_request", 400)
+    capacity = preflight.prepare(report_id, principal, allow_parked=allow_parked)
     proof = capacity.proof
     prepared = PreparedPermission(_TOKEN, capacity, proof["reportId"],
         proof["ownerEmail"], role)

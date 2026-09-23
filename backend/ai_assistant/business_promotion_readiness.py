@@ -23,6 +23,84 @@ DEADLINE_SECONDS = 180
 MAX_SCAN_ATTEMPTS = 3
 PARKED_CODE = "promotion_admission_not_registered"
 EVENT_SCHEMA = "business-promotion-screening-readiness-v1"
+RESUME_SCHEMA = "business-promotion-paused-resume-candidate-v1"
+_RESUME_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class PreparedResume:
+    _permission: object
+    _report_id: str
+    _run_id: str
+    _version: int
+    _reference_json: str
+    _digest: str
+
+    def __init__(self, token, permission, report_id, run_id, version, reference):
+        if token is not _RESUME_TOKEN:
+            raise AiError("词货停靠恢复候选只能从当前筛查根建立", "invalid_request", 400)
+        values = (report_id, run_id, version, canonical(reference))
+        for key, value in zip(("_report_id", "_run_id", "_version", "_reference_json"), values):
+            object.__setattr__(self, key, value)
+        object.__setattr__(self, "_permission", permission)
+        object.__setattr__(self, "_digest", digest(values))
+
+
+def prepare_resume_candidate(report_id, principal):
+    """Full capacity preparation for one exact parked version; no status write."""
+    from . import business_promotion_runtime_permission as permission
+    if connection.in_atomic_block:
+        raise AiError("词货恢复容量准备须在最外层事务之外", "invalid_request", 400)
+    prepared = permission.prepare(report_id, principal, "commerce", allow_parked=True)
+    proof = prepared.proof
+    row = m.AiWorkflowRuns.objects.filter(pk=proof["workflowId"]).first()
+    report = report_for(row) if row else None
+    if report is None or report.id != proof["reportId"] or row.version != proof["workflowVersion"]:
+        raise AiError("词货停靠流程版本已变化", "conflict", 409)
+    reference = _published(report, principal)
+    if canonical(reference) != canonical(proof["screeningReference"]):
+        raise AiError("词货停靠筛查发布根已变化", "conflict", 409)
+    candidate = PreparedResume(_RESUME_TOKEN, prepared, report.id, row.id, row.version, reference)
+    with mutation(principal):
+        check_resume_candidate(candidate, principal)
+    return candidate
+
+
+def check_resume_candidate(candidate, principal):
+    """Short CAS precondition; safe under mutation, with no external read."""
+    from . import business_promotion_runtime_permission as permission
+    if (type(candidate) is not PreparedResume
+            or digest((candidate._report_id, candidate._run_id,
+                candidate._version, candidate._reference_json)) != candidate._digest):
+        raise AiError("词货恢复候选内部结构已变化", "conflict", 409)
+    proof = permission.check(candidate._permission, principal)
+    current_principal(principal, admin=True, write=True)
+    row = m.AiWorkflowRuns.objects.filter(pk=candidate._run_id,
+        version=candidate._version, status="paused", retryable=0,
+        error_code=PARKED_CODE, cancel_requested=0).first()
+    report = report_for(row) if row else None
+    saved = m.AiBusinessScreeningRun.objects.filter(pk=proof["screeningReference"]["id"]).first()
+    if (row is None or report is None or report.id != candidate._report_id
+            or proof["workflowStatus"] != "paused"
+            or proof["workflowVersion"] != candidate._version
+            or saved is None or saved.report_id != report.id
+            or canonical(store._reference(saved)) != candidate._reference_json
+            or m.AiAgentJobs.objects.filter(workflow_run_id=row.id).exists()):
+        raise AiError("词货停靠恢复版本、筛查或子任务状态已变化", "conflict", 409)
+    return {"schemaVersion": RESUME_SCHEMA, "runId": row.id,
+        "reportId": report.id, "expectedVersion": row.version,
+        "fromStatus": "paused", "proposedStatus": "queued",
+        "screeningReference": json.loads(candidate._reference_json),
+        "capacityVerified": True, "runtimeAdmissionGranted": False,
+        "casApplied": False, "pipelineRegistered": False}
+
+
+def resume_cas(candidate, principal):
+    """No write until workflow_tick routes resumed promotion runs to pipeline."""
+    with mutation(principal):
+        check_resume_candidate(candidate, principal)
+        raise AiError("当前调度会将恢复的词货报告再次停靠，CAS 恢复尚未接入安全路由",
+            "promotion_pipeline_not_routed", 409)
 
 
 def available(query):
