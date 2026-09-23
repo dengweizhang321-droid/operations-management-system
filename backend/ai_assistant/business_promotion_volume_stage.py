@@ -1,8 +1,9 @@
-"""Internal renderer-7 durable staging; publication remains DB-blocked.
+"""Renderer-7 durable staging and verified publication.
 
 Only an already approved promotion report may issue a queued file run. A
 complete attempt stores immutable volume chunks and compact receipt, then
-pauses as staged_unpublished. No public create/download or ready transition.
+pauses as staged_unpublished. The completed workflow may then publish through
+the owning full-byte and approval verifier.
 """
 from datetime import timedelta
 import hashlib
@@ -46,8 +47,8 @@ def binding(report, principal, draft=False):
         actual.workflow.input_json, False])
 
 
-def create(report_id, principal):
-    """Internal only: queue a formal run after full approval, without a route."""
+def create(report_id, principal, *, commit=None):
+    """Queue a formal run after full approval and commit the signed receipt."""
     current_principal(principal, admin=True, write=True)
     report = reports.get(report_id, principal)
     fingerprint = binding(report, principal)
@@ -60,7 +61,8 @@ def create(report_id, principal):
         old = m.AiBusinessFileRun.objects.filter(report=latest, draft=False,
             renderer_version=VERSION, binding_digest=fingerprint).first()
         if old:
-            return {"item": files.mapping(authorize_owner(old, principal)), "replayed": True}
+            result = {"item": files.mapping(authorize_owner(old, principal)), "replayed": True}
+            return commit(result, 200) if commit is not None else result
         if m.AiBusinessFileRun.objects.filter(owner_email=principal.email.lower(),
                 status__in=["queued", "building", "paused"]).count() >= 2:
             raise AiError("未完成文件任务已达到上限", "rate_limited", 429)
@@ -70,10 +72,11 @@ def create(report_id, principal):
             owner_email=principal.email.lower(), draft=False, renderer_version=VERSION,
             binding_digest=fingerprint)
         files.audit(row, principal, "promotion_queued")
-        return {"item": files.mapping(row), "replayed": False}
+        result = {"item": files.mapping(row), "replayed": False}
+        return commit(result, 200) if commit is not None else result
 
 
-def control(run_id, action, expected_version, principal):
+def control(run_id, action, expected_version, principal, *, commit=None):
     """Internal pause/resume/rebuild/cancel with CAS and attempt isolation."""
     if action not in {"pause", "resume", "rebuild", "cancel"}:
         raise AiError("词货暂存动作无效")
@@ -100,7 +103,8 @@ def control(run_id, action, expected_version, principal):
         row.version += 1
         row.save()
         files.audit(row, principal, "promotion_"+action)
-        return {"item": files.mapping(row)}
+        result = {"item": files.mapping(row)}
+        return commit(result, 200) if commit is not None else result
 
 
 def _verify_staged(row, principal, checkpoint):
@@ -228,10 +232,10 @@ def build(row, principal, state):
         "version": saved.version, "attempt": saved.attempt}
 
 
-def _publication_fence(report_id, principal):
+def _publication_fence(report_id, principal, *, write=True):
     """Short database-only fence around the previously completed heavy proof."""
     from . import business_promotion_review as review
-    current_principal(principal, admin=True, write=True)
+    current_principal(principal, admin=True, write=write)
     report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
     flow = report.workflow
     roles = content_contract.ROLES
@@ -265,7 +269,7 @@ def _publication_fence(report_id, principal):
 
 
 def publish(run_id, expected_version, principal):
-    """Internal verified paused→ready CAS; public download remains disconnected."""
+    """Internal verified paused→ready CAS before bounded public download."""
     if connection.in_atomic_block:
         raise AiError("词货完整发布验证须在最外层事务之外", "invalid_request", 400)
     row = files.get(run_id, principal)
@@ -304,7 +308,9 @@ def publish(run_id, expected_version, principal):
             _conflict("词货文件发布事务内紧凑清单变化")
         saved.status = "ready"
         saved.error_code = ""
-        saved.progress_json = canonical({"stage": "ready"})
+        saved.progress_json = canonical({"stage": "ready",
+            "publicationFenceDigest": before,
+            "manifestFileSha256": compact["manifestFile"]["sha256"]})
         saved.version += 1
         saved.save()
         files.audit(saved, principal, "promotion_ready")

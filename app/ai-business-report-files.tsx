@@ -5,7 +5,7 @@ import { businessFileJson as api, businessFilePrincipal, businessVolumeManifest,
 const states: Record<string, string> = { queued: "等待生成", building: "生成中", paused: "已暂停", ready: "可下载", cancelled: "已取消" };
 const stages: Record<string, string> = { preparing: "整理完整明细", preparing_volume: "准备分卷", rendering: "生成文件", rendering_volume: "生成分卷", saving: "保存文件", verifying: "校验完整性", verifying_volume_file: "校验分卷文件", verifying_complete_delivery: "校验完整多卷交付", ready: "文件已就绪" };
 
-export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMode = false }: { reportId: string; allowFormal: boolean; volumeMode?: boolean }) {
+export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMode = false, formalOnly = false }: { reportId: string; allowFormal: boolean; volumeMode?: boolean; formalOnly?: boolean }) {
   const [items, setItems] = useState<BusinessFileRun[]>([]);
   const [directories, setDirectories] = useState<Record<string, { version: number; binding: string; manifest: BusinessVolumeManifest }>>({});
   const [principalKey, setPrincipalKey] = useState("");
@@ -97,7 +97,7 @@ export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMod
       const identity = await businessFilePrincipal({ signal: controller.signal });
       if (!current() || !principal(identity)) return;
       const options = { signal: controller.signal, onProgress: (received: number, total: number) => { if (current()) setProgress(Math.floor(received/total*100)); } };
-      const result = (item.rendererVersion === 4 || item.rendererVersion === 6)
+      const result = (item.rendererVersion === 4 || item.rendererVersion === 6 || item.rendererVersion === 7)
         ? await downloadBusinessVolume(item.id, volumeIndex!, format, { ...options, expectedPrincipalKey: key })
         : format !== "json" ? await downloadBusinessFile(item.id, format, options) : null;
       if (!result || !current()) return;
@@ -111,15 +111,15 @@ export default function AiBusinessReportFiles({ reportId, allowFormal, volumeMod
     finally { if (download.current === controller) { download.current = null; if (live.current && actor.current === key) setProgress(null); } }
   }
   const disabled = busy || progress !== null || !principalKey;
-  const createBody = (draft: boolean) => volumeMode ? { deliveryMode: "volumes", draft, expectedPrincipalKey: principalKey } : { draft };
+  const createBody = (draft: boolean) => volumeMode || formalOnly ? { deliveryMode: "volumes", draft, expectedPrincipalKey: principalKey } : { draft };
   return <section className="report-review" aria-label="完整经营报告文件"><h4>完整报告文件</h4><p className="report-note">HTML 与 Excel 包含同一份封存证据、诊断及明细。生成无需保持网页打开，下载前会校验完整文件。</p>
     {readError && <p role="alert">{readError}</p>}{writeError && <p role="alert">{writeError}</p>}{notice && <p role="status">{notice}</p>}
     {volumeMode && <p className="report-note">多卷报告须保留完整交付清单及各卷；单卷只含其中一部分表。请选择单个文件下载。</p>}
-    <div className="report-actions"><button disabled={disabled} onClick={() => void mutate(base, createBody(true))}>{volumeMode ? "生成多卷草稿" : "生成双文件草稿"}</button>{allowFormal && <button className="primary-button" disabled={disabled} onClick={() => void mutate(base, createBody(false))}>{volumeMode ? "生成已复核多卷文件" : "生成已复核双文件"}</button>}<button disabled={busy} onClick={() => void load()}>刷新文件状态</button></div>
+    <div className="report-actions">{!formalOnly && <button disabled={disabled} onClick={() => void mutate(base, createBody(true))}>{volumeMode ? "生成多卷草稿" : "生成双文件草稿"}</button>}{allowFormal && <button className="primary-button" disabled={disabled} onClick={() => void mutate(base, createBody(false))}>{volumeMode ? "生成已复核多卷文件" : "生成已复核双文件"}</button>}<button disabled={busy} onClick={() => void load()}>刷新文件状态</button></div>
     {progress !== null && <p role="status">下载校验 {progress}% <button onClick={() => download.current?.abort()}>取消下载</button></p>}
     {items.map(item => <div className="report-review" key={item.id}><p><strong>{item.draft ? "草稿" : "已复核报告"}</strong> · {states[item.status] ?? item.status} · {stages[item.progress.stage ?? ""] ?? ""}{item.progress.table ? ` · 第 ${item.progress.table} 张表` : ""}{item.progress.rows ? ` · ${item.progress.rows} 行` : ""}</p>
       {item.errorCode && <p className="report-note">生成已暂停，错误标识：{item.errorCode}。恢复会优先核验已完整保存的文件；重新构建会保留旧记录。</p>}
-      <div className="report-actions">{item.status === "ready" && ((item.rendererVersion === 4 || item.rendererVersion === 6) ? <button disabled={disabled} onClick={() => void directory(item)}>查看分卷文件</button> : <><button className="primary-button" disabled={disabled} onClick={() => void save(item, "html")}>下载 HTML</button><button disabled={disabled} onClick={() => void save(item, "xlsx")}>下载 Excel</button></>)}
+      <div className="report-actions">{item.status === "ready" && ((item.rendererVersion === 4 || item.rendererVersion === 6 || item.rendererVersion === 7) ? <button disabled={disabled} onClick={() => void directory(item)}>查看分卷文件</button> : <><button className="primary-button" disabled={disabled} onClick={() => void save(item, "html")}>下载 HTML</button><button disabled={disabled} onClick={() => void save(item, "xlsx")}>下载 Excel</button></>)}
         {["queued", "building"].includes(item.status) && <button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "pause", expectedVersion: item.version })}>暂停生成</button>}
         {item.status === "paused" && <><button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "resume", expectedVersion: item.version })}>恢复生成</button><button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "rebuild", expectedVersion: item.version })}>重新构建</button></>}
         {!["ready", "cancelled"].includes(item.status) && <button disabled={disabled} onClick={() => void mutate(`/api/ai/business-files/${item.id}/control`, { action: "cancel", expectedVersion: item.version })}>取消生成任务</button>}</div>

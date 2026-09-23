@@ -3,11 +3,11 @@ import { fetchBoundedJson } from "./bounded-fetch";
 export type BusinessFileRun = {
   id: string; reportId: string; draft: boolean; status: string; version: number; attempt: number;
   bindingDigest: string; storedBytes: number; errorCode: string; rendererVersion?: number;
-  progress: { stage?: string; sourcePage?: number; table?: number; rows?: number; chunks?: number; bytes?: number; volumeIndex?: number; volumeCount?: number };
+  progress: { stage?: string; sourcePage?: number; table?: number; rows?: number; chunks?: number; bytes?: number; volumeIndex?: number; volumeCount?: number; publicationFenceDigest?: string; manifestFileSha256?: string };
   manifest: { schemaVersion: "business-file-delivery-v1"; attempt: number; bindingDigest: string; draft: boolean; files: Record<"html" | "xlsx", BusinessFile> } | BusinessVolumeManifest | null;
 };
 export type BusinessVolumeFile = { volumeIndex: number; format: "html" | "xlsx" | "json"; bytes: number; sha256: string; chunkCount: number };
-export type BusinessVolumeManifest = { schemaVersion: "business-file-delivery-v2"; rendererVersion: 4 | 6; bindingDigest: string; attempt: number; draft: boolean; volumeCount: number; files: BusinessVolumeFile[]; manifestFile: BusinessVolumeFile };
+export type BusinessVolumeManifest = { schemaVersion: "business-file-delivery-v2"; rendererVersion: 4 | 6 | 7; bindingDigest: string; attempt: number; draft: boolean; volumeCount: number; files: BusinessVolumeFile[]; manifestFile: BusinessVolumeFile };
 type BusinessFile = { bytes: number; chunkCount: number; chunkBytes: number; sha256: string; fileName: string; mimeType: string };
 const digestPattern = /^[a-f0-9]{64}$/;
 const idPattern = /^[A-Za-z0-9_-]{1,160}$/;
@@ -69,7 +69,7 @@ function exactKeys(value: object, keys: string[]) {
 /** Validate and detach the complete compact manifest before listing/downloading. */
 export function businessVolumeManifest(item: BusinessFileRun, runId = item?.id): BusinessVolumeManifest {
   const value = item?.manifest;
-  if (!idPattern.test(runId) || item?.id !== runId || !idPattern.test(item.reportId) || item.status !== "ready" || (item.rendererVersion !== 4 && item.rendererVersion !== 6) || !Number.isSafeInteger(item.version) || item.version < 1 || !Number.isInteger(item.attempt) || item.attempt < 1 || item.attempt > 5 || typeof item.draft !== "boolean" || !digestPattern.test(item.bindingDigest) || value?.schemaVersion !== "business-file-delivery-v2") throw fail();
+  if (!idPattern.test(runId) || item?.id !== runId || !idPattern.test(item.reportId) || item.status !== "ready" || (item.rendererVersion !== 4 && item.rendererVersion !== 6 && item.rendererVersion !== 7) || !Number.isSafeInteger(item.version) || item.version < 1 || !Number.isInteger(item.attempt) || item.attempt < 1 || item.attempt > 5 || typeof item.draft !== "boolean" || !digestPattern.test(item.bindingDigest) || value?.schemaVersion !== "business-file-delivery-v2") throw fail();
   exactKeys(value, ["schemaVersion", "rendererVersion", "bindingDigest", "attempt", "draft", "volumeCount", "files", "manifestFile"]);
   if (value.rendererVersion !== item.rendererVersion || value.bindingDigest !== item.bindingDigest || value.attempt !== item.attempt || value.draft !== item.draft || !Number.isInteger(value.volumeCount) || value.volumeCount < 1 || value.volumeCount > 100 || !Array.isArray(value.files) || value.files.length !== 2*value.volumeCount) throw fail();
   function descriptor(file: BusinessVolumeFile, index: number, format: BusinessVolumeFile["format"]): BusinessVolumeFile {
@@ -79,6 +79,7 @@ export function businessVolumeManifest(item: BusinessFileRun, runId = item?.id):
   }
   const files = value.files.map((file, i) => descriptor(file, Math.floor(i/2)+1, i%2 ? "xlsx" : "html"));
   const manifestFile = descriptor(value.manifestFile, 0, "json");
+  if (item.rendererVersion === 7 && (item.draft || item.progress?.stage !== "ready" || !digestPattern.test(item.progress.publicationFenceDigest ?? "") || item.progress.manifestFileSha256 !== manifestFile.sha256)) throw fail();
   if (files.reduce((sum, file) => sum+file.bytes, manifestFile.bytes) > 1024*1024*1024) throw fail();
   return { schemaVersion: "business-file-delivery-v2", rendererVersion: item.rendererVersion, bindingDigest: item.bindingDigest, attempt: item.attempt, draft: item.draft, volumeCount: value.volumeCount, files, manifestFile };
 }
@@ -93,6 +94,7 @@ export async function downloadBusinessVolume(runId: string, volumeIndex: number,
   const base = "/api/ai/business-files/"+runId;
   const { item } = await businessFileJson<{ item: BusinessFileRun }>(base, {}, options);
   const manifest = businessVolumeManifest(item, runId), signature = JSON.stringify(manifest);
+  const publicationFence = item.rendererVersion === 7 ? item.progress.publicationFenceDigest : null;
   const file = [...manifest.files, manifest.manifestFile].find(file => file.volumeIndex === volumeIndex && file.format === format);
   if (!file) throw fail();
   const bytes = new Uint8Array(file.bytes);
@@ -110,7 +112,7 @@ export async function downloadBusinessVolume(runId: string, volumeIndex: number,
   }
   if (received !== file.bytes || await sha256(bytes) !== file.sha256) throw fail();
   const fresh = await businessFileJson<{ item: BusinessFileRun }>(base, {}, options);
-  if (JSON.stringify(businessVolumeManifest(fresh.item, runId)) !== signature || fresh.item.version !== item.version || fresh.item.reportId !== item.reportId) throw fail();
+  if (JSON.stringify(businessVolumeManifest(fresh.item, runId)) !== signature || fresh.item.version !== item.version || fresh.item.reportId !== item.reportId || (publicationFence !== null && fresh.item.progress.publicationFenceDigest !== publicationFence)) throw fail();
   await identity();
   const mime = format === "json" ? "application/json;charset=utf-8" : format === "html" ? "text/html;charset=utf-8" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const fileName = volumeIndex === 0 ? `${item.reportId}-完整交付清单.json` : `${item.reportId}-volume-${String(volumeIndex).padStart(3, "0")}-of-${String(manifest.volumeCount).padStart(3, "0")}.${format}`;

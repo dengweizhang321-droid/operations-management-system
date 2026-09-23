@@ -151,6 +151,17 @@ def listing(report_id, principal):
 
 def create(report_id, body, principal, *, commit=None):
     if body.get("deliveryMode") == "volumes":
+        report = reports.get(report_id, principal)
+        if json.loads(report.snapshot_json).get("executionProfile") == "business-agent-screening-promotion-reference-v1":
+            fields(body, {"deliveryMode", "draft", "expectedPrincipalKey"},
+                {"deliveryMode", "draft", "expectedPrincipalKey"})
+            if (body["deliveryMode"] != "volumes"
+                    or boolean(body["draft"], "draft") != 0
+                    or body["expectedPrincipalKey"] != business_evidence.principal_key(principal)
+                    or report.workflow.status != "completed"):
+                raise AiError("词货正式多卷文件须绑定当前账号及已完成人审报告", "conflict", 409)
+            from .business_promotion_volume_stage import create as promotion_create
+            return promotion_create(report_id, principal, commit=commit)
         from .business_volume_files import create as create_volumes
         return create_volumes(report_id, body, principal, commit=commit)
     fields(body, {"draft"})
@@ -179,7 +190,8 @@ def control(run_id, body, principal, *, commit=None):
         candidate = get(run_id, principal)
         if candidate.renderer_version == 7:
             from .business_promotion_volume_stage import control as promotion_control
-            return promotion_control(run_id, body["action"], body["expectedVersion"], principal)
+            return promotion_control(run_id, body["action"], body["expectedVersion"], principal,
+                commit=commit)
         if json.loads(candidate.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
             cas(candidate, body["expectedVersion"])
             if candidate.status != "paused":
@@ -402,8 +414,18 @@ def tick():
                 audit(saved, principal, "claimed")
             state.update(version=saved.version, attempt=saved.attempt)
             if saved.renderer_version == 7:
-                from .business_promotion_volume_stage import build as promotion_build
-                return promotion_build(saved, principal, state)
+                from .business_promotion_volume_stage import build as promotion_build, publish as promotion_publish
+                staged = promotion_build(saved, principal, state)
+                if staged["status"] != "staged_unpublished":
+                    return staged
+                if saved.report.workflow.status != "completed":
+                    return staged
+                try:
+                    return {"status": "ready", **promotion_publish(saved.id, staged["version"], principal)}
+                except AiError as error:
+                    # The complete staged bytes remain paused for a later
+                    # authorized resume. An uncertain outcome is never replayed.
+                    return {"status": "paused", "runId": saved.id, "errorCode": error.code}
             if saved.renderer_version in (4, 6):
                 from .business_volume_files import build
                 return build(saved, principal, state)

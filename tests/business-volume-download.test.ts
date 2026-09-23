@@ -121,3 +121,44 @@ for (const version of [4, 6] as const) {
     assert.throws(() => businessVolumeManifest(f.item, "file_1"));
   });
 }
+
+test("renderer 7 verifies published approval fence and full selected file", async () => {
+  const f = fixture(15);
+  if (f.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
+  f.item.rendererVersion = f.item.manifest.rendererVersion = 7;
+  f.item.draft = f.item.manifest.draft = false;
+  f.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
+    manifestFileSha256: f.item.manifest.manifestFile.sha256 };
+  const result = await downloadBusinessVolume("file_1", 2, "xlsx", {
+    fetcher: f.fetcher, expectedPrincipalKey: actor });
+  assert.deepEqual(Buffer.from(await result.blob.arrayBuffer()), f.bytes);
+  for (const mutate of [
+    (item: BusinessFileRun) => { item.draft = true; },
+    (item: BusinessFileRun) => { item.progress.publicationFenceDigest = "bad"; },
+    (item: BusinessFileRun) => { item.progress.manifestFileSha256 = "0".repeat(64); },
+    (item: BusinessFileRun) => { item.progress.stage = "staged_unpublished"; },
+  ]) {
+    const changed = fixture(15);
+    if (changed.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
+    changed.item.rendererVersion = changed.item.manifest.rendererVersion = 7;
+    changed.item.draft = changed.item.manifest.draft = false;
+    changed.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
+      manifestFileSha256: changed.item.manifest.manifestFile.sha256 };
+    mutate(changed.item);
+    assert.throws(() => businessVolumeManifest(changed.item));
+  }
+});
+
+test("renderer 7 final root recheck rejects changed publication fence", async () => {
+  const f = fixture(9);
+  if (f.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
+  f.item.rendererVersion = f.item.manifest.rendererVersion = 7;
+  f.item.draft = f.item.manifest.draft = false;
+  f.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
+    manifestFileSha256: f.item.manifest.manifestFile.sha256 };
+  f.hooks.root = (item, read) => {
+    if (read === 2) item.progress.publicationFenceDigest = "f".repeat(64);
+  };
+  await assert.rejects(downloadBusinessVolume("file_1", 1, "html", {
+    fetcher: f.fetcher, expectedPrincipalKey: actor }));
+});

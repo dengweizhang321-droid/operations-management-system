@@ -302,7 +302,8 @@ def _dispatch(request, path=""):
                 if request.method == "GET":
                     return response(business_files.listing(parts[1], principal))
                 fixed = reports.get(parts[1], principal)
-                if json.loads(fixed.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                if json.loads(fixed.snapshot_json).get("executionProfile") in {
+                        "business-agent-screening-reference-v1", "business-agent-screening-promotion-reference-v1"}:
                     return write(request, principal, lambda commit: business_files.create(parts[1], payload, principal, commit=commit),
                         external=True, commit_in_handler=True)
                 return write(request, principal, lambda: (business_files.create(parts[1], payload, principal), 200))
@@ -317,13 +318,17 @@ def _dispatch(request, path=""):
             fields(params, set())
             if payload.get("action") in {"resume", "rebuild"}:
                 fixed = business_files.get(parts[1], principal)
-                if json.loads(fixed.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
+                if json.loads(fixed.report.snapshot_json).get("executionProfile") in {
+                        "business-agent-screening-reference-v1", "business-agent-screening-promotion-reference-v1"}:
                     return write(request, principal, lambda commit: business_files.control(parts[1], payload, principal, commit=commit),
                         external=True, commit_in_handler=True)
             return write(request, principal, lambda: (business_files.control(parts[1], payload, principal), 200))
         if root == "business-reports":
             fields(params, set())
             if "analysisMode" in payload:
+                if (payload.get("analysisMode") == "screening-promotion-v1"
+                        and getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is not True):
+                    raise AiError("词货五角色分析尚未启用", "promotion_runtime_not_ready", 409)
                 return write(request, principal, lambda commit: business_reports.create(payload, principal, commit=commit),
                     external=True, commit_in_handler=True)
             return write(request, principal, lambda: (business_reports.create(payload, principal), 200))

@@ -81,7 +81,11 @@ class PromotionReadyTests(djtest.TransactionTestCase):
             self.assertEqual(result["item"]["manifest"]["rendererVersion"], 7)
             row.refresh_from_db()
             self.assertEqual(row.status, "ready")
-            self.assertEqual(row.progress_json, '{"stage":"ready"}')
+            progress = json.loads(row.progress_json)
+            self.assertEqual(progress["stage"], "ready")
+            self.assertEqual(len(progress["publicationFenceDigest"]), 64)
+            self.assertEqual(progress["manifestFileSha256"],
+                result["item"]["manifest"]["manifestFile"]["sha256"])
             with self.assertRaises(AiError):
                 business_volume_files.chunk(row.id, "1", "html", {"sequence": "1"}, self.admin)
             with self.assertRaises(AiError): stage.publish(row.id, row.version, self.admin)
