@@ -815,12 +815,17 @@ def workflow_tick():
     # No external request inside this transaction. A single domain mutex protects
     # child creation, stable node identity and parent observation atomically.
     from . import business_screening_readiness, business_screening_pipeline
+    from . import business_promotion_readiness
     eligible = business_screening_readiness.available(m.AiWorkflowRuns.objects.filter(
         status__in=["queued", "running"], next_run_at__lte=timezone.now()
     ))
     candidate, principal, error = prepared_candidate(eligible)
     if not candidate:
         return {"status": "idle"}
+    if not error and business_promotion_readiness.report_for(candidate) is not None:
+        # This new profile may publish its fixed rule scan, then parks before
+        # Agent creation until the independent four-tool admission is complete.
+        return business_promotion_readiness.advance(candidate, principal)
     if not error and business_screening_readiness.report_for(candidate) is not None:
         return business_screening_readiness.advance(candidate,principal,
             on_ready=lambda row,prepared:business_screening_pipeline.step(row,prepared,principal))

@@ -1,8 +1,8 @@
 """Internal leased rule scan for promotion reports, without Agent admission.
 
-This module is deliberately not registered with the scheduler. A future
-profile-specific scheduler branch may call ``advance``; successful publication
-parks the workflow until the new four-tool admission protocol is available.
+The scheduler routes only this new profile to ``advance``. Successful
+publication parks the workflow until the four-tool Agent admission protocol is
+available; no model or Agent job can start through this path.
 """
 from dataclasses import dataclass
 from datetime import timedelta
