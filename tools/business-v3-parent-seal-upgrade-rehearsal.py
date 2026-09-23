@@ -21,7 +21,7 @@ from django.db.migrations.executor import MigrationExecutor
 from ai_assistant import business_daily_collection_v3 as daily, business_v3_seal as seal
 from ai_assistant import models as m, transport
 from ai_assistant.policy import AiError, canonical, digest
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V3_REPORT_INTENTS as AI_TABLES
 from business_analysis.contracts import comparison_periods
 from sales.auth import Principal
 

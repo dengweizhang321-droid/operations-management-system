@@ -21,7 +21,7 @@ from . import business_diagnostic_screening as screening, models as m
 from . import test_business_diagnostic_screening as fixtures
 from .database_contract import MODELS, READ_TABLES, WRITER_PRIVILEGES
 from .policy import canonical, digest
-from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS
+from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS
 
 
 def row_values(bundle, tag):
@@ -79,10 +79,13 @@ def variant(bundle, tag):
 
 class InventoryTests(TestCase):
     def test_exact_models_tables_and_append_only_grants(self):
-        self.assertEqual(len(AI_TABLES),66)
+        self.assertEqual(len(AI_TABLES),67)
         self.assertEqual(len(AI_TABLES_PRE_TOOL_RECEIPTS), 65)
-        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_TOOL_RECEIPTS),
+        self.assertEqual(len(AI_TABLES_PRE_V3_REPORT_INTENTS), 66)
+        self.assertEqual(set(AI_TABLES_PRE_V3_REPORT_INTENTS) - set(AI_TABLES_PRE_TOOL_RECEIPTS),
                          {"ai_business_source_tool_receipts"})
+        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V3_REPORT_INTENTS),
+                         {"ai_business_v3_report_intents"})
         self.assertEqual(set(AI_TABLES),set(MODELS))
         for table, model in (("ai_business_screening_runs",m.AiBusinessScreeningRun),
                 ("ai_business_screening_pages",m.AiBusinessScreeningPage)):

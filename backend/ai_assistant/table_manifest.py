@@ -71,5 +71,8 @@ AI_TABLES_PRE_TOOL_RECEIPTS = (
     "ai_write_request_receipts",
 )
 
+# Frozen 0032–0033 inventory. Later tables must not rewrite prior backup proofs.
+AI_TABLES_PRE_V3_REPORT_INTENTS = (*AI_TABLES_PRE_TOOL_RECEIPTS, "ai_business_source_tool_receipts")
+
 # New migrations extend only the current manifest, not historical inventories.
-AI_TABLES = (*AI_TABLES_PRE_TOOL_RECEIPTS, "ai_business_source_tool_receipts")
+AI_TABLES = (*AI_TABLES_PRE_V3_REPORT_INTENTS, "ai_business_v3_report_intents")

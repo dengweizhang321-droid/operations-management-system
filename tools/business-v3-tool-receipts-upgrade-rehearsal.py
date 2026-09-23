@@ -25,7 +25,8 @@ from django.utils import timezone
 
 from ai_assistant import business_evidence_v3 as plan, business_v3_tool_receipts as receipts, models as m
 from ai_assistant.database_contract import provision
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS
+from ai_assistant.table_manifest import AI_TABLES_PRE_V3_REPORT_INTENTS as AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS
 from ai_assistant.policy import AiError, canonical, digest
 from business_analysis import finance_collection_state as verifier
 from business_analysis.test_finance_collection_state import owned_page, sources as finance_fixture

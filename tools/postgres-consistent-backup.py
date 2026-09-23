@@ -291,6 +291,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0034_business_v3_report_intent" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_v3_report_intents")
+            elif "0033_business_v3_parent_seal" not in ai_migrations:
+                raise RuntimeError("AI v3 paused intent schema has no sealed parent predecessor")
             if "0032_business_source_tool_receipts" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_source_tool_receipts")
             elif "0031_business_daily_v3_source_pages" not in ai_migrations:

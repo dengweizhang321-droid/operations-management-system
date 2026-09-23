@@ -44,5 +44,6 @@ def prepare(body, principal):
     catalog.unchanged(row, current_actor, sources, principal)
     if plan._actor(principal) != actor:
         raise AiError("v3候选形成期间账号权限变化", "access_denied", 403)
-    return {"candidate": candidate, "reportGenerationSupported": False,
+    return {"candidate": candidate, "verifiedSeal": value,
+            "reportGenerationSupported": False,
             "modelDispatchSupported": False, "fileGenerationSupported": False}

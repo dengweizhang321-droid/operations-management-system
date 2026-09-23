@@ -432,6 +432,10 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0031_business_daily_v3_source_pages" }).Count -ne 1) { throw "AI v3工具收据迁移缺少日来源前驱迁移" }
       $requiredTables += @("ai_business_source_tool_receipts")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0034_business_v3_report_intent" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0033_business_v3_parent_seal" }).Count -ne 1) { throw "AI v3暂停报告意图迁移缺少封存前驱迁移" }
+      $requiredTables += @("ai_business_v3_report_intents")
+    }
     if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -gt 0) {
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -ne 1) { throw "AI 多卷文件迁移缺少前置来源目录迁移" }
       $requiredTables += @("ai_business_volume_chunks")

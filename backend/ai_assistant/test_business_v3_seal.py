@@ -18,7 +18,7 @@ from . import business_daily_collection_v3 as daily, business_evidence_v3 as pla
 from . import business_evidence as legacy, business_finance_collection_v3 as finance
 from . import business_v3_catalog as catalog
 from . import business_report_candidate_v3 as candidate
-from . import business_v3_seal as seal, models as m, transport
+from . import business_v3_report_intent as intent, business_v3_seal as seal, models as m, transport
 from .policy import AiError, digest, uid
 
 
@@ -211,3 +211,70 @@ class BusinessV3SealTests(TestCase):
                 "requestedWindows": ["current"]}}, self.principal)
         with self.assertRaises(AiError):
             candidate.prepare({**request, "evidenceRunId": old["item"]["id"]}, self.principal)
+
+    def test_inert_report_intent_is_paused_idempotent_and_has_no_jobs(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        request = {"schemaVersion": intent.REQUEST_SCHEMA, "clientRequestId": "v3-intent-one",
+            "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}
+        with patch.object(transport, "execute_tool") as remote:
+            first = intent.create(request, self.principal)
+            replayed = intent.create(request, self.principal)
+            loaded = intent.inspect(first["item"]["id"], self.principal)
+            remote.assert_not_called()
+        self.assertFalse(first["replayed"])
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(first["item"], replayed["item"])
+        self.assertEqual(first["item"]["status"], "paused")
+        self.assertEqual(first["item"]["pauseReason"], "v3_agents_not_registered")
+        self.assertIsNone(first["item"]["workflowRunId"])
+        self.assertEqual(loaded["candidate"]["reference"]["sealedDigest"], request["expectedSealDigest"])
+        self.assertEqual(loaded["workflowPlan"]["nodes"][-1]["key"], "human_review")
+        self.assertTrue(loaded["workflowPlan"]["humanReviewRequired"])
+        self.assertEqual(m.AiBusinessV3ReportIntent.objects.count(), 1)
+        self.assertFalse(m.AiReportRun.objects.exists())
+        self.assertFalse(m.AiWorkflowRuns.objects.exists())
+        self.assertFalse(m.AiAgentJobs.objects.exists())
+        self.assertFalse(m.AiAgentProviderDispatches.objects.exists())
+        self.assertFalse(m.AiAgentToolResults.objects.exists())
+        row = m.AiBusinessV3ReportIntent.objects.get(pk=first["item"]["id"])
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            m.AiBusinessV3ReportIntent.objects.filter(pk=row.pk).update(status="queued")
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            row.delete()
+
+    def test_intent_rejects_stale_actor_profile_parent_race_and_direct_forgery(self):
+        self.collect()
+        sealed = seal.finish(self.run_id, 3, self.principal)
+        body = {"schemaVersion": intent.REQUEST_SCHEMA, "clientRequestId": "v3-intent-two",
+            "executionProfile": "business-agent-reference-v3-candidate",
+            "evidenceRunId": self.run_id, "expectedEvidenceVersion": sealed["version"],
+            "expectedSealDigest": sealed["seal"]["sealedDigest"]}
+        with self.assertRaises(AiError): intent.create({**body, "executionProfile": "business-agent-reference-v2"}, self.principal)
+        with self.assertRaises(AiError): intent.create({**body, "expectedSealDigest": "0" * 64}, self.principal)
+        original = intent.authorize_owner
+        def changed_after_preparation(row, actor):
+            current = original(row, actor)
+            current.state_json = "{}"  # exact locked parent differs from preverified seal
+            return current
+        with patch.object(intent, "authorize_owner", side_effect=changed_after_preparation):
+            with self.assertRaises(AiError): intent.create(body, self.principal)
+        self.assertFalse(m.AiBusinessV3ReportIntent.objects.exists())
+        with transaction.atomic():
+            self.actor.status = "inactive"; self.actor.save(update_fields=["status"])
+            with self.assertRaises(AiError): intent.create(body, self.principal)
+            transaction.set_rollback(True)
+        good = intent.create(body, self.principal)
+        row = m.AiBusinessV3ReportIntent.objects.get(pk=good["item"]["id"])
+        clone = {field: getattr(row, field) for field in ("owner_email", "scope_json",
+            "request_digest", "evidence_run", "evidence_version", "sealed_digest",
+            "candidate_digest", "snapshot_digest", "snapshot_json", "workflow_input_digest",
+            "workflow_input_json", "workflow_plan_digest", "workflow_plan_json", "status", "pause_reason")}
+        for changed in ({"status": "queued"}, {"pause_reason": "approved"},
+                        {"snapshot_digest": "0" * 64}, {"workflow_plan_digest": "0" * 64}):
+            with self.subTest(changed=changed), self.assertRaises(DatabaseError), transaction.atomic():
+                m.AiBusinessV3ReportIntent.objects.create(id=uid("intent"),
+                    client_request_id=uid("forged"), **{**clone, **changed})
+        self.assertEqual(m.AiBusinessV3ReportIntent.objects.count(), 1)

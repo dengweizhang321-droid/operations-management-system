@@ -93,3 +93,32 @@ class AiBusinessSourceToolReceipt(models.Model):
         constraints = [models.UniqueConstraint(fields=["run", "source", "sequence"],
             name="ai_business_source_tool_seq_uq")]
         indexes = [models.Index(fields=["run", "source", "sequence"], name="ai_business_tool_receipt_idx")]
+
+
+class AiBusinessV3ReportIntent(models.Model):
+    """Paused, unregistered v3 five-agent intent; never a runnable workflow."""
+    id = models.CharField(primary_key=True, max_length=160)
+    owner_email = models.CharField(max_length=320)
+    scope_json = models.TextField(default="null")
+    client_request_id = models.CharField(max_length=160)
+    request_digest = models.CharField(max_length=64)
+    evidence_run = models.ForeignKey(AiBusinessEvidenceRun, on_delete=models.PROTECT)
+    evidence_version = models.PositiveIntegerField()
+    sealed_digest = models.CharField(max_length=64)
+    candidate_digest = models.CharField(max_length=64)
+    snapshot_digest = models.CharField(max_length=64)
+    snapshot_json = models.TextField()
+    workflow_input_digest = models.CharField(max_length=64)
+    workflow_input_json = models.TextField()
+    workflow_plan_digest = models.CharField(max_length=64)
+    workflow_plan_json = models.TextField()
+    status = models.CharField(max_length=20, default="paused")
+    pause_reason = models.CharField(max_length=64, default="v3_agents_not_registered")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "ai_business_v3_report_intents"
+        constraints = [models.UniqueConstraint(fields=["owner_email", "client_request_id"],
+            name="ai_v3_intent_client_uq")]
+        indexes = [models.Index(fields=["owner_email", "-created_at"],
+            name="ai_v3_intent_owner_idx")]
