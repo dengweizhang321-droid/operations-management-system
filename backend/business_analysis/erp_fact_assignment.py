@@ -23,6 +23,8 @@ ALGORITHM = "exact-online-spec-to-current-master-per-fact-v1"
 MAX_SCRATCH_BYTES = previous.MAX_SCRATCH_BYTES
 MAX_FACT_ROWS = previous.MAX_SOURCE_PAGES * 100
 MAX_ROW_BYTES = 38_000
+MAX_CANDIDATE_ROWS = 256
+MAX_CANDIDATE_BYTES = 30_000
 
 
 def _need(ok, message="ERP逐事实归属与封存来源不一致"):
@@ -175,6 +177,11 @@ class _Ledger(previous._Result):
     def _candidate_rows(self, code):
         if code is None or code == "":
             return []
+        count, size = self._db.execute(
+            "SELECT COUNT(*),COALESCE(SUM(LENGTH(CAST(payload AS BLOB))),0) "
+            "FROM candidates WHERE code=?", (code,)).fetchone()
+        _need(count <= MAX_CANDIDATE_ROWS and size <= MAX_CANDIDATE_BYTES,
+            "完整主数据候选超过单ERP行固定容量，禁止截断")
         return [json.loads(raw) for (raw,) in self._db.execute(
             "SELECT payload FROM candidates WHERE code=? ORDER BY master_row_id COLLATE BINARY",
             (code,))]

@@ -6,4 +6,4 @@
 
 ERP `netSalesCents` 保留退款负额，`refundCents` 为该负额的绝对值；`costCents` 可为零或负，`grossProfitCents=netSalesCents-costCents`。这些是源销售毛利而非 SKU 净利润或成本质量认证。账本不读取或加总网店支付、推广归因、B 端和月财报。当前主数据不能证明历史所有权，返回 `authorityVerified=false`、`historicalOwnershipVerified=false`、`netshopAdFinanceCombined=false`。
 
-临时磁盘最多 256 MiB，输入合计最多 64 MiB、2,000 页/每页最多 100 行，ERP 事实最多 200,000 行，单条含**全部**主数据候选的输出最多 38,000 UTF-8 字节。过量时整次失败，不把全候选截断成“前两个”或把大来源冒充完整 v2 证据。现阶段没有 owning DB 服务、Agent 读取回执、跨来源 KPI 数值或正式 HTML/XLSX；下一步须由当前封存 Reader 提供真实页，并把本账本与各来源控制总额及待分配池逐项对账。
+临时磁盘最多 256 MiB，输入合计最多 64 MiB、2,000 页/每页最多 100 行，ERP 事实最多 200,000 行，单条含**全部**主数据候选的输出最多 38,000 UTF-8 字节。读取同一编码候选前先在临时库计数和计算规范 JSON 的 UTF-8 字节数：最多 256 条、30,000 字节；超过任一上限则在装载候选前整次失败，不截断或将大集合载入内存。最终完整 ERP 行仍受 38,000 字节门禁。现阶段没有 owning DB 服务、Agent 读取回执、跨来源 KPI 数值或正式 HTML/XLSX；下一步须由当前封存 Reader 提供真实页，并把本账本与各来源控制总额及待分配池逐项对账。

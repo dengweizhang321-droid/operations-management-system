@@ -169,31 +169,33 @@ class ErpFactAssignmentTests(TestCase):
             self.assertEqual(rows[1]["metrics"]["refundCents"], 15)
 
     def test_ambiguous_candidate_list_is_never_truncated(self):
-        sp, se, mp, me = fixture()
         facts = [sales(1, "MANY", "P1", 15)]
-        masters = [master(i, "MANY", f"S{i:04}"+"X"*130,
-            f"P{i:04}") for i in range(1, 300)]
         sp, se = page(SALES, facts)
-        mp, me = page(MASTER, masters[:100])
-        # A single page cannot claim the other 199 candidates. Construct a
-        # complete three-page chain to prove failure is capacity, not truncation.
-        pages = []
-        for start in (0, 100, 200):
-            subset = masters[start:start+100]
-            part, _ = page(MASTER, subset)
-            value = part[0]
-            value["control"] = {"rowCount": len(masters), "typedTotals": {}} if start == 0 else None
-            if start:
-                value["coverage"] = None
-            value["pagination"].update(hasMore=start+100 < len(masters),
-                nextCursor=str(start+100) if start+100 < len(masters) else None)
-            pages.append(value)
-        verifier = PageReconciler()
-        for part in pages:
-            verifier.consume(part, request_cursor=verifier.expected_cursor)
-        with self.assertRaises(AnalysisContractError):
-            with self.opened(sp, se, pages, verifier.result()):
-                pass
+        for total, padding in ((299, 0), (120, 300)):
+            with self.subTest(total=total, padding=padding):
+                masters = [master(i, "MANY", f"S{i:04}"+"X"*padding,
+                    f"P{i:04}") for i in range(1, total+1)]
+                pages = []
+                for start in range(0, total, 100):
+                    subset = masters[start:start+100]
+                    part, _ = page(MASTER, subset)
+                    value = part[0]
+                    value["control"] = {"rowCount": total,
+                        "typedTotals": {}} if start == 0 else None
+                    if start:
+                        value["coverage"] = None
+                    value["pagination"].update(hasMore=start+100 < total,
+                        nextCursor=str(start+100) if start+100 < total else None)
+                    pages.append(value)
+                verifier = PageReconciler()
+                for part in pages:
+                    verifier.consume(part, request_cursor=verifier.expected_cursor)
+                with self.assertRaises(AnalysisContractError) as failure:
+                    with self.opened(sp, se, pages, verifier.result()):
+                        pass
+                self.assertIsInstance(failure.exception.__cause__, AnalysisContractError)
+                self.assertIn("完整主数据候选超过单ERP行固定容量",
+                    str(failure.exception.__cause__))
 
     def test_pair_and_scratch_budget_are_fixed(self):
         sp, se, mp, me = fixture()
