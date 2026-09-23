@@ -554,9 +554,13 @@ def agent_tick(*, job_id=None):
         entries = business_reports.restricted_entries(row, entries)
         model = resolve_model(row.model_id)
         screening_step = screening_answer = None
+        promotion_step = None
         from . import business_screening_execution, business_screening_runtime_contract
         if surface == business_screening_runtime_contract.SURFACE:
             screening_step = business_screening_execution.prepare(row,principal)
+        from . import business_promotion_runtime_contract, business_promotion_microstep
+        if surface == business_promotion_runtime_contract.SURFACE:
+            promotion_step = business_promotion_microstep.prepare(row, principal)
         providers = list(
             m.AiAgentProviderDispatches.objects.filter(job_id=row.id).order_by(
                 "dispatch_ordinal"
@@ -622,6 +626,13 @@ def agent_tick(*, job_id=None):
             screening_answer = business_screening_execution.validate_answer(screening_step,final,principal)
         with mutation(principal, background=True):
             row = _leased(lease)
+            if promotion_step is not None:
+                business_promotion_microstep.check(promotion_step, row, principal)
+                # The new profile has a sealed read-only preparation path but
+                # no admitted dispatch permit or explicit CAS resume yet.
+                # Refuse before final, tool or provider reservation.
+                raise AiError("词货运行许可尚未开放，不能预留模型或工具派发",
+                    "promotion_runtime_not_ready", 409)
             if screening_step is not None:
                 business_screening_execution.check(screening_step,row,principal)
             current = resolve_model(row.model_id)

@@ -185,7 +185,8 @@ def context(job):
 
 def has_v2_profile(job):
     snapshot = context(job)
-    return snapshot is not None and is_v2_snapshot(snapshot)
+    return snapshot is not None and (snapshot.get("executionProfile") == promotion_contract.PROFILE
+        or is_v2_snapshot(snapshot))
 
 
 def execution_surface(job, principal):
@@ -226,8 +227,15 @@ def restricted_entries(job, entries):
     return allowed
 
 
-def validate_call(job, call, principal=None, *, screening_step=None):
+def validate_call(job, call, principal=None, *, screening_step=None, promotion_step=None):
     snapshot = context(job)
+    if snapshot and snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        from . import business_promotion_microstep
+        if type(promotion_step) is not business_promotion_microstep.PreparedStep:
+            raise AiError("词货工具派发缺少当前微步骤准备", "promotion_runtime_not_ready", 409)
+        business_promotion_microstep.validate_call(promotion_step, call,
+            principal or workflows.background(job))
+        raise AiError("词货运行许可尚未开放，不能预留工具派发", "promotion_runtime_not_ready", 409)
     if snapshot and screening_runtime.is_snapshot(snapshot):
         from . import business_screening_execution
         if type(screening_step) is not business_screening_execution.PreparedStep:
@@ -283,10 +291,19 @@ def validate_call(job, call, principal=None, *, screening_step=None):
             raise AiError("须先完整读取固定来源目录", "directory_read_incomplete", 409)
 
 
-def validate_output(job, answer, principal=None, *, screening_step=None, screening_answer=None):
+def validate_output(job, answer, principal=None, *, screening_step=None, screening_answer=None,
+                    promotion_step=None, promotion_answer=None):
     snapshot = context(job)
     if snapshot is None:
         return
+    if snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        from . import business_promotion_execution, business_promotion_microstep
+        if type(promotion_step) is not business_promotion_microstep.PreparedStep:
+            raise AiError("词货回答缺少当前微步骤准备", "promotion_runtime_not_ready", 409)
+        if promotion_answer is not None:
+            business_promotion_execution.check(promotion_answer, job, answer,
+                principal or workflows.background(job))
+        raise AiError("词货运行许可尚未开放，不能完成Agent", "promotion_runtime_not_ready", 409)
     if screening_runtime.is_snapshot(snapshot):
         from . import business_screening_execution
         business_screening_execution.check_answer(screening_answer,screening_step,answer)
@@ -315,9 +332,21 @@ def validate_output(job, answer, principal=None, *, screening_step=None, screeni
         raise AiError("专业分析结构无效", "conflict", 409)
 
 
-def validate_provider_turn(job, principal=None, *, screening_step=None):
+def validate_provider_turn(job, principal=None, *, screening_step=None,
+                           promotion_step=None, frames=None, entries=None, model=None):
     """Do not send a persisted, malformed directory receipt to a model."""
     snapshot = context(job)
+    if snapshot is not None and snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        from . import business_promotion_microstep
+        if type(promotion_step) is not business_promotion_microstep.PreparedStep:
+            raise AiError("词货模型派发缺少当前微步骤准备", "promotion_runtime_not_ready", 409)
+        if frames is not None and entries is not None and model is not None:
+            business_promotion_microstep.validate_provider_turn(promotion_step,
+                frames, entries, model, principal or workflows.background(job))
+        else:
+            business_promotion_microstep.check(promotion_step, job,
+                principal or workflows.background(job))
+        raise AiError("词货运行许可尚未开放，不能预留模型派发", "promotion_runtime_not_ready", 409)
     if snapshot is not None and screening_runtime.is_snapshot(snapshot):
         from . import business_screening_execution
         if type(screening_step) is not business_screening_execution.PreparedStep:
