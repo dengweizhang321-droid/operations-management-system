@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import json
 
 from django.db import connection
+from django.conf import settings
 
 from business_analysis import screening_package
 from . import business_promotion_preflight as preflight
@@ -77,7 +78,7 @@ def refresh(prepared, principal):
     return prepared.proof
 
 
-def check(prepared, principal):
+def check(prepared, principal, *, allow_parent_progress=False):
     """Only metadata SQL. This cannot authorize the initial provider call."""
     proof = _proof(prepared)
     current_principal(principal, admin=True)
@@ -94,9 +95,10 @@ def check(prepared, principal):
         and flow.error_code == proof["workflowErrorCode"]
         and not flow.lease_token and flow.lease_expires_at is None
         and not m.AiAgentJobs.objects.filter(workflow_run_id=flow.id).exists())
-    _require((parked if proof["workflowStatus"] == "paused"
+    _require(type(allow_parent_progress) is bool
+        and (parked if proof["workflowStatus"] == "paused"
         else flow.status in {"queued", "running"})
-        and flow.version == proof["workflowVersion"]
+        and (allow_parent_progress or flow.version == proof["workflowVersion"])
         and flow.error_code == proof["workflowErrorCode"]
         and not flow.cancel_requested and flow.dry_run == 0,
         "词货工作流未处于可检查状态；暂停后须独立 CAS 恢复")
@@ -182,3 +184,28 @@ def prepare(report_id, principal, role, *, allow_parked=False):
         proof["ownerEmail"], role)
     refresh(prepared, principal)
     return prepared
+
+
+def authorize_dispatch(prepared, job, principal, *, result_commit=False):
+    """Process-local permission for an already resumed actual Agent only.
+
+    The release flag defaults closed. A parked workflow, a fabricated job or a
+    serialized capacity proof cannot turn the read-only preflight into grant.
+    This metadata check is suitable immediately before a short reservation.
+    """
+    _require(getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is True,
+        "词货模型运行尚未启用", "promotion_runtime_not_ready")
+    _require(type(result_commit) is bool, "结果提交模式无效")
+    proof = check(prepared, principal, allow_parent_progress=result_commit)
+    from . import business_promotion_tools as tools
+    report, role, _ = tools._job(job.id, principal)
+    _require(report.id == proof["reportId"] and role == prepared._role
+        and proof["workflowStatus"] in {"queued", "running"}
+        and report.workflow.status in {"queued", "running"}
+        and report.workflow.error_code == proof["workflowErrorCode"],
+        "词货容量许可不属于当前已恢复的实际Agent")
+    return {**proof, "role": role, "runtimeAdmissionGranted": True,
+        "initialProviderCallAllowed": True,
+        "reason": "current_process_capacity_and_running_agent_verified",
+        "parentVersionAdvancedAfterReservation":result_commit
+            and report.workflow.version != proof["workflowVersion"]}

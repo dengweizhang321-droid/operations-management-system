@@ -3,6 +3,7 @@
 from __future__ import annotations
 import json
 from datetime import timedelta
+from django.conf import settings
 from django.db.models import Q, F, Sum, Min
 from django.utils import timezone
 from sales.auth import Principal
@@ -554,13 +555,18 @@ def agent_tick(*, job_id=None):
         entries = business_reports.restricted_entries(row, entries)
         model = resolve_model(row.model_id)
         screening_step = screening_answer = None
-        promotion_step = None
+        promotion_step = promotion_permission = promotion_answer = None
         from . import business_screening_execution, business_screening_runtime_contract
         if surface == business_screening_runtime_contract.SURFACE:
             screening_step = business_screening_execution.prepare(row,principal)
         from . import business_promotion_runtime_contract, business_promotion_microstep
         if surface == business_promotion_runtime_contract.SURFACE:
+            from . import business_promotion_execution
             promotion_step = business_promotion_microstep.prepare(row, principal)
+            if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is True:
+                from . import business_promotion_runtime_permission
+                promotion_permission = business_promotion_runtime_permission.prepare(
+                    promotion_step.proof["reportId"], principal, row.workflow_node_key)
         providers = list(
             m.AiAgentProviderDispatches.objects.filter(job_id=row.id).order_by(
                 "dispatch_ordinal"
@@ -624,25 +630,37 @@ def agent_tick(*, job_id=None):
             raise AiError("任务上下文超限", "transcript_limit_exceeded", 409)
         if screening_step is not None and final is not None:
             screening_answer = business_screening_execution.validate_answer(screening_step,final,principal)
+        if promotion_step is not None and final is not None and promotion_permission is not None:
+            from . import business_promotion_execution
+            promotion_answer = business_promotion_execution.validate_final(row, final, principal)
+        if promotion_step is not None and pending is None and final is None and promotion_permission is not None:
+            business_promotion_microstep.validate_provider_turn(
+                promotion_step, frames, entries, model, principal)
         with mutation(principal, background=True):
             row = _leased(lease)
             if promotion_step is not None:
                 business_promotion_microstep.check(promotion_step, row, principal)
-                # The new profile has a sealed read-only preparation path but
-                # no admitted dispatch permit or explicit CAS resume yet.
-                # Refuse before final, tool or provider reservation.
-                raise AiError("词货运行许可尚未开放，不能预留模型或工具派发",
-                    "promotion_runtime_not_ready", 409)
+                if promotion_permission is None:
+                    raise AiError("词货运行许可尚未开放，不能预留模型或工具派发",
+                        "promotion_runtime_not_ready", 409)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal)
             if screening_step is not None:
                 business_screening_execution.check(screening_step,row,principal)
             current = resolve_model(row.model_id)
             if current.version != row.model_version:
                 raise AiError("模型版本已变化", "model_version_changed", 409)
             if final is not None:
-                return _complete(row, principal, final, **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}))
+                return _complete(row, principal, final,
+                    **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}),
+                    **({"promotion_permission":promotion_permission,"promotion_answer":promotion_answer}
+                        if promotion_step is not None else {}))
             if pending:
                 parent, call = pending
-                business_reports.validate_call(row, call, principal, **({"screening_step":screening_step} if screening_step is not None else {}))
+                business_reports.validate_call(row, call, principal,
+                    **({"screening_step":screening_step} if screening_step is not None else {}),
+                    **({"promotion_step":promotion_step,"promotion_permission":promotion_permission}
+                        if promotion_step is not None else {}))
                 entry = next((e for e in entries if e["name"] == call["name"]), None)
                 if (
                     not entry
@@ -664,7 +682,9 @@ def agent_tick(*, job_id=None):
                     lease_epoch=row.lease_epoch,
                 )
             else:
-                business_reports.validate_provider_turn(row, principal, **({"screening_step":screening_step} if screening_step is not None else {}))
+                if promotion_step is None:
+                    business_reports.validate_provider_turn(row, principal,
+                        **({"screening_step":screening_step} if screening_step is not None else {}))
                 if len(providers) >= min(model.max_tool_rounds, 20):
                     raise AiError("模型轮数超限", "provider_limit_exceeded", 409)
                 dispatch_budget(principal.email.lower(), model.id)
@@ -690,7 +710,7 @@ def agent_tick(*, job_id=None):
                 call["arguments"],
                 principal,
                 surface=surface,
-                request_id=dispatch.invocation_id,
+                request_id=dispatch.id if promotion_step is not None else dispatch.invocation_id,
                 provider_call_id=call["id"],
                 policy_digest=row.tool_policy_digest,
             )
@@ -718,10 +738,43 @@ def agent_tick(*, job_id=None):
                 row = _leased(lease)
                 business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
                 return _complete(row,principal,result["text"],screening_step=screening_step,screening_answer=screening_answer)
+        if promotion_step is not None and not pending and not result["calls"]:
+            # A known final provider response is saved before expensive full
+            # Agent read and numeric diagnosis. Failure must retain this exact
+            # known result and must never ask the model for it again.
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                _promotion_result_dispatch(row, dispatch, pending=False)
+                m.AiAgentProviderResults.objects.create(dispatch_id=dispatch.id,
+                    response_json=canonical(result), response_digest=digest(result),
+                    usage_json=canonical(result.get("usage", {})),
+                    provider_request_id=result.get("providerRequestId", ""))
+                row.provider_round_count += 1
+                row.save(update_fields=["provider_round_count"])
+                dispatch.state, dispatch.completed_at = "succeeded", timezone.now()
+                dispatch.save()
+            promotion_answer = business_promotion_execution.validate_final(
+                row, result["text"], principal)
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                business_promotion_execution.check(promotion_answer, row,
+                    result["text"], principal)
+                return _complete(row, principal, result["text"],
+                    promotion_permission=promotion_permission,
+                    promotion_answer=promotion_answer,
+                    promotion_result_commit=True)
         with mutation(principal, background=True):
             row = _leased(lease)
             if screening_step is not None:
                 business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+            if promotion_step is not None:
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                _promotion_result_dispatch(row, dispatch, pending=bool(pending))
             if pending:
                 m.AiAgentToolResults.objects.create(
                     tool_dispatch_id=dispatch.id,
@@ -794,13 +847,57 @@ def _leased(lease):
     return row
 
 
-def _complete(row, principal, answer, *, screening_step=None, screening_answer=None):
+def _promotion_result_dispatch(job, dispatch, *, pending):
+    """Local post-call CAS for the one reservation made by this microstep.
+
+    The prepared prefix cannot be checked unchanged after reservation. This
+    checks the exact new row and lease instead; no old profile calls it.
+    """
+    cls = m.AiAgentToolDispatches if pending else m.AiAgentProviderDispatches
+    if type(dispatch) is not cls:
+        raise AiError("词货派发类型与已知结果不一致", "conflict", 409)
+    saved = cls.objects.filter(pk=dispatch.id, job_id=job.id,
+        lease_epoch=job.lease_epoch, state="calling").first()
+    result_cls = m.AiAgentToolResults if pending else m.AiAgentProviderResults
+    result_filter = {"tool_dispatch_id":dispatch.id} if pending else {"dispatch_id":dispatch.id}
+    if saved is None or result_cls.objects.filter(**result_filter).exists():
+        raise AiError("词货派发已变化或结果已存在，禁止重放", "tool_dispatch_unknown" if pending else "provider_dispatch_unknown", 409)
+    if pending:
+        provider_row = m.AiAgentProviderDispatches.objects.filter(
+            pk=saved.provider_dispatch_id, job_id=job.id, state="succeeded").first()
+        provider_result = (m.AiAgentProviderResults.objects.filter(
+            dispatch_id=provider_row.id).first() if provider_row else None)
+        if (saved.tool_call_ordinal != job.tool_call_count+1
+                or saved.tool_name != dispatch.tool_name
+                or saved.provider_call_id != dispatch.provider_call_id
+                or saved.arguments_json != dispatch.arguments_json
+                or saved.arguments_digest != digest(saved.arguments_json)
+                or saved.invocation_id != dispatch.invocation_id
+                or provider_result is None
+                or provider_result.response_digest != digest(provider_result.response_json)):
+            raise AiError("词货工具派发与已保存模型调用不一致", "tool_dispatch_unknown", 409)
+    elif (saved.dispatch_ordinal != job.provider_round_count+1
+            or saved.owner_email != job.owner_email or saved.actor_role != "admin"
+            or saved.model_id != job.model_id or saved.model_version != job.model_version
+            or saved.tool_policy_digest != job.tool_policy_digest
+            or saved.request_digest != dispatch.request_digest):
+        raise AiError("词货模型派发与当前租约或固定策略不一致", "provider_dispatch_unknown", 409)
+    return saved
+
+
+def _complete(row, principal, answer, *, screening_step=None, screening_answer=None,
+              promotion_permission=None, promotion_answer=None,
+              promotion_result_commit=False):
     from . import business_reports
     # A received v2 answer can fail proof validation. Keep its provider receipt
     # and succeeded dispatch in this transaction; never relabel it as unknown.
     if business_reports.has_v2_profile(row):
         try:
-            business_reports.validate_output(row, answer, principal, **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}))
+            business_reports.validate_output(row, answer, principal,
+                **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}),
+                **({"promotion_permission":promotion_permission,"promotion_answer":promotion_answer,
+                    "promotion_result_commit":promotion_result_commit}
+                    if promotion_answer is not None else {}))
             output = {"answer": text(answer, "answer", 12000)}
         except (AiError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
             return _fail(row, principal, error.code if isinstance(error, AiError) else "business_output_validation_failed")
