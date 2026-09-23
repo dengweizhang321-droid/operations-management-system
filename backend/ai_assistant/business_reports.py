@@ -3,6 +3,7 @@ import json
 from . import business_evidence, models as m, workflows
 from . import business_integrated as integrated
 from . import business_screening_runtime as screening_runtime, business_screening_runtime_contract as screening_contract
+from . import business_promotion_runtime_contract as promotion_contract
 from .policy import AiError, authorize_owner, boolean, canonical, current_principal, digest, fields, identifier, mutation, passive, text, uid
 
 SCHEMA = "business-report-v1"
@@ -57,6 +58,8 @@ def is_v2_snapshot(snapshot):
 
 
 def required_tools(snapshot):
+    if snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        return promotion_contract.TOOLS
     if screening_runtime.is_snapshot(snapshot):
         return screening_contract.TOOLS
     if integrated.is_snapshot(snapshot):
@@ -174,7 +177,8 @@ def context(job):
     if not report:
         return None
     snapshot = json.loads(report.snapshot_json)
-    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE, integrated.PROFILE, screening_contract.PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
+    if snapshot.get("executionProfile") in {V2_PROFILE, BUDGET_PROFILE, integrated.PROFILE,
+            screening_contract.PROFILE, promotion_contract.PROFILE} and (report.owner_email != job.owner_email or report.scope_json != job.scope_json):
         raise AiError("报告执行身份不一致", "access_denied", 403)
     return snapshot if snapshot.get("schemaVersion") == SCHEMA else None
 
@@ -186,8 +190,21 @@ def has_v2_profile(job):
 
 def execution_surface(job, principal):
     snapshot = context(job)
-    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS | integrated.TOOLS | screening_contract.TOOLS) & set(json.loads(job.allowed_tools_json)):
+    if snapshot is None and (V2_TOOLS | BUDGET_TOOLS | integrated.TOOLS |
+            screening_contract.TOOLS | promotion_contract.TOOLS) & set(json.loads(job.allowed_tools_json)):
         raise AiError("v2任务缺少固定报告执行身份", "conflict", 409)
+    if snapshot is not None and snapshot.get("executionProfile") == promotion_contract.PROFILE:
+        from . import business_promotion_runtime, business_promotion_tools
+        report, role, _ = business_promotion_tools._job(job.id, principal)
+        fixed = business_promotion_runtime.bound_persisted(report.id, principal)
+        if (fixed["executionProfile"] != promotion_contract.PROFILE
+                or fixed["contentReady"] is not True or fixed["screeningStatus"] != "ready"
+                or canonical(snapshot) != report.snapshot_json
+                or role not in screening_contract.ROLES
+                or report.workflow_id != job.workflow_run_id
+                or report.workflow.allowed_tools_json != canonical(list(promotion_contract.TOOL_ORDER))):
+            raise AiError("词货Agent缺少实际固定报告或完整筛查", "conflict", 409)
+        return promotion_contract.SURFACE
     if snapshot is None or not is_v2_snapshot(snapshot):
         return "ai_agent"
     reference = bound_reference(snapshot, principal)
