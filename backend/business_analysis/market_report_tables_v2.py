@@ -37,12 +37,21 @@ def columns(view):
         Column("baseline.sourceRowHash", "基期市场源行摘要"), old[-1])
 
 
-def _side(value, day):
+def _identity(row):
+    sku, spu = row.get("skuId"), row.get("spuId")
+    _need((type(sku) is str and 0 < len(sku) <= 500 and bool(sku.strip()) and spu is None)
+        or (type(spu) is str and 0 < len(spu) <= 500 and bool(spu.strip()) and sku is None),
+        "市场SKU/SPU须恰有一个非空有界文本身份")
+
+
+def _side(value, day, date_present):
     _need(type(value) is dict and set(value) ==
         {"status", "date", "rank", "metrics", "sourceRowHash"})
     status = value["status"]
-    _need(status in {"observed", "not_observed_in_top_sample"})
-    if status == "not_observed_in_top_sample":
+    _need((status in {"observed", "not_observed_in_top_sample"} and date_present)
+        or (status == "date_not_covered" and not date_present),
+        "市场单侧观察状态与日期覆盖不一致")
+    if status != "observed":
         _need(all(value[key] is None for key in ("date", "rank", "metrics", "sourceRowHash")))
         return status, None, None, None, None, None
     _need(value["date"] == day and type(value["metrics"]) is dict
@@ -61,18 +70,18 @@ def _side(value, day):
         value["metrics"]["sampleGmvUpperCents"], previous._sha(value["sourceRowHash"]))
 
 
-def _project_rank(row, root, index, dates, both_dates):
+def _project_rank(row, root, index, dates, observed):
     _need(type(row) is dict and set(row) == {"rowIndex", "id", "sourceGroupId",
         "skuId", "spuId", "current", "baseline", "status", "rankImprovement"}
         and row["rowIndex"] == index)
     body = {key: value for key, value in row.items() if key not in {"rowIndex", "id"}}
     _need(row["id"] == digest([root, "rank_entry_exit", index, body]))
-    _need((row["skuId"] is None) != (row["spuId"] is None))
+    _identity(row)
     group = previous._sha(row["sourceGroupId"])
-    current = _side(row["current"], dates["current"])
-    baseline = _side(row["baseline"], dates["baseline"])
+    current = _side(row["current"], dates["current"], observed["currentDatePresent"])
+    baseline = _side(row["baseline"], dates["baseline"], observed["baselineDatePresent"])
     status = row["status"]
-    if both_dates:
+    if observed["bothDatesPresent"]:
         expected = ("both_observed" if current[0] == baseline[0] == "observed" else
             "entered_observed_top_sample" if current[0] == "observed" else
             "left_observed_top_sample" if baseline[0] == "observed" else None)
@@ -206,10 +215,11 @@ def tables(manifest, pages_by_view):
                         except (ValueError, UnicodeError, RecursionError) as error:
                             raise AnalysisContractError("市场组合NDJSON编码无效") from error
                         _need(canonical(row).encode("utf-8") == line)
+                        if view == "price_band_members":
+                            _identity(row)
                         projected = (previous._project(row, view, root, count)
                             if view != "rank_entry_exit" else
-                            _project_rank(row, root, count, dates,
-                                observed["bothDatesPresent"]))
+                            _project_rank(row, root, count, dates, observed))
                         payload = canonical(projected)
                         totals["projected"] += len(payload.encode("utf-8"))
                         totals["rows"] += 1; count += 1

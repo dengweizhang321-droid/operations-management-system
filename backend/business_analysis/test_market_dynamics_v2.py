@@ -28,6 +28,7 @@ class MarketObservationV2Tests(TestCase):
             "2026-09-03", "2026-08-31")
         rows = {row["skuId"]: row for row in result["rows"]}
         self.assertEqual(rows["A"]["status"], "entered_observed_top_sample")
+        self.assertEqual(rows["A"]["baseline"]["status"], "not_observed_in_top_sample")
         self.assertIsNone(rows["A"]["baseline"]["metrics"])
         self.assertEqual(rows["C"]["status"], "left_observed_top_sample")
         self.assertIsNone(rows["C"]["current"]["rank"])
@@ -35,8 +36,10 @@ class MarketObservationV2Tests(TestCase):
         missing = service.rank_entry_exit(*current[:3], *no_baseline_day[:3],
             "2026-09-03", "2026-08-31")
         self.assertFalse(missing["observationCoverage"]["bothDatesPresent"])
-        self.assertEqual(next(row for row in missing["rows"] if row["skuId"] == "A")["status"],
-            "insufficient_date_coverage")
+        absent = next(row for row in missing["rows"] if row["skuId"] == "A")
+        self.assertEqual(absent["status"], "insufficient_date_coverage")
+        self.assertEqual(absent["baseline"]["status"], "date_not_covered")
+        self.assertIsNone(absent["baseline"]["metrics"])
 
     def test_wrong_observation_pair_grain_and_source_scope_reject(self):
         current, baseline, _, _ = inputs()

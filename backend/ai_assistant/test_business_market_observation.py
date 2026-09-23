@@ -76,6 +76,13 @@ class BusinessMarketObservationTests(djtest.TransactionTestCase):
         self.assertEqual(value["observationCoverage"], {"currentDatePresent": False,
             "baselineDatePresent": False, "bothDatesPresent": False})
         self.assertEqual(value["rows"], [])
+        partial = service.page(self.report.id, self.params(
+            currentObservationDate="2026-08-01",
+            baselineObservationDate="2026-07-29"), self.admin)["table"]
+        self.assertFalse(partial["observationCoverage"]["baselineDatePresent"])
+        self.assertTrue(all(row["status"] == "insufficient_date_coverage"
+            and row["baseline"]["status"] == "date_not_covered"
+            and row["baseline"]["metrics"] is None for row in partial["rows"]))
         observed = service.page(self.report.id, self.params(), self.admin)["table"]
         self.assertEqual(next(row for row in observed["rows"]
             if row["skuId"] == "market-77")["baseline"]["status"],

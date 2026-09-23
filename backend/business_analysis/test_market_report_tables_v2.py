@@ -1,10 +1,12 @@
 """Pure composite export and typed-table verification keep all TOP caveats."""
 from contextlib import contextmanager
 from copy import deepcopy
+import hashlib
+import json
 from unittest import TestCase
 from unittest.mock import patch
 
-from .contracts import AnalysisContractError, digest
+from .contracts import AnalysisContractError, canonical, digest
 from . import market_dynamics, market_dynamics_v2
 from . import market_report_tables_v2 as tables_v2
 from .test_market_dynamics import BANDS
@@ -12,10 +14,12 @@ from ai_assistant import business_market_composite_export as export
 from ai_assistant.test_business_promotion_market_runtime_contract import inputs, source
 
 
-def prepared(*, missing_baseline_day=False):
+def prepared(*, missing_baseline_day=False, baseline_top_absent=False):
     current, baseline, selector, _ = inputs()
     if missing_baseline_day:
         baseline = source("previous", ("Z",), observe_last=False)
+    elif baseline_top_absent:
+        baseline = source("previous", ("C", "A"))
     price = market_dynamics.price_band(*current[:3], BANDS)
     rank = market_dynamics_v2.rank_entry_exit(*current[:3], *baseline[:3],
         selector["currentObservationDate"], selector["baselineObservationDate"])
@@ -98,10 +102,42 @@ class MarketReportTablesV2Tests(TestCase):
                 for view in tables_v2.VIEWS}) as (_, tables):
             rank = list(tables[2].rows)[0]
             self.assertEqual(rank[5], "insufficient_date_coverage")
+            self.assertEqual(rank[7], "date_not_covered")
             self.assertIsNone(rank[15])
             self.assertIsNone(rank[16])
             self.assertIsNone(rank[18])
             self.assertIn('"metrics":null', rank[-1])
+
+    def test_recomputed_material_digests_cannot_smuggle_invalid_identity_or_date_state(self):
+        def altered(material, view, change):
+            manifest = material.manifest
+            pages = {name: tuple(material.ndjson_pages(name)) for name in tables_v2.VIEWS}
+            rows = [json.loads(line) for line in pages[view][0].splitlines()]
+            change(rows[0])
+            spec = next(item for item in manifest["tables"] if item["view"] == view)
+            root = spec["sourceTableDigest"]
+            body = {key: value for key, value in rows[0].items()
+                if key not in {"rowIndex", "id"}}
+            rows[0]["id"] = digest([root, view, rows[0]["rowIndex"], body])
+            raw = b"".join((canonical(row)+"\n").encode("utf-8") for row in rows)
+            pages[view] = (raw,)
+            spec["ndjsonBytes"] = len(raw)
+            spec["ndjsonSha256"] = hashlib.sha256(raw).hexdigest()
+            manifest["ndjsonBytes"] = sum(item["ndjsonBytes"] for item in manifest["tables"])
+            manifest["manifestDigest"] = digest({key: value for key, value
+                in manifest.items() if key != "manifestDigest"})
+            with self.assertRaises(AnalysisContractError):
+                with tables_v2.tables(manifest, pages):
+                    pass
+
+        altered(prepared(), "rank_entry_exit", lambda row: row.update(skuId=42))
+        altered(prepared(), "rank_entry_exit", lambda row: row.update(spuId=True, skuId=None))
+        altered(prepared(), "price_band_members", lambda row: row.update(skuId=True))
+        altered(prepared(), "price_band_members", lambda row: row.update(spuId=123, skuId=None))
+        altered(prepared(missing_baseline_day=True), "rank_entry_exit",
+            lambda row: row["baseline"].update(status="not_observed_in_top_sample"))
+        altered(prepared(baseline_top_absent=True), "rank_entry_exit",
+            lambda row: row["baseline"].update(status="date_not_covered"))
 
     def test_tampered_manifest_or_ndjson_or_nonadditivity_reject(self):
         material = prepared(); original = material.manifest

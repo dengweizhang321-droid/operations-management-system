@@ -58,8 +58,9 @@ def rank_entry_exit(current_source, current_pages, current_expected,
     dimension = "skuId" if a["rankingDimension"] == "SKU" else "spuId"
     now = {row[dimension]: row for row in all_current if row["date"] == current_day}
     past = {row[dimension]: row for row in all_baseline if row["date"] == baseline_day}
-    complete = (current_day in head["coverage"]["presentDates"]
-        and baseline_day in before["coverage"]["presentDates"])
+    current_date_present = current_day in head["coverage"]["presentDates"]
+    baseline_date_present = baseline_day in before["coverage"]["presentDates"]
+    complete = current_date_present and baseline_date_present
     rows = []
     for key in sorted(set(now) | set(past)):
         left, right = now.get(key), past.get(key)
@@ -67,15 +68,18 @@ def rank_entry_exit(current_source, current_pages, current_expected,
             "entered_observed_top_sample" if left and complete else
             "left_observed_top_sample" if right and complete else
             "insufficient_date_coverage")
-        def side(row):
-            return {"status": "observed" if row else "not_observed_in_top_sample",
+        def side(row, date_present):
+            return {"status": ("observed" if row else
+                "not_observed_in_top_sample" if date_present else "date_not_covered"),
                 "date": row["date"] if row else None,
                 "rank": row["sample"]["rank"] if row else None,
                 "metrics": row["metrics"] if row else None,
                 "sourceRowHash": row["sourceRowHash"] if row else None}
         value = {"skuId": key if dimension == "skuId" else None,
             "spuId": key if dimension == "spuId" else None,
-            "current": side(left), "baseline": side(right), "status": status,
+            "current": side(left, current_date_present),
+            "baseline": side(right, baseline_date_present),
+            "status": status,
             "rankImprovement": (right["sample"]["rank"]-left["sample"]["rank"]
                 if left and right and left["sample"]["rank"] is not None
                 and right["sample"]["rank"] is not None else None)}
@@ -86,8 +90,8 @@ def rank_entry_exit(current_source, current_pages, current_expected,
         "algorithmVersion": ALGORITHM_VERSION, "view": "rank_entry_exit",
         "sources": [current, baseline], "sourceMetadata": [head, before],
         "observationDates": {"current": current_day, "baseline": baseline_day},
-        "observationCoverage": {"currentDatePresent": current_day in head["coverage"]["presentDates"],
-            "baselineDatePresent": baseline_day in before["coverage"]["presentDates"],
+        "observationCoverage": {"currentDatePresent": current_date_present,
+            "baselineDatePresent": baseline_date_present,
             "bothDatesPresent": complete},
         "rows": rows, "rowCount": len(rows), "authorityVerified": False,
         "ownProductIdentityVerified": False,

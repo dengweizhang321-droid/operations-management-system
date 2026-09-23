@@ -66,6 +66,7 @@ class MarketCompositeExportTests(djtest.TransactionTestCase):
             rank = list(tables[2].rows)
             self.assertTrue(rank)
             self.assertTrue(all(row[5] == "insufficient_date_coverage"
+                and row[7] == "date_not_covered"
                 and row[15] is None and row[16] is None and row[18] is None for row in rank))
 
     def test_wrong_report_source_day_quota_and_late_revocation_reject(self):
