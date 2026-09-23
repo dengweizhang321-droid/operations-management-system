@@ -9,3 +9,5 @@
 本批只有新纯协议、算法和测试。未修改旧 promotion profile、四工具目录、持久报告/迁移、人审、renderer7、公共创建入口或生产系统。后续正式交付须另行版本化完成 Agent 派发和本人已读回执、市场数值引用、人审、三张类型表与多卷证明；旧报告和文件保持原义。
 
 后续内部 owning Reader `business_market_observation` 已可针对同一报告中的本期/基期市场来源完整重放封存页，返回固定两日的有界表、分页与精确 `rowIndex + rowId`，并在交接后复核报告/当前角色。签名 Django reader GET `reports/<reportId>/market-observation` 与服务端 TS 只读适配器仅用于内部开发；它们没有加入 Next.js 公开路径、工作台入口或 Agent 工具目录。回执证明所选封存来源的完整读取及观察日覆盖，不证明全市场覆盖或本店、ERP、B 端销售归属。
+
+内部 `business_market_composite_export.prepare` 将同报告当期**区间**价格带表与固定**两日**进出榜表分开读取，形成 `business-market-composite-materials-v2` 三份完整 NDJSON 材料。价格带汇总/成员绑定同一来源表摘要；进出榜另有本期、基期来源与观察日绑定。`market_report_tables_v2.tables` 验证每份材料的来源绑定、行位置/摘要、规范字节、分片 SHA 和总容量，再生成三张可一次消费的类型表；进出榜保留本期/基期源行摘要，日期缺失时数值仍为 `null`。两种价格带呈现不可相加，市场样本也不可归入本店销量。此数据材料仍为 `registeredRenderer=false`，不提供五 Agent 审核或正式报告发布权限。
