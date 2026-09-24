@@ -133,8 +133,22 @@ RUN_GUARD = replace_once(RUN_GUARD,
                OR NEW.binding_digest IS DISTINCT FROM OLD.binding_digest
                OR NEW.draft OR OLD.draft
             THEN RAISE EXCEPTION 'ai_promotion_trial_binding_immutable'; END IF;
-            PERFORM public.ai_business_promotion_trial_parent_requirements(
-              NEW.report_id,NEW.owner_email,NEW.scope_json);
+            BEGIN
+              PERFORM public.ai_business_promotion_trial_parent_requirements(
+                NEW.report_id,NEW.owner_email,NEW.scope_json);
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM NOT IN ('ai_promotion_trial_parent_unapproved',
+                  'ai_promotion_trial_review_unapproved',
+                  'ai_promotion_trial_agents_incomplete',
+                  'ai_promotion_trial_workflow_output_invalid',
+                  'ai_promotion_trial_review_event_missing')
+              THEN RAISE; END IF;
+              IF NEW.status NOT IN ('paused','cancelled')
+                 OR NEW.attempt IS DISTINCT FROM OLD.attempt
+                 OR NEW.stored_bytes IS DISTINCT FROM OLD.stored_bytes
+                 OR NEW.manifest_json IS DISTINCT FROM OLD.manifest_json
+              THEN RAISE EXCEPTION 'ai_promotion_trial_parent_changed_no_progress'; END IF;
+            END;
           END IF;
           IF NEW.renderer_version IN (4,6,7) THEN""")
 RUN_GUARD = replace_once(RUN_GUARD,
