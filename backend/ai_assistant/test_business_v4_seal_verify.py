@@ -2,12 +2,15 @@
 import hashlib
 from unittest.mock import patch
 
+from django.db import connection, transaction
 from django.test import TransactionTestCase, override_settings
 
 from access_control.models import AppUser
 from business_analysis.contracts import canonical, digest
 from finance.models import FinanceDataRevision
 from netshop.models import NetshopDataRevision
+from netshop.import_service import import_netshop_payload
+from netshop.tests.factories import netshop_row, prepared_payload
 
 from . import (business_v4_seal_hmac as seal_hmac,
     business_v4_seal_verify as verifier,
@@ -107,3 +110,61 @@ class BusinessV4SealVerifyTests(TransactionTestCase):
                 side_effect=lambda *args, **kwargs: original(*args, **kwargs).none()), \
                 self.assertRaises(AiError):
             verifier.verify_seal(self.parent.id, self.principal)
+
+    def test_restored_db_guards_do_not_hide_changed_raw_page_bytes(self):
+        self.sealed()
+        chunk = m.AiBusinessV4Chunk.objects.filter(run_id=self.parent.id).first()
+        original_digest = chunk.payload_digest
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE public.ai_business_v4_chunks "
+                    "DISABLE TRIGGER ai_immutable_v4")
+                cursor.execute("ALTER TABLE public.ai_business_v4_chunks "
+                    "DISABLE TRIGGER ai_v4_state")
+                cursor.execute("UPDATE public.ai_business_v4_chunks "
+                    "SET payload_json=payload_json||' ' WHERE id=%s", [chunk.id])
+                cursor.execute("ALTER TABLE public.ai_business_v4_chunks "
+                    "ENABLE TRIGGER ai_v4_state")
+                cursor.execute("ALTER TABLE public.ai_business_v4_chunks "
+                    "ENABLE TRIGGER ai_immutable_v4")
+        changed = m.AiBusinessV4Chunk.objects.get(pk=chunk.pk)
+        self.assertEqual(changed.payload_digest, original_digest)
+        self.assertNotEqual(changed.payload_json, chunk.payload_json)
+        with self.assertRaises(AiError):
+            verifier.verify_seal(self.parent.id, self.principal)
+
+    def test_legal_other_shop_import_during_unlocked_scan_becomes_historical(self):
+        self.sealed()
+        actual_scan = verifier._raw_scan
+        calls = []
+        def interleaved(source, cutoff, deadline):
+            self.assertFalse(connection.in_atomic_block)
+            if not calls:
+                payload = prepared_payload(netshop_row(source="jd_promotion",
+                    dataset="ad", shop_name="另一个独立店",
+                    business_date="2026-08-21", sku_id="OTHER-SKU",
+                    metrics={"spendCents": 100, "impressions": 20,
+                        "clicks": 2}), raw_seed="verify-other-shop")
+                outcome = import_netshop_payload(payload,
+                    "verify-seal-synthetic@example.invalid")
+                self.assertEqual(outcome["status"], "imported")
+                calls.append(1)
+            return actual_scan(source, cutoff, deadline)
+        with patch.object(verifier, "_raw_scan", side_effect=interleaved):
+            proof = verifier.verify_seal(self.parent.id, self.principal)
+        self.assertEqual(calls, [1])
+        self.assertTrue(proof["internalSealVerified"])
+        by_domain = {"finance": None, "netshop": None}
+        for item in proof["sourceRefs"]:
+            source = m.AiBusinessV4Source.objects.get(run_id=self.parent.id,
+                source_key=item["sourceKey"])
+            by_domain[source.domain] = item["verificationFreshness"]
+        self.assertEqual(by_domain["netshop"], "historical_revision")
+        self.assertEqual(by_domain["finance"], "current_revision")
+
+    def test_expired_full_scan_returns_resume_needed_not_partial_success(self):
+        self.sealed()
+        with patch.object(verifier, "MAX_VERIFY_SECONDS", 0), \
+                self.assertRaises(AiError) as caught:
+            verifier.verify_seal(self.parent.id, self.principal)
+        self.assertEqual(caught.exception.code, "verification_requires_resume")
