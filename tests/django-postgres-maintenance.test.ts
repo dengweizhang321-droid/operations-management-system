@@ -350,7 +350,8 @@ test("maintenance validates complete AI backup evidence before and after activat
   assert.match(manifest, /AI_TABLES_PRE_V4_VALIDATION = \(\*AI_TABLES_PRE_V4_LEDGER,/);
   assert.match(manifest, /AI_TABLES_PRE_V4_SEALS = \(\*AI_TABLES_PRE_V4_VALIDATION,/);
   assert.match(manifest, /AI_TABLES_PRE_V4_TICKETS = \(\*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals"\)/);
-  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_V4_TICKETS,/);
+  assert.match(manifest, /AI_TABLES_PRE_V4_CONSUMPTIONS = \(\*AI_TABLES_PRE_V4_TICKETS,/);
+  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_V4_CONSUMPTIONS,/);
   const aiTables = historicalAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {

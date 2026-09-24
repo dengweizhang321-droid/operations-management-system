@@ -18,6 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_CONSUMPTIONS as PRE_CONSUMPTION_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_TICKETS as PRE_TICKET_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as PRE_SEAL_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_VALIDATION as PRE_VALIDATION_AI_TABLES
@@ -59,7 +60,9 @@ def _netshop_guard():
 
 class _EvidenceCursor:
     def __init__(self, tables, migrations, finance_guard=None,
-                 finance_monotonic=None, netshop_guard=None):
+                  finance_monotonic=None, netshop_guard=None,
+                  seal_guard_body_override=None,
+                  verifier_body_override=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
         self.finance_guard = finance_guard or _finance_guard()
@@ -67,6 +70,8 @@ class _EvidenceCursor:
             _finance_monotonic() if ("finance",MODULE.FINANCE_MONOTONIC_MIGRATION)
             in self.migrations else {"triggers":[],"functions":[]})
         self.netshop_guard = netshop_guard or _netshop_guard()
+        self.seal_guard_body_override = seal_guard_body_override
+        self.verifier_body_override = verifier_body_override
 
     def __enter__(self):
         return self
@@ -114,6 +119,26 @@ class _EvidenceCursor:
             self.rows = [(False,) * 7]
         elif "t.tgname IN ('ai_v4_ticket_immutable'" in query:
             self.rows = [(2,)]
+        elif "c.relname='ai_business_v4_seal_consumptions'" in query:
+            self.rows = [(3,)]
+        elif "t.tgname='ai_v4_seal_consumption_required'" in query:
+            import importlib
+            guard = importlib.import_module(
+                "ai_assistant.migrations.0043_business_v4_seal_consumption_candidate"
+            ).REQUIRE_CONSUMPTION.split("$$")[1]
+            if self.seal_guard_body_override is not None:
+                guard = self.seal_guard_body_override
+            self.rows = [(5, True, True, "O", True, True,
+                          ["search_path=pg_catalog,public"], guard, False)]
+        elif "FROM pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(%s)" in query:
+            import importlib
+            body = importlib.import_module(
+                "ai_assistant.migrations.0043_business_v4_seal_consumption_candidate"
+            ).VERIFY_CONSUMPTION.split("$$")[1]
+            if self.verifier_body_override is not None:
+                body = self.verifier_body_override
+            self.rows = [(body, True, ["search_path=pg_catalog,public"],
+                          "fixture_owner")]
         elif "has_any_column_privilege(%s,%s,'SELECT')" in query:
             self.rows = [(False,) * 5]
         elif "SELECT to_regprocedure(%s)" in query:
@@ -122,8 +147,10 @@ class _EvidenceCursor:
             name = params[0]
             self.rows = [(
                 name.startswith("public.ai_v4_claim_seal_ticket(") or
+                name.startswith("public.ai_v4_sealer_consumption_result(") or
                 name.startswith("public.ai_v4_sealer_ticket_"),
                 name.startswith("public.ai_v4_issue_seal_ticket(") or
+                name.startswith("public.ai_v4_verify_seal_consumption(") or
                 name == "public.ai_v4_lock_source_revisions_for_admission()",
                 False)]
         elif query.startswith("SELECT COUNT(*)"):
@@ -151,14 +178,17 @@ class _EvidenceCursor:
 
 
 def _ai_evidence(tables, migrations, finance_guard=None,
-                 finance_monotonic=None, netshop_guard=None):
+                 finance_monotonic=None, netshop_guard=None,
+                 seal_guard_body_override=None,
+                 verifier_body_override=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
     }
     cursor = _EvidenceCursor(base_tables | set(tables),
         [("sales", "0001_initial"), *migrations], finance_guard,
-        finance_monotonic, netshop_guard)
+        finance_monotonic, netshop_guard, seal_guard_body_override,
+        verifier_body_override)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -321,24 +351,44 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 41)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 76)
         self.assertIn("ai_business_v4_seal_tickets", current["tables"])
         self.assertIn("ai_business_v4_seal_claims", current["tables"])
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_TICKET_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
-            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+            _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations[:-1])
 
     def test_v4_claimed_reader_retains_76_tables_and_closed_publication(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 42)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 76)
         with self.assertRaises(RuntimeError):
-            _ai_evidence(CURRENT_AI_TABLES,
+            _ai_evidence(PRE_CONSUMPTION_AI_TABLES,
                 [item for item in migrations if item[1] != "0041_business_v4_seal_ticket"])
+
+    def test_v4_consumption_candidate_has_explicit_77_table_boundary(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 43)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 77)
+        self.assertIn("ai_business_v4_seal_consumptions", current["tables"])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+        with self.assertRaisesRegex(RuntimeError,
+                "consumption commit fence missing"):
+            _ai_evidence(CURRENT_AI_TABLES, migrations,
+                seal_guard_body_override="BEGIN RETURN NULL; END")
+        with self.assertRaisesRegex(RuntimeError,
+                "consumption verifier missing"):
+            _ai_evidence(CURRENT_AI_TABLES, migrations,
+                verifier_body_override="BEGIN RETURN true; END")
 
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")

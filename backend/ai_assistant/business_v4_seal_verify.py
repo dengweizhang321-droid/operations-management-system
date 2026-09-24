@@ -6,13 +6,14 @@ Agent, renderer, model or public route permission.
 from __future__ import annotations
 
 import hashlib
+from importlib import import_module
 from itertools import zip_longest
 import json
 import re
 import time
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 
 from business_analysis import business_promotion_v4_plan, evidence_seal_v4, evidence_v4
 from business_analysis.contracts import AnalysisContractError
@@ -168,6 +169,47 @@ def _raw_scan(source, cutoff, deadline):
     return {"pageCount": count, "rowCount": rows, "storedBytes": size}
 
 
+def _require_consumption(parent, attempt, seal):
+    frozen = import_module(
+        "ai_assistant.migrations.0043_business_v4_seal_consumption_candidate")
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner) FROM pg_catalog.pg_proc p "
+            "WHERE p.oid=to_regprocedure('public.ai_v4_verify_seal_consumption("
+            "text,text,bigint,text)')")
+        verifier = cursor.fetchone()
+        if (verifier is None or verifier[0] != frozen.VERIFY_CONSUMPTION.split("$$")[1]
+                or verifier[1] is not True
+                or {item.replace(" ", "") for item in (verifier[2] or [])}
+                != {"search_path=pg_catalog,public"}
+                or verifier[3] in {"teruisi_ai_reader", "teruisi_ai_writer",
+                                   "teruisi_ai_seal_writer"}):
+            _reject("v4封存消费门禁缺失，不能作为当前权威")
+        cursor.execute("SELECT t.tgtype,t.tgdeferrable,t.tginitdeferred,"
+            "t.tgenabled,t.tgfoid=to_regprocedure("
+            "'public.ai_v4_seal_requires_consumption()'),"
+            "p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner) "
+            "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p "
+            "ON p.oid=t.tgfoid WHERE t.tgrelid="
+            "'public.ai_business_v4_seals'::regclass AND "
+            "t.tgname='ai_v4_seal_consumption_required'")
+        trigger = cursor.fetchone()
+        if (trigger is None or trigger[:5] != (5, True, True, "O", True)
+                or trigger[5] != frozen.REQUIRE_CONSUMPTION.split("$$")[1]
+                or trigger[6] is not True
+                or {item.replace(" ", "") for item in (trigger[7] or [])}
+                != {"search_path=pg_catalog,public"}
+                or trigger[8] in {"teruisi_ai_reader", "teruisi_ai_writer",
+                                   "teruisi_ai_seal_writer"}):
+            _reject("v4封存消费延期约束缺失，不能作为当前权威")
+        cursor.execute("SELECT public.ai_v4_verify_seal_consumption(%s,%s,%s,%s)",
+            [parent.id, attempt.id, seal.evidence_version,
+             seal.body_digest])
+        if cursor.fetchone() != (True,):
+            _reject("v4旧封存缺同事务消费回执，不能作为当前权威")
+
+
 def verify_seal(run_id, principal):
     """Return a compact verified seal receipt, never a runnable report grant."""
     if settings.DJANGO_PROCESS_ROLE not in {"development", "ai_writer"}:
@@ -194,6 +236,7 @@ def verify_seal(run_id, principal):
             or seal.key_id != attempt.key_id
             or seal.body_digest != digest(seal.body_json)):
         _reject("v4封存行、验证尝试或当前账号版本不一致")
+    _require_consumption(parent, attempt, seal)
     latest = (m.AiBusinessV4ValidationAttempt.objects.filter(
         run_id=parent.id).order_by("-created_at", "-id").values("id").first())
     if latest != {"id": attempt.id}:
@@ -266,6 +309,7 @@ def verify_seal(run_id, principal):
         except (AnalysisContractError, UnicodeError, TypeError, ValueError,
                 RecursionError) as error:
             raise AiError("v4封存返回前应用签名或密钥变化", "conflict", 409) from error
+        _require_consumption(parent, attempt, seal)
         result = {"schemaVersion": SCHEMA, "runId": parent.id,
             "evidenceVersion": parent.version,
             "sealedDigest": seal.body_digest,

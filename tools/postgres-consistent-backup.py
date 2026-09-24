@@ -552,6 +552,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0043_business_v4_seal_consumption_candidate" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_v4_seal_consumptions")
+            elif "0042_business_v4_claimed_read" not in ai_migrations:
+                raise RuntimeError("AI v4 consumption has no claimed-reader predecessor")
             ticket_tables = {"ai_business_v4_seal_tickets",
                              "ai_business_v4_seal_claims"}
             if "0041_business_v4_seal_ticket" not in ai_migrations:
@@ -708,6 +712,79 @@ def collect_evidence(
                         [signature] * 3)
                     if cursor.fetchone() != (sealer, False, False):
                         raise RuntimeError("AI v4 claimed reader function ACL drift")
+            if "0043_business_v4_seal_consumption_candidate" in ai_migrations:
+                cursor.execute("SELECT count(*) FROM pg_catalog.pg_trigger t "
+                    "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+                    "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE n.nspname='public' AND c.relname="
+                    "'ai_business_v4_seal_consumptions' "
+                    "AND t.tgname IN ('ai_v4_consumption_state',"
+                    "'ai_v4_ticket_immutable','ai_v4_ticket_no_truncate') "
+                    "AND t.tgenabled='O'")
+                if cursor.fetchone()[0] != 3:
+                    raise RuntimeError("AI v4 consumption immutable triggers missing")
+                cursor.execute("SELECT t.tgtype,t.tgdeferrable,t.tginitdeferred,"
+                    "t.tgenabled,t.tgfoid='public.ai_v4_seal_requires_consumption()'"
+                    "::regprocedure,p.prosecdef,p.proconfig,p.prosrc,"
+                    "p.proowner='teruisi_ai_seal_writer'::regrole "
+                    "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p "
+                    "ON p.oid=t.tgfoid WHERE t.tgrelid="
+                    "'public.ai_business_v4_seals'::regclass AND "
+                    "t.tgname='ai_v4_seal_consumption_required'")
+                required_seal = cursor.fetchone()
+                from importlib import import_module
+                consumption_migration = import_module(
+                    "ai_assistant.migrations.0043_business_v4_seal_consumption_candidate"
+                )
+                expected_seal = consumption_migration.REQUIRE_CONSUMPTION.split("$$")[1]
+                if (required_seal is None or required_seal[:6] !=
+                        (5, True, True, "O", True, True)
+                        or {value.replace(" ", "") for value in (required_seal[6] or [])}
+                        != {"search_path=pg_catalog,public"}
+                        or required_seal[7] != expected_seal
+                        or required_seal[8] is not False):
+                    raise RuntimeError("AI v4 seal consumption commit fence missing")
+                for role in ("teruisi_ai_reader", "teruisi_ai_writer",
+                             "teruisi_ai_seal_writer"):
+                    cursor.execute("SELECT has_any_column_privilege(%s,%s,'SELECT'),"
+                        "has_any_column_privilege(%s,%s,'INSERT'),"
+                        "has_any_column_privilege(%s,%s,'UPDATE'),"
+                        "has_table_privilege(%s,%s,'DELETE'),"
+                        "has_table_privilege(%s,%s,'TRUNCATE')",
+                        [role, "public.ai_business_v4_seal_consumptions"] * 5)
+                    if any(cursor.fetchone()):
+                        raise RuntimeError("AI v4 consumption table ACL drift")
+                signature = "public.ai_v4_sealer_consumption_result(text,text,text,text,text)"
+                cursor.execute("SELECT to_regprocedure(%s)", [signature])
+                if cursor.fetchone()[0] is None:
+                    raise RuntimeError("AI v4 consumption result function missing")
+                cursor.execute("SELECT has_function_privilege("
+                    "'teruisi_ai_seal_writer',%s,'EXECUTE'),"
+                    "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+                    "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+                    [signature] * 3)
+                if cursor.fetchone() != (True, False, False):
+                    raise RuntimeError("AI v4 consumption result ACL drift")
+                signature = "public.ai_v4_verify_seal_consumption(text,text,bigint,text)"
+                cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
+                    "pg_catalog.pg_get_userbyid(p.proowner) FROM pg_catalog.pg_proc p "
+                    "WHERE p.oid=to_regprocedure(%s)", [signature])
+                verifier = cursor.fetchone()
+                if (verifier is None or verifier[0] !=
+                        consumption_migration.VERIFY_CONSUMPTION.split("$$")[1]
+                        or verifier[1] is not True
+                        or {item.replace(" ", "") for item in (verifier[2] or [])}
+                        != {"search_path=pg_catalog,public"}
+                        or verifier[3] in {"teruisi_ai_reader", "teruisi_ai_writer",
+                                           "teruisi_ai_seal_writer"}):
+                    raise RuntimeError("AI v4 consumption verifier missing")
+                cursor.execute("SELECT has_function_privilege("
+                    "'teruisi_ai_seal_writer',%s,'EXECUTE'),"
+                    "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+                    "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+                    [signature] * 3)
+                if cursor.fetchone() != (False, True, False):
+                    raise RuntimeError("AI v4 consumption verifier ACL drift")
             required.update(expected_ai_tables)
         missing = sorted(required.difference(tables))
         if missing:

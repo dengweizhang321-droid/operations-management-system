@@ -250,6 +250,11 @@ class BusinessV4SealAdmissionTests(TransactionTestCase):
                     "public.ai_v4_lock_source_revisions_for_admission()")
 
     def test_empty_admission_function_reverse_and_reinstall_is_fail_closed(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_commit_seal("
+                "text,text,bigint,text,text,text,text)')")
+            if cursor.fetchone()[0] is not None:
+                self.skipTest("0037逆装仅在0038封存角色改写锁源函数之前适用")
         migration = import_module("ai_assistant.migrations.0037_business_v4_seal_admission_read")
         with transaction.atomic(), connection.schema_editor(atomic=False) as editor:
             migration.uninstall(None, editor)

@@ -143,11 +143,17 @@ class BusinessV4SealTicketTests(TransactionTestCase):
 
     def test_accidental_runtime_truncate_grant_still_cannot_erase_ticket(self):
         attempt_id = self.attempt()
-        ticket_id, _, _ = self.issue(attempt_id)
+        ticket_id, nonce, _ = self.issue(attempt_id)
+        self.claim(attempt_id, nonce)
+        tables = ["public.ai_business_v4_seal_tickets",
+                  "public.ai_business_v4_seal_claims"]
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regclass('public.ai_business_v4_seal_consumptions')")
+            if cursor.fetchone()[0] is not None:
+                tables.append("public.ai_business_v4_seal_consumptions")
         for role in ("teruisi_ai_writer", "teruisi_ai_seal_writer"):
             with connection.cursor() as cursor:
-                cursor.execute("GRANT TRUNCATE ON public.ai_business_v4_seal_tickets,"
-                    "public.ai_business_v4_seal_claims TO " + role)
+                cursor.execute("GRANT TRUNCATE ON " + ",".join(tables) + " TO " + role)
             try:
                 with self.database() as db:
                     db.execute("SET SESSION AUTHORIZATION " + role)
@@ -158,11 +164,14 @@ class BusinessV4SealTicketTests(TransactionTestCase):
                             db.execute("TRUNCATE public." + table + " CASCADE")
             finally:
                 with connection.cursor() as cursor:
-                    cursor.execute("REVOKE TRUNCATE ON public.ai_business_v4_seal_tickets,"
-                        "public.ai_business_v4_seal_claims FROM " + role)
+                    cursor.execute("REVOKE TRUNCATE ON " + ",".join(tables) +
+                        " FROM " + role)
         with connection.cursor() as cursor:
             cursor.execute("SELECT count(*) FROM public.ai_business_v4_seal_tickets "
                 "WHERE id=%s", [ticket_id])
+            self.assertEqual(cursor.fetchone(), (1,))
+            cursor.execute("SELECT count(*) FROM public.ai_business_v4_seal_claims "
+                "WHERE ticket_id=%s", [ticket_id])
             self.assertEqual(cursor.fetchone(), (1,))
 
     def test_source_root_rejects_duplicate_ordinals_even_with_plausible_bounds(self):

@@ -168,6 +168,11 @@ def check():
             for table in ("ai_business_v4_seal_tickets", "ai_business_v4_seal_claims")
             for trigger in ("ai_v4_ticket_immutable", "ai_v4_ticket_no_truncate")
         }
+        required_triggers |= {
+            ("ai_business_v4_seal_consumptions", name)
+            for name in ("ai_v4_consumption_state", "ai_v4_ticket_immutable",
+                         "ai_v4_ticket_no_truncate")
+        } | {("ai_business_v4_seals", "ai_v4_seal_consumption_required")}
         cursor.execute(
             "SELECT c.relname,t.tgname,t.tgenabled FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal AND c.relname LIKE 'ai_%'"
         )
@@ -223,6 +228,53 @@ def check():
                 [signature] * 3)
             if cursor.fetchone() != (sealer, False, False):
                 raise ValueError("AI v4 claimed reader function ACL drift")
+        cursor.execute("SELECT t.tgtype,t.tgdeferrable,t.tginitdeferred,"
+            "t.tgenabled,t.tgfoid='public.ai_v4_seal_requires_consumption()'"
+            "::regprocedure,p.prosecdef,p.proconfig,p.prosrc,"
+            "p.proowner='teruisi_ai_seal_writer'::regrole "
+            "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p "
+            "ON p.oid=t.tgfoid WHERE t.tgrelid="
+            "'public.ai_business_v4_seals'::regclass AND "
+            "t.tgname='ai_v4_seal_consumption_required'")
+        required_seal = cursor.fetchone()
+        consumption_migration = importlib.import_module(
+            "ai_assistant.migrations.0043_business_v4_seal_consumption_candidate")
+        if (required_seal is None or required_seal[:6] !=
+                (5, True, True, "O", True, True)
+                or {value.replace(" ", "") for value in (required_seal[6] or [])}
+                != {"search_path=pg_catalog,public"}
+                or required_seal[7] != consumption_migration.REQUIRE_CONSUMPTION.split("$$")[1]
+                or required_seal[8] is not False):
+            raise ValueError("AI v4 seal consumption commit fence missing")
+        signature = "public.ai_v4_sealer_consumption_result(text,text,text,text,text)"
+        cursor.execute("SELECT to_regprocedure(%s)", [signature])
+        if cursor.fetchone()[0] is None:
+            raise ValueError("AI v4 seal result function missing")
+        cursor.execute("SELECT has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE'),"
+            "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+            "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+            [signature] * 3)
+        if cursor.fetchone() != (True, False, False):
+            raise ValueError("AI v4 seal result function ACL drift")
+        signature = "public.ai_v4_verify_seal_consumption(text,text,bigint,text)"
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner) FROM pg_catalog.pg_proc p "
+            "WHERE p.oid=to_regprocedure(%s)", [signature])
+        verifier = cursor.fetchone()
+        if (verifier is None
+                or verifier[0] != consumption_migration.VERIFY_CONSUMPTION.split("$$")[1]
+                or verifier[1] is not True
+                or {item.replace(" ", "") for item in (verifier[2] or [])}
+                != {"search_path=pg_catalog,public"}
+                or verifier[3] in {"teruisi_ai_reader", "teruisi_ai_writer",
+                                   "teruisi_ai_seal_writer"}):
+            raise ValueError("AI v4 seal consumption verifier missing")
+        cursor.execute("SELECT has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE'),"
+            "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+            "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+            [signature] * 3)
+        if cursor.fetchone() != (False, True, False):
+            raise ValueError("AI v4 seal consumption verifier ACL drift")
         integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
         screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
         screening_runtime = importlib.import_module("ai_assistant.migrations.0024_business_screening_runtime")

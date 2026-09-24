@@ -37,6 +37,7 @@ MODELS = {
     "ai_business_v4_seals": m.AiBusinessV4Seal,
     "ai_business_v4_seal_tickets": m.AiBusinessV4SealTicket,
     "ai_business_v4_seal_claims": m.AiBusinessV4SealClaim,
+    "ai_business_v4_seal_consumptions": m.AiBusinessV4SealConsumption,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -175,7 +176,8 @@ WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 # from READ_TABLES and WRITER_PRIVILEGES. ProvisionRoles must never grant direct
 # reader/writer access to nonce hashes or one-time claim state.
 CLOSED_SEAL_TICKET_TABLES = (
-    "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims")
+    "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims",
+    "ai_business_v4_seal_consumptions")
 for table in CLOSED_SEAL_TICKET_TABLES:
     WRITER_PRIVILEGES.pop(table)
 assert not set(CLOSED_SEAL_TICKET_TABLES).intersection(
@@ -288,6 +290,18 @@ def provision(connection, reader_password, writer_password):
             if cursor.fetchone()[0] is not None:
                 signature = ("public.ai_v4_issue_seal_ticket("
                     "text,text,text,bigint,bigint,text,text)")
+                cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM PUBLIC")
+                if role == "teruisi_ai_writer":
+                    cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
+                        " TO teruisi_ai_writer")
+                else:
+                    cursor.execute("REVOKE EXECUTE ON FUNCTION " + signature +
+                        " FROM teruisi_ai_reader")
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_verify_seal_consumption("
+                "text,text,bigint,text)')")
+            if cursor.fetchone()[0] is not None:
+                signature = ("public.ai_v4_verify_seal_consumption("
+                    "text,text,bigint,text)")
                 cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM PUBLIC")
                 if role == "teruisi_ai_writer":
                     cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +

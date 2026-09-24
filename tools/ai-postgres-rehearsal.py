@@ -43,10 +43,16 @@ parser.add_argument("--business-v4-sealer-ledger-read-upgrade", action="store_tr
 parser.add_argument("--business-v4-sealer-narrow-stream-upgrade", action="store_true")
 parser.add_argument("--business-v4-seal-ticket-upgrade", action="store_true")
 parser.add_argument("--business-v4-claimed-read-upgrade", action="store_true")
+parser.add_argument("--business-v4-seal-consumption-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_v4_seal_consumption_upgrade:
+    if arguments.business_v4_claimed_read_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # The 0043 exercise must replay every frozen predecessor through 0042.
+    arguments.business_v4_claimed_read_upgrade = True
 if not 60 <= arguments.test_timeout_seconds <= 1800:
     parser.error("--test-timeout-seconds must stay within 60-1800")
 if arguments.upgrade_only and (arguments.tests_only or arguments.test_label or arguments.all_backend_tests
@@ -352,6 +358,9 @@ try:
         if arguments.business_v4_claimed_read_upgrade:
             rehearsals += (("business-v4-claimed-read-upgrade-rehearsal.py",
                 "business-v4-claimed-read-upgrade.json"),)
+        if arguments.business_v4_seal_consumption_upgrade:
+            rehearsals += (("business-v4-seal-consumption-upgrade-rehearsal.py",
+                "business-v4-seal-consumption-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
