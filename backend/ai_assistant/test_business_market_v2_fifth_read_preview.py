@@ -3,6 +3,7 @@ from copy import deepcopy
 from unittest.mock import patch
 
 from django import test as djtest
+from django.db import connection
 
 from access_control.models import AppUser
 from . import business_market_v2_fifth_read_contract as contract
@@ -28,6 +29,17 @@ class MarketV2FifthReadPreviewTests(djtest.TransactionTestCase):
     selector = fixture.MarketV2MaterialAdmissionTests.selector
     parked_id = fixture.MarketV2MaterialAdmissionTests.parked_id
     _attest_as_role = staticmethod(fixture.MarketV2MaterialAdmissionTests._attest_as_role)
+
+    def read_as_reader(self, *args, **kwargs):
+        # The 0056 projection is intentionally callable only by the genuine
+        # login reader role. The isolated test owner can impersonate it here.
+        with connection.cursor() as cursor:
+            cursor.execute("SET SESSION AUTHORIZATION teruisi_ai_reader")
+        try:
+            return service.read(*args, **kwargs)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("RESET SESSION AUTHORIZATION")
 
     def roots(self):
         parked_id = self.parked_id()
@@ -59,7 +71,7 @@ class MarketV2FifthReadPreviewTests(djtest.TransactionTestCase):
             m.AiAgentToolDispatches.objects.count(),
             m.AiAgentToolResults.objects.count())
         with patch("ai_assistant.transport.execute_tool") as model_tool:
-            result = service.read(call, selected, self.args(call, "summary"),
+            result = self.read_as_reader(call, selected, self.args(call, "summary"),
                 self.admin)
         model_tool.assert_not_called()
         self.assertEqual(result["admittedReportId"], created["reportId"])
@@ -83,13 +95,13 @@ class MarketV2FifthReadPreviewTests(djtest.TransactionTestCase):
     def test_page_and_row_have_server_selected_citation_and_numeric_cell(self):
         _, _, selected, call = self.roots()
         for view in ("price_band", "rank_entry_exit"):
-            page = service.read(call, selected, self.args(call, "page", view=view,
+            page = self.read_as_reader(call, selected, self.args(call, "page", view=view,
                 offset=0, limit=20), self.admin)
             self.assertTrue(page["citationBases"])
             row = page["payload"]["rows"][0]
             numeric = ({"metric": "sampleGmvLowerCents", "field": "presentRows"}
                 if view == "price_band" else None)
-            exact = service.read(call, selected, self.args(call, "row", view=view,
+            exact = self.read_as_reader(call, selected, self.args(call, "row", view=view,
                 rowIndex=row["rowIndex"], rowId=row["rowId"]), self.admin,
                 numeric_selection=numeric)
             self.assertEqual(exact["citationBases"][0]["rowId"], row["rowId"])
@@ -108,25 +120,31 @@ class MarketV2FifthReadPreviewTests(djtest.TransactionTestCase):
         _, _, selected, call = self.roots()
         wrong = self.user("fifth-market-other@example.invalid", "admin", None)
         with self.assertRaises(AiError):
-            service.read(call, selected, self.args(call, "summary"), wrong)
+            self.read_as_reader(call, selected, self.args(call, "summary"), wrong)
         role = {**call, "role": "commerce"}
         with self.assertRaises(AiError):
-            service.read(role, selected, self.args(role, "summary"), self.admin)
+            self.read_as_reader(role, selected, self.args(role, "summary"), self.admin)
         other = deepcopy(selected)
         other["bands"][0]["key"] += "_other"
         with self.assertRaises(AiError):
-            service.read(call, other, self.args(call, "summary"), self.admin)
+            self.read_as_reader(call, other, self.args(call, "summary"), self.admin)
         manifest = {**call, "marketManifestDigest": "0"*64}
         with self.assertRaises(AiError):
-            service.read(manifest, selected, self.args(manifest, "summary"),
+            self.read_as_reader(manifest, selected, self.args(manifest, "summary"),
                 self.admin)
         bad_report = {**call, "admittedReportId": "other-report"}
         with self.assertRaises(AiError):
-            service.read(bad_report, selected,
+            self.read_as_reader(bad_report, selected,
                 self.args(bad_report, "summary"), self.admin)
         def revoke(event):
             if event == {"stage": "market_composite_export", "phase": "complete"}:
-                AppUser.objects.filter(email=self.admin.email).update(status="disabled")
+                with connection.cursor() as cursor:
+                    cursor.execute("RESET SESSION AUTHORIZATION")
+                try:
+                    AppUser.objects.filter(email=self.admin.email).update(status="disabled")
+                finally:
+                    with connection.cursor() as cursor:
+                        cursor.execute("SET SESSION AUTHORIZATION teruisi_ai_reader")
         with self.assertRaises(AiError):
-            service.read(call, selected, self.args(call, "summary"), self.admin,
+            self.read_as_reader(call, selected, self.args(call, "summary"), self.admin,
                 checkpoint=revoke)
