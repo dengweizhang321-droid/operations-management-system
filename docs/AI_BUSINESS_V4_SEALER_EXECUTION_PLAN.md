@@ -13,6 +13,8 @@
 
 0036 段 MAC 使用 `resumable-validation` 用途分隔密钥；父 seal MAC 另用 `parent-seal` 用途分隔密钥。受保护配置应仅保存两种**派生密钥**而不把 Django 主密钥给执行器；Windows CurrentUser DPAPI、精确文件 ACL、无控制台进程和不回显敏感材料可复用系统现有模式。配置/角色启用属于未来受控安全变更，本页不创建凭据、不把角色改为 LOGIN。
 
+隔离纯模块 `business_analysis.v4_sealer_mac.verify_segment` 已固定 0036 的用途分隔 HMAC 字节和 keyId 检查，只接受调用方提供的32字节派生验证密钥；它本身没有 claim、数据库或封存权限。真实调用仍须由受保护独立执行器取得派生密钥，并在校验段形状与当前 claim 后使用。
+
 在推广、真实财务来源的所有分段都有独立回执且末段根一致之前，不能调用最终 seal。最终需要新短事务包装：重新核最新账号/attempt/目录与写侧修订、全来源段链及真实应用 MAC，然后在**同一事务**调用 0038 seal 并写入 0043 消费回执；提交后由消费结果与 writer 的完整 `verify_seal` 复验。当前 0043 只有延期消费约束，旧直接 commit EXECUTE 已撤销。随机 64 位 MAC、裸 `sealed` 状态、0042 的 `run_bound_capability_verified` 或 0047 回执均不是来源权威。
 
 ## 尚需具体验收
