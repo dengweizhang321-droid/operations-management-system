@@ -164,9 +164,9 @@ def trial_proof(value, manifest):
     """Validate the v9 approval/source/table fence; no publication authority."""
     _fields(value, {"schemaVersion", "rendererVersion", "reportId", "contentDtoDigest",
         "humanReviewDigest", "promotionFileProofDigest", "sealedSourcesDigest",
-        "sourceDescriptorDigest", "actionTableKey", "actionRowCount", "actionRowDigest",
+        "sourceDescriptorDigest", "tableSchemaDigest", "actionTableKey", "actionRowCount", "actionRowDigest",
         "scopeTableKeys", "promotionTableKeys", "budgetDelivered", "proofDigest"})
-    _equal(value["schemaVersion"], "business-promotion-trial-file-proof-v1")
+    _equal(value["schemaVersion"], "business-promotion-trial-file-proof-v2")
     _equal(value["rendererVersion"], 9)
     _equal(value["reportId"], manifest["reportId"])
     _equal(value["contentDtoDigest"], manifest[PROMOTION_KEY]["contentDtoDigest"])
@@ -174,6 +174,8 @@ def trial_proof(value, manifest):
     _equal(value["promotionFileProofDigest"], manifest[PROMOTION_KEY]["proofDigest"])
     _sha(value["sealedSourcesDigest"])
     _equal(value["sourceDescriptorDigest"], manifest["sourceDescriptorDigest"])
+    _equal(value["tableSchemaDigest"], manifest["tableSchemaDigest"])
+    _sha(value["tableSchemaDigest"])
     _equal(value["actionTableKey"], "promotion-approved-actions-v1")
     _equal(value["scopeTableKeys"], ["promotion-trial-source-scope", "promotion-trial-boundaries"])
     _equal(value["promotionTableKeys"], ["promotion-keyword_sku", "promotion-keyword_sku_context"])
@@ -282,7 +284,7 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
     _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9) else set()) |
-            ({TRIAL_KEY} if renderer_version == 9 else set()),
+            ({TRIAL_KEY, "tableSchemaDigest"} if renderer_version == 9 else set()),
             {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
     if renderer_version in (7, 9):
         promotion_proof(value[PROMOTION_KEY], value["reportId"])

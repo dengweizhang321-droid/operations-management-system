@@ -13,7 +13,7 @@ import time
 from django.db import connection
 from django.utils import timezone
 
-from business_analysis import volume_delivery, volume_files as pure_volume_files, volume_plan
+from business_analysis import promotion_trial_table_schema, volume_delivery, volume_files as pure_volume_files, volume_plan
 from business_analysis.contracts import AnalysisContractError
 from . import business_files as files, business_promotion_approved_content as approved_content
 from . import business_promotion_content_contract as content_contract
@@ -191,13 +191,14 @@ def _verify_staged(row, principal, checkpoint):
                     if (count, actual_hash.hexdigest()) != (recorded["rowCount"],
                             recorded["rowDigest"]):
                         _conflict("试用卷表行与当前封存来源不同")
-                trial = {"schemaVersion": "business-promotion-trial-file-proof-v1",
+                trial = {"schemaVersion": "business-promotion-trial-file-proof-v2",
                     "rendererVersion": VERSION, "reportId": row.report_id,
                     "contentDtoDigest": completed.value["dtoDigest"],
                     "humanReviewDigest": proof["humanReviewDigest"],
                     "promotionFileProofDigest": proof["proofDigest"],
                     "sealedSourcesDigest": source["sourcesDigest"],
                     "sourceDescriptorDigest": full["sourceDescriptorDigest"],
+                    "tableSchemaDigest": promotion_trial_table_schema.digest_tables(expected_tables),
                     "actionTableKey": action.key, "actionRowCount": action.row_count,
                     "actionRowDigest": action_sha.hexdigest(),
                     "scopeTableKeys": ["promotion-trial-source-scope", "promotion-trial-boundaries"],

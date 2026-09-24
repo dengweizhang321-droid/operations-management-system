@@ -328,4 +328,5 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         if type(proof) is not dict or offline_budget is not None or excel_budget is not None:
             raise AnalysisContractError("renderer 9 缺少试用证明或意外包含预算")
         manifest["promotionTrialProof"] = proof
+        manifest["tableSchemaDigest"] = proof.get("tableSchemaDigest")
     return {**manifest, "manifestDigest": digest(manifest)}

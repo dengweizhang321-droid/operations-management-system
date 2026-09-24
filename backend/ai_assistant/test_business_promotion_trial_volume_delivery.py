@@ -175,7 +175,7 @@ class PromotionTrialDeliveryTests(djtest.TransactionTestCase):
             self.assertTrue(m.AiBusinessVolumeChunk.objects.filter(
                 run=row, attempt=2).exists())
 
-    def test_changed_current_table_title_cannot_publish_staged_bytes(self):
+    def test_changed_current_table_declaration_cannot_publish_staged_bytes(self):
         report = self.create_approved_report()
         self.complete_flow(report)
         with patch.object(stage.approved_content.runtime.transport, "catalog",
@@ -189,13 +189,21 @@ class PromotionTrialDeliveryTests(djtest.TransactionTestCase):
                 ("paused", "renderer_unpublished"))
             original = stage.formal_pair._tables
 
-            def changed_title(*args, **kwargs):
-                tables = original(*args, **kwargs)
-                return (replace(tables[0], title="已更改的摘要标题"), *tables[1:])
-
-            with patch.object(stage.formal_pair, "_tables", side_effect=changed_title):
-                with self.assertRaises(AiError):
-                    stage.publish(row.id, row.version, self.admin)
+            changes = {
+                "title": lambda table: replace(table, title="已更改的摘要标题"),
+                "note": lambda table: replace(table, note="已更改的口径说明"),
+                "columnLabel": lambda table: replace(table, columns=(
+                    replace(table.columns[0], label="已更改的列名"),
+                    *table.columns[1:])),
+            }
+            for name, change in changes.items():
+                def changed(*args, **kwargs):
+                    tables = original(*args, **kwargs)
+                    return (change(tables[0]), *tables[1:])
+                with self.subTest(name=name), patch.object(stage.formal_pair,
+                        "_tables", side_effect=changed):
+                    with self.assertRaises(AiError):
+                        stage.publish(row.id, row.version, self.admin)
             row.refresh_from_db()
             self.assertEqual((row.status, row.error_code),
                 ("paused", "renderer_unpublished"))

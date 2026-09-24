@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from business_analysis import volume_delivery, volume_files, volume_plan
+from business_analysis import promotion_trial_table_schema, volume_delivery, volume_files, volume_plan
 from business_analysis.contracts import AnalysisContractError
 from business_analysis import promotion_action_tables
 from . import business_promotion_approved_content as approved_content
@@ -134,13 +134,14 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                     action_sha = hashlib.sha256()
                     for row in action.rows:
                         action_sha.update((canonical(list(row))+"\n").encode("utf-8"))
-                    trial_proof = {"schemaVersion": "business-promotion-trial-file-proof-v1",
+                    trial_proof = {"schemaVersion": "business-promotion-trial-file-proof-v2",
                         "rendererVersion": 9, "reportId": report_id,
                         "contentDtoDigest": value["dtoDigest"],
                         "humanReviewDigest": proof["humanReviewDigest"],
                         "promotionFileProofDigest": proof["proofDigest"],
                         "sealedSourcesDigest": source["sourcesDigest"],
                         "sourceDescriptorDigest": plan["sourceDescriptorDigest"],
+                        "tableSchemaDigest": promotion_trial_table_schema.digest_tables(tables),
                         "actionTableKey": action.key, "actionRowCount": action.row_count,
                         "actionRowDigest": action_sha.hexdigest(),
                         "scopeTableKeys": ["promotion-trial-source-scope", "promotion-trial-boundaries"],
