@@ -812,6 +812,12 @@ def collect_evidence(
             if ("0048_business_v4_finance_replay_progress" in ai_migrations
                     and "0047_business_v4_sealer_replay_progress" not in ai_migrations):
                 raise RuntimeError("AI v4 finance replay has no promotion replay predecessor")
+            if "0049_business_v4_sealer_source_bridge" in ai_migrations:
+                if ("0048_business_v4_finance_replay_progress" not in ai_migrations
+                        or "0042_business_v4_claimed_read" not in ai_migrations):
+                    raise RuntimeError("AI v4 sealer source bridge has no claimed-reader predecessor")
+                from ai_assistant.v4_sealer_source_catalog import verify
+                verify(cursor, RuntimeError)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.

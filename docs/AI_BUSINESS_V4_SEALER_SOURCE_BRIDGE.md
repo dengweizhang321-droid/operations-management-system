@@ -6,4 +6,4 @@
 
 返回值包含来源 ID、key、序号、domain、temporal role、规范 query 与摘要、来源身份摘要和修订提示、固定版本/ref/revision、完成页数/行数/字节数、票据 `sourceRoot`、attempt `keyId`、完整 checkpoint 摘要与最后页摘要。推广来源另返回规范的首末页身份 metadata；财务来源另返回完成 `financeState` 的摘要，供纯重放与最终对账比较。不会返回其它来源、来源表全行、工具审计参数或原始事实页。`run_bound_capability_verified=true` 只表示本次读通过 claim 门禁，不表示上游业务签名、来源权威、seal 或报告已获准。
 
-该函数是 `SECURITY DEFINER`，仅 `teruisi_ai_seal_writer` 可执行。角色继续为 `NOLOGIN`，没有新增表 ACL、角色成员或直接 seal commit 权限；reader、writer 和 PUBLIC 不能执行。逆迁移只删除这个函数；0049 不写新表或回执。部署前须串行执行目标 PostgreSQL 测试和恢复门禁，当前文档及静态代码不构成启用授权。
+该函数是 `SECURITY DEFINER`，仅 `teruisi_ai_seal_writer` 可执行。角色继续为 `NOLOGIN`，没有新增表 ACL、角色成员或直接 seal commit 权限；reader、writer 和 PUBLIC 不能执行。逆迁移只删除这个函数；0049 不写新表或回执。隔离 PostgreSQL 4 项 `.runtime/ai-pg-9f81d7408498/tests.log` 覆盖精确单来源、跨 run/source/claim/账号/撤权拒绝及目录门禁 ACL 漂移；0048→0049 旧79表/renderer1—7字节与旧函数OID/权限、双备份恢复及空回退再升级通过 `.runtime/ai-pg-2954dd9f2b31/business-v4-sealer-source-bridge-upgrade-evidence.json`。这是隔离候选，不构成正式角色激活或封存授权。

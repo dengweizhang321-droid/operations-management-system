@@ -3,30 +3,42 @@ import hashlib
 import json
 
 import psycopg
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 
 from access_control.models import AppUser
 
 from . import models as m
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+from .v4_sealer_source_catalog import verify as verify_catalog
+from . import test_business_v4_seal_ticket as ticket_fixture
 
 
 class BusinessV4SealerSourceBridgeTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    issue = fixture.issue
-    claim = fixture.claim
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = ticket_fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = ticket_fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = ticket_fixture.BusinessV4SealTicketTests.finance_owner
+    owner = ticket_fixture.BusinessV4SealTicketTests.owner
+    collect = ticket_fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = ticket_fixture.BusinessV4SealTicketTests.complete_mixed
+    attempt = ticket_fixture.BusinessV4SealTicketTests.attempt
+    database = ticket_fixture.BusinessV4SealTicketTests.database
+    _identity = ticket_fixture.BusinessV4SealTicketTests._identity
+    _role_connection = ticket_fixture.BusinessV4SealTicketTests._role_connection
+    issue = ticket_fixture.BusinessV4SealTicketTests.issue
+    claim = ticket_fixture.BusinessV4SealTicketTests.claim
+    setUp = ticket_fixture.BusinessV4SealTicketTests.setUp
+    tearDown = ticket_fixture.BusinessV4SealTicketTests.tearDown
+
+    def test_frozen_source_bridge_catalog_and_acl(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor)
+            verify_catalog(cursor, RuntimeError)
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("REVOKE EXECUTE ON FUNCTION public.ai_v4_sealer_ticket_source("
+                "text,text,text,text,bigint,text,text) FROM teruisi_ai_seal_writer")
+            with self.assertRaisesRegex(ValueError, "function ACL drift"):
+                verify_catalog(cursor)
+            transaction.set_rollback(True)
 
     def read_source(self, db, attempt_id, source_id, nonce, token, *,
                     run_id=None, actor=None, version=None):
@@ -106,7 +118,7 @@ class BusinessV4SealerSourceBridgeTests(TransactionTestCase):
                             version=option.get("version"))
                     db.execute("ROLLBACK")
         AppUser.objects.filter(email=self.principal.email).update(
-            status="inactive")
+            status="disabled")
         with self._role_connection("teruisi_ai_seal_writer") as db:
             with self.assertRaises(psycopg.Error):
                 self.read_source(db, attempt_id, source.id, nonce, token)
