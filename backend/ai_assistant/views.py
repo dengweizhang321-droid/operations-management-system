@@ -140,6 +140,8 @@ def _dispatch(request, path=""):
         routes = {
             r"business-plan/preview": {"POST"},
             r"business-reports": {"POST"},
+            r"market-v2-parked-reports": {"POST"},
+            r"market-v2-parked-reports/[A-Za-z0-9_-]{1,160}/preview": {"GET"},
             r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
@@ -252,6 +254,25 @@ def _dispatch(request, path=""):
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if root == "market-v2-parked-reports":
+            if getattr(settings, "AI_MARKET_V2_PREVIEW_ENABLED", False) is not True:
+                raise AiError("市场v2停放预览尚未启用", "market_v2_preview_not_ready", 409)
+            current_principal(principal, admin=True, write=request.method == "POST")
+            if request.method == "GET":
+                from .business_market_v2_parked_preview import read as parked_preview
+                return response(parked_preview(parts[1], params, principal))
+            from .business_market_v2_parked_creation import create as create_parked
+            fields(params, set())
+            return write(request, principal,
+                lambda complete: create_parked(payload, principal,
+                    commit=lambda result, status: complete({**result,
+                        "materialAdmitted": False,
+                        "agentReadPersisted": False,
+                        "actualAgentBound": False,
+                        "authorityVerified": False,
+                        "renderer": False,
+                        "requestMaterialReplayed": True}, status)),
+                external=True, commit_in_handler=True)
         if root == "promotion-tool-dispatch":
             from . import business_promotion_dispatch_tool
             fields(params, set())

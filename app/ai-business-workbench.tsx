@@ -5,6 +5,7 @@ import AiBusinessBudgetBuilder from "./ai-business-budget-builder";
 import AiBusinessMappingBuilder from "./ai-business-mapping-builder";
 import AiBusinessScopePicker from "./ai-business-scope-picker";
 import AiBusinessMarketPicker from "./ai-business-market-picker";
+import AiBusinessMarketV2Preview from "./ai-business-market-v2-preview";
 import AiBusinessSalesPicker from "./ai-business-sales-picker";
 import { mappingBindingKey, type MappingSelection } from "@/lib/ai/business-mapping-builder";
 import { mergeNetshopOption, type NetshopOptionSelection } from "@/lib/ai/business-scope-options";
@@ -496,6 +497,11 @@ export default function AiBusinessWorkbench({ onReportCreated }: { onReportCreat
           if (actor.current === principalKey && selectedRef.current === detail.id && analysisAllowed && !locked && !mappingBlocked && !screeningBlocked) create("report", { evidenceRunId: detail.id, question: detail.plan.analysisRequest!.question, dryRun, budgetPlan }, `${detail.plan.analysisRequest!.question} · 固定预算${dryRun ? "模拟" : "分析"}`);
         }} />}
         <h4>关联分析报告</h4>{reports.length ? reports.map(report => <button className="bw-task" key={report.id} onClick={() => onReportCreated(report.id)}><strong>打开报告 · {reportStatus[report.status] ?? report.status}</strong><small>{report.createdAt} · {report.id}</small></button>) : <p>尚无关联报告。</p>}{moreReports && <p>这里只显示最近 10 份关联报告；更多历史报告请在下方报告列表查看。</p>}
+        {detailV2 && detail.status === "sealed" && reports.length > 0 && detail.plan.catalogDigest && detail.plan.sourceCount && <AiBusinessMarketV2Preview
+          key={`${principalKey}:${detail.id}:${detail.version}:${detail.plan.catalogDigest}`}
+          principalKey={principalKey} evidenceRunId={detail.id} evidenceVersion={detail.version}
+          catalogDigest={detail.plan.catalogDigest} sourceCount={detail.plan.sourceCount}
+          reports={reports} disabled={locked || Boolean(detailError)} />}
       </>}
     </section>}
   </section>;

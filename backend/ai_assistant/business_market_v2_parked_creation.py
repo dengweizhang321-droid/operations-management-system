@@ -60,7 +60,7 @@ def _shape(prepared, report_id):
     return snapshot, workflow_input
 
 
-def create(body, principal):
+def create(body, principal, *, commit=None):
     """Persist only paused report/workflow metadata after complete preparation."""
     fields(body, {"schemaVersion", "clientRequestId", "sourceReportId",
         "marketSelector"}, {"schemaVersion", "clientRequestId", "sourceReportId",
@@ -82,7 +82,11 @@ def create(body, principal):
             and json.loads(existing.snapshot_json).get("executionProfile") == runtime.PROFILE,
             "市场v2请求标识已绑定不同报告或状态")
         screening._load(source_report_id, principal)
-        return {"item": _saved(existing), "replayed": True}
+        result = {"item": _saved(existing), "replayed": True}
+        if commit is not None:
+            with mutation(principal):
+                return commit(result, 200)
+        return result
     report_id = uid("market-v2-report")
     prepared = candidate_service.prepare(source_report_id, report_id,
         body["marketSelector"], principal)
@@ -120,4 +124,7 @@ def create(body, principal):
             snapshot_json=canonical(snapshot))
         _need(current_principal(principal, admin=True, write=True).email.lower()
             == principal.email.lower(), "市场v2创建期间账号变化")
-    return {"item": _saved(row), "replayed": False}
+        result = {"item": _saved(row), "replayed": False}
+        if commit is not None:
+            return commit(result, 200)
+    return result
