@@ -170,7 +170,10 @@ class BusinessV4FinanceCollectionTests(TestCase):
             AppUser.objects.filter(email=self.principal.email).update(status="inactive")
             with self.assertRaises(AiError): self.advance(first["runVersion"], "revoked")
             transaction.set_rollback(True)
-        FinanceDataRevision.objects.filter(domain="finance").update(revision=99)
+        revision = FinanceDataRevision.objects.get(domain="finance")
+        FinanceDataRevision.objects.filter(domain="finance").update(
+            revision=revision.revision + 1,
+            source_digest=digest([revision.source_digest, "synthetic-revision-switch"]))
         with self.assertRaises(FinanceApiError):
             self.advance(first["runVersion"], "revision-switched")
         self.assertEqual(m.AiBusinessV4Chunk.objects.filter(run=self.parent).count(), 1)

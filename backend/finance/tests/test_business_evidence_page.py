@@ -30,6 +30,12 @@ class FinanceEvidencePageTests(TestCase):
             "scope_key": "business", "scope_type": "business", "scope_name": "志高事业部", "group_name": ""},
             "analysisPeriod": {"startDate": "2026-08-20", "endDate": "2026-09-18"}}
 
+    def advance_revision(self, next_digest=None):
+        current = FinanceDataRevision.objects.get(domain="finance")
+        FinanceDataRevision.objects.filter(domain="finance").update(
+            revision=current.revision + 1,
+            source_digest=next_digest or digest([current.source_digest, "synthetic-change"]))
+
     def extend_rows(self, amount=105):
         base = FinanceLine.objects.filter(month="2026-08", scope_key="business", section="summary").first()
         self.assertIsNotNone(base)
@@ -106,7 +112,7 @@ class FinanceEvidencePageTests(TestCase):
         args = {"offset": first["pagination"]["nextOffset"], "after_id": first["pagination"]["nextLastId"],
                 "expected_source_ref": first["sourceRef"], "expected_revision": first["sourceRevision"]}
         for change in (lambda: AppUser.objects.filter(email=self.principal.email).update(version=2),
-                       lambda: FinanceDataRevision.objects.filter(domain="finance").update(revision=99),
+                       lambda: self.advance_revision(),
                        lambda: FinanceMonth.objects.filter(month="2026-09").update(status="processing"),
                        lambda: FinanceLine.objects.create(**{**{field.attname: getattr(
                            FinanceLine.objects.filter(month="2026-08", scope_key="business").first(), field.attname)
@@ -137,7 +143,7 @@ class FinanceEvidencePageTests(TestCase):
                     calls.append(1)
                     if len(calls) == 2:
                         if mode == "actor": AppUser.objects.filter(email=self.principal.email).update(status="disabled")
-                        elif mode == "revision": FinanceDataRevision.objects.filter(domain="finance").update(source_digest="f"*64)
+                        elif mode == "revision": self.advance_revision("f"*64)
                         else: FinanceMonth.objects.filter(month="2026-08").update(batch_id="missing")
                     return original(*args)
                 with self.captureOnRollback(lambda: None), patch.object(service, "_snapshot", side_effect=changed):

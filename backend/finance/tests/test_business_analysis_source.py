@@ -8,6 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from access_control.models import AccessRole, AppUser
+from business_analysis.contracts import digest
 from finance import business_analysis_source as service
 from finance.business_source_permissions import grant_actor_read
 from finance.errors import FinanceApiError
@@ -68,7 +69,9 @@ class FinanceBusinessSourceTests(TestCase):
             with service.open_source(self.principal, self.query):
                 rev = FinanceDataRevision.objects.get(domain="finance")
                 tail = "1" if rev.source_digest[-1] != "1" else "2"
-                FinanceDataRevision.objects.filter(domain="finance").update(source_digest=rev.source_digest[:-1] + tail)
+                FinanceDataRevision.objects.filter(domain="finance").update(
+                    revision=rev.revision + 1,
+                    source_digest=rev.source_digest[:-1] + tail)
 
     def test_revision_change_between_keyset_pages_returns_no_source(self):
         original = service._revalidate
@@ -77,7 +80,9 @@ class FinanceBusinessSourceTests(TestCase):
             calls.append(1)
             if len(calls) == 3:
                 revision = FinanceDataRevision.objects.get(domain="finance")
-                FinanceDataRevision.objects.filter(domain="finance").update(revision=revision.revision + 1)
+                FinanceDataRevision.objects.filter(domain="finance").update(
+                    revision=revision.revision + 1,
+                    source_digest=digest([revision.source_digest, "page-change"]))
             return original(*args)
         with patch.object(service, "READ_ROWS", 2), patch.object(service, "_revalidate", side_effect=changing):
             with self.assertRaises(FinanceApiError):

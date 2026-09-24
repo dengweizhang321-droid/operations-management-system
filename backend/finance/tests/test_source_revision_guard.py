@@ -59,7 +59,17 @@ class FinanceSourceRevisionGuardTests(TransactionTestCase):
             return cursor.fetchone()[0]
 
     def test_initial_missing_revision_row_seeds_only_with_valid_fact_commit(self):
-        FinanceDataRevision.objects.filter(domain="finance").delete()
+        # Only the isolated migration owner can simulate a pre-0004 absent row.
+        # The production finance_writer cannot disable this trigger or DELETE it.
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE finance_data_revisions "
+                "DISABLE TRIGGER finance_revision_monotonic")
+        try:
+            FinanceDataRevision.objects.filter(domain="finance").delete()
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE finance_data_revisions "
+                    "ENABLE TRIGGER finance_revision_monotonic")
         with self.assertRaises(DatabaseError), transaction.atomic():
             self.create_line("missing-revision")
         self.assertFalse(FinanceDataRevision.objects.filter(domain="finance").exists())
