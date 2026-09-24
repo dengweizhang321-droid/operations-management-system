@@ -21,7 +21,7 @@ from . import business_diagnostic_screening as screening, models as m
 from . import test_business_diagnostic_screening as fixtures
 from .database_contract import MODELS, READ_TABLES, WRITER_PRIVILEGES
 from .policy import canonical, digest
-from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS, AI_TABLES_PRE_V4_LEDGER, AI_TABLES_PRE_V4_VALIDATION, AI_TABLES_PRE_V4_SEALS
+from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS, AI_TABLES_PRE_V4_LEDGER, AI_TABLES_PRE_V4_VALIDATION, AI_TABLES_PRE_V4_SEALS, AI_TABLES_PRE_V4_TICKETS
 
 
 def row_values(bundle, tag):
@@ -79,7 +79,7 @@ def variant(bundle, tag):
 
 class InventoryTests(TestCase):
     def test_exact_models_tables_and_append_only_grants(self):
-        self.assertEqual(len(AI_TABLES),74)
+        self.assertEqual(len(AI_TABLES),76)
         self.assertEqual(len(AI_TABLES_PRE_TOOL_RECEIPTS), 65)
         self.assertEqual(len(AI_TABLES_PRE_V3_REPORT_INTENTS), 66)
         self.assertEqual(set(AI_TABLES_PRE_V3_REPORT_INTENTS) - set(AI_TABLES_PRE_TOOL_RECEIPTS),
@@ -96,9 +96,15 @@ class InventoryTests(TestCase):
         self.assertEqual(len(AI_TABLES_PRE_V4_SEALS), 73)
         self.assertEqual(set(AI_TABLES_PRE_V4_SEALS) - set(AI_TABLES_PRE_V4_VALIDATION),
                          {"ai_business_v4_validation_attempts", "ai_business_v4_validation_segments"})
-        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V4_SEALS),
-                         {"ai_business_v4_seals"})
+        self.assertEqual(len(AI_TABLES_PRE_V4_TICKETS), 74)
+        self.assertEqual(set(AI_TABLES_PRE_V4_TICKETS) - set(AI_TABLES_PRE_V4_SEALS),
+                          {"ai_business_v4_seals"})
+        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V4_TICKETS),
+                         {"ai_business_v4_seal_tickets", "ai_business_v4_seal_claims"})
         self.assertEqual(set(AI_TABLES),set(MODELS))
+        for table in ("ai_business_v4_seal_tickets", "ai_business_v4_seal_claims"):
+            self.assertNotIn(table, READ_TABLES)
+            self.assertNotIn(table, WRITER_PRIVILEGES)
         for table, model in (("ai_business_screening_runs",m.AiBusinessScreeningRun),
                 ("ai_business_screening_pages",m.AiBusinessScreeningPage)):
             self.assertIs(MODELS[table],model)

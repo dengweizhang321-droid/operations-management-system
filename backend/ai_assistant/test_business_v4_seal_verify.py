@@ -3,6 +3,7 @@ import hashlib
 from unittest.mock import patch
 
 from django.db import connection, transaction
+from django.db import connection
 from django.test import TransactionTestCase, override_settings
 
 from access_control.models import AppUser
@@ -30,8 +31,15 @@ class BusinessV4SealVerifyTests(TransactionTestCase):
     database = gate.database
     body = gate.body
     call_as_sealer = gate.call_as_sealer
-    setUp = gate.setUp
     tearDown = gate.tearDown
+
+    def setUp(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_issue_seal_ticket("
+                "text,text,text,bigint,bigint,text,text)')")
+            if cursor.fetchone()[0] is not None:
+                self.skipTest("0038直达封存验签夹具已由0041票据门禁关闭")
+        gate.setUp(self)
 
     def sealed(self, *, authentic=True):
         attempt_id = self.attempt()

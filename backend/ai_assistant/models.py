@@ -1704,6 +1704,8 @@ from .business_models import AiBusinessEvidenceRun, AiBusinessEvidenceChunk, AiB
 from .business_v4_models import AiBusinessV4Run, AiBusinessV4Source, AiBusinessV4Chunk, AiBusinessV4ToolReceipt  # noqa: E402,F401
 from .business_v4_validation_models import AiBusinessV4ValidationAttempt, AiBusinessV4ValidationSegment  # noqa: E402,F401
 from .business_v4_seal_models import AiBusinessV4Seal  # noqa: E402,F401
+from .business_v4_seal_ticket_models import (  # noqa: E402,F401
+    AiBusinessV4SealTicket, AiBusinessV4SealClaim)
 from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
 from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401
 from .business_screening_models import AiBusinessScreeningRun, AiBusinessScreeningPage  # noqa: E402,F401

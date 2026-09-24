@@ -552,6 +552,12 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            ticket_tables = {"ai_business_v4_seal_tickets",
+                             "ai_business_v4_seal_claims"}
+            if "0041_business_v4_seal_ticket" not in ai_migrations:
+                expected_ai_tables.difference_update(ticket_tables)
+            elif "0040_business_v4_sealer_narrow_stream" not in ai_migrations:
+                raise RuntimeError("AI v4 seal ticket has no narrow-reader predecessor")
             if "0038_business_v4_seal_writer_gate" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_v4_seals")
             elif "0037_business_v4_seal_admission_read" not in ai_migrations:
@@ -627,6 +633,57 @@ def collect_evidence(
                 expected_ai_tables.remove("ai_conversation_workspaces")
             if ai_tables != expected_ai_tables:
                 raise RuntimeError("AI closed table inventory is incomplete or contains unknown tables")
+            if "0041_business_v4_seal_ticket" in ai_migrations:
+                cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
+                    "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
+                    "WHERE rolname='teruisi_ai_seal_writer'")
+                if cursor.fetchone() != (False,) * 7:
+                    raise RuntimeError("AI v4 seal ticket role is not default closed")
+                for table in ticket_tables:
+                    cursor.execute("SELECT count(*) FROM pg_catalog.pg_trigger t "
+                        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+                        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+                        "WHERE n.nspname='public' AND c.relname=%s "
+                        "AND t.tgname IN ('ai_v4_ticket_immutable',"
+                        "'ai_v4_ticket_no_truncate') AND t.tgenabled='O'",
+                        [table])
+                    if cursor.fetchone()[0] != 2:
+                        raise RuntimeError("AI v4 seal ticket immutable triggers missing")
+                    for role in ("teruisi_ai_reader", "teruisi_ai_writer",
+                                 "teruisi_ai_seal_writer"):
+                        cursor.execute("SELECT has_any_column_privilege(%s,%s,'SELECT'),"
+                            "has_any_column_privilege(%s,%s,'INSERT'),"
+                            "has_any_column_privilege(%s,%s,'UPDATE'),"
+                            "has_table_privilege(%s,%s,'DELETE'),"
+                            "has_table_privilege(%s,%s,'TRUNCATE')",
+                            [role, "public." + table] * 5)
+                        if any(cursor.fetchone()):
+                            raise RuntimeError("AI v4 seal ticket table ACL drift")
+                for signature, sealer, writer in (
+                    ("public.ai_v4_issue_seal_ticket(text,text,text,bigint,bigint,text,text)",
+                     False, True),
+                    ("public.ai_v4_claim_seal_ticket(text,text,text,bigint,text)",
+                     True, False),
+                    ("public.ai_v4_sealer_read_context(text,text,text,bigint)",
+                     False, False),
+                    ("public.ai_v4_sealer_read_segment(text,text,text,integer,text,bigint)",
+                     False, False),
+                    ("public.ai_v4_sealer_read_page(text,text,text,bigint,text,bigint)",
+                     False, False),
+                    ("public.ai_v4_commit_seal(text,text,bigint,text,text,text,text)",
+                     False, False),
+                    ("public.ai_v4_lock_source_revisions_for_admission()",
+                     False, True),
+                ):
+                    cursor.execute("SELECT to_regprocedure(%s)", [signature])
+                    if cursor.fetchone()[0] is None:
+                        raise RuntimeError("AI v4 seal ticket function missing")
+                    cursor.execute("SELECT has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE'),"
+                        "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+                        "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+                        [signature] * 3)
+                    if cursor.fetchone() != (sealer, writer, False):
+                        raise RuntimeError("AI v4 seal ticket function ACL drift")
             required.update(expected_ai_tables)
         missing = sorted(required.difference(tables))
         if missing:

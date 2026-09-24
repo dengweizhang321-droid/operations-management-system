@@ -35,6 +35,8 @@ MODELS = {
     "ai_business_v4_validation_attempts": m.AiBusinessV4ValidationAttempt,
     "ai_business_v4_validation_segments": m.AiBusinessV4ValidationSegment,
     "ai_business_v4_seals": m.AiBusinessV4Seal,
+    "ai_business_v4_seal_tickets": m.AiBusinessV4SealTicket,
+    "ai_business_v4_seal_claims": m.AiBusinessV4SealClaim,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -169,6 +171,15 @@ WRITER_PRIVILEGES["ai_business_v4_runs"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_v4_sources"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_v4_seals"] = ("SELECT",)
 WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
+# 0041's SQL-owned rows remain in MODELS for schema inventory, but are absent
+# from READ_TABLES and WRITER_PRIVILEGES. ProvisionRoles must never grant direct
+# reader/writer access to nonce hashes or one-time claim state.
+CLOSED_SEAL_TICKET_TABLES = (
+    "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims")
+for table in CLOSED_SEAL_TICKET_TABLES:
+    WRITER_PRIVILEGES.pop(table)
+assert not set(CLOSED_SEAL_TICKET_TABLES).intersection(
+    set(READ_TABLES) | set(WRITER_PRIVILEGES))
 
 
 def provision(connection, reader_password, writer_password):
@@ -267,6 +278,23 @@ def provision(connection, reader_password, writer_password):
                         sql.Identifier(role),
                     )
                 )
+            for table in CLOSED_SEAL_TICKET_TABLES:
+                cursor.execute("SELECT to_regclass(%s)", ("public." + table,))
+                if cursor.fetchone()[0] is not None:
+                    cursor.execute(sql.SQL("REVOKE ALL ON {} FROM {}").format(
+                        sql.Identifier("public", table), sql.Identifier(role)))
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_issue_seal_ticket("
+                "text,text,text,bigint,bigint,text,text)')")
+            if cursor.fetchone()[0] is not None:
+                signature = ("public.ai_v4_issue_seal_ticket("
+                    "text,text,text,bigint,bigint,text,text)")
+                cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM PUBLIC")
+                if role == "teruisi_ai_writer":
+                    cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
+                        " TO teruisi_ai_writer")
+                else:
+                    cursor.execute("REVOKE EXECUTE ON FUNCTION " + signature +
+                        " FROM teruisi_ai_reader")
             cursor.execute("SELECT to_regprocedure('public.ai_v4_lock_source_revisions_for_admission()')")
             if cursor.fetchone()[0] is not None:
                 cursor.execute("REVOKE ALL ON FUNCTION "

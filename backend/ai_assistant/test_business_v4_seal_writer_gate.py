@@ -21,8 +21,15 @@ class BusinessV4SealWriterGateTests(TransactionTestCase):
     collect = fixture.collect
     complete_mixed = fixture.complete_mixed
     attempt = fixture.attempt
-    setUp = fixture.setUp
     tearDown = fixture.tearDown
+
+    def setUp(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_issue_seal_ticket("
+                "text,text,text,bigint,bigint,text,text)')")
+            if cursor.fetchone()[0] is not None:
+                self.skipTest("0038直达封存已由0041票据门禁关闭；历史行为由升级演练验收")
+        fixture.setUp(self)
 
     def database(self):
         settings = connection.settings_dict

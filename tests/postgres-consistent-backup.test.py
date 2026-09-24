@@ -18,6 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_TICKETS as PRE_TICKET_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as PRE_SEAL_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_VALIDATION as PRE_VALIDATION_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_LEDGER as PRE_V4_AI_TABLES
@@ -109,6 +110,21 @@ class _EvidenceCursor:
             self.rows = [self.finance_monotonic["ownership"]]
         elif "pg_catalog.has_table_privilege" in query and "netshop_source_revision_markers" in str(params):
             self.rows = [self.netshop_guard["privileges"]]
+        elif "WHERE rolname='teruisi_ai_seal_writer'" in query:
+            self.rows = [(False,) * 7]
+        elif "t.tgname IN ('ai_v4_ticket_immutable'" in query:
+            self.rows = [(2,)]
+        elif "has_any_column_privilege(%s,%s,'SELECT')" in query:
+            self.rows = [(False,) * 5]
+        elif "SELECT to_regprocedure(%s)" in query:
+            self.rows = [(params[0],)]
+        elif "has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE')" in query:
+            name = params[0]
+            self.rows = [(
+                name.startswith("public.ai_v4_claim_seal_ticket("),
+                name.startswith("public.ai_v4_issue_seal_ticket(") or
+                name == "public.ai_v4_lock_source_revisions_for_admission()",
+                False)]
         elif query.startswith("SELECT COUNT(*)"):
             self.rows = [(0,)]
         elif "FROM sales_data_revisions" in query:
@@ -292,11 +308,24 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 38)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_TICKET_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 74)
         self.assertIn("ai_business_v4_seals", current["tables"])
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_SEAL_AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_TICKET_AI_TABLES, migrations[:-1])
+
+    def test_v4_ticket_generation_has_explicit_76_table_boundary(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 41)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 76)
+        self.assertIn("ai_business_v4_seal_tickets", current["tables"])
+        self.assertIn("ai_business_v4_seal_claims", current["tables"])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_TICKET_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
             _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
 

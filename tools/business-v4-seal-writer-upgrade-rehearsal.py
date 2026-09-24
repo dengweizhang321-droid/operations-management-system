@@ -17,7 +17,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_V4_SEALS
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_TICKETS as AI_TABLES, AI_TABLES_PRE_V4_SEALS
 from ai_assistant.test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests
 from business_analysis.contracts import canonical
 

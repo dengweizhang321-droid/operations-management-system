@@ -21,8 +21,15 @@ class BusinessV4SealerNarrowStreamTests(TransactionTestCase):
     complete_mixed = gate.complete_mixed
     attempt = gate.attempt
     database = gate.database
-    setUp = gate.setUp
     tearDown = gate.tearDown
+
+    def setUp(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_issue_seal_ticket("
+                "text,text,text,bigint,bigint,text,text)')")
+            if cursor.fetchone()[0] is not None:
+                self.skipTest("0040无票据窄流已由0041关闭；历史行为由升级演练验收")
+        gate.setUp(self)
 
     def identity(self):
         return self.principal.email, AppUser.objects.get(

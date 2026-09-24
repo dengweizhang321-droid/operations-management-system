@@ -86,5 +86,9 @@ AI_TABLES_PRE_V4_VALIDATION = (*AI_TABLES_PRE_V4_LEDGER,
 AI_TABLES_PRE_V4_SEALS = (*AI_TABLES_PRE_V4_VALIDATION,
     "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments")
 
-# New migrations extend only the current manifest, not historical inventories.
-AI_TABLES = (*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals")
+# Frozen 0038–0040 inventory. A later ticket migration must not rewrite it.
+AI_TABLES_PRE_V4_TICKETS = (*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals")
+
+# The short-lived ticket and claim are SQL-owned, with no ordinary reader/writer DML.
+AI_TABLES = (*AI_TABLES_PRE_V4_TICKETS,
+    "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims")
