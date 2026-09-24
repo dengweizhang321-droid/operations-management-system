@@ -7,11 +7,16 @@ from .control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from .table_manifest import AI_TABLES
 
 
-def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False):
-    """Pin the renderer-9 or closed renderer-10 storage gate."""
+def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
+                                        publish_gate_enabled=False):
+    """Pin the renderer-9, staged-10, or dormant narrow publish gate."""
     import importlib
 
+    if publish_gate_enabled and not budget_stage_enabled:
+        raise ValueError("budget publish gate has no staged predecessor")
     migration = importlib.import_module(
+        "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
+        if publish_gate_enabled else
         "ai_assistant.migrations.0054_business_promotion_budget_file_staging"
         if budget_stage_enabled else
         "ai_assistant.migrations.0046_business_promotion_trial_file_guard")
@@ -40,9 +45,11 @@ def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False):
         "public.ai_business_promotion_trial_ready_requirements(text)",
     ) + (("public.ai_business_promotion_budget_parent_requirements(text,text,text)",)
          if budget_stage_enabled else ())
-    trial = migration.previous if budget_stage_enabled else migration
+    trial = (migration.stage.previous if publish_gate_enabled else
+             migration.previous if budget_stage_enabled else migration)
     definitions = (*migration.NEW_SQL, trial.PARENT_REQUIREMENTS,
-                   trial.READY_REQUIREMENTS) + ((migration.BUDGET_PARENT_REQUIREMENTS,)
+                   trial.READY_REQUIREMENTS) + (((migration.stage if publish_gate_enabled
+                   else migration).BUDGET_PARENT_REQUIREMENTS,)
                    if budget_stage_enabled else ())
     for index, (signature, definition) in enumerate(zip(signatures, definitions)):
         cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
@@ -338,9 +345,10 @@ def check():
                 raise ValueError("AI market v2 parked profile guard drift")
 
         _verify_market_v2_material_attestation(cursor)
-        _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True)
+        _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,
+                                            publish_gate_enabled=True)
         from importlib import import_module
-        import_module("ai_assistant.migrations.0057_business_promotion_budget_v10_attestation").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,

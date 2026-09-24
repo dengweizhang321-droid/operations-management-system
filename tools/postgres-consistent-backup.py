@@ -462,11 +462,16 @@ def verify_market_v2_material_attestation(cursor) -> None:
             raise RuntimeError("AI market v2 material function ACL drift")
 
 
-def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False) -> None:
-    """Pin the renderer-9 or closed renderer-10 storage gate."""
+def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
+                                      publish_gate_enabled=False) -> None:
+    """Pin renderer-9, staged-10, or dormant narrow publish gate."""
     import importlib
 
+    if publish_gate_enabled and not budget_stage_enabled:
+        raise RuntimeError("budget publish gate has no staged predecessor")
     migration = importlib.import_module(
+        "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
+        if publish_gate_enabled else
         "ai_assistant.migrations.0054_business_promotion_budget_file_staging"
         if budget_stage_enabled else
         "ai_assistant.migrations.0046_business_promotion_trial_file_guard")
@@ -495,9 +500,11 @@ def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False) -> 
         "public.ai_business_promotion_trial_ready_requirements(text)",
     ) + (("public.ai_business_promotion_budget_parent_requirements(text,text,text)",)
          if budget_stage_enabled else ())
-    trial = migration.previous if budget_stage_enabled else migration
+    trial = (migration.stage.previous if publish_gate_enabled else
+             migration.previous if budget_stage_enabled else migration)
     definitions = (*migration.NEW_SQL, trial.PARENT_REQUIREMENTS,
-                   trial.READY_REQUIREMENTS) + ((migration.BUDGET_PARENT_REQUIREMENTS,)
+                   trial.READY_REQUIREMENTS) + (((migration.stage if publish_gate_enabled
+                   else migration).BUDGET_PARENT_REQUIREMENTS,)
                    if budget_stage_enabled else ())
     for index, (signature, definition) in enumerate(zip(signatures, definitions)):
         cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
@@ -809,13 +816,20 @@ def collect_evidence(
                         or "0029_business_promotion_file_ready" not in ai_migrations):
                     raise RuntimeError("AI promotion trial file guard has no predecessor")
                 verify_promotion_trial_file_guard(cursor,
-                    budget_stage_enabled="0054_business_promotion_budget_file_staging" in ai_migrations)
+                    budget_stage_enabled="0054_business_promotion_budget_file_staging" in ai_migrations,
+                    publish_gate_enabled="0058_business_promotion_budget_v10_publish_gate" in ai_migrations)
                 if "0057_business_promotion_budget_v10_attestation" in ai_migrations:
                     if ("0056_business_market_v2_material_role_bridge" not in ai_migrations
                             or "0054_business_promotion_budget_file_staging" not in ai_migrations):
                         raise RuntimeError("AI budget v10 attestation predecessor missing")
                     from importlib import import_module
-                    import_module("ai_assistant.migrations.0057_business_promotion_budget_v10_attestation").verify_catalog(cursor)
+                    attestation_guard = import_module(
+                        "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
+                        if "0058_business_promotion_budget_v10_publish_gate" in ai_migrations
+                        else "ai_assistant.migrations.0057_business_promotion_budget_v10_attestation")
+                    attestation_guard.verify_catalog(cursor)
+                elif "0058_business_promotion_budget_v10_publish_gate" in ai_migrations:
+                    raise RuntimeError("AI budget v10 publish gate lacks attestation predecessor")
             if "0047_business_v4_sealer_replay_progress" in ai_migrations:
                 if ("0046_business_promotion_trial_file_guard" not in ai_migrations
                         or "0043_business_v4_seal_consumption_candidate" not in ai_migrations):
