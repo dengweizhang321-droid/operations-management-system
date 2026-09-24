@@ -7,7 +7,7 @@ SEALER = "teruisi_ai_seal_writer"
 
 
 def verify(cursor, error_type=ValueError, *, finance_enabled=False,
-           read_cast_enabled=False):
+           read_cast_enabled=False, prior_claim_qualified=False):
     migration = import_module(
         "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
     finance_migration = (import_module(
@@ -16,6 +16,9 @@ def verify(cursor, error_type=ValueError, *, finance_enabled=False,
     read_cast_migration = (import_module(
         "ai_assistant.migrations.0050_business_v4_replay_read_cast")
         if read_cast_enabled else None)
+    prior_claim_migration = (import_module(
+        "ai_assistant.migrations.0051_business_v4_prior_claim_column")
+        if prior_claim_qualified else None)
 
     def need(condition, reason):
         if not condition:
@@ -30,6 +33,12 @@ def verify(cursor, error_type=ValueError, *, finance_enabled=False,
         cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
             "app='ai_assistant' AND name='0050_business_v4_replay_read_cast')")
         need(cursor.fetchone() == (True,), "read cast receipt missing")
+    if prior_claim_qualified:
+        need(read_cast_enabled, "qualified prior claim requires read cast predecessor")
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
+            "app='ai_assistant' AND "
+            "name='0051_business_v4_prior_claim_column')")
+        need(cursor.fetchone() == (True,), "qualified prior claim receipt missing")
 
     cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
         "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
@@ -59,7 +68,8 @@ def verify(cursor, error_type=ValueError, *, finance_enabled=False,
          "search_path=pg_catalog", (False, False, False)),
         ("public.ai_v4_sealer_replay_progress_guard()", migration.GUARD,
          False, "search_path=pg_catalog,public", (False, False, False)),
-        (migration.WRITE, finance_migration.RECORD if finance_migration else migration.RECORD, True,
+        (migration.WRITE, prior_claim_migration.RECORD if prior_claim_migration
+         else finance_migration.RECORD if finance_migration else migration.RECORD, True,
          "search_path=pg_catalog,public", (True, False, False)),
         (migration.READ, read_cast_migration.READ if read_cast_migration else migration.READ_SQL, True,
          "search_path=pg_catalog,public", (True, False, False)),

@@ -29,16 +29,18 @@ class BusinessV4SealerReplayProgressTests(TransactionTestCase):
     tearDown = ticket_fixture.BusinessV4SealTicketTests.tearDown
 
     def test_frozen_catalog_and_closed_function_acl(self):
+        latest = {"finance_enabled": True, "read_cast_enabled": True,
+                  "prior_claim_qualified": True}
         with connection.cursor() as cursor:
-            verify_catalog(cursor)
-            verify_catalog(cursor, RuntimeError)
+            verify_catalog(cursor, **latest)
+            verify_catalog(cursor, RuntimeError, **latest)
         migration = import_module(
             "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
         with transaction.atomic(), connection.cursor() as cursor:
             cursor.execute("REVOKE EXECUTE ON FUNCTION " + migration.WRITE +
                 " FROM teruisi_ai_seal_writer")
             with self.assertRaisesRegex(ValueError, "function ACL drift"):
-                verify_catalog(cursor)
+                verify_catalog(cursor, **latest)
             transaction.set_rollback(True)
 
     def _candidate(self, attempt_id, ticket_id, source, index=1):

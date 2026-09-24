@@ -148,11 +148,11 @@ class BusinessV4CrossTicketReplayTests(TransactionTestCase):
         args = dict(run_id=parent.id, attempt_id=attempt_id,
             source_id=source.id, actor_email=actor.email,
             actor_version=actor.version, enabled=True)
-        with self.database() as db:
+        with self._role_connection("teruisi_ai_seal_writer") as db:
             self.assertTrue(db.autocommit)
-            db.execute("SET SESSION AUTHORIZATION teruisi_ai_seal_writer")
             first = replay_one_claimed_segment(db, derived_key,
                 segment_index=1, nonce=nonce_one, claim=claim_one, **args)
+            db.execute("COMMIT")
         self.assertEqual(first["status"], "recorded_candidate")
         self.assertTrue(first["candidateOnly"])
         self.assertFalse(first["authorityVerified"])
@@ -163,22 +163,23 @@ class BusinessV4CrossTicketReplayTests(TransactionTestCase):
         with self.assertRaises(psycopg.Error):
             self.issue(attempt_id, request="cross-ticket-second")
         self._wait_for_actual_lease_end(lease_one)
-        with self.database() as db:
-            db.execute("SET SESSION AUTHORIZATION teruisi_ai_seal_writer")
+        with self._role_connection("teruisi_ai_seal_writer") as db:
             with self.assertRaises(psycopg.Error):
                 replay_one_claimed_segment(db, derived_key, segment_index=2,
                     nonce=nonce_one, claim=claim_one, **args)
+            db.execute("ROLLBACK")
         _, nonce_two, _ = self.issue(attempt_id,
             request="cross-ticket-second")
         ticket_two, claim_two, _ = self.claim(attempt_id, nonce_two)
         self.assertNotEqual(ticket_two, ticket_one)
         self.assertNotEqual(claim_two, claim_one)
-        with self.database() as db:
-            db.execute("SET SESSION AUTHORIZATION teruisi_ai_seal_writer")
+        with self._role_connection("teruisi_ai_seal_writer") as db:
             second = replay_one_claimed_segment(db, derived_key,
                 segment_index=2, nonce=nonce_two, claim=claim_two, **args)
+            self.assertEqual(second["status"], "recorded_candidate")
             replayed = replay_one_claimed_segment(db, derived_key,
                 segment_index=2, nonce=nonce_two, claim=claim_two, **args)
+            db.execute("COMMIT")
         self.assertEqual(second["status"], "recorded_candidate")
         self.assertEqual(replayed["status"], "existing_candidate")
         self.assertEqual(replayed["candidateDigest"], second["candidateDigest"])

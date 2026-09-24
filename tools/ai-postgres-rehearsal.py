@@ -51,10 +51,16 @@ parser.add_argument("--business-v4-replay-progress-upgrade", action="store_true"
 parser.add_argument("--business-v4-finance-replay-progress-upgrade", action="store_true")
 parser.add_argument("--business-v4-sealer-source-bridge-upgrade", action="store_true")
 parser.add_argument("--business-v4-replay-read-cast-upgrade", action="store_true")
+parser.add_argument("--business-v4-prior-claim-qualification-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_v4_prior_claim_qualification_upgrade:
+    if arguments.business_v4_replay_read_cast_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # The 0051 writer fix requires the exact 0050 read-cast seed.
+    arguments.business_v4_replay_read_cast_upgrade = True
 if arguments.business_v4_replay_read_cast_upgrade:
     if arguments.business_v4_sealer_source_bridge_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -422,6 +428,9 @@ try:
         if arguments.business_v4_replay_read_cast_upgrade:
             rehearsals += (("business-v4-replay-read-cast-upgrade-rehearsal.py",
                 "business-v4-replay-read-cast-upgrade.json"),)
+        if arguments.business_v4_prior_claim_qualification_upgrade:
+            rehearsals += (("business-v4-prior-claim-qualification-upgrade-rehearsal.py",
+                "business-v4-prior-claim-qualification-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")

@@ -31,16 +31,18 @@ class BusinessV4FinanceReplayProgressTests(TransactionTestCase):
     tearDown = fixture.BusinessV4SealerReplayProgressTests.tearDown
 
     def test_finance_frozen_catalog_rejects_old_writer_body(self):
+        latest = {"finance_enabled": True, "read_cast_enabled": True,
+                  "prior_claim_qualified": True}
         with connection.cursor() as cursor:
-            verify_catalog(cursor, finance_enabled=True)
-            verify_catalog(cursor, RuntimeError, finance_enabled=True)
+            verify_catalog(cursor, **latest)
+            verify_catalog(cursor, RuntimeError, **latest)
         previous = import_module(
             "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
         with transaction.atomic(), connection.cursor() as cursor:
             cursor.execute(previous.RECORD.replace(
                 "CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1))
             with self.assertRaisesRegex(ValueError, "function body"):
-                verify_catalog(cursor, finance_enabled=True)
+                verify_catalog(cursor, **latest)
             transaction.set_rollback(True)
 
     def _finance_candidate(self, attempt_id, ticket_id):
