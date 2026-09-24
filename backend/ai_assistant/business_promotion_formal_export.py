@@ -86,7 +86,7 @@ def _tables(value, promotion):
 
 
 @contextmanager
-def _source_tables(report_id, principal, fixed, checkpoint):
+def _source_tables(report_id, principal, fixed, checkpoint, *, trial=False):
     """Reuse the v6 append order against this report's immutable sealed Reader."""
     report = m.AiReportRun.objects.select_related("workflow").get(pk=report_id)
     roots = fixed["rootBindings"]
@@ -113,6 +113,9 @@ def _source_tables(report_id, principal, fixed, checkpoint):
                 "核对": canonical(expected[source["key"]]),
                 "覆盖与口径": canonical(info[source["key"]]["metadata"])}
                 for source in sources))
+        if trial:
+            from business_analysis.promotion_trial_scope import tables as trial_scope_tables
+            spool.tables.extend(trial_scope_tables(sources, info))
         business_sealed_source_tables.append(spool, sources, expected, pages,
             source_by_key, VIEWS, business_export.DIMENSION_NAMES)
         yield tuple(spool.tables), {"sourceCount": len(sources),

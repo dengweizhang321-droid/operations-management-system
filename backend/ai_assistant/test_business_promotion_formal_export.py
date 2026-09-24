@@ -39,6 +39,33 @@ class PromotionFormalExportTests(djtest.TransactionTestCase):
     five_completed = fixtures.PromotionApprovedContentTests.five_completed
     approved = fixtures.PromotionApprovedContentTests.approved
 
+    def test_trial_source_projection_adds_readable_scope_without_changing_v7_default(self):
+        report = self.five_completed()
+        self.approved(report)
+        with patch.object(service.file_tables.runtime.transport, "catalog",
+                side_effect=self.current_catalog):
+            with service.file_tables.open_tables(report.id, self.admin,
+                    draft=False) as (metadata, _):
+                fixed = metadata.value["reportBinding"]
+                with service._source_tables(report.id, self.admin, fixed,
+                        None) as (old_tables, old_proof):
+                    old_keys = [table.key for table in old_tables]
+                with service._source_tables(report.id, self.admin, fixed,
+                        None, trial=True) as (trial_tables, trial_proof):
+                    by_key = {table.key: table for table in trial_tables}
+                    self.assertEqual([row[0] for row in
+                        by_key["promotion-trial-source-scope"].rows],
+                        [source["key"] for source in service.Reader(
+                            service.business_evidence.get_run(
+                                json.loads(report.snapshot_json)["evidenceRunId"],
+                                self.admin), self.admin).sources])
+                    self.assertEqual(by_key["promotion-trial-boundaries"].row_count, 6)
+                    self.assertEqual(trial_proof["sourceTableCount"],
+                        old_proof["sourceTableCount"] + 2)
+                    self.assertEqual([table.key for table in trial_tables
+                        if table.key not in {"promotion-trial-source-scope",
+                            "promotion-trial-boundaries"}], old_keys)
+
     def test_actual_approved_pair_contains_both_full_views_and_reviewed_content(self):
         report = self.five_completed(promotion_reference=True, native_reference=True)
         self.approved(report)
