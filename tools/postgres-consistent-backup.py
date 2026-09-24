@@ -462,6 +462,96 @@ def verify_market_v2_material_attestation(cursor) -> None:
             raise RuntimeError("AI market v2 material function ACL drift")
 
 
+def verify_promotion_trial_file_guard(cursor) -> None:
+    """Pin the renderer-9 storage gate to the frozen 0046 migration."""
+    import importlib
+
+    migration = importlib.import_module(
+        "ai_assistant.migrations.0046_business_promotion_trial_file_guard")
+    cursor.execute("SELECT c.convalidated,pg_catalog.pg_get_constraintdef(c.oid) "
+        "FROM pg_catalog.pg_constraint c WHERE c.conrelid="
+        "'public.ai_business_file_runs'::regclass "
+        "AND c.conname='ai_business_file_bound' AND c.contype='c'")
+    row = cursor.fetchone()
+    versions = (re.search(r"renderer_version\s*=\s*ANY\s*\(ARRAY\[([0-9,\s]+)\]\)",
+                          row[1]) if row and row[0] else None)
+    if (versions is None or row[1].count("renderer_version") != 1
+            or re.search(r"\bOR\b", row[1], re.IGNORECASE)
+            or tuple(int(part.strip()) for part in versions.group(1).split(",")) != (
+            1, 2, 3, 4, 5, 6, 7, 9)):
+        raise RuntimeError("AI promotion trial file version constraint drift")
+
+    signatures = (
+        "public.ai_business_file_chunk_guard()",
+        "public.ai_business_volume_chunk_guard()",
+        "public.ai_business_volume_manifest_check(text,integer,text,boolean,text)",
+        "public.ai_business_files_guard()",
+        "public.ai_business_volume_complete_guard()",
+        "public.ai_business_promotion_trial_parent_requirements(text,text,text)",
+        "public.ai_business_promotion_trial_ready_requirements(text)",
+    )
+    definitions = (*migration.NEW_SQL, migration.PARENT_REQUIREMENTS,
+                   migration.READY_REQUIREMENTS)
+    for index, (signature, definition) in enumerate(zip(signatures, definitions)):
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
+            "pg_catalog.pg_get_userbyid(p.proowner),p.oid "
+            "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l "
+            "ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)", [signature])
+        function = cursor.fetchone()
+        if (function is None or function[0] != definition.split("$$")[1]
+                or function[1] is not False or function[3] != "plpgsql"
+                or {item.replace(" ", "") for item in (function[2] or [])}
+                != {"search_path=pg_catalog,public"}
+                or function[4] in {"teruisi_ai_writer", "teruisi_ai_reader"}):
+            raise RuntimeError("AI promotion trial file function drift")
+        cursor.execute("SELECT CASE WHEN acl.grantee=p.proowner THEN 'OWNER' "
+            "WHEN acl.grantee=0 THEN 'PUBLIC' ELSE grantee.rolname END,"
+            "acl.privilege_type,acl.is_grantable FROM pg_catalog.pg_proc p "
+            "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,"
+            "pg_catalog.acldefault('f',p.proowner))) acl "
+            "LEFT JOIN pg_catalog.pg_roles grantee ON grantee.oid=acl.grantee "
+            "WHERE p.oid=to_regprocedure(%s)", [signature])
+        acl = set(cursor.fetchall())
+        expected_acl = {("OWNER", "EXECUTE", True)}
+        expected_acl.add(("PUBLIC", "EXECUTE", False) if index < 5 else
+                         ("teruisi_ai_writer", "EXECUTE", False))
+        if acl != expected_acl:
+            raise RuntimeError("AI promotion trial file function ACL drift")
+
+    cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
+        "t.tginitdeferred,t.tgenabled,t.tgfoid "
+        "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname IN ('ai_business_file_chunk_state',"
+        "'ai_business_volume_chunk_state','ai_business_volume_initial',"
+        "'ai_business_file_state','ai_business_volume_complete')")
+    expected_triggers = {
+        ("ai_business_file_chunks", "ai_business_file_chunk_state"):
+            (7, False, False, signatures[0]),
+        ("ai_business_volume_chunks", "ai_business_volume_chunk_state"):
+            (7, False, False, signatures[1]),
+        ("ai_business_file_runs", "ai_business_volume_initial"):
+            (7, False, False, signatures[3]),
+        ("ai_business_file_runs", "ai_business_file_state"):
+            (27, False, False, signatures[3]),
+        ("ai_business_file_runs", "ai_business_volume_complete"):
+            (21, True, True, signatures[4]),
+        ("ai_business_volume_chunks", "ai_business_volume_complete"):
+            (5, True, True, signatures[4]),
+    }
+    triggers = cursor.fetchall()
+    if len(triggers) != len(expected_triggers):
+        raise RuntimeError("AI promotion trial file trigger drift")
+    for table, name, kind, deferred, initially_deferred, enabled, function_oid in triggers:
+        expected = expected_triggers.get((table, name))
+        if expected is None or (kind, deferred, initially_deferred) != expected[:3] or enabled != "O":
+            raise RuntimeError("AI promotion trial file trigger drift")
+        cursor.execute("SELECT to_regprocedure(%s)::oid", [expected[3]])
+        if cursor.fetchone() != (function_oid,):
+            raise RuntimeError("AI promotion trial file trigger OID drift")
+
+
 def verify_market_v2_parked_guards(cursor) -> None:
     from importlib import import_module
 
@@ -707,6 +797,11 @@ def collect_evidence(
                 if "0044_business_market_v2_profile" not in ai_migrations:
                     raise RuntimeError("AI market v2 material has no parked predecessor")
                 verify_market_v2_material_attestation(cursor)
+            if "0046_business_promotion_trial_file_guard" in ai_migrations:
+                if ("0045_business_market_v2_material_attestation" not in ai_migrations
+                        or "0029_business_promotion_file_ready" not in ai_migrations):
+                    raise RuntimeError("AI promotion trial file guard has no predecessor")
+                verify_promotion_trial_file_guard(cursor)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.

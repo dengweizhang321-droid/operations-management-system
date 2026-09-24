@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -121,12 +122,57 @@ def _market_material_state():
         "no_truncate_acl": (False, False, False)}
 
 
+def _promotion_trial_state():
+    import importlib
+    migration = importlib.import_module(
+        "ai_assistant.migrations.0046_business_promotion_trial_file_guard")
+    signatures = (
+        "public.ai_business_file_chunk_guard()",
+        "public.ai_business_volume_chunk_guard()",
+        "public.ai_business_volume_manifest_check(text,integer,text,boolean,text)",
+        "public.ai_business_files_guard()",
+        "public.ai_business_volume_complete_guard()",
+        "public.ai_business_promotion_trial_parent_requirements(text,text,text)",
+        "public.ai_business_promotion_trial_ready_requirements(text)",
+    )
+    bodies = (*migration.NEW_SQL, migration.PARENT_REQUIREMENTS,
+              migration.READY_REQUIREMENTS)
+    oids = {signature: 1000 + i for i, signature in enumerate(signatures)}
+    return {
+        "constraint": (True, "CHECK ((renderer_version = ANY "
+                       "(ARRAY[1, 2, 3, 4, 5, 6, 7, 9])))"),
+        "functions": {signature: (body.split("$$")[1], False,
+                       ["search_path=pg_catalog,public"], "plpgsql",
+                       "fixture_owner", oids[signature])
+                      for signature, body in zip(signatures, bodies)},
+        "acls": {signature: {("OWNER", "EXECUTE", True),
+                     (("PUBLIC" if i < 5 else "teruisi_ai_writer"),
+                      "EXECUTE", False)}
+                 for i, signature in enumerate(signatures)},
+        "oids": oids,
+        "triggers": [
+            ("ai_business_file_chunks", "ai_business_file_chunk_state", 7,
+             False, False, "O", oids[signatures[0]]),
+            ("ai_business_volume_chunks", "ai_business_volume_chunk_state", 7,
+             False, False, "O", oids[signatures[1]]),
+            ("ai_business_file_runs", "ai_business_volume_initial", 7,
+             False, False, "O", oids[signatures[3]]),
+            ("ai_business_file_runs", "ai_business_file_state", 27,
+             False, False, "O", oids[signatures[3]]),
+            ("ai_business_file_runs", "ai_business_volume_complete", 21,
+             True, True, "O", oids[signatures[4]]),
+            ("ai_business_volume_chunks", "ai_business_volume_complete", 5,
+             True, True, "O", oids[signatures[4]]),
+        ],
+    }
+
+
 class _EvidenceCursor:
     def __init__(self, tables, migrations, finance_guard=None,
                   finance_monotonic=None, netshop_guard=None,
                   seal_guard_body_override=None,
                   verifier_body_override=None, market_guards=None,
-                  market_material=None):
+                  market_material=None, promotion_trial=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
         self.finance_guard = finance_guard or _finance_guard()
@@ -138,6 +184,7 @@ class _EvidenceCursor:
         self.verifier_body_override = verifier_body_override
         self.market_guards = market_guards if market_guards is not None else _market_v2_guards()
         self.market_material = market_material if market_material is not None else _market_material_state()
+        self.promotion_trial = promotion_trial if promotion_trial is not None else _promotion_trial_state()
 
     def __enter__(self):
         return self
@@ -183,6 +230,16 @@ class _EvidenceCursor:
             self.rows = [self.market_material[key]]
         elif "SELECT app, name FROM django_migrations" in query:
             self.rows = self.migrations
+        elif "c.conname='ai_business_file_bound'" in query:
+            self.rows = [self.promotion_trial["constraint"]]
+        elif "p.oid=to_regprocedure(%s)" in query and "pg_catalog.pg_language l" in query and "p.oid" in query:
+            self.rows = [self.promotion_trial["functions"].get(params[0])]
+        elif "pg_catalog.aclexplode" in query:
+            self.rows = list(self.promotion_trial["acls"].get(params[0], set()))
+        elif "'ai_business_file_chunk_state'" in query and "t.tgfoid" in query:
+            self.rows = self.promotion_trial["triggers"]
+        elif "SELECT to_regprocedure(%s)::oid" in query:
+            self.rows = [(self.promotion_trial["oids"].get(params[0]),)]
         elif "FROM pg_catalog.pg_attribute a" in query and "finance_source_revision_markers" in query:
             self.rows = self.finance_guard["columns"]
         elif "FROM pg_catalog.pg_attribute a" in query and "netshop_source_revision_markers" in query:
@@ -277,7 +334,7 @@ def _ai_evidence(tables, migrations, finance_guard=None,
                  finance_monotonic=None, netshop_guard=None,
                  seal_guard_body_override=None,
                  verifier_body_override=None, market_guards=None,
-                 market_material=None):
+                 market_material=None, promotion_trial=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
@@ -285,7 +342,8 @@ def _ai_evidence(tables, migrations, finance_guard=None,
     cursor = _EvidenceCursor(base_tables | set(tables),
         [("sales", "0001_initial"), *migrations], finance_guard,
         finance_monotonic, netshop_guard, seal_guard_body_override,
-        verifier_body_override, market_guards, market_material)
+        verifier_body_override, market_guards, market_material,
+        promotion_trial)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -326,6 +384,57 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 46)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        previous = _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+        self.assertEqual(len([table for table in current["tables"]
+                              if table.startswith("ai_")]), 78)
+        self.assertNotEqual(current["contentSha256"], previous["contentSha256"])
+        self.assertEqual(_ai_evidence(CURRENT_AI_TABLES, migrations[:-1],
+                                     promotion_trial={})["tables"], previous["tables"])
+        for missing in ("0045_business_market_v2_material_attestation",
+                        "0029_business_promotion_file_ready"):
+            with self.subTest(missing=missing), self.assertRaisesRegex(RuntimeError,
+                    "predecessor"):
+                _ai_evidence(CURRENT_AI_TABLES,
+                    [item for item in migrations if item[1] != missing])
+
+        def mutated(change):
+            state = copy.deepcopy(_promotion_trial_state())
+            change(state)
+            return state
+
+        first = next(iter(_promotion_trial_state()["functions"]))
+        new = "public.ai_business_promotion_trial_ready_requirements(text)"
+        cases = (
+            lambda s: s.update(constraint=(False, s["constraint"][1])),
+            lambda s: s.update(constraint=(True,
+                s["constraint"][1].replace("6, 7, 9", "6, 7, 8, 9"))),
+            lambda s: s.update(constraint=(True,
+                s["constraint"][1] + " OR TRUE")),
+            lambda s: s["functions"].__setitem__(first,
+                ("BEGIN RETURN NEW; END", *s["functions"][first][1:])),
+            lambda s: s["functions"].__setitem__(new,
+                ("BEGIN RETURN; END", *s["functions"][new][1:])),
+            lambda s: s["functions"].__setitem__(new,
+                (s["functions"][new][0], True, *s["functions"][new][2:])),
+            lambda s: s["acls"][new].add(("PUBLIC", "EXECUTE", False)),
+            lambda s: s["acls"][first].remove(("PUBLIC", "EXECUTE", False)),
+            lambda s: s["triggers"].__setitem__(0,
+                (*s["triggers"][0][:6], 99999)),
+            lambda s: s["triggers"].__setitem__(0,
+                (*s["triggers"][0][:5], "D", s["triggers"][0][6])),
+            lambda s: s["triggers"].pop(),
+        )
+        for index, change in enumerate(cases):
+            with self.subTest(drift=index), self.assertRaisesRegex(RuntimeError,
+                    "promotion trial file"):
+                _ai_evidence(CURRENT_AI_TABLES, migrations,
+                             promotion_trial=mutated(change))
+
     def test_finance_0004_monotonic_trigger_function_and_writer_boundary(self):
         migrated = [("finance","0002_finance_target_gross_margin"),
             ("finance",MODULE.FINANCE_MARKER_MIGRATION),
