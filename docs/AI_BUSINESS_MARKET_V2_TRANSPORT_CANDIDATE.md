@@ -8,4 +8,4 @@
 
 现有拥有方预览自身最多约38KB，追加传输身份与行引用后可能越界。若某页或宽行超限，此版明确拒绝；不得静默丢列、改费用、只交前N行却标完整。下一版本须先设计并验证有摘要的更小页/字段投影，再改变模型工具合同。市场上限约20万行/64MB材料，每次读会重放三表，正式12秒可用性仍须参考形状与真实数据规模测量。
 
-2026-09-25 纯合同测试 `ai_assistant.test_business_market_v2_transport_contract` 3/3 通过；隔离 PostgreSQL 目标 `ai_assistant.test_business_market_v2_transport_candidate` 待主任务串行运行。当前并无中央目录注册、真实模型、同 Agent/provider 持久已读、市场业务验收或生产采用。
+2026-09-25 纯合同测试 `ai_assistant.test_business_market_v2_transport_contract` **3/3** 通过；隔离 PostgreSQL 目标 `ai_assistant.test_business_market_v2_transport_candidate` **2/2** 通过，证据 `.runtime/ai-pg-6ec02269c117/tests.log`。首轮容量负例的模拟结果摘要错误，被更早的拥有方摘要门禁按预期拒绝；修正模拟摘要后重新运行，容量/超时负例与三种读取正例均通过，失败轮不计成功。当前并无中央目录注册、真实模型、同 Agent/provider 持久已读、市场业务验收或生产采用。
