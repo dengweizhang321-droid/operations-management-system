@@ -40,6 +40,7 @@ MODELS = {
     "ai_business_v4_seal_consumptions": m.AiBusinessV4SealConsumption,
     "ai_business_v4_sealer_replay_progress": m.AiBusinessV4SealerReplayProgress,
     "ai_business_market_v2_materials": m.AiBusinessMarketV2Material,
+    "ai_business_promotion_budget_v10_attestations": m.AiBusinessPromotionBudgetV10Attestation,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -182,7 +183,8 @@ CLOSED_SEAL_TICKET_TABLES = (
     "ai_business_v4_seal_consumptions")
 CLOSED_SQL_OWNED_TABLES = (*CLOSED_SEAL_TICKET_TABLES,
     "ai_business_market_v2_materials",
-    "ai_business_v4_sealer_replay_progress")
+    "ai_business_v4_sealer_replay_progress",
+    "ai_business_promotion_budget_v10_attestations")
 for table in CLOSED_SQL_OWNED_TABLES:
     WRITER_PRIVILEGES.pop(table)
 assert not set(CLOSED_SQL_OWNED_TABLES).intersection(

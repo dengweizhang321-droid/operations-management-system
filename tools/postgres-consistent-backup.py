@@ -810,6 +810,12 @@ def collect_evidence(
                     raise RuntimeError("AI promotion trial file guard has no predecessor")
                 verify_promotion_trial_file_guard(cursor,
                     budget_stage_enabled="0054_business_promotion_budget_file_staging" in ai_migrations)
+                if "0057_business_promotion_budget_v10_attestation" in ai_migrations:
+                    if ("0056_business_market_v2_material_role_bridge" not in ai_migrations
+                            or "0054_business_promotion_budget_file_staging" not in ai_migrations):
+                        raise RuntimeError("AI budget v10 attestation predecessor missing")
+                    from importlib import import_module
+                    import_module("ai_assistant.migrations.0057_business_promotion_budget_v10_attestation").verify_catalog(cursor)
             if "0047_business_v4_sealer_replay_progress" in ai_migrations:
                 if ("0046_business_promotion_trial_file_guard" not in ai_migrations
                         or "0043_business_v4_seal_consumption_candidate" not in ai_migrations):
