@@ -65,13 +65,14 @@ class PromotionActionTableTests(unittest.TestCase):
         self.assertEqual(cells["observationDays"], 7)
         self.assertEqual(cells["objectType"], "关键词×推广SKU")
         self.assertEqual(cells["objectId"], canonical(fact["entity"]))
+        self.assertEqual(cells["actionStatus"], "建议待人工执行")
         self.assertEqual(cells["citationPointers"], canonical([fact["reference"]]))
         self.assertEqual(cells["verifiedNumbers"], canonical([{"reference": fact["reference"],
             "metric": "spendCents", "field": "value", "value": 1200, "partial": False}]))
         self.assertEqual(cells["rowDigest"], digest(list(row[:-1])))
         self.assertIn("未执行", table.note)
 
-    def test_missing_or_conflicting_identity_is_not_an_actionable_row(self):
+    def test_missing_or_conflicting_identity_keeps_each_original_action_row(self):
         missing = _fact(sku=None)
         other = _fact(sku="SKU-2", row="c" * 64)
         candidate_missing = {"reference": {"candidateId": "d" * 64,
@@ -87,11 +88,23 @@ class PromotionActionTableTests(unittest.TestCase):
             _action([candidate_missing], finding_id="candidate-missing"),
             _action([_fact()], finding_id="retained"))
         table = project(value)
-        self.assertEqual(table.row_count, 1)
+        self.assertEqual(table.row_count, 4)
         self.assertIn("report:missing", table.note)
         self.assertIn("report:conflict", table.note)
         self.assertIn("report:candidate-missing", table.note)
-        self.assertEqual(tuple(table.rows)[0][1], "retained")
+        rows = {row[1]: dict(zip((column.key for column in table.columns), row))
+                for row in table.rows}
+        self.assertEqual(set(rows), {"missing", "conflict", "candidate-missing", "retained"})
+        for key in ("missing", "conflict", "candidate-missing"):
+            self.assertEqual(rows[key]["objectType"], "待核")
+            self.assertIsNone(rows[key]["objectId"])
+            self.assertEqual(rows[key]["actionStatus"], "待核身份不可执行")
+            self.assertEqual(rows[key]["change"], "降低该词出价")
+            self.assertTrue(rows[key]["citationPointers"])
+        self.assertEqual(rows["missing"]["verifiedNumbers"], canonical([{
+            "reference": missing["reference"], "metric": "spendCents",
+            "field": "value", "value": 1200, "partial": False}]))
+        self.assertEqual(rows["retained"]["actionStatus"], "建议待人工执行")
 
     def test_all_specialist_action_roles_and_stable_digest(self):
         value = _approved(_action([_fact()]))
