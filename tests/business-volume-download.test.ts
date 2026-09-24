@@ -122,10 +122,10 @@ for (const version of [4, 6] as const) {
   });
 }
 
-test("renderer 7 verifies published approval fence and full selected file", async () => {
+for (const version of [7, 9] as const) test(`renderer ${version} verifies published approval fence and full selected file`, async () => {
   const f = fixture(15);
   if (f.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
-  f.item.rendererVersion = f.item.manifest.rendererVersion = 7;
+  f.item.rendererVersion = f.item.manifest.rendererVersion = version;
   f.item.draft = f.item.manifest.draft = false;
   f.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
     manifestFileSha256: f.item.manifest.manifestFile.sha256 };
@@ -140,7 +140,7 @@ test("renderer 7 verifies published approval fence and full selected file", asyn
   ]) {
     const changed = fixture(15);
     if (changed.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
-    changed.item.rendererVersion = changed.item.manifest.rendererVersion = 7;
+    changed.item.rendererVersion = changed.item.manifest.rendererVersion = version;
     changed.item.draft = changed.item.manifest.draft = false;
     changed.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
       manifestFileSha256: changed.item.manifest.manifestFile.sha256 };
@@ -149,10 +149,10 @@ test("renderer 7 verifies published approval fence and full selected file", asyn
   }
 });
 
-test("renderer 7 final root recheck rejects changed publication fence", async () => {
+for (const version of [7, 9] as const) test(`renderer ${version} final root recheck rejects changed publication fence`, async () => {
   const f = fixture(9);
   if (f.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
-  f.item.rendererVersion = f.item.manifest.rendererVersion = 7;
+  f.item.rendererVersion = f.item.manifest.rendererVersion = version;
   f.item.draft = f.item.manifest.draft = false;
   f.item.progress = { stage: "ready", publicationFenceDigest: "e".repeat(64),
     manifestFileSha256: f.item.manifest.manifestFile.sha256 };
