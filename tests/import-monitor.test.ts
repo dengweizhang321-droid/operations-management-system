@@ -69,6 +69,7 @@ test("today status rejects impossible completion and shows later failure distinc
   const response: ChainTodayResponse = { date: "2026-09-10", timezone: "Asia/Shanghai", checkedAt: "2026-09-10T02:00:00Z", source: "n8n_execution_metadata", items: [item] };
   assert.equal(validateTodayStatus(response), true);
   assert.equal(todayStatusLabel(item).tone, "danger");
+  assert.equal(todayStatusLabel(item).label, "最近自动执行失败");
   assert.equal(todayStatusLabel().label, "今天：无法核实");
   assert.equal(validateTodayStatus({ ...response, items: [{ ...item, state: "completed", completedAt: null }] }), false);
   assert.equal(validateTodayStatus({ ...response, items: [item, item] }), false);
