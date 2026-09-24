@@ -145,9 +145,6 @@ def _previous(value, identity, index, verify_previous_result):
           and value.get("candidateDigest") == digest({key: item for key, item
               in value.items() if key != "candidateDigest"}),
           "v4前段候选摘要无效")
-    _need(callable(verify_previous_result)
-          and verify_previous_result(value, identity, index) is True,
-          "v4前段缺独立受保护回执核验")
     for key in ("runId", "attemptId", "sourceId", "sourceRoot", "sourceKey",
                 "sourceRef", "sourceRevision", "sourceVersion", "keyId"):
         _need(value.get(key) == identity[key], "v4前段跨来源或密钥复用")
@@ -171,6 +168,9 @@ def _previous(value, identity, index, verify_previous_result):
     _need(type(value.get("segmentProofDigest")) is str
           and HEX64.fullmatch(value["segmentProofDigest"]) is not None,
           "v4前段证明摘要无效")
+    _need(callable(verify_previous_result)
+          and verify_previous_result(value, identity, index) is True,
+          "v4前段缺独立受保护回执核验")
     return (_reconciler(progress["verifier"]), progress["storedBytes"],
             progress["rowCount"], progress["receiptChainDigest"],
             progress["lastChunkDigest"], progress["observedDates"],
