@@ -1707,6 +1707,7 @@ from .business_v4_seal_models import AiBusinessV4Seal  # noqa: E402,F401
 from .business_v4_seal_ticket_models import (  # noqa: E402,F401
     AiBusinessV4SealTicket, AiBusinessV4SealClaim)
 from .business_v4_seal_consumption_models import AiBusinessV4SealConsumption  # noqa: E402,F401
+from .business_v4_sealer_replay_progress_models import AiBusinessV4SealerReplayProgress  # noqa: E402,F401
 from .business_market_v2_material_models import AiBusinessMarketV2Material  # noqa: E402,F401
 from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
 from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401
