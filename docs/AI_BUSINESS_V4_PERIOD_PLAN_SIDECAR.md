@@ -5,3 +5,5 @@
 纯 `period_bound_plan_v1` 可在**采集前**生成非授权候选；0055 的数据库落库则只允许四个来源都标记完成、当前管理员仍有效、父任务仍 collecting/manual、最新验证 attempt 与父版本/目录一致之后进行。库内重新检查原始 v4 计划、三个京东同店推广窗口、财报自然月查询、逐来源原始日期和来源身份，独立计算 current/previous/yearAgo 日期及每个 `expectedDayDigest`，再绑定数据库重新计算的整体来源根。拥有方 `business_v4_period_plan_candidate.create_candidate` 从当前持久计划重建纯包络并在当前 AI 写入事务内提交；它不接受调用方自报的包络。
 
 这仍是**candidateOnly**：预期业务日不证明已采集，更不证明缺记录日期为零；后续须由拥有方提供逐日有记录/明确零日/缺日的可信证明。财报只保留自然月，不能分摊为 30 日日利润或 SKU 利润；`sourceAuthorityVerified`、`observedDailyCoverageVerified`、`zeroDayCertificationVerified`、Agent 引用和 renderer 均为 false。0055 不接 sealer 封印、模型、HTML/XLSX 或公开路由。目标隔离 PostgreSQL 测试含 30 天与闰日 Python/SQL 日期摘要一致、幂等、错日期/账号/最新尝试/来源根、误授权直接写入与非空逆迁移；测试使用高权限**合成完成计数**专测侧表绑定，不代表真实页/工具审计完整或业务验收。
+
+隔离 PostgreSQL 六项目标 `.runtime/ai-pg-ca5ae4f621c3/tests.log` 通过（18.653 秒）。首轮新表的 TRUNCATE 触发器连真实表所有者执行的隔离测试 flush 都拒绝，导致后续夹具残留；现按既有封存表规则只允许真正所有者/数据库超级用户清理，运行时 reader/writer 仍被拒，重跑六项全部通过。升级/备份恢复与正式受限角色探针仍是单独门禁。

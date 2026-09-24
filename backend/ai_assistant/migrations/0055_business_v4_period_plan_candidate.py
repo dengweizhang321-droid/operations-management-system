@@ -22,6 +22,12 @@ END $$"""
 NO_TRUNCATE = """CREATE FUNCTION public.ai_v4_period_plan_no_truncate() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 BEGIN
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+       WHERE c.oid=TG_RELID AND
+         pg_catalog.pg_get_userbyid(c.relowner)=session_user)
+     OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles r
+       WHERE r.rolname=session_user AND r.rolsuper)
+  THEN RETURN NULL; END IF;
   RAISE EXCEPTION 'ai_v4_period_candidate_truncate_denied';
 END $$"""
 

@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
+parser.add_argument("--preprovision-ai-runtime-roles", action="store_true",
+                    help="Isolated tests only: create reader/writer roles before migrations")
 parser.add_argument("--test-label", action="append", default=[], help="Explicit Django test labels; only with --tests-only, without upgrade flags")
 parser.add_argument("--test-timeout-seconds", type=int, default=300,
                     help="Bounded Django test duration for large isolated suites (60-1800)")
@@ -59,6 +61,9 @@ parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.preprovision_ai_runtime_roles and (
+        not arguments.tests_only or arguments.upgrade_only):
+    parser.error("Preprovisioned AI runtime roles are only for isolated tests")
 if arguments.business_promotion_budget_v10_stage_upgrade:
     if arguments.business_market_v2_admitted_paused_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -219,6 +224,11 @@ try:
     run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
         "-c", "CREATE ROLE teruisi_ai_seal_writer NOLOGIN NOINHERIT "
         "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
+    if arguments.preprovision_ai_runtime_roles:
+        for role in ("teruisi_ai_reader", "teruisi_ai_writer"):
+            run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
+                "-c", "CREATE ROLE " + role + " LOGIN NOINHERIT "
+                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
     django_env = {
         **environment,
         "DJANGO_SECRET_KEY": secrets.token_hex(32),
