@@ -2,15 +2,18 @@
 from contextlib import contextmanager
 import json
 import secrets
+from uuid import uuid4
 
 from django import test as djtest
 from django.db import DatabaseError, connection
+from django.utils import timezone
 
 from access_control.models import AppUser
 from . import business_market_v2_admitted_paused as admitted
 from . import business_market_v2_material_admission as material_owner
 from . import models as m
 from . import test_business_market_v2_material_admission as fixture
+from .control_models import AiWriteAuthority
 from .database_contract import provision
 
 
@@ -49,7 +52,15 @@ class MarketV2MaterialRoleBridgeTests(djtest.TransactionTestCase):
             "clientRequestId": "role-bridge-admitted",
             "parkedReportId": parked_id}
         if writer:
-            with session_role("teruisi_ai_writer"):
+            AiWriteAuthority.objects.filter(id=1).update(status="postgres",
+                authority_epoch=uuid4(), cutover_id="market-role-bridge-isolated",
+                migration_verify_run_id="market-role-bridge-isolated",
+                activated_at=timezone.now())
+            authority = AiWriteAuthority.objects.get(id=1)
+            with djtest.override_settings(DJANGO_PROCESS_ROLE="ai_writer",
+                    AI_WRITE_AUTHORITY_EPOCH=str(authority.authority_epoch),
+                    AI_WRITE_CUTOVER_ID=authority.cutover_id), session_role(
+                        "teruisi_ai_writer"):
                 created = admitted.create(body, self.admin)
         else:
             created = admitted.create(body, self.admin)

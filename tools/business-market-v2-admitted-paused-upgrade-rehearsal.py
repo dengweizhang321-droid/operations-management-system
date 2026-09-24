@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_PERIOD_CANDIDATES as AI_TABLES
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)

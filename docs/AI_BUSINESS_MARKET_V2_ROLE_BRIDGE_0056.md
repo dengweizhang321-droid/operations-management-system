@@ -10,4 +10,6 @@
 
 测试必须在**真实 session_user** 两角色下做正反探针：writer 可创建但不能直读侧表或执行 reader 函数；reader 可经窄函数与第五预览读取本人精确报告，但不能直读侧表、跨账号/selector/manifest/报告取数；普通 SQL/伪版本/撤权拒绝。目录、health、备份恢复要核两原函数 OID/ACL 不变且只有 `prosecdef` 从 false 到 true，新增函数精确正文/owner/search_path/ACL，0045 侧表及列 ACL 仍关闭，0053 其余五个触发器不变。空逆迁移可恢复原 `prosecdef=false`；已有 admitted 报告时拒绝撤窄桥。此前开发角色 0053 测试不替代这项正式角色验收。
 
-本候选依赖 `ai_assistant.0055_business_v4_period_plan_candidate`；尚未运行隔离 PostgreSQL、升级/备份恢复、正式业务或生产迁移。0056 不注册第五工具，不调用模型，不使市场 v2 成为已完成 Agent 分析。
+本候选依赖 `ai_assistant.0055_business_v4_period_plan_candidate`。真实 `ai_reader`/`ai_writer` 角色、旧 admitted 与第五预览的十项隔离 PostgreSQL 组合 `.runtime/ai-pg-c50f832e0409/tests.log` 通过（257.656 秒）。首轮 writer 正例因隔离夹具未设置当期 authority GUC/记录而失败，已在测试中建立精确 `postgres` authority 并复测；未改变生产权限。升级/备份恢复仍单独验收，0056 不注册第五工具、不调用模型，不使市场 v2 成为已完成 Agent 分析。
+
+0055→0056 完整隔离升级 `.runtime/ai-pg-501877b11b13/business-market-v2-role-bridge-upgrade-evidence.json` 通过：旧80张 AI 表、renderer1—7字节、0044/45/53 原行和所有非目标函数保持；两只 guard 仅 `prosecdef` 由 false 变 true，OID/正文/ACL/owner 不变，新窄读函数的同 owner、精确ACL、0045侧表与列的运行时角色撤权、前后备份独立恢复及空回退再升级均通过。真实 Agent/job/派发仍未启用。

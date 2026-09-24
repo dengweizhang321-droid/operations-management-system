@@ -100,5 +100,10 @@ AI_TABLES_PRE_MARKET_V2_MATERIALS = (*AI_TABLES_PRE_V4_CONSUMPTIONS,
 AI_TABLES_PRE_V4_REPLAY_PROGRESS = (*AI_TABLES_PRE_MARKET_V2_MATERIALS,
     "ai_business_market_v2_materials")
 
-AI_TABLES = (*AI_TABLES_PRE_V4_REPLAY_PROGRESS,
+AI_TABLES_PRE_V4_PERIOD_CANDIDATES = (*AI_TABLES_PRE_V4_REPLAY_PROGRESS,
     "ai_business_v4_sealer_replay_progress")
+
+# 0055 adds a candidate-only period sidecar; the 79-table predecessor remains
+# frozen for pre-0055 backup and upgrade rehearsals.
+AI_TABLES = (*AI_TABLES_PRE_V4_PERIOD_CANDIDATES,
+    "ai_business_v4_period_plan_candidates")

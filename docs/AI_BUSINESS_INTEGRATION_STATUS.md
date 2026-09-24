@@ -40,6 +40,10 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 [renderer10 持久暂存候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_STAGE.md)已允许完整预算卷分块入库并以当前批准/预算根重建全字节验证，但数据库在文件行和完整分块两层永久拒 v10 `ready`。隔离 PG 四项目标 `.runtime/ai-pg-74e6f194d49e/tests.log`、目录撤权负例 `.runtime/ai-pg-3c349136f20c/tests.log`、0053→0054 旧79表/旧1—7文件/v9 OID ACL和ready拒绝、双备份恢复/空回退重装 `.runtime/ai-pg-755537cd7e40/business-promotion-budget-v10-stage-upgrade-evidence.json` 及旧 v9 多卷/签名下载八项同库 `.runtime/ai-pg-1e89d4206954/tests.log` 通过。仍无公开路由、正式文件下载或原生 Office 验收。
 
+0055 的[v4 三期日期候选侧表](AI_BUSINESS_V4_PERIOD_PLAN_SIDECAR.md)在四来源完成、当前管理员与最新尝试下由数据库独立重算30天/闰日三窗口及预期日期摘要，始终不授权；隔离PG六项 `.runtime/ai-pg-ca5ae4f621c3/tests.log`、0054→0055旧79表/renderer1—7/旧函数权限保持、新第80表与双备份恢复 `.runtime/ai-pg-1bd88d32948d/business-v4-period-plan-upgrade-evidence.json` 通过。表清单已区分冻结79与当前80，备份22项纯回归通过。仍没有拥有方逐日零日证明或正式三基期Agent/文件。
+
+0056 的[市场材料正式角色窄桥](AI_BUSINESS_MARKET_V2_ROLE_BRIDGE_0056.md)修复0053触发器/第五预览直接读取0045封闭侧表的问题，不给 reader/writer 整表权限。真实session_user角色下旧 admitted/第五预览十项 `.runtime/ai-pg-c50f832e0409/tests.log`、0055→0056旧80表和市场原行保持、两guard仅安全属性变化及新窄函数/双备份恢复 `.runtime/ai-pg-501877b11b13/business-market-v2-role-bridge-upgrade-evidence.json` 通过。实际 Agent/job/模型仍关闭。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

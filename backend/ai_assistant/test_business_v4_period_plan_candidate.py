@@ -12,9 +12,23 @@ from business_analysis.test_period_bound_plan_v1 import plan as make_plan
 from sales.auth import Principal
 
 from . import business_v4_period_plan_candidate as owning, models as m
+from .v4_period_plan_catalog import verify as verify_catalog
 from .control_models import AiDataRevision
 from .policy import AiError, canonical, digest, uid
 from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+
+
+class BusinessV4PeriodPlanCatalogTests(TransactionTestCase):
+    def test_closed_catalog_rejects_writer_function_acl_drift(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor)
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("REVOKE EXECUTE ON FUNCTION "
+                "public.ai_v4_record_period_plan_candidate("
+                "text,text,text,bigint,text,text) FROM teruisi_ai_writer")
+            with self.assertRaisesRegex(ValueError, "function ACL drift"):
+                verify_catalog(cursor)
+            transaction.set_rollback(True)
 
 
 class BusinessV4PeriodPlanCandidateTests(TransactionTestCase):

@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_PERIOD_CANDIDATES as AI_TABLES
 from ai_assistant.v4_replay_progress_catalog import verify as verify_replay
 from ai_assistant.v4_sealer_source_catalog import verify as verify_source
 from ai_assistant.v4_commit_consumption_catalog import verify as verify_commit
