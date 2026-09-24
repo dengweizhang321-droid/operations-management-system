@@ -3,11 +3,12 @@ import json
 from importlib import import_module
 
 import psycopg
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 
 from . import models as m
 from .policy import digest
+from .v4_replay_progress_catalog import verify as verify_catalog
 from . import test_business_v4_sealer_replay_progress as fixture
 
 
@@ -28,6 +29,19 @@ class BusinessV4FinanceReplayProgressTests(TransactionTestCase):
     _promotion_candidate = fixture.BusinessV4SealerReplayProgressTests._candidate
     setUp = fixture.BusinessV4SealerReplayProgressTests.setUp
     tearDown = fixture.BusinessV4SealerReplayProgressTests.tearDown
+
+    def test_finance_frozen_catalog_rejects_old_writer_body(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor, finance_enabled=True)
+            verify_catalog(cursor, RuntimeError, finance_enabled=True)
+        previous = import_module(
+            "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute(previous.RECORD.replace(
+                "CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1))
+            with self.assertRaisesRegex(ValueError, "function body"):
+                verify_catalog(cursor, finance_enabled=True)
+            transaction.set_rollback(True)
 
     def _finance_candidate(self, attempt_id, ticket_id):
         source = self.sources["finance-context"]

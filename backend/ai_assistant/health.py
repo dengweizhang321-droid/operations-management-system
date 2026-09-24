@@ -333,7 +333,7 @@ def check():
         _verify_market_v2_material_attestation(cursor)
         _verify_promotion_trial_file_guard(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
-        verify_v4_replay_progress(cursor)
+        verify_v4_replay_progress(cursor, finance_enabled=True)
 
         fencing = importlib.import_module(
             "ai_assistant.migrations.0003_runtime_fencing"

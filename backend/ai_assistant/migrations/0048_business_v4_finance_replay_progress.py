@@ -166,6 +166,11 @@ def install(apps, schema_editor):
         for role, allowed in ((previous.SEALER, True),
                               ("teruisi_ai_reader", False),
                               ("teruisi_ai_writer", False)):
+            cursor.execute("SELECT to_regrole(%s)", [role])
+            if cursor.fetchone()[0] is None:
+                if role == previous.SEALER:
+                    raise RuntimeError("0048 requires the independent sealer role")
+                continue
             cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE'),"
                 "has_table_privilege(%s,%s,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')",
                 [role, previous.WRITE, role, previous.TABLE])

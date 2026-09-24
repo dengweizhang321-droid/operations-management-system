@@ -6,13 +6,21 @@ TABLE = "public.ai_business_v4_sealer_replay_progress"
 SEALER = "teruisi_ai_seal_writer"
 
 
-def verify(cursor, error_type=ValueError):
+def verify(cursor, error_type=ValueError, *, finance_enabled=False):
     migration = import_module(
         "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
+    finance_migration = (import_module(
+        "ai_assistant.migrations.0048_business_v4_finance_replay_progress")
+        if finance_enabled else None)
 
     def need(condition, reason):
         if not condition:
             raise error_type("AI v4 replay progress " + reason)
+
+    if finance_enabled:
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
+            "app='ai_assistant' AND name='0048_business_v4_finance_replay_progress')")
+        need(cursor.fetchone() == (True,), "finance extension receipt missing")
 
     cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
         "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
@@ -25,6 +33,10 @@ def verify(cursor, error_type=ValueError):
     need(owner is not None and owner[0] not in {
         "teruisi_ai_reader", "teruisi_ai_writer", SEALER}, "table owner drift")
     for role in ("teruisi_ai_reader", "teruisi_ai_writer", SEALER):
+        cursor.execute("SELECT to_regrole(%s)", [role])
+        if cursor.fetchone()[0] is None:
+            need(role != SEALER, "sealer role missing")
+            continue
         cursor.execute("SELECT has_any_column_privilege(%s,%s,'SELECT'),"
             "has_any_column_privilege(%s,%s,'INSERT'),"
             "has_any_column_privilege(%s,%s,'UPDATE'),"
@@ -38,7 +50,7 @@ def verify(cursor, error_type=ValueError):
          "search_path=pg_catalog", (False, False, False)),
         ("public.ai_v4_sealer_replay_progress_guard()", migration.GUARD,
          False, "search_path=pg_catalog,public", (False, False, False)),
-        (migration.WRITE, migration.RECORD, True,
+        (migration.WRITE, finance_migration.RECORD if finance_migration else migration.RECORD, True,
          "search_path=pg_catalog,public", (True, False, False)),
         (migration.READ, migration.READ_SQL, True,
          "search_path=pg_catalog,public", (True, False, False)),
@@ -54,12 +66,16 @@ def verify(cursor, error_type=ValueError):
              and row[5] not in {"teruisi_ai_reader", "teruisi_ai_writer", SEALER}
              and {item.replace(" ", "") for item in (row[3] or [])}
                 == {search_path}, "function body or ownership drift")
-        cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE'),"
-            "has_function_privilege(%s,%s,'EXECUTE'),"
-            "has_function_privilege(%s,%s,'EXECUTE')",
-            [SEALER, row[0], "teruisi_ai_writer", row[0],
-             "teruisi_ai_reader", row[0]])
-        need(cursor.fetchone() == allowed, "function ACL drift")
+        for role, expected in zip((SEALER, "teruisi_ai_writer",
+                                   "teruisi_ai_reader"), allowed):
+            cursor.execute("SELECT to_regrole(%s)", [role])
+            if cursor.fetchone()[0] is None:
+                need(role != SEALER and expected is False,
+                     "required function role missing")
+                continue
+            cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE')",
+                [role, row[0]])
+            need(cursor.fetchone() == (expected,), "function ACL drift")
 
     cursor.execute("SELECT t.tgname,t.tgtype,t.tgenabled,t.tgfoid "
         "FROM pg_catalog.pg_trigger t WHERE t.tgrelid=to_regclass(%s) "
