@@ -105,5 +105,9 @@ AI_TABLES_PRE_V4_PERIOD_CANDIDATES = (*AI_TABLES_PRE_V4_REPLAY_PROGRESS,
 
 # 0055 adds a candidate-only period sidecar; the 79-table predecessor remains
 # frozen for pre-0055 backup and upgrade rehearsals.
-AI_TABLES = (*AI_TABLES_PRE_V4_PERIOD_CANDIDATES,
+AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS = (*AI_TABLES_PRE_V4_PERIOD_CANDIDATES,
     "ai_business_v4_period_plan_candidates")
+
+# 0057 is a second SQL-owned sidecar; freeze the 80-table predecessor.
+AI_TABLES = (*AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS,
+    "ai_business_promotion_budget_v10_attestations")
