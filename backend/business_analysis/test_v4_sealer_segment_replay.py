@@ -194,6 +194,7 @@ class V4PromotionSegmentReplayTests(unittest.TestCase):
             "progressDigest": first["progress_digest"], "keyId": identity["keyId"]}
         first["proof_digest"] = digest(proof)
         accepted = self.replay(identity, first, records[:16])
+        self.assertEqual(accepted["previousCandidateDigest"], replay.ZERO)
         self.assertEqual(accepted["progress"]["pageCount"], 16)
         self.assertFalse(accepted["progress"]["verifier"]["finished"])
         second = copy.deepcopy(terminal)
@@ -210,7 +211,8 @@ class V4PromotionSegmentReplayTests(unittest.TestCase):
             self.replay(identity, second, [final_page], previous=accepted)
         protected = lambda candidate, *_: candidate["candidateDigest"] == accepted["candidateDigest"]
         final = self.replay(identity, second, [final_page], previous=accepted,
-                            verify_previous_result=protected)
+                           verify_previous_result=protected)
+        self.assertEqual(final["previousCandidateDigest"], accepted["candidateDigest"])
         self.assertEqual(final["progress"]["pageCount"], 17)
         self.assertTrue(final["progress"]["verifier"]["finished"])
         wrong = copy.deepcopy(accepted)

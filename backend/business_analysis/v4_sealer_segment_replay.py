@@ -14,7 +14,7 @@ from . import evidence_v4, promotion_views
 from .contracts import (AnalysisContractError, MAX_SAFE_INTEGER, PageReconciler,
                         canonical, comparison_periods, digest, strict_date)
 
-SCHEMA = "business-v4-sealer-promotion-segment-candidate-v1"
+SCHEMA = "business-v4-sealer-promotion-segment-candidate-v2"
 ATTEMPT_SCHEMA = "business-v4-validation-attempt-candidate-v1"
 PROGRESS_SCHEMA = "business-v4-validation-progress-candidate-v1"
 ZERO = "0" * 64
@@ -357,6 +357,7 @@ def replay_promotion_segment(identity, segment, pages, *, previous=None,
         "sourceVersion": identity["sourceVersion"], "keyId": identity["keyId"],
         "segmentIndex": index, "endSequence": end,
         "segmentProofDigest": segment["proof_digest"], "progress": finite,
+        "previousCandidateDigest": ZERO if index == 1 else previous["candidateDigest"],
         "candidateOnly": True, "authorityVerified": False,
         "financeReplayed": False, "sourceMetadataVerified": False,
         "upstreamSignatureVerified": False, "sealCommitted": False}
