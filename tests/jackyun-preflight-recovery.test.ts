@@ -87,6 +87,25 @@ async function fixture3134() {
   return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-18T17:00:00Z") } };
 }
 
+const proof4163: PreflightEvidence = {
+  executionId: "4163", workflowId: jackyunWorkflowId, status: "error",
+  startedAt: "2026-09-24T16:10:04.350Z", stoppedAt: "2026-09-24T16:10:19.144Z", retrySuccessId: null,
+  lastNode: "B·接口校验与五表下载",
+  runNodes: ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+  error: "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（binding）。", httpCode: "500",
+  requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  executionDataSha256: "b2ee49e4c89878433f0414155e822f26bed593388e76aa4dcdc895cd08ebfdba", activeExecutions: 0,
+};
+async function fixture4163() {
+  const f = await fixture(), runId = "n8n-export-first-4163";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  await writeFile(planPath, JSON.stringify({ version: 2, protocol: "2026-09-06.export-first.1", executionId: "4163", runId,
+    runDate: "2026-09-25", asOfDate: "2026-09-24", baseUrl: "http://localhost:3000", createdAt: "2026-09-24T16:10:06.018Z",
+    phase: "exporting", exports: {}, salesStartDate: "2026-08-11", exportTransport: "session_api_v1" }, null, 2) + "\n");
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "4163" }));
+  return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-24T17:00:00Z") } };
+}
+
 const proof2879: PreflightEvidence = {
   executionId: "2879", workflowId: jackyunWorkflowId, status: "error",
   startedAt: "2026-09-17T16:10:00.237Z", stoppedAt: "2026-09-17T16:10:07.842Z", retrySuccessId: null,
@@ -255,6 +274,54 @@ test("3134 closure preserves original failure and permits only a new full API pl
   assert.equal(nextPlan.runDate, "2026-09-19");
   assert.equal(nextPlan.asOfDate, "2026-09-18");
   assert.deepEqual(await readFile(f.planPath), before);
+});
+
+test("4163 zero-effect DPAPI closure preserves the failed run and permits one new full 45-day plan", async () => {
+  const f = await fixture4163(), before = await readFile(f.planPath), active = await readFile(f.activePath);
+  assert.equal(recoverySha(before), "91e7c31381e24432361ba378918babc46f25a9affebea639a61249241ba19505");
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "4165", f.deps), /尚未闭合/);
+  const proposal = await inspectPreflightClosure(f.root, "4163", proof4163, "2026-09-24T17:00:00Z");
+  assert.equal(proposal.reason, "audited_4163_dpapi_before_api_exports");
+  assert.equal(proposal.absentPaths.length, 4);
+  await publishPreflightClosure(f.root, proposal, proof4163, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "4163");
+  assert.deepEqual(await readFile(f.planPath), before);
+  assert.deepEqual(await readFile(f.activePath), active);
+  await assert.rejects(runJackyunExportFirstAction("export-all", "4163", f.deps), /已经闭合/);
+  const next = await runJackyunExportFirstAction("plan-api", "4165", f.deps);
+  assert.equal(next.exportTransport, "session_api_v1");
+  assert.equal(next.salesStartDate, "2026-08-11");
+  assert.equal(next.salesEndDate, "2026-09-24");
+});
+
+test("4163 exception refuses changed evidence or any late business-effect path", async () => {
+  for (const change of ["plan", "active", "live", "hash", "retry", "other-id", "later-node", "error", "intent", "events", "imports", "validation", "download", "late-effect"]) {
+    const f = await fixture4163(), evidence = { ...proof4163, runNodes: [...proof4163.runNodes] };
+    const effects = { events: path.join(f.root, "outputs/jackyun-browser-events", f.runId),
+      imports: path.join(f.root, "outputs/jackyun-import-runs", f.runId),
+      validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), download: path.join(f.download, "jackyun", f.runId) };
+    if (change === "late-effect") {
+      const proposal = await inspectPreflightClosure(f.root, "4163", evidence, "2026-09-24T17:00:00Z");
+      await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+      await mkdir(effects.imports, { recursive: true });
+      await assert.rejects(assertClosedPreflight(f.root, "4163"));
+      continue;
+    }
+    if (change === "plan" || change === "intent") {
+      const plan = JSON.parse(await readFile(f.planPath, "utf8"));
+      if (change === "intent") plan.exportIntent = "inventory";
+      await writeFile(f.planPath, JSON.stringify(plan) + (change === "plan" ? " " : ""));
+    }
+    if (change === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-4165", executionId: "4165" }));
+    if (change === "live") evidence.activeExecutions = 1;
+    if (change === "hash") evidence.executionDataSha256 = "f".repeat(64);
+    if (change === "retry") evidence.retrySuccessId = "4165";
+    if (change === "other-id") evidence.executionId = "4165";
+    if (change === "later-node") evidence.runNodes.push("D·统一导入运营管理系统");
+    if (change === "error") evidence.error = "waiting_login：密码被拒绝。";
+    if (change in effects) await mkdir(effects[change as keyof typeof effects], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "4163", evidence, "2026-09-24T17:00:00Z"));
+  }
 });
 
 test("3134 rejects changed evidence, any business artifact and late writes after closure", async () => {
