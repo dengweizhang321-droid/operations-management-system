@@ -218,6 +218,10 @@ success. No source iterator is consumed for rejected plans or budget-only input.
     if type(metadata) is not dict or "volumeDelivery" in metadata:
         raise AnalysisContractError("报告元信息须为对象，volumeDelivery为保留绑定字段")
     metadata = _snapshot_json(metadata, "报告元信息")
+    if renderer_version == 9 and (offline_budget is not None or excel_budget is not None or
+            type(metadata.get("promotionFileProof")) is not dict or
+            type(metadata.get("promotionTrialProof")) is not dict):
+        raise AnalysisContractError("renderer 9 试用报告须有双重证明且不得传入预算")
     offline_budget = _budget_snapshot(offline_budget, report_id, native_budget_sheets == 3) if offline_budget is not None else None
     excel_budget = _budget_snapshot(excel_budget, report_id, True) if excel_budget is not None else None
     if offline_budget is not None and excel_budget is not None and canonical(offline_budget) != canonical(excel_budget):
@@ -265,7 +269,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             tables=fragments, checkpoint=progress if checkpoint else None,
             offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
             html_layout_version=2 if renderer_version >= 4 else 1,
-            xlsx_opc_version=2 if renderer_version in (6, 7) else 1)
+            xlsx_opc_version=2 if renderer_version in (6, 7, 9) else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
         table_proofs = []
@@ -314,9 +318,14 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         manifest.update({key:metadata[key] for key in mapping_keys})
     from .volume_delivery import screening_fields
     manifest.update(screening_fields(metadata, report_id))
-    if renderer_version == 7:
+    if renderer_version in (7, 9):
         proof = metadata.get("promotionFileProof")
         if type(proof) is not dict:
-            raise AnalysisContractError("renderer 7 缺少固定词货文件证明")
+            raise AnalysisContractError("推广渲染缺少固定词货文件证明")
         manifest["promotionFileProof"] = proof
+    if renderer_version == 9:
+        proof = metadata.get("promotionTrialProof")
+        if type(proof) is not dict or offline_budget is not None or excel_budget is not None:
+            raise AnalysisContractError("renderer 9 缺少试用证明或意外包含预算")
+        manifest["promotionTrialProof"] = proof
     return {**manifest, "manifestDigest": digest(manifest)}

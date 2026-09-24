@@ -28,7 +28,7 @@ FULL_FIELDS = {"schemaVersion", "status", "reportId", "evidenceDigest", "rendere
 
 
 def _renderer(value):
-    if type(value) is not int or value not in (4, 6, 7):
+    if type(value) is not int or value not in (4, 6, 7, 9):
         _fail("多卷持久渲染版本不受支持")
 
 
@@ -157,6 +157,41 @@ def _budget(value, report_id, plan_digest):
 
 SCREENING_KEYS = {"screeningRef", "screeningPackagePolicy", "screeningPackageDigests"}
 PROMOTION_KEY = "promotionFileProof"
+TRIAL_KEY = "promotionTrialProof"
+
+
+def trial_proof(value, manifest):
+    """Validate the v9 approval/source/table fence; no publication authority."""
+    _fields(value, {"schemaVersion", "rendererVersion", "reportId", "contentDtoDigest",
+        "humanReviewDigest", "promotionFileProofDigest", "sealedSourcesDigest",
+        "sourceDescriptorDigest", "actionTableKey", "actionRowCount", "actionRowDigest",
+        "scopeTableKeys", "promotionTableKeys", "budgetDelivered", "proofDigest"})
+    _equal(value["schemaVersion"], "business-promotion-trial-file-proof-v1")
+    _equal(value["rendererVersion"], 9)
+    _equal(value["reportId"], manifest["reportId"])
+    _equal(value["contentDtoDigest"], manifest[PROMOTION_KEY]["contentDtoDigest"])
+    _equal(value["humanReviewDigest"], manifest[PROMOTION_KEY]["humanReviewDigest"])
+    _equal(value["promotionFileProofDigest"], manifest[PROMOTION_KEY]["proofDigest"])
+    _sha(value["sealedSourcesDigest"])
+    _equal(value["sourceDescriptorDigest"], manifest["sourceDescriptorDigest"])
+    _equal(value["actionTableKey"], "promotion-approved-actions-v1")
+    _equal(value["scopeTableKeys"], ["promotion-trial-source-scope", "promotion-trial-boundaries"])
+    _equal(value["promotionTableKeys"], ["promotion-keyword_sku", "promotion-keyword_sku_context"])
+    _equal(value["budgetDelivered"], False)
+    _sha(value["actionRowDigest"])
+    keys = [item["key"] for item in manifest["tables"]]
+    _equal(keys[-2:], value["promotionTableKeys"])
+    for key in [value["actionTableKey"], *value["scopeTableKeys"]]:
+        _equal(keys.count(key), 1)
+    action = next(item for item in manifest["tables"] if item["key"] == value["actionTableKey"])
+    _equal(action["rowCount"], _integer(value["actionRowCount"], 0, 1_000_000))
+    _equal(action["rowDigest"], value["actionRowDigest"])
+    _equal(value["proofDigest"], digest({key: child for key, child in value.items() if key != "proofDigest"}))
+    for volume in manifest["volumes"]:
+        _equal(volume["nativeBudgetSheets"], 0)
+        _equal(volume["offlineBudgetEnabled"], False)
+    if "budgetPlanDigest" in manifest:
+        _fail("试用报告不能宣称预算工作表已交付")
 
 
 def promotion_proof(value, report_id):
@@ -246,9 +281,10 @@ def screening_fields(value, report_id):
 def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version == 7 else set()),
+    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9) else set()) |
+            ({TRIAL_KEY} if renderer_version == 9 else set()),
             {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
-    if renderer_version == 7:
+    if renderer_version in (7, 9):
         promotion_proof(value[PROMOTION_KEY], value["reportId"])
     screening_fields(value, value["reportId"])
     if mapping_keys & value.keys():
@@ -326,6 +362,8 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
             size = _integer(proof["bytes"], 1, max_file)
             files.append({"volumeIndex": actual["volumeIndex"], "format": format, "bytes": size, "sha256": _sha(proof["sha256"]),
                           "chunkCount": (size + CHUNK_BYTES - 1) // CHUNK_BYTES})
+    if renderer_version == 9:
+        trial_proof(value[TRIAL_KEY], value)
     _equal(value["manifestDigest"], digest({key: child for key, child in value.items() if key != "manifestDigest"}))
     return files
 
