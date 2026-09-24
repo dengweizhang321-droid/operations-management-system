@@ -28,6 +28,16 @@ ALLOWED_TABLE_PREFIXES = (
     "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_", "ai_",
 )
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
+FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
+FINANCE_MARKER_TABLE = "finance_source_revision_markers"
+FINANCE_MARKER_TRIGGERS = {
+    ("finance_lines", "finance_line_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_months", "finance_month_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_import_batches", "finance_batch_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    (FINANCE_MARKER_TABLE, "finance_source_revision_required", "finance_source_revision_required_at_commit", 5, True, True),
+}
+FINANCE_MARKER_FUNCTIONS = {"finance_source_mark_revision_required",
+    "finance_source_revision_required_at_commit"}
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -102,6 +112,94 @@ def _require_market_facet_indexes(cursor: psycopg.Cursor[Any]) -> None:
         for name, column in expected.items()
     }:
         raise RuntimeError("adopted market facet indexes are incomplete")
+
+
+def _require_finance_source_marker_guard(cursor: psycopg.Cursor[Any],
+                                         migrations: set[str], tables: set[str]) -> None:
+    """Version-gated marker integrity in this backup's own MVCC snapshot."""
+    migrated = FINANCE_MARKER_MIGRATION in migrations
+    present = FINANCE_MARKER_TABLE in tables
+    if not migrated:
+        if present:
+            raise RuntimeError("finance source marker table has no migration receipt")
+        return
+    if not present or "0002_finance_target_gross_margin" not in migrations:
+        raise RuntimeError("finance source marker migration lacks table or predecessor")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [
+        ("transaction_id", True, "bigint"),
+        ("baseline_revision", True, "bigint"),
+        ("baseline_digest", True, "character varying(64)"),
+    ]:
+        raise RuntimeError("finance source marker columns are incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise RuntimeError("finance source marker primary key is missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgtype,t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND t.tgenabled='O' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in FINANCE_MARKER_TRIGGERS],),
+    )
+    if {(str(table),str(name),str(function),int(kind),bool(deferred),bool(initial))
+            for table,name,function,kind,deferred,initial in cursor.fetchall()} != FINANCE_MARKER_TRIGGERS:
+        raise RuntimeError("finance source revision triggers are missing or disabled")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(FINANCE_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer), config) for name,definer,config in cursor.fetchall()}
+    if (set(functions) != FINANCE_MARKER_FUNCTIONS or any(not definer or
+            [str(item).replace(" ", "") for item in (config or [])
+                if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]
+            for definer,config in functions.values())):
+        raise RuntimeError("finance source revision SECURITY DEFINER search_path is invalid")
+    privilege_checks = [
+        (role, privilege) for role, privileges in (
+            ("teruisi_finance_writer", ("INSERT","UPDATE","DELETE","TRUNCATE")),
+            ("teruisi_finance_reader", ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE")))
+        for privilege in privileges
+    ]
+    clauses = ["pg_catalog.has_table_privilege(%s,%s,%s)" for _ in privilege_checks]
+    values: list[str] = []
+    for role, privilege in privilege_checks:
+        values.extend((role,"public.finance_source_revision_markers",privilege))
+    for role, privileges in (
+            ("teruisi_finance_writer", ("INSERT", "UPDATE")),
+            ("teruisi_finance_reader", ("SELECT", "INSERT", "UPDATE"))):
+        for column in ("transaction_id", "baseline_revision", "baseline_digest"):
+            for privilege in privileges:
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                values.extend((role,"public.finance_source_revision_markers",
+                    column,privilege))
+    for role in ("teruisi_finance_writer","teruisi_finance_reader"):
+        for function in sorted(FINANCE_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            values.extend((role,f"public.{function}()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(clauses),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise RuntimeError("finance source marker grants expose protected state or functions")
 
 
 def collect_evidence(
@@ -194,6 +292,10 @@ def collect_evidence(
             required.update(market_options_tables)
         elif market_tables & market_options_tables:
             raise RuntimeError("Market options tables lack their migration receipt")
+        finance_migrations = {item["name"] for item in migrations if item["app"] == "finance"}
+        _require_finance_source_marker_guard(cursor, finance_migrations, set(tables))
+        if FINANCE_MARKER_MIGRATION in finance_migrations:
+            required.add(FINANCE_MARKER_TABLE)
         products_required = {
             "product_data_revisions",
             "product_shipping_rate_import_batches",

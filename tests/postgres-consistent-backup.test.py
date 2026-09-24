@@ -26,10 +26,22 @@ SCREENING_TABLES = {"ai_business_screening_runs", "ai_business_screening_pages"}
 PRE_EVIDENCE_TABLES = set(AI_TABLES) - {"ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans"} - SCREENING_TABLES
 
 
+def _finance_guard():
+    return {"columns": [("transaction_id", True, "bigint"),
+                ("baseline_revision", True, "bigint"),
+                ("baseline_digest", True, "character varying(64)")],
+        "primaryKey": [("PRIMARY KEY (transaction_id)",)],
+        "triggers": list(MODULE.FINANCE_MARKER_TRIGGERS),
+        "functions": [(name, True, ["search_path=pg_catalog, public"])
+            for name in sorted(MODULE.FINANCE_MARKER_FUNCTIONS)],
+        "privileges": (False,)*28}
+
+
 class _EvidenceCursor:
-    def __init__(self, tables, migrations):
+    def __init__(self, tables, migrations, finance_guard=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
+        self.finance_guard = finance_guard or _finance_guard()
 
     def __enter__(self):
         return self
@@ -37,7 +49,7 @@ class _EvidenceCursor:
     def __exit__(self, *args):
         return False
 
-    def execute(self, statement):
+    def execute(self, statement, params=None):
         query = statement if isinstance(statement, str) else statement.as_string()
         if "current_database()" in query:
             self.rows = [("fixture", "fixture_owner", "127.0.0.1/32", 15479, False, 170011)]
@@ -45,6 +57,16 @@ class _EvidenceCursor:
             self.rows = [(table,) for table in self.tables]
         elif "SELECT app, name FROM django_migrations" in query:
             self.rows = self.migrations
+        elif "FROM pg_catalog.pg_attribute a" in query and "finance_source_revision_markers" in query:
+            self.rows = self.finance_guard["columns"]
+        elif "pg_catalog.pg_get_constraintdef" in query and "finance_source_revision_markers" in query:
+            self.rows = self.finance_guard["primaryKey"]
+        elif "FROM pg_catalog.pg_trigger t" in query and "finance_source_revision" in str(params):
+            self.rows = self.finance_guard["triggers"]
+        elif "FROM pg_catalog.pg_proc p" in query and "finance_source_revision" in str(params):
+            self.rows = self.finance_guard["functions"]
+        elif "pg_catalog.has_table_privilege" in query and "finance_source_revision_markers" in str(params):
+            self.rows = [self.finance_guard["privileges"]]
         elif query.startswith("SELECT COUNT(*)"):
             self.rows = [(0,)]
         elif "FROM sales_data_revisions" in query:
@@ -65,12 +87,13 @@ class _EvidenceCursor:
         return self.rows[0]
 
 
-def _ai_evidence(tables, migrations):
+def _ai_evidence(tables, migrations, finance_guard=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
     }
-    cursor = _EvidenceCursor(base_tables | set(tables), [("sales", "0001_initial"), *migrations])
+    cursor = _EvidenceCursor(base_tables | set(tables),
+        [("sales", "0001_initial"), *migrations], finance_guard)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -111,6 +134,36 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_finance_0003_marker_schema_requires_exact_migration_and_guards(self):
+        old = [("finance", "0002_finance_target_gross_margin")]
+        current = [*old, ("finance", MODULE.FINANCE_MARKER_MIGRATION)]
+        marker = {MODULE.FINANCE_MARKER_TABLE}
+        before = _ai_evidence(set(), old)
+        adopted = _ai_evidence(marker, current)
+        self.assertIn(MODULE.FINANCE_MARKER_TABLE, adopted["tables"])
+        self.assertNotEqual(before["contentSha256"], adopted["contentSha256"])
+        with self.assertRaisesRegex(RuntimeError, "no migration receipt"):
+            _ai_evidence(marker, old)
+        with self.assertRaisesRegex(RuntimeError, "lacks table"):
+            _ai_evidence(set(), current)
+        with self.assertRaisesRegex(RuntimeError, "predecessor"):
+            _ai_evidence(marker, current[1:])
+        for change in (
+                lambda state: state["columns"].pop(),
+                lambda state: state["primaryKey"].clear(),
+                lambda state: state["triggers"].pop(),
+                lambda state: state["functions"].pop(),
+                lambda state: state["functions"].__setitem__(0,
+                    (state["functions"][0][0], False, state["functions"][0][2])),
+                lambda state: state["functions"].__setitem__(0,
+                    (state["functions"][0][0], True, ["search_path=public"])),
+                lambda state: state.update(privileges=(True,)+(False,)*27),
+                lambda state: state.update(privileges=(False,)*9+(True,)+(False,)*18)):
+            state = _finance_guard()
+            change(state)
+            with self.subTest(state=state), self.assertRaises(RuntimeError):
+                _ai_evidence(marker, current, state)
+
     def test_v4_ledger_generation_has_explicit_71_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 35)

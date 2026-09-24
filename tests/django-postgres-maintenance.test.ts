@@ -11,6 +11,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const operatorPath = path.join(root, "tools", "django-postgres-maintenance.ps1");
 const servicePath = path.join(root, "tools", "django-local-service.ps1");
 const helperPath = path.join(root, "tools", "postgres-consistent-backup.py");
+const financeHealthPath = path.join(root, "backend", "teruisi_backend", "health.py");
 const powershell = path.join(
   process.env.SystemRoot ?? "C:\\Windows",
   "System32",
@@ -19,6 +20,31 @@ const powershell = path.join(
   "powershell.exe",
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
+
+test("finance.0003 marker guards are migration-gated in backup and readiness", async () => {
+  const [backup, health, datasetManifest] = await Promise.all([
+    readFile(helperPath, "utf8"),
+    readFile(financeHealthPath, "utf8"),
+    readFile(path.join(root, "backend", "system_datasets", "manifest.json"), "utf8"),
+  ]);
+  for (const source of [backup, health]) {
+    assert.match(source, /0003_finance_source_revision_guard/);
+    assert.match(source, /finance_source_revision_markers/);
+    for (const trigger of ["finance_line_revision_required",
+      "finance_month_revision_required", "finance_batch_revision_required",
+      "finance_source_revision_required"]) {
+      assert.ok(source.includes(trigger), `missing ${trigger}`);
+    }
+    assert.match(source, /finance_source_mark_revision_required/);
+    assert.match(source, /finance_source_revision_required_at_commit/);
+    assert.match(source, /tgdeferrable.*tginitdeferred/);
+    assert.match(source, /prosecdef.*proconfig/);
+    assert.match(source, /has_table_privilege/);
+    assert.match(source, /has_column_privilege/);
+    assert.match(source, /has_function_privilege/);
+  }
+  assert.doesNotMatch(datasetManifest, /finance_source_revision_markers/);
+});
 
 test("PostgreSQL maintenance operators parse under Windows PowerShell 5", async (t) => {
   if (process.platform !== "win32" || !existsSync(powershell)) {
@@ -501,6 +527,7 @@ test("Python helper snapshot and restore behavior passes isolated unit fixtures"
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stderr, /Ran 12 tests/);
+  const count = result.stderr.match(/Ran (\d+) tests/);
+  assert.ok(count && Number(count[1]) >= 13, result.stderr);
   assert.match(result.stderr, /OK/);
 });

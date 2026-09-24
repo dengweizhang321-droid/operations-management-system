@@ -166,6 +166,16 @@ REQUIRED_FINANCE_INDEXES = {
     "fin_line_scope_idx", "fin_line_metric_idx", "fin_line_subject_idx", "fin_line_shop_idx",
 }
 REQUIRED_FINANCE_READER_COLLATION = "zh-Hans-CN-x-icu"
+FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
+FINANCE_MARKER_TABLE = "finance_source_revision_markers"
+FINANCE_MARKER_TRIGGERS = {
+    ("finance_lines", "finance_line_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_months", "finance_month_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_import_batches", "finance_batch_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    (FINANCE_MARKER_TABLE, "finance_source_revision_required", "finance_source_revision_required_at_commit", 5, True, True),
+}
+FINANCE_MARKER_FUNCTIONS = {"finance_source_mark_revision_required",
+    "finance_source_revision_required_at_commit"}
 FINANCE_WRITER_TABLE_PRIVILEGES = {
     "finance_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "finance_months": ("SELECT", "INSERT", "UPDATE"),
@@ -974,8 +984,102 @@ def _validate_writer_schema(cursor) -> None:
             raise ReadinessError("sales_writer_schema_incomplete")
 
 
+def _validate_finance_source_marker_guard(cursor) -> None:
+    """Only finance.0003 requires the private marker and exact live guards."""
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='finance' AND name='0003_finance_source_revision_guard')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute("SELECT pg_catalog.to_regclass('public.finance_source_revision_markers') IS NOT NULL")
+    present = cursor.fetchone()[0] is True
+    if not migrated:
+        if present:
+            raise ReadinessError("finance_source_marker_without_migration")
+        return
+    if not present:
+        raise ReadinessError("finance_source_marker_schema_missing")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [
+        ("transaction_id",True,"bigint"),
+        ("baseline_revision",True,"bigint"),
+        ("baseline_digest",True,"character varying(64)"),
+    ]:
+        raise ReadinessError("finance_source_marker_schema_incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise ReadinessError("finance_source_marker_primary_key_missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgtype,t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND t.tgenabled='O' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in FINANCE_MARKER_TRIGGERS],),
+    )
+    found = {(str(table),str(name),str(function),int(kind),bool(deferred),bool(initial))
+        for table,name,function,kind,deferred,initial in cursor.fetchall()}
+    if found != FINANCE_MARKER_TRIGGERS:
+        raise ReadinessError("finance_source_marker_triggers_incomplete")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(FINANCE_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer), config) for name,definer,config in cursor.fetchall()}
+    if (set(functions) != FINANCE_MARKER_FUNCTIONS or any(not definer or
+            [str(item).replace(" ", "") for item in (config or [])
+                if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]
+            for definer,config in functions.values())):
+        raise ReadinessError("finance_source_marker_functions_incomplete")
+    privileges = [("teruisi_finance_writer", "INSERT"),
+        ("teruisi_finance_writer", "UPDATE"),
+        ("teruisi_finance_writer", "DELETE"),
+        ("teruisi_finance_writer", "TRUNCATE"),
+        *(("teruisi_finance_reader", privilege) for privilege in
+            ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"))]
+    clauses = ["pg_catalog.has_table_privilege(%s,%s,%s)" for _ in privileges]
+    arguments = []
+    for role, privilege in privileges:
+        arguments.extend((role, "public.finance_source_revision_markers", privilege))
+    for role, grants in (
+            ("teruisi_finance_writer", ("INSERT", "UPDATE")),
+            ("teruisi_finance_reader", ("SELECT", "INSERT", "UPDATE"))):
+        for column in ("transaction_id", "baseline_revision", "baseline_digest"):
+            for privilege in grants:
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                arguments.extend((role,"public.finance_source_revision_markers",
+                    column,privilege))
+    for role in ("teruisi_finance_writer", "teruisi_finance_reader"):
+        for function in sorted(FINANCE_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            arguments.extend((role, f"public.{function}()", "EXECUTE"))
+    cursor.execute("SELECT " + ",".join(clauses), arguments)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("finance_source_marker_privilege_excessive")
+
+
 def _validate_finance_schema(cursor, *, writer: bool) -> None:
     tables = set(connection.introspection.table_names(cursor))
+    _validate_finance_source_marker_guard(cursor)
     expected = REQUIRED_FINANCE_WRITER_COLUMNS if writer else REQUIRED_FINANCE_COLUMNS
     for table, expected_columns in expected.items():
         if table not in tables:
