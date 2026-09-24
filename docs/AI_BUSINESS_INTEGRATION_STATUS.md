@@ -34,6 +34,12 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 市场 v2 第五工具前置为[0053 材料准入的暂停快照](AI_BUSINESS_MARKET_V2_ADMITTED_PAUSED.md)：保留0044/45旧 parked 报告和材料回执不变，另建同账号/selector/manifest 的 admitted report/flow；实际 allowedTools 仍空、model 空，数据库禁止节点、job、派发与结果。隔离 PG 三项目标 `.runtime/ai-pg-86461140037a/tests.log`、目录撤掉 job guard 的负例 `.runtime/ai-pg-7a6b5b162f07/tests.log`、旧 parked/材料/新 admitted 同库18项 `.runtime/ai-pg-edd8cc7dda38/tests.log` 通过；0052→0053 旧79表/renderer1—7字节/旧函数与停放材料行保持、新七函数七触发器精确、双备份恢复/空逆迁移重做通过 `.runtime/ai-pg-f8faa8ebc693/business-market-v2-admitted-paused-upgrade-evidence.json`。正式第五工具/五 Agent 仍须下一版本的工具目录、模型策略与数值引用证据，不可把 paused 快照说成已运行。
 
+[市场第五工具未注册读取候选](AI_BUSINESS_MARKET_V2_FIFTH_READ_PREVIEW.md)能从 0053 admitted-paused 根重新核同账号/selector/0045 材料与封存来源，返回有界三表 summary/page/row 与精确数值引用基础；纯合同3项、隔离 PG3项 `.runtime/ai-pg-49dd0c30c191/tests.log` 通过。注入 job/provider 身份只是声明，`persistedRead=false`，没有真实派发或 Agent 已读证明。
+
+[v4 三期日期包络纯候选](AI_BUSINESS_PERIOD_BOUND_PLAN_V1.md)另固定京东同店推广本期/前等长/去年同期的逐来源原始日期、解决后日期与预期业务日摘要；财报保持自然月，不做日摊分。18 项本地纯测通过，未改既有 v4 计划、数据库或 renderer；缺日与零日仍须拥有方证明，当前正式词货报告仍只接一个基期。
+
+[renderer10 持久暂存候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_STAGE.md)已允许完整预算卷分块入库并以当前批准/预算根重建全字节验证，但数据库在文件行和完整分块两层永久拒 v10 `ready`。隔离 PG 四项目标 `.runtime/ai-pg-74e6f194d49e/tests.log`、目录撤权负例 `.runtime/ai-pg-3c349136f20c/tests.log`、0053→0054 旧79表/旧1—7文件/v9 OID ACL和ready拒绝、双备份恢复/空回退重装 `.runtime/ai-pg-755537cd7e40/business-promotion-budget-v10-stage-upgrade-evidence.json` 及旧 v9 多卷/签名下载八项同库 `.runtime/ai-pg-1e89d4206954/tests.log` 通过。仍无公开路由、正式文件下载或原生 Office 验收。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

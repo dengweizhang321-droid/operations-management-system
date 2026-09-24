@@ -462,11 +462,13 @@ def verify_market_v2_material_attestation(cursor) -> None:
             raise RuntimeError("AI market v2 material function ACL drift")
 
 
-def verify_promotion_trial_file_guard(cursor) -> None:
-    """Pin the renderer-9 storage gate to the frozen 0046 migration."""
+def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False) -> None:
+    """Pin the renderer-9 or closed renderer-10 storage gate."""
     import importlib
 
     migration = importlib.import_module(
+        "ai_assistant.migrations.0054_business_promotion_budget_file_staging"
+        if budget_stage_enabled else
         "ai_assistant.migrations.0046_business_promotion_trial_file_guard")
     cursor.execute("SELECT c.convalidated,pg_catalog.pg_get_constraintdef(c.oid) "
         "FROM pg_catalog.pg_constraint c WHERE c.conrelid="
@@ -475,10 +477,12 @@ def verify_promotion_trial_file_guard(cursor) -> None:
     row = cursor.fetchone()
     versions = (re.search(r"renderer_version\s*=\s*ANY\s*\(ARRAY\[([0-9,\s]+)\]\)",
                           row[1]) if row and row[0] else None)
+    expected_versions = ((1, 2, 3, 4, 5, 6, 7, 9, 10) if budget_stage_enabled
+                         else (1, 2, 3, 4, 5, 6, 7, 9))
     if (versions is None or row[1].count("renderer_version") != 1
             or re.search(r"\bOR\b", row[1], re.IGNORECASE)
-            or tuple(int(part.strip()) for part in versions.group(1).split(",")) != (
-            1, 2, 3, 4, 5, 6, 7, 9)):
+            or tuple(int(part.strip()) for part in versions.group(1).split(","))
+                != expected_versions):
         raise RuntimeError("AI promotion trial file version constraint drift")
 
     signatures = (
@@ -489,9 +493,12 @@ def verify_promotion_trial_file_guard(cursor) -> None:
         "public.ai_business_volume_complete_guard()",
         "public.ai_business_promotion_trial_parent_requirements(text,text,text)",
         "public.ai_business_promotion_trial_ready_requirements(text)",
-    )
-    definitions = (*migration.NEW_SQL, migration.PARENT_REQUIREMENTS,
-                   migration.READY_REQUIREMENTS)
+    ) + (("public.ai_business_promotion_budget_parent_requirements(text,text,text)",)
+         if budget_stage_enabled else ())
+    trial = migration.previous if budget_stage_enabled else migration
+    definitions = (*migration.NEW_SQL, trial.PARENT_REQUIREMENTS,
+                   trial.READY_REQUIREMENTS) + ((migration.BUDGET_PARENT_REQUIREMENTS,)
+                   if budget_stage_enabled else ())
     for index, (signature, definition) in enumerate(zip(signatures, definitions)):
         cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
             "pg_catalog.pg_get_userbyid(p.proowner),p.oid "
@@ -516,7 +523,7 @@ def verify_promotion_trial_file_guard(cursor) -> None:
         expected_acl.add(("PUBLIC", "EXECUTE", False) if index < 5 else
                          ("teruisi_ai_writer", "EXECUTE", False))
         if acl != expected_acl:
-            raise RuntimeError("AI promotion trial file function ACL drift")
+            raise RuntimeError("AI promotion trial file function ACL drift: " + signature)
 
     cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
         "t.tginitdeferred,t.tgenabled,t.tgfoid "
@@ -801,7 +808,8 @@ def collect_evidence(
                 if ("0045_business_market_v2_material_attestation" not in ai_migrations
                         or "0029_business_promotion_file_ready" not in ai_migrations):
                     raise RuntimeError("AI promotion trial file guard has no predecessor")
-                verify_promotion_trial_file_guard(cursor)
+                verify_promotion_trial_file_guard(cursor,
+                    budget_stage_enabled="0054_business_promotion_budget_file_staging" in ai_migrations)
             if "0047_business_v4_sealer_replay_progress" in ai_migrations:
                 if ("0046_business_promotion_trial_file_guard" not in ai_migrations
                         or "0043_business_v4_seal_consumption_candidate" not in ai_migrations):
@@ -838,6 +846,10 @@ def collect_evidence(
                     raise RuntimeError("AI market v2 admitted snapshot has no parked/material predecessor")
                 from ai_assistant.market_v2_admitted_catalog import verify
                 verify(cursor, RuntimeError)
+            if ("0054_business_promotion_budget_file_staging" in ai_migrations
+                    and ("0053_business_market_v2_admitted_paused" not in ai_migrations
+                         or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
+                raise RuntimeError("AI promotion budget staging has no market/trial predecessors")
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.

@@ -12,6 +12,7 @@ from . import business_files as files
 from . import business_promotion_budget_v10_stage as stage
 from . import models as m
 from . import test_business_promotion_budget_v10_volumes as fixture
+from .health import _verify_promotion_trial_file_guard
 from .policy import AiError, mutation
 
 
@@ -43,6 +44,30 @@ class PromotionBudgetV10StageTests(djtest.TransactionTestCase):
     five_completed = fixture.PromotionBudgetV10VolumeTests.five_completed
     approved = fixture.PromotionBudgetV10VolumeTests.approved
     _complete_budget_report = fixture.PromotionBudgetV10VolumeTests._complete_budget_report
+
+    def test_v10_catalog_rejects_budget_parent_acl_drift(self):
+        with transaction.atomic(), connection.cursor() as cursor:
+            # This isolated fixture creates the writer role after migrations;
+            # the protected production provisioner grants these helpers first.
+            cursor.execute("SELECT to_regrole('teruisi_ai_writer')")
+            if cursor.fetchone()[0] is None:
+                cursor.execute("CREATE ROLE teruisi_ai_writer NOLOGIN NOINHERIT")
+            for signature in (
+                "public.ai_business_promotion_trial_parent_requirements(text,text,text)",
+                "public.ai_business_promotion_trial_ready_requirements(text)",
+                "public.ai_business_promotion_budget_parent_requirements(text,text,text)",
+            ):
+                cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
+                    " TO teruisi_ai_writer")
+            _verify_promotion_trial_file_guard(cursor,
+                budget_stage_enabled=True)
+            cursor.execute("REVOKE EXECUTE ON FUNCTION "
+                "public.ai_business_promotion_budget_parent_requirements("
+                "text,text,text) FROM teruisi_ai_writer")
+            with self.assertRaisesRegex(ValueError, "function ACL drift"):
+                _verify_promotion_trial_file_guard(cursor,
+                    budget_stage_enabled=True)
+            transaction.set_rollback(True)
 
     def _stage(self, report):
         with patch.object(stage.approved_content.runtime.transport,

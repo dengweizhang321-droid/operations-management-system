@@ -37,7 +37,7 @@ BEGIN
        OR budget.evidence_version IS DISTINCT FROM
           (snapshot->>'evidenceVersion')::integer
        OR jsonb_typeof(snapshot->'budgetRef') IS DISTINCT FROM 'object'
-       OR (snapshot->'budgetRef' - ARRAY['schemaVersion','id','planDigest','bindingDigest'])<>'{}'::jsonb
+       OR ((snapshot->'budgetRef') - ARRAY['schemaVersion','id','planDigest','bindingDigest'])<>'{}'::jsonb
        OR snapshot#>>'{budgetRef,schemaVersion}' IS DISTINCT FROM
           'business-budget-reference-v1'
        OR snapshot#>>'{budgetRef,id}' IS DISTINCT FROM budget.id

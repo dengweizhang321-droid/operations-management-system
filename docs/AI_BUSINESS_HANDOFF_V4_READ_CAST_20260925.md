@@ -36,4 +36,8 @@
 
 市场 v2 原 parked profile 的数据库禁止任何 Agent job；0053 另建[材料准入的暂停快照](AI_BUSINESS_MARKET_V2_ADMITTED_PAUSED.md)，保留旧根不变，真实 allowedTools/model 仍空且节点/job/派发/结果全被数据库拒绝。三项目标 PG `.runtime/ai-pg-86461140037a/tests.log`、目录撤权负例 `.runtime/ai-pg-7a6b5b162f07/tests.log`、旧 parked/材料/新 admitted 同库18项 `.runtime/ai-pg-edd8cc7dda38/tests.log` 与0052→0053升级/双备份恢复 `.runtime/ai-pg-f8faa8ebc693/business-market-v2-admitted-paused-upgrade-evidence.json` 通过；第五工具和多 Agent 实际运行仍要新的版本化激活门禁。
 
+新[市场第五工具读取预览](AI_BUSINESS_MARKET_V2_FIFTH_READ_PREVIEW.md)纯3项、隔离PG3项 `.runtime/ai-pg-49dd0c30c191/tests.log` 通过，数值引用来自三张已证明材料；注入 job/provider ID 不是真实持久派发，返回始终 `persistedRead=false`。新[三期日期包络](AI_BUSINESS_PERIOD_BOUND_PLAN_V1.md)纯18项通过，本期/环比/同比日期预期已能独立固定，但尚未纳入正式计划/Agent/文件，也不把缺日推成零。
+
+预算 0054 [持久暂存](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_STAGE.md)PG4项 `.runtime/ai-pg-74e6f194d49e/tests.log`、目录撤权负例1项 `.runtime/ai-pg-3c349136f20c/tests.log`，及0053→0054旧数据/字节/函数权限保持、双备份恢复 `.runtime/ai-pg-755537cd7e40/business-promotion-budget-v10-stage-upgrade-evidence.json` 通过；旧 v9 多卷/签名下载同库8项 `.runtime/ai-pg-1e89d4206954/tests.log` 通过。数据库双层拒绝 v10 `ready`，没有发布/下载；不能把暂存当作预算已交付。
+
 默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。
