@@ -18,7 +18,7 @@ from django.db import connection as target_connection, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from finance.import_service import _fingerprint, finance_scope_key
+from finance.import_service import JS_SAFE_INTEGER, _fingerprint, finance_scope_key
 from finance.models import (
     FinanceDataRevision,
     FinanceImportAttempt,
@@ -742,7 +742,8 @@ def _bulk(model, records: Iterable[dict[str, object]], generation: str, size: in
         )
 
 
-def _apply_snapshot(source: sqlite3.Connection, generation: str, batch_size: int) -> None:
+def _assert_apply_maintenance_state() -> None:
+    """Lock the historical migration authority for both reuse and replacement."""
     if FinanceWriteRequestReceipt.objects.exists():
         raise CommandError("PostgreSQL 已存在财务写请求回执，拒绝覆盖迁移快照。")
     authority = FinanceWriteAuthority.objects.select_for_update().filter(id=1).first()
@@ -754,6 +755,10 @@ def _apply_snapshot(source: sqlite3.Connection, generation: str, batch_size: int
         or FinanceImportScopeHead.objects.exclude(owner_token="").exists()
     ):
         raise CommandError("PostgreSQL 财务导入控制状态不是静默终态。")
+
+
+def _apply_snapshot(source: sqlite3.Connection, generation: str, batch_size: int) -> None:
+    _assert_apply_maintenance_state()
 
     FinanceImportAttempt.objects.all().delete()
     FinanceImportFingerprint.objects.all().delete()
@@ -827,10 +832,14 @@ def _apply_snapshot(source: sqlite3.Connection, generation: str, batch_size: int
             updated_at=record["updated_at"]
         )
 
-    FinanceDataRevision.objects.update_or_create(
-        domain="finance",
-        defaults={"revision": 1, "source_digest": generation},
+    revision, _ = FinanceDataRevision.objects.select_for_update().get_or_create(
+        domain="finance", defaults={"revision": 0, "source_digest": ZERO_TOKEN},
     )
+    if not 0 <= revision.revision < JS_SAFE_INTEGER or not _valid_hex(revision.source_digest):
+        raise CommandError("财报目标修订无法安全单调推进。")
+    revision.revision += 1
+    revision.source_digest = generation
+    revision.save(update_fields=["revision", "source_digest", "updated_at"])
     if target_connection.vendor == "postgresql":
         statements = target_connection.ops.sequence_reset_sql(
             no_style(), [FinanceLine, FinanceImportFingerprint]
@@ -898,6 +907,29 @@ def _source_provenance(
         "sourceManifestSha256": _file_digest(manifest_path),
         "sourceFinanceDigest": str(source_finance_digest),
     }
+
+
+def _recheck_live_source(
+    source_path: Path,
+    source_manifest_path: Path | None,
+    snapshot: Snapshot,
+    provenance: dict[str, str],
+) -> None:
+    """Reject a late source-file change even when projected target data match."""
+    live = _open_source(source_path)
+    try:
+        current = _snapshot(live)
+    finally:
+        live.rollback()
+        live.close()
+    if (current.source_digest != snapshot.source_digest
+            or source_manifest_path is None and
+                _path_digest(source_path) != provenance["liveSourcePathDigest"]
+            or _file_digest(source_path) != provenance["sourceArtifactSha256"]
+            or source_manifest_path is not None and
+                _file_digest(source_manifest_path.expanduser().resolve()) !=
+                    provenance["sourceManifestSha256"]):
+        raise CommandError("D1 财务迁移材料在目标事务提交前发生变化。")
 
 
 def _manifest(
@@ -1036,25 +1068,31 @@ class Command(BaseCommand):
             else:
                 generation = snapshot.target_digest
                 with transaction.atomic():
-                    _apply_snapshot(source, generation, batch_size)
-                    target_counts, target_digests, target_digest = _target_snapshot()
-                    if (
-                        target_counts != snapshot.counts
-                        or target_digests != snapshot.digests
-                        or target_digest != snapshot.target_digest
-                    ):
-                        raise CommandError("财务快照写入后的行数或摘要回查不一致。")
-                    live = _open_source(source_path)
-                    try:
-                        current = _snapshot(live)
-                    finally:
-                        live.rollback()
-                        live.close()
-                    if current.source_digest != snapshot.source_digest:
-                        raise CommandError("D1 财务迁移材料在目标事务提交前发生变化。")
-                    FinanceDataRevision.objects.filter(domain="finance").update(
-                        source_digest=snapshot.target_digest
+                    _assert_apply_maintenance_state()
+                    revision, _ = FinanceDataRevision.objects.select_for_update().get_or_create(
+                        domain="finance", defaults={"revision": 0, "source_digest": ZERO_TOKEN},
                     )
+                    if not 0 <= revision.revision <= JS_SAFE_INTEGER or not _valid_hex(revision.source_digest):
+                        raise CommandError("财报目标修订不满足迁移维护门禁。")
+                    prior_counts, prior_digests, prior_digest = _target_snapshot()
+                    identical = (prior_counts == snapshot.counts and
+                        prior_digests == snapshot.digests and
+                        prior_digest == snapshot.target_digest)
+                    if identical:
+                        if revision.revision < 1 or revision.source_digest != generation:
+                            raise CommandError("财报目标内容已相同但修订或摘要不一致，拒绝假定幂等。")
+                    else:
+                        _apply_snapshot(source, generation, batch_size)
+                    target_counts, target_digests, target_digest = _target_snapshot()
+                    if (target_counts != snapshot.counts or target_digests != snapshot.digests
+                            or target_digest != snapshot.target_digest):
+                        raise CommandError("财务快照写入后的行数或摘要回查不一致。")
+                    _recheck_live_source(source_path, source_manifest_path,
+                        snapshot, source_provenance)
+                    _assert_apply_maintenance_state()
+                    if _target_snapshot() != (snapshot.counts, snapshot.digests,
+                            snapshot.target_digest):
+                        raise CommandError("财报目标在提交前发生变化。")
                     run = _record_run(
                         mode=mode,
                         source_path_digest=path_digest,
