@@ -338,6 +338,8 @@ def check():
                                   prior_claim_qualified=True)
         from .v4_sealer_source_catalog import verify as verify_v4_sealer_source
         verify_v4_sealer_source(cursor)
+        from .v4_commit_consumption_catalog import verify as verify_v4_commit
+        verify_v4_commit(cursor)
 
         fencing = importlib.import_module(
             "ai_assistant.migrations.0003_runtime_fencing"

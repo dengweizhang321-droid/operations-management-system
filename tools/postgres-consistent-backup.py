@@ -826,6 +826,12 @@ def collect_evidence(
             if ("0051_business_v4_prior_claim_column" in ai_migrations
                     and "0050_business_v4_replay_read_cast" not in ai_migrations):
                 raise RuntimeError("AI v4 qualified prior claim has no read cast predecessor")
+            if "0052_business_v4_commit_consumption" in ai_migrations:
+                if ("0051_business_v4_prior_claim_column" not in ai_migrations
+                        or "0043_business_v4_seal_consumption_candidate" not in ai_migrations):
+                    raise RuntimeError("AI v4 commit consumption has no claimed replay predecessor")
+                from ai_assistant.v4_commit_consumption_catalog import verify
+                verify(cursor, RuntimeError)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.

@@ -29,7 +29,7 @@ SQL = """CREATE FUNCTION public.ai_v4_sealer_commit_with_consumption(
 RETURNS TABLE(run_id text,evidence_version bigint,sealed_digest text,
   consumed_at timestamptz)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE ticket_id uuid;
+DECLARE selected_ticket_id uuid;
   ticket public.ai_business_v4_seal_tickets%ROWTYPE;
   claim public.ai_business_v4_seal_claims%ROWTYPE;
   attempt public.ai_business_v4_validation_attempts%ROWTYPE;
@@ -75,12 +75,12 @@ BEGIN
        'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
   THEN RAISE EXCEPTION 'ai_v4_commit_consumption_privileges_invalid'; END IF;
 
-  ticket_id:=public.ai_v4_sealer_assert_claim(selected_run,selected_attempt,
+  selected_ticket_id:=public.ai_v4_sealer_assert_claim(selected_run,selected_attempt,
     selected_actor,selected_actor_version,selected_nonce,selected_claim);
   SELECT * INTO ticket FROM public.ai_business_v4_seal_tickets t
-    WHERE t.id=ticket_id;
+    WHERE t.id=selected_ticket_id;
   SELECT * INTO claim FROM public.ai_business_v4_seal_claims c
-    WHERE c.ticket_id=ticket_id;
+    WHERE c.ticket_id=selected_ticket_id;
   SELECT * INTO parent FROM public.ai_business_v4_runs r
     WHERE r.id=selected_run FOR UPDATE;
   SELECT * INTO attempt FROM public.ai_business_v4_validation_attempts a
@@ -225,9 +225,9 @@ BEGIN
          OR candidate->'progress'->'receiptChainDigest' IS DISTINCT FROM
            segment.progress_json::jsonb->'receiptChainDigest'
          OR candidate->>'schemaVersion' IS DISTINCT FROM
-           CASE source.domain WHEN 'finance' THEN
+           (CASE source.domain WHEN 'finance' THEN
              'business-v4-sealer-finance-segment-candidate-v2' ELSE
-             'business-v4-sealer-promotion-segment-candidate-v2' END
+             'business-v4-sealer-promotion-segment-candidate-v2' END)
       THEN RAISE EXCEPTION 'ai_v4_commit_consumption_candidate_invalid'; END IF;
       prior_digest:=receipt.candidate_digest;
       prior_segment_digest:=segment.proof_digest;

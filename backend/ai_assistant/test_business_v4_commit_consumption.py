@@ -6,7 +6,7 @@ SESSION AUTHORIZATION switch because the real sealer remains NOLOGIN.
 from importlib import import_module
 
 import psycopg
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 
 from business_analysis.v4_final_commit_contract import commit_seal_request_digest
@@ -19,6 +19,7 @@ from . import models as m
 from .policy import canonical, digest
 from .test_business_v4_sealer_step_core import BusinessV4SealerStepCoreTests as fixture
 from .test_business_v4_seal_writer_gate import BusinessV4SealWriterGateTests as old_gate
+from .v4_commit_consumption_catalog import verify as verify_catalog
 
 
 class BusinessV4CommitConsumptionTests(TransactionTestCase):
@@ -36,6 +37,18 @@ class BusinessV4CommitConsumptionTests(TransactionTestCase):
     body = old_gate.body
     setUp = fixture.setUp
     tearDown = fixture.tearDown
+
+    def test_frozen_wrapper_catalog_rejects_execute_acl_drift(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor)
+        migration = import_module(
+            "ai_assistant.migrations.0052_business_v4_commit_consumption")
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("REVOKE EXECUTE ON FUNCTION " + migration.SIGNATURE +
+                " FROM teruisi_ai_seal_writer")
+            with self.assertRaisesRegex(ValueError, "function ACL drift"):
+                verify_catalog(cursor)
+            transaction.set_rollback(True)
 
     def _prepare(self, *, record=True):
         attempt_id = self.attempt()
@@ -62,11 +75,12 @@ class BusinessV4CommitConsumptionTests(TransactionTestCase):
         if record:
             with self._role_connection("teruisi_ai_seal_writer") as db:
                 for source in self.sources.values():
-                    replay_one_claimed_segment(db, validation._key()[0],
+                    result = replay_one_claimed_segment(db, validation._key()[0],
                         run_id=parent.id, attempt_id=attempt_id,
                         source_id=source.id, segment_index=1,
                         actor_email=actor.email, actor_version=actor.version,
                         nonce=nonce, claim=claim, enabled=True)
+                    self.assertEqual(result["status"], "recorded_candidate")
                 db.execute("COMMIT")
         return (attempt_id, actor, ticket_id, nonce, claim,
                 raw_body, signature, request_digest)
@@ -106,6 +120,14 @@ class BusinessV4CommitConsumptionTests(TransactionTestCase):
             "sealed")
         self.assertEqual(verifier.verify_seal(self.parent.id,
             self.principal)["sealedDigest"], digest(prepared[5]))
+        with self._role_connection("teruisi_ai_seal_writer") as db:
+            recovered = db.execute("SELECT * FROM "
+                "public.ai_v4_sealer_consumption_result(%s,%s,%s,%s,%s)",
+                [self.parent.id, prepared[0], prepared[7], prepared[3],
+                 prepared[4]]).fetchone()
+            db.execute("COMMIT")
+        self.assertEqual(recovered, (self.parent.id, prepared[0],
+            result[1], digest(prepared[5]), result[3]))
         with self.assertRaises(psycopg.Error):
             self._commit(prepared)
 

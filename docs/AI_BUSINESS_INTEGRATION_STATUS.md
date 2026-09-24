@@ -24,6 +24,10 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 下一候选仅新增[最终封存请求纯合同](AI_BUSINESS_V4_FINAL_COMMIT_CONTRACT.md)：复用现有 v4 正文规范与父 HMAC 目的分隔，固定 `commit-seal-v1` 请求摘要；8 项本地纯测试通过，未接数据库或生产。0041 已撤销专用角色直封 EXECUTE，0043 无消费写入函数，因此最终 seal+消费必须另有受保护同事务包装；纯摘要不等于票据、授权或正式封存。
 
+0052 已新增[默认关闭的 seal+消费同事务包装](AI_BUSINESS_V4_COMMIT_CONSUMPTION.md)，只有 NOLOGIN 专用角色可调用；在 claim、版本化请求摘要、全部连续候选回执及来源根复核后才调用旧 seal 并写 0043 消费。隔离 PG 五项目标测试通过 `.runtime/ai-pg-929da4f9223d/tests.log`，撤权负例另有一项 `.runtime/ai-pg-d5e9d4b49403/tests.log`；0051→0052 旧79表/renderer1—7字节/所有旧 AI 函数不变、新函数精确权限与所有者、双备份恢复/空回退重做通过 `.runtime/ai-pg-de8865ae6bd3/business-v4-commit-consumption-upgrade-evidence.json`。数据库只能核 MAC 形状，真实父 HMAC 必须由未来受保护进程先验；没有 LOGIN/凭据、当期 authority 交接、正式 Agent/文件或生产采用。真实575,095行跨源重放与 180 秒票据内最终包装耗时未验。
+
+推广预算另有[renderer10 纯候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md)：仅在同报告批准绑定与拥有方固定预算重算材料齐全时产出分配/情景/口径三表和三张可编辑试算页的预检输入；缺固定预算只列缺口。预算及分卷相关 38 项本地纯测试通过，尚未注册 renderer10、发布 HTML/XLSX 或做原生 Office 验收，不改变 v9 的 `budgetDelivered=false`。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

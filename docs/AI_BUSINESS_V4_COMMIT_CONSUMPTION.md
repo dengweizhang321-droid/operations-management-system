@@ -6,4 +6,4 @@
 
 **验签边界：** PostgreSQL 只能验证 `bodyMac` 的格式以及它在请求摘要中的绑定，不能独立验证真实 HMAC。候选回执的 `authorityVerified=false` 也不应被解释为已获权威授权。正式执行器必须在受保护环境中取得独立派生的父封印密钥，先验证正文真实 HMAC、来源权威、当期 `authority_epoch/cutover_id`，再通过受控身份调用；不得把主密钥放入命令行、环境变量、日志或测试夹具。0052 本身不激活登录、不连接生产、不派发 Agent/付费模型，也不交付报告。
 
-目标隔离 PostgreSQL 测试为 `BusinessV4CommitConsumptionTests`：完整推广和财务候选的单语句封印消费、缺回执/错误 claim/错误请求/非规范正文阻断、旧直达封印拒绝及非空回执逆迁移拒绝。迁移升级与备份恢复另由独立演练验收；本提交仅做静态编译与纯请求契约测试，不能据此声称 PostgreSQL 或正式业务成功。
+隔离 PostgreSQL `BusinessV4CommitConsumptionTests` 五项通过最终 `.runtime/ai-pg-929da4f9223d/tests.log`：完整推广和财务候选的单语句封印消费、按原票据精确读取消费终态与内部 `verify_seal`、缺回执/错误 claim/错误请求/非规范正文阻断、旧直达封印拒绝及非空回执逆迁移拒绝。目录门禁撤权负例另有一项通过 `.runtime/ai-pg-d5e9d4b49403/tests.log`。首次安装暴露 PL/pgSQL `CASE` 括号语法，第二次运行暴露局部 `ticket_id` 与表列歧义；均已修复，不能把失败轮次算作通过。0051→0052 独立升级/恢复/空回退再升级通过 `.runtime/ai-pg-de8865ae6bd3/business-v4-commit-consumption-upgrade-evidence.json`：旧79张 AI 表、renderer1—7文件字节、所有旧 AI 函数OID/正文/ACL保持；新函数签名、所有者、SECDEF 与权限固定，前后备份独立恢复。以上仅是隔离合成角色验收，不代表受保护凭据、真实来源规模或正式业务采用。

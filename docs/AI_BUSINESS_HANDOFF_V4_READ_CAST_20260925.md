@@ -23,3 +23,9 @@
 下一步最终 seal+0043 消费必须由新受保护数据库事务包装实现；0041 已撤销专用角色对旧直封函数的 EXECUTE，0043 没有消费写入入口。纯 Python 拼接两次调用无法满足原子性。独立角色仍 NOLOGIN，真实父 MAC、当前 authority 交接、正式 Agent/文件与生产采用仍待完成。
 
 已加入默认未接线的 `commit-seal-v1` 纯请求摘要与父 MAC 校验，见 [纯合同](AI_BUSINESS_V4_FINAL_COMMIT_CONTRACT.md)；它不领取票据、不登录数据库、不写 seal。受保护事务包装需在代码与隔离角色测试通过后再考虑凭据及生产采用。
+
+## 0052 与预算纯候选补充
+
+0052 的[同事务包装](AI_BUSINESS_V4_COMMIT_CONSUMPTION.md)已在隔离 PostgreSQL 五项目标测试、撤权负例及 0051→0052 前后备份恢复演练通过；证据分别为 `.runtime/ai-pg-929da4f9223d/tests.log`、`.runtime/ai-pg-d5e9d4b49403/tests.log` 与 `.runtime/ai-pg-de8865ae6bd3/business-v4-commit-consumption-upgrade-evidence.json`。旧表、旧 renderer1—7 文件及旧 AI 函数目录保持，角色仍 NOLOGIN、直封撤权。只有拥有真实父 MAC 和当期权威交接的未来受保护执行器才能安全使用，当前不把合成封存当作正式报告准入。
+
+推广预算 [renderer10 纯候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md)已能对齐同报告批准绑定、固定预算引用与拥有方重算材料，投影三张预算表；无固定预算时只列缺口。预算与分卷相关38项纯测试通过。它尚无 owning 授权接线、完整 HTML/XLSX 发布、原生 Excel 复算或生产入口，v9 仍标预算未交付。
