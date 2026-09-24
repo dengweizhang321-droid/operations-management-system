@@ -86,11 +86,19 @@ class BusinessV4NetshopPromotionTests(TestCase):
                     source_revision_hint=entry["sourceRevisionHint"])
         self.calls = []
         self.audit_arguments_digest_override = None
+        self.page_window_override = None
+        self.page_shop_override = None
 
     def owner(self, name, arguments, principal, **kwargs):
         self.calls.append((name, arguments))
         if name == collector.FIRST_TOOL:
-            params = QueryDict(urlencode({**self.query, "limit": "100"}))
+            requested = {key: value for key, value in arguments.items()
+                if key != "domain"}
+            if self.page_window_override:
+                requested["window"] = self.page_window_override
+            if self.page_shop_override:
+                requested["shop"] = self.page_shop_override
+            params = QueryDict(urlencode(requested))
             spec, limit, cursor = owning.validate_request(params)
             with patch.object(signing.TimestampSigner, "timestamp",
                     return_value=signing.b62_encode(int(time.time()) - 7200)):
@@ -106,12 +114,64 @@ class BusinessV4NetshopPromotionTests(TestCase):
             response_digest=digest(canonical(page)))
         return {"ok": True, "toolName": name, "data": page}
 
-    def advance(self, version, request_id):
+    def advance(self, version, request_id, source_key="promotion-current"):
         with patch.object(transport, "catalog", return_value=[tool(collector.FIRST_TOOL),
                     tool(collector.CONTINUATION_TOOL)]), \
                 patch.object(transport, "execute_tool", side_effect=self.owner):
-            return collector.advance(self.parent.id, "promotion-current", version,
+            return collector.advance(self.parent.id, source_key, version,
                 self.principal, request_id)
+
+    def three_window_run(self):
+        for window, day in (("previous", "2026-07-21"),
+                            ("yearAgo", "2025-08-20")):
+            NetshopRow.objects.bulk_create([NetshopRow(
+                source_row_key=f"v4-{window}-{index}",
+                source_row_hash=f"{1000 + (1 if window == 'previous' else 1000) + index:064x}",
+                first_import_batch_id="synthetic", last_import_batch_id="synthetic",
+                source_row_number=index + 1, source="jd_promotion", dataset="ad",
+                platform="京东", shop_name="测试店", business_date=day,
+                sku_id=str(index + 1), spu_id="P1", product_code="M1",
+                spend_cents=100, net_transaction_amount_cents=1000,
+                impressions=20, clicks=2, net_orders=1,
+                metrics_json={"spendCents": 100, "netTransactionAmountCents": 1000,
+                    "impressions": 20, "clicks": 2, "netOrders": 1},
+                raw_json={"推广计划": "合成计划", "搜索词": "开水器"},
+                created_at="2026-09-24", updated_at="2026-09-24")
+                for index in range(101)])
+        original = json.loads(self.parent.plan_json)
+        finance = next(item["query"] for item in original["sourcePlans"]
+            if item["domain"] == "finance")
+        windows = ("current", "previous", "yearAgo")
+        plan = evidence_v4.build_plan(client_request_id=uid("v4-client"),
+            sources=[{"key": f"promotion-{window}", "domain": "netshop",
+                "query": {**self.query, "window": window}} for window in windows]
+                + [{"key": "finance-context", "domain": "finance", "query": finance}],
+            measurements=[{"sourceKey": f"promotion-{window}",
+                "measuredRowCount": 101, "maxRowUtf8Bytes": 2000,
+                "pageEnvelopeUtf8Bytes": 2048,
+                "sourceRevisionHint": "7:" + "a" * 12} for window in windows]
+                + [{"sourceKey": "finance-context", "measuredRowCount": 0,
+                    "maxRowUtf8Bytes": 0, "pageEnvelopeUtf8Bytes": 1000,
+                    "sourceRevisionHint": "0:" + "a" * 64}],
+            analysis_request={"schemaVersion": "business-analysis-request-v1",
+                "question": "京东推广同一任务的环比同比", "requestedDimensions": ["shop", "keyword"],
+                "requestedWindows": list(windows)})
+        with transaction.atomic():
+            raw = canonical(plan)
+            self.parent = m.AiBusinessV4Run.objects.create(id=uid("v4-run"),
+                owner_email=self.principal.email, client_request_id=plan["clientRequestId"],
+                plan_json=raw, plan_digest=digest(raw),
+                run_identity_digest=plan["runIdentityDigest"])
+            self.sources = {}
+            for entry in plan["sourcePlans"]:
+                self.sources[entry["sourceKey"]] = m.AiBusinessV4Source.objects.create(
+                    id=uid("v4-source"), run=self.parent, source_key=entry["sourceKey"],
+                    ordinal=entry["ordinal"], domain=entry["domain"],
+                    temporal_role=entry["temporalRole"],
+                    query_json=canonical(entry["query"]),
+                    query_digest=entry["queryDigest"],
+                    source_identity_digest=entry["sourceIdentityDigest"],
+                    source_revision_hint=entry["sourceRevisionHint"])
 
     def test_signed_first_then_genuine_expired_continuation_and_restart(self):
         one = self.advance(1, "v4-first")
@@ -146,6 +206,60 @@ class BusinessV4NetshopPromotionTests(TestCase):
                          (source.page_count, source.row_count, source.stored_bytes))
         self.assertEqual(parent.status, "collecting")
         self.assertFalse(two["sourceAuthorityVerified"])
+
+    def test_three_fixed_windows_collect_independent_signed_page_chains(self):
+        self.three_window_run()
+        seen_refs = set()
+        version = 1
+        for window, date in (("previous", "2026-07-21"),
+                             ("current", "2026-08-20"),
+                             ("yearAgo", "2025-08-20")):
+            key = f"promotion-{window}"
+            first = self.advance(version, f"v4-{window}-first", key)
+            self.assertFalse(first["finished"])
+            self.assertTrue(0 < first["rowCount"] < 100)
+            version = first["runVersion"]
+            second = self.advance(version, f"v4-{window}-second", key)
+            self.assertEqual((second["pageCount"], second["rowCount"]), (2, 101))
+            self.assertTrue(second["finished"])
+            self.assertNotIn(second["sourceRef"], seen_refs)
+            seen_refs.add(second["sourceRef"])
+            version = second["runVersion"]
+            chunks = list(m.AiBusinessV4Chunk.objects.filter(run=self.parent,
+                source=self.sources[key]).order_by("sequence"))
+            self.assertEqual(len(chunks), 2)
+            self.assertTrue(all(item["date"] == date for chunk in chunks
+                for item in json.loads(chunk.payload_json)["items"]))
+            self.assertEqual(self.calls[-1][1]["window"], window)
+            self.assertEqual(self.calls[-1][1]["expectedSourceRef"], second["sourceRef"])
+        parent = m.AiBusinessV4Run.objects.get(pk=self.parent.pk)
+        self.assertEqual((parent.page_count, parent.row_count), (6, 303))
+        self.assertEqual(len(seen_refs), 3)
+        self.assertEqual(parent.status, "collecting")
+
+    def test_baseline_wrong_window_cross_shop_duplicate_and_stale_cas_rejected(self):
+        self.three_window_run()
+        self.page_window_override = "current"
+        with self.assertRaises(AiError):
+            self.advance(1, "wrong-previous-period", "promotion-previous")
+        self.page_window_override = None
+        self.page_shop_override = "其他店"
+        with self.assertRaises(AiError):
+            self.advance(1, "wrong-year-shop", "promotion-yearAgo")
+        self.page_shop_override = None
+        self.assertFalse(m.AiBusinessV4Chunk.objects.filter(run=self.parent).exists())
+        first = self.advance(1, "valid-previous-first", "promotion-previous")
+        with self.assertRaises(AiError):
+            self.advance(1, "stale-other-window", "promotion-yearAgo")
+        plan = json.loads(self.parent.plan_json)
+        same = next(item for item in plan["sourcePlans"]
+            if item["sourceKey"] == "promotion-previous")
+        plan["sourcePlans"].append({**same, "sourceKey": "duplicate-previous"})
+        with self.assertRaises(AiError):
+            collector.selection(plan, {**self.query, "window": "previous"},
+                "promotion-previous")
+        self.assertEqual(first["runVersion"], 2)
+        self.assertEqual(m.AiBusinessV4Chunk.objects.filter(run=self.parent).count(), 1)
 
     def test_duplicate_version_wrong_domain_actor_revision_and_capacity_never_append(self):
         one = self.advance(1, "v4-first")

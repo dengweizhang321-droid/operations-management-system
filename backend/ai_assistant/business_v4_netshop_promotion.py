@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from django.utils import timezone
 
-from business_analysis import evidence_v4
+from business_analysis import business_promotion_v4_plan, evidence_v4
 from business_analysis.contracts import AnalysisContractError, PageReconciler
 
 from . import business_daily_collection_v3 as daily_identity
@@ -25,6 +25,8 @@ CONTINUATION_TOOL = "get_business_netshop_continuation_page"
 CHECKPOINT_SCHEMA = "business-v4-checkpoint-v1"
 MAX_CHECKPOINT_BYTES = 32_768
 MAX_PAGE_BYTES = 131_072
+WINDOW_KEYS = {"current": "currentSourceKey", "previous": "previousSourceKey",
+    "yearAgo": "yearAgoSourceKey"}
 
 
 def _reject(message="v4京东推广来源检查点或拥有方页不一致", code="conflict", status=409):
@@ -47,6 +49,38 @@ class Prepared:
 
     def arguments(self):
         return json.loads(self.arguments_json)
+
+
+def selection(plan, query, source_key):
+    """Choose the exact fixed-run peer sources; this is not owning authority."""
+    if (type(query) is not dict or type(query.get("window")) is not str
+            or query["window"] not in WINDOW_KEYS
+            or query.get("platform") != "京东" or query.get("dataset") != "promotion"):
+        _reject("v4京东推广窗口不在固定三窗口目录")
+    base = {key: value for key, value in query.items() if key != "window"}
+    peers = {}
+    try:
+        for entry in plan["sourcePlans"]:
+            other = entry["query"]
+            if (entry["domain"] == "netshop" and type(other) is dict
+                    and other.get("dataset") == "promotion"
+                    and {key: value for key, value in other.items()
+                        if key != "window"} == base):
+                window = other.get("window")
+                if window not in WINDOW_KEYS or window in peers:
+                    _reject("v4京东推广同店同窗口来源重复或非法")
+                peers[window] = entry["sourceKey"]
+        candidate = business_promotion_v4_plan.prepare_candidate(plan,
+            {field: peers.get(window) for window, field in WINDOW_KEYS.items()})
+        selected = candidate["selectedWindows"][query["window"]]
+        if (selected["status"] != "selected_in_capacity_plan"
+                or selected["sourceKey"] != source_key
+                or selected["capacityStatus"] != "supported"):
+            _reject("v4京东推广来源不属于固定计划的精确比较窗口")
+        return candidate
+    except (AnalysisContractError, KeyError, TypeError, ValueError,
+            AttributeError, RecursionError) as error:
+        raise AiError("v4京东推广三窗口候选目录不能重建", "conflict", 409) from error
 
 
 def _source(row, source_key, principal):
@@ -86,9 +120,11 @@ def _source(row, source_key, principal):
                 or entry["query"] != query or entry["sourceCapacitySupported"] is not True
                 or query != {"platform": "京东", "shop": query.get("shop"),
                     "dataset": "promotion", "startDate": query.get("startDate"),
-                    "endDate": query.get("endDate"), "window": "current"}
+                    "endDate": query.get("endDate"), "window": query.get("window")}
+                or query["window"] not in WINDOW_KEYS
                 or type(query["shop"]) is not str or not query["shop"]):
-            _reject("v4首片仅接受固定京东推广本期来源")
+            _reject("v4仅接受固定京东推广精确窗口来源")
+        selection(plan, query, source.source_key)
     except (KeyError, ValueError, TypeError, StopIteration, RecursionError) as error:
         raise AiError("v4京东推广计划或精确查询无法重建", "conflict", 409) from error
     return actor, source, query

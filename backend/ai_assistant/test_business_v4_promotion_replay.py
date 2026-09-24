@@ -15,6 +15,7 @@ class BusinessV4PromotionReplayTests(TestCase):
     setUp = collector_fixture.BusinessV4NetshopPromotionTests.setUp
     owner = collector_fixture.BusinessV4NetshopPromotionTests.owner
     advance = collector_fixture.BusinessV4NetshopPromotionTests.advance
+    three_window_run = collector_fixture.BusinessV4NetshopPromotionTests.three_window_run
 
     def complete(self):
         self.advance(1, "replay-first")
@@ -45,6 +46,48 @@ class BusinessV4PromotionReplayTests(TestCase):
         self.assertEqual((m.AiBusinessV4Chunk.objects.count(),
             m.AiBusinessV4ToolReceipt.objects.count()), before)
         self.assertEqual(self.inspect(), result)
+
+    def test_previous_and_year_ago_full_replay_are_separate_same_run_sources(self):
+        self.three_window_run()
+        version = 1
+        expected = {"current": "2026-08-20", "previous": "2026-07-21",
+            "yearAgo": "2025-08-20"}
+        refs = set()
+        for window in ("previous", "yearAgo", "current"):
+            key = f"promotion-{window}"
+            first = self.advance(version, f"replay-{window}-first", key)
+            second = self.advance(first["runVersion"],
+                f"replay-{window}-second", key)
+            version = second["runVersion"]
+            proof = replay.inspect(self.parent.id, key, self.principal)
+            self.assertEqual((proof["pageCount"], proof["rowCount"]), (2, 101))
+            self.assertEqual(proof["coverage"]["presentDates"], [expected[window]])
+            self.assertTrue(proof["requestCursorAuditVerified"])
+            self.assertFalse(proof["upstreamSignatureVerified"])
+            self.assertNotIn(proof["sourceRef"], refs)
+            refs.add(proof["sourceRef"])
+        self.assertEqual(len(refs), 3)
+        self.assertEqual(m.AiBusinessV4Run.objects.get(pk=self.parent.pk).status,
+            "collecting")
+
+    def test_previous_window_replay_rejects_current_window_request_audit(self):
+        self.three_window_run()
+        first = self.advance(1, "replay-previous-first", "promotion-previous")
+        self.advance(first["runVersion"], "replay-previous-second",
+            "promotion-previous")
+        receipt = m.AiBusinessV4ToolReceipt.objects.get(run=self.parent,
+            source=self.sources["promotion-previous"], sequence=1)
+        current_arguments = {"domain": "netshop", **self.query, "limit": 100}
+        class WrongWindowAudit:
+            def __get__(self, instance, owner):
+                if instance is None: return self
+                return (canonical({"argumentsDigest": digest(current_arguments)})
+                    if instance.id == receipt.audit_id else instance.__dict__.get("arguments_json"))
+            def __set__(self, instance, value):
+                instance.__dict__["arguments_json"] = value
+        with patch.object(m.AiToolAuditLogs, "arguments_json", WrongWindowAudit()), \
+                self.assertRaises(AiError):
+            replay.inspect(self.parent.id, "promotion-previous", self.principal)
 
     def test_unfinished_foreign_source_and_wrong_baseline_not_authorized(self):
         with self.assertRaises(AiError):

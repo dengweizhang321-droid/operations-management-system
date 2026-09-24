@@ -1,4 +1,4 @@
-"""Read-only full replay of one completed v4 JD promotion current source.
+"""Read-only full replay of one completed v4 JD promotion window source.
 
 The internal HMAC tool audit is bound to each immutable page, but it is not an
 independent upstream signature. This module neither seals a parent nor grants
@@ -117,7 +117,9 @@ def _loaded(run_id, source_key, principal):
                 or source.domain != "netshop" or source.temporal_role != "daily_fact"
                 or query != {"platform":"京东", "shop":query.get("shop"),
                     "dataset":"promotion", "startDate":query.get("startDate"),
-                    "endDate":query.get("endDate"), "window":"current"}
+                    "endDate":query.get("endDate"), "window":query.get("window")}
+                or type(query.get("window")) is not str
+                or query["window"] not in collector.WINDOW_KEYS
                 or source.query_json != canonical(query)
                 or source.query_digest != digest(source.query_json)
                 or type(query.get("shop")) is not str or not query["shop"]
@@ -148,7 +150,8 @@ def _loaded(run_id, source_key, principal):
                 or sum(row["page_count"] for row in source_rows) != parent.page_count
                 or sum(row["row_count"] for row in source_rows) != parent.row_count
                 or sum(row["stored_bytes"] for row in source_rows) != parent.stored_bytes):
-            _need(False, "v4推广仅接受完整精确本期来源及一致父目录")
+            _need(False, "v4推广仅接受完整精确比较窗口来源及一致父目录")
+        collector.selection(plan, query, source.source_key)
         _need(type(checkpoint) is dict and set(checkpoint) ==
             {"schemaVersion", "sourceRef", "sourceRevision", "lastChunkDigest",
              "pageCount", "rowCount", "storedBytes", "finished", "verifier", "metadata"}
@@ -199,7 +202,7 @@ def inspect(run_id, source_key, principal, *, checkpoint=None):
         PageReconciler(), 0, 0, 0, None, digest([]))
     observed_dates = set()
     requested_cursor, requested_last_id = None, None
-    period = comparison_periods(query["startDate"], query["endDate"])["current"]
+    period = comparison_periods(query["startDate"], query["endDate"])[query["window"]]
     _need(not m.AiBusinessSourceToolReceipt.objects.filter(audit_id__in=
         m.AiBusinessV4ToolReceipt.objects.filter(run_id=parent.id,
             source_id=source.id).values("audit_id")).exists(),
