@@ -27,8 +27,22 @@ class BusinessV4PeriodPlanCandidateTests(TransactionTestCase):
     attempt = fixture.attempt
     database = fixture.database
     _role_connection = fixture._role_connection
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+
+    def setUp(self):
+        fixture.setUp(self)
+        # Synthetic roles can be created after migrations in the isolated
+        # fixture; production provisioning grants this during installation.
+        with connection.cursor() as cursor:
+            cursor.execute("GRANT EXECUTE ON FUNCTION "
+                "public.ai_v4_record_period_plan_candidate("
+                "text,text,text,bigint,text,text) TO teruisi_ai_writer")
+
+    def tearDown(self):
+        with connection.cursor() as cursor:
+            cursor.execute("REVOKE EXECUTE ON FUNCTION "
+                "public.ai_v4_record_period_plan_candidate("
+                "text,text,text,bigint,text,text) FROM teruisi_ai_writer")
+        fixture.tearDown(self)
 
     def four_source_run(self, *, start="2026-08-16", end="2026-09-14"):
         # The existing admission fixture already owns two runs. Use another
