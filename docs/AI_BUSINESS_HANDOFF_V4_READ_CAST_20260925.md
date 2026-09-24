@@ -21,3 +21,5 @@
 实际 17 页跨票据用例先暴露了 0048 写函数 `ticket_id` 列名歧义，原始 PostgreSQL 日志为 `.runtime/ai-pg-f6ae63683a08/postgres.log`；0051 仅限定前段 claim 表列。修复后三项迁移/逆迁移目标测试 `.runtime/ai-pg-5743154be602/tests.log`、完整 17 页两张票据自然到期续跑 `.runtime/ai-pg-6e739a683421/tests.log` 均通过。0050→0051 完整前驱升级、79 张旧表和 renderer1—7 字节保持、仅 RECORD 函数体变化、OID/ACL/签名保持、迁移前后独立备份恢复及空回退重做通过 `.runtime/ai-pg-7033b21c9550/business-v4-prior-claim-qualification-upgrade-evidence.json`。有候选回执时逆迁移会拒绝。
 
 下一步最终 seal+0043 消费必须由新受保护数据库事务包装实现；0041 已撤销专用角色对旧直封函数的 EXECUTE，0043 没有消费写入入口。纯 Python 拼接两次调用无法满足原子性。独立角色仍 NOLOGIN，真实父 MAC、当前 authority 交接、正式 Agent/文件与生产采用仍待完成。
+
+已加入默认未接线的 `commit-seal-v1` 纯请求摘要与父 MAC 校验，见 [纯合同](AI_BUSINESS_V4_FINAL_COMMIT_CONTRACT.md)；它不领取票据、不登录数据库、不写 seal。受保护事务包装需在代码与隔离角色测试通过后再考虑凭据及生产采用。

@@ -22,6 +22,8 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 0051 修复[跨票据前段 claim 列歧义](AI_BUSINESS_V4_PRIOR_CLAIM_COLUMN.md)，让第17页可在首个180秒 claim 自然过期后由第二张票据续段；完整 owning 17页、0036两段持久证明、前段候选回读与幂等的一项隔离PG通过 `.runtime/ai-pg-6e739a683421/tests.log`。迁移与有回执禁回退三项 PG 通过 `.runtime/ai-pg-5743154be602/tests.log`；0050→0051 旧79表/renderer1—7字节、仅写函数体变化且 OID/ACL/签名不变、双备份恢复、空回退再升级通过 `.runtime/ai-pg-7033b21c9550/business-v4-prior-claim-qualification-upgrade-evidence.json`。父仍 `collecting`、候选非权威、专用角色仍 NOLOGIN，无最终 seal/Agent/生产采用。上段 0050 的“跨票据17页未完成”描述是该检查点当时状态，以本段为准。
 
+下一候选仅新增[最终封存请求纯合同](AI_BUSINESS_V4_FINAL_COMMIT_CONTRACT.md)：复用现有 v4 正文规范与父 HMAC 目的分隔，固定 `commit-seal-v1` 请求摘要；8 项本地纯测试通过，未接数据库或生产。0041 已撤销专用角色直封 EXECUTE，0043 无消费写入函数，因此最终 seal+消费必须另有受保护同事务包装；纯摘要不等于票据、授权或正式封存。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。
