@@ -78,12 +78,14 @@ def _native_pages(plan, source, info, pages):
     expected_filters = {key: query[key] for key in ("platform", "shop", "dataset", "window")}
     expected_filters["periods"] = comparison_periods(query["startDate"], query["endDate"])
     window = plan["periods"][query["window"]]
-    verifier, rows, observed, page_count = PageReconciler(), [], set(), 0
+    verifier, rows, observed, page_count, source_bytes = PageReconciler(), [], set(), 0, 0
     for page in pages:
         page_count += 1
-        _need(type(page) is dict and type(page.get("items")) is list
-            and len(page["items"]) <= plan_contract.MAX_V2_PAGE_ROWS
-            and len(canonical(page).encode("utf-8")) <= 131072,
+        _need(type(page) is dict and type(page.get("items")) is list)
+        page_bytes = len(canonical(page).encode("utf-8"))
+        source_bytes += page_bytes
+        _need(len(page["items"]) <= plan_contract.MAX_V2_PAGE_ROWS
+            and page_bytes <= 131072 and source_bytes <= 64*1024*1024,
             "封存网店页超出当前收集容量")
         coverage_ok = (canonical(page.get("coverage")) ==
             canonical(info["metadata"]["coverage"]) if page_count == 1
@@ -126,7 +128,7 @@ def _native_pages(plan, source, info, pages):
     _need(page_count == info["pageCount"])
     proof = verifier.result()
     _source_proof(plan, source, info, proof, observed)
-    return family, rows
+    return family, rows, source_bytes
 
 
 def _erp_rows(manifest, chunks, kind, period, shop, platform):
@@ -265,9 +267,12 @@ def prepare_candidate(plan, sources, infos, context, source_keys, window,
         _need(plan["sourceBindings"][selected["erpSales"]]["capacityStatus"] ==
             "within_current_v2_page_budget")
     erp = _erp_material(plan, context, window, by_key, infos, erp_manifest, erp_ndjson)
-    native = {}
-    for key in expected_native:
-        family, rows = _native_pages(plan, by_key[key], infos[key], native_pages[key])
+    native, native_input_bytes = {}, 0
+    for key in sorted(expected_native):
+        family, rows, size = _native_pages(plan, by_key[key], infos[key], native_pages[key])
+        native_input_bytes += size
+        _need(native_input_bytes <= 64*1024*1024,
+            "本窗口网店与推广封存材料超过v2事实容量")
         native[family] = rows
     days = _window_days(plan["periods"][window])
     shop = {day: {"erpSales": _null(plan_contract.ERP_METRICS),
