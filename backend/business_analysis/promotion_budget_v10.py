@@ -7,6 +7,7 @@ inputs reconcile and projects immutable source tables plus an unreviewed local
 calculator. It never changes the renderer-9 file contract.
 """
 from dataclasses import dataclass
+import hashlib
 
 from . import budget, budget_excel, budget_offline, budget_reference, promotion_trial_table_schema
 from .contracts import AnalysisContractError, canonical, digest
@@ -81,6 +82,13 @@ def _table_rows_digest(tables):
     # scenarios. The gap case contains only one row.
     return digest([{"key": table.key, "rows": [list(row) for row in table.rows]}
         for table in tables])
+
+
+def _row_sha256(table):
+    sha = hashlib.sha256()
+    for row in table.rows:
+        sha.update((canonical(list(row)) + "\n").encode("utf-8"))
+    return sha.hexdigest()
 
 
 def _gap():
@@ -255,6 +263,7 @@ def project(*, trial_proof, approved_binding, report_binding,
         "budgetBindingDigest": binding_digest,
         "budgetReferenceDigest": reference_digest,
         "budgetResultDigest": result_digest,
+        "budgetPlanDigest": plan_digest,
         "offlinePayloadDigest": digest(offline) if offline is not None else None,
         "nativeModelProofDigest": native_model_digest,
         "excelFormulaVersion": 2 if offline is not None else None,
@@ -262,6 +271,7 @@ def project(*, trial_proof, approved_binding, report_binding,
         "tableRowsDigest": _table_rows_digest(tables),
         "tableKeys": [table.key for table in tables],
         "tableRowCounts": [table.row_count for table in tables],
+        "tableRowDigests": [_row_sha256(table) for table in tables],
         "nativeBudgetSheets": native_sheets,
         "offlineBudgetEnabled": offline is not None,
         "editableAllocation": offline is not None,

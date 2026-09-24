@@ -39,7 +39,7 @@ def roots(*, with_budget=True):
         "actionTableKey": "promotion-approved-actions-v1", "actionRowCount": 1,
         "actionRowDigest": "4" * 64,
         "scopeTableKeys": ["promotion-trial-source-scope", "promotion-trial-boundaries"],
-        "promotionTableKeys": ["keyword_sku", "keyword_sku_context"],
+        "promotionTableKeys": ["promotion-keyword_sku", "promotion-keyword_sku_context"],
         "budgetDelivered": False}
     trial["proofDigest"] = digest(trial)
     return {"trial_proof": trial, "approved_binding": approved,

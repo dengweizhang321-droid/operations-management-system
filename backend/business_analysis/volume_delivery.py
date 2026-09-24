@@ -28,7 +28,7 @@ FULL_FIELDS = {"schemaVersion", "status", "reportId", "evidenceDigest", "rendere
 
 
 def _renderer(value):
-    if type(value) is not int or value not in (4, 6, 7, 9):
+    if type(value) is not int or value not in (4, 6, 7, 9, 10):
         _fail("多卷持久渲染版本不受支持")
 
 
@@ -158,6 +158,7 @@ def _budget(value, report_id, plan_digest):
 SCREENING_KEYS = {"screeningRef", "screeningPackagePolicy", "screeningPackageDigests"}
 PROMOTION_KEY = "promotionFileProof"
 TRIAL_KEY = "promotionTrialProof"
+BUDGET_KEY = "promotionBudgetProof"
 
 
 def trial_proof(value, manifest):
@@ -194,6 +195,102 @@ def trial_proof(value, manifest):
         _equal(volume["offlineBudgetEnabled"], False)
     if "budgetPlanDigest" in manifest:
         _fail("试用报告不能宣称预算工作表已交付")
+
+
+def budget_candidate_proof(value, manifest):
+    """Check v10's bounded lineage and exact source-row hooks, not DB authority."""
+    trial = manifest[TRIAL_KEY]
+    _fields(trial, {"schemaVersion", "rendererVersion", "reportId", "contentDtoDigest",
+        "humanReviewDigest", "promotionFileProofDigest", "sealedSourcesDigest",
+        "sourceDescriptorDigest", "tableSchemaDigest", "actionTableKey", "actionRowCount",
+        "actionRowDigest", "scopeTableKeys", "promotionTableKeys", "budgetDelivered", "proofDigest"})
+    _equal(trial["schemaVersion"], "business-promotion-trial-file-proof-v2")
+    _equal(trial["rendererVersion"], 9)
+    _equal(trial["reportId"], manifest["reportId"])
+    _equal(trial["budgetDelivered"], False)
+    _equal(trial["contentDtoDigest"], manifest[PROMOTION_KEY]["contentDtoDigest"])
+    _equal(trial["humanReviewDigest"], manifest[PROMOTION_KEY]["humanReviewDigest"])
+    _equal(trial["promotionFileProofDigest"], manifest[PROMOTION_KEY]["proofDigest"])
+    for key in ("sourceDescriptorDigest", "tableSchemaDigest", "sealedSourcesDigest",
+            "actionRowDigest", "proofDigest"):
+        _sha(trial[key])
+    _equal(trial["proofDigest"], digest({key: child for key, child in trial.items()
+        if key != "proofDigest"}))
+    _equal(trial["actionTableKey"], "promotion-approved-actions-v1")
+    _equal(trial["scopeTableKeys"], ["promotion-trial-source-scope", "promotion-trial-boundaries"])
+    _equal(trial["promotionTableKeys"], ["promotion-keyword_sku", "promotion-keyword_sku_context"])
+    tables = {item["key"]: item for item in manifest["tables"]}
+    _equal([item["key"] for item in manifest["tables"][-2:]], trial["promotionTableKeys"])
+    if trial["actionTableKey"] not in tables:
+        _fail("推广行动表缺失")
+    _equal(tables[trial["actionTableKey"]]["rowCount"],
+        _integer(trial["actionRowCount"], 0, 1_000_000))
+    _equal(tables[trial["actionTableKey"]]["rowDigest"], trial["actionRowDigest"])
+    for key in trial["scopeTableKeys"]:
+        if key not in tables: _fail("试用来源与边界表缺失")
+
+    _fields(value, {"schemaVersion", "rendererVersion", "reportId", "status",
+        "promotionTrialProofDigest", "approvedContentDigest", "humanReviewDigest",
+        "sealedDigest", "budgetBindingDigest", "budgetReferenceDigest",
+        "budgetResultDigest", "budgetPlanDigest", "offlinePayloadDigest",
+        "nativeModelProofDigest", "excelFormulaVersion", "tableSchemaDigest",
+        "tableRowsDigest", "tableKeys", "tableRowCounts", "tableRowDigests",
+        "nativeBudgetSheets", "offlineBudgetEnabled", "editableAllocation",
+        "candidateOnly", "proofDigest"})
+    _equal(value["schemaVersion"], "business-promotion-budget-renderer10-candidate-v1")
+    _equal(value["rendererVersion"], 10)
+    _equal(value["reportId"], manifest["reportId"])
+    _equal(value["promotionTrialProofDigest"], trial["proofDigest"])
+    _equal(value["approvedContentDigest"], trial["contentDtoDigest"])
+    _equal(value["humanReviewDigest"], trial["humanReviewDigest"])
+    _equal(value["sealedDigest"], manifest["evidenceDigest"])
+    _equal(value["candidateOnly"], True)
+    for key in ("promotionTrialProofDigest", "approvedContentDigest",
+            "humanReviewDigest", "sealedDigest", "tableSchemaDigest",
+            "tableRowsDigest", "proofDigest"):
+        _sha(value[key])
+    _sha(manifest["tableSchemaDigest"])
+    _equal(value["proofDigest"], digest({key: child for key, child in value.items()
+        if key != "proofDigest"}))
+    present = value["status"] == "reconciled_fixed_budget_candidate"
+    if not present and value["status"] != "missing_fixed_budget":
+        _fail("预算候选状态无效")
+    expected_keys = (["promotion-budget-allocation-v1", "promotion-budget-scenarios-v1",
+        "promotion-budget-scenario-summary-v1"] if present else ["promotion-budget-gap-v1"])
+    _equal(value["tableKeys"], expected_keys)
+    count = len(expected_keys)
+    if (type(value["tableRowCounts"]) is not list or len(value["tableRowCounts"]) != count
+            or type(value["tableRowDigests"]) is not list or len(value["tableRowDigests"]) != count):
+        _fail("预算候选完整表证明数量无效")
+    _equal([item["key"] for item in manifest["tables"][-count-2:-2]], expected_keys)
+    for key, rows, sha in zip(expected_keys, value["tableRowCounts"], value["tableRowDigests"]):
+        _sha(sha)
+        _equal(tables[key]["rowCount"], _integer(rows, 0, 1_000_000))
+        _equal(tables[key]["rowDigest"], sha)
+    _equal(value["nativeBudgetSheets"], 3 if present else 0)
+    _equal(value["offlineBudgetEnabled"], present)
+    _equal(value["editableAllocation"], present)
+    _equal(manifest["volumes"][0]["nativeBudgetSheets"], value["nativeBudgetSheets"])
+    _equal(manifest["volumes"][0]["offlineBudgetEnabled"], present)
+    if present:
+        _equal(value["budgetPlanDigest"], manifest["budgetPlanDigest"])
+        _equal(value["excelFormulaVersion"], 2)
+        for key in ("budgetPlanDigest", "budgetBindingDigest", "budgetReferenceDigest",
+                "budgetResultDigest", "offlinePayloadDigest", "nativeModelProofDigest"):
+            _sha(value[key])
+        from . import budget_excel
+        model = manifest["volumes"][0].get("budgetCalculator")
+        if type(model) is not dict:
+            _fail("原生预算计算证明缺失")
+        _equal(digest({**model, "sheets": list(budget_excel.TITLES)}),
+            value["nativeModelProofDigest"])
+    else:
+        if "budgetPlanDigest" in manifest:
+            _fail("无固定预算候选不得携带预算计划摘要")
+        for key in ("budgetPlanDigest", "budgetBindingDigest", "budgetReferenceDigest",
+                "budgetResultDigest", "offlinePayloadDigest", "nativeModelProofDigest",
+                "excelFormulaVersion"):
+            _equal(value[key], None)
 
 
 def promotion_proof(value, report_id):
@@ -283,10 +380,11 @@ def screening_fields(value, report_id):
 def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9) else set()) |
-            ({TRIAL_KEY, "tableSchemaDigest"} if renderer_version == 9 else set()),
+    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9, 10) else set()) |
+            ({TRIAL_KEY, "tableSchemaDigest"} if renderer_version == 9 else set()) |
+            ({TRIAL_KEY, BUDGET_KEY, "tableSchemaDigest"} if renderer_version == 10 else set()),
             {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
-    if renderer_version in (7, 9):
+    if renderer_version in (7, 9, 10):
         promotion_proof(value[PROMOTION_KEY], value["reportId"])
     screening_fields(value, value["reportId"])
     if mapping_keys & value.keys():
@@ -366,6 +464,8 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
                           "chunkCount": (size + CHUNK_BYTES - 1) // CHUNK_BYTES})
     if renderer_version == 9:
         trial_proof(value[TRIAL_KEY], value)
+    if renderer_version == 10:
+        budget_candidate_proof(value[BUDGET_KEY], value)
     _equal(value["manifestDigest"], digest({key: child for key, child in value.items() if key != "manifestDigest"}))
     return files
 
