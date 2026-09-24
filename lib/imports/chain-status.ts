@@ -19,7 +19,7 @@ export function todayStatusLabel(item?: ChainTodayItem) {
   if (item.state === "running" && item.executionMode === "webhook") return { label: "自动重试运行中", tone: "pending" };
   if (item.state === "running" && item.executionMode === "trigger") return { label: "定时执行中", tone: "pending" };
   if (item.state === "waiting" && item.executionMode === "webhook") return { label: "自动重试等待继续", tone: "warning" };
-  const labels: Record<ChainTodayState, string> = { completed: "今天已完成", running: "正在运行", waiting: "等待继续", pending: "待执行", failed: "最近执行失败", cancelled: "最近执行取消", no_record: "未查到今日记录", unknown: "状态未知", unavailable: "无法核实" };
+  const labels: Record<ChainTodayState, string> = { completed: "今天已完成", running: "正在运行", waiting: "等待继续", pending: "待执行", failed: "最近自动执行失败", cancelled: "最近自动执行取消", no_record: "未查到今日自动记录", unknown: "状态未知", unavailable: "无法核实" };
   const tone = item.state === "completed" ? "success" : item.state === "failed" ? "danger" : ["running", "pending"].includes(item.state) ? "pending" : item.state === "waiting" ? "warning" : "neutral";
   return { label: labels[item.state], tone };
 }
