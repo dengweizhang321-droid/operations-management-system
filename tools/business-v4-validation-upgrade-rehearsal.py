@@ -22,7 +22,7 @@ from django.utils import timezone
 from ai_assistant import business_v4_validation as validation, models as m
 from ai_assistant.database_contract import provision
 from ai_assistant.policy import canonical, digest, uid
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_V4_VALIDATION
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as AI_TABLES, AI_TABLES_PRE_V4_VALIDATION
 from business_analysis import evidence_v4
 from business_analysis.contracts import comparison_periods
 from sales.auth import Principal

@@ -82,6 +82,9 @@ AI_TABLES_PRE_V4_VALIDATION = (*AI_TABLES_PRE_V4_LEDGER,
     "ai_business_v4_runs", "ai_business_v4_sources",
     "ai_business_v4_chunks", "ai_business_v4_tool_receipts")
 
-# New migrations extend only the current manifest, not historical inventories.
-AI_TABLES = (*AI_TABLES_PRE_V4_VALIDATION,
+# Frozen 0037 inventory. Historical admission/backup proofs remain 73 tables.
+AI_TABLES_PRE_V4_SEALS = (*AI_TABLES_PRE_V4_VALIDATION,
     "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments")
+
+# New migrations extend only the current manifest, not historical inventories.
+AI_TABLES = (*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals")

@@ -31,12 +31,19 @@ class BusinessV4SealAdmissionTests(TransactionTestCase):
     def setUp(self):
         if connection.vendor != "postgresql":
             self.skipTest("v4 admission needs PostgreSQL source row locks")
-        AiDataRevision.objects.update_or_create(domain="ai-assistant",
+        AiDataRevision.objects.get_or_create(domain="ai-assistant",
             defaults={"revision": 0, "source_digest": "0" * 64})
-        AiWriteAuthority.objects.update_or_create(id=1, defaults={
+        authority_fields = {
             "status": "postgres", "authority_epoch": uuid4(),
             "cutover_id": "v4-admission-isolated", "migration_verify_run_id": "v4-admission-isolated",
-            "activated_at": timezone.now()})
+            "activated_at": timezone.now()}
+        authority, created = AiWriteAuthority.objects.get_or_create(id=1,
+            defaults=authority_fields)
+        if not created and authority.status == "d1":
+            AiWriteAuthority.objects.filter(pk=authority.pk).update(
+                **authority_fields)
+        elif not created and authority.status != "postgres":
+            self.fail("unexpected AI authority state in isolated fixture")
         FinanceWriteAuthority.objects.update_or_create(id=1,
             defaults={"status": "postgres"})
         FinanceDataRevision.objects.get_or_create(domain="finance",

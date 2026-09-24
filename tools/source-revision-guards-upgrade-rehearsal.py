@@ -20,7 +20,7 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as AI_TABLES
 from business_analysis.contracts import canonical
 from finance.import_service import import_finance_payload
 from finance.models import FinanceDataRevision, FinanceLine, FinanceWriteAuthority

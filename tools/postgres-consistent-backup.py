@@ -552,6 +552,10 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0038_business_v4_seal_writer_gate" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_v4_seals")
+            elif "0037_business_v4_seal_admission_read" not in ai_migrations:
+                raise RuntimeError("AI v4 seal schema has no read-lock admission predecessor")
             validation_tables = {"ai_business_v4_validation_attempts",
                 "ai_business_v4_validation_segments"}
             if "0036_business_v4_validation_segments" not in ai_migrations:

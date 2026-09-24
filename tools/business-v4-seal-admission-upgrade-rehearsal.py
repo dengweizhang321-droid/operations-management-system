@@ -23,7 +23,7 @@ from access_control.models import AccessRole, AppUser
 from ai_assistant import models as m
 from ai_assistant.database_contract import provision
 from ai_assistant.policy import digest, uid
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as AI_TABLES
 from ai_assistant.test_business_v4_ledger import plan_fixture
 from business_analysis.contracts import canonical, comparison_periods
 

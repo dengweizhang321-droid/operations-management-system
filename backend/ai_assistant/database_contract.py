@@ -34,6 +34,7 @@ MODELS = {
     "ai_business_v4_tool_receipts": m.AiBusinessV4ToolReceipt,
     "ai_business_v4_validation_attempts": m.AiBusinessV4ValidationAttempt,
     "ai_business_v4_validation_segments": m.AiBusinessV4ValidationSegment,
+    "ai_business_v4_seals": m.AiBusinessV4Seal,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -166,6 +167,7 @@ WRITER_PRIVILEGES["ai_business_evidence_runs"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_evidence_sources"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_v4_runs"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_v4_sources"] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_business_v4_seals"] = ("SELECT",)
 WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 
 
@@ -253,6 +255,10 @@ def provision(connection, reader_password, writer_password):
                 privileges = {table: allowed for table, allowed in privileges.items()
                               if table not in {"ai_business_v4_validation_attempts",
                                   "ai_business_v4_validation_segments"}}
+            cursor.execute("SELECT to_regclass('public.ai_business_v4_seals')")
+            if cursor.fetchone()[0] is None:
+                privileges = {table: allowed for table, allowed in privileges.items()
+                              if table != "ai_business_v4_seals"}
             for table, allowed in privileges.items():
                 cursor.execute(
                     sql.SQL("GRANT {} ON {} TO {}").format(
