@@ -30,6 +30,10 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 推广预算另有[renderer10 纯候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md)：仅在同报告批准绑定与拥有方固定预算重算材料齐全时产出分配/情景/口径三表和三张可编辑试算页的预检输入；缺固定预算只列缺口。预算及分卷相关 38 项本地纯测试通过，尚未注册 renderer10、发布 HTML/XLSX 或做原生 Office 验收，不改变 v9 的 `budgetDelivered=false`。
 
+[renderer10 临时 HTML/XLSX/JSON 多卷候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_VOLUMES.md)现已通过真实 owning 报告/来源与固定预算 `_roots` 的前后复核、预算三表或无预算缺口、可选三原生试算页、逐文件 SHA/完整清单校验；预算/分卷纯回归41项、隔离 PG 有预算/无预算/异常三项 `.runtime/ai-pg-ca0e72a2c458/tests.log` 通过。首次有预算路径的基础根与人审扩展根结构比较错误已修复。此版本仍未注册 DB ready 或公开下载路由，不能说预算正式交付；原生 Office 复算与真实业务规模仍缺。
+
+市场 v2 第五工具前置为[0053 材料准入的暂停快照](AI_BUSINESS_MARKET_V2_ADMITTED_PAUSED.md)：保留0044/45旧 parked 报告和材料回执不变，另建同账号/selector/manifest 的 admitted report/flow；实际 allowedTools 仍空、model 空，数据库禁止节点、job、派发与结果。隔离 PG 三项目标 `.runtime/ai-pg-86461140037a/tests.log`、目录撤掉 job guard 的负例 `.runtime/ai-pg-7a6b5b162f07/tests.log`、旧 parked/材料/新 admitted 同库18项 `.runtime/ai-pg-edd8cc7dda38/tests.log` 通过；0052→0053 旧79表/renderer1—7字节/旧函数与停放材料行保持、新七函数七触发器精确、双备份恢复/空逆迁移重做通过 `.runtime/ai-pg-f8faa8ebc693/business-market-v2-admitted-paused-upgrade-evidence.json`。正式第五工具/五 Agent 仍须下一版本的工具目录、模型策略与数值引用证据，不可把 paused 快照说成已运行。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

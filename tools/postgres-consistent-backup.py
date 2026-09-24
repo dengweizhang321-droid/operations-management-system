@@ -832,6 +832,12 @@ def collect_evidence(
                     raise RuntimeError("AI v4 commit consumption has no claimed replay predecessor")
                 from ai_assistant.v4_commit_consumption_catalog import verify
                 verify(cursor, RuntimeError)
+            if "0053_business_market_v2_admitted_paused" in ai_migrations:
+                if ("0052_business_v4_commit_consumption" not in ai_migrations
+                        or "0045_business_market_v2_material_attestation" not in ai_migrations):
+                    raise RuntimeError("AI market v2 admitted snapshot has no parked/material predecessor")
+                from ai_assistant.market_v2_admitted_catalog import verify
+                verify(cursor, RuntimeError)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.

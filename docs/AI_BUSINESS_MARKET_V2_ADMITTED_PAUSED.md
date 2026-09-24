@@ -9,3 +9,5 @@
 后续独立版本才能开放执行：先固定第五工具真实 transport 目录、模型策略、角色和数值引用协议，再版本化启用节点/job/provider/dispatch/result，并持久重放同一 job 的模型调用与逐页/逐行市场结果。市场 TOP 样本不能归属本店、ERP 或 B 端销售；价格带汇总与成员不可相加。当前 0053 的 `agentDispatchSupported=false` 不能被界面或报告写成“五 Agent 已完成”。
 
 隔离 PostgreSQL 目标测试：`ai_assistant.test_business_market_v2_admitted_paused` 在 2026-09-25 运行 **3/3 通过**，证据为隔离工作树 `.runtime/ai-pg-86461140037a/tests.log`。它验证新行与旧停放行并存、0045 同源材料、幂等、缺材料/错账号拒绝及节点/job/运行状态数据库拒绝。既有 `ai_assistant.test_business_market_v2_material_admission`、`ai_assistant.test_business_market_v2_parked_creation`，以及更广的 NULL/错 selector 直接插入、升级/备份恢复与空逆迁移，仍由整合阶段另行验收；这 3 项不能替代这些门禁。候选不授予生产迁移。
+
+整合分支另在 `.runtime/ai-pg-7a6b5b162f07/tests.log` 验证目录门禁能识别 job 禁令触发器被关闭；0052→0053 完整隔离升级/前后备份恢复/空逆迁移重做通过 `.runtime/ai-pg-f8faa8ebc693/business-market-v2-admitted-paused-upgrade-evidence.json`。79 张旧 AI 表、renderer1—7 文件字节、0044/45 停放与材料原行、所有旧 AI 函数的 OID/正文/ACL 保持，新七个函数和七个触发器的绑定与关闭状态回读通过。旧 parked、材料与新 admitted 三组同库 18 项回归 `.runtime/ai-pg-edd8cc7dda38/tests.log` 通过；这仍不证明第五工具或 Agent 已实际运行。

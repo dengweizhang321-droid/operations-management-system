@@ -340,6 +340,8 @@ def check():
         verify_v4_sealer_source(cursor)
         from .v4_commit_consumption_catalog import verify as verify_v4_commit
         verify_v4_commit(cursor)
+        from .market_v2_admitted_catalog import verify as verify_market_v2_admitted
+        verify_market_v2_admitted(cursor)
 
         fencing = importlib.import_module(
             "ai_assistant.migrations.0003_runtime_fencing"

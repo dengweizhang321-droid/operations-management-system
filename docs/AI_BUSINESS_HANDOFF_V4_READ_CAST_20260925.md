@@ -32,4 +32,8 @@
 
 推广预算 [renderer10 纯候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md)已能对齐同报告批准绑定、固定预算引用与拥有方重算材料，投影三张预算表；无固定预算时只列缺口。预算与分卷相关38项纯测试通过。它尚无 owning 授权接线、完整 HTML/XLSX 发布、原生 Excel 复算或生产入口，v9 仍标预算未交付。
 
+后续[renderer10 临时多卷](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_VOLUMES.md)已接 owning 前后重核与预算材料，隔离 PG 三项 `.runtime/ai-pg-ca0e72a2c458/tests.log`、预算/分卷纯回归41项通过；能生成临时 HTML/XLSX/JSON 并逐文件核摘要，但仍无持久 ready/下载路由或原生 Office 打开复算。
+
+市场 v2 原 parked profile 的数据库禁止任何 Agent job；0053 另建[材料准入的暂停快照](AI_BUSINESS_MARKET_V2_ADMITTED_PAUSED.md)，保留旧根不变，真实 allowedTools/model 仍空且节点/job/派发/结果全被数据库拒绝。三项目标 PG `.runtime/ai-pg-86461140037a/tests.log`、目录撤权负例 `.runtime/ai-pg-7a6b5b162f07/tests.log`、旧 parked/材料/新 admitted 同库18项 `.runtime/ai-pg-edd8cc7dda38/tests.log` 与0052→0053升级/双备份恢复 `.runtime/ai-pg-f8faa8ebc693/business-market-v2-admitted-paused-upgrade-evidence.json` 通过；第五工具和多 Agent 实际运行仍要新的版本化激活门禁。
+
 默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。

@@ -3,13 +3,14 @@ from copy import deepcopy
 import json
 
 from django import test as djtest
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, connection, transaction
 
 from . import business_market_v2_admitted_paused as service
 from . import business_market_v2_material_admission as material_owner
 from . import business_market_v2_parked_creation as parked
 from . import models as m
 from . import test_business_market_v2_material_admission as fixtures
+from .market_v2_admitted_catalog import verify as verify_catalog
 from .policy import AiError
 
 
@@ -34,6 +35,16 @@ class MarketV2AdmittedPausedTests(djtest.TransactionTestCase):
         value = material_owner.prepare_candidate(parked_id, self.admin)
         self._attest_as_role(parked_id, value)
         return parked_id, service.create(self.body(parked_id), self.admin)
+
+    def test_frozen_paused_catalog_rejects_disabled_job_guard(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor)
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE public.ai_agent_jobs DISABLE TRIGGER "
+                "ai_market_v2_admitted_job_guard")
+            with self.assertRaisesRegex(ValueError, "trigger binding"):
+                verify_catalog(cursor)
+            transaction.set_rollback(True)
 
     def test_admitted_snapshot_is_distinct_paused_and_idempotent(self):
         parked_id, created = self.admitted()

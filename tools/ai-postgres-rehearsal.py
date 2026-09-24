@@ -53,10 +53,16 @@ parser.add_argument("--business-v4-sealer-source-bridge-upgrade", action="store_
 parser.add_argument("--business-v4-replay-read-cast-upgrade", action="store_true")
 parser.add_argument("--business-v4-prior-claim-qualification-upgrade", action="store_true")
 parser.add_argument("--business-v4-commit-consumption-upgrade", action="store_true")
+parser.add_argument("--business-market-v2-admitted-paused-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_market_v2_admitted_paused_upgrade:
+    if arguments.business_v4_commit_consumption_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # 0053 starts only from the independently restored 0052 function/catalog seed.
+    arguments.business_v4_commit_consumption_upgrade = True
 if arguments.business_v4_commit_consumption_upgrade:
     if arguments.business_v4_prior_claim_qualification_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -440,6 +446,9 @@ try:
         if arguments.business_v4_commit_consumption_upgrade:
             rehearsals += (("business-v4-commit-consumption-upgrade-rehearsal.py",
                 "business-v4-commit-consumption-upgrade.json"),)
+        if arguments.business_market_v2_admitted_paused_upgrade:
+            rehearsals += (("business-market-v2-admitted-paused-upgrade-rehearsal.py",
+                "business-market-v2-admitted-paused-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
