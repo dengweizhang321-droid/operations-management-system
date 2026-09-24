@@ -55,19 +55,17 @@ class _Ledger(previous._Result):
         revision = None
         for index, page in enumerate(pages):
             filters = page.get("filters")
-            _need(type(filters) is dict and filters.get("platform") == query["platform"]
-                and filters.get("shop") == query["shop"]
-                and filters.get("window") == query["window"]
-                and filters.get("periods") == periods
-                and type(filters.get("limit")) is int
-                and 1 <= filters["limit"] <= 100,
-                "ERP与当前主数据页使用了其他查询或比较期")
+            expected_filters = {"platform": query["platform"], "shop": query["shop"],
+                "window": query["window"], "periods": periods}
             if kind == "sales":
-                _need(filters.get("channel") == query["channel"]
-                    and filters.get("startDate") == query["startDate"]
-                    and filters.get("endDate") == query["endDate"])
+                expected_filters.update(channel=query["channel"],
+                    startDate=query["startDate"], endDate=query["endDate"], limit=100)
             else:
-                _need(filters.get("dataset") == "master")
+                expected_filters["dataset"] = "master"
+            pagination = page.get("pagination")
+            _need(type(filters) is dict and filters == expected_filters
+                and type(pagination) is dict and pagination.get("limit") == 100,
+                "ERP与当前主数据页使用了其他查询或比较期")
             current_revision = page.get("sourceRevision")
             _need(type(current_revision) is str and bool(current_revision)
                 and (revision is None or revision == current_revision),

@@ -48,10 +48,10 @@ def page(source, items):
     query = source["query"]
     periods = comparison_periods(*DATES)
     filters = {"platform": query["platform"], "shop": query["shop"],
-        "window": query["window"], "periods": periods, "limit": 100}
+        "window": query["window"], "periods": periods}
     if source["domain"] == "sales":
         filters.update(channel=query["channel"],
-            startDate=query["startDate"], endDate=query["endDate"])
+            startDate=query["startDate"], endDate=query["endDate"], limit=100)
     else:
         filters["dataset"] = "master"
     metrics = {key: sum(row["metrics"][key] for row in items)
@@ -148,6 +148,26 @@ class ErpFactAssignmentTests(TestCase):
             _, _, mp, me = fixture()
             with self.assertRaises(AnalysisContractError):
                 with self.opened(sp, se, mp, me):
+                    pass
+
+    def test_actual_master_filter_shape_and_cross_scope_tampering(self):
+        sp, se, mp, me = fixture()
+        self.assertEqual(set(mp[0]["filters"]),
+            {"platform", "shop", "dataset", "periods", "window"})
+        with self.opened(sp, se, mp, me) as result:
+            self.assertEqual(result.summary()["rowCount"], 5)
+        for change in (
+                lambda filters: filters.update(limit=100),
+                lambda filters: filters.update(shop="另一店"),
+                lambda filters: filters.update(window="previous"),
+                lambda filters: filters.update(periods={}),
+                lambda filters: filters.update(startDate=DATES[0])):
+            wrong = deepcopy(mp)
+            change(wrong[0]["filters"])
+            verifier = PageReconciler()
+            verifier.consume(wrong[0])
+            with self.assertRaises(AnalysisContractError):
+                with self.opened(sp, se, wrong, verifier.result()):
                     pass
 
     def test_missing_spu_or_platform_category_stays_incomplete_and_unassigned(self):

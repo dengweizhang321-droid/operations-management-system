@@ -54,7 +54,7 @@ def _fact(row, index, seen, source, window):
         and int(row["sourceRowId"]) <= MAX_SAFE_INTEGER
         and type(row.get("id")) is str and re.fullmatch(r"[0-9a-f]{64}", row["id"]) is not None
         and type(row.get("sourceRowHash")) is str
-        and re.fullmatch(r"[0-9a-f]{64}", row["sourceRowHash"]) is not None)
+        and 1 <= len(row["sourceRowHash"]) <= 256)
     db = seen
     db.execute("INSERT INTO seen VALUES (?)", (row["sourceRowId"],))
     _need(type(row.get("metrics")) is dict and set(row["metrics"]) == ERP_METRICS
