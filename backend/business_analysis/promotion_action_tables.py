@@ -28,7 +28,8 @@ _DIMENSION = {"shop": ("shopName", "店铺"), "category": ("category", "品类")
 _COLUMNS = (
     Column("sourceRole", "结论角色"), Column("findingId", "结论ID"),
     Column("findingTitle", "结论标题"), Column("objectType", "定位对象类型"),
-    Column("objectId", "定位对象身份JSON"), Column("approvedObject", "批准原文·操作对象"),
+    Column("objectId", "定位对象身份JSON"), Column("actionStatus", "行动状态"),
+    Column("approvedObject", "批准原文·操作对象"),
     Column("change", "建议调整（未执行）"), Column("prerequisites", "执行前提"),
     Column("successMetric", "成功指标"), Column("observationDays", "观察天数", "integer"),
     Column("rollback", "停止或回退规则"), Column("priority", "优先级"),
@@ -135,10 +136,10 @@ def _identity(fact, binding, role):
 
 
 def project(approved):
-    """Return one Table for approved, uniquely identifiable action findings.
+    """Return one Table with every approved action finding, including gaps.
 
-    Non-action findings and actions without one unambiguous structured object
-    do not become executable rows. The table note names every excluded action.
+    Non-action findings do not become rows. Ambiguous or missing object identity
+    remains a visible non-executable row with null object ID and full citation.
     """
     try:
         dto = approved_contract.check(approved)
@@ -150,7 +151,7 @@ def project(approved):
     analyses = [("report", dto["content"]["diagnosis"])] + [
         (role, dto["content"]["professionalAnalyses"][role])
         for role in approved_contract.SPECIALISTS]
-    rows, omitted = [], []
+    rows, pending = [], []
     for role, analysis in analyses:
         _need(type(analysis) is dict and type(analysis.get("findings")) is list)
         seen_ids = set()
@@ -183,10 +184,12 @@ def project(approved):
                     unqualified_promotion = True
                 if identity is not None: identities.add(identity)
             if unqualified_promotion or len(identities) != 1:
-                omitted.append(role + ":" + finding["id"])
-                continue
-            object_type, object_id = next(iter(identities))
-            values = [role, finding["id"], finding["title"], object_type, object_id,
+                object_type, object_id, status = "待核", None, "待核身份不可执行"
+                pending.append(role + ":" + finding["id"])
+            else:
+                object_type, object_id = next(iter(identities))
+                status = "建议待人工执行"
+            values = [role, finding["id"], finding["title"], object_type, object_id, status,
                 action["object"], action["change"], action["prerequisites"],
                 action["successMetric"], action["observationDays"], action["rollback"],
                 _PRIORITY[action["priority"]], action["ownerRole"],
@@ -195,10 +198,10 @@ def project(approved):
             for value in values:
                 if type(value) is str: text(value)
             rows.append((*values, digest(values)))
-    note = ("仅列输入合同标记已批准且有唯一结构化对象身份的行动建议；发布端须另行复核实际人审，全部为建议、未执行。"
+    note = ("逐条列出输入合同标记已批准的行动建议；发布端须另行复核实际人审，全部为建议、未执行。"
             "引用数值保留来源指标字段名，未换算单位；预算影响保留批准原文，未测算时不得视为零。"
             "同一推广事实的词货视图费用不可相加。")
-    if omitted:
-        note += " 未列入的身份缺失或多对象行动（待核）：" + "、".join(omitted) + "。"
+    if pending:
+        note += " 身份缺失或多对象行动仍逐行保留、不可执行（待核）：" + "、".join(pending) + "。"
     text(note)
     return Table(KEY, "推广调整行动计划", note, _COLUMNS, tuple(rows), len(rows))
