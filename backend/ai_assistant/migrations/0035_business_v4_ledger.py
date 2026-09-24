@@ -335,11 +335,13 @@ END $$"""
 
 PARENT_COMPLETE_GUARD = """CREATE FUNCTION ai_business_v4_parent_complete_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
-DECLARE pages bigint; bytes bigint; rows bigint;
+DECLARE parent public.ai_business_v4_runs%ROWTYPE; pages bigint; bytes bigint; rows bigint;
 BEGIN
+  SELECT * INTO parent FROM public.ai_business_v4_runs WHERE id=NEW.id;
   SELECT coalesce(sum(page_count),0),coalesce(sum(stored_bytes),0),coalesce(sum(row_count),0)
     INTO pages,bytes,rows FROM public.ai_business_v4_sources WHERE run_id=NEW.id;
-  IF NEW.page_count<>pages OR NEW.stored_bytes<>bytes OR NEW.row_count<>rows
+  IF parent.id IS NULL OR parent.page_count<>pages OR parent.stored_bytes<>bytes
+     OR parent.row_count<>rows
   THEN RAISE EXCEPTION 'ai_business_v4_parent_source_counters_mismatch'; END IF;
   RETURN NULL;
 END $$"""
