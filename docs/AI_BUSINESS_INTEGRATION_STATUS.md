@@ -65,6 +65,14 @@ v3 暂停意图现有内部**签名只读来源桥**：首个目录页完整 `se
 
 `ai_assistant.0036` 为同一已完成推广+财务任务追加可恢复的16页段 HMAC 候选，父状态仍 `collecting/manual`；隔离 PG 17 项、71→73 AI 表与旧 renderer1–7 字节/ACL 独立升级恢复通过。分段自身不是正式封存；后续需窄权限 seal_writer、完整段/账号/门禁复验与新状态迁移，且还需真实规模、模型、Excel/HTML 和生产验收。
 
+0037 增加窄 SECURITY DEFINER 只读锁源准入，0038 增加默认 `NOLOGIN` 的独立 seal_writer、唯一 seal 表和数据库原子封存状态门禁；普通 AI writer 伪 seal/status 被拒。0038 相关 PG 20 项、旧73→新74 AI 表及 renderer1–7 字节/ACL、前后独立备份恢复通过；测试里的随机十六进制 MAC **只证明数据库角色和事务门禁**，不是应用签名。后续[内部 verify_seal](AI_BUSINESS_V4_SEAL_VERIFICATION.md)对规范正文真实 HMAC、全部分段链、账号/目录/来源重新核验，随机 MAC 拒绝，纯3项、隔离 PG19项通过；当前仅 AI writer 内部可调用，独立 seal_writer 受保护登录/单次命令、AI reader 用途限定句柄、正式 Agent/报告/文件和真实575,095行容量仍未完成。生产未采用。
+
+内部 `verify_seal` 后续加锁外完整原文重算：逐chunk核原始UTF-8 SHA/字节与收据，末尾才短锁财务/网店修订复核账号、目录与真实seal；隔离 PG 22 项通过。高权限改页原文但保留旧摘要的负例会拒绝，扫描中其他店合法导入可变为 `historical_revision` 而不长时间阻塞；单次全链超过600秒返回 `verification_requires_resume`，尚无跨调用可恢复读取证明。seal_writer 目前无LOGIN、无独立日常凭据，也没有读取完整验证账本的最小权限，不能直接复用该 AI writer 内部验签器来执行封存。
+
+0039 已为默认 NOLOGIN 的 seal_writer 增加仅供 v4 验证账本的读能力：账号和成功工具审计须通过绑定 run/attempt/segment 的窄 SECURITY DEFINER 函数，原始审计参数不返回；相关隔离 PG 与旧74表、renderer1–7字节、ACL的独立前后备份恢复通过。当前五张 v4 物理表仍是**跨 run 全表 SELECT**，不等于单任务行级隔离；正式激活独立凭据前须改同run窄流/RLS。该角色仍无LOGIN、无受保护单次sealer程序，AI reader也无可用的签名封存读取句柄。
+
+0040 已撤五张 v4 物理表的直接 SELECT，改为同 run/attempt/source 的固定窄流；单页在数据库内重核原文 SHA、收据来源/时间链、成功审计并拒绝重复页/收据/段。隔离 PG 27 项通过（其中6项历史0039直接读测试按迁移边界跳过），0039→0040、旧74张AI表/renderer1–7字节/ACL及前后备份恢复通过。`runs/sources` 元数据仍可跨 run SELECT，三只窄流函数仍是无票据参数，角色仍默认 NOLOGIN；0040不代表可安全激活独立凭据或用于正式报告。
+
 
 ## 四种状态的含义
 

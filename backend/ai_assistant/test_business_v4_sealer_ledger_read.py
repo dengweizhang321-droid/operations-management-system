@@ -22,8 +22,15 @@ class BusinessV4SealerLedgerReadTests(TransactionTestCase):
     complete_mixed = gate.complete_mixed
     attempt = gate.attempt
     database = gate.database
-    setUp = gate.setUp
     tearDown = gate.tearDown
+
+    def setUp(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_sealer_read_context("
+                "text,text,text,bigint)')")
+            if cursor.fetchone()[0] is not None:
+                self.skipTest("0039直接读候选已由0040窄流替代；历史ACL由独立升级演练验收")
+        gate.setUp(self)
 
     def read_gate(self, db, run_id, attempt_id, actor=None, version=None):
         actual_version = AppUser.objects.get(email=self.principal.email).version
