@@ -46,10 +46,16 @@ parser.add_argument("--business-v4-claimed-read-upgrade", action="store_true")
 parser.add_argument("--business-v4-seal-consumption-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-parked-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-material-upgrade", action="store_true")
+parser.add_argument("--business-promotion-trial-file-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_promotion_trial_file_upgrade:
+    if arguments.business_market_v2_material_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # Renderer 9 must rehearse the complete 0045 predecessor first.
+    arguments.business_market_v2_material_upgrade = True
 if arguments.business_market_v2_material_upgrade:
     if arguments.business_market_v2_parked_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -379,6 +385,9 @@ try:
         if arguments.business_market_v2_material_upgrade:
             rehearsals += (("business-market-v2-material-upgrade-rehearsal.py",
                 "business-market-v2-material-upgrade.json"),)
+        if arguments.business_promotion_trial_file_upgrade:
+            rehearsals += (("business-promotion-trial-file-upgrade-rehearsal.py",
+                "business-promotion-trial-file-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
