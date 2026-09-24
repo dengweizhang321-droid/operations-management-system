@@ -58,7 +58,7 @@ def promotion(number, day, sku, spend, gmv):
         "dimensions": {"promotedSkuId": sku}, "metrics": metrics}
 
 
-def fixture():
+def fixture(*, two_erp_days=False):
     sources = [{"key": "master", "domain": "netshop",
         "query": {**COMMON, "dataset": "master", "window": "current"}},
         {"key": "sales", "domain": "sales",
@@ -72,6 +72,14 @@ def fixture():
             sources.append({"key": family, "domain": "netshop",
                 "query": {**COMMON, "dataset": dataset, "window": "current"}})
     sales, se, master, me = erp_fixture()
+    if two_erp_days:
+        sales[0]["items"][0]["date"] = COMMON["endDate"]
+        sales[0]["coverage"] = coverage(
+            comparison_periods(COMMON["startDate"], COMMON["endDate"])["current"],
+            {item["date"] for item in sales[0]["items"]})
+        sales[0]["pageEvidence"]["sha256"] = digest(sales[0]["items"])
+        verifier = PageReconciler(); verifier.consume(sales[0])
+        se = verifier.result()
     infos = {"sales": {"metadata": {"sourceRevision": sales[0]["sourceRevision"],
         "coverage": sales[0]["coverage"]}, "expected": se, "pageCount": 1},
         "master": {"metadata": {"sourceRevision": master[0]["sourceRevision"],
@@ -127,22 +135,24 @@ class CrossSourceDailyColumnTests(TestCase):
         self.assertEqual(value["schemaVersion"], service.SCHEMA)
         self.assertEqual(len(value["shopDayRows"]), 2)
         first, second = value["shopDayRows"]
-        self.assertEqual(first["erpSales"]["netSalesCents"], 155)
-        self.assertEqual(first["erpSales"]["refundCents"], 30)
-        self.assertEqual(first["erpUnassigned"]["netSalesCents"], 55)
-        self.assertEqual(first["netshopSku"]["paymentCents"], 0)
-        self.assertEqual(first["netshopSku"]["productDayVisitors"], 3)
-        self.assertEqual(first["netshopSpuNative"]["paymentCents"], 70)
-        self.assertEqual(first["promotion"]["spendCents"], 20)
-        self.assertIsNone(second["netshopSku"]["paymentCents"])
+        self.assertEqual(first["erpSales"]["netSalesCents"]["value"], 155)
+        self.assertEqual(first["erpSales"]["refundCents"]["value"], 30)
+        self.assertEqual(first["erpUnassigned"]["netSalesCents"]["value"], 55)
+        self.assertEqual(first["netshopSku"]["paymentCents"],
+            {"value": 0, "presentRows": 1, "missingRows": 0})
+        self.assertEqual(first["netshopSku"]["productDayVisitors"]["value"], 3)
+        self.assertEqual(first["netshopSpuNative"]["paymentCents"]["value"], 70)
+        self.assertEqual(first["promotion"]["spendCents"]["value"], 20)
+        self.assertEqual(second["netshopSku"]["paymentCents"],
+            {"value": None, "presentRows": 0, "missingRows": 0})
         self.assertEqual(second["sourceDayStatus"]["netshopSku"], "date_not_covered")
-        self.assertIsNone(second["erpSales"]["netSalesCents"])
+        self.assertIsNone(second["erpSales"]["netSalesCents"]["value"])
         self.assertFalse(value["shopUniqueVisitorsAvailable"])
         self.assertFalse(value["crossDomainAmountsAdded"])
         missing = [row for row in value["skuDayRows"] if row["skuId"] is None]
         self.assertEqual(len(missing), 1)
-        self.assertEqual(missing[0]["promotion"]["spendCents"], 5)
-        self.assertIsNone(missing[0]["erpMatched"]["netSalesCents"])
+        self.assertEqual(missing[0]["promotion"]["spendCents"]["value"], 5)
+        self.assertIsNone(missing[0]["erpMatched"]["netSalesCents"]["value"])
         self.assertEqual(value["materialDigest"], digest({k:v for k,v in value.items()
             if k != "materialDigest"}))
 
@@ -183,8 +193,8 @@ class CrossSourceDailyColumnTests(TestCase):
         self.assertEqual(value["sourceKeys"], {family: None
             for family in cross_source_kpi_plan.FAMILIES})
         self.assertTrue(all(row["sourceDayStatus"]["promotion"] == "missing_source"
-            and row["promotion"]["spendCents"] is None
-            and row["erpSales"]["netSalesCents"] is None
+            and row["promotion"]["spendCents"]["value"] is None
+            and row["erpSales"]["netSalesCents"]["value"] is None
             for row in value["shopDayRows"]))
         self.assertEqual(value["skuDayRows"], [])
 
@@ -205,3 +215,78 @@ class CrossSourceDailyColumnTests(TestCase):
         with self.assertRaises(AnalysisContractError):
             service.prepare_candidate(plan, sources, infos, CONTEXT, keys,
                 "current", changed, wrong, native)
+
+    def test_mixed_null_with_zero_or_positive_discloses_partial_rows_at_both_grains(self):
+        for known in (0, 50):
+            with self.subTest(known=known):
+                plan, sources, infos, keys, manifest, raw, native = fixture()
+                page = native["netshopSku"][0]
+                page["items"][0]["metrics"]["paymentCents"] = known
+                missing = product(14, COMMON["startDate"], "S1", "P1", 0, 2)
+                missing["metrics"]["paymentCents"] = None
+                page["items"].append(missing)
+                page["control"]["rowCount"] = 2
+                page["control"]["typedTotals"] = {metric:
+                    sum(item["metrics"][metric] or 0 for item in page["items"])
+                    for metric in cross_source_kpi_plan.PRODUCT_METRICS}
+                page["pageEvidence"] = {"rowCount": 2,
+                    "sha256": digest(page["items"])}
+                verifier = PageReconciler(); verifier.consume(page)
+                infos["netshopSku"]["expected"] = verifier.result()
+                plan = cross_source_kpi_plan.prepare_candidate(sources, infos,
+                    CONTEXT, keys)
+                value = service.prepare_candidate(plan, sources, infos,
+                    CONTEXT, keys, "current", manifest, raw, native)
+                shop = value["shopDayRows"][0]
+                sku = next(row for row in value["skuDayRows"]
+                    if row["skuId"] == "S1")
+                expected = {"value": known, "presentRows": 1, "missingRows": 1}
+                self.assertEqual(shop["netshopSku"]["paymentCents"], expected)
+                self.assertEqual(sku["netshopSku"]["paymentCents"], expected)
+                self.assertEqual(shop["sourceDayStatus"]["netshopSku"],
+                    "partial_metric_coverage")
+                self.assertEqual(infos["netshopSku"]["expected"]["metrics"]
+                    ["paymentCents"], expected)
+
+    def test_rehashed_erp_cross_day_shift_rejects_even_with_period_totals_intact(self):
+        plan, sources, infos, keys, manifest, raw, native = fixture(two_erp_days=True)
+        wrong = deepcopy(raw)
+        rows = [json.loads(line) for line in b"".join(wrong["shop_day"]).splitlines()]
+        self.assertEqual({row["date"] for row in rows},
+            {COMMON["startDate"], COMMON["endDate"]})
+        by_day = {row["date"]: row for row in rows}
+        for metric in ("netSalesCents", "positiveSalesCents",
+                "grossProfitCents", "netSalesExcludingAccessoriesCents"):
+            by_day[COMMON["startDate"]]["metrics"][metric] += 10
+            by_day[COMMON["endDate"]]["metrics"][metric] -= 10
+        blob = b"".join((json.dumps(row, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"))+"\n").encode() for row in rows)
+        wrong["shop_day"] = [blob]
+        changed = deepcopy(manifest)
+        changed["tables"][0].update(ndjsonBytes=len(blob),
+            ndjsonSha256=hashlib.sha256(blob).hexdigest())
+        changed["manifestDigest"] = digest({k:v for k,v in changed.items()
+            if k != "manifestDigest"})
+        with self.assertRaisesRegex(AnalysisContractError, "ERP同业务日"):
+            service.prepare_candidate(plan, sources, infos, CONTEXT, keys,
+                "current", changed, wrong, native)
+
+    def test_rehashed_native_duplicate_content_hash_with_fresh_id_rejects(self):
+        plan, sources, infos, keys, manifest, raw, native = fixture()
+        repeated = deepcopy(native)
+        page = repeated["netshopSku"][0]
+        second = product(14, COMMON["startDate"], "S1", "P1", 10, 2)
+        second["sourceRowHash"] = page["items"][0]["sourceRowHash"]
+        page["items"].append(second)
+        page["control"]["rowCount"] = 2
+        page["control"]["typedTotals"] = {metric:
+            sum(item["metrics"][metric] or 0 for item in page["items"])
+            for metric in cross_source_kpi_plan.PRODUCT_METRICS}
+        page["pageEvidence"] = {"rowCount": 2, "sha256": digest(page["items"])}
+        verifier = PageReconciler(); verifier.consume(page)
+        infos["netshopSku"]["expected"] = verifier.result()
+        plan = cross_source_kpi_plan.prepare_candidate(sources, infos,
+            CONTEXT, keys)
+        with self.assertRaisesRegex(AnalysisContractError, "源内容摘要重复"):
+            service.prepare_candidate(plan, sources, infos, CONTEXT, keys,
+                "current", manifest, raw, repeated)

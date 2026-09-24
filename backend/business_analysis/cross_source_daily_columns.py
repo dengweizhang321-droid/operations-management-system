@@ -36,17 +36,41 @@ def _zero(keys):
 
 
 def _null(keys):
-    return {key: None for key in sorted(keys)}
+    return {key: {"value": None, "presentRows": 0, "missingRows": 0}
+        for key in sorted(keys)}
 
 
-def _add(target, values):
+def _add(target, values, *, weight=1):
     _need(type(values) is dict and set(values) == set(target), "来源指标字段集合变化")
-    for key, amount in values.items():
-        _need(amount is None or type(amount) is int and abs(amount) <= MAX_SAFE_INTEGER,
-            "来源指标不是有界整数或null")
+    _need(type(weight) is int and 1 <= weight <= MAX_SOURCE_ROWS)
+    for key, source in values.items():
+        if type(source) is dict:
+            _need(set(source) == {"value", "presentRows", "missingRows"}
+                and type(source["presentRows"]) is int
+                and type(source["missingRows"]) is int
+                and 0 <= source["presentRows"] <= MAX_SOURCE_ROWS
+                and 0 <= source["missingRows"] <= MAX_SOURCE_ROWS
+                and ((source["value"] is None and source["presentRows"] == 0)
+                    or (type(source["value"]) is int
+                        and abs(source["value"]) <= MAX_SAFE_INTEGER
+                        and source["presentRows"] > 0)),
+                "逐日指标有值/缺值证明无效")
+            amount, present, missing = (source[name] for name in
+                ("value", "presentRows", "missingRows"))
+        else:
+            _need(source is None or type(source) is int
+                and abs(source) <= MAX_SAFE_INTEGER,
+                "来源指标不是有界整数或null")
+            amount, present, missing = (source, weight, 0) if source is not None else (None, 0, weight)
+        cell = target[key]
+        cell["presentRows"] += present
+        cell["missingRows"] += missing
+        _need(cell["presentRows"] + cell["missingRows"] <= MAX_SOURCE_ROWS,
+            "逐日指标行数超过当前封存容量")
         if amount is not None:
-            target[key] = (target[key] or 0) + amount
-            _need(abs(target[key]) <= MAX_SAFE_INTEGER, "逐日指标加总超出无损范围")
+            cell["value"] = (cell["value"] or 0) + amount
+            _need(abs(cell["value"]) <= MAX_SAFE_INTEGER,
+                "逐日指标加总超出无损范围")
 
 
 def _window_days(period):
@@ -78,7 +102,8 @@ def _native_pages(plan, source, info, pages):
     expected_filters = {key: query[key] for key in ("platform", "shop", "dataset", "window")}
     expected_filters["periods"] = comparison_periods(query["startDate"], query["endDate"])
     window = plan["periods"][query["window"]]
-    verifier, rows, observed, page_count, source_bytes = PageReconciler(), [], set(), 0, 0
+    verifier, rows, observed, source_hashes, page_count, source_bytes = (
+        PageReconciler(), [], set(), set(), 0, 0)
     for page in pages:
         page_count += 1
         _need(type(page) is dict and type(page.get("items")) is list)
@@ -102,7 +127,13 @@ def _native_pages(plan, source, info, pages):
             "网店来源页身份、窗口或首页覆盖无效")
         verifier.consume(page, request_cursor=verifier.expected_cursor)
         for item in page["items"]:
-            _need(type(item) is dict and item.get("platform") == query["platform"]
+            _need(type(item) is dict)
+            source_hash = item.get("sourceRowHash")
+            _need(type(source_hash) is str and 1 <= len(source_hash) <= 256
+                and source_hash not in source_hashes,
+                "网店/推广源内容摘要重复或缺失，候选无法证明完整唯一事实")
+            source_hashes.add(source_hash)
+            _need(item.get("platform") == query["platform"]
                 and item.get("shopName") == query["shop"]
                 and type(item.get("date")) is str
                 and window["startDate"] <= item["date"] <= window["endDate"]
@@ -219,10 +250,11 @@ def _erp_material(plan, context, window, sources, infos, manifest, pages):
             list(erp_fact_rollups.KINDS))
     result = {kind: _erp_rows(manifest, pages[kind], kind, window,
         plan["shop"], plan["platform"]) for kind in _ERP_KINDS}
-    totals, counts = {}, {}
+    totals, counts, day_totals = {}, {}, {}
     valid_days = set(_window_days(plan["periods"][window]))
     for kind, rows in result.items():
         sums = _zero(plan_contract.ERP_METRICS)
+        daily = {}
         seen = set(); count = 0
         for row in rows:
             _need(row["date"] in valid_days)
@@ -231,10 +263,15 @@ def _erp_material(plan, context, window, sources, infos, manifest, pages):
                 (row["date"], row["status"]))
             _need(identity not in seen, "ERP回卷日/商品/未分配身份重复")
             seen.add(identity); count += row["sourceFactCount"]
+            cell = daily.setdefault(row["date"],
+                {"count": 0, "metrics": _zero(plan_contract.ERP_METRICS)})
+            cell["count"] += row["sourceFactCount"]
             for metric, amount in row["metrics"].items():
                 sums[metric] += amount
                 _need(abs(sums[metric]) <= MAX_SAFE_INTEGER)
-        totals[kind], counts[kind] = sums, count
+                cell["metrics"][metric] += amount
+                _need(abs(cell["metrics"][metric]) <= MAX_SAFE_INTEGER)
+        totals[kind], counts[kind], day_totals[kind] = sums, count, daily
     _need(totals["shop_day"] == manifest["sourceTotals"]
         and totals["sku_day"] == manifest["matchedTotals"]
         and totals["unassigned_day"] == manifest["unassignedTotals"]
@@ -243,6 +280,20 @@ def _erp_material(plan, context, window, sources, infos, manifest, pages):
         and all((infos[key]["expected"]["metrics"][metric]["value"] or 0) == amount
             for metric, amount in manifest["sourceTotals"].items()),
         "ERP回卷源→店铺→已分配与未分配不守恒")
+    for day in sorted(valid_days):
+        day_rows = {kind: day_totals[kind].get(day,
+            {"count": 0, "metrics": _zero(plan_contract.ERP_METRICS)})
+            for kind in _ERP_KINDS}
+        shop_count = day_rows["shop_day"]["count"]
+        assigned_count = day_rows["sku_day"]["count"]
+        unassigned_count = day_rows["unassigned_day"]["count"]
+        _need(shop_count == assigned_count + unassigned_count,
+            "ERP同业务日源事实数不守恒")
+        for metric in plan_contract.ERP_METRICS:
+            _need(day_rows["shop_day"]["metrics"][metric]
+                == day_rows["sku_day"]["metrics"][metric]
+                + day_rows["unassigned_day"]["metrics"][metric],
+                "ERP同业务日十一项源指标不守恒")
     actual_days = {row["date"] for row in result["shop_day"]}
     _need(canonical(coverage(plan["periods"][window], actual_days)) ==
         canonical(plan["sourceBindings"][key]["coverage"]))
@@ -297,14 +348,15 @@ def prepare_candidate(plan, sources, infos, context, source_keys, window,
         return sku[key]
     for kind, column in (("shop_day", "erpSales"), ("unassigned_day", "erpUnassigned")):
         for row in erp[kind]:
-            _add(shop[row["date"]][column], row["metrics"])
+            _add(shop[row["date"]][column], row["metrics"],
+                weight=row["sourceFactCount"])
     for row in erp["sku_day"]:
         key = row["skuId"]
         prior = sku_identity["erp"].setdefault(key, row["spuId"])
         _need(prior == row["spuId"], "ERP同SKU的当前SPU身份冲突")
         item = sku_row(row["date"], key)
         item["erpAssignedSpuId"] = row["spuId"]
-        _add(item["erpMatched"], row["metrics"])
+        _add(item["erpMatched"], row["metrics"], weight=row["sourceFactCount"])
     for family, column in (("netshopSku", "netshopSku"),
             ("netshopSpu", "netshopSpuNative"), ("promotion", "promotion")):
         for row in native.get(family, []):
@@ -324,11 +376,15 @@ def prepare_candidate(plan, sources, infos, context, source_keys, window,
                 item = sku_row(day, promoted, missing=promoted is None)
                 _add(item["promotion"], row["metrics"])
     rows = []
+    status_column = {"erpSales": "erpSales", "netshopSku": "netshopSku",
+        "netshopSpu": "netshopSpuNative", "promotion": "promotion"}
     for day in days:
         statuses = {}
         for family, key in selected.items():
             statuses[family] = ("missing_source" if key is None else
-                "observed_rows" if day in plan["sourceBindings"][key]["coverage"]["presentDates"] else
+                ("partial_metric_coverage" if any(cell["missingRows"]
+                    for cell in shop[day][status_column[family]].values()) else
+                    "observed_rows") if day in plan["sourceBindings"][key]["coverage"]["presentDates"] else
                 "selected_no_records" if plan["sourceBindings"][key]["rowCount"] == 0 else
                 "date_not_covered")
         body = {"window": window, "date": day, "platform": plan["platform"],
@@ -351,29 +407,26 @@ def prepare_candidate(plan, sources, infos, context, source_keys, window,
         sums = _null(expected)
         for row in rows:
             _add(sums, row[column])
-        _need(all(sums[metric] == cell["value"] for metric, cell in expected.items()),
+        _need(sums == expected,
             "逐日列未守恒于网店或推广封存源")
     key = selected["netshopSpu"]
     if key is not None:
         sums = _null(infos[key]["expected"]["metrics"])
         for row in rows:
             _add(sums, row["netshopSpuNative"])
-        _need(all(sums[metric] == cell["value"] for metric, cell in
-            infos[key]["expected"]["metrics"].items()),
+        _need(sums == infos[key]["expected"]["metrics"],
             "原生SPU逐日列未守恒于其独立来源")
     for family, column in (("netshopSku", "netshopSku"),
             ("promotion", "promotion")):
         key = selected[family]
         if key is None:
             continue
-        shop_sums = _zero(infos[key]["expected"]["metrics"])
-        sku_sums = _zero(shop_sums)
+        shop_sums = _null(infos[key]["expected"]["metrics"])
+        sku_sums = _null(infos[key]["expected"]["metrics"])
         for row in rows:
-            for metric, amount in row[column].items():
-                shop_sums[metric] += amount or 0
+            _add(shop_sums, row[column])
         for row in sku_rows:
-            for metric, amount in row[column].items():
-                sku_sums[metric] += amount or 0
+            _add(sku_sums, row[column])
         _need(shop_sums == sku_sums,
             "SKU逐日与本来源店铺逐日金额不守恒")
     material = {"schemaVersion": SCHEMA, "planDigest": plan["planDigest"],
