@@ -53,6 +53,18 @@ v3 暂停意图现有内部**签名只读来源桥**：首个目录页完整 `se
 
 [品类/SPU 三窗口候选](AI_BUSINESS_CATEGORY_SPU_COMPARE_CANDIDATE.md)完整重算 ERP 五层回卷中品类/SPU 对已分配 SKU 的逐日守恒，并把商智原生 SPU 独立保留；相关纯测 21 项通过。ERP 映射来自当前 master，历史归属未验证，故各期数值可展示但 ERP 品类/SPU 跨期差额和增长率留空；原生 SPU 仅在同 ID、每日可见、指标无缺值且正基期时比较。无正式 Agent/文件。
 
+[京东 B 端逐日/三期候选](AI_BUSINESS_B2B_DAILY_CANDIDATE.md)只按精确 `jd_b2b` 来源重放本域完整页、日期覆盖与五项指标，缺源仅说明所给目录未安排来源；相关纯测 24 项通过。B 端与 ERP/平台商品销售包含关系未知，跨域占比、增量和合计均留空。[店铺总览与区间 UV 静态缺口](AI_BUSINESS_JD_SHOP_OVERVIEW_UV_GAP.md)确认现有通用导入缺专用字段、业务日和同店同日冲突规则，需先核平台字段与脱敏表头后才能做可信来源。
+
+[v4 财务自然月内部采集与重放](AI_BUSINESS_V4_FINANCE_MONTHLY_COLLECTION.md)已独立于旧 v3 的页/字节上限，逐页绑定成功工具请求摘要、月度批次、完整行链和 32 KiB 检查点；新旧财务与账本隔离 PG 20 项 `.runtime/ai-pg-501999af600c/tests.log`、纯测试 9 项通过。财报只作自然月背景，不按日摊至 SKU；v4 父仍 collecting/manual。市场方向的[同报告封存准入候选](AI_BUSINESS_PROMOTION_MARKET_ADMISSION.md)从已封存推广报告自行重建两市场来源覆盖和双观察日，隔离 PG 4 项 `.runtime/ai-pg-3aacb9f7435b/tests.log` 通过；未读完市场行、未派发专业 Agent、未生成市场版文件。
+
+财务容量估算现与拥有方 **100,000 行**上限对齐，100,001 行的候选计划明确不支持；相关纯测试 13 项通过。独立审查还指出：若持财务 writer 权限绕过正常导入直接改已读事实而不推进修订，页链可混合不同事实快照。正常导入会推进修订，但数据库尚无普遍的写入-修订强制门禁；因此 v4 分段证明和父封存不能据当前版本宣称财务来源权威。市场另有[五 Agent v2 运行纯合同](AI_BUSINESS_PROMOTION_MARKET_RUNTIME_V2.md)，固定本人市场摘要/页/行读取和数值引用要求，旧图不变，纯测 15 项通过；尚无注册派发、持久本人回执或正式文件。
+
+[市场三表内部只读工具预览](AI_BUSINESS_PROMOTION_MARKET_TOOL_PREVIEW.md)在每次读取前由服务器完整重放已封存市场来源并核三张 NDJSON 表，再有界返回摘要/20 行分页/精确行，返回前复验报告和账号；隔离 PG 4 项 `.runtime/ai-pg-eb46d2b08fb0/tests.log` 通过。角色参数目前只是纯合同声明，尚未绑定真实 Agent job/dispatch/result，因此 `agentReadPersisted=false`，不能据此认为市场专业 Agent 已读。
+
+两域写侧缺口现有隔离候选：`finance.0003` 令财务事实/月/批次写入必须同事务推进修订，`finance.0004` 禁止修订与摘要回退；`netshop.0003` 对商品行/批次同样要求同事务修订并阻断回退。正常财务导入、D1 受控二次重灌、两店网店导入及重复/失败路径的相关 PG 分组 57、16、68 项通过；finance.0002→0003→0004 与 netshop.0002→0003 的旧事实独立升级、前后备份恢复、权限/行摘要保持、空库回退与有事实/活动 writer 禁回退通过 `.runtime/ai-pg-e008c2ab040e`。备份与健康检查已按迁移版本验证 marker、触发器、函数及最小权限，真实 catalog PG 7 项通过；未生产采用。源修订更晚并不自动使旧封存页链失效，但必须标历史快照，不能冒称最新或跨域原子。
+
+`ai_assistant.0036` 为同一已完成推广+财务任务追加可恢复的16页段 HMAC 候选，父状态仍 `collecting/manual`；隔离 PG 17 项、71→73 AI 表与旧 renderer1–7 字节/ACL 独立升级恢复通过。分段自身不是正式封存；后续需窄权限 seal_writer、完整段/账号/门禁复验与新状态迁移，且还需真实规模、模型、Excel/HTML 和生产验收。
+
 
 ## 四种状态的含义
 
@@ -73,7 +85,7 @@ v3 暂停意图现有内部**签名只读来源桥**：首个目录页完整 `se
 | 关键词 × 明确推广 SKU、计划/单元/匹配上下文 | [关键词 owning](../backend/ai_assistant/business_promotion_keyword_sku.py) 与 [内部 GET 适配](../backend/ai_assistant/business_promotion_runtime_tools.py) 已接；已有严格分页和行引用读取。基础关键词能力并非从零缺失。 | 旧 owning 9 项 PG、内部 reader 新旧路由合计 11 项 PG 通过，见[接线说明](AI_BUSINESS_PROMOTION_RUNTIME_INTEGRATION.md)及[证据](evidence/ai-business-keyword-sku-owning-candidate.json)。 | **内部 reader 不等于 Agent 和文件接入。** 仍需新 profile/工具目录、每节点读取回执、服务端数值引用核验、诊断及新版本双格式全量表。缺明确推广 SKU 仍留缺口，不用跟单 SKU 替代。 | 真实词货费用及基期对账、专业 Agent/独立复核建议质量；天猫已合并的计划粒度不能凭京东实现声称可恢复。 |
 | 市场价格带、进榜/出榜与自家商品关联 | 基础市场事实 reader 已接。新增 [market_dynamics.py](../backend/business_analysis/market_dynamics.py) 已有价格区间分组与明确单日对单日进出榜的纯计算。 | 旧候选 11 项纯测试记录见[市场派生说明](AI_BUSINESS_MARKET_DYNAMICS.md)。 | **市场派生纯计算尚未接 owning 服务、Agent 或报告。** 需真实封存来源与权限绑定、有界服务、数值引用及文件；竞品到自家 SPU 的可核验映射仍缺。 | 核对精确类目/榜单粒度/价格带和观察日期；TOP 样本缺席不等于零销量，样本金额不等于全行业规模。 |
 | 月度财务与利润/费用分析 | [财务 owning 内存源](../backend/finance/business_analysis_source.py) 已从实际模型按自然月、精确 scope 和 month→batch 链读取；五列账号最小权限与健康检查已接候选安装路径。 | 旧纯合同 18 项、owning 与权限合计 16 项 PG 记录见[财务来源](AI_BUSINESS_FINANCE_SOURCE.md)和[owning 验证](AI_BUSINESS_FINANCE_OWNING_SOURCE.md)。 | **尚无持久财务证据、跨进程采集恢复、Agent 和文件完整链路。** 需独立版本的来源合同/封存、月同比环比及全量表。现返回 `persistentEvidenceVerified=false`。 | 自然月财报和日经营窗口并列核验；保留缺月、缺科目、null、源比率合并限制。不把财报总计和明细、经营汇总与金蝶科目重复累加，不用财报反推 SKU 利润。 |
-| 独立店铺总览和去重 UV | 既有 `jd_shop_overview → trade_overview` 导入入口存在；当前[经营分析 SOURCES](../backend/netshop/analysis.py) 尚不含此独立来源。 | 现有导入入口不能作为区间 UV 验证。商品访客已明确为 `productDayVisitors`。 | 可信原字段合同、店铺×日期身份、重叠导入去重/冲突和来源接线仍缺；若无平台区间去重数据，只能披露不可得。 | 日去重 UV 多日相加不是区间去重 UV；商品日访客也不能替代。实际字段和平台导出对账尚待执行，不能从当前未查生产推断无原始数据。 |
+| 独立店铺总览和去重 UV | 既有 `jd_shop_overview → trade_overview` 导入入口存在；当前[经营分析 SOURCES](../backend/netshop/analysis.py) 尚不含此独立来源。 | [静态核对](AI_BUSINESS_JD_SHOP_OVERVIEW_UV_GAP.md)已确认当前通用导入不保证业务日、专用指标或同店同日唯一性；商品访客已明确为 `productDayVisitors`。 | 可信原字段合同、店铺×日期身份、重叠导入去重/冲突和来源接线仍缺；若无平台区间去重数据，只能披露不可得。 | 日去重 UV 多日相加不是区间去重 UV；商品日访客也不能替代。实际字段和平台导出对账尚待执行，不能从当前未查生产推断无原始数据。 |
 | 多 Agent 协同、诊断与调整规划 | 既有五角色、三个并行专业节点、独立复核、汇总、逐任务读取证明、结构化动作、预算和人工复核已有运行路径；[screening tools](../backend/ai_assistant/business_screening_tools.py) 当前分派 native/mapped。 | 旧合成五 Agent → 人工批准 → 文件生成记录存在；这证明工程调度和约束，不证明真实模型理解能力。 | 新关键词/市场/财务视图须进入相应角色包、引用核验和完整交付。自然语言范围建议、跨请求派生复用尚缺；复用应按实测重复扫描成本决定范围。 | 按[六卡](AI_BUSINESS_DIAGNOSTIC_ACCEPTANCE.md)验证事实、错误因果、遗漏、冲突和动作；每条建议含对象、前提、指标、观察期、责任与回退。开发 Agent 协作不等于系统 Agent 质量验收。 |
 | 长任务暂停、续读与恢复 | 网店、销售、市场 continuation reader、collection-only 工具及 AI 真实末块/检查点已接；原 CAS、额度和签名来源绑定保留。 | 旧三域 owning/真实 AI 台账、旧采集与 5001 行任务隔离验证见[续读证据](AI_BUSINESS_CURSOR_RUNTIME_INTEGRATION.md)。 | 既有三域无需重复开发续读底座；新增财务来源须另接对应持久协议。源变化后仍应停止，不混合新旧页。 | 真实多进程 HTTP、超过一小时暂停、重启后恢复及正式规模耗时未验收；模型未知结果不因取数恢复而自动重放。 |
 | 工程级 HTML/XLSX 与预算 | 同源完整表、互动 HTML、可编辑预算、多卷持久文件、下载摘要、旧版本恢复已接；新 renderer 5/6 保留历史 1—4。 | 旧新版 36 表五 Agent 合成交付及浏览器记录；本轮文件 0024→0025 独立升级恢复见下节。 | 新增推广/市场/财务表尚需版本化加入完整文件，不能只在模型摘要里提到；最终组合的同源同数和规模回归仍需完成。 | 原生 Excel 历史 50 案中 49 通过、1 案许可过期中断；另 8 项预算边界与完整新 v6 打开/复算仍待有效许可。当前许可未重新检查，不声称现仍过期或全部通过。见[原生验收](AI_BUSINESS_EXCEL_NATIVE_ACCEPTANCE.md)。 |
