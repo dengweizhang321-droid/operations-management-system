@@ -78,7 +78,7 @@ class BusinessV4LedgerTests(TestCase):
             "pagination": {"limit": 100, "hasMore": False, "nextCursor": None},
             "metricSemantics": None}
 
-    def append_daily(self, *, receipt=True, page=None):
+    def append_daily(self, *, receipt=True, page=None, checkpoint_extra=None):
         # Django TestCase nests savepoints in a class transaction; a prior
         # test's named IMMEDIATE mode can survive a rolled-back savepoint.
         with connection.cursor() as cursor:
@@ -103,6 +103,8 @@ class BusinessV4LedgerTests(TestCase):
             "sourceRef": page["sourceRef"], "sourceRevision": page["sourceRevision"],
             "lastChunkDigest": chunk.payload_digest, "pageCount": 1, "rowCount": 1,
             "storedBytes": size, "finished": True}
+        if checkpoint_extra is not None:
+            checkpoint["extra"] = checkpoint_extra
         m.AiBusinessV4Source.objects.filter(pk=source.pk).update(version=2, page_count=1,
             row_count=1, stored_bytes=size, finished=True, source_ref=page["sourceRef"],
             source_revision=page["sourceRevision"], checkpoint_json=canonical(checkpoint),
@@ -112,6 +114,12 @@ class BusinessV4LedgerTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute("SET CONSTRAINTS ai_v4_chunk_complete, ai_v4_parent_complete IMMEDIATE")
         return chunk
+
+    def test_checkpoint_utf8_capacity_rejected_before_json_replay(self):
+        with self.assertRaisesMessage(DatabaseError, "ai_business_v4_checkpoint_capacity_invalid"):
+            with transaction.atomic():
+                self.append_daily(checkpoint_extra="中" * 11_000)
+        self.assertFalse(m.AiBusinessV4Chunk.objects.filter(run=self.parent).exists())
 
     def test_exact_append_receipt_and_old_tables_are_separate(self):
         with transaction.atomic():

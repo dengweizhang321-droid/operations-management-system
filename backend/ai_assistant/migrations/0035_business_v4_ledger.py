@@ -68,6 +68,8 @@ DECLARE parent public.ai_business_v4_runs%ROWTYPE; plan jsonb; entry jsonb; q js
   first_month_id integer; last_month_id integer; month_id integer;
 BEGIN
   IF TG_OP='DELETE' THEN RAISE EXCEPTION 'ai_business_v4_source_delete_denied'; END IF;
+  IF octet_length(NEW.checkpoint_json)>32768
+  THEN RAISE EXCEPTION 'ai_business_v4_checkpoint_capacity_invalid'; END IF;
   SELECT * INTO parent FROM public.ai_business_v4_runs WHERE id=NEW.run_id FOR UPDATE;
   IF NOT FOUND OR parent.status<>'collecting' OR parent.collection_status<>'manual'
      OR NOT EXISTS (SELECT 1 FROM public.access_control_users u WHERE u.email=parent.owner_email
