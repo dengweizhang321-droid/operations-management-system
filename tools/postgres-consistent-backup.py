@@ -291,6 +291,12 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            validation_tables = {"ai_business_v4_validation_attempts",
+                "ai_business_v4_validation_segments"}
+            if "0036_business_v4_validation_segments" not in ai_migrations:
+                expected_ai_tables.difference_update(validation_tables)
+            elif "0035_business_v4_ledger" not in ai_migrations:
+                raise RuntimeError("AI v4 validation schema has no physical ledger predecessor")
             v4_tables = {"ai_business_v4_runs", "ai_business_v4_sources",
                          "ai_business_v4_chunks", "ai_business_v4_tool_receipts"}
             if "0035_business_v4_ledger" not in ai_migrations:

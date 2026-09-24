@@ -21,7 +21,7 @@ from . import business_diagnostic_screening as screening, models as m
 from . import test_business_diagnostic_screening as fixtures
 from .database_contract import MODELS, READ_TABLES, WRITER_PRIVILEGES
 from .policy import canonical, digest
-from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS, AI_TABLES_PRE_V4_LEDGER
+from .table_manifest import AI_TABLES, AI_TABLES_PRE_TOOL_RECEIPTS, AI_TABLES_PRE_V3_REPORT_INTENTS, AI_TABLES_PRE_V4_LEDGER, AI_TABLES_PRE_V4_VALIDATION
 
 
 def row_values(bundle, tag):
@@ -79,18 +79,22 @@ def variant(bundle, tag):
 
 class InventoryTests(TestCase):
     def test_exact_models_tables_and_append_only_grants(self):
-        self.assertEqual(len(AI_TABLES),71)
+        self.assertEqual(len(AI_TABLES),73)
         self.assertEqual(len(AI_TABLES_PRE_TOOL_RECEIPTS), 65)
         self.assertEqual(len(AI_TABLES_PRE_V3_REPORT_INTENTS), 66)
         self.assertEqual(set(AI_TABLES_PRE_V3_REPORT_INTENTS) - set(AI_TABLES_PRE_TOOL_RECEIPTS),
                          {"ai_business_source_tool_receipts"})
         self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V3_REPORT_INTENTS),
                          {"ai_business_v3_report_intents", "ai_business_v4_runs", "ai_business_v4_sources",
-                          "ai_business_v4_chunks", "ai_business_v4_tool_receipts"})
+                          "ai_business_v4_chunks", "ai_business_v4_tool_receipts",
+                          "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments"})
         self.assertEqual(len(AI_TABLES_PRE_V4_LEDGER), 67)
-        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V4_LEDGER),
+        self.assertEqual(len(AI_TABLES_PRE_V4_VALIDATION), 71)
+        self.assertEqual(set(AI_TABLES_PRE_V4_VALIDATION) - set(AI_TABLES_PRE_V4_LEDGER),
                          {"ai_business_v4_runs", "ai_business_v4_sources", "ai_business_v4_chunks",
                           "ai_business_v4_tool_receipts"})
+        self.assertEqual(set(AI_TABLES) - set(AI_TABLES_PRE_V4_VALIDATION),
+                         {"ai_business_v4_validation_attempts", "ai_business_v4_validation_segments"})
         self.assertEqual(set(AI_TABLES),set(MODELS))
         for table, model in (("ai_business_screening_runs",m.AiBusinessScreeningRun),
                 ("ai_business_screening_pages",m.AiBusinessScreeningPage)):

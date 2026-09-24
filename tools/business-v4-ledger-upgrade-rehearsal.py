@@ -22,7 +22,7 @@ from django.utils import timezone
 from ai_assistant import models as m
 from ai_assistant.database_contract import provision
 from ai_assistant.policy import canonical, digest, uid
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_V4_LEDGER
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_VALIDATION as AI_TABLES, AI_TABLES_PRE_V4_LEDGER
 from ai_assistant.test_business_v4_ledger import plan_fixture
 from business_analysis.contracts import comparison_periods
 

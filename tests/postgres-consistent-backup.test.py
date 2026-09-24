@@ -18,6 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_VALIDATION as PRE_VALIDATION_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_LEDGER as PRE_V4_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V3_REPORT_INTENTS as PRE_INTENT_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
@@ -114,12 +115,25 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 35)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_VALIDATION_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 71)
         self.assertTrue({"ai_business_v4_runs", "ai_business_v4_sources",
             "ai_business_v4_chunks", "ai_business_v4_tool_receipts"} <= set(current["tables"]))
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_V4_AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+
+    def test_v4_validation_generation_has_explicit_73_table_boundary(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 36)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 73)
+        self.assertIn("ai_business_v4_validation_attempts", current["tables"])
+        self.assertIn("ai_business_v4_validation_segments", current["tables"])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_VALIDATION_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
             _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
 

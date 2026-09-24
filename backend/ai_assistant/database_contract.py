@@ -32,6 +32,8 @@ MODELS = {
     "ai_business_v4_sources": m.AiBusinessV4Source,
     "ai_business_v4_chunks": m.AiBusinessV4Chunk,
     "ai_business_v4_tool_receipts": m.AiBusinessV4ToolReceipt,
+    "ai_business_v4_validation_attempts": m.AiBusinessV4ValidationAttempt,
+    "ai_business_v4_validation_segments": m.AiBusinessV4ValidationSegment,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -107,6 +109,8 @@ APPEND_ONLY = {
     "ai_business_v3_report_intents",
     "ai_business_v4_chunks",
     "ai_business_v4_tool_receipts",
+    "ai_business_v4_validation_attempts",
+    "ai_business_v4_validation_segments",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -244,6 +248,11 @@ def provision(connection, reader_password, writer_password):
                 privileges = {table: allowed for table, allowed in privileges.items()
                               if table not in {"ai_business_v4_runs", "ai_business_v4_sources",
                                   "ai_business_v4_chunks", "ai_business_v4_tool_receipts"}}
+            cursor.execute("SELECT to_regclass('public.ai_business_v4_validation_attempts')")
+            if cursor.fetchone()[0] is None:
+                privileges = {table: allowed for table, allowed in privileges.items()
+                              if table not in {"ai_business_v4_validation_attempts",
+                                  "ai_business_v4_validation_segments"}}
             for table, allowed in privileges.items():
                 cursor.execute(
                     sql.SQL("GRANT {} ON {} TO {}").format(

@@ -77,6 +77,11 @@ AI_TABLES_PRE_V3_REPORT_INTENTS = (*AI_TABLES_PRE_TOOL_RECEIPTS, "ai_business_so
 # Frozen 0034 inventory for historical v3 intent/backup rehearsals.
 AI_TABLES_PRE_V4_LEDGER = (*AI_TABLES_PRE_V3_REPORT_INTENTS, "ai_business_v3_report_intents")
 
+# Frozen 0035 inventory. Historical backup proofs must retain 71 AI tables.
+AI_TABLES_PRE_V4_VALIDATION = (*AI_TABLES_PRE_V4_LEDGER,
+    "ai_business_v4_runs", "ai_business_v4_sources",
+    "ai_business_v4_chunks", "ai_business_v4_tool_receipts")
+
 # New migrations extend only the current manifest, not historical inventories.
-AI_TABLES = (*AI_TABLES_PRE_V4_LEDGER, "ai_business_v4_runs", "ai_business_v4_sources",
-             "ai_business_v4_chunks", "ai_business_v4_tool_receipts")
+AI_TABLES = (*AI_TABLES_PRE_V4_VALIDATION,
+    "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments")
