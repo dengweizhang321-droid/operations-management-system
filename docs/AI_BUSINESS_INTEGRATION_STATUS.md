@@ -8,9 +8,9 @@
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。
 
-参考差距的第一条数据底座继续补齐：单店 ERP/原生 SKU/SPU/推广三期来源有未注册的[精确选择合同](AI_BUSINESS_CROSS_SOURCE_KPI_PLAN.md)，参考推广源 575,095 行超过现有 v2 每来源 2,000×100 行上限会明确标不支持。ERP [逐事实归属](AI_BUSINESS_ERP_FACT_ASSIGNMENT.md)按当前 master 的完整唯一 SKU+SPU+品类归属，多义/不完整/未匹配保留源行和金额；[五层逐日回卷](AI_BUSINESS_ERP_FACT_ROLLUPS.md)分别对店铺、品类、SPU、SKU、未分配池按 11 项有符号 ERP 指标守恒。纯测试 7+9 项通过；尚未与网店/广告/财务合表，也没有进入正式 Agent/renderer。
+参考差距的第一条数据底座继续补齐：单店 ERP/原生 SKU/SPU/推广三期来源有未注册的[精确选择合同](AI_BUSINESS_CROSS_SOURCE_KPI_PLAN.md)，参考推广源 575,095 行超过现有 v2 每来源 2,000×100 行上限会明确标不支持。ERP [逐事实归属](AI_BUSINESS_ERP_FACT_ASSIGNMENT.md)按当前 master 的完整唯一 SKU+SPU+品类归属，多义/不完整/未匹配保留源行和金额；[五层逐日回卷](AI_BUSINESS_ERP_FACT_ROLLUPS.md)分别对店铺、品类、SPU、SKU、未分配池按 11 项有符号 ERP 指标守恒。纯测试 7+9 项通过；[逐日并列候选](AI_BUSINESS_CROSS_SOURCE_DAILY_COLUMNS.md)与[封存内读材料](AI_BUSINESS_CROSS_SOURCE_DAILY_OWNING.md)已将 ERP、商智SKU/原生SPU、推广分来源对齐，缺值/缺日和逐日守恒独立核验，隔离 PG 5 项 `.runtime/ai-pg-818803e7d020/tests.log` 通过。尚无跨域金额合计或正式 Agent/renderer。
 
-ERP 五层逐日材料随后绑定到封存 v2 integrated report 的固定 mappingPlan 与 sales/master pair，按真实 Reader 全页重算并核对前后账号/报告，产生五张临时类型表及 NDJSON/摘要。隔离 PG 4 项 `.runtime/ai-pg-3a3ced803741/tests.log`、更新后的纯 assignment+rollup 10 项通过；仍不进入正式 Agent/renderer，也不混合其他域金额，见[内部 ERP 材料说明](AI_BUSINESS_ERP_ROLLUP_OWNING.md)。大来源扩容的分期方案见[v4 大规模证据设计](AI_BUSINESS_LARGE_EVIDENCE_V4_PLAN.md)，未实施或上线。
+ERP 五层逐日材料随后绑定到封存 v2 integrated report 的固定 mappingPlan 与 sales/master pair，按真实 Reader 全页重算并核对前后账号/报告，产生五张临时类型表及 NDJSON/摘要。隔离 PG 4 项 `.runtime/ai-pg-3a3ced803741/tests.log`、更新后的纯 assignment+rollup 10 项通过；仍不进入正式 Agent/renderer，也不混合其他域金额，见[内部 ERP 材料说明](AI_BUSINESS_ERP_ROLLUP_OWNING.md)。大来源扩容的分期方案见[v4 大规模证据设计](AI_BUSINESS_LARGE_EVIDENCE_V4_PLAN.md)；物理账、京东推广本期采集与内部重放候选已接，后续封存、Agent、文件和生产采用未完成。
 
 ## 最新组合验证
 
@@ -40,6 +40,18 @@ v3 混合来源增加 0031 日页物理门禁、共享可信目录和日来源�
 0034 在独立 append-only 表里持久化**暂停的 v3 报告意图**，不复用旧 AiReportRun/工作流图：封存引用、日事实、月度背景、五专业角色与人工复核节点、固定暂停原因均由新版本协议绑定。新旧 PG 39 项 `.runtime/ai-pg-aa321362bd5a/tests.log`，66→67 表和旧 renderer1–7 字节/权限的独立备份恢复 `.runtime/ai-pg-fcbb9e349bae/business-v3-report-intent-upgrade-evidence.json`，维护 Node 12 项及备份 Python 10 项通过。没有真实 Agent、模型或文件任务；意图不能当作已交付报告，见[暂停意图说明](AI_BUSINESS_V3_REPORT_INTENT.md)。
 
 v3 暂停意图现有内部**签名只读来源桥**：首个目录页完整 `seal.verify`，后续 10 分钟用途限定 HMAC 句柄按当前账号版本、意图、封存摘要与 sourceKey 逐块核摘要/回执，返回前复验权限；不用每页全量重扫。旧公开代理与模型工具目录均未加入，读取发生在已有权限的 AI writer 进程且不执行写入。新旧 PG 25 项 `.runtime/ai-pg-4f4189ff06be/tests.log`、Node 14 项、纯合同 2 项和构建通过。**当前桥上限 8 MiB/64 页，超限整次拒绝且不截断；尚无持久 Agent 本人阅读回执，参考整店规模不能据此验收。** 见[内部来源读取边界](AI_BUSINESS_V3_SOURCE_READ.md)。
+
+暂停后已合入主线 `4ad06070` 的导入链状态说明，相关 Node 20 项和构建通过；主 checkout 其他未提交文件未触碰。大规模证据的[纯 v4 容量合同](AI_BUSINESS_V4_CAPACITY_CONTRACT.md)按测量行宽保守预估单源16,384页/2GiB和整任务65,536页/8GiB，纯测4项，测量本身未获来源授权。[0035 独立物理账](AI_BUSINESS_V4_LEDGER_FOUNDATION.md)新增四表，旧67→新71表、renderer1–7字节/权限、前后独立备份恢复 `.runtime/ai-pg-dbb34f6ac662/business-v4-ledger-upgrade-evidence.json` 与新旧PG43项 `.runtime/ai-pg-20a1422c63e4/tests.log` 通过。[京东推广 v4 内部单页采集](AI_BUSINESS_V4_JD_PROMOTION_COLLECTION.md)只接受本期精确来源，已覆盖真实过期游标续读、中断恢复和父/来源计数门禁；新旧相关 PG 32 项 `.runtime/ai-pg-17da9476df8d/tests.log` 通过。父任务封存、Agent和文件均未接入。错误基期仍须未来拥有方完整重放才可获得业务权威，不把工具审计或物理完成冒充上游签名及业务验证。
+
+[京东推广完整词链候选](../backend/business_analysis/promotion_relation_v2.py)另将关键词、搜索词、计划、单元、匹配方式及推广/触发/归因三种 SKU 身份分离保留，纯测试与旧词货测试共 47 项通过；仍受 v2 每来源 200,000 行限制，未接正式 Agent 或 renderer。
+
+[跨来源三窗口店铺对照候选](AI_BUSINESS_CROSS_SOURCE_WINDOW_COMPARE.md)已将逐日并列材料按来源、指标分别给出本期、前期及去年同期的数值、缺口与保守增长率，纯新旧测试 20 项通过；[SKU 三窗口候选](AI_BUSINESS_CROSS_SOURCE_SKU_WINDOWS.md)另逐行核身份、来源分列及逐日未分配/缺 SKU 桶守恒，新旧纯测 18 项通过。两者均未接正式 Agent/文件，SKU 非连续观察的增长率保守留空。[京东推广 v4 完整重放候选](AI_BUSINESS_V4_PROMOTION_REPLAY.md)逐页核原始字节、来源身份、审计收据、控制总额和覆盖，异常字段与 32 KiB 检查点拒绝；更新后 0034→0035 备份恢复 `.runtime/ai-pg-97419d905834/business-v4-ledger-upgrade-evidence.json` 通过。中央内部采集审计现只保存完整参数摘要，重放用前页长签名游标重建并核每次请求；v4 与旧 v3 收据 PG 23 项 `.runtime/ai-pg-aa75fe8eec65/tests.log`、Node 全量 2,546 通过/20 既有跳过/0 失败及正式构建通过。上游独立签名、父封存、Agent、报告均未开放。
+
+[v4 推广三窗口精确选择候选](AI_BUSINESS_V4_PROMOTION_WINDOWS.md)按固定计划区分本期、环比、同比；可选基期缺源或未请求时不补零、无数值比较，错店/错期/重复来源拒绝。相关纯测 16 项通过。同一 v4 run 的三窗口京东推广来源现可分别逐页采集、过期游标续读和完整重放，跨窗口旧版本、错基期/审计窗口拒绝；相关隔离 PG 22 项 `.runtime/ai-pg-7320d93f8faa/tests.log` 通过。尚无父任务封存或跨窗口正式结论。
+
+[v4 完整推广词链流式候选](AI_BUSINESS_PROMOTION_RELATION_V4_STREAM.md)可分别处理三种窗口的关键词、搜索词、计划/单元/匹配及三种 SKU 角色，单源理论上限 16,384 页/2 GiB，三视图按来源逐项守恒；新旧纯测试 28 项通过。高分组合成 5 万行的分组/守恒约 65.3 秒、主 SQLite 文件约 674 MiB，不能线性外推参考 575,095 行。临时主 SQLite 文件与输出有硬上限，但整个临时目录峰值及真实耗时未验，当前仍是未注册候选，不把调用方提供的重放 proof 当权威封存。
+
+[品类/SPU 三窗口候选](AI_BUSINESS_CATEGORY_SPU_COMPARE_CANDIDATE.md)完整重算 ERP 五层回卷中品类/SPU 对已分配 SKU 的逐日守恒，并把商智原生 SPU 独立保留；相关纯测 21 项通过。ERP 映射来自当前 master，历史归属未验证，故各期数值可展示但 ERP 品类/SPU 跨期差额和增长率留空；原生 SPU 仅在同 ID、每日可见、指标无缺值且正基期时比较。无正式 Agent/文件。
 
 
 ## 四种状态的含义
