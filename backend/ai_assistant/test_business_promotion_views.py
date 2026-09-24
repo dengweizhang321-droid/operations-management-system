@@ -13,6 +13,7 @@ from netshop.models import NetshopRow
 from business_analysis.contracts import AnalysisContractError
 from . import business_evidence as evidence, business_promotion_views as service
 from . import test_business_integrated_guard as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, canonical, digest
 
 
@@ -41,6 +42,10 @@ class BusinessPromotionViewTests(djtest.TransactionTestCase):
         return evidence.get_run(row.id, self.admin)
 
     def ad(self, number, plan, unit, match, amount, *, date="2026-08-01", shop=None):
+        if not connection.in_atomic_block:
+            with versioned_netshop_facts():
+                return self.ad(number, plan, unit, match, amount,
+                    date=date, shop=shop)
         values = dict(source_row_hash=digest([number, plan, unit, match, amount, date]),
             source_row_number=number+1, first_import_batch_id="fixture", last_import_batch_id="fixture",
             source="jd_promotion", dataset="ad", platform="京东", shop_name=shop or self.query["shop"],
@@ -53,11 +58,12 @@ class BusinessPromotionViewTests(djtest.TransactionTestCase):
 
     def setUp(self):
         fixtures.BusinessIntegratedGuardTests.setUp(self)
-        for args in ((0,"P1","U1","精确",100),(1,"P1","U1","广泛",200),
-                (2,"P1","U2",None,300),(3,"P2","U1",None,400),(4,None,None,None,50)):
-            self.ad(*args)
-        self.ad(5,"P1","U1","精确",50,date="2026-07-31")
-        self.ad(6,"P1","U1","精确",900,shop="合成其他店")
+        with versioned_netshop_facts():
+            for args in ((0,"P1","U1","精确",100),(1,"P1","U1","广泛",200),
+                    (2,"P1","U2",None,300),(3,"P2","U1",None,400),(4,None,None,None,50)):
+                self.ad(*args)
+            self.ad(5,"P1","U1","精确",50,date="2026-07-31")
+            self.ad(6,"P1","U1","精确",900,shop="合成其他店")
         body = deepcopy(self.evidence_body)
         body.update(clientRequestId="promotion-owning-fixed", sources=deepcopy(self.sources))
         current = next(source for source in body["sources"] if source["key"] == "ads")

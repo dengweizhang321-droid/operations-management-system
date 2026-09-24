@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django import test as djtest
 from . import business_screening_diagnosis as service, business_screening_tools as tools
+from .test_business_evidence import versioned_netshop_facts
 from . import business_screening_claims as claims, test_business_screening_tools as fixtures
 from .policy import AiError, canonical
 
@@ -29,8 +30,9 @@ def answer(role,reference=None):
 def candidate_evidence(case):
     """Create a fresh real sealed source with deterministic zero-GMV spend."""
     from netshop.models import NetshopRow
-    NetshopRow.objects.filter(source="jd_promotion").update(net_transaction_amount_cents=0,
-        metrics_json={"spendCents":3000,"netTransactionAmountCents":0,"clicks":300,"impressions":3000,"netOrders":30})
+    with versioned_netshop_facts():
+        NetshopRow.objects.filter(source="jd_promotion").update(net_transaction_amount_cents=0,
+            metrics_json={"spendCents":3000,"netTransactionAmountCents":0,"clicks":300,"impressions":3000,"netOrders":30})
     body=deepcopy(case.evidence_body)
     body.update(clientRequestId="screen-content-candidate",sources=deepcopy(case.sources),
         analysisRequest={"schemaVersion":"business-analysis-request-v1","question":"合成有费用零成交",

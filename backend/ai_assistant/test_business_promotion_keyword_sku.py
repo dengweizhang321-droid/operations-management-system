@@ -3,15 +3,20 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 from django import test as djtest
 from django.db import connection
+from django.http import QueryDict
 from django.test.utils import CaptureQueriesContext
+from netshop import analysis_continuation as netshop_continuation
 from netshop.models import NetshopRow
 
 from business_analysis.contracts import AnalysisContractError
 from . import business_promotion_keyword_sku as service
+from . import business_collection_continuation as collection_continuation
 from . import test_business_promotion_views as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, canonical, digest
 
 
@@ -27,6 +32,9 @@ class BusinessPromotionKeywordSkuTests(djtest.TransactionTestCase):
     collect_body = fixtures.BusinessPromotionViewTests.collect_body
 
     def ad(self, number, plan, unit, match, amount, **kwargs):
+        if not connection.in_atomic_block:
+            with versioned_netshop_facts():
+                return self.ad(number, plan, unit, match, amount, **kwargs)
         fixtures.BusinessPromotionViewTests.ad(self, number, plan, unit, match, amount, **kwargs)
         row = NetshopRow.objects.get(source_row_key="integrated-ad-"+str(number))
         keyword = None if number == 4 else "切肉机" if number != 2 else "绞肉机"
@@ -87,10 +95,11 @@ class BusinessPromotionKeywordSkuTests(djtest.TransactionTestCase):
         with self.assertRaises(AnalysisContractError): opened.header()
 
     def test_explicit_missing_columns_preserve_amount_not_generic_sku(self):
-        for row in NetshopRow.objects.filter(source="jd_promotion", shop_name=self.query["shop"]):
-            row.raw_json.pop("关键词", None); row.raw_json.pop("智能投放推广SKU ID", None)
-            row.source_row_hash = digest(["missing", row.raw_json, row.pk])
-            row.save(update_fields=["raw_json", "source_row_hash"])
+        with versioned_netshop_facts():
+            for row in NetshopRow.objects.filter(source="jd_promotion", shop_name=self.query["shop"]):
+                row.raw_json.pop("关键词", None); row.raw_json.pop("智能投放推广SKU ID", None)
+                row.source_row_hash = digest(["missing", row.raw_json, row.pk])
+                row.save(update_fields=["raw_json", "source_row_hash"])
         body = deepcopy(self.fixed_body); body["clientRequestId"] = "joint-missing-columns"
         self.parent = self.collect_body(body); self.report, _ = self.seed()
         result = self.page(baselineKey="ads-previous")
@@ -160,13 +169,28 @@ class BusinessPromotionKeywordSkuTests(djtest.TransactionTestCase):
         with self.assertRaises(AnalysisContractError): next(scan)
 
     def test_wide_complete_prefix_pagination_and_no_silent_truncation(self):
-        for number in range(20, 43):
-            self.ad(number, "计"*180, "单"*180, "精"*180, number)
-            row = NetshopRow.objects.get(source_row_key="integrated-ad-"+str(number))
-            row.raw_json.update({"关键词": "词"*180+str(number), "智能投放推广SKU ID": "货"*180})
-            row.source_row_hash = digest([number, row.raw_json])
-            row.save(update_fields=["raw_json", "source_row_hash"])
+        with versioned_netshop_facts():
+            for number in range(20, 43):
+                self.ad(number, "计"*180, "单"*180, "精"*180, number)
+                row = NetshopRow.objects.get(source_row_key="integrated-ad-"+str(number))
+                row.raw_json.update({"关键词": "词"*180+str(number), "智能投放推广SKU ID": "货"*180})
+                row.source_row_hash = digest([number, row.raw_json])
+                row.save(update_fields=["raw_json", "source_row_hash"])
         body = deepcopy(self.fixed_body); body["clientRequestId"] = "joint-wide"
+        original_execute = self.source_execute
+        tool_name = collection_continuation.TOOL
+        self.source_tools = [*self.source_tools,
+            {**deepcopy(self.source_tools[0]), "name": tool_name}]
+        def complete_source(name, arguments, principal, **kwargs):
+            if name != tool_name:
+                return original_execute(name, arguments, principal, **kwargs)
+            self.assertEqual(kwargs["surface"], "business_collection")
+            self.assertNotIn("domain", arguments)
+            page = netshop_continuation.read_page(principal,
+                QueryDict(urlencode(arguments)))
+            return {"toolName": name, "ok": True, "auditStatus": "recorded",
+                "data": page}
+        self.source_execute = complete_source
         self.parent = self.collect_body(body); self.report, _ = self.seed()
         actual, offset = [], 0
         with patch.object(service, "MAX_RESPONSE_BYTES", 16000):

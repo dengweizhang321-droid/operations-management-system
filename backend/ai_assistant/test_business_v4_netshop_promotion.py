@@ -38,19 +38,22 @@ class BusinessV4NetshopPromotionTests(TestCase):
         AppUser.objects.create(email=self.principal.email, display_name="Synthetic", role=role,
             status="active", scope=None, version=1, created_at=now, updated_at=now)
         NetshopDataRevision.objects.update_or_create(domain="netshop",
-            defaults={"revision": 7, "source_digest": "a" * 64})
-        NetshopRow.objects.bulk_create([NetshopRow(source_row_key=f"v4-promo-{index}",
-            source_row_hash=f"{index+1:064x}", first_import_batch_id="synthetic",
-            last_import_batch_id="synthetic", source_row_number=index+1,
-            source="jd_promotion", dataset="ad", platform="京东", shop_name="测试店",
-            business_date="2026-08-20", sku_id=str(index+1), spu_id="P1",
-            product_code="M1", spend_cents=100, net_transaction_amount_cents=1000,
-            impressions=20, clicks=2, net_orders=1,
-            metrics_json={"spendCents": 100, "netTransactionAmountCents": 1000,
-                          "impressions": 20, "clicks": 2, "netOrders": 1},
-            raw_json={"推广计划": "合成计划", "搜索词": "开水器"},
-            created_at="2026-09-24", updated_at="2026-09-24")
-            for index in range(101)])
+            defaults={"revision": 6, "source_digest": "b" * 64})
+        with transaction.atomic():
+            NetshopRow.objects.bulk_create([NetshopRow(source_row_key=f"v4-promo-{index}",
+                source_row_hash=f"{index+1:064x}", first_import_batch_id="synthetic",
+                last_import_batch_id="synthetic", source_row_number=index+1,
+                source="jd_promotion", dataset="ad", platform="京东", shop_name="测试店",
+                business_date="2026-08-20", sku_id=str(index+1), spu_id="P1",
+                product_code="M1", spend_cents=100, net_transaction_amount_cents=1000,
+                impressions=20, clicks=2, net_orders=1,
+                metrics_json={"spendCents": 100, "netTransactionAmountCents": 1000,
+                              "impressions": 20, "clicks": 2, "netOrders": 1},
+                raw_json={"推广计划": "合成计划", "搜索词": "开水器"},
+                created_at="2026-09-24", updated_at="2026-09-24")
+                for index in range(101)])
+            NetshopDataRevision.objects.filter(domain="netshop").update(
+                revision=7, source_digest="a" * 64)
         self.query = {"platform": "京东", "shop": "测试店", "dataset": "promotion",
             "startDate": "2026-08-20", "endDate": "2026-09-18", "window": "current"}
         finance = {"months": ["2026-08", "2026-09"],

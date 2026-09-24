@@ -16,6 +16,7 @@ from business_analysis.test_budget import fixture as budget_fixture
 from business_analysis.test_mapping_plan import source as plan_source
 from . import business_budget_store as budget_store, business_evidence as evidence, business_reports, models as m, workflows
 from . import test_business_identity as identity_fixture
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, canonical, digest, mutation
 
 
@@ -30,13 +31,14 @@ class BusinessIntegratedGuardTests(TransactionTestCase):
     def setUp(self):
         NetshopDataRevision.objects.get_or_create(domain="netshop", defaults={"revision": 0, "source_digest": "a"*64})
         identity_fixture.BusinessIdentityTests.setUp(self)
-        for i in range(2):
-            NetshopRow.objects.create(source_row_key=f"integrated-ad-{i}", source_row_hash=digest(["ad",i]),
-                first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
-                source="jd_promotion", dataset="ad", platform="京东", shop_name=self.query["shop"], business_date="2026-08-01",
-                sku_id=f"S{i}", spu_id="P1", spend_cents=3000, net_transaction_amount_cents=15000,
-                clicks=300, impressions=3000, net_orders=30,
-                metrics_json={"spendCents":3000,"netTransactionAmountCents":15000,"clicks":300,"impressions":3000,"netOrders":30}, raw_json={})
+        with versioned_netshop_facts():
+            for i in range(2):
+                NetshopRow.objects.create(source_row_key=f"integrated-ad-{i}", source_row_hash=digest(["ad",i]),
+                    first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
+                    source="jd_promotion", dataset="ad", platform="京东", shop_name=self.query["shop"], business_date="2026-08-01",
+                    sku_id=f"S{i}", spu_id="P1", spend_cents=3000, net_transaction_amount_cents=15000,
+                    clicks=300, impressions=3000, net_orders=30,
+                    metrics_json={"spendCents":3000,"netTransactionAmountCents":15000,"clicks":300,"impressions":3000,"netOrders":30}, raw_json={})
         body = deepcopy(self.evidence_body)
         body["clientRequestId"] = "integrated-evidence"
         body["sources"].append({"key":"ads","domain":"netshop","query":{

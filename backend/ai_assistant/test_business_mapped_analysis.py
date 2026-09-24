@@ -13,6 +13,7 @@ from business_analysis import mapped_results, mapping_plan
 from business_analysis.contracts import AnalysisContractError
 from . import business_budget, business_evidence as evidence, business_identity as identity
 from . import business_mapped_analysis as service, test_business_identity as identity_fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .business_sealed import Reader
 from .policy import AiError, canonical, digest
 
@@ -45,11 +46,12 @@ class BusinessMappedAnalysisTests(djtest.TestCase):
         return run_id
 
     def master(self, number, code, sku, spu):
-        NetshopRow.objects.create(source_row_key=f"mapped-master-{number}", source_row_hash=f"{number:064x}",
-            first_import_batch_id="master", last_import_batch_id="master", source_row_number=number,
-            source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
-            sku_id=sku, spu_id=spu, snapshot_date="2026-08-01", raw_json={"商家编码": code},
-            created_at="2026-08-01", updated_at="2026-08-01")
+        with versioned_netshop_facts():
+            NetshopRow.objects.create(source_row_key=f"mapped-master-{number}", source_row_hash=f"{number:064x}",
+                first_import_batch_id="master", last_import_batch_id="master", source_row_number=number,
+                source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
+                sku_id=sku, spu_id=spu, snapshot_date="2026-08-01", raw_json={"商家编码": code},
+                created_at="2026-08-01", updated_at="2026-08-01")
 
     def prior(self, identifier=100, **changes):
         make_line(identifier, f"mapped-prior-{identifier}", channel=self.query["channel"], online_spec_code="M1",

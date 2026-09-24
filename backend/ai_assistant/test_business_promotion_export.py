@@ -11,6 +11,7 @@ from netshop.analysis_continuation import read_page as continuation_page
 from netshop.models import NetshopRow
 from . import business_promotion_export as service
 from . import test_business_promotion_keyword_sku as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, digest
 
 
@@ -51,12 +52,13 @@ class PromotionExportTests(djtest.TransactionTestCase):
         self.assertEqual(len(result.manifest["tables"]), 2)
 
     def test_over_100_keyword_sku_rows_complete_pages_negative_values_and_multiple_plans(self):
-        for index in range(20,125):
-            self.ad(index, "PLAN-"+str(index%3), "UNIT-"+str(index), "精确", -5 if index == 20 else 10)
-            row = NetshopRow.objects.get(source_row_key="integrated-ad-"+str(index))
-            row.raw_json.update({"关键词": "同一个词", "智能投放推广SKU ID": "SKU-"+str(index)})
-            row.source_row_hash = digest([row.raw_json, row.spend_cents])
-            row.save(update_fields=["raw_json", "source_row_hash"])
+        with versioned_netshop_facts():
+            for index in range(20,125):
+                self.ad(index, "PLAN-"+str(index%3), "UNIT-"+str(index), "精确", -5 if index == 20 else 10)
+                row = NetshopRow.objects.get(source_row_key="integrated-ad-"+str(index))
+                row.raw_json.update({"关键词": "同一个词", "智能投放推广SKU ID": "SKU-"+str(index)})
+                row.source_row_hash = digest([row.raw_json, row.spend_cents])
+                row.save(update_fields=["raw_json", "source_row_hash"])
         # This source needs a second page. Exercise the actual owning continuation
         # instead of making the old fixture bypass its persisted checkpoint gate.
         self.source_tools.append({**self.source_tools[0], "name": "get_business_netshop_continuation_page"})

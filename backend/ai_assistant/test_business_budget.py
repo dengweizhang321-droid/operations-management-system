@@ -14,7 +14,7 @@ from business_analysis.test_budget import fixture
 from business_analysis.test_report_files import ReportData
 from business_analysis.report_files import NS, column_name
 from . import business_budget, business_evidence as evidence, business_reports as reports, business_export, models as m, workflows
-from .test_business_evidence import BusinessEvidenceTests
+from .test_business_evidence import BusinessEvidenceTests, versioned_netshop_facts
 from . import tests as fixtures
 from .policy import AiError, canonical
 
@@ -26,11 +26,12 @@ class BusinessBudgetTests(TestCase):
 
     def setUp(self):
         BusinessEvidenceTests.setUp(self)
-        for i in range(2):
-            NetshopRow.objects.create(source_row_key=f"budget-{i}", source_row_hash=f"{i+1:064x}", first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
-                source="jd_promotion", dataset="ad", platform="京东", shop_name="合成店", business_date="2026-08-01", sku_id=f"S{i}", spu_id="P1",
-                spend_cents=3000, net_transaction_amount_cents=15000, clicks=300, impressions=3000, net_orders=30,
-                metrics_json={"spendCents": 3000, "netTransactionAmountCents": 15000, "clicks": 300, "impressions": 3000, "netOrders": 30}, raw_json={})
+        with versioned_netshop_facts():
+            for i in range(2):
+                NetshopRow.objects.create(source_row_key=f"budget-{i}", source_row_hash=f"{i+1:064x}", first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
+                    source="jd_promotion", dataset="ad", platform="京东", shop_name="合成店", business_date="2026-08-01", sku_id=f"S{i}", spu_id="P1",
+                    spend_cents=3000, net_transaction_amount_cents=15000, clicks=300, impressions=3000, net_orders=30,
+                    metrics_json={"spendCents": 3000, "netTransactionAmountCents": 15000, "clicks": 300, "impressions": 3000, "netOrders": 30}, raw_json={})
         query = {"platform": "京东", "shop": "合成店", "dataset": "promotion", "startDate": "2026-08-01", "endDate": "2026-08-01"}
         body = {"clientRequestId": "budget-evidence", "sources": [{"key": "ads", "domain": "netshop", "query": query}]}
         self.evidence_id = evidence.create(body, self.admin)["item"]["id"]
@@ -160,7 +161,7 @@ class BusinessBudgetTests(TestCase):
             self.assertEqual(business_files.tick()['status'], 'ready')
             model.assert_not_called(); source.assert_not_called()
         item = business_files.mapping(business_files.get(file_id, self.admin))
-        self.assertEqual(item['manifest']['rendererVersion'], 3)
+        self.assertEqual(item['manifest']['rendererVersion'], 5)
         self.assertEqual(item['manifest']['budgetCalculator'], proof['budgetCalculator'])
 
     def test_stale_ref_overlap_nonpromotion_and_missing_dimension_rejected(self):

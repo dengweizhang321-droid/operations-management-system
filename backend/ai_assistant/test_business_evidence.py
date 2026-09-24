@@ -1,4 +1,5 @@
 from copy import deepcopy
+from contextlib import contextmanager
 from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.db import connection, transaction, DatabaseError
@@ -8,6 +9,21 @@ from business_analysis.contracts import SCHEMA_VERSION, digest as page_digest, c
 from business_analysis.identity import product_reconciliation
 from . import tests as fixtures, models as m, business_evidence as evidence
 from .policy import AiError, canonical, digest
+
+
+@contextmanager
+def versioned_netshop_facts():
+    """Commit synthetic owning rows with a same-transaction source revision."""
+    from netshop.models import NetshopDataRevision
+    with transaction.atomic():
+        revision, _ = NetshopDataRevision.objects.select_for_update().get_or_create(
+            domain="netshop", defaults={"revision": 0, "source_digest": "a" * 64})
+        yield
+        revision.refresh_from_db()
+        revision.revision += 1
+        revision.source_digest = digest(["synthetic-netshop-facts",
+            revision.source_digest, revision.revision])
+        revision.save(update_fields=["revision", "source_digest", "updated_at"])
 
 
 @override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
@@ -221,12 +237,13 @@ class BusinessEvidenceTests(TestCase):
         from django.http import QueryDict
         from urllib.parse import urlencode
         SalesOrderLine.objects.filter(pk=1).update(online_spec_code="")
-        NetshopImportBatch.objects.create(id="master", source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
-            file_name="synthetic.xlsx", file_size_bytes=1, file_hash="a"*64, raw_file_hash="a"*64, content_hash="a"*64, scope_key="a"*64,
-            status="completed", snapshot_date="2026-08-01", created_at="2026-08-01", completed_at="2026-08-01")
-        NetshopRow.objects.create(source_row_key="master-1", source_row_hash="b"*64, first_import_batch_id="master", last_import_batch_id="master",
-            source_row_number=1, source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店", sku_id="SKU1", spu_id="SPU1",
-            snapshot_date="2026-08-01", raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
+        with versioned_netshop_facts():
+            NetshopImportBatch.objects.create(id="master", source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
+                file_name="synthetic.xlsx", file_size_bytes=1, file_hash="a"*64, raw_file_hash="a"*64, content_hash="a"*64, scope_key="a"*64,
+                status="completed", snapshot_date="2026-08-01", created_at="2026-08-01", completed_at="2026-08-01")
+            NetshopRow.objects.create(source_row_key="master-1", source_row_hash="b"*64, first_import_batch_id="master", last_import_batch_id="master",
+                source_row_number=1, source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店", sku_id="SKU1", spu_id="SPU1",
+                snapshot_date="2026-08-01", raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
         body = deepcopy(self.body)
         body["sources"].append({"key": "master", "domain": "netshop", "query": {**{k: v for k, v in self.query.items() if k != "channel"}, "dataset": "master"}})
         run_id = evidence.create(body, self.admin)["item"]["id"]

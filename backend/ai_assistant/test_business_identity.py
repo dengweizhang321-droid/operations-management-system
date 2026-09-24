@@ -15,6 +15,7 @@ from sales.analysis_continuation import read_page as sales_continuation_page
 from sales.tests.factories import signed_headers, TEST_SECRET, make_line
 from . import business_evidence as evidence, business_identity as identity, tests as fixtures
 from . import test_business_evidence as evidence_fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, digest
 
 
@@ -28,12 +29,13 @@ class BusinessIdentityTests(TestCase):
         for domain in ("sales", "erp"):
             SalesDataRevision.objects.get_or_create(domain=domain, defaults={"revision": 1, "source_digest": "a"*64})
         SalesOrderLine.objects.filter(pk=1).update(online_spec_code="")
-        NetshopImportBatch.objects.create(id="master", source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
-            file_name="synthetic.xlsx", file_size_bytes=1, file_hash="a"*64, raw_file_hash="a"*64, content_hash="a"*64, scope_key="a"*64,
-            status="completed", snapshot_date="2026-08-01", created_at="2026-08-01", completed_at="2026-08-01")
-        NetshopRow.objects.create(source_row_key="master-1", source_row_hash="b"*64, first_import_batch_id="master", last_import_batch_id="master",
-            source_row_number=1, source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店", sku_id="SKU1", spu_id="SPU1",
-            snapshot_date="2026-08-01", raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
+        with versioned_netshop_facts():
+            NetshopImportBatch.objects.create(id="master", source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店",
+                file_name="synthetic.xlsx", file_size_bytes=1, file_hash="a"*64, raw_file_hash="a"*64, content_hash="a"*64, scope_key="a"*64,
+                status="completed", snapshot_date="2026-08-01", created_at="2026-08-01", completed_at="2026-08-01")
+            NetshopRow.objects.create(source_row_key="master-1", source_row_hash="b"*64, first_import_batch_id="master", last_import_batch_id="master",
+                source_row_number=1, source="jd_product_master", dataset="product_master", platform="京东", shop_name="京东一店", sku_id="SKU1", spu_id="SPU1",
+                snapshot_date="2026-08-01", raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
         body = deepcopy(self.body)
         body.update(schemaVersion="business-evidence-v2", collectionMode="bulk")
         body["sources"].append({"key": "master", "domain": "netshop", "query": {**{k:v for k,v in self.query.items() if k != "channel"}, "dataset": "master"}})

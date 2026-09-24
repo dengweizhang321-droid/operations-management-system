@@ -170,7 +170,9 @@ class BusinessBudgetReportTests(TransactionTestCase):
             self.assertEqual(hashlib.sha256(raw).hexdigest(), descriptor["sha256"])
             downloaded[descriptor["volumeIndex"], descriptor["format"]] = raw
         complete = volume_delivery.verify_full(compact, downloaded[0,"json"], binding_digest=saved.binding_digest,
-            attempt=saved.attempt, draft=False, report_id=report.id, evidence_digest=self.prepared.binding["sealedDigest"])
+            attempt=saved.attempt, draft=False, report_id=report.id,
+            evidence_digest=self.prepared.binding["sealedDigest"],
+            renderer_version=saved.renderer_version)
         self.assertEqual(complete["budgetPlanDigest"], self.prepared.reference["planDigest"])
         self.assertEqual(store.load(report, self.admin).result["allocation"]["allocatedCents"], 9000)
         self.assertFalse(m.AiAgentProviderDispatches.objects.filter(state="unknown").exists())

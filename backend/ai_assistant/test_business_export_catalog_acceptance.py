@@ -24,6 +24,7 @@ from business_analysis.report_files import MAX_TABLES
 from business_analysis.test_report_files import ReportData
 from business_analysis.volume_files import VolumeStreams
 from . import business_evidence as evidence, business_export, business_reports as reports, models as m, tests as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError
 
 
@@ -36,26 +37,27 @@ class BusinessExportCatalogAcceptanceTests(TestCase):
         self.admin = self.user("volume-acceptance@example.invalid", "admin", None)
         self.shop, self.channel = "合成完整店", "京东-合成完整店"
         days = ("2026-08-01", "2026-07-31", "2025-08-01")
-        for index, day in enumerate(days, 1):
-            make_line(index, "volume-erp-"+str(index), shop_name=self.shop, channel=self.channel,
-                ship_time=day+" 10:00:00", line_ship_time=day+" 10:00:00", sales_time=day+" 08:00:00",
-                online_spec_code="CODE-1", category="饮水机").save()
-            for dataset in ("promotion", "sku", "spu", "b2b"):
-                source, kind = SOURCES[dataset]["京东"]
-                NetshopRow.objects.create(source_row_key=f"volume-{dataset}-{index}", source_row_hash=hashlib.sha256(f"{dataset}-{index}".encode()).hexdigest(),
-                    first_import_batch_id="synthetic", last_import_batch_id="synthetic", source_row_number=index,
-                    source=source, dataset=kind, platform="京东", shop_name=self.shop, business_date=day,
-                    sku_id="SKU-1" if dataset != "spu" else "", spu_id="SPU-1", category="饮水机", product_name="合成产品",
-                    spend_cents=1000*index, net_transaction_amount_cents=5000*index, clicks=10*index, impressions=100*index, net_orders=index,
-                    transaction_amount_cents=4000*index, transaction_quantity=index, visitors=20*index, page_views=30*index, transaction_orders=index,
-                    metrics_json={"spendCents": 1000*index, "netTransactionAmountCents": 5000*index, "clicks": 10*index, "impressions": 100*index,
-                        "netOrders": index, "transactionAmountCents": 4000*index, "transactionQuantity": index, "visitors": 20*index, "pageViews": 30*index, "transactionOrders": index},
-                    raw_json={"关键词": "合成关键词", "搜索词": "合成搜索词"})
-            MarketRankingEntry.objects.create(natural_key="volume-market-"+str(index), source_row_number=index,
-                period_start=day, period_end=day, category="饮水机", scope="POP", ranking_dimension="SKU", price_band_filter="全部",
-                sku_code="MARKET-1", product_name="合成市场产品", brand="合成品牌", rank=1,
-                gmv_low_cents=2000*index, gmv_high_cents=3000*index, quantity_low=index, quantity_high=2*index,
-                last_import_batch_id="synthetic")
+        with versioned_netshop_facts():
+            for index, day in enumerate(days, 1):
+                make_line(index, "volume-erp-"+str(index), shop_name=self.shop, channel=self.channel,
+                    ship_time=day+" 10:00:00", line_ship_time=day+" 10:00:00", sales_time=day+" 08:00:00",
+                    online_spec_code="CODE-1", category="饮水机").save()
+                for dataset in ("promotion", "sku", "spu", "b2b"):
+                    source, kind = SOURCES[dataset]["京东"]
+                    NetshopRow.objects.create(source_row_key=f"volume-{dataset}-{index}", source_row_hash=hashlib.sha256(f"{dataset}-{index}".encode()).hexdigest(),
+                        first_import_batch_id="synthetic", last_import_batch_id="synthetic", source_row_number=index,
+                        source=source, dataset=kind, platform="京东", shop_name=self.shop, business_date=day,
+                        sku_id="SKU-1" if dataset != "spu" else "", spu_id="SPU-1", category="饮水机", product_name="合成产品",
+                        spend_cents=1000*index, net_transaction_amount_cents=5000*index, clicks=10*index, impressions=100*index, net_orders=index,
+                        transaction_amount_cents=4000*index, transaction_quantity=index, visitors=20*index, page_views=30*index, transaction_orders=index,
+                        metrics_json={"spendCents": 1000*index, "netTransactionAmountCents": 5000*index, "clicks": 10*index, "impressions": 100*index,
+                            "netOrders": index, "transactionAmountCents": 4000*index, "transactionQuantity": index, "visitors": 20*index, "pageViews": 30*index, "transactionOrders": index},
+                        raw_json={"关键词": "合成关键词", "搜索词": "合成搜索词"})
+                MarketRankingEntry.objects.create(natural_key="volume-market-"+str(index), source_row_number=index,
+                    period_start=day, period_end=day, category="饮水机", scope="POP", ranking_dimension="SKU", price_band_filter="全部",
+                    sku_code="MARKET-1", product_name="合成市场产品", brand="合成品牌", rank=1,
+                    gmv_low_cents=2000*index, gmv_high_cents=3000*index, quantity_low=index, quantity_high=2*index,
+                    last_import_batch_id="synthetic")
         common = {"platform": "京东", "startDate": days[0], "endDate": days[0]}
         self.sources = []
         for window in ("current", "previous", "yearAgo"):

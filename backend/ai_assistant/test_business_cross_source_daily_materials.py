@@ -11,6 +11,7 @@ from netshop.models import NetshopRow
 from business_analysis import mapping_plan
 from . import business_cross_source_daily_materials as owning, models as m
 from . import test_business_integrated_guard as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, digest
 
 
@@ -28,17 +29,18 @@ class BusinessCrossSourceDailyMaterialTests(djtest.TransactionTestCase):
     collect_body = fixtures.BusinessIntegratedGuardTests.collect_body
 
     def setUp(self):
-        fixtures.BusinessIntegratedGuardTests.setUp(self)
-        NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
-        self._native("sku-1", "sku_daily", "SKU1", payment=0,
-            metrics={"transactionAmountCents": 0, "visitors": 3,
-                "transactionQuantity": 1, "pageViews": 5, "transactionOrders": 1})
-        self._native("sku-missing-payment", "sku_daily", "SKU1", payment=0,
-            metrics={"visitors": 2, "transactionQuantity": 1,
-                "pageViews": 4, "transactionOrders": 1})
-        self._native("spu-1", "spu_daily", "", payment=70,
-            metrics={"transactionAmountCents": 70, "visitors": 4,
-                "transactionQuantity": 1, "pageViews": 5, "transactionOrders": 1})
+        with versioned_netshop_facts():
+            fixtures.BusinessIntegratedGuardTests.setUp(self)
+            NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
+            self._native("sku-1", "sku_daily", "SKU1", payment=0,
+                metrics={"transactionAmountCents": 0, "visitors": 3,
+                    "transactionQuantity": 1, "pageViews": 5, "transactionOrders": 1})
+            self._native("sku-missing-payment", "sku_daily", "SKU1", payment=0,
+                metrics={"visitors": 2, "transactionQuantity": 1,
+                    "pageViews": 4, "transactionOrders": 1})
+            self._native("spu-1", "spu_daily", "", payment=70,
+                metrics={"transactionAmountCents": 70, "visitors": 4,
+                    "transactionQuantity": 1, "pageViews": 5, "transactionOrders": 1})
         self.sources = [*self.sources,
             {"key": "sku", "domain": "netshop", "query": {
                 **{key: value for key, value in self.query.items() if key != "channel"},
@@ -55,6 +57,10 @@ class BusinessCrossSourceDailyMaterialTests(djtest.TransactionTestCase):
         self.pair = self.plan["plan"]["pairs"][0]["pairKey"]
 
     def _native(self, key, dataset, sku, *, payment, metrics, row_hash=None):
+        if not connection.in_atomic_block:
+            with versioned_netshop_facts():
+                return self._native(key, dataset, sku, payment=payment,
+                    metrics=metrics, row_hash=row_hash)
         NetshopRow.objects.create(source_row_key="cross-daily-"+key,
             source_row_hash=row_hash or digest(["cross-daily", key]),
             first_import_batch_id="fixture", last_import_batch_id="fixture",

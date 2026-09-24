@@ -135,7 +135,7 @@ class BusinessIntegratedReportTests(djtest.TransactionTestCase):
             model.assert_not_called(); network.assert_not_called()
         saved = business_files.get(file_id, self.admin)
         compact = json.loads(saved.manifest_json)
-        self.assertEqual((saved.renderer_version, compact["volumeCount"]), (4, 1))
+        self.assertEqual((saved.renderer_version, compact["volumeCount"]), (6, 1))
         downloaded = {}
         for descriptor in [*compact["files"], compact["manifestFile"]]:
             raw = b"".join(base64.b64decode(business_volume_files.chunk(file_id, str(descriptor["volumeIndex"]), descriptor["format"],
@@ -144,7 +144,8 @@ class BusinessIntegratedReportTests(djtest.TransactionTestCase):
             self.assertEqual(hashlib.sha256(raw).hexdigest(), descriptor["sha256"])
             downloaded[descriptor["volumeIndex"], descriptor["format"]] = raw
         complete = volume_delivery.verify_full(compact, downloaded[0,"json"], binding_digest=saved.binding_digest,
-            attempt=saved.attempt, draft=False, report_id=report.id, evidence_digest=snapshot["sealedDigest"])
+            attempt=saved.attempt, draft=False, report_id=report.id,
+            evidence_digest=snapshot["sealedDigest"], renderer_version=saved.renderer_version)
         self.assertEqual(complete["mappingPlanDigest"], snapshot["mappingPlanDigest"])
         self.assertEqual(complete["mappingAlgorithmVersion"], "exact-product-partition-v1")
         self.assertEqual(complete["mappedTableAlgorithmVersion"], "business-mapped-results-v1")

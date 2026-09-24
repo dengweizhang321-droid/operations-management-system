@@ -13,6 +13,7 @@ from sales.tests.factories import make_line
 
 from . import business_erp_rollup_materials as owning
 from . import test_business_integrated_guard as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, digest
 
 
@@ -42,7 +43,8 @@ class BusinessErpRollupMaterialTests(djtest.TransactionTestCase):
         self.report, _ = self.seed()
 
     def test_exact_report_five_typed_tables_and_complete_sealed_ndjson(self):
-        NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
+        with versioned_netshop_facts():
+            NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
         self.recollect("matched")
         with patch("ai_assistant.transport.execute_tool") as remote, CaptureQueriesContext(connection) as queries:
             with self.opened() as prepared:
@@ -71,14 +73,15 @@ class BusinessErpRollupMaterialTests(djtest.TransactionTestCase):
             for table in ("sales_order_lines", "netshop_rows")))
 
     def test_same_spu_two_skus_remains_unassigned_and_refund_zero_cost_conserve(self):
-        NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
-        NetshopRow.objects.create(source_row_key="erp-rollup-second-sku",
-            source_row_hash=digest(["master", "second"]), first_import_batch_id="master",
-            last_import_batch_id="master", source_row_number=2,
-            source="jd_product_master", dataset="product_master", platform="京东",
-            shop_name="京东一店", sku_id="SKU2", spu_id="SPU1",
-            category="平台类目", snapshot_date="2026-08-01",
-            raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
+        with versioned_netshop_facts():
+            NetshopRow.objects.filter(source_row_key="master-1").update(category="平台类目")
+            NetshopRow.objects.create(source_row_key="erp-rollup-second-sku",
+                source_row_hash=digest(["master", "second"]), first_import_batch_id="master",
+                last_import_batch_id="master", source_row_number=2,
+                source="jd_product_master", dataset="product_master", platform="京东",
+                shop_name="京东一店", sku_id="SKU2", spu_id="SPU1",
+                category="平台类目", snapshot_date="2026-08-01",
+                raw_json={"商家编码": "M1"}, created_at="2026-08-01", updated_at="2026-08-01")
         make_line(1001, "erp-rollup-refund", channel=self.query["channel"],
             online_spec_code="M1", quantity=-1, allocated_amount_cents=-5000,
             cost_amount_cents=-1000, gross_profit_cents=-4000,

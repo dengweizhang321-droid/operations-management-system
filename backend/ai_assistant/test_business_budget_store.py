@@ -16,6 +16,7 @@ from business_analysis.evidence_v2 import workflow_reference
 from business_analysis.test_budget import fixture
 from . import business_budget, business_budget_store as store, business_evidence as evidence, business_reports, models as m, workflows
 from . import tests as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, canonical, digest, mutation, uid
 
 
@@ -27,12 +28,13 @@ workflow is an inert restoration fixture, not an admitted budget execution.
 Returns (report, PreparedBudget), and performs no paid or remote business call.
 """
     shop = "预算合成"+digest(report_id)[:12]
-    for i in range(2):
-        NetshopRow.objects.create(source_row_key=f"{report_id}-{i}", source_row_hash=digest([report_id,i]),
-            first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
-            source="jd_promotion", dataset="ad", platform="京东", shop_name=shop, business_date="2026-08-01",
-            sku_id=f"S{i}", spu_id="P1", spend_cents=3000, net_transaction_amount_cents=15000, clicks=300, impressions=3000, net_orders=30,
-            metrics_json={"spendCents":3000,"netTransactionAmountCents":15000,"clicks":300,"impressions":3000,"netOrders":30}, raw_json={})
+    with versioned_netshop_facts():
+        for i in range(2):
+            NetshopRow.objects.create(source_row_key=f"{report_id}-{i}", source_row_hash=digest([report_id,i]),
+                first_import_batch_id="fixture", last_import_batch_id="fixture", source_row_number=i+1,
+                source="jd_promotion", dataset="ad", platform="京东", shop_name=shop, business_date="2026-08-01",
+                sku_id=f"S{i}", spu_id="P1", spend_cents=3000, net_transaction_amount_cents=15000, clicks=300, impressions=3000, net_orders=30,
+                metrics_json={"spendCents":3000,"netTransactionAmountCents":15000,"clicks":300,"impressions":3000,"netOrders":30}, raw_json={})
     source = {"key":"ads","domain":"netshop","query":{"platform":"京东","shop":shop,"dataset":"promotion",
         "startDate":"2026-08-01","endDate":"2026-08-01","window":"current"}}
     request = {"schemaVersion":"business-analysis-request-v1","question":"合成固定预算验证",

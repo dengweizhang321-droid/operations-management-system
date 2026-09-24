@@ -21,6 +21,7 @@ from business_analysis import mapping_plan, screening_package as pure
 from . import business_diagnostic_screening as screening, business_screening_store as store
 from . import business_screening_packages as packages, business_screening_claims as service
 from . import test_business_diagnostic_screening as fixtures
+from .test_business_evidence import versioned_netshop_facts
 from .policy import AiError, canonical, digest
 
 
@@ -42,13 +43,14 @@ class ScreeningClaimsTests(djtest.TransactionTestCase):
             make_line(key,"claims-before-"+str(key),channel=self.query["channel"],online_spec_code="M1",
                 allocated_amount_cents=amount,cost_amount_cents=0,
                 ship_time="2026-07-31 10:00:00",line_ship_time="2026-07-31 10:00:00").save()
-        NetshopRow.objects.filter(source="jd_promotion").update(net_transaction_amount_cents=0,
-            metrics_json={"spendCents":3000,"netTransactionAmountCents":0,"clicks":300,"impressions":3000,"netOrders":30})
-        NetshopRow.objects.create(source_row_key="claims-ad-previous",source_row_hash=digest("claims-ad-previous"),
-            first_import_batch_id="fixture",last_import_batch_id="fixture",source_row_number=100,
-            source="jd_promotion",dataset="ad",platform="京东",shop_name=self.query["shop"],business_date="2026-07-31",
-            sku_id="S0",spu_id="P1",spend_cents=100,net_transaction_amount_cents=1000,clicks=10,impressions=100,net_orders=1,
-            metrics_json={"spendCents":100,"netTransactionAmountCents":1000,"clicks":10,"impressions":100,"netOrders":1},raw_json={})
+        with versioned_netshop_facts():
+            NetshopRow.objects.filter(source="jd_promotion").update(net_transaction_amount_cents=0,
+                metrics_json={"spendCents":3000,"netTransactionAmountCents":0,"clicks":300,"impressions":3000,"netOrders":30})
+            NetshopRow.objects.create(source_row_key="claims-ad-previous",source_row_hash=digest("claims-ad-previous"),
+                first_import_batch_id="fixture",last_import_batch_id="fixture",source_row_number=100,
+                source="jd_promotion",dataset="ad",platform="京东",shop_name=self.query["shop"],business_date="2026-07-31",
+                sku_id="S0",spu_id="P1",spend_cents=100,net_transaction_amount_cents=1000,clicks=10,impressions=100,net_orders=1,
+                metrics_json={"spendCents":100,"netTransactionAmountCents":1000,"clicks":10,"impressions":100,"netOrders":1},raw_json={})
         body = deepcopy(self.evidence_body)
         body.update(clientRequestId="claims-evidence",sources=deepcopy(self.sources),
             analysisRequest={"schemaVersion":"business-analysis-request-v1","question":"合成退款与推广候选引用",
