@@ -19,7 +19,7 @@ from netshop.models import NetshopDataRevision, NetshopRow
 from sales.auth import Principal
 from business_analysis.contracts import PageReconciler
 
-from . import business_v4_netshop_promotion as collector, models as m, transport
+from . import business_v4_netshop_promotion as collector, chat, models as m, transport
 from .policy import AiError, canonical, digest, uid
 
 
@@ -85,6 +85,7 @@ class BusinessV4NetshopPromotionTests(TestCase):
                     source_identity_digest=entry["sourceIdentityDigest"],
                     source_revision_hint=entry["sourceRevisionHint"])
         self.calls = []
+        self.audit_arguments_digest_override = None
 
     def owner(self, name, arguments, principal, **kwargs):
         self.calls.append((name, arguments))
@@ -99,7 +100,9 @@ class BusinessV4NetshopPromotionTests(TestCase):
         m.AiToolAuditLogs.objects.create(id=uid("audit"), request_id=kwargs["request_id"],
             invocation_id=uid("invocation"), actor_email=self.principal.email,
             actor_role="admin", surface="business_collection", tool_name=name,
-            arguments_json="{}", status="succeeded", duration_ms=1,
+            arguments_json=canonical({"argumentsDigest":
+                self.audit_arguments_digest_override or digest(arguments)}),
+            status="succeeded", duration_ms=1,
             response_digest=digest(canonical(page)))
         return {"ok": True, "toolName": name, "data": page}
 
@@ -162,6 +165,27 @@ class BusinessV4NetshopPromotionTests(TestCase):
         self.assertEqual(m.AiBusinessV4Chunk.objects.filter(run=self.parent).count(), before)
         self.assertEqual(m.AiBusinessV4Source.objects.get(pk=self.sources["promotion-current"].pk).source_ref,
                          one["sourceRef"])
+
+    def test_long_cursor_audit_is_digest_only_and_wrong_digest_never_appends(self):
+        raw_arguments = {"cursor": "signed-" + "x" * 1600,
+                         "expectedLastId": 92, "expectedSourceRef": "a" * 64}
+        chat.audit(self.principal, "digest-only", collector.CONTINUATION_TOOL,
+            "succeeded", arguments=raw_arguments, result={"returned": 1},
+            surface="business_collection")
+        audited = m.AiToolAuditLogs.objects.get(request_id="digest-only")
+        self.assertEqual(audited.arguments_json,
+            canonical({"argumentsDigest": digest(raw_arguments)}))
+        self.assertNotIn(raw_arguments["cursor"], audited.arguments_json)
+        chat.audit(self.principal, "legacy-summary", collector.CONTINUATION_TOOL,
+            "succeeded", arguments=raw_arguments, result={"returned": 1},
+            surface="ai_agent")
+        legacy = m.AiToolAuditLogs.objects.get(request_id="legacy-summary")
+        self.assertIn(raw_arguments["cursor"][:240], legacy.arguments_json)
+        self.assertNotIn(raw_arguments["cursor"][:241], legacy.arguments_json)
+        self.assertNotIn(raw_arguments["cursor"], legacy.arguments_json)
+        self.audit_arguments_digest_override = "0" * 64
+        with self.assertRaises(AiError): self.advance(1, "wrong-args-digest")
+        self.assertFalse(m.AiBusinessV4Chunk.objects.filter(run=self.parent).exists())
 
     def test_synthetic_1000_page_resume_uses_one_indexed_last_chunk_lookup(self):
         source = self.sources["promotion-current"]

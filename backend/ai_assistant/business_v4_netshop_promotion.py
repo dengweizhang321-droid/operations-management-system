@@ -193,11 +193,12 @@ def _unchanged(prepared, principal):
         raise AiError("v4采集期间来源或父任务CAS变化", "version_conflict", 409)
 
 
-def _audit(principal, request_id, tool, encoded, started_at):
+def _audit(principal, request_id, tool, arguments, encoded, started_at):
     records = list(m.AiToolAuditLogs.objects.filter(request_id=request_id,
         actor_email=principal.email.lower(), actor_role="admin",
         surface="business_collection", tool_name=tool, status="succeeded",
         response_digest=digest(encoded), error_code__isnull=True,
+        arguments_json=canonical({"argumentsDigest": digest(arguments)}),
         created_at__gte=started_at).values("id", "invocation_id")[:2])
     if len(records) != 1:
         _reject("v4来源页缺少唯一、当前调用的成功签名工具审计")
@@ -219,8 +220,9 @@ def advance(run_id, source_key, expected_version, principal, request_id):
             or matches[0].get("execution", {}).get("allowedSurfaces") != ["business_collection"]):
         raise AiError("v4拥有方签名工具策略不可用", "access_denied", 403)
     started_at = timezone.now()
+    arguments = prepared.arguments()
     with transport.request_budget(30):
-        page = _result(transport.execute_tool(prepared.tool, prepared.arguments(), principal,
+        page = _result(transport.execute_tool(prepared.tool, arguments, principal,
             surface="business_collection", request_id=request_id,
             policy_digest=digest(entries)), prepared.tool)
     _unchanged(prepared, principal)
@@ -260,7 +262,7 @@ def advance(run_id, source_key, expected_version, principal, request_id):
     except (AnalysisContractError, KeyError, TypeError, ValueError, AttributeError,
             RecursionError) as error:
         raise AiError("v4拥有方推广页未通过完整过滤器、修订或行链校验", "conflict", 409) from error
-    audit = _audit(principal, request_id, prepared.tool, encoded, started_at)
+    audit = _audit(principal, request_id, prepared.tool, arguments, encoded, started_at)
     with mutation(principal):
         if canonical(actor_service._actor(principal)) != prepared.actor_json:
             raise AiError("v4采集落地前账号权限变化", "access_denied", 403)

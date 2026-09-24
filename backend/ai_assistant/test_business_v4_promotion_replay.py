@@ -8,7 +8,7 @@ from access_control.models import AppUser
 from . import business_v4_promotion_replay as replay
 from . import test_business_v4_netshop_promotion as collector_fixture
 from . import models as m
-from .policy import AiError, digest
+from .policy import AiError, canonical, digest
 
 
 class BusinessV4PromotionReplayTests(TestCase):
@@ -34,10 +34,10 @@ class BusinessV4PromotionReplayTests(TestCase):
         self.assertTrue(result["fullSourceReplayVerified"])
         self.assertTrue(result["internalToolAuditBound"])
         self.assertTrue(result["payloadCursorChainVerified"])
+        self.assertTrue(result["requestCursorAuditVerified"])
         for field in ("upstreamSignatureVerified", "sealed",
                 "persistentEvidenceVerified", "reportGenerationSupported",
-                "registeredAgentTool", "registeredRenderer",
-                "requestCursorAuditVerified"):
+                "registeredAgentTool", "registeredRenderer"):
             self.assertFalse(result[field])
         self.assertEqual(result["reconciliation"]["rowCount"], 101)
         self.assertEqual(result["proofDigest"], digest({k:v for k,v in result.items()
@@ -96,8 +96,38 @@ class BusinessV4PromotionReplayTests(TestCase):
         value = self.inspect()
         self.assertEqual(len(value["receiptChainDigest"]), 64)
         self.assertFalse(value["upstreamSignatureVerified"])
-        self.assertFalse(value["requestCursorAuditVerified"])
+        self.assertTrue(value["requestCursorAuditVerified"])
         self.assertFalse(value["sealed"])
+
+    def test_second_page_audit_digest_or_requested_cursor_mismatch_rejected(self):
+        self.complete()
+        first = json.loads(m.AiBusinessV4Chunk.objects.get(run=self.parent,
+            source=self.sources["promotion-current"], sequence=1).payload_json)
+        second = m.AiBusinessV4ToolReceipt.objects.get(run=self.parent,
+            source=self.sources["promotion-current"], sequence=2)
+        expected = {**self.query, "limit": 100,
+            "cursor": first["pagination"]["nextCursor"],
+            "expectedSourceRef": first["sourceRef"],
+            "expectedRevision": first["sourceRevision"],
+            "expectedLastId": int(first["items"][-1]["rowId"])}
+        self.assertEqual(second.audit.arguments_json,
+            canonical({"argumentsDigest": digest(expected)}))
+        class TamperedAuditArguments:
+            def __init__(self, target, replacement):
+                self.target, self.replacement = target, replacement
+            def __get__(self, instance, owner):
+                if instance is None: return self
+                value = instance.__dict__.get("arguments_json")
+                return self.replacement if instance.id == self.target else value
+            def __set__(self, instance, value):
+                instance.__dict__["arguments_json"] = value
+        for forged in (canonical({"argumentsDigest": "0" * 64}),
+                       canonical({"argumentsDigest": digest({**expected,
+                           "cursor": "different-signed-cursor"})})):
+            with self.subTest(forged=forged), patch.object(m.AiToolAuditLogs,
+                    "arguments_json", TamperedAuditArguments(second.audit_id, forged)), \
+                    self.assertRaises(AiError):
+                self.inspect()
 
     def test_checkpoint_byte_preflight_and_extra_metric_are_rejected_before_reconcile(self):
         with patch.object(replay.json, "loads", side_effect=AssertionError("must not parse")) as parser:

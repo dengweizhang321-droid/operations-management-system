@@ -322,7 +322,9 @@ def audit(
             return value[:240]
         return value
 
-    summary = canonical({"argumentsDigest": digest(arguments or {})} if name == "run_pandas_analysis" else redact(arguments or {}))
+    summary = canonical({"argumentsDigest": digest(arguments or {})}
+        if name == "run_pandas_analysis" or surface == "business_collection"
+        else redact(arguments or {}))
     if len(summary) > 4000:
         summary = canonical({"digest": digest(summary), "truncated": True})
     m.AiToolAuditLogs.objects.create(

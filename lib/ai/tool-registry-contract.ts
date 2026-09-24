@@ -244,7 +244,13 @@ export async function executeToolCallWithRegistry(
   const providerCallId = context.providerCallId?.slice(0, 200) || undefined;
   let parsedArguments: Record<string, unknown> = {};
   let argumentsForAudit: unknown = rawArguments;
+  let argumentsValidated = false;
   const summarize = options.summarizeArguments ?? ((value: unknown) => value);
+  // Only the signed internal collection surface sends the exact validated
+  // handler arguments to Django. Django persists their digest, never this
+  // object; every other surface retains the existing redacted summary.
+  const auditArguments = () => context.surface === "business_collection" && argumentsValidated
+    ? argumentsForAudit : summarize(argumentsForAudit);
   try {
     if (!entry) throw new RegistryToolError("unknown_tool", "工具不存在或未注册");
     if (!entry.allowedRoles.includes(context.principal.role)) {
@@ -272,6 +278,7 @@ export async function executeToolCallWithRegistry(
     parsedArguments = parseToolArguments(rawArguments);
     validateToolArguments(parsedArguments, entry.inputSchema);
     argumentsForAudit = parsedArguments;
+    argumentsValidated = true;
     const preflightAudited = await tryAudit(options.audit, {
       requestId: context.requestId,
       invocationId,
@@ -280,7 +287,7 @@ export async function executeToolCallWithRegistry(
       actorRole: context.principal.role,
       surface: context.surface,
       toolName: name,
-      arguments: summarize(argumentsForAudit),
+      arguments: auditArguments(),
       status: "started",
       durationMs: performance.now() - startedAt,
     });
@@ -299,7 +306,7 @@ export async function executeToolCallWithRegistry(
       actorRole: context.principal.role,
       surface: context.surface,
       toolName: name,
-      arguments: summarize(argumentsForAudit),
+      arguments: auditArguments(),
       status: "succeeded",
       durationMs: performance.now() - startedAt,
       result: data,
@@ -327,7 +334,7 @@ export async function executeToolCallWithRegistry(
       actorRole: context.principal.role,
       surface: context.surface,
       toolName: name,
-      arguments: summarize(argumentsForAudit),
+      arguments: auditArguments(),
       status: "failed",
       durationMs: performance.now() - startedAt,
       errorCode: code,

@@ -198,6 +198,7 @@ def inspect(run_id, source_key, principal, *, checkpoint=None):
     verifier, pages, rows, size, last_digest, receipt_chain = (
         PageReconciler(), 0, 0, 0, None, digest([]))
     observed_dates = set()
+    requested_cursor, requested_last_id = None, None
     period = comparison_periods(query["startDate"], query["endDate"])["current"]
     _need(not m.AiBusinessSourceToolReceipt.objects.filter(audit_id__in=
         m.AiBusinessV4ToolReceipt.objects.filter(run_id=parent.id,
@@ -234,6 +235,17 @@ def inspect(run_id, source_key, principal, *, checkpoint=None):
                     or receipt.audit.created_at > chunk.created_at
                     or chunk.created_at > receipt.created_at):
                 _need(False, "v4推广页序或内部工具审计收据不完整")
+            expected_arguments = ({"domain": "netshop", **query, "limit": 100}
+                if pages == 1 else {**query, "limit": 100,
+                    "cursor": requested_cursor,
+                    "expectedSourceRef": source.source_ref,
+                    "expectedRevision": source.source_revision,
+                    "expectedLastId": requested_last_id})
+            _need((pages == 1 or type(requested_cursor) is str
+                and type(requested_last_id) is int and requested_last_id >= 1)
+                and receipt.audit.arguments_json == canonical({
+                    "argumentsDigest": digest(expected_arguments)}),
+                "v4推广工具审计不属于前页签名游标和精确查询")
             raw = chunk.payload_json
             encoded_size = len(raw.encode("utf-8"))
             size += encoded_size
@@ -251,13 +263,15 @@ def inspect(run_id, source_key, principal, *, checkpoint=None):
             _promotion_page(page, first=pages == 1)
             identity._identity({"domain":"netshop","query":query}, page,
                 saved["metadata"], pages == 1)
-            verifier.consume(page, request_cursor=verifier.expected_cursor)
+            verifier.consume(page, request_cursor=requested_cursor)
             observed_dates.update(item["date"] for item in page["items"])
             _need(chunk.row_count == len(page["items"])
                 and receipt.tool_name == (collector.FIRST_TOOL if pages == 1
                     else collector.CONTINUATION_TOOL),
                 "v4推广源行数或工具序列不一致")
             rows += chunk.row_count
+            requested_cursor = page["pagination"]["nextCursor"]
+            requested_last_id = int(page["items"][-1]["rowId"]) if requested_cursor else None
             last_digest = chunk.payload_digest
             receipt_chain = digest([receipt_chain, pages, chunk.payload_digest,
                 receipt.audit_id, receipt.invocation_id,
@@ -294,7 +308,7 @@ def inspect(run_id, source_key, principal, *, checkpoint=None):
         "receiptChainDigest":receipt_chain,
         "fullSourceReplayVerified":True, "internalToolAuditBound":True,
         "payloadCursorChainVerified":True,
-        "requestCursorAuditVerified":False,
+        "requestCursorAuditVerified":True,
         "upstreamSignatureVerified":False, "sealed":False,
         "persistentEvidenceVerified":False, "reportGenerationSupported":False,
         "registeredAgentTool":False, "registeredRenderer":False}
