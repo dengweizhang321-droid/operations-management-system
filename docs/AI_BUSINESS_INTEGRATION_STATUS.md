@@ -1,8 +1,46 @@
 # AI 经营分析：当前主线整合交付清单
 
-核对日期：2026-09-23。范围为 `codex/ai-business-current-integration` 的当前整合工作树及已明确保存的候选验证记录；不是生产状态证明。目标沿用原五阶段：让系统结合店铺、市场、网店销售、ERP/B 端及财务，完成多维明细、同比环比、多个专业 Agent 协同诊断、调整规划和工程级 HTML/XLSX。
+核对日期：2026-09-24。范围为 `codex/ai-business-current-integration` 的当前整合工作树及已明确保存的候选验证记录；不是生产状态证明。目标沿用原五阶段：让系统结合店铺、市场、网店销售、ERP/B 端及财务，完成多维明细、同比环比、多个专业 Agent 协同诊断、调整规划和工程级 HTML/XLSX。
 
-结论：保留已有分析、调度、证据和文件底座，先完成与当前主线的兼容整合，再补分析接线和真实验收。无需从头重写；不能把“代码已合进隔离工作树”或“某批测试通过”写成五阶段完成。
+结论：保留已有分析、调度、证据和文件底座，当前主线兼容整合及推广词货专项的隔离完整链路已完成。默认关闭的新入口有真实五 Agent 调度、人工复核与 HTML/XLSX 多卷签名下载；市场深诊断、财务 v3 正式 Agent/文件、店铺独立总览及真实业务/模型/原生 Excel/生产采用仍未闭合。不能把“代码已合进隔离工作树”或合成测试通过写成五阶段全部完成。
+
+> 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
+
+与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。
+
+参考差距的第一条数据底座继续补齐：单店 ERP/原生 SKU/SPU/推广三期来源有未注册的[精确选择合同](AI_BUSINESS_CROSS_SOURCE_KPI_PLAN.md)，参考推广源 575,095 行超过现有 v2 每来源 2,000×100 行上限会明确标不支持。ERP [逐事实归属](AI_BUSINESS_ERP_FACT_ASSIGNMENT.md)按当前 master 的完整唯一 SKU+SPU+品类归属，多义/不完整/未匹配保留源行和金额；[五层逐日回卷](AI_BUSINESS_ERP_FACT_ROLLUPS.md)分别对店铺、品类、SPU、SKU、未分配池按 11 项有符号 ERP 指标守恒。纯测试 7+9 项通过；尚未与网店/广告/财务合表，也没有进入正式 Agent/renderer。
+
+ERP 五层逐日材料随后绑定到封存 v2 integrated report 的固定 mappingPlan 与 sales/master pair，按真实 Reader 全页重算并核对前后账号/报告，产生五张临时类型表及 NDJSON/摘要。隔离 PG 4 项 `.runtime/ai-pg-3a3ced803741/tests.log`、更新后的纯 assignment+rollup 10 项通过；仍不进入正式 Agent/renderer，也不混合其他域金额，见[内部 ERP 材料说明](AI_BUSINESS_ERP_ROLLUP_OWNING.md)。大来源扩容的分期方案见[v4 大规模证据设计](AI_BUSINESS_LARGE_EVIDENCE_V4_PLAN.md)，未实施或上线。
+
+## 最新组合验证
+
+| 链路 | 当前状态与证据边界 |
+| --- | --- |
+| 推广词货五 Agent | 新 `screening-promotion-v1` 精确来源、上期/去年同期基期、四工具、每节点读取与数值引用、三专业角色→独立复核→报告、人审均已接真实持久运行路径。隔离 PostgreSQL 假提供者/假工具完整五 Agent→批准→文件测试通过，日志 `.runtime/ai-pg-c60392cc0a76/tests.log`；签名工作台详情 4 项、签名创建/人审/下载组合亦已通过。真实付费模型和业务判断尚未验收。入口由默认关闭的 `AI_PROMOTION_AGENT_RUNTIME_ENABLED` 控制。 |
+| 工程文件 | renderer 7 将封存原始/原生事实和推广分析表拆成完整 HTML/XLSX 多卷；19 来源、两卷、表/行/摘要同源测试通过 `.runtime/ai-pg-54ff6919563b/tests.log`。持久分块、续传、重建、取消及签名公开创建/下载正反例通过 `.runtime/ai-pg-e763642a09fd/tests.log`、`.runtime/ai-pg-3e571dcc7d65/tests.log`、`.runtime/ai-pg-1b8f8be6165c/tests.log`。公开下载现用完整六节点、五任务、审批时序及任务生命周期栅栏，READY 后篡改拒绝测试通过 `.runtime/ai-pg-c929e0b51153/tests.log`。旧 v4/v6 文件回归 14 项通过 `.runtime/ai-pg-512f146f2433/tests.log`。原生 Excel 开启/重算仍待有效 Office 环境。 |
+| 市场、财务 | 市场已到封存绑定只读页、区间价格带与精确两日观察的内部签名 Reader、三张完整数据材料；正式五 Agent/文件尚未纳入这些派生表。财务已有权限最小化 owning reader、签名内部读取、v3 计划/目录、纯续读检查点；0030/0031 允许财务和日来源分别签名续读与 CAS 落地，0032 给每页绑定不可变成功工具回执。0033 可内部封存并重新验证整份混合 v3，但无公开路由/自动调度或 v3 报告；新旧 PG/65→66 表独立备份恢复通过。内部追加限 64 页，跨源非原子快照、缺日/缺月均披露。新版比较规则保持纯候选，旧报告口径不变。 |
+| 兼容与采用 | 0025—0034 独立迁移/备份恢复、旧 AI 表及文件协议保护已验证；旧 screening HTTP/文件 13 项通过 `.runtime/ai-pg-d18f9a5db5de/tests.log`。上次全 Node 2543 项通过、20 项既有跳过、0 失败，v3 内部读取改动另有 PG 25 项、Node 14 项及构建通过；暂停后主线新增一笔导入链提交，需重新整合并跑受影响回归。主检出目录未修改，生产未部署、未调用付费模型。 |
+
+2026-09-24 追加：0030 finance-only 物理账本与只读重放已接入隔离工作树，24 项相关 PG、0029→0030 独立备份恢复通过；在这个检查点父 v3 仍为 `collecting/manual`，签名页 append 尚未开放，见[财务物理账本](AI_BUSINESS_FINANCE_V3_PHYSICAL_LEDGER.md)。推广工作台已要求从封存目录选精确京东本期来源与可选基期；新报告查看页按真实节点显示进度，在完整内容出现前标“未核验”，分别见[工作台与查看页](AI_BUSINESS_PROMOTION_WORKBENCH.md)。最终新迁移与完整五 Agent→人审→双格式交付同跑 2 项 PG 通过 `.runtime/ai-pg-d46e344e0d9a/tests.log`。报告查看页改动后的全 Node 组合回归尚未重跑。
+
+随后财务签名读取→单页 CAS 追加的内部函数已接，相关 PG 26 项、Node 58 项通过；仅 `business_collection` 无范围管理员可使用，最多 64 页，无公开路由/自动调度，父 v3 和日来源仍不封存，见[签名采集边界](AI_BUSINESS_FINANCE_V3_SIGNED_COLLECTION.md)。市场新纯候选把区间价格带与两单日观察明确拆开：所有来源仍共享原始分析区间，单日对比从各自完整封存多日页筛出，缺日不作出榜；旧+新纯测试 18 项通过。新增内部 owning Reader 从同报告封存多日页重算观察表并提供有界分页/精确行读取，签名内部 GET 与 TS 只读适配已接；新旧市场路由隔离 PG 14 项 `.runtime/ai-pg-1e5dbc26c59d/tests.log`、目标 Node 3 项通过。未加入公开代理、Agent 目录或 renderer，见[市场候选](AI_BUSINESS_PROMOTION_MARKET_CANDIDATE.md)。
+
+市场数据材料随后增加 v2 组合版：同报告区间价格带与两明确观察日的进出榜生成三张完整类型表/NDJSON，分别固定当前/基期来源、表/行摘要与缺日期 null；旧+新纯测试 20 项、隔离 PG 3 项 `.runtime/ai-pg-a79c6b3f8a8a/tests.log`。仍是未注册数据材料，不等于有五 Agent 判断的正式 HTML/XLSX。
+
+市场数值引用另有未注册候选合同与内部重算器：按实际报告/job/角色、同一来源与行摘要提取区间价格/样本排名，空值和缺日不能当零，市场样本不能归入本店、ERP或B端销售；纯测试 4 项、隔离 PG 2 项 `.runtime/ai-pg-23edc022e6b8/tests.log`。候选明确 `agentReadPersisted=false`，尚无市场 v2 profile 的实际持久 dispatch/result 或本人读取证明，不能直接作为五 Agent 正式判断或人审证据。
+
+v3 混合来源增加 0031 日页物理门禁、共享可信目录和日来源只读完整块重放；财务 inspect 已改用共享目录，先财务后日数据、先日数据后财务两种顺序均通过。相关新旧 PG 13 项 `.runtime/ai-pg-a08d60f64bac/tests.log`，0030→0031 前后独立备份恢复、旧 1–7 文件字节和权限、财务来源不变与带日事实逆迁移拒绝见 `.runtime/ai-pg-adc3232aff44/business-v3-daily-pages-upgrade-evidence.json`。随后日来源签名首取与真实末块续读的内部单步推进已接，相关新旧 PG 14 项通过 `.runtime/ai-pg-db0442497197/tests.log`；无公开路由或自动调度，真实跨进程/过期游标/规模仍待验。**整个混合父任务封存、Agent 和文件仍未接入。**
+
+0032 为新 v3 财务/日来源的每个事实块增加成功中央工具审计的一对一不可变回执；审计响应摘要、原 UTF-8 块、账号、工具、来源和页序共同核验，并在完成检查时再次由 owning Reader 重放该目标来源。旧 0030/0031 直接写入的事实保留，但无回执不能称为已核验来源。最终新旧组合 PG 51 项 `.runtime/ai-pg-5498f45ad42c/tests.log`，0031→0032 独立备份恢复见 `.runtime/ai-pg-587ab1357f1d/business-v3-tool-receipts-upgrade-evidence.json`：65→66 张表、旧 1–7 文件字节和权限不变、新表最小权限与带回执逆迁移拒绝。正常来源响应没有上游独立数字签名，此回执证明受信 Worker/HMAC 工具调用链，仍不构成整份 v3 证据已封存或业务质量验收。最新 Node 全量回归正在重跑；前次 2 个失败为旧 65 表夹具，已修并有目标测试通过。
+
+0033 增加内部混合 v3 父封存与封存后复核：只在全部日/财务来源 finished、逐来源 owning 全页重放、逐页成功工具回执、父与来源 CAS/额度复验后一次写入版本化 seal；缺日只表示未观察到来源行、缺月只按真实发布批次披露，跨领域不是原子快照。旧公开 v1/v2 证据列表与详情不读内部 v3。新旧 PG 47 项 `.runtime/ai-pg-c86c116fe0c0/tests.log`、封存后防追加/删回执 PG `.runtime/ai-pg-a0b5b9c13b60/tests.log`、0032→0033 独立备份恢复 `.runtime/ai-pg-a21dc9023a99/business-v3-parent-seal-upgrade-evidence.json` 通过。仅有数据库 `sealed` 状态不足以授权报告，必须调用内部 `verify` 重建规范全文；v3 报告/Agent/HTML/XLSX 仍关闭。
+
+封存后的 v3 新增**只读、未注册**报告准入候选：内部调用 `seal.verify`，把日事实与财报 `monthly_context` 分开固定到精确来源修订、收据链和缺口，禁止将月财报摊入 SKU 或把可能重合的 ERP/B端/广告成交金额直接相加。纯测 2 项和与旧 v2 证据合跑的隔离 PG 19 项 `.runtime/ai-pg-97fcf7803331/tests.log` 通过；未创建 AiReportRun、工作流、Agent、模型调用或文件，见[报告候选](AI_BUSINESS_V3_REPORT_ADMISSION.md)。
+
+0034 在独立 append-only 表里持久化**暂停的 v3 报告意图**，不复用旧 AiReportRun/工作流图：封存引用、日事实、月度背景、五专业角色与人工复核节点、固定暂停原因均由新版本协议绑定。新旧 PG 39 项 `.runtime/ai-pg-aa321362bd5a/tests.log`，66→67 表和旧 renderer1–7 字节/权限的独立备份恢复 `.runtime/ai-pg-fcbb9e349bae/business-v3-report-intent-upgrade-evidence.json`，维护 Node 12 项及备份 Python 10 项通过。没有真实 Agent、模型或文件任务；意图不能当作已交付报告，见[暂停意图说明](AI_BUSINESS_V3_REPORT_INTENT.md)。
+
+v3 暂停意图现有内部**签名只读来源桥**：首个目录页完整 `seal.verify`，后续 10 分钟用途限定 HMAC 句柄按当前账号版本、意图、封存摘要与 sourceKey 逐块核摘要/回执，返回前复验权限；不用每页全量重扫。旧公开代理与模型工具目录均未加入，读取发生在已有权限的 AI writer 进程且不执行写入。新旧 PG 25 项 `.runtime/ai-pg-4f4189ff06be/tests.log`、Node 14 项、纯合同 2 项和构建通过。**当前桥上限 8 MiB/64 页，超限整次拒绝且不截断；尚无持久 Agent 本人阅读回执，参考整店规模不能据此验收。** 见[内部来源读取边界](AI_BUSINESS_V3_SOURCE_READ.md)。
+
 
 ## 四种状态的含义
 
