@@ -18,6 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_MARKET_V2_MATERIALS as PRE_MARKET_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_CONSUMPTIONS as PRE_CONSUMPTION_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_TICKETS as PRE_TICKET_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_SEALS as PRE_SEAL_AI_TABLES
@@ -82,11 +83,50 @@ def _market_v2_guards():
     ]
 
 
+def _market_material_state():
+    import importlib
+    migration = importlib.import_module(
+        "ai_assistant.migrations.0045_business_market_v2_material_attestation")
+    truncate = importlib.import_module(
+        "ai_assistant.migrations.0041_business_v4_seal_ticket")
+    return {"role": (False,) * 7, "member": None,
+        "table": ("r", "fixture_owner"), "privilege": (False,),
+        "columns": [
+            ("report_id", "character varying(160)", True),
+            ("source_report_id", "character varying(160)", True),
+            *[(name, "character varying(64)", True) for name in (
+                "source_snapshot_digest", "source_workflow_input_digest",
+                "selector_digest", "algorithms_digest", "manifest_digest",
+                "manifest_json_sha256", "summary_digest")],
+            ("table_spec_digests_json", "text", True),
+            ("manifest_json", "text", True), ("summary_json", "text", True),
+            ("created_at", "timestamp with time zone", True)],
+        "constraints": [
+            ("p", "PRIMARY KEY (report_id)"),
+            ("f", "FOREIGN KEY (report_id) REFERENCES ai_report_runs(id) ON DELETE RESTRICT"),
+            ("f", "FOREIGN KEY (source_report_id) REFERENCES ai_report_runs(id) ON DELETE RESTRICT")],
+        "triggers": [
+            ("ai_business_market_v2_materials", "ai_market_v2_material_guard",
+             31, False, False, "O", "public", "ai_market_v2_material_guard", ""),
+            ("ai_business_market_v2_materials", "ai_market_v2_material_no_truncate",
+             34, False, False, "O", "public", "ai_v4_seal_ticket_no_truncate", "")],
+        "guard": (migration.GUARD.split("$$")[1], False,
+                  ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner"),
+        "attest": (migration.ATTEST.split("$$")[1], True,
+                   ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner"),
+        "no_truncate": (truncate.NO_TRUNCATE.split("$$")[1], False,
+                        ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner"),
+        "guard_acl": (False, False, False),
+        "attest_acl": (True, False, False),
+        "no_truncate_acl": (False, False, False)}
+
+
 class _EvidenceCursor:
     def __init__(self, tables, migrations, finance_guard=None,
                   finance_monotonic=None, netshop_guard=None,
                   seal_guard_body_override=None,
-                  verifier_body_override=None, market_guards=None):
+                  verifier_body_override=None, market_guards=None,
+                  market_material=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
         self.finance_guard = finance_guard or _finance_guard()
@@ -97,6 +137,7 @@ class _EvidenceCursor:
         self.seal_guard_body_override = seal_guard_body_override
         self.verifier_body_override = verifier_body_override
         self.market_guards = market_guards if market_guards is not None else _market_v2_guards()
+        self.market_material = market_material if market_material is not None else _market_material_state()
 
     def __enter__(self):
         return self
@@ -112,6 +153,34 @@ class _EvidenceCursor:
             self.rows = [(table,) for table in self.tables]
         elif "pg_catalog.pg_get_function_identity_arguments" in query and "ai_market_v2_report_guard" in query:
             self.rows = self.market_guards
+        elif "WHERE rolname=%s" in query and "rolcanlogin" in query:
+            self.rows = [self.market_material["role"]]
+        elif "FROM pg_catalog.pg_auth_members membership" in query:
+            self.rows = ([] if self.market_material["member"] is None
+                         else [self.market_material["member"]])
+        elif "c.relname='ai_business_market_v2_materials'" in query and "c.relkind" in query:
+            self.rows = [self.market_material["table"]]
+        elif "a.attrelid='public.ai_business_market_v2_materials'::regclass" in query:
+            self.rows = self.market_material["columns"]
+        elif "c.conrelid='public.ai_business_market_v2_materials'::regclass" in query:
+            self.rows = self.market_material["constraints"]
+        elif ("ai_business_market_v2_materials" in str(params)
+              and ("has_table_privilege(%s,%s,%s)" in query
+                   or "has_any_column_privilege(%s,%s,%s)" in query)):
+            self.rows = [self.market_material["privilege"]]
+        elif "c.relname='ai_business_market_v2_materials'" in query and "t.tgtype" in query:
+            self.rows = self.market_material["triggers"]
+        elif ("pg_catalog.pg_get_userbyid(p.proowner)" in query
+              and "to_regprocedure(%s)" in query
+              and ("ai_market_v2_" in str(params)
+                   or "ai_v4_seal_ticket_no_truncate" in str(params))):
+            key = ("guard" if "material_guard" in params[0] else
+                   "no_truncate" if "no_truncate" in params[0] else "attest")
+            self.rows = [self.market_material[key]]
+        elif "pg_catalog.has_function_privilege(%s,%s,'EXECUTE')" in query:
+            key = ("guard_acl" if "material_guard" in params[1] else
+                   "no_truncate_acl" if "no_truncate" in params[1] else "attest_acl")
+            self.rows = [self.market_material[key]]
         elif "SELECT app, name FROM django_migrations" in query:
             self.rows = self.migrations
         elif "FROM pg_catalog.pg_attribute a" in query and "finance_source_revision_markers" in query:
@@ -201,13 +270,14 @@ class _EvidenceCursor:
         return self.rows
 
     def fetchone(self):
-        return self.rows[0]
+        return self.rows[0] if self.rows else None
 
 
 def _ai_evidence(tables, migrations, finance_guard=None,
                  finance_monotonic=None, netshop_guard=None,
                  seal_guard_body_override=None,
-                 verifier_body_override=None, market_guards=None):
+                 verifier_body_override=None, market_guards=None,
+                 market_material=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
@@ -215,7 +285,7 @@ def _ai_evidence(tables, migrations, finance_guard=None,
     cursor = _EvidenceCursor(base_tables | set(tables),
         [("sales", "0001_initial"), *migrations], finance_guard,
         finance_monotonic, netshop_guard, seal_guard_body_override,
-        verifier_body_override, market_guards)
+        verifier_body_override, market_guards, market_material)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -401,32 +471,32 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 43)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 77)
         self.assertIn("ai_business_v4_seal_consumptions", current["tables"])
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_CONSUMPTION_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
-            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+            _ai_evidence(PRE_MARKET_AI_TABLES, migrations[:-1])
         with self.assertRaisesRegex(RuntimeError,
                 "consumption commit fence missing"):
-            _ai_evidence(CURRENT_AI_TABLES, migrations,
+            _ai_evidence(PRE_MARKET_AI_TABLES, migrations,
                 seal_guard_body_override="BEGIN RETURN NULL; END")
         with self.assertRaisesRegex(RuntimeError,
                 "consumption verifier missing"):
-            _ai_evidence(CURRENT_AI_TABLES, migrations,
+            _ai_evidence(PRE_MARKET_AI_TABLES, migrations,
                 verifier_body_override="BEGIN RETURN true; END")
 
     def test_market_v2_parked_guards_follow_exact_migration_receipt(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 44)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 77)
-        before = _ai_evidence(CURRENT_AI_TABLES, migrations[:-1], market_guards=[])
+        before = _ai_evidence(PRE_MARKET_AI_TABLES, migrations[:-1], market_guards=[])
         self.assertNotEqual(current["contentSha256"], before["contentSha256"])
         with self.assertRaisesRegex(RuntimeError, "predecessor"):
-            _ai_evidence(CURRENT_AI_TABLES,
+            _ai_evidence(PRE_MARKET_AI_TABLES,
                 [item for item in migrations if item[1] !=
                  "0043_business_v4_seal_consumption_candidate"])
         original = _market_v2_guards()
@@ -440,10 +510,52 @@ class ConsistentBackupTests(unittest.TestCase):
             row = list(damaged[0]); row[index] = value; damaged[0] = tuple(row)
             with self.subTest(column=index), self.assertRaisesRegex(RuntimeError,
                     "market v2 parked profile"):
-                _ai_evidence(CURRENT_AI_TABLES, migrations, market_guards=damaged)
+                _ai_evidence(PRE_MARKET_AI_TABLES, migrations, market_guards=damaged)
         for damaged in (original[:-1], original + [original[0]]):
             with self.assertRaisesRegex(RuntimeError, "market v2 parked profile"):
-                _ai_evidence(CURRENT_AI_TABLES, migrations, market_guards=damaged)
+                _ai_evidence(PRE_MARKET_AI_TABLES, migrations, market_guards=damaged)
+
+    def test_market_v2_material_requires_0045_receipt_and_closed_contract(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 45)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 78)
+        self.assertIn("ai_business_market_v2_materials", current["tables"])
+        before = _ai_evidence(PRE_MARKET_AI_TABLES, migrations[:-1])
+        self.assertEqual(len([name for name in before["tables"] if name.startswith("ai_")]), 77)
+        with self.assertRaisesRegex(RuntimeError, "predecessor"):
+            _ai_evidence(CURRENT_AI_TABLES,
+                [item for item in migrations if item[1] != "0044_business_market_v2_profile"])
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+        cases = [
+            ("role", (True,) + (False,) * 6),
+            ("member", (1,)),
+            ("table", ("v", "fixture_owner")),
+            ("table", ("r", "teruisi_ai_market_attestor")),
+            ("columns", _market_material_state()["columns"][:-1]),
+            ("constraints", _market_material_state()["constraints"][:-1]),
+            ("privilege", (True,)),
+            ("triggers", _market_material_state()["triggers"][:1]),
+            ("guard", ("BEGIN RETURN NEW; END", False,
+                       ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner")),
+            ("attest", ("BEGIN RETURN; END", True,
+                        ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner")),
+            ("no_truncate", ("BEGIN RETURN NULL; END", False,
+                             ["search_path=pg_catalog,public"], "plpgsql", "fixture_owner")),
+            ("attest_acl", (False, False, False)),
+            ("guard_acl", (True, False, False)),
+            ("no_truncate_acl", (True, False, False)),
+        ]
+        for key, bad in cases:
+            with self.subTest(key=key), self.assertRaisesRegex(RuntimeError,
+                    "market v2 material"):
+                state = _market_material_state()
+                state[key] = bad
+                _ai_evidence(CURRENT_AI_TABLES, migrations, market_material=state)
 
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")

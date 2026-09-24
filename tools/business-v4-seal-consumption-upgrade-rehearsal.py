@@ -17,7 +17,8 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_V4_CONSUMPTIONS
+from ai_assistant.table_manifest import (AI_TABLES_PRE_MARKET_V2_MATERIALS as AI_TABLES,
+    AI_TABLES_PRE_V4_CONSUMPTIONS)
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)

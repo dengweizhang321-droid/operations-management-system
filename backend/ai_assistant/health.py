@@ -7,6 +7,112 @@ from .control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from .table_manifest import AI_TABLES
 
 
+def _verify_market_v2_material_attestation(cursor):
+    import importlib
+
+    migration = importlib.import_module(
+        "ai_assistant.migrations.0045_business_market_v2_material_attestation")
+    role = "teruisi_ai_market_attestor"
+    table = "public.ai_business_market_v2_materials"
+    cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
+        "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
+        "WHERE rolname=%s", [role])
+    if cursor.fetchone() != (False,) * 7:
+        raise ValueError("AI market v2 material attestor role is not closed")
+    cursor.execute("SELECT 1 FROM pg_catalog.pg_auth_members membership "
+        "JOIN pg_catalog.pg_roles member ON member.oid=membership.member "
+        "JOIN pg_catalog.pg_roles parent ON parent.oid=membership.roleid "
+        "WHERE member.rolname=%s OR parent.rolname=%s", [role, role])
+    if cursor.fetchone() is not None:
+        raise ValueError("AI market v2 material attestor membership drift")
+    cursor.execute("SELECT c.relkind,pg_catalog.pg_get_userbyid(c.relowner) "
+        "FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n "
+        "ON n.oid=c.relnamespace WHERE n.nspname='public' "
+        "AND c.relname='ai_business_market_v2_materials'")
+    state = cursor.fetchone()
+    if (state is None or state[0] != "r"
+            or state[1] in {role, "teruisi_ai_reader", "teruisi_ai_writer"}):
+        raise ValueError("AI market v2 material table ownership drift")
+    cursor.execute("SELECT a.attname,pg_catalog.format_type(a.atttypid,a.atttypmod),"
+        "a.attnotnull FROM pg_catalog.pg_attribute a "
+        "WHERE a.attrelid='public.ai_business_market_v2_materials'::regclass "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum")
+    expected_columns = [
+        ("report_id", "character varying(160)", True),
+        ("source_report_id", "character varying(160)", True),
+        *[(name, "character varying(64)", True) for name in (
+            "source_snapshot_digest", "source_workflow_input_digest",
+            "selector_digest", "algorithms_digest", "manifest_digest",
+            "manifest_json_sha256", "summary_digest")],
+        ("table_spec_digests_json", "text", True),
+        ("manifest_json", "text", True), ("summary_json", "text", True),
+        ("created_at", "timestamp with time zone", True)]
+    if cursor.fetchall() != expected_columns:
+        raise ValueError("AI market v2 material table columns drift")
+    cursor.execute("SELECT c.contype,pg_catalog.pg_get_constraintdef(c.oid) "
+        "FROM pg_catalog.pg_constraint c WHERE c.conrelid="
+        "'public.ai_business_market_v2_materials'::regclass")
+    constraints = cursor.fetchall()
+    if len(constraints) != 3 or set(constraints) != {
+            ("p", "PRIMARY KEY (report_id)"),
+            ("f", "FOREIGN KEY (report_id) REFERENCES ai_report_runs(id) ON DELETE RESTRICT"),
+            ("f", "FOREIGN KEY (source_report_id) REFERENCES ai_report_runs(id) ON DELETE RESTRICT") }:
+        raise ValueError("AI market v2 material table constraints drift")
+    for checked_role in (role, "teruisi_ai_writer", "teruisi_ai_reader"):
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE",
+                          "REFERENCES", "TRIGGER"):
+            cursor.execute("SELECT pg_catalog.has_table_privilege(%s,%s,%s)",
+                [checked_role, table, privilege])
+            if cursor.fetchone() != (False,):
+                raise ValueError("AI market v2 material table ACL drift")
+        for privilege in ("SELECT", "INSERT", "UPDATE", "REFERENCES"):
+            cursor.execute("SELECT pg_catalog.has_any_column_privilege(%s,%s,%s)",
+                [checked_role, table, privilege])
+            if cursor.fetchone() != (False,):
+                raise ValueError("AI market v2 material column ACL drift")
+    cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
+        "t.tginitdeferred,t.tgenabled,pn.nspname,p.proname,"
+        "pg_catalog.pg_get_function_identity_arguments(p.oid) "
+        "FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c "
+        "ON c.oid=t.tgrelid JOIN pg_catalog.pg_namespace n "
+        "ON n.oid=c.relnamespace JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "JOIN pg_catalog.pg_namespace pn ON pn.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND c.relname='ai_business_market_v2_materials' "
+        "AND NOT t.tgisinternal")
+    triggers = cursor.fetchall()
+    if len(triggers) != 2 or set(triggers) != {
+            ("ai_business_market_v2_materials", "ai_market_v2_material_guard",
+             31, False, False, "O", "public", "ai_market_v2_material_guard", ""),
+            ("ai_business_market_v2_materials", "ai_market_v2_material_no_truncate",
+             34, False, False, "O", "public", "ai_v4_seal_ticket_no_truncate", "") }:
+        raise ValueError("AI market v2 material trigger drift")
+    for signature, definition, definer, allowed_attestor in (
+            ("public.ai_market_v2_material_guard()", migration.GUARD, False, False),
+            ("public.ai_market_v2_attest_material(text,text,text,text,text,text,text,text)",
+             migration.ATTEST, True, True),
+            ("public.ai_v4_seal_ticket_no_truncate()", importlib.import_module(
+                "ai_assistant.migrations.0041_business_v4_seal_ticket").NO_TRUNCATE,
+             False, False)):
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
+            "pg_catalog.pg_get_userbyid(p.proowner) FROM pg_catalog.pg_proc p "
+            "JOIN pg_catalog.pg_language l ON l.oid=p.prolang "
+            "WHERE p.oid=to_regprocedure(%s)", [signature])
+        function = cursor.fetchone()
+        if (function is None or function[0] != definition.split("$$")[1]
+                or function[1] is not definer or function[3] != "plpgsql"
+                or {item.replace(" ", "") for item in (function[2] or [])}
+                != {"search_path=pg_catalog,public"}
+                or function[4] in {role, "teruisi_ai_writer", "teruisi_ai_reader"}):
+            raise ValueError("AI market v2 material function drift")
+        cursor.execute("SELECT pg_catalog.has_function_privilege(%s,%s,'EXECUTE'),"
+            "pg_catalog.has_function_privilege(%s,%s,'EXECUTE'),"
+            "pg_catalog.has_function_privilege(%s,%s,'EXECUTE')",
+            [role, signature, "teruisi_ai_writer", signature,
+             "teruisi_ai_reader", signature])
+        if cursor.fetchone() != (allowed_attestor, False, False):
+            raise ValueError("AI market v2 material function ACL drift")
+
+
 def check():
     if set(AI_TABLES) != set(MODELS):
         raise ValueError("AI backup inventory drift")
@@ -133,6 +239,8 @@ def check():
                     != {"search_path=pg_catalog,public"}
                     or security_definer is not False or language != "plpgsql"):
                 raise ValueError("AI market v2 parked profile guard drift")
+
+        _verify_market_v2_material_attestation(cursor)
 
         fencing = importlib.import_module(
             "ai_assistant.migrations.0003_runtime_fencing"

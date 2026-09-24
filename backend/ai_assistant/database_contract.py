@@ -38,6 +38,7 @@ MODELS = {
     "ai_business_v4_seal_tickets": m.AiBusinessV4SealTicket,
     "ai_business_v4_seal_claims": m.AiBusinessV4SealClaim,
     "ai_business_v4_seal_consumptions": m.AiBusinessV4SealConsumption,
+    "ai_business_market_v2_materials": m.AiBusinessMarketV2Material,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -178,9 +179,11 @@ WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 CLOSED_SEAL_TICKET_TABLES = (
     "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims",
     "ai_business_v4_seal_consumptions")
-for table in CLOSED_SEAL_TICKET_TABLES:
+CLOSED_SQL_OWNED_TABLES = (*CLOSED_SEAL_TICKET_TABLES,
+    "ai_business_market_v2_materials")
+for table in CLOSED_SQL_OWNED_TABLES:
     WRITER_PRIVILEGES.pop(table)
-assert not set(CLOSED_SEAL_TICKET_TABLES).intersection(
+assert not set(CLOSED_SQL_OWNED_TABLES).intersection(
     set(READ_TABLES) | set(WRITER_PRIVILEGES))
 
 
@@ -280,7 +283,7 @@ def provision(connection, reader_password, writer_password):
                         sql.Identifier(role),
                     )
                 )
-            for table in CLOSED_SEAL_TICKET_TABLES:
+            for table in CLOSED_SQL_OWNED_TABLES:
                 cursor.execute("SELECT to_regclass(%s)", ("public." + table,))
                 if cursor.fetchone()[0] is not None:
                     cursor.execute(sql.SQL("REVOKE ALL ON {} FROM {}").format(

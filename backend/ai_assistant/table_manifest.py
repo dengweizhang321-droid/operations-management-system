@@ -94,5 +94,8 @@ AI_TABLES_PRE_V4_CONSUMPTIONS = (*AI_TABLES_PRE_V4_TICKETS,
     "ai_business_v4_seal_tickets", "ai_business_v4_seal_claims")
 
 # The consumption row is SQL-owned and has no ordinary reader/writer DML.
-AI_TABLES = (*AI_TABLES_PRE_V4_CONSUMPTIONS,
+AI_TABLES_PRE_MARKET_V2_MATERIALS = (*AI_TABLES_PRE_V4_CONSUMPTIONS,
     "ai_business_v4_seal_consumptions")
+
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_MATERIALS,
+    "ai_business_market_v2_materials")
