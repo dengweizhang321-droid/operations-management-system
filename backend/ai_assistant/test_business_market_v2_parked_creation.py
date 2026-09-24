@@ -1,10 +1,11 @@
 """Isolated PostgreSQL parked market-v2 report root and dispatch denial."""
 import json
 from copy import deepcopy
+from importlib import import_module
 from unittest.mock import patch
 
 from django import test as djtest
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, connection, transaction
 
 from . import business_market_v2_parked_creation as service
 from . import business_promotion_market_runtime_v2_contract as runtime
@@ -100,6 +101,45 @@ class MarketV2ParkedCreationTests(djtest.TransactionTestCase):
             "paused")
         self.assertFalse(m.AiAgentJobs.objects.filter(
             workflow_run_id=row.workflow_id).exists())
+
+    def test_reverse_requires_no_parked_report(self):
+        item = service.create(self.body(), self.admin)["item"]
+        migration = import_module(
+            "ai_assistant.migrations.0044_business_market_v2_profile")
+        with connection.schema_editor() as editor:
+            with self.assertRaisesRegex(RuntimeError, "不能逆迁移"):
+                migration.uninstall(None, editor)
+        self.assertEqual(m.AiReportRun.objects.get(pk=item["id"]).id, item["id"])
+
+    def test_database_rejects_null_market_query_values_after_preparation(self):
+        original_create = m.AiReportRun.objects.create
+        baseline_key = self.selector()["rankBaselineKey"]
+        source = m.AiBusinessEvidenceSource.objects.get(
+            run_id=self.run_id, source_key=baseline_key)
+        for field in ("window", "startDate"):
+            query = json.loads(source.query_json)
+            query[field] = None
+            forged_query = canonical(query)
+
+            def insert_after_source_drift(**kwargs):
+                with connection.cursor() as cursor:
+                    for trigger in ("ai_write_fence", "ai_immutable_identity",
+                                    "ai_business_source_state"):
+                        cursor.execute("ALTER TABLE public.ai_business_evidence_sources "
+                            "DISABLE TRIGGER " + trigger)
+                    cursor.execute("UPDATE public.ai_business_evidence_sources "
+                        "SET query_json=%s,query_digest=%s WHERE id=%s",
+                        [forged_query, digest(forged_query), source.id])
+                return original_create(**kwargs)
+
+            with self.subTest(field=field), patch.object(m.AiReportRun.objects,
+                    "create", side_effect=insert_after_source_drift), \
+                    self.assertRaisesRegex(DatabaseError,
+                        "ai_market_v2_source_query_value_invalid"):
+                service.create(self.body(clientRequestId="null-" + field),
+                    self.admin)
+        self.assertEqual(m.AiReportRun.objects.filter(
+            client_request_id__startswith="null-").count(), 0)
 
     def test_wrong_actor_source_observation_and_duplicate_request_reject(self):
         outside = self.user("market-parked-outside@example.invalid", "admin", None)

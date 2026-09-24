@@ -18,6 +18,7 @@ DECLARE snapshot jsonb; input_value jsonb; root jsonb; selector jsonb;
   current_day date; baseline_day date; start_day date; end_day date;
   baseline_expected date; month_last date; expected_budget boolean;
   band_key text; seen_keys text[]:=ARRAY[]::text[]; n integer;
+  query_field text; query_value text;
 BEGIN
   IF TG_OP='DELETE' THEN
     IF OLD.snapshot_json::jsonb->>'executionProfile'='business-agent-screening-promotion-market-reference-v2'
@@ -180,7 +181,24 @@ BEGIN
   baseline_query:=public.ai_screen_fields(baseline_source.query_json::json,ARRAY[
     'platform','category','scope','rankingDimension','priceBandFilter',
     'startDate','endDate','window']);
+  FOREACH query_field IN ARRAY ARRAY['platform','category','scope',
+      'rankingDimension','priceBandFilter','startDate','endDate','window'] LOOP
+    query_value:=current_query->>query_field;
+    IF json_typeof(current_source.query_json::json->query_field)
+         IS DISTINCT FROM 'string'
+       OR length(query_value) NOT BETWEEN 1 AND
+         (CASE WHEN query_field IN ('category','scope','priceBandFilter')
+               THEN 200 ELSE 100 END)
+       OR json_typeof(baseline_source.query_json::json->query_field)
+         IS DISTINCT FROM 'string'
+    THEN RAISE EXCEPTION 'ai_market_v2_source_query_value_invalid'; END IF;
+  END LOOP;
+  IF current_query->>'rankingDimension' NOT IN ('SKU','SPU')
+     OR current_query->>'startDate' !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
+     OR current_query->>'endDate' !~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}$'
+  THEN RAISE EXCEPTION 'ai_market_v2_source_query_date_invalid'; END IF;
   IF current_query->>'window' IS DISTINCT FROM 'current'
+     OR baseline_query->>'window' IS NULL
      OR baseline_query->>'window' NOT IN ('previous','yearAgo')
      OR (current_query-'window') IS DISTINCT FROM (baseline_query-'window')
   THEN RAISE EXCEPTION 'ai_market_v2_source_scope_or_window_invalid'; END IF;
@@ -191,7 +209,10 @@ BEGIN
   baseline_day:=(selector->>'baselineObservationDate')::date;
   start_day:=(current_query->>'startDate')::date;
   end_day:=(current_query->>'endDate')::date;
-  IF start_day>end_day OR end_day-start_day NOT BETWEEN 0 AND 92
+  IF start_day IS NULL OR end_day IS NULL OR start_day>end_day
+     OR end_day-start_day NOT BETWEEN 0 AND 92
+     OR extract(year FROM start_day) NOT BETWEEN 2000 AND 2098
+     OR extract(year FROM end_day) NOT BETWEEN 2000 AND 2098
      OR extract(year FROM current_day) NOT BETWEEN 2000 AND 2098
      OR extract(year FROM baseline_day) NOT BETWEEN 2000 AND 2098
      OR current_day NOT BETWEEN start_day AND end_day

@@ -58,11 +58,35 @@ def _netshop_guard():
         "privileges":(False,)*34}
 
 
+def _market_v2_guards():
+    import importlib
+    profile = importlib.import_module(
+        "ai_assistant.migrations.0044_business_market_v2_profile")
+    return [
+        ("ai_report_runs", "ai_market_v2_report_guard", 31, False, False,
+         "O", "ai_market_v2_parked_report_guard", "public", "",
+         profile.REPORT_GUARD.split("$$")[1], ["search_path=pg_catalog,public"],
+         False, "plpgsql"),
+        ("ai_workflow_runs", "ai_market_v2_workflow_guard", 31, False, False,
+         "O", "ai_market_v2_parked_workflow_guard", "public", "",
+         profile.WORKFLOW_GUARD.split("$$")[1], ["search_path=pg_catalog,public"],
+         False, "plpgsql"),
+        ("ai_workflow_runs", "ai_market_v2_workflow_complete", 5, True, True,
+         "O", "ai_market_v2_parked_orphan_guard", "public", "",
+         profile.ORPHAN_GUARD.split("$$")[1], ["search_path=pg_catalog,public"],
+         False, "plpgsql"),
+        ("ai_agent_jobs", "ai_market_v2_job_guard", 7, False, False,
+         "O", "ai_market_v2_parked_job_guard", "public", "",
+         profile.JOB_GUARD.split("$$")[1], ["search_path=pg_catalog,public"],
+         False, "plpgsql"),
+    ]
+
+
 class _EvidenceCursor:
     def __init__(self, tables, migrations, finance_guard=None,
                   finance_monotonic=None, netshop_guard=None,
                   seal_guard_body_override=None,
-                  verifier_body_override=None):
+                  verifier_body_override=None, market_guards=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
         self.finance_guard = finance_guard or _finance_guard()
@@ -72,6 +96,7 @@ class _EvidenceCursor:
         self.netshop_guard = netshop_guard or _netshop_guard()
         self.seal_guard_body_override = seal_guard_body_override
         self.verifier_body_override = verifier_body_override
+        self.market_guards = market_guards if market_guards is not None else _market_v2_guards()
 
     def __enter__(self):
         return self
@@ -85,6 +110,8 @@ class _EvidenceCursor:
             self.rows = [("fixture", "fixture_owner", "127.0.0.1/32", 15479, False, 170011)]
         elif "pg_catalog.pg_tables" in query:
             self.rows = [(table,) for table in self.tables]
+        elif "pg_catalog.pg_get_function_identity_arguments" in query and "ai_market_v2_report_guard" in query:
+            self.rows = self.market_guards
         elif "SELECT app, name FROM django_migrations" in query:
             self.rows = self.migrations
         elif "FROM pg_catalog.pg_attribute a" in query and "finance_source_revision_markers" in query:
@@ -180,7 +207,7 @@ class _EvidenceCursor:
 def _ai_evidence(tables, migrations, finance_guard=None,
                  finance_monotonic=None, netshop_guard=None,
                  seal_guard_body_override=None,
-                 verifier_body_override=None):
+                 verifier_body_override=None, market_guards=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
@@ -188,7 +215,7 @@ def _ai_evidence(tables, migrations, finance_guard=None,
     cursor = _EvidenceCursor(base_tables | set(tables),
         [("sales", "0001_initial"), *migrations], finance_guard,
         finance_monotonic, netshop_guard, seal_guard_body_override,
-        verifier_body_override)
+        verifier_body_override, market_guards)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -389,6 +416,34 @@ class ConsistentBackupTests(unittest.TestCase):
                 "consumption verifier missing"):
             _ai_evidence(CURRENT_AI_TABLES, migrations,
                 verifier_body_override="BEGIN RETURN true; END")
+
+    def test_market_v2_parked_guards_follow_exact_migration_receipt(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 44)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 77)
+        before = _ai_evidence(CURRENT_AI_TABLES, migrations[:-1], market_guards=[])
+        self.assertNotEqual(current["contentSha256"], before["contentSha256"])
+        with self.assertRaisesRegex(RuntimeError, "predecessor"):
+            _ai_evidence(CURRENT_AI_TABLES,
+                [item for item in migrations if item[1] !=
+                 "0043_business_v4_seal_consumption_candidate"])
+        original = _market_v2_guards()
+        for index, value in (
+                (0, "ai_workflow_runs"), (1, "ai_market_v2_wrong_guard"),
+                (2, 5), (3, True), (4, True), (5, "D"),
+                (6, "ai_market_v2_parked_job_guard"), (7, "evil"),
+                (8, "text"), (9, "BEGIN RETURN NEW; END"),
+                (10, ["search_path=public"]), (11, True), (12, "sql")):
+            damaged = list(original)
+            row = list(damaged[0]); row[index] = value; damaged[0] = tuple(row)
+            with self.subTest(column=index), self.assertRaisesRegex(RuntimeError,
+                    "market v2 parked profile"):
+                _ai_evidence(CURRENT_AI_TABLES, migrations, market_guards=damaged)
+        for damaged in (original[:-1], original + [original[0]]):
+            with self.assertRaisesRegex(RuntimeError, "market v2 parked profile"):
+                _ai_evidence(CURRENT_AI_TABLES, migrations, market_guards=damaged)
 
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")

@@ -87,6 +87,53 @@ def check():
             raise ValueError("AI indexes incomplete")
         import importlib
 
+        market_profile = importlib.import_module(
+            "ai_assistant.migrations.0044_business_market_v2_profile")
+        expected_market_guards = {
+            ("ai_report_runs", "ai_market_v2_report_guard"):
+                (31, False, False, "ai_market_v2_parked_report_guard",
+                 market_profile.REPORT_GUARD),
+            ("ai_workflow_runs", "ai_market_v2_workflow_guard"):
+                (31, False, False, "ai_market_v2_parked_workflow_guard",
+                 market_profile.WORKFLOW_GUARD),
+            ("ai_workflow_runs", "ai_market_v2_workflow_complete"):
+                (5, True, True, "ai_market_v2_parked_orphan_guard",
+                 market_profile.ORPHAN_GUARD),
+            ("ai_agent_jobs", "ai_market_v2_job_guard"):
+                (7, False, False, "ai_market_v2_parked_job_guard",
+                 market_profile.JOB_GUARD),
+        }
+        cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
+            "t.tginitdeferred,t.tgenabled,p.proname,pn.nspname,"
+            "pg_catalog.pg_get_function_identity_arguments(p.oid),"
+            "p.prosrc,p.proconfig,p.prosecdef,l.lanname "
+            "FROM pg_catalog.pg_trigger t "
+            "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+            "JOIN pg_catalog.pg_namespace cn ON cn.oid=c.relnamespace "
+            "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+            "JOIN pg_catalog.pg_namespace pn ON pn.oid=p.pronamespace "
+            "JOIN pg_catalog.pg_language l ON l.oid=p.prolang "
+            "WHERE cn.nspname='public' AND NOT t.tgisinternal "
+            "AND t.tgname IN ('ai_market_v2_report_guard',"
+            "'ai_market_v2_workflow_guard','ai_market_v2_workflow_complete',"
+            "'ai_market_v2_job_guard')")
+        found = cursor.fetchall()
+        if len(found) != len(expected_market_guards):
+            raise ValueError("AI market v2 parked profile guards missing")
+        for (table, name, kind, deferred, initially_deferred, enabled,
+             function, namespace, arguments, body, config, security_definer,
+             language) in found:
+            expected_guard = expected_market_guards.get((table, name))
+            if (expected_guard is None
+                    or (kind, deferred, initially_deferred, function)
+                    != expected_guard[:4]
+                    or enabled != "O" or namespace != "public"
+                    or arguments != "" or body != expected_guard[4].split("$$")[1]
+                    or {item.replace(" ", "") for item in (config or [])}
+                    != {"search_path=pg_catalog,public"}
+                    or security_definer is not False or language != "plpgsql"):
+                raise ValueError("AI market v2 parked profile guard drift")
+
         fencing = importlib.import_module(
             "ai_assistant.migrations.0003_runtime_fencing"
         )

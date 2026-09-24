@@ -356,6 +356,51 @@ def _require_netshop_source_marker_guard(cursor: psycopg.Cursor[Any],
         raise RuntimeError("netshop marker grants expose protected state or functions")
 
 
+def verify_market_v2_parked_guards(cursor) -> None:
+    from importlib import import_module
+
+    profile = import_module(
+        "ai_assistant.migrations.0044_business_market_v2_profile")
+    expected = {
+        ("ai_report_runs", "ai_market_v2_report_guard"):
+            (31, False, False, "ai_market_v2_parked_report_guard", profile.REPORT_GUARD),
+        ("ai_workflow_runs", "ai_market_v2_workflow_guard"):
+            (31, False, False, "ai_market_v2_parked_workflow_guard", profile.WORKFLOW_GUARD),
+        ("ai_workflow_runs", "ai_market_v2_workflow_complete"):
+            (5, True, True, "ai_market_v2_parked_orphan_guard", profile.ORPHAN_GUARD),
+        ("ai_agent_jobs", "ai_market_v2_job_guard"):
+            (7, False, False, "ai_market_v2_parked_job_guard", profile.JOB_GUARD),
+    }
+    cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
+        "t.tginitdeferred,t.tgenabled,p.proname,pn.nspname,"
+        "pg_catalog.pg_get_function_identity_arguments(p.oid),"
+        "p.prosrc,p.proconfig,p.prosecdef,l.lanname "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace cn ON cn.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "JOIN pg_catalog.pg_namespace pn ON pn.oid=p.pronamespace "
+        "JOIN pg_catalog.pg_language l ON l.oid=p.prolang "
+        "WHERE cn.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname IN ('ai_market_v2_report_guard',"
+        "'ai_market_v2_workflow_guard','ai_market_v2_workflow_complete',"
+        "'ai_market_v2_job_guard')")
+    rows = cursor.fetchall()
+    if len(rows) != len(expected):
+        raise RuntimeError("AI market v2 parked profile guards missing")
+    for (table, name, kind, deferred, initially_deferred, enabled,
+         function, namespace, arguments, body, config, security_definer,
+         language) in rows:
+        guard = expected.get((table, name))
+        if (guard is None or (kind, deferred, initially_deferred, function)
+                != guard[:4] or enabled != "O" or namespace != "public"
+                or arguments != "" or body != guard[4].split("$$")[1]
+                or {item.replace(" ", "") for item in (config or [])}
+                != {"search_path=pg_catalog,public"}
+                or security_definer is not False or language != "plpgsql"):
+            raise RuntimeError("AI market v2 parked profile guard drift")
+
+
 def collect_evidence(
     connection: psycopg.Connection[Any],
     expected_database: str,
@@ -548,6 +593,10 @@ def collect_evidence(
             from ai_assistant.table_manifest import AI_TABLES
             if "0001_initial" not in ai_migrations:
                 raise RuntimeError("AI table inventory has no initial migration evidence")
+            if "0044_business_market_v2_profile" in ai_migrations:
+                if "0043_business_v4_seal_consumption_candidate" not in ai_migrations:
+                    raise RuntimeError("AI market v2 parked profile has no predecessor")
+                verify_market_v2_parked_guards(cursor)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
