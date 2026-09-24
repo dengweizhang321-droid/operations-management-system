@@ -54,6 +54,18 @@ def uninstall(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
     with schema_editor.connection.cursor() as cursor:
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM public.finance_lines) OR "
+            "EXISTS(SELECT 1 FROM public.finance_months) OR "
+            "EXISTS(SELECT 1 FROM public.finance_import_batches) OR "
+            "NOT EXISTS(SELECT 1 FROM public.finance_write_authority "
+            "WHERE id=1 AND status='d1') OR "
+            "NOT EXISTS(SELECT 1 FROM public.finance_data_revisions "
+            "WHERE domain='finance' AND revision=0 AND source_digest=repeat('0',64)) OR "
+            "EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity "
+            "WHERE datname=current_database() AND usename='teruisi_finance_writer' "
+            "AND pid<>pg_backend_pid())")
+        if cursor.fetchone()[0]:
+            raise RuntimeError("存在财报事实、修订或活动writer，不能逆迁移并失去单调门禁")
         cursor.execute("DROP TRIGGER IF EXISTS finance_revision_monotonic "
             "ON public.finance_data_revisions")
         cursor.execute("DROP FUNCTION IF EXISTS public.finance_revision_monotonic_guard()")
