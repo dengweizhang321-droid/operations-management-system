@@ -150,6 +150,14 @@ def listing(report_id, principal):
 
 
 def create(report_id, body, principal, *, commit=None):
+    if body.get("deliveryMode") == "promotionTrialVolumes":
+        fields(body, {"deliveryMode", "draft", "expectedPrincipalKey"},
+            {"deliveryMode", "draft", "expectedPrincipalKey"})
+        if (boolean(body["draft"], "draft") != 0
+                or body["expectedPrincipalKey"] != business_evidence.principal_key(principal)):
+            raise AiError("推广试用多卷须绑定当前账号和正式报告", "conflict", 409)
+        from .business_promotion_trial_volume_stage import create as trial_create
+        return trial_create(report_id, principal, commit=commit)
     if body.get("deliveryMode") == "volumes":
         report = reports.get(report_id, principal)
         if json.loads(report.snapshot_json).get("executionProfile") == "business-agent-screening-promotion-reference-v1":
@@ -188,8 +196,11 @@ def control(run_id, body, principal, *, commit=None):
     prepared = None
     if body["action"] in {"resume", "rebuild"}:
         candidate = get(run_id, principal)
-        if candidate.renderer_version == 7:
-            from .business_promotion_volume_stage import control as promotion_control
+        if candidate.renderer_version in (7, 9):
+            if candidate.renderer_version == 7:
+                from .business_promotion_volume_stage import control as promotion_control
+            else:
+                from .business_promotion_trial_volume_stage import control as promotion_control
             return promotion_control(run_id, body["action"], body["expectedVersion"], principal,
                 commit=commit)
         if json.loads(candidate.report.snapshot_json).get("executionProfile") == "business-agent-screening-reference-v1":
@@ -234,7 +245,7 @@ def chunk(run_id, format, params, principal):
     except (TypeError, ValueError) as error:
         raise AiError("文件分块序号无效") from error
     row = get(run_id, principal)
-    if row.renderer_version in (4, 6, 7):
+    if row.renderer_version in (4, 6, 7, 9):
         raise AiError("多卷文件须使用指定卷下载入口", "conflict", 409)
     if row.status != "ready":
         raise AiError("完整双文件尚未就绪", "conflict", 409)
@@ -391,8 +402,11 @@ def tick():
         try:
             principal = workflows.background(row)
             current_principal(principal, admin=True)
-            if row.renderer_version == 7:
-                from .business_promotion_volume_stage import binding as promotion_binding
+            if row.renderer_version in (7, 9):
+                if row.renderer_version == 7:
+                    from .business_promotion_volume_stage import binding as promotion_binding
+                else:
+                    from .business_promotion_trial_volume_stage import binding as promotion_binding
                 fingerprint = promotion_binding(row.report, principal, row.draft)
             else:
                 fingerprint = binding(row.report, principal, row.draft, renderer_version=row.renderer_version)
@@ -413,8 +427,11 @@ def tick():
                 saved.save()
                 audit(saved, principal, "claimed")
             state.update(version=saved.version, attempt=saved.attempt)
-            if saved.renderer_version == 7:
-                from .business_promotion_volume_stage import build as promotion_build, publish as promotion_publish
+            if saved.renderer_version in (7, 9):
+                if saved.renderer_version == 7:
+                    from .business_promotion_volume_stage import build as promotion_build, publish as promotion_publish
+                else:
+                    from .business_promotion_trial_volume_stage import build as promotion_build, publish as promotion_publish
                 staged = promotion_build(saved, principal, state)
                 if staged["status"] != "staged_unpublished":
                     return staged
