@@ -4,8 +4,10 @@ The parked report and immutable 0045 material remain unchanged.  This writer
 only records a paused snapshot and never creates nodes, jobs or tool outputs.
 """
 import json
+from django.db import DatabaseError, connection
 
 from . import business_market_v2_parked_creation as parked
+from . import business_market_v2_material_admission as material_owner
 from . import business_promotion_market_runtime_v2_contract as runtime
 from . import models as m
 from .policy import AiError, canonical, current_principal, digest, fields, identifier, mutation, uid
@@ -26,18 +28,23 @@ def _need(ok, message="市场v2材料准入快照与停放报告不一致"):
 
 def _prepared(parked_id, principal):
     parked_report, snapshot = parked_report_and_snapshot(parked_id, principal)
-    material = m.AiBusinessMarketV2Material.objects.filter(pk=parked_id).first()
-    _need(material is not None
-        and material.report_id == parked_id
-        and material.source_report_id == snapshot["sourceRoot"]["sourceReportId"]
-        and material.manifest_digest == json.loads(material.manifest_json)["manifestDigest"],
-        "市场v2材料缺少独立准入或选择身份不同")
+    # 0045 deliberately denies the writer direct SELECT on its SQL-owned
+    # sidecar. Rebuild the full owning material outside the write transaction;
+    # the 0056 definer guards compare these claims with the immutable row.
+    candidate = material_owner.prepare_candidate(parked_id, principal)["candidate"]
+    _need(candidate["sourceReportId"] == snapshot["sourceRoot"]["sourceReportId"])
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT encode(sha256(convert_to((snapshot_json::jsonb->"
+            "'marketSelector')::text,'UTF8')),'hex') FROM public.ai_report_runs "
+            "WHERE id=%s", [parked_id])
+        row = cursor.fetchone()
+    _need(row is not None and type(row[0]) is str and len(row[0]) == 64)
     with_budget = snapshot["withBudget"]
     _need(type(with_budget) is bool)
     graph = runtime.graph(with_budget)
     admission = {"parkedReportId": parked_id,
-        "selectorDigest": material.selector_digest,
-        "manifestDigest": material.manifest_digest}
+        "selectorDigest": row[0],
+        "manifestDigest": candidate["manifestDigest"]}
     return parked_report, admission, with_budget, graph
 
 
@@ -66,10 +73,11 @@ def create(body, principal):
             and snapshot.get("marketAdmission", {}).get("parkedReportId") == parked_id
             and existing.workflow.status == "paused"
             and existing.workflow.error_code == PAUSE_REASON)
-        _prepared(parked_id, principal)
+        parked_report_and_snapshot(parked_id, principal)
         return {"reportId": existing.id, "workflowId": existing.workflow_id,
             "replayed": True, "agentDispatchSupported": False}
-    _, admission, with_budget, graph = _prepared(parked_id, principal)
+    parked_report, admission, with_budget, graph = _prepared(parked_id, principal)
+    parked_digest = digest(parked_report.snapshot_json)
     report_id, flow_id = uid("market-admitted-report"), uid("market-admitted-flow")
     root = {"executionProfile": PROFILE, "reportId": report_id,
         "marketAdmission": admission, "withBudget": with_budget,
@@ -79,24 +87,32 @@ def create(body, principal):
     snapshot = {"schemaVersion": SNAPSHOT_SCHEMA, **root}
     flow_input = {"schemaVersion": INPUT_SCHEMA, **root,
         "graphDigest": digest(graph), "allowedTools": []}
-    with mutation(principal):
-        _need(not m.AiReportRun.objects.filter(owner_email=principal.email.lower(),
-            client_request_id=client).exists())
-        _prepared(parked_id, principal)
-        flow = m.AiWorkflowRuns.objects.create(id=flow_id,
-            owner_email=principal.email.lower(), scope_json="null",
-            client_request_id="market-admitted-" + digest([principal.email.lower(), client]),
-            request_digest=request_digest, name=TITLE,
-            graph_json=canonical(graph), graph_digest=digest(graph),
-            input_json=canonical(flow_input), dry_run=0,
-            model_id="", model_version=0, allowed_tools_json="[]",
-            tool_policy_digest=digest([]), status="paused",
-            error_code=PAUSE_REASON, retryable=0)
-        m.AiReportRun.objects.create(id=report_id,
-            owner_email=principal.email.lower(), scope_json="null",
-            client_request_id=client, request_digest=request_digest,
-            workflow=flow, budget_plan=None, snapshot_json=canonical(snapshot))
-        _need(current_principal(principal, admin=True, write=True).email.lower()
-            == principal.email.lower())
+    try:
+        with mutation(principal):
+            _need(not m.AiReportRun.objects.filter(owner_email=principal.email.lower(),
+                client_request_id=client).exists())
+            current_parked, _ = parked_report_and_snapshot(parked_id, principal)
+            _need(digest(current_parked.snapshot_json) == parked_digest)
+            flow = m.AiWorkflowRuns.objects.create(id=flow_id,
+                owner_email=principal.email.lower(), scope_json="null",
+                client_request_id="market-admitted-" + digest([principal.email.lower(), client]),
+                request_digest=request_digest, name=TITLE,
+                graph_json=canonical(graph), graph_digest=digest(graph),
+                input_json=canonical(flow_input), dry_run=0,
+                model_id="", model_version=0, allowed_tools_json="[]",
+                tool_policy_digest=digest([]), status="paused",
+                error_code=PAUSE_REASON, retryable=0)
+            m.AiReportRun.objects.create(id=report_id,
+                owner_email=principal.email.lower(), scope_json="null",
+                client_request_id=client, request_digest=request_digest,
+                workflow=flow, budget_plan=None, snapshot_json=canonical(snapshot))
+            _need(current_principal(principal, admin=True, write=True).email.lower()
+                == principal.email.lower())
+    except DatabaseError as error:
+        # A missing/conflicting 0045 row is rejected by the database guard.
+        # Preserve unrelated database outages and schema failures as-is.
+        if "ai_market_v2_admitted_" not in str(error):
+            raise
+        raise AiError("市场v2材料尚未与停放报告精确准入", "conflict", 409) from error
     return {"reportId": report_id, "workflowId": flow_id,
         "replayed": False, "agentDispatchSupported": False}

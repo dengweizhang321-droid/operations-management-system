@@ -33,6 +33,12 @@ def verify(cursor, error_type=ValueError):
     cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
         "app='ai_assistant' AND name='0053_business_market_v2_admitted_paused')")
     need(cursor.fetchone() == (True,), "migration receipt missing")
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
+        "app='ai_assistant' AND name='0056_business_market_v2_material_role_bridge')")
+    bridged = cursor.fetchone() == (True,)
+    bridge = (import_module(
+        "ai_assistant.migrations.0056_business_market_v2_material_role_bridge")
+        if bridged else None)
     functions = {}
     for name, constant in FUNCTIONS:
         signature = "public." + name + "()"
@@ -42,8 +48,11 @@ def verify(cursor, error_type=ValueError):
             "ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)",
             [signature])
         row = cursor.fetchone()
-        need(row is not None and row[1] == getattr(migration, constant).split("$$")[1]
-             and row[2] is False and row[4] == "plpgsql"
+        new_guard = bridge is not None and constant in {"WORKFLOW_GUARD", "REPORT_GUARD"}
+        definition = (getattr(bridge, "NEW_" + constant.split("_")[0]) if new_guard
+            else getattr(migration, constant))
+        need(row is not None and row[1] == definition.split("$$")[1]
+             and row[2] is new_guard and row[4] == "plpgsql"
              and {item.replace(" ", "") for item in (row[3] or [])}
                 == {"search_path=pg_catalog,public"}
              and row[5] not in {"teruisi_ai_reader", "teruisi_ai_writer",
@@ -64,3 +73,36 @@ def verify(cursor, error_type=ValueError):
         need(cursor.fetchone() == (kind, "O", deferred, deferred,
                                    functions[function]),
              "trigger binding or enforcement drift")
+    if bridged:
+        signature = bridge.SIGNATURE
+        cursor.execute("SELECT p.oid,p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner),l.lanname "
+            "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l "
+            "ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)", [signature])
+        row = cursor.fetchone()
+        cursor.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) "
+            "FROM pg_catalog.pg_class c WHERE c.oid=to_regclass(%s)",
+            ["public.ai_business_market_v2_materials"])
+        owner = cursor.fetchone()
+        need(row is not None and owner is not None
+             and row[1] == bridge.METADATA.split("$$")[1]
+             and row[2] is True and row[4] == owner[0]
+             and row[5] == "plpgsql"
+             and {item.replace(" ", "") for item in (row[3] or [])}
+                == {"search_path=pg_catalog,public"},
+             "reader metadata function drift")
+        cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE'),"
+            "has_function_privilege(%s,%s,'EXECUTE'),"
+            "EXISTS(SELECT 1 FROM pg_catalog.pg_proc p,"
+            "pg_catalog.aclexplode(p.proacl) a WHERE p.oid=%s AND "
+            "a.grantee=0 AND a.privilege_type='EXECUTE')", [
+                bridge.READER, signature, bridge.WRITER, signature, row[0]])
+        need(cursor.fetchone() == (True, False, False),
+             "reader metadata function ACL drift")
+        for role in (bridge.READER, bridge.WRITER):
+            cursor.execute("SELECT has_table_privilege(%s,%s,'SELECT'),"
+                "has_any_column_privilege(%s,%s,'SELECT')", [role,
+                "public.ai_business_market_v2_materials", role,
+                "public.ai_business_market_v2_materials"])
+            need(cursor.fetchone() == (False, False),
+                 "market material table or column SELECT opened")

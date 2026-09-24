@@ -5,7 +5,7 @@ forbids those rows, so this adapter cannot issue or claim a persisted read.
 """
 import json
 
-from django.db import connection
+from django.db import DatabaseError, connection
 
 from business_analysis.contracts import AnalysisContractError
 from . import business_market_v2_fifth_read_contract as contract
@@ -13,13 +13,13 @@ from . import business_market_v2_admitted_paused as admitted
 from . import business_promotion_market_admission as market_admission
 from . import business_promotion_market_runtime_v2_contract as runtime
 from . import business_promotion_market_tool_preview as owning
-from . import market_v2_admitted_catalog as catalog
 from . import models as m
 from .policy import AiError, authorize_owner, canonical, current_principal, digest
 
 
 SCHEMA = "business-market-v2-fifth-read-preview-v1"
 MAX_RESPONSE_BYTES = 96_000
+MATERIAL_FUNCTION = "public.ai_market_v2_admitted_material_metadata"
 
 
 def _need(ok, message="市场v2第五工具读取与材料准入根不一致"):
@@ -30,11 +30,6 @@ def _need(ok, message="市场v2第五工具读取与材料准入根不一致"):
 def _roots(call, selector, principal):
     actor = current_principal(principal, admin=True)
     _need(actor.scope is None, "市场v2读取只允许无范围管理员")
-    try:
-        with connection.cursor() as cursor:
-            catalog.verify(cursor, RuntimeError)
-    except RuntimeError as error:
-        raise AiError("市场v2准入数据库门禁未就绪", "conflict", 409) from error
     report = m.AiReportRun.objects.select_related("workflow").filter(
         pk=call["admittedReportId"]).first()
     _need(report is not None, "材料准入报告不存在")
@@ -64,41 +59,38 @@ def _roots(call, selector, principal):
         parked_id, principal)
     _need(parked.owner_email == report.owner_email
         and canonical(selector) == canonical(parked_snapshot["marketSelector"]))
-    material = m.AiBusinessMarketV2Material.objects.filter(pk=parked_id).first()
-    _need(material is not None and material.source_report_id ==
-        parked_snapshot["sourceRoot"]["sourceReportId"]
-        and snapshot["marketAdmission"] == {"parkedReportId": parked_id,
-            "selectorDigest": material.selector_digest,
-            "manifestDigest": material.manifest_digest}
-        and digest(material.manifest_json) == material.manifest_json_sha256
-        and digest(material.summary_json) == material.summary_digest,
-        "0045市场材料侧表与新报告不一致")
-    manifest, summary = json.loads(material.manifest_json), json.loads(
-        material.summary_json)
-    _need(manifest.get("manifestDigest") == material.manifest_digest
-        and manifest["manifestDigest"] == digest({key: value for key, value
-            in manifest.items() if key != "manifestDigest"})
-        and summary.get("summaryDigest") == digest({key: value for key, value
-            in summary.items() if key != "summaryDigest"})
-        and summary.get("marketManifestDigest") == material.manifest_digest
-        and summary.get("reportId") == material.source_report_id
-        and summary.get("typedMarketRowsVerified") is True
-        and summary.get("selectedSealedSourcesFullyReplayed") is True
-        and summary.get("registeredAgentTool") is False,
-        "市场三张材料未经拥有方完整核对")
-    fixed = market_admission.require_observed(material.source_report_id,
-        selector, principal)
+    source_id = parked_snapshot["sourceRoot"]["sourceReportId"]
+    fixed = market_admission.require_observed(source_id, selector, principal)
     prepared = runtime.prepare(fixed, with_budget=snapshot["withBudget"])
-    _need(fixed["bindingDigest"] == summary["admissionDigest"]
+    claim = snapshot["marketAdmission"]
+    _need(claim.get("parkedReportId") == parked_id
+        and claim.get("manifestDigest") == call["marketManifestDigest"]
         and prepared["marketContextDigest"] == call["marketContextDigest"]
-        and material.manifest_digest == call["marketManifestDigest"]
-        and prepared["marketSelector"] == selector,
+        and prepared["marketSelector"] == selector)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM " + MATERIAL_FUNCTION + "(%s,%s,%s,%s,%s,%s)",
+                [report.id, actor.email.lower(), fixed["binding"]["actorVersion"],
+                 parked_id, claim["selectorDigest"], claim["manifestDigest"]])
+            row = cursor.fetchone()
+    except DatabaseError as error:
+        raise AiError("市场材料元数据不属于当前报告或读取角色", "conflict", 409) from error
+    _need(row is not None and len(row) == 6)
+    metadata = {"sourceReportId": row[0], "admissionDigest": row[1],
+        "selectorDigest": row[2], "manifestDigest": row[3],
+        "observationCoverage": json.loads(row[4]) if type(row[4]) is str else row[4],
+        "summaryDigest": row[5]}
+    _need(metadata["sourceReportId"] == source_id
+        and metadata["admissionDigest"] == fixed["bindingDigest"]
+        and metadata["selectorDigest"] == claim["selectorDigest"]
+        and metadata["manifestDigest"] == claim["manifestDigest"]
+        and metadata["observationCoverage"] == {"currentDatePresent": True,
+            "baselineDatePresent": True, "bothDatesPresent": True},
         "来源准入、观察日或注入的市场上下文不同")
     guard = digest([report.id, report.snapshot_json, flow.id, flow.version,
         flow.input_json, flow.status, parked.id, parked.snapshot_json,
-        parked.workflow_id, material.manifest_json_sha256,
-        material.summary_digest, fixed["bindingDigest"]])
-    return material.source_report_id, fixed, prepared, manifest, guard
+        parked.workflow_id, metadata, fixed["bindingDigest"]])
+    return source_id, fixed, prepared, metadata, guard
 
 
 def read(call_identity, selector, arguments, principal, *, numeric_selection=None,
@@ -108,7 +100,7 @@ def read(call_identity, selector, arguments, principal, *, numeric_selection=Non
         call = contract.injected(call_identity)
     except AnalysisContractError as error:
         raise AiError("市场第五工具注入身份无效", "invalid_request", 400) from error
-    source_id, fixed, prepared, manifest, guard = _roots(call, selector, principal)
+    source_id, fixed, prepared, metadata, guard = _roots(call, selector, principal)
     if type(arguments) is not dict or arguments.get("reportId") != call["admittedReportId"]:
         raise AiError("市场第五工具只能读取本材料准入报告", "invalid_request", 400)
     source_args = {**arguments, "reportId": source_id}
@@ -122,7 +114,7 @@ def read(call_identity, selector, arguments, principal, *, numeric_selection=Non
         raise AiError("数值核对只能指定精确行的指标字段", "invalid_request", 400)
     preview = owning.read(source_id, selector, fixed["bindingDigest"],
         call["role"], selected, principal, checkpoint=checkpoint, limits=limits)
-    _need(preview["marketManifestDigest"] == manifest["manifestDigest"]
+    _need(preview["marketManifestDigest"] == metadata["manifestDigest"]
         and preview["marketContextDigest"] == prepared["marketContextDigest"]
         and preview["serverFullMarketMaterialVerified"] is True
         and preview["agentReadPersisted"] is False
@@ -142,14 +134,14 @@ def read(call_identity, selector, arguments, principal, *, numeric_selection=Non
         try:
             number = contract.verified_number(citation_bases[0], payload["row"],
                 numeric_selection["metric"], numeric_selection["field"],
-                observation_coverage=manifest["rankObservationCoverage"])
+                observation_coverage=metadata["observationCoverage"])
         except AnalysisContractError as error:
             raise AiError("市场数值缺失或不是可引用的TOP样本单元格",
                 "invalid_request", 400) from error
     result = {"schemaVersion": SCHEMA, "admittedReportId": call["admittedReportId"],
         "sourceReportId": source_id, "role": call["role"],
         "jobProviderIdentityClaim": call, "identityClaimDigest": digest(call),
-        "mode": selected["mode"], "marketManifestDigest": manifest["manifestDigest"],
+        "mode": selected["mode"], "marketManifestDigest": metadata["manifestDigest"],
         "payload": payload, "citationBases": citation_bases,
         "verifiedNumericCandidate": number,
         "serverFullMarketMaterialVerified": True,
