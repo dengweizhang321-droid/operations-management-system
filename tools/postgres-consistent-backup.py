@@ -291,6 +291,12 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            v4_tables = {"ai_business_v4_runs", "ai_business_v4_sources",
+                         "ai_business_v4_chunks", "ai_business_v4_tool_receipts"}
+            if "0035_business_v4_ledger" not in ai_migrations:
+                expected_ai_tables.difference_update(v4_tables)
+            elif "0034_business_v3_report_intent" not in ai_migrations:
+                raise RuntimeError("AI v4 ledger schema has no paused v3 intent predecessor")
             if "0034_business_v3_report_intent" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_v3_report_intents")
             elif "0033_business_v3_parent_seal" not in ai_migrations:

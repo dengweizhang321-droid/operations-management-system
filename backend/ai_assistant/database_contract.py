@@ -28,6 +28,10 @@ MODELS = {
     "ai_business_evidence_sources": m.AiBusinessEvidenceSource,
     "ai_business_source_tool_receipts": m.AiBusinessSourceToolReceipt,
     "ai_business_v3_report_intents": m.AiBusinessV3ReportIntent,
+    "ai_business_v4_runs": m.AiBusinessV4Run,
+    "ai_business_v4_sources": m.AiBusinessV4Source,
+    "ai_business_v4_chunks": m.AiBusinessV4Chunk,
+    "ai_business_v4_tool_receipts": m.AiBusinessV4ToolReceipt,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
     "ai_report_runs": m.AiReportRun,
@@ -101,6 +105,8 @@ APPEND_ONLY = {
     "ai_business_evidence_chunks",
     "ai_business_source_tool_receipts",
     "ai_business_v3_report_intents",
+    "ai_business_v4_chunks",
+    "ai_business_v4_tool_receipts",
     "ai_library_revisions",
     "ai_execution_guidance",
     "ai_report_runs",
@@ -154,6 +160,8 @@ for table in {
 WRITER_PRIVILEGES["ai_report_deliveries"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_evidence_runs"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["ai_business_evidence_sources"] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_business_v4_runs"] = ("SELECT", "INSERT", "UPDATE")
+WRITER_PRIVILEGES["ai_business_v4_sources"] = ("SELECT", "INSERT", "UPDATE")
 WRITER_PRIVILEGES["access_control_users"] = ("SELECT",)
 
 
@@ -231,6 +239,11 @@ def provision(connection, reader_password, writer_password):
             if cursor.fetchone()[0] is None:
                 privileges = {table: allowed for table, allowed in privileges.items()
                               if table != "ai_business_v3_report_intents"}
+            cursor.execute("SELECT to_regclass('public.ai_business_v4_runs')")
+            if cursor.fetchone()[0] is None:
+                privileges = {table: allowed for table, allowed in privileges.items()
+                              if table not in {"ai_business_v4_runs", "ai_business_v4_sources",
+                                  "ai_business_v4_chunks", "ai_business_v4_tool_receipts"}}
             for table, allowed in privileges.items():
                 cursor.execute(
                     sql.SQL("GRANT {} ON {} TO {}").format(

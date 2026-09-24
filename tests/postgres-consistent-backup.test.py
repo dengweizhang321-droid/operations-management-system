@@ -18,6 +18,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_LEDGER as PRE_V4_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V3_REPORT_INTENTS as PRE_INTENT_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_TOOL_RECEIPTS as AI_TABLES
 SCREENING_TABLES = {"ai_business_screening_runs", "ai_business_screening_pages"}
@@ -109,17 +110,30 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_v4_ledger_generation_has_explicit_71_table_boundary(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 35)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 71)
+        self.assertTrue({"ai_business_v4_runs", "ai_business_v4_sources",
+            "ai_business_v4_chunks", "ai_business_v4_tool_receipts"} <= set(current["tables"]))
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(PRE_V4_AI_TABLES, migrations)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 34)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_V4_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 67)
         self.assertIn("ai_business_v3_report_intents", current["tables"])
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_INTENT_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
-            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+            _ai_evidence(PRE_V4_AI_TABLES, migrations[:-1])
 
     def test_receipt_generation_has_explicit_66_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")

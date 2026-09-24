@@ -21,7 +21,8 @@ from django.db.migrations.executor import MigrationExecutor
 from ai_assistant import business_v3_report_intent as intent, business_v3_seal as seal
 from ai_assistant import models as m
 from ai_assistant.database_contract import provision
-from ai_assistant.table_manifest import AI_TABLES, AI_TABLES_PRE_V3_REPORT_INTENTS
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_LEDGER as AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V3_REPORT_INTENTS
 from ai_assistant.policy import canonical
 from sales.auth import Principal
 
