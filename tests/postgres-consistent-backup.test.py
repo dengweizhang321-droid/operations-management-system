@@ -145,7 +145,7 @@ def _promotion_trial_state():
                        ["search_path=pg_catalog,public"], "plpgsql",
                        "fixture_owner", oids[signature])
                       for signature, body in zip(signatures, bodies)},
-        "acls": {signature: {("OWNER", "EXECUTE", True),
+        "acls": {signature: {("OWNER", "EXECUTE", False),
                      (("PUBLIC" if i < 5 else "teruisi_ai_writer"),
                       "EXECUTE", False)}
                  for i, signature in enumerate(signatures)},

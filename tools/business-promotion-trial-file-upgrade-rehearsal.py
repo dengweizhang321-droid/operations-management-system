@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 from importlib import import_module
+from importlib.util import module_from_spec, spec_from_file_location
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -19,7 +20,19 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
 from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.health import _verify_promotion_trial_file_guard
 from business_analysis.contracts import canonical
+
+backup_spec = spec_from_file_location("promotion_trial_backup_guard",
+    ROOT / "tools" / "postgres-consistent-backup.py")
+backup_module = module_from_spec(backup_spec)
+backup_spec.loader.exec_module(backup_module)
+
+
+def frozen_gate(db):
+    with db.cursor() as cursor:
+        _verify_promotion_trial_file_guard(cursor)
+        backup_module.verify_promotion_trial_file_guard(cursor)
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
@@ -114,6 +127,19 @@ def constraint(db):
     return row[0]
 
 
+def normalized_constraint(definition):
+    """Postgres rewrites the fixed status array cast during pg_dump restore."""
+    statuses = ("queued", "building", "paused", "ready", "cancelled")
+    original = "((ARRAY[" + ", ".join(
+        f"'{status}'::character varying" for status in statuses) + "])::text[])"
+    restored = "(ARRAY[" + ", ".join(
+        f"('{status}'::character varying)::text" for status in statuses) + "])"
+    if original not in definition and restored not in definition:
+        raise AssertionError("file status CHECK shape changed")
+    return definition.replace(original, "(FROZEN_STATUS_SET)").replace(
+        restored, "(FROZEN_STATUS_SET)")
+
+
 def function_state(db):
     result = []
     for signature in FUNCTIONS:
@@ -168,13 +194,18 @@ with connect() as db:
         == (None,) for signature, _ in HELPERS)
 archive_restore("business_promotion_trial_file_before")
 with connect("business_promotion_trial_file_before") as restored:
-    assert (table_digest(restored), files(restored), constraint(restored),
-        tuple(row[1:] for row in function_state(restored))) == (
-            before, old_files, old_check, tuple(row[1:] for row in old_functions))
+    checks = (table_digest(restored) == before,
+        files(restored) == old_files,
+        normalized_constraint(constraint(restored)) == normalized_constraint(old_check),
+        tuple(row[1:] for row in function_state(restored)) ==
+            tuple(row[1:] for row in old_functions))
+    if not all(checks):
+        raise AssertionError(f"0045 pre-upgrade restore mismatch: {checks}")
 
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
     assert (table_digest(db), files(db)) == (before, old_files)
+    frozen_gate(db)
     new_check, new_functions, new_helpers = constraint(db), function_state(db), helper_state(db)
     assert new_check != old_check
     assert tuple(row[0] for row in new_functions) == tuple(row[0] for row in old_functions)
@@ -185,9 +216,10 @@ with connect() as db:
         ).fetchone() == (0,)
 archive_restore("business_promotion_trial_file_after")
 with connect("business_promotion_trial_file_after") as restored:
-    assert (table_digest(restored), files(restored), constraint(restored),
+    frozen_gate(restored)
+    assert (table_digest(restored), files(restored), normalized_constraint(constraint(restored)),
         tuple(row[1:] for row in function_state(restored)), helper_state(restored)) == (
-            before, old_files, new_check,
+            before, old_files, normalized_constraint(new_check),
             tuple(row[1:] for row in new_functions), new_helpers)
 
 MigrationExecutor(connection).migrate(OLD)
@@ -198,6 +230,7 @@ with connect() as db:
         == (None,) for signature, _ in HELPERS)
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
+    frozen_gate(db)
     assert (table_digest(db), files(db), constraint(db), function_state(db),
         helper_state(db)) == (before, old_files, new_check, new_functions, new_helpers)
 

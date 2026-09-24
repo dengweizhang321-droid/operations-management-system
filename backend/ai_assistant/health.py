@@ -57,7 +57,7 @@ def _verify_promotion_trial_file_guard(cursor):
             "LEFT JOIN pg_catalog.pg_roles grantee ON grantee.oid=acl.grantee "
             "WHERE p.oid=to_regprocedure(%s)", [signature])
         acl = set(cursor.fetchall())
-        expected_acl = {("OWNER", "EXECUTE", True)}
+        expected_acl = {("OWNER", "EXECUTE", False)}
         expected_acl.add(("PUBLIC", "EXECUTE", False) if index < 5 else
                          ("teruisi_ai_writer", "EXECUTE", False))
         if acl != expected_acl:
