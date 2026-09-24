@@ -98,12 +98,14 @@ class V4FinanceSegmentReplayTests(unittest.TestCase):
     def test_17_pages_cross_segment_and_require_previous_receipt(self):
         identity, segments, pages = self.fixture(17)
         first = self.replay(identity, segments[0], pages[:16])
+        self.assertEqual(first["previousCandidateDigest"], replay.ZERO)
         self.assertEqual(first["progress"]["pageCount"], 16)
         self.assertFalse(first["progress"]["financeState"]["finished"])
         with self.assertRaises(AnalysisContractError):
             self.replay(identity, segments[1], pages[16:], previous=first)
         second = self.replay(identity, segments[1], pages[16:], previous=first,
             verify_previous_result=lambda *_: True)
+        self.assertEqual(second["previousCandidateDigest"], first["candidateDigest"])
         self.assertEqual(second["progress"]["rowCount"], 17)
         self.assertTrue(second["progress"]["financeState"]["finished"])
         self.assertTrue(second["candidateOnly"])

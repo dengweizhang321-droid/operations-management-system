@@ -13,7 +13,7 @@ from .contracts import AnalysisContractError, MAX_SAFE_INTEGER, canonical, diges
 from .v4_sealer_segment_replay import (_bounded_previous, _json, _need,
     ATTEMPT_SCHEMA, PROGRESS_SCHEMA, ZERO, HEX16, HEX64, IDENTIFIER)
 
-SCHEMA = "business-v4-sealer-finance-segment-candidate-v1"
+SCHEMA = "business-v4-sealer-finance-segment-candidate-v2"
 IDENTITY_FIELDS = frozenset({"runId", "attemptId", "actorEmail", "actorVersion",
     "sourceId", "sourceKey", "sourceRoot", "sourceVersion", "sourcePageCount",
     "sourceRowCount", "sourceStoredBytes", "sourceRef", "sourceRevision",
@@ -229,6 +229,7 @@ def replay_finance_segment(identity, segment, pages, *, previous=None,
         "sourceVersion": identity["sourceVersion"], "keyId": identity["keyId"],
         "segmentIndex": index, "endSequence": end,
         "segmentProofDigest": segment["proof_digest"], "progress": finite,
+        "previousCandidateDigest": ZERO if index == 1 else previous["candidateDigest"],
         "candidateOnly": True, "authorityVerified": False,
         "financeReplayed": True, "upstreamSignatureVerified": False,
         "sealCommitted": False}
