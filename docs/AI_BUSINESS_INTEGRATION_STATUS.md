@@ -18,6 +18,8 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 0049 增加[claim 绑定的单来源窄读](AI_BUSINESS_V4_SEALER_SOURCE_BRIDGE.md)，补齐 0042 context/segment/page 未返回的真实查询、完成页/行/字节和检查点摘要；仅专用 NOLOGIN sealer 有 EXECUTE。隔离 PG 4 项、0048→0049 旧79表/renderer1—7字节与旧函数OID/ACL、前后备份恢复和空逆迁移通过；仍无真实登录凭据、执行器或 seal 权威。纯 MAC 校验另有两项用途分隔测试，只有调用方提供派生段密钥并另核当前 claim 才可用于独立重放。
 
+0050 修复[claim 绑定回执读取](AI_BUSINESS_V4_REPLAY_READ_CAST.md)的 PostgreSQL `varchar(64)`→`text` 返回类型；隔离目标 PG 4 项与[默认关闭的单段编排](AI_BUSINESS_V4_SEALER_STEP_CORE.md)共测通过 `.runtime/ai-pg-a1a7fdb52846/tests.log`。0049→0050 的完整隔离升级/空回退/再升级、旧79表及 renderer1—7 字节、所有其他 AI 函数不变、READ OID/ACL/签名不变、前后独立备份恢复通过 `.runtime/ai-pg-7ddc07cd8f88/business-v4-replay-read-cast-upgrade-evidence.json`。单段编排只在测试中用合成来源、已领取 claim、派生段密钥写入推广/财务候选；专用角色仍 NOLOGIN，正式权限交接、跨票据17页、最终 seal+消费、真实业务规模及生产采用均未完成。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

@@ -333,7 +333,8 @@ def check():
         _verify_market_v2_material_attestation(cursor)
         _verify_promotion_trial_file_guard(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
-        verify_v4_replay_progress(cursor, finance_enabled=True)
+        verify_v4_replay_progress(cursor, finance_enabled=True,
+                                  read_cast_enabled=True)
         from .v4_sealer_source_catalog import verify as verify_v4_sealer_source
         verify_v4_sealer_source(cursor)
 

@@ -17,5 +17,13 @@ table is empty. Once any candidate has been recorded, reverse migration fails
 closed because restoring the old body would make that receipt unreadable. The
 target PostgreSQL test records real promotion and finance candidates using the
 sealer role, reads them under the matching claim, rejects a wrong claim, and covers
-function body drift and both reverse-migration boundaries. Production upgrade
-and rollback rehearsal remain separate gates.
+function body drift and both reverse-migration boundaries. The isolated
+PostgreSQL target run passed four tests, including the single-segment sealer
+core integration, at `.runtime/ai-pg-a1a7fdb52846/tests.log`. Production
+upgrade and rollback rehearsal remain separate gates. The isolated 0049→0050
+rehearsal passed at
+`.runtime/ai-pg-7ddc07cd8f88/business-v4-replay-read-cast-upgrade-evidence.json`:
+79 old AI tables and renderer 1–7 bytes are preserved, only the READ body
+changes while its OID/ACL/signature remain fixed, before/after archives restore,
+and an empty receipt ledger can reverse and reapply the migration. No
+production migration or role activation was performed.

@@ -6,4 +6,4 @@
 
 前段候选必须由当前 claim 的受保护回执函数读回，再验证摘要、同 run/attempt/source/root/key 和连续段身份，供纯重放回调使用。若当前段已有回执，返回 `existing_candidate`，不声称本次重新完成页重放或 MAC 验证。写入异常返回 `unknown_write_result`，不自动重试；写入成功则要求精确原文、摘要和时间戳回读一致。所有状态固定 `candidateOnly=true`、`authorityVerified=false`。这仍不是正式 seal、上游签名验证或生产准入。
 
-纯 fake-driver 测试覆盖推广、财务、调用顺序、已存候选、错身份/计划/来源摘要、缺页、错误 HMAC、缺前段回执、写入未知和写后不一致。该测试不代替受保护角色的 PostgreSQL 集成及生产授权验收。
+纯 fake-driver 测试覆盖推广、财务、调用顺序、已存候选、错身份/计划/来源摘要、缺页、错误 HMAC、缺前段回执、写入未知和写后不一致。另在隔离 PostgreSQL 中以已领取 claim 和受限角色完成了推广、财务各一段候选的写入/回读、重复请求幂等、错误派生密钥拒绝；0047 读取回执曾因 `varchar(64)` 与声明的 `text` 不一致报错，现由 0050 显式转换修复。四项针对性测试通过，见 `.runtime/ai-pg-a1a7fdb52846/tests.log`。测试使用合成来源和隔离角色配置，不等于受保护登录、跨票据长任务或生产授权验收。

@@ -6,12 +6,16 @@ TABLE = "public.ai_business_v4_sealer_replay_progress"
 SEALER = "teruisi_ai_seal_writer"
 
 
-def verify(cursor, error_type=ValueError, *, finance_enabled=False):
+def verify(cursor, error_type=ValueError, *, finance_enabled=False,
+           read_cast_enabled=False):
     migration = import_module(
         "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
     finance_migration = (import_module(
         "ai_assistant.migrations.0048_business_v4_finance_replay_progress")
         if finance_enabled else None)
+    read_cast_migration = (import_module(
+        "ai_assistant.migrations.0050_business_v4_replay_read_cast")
+        if read_cast_enabled else None)
 
     def need(condition, reason):
         if not condition:
@@ -21,6 +25,11 @@ def verify(cursor, error_type=ValueError, *, finance_enabled=False):
         cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
             "app='ai_assistant' AND name='0048_business_v4_finance_replay_progress')")
         need(cursor.fetchone() == (True,), "finance extension receipt missing")
+    if read_cast_enabled:
+        need(finance_enabled, "read cast requires finance replay predecessor")
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
+            "app='ai_assistant' AND name='0050_business_v4_replay_read_cast')")
+        need(cursor.fetchone() == (True,), "read cast receipt missing")
 
     cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
         "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
@@ -52,7 +61,7 @@ def verify(cursor, error_type=ValueError, *, finance_enabled=False):
          False, "search_path=pg_catalog,public", (False, False, False)),
         (migration.WRITE, finance_migration.RECORD if finance_migration else migration.RECORD, True,
          "search_path=pg_catalog,public", (True, False, False)),
-        (migration.READ, migration.READ_SQL, True,
+        (migration.READ, read_cast_migration.READ if read_cast_migration else migration.READ_SQL, True,
          "search_path=pg_catalog,public", (True, False, False)),
     )
     for signature, definition, security_definer, search_path, allowed in definitions:
