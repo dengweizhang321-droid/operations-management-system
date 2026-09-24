@@ -2,6 +2,8 @@
 
 工作分支 `codex/ai-business-current-integration`，隔离工作树 `D:\.codex\worktrees\ai-business-current-integration\运营管理系统`。本检查点没有生产部署、正式数据库迁移、专用角色登录启用、付费模型或外发。主 checkout 的已有改动不属于本分支。
 
+2026-09-25 同步主线单独新增的吉客云 4163 精确闭合修复 `c69573ac`（本分支 cherry-pick 为 `08fb752c`），相关 TypeScript 24 项通过；该同步与 AI 经营分析功能彼此独立，未触发吉客云业务执行。
+
 ## 已接与已验证
 
 - 0049 后的 `ai_v4_sealer_replay_progress` 在实际 PostgreSQL 回读时，表列 `varchar(64)` 与函数声明 `text` 不匹配。0050 仅对该投影增加 `::text`，保留 claim 前后复验、函数身份/权限及写侧行为。错误原始日志为 `.runtime/ai-pg-9c5dae830fb1/failure.log`。
@@ -29,3 +31,5 @@
 0052 的[同事务包装](AI_BUSINESS_V4_COMMIT_CONSUMPTION.md)已在隔离 PostgreSQL 五项目标测试、撤权负例及 0051→0052 前后备份恢复演练通过；证据分别为 `.runtime/ai-pg-929da4f9223d/tests.log`、`.runtime/ai-pg-d5e9d4b49403/tests.log` 与 `.runtime/ai-pg-de8865ae6bd3/business-v4-commit-consumption-upgrade-evidence.json`。旧表、旧 renderer1—7 文件及旧 AI 函数目录保持，角色仍 NOLOGIN、直封撤权。只有拥有真实父 MAC 和当期权威交接的未来受保护执行器才能安全使用，当前不把合成封存当作正式报告准入。
 
 推广预算 [renderer10 纯候选](AI_BUSINESS_PROMOTION_BUDGET_RENDERER10_CANDIDATE.md)已能对齐同报告批准绑定、固定预算引用与拥有方重算材料，投影三张预算表；无固定预算时只列缺口。预算与分卷相关38项纯测试通过。它尚无 owning 授权接线、完整 HTML/XLSX 发布、原生 Excel 复算或生产入口，v9 仍标预算未交付。
+
+默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。
