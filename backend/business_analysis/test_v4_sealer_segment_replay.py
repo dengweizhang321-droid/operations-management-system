@@ -133,6 +133,17 @@ class V4PromotionSegmentReplayTests(unittest.TestCase):
         with self.assertRaises(AnalysisContractError):
             self.replay(identity, segment, changed)
 
+    def test_progress_digest_uses_policy_raw_utf8_not_contracts_string_json(self):
+        identity, segment, records = self.fixture()
+        raw = segment["progress_json"]
+        self.assertEqual(segment["progress_digest"],
+            hashlib.sha256(raw.encode("utf-8")).hexdigest())
+        self.assertNotEqual(segment["progress_digest"], digest(raw))
+        changed = copy.deepcopy(segment)
+        changed["progress_digest"] = digest(raw)
+        with self.assertRaises(AnalysisContractError):
+            self.replay(identity, changed, records)
+
     def test_duplicate_page_and_forged_segment_progress_are_rejected(self):
         identity, segment, records = self.fixture()
         changed = copy.deepcopy(records)
@@ -195,7 +206,11 @@ class V4PromotionSegmentReplayTests(unittest.TestCase):
         second["proof_digest"] = digest(proof)
         final_page = copy.deepcopy(records[16])
         final_page["segment_id"] = "segment-2"
-        final = self.replay(identity, second, [final_page], previous=accepted)
+        with self.assertRaises(AnalysisContractError):
+            self.replay(identity, second, [final_page], previous=accepted)
+        protected = lambda candidate, *_: candidate["candidateDigest"] == accepted["candidateDigest"]
+        final = self.replay(identity, second, [final_page], previous=accepted,
+                            verify_previous_result=protected)
         self.assertEqual(final["progress"]["pageCount"], 17)
         self.assertTrue(final["progress"]["verifier"]["finished"])
         wrong = copy.deepcopy(accepted)
@@ -203,7 +218,25 @@ class V4PromotionSegmentReplayTests(unittest.TestCase):
         wrong["candidateDigest"] = digest({key: value for key, value in wrong.items()
             if key != "candidateDigest"})
         with self.assertRaises(AnalysisContractError):
-            self.replay(identity, second, [final_page], previous=wrong)
+            self.replay(identity, second, [final_page], previous=wrong,
+                        verify_previous_result=protected)
+        forged = copy.deepcopy(accepted)
+        forged["progress"]["rowCount"] = 15
+        forged["candidateDigest"] = digest({key: value for key, value in forged.items()
+            if key != "candidateDigest"})
+        with self.assertRaises(AnalysisContractError):
+            self.replay(identity, second, [final_page], previous=forged,
+                        verify_previous_result=protected)
+        oversized = copy.deepcopy(accepted)
+        oversized["progress"]["verifier"]["evidence_digest"] = "x" * 100_000
+        with self.assertRaises(AnalysisContractError):
+            self.replay(identity, second, [final_page], previous=oversized,
+                        verify_previous_result=lambda *_: True)
+        cyclic = copy.deepcopy(accepted)
+        cyclic["cycle"] = cyclic
+        with self.assertRaises(AnalysisContractError):
+            self.replay(identity, second, [final_page], previous=cyclic,
+                        verify_previous_result=lambda *_: True)
 
 
 if __name__ == "__main__":

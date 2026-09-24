@@ -25,6 +25,7 @@ IDENTITY_FIELDS = frozenset({"runId", "attemptId", "actorEmail", "actorVersion",
     "sourceId", "sourceKey", "sourceRoot", "sourceVersion", "sourcePageCount",
     "sourceRowCount", "sourceStoredBytes", "sourceRef", "sourceRevision",
     "keyId", "query"})
+MAX_PREVIOUS_BYTES = 48_000
 
 
 def _need(condition, reason):
@@ -98,16 +99,55 @@ def _reconciler(state):
     return verifier
 
 
-def _previous(value, identity, index):
+def _bounded_previous(value):
+    """Reject oversized/cyclic candidate text before hashing or copying state."""
+    seen, nodes, size = set(), 0, 0
+    def walk(item, depth):
+        nonlocal nodes, size
+        nodes += 1
+        _need(depth <= 16 and nodes <= 1024, "v4前段候选结构超限")
+        if type(item) in (dict, list):
+            marker = id(item)
+            _need(marker not in seen and len(item) <= 128,
+                  "v4前段候选包含循环或超宽结构")
+            seen.add(marker)
+            if type(item) is dict:
+                for key, child in item.items():
+                    _need(type(key) is str, "v4前段候选字段名无效")
+                    walk(key, depth + 1)
+                    walk(child, depth + 1)
+            else:
+                for child in item:
+                    walk(child, depth + 1)
+            seen.remove(marker)
+        elif type(item) is str:
+            size += len(item.encode("utf-8"))
+            _need(size <= MAX_PREVIOUS_BYTES,
+                  "v4前段候选超过固定字节容量")
+        else:
+            _need(item is None or type(item) in (bool, int),
+                  "v4前段候选包含不支持的值")
+    walk(value, 0)
+    _need(len(canonical(value).encode("utf-8")) <= MAX_PREVIOUS_BYTES,
+          "v4前段候选规范原文超限")
+
+
+def _previous(value, identity, index, verify_previous_result):
     if index == 1:
         _need(value is None, "v4首段不能继承其他段")
         return (PageReconciler(), 0, 0, digest([]), None, [], ZERO)
+    _bounded_previous(value)
     _need(type(value) is dict and value.get("schemaVersion") == SCHEMA
           and value.get("candidateOnly") is True
           and value.get("authorityVerified") is False
+          and type(value.get("candidateDigest")) is str
+          and HEX64.fullmatch(value["candidateDigest"]) is not None
           and value.get("candidateDigest") == digest({key: item for key, item
               in value.items() if key != "candidateDigest"}),
           "v4前段候选摘要无效")
+    _need(callable(verify_previous_result)
+          and verify_previous_result(value, identity, index) is True,
+          "v4前段缺独立受保护回执核验")
     for key in ("runId", "attemptId", "sourceId", "sourceRoot", "sourceKey",
                 "sourceRef", "sourceRevision", "sourceVersion", "keyId"):
         _need(value.get(key) == identity[key], "v4前段跨来源或密钥复用")
@@ -176,7 +216,8 @@ def _row_shape(page, *, first, shop, period):
 
 
 def replay_promotion_segment(identity, segment, pages, *, previous=None,
-                             verify_claim=None, verify_segment_mac=None):
+                             verify_claim=None, verify_segment_mac=None,
+                             verify_previous_result=None):
     """Replay at most 16 passive 0042 rows; return a non-authorizing checkpoint.
 
     Both verification callbacks are required and must use protected external
@@ -203,7 +244,7 @@ def replay_promotion_segment(identity, segment, pages, *, previous=None,
           and len(pages) == end - start + 1,
           "v4段范围或领用读取不连续")
     verifier, size, rows, chain, last_digest, observed, prior_digest = (
-        _previous(previous, identity, index))
+        _previous(previous, identity, index, verify_previous_result))
     _need(segment.get("previous_segment_digest") == prior_digest,
           "v4段前驱证明不连续")
     progress = _json(segment.get("progress_json"), 32_768)
