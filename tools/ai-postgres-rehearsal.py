@@ -37,6 +37,7 @@ parser.add_argument("--business-v3-parent-seal-upgrade", action="store_true")
 parser.add_argument("--business-v3-report-intent-upgrade", action="store_true")
 parser.add_argument("--business-v4-ledger-upgrade", action="store_true")
 parser.add_argument("--business-v4-validation-upgrade", action="store_true")
+parser.add_argument("--business-v4-seal-admission-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
@@ -44,11 +45,11 @@ arguments = parser.parse_args()
 if not 60 <= arguments.test_timeout_seconds <= 1800:
     parser.error("--test-timeout-seconds must stay within 60-1800")
 if arguments.upgrade_only and (arguments.tests_only or arguments.test_label or arguments.all_backend_tests
-        or not any((arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade, arguments.business_promotion_file_guard_upgrade, arguments.business_finance_v3_upgrade, arguments.business_promotion_file_ready_upgrade, arguments.business_finance_v3_pages_upgrade, arguments.business_v3_daily_pages_upgrade, arguments.business_v3_tool_receipts_upgrade, arguments.business_v3_parent_seal_upgrade, arguments.business_v3_report_intent_upgrade, arguments.business_v4_ledger_upgrade, arguments.business_v4_validation_upgrade, arguments.source_revision_guards_upgrade))):
+        or not any((arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade, arguments.business_promotion_file_guard_upgrade, arguments.business_finance_v3_upgrade, arguments.business_promotion_file_ready_upgrade, arguments.business_finance_v3_pages_upgrade, arguments.business_v3_daily_pages_upgrade, arguments.business_v3_tool_receipts_upgrade, arguments.business_v3_parent_seal_upgrade, arguments.business_v3_report_intent_upgrade, arguments.business_v4_ledger_upgrade, arguments.business_v4_validation_upgrade, arguments.business_v4_seal_admission_upgrade, arguments.source_revision_guards_upgrade))):
     parser.error("--upgrade-only requires one full upgrade rehearsal and cannot include test-selection options")
-if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade or arguments.market_options_upgrade or arguments.sales_options_upgrade or arguments.business_file_opc_upgrade or arguments.business_promotion_profile_upgrade or arguments.business_promotion_file_guard_upgrade or arguments.business_finance_v3_pages_upgrade or arguments.business_v3_daily_pages_upgrade or arguments.business_v3_tool_receipts_upgrade or arguments.business_v3_parent_seal_upgrade or arguments.business_v3_report_intent_upgrade or arguments.business_v4_ledger_upgrade or arguments.business_v4_validation_upgrade or arguments.source_revision_guards_upgrade):
+if arguments.test_label and (not arguments.tests_only or arguments.generation_upgrade or arguments.prompt_settings_upgrade or arguments.report_library_upgrade or arguments.business_evidence_upgrade or arguments.market_options_upgrade or arguments.sales_options_upgrade or arguments.business_file_opc_upgrade or arguments.business_promotion_profile_upgrade or arguments.business_promotion_file_guard_upgrade or arguments.business_finance_v3_pages_upgrade or arguments.business_v3_daily_pages_upgrade or arguments.business_v3_tool_receipts_upgrade or arguments.business_v3_parent_seal_upgrade or arguments.business_v3_report_intent_upgrade or arguments.business_v4_ledger_upgrade or arguments.business_v4_validation_upgrade or arguments.business_v4_seal_admission_upgrade or arguments.source_revision_guards_upgrade):
     parser.error("Explicit test labels require --tests-only and cannot narrow upgrade verification")
-if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade, arguments.business_promotion_file_ready_upgrade, arguments.business_finance_v3_upgrade, arguments.business_finance_v3_pages_upgrade, arguments.business_v3_daily_pages_upgrade, arguments.business_v3_tool_receipts_upgrade, arguments.business_v3_parent_seal_upgrade, arguments.business_v3_report_intent_upgrade, arguments.business_v4_ledger_upgrade, arguments.business_v4_validation_upgrade, arguments.source_revision_guards_upgrade]) > 1:
+if sum([arguments.generation_upgrade, arguments.prompt_settings_upgrade, arguments.report_library_upgrade, arguments.business_evidence_upgrade, arguments.market_options_upgrade, arguments.sales_options_upgrade, arguments.business_file_opc_upgrade, arguments.business_promotion_profile_upgrade, arguments.business_promotion_file_ready_upgrade, arguments.business_finance_v3_upgrade, arguments.business_finance_v3_pages_upgrade, arguments.business_v3_daily_pages_upgrade, arguments.business_v3_tool_receipts_upgrade, arguments.business_v3_parent_seal_upgrade, arguments.business_v3_report_intent_upgrade, arguments.business_v4_ledger_upgrade, arguments.business_v4_validation_upgrade, arguments.business_v4_seal_admission_upgrade, arguments.source_revision_guards_upgrade]) > 1:
     parser.error("Choose only one fresh database upgrade rehearsal")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 PORT = arguments.port
@@ -295,6 +296,21 @@ try:
             ("business-v3-report-intent-upgrade-rehearsal.py", "business-v3-report-intent-upgrade.json"),
             ("business-v4-ledger-upgrade-rehearsal.py", "business-v4-ledger-upgrade.json"),
             ("business-v4-validation-upgrade-rehearsal.py", "business-v4-validation-upgrade.json"),
+        ):
+            upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
+            (RUN / name).write_text(upgrade, encoding="utf-8")
+        print(upgrade.strip(), flush=True)
+    if arguments.business_v4_seal_admission_upgrade:
+        for script, name in (
+            ("business-promotion-profile-upgrade-rehearsal.py", "business-promotion-profile-upgrade.json"),
+            ("business-promotion-file-guard-upgrade-rehearsal.py", "business-promotion-file-guard-upgrade.json"),
+            ("business-promotion-file-ready-upgrade-rehearsal.py", "business-promotion-file-ready-upgrade.json"),
+            ("business-finance-v3-pages-upgrade-rehearsal.py", "business-finance-v3-pages-upgrade.json"),
+            ("business-v3-daily-pages-upgrade-rehearsal.py", "business-v3-daily-pages-upgrade.json"),
+            ("business-v3-tool-receipts-upgrade-rehearsal.py", "business-v3-tool-receipts-upgrade.json"),
+            ("business-v3-parent-seal-upgrade-rehearsal.py", "business-v3-parent-seal-upgrade.json"),
+            ("business-v3-report-intent-upgrade-rehearsal.py", "business-v3-report-intent-upgrade.json"),
+            ("business-v4-seal-admission-upgrade-rehearsal.py", "business-v4-seal-admission-upgrade.json"),
         ):
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")

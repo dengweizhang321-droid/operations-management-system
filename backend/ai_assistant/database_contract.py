@@ -261,6 +261,15 @@ def provision(connection, reader_password, writer_password):
                         sql.Identifier(role),
                     )
                 )
+            cursor.execute("SELECT to_regprocedure('public.ai_v4_lock_source_revisions_for_admission()')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute("REVOKE ALL ON FUNCTION "
+                    "public.ai_v4_lock_source_revisions_for_admission() FROM PUBLIC")
+                cursor.execute("REVOKE ALL ON FUNCTION "
+                    "public.ai_v4_lock_source_revisions_for_admission() FROM teruisi_ai_reader")
+                if role == "teruisi_ai_writer":
+                    cursor.execute("GRANT EXECUTE ON FUNCTION "
+                        "public.ai_v4_lock_source_revisions_for_admission() TO teruisi_ai_writer")
             if role == "teruisi_ai_reader":
                 from system_datasets.permissions import grant_columns
                 grant_columns(cursor, "ai_assistant")
