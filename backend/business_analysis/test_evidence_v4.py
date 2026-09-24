@@ -76,6 +76,25 @@ class EvidenceV4CapacityTests(TestCase):
         self.assertIsNone(item["estimatedPageCount"])
         self.assertIn("single_row_or_page_envelope_exceeds_page_bytes", item["unsupportedReasons"])
 
+    def test_finance_owning_row_cap_is_part_of_v4_capacity(self):
+        planned, request = sources()
+        measured = measurements()
+        finance = measured[-1]
+        finance.update(measuredRowCount=100_000, maxRowUtf8Bytes=100,
+            pageEnvelopeUtf8Bytes=2048)
+        supported = evidence_v4.build_plan(client_request_id="finance-boundary",
+            sources=planned, measurements=measured, analysis_request=request)
+        source = next(item for item in supported["sourcePlans"] if item["domain"] == "finance")
+        self.assertTrue(source["sourceCapacitySupported"])
+        self.assertTrue(supported["runCapacitySupported"])
+        finance["measuredRowCount"] = 100_001
+        unsupported = evidence_v4.build_plan(client_request_id="finance-boundary",
+            sources=planned, measurements=measured, analysis_request=request)
+        source = next(item for item in unsupported["sourcePlans"] if item["domain"] == "finance")
+        self.assertFalse(source["sourceCapacitySupported"])
+        self.assertIn("finance_owning_row_cap_exceeded", source["unsupportedReasons"])
+        self.assertFalse(unsupported["runCapacitySupported"])
+
     def test_canonical_utf8_and_measurement_identity_fail_closed(self):
         chinese = evidence_v4.row_utf8_bytes({"name": "志高"})
         self.assertGreater(chinese, len('{"name":"志高"}'))

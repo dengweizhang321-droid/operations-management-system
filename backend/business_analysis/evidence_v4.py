@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from . import evidence_v2, evidence_v3
+from . import evidence_v2, evidence_v3, finance_source
 from .contracts import AnalysisContractError, canonical, digest
 
 PLAN_SCHEMA = "business-evidence-v4-capacity-plan-v1"
@@ -111,6 +111,8 @@ def _estimate(entry, measured):
     bytes_upper = rows * (width + 1) + (pages if pages is not None else max(1, rows)) * overhead
     if pages is not None and pages > MAX_SOURCE_PAGES:
         reasons.append("source_page_cap_exceeded")
+    if entry["domain"] == "finance" and rows > finance_source.MAX_ROWS:
+        reasons.append("finance_owning_row_cap_exceeded")
     if bytes_upper > MAX_SOURCE_BYTES:
         reasons.append("source_byte_cap_exceeded")
     if bytes_upper > MAX_SAFE_INTEGER:
