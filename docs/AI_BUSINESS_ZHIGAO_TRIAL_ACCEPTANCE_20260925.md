@@ -23,10 +23,12 @@
 
 旧 v2 **整份证据任务**最多 2,000 页、每页 100 行且合计最多 64 MiB；本期 281,759、前期 293,336 行 **各自已超过整份任务的行数上限**。历史压缩文件解压后的 JSONL 本期约 449 MiB、前期约 464 MiB，进一步说明不能截断后生成“完整近 30 天”renderer 9 文件。七天试读的 61,543 和 71,200 行虽低于单独 200,000 行数值，但历史 JSONL 分别约 99 和 112 MiB；v2 实际工具页字节未测，**不能声称七天可在 64 MiB 门禁内封存**。正式发布仍须系统实际封存、五 Agent 完成及真正人工批准。
 
-为测量底层双格式 writer，在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925` 从本期 7 天历史提取文件生成 **renderer 6 的未人审来源预览**：3 卷 HTML/XLSX、一个完整 JSON 清单。原始来源表覆盖 61,543 行；静态检查验证所有保存后 HTML/XLSX 表证明相等、所有行摘要、XLSX ZIP CRC 和完整清单，见 E 盘 `source-preview-verification.json`、`source-preview-static-qa.json`。该样例无模型判断、无行动建议人审、无预算、无生产文件任务，`renderer9Published=false`。浏览器本地文件访问被浏览器安全策略阻止，未绕行；原生 Excel 打开和重算未验。
+为测量底层双格式 writer，在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925` 从本期 7 天历史提取文件生成 **renderer 6 的未人审来源预览**：3 卷 HTML/XLSX、一个完整 JSON 清单。原始来源表覆盖 61,543 行；静态检查验证所有保存后 HTML/XLSX 表证明相等、HTML 与 XLSX **实际逐行内容摘要**相等、XLSX ZIP CRC 和完整清单，见 E 盘 `source-preview-verification.json`、`source-preview-static-qa.json`。该样例无模型判断、无行动建议人审、无预算、无生产文件任务，`renderer9Published=false`。浏览器本地文件访问被浏览器安全策略阻止，未绕行；原生 Excel 打开和重算未验。
 
 ## 未闭合的正式验收
 
-当前正式系统没有将这个历史 30 天快照封存为可供 renderer 9 使用的已批准报告，本隔离分支也未生产采用。市场、企业购/B 端、财务、独立店铺 UV、可编辑预算和真实模型判断不属于上述来源预览。v4 物理采集/重放支持更大页链，但独立 seal 提交、正式 Agent/文件路径及真实规模资源验收尚未闭合。下一纵向任务应先把大来源的权威封存与有界续验接上，再为明确版本的完整 30 天报告做五 Agent 与人审验收；在此之前仅把七天样例标为来源工程预览。
+当前正式系统没有将这个历史 30 天快照封存为可供 renderer 9 使用的已批准报告，本隔离分支也未生产采用。市场、企业购/B 端、独立店铺 UV、可编辑预算和真实模型判断不属于上述来源预览。v4 物理采集/重放支持更大页链；历史所选列 JSONL 的最大行宽本期/前期为 2,063/2,061 UTF-8 字节，**仅按此历史形状与假定 8 KiB 页包络**估算约 4,776/4,972 页、621/646 MB，上限算术上低于 v4 单来源 16,384 页/2 GiB。但实际签名工具投影、页包络、修订和财务来源尚未测量，因此 `provisional-v4-capacity.json` 明确 `runCapacitySupported=null`，不能据此准入。0038 封存还要求一份真实财务月度背景；参考历史响应有 2026-08 月选项，不等于当前 v4 已完成该来源。独立 sealer 的逐段续验、最终 seal 提交、正式 Agent/文件路径及真实规模资源验收尚未闭合。下一纵向任务应先把大来源的权威封存与有界续验接上，再为明确版本的完整 30 天报告做五 Agent 与人审验收；在此之前仅把七天样例标为来源工程预览。
 
 交付边界的另一个独立修复已在隔离分支验证：renderer 9 的 `promotionTrialProof` v2 固定表标题、说明、列键与标签、类型、合计/比率引用；暂存后只改说明或列名会拒绝发布。正常完整发布和此类漂移负例的隔离 PostgreSQL 3 项通过 `.runtime/ai-pg-d52735ab6fbd/tests.log`，不改变旧 renderer 1—7 协议。
+
+容量清理：本任务三次已停止的隔离升级演练 `ai-pg-d43bb762963e`、`ai-pg-f23c3325329c`、`ai-pg-bd27e4980c95` 的 **data 目录**逐项确认无运行中的 PostgreSQL 后归档到 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg`；原 `.runtime` 目录内的结果 JSON 和日志仍在。未移动正式 PostgreSQL 或任何在用演练。

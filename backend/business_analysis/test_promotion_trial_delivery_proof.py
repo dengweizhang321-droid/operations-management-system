@@ -39,7 +39,8 @@ class TrialProofTests(TestCase):
     def test_exact_action_approval_source_and_budget(self):
         proof, manifest = example()
         trial_proof(proof, manifest)
-        for field, replacement in (("actionRowDigest", "0"*64),
+        for field, replacement in (("schemaVersion", "business-promotion-trial-file-proof-v1"),
+                ("actionRowDigest", "0"*64),
                 ("humanReviewDigest", "0"*64), ("sourceDescriptorDigest", "0"*64),
                 ("tableSchemaDigest", "0"*64),
                 ("budgetDelivered", True)):
