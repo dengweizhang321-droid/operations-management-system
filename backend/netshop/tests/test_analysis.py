@@ -16,7 +16,9 @@ from sales.tests.factories import TEST_SECRET, signed_headers
 
 class AnalysisRecordsTests(TestCase):
     def setUp(self):
-        NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 7, "source_digest": "a"*64})
+        # The synthetic rows and their final revision are one TestCase
+        # transaction, matching the owning importer's atomic publication.
+        NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 6, "source_digest": "b"*64})
         for index, (day, amount, shop) in enumerate([
             ("2026-09-01", 123, "样例店A"), ("2026-09-03", 200, "样例店A"),
             ("2026-08-31", 10, "样例店A"), ("2025-09-01", 50, "样例店A"),
@@ -34,6 +36,8 @@ class AnalysisRecordsTests(TestCase):
                     "跟单SKU ID": f"{index}", "智能投放推广SKU ID": "promoted", "直接订单金额": "1.23",
                     "客户姓名": "不应出现在响应中"}, created_at="2026-09-16", updated_at="2026-09-16",
             )
+        NetshopDataRevision.objects.filter(domain="netshop").update(
+            revision=7, source_digest="a"*64)
         self.params = {"platform": "京东", "shop": "样例店A", "dataset": "promotion",
                        "startDate": "2026-09-01", "endDate": "2026-09-03", "limit": "1"}
 

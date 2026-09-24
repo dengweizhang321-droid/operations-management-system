@@ -21,9 +21,10 @@ from sales.tests.factories import TEST_SECRET, signed_headers
 
 class AnalysisOptionsTests(TestCase):
     def setUp(self):
-        NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 7, "source_digest": "a"*64})
+        NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 6, "source_digest": "b"*64})
         self.principal = Principal("admin@example.test", "Test", "admin", None)
         self.sequence = 0
+        self.fixture_revision_published = False
 
     def batch(self, shop="精确店", **overrides):
         self.sequence += 1
@@ -35,7 +36,12 @@ class AnalysisOptionsTests(TestCase):
             created_at="2026-09-17", completed_at="2026-09-17", actor_email="private@example.test",
             warnings_json=["原始客户信息"], totals_json={"secret": 777})
         values.update(overrides)
-        return NetshopImportBatch.objects.create(**values)
+        batch = NetshopImportBatch.objects.create(**values)
+        if not self.fixture_revision_published:
+            NetshopDataRevision.objects.filter(domain="netshop").update(
+                revision=7, source_digest="a"*64)
+            self.fixture_revision_published = True
+        return batch
 
     def read(self, **params):
         query, cursor = options.validate_request(QueryDict(urlencode(params)))
@@ -110,8 +116,12 @@ class AnalysisOptionsTests(TestCase):
         self.batch()
         with patch.object(options, "revision_value", side_effect=["1:a", "2:b"]), self.assertRaises(NetshopApiError):
             self.read()
-        NetshopDataRevision.objects.all().delete()
-        with self.assertRaises(NetshopApiError):
+        # The published global revision is now physically non-deletable.
+        # Simulate an unavailable revision at the read boundary instead.
+        with patch.object(options, "revision_value",
+                side_effect=NetshopApiError("网店数据版本不可用",
+                    code="service_unavailable", status=503)), \
+                self.assertRaises(NetshopApiError):
             self.read()
 
     def test_snapshot_and_unknown_dates_do_not_claim_historical_coverage(self):
