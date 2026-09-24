@@ -86,8 +86,11 @@ class PromotionReadyTests(djtest.TransactionTestCase):
             self.assertEqual(len(progress["publicationFenceDigest"]), 64)
             self.assertEqual(progress["manifestFileSha256"],
                 result["item"]["manifest"]["manifestFile"]["sha256"])
-            with self.assertRaises(AiError):
-                business_volume_files.chunk(row.id, "1", "html", {"sequence": "1"}, self.admin)
+            downloaded = business_volume_files.chunk(
+                row.id, "1", "html", {"sequence": "1"}, self.admin)
+            self.assertEqual(downloaded["runId"], row.id)
+            self.assertEqual(downloaded["format"], "html")
+            self.assertEqual(downloaded["bindingDigest"], row.binding_digest)
             with self.assertRaises(AiError): stage.publish(row.id, row.version, self.admin)
 
     def test_tampered_compact_or_revoked_owner_cannot_publish(self):
