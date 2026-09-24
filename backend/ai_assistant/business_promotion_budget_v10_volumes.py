@@ -37,7 +37,17 @@ def _budget_material(report_id, principal, fixed, material_report):
     if material_report.get("budgetRef") is None:
         return None, None
     owned = budget_reader._roots(report_id, principal)
-    if canonical(owned["bound"]) != canonical(fixed):
+    # file_tables._bound appends these two reviewed-content fences to the
+    # runtime.bound_persisted base returned by budget_reader._roots. Compare
+    # the entire shared base, and require exactly those two known extensions;
+    # file_tables and approved_content independently verify their values.
+    extensions = {"reviewDigest", "approvedContentDigest"}
+    base = owned["bound"]
+    if (type(base) is not dict or type(fixed) is not dict
+            or set(fixed) != set(base) | extensions
+            or any(type(fixed[key]) is not str or len(fixed[key]) != 64
+                for key in extensions)
+            or canonical({key: fixed[key] for key in base}) != canonical(base)):
         _conflict("预算与当前完整词货报告根不一致")
     prepared = owned["prepared"]
     if prepared.reference != material_report["budgetRef"]:
