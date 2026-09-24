@@ -271,6 +271,9 @@ def chunk(run_id, volume_index, kind, params, principal):
     if not (index == 0 and kind == "json" or index > 0 and kind in {"html", "xlsx"}):
         raise AiError("卷号与文件格式不一致")
     row = files.get(run_id, principal)
+    if row.renderer_version == 9:
+        from .business_promotion_trial_volume_download import chunk as trial_chunk
+        return trial_chunk(row, index, kind, sequence, principal)
     if row.renderer_version == 7:
         from .business_promotion_volume_download import chunk as promotion_chunk
         return promotion_chunk(row, index, kind, sequence, principal)
