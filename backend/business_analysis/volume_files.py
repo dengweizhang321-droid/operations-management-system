@@ -222,10 +222,21 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             type(metadata.get("promotionFileProof")) is not dict or
             type(metadata.get("promotionTrialProof")) is not dict):
         raise AnalysisContractError("renderer 9 试用报告须有双重证明且不得传入预算")
+    if renderer_version == 10 and (type(metadata.get("promotionFileProof")) is not dict or
+            type(metadata.get("promotionTrialProof")) is not dict or
+            type(metadata.get("promotionBudgetProof")) is not dict or
+            type(metadata.get("tableSchemaDigest")) is not str or
+            (offline_budget is None) != (excel_budget is None)):
+        raise AnalysisContractError("renderer 10 预算候选缺少完整证明或双文件预算不一致")
     offline_budget = _budget_snapshot(offline_budget, report_id, native_budget_sheets == 3) if offline_budget is not None else None
     excel_budget = _budget_snapshot(excel_budget, report_id, True) if excel_budget is not None else None
     if offline_budget is not None and excel_budget is not None and canonical(offline_budget) != canonical(excel_budget):
         raise AnalysisContractError("HTML与Excel预算证据或参数不一致")
+    if renderer_version == 10:
+        candidate = metadata["promotionBudgetProof"]
+        if (candidate.get("offlinePayloadDigest") !=
+                (digest(offline_budget) if offline_budget is not None else None)):
+            raise AnalysisContractError("renderer 10 预算试算输入与候选证明不一致")
     # Freeze file references, table descriptors and column declarations before
     # even invoking caller-supplied stream methods. Mutable source rows alone are
     # intentionally consumed later, under a single forward cursor.
@@ -269,7 +280,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             tables=fragments, checkpoint=progress if checkpoint else None,
             offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
             html_layout_version=2 if renderer_version >= 4 else 1,
-            xlsx_opc_version=2 if renderer_version in (6, 7, 9) else 1)
+            xlsx_opc_version=2 if renderer_version in (6, 7, 9, 10) else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
         table_proofs = []
@@ -329,4 +340,9 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             raise AnalysisContractError("renderer 9 缺少试用证明或意外包含预算")
         manifest["promotionTrialProof"] = proof
         manifest["tableSchemaDigest"] = proof.get("tableSchemaDigest")
+    if renderer_version == 10:
+        manifest["promotionFileProof"] = metadata["promotionFileProof"]
+        manifest["promotionTrialProof"] = metadata["promotionTrialProof"]
+        manifest["promotionBudgetProof"] = metadata["promotionBudgetProof"]
+        manifest["tableSchemaDigest"] = metadata["tableSchemaDigest"]
     return {**manifest, "manifestDigest": digest(manifest)}
