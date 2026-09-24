@@ -44,6 +44,8 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 0056 的[市场材料正式角色窄桥](AI_BUSINESS_MARKET_V2_ROLE_BRIDGE_0056.md)修复0053触发器/第五预览直接读取0045封闭侧表的问题，不给 reader/writer 整表权限。真实session_user角色下旧 admitted/第五预览十项 `.runtime/ai-pg-c50f832e0409/tests.log`、0055→0056旧80表和市场原行保持、两guard仅安全属性变化及新窄函数/双备份恢复 `.runtime/ai-pg-501877b11b13/business-market-v2-role-bridge-upgrade-evidence.json` 通过。实际 Agent/job/模型仍关闭。
 
+0057 新增[预算 v10 发布前不可变证明](AI_BUSINESS_PROMOTION_BUDGET_V10_ATTESTATION_0057.md)，独立 NOLOGIN 角色只能在同尝试、同审批/预算根、持久卷描述符与完整JSON摘要一致时写一次，普通角色无表/函数写权；目标PG三项 `.runtime/ai-pg-35577d49eae2/tests.log`、0056→0057旧80表/renderer1—7/旧函数/ready语义保持、新第81表及独立恢复 `.runtime/ai-pg-1622c6faccd4/business-promotion-budget-v10-attestation-upgrade-evidence.json` 通过。数据库仍不解析 HTML/XLSX 语义，且 v10 `ready` 仍被0054双层拒绝；无正式发布、下载或原生Excel验收。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

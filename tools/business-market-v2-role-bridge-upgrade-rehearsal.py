@@ -18,7 +18,8 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import (
+    AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS as AI_TABLES)
 from ai_assistant.market_v2_admitted_catalog import verify as verify_market
 from ai_assistant.v4_period_plan_catalog import verify as verify_period
 from business_analysis.contracts import canonical

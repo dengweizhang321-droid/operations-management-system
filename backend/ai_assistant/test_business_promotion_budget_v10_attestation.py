@@ -3,6 +3,7 @@ from copy import deepcopy
 import hashlib
 from importlib import import_module
 import json
+import os
 from unittest.mock import patch
 
 from django import test as djtest
@@ -53,7 +54,8 @@ class BudgetV10AttestationTests(djtest.TransactionTestCase):
         if (settings.DJANGO_ENVIRONMENT != "test" or
                 value["HOST"] != "127.0.0.1" or
                 not 55440 <= int(value["PORT"]) <= 55999 or
-                value["NAME"] != "teruisi_ai_rehearsal"):
+                str(value["PORT"]) != os.getenv("TERUISI_AI_REHEARSAL_PORT") or
+                value["NAME"] != "test_teruisi_ai_rehearsal"):
             raise AssertionError("role probe requires isolated PostgreSQL")
         return psycopg.connect(host=value["HOST"], port=value["PORT"],
             dbname=value["NAME"], user=value["USER"],

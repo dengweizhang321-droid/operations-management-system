@@ -19,7 +19,8 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
 from ai_assistant.table_manifest import (
-    AI_TABLES_PRE_V4_PERIOD_CANDIDATES as OLD_AI_TABLES, AI_TABLES)
+    AI_TABLES_PRE_V4_PERIOD_CANDIDATES as OLD_AI_TABLES,
+    AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS as AI_TABLES)
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)

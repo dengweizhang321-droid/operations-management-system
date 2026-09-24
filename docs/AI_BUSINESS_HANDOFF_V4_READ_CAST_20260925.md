@@ -42,4 +42,6 @@
 
 0055 [三期日期候选侧表](AI_BUSINESS_V4_PERIOD_PLAN_SIDECAR.md)PG六项 `.runtime/ai-pg-ca5ae4f621c3/tests.log`、冻结79→当前80表和双备份恢复 `.runtime/ai-pg-1bd88d32948d/business-v4-period-plan-upgrade-evidence.json` 通过；仍无逐日零日证明或三基期正式Agent/文件。0056 [市场材料正式角色窄桥](AI_BUSINESS_MARKET_V2_ROLE_BRIDGE_0056.md)真实reader/writer组合10项 `.runtime/ai-pg-c50f832e0409/tests.log`、旧80表/两guard安全属性与双恢复 `.runtime/ai-pg-501877b11b13/business-market-v2-role-bridge-upgrade-evidence.json` 通过，0045侧表直读仍关闭且市场Agent仍未派发。
 
+0057 [预算发布前证明](AI_BUSINESS_PROMOTION_BUDGET_V10_ATTESTATION_0057.md)目标PG3项 `.runtime/ai-pg-35577d49eae2/tests.log`，0056→0057冻结80→当前81表、旧文件/函数/ready语义保持、双备份恢复 `.runtime/ai-pg-1622c6faccd4/business-promotion-budget-v10-attestation-upgrade-evidence.json` 通过。验证角色默认NOLOGIN，证明并不开放ready；实际拥有方验证器、正式publish/下载、原生Office和业务规模仍需开发/验收。
+
 默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。

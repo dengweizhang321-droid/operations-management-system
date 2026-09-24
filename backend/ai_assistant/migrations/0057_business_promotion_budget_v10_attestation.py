@@ -31,7 +31,7 @@ SET search_path=pg_catalog,public AS $$
 DECLARE parent public.ai_business_file_runs%ROWTYPE;
   report public.ai_report_runs%ROWTYPE;
   flow public.ai_workflow_runs%ROWTYPE;
-  snapshot jsonb; compact jsonb; full jsonb; proof jsonb; att jsonb;
+  snapshot jsonb; compact jsonb; full_manifest jsonb; proof jsonb; att jsonb;
   descriptors jsonb; item jsonb; volume jsonb; file_item jsonb;
   payload bytea; payload_sha text; att_sha text; position integer;
   receipt_id text; existing public.ai_business_promotion_budget_v10_attestations%ROWTYPE;
@@ -127,15 +127,15 @@ BEGIN
   IF payload_sha IS DISTINCT FROM compact->'manifestFile'->>'sha256'
      OR payload_sha IS DISTINCT FROM att->>'fullManifestSha256'
   THEN RAISE EXCEPTION 'ai_budget_v10_full_json_digest_mismatch'; END IF;
-  full:=convert_from(payload,'UTF8')::jsonb;
-  proof:=full->'promotionBudgetProof';
-  IF jsonb_typeof(full->'volumes') IS DISTINCT FROM 'array'
-     OR jsonb_array_length(full->'volumes') IS DISTINCT FROM
+  full_manifest:=convert_from(payload,'UTF8')::jsonb;
+  proof:=full_manifest->'promotionBudgetProof';
+  IF jsonb_typeof(full_manifest->'volumes') IS DISTINCT FROM 'array'
+     OR jsonb_array_length(full_manifest->'volumes') IS DISTINCT FROM
         (compact->>'volumeCount')::integer
   THEN RAISE EXCEPTION 'ai_budget_v10_full_volume_list_invalid'; END IF;
   FOR position IN 0..jsonb_array_length(compact->'files')-1 LOOP
     item:=compact->'files'->position;
-    volume:=full->'volumes'->((item->>'volumeIndex')::integer-1);
+    volume:=full_manifest->'volumes'->((item->>'volumeIndex')::integer-1);
     file_item:=volume->'files'->(item->>'format');
     IF file_item->>'sha256' IS DISTINCT FROM item->>'sha256'
        OR file_item->>'bytes' IS DISTINCT FROM item->>'bytes'
@@ -143,13 +143,13 @@ BEGIN
   END LOOP;
   present:=report.budget_plan_id IS NOT NULL;
   plan_digest:=snapshot#>>'{budgetRef,planDigest}';
-  IF full->>'schemaVersion' IS DISTINCT FROM 'business-volume-files-v1'
-     OR full->>'status' IS DISTINCT FROM 'complete'
-     OR full->>'rendererVersion' IS DISTINCT FROM '10'
-     OR full->>'reportId' IS DISTINCT FROM parent.report_id
-     OR full->>'evidenceDigest' IS DISTINCT FROM snapshot->>'sealedDigest'
-     OR full->>'manifestDigest' IS DISTINCT FROM att->>'fullManifestDigest'
-     OR full->>'manifestDigest' !~ '^[0-9a-f]{64}$'
+  IF full_manifest->>'schemaVersion' IS DISTINCT FROM 'business-volume-files-v1'
+     OR full_manifest->>'status' IS DISTINCT FROM 'complete'
+     OR full_manifest->>'rendererVersion' IS DISTINCT FROM '10'
+     OR full_manifest->>'reportId' IS DISTINCT FROM parent.report_id
+     OR full_manifest->>'evidenceDigest' IS DISTINCT FROM snapshot->>'sealedDigest'
+     OR full_manifest->>'manifestDigest' IS DISTINCT FROM att->>'fullManifestDigest'
+     OR full_manifest->>'manifestDigest' !~ '^[0-9a-f]{64}$'
      OR proof->>'schemaVersion' IS DISTINCT FROM
        'business-promotion-budget-renderer10-candidate-v1'
      OR proof->'candidateOnly' IS DISTINCT FROM 'true'::jsonb
@@ -158,23 +158,23 @@ BEGIN
        att->>'approvedContentDigest'
      OR proof->>'humanReviewDigest' IS DISTINCT FROM
        att->>'humanReviewDigest'
-     OR full->'promotionFileProof'->>'contentDtoDigest' IS DISTINCT FROM
+     OR full_manifest->'promotionFileProof'->>'contentDtoDigest' IS DISTINCT FROM
        att->>'approvedContentDigest'
-     OR full->'promotionFileProof'->>'humanReviewDigest' IS DISTINCT FROM
+     OR full_manifest->'promotionFileProof'->>'humanReviewDigest' IS DISTINCT FROM
        att->>'humanReviewDigest'
      OR att->'budgetPresent' IS DISTINCT FROM to_jsonb(present)
      OR (present AND (att->>'budgetPlanDigest' IS DISTINCT FROM plan_digest
-       OR full->>'budgetPlanDigest' IS DISTINCT FROM plan_digest
+       OR full_manifest->>'budgetPlanDigest' IS DISTINCT FROM plan_digest
        OR proof->>'budgetPlanDigest' IS DISTINCT FROM plan_digest
        OR proof->>'status' IS DISTINCT FROM 'reconciled_fixed_budget_candidate'
-       OR full->'volumes'->0->>'nativeBudgetSheets' IS DISTINCT FROM '3'
-       OR full->'volumes'->0->>'offlineBudgetEnabled' IS DISTINCT FROM 'true'))
+       OR full_manifest->'volumes'->0->>'nativeBudgetSheets' IS DISTINCT FROM '3'
+       OR full_manifest->'volumes'->0->>'offlineBudgetEnabled' IS DISTINCT FROM 'true'))
      OR (NOT present AND (att->'budgetPlanDigest' IS DISTINCT FROM 'null'::jsonb
-       OR full ? 'budgetPlanDigest'
+       OR full_manifest ? 'budgetPlanDigest'
        OR proof->'budgetPlanDigest' IS DISTINCT FROM 'null'::jsonb
        OR proof->>'status' IS DISTINCT FROM 'missing_fixed_budget'
-       OR full->'volumes'->0->>'nativeBudgetSheets' IS DISTINCT FROM '0'
-       OR full->'volumes'->0->>'offlineBudgetEnabled' IS DISTINCT FROM 'false'))
+       OR full_manifest->'volumes'->0->>'nativeBudgetSheets' IS DISTINCT FROM '0'
+       OR full_manifest->'volumes'->0->>'offlineBudgetEnabled' IS DISTINCT FROM 'false'))
   THEN RAISE EXCEPTION 'ai_budget_v10_proof_root_mismatch'; END IF;
   receipt_id:=encode(sha256(convert_to(
     parent.id||':'||parent.attempt::text,'UTF8')),'hex');
