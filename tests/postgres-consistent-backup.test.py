@@ -37,11 +37,34 @@ def _finance_guard():
         "privileges": (False,)*28}
 
 
+def _finance_monotonic():
+    return {"triggers":[MODULE.FINANCE_MONOTONIC_TRIGGER],
+        "functions":[(MODULE.FINANCE_MONOTONIC_FUNCTION,False,
+            ["search_path=pg_catalog, public"])],
+        "privileges":(False,)*4,"ownership":(False,False)}
+
+
+def _netshop_guard():
+    return {"columns": [("transaction_id",True,"bigint"),
+                ("baseline_revision",True,"bigint"),
+                ("baseline_digest",True,"character varying(64)")],
+        "primaryKey":[("PRIMARY KEY (transaction_id)",)],
+        "triggers":list(MODULE.NETSHOP_MARKER_TRIGGERS),
+        "functions":[(name,definer,["search_path=pg_catalog, public"])
+            for name,definer in MODULE.NETSHOP_MARKER_FUNCTIONS.items()],
+        "privileges":(False,)*34}
+
+
 class _EvidenceCursor:
-    def __init__(self, tables, migrations, finance_guard=None):
+    def __init__(self, tables, migrations, finance_guard=None,
+                 finance_monotonic=None, netshop_guard=None):
         self.tables = sorted(tables)
         self.migrations = sorted(migrations)
         self.finance_guard = finance_guard or _finance_guard()
+        self.finance_monotonic = finance_monotonic if finance_monotonic is not None else (
+            _finance_monotonic() if ("finance",MODULE.FINANCE_MONOTONIC_MIGRATION)
+            in self.migrations else {"triggers":[],"functions":[]})
+        self.netshop_guard = netshop_guard or _netshop_guard()
 
     def __enter__(self):
         return self
@@ -59,18 +82,40 @@ class _EvidenceCursor:
             self.rows = self.migrations
         elif "FROM pg_catalog.pg_attribute a" in query and "finance_source_revision_markers" in query:
             self.rows = self.finance_guard["columns"]
+        elif "FROM pg_catalog.pg_attribute a" in query and "netshop_source_revision_markers" in query:
+            self.rows = self.netshop_guard["columns"]
         elif "pg_catalog.pg_get_constraintdef" in query and "finance_source_revision_markers" in query:
             self.rows = self.finance_guard["primaryKey"]
+        elif "pg_catalog.pg_get_constraintdef" in query and "netshop_source_revision_markers" in query:
+            self.rows = self.netshop_guard["primaryKey"]
+        elif "t.tgname='finance_revision_monotonic'" in query:
+            self.rows = self.finance_monotonic["triggers"]
+        elif "p.proname='finance_revision_monotonic_guard'" in query:
+            self.rows = self.finance_monotonic["functions"]
         elif "FROM pg_catalog.pg_trigger t" in query and "finance_source_revision" in str(params):
             self.rows = self.finance_guard["triggers"]
+        elif "FROM pg_catalog.pg_trigger t" in query and "netshop_source_revision" in str(params):
+            self.rows = self.netshop_guard["triggers"]
         elif "FROM pg_catalog.pg_proc p" in query and "finance_source_revision" in str(params):
             self.rows = self.finance_guard["functions"]
+        elif "FROM pg_catalog.pg_proc p" in query and "netshop_source_revision" in str(params):
+            self.rows = self.netshop_guard["functions"]
         elif "pg_catalog.has_table_privilege" in query and "finance_source_revision_markers" in str(params):
             self.rows = [self.finance_guard["privileges"]]
+        elif "pg_catalog.has_table_privilege" in query and "public.finance_data_revisions" in str(params):
+            self.rows = [self.finance_monotonic["privileges"]]
+        elif "pg_catalog.pg_has_role" in query and "finance_data_revisions" in query:
+            self.rows = [self.finance_monotonic["ownership"]]
+        elif "pg_catalog.has_table_privilege" in query and "netshop_source_revision_markers" in str(params):
+            self.rows = [self.netshop_guard["privileges"]]
         elif query.startswith("SELECT COUNT(*)"):
             self.rows = [(0,)]
         elif "FROM sales_data_revisions" in query:
             self.rows = [("sales", 1), ("erp", 1)]
+        elif "FROM netshop_data_revisions" in query:
+            self.rows = [("netshop",1,"a"*64)]
+        elif "FROM netshop_write_authority" in query:
+            self.rows = [("d1","","","")]
         elif "FROM sales_write_authority" in query:
             self.rows = [("active", "11111111-1111-1111-1111-111111111111", "fixture-cutover")]
         elif "FROM ai_data_revisions" in query:
@@ -87,13 +132,15 @@ class _EvidenceCursor:
         return self.rows[0]
 
 
-def _ai_evidence(tables, migrations, finance_guard=None):
+def _ai_evidence(tables, migrations, finance_guard=None,
+                 finance_monotonic=None, netshop_guard=None):
     base_tables = {
         "django_migrations", "sales_data_revisions", "sales_import_batches",
         "sales_order_lines", "sales_write_authority", "erp_product_master",
     }
     cursor = _EvidenceCursor(base_tables | set(tables),
-        [("sales", "0001_initial"), *migrations], finance_guard)
+        [("sales", "0001_initial"), *migrations], finance_guard,
+        finance_monotonic, netshop_guard)
     connection = mock.Mock()
     connection.cursor.return_value = cursor
     return MODULE.collect_evidence(connection, "fixture", "fixture_owner")
@@ -134,6 +181,56 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_finance_0004_monotonic_trigger_function_and_writer_boundary(self):
+        migrated = [("finance","0002_finance_target_gross_margin"),
+            ("finance",MODULE.FINANCE_MARKER_MIGRATION),
+            ("finance",MODULE.FINANCE_MONOTONIC_MIGRATION)]
+        marker = {MODULE.FINANCE_MARKER_TABLE}
+        self.assertIn(MODULE.FINANCE_MARKER_TABLE,
+            _ai_evidence(marker,migrated)["tables"])
+        for state in (
+                {"triggers":[],"functions":_finance_monotonic()["functions"],
+                    "privileges":(False,)*4,"ownership":(False,False)},
+                {**_finance_monotonic(),"functions":[]},
+                {**_finance_monotonic(),"functions":[
+                    (MODULE.FINANCE_MONOTONIC_FUNCTION,True,
+                        ["search_path=pg_catalog, public"])]},
+                {**_finance_monotonic(),"privileges":(True,False,False,False)},
+                {**_finance_monotonic(),"ownership":(True,False)}):
+            with self.subTest(state=state),self.assertRaises(RuntimeError):
+                _ai_evidence(marker,migrated,finance_monotonic=state)
+        with self.assertRaisesRegex(RuntimeError,"no migration receipt"):
+            _ai_evidence(marker,migrated[:-1],
+                finance_monotonic=_finance_monotonic())
+
+    def test_netshop_0003_marker_and_monotonic_guards_are_versioned(self):
+        base = {"netshop_data_revisions","netshop_import_batches",
+            "netshop_rows","netshop_write_authority"}
+        old = [("netshop","0001_initial"),
+            ("netshop","0002_migration_run_time_order")]
+        current = [*old,("netshop",MODULE.NETSHOP_MARKER_MIGRATION)]
+        self.assertIn("netshop_rows",_ai_evidence(base,old)["tables"])
+        self.assertIn(MODULE.NETSHOP_MARKER_TABLE,
+            _ai_evidence(base | {MODULE.NETSHOP_MARKER_TABLE},current)["tables"])
+        with self.assertRaisesRegex(RuntimeError,"no migration receipt"):
+            _ai_evidence(base | {MODULE.NETSHOP_MARKER_TABLE},old)
+        with self.assertRaisesRegex(RuntimeError,"lacks table"):
+            _ai_evidence(base,current)
+        with self.assertRaisesRegex(RuntimeError,"predecessor"):
+            _ai_evidence(base | {MODULE.NETSHOP_MARKER_TABLE},current[:1]+current[2:])
+        changes = []
+        value = _netshop_guard(); value["columns"].pop(); changes.append(value)
+        value = _netshop_guard(); value["primaryKey"].clear(); changes.append(value)
+        value = _netshop_guard(); value["triggers"].pop(); changes.append(value)
+        value = _netshop_guard(); value["functions"].pop(); changes.append(value)
+        value = _netshop_guard(); value["functions"][0] = (
+            value["functions"][0][0],False,["search_path=public"]); changes.append(value)
+        value = _netshop_guard(); value["privileges"] = (False,)*10+(True,)+(False,)*23; changes.append(value)
+        for state in changes:
+            with self.subTest(state=state),self.assertRaises(RuntimeError):
+                _ai_evidence(base | {MODULE.NETSHOP_MARKER_TABLE},current,
+                    netshop_guard=state)
+
     def test_finance_0003_marker_schema_requires_exact_migration_and_guards(self):
         old = [("finance", "0002_finance_target_gross_margin")]
         current = [*old, ("finance", MODULE.FINANCE_MARKER_MIGRATION)]

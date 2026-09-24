@@ -18,15 +18,28 @@ def guard():
             ("baseline_digest",True,"character varying(64)")]}
 
 
+def monotonic():
+    return {"triggers":[health.FINANCE_MONOTONIC_TRIGGER],
+        "functions":[(health.FINANCE_MONOTONIC_FUNCTION,False,
+            ["search_path=pg_catalog, public"])],
+        "privileges":(False,)*4,"ownership":(False,False)}
+
+
 class Cursor:
-    def __init__(self, *, migrated=False, present=False, state=None):
+    def __init__(self, *, migrated=False, present=False, state=None,
+                 monotonic_migrated=False, monotonic_state=None):
         self.migrated = migrated
         self.present = present
         self.state = deepcopy(state or guard())
+        self.monotonic_migrated = monotonic_migrated
+        self.monotonic_state = deepcopy(monotonic_state if monotonic_state is not None
+            else monotonic() if monotonic_migrated else {"triggers":[],"functions":[]})
         self.rows = []
 
     def execute(self, query, params=None):
-        if "FROM django_migrations" in query:
+        if "FROM django_migrations" in query and "0004_finance_revision_monotonic" in query:
+            self.rows = [(self.monotonic_migrated,)]
+        elif "FROM django_migrations" in query:
             self.rows = [(self.migrated,)]
         elif "to_regclass('public.finance_source_revision_markers')" in query:
             self.rows = [(self.present,)]
@@ -34,12 +47,20 @@ class Cursor:
             self.rows = self.state["columns"]
         elif "pg_get_constraintdef" in query:
             self.rows = self.state["primaryKey"]
+        elif "t.tgname='finance_revision_monotonic'" in query:
+            self.rows = self.monotonic_state["triggers"]
+        elif "p.proname='finance_revision_monotonic_guard'" in query:
+            self.rows = self.monotonic_state["functions"]
         elif "FROM pg_catalog.pg_trigger t" in query:
             self.rows = self.state["triggers"]
         elif "FROM pg_catalog.pg_proc p" in query:
             self.rows = self.state["functions"]
         elif "pg_catalog.has_table_privilege" in query:
-            self.rows = [self.state["privileges"]]
+            self.rows = [(self.monotonic_state["privileges"]
+                if "public.finance_data_revisions" in str(params)
+                else self.state["privileges"])]
+        elif "pg_catalog.pg_has_role" in query:
+            self.rows = [self.monotonic_state["ownership"]]
         elif "FROM pg_collation" in query:
             self.rows = [(1,)]
         else:
@@ -71,8 +92,11 @@ class Introspection:
 
 
 class FinanceSourceRevisionHealthTests(SimpleTestCase):
-    def ready(self, *, migrated=False, present=False, state=None, writer=False):
-        cursor = Cursor(migrated=migrated,present=present,state=state)
+    def ready(self, *, migrated=False, present=False, state=None, writer=False,
+              monotonic_migrated=False, monotonic_state=None):
+        cursor = Cursor(migrated=migrated,present=present,state=state,
+            monotonic_migrated=monotonic_migrated,
+            monotonic_state=monotonic_state)
         connection = SimpleNamespace(vendor="postgresql",
             introspection=Introspection(present,cursor.state))
         with patch.object(health,"connection",connection):
@@ -107,3 +131,22 @@ class FinanceSourceRevisionHealthTests(SimpleTestCase):
         for state in cases:
             with self.subTest(state=state), self.assertRaises(health.ReadinessError):
                 self.ready(migrated=True,present=True,state=state)
+
+    def test_finance_0004_monotonic_guard_and_writer_owner_are_required(self):
+        self.ready(migrated=True,present=True,monotonic_migrated=True)
+        cases = []
+        value = monotonic(); value["triggers"].clear(); cases.append(value)
+        value = monotonic(); value["functions"].clear(); cases.append(value)
+        value = monotonic(); value["functions"][0] = (
+            health.FINANCE_MONOTONIC_FUNCTION,True,
+            ["search_path=pg_catalog, public"]); cases.append(value)
+        value = monotonic(); value["privileges"] = (True,False,False,False); cases.append(value)
+        value = monotonic(); value["ownership"] = (True,False); cases.append(value)
+        for state in cases:
+            with self.subTest(state=state),self.assertRaises(health.ReadinessError):
+                self.ready(migrated=True,present=True,monotonic_migrated=True,
+                    monotonic_state=state)
+        with self.assertRaisesMessage(health.ReadinessError,
+                "finance_monotonic_without_migration"):
+            self.ready(migrated=True,present=True,
+                monotonic_state=monotonic())

@@ -46,6 +46,28 @@ test("finance.0003 marker guards are migration-gated in backup and readiness", a
   assert.doesNotMatch(datasetManifest, /finance_source_revision_markers/);
 });
 
+test("finance.0004 and netshop.0003 maintenance guards remain migration-gated", async () => {
+  const [backup, health, datasetManifest] = await Promise.all([
+    readFile(helperPath, "utf8"),
+    readFile(financeHealthPath, "utf8"),
+    readFile(path.join(root, "backend", "system_datasets", "manifest.json"), "utf8"),
+  ]);
+  for (const source of [backup, health]) {
+    for (const name of ["0004_finance_revision_monotonic",
+      "finance_revision_monotonic", "finance_revision_monotonic_guard",
+      "0003_netshop_source_revision_guard", "netshop_source_revision_markers",
+      "netshop_row_revision_required", "netshop_batch_revision_required",
+      "netshop_source_revision_required", "netshop_source_revision_monotonic"]) {
+      assert.ok(source.includes(name), `missing ${name}`);
+    }
+    assert.match(source, /pg_has_role/);
+    assert.match(source, /has_column_privilege/);
+    assert.match(source, /tgdeferrable.*tginitdeferred/);
+    assert.match(source, /prosecdef.*proconfig/);
+  }
+  assert.doesNotMatch(datasetManifest, /netshop_source_revision_markers/);
+});
+
 test("PostgreSQL maintenance operators parse under Windows PowerShell 5", async (t) => {
   if (process.platform !== "win32" || !existsSync(powershell)) {
     t.skip("Windows PowerShell 5 is unavailable");

@@ -176,6 +176,21 @@ FINANCE_MARKER_TRIGGERS = {
 }
 FINANCE_MARKER_FUNCTIONS = {"finance_source_mark_revision_required",
     "finance_source_revision_required_at_commit"}
+FINANCE_MONOTONIC_MIGRATION = "0004_finance_revision_monotonic"
+FINANCE_MONOTONIC_FUNCTION = "finance_revision_monotonic_guard"
+FINANCE_MONOTONIC_TRIGGER = ("finance_data_revisions",
+    "finance_revision_monotonic", FINANCE_MONOTONIC_FUNCTION, "O", 31, False, False)
+NETSHOP_MARKER_MIGRATION = "0003_netshop_source_revision_guard"
+NETSHOP_MARKER_TABLE = "netshop_source_revision_markers"
+NETSHOP_MARKER_TRIGGERS = {
+    ("netshop_rows", "netshop_row_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    ("netshop_import_batches", "netshop_batch_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    (NETSHOP_MARKER_TABLE, "netshop_source_revision_required", "netshop_source_revision_required_at_commit", "O", 5, True, True),
+    ("netshop_data_revisions", "netshop_source_revision_monotonic", "netshop_source_revision_monotonic", "O", 31, False, False),
+}
+NETSHOP_MARKER_FUNCTIONS = {"netshop_source_mark_revision_required": True,
+    "netshop_source_revision_required_at_commit": True,
+    "netshop_source_revision_monotonic": False}
 FINANCE_WRITER_TABLE_PRIVILEGES = {
     "finance_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "finance_months": ("SELECT", "INSERT", "UPDATE"),
@@ -1077,9 +1092,69 @@ def _validate_finance_source_marker_guard(cursor) -> None:
         raise ReadinessError("finance_source_marker_privilege_excessive")
 
 
+def _validate_finance_monotonic_guard(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='finance' AND name='0004_finance_revision_monotonic')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname='finance_revision_monotonic'"
+    )
+    found = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname='finance_revision_monotonic_guard'"
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if not migrated:
+        if found or functions:
+            raise ReadinessError("finance_monotonic_without_migration")
+        return
+    if found != {FINANCE_MONOTONIC_TRIGGER} or set(functions) != {FINANCE_MONOTONIC_FUNCTION}:
+        raise ReadinessError("finance_monotonic_guard_missing")
+    definer, config = functions[FINANCE_MONOTONIC_FUNCTION]
+    if definer or [str(item).replace(" ", "") for item in (config or [])
+            if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+        raise ReadinessError("finance_monotonic_function_invalid")
+    checks, values = [], []
+    for privilege in ("DELETE","TRUNCATE","TRIGGER"):
+        checks.append("pg_catalog.has_table_privilege(%s,%s,%s)")
+        values.extend(("teruisi_finance_writer","public.finance_data_revisions",privilege))
+    checks.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+    values.extend(("teruisi_finance_writer",
+        "public.finance_revision_monotonic_guard()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(checks),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("finance_monotonic_writer_privilege_excessive")
+    cursor.execute(
+        "SELECT pg_catalog.pg_has_role(%s,c.relowner,'MEMBER'),r.rolsuper "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_roles r ON r.rolname=%s "
+        "WHERE n.nspname='public' AND c.relname='finance_data_revisions'",
+        ("teruisi_finance_writer","teruisi_finance_writer"),
+    )
+    if cursor.fetchone() != (False,False):
+        raise ReadinessError("finance_monotonic_writer_can_disable_trigger")
+
+
 def _validate_finance_schema(cursor, *, writer: bool) -> None:
     tables = set(connection.introspection.table_names(cursor))
     _validate_finance_source_marker_guard(cursor)
+    _validate_finance_monotonic_guard(cursor)
     expected = REQUIRED_FINANCE_WRITER_COLUMNS if writer else REQUIRED_FINANCE_COLUMNS
     for table, expected_columns in expected.items():
         if table not in tables:
@@ -1162,7 +1237,92 @@ def _validate_finance_writer_permissions(cursor) -> None:
                 raise ReadinessError("finance_writer_database_privilege_missing")
 
 
+def _validate_netshop_source_marker_guard(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='netshop' AND name='0003_netshop_source_revision_guard')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute("SELECT pg_catalog.to_regclass('public.netshop_source_revision_markers') IS NOT NULL")
+    present = cursor.fetchone()[0] is True
+    if not migrated:
+        if present:
+            raise ReadinessError("netshop_source_marker_without_migration")
+        return
+    if not present:
+        raise ReadinessError("netshop_source_marker_schema_missing")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [("transaction_id",True,"bigint"),
+            ("baseline_revision",True,"bigint"),
+            ("baseline_digest",True,"character varying(64)")]:
+        raise ReadinessError("netshop_source_marker_schema_incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise ReadinessError("netshop_source_marker_primary_key_missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in NETSHOP_MARKER_TRIGGERS],),
+    )
+    found = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    if found != NETSHOP_MARKER_TRIGGERS:
+        raise ReadinessError("netshop_source_marker_triggers_incomplete")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(NETSHOP_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if set(functions) != set(NETSHOP_MARKER_FUNCTIONS):
+        raise ReadinessError("netshop_source_marker_functions_missing")
+    for name, expected_definer in NETSHOP_MARKER_FUNCTIONS.items():
+        definer,config = functions[name]
+        if definer is not expected_definer or [str(item).replace(" ", "")
+                for item in (config or []) if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+            raise ReadinessError("netshop_source_marker_function_invalid")
+    clauses, values = [], []
+    for role in ("teruisi_netshop_writer","teruisi_netshop_reader"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+            clauses.append("pg_catalog.has_table_privilege(%s,%s,%s)")
+            values.extend((role,"public.netshop_source_revision_markers",privilege))
+        for column in ("transaction_id","baseline_revision","baseline_digest"):
+            for privilege in ("SELECT","INSERT","UPDATE"):
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                values.extend((role,"public.netshop_source_revision_markers",column,privilege))
+        for function in sorted(NETSHOP_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            values.extend((role,f"public.{function}()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(clauses),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("netshop_source_marker_privilege_excessive")
+
+
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
+    _validate_netshop_source_marker_guard(cursor)
     if connection.vendor == "postgresql" and not writer:
         from netshop.analysis_permissions import validate_actor_read
         try:

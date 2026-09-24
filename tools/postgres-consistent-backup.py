@@ -38,6 +38,21 @@ FINANCE_MARKER_TRIGGERS = {
 }
 FINANCE_MARKER_FUNCTIONS = {"finance_source_mark_revision_required",
     "finance_source_revision_required_at_commit"}
+FINANCE_MONOTONIC_MIGRATION = "0004_finance_revision_monotonic"
+FINANCE_MONOTONIC_FUNCTION = "finance_revision_monotonic_guard"
+FINANCE_MONOTONIC_TRIGGER = ("finance_data_revisions",
+    "finance_revision_monotonic", FINANCE_MONOTONIC_FUNCTION, "O", 31, False, False)
+NETSHOP_MARKER_MIGRATION = "0003_netshop_source_revision_guard"
+NETSHOP_MARKER_TABLE = "netshop_source_revision_markers"
+NETSHOP_MARKER_TRIGGERS = {
+    ("netshop_rows", "netshop_row_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    ("netshop_import_batches", "netshop_batch_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    (NETSHOP_MARKER_TABLE, "netshop_source_revision_required", "netshop_source_revision_required_at_commit", "O", 5, True, True),
+    ("netshop_data_revisions", "netshop_source_revision_monotonic", "netshop_source_revision_monotonic", "O", 31, False, False),
+}
+NETSHOP_MARKER_FUNCTIONS = {"netshop_source_mark_revision_required": True,
+    "netshop_source_revision_required_at_commit": True,
+    "netshop_source_revision_monotonic": False}
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -202,6 +217,145 @@ def _require_finance_source_marker_guard(cursor: psycopg.Cursor[Any],
         raise RuntimeError("finance source marker grants expose protected state or functions")
 
 
+def _require_finance_monotonic_guard(cursor: psycopg.Cursor[Any],
+                                     migrations: set[str]) -> None:
+    migrated = FINANCE_MONOTONIC_MIGRATION in migrations
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname='finance_revision_monotonic'"
+    )
+    triggers = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname='finance_revision_monotonic_guard'"
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if not migrated:
+        if triggers or functions:
+            raise RuntimeError("finance monotonic objects have no migration receipt")
+        return
+    if FINANCE_MARKER_MIGRATION not in migrations:
+        raise RuntimeError("finance monotonic migration has no marker predecessor")
+    if triggers != {FINANCE_MONOTONIC_TRIGGER} or set(functions) != {FINANCE_MONOTONIC_FUNCTION}:
+        raise RuntimeError("finance revision monotonic trigger or function is missing")
+    definer, config = functions[FINANCE_MONOTONIC_FUNCTION]
+    if definer or [str(item).replace(" ", "") for item in (config or [])
+            if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+        raise RuntimeError("finance revision monotonic function shape is invalid")
+    clauses = ["pg_catalog.has_table_privilege(%s,%s,%s)" for _ in range(3)]
+    values = []
+    for privilege in ("DELETE","TRUNCATE","TRIGGER"):
+        values.extend(("teruisi_finance_writer","public.finance_data_revisions",privilege))
+    clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+    values.extend(("teruisi_finance_writer",
+        "public.finance_revision_monotonic_guard()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(clauses),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise RuntimeError("finance writer can delete revision or alter its trigger boundary")
+    cursor.execute(
+        "SELECT pg_catalog.pg_has_role(%s,c.relowner,'MEMBER'),r.rolsuper "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_roles r ON r.rolname=%s "
+        "WHERE n.nspname='public' AND c.relname='finance_data_revisions'",
+        ("teruisi_finance_writer","teruisi_finance_writer"),
+    )
+    ownership = cursor.fetchone()
+    if ownership is None or ownership != (False,False):
+        raise RuntimeError("finance writer can disable the revision trigger")
+
+
+def _require_netshop_source_marker_guard(cursor: psycopg.Cursor[Any],
+                                         migrations: set[str], tables: set[str]) -> None:
+    migrated = NETSHOP_MARKER_MIGRATION in migrations
+    present = NETSHOP_MARKER_TABLE in tables
+    if not migrated:
+        if present:
+            raise RuntimeError("netshop source marker table has no migration receipt")
+        return
+    if not present or "0002_migration_run_time_order" not in migrations:
+        raise RuntimeError("netshop source marker migration lacks table or predecessor")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [("transaction_id",True,"bigint"),
+            ("baseline_revision",True,"bigint"),
+            ("baseline_digest",True,"character varying(64)")]:
+        raise RuntimeError("netshop source marker columns are incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise RuntimeError("netshop source marker primary key is missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in NETSHOP_MARKER_TRIGGERS],),
+    )
+    found = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    if found != NETSHOP_MARKER_TRIGGERS:
+        raise RuntimeError("netshop source revision triggers are missing or disabled")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(NETSHOP_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if set(functions) != set(NETSHOP_MARKER_FUNCTIONS):
+        raise RuntimeError("netshop source revision functions are missing")
+    for name, required_definer in NETSHOP_MARKER_FUNCTIONS.items():
+        definer, config = functions[name]
+        if definer is not required_definer or [str(item).replace(" ", "")
+                for item in (config or []) if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+            raise RuntimeError("netshop source revision function shape is invalid")
+    clauses, values = [], []
+    for role in ("teruisi_netshop_writer","teruisi_netshop_reader"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+            clauses.append("pg_catalog.has_table_privilege(%s,%s,%s)")
+            values.extend((role,"public.netshop_source_revision_markers",privilege))
+        for column in ("transaction_id","baseline_revision","baseline_digest"):
+            for privilege in ("SELECT","INSERT","UPDATE"):
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                values.extend((role,"public.netshop_source_revision_markers",column,privilege))
+        for function in sorted(NETSHOP_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            values.extend((role,f"public.{function}()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(clauses),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise RuntimeError("netshop marker grants expose protected state or functions")
+
+
 def collect_evidence(
     connection: psycopg.Connection[Any],
     expected_database: str,
@@ -271,6 +425,10 @@ def collect_evidence(
         netshop_tables = {name for name in tables if name.startswith("netshop_")}
         if netshop_tables:
             required.update(netshop_required)
+        netshop_migrations = {item["name"] for item in migrations if item["app"] == "netshop"}
+        _require_netshop_source_marker_guard(cursor, netshop_migrations, set(tables))
+        if NETSHOP_MARKER_MIGRATION in netshop_migrations:
+            required.add(NETSHOP_MARKER_TABLE)
         market_required = {
             "market_data_revisions",
             "market_import_batches",
@@ -294,6 +452,7 @@ def collect_evidence(
             raise RuntimeError("Market options tables lack their migration receipt")
         finance_migrations = {item["name"] for item in migrations if item["app"] == "finance"}
         _require_finance_source_marker_guard(cursor, finance_migrations, set(tables))
+        _require_finance_monotonic_guard(cursor, finance_migrations)
         if FINANCE_MARKER_MIGRATION in finance_migrations:
             required.add(FINANCE_MARKER_TABLE)
         products_required = {
