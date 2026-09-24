@@ -23,7 +23,7 @@
 
 旧 v2 **整份证据任务**最多 2,000 页、每页 100 行且合计最多 64 MiB；本期 281,759、前期 293,336 行 **各自已超过整份任务的行数上限**。历史压缩文件解压后的 JSONL 本期约 449 MiB、前期约 464 MiB，进一步说明不能截断后生成“完整近 30 天”renderer 9 文件。七天试读的 61,543 和 71,200 行虽低于单独 200,000 行数值，但历史 JSONL 分别约 99 和 112 MiB；v2 实际工具页字节未测，**不能声称七天可在 64 MiB 门禁内封存**。正式发布仍须系统实际封存、五 Agent 完成及真正人工批准。
 
-为测量底层双格式 writer，在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925` 从本期 7 天历史提取文件生成 **renderer 6 的未人审来源预览**：3 卷 HTML/XLSX、一个完整 JSON 清单。原始来源表覆盖 61,543 行；静态检查验证所有保存后 HTML/XLSX 表证明相等、HTML 与 XLSX **实际逐行内容摘要**相等、XLSX ZIP CRC 和完整清单，见 E 盘 `source-preview-verification.json`、`source-preview-static-qa.json`。该样例无模型判断、无行动建议人审、无预算、无生产文件任务，`renderer9Published=false`。浏览器本地文件访问被浏览器安全策略阻止，未绕行；原生 Excel 打开和重算未验。
+为测量底层双格式 writer，在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925` 从本期 7 天历史提取文件生成 **renderer 6 的未人审来源预览**：3 卷 HTML/XLSX、一个完整 JSON 清单。原始来源表覆盖 61,543 行；静态检查验证所有保存后 HTML/XLSX 表证明相等、HTML 与 XLSX **实际逐行内容摘要**相等、XLSX ZIP CRC 和完整清单，见 E 盘 `source-preview-verification.json`、`source-preview-static-qa.json`。该样例无模型判断、无行动建议人审、无预算、无生产文件任务，`renderer9Published=false`。浏览器本地文件访问被浏览器安全策略阻止，未绕行；原生 Excel 打开和重算未验。只读 Office 许可状态检查显示当前 Office19 HomeStudent2019R_Grace 为 `NOTIFICATIONS`（0xC004F009），不能以已安装 Excel 可执行文件推定原生验收条件有效。
 
 ## 未闭合的正式验收
 
