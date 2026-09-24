@@ -9,7 +9,8 @@ from django.apps import apps
 from django.db import DatabaseError, connection, transaction
 from django.test import TransactionTestCase, override_settings
 
-from . import models as m, test_business_promotion_volume_stage as fixtures
+from . import business_files as files, models as m
+from . import test_business_promotion_volume_stage as fixtures, workflows
 from .policy import mutation
 
 
@@ -31,6 +32,7 @@ class PromotionTrialSqlContractTests(unittest.TestCase):
         self.assertIn("ai_business_promotion_trial_ready_requirements(parent.id)",
                       sql.COMPLETE_GUARD)
         self.assertIn("parent.renderer_version<>9", sql.READY_REQUIREMENTS)
+        self.assertIn("ai_promotion_trial_parent_changed_no_progress", sql.RUN_GUARD)
         self.assertNotIn("SECURITY DEFINER", sql.PARENT_REQUIREMENTS)
         self.assertNotIn("SECURITY DEFINER", sql.READY_REQUIREMENTS)
         self.assertNotIn("renderer_version IN (4,5,6,7,8,9)", sql.RUN_GUARD)
@@ -161,6 +163,32 @@ class PromotionTrialGuardTests(TransactionTestCase):
             row.save(update_fields=["status", "version"])
         with self.assertRaisesRegex(RuntimeError, "renderer 9"):
             migration().uninstall(apps, SimpleNamespace(connection=connection))
+
+    def test_cancelled_parent_allows_only_safe_file_convergence_and_next_queue(self):
+        report = self.approved_report()
+        row = self.file(report, tag="parent-cancelled")
+        flow = m.AiWorkflowRuns.objects.get(pk=report.workflow_id)
+        workflows.control(flow.id, {"expectedVersion": flow.version},
+            self.admin, "cancel", workflow=True)
+        with self.assertRaisesRegex(DatabaseError, "ai_promotion_trial_parent_changed_no_progress"), mutation(self.admin):
+            m.AiBusinessFileRun.objects.filter(pk=row.pk).update(
+                status="building", attempt=1, version=2)
+        with self.assertRaisesRegex(DatabaseError, "ai_promotion_trial_parent_changed_no_progress"), mutation(self.admin):
+            m.AiBusinessFileRun.objects.filter(pk=row.pk).update(
+                status="cancelled", stored_bytes=1, version=2)
+        self.assertEqual(files.control(row.id, {"expectedVersion": row.version,
+            "action": "pause"}, self.admin)["item"]["status"], "paused")
+        row.refresh_from_db()
+        with self.assertRaisesRegex(DatabaseError, "ai_promotion_trial_parent_changed_no_progress"), mutation(self.admin):
+            m.AiBusinessFileRun.objects.filter(pk=row.pk).update(
+                status="queued", version=row.version + 1)
+        self.assertEqual(files.control(row.id, {"expectedVersion": row.version,
+            "action": "cancel"}, self.admin)["item"]["status"], "cancelled")
+        self.assertEqual(files.tick()["status"], "idle")
+        successor = self.approved_report()
+        next_row = self.file(successor, tag="next-queue")
+        self.assertEqual(list(m.AiBusinessFileRun.objects.filter(
+            status="queued").values_list("id", flat=True)), [next_row.id])
 
     def test_empty_reverse_restores_exact_five_predecessor_bodies(self):
         sql = migration()
