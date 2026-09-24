@@ -208,6 +208,21 @@ def check():
                 [signature, signature, signature])
             if cursor.fetchone() != (sealer, ai_writer, False):
                 raise ValueError("AI v4 seal ticket function ACL drift")
+        for signature, sealer in (
+            ("public.ai_v4_sealer_assert_claim(text,text,text,bigint,text,text)", False),
+            ("public.ai_v4_sealer_ticket_context(text,text,text,bigint,text,text)", True),
+            ("public.ai_v4_sealer_ticket_segment(text,text,text,integer,text,bigint,text,text)", True),
+            ("public.ai_v4_sealer_ticket_page(text,text,text,bigint,text,bigint,text,text)", True),
+        ):
+            cursor.execute("SELECT to_regprocedure(%s)", [signature])
+            if cursor.fetchone()[0] is None:
+                raise ValueError("AI v4 claimed reader function missing")
+            cursor.execute("SELECT has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE'),"
+                "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+                "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+                [signature] * 3)
+            if cursor.fetchone() != (sealer, False, False):
+                raise ValueError("AI v4 claimed reader function ACL drift")
         integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
         screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
         screening_runtime = importlib.import_module("ai_assistant.migrations.0024_business_screening_runtime")

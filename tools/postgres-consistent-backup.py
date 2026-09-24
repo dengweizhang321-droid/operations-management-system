@@ -558,6 +558,9 @@ def collect_evidence(
                 expected_ai_tables.difference_update(ticket_tables)
             elif "0040_business_v4_sealer_narrow_stream" not in ai_migrations:
                 raise RuntimeError("AI v4 seal ticket has no narrow-reader predecessor")
+            if ("0042_business_v4_claimed_read" in ai_migrations
+                    and "0041_business_v4_seal_ticket" not in ai_migrations):
+                raise RuntimeError("AI v4 claimed reader has no ticket predecessor")
             if "0038_business_v4_seal_writer_gate" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_v4_seals")
             elif "0037_business_v4_seal_admission_read" not in ai_migrations:
@@ -684,6 +687,27 @@ def collect_evidence(
                         [signature] * 3)
                     if cursor.fetchone() != (sealer, writer, False):
                         raise RuntimeError("AI v4 seal ticket function ACL drift")
+            if "0042_business_v4_claimed_read" in ai_migrations:
+                for signature, sealer in (
+                    ("public.ai_v4_sealer_assert_claim(text,text,text,bigint,text,text)",
+                     False),
+                    ("public.ai_v4_sealer_ticket_context(text,text,text,bigint,text,text)",
+                     True),
+                    ("public.ai_v4_sealer_ticket_segment(text,text,text,integer,text,bigint,text,text)",
+                     True),
+                    ("public.ai_v4_sealer_ticket_page(text,text,text,bigint,text,bigint,text,text)",
+                     True),
+                ):
+                    cursor.execute("SELECT to_regprocedure(%s)", [signature])
+                    if cursor.fetchone()[0] is None:
+                        raise RuntimeError("AI v4 claimed reader function missing")
+                    cursor.execute("SELECT has_function_privilege("
+                        "'teruisi_ai_seal_writer',%s,'EXECUTE'),"
+                        "has_function_privilege('teruisi_ai_writer',%s,'EXECUTE'),"
+                        "has_function_privilege('teruisi_ai_reader',%s,'EXECUTE')",
+                        [signature] * 3)
+                    if cursor.fetchone() != (sealer, False, False):
+                        raise RuntimeError("AI v4 claimed reader function ACL drift")
             required.update(expected_ai_tables)
         missing = sorted(required.difference(tables))
         if missing:

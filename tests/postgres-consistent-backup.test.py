@@ -121,7 +121,8 @@ class _EvidenceCursor:
         elif "has_function_privilege('teruisi_ai_seal_writer',%s,'EXECUTE')" in query:
             name = params[0]
             self.rows = [(
-                name.startswith("public.ai_v4_claim_seal_ticket("),
+                name.startswith("public.ai_v4_claim_seal_ticket(") or
+                name.startswith("public.ai_v4_sealer_ticket_"),
                 name.startswith("public.ai_v4_issue_seal_ticket(") or
                 name == "public.ai_v4_lock_source_revisions_for_admission()",
                 False)]
@@ -328,6 +329,16 @@ class ConsistentBackupTests(unittest.TestCase):
             _ai_evidence(PRE_TICKET_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
             _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+
+    def test_v4_claimed_reader_retains_76_tables_and_closed_publication(self):
+        names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
+                       if p.stem[:4].isdigit() and int(p.stem[:4]) <= 42)
+        migrations = [("ai_assistant", name) for name in names]
+        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 76)
+        with self.assertRaises(RuntimeError):
+            _ai_evidence(CURRENT_AI_TABLES,
+                [item for item in migrations if item[1] != "0041_business_v4_seal_ticket"])
 
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
