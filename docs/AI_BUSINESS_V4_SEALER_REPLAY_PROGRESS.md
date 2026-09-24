@@ -6,4 +6,4 @@
 
 只读函数 `ai_v4_sealer_replay_progress` 使用同一 claim 返回精确段的已存候选和摘要，供下一段的受保护前驱核验。普通 AI reader/writer、PUBLIC 及 sealer 对物理回执表均无 DML 或直接 SELECT；运行角色的 UPDATE、DELETE、TRUNCATE 被拒绝。非空表阻止 0047 逆迁移。数据库只证明回执与既有账本一致；它不能独立证明页面原文重放、0036 HMAC 真伪、上游来源签名或财务段，调用方仍须在受保护边界完成这些检查。
 
-最小 PG 目标测试：`backend.ai_assistant.test_business_v4_sealer_replay_progress`。测试验证有效单段、完全相同幂等、进度篡改、首段候选链篡改、关闭的普通角色权限、NOLOGIN 与旧 commit 关闭，以及非空逆迁移阻断。现有业务夹具仅有一页，不能在不改变 0041 的 180 秒活跃 claim 规则下快速产生第二张合法票据和第 17 页；跨票据两段的真实时间路径仍待专门 PG 演练。0047 仅为候选源码；未在正式数据库安装。
+目标隔离 PG 测试 3 项通过，见 `.runtime/ai-pg-363a8b109724/tests.log`；旧票据误授 TRUNCATE 防删除目标回归另通过 `.runtime/ai-pg-1db4fbb151b6/tests.log`。测试覆盖有效单段、完全相同幂等、进度篡改、首段候选链篡改、关闭的普通角色权限、NOLOGIN 与旧 commit 关闭、非空逆迁移阻断，以及目录门禁对函数 ACL 漂移的拒绝。0046→0047 独立升级、旧 78 表/renderer1—7 字节与旧函数权限保持、前后备份恢复和空回退再升级通过 `.runtime/ai-pg-40d04edc995a/business-v4-replay-progress-upgrade-evidence.json`。现有业务夹具仅有一页，不能在不改变 0041 的 180 秒活跃 claim 规则下快速产生第二张合法票据和第 17 页；跨票据两段的真实时间路径仍待专门 PG 演练。0047 仅为候选源码；未在正式数据库安装。

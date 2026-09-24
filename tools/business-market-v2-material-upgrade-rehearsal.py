@@ -18,7 +18,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import (AI_TABLES,
+from ai_assistant.table_manifest import (AI_TABLES_PRE_V4_REPLAY_PROGRESS as AI_TABLES,
     AI_TABLES_PRE_MARKET_V2_MATERIALS as OLD_TABLES)
 from business_analysis.contracts import canonical
 

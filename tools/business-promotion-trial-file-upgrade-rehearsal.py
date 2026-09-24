@@ -19,7 +19,7 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_REPLAY_PROGRESS as AI_TABLES
 from ai_assistant.health import _verify_promotion_trial_file_guard
 from business_analysis.contracts import canonical
 

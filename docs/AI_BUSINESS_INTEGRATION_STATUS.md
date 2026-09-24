@@ -10,6 +10,8 @@
 
 v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS_V4_SEALER_SEGMENT_REPLAY_CANDIDATE.md)：最多16页，复核原文字节/摘要、工具请求、游标、行数、收据链和0036段进度；第17页起须受保护前段回执校验。纯测试7项通过。当前没有受保护独立凭据、真实 claim/MAC 调用方、持久独立复核回执或财务段重放，输出固定 `candidateOnly=true`、`authorityVerified=false`，不能据此封存、派发 Agent 或发布文件。
 
+后续隔离候选补[财务单段纯重放](AI_BUSINESS_V4_FINANCE_SEGMENT_PURE.md)与[0047 独立推广段回执](AI_BUSINESS_V4_SEALER_REPLAY_PROGRESS.md)：财务和推广纯测合计13项；0047 目标隔离 PG 3 项、旧票据 TRUNCATE 负例及0046→0047旧78表/renderer1—7字节/ACL、双备份恢复、空回退再升级通过。回执按当前 claim、来源根、最新 attempt、0036段和前段候选链精确绑定，专用角色仍 NOLOGIN，旧直接 seal 提交保持撤销。当前尚无真实受保护 sealer 进程、财务段持久回执、跨票据17页实际验收或最终同事务 seal+消费包装；不能把候选回执当作来源权威。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

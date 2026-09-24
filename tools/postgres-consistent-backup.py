@@ -802,10 +802,18 @@ def collect_evidence(
                         or "0029_business_promotion_file_ready" not in ai_migrations):
                     raise RuntimeError("AI promotion trial file guard has no predecessor")
                 verify_promotion_trial_file_guard(cursor)
+            if "0047_business_v4_sealer_replay_progress" in ai_migrations:
+                if ("0046_business_promotion_trial_file_guard" not in ai_migrations
+                        or "0043_business_v4_seal_consumption_candidate" not in ai_migrations):
+                    raise RuntimeError("AI v4 replay progress has no claimed ticket predecessor")
+                from ai_assistant.v4_replay_progress_catalog import verify
+                verify(cursor, RuntimeError)
             # Restore probes run with today's helper against the backup's schema.
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0047_business_v4_sealer_replay_progress" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_v4_sealer_replay_progress")
             if "0045_business_market_v2_material_attestation" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_market_v2_materials")
             if "0043_business_v4_seal_consumption_candidate" not in ai_migrations:

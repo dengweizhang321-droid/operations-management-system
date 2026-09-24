@@ -47,10 +47,16 @@ parser.add_argument("--business-v4-seal-consumption-upgrade", action="store_true
 parser.add_argument("--business-market-v2-parked-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-material-upgrade", action="store_true")
 parser.add_argument("--business-promotion-trial-file-upgrade", action="store_true")
+parser.add_argument("--business-v4-replay-progress-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_v4_replay_progress_upgrade:
+    if arguments.business_promotion_trial_file_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # 0047 replays the complete 0046 predecessor before adding the closed ledger.
+    arguments.business_promotion_trial_file_upgrade = True
 if arguments.business_promotion_trial_file_upgrade:
     if arguments.business_market_v2_material_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -388,6 +394,9 @@ try:
         if arguments.business_promotion_trial_file_upgrade:
             rehearsals += (("business-promotion-trial-file-upgrade-rehearsal.py",
                 "business-promotion-trial-file-upgrade.json"),)
+        if arguments.business_v4_replay_progress_upgrade:
+            rehearsals += (("business-v4-replay-progress-upgrade-rehearsal.py",
+                "business-v4-replay-progress-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")

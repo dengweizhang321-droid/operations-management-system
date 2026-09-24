@@ -19,6 +19,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 sys.path.insert(0, str(ROOT / "backend"))
 from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES_PRE_V4_REPLAY_PROGRESS as PRE_REPLAY_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_MARKET_V2_MATERIALS as PRE_MARKET_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_CONSUMPTIONS as PRE_CONSUMPTION_AI_TABLES
 from ai_assistant.table_manifest import AI_TABLES_PRE_V4_TICKETS as PRE_TICKET_AI_TABLES
@@ -388,18 +389,18 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 46)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
-        previous = _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+        current = _ai_evidence(PRE_REPLAY_AI_TABLES, migrations)
+        previous = _ai_evidence(PRE_REPLAY_AI_TABLES, migrations[:-1])
         self.assertEqual(len([table for table in current["tables"]
                               if table.startswith("ai_")]), 78)
         self.assertNotEqual(current["contentSha256"], previous["contentSha256"])
-        self.assertEqual(_ai_evidence(CURRENT_AI_TABLES, migrations[:-1],
+        self.assertEqual(_ai_evidence(PRE_REPLAY_AI_TABLES, migrations[:-1],
                                      promotion_trial={})["tables"], previous["tables"])
         for missing in ("0045_business_market_v2_material_attestation",
                         "0029_business_promotion_file_ready"):
             with self.subTest(missing=missing), self.assertRaisesRegex(RuntimeError,
                     "predecessor"):
-                _ai_evidence(CURRENT_AI_TABLES,
+                _ai_evidence(PRE_REPLAY_AI_TABLES,
                     [item for item in migrations if item[1] != missing])
 
         def mutated(change):
@@ -432,7 +433,7 @@ class ConsistentBackupTests(unittest.TestCase):
         for index, change in enumerate(cases):
             with self.subTest(drift=index), self.assertRaisesRegex(RuntimeError,
                     "promotion trial file"):
-                _ai_evidence(CURRENT_AI_TABLES, migrations,
+                _ai_evidence(PRE_REPLAY_AI_TABLES, migrations,
                              promotion_trial=mutated(change))
 
     def test_finance_0004_monotonic_trigger_function_and_writer_boundary(self):
@@ -628,18 +629,18 @@ class ConsistentBackupTests(unittest.TestCase):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 45)
         migrations = [("ai_assistant", name) for name in names]
-        current = _ai_evidence(CURRENT_AI_TABLES, migrations)
+        current = _ai_evidence(PRE_REPLAY_AI_TABLES, migrations)
         self.assertEqual(len([name for name in current["tables"] if name.startswith("ai_")]), 78)
         self.assertIn("ai_business_market_v2_materials", current["tables"])
         before = _ai_evidence(PRE_MARKET_AI_TABLES, migrations[:-1])
         self.assertEqual(len([name for name in before["tables"] if name.startswith("ai_")]), 77)
         with self.assertRaisesRegex(RuntimeError, "predecessor"):
-            _ai_evidence(CURRENT_AI_TABLES,
+            _ai_evidence(PRE_REPLAY_AI_TABLES,
                 [item for item in migrations if item[1] != "0044_business_market_v2_profile"])
         with self.assertRaises(RuntimeError):
             _ai_evidence(PRE_MARKET_AI_TABLES, migrations)
         with self.assertRaises(RuntimeError):
-            _ai_evidence(CURRENT_AI_TABLES, migrations[:-1])
+            _ai_evidence(PRE_REPLAY_AI_TABLES, migrations[:-1])
         cases = [
             ("role", (True,) + (False,) * 6),
             ("member", (1,)),
@@ -664,7 +665,7 @@ class ConsistentBackupTests(unittest.TestCase):
                     "market v2 material"):
                 state = _market_material_state()
                 state[key] = bad
-                _ai_evidence(CURRENT_AI_TABLES, migrations, market_material=state)
+                _ai_evidence(PRE_REPLAY_AI_TABLES, migrations, market_material=state)
 
     def test_paused_intent_generation_has_explicit_67_table_boundary(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")

@@ -151,6 +151,9 @@ class BusinessV4SealTicketTests(TransactionTestCase):
             cursor.execute("SELECT to_regclass('public.ai_business_v4_seal_consumptions')")
             if cursor.fetchone()[0] is not None:
                 tables.append("public.ai_business_v4_seal_consumptions")
+            cursor.execute("SELECT to_regclass('public.ai_business_v4_sealer_replay_progress')")
+            if cursor.fetchone()[0] is not None:
+                tables.append("public.ai_business_v4_sealer_replay_progress")
         for role in ("teruisi_ai_writer", "teruisi_ai_seal_writer"):
             with connection.cursor() as cursor:
                 cursor.execute("GRANT TRUNCATE ON " + ",".join(tables) + " TO " + role)

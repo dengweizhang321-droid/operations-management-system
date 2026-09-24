@@ -3,29 +3,43 @@ import json
 from importlib import import_module
 
 import psycopg
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 
 from . import models as m
 from .policy import canonical, digest
-from .test_business_v4_seal_ticket import BusinessV4SealTicketTests as fixture
+from .v4_replay_progress_catalog import verify as verify_catalog
+from . import test_business_v4_seal_ticket as ticket_fixture
 
 
 class BusinessV4SealerReplayProgressTests(TransactionTestCase):
-    promotion_owner = fixture.promotion_owner
-    rebuild_plan = fixture.rebuild_plan
-    finance_owner = fixture.finance_owner
-    owner = fixture.owner
-    collect = fixture.collect
-    complete_mixed = fixture.complete_mixed
-    attempt = fixture.attempt
-    database = fixture.database
-    _identity = fixture._identity
-    _role_connection = fixture._role_connection
-    issue = fixture.issue
-    claim = fixture.claim
-    setUp = fixture.setUp
-    tearDown = fixture.tearDown
+    promotion_owner = ticket_fixture.BusinessV4SealTicketTests.promotion_owner
+    rebuild_plan = ticket_fixture.BusinessV4SealTicketTests.rebuild_plan
+    finance_owner = ticket_fixture.BusinessV4SealTicketTests.finance_owner
+    owner = ticket_fixture.BusinessV4SealTicketTests.owner
+    collect = ticket_fixture.BusinessV4SealTicketTests.collect
+    complete_mixed = ticket_fixture.BusinessV4SealTicketTests.complete_mixed
+    attempt = ticket_fixture.BusinessV4SealTicketTests.attempt
+    database = ticket_fixture.BusinessV4SealTicketTests.database
+    _identity = ticket_fixture.BusinessV4SealTicketTests._identity
+    _role_connection = ticket_fixture.BusinessV4SealTicketTests._role_connection
+    issue = ticket_fixture.BusinessV4SealTicketTests.issue
+    claim = ticket_fixture.BusinessV4SealTicketTests.claim
+    setUp = ticket_fixture.BusinessV4SealTicketTests.setUp
+    tearDown = ticket_fixture.BusinessV4SealTicketTests.tearDown
+
+    def test_frozen_catalog_and_closed_function_acl(self):
+        with connection.cursor() as cursor:
+            verify_catalog(cursor)
+            verify_catalog(cursor, RuntimeError)
+        migration = import_module(
+            "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute("REVOKE EXECUTE ON FUNCTION " + migration.WRITE +
+                " FROM teruisi_ai_seal_writer")
+            with self.assertRaisesRegex(ValueError, "function ACL drift"):
+                verify_catalog(cursor)
+            transaction.set_rollback(True)
 
     def _candidate(self, attempt_id, ticket_id, source, index=1):
         segment = m.AiBusinessV4ValidationSegment.objects.get(
