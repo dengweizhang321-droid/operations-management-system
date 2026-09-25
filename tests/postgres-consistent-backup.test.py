@@ -817,6 +817,8 @@ class ConsistentBackupTests(unittest.TestCase):
                     "collect_evidence",
                     return_value={"contentSha256": "a" * 64},
                 ),
+                mock.patch.object(MODULE, "_protected_ai_preflight",
+                    return_value={"appliedProtectedMigrations": []}),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
                 result = MODULE.run_backup(args)
@@ -853,12 +855,38 @@ class ConsistentBackupTests(unittest.TestCase):
             with (
                 mock.patch.object(MODULE.psycopg, "connect", return_value=connection),
                 mock.patch.object(MODULE, "collect_evidence", return_value={}),
+                mock.patch.object(MODULE, "_protected_ai_preflight",
+                    return_value={"appliedProtectedMigrations": []}),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
                 with self.assertRaisesRegex(RuntimeError, "pg_dump failed"):
                     MODULE.run_backup(args)
             self.assertFalse(output.exists())
             self.assertTrue(pg_dump.exists())
+
+    def test_protected_backup_refuses_before_dump_or_evidence_read(self):
+        with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
+            root = Path(temporary)
+            pg_dump = root / "pg_dump.exe"
+            pg_dump.write_bytes(b"fixture")
+            args = argparse.Namespace(pg_dump=str(pg_dump),
+                output=str(root / "protected.dump"),
+                expected_database="teruisi_sales",
+                expected_user="teruisi_sales_owner", port=5432,
+                timeout_seconds=77)
+            with (mock.patch.object(MODULE.psycopg, "connect",
+                        return_value=_SnapshotConnection()),
+                    mock.patch.object(MODULE, "_protected_ai_preflight",
+                        return_value={"appliedProtectedMigrations": [
+                            "0068_business_promotion_budget_v11_verifier_receipt"],
+                            "status": "blocked"}),
+                    mock.patch.object(MODULE, "collect_evidence") as evidence,
+                    mock.patch.object(MODULE.subprocess, "run") as native):
+                with self.assertRaisesRegex(RuntimeError, "not admitted"):
+                    MODULE.run_backup(args)
+            evidence.assert_not_called()
+            native.assert_not_called()
+            self.assertFalse((root / "protected.dump").exists())
 
     def test_restore_is_single_transaction_and_bounded(self):
         with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
@@ -871,7 +899,8 @@ class ConsistentBackupTests(unittest.TestCase):
 
             def fake_run(command, **kwargs):
                 captured_command.extend(command)
-                self.assertEqual(kwargs["timeout"], 91)
+                self.assertEqual(kwargs["timeout"],
+                    60 if "--list" in command else 91)
                 return subprocess.CompletedProcess(command, 0, b"", b"")
 
             args = argparse.Namespace(
@@ -889,6 +918,104 @@ class ConsistentBackupTests(unittest.TestCase):
             self.assertIn("--single-transaction", captured_command)
             self.assertIn("--no-owner", captured_command)
             self.assertIn("--no-privileges", captured_command)
+
+    def test_protected_restore_refuses_before_running_restore(self):
+        with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
+            root = Path(temporary)
+            pg_restore = root / "pg_restore.exe"
+            archive = root / "approved.dump"
+            pg_restore.write_bytes(b"fixture")
+            archive.write_bytes(b"archive")
+            args = argparse.Namespace(pg_restore=str(pg_restore),
+                archive=str(archive), expected_database="teruisi_sales",
+                expected_user="postgres", port=55432, timeout_seconds=91)
+            def fake_run(command, **kwargs):
+                self.assertIn("--list", command)
+                return subprocess.CompletedProcess(command, 0,
+                    b"TABLE DATA public protected_business_budget_v11_verifier_keys", b"")
+            with mock.patch.object(MODULE.subprocess, "run",
+                    side_effect=fake_run) as native:
+                with self.assertRaisesRegex(RuntimeError, "not admitted"):
+                    MODULE.run_restore(args)
+            self.assertEqual(native.call_count, 1)
+
+    def test_protected_preflight_checks_roles_owner_capability_and_policy_without_key_read(self):
+        class Cursor:
+            def __init__(self, *, missing_role=False, wrong_owner=False,
+                         can_read=False):
+                self.missing_role = missing_role
+                self.wrong_owner = wrong_owner
+                self.can_read = can_read
+                self.queries = []
+                self.current = ""
+
+            def execute(self, query, params=None):
+                self.current = query
+                self.queries.append(query)
+
+            def fetchall(self):
+                if "django_migrations" in self.current:
+                    return [("0068_business_promotion_budget_v11_verifier_receipt",)]
+                if "FROM pg_catalog.pg_roles" in self.current:
+                    names = MODULE.PROTECTED_AI_ROLES[:-1] if self.missing_role else MODULE.PROTECTED_AI_ROLES
+                    return [(name, *(False,) * 7) for name in names]
+                raise AssertionError("unexpected preflight rowset")
+
+            def fetchone(self):
+                if "pg_auth_members" in self.current:
+                    return (0,)
+                if "pg_catalog.pg_class" in self.current:
+                    return ("wrong_owner" if self.wrong_owner else
+                        "teruisi_ai_budget_v11_key_owner",)
+                if "has_table_privilege" in self.current:
+                    return (self.can_read,)
+                if "rolcreaterole,rolsuper" in self.current:
+                    return (False, False)
+                raise AssertionError("unexpected preflight scalar")
+
+        cursor = Cursor(missing_role=True, wrong_owner=True)
+        result = MODULE._protected_ai_preflight(cursor)
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("protected_roles_not_exact_nologin", result["issues"])
+        self.assertIn("private_key_table_owner_unverified", result["issues"])
+        self.assertIn("archive_acl_not_preserved", result["issues"])
+        self.assertIn("cross_cluster_owner_acl_not_preserved", result["issues"])
+        self.assertIn("private_key_archive_encryption_not_configured", result["issues"])
+        self.assertTrue(result["readOnly"])
+        self.assertFalse(any("secret" in query.lower() or "count(*) from public.protected" in query.lower()
+            for query in cursor.queries))
+
+        cursor = Cursor(can_read=False)
+        result = MODULE._protected_ai_preflight(cursor)
+        self.assertIn("backup_identity_cannot_read_private_key_table", result["issues"])
+        self.assertEqual(result["exactProtectedRoleCount"], 12)
+
+    def test_explicit_protected_preflight_uses_read_only_bound_identity(self):
+        connection = mock.MagicMock()
+        connection.__enter__.return_value = connection
+        cursor = mock.MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.fetchone.return_value = ("teruisi_sales", "teruisi_sales_owner",
+            "127.0.0.1", 5432)
+        connection.cursor.return_value = cursor
+        args = argparse.Namespace(expected_database="teruisi_sales",
+            expected_user="teruisi_sales_owner", port=5432)
+        with (mock.patch.object(MODULE.psycopg, "connect",
+                    return_value=connection),
+                mock.patch.object(MODULE, "_protected_ai_preflight",
+                    return_value={"status": "blocked", "issues": ["archive_acl_not_preserved"]})):
+            self.assertEqual(MODULE.run_protected_preflight(args)["status"],
+                "blocked")
+        connection.execute.assert_called_once_with(
+            "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        connection.rollback.assert_called_once()
+
+        cursor.fetchone.return_value = ("wrong_database", "teruisi_sales_owner",
+            "127.0.0.1", 5432)
+        with mock.patch.object(MODULE.psycopg, "connect",
+                return_value=connection):
+            with self.assertRaisesRegex(RuntimeError, "identity mismatch"):
+                MODULE.run_protected_preflight(args)
 
     def test_native_diagnostic_is_bounded_and_contains_no_output(self):
         completed = subprocess.CompletedProcess(

@@ -24,3 +24,13 @@
 独立工作树中可运行 `python tools/ai-postgres-rehearsal.py --business-protected-cross-cluster-restore --upgrade-only --port <空闲55440–55999端口>`。新测试开关先完整重放 0072 的前驱链，然后在**第二个**新 `initdb` 集群中预置精确的 12 个受保护 NOLOGIN/NOINHERIT/零成员角色以及原合成集群的其他无密码角色。它只给源端写入一条随机合成私钥，完整 custom dump，目标端用合成超级用户在单事务内恢复原 owner/ACL；逐项执行 0068–0072 `verify_catalog`，比对 8 张受保护表完整行摘要和角色属性，证明普通 AI writer 不能 SELECT 私钥。目标所有权或函数 ACL 被故意改坏时，目录检查必须拒绝并回滚该负例。目标集群使用独立回环端口、独立数据目录与另一随机密码，成功/失败都只停止其所属进程。
 
 首次原型运行的通过证据已在核验两个集群停机后归档为 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-4f7953f8f7b8-protected-audit\protected-cross-cluster\evidence.json`，但首次版本尚未包含故意 owner/ACL 漂移负例。第二轮包含负例的完整演练证据在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-38e31f193b17-protected-audit\protected-cross-cluster\evidence.json`：0068–0072 目录验证、12 角色、8 表与 1 个合成密钥恢复通过，私钥表所有权和验证函数 EXECUTE 两项故意漂移均被拒绝并回滚。结束后源/目标 `pg_ctl status` 均为 no server running，目录已受控归档。这个结果只证明**隔离合成超级用户**保留了 owner/ACL。正式路径仍保持旧参数、旧备份身份和未加密归档；不能据此宣称正式备份可用、真实非超级用户 migration 可安装、真实密钥受保护归档完成或生产可恢复。
+
+## 默认关闭的正式预检门禁候选
+
+`tools/django-postgres-maintenance.ps1 -Action ProtectedAiPreflight` 是需要操作者**显式**调用的只读动作：固定核对本机正式库身份、12 个受保护角色的 NOLOGIN/NOINHERIT/零成员状态、私钥表 KEY_OWNER 所有权、当前备份身份是否具备读取权限，以及既有归档 owner/ACL 参数和加密能力。它只返回脱敏阻断原因码，不执行 `COUNT(*)` 或读取私钥字节；当前设计一定返回 `blocked`。它不会创建备份、恢复集群、角色或授权。
+
+正常日常备份发现 0067–0072 任一受保护迁移收据时，会在创建备份工作目录前拒绝；Python helper 自身也会在 `pg_dump` 前拒绝。历史未安装这些迁移的数据库仍走原备份路径。正式隔离恢复发现归档中有受保护迁移时，会在 `initdb` 前拒绝；Python helper 直接调用 restore 时还会从 archive TOC 检出 `protected_business_*` 并拒绝。正式 `pg_dump`/`pg_restore` 参数仍为原 `--no-owner --no-privileges`，故这只是**失败关闭**切片，不是让受保护库可备份的上线实现。
+
+`tests/postgres-consistent-backup.test.py` 覆盖备份先拒绝且不调用 dump/内容读取、受保护 TOC 恢复先拒绝、角色/所有权/能力/策略的只读诊断；`tests/django-postgres-maintenance.test.ts` 覆盖显式动作、PowerShell 解析与恢复启动前栅栏。下一阶段仍须受控特权迁移/备份身份、密钥归档加密与独立新集群的**正式**恢复路径；在这些门槛完成前不得打开受保护迁移生产采用。
+
+此切片尚未改造 `tools/django-local-service.ps1` 的 `Invoke-DjangoMigrations`（仍由普通 `teruisi_sales_owner` 调用 `migrate`），也没有证明候选源码在停服前会自动调用此预检。任何把 0067–0072 带入正式部署的计划，必须另外加发布前迁移门禁并验收失败不会进入维护窗口；不能以本备份门禁替代迁移安装授权。

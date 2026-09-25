@@ -47,9 +47,16 @@ def audit(root: Path = ROOT) -> dict[str, object]:
 
     backup = helper.partition("def run_backup(")[2].partition("def run_probe(")[0]
     restore = helper.partition("def run_restore(")[2].partition("def build_parser(")[0]
-    if '"--no-privileges"' in backup:
+    dump_flags = re.search(r"FORMAL_DUMP_FLAGS\s*=\s*\((.*?)\)", helper, re.S)
+    restore_flags = re.search(r"FORMAL_RESTORE_FLAGS\s*=\s*\((.*?)\)", helper, re.S)
+    if ('"--no-privileges"' in backup or
+            (dump_flags and '"--no-privileges"' in dump_flags.group(1)
+             and "*FORMAL_DUMP_FLAGS" in backup)):
         issues.append("custom backup suppresses ACL entries")
-    if '"--no-owner"' in restore or '"--no-privileges"' in restore:
+    if ('"--no-owner"' in restore or '"--no-privileges"' in restore or
+            (restore_flags and "*FORMAL_RESTORE_FLAGS" in restore and
+             ('"--no-owner"' in restore_flags.group(1) or
+              '"--no-privileges"' in restore_flags.group(1)))):
         issues.append("restore suppresses recorded object owners or ACLs")
     if ("PGUSER = \"teruisi_sales_owner\"" in operator
             and "ALTER TABLE " + '" + KEY_TABLE + " OWNER TO "' in migration

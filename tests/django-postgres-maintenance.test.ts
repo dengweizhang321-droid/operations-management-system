@@ -130,6 +130,9 @@ test("daily backup is online read-only and never changes managed service state",
   assert.match(backupBlock, /Test-PostgresReady/);
   assert.match(backupBlock, /权威 PostgreSQL 当前未运行；日常备份不会自动启停服务/);
   assert.match(backupBlock, /postgres-consistent-backup\.py|\$evidenceTool/);
+  assert.ok(backupBlock.indexOf("Invoke-MaintenanceProtectedAiPreflight")
+    < backupBlock.indexOf("Get-MaintenanceBackupRoot $true"),
+    "protected schema must be refused before a backup directory is created");
   assert.match(backupBlock, /serviceStateChanged = \$false/);
   assert.doesNotMatch(backupBlock, /Start-Postgres|Stop-Postgres|Start-ServiceStack|Stop-ServiceStack/);
   assert.doesNotMatch(script, /Invoke-WithServiceMutex/);
@@ -239,6 +242,11 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /productionDatabaseTouched = \$false/);
   assert.match(restoreBlock, /serviceStateChanged = \$false/);
   assert.match(restoreBlock, /Initialize-MaintenanceRehearsalRoles/);
+  assert.ok(
+    restoreBlock.indexOf("Assert-MaintenanceProtectedArchiveUnsupported")
+      < restoreBlock.indexOf("initdb.exe"),
+    "protected archive must be refused before a restore cluster is created",
+  );
   assert.match(
     restoreBlock,
     /Assert-MaintenanceRehearsalListenerOwnership[\s\S]*?Initialize-MaintenanceRehearsalRoles/,
@@ -272,6 +280,41 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.doesNotMatch(restoreBlock, /postgresSuperuser|Get-ErpRoleProvisioningSecrets/);
   assert.doesNotMatch(restoreBlock, /DROP DATABASE|CREATE DATABASE/);
   assert.doesNotMatch(restoreBlock, /(?:PGPORT|--port)[^\n]*5432/);
+});
+
+test("protected AI preflight is explicit, read-only and leaves formal archive flags unchanged", async () => {
+  const operator = await readFile(operatorPath, "utf8");
+  const helper = await readFile(helperPath, "utf8");
+  assert.match(operator, /"ProtectedAiPreflight" \{ Invoke-MaintenanceProtectedAiPreflight \}/);
+  assert.match(operator, /function Invoke-MaintenanceProtectedAiPreflight/);
+  assert.match(operator, /default_transaction_read_only=on/);
+  assert.match(operator, /Assert-MaintenanceProtectedArchiveUnsupported/);
+  assert.match(helper, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+  assert.match(helper, /protected-preflight/);
+  assert.match(helper, /FORMAL_DUMP_FLAGS = \("--no-owner", "--no-privileges"\)/);
+  assert.match(helper, /FORMAL_RESTORE_FLAGS = \("--no-owner", "--no-privileges"\)/);
+});
+
+test("protected archive is rejected by pure operator guard before restore startup", async (t) => {
+  if (process.platform !== "win32" || !existsSync(powershell)) {
+    t.skip("Windows PowerShell 5 is unavailable");
+    return;
+  }
+  const escapedScript = operatorPath.replaceAll("'", "''");
+  const command = [
+    "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1';",
+    `. '${escapedScript}';`,
+    "$old=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0066_business_promotion_budget_v11_durable_stage'})}};",
+    "Assert-MaintenanceProtectedArchiveUnsupported $old;",
+    "$protected=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0068_business_promotion_budget_v11_verifier_receipt'})}};",
+    "try {Assert-MaintenanceProtectedArchiveUnsupported $protected; exit 9} catch {};",
+    "exit 0",
+  ].join(" ");
+  const result = spawnSync(powershell, [
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-Command", command,
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
 test("restore cleanup and retention deletion are constrained to exact child identities", async () => {
@@ -331,7 +374,7 @@ test("Python helper imports with the controlled runtime", async (t) => {
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\{backup,probe,restore\}/);
+  assert.match(result.stdout, /\{backup,probe,protected-preflight,restore\}/);
   assert.equal(result.stderr, "");
 });
 
@@ -351,7 +394,7 @@ test("maintenance validates complete AI backup evidence before and after activat
   assert.match(manifest, /AI_TABLES_PRE_V4_SEALS = \(\*AI_TABLES_PRE_V4_VALIDATION,/);
   assert.match(manifest, /AI_TABLES_PRE_V4_TICKETS = \(\*AI_TABLES_PRE_V4_SEALS, "ai_business_v4_seals"\)/);
   assert.match(manifest, /AI_TABLES_PRE_V4_CONSUMPTIONS = \(\*AI_TABLES_PRE_V4_TICKETS,/);
-  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_V4_CONSUMPTIONS,/);
+  assert.match(manifest, /AI_TABLES = \(\*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,/);
   const aiTables = historicalAiTables.filter(name => !["ai_business_evidence_runs", "ai_business_evidence_chunks", "ai_business_file_runs", "ai_business_file_chunks", "ai_business_evidence_sources", "ai_business_volume_chunks", "ai_business_budget_plans", "ai_business_screening_runs", "ai_business_screening_pages"].includes(name));
   assert.ok(aiTables.includes("ai_conversation_workspaces"));
   const base = {

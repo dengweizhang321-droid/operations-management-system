@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status")]
+  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight")]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$BackupDirectory = "",
@@ -1102,6 +1102,10 @@ function Invoke-MaintenanceBackup {
   if (-not (Test-PostgresReady)) {
     throw "权威 PostgreSQL 未就绪；日常备份不会自动启停服务"
   }
+  $protectedState = Invoke-MaintenanceProtectedAiPreflight
+  if (@($protectedState.appliedProtectedMigrations).Count -gt 0) {
+    throw "受保护 AI 迁移尚无正式备份契约；拒绝创建备份工作目录"
+  }
 
   $backupRoot = Get-MaintenanceBackupRoot $true
   $timestamp = [DateTimeOffset]::UtcNow
@@ -1213,6 +1217,62 @@ function Invoke-MaintenanceBackup {
     if (-not $published) {
       Remove-MaintenanceIncompleteDirectory $workingDirectory $backupRoot $workingName
     }
+  }
+}
+
+function Invoke-MaintenanceProtectedAiPreflight {
+  # Explicit read-only action. It never returns verifier key bytes or opens an archive.
+  $evidenceTool = Assert-MaintenanceRuntimeContext
+  if (@(Get-PortListeners 5432).Count -ne 1) {
+    throw "权威 PostgreSQL 当前未运行；受保护 AI 预检不会启动服务"
+  }
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) {
+    throw "权威 PostgreSQL 未就绪；受保护 AI 预检不会启动服务"
+  }
+  $secrets = Read-Secrets
+  try {
+    $payload = Invoke-MaintenancePgEnvironment @{
+      PGHOST = "127.0.0.1"
+      PGPORT = "5432"
+      PGUSER = "teruisi_sales_owner"
+      PGDATABASE = "teruisi_sales"
+      PGPASSWORD = $secrets.OwnerPassword
+      PGAPPNAME = "teruisi_protected_ai_preflight"
+      PGOPTIONS = "-c statement_timeout=15000 -c default_transaction_read_only=on"
+      PGCLIENTENCODING = "UTF8"
+    } {
+      $run = Invoke-BoundedNativeProcess $Python @(
+        $evidenceTool, "protected-preflight",
+        "--expected-database", "teruisi_sales",
+        "--expected-user", "teruisi_sales_owner",
+        "--port", "5432"
+      ) $InstalledAppRoot
+      return ConvertFrom-UniqueNativeJson $run "受保护 AI 只读预检"
+    }
+    Assert-MaintenanceExactPropertySet $payload @(
+      "version", "status", "readOnly", "appliedProtectedMigrations",
+      "exactProtectedRoleCount", "issues"
+    ) "受保护 AI 预检结果"
+    if ([string]$payload.version -cne "teruisi-postgres-consistent-backup-v1" -or
+        [string]$payload.status -cne "blocked" -or
+        $payload.readOnly -cne $true -or
+        @($payload.issues).Count -lt 1) {
+      throw "受保护 AI 预检结果无效或意外放行"
+    }
+    return $payload
+  } finally {
+    $secrets = $null
+  }
+}
+
+function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
+  $protected = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "ai_assistant" -and
+    [string]$_.name -cmatch "^00(67|68|69|70|71|72)_business_"
+  })
+  if ($protected.Count -gt 0) {
+    throw "受保护 AI 归档尚无角色、owner/ACL 与私钥隔离恢复契约；拒绝开始恢复演练"
   }
 }
 
@@ -1366,6 +1426,7 @@ function Invoke-MaintenanceRestoreRehearsal {
   $backup = Resolve-MaintenanceBackupArchive (
     $MaintenanceRequest.BackupDirectory
   ) $MaintenanceRequest.ApprovedManifestSha256
+  Assert-MaintenanceProtectedArchiveUnsupported $backup.Manifest
   if (@(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -ne 0) {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
@@ -1799,6 +1860,7 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
         }
       }
       "RestoreRehearsal" { Invoke-MaintenanceRestoreRehearsal }
+      "ProtectedAiPreflight" { Invoke-MaintenanceProtectedAiPreflight }
       "Prune" { Invoke-MaintenancePrune }
       "Status" { Show-MaintenanceStatus }
     }
