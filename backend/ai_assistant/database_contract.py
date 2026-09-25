@@ -44,6 +44,7 @@ MODELS = {
     "ai_business_market_v2_context_proofs": m.AiBusinessMarketV2ContextProof,
     "ai_business_market_v2_read_receipts": m.AiBusinessMarketV2ReadReceipt,
     "ai_business_market_v2_execution_plans": m.AiBusinessMarketV2ExecutionPlan,
+    "ai_business_market_v2_cost_ledger_candidates": m.AiBusinessMarketV2CostLedgerCandidate,
     "ai_business_promotion_budget_v10_attestations": m.AiBusinessPromotionBudgetV10Attestation,
     "ai_library_revisions": m.AiLibraryRevision,
     "ai_execution_guidance": m.AiExecutionGuidance,
@@ -190,6 +191,7 @@ CLOSED_SQL_OWNED_TABLES = (*CLOSED_SEAL_TICKET_TABLES,
     "ai_business_market_v2_context_proofs",
     "ai_business_market_v2_read_receipts",
     "ai_business_market_v2_execution_plans",
+    "ai_business_market_v2_cost_ledger_candidates",
     "ai_business_v4_sealer_replay_progress",
     "ai_business_v4_period_plan_candidates",
     "ai_business_promotion_budget_v10_attestations")
@@ -347,6 +349,15 @@ def provision(connection, reader_password, writer_password):
                         "public.ai_v4_lock_source_revisions_for_admission() TO teruisi_ai_writer")
             if role == "teruisi_ai_reader":
                 cursor.execute("SELECT to_regprocedure('public."
+                    "ai_market_v2_cost_candidate_receipt(text,text,bigint)')")
+                if cursor.fetchone()[0] is not None:
+                    cursor.execute("REVOKE ALL ON FUNCTION public."
+                        "ai_market_v2_cost_candidate_receipt(text,text,bigint) "
+                        "FROM PUBLIC")
+                    cursor.execute("GRANT EXECUTE ON FUNCTION public."
+                        "ai_market_v2_cost_candidate_receipt(text,text,bigint) "
+                        "TO teruisi_ai_reader")
+                cursor.execute("SELECT to_regprocedure('public."
                     "ai_market_v2_execution_plan_receipt(text,text,bigint)')")
                 if cursor.fetchone()[0] is not None:
                     cursor.execute("REVOKE ALL ON FUNCTION public."
@@ -374,6 +385,12 @@ def provision(connection, reader_password, writer_password):
                 from system_datasets.permissions import grant_columns
                 grant_columns(cursor, "ai_assistant")
             else:
+                cursor.execute("SELECT to_regprocedure('public."
+                    "ai_market_v2_cost_candidate_receipt(text,text,bigint)')")
+                if cursor.fetchone()[0] is not None:
+                    cursor.execute("REVOKE EXECUTE ON FUNCTION public."
+                        "ai_market_v2_cost_candidate_receipt(text,text,bigint) "
+                        "FROM teruisi_ai_writer")
                 cursor.execute("SELECT to_regprocedure('public."
                     "ai_market_v2_execution_plan_receipt(text,text,bigint)')")
                 if cursor.fetchone()[0] is not None:
