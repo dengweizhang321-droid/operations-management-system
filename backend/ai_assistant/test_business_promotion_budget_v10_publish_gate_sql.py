@@ -21,9 +21,17 @@ class BudgetV10PublishGateSqlTests(TestCase):
             migration.COMPLETE_GUARD)
         self.assertIn("ai_budget_v10_ready_requirements", migration.COMPLETE_GUARD)
         self.assertNotIn("SECURITY DEFINER", migration.RUN_GUARD)
+        self.assertIn("RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER",
+            migration.COMPLETE_GUARD)
+        self.assertIn("PERFORM public.ai_business_promotion_trial_ready_requirements(parent.id)",
+            migration.COMPLETE_GUARD)
+        self.assertNotIn("SECURITY DEFINER", migration.OLD_SQL[4])
         for definition in (migration.READY_REQUIREMENTS,
                 migration.PUBLISH, migration.OUTCOME):
             self.assertIn("SECURITY DEFINER", definition)
             self.assertIn("session_user<>'teruisi_ai_budget_v10_attestor'",
                 definition)
+            self.assertIn("business-budget-v10-publish-request-v1", definition)
+            self.assertIn("ai_v4_replay_canonical(request_body)", definition)
+            self.assertIn("fullManifestSha256", definition)
         self.assertNotIn("CREATE ROLE", migration.PUBLISH)

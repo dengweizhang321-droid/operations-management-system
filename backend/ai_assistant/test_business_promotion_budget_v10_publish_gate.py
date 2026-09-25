@@ -7,10 +7,11 @@ from django import test as djtest
 from django.db import DatabaseError, connection, transaction
 import psycopg
 
+from business_analysis import promotion_budget_v10_publish_request as publish_request
 from . import business_volume_files, models as m
 from . import test_business_promotion_budget_v10_attestation as fixture
 from . import test_business_promotion_approved_content as approved_fixture
-from .policy import digest, mutation
+from .policy import canonical, mutation
 
 
 ROLE = "teruisi_ai_budget_v10_attestor"
@@ -69,14 +70,46 @@ class BudgetV10PublishGateTests(djtest.TransactionTestCase):
         att = m.AiBusinessPromotionBudgetV10Attestation.objects.get(pk=attestation_id)
         return report, row, att
 
+    @staticmethod
+    def _request(row, att, *, expected_version=None, binding_digest=None):
+        return publish_request.request_digest(run_id=row.id,
+            attempt=row.attempt,
+            expected_version=row.version if expected_version is None else expected_version,
+            attestation_id=att.id,
+            attestation_sha256=att.attestation_sha256,
+            binding_digest=att.binding_digest if binding_digest is None else binding_digest,
+            full_manifest_digest=att.full_manifest_digest,
+            full_manifest_sha256=att.full_manifest_sha256)
+
     def test_no_budget_role_publish_is_atomic_and_exact_outcome(self):
         report, row, att = self._prepared()
-        request = digest(["isolated-v10-publish", row.id, row.attempt])
+        request = self._request(row, att)
+        request_body = publish_request.body(run_id=row.id, attempt=row.attempt,
+            expected_version=row.version, attestation_id=att.id,
+            attestation_sha256=att.attestation_sha256,
+            binding_digest=att.binding_digest,
+            full_manifest_digest=att.full_manifest_digest,
+            full_manifest_sha256=att.full_manifest_sha256)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT public.ai_v4_replay_canonical(%s::jsonb)",
+                [canonical(request_body)])
+            self.assertEqual(cursor.fetchone()[0], canonical(request_body))
         args = [row.id, row.attempt, row.version, att.id,
             att.attestation_sha256, request]
         with connection.cursor() as cursor:
             import_module(
                 "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate").verify_catalog(cursor)
+            cursor.execute("SELECT p.prosecdef,p.proowner=(SELECT c.relowner "
+                "FROM pg_catalog.pg_class c WHERE "
+                "c.oid='public.ai_business_promotion_budget_v10_attestations'::regclass) "
+                "FROM pg_catalog.pg_proc p "
+                "WHERE p.oid='public.ai_business_volume_complete_guard()'::regprocedure")
+            self.assertEqual(cursor.fetchone(), (True, True))
+            cursor.execute("SELECT has_table_privilege(%s,"
+                "'public.ai_business_file_runs','SELECT'),"
+                "has_table_privilege(%s,'public.ai_business_volume_chunks','SELECT')",
+                [ROLE, ROLE])
+            self.assertEqual(cursor.fetchone(), (False, False))
         with self.assertRaises(psycopg.Error):
             self._role_call(PUBLISH, args, role=False)
         with self.assertRaises(DatabaseError), transaction.atomic():
@@ -86,6 +119,10 @@ class BudgetV10PublishGateTests(djtest.TransactionTestCase):
         with self.assertRaises(psycopg.Error):
             self._role_call(PUBLISH, [row.id, row.attempt, row.version,
                 att.id, "0" * 64, request])
+        with self.assertRaises(psycopg.Error):
+            self._role_call(PUBLISH, [row.id, row.attempt, row.version,
+                att.id, att.attestation_sha256,
+                self._request(row, att, binding_digest="f" * 64)])
         pending = self._role_call(OUTCOME, [row.id, row.attempt,
             request, att.id, att.attestation_sha256])
         self.assertEqual(pending["status"], "not_committed")
@@ -97,6 +134,11 @@ class BudgetV10PublishGateTests(djtest.TransactionTestCase):
             request, att.id, att.attestation_sha256])
         self.assertEqual(resolved, committed)
         self.assertEqual(self._role_call(PUBLISH, args), committed)
+        with self.assertRaises(psycopg.Error):
+            self._role_call(PUBLISH, [row.id, row.attempt,
+                committed["version"], att.id, att.attestation_sha256,
+                self._request(row, att,
+                    expected_version=committed["version"])])
         row.refresh_from_db()
         self.assertEqual((row.status, row.attempt, row.version),
             ("ready", att.attempt, committed["version"]))
@@ -104,9 +146,9 @@ class BudgetV10PublishGateTests(djtest.TransactionTestCase):
         with self.assertRaises(psycopg.Error):
             self._role_call(PUBLISH, [row.id, row.attempt, row.version,
                 att.id, att.attestation_sha256, "f" * 64])
-        conflict = self._role_call(OUTCOME, [row.id, row.attempt,
-            "f" * 64, att.id, att.attestation_sha256])
-        self.assertEqual(conflict["status"], "conflict")
+        with self.assertRaises(psycopg.Error):
+            self._role_call(OUTCOME, [row.id, row.attempt,
+                "f" * 64, att.id, att.attestation_sha256])
         with self.assertRaises(Exception):
             business_volume_files.chunk(row.id, "1", "html",
                 {"sequence": "1"}, self.admin)
@@ -114,7 +156,7 @@ class BudgetV10PublishGateTests(djtest.TransactionTestCase):
     def test_budget_presence_is_bound_and_direct_role_update_has_no_grant(self):
         report, row, att = self._prepared(budget=True)
         self.assertTrue(att.budget_present)
-        request = digest(["isolated-budget-v10-publish", row.id])
+        request = self._request(row, att)
         with self._database() as db:
             db.execute("SET SESSION AUTHORIZATION " + ROLE)
             try:

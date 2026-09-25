@@ -513,7 +513,8 @@ def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
             "ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)", [signature])
         function = cursor.fetchone()
         if (function is None or function[0] != definition.split("$$")[1]
-                or function[1] is not False or function[3] != "plpgsql"
+                or function[1] is not (publish_gate_enabled and index == 4)
+                or function[3] != "plpgsql"
                 or {item.replace(" ", "") for item in (function[2] or [])}
                 != {"search_path=pg_catalog,public"}
                 or function[4] in {"teruisi_ai_writer", "teruisi_ai_reader"}):
