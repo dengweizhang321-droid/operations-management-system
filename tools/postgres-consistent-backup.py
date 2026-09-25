@@ -934,6 +934,22 @@ def collect_evidence(
                 import_module(
                     "ai_assistant.migrations.0067_business_promotion_budget_v11_attestation"
                 ).verify_catalog(cursor)
+            for migration_name, predecessor in (
+                    ("0068_business_promotion_budget_v11_verifier_receipt",
+                     "0067_business_promotion_budget_v11_attestation"),
+                    ("0069_business_market_v2_paid_round_rehearsal",
+                     "0068_business_promotion_budget_v11_verifier_receipt"),
+                    ("0070_business_promotion_budget_v11_limited_identity",
+                     "0069_business_market_v2_paid_round_rehearsal"),
+                    ("0071_business_v4_report_source_link",
+                     "0070_business_promotion_budget_v11_limited_identity")):
+                if migration_name in ai_migrations:
+                    if predecessor not in ai_migrations:
+                        raise RuntimeError("AI protected sidecar lacks predecessor: "
+                            + migration_name)
+                    from importlib import import_module
+                    import_module("ai_assistant.migrations." + migration_name
+                        ).verify_catalog(cursor)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -947,6 +963,12 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0069_business_market_v2_paid_round_rehearsal" not in ai_migrations:
+                expected_ai_tables.difference_update({
+                    "ai_business_market_v2_paid_authorities",
+                    "ai_business_market_v2_round_reservations",
+                    "ai_business_market_v2_round_events",
+                })
             if "0065_business_market_v2_model_cost_reservation" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_market_v2_cost_ledger_candidates")
             if "0063_business_market_v2_execution_plan" not in ai_migrations:
