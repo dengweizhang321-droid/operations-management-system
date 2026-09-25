@@ -125,5 +125,10 @@ AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES = (*AI_TABLES_PRE_MARKET_V2_EXECU
     "ai_business_market_v2_execution_plans")
 
 # 0065 freezes a pending CNY cost requirement; reserved funds remain zero.
-AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES,
+AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS = (
+    *AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES,
     "ai_business_market_v2_cost_ledger_candidates")
+
+# 0067 adds one SQL-owned proof without changing frozen historical inventories.
+AI_TABLES = (*AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS,
+    "ai_business_promotion_budget_v11_attestations")

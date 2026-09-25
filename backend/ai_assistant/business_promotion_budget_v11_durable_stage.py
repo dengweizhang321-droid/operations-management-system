@@ -144,7 +144,7 @@ def _semantic(full):
     return value
 
 
-def _verify_staged(row, principal, checkpoint):
+def _verify_staged(row, principal, checkpoint, *, file_evidence=None):
     """Verify all stored chunks and re-render exact current semantic content."""
     _enabled()
     try:
@@ -224,6 +224,8 @@ def _verify_staged(row, principal, checkpoint):
                     fresh.path(index, "html"), checkpoint)
                 _same_zip(paths[index, "xlsx"],
                     fresh.path(index, "xlsx"), checkpoint)
+        if file_evidence is not None:
+            file_evidence(paths, full, compact, checkpoint)
         return compact
 
 

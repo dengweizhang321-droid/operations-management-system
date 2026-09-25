@@ -1716,5 +1716,6 @@ from .business_market_v2_execution_plan_models import AiBusinessMarketV2Executio
 from .business_market_v2_cost_models import AiBusinessMarketV2CostLedgerCandidate  # noqa: E402,F401
 from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
 from .business_promotion_budget_v10_attestation_models import AiBusinessPromotionBudgetV10Attestation  # noqa: E402,F401
+from .business_promotion_budget_v11_attestation_models import AiBusinessPromotionBudgetV11Attestation  # noqa: E402,F401
 from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401
 from .business_screening_models import AiBusinessScreeningRun, AiBusinessScreeningPage  # noqa: E402,F401
