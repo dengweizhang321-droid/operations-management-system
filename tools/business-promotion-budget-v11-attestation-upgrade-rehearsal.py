@@ -21,7 +21,7 @@ from django.db.migrations.executor import MigrationExecutor
 
 from ai_assistant.table_manifest import (
     AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS as OLD_TABLES,
-    AI_TABLES as NEW_TABLES)
+    AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL as NEW_TABLES)
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)
