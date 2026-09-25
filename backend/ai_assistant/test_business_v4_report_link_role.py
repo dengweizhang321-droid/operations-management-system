@@ -194,7 +194,9 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                 graph_json=canonical(graph), graph_digest=digest(graph),
                 input_json=canonical(data), dry_run=True)
 
-    def insert_with_intent(self, bundle, flow, parent, seal, *, expected_success):
+    def insert_with_intent(self, bundle, flow, parent, seal, *,
+                           expected_success, drift_authority=False,
+                           expected_error="ai_v4_report_link_report_identity_invalid"):
         snapshot, _, _ = bundle
         authority_fields = {"status": "postgres", "authority_epoch": uuid4(),
             "cutover_id": "v4-report-link-isolated",
@@ -223,6 +225,9 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                         self.parent.state_json)["sealedDigest"],
                     seal.body_digest])
                 issued = True
+                if drift_authority:
+                    db.execute("SELECT set_config('teruisi.ai_cutover',"
+                        "'unexpected-cutover',true)")
                 db.execute("SELECT " + link.CREATE_REPORT.split("(",1)[0] +
                     "(%s,%s,%s,%s,%s,%s)",
                     [report_id,self.admin.email,report_id,
@@ -232,11 +237,9 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                 db.execute("ROLLBACK")
                 if expected_success:
                     raise
-                if (not issued or
-                        "ai_v4_report_link_report_identity_invalid"
-                        not in str(error)):
-                    raise AssertionError("wrong shop/date did not reach "
-                        "the 0071 report identity guard") from error
+                if not issued or expected_error not in str(error):
+                    raise AssertionError("0071 negative did not reach the "
+                        "expected authority or identity guard") from error
                 return False
         if not expected_success:
             self.fail("wrong shop/date was linked")
@@ -290,6 +293,15 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                     bad_flow,bad_parent,bad_seal,expected_success=False))
                 self.assertFalse(m.AiReportRun.objects.filter(
                     pk=bad_bundle[0]["reportId"]).exists())
+        drift_parent, drift_seal = self.synthetic_v4_identity(request,
+            "authority-drift")
+        drift_bundle = self.bundle()
+        drift_bundle[0]["scope"] = bundle[0]["scope"]
+        drift_flow = self.workflow_for(drift_bundle)
+        self.assertFalse(self.insert_with_intent(drift_bundle, drift_flow,
+            drift_parent, drift_seal, expected_success=False,
+            drift_authority=True,
+            expected_error="ai_v4_report_link_create_authority_invalid"))
         with connection.cursor() as cursor:
             for table in (link.INTENTS, link.LINKS):
                 cursor.execute("SELECT count(*) FROM " + table)

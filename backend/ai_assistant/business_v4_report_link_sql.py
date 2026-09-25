@@ -196,6 +196,7 @@ CREATE_REPORT_SQL = """CREATE FUNCTION public.ai_v4_create_report_from_link_inte
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE intent public.protected_business_v4_report_link_intents%ROWTYPE;
   flow public.ai_workflow_runs%ROWTYPE;
+  authority public.ai_write_authority%ROWTYPE;
   snapshot jsonb;
 BEGIN
   IF session_user IS DISTINCT FROM 'teruisi_ai_writer'
@@ -204,12 +205,17 @@ BEGIN
      OR selected_request_digest !~ '^[0-9a-f]{64}$'
      OR snapshot_text IS NULL OR octet_length(snapshot_text)>32768
      OR actor_email IS DISTINCT FROM lower(btrim(actor_email))
-     OR NOT EXISTS (SELECT 1 FROM public.ai_write_authority a
-         WHERE a.id=1 AND a.status='postgres'
-           AND a.authority_epoch::text=current_setting('teruisi.ai_epoch',true)
-           AND a.cutover_id=current_setting('teruisi.ai_cutover',true))
      OR EXISTS (SELECT 1 FROM public.ai_report_runs WHERE id=selected_report)
   THEN RAISE EXCEPTION 'ai_v4_report_link_create_denied'; END IF;
+  -- Hold the lifecycle row through intent/flow waits and the report INSERT.
+  SELECT * INTO authority FROM public.ai_write_authority
+    WHERE id=1 FOR SHARE;
+  IF authority.id IS NULL OR authority.status IS DISTINCT FROM 'postgres'
+     OR authority.authority_epoch::text IS DISTINCT FROM
+          current_setting('teruisi.ai_epoch',true)
+     OR authority.cutover_id IS DISTINCT FROM
+          current_setting('teruisi.ai_cutover',true)
+  THEN RAISE EXCEPTION 'ai_v4_report_link_create_authority_invalid'; END IF;
   SELECT * INTO intent FROM public.protected_business_v4_report_link_intents
     WHERE report_id=selected_report FOR UPDATE;
   SELECT * INTO flow FROM public.ai_workflow_runs
@@ -231,6 +237,15 @@ BEGIN
            AND u.status='active' AND u.scope IS NULL
            AND u.version=intent.actor_version)
   THEN RAISE EXCEPTION 'ai_v4_report_link_create_identity_invalid'; END IF;
+  -- Repeat the current-state check immediately before the definer INSERT.
+  SELECT * INTO authority FROM public.ai_write_authority
+    WHERE id=1 FOR SHARE;
+  IF authority.id IS NULL OR authority.status IS DISTINCT FROM 'postgres'
+     OR authority.authority_epoch::text IS DISTINCT FROM
+          current_setting('teruisi.ai_epoch',true)
+     OR authority.cutover_id IS DISTINCT FROM
+          current_setting('teruisi.ai_cutover',true)
+  THEN RAISE EXCEPTION 'ai_v4_report_link_create_authority_invalid'; END IF;
   INSERT INTO public.ai_report_runs
     (id,owner_email,scope_json,client_request_id,request_digest,
      workflow_id,budget_plan_id,snapshot_json,created_at)
