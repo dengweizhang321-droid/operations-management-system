@@ -85,7 +85,15 @@ def prepare_candidate(linked_report, replayed_source, signer_preparation,
         and linked.get("v4SealedDigest") == source.get(
             "legacySealedDigest")
         and linked.get("periodPlanDigest") == source.get(
-            "periodPlanDigest"))
+            "periodPlanDigest")
+        and linked.get("shop") == source.get("shop")
+        and type(linked.get("shop")) is str
+        and bool(linked["shop"])
+        and linked.get("originalPeriod") == source.get(
+            "originalPeriod")
+        and type(linked.get("originalPeriod")) is dict
+        and set(linked["originalPeriod"]) ==
+            {"startDate", "endDate"})
     for item,key in ((linked,"decisionDigest"),
                      (linked,"v2SealedDigest"),
                      (linked,"v4SealedDigest"),
@@ -93,19 +101,26 @@ def prepare_candidate(linked_report, replayed_source, signer_preparation,
                      (linked,"sourceBindingsDigest"),
                      (source,"decisionDigest"),
                      (source,"threeWindowRootsDigest"),
+                     (source,"financeSourceRef"),
                      (signer,"newPurposeSha256")):
         _sha(item.get(key))
+    _need(type(source.get("financeSourceRevision")) is str
+        and bool(source["financeSourceRevision"]))
     body = {"schemaVersion": SCHEMA,
         "status": "blocked_no_protected_finance_map_or_v2_signer",
         "operation": OPERATION,
         "requiredTransactionOrder": list(ORDER),
         "reportId": linked["reportId"],
         "v4RunId": source["runId"],
+        "shop": linked["shop"],
+        "originalPeriod": linked["originalPeriod"],
         "v2SealedDigest": linked["v2SealedDigest"],
         "legacyV4SealedDigest": source["legacySealedDigest"],
         "periodPlanDigest": source["periodPlanDigest"],
         "sourceBindingsDigest": linked["sourceBindingsDigest"],
         "threeWindowRootsDigest": source["threeWindowRootsDigest"],
+        "financeSourceRef":source["financeSourceRef"],
+        "financeSourceRevision":source["financeSourceRevision"],
         "newPurposeSha256": signer["newPurposeSha256"],
         "linkedOwnerResultDigest": linked["resultDigest"],
         "streamOwnerResultDigest": source["resultDigest"],
