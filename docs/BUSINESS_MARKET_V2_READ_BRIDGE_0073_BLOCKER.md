@@ -15,3 +15,5 @@
 5. 数值引用另需同任务精确行/字段二次拥有方复算与独立持久单元格证明。即使后续已读回执成立，`numericCitationAllowed` 和发布权限仍应保持 false，直到独立门禁验收。
 
 可以先做“同任务工具执行已持久化”的**单独**测试合同，但它必须明确 `agentReadPersisted=false`，不能复用 0062 的回执名称或 `persistedRead=true` 字段。此切片没有安全的 0073 SQL 正例；为避免用合成回执越权，暂不新增表、角色、函数或运行入口。下一次开发应先完成实际模型调用授权与拥有方工具结果合同，再以新 profile、精确数据库守卫和独立 PG 升级/恢复演练实现 0073。
+
+后续新增 `business-market-v2-read-admission-v5-candidate-v1` **只读准入诊断**，由 `AI_MARKET_V2_READ_ADMISSION_V5_ENABLED` 且 Django 隔离 `test` 环境双重限制，默认关闭。拥有方读取 0063 计划/账号当前版本及候选报告真实行，对旧执行报告核空 job，对 0064 报告核六节点、五角色 job→provider→tool 的精确外键/调用/摘要与合成标志，然后交纯版本合同分类。它能显示“同任务结构已观察”，但始终返回 `agentReadPersisted=false`、`providerCallsAllowed=false`、`numericCitationAllowed=false`；未知 profile、跨报告、改挂、付费标志或自称真实调用均拒绝。这个诊断不调用 0062 attestor，不创建新报告或任何回执，亦不把 0064 固定工具结果说成拥有方真实读取。隔离 PG 目标为 `ai_assistant.test_business_market_v2_read_admission_v5_role`，纯目标为 `ai_assistant.test_business_market_v2_read_admission_v5_contract`。
