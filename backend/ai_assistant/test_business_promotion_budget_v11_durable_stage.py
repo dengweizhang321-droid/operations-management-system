@@ -87,14 +87,21 @@ class BudgetV11DurableStageTests(djtest.TransactionTestCase):
 
     @contextmanager
     def _writer(self):
-        epoch = uuid4()
-        AiWriteAuthority.objects.filter(id=1).update(status="postgres",
-            authority_epoch=epoch, cutover_id="v11-stage-isolated",
-            migration_verify_run_id="v11-stage-isolated",
-            activated_at=timezone.now())
+        authority = AiWriteAuthority.objects.get(id=1)
+        if authority.status != "postgres":
+            epoch = uuid4()
+            AiWriteAuthority.objects.filter(id=1, status=authority.status).update(
+                status="postgres", authority_epoch=epoch,
+                cutover_id="v11-stage-isolated",
+                migration_verify_run_id="v11-stage-isolated",
+                activated_at=timezone.now())
+            authority.refresh_from_db()
+        # A PostgreSQL authority is terminal. A later writer session in this
+        # same test must reuse its exact adopted identity, never rewrite it.
+        self.assertEqual(authority.status, "postgres")
         with self.settings(DJANGO_PROCESS_ROLE="ai_writer",
-                AI_WRITE_AUTHORITY_EPOCH=str(epoch),
-                AI_WRITE_CUTOVER_ID="v11-stage-isolated"), writer_session():
+                AI_WRITE_AUTHORITY_EPOCH=str(authority.authority_epoch),
+                AI_WRITE_CUTOVER_ID=authority.cutover_id), writer_session():
             yield
 
     def _stage(self, report):
@@ -153,7 +160,8 @@ class BudgetV11DurableStageTests(djtest.TransactionTestCase):
             self.assertEqual(cursor.fetchone(), (True, False))
         report = self.five_completed(promotion_reference=True)
         self.approved(report)
-        with self._writer():
+        with patch.object(stage.approved_content.runtime.transport,
+                "catalog", side_effect=self.current_catalog), self._writer():
             created = stage.create(report.id, self.admin)
             run_id = created["item"]["id"]
             row = m.AiBusinessFileRun.objects.get(pk=run_id)
@@ -170,7 +178,8 @@ class BudgetV11DurableStageTests(djtest.TransactionTestCase):
     def test_reverse_rejects_any_v11_row(self):
         report = self.five_completed(promotion_reference=True)
         self.approved(report)
-        with self._writer():
+        with patch.object(stage.approved_content.runtime.transport,
+                "catalog", side_effect=self.current_catalog), self._writer():
             created = stage.create(report.id, self.admin)
         with self.assertRaisesRegex(RuntimeError, "renderer 11"):
             sql.uninstall(apps, SimpleNamespace(connection=connection))
