@@ -16,10 +16,24 @@ TOOLS = '["get_business_market_v2_screening_package","get_business_market_v2_scr
 GRAPH = {False: "6a0b655cec19328b1c1e02e78330320e04f699b5037868faf42e2ac8f6b0f40d",
     True: "905ae3d59bd4e9554b22c7373274d0569aa2c9e5da7182338351fbf20623f1c2"}
 
+_report_anchor = """  snapshot:=NEW.snapshot_json::jsonb;
+  IF snapshot->>'executionProfile' IS DISTINCT FROM
+"""
+_report_replacement = """  IF TG_OP='UPDATE' AND OLD.snapshot_json::jsonb->>'executionProfile'=
+       'business-agent-screening-promotion-market-reference-v2'
+  THEN RAISE EXCEPTION 'ai_market_v2_parked_report_immutable'; END IF;
+""" + _report_anchor
+if parked.REPORT_GUARD.count(_report_anchor) != 1:
+    raise RuntimeError("0060 requires exact 0044 report guard predecessor")
+NEW_PARKED_REPORT = parked.REPORT_GUARD.replace(_report_anchor, _report_replacement)
+
 _anchor = """  IF value->>'executionProfile' IS DISTINCT FROM
       'business-agent-screening-promotion-market-reference-v2' THEN
 """
-_replacement = """  IF value->>'executionProfile'='business-agent-screening-promotion-market-execution-v2'
+_replacement = """  IF TG_OP='UPDATE' AND OLD.input_json::jsonb->>'executionProfile'=
+       'business-agent-screening-promotion-market-reference-v2'
+  THEN RAISE EXCEPTION 'ai_market_v2_parked_workflow_immutable'; END IF;
+  IF value->>'executionProfile'='business-agent-screening-promotion-market-execution-v2'
   THEN RETURN NEW; END IF;
 """ + _anchor
 if parked.WORKFLOW_GUARD.count(_anchor) != 1:
@@ -312,10 +326,13 @@ END $$"""
 
 CHILD_GUARD = r"""CREATE FUNCTION public.ai_market_v2_execution_child_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
-DECLARE flow_id text; target jsonb;
+DECLARE flow_id text; target jsonb; targets jsonb[];
 BEGIN
-  IF TG_OP='DELETE' THEN target:=to_jsonb(OLD);
-  ELSE target:=to_jsonb(NEW); END IF;
+  IF TG_OP='INSERT' THEN targets:=ARRAY[to_jsonb(NEW)];
+  ELSIF TG_OP='DELETE' THEN targets:=ARRAY[to_jsonb(OLD)];
+  ELSE targets:=ARRAY[to_jsonb(OLD),to_jsonb(NEW)]; END IF;
+  FOREACH target IN ARRAY targets LOOP
+  flow_id:=NULL;
   IF TG_TABLE_NAME='ai_workflow_node_runs' THEN
     flow_id:=target->>'run_id';
   ELSIF TG_TABLE_NAME='ai_agent_jobs' THEN
@@ -336,21 +353,22 @@ BEGIN
      WHERE flow.id=flow_id AND flow.input_json::jsonb->>'executionProfile'=
        'business-agent-screening-promotion-market-execution-v2')
   THEN RAISE EXCEPTION 'ai_market_v2_execution_child_dispatch_disabled'; END IF;
+  END LOOP;
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END $$"""
 
 
-def _check_previous(cursor, definition):
+def _check_previous(cursor, signature, definition):
     cursor.execute("SELECT p.oid,p.prosrc,p.proacl::text,p.prosecdef,p.proconfig,"
         "pg_catalog.pg_get_userbyid(p.proowner) FROM pg_catalog.pg_proc p "
-        "WHERE p.oid=to_regprocedure('public.ai_market_v2_parked_workflow_guard()')")
+        "WHERE p.oid=to_regprocedure(%s)", [signature])
     row = cursor.fetchone()
     if (row is None or row[1] != definition.split("$$")[1]
             or row[3] is not False
             or {part.replace(" ", "") for part in (row[4] or [])}
                 != {"search_path=pg_catalog,public"}):
-        raise RuntimeError("0060 requires frozen 0044 workflow guard predecessor")
+        raise RuntimeError("0060 requires frozen 0044 guard predecessor: " + signature)
     cursor.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) FROM "
         "pg_catalog.pg_class c WHERE c.oid=to_regclass(%s)",
         ["public.ai_business_market_v2_materials"])
@@ -369,11 +387,16 @@ def install(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
     with schema_editor.connection.cursor() as cursor:
-        old = _check_previous(cursor, parked.WORKFLOW_GUARD)
-        cursor.execute(NEW_PARKED_WORKFLOW.replace("CREATE FUNCTION",
-            "CREATE OR REPLACE FUNCTION", 1))
-        if _check_previous(cursor, NEW_PARKED_WORKFLOW) != old:
-            raise RuntimeError("0060 may not change 0044 guard OID/ACL/owner")
+        for signature, before, after in (
+            ("public.ai_market_v2_parked_report_guard()",
+                parked.REPORT_GUARD, NEW_PARKED_REPORT),
+            ("public.ai_market_v2_parked_workflow_guard()",
+                parked.WORKFLOW_GUARD, NEW_PARKED_WORKFLOW)):
+            old = _check_previous(cursor, signature, before)
+            cursor.execute(after.replace("CREATE FUNCTION",
+                "CREATE OR REPLACE FUNCTION", 1))
+            if _check_previous(cursor, signature, after) != old:
+                raise RuntimeError("0060 may not change 0044 guard OID/ACL/owner")
         for definition in (WORKFLOW_GUARD, REPORT_GUARD, ORPHAN_GUARD,
                            CHILD_GUARD):
             cursor.execute(definition)
@@ -419,7 +442,10 @@ def uninstall(apps, schema_editor):
             "'executionProfile'=%s)", [PROFILE, PROFILE])
         if cursor.fetchone()[0]:
             raise RuntimeError("0060 cannot remove execution guards with persisted roots")
-        _check_previous(cursor, NEW_PARKED_WORKFLOW)
+        for signature, definition in (
+            ("public.ai_market_v2_parked_report_guard()", NEW_PARKED_REPORT),
+            ("public.ai_market_v2_parked_workflow_guard()", NEW_PARKED_WORKFLOW)):
+            _check_previous(cursor, signature, definition)
         for table, name in (
             ("ai_workflow_runs", "ai_market_v2_execution_complete"),
             ("ai_agent_tool_results", "ai_market_v2_execution_tool_result_guard"),
@@ -437,9 +463,12 @@ def uninstall(apps, schema_editor):
                 "ai_market_v2_execution_report_guard()",
                 "ai_market_v2_execution_workflow_guard()"):
             cursor.execute("DROP FUNCTION public." + signature)
-        cursor.execute(parked.WORKFLOW_GUARD.replace("CREATE FUNCTION",
-            "CREATE OR REPLACE FUNCTION", 1))
-        _check_previous(cursor, parked.WORKFLOW_GUARD)
+        for signature, definition in (
+            ("public.ai_market_v2_parked_report_guard()", parked.REPORT_GUARD),
+            ("public.ai_market_v2_parked_workflow_guard()", parked.WORKFLOW_GUARD)):
+            cursor.execute(definition.replace("CREATE FUNCTION",
+                "CREATE OR REPLACE FUNCTION", 1))
+            _check_previous(cursor, signature, definition)
 
 
 class Migration(migrations.Migration):

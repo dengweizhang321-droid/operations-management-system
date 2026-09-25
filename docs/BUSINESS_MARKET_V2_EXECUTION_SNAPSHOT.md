@@ -4,6 +4,6 @@
 
 创建的报告及流程是新 profile `business-agent-screening-promotion-market-execution-v2`，只保存五工具可调用目录及计划图。流程保持 `paused`、`market_v2_execution_not_activated`、空模型、零轮次；数据库触发器拒绝节点、Agent job、provider/tool dispatch/result 和任何激活或修改。**工具在中央目录可调用，不等于 Agent 已读取或任务可运行**。它没有同 job/provider 持久读取回执、数值引用证明、人工审查通过或报告/文件发布权限。默认运行旗标仍关闭，没有公开启动路由或付费模型调用。
 
-0060 迁移只新增执行档案触发器，并在保留 OID、所有者与 ACL 的条件下对 0044 workflow guard 加入新 profile 插入例外；旧停放、材料准入和 v1 行保持不可变。逆迁移只允许新 profile 零行。数据库把 selector/manifest/source 与 0045 不可变材料逐项核对；当前 0045 没有单列持久 `marketContextDigest`，所以数据库只校验其 SHA 形状，内部服务从封存源重算。真正开放执行前，应新增不可变 context 证明，并另做同 job/provider 回执、模型策略、数值引用、健康/备份/升级门禁及开关；不能从本档案推断这些能力已经具备。
+0060 迁移新增执行档案触发器，并在保留 OID、所有者与 ACL 的条件下版本化 0044 report/workflow 两个守卫：旧 parked 行无论被改成什么 profile 均不可更新；新 profile 只在另一个固定守卫验证后可插入。子记录 UPDATE 同时检查 OLD 和 NEW 归属，防止旧子记录改挂逃离。旧停放、材料准入和 v1 行保持不可变。逆迁移只允许新 profile 零行。数据库把 selector/manifest/source 与 0045 不可变材料逐项核对；当前 0045 没有单列持久 `marketContextDigest`，所以数据库只校验其 SHA 形状，内部服务从封存源重算。真正开放执行前，应新增不可变 context 证明，并另做同 job/provider 回执、模型策略、数值引用及开关；不能从本档案推断这些能力已经具备。
 
-纯合同测试：`python -m unittest ai_assistant.test_business_market_v2_execution_snapshot_contract`（3 项通过）。隔离 PostgreSQL 目标：`ai_assistant.test_business_market_v2_execution_snapshot`，须使用现有受控 runtime 角色预置测试环境，且不调用模型。生产未迁移或启动。
+纯合同测试：`python -m unittest ai_assistant.test_business_market_v2_execution_snapshot_contract`（3 项通过）。隔离 PostgreSQL 目标：`ai_assistant.test_business_market_v2_execution_snapshot`，须使用现有受控 runtime 角色预置测试环境，且不调用模型。0059→0060 升级/备份/空逆迁移演练使用 `tools/ai-postgres-rehearsal.py --business-market-v2-execution-snapshot-upgrade --upgrade-only`，它会复核旧 81 表、renderer 1–7 字节、旧函数/角色 ACL、两个 0044 精确版本化函数、新触发器，并在回滚事务中验证一次真实材料根上的 paused 行。演练尚待隔离 PostgreSQL 执行；生产未迁移或启动。

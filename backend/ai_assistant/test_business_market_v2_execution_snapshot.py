@@ -125,3 +125,35 @@ class MarketV2ExecutionSnapshotTests(djtest.TransactionTestCase):
         self.assertFalse(created["agentDispatchSupported"])
         self.assertEqual(m.AiWorkflowRuns.objects.get(pk=created["workflowId"]).status,
             "paused")
+
+    def test_old_parked_profile_cannot_escape_by_update(self):
+        parked_id, _, _ = self.create_plan()
+        parked = m.AiReportRun.objects.get(pk=parked_id)
+        with self.assertRaisesRegex(DatabaseError,
+                "ai_market_v2_parked_report_immutable"), transaction.atomic():
+            m.AiReportRun.objects.filter(pk=parked_id).update(snapshot_json="{}")
+        with self.assertRaisesRegex(DatabaseError,
+                "ai_market_v2_parked_workflow_immutable"), transaction.atomic():
+            m.AiWorkflowRuns.objects.filter(pk=parked.workflow_id).update(
+                input_json="{}", allowed_tools_json="[]")
+
+    def test_privileged_corrupt_old_child_cannot_move_away_from_v2(self):
+        _, _, created = self.create_plan()
+        # Model a preexisting corrupt child using only this rollback-only,
+        # isolated superuser probe; ordinary INSERT is rejected by 0060.
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL session_replication_role = replica")
+            m.AiAgentJobs.objects.create(id="market-execution-corrupt-child",
+                owner_email=self.admin.email.lower(), scope_json="null",
+                client_request_id="market-execution-corrupt-child",
+                request_digest="a"*64, task="isolated-negative-probe",
+                workflow_run_id=created["workflowId"],
+                workflow_node_key="market_b2b", status="paused", phase="paused")
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL session_replication_role = origin")
+            with self.assertRaisesRegex(DatabaseError,
+                    "ai_market_v2_execution_child_dispatch_disabled"), transaction.atomic():
+                m.AiAgentJobs.objects.filter(pk="market-execution-corrupt-child").update(
+                    workflow_run_id=self.report.workflow_id)
+            transaction.set_rollback(True)
