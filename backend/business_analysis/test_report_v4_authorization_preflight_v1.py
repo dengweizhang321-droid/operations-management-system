@@ -3,14 +3,27 @@ from copy import deepcopy
 import hashlib
 from unittest import TestCase
 
-from . import report_v4_authorization_preflight_v1 as service
+from . import evidence_v4, report_v4_authorization_preflight_v1 as service
 from .contracts import AnalysisContractError, canonical, coverage, digest
+from .test_evidence_v4 import measurements
 from .period_bound_plan_v1 import prepare_candidate as period_plan, _days
 from .test_period_bound_plan_v1 import plan as make_plan
 
 
 def fixture():
-    plan = make_plan()
+    base = make_plan()
+    source_rows = [{"key": entry["sourceKey"],
+        "domain": entry["domain"], "query": deepcopy(entry["query"])}
+        for entry in base["sourcePlans"]]
+    finance = next(row for row in source_rows if row["domain"] ==
+        "finance")
+    shop = next(row["query"]["shop"] for row in source_rows
+        if row["domain"] == "netshop")
+    finance["query"]["scope"]["scope_key"] = "shop:京东:" + shop
+    plan = evidence_v4.build_plan(client_request_id=base["clientRequestId"],
+        sources=source_rows,
+        measurements=measurements(("current", "previous", "yearAgo")),
+        analysis_request=base["analysisRequest"])
     periods = period_plan(plan)
     shop = periods["dailySources"][0]["shop"]
     sources, bindings, refs = [], [], []
