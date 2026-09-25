@@ -52,6 +52,8 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 0058 默认关闭的应用发布调用器已通过真实 NOLOGIN 角色四项隔离测试 `.runtime/ai-pg-e5a8482f4cf5/tests.log`，覆盖一次证明/发布/OUTCOME、禁用和预检漂移、响应丢失后不重试写入。它仍是注入连接的内部入口，没有正式登录凭据和公开发布路由。
 
+[0059 预算 v10 下载窄栅栏](AI_BUSINESS_PROMOTION_BUDGET_V10_READER_FENCE_0059.md)按当前审批、证据、预算和文件身份重算版本化摘要；真实 reader/attestor 隔离 PG 3 项 `.runtime/ai-pg-27eda3e1c066/tests.log` 与 0058→0059 旧 81 表/旧文件函数冻结、前后恢复、空回退 `.runtime/ai-pg-2808dd63f241/business-promotion-budget-v10-reader-fence-upgrade-evidence.json` 通过。只提供窄 ready 回执，没有公开下载路由、正式凭据或原生 Office/真实规模验收。本小阶段[交接清单](AI_BUSINESS_HANDOFF_0059_20260925.md)记录下一步市场同 surface 五工具和实际下载接线。
+
 [市场 v2 第五工具默认关闭目录候选](AI_BUSINESS_MARKET_V2_REGISTRY_GATE.md)只在显式新surface/双端flag下展示第五个只读工具；旧v1四工具静态目录不变。Django隔离路由3项 `.runtime/ai-pg-ec558dca39ce/tests.log`、新旧Node目录12项和本地构建通过。当前请求ID仅派生非持久声明，`persistedRead=false`、无真实job/模型。
 
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
