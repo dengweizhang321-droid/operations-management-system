@@ -2,6 +2,7 @@
 from copy import deepcopy
 from importlib import import_module
 import json
+from uuid import uuid4
 
 import psycopg
 from django.db import connection, transaction
@@ -195,7 +196,17 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
 
     def insert_with_intent(self, bundle, flow, parent, seal, *, expected_success):
         snapshot, _, _ = bundle
-        authority = AiWriteAuthority.objects.get(id=1)
+        authority_fields = {"status": "postgres", "authority_epoch": uuid4(),
+            "cutover_id": "v4-report-link-isolated",
+            "migration_verify_run_id": "v4-report-link-isolated",
+            "activated_at": timezone.now()}
+        authority, created = AiWriteAuthority.objects.get_or_create(id=1,
+            defaults=authority_fields)
+        if not created and authority.status == "d1":
+            AiWriteAuthority.objects.filter(pk=1).update(**authority_fields)
+            authority.refresh_from_db()
+        elif not created and authority.status != "postgres":
+            self.fail("unexpected isolated AI write authority state")
         report_id = snapshot["reportId"]
         with self.database() as db:
             db.execute("SET SESSION AUTHORIZATION teruisi_ai_writer")
