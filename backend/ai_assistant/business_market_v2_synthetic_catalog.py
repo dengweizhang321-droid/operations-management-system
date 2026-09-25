@@ -58,6 +58,26 @@ def verify(cursor, error_type=ValueError):
     if (prior is None or prior[0] != migration.NEW_PARKED_WORKFLOW.split("$$",2)[1]
             or prior[1] is not False or prior[4] != owner):
         raise error_type("market synthetic parked guard version drift")
+    for signature, definition in (
+            ("public.ai_market_v2_admitted_tool_guard()",
+                migration.NEW_TOOL_GUARD),
+            ("public.ai_market_v2_admitted_result_guard()",
+                migration.NEW_RESULT_GUARD)):
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner),p.proacl::text "
+            "FROM pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(%s)",
+            [signature])
+        old_guard=cursor.fetchone()
+        if (old_guard is None or old_guard[0] != definition.split("$$",2)[1]
+                or old_guard[1] is not False or old_guard[3] != owner
+                or {item.replace(" ","") for item in (old_guard[2] or [])}
+                    != {"search_path=pg_catalog,public"}):
+            raise error_type("market synthetic fifth-tool exception drift")
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_proc p,"
+            "pg_catalog.aclexplode(p.proacl) a WHERE p.oid=to_regprocedure(%s) "
+            "AND a.grantee=0 AND a.privilege_type='EXECUTE')",[signature])
+        if cursor.fetchone() != (False,):
+            raise error_type("market synthetic fifth-tool PUBLIC EXECUTE reopened")
     for signature, constant, definer in FUNCTIONS:
         cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
             "pg_catalog.pg_get_userbyid(p.proowner),l.lanname "

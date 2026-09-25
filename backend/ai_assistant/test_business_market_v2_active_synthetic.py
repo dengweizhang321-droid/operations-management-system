@@ -4,7 +4,7 @@ import json
 from unittest.mock import patch
 
 from django import test as djtest
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, connection, transaction
 
 from . import business_market_v2_active_synthetic as service
 from . import business_market_v2_read_attestation as old_read
@@ -120,9 +120,57 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
         self.assertTrue(json.loads(provider_result.response_json)["syntheticOnly"])
         self.assertFalse(json.loads(tool_result.result_json)["data"]["persistedRead"])
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
+        with self.assertRaisesRegex(DatabaseError,
+                "ai_market_v2_admitted_tool_dispatch_disabled"), transaction.atomic():
+            m.AiAgentToolDispatches.objects.create(id="synthetic-ordinary-tool-denied",
+                job=job, provider_dispatch=provider, tool_call_ordinal=2,
+                provider_call_id="synthetic-call-2",
+                tool_name="get_business_promotion_market_v2",
+                arguments_json=tool.arguments_json,
+                arguments_digest=tool.arguments_digest,
+                invocation_id="ordinary-role-no-network",state="calling",
+                lease_epoch=1)
+        with self.assertRaisesRegex(DatabaseError,
+                "ai_market_v2_admitted_tool_result_disabled"), transaction.atomic():
+            m.AiAgentToolResults.objects.create(tool_dispatch=tool,
+                result_json=tool_result.result_json,
+                result_digest=tool_result.result_digest)
         with read_attestor(), self.assertRaises(DatabaseError):
             old_read.attest(tool.id)
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
+
+    def test_old_admitted_profile_still_rejects_fifth_tool(self):
+        _, admitted, _, _ = self.admitted()
+        old_flow = m.AiReportRun.objects.get(pk=admitted["reportId"]).workflow
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL session_replication_role = replica")
+            job = m.AiAgentJobs.objects.create(id="old-admitted-negative-job",
+                owner_email=self.admin.email.lower(), scope_json="null",
+                client_request_id="old-admitted-negative-job",
+                request_digest="a"*64, task="rollback-only-negative",
+                model_id="synthetic-only",model_version=1,
+                workflow_run_id=old_flow.id,workflow_node_key="market_b2b",
+                status="paused",phase="paused")
+            provider = m.AiAgentProviderDispatches.objects.create(
+                id="old-admitted-negative-provider",job=job,
+                dispatch_ordinal=1,owner_email=self.admin.email.lower(),
+                actor_role="admin",model_id="synthetic-only",model_version=1,
+                tool_policy_digest="a"*64,request_digest="a"*64,
+                state="calling",lease_epoch=1)
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL session_replication_role = origin")
+            with self.assertRaisesRegex(DatabaseError,
+                    "ai_market_v2_admitted_tool_dispatch_disabled"), transaction.atomic():
+                m.AiAgentToolDispatches.objects.create(
+                    id="old-admitted-negative-tool",job=job,
+                    provider_dispatch=provider,tool_call_ordinal=1,
+                    provider_call_id="old-admitted-call",
+                    tool_name="get_business_promotion_market_v2",
+                    arguments_json="{}",arguments_digest=digest("{}"),
+                    invocation_id="old-admitted-negative",state="calling",
+                    lease_epoch=1)
+            transaction.set_rollback(True)
 
     def test_flag_role_and_duplicate_run_fail_closed(self):
         _, plan_id = self.source_plan()

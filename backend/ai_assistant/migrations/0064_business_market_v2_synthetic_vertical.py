@@ -10,6 +10,7 @@ MODEL = "market-v2-synthetic-only"
 PAUSE = "market_v2_synthetic_no_provider_permission"
 SIGNATURE = "public.ai_market_v2_create_synthetic_chain(text)"
 prior = import_module("ai_assistant.migrations.0060_business_market_v2_execution_snapshot")
+admitted = import_module("ai_assistant.migrations.0053_business_market_v2_admitted_paused")
 _anchor = """  IF value->>'executionProfile'='business-agent-screening-promotion-market-execution-v2'
   THEN RETURN NEW; END IF;
 """
@@ -20,6 +21,58 @@ _replacement = _anchor + """  IF TG_OP='INSERT' AND value->>'executionProfile'=
 if prior.NEW_PARKED_WORKFLOW.count(_anchor) != 1:
     raise RuntimeError("0064 requires exact 0060 parked workflow predecessor")
 NEW_PARKED_WORKFLOW = prior.NEW_PARKED_WORKFLOW.replace(_anchor, _replacement)
+
+_tool_anchor = """  IF NEW.tool_name='get_business_promotion_market_v2'
+     OR selected_flow='business-agent-screening-promotion-market-admitted-v2'
+"""
+_tool_exception = """  IF TG_OP='INSERT'
+     AND NEW.tool_name='get_business_promotion_market_v2'
+     AND selected_flow='business-agent-screening-promotion-market-synthetic-v4'
+     AND session_user='teruisi_ai_market_synthetic_attestor'
+     AND current_database() IN ('teruisi_ai_rehearsal','test_teruisi_ai_rehearsal')
+     AND inet_server_port() BETWEEN 55440 AND 55999
+     AND EXISTS(SELECT 1 FROM public.ai_agent_jobs job
+       JOIN public.ai_workflow_runs flow ON flow.id=job.workflow_run_id
+       WHERE job.id=NEW.job_id
+         AND job.model_id='market-v2-synthetic-only'
+         AND flow.model_id='market-v2-synthetic-only'
+         AND flow.status='paused'
+         AND flow.input_json::jsonb->'syntheticOnly'='true'::jsonb)
+  THEN RETURN NEW; END IF;
+"""
+if admitted.TOOL_GUARD.count(_tool_anchor) != 1:
+    raise RuntimeError("0064 requires exact 0053 fifth-tool guard predecessor")
+NEW_TOOL_GUARD = admitted.TOOL_GUARD.replace(_tool_anchor,
+    _tool_exception + _tool_anchor)
+
+_result_anchor = """  IF selected_tool='get_business_promotion_market_v2'
+     OR selected_flow='business-agent-screening-promotion-market-admitted-v2'
+"""
+_result_exception = """  IF TG_OP='INSERT'
+     AND selected_tool='get_business_promotion_market_v2'
+     AND selected_flow='business-agent-screening-promotion-market-synthetic-v4'
+     AND session_user='teruisi_ai_market_synthetic_attestor'
+     AND current_database() IN ('teruisi_ai_rehearsal','test_teruisi_ai_rehearsal')
+     AND inet_server_port() BETWEEN 55440 AND 55999
+     AND NEW.result_json::jsonb->'data'->'syntheticOnly'='true'::jsonb
+     AND NEW.result_json::jsonb->'data'->'persistedRead'='false'::jsonb
+     AND NEW.result_json::jsonb->'data'->'numericCitationAllowed'='false'::jsonb
+     AND NEW.result_digest=encode(sha256(convert_to(NEW.result_json,'UTF8')),'hex')
+     AND EXISTS(SELECT 1 FROM public.ai_agent_tool_dispatches dispatch
+       JOIN public.ai_agent_jobs job ON job.id=dispatch.job_id
+       JOIN public.ai_workflow_runs flow ON flow.id=job.workflow_run_id
+       WHERE dispatch.id=NEW.tool_dispatch_id
+         AND dispatch.state='succeeded'
+         AND job.model_id='market-v2-synthetic-only'
+         AND flow.model_id='market-v2-synthetic-only'
+         AND flow.status='paused'
+         AND flow.input_json::jsonb->'syntheticOnly'='true'::jsonb)
+  THEN RETURN NEW; END IF;
+"""
+if admitted.RESULT_GUARD.count(_result_anchor) != 1:
+    raise RuntimeError("0064 requires exact 0053 fifth-result guard predecessor")
+NEW_RESULT_GUARD = admitted.RESULT_GUARD.replace(_result_anchor,
+    _result_exception + _result_anchor)
 
 FLOW_GUARD = r"""CREATE FUNCTION public.ai_market_v2_synthetic_flow_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
@@ -369,6 +422,23 @@ BEGIN
 END $$"""
 
 
+def _version_function(cursor, signature, before, after):
+    cursor.execute("SELECT prosrc,proacl::text,proowner,oid,prosecdef,proconfig "
+        "FROM pg_catalog.pg_proc WHERE oid=to_regprocedure(%s)", [signature])
+    old = cursor.fetchone()
+    if (old is None or old[0] != before.split("$$",2)[1]
+            or old[4] is not False
+            or {part.replace(" ","") for part in (old[5] or [])}
+                != {"search_path=pg_catalog,public"}):
+        raise RuntimeError("0064 protected predecessor guard drift: " + signature)
+    cursor.execute(after.replace("CREATE FUNCTION","CREATE OR REPLACE FUNCTION",1))
+    cursor.execute("SELECT prosrc,proacl::text,proowner,oid,prosecdef,proconfig "
+        "FROM pg_catalog.pg_proc WHERE oid=to_regprocedure(%s)", [signature])
+    now = cursor.fetchone()
+    if now is None or now[0] != after.split("$$",2)[1] or now[1:] != old[1:]:
+        raise RuntimeError("0064 may not change old guard OID/ACL/owner")
+
+
 def install(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
@@ -386,18 +456,14 @@ def install(apps, schema_editor):
             "roleid=%s::regrole OR member=%s::regrole", [ROLE, ROLE])
         if cursor.fetchone() != (0,):
             raise RuntimeError("0064 synthetic role membership drift")
-        cursor.execute("SELECT prosrc,proacl::text,proowner,oid FROM pg_catalog.pg_proc "
-            "WHERE oid=to_regprocedure('public.ai_market_v2_parked_workflow_guard()')")
-        old = cursor.fetchone()
-        if old is None or old[0] != prior.NEW_PARKED_WORKFLOW.split("$$",2)[1]:
-            raise RuntimeError("0064 parked guard predecessor drift")
-        cursor.execute(NEW_PARKED_WORKFLOW.replace("CREATE FUNCTION",
-            "CREATE OR REPLACE FUNCTION",1))
-        cursor.execute("SELECT prosrc,proacl::text,proowner,oid FROM pg_catalog.pg_proc "
-            "WHERE oid=to_regprocedure('public.ai_market_v2_parked_workflow_guard()')")
-        now = cursor.fetchone()
-        if now is None or now[0] != NEW_PARKED_WORKFLOW.split("$$",2)[1] or now[1:] != old[1:]:
-            raise RuntimeError("0064 may not change old parked guard OID/ACL/owner")
+        for signature, before, after in (
+            ("public.ai_market_v2_parked_workflow_guard()",
+                prior.NEW_PARKED_WORKFLOW, NEW_PARKED_WORKFLOW),
+            ("public.ai_market_v2_admitted_tool_guard()",
+                admitted.TOOL_GUARD, NEW_TOOL_GUARD),
+            ("public.ai_market_v2_admitted_result_guard()",
+                admitted.RESULT_GUARD, NEW_RESULT_GUARD)):
+            _version_function(cursor,signature,before,after)
         for definition in (FLOW_GUARD, REPORT_GUARD, CHILD_GUARD, ORPHAN, CREATE_CHAIN):
             cursor.execute(definition)
         for signature in ("public.ai_market_v2_synthetic_flow_guard()",
@@ -458,8 +524,14 @@ def uninstall(apps, schema_editor):
                 "public.ai_market_v2_synthetic_report_guard()",
                 "public.ai_market_v2_synthetic_flow_guard()"):
             cursor.execute("DROP FUNCTION " + signature)
-        cursor.execute(prior.NEW_PARKED_WORKFLOW.replace("CREATE FUNCTION",
-            "CREATE OR REPLACE FUNCTION",1))
+        for signature, before, after in (
+            ("public.ai_market_v2_admitted_result_guard()",
+                NEW_RESULT_GUARD, admitted.RESULT_GUARD),
+            ("public.ai_market_v2_admitted_tool_guard()",
+                NEW_TOOL_GUARD, admitted.TOOL_GUARD),
+            ("public.ai_market_v2_parked_workflow_guard()",
+                NEW_PARKED_WORKFLOW, prior.NEW_PARKED_WORKFLOW)):
+            _version_function(cursor,signature,before,after)
         # Retain the NOLOGIN role, without any remaining callable function.
 
 
