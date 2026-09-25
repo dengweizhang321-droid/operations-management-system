@@ -21,6 +21,52 @@ MIGRATION = import_module(
 class BudgetV11ProtectedReceiptRoleTests(fixture.BudgetV11AttestationRoleTests):
     complete_flow = approved_fixture.PromotionApprovedContentTests.complete_flow
 
+    def test_0068_catalog_rejects_key_object_and_acl_drift(self):
+        # Isolated PG target only; no business row, key or production mutation.
+        with self._database() as db:
+            db.execute("BEGIN")
+            try:
+                with db.cursor() as cursor:
+                    MIGRATION.verify_catalog(cursor)
+                db.execute("SAVEPOINT guard_drift")
+                db.execute("ALTER TABLE " + MIGRATION.KEY_TABLE +
+                    " DISABLE TRIGGER ai_budget_v11_key_guard")
+                with db.cursor() as cursor:
+                    with self.assertRaises(RuntimeError):
+                        MIGRATION.verify_catalog(cursor)
+                db.execute("ROLLBACK TO SAVEPOINT guard_drift")
+                db.execute("SAVEPOINT index_drift")
+                db.execute("DROP INDEX public.ai_budget_v11_one_active_key")
+                with db.cursor() as cursor:
+                    with self.assertRaises(RuntimeError):
+                        MIGRATION.verify_catalog(cursor)
+                db.execute("ROLLBACK TO SAVEPOINT index_drift")
+                db.execute("SAVEPOINT check_drift")
+                db.execute("ALTER TABLE " + MIGRATION.KEY_TABLE +
+                    " DROP CONSTRAINT " +
+                    "protected_business_budget_v11_verifier_keys_secret_check")
+                with db.cursor() as cursor:
+                    with self.assertRaises(RuntimeError):
+                        MIGRATION.verify_catalog(cursor)
+                db.execute("ROLLBACK TO SAVEPOINT check_drift")
+                db.execute("SAVEPOINT unknown_grant")
+                db.execute("CREATE ROLE teruisi_ai_budget_v11_catalog_probe NOLOGIN")
+                db.execute("GRANT SELECT ON " + MIGRATION.KEY_TABLE +
+                    " TO teruisi_ai_budget_v11_catalog_probe")
+                with db.cursor() as cursor:
+                    with self.assertRaises(RuntimeError):
+                        MIGRATION.verify_catalog(cursor)
+                db.execute("ROLLBACK TO SAVEPOINT unknown_grant")
+                db.execute("SAVEPOINT unknown_function_grant")
+                db.execute("CREATE ROLE teruisi_ai_budget_v11_catalog_probe NOLOGIN")
+                db.execute("GRANT EXECUTE ON FUNCTION " + MIGRATION.MAC_SIGNATURE +
+                    " TO teruisi_ai_budget_v11_catalog_probe")
+                with db.cursor() as cursor:
+                    with self.assertRaises(RuntimeError):
+                        MIGRATION.verify_catalog(cursor)
+            finally:
+                db.execute("ROLLBACK")
+
     def test_0068_synthetic_key_only_verifies_fresh_protected_receipt(self):
         report = self._complete_budget_report()
         self.complete_flow(report)

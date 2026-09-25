@@ -37,3 +37,14 @@ class BudgetV11ProtectedReceiptSqlStaticTests(TestCase):
         self.assertIn("renderer_unpublished", migration.VERIFY)
         self.assertIn("session_user<>'teruisi_ai_writer'",
             stage.STAGE_REQUIREMENTS)
+
+    def test_catalog_pin_includes_key_lifecycle_objects(self):
+        migration = import_module(
+            "ai_assistant.migrations.0068_business_promotion_budget_v11_verifier_receipt")
+        body = getsource(migration.verify_catalog)
+        for marker in ("pg_catalog.pg_constraint", "convalidated",
+                "pg_catalog.pg_index", "indisunique", "indisvalid",
+                "ai_budget_v11_one_active_key", "ai_budget_v11_key_guard",
+                "ai_budget_v11_key_no_truncate", "pg_catalog.pg_trigger",
+                "t.tgenabled", "KEY_GUARD.split"):
+            self.assertIn(marker, body)
