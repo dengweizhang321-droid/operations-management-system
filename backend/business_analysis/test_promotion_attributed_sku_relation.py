@@ -5,7 +5,7 @@ import unittest
 from . import promotion_attributed_sku_relation as relation
 from . import promotion_keyword_sku as promoted
 from . import test_promotion_views as fixture
-from .contracts import AnalysisContractError
+from .contracts import AnalysisContractError, canonical
 
 
 def fact(*, keyword="切肉机", term="商用切肉机", attributed="FOLLOW-1",
@@ -100,3 +100,29 @@ class AttributedSkuRelationTests(unittest.TestCase):
                     checkpoint=checkpoint):
                 self.fail("partial relation was exposed")
         self.assertIs(raised.exception, cancelled)
+
+    def test_reference_row_count_fails_before_reading_any_pages(self):
+        source, pages, expected = fixture.fixture([fact()])
+        def forbidden():
+            self.fail("oversize source must not be iterated")
+            yield from pages
+        for source_rows in (281_759, 293_336, 575_095):
+            with self.subTest(source_rows=source_rows):
+                oversized = deepcopy(expected)
+                oversized["rowCount"] = source_rows
+                with self.assertRaises(AnalysisContractError):
+                    with relation.table(source, forbidden(), oversized,
+                            view="keyword_searchterm_plan_unit_match_attributed_sku"):
+                        self.fail("oversize source must not yield a table")
+
+    def test_wide_complete_page_rejected_without_truncation(self):
+        wide = fact(keyword="词" * 240, term="搜索" * 120,
+            attributed="跟单" * 120, plan="计划" * 120,
+            unit="单元" * 120)
+        data = fixture.fixture([wide for _ in range(100)], limit=100)
+        self.assertGreater(len(canonical(data[1][0]).encode("utf-8")),
+            128 * 1024)
+        with self.assertRaises(AnalysisContractError):
+            with relation.table(*data,
+                    view="keyword_searchterm_plan_unit_match_attributed_sku"):
+                self.fail("wide page must not yield a partial table")
