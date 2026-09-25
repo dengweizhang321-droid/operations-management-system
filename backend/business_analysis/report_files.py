@@ -6,12 +6,14 @@ query, external asset, macro or arbitrary spreadsheet formula is executed here.
 """
 from dataclasses import dataclass
 from decimal import Decimal
+import base64
 import hashlib
 import html
 import json
 import math
 import re
 import zipfile
+import zlib
 from xml.sax.saxutils import escape, quoteattr
 
 from .contracts import AnalysisContractError, canonical
@@ -20,6 +22,7 @@ MAX_ROWS = 1000000
 MAX_TABLES = 120
 MAX_COLUMNS = 160
 MAX_FILE_BYTES = 256 * 1024 * 1024
+MAX_SLIM_TABLE_NDJSON_BYTES = 256 * 1024 * 1024
 NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
@@ -115,7 +118,7 @@ def _json(value):
     return canonical(value).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
-def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None, html_layout_version=1, xlsx_opc_version=1):
+def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None, offline_budget=None, excel_budget=None, html_layout_version=1, xlsx_opc_version=1, html_payload_version=1):
     """Write both files to caller-owned temporary streams, return table proofs.
 
     The caller must publish neither stream when this function raises. A failed
@@ -125,6 +128,8 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
         raise AnalysisContractError("HTML布局版本不受支持")
     if type(xlsx_opc_version) is not int or xlsx_opc_version not in (1, 2):
         raise AnalysisContractError("XLSX OPC版本不受支持")
+    if type(html_payload_version) is not int or html_payload_version not in (1, 2) or (html_payload_version == 2 and (html_layout_version != 2 or xlsx_opc_version != 2)):
+        raise AnalysisContractError("HTML压缩行格式仅供新版离线候选")
     text(title)
     if not 1 <= len(tables) <= MAX_TABLES or len({t.key for t in tables}) != len(tables):
         raise AnalysisContractError("报告表数量或身份无效")
@@ -151,7 +156,7 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
     if html_layout_version == 2:
         head = head.replace("</head>", HTML_LAYOUT_V2+"</head>", 1)
     out(head)
-    out('<script type="application/json" id="report-data">{"title":'+_json(title)+',"metadata":'+_json(metadata)+',"tables":[')
+    out('<script type="application/json" id="report-data">{'+('"htmlPayloadVersion":2,' if html_payload_version == 2 else '')+'"title":'+_json(title)+',"metadata":'+_json(metadata)+',"tables":[')
     names, manifest = _sheet_names(tables), []
     model_sheets, model_proof = [], None
     if excel_budget is not None:
@@ -168,7 +173,19 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
                 checkpoint({"stage": "rendering", "table": table_index, "totalTables": len(tables)})
             if table_index > 1:
                 out(',')
-            out('{"key":'+_json(table.key)+',"title":'+_json(table.title)+',"note":'+_json(table.note)+',"columns":'+_json([{"key": c.key, "label": c.label, "kind": c.kind} for c in table.columns])+',"rows":[')
+            out('{"key":'+_json(table.key)+',"title":'+_json(table.title)+',"note":'+_json(table.note)+',"columns":'+_json([{"key": c.key, "label": c.label, "kind": c.kind} for c in table.columns])+(',"rowsGzipBase64":"' if html_payload_version == 2 else ',"rows":['))
+            if html_payload_version == 2:
+                compressor, pending, rows_ndjson_bytes = zlib.compressobj(level=6, wbits=31), b"", 0
+                compressed_sha = hashlib.sha256()
+                def compressed_out(raw):
+                    nonlocal pending
+                    new = compressor.compress(raw)
+                    compressed_sha.update(new)
+                    packed = pending + new
+                    size = len(packed) // 3 * 3
+                    if size:
+                        out(base64.b64encode(packed[:size]).decode("ascii"))
+                    pending = packed[size:]
             count, precision_text, row_digest = 0, 0, hashlib.sha256()
             totals = [Decimal(0) for _ in table.columns]
             present, precise = [0]*len(table.columns), [True]*len(table.columns)
@@ -206,9 +223,16 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
                             present[i] += 1
                     encoded = canonical(values)
                     row_digest.update((encoded+'\n').encode())
-                    if count:
-                        out(',')
-                    out(_json(values))
+                    if html_payload_version == 2:
+                        raw_row = (encoded + "\n").encode("utf-8")
+                        rows_ndjson_bytes += len(raw_row)
+                        if rows_ndjson_bytes > MAX_SLIM_TABLE_NDJSON_BYTES:
+                            raise AnalysisContractError("压缩HTML单表解压后超过256MiB，禁止隐藏超大表")
+                        compressed_out(raw_row)
+                    else:
+                        if count:
+                            out(',')
+                        out(_json(values))
                     excel_row = count+4
                     height = min(409, max(25, max((sum(max(1, math.ceil(len(line)*2/32)) for line in v.split('\n'))*16+8 for v in row if isinstance(v, str)), default=25)))
                     xml(f'<row r="{excel_row}" ht="{height}" customHeight="1">')
@@ -250,13 +274,19 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
                 xml('<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9"/></worksheet>')
             proof = {"key": table.key, "sheet": name, "rowCount": count, "columnCount": len(table.columns), "rowDigest": row_digest.hexdigest(), "precisionTextCells": precision_text}
             manifest.append(proof)
-            out('],"proof":'+_json(proof)+'}')
+            if html_payload_version == 2:
+                last = compressor.flush()
+                compressed_sha.update(last)
+                out(base64.b64encode(pending + last).decode("ascii"))
+                out('","rowsNdjsonBytes":'+str(rows_ndjson_bytes)+',"rowsGzipSha256":"'+compressed_sha.hexdigest()+'","proof":'+_json(proof)+'}')
+            else:
+                out('],"proof":'+_json(proof)+'}')
         for index, sheet in enumerate(model_sheets, len(tables)+1):
             if checkpoint: checkpoint({"stage": "rendering", "table": index, "rows": 0, "totalRows": len(excel_budget["plan"]["targets"])})
             budget_excel.write_sheet(archive, index, sheet)
         archive.writestr("teruisi-manifest.json", canonical({"schemaVersion": "business-files-v1", "title": title, "metadata": metadata, "tables": manifest,
             **({"budgetCalculator": model_proof} if model_proof else {})}))
-    out(']}</script>'+HTML_SCRIPT)
+    out(']}</script>'+(_slim_script_v10() if html_payload_version == 2 else HTML_SCRIPT))
     if offline_budget is not None:
         from .budget_offline import render
         out(render(offline_budget))
@@ -285,3 +315,46 @@ function chart(){const target=$("chart"),choice=$("chart-column").value;target.r
 $("search").oninput=()=>{page=0;refresh();};$("sort").onchange=$("missing").onchange=()=>{page=0;refresh();};$("order").onclick=()=>{descending=!descending;$("order").textContent=descending?"降序":"升序";refresh();};$("previous").onclick=()=>{page--;render();};$("next").onclick=()=>{page++;render();};$("chart-column").onchange=chart;
 $("export").onclick=()=>{const t=data.tables[selected],escapeCsv=v=>{let s=v===null?"":String(v);if(typeof v==="string"&&/^[\\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';},parts=["\\ufeff",t.columns.map(c=>escapeCsv(c.label)).join(",")+"\\r\\n"];filtered.forEach(i=>parts.push(t.rows[i].map(escapeCsv).join(",")+"\\r\\n"));const url=URL.createObjectURL(new Blob(parts,{type:"text/csv;charset=utf-8"})),link=node("a");link.href=url;link.download="经营分析-筛选数据.csv";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};choose(0);
 </script>'''
+
+
+def _slim_script_v10():
+    """Reuse the existing offline UI, changing only row loading for v10 opt-in."""
+    script = HTML_SCRIPT
+    def replace_once(old, new):
+        nonlocal script
+        if script.count(old) != 1:
+            raise RuntimeError("legacy offline UI changed; rebuild slim adapter explicitly")
+        script = script.replace(old, new, 1)
+
+    replace_once('const data=JSON.parse(document.getElementById("report-data").textContent),$=id=>document.getElementById(id),size=100;',
+        'const source=document.getElementById("report-data"),data=JSON.parse(source.textContent),$=id=>document.getElementById(id),size=100;source.remove();')
+    replace_once('let selected=0,page=0,descending=false,filtered=[];',
+        'let selected=0,page=0,descending=false,filtered=[],loading=0,wanted=0;')
+    loader = '''async function loadRows(t){
+if(Array.isArray(t.rows))return;
+if(typeof DecompressionStream!=="function"||!crypto?.subtle)throw Error("当前浏览器不支持离线GZIP与SHA-256，请使用已验收浏览器打开完整文件");
+if(!Number.isSafeInteger(t.rowsNdjsonBytes)||t.rowsNdjsonBytes<0||t.rowsNdjsonBytes>268435456||typeof t.rowsGzipBase64!=="string"||!/^[A-Za-z0-9+/]*={0,2}$/.test(t.rowsGzipBase64)||!(/^[a-f0-9]{64}$/.test(t.rowsGzipSha256))||!(/^[a-f0-9]{64}$/.test(t.proof?.rowDigest)))throw Error("压缩行目录无效");
+const bytes=Uint8Array.from(atob(t.rowsGzipBase64),c=>c.charCodeAt(0));
+const sha=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");
+if(sha!==t.rowsGzipSha256)throw Error("压缩行摘要不符");
+const reader=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip")).getReader(),blocks=[];
+let total=0;while(true){const next=await reader.read();if(next.done)break;total+=next.value.length;if(total>t.rowsNdjsonBytes){await reader.cancel();throw Error("压缩行解压容量超限");}blocks.push(next.value);}
+if(total!==t.rowsNdjsonBytes)throw Error("压缩行解压长度不符");
+const raw=new Uint8Array(total);let offset=0;for(const block of blocks){raw.set(block,offset);offset+=block.length;}
+const rowSha=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",raw)),v=>v.toString(16).padStart(2,"0")).join("");
+if(rowSha!==t.proof.rowDigest)throw Error("完整行摘要不符");
+const text=new TextDecoder("utf-8",{fatal:true}).decode(raw),lines=text?text.split("\\n"):[];if(lines.length&&lines.at(-1)==="")lines.pop();
+const rows=lines.map(line=>JSON.parse(line));
+if(!Array.isArray(rows)||rows.length!==t.proof.rowCount||rows.some(row=>!Array.isArray(row)||row.length!==t.columns.length))throw Error("压缩行数量或列宽不符");
+t.rows=rows;
+}
+'''
+    replace_once('data.tables.forEach((t,index)=>{const button=node("button",t.title+" · "+t.rows.length.toLocaleString());',
+        loader+'data.tables.forEach((t,index)=>{const button=node("button",t.title+" · "+t.proof.rowCount.toLocaleString());')
+    replace_once('function choose(index){selected=index;page=0;',
+        'async function choose(index){const ticket=++loading;wanted=index;$("count").textContent="正在离线校验并载入工作表";$("tbody").replaceChildren();try{await loadRows(data.tables[index]);}catch(error){if(ticket===loading){data.tables[selected].rows=null;$("note").textContent="离线表无法完整载入："+String(error);$("count").textContent="无法显示或导出此表";$("thead").replaceChildren();$("tbody").replaceChildren();}return;}if(ticket!==loading){if(wanted!==index)data.tables[index].rows=null;return;}if(selected!==index&&data.tables[selected])data.tables[selected].rows=null;selected=index;page=0;')
+    replace_once('function refresh(){const t=data.tables[selected],query=',
+        'function refresh(){const t=data.tables[selected];if(!Array.isArray(t.rows))return;const query=')
+    replace_once('$("export").onclick=()=>{const t=data.tables[selected],escapeCsv=',
+        '$("export").onclick=()=>{const t=data.tables[selected];if(!Array.isArray(t.rows))return;const escapeCsv=')
+    return script

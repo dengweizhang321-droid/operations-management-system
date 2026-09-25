@@ -252,8 +252,9 @@ def inspect_xlsx(path, volume, *, expected_large_rows, budget_payload=None,
 
 
 def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
-        suffix_bytes=68, deadline_seconds=1800):
-    if not 1 <= rows <= 1_000_000 or not 1 <= max_rows <= 1_000_000 or not 0 <= suffix_bytes <= 128:
+        suffix_bytes=68, deadline_seconds=1800, html_slim_v10=False):
+    if (not 1 <= rows <= 1_000_000 or not 1 <= max_rows <= 1_000_000
+            or not 0 <= suffix_bytes <= 128 or type(html_slim_v10) is not bool):
         raise ValueError("synthetic scale parameters exceed bounded contract")
     directory = Path(directory).resolve()
     if directory.exists():
@@ -282,7 +283,8 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
                 title="合成推广预算容量验收", metadata=metadata,
                 offline_budget=candidate.offline_budget,
                 excel_budget=candidate.excel_budget,
-                max_rows=max_rows, checkpoint=checkpoint)
+                max_rows=max_rows, checkpoint=checkpoint,
+                html_slim_v10=html_slim_v10)
         render_seconds = time.monotonic() - started
         if source.iterations != 1 or source.consumed != rows or full["totalRows"] != rows + sum(
                 table.row_count for table in tables if table.key != "synthetic-promotion-raw"):
@@ -322,6 +324,7 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
         evidence = {"schemaVersion": "business-budget-v10-static-scale-v1",
             "syntheticOnly": True, "owningSourceAuthorityVerified": False,
             "nativeExcelOpened": False, "formulaRecalculated": False,
+            "htmlSlimV10": html_slim_v10,
             "reportId": REPORT_ID, "syntheticPromotionRows": rows,
             "totalRows": full["totalRows"], "volumeCount": full["volumeCount"],
             "sourceRowSha256": large["rowDigest"],
@@ -372,7 +375,9 @@ if __name__ == "__main__":
     parser.add_argument("--max-rows", type=int, default=1_000_000)
     parser.add_argument("--suffix-bytes", type=int, default=68)
     parser.add_argument("--deadline-seconds", type=int, default=1800)
+    parser.add_argument("--slim-html-v10", action="store_true")
     arguments = parser.parse_args()
     print(json.dumps(run(arguments.output_dir, rows=arguments.rows,
         max_rows=arguments.max_rows, suffix_bytes=arguments.suffix_bytes,
-        deadline_seconds=arguments.deadline_seconds), ensure_ascii=False))
+        deadline_seconds=arguments.deadline_seconds,
+        html_slim_v10=arguments.slim_html_v10), ensure_ascii=False))

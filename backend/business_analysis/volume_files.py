@@ -196,7 +196,8 @@ def _file_proof(stream, maximum, checkpoint):
 
 def render(tables, outputs, *, report_id, evidence_digest, renderer_version, plan, title, metadata,
            max_tables=120, max_rows=1_000_000, max_volumes=100,
-           max_file_bytes=report_files.MAX_FILE_BYTES, offline_budget=None, excel_budget=None, checkpoint=None):
+           max_file_bytes=report_files.MAX_FILE_BYTES, offline_budget=None, excel_budget=None, checkpoint=None,
+           html_slim_v10=False):
     """Write all temporary pairs once and return a fully bound complete manifest.
 
 Capacity options are trusted caller policy, not copied from the supplied plan.
@@ -208,6 +209,8 @@ success. No source iterator is consumed for rejected plans or budget-only input.
     native_budget_sheets = 3 if excel_budget is not None else 0
     policy = {"max_tables": max_tables, "max_rows": max_rows, "max_volumes": max_volumes, "native_budget_sheets": native_budget_sheets}
     volume_plan.verify(plan, request, **policy)
+    if type(html_slim_v10) is not bool or html_slim_v10 and renderer_version != 10:
+        raise AnalysisContractError("压缩HTML仅允许renderer 10显式候选，旧版本字节不可改")
     # Use the independently rebuilt bounded plan, not caller-owned mutable lists.
     planned = volume_plan.build(request, **policy)
     if any(v["kind"] == "budget_only" for v in planned["volumes"]):
@@ -272,6 +275,8 @@ success. No source iterator is consumed for rejected plans or budget-only input.
                    "evidenceDigest": evidence_digest, "rendererVersion": renderer_version,
                    "planDigest": planned["planDigest"], "volumeIndex": index, "volumeCount": planned["volumeCount"],
                    "publication": "requires_complete_multivolume_manifest", "fragments": volume["tables"]}
+        if html_slim_v10:
+            binding["htmlPayloadVersion"] = 2
         def progress(value):
             if checkpoint:
                 checkpoint({**value, "volumeIndex": index, "volumeCount": planned["volumeCount"]})
@@ -280,7 +285,8 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             tables=fragments, checkpoint=progress if checkpoint else None,
             offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
             html_layout_version=2 if renderer_version >= 4 else 1,
-            xlsx_opc_version=2 if renderer_version in (6, 7, 9, 10) else 1)
+            xlsx_opc_version=2 if renderer_version in (6, 7, 9, 10) else 1,
+            html_payload_version=2 if html_slim_v10 else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
         table_proofs = []
