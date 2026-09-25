@@ -35,8 +35,9 @@ def _sha(value):
 
 def _bound(bridge, window, source):
     _need(type(bridge) is dict
-        and bridge.get("schemaVersion") ==
-            "business-report-v4-source-bridge-candidate-v1"
+        and bridge.get("schemaVersion") in {
+            "business-report-v4-source-bridge-candidate-v1",
+            "business-report-v4-unbound-owning-candidate-v1"}
         and bridge.get("candidateOnly") is True
         and all(bridge.get(key) is False for key in (
             "persistedSameReportLinkVerified", "v4RowsReadableForReport",

@@ -8,6 +8,10 @@
 
 这个 stream 的 `pages_factory`、`source` 和 `verify_current` 仍由调用方提供，普通摘要都可重算；`complete()` 仅代表私有暂存完整。当前系统没有能从真实 sealed-v4 页、工具审计、HMAC 封存、同报告数据库绑定同时构造这些输入的拥有方 adapter，也没有允许它进入现有 v2 `sourceManifest` 的版本化 writer。不能把这份候选回执转换成下载权限。
 
+隔离第三切片新增 `backend/ai_assistant/business_v4_report_stream_owning_candidate.py`，只在 `DJANGO_ENVIRONMENT=test` 且内部 writer/development 角色、显式 `enabled=True` 时运行。它复用 v2 报告拥有方核验与 v4 `verify_seal`（真实应用 HMAC/页/段/收据），从真实 `AiBusinessV4Chunk`、`AiBusinessV4ToolReceipt` 和工具审计按序构造双遍私有流；从封存正文读取收据链、从终段检查点读取数据页根。v2 报告与 v4 必须同管理员、京东同店、相同问题/请求维度/完整三期和原始日期，所有 v4 来源修订须仍为当前。每遍及最后复核报告与 v4 目录/封存；已记录但未覆盖全部日期的来源拒绝，不把缺日解释为零。
+
+它**没有**创建时 SQL 桥；成功只返回 `blocked_unbound`，桥、13 表同报告、文件下载、Agent 引用及发布均 false。现有 sealed-v2 报告没有 v4 创建时声明，不能因这些业务字段碰巧相同而自动升级。隔离 PostgreSQL 目标用例核真实封存 ORM 页和工具审计、reader 对页表直接 `SELECT` 拒绝，并核无报告时入口失败；纯测试覆盖三期/跨店/日期/修订拒绝。真实 PostgreSQL 目标须由主整合任务串行执行，当前没有宣称真实 575,095 行可流完或已生成工程文件。
+
 正式接线仍需单独版本化并做隔离 PostgreSQL 升级/备份恢复验收：
 
 1. 在**新报告创建事务**中记录 append-only、`report_id` 主键且 `v4_run_id` 唯一的同报告桥；绑定不可变的报告快照、工作流输入、v2 seal、v4 plan/seal、三期来源 key/query digest/ref/revision、财报来源与创建时管理员版本。应由新版本报告 `AFTER INSERT` 触发器写入，禁止独立的事后 `INSERT`；现有 `reference-v2` 报告没有该声明，不能追补。`reportSnapshotDigest` 应在插入后由数据库计算并存入桥表，避免把自身摘要嵌进 snapshot 造成循环。若修改报告快照协议，必须另立版本，不静默改变旧报告。
@@ -15,5 +19,9 @@
 3. 新 sealed-v4 来源 reader 要在报告开始、每卷和结束复验桥与来源，逐页重放原始字节、连续序号、工具审计、行数/控制总额、修订和封存根；从真实 seal 正文读取 `receiptChainDigest`，从完整检查点读取 `evidenceDigest`，再构造当前纯流所需摘要。把真实行迭代器接到**新版本**私有分卷 writer，沿用现有逐卷 HTML/XLSX 回读算法与失败中止规则。当前 v4 的 `inspect` 仅面向 collecting 父任务，`verify_seal` 只返回紧凑证明，均不是可直接使用的 sealed-v4 报告行流。
 4. 13 表基础报告与大容量推广卷须引用同一桥摘要及同一报告意图；若原 v2 推广选源与 v4 数据范围不同，要显式版本化其替代/并列语义，不能把 v4 行冒充已经封存的 v2 行。金额口径仍分别标示，财报按自然月背景，不按日分摊或跨域相加。
 5. 隔离环境验证跨店、跨报告、错三期、修订漂移、旧封存、篡改页、重复/缺页、角色越权、半写卷回滚；用真实来源和 Office/浏览器完成 575,095 行容量与 HTML/XLSX 一致性验收，之后才考虑注册 Agent/renderer 与受控发布。
+
+建议下一迁移按实际主线编号（预计 0071，须避开预算身份占用的 0070）单独实现第 1、2 条的创建时绑定表/触发器和只读 `SECURITY DEFINER` 函数，并对 NOLOGIN/未来专用 LOGIN 身份做非超级用户正反验收。当前 adapter 的 `blocked_unbound` 不能通过把布尔值翻转或补一个普通 SHA256 变成 `linked`；须由 SQL 回执与重新核验的真实 HMAC 同时授权新版本报告 reader。新分卷 writer 应有独立 renderer 版本与文件权限迁移，不沿用 sealed-v2 的 `sourceEvidenceDigest`。
+
+预计 0071 的最小对象与权限边界：`ai_report_v4_source_links` 以 `report_id` 为主键/FK，`v4_run_id` 唯一/FK，保存报告创建事务中的 v2 seal、v4 plan/seal、报告快照/工作流摘要、三窗口及财报来源目录摘要、创建者版本和创建时间；仅新 profile 报告 `AFTER INSERT` 触发器可写，拒绝 UPDATE/DELETE/TRUNCATE 和旧报告回填。报告 writer 不能直接写桥表，reader/Agent 不能直接读 v4 chunk/receipt/seal 表；只读 definer 函数按当前管理员、报告/桥、最新封存及来源版本返回窄页流回执。由于当前 adapter 使用 ORM 直接读取真实 v4 表，正式接线还须实现独立受限读取身份或固定 SQL 页函数，并验证普通非超级用户正反行为。对旧 `AiReportRun`/旧 renderer 函数的表结构、OID、ACL、字节及备份恢复执行升级门禁；0071 不应同时开启 Agent、renderer 或下载。
 
 本候选不占迁移号、不创建报告或文件、不修改线上开关；纯测试仅证明形状与失败关闭，不能替代 SQL 权限或客户数据规模验收。
