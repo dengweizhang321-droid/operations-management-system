@@ -5,6 +5,8 @@ separate append-only rehearsal authority, reservation and dispatch-start rows.
 No ordinary AI role can execute the mutation functions; even the NOLOGIN
 roles are restricted to isolated PostgreSQL rehearsal databases and ports.
 """
+import re
+
 from django.db import migrations, models
 
 
@@ -583,7 +585,8 @@ def verify_catalog(cursor):
                     raise ValueError("market paid rehearsal column ACL widened")
         prefix = {AUTHORITY: "authority", ROUNDS: "round",
                   EVENTS: "event"}[table]
-        cursor.execute("SELECT tgname,tgfoid::regprocedure::text,tgenabled "
+        cursor.execute("SELECT tgname,tgfoid::regprocedure::text,tgenabled,"
+            "tgtype,tgqual IS NULL,tgdeferrable,tginitdeferred "
             "FROM pg_catalog.pg_trigger WHERE tgrelid=to_regclass(%s) "
             "AND NOT tgisinternal", [table])
         triggers = set(cursor.fetchall())
@@ -594,20 +597,104 @@ def verify_catalog(cursor):
             "public.ai_v4_seal_ticket_no_truncate()"])
         no_truncate = cursor.fetchone()[0]
         if triggers != {
-                ("ai_market_v2_paid_"+prefix+"_guard", guard, "O"),
-                ("ai_market_v2_paid_"+prefix+"_no_truncate", no_truncate, "O")
+                ("ai_market_v2_paid_"+prefix+"_guard", guard, "O",
+                    31, True, False, False),
+                ("ai_market_v2_paid_"+prefix+"_no_truncate", no_truncate,
+                    "O", 34, True, False, False)
                 }:
             raise ValueError("market paid rehearsal triggers drift")
-    cursor.execute("SELECT conrelid::regclass::text,contype,"
-        "pg_catalog.pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint "
-        "WHERE conrelid=ANY(ARRAY[to_regclass(%s),to_regclass(%s),"
-        "to_regclass(%s)])", [AUTHORITY, ROUNDS, EVENTS])
-    constraints = cursor.fetchall()
-    if (sum(kind == "p" for _, kind, _ in constraints) != 3
-            or sum(kind == "f" for _, kind, _ in constraints) != 5
-            or sum(kind == "u" for _, kind, _ in constraints) != 4
-            or sum(kind == "c" for _, kind, _ in constraints) != 6):
-        raise ValueError("market paid rehearsal constraint drift")
+    expected_keys = {
+        AUTHORITY: {"PRIMARY KEY (id)", "UNIQUE (plan_id)",
+                    "UNIQUE (cost_ledger_id)"},
+        ROUNDS: {"PRIMARY KEY (id)",
+                 "UNIQUE (plan_id, role, round_number)"},
+        EVENTS: {"PRIMARY KEY (id)",
+                 "UNIQUE (reservation_id, event_kind)"}}
+    expected_fk = {
+        AUTHORITY: {"plan_id": "public.ai_business_market_v2_execution_plans",
+                    "cost_ledger_id":
+                        "public.ai_business_market_v2_cost_ledger_candidates"},
+        ROUNDS: {"authority_id": AUTHORITY,
+                 "plan_id": "public.ai_business_market_v2_execution_plans"},
+        EVENTS: {"reservation_id": ROUNDS}}
+    expected_checks = {AUTHORITY: {"approved_cap_cents", "status"},
+                       ROUNDS: {"role", "round_number", "max_cost_cents"},
+                       EVENTS: {"event_kind"}}
+    for table in (AUTHORITY, ROUNDS, EVENTS):
+        cursor.execute("SELECT contype,pg_catalog.pg_get_constraintdef(oid),"
+            "confrelid::regclass::text,confdeltype,convalidated "
+            "FROM pg_catalog.pg_constraint WHERE conrelid=to_regclass(%s)",
+            [table])
+        found = cursor.fetchall()
+        if len(found) != (len(expected_keys[table]) +
+                len(expected_fk[table]) + len(expected_checks[table])):
+            raise ValueError("market paid rehearsal constraint count drift")
+        keys = {definition for kind, definition, _, _, valid in found
+                if kind in ("p", "u") and valid}
+        if keys != expected_keys[table]:
+            raise ValueError("market paid rehearsal key definition drift")
+        seen_fk = set()
+        for kind, definition, target, delete_action, valid in found:
+            if kind != "f":
+                continue
+            match = re.match(r"FOREIGN KEY \(([^)]+)\) REFERENCES ", definition)
+            column = match.group(1) if match else None
+            wanted = expected_fk[table].get(column)
+            cursor.execute("SELECT to_regclass(%s)::text", [wanted])
+            if (wanted is None or target != cursor.fetchone()[0]
+                    or delete_action != "r" or not valid
+                    or "ON DELETE RESTRICT" not in definition
+                    or column in seen_fk):
+                raise ValueError("market paid rehearsal foreign key drift")
+            seen_fk.add(column)
+        if seen_fk != set(expected_fk[table]):
+            raise ValueError("market paid rehearsal foreign key missing")
+        seen_checks = set()
+        for kind, definition, _, _, valid in found:
+            if kind != "c":
+                continue
+            names = [name for name in expected_checks[table]
+                     if re.search(r"\b" + name + r"\b", definition)]
+            if len(names) != 1 or not valid:
+                raise ValueError("market paid rehearsal CHECK drift")
+            name = names[0]
+            compact = re.sub(r"[\s()]", "", definition).lower()
+            literals = set(re.findall(r"'([^']+)'", definition))
+            if (name in seen_checks
+                    or name in ("approved_cap_cents", "max_cost_cents")
+                        and name+">0" not in compact
+                    or name == "round_number" and not
+                        ("round_number>=1" in compact and
+                         "round_number<=20" in compact or
+                         "round_numberbetween1and20" in compact)
+                    or name == "status" and literals != {
+                        "synthetic_rehearsal_only"}
+                    or name == "event_kind" and literals != {
+                        "dispatch_started"}
+                    or name == "role" and literals != {"commerce",
+                        "promotion", "market_b2b", "independent_review",
+                        "report"}):
+                raise ValueError("market paid rehearsal CHECK definition drift")
+            seen_checks.add(name)
+        if seen_checks != expected_checks[table]:
+            raise ValueError("market paid rehearsal CHECK missing")
+    cursor.execute("SELECT idx.indisunique,idx.indisvalid,idx.indisready,"
+        "pg_catalog.pg_get_indexdef(idx.indexrelid),"
+        "pg_catalog.pg_get_expr(idx.indpred,idx.indrelid) "
+        "FROM pg_catalog.pg_index idx JOIN pg_catalog.pg_class rel "
+        "ON rel.oid=idx.indexrelid WHERE rel.relname='ai_market_v2_paid_held_idx' "
+        "AND idx.indrelid=to_regclass(%s)", [ROUNDS])
+    held = cursor.fetchone()
+    if (held is None or held[:3] != (False, True, True)
+            or held[4] is not None
+            or not held[3].endswith(" USING btree (authority_id)")):
+        raise ValueError("market paid held index drift")
+    cursor.execute("SELECT rel.relname FROM pg_catalog.pg_index idx "
+        "JOIN pg_catalog.pg_class rel ON rel.oid=idx.indexrelid "
+        "LEFT JOIN pg_catalog.pg_constraint con ON con.conindid=idx.indexrelid "
+        "WHERE idx.indrelid=to_regclass(%s) AND con.oid IS NULL", [ROUNDS])
+    if cursor.fetchall() != [("ai_market_v2_paid_held_idx",)]:
+        raise ValueError("market paid extra standalone index")
     for signature, definition, definer, grant in (
             ("public.ai_market_v2_paid_row_guard()", GUARD, False, None),
             (EXPECTED_SIG, EXPECTED, True, None),

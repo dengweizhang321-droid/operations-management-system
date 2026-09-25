@@ -15,7 +15,7 @@
 
 0069 新增 `ai_business_market_v2_paid_authorities`、`ai_business_market_v2_round_reservations`、`ai_business_market_v2_round_events`。首表保存完整费率原币、CNY 汇率整数分子/分母、收费类别、来源摘要及人工上限/人审摘要的合成合同；SQL 复算 CNY 单价，并绑定 0065 候选、当前模型和管理员。第二表以 `(plan_id, role, round_number)` 唯一，`SELECT authority FOR UPDATE` 序列化同报告预留，精确重放不重复扣额、改请求或改意图拒绝；五角色最多各自第一轮，因为本切片没有认证结果关闭能力。第三表只能追加一次 `dispatch_started`；事务提交后即把网络结果视为未知，重复派发拒绝。未验证服务商计费前不释放金额。
 
-隔离 PG 目标测试为 `ai_assistant.test_business_market_v2_paid_round_role`；完整 0068→0069 前后备份独立恢复/空逆迁移脚本为 `tools/business-market-v2-paid-round-upgrade-rehearsal.py`，由 `tools/ai-postgres-rehearsal.py --business-market-v2-paid-round-upgrade --upgrade-only` 调用。交主任务串行运行，不能把脚本存在或纯测试通过当成真实数据库验收。
+隔离 PG 目标测试为 `ai_assistant.test_business_market_v2_paid_round_role`，其专用会话 helper 只接受 0069 三个新角色，不扩大旧 reader/writer helper。目录检查同时锁定触发器事件、主/唯一键、外键目标与删除规则、CHECK 定义和持有金额索引；测试用可回滚的 DDL 漂移作负例。完整 0068→0069 前后备份独立恢复/空逆迁移脚本为 `tools/business-market-v2-paid-round-upgrade-rehearsal.py`，由 `tools/ai-postgres-rehearsal.py --business-market-v2-paid-round-upgrade --upgrade-only` 调用。交主任务串行运行，不能把脚本存在或纯测试通过当成真实数据库验收。
 
 后续正式能力仍需：
 

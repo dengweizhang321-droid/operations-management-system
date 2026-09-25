@@ -1,11 +1,13 @@
 """Isolated PG real-role test: synthetic money is held, no provider call."""
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from importlib import import_module
 import json
 from unittest.mock import patch
 
 from django import test as djtest
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, connection, transaction
 
 from business_analysis.contracts import digest
 from . import business_market_v2_paid_authority_contract as authority
@@ -14,6 +16,22 @@ from . import business_market_v2_cost_admission as cost_service
 from . import test_business_market_v2_cost_admission as fixture
 from .policy import canonical
 from .test_business_market_v2_material_role_bridge import session_role
+
+
+@contextmanager
+def paid_session_role(role):
+    """Only the three 0069 NOLOGIN roles; preserve the old role whitelist."""
+    if role not in {"teruisi_ai_market_paid_adopter",
+            "teruisi_ai_market_paid_reserver",
+            "teruisi_ai_market_paid_starter"}:
+        raise ValueError("Only exact isolated 0069 paid rehearsal roles are supported")
+    with connection.cursor() as cursor:
+        cursor.execute("SET SESSION AUTHORIZATION " + role)
+    try:
+        yield
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute("RESET SESSION AUTHORIZATION")
 
 
 @djtest.override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test")
@@ -35,6 +53,56 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
     prepared = fixture.MarketV2CostAdmissionTests.prepared
     plan_and_model = fixture.MarketV2CostAdmissionTests.plan_and_model
     input = fixture.MarketV2CostAdmissionTests.input
+
+    def test_paid_role_helper_does_not_expand_existing_reader_writer_helper(self):
+        with self.assertRaises(ValueError):
+            with paid_session_role("teruisi_ai_reader"):
+                pass
+        with self.assertRaises(ValueError):
+            with session_role("teruisi_ai_market_paid_adopter"):
+                pass
+
+    def test_catalog_catches_trigger_event_fk_target_and_held_index_drift(self):
+        migration = import_module(
+            "ai_assistant.migrations.0069_business_market_v2_paid_round_rehearsal")
+        with connection.cursor() as cursor:
+            migration.verify_catalog(cursor)
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("DROP TRIGGER ai_market_v2_paid_event_guard ON "
+                    "public.ai_business_market_v2_round_events")
+                cursor.execute("CREATE TRIGGER ai_market_v2_paid_event_guard "
+                    "BEFORE INSERT ON public.ai_business_market_v2_round_events "
+                    "FOR EACH ROW EXECUTE FUNCTION "
+                    "public.ai_market_v2_paid_row_guard()")
+                with self.assertRaisesRegex(ValueError, "triggers drift"):
+                    migration.verify_catalog(cursor)
+            transaction.set_rollback(True)
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("DROP INDEX public.ai_market_v2_paid_held_idx")
+                with self.assertRaisesRegex(ValueError, "held index drift"):
+                    migration.verify_catalog(cursor)
+            transaction.set_rollback(True)
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT conname FROM pg_catalog.pg_constraint "
+                    "WHERE conrelid='public.ai_business_market_v2_paid_authorities'::regclass "
+                    "AND contype='f' AND pg_catalog.pg_get_constraintdef(oid) "
+                    "LIKE 'FOREIGN KEY (plan_id)%'")
+                name = cursor.fetchone()[0]
+                cursor.execute("ALTER TABLE public.ai_business_market_v2_paid_authorities "
+                    "DROP CONSTRAINT " + connection.ops.quote_name(name))
+                cursor.execute("ALTER TABLE public.ai_business_market_v2_paid_authorities "
+                    "ADD CONSTRAINT ai_market_v2_paid_wrong_plan_fk "
+                    "FOREIGN KEY (plan_id) REFERENCES public."
+                    "ai_business_market_v2_cost_ledger_candidates(id) "
+                    "ON DELETE RESTRICT")
+                with self.assertRaisesRegex(ValueError, "foreign key drift"):
+                    migration.verify_catalog(cursor)
+            transaction.set_rollback(True)
+        with connection.cursor() as cursor:
+            migration.verify_catalog(cursor)
 
     def prepared_authority(self):
         created, plan_id, model = self.plan_and_model()
@@ -84,7 +152,7 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
         with self.assertRaises(DatabaseError):
             self.sql("ai_market_v2_adopt_paid_rehearsal(%s,%s)",
                 [plan_id, canonical(value)])
-        with session_role("teruisi_ai_market_paid_adopter"):
+        with paid_session_role("teruisi_ai_market_paid_adopter"):
             authority_id = self.sql("ai_market_v2_adopt_paid_rehearsal(%s,%s)",
                 [plan_id, canonical(value)])
             self.assertEqual(authority_id, self.sql(
@@ -96,7 +164,7 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
                         "ai_business_market_v2_paid_authorities")
         quote = rounds.quote_round(candidate, saved["ledgerId"],
             "commerce", 1, "e" * 64)
-        with session_role("teruisi_ai_market_paid_reserver"), \
+        with paid_session_role("teruisi_ai_market_paid_reserver"), \
                 patch("ai_assistant.provider.turn") as provider:
             first = self.sql("ai_market_v2_reserve_paid_round(%s,%s,%s,%s)",
                 [authority_id, "commerce", 1, "e" * 64])
@@ -120,7 +188,7 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
                 self.assertEqual(held["reservedCents"], 1)
                 self.assertFalse(held["providerCallsAllowed"])
             provider.assert_not_called()
-        with session_role("teruisi_ai_market_paid_starter"), \
+        with paid_session_role("teruisi_ai_market_paid_starter"), \
                 patch("ai_assistant.provider.turn") as provider:
             started = self.sql("ai_market_v2_start_paid_dispatch(%s,%s)",
                 [quote["slotId"], quote["intentDigest"]])
@@ -162,7 +230,7 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
         forged["sourceDigest"] = digest(forged["source"])
         forged["authorityDigest"] = digest({key: item for key, item in
             forged.items() if key != "authorityDigest"})
-        with session_role("teruisi_ai_market_paid_adopter"):
+        with paid_session_role("teruisi_ai_market_paid_adopter"):
             with self.assertRaises(DatabaseError):
                 self.sql("ai_market_v2_adopt_paid_rehearsal(%s,%s)",
                     [plan_id, canonical(forged)])
