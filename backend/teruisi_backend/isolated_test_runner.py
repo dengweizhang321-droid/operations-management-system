@@ -11,6 +11,18 @@ from django.db import connections
 from django.test.runner import DiscoverRunner
 
 
+PROTECTED_SQL_TABLES = frozenset({
+    "protected_business_budget_v11_verifier_keys",
+    "protected_business_budget_v11_proof_tickets",
+    "protected_business_budget_v11_proof_ticket_claims",
+    "protected_business_v4_report_link_intents",
+    "protected_business_v4_report_source_links",
+    "protected_business_market_v2_rate_proposals",
+    "protected_business_market_v2_cap_proposals",
+    "protected_business_market_v2_authority_revocations",
+})
+
+
 class IsolatedPostgresTestRunner(DiscoverRunner):
     def setup_databases(self, **kwargs):
         old_config = super().setup_databases(**kwargs)
@@ -27,8 +39,12 @@ class IsolatedPostgresTestRunner(DiscoverRunner):
             original = operations.sql_flush
 
             def isolated_flush(style, tables, *, reset_sequences=False,
-                               allow_cascade=False, _original=original):
-                return _original(style, tables,
+                               allow_cascade=False, _original=original,
+                               _connection=connection):
+                present = PROTECTED_SQL_TABLES.intersection(
+                    _connection.introspection.table_names())
+                selected = sorted(set(tables).union(present))
+                return _original(style, selected,
                     reset_sequences=reset_sequences, allow_cascade=True)
 
             operations.sql_flush = isolated_flush
