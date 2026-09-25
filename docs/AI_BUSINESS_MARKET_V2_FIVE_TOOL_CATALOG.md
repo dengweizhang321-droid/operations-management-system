@@ -10,4 +10,8 @@
 
 此文件记录候选设计与验证结果；没有生产迁移、部署或付费模型调用。
 
-2026-09-25：新五工具/签名 edge Node 测试 4/4、前版第五工具 Node 回归 4/4、旧 v1 四工具 Node 回归 8/8，合计 **16/16**；变更 TS 文件 ESLint 和 Python 静态编译通过。隔离 PostgreSQL 目标 `ai_assistant.test_business_market_v2_base_tool_candidate` 与无数据库路由目标 `ai_assistant.test_business_market_v2_base_tool_route` 待主任务串行执行。真实大表 12 秒/容量、原生业务数值与真实 Agent 回执均未验收。
+2026-09-25 独立候选：新五工具/签名 edge Node 测试 4/4、前版第五工具 Node 回归 4/4、旧 v1 四工具 Node 回归 8/8，合计 **16/16**；变更 TS 文件 ESLint 和 Python 静态编译通过。随后由整合分支执行隔离 PostgreSQL 与路由验收；真实大表 12 秒/容量、原生业务数值与真实 Agent 回执均未验收。
+
+整合验收：新增目录与第五工具 Node 8 项、旧词货目录/工具 Node 16 项、Django 路由 2 项、ESLint 与本地构建通过。隔离真实 reader 角色三项 `.runtime/ai-pg-759ad2f0271c/tests.log`（85.918 秒）通过；另将未发布负例的错误原因收紧为“固定筛查结果不存在”后，单项 `.runtime/ai-pg-81e89178091e/tests.log`（27.115 秒）通过。首轮目标库 `.runtime/ai-pg-46c8e00d0df5/failure.log` 曾发现原词货 v1 报告被误送进旧 screening-profile reader；现改用真实已发布筛查包、推广报告拥有方分析、固定预算和原词货明细各自的既有只读路径。未发布包明确拒绝，未伪造 ready/job。默认开关未启用，无生产写入。
+
+独立审查确认无默认开启、跨报告授权或伪造 `persistedRead` 的直接缺陷。前四项仍无同 job/provider 持久回执；12 秒截止无法中断已进入旧同步拥有方读取的慢查询，真实大表及有界取消留给下一阶段验收。

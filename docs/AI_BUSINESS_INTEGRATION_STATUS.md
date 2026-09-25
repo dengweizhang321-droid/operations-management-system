@@ -56,6 +56,8 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 [市场 v2 第五工具默认关闭目录候选](AI_BUSINESS_MARKET_V2_REGISTRY_GATE.md)只在显式新surface/双端flag下展示第五个只读工具；旧v1四工具静态目录不变。Django隔离路由3项 `.runtime/ai-pg-ec558dca39ce/tests.log`、新旧Node目录12项和本地构建通过。当前请求ID仅派生非持久声明，`persistedRead=false`、无真实job/模型。
 
+[市场 v2 同 surface 五工具预览目录](AI_BUSINESS_MARKET_V2_FIVE_TOOL_CATALOG.md)已合入：四个新别名复用正式已发布角色包、推广拥有方分析/预算/词货路径，第五项保持原有界市场候选；双端开关默认关闭，旧v1目录不变。首轮真实PG揭出旧screening-profile reader误接原推广报告，修复后隔离reader角色3项 `.runtime/ai-pg-759ad2f0271c/tests.log` 和未发布包精确拒绝1项 `.runtime/ai-pg-81e89178091e/tests.log` 通过；新目录/第五工具Node8、旧v1目录/工具Node16、Django路由2、ESLint与本地构建通过。仍 `persistedRead=false`，无Agent job/provider本人已读、真实规模12秒或执行profile。当前[交接清单](AI_BUSINESS_HANDOFF_MARKET_V2_FIVE_TOOLS_20260925.md)列出下一阶段。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。

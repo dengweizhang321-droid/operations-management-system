@@ -119,7 +119,8 @@ class MarketV2BaseToolCandidateTests(djtest.TransactionTestCase):
             "runId": snapshot["evidenceRunId"],
             "screeningId": snapshot["screeningIntent"]["id"],
             "role": "market_b2b", "offset": 0}
-        with fixture.session_role("teruisi_ai_reader"), self.assertRaises(AiError):
+        with fixture.session_role("teruisi_ai_reader"), self.assertRaisesRegex(
+                AiError, "固定筛查结果不存在"):
             service.read(service.ORDER[0], args, self.admin)
         self.assertFalse(m.AiAgentJobs.objects.filter(
             workflow_run_id=m.AiReportRun.objects.get(pk=admitted_id).workflow_id

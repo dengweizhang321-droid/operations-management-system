@@ -50,4 +50,6 @@
 
 0059 [预算下载窄栅栏](AI_BUSINESS_PROMOTION_BUDGET_V10_READER_FENCE_0059.md)真实角色PG3项 `.runtime/ai-pg-27eda3e1c066/tests.log`、0058→0059旧81表/renderer1—7文件/旧函数权限与双备份恢复 `.runtime/ai-pg-2808dd63f241/business-promotion-budget-v10-reader-fence-upgrade-evidence.json` 通过。reader 无证明表 SELECT，旧任意摘要拒绝；尚无 v10 下载路由。当前小阶段的[独立交接清单](AI_BUSINESS_HANDOFF_0059_20260925.md)列出下一步与风险。
 
+市场 v2 同 surface 五工具预览目录已合入且默认关闭，真实 reader PG3项及未发布负例1项、Node新旧24项、Django路由2项和本地构建通过。首轮误将词货v1报告喂旧screening-profile读取器导致1/2失败，改回原推广拥有方读取后通过；仍无同job/provider实际已读。见[市场五工具交接](AI_BUSINESS_HANDOFF_MARKET_V2_FIVE_TOOLS_20260925.md)。
+
 默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。
