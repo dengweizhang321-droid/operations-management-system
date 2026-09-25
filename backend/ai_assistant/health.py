@@ -378,6 +378,7 @@ def check():
         verify_market_synthetic(cursor)
         from .business_market_v2_cost_catalog import verify as verify_market_cost
         verify_market_cost(cursor)
+        import_module("ai_assistant.migrations.0069_business_market_v2_paid_round_rehearsal").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,

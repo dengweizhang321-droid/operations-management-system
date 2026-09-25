@@ -130,5 +130,11 @@ AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS = (
     "ai_business_market_v2_cost_ledger_candidates")
 
 # 0067 adds one SQL-owned proof without changing frozen historical inventories.
-AI_TABLES = (*AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS,
+AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL = (*AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS,
     "ai_business_promotion_budget_v11_attestations")
+
+# 0069 adds only isolated, SQL-owned paid-round rehearsal rows.
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_PAID_REHEARSAL,
+    "ai_business_market_v2_paid_authorities",
+    "ai_business_market_v2_round_reservations",
+    "ai_business_market_v2_round_events")

@@ -1714,6 +1714,9 @@ from .business_market_v2_context_models import AiBusinessMarketV2ContextProof  #
 from .business_market_v2_read_receipt_models import AiBusinessMarketV2ReadReceipt  # noqa: E402,F401
 from .business_market_v2_execution_plan_models import AiBusinessMarketV2ExecutionPlan  # noqa: E402,F401
 from .business_market_v2_cost_models import AiBusinessMarketV2CostLedgerCandidate  # noqa: E402,F401
+from .business_market_v2_paid_models import (  # noqa: E402,F401
+    AiBusinessMarketV2PaidAuthority, AiBusinessMarketV2RoundReservation,
+    AiBusinessMarketV2RoundEvent)
 from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
 from .business_promotion_budget_v10_attestation_models import AiBusinessPromotionBudgetV10Attestation  # noqa: E402,F401
 from .business_promotion_budget_v11_attestation_models import AiBusinessPromotionBudgetV11Attestation  # noqa: E402,F401
