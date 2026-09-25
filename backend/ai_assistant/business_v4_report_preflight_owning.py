@@ -140,6 +140,8 @@ def inspect_candidate(report_id, v4_run_id, principal, *, enabled=False):
         "status": decision["status"],
         "reportId": report_id,
         "v4RunId": v4_run_id,
+        "shop": report_proof["shop"],
+        "originalPeriod": report_proof["originalPeriod"],
         "decisionDigest": decision["resultDigest"],
         "v2SealedDigest": decision["v2SealedDigest"],
         "v4SealedDigest": decision["v4SealedDigest"],
