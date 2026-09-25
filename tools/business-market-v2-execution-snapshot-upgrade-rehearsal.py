@@ -18,11 +18,9 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
+from ai_assistant.table_manifest import (
+    AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS as AI_TABLES)
 from business_analysis.contracts import canonical
-
-AI_TABLES = tuple(table for table in CURRENT_AI_TABLES
-    if table != "ai_business_market_v2_context_proofs")
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)

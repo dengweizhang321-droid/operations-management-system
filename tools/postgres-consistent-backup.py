@@ -884,6 +884,11 @@ def collect_evidence(
                     raise RuntimeError("AI market context proof has no execution profile")
                 from ai_assistant.business_market_v2_context_catalog import verify
                 verify(cursor, RuntimeError)
+            if "0062_business_market_v2_read_receipt_candidate" in ai_migrations:
+                if "0061_business_market_v2_context_proof" not in ai_migrations:
+                    raise RuntimeError("AI market read receipt has no context proof")
+                from ai_assistant.business_market_v2_read_catalog import verify
+                verify(cursor, RuntimeError)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -897,6 +902,8 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0062_business_market_v2_read_receipt_candidate" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_market_v2_read_receipts")
             if "0061_business_market_v2_context_proof" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_market_v2_context_proofs")
             if "0057_business_promotion_budget_v10_attestation" not in ai_migrations:

@@ -354,6 +354,8 @@ def check():
         import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
         from .business_market_v2_context_catalog import verify as verify_market_context
         verify_market_context(cursor)
+        from .business_market_v2_read_catalog import verify as verify_market_read
+        verify_market_read(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
