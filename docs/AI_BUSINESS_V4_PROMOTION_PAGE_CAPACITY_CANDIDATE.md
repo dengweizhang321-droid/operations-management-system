@@ -7,3 +7,5 @@
 输出的 `v4Measurement` 可以进入原 `evidence_v4.build_plan`，但 `owningSourceAuthorityVerified=false`、`signedToolAuditVerified=false`、`upstreamSignatureVerified=false`、`productionRowWidthApprovalRequired=true`、`sealerOrReportAuthorityGranted=false` 固定。页流内部自洽不证明它确来自当前平台、当前数据库修订或同一真实签名工具调用，也不证明财务、ERP、B端和市场来源已具容量。纯测试含规范页、缺页/重排/跨店、真实页数超过算术估计及 v4 计划接入；历史 281,759/293,336 行的 4,776/4,972 页仍仅是用 2,063/2,061 字节行宽与假设 8 KiB 页包络的**非权威估算**。
 
 后续实际门槛：由已授权的拥有方 reader 把当前同店三窗口的每一页原字节、签名请求/成功审计、修订水位和页链交给受保护测量器；量出当前30天与同比完整三期、月财务、ERP、SKU/SPU、B端及市场各来源的真实页/字节，核任务总上限、临时磁盘峰值和 180 秒 claim/600 秒全链耗时。市场 TOP 单日样本不能当市场30日完整覆盖；财报自然月不日摊；店铺区间去重 UV 无源时继续列缺口。未通过这些数据门槛前，不能把三期多域同报告、五 Agent 或 HTML/XLSX 标为完成。
+
+整合分支纯回归 `business_analysis.test_evidence_v4` 与本候选合计 9 项通过；没有当前拥有方真实页或生产规模测量。测量正文始终把来源授权、签名审计和报告准入标为 false，历史参考计数仍只能用于排容量风险，不能转成准入证明。
