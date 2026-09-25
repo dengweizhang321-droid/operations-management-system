@@ -19,7 +19,8 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
 from ai_assistant.table_manifest import (
-    AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS as OLD_AI_TABLES, AI_TABLES)
+    AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS as OLD_AI_TABLES,
+    AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS as AI_TABLES)
 from ai_assistant.business_market_v2_context_catalog import verify as verify_context
 from business_analysis.contracts import canonical
 

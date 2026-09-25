@@ -113,5 +113,9 @@ AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS = (*AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS
     "ai_business_promotion_budget_v10_attestations")
 
 # 0061 binds the parked/admitted/execution chain to a SQL-derived context.
-AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS,
+AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS = (*AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS,
     "ai_business_market_v2_context_proofs")
+
+# 0062 only stages a closed, SQL-owned genuine same-job read receipt.
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS,
+    "ai_business_market_v2_read_receipts")
