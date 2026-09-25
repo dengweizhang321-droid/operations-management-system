@@ -367,6 +367,7 @@ def check():
                                             slim_stage_enabled=True)
         from importlib import import_module
         import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0067_business_promotion_budget_v11_attestation").verify_catalog(cursor)
         from .business_market_v2_context_catalog import verify as verify_market_context
         verify_market_context(cursor)
         from .business_market_v2_read_catalog import verify as verify_market_read

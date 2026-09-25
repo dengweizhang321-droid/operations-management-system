@@ -927,6 +927,13 @@ def collect_evidence(
             if ("0066_business_promotion_budget_v11_durable_stage" in ai_migrations
                     and "0065_business_market_v2_model_cost_reservation" not in ai_migrations):
                 raise RuntimeError("AI budget v11 stage lacks market cost predecessor")
+            if "0067_business_promotion_budget_v11_attestation" in ai_migrations:
+                if "0066_business_promotion_budget_v11_durable_stage" not in ai_migrations:
+                    raise RuntimeError("AI budget v11 attestation lacks staged predecessor")
+                from importlib import import_module
+                import_module(
+                    "ai_assistant.migrations.0067_business_promotion_budget_v11_attestation"
+                ).verify_catalog(cursor)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -950,6 +957,8 @@ def collect_evidence(
                 expected_ai_tables.discard("ai_business_market_v2_context_proofs")
             if "0057_business_promotion_budget_v10_attestation" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_promotion_budget_v10_attestations")
+            if "0067_business_promotion_budget_v11_attestation" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_promotion_budget_v11_attestations")
             if "0055_business_v4_period_plan_candidate" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_v4_period_plan_candidates")
             if "0047_business_v4_sealer_replay_progress" not in ai_migrations:
