@@ -1,5 +1,6 @@
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
 import { readBusinessMarketV2ToolCandidate, MARKET_V2_TOOL, MARKET_V2_SURFACE } from "@/lib/ai/business-market-v2-tool-candidate";
+import { readBusinessMarketV2BaseToolCandidate, MARKET_V2_BASE_NAMES } from "@/lib/ai/business-market-v2-base-tool-candidate";
 import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
@@ -1335,6 +1336,76 @@ export const aiToolRegistry = [
 
 validateToolRegistry(aiToolRegistry);
 
+/** Frozen new-surface aliases: no original v1 entry or allowedSurfaces is edited. */
+export const marketV2BaseTools: readonly AiToolEntry[] = [
+  {
+    name: MARKET_V2_BASE_NAMES[0], title: "读取市场v2报告的原词货角色证据包（候选）",
+    description: "仅从同账号0053材料准入报告追到原词货报告的固定角色包。role为待运行角色声明，不证明Agent本人已读；offset按原分页，缺数据不补零。",
+    inputSchema: { type: "object", properties: {
+      reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      screeningId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      role: { type: "string", enum: ["commerce", "promotion", "market_b2b", "independent_review", "report"] },
+      offset: { type: "integer", minimum: 0, maximum: 9999 },
+    }, required: ["reportId", "runId", "screeningId", "role"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: [MARKET_V2_SURFACE], timeoutMs: 12_000, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessMarketV2BaseToolCandidate(MARKET_V2_BASE_NAMES[0], args, context),
+  },
+  {
+    name: MARKET_V2_BASE_NAMES[1], title: "读取市场v2报告的原生或商品关联分析（候选）",
+    description: "仅复用同账号原词货报告的固定原生/映射表。mode=native须sourceKey，mode=mapped须pairKey；歧义与缺侧保留。role声明不是已读回执。",
+    inputSchema: { type: "object", properties: {
+      reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      screeningId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      role: { type: "string", enum: ["commerce", "promotion", "market_b2b", "independent_review", "report"] },
+      mode: { type: "string", enum: ["native", "mapped"] },
+      dimension: { type: "string", enum: ["shop", "category", "spu", "sku", "keyword", "searchTerm", "daily", "brand"] },
+      sourceKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      baselineKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      pairKey: { type: "string", pattern: "^[a-f0-9]{64}$" },
+      baselinePairKey: { type: "string", pattern: "^[a-f0-9]{64}$" },
+      offset: { type: "integer", minimum: 0, maximum: 250000 },
+    }, required: ["reportId", "runId", "screeningId", "role", "mode", "dimension"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: [MARKET_V2_SURFACE], timeoutMs: 12_000, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessMarketV2BaseToolCandidate(MARKET_V2_BASE_NAMES[1], args, context),
+  },
+  {
+    name: MARKET_V2_BASE_NAMES[2], title: "读取市场v2报告的固定预算（候选）",
+    description: "仅promotion、independent_review、report角色可读原词货报告的固定预算；无预算返回明确不可用，不返回零预算或成功已读。",
+    inputSchema: { type: "object", properties: {
+      reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      runId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      screeningId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      role: { type: "string", enum: ["promotion", "independent_review", "report"] },
+      offset: { type: "integer", minimum: 0, maximum: 99 },
+    }, required: ["reportId", "runId", "screeningId", "role"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: [MARKET_V2_SURFACE], timeoutMs: 12_000, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessMarketV2BaseToolCandidate(MARKET_V2_BASE_NAMES[2], args, context),
+  },
+  {
+    name: MARKET_V2_BASE_NAMES[3], title: "读取市场v2报告的原词货推广SKU视图（候选）",
+    description: "仅promotion、independent_review、report角色可读同账号原词货报告的固定推广来源。页/精确行互斥，词货费用不可相加；不证明本人已读。",
+    inputSchema: { type: "object", properties: {
+      reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      role: { type: "string", enum: ["promotion", "independent_review", "report"] },
+      sourceKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      view: { type: "string", enum: ["keyword_sku", "keyword_sku_context"] },
+      baselineKey: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+      offset: { type: "integer", minimum: 0, maximum: 250000 },
+      limit: { type: "integer", enum: [20] },
+      rowIndex: { type: "integer", minimum: 0, maximum: 249999 },
+      rowId: { type: "string", pattern: "^[a-f0-9]{64}$" },
+    }, required: ["reportId", "role", "sourceKey", "view"], additionalProperties: false },
+    annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: [MARKET_V2_SURFACE], timeoutMs: 12_000, maxResultCharacters: 38_000, maxCallsPerRequest: 8 },
+    handler: (args, context) => readBusinessMarketV2BaseToolCandidate(MARKET_V2_BASE_NAMES[3], args, context),
+  },
+];
+
 /** Separate preview-only entry. The v1 registry and its four-tool digest stay frozen. */
 export const marketV2CandidateTool: AiToolEntry = {
   name: MARKET_V2_TOOL, title: "读取市场v2已证明TOP样本（未登记Agent已读）",
@@ -1356,10 +1427,10 @@ export const marketV2CandidateTool: AiToolEntry = {
     timeoutMs: 12_000, maxResultCharacters: 38_000, maxCallsPerRequest: 8 },
   handler: (args, context) => readBusinessMarketV2ToolCandidate(args, context),
 };
-validateToolRegistry([...aiToolRegistry, marketV2CandidateTool]);
+validateToolRegistry([...aiToolRegistry, ...marketV2BaseTools, marketV2CandidateTool]);
 
 export function getMarketV2EnabledRegistry(enabled = false): readonly AiToolEntry[] {
-  return enabled ? [...aiToolRegistry, marketV2CandidateTool] : aiToolRegistry;
+  return enabled ? [...aiToolRegistry, ...marketV2BaseTools, marketV2CandidateTool] : aiToolRegistry;
 }
 
 export function getToolsForPrincipal(

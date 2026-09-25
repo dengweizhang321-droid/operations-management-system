@@ -156,6 +156,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
             r"promotion-tool-dispatch/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"market-v2-tool-candidate/[A-Za-z0-9_-]{1,160}": {"POST"},
+            r"market-v2-base-tool-candidate/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-dynamics": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-observation": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
@@ -239,6 +240,8 @@ def _dispatch(request, path=""):
         if root == "promotion-tool-dispatch" and request.method == "POST":
             writer = False
         if root == "market-v2-tool-candidate" and request.method == "POST":
+            writer = False
+        if root == "market-v2-base-tool-candidate" and request.method == "POST":
             writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
@@ -326,6 +329,22 @@ def _dispatch(request, path=""):
             return response(market_transport.read(market_contract.SURFACE,
                 market_contract.PROFILE, market_contract.TOOL, claim,
                 selected, principal))
+        if root == "market-v2-base-tool-candidate":
+            from . import business_market_v2_base_tool_candidate as base_tool
+            if getattr(settings, "AI_MARKET_V2_AGENT_RUNTIME_ENABLED", False) is not True:
+                raise AiError("市场v2基础工具别名尚未启用", "conflict", 409)
+            current_principal(principal, admin=True)
+            fields(params, set())
+            fields(payload, {"name", "arguments", "providerCallId"},
+                {"name", "arguments", "providerCallId"})
+            if (request_id != parts[1] or type(payload["providerCallId"]) is not str
+                    or not 1 <= len(payload["providerCallId"]) <= 160
+                    or any(ord(char) < 32 for char in payload["providerCallId"])):
+                raise AiError("市场v2基础工具签名候选身份无效", "access_denied", 403)
+            if type(payload["name"]) is not str or payload["name"] not in base_tool.NAMES:
+                raise AiError("市场v2基础工具别名不属于独立目录", "invalid_request", 400)
+            return response(base_tool.read(payload["name"], payload["arguments"],
+                principal))
         if root == "business-plan":
             from .business_planning import preview
             fields(params, set())
