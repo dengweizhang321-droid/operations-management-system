@@ -6,4 +6,4 @@
 
 0064 精确版本化 0044 workflow guard 的新 profile 插入例外，保留原函数 OID/ACL/owner；专用报告/流程/六类子表守卫拒普通 writer、非隔离数据库、更新/删除或从旧 profile 改挂。旧 v1、0044/45/53/60/61/62 记录及权限不改。合成结果包含 `persistedRead=false`、`numericCitationAllowed=false`，旧 0062 attestor 对它仍拒绝；人审和工程文件没有解锁。**这是持久链机制的隔离验证，不是付费模型分析结果。**
 
-生产可运行版本仍须单独的模型选择与版本化价格/费用预留、用户授权及逐次 provider 调用前许可；新 profile 的真实工具输出要经拥有方重算和同 job/provider 回执，再建立独立数值单元格证明，并验证人审与 renderer。测试目标 `ai_assistant.test_business_market_v2_active_synthetic_contract` 和隔离 PG `ai_assistant.test_business_market_v2_active_synthetic`；未调用付费模型或部署生产。
+生产可运行版本仍须单独的模型选择与版本化价格/费用预留、用户授权及逐次 provider 调用前许可；新 profile 的真实工具输出要经拥有方重算和同 job/provider 回执，再建立独立数值单元格证明，并验证人审与 renderer。测试目标 `ai_assistant.test_business_market_v2_active_synthetic_contract` 和隔离 PG `ai_assistant.test_business_market_v2_active_synthetic`。升级门禁 `tools/ai-postgres-rehearsal.py --business-market-v2-synthetic-upgrade --upgrade-only` 从 0063 已验种子冻结旧 84 表、历史文件与函数，检查 0044 精确版本变化、新守卫/角色及前后独立备份恢复和空回退重装；合成持久链只由独立 PG 目标验证。未调用付费模型或部署生产。
