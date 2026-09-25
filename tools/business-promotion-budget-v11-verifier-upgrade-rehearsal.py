@@ -153,19 +153,35 @@ def privilege_matrix(db):
 
 
 def table_acl_catalog(db):
-    tables = db.execute("SELECT c.relname,c.relacl::text FROM pg_catalog.pg_class c "
+    # Independent restore may materialize an implicit owner-default ACL.
+    # Compare effective grants and grant options instead of nullable storage.
+    tables = db.execute("SELECT c.relname,"
+        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
+        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
+        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
+        "grant_item.privilege_type,grant_item.is_grantable "
+        "FROM pg_catalog.pg_class c "
         "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,"
+        "pg_catalog.acldefault('r',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) ORDER BY c.relname",
         [list(OLD_TABLES)]).fetchall()
-    columns = db.execute("SELECT c.relname,a.attname,a.attacl::text "
+    columns = db.execute("SELECT c.relname,a.attname,"
+        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
+        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
+        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
+        "grant_item.privilege_type,grant_item.is_grantable "
         "FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c "
         "ON c.oid=a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(a.attacl,"
+        "pg_catalog.acldefault('c',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) "
         "AND a.attnum>0 AND NOT a.attisdropped "
-        "ORDER BY c.relname,a.attnum", [list(OLD_TABLES)]).fetchall()
-    if len(tables) != 86:
+        "ORDER BY c.relname,a.attnum,grant_item.grantee,"
+        "grant_item.privilege_type,grant_item.grantor", [list(OLD_TABLES)]).fetchall()
+    if len({row[0] for row in tables}) != 86:
         raise AssertionError("0068 old AI table ACL inventory incomplete")
-    return tables, columns
+    return sorted(tables), columns
 
 
 def constraint_versions(db):
