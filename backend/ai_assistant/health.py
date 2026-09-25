@@ -349,7 +349,7 @@ def check():
         _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,
                                             publish_gate_enabled=True)
         from importlib import import_module
-        import_module("ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
