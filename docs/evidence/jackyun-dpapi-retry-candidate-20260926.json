@@ -41,5 +41,13 @@
     "historical4299Proposal": "E:\\TERUISI-candidate-artifacts\\jackyun-dpapi-retry-20260926\\jackyun-4299-closure-proposal.json",
     "DDriveFreeBytesAfterCleanupApproximate": 2176520192
   },
+  "spaceProposal": {
+    "action": "Move 25 older D-drive PostgreSQL backup directories dated 2026-09-12 through 2026-09-16 to a separate E-drive archive, retaining originals as files rather than deleting them",
+    "directoriesVerified": 25,
+    "filesVerified": 75,
+    "bytesVerified": 17107399743,
+    "comparison": "Every corresponding file in E:\\运营管理系统业务数据 has the same name, length and SHA-256; source names saved in verified-old-backup-candidates.json and verified-old-backup-candidates-extra.json under E:\\TERUISI-candidate-artifacts\\jackyun-dpapi-retry-20260926",
+    "moved": false
+  },
   "notDone": ["Worker/helper release activation", "n8n shared error workflow publication", "4299 closure write", "full n8n business run", "five-batch independent import verification"]
 }
