@@ -212,12 +212,10 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                         self.parent.state_json)["sealedDigest"],
                     seal.body_digest])
                 issued = True
-                db.execute("INSERT INTO public.ai_report_runs "
-                    "(id,owner_email,scope_json,client_request_id,"
-                    "request_digest,workflow_id,budget_plan_id,snapshot_json,"
-                    "created_at) VALUES (%s,%s,%s,%s,%s,%s,NULL,%s,%s)",
-                    [report_id,self.admin.email,"null",report_id,
-                     digest(snapshot),flow.id,canonical(snapshot),timezone.now()])
+                db.execute("SELECT " + link.CREATE_REPORT.split("(",1)[0] +
+                    "(%s,%s,%s,%s,%s,%s)",
+                    [report_id,self.admin.email,report_id,
+                     digest(snapshot),flow.id,canonical(snapshot)])
                 db.execute("COMMIT")
             except Exception as error:
                 db.execute("ROLLBACK")
@@ -300,6 +298,9 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                 self.assertEqual(cursor.fetchone(), (0,))
         with self.database() as db:
             db.execute("SET SESSION AUTHORIZATION teruisi_ai_writer")
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                db.execute("INSERT INTO public.ai_report_runs (id) "
+                    "VALUES ('forbidden-direct-report')")
             with self.assertRaises(psycopg.Error):
                 db.execute("SELECT " + link.ISSUE.split("(",1)[0] +
                     "(%s,%s,%s,%s,%s,%s)", [report.id, "missing-v4",

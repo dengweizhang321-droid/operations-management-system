@@ -176,7 +176,7 @@ def verify_old(db):
     for table in (link.INTENTS, link.LINKS):
         if db.execute("SELECT to_regclass(%s)", [table]).fetchone()[0]:
             raise AssertionError("0071 table exists before upgrade/after reverse")
-    for signature in (link.BINDINGS, link.ISSUE, link.READ,
+    for signature in (link.BINDINGS, link.ISSUE, link.CREATE_REPORT, link.READ,
             "public.ai_v4_report_link_row_guard()",
             "public.ai_v4_report_link_after_insert()"):
         if db.execute("SELECT to_regprocedure(%s)", [signature]).fetchone()[0]:
@@ -203,7 +203,8 @@ def verify_new(db, before, after, *, restored_db=False):
         raise AssertionError("0071 changed old trigger identity")
     if set(after[2])-set(before[2]) != {db.execute(
             "SELECT to_regprocedure(%s)::text", [signature]).fetchone()[0]
-            for signature in (link.BINDINGS, link.ISSUE, link.READ,
+            for signature in (link.BINDINGS, link.ISSUE,
+                link.CREATE_REPORT, link.READ,
                 "public.ai_v4_report_link_row_guard()",
                 "public.ai_v4_report_link_after_insert()") }:
         raise AssertionError("0071 unexpected function inventory")

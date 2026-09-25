@@ -26,6 +26,8 @@
 
 0071 隔离候选实现采用更严格的**同事务意图**：`ai_v4_issue_report_link_intent` 仅由 AI writer 在将创建报告的事务中调用，意图表的 `report_id` 使用延期外键，独立提交没有报告会失败；已存在报告不能签发意图。`ai_report_runs` 的 AFTER INSERT 触发器仅在同一个 `txid_current()` 找到意图时，核真实 v2 封存、v4 封存、当前来源修订、同店三期原始日期、分析请求及报告快照，再写只追加 `protected_business_v4_report_source_links`。没有调用方注册，因此迁移后两个表应为空、普通报告创建行为不变。受限 AI reader 函数仅返回身份候选，`appHmacVerified`、`authorityVerified`、Agent、renderer、下载均为 false。应用 HMAC 的 `verify_seal` 和当前 SQL 回执未来必须同时复核，不能凭 SQL 里的64位摘要单独授权。
 
+受限 AI writer 没有也不应获得 `ai_report_runs` 的直接 `INSERT`。0071 增加 `ai_v4_create_report_from_link_intent` 窄 `SECURITY DEFINER` 函数：仅在当前事务已签精确意图、账号及工作流一致、当前 AI 写入 authority epoch/cutover 匹配且快照为固定 integrated-v2 无预算协议时写入报告；原报告全部 BEFORE/AFTER 守卫继续执行，`session_user` 仍是 writer。直接表插入继续拒绝；普通报告创建路径与表级 ACL 不改。隔离 PG 目标要求正例通过此函数，错店/错日期在 0071 报告身份守卫失败，并证明直接 INSERT 被数据库拒绝。
+
 两张 SQL-only 表统一使用 `protected_business_v4_report_*` 前缀：正式备份器只把 `ai_` 前缀表与 ORM `AI_TABLES=89` 做精确目录比较；`pg_dump --format=custom` 未限定表也未排除表，仍会把这两张受保护表写入全库备份。AI 健康检查另调用 `0071.verify_catalog`，核其列/触发器/函数/ACL，不把它们混入 ORM 清单。隔离 PG 同事务正例使用明确标注的**合成 SQL 身份向量**（测试内跳过 v4 页/HMAC 守卫，只验证0071原子绑定），并要求读回 `appHmacVerified=false`；跨店、错日期和旧报告回填负例均须拒绝。此正例不能替代真实 v4 封存或客户数据测试。
 
 实际迁移文件为 `0071_business_v4_report_source_link.py`，依赖 0070 两张票据表；隔离 PG 目标用例覆盖旧报告无法补绑、reader 无直接表读、默认空表。`tools/business-v4-report-link-upgrade-rehearsal.py`要求原 0069→0070 双备份恢复回执，再做 SQL 全物理清单 91→93 张、正式 ORM `AI_TABLES` 保持89张并等于 `database_contract.MODELS`、旧函数 OID/正文/ACL、renderer 1—7 文件字节、前后独立恢复及空逆迁移重装。PG 目标与升级脚本尚待主整合任务串行执行；若任何 SQL 语义/权限门禁不通过，本候选不得被视为完成或可采用。

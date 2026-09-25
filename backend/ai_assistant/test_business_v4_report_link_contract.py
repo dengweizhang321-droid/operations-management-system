@@ -57,6 +57,16 @@ class V4ReportLinkContractTests(TestCase):
         self.assertNotIn("'authorityVerified',true", link.READ_SQL)
         self.assertIn("session_user IS DISTINCT FROM 'teruisi_ai_writer'",
             link.ISSUE_SQL)
+        self.assertIn("session_user IS DISTINCT FROM 'teruisi_ai_writer'",
+            link.CREATE_REPORT_SQL)
+        self.assertIn("intent.issued_txid IS DISTINCT FROM txid_current()",
+            link.CREATE_REPORT_SQL)
+        self.assertIn("a.authority_epoch::text=current_setting(",
+            link.CREATE_REPORT_SQL)
+        self.assertIn("workflow_id,budget_plan_id,snapshot_json,created_at)",
+            link.CREATE_REPORT_SQL)
+        self.assertIn("flow.id,NULL,snapshot_text,clock_timestamp()",
+            link.CREATE_REPORT_SQL)
         self.assertIn("session_user IS DISTINCT FROM 'teruisi_ai_reader'",
             link.READ_SQL)
         self.assertIn("IF TG_OP IS DISTINCT FROM 'INSERT'", link.ROW_GUARD)
