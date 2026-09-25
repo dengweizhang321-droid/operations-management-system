@@ -82,8 +82,15 @@ def _compatible(current, baseline):
             and {k: v for k, v in a.items() if k not in ignored} == {k: v for k, v in b.items() if k not in ignored})
 
 
-def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None, offset=0, limit=None):
-    from .partitioned import MAX_RESULT_GROUPS, PartitionedGroups
+def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_expected=None,
+                offset=0, limit=None, checkpoint=None):
+    from .partitioned import MAX_RESULT_GROUPS, PartitionedGroups, Checkpoint
+    check = Checkpoint.wrap(checkpoint)
+    def checked_pages(source, side):
+        for index, page in enumerate(source):
+            if check is not None:
+                check({"stage": "native_source_page", "side": side, "page": index})
+            yield page
     if not isinstance(dimension, str) or dimension not in VIEWS:
         raise AnalysisContractError("分析表维度无效")
     if type(offset) is not int or not 0 <= offset <= MAX_RESULT_GROUPS or (limit is not None and (type(limit) is not int or not 1 <= limit <= 100)):
@@ -91,23 +98,25 @@ def build_table(pages, dimension, expected, *, baseline_pages=None, baseline_exp
     if baseline_pages is not None and dimension == "daily":
         raise AnalysisContractError("日表不得按日期字符串直接比较不同期间")
     if limit is not None:
-        with PartitionedGroups() as store:
-            header, _ = _group(pages, dimension, expected, store=store)
+        with PartitionedGroups(checkpoint=check) as store:
+            header, _ = _group(checked_pages(pages, 0), dimension, expected, store=store)
             previous_header = None
             if baseline_pages is not None:
-                previous_header, _ = _group(baseline_pages, dimension, baseline_expected, store=store, side=1)
+                previous_header, _ = _group(checked_pages(baseline_pages, 1),
+                    dimension, baseline_expected, store=store, side=1)
                 if not _compatible(header, previous_header):
                     raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
             total, pairs = store.page(offset, limit)
         return _assemble(header, previous_header, dimension, expected, baseline_expected, pairs, total, offset)
     if offset:
         raise AnalysisContractError("分页偏移须指定页长")
-    header, current = _group(pages, dimension, expected)
+    header, current = _group(checked_pages(pages, 0), dimension, expected)
     baseline, previous_header = [], None
     if baseline_pages is not None:
         if dimension == "daily":
             raise AnalysisContractError("日表不得按日期字符串直接比较不同期间")
-        previous_header, baseline = _group(baseline_pages, dimension, baseline_expected)
+        previous_header, baseline = _group(checked_pages(baseline_pages, 1),
+            dimension, baseline_expected)
         if not _compatible(header, previous_header):
             raise AnalysisContractError("比较来源、身份、口径或日期窗口不一致")
     indexed = [{canonical(item["entity"]): item for item in rows} for rows in (current, baseline)]

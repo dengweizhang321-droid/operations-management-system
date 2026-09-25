@@ -174,6 +174,8 @@ def read(name, args, principal, *, checkpoint=None, clock=time.monotonic):
     def deadline():
         _need(0 <= (clock()-started)*1000 < LIMIT_MS,
             "市场v2基础工具超过12秒边界，整次拒绝", code="timeout", status=504)
+    def checkpoint(_event):
+        deadline()
     deadline()
     report_id = identifier(args["reportId"], "reportId")
     source, source_snapshot, source_reference, claim, guard = _identity(
@@ -188,7 +190,8 @@ def read(name, args, principal, *, checkpoint=None, clock=time.monotonic):
     elif operation == "keyword":
         params = {key: str(value) if type(value) is int else value
             for key,value in args.items() if key not in {"reportId", "role"}}
-        payload = keyword_reader.read(source_id, params, principal)
+        payload = keyword_reader.read(source_id, params, principal,
+            checkpoint=checkpoint)
         status = "available"
     else:
         params = {key: value
@@ -205,7 +208,8 @@ def read(name, args, principal, *, checkpoint=None, clock=time.monotonic):
                 principal)
             payload = promotion_reader._analysis({**params,
                 "reportId": source_id, "offset": offset}, source,
-                source_snapshot, source_reference, evidence, principal)
+                source_snapshot, source_reference, evidence, principal,
+                checkpoint=checkpoint)
         status = "available"
     deadline()
     _need(_identity(report_id, principal)[-1] == guard,

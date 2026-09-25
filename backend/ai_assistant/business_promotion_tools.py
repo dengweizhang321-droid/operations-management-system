@@ -97,7 +97,7 @@ def _number(value, maximum):
     return value
 
 
-def _analysis(params, report, snapshot, reference, evidence, principal):
+def _analysis(params, report, snapshot, reference, evidence, principal, *, checkpoint=None):
     fields(params, {"runId", "reportId", "screeningId", "mode", "dimension", "offset",
         "sourceKey", "baselineKey", "pairKey", "baselinePairKey"},
         {"runId", "reportId", "screeningId", "mode", "dimension"})
@@ -126,8 +126,10 @@ def _analysis(params, report, snapshot, reference, evidence, principal):
         info = reader.info(key)["expected"]
         before_info = reader.info(baseline)["expected"] if baseline is not None else None
         try:
-            table = build_table(reader.pages(key), dimension, info, offset=offset, limit=20,
-                **({"baseline_pages":reader.pages(baseline), "baseline_expected":before_info} if baseline else {}))
+            table = build_table(reader.pages(key, checkpoint=checkpoint), dimension,
+                info, offset=offset, limit=20, checkpoint=checkpoint,
+                **({"baseline_pages":reader.pages(baseline, checkpoint=checkpoint),
+                    "baseline_expected":before_info} if baseline else {}))
         except AnalysisContractError as error:
             raise AiError("固定分析表未通过完整来源核验", "conflict", 409) from error
         selector = {key:params[key] for key in ("sourceKey", "baselineKey", "dimension") if key in params}
@@ -146,7 +148,7 @@ def _analysis(params, report, snapshot, reference, evidence, principal):
             _reject("商品关联选择不在固定报告中", "access_denied", 403)
         with business_mapped_analysis.table(evidence.id, snapshot["mappingPlan"],
                 params["pairKey"], dimension, principal,
-                baseline_pair_key=params.get("baselinePairKey")) as opened:
+                baseline_pair_key=params.get("baselinePairKey"), checkpoint=checkpoint) as opened:
             table = opened.page(offset=offset, limit=20)
     else:
         _reject("分析模式无效", "invalid_request", 400)

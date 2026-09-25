@@ -69,6 +69,26 @@ class PartitionedTableTests(TestCase):
         self.assertTrue(paths)
         self.assertTrue(all(not path.exists() for path in paths))
 
+    def test_paged_analysis_cancellation_preserves_error_and_removes_scratch(self):
+        page, _ = fixture(rows=[(f"词{i:03d}", i, 1, 100) for i in range(6)])
+        expected = proof_for(page)
+        paths = []
+        original = PartitionedGroups.__enter__
+        cancelled = TimeoutError("source page deadline")
+        def capture(store):
+            opened = original(store)
+            paths.append(Path(store.directory.name))
+            return opened
+        def checkpoint(event):
+            if event.get("stage") == "native_source_page" and event["page"] == 2:
+                raise cancelled
+        with patch.object(PartitionedGroups, "__enter__", capture):
+            with self.assertRaises(TimeoutError) as raised:
+                build_table(paged(page, size=1), "keyword", expected,
+                    limit=1, checkpoint=checkpoint)
+        self.assertIs(raised.exception, cancelled)
+        self.assertTrue(paths and all(not path.exists() for path in paths))
+
     def test_partial_page_rollback_overflow_and_capacity(self):
         record = {"platform": "京东", "shopName": "A", "skuId": "1", "metrics": {"value": MAX_SAFE_INTEGER}}
         with PartitionedGroups() as store:
