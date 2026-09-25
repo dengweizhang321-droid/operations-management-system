@@ -42,10 +42,18 @@ def _old_functions(cursor):
 
 def _role(cursor, name):
     cursor.execute("SELECT to_regrole(%s)", [name])
-    if cursor.fetchone()[0] is not None:
-        raise RuntimeError("0070 dedicated role already exists")
-    cursor.execute("CREATE ROLE " + name + " NOLOGIN NOINHERIT NOSUPERUSER "
-        "NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS")
+    if cursor.fetchone()[0] is None:
+        cursor.execute("CREATE ROLE " + name + " NOLOGIN NOINHERIT NOSUPERUSER "
+            "NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS")
+    cursor.execute("SELECT rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
+        "rolcreaterole,rolreplication,rolbypassrls,rolpassword IS NULL "
+        "FROM pg_catalog.pg_authid WHERE rolname=%s", [name])
+    if cursor.fetchone() != (False,) * 7 + (True,):
+        raise RuntimeError("0070 dedicated role widened or has credentials")
+    cursor.execute("SELECT count(*) FROM pg_catalog.pg_auth_members WHERE "
+        "roleid=%s::regrole OR member=%s::regrole", [name, name])
+    if cursor.fetchone() != (0,):
+        raise RuntimeError("0070 dedicated role has members")
     cursor.execute("GRANT USAGE ON SCHEMA public TO " + name)
 
 
@@ -139,7 +147,8 @@ def uninstall(apps, schema_editor):
         cursor.execute("DROP TABLE " + v2.TABLE)
         for name in reversed(v2.ROLES):
             cursor.execute("REVOKE USAGE ON SCHEMA public FROM " + name)
-            cursor.execute("DROP ROLE " + name)
+        # Roles are cluster-global. Independent restored databases may still
+        # hold their grants, so keep empty NOLOGIN names as an audit record.
 
 
 def verify_catalog(cursor):

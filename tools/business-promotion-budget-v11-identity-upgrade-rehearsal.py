@@ -305,7 +305,10 @@ MigrationExecutor(connection).migrate(OLD)
 with connect() as db:
     verify_old(db)
     reversed_state = snapshot(db)
-    if reversed_state != before:
+    retained_roles = {(role, *(False,) * 7) for role in identity.ROLES}
+    if (reversed_state[:4] != before[:4] or
+            set(reversed_state[4]) != set(before[4]) | retained_roles or
+            reversed_state[5:] != before[5:]):
         raise AssertionError("0070 empty reverse changed old schema/data")
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
@@ -327,6 +330,7 @@ result = {"upgrade": "0069->0070", "oldAiTables": 89,
     "providerCallsAllowed": False,
     "realRoleTest": "ai_assistant.test_business_promotion_budget_v11_identity_candidate",
     "beforeBackupRestored": True, "afterBackupRestored": True,
+    "emptyReverseRetainsNoLoginRoleNames": True,
     "emptyReverseAndReapply": True, "productionWrites": False}
 (folder / "business-promotion-budget-v11-identity-upgrade-evidence.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

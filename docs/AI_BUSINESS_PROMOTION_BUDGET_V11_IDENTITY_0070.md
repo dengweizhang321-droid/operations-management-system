@@ -11,3 +11,4 @@
 **剩余硬阻断**：`preflight.prepare` 仍经默认 Django ORM 读取管理员、报告、五 Agent、人审、预算、卷块和来源；`sign_after_preflight` 仍 ORM 直读 0067 表。单张证明票据不能提供同票据的多表/逐块有界只读流，旧 0067 ATTEST 也仍要求原 NOLOGIN 身份。无法从本切片推断独立 signer 或 attestor 可完成全链。票据签发/领取丢回复无只读 OUTCOME，不能重放；0068 验签未锁 key，不能用于 0069 原子发布。v11 `ready`、下载、模型与 Office 均保持关闭。
 
 显式隔离演练入口 `python tools/ai-postgres-rehearsal.py --business-promotion-budget-v11-identity-upgrade --upgrade-only --port <隔离端口>` 必须先重放并独立恢复 0065→0069 的每段前驱，再从精确 0069 种子冻结旧 89 张 AI 表、旧 renderer 1–11 已存在的文件行/分块字节、全部旧 AI 函数 OID/正文/ACL/owner、角色成员和表列权限；验证仅新增两张非业务票据表/索引/触发器、四个函数、三个 NOLOGIN 角色，且票据为空。前后全库备份分别恢复到新库、空票据逆迁移与重新安装后再比较。隔离真实角色目标：`ai_assistant.test_business_promotion_budget_v11_identity_candidate.BudgetV11IdentityCandidateRoleTests.test_non_superuser_exact_ticket_read_and_receipt_verify_only`，要求预置 AI runtime reader/writer 角色。主整合任务串行运行 PostgreSQL，未通过前不能声明验收。
+空票据逆迁移撤销三个角色在当前库的 USAGE 与函数权限，保留不可登录、无密码、无成员的角色名作为集群级审计痕迹；独立恢复库可能仍引用这些全局角色，不能为清理而级联删除。重新安装须复核角色属性后复用。

@@ -38,6 +38,7 @@ class BudgetV11IdentityCandidateStaticTests(TestCase):
         self.assertNotIn("PASSWORD", candidate.ISSUE_SQL + candidate.READ_SQL +
             candidate.verify_sql())
         self.assertNotIn("LOGIN PASSWORD", getsource(migration.install))
+        self.assertNotIn("DROP ROLE", getsource(migration.uninstall))
         self.assertNotIn("UPDATE public.ai_business_file_runs",
             getsource(migration.install)+candidate.READ_SQL+candidate.ISSUE_SQL)
 
