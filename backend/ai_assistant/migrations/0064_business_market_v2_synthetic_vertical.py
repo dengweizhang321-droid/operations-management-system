@@ -85,6 +85,15 @@ BEGIN
        '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]'
      OR NEW.provider_round_count IS DISTINCT FROM 1
      OR NEW.tool_call_count IS DISTINCT FROM 1
+     OR NEW.version IS DISTINCT FROM 1
+     OR NEW.mutation_token IS DISTINCT FROM ''
+     OR NEW.cancel_requested IS DISTINCT FROM 0
+     OR NEW.retryable IS DISTINCT FROM 0
+     OR NEW.resume_count IS DISTINCT FROM 0
+     OR NEW.attempt_count IS DISTINCT FROM 0
+     OR NEW.lease_token IS DISTINCT FROM ''
+     OR NEW.lease_epoch IS DISTINCT FROM 0
+     OR NEW.error_message IS DISTINCT FROM ''
      OR NEW.output_json IS NOT NULL OR NEW.current_node_key IS NOT NULL
      OR NEW.started_at IS NOT NULL OR NEW.completed_at IS NOT NULL
   THEN RAISE EXCEPTION 'ai_market_v2_synthetic_flow_invalid'; END IF;
@@ -262,24 +271,31 @@ BEGIN
   plan_digest:=plan.plan_digest;
   INSERT INTO public.ai_workflow_runs(id,owner_email,client_request_id,
     request_digest,scope_json,name,graph_json,graph_digest,input_json,
-    dry_run,model_id,model_version,allowed_tools_json,tool_policy_digest,
-    provider_round_count,tool_call_count,status,error_code,retryable)
+    model_id,model_version,allowed_tools_json,tool_policy_digest,
+    provider_round_count,tool_call_count,dry_run,status,version,
+    mutation_token,cancel_requested,retryable,resume_count,attempt_count,
+    lease_token,lease_epoch,next_run_at,error_code,error_message,
+    created_at,updated_at)
   VALUES(flow_id,report.owner_email,flow_id,plan_digest,'null',
     '市场v2合成五Agent持久链（无模型）',source_flow.graph_json,
     source_flow.graph_digest,public.ai_v4_replay_canonical(input_value),
-    1,'market-v2-synthetic-only',1,
+    'market-v2-synthetic-only',1,
     '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]',
-    source_flow.tool_policy_digest,1,1,'paused',
-    'market_v2_synthetic_no_provider_permission',0);
+    source_flow.tool_policy_digest,1,1,1,'paused',1,
+    '',0,0,0,0,'',0,clock_timestamp(),
+    'market_v2_synthetic_no_provider_permission','',
+    clock_timestamp(),clock_timestamp());
   INSERT INTO public.ai_report_runs(id,owner_email,client_request_id,
-    request_digest,scope_json,workflow_id,budget_plan_id,snapshot_json)
+    request_digest,scope_json,workflow_id,budget_plan_id,snapshot_json,created_at)
   VALUES(report_id,report.owner_email,report_id,plan_digest,'null',flow_id,
-    NULL,public.ai_v4_replay_canonical(snapshot));
+    NULL,public.ai_v4_replay_canonical(snapshot),clock_timestamp());
   INSERT INTO public.ai_agent_jobs(id,owner_email,client_request_id,
     request_digest,scope_json,task,input_json,state_json,model_id,
     model_version,allowed_tools_json,tool_policy_digest,
-    provider_round_count,tool_call_count,status,phase,lease_epoch,
-    workflow_run_id,workflow_node_key)
+    provider_round_count,tool_call_count,status,phase,step_index,version,
+    mutation_token,cancel_requested,retryable,resume_count,attempt_count,
+    lease_token,lease_epoch,next_run_at,workflow_run_id,workflow_node_key,
+    error_code,error_message,created_at,updated_at)
   VALUES(job_id,report.owner_email,job_id,plan_digest,'null',
     'synthetic-only-no-network',
     public.ai_v4_replay_canonical(jsonb_build_object('syntheticOnly',true,
@@ -288,17 +304,21 @@ BEGIN
       'numericCitationAllowed',false)),
     'market-v2-synthetic-only',1,
     '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]',
-    source_flow.tool_policy_digest,1,1,'paused','paused',1,
-    flow_id,'market_b2b');
+    source_flow.tool_policy_digest,1,1,'paused','paused',0,1,
+    '',0,0,0,0,'',1,clock_timestamp(),flow_id,'market_b2b',
+    '','',clock_timestamp(),clock_timestamp());
   graph:=source_flow.graph_json::jsonb;
   FOR item IN SELECT jsonb_array_elements(graph->'nodes') LOOP
     node_id:='market-synth-node-'||substr(encode(sha256(convert_to(
       plan.id||'|'||item->>'key','UTF8')),'hex'),1,48);
     INSERT INTO public.ai_workflow_node_runs(id,run_id,node_key,position,
-      node_type,depends_on_json,instruction,status,agent_job_id)
+      node_type,depends_on_json,instruction,input_json,status,version,
+      mutation_token,agent_job_id,error_code,error_message,created_at,updated_at)
     VALUES(node_id,flow_id,item->>'key',position_value,item->>'type',
       public.ai_v4_replay_canonical(item->'dependsOn'),item->>'instruction',
-      'pending',CASE WHEN item->>'key'='market_b2b' THEN job_id ELSE NULL END);
+      '{}','pending',1,'',
+      CASE WHEN item->>'key'='market_b2b' THEN job_id ELSE NULL END,
+      '','',clock_timestamp(),clock_timestamp());
     position_value:=position_value+1;
   END LOOP;
   IF position_value<>6 THEN RAISE EXCEPTION 'ai_market_v2_synthetic_graph_invalid'; END IF;
@@ -316,27 +336,31 @@ BEGIN
   result_text:=public.ai_v4_replay_canonical(result_body);
   INSERT INTO public.ai_agent_provider_dispatches(id,job_id,dispatch_ordinal,
     owner_email,actor_role,model_id,model_version,tool_policy_digest,
-    request_digest,state,lease_epoch)
+    request_digest,state,lease_epoch,reserved_at,provider_called_at,
+    error_code,error_message,completed_at)
   VALUES(provider_id,job_id,1,report.owner_email,'admin',
     'market-v2-synthetic-only',1,source_flow.tool_policy_digest,
-    plan_digest,'succeeded',1);
+    plan_digest,'succeeded',1,clock_timestamp(),clock_timestamp(),
+    '','',clock_timestamp());
   INSERT INTO public.ai_agent_provider_results(dispatch_id,response_json,
-    response_digest,usage_json,provider_request_id)
+    response_digest,usage_json,provider_request_id,completed_at)
   VALUES(provider_id,response_text,
     encode(sha256(convert_to(response_text,'UTF8')),'hex'),
     '{"syntheticOnly":true,"paidCostCents":0}',
-    'synthetic-no-network');
+    'synthetic-no-network',clock_timestamp());
   INSERT INTO public.ai_agent_tool_dispatches(id,job_id,
     provider_dispatch_id,tool_call_ordinal,provider_call_id,tool_name,
-    arguments_json,arguments_digest,invocation_id,state,lease_epoch)
+    arguments_json,arguments_digest,invocation_id,state,lease_epoch,
+    reserved_at,tool_called_at,error_code,error_message,completed_at)
   VALUES(tool_id,job_id,provider_id,1,'synthetic-call-1',
     'get_business_promotion_market_v2',args_text,
     encode(sha256(convert_to(args_text,'UTF8')),'hex'),
-    'synthetic-no-network','succeeded',1);
+    'synthetic-no-network','succeeded',1,
+    clock_timestamp(),clock_timestamp(),'','',clock_timestamp());
   INSERT INTO public.ai_agent_tool_results(tool_dispatch_id,result_json,
-    result_digest)
+    result_digest,completed_at)
   VALUES(tool_id,result_text,
-    encode(sha256(convert_to(result_text,'UTF8')),'hex'));
+    encode(sha256(convert_to(result_text,'UTF8')),'hex'),clock_timestamp());
   RETURN jsonb_build_object('reportId',report_id,'workflowId',flow_id,
     'jobId',job_id,'providerDispatchId',provider_id,
     'toolDispatchId',tool_id,'syntheticOnly',true,
