@@ -8,4 +8,4 @@
 
 隔离验收须跑有预算 v10 的真实 reader 角色逐卷重组、默认关闭、错误角色、假分片、第一次回执后管理员撤权和读取中栅栏变化，以及 Node 正反向组卷与 Blob 不释放测试；v9 既有下载回归和签名转发测试必须不变。当前实现不做原生 Excel 公式重算或真实 30 天规模验收；Office 许可、真实固定预算审批与 v2 来源容量仍是正式交付的独立门槛。
 
-整合验证：新旧下载及签名转发 Node 72 项、变更文件 ESLint、本地 `npm run build` 通过；隔离 PostgreSQL 真实 reader 三项 `.runtime/ai-pg-7ca6e4df73da/tests.log`（215.198 秒）和旧 v9 五项 `.runtime/ai-pg-c35005cfb105/tests.log`（514.994 秒）通过。首轮 v10 测试两项因隔离角色只预创建而未执行正式 `database_contract.provision`，缺已有的账号/文件/分片 SELECT 授权；测试夹具补正式精确授权后重测通过，并断言 reader 对 0057 证明表仍无 SELECT。生产代码未因该夹具失败扩大权限。新增撤权与最终身份负例待整合复测。
+整合验证：新旧下载及签名转发 Node 75 项、变更文件 ESLint、本地首次 `npm run build` 通过；隔离 PostgreSQL 真实 reader 原三项 `.runtime/ai-pg-7ca6e4df73da/tests.log`（215.198 秒）、补管理员撤权后的四项 `.runtime/ai-pg-d53ae87c80da/tests.log`（331.362 秒）和旧 v9 五项 `.runtime/ai-pg-c35005cfb105/tests.log`（514.994 秒）通过。首轮 v10 测试两项因隔离角色只预创建而未执行正式 `database_contract.provision`，缺已有的账号/文件/分片 SELECT 授权；测试夹具补正式精确授权后重测通过，并断言 reader 对 0057 证明表仍无 SELECT。生产代码未因该夹具失败扩大权限。新增客户端负例验证账号中途切换及最终发布/拥有方摘要改变均无 Blob；追加代码后的构建仍须复核。

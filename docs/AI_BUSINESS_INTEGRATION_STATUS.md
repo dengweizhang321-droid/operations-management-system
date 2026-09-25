@@ -58,7 +58,9 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 [市场 v2 同 surface 五工具预览目录](AI_BUSINESS_MARKET_V2_FIVE_TOOL_CATALOG.md)已合入：四个新别名复用正式已发布角色包、推广拥有方分析/预算/词货路径，第五项保持原有界市场候选；双端开关默认关闭，旧v1目录不变。首轮真实PG揭出旧screening-profile reader误接原推广报告，修复后隔离reader角色3项 `.runtime/ai-pg-759ad2f0271c/tests.log` 和未发布包精确拒绝1项 `.runtime/ai-pg-81e89178091e/tests.log` 通过；新目录/第五工具Node8、旧v1目录/工具Node16、Django路由2、ESLint与本地构建通过。仍 `persistedRead=false`，无Agent job/provider本人已读、真实规模12秒或执行profile。当前[交接清单](AI_BUSINESS_HANDOFF_MARKET_V2_FIVE_TOOLS_20260925.md)列出下一阶段。
 
-[v4 推广页容量测量候选](AI_BUSINESS_V4_PROMOTION_PAGE_CAPACITY_CANDIDATE.md)逐页核规范原字节、行宽/页包络、控制与日期/游标，再用既有 v4 上限复算；低估实际页/字节明确不支持。纯相关9项通过，但输出始终不授来源、签名审计、封存或文件权限；575,095 历史行只作风险估计，当前拥有方三期页和180/600秒真实测量未完成。[预算 v10 默认关闭分卷下载候选](AI_BUSINESS_PROMOTION_BUDGET_V10_DOWNLOAD_CANDIDATE.md)逐片前后核0059窄回执、文件身份、字节和SHA，客户端复核整卷及最终账号；新旧Node72、真实reader PG3、旧v9 PG5、ESLint和构建通过。首轮PG夹具缺既有reader角色GRANT，补正式provision后通过，生产权限未扩大。页面仍不开放v10下载，真实预算/Office/规模未验。
+[v4 推广页容量测量候选](AI_BUSINESS_V4_PROMOTION_PAGE_CAPACITY_CANDIDATE.md)逐页核规范原字节、行宽/页包络、控制与日期/游标，再用既有 v4 上限作诊断复算。独立对抗审查发现低估可被丢失、游标自证及行/控制字段过宽；修成 v2 后 `v4Measurement=null`、`capacityPlanMeasurementAvailable=false`，不能直接喂计划，相关纯10项通过。[默认关闭的拥有方容量接线](AI_BUSINESS_V4_PROMOTION_OWNING_CAPACITY_BRIDGE.md)双遍重放当前持久页及内部成功审计，仍不授予上游签名/计划/报告权限，隔离PG待验；当前真实三期页和180/600秒规模未测，575,095 历史行只作风险估计。[预算 v10 默认关闭分卷下载候选](AI_BUSINESS_PROMOTION_BUDGET_V10_DOWNLOAD_CANDIDATE.md)逐片前后核0059窄回执、文件身份、字节和SHA，客户端复核整卷及最终账号；新旧Node75、真实reader PG4（含撤权）、旧v9 PG5、ESLint和首次构建通过。首轮PG夹具缺既有reader角色GRANT，补正式provision后通过，生产权限未扩大。页面仍不开放v10下载，真实预算/Office/规模未验。
+
+后续验收更新：v4 拥有方容量接线隔离PG4项 `.runtime/ai-pg-77ea697e7c14/tests.log` 通过，仍只是合成三期与内部签名审计，真实57.5万行未测。[预算v10页面分卷候选](AI_BUSINESS_PROMOTION_BUDGET_V10_PAGE_CANDIDATE.md)在双端开关精确启用时显示清单/逐卷SHA与进度取消，默认关闭；新旧Node79、目标ESLint和默认关闭构建通过，未生产启用/视觉/Office验收。[0060市场五工具暂停执行档案](BUSINESS_MARKET_V2_EXECUTION_SNAPSHOT.md)真实PG5项及0059→0060旧81表/旧函数/文件/双备份恢复通过；[0061 SQL-owned context证明](BUSINESS_MARKET_V2_CONTEXT_PROOF.md)真实PG2项及0060→0061旧81→82表/权限/双备份恢复通过。Agent job/model仍硬拒，后续同job/provider真实已读与数值引用未实现。
 
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 

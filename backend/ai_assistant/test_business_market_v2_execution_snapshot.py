@@ -7,6 +7,7 @@ from uuid import uuid4
 from django import test as djtest
 from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
+from psycopg import sql
 
 from . import business_market_v2_execution_snapshot as service
 from . import business_market_v2_execution_snapshot_contract as contract
@@ -35,6 +36,17 @@ class MarketV2ExecutionSnapshotTests(djtest.TransactionTestCase):
     admitted = role_fixture.MarketV2MaterialRoleBridgeTests.admitted
     setUp = role_fixture.MarketV2MaterialRoleBridgeTests.setUp
 
+    def _disable_generic_immutable_for_rollback_probe(self, table):
+        self.assertTrue(connection.in_atomic_block)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT t.tgname FROM pg_catalog.pg_trigger t "
+                "WHERE t.tgrelid=%s::regclass AND NOT t.tgisinternal "
+                "AND t.tgfoid=to_regprocedure("
+                "'public.ai_immutable_record_guard()')", ["public." + table])
+            names = [row[0] for row in cursor.fetchall()]
+            self.assertEqual(len(names), 1)
+            cursor.execute(sql.SQL("ALTER TABLE {} DISABLE TRIGGER {}").format(
+                sql.Identifier("public", table), sql.Identifier(names[0])))
     def body(self, report_id, client="five-tool-execution-plan"):
         return {"schemaVersion": service.REQUEST_SCHEMA,
             "clientRequestId": client, "admittedReportId": report_id}
@@ -129,13 +141,20 @@ class MarketV2ExecutionSnapshotTests(djtest.TransactionTestCase):
     def test_old_parked_profile_cannot_escape_by_update(self):
         parked_id, _, _ = self.create_plan()
         parked = m.AiReportRun.objects.get(pk=parked_id)
-        with self.assertRaisesRegex(DatabaseError,
-                "ai_market_v2_parked_report_immutable"), transaction.atomic():
-            m.AiReportRun.objects.filter(pk=parked_id).update(snapshot_json="{}")
-        with self.assertRaisesRegex(DatabaseError,
-                "ai_market_v2_parked_workflow_immutable"), transaction.atomic():
-            m.AiWorkflowRuns.objects.filter(pk=parked.workflow_id).update(
-                input_json="{}", allowed_tools_json="[]")
+        # The older generic immutable trigger also rejects both writes. Disable
+        # only that exact trigger inside a rollback-only test transaction to
+        # prove the new market-specific guards independently enforce the fence.
+        with transaction.atomic():
+            self._disable_generic_immutable_for_rollback_probe("ai_report_runs")
+            self._disable_generic_immutable_for_rollback_probe("ai_workflow_runs")
+            with self.assertRaisesRegex(DatabaseError,
+                    "ai_market_v2_parked_report_immutable"), transaction.atomic():
+                m.AiReportRun.objects.filter(pk=parked_id).update(snapshot_json="{}")
+            with self.assertRaisesRegex(DatabaseError,
+                    "ai_market_v2_parked_workflow_immutable"), transaction.atomic():
+                m.AiWorkflowRuns.objects.filter(pk=parked.workflow_id).update(
+                    input_json="{}", allowed_tools_json="[]")
+            transaction.set_rollback(True)
 
     def test_privileged_corrupt_old_child_cannot_move_away_from_v2(self):
         _, _, created = self.create_plan()
@@ -152,6 +171,7 @@ class MarketV2ExecutionSnapshotTests(djtest.TransactionTestCase):
                 workflow_node_key="market_b2b", status="paused", phase="paused")
             with connection.cursor() as cursor:
                 cursor.execute("SET LOCAL session_replication_role = origin")
+            self._disable_generic_immutable_for_rollback_probe("ai_agent_jobs")
             with self.assertRaisesRegex(DatabaseError,
                     "ai_market_v2_execution_child_dispatch_disabled"), transaction.atomic():
                 m.AiAgentJobs.objects.filter(pk="market-execution-corrupt-child").update(
