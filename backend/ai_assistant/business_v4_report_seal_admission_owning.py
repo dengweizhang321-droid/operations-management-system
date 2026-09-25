@@ -115,7 +115,7 @@ def inspect_candidate(run_id, principal, *, enabled=False,
     actor,parent,sources,directory,verified,body,plan,period,seal_state = (
         source_owner._v4(run_id,principal))
     finance = period["financeContext"]
-    expected_scope = {"scope_key":"shop:"+period["dailySources"][0][
+    expected_scope = {"scope_key":"shop:京东:"+period["dailySources"][0][
         "shop"], "scope_type":"shop", "scope_name":period[
         "dailySources"][0]["shop"]}
     finance_item = next(item for item in body["sources"] if item[

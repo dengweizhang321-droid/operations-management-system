@@ -131,7 +131,7 @@ def inspect_candidate(plan, verified_seal, body_json, stream_receipts,
         and source["scope"] == finance["scope"]
         and source["analysisPeriod"] == finance["analysisPeriod"]
         and source["missingMonths"] == []
-        and scope == {"scope_key": "shop:"+shop,
+        and scope == {"scope_key": "shop:京东:"+shop,
             "scope_type": "shop", "scope_name": shop,
             "group_name": scope.get("group_name")},
         "财报不是精确店铺或自然月缺失，不能映射为店铺销售")

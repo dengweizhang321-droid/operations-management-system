@@ -152,7 +152,7 @@ def prepare_candidate(report, link, plan, seal_receipt, seal_body_json,
             report["originalPeriod"]
         and finance_source["scope"] == finance["scope"]
         and finance_source["missingMonths"] == []
-        and scope == {"scope_key": "shop:" + report["shop"],
+        and scope == {"scope_key": "shop:京东:" + report["shop"],
             "scope_type": "shop", "scope_name": report["shop"],
             "group_name": scope.get("group_name")},
         "财报范围不是精确店铺或自然月缺失，禁止报告归属")
