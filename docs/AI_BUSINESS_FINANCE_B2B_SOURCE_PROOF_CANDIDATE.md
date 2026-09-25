@@ -7,3 +7,5 @@
 两个 owning 入口分别属于 v3 财报意图与 v2 综合报告。当前没有可验证的共同报告根或 ERP 店铺别名映射，因此 `sameReportAuthorityVerified=false`、`sameShopIdentityVerified=false`、`agentReadPersisted=false`、`registeredRenderer=false` 固定。B 端是否包含在 ERP 净销售或平台 SKU 支付中仍为 `unknown`，B 端占比、增量均为 null；广告归因金额、ERP 销售和 B 端金额不得相加。两份输入即使同一管理员读取，也不自动变成同一快照或正式 Agent 引用。
 
 纯合成测试验证未提供、有发布月/缺月、有 B 端/目录缺源、错误摘要、伪造日摊和重叠结论拒绝。进入正式同报告前仍需：同一权威店铺/时间身份及来源修订绑定、B 端与 ERP/平台支付包含关系实证、财报自然月与 30 日经营期的并列口径、人审后的五 Agent 数值引用、renderer 新版本全量表与双格式同数，以及真实业务规模和权限/备份验收。
+
+整合隔离验收：纯候选三项及拥有方 PostgreSQL 五项 `.runtime/ai-pg-5a3999e43c36/tests.log`（24.908 秒）通过，含财报与 B 端分别封存的有源、目录缺源、错身份及账号撤权。首轮组合 `TransactionTestCase` 缺 v3 `TestCase` 原有 AI 修订初值，夹具按正式 development 初值补回后通过；未修改生产 mutation/权限或把两份报告合成共同权威。无真实店铺数据或正式 Agent/文件采用。

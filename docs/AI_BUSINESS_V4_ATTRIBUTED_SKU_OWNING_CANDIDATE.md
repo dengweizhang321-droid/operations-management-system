@@ -7,3 +7,5 @@
 边界：这仍是 `collecting/manual` 的 v4 完成来源候选，不是数据库封存或京东上游独立签名。`sourceAuthorityVerified=false`、`agentReadPersisted=false`、`registeredRenderer=false`，其他两窗口的完整重放也标为 false。单窗口双遍+纯分组外层仅有 1,500 秒页间合作式期限；同步 DB 迭代器阻塞、全系统临时盘和真实 575,095 行拥有方性能仍须目标环境验收。三窗口逐页数值比较、商品主数据和正式 HTML/XLSX 均未接入。
 
 隔离 PostgreSQL 目标：`ai_assistant.test_business_v4_attributed_sku_relation`。合成正例使用现有 v4 真实签名请求/持久收据夹具完成三份各 101 行来源，验证只读一份、行/费用守恒、有界页、精确行及三来源绑定；负例覆盖默认关闭、重复/缺失/外来窗口、错误精确行、末页字节改变与中途账号撤权。PG 由整合任务串行运行；本独立提交仅做静态和纯回归，不使用客户数据、生产或付费模型。旧 v2 词货与推广 SKU 接口源码未改。
+
+整合隔离 PG 三项 `.runtime/ai-pg-313ee0fbcb16/tests.log`（1.783 秒）通过，纯相关17项与静态检查通过。此处 PG 仅用三窗各101行合成持久页，不代表参考57.5万行的拥有方性能，也不授予封存/Agent/文件采用。

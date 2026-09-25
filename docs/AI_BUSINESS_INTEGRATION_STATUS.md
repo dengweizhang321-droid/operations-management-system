@@ -62,6 +62,10 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 后续验收更新：v4 拥有方容量接线隔离PG4项 `.runtime/ai-pg-77ea697e7c14/tests.log` 通过，仍只是合成三期与内部签名审计，真实57.5万行未测。[预算v10页面分卷候选](AI_BUSINESS_PROMOTION_BUDGET_V10_PAGE_CANDIDATE.md)在双端开关精确启用时显示清单/逐卷SHA与进度取消，默认关闭；新旧Node79、目标ESLint和默认关闭构建通过，未生产启用/视觉/Office验收。[0060市场五工具暂停执行档案](BUSINESS_MARKET_V2_EXECUTION_SNAPSHOT.md)真实PG5项及0059→0060旧81表/旧函数/文件/双备份恢复通过；[0061 SQL-owned context证明](BUSINESS_MARKET_V2_CONTEXT_PROOF.md)真实PG2项及0060→0061旧81→82表/权限/双备份恢复通过。Agent job/model仍硬拒，后续同job/provider真实已读与数值引用未实现。
 
+继续验收：[0062同job/provider已读门禁](BUSINESS_MARKET_V2_READ_RECEIPT_CANDIDATE.md)当前必须拒虚构job，PG2及0061→0062旧82→83表/双备份恢复通过；[0063五Agent执行前置计划](BUSINESS_MARKET_V2_EXECUTION_PLAN_V3.md)零付费/零派发，PG3及0062→0063旧83→84表/双恢复通过；[0064隔离五角色合成持久链](BUSINESS_MARKET_V2_SYNTHETIC_VERTICAL_0064.md)各有真实通用job/provider/tool行，PG3及0063→0064旧84表/精确守卫版本化/双恢复通过，所有结果仍 `externalProviderCalled=false`、`persistedRead=false`。真实模型价格与人工费用上限尚无权威来源，未进行付费调用；[纯费用包络](AI_BUSINESS_MARKET_MODEL_COST_ENVELOPE.md)默认不授调用，3项通过。
+
+交付/商品关系方面，[v10瘦身HTML纯候选](AI_BUSINESS_PROMOTION_BUDGET_V10_SLIM_HTML_CANDIDATE.md)默认不启用，合成57.5万行[静态及Chrome验收](AI_BUSINESS_PROMOTION_BUDGET_V10_SLIM_575K_ACCEPTANCE.md)得28.66MB HTML、42.70MB XLSX、浏览器大表2.7秒/约236MB JS堆，但不是客户数据或Excel原生复算；[v11临时未发布候选](AI_BUSINESS_PROMOTION_BUDGET_V11_SLIM_STAGE_CANDIDATE.md)另锁压缩证明，现行DB只认v10，不能暂存/ready。关键词×搜索词×计划×单元×匹配×跟单SKU已有[纯/拥有方v2](AI_BUSINESS_ATTRIBUTED_SKU_RELATION_CANDIDATE.md)与[单窗v4纯候选](AI_BUSINESS_ATTRIBUTED_SKU_RELATION_V4_CANDIDATE.md)，后者合成本期281759和前期293336行各自守恒；[v4拥有方](AI_BUSINESS_V4_ATTRIBUTED_SKU_OWNING_CANDIDATE.md)PG3通过，但Agent/renderer未接。[财报自然月与B端缺源证明表](AI_BUSINESS_FINANCE_B2B_SOURCE_PROOF_CANDIDATE.md)纯3/拥有方PG5通过，始终不同报告根、不能跨域加总。[SKU三期候选](AI_BUSINESS_CROSS_SOURCE_SKU_WINDOWS.md)撤去未验证历史ERP SKU增长率，保留原生SKU/推广可比规则，相关纯11项通过。真实来源/同报表权威、Office许可和最后HTML/XLSX业务终验仍缺。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。
