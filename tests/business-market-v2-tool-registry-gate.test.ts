@@ -10,6 +10,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 } });
 const registry = await import("../lib/ai/tool-registry");
 const { marketV2ToolArguments, MARKET_V2_SURFACE, MARKET_V2_TOOL } = await import("../lib/ai/business-market-v2-tool-candidate");
+const { MARKET_V2_BASE_NAMES } = await import("../lib/ai/business-market-v2-base-tool-candidate");
 const { validateToolRegistry } = await import("../lib/ai/tool-registry-contract");
 const { aiHeaders } = await import("../lib/django/ai-service");
 const { handleAiEdge, canonicalAiEdge } = await import("../lib/ai/django-edge");
@@ -53,7 +54,8 @@ test("market entry is opt-in and v1 four-tool catalog stays byte-stable", () => 
   const enabled = registry.getMarketV2EnabledRegistry(true);
   validateToolRegistry(enabled);
   assert.deepEqual(registry.getToolsForPrincipal(admin, oldSurface, enabled).map(entry => entry.name), oldNames);
-  assert.deepEqual(registry.getToolsForPrincipal(admin, MARKET_V2_SURFACE, enabled).map(entry => entry.name), [MARKET_V2_TOOL]);
+  assert.deepEqual(registry.getToolsForPrincipal(admin, MARKET_V2_SURFACE, enabled).map(entry => entry.name),
+    [...MARKET_V2_BASE_NAMES, MARKET_V2_TOOL]);
   assert.deepEqual(registry.getToolsForPrincipal({ ...admin, role: "viewer" }, MARKET_V2_SURFACE, enabled), []);
   assert.deepEqual(registry.getToolsForPrincipal({ ...admin, scope: { warehouses: [], channels: [], platforms: [] } }, MARKET_V2_SURFACE, enabled), []);
   const entry = enabled.find(item => item.name === MARKET_V2_TOOL)!;
@@ -118,7 +120,8 @@ test("edge catalog new surface is denied by default and v1 catalog is unchanged"
   process.env.AI_MARKET_V2_AGENT_RUNTIME_ENABLED = "true";
   const shown = await make(MARKET_V2_SURFACE);
   assert.equal(shown.status, 200);
-  assert.deepEqual((await shown.json() as { entries: { name: string }[] }).entries.map(item => item.name), [MARKET_V2_TOOL]);
+  assert.deepEqual((await shown.json() as { entries: { name: string }[] }).entries.map(item => item.name),
+    [...MARKET_V2_BASE_NAMES, MARKET_V2_TOOL]);
   const oldAgain = await make(oldSurface);
   assert.equal(canonicalAiEdge(await oldAgain.json()), oldCatalog);
 });
