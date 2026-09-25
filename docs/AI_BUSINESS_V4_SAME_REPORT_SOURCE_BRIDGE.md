@@ -35,3 +35,7 @@
 实际迁移文件为 `0071_business_v4_report_source_link.py`，依赖 0070 两张票据表；隔离 PG 目标用例覆盖旧报告无法补绑、reader 无直接表读、默认空表。`tools/business-v4-report-link-upgrade-rehearsal.py`要求原 0069→0070 双备份恢复回执，再做 SQL 全物理清单 91→93 张、正式 ORM `AI_TABLES` 保持89张并等于 `database_contract.MODELS`、旧函数 OID/正文/ACL、renderer 1—7 文件字节、前后独立恢复及空逆迁移重装。PG 目标与升级脚本尚待主整合任务串行执行；若任何 SQL 语义/权限门禁不通过，本候选不得被视为完成或可采用。
 
 0071 占用迁移号但没有应用调用方，不创建报告或文件、不修改线上开关；离线与纯测试不能替代隔离 PostgreSQL 权限、升级恢复或客户数据规模验收。
+
+后续独立授权前置切片使用 `business_analysis/report_v4_authorization_preflight_v1.py` 与 `ai_assistant/business_v4_report_preflight_owning.py`。纯合同将 0071 当前链接、真实 v4 `verify_seal` 回执/封存正文、三期原日期及逐窗口完整业务日、每个来源 ref/revision/页行计数与 v2 报告快照逐项核对；财报必须是精确 `shop:<店铺>` 的自然月范围，事业部或未知映射直接拒绝。拥有方 adapter 只在隔离 test/development 显式开启，读取受保护链接并在最终返回前重跑应用 HMAC/报告/链接核验。当前旧 seal 的 `reportGenerationSupported=false` 是不可翻转的版本约束，即便上述材料齐备，结果仍为 `blocked_legacy_v4_report_authority`，13表引用、Agent、分卷发布与下载全为 false。纯/拥有方测试使用合成输入，不是新的生产读取路由。
+
+下一阶段须先产生**新版本**的报告可用 v4 封存协议与真实拥有方签名/角色链，并建立财报店铺身份的独立拥有方证明；不能改写旧 seal 的 false、旧 v2 报告或 0071 身份候选。之后要在新报告版本内把真实 sealed-v4 三期逐页迭代器、13 表摘要与分卷文件绑定同一 SQL/HMAC 根，建立失败中止、最终重核、Agent 引用及下载权限的独立发布协议。真实 575,095 行、两店隔离、HTML/XLSX 逐表与原生 Excel 验收仍为必要终验；本切片不占 0072 迁移号。
