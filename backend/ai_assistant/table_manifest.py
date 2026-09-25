@@ -150,3 +150,11 @@ AI_SQL_ONLY_0071 = (
 AI_FULL_TABLES_PRE_V4_REPORT_LINKS = (*AI_TABLES, *AI_SQL_ONLY_0070)
 AI_FULL_TABLES_AFTER_V4_REPORT_LINKS = (
     *AI_FULL_TABLES_PRE_V4_REPORT_LINKS, *AI_SQL_ONLY_0071)
+
+# 0072 is a separate, default-empty SQL-owned authority proposal ledger.
+AI_SQL_ONLY_0072 = (
+    "protected_business_market_v2_rate_proposals",
+    "protected_business_market_v2_cap_proposals",
+    "protected_business_market_v2_authority_revocations")
+AI_FULL_TABLES_AFTER_MARKET_AUTHORITY_0072 = (
+    *AI_FULL_TABLES_AFTER_V4_REPORT_LINKS, *AI_SQL_ONLY_0072)
