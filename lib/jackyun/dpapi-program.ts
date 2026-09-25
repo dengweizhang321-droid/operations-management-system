@@ -21,13 +21,15 @@ trap {
 }
 ${jackyunPowerShellUtf8Pipes}
 Add-Type -AssemblyName System.Security
-$stage = 'binding'
+$stage = 'binding_input'
 $request = $pipeReader.ReadToEnd() | ConvertFrom-Json
+$stage = 'binding_fields'
 if ($request.action -notin @('setup','status','read')) { throw 'Invalid action' }
 if ($request.tenantId -notmatch '^[0-9]{4,12}$') { throw 'Invalid tenant binding' }
 foreach ($value in @($request.vaultRoot, $request.profileDirectory)) {
   if (-not [IO.Path]::IsPathRooted($value) -or $value.StartsWith('\\')) { throw 'Invalid local binding' }
 }
+$stage = 'binding_paths'
 $vaultRoot = [IO.Path]::GetFullPath($request.vaultRoot)
 $profile = [IO.Path]::GetFullPath($request.profileDirectory).TrimEnd('\').ToLowerInvariant()
 $binding = 'TERUISI-JACKYUN:v1:' + $request.tenantId + ':' + $profile
@@ -36,13 +38,14 @@ $hasher = [Security.Cryptography.SHA256]::Create()
 try { $key = ([BitConverter]::ToString($hasher.ComputeHash($entropy))).Replace('-','').ToLowerInvariant() }
 finally { $hasher.Dispose() }
 $vaultFile = Join-Path $vaultRoot ($key + '.json')
+$stage = 'binding_identity'
 $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $allowedSids = @($userSid.Value, 'S-1-5-18', 'S-1-5-32-544')
 function Assert-LocalPath([string]$Target) {
   $current = [IO.Path]::GetFullPath($Target)
   while ($current) {
     if (Test-Path -LiteralPath $current) {
-      if ((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse path denied' }
+      if ((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { $script:stage = 'path_integrity'; throw 'Reparse path denied' }
     }
     $parent = [IO.Directory]::GetParent($current)
     if ($null -eq $parent) { break }
@@ -84,6 +87,7 @@ function Read-Credential {
     return $plain
   } finally { [Array]::Clear($bytes,0,$bytes.Length) }
 }
+$stage = 'binding_local_path'
 Assert-LocalPath $vaultRoot
 Assert-LocalPath $vaultFile
 if ($request.action -eq 'setup') {
@@ -186,8 +190,10 @@ if ($request.action -eq 'setup') {
   } finally { if ($locked) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
   exit 0
 }
+$stage = 'binding_vault_lookup'
 if (-not (Test-Path -LiteralPath $vaultFile)) {
   if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$false;status='missing'} | ConvertTo-Json -Compress)); exit 0 }
+  $stage = 'missing'
   throw 'Credential missing'
 }
 $stage = 'read'

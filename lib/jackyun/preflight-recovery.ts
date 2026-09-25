@@ -83,6 +83,20 @@ const audited4163 = {
     executionDataSha256: "b2ee49e4c89878433f0414155e822f26bed593388e76aa4dcdc895cd08ebfdba", activeExecutions: 0,
   },
 } as const;
+// Exact 4299 midnight failure under the previous helper release. The current
+// automatic rule cannot retroactively close it because B already terminated.
+const audited4299 = {
+  planSha256: "ebb4ea6f90dbdd3c1ae54d36b6e83de7b597c1114e5d3b03a2b8eb299acce564",
+  evidence: {
+    executionId: "4299", workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-09-25T16:10:00.102Z", stoppedAt: "2026-09-25T16:10:11.055Z", retrySuccessId: null,
+    lastNode: apiDownloadNode,
+    runNodes: ["每天本机时间 00:10", "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", apiDownloadNode],
+    error: "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（binding）。", httpCode: "500",
+    requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "e76bb8dea15cb5f42bfd45efa4aafa0c887c8882b08d33aba8694f7dd369e3c5", activeExecutions: 0,
+  },
+} as const;
 const apiLoginChallengeFailure = "waiting_login：吉客云登录已停止（challenge_present）。";
 const apiPageSelectionFailure = "API_LOGIN_PAGE_NOT_UNIQUE";
 const isApiPageSelectionFailure = (error: string) => error === apiPageSelectionFailure
@@ -114,7 +128,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports";
+  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4299_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -122,6 +136,51 @@ const canonical = (value: unknown): string => JSON.stringify(value);
 export function preflightClosurePath(root: string, executionId: string) {
   if (!/^[1-9]\d{0,19}$/.test(executionId)) throw new Error("恢复 execution ID 无效。");
   return path.join(root, "outputs", "jackyun-export-first", "preflight-closures", `n8n-export-first-${executionId}.json`);
+}
+type AutomatedCredentialClosure = {
+  version: 2; status: "closed_before_business"; reason: "verified_transient_dpapi_preflight_without_business_effects";
+  executionId: string; runId: string; closedAt: string; planSha256: string; activeSha256: string;
+  policySha256: string; absentPaths: string[];
+};
+
+async function inspectAutomatedCredentialClosure(root: string, executionId: string, closedAt: string): Promise<AutomatedCredentialClosure> {
+  preflightClosurePath(root, executionId);
+  const directory = path.join(root, "outputs", "jackyun-export-first");
+  const planRaw = await readRegular(path.join(directory, `n8n-export-first-${executionId}.json`));
+  const activeRaw = await readRegular(path.join(directory, "active.json"));
+  const policyRaw = await readRegular(path.join(root, "config", "jackyun-export-first-policy.json"));
+  const plan = parse<EmptyPlan & { exportTransport?: string }>(planRaw);
+  const active = parse<{ runId: string; executionId: string }>(activeRaw);
+  const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
+  jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate);
+  const date = new Date(`${plan.runDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1);
+  if (plan.version !== 2 || plan.protocol !== jackyunExportFirstPolicyVersion || plan.exportTransport !== "session_api_v1"
+    || plan.executionId !== executionId || plan.runId !== `n8n-export-first-${executionId}`
+    || plan.phase !== "exporting" || typeof plan.salesStartDate !== "string"
+    || !plan.exports || typeof plan.exports !== "object" || Array.isArray(plan.exports) || Object.keys(plan.exports).length !== 0
+    || Object.hasOwn(plan, "exportIntent")
+    || Object.keys(plan).some(key => !["version", "protocol", "executionId", "runId", "runDate", "asOfDate", "salesStartDate", "baseUrl", "createdAt", "phase", "exports", "exportTransport"].includes(key))
+    || !isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
+    || !path.isAbsolute(policy.browser.downloadDirectory) || plan.baseUrl !== "http://localhost:3000"
+    || plan.runDate !== jackyunCaptureDate(plan.createdAt) || plan.asOfDate !== date.toISOString().slice(0, 10)
+    || !Number.isFinite(Date.parse(closedAt)) || Date.parse(closedAt) < Date.parse(plan.createdAt)) {
+    throw new Error("DPAPI 自动闭合前的原运行身份或零业务状态不成立。");
+  }
+  const absentPaths = effectPaths(root, policy.browser.downloadDirectory, plan.runId);
+  await assertAbsentEffects(absentPaths);
+  return { version: 2, status: "closed_before_business", reason: "verified_transient_dpapi_preflight_without_business_effects",
+    executionId, runId: plan.runId, closedAt, planSha256: recoverySha(planRaw), activeSha256: recoverySha(activeRaw),
+    policySha256: recoverySha(policyRaw), absentPaths };
+}
+
+/** Caller holds the Jackyun run lock and caught only a local pre-login binding failure. */
+export async function publishAutomatedCredentialClosure(root: string, executionId: string, closedAt: string) {
+  const receipt = await inspectAutomatedCredentialClosure(root, executionId, closedAt);
+  const target = preflightClosurePath(root, executionId);
+  await mkdir(path.dirname(target), { recursive: true });
+  await assertEntityPath(path.dirname(target));
+  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  return { status: receipt.status, receiptSha256: recoverySha(await readRegular(target)) };
 }
 async function assertEntityPath(target: string, allowMissing = false) {
   const absolute = path.resolve(target);
@@ -262,7 +321,7 @@ export async function inspectPreflightClosure(root: string, executionId: string,
   const policy = parse<{ version: string; browser: { downloadDirectory: string } }>(policyRaw);
   const controlsOnly = executionId === "897";
   const apiLoginAudit = executionId === "2621" ? audited2621 : executionId === "3134" ? audited3134
-    : executionId === "4163" ? audited4163 : executionId === "4098" ? audited4098 : null;
+    : executionId === "4163" ? audited4163 : executionId === "4299" ? audited4299 : executionId === "4098" ? audited4098 : null;
   const apiChallengeOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
     && (evidence.error === apiLoginChallengeFailure || evidence.error === apiBrowserOccupiedFailure);
   const apiPageSelectionOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
@@ -294,7 +353,8 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths,
     reason: executionId === "2621" ? "audited_2621_dpapi_before_api_exports" : executionId === "3134" ? "audited_3134_dpapi_before_api_exports"
-      : executionId === "4163" ? "audited_4163_dpapi_before_api_exports" : "audited_4098_page_selection_before_api_exports" };
+      : executionId === "4163" ? "audited_4163_dpapi_before_api_exports"
+        : executionId === "4299" ? "audited_4299_dpapi_before_api_exports" : "audited_4098_page_selection_before_api_exports" };
   if (controlsOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_897_controls_before_query_and_export", controllerEvidence,
@@ -329,6 +389,13 @@ export async function publishPreflightClosure(root: string, approved: PreflightC
 export async function assertClosedPreflight(root: string, executionId: string) {
   const raw = await readRegular(preflightClosurePath(root, executionId));
   const receipt = parse<PreflightClosure>(raw);
+  if ((receipt as { reason?: string }).reason === "verified_transient_dpapi_preflight_without_business_effects") {
+    const automated = receipt as unknown as AutomatedCredentialClosure;
+    if (!isDeepStrictEqual(automated, await inspectAutomatedCredentialClosure(root, executionId, automated.closedAt))) {
+      throw new Error("DPAPI 自动闭合证据已变化。");
+    }
+    return;
+  }
   const loginClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_login_failure_without_business_effects";
   const apiChallengeClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_login_challenge_without_business_effects";
   const apiBrowserOccupiedClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_browser_occupied_without_business_effects";
@@ -338,7 +405,8 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
   const apiLoginClosed = receipt.status === "closed_before_business"
     && (receipt.reason === "audited_2621_dpapi_before_api_exports" || receipt.reason === "audited_3134_dpapi_before_api_exports"
-      || receipt.reason === "audited_4163_dpapi_before_api_exports" || receipt.reason === "audited_4098_page_selection_before_api_exports");
+      || receipt.reason === "audited_4163_dpapi_before_api_exports" || receipt.reason === "audited_4299_dpapi_before_api_exports"
+      || receipt.reason === "audited_4098_page_selection_before_api_exports");
   if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !apiPageSelectionClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }

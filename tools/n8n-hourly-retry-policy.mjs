@@ -23,6 +23,7 @@ export const hourlyRetryTargets = [
 const terminalFailurePatterns = [
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
   "credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]",
+  "JACKYUN_PREFLIGHT_RETRY_READY",
   "API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\d{0,19} 尚未闭合",
   "店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store",
   "登录失效|需要登录|登录.*(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\.jd\\.com|login\\.taobao\\.com",
@@ -66,6 +67,14 @@ export function classifyHourlyRetryFailure(payload) {
     error: payload?.execution?.error ?? payload?.trigger?.error,
     lastNodeExecuted: payload?.execution?.lastNodeExecuted,
   });
+  const verifiedJackyunPreflight = workflowId === "J8kY2mQ5vR7sT4pN"
+    && String(payload?.execution?.lastNodeExecuted ?? "") === "B·接口校验与五表下载"
+    && String(payload?.execution?.error?.description ?? "") === "JACKYUN_PREFLIGHT_RETRY_READY"
+    && !terminalFailurePatterns.some((source) => new RegExp(source, "iu").test(failureText.replaceAll("JACKYUN_PREFLIGHT_RETRY_READY", "")));
+  if (verifiedJackyunPreflight) {
+    return { retry: true, reason: "verified_preflight_retry", workflowId,
+      retryUrl: `http://127.0.0.1:5678/webhook/${hourlyRetryWebhookPath(workflowId)}` };
+  }
   if (terminalFailurePatterns.some((source) => new RegExp(source, "iu").test(failureText))) {
     return { retry: false, reason: "manual_intervention_required" };
   }
@@ -166,6 +175,10 @@ function retryClassifierCode() {
     "  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');",
     "  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;",
     "  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });",
+    "  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {",
+    "    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
+    "    continue;",
+    "  }",
     "  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;",
     "  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });",
     "}",
@@ -225,7 +238,7 @@ export function buildHourlyRetryErrorWorkflow() {
       },
       {
         parameters: {
-          content: "## 失败后每 60 分钟安全重跑\n仅接收已登记的数据下载/导入工作流的定时或自动重试失败。等待 1 小时后，通过 127.0.0.1:5678 的专用 Webhook 创建新的完整 execution，并重新经过共享 helper 领取门禁；新 execution 再失败会重新进入本流程，成功后不会产生下一轮。验证码、安全验证、凭据/登录失效、店铺身份不符、跨店、任务歧义、业务点击或提交结果未决、来源未就绪及需要人工确认的内容完整性错误一律停止自动重试。不得改成失败节点重试，不得绕过 A 或直接调用业务 helper。发布时先发布本错误工作流，再更新当前 11 条正式目标工作流；未采用的兼容模板继续保持未激活。",
+          content: "## 失败后每 60 分钟安全重跑\n仅接收已登记的数据下载/导入工作流的定时或自动重试失败。等待 1 小时后，通过 127.0.0.1:5678 的专用 Webhook 创建新的完整 execution，并重新经过共享 helper 领取门禁；新 execution 再失败会重新进入本流程，成功后不会产生下一轮。吉客云仅在 DPAPI 登录前的临时失败已由 helper 核验零业务效果并 create-only 闭合时允许重试。验证码、安全验证、密码或登录被拒、凭据读取/损坏、店铺身份不符、跨店、任务歧义、业务点击或提交结果未决、来源未就绪及需要人工确认的内容完整性错误仍停止自动重试。不得改成失败节点重试，不得绕过 A 或直接调用业务 helper。发布时先发布本错误工作流，再更新当前正式目标工作流；未采用的兼容模板继续保持未激活。",
           height: 280,
           width: 760,
           color: 3,

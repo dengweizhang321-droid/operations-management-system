@@ -81,7 +81,7 @@ export async function invokeJackyunVault(
         let errorId = "";
         try {
           const diagnostic = JSON.parse(result) as { stage?: string; errorId?: string };
-          if (["initialize", "binding", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
+          if (["initialize", "binding", "binding_input", "binding_fields", "binding_paths", "binding_identity", "binding_local_path", "binding_vault_lookup", "path_integrity", "missing", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
           if (/^[A-Za-z][A-Za-z0-9.,_-]{0,159}$/.test(diagnostic.errorId ?? "")) errorId = diagnostic.errorId!;
         } catch { /* secret-bearing output and raw errors are never propagated */ }
         reject(new Error(`waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}）。`));
@@ -98,8 +98,27 @@ export async function invokeJackyunVault(
   });
 }
 
-export async function readJackyunRuntimeCredential(config: JackyunLoginConfig): Promise<JackyunCredential> {
-  let stdout = await invokeJackyunVault("read", config);
+export function isRetryableJackyunCredentialPreparationFailure(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /^waiting_login：吉客云 DPAPI 凭据配置或解密未完成（(?:binding(?:[ /）]|_(?:input|identity|local_path|vault_lookup)[ /）]))/.test(error.message);
+}
+
+export async function readJackyunRuntimeCredential(config: JackyunLoginConfig, deps: {
+  invoke?: typeof invokeJackyunVault;
+  sleep?: (ms: number) => Promise<void>;
+} = {}): Promise<JackyunCredential> {
+  const invoke = deps.invoke ?? invokeJackyunVault;
+  const sleep = deps.sleep ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));
+  // This stage only reads the local credential; no browser field, login
+  // submission, or export request has happened. Bound retries are safe here.
+  let stdout = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { stdout = await invoke("read", config); break; }
+    catch (error) {
+      if (attempt === 2 || !isRetryableJackyunCredentialPreparationFailure(error)) throw error;
+      await sleep(500 * (attempt + 1));
+    }
+  }
   try {
     const value = JSON.parse(stdout) as JackyunCredential;
     if (typeof value.username !== "string" || !value.username.trim() || value.username.length > 256
