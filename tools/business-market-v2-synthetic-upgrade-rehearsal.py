@@ -72,7 +72,7 @@ GUARDS = {
     "public.ai_market_v2_synthetic_flow_guard()": (migration.FLOW_GUARD, True),
     "public.ai_market_v2_synthetic_report_guard()": (migration.REPORT_GUARD, True),
     "public.ai_market_v2_synthetic_child_guard()": (migration.CHILD_GUARD, False),
-    "public.ai_market_v2_synthetic_orphan_guard()": (migration.ORPHAN, False),
+    "public.ai_market_v2_synthetic_orphan_guard()": (migration.ORPHAN, True),
     migration.SIGNATURE: (migration.CREATE_CHAIN, True),
 }
 
