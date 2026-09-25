@@ -1710,6 +1710,7 @@ from .business_v4_seal_consumption_models import AiBusinessV4SealConsumption  # 
 from .business_v4_sealer_replay_progress_models import AiBusinessV4SealerReplayProgress  # noqa: E402,F401
 from .business_v4_period_plan_models import AiBusinessV4PeriodPlanCandidate  # noqa: E402,F401
 from .business_market_v2_material_models import AiBusinessMarketV2Material  # noqa: E402,F401
+from .business_market_v2_context_models import AiBusinessMarketV2ContextProof  # noqa: E402,F401
 from .business_file_models import AiBusinessFileRun, AiBusinessFileChunk, AiBusinessVolumeChunk  # noqa: E402,F401
 from .business_promotion_budget_v10_attestation_models import AiBusinessPromotionBudgetV10Attestation  # noqa: E402,F401
 from .business_budget_models import AiBusinessBudgetPlan  # noqa: E402,F401

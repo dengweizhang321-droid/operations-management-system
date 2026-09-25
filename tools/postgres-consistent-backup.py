@@ -567,16 +567,21 @@ def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
             raise RuntimeError("AI promotion trial file trigger OID drift")
 
 
-def verify_market_v2_parked_guards(cursor) -> None:
+def verify_market_v2_parked_guards(cursor, *, execution_profile_installed=False) -> None:
     from importlib import import_module
 
     profile = import_module(
         "ai_assistant.migrations.0044_business_market_v2_profile")
+    execution = (import_module(
+        "ai_assistant.migrations.0060_business_market_v2_execution_snapshot")
+        if execution_profile_installed else None)
     expected = {
         ("ai_report_runs", "ai_market_v2_report_guard"):
-            (31, False, False, "ai_market_v2_parked_report_guard", profile.REPORT_GUARD),
+            (31, False, False, "ai_market_v2_parked_report_guard",
+             execution.NEW_PARKED_REPORT if execution else profile.REPORT_GUARD),
         ("ai_workflow_runs", "ai_market_v2_workflow_guard"):
-            (31, False, False, "ai_market_v2_parked_workflow_guard", profile.WORKFLOW_GUARD),
+            (31, False, False, "ai_market_v2_parked_workflow_guard",
+             execution.NEW_PARKED_WORKFLOW if execution else profile.WORKFLOW_GUARD),
         ("ai_workflow_runs", "ai_market_v2_workflow_complete"):
             (5, True, True, "ai_market_v2_parked_orphan_guard", profile.ORPHAN_GUARD),
         ("ai_agent_jobs", "ai_market_v2_job_guard"):
@@ -807,7 +812,9 @@ def collect_evidence(
             if "0044_business_market_v2_profile" in ai_migrations:
                 if "0043_business_v4_seal_consumption_candidate" not in ai_migrations:
                     raise RuntimeError("AI market v2 parked profile has no predecessor")
-                verify_market_v2_parked_guards(cursor)
+                verify_market_v2_parked_guards(cursor,
+                    execution_profile_installed=
+                        "0060_business_market_v2_execution_snapshot" in ai_migrations)
             if "0045_business_market_v2_material_attestation" in ai_migrations:
                 if "0044_business_market_v2_profile" not in ai_migrations:
                     raise RuntimeError("AI market v2 material has no parked predecessor")
@@ -872,6 +879,11 @@ def collect_evidence(
                     raise RuntimeError("AI market v2 admitted snapshot has no parked/material predecessor")
                 from ai_assistant.market_v2_admitted_catalog import verify
                 verify(cursor, RuntimeError)
+            if "0061_business_market_v2_context_proof" in ai_migrations:
+                if "0060_business_market_v2_execution_snapshot" not in ai_migrations:
+                    raise RuntimeError("AI market context proof has no execution profile")
+                from ai_assistant.business_market_v2_context_catalog import verify
+                verify(cursor, RuntimeError)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -885,6 +897,8 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0061_business_market_v2_context_proof" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_market_v2_context_proofs")
             if "0057_business_promotion_budget_v10_attestation" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_promotion_budget_v10_attestations")
             if "0055_business_v4_period_plan_candidate" not in ai_migrations:

@@ -109,5 +109,9 @@ AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS = (*AI_TABLES_PRE_V4_PERIOD_CANDIDATES,
     "ai_business_v4_period_plan_candidates")
 
 # 0057 is a second SQL-owned sidecar; freeze the 80-table predecessor.
-AI_TABLES = (*AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS,
+AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS = (*AI_TABLES_PRE_BUDGET_V10_ATTESTATIONS,
     "ai_business_promotion_budget_v10_attestations")
+
+# 0061 binds the parked/admitted/execution chain to a SQL-derived context.
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS,
+    "ai_business_market_v2_context_proofs")
