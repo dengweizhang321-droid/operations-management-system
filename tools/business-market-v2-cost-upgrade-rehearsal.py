@@ -267,8 +267,9 @@ def closed(db, installed):
         if not installed and db.execute("SELECT count(*) FROM "
                 "pg_catalog.pg_proc p, pg_catalog.aclexplode(p.proacl) a "
                 "WHERE p.pronamespace='public'::regnamespace "
-                "AND p.proname LIKE 'ai_market_v2_cost_%' "
-                "AND a.grantee=%s::regrole", [migration.ROLE]).fetchone() != (0,):
+                "AND p.proname LIKE %s "
+                "AND a.grantee=%s::regrole",
+                ["ai_market_v2_cost_%", migration.ROLE]).fetchone() != (0,):
             raise AssertionError("0065 reverse retained executable cost function")
 
 
