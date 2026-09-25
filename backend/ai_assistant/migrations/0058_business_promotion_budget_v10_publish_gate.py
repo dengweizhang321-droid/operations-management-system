@@ -26,7 +26,8 @@ DECLARE parent public.ai_business_file_runs%ROWTYPE;
   flow public.ai_workflow_runs%ROWTYPE;
   evidence public.ai_business_evidence_runs%ROWTYPE;
   receipt public.ai_business_promotion_budget_v10_attestations%ROWTYPE;
-  snapshot jsonb; compact jsonb; descriptors jsonb;
+  snapshot jsonb; compact jsonb; descriptors jsonb; request_body jsonb;
+  original_version bigint; expected_request text;
 BEGIN
   IF session_user<>'teruisi_ai_budget_v10_attestor'
      OR expected_parent_status NOT IN ('paused','ready')
@@ -89,6 +90,21 @@ BEGIN
      OR proposed_progress->>'publishRequestDigest' IS NULL
      OR proposed_progress->>'publishRequestDigest' !~ '^[0-9a-f]{64}$'
   THEN RAISE EXCEPTION 'ai_budget_v10_publication_receipt_invalid'; END IF;
+  original_version:=CASE expected_parent_status WHEN 'paused' THEN parent.version
+    ELSE parent.version-1 END;
+  IF original_version<1 THEN RAISE EXCEPTION 'ai_budget_v10_request_version_invalid'; END IF;
+  request_body:=jsonb_build_object(
+    'schemaVersion','business-budget-v10-publish-request-v1',
+    'runId',parent.id,'attempt',parent.attempt,
+    'expectedVersion',original_version,'attestationId',receipt.id,
+    'attestationSha256',receipt.attestation_sha256,
+    'bindingDigest',receipt.binding_digest,
+    'fullManifestDigest',receipt.full_manifest_digest,
+    'fullManifestSha256',receipt.full_manifest_sha256);
+  expected_request:=encode(sha256(convert_to(
+    public.ai_v4_replay_canonical(request_body),'UTF8')),'hex');
+  IF proposed_progress->>'publishRequestDigest' IS DISTINCT FROM expected_request
+  THEN RAISE EXCEPTION 'ai_budget_v10_request_digest_invalid'; END IF;
   PERFORM public.ai_business_promotion_budget_parent_requirements(
     parent.report_id,parent.owner_email,parent.scope_json);
   SELECT * INTO report FROM public.ai_report_runs item
@@ -145,6 +161,7 @@ SET search_path=pg_catalog,public AS $$
 DECLARE parent public.ai_business_file_runs%ROWTYPE;
   receipt public.ai_business_promotion_budget_v10_attestations%ROWTYPE;
   compact jsonb; progress jsonb; updated public.ai_business_file_runs%ROWTYPE;
+  request_body jsonb; expected_request text;
 BEGIN
   IF session_user<>'teruisi_ai_budget_v10_attestor'
      OR selected_run IS NULL OR selected_run !~ '^[A-Za-z0-9_-]{1,160}$'
@@ -164,6 +181,21 @@ BEGIN
      OR receipt.id IS DISTINCT FROM selected_attestation_id
      OR receipt.attestation_sha256 IS DISTINCT FROM selected_attestation_sha
   THEN RAISE EXCEPTION 'ai_budget_v10_publish_attestation_missing'; END IF;
+  IF parent.status='ready' AND expected_version<>parent.version-1
+  THEN RAISE EXCEPTION 'ai_budget_v10_publish_conflicting_replay'; END IF;
+  request_body:=jsonb_build_object(
+    'schemaVersion','business-budget-v10-publish-request-v1',
+    'runId',selected_run,'attempt',selected_attempt,
+    'expectedVersion',expected_version,
+    'attestationId',receipt.id,
+    'attestationSha256',receipt.attestation_sha256,
+    'bindingDigest',receipt.binding_digest,
+    'fullManifestDigest',receipt.full_manifest_digest,
+    'fullManifestSha256',receipt.full_manifest_sha256);
+  expected_request:=encode(sha256(convert_to(
+    public.ai_v4_replay_canonical(request_body),'UTF8')),'hex');
+  IF selected_request_digest IS DISTINCT FROM expected_request
+  THEN RAISE EXCEPTION 'ai_budget_v10_publish_request_digest_invalid'; END IF;
   IF parent.status='ready' THEN
     progress:=parent.progress_json::jsonb;
     IF progress->>'publishRequestDigest' IS DISTINCT FROM selected_request_digest
@@ -217,7 +249,8 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path=pg_catalog,public AS $$
 DECLARE parent public.ai_business_file_runs%ROWTYPE;
   receipt public.ai_business_promotion_budget_v10_attestations%ROWTYPE;
-  progress jsonb;
+  progress jsonb; request_body jsonb; expected_request text;
+  original_version bigint;
 BEGIN
   IF session_user<>'teruisi_ai_budget_v10_attestor'
      OR selected_run IS NULL OR selected_run !~ '^[A-Za-z0-9_-]{1,160}$'
@@ -235,6 +268,24 @@ BEGIN
      OR receipt.id IS DISTINCT FROM selected_attestation_id
      OR receipt.attestation_sha256 IS DISTINCT FROM selected_attestation_sha
   THEN RETURN jsonb_build_object('status','unknown'); END IF;
+  IF parent.status IN ('ready','paused') THEN
+    original_version:=CASE parent.status WHEN 'ready' THEN parent.version-1
+      ELSE parent.version END;
+    IF original_version<1 THEN RAISE EXCEPTION 'ai_budget_v10_outcome_version_invalid'; END IF;
+    request_body:=jsonb_build_object(
+      'schemaVersion','business-budget-v10-publish-request-v1',
+      'runId',selected_run,'attempt',selected_attempt,
+      'expectedVersion',original_version,
+      'attestationId',receipt.id,
+      'attestationSha256',receipt.attestation_sha256,
+      'bindingDigest',receipt.binding_digest,
+      'fullManifestDigest',receipt.full_manifest_digest,
+      'fullManifestSha256',receipt.full_manifest_sha256);
+    expected_request:=encode(sha256(convert_to(
+      public.ai_v4_replay_canonical(request_body),'UTF8')),'hex');
+    IF selected_request_digest IS DISTINCT FROM expected_request
+    THEN RAISE EXCEPTION 'ai_budget_v10_outcome_request_digest_invalid'; END IF;
+  END IF;
   IF parent.status='ready' THEN
     progress:=parent.progress_json::jsonb;
     IF progress->>'publishRequestDigest' IS DISTINCT FROM selected_request_digest
@@ -284,11 +335,33 @@ COMPLETE_GUARD = replace_once(OLD_SQL[4],
               PERFORM public.ai_budget_v10_ready_requirements(
                 parent.id,parent.progress_json::jsonb,'ready');
             END IF;""")
+# The deferred trigger fires after the SECURITY DEFINER publisher returns.
+# Its invoker is then the NOLOGIN attestor, which has no table SELECT. Keep
+# this single fixed-target, read-only trigger body unchanged and execute it as
+# the protected database owner; do not grant the attestor broad table access.
+COMPLETE_GUARD = replace_once(COMPLETE_GUARD,
+    "RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$",
+    "RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$")
 NEW_SQL = (*OLD_SQL[:3], RUN_GUARD, COMPLETE_GUARD)
 
 
 def _verify_predecessor(cursor):
     attestation.verify_catalog(cursor)
+    canonical_migration = import_module(
+        "ai_assistant.migrations.0047_business_v4_sealer_replay_progress")
+    cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,p.proowner,"
+        "(SELECT c.relowner FROM pg_catalog.pg_class c WHERE "
+        "c.oid='public.ai_business_promotion_budget_v10_attestations'::regclass) "
+        "FROM pg_catalog.pg_proc p "
+        "WHERE p.oid=to_regprocedure(%s)", [canonical_migration.CANONICAL])
+    canonical_row = cursor.fetchone()
+    if (canonical_row is None or canonical_row[0] !=
+            canonical_migration.CANONICAL_SQL.split("$$", 2)[1]
+            or canonical_row[1] is not False
+            or {part.replace(" ", "") for part in (canonical_row[2] or [])}
+                != {"search_path=pg_catalog"}
+            or canonical_row[3] != canonical_row[4]):
+        raise RuntimeError("0058 requires frozen canonical JSON serializer")
     for definition in OLD_SQL:
         name = definition.split("FUNCTION ", 1)[1].split("(", 1)[0].removeprefix("public.")
         cursor.execute("SELECT p.prosrc FROM pg_catalog.pg_proc p "
@@ -304,6 +377,19 @@ def install(apps, schema_editor):
         return
     with schema_editor.connection.cursor() as cursor:
         _verify_predecessor(cursor)
+        file_signatures = (
+            "public.ai_business_file_chunk_guard()",
+            "public.ai_business_volume_chunk_guard()",
+            "public.ai_business_volume_manifest_check(text,integer,text,boolean,text)",
+            "public.ai_business_files_guard()",
+            "public.ai_business_volume_complete_guard()",
+        )
+        original_identity = []
+        for signature in file_signatures:
+            cursor.execute("SELECT p.oid,p.proacl::text,p.proowner FROM "
+                "pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(%s)",
+                [signature])
+            original_identity.append(cursor.fetchone())
         for definition in (READY_REQUIREMENTS, PUBLISH, OUTCOME):
             cursor.execute(definition)
         for signature in (READY_SIGNATURE, PUBLISH_SIGNATURE, OUTCOME_SIGNATURE):
@@ -311,6 +397,12 @@ def install(apps, schema_editor):
             cursor.execute("GRANT EXECUTE ON FUNCTION " + signature + " TO " + ROLE)
         for definition in (RUN_GUARD, COMPLETE_GUARD):
             cursor.execute(definition)
+        for signature, frozen in zip(file_signatures, original_identity):
+            cursor.execute("SELECT p.oid,p.proacl::text,p.proowner FROM "
+                "pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(%s)",
+                [signature])
+            if cursor.fetchone() != frozen:
+                raise RuntimeError("0058 changed old file guard OID, ACL or owner")
 
 
 def uninstall(apps, schema_editor):
@@ -330,20 +422,23 @@ def uninstall(apps, schema_editor):
 def verify_catalog(cursor):
     """Pin the dormant publisher and old file-guard identities."""
     attestation.verify_catalog(cursor)
-    for signature, definition in zip((
+    for index, (signature, definition) in enumerate(zip((
             "public.ai_business_file_chunk_guard()",
             "public.ai_business_volume_chunk_guard()",
             "public.ai_business_volume_manifest_check(text,integer,text,boolean,text)",
             "public.ai_business_files_guard()",
-            "public.ai_business_volume_complete_guard()"), NEW_SQL):
-        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname "
+            "public.ai_business_volume_complete_guard()"), NEW_SQL)):
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,l.lanname,"
+            "p.proowner=(SELECT c.relowner FROM pg_catalog.pg_class c WHERE "
+            "c.oid='public.ai_business_promotion_budget_v10_attestations'::regclass) "
             "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l "
             "ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)", [signature])
         row = cursor.fetchone()
         if (row is None or row[0] != definition.split("$$", 2)[1]
-                or row[1] is not False or row[3] != "plpgsql"
+                or row[1] is not (index == 4) or row[3] != "plpgsql"
                 or {part.replace(" ", "") for part in (row[2] or [])}
-                    != {"search_path=pg_catalog,public"}):
+                    != {"search_path=pg_catalog,public"}
+                or index == 4 and row[4] is not True):
             raise RuntimeError("budget v10 publish file guard drift")
     for signature, definition in ((READY_SIGNATURE, READY_REQUIREMENTS),
                                   (PUBLISH_SIGNATURE, PUBLISH),
