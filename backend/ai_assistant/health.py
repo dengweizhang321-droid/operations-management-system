@@ -382,6 +382,7 @@ def check():
         import_module("ai_assistant.migrations.0069_business_market_v2_paid_round_rehearsal").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0071_business_v4_report_source_link").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0072_business_market_v2_authority_proposals").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
