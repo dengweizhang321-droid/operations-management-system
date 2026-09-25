@@ -122,6 +122,12 @@ class ReportCompositionTests(TestCase):
         with self.assertRaises(AnalysisContractError):
             call(changed)
         changed = deepcopy(case)
+        changed[5]["sourceMaterialProofs"]["current"]["netshopSpuEvidenceDigest"] = "0"*64
+        changed[5]["comparisonDigest"] = digest({key: value
+            for key, value in changed[5].items() if key != "comparisonDigest"})
+        with self.assertRaises(AnalysisContractError):
+            call(changed)
+        changed = deepcopy(case)
         changed[5]["sourceMaterialProofs"]["current"]["erpRollupManifestDigest"] = "0"*64
         changed[5]["comparisonDigest"] = digest({key: value
             for key, value in changed[5].items() if key != "comparisonDigest"})
