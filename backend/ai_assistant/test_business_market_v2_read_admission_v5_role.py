@@ -40,17 +40,23 @@ class MarketV2ReadAdmissionV5RoleTests(djtest.TransactionTestCase):
             with djtest.override_settings(AI_MARKET_V2_READ_ADMISSION_V5_ENABLED=True):
                 old = admission.inspect(original["reportId"],
                     original["reportId"], self.admin)
-                separate = admission.inspect(original["reportId"],
-                    artificial["reportId"], self.admin)
+                # The reader has no generic provider-dispatch table SELECT;
+                # do not widen that ACL merely to inspect a synthetic chain.
+                with self.assertRaisesRegex(AiError, "市场同报告已读准入证据不足"):
+                    admission.inspect(original["reportId"],
+                        artificial["reportId"], self.admin)
                 with self.assertRaises(AiError):
                     admission.inspect(original["reportId"],
                         "another-report", self.admin)
+        with djtest.override_settings(AI_MARKET_V2_READ_ADMISSION_V5_ENABLED=True):
+            # The admin owns generic rows but cannot impersonate the narrow
+            # 0063 reader. There is no existing identity with both surfaces.
+            with self.assertRaisesRegex(AiError, "市场同报告已读准入证据不足"):
+                admission.inspect(original["reportId"],
+                    artificial["reportId"], self.admin)
         self.assertEqual(old["observedKind"], "parked_execution_v2")
-        self.assertEqual(separate["observedKind"], "separate_synthetic_v4")
-        self.assertTrue(separate["sameJobProviderToolChainsObserved"])
-        for result in (old, separate):
-            self.assertFalse(result["externalProviderCalled"])
-            self.assertFalse(result["agentReadPersisted"])
-            self.assertFalse(result["providerCallsAllowed"])
-            self.assertFalse(result["numericCitationAllowed"])
+        self.assertFalse(old["externalProviderCalled"])
+        self.assertFalse(old["agentReadPersisted"])
+        self.assertFalse(old["providerCallsAllowed"])
+        self.assertFalse(old["numericCitationAllowed"])
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(), 0)
