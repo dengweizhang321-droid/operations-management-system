@@ -567,7 +567,8 @@ def verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
             raise RuntimeError("AI promotion trial file trigger OID drift")
 
 
-def verify_market_v2_parked_guards(cursor, *, execution_profile_installed=False) -> None:
+def verify_market_v2_parked_guards(cursor, *, execution_profile_installed=False,
+                                   synthetic_profile_installed=False) -> None:
     from importlib import import_module
 
     profile = import_module(
@@ -575,12 +576,16 @@ def verify_market_v2_parked_guards(cursor, *, execution_profile_installed=False)
     execution = (import_module(
         "ai_assistant.migrations.0060_business_market_v2_execution_snapshot")
         if execution_profile_installed else None)
+    synthetic = (import_module(
+        "ai_assistant.migrations.0064_business_market_v2_synthetic_vertical")
+        if synthetic_profile_installed else None)
     expected = {
         ("ai_report_runs", "ai_market_v2_report_guard"):
             (31, False, False, "ai_market_v2_parked_report_guard",
              execution.NEW_PARKED_REPORT if execution else profile.REPORT_GUARD),
         ("ai_workflow_runs", "ai_market_v2_workflow_guard"):
             (31, False, False, "ai_market_v2_parked_workflow_guard",
+             synthetic.NEW_PARKED_WORKFLOW if synthetic else
              execution.NEW_PARKED_WORKFLOW if execution else profile.WORKFLOW_GUARD),
         ("ai_workflow_runs", "ai_market_v2_workflow_complete"):
             (5, True, True, "ai_market_v2_parked_orphan_guard", profile.ORPHAN_GUARD),
@@ -814,7 +819,9 @@ def collect_evidence(
                     raise RuntimeError("AI market v2 parked profile has no predecessor")
                 verify_market_v2_parked_guards(cursor,
                     execution_profile_installed=
-                        "0060_business_market_v2_execution_snapshot" in ai_migrations)
+                        "0060_business_market_v2_execution_snapshot" in ai_migrations,
+                    synthetic_profile_installed=
+                        "0064_business_market_v2_synthetic_vertical" in ai_migrations)
             if "0045_business_market_v2_material_attestation" in ai_migrations:
                 if "0044_business_market_v2_profile" not in ai_migrations:
                     raise RuntimeError("AI market v2 material has no parked predecessor")
@@ -893,6 +900,11 @@ def collect_evidence(
                 if "0062_business_market_v2_read_receipt_candidate" not in ai_migrations:
                     raise RuntimeError("AI market execution plan lacks read-receipt predecessor")
                 from ai_assistant.business_market_v2_execution_plan_catalog import verify
+                verify(cursor, RuntimeError)
+            if "0064_business_market_v2_synthetic_vertical" in ai_migrations:
+                if "0063_business_market_v2_execution_plan" not in ai_migrations:
+                    raise RuntimeError("AI market synthetic chain lacks execution plan")
+                from ai_assistant.business_market_v2_synthetic_catalog import verify
                 verify(cursor, RuntimeError)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
