@@ -75,10 +75,14 @@ parser.add_argument("--business-market-v2-paid-round-upgrade", action="store_tru
 parser.add_argument("--business-promotion-budget-v11-identity-upgrade", action="store_true")
 parser.add_argument("--business-v4-report-link-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-authority-upgrade", action="store_true")
+parser.add_argument("--business-protected-cross-cluster-restore", action="store_true",
+                    help="Test only: follow 0072 with a second fresh cluster and preserve protected owners/ACL")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_protected_cross_cluster_restore:
+    arguments.business_market_v2_authority_upgrade = True
 if arguments.preprovision_ai_runtime_roles and (
         not arguments.tests_only or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
@@ -634,6 +638,13 @@ try:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
+        if arguments.business_protected_cross_cluster_restore:
+            restored = run([sys.executable, ROOT / "tools" /
+                "business-protected-cross-cluster-restore-rehearsal.py",
+                "--run-root", RUN], timeout=600, env=django_env)
+            (RUN / "business-protected-cross-cluster-restore.json").write_text(
+                restored, encoding="utf-8")
+            print(restored.strip(), flush=True)
     if arguments.source_revision_guards_upgrade:
         upgrade = run([sys.executable, ROOT / "tools" /
             "source-revision-guards-upgrade-rehearsal.py", "--run-root", RUN],

@@ -18,3 +18,9 @@
 4. **回归门槛**：同一版本与跨版本空库分别做含 0068–0072 的全新 cluster 备份恢复，包括非空**合成**私钥和受保护表、负例角色/ACL 漂移、普通角色拒读私钥、旧版无这些 migration 的历史备份。保留源/归档/恢复三方的目录及授权摘要，而非只比较行数。通过后才考虑正式迁移/备份 operator 发布；正式生产恢复是另一项单独审批操作，不由演练自动覆盖。
 
 静态复核命令：`python tools/protected-ai-restore-static-audit.py`。它不生成密码、触碰数据库或修改文件；当前非零退出就是明确阻断。生产仍没有授权部署 0068–0072。
+
+## 隔离异集群原型（不是正式备份或迁移）
+
+独立工作树中可运行 `python tools/ai-postgres-rehearsal.py --business-protected-cross-cluster-restore --upgrade-only --port <空闲55440–55999端口>`。新测试开关先完整重放 0072 的前驱链，然后在**第二个**新 `initdb` 集群中预置精确的 12 个受保护 NOLOGIN/NOINHERIT/零成员角色以及原合成集群的其他无密码角色。它只给源端写入一条随机合成私钥，完整 custom dump，目标端用合成超级用户在单事务内恢复原 owner/ACL；逐项执行 0068–0072 `verify_catalog`，比对 8 张受保护表完整行摘要和角色属性，证明普通 AI writer 不能 SELECT 私钥。目标所有权或函数 ACL 被故意改坏时，目录检查必须拒绝并回滚该负例。目标集群使用独立回环端口、独立数据目录与另一随机密码，成功/失败都只停止其所属进程。
+
+首次原型运行的通过证据已在核验两个集群停机后归档为 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-4f7953f8f7b8-protected-audit\protected-cross-cluster\evidence.json`，但首次版本尚未包含故意 owner/ACL 漂移负例。第二轮包含负例的完整演练证据在 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-38e31f193b17-protected-audit\protected-cross-cluster\evidence.json`：0068–0072 目录验证、12 角色、8 表与 1 个合成密钥恢复通过，私钥表所有权和验证函数 EXECUTE 两项故意漂移均被拒绝并回滚。结束后源/目标 `pg_ctl status` 均为 no server running，目录已受控归档。这个结果只证明**隔离合成超级用户**保留了 owner/ACL。正式路径仍保持旧参数、旧备份身份和未加密归档；不能据此宣称正式备份可用、真实非超级用户 migration 可安装、真实密钥受保护归档完成或生产可恢复。
