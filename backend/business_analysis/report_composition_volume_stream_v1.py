@@ -40,7 +40,7 @@ def _sha(value):
         letter in "0123456789abcdef" for letter in value)
 
 
-def _source(base, source):
+def _base(base):
     _need(type(base) is dict
         and base.get("schemaVersion") ==
             "business-report-composition-owning-preview-v1"
@@ -55,6 +55,10 @@ def _source(base, source):
         and type(base.get("promotionSourceKeys")) is list
         and base.get("resultDigest") == digest({key: value for key, value
             in base.items() if key != "resultDigest"}))
+
+
+def _source(base, source):
+    _base(base)
     _need(type(source) is dict and set(source) == {
         "schemaVersion", "reportBindingDigest", "planDigest", "sourceKey",
         "sourceEvidenceDigest", "sourceRevision", "rowCount", "rowDigest",
