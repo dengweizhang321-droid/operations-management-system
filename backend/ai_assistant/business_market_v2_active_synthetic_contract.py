@@ -12,6 +12,17 @@ SNAPSHOT = "business-market-v2-synthetic-snapshot-v1"
 INPUT = "business-market-v2-synthetic-input-v1"
 MODEL_ID = "market-v2-synthetic-only"
 PAUSE = "market_v2_synthetic_no_provider_permission"
+ROLES = ("commerce", "promotion", "market_b2b", "independent_review", "report")
+
+
+def role_tools(with_budget):
+    _need(type(with_budget) is bool)
+    return {"commerce": previous.TOOL_ORDER[0],
+        "promotion": previous.TOOL_ORDER[3],
+        "market_b2b": previous.TOOL_ORDER[4],
+        "independent_review": previous.TOOL_ORDER[1],
+        "report": previous.TOOL_ORDER[2] if with_budget
+            else previous.TOOL_ORDER[0]}
 
 
 def _need(ok):
@@ -19,10 +30,12 @@ def _need(ok):
         raise AnalysisContractError("市场v2合成执行切片身份或边界无效")
 
 
-def identifier(prefix, plan_id):
+def identifier(prefix, plan_id, role=None):
     _need(type(plan_id) is str and len(plan_id) == 64
         and all(char in "0123456789abcdef" for char in plan_id))
-    return prefix + hashlib.sha256((prefix + "|" + plan_id).encode()).hexdigest()[:48]
+    _need(role is None or role in ROLES)
+    preimage = prefix + "|" + plan_id + (("|" + role) if role else "")
+    return prefix + hashlib.sha256(preimage.encode()).hexdigest()[:48]
 
 
 def build(plan_id, raw_plan, plan_digest, entries):
@@ -34,7 +47,12 @@ def build(plan_id, raw_plan, plan_digest, entries):
     _need(value == plan_contract.build(root, entries)["plan"])
     flow_id = identifier("market-synth-flow-", plan_id)
     report_id = identifier("market-synth-report-", plan_id)
-    job_id = identifier("market-synth-job-", plan_id)
+    job_ids = {role: identifier("market-synth-job-", plan_id, role)
+        for role in ROLES}
+    provider_ids = {role: identifier("market-synth-provider-", plan_id, role)
+        for role in ROLES}
+    tool_ids = {role: identifier("market-synth-tool-", plan_id, role)
+        for role in ROLES}
     anchor = {"planId": plan_id,
         "executionReportId": root["executionReportId"],
         "admittedReportId": root["admittedReportId"],
@@ -52,9 +70,13 @@ def build(plan_id, raw_plan, plan_digest, entries):
         "graphDigest": previous.GRAPH_DIGESTS[root["withBudget"]],
         "allowedTools": list(previous.TOOL_ORDER)}
     return {"reportId": report_id, "workflowId": flow_id,
-        "marketJobId": job_id, "snapshot": snapshot,
+        "jobIds": job_ids, "providerDispatchIds": provider_ids,
+        "toolDispatchIds": tool_ids,
+        "roleTools": role_tools(root["withBudget"]), "snapshot": snapshot,
         "workflowInput": flow_input,
         "graph": previous.graph(root["withBudget"]),
         "modelId": MODEL_ID, "modelVersion": 1, "dryRun": True,
         "status": "paused", "pauseReason": PAUSE,
-        "providerCallsMade": 0, "readReceiptAuthorized": False}
+        "externalProviderCallsMade": 0,
+        "syntheticPersistedChainsPlanned": 5,
+        "readReceiptAuthorized": False}

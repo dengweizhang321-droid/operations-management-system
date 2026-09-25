@@ -7,6 +7,7 @@ from django import test as djtest
 from django.db import DatabaseError, connection, transaction
 
 from . import business_market_v2_active_synthetic as service
+from . import business_market_v2_active_synthetic_contract as synthetic_contract
 from . import business_market_v2_read_attestation as old_read
 from . import models as m
 from . import test_business_market_v2_execution_plan as fixture
@@ -84,44 +85,80 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
         self.assertIsNotNone(report.workflow.updated_at)
         self.assertEqual(json.loads(report.snapshot_json)["syntheticRoot"]["planId"],
             plan_id)
-        self.assertEqual(m.AiWorkflowNodeRuns.objects.filter(
-            run_id=report.workflow_id).count(), 6)
-        job = m.AiAgentJobs.objects.get(pk=created["jobId"])
-        self.assertEqual(job.workflow_run_id, report.workflow_id)
-        self.assertEqual(job.status, "paused")
-        self.assertEqual((job.step_index,job.version,job.mutation_token,
-            job.cancel_requested,job.retryable,job.resume_count,
-            job.attempt_count,job.lease_token,job.lease_epoch,
-            job.error_code,job.error_message),
-            (0,1,"",0,0,0,0,"",1,"",""))
-        self.assertIsNotNone(job.next_run_at)
+        self.assertEqual(set(created["jobIds"]),set(synthetic_contract.ROLES))
+        self.assertEqual(set(created["providerDispatchIds"]),
+            set(synthetic_contract.ROLES))
+        self.assertEqual(set(created["toolDispatchIds"]),
+            set(synthetic_contract.ROLES))
+        self.assertEqual((report.workflow.provider_round_count,
+            report.workflow.tool_call_count),(5,5))
+        self.assertEqual(m.AiAgentJobs.objects.filter(
+            workflow_run_id=report.workflow_id).count(),5)
         nodes = list(m.AiWorkflowNodeRuns.objects.filter(
             run_id=report.workflow_id))
         self.assertEqual(len(nodes),6)
+        graph_nodes = {item["key"]:item for item in
+            json.loads(report.workflow.graph_json)["nodes"]}
+        for node in nodes:
+            self.assertEqual(json.loads(node.depends_on_json),
+                graph_nodes[node.node_key]["dependsOn"])
+            self.assertEqual(node.agent_job_id,
+                created["jobIds"].get(node.node_key))
         self.assertTrue(all(node.version==1 and node.mutation_token==""
             and node.input_json=="{}" and node.error_code==""
             and node.error_message=="" and node.created_at is not None
             and node.updated_at is not None for node in nodes))
+        with_budget = json.loads(report.snapshot_json)["withBudget"]
+        expected_tools = synthetic_contract.role_tools(with_budget)
+        for role in synthetic_contract.ROLES:
+            job = m.AiAgentJobs.objects.get(pk=created["jobIds"][role])
+            provider = m.AiAgentProviderDispatches.objects.get(
+                pk=created["providerDispatchIds"][role])
+            tool = m.AiAgentToolDispatches.objects.get(
+                pk=created["toolDispatchIds"][role])
+            self.assertEqual((job.workflow_run_id,job.workflow_node_key,
+                job.status,job.provider_round_count,job.tool_call_count),
+                (report.workflow_id,role,"paused",1,1))
+            self.assertEqual((job.step_index,job.version,job.mutation_token,
+                job.cancel_requested,job.retryable,job.resume_count,
+                job.attempt_count,job.lease_token,job.lease_epoch,
+                job.error_code,job.error_message),
+                (0,1,"",0,0,0,0,"",1,"",""))
+            self.assertIsNotNone(job.next_run_at)
+            self.assertEqual(provider.job_id,job.id)
+            self.assertEqual(tool.job_id,job.id)
+            self.assertEqual(tool.provider_dispatch_id,provider.id)
+            self.assertEqual(tool.tool_name,expected_tools[role])
+            provider_result = m.AiAgentProviderResults.objects.get(
+                dispatch_id=provider.id)
+            tool_result = m.AiAgentToolResults.objects.get(
+                tool_dispatch_id=tool.id)
+            self.assertEqual(provider_result.response_digest,
+                digest(provider_result.response_json))
+            self.assertEqual(tool_result.result_digest,
+                digest(tool_result.result_json))
+            call = json.loads(provider_result.response_json)["calls"][0]
+            self.assertEqual((call["id"],call["name"],call["arguments"]),
+                (tool.provider_call_id,tool.tool_name,json.loads(tool.arguments_json)))
+            self.assertTrue(json.loads(provider_result.response_json)["syntheticOnly"])
+            data = json.loads(tool_result.result_json)["data"]
+            self.assertEqual(data["role"],role)
+            self.assertTrue(data["syntheticOnly"])
+            self.assertFalse(data["persistedRead"])
+            self.assertFalse(data["numericCitationAllowed"])
+            self.assertEqual((provider.error_code,provider.error_message,
+                tool.error_code,tool.error_message),("","","",""))
+            self.assertTrue(all(value is not None for value in (
+                provider.reserved_at,provider.provider_called_at,
+                provider.completed_at,tool.reserved_at,tool.tool_called_at,
+                tool.completed_at,provider_result.completed_at,
+                tool_result.completed_at)))
+        job = m.AiAgentJobs.objects.get(pk=created["jobIds"]["market_b2b"])
         provider = m.AiAgentProviderDispatches.objects.get(
-            pk=created["providerDispatchId"])
-        tool = m.AiAgentToolDispatches.objects.get(pk=created["toolDispatchId"])
-        self.assertEqual(provider.job_id, job.id)
-        self.assertEqual(tool.job_id, job.id)
-        self.assertEqual(tool.provider_dispatch_id, provider.id)
-        self.assertEqual((provider.error_code,provider.error_message,
-            tool.error_code,tool.error_message),("","","",""))
-        self.assertTrue(all(value is not None for value in (
-            provider.reserved_at,provider.provider_called_at,provider.completed_at,
-            tool.reserved_at,tool.tool_called_at,tool.completed_at)))
-        provider_result = m.AiAgentProviderResults.objects.get(dispatch_id=provider.id)
+            pk=created["providerDispatchIds"]["market_b2b"])
+        tool = m.AiAgentToolDispatches.objects.get(
+            pk=created["toolDispatchIds"]["market_b2b"])
         tool_result = m.AiAgentToolResults.objects.get(tool_dispatch_id=tool.id)
-        self.assertEqual(provider_result.response_digest,
-            digest(provider_result.response_json))
-        self.assertEqual(tool_result.result_digest,digest(tool_result.result_json))
-        self.assertIsNotNone(provider_result.completed_at)
-        self.assertIsNotNone(tool_result.completed_at)
-        self.assertTrue(json.loads(provider_result.response_json)["syntheticOnly"])
-        self.assertFalse(json.loads(tool_result.result_json)["data"]["persistedRead"])
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
         with self.assertRaisesRegex(DatabaseError,
                 "ai_market_v2_admitted_tool_dispatch_disabled"), transaction.atomic():
@@ -138,6 +175,20 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
             m.AiAgentToolResults.objects.create(tool_dispatch=tool,
                 result_json=tool_result.result_json,
                 result_digest=tool_result.result_digest)
+        promotion_job = m.AiAgentJobs.objects.get(
+            pk=created["jobIds"]["promotion"])
+        promotion_provider = m.AiAgentProviderDispatches.objects.get(
+            pk=created["providerDispatchIds"]["promotion"])
+        with self.assertRaisesRegex(DatabaseError,
+                "ai_market_v2_synthetic_child_denied"), transaction.atomic():
+            m.AiAgentToolDispatches.objects.create(
+                id="synthetic-wrong-role-tool-denied",job=promotion_job,
+                provider_dispatch=promotion_provider,tool_call_ordinal=2,
+                provider_call_id="synthetic-promotion-wrong-call",
+                tool_name="get_business_market_v2_screening_package",
+                arguments_json="{}",arguments_digest=digest("{}"),
+                invocation_id="wrong-role-no-network",state="calling",
+                lease_epoch=1)
         with read_attestor(), self.assertRaises(DatabaseError):
             old_read.attest(tool.id)
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
