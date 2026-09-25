@@ -161,7 +161,7 @@ def verify_catalog(cursor):
         if row is None or row[0] != "r" or row[1] in {
                 *v2.ROLES, "teruisi_ai_reader", "teruisi_ai_writer"}:
             raise RuntimeError("0070 ticket table owner drift")
-        cursor.execute("SELECT tgname,tgenabled,tgfoid::regprocedure::text,"
+        cursor.execute("SELECT tgname,tgenabled,tgfoid,"
             "tgtype,tgdeferrable,tginitdeferred "
             "FROM pg_catalog.pg_trigger WHERE tgrelid=%s::regclass "
             "AND NOT tgisinternal ORDER BY tgname", [table])
@@ -176,8 +176,11 @@ def verify_catalog(cursor):
                 ("public.ai_budget_v11_proof_ticket_row_guard()",31),
             "ai_budget_v11_ticket_no_truncate":
                 ("public.ai_v4_seal_ticket_no_truncate()",34)}
-        if any((item[2],item[3]) != expected[item[0]] for item in rows):
-            raise RuntimeError("0070 ticket trigger binding drift")
+        for item in rows:
+            signature, event_bits = expected[item[0]]
+            cursor.execute("SELECT to_regprocedure(%s)::oid", [signature])
+            if (item[2], item[3]) != (cursor.fetchone()[0], event_bits):
+                raise RuntimeError("0070 ticket trigger binding drift")
         for role in (*v2.ROLES, "teruisi_ai_reader", "teruisi_ai_writer"):
             for privilege in ("SELECT","INSERT","UPDATE","DELETE",
                     "TRUNCATE","REFERENCES","TRIGGER"):

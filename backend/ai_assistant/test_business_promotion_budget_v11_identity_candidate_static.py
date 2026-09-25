@@ -27,6 +27,8 @@ class BudgetV11IdentityCandidateStaticTests(TestCase):
         self.assertIn("readyAuthorized',false", candidate.READ_SQL)
         self.assertIn("ON CONFLICT (ticket_id) DO NOTHING", candidate.READ_SQL)
         self.assertIn("IF TG_OP<>'INSERT'", candidate.ROW_GUARD)
+        self.assertIn("to_regprocedure(%s)::oid",
+            getsource(migration.verify_catalog))
 
     def test_migration_adds_no_credentials_web_route_or_ready(self):
         migration = import_module(
