@@ -638,6 +638,11 @@ def agent_tick(*, job_id=None):
                 promotion_step, frames, entries, model, principal)
         with mutation(principal, background=True):
             row = _leased(lease)
+            # The 0060/0064 market snapshots are not recognized by the older
+            # business_reports.context helper.  Fence this family before a
+            # generic provider *or* tool dispatch can be reserved.
+            from . import business_market_v2_paid_gate
+            business_market_v2_paid_gate.before_reservation(row)
             if promotion_step is not None:
                 business_promotion_microstep.check(promotion_step, row, principal)
                 if promotion_permission is None:

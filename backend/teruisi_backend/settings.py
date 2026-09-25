@@ -186,6 +186,11 @@ AI_MARKET_V2_PREVIEW_ENABLED = env_bool(
 AI_MARKET_V2_AGENT_RUNTIME_ENABLED = env_bool(
     "TERUISI_DJANGO_AI_MARKET_V2_AGENT_RUNTIME_ENABLED", False
 )
+# Separate from the read-only five-tool surface.  The 0065 cost row has no
+# spendable reservation; enabling this flag alone never permits a model call.
+AI_MARKET_V2_PAID_RUNTIME_ENABLED = env_bool(
+    "TERUISI_DJANGO_AI_MARKET_V2_PAID_RUNTIME_ENABLED", False
+)
 SALES_WRITE_AUTHORITY_EPOCH = os.getenv(
     "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH", ""
 ).strip()
