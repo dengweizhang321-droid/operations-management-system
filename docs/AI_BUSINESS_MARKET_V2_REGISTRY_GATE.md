@@ -8,4 +8,4 @@ edge 只在开关开启时接受新 surface、公布其单项目录并允许候�
 
 即使两端开关打开，0053 数据库仍拒绝该报告的节点、Agent job、第五工具派发与结果，当前并无业务流程使用新 surface，也不会因这个候选触发模型调用。真正同 Agent/provider 的持久读取、数值引用与五角色诊断须在后续独立激活迁移、真实目录/模型策略、回执重放和人审中完成；本候选不可称市场分析已上线。
 
-2026-09-25，Node 候选目录/handler/edge 测试 4/4、旧词货四工具回归 8/8、变更文件 ESLint 通过。Python 签名 reader 路由目标 `ai_assistant.test_business_market_v2_tool_candidate_route` 与构建/隔离环境验收待主任务执行。无付费模型、生产迁移或服务操作。
+2026-09-25，Node 候选目录/handler/edge 测试 **4/4**、旧词货四工具回归 **8/8**、变更文件 ESLint 通过。Python reader 路由目标 `ai_assistant.test_business_market_v2_tool_candidate_route` **3/3** 通过，证据 `.runtime/ai-pg-ec558dca39ce/tests.log`；它只以测试内的已核身份替身检验签名请求 ID 与默认关闭逻辑，不把替身等同完整 HMAC 联通或真实模型调用。首轮测试夹具把 viewer 的 `current_principal` 误模拟为无条件通过且误用 JsonResponse `.json()`，修正后复测通过；生产门禁未放宽。完整构建、真实 HMAC 联通、参考规模及生产仍未验收。无付费模型、生产迁移或服务操作。
