@@ -17,7 +17,7 @@ def install(apps, schema_editor):
             cursor.execute("SELECT to_regclass(%s)", [table])
             if cursor.fetchone()[0] is not None:
                 raise RuntimeError("0071 link table already exists")
-        cursor.execute("""CREATE TABLE public.ai_v4_report_link_intents (
+        cursor.execute("""CREATE TABLE public.protected_business_v4_report_link_intents (
           report_id varchar(160) PRIMARY KEY REFERENCES public.ai_report_runs(id)
             ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
           v4_run_id varchar(160) NOT NULL UNIQUE REFERENCES
@@ -35,7 +35,7 @@ def install(apps, schema_editor):
           issued_txid bigint NOT NULL CHECK (issued_txid>0),
           issued_at timestamptz NOT NULL
         )""")
-        cursor.execute("""CREATE TABLE public.ai_v4_report_source_links (
+        cursor.execute("""CREATE TABLE public.protected_business_v4_report_source_links (
           report_id varchar(160) PRIMARY KEY REFERENCES public.ai_report_runs(id)
             ON DELETE RESTRICT,
           v4_run_id varchar(160) NOT NULL UNIQUE REFERENCES

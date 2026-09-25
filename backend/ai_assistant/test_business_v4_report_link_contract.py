@@ -1,5 +1,6 @@
 """No-DB 0071 contract: creation-only sidecar, no report authority."""
 from importlib import import_module
+from pathlib import Path
 from unittest import TestCase
 
 from . import business_v4_report_link_sql as link
@@ -20,11 +21,25 @@ class V4ReportLinkContractTests(TestCase):
         self.assertEqual(len(AI_TABLES), 89)
         self.assertEqual(len(AI_SQL_ONLY_0070), 2)
         self.assertEqual(len(AI_SQL_ONLY_0071), 2)
+        self.assertTrue(all(item.startswith("protected_business_v4_report_")
+            and not item.startswith("ai_") for item in AI_SQL_ONLY_0071))
         self.assertEqual(len(AI_FULL_TABLES_PRE_V4_REPORT_LINKS), 91)
         self.assertEqual(len(AI_FULL_TABLES_AFTER_V4_REPORT_LINKS), 93)
         self.assertEqual(set(AI_FULL_TABLES_AFTER_V4_REPORT_LINKS)-
             set(AI_FULL_TABLES_PRE_V4_REPORT_LINKS),
-            {"ai_v4_report_link_intents", "ai_v4_report_source_links"})
+            {"protected_business_v4_report_link_intents", "protected_business_v4_report_source_links"})
+
+    def test_consistent_backup_archives_all_tables_while_ai_gate_stays_exact(self):
+        backup = (Path(__file__).resolve().parents[2] / "tools" /
+            "postgres-consistent-backup.py").read_text(encoding="utf-8")
+        self.assertIn('name.startswith("ai_")', backup)
+        self.assertIn('"--format=custom"', backup)
+        self.assertNotIn('"--table=', backup)
+        self.assertNotIn('"--exclude-table', backup)
+        health = (Path(__file__).resolve().parent / "health.py").read_text(
+            encoding="utf-8")
+        self.assertIn("0071_business_v4_report_source_link\").verify_catalog(cursor)",
+            health)
 
     def test_create_transaction_and_read_only_do_not_grant_authority(self):
         self.assertIn("EXISTS (SELECT 1 FROM public.ai_report_runs",
@@ -45,3 +60,5 @@ class V4ReportLinkContractTests(TestCase):
         self.assertIn("session_user IS DISTINCT FROM 'teruisi_ai_reader'",
             link.READ_SQL)
         self.assertIn("IF TG_OP IS DISTINCT FROM 'INSERT'", link.ROW_GUARD)
+        self.assertNotIn("sha256(convert_to(parent.plan_json", link.BINDINGS_SQL)
+        self.assertNotIn("sha256(convert_to(seal.body_json", link.BINDINGS_SQL)

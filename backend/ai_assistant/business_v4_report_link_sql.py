@@ -2,10 +2,12 @@
 
 No application caller is registered. These functions pin *identity*, not the
 application HMAC, business authority, Agent reads, renderer or download.
+The v4 parent/seal digests hash canonical JSON *string* values in Python;
+SQL must compare pinned stored digests, not substitute SHA256(raw text).
 """
 
-INTENTS = "public.ai_v4_report_link_intents"
-LINKS = "public.ai_v4_report_source_links"
+INTENTS = "public.protected_business_v4_report_link_intents"
+LINKS = "public.protected_business_v4_report_source_links"
 ISSUE = "public.ai_v4_issue_report_link_intent(text,text,text,text,text,text)"
 READ = "public.ai_v4_read_report_source_link(text,text,bigint)"
 BINDINGS = "public.ai_v4_report_source_bindings(text)"
@@ -40,8 +42,8 @@ BEGIN
   IF parent.id IS NULL OR seal.run_id IS NULL OR parent.status IS DISTINCT FROM 'sealed'
      OR parent.collection_status IS DISTINCT FROM 'manual' OR parent.scope_json IS DISTINCT FROM 'null'
      OR parent.version IS DISTINCT FROM seal.evidence_version
-     OR parent.plan_digest IS DISTINCT FROM encode(sha256(convert_to(parent.plan_json,'UTF8')),'hex')
-     OR seal.body_digest IS DISTINCT FROM encode(sha256(convert_to(seal.body_json,'UTF8')),'hex')
+     OR parent.plan_digest !~ '^[0-9a-f]{64}$'
+     OR seal.body_digest !~ '^[0-9a-f]{64}$'
      OR seal.body_mac !~ '^[0-9a-f]{64}$'
   THEN RAISE EXCEPTION 'ai_v4_report_link_seal_invalid'; END IF;
   plan:=parent.plan_json::jsonb; body:=seal.body_json::jsonb;
@@ -175,7 +177,7 @@ BEGIN
      OR seal.evidence_version IS DISTINCT FROM v4.version
   THEN RAISE EXCEPTION 'ai_v4_report_link_issue_source_invalid'; END IF;
   bound:=public.ai_v4_report_source_bindings(v4.id);
-  INSERT INTO public.ai_v4_report_link_intents
+  INSERT INTO public.protected_business_v4_report_link_intents
     (report_id,v4_run_id,owner_email,actor_version,v2_run_id,
      v2_sealed_digest,v4_sealed_digest,source_bindings_digest,
      issued_txid,issued_at)
@@ -189,14 +191,14 @@ END $$"""
 
 REPORT_TRIGGER = """CREATE FUNCTION public.ai_v4_report_link_after_insert() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE intent public.ai_v4_report_link_intents%ROWTYPE;
+DECLARE intent public.protected_business_v4_report_link_intents%ROWTYPE;
   v2 public.ai_business_evidence_runs%ROWTYPE;
   v4 public.ai_business_v4_runs%ROWTYPE;
   seal public.ai_business_v4_seals%ROWTYPE;
   flow public.ai_workflow_runs%ROWTYPE;
   snapshot jsonb; header jsonb; plan jsonb; bound jsonb;
 BEGIN
-  SELECT * INTO intent FROM public.ai_v4_report_link_intents
+  SELECT * INTO intent FROM public.protected_business_v4_report_link_intents
     WHERE report_id=NEW.id FOR UPDATE;
   IF intent.report_id IS NULL THEN RETURN NEW; END IF;
   SELECT * INTO v2 FROM public.ai_business_evidence_runs WHERE id=intent.v2_run_id;
@@ -237,7 +239,7 @@ BEGIN
   IF encode(sha256(convert_to(bound::text,'UTF8')),'hex')
         IS DISTINCT FROM intent.source_bindings_digest
   THEN RAISE EXCEPTION 'ai_v4_report_link_issue_revision_drift'; END IF;
-  INSERT INTO public.ai_v4_report_source_links
+  INSERT INTO public.protected_business_v4_report_source_links
     (report_id,v4_run_id,owner_email,actor_version,v2_run_id,
      v2_evidence_version,v2_sealed_digest,v4_evidence_version,
      v4_plan_digest,v4_sealed_digest,v4_mac_digest,
@@ -259,7 +261,7 @@ END $$"""
 READ_SQL = """CREATE FUNCTION public.ai_v4_read_report_source_link(
   selected_report text,actor_email text,expected_actor_version bigint)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE link public.ai_v4_report_source_links%ROWTYPE;
+DECLARE link public.protected_business_v4_report_source_links%ROWTYPE;
   report public.ai_report_runs%ROWTYPE;
   flow public.ai_workflow_runs%ROWTYPE;
   v2 public.ai_business_evidence_runs%ROWTYPE;
@@ -269,7 +271,7 @@ DECLARE link public.ai_v4_report_source_links%ROWTYPE;
 BEGIN
   IF session_user IS DISTINCT FROM 'teruisi_ai_reader' THEN
     RAISE EXCEPTION 'ai_v4_report_link_reader_identity_denied'; END IF;
-  SELECT * INTO link FROM public.ai_v4_report_source_links WHERE report_id=selected_report;
+  SELECT * INTO link FROM public.protected_business_v4_report_source_links WHERE report_id=selected_report;
   IF link.report_id IS NULL THEN RAISE EXCEPTION 'ai_v4_report_link_absent'; END IF;
   SELECT * INTO report FROM public.ai_report_runs WHERE id=link.report_id;
   SELECT * INTO flow FROM public.ai_workflow_runs WHERE id=report.workflow_id;
