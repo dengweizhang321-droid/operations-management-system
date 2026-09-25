@@ -71,6 +71,14 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
         self.assertEqual(report.workflow.status, "paused")
         self.assertEqual(report.workflow.dry_run, 1)
         self.assertEqual(report.workflow.model_id, "market-v2-synthetic-only")
+        self.assertEqual((report.workflow.version, report.workflow.mutation_token,
+            report.workflow.cancel_requested, report.workflow.retryable,
+            report.workflow.resume_count, report.workflow.attempt_count,
+            report.workflow.lease_token, report.workflow.lease_epoch,
+            report.workflow.error_message), (1,"",0,0,0,0,"",0,""))
+        self.assertIsNotNone(report.workflow.next_run_at)
+        self.assertIsNotNone(report.workflow.created_at)
+        self.assertIsNotNone(report.workflow.updated_at)
         self.assertEqual(json.loads(report.snapshot_json)["syntheticRoot"]["planId"],
             plan_id)
         self.assertEqual(m.AiWorkflowNodeRuns.objects.filter(
@@ -78,17 +86,37 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
         job = m.AiAgentJobs.objects.get(pk=created["jobId"])
         self.assertEqual(job.workflow_run_id, report.workflow_id)
         self.assertEqual(job.status, "paused")
+        self.assertEqual((job.step_index,job.version,job.mutation_token,
+            job.cancel_requested,job.retryable,job.resume_count,
+            job.attempt_count,job.lease_token,job.lease_epoch,
+            job.error_code,job.error_message),
+            (0,1,"",0,0,0,0,"",1,"",""))
+        self.assertIsNotNone(job.next_run_at)
+        nodes = list(m.AiWorkflowNodeRuns.objects.filter(
+            run_id=report.workflow_id))
+        self.assertEqual(len(nodes),6)
+        self.assertTrue(all(node.version==1 and node.mutation_token==""
+            and node.input_json=="{}" and node.error_code==""
+            and node.error_message=="" and node.created_at is not None
+            and node.updated_at is not None for node in nodes))
         provider = m.AiAgentProviderDispatches.objects.get(
             pk=created["providerDispatchId"])
         tool = m.AiAgentToolDispatches.objects.get(pk=created["toolDispatchId"])
         self.assertEqual(provider.job_id, job.id)
         self.assertEqual(tool.job_id, job.id)
         self.assertEqual(tool.provider_dispatch_id, provider.id)
+        self.assertEqual((provider.error_code,provider.error_message,
+            tool.error_code,tool.error_message),("","","",""))
+        self.assertTrue(all(value is not None for value in (
+            provider.reserved_at,provider.provider_called_at,provider.completed_at,
+            tool.reserved_at,tool.tool_called_at,tool.completed_at)))
         provider_result = m.AiAgentProviderResults.objects.get(dispatch_id=provider.id)
         tool_result = m.AiAgentToolResults.objects.get(tool_dispatch_id=tool.id)
         self.assertEqual(provider_result.response_digest,
             digest(provider_result.response_json))
         self.assertEqual(tool_result.result_digest,digest(tool_result.result_json))
+        self.assertIsNotNone(provider_result.completed_at)
+        self.assertIsNotNone(tool_result.completed_at)
         self.assertTrue(json.loads(provider_result.response_json)["syntheticOnly"])
         self.assertFalse(json.loads(tool_result.result_json)["data"]["persistedRead"])
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
