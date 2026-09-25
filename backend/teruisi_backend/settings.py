@@ -169,6 +169,13 @@ else:
         }
     }
 
+if DJANGO_ENVIRONMENT == "test" and database_url:
+    isolated = DATABASES["default"]
+    if (isolated["HOST"] == "127.0.0.1" and
+            isolated["NAME"] == "teruisi_ai_rehearsal" and
+            55440 <= int(isolated["PORT"]) <= 55999):
+        TEST_RUNNER = "teruisi_backend.isolated_test_runner.IsolatedPostgresTestRunner"
+
 LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True

@@ -4,8 +4,7 @@ import secrets
 from unittest.mock import patch
 
 from django.conf import settings
-from django.core.management import call_command
-from django.db import connection, connections
+from django.db import connection
 import psycopg
 from psycopg import sql
 
@@ -19,25 +18,6 @@ from . import test_business_promotion_budget_v11_attestation_role as fixture
 
 class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests):
     complete_flow = approved_fixture.PromotionApprovedContentTests.complete_flow
-
-    def _fixture_teardown(self):
-        # These SQL-only ticket tables deliberately are not Django models.
-        # The isolated test flush must include FK dependents in its CASCADE;
-        # the protected table owner is allowed to clear them for test reset.
-        value = settings.DATABASES["default"]
-        if (settings.DJANGO_ENVIRONMENT != "test" or
-                value["HOST"] != "127.0.0.1" or
-                value["NAME"] != "test_teruisi_ai_rehearsal"):
-            raise AssertionError("0070 cleanup requires isolated test database")
-        for db_name in self._databases_names(include_mirrors=False):
-            inhibit_post_migrate = (
-                self.available_apps is not None or
-                (self.serialized_rollback and hasattr(
-                    connections[db_name], "_test_serialized_contents")))
-            call_command("flush", verbosity=0, interactive=False,
-                database=db_name, reset_sequences=False,
-                allow_cascade=True,
-                inhibit_post_migrate=inhibit_post_migrate)
 
     @staticmethod
     def _old_catalog():
