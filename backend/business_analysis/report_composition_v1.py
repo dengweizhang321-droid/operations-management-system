@@ -186,6 +186,12 @@ def compose_candidate(plan, sources, infos, context, source_keys, materials, *,
                   ["erpRollupManifestDigest"] ==
                   materials[window]["erpRollupManifestDigest"],
                   "品类/SPU与店铺ERP回卷不是同一材料")
+            native_key = plan["sourceKeys"]["netshopSpu"][window]
+            expected_native = (infos[native_key]["expected"]["evidenceDigest"]
+                               if native_key else None)
+            _need(category["sourceMaterialProofs"][window]
+                  ["netshopSpuEvidenceDigest"] == expected_native,
+                  "品类/SPU原生商智来源与店铺计划不一致")
     keyword = _keyword(keyword_headers, plan)
     market = _market(market_preview)
     finance_proof = finance_b2b.build_candidate(finance=finance, b2b=b2b)
