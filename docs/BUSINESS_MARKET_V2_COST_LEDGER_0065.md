@@ -7,3 +7,5 @@
 reader 只能取同账号/当前版本的窄回执，reader/writer/attestor 对账表均无直接 SELECT/DML；普通 writer 无写入函数权限。0060–64 旧根、合成链和 v1 目录保持不变。未来真实调用前需独立采用有来源的模型价目、汇率与所有计费类别，核管理员精确费用批准，在真实资金账本同事务原子预留并逐次发放/核销许可；未知结果不重试，不能用本候选行冒充已经预留。
 
 迁移名固定 `0065_business_market_v2_model_cost_reservation`，0066 后继依赖此名。纯测试 `ai_assistant.test_business_market_v2_cost_candidate` 与 `business_analysis.test_market_model_cost_envelope` 已覆盖整数上限和关闭边界；隔离真实角色 PG 目标 `ai_assistant.test_business_market_v2_cost_admission` 由主任务串行执行。未获取真实价目或批准，也未生产部署。
+
+0064→0065 的隔离升级入口为 `python tools/ai-postgres-rehearsal.py --business-market-v2-cost-upgrade --upgrade-only --port <隔离端口>`。脚本要求 0064 的独立升级/备份恢复回执，冻结旧 84 张 AI 表、市场根与回执、renderer 1–7 文件字节及旧 AI 函数 OID/正文/ACL；仅接受成本表及两个索引、四函数、两个触发器和 NOLOGIN 窄权限，然后核验升级前后独立备份恢复与空逆迁移重做。该入口目前只完成静态和纯测试，真实 PostgreSQL 演练仍待主任务串行执行；不得据此声称升级验收通过。
