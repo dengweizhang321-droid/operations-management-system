@@ -14,3 +14,7 @@
 本分支运行纯/static 与旧 v11 候选回归 13 项、编译、Django system check 和 `makemigrations --check --dry-run`；**按主任务串行安排，未在本工作树运行 PostgreSQL**。已编写 `BudgetV11AttestationRoleTests.test_0067_owning_bytes_and_independent_role_append_only` 作为隔离真实角色目标，整合时须先验 0066 已暂存，串行执行该目标并核正反路径；再做 0066→0067 旧表/旧 1–10 文件字节与函数 OID/body/ACL/owner 冻结、前后独立备份恢复、空逆迁移重装和旧 v9/v10 回归。独立 NOLOGIN 连接的正式凭据、受保护部署与生产迁移均不在本切片授权范围。
 
 后续仍需新的版本化 0068+ 发布门禁、reader 窄下载栅栏及保护路由、v11 真实来源 57.5 万行容量与构建时限测量、原生 Office 公式重算验收。0067 证明不能代替这些门槛。
+
+## 显式隔离升级演练入口
+
+`tools/ai-postgres-rehearsal.py --business-promotion-budget-v11-attestation-upgrade --upgrade-only` 将先重放并独立恢复 0065→0066 的完整链，再运行 `business-promotion-budget-v11-attestation-upgrade-rehearsal.py`。后者仅接受精确 0066 成功回执及隔离 test 数据库/端口，冻结旧 85 表、当时存在的 renderer 1–11 文件行/块字节、全部旧 AI 函数 OID/正文/ACL/owner、表/列权限、角色及成员关系；种子缺失的 renderer 8–11 会列在 `unseededRendererVersions`，不冒充字节验收。预期只新增一张 SQL-owned 证明表、其索引/两个触发器、三个窄函数及一个 NOLOGIN 角色；旧 0066 writer 函数与 v11 ready 双守卫须原样。升级前后分别备份到全新库独立恢复，空表逆迁移回 0066 后重装并比对。**该脚本已编写但尚未运行 PostgreSQL**，不能把其预期断言当成已通过的证据。
