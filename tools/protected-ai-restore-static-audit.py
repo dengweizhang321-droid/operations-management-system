@@ -40,6 +40,10 @@ def audit(root: Path = ROOT) -> dict[str, object]:
     missing = sorted(PROTECTED_ROLES - actual_roles)
     if missing:
         issues.append("isolated restore lacks protected NOLOGIN role preflight: " + ",".join(missing))
+    if re.search(r'\^teruisi_\[a-z_\]', operator) and any(
+            not re.fullmatch(r"teruisi_[a-z_]{1,64}", role)
+            for role in PROTECTED_ROLES):
+        issues.append("restore role-name validator rejects versioned protected roles")
 
     backup = helper.partition("def run_backup(")[2].partition("def run_probe(")[0]
     restore = helper.partition("def run_restore(")[2].partition("def build_parser(")[0]
