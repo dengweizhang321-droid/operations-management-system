@@ -12,23 +12,32 @@ class BudgetV11IdentityCandidateStaticTests(TestCase):
             "ai_assistant.migrations.0067_business_promotion_budget_v11_attestation")
         verify = import_module(
             "ai_assistant.migrations.0068_business_promotion_budget_v11_verifier_receipt")
+        migration = import_module(
+            "ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity")
         v2 = candidate.verify_sql()
         self.assertIn("ai_budget_v11_verify_protected_receipt_v2(", v2)
         self.assertIn("session_user<>'teruisi_ai_budget_v11_publish_login'", v2)
-        self.assertIn("NOLOGIN NOINHERIT", getsource(candidate.install_test_only))
+        self.assertIn("NOLOGIN NOINHERIT", getsource(migration._role))
+        self.assertEqual(migration.Migration.dependencies,[("ai_assistant",
+            "0069_business_market_v2_paid_round_rehearsal")])
         self.assertIn("session_user<>'teruisi_ai_budget_v11_attestor'", att.ATTEST)
         self.assertIn("session_user<>'teruisi_ai_budget_v11_publisher'",
             verify.VERIFY)
         self.assertNotIn("UPDATE public.ai_business_file_runs", v2)
         self.assertIn("readyAuthorized',false", candidate.READ_SQL)
-        self.assertIn("claimed_at IS NULL", candidate.READ_SQL)
+        self.assertIn("ON CONFLICT (ticket_id) DO NOTHING", candidate.READ_SQL)
+        self.assertIn("IF TG_OP<>'INSERT'", candidate.ROW_GUARD)
 
-    def test_no_migration_or_web_route_is_added_by_candidate(self):
-        self.assertIn("only installs in isolated PG test", getsource(candidate._isolated))
+    def test_migration_adds_no_credentials_web_route_or_ready(self):
+        migration = import_module(
+            "ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity")
         self.assertEqual(set(candidate.ROLES), {candidate.ATTEST,candidate.SIGN,
             candidate.PUBLISH})
         self.assertNotIn("PASSWORD", candidate.ISSUE_SQL + candidate.READ_SQL +
             candidate.verify_sql())
+        self.assertNotIn("LOGIN PASSWORD", getsource(migration.install))
+        self.assertNotIn("UPDATE public.ai_business_file_runs",
+            getsource(migration.install)+candidate.READ_SQL+candidate.ISSUE_SQL)
 
     def test_full_owning_preflight_still_uses_unrestricted_orm_and_is_blocked(self):
         from pathlib import Path

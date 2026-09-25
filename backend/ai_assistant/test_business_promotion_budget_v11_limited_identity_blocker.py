@@ -1,7 +1,7 @@
-"""Static release blocker until non-superuser v11 identities are implemented.
+"""Static release blocker until non-superuser full owning preflight exists.
 
-Replace these assertions with isolated, real LOGIN-role behavior tests when a
-future explicit migration provides the protected read and role boundaries.
+0070 adds narrow SQL read and dormant identities; the application signer still
+uses default ORM for the full source/file preflight and direct 0067 proof read.
 """
 from importlib import import_module
 from inspect import getsource
@@ -23,7 +23,7 @@ class BudgetV11LimitedIdentityBlockerTests(TestCase):
         self.assertIn("NOLOGIN NOINHERIT", getsource(verifier._role))
         self.assertIn("rolcanlogin", getsource(verifier._role))
 
-    def test_signer_has_no_narrow_attestation_reader_yet(self):
+    def test_signer_still_uses_orm_despite_narrow_reader(self):
         signer = import_module(
             "business_analysis.promotion_budget_verifier_receipt_v11")
         source = getsource(signer.sign_after_preflight)
@@ -31,6 +31,9 @@ class BudgetV11LimitedIdentityBlockerTests(TestCase):
         self.assertIn("preflight.prepare", source)
         att = import_module(
             "ai_assistant.migrations.0067_business_promotion_budget_v11_attestation")
+        from . import business_promotion_budget_v11_identity_candidate_sql as v2
+        self.assertIn("ai_budget_v11_read_proof_ticket_v2", v2.READ_SQL)
+        self.assertNotIn("read_proof_ticket_v2", source)
         self.assertIn('cursor.execute("REVOKE ALL ON " + TABLE + " FROM PUBLIC")',
             getsource(att.install))
 

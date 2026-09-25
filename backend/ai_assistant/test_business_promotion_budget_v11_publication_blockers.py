@@ -14,8 +14,9 @@ class BudgetV11PublicationBlockerTests(TestCase):
             "              RAISE EXCEPTION 'ai_budget_v11_ready_unpublished';",
             stage.COMPLETE_GUARD)
         migrations = Path(__file__).parent / "migrations"
-        self.assertEqual(list(migrations.glob("0069*")), [],
-            "0069 must not appear before atomic publish/OUTCOME proof")
+        self.assertFalse(any("CREATE FUNCTION public.ai_budget_v11_publish("
+            in path.read_text(encoding="utf-8") for path in migrations.glob("00*.py")),
+            "a numbered market or identity migration must not publish v11")
 
     def test_0068_verification_has_key_rotation_race_and_no_byte_lock(self):
         verifier = import_module(
