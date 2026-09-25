@@ -52,3 +52,14 @@ class BudgetV11IdentityCandidateStaticTests(TestCase):
         self.assertIn("files.get(identifier(run_id), principal)", source)
         self.assertIn("AiBusinessPromotionBudgetV11Attestation.objects.get", signer)
         self.assertNotIn("read_proof_ticket_v2", source + signer)
+
+    def test_health_checks_private_verifier_and_ticket_catalogues(self):
+        from pathlib import Path
+        health = (Path(__file__).parent / "health.py").read_text(
+            encoding="utf-8")
+        self.assertIn(
+            'migrations.0068_business_promotion_budget_v11_verifier_receipt").verify_catalog(cursor)',
+            health)
+        self.assertIn(
+            'migrations.0070_business_promotion_budget_v11_limited_identity").verify_catalog(cursor)',
+            health)

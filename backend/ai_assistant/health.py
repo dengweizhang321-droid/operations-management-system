@@ -368,6 +368,7 @@ def check():
         from importlib import import_module
         import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0067_business_promotion_budget_v11_attestation").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0068_business_promotion_budget_v11_verifier_receipt").verify_catalog(cursor)
         from .business_market_v2_context_catalog import verify as verify_market_context
         verify_market_context(cursor)
         from .business_market_v2_read_catalog import verify as verify_market_read
@@ -379,6 +380,7 @@ def check():
         from .business_market_v2_cost_catalog import verify as verify_market_cost
         verify_market_cost(cursor)
         import_module("ai_assistant.migrations.0069_business_market_v2_paid_round_rehearsal").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
