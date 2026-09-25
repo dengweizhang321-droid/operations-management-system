@@ -41,6 +41,27 @@ PROTECTED_AI_TABLES_BY_MIGRATION = {
         "protected_business_market_v2_cap_proposals",
         "protected_business_market_v2_authority_revocations"},
 }
+PROTECTED_AI_MIGRATIONS = frozenset(PROTECTED_AI_TABLES_BY_MIGRATION) | {
+    "0067_business_promotion_budget_v11_attestation",
+    "0069_business_market_v2_paid_round_rehearsal",
+}
+PROTECTED_AI_ROLES = (
+    "teruisi_ai_budget_v11_attestor",
+    "teruisi_ai_budget_v11_key_owner",
+    "teruisi_ai_budget_v11_publisher",
+    "teruisi_ai_market_paid_adopter",
+    "teruisi_ai_market_paid_reserver",
+    "teruisi_ai_market_paid_starter",
+    "teruisi_ai_budget_v11_attest_login",
+    "teruisi_ai_budget_v11_sign_login",
+    "teruisi_ai_budget_v11_publish_login",
+    "teruisi_ai_market_rate_proposer",
+    "teruisi_ai_market_cap_proposer",
+    "teruisi_ai_market_proposal_revoker",
+)
+PROTECTED_KEY_TABLE = "public.protected_business_budget_v11_verifier_keys"
+FORMAL_DUMP_FLAGS = ("--no-owner", "--no-privileges")
+FORMAL_RESTORE_FLAGS = ("--no-owner", "--no-privileges")
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
 FINANCE_MARKER_TABLE = "finance_source_revision_markers"
@@ -1797,6 +1818,73 @@ def _validate_new_output(path_value: str) -> Path:
     return path
 
 
+def _protected_ai_preflight(cursor: psycopg.Cursor[Any]) -> dict[str, Any]:
+    """Read only. Never SELECT or expose the private verifier key contents."""
+    cursor.execute("SELECT name FROM django_migrations WHERE app='ai_assistant' "
+        "AND name=ANY(%s)", [sorted(PROTECTED_AI_MIGRATIONS)])
+    applied = sorted(str(row[0]) for row in cursor.fetchall())
+    cursor.execute("SELECT rolname,rolcanlogin,rolinherit,rolsuper,rolcreatedb,"
+        "rolcreaterole,rolreplication,rolbypassrls FROM pg_catalog.pg_roles "
+        "WHERE rolname=ANY(%s)", [list(PROTECTED_AI_ROLES)])
+    roles = {str(row[0]): tuple(row[1:]) for row in cursor.fetchall()}
+    issues: list[str] = []
+    if set(roles) != set(PROTECTED_AI_ROLES) or any(
+            flags != (False,) * 7 for flags in roles.values()):
+        issues.append("protected_roles_not_exact_nologin")
+    cursor.execute("SELECT count(*) FROM pg_catalog.pg_auth_members member "
+        "JOIN pg_catalog.pg_roles parent ON parent.oid=member.roleid "
+        "JOIN pg_catalog.pg_roles child ON child.oid=member.member "
+        "WHERE parent.rolname=ANY(%s) OR child.rolname=ANY(%s)",
+        [list(PROTECTED_AI_ROLES)] * 2)
+    if cursor.fetchone() != (0,):
+        issues.append("protected_role_membership_present")
+    cursor.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) "
+        "FROM pg_catalog.pg_class c WHERE c.oid=to_regclass(%s)",
+        [PROTECTED_KEY_TABLE])
+    owner = cursor.fetchone()
+    if owner != ("teruisi_ai_budget_v11_key_owner",):
+        issues.append("private_key_table_owner_unverified")
+    else:
+        cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT')",
+            [PROTECTED_KEY_TABLE])
+        if cursor.fetchone() != (True,):
+            issues.append("backup_identity_cannot_read_private_key_table")
+    cursor.execute("SELECT rolcreaterole,rolsuper FROM pg_catalog.pg_roles "
+        "WHERE rolname=current_user")
+    installer = cursor.fetchone()
+    if installer is None or installer == (False, False):
+        issues.append("privileged_migration_installer_not_configured")
+    if "--no-privileges" in FORMAL_DUMP_FLAGS:
+        issues.append("archive_acl_not_preserved")
+    if ("--no-owner" in FORMAL_RESTORE_FLAGS or
+            "--no-privileges" in FORMAL_RESTORE_FLAGS):
+        issues.append("cross_cluster_owner_acl_not_preserved")
+    issues.append("cross_cluster_protected_roles_not_preprovisioned")
+    issues.append("restore_role_name_policy_rejects_versioned_roles")
+    # The existing daily archive has no protected at-rest encryption contract.
+    issues.append("private_key_archive_encryption_not_configured")
+    return {"version": VERSION, "status": "blocked", "readOnly": True,
+        "appliedProtectedMigrations": applied,
+        "exactProtectedRoleCount": len(roles), "issues": sorted(set(issues))}
+
+
+def run_protected_preflight(args: argparse.Namespace) -> dict[str, Any]:
+    with psycopg.connect("") as connection:
+        connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_database(),current_user,"
+                "COALESCE(inet_server_addr()::text,''),inet_server_port()")
+            identity = cursor.fetchone()
+            if (identity is None or identity[0] != args.expected_database
+                    or identity[1] != args.expected_user
+                    or _canonical_loopback_address(identity[2]) != "127.0.0.1"
+                    or int(identity[3]) != int(args.port)):
+                raise RuntimeError("protected AI preflight database identity mismatch")
+            result = _protected_ai_preflight(cursor)
+        connection.rollback()
+    return result
+
+
 def run_backup(args: argparse.Namespace) -> dict[str, Any]:
     pg_dump = _validate_leaf(args.pg_dump, "pg_dump")
     output = _validate_new_output(args.output)
@@ -1810,6 +1898,9 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_export_snapshot()")
                 snapshot = str(cursor.fetchone()[0])
+                protected = _protected_ai_preflight(cursor)
+            if protected["appliedProtectedMigrations"]:
+                raise RuntimeError("protected AI daily backup is not admitted")
             evidence = collect_evidence(
                 connection,
                 expected_database=args.expected_database,
@@ -1823,8 +1914,7 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
                 f"--dbname={args.expected_database}",
                 "--format=custom",
                 "--compress=6",
-                "--no-owner",
-                "--no-privileges",
+                *FORMAL_DUMP_FLAGS,
                 "--lock-wait-timeout=5000",
                 f"--snapshot={snapshot}",
                 f"--file={output}",
@@ -1883,6 +1973,13 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
 def run_restore(args: argparse.Namespace) -> dict[str, Any]:
     pg_restore = _validate_leaf(args.pg_restore, "pg_restore")
     archive = _validate_leaf(args.archive, "backup archive")
+    listed = subprocess.run([str(pg_restore), "--list", str(archive)],
+        check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        timeout=min(int(args.timeout_seconds), 60), env=os.environ.copy())
+    if listed.returncode != 0:
+        raise RuntimeError("restore archive list preflight failed")
+    if b"protected_business_" in listed.stdout:
+        raise RuntimeError("protected AI archive restore is not admitted")
     command = [
         str(pg_restore),
         "--host=127.0.0.1",
@@ -1890,8 +1987,7 @@ def run_restore(args: argparse.Namespace) -> dict[str, Any]:
         f"--username={args.expected_user}",
         f"--dbname={args.expected_database}",
         "--single-transaction",
-        "--no-owner",
-        "--no-privileges",
+        *FORMAL_RESTORE_FLAGS,
         str(archive),
     ]
     try:
@@ -1938,6 +2034,11 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("--expected-database", required=True)
     probe.add_argument("--expected-user", required=True)
 
+    protected = subparsers.add_parser("protected-preflight")
+    protected.add_argument("--expected-database", required=True)
+    protected.add_argument("--expected-user", required=True)
+    protected.add_argument("--port", required=True, type=int)
+
     restore = subparsers.add_parser("restore")
     restore.add_argument("--pg-restore", required=True)
     restore.add_argument("--archive", required=True)
@@ -1955,6 +2056,8 @@ def main() -> int:
             result = run_backup(args)
         elif args.command == "restore":
             result = run_restore(args)
+        elif args.command == "protected-preflight":
+            result = run_protected_preflight(args)
         else:
             result = run_probe(args)
         print(json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(",", ":")))
