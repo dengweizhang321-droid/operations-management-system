@@ -6,4 +6,4 @@
 
 模型选择保持 deferred、模型 ID/版本为空，当前 provider 轮次、工具调用及付费额度均为 **0**；未来上限分别固定 20/40，但不是运行许可。无预算时图不调用预算工具，有预算时预算仍只作人工复核输入，原生预算支出权限为 false。计划要求人审，`agentJobsAllowed=false`、`providerCallsAllowed=false`、`readReceiptAuthority=false`、`numericCitationAllowed=false`。它不是运行中的 workflow，也没有真实同 job/provider 已读或可发布报告。
 
-下一版本需另建新的实际执行 profile/flow 与固定模型策略，逐次预留 provider 权限、复用既有词货 calling→拥有方工具→完成态回执链，并版本化 0044/0060/0061/0062 的精确守卫。隔离合成 provider/tool 回应只可在那时验证真实持久链归属，不能预先制造 0062 回执。0063 无公开启动路由、付费模型调用或生产采用。纯测试目标 `ai_assistant.test_business_market_v2_execution_plan_contract`；隔离 PG 目标 `ai_assistant.test_business_market_v2_execution_plan`，主任务串行运行。
+下一版本需另建新的实际执行 profile/flow 与固定模型策略，逐次预留 provider 权限、复用既有词货 calling→拥有方工具→完成态回执链，并版本化 0044/0060/0061/0062 的精确守卫。隔离合成 provider/tool 回应只可在那时验证真实持久链归属，不能预先制造 0062 回执。0063 无公开启动路由、付费模型调用或生产采用。纯测试目标 `ai_assistant.test_business_market_v2_execution_plan_contract`；隔离 PG 目标 `ai_assistant.test_business_market_v2_execution_plan`。升级演练入口 `tools/ai-postgres-rehearsal.py --business-market-v2-execution-plan-upgrade --upgrade-only` 以已验证 0062 种子冻结旧 83 表、旧函数和 renderer1–7，并核第84表、NOLOGIN/ACL、前后独立恢复及空回退重装；主任务串行运行。
