@@ -302,13 +302,15 @@ def check():
             "ai_assistant.migrations.0044_business_market_v2_profile")
         market_execution = importlib.import_module(
             "ai_assistant.migrations.0060_business_market_v2_execution_snapshot")
+        market_synthetic = importlib.import_module(
+            "ai_assistant.migrations.0064_business_market_v2_synthetic_vertical")
         expected_market_guards = {
             ("ai_report_runs", "ai_market_v2_report_guard"):
                 (31, False, False, "ai_market_v2_parked_report_guard",
                  market_execution.NEW_PARKED_REPORT),
             ("ai_workflow_runs", "ai_market_v2_workflow_guard"):
                 (31, False, False, "ai_market_v2_parked_workflow_guard",
-                 market_execution.NEW_PARKED_WORKFLOW),
+                 market_synthetic.NEW_PARKED_WORKFLOW),
             ("ai_workflow_runs", "ai_market_v2_workflow_complete"):
                 (5, True, True, "ai_market_v2_parked_orphan_guard",
                  market_profile.ORPHAN_GUARD),
@@ -358,6 +360,8 @@ def check():
         verify_market_read(cursor)
         from .business_market_v2_execution_plan_catalog import verify as verify_market_plan
         verify_market_plan(cursor)
+        from .business_market_v2_synthetic_catalog import verify as verify_market_synthetic
+        verify_market_synthetic(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
