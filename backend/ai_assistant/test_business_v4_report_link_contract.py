@@ -61,8 +61,16 @@ class V4ReportLinkContractTests(TestCase):
             link.CREATE_REPORT_SQL)
         self.assertIn("intent.issued_txid IS DISTINCT FROM txid_current()",
             link.CREATE_REPORT_SQL)
-        self.assertIn("a.authority_epoch::text=current_setting(",
-            link.CREATE_REPORT_SQL)
+        self.assertEqual(link.CREATE_REPORT_SQL.count(
+            "WHERE id=1 FOR SHARE;"), 2)
+        self.assertEqual(link.CREATE_REPORT_SQL.count(
+            "ai_v4_report_link_create_authority_invalid"), 2)
+        self.assertLess(link.CREATE_REPORT_SQL.index(
+            "SELECT * INTO authority FROM public.ai_write_authority"),
+            link.CREATE_REPORT_SQL.index("SELECT * INTO intent FROM "))
+        self.assertLess(link.CREATE_REPORT_SQL.rindex(
+            "SELECT * INTO authority FROM public.ai_write_authority"),
+            link.CREATE_REPORT_SQL.index("INSERT INTO public.ai_report_runs"))
         self.assertIn("workflow_id,budget_plan_id,snapshot_json,created_at)",
             link.CREATE_REPORT_SQL)
         self.assertIn("flow.id,NULL,snapshot_text,clock_timestamp()",
