@@ -9,7 +9,7 @@ import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from business_analysis import (promotion_action_tables, promotion_budget_v10,
+from business_analysis import (html_slim_payload_v11, promotion_action_tables, promotion_budget_v10,
     promotion_trial_scope, promotion_trial_table_schema, volume_delivery,
     volume_files, volume_plan)
 from business_analysis.contracts import AnalysisContractError
@@ -25,6 +25,7 @@ from .policy import AiError, canonical, current_principal, digest
 
 
 SCHEMA = "business-promotion-budget-v10-volumes-candidate-v1"
+SLIM_SCHEMA = "business-promotion-budget-v11-slim-volumes-candidate-v1"
 MAX_TOTAL_BYTES = volume_delivery.MAX_DELIVERY_BYTES
 
 
@@ -134,9 +135,13 @@ def _trial_proof(report_id, value, proof, source, tables, action,
 
 
 @contextmanager
-def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
-                 max_tables=120, max_rows=1_000_000, max_volumes=100):
-    """Yield temporary HTML/XLSX/JSON only after full v10 candidate checks."""
+def _open_versioned(report_id, principal, *, renderer_version,
+                    checkpoint=None, material_limits=None,
+                    max_tables=120, max_rows=1_000_000, max_volumes=100):
+    """Yield temporary v10/v11 pairs from the same current approved roots."""
+    if type(renderer_version) is not int or renderer_version not in (10, 11):
+        _conflict("预算临时渲染版本无效")
+    schema = SCHEMA if renderer_version == 10 else SLIM_SCHEMA
     policy = trial._policy(max_tables, max_rows, max_volumes)
     current_principal(principal, admin=True)
     with TemporaryDirectory(prefix="teruisi-promotion-budget-v10-") as folder:
@@ -176,15 +181,15 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                     request = trial._contract(volume_files.request_for, tables,
                         report_id=report_id,
                         evidence_digest=value["binding"]["sealedDigest"],
-                        renderer_version=10)
+                        renderer_version=renderer_version)
                     plan = trial._contract(volume_plan.build, request,
                         native_budget_sheets=budget.proof["nativeBudgetSheets"],
                         **policy)
                     if plan["volumes"][0]["kind"] == "budget_only":
                         _conflict("首卷须同时容纳至少一张来源表")
                     schema_digest = promotion_trial_table_schema.digest_tables(tables)
-                    file_metadata = {"schemaVersion": SCHEMA, "reportId": report_id,
-                        "rendererVersion": 10, "promotionFileProof": proof,
+                    file_metadata = {"schemaVersion": schema, "reportId": report_id,
+                        "rendererVersion": renderer_version, "promotionFileProof": proof,
                         "promotionTrialProof": lineage,
                         "promotionBudgetProof": budget.proof,
                         "tableSchemaDigest": schema_digest,
@@ -209,7 +214,7 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                         full = trial._contract(volume_files.render, tables, outputs,
                             report_id=report_id,
                             evidence_digest=value["binding"]["sealedDigest"],
-                            renderer_version=10, plan=plan,
+                            renderer_version=renderer_version, plan=plan,
                             title="推广专项预算试用分析 · " + report_id,
                             metadata=file_metadata, checkpoint=checkpoint,
                             offline_budget=budget.offline_budget,
@@ -219,6 +224,10 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                             full.get("promotionBudgetProof") != budget.proof or
                             full.get("tableSchemaDigest") != schema_digest):
                         _conflict("版本10完整清单缺少固定词货、来源或预算证明")
+                    if renderer_version == 11 and (
+                            full.get("promotionSlimProof", {}).get("htmlPayloadVersion") != 2 or
+                            full["promotionSlimProof"]["sourceBudgetProofDigest"] != budget.proof["proofDigest"]):
+                        _conflict("版本11完整清单缺少压缩行及预算证明")
                     by_key = {item["key"]: item for item in full["tables"]}
                     for key, rows, sha in zip(budget.proof["tableKeys"],
                             budget.proof["tableRowCounts"],
@@ -228,18 +237,21 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                     if ([item["key"] for item in full["tables"][-2:]] !=
                             [table.key for table in promotion]):
                         _conflict("词货原双表未位于完整清单末尾")
-                    candidate_binding = digest([SCHEMA, report_id,
+                    binding_parts = [schema, report_id,
                         proof["proofDigest"], lineage["proofDigest"],
                         budget.proof["proofDigest"], schema_digest,
-                        source["sourcesDigest"], "temporary"])
+                        source["sourcesDigest"], "temporary"]
+                    if renderer_version == 11:
+                        binding_parts.append(full["promotionSlimProof"]["proofDigest"])
+                    candidate_binding = digest(binding_parts)
                     compact, raw = trial._contract(volume_delivery.make, full,
                         binding_digest=candidate_binding, attempt=1, draft=False,
-                        renderer_version=10, **policy)
+                        renderer_version=renderer_version, **policy)
                     checked = trial._contract(volume_delivery.verify_full,
                         compact, raw, binding_digest=candidate_binding,
                         attempt=1, draft=False, report_id=report_id,
                         evidence_digest=value["binding"]["sealedDigest"],
-                        renderer_version=10, **policy)
+                        renderer_version=renderer_version, **policy)
                     if checked != full:
                         _conflict("版本10完整清单未回到同一报告")
             _fresh(report_id, principal, fixed["reportBinding"],
@@ -258,8 +270,12 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                 files.append({"volumeIndex": key[0], "format": key[1], **actual})
             if sum(item["bytes"] for item in files) > MAX_TOTAL_BYTES:
                 raise AiError("版本10临时输出超过1GiB容量", "payload_too_large", 413)
-            receipt = {"schemaVersion": SCHEMA, "reportId": report_id,
-                "rendererVersion": 10, "compactManifest": compact,
+            if renderer_version == 11:
+                for volume in full["volumes"]:
+                    html_slim_payload_v11.verify_file(
+                        paths[volume["volumeIndex"], "html"], volume)
+            receipt = {"schemaVersion": schema, "reportId": report_id,
+                "rendererVersion": renderer_version, "compactManifest": compact,
                 "fullManifestDigest": full["manifestDigest"],
                 "promotionFileProof": proof, "promotionTrialProof": lineage,
                 "promotionBudgetProof": budget.proof,
@@ -271,6 +287,9 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                 "volumeCount": plan["volumeCount"], "files": files,
                 "deliveryAuthorized": False, "registeredRenderer": False,
                 "authorityVerified": False}
+            if renderer_version == 11:
+                receipt["promotionSlimProof"] = full["promotionSlimProof"]
+                receipt["htmlPayloadVersion"] = 2
             receipt["receiptDigest"] = digest(receipt)
             prepared = trial.PreparedVolumes(canonical(receipt), paths, active)
             yield prepared
@@ -290,3 +309,14 @@ def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
                 code, 413 if code == "payload_too_large" else 409) from error
         finally:
             active[0] = False
+
+
+@contextmanager
+def open_volumes(report_id, principal, *, checkpoint=None, material_limits=None,
+                 max_tables=120, max_rows=1_000_000, max_volumes=100):
+    """Preserved renderer-10 temporary contract and bytes."""
+    with _open_versioned(report_id, principal, renderer_version=10,
+            checkpoint=checkpoint, material_limits=material_limits,
+            max_tables=max_tables, max_rows=max_rows,
+            max_volumes=max_volumes) as prepared:
+        yield prepared

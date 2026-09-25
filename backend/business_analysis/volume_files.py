@@ -211,6 +211,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
     volume_plan.verify(plan, request, **policy)
     if type(html_slim_v10) is not bool or html_slim_v10 and renderer_version != 10:
         raise AnalysisContractError("压缩HTML仅允许renderer 10显式候选，旧版本字节不可改")
+    slim_html = html_slim_v10 or renderer_version == 11
     # Use the independently rebuilt bounded plan, not caller-owned mutable lists.
     planned = volume_plan.build(request, **policy)
     if any(v["kind"] == "budget_only" for v in planned["volumes"]):
@@ -225,7 +226,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             type(metadata.get("promotionFileProof")) is not dict or
             type(metadata.get("promotionTrialProof")) is not dict):
         raise AnalysisContractError("renderer 9 试用报告须有双重证明且不得传入预算")
-    if renderer_version == 10 and (type(metadata.get("promotionFileProof")) is not dict or
+    if renderer_version in (10, 11) and (type(metadata.get("promotionFileProof")) is not dict or
             type(metadata.get("promotionTrialProof")) is not dict or
             type(metadata.get("promotionBudgetProof")) is not dict or
             type(metadata.get("tableSchemaDigest")) is not str or
@@ -235,7 +236,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
     excel_budget = _budget_snapshot(excel_budget, report_id, True) if excel_budget is not None else None
     if offline_budget is not None and excel_budget is not None and canonical(offline_budget) != canonical(excel_budget):
         raise AnalysisContractError("HTML与Excel预算证据或参数不一致")
-    if renderer_version == 10:
+    if renderer_version in (10, 11):
         candidate = metadata["promotionBudgetProof"]
         if (candidate.get("offlinePayloadDigest") !=
                 (digest(offline_budget) if offline_budget is not None else None)):
@@ -275,7 +276,7 @@ success. No source iterator is consumed for rejected plans or budget-only input.
                    "evidenceDigest": evidence_digest, "rendererVersion": renderer_version,
                    "planDigest": planned["planDigest"], "volumeIndex": index, "volumeCount": planned["volumeCount"],
                    "publication": "requires_complete_multivolume_manifest", "fragments": volume["tables"]}
-        if html_slim_v10:
+        if slim_html:
             binding["htmlPayloadVersion"] = 2
         def progress(value):
             if checkpoint:
@@ -285,10 +286,12 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             tables=fragments, checkpoint=progress if checkpoint else None,
             offline_budget=offline_budget if index == 1 else None, excel_budget=excel_budget if index == 1 else None,
             html_layout_version=2 if renderer_version >= 4 else 1,
-            xlsx_opc_version=2 if renderer_version in (6, 7, 9, 10) else 1,
-            html_payload_version=2 if html_slim_v10 else 1)
+            xlsx_opc_version=2 if renderer_version in (6, 7, 9, 10, 11) else 1,
+            html_payload_version=2 if slim_html else 1)
         if len(proof["tables"]) != len(volume["tables"]):
             raise AnalysisContractError("分片writer回执数量不一致")
+        if renderer_version == 11 and type(proof.get("htmlPayload")) is not dict:
+            raise AnalysisContractError("renderer 11 缺少压缩行原生证明")
         table_proofs = []
         for part, actual, sha in zip(volume["tables"], proof["tables"], expected_hashes):
             if (actual["key"], actual["rowCount"], actual["columnCount"], actual["rowDigest"]) != (part["fragmentKey"], part["rowLimit"], part["columnCount"], sha.hexdigest()):
@@ -301,7 +304,8 @@ success. No source iterator is consumed for rejected plans or budget-only input.
         volumes.append({"volumeIndex": index, "volumeCount": planned["volumeCount"], "kind": volume["kind"],
                         "nativeBudgetSheets": volume["nativeBudgetSheets"], "rowCount": sum(p["rowLimit"] for p in table_proofs),
                         "offlineBudgetEnabled": index == 1 and offline_budget is not None,
-                        "tables": table_proofs, "files": files, **({"budgetCalculator": proof["budgetCalculator"]} if "budgetCalculator" in proof else {})})
+                        "tables": table_proofs, "files": files, **({"budgetCalculator": proof["budgetCalculator"]} if "budgetCalculator" in proof else {}),
+                        **({"htmlPayload": proof["htmlPayload"]} if renderer_version == 11 else {})})
     source_proofs = []
     for descriptor in planned["tables"]:
         source = sources[descriptor["key"]]
@@ -346,9 +350,12 @@ success. No source iterator is consumed for rejected plans or budget-only input.
             raise AnalysisContractError("renderer 9 缺少试用证明或意外包含预算")
         manifest["promotionTrialProof"] = proof
         manifest["tableSchemaDigest"] = proof.get("tableSchemaDigest")
-    if renderer_version == 10:
+    if renderer_version in (10, 11):
         manifest["promotionFileProof"] = metadata["promotionFileProof"]
         manifest["promotionTrialProof"] = metadata["promotionTrialProof"]
         manifest["promotionBudgetProof"] = metadata["promotionBudgetProof"]
         manifest["tableSchemaDigest"] = metadata["tableSchemaDigest"]
+    if renderer_version == 11:
+        from .volume_delivery import slim_proof_v11
+        manifest["promotionSlimProof"] = slim_proof_v11(manifest)
     return {**manifest, "manifestDigest": digest(manifest)}
