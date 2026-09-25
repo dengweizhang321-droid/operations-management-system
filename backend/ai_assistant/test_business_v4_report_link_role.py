@@ -173,6 +173,9 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
                     body_mac="a" * 64, key_id="1" * 16,
                     created_at=now)
             finally:
+                # Drain deferred FK events before ALTER TABLE restores the
+                # test-only user triggers within this transaction.
+                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
                 for table in reversed(tables):
                     cursor.execute("ALTER TABLE public."+table+
                         " ENABLE TRIGGER USER")
