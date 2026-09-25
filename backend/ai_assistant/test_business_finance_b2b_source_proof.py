@@ -13,6 +13,7 @@ from . import business_b2b_report_material as b2b_owner
 from . import models as m
 from . import test_business_b2b_report_material as b2b_fixture
 from . import test_business_finance_v3_report_material as finance_fixture
+from .control_models import AiDataRevision, AiWriteAuthority
 from .policy import AiError
 
 
@@ -38,6 +39,11 @@ class FinanceB2bSourceProofOwningTests(djtest.TransactionTestCase):
     def setUp(self):
         if connection.vendor != "postgresql":
             self.skipTest("requires isolated sealed v3 finance and v2 B2B")
+        # TransactionTestCase flushes migration data before each test. Restore
+        # the same development authority seeds used by AiDomainTests before
+        # invoking the v3 TestCase fixture, which normally inherits them.
+        AiDataRevision.objects.get_or_create(domain="ai-assistant")
+        AiWriteAuthority.objects.get_or_create(id=1)
         finance_fixture.FinanceV3ReportMaterialTests.setUp(self)
         self.finance_intent = self.report_intent()
         self.finance_actor = self.principal
