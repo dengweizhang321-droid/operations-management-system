@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -16,16 +15,14 @@ django.setup()
 import psycopg
 from psycopg import sql
 from django.conf import settings
-from django.db import connection, transaction
+from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-from django.test import override_settings
 
-from ai_assistant.table_manifest import AI_TABLES
-from ai_assistant import business_market_v2_execution_snapshot as service
-from ai_assistant import business_market_v2_execution_snapshot_contract as contract
-from ai_assistant import models as m
-from ai_assistant.test_business_market_v2_admitted_paused import MarketV2AdmittedPausedTests
+from ai_assistant.table_manifest import AI_TABLES as CURRENT_AI_TABLES
 from business_analysis.contracts import canonical
+
+AI_TABLES = tuple(table for table in CURRENT_AI_TABLES
+    if table != "ai_business_market_v2_context_proofs")
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
@@ -301,39 +298,6 @@ def verify_install(db, before, after):
             raise AssertionError("0060 trigger target/enabled/deferral drift")
 
 
-def temporary_paused_row_probe():
-    """Exercise real owning roots, then remove every probe row by rollback."""
-    fixture_path = (ROOT / "backend" / "ai_assistant" / "fixtures" /
-        "market_v2_five_tool_catalog.json")
-    entries = json.loads(fixture_path.read_text(encoding="utf-8"))
-    with override_settings(DJANGO_PROCESS_ROLE="development",
-            DJANGO_ENVIRONMENT="test"), transaction.atomic():
-        fixture = MarketV2AdmittedPausedTests(
-            "test_admitted_snapshot_is_distinct_paused_and_idempotent")
-        fixture.setUp()
-        parked_id, admitted = fixture.admitted()
-        body = {"schemaVersion": service.REQUEST_SCHEMA,
-            "clientRequestId": "rehearsal-market-execution-plan",
-            "admittedReportId": admitted["reportId"]}
-        with patch.object(service.transport, "catalog", return_value=entries):
-            created = service.create(body, fixture.admin)
-        row = m.AiReportRun.objects.select_related("workflow").get(
-            pk=created["reportId"])
-        value = json.loads(row.snapshot_json)
-        if (created["agentDispatchSupported"] is not False
-                or value["executionProfile"] != migration.PROFILE
-                or value["executionRoot"]["parkedReportId"] != parked_id
-                or value["executionRoot"]["admittedReportId"] != admitted["reportId"]
-                or row.workflow.status != "paused"
-                or row.workflow.error_code != migration.PAUSE
-                or row.workflow.model_id != ""
-                or json.loads(row.workflow.allowed_tools_json) != list(contract.TOOL_ORDER)
-                or m.AiAgentJobs.objects.filter(workflow_run_id=row.workflow_id).exists()
-                or m.AiWorkflowNodeRuns.objects.filter(run_id=row.workflow_id).exists()):
-            raise AssertionError("0060 positive row was not an inert paused five-tool plan")
-        transaction.set_rollback(True)
-
-
 with connect() as db:
     closed(db, installed=False)
     before = snapshot(db)
@@ -348,10 +312,6 @@ with connect() as db:
     closed(db, installed=True)
     after = snapshot(db)
     verify_install(db, before, after)
-temporary_paused_row_probe()
-with connect() as db:
-    if snapshot(db) != after:
-        raise AssertionError("0060 paused-row probe was not fully rolled back")
 archive_restore("market_v2_execution_after")
 with connect("market_v2_execution_after") as copy:
     closed(copy, installed=True)
@@ -384,7 +344,8 @@ result = {"upgrade": "0059->0060", "oldAiTables": 81,
     "old0044GuardsOidAclOwnerPreservedAndOldToOtherClosed": True,
     "newFunctionsAndTriggersExact": True, "sidecarAclClosed": True,
     "newProfileRowsAbsentInUpgradeSeed": True,
-    "temporaryPausedRowCreatedAndRolledBack": True,
+    "newPausedRowPositiveSeparatedToTargetPgTest":
+        "ai_assistant.test_business_market_v2_execution_snapshot",
     "beforeBackupRestored": True, "afterBackupRestored": True,
     "emptyReverseAndReapply": True, "productionWrites": False}
 (folder / "business-market-v2-execution-snapshot-upgrade-evidence.json").write_text(
