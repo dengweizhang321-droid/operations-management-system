@@ -124,3 +124,32 @@ class BudgetV10DownloadTests(djtest.TransactionTestCase):
             query.return_value.first.return_value = fake
             with self.assertRaises(AiError):
                 self._as_reader(lambda: service.chunk(row, 1, "html", 1, self.admin))
+
+    @djtest.override_settings(AI_PROMOTION_BUDGET_V10_DOWNLOAD_ENABLED=True)
+    def test_admin_revoked_after_first_receipt_denies_chunk_and_fresh_receipt(self):
+        _, row, _ = self._ready(budget=True)
+        original = service._narrow_receipt
+        calls = 0
+
+        def revoke_after_first(actual, principal):
+            nonlocal calls
+            result = original(actual, principal)
+            calls += 1
+            if calls == 1:
+                # A separate privileged connection commits the real account
+                # change while the request is running as the isolated reader.
+                with self._database() as db:
+                    changed = db.execute("UPDATE public.access_control_users "
+                        "SET status='disabled' WHERE email=%s AND status='active'",
+                        [self.admin.email.lower()]).rowcount
+                    self.assertEqual(changed, 1)
+            return result
+
+        with patch.object(service, "_narrow_receipt", side_effect=revoke_after_first):
+            with self.assertRaises(AiError):
+                self._as_reader(lambda: service.chunk(row, 1, "html", 1, self.admin))
+        self.assertEqual(calls, 1)
+        # The second application fence can stop at current_principal before
+        # SQL; independently prove the 0059 receipt itself is also revoked.
+        with self.assertRaises(AiError):
+            self._as_reader(lambda: original(row, self.admin))

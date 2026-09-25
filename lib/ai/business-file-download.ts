@@ -145,6 +145,7 @@ export async function downloadBudgetV10Volume(runId: string, volumeIndex: number
   options.onProgress?.(0, file.bytes);
   for (let sequence = 1; sequence <= file.chunkCount; sequence++) {
     options.signal?.throwIfAborted();
+    await identity();
     const part = await businessFileJson<{ schemaVersion: string; runId: string; volumeIndex: number; format: string; attempt: number; readyVersion: number; sequence: number; bytes: number; sha256: string; fileSha256: string; bindingDigest: string; manifestFileSha256: string; receiptDigest: string; base64: string }>(`${base}/volumes/${volumeIndex}/chunks/${format}?sequence=${sequence}`, {}, options);
     if (part.schemaVersion !== "business-volume-chunk-v10-v1" || part.runId !== runId || part.volumeIndex !== volumeIndex || part.format !== format || part.attempt !== item.attempt || part.readyVersion !== item.version || part.sequence !== sequence || part.bindingDigest !== item.bindingDigest || part.fileSha256 !== file.sha256 || part.manifestFileSha256 !== manifest.manifestFile.sha256 || !digestPattern.test(part.sha256) || !digestPattern.test(part.receiptDigest) || receiptDigest !== null && part.receiptDigest !== receiptDigest || typeof part.base64 !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(part.base64)) throw fail();
     let content: Uint8Array;

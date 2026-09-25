@@ -34,6 +34,23 @@ function fixture(size = 524301) {
   return { bytes, item, fetcher, hooks, requests };
 }
 
+async function rejectsWithoutBlob(operation: () => Promise<unknown>) {
+  const OriginalBlob = globalThis.Blob;
+  let constructed = 0;
+  globalThis.Blob = class extends OriginalBlob {
+    constructor(...args: ConstructorParameters<typeof Blob>) {
+      super(...args);
+      constructed++;
+    }
+  };
+  try {
+    await assert.rejects(operation);
+    assert.equal(constructed, 0, "rejected download must not construct a Blob");
+  } finally {
+    globalThis.Blob = OriginalBlob;
+  }
+}
+
 for (const [volume, format] of [[2, "xlsx"], [1, "html"], [0, "json"]] as const) {
   test(`renderer10 ${volume}/${format} reassembles only one complete verified file`, async () => {
     const f = fixture(), result = await downloadBudgetV10Volume("file_1", volume, format,
@@ -63,7 +80,7 @@ test("renderer10 receipt must stay identical between chunks", async () => {
     { fetcher: f.fetcher, expectedPrincipalKey: actor }));
 });
 
-for (const field of ["status", "version", "attempt", "bindingDigest", "attestationId", "publicationFenceDigest", "manifestSha"] as const) {
+for (const field of ["status", "version", "attempt", "bindingDigest", "attestationId", "publicationFenceDigest", "publishRequestDigest", "owningVerificationDigest", "manifestSha"] as const) {
   test(`renderer10 final root rejects changed ${field}`, async () => {
     const f = fixture();
     f.hooks.root = (value, read) => {
@@ -74,17 +91,19 @@ for (const field of ["status", "version", "attempt", "bindingDigest", "attestati
       else if (field === "bindingDigest") { value.bindingDigest = "4".repeat(64); value.manifest.bindingDigest = value.progress.bindingDigest = value.bindingDigest; }
       else if (field === "attestationId") value.progress.attestationId = "4".repeat(64);
       else if (field === "publicationFenceDigest") value.progress.publicationFenceDigest = "4".repeat(64);
+      else if (field === "publishRequestDigest") value.progress.publishRequestDigest = "4".repeat(64);
+      else if (field === "owningVerificationDigest") value.progress.owningVerificationDigest = "4".repeat(64);
       else value.manifest.files[3].sha256 = "4".repeat(64);
     };
-    await assert.rejects(downloadBudgetV10Volume("file_1", 2, "xlsx",
+    await rejectsWithoutBlob(() => downloadBudgetV10Volume("file_1", 2, "xlsx",
       { fetcher: f.fetcher, expectedPrincipalKey: actor }));
   });
 }
 
 test("renderer10 final account change or corrupted full-file SHA releases no Blob", async () => {
   const f = fixture();
-  f.hooks.identity = read => read === 2 ? "4".repeat(64) : actor;
-  await assert.rejects(downloadBudgetV10Volume("file_1", 2, "xlsx",
+  f.hooks.identity = read => read === 4 ? "4".repeat(64) : actor;
+  await rejectsWithoutBlob(() => downloadBudgetV10Volume("file_1", 2, "xlsx",
     { fetcher: f.fetcher, expectedPrincipalKey: actor }));
   const changed = fixture();
   if (changed.item.manifest?.schemaVersion !== "business-file-delivery-v2") throw new Error("fixture");
@@ -92,6 +111,14 @@ test("renderer10 final account change or corrupted full-file SHA releases no Blo
   changed.hooks.part = value => { value.fileSha256 = "4".repeat(64); };
   await assert.rejects(downloadBudgetV10Volume("file_1", 2, "xlsx",
     { fetcher: changed.fetcher, expectedPrincipalKey: actor }));
+});
+
+test("renderer10 account change between chunks stops before another part or Blob", async () => {
+  const f = fixture();
+  f.hooks.identity = read => read === 3 ? "4".repeat(64) : actor;
+  await rejectsWithoutBlob(() => downloadBudgetV10Volume("file_1", 2, "xlsx",
+    { fetcher: f.fetcher, expectedPrincipalKey: actor }));
+  assert.equal(f.requests.filter(path => path.includes("/chunks/")).length, 1);
 });
 
 test("renderer10 manifest requires exact ready publication receipt", () => {
