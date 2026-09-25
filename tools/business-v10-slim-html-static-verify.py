@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 import re
 import sys
+import time
+import tracemalloc
 import zlib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
@@ -18,6 +20,7 @@ from business_analysis.contracts import canonical
 
 MAX_FILE = 256 * 1024 * 1024
 MAX_TABLE_NDJSON = 256 * 1024 * 1024
+MAX_INFLATE_BLOCK = 2 * 1024 * 1024
 SCRIPT = re.compile(rb'<script type="application/json" id="report-data">(.*?)</script>', re.S)
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -39,21 +42,45 @@ def _sha(path):
     return h.hexdigest()
 
 
-def _inflate(value, expected):
+def _verify_rows(value, expected, compressed_sha, row_digest, row_count, columns):
+    """Verify a table with bounded decompression and one row in memory."""
     if (type(expected) is not int or not 0 <= expected <= MAX_TABLE_NDJSON
             or type(value) is not str or not re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", value)):
         raise ValueError("compressed row descriptor is invalid")
     packed = base64.b64decode(value, validate=True)
+    if hashlib.sha256(packed).hexdigest() != compressed_sha:
+        raise ValueError("compressed table SHA differs")
     decoder = zlib.decompressobj(wbits=31)
-    output = bytearray()
+    raw_sha, seen, total, pending = hashlib.sha256(), 0, 0, b""
     for index in range(0, len(packed), 65536):
-        output.extend(decoder.decompress(packed[index:index+65536],
-            expected - len(output) + 1))
-        if len(output) > expected or decoder.unconsumed_tail:
-            raise ValueError("compressed table exceeds declared byte capacity")
-    if not decoder.eof or decoder.unused_data or len(output) != expected:
+        compressed = packed[index:index+65536]
+        while compressed:
+            before = len(compressed)
+            output = decoder.decompress(compressed,
+                min(MAX_INFLATE_BLOCK, expected - total + 1))
+            compressed = decoder.unconsumed_tail
+            total += len(output)
+            if total > expected:
+                raise ValueError("compressed table exceeds declared byte capacity")
+            raw_sha.update(output)
+            parts = (pending + output).split(b"\n")
+            pending = parts.pop()
+            for line in parts:
+                row = json.loads(line, object_pairs_hook=_pairs)
+                if type(row) is not list or len(row) != columns:
+                    raise ValueError("decompressed table row width differs")
+                if (canonical(row) + "\n").encode() != line + b"\n":
+                    raise ValueError("decompressed table row is not canonical")
+                seen += 1
+                if seen > row_count:
+                    raise ValueError("decompressed table has extra rows")
+            if compressed and not output and len(compressed) == before:
+                raise ValueError("compressed stream made no progress")
+    if not decoder.eof or decoder.unused_data or pending or total != expected:
         raise ValueError("compressed table is incomplete or contains trailing data")
-    return bytes(output)
+    if seen != row_count or raw_sha.hexdigest() != row_digest:
+        raise ValueError("decompressed NDJSON row count or digest differs")
+    return seen
 
 
 def verify(html_path, manifest_path, *, volume_index=1):
@@ -86,26 +113,9 @@ def verify(html_path, manifest_path, *, volume_index=1):
                 or item["proof"]["rowCount"] != proof["rowLimit"]
                 or not HEX.fullmatch(item["rowsGzipSha256"])):
             raise ValueError("slim table fragment proof differs from manifest")
-        packed = base64.b64decode(item["rowsGzipBase64"], validate=True)
-        if hashlib.sha256(packed).hexdigest() != item["rowsGzipSha256"]:
-            raise ValueError("compressed table SHA differs")
-        raw = _inflate(item["rowsGzipBase64"], item["rowsNdjsonBytes"])
-        if hashlib.sha256(raw).hexdigest() != proof["rowDigest"]:
-            raise ValueError("decompressed NDJSON row digest differs")
-        lines = raw.splitlines(keepends=True)
-        if b"".join(lines) != raw or any(not line.endswith(b"\n") for line in lines):
-            raise ValueError("decompressed NDJSON row separators differ")
-        rows = [json.loads(line, object_pairs_hook=_pairs) for line in lines]
-        if type(rows) is not list or len(rows) != proof["rowLimit"]:
-            raise ValueError("decompressed table row count differs")
-        sha = hashlib.sha256()
-        for row in rows:
-            if type(row) is not list or len(row) != proof["columnCount"]:
-                raise ValueError("decompressed table row width differs")
-            sha.update((canonical(row) + "\n").encode())
-        if sha.hexdigest() != proof["rowDigest"]:
-            raise ValueError("decompressed table row digest differs")
-        row_total += len(rows)
+        row_total += _verify_rows(item["rowsGzipBase64"],
+            item["rowsNdjsonBytes"], item["rowsGzipSha256"],
+            proof["rowDigest"], proof["rowLimit"], proof["columnCount"])
     if row_total != volume["rowCount"]:
         raise ValueError("slim HTML omitted rows")
     return {"schemaVersion": "business-v10-slim-html-static-check-v1",
@@ -123,8 +133,14 @@ if __name__ == "__main__":
     parser.add_argument("--volume-index", type=int, default=1)
     args = parser.parse_args()
     output = Path(args.output)
+    started = time.monotonic()
+    tracemalloc.start()
+    result = verify(args.html, args.manifest,
+        volume_index=args.volume_index)
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    result["staticVerifySeconds"] = round(time.monotonic() - started, 3)
+    result["pythonPeakTracedBytes"] = peak
     with output.open("x", encoding="utf-8") as target:
-        json.dump(verify(args.html, args.manifest,
-            volume_index=args.volume_index), target,
-            ensure_ascii=False, indent=2)
+        json.dump(result, target, ensure_ascii=False, indent=2)
     print(output)
