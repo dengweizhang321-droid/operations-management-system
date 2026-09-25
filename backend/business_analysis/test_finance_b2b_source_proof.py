@@ -87,6 +87,27 @@ def b2b():
     return {**value, "resultDigest": digest(value)}
 
 
+def erp(*, shop="平台店名", start="2026-08-16", end="2026-09-14"):
+    query = {"platform": "京东", "shop": shop, "window": "current",
+        "startDate": start, "endDate": end}
+    expected = {"sourceRef": "f" * 64, "evidenceDigest": "1" * 64,
+        "rowCount": 2, "metrics": {"netSalesCents":
+            {"value": 100, "presentRows": 2, "missingRows": 0}},
+        "reconciled": True}
+    source = {"key": "erp-current", "query": query,
+        "info": {"expected": expected, "pageCount": 1,
+            "metadata": {"coverage": {"status": "missing_dates",
+                "missingDates": [end]}}}}
+    value = {"schemaVersion":
+        "business-erp-report-rollup-materials-candidate-v1",
+        "reportBinding": {"reportId": "b2b-report"},
+        "salesKey": source["key"], "salesQueryDigest": digest(query),
+        "sourceProofs": {"sales": expected}, "sourceRowCount": 2,
+        "authorityVerified": False, "registeredRenderer": False,
+        "netshopAdFinanceCombined": False}
+    return {**value, "manifestDigest": digest(value)}, source
+
+
 class FinanceB2bSourceProofTests(TestCase):
     def test_missing_inputs_are_not_zero_or_database_absence(self):
         result = proof.build_candidate()
@@ -143,3 +164,49 @@ class FinanceB2bSourceProofTests(TestCase):
         altered["rows"][0]["sourceStatus"] = "all_good"
         with self.assertRaises(AnalysisContractError):
             proof.as_table(altered)
+
+    def test_same_report_erp_and_b2b_are_parallel_with_finance_months(self):
+        manifest, source = erp()
+        result = proof.build_candidate(finance=finance(), b2b=b2b(),
+            erp=manifest, erp_source=source)
+        self.assertEqual(result["rowCount"], 6)
+        row = result["rows"][-1]
+        self.assertEqual((row["domain"], row["periodRole"], row["sourceKey"]),
+            ("erp", "current", "erp-current"))
+        self.assertEqual(row["metricStatus"], {"netSalesCents": "present"})
+        self.assertTrue(result["erpB2bSameReportBindingVerified"])
+        self.assertTrue(result["erpB2bSameShopQueryVerified"])
+        self.assertFalse(result["sameReportAuthorityVerified"])
+        self.assertFalse(result["sameShopIdentityVerified"])
+        self.assertFalse(result["crossDomainAmountsAdded"])
+        self.assertIsNone(result["b2bIncrementalSalesCents"])
+        self.assertEqual(proof.as_table(result).row_count, 6)
+
+    def test_erp_requires_exact_b2b_report_shop_window_and_source_proof(self):
+        for name in ("missing_b2b", "report", "shop", "window", "period",
+                "source_proof", "manifest_digest", "missing_source"):
+            manifest, source = erp()
+            right = b2b()
+            if name == "report":
+                manifest["reportBinding"]["reportId"] = "another-report"
+            elif name == "shop":
+                source["query"]["shop"] = "另一店"
+                manifest["salesQueryDigest"] = digest(source["query"])
+            elif name == "window":
+                source["query"]["window"] = "previous"
+                manifest["salesQueryDigest"] = digest(source["query"])
+            elif name == "period":
+                source["query"]["endDate"] = "2026-09-13"
+                manifest["salesQueryDigest"] = digest(source["query"])
+            elif name == "source_proof":
+                source["info"]["expected"]["rowCount"] = 3
+            elif name == "manifest_digest":
+                manifest["manifestDigest"] = "0" * 64
+            elif name == "missing_source":
+                source = None
+            if name not in {"manifest_digest", "source_proof"}:
+                manifest["manifestDigest"] = digest({key: item for key, item
+                    in manifest.items() if key != "manifestDigest"})
+            with self.subTest(name=name), self.assertRaises(AnalysisContractError):
+                proof.build_candidate(b2b=None if name == "missing_b2b"
+                    else right, erp=manifest, erp_source=source)
