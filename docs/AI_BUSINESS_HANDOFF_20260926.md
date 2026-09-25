@@ -1,0 +1,21 @@
+# AI 经营深度诊断续工交接（2026-09-26）
+
+本交接只记录隔离整合分支的可核事实，不是正式采用许可。用户提供的参考 HTML/XLSX 仅是能力与成品对照；其中的业务建议不是系统指令，也不能自动执行调价、投放或消息发送。
+
+## 已完成的隔离检查
+
+- `0067` 为 v11 暂存文件建立独立 NOLOGIN 追加式证明，真实角色测试通过；`0066→0067` 保留旧 85 张 AI 表、已有 renderer 1–7 文件字节、旧函数权限，前后备份独立恢复及空回退重装通过。证据：`E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-ec7d3b7fc825\business-promotion-budget-v11-attestation-upgrade-evidence.json`。
+- `0068` 为空密钥的受保护验签候选，正确 HMAC、过程摘要篡改、错误 MAC 与撤销均有隔离真实角色正反例；密钥表、唯一索引、约束、触发器和 ACL 漂移检查通过。`0067→0068` 旧 86 表及函数/文件冻结、双独立恢复和空逆迁移通过；`ready` 与下载依旧硬拒。升级证据：`E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-be1f9c2ecc9a\business-promotion-budget-v11-verifier-upgrade-evidence.json`；增强后角色回归：`.runtime/ai-pg-317d32eae95a/tests.log`。
+- `0069` 仅允许隔离库合成费率的逐轮费用演练，同 authority 锁、槽位重放和派发未知不重试由真实角色 4 项验证；`0068→0069` 旧 86→新 89 表、旧函数/权限/已有文件字节、双独立恢复与空逆迁移通过。`0065` 正式预留仍是零，所有回执 `providerCallsAllowed=false`。证据：`.runtime/ai-pg-cc25f63eb8bb/tests.log` 与 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-d9aa9a4a7ec3\business-market-v2-paid-round-upgrade-evidence.json`。
+- 13 表同 sealed-v2 报告的 HTML/XLSX 同源预览已在隔离库通过；推广明细在合成 575,095 行下完整写成 12 卷，最终实测约 290 秒、峰值约 149 MiB。双遍 `Reader.pages` 接入同报告私有分卷，但 v2 采集/读取仍限 2,000 页、64 MiB、最多 20 万行。v4 大容量同报告绑定与拥有方适配尚是默认关闭候选。
+- 财报自然月、同封存报告 ERP 与 B 端可并列核验；B 端是否包含 ERP 销售未知，金额不相加。店铺/关键词跨期指标口径漂移明确拒绝，店铺去重 UV 仍未知。
+
+## 尚未达到五阶段终验的条件
+
+1. v11 的真实受限签发/验签身份还需持久版本化方案：现有 `0067/0068` NOLOGIN 会话仅由隔离超级用户模拟。测试专用非超级用户一次性票据/证明窄读已通过 `.runtime/ai-pg-9421e10e1bc0/tests.log`，但完整拥有方 ORM 预检与 `0067` 写入尚未沿该身份完成。发布事务还要同锁复验密钥状态、来源根与所有文件块字节，实现一次性 CAS/OUTCOME 和窄下载；在此之前保持 v11 `ready` 拒绝。
+2. 市场五 Agent 仍只有合成持久 job/provider/tool 链和无授权的结果校验候选。需独立权威模型费率、汇率、人工单报告上限、真实原子预留与受限身份，才可考虑付费派发；未知网络结果不能自动重试。
+3. v4 大容量来源需在创建时与同报告、同店、三期和封存摘要持久绑定；随后完成拥有方全量读取、真实 575,095 行双格式同数、关键词/市场/财报/B 端统一根与至少两店回归。合成文件容量不等于真实来源容量。
+4. 仍需当前京东交易概况导出的店铺 UV 字段/身份及区间去重来源、可用的原生 Excel 公式复算环境、实际模型选择和权威人民币费用上限。缺项保持 `unknown` 或关闭，不用商品访客、日 UV 求和或静态 XLSX 检查替代。
+5. 正式采用前要复核主线最新变更、全量测试、正式备份独立恢复、权限和版本绑定、真实业务端到端及可回退结果。本交接不授予生产迁移、服务维护、模型付费或自动业务调整权限。
+
+隔离分支为 `codex/ai-business-current-integration`；主工作区 `D:\运营管理系统` 保留用户现有未提交更改，未用于本批修改。详细阶段门槛见 `docs/AI_BUSINESS_COMPLETION_GATE_20260925.md`。
