@@ -278,7 +278,10 @@ def verify_new(db, before, after):
             raise AssertionError("0066 changed unrelated AI function")
     if ("ai_budget_v11_ready_unpublished" not in candidate.RUN_GUARD
             or "ai_budget_v11_ready_unpublished" not in candidate.COMPLETE_GUARD
-            or "staged_unpublished" not in candidate.STAGE_REQUIREMENTS):
+            or "staged_unpublished" not in candidate.RUN_GUARD
+            or "staged_unpublished" not in candidate.COMPLETE_GUARD
+            or "ai_budget_v11_stage_requirements" not in candidate.RUN_GUARD
+            or "ai_budget_v11_stage_requirements" not in candidate.COMPLETE_GUARD):
         raise AssertionError("0066 staged-only/ready-denial SQL absent")
     verify_old(db)
 
@@ -301,7 +304,11 @@ with connect() as db:
 archive_restore("budget_v11_stage_after")
 with connect("budget_v11_stage_after") as copy:
     recovered = snapshot(copy)
-    verify_new(copy, before, recovered)
+    # pg_restore assigns new relation, trigger and function OIDs. The primary
+    # database has already passed strict same-OID before/after checks; this
+    # independent copy must prove exact installed SQL and equivalent catalog.
+    with copy.cursor() as cursor:
+        candidate.verify_catalog(cursor)
     if restored(recovered) != restored(after):
         raise AssertionError("0066 post-upgrade independent restore differs: " +
             restored_drift(after, recovered))
