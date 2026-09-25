@@ -82,7 +82,7 @@ def _v4(run_id, principal):
     _need(body["runId"] == parent.id
         and body["evidenceVersion"] == parent.version
         and body["directoryDigest"] == directory
-        and body["planDigest"] == plan["planDigest"]
+        and body["planDigest"] == parent.plan_digest
         and len(body["sources"]) == len(sources)
         and [row["sourceKey"] for row in body["sources"]] ==
             [row.source_key for row in sources]
