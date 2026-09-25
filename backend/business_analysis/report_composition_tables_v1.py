@@ -10,14 +10,17 @@ import hashlib
 
 from . import (cross_source_sku_window_compare as sku_compare,
                cross_source_window_compare as shop_compare,
+               diagnostic_action_plan_table_v1 as diagnostic_table,
                report_composition_v1 as composition)
 from .contracts import AnalysisContractError, canonical, digest
 from .report_files import Column, Table
 
 
 SCHEMA = "business-report-composition-table-delivery-candidate-v1"
+DIAGNOSTIC_SCHEMA = "business-report-composition-table-delivery-candidate-v2"
 AUDIT_KEY = "reconciliation"
 TABLE_KEYS = (*composition.TABLES, AUDIT_KEY)
+DIAGNOSTIC_TABLE_KEYS = (*composition.TABLES, diagnostic_table.KEY, AUDIT_KEY)
 MAX_ROWS = 50_000
 MAX_BYTES = 32 * 1024 * 1024
 WINDOWS = composition.WINDOWS
@@ -80,7 +83,10 @@ COMPARE_COLUMNS = (
 def prepare(plan, sources, infos, context, source_keys, materials, *,
             category_spu_result=None, keyword_headers=None,
             finance=None, b2b=None, market_preview=None,
-            owning_proof=None, verify_owning_proof=None):
+            owning_proof=None, verify_owning_proof=None,
+            diagnostic_action_candidate=None,
+            diagnostic_market_result=None,
+            verify_diagnostic_market_result=None):
     """Return an immutable Table tuple plus per-table expected writer proofs."""
     summary = composition.compose_candidate(plan, sources, infos, context,
         source_keys, materials, category_spu_result=category_spu_result,
@@ -193,12 +199,29 @@ def prepare(plan, sources, infos, context, source_keys, materials, *,
           item["recommendation"], item["trigger"], item["executionAllowed"],
           item["decisionGate"]) for item in summary["actions30Days"])))
     _need(tuple(table.key for table in tables) == composition.TABLES)
+    manifests = list(summary["tableManifest"])
+    table_keys, schema = TABLE_KEYS, SCHEMA
+    if diagnostic_action_candidate is not None:
+        diagnostic = diagnostic_table.project(diagnostic_action_candidate,
+            summary, verify_current_composition=lambda current: current is summary,
+            market_result=diagnostic_market_result,
+            verify_market_result=verify_diagnostic_market_result)
+        tables.append(diagnostic)
+        manifests.append({"tableKey": diagnostic.key,
+            "rowCount": diagnostic.row_count,
+            "sourceDigest": diagnostic_action_candidate["candidateDigest"],
+            "status": "candidate_rows"})
+        table_keys, schema = DIAGNOSTIC_TABLE_KEYS, DIAGNOSTIC_SCHEMA
+    else:
+        _need(diagnostic_market_result is None
+              and verify_diagnostic_market_result is None,
+              "未启用调整计划时不得单独附带市场Agent候选")
     audit = [{"tableKey": table.key, "rowCount": table.row_count,
               "columnCount": len(table.columns), "rowDigest": _row_digest(table),
               "sourceRowCount": manifest["rowCount"],
               "sourceDigest": manifest["sourceDigest"],
               "tableStatus": manifest["status"]}
-             for table, manifest in zip(tables, summary["tableManifest"])]
+             for table, manifest in zip(tables, manifests)]
     audit_table = _table(AUDIT_KEY, "逐表可重算核对",
         "行摘要与HTML及XLSX共享写入器回执逐表核对；来源摘要不等于权威。",
         (Column("tableKey", "表身份"), Column("rowCount", "实际行数", "integer"),
@@ -212,19 +235,23 @@ def prepare(plan, sources, infos, context, source_keys, materials, *,
           row["sourceDigest"], row["tableStatus"])
           for row in audit))
     tables.append(audit_table)
-    _need(tuple(table.key for table in tables) == TABLE_KEYS
+    _need(tuple(table.key for table in tables) == table_keys
           and sum(table.row_count for table in tables) <= MAX_ROWS
           and sum(len(canonical(list(row)).encode("utf-8")) for table in tables
                   for row in table.rows) <= MAX_BYTES,
           "表格候选总行数或字节超过v2小规模容量")
-    body = {"schemaVersion": SCHEMA,
+    body = {"schemaVersion": schema,
             "reportId": summary["reportId"],
             "compositionDigest": summary["compositionDigest"],
-            "tableKeys": list(TABLE_KEYS), "tableAudit": audit,
+            "tableKeys": list(table_keys), "tableAudit": audit,
             "auditTableDigest": _row_digest(audit_table),
             "authorityVerified": False, "registeredRenderer": False,
             "agentReadPersisted": False, "htmlXlsxParityVerified": False,
             "limitations": ["本候选仅v2小规模完整材料，v4全量须另做分片流式核验。",
                 "财报、B端和市场只列上下文与缺口，不进入销售数值汇总。",
                 "同一Table流由write_pair写HTML/XLSX；只有回执复核后才可声明文件一致。"]}
+    if diagnostic_action_candidate is not None:
+        body["diagnosticActionCandidateDigest"] = diagnostic_action_candidate[
+            "candidateDigest"]
+        body["limitations"].append("深度诊断动作仅为同报告表级证据的人审候选；无行级数值、正式Agent或自动执行许可。")
     return {**body, "deliveryDigest": digest(body)}, tuple(tables)
