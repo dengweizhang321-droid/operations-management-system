@@ -192,6 +192,12 @@ def prepare(report_id, source_keys, principal, *, enabled=False,
         _need(verify(proof, binding), "文件生成后报告、账号或来源修订变化")
         body = {"schemaVersion": SCHEMA, "reportBinding": fixed,
             "planDigest": plan["planDigest"],
+            "sourceEvidenceDigests": {key:
+                infos[key]["expected"]["evidenceDigest"] for key in selected},
+            "sourceRevisions": {key:
+                infos[key]["metadata"]["sourceRevision"] for key in selected},
+            "promotionSourceKeys": sorted({key for key in
+                keys["promotion"].values() if key is not None}),
             "compositionDigest": metadata["compositionDigest"],
             "deliveryDigest": metadata["deliveryDigest"],
             "tableAudit": metadata["tableAudit"],
