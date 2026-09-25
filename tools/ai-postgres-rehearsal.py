@@ -61,6 +61,7 @@ parser.add_argument("--business-v4-period-plan-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-role-bridge-upgrade", action="store_true")
 parser.add_argument("--business-promotion-budget-v10-attestation-upgrade", action="store_true")
 parser.add_argument("--business-promotion-budget-v10-publish-upgrade", action="store_true")
+parser.add_argument("--business-promotion-budget-v10-reader-fence-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
@@ -68,6 +69,11 @@ arguments = parser.parse_args()
 if arguments.preprovision_ai_runtime_roles and (
         not arguments.tests_only or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
+if arguments.business_promotion_budget_v10_reader_fence_upgrade:
+    if arguments.business_promotion_budget_v10_publish_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # 0059 follows the complete 0058 publish-gate seed and unchanged old rows.
+    arguments.business_promotion_budget_v10_publish_upgrade = True
 if arguments.business_promotion_budget_v10_publish_upgrade:
     if arguments.business_promotion_budget_v10_attestation_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -504,6 +510,9 @@ try:
         if arguments.business_promotion_budget_v10_publish_upgrade:
             rehearsals += (("business-promotion-budget-v10-publish-upgrade-rehearsal.py",
                 "business-promotion-budget-v10-publish-upgrade.json"),)
+        if arguments.business_promotion_budget_v10_reader_fence_upgrade:
+            rehearsals += (("business-promotion-budget-v10-reader-fence-upgrade-rehearsal.py",
+                "business-promotion-budget-v10-reader-fence-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
