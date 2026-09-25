@@ -73,6 +73,7 @@ parser.add_argument("--business-promotion-budget-v11-attestation-upgrade", actio
 parser.add_argument("--business-promotion-budget-v11-verifier-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-paid-round-upgrade", action="store_true")
 parser.add_argument("--business-promotion-budget-v11-identity-upgrade", action="store_true")
+parser.add_argument("--business-v4-report-link-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
@@ -80,6 +81,11 @@ arguments = parser.parse_args()
 if arguments.preprovision_ai_runtime_roles and (
         not arguments.tests_only or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
+if arguments.business_v4_report_link_upgrade:
+    if arguments.business_promotion_budget_v11_identity_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # 0071 starts only from an independently restored 0070 identity seed.
+    arguments.business_promotion_budget_v11_identity_upgrade = True
 if arguments.business_promotion_budget_v11_identity_upgrade:
     if arguments.business_market_v2_paid_round_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -612,6 +618,9 @@ try:
         if arguments.business_promotion_budget_v11_identity_upgrade:
             rehearsals += (("business-promotion-budget-v11-identity-upgrade-rehearsal.py",
                 "business-promotion-budget-v11-identity-upgrade.json"),)
+        if arguments.business_v4_report_link_upgrade:
+            rehearsals += (("business-v4-report-link-upgrade-rehearsal.py",
+                "business-v4-report-link-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
