@@ -67,6 +67,7 @@ parser.add_argument("--business-market-v2-context-proof-upgrade", action="store_
 parser.add_argument("--business-market-v2-read-receipt-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-execution-plan-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-synthetic-upgrade", action="store_true")
+parser.add_argument("--business-market-v2-cost-upgrade", action="store_true")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
@@ -74,6 +75,11 @@ arguments = parser.parse_args()
 if arguments.preprovision_ai_runtime_roles and (
         not arguments.tests_only or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
+if arguments.business_market_v2_cost_upgrade:
+    if arguments.business_market_v2_synthetic_upgrade:
+        parser.error("Choose only one fresh database upgrade rehearsal")
+    # 0065 starts from the independently restored 0064 synthetic seed.
+    arguments.business_market_v2_synthetic_upgrade = True
 if arguments.business_market_v2_synthetic_upgrade:
     if arguments.business_market_v2_execution_plan_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -558,6 +564,9 @@ try:
         if arguments.business_market_v2_synthetic_upgrade:
             rehearsals += (("business-market-v2-synthetic-upgrade-rehearsal.py",
                 "business-market-v2-synthetic-upgrade.json"),)
+        if arguments.business_market_v2_cost_upgrade:
+            rehearsals += (("business-market-v2-cost-upgrade-rehearsal.py",
+                "business-market-v2-cost-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
