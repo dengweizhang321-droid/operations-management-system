@@ -245,7 +245,7 @@ BEGIN
 END $$"""
 
 ORPHAN = r"""CREATE FUNCTION public.ai_market_v2_synthetic_orphan_guard()
-RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
   IF NEW.input_json::jsonb->>'executionProfile'=
        'business-agent-screening-promotion-market-synthetic-v4'

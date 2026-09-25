@@ -55,6 +55,9 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
                 synthetic_attestor(), patch("ai_assistant.provider.turn") as model:
             created = service.create(plan_id)
             model.assert_not_called()
+            with self.assertRaises(DatabaseError):
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT id FROM public.ai_report_runs LIMIT 1")
         self.assertTrue(created["syntheticOnly"])
         self.assertFalse(created["externalProviderCalled"])
         self.assertFalse(created["persistedRead"])

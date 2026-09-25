@@ -6,7 +6,7 @@ FUNCTIONS = (
     ("public.ai_market_v2_synthetic_flow_guard()", "FLOW_GUARD", True),
     ("public.ai_market_v2_synthetic_report_guard()", "REPORT_GUARD", True),
     ("public.ai_market_v2_synthetic_child_guard()", "CHILD_GUARD", False),
-    ("public.ai_market_v2_synthetic_orphan_guard()", "ORPHAN", False),
+    ("public.ai_market_v2_synthetic_orphan_guard()", "ORPHAN", True),
     ("public.ai_market_v2_create_synthetic_chain(text)", "CREATE_CHAIN", True),
 )
 TRIGGERS = {
