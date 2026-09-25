@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import time
+from django.conf import settings
 from django.db import connection
 from django.db.models import Q, Sum
 from django.utils import timezone
@@ -193,8 +194,11 @@ def control(run_id, body, principal, *, commit=None):
     fields(body, {"expectedVersion", "action"}, {"expectedVersion", "action"})
     if body["action"] not in ("pause", "resume", "rebuild", "cancel"):
         raise AiError("文件任务控制动作无效")
-    if get(run_id, principal).renderer_version == 10:
+    renderer = get(run_id, principal).renderer_version
+    if renderer == 10:
         raise AiError("版本10预算暂存控制尚未开放公开入口", "conflict", 409)
+    if renderer == 11:
+        raise AiError("版本11压缩预算暂存控制尚未开放公开入口", "conflict", 409)
     prepared = None
     if body["action"] in {"resume", "rebuild"}:
         candidate = get(run_id, principal)
@@ -247,7 +251,7 @@ def chunk(run_id, format, params, principal):
     except (TypeError, ValueError) as error:
         raise AiError("文件分块序号无效") from error
     row = get(run_id, principal)
-    if row.renderer_version in (4, 6, 7, 9, 10):
+    if row.renderer_version in (4, 6, 7, 9, 10, 11):
         raise AiError("多卷文件须使用指定卷下载入口", "conflict", 409)
     if row.status != "ready":
         raise AiError("完整双文件尚未就绪", "conflict", 409)
@@ -396,7 +400,11 @@ def tick():
         if not cursor.fetchone()[0]:
             return {"status": "file_builder_busy"}
     try:
-        row = m.AiBusinessFileRun.objects.select_related("report__workflow").filter(Q(status="queued") | Q(status="building", lease_until__lte=timezone.now())).order_by("lease_until", "created_at", "id").first()
+        candidates = m.AiBusinessFileRun.objects.select_related("report__workflow").filter(
+            Q(status="queued") | Q(status="building", lease_until__lte=timezone.now()))
+        if getattr(settings, "AI_PROMOTION_BUDGET_V11_STAGE_CANDIDATE_ENABLED", False) is not True:
+            candidates = candidates.exclude(renderer_version=11)
+        row = candidates.order_by("lease_until", "created_at", "id").first()
         if row is None:
             return {"status": "idle"}
         state = {"version": row.version, "attempt": row.attempt}
@@ -404,13 +412,15 @@ def tick():
         try:
             principal = workflows.background(row)
             current_principal(principal, admin=True)
-            if row.renderer_version in (7, 9, 10):
+            if row.renderer_version in (7, 9, 10, 11):
                 if row.renderer_version == 7:
                     from .business_promotion_volume_stage import binding as promotion_binding
                 elif row.renderer_version == 9:
                     from .business_promotion_trial_volume_stage import binding as promotion_binding
-                else:
+                elif row.renderer_version == 10:
                     from .business_promotion_budget_v10_stage import binding as promotion_binding
+                else:
+                    from .business_promotion_budget_v11_durable_stage import binding as promotion_binding
                 fingerprint = promotion_binding(row.report, principal, row.draft)
             else:
                 fingerprint = binding(row.report, principal, row.draft, renderer_version=row.renderer_version)
@@ -435,6 +445,10 @@ def tick():
                 from .business_promotion_budget_v10_stage import build as promotion_budget_build
                 # Renderer 10 is stage-only. Never invoke a publisher from tick.
                 return promotion_budget_build(saved, principal, state)
+            if saved.renderer_version == 11:
+                from .business_promotion_budget_v11_durable_stage import build as slim_budget_build
+                # Renderer 11 is independently staged-only; ready has no path.
+                return slim_budget_build(saved, principal, state)
             if saved.renderer_version in (7, 9):
                 if saved.renderer_version == 7:
                     from .business_promotion_volume_stage import build as promotion_build, publish as promotion_publish

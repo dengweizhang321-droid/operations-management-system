@@ -273,7 +273,8 @@ def _open_versioned(report_id, principal, *, renderer_version,
             if renderer_version == 11:
                 for volume in full["volumes"]:
                     html_slim_payload_v11.verify_file(
-                        paths[volume["volumeIndex"], "html"], volume)
+                        paths[volume["volumeIndex"], "html"], volume,
+                        checkpoint=checkpoint)
             receipt = {"schemaVersion": schema, "reportId": report_id,
                 "rendererVersion": renderer_version, "compactManifest": compact,
                 "fullManifestDigest": full["manifestDigest"],
