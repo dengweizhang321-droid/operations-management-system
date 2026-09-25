@@ -44,4 +44,8 @@
 
 0057 [预算发布前证明](AI_BUSINESS_PROMOTION_BUDGET_V10_ATTESTATION_0057.md)目标PG3项 `.runtime/ai-pg-35577d49eae2/tests.log`，0056→0057冻结80→当前81表、旧文件/函数/ready语义保持、双备份恢复 `.runtime/ai-pg-1622c6faccd4/business-promotion-budget-v10-attestation-upgrade-evidence.json` 通过。验证角色默认NOLOGIN，证明并不开放ready；实际拥有方验证器、正式publish/下载、原生Office和业务规模仍需开发/验收。
 
+0057 [拥有方全字节预检](AI_BUSINESS_V10_ATTESTATION_OWNING_PREFLIGHT.md)PG4项 `.runtime/ai-pg-571c024c5cbd/tests.log` 通过，仍不写证明；0058 [原子发布数据库门禁](AI_BUSINESS_PROMOTION_BUDGET_V10_PUBLISH_GATE_0058.md)真实角色PG2项 `.runtime/ai-pg-6646a50f5d94/tests.log`、0057→0058旧81表/函数/文件保持与双备份恢复 `.runtime/ai-pg-423a50ee3e05/business-promotion-budget-v10-publish-upgrade-evidence.json`、旧v9多卷/签名下载同库8项 `.runtime/ai-pg-c21f2c3f7847/tests.log` 通过。独立角色仍NOLOGIN，应用publisher与签名下载未接，原生Office/真实规模未验。市场第五工具[默认关闭目录候选](AI_BUSINESS_MARKET_V2_REGISTRY_GATE.md) Django3、Node12和本地构建通过，仍无实际Agent持久已读回执。
+
+0058 注入连接的内部发布调用器真实角色四项 `.runtime/ai-pg-e5a8482f4cf5/tests.log` 通过，含丢失响应不重试和原票据 OUTCOME。上段“应用publisher未接”指正式受保护连接/公开入口未接，不影响这个默认关闭的内部调用器；不能宣称正式采用。
+
 默认关闭的[最终调用层](AI_BUSINESS_V4_FINAL_COMMIT_STEP.md)已通过两项隔离 PostgreSQL 实际角色模拟 `.runtime/ai-pg-e2bcd735e87a/tests.log`，并与前驱读取/回执/包装同库组合17项 `.runtime/ai-pg-e8139845286e/tests.log` 通过。调用层没有连接工厂或凭据、不会发行票据；结果未知只允许按原票据查询消费，不重试封存。真实业务来源、授权会话和报告采用仍需独立验收。

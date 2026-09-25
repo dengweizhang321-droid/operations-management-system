@@ -46,6 +46,14 @@ v4 大来源的下一内部候选已加[推广单段票据页重放](AI_BUSINESS
 
 0057 新增[预算 v10 发布前不可变证明](AI_BUSINESS_PROMOTION_BUDGET_V10_ATTESTATION_0057.md)，独立 NOLOGIN 角色只能在同尝试、同审批/预算根、持久卷描述符与完整JSON摘要一致时写一次，普通角色无表/函数写权；目标PG三项 `.runtime/ai-pg-35577d49eae2/tests.log`、0056→0057旧80表/renderer1—7/旧函数/ready语义保持、新第81表及独立恢复 `.runtime/ai-pg-1622c6faccd4/business-promotion-budget-v10-attestation-upgrade-evidence.json` 通过。数据库仍不解析 HTML/XLSX 语义，且 v10 `ready` 仍被0054双层拒绝；无正式发布、下载或原生Excel验收。
 
+[0057 预算拥有方预检](AI_BUSINESS_V10_ATTESTATION_OWNING_PREFLIGHT.md)默认关闭，在当前管理员/批准/预算根下全量重读持久文件，生成不可变证明正文而不写库；隔离PG四项 `.runtime/ai-pg-571c024c5cbd/tests.log`（609.527 秒）、相关纯三项通过。它核持久XLSX容器SHA并逐条比对新渲染ZIP内容，不能说两次ZIP容器字节完全相同。
+
+[0058 原子发布数据库门禁](AI_BUSINESS_PROMOTION_BUDGET_V10_PUBLISH_GATE_0058.md)已让独立 NOLOGIN 验证角色在同 run/attempt 0057证明、当前审批预算根及版本化请求摘要下同事务将 v10 staged→ready，并可按原摘要查询未知结果；普通 writer 直改仍拒。隔离PG两项 `.runtime/ai-pg-6646a50f5d94/tests.log`、0057→0058旧81表/renderer1—7/旧函数权限与v9拒绝保持、双备份恢复/空回退 `.runtime/ai-pg-423a50ee3e05/business-promotion-budget-v10-publish-upgrade-evidence.json` 及旧 v9 多卷/签名下载同库八项 `.runtime/ai-pg-c21f2c3f7847/tests.log` 通过。仍无受保护真实凭据、应用显式发布器、v10下载路由或原生Office验收，不把合成ready当正式交付。
+
+0058 默认关闭的应用发布调用器已通过真实 NOLOGIN 角色四项隔离测试 `.runtime/ai-pg-e5a8482f4cf5/tests.log`，覆盖一次证明/发布/OUTCOME、禁用和预检漂移、响应丢失后不重试写入。它仍是注入连接的内部入口，没有正式登录凭据和公开发布路由。
+
+[市场 v2 第五工具默认关闭目录候选](AI_BUSINESS_MARKET_V2_REGISTRY_GATE.md)只在显式新surface/双端flag下展示第五个只读工具；旧v1四工具静态目录不变。Django隔离路由3项 `.runtime/ai-pg-ec558dca39ce/tests.log`、新旧Node目录12项和本地构建通过。当前请求ID仅派生非持久声明，`persistedRead=false`、无真实job/模型。
+
 > 2026-09-24 当前检查点：本页下方较早的逐项表格和历史检查点保留了开发当时的状态；以此段和“最新组合验证”为推广链路的现状。最终组合测试正在收束，未标记生产采用。
 
 与用户参考成品的逐表差距和四个后续纵向验收切片见[参考推广诊断差距清单](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)。参考 XLSX 实际 30 表、HTML 26 张可检索表；完整原始/原生表存在不等于跨来源归属诊断已完成。
