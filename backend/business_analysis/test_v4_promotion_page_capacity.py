@@ -59,10 +59,16 @@ def raw_pages(*, split=False):
     return [canonical(page).encode("utf-8") for page in pages(split=split)]
 
 
+def calls(*, split=False):
+    return [{"requestCursor": None if index == 0 else "cursor-1",
+             "rawPage": raw}
+        for index, raw in enumerate(raw_pages(split=split))]
+
+
 class V4PromotionPageCapacityTests(TestCase):
     def test_complete_one_page_measures_exact_bytes_without_authority(self):
         raw = raw_pages()
-        result = measured.measure_complete_pages(SOURCE, iter(raw),
+        result = measured.measure_complete_pages(SOURCE, iter(calls()),
             expected_row_count=2)
         self.assertEqual((result["pageCount"], result["rowCount"],
             result["storedBytes"]), (1, 2, len(raw[0])))
@@ -70,7 +76,12 @@ class V4PromotionPageCapacityTests(TestCase):
             len(canonical(row(index)).encode()) for index in (1, 2)))
         self.assertEqual(result["maxPageEnvelopeUtf8Bytes"],
             len(raw[0])-len(canonical([row(1), row(2)]).encode())+2)
-        self.assertEqual(result["v4Measurement"]["measuredRowCount"], 2)
+        self.assertIsNone(result["v4Measurement"])
+        self.assertFalse(result["capacityPlanMeasurementAvailable"])
+        self.assertTrue(result["suppliedRequestCursorChainConsistent"])
+        self.assertFalse(result["signedRequestCursorAuditVerified"])
+        self.assertFalse(result["blockingReadDeadlineVerified"])
+        self.assertFalse(result["upstreamAllocationBoundVerified"])
         self.assertTrue(result["capacityArithmeticSupported"])
         self.assertFalse(result["owningSourceAuthorityVerified"])
         self.assertFalse(result["signedToolAuditVerified"])
@@ -83,42 +94,47 @@ class V4PromotionPageCapacityTests(TestCase):
                 "group_name": "京东组"},
             "analysisPeriod": {"startDate": QUERY["startDate"],
                 "endDate": QUERY["endDate"]}}}
-        plan = evidence_v4.build_plan(client_request_id="capacity-only-test",
-            sources=[SOURCE, finance],
-            measurements=[result["v4Measurement"], {"sourceKey": "finance-months",
-                "measuredRowCount": 0, "maxRowUtf8Bytes": 0,
-                "pageEnvelopeUtf8Bytes": 1024,
-                "sourceRevisionHint": "unknown-finance"}],
-            analysis_request={"schemaVersion": "business-analysis-request-v1",
-                "question": "合成容量测量", "requestedDimensions": ["shop"],
-                "requestedWindows": ["current"]})
-        self.assertFalse(plan["sourceAuthorityVerified"])
-        self.assertFalse(plan["reportGenerationSupported"])
-        self.assertEqual(next(item for item in plan["sourcePlans"]
-            if item["sourceKey"] == SOURCE["key"])["measuredRowCount"], 2)
+        with self.assertRaises(AnalysisContractError):
+            evidence_v4.build_plan(client_request_id="capacity-only-test",
+                sources=[SOURCE, finance],
+                measurements=[result["v4Measurement"], {"sourceKey": "finance-months",
+                    "measuredRowCount": 0, "maxRowUtf8Bytes": 0,
+                    "pageEnvelopeUtf8Bytes": 1024,
+                    "sourceRevisionHint": "unknown-finance"}],
+                analysis_request={"schemaVersion": "business-analysis-request-v1",
+                    "question": "合成容量测量", "requestedDimensions": ["shop"],
+                    "requestedWindows": ["current"]})
 
     def test_actual_page_count_above_formula_estimate_is_explicit_gap(self):
-        result = measured.measure_complete_pages(SOURCE, iter(raw_pages(split=True)))
+        result = measured.measure_complete_pages(SOURCE, iter(calls(split=True)))
         self.assertEqual(result["pageCount"], 2)
         self.assertEqual(result["estimatedPageCount"], 1)
         self.assertTrue(result["estimatedUnderstatesObserved"])
         self.assertFalse(result["capacityArithmeticSupported"])
+        self.assertIsNone(result["v4Measurement"])
 
     def test_missing_reordered_cross_shop_noncanonical_or_wrong_count_reject(self):
-        raw = raw_pages(split=True)
-        for candidate in (raw[:1], list(reversed(raw)),
-                [raw[0], raw[0]], [raw[0] + b" " ]):
+        supplied = calls(split=True)
+        for candidate in (supplied[:1], list(reversed(supplied)),
+                [supplied[0], supplied[0]],
+                [{"requestCursor": None,
+                  "rawPage": supplied[0]["rawPage"] + b" "}]):
             with self.subTest(length=len(candidate)), self.assertRaises(
                     AnalysisContractError):
                 measured.measure_complete_pages(SOURCE, iter(candidate))
+        broken = calls(split=True)
+        broken[1]["requestCursor"] = None
+        with self.assertRaises(AnalysisContractError):
+            measured.measure_complete_pages(SOURCE, broken)
         changed = pages()
         changed[0]["items"][0]["shopName"] = "另一店"
         changed[0]["pageEvidence"]["sha256"] = digest(changed[0]["items"])
         with self.assertRaises(AnalysisContractError):
             measured.measure_complete_pages(SOURCE,
-                [canonical(changed[0]).encode("utf-8")])
+                [{"requestCursor": None,
+                  "rawPage": canonical(changed[0]).encode("utf-8")}])
         with self.assertRaises(AnalysisContractError):
-            measured.measure_complete_pages(SOURCE, iter(raw_pages()),
+            measured.measure_complete_pages(SOURCE, iter(calls()),
                 expected_row_count=575_095)
 
     def test_large_historical_row_counts_are_arithmetic_only_not_measured(self):
@@ -143,3 +159,16 @@ class V4PromotionPageCapacityTests(TestCase):
         self.assertRaises(AnalysisContractError,
             measured.measure_complete_pages, SOURCE, [],
             expected_row_count=575_095)
+
+    def test_invalid_hash_bool_metric_control_and_available_dates_fail(self):
+        for change in ("rowId", "hash", "metric", "control", "available"):
+            altered = pages()
+            if change == "rowId": altered[0]["items"][0]["rowId"] = "01"
+            elif change == "hash": altered[0]["items"][0]["sourceRowHash"] = "X" * 64
+            elif change == "metric": altered[0]["items"][0]["metrics"]["clicks"] = True
+            elif change == "control": altered[0]["control"]["typedTotals"]["clicks"] = True
+            else: altered[0]["availableDates"]["firstDate"] = "not-a-date"
+            altered[0]["pageEvidence"]["sha256"] = digest(altered[0]["items"])
+            with self.subTest(change=change), self.assertRaises(AnalysisContractError):
+                measured.measure_complete_pages(SOURCE, [{"requestCursor": None,
+                    "rawPage": canonical(altered[0]).encode("utf-8")}])
