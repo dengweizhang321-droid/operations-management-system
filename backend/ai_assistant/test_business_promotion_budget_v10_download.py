@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import secrets
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from django.db import connection
 from . import business_promotion_budget_v10_download as service
 from . import business_volume_files, models as m
 from . import test_business_promotion_budget_v10_reader_fence as fixture
+from .database_contract import provision
 from .policy import AiError
 
 
@@ -23,7 +25,6 @@ class BudgetV10DownloadTests(djtest.TransactionTestCase):
     input_for = fixture.BudgetV10ReaderFenceTests.input_for
     insert = fixture.BudgetV10ReaderFenceTests.insert
     seed = fixture.BudgetV10ReaderFenceTests.seed
-    setUp = fixture.BudgetV10ReaderFenceTests.setUp
     request_body = fixture.BudgetV10ReaderFenceTests.request_body
     current_catalog = fixture.BudgetV10ReaderFenceTests.current_catalog
     create_fixed_report = fixture.BudgetV10ReaderFenceTests.create_fixed_report
@@ -44,6 +45,13 @@ class BudgetV10DownloadTests(djtest.TransactionTestCase):
     _role = fixture.BudgetV10ReaderFenceTests._role
     complete_flow = fixture.BudgetV10ReaderFenceTests.complete_flow
     _ready = fixture.BudgetV10ReaderFenceTests._ready
+
+    def setUp(self):
+        fixture.BudgetV10ReaderFenceTests.setUp(self)
+        # The isolated harness precreates roles, but only the formal runtime
+        # contract grants reader its exact table privileges.
+        connection.ensure_connection()
+        provision(connection.connection, secrets.token_hex(32), secrets.token_hex(32))
 
     def _as_reader(self, callback):
         with connection.cursor() as cursor:
@@ -68,6 +76,15 @@ class BudgetV10DownloadTests(djtest.TransactionTestCase):
             draft=False, renderer_version=10)
         descriptors = [*compact["files"], compact["manifestFile"]]
         def download():
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT'),"
+                    "has_table_privilege(current_user,%s,'SELECT'),"
+                    "has_table_privilege(current_user,%s,'SELECT'),"
+                    "has_table_privilege(current_user,%s,'SELECT')",
+                    ["public.access_control_users", "public.ai_business_file_runs",
+                     "public.ai_business_volume_chunks",
+                     "public.ai_business_promotion_budget_v10_attestations"])
+                self.assertEqual(cursor.fetchone(), (True, True, True, False))
             for descriptor in descriptors:
                 pieces = []
                 for sequence in range(1, descriptor["chunkCount"]+1):
