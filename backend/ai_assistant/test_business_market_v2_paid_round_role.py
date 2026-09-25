@@ -216,11 +216,16 @@ class MarketV2PaidRoundRoleTests(djtest.TransactionTestCase):
         for statement in (
                 "UPDATE public.ai_business_market_v2_paid_authorities "
                     "SET status='synthetic_rehearsal_only'",
-                "DELETE FROM public.ai_business_market_v2_round_reservations",
-                "TRUNCATE public.ai_business_market_v2_round_events"):
+                "DELETE FROM public.ai_business_market_v2_round_reservations"):
             with self.subTest(statement=statement), self.assertRaises(DatabaseError):
                 with connection.cursor() as cursor:
                     cursor.execute(statement)
+        # The trusted table owner may TRUNCATE for TransactionTestCase flush;
+        # the paid runtime identity must have neither a grant nor a bypass.
+        with paid_session_role("teruisi_ai_market_paid_starter"):
+            with self.assertRaises(DatabaseError):
+                with connection.cursor() as cursor:
+                    cursor.execute("TRUNCATE public.ai_business_market_v2_round_events")
         self.assertFalse(value["providerCallsAllowed"])
 
     def test_forged_authority_and_ordinary_role_are_denied(self):
