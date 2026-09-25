@@ -1,0 +1,18 @@
+# renderer 11 受保护验证器回执：0068 候选
+
+0067 的 HTML/XLSX 验收摘要是无密钥声明，不能授权 `ready`。本候选增加独立 HMAC 验证层，**仍不发布、下载、运行模型、调用 Office 或连接生产**。0066 的 v11 `ready` 双重硬拒保持原样。
+
+## 信任边界
+
+- `business_promotion_budget_v11_preflight.prepare` 必须由隔离的受保护验证器进程亲自执行：重建当前批准内容和预算、逐块验 SHA、解压 HTML gzip/NDJSON、核行摘要、重建并比较 HTML/XLSX、逐个检查 ZIP OPC/XML/公式，最后复验来源根。`sign_after_preflight` 没有任意正文或摘要参数；它再次确认 0067 追加式行与新鲜 preflight 完全一致，才对版本化正文做 HMAC。
+- 正文固定签发用途 `stage-to-ready-once:v1`，绑定 key ID、run/attempt/version、report、owner、binding、0067 ID/正文 SHA，以及完整 0067 证明。证明中包含批准内容与人审、预算、compact/full manifest、每卷文件 SHA、HTML 行和 XLSX OPC/公式过程摘要。原始密钥不在源码、迁移、日志、普通 Django settings 或 API 参数中。此分支没有加载或发放凭据的服务入口。
+- 数据库 0068 新建**空**密钥表，由独立 `NOLOGIN NOINHERIT` key-owner 持有；普通迁移角色只可调用私有布尔 MAC 验证函数，不能 `SELECT` 表或获得签名函数。新的 `NOLOGIN NOINHERIT` publisher 只获外层只读验证函数执行权，没有密钥表/私有函数权限。attestor、writer、reader 也没有这些权限。外层函数对照当前暂存任务、0067 原文、报告/流程/管理员根并验 MAC；无活动密钥、MAC 错误、撤销密钥或根改变均拒绝。HMAC-SHA256 仅使用 PostgreSQL 内建 `sha256(bytea)`，不依赖可能缺失的 `pgcrypto`。
+- 密钥必须由独立受控运维流程在受保护进程及 key-owner 表两端原子配对启用，至少 32 字节；同一时刻至多一个 active key。轮换先在受控事务撤销旧 key，再引入新 key；旧回执随即失效。迁移本身不安装任何真实或合成密钥。签发或验证结果未知时不能把“调用已发出”当成功；未来发布函数必须以原请求做一次性 CAS 与只读 OUTCOME，不能盲目重发。
+
+## 尚未获发布资格
+
+0068 只证明受保护验证器签发过**这份**当前 0067 正文，不使 0067 本身的无密钥声明变可信，也不开放 `ready`。真正的独立验证器进程、凭据隔离、发布 CAS/OUTCOME、完整来源根与文件字节同事务锁定、下载窄栅栏、真实 57.5 万行容量及原生 Office 重算尚未完成。外层 SQL 的当前根复核是候选验证，不代替将来的发布事务门禁。任何拥有 PostgreSQL 超级用户或 key-owner 机密的人处于此信任边界之外。
+
+## 验证
+
+纯测试验证 HMAC 用途与正文修改不可复用、无密钥声明无法签发；静态测试断言 0068 空密钥、私有函数、角色与无发布路径。隔离 PostgreSQL 目标 `ai_assistant.test_business_promotion_budget_v11_verifier_receipt_role.BudgetV11ProtectedReceiptRoleTests.test_0068_synthetic_key_only_verifies_fresh_protected_receipt` 使用事务内合成密钥，不提交密钥，不触碰生产；它须验证普通角色无法读密钥或调用私有函数、无密钥拒绝、正确密钥接受、文件/过程摘要篡改拒绝、撤销旧密钥拒绝、任务仍 paused。主任务统一串行运行 PostgreSQL 目标及后续 0067→0068 冻结/备份恢复演练；在实际通过前不能声称数据库验收完成。
