@@ -10,6 +10,7 @@ import psycopg
 from business_analysis import promotion_budget_verifier_receipt_v11 as receipt
 from . import business_promotion_budget_v11_attest_step as attest_step
 from . import business_promotion_budget_v11_durable_stage as stage
+from . import test_business_promotion_approved_content as approved_fixture
 from . import test_business_promotion_budget_v11_attestation_role as fixture
 
 
@@ -18,8 +19,11 @@ MIGRATION = import_module(
 
 
 class BudgetV11ProtectedReceiptRoleTests(fixture.BudgetV11AttestationRoleTests):
+    complete_flow = approved_fixture.PromotionApprovedContentTests.complete_flow
+
     def test_0068_synthetic_key_only_verifies_fresh_protected_receipt(self):
         report = self._complete_budget_report()
+        self.complete_flow(report)
         row = self._stage(report)
         with self._database() as db:
             db.execute("SET SESSION AUTHORIZATION teruisi_ai_budget_v11_attestor")

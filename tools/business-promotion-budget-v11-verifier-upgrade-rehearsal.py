@@ -1,4 +1,4 @@
-"""Isolated 0065 -> 0066 renderer-11 unpublished-only upgrade/restore."""
+"""Isolated 0067 -> 0068 protected verifier upgrade/restore; no real key."""
 import argparse
 import hashlib
 import importlib
@@ -19,14 +19,14 @@ from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
-from ai_assistant.table_manifest import AI_TABLES_PRE_BUDGET_V11_ATTESTATIONS as AI_TABLES
+from ai_assistant.table_manifest import AI_TABLES as OLD_TABLES
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
 folder = parser.parse_args().run_root.resolve()
 database = settings.DATABASES["default"]
-seed = folder / "business-market-v2-cost-upgrade-evidence.json"
+seed = folder / "business-promotion-budget-v11-attestation-upgrade-evidence.json"
 proof = json.loads(seed.read_text(encoding="utf-8")) if seed.is_file() else {}
 if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
         or settings.DJANGO_ENVIRONMENT != "test"
@@ -36,31 +36,33 @@ if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
         or database["NAME"] != "teruisi_ai_rehearsal"
         or connection.vendor != "postgresql"
         or folder.parent != (ROOT / ".runtime").resolve()
-        or proof.get("upgrade") != "0064->0065"
-        or proof.get("oldAiTables") != 84
-        or proof.get("newAiTables") != 85
+        or proof.get("upgrade") != "0066->0067"
+        or proof.get("oldAiTables") != 85
+        or proof.get("newAiTables") != 86
         or proof.get("beforeBackupRestored") is not True
         or proof.get("afterBackupRestored") is not True
         or proof.get("emptyReverseAndReapply") is not True
-        or len(AI_TABLES) != 85):
-    raise RuntimeError("0066 requires independently restored isolated 0065 seed")
+        or len(OLD_TABLES) != 86):
+    raise RuntimeError("0068 requires independently restored isolated 0067 seed")
 
-OLD = [("ai_assistant", "0065_business_market_v2_model_cost_reservation"),
+OLD = [("ai_assistant", "0067_business_promotion_budget_v11_attestation"),
        ("finance", "0004_finance_revision_monotonic"),
        ("netshop", "0003_netshop_source_revision_guard")]
-NEW = [("ai_assistant", "0066_business_promotion_budget_v11_durable_stage"),
+NEW = [("ai_assistant", "0068_business_promotion_budget_v11_verifier_receipt"),
        *OLD[1:]]
 with connection.cursor() as cursor:
     cursor.execute("SELECT name FROM django_migrations WHERE app='ai_assistant' "
-        "AND name IN ('0065_business_market_v2_model_cost_reservation',"
-        "'0066_business_promotion_budget_v11_durable_stage') ORDER BY name")
+        "AND name IN ('0067_business_promotion_budget_v11_attestation',"
+        "'0068_business_promotion_budget_v11_verifier_receipt') ORDER BY name")
     if [row[0] for row in cursor.fetchall()] != [OLD[0][1]]:
-        raise RuntimeError("0066 requires exact 0065 predecessor without 0066")
+        raise RuntimeError("0068 requires exact 0067 predecessor without 0068")
 
 candidate = importlib.import_module(
+    "ai_assistant.migrations.0068_business_promotion_budget_v11_verifier_receipt")
+attestation = importlib.import_module(
+    "ai_assistant.migrations.0067_business_promotion_budget_v11_attestation")
+stage = importlib.import_module(
     "ai_assistant.business_promotion_budget_v11_stage_sql")
-market_cost = importlib.import_module(
-    "ai_assistant.migrations.0065_business_market_v2_model_cost_reservation")
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
 
 
@@ -72,7 +74,7 @@ def connect(name=None):
 
 def table_digest(db):
     contents = {}
-    for table in sorted(AI_TABLES):
+    for table in sorted(OLD_TABLES):
         rows = db.execute(sql.SQL("SELECT row_to_json(t) FROM {} t").format(
             sql.Identifier(table))).fetchall()
         contents[table] = sorted(json.dumps(row[0], sort_keys=True,
@@ -82,7 +84,7 @@ def table_digest(db):
 
 def old_files(db):
     rows = db.execute("SELECT id,renderer_version,status,attempt,manifest_json "
-        "FROM public.ai_business_file_runs WHERE renderer_version<=10 "
+        "FROM public.ai_business_file_runs WHERE renderer_version<=11 "
         "ORDER BY id").fetchall()
     result = {}
     for run_id, version, status, attempt, manifest in rows:
@@ -138,7 +140,7 @@ def privilege_matrix(db):
     for role in ("teruisi_ai_reader", "teruisi_ai_writer"):
         if db.execute("SELECT to_regrole(%s)", [role]).fetchone()[0] is None:
             raise AssertionError("old AI runtime role absent")
-        for table in AI_TABLES:
+        for table in OLD_TABLES:
             result[role, table] = tuple(db.execute(
                 "SELECT has_table_privilege(%s,%s,%s)",
                 [role, "public." + table, privilege]).fetchone()[0]
@@ -151,36 +153,19 @@ def privilege_matrix(db):
 
 
 def table_acl_catalog(db):
-    # pg_dump/pg_restore may materialize an implicit owner-default ACL as an
-    # explicit ACL array. Compare every effective direct grant, not relacl's
-    # nullable storage representation or its element order.
-    tables = db.execute("SELECT c.relname,"
-        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
-        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
-        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
-        "grant_item.privilege_type,grant_item.is_grantable "
-        "FROM pg_catalog.pg_class c "
+    tables = db.execute("SELECT c.relname,c.relacl::text FROM pg_catalog.pg_class c "
         "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
-        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,"
-        "pg_catalog.acldefault('r',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) ORDER BY c.relname",
-        [list(AI_TABLES)]).fetchall()
-    columns = db.execute("SELECT c.relname,a.attname,"
-        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
-        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
-        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
-        "grant_item.privilege_type,grant_item.is_grantable "
+        [list(OLD_TABLES)]).fetchall()
+    columns = db.execute("SELECT c.relname,a.attname,a.attacl::text "
         "FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c "
         "ON c.oid=a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
-        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(a.attacl,"
-        "pg_catalog.acldefault('c',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) "
         "AND a.attnum>0 AND NOT a.attisdropped "
-        "ORDER BY c.relname,a.attnum,grant_item.grantee,"
-        "grant_item.privilege_type,grant_item.grantor", [list(AI_TABLES)]).fetchall()
-    if len({row[0] for row in tables}) != 85:
-        raise AssertionError("0066 old AI table ACL inventory incomplete")
-    return sorted(tables), columns
+        "ORDER BY c.relname,a.attnum", [list(OLD_TABLES)]).fetchall()
+    if len(tables) != 86:
+        raise AssertionError("0068 old AI table ACL inventory incomplete")
+    return tables, columns
 
 
 def constraint_versions(db):
@@ -200,7 +185,25 @@ def constraint_versions(db):
 
 def snapshot(db):
     return (table_digest(db), old_files(db), functions(db), inventory(db),
-        privilege_matrix(db), table_acl_catalog(db), constraint_versions(db))
+        privilege_matrix(db), table_acl_catalog(db), constraint_versions(db),
+        role_catalog(db), role_memberships(db))
+
+
+def role_catalog(db):
+    return db.execute("SELECT rolname,rolcanlogin,rolinherit,rolsuper,"
+        "rolcreatedb,rolcreaterole,rolreplication,rolbypassrls "
+        "FROM pg_catalog.pg_roles WHERE rolname LIKE 'teruisi_ai_%' "
+        "ORDER BY rolname").fetchall()
+
+
+def role_memberships(db):
+    return db.execute("SELECT parent.rolname,member.rolname,"
+        "membership.admin_option FROM pg_catalog.pg_auth_members membership "
+        "JOIN pg_catalog.pg_roles parent ON parent.oid=membership.roleid "
+        "JOIN pg_catalog.pg_roles member ON member.oid=membership.member "
+        "WHERE parent.rolname LIKE 'teruisi_ai_%' OR "
+        "member.rolname LIKE 'teruisi_ai_%' "
+        "ORDER BY parent.rolname,member.rolname").fetchall()
 
 
 def restored(value):
@@ -208,14 +211,7 @@ def restored(value):
         {key: details[1:] for key, details in value[2].items()},
         (tuple(tuple(row[1:]) for row in value[3][0]),
          tuple(tuple(row[1:]) for row in value[3][1])),
-        value[4], value[5], value[6])
-
-
-def restored_drift(expected, actual):
-    names = ("rows", "old_files", "functions", "relations_triggers",
-        "role_privileges", "table_column_acl", "file_version_check")
-    return ",".join(name for name, prior, current in zip(names,
-        restored(expected), restored(actual)) if prior != current)
+        value[4], value[5], value[6], value[7], value[8])
 
 
 def archive_restore(name):
@@ -233,110 +229,154 @@ def archive_restore(name):
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         if done.returncode:
             (folder / (name + "-error.log")).write_bytes(done.stderr)
-            raise RuntimeError("isolated 0066 archive/restore failed")
+            raise RuntimeError("isolated 0068 archive/restore failed")
 
 
 def verify_old(db):
     with db.cursor() as cursor:
-        market_cost_module = importlib.import_module(
-            "ai_assistant.business_market_v2_cost_catalog")
-        market_cost_module.verify(cursor, RuntimeError)
-    if db.execute("SELECT count(*) FROM public.ai_business_file_runs "
-            "WHERE renderer_version=11").fetchone() != (0,):
-        raise AssertionError("0066 empty upgrade seed unexpectedly has v11 rows")
+        stage.verify_catalog(cursor)
+        attestation.verify_catalog(cursor)
+    if db.execute("SELECT to_regclass(%s)", [candidate.KEY_TABLE]).fetchone()[0]:
+        raise AssertionError("0068 private key table exists before install or after reverse")
+    for signature in (candidate.MAC_SIGNATURE, candidate.VERIFY_SIGNATURE,
+            "public.ai_budget_v11_key_guard()"):
+        if db.execute("SELECT to_regprocedure(%s)", [signature]).fetchone()[0]:
+            raise AssertionError("0068 verifier function exists before install")
+    run = db.execute("SELECT p.prosrc FROM pg_catalog.pg_proc p WHERE "
+        "p.oid=to_regprocedure(%s)",
+        ["public.ai_business_files_guard()"] ).fetchone()
+    complete = db.execute("SELECT p.prosrc FROM pg_catalog.pg_proc p WHERE "
+        "p.oid=to_regprocedure(%s)",
+        ["public.ai_business_volume_complete_guard()"] ).fetchone()
+    if (run != (stage.RUN_GUARD.split("$$", 2)[1],) or
+            complete != (stage.COMPLETE_GUARD.split("$$", 2)[1],) or
+            "ai_budget_v11_ready_unpublished" not in run[0] or
+            "ai_budget_v11_ready_unpublished" not in complete[0]):
+        raise AssertionError("0067 staged-only v11 ready denial changed")
 
 
-def verify_new(db, before, after):
-    if after[0:2] != before[0:2] or after[3:6] != before[3:6]:
-        raise AssertionError("0066 altered old AI rows/files, relations, triggers or table ACL")
-    if before[6] != (1, 2, 3, 4, 5, 6, 7, 9, 10) or after[6] != (
-            1, 2, 3, 4, 5, 6, 7, 9, 10, 11):
-        raise AssertionError("0066 file version CHECK differs from exact one-version addition")
+def verify_new(db, before, after, *, compare_oid=True):
+    if (after[0:2] != before[0:2] or after[4:7] != before[4:7] or
+            after[8] != before[8] or
+            before[6] != (1, 2, 3, 4, 5, 6, 7, 9, 10, 11)):
+        raise AssertionError("0068 altered old 86 tables, 1-11 files, ACL or CHECK")
     with db.cursor() as cursor:
         candidate.verify_catalog(cursor)
-    keys = {db.execute("SELECT to_regprocedure(%s)::text", [signature]
-        ).fetchone()[0]: (index, definition) for index, (signature, definition)
-        in enumerate(zip(candidate.FILE_SIGNATURES, candidate.NEW_SQL))}
-    if None in keys or len(keys) != 5:
-        raise AssertionError("0066 file guard identities missing")
-    new_key = db.execute("SELECT to_regprocedure(%s)::text",
-        [candidate.STAGE_SIGNATURE]).fetchone()[0]
-    if new_key is None or set(after[2]) != set(before[2]) | {new_key}:
-        raise AssertionError("0066 must add exactly one AI function")
-    for signature, prior in before[2].items():
-        current = after[2].get(signature)
-        if current is None:
-            raise AssertionError("0066 removed an old AI function")
-        if signature in keys:
-            index, definition = keys[signature]
-            if (prior[0] != current[0] or prior[2:] != current[2:]
-                    or current[1] != definition.split("$$", 2)[1]):
-                raise AssertionError("0066 changed old guard beyond body")
-            if index == 0 and prior != current:
-                raise AssertionError("0066 changed old single-file guard")
-        elif prior != current:
-            raise AssertionError("0066 changed unrelated AI function")
-    if ("ai_budget_v11_ready_unpublished" not in candidate.RUN_GUARD
-            or "ai_budget_v11_ready_unpublished" not in candidate.COMPLETE_GUARD
-            or "staged_unpublished" not in candidate.RUN_GUARD
-            or "staged_unpublished" not in candidate.COMPLETE_GUARD
-            or "ai_budget_v11_stage_requirements" not in candidate.RUN_GUARD
-            or "ai_budget_v11_stage_requirements" not in candidate.COMPLETE_GUARD):
-        raise AssertionError("0066 staged-only/ready-denial SQL absent")
-    verify_old(db)
+        attestation.verify_catalog(cursor)
+    if any((after[2].get(key) if compare_oid else
+            after[2].get(key, ())[1:]) !=
+           (prior if compare_oid else prior[1:])
+           for key, prior in before[2].items()):
+        raise AssertionError("0068 changed old AI function OID/body/ACL/owner")
+    new_functions = {db.execute("SELECT to_regprocedure(%s)::text",
+        [signature]).fetchone()[0] for signature in (
+            "public.ai_budget_v11_key_guard()",
+            candidate.MAC_SIGNATURE, candidate.VERIFY_SIGNATURE)}
+    if None in new_functions or set(after[2]) - set(before[2]) != new_functions:
+        raise AssertionError("0068 did not add exactly three verifier functions")
+    old_relations, old_triggers = before[3]
+    new_relations, new_triggers = after[3]
+    old_relation_set = {tuple(row if compare_oid else row[1:])
+        for row in old_relations}
+    new_relation_set = {tuple(row if compare_oid else row[1:])
+        for row in new_relations}
+    old_trigger_set = {tuple(row if compare_oid else row[1:])
+        for row in old_triggers}
+    new_trigger_set = {tuple(row if compare_oid else row[1:])
+        for row in new_triggers}
+    if not old_relation_set <= new_relation_set or not old_trigger_set <= new_trigger_set:
+        raise AssertionError("0068 changed old relations or triggers")
+    index_names = {item[0] for item in db.execute(
+        "SELECT indexname FROM pg_catalog.pg_indexes WHERE schemaname='public' "
+        "AND tablename=%s", [candidate.KEY_TABLE.split(".", 1)[1]]).fetchall()}
+    added_relations = {item[1] for item in new_relations if tuple(
+        item if compare_oid else item[1:]) not in old_relation_set}
+    if added_relations != {candidate.KEY_TABLE.split(".", 1)[1], *index_names}:
+        raise AssertionError("0068 added unexpected relation or index")
+    added_triggers = [item for item in new_triggers if tuple(
+        item if compare_oid else item[1:]) not in old_trigger_set]
+    if (len(added_triggers) != 2 or
+            {item[2] for item in added_triggers} != {
+                "ai_budget_v11_key_guard",
+                "ai_budget_v11_key_no_truncate"} or
+            any(item[1] != candidate.KEY_TABLE.split(".", 1)[1]
+                for item in added_triggers)):
+        raise AssertionError("0068 added unexpected trigger")
+    new_roles = {(role, *(False,) * 7)
+        for role in (candidate.KEY_OWNER, candidate.PUBLISHER)}
+    if set(after[7]) != set(before[7]) | new_roles:
+        raise AssertionError("0068 changed old roles or activated verifier")
+    if db.execute("SELECT count(*) FROM " + candidate.KEY_TABLE).fetchone() != (0,):
+        raise AssertionError("0068 migration provisioned a key")
+    verify_ready(db)
+
+
+def verify_ready(db):
+    run = db.execute("SELECT p.prosrc FROM pg_catalog.pg_proc p WHERE "
+        "p.oid=to_regprocedure('public.ai_business_files_guard()')").fetchone()
+    complete = db.execute("SELECT p.prosrc FROM pg_catalog.pg_proc p WHERE "
+        "p.oid=to_regprocedure('public.ai_business_volume_complete_guard()')"
+        ).fetchone()
+    if (run != (stage.RUN_GUARD.split("$$", 2)[1],) or
+            complete != (stage.COMPLETE_GUARD.split("$$", 2)[1],) or
+            "ai_budget_v11_ready_unpublished" not in run[0] or
+            "ai_budget_v11_ready_unpublished" not in complete[0]):
+        raise AssertionError("0068 opened v11 ready gate")
 
 
 with connect() as db:
     verify_old(db)
     before = snapshot(db)
-archive_restore("budget_v11_stage_before")
-with connect("budget_v11_stage_before") as copy:
+archive_restore("budget_v11_verifier_before")
+with connect("budget_v11_verifier_before") as copy:
     verify_old(copy)
-    copied = snapshot(copy)
-    if restored(copied) != restored(before):
-        raise AssertionError("0065 pre-upgrade independent restore differs: " +
-            restored_drift(before, copied))
+    if restored(snapshot(copy)) != restored(before):
+        raise AssertionError("0067 pre-upgrade independent restore differs")
 
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
     after = snapshot(db)
     verify_new(db, before, after)
-archive_restore("budget_v11_stage_after")
-with connect("budget_v11_stage_after") as copy:
+archive_restore("budget_v11_verifier_after")
+with connect("budget_v11_verifier_after") as copy:
     recovered = snapshot(copy)
-    # pg_restore assigns new relation, trigger and function OIDs. The primary
-    # database has already passed strict same-OID before/after checks; this
-    # independent copy must prove exact installed SQL and equivalent catalog.
-    with copy.cursor() as cursor:
-        candidate.verify_catalog(cursor)
+    verify_new(copy, before, recovered, compare_oid=False)
     if restored(recovered) != restored(after):
-        raise AssertionError("0066 post-upgrade independent restore differs: " +
-            restored_drift(after, recovered))
+        raise AssertionError("0068 post-upgrade independent restore differs")
 
 MigrationExecutor(connection).migrate(OLD)
 with connect() as db:
     verify_old(db)
-    if snapshot(db) != before:
-        raise AssertionError("0066 empty reverse did not restore exact 0065 state")
+    reversed_state = snapshot(db)
+    if reversed_state[:7] != before[:7] or reversed_state[8] != before[8] or not set(before[7]) <= set(
+            reversed_state[7]) or set(reversed_state[7]) - set(before[7]) != {
+                (role, *(False,) * 7) for role in
+                (candidate.KEY_OWNER, candidate.PUBLISHER)}:
+        raise AssertionError("0068 empty reverse did not restore exact 0067 state")
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
     replayed = snapshot(db)
     verify_new(db, before, replayed)
     if restored(replayed) != restored(after):
-        raise AssertionError("0066 reapply differed from first installation")
+        raise AssertionError("0068 reapply differed from first installation")
 
-result = {"upgrade": "0065->0066", "oldAiTables": 85, "newAiTables": 85,
+result = {"upgrade": "0067->0068", "oldAiTables": 86, "newAiTables": 86,
     "oldRowsDigestPreserved": before[0],
     "seededRendererVersions": sorted({row[0] for row in before[1].values()}),
+    "unseededRendererVersions": sorted(set(range(1, 12)) -
+        {row[0] for row in before[1].values()}),
     "oldRendererRowsAndChunksPreserved": True,
-    "oldAiFunctionOidBodyAclOwnerPreservedExceptFourExactGuardBodies": True,
-    "singleFileGuardUnchanged": True, "newStageFunctionWriterOnly": True,
+    "oldAiFunctionOidBodyAclOwnerPreserved": True,
+    "oldWriterStageAndAttestorFunctionsUnchanged": True,
+    "newVerifierRolesNoLoginAndNoMembers": True,
+    "newProtectedKeyTableEmpty": True,
+    "privateMacNotGrantedToPublisherAttestorWriterReader": True,
     "readerAndWriterTablePrivilegesUnchanged": True,
     "v11ReadyDeniedByRunAndCompleteGuards": True,
-    "v11PositiveStageSeparatedToTargetPgTest":
-        "ai_assistant.test_business_promotion_budget_v11_durable_stage",
+    "v11PositiveMacSeparatedToTargetPgTest":
+        "ai_assistant.test_business_promotion_budget_v11_verifier_receipt_role",
     "beforeBackupRestored": True, "afterBackupRestored": True,
     "emptyReverseAndReapply": True, "productionWrites": False}
-(folder / "business-promotion-budget-v11-stage-upgrade-evidence.json").write_text(
+(folder / "business-promotion-budget-v11-verifier-upgrade-evidence.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 print(json.dumps(result, ensure_ascii=False))
