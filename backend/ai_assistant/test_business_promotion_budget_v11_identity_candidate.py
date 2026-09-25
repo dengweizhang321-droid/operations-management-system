@@ -18,7 +18,6 @@ from . import test_business_promotion_budget_v11_attestation_role as fixture
 
 class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests):
     complete_flow = approved_fixture.PromotionApprovedContentTests.complete_flow
-    _candidate_installed = False
 
     @staticmethod
     def _old_catalog():
@@ -48,18 +47,13 @@ class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests)
     def setUpClass(cls):
         super().setUpClass()
         cls._frozen = cls._old_catalog()
-        candidate.install_test_only(connection)
-        cls._candidate_installed = True
+        from importlib import import_module
+        with connection.cursor() as cursor:
+            import_module(
+                "ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity"
+            ).verify_catalog(cursor)
         if cls._old_catalog() != cls._frozen:
-            raise AssertionError("v2 candidate changed 0067/0068 or v11 ready guards")
-
-    @classmethod
-    def tearDownClass(cls):
-        try:
-            if cls._candidate_installed:
-                candidate.uninstall_test_only(connection)
-        finally:
-            super().tearDownClass()
+            raise AssertionError("0070 changed 0067/0068 or v11 ready guards")
 
     @staticmethod
     def _service(role, password):
@@ -82,16 +76,17 @@ class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests)
                 [list(candidate.ROLES),list(candidate.ROLES)])
             self.assertEqual(cursor.fetchone(), (0,))
             for role in (*candidate.ROLES,"teruisi_ai_reader","teruisi_ai_writer"):
-                cursor.execute("SELECT has_table_privilege(%s,%s,'SELECT'),"
-                    "has_table_privilege(%s,%s,'INSERT'),"
-                    "has_function_privilege(%s,%s,'EXECUTE'),"
+                for table in (candidate.TABLE,candidate.CLAIMS):
+                    cursor.execute("SELECT has_table_privilege(%s,%s,'SELECT'),"
+                        "has_table_privilege(%s,%s,'INSERT')",
+                        [role,table,role,table])
+                    self.assertEqual(cursor.fetchone(),(False,False))
+                cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE'),"
                     "has_function_privilege(%s,%s,'EXECUTE'),"
                     "has_function_privilege(%s,%s,'EXECUTE')",
-                    [role,candidate.TABLE,role,candidate.TABLE,
-                     role,candidate.ISSUE,role,candidate.READ,role,candidate.VERIFY])
-                self.assertEqual(cursor.fetchone(),(False,False,
-                    role==candidate.ATTEST,role==candidate.SIGN,
-                    role==candidate.PUBLISH))
+                    [role,candidate.ISSUE,role,candidate.READ,role,candidate.VERIFY])
+                self.assertEqual(cursor.fetchone(),(role==candidate.ATTEST,
+                    role==candidate.SIGN,role==candidate.PUBLISH))
             for role in candidate.ROLES:
                 cursor.execute("SELECT has_table_privilege(%s,%s,'SELECT'),"
                     "has_function_privilege(%s,%s,'EXECUTE'),"
@@ -148,6 +143,10 @@ class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests)
                 self.assertEqual(issued["runId"],row.id)
                 self.assertFalse(issued["readyAuthorized"])
                 with self.assertRaises(psycopg.Error):
+                    db.execute("SELECT public.ai_budget_v11_issue_proof_ticket_v2("
+                        "%s,%s,%s)",[row.id,row.attempt,
+                        attested["attestationSha256"]])
+                with self.assertRaises(psycopg.Error):
                     db.execute("SELECT * FROM " + candidate.TABLE)
                 with self.assertRaises(psycopg.Error):
                     db.execute("SET ROLE " + candidate.SIGN)
@@ -167,6 +166,8 @@ class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests)
                     attested["attestationSha256"]))
                 self.assertEqual(hashlib.sha256(narrow["attestationText"].encode(
                     "utf-8")).hexdigest(),attested["attestationSha256"])
+                self.assertRegex(narrow["claimId"],
+                    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
                 with self.assertRaises(psycopg.Error):
                     db.execute("SELECT public.ai_budget_v11_read_proof_ticket_v2("
                         "%s,%s,%s,%s)",args)
@@ -187,6 +188,16 @@ class BudgetV11IdentityCandidateRoleTests(fixture.BudgetV11AttestationRoleTests)
                 with self.assertRaises(psycopg.Error):
                     db.execute("SELECT secret FROM " +
                         "public.protected_business_budget_v11_verifier_keys")
+            with self._database() as admin:
+                self.assertEqual(admin.execute("SELECT count(*) FROM " +
+                    candidate.TABLE).fetchone(),(1,))
+                self.assertEqual(admin.execute("SELECT count(*) FROM " +
+                    candidate.CLAIMS).fetchone(),(1,))
+                with self.assertRaises(psycopg.Error):
+                    admin.execute("UPDATE " + candidate.TABLE +
+                        " SET expires_at=clock_timestamp()")
+                with self.assertRaises(psycopg.Error):
+                    admin.execute("DELETE FROM " + candidate.CLAIMS)
         finally:
             with self._database() as admin:
                 for role in candidate.ROLES:

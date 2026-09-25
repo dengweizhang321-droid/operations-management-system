@@ -1,6 +1,8 @@
 # renderer 11 三身份 v2 窄读：仅隔离试验
 
-本切片依赖已整合的 0067/0068，但**不添加迁移、不分配 0070、不开 LOGIN 或生产凭据**。`business_promotion_budget_v11_identity_candidate_sql.py` 只能在 `test_teruisi_ai_rehearsal`、本机隔离端口及 test 环境安装，测试结束删除候选函数、票据表和角色。0067/0068 原函数、OID/正文/ACL/owner、renderer 1–10 与 v11 `ready` 双拒保持原样。市场后续迁移的序号由整合主任务决定。
+本文件记录 0070 之前的无迁移原型；持久、仍默认关闭的后继方案见 [0070 交接](AI_BUSINESS_PROMOTION_BUDGET_V11_IDENTITY_0070.md)。下文仅适用于原独立试验，不表示正式身份已启用。
+
+本切片依赖已整合的 0067/0068，但**不添加迁移、不分配 0070、不开 LOGIN 或生产凭据**。原型仅在隔离 test 数据库安装，测试结束删除候选函数、票据表和角色。0067/0068 原函数、OID/正文/ACL/owner、renderer 1–10 与 v11 `ready` 双拒保持原样。
 
 原型创建三个独立、无成员且初始 `NOLOGIN NOINHERIT` 的角色：`attest_login` 只能为已暂存且已有 0067 证明的**精确 run/attempt/SHA**签发一个十分钟票据；`sign_login` 只能一次性领取该票据、返回同一 0067 证明原文及必要的 run/report/owner/binding 标量；`publish_login` 只能调用只读的 `verify_protected_receipt_v2`，验同一受保护回执。三者无业务表/证明表/票据表直读或 DML，无私钥表权限、无 SQL 签名函数，也不能继承彼此或 Web reader/writer。v2 验签函数复制 0068 的检查但只改专用登录身份谓词，并非发布函数，仍不锁活动 key，不授予 `ready` 或下载。
 
