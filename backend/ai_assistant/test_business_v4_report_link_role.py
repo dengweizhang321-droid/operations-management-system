@@ -89,7 +89,7 @@ class V4ReportLinkRoleTarget(TransactionTestCase):
         net = NetshopDataRevision.objects.get(domain="netshop")
         finance, _ = FinanceDataRevision.objects.get_or_create(
             domain="finance", defaults={"revision": 0,
-                "source_digest": "f" * 64})
+                "source_digest": "0" * 64})
         net_revision = f"{net.revision}:{net.source_digest[:12]}"
         finance_revision = f"{finance.revision}:{finance.source_digest}"
         period = {"startDate": start_date, "endDate": end_date}
