@@ -157,7 +157,7 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
         head = head.replace("</head>", HTML_LAYOUT_V2+"</head>", 1)
     out(head)
     out('<script type="application/json" id="report-data">{'+('"htmlPayloadVersion":2,' if html_payload_version == 2 else '')+'"title":'+_json(title)+',"metadata":'+_json(metadata)+',"tables":[')
-    names, manifest = _sheet_names(tables), []
+    names, manifest, html_payload_tables = _sheet_names(tables), [], []
     model_sheets, model_proof = [], None
     if excel_budget is not None:
         from . import budget_excel
@@ -175,12 +175,13 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
                 out(',')
             out('{"key":'+_json(table.key)+',"title":'+_json(table.title)+',"note":'+_json(table.note)+',"columns":'+_json([{"key": c.key, "label": c.label, "kind": c.kind} for c in table.columns])+(',"rowsGzipBase64":"' if html_payload_version == 2 else ',"rows":['))
             if html_payload_version == 2:
-                compressor, pending, rows_ndjson_bytes = zlib.compressobj(level=6, wbits=31), b"", 0
+                compressor, pending, rows_ndjson_bytes, gzip_bytes = zlib.compressobj(level=6, wbits=31), b"", 0, 0
                 compressed_sha = hashlib.sha256()
                 def compressed_out(raw):
-                    nonlocal pending
+                    nonlocal pending, gzip_bytes
                     new = compressor.compress(raw)
                     compressed_sha.update(new)
+                    gzip_bytes += len(new)
                     packed = pending + new
                     size = len(packed) // 3 * 3
                     if size:
@@ -277,8 +278,14 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
             if html_payload_version == 2:
                 last = compressor.flush()
                 compressed_sha.update(last)
+                gzip_bytes += len(last)
                 out(base64.b64encode(pending + last).decode("ascii"))
                 out('","rowsNdjsonBytes":'+str(rows_ndjson_bytes)+',"rowsGzipSha256":"'+compressed_sha.hexdigest()+'","proof":'+_json(proof)+'}')
+                html_payload_tables.append({"key": table.key, "rowCount": count,
+                    "rowDigest": proof["rowDigest"],
+                    "rowsNdjsonBytes": rows_ndjson_bytes,
+                    "rowsGzipBytes": gzip_bytes,
+                    "rowsGzipSha256": compressed_sha.hexdigest()})
             else:
                 out('],"proof":'+_json(proof)+'}')
         for index, sheet in enumerate(model_sheets, len(tables)+1):
@@ -293,7 +300,16 @@ def write_pair(xlsx_file, html_file, *, title, metadata, tables, checkpoint=None
     out('</body></html>')
     if xlsx_file.tell() > MAX_FILE_BYTES:
         raise AnalysisContractError("工作簿超过当前容量，须显式分片")
-    return {"schemaVersion": "business-files-v1", "tables": manifest, **({"budgetCalculator": model_proof} if model_proof else {})}
+    result = {"schemaVersion": "business-files-v1", "tables": manifest,
+        **({"budgetCalculator": model_proof} if model_proof else {})}
+    if html_payload_version == 2:
+        payload = {"schemaVersion": "business-html-compressed-rows-v1",
+            "htmlPayloadVersion": 2,
+            "browserRequirements": ["DecompressionStream:gzip", "SubtleCrypto:SHA-256"],
+            "tables": html_payload_tables}
+        result["htmlPayload"] = {**payload,
+            "proofDigest": hashlib.sha256(canonical(payload).encode()).hexdigest()}
+    return result
 
 
 HTML_HEAD = '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>REPORT_TITLE</title><style>

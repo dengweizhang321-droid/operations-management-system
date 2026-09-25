@@ -113,7 +113,10 @@ def synthetic_tables(rows, suffix_bytes=68):
     return source, action, (scope, boundary), large, promotion
 
 
-def prepared(rows, *, max_rows=1_000_000, suffix_bytes=68):
+def prepared(rows, *, max_rows=1_000_000, suffix_bytes=68,
+             renderer_version=10):
+    if renderer_version not in (10, 11):
+        raise ValueError("synthetic budget renderer must be 10 or 11")
     source, action, scope, large, promotion = synthetic_tables(rows, suffix_bytes)
     _, promotion_proof, _, _, _ = promotion_fixture()
     promotion_proof = {**promotion_proof, "reportId": REPORT_ID}
@@ -134,7 +137,7 @@ def prepared(rows, *, max_rows=1_000_000, suffix_bytes=68):
         candidate = promotion_budget_v10.project(**fixture)
         tables = (action, *scope, large, *candidate.tables, *promotion)
         request = volume_files.request_for(tables, report_id=REPORT_ID,
-            evidence_digest=EVIDENCE_DIGEST, renderer_version=10)
+            evidence_digest=EVIDENCE_DIGEST, renderer_version=renderer_version)
         plan = volume_plan.build(request, native_budget_sheets=3,
             max_rows=max_rows)
         return candidate, tables, request, plan
@@ -252,9 +255,12 @@ def inspect_xlsx(path, volume, *, expected_large_rows, budget_payload=None,
 
 
 def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
-        suffix_bytes=68, deadline_seconds=1800, html_slim_v10=False):
+        suffix_bytes=68, deadline_seconds=1800, html_slim_v10=False,
+        renderer_version=10):
     if (not 1 <= rows <= 1_000_000 or not 1 <= max_rows <= 1_000_000
-            or not 0 <= suffix_bytes <= 128 or type(html_slim_v10) is not bool):
+            or not 0 <= suffix_bytes <= 128 or type(html_slim_v10) is not bool
+            or renderer_version not in (10, 11)
+            or renderer_version == 11 and html_slim_v10):
         raise ValueError("synthetic scale parameters exceed bounded contract")
     directory = Path(directory).resolve()
     if directory.exists():
@@ -265,7 +271,8 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
     outputs, peak_temp_bytes = [], 0
     try:
         source, candidate, tables, request, plan, metadata = prepared(rows,
-            max_rows=max_rows, suffix_bytes=suffix_bytes)
+            max_rows=max_rows, suffix_bytes=suffix_bytes,
+            renderer_version=renderer_version)
         def checkpoint(_):
             nonlocal peak_temp_bytes
             if time.monotonic() - started > deadline_seconds:
@@ -279,7 +286,7 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
                 html = stack.enter_context((directory / f"volume-{index:03}.html").open("x+b"))
                 outputs.append(volume_files.VolumeStreams(xlsx, html))
             full = volume_files.render(tables, outputs, report_id=REPORT_ID,
-                evidence_digest=EVIDENCE_DIGEST, renderer_version=10, plan=plan,
+                evidence_digest=EVIDENCE_DIGEST, renderer_version=renderer_version, plan=plan,
                 title="合成推广预算容量验收", metadata=metadata,
                 offline_budget=candidate.offline_budget,
                 excel_budget=candidate.excel_budget,
@@ -293,11 +300,12 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
         if large["rowDigest"] != source.sha.hexdigest():
             raise AssertionError("full source row SHA differs from independent producer")
         compact, raw = volume_delivery.make(full, binding_digest=BINDING_DIGEST,
-            attempt=1, draft=False, renderer_version=10, max_rows=max_rows)
+            attempt=1, draft=False, renderer_version=renderer_version,
+            max_rows=max_rows)
         verified = volume_delivery.verify_full(compact, raw,
             binding_digest=BINDING_DIGEST, attempt=1, draft=False,
             report_id=REPORT_ID, evidence_digest=EVIDENCE_DIGEST,
-            renderer_version=10, max_rows=max_rows)
+            renderer_version=renderer_version, max_rows=max_rows)
         if verified != full:
             raise AssertionError("v10 complete manifest failed exact rebuild")
         descriptors = {(item["volumeIndex"], item["format"]): item
@@ -324,7 +332,9 @@ def run(directory, *, rows=DEFAULT_ROWS, max_rows=1_000_000,
         evidence = {"schemaVersion": "business-budget-v10-static-scale-v1",
             "syntheticOnly": True, "owningSourceAuthorityVerified": False,
             "nativeExcelOpened": False, "formulaRecalculated": False,
+            "rendererVersion": renderer_version,
             "htmlSlimV10": html_slim_v10,
+            "htmlPayloadVersion": 2 if renderer_version == 11 or html_slim_v10 else 1,
             "reportId": REPORT_ID, "syntheticPromotionRows": rows,
             "totalRows": full["totalRows"], "volumeCount": full["volumeCount"],
             "sourceRowSha256": large["rowDigest"],
@@ -376,8 +386,10 @@ if __name__ == "__main__":
     parser.add_argument("--suffix-bytes", type=int, default=68)
     parser.add_argument("--deadline-seconds", type=int, default=1800)
     parser.add_argument("--slim-html-v10", action="store_true")
+    parser.add_argument("--renderer-version", type=int, choices=(10, 11), default=10)
     arguments = parser.parse_args()
     print(json.dumps(run(arguments.output_dir, rows=arguments.rows,
         max_rows=arguments.max_rows, suffix_bytes=arguments.suffix_bytes,
         deadline_seconds=arguments.deadline_seconds,
-        html_slim_v10=arguments.slim_html_v10), ensure_ascii=False))
+        html_slim_v10=arguments.slim_html_v10,
+        renderer_version=arguments.renderer_version), ensure_ascii=False))

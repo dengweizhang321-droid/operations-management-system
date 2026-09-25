@@ -28,7 +28,7 @@ FULL_FIELDS = {"schemaVersion", "status", "reportId", "evidenceDigest", "rendere
 
 
 def _renderer(value):
-    if type(value) is not int or value not in (4, 6, 7, 9, 10):
+    if type(value) is not int or value not in (4, 6, 7, 9, 10, 11):
         _fail("多卷持久渲染版本不受支持")
 
 
@@ -159,6 +159,58 @@ SCREENING_KEYS = {"screeningRef", "screeningPackagePolicy", "screeningPackageDig
 PROMOTION_KEY = "promotionFileProof"
 TRIAL_KEY = "promotionTrialProof"
 BUDGET_KEY = "promotionBudgetProof"
+SLIM_KEY = "promotionSlimProof"
+SLIM_BROWSER_REQUIREMENTS = ["DecompressionStream:gzip", "SubtleCrypto:SHA-256"]
+
+
+def _html_payload_v11(payload, volume):
+    """Bind every compressed table descriptor to its exact volume fragment."""
+    _fields(payload, {"schemaVersion", "htmlPayloadVersion",
+        "browserRequirements", "tables", "proofDigest"})
+    _equal(payload["schemaVersion"], "business-html-compressed-rows-v1")
+    _equal(payload["htmlPayloadVersion"], 2)
+    _equal(payload["browserRequirements"], SLIM_BROWSER_REQUIREMENTS)
+    _equal(payload["proofDigest"], digest({key: child for key, child in
+        payload.items() if key != "proofDigest"}))
+    if type(payload["tables"]) is not list or len(payload["tables"]) != len(volume["tables"]):
+        _fail("renderer 11 压缩行表片数量无效")
+    for table, part in zip(payload["tables"], volume["tables"]):
+        _fields(table, {"key", "rowCount", "rowDigest", "rowsNdjsonBytes",
+            "rowsGzipBytes", "rowsGzipSha256"})
+        _equal(table["key"], part["fragmentKey"])
+        _equal(table["rowCount"], part["rowLimit"])
+        _equal(table["rowDigest"], part["rowDigest"])
+        _sha(table["rowsGzipSha256"])
+        _integer(table["rowsNdjsonBytes"], 0, MAX_FILE_BYTES)
+        _integer(table["rowsGzipBytes"], 1, MAX_FILE_BYTES)
+        if table["rowCount"] == 0:
+            _equal(table["rowsNdjsonBytes"], 0)
+            _equal(table["rowDigest"], hashlib.sha256(b"").hexdigest())
+        elif table["rowsNdjsonBytes"] < table["rowCount"] * 3:
+            _fail("renderer 11 压缩行原文字节不足")
+
+
+def slim_proof_v11(value):
+    """Pure manifest-bound v11 sidecar, never a source or publish authority."""
+    _equal(value["rendererVersion"], 11)
+    _sha(value[BUDGET_KEY]["proofDigest"])
+    payloads, files = [], []
+    for volume in value["volumes"]:
+        _html_payload_v11(volume["htmlPayload"], volume)
+        payloads.append(volume["htmlPayload"])
+        files.append({"volumeIndex": volume["volumeIndex"],
+            "htmlSha256": _sha(volume["files"]["html"]["sha256"]),
+            "htmlBytes": _integer(volume["files"]["html"]["bytes"], 1, MAX_FILE_BYTES),
+            "xlsxSha256": _sha(volume["files"]["xlsx"]["sha256"]),
+            "xlsxBytes": _integer(volume["files"]["xlsx"]["bytes"], 1, MAX_FILE_BYTES)})
+    base = {"schemaVersion": "business-promotion-budget-v11-slim-proof-v1",
+        "rendererVersion": 11, "sourceBudgetProofDigest": value[BUDGET_KEY]["proofDigest"],
+        "htmlPayloadVersion": 2,
+        "browserRequirements": SLIM_BROWSER_REQUIREMENTS,
+        "volumePayloadDigest": digest(payloads), "fileBindingsDigest": digest(files),
+        "volumeCount": len(payloads), "candidateOnly": True,
+        "publicationStatus": "unpublished"}
+    return {**base, "proofDigest": digest(base)}
 
 
 def trial_proof(value, manifest):
@@ -380,11 +432,12 @@ def screening_fields(value, report_id):
 def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     _renderer(renderer_version)
     mapping_keys = {"mappingPlanDigest", "mappingAlgorithmVersion", "mappedTableAlgorithmVersion"}
-    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9, 10) else set()) |
+    _fields(value, FULL_FIELDS | ({PROMOTION_KEY} if renderer_version in (7, 9, 10, 11) else set()) |
             ({TRIAL_KEY, "tableSchemaDigest"} if renderer_version == 9 else set()) |
-            ({TRIAL_KEY, BUDGET_KEY, "tableSchemaDigest"} if renderer_version == 10 else set()),
+            ({TRIAL_KEY, BUDGET_KEY, "tableSchemaDigest"} if renderer_version in (10, 11) else set()) |
+            ({SLIM_KEY} if renderer_version == 11 else set()),
             {"budgetPlanDigest"} | mapping_keys | SCREENING_KEYS)
-    if renderer_version in (7, 9, 10):
+    if renderer_version in (7, 9, 10, 11):
         promotion_proof(value[PROMOTION_KEY], value["reportId"])
     screening_fields(value, value["reportId"])
     if mapping_keys & value.keys():
@@ -428,7 +481,8 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
     source_by_key = {source["key"]: source for source in value["tables"]}
     files = []
     for actual, expected in zip(value["volumes"], plan["volumes"]):
-        _fields(actual, {"volumeIndex", "volumeCount", "kind", "nativeBudgetSheets", "rowCount", "offlineBudgetEnabled", "tables", "files"}, {"budgetCalculator"})
+        _fields(actual, {"volumeIndex", "volumeCount", "kind", "nativeBudgetSheets", "rowCount", "offlineBudgetEnabled", "tables", "files"},
+            {"budgetCalculator", "htmlPayload"} if renderer_version == 11 else {"budgetCalculator"})
         for key in ("volumeIndex", "volumeCount", "kind", "nativeBudgetSheets"):
             _equal(actual[key], expected[key])
         if type(actual["offlineBudgetEnabled"]) is not bool or actual["volumeIndex"] != 1 and actual["offlineBudgetEnabled"]:
@@ -454,6 +508,8 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
             if part["rowLimit"] == 0:
                 _equal(part["rowDigest"], hashlib.sha256(b"").hexdigest())
         _equal(actual["rowCount"], sum(part["rowLimit"] for part in expected["tables"]))
+        if renderer_version == 11:
+            _html_payload_v11(actual["htmlPayload"], actual)
         _fields(actual["files"], {"html", "xlsx"})
         for format in ("html", "xlsx"):
             proof = actual["files"][format]
@@ -464,8 +520,10 @@ def _full(value, *, max_tables, max_rows, max_volumes, renderer_version):
                           "chunkCount": (size + CHUNK_BYTES - 1) // CHUNK_BYTES})
     if renderer_version == 9:
         trial_proof(value[TRIAL_KEY], value)
-    if renderer_version == 10:
+    if renderer_version in (10, 11):
         budget_candidate_proof(value[BUDGET_KEY], value)
+    if renderer_version == 11:
+        _equal(value[SLIM_KEY], slim_proof_v11(value))
     _equal(value["manifestDigest"], digest({key: child for key, child in value.items() if key != "manifestDigest"}))
     return files
 
