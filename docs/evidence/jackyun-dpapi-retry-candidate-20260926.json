@@ -1,0 +1,45 @@
+{
+  "status": "candidate_not_deployed",
+  "businessDateShanghai": "2026-09-26",
+  "source": {
+    "branch": "codex/jackyun-dpapi-retry",
+    "commit": "073d9619",
+    "pushedToOrigin": true
+  },
+  "change": {
+    "bindingDiagnostics": "Allowlisted input, fields, paths, identity, local path, vault lookup, missing and path integrity stages; no raw error or credential output",
+    "localRetry": "At most three credential-read attempts before any browser fill; 500 ms and 1000 ms waits for selected binding stages",
+    "hourlyRetry": "Only after the helper proves an empty v2 plan and four absent business-effect paths under the Jackyun lock, writes a create-only receipt and returns JACKYUN_PREFLIGHT_RETRY_READY",
+    "terminalErrorsPreserved": ["missing credential", "credential read or decryption failure", "platform password rejection", "captcha or challenge", "unknown login submission", "export intent or any business artifact"],
+    "historical4299": "Exact n8n execution and plan digest allow a separately reviewed create-only closure; no closure has been written"
+  },
+  "validation": {
+    "focusedTestsPassed": 45,
+    "focusedTestsFailed": 0,
+    "fullLintErrors": 0,
+    "fullLintExistingWarnings": 11,
+    "backendBoundaryViolations": 0,
+    "diffCheckPassed": true,
+    "isolatedHelperBundleSha256": "720bc5383f3362238ba063924ef2d682152e657e8f2df362ae0aef519caa0df6",
+    "detachedCurrentUserCredentialStatusChecks": "10 of 10 ready; historical midnight failure was not reproduced",
+    "fullUnitTests": "Two unrelated baseline failures reproduced in a clean checkout: tests/django-finance-routing-static.test.ts expects one dispatch but observes two; tests/frontend-foundation.test.ts reports missing color-surface-subtle token"
+  },
+  "liveReadOnly": {
+    "currentWorkerRelease": "20260924T170238Z-67f8e2ddf8f93e16",
+    "n8nHealthHttp": 200,
+    "helperOk": true,
+    "helperBusy": false,
+    "execution4299ClosureProposalReason": "audited_4299_dpapi_before_api_exports",
+    "execution4299AbsentEffectPaths": 4,
+    "execution4299ProposalSha256": "6d70b25ebd64e25030bfe358d35006bb2c22a211588be214044597b50aa436e8"
+  },
+  "onlinePreparation": {
+    "result": "interrupted_before_candidate_plan_due_to_low_D_drive_space",
+    "productionReleaseChanged": false,
+    "ownIncompleteStageMovedToE": "E:\\TERUISI-candidate-artifacts\\jackyun-dpapi-retry-20260926\\incomplete-worker-stage-41652bea",
+    "candidateHelperBundle": "E:\\TERUISI-candidate-artifacts\\jackyun-dpapi-retry-20260926\\helper.mjs",
+    "historical4299Proposal": "E:\\TERUISI-candidate-artifacts\\jackyun-dpapi-retry-20260926\\jackyun-4299-closure-proposal.json",
+    "DDriveFreeBytesAfterCleanupApproximate": 2176520192
+  },
+  "notDone": ["Worker/helper release activation", "n8n shared error workflow publication", "4299 closure write", "full n8n business run", "five-batch independent import verification"]
+}
