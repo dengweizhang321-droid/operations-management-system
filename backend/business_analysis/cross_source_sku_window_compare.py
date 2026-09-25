@@ -12,7 +12,7 @@ from . import cross_source_window_compare as shops
 from .contracts import AnalysisContractError, MAX_SAFE_INTEGER, canonical, digest
 
 
-SCHEMA = "business-cross-source-sku-window-comparison-candidate-v1"
+SCHEMA = "business-cross-source-sku-window-comparison-candidate-v2"
 WINDOWS = planning.WINDOWS
 COLUMNS = {"erpMatched": ("erpSales", planning.ERP_METRICS),
     "netshopSku": ("netshopSku", planning.PRODUCT_METRICS),
@@ -155,6 +155,18 @@ def _window_value(material, plan, window, sku_id, missing, column, metric,
         **cell}
 
 
+def _comparison(column, missing, current, baseline):
+    if missing:
+        return {"status": "missing_explicit_promotion_sku", "difference": None,
+            "growthRateBps": None}
+    if column == "erpMatched":
+        # These SKU assignments use the current master snapshot for every
+        # historical ERP fact. Equal SKU text does not prove past ownership.
+        return {"status": "historical_identity_unverified", "difference": None,
+            "growthRateBps": None}
+    return shops._comparison(current, baseline)
+
+
 def prepare_candidate(plan, sources, infos, context, source_keys, materials):
     """Compare explicit SKU identities only; all results remain non-authorizing."""
     plan = planning.check_candidate(sources, infos, context, source_keys, plan)
@@ -197,9 +209,8 @@ def prepare_candidate(plan, sources, infos, context, source_keys, materials):
                      "netshopSkuNativeSpuId": None, "value": None,
                      "presentRows": 0, "missingRows": 0}
                     for window in WINDOWS}
-                comparisons = {window: ({"status": "missing_explicit_promotion_sku",
-                    "difference": None, "growthRateBps": None} if missing else
-                    shops._comparison(values["current"], values[window]))
+                comparisons = {window: _comparison(column, missing,
+                    values["current"], values[window])
                     for window in WINDOWS[1:]}
                 body = {"skuId": sku_id, "promotionSkuStatus":
                     "missing_explicit_promotion_sku" if missing else "explicit_sku",
@@ -221,12 +232,14 @@ def prepare_candidate(plan, sources, infos, context, source_keys, materials):
         "nativeSpuExcludedFromSku": True, "erpUnassignedExcludedFromSku": True,
         "missingPromotionSkuBucketSeparate": True,
         "currentMasterNotHistoricalOwnership": True,
+        "historicalErpSkuOwnershipVerified": False,
         "crossDomainAmountsAdded": False, "authorityVerified": False,
         "registeredRenderer": False,
         "limitations": ["同码SKU只并排展示各来源指标，不证明同一订单或广告因果归因。",
             "原生SPU支付不进入SKU回卷，ERP未分配池不摊至商品。",
             "缺明确推广SKU为不可操作独立桶，不合并到真实SKU。",
             "任一期间缺源、缺日、SKU缺席、部分缺值或非正基期不计算增长率。",
+            "ERP SKU归属基于当前主数据，历史拥有关系未经证明，跨期差额和增长率均不输出。",
             "本期主数据SPU归属不得回填为历史归属；各期仅保留原来源身份。"]}
     _need(len(canonical(result).encode("utf-8")) <= MAX_OUTPUT_BYTES,
         "SKU三窗口完整输出超过固定容量")

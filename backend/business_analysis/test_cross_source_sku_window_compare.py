@@ -56,6 +56,26 @@ class CrossSourceSkuWindowCompareTests(TestCase):
         self.assertEqual(spend["windows"]["previous"]["status"], "missing_source")
         self.assertEqual(result["comparisonDigest"], digest({key: value for key, value
             in result.items() if key != "comparisonDigest"}))
+        self.assertFalse(result["historicalErpSkuOwnershipVerified"])
+        erp = [row for row in result["rows"] if row["column"] == "erpMatched"]
+        self.assertTrue(erp)
+        self.assertTrue(all(cell == {"status": "historical_identity_unverified",
+            "difference": None, "growthRateBps": None}
+            for row in erp for cell in row["comparisons"].values()))
+
+    def test_complete_erp_values_still_cannot_claim_historical_sku_growth(self):
+        current = {"status": "observed_rows", "value": 150,
+            "presentRows": 30, "missingRows": 0}
+        previous = {"status": "observed_rows", "value": 100,
+            "presentRows": 30, "missingRows": 0}
+        self.assertEqual(service._comparison("erpMatched", False, current, previous),
+            {"status": "historical_identity_unverified", "difference": None,
+             "growthRateBps": None})
+        self.assertEqual(service._comparison("netshopSku", False, current, previous),
+            {"status": "comparable", "difference": 50, "growthRateBps": 5000})
+        self.assertEqual(service._comparison("promotion", True, current, previous),
+            {"status": "missing_explicit_promotion_sku", "difference": None,
+             "growthRateBps": None})
 
     def test_complete_explicit_sku_metric_compares_without_current_master_history(self):
         plan, sources, infos, keys, values = full_sku_materials()
