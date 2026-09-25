@@ -11,3 +11,11 @@
 接线前还需要：将本合同与真实五 Agent 完成态及持久回执逐条关联；由拥有方签出同报告行级事实指针、完整关键词分页和市场样本来源，核验结构化数值及散文数字；获得真实预算方案和人工批准；把获批行动与 HTML/XLSX 同一表流及文件发布栅栏接通；按真实店铺三期数据、B 端包含关系和原生 Excel 验收。当前纯测试不能替代这些步骤，也不改变现有 `action_plan` 旧表及 renderer 字节。
 
 验证：`cd backend && python -m unittest business_analysis.test_diagnostic_action_plan_v1 business_analysis.test_report_composition_v1 -v`。负例覆盖缺源却建议优化、报告/表摘要漂移、具体 SKU 身份冒认、历史增长冒认、市场/B 端作为自有销售或增量、虚构预算/KPI、缺停止回退、五角色不齐和无拥有方回调。
+
+## 额外 HTML/XLSX 表候选
+
+`report_composition_tables_v1.prepare(..., diagnostic_action_candidate=...)` 才启用第 14 张 `diagnostic_action_plan` 表，并返回版本化 `business-report-composition-table-delivery-candidate-v2` 目录；默认调用继续返回原有 13 表及 v1 元数据。它先从同一来源和拥有方复核构造报告组合，再用 `check_candidate` 全量重算动作合同并比较候选，拒绝旧报告根、改写引用/预算/KPI、伪造执行许可及无市场回调的五 Agent 候选。新表在末尾审计表之前，审计清单纳入其行数、列数、规范行摘要、候选摘要和来源状态，原 13 表顺序与内容不变。
+
+新表逐行保留同报告根、主证据表/摘要/状态、外部背景引用、维度与建议方向、责任角色、预算原则/已知零或待批准上限、KPI 定义与缺值、观察期、停止和回退条件。它和其他表共用 `report_files.write_pair` 的同一 `Table` 流，合成测试比对 HTML 行、XLSX 内置清单、工作表实际行数和审计 SHA-256；未知预算与 KPI 值在两份文件中保持空值，不变成零。市场五角色材料只能经额外拥有方回调成为外部样本引用，不能写成本店销售事实。
+
+此项仍是小规模未注册预览：没有正式 renderer/下载、真实 Agent 已读、具体行级事实或数值引用、获批投放预算、生产采用和原生 Excel 验收。现有 v2 来源行数上限与大规模 v4 同报告桥仍需独立打通。相关测试：`cd backend && python -m unittest business_analysis.test_diagnostic_action_plan_table_v1 business_analysis.test_diagnostic_action_plan_v1 business_analysis.test_report_composition_tables_v1 -q`。

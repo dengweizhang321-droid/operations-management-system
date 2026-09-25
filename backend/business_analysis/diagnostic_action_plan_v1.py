@@ -277,3 +277,20 @@ def prepare_candidate(report, actions, *, enabled=False,
     _need(len(canonical(value).encode("utf-8")) <= MAX_BYTES,
           "调整计划候选超过固定容量")
     return {**value, "candidateDigest": digest(value)}
+
+
+def check_candidate(candidate, report, *, verify_current_composition,
+                    market_result=None, verify_market_result=None):
+    """Rebuild a serialized candidate against the current owning report.
+
+    A saved candidate digest is only a change detector. The supplied callback
+    must reread the owning state, or be bound to a report already rechecked in
+    the same call stack (as in the unregistered table preview).
+    """
+    _need(type(candidate) is dict and type(candidate.get("actions")) is list,
+          "调整计划候选正文缺失")
+    expected = prepare_candidate(report, candidate["actions"], enabled=True,
+        verify_current_composition=verify_current_composition,
+        market_result=market_result, verify_market_result=verify_market_result)
+    _need(candidate == expected, "调整计划候选与当前报告或严格合同不一致")
+    return expected
