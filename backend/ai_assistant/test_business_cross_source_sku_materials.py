@@ -85,8 +85,12 @@ class BusinessCrossSourceSkuMaterialTests(djtest.TransactionTestCase):
         self.assertEqual(shop["erpUnassigned"]["netSalesCents"],
             shop["erpSales"]["netSalesCents"])
         self.assertEqual(shop["erpUnassigned"]["refundCents"]["value"], 5000)
-        self.assertFalse(any(row["column"] == "erpMatched" for row in
-            value["comparison"]["rows"]))
+        # Other already matched ERP facts may still produce SKU rows. This
+        # ambiguous refund must remain entirely in the unassigned pool.
+        self.assertEqual(sum((row["windows"]["current"]["value"] or 0)
+            for row in value["comparison"]["rows"]
+            if row["column"] == "erpMatched" and
+               row["metric"] == "refundCents"), 0)
         self.assertFalse(value["comparison"]["crossDomainAmountsAdded"])
 
     def test_default_closed_wrong_report_actor_and_revoked_final_fence(self):
