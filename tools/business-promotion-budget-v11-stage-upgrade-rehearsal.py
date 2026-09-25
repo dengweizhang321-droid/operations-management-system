@@ -151,19 +151,36 @@ def privilege_matrix(db):
 
 
 def table_acl_catalog(db):
-    tables = db.execute("SELECT c.relname,c.relacl::text FROM pg_catalog.pg_class c "
+    # pg_dump/pg_restore may materialize an implicit owner-default ACL as an
+    # explicit ACL array. Compare every effective direct grant, not relacl's
+    # nullable storage representation or its element order.
+    tables = db.execute("SELECT c.relname,"
+        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
+        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
+        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
+        "grant_item.privilege_type,grant_item.is_grantable "
+        "FROM pg_catalog.pg_class c "
         "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,"
+        "pg_catalog.acldefault('r',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) ORDER BY c.relname",
         [list(AI_TABLES)]).fetchall()
-    columns = db.execute("SELECT c.relname,a.attname,a.attacl::text "
+    columns = db.execute("SELECT c.relname,a.attname,"
+        "CASE WHEN grant_item.grantee=0 THEN 'PUBLIC' "
+        "ELSE pg_catalog.pg_get_userbyid(grant_item.grantee) END,"
+        "pg_catalog.pg_get_userbyid(grant_item.grantor),"
+        "grant_item.privilege_type,grant_item.is_grantable "
         "FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c "
         "ON c.oid=a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(a.attacl,"
+        "pg_catalog.acldefault('c',c.relowner))) grant_item "
         "WHERE n.nspname='public' AND c.relname=ANY(%s) "
         "AND a.attnum>0 AND NOT a.attisdropped "
-        "ORDER BY c.relname,a.attnum", [list(AI_TABLES)]).fetchall()
-    if len(tables) != 85:
+        "ORDER BY c.relname,a.attnum,grant_item.grantee,"
+        "grant_item.privilege_type,grant_item.grantor", [list(AI_TABLES)]).fetchall()
+    if len({row[0] for row in tables}) != 85:
         raise AssertionError("0066 old AI table ACL inventory incomplete")
-    return tables, columns
+    return sorted(tables), columns
 
 
 def constraint_versions(db):
@@ -192,6 +209,13 @@ def restored(value):
         (tuple(tuple(row[1:]) for row in value[3][0]),
          tuple(tuple(row[1:]) for row in value[3][1])),
         value[4], value[5], value[6])
+
+
+def restored_drift(expected, actual):
+    names = ("rows", "old_files", "functions", "relations_triggers",
+        "role_privileges", "table_column_acl", "file_version_check")
+    return ",".join(name for name, prior, current in zip(names,
+        restored(expected), restored(actual)) if prior != current)
 
 
 def archive_restore(name):
@@ -265,8 +289,10 @@ with connect() as db:
 archive_restore("budget_v11_stage_before")
 with connect("budget_v11_stage_before") as copy:
     verify_old(copy)
-    if restored(snapshot(copy)) != restored(before):
-        raise AssertionError("0065 pre-upgrade independent restore differs")
+    copied = snapshot(copy)
+    if restored(copied) != restored(before):
+        raise AssertionError("0065 pre-upgrade independent restore differs: " +
+            restored_drift(before, copied))
 
 MigrationExecutor(connection).migrate(NEW)
 with connect() as db:
@@ -277,7 +303,8 @@ with connect("budget_v11_stage_after") as copy:
     recovered = snapshot(copy)
     verify_new(copy, before, recovered)
     if restored(recovered) != restored(after):
-        raise AssertionError("0066 post-upgrade independent restore differs")
+        raise AssertionError("0066 post-upgrade independent restore differs: " +
+            restored_drift(after, recovered))
 
 MigrationExecutor(connection).migrate(OLD)
 with connect() as db:

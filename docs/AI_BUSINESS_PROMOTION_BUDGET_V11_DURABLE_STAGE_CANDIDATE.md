@@ -10,6 +10,8 @@
 
 已新增显式 harness 入口 `--business-promotion-budget-v11-stage-upgrade --upgrade-only`，串行重放旧链与 0065 的双恢复证据后，执行 `business-promotion-budget-v11-stage-upgrade-rehearsal.py`。脚本只准独立工作树、test 环境、隔离端口与精确 `0064->0065` 成功回执；**尚未实际运行**。它将核验：
 
+首次主任务长链在 0065 前备份恢复比对处停止，未执行 0066。演练现把表/列 ACL 的 `NULL` 与显式默认存储表示统一成逐项 grantee、grantor、权限和 grant option；reader/writer 的实际 table/column 权限矩阵仍分别冻结。若再次不符，异常仅输出差异组件名，不输出行值。该正规化和诊断尚待隔离长链复测。
+
 1. 在精确 0065 隔离库上冻结 AI 表清单、旧 1–10 文件行/块 SHA、五个旧文件函数 OID/正文/ACL/owner 与 v10 ready 回执；先做独立 `pg_dump` 并恢复到另一个一次性库逐项回读。
 2. 安装 0066，要求无新增表或角色；只允许五个既有函数中的卷块、清单、run、complete 四个正文版本变化，原单文件 chunk 函数不变。验证 CHECK 精确加 11、新 SECDEF 函数仅 writer EXECUTE、无 PUBLIC/reader、旧函数 OID/ACL/owner 与 complete guard 的 SECDEF 位不变。
 3. 升级演练是**空 v11 行**，只校验数据库中精确 ready 拒绝守卫正文、窄函数 ACL、85 表数据和当时存在的旧 1–10 文件。真实 ai_writer 按同批准报告创建与完成 v11 `staged_unpublished`、重读 chunk/slim proof 以及跨报告/预算根、伪造 gzip 或行摘要、缺卷/晚到多块、错 attempt、缺批准/管理员撤权、direct writer ready 与 reader 写入/执行拒绝，须由独立目标 PG 测试 `BudgetV11DurableStageTests` 执行；v10 既有证明角色与 ready/下载也须另作目标回归。旧升级种子固定包含 renderer 1–7，8–10 若不存在，演练会明确列出而不会冒充已有旧字节已覆盖。
