@@ -24,6 +24,7 @@ from ai_assistant.business_market_v2_read_catalog import verify as verify_read
 from ai_assistant.business_market_v2_execution_plan_catalog import verify as verify_plan
 from ai_assistant.business_market_v2_synthetic_catalog import (
     verify as verify_synthetic, TRIGGERS)
+from ai_assistant.market_v2_admitted_catalog import verify as verify_admitted
 from business_analysis.contracts import canonical
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -220,6 +221,7 @@ def closed(db, installed):
         verify_context(cursor, RuntimeError)
         verify_read(cursor, RuntimeError)
         verify_plan(cursor, RuntimeError)
+        verify_admitted(cursor, RuntimeError)
     new_rows = db.execute("SELECT (SELECT count(*) FROM ai_report_runs WHERE "
         "snapshot_json::jsonb->>'executionProfile'=%s),"
         "(SELECT count(*) FROM ai_workflow_runs WHERE "
@@ -247,7 +249,13 @@ def closed(db, installed):
             ("public.ai_market_v2_execution_orphan_guard()",
                 execution.ORPHAN_GUARD),
             ("public.ai_market_v2_execution_child_guard()",
-                execution.CHILD_GUARD)):
+                execution.CHILD_GUARD),
+            ("public.ai_market_v2_admitted_tool_guard()",
+                migration.NEW_TOOL_GUARD if installed
+                else migration.admitted.TOOL_GUARD),
+            ("public.ai_market_v2_admitted_result_guard()",
+                migration.NEW_RESULT_GUARD if installed
+                else migration.admitted.RESULT_GUARD)):
         row = db.execute("SELECT prosrc FROM pg_catalog.pg_proc WHERE "
             "oid=to_regprocedure(%s)", [signature]).fetchone()
         if row != (definition.split("$$", 2)[1],):
@@ -273,18 +281,24 @@ def verify_install(db, before, after):
     guard_keys = {db.execute("SELECT to_regprocedure(%s)::text", [signature]
         ).fetchone()[0]: (signature, definition, definer)
         for signature, (definition, definer) in GUARDS.items()}
-    changed = db.execute("SELECT to_regprocedure(%s)::text",
-        ["public.ai_market_v2_parked_workflow_guard()"] ).fetchone()[0]
+    changed = {db.execute("SELECT to_regprocedure(%s)::text",[signature]
+        ).fetchone()[0]: definition for signature,definition in (
+        ("public.ai_market_v2_parked_workflow_guard()",
+            migration.NEW_PARKED_WORKFLOW),
+        ("public.ai_market_v2_admitted_tool_guard()",
+            migration.NEW_TOOL_GUARD),
+        ("public.ai_market_v2_admitted_result_guard()",
+            migration.NEW_RESULT_GUARD))}
     if (None in guard_keys
-            or changed is None or changed not in before[3]
+            or None in changed or not set(changed) <= set(before[3])
             or set(after[3]) != set(before[3]) | set(guard_keys)):
         raise AssertionError("0064 must add exactly five AI functions")
     for signature, prior in before[3].items():
         current = after[3][signature]
-        if signature == changed:
+        if signature in changed:
             if (prior[0] != current[0] or prior[2:] != current[2:]
-                    or current[1] != migration.NEW_PARKED_WORKFLOW.split("$$",2)[1]):
-                raise AssertionError("0064 changed 0044 guard OID/ACL/owner")
+                    or current[1] != changed[signature].split("$$",2)[1]):
+                raise AssertionError("0064 changed 0044/0053 guard OID/ACL/owner")
         elif current != prior:
             raise AssertionError("0064 changed old AI function: " + signature)
     for key, (signature, definition, definer) in guard_keys.items():
@@ -322,6 +336,7 @@ def verify_install(db, before, after):
         verify_context(cursor, RuntimeError)
         verify_read(cursor, RuntimeError)
         verify_plan(cursor, RuntimeError)
+        verify_admitted(cursor, RuntimeError)
         verify_synthetic(cursor, RuntimeError)
 
 
@@ -369,8 +384,8 @@ result = {"upgrade": "0063->0064", "oldAiTables": 84,
     "newAiTables": 84,
     "oldRowsDigestPreserved": before[0], "parkedAdmittedExecutionContextRootsPreserved": True,
     "rendererVersions": list(before[2]), "rendererBytesPreserved": True,
-    "oldAiFunctionsOidBodyAclPreservedExceptExact0044Version": True,
-    "0044WorkflowOidAclOwnerPreserved": True,
+    "oldAiFunctionsOidBodyAclPreservedExceptExact0044And0053Versions": True,
+    "0044WorkflowAnd0053ToolResultOidAclOwnerPreserved": True,
     "newFiveFunctionsNineTriggersExact": True,
     "newAttestorNoLoginNoMembership": True,
     "oldMaterialContextReadAndPlanAclClosed": True,

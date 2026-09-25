@@ -39,6 +39,11 @@ def verify(cursor, error_type=ValueError):
     bridge = (import_module(
         "ai_assistant.migrations.0056_business_market_v2_material_role_bridge")
         if bridged else None)
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations WHERE "
+        "app='ai_assistant' AND name='0064_business_market_v2_synthetic_vertical')")
+    synthetic = (import_module(
+        "ai_assistant.migrations.0064_business_market_v2_synthetic_vertical")
+        if cursor.fetchone() == (True,) else None)
     functions = {}
     for name, constant in FUNCTIONS:
         signature = "public." + name + "()"
@@ -50,6 +55,8 @@ def verify(cursor, error_type=ValueError):
         row = cursor.fetchone()
         new_guard = bridge is not None and constant in {"WORKFLOW_GUARD", "REPORT_GUARD"}
         definition = (getattr(bridge, "NEW_" + constant.split("_")[0]) if new_guard
+            else getattr(synthetic, "NEW_" + constant) if synthetic is not None
+                and constant in {"TOOL_GUARD", "RESULT_GUARD"}
             else getattr(migration, constant))
         need(row is not None and row[1] == definition.split("$$")[1]
              and row[2] is new_guard and row[4] == "plpgsql"
