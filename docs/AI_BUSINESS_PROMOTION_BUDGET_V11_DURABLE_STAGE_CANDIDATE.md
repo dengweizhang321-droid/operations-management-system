@@ -8,11 +8,11 @@
 
 新守卫、唯一 writer 执行权限及精确正文已接健康检查和一致性备份回读；旧 1–10 检查按迁移版本保留。纯/static SQL 与 HTML 目标 11 项通过，且迁移检查显示 ai_assistant 无模型状态差异；隔离 PostgreSQL 正反测试 `ai_assistant.test_business_promotion_budget_v11_durable_stage.BudgetV11DurableStageTests` 已写但**未运行**：真实 writer 固定预算完整暂存、reader 无新函数权限、空块伪造 staged 被拒、普通 writer 直接 ready 被拒、公开控制/下载关闭、存在 v11 行时逆装拒绝。主任务须先核 0065，再串行执行 0066 测试，并检查 0054 旧 v9、0057/58/59 v10 ready/下载全部回归，核旧 1–10 文件字节、函数 OID/ACL/owner 与旧权限不变。
 
-升级/恢复演练计划（待 0065 前驱通过再实现工具和 harness opt-in）：
+已新增显式 harness 入口 `--business-promotion-budget-v11-stage-upgrade --upgrade-only`，串行重放旧链与 0065 的双恢复证据后，执行 `business-promotion-budget-v11-stage-upgrade-rehearsal.py`。脚本只准独立工作树、test 环境、隔离端口与精确 `0064->0065` 成功回执；**尚未实际运行**。它将核验：
 
 1. 在精确 0065 隔离库上冻结 AI 表清单、旧 1–10 文件行/块 SHA、五个旧文件函数 OID/正文/ACL/owner 与 v10 ready 回执；先做独立 `pg_dump` 并恢复到另一个一次性库逐项回读。
 2. 安装 0066，要求无新增表或角色；只允许五个既有函数中的卷块、清单、run、complete 四个正文版本变化，原单文件 chunk 函数不变。验证 CHECK 精确加 11、新 SECDEF 函数仅 writer EXECUTE、无 PUBLIC/reader、旧函数 OID/ACL/owner 与 complete guard 的 SECDEF 位不变。
-3. 用真实 ai_writer 按同批准报告创建与完成 v11 `staged_unpublished`；重读全部 chunk 与 slim proof。反例覆盖跨报告/预算根、伪造 gzip 或行摘要、缺卷/晚到多块、错 attempt、缺批准/管理员撤权、direct writer ready 与 reader 写入/执行拒绝；v10 既有证明角色与 ready/下载原样通过。
+3. 升级演练是**空 v11 行**，只校验数据库中精确 ready 拒绝守卫正文、窄函数 ACL、85 表数据和当时存在的旧 1–10 文件。真实 ai_writer 按同批准报告创建与完成 v11 `staged_unpublished`、重读 chunk/slim proof 以及跨报告/预算根、伪造 gzip 或行摘要、缺卷/晚到多块、错 attempt、缺批准/管理员撤权、direct writer ready 与 reader 写入/执行拒绝，须由独立目标 PG 测试 `BudgetV11DurableStageTests` 执行；v10 既有证明角色与 ready/下载也须另作目标回归。旧升级种子固定包含 renderer 1–7，8–10 若不存在，演练会明确列出而不会冒充已有旧字节已覆盖。
 4. 0066 后再次独立备份/恢复核同摘要；空 v11 库逆迁移回 0065 并重装，原旧函数正文/权限回原值；只要存在任何 v11 行，逆迁移必须拒绝且保持现状。未知提交结果按精确迁移与行回执查询，禁止盲重放。
 
 尚有真实规模阻塞：现有 `files.BUILD_SECONDS` 单轮 600 秒。57.5 万行合成 v10 瘦身生成与静态全验约 472 秒，v11 持久暂存还需分片写库和从批准来源**重新渲染一次**，不能声称在 600 秒内可完成；本切片没有放宽或绕过超时。需要独立规模/持久容量测量及受控续跑设计，或明确失败并保留未发布块。Office 原生公式重算、真实三窗口及市场/B端/销售源授权与多 Agent 报告仍未由此验证。
