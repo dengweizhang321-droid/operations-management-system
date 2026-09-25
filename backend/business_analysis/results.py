@@ -54,8 +54,8 @@ def _group(pages, dimension, expected, *, store=None, side=0):
     for page in pages:
         if header is None:
             header = {key: page.get(key) for key in ("filters", "source", "sourceDataset", "coverage", "metricSemantics")}
-        elif any(page.get(key) != header[key] for key in ("filters", "source", "sourceDataset")):
-            raise AnalysisContractError("来源页范围变化")
+        elif any(page.get(key) != header[key] for key in ("filters", "source", "sourceDataset", "metricSemantics")):
+            raise AnalysisContractError("来源页范围或指标口径变化")
         scope = (header["filters"]["platform"], header["filters"]["shop"])
         if any((r["platform"], r["shopName"]) != scope for r in page["items"]):
             raise AnalysisContractError("来源包含其他店铺")
@@ -76,6 +76,8 @@ def _group(pages, dimension, expected, *, store=None, side=0):
 def _compatible(current, baseline):
     a, b = current["filters"], baseline["filters"]
     if (current["source"], current["sourceDataset"]) != (baseline["source"], baseline["sourceDataset"]):
+        return False
+    if current["metricSemantics"] != baseline["metricSemantics"]:
         return False
     ignored = {"window", "limit"}
     return (a.get("window", "current") == "current" and b.get("window") in {"previous", "yearAgo"}

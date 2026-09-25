@@ -80,6 +80,34 @@ class ResultTableTests(TestCase):
         with self.assertRaises(AnalysisContractError):
             build_table([current], "daily", proof, baseline_pages=[baseline], baseline_expected=before)
 
+    def test_shop_and_keyword_comparison_reject_metric_semantics_drift(self):
+        current, proof = fixture()
+        baseline, before = fixture("previous")
+        current["metricSemantics"] = {"visitors": "商品日访客，不是店铺去重访客"}
+        baseline["metricSemantics"] = {"visitors": "店铺去重访客"}
+        # PageReconciler hashes rows, not this source-level field. The report
+        # comparison must still reject a changed metric contract.
+        for dimension in ("shop", "keyword"):
+            with self.assertRaises(AnalysisContractError):
+                build_table([current], dimension, proof, baseline_pages=[baseline], baseline_expected=before)
+
+    def test_keyword_continuation_rejects_metric_semantics_drift(self):
+        first, _ = fixture()
+        second = deepcopy(first)
+        first["metricSemantics"] = {"spendCents": "平台广告花费分"}
+        second["metricSemantics"] = {"spendCents": "ERP销售分"}
+        first["items"], second["items"] = first["items"][:1], second["items"][1:]
+        first["pageEvidence"] = {"rowCount": 1, "sha256": digest(first["items"])}
+        second["pageEvidence"] = {"rowCount": 1, "sha256": digest(second["items"])}
+        first["pagination"] = {"hasMore": True, "nextCursor": "page-2"}
+        second["pagination"] = {"hasMore": False, "nextCursor": None}
+        second["control"] = None
+        verifier = PageReconciler()
+        verifier.consume(first)
+        verifier.consume(second, request_cursor="page-2")
+        with self.assertRaises(AnalysisContractError):
+            build_table([first, second], "keyword", verifier.result())
+
     def test_zero_negative_baseline_and_empty_sources(self):
         current, proof = fixture()
         for amount, status in ((0, "zero_baseline"), (-100, "negative_baseline")):
