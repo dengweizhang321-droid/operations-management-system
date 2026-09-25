@@ -155,6 +155,7 @@ def _dispatch(request, path=""):
             r"reports/[A-Za-z0-9_-]{1,160}/screening/(?:package|analysis|budget)": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/promotion-keyword-sku": {"GET"},
             r"promotion-tool-dispatch/[A-Za-z0-9_-]{1,160}": {"POST"},
+            r"market-v2-tool-candidate/[A-Za-z0-9_-]{1,160}": {"POST"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-dynamics": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/market-observation": {"GET"},
             r"reports/[A-Za-z0-9_-]{1,160}/budget-preview": {"POST"},
@@ -237,6 +238,8 @@ def _dispatch(request, path=""):
             writer = False
         if root == "promotion-tool-dispatch" and request.method == "POST":
             writer = False
+        if root == "market-v2-tool-candidate" and request.method == "POST":
+            writer = False
         role = settings.DJANGO_PROCESS_ROLE
         if role not in {"development", "ai_writer" if writer else "ai_reader"}:
             raise AiError("接口不属于当前读写进程", "access_denied", 403)
@@ -283,6 +286,46 @@ def _dispatch(request, path=""):
             return response(business_promotion_dispatch_tool.read(
                 parts[1], payload["name"], payload["arguments"],
                 payload["providerCallId"], principal))
+        if root == "market-v2-tool-candidate":
+            from . import business_market_v2_transport_candidate as market_transport
+            from . import business_market_v2_transport_contract as market_contract
+            if getattr(settings, "AI_MARKET_V2_AGENT_RUNTIME_ENABLED", False) is not True:
+                raise AiError("市场v2第五工具候选尚未启用", "conflict", 409)
+            current_principal(principal, admin=True)
+            fields(params, set())
+            fields(payload, {"arguments", "providerCallId"},
+                {"arguments", "providerCallId"})
+            if (request_id != parts[1] or type(payload["providerCallId"]) is not str
+                    or not 1 <= len(payload["providerCallId"]) <= 160
+                    or any(ord(char) < 32 for char in payload["providerCallId"])):
+                raise AiError("市场v2工具候选签名调用身份无效", "access_denied", 403)
+            args = payload["arguments"]
+            if type(args) is not dict:
+                raise AiError("市场v2工具候选参数必须为对象")
+            fields(args, {"reportId", "marketContextDigest", "marketManifestDigest",
+                "role", "mode", "view", "offset", "limit", "rowIndex", "rowId"},
+                {"reportId", "marketContextDigest", "marketManifestDigest",
+                    "role", "mode"})
+            claim = {"schemaVersion": "business-market-v2-fifth-read-injected-call-v1",
+                "admittedReportId": args["reportId"],
+                "jobId": "market-preview-job-" + parts[1],
+                "providerDispatchId": "market-preview-provider-" + parts[1],
+                "providerCallId": payload["providerCallId"],
+                "role": args["role"],
+                "marketManifestDigest": args["marketManifestDigest"],
+                "marketContextDigest": args["marketContextDigest"]}
+            selected = {key: value for key, value in args.items()
+                if key not in {"role", "marketManifestDigest"}}
+            from business_analysis.contracts import AnalysisContractError
+            try:
+                market_contract.request(market_contract.SURFACE,
+                    market_contract.PROFILE, market_contract.TOOL, claim, selected)
+            except AnalysisContractError as error:
+                raise AiError("市场v2工具候选模式或身份参数无效",
+                    "invalid_request", 400) from error
+            return response(market_transport.read(market_contract.SURFACE,
+                market_contract.PROFILE, market_contract.TOOL, claim,
+                selected, principal))
         if root == "business-plan":
             from .business_planning import preview
             fields(params, set())

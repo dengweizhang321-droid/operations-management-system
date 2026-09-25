@@ -1,7 +1,7 @@
 import type { AppPrincipal } from "@/lib/auth/authorization";
 import { aiEnvironment, aiSha256 } from "@/lib/django/ai-service";
 import { resolveAiBackgroundPrincipal } from "@/lib/ai/background-principal";
-import { executeRegisteredToolCall, getToolsForPrincipal, type AiToolSurface } from "@/lib/ai/tool-registry";
+import { executeRegisteredToolCall, getMarketV2EnabledRegistry, getToolsForPrincipal, type AiToolSurface } from "@/lib/ai/tool-registry";
 import { PublicApiError, safeApiErrorResponse } from "@/lib/http/api-error";
 import { readAiBoundedText } from "@/app/api/ai/route-helpers";
 
@@ -55,12 +55,16 @@ export async function verifyAiEdgeEnvelope(request: Request, raw: string, secret
   return principal as AppPrincipal;
 }
 
-function surface(value: unknown): AiToolSurface {
+function surface(value: unknown, marketV2Enabled = false): AiToolSurface {
+  if (value === "business_agent_screening_promotion_market_v2") {
+    if (!marketV2Enabled) throw denied();
+    return value;
+  }
   if (!["ai_chat", "dingtalk_chat", "ai_agent", "ai_sandbox", "business_collection", "business_agent_v2", "business_agent_budget_v1", "business_agent_integrated_v1", "business_agent_screening_v1", "business_agent_screening_promotion_v1"].includes(String(value))) throw denied();
   return value as AiToolSurface;
 }
-function entries(principal: AppPrincipal, value: unknown) {
-  return getToolsForPrincipal(principal, surface(value)).map(({ handler: _handler, ...entry }) => { void _handler; return entry; });
+function entries(principal: AppPrincipal, value: unknown, marketV2Enabled = false) {
+  return getToolsForPrincipal(principal, surface(value, marketV2Enabled), getMarketV2EnabledRegistry(marketV2Enabled)).map(({ handler: _handler, ...entry }) => { void _handler; return entry; });
 }
 async function dataset(body: Record<string, unknown>, principal: AppPrincipal) {
   exact(body, ["action", "dataset", "query"]);
@@ -87,17 +91,18 @@ export async function handleAiEdge(request: Request) {
     const raw = await readAiBoundedText(request, LIMIT);
     const principal = await verifyAiEdgeEnvelope(request, raw, environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "");
     const body = object(JSON.parse(raw));
+    const marketV2Enabled = environment.AI_MARKET_V2_AGENT_RUNTIME_ENABLED === "true";
     let result: unknown;
     if (body.action === "authorize_background") {
       exact(body, ["action", "ownerEmail", "scopeJson"]);
       if (body.ownerEmail !== principal.email) throw denied();
       result = await resolveAiBackgroundPrincipal(text(body.ownerEmail, 320), text(body.scopeJson, 16000));
     } else if (body.action === "catalog") {
-      exact(body, ["action", "surface"]); result = { entries: entries(principal, body.surface) };
+      exact(body, ["action", "surface"]); result = { entries: entries(principal, body.surface, marketV2Enabled) };
     } else if (body.action === "execute") {
       exact(body, ["action", "name", "arguments", "surface", "requestId", "providerCallId", "policyDigest"]);
-      if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface)))) throw denied();
-      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface), requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal });
+      if (body.policyDigest !== await aiSha256(canonicalAiEdge(entries(principal, body.surface, marketV2Enabled)))) throw denied();
+      result = await executeRegisteredToolCall(text(body.name, 100), body.arguments, { principal, surface: surface(body.surface, marketV2Enabled), requestId: text(body.requestId, 128), providerCallId: typeof body.providerCallId === "string" ? body.providerCallId.slice(0, 200) : undefined, signal: request.signal }, { entries: getMarketV2EnabledRegistry(marketV2Enabled) });
     } else if (body.action === "dataset") result = await dataset(body, principal);
     else throw denied();
     return Response.json(result, { headers: { "cache-control": "no-store" } });

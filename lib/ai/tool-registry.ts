@@ -1,4 +1,5 @@
 import { readBusinessPromotionDispatchTool } from "@/lib/ai/business-promotion-dispatch-tools";
+import { readBusinessMarketV2ToolCandidate, MARKET_V2_TOOL, MARKET_V2_SURFACE } from "@/lib/ai/business-market-v2-tool-candidate";
 import {
   callOperationsTool,
 } from "@/lib/ai/operations-tools";
@@ -1333,6 +1334,33 @@ export const aiToolRegistry = [
 ] satisfies readonly AiToolEntry[];
 
 validateToolRegistry(aiToolRegistry);
+
+/** Separate preview-only entry. The v1 registry and its four-tool digest stay frozen. */
+export const marketV2CandidateTool: AiToolEntry = {
+  name: MARKET_V2_TOOL, title: "读取市场v2已证明TOP样本（未登记Agent已读）",
+  description: "仅在独立市场v2候选surface和明确开关下，读取同报告0045证明的价格带与双日进出榜summary/page/row。role仅允许market_b2b、independent_review、report；model参数不构成实际Agent身份。结果没有持久派发或本人已读回执，市场TOP样本不可加到本店销售、ERP或B端销售。",
+  inputSchema: { type: "object", properties: {
+    reportId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,160}$" },
+    marketContextDigest: { type: "string", pattern: "^[a-f0-9]{64}$" },
+    marketManifestDigest: { type: "string", pattern: "^[a-f0-9]{64}$" },
+    role: { type: "string", enum: ["market_b2b", "independent_review", "report"] },
+    mode: { type: "string", enum: ["summary", "page", "row"] },
+    view: { type: "string", enum: ["price_band", "rank_entry_exit"] },
+    offset: { type: "integer", minimum: 0, maximum: 200000 },
+    limit: { type: "integer", enum: [20] },
+    rowIndex: { type: "integer", minimum: 0, maximum: 199999 },
+    rowId: { type: "string", pattern: "^[a-f0-9]{64}$" },
+  }, required: ["reportId", "marketContextDigest", "marketManifestDigest", "role", "mode"], additionalProperties: false },
+  annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
+  execution: { ...synchronousReadOnlyExecution, allowedSurfaces: [MARKET_V2_SURFACE],
+    timeoutMs: 12_000, maxResultCharacters: 38_000, maxCallsPerRequest: 8 },
+  handler: (args, context) => readBusinessMarketV2ToolCandidate(args, context),
+};
+validateToolRegistry([...aiToolRegistry, marketV2CandidateTool]);
+
+export function getMarketV2EnabledRegistry(enabled = false): readonly AiToolEntry[] {
+  return enabled ? [...aiToolRegistry, marketV2CandidateTool] : aiToolRegistry;
+}
 
 export function getToolsForPrincipal(
   principal: AiToolExecutionContext["principal"],
