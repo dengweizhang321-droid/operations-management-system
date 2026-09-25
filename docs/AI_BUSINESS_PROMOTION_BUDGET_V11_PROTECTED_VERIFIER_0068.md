@@ -15,4 +15,6 @@
 
 ## 验证
 
-纯测试验证 HMAC 用途与正文修改不可复用、无密钥声明无法签发；静态测试断言 0068 空密钥、私有函数、角色与无发布路径。隔离 PostgreSQL 目标 `ai_assistant.test_business_promotion_budget_v11_verifier_receipt_role.BudgetV11ProtectedReceiptRoleTests.test_0068_synthetic_key_only_verifies_fresh_protected_receipt` 使用事务内合成密钥，不提交密钥，不触碰生产；它须验证普通角色无法读密钥或调用私有函数、无密钥拒绝、正确密钥接受、文件/过程摘要篡改拒绝、撤销旧密钥拒绝、任务仍 paused。主任务统一串行运行 PostgreSQL 目标及后续 0067→0068 冻结/备份恢复演练；在实际通过前不能声称数据库验收完成。
+纯测试验证 HMAC 用途与正文修改不可复用、无密钥声明无法签发；静态测试断言 0068 空密钥、私有函数、角色与无发布路径。隔离 PostgreSQL 目标 `ai_assistant.test_business_promotion_budget_v11_verifier_receipt_role.BudgetV11ProtectedReceiptRoleTests.test_0068_synthetic_key_only_verifies_fresh_protected_receipt` 使用事务内合成密钥，不提交密钥，不触碰生产；它须验证普通角色无法读密钥或调用私有函数、无密钥拒绝、正确密钥接受、文件/过程摘要篡改拒绝、撤销旧密钥拒绝、任务仍 paused。
+
+显式升级入口 `python tools/ai-postgres-rehearsal.py --business-promotion-budget-v11-verifier-upgrade --upgrade-only --port <隔离端口>` 先串行复现 0065→0066 与 0066→0067 各自独立备份恢复，再只在其精确 0067 种子上演练 0067→0068。最后一段冻结旧 86 张 AI 表、renderer 1–11 当时存在的文件字节、旧函数 OID/正文/ACL/owner、表列权限与原有角色成员，检查只新增一个**非业务目录**的私有密钥表及索引/触发器、三个函数和两个 NOLOGIN 无成员角色；校验空密钥、前后独立备份恢复、空密钥逆迁移重装、v11 ready 双拒绝。密钥表故意不进入普通 AI ORM/业务数据备份清单；全库备份仍会包含它，未来实钥备份必须另行落实密钥保护。主任务统一串行运行此 PG 演练；在实际通过前不能声称数据库验收完成。

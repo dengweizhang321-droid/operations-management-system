@@ -9,7 +9,7 @@ from django.db import migrations
 
 KEY_OWNER = "teruisi_ai_budget_v11_key_owner"
 PUBLISHER = "teruisi_ai_budget_v11_publisher"
-KEY_TABLE = "public.ai_business_budget_v11_verifier_keys"
+KEY_TABLE = "public.protected_business_budget_v11_verifier_keys"
 MAC_SIGNATURE = "public.ai_budget_v11_private_mac_valid(text,text,text)"
 VERIFY_SIGNATURE = "public.ai_budget_v11_verify_protected_receipt(text,integer,text,text)"
 
@@ -45,7 +45,7 @@ BEGIN
      OR receipt_mac IS NULL OR receipt_mac !~ '^[0-9a-f]{64}$'
   THEN RETURN false; END IF;
   SELECT item.secret INTO secret_bytes FROM
-    public.ai_business_budget_v11_verifier_keys item
+    public.protected_business_budget_v11_verifier_keys item
     WHERE item.key_id=selected_key AND item.status='active';
   IF secret_bytes IS NULL THEN RETURN false; END IF;
   IF octet_length(secret_bytes)>64 THEN
@@ -181,7 +181,7 @@ def install(apps, schema_editor):
         for name in (KEY_OWNER, PUBLISHER):
             _role(cursor, name)
             cursor.execute("GRANT USAGE ON SCHEMA public TO " + name)
-        cursor.execute("""CREATE TABLE public.ai_business_budget_v11_verifier_keys (
+        cursor.execute("""CREATE TABLE public.protected_business_budget_v11_verifier_keys (
           key_id varchar(64) PRIMARY KEY,
           secret bytea NOT NULL CHECK (octet_length(secret) BETWEEN 32 AND 128),
           status varchar(8) NOT NULL CHECK (status IN ('active','revoked')),
@@ -247,6 +247,8 @@ def uninstall(apps, schema_editor):
         cursor.execute("DROP FUNCTION public.ai_budget_v11_key_guard()")
         cursor.execute("DROP TABLE " + KEY_TABLE)
         cursor.execute("REVOKE " + KEY_OWNER + " FROM " + installer)
+        for role in (KEY_OWNER, PUBLISHER):
+            cursor.execute("REVOKE USAGE ON SCHEMA public FROM " + role)
         # NOLOGIN role names remain as an audit record, with no grants.
 
 
@@ -282,14 +284,23 @@ def verify_catalog(cursor):
             raise RuntimeError("0068 verifier function drift")
     for role in (PUBLISHER, "teruisi_ai_budget_v11_attestor",
             "teruisi_ai_writer", "teruisi_ai_reader"):
-        cursor.execute("SELECT pg_catalog.has_table_privilege(%s,%s,'SELECT'),"
-            "pg_catalog.has_table_privilege(%s,%s,'INSERT'),"
-            "pg_catalog.has_function_privilege(%s,%s,'EXECUTE'),"
-            "pg_catalog.has_function_privilege(%s,%s,'EXECUTE')",
-            [role, KEY_TABLE, role, KEY_TABLE, role, MAC_SIGNATURE,
-             role, VERIFY_SIGNATURE])
-        if cursor.fetchone() != (False, False, False, role == PUBLISHER):
-            raise RuntimeError("0068 verifier role ACL drift")
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE",
+                "TRUNCATE", "REFERENCES", "TRIGGER"):
+            cursor.execute("SELECT pg_catalog.has_table_privilege(%s,%s,%s)",
+                [role, KEY_TABLE, privilege])
+            if cursor.fetchone() != (False,):
+                raise RuntimeError("0068 private key table ACL drift")
+        for privilege in ("SELECT", "INSERT", "UPDATE", "REFERENCES"):
+            cursor.execute("SELECT pg_catalog.has_any_column_privilege(%s,%s,%s)",
+                [role, KEY_TABLE, privilege])
+            if cursor.fetchone() != (False,):
+                raise RuntimeError("0068 private key column ACL drift")
+        for signature, allowed in ((MAC_SIGNATURE, False),
+                (VERIFY_SIGNATURE, role == PUBLISHER)):
+            cursor.execute("SELECT pg_catalog.has_function_privilege(%s,%s,"
+                "'EXECUTE')", [role, signature])
+            if cursor.fetchone() != (allowed,):
+                raise RuntimeError("0068 verifier function ACL drift")
 
 
 class Migration(migrations.Migration):
