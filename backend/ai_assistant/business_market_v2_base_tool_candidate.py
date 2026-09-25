@@ -12,9 +12,12 @@ from django.db import DatabaseError, connection
 from . import business_market_v2_admitted_paused as admitted
 from . import business_promotion_market_admission as market_admission
 from . import business_promotion_runtime_contract as old_profile
+from . import business_promotion_tools as promotion_reader
+from . import business_promotion_budget as budget_reader
 from . import business_promotion_runtime_tools as keyword_reader
+from . import business_screening_packages as packages
 from . import business_screening_runtime_contract as screening_policy
-from . import business_screening_tools as screening_reader
+from . import business_evidence as evidence_service
 from . import models as m
 from .policy import AiError, authorize_owner, canonical, current_principal, digest, identifier
 
@@ -95,7 +98,7 @@ def _identity(report_id, principal):
     guard = digest([report.id, report.snapshot_json, flow.id, flow.version,
         flow.input_json, parked.id, parked.snapshot_json, source.snapshot_json,
         source.workflow.input_json, row, fixed["bindingDigest"]])
-    return source_id, source_snapshot, claim, guard
+    return source, source_snapshot, json.loads(source.workflow.input_json), claim, guard
 
 
 def _args(name, args):
@@ -173,7 +176,9 @@ def read(name, args, principal, *, checkpoint=None, clock=time.monotonic):
             "市场v2基础工具超过12秒边界，整次拒绝", code="timeout", status=504)
     deadline()
     report_id = identifier(args["reportId"], "reportId")
-    source_id, source_snapshot, claim, guard = _identity(report_id, principal)
+    source, source_snapshot, source_reference, claim, guard = _identity(
+        report_id, principal)
+    source_id = source.id
     deadline()
     if operation != "keyword":
         _need(args["runId"] == source_snapshot["evidenceRunId"]
@@ -186,10 +191,21 @@ def read(name, args, principal, *, checkpoint=None, clock=time.monotonic):
         payload = keyword_reader.read(source_id, params, principal)
         status = "available"
     else:
-        params = {key: str(value) if key == "offset" else value
+        params = {key: value
             for key,value in args.items() if key not in {"reportId", "role"}}
-        if operation == "package": params["role"] = role
-        payload = screening_reader.read(source_id, operation, params, principal)
+        offset = params.get("offset", 0)
+        if operation == "package":
+            ready = packages.prepare(source_snapshot["screeningIntent"]["id"],
+                principal)
+            payload = packages.page(ready, role, principal, offset=offset)
+        elif operation == "budget":
+            payload = budget_reader.read_page(source_id, principal, offset=offset)
+        else:
+            evidence = evidence_service.get_run(source_snapshot["evidenceRunId"],
+                principal)
+            payload = promotion_reader._analysis({**params,
+                "reportId": source_id, "offset": offset}, source,
+                source_snapshot, source_reference, evidence, principal)
         status = "available"
     deadline()
     _need(_identity(report_id, principal)[-1] == guard,
