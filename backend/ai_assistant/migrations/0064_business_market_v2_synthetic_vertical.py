@@ -310,7 +310,7 @@ BEGIN
   graph:=source_flow.graph_json::jsonb;
   FOR item IN SELECT jsonb_array_elements(graph->'nodes') LOOP
     node_id:='market-synth-node-'||substr(encode(sha256(convert_to(
-      plan.id||'|'||item->>'key','UTF8')),'hex'),1,48);
+      plan.id||'|'||(item->>'key'),'UTF8')),'hex'),1,48);
     INSERT INTO public.ai_workflow_node_runs(id,run_id,node_key,position,
       node_type,depends_on_json,instruction,input_json,status,version,
       mutation_token,agent_job_id,error_code,error_message,created_at,updated_at)
