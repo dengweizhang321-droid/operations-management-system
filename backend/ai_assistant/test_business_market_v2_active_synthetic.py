@@ -193,6 +193,33 @@ class MarketV2SyntheticChainTests(djtest.TransactionTestCase):
             old_read.attest(tool.id)
         self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(),0)
 
+    def test_all_five_synthetic_roles_cannot_claim_0062_agent_reads(self):
+        original, plan_id = self.source_plan()
+        with djtest.override_settings(AI_MARKET_V2_SYNTHETIC_ENABLED=True), \
+                synthetic_attestor(), patch("ai_assistant.provider.turn") as model:
+            created = service.create(plan_id)
+            model.assert_not_called()
+        self.assertNotEqual(created["reportId"], original["reportId"])
+        self.assertFalse(created["externalProviderCalled"])
+        self.assertFalse(created["persistedRead"])
+        self.assertEqual(set(created["toolDispatchIds"]),
+            set(synthetic_contract.ROLES))
+        for role, tool_id in created["toolDispatchIds"].items():
+            tool = m.AiAgentToolDispatches.objects.get(pk=tool_id)
+            job = m.AiAgentJobs.objects.get(pk=tool.job_id)
+            provider_result = m.AiAgentProviderResults.objects.get(
+                dispatch_id=tool.provider_dispatch_id)
+            result = m.AiAgentToolResults.objects.get(tool_dispatch_id=tool_id)
+            self.assertEqual(job.workflow_node_key, role)
+            self.assertEqual(job.status, "paused")
+            self.assertFalse(json.loads(provider_result.response_json)[
+                "externalProviderCalled"])
+            self.assertFalse(json.loads(result.result_json)["data"]["persistedRead"])
+            with read_attestor(), self.assertRaisesRegex(DatabaseError,
+                    "ai_market_v2_read_chain_invalid"):
+                old_read.attest(tool_id)
+        self.assertEqual(m.AiBusinessMarketV2ReadReceipt.objects.count(), 0)
+
     def test_old_admitted_profile_still_rejects_fifth_tool(self):
         _, admitted, _, _ = self.admitted()
         old_flow = m.AiReportRun.objects.get(pk=admitted["reportId"]).workflow
