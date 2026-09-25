@@ -4,6 +4,8 @@ The key registry is EMPTY after migration. A separate protected verifier must
 be provisioned out of band before any receipt can verify. Neither this
 migration nor any ordinary AI role can sign an arbitrary body.
 """
+import re
+
 from django.db import migrations
 
 
@@ -268,6 +270,99 @@ def verify_catalog(cursor):
         "FROM pg_catalog.pg_class WHERE oid=%s::regclass", [KEY_TABLE])
     if cursor.fetchone() != (KEY_OWNER, "r"):
         raise RuntimeError("0068 private key table owner drift")
+    cursor.execute("SELECT count(*) FROM pg_catalog.pg_class c "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl,"
+        "pg_catalog.acldefault('r',c.relowner))) acl "
+        "WHERE c.oid=%s::regclass AND acl.grantee<>c.relowner", [KEY_TABLE])
+    if cursor.fetchone() != (0,):
+        raise RuntimeError("0068 private key table grant drift")
+    cursor.execute("SELECT count(*) FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode("
+        "COALESCE(a.attacl,'{}'::aclitem[])) acl "
+        "WHERE c.oid=%s::regclass AND a.attnum>0 "
+        "AND acl.grantee<>c.relowner", [KEY_TABLE])
+    if cursor.fetchone() != (0,):
+        raise RuntimeError("0068 private key column grant drift")
+    cursor.execute("SELECT attname,atttypid::regtype::text,atttypmod,attnotnull "
+        "FROM pg_catalog.pg_attribute WHERE attrelid=%s::regclass "
+        "AND attnum>0 AND NOT attisdropped ORDER BY attnum", [KEY_TABLE])
+    if cursor.fetchall() != [
+            ("key_id", "character varying", 68, True),
+            ("secret", "bytea", -1, True),
+            ("status", "character varying", 12, True),
+            ("created_at", "timestamp with time zone", -1, True),
+            ("revoked_at", "timestamp with time zone", -1, False)]:
+        raise RuntimeError("0068 private key column drift")
+    cursor.execute("SELECT conname,contype,convalidated,condeferrable,"
+        "pg_catalog.pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint "
+        "WHERE conrelid=%s::regclass", [KEY_TABLE])
+    constraints = {name: (kind, valid, deferred, definition)
+        for name, kind, valid, deferred, definition in cursor.fetchall()}
+    prefix = "protected_business_budget_v11_verifier_keys"
+    if set(constraints) != {prefix + suffix for suffix in (
+            "_pkey", "_secret_check", "_status_check", "_check")}:
+        raise RuntimeError("0068 private key constraint drift")
+    if constraints[prefix + "_pkey"] != ("p", True, False, "PRIMARY KEY (key_id)"):
+        raise RuntimeError("0068 private key primary key drift")
+    for suffix, required in (
+            ("_secret_check", ("octet_length(secret)", "32", "128")),
+            ("_status_check", ("status", "active", "revoked")),
+            ("_check", ("status", "active", "revoked", "revoked_at",
+                "IS NULL", "IS NOT NULL"))):
+        kind, valid, deferred, definition = constraints[prefix + suffix]
+        if (kind != "c" or not valid or deferred or
+                any(part not in definition for part in required)):
+            raise RuntimeError("0068 private key check drift")
+    cursor.execute("SELECT i.indisunique,i.indisvalid,i.indisready,i.indislive,"
+        "i.indnkeyatts,i.indnatts,i.indkey::text,"
+        "pg_catalog.pg_get_expr(i.indpred,i.indrelid),"
+        "pg_catalog.pg_get_userbyid(c.relowner) "
+        "FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class c "
+        "ON c.oid=i.indexrelid WHERE c.oid=to_regclass(%s) "
+        "AND i.indrelid=%s::regclass AND c.relkind='i'",
+        ["public.ai_budget_v11_one_active_key", KEY_TABLE])
+    index = cursor.fetchone()
+    if index is None:
+        raise RuntimeError("0068 active key unique index missing")
+    predicate = (re.sub(r"::(?:character varying|text)|[()\s]", "", index[7])
+        if isinstance(index[7], str) else None)
+    if (index[:7] != (True, True, True, True, 1, 1, "3") or
+            predicate != "status='active'" or index[8] != KEY_OWNER):
+        raise RuntimeError("0068 active key unique index drift")
+    cursor.execute("SELECT pg_catalog.pg_get_userbyid(proowner),prosrc,"
+        "prosecdef,proconfig FROM pg_catalog.pg_proc "
+        "WHERE oid=to_regprocedure('public.ai_budget_v11_key_guard()')")
+    guard = cursor.fetchone()
+    if (guard is None or guard[0] != KEY_OWNER or
+            guard[1] != KEY_GUARD.split("$$", 2)[1] or guard[2] is not False or
+            {item.replace(" ", "") for item in (guard[3] or [])} !=
+                {"search_path=pg_catalog,public"}):
+        raise RuntimeError("0068 private key guard function drift")
+    cursor.execute("SELECT count(*) FROM pg_catalog.pg_proc p "
+        "CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,"
+        "pg_catalog.acldefault('f',p.proowner))) acl "
+        "WHERE p.oid=to_regprocedure('public.ai_budget_v11_key_guard()') "
+        "AND acl.grantee<>p.proowner")
+    if cursor.fetchone() != (0,):
+        raise RuntimeError("0068 private key guard grant drift")
+    cursor.execute("SELECT t.tgname,t.tgenabled,t.tgdeferrable,"
+        "t.tginitdeferred,t.tgfoid,t.tgtype FROM pg_catalog.pg_trigger t "
+        "WHERE t.tgrelid=%s::regclass AND NOT t.tgisinternal", [KEY_TABLE])
+    triggers = {name: (enabled, deferred, initially, oid, event_bits)
+        for name, enabled, deferred, initially, oid, event_bits in
+            cursor.fetchall()}
+    expected_triggers = {
+        "ai_budget_v11_key_guard": ("public.ai_budget_v11_key_guard()", 31),
+        "ai_budget_v11_key_no_truncate":
+            ("public.ai_v4_seal_ticket_no_truncate()", 34)}
+    if set(triggers) != set(expected_triggers):
+        raise RuntimeError("0068 private key trigger drift")
+    for name, (signature, event_bits) in expected_triggers.items():
+        cursor.execute("SELECT to_regprocedure(%s)::oid", [signature])
+        if triggers[name] != ("O", False, False, cursor.fetchone()[0],
+                event_bits):
+            raise RuntimeError("0068 private key trigger binding drift")
     for signature, owner, body in ((MAC_SIGNATURE, KEY_OWNER, MAC),
             (VERIFY_SIGNATURE, None, VERIFY)):
         cursor.execute("SELECT pg_catalog.pg_get_userbyid(proowner),prosrc,"
@@ -282,6 +377,19 @@ def verify_catalog(cursor):
                 {item.replace(" ", "") for item in (value[3] or [])} !=
                     {"search_path=pg_catalog,public"}):
             raise RuntimeError("0068 verifier function drift")
+    cursor.execute("SELECT pg_catalog.pg_get_userbyid(p.proowner) "
+        "FROM pg_catalog.pg_proc p WHERE p.oid=to_regprocedure(%s)",
+        [VERIFY_SIGNATURE])
+    verify_owner = cursor.fetchone()[0]
+    for signature, allowed in ((MAC_SIGNATURE, {KEY_OWNER, verify_owner}),
+            (VERIFY_SIGNATURE, {verify_owner, PUBLISHER})):
+        cursor.execute("SELECT DISTINCT pg_catalog.pg_get_userbyid(acl.grantee) "
+            "FROM pg_catalog.pg_proc p CROSS JOIN LATERAL "
+            "pg_catalog.aclexplode(COALESCE(p.proacl,"
+            "pg_catalog.acldefault('f',p.proowner))) acl "
+            "WHERE p.oid=to_regprocedure(%s)", [signature])
+        if {row[0] for row in cursor.fetchall()} != allowed:
+            raise RuntimeError("0068 verifier function grant drift")
     for role in (PUBLISHER, "teruisi_ai_budget_v11_attestor",
             "teruisi_ai_writer", "teruisi_ai_reader"):
         for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE",
