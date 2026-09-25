@@ -29,12 +29,20 @@ class MarketV2SyntheticContractTests(TestCase):
         prepared = plan()
         value = contract.build("f"*64, prepared["plan"],
             prepared["planDigest"], catalog())
-        self.assertEqual(len({value["reportId"],value["workflowId"],
-            value["marketJobId"]}), 3)
+        all_ids = [value["reportId"],value["workflowId"],
+            *value["jobIds"].values(), *value["providerDispatchIds"].values(),
+            *value["toolDispatchIds"].values()]
+        self.assertEqual(len(all_ids), len(set(all_ids)))
+        self.assertEqual(tuple(value["jobIds"]), contract.ROLES)
+        self.assertEqual(value["roleTools"]["market_b2b"],
+            "get_business_promotion_market_v2")
+        self.assertEqual(value["roleTools"]["report"],
+            "get_business_market_v2_screening_package")
         self.assertEqual(value["modelId"], contract.MODEL_ID)
         self.assertEqual(value["status"], "paused")
         self.assertTrue(value["dryRun"])
-        self.assertEqual(value["providerCallsMade"], 0)
+        self.assertEqual(value["externalProviderCallsMade"], 0)
+        self.assertEqual(value["syntheticPersistedChainsPlanned"], 5)
         self.assertFalse(value["snapshot"]["externalProviderCalled"])
         self.assertFalse(value["snapshot"]["agentReadPersisted"])
         self.assertFalse(value["readReceiptAuthorized"])
@@ -50,3 +58,9 @@ class MarketV2SyntheticContractTests(TestCase):
         with self.assertRaises(AnalysisContractError):
             contract.build("f"*64, prepared["plan"],
                 prepared["planDigest"], wrong_catalog)
+
+    def test_budget_presence_selects_only_report_role_budget_tool(self):
+        self.assertEqual(contract.role_tools(True)["report"],
+            "get_business_market_v2_screening_budget")
+        self.assertEqual(contract.role_tools(False)["report"],
+            "get_business_market_v2_screening_package")

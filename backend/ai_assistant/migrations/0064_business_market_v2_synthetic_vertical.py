@@ -136,8 +136,8 @@ BEGIN
      OR NEW.graph_digest IS DISTINCT FROM source_flow.graph_digest
      OR NEW.allowed_tools_json IS DISTINCT FROM
        '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]'
-     OR NEW.provider_round_count IS DISTINCT FROM 1
-     OR NEW.tool_call_count IS DISTINCT FROM 1
+     OR NEW.provider_round_count IS DISTINCT FROM 5
+     OR NEW.tool_call_count IS DISTINCT FROM 5
      OR NEW.version IS DISTINCT FROM 1
      OR NEW.mutation_token IS DISTINCT FROM ''
      OR NEW.cancel_requested IS DISTINCT FROM 0
@@ -211,6 +211,7 @@ END $$"""
 CHILD_GUARD = r"""CREATE FUNCTION public.ai_market_v2_synthetic_child_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE target jsonb; targets jsonb[]; flow_id text;
+  role_key text; expected_tool text; budget_value jsonb;
 BEGIN
   IF TG_OP='INSERT' THEN targets:=ARRAY[to_jsonb(NEW)];
   ELSIF TG_OP='DELETE' THEN targets:=ARRAY[to_jsonb(OLD)];
@@ -239,6 +240,44 @@ BEGIN
          OR current_database() NOT IN ('teruisi_ai_rehearsal','test_teruisi_ai_rehearsal')
          OR inet_server_port() NOT BETWEEN 55440 AND 55999)
     THEN RAISE EXCEPTION 'ai_market_v2_synthetic_child_denied'; END IF;
+    IF TG_OP='INSERT' AND flow_id IS NOT NULL
+       AND EXISTS(SELECT 1 FROM public.ai_workflow_runs flow WHERE flow.id=flow_id
+         AND flow.input_json::jsonb->>'executionProfile'=
+           'business-agent-screening-promotion-market-synthetic-v4') THEN
+      IF TG_TABLE_NAME='ai_agent_tool_dispatches' THEN
+        SELECT job.workflow_node_key,flow.input_json::jsonb->'withBudget'
+          INTO role_key,budget_value FROM public.ai_agent_jobs job
+          JOIN public.ai_workflow_runs flow ON flow.id=job.workflow_run_id
+          WHERE job.id=target->>'job_id';
+        expected_tool:=CASE role_key
+          WHEN 'commerce' THEN 'get_business_market_v2_screening_package'
+          WHEN 'promotion' THEN 'get_business_market_v2_keyword_sku'
+          WHEN 'market_b2b' THEN 'get_business_promotion_market_v2'
+          WHEN 'independent_review' THEN 'get_business_market_v2_screening_analysis'
+          WHEN 'report' THEN CASE WHEN budget_value='true'::jsonb
+            THEN 'get_business_market_v2_screening_budget'
+            ELSE 'get_business_market_v2_screening_package' END
+          ELSE NULL END;
+        IF expected_tool IS NULL OR target->>'tool_name' IS DISTINCT FROM expected_tool
+           OR NOT EXISTS(SELECT 1 FROM public.ai_agent_provider_dispatches d
+             WHERE d.id=target->>'provider_dispatch_id'
+               AND d.job_id=target->>'job_id')
+        THEN RAISE EXCEPTION 'ai_market_v2_synthetic_tool_role_mismatch'; END IF;
+      ELSIF TG_TABLE_NAME='ai_agent_tool_results' THEN
+        SELECT job.workflow_node_key INTO role_key
+          FROM public.ai_agent_tool_dispatches d
+          JOIN public.ai_agent_jobs job ON job.id=d.job_id
+          WHERE d.id=target->>'tool_dispatch_id';
+        IF role_key IS NULL
+           OR target->'result_json' IS NULL
+           OR (target->>'result_json')::jsonb->'data'->>'role' IS DISTINCT FROM role_key
+           OR (target->>'result_json')::jsonb->'data'->'syntheticOnly'
+              IS DISTINCT FROM 'true'::jsonb
+           OR (target->>'result_json')::jsonb->'data'->'persistedRead'
+              IS DISTINCT FROM 'false'::jsonb
+        THEN RAISE EXCEPTION 'ai_market_v2_synthetic_result_role_mismatch'; END IF;
+      END IF;
+    END IF;
   END LOOP;
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
@@ -263,7 +302,10 @@ DECLARE plan public.ai_business_market_v2_execution_plans%ROWTYPE;
   value jsonb; root jsonb; anchor jsonb; common jsonb; snapshot jsonb; input_value jsonb;
   graph jsonb; item jsonb; args jsonb; response jsonb; result_body jsonb;
   flow_id text; report_id text; job_id text; provider_id text; tool_id text;
-  node_id text; plan_digest text; position_value integer:=0;
+  node_id text; plan_digest text; role_key text; role_tool text; role_call text;
+  position_value integer:=0; agent_count integer:=0;
+  job_ids jsonb:='{}'::jsonb; provider_ids jsonb:='{}'::jsonb;
+  tool_ids jsonb:='{}'::jsonb;
   args_text text; response_text text; result_text text;
 BEGIN
   IF session_user<>'teruisi_ai_market_synthetic_attestor'
@@ -292,12 +334,6 @@ BEGIN
     'market-synth-flow-|'||plan.id,'UTF8')),'hex'),1,48);
   report_id:='market-synth-report-'||substr(encode(sha256(convert_to(
     'market-synth-report-|'||plan.id,'UTF8')),'hex'),1,48);
-  job_id:='market-synth-job-'||substr(encode(sha256(convert_to(
-    'market-synth-job-|'||plan.id,'UTF8')),'hex'),1,48);
-  provider_id:='market-synth-provider-'||substr(encode(sha256(convert_to(
-    'market-synth-provider-|'||plan.id,'UTF8')),'hex'),1,48);
-  tool_id:='market-synth-tool-'||substr(encode(sha256(convert_to(
-    'market-synth-tool-|'||plan.id,'UTF8')),'hex'),1,48);
   IF EXISTS(SELECT 1 FROM public.ai_report_runs r WHERE r.id=report_id)
      OR EXISTS(SELECT 1 FROM public.ai_workflow_runs f WHERE f.id=flow_id)
   THEN RAISE EXCEPTION 'ai_market_v2_synthetic_duplicate'; END IF;
@@ -334,7 +370,7 @@ BEGIN
     source_flow.graph_digest,public.ai_v4_replay_canonical(input_value),
     'market-v2-synthetic-only',1,
     '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]',
-    source_flow.tool_policy_digest,1,1,1,'paused',1,
+    source_flow.tool_policy_digest,5,5,1,'paused',1,
     '',0,0,0,0,'',0,clock_timestamp(),
     'market_v2_synthetic_no_provider_permission','',
     clock_timestamp(),clock_timestamp());
@@ -342,6 +378,11 @@ BEGIN
     request_digest,scope_json,workflow_id,budget_plan_id,snapshot_json,created_at)
   VALUES(report_id,report.owner_email,report_id,plan_digest,'null',flow_id,
     NULL,public.ai_v4_replay_canonical(snapshot),clock_timestamp());
+  FOR role_key IN SELECT unnest(ARRAY['commerce','promotion','market_b2b',
+      'independent_review','report']::text[]) LOOP
+    job_id:='market-synth-job-'||substr(encode(sha256(convert_to(
+      'market-synth-job-|'||plan.id||'|'||role_key,'UTF8')),'hex'),1,48);
+    job_ids:=job_ids||jsonb_build_object(role_key,job_id);
   INSERT INTO public.ai_agent_jobs(id,owner_email,client_request_id,
     request_digest,scope_json,task,input_json,state_json,model_id,
     model_version,allowed_tools_json,tool_policy_digest,
@@ -358,8 +399,9 @@ BEGIN
     'market-v2-synthetic-only',1,
     '["get_business_market_v2_screening_package","get_business_market_v2_screening_analysis","get_business_market_v2_screening_budget","get_business_market_v2_keyword_sku","get_business_promotion_market_v2"]',
     source_flow.tool_policy_digest,1,1,'paused','paused',0,1,
-    '',0,0,0,0,'',1,clock_timestamp(),flow_id,'market_b2b',
+    '',0,0,0,0,'',1,clock_timestamp(),flow_id,role_key,
     '','',clock_timestamp(),clock_timestamp());
+  END LOOP;
   graph:=source_flow.graph_json::jsonb;
   FOR item IN SELECT jsonb_array_elements(graph->'nodes') LOOP
     node_id:='market-synth-node-'||substr(encode(sha256(convert_to(
@@ -370,22 +412,50 @@ BEGIN
     VALUES(node_id,flow_id,item->>'key',position_value,item->>'type',
       public.ai_v4_replay_canonical(item->'dependsOn'),item->>'instruction',
       '{}','pending',1,'',
-      CASE WHEN item->>'key'='market_b2b' THEN job_id ELSE NULL END,
+      CASE WHEN item->>'type'='agent' THEN job_ids->>(item->>'key')
+        ELSE NULL END,
       '','',clock_timestamp(),clock_timestamp());
+    IF item->>'type'='agent' THEN agent_count:=agent_count+1; END IF;
     position_value:=position_value+1;
   END LOOP;
-  IF position_value<>6 THEN RAISE EXCEPTION 'ai_market_v2_synthetic_graph_invalid'; END IF;
+  IF position_value<>6 OR agent_count<>5
+  THEN RAISE EXCEPTION 'ai_market_v2_synthetic_graph_invalid'; END IF;
+  FOR role_key IN SELECT unnest(ARRAY['commerce','promotion','market_b2b',
+      'independent_review','report']::text[]) LOOP
+  job_id:=job_ids->>role_key;
+  provider_id:='market-synth-provider-'||substr(encode(sha256(convert_to(
+    'market-synth-provider-|'||plan.id||'|'||role_key,'UTF8')),'hex'),1,48);
+  tool_id:='market-synth-tool-'||substr(encode(sha256(convert_to(
+    'market-synth-tool-|'||plan.id||'|'||role_key,'UTF8')),'hex'),1,48);
+  provider_ids:=provider_ids||jsonb_build_object(role_key,provider_id);
+  tool_ids:=tool_ids||jsonb_build_object(role_key,tool_id);
+  role_tool:=CASE role_key
+    WHEN 'commerce' THEN 'get_business_market_v2_screening_package'
+    WHEN 'promotion' THEN 'get_business_market_v2_keyword_sku'
+    WHEN 'market_b2b' THEN 'get_business_promotion_market_v2'
+    WHEN 'independent_review' THEN 'get_business_market_v2_screening_analysis'
+    WHEN 'report' THEN CASE WHEN root->'withBudget'='true'::jsonb
+      THEN 'get_business_market_v2_screening_budget'
+      ELSE 'get_business_market_v2_screening_package' END
+    ELSE NULL END;
+  IF role_tool IS NULL THEN
+    RAISE EXCEPTION 'ai_market_v2_synthetic_role_tool_invalid'; END IF;
+  role_call:='synthetic-'||role_key||'-call-1';
+  -- Synthetic-only arguments intentionally cannot be replayed as a real tool
+  -- request; the provider response and dispatch still bind identical bytes.
   args:=jsonb_build_object('reportId',root->>'admittedReportId',
-    'marketContextDigest',root->>'marketContextDigest','mode','summary');
+    'marketContextDigest',root->>'marketContextDigest',
+    'role',role_key,'syntheticOnly',true);
   args_text:=public.ai_v4_replay_canonical(args);
   response:=jsonb_build_object('calls',jsonb_build_array(jsonb_build_object(
-    'id','synthetic-call-1','name','get_business_promotion_market_v2',
-    'arguments',args)),'syntheticOnly',true,'externalProviderCalled',false);
+    'id',role_call,'name',role_tool,'arguments',args)),
+    'syntheticOnly',true,'externalProviderCalled',false);
   response_text:=public.ai_v4_replay_canonical(response);
-  result_body:=jsonb_build_object('toolName','get_business_promotion_market_v2',
+  result_body:=jsonb_build_object('toolName',role_tool,
     'auditStatus','recorded','ok',true,'data',jsonb_build_object(
       'syntheticOnly',true,'persistedRead',false,'numericCitationAllowed',false,
-      'marketManifestDigest',root->>'manifestDigest','role','market_b2b'));
+      'marketManifestDigest',root->>'manifestDigest','role',role_key,
+      'budgetUnavailable',role_key='report' AND root->'withBudget'='false'::jsonb));
   result_text:=public.ai_v4_replay_canonical(result_body);
   INSERT INTO public.ai_agent_provider_dispatches(id,job_id,dispatch_ordinal,
     owner_email,actor_role,model_id,model_version,tool_policy_digest,
@@ -400,23 +470,24 @@ BEGIN
   VALUES(provider_id,response_text,
     encode(sha256(convert_to(response_text,'UTF8')),'hex'),
     '{"syntheticOnly":true,"paidCostCents":0}',
-    'synthetic-no-network',clock_timestamp());
+    'synthetic-no-network-'||role_key,clock_timestamp());
   INSERT INTO public.ai_agent_tool_dispatches(id,job_id,
     provider_dispatch_id,tool_call_ordinal,provider_call_id,tool_name,
     arguments_json,arguments_digest,invocation_id,state,lease_epoch,
     reserved_at,tool_called_at,error_code,error_message,completed_at)
-  VALUES(tool_id,job_id,provider_id,1,'synthetic-call-1',
-    'get_business_promotion_market_v2',args_text,
+  VALUES(tool_id,job_id,provider_id,1,role_call,
+    role_tool,args_text,
     encode(sha256(convert_to(args_text,'UTF8')),'hex'),
-    'synthetic-no-network','succeeded',1,
+    'synthetic-no-network-'||role_key,'succeeded',1,
     clock_timestamp(),clock_timestamp(),'','',clock_timestamp());
   INSERT INTO public.ai_agent_tool_results(tool_dispatch_id,result_json,
     result_digest,completed_at)
   VALUES(tool_id,result_text,
     encode(sha256(convert_to(result_text,'UTF8')),'hex'),clock_timestamp());
+  END LOOP;
   RETURN jsonb_build_object('reportId',report_id,'workflowId',flow_id,
-    'jobId',job_id,'providerDispatchId',provider_id,
-    'toolDispatchId',tool_id,'syntheticOnly',true,
+    'jobIds',job_ids,'providerDispatchIds',provider_ids,
+    'toolDispatchIds',tool_ids,'syntheticOnly',true,
     'externalProviderCalled',false,'persistedRead',false,
     'numericCitationAllowed',false,'paidCostCents',0);
 END $$"""
