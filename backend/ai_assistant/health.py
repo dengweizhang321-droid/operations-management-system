@@ -362,6 +362,8 @@ def check():
         verify_market_plan(cursor)
         from .business_market_v2_synthetic_catalog import verify as verify_market_synthetic
         verify_market_synthetic(cursor)
+        from .business_market_v2_cost_catalog import verify as verify_market_cost
+        verify_market_cost(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,

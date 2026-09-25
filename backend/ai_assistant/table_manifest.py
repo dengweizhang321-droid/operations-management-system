@@ -121,5 +121,9 @@ AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS = (*AI_TABLES_PRE_MARKET_V2_READ_RECEIPT
     "ai_business_market_v2_read_receipts")
 
 # 0063 records a SQL-owned, paused execution proposal; no new workflow.
-AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS,
+AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES = (*AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS,
     "ai_business_market_v2_execution_plans")
+
+# 0065 freezes a pending CNY cost requirement; reserved funds remain zero.
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_COST_LEDGER_CANDIDATES,
+    "ai_business_market_v2_cost_ledger_candidates")

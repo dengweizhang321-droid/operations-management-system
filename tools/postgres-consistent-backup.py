@@ -906,6 +906,11 @@ def collect_evidence(
                     raise RuntimeError("AI market synthetic chain lacks execution plan")
                 from ai_assistant.business_market_v2_synthetic_catalog import verify
                 verify(cursor, RuntimeError)
+            if "0065_business_market_v2_model_cost_reservation" in ai_migrations:
+                if "0064_business_market_v2_synthetic_vertical" not in ai_migrations:
+                    raise RuntimeError("AI market cost candidate lacks synthetic predecessor")
+                from ai_assistant.business_market_v2_cost_catalog import verify
+                verify(cursor, RuntimeError)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -919,6 +924,8 @@ def collect_evidence(
             # Use migrations from this same transaction, never the deployed schema,
             # to retain the approved pre-workspace (45 table) backup contract.
             expected_ai_tables = set(AI_TABLES)
+            if "0065_business_market_v2_model_cost_reservation" not in ai_migrations:
+                expected_ai_tables.discard("ai_business_market_v2_cost_ledger_candidates")
             if "0063_business_market_v2_execution_plan" not in ai_migrations:
                 expected_ai_tables.discard("ai_business_market_v2_execution_plans")
             if "0062_business_market_v2_read_receipt_candidate" not in ai_migrations:
