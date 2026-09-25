@@ -146,7 +146,7 @@ AI_SQL_ONLY_0070 = (
     "protected_business_budget_v11_proof_tickets",
     "protected_business_budget_v11_proof_ticket_claims")
 AI_SQL_ONLY_0071 = (
-    "ai_v4_report_link_intents", "ai_v4_report_source_links")
+    "protected_business_v4_report_link_intents", "protected_business_v4_report_source_links")
 AI_FULL_TABLES_PRE_V4_REPORT_LINKS = (*AI_TABLES, *AI_SQL_ONLY_0070)
 AI_FULL_TABLES_AFTER_V4_REPORT_LINKS = (
     *AI_FULL_TABLES_PRE_V4_REPORT_LINKS, *AI_SQL_ONLY_0071)
