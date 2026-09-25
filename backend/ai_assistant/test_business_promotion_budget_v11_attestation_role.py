@@ -14,6 +14,7 @@ from . import business_promotion_budget_v11_attest_step as step
 from . import business_promotion_budget_v11_preflight as preflight
 from . import business_promotion_budget_v11_durable_stage as stage
 from . import models as m
+from . import test_business_promotion_approved_content as approved_fixture
 from . import test_business_promotion_budget_v11_durable_stage as fixture
 from .policy import canonical
 
@@ -24,6 +25,7 @@ ROLE = "teruisi_ai_budget_v11_attestor"
 @djtest.override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test",
     AI_PROMOTION_BUDGET_V11_STAGE_CANDIDATE_ENABLED=True)
 class BudgetV11AttestationRoleTests(fixture.BudgetV11DurableStageTests):
+    complete_flow = approved_fixture.PromotionApprovedContentTests.complete_flow
     @staticmethod
     def _database():
         value = settings.DATABASES["default"]
@@ -39,6 +41,7 @@ class BudgetV11AttestationRoleTests(fixture.BudgetV11DurableStageTests):
 
     def test_0067_owning_bytes_and_independent_role_append_only(self):
         report = self._complete_budget_report()
+        self.complete_flow(report)
         row = self._stage(report)
         with patch.object(stage.approved_content.runtime.transport,
                 "catalog", side_effect=self.current_catalog):

@@ -105,7 +105,10 @@ def prepare(run_id, principal, *, enabled=False, checkpoint=None):
             report_snapshot_sha256=state["reportSnapshotSha256"],
             workflow_input_sha256=state["workflowInputSha256"],
             actor_version=actor["version"],
-            fresh_semantics_verified=True, **evidence)
+            file_byte_verification_digest=evidence["fileByteVerificationDigest"],
+            html_rows_digest=evidence["htmlRowsDigest"],
+            xlsx_opc_formula_digest=evidence["xlsxOpcFormulaDigest"],
+            fresh_semantics_verified=True)
     except (AnalysisContractError, KeyError, TypeError, ValueError,
             UnicodeError, RecursionError) as error:
         raise AiError("v11独立证明无法从持久文件重建", "conflict", 409) from error
