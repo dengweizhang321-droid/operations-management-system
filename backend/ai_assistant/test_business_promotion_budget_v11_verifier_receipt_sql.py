@@ -16,6 +16,9 @@ class BudgetV11ProtectedReceiptSqlStaticTests(TestCase):
             getsource(migration.install))
         self.assertIn("status='active'", migration.MAC)
         self.assertIn("sha256(outer_pad||sha256(inner_pad||", migration.MAC)
+        self.assertIn("decode('00','hex')||convert_to(receipt_text,'UTF8')",
+            migration.MAC)
+        self.assertNotIn("chr(0)", migration.MAC)
         self.assertIn("difference:=difference|", migration.MAC)
         self.assertNotIn("secret", migration.VERIFY)
         self.assertNotIn("UPDATE public.ai_business_file_runs", migration.VERIFY)

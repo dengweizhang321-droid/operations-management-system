@@ -58,9 +58,9 @@ BEGIN
     inner_pad:=set_byte(inner_pad,i,get_byte(inner_pad,i)#get_byte(block,i));
     outer_pad:=set_byte(outer_pad,i,get_byte(outer_pad,i)#get_byte(block,i));
   END LOOP;
-  expected:=sha256(outer_pad||sha256(inner_pad||convert_to(
-    'teruisi:budget-v11:protected-verifier:v1'||chr(0),'UTF8')||
-    convert_to(receipt_text,'UTF8')));
+  expected:=sha256(outer_pad||sha256(inner_pad||
+    convert_to('teruisi:budget-v11:protected-verifier:v1','UTF8')||
+    decode('00','hex')||convert_to(receipt_text,'UTF8')));
   supplied:=decode(receipt_mac,'hex');
   FOR i IN 0..31 LOOP
     difference:=difference|(get_byte(expected,i)#get_byte(supplied,i));
