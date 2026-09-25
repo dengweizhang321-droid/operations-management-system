@@ -279,7 +279,7 @@ def verify_catalog(cursor):
     cursor.execute("SELECT count(*) FROM pg_catalog.pg_attribute a "
         "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
         "CROSS JOIN LATERAL pg_catalog.aclexplode("
-        "COALESCE(a.attacl,'{}'::aclitem[])) acl "
+        "COALESCE(a.attacl,pg_catalog.acldefault('c',c.relowner))) acl "
         "WHERE c.oid=%s::regclass AND a.attnum>0 "
         "AND acl.grantee<>c.relowner", [KEY_TABLE])
     if cursor.fetchone() != (0,):

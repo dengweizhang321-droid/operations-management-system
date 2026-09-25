@@ -44,6 +44,7 @@ class BudgetV11ProtectedReceiptSqlStaticTests(TestCase):
         body = getsource(migration.verify_catalog)
         for marker in ("pg_catalog.pg_constraint", "convalidated",
                 "pg_catalog.pg_index", "indisunique", "indisvalid",
+                "pg_catalog.acldefault('c',c.relowner)",
                 "ai_budget_v11_one_active_key", "ai_budget_v11_key_guard",
                 "ai_budget_v11_key_no_truncate", "pg_catalog.pg_trigger",
                 "t.tgenabled", "KEY_GUARD.split"):
