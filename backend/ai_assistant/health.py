@@ -356,6 +356,8 @@ def check():
         verify_market_context(cursor)
         from .business_market_v2_read_catalog import verify as verify_market_read
         verify_market_read(cursor)
+        from .business_market_v2_execution_plan_catalog import verify as verify_market_plan
+        verify_market_plan(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,

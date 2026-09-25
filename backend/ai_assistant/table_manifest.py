@@ -117,5 +117,9 @@ AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS = (*AI_TABLES_PRE_MARKET_V2_CONTEXT_PROOFS
     "ai_business_market_v2_context_proofs")
 
 # 0062 only stages a closed, SQL-owned genuine same-job read receipt.
-AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS,
+AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS = (*AI_TABLES_PRE_MARKET_V2_READ_RECEIPTS,
     "ai_business_market_v2_read_receipts")
+
+# 0063 records a SQL-owned, paused execution proposal; no new workflow.
+AI_TABLES = (*AI_TABLES_PRE_MARKET_V2_EXECUTION_PLANS,
+    "ai_business_market_v2_execution_plans")
