@@ -8,13 +8,18 @@ from .table_manifest import AI_TABLES
 
 
 def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
-                                        publish_gate_enabled=False):
-    """Pin the renderer-9, staged-10, or dormant narrow publish gate."""
+                                        publish_gate_enabled=False,
+                                        slim_stage_enabled=False):
+    """Pin the renderer-9, staged-10, or unpublished renderer-11 guard."""
     import importlib
 
     if publish_gate_enabled and not budget_stage_enabled:
         raise ValueError("budget publish gate has no staged predecessor")
+    if slim_stage_enabled and not publish_gate_enabled:
+        raise ValueError("budget slim stage has no publish-gate predecessor")
     migration = importlib.import_module(
+        "ai_assistant.business_promotion_budget_v11_stage_sql"
+        if slim_stage_enabled else
         "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
         if publish_gate_enabled else
         "ai_assistant.migrations.0054_business_promotion_budget_file_staging"
@@ -27,7 +32,8 @@ def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
     row = cursor.fetchone()
     versions = (re.search(r"renderer_version\s*=\s*ANY\s*\(ARRAY\[([0-9,\s]+)\]\)",
                           row[1]) if row and row[0] else None)
-    expected_versions = ((1, 2, 3, 4, 5, 6, 7, 9, 10) if budget_stage_enabled
+    expected_versions = ((1, 2, 3, 4, 5, 6, 7, 9, 10, 11) if slim_stage_enabled
+                         else (1, 2, 3, 4, 5, 6, 7, 9, 10) if budget_stage_enabled
                          else (1, 2, 3, 4, 5, 6, 7, 9))
     if (versions is None or row[1].count("renderer_version") != 1
             or re.search(r"\bOR\b", row[1], re.IGNORECASE)
@@ -45,10 +51,13 @@ def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
         "public.ai_business_promotion_trial_ready_requirements(text)",
     ) + (("public.ai_business_promotion_budget_parent_requirements(text,text,text)",)
          if budget_stage_enabled else ())
-    trial = (migration.stage.previous if publish_gate_enabled else
+    publish = (importlib.import_module(
+        "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate")
+        if publish_gate_enabled else None)
+    trial = (publish.stage.previous if publish_gate_enabled else
              migration.previous if budget_stage_enabled else migration)
     definitions = (*migration.NEW_SQL, trial.PARENT_REQUIREMENTS,
-                   trial.READY_REQUIREMENTS) + (((migration.stage if publish_gate_enabled
+                   trial.READY_REQUIREMENTS) + (((publish.stage if publish_gate_enabled
                    else migration).BUDGET_PARENT_REQUIREMENTS,)
                    if budget_stage_enabled else ())
     for index, (signature, definition) in enumerate(zip(signatures, definitions)):
@@ -77,6 +86,9 @@ def _verify_promotion_trial_file_guard(cursor, *, budget_stage_enabled=False,
                          ("teruisi_ai_writer", "EXECUTE", False))
         if acl != expected_acl:
             raise ValueError("AI promotion trial file function ACL drift: " + signature)
+
+    if slim_stage_enabled:
+        migration.verify_catalog(cursor)
 
     cursor.execute("SELECT c.relname,t.tgname,t.tgtype,t.tgdeferrable,"
         "t.tginitdeferred,t.tgenabled,t.tgfoid "
@@ -351,7 +363,8 @@ def check():
 
         _verify_market_v2_material_attestation(cursor)
         _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,
-                                            publish_gate_enabled=True)
+                                            publish_gate_enabled=True,
+                                            slim_stage_enabled=True)
         from importlib import import_module
         import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
         from .business_market_v2_context_catalog import verify as verify_market_context

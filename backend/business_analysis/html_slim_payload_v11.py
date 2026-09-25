@@ -33,7 +33,8 @@ def _pairs(items):
     return value
 
 
-def _rows(value, expected, compressed_sha, row_digest, row_count, columns):
+def _rows(value, expected, compressed_sha, row_digest, row_count, columns,
+          checkpoint=None):
     if (type(value) is not str or BASE64.fullmatch(value) is None
             or type(expected) is not int or not 0 <= expected <= volume_delivery.MAX_FILE_BYTES):
         _fail("renderer 11 压缩行编码或容量无效")
@@ -48,6 +49,8 @@ def _rows(value, expected, compressed_sha, row_digest, row_count, columns):
     pending = b""
     try:
         for index in range(0, len(packed), 65536):
+            if checkpoint:
+                checkpoint()
             compressed = packed[index:index+65536]
             while compressed:
                 before = len(compressed)
@@ -67,6 +70,8 @@ def _rows(value, expected, compressed_sha, row_digest, row_count, columns):
                     if (canonical(row) + "\n").encode() != line + b"\n":
                         _fail("renderer 11 解压行不是规范JSON")
                     seen += 1
+                    if checkpoint and seen % 1000 == 0:
+                        checkpoint()
                     if seen > row_count:
                         _fail("renderer 11 解压行超过声明行数")
                 if compressed and not output and len(compressed) == before:
@@ -79,11 +84,13 @@ def _rows(value, expected, compressed_sha, row_digest, row_count, columns):
     return len(packed)
 
 
-def _verify_file(path, volume):
+def _verify_file(path, volume, checkpoint=None):
     """Check one file and every table against the already checked v11 manifest."""
     path = Path(path)
     if not 1 <= path.stat().st_size <= volume_delivery.MAX_FILE_BYTES:
         _fail("renderer 11 HTML文件超过容量")
+    if checkpoint:
+        checkpoint()
     raw_html = path.read_bytes()
     html_sha = hashlib.sha256(raw_html).hexdigest()
     if (len(raw_html) != volume["files"]["html"]["bytes"] or
@@ -104,6 +111,8 @@ def _verify_file(path, volume):
     volume_delivery._html_payload_v11(volume["htmlPayload"], volume)
     for table, part, payload in zip(data["tables"], volume["tables"],
             volume["htmlPayload"]["tables"]):
+        if checkpoint:
+            checkpoint()
         if (type(table) is not dict or set(table) != {"key", "title", "note",
                 "columns", "rowsGzipBase64", "rowsNdjsonBytes",
                 "rowsGzipSha256", "proof"} or
@@ -115,7 +124,7 @@ def _verify_file(path, volume):
             _fail("renderer 11 HTML表片证明不同")
         size = _rows(table["rowsGzipBase64"], payload["rowsNdjsonBytes"],
             payload["rowsGzipSha256"], part["rowDigest"],
-            part["rowLimit"], part["columnCount"])
+            part["rowLimit"], part["columnCount"], checkpoint)
         if size != payload["rowsGzipBytes"]:
             _fail("renderer 11 压缩字节数不同")
     return {"volumeIndex": volume["volumeIndex"],
@@ -123,10 +132,10 @@ def _verify_file(path, volume):
         "htmlSha256": html_sha, "htmlPayloadVersion": 2}
 
 
-def verify_file(path, volume):
+def verify_file(path, volume, checkpoint=None):
     """Fail closed with one contract error for malformed or changed bytes."""
     try:
-        return _verify_file(path, volume)
+        return _verify_file(path, volume, checkpoint)
     except AnalysisContractError:
         raise
     except (OSError, KeyError, TypeError, ValueError, UnicodeError,
