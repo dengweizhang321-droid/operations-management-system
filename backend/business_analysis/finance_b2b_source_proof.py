@@ -17,7 +17,7 @@ from .report_files import Column, Table
 SCHEMA = "business-finance-b2b-source-proof-candidate-v1"
 TABLE_KEY = "finance-b2b-source-proof"
 WINDOWS = ("current", "previous", "yearAgo")
-MAX_ROWS = 28
+MAX_ROWS = 29
 MAX_BYTES = 64 * 1024
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 ROW_FIELDS = {"domain", "temporalRole", "periodRole", "startDate",
@@ -214,14 +214,71 @@ def _b2b_rows(value):
     return rows
 
 
-def build_candidate(*, finance=None, b2b=None):
+def _erp_row(erp, source, b2b):
+    """Project one selected ERP window, never an order-level B2B reconciliation."""
+    if erp is None and source is None:
+        return None
+    _need(type(erp) is dict and type(source) is dict and b2b is not None,
+        "ERP销售证明须与同一封存报告的B端材料成对提供")
+    _need(erp.get("schemaVersion") ==
+        "business-erp-report-rollup-materials-candidate-v1"
+        and erp.get("manifestDigest") == digest({key: item for key, item
+            in erp.items() if key != "manifestDigest"})
+        and erp.get("authorityVerified") is False
+        and erp.get("registeredRenderer") is False
+        and erp.get("netshopAdFinanceCombined") is False
+        and erp.get("reportBinding") == b2b["reportBinding"]
+        and erp.get("salesKey") == source.get("key")
+        and erp.get("salesQueryDigest") == digest(source.get("query")),
+        "ERP回卷与B端不是同一已封存报告或来源身份")
+    query, info = source["query"], source["info"]
+    _need(type(query) is dict and query.get("platform") == "京东"
+        and query.get("shop") == b2b["shop"]
+        and query.get("window") == "current"
+        and (query.get("startDate"), query.get("endDate")) ==
+            (b2b["material"]["windows"]["current"]["period"]["startDate"],
+             b2b["material"]["windows"]["current"]["period"]["endDate"])
+        and type(info) is dict and type(info.get("expected")) is dict
+        and erp.get("sourceProofs", {}).get("sales") == info["expected"]
+        and erp.get("sourceRowCount") == info["expected"].get("rowCount")
+        and type(info.get("pageCount")) is int and info["pageCount"] >= 1,
+        "ERP和B端京东店铺、本期或销售来源控制不一致")
+    proof = info["expected"]
+    _sha(proof["sourceRef"]); _sha(proof["evidenceDigest"])
+    _need(type(proof["metrics"]) is dict and
+        all(type(cell) is dict and cell.get("presentRows") is not None
+            and cell.get("missingRows") is not None for cell in proof["metrics"].values()))
+    status = {name: ("missing_value" if cell["missingRows"] else
+        "present" if cell["presentRows"] else "no_records")
+        for name, cell in proof["metrics"].items()}
+    return _row(domain="erp", temporalRole="daily_fact",
+        periodRole="current", startDate=query["startDate"],
+        endDate=query["endDate"], sourceKey=source["key"],
+        sourceStatus="selected_no_records" if proof["rowCount"] == 0
+            else "selected_sealed_source",
+        coverageStatus=info.get("metadata", {}).get("coverage", {}).get("status"),
+        missingDates=info.get("metadata", {}).get("coverage", {}).get("missingDates"),
+        metricStatus=status, rowCount=proof["rowCount"],
+        pageCount=info["pageCount"], sourceRef=proof["sourceRef"],
+        sourceEvidenceDigest=proof["evidenceDigest"],
+        owningResultDigest=erp["manifestDigest"], scopeOrShop=b2b["shop"],
+        note="ERP净销售/退款/成本本期来源；B端与ERP可能包含，不能相加或计算B端增量。")
+
+
+def build_candidate(*, finance=None, b2b=None, erp=None, erp_source=None):
     """Project independent owning DTOs; no same-report authority is inferred."""
     rows = [*_finance_rows(finance), *_b2b_rows(b2b)]
+    erp_row = _erp_row(erp, erp_source, b2b)
+    if erp_row is not None:
+        rows.append(erp_row)
     _need(4 <= len(rows) <= MAX_ROWS and all(set(row) == ROW_FIELDS for row in rows))
     value = {"schemaVersion": SCHEMA, "tableKey": TABLE_KEY,
         "rows": rows, "rowCount": len(rows),
         "financeIntentId": finance["intentId"] if finance else None,
         "b2bReportId": b2b["reportBinding"]["reportId"] if b2b else None,
+        "erpReportId": erp["reportBinding"]["reportId"] if erp else None,
+        "erpB2bSameReportBindingVerified": erp_row is not None,
+        "erpB2bSameShopQueryVerified": erp_row is not None,
         "financeNaturalMonthsOnly": True,
         "financeDailyProrationAllowed": False,
         "sameReportAuthorityVerified": False,

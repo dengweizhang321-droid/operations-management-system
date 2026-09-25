@@ -84,6 +84,41 @@ class FinanceB2bSourceProofOwningTests(djtest.TransactionTestCase):
             m.AiBusinessSourceToolReceipt.objects.count(),
             m.AiAgentJobs.objects.count()), before)
 
+    def test_erp_and_b2b_same_sealed_report_but_finance_remains_monthly_context(self):
+        report = self.report_with_b2b()
+        pair_key = self.plan["plan"]["pairs"][0]["pairKey"]
+        result = adapter.prepare(self.finance_actor,
+            finance_intent_id=self.finance_intent,
+            finance_source_key="finance", b2b_report_id=report.id,
+            shop=self.query["shop"], erp_pair_key=pair_key,
+            erp_sales_key="sales", erp_master_key="master", enabled=True)
+        rows = result["candidate"]["rows"]
+        erp_rows = [row for row in rows if row["domain"] == "erp"]
+        self.assertEqual(len(erp_rows), 1)
+        self.assertEqual(erp_rows[0]["periodRole"], "current")
+        self.assertEqual(erp_rows[0]["sourceStatus"], "selected_sealed_source")
+        self.assertEqual(erp_rows[0]["scopeOrShop"], self.query["shop"])
+        self.assertTrue(result["erpB2bSameReportOwningVerified"])
+        self.assertTrue(result["candidate"]["erpB2bSameReportBindingVerified"])
+        self.assertFalse(result["sameReportAuthorityVerified"])
+        self.assertFalse(result["candidate"]["sameShopIdentityVerified"])
+        self.assertEqual(result["candidate"]["b2bIncludedInErpSales"], "unknown")
+        self.assertIsNone(result["candidate"]["b2bIncrementalSalesCents"])
+        self.assertFalse(result["candidate"]["crossDomainAmountsAdded"])
+        self.assertEqual(result["table"].row_count, len(rows))
+        for bad in ({"erp_pair_key": "0" * 64},
+                    {"erp_sales_key": "ads"},
+                    {"shop": "另一京东店"},
+                    {"erp_master_key": None}):
+            kwargs = {"finance_intent_id": self.finance_intent,
+                "finance_source_key": "finance", "b2b_report_id": report.id,
+                "shop": self.query["shop"], "erp_pair_key": pair_key,
+                "erp_sales_key": "sales", "erp_master_key": "master",
+                "enabled": True}
+            kwargs.update(bad)
+            with self.subTest(bad=bad), self.assertRaises(AiError):
+                adapter.prepare(self.finance_actor, **kwargs)
+
     def test_wrong_finance_source_report_shop_and_actor_refuse(self):
         report = self.report_with_b2b()
         for change in (
