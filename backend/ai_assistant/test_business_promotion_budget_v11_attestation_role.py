@@ -24,6 +24,44 @@ ROLE = "teruisi_ai_budget_v11_attestor"
 @djtest.override_settings(DJANGO_PROCESS_ROLE="development", DJANGO_ENVIRONMENT="test",
     AI_PROMOTION_BUDGET_V11_STAGE_CANDIDATE_ENABLED=True)
 class BudgetV11AttestationRoleTests(fixture.BudgetV11DurableStageTests):
+    def test_0067_process_claim_can_be_replaced_but_ready_stays_denied(self):
+        """Adversarial 0067 fixture: plain process digests are not a seal.
+
+        This test intentionally does not authorize 0068 publication. It
+        demonstrates the exact trust gap that a future independent verifier
+        receipt must close before any ready transition can be added.
+        """
+        report = self._complete_budget_report()
+        row = self._stage(report)
+        with patch.object(stage.approved_content.runtime.transport,
+                "catalog", side_effect=self.current_catalog):
+            prepared = preflight.prepare(row.id, self.admin, enabled=True)
+        forged = json.loads(prepared["attestationText"])
+        forged["fileByteVerificationDigest"] = "1" * 64
+        forged["htmlRowsDigest"] = "2" * 64
+        forged["xlsxOpcFormulaDigest"] = "3" * 64
+        forged["owningVerificationDigest"] = "4" * 64
+        with self._database() as db:
+            db.execute("SET SESSION AUTHORIZATION " + ROLE)
+            try:
+                forged_receipt = db.execute(
+                    "SELECT public.ai_budget_v11_attest_staged(%s,%s,%s)",
+                    [row.id, row.attempt, canonical(forged)]).fetchone()[0]
+            finally:
+                db.execute("RESET SESSION AUTHORIZATION")
+        receipt = m.AiBusinessPromotionBudgetV11Attestation.objects.get(
+            run_id=row.id, attempt=row.attempt)
+        self.assertEqual(receipt.id, forged_receipt)
+        self.assertEqual(receipt.file_byte_verification_digest, "1" * 64)
+        self.assertEqual(receipt.xlsx_opc_formula_digest, "3" * 64)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            m.AiBusinessFileRun.objects.filter(pk=row.pk).update(
+                status="ready", error_code="", version=row.version + 1,
+                progress_json='{"stage":"ready"}')
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.error_code),
+            ("paused", "renderer_unpublished"))
+
     @staticmethod
     def _database():
         value = settings.DATABASES["default"]
