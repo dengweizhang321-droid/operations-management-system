@@ -9,6 +9,7 @@ SQL must compare pinned stored digests, not substitute SHA256(raw text).
 INTENTS = "public.protected_business_v4_report_link_intents"
 LINKS = "public.protected_business_v4_report_source_links"
 ISSUE = "public.ai_v4_issue_report_link_intent(text,text,text,text,text,text)"
+CREATE_REPORT = "public.ai_v4_create_report_from_link_intent(text,text,text,text,text,text)"
 READ = "public.ai_v4_read_report_source_link(text,text,bigint)"
 BINDINGS = "public.ai_v4_report_source_bindings(text)"
 WRITER = "teruisi_ai_writer"
@@ -185,6 +186,57 @@ BEGIN
      expected_v2_seal,expected_v4_seal,
      encode(sha256(convert_to(bound::text,'UTF8')),'hex'),
      txid_current(),clock_timestamp());
+  RETURN selected_report;
+END $$"""
+
+
+CREATE_REPORT_SQL = """CREATE FUNCTION public.ai_v4_create_report_from_link_intent(
+  selected_report text,actor_email text,selected_client_request text,
+  selected_request_digest text,selected_workflow text,snapshot_text text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE intent public.protected_business_v4_report_link_intents%ROWTYPE;
+  flow public.ai_workflow_runs%ROWTYPE;
+  snapshot jsonb;
+BEGIN
+  IF session_user IS DISTINCT FROM 'teruisi_ai_writer'
+     OR selected_report !~ '^[A-Za-z0-9_-]{1,160}$'
+     OR selected_client_request !~ '^[A-Za-z0-9_-]{1,160}$'
+     OR selected_request_digest !~ '^[0-9a-f]{64}$'
+     OR snapshot_text IS NULL OR octet_length(snapshot_text)>32768
+     OR actor_email IS DISTINCT FROM lower(btrim(actor_email))
+     OR NOT EXISTS (SELECT 1 FROM public.ai_write_authority a
+         WHERE a.id=1 AND a.status='postgres'
+           AND a.authority_epoch::text=current_setting('teruisi.ai_epoch',true)
+           AND a.cutover_id=current_setting('teruisi.ai_cutover',true))
+     OR EXISTS (SELECT 1 FROM public.ai_report_runs WHERE id=selected_report)
+  THEN RAISE EXCEPTION 'ai_v4_report_link_create_denied'; END IF;
+  SELECT * INTO intent FROM public.protected_business_v4_report_link_intents
+    WHERE report_id=selected_report FOR UPDATE;
+  SELECT * INTO flow FROM public.ai_workflow_runs
+    WHERE id=selected_workflow FOR SHARE;
+  snapshot:=snapshot_text::jsonb;
+  IF intent.report_id IS NULL OR intent.issued_txid IS DISTINCT FROM txid_current()
+     OR intent.owner_email IS DISTINCT FROM actor_email
+     OR flow.id IS NULL OR flow.owner_email IS DISTINCT FROM actor_email
+     OR flow.scope_json IS DISTINCT FROM 'null'
+     OR snapshot->>'schemaVersion' IS DISTINCT FROM 'business-report-v1'
+     OR snapshot->>'executionProfile' IS DISTINCT FROM
+          'business-agent-integrated-reference-v1'
+     OR snapshot->>'evidenceProtocol' IS DISTINCT FROM 'reference-v2'
+     OR snapshot->>'reportId' IS DISTINCT FROM selected_report
+     OR snapshot->>'evidenceRunId' IS DISTINCT FROM intent.v2_run_id
+     OR snapshot->>'sealedDigest' IS DISTINCT FROM intent.v2_sealed_digest
+     OR NOT EXISTS (SELECT 1 FROM public.access_control_users u
+         WHERE u.email=actor_email AND u.role='admin'
+           AND u.status='active' AND u.scope IS NULL
+           AND u.version=intent.actor_version)
+  THEN RAISE EXCEPTION 'ai_v4_report_link_create_identity_invalid'; END IF;
+  INSERT INTO public.ai_report_runs
+    (id,owner_email,scope_json,client_request_id,request_digest,
+     workflow_id,budget_plan_id,snapshot_json,created_at)
+  VALUES(selected_report,actor_email,'null',selected_client_request,
+     selected_request_digest,flow.id,NULL,snapshot_text,clock_timestamp());
+  -- Existing report guards and 0071 AFTER INSERT trigger must all succeed.
   RETURN selected_report;
 END $$"""
 

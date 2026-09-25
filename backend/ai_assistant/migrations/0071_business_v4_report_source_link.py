@@ -86,13 +86,15 @@ def install(apps, schema_editor):
                 " FOR EACH STATEMENT EXECUTE FUNCTION "
                 "public.ai_v4_seal_ticket_no_truncate()")
         for definition in (link.BINDINGS_SQL, link.ISSUE_SQL,
-                link.REPORT_TRIGGER, link.READ_SQL):
+                link.CREATE_REPORT_SQL, link.REPORT_TRIGGER, link.READ_SQL):
             cursor.execute(definition)
-        for signature in (link.BINDINGS, link.ISSUE,
+        for signature in (link.BINDINGS, link.ISSUE, link.CREATE_REPORT,
                 "public.ai_v4_report_link_after_insert()", link.READ):
             cursor.execute("REVOKE ALL ON FUNCTION " + signature +
                 " FROM PUBLIC")
         cursor.execute("GRANT EXECUTE ON FUNCTION " + link.ISSUE +
+            " TO " + link.WRITER)
+        cursor.execute("GRANT EXECUTE ON FUNCTION " + link.CREATE_REPORT +
             " TO " + link.WRITER)
         cursor.execute("GRANT EXECUTE ON FUNCTION " + link.READ +
             " TO " + link.READER)
@@ -113,8 +115,8 @@ def uninstall(apps, schema_editor):
         cursor.execute("DROP TRIGGER ai_v4_report_link_create "
             "ON public.ai_report_runs")
         for signature in (link.READ,
-                "public.ai_v4_report_link_after_insert()", link.ISSUE,
-                link.BINDINGS):
+                "public.ai_v4_report_link_after_insert()",
+                link.CREATE_REPORT, link.ISSUE, link.BINDINGS):
             cursor.execute("DROP FUNCTION " + signature)
         for table in (link.LINKS, link.INTENTS):
             cursor.execute("DROP TRIGGER ai_v4_report_link_no_truncate ON " +
@@ -175,6 +177,7 @@ def verify_catalog(cursor):
             link.ROW_GUARD, None),
         (link.BINDINGS, link.BINDINGS_SQL, None),
         (link.ISSUE, link.ISSUE_SQL, link.WRITER),
+        (link.CREATE_REPORT, link.CREATE_REPORT_SQL, link.WRITER),
         ("public.ai_v4_report_link_after_insert()",
             link.REPORT_TRIGGER, None),
         (link.READ, link.READ_SQL, link.READER))
