@@ -825,10 +825,15 @@ def collect_evidence(
                         raise RuntimeError("AI budget v10 attestation predecessor missing")
                     from importlib import import_module
                     attestation_guard = import_module(
-                        "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
+                        "ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence"
+                        if "0059_business_promotion_budget_v10_reader_fence" in ai_migrations
+                        else "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
                         if "0058_business_promotion_budget_v10_publish_gate" in ai_migrations
                         else "ai_assistant.migrations.0057_business_promotion_budget_v10_attestation")
                     attestation_guard.verify_catalog(cursor)
+                    if ("0059_business_promotion_budget_v10_reader_fence" in ai_migrations
+                            and "0058_business_promotion_budget_v10_publish_gate" not in ai_migrations):
+                        raise RuntimeError("AI budget v10 reader fence lacks publish predecessor")
                 elif "0058_business_promotion_budget_v10_publish_gate" in ai_migrations:
                     raise RuntimeError("AI budget v10 publish gate lacks attestation predecessor")
             if "0047_business_v4_sealer_replay_progress" in ai_migrations:
