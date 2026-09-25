@@ -7,3 +7,5 @@
 reader 只能取同账号/当前版本的窄回执，reader/writer/attestor 对账表均无直接 SELECT/DML；普通 writer 无写入函数权限。0060–64 旧根、合成链和 v1 目录保持不变。未来真实调用前需独立采用有来源的模型价目、汇率与所有计费类别，核管理员精确费用批准，在真实资金账本同事务原子预留并逐次发放/核销许可；未知结果不重试，不能用本候选行冒充已经预留。
 
 迁移名固定 `0065_business_market_v2_model_cost_reservation`，0066 后继依赖此名。纯测试 `ai_assistant.test_business_market_v2_cost_candidate` 与 `business_analysis.test_market_model_cost_envelope` 已覆盖整数上限和关闭边界；隔离真实角色 PG 目标 `ai_assistant.test_business_market_v2_cost_admission` 由主任务串行执行。未获取真实价目或批准，也未生产部署。
+
+整合分支已复核纯五项及隔离真实角色 PostgreSQL 两项 `.runtime/ai-pg-20df4bcf7ab3/tests.log`（57.149 秒）通过；数据库正常停止、无生产写入。0064→0065 的旧84表/函数/历史文件冻结与独立备份恢复仍待长链演练，不把目标PG通过当作升级验收。
