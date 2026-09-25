@@ -767,6 +767,10 @@ class ConsistentBackupTests(unittest.TestCase):
             (set(), [initial]),
             (set(), [workspace]),
             (set(PRE_EVIDENCE_TABLES) | {"ai_unknown"}, [initial, workspace]),
+            (legacy_tables | {"protected_business_spurious"},
+                [initial, workspace]),
+            (legacy_tables, [initial, workspace, (
+                "ai_assistant", "0068_business_promotion_budget_v11_verifier_receipt")]),
         ]:
             with self.subTest(tables=len(tables), migrations=migrations):
                 with self.assertRaisesRegex(RuntimeError, "AI .* (inventory|migration)"):

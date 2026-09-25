@@ -27,6 +27,20 @@ ALLOWED_TABLE_PREFIXES = (
     "sales_", "erp_", "finance_", "netshop_", "market_", "product_",
     "inventory_", "replenishment_", "workflow_", "customer_service_", "bi_", "access_control_", "ai_",
 )
+PROTECTED_AI_TABLES_BY_MIGRATION = {
+    "0068_business_promotion_budget_v11_verifier_receipt": {
+        "protected_business_budget_v11_verifier_keys"},
+    "0070_business_promotion_budget_v11_limited_identity": {
+        "protected_business_budget_v11_proof_tickets",
+        "protected_business_budget_v11_proof_ticket_claims"},
+    "0071_business_v4_report_source_link": {
+        "protected_business_v4_report_link_intents",
+        "protected_business_v4_report_source_links"},
+    "0072_business_market_v2_authority_proposals": {
+        "protected_business_market_v2_rate_proposals",
+        "protected_business_market_v2_cap_proposals",
+        "protected_business_market_v2_authority_revocations"},
+}
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
 FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
 FINANCE_MARKER_TABLE = "finance_source_revision_markers"
@@ -80,7 +94,9 @@ def _table_names(cursor: psycopg.Cursor[Any]) -> list[str]:
     names = []
     for (name,) in cursor.fetchall():
         text = str(name)
-        if text == "django_migrations" or text.startswith(ALLOWED_TABLE_PREFIXES):
+        if (text == "django_migrations" or
+                text.startswith(ALLOWED_TABLE_PREFIXES) or
+                text.startswith("protected_business_")):
             names.append(text)
     return names
 
@@ -665,6 +681,16 @@ def collect_evidence(
         ]
         if not migrations:
             raise RuntimeError("django migration evidence is empty")
+        applied_ai = {item["name"] for item in migrations
+                      if item["app"] == "ai_assistant"}
+        expected_protected = set().union(*(
+            names for migration, names in
+            PROTECTED_AI_TABLES_BY_MIGRATION.items()
+            if migration in applied_ai))
+        present_protected = {name for name in tables
+                             if name.startswith("protected_business_")}
+        if present_protected != expected_protected:
+            raise RuntimeError("AI protected table inventory does not match migrations")
         required = {
             "django_migrations",
             "sales_data_revisions",
@@ -942,7 +968,9 @@ def collect_evidence(
                     ("0070_business_promotion_budget_v11_limited_identity",
                      "0069_business_market_v2_paid_round_rehearsal"),
                     ("0071_business_v4_report_source_link",
-                     "0070_business_promotion_budget_v11_limited_identity")):
+                     "0070_business_promotion_budget_v11_limited_identity"),
+                    ("0072_business_market_v2_authority_proposals",
+                     "0071_business_v4_report_source_link")):
                 if migration_name in ai_migrations:
                     if predecessor not in ai_migrations:
                         raise RuntimeError("AI protected sidecar lacks predecessor: "
