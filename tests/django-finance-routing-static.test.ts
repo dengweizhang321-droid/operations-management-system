@@ -32,7 +32,7 @@ test("finance cutover keeps the existing UI and public paths with Django as the 
   assert.doesNotMatch(imports, /importFinanceReportBytes|Shadow mode/);
 });
 
-test("finance routes have no D1 branch and every write has one Django dispatch", async () => {
+test("finance routes have no D1 branch and only opt-in raw attestation adds a dispatch", async () => {
   const [analysis, targets, targetImport, imports] = await Promise.all([
     readFile(path.join(root, "app", "api", "finance", "analysis", "route.ts"), "utf8"),
     readFile(path.join(root, "app", "api", "finance", "targets", "route.ts"), "utf8"),
@@ -43,7 +43,12 @@ test("finance routes have no D1 branch and every write has one Django dispatch",
     assert.doesNotMatch(source, /getFinanceDatabase|mode === "(?:legacy|shadow|django)"/);
   }
   const importPost = imports.slice(imports.indexOf("export async function POST"));
-  assert.equal((importPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
+  const rawAttestation = importPost.indexOf("if (await rawBytesAttestationEnabled())");
+  assert.ok(rawAttestation > 0);
+  assert.equal((importPost.slice(0, rawAttestation).match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
+  const optIn = importPost.slice(rawAttestation);
+  assert.equal((optIn.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
+  assert.match(optIn, /attestRawWorkbook/);
   const targetPost = targets.slice(targets.indexOf("export async function POST"), targets.indexOf("export async function DELETE"));
   assert.equal((targetPost.match(/createDjangoFinanceService\(\)/g) ?? []).length, 1);
   const targetImportPost = targetImport.slice(targetImport.indexOf("export async function POST"));
