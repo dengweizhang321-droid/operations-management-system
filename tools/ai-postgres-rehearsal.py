@@ -85,6 +85,8 @@ parser.add_argument("--business-v4-report-restricted-page-upgrade",
     action="store_true", help="Test only: 0074->0075 restricted read upgrade and dual restore")
 parser.add_argument("--business-v4-report-restricted-page-focused-upgrade",
     action="store_true", help="Test only: current finance.0005 0075 empty reverse and restored upgrade")
+parser.add_argument("--finance-raw-workbook-upgrade", action="store_true",
+    help="Test only: finance.0005->0006 empty upgrade and dual restore")
 parser.add_argument("--business-protected-cross-cluster-restore-0074", action="store_true",
                     help="Test only: restore 0074 owner/ACL into a second fresh encrypted cluster")
 parser.add_argument("--business-protected-cross-cluster-restore", action="store_true",
@@ -102,6 +104,19 @@ parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.finance_raw_workbook_upgrade:
+    if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
+            or arguments.all_backend_tests
+            or any(getattr(arguments, name) for name in vars(arguments)
+                if name.endswith("_upgrade") and name !=
+                "finance_raw_workbook_upgrade")
+            or any(getattr(arguments, name) for name in (
+                "business_protected_cross_cluster_restore",
+                "business_protected_cross_cluster_restore_0073",
+                "business_protected_cross_cluster_restore_0074",
+                "business_protected_migration_role_rehearsal",
+                "business_protected_installer_focus"))):
+        parser.error("finance.0006 upgrade is one isolated standalone run")
 if arguments.business_v4_report_restricted_page_focused_upgrade:
     if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
             or arguments.all_backend_tests
@@ -470,6 +485,17 @@ try:
         ),
         flush=True,
     )
+    if arguments.finance_raw_workbook_upgrade:
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "finance", "0005_raw_column_evidence_v2", "--noinput"],
+            timeout=900, env=django_env)
+        focused = run([sys.executable, ROOT / "tools" /
+            "finance-raw-workbook-upgrade-rehearsal.py", "--run-root", RUN],
+            timeout=900, env=django_env)
+        (RUN / "finance-raw-workbook-upgrade.json").write_text(focused,
+            encoding="utf-8")
+        print(focused.strip(), flush=True)
+        sys.exit(0)
     if arguments.business_v4_report_restricted_page_focused_upgrade:
         run([sys.executable, ROOT / "backend/manage.py", "migrate",
             "--noinput"], timeout=900, env=django_env)

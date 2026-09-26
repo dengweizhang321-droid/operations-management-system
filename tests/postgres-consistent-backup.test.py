@@ -385,6 +385,38 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_finance_0006_exact_receipt_and_tables_block_formal_archive(self):
+        self.assertEqual(MODULE.FINANCE_RAW_WORKBOOK_MIGRATION,
+            "0006_raw_workbook_bytes_v2")
+        self.assertEqual(MODULE.FINANCE_RAW_WORKBOOK_TABLES, {
+            "finance_raw_workbook_attestations",
+            "finance_raw_workbook_columns",
+            "finance_raw_workbook_cells"})
+
+        class Cursor:
+            def __init__(self, receipt, tables):
+                self.receipt, self.tables, self.calls = receipt, tables, 0
+
+            def execute(self, *_args):
+                self.calls += 1
+
+            def fetchone(self):
+                return (self.receipt,)
+
+            def fetchall(self):
+                return [(item,) for item in self.tables]
+
+        self.assertTrue(MODULE._finance_raw_workbook_preflight(Cursor(
+            True, MODULE.FINANCE_RAW_WORKBOOK_TABLES)))
+        self.assertFalse(MODULE._finance_raw_workbook_preflight(Cursor(
+            False, set())))
+        for receipt, tables in ((True, set()),
+                (False, MODULE.FINANCE_RAW_WORKBOOK_TABLES),
+                (True, {"finance_raw_workbook_attestations"})):
+            with self.subTest(receipt=receipt, tables=tables), \
+                    self.assertRaises(RuntimeError):
+                MODULE._finance_raw_workbook_preflight(Cursor(receipt, tables))
+
     def test_0075_without_new_tables_is_still_a_protected_backup_receipt(self):
         name = "0075_business_v4_report_restricted_page"
         self.assertIn(name, MODULE.PROTECTED_AI_MIGRATIONS)
@@ -837,6 +869,8 @@ class ConsistentBackupTests(unittest.TestCase):
                     return_value={"appliedProtectedMigrations": []}),
                 mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
                     return_value=False),
+                mock.patch.object(MODULE, "_finance_raw_workbook_preflight",
+                    return_value=False),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
                 result = MODULE.run_backup(args)
@@ -876,6 +910,8 @@ class ConsistentBackupTests(unittest.TestCase):
                 mock.patch.object(MODULE, "_protected_ai_preflight",
                     return_value={"appliedProtectedMigrations": []}),
                 mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
+                    return_value=False),
+                mock.patch.object(MODULE, "_finance_raw_workbook_preflight",
                     return_value=False),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
@@ -941,6 +977,8 @@ class ConsistentBackupTests(unittest.TestCase):
                         return_value={"appliedProtectedMigrations": []}),
                     mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
                         return_value=True),
+                    mock.patch.object(MODULE, "_finance_raw_workbook_preflight",
+                        return_value=False),
                     mock.patch.object(MODULE, "collect_evidence") as evidence,
                     mock.patch.object(MODULE.subprocess, "run") as native):
                 with self.assertRaisesRegex(RuntimeError,

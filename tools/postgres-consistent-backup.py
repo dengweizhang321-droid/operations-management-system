@@ -73,6 +73,12 @@ FINANCE_RAW_EVIDENCE_TABLES = frozenset({
     "finance_raw_column_evidence_columns",
     "finance_raw_column_evidence_cells",
 })
+FINANCE_RAW_WORKBOOK_MIGRATION = "0006_raw_workbook_bytes_v2"
+FINANCE_RAW_WORKBOOK_TABLES = frozenset({
+    "finance_raw_workbook_attestations",
+    "finance_raw_workbook_columns",
+    "finance_raw_workbook_cells",
+})
 FORMAL_DUMP_FLAGS = ("--no-owner", "--no-privileges")
 FORMAL_RESTORE_FLAGS = ("--no-owner", "--no-privileges")
 MAX_NATIVE_DIAGNOSTIC_BYTES = 16 * 1024
@@ -1905,6 +1911,25 @@ def _finance_raw_evidence_preflight(cursor: psycopg.Cursor[Any]) -> bool:
     return bool(receipt[0])
 
 
+def _finance_raw_workbook_preflight(cursor: psycopg.Cursor[Any]) -> bool:
+    """Detect 0006 receipt and exact three-table inventory before pg_dump."""
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='finance' AND name=%s)",
+        [FINANCE_RAW_WORKBOOK_MIGRATION])
+    receipt = cursor.fetchone()
+    cursor.execute("SELECT c.relname FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname=ANY(%s) "
+        "AND c.relkind IN ('r','p')", [sorted(FINANCE_RAW_WORKBOOK_TABLES)])
+    tables = {str(row[0]) for row in cursor.fetchall()}
+    if (receipt not in ((False,), (True,))
+            or tables and tables != FINANCE_RAW_WORKBOOK_TABLES):
+        raise RuntimeError("finance raw workbook catalog is incomplete")
+    if bool(receipt[0]) != bool(tables):
+        raise RuntimeError("finance raw workbook receipt/table inventory differs")
+    return bool(receipt[0])
+
+
 def run_protected_preflight(args: argparse.Namespace) -> dict[str, Any]:
     with psycopg.connect("") as connection:
         connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -1938,6 +1963,8 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
                 protected = _protected_ai_preflight(cursor)
                 if protected["appliedProtectedMigrations"]:
                     raise RuntimeError("protected AI daily backup is not admitted")
+                if _finance_raw_workbook_preflight(cursor):
+                    raise RuntimeError("finance raw workbook daily backup is not admitted")
                 if _finance_raw_evidence_preflight(cursor):
                     raise RuntimeError("finance raw evidence daily backup is not admitted")
             evidence = collect_evidence(
@@ -2020,7 +2047,7 @@ def run_restore(args: argparse.Namespace) -> dict[str, Any]:
     if b"protected_business_" in listed.stdout:
         raise RuntimeError("protected AI archive restore is not admitted")
     if any(table.encode("ascii") in listed.stdout
-            for table in FINANCE_RAW_EVIDENCE_TABLES):
+            for table in FINANCE_RAW_EVIDENCE_TABLES | FINANCE_RAW_WORKBOOK_TABLES):
         raise RuntimeError("finance raw evidence archive restore is not admitted")
     command = [
         str(pg_restore),

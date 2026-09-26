@@ -1276,10 +1276,13 @@ function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
   }
   $financeRaw = @($Manifest.evidence.migrations | Where-Object {
     [string]$_.app -ceq "finance" -and
-    [string]$_.name -ceq "0005_raw_column_evidence_v2"
+    [string]$_.name -cin @("0005_raw_column_evidence_v2",
+      "0006_raw_workbook_bytes_v2")
   })
   $financeRawTables = @("finance_raw_column_evidence_months",
-    "finance_raw_column_evidence_columns", "finance_raw_column_evidence_cells")
+    "finance_raw_column_evidence_columns", "finance_raw_column_evidence_cells",
+    "finance_raw_workbook_attestations", "finance_raw_workbook_columns",
+    "finance_raw_workbook_cells")
   $presentFinanceRaw = @($financeRawTables | Where-Object {
     $_ -cin @($Manifest.evidence.tables.PSObject.Properties.Name)
   })
