@@ -41,3 +41,5 @@
 测试专用 `--business-protected-migration-role-rehearsal --upgrade-only` 从已完整恢复的 0066 合成种子复制测试库，使用随机密码的真实 `NOSUPERUSER NOCREATEROLE NOINHERIT` 迁移登录账号。未预置角色时 0067 因创建角色权限失败且零业务目录副作用；独立测试管理员预置精确 NOLOGIN 角色后，普通账号可安装 0067、0069、0071、0072。0068 因临时 GRANT KEY_OWNER 权限失败、0070 因私钥表读取权限失败，两次均无迁移收据或目录副作用，随后只由隔离测试管理员安装。普通迁移账号和 AI reader/writer 都不能读取私钥表。证据：`E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-b5e25dad0289-migration-role-audit\business-protected-migration-role-evidence.json`；源 `pg_ctl status` 已核为 no server running。
 
 本探针只分类了真实普通账号的安装边界，**没有**给正式 `teruisi_sales_owner` 特权。当前生产迁移入口已在调用普通账号前拒绝这批候选，正式发布还须另建受控特权 0068/0070 安装通道，并做非超级用户/跨集群备份恢复终验。
+
+续跑演练又扩展为每步从隔离数据库重建精确 0067–0072 迁移收据前缀、受保护表清单、12 角色无登录/无继承/零成员和已安装目录。0068 角色预置后与安装收据后各模拟一次安装器中断并换新连接续检；伪造未来收据和临时 KEY_OWNER 成员关系均被拒绝且回滚。原普通账号 0068/0070 失败分类、其余四步安装及私钥表拒读仍通过。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-6d8e94e3939d-migration-resume\business-protected-migration-role-evidence.json`，SHA-256 `36b821f36c7c2b17c62dd44898bfc2ecb90149640dd767d3564d2edffaf75c8b`，原隔离集群停机。本切片仍只在合成超级用户辅助的克隆库运行；不改变正式迁移/备份的默认关闭状态。

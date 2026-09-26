@@ -76,6 +76,20 @@ STEPS = (
       "teruisi_ai_market_proposal_revoker"),
      "public.protected_business_market_v2_rate_proposals"),
 )
+PROTECTED_TABLES_BY_STEP = {
+    "0068_business_promotion_budget_v11_verifier_receipt": (
+        "protected_business_budget_v11_verifier_keys",),
+    "0070_business_promotion_budget_v11_limited_identity": (
+        "protected_business_budget_v11_proof_tickets",
+        "protected_business_budget_v11_proof_ticket_claims"),
+    "0071_business_v4_report_source_link": (
+        "protected_business_v4_report_link_intents",
+        "protected_business_v4_report_source_links"),
+    "0072_business_market_v2_authority_proposals": (
+        "protected_business_market_v2_rate_proposals",
+        "protected_business_market_v2_cap_proposals",
+        "protected_business_market_v2_authority_revocations"),
+}
 modules = {name: importlib.import_module("ai_assistant.migrations." + name)
            for name, _, _ in STEPS}
 
@@ -149,20 +163,62 @@ def assert_receipt(connection: psycopg.Connection, name: str,
         raise AssertionError("migration receipt and table state diverged")
 
 
+def assert_resume_prefix(connection: psycopg.Connection, next_index: int,
+        preprovisioned_roles: tuple[str, ...] = ()) -> None:
+    """Reconstruct the only resumable state from PostgreSQL, never local memory."""
+    if not 0 <= next_index <= len(STEPS):
+        raise AssertionError("invalid protected migration resume index")
+    expected_roles = set(preprovisioned_roles)
+    expected_tables = set()
+    for index, (name, roles, table) in enumerate(STEPS):
+        installed = index < next_index
+        assert_receipt(connection, name, table, installed)
+        if installed:
+            expected_roles.update(roles)
+            expected_tables.update(PROTECTED_TABLES_BY_STEP.get(name, ()))
+            with connection.cursor() as cursor:
+                modules[name].verify_catalog(cursor)
+    actual_tables = {row[0] for row in connection.execute(
+        "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public' "
+        "AND tablename LIKE 'protected_business_%'")}
+    if actual_tables != expected_tables:
+        raise AssertionError("protected table inventory is not an exact installed prefix")
+    for role in {role for _, roles, _ in STEPS for role in roles}:
+        attrs = connection.execute("SELECT rolcanlogin,rolinherit,rolsuper,"
+            "rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,"
+            "rolpassword IS NULL FROM pg_catalog.pg_authid WHERE rolname=%s",
+            [role]).fetchone()
+        if role in expected_roles:
+            if attrs != (False,) * 7 + (True,):
+                raise AssertionError("protected role attributes drifted before resume")
+            members = connection.execute("SELECT count(*) FROM "
+                "pg_catalog.pg_auth_members WHERE roleid=%s::regrole "
+                "OR member=%s::regrole", [role, role]).fetchone()
+            if members != (0,):
+                raise AssertionError("protected role membership drifted before resume")
+        elif attrs is not None:
+            raise AssertionError("future protected role exists before resume")
+
+
 def preprovision(admin: psycopg.Connection, roles: tuple[str, ...]) -> None:
     for role in roles:
         if not re.fullmatch(r"teruisi_ai_[a-z0-9_]{1,64}", role):
             raise AssertionError("unapproved protected role name")
-        if admin.execute("SELECT to_regrole(%s)", [role]).fetchone()[0]:
-            raise AssertionError("protected test role already existed")
-        admin.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOINHERIT NOSUPERUSER "
-            "NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS").format(
-            sql.Identifier(role)))
+        if admin.execute("SELECT to_regrole(%s)", [role]).fetchone()[0] is None:
+            admin.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOINHERIT NOSUPERUSER "
+                "NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS").format(
+                sql.Identifier(role)))
         attrs = admin.execute("SELECT rolcanlogin,rolinherit,rolsuper,"
-            "rolcreatedb,rolcreaterole,rolreplication,rolbypassrls "
-            "FROM pg_catalog.pg_roles WHERE rolname=%s", [role]).fetchone()
-        if attrs != (False,) * 7:
+            "rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,"
+            "rolpassword IS NULL FROM pg_catalog.pg_authid WHERE rolname=%s",
+            [role]).fetchone()
+        if attrs != (False,) * 7 + (True,):
             raise AssertionError("preprovisioned role privileges widened")
+        members = admin.execute("SELECT count(*) FROM pg_catalog.pg_auth_members "
+            "WHERE roleid=%s::regrole OR member=%s::regrole",
+            [role, role]).fetchone()
+        if members != (0,):
+            raise AssertionError("preprovisioned role has members")
 
 
 def transfer_public_ownership(admin: psycopg.Connection) -> None:
@@ -218,6 +274,7 @@ native([BIN / "pg_restore.exe", "--single-transaction", "--exit-on-error",
     "-d", CLONE, archive], native_env, timeout=600)
 
 results = []
+interruptions = []
 with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as admin:
     transfer_public_ownership(admin)
     admin.execute("GRANT ALL ON SCHEMA public TO " + MIGRATOR)
@@ -231,6 +288,56 @@ with db(MIGRATOR, migrator_password, CLONE) as ordinary:
         "ai_assistant.business_promotion_budget_v11_stage_sql")
     with ordinary.cursor() as cursor:
         stage.verify_catalog(cursor)
+
+
+class _InjectedStop(Exception):
+    pass
+
+
+def inject_stop_and_reconnect(next_index: int, phase: str,
+        preprovisioned_roles: tuple[str, ...] = ()) -> dict[str, object]:
+    """Simulate a lost installer process, then rebuild state on a new connection."""
+    try:
+        raise _InjectedStop(phase)
+    except _InjectedStop:
+        pass
+    with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as resumed:
+        assert_resume_prefix(resumed, next_index, preprovisioned_roles)
+        if preprovisioned_roles:
+            preprovision(resumed, preprovisioned_roles)
+            assert_resume_prefix(resumed, next_index, preprovisioned_roles)
+    return {"phase": phase, "nextMigration": STEPS[next_index][0],
+        "reopenedConnection": True, "exactPrefixVerified": True}
+
+
+def assert_resume_rejects_drift(next_index: int) -> dict[str, bool]:
+    """Neither a forged later receipt nor temporary role membership can resume."""
+    result = {"futureReceiptRejected": False,
+        "privateOwnerMembershipRejected": False}
+    with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as admin:
+        for kind in result:
+            try:
+                with admin.transaction():
+                    if kind == "futureReceiptRejected":
+                        admin.execute("INSERT INTO django_migrations "
+                            "(app,name,applied) VALUES ('ai_assistant',%s,now())",
+                            [STEPS[next_index][0]])
+                    else:
+                        admin.execute(sql.SQL("GRANT {} TO {}").format(
+                            sql.Identifier(STEPS[1][1][0]),
+                            sql.Identifier(MIGRATOR)))
+                    try:
+                        assert_resume_prefix(admin, next_index)
+                    except (AssertionError, RuntimeError):
+                        result[kind] = True
+                    else:
+                        raise AssertionError("resume accepted injected catalog drift")
+                    raise _InjectedStop(kind)
+            except _InjectedStop:
+                assert_resume_prefix(admin, next_index)
+        if not all(result.values()):
+            raise AssertionError("resume drift probe did not reject every mutation")
+    return result
 
 first_name, first_roles, first_table = STEPS[0]
 with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as admin:
@@ -252,7 +359,11 @@ for index, (name, roles, table) in enumerate(STEPS):
     with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as admin:
         if index:
             preprovision(admin, roles)
+        assert_resume_prefix(admin, index, roles)
         before = catalog_fingerprint(admin)
+    if index == 1:
+        interruptions.append(inject_stop_and_reconnect(index,
+            "after_0068_role_preprovision", roles))
     success, reason, output_sha = migration_attempt(MIGRATOR,
         migrator_password, name)
     with db("ai_rehearsal_admin", ADMIN_PASSWORD, CLONE) as admin:
@@ -260,6 +371,7 @@ for index, (name, roles, table) in enumerate(STEPS):
             assert_receipt(admin, name, table, False)
             if catalog_fingerprint(admin) != before:
                 raise AssertionError("failed ordinary migration changed catalog")
+            assert_resume_prefix(admin, index, roles)
             if reason == "unexpected_failure":
                 raise AssertionError("ordinary migration failed for unclassified reason")
         else:
@@ -274,6 +386,11 @@ for index, (name, roles, table) in enumerate(STEPS):
         assert_receipt(admin, name, table, True)
         with admin.cursor() as cursor:
             modules[name].verify_catalog(cursor)
+        assert_resume_prefix(admin, index + 1)
+    if index == 1:
+        interruptions.append(inject_stop_and_reconnect(index + 1,
+            "after_0068_receipt_before_0069"))
+        resume_drift_rejections = assert_resume_rejects_drift(index + 1)
     results.append({"migration": name, "ordinaryResult": reason,
         "installedBy": installed_by,
         "ordinaryAttemptDigest": output_sha,
@@ -306,6 +423,8 @@ with db(MIGRATOR, migrator_password, CLONE) as ordinary:
 result = {"status": "passed", "scope": "isolated synthetic migration role only",
     "migrationLogin": "NOSUPERUSER NOCREATEROLE NOINHERIT",
     "steps": results, "privateKeyRows": 0,
+    "injectedInterruptions": interruptions,
+    "resumeDriftRejections": resume_drift_rejections,
     "ordinaryPrivateKeyReadDenied": True,
     "formalMigrationPathVerified": False,
     "formalBackupPathVerified": False,
