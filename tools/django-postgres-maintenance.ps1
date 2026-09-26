@@ -1269,7 +1269,7 @@ function Invoke-MaintenanceProtectedAiPreflight {
 function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
   $protected = @($Manifest.evidence.migrations | Where-Object {
     [string]$_.app -ceq "ai_assistant" -and
-    [string]$_.name -cmatch "^00(67|68|69|70|71|72|73|74|75)_business_"
+    [string]$_.name -cmatch "^00(67|68|69|70|71|72|73|74|75|76)_business_"
   })
   if ($protected.Count -gt 0) {
     throw "受保护 AI 归档尚无角色、owner/ACL 与私钥隔离恢复契约；拒绝开始恢复演练"
