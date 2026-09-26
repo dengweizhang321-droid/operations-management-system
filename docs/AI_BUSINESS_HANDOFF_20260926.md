@@ -22,6 +22,7 @@
 - 财报店铺映射只读诊断候选在已发布月上列出精确财报范围/组，标记同名跨组、可能先期合并及缺月，始终不提供稳定网店身份或映射证明；纯 6 项/隔离 PG 2 项通过。实际两店财报原始列及一对一身份仍须业务核对，不能把文本同名或年度目标别名直接给 v4 signer。
 - 财报新增显式 v2 候选解析路径，在旧聚合前按原工作表列/格保存组名、店名、科目与值，识别同名跨组会被旧 key 合并的事实；v1 规范 JSON 黄金摘要保持不变，相关 12 项通过。v2 只产候选，8 MiB 源/32 MiB 输出上限，后端不接受导入，原文件字节、已发布批次及网店身份未独立验真。见 `docs/AI_BUSINESS_FINANCE_RAW_COLUMN_EVIDENCE_V2.md`。
 - 市场模型传输指纹现在固定协议、HTTPS endpoint 路径、模型名/版本、生成选项、超时、推理模式、温度与调用上限；只有显式 `.invalid` 合成费率向量可做默认关闭的纯验算。隔离拥有方在精确 AI reader 身份下只读 14 个非密钥模型列并双读复核，PG 2 项通过；当前正式 reader 的 `ai_models` 整表权限仍待收紧。模型计费账号、真实费率/汇率、人审上限与调用权限均 false，见 `docs/AI_BUSINESS_MARKET_RATE_SOURCE_V1.md`。
+- 模型凭据路由与数据库候选授权已改：内部 model-runtime/model-list 和管理员模型设置 GET 走签名 writer 只读直返，原响应保留且无写回执；reader 的 `ai_models` 整表 SELECT 改为精确 19 非密列，健康拒额外列。隔离组合 PG 9 项、前端相关 76 项通过，未动正式角色。既有推广报告详情另被 provider 派发表 reader ACL 阻断，已保持负例；必须走精确 writer 只读报告路径，不授 reader 广泛账本权限。见 `docs/AI_BUSINESS_MODEL_CREDENTIAL_ROUTE.md`。
 - 市场 v6 工具观察在隔离真实角色下双遍读取已封存市场来源并核同任务候选身份，`summary`/`page` PG 2 项通过，零模型/远程调用和 Agent 派发表变化；观察标识未持久化，不能称五 Agent 已读、数值引用或付费派发。见 `docs/AI_BUSINESS_MARKET_V6_TOOL_OBSERVATION.md`。
 - 第二新集群的合成受保护归档现使用 AES-256-GCM 认证封套，错密钥/篡改/截断拒绝、明文 dump 0，恢复后 12 角色/8 表/1 合成密钥和 owner/ACL 通过；纯 6 项及全链成功，源/目标停机。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-db30f987684a-protected-aead\evidence.json`。随机测试密钥不留存，正式备份身份、长期密钥托管/恢复及部署门禁仍未解决。
 - 补齐旧筛查工具目录测试对新增市场 v2 surface 的精确尾部预期，原 47 工具条目与 96 份目录规范字节摘要继续保持不变；相关 13 项通过。整合分支全量 `npm run test:unit` 最终 2,628 项、2,608 通过、20 跳过、0 失败；`npm run lint` 为 0 错误、12 条警告。未运行会改写在线构建产物的生产构建。

@@ -16,7 +16,7 @@ from . import (
     knowledge,
     artifacts as artifact_service,
 )
-from .configuration import model_record, resolve_model
+from .configuration import MODEL_AVAILABLE_COLUMNS, model_record, resolve_model
 from .model_capabilities import options as generation_options, fit_context, usage_numbers, MAX_REPLY_CHARACTERS, MAX_CHAT_SECONDS
 from .policy import (
     AiError,
@@ -101,7 +101,7 @@ def listing(params, principal):
     )
     result["models"] = [
         model_record(row, available=True)
-        for row in m.AiModels.objects.filter(
+        for row in m.AiModels.objects.only(*MODEL_AVAILABLE_COLUMNS).filter(
             status="enabled", model_type__in=["text", "vision"]
         ).order_by("-is_default_text_model", "-updated_at")[:100]
     ]

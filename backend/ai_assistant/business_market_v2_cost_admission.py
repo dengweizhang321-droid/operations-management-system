@@ -25,13 +25,16 @@ def prepare(execution_report_id, tariff, jobs, cap_claim_cents,
     current_principal(principal,admin=True)
     plan=plan_service.read(execution_report_id,principal)
     model_id=tariff.get("modelId") if type(tariff) is dict else None
-    model=m.AiModels.objects.filter(pk=model_id).first()
+    model=m.AiModels.objects.filter(pk=model_id).values(
+        "id", "version", "status", "model_type", "protocol", "max_tokens",
+        "max_tool_rounds", "max_total_tool_calls").first()
     if model is None:
         raise AiError("模型配置或费率缺失","conflict",409)
-    fixed={"id":model.id,"version":model.version,"status":model.status,
-        "modelType":model.model_type,"protocol":model.protocol,
-        "maxTokens":model.max_tokens,"maxToolRounds":model.max_tool_rounds,
-        "maxTotalToolCalls":model.max_total_tool_calls}
+    fixed={"id":model["id"],"version":model["version"],
+        "status":model["status"],"modelType":model["model_type"],
+        "protocol":model["protocol"],"maxTokens":model["max_tokens"],
+        "maxToolRounds":model["max_tool_rounds"],
+        "maxTotalToolCalls":model["max_total_tool_calls"]}
     at_utc=at_utc or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     result=contract.build(plan["planId"],fixed,tariff,jobs,at_utc=at_utc,
         cap_claim_cents=cap_claim_cents,

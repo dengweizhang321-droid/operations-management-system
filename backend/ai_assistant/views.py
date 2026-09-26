@@ -222,16 +222,18 @@ def _dispatch(request, path=""):
             else {}
         )
         consumer_read = root == "consumer" and payload.get("operation") in {
-            "model-runtime",
-            "model-list",
             "knowledge",
             "memory-recall",
             "analysis-describe",
             "datasets-describe",
             "datasets-query",
         }
+        credential_read = root == "consumer" and payload.get("operation") in {
+            "model-runtime", "model-list"}
+        model_admin_read = root == "models" and request.method == "GET"
         writer = (
-            request.method != "GET" or root in {"artifacts"} or root == "reports" and parts[-1] == "content"
+            request.method != "GET" or root in {"artifacts"} or
+            root == "reports" and parts[-1] == "content" or model_admin_read
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
@@ -252,7 +254,8 @@ def _dispatch(request, path=""):
         params = request.GET.dict()
         if root not in {"callback", "scheduler"}:
             principal = current_principal(
-                principal, write=writer and root not in {"consumer", "artifacts", "reports"}
+                principal, write=writer and not model_admin_read and
+                    root not in {"consumer", "artifacts", "reports"}
             )
         if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules"} or parts[:2] in [
             ["space", "profiles"],
@@ -542,6 +545,16 @@ def _dispatch(request, path=""):
                 raise AiError("回调传输身份无效", "access_denied", 403)
             with mutation():
                 return response(channels.callback(parts[1], payload))
+        if credential_read:
+            # Read-only credential relay belongs to the protected writer
+            # process.  Keep it outside write() so it creates no mutation
+            # receipt and cannot be replayed as a state-changing request.
+            return response(consumer(payload, principal, request_id))
+        if model_admin_read:
+            # The existing administrator settings response includes a key
+            # suffix and diagnostics.  It belongs to the credential process,
+            # but remains a read and must not enter write-receipt handling.
+            return response(read(parts, params, principal))
         if consumer_read:
             return response(consumer(payload, principal, request_id))
         if not writer:
@@ -603,7 +616,7 @@ def read(parts, params, principal):
         return {
             "items": [
                 configuration.model_record(r)
-                for r in m.AiModels.objects.order_by(
+                for r in m.AiModels.objects.only(*configuration.MODEL_ADMIN_COLUMNS).order_by(
                     "-is_default_text_model", "-updated_at"
                 )[:100]
             ],
@@ -866,7 +879,8 @@ def consumer(payload, principal, request_id):
     if operation in {"model-runtime", "model-list"}:
         fields(payload, {"operation", "id", "modelType", "allowFallback"})
         if operation == "model-list":
-            query = m.AiModels.objects.filter(status="enabled")
+            query = m.AiModels.objects.only(
+                *configuration.MODEL_ADMIN_COLUMNS).filter(status="enabled")
             if payload.get("modelType") == "vision":
                 query = query.filter(model_type__in=["vision", "image"])
             elif payload.get("modelType"):

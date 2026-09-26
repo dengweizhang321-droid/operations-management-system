@@ -113,7 +113,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
 }
 
 export async function aiConsumer<T>(principal: AppPrincipal, payload: Record<string, unknown>, options: Parameters<typeof requestDjangoAi>[2] = {}) {
-  const read = ["model-runtime", "model-list", "knowledge", "memory-recall", "analysis-describe", "datasets-describe", "datasets-query"].includes(String(payload.operation));
+  const read = ["knowledge", "memory-recall", "analysis-describe", "datasets-describe", "datasets-query"].includes(String(payload.operation));
   return (await requestDjangoAi<T>(principal, { path: "/api/ai/consumer", method: "POST", payload, service: read ? "reader" : "writer" }, options)).data;
 }
 

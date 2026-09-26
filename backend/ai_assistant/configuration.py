@@ -72,6 +72,21 @@ def endpoint(value):
     return urlunsplit((url.scheme, url.netloc, url.path.rstrip("/"), "", ""))
 
 
+# List ORM queries must not fetch model credential ciphertext.  The admin
+# settings and internal model-list now run on the writer process, but still
+# use only their exact response fields; reader-side chat list is smaller.
+MODEL_AVAILABLE_COLUMNS = ("id", "name", "protocol", "model_type",
+    "model_name", "is_default_text_model")
+MODEL_ADMIN_COLUMNS = ("id", "version", "name", "protocol", "model_type",
+    "model_name", "base_url", "api_key_suffix", "is_default_text_model",
+    "status", "timeout_ms", "max_tokens", "reasoning_mode",
+    "temperature_milli", "max_tool_rounds", "max_total_tool_calls",
+    "last_test_result", "last_tested_at", "created_at", "updated_at",
+    "generation_options_json")
+MODEL_RUNTIME_READER_COLUMNS = tuple(column for column in MODEL_ADMIN_COLUMNS
+    if column not in {"api_key_suffix", "last_test_result"})
+
+
 def model_record(row, *, available=False):
     if available:
         result = record(row, "id name protocol model_type model_name")
@@ -90,6 +105,10 @@ def resolve_model(model_id=None):
     query = m.AiModels.objects.filter(
         status="enabled", model_type__in=["text", "vision"]
     )
+    if settings.DJANGO_PROCESS_ROLE == "ai_reader":
+        # Report verification needs model options but never credential bytes.
+        # Provider calls remain on ai_writer with the complete model row.
+        query = query.only(*MODEL_RUNTIME_READER_COLUMNS)
     row = (
         query.filter(id=identifier(model_id)).first()
         if model_id

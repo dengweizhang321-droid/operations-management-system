@@ -97,10 +97,32 @@ test("AI thin transport selects independent reader/writer and preserves revision
   await requestDjangoAi(principal, { path: "/api/ai/artifacts/ai-artifact-fixture" }, { environment, fetchImpl });
   assert.equal(new URL(calls[1].url).port, "18112");
   await aiConsumer(principal, { operation: "model-runtime", id: "model" }, { environment, fetchImpl });
-  assert.equal(new URL(calls[2].url).port, "18111");
+  assert.equal(new URL(calls[2].url).port, "18112");
+  assert.equal(calls[2].headers.has("x-teruisi-signature"), true);
   await aiConsumer(principal, { operation: "tool-audit", entry: {} }, { environment, fetchImpl });
   assert.equal(new URL(calls[3].url).port, "18112");
   assert.equal(calls[3].headers.has("x-teruisi-signature"), true);
+});
+
+test("admin model settings GET is an exact signed writer read", async () => {
+  const route = await readFile("lib/ai/django-route.ts", "utf8");
+  assert.match(route, /url\.pathname === "\/api\/ai\/models" && request\.method === "GET"/);
+  assert.match(route, /\? \{ service: "writer" as const \}/);
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push(new Request(input, init));
+    return json({ items: [{ id: "model-1", apiKeySuffix: "test" }] });
+  };
+  const result = await requestDjangoAi(principal, {
+    path: "/api/ai/models", method: "GET", service: "writer",
+  }, { environment, fetchImpl });
+  assert.equal(new URL(calls[0].url).port, "18112");
+  assert.equal(calls[0].headers.has("x-teruisi-signature"), true);
+  assert.deepEqual(result.data, { items: [{ id: "model-1", apiKeySuffix: "test" }] });
+  const listed = await aiConsumer(principal, { operation: "model-list", modelType: "text" }, { environment, fetchImpl });
+  assert.equal(new URL(calls[1].url).port, "18112");
+  assert.equal(calls[1].headers.has("x-teruisi-signature"), true);
+  assert.deepEqual(listed, result.data);
 });
 
 test("AI transport rejects invalid configuration, oversized payloads, redirects, malformed JSON and missing revisions", async () => {

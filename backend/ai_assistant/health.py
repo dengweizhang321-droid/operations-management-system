@@ -2,7 +2,8 @@ import re
 from django.conf import settings
 from django.db import connection, transaction
 from django.http import JsonResponse
-from .database_contract import MODELS, READ_TABLES, WRITER_PRIVILEGES
+from .database_contract import (MODELS, READ_TABLES, WRITER_PRIVILEGES,
+    MODEL_READER_COLUMNS)
 from .control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
 from .table_manifest import AI_TABLES
 
@@ -230,6 +231,21 @@ def _verify_market_v2_material_attestation(cursor):
             raise ValueError("AI market v2 material function ACL drift")
 
 
+def _verify_model_reader_columns(cursor):
+    """Reject a legacy table SELECT or even one extra model column grant."""
+    cursor.execute("SELECT pg_catalog.has_table_privilege("
+        "current_user,'public.ai_models','SELECT')")
+    if cursor.fetchone() != (False,):
+        raise ValueError("AI model reader retains whole-table SELECT")
+    cursor.execute("SELECT a.attname FROM pg_catalog.pg_attribute a "
+        "WHERE a.attrelid='public.ai_models'::regclass "
+        "AND a.attnum>0 AND NOT a.attisdropped "
+        "AND pg_catalog.has_column_privilege("
+        "current_user,'public.ai_models',a.attname,'SELECT')")
+    if {name for (name,) in cursor.fetchall()} != MODEL_READER_COLUMNS:
+        raise ValueError("AI model reader column grants differ from closed contract")
+
+
 def check():
     if set(AI_TABLES) != set(MODELS):
         raise ValueError("AI backup inventory drift")
@@ -265,6 +281,7 @@ def check():
         if not writer:
             from system_datasets.permissions import validate_reader_columns
             validate_reader_columns(cursor, settings.DJANGO_PROCESS_ROLE)
+            _verify_model_reader_columns(cursor)
         cursor.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
         )

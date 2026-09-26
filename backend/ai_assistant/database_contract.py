@@ -89,7 +89,6 @@ READ_TABLES = {
     "ai_dingtalk_schedules",
     "ai_dingtalk_schedule_runs",
     "ai_conversation_workspaces",
-    "ai_models",
     "ai_channels",
     "ai_conversations",
     "ai_conversation_messages",
@@ -114,6 +113,21 @@ READ_TABLES = {
     "ai_migration_runs",
     "access_control_users",
 }
+# The AI reader's model transport view and the system dataset need only these
+# non-secret columns.  Provider credentials remain on the writer-only runtime
+# path; never restore a table-level ai_models SELECT to fix a reader query.
+MODEL_READER_COLUMNS = frozenset({
+    "id", "version", "name", "protocol", "model_type", "model_name",
+    "base_url", "is_default_text_model", "status", "timeout_ms",
+    "reasoning_mode", "temperature_milli", "max_tool_rounds",
+    "max_total_tool_calls", "last_tested_at", "created_at", "updated_at",
+    "generation_options_json", "max_tokens",
+})
+MODEL_READER_EXTRA_COLUMNS = ("generation_options_json", "max_tokens")
+assert "ai_models" not in READ_TABLES
+assert set(MODEL_READER_EXTRA_COLUMNS) <= MODEL_READER_COLUMNS
+assert not {"api_key_encrypted", "api_key_suffix", "last_test_result"}.intersection(
+    MODEL_READER_COLUMNS)
 APPEND_ONLY = {
     "ai_business_screening_runs",
     "ai_business_screening_pages",
@@ -390,8 +404,29 @@ def provision(connection, reader_password, writer_password):
                     cursor.execute("GRANT EXECUTE ON FUNCTION public."
                         "ai_market_v2_context_receipt(text,text,bigint) "
                         "TO teruisi_ai_reader")
+                # Remove a legacy whole-table SELECT before the dataset helper
+                # reconstructs its 17 column grants.  Reversing this order
+                # can clear freshly granted columns on some PostgreSQL paths.
+                cursor.execute("REVOKE ALL ON TABLE public.ai_models "
+                    "FROM teruisi_ai_reader")
                 from system_datasets.permissions import grant_columns
                 grant_columns(cursor, "ai_assistant")
+                # The dataset helper reclaims stale column grants first; add
+                # only the two transport fields outside its public allowlist.
+                cursor.execute(sql.SQL("GRANT SELECT ({}) ON TABLE "
+                    "public.ai_models TO teruisi_ai_reader").format(
+                    sql.SQL(",").join(sql.Identifier(name)
+                        for name in MODEL_READER_EXTRA_COLUMNS)))
+                cursor.execute("SELECT a.attname FROM pg_catalog.pg_attribute a "
+                    "WHERE a.attrelid='public.ai_models'::regclass "
+                    "AND a.attnum>0 AND NOT a.attisdropped "
+                    "AND pg_catalog.has_column_privilege("
+                    "'teruisi_ai_reader','public.ai_models',a.attname,'SELECT')")
+                actual_model_columns = {name for (name,) in cursor.fetchall()}
+                if actual_model_columns != MODEL_READER_COLUMNS:
+                    raise ValueError("AI model reader column grants drifted: "
+                        f"missing={sorted(MODEL_READER_COLUMNS - actual_model_columns)}, "
+                        f"extra={sorted(actual_model_columns - MODEL_READER_COLUMNS)}")
             else:
                 cursor.execute("SELECT to_regprocedure('public."
                     "ai_market_v2_cost_candidate_receipt(text,text,bigint)')")
