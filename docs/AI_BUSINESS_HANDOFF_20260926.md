@@ -30,6 +30,9 @@
 - 补齐旧筛查工具目录测试对新增市场 v2 surface 的精确尾部预期，原 47 工具条目与 96 份目录规范字节摘要继续保持不变；相关 13 项通过。整合分支全量 `npm run test:unit` 最终 2,628 项、2,608 通过、20 跳过、0 失败；`npm run lint` 为 0 错误、12 条警告。未运行会改写在线构建产物的生产构建。
 - 受保护归档 v2 独立格式以 64 KiB 分块认证和最终帧拒绝错 key、截断、乱序、重复及篡改；默认密钥提供者直接拒绝。第二新集群真实 `pg_dump/pg_restore` 合成演练 32 块、12 角色/8 表/1 私钥与 owner/ACL 通过，双集群停机，证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-f31632b8cd04-protected-v2\evidence.json`。格式仍限内存 64 MiB、随机测试密钥不留存，正式备份和恢复仍关闭。
 
+- 独立 `v2-stream-v1` 流式加密归档在**不含 finance.0005** 的已提交 `1bd52362` 基线上显式选择 0073 双集群演练通过。3 个 1 MiB 认证块从 `pg_dump` 管道直接封存，双遍认证后事务式 `pg_restore`；13 受保护角色、9 表、1 随机合成密钥、owner/ACL 与拒绝漂移通过，错密钥/截断/篡改/来源失败拒，目标目录明文 dump 数为 0。源 55898 与目标 55440 均停机，完整证据归档 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-b6aeadfd55de-stream-v1\protected-cross-cluster\evidence.json`，SHA-256 `974663bb9884c2a24d6d4c8bf8da22879f4987ef6dedef0b5586da2c0ae26c0c`。正式备份身份/密钥托管与 0005 组合未证，仍关闭；见 `docs/AI_BUSINESS_PROTECTED_ARCHIVE_STREAM_V2.md`。源码 `52020f1b` 已推送。
+- `finance.0005` 在隔离库给原始列/格建立只追加 SHA 侧车，只接完整单月 Worker 候选并回卷核对当前已发布财报；旧 FinanceLine/Month/Batch 全字段摘要保持不变。真实角色 PG 7 项、备份 Python 29 项、维护 Node 55 项通过，正式 PrepareApp/DeployApp/migrate/备份/恢复见该迁移或三表先拒，未改旧 v1 导入；源端口 55772 已停。源 XLSX 字节、跨组源列真实性、网店稳定身份、多月批次和正式恢复仍未知，权威标志为 false；见 `docs/AI_BUSINESS_FINANCE_RAW_COLUMN_V2_SIDECAR_0005.md`。源码 `d4fbd26e` 已推送；该提交后全量 `npm run test:unit` 2641 项中 2621 通过、20 跳过，lint 0 错误/12 警告。
+
 ## 尚未达到五阶段终验的条件
 
 1. v11 虽已有 `0070` 持久身份与票据候选，完整拥有方 ORM 预检、`0067` 写入和签名进程仍未沿非超级用户身份完成；旧 `0067/0068` NOLOGIN 会话仅由隔离超级用户模拟。发布事务还要同锁复验密钥状态、来源根与所有文件块字节，实现一次性 CAS/OUTCOME 和窄下载；在此之前保持 v11 `ready` 拒绝。
