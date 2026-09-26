@@ -55,6 +55,22 @@ try {
   $RuntimeRoot = 'D:\teruisi-runtime\django-sales'
   [IO.File]::Delete($synthetic0074)
 
+  # A 0079-only candidate must close the ordinary formal installer even when
+  # earlier protected migrations are absent from the staged source tree.
+  $synthetic0079 = Join-Path $candidateMigrations '0079_business_market_v6_source_ticket.py'
+  [IO.File]::WriteAllText($synthetic0079, '# isolated test only')
+  $blocked = $false
+  try { Assert-NoUnapprovedProtectedAiMigration '0079-only' $candidateBackend }
+  catch {
+    if ($_.Exception.Message -notmatch '0079-only refuses protected AI migration release') { throw }
+    $blocked = $true
+  }
+  if (-not($blocked)) { throw 'Formal 0079-only source was not blocked before staging' }
+  $RuntimeRoot = $temporary
+  Assert-NoUnapprovedProtectedAiMigration 'isolated 0079 preview' $candidateBackend
+  $RuntimeRoot = 'D:\teruisi-runtime\django-sales'
+  [IO.File]::Delete($synthetic0079)
+
   $financeMigrations = Join-Path $candidateBackend 'finance\migrations'
   New-Item -ItemType Directory -Path $financeMigrations -Force | Out-Null
   [IO.File]::WriteAllText((Join-Path $financeMigrations '0005_raw_column_evidence_v2.py'), '# isolated test only')
