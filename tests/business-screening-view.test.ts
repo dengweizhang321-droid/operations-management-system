@@ -34,10 +34,10 @@ test("bounded JSON reports actual UTF8 bytes including whitespace and malformed 
 const environment={TERUISI_DJANGO_INTERNAL_SECRET:"Isolated-hmac-transport-secret-0123456789",TERUISI_DJANGO_AI_READER_BASE_URL:"http://127.0.0.1:18111",TERUISI_DJANGO_AI_WRITER_BASE_URL:"http://127.0.0.1:18112"};
 const principal={email:"owner@example.invalid",displayName:"合成",role:"admin" as const,scope:null};
 const large=(profile:string,status=200,padding=ORDINARY_RESPONSE_BYTES)=>new Response(JSON.stringify({snapshot:{schemaVersion:"business-report-v1",executionProfile:profile}})+" ".repeat(padding),{status,headers:{"x-ai-revision":"42","content-type":"application/json"}});
-test("reader relay allows new screening detail only and retains byte accounting on chunked whitespace",async()=>{
+test("writer read relay allows new screening detail only and retains byte accounting on chunked whitespace",async()=>{
   let called:Request|undefined;
   const result=await requestDjangoAi(principal,{path:"/api/ai/reports/report"},{environment,fetchImpl:async(input,init)=>{called=new Request(input,init);return large(SCREENING_PROFILE);}});
-  assert.ok(result);assert.equal(new URL(called!.url).port,"18111");assert.ok(called!.headers.has("x-teruisi-signature"));
+  assert.ok(result);assert.equal(new URL(called!.url).port,"18112");assert.ok(called!.headers.has("x-teruisi-signature"));
   for(const [path,profile,status,padding] of [["/api/ai/reports/report","business-agent-reference-v2",200,ORDINARY_RESPONSE_BYTES],["/api/ai/reports/report",SCREENING_PROFILE,500,ORDINARY_RESPONSE_BYTES],["/api/ai/reports/report",SCREENING_PROFILE,200,REPORT_DETAIL_BYTES],["/api/ai/reports",SCREENING_PROFILE,200,ORDINARY_RESPONSE_BYTES]] as const){
     await assert.rejects(()=>requestDjangoAi(principal,{path},{environment,fetchImpl:async()=>large(profile,status,padding)}));
   }

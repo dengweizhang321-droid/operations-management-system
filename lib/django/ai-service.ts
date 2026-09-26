@@ -61,6 +61,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
     && !new RegExp(`^/api/ai/callback/${ENTITY}$`).test(input.path)) throw unavailable();
   const environment = options.environment ?? await aiEnvironment();
   const method = input.method ?? "GET";
+  const reportDetail = method === "GET" && isReportDetailPath(input.path);
   const promotionRead = new RegExp(`^/api/ai/reports/${ENTITY}/promotion-keyword-sku$`).test(input.path);
   const promotionDispatch = INTERNAL_PROMOTION_DISPATCH_PATH.exec(input.path);
   const marketV2Candidate = INTERNAL_MARKET_V2_CANDIDATE_PATH.exec(input.path);
@@ -83,7 +84,9 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   if (v3SourceRead && (method !== "POST" || input.service !== "writer"
     || input.query?.toString() || input.payload === undefined))
     throw new PublicApiError(400, "invalid_request", "v3 来源读取必须使用内部 writer 进程精确签名 POST。");
-  const service = input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
+  if (reportDetail && input.service === "reader")
+    throw new PublicApiError(400, "invalid_request", "报告详情仅读取受保护 writer 进程。");
+  const service = reportDetail ? "writer" : input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }
@@ -94,7 +97,6 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   if (encoder.encode(body).length > 1024 * 1024 || method === "GET" && body) throw new PublicApiError(413, "payload_too_large", "AI 请求超过内部传输上限。");
   const query = input.query?.toString() ?? "";
   const headers = await aiHeaders({ secret: environment.TERUISI_DJANGO_INTERNAL_SECRET ?? "", principal, method, path: input.path, query, body, requestId: options.requestId ?? crypto.randomUUID() });
-  const reportDetail = method === "GET" && isReportDetailPath(input.path);
   try {
     const result = await fetchBoundedJson({ url: new URL(input.path + (query ? `?${query}` : ""), base).toString(), init: { method, headers, ...(body ? { body } : {}), cache: "no-store" }, timeoutMs: v3SourceRead || marketV2Candidate || marketV2BaseCandidate ? 12_000 : input.path === "/api/ai/chat" && method === "POST" ? AI_CHAT_RELAY_TIMEOUT_MS : input.path === "/api/ai/models" && input.payload?.action === "test" ? 630_000 : input.path === "/api/ai/scheduler" ? (input.payload?.queue === "files" ? 650_000 : 220_000) : input.payload?.operation === "analysis-reply" || input.payload?.action === "test" ? 130_000 : 40_000, maxBytes: v3SourceRead || promotionRead || promotionDispatch || marketObservationRead || marketV2Candidate || marketV2BaseCandidate ? 48000 : reportDetail ? REPORT_DETAIL_BYTES : input.path === "/api/ai/chat" ? 8 * 1024 * 1024 : /\/content$/.test(input.path) ? 9 * 1024 * 1024 : 2 * 1024 * 1024, fetcher: options.fetchImpl, signal: options.signal });
     if (reportDetail && !allowReportDetailBytes(result.data, result.responseBytes, result.response.ok)) throw unavailable();

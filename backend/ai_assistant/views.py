@@ -231,9 +231,17 @@ def _dispatch(request, path=""):
         credential_read = root == "consumer" and payload.get("operation") in {
             "model-runtime", "model-list"}
         model_admin_read = root == "models" and request.method == "GET"
+        report_detail_shape = (request.method == "GET" and
+            re.fullmatch(r"reports/[A-Za-z0-9_-]{1,160}", endpoint) is not None)
+        # URLConf accepts a trailing slash in its generic capture. Do not let
+        # strip('/') turn that alternate signed path into the writer-only GET.
+        if report_detail_shape and path != endpoint:
+            raise AiError("AI 接口不存在", "not_found", 404)
+        report_detail_read = report_detail_shape and path == endpoint
         writer = (
             request.method != "GET" or root in {"artifacts"} or
-            root == "reports" and parts[-1] == "content" or model_admin_read
+            root == "reports" and parts[-1] == "content" or
+            model_admin_read or report_detail_read
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False

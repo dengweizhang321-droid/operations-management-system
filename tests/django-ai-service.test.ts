@@ -125,6 +125,37 @@ test("admin model settings GET is an exact signed writer read", async () => {
   assert.deepEqual(listed, result.data);
 });
 
+test("only exact report-detail GET uses signed writer read without a reader override", async () => {
+  const calls: Request[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push(new Request(input, init));
+    return json({ item: { id: "report_1" }, contentError: "未达到完成条件" });
+  };
+  await requestDjangoAi(principal, { path: "/api/ai/reports/report_1" },
+    { environment, fetchImpl });
+  assert.equal(new URL(calls[0].url).port, "18112");
+  assert.equal(calls[0].method, "GET");
+  assert.equal(calls[0].headers.has("x-teruisi-signature"), true);
+  for (const path of ["/api/ai/reports", "/api/ai/reports/report_1/files",
+    "/api/ai/reports/report_1/budget",
+    "/api/ai/reports/report_1/promotion-keyword-sku"]) {
+    await requestDjangoAi(principal, { path }, { environment, fetchImpl });
+    assert.equal(new URL(calls.at(-1)!.url).port, "18111", path);
+  }
+  await requestDjangoAi(principal, { path: "/api/ai/reports/report_1",
+    method: "POST", payload: {} }, { environment, fetchImpl });
+  assert.equal(new URL(calls.at(-1)!.url).port, "18112");
+  const before = calls.length;
+  await assert.rejects(requestDjangoAi(principal,
+    { path: "/api/ai/reports/report_1", service: "reader" },
+    { environment, fetchImpl }), PublicApiError);
+  assert.equal(calls.length, before);
+  await assert.rejects(requestDjangoAi(principal,
+    { path: "/api/ai/reports/report_1/extra" },
+    { environment, fetchImpl }), PublicApiError);
+  assert.equal(calls.length, before);
+});
+
 test("AI transport rejects invalid configuration, oversized payloads, redirects, malformed JSON and missing revisions", async () => {
   let calls = 0;
   const fetchImpl: typeof fetch = async () => { calls++; return json({ ok: true }); };
