@@ -53,6 +53,8 @@ PROTECTED_AI_TABLES_BY_MIGRATION = {
         "protected_business_market_v6_topology_cancellations"},
     "0078_business_promotion_budget_v11_signed_publication": {
         "protected_business_budget_v11_publications_v2"},
+    "0079_business_market_v6_source_ticket": {
+        "protected_business_market_v6_source_tickets"},
 }
 PROTECTED_AI_MIGRATIONS = frozenset(PROTECTED_AI_TABLES_BY_MIGRATION) | {
     "0067_business_promotion_budget_v11_attestation",
@@ -74,6 +76,7 @@ PROTECTED_AI_ROLES = (
     "teruisi_ai_budget_v11_attestor_v2_login",
     "teruisi_ai_market_v6_topology_login",
     "teruisi_ai_budget_v11_download_v2_login",
+    "teruisi_ai_market_v6_source_login",
 )
 PROTECTED_KEY_TABLE = "public.protected_business_budget_v11_verifier_keys"
 FINANCE_RAW_EVIDENCE_MIGRATION = "0005_raw_column_evidence_v2"
@@ -1031,7 +1034,9 @@ def collect_evidence(
                     ("0077_business_market_v6_paused_topology",
                      "0076_business_promotion_budget_v11_ticket_bound_signer"),
                     ("0078_business_promotion_budget_v11_signed_publication",
-                     "0077_business_market_v6_paused_topology")):
+                     "0077_business_market_v6_paused_topology"),
+                    ("0079_business_market_v6_source_ticket",
+                     "0078_business_promotion_budget_v11_signed_publication")):
                 if migration_name in ai_migrations:
                     if predecessor not in ai_migrations:
                         raise RuntimeError("AI protected sidecar lacks predecessor: "
