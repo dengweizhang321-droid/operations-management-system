@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -81,12 +82,43 @@ parser.add_argument("--business-protected-cross-cluster-restore", action="store_
                     help="Test only: follow 0072 with a second fresh cluster and preserve protected owners/ACL")
 parser.add_argument("--business-protected-cross-cluster-restore-0073", action="store_true",
                     help="Test only: follow 0073 with a second fresh encrypted cluster; old 0072 path unchanged")
+parser.add_argument("--business-protected-shadow-snapshot-0073", action="store_true",
+                    help="Test only: explicit frozen 0073 exported-snapshot encrypted restore")
+parser.add_argument("--shadow-target-port", type=int,
+                    help="Test only: distinct loopback port for the frozen 0073 shadow target")
 parser.add_argument("--business-protected-migration-role-rehearsal", action="store_true",
                     help="Test only: probe 0067-0072 with a real synthetic non-superuser migration login")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_protected_shadow_snapshot_0073:
+    # Reject unrelated modes before any run root, credential, or cluster exists.
+    allowed = {"business_protected_shadow_snapshot_0073", "upgrade_only"}
+    if (not arguments.upgrade_only
+            or any(value is True and name not in allowed
+                for name, value in vars(arguments).items())
+            or arguments.test_label
+            or arguments.shadow_target_port is None
+            or not 55440 <= arguments.shadow_target_port <= 55999
+            or arguments.shadow_target_port == arguments.port):
+        parser.error("Frozen 0073 shadow requires only --upgrade-only and a distinct isolated target port")
+    migrations = ROOT / "backend/ai_assistant/migrations"
+    if (not (migrations /
+            "0073_business_promotion_budget_v11_login_attestation.py").is_file()
+            or any(path.name[:4].isdigit() and int(path.name[:4]) > 73
+                for path in migrations.glob("*.py"))):
+        parser.error("Frozen 0073 shadow rejects later AI migration source")
+    if shutil.disk_usage(ROOT).free < 12 * 1024**3:
+        parser.error("Frozen 0073 shadow requires 12 GiB free before initdb")
+    with socket.socket() as target_probe:
+        try:
+            target_probe.bind(("127.0.0.1", arguments.shadow_target_port))
+        except OSError:
+            parser.error("Frozen 0073 shadow target port is occupied")
+    arguments.business_v11_login_attestation_upgrade = True
+elif arguments.shadow_target_port is not None:
+    parser.error("--shadow-target-port requires the explicit 0073 shadow flag")
 if arguments.business_protected_cross_cluster_restore_0073:
     if (arguments.business_protected_cross_cluster_restore
             or arguments.business_protected_migration_role_rehearsal
@@ -361,6 +393,26 @@ try:
             run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
                 "-c", "CREATE ROLE " + role + " LOGIN NOINHERIT "
                 "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
+    if arguments.business_protected_shadow_snapshot_0073:
+        # Only the explicit shadow needs these closed role names for the
+        # existing cross-domain backup evidence ACL checks. This precedes
+        # migrations; existing roles are verified, never repaired.
+        role_env = {**environment, "PGDATABASE": "teruisi_ai_rehearsal"}
+        role_output = run([sys.executable, ROOT / "tools" /
+            "protected-ai-shadow-role-preflight-0073.py", "--run-root", RUN,
+            "--port", str(PORT), "--enabled"], env=role_env)
+        role_receipt = json.loads(role_output)
+        if (role_receipt.get("status") != "passed"
+                or role_receipt.get("identityChecks") != {
+                    "database": True, "user": True, "loopback": True,
+                    "port": True, "recovery": True}
+                or role_receipt.get("evidenceRoles") != 6
+                or role_receipt.get("closedNoLoginNoPassword") is not True
+                or role_receipt.get("memberships") != 0
+                or role_receipt.get("productionWrites") is not False):
+            raise RuntimeError("0073 shadow evidence role preflight is incomplete")
+        (RUN / "shadow-role-preflight-0073.json").write_text(
+            role_output, encoding="utf-8")
     django_env = {
         **environment,
         "DJANGO_SECRET_KEY": secrets.token_hex(32),
@@ -662,6 +714,29 @@ try:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
         print(upgrade.strip(), flush=True)
+        if arguments.business_protected_shadow_snapshot_0073:
+            seed_path = RUN / "business-v11-login-attestation-upgrade-evidence.json"
+            seed = json.loads(seed_path.read_text(encoding="utf-8"))
+            if (seed.get("upgrade") != "0072->0073"
+                    or seed.get("oldFileChunkCount") != 7
+                    or seed.get("productionWrites") is not False):
+                raise RuntimeError("frozen 0073 seven-chunk seed is unavailable")
+            run([sys.executable, ROOT / "tools" /
+                "protected-ai-shadow-snapshot-0073.py", "--run-root", RUN,
+                "--target-port", str(arguments.shadow_target_port),
+                "--enabled"], timeout=1800, env=django_env)
+            shadow_file = RUN / "shadow-snapshot-0073/evidence.json"
+            shadow = json.loads(shadow_file.read_text(encoding="utf-8"))
+            if (shadow.get("status") != "passed"
+                    or shadow.get("fileChunkCount") != 7
+                    or not {"html", "xlsx"} <= set(shadow.get("fileFormats", []))
+                    or shadow.get("syntheticVerifierKeyRows") != 1
+                    or shadow.get("ownerAclAndFilesRestored") is not True
+                    or shadow.get("formalBackupPathVerified") is not False
+                    or shadow.get("longTermRestorePossible") is not False
+                    or shadow.get("productionWrites") is not False):
+                raise RuntimeError("frozen 0073 shadow evidence is incomplete")
+            print(json.dumps(shadow, ensure_ascii=False), flush=True)
         if arguments.business_protected_cross_cluster_restore:
             restored = run([sys.executable, ROOT / "tools" /
                 "business-protected-cross-cluster-restore-rehearsal.py",
