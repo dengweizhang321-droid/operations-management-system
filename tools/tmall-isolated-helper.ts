@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
-import { Worker } from "node:worker_threads";
+import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -12,6 +12,44 @@ const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-
 export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
 export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot> };
+
+const diagnosticPhases = new Set([
+  "master_start", "master_audit_saved", "master_authentication", "master_browser_connect",
+  "master_browser_connected", "master_template_capture", "master_template_navigation",
+  "master_template_identity", "master_template_wait", "master_list_read", "master_list_ready",
+]);
+
+// Breadcrumbs contain fixed labels only; never page text, URLs or request data.
+export function reportIsolatedHelperPhase(phase: string) {
+  if (!isMainThread && workerData?.protocol === isolatedHelperProtocol && diagnosticPhases.has(phase)) {
+    parentPort?.postMessage({ type: "diagnostic_phase", phase });
+  }
+}
+
+export function isolatedHelperErrorDiagnostic(error: unknown) {
+  const value = error instanceof Error ? error : new Error();
+  const code = (value as NodeJS.ErrnoException).code;
+  const category = code === "ERR_WORKER_OUT_OF_MEMORY" ? "worker_out_of_memory"
+    : code === "ERR_ASSERTION" ? "assertion"
+      : /^Duplicate target /.test(value.message) ? "duplicate_browser_target"
+        : /Target page, context or browser has been closed/.test(value.message) ? "browser_target_closed"
+          : /Protocol error/.test(value.message) ? "browser_protocol_error" : "other";
+  const knownNames = ["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "AssertionError", "TimeoutError"];
+  // Keep only source locations. Error text, function names, URL paths and any
+  // arbitrary Error fields may contain credentials or platform identifiers.
+  const frames = (value.stack ?? "").split("\n").slice(1, 25).flatMap(line => {
+    const match = /^\s+at (?:[^\n]* \()?[^\n]*[\\/](tmall-workflow-helper\.mjs|coreBundle\.js|tmall-isolated-helper\.ts|tmall-direct-product-master-export\.ts):(\d{1,8}):(\d{1,8})\)?$/.exec(line);
+    return match ? [{ file: match[1], line: Number(match[2]), column: Number(match[3]) }] : [];
+  }).slice(0, 8);
+  return { name: knownNames.includes(value.name) ? value.name : "Error", category, frames };
+}
+
+export type HelperThreadDiagnostic = {
+  event: "helper_thread_error" | "helper_thread_unclean_exit";
+  workflow: string; storeKey: string | null; executionId: string;
+  phase: string; ready: boolean; exitCode?: number;
+  error?: ReturnType<typeof isolatedHelperErrorDiagnostic>;
+};
 
 function scalar(headers: IncomingHttpHeaders, key: string) {
   const value = headers[key];
@@ -90,7 +128,12 @@ export class IsolatedHelperSlots {
   }
 }
 
-export function spawnIsolatedHelper(entryFile: string, identity: SlotIdentity, finish: (clean: boolean) => void): Promise<HelperSlot> {
+export function spawnIsolatedHelper(
+  entryFile: string, identity: SlotIdentity, finish: (clean: boolean) => void,
+  report: (diagnostic: HelperThreadDiagnostic) => void = diagnostic => {
+    process.stderr.write(`${JSON.stringify(diagnostic)}\n`);
+  },
+): Promise<HelperSlot> {
   return new Promise((resolve, reject) => {
     const token = randomBytes(32).toString("hex");
     const worker = new Worker(entryFile, {
@@ -102,6 +145,17 @@ export function spawnIsolatedHelper(entryFile: string, identity: SlotIdentity, f
     worker.stdout?.resume(); worker.stderr?.resume();
     let ready = false;
     let clean = false;
+    let phase = "starting";
+    let errorDiagnostic: ReturnType<typeof isolatedHelperErrorDiagnostic> | undefined;
+    const diagnose = (event: HelperThreadDiagnostic["event"], exitCode?: number) => {
+      try {
+        report({ event, workflow: identity.workflow, storeKey: identity.storeKey,
+          executionId: identity.executionId, phase, ready,
+          ...(exitCode === undefined ? {} : { exitCode }),
+          ...(errorDiagnostic ? { error: errorDiagnostic } : {}),
+        });
+      } catch { /* Logging cannot change quarantine, release or exit handling. */ }
+    };
     const timer = setTimeout(() => {
       reject(new Error("helper_slot_start_timeout"));
       void worker.terminate();
@@ -109,8 +163,11 @@ export function spawnIsolatedHelper(entryFile: string, identity: SlotIdentity, f
     worker.on("message", message => {
       if (message?.type === "ready" && !ready && Number.isInteger(message.port) && message.port > 0 && message.port <= 65535) {
         ready = true;
+        phase = "ready";
         clearTimeout(timer);
         resolve({ port: message.port, token, stop: () => worker.terminate() });
+      } else if (message?.type === "diagnostic_phase" && diagnosticPhases.has(message.phase)) {
+        phase = message.phase;
       } else if (message?.type === "finished") {
         clean = message.clean === true;
         // Abort late promises (including a timed-out promotion) before allowing
@@ -118,9 +175,14 @@ export function spawnIsolatedHelper(entryFile: string, identity: SlotIdentity, f
         void worker.terminate();
       }
     });
-    worker.on("error", () => reject(new Error("helper_slot_worker_failed")));
-    worker.on("exit", () => {
+    worker.on("error", error => {
+      errorDiagnostic = isolatedHelperErrorDiagnostic(error);
+      diagnose("helper_thread_error");
+      reject(new Error("helper_slot_worker_failed"));
+    });
+    worker.on("exit", code => {
       clearTimeout(timer);
+      if (!clean) diagnose("helper_thread_unclean_exit", code);
       if (!ready) reject(new Error("helper_slot_start_failed"));
       finish(clean);
     });

@@ -19,6 +19,7 @@ import {
   type TmallProductMasterStageResult,
 } from "./tmall-product-master-export";
 import { assertTmallDirectMasterStore } from "./tmall-yijiu-direct-pm-contract";
+import { reportIsolatedHelperPhase } from "./tmall-isolated-helper";
 
 export const TMALL_MTOP_URL = "https://h5api.m.taobao.com/h5/mtop.tmall.sell.pc.manage.async/1.0/";
 export const TMALL_MTOP_API = "mtop.tmall.sell.pc.manage.async";
@@ -414,12 +415,16 @@ class TmallMtopClient {
 }
 
 async function captureListTemplate(page: Page, store: TmallStore) {
+  reportIsolatedHelperPhase("master_template_capture");
   const requestPromise = page.waitForRequest((request) => parseTmallMtopListRequest({
     url: request.url(),
     postData: request.postData(),
   }) !== null, { timeout: 60_000 });
+  reportIsolatedHelperPhase("master_template_navigation");
   await page.goto(TMALL_SELLER_ON_SALE_URL, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  reportIsolatedHelperPhase("master_template_identity");
   await ensureTmallSellerSession(page, store);
+  reportIsolatedHelperPhase("master_template_wait");
   const request = await requestPromise;
   const template = parseTmallMtopListRequest({ url: request.url(), postData: request.postData() });
   if (!template) throw new Error("未捕获千牛出售中页面的 MTOP 列表请求模板");
@@ -636,6 +641,7 @@ export async function runTmallDirectProductMasterStage(options: {
   snapshotDate?: string;
   auditDirectory?: string;
 }): Promise<TmallProductMasterStageResult> {
+  reportIsolatedHelperPhase("master_start");
   const store = await getTmallStore(options.storeKey);
   assertTmallDirectMasterStore(store.storeKey);
   const baseUrl = normalizeLocalBaseUrl(options.baseUrl ?? process.env.OPERATIONS_SYSTEM_URL ?? "http://localhost:3000");
@@ -663,8 +669,12 @@ export async function runTmallDirectProductMasterStage(options: {
   };
   if (audit.baseUrl !== baseUrl) throw new Error("天猫 MTOP 货品活动清单的运营系统地址不一致");
   await persistAudit(audit, auditDirectory);
+  reportIsolatedHelperPhase("master_audit_saved");
+  reportIsolatedHelperPhase("master_authentication");
   await ensureTmallStoreAuthenticatedSession(store.storeKey);
+  reportIsolatedHelperPhase("master_browser_connect");
   const browser = await connectPlaywrightBrowser(store.browser.debugPort);
+  reportIsolatedHelperPhase("master_browser_connected");
   try {
     const context = browser.contexts()[0];
     if (!context) throw new Error(`${store.shopName} 独立 Chromium 没有可用上下文`);
@@ -673,7 +683,9 @@ export async function runTmallDirectProductMasterStage(options: {
     page.setDefaultTimeout(15_000);
     const template = await captureListTemplate(page, store);
     const client = new TmallMtopClient(context);
+    reportIsolatedHelperPhase("master_list_read");
     const listed = await listAllItems(client, template);
+    reportIsolatedHelperPhase("master_list_ready");
     const batches = makeTmallDirectProductBatches(listed.items);
     const templateDigest = digest(template);
     const itemDigest = digest(batches.map((batch) => batch.itemDigest));
