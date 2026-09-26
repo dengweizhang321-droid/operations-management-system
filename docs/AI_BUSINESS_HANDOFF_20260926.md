@@ -19,6 +19,8 @@
 - 正式目录发布增加默认关闭的 0067–0072 源码栅栏：`PrepareApp` 创建 staging 前、`DeployApp` 替换安装树前、普通账号 `migrate` 前均拒绝，隔离合成目录不受影响。PowerShell 动态探针与 Django 生命周期 38 项通过；发布编排须先成功 `PrepareApp` 再停服。此栅栏不等于受保护迁移/备份恢复已可采用。
 - 隔离受保护迁移脚本现复验每步精确前缀，并在 0068 角色预置/收据两处模拟中断后换新连接恢复；伪造后续收据和临时私钥角色成员关系均拒绝，6 步及普通账号拒权仍通过。证据已独立复制并核对到 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-6d8e94e3939d-migration-resume\business-protected-migration-role-evidence.json`；源集群已停，正式 installer/backup 仍未启用。
 - 新增默认关闭的三期关键词×明确推广 SKU owning 候选，只从同一 sealed-v2 报告完整重放本期/可用基期，保留缺源/null/身份不足并拒绝双遍本期漂移；纯测试 5 项、隔离 PG 1 项通过。它不接旧 13 表/正式 renderer，也受旧 v2 容量限制。市场 v6 同报告工具结果纯合同核计划、角色/job、调用身份及回放结果，纯测试与上述合计 10 项通过；提供的回放回调不是独立受保护根，已读、数值引用及发布仍 false。
+- 财报店铺映射只读诊断候选在已发布月上列出精确财报范围/组，标记同名跨组、可能先期合并及缺月，始终不提供稳定网店身份或映射证明；纯 6 项/隔离 PG 2 项通过。实际两店财报原始列及一对一身份仍须业务核对，不能把文本同名或年度目标别名直接给 v4 signer。
+- 市场 v6 工具观察在隔离真实角色下双遍读取已封存市场来源并核同任务候选身份，`summary`/`page` PG 2 项通过，零模型/远程调用和 Agent 派发表变化；观察标识未持久化，不能称五 Agent 已读、数值引用或付费派发。见 `docs/AI_BUSINESS_MARKET_V6_TOOL_OBSERVATION.md`。
 
 ## 尚未达到五阶段终验的条件
 
