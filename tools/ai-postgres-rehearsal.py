@@ -86,10 +86,24 @@ parser.add_argument("--protected-archive-layout",
                     help="Test only: explicit 0073 cross-cluster archive layout")
 parser.add_argument("--business-protected-migration-role-rehearsal", action="store_true",
                     help="Test only: probe 0067-0072 with a real synthetic non-superuser migration login")
+parser.add_argument("--business-protected-installer-focus", action="store_true",
+                    help="Test only: forward 0066 and current finance 0005, then isolated seven-step installer")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_protected_installer_focus and (
+        arguments.tests_only or arguments.test_label or arguments.upgrade_only
+        or arguments.business_protected_migration_role_rehearsal
+        or arguments.business_protected_cross_cluster_restore
+        or arguments.business_protected_cross_cluster_restore_0073):
+    parser.error("focused protected installer is a standalone test-only run")
+if arguments.business_protected_installer_focus and any(
+        getattr(arguments, name) for name in vars(arguments)
+        if name.endswith("_upgrade") or name in (
+            "all_backend_tests", "preprovision_ai_runtime_roles",
+            "source_revision_guards_upgrade")):
+    parser.error("focused installer cannot combine another migration rehearsal")
 if (arguments.protected_archive_layout == "stream-v1"
         and not arguments.business_protected_cross_cluster_restore_0073):
     parser.error("stream-v1 requires the explicit 0073 cross-cluster rehearsal")
@@ -389,6 +403,14 @@ try:
         ),
         flush=True,
     )
+    if arguments.business_protected_installer_focus:
+        focused = run([sys.executable, ROOT / "tools" /
+            "protected-ai-installer-focus-rehearsal.py", "--run-root", RUN],
+            timeout=900, env=django_env)
+        (RUN / "protected-installer-focus.json").write_text(
+            focused, encoding="utf-8")
+        print(focused.strip(), flush=True)
+        sys.exit(0)  # finally stops only this synthetic PostgreSQL cluster.
     if arguments.generation_upgrade:
         upgrade = run([sys.executable, ROOT / "tools/ai-generation-upgrade-rehearsal.py"], env=django_env)
         (RUN / "generation-upgrade.json").write_text(upgrade, encoding="utf-8")
