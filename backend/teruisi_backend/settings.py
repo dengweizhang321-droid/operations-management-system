@@ -437,6 +437,9 @@ DJANGO_MAX_BODY_BYTES = env_int(
     0,
     134_217_728,
 )
+FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED = env_bool(
+    "TERUISI_FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED", False
+)
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

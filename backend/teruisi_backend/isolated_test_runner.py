@@ -4,8 +4,9 @@ The protected ticket tables intentionally have no Django model. Django's
 normal flush lists only managed model tables, so their foreign keys require
 TRUNCATE CASCADE in the isolated rehearsal database. Production connections
 never select this runner. finance.0005's ORM sidecar instead has an unconditional
-TRUNCATE guard; only this exact test database temporarily disables that one
-event inside a rollback-safe flush transaction and verifies it is re-enabled.
+TRUNCATE guard; finance.0006 adds three more. Only this exact test database
+temporarily disables their TRUNCATE events inside one rollback-safe flush
+transaction and verifies every event is re-enabled.
 """
 from __future__ import annotations
 
@@ -32,15 +33,21 @@ FINANCE_DIGEST_TABLES = (
     "finance_raw_column_evidence_cells",
 )
 FINANCE_TRUNCATE_GUARD = "fin_raw_evidence_immutable_truncate"
+FINANCE_WORKBOOK_TABLES = (
+    "finance_raw_workbook_attestations",
+    "finance_raw_workbook_columns",
+    "finance_raw_workbook_cells",
+)
+FINANCE_WORKBOOK_TRUNCATE_GUARD = "fin_workbook_no_truncate"
 
 
-def _finance_truncate_guard_state(connection):
+def _finance_truncate_guard_state(connection, targets):
     states = []
     with connection.cursor() as cursor:
-        for table in FINANCE_DIGEST_TABLES:
+        for table, guard in targets:
             cursor.execute("SELECT t.tgenabled FROM pg_catalog.pg_trigger t "
                 "WHERE t.tgrelid=%s::regclass AND t.tgname=%s",
-                ["public." + table, FINANCE_TRUNCATE_GUARD])
+                ["public." + table, guard])
             states.append(cursor.fetchone())
     return tuple(states)
 
@@ -78,28 +85,39 @@ class IsolatedPostgresTestRunner(DiscoverRunner):
 
             def isolated_execute_sql_flush(sql_list, *, _original=original_execute,
                                            _connection=connection):
+                present = set(_connection.introspection.table_names())
                 if not sql_list or not set(FINANCE_DIGEST_TABLES).issubset(
-                        _connection.introspection.table_names()):
+                        present):
                     return _original(sql_list)
+                workbook_present = set(FINANCE_WORKBOOK_TABLES).intersection(
+                    present)
+                if workbook_present and workbook_present != set(
+                        FINANCE_WORKBOOK_TABLES):
+                    raise RuntimeError("finance.0006 test flush table inventory drift")
+                targets = tuple((table, FINANCE_TRUNCATE_GUARD)
+                    for table in FINANCE_DIGEST_TABLES) + tuple(
+                    (table, FINANCE_WORKBOOK_TRUNCATE_GUARD)
+                    for table in FINANCE_WORKBOOK_TABLES
+                    if table in workbook_present)
                 # This test database's superuser must clean ORM tables between
                 # TransactionTestCase methods. The finance production trigger
                 # remains unconditional; disable only its TRUNCATE event inside
                 # a rollback-safe transaction around this exact test flush.
                 with transaction.atomic(using=_connection.alias):
-                    if _finance_truncate_guard_state(_connection) != (
-                            ("O",),) * len(FINANCE_DIGEST_TABLES):
+                    if _finance_truncate_guard_state(_connection,
+                            targets) != (("O",),) * len(targets):
                         raise RuntimeError("finance test flush guard drift")
                     with _connection.cursor() as cursor:
-                        for table in FINANCE_DIGEST_TABLES:
+                        for table, guard in targets:
                             cursor.execute("ALTER TABLE public." + table +
-                                " DISABLE TRIGGER " + FINANCE_TRUNCATE_GUARD)
+                                " DISABLE TRIGGER " + guard)
                     _original(sql_list)
                     with _connection.cursor() as cursor:
-                        for table in FINANCE_DIGEST_TABLES:
+                        for table, guard in targets:
                             cursor.execute("ALTER TABLE public." + table +
-                                " ENABLE TRIGGER " + FINANCE_TRUNCATE_GUARD)
-                    if _finance_truncate_guard_state(_connection) != (
-                            ("O",),) * len(FINANCE_DIGEST_TABLES):
+                                " ENABLE TRIGGER " + guard)
+                    if _finance_truncate_guard_state(_connection,
+                            targets) != (("O",),) * len(targets):
                         raise RuntimeError("finance test flush guard not restored")
 
             operations.execute_sql_flush = isolated_execute_sql_flush

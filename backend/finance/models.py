@@ -165,6 +165,97 @@ class FinanceRawEvidenceCell(models.Model):
             name="fin_raw_cell_uq")]
 
 
+class FinanceRawWorkbookAttestation(models.Model):
+    """Append-only backend byte observation for one current 0005 month."""
+    id = models.CharField(primary_key=True, max_length=64)
+    evidence = models.OneToOneField(FinanceRawEvidenceMonth,
+        on_delete=models.PROTECT, db_column="evidence_id")
+    month = models.CharField(max_length=7)
+    batch = models.ForeignKey(FinanceImportBatch, on_delete=models.PROTECT,
+        db_column="batch_id")
+    finance_revision = models.BigIntegerField()
+    finance_source_digest = models.CharField(max_length=64)
+    batch_content_hash = models.CharField(max_length=64)
+    batch_published_state_token = models.CharField(max_length=64)
+    raw_file_sha256 = models.CharField(max_length=64)
+    source_sheet_count = models.PositiveIntegerField()
+    sheet_manifest_digest = models.CharField(max_length=64)
+    parser_contract_digest = models.CharField(max_length=64)
+    column_chain_digest = models.CharField(max_length=64)
+    cell_chain_digest = models.CharField(max_length=64)
+    column_count = models.PositiveIntegerField()
+    cell_count = models.PositiveIntegerField()
+    cross_group_same_name_risk = models.BooleanField(default=False)
+    raw_workbook_bytes_observed = models.BooleanField(default=True)
+    raw_workbook_bytes_retained = models.BooleanField(default=False)
+    stable_netshop_shop_identity_verified = models.BooleanField(default=False)
+    mapping_authority_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "finance_raw_workbook_attestations"
+        constraints = [
+            models.UniqueConstraint(fields=["month", "batch"],
+                name="fin_workbook_month_batch_uq"),
+            models.CheckConstraint(condition=models.Q(raw_workbook_bytes_observed=True),
+                name="fin_workbook_bytes_observed"),
+            models.CheckConstraint(condition=models.Q(raw_workbook_bytes_retained=False),
+                name="fin_workbook_bytes_not_retained"),
+            models.CheckConstraint(condition=models.Q(stable_netshop_shop_identity_verified=False),
+                name="fin_workbook_shop_unverified"),
+            models.CheckConstraint(condition=models.Q(mapping_authority_verified=False),
+                name="fin_workbook_mapping_unverified"),
+        ]
+
+
+class FinanceRawWorkbookColumn(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    attestation = models.ForeignKey(FinanceRawWorkbookAttestation,
+        on_delete=models.PROTECT, db_column="attestation_id")
+    evidence_column = models.OneToOneField(FinanceRawEvidenceColumn,
+        on_delete=models.PROTECT, db_column="evidence_column_id")
+    column_index = models.PositiveIntegerField()
+    scope_key = models.CharField(max_length=2000)
+    scope_type = models.CharField(max_length=16)
+    scope_name = models.CharField(max_length=1000)
+    group_name = models.CharField(max_length=1000)
+    header_digest = models.CharField(max_length=64)
+    source_column_digest = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = "finance_raw_workbook_columns"
+        constraints = [models.UniqueConstraint(
+            fields=["attestation", "column_index"],
+            name="fin_workbook_column_uq")]
+
+
+class FinanceRawWorkbookCell(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    attestation = models.ForeignKey(FinanceRawWorkbookAttestation,
+        on_delete=models.PROTECT, db_column="attestation_id")
+    column = models.ForeignKey(FinanceRawWorkbookColumn,
+        on_delete=models.PROTECT, db_column="column_id")
+    evidence_cell = models.OneToOneField(FinanceRawEvidenceCell,
+        on_delete=models.PROTECT, db_column="evidence_cell_id")
+    section = models.CharField(max_length=32)
+    row_index = models.PositiveIntegerField()
+    column_index = models.PositiveIntegerField()
+    subject_name = models.CharField(max_length=2000)
+    metric_key = models.CharField(max_length=500)
+    value_type = models.CharField(max_length=16)
+    amount_cents = models.BigIntegerField(null=True)
+    rate_bps = models.BigIntegerField(null=True)
+    raw_value_digest = models.CharField(max_length=64)
+    source_cell_digest = models.CharField(max_length=64)
+    is_total = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "finance_raw_workbook_cells"
+        constraints = [models.UniqueConstraint(
+            fields=["attestation", "section", "row_index", "column_index"],
+            name="fin_workbook_cell_uq")]
+
+
 class FinanceTarget(models.Model):
     id = models.CharField(primary_key=True, max_length=128)
     period_type = models.CharField(max_length=16)

@@ -21,6 +21,22 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
+test("finance.0006 source, receipt and all physical tables stay behind formal gates", async () => {
+  const [service, operator, backup] = await Promise.all([
+    readFile(servicePath, "utf8"),
+    readFile(operatorPath, "utf8"),
+    readFile(helperPath, "utf8"),
+  ]);
+  assert.match(service, /0006_raw_workbook_bytes_v2\.py/);
+  assert.match(operator, /0006_raw_workbook_bytes_v2/);
+  for (const table of ["finance_raw_workbook_attestations",
+    "finance_raw_workbook_columns", "finance_raw_workbook_cells"]) {
+    assert.match(operator, new RegExp(table));
+    assert.match(backup, new RegExp(table));
+  }
+  assert.match(backup, /finance raw workbook daily backup is not admitted/);
+});
+
 test("0075 source and receipt cannot enter formal app or restore", async () => {
   const [service, operator, helper, audit] = await Promise.all([
     readFile(servicePath, "utf8"),

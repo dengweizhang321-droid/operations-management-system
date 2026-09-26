@@ -1651,6 +1651,10 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   if (Test-Path -LiteralPath $financeRawMigration -PathType Leaf) {
     throw "$Operation refuses finance raw evidence v2 migration release until its independent backup/restore contract is verified"
   }
+  $financeBytesMigration = Join-Path $CandidateBackendRoot 'finance\migrations\0006_raw_workbook_bytes_v2.py'
+  if (Test-Path -LiteralPath $financeBytesMigration -PathType Leaf) {
+    throw "$Operation refuses finance raw workbook bytes v2 migration release until its independent backup/restore contract is verified"
+  }
 }
 
 function Prepare-Application {

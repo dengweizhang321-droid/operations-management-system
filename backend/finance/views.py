@@ -5,6 +5,7 @@ import json
 import logging
 from collections.abc import Callable
 
+from django.conf import settings
 from django.db import connection, transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
@@ -19,6 +20,7 @@ from .import_service import import_finance_payload, list_import_batches
 from .models import FinanceDataRevision, FinanceWriteRequestReceipt
 from .annual_progress import annual_progress, validate_year
 from . import business_evidence_page as evidence_page
+from . import raw_workbook_attestation_v2 as workbook_attestation
 from .target_service import delete_target, import_annual_targets, list_targets, target_options, upsert_target
 from business_analysis.contracts import canonical
 
@@ -217,6 +219,44 @@ def imports(request: HttpRequest) -> JsonResponse:
         return _replay_fenced_write(request, principal, execute)
     except Exception as error:
         return _error(error, "月度财报导入失败。", import_shape=request.method == "POST")
+
+
+@require_POST
+def raw_workbook_attest(request: HttpRequest) -> JsonResponse:
+    """Unregistered-by-default signed binary follow-up; never imports v1."""
+    if not settings.FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED:
+        return _json({"error": "原始财报字节验真未启用",
+            "code": "not_found"}, 404)
+    try:
+        length_text = request.META.get("CONTENT_LENGTH", "")
+        if (not length_text.isdecimal() or not 1 <= int(length_text)
+                <= 8 * 1024 * 1024):
+            raise FinanceApiError("原始XLSX长度无效或超过8MiB",
+                status=413, code="payload_too_large")
+        if request.content_type != "application/octet-stream":
+            raise FinanceApiError("仅接受受签名保护的原始XLSX字节",
+                status=415, code="unsupported_media_type")
+        principal = _principal(request, {"admin"})
+        raw = request.body
+        if len(raw) != int(length_text):
+            raise FinanceApiError("原始XLSX长度与请求头不一致",
+                status=422, code="invalid_finance_workbook_bytes")
+        month = request.GET.get("month", "")
+        batch_id = request.GET.get("batchId", "")
+        if (len(request.GET) != 2 or any(len(request.GET.getlist(key)) != 1
+                for key in ("month", "batchId"))):
+            raise FinanceApiError("验真目标月份和批次必须唯一",
+                status=422, code="invalid_finance_workbook_target")
+
+        def execute() -> tuple[dict[str, object], int]:
+            result = workbook_attestation.stage(principal, raw, month,
+                batch_id, enabled=True)
+            return {"ok": True, **result}, 201 if not result[
+                "idempotentReplay"] else 200
+
+        return _replay_fenced_write(request, principal, execute)
+    except Exception as error:
+        return _error(error, "财报原始字节验真失败。")
 
 
 @require_GET

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import * as XLSX from "xlsx";
 import { prepareNormalizedFinanceImport,
@@ -8,6 +9,21 @@ import { parseFinanceWorkbook,
   parseFinanceWorkbookWithColumnEvidence } from "../lib/finance/parser";
 
 const LEGACY_V1_JSON_SHA256 = "09fe2a0ce8e1e56138bbb9fb618f7ee65c287d664f3f7cd13654267d8841db36";
+const RAW_BYTES_GOLDEN = new URL("../backend/finance/tests/fixtures/raw_bytes_v2_cross_group.xlsx", import.meta.url);
+
+test("backend and SheetJS replay one fixed cross-group source with identical v2 digests", async () => {
+  const bytes = new Uint8Array(readFileSync(RAW_BYTES_GOLDEN));
+  assert.equal(createHash("sha256").update(bytes).digest("hex"),
+    "098c31d5f64b19347baea3b33b5daa059cc7cd7aadfde8466170943a87680f54");
+  const candidate = await prepareNormalizedFinanceImportV2Candidate({ bytes,
+    fileName: "synthetic.xlsx", fileSizeBytes: bytes.length });
+  assert.equal(candidate.disposition, "candidate_only");
+  if (candidate.disposition !== "candidate_only") return;
+  assert.equal(candidate.candidateDigest,
+    "673f6e3ff8f91cd3a9d79b4dd034569f638f00571faf8f1d7835fb96c07ae58a");
+  assert.equal(candidate.columnEvidence[0].evidenceDigest,
+    "0b9f6f0021cad6b680c743995b0db96fbd1e769971cc3b729be8a731378f681d");
+});
 
 function workbookBytes() {
   const workbook = XLSX.utils.book_new();

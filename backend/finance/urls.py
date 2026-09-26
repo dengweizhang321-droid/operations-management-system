@@ -14,12 +14,16 @@ read_patterns = [
 ]
 write_patterns = [
     path("imports", require_POST(views.imports), name="finance-imports"),
+    path("imports/raw-attest", require_POST(views.raw_workbook_attest),
+         name="finance-raw-workbook-attest"),
     path("targets/import", require_POST(views.target_import), name="finance-target-import"),
     path("targets", require_http_methods(["POST", "DELETE"])(views.targets), name="finance-targets"),
 ]
 development_patterns = [
     path("analysis", views.analysis, name="finance-analysis"),
     path("imports", views.imports, name="finance-imports"),
+    path("imports/raw-attest", views.raw_workbook_attest,
+         name="finance-raw-workbook-attest"),
     path("targets/import", views.target_import, name="finance-target-import"),
     path("targets", views.targets, name="finance-targets"),
     path("consumers/query", views.consumer_query, name="finance-consumer-query"),
