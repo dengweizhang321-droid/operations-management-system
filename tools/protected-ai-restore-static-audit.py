@@ -26,6 +26,8 @@ PROTECTED_ROLES = {
     "teruisi_ai_market_cap_proposer",
     "teruisi_ai_market_proposal_revoker",
     "teruisi_ai_budget_v11_attestor_v2_login",
+    "teruisi_ai_market_v6_topology_login",
+    "teruisi_ai_budget_v11_download_v2_login",
 }
 
 
@@ -129,6 +131,23 @@ def audit(root: Path = ROOT) -> dict[str, object]:
                 issues.append(source_name + " lacks exact 0077 protection")
         if '67|68|69|70|71|72|73|74|75|76|77' not in operator:
             issues.append("formal restore gate omits protected 0077 receipt")
+    publication_path=(root / "backend/ai_assistant/migrations/"
+        "0078_business_promotion_budget_v11_signed_publication.py")
+    if publication_path.is_file():
+        publication_source=publication_path.read_text(encoding="utf-8")
+        for source_name, source, marker in (
+            ("formal PrepareApp",installer,
+             "0078_business_promotion_budget_v11_signed_publication.py"),
+            ("backup inventory",helper,
+             "protected_business_budget_v11_publications_v2"),
+            ("backup migration receipt",helper,
+             "0078_business_promotion_budget_v11_signed_publication"),
+            ("0078 catalog verifier",publication_source,"def verify_catalog("),
+        ):
+            if marker not in source:
+                issues.append(source_name+" lacks exact 0078 protection")
+        if '67|68|69|70|71|72|73|74|75|76|77|78' not in operator:
+            issues.append("formal restore gate omits protected 0078 receipt")
 
     roles_block = re.search(r"\$MaintenanceRehearsalRoles\s*=\s*@\((.*?)\)", operator, re.S)
     actual_roles = set(re.findall(r'"(teruisi_[a-z0-9_]+)"', roles_block.group(1))) if roles_block else set()
