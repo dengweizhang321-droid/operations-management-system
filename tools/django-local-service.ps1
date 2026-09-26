@@ -1640,7 +1640,8 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
       '0071_business_v4_report_source_link.py',
       '0072_business_market_v2_authority_proposals.py',
       '0073_business_promotion_budget_v11_login_attestation.py',
-      '0074_business_market_v2_human_cap_approval.py')) {
+      '0074_business_market_v2_human_cap_approval.py',
+      '0075_business_v4_report_restricted_page.py')) {
     if (Test-Path -LiteralPath (Join-Path $migrationRoot $name) -PathType Leaf) {
       throw "$Operation refuses protected AI migration release until the privileged installation and backup/restore gates are verified"
     }
