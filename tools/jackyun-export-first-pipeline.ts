@@ -11,7 +11,8 @@ import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCap
 import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
-import { assertClosedPreflight, preflightClosurePath } from "../lib/jackyun/preflight-recovery";
+import { assertClosedPreflight, preflightClosurePath, publishAutomatedCredentialClosure } from "../lib/jackyun/preflight-recovery";
+import { isRetryableJackyunCredentialPreparationFailure } from "../lib/jackyun/windows-dpapi";
 import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recovery";
 import { claimHttpScopeRecovery } from "../lib/jackyun/http-scope-recovery";
@@ -361,7 +362,9 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           delete currentPlan.exportIntent; await writeJsonAtomic(planPath, currentPlan);
         },
       };
-      const result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
+      let result: Awaited<ReturnType<typeof runApiExports>> | Awaited<ReturnType<typeof runController>>;
+      try {
+        result = plan.exportTransport === jackyunApiTransport ? await (deps.runApi ?? runApiExports)({
         runId, runDate: plan.runDate, asOfDate: plan.asOfDate, salesStartDate: plan.salesStartDate, eventRoot: paths(root).eventRoot, outputRoot: paths(root).outputRoot,
         downloadDirectory: policy.browser.downloadDirectory, resumeTaskBinding: apiResumeTaskBinding, ...callbacks,
       }) : await (deps.runBrowser ?? runController)({
@@ -386,7 +389,15 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           delete currentPlan.exportIntent;
           await writeJsonAtomic(planPath, currentPlan);
         },
-      });
+        });
+      } catch (error) {
+        if (plan.exportTransport !== jackyunApiTransport || !isRetryableJackyunCredentialPreparationFailure(error)) throw error;
+        // The browser/session has already unwound. While still holding the
+        // global run lock, prove that B created no export or import effects.
+        try { await publishAutomatedCredentialClosure(root, executionId, nowOf(deps)); }
+        catch { throw error; }
+        throw new Error("JACKYUN_PREFLIGHT_RETRY_READY");
+      }
       if (result.status !== "exported" || jackyunExportOrder.some(module => !plan!.exports[module])) throw new Error("网页五表导出未全部完成。");
       plan.phase = "exported";
     } else if (action.startsWith("export/")) {

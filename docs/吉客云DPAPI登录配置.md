@@ -38,6 +38,8 @@ npm run jackyun:authenticate
 
 后台凭据读取及浏览器进程核验通过显式 UTF-8 标准输入输出流通信，不依赖控制台句柄。不要恢复 `[Console]::InputEncoding/OutputEncoding` 设置：无控制台进程可能在读取凭据前报“句柄无效”，终端中的 `ready=true` 不能排除此类后台兼容性问题。Node 必须流式解码 UTF-8，防止中文或其他多字节字符在分块边界损坏。初始化、绑定和实际解密分别使用 `initialize`、`binding`、`read` 诊断阶段，原始凭据和 PowerShell 错误正文不透传。
 
+2026-09-26 已受控采用：将 `binding` 细分为输入读取、字段、路径、当前用户、路径完整性和文件查找阶段；缺少凭据文件和重解析路径单独标为不可重试。仅在尚未向登录表单填值时，针对 `binding_input`、`binding_identity`、`binding_local_path`、`binding_vault_lookup` 及旧 `binding` 做最多 3 次本地读取尝试，间隔 0.5/1 秒。解密/ACL、密码被平台拒绝、验证码、登录提交结果不明均不属于此重试。后台无控制台、标准流条件下的当前凭据 `status` 连续 10 次正常；历史午夜偶发故障尚未复现，细分诊断用于下次定位底层步骤，不能宣称已查明唯一根因。源码 `073d9619`，Worker/helper release `20260925T213040Z-e45b1332207bc4cf`；原 n8n 完整执行 4397 五表下载与导入成功，精确批次独立回查通过，销售截止 9 月 25 日。详见 [生产证据](evidence/jackyun-dpapi-retry-production-20260926.json)。
+
 2026-09-17 修复覆盖无控制台 DPAPI 状态/读取、中文及 emoji、浏览器进程归属、复制绑定、密文损坏和暴露 ACL。已按明确维护授权采用源码 `2db37150`，正式 Worker/helper 为 `20260916T194114Z-df8da4ea6ac81cf6`。原工作流新 execution `2667` 成功完成五表，独立批次与日期回查通过；详见 [生产采用记录](evidence/jackyun-headless-dpapi-production-20260917.json)。
 
 当天执行 `2621` 在登录初始化处停止，原计划没有导出意图，控制状态、事件、下载及演练目录均不存在。`tools/jackyun-preflight-recovery.ts plan 2621` 支持只读核验该精确失败的原始 execution 和计划摘要；`apply` 仍需复验并以 create-only 回执闭合，保留原计划、active 和失败历史。新的完整 n8n execution 才能推进 active 并按实际采集日执行。该例外不适用于其他 DPAPI 失败、存在任何业务产物或提交结果不明的运行，不放宽共享错误工作流的凭据类停止规则。

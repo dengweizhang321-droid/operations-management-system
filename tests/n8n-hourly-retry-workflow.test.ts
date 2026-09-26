@@ -112,6 +112,17 @@ test("retry classification permits transient failures and stops unsafe or human-
   });
 });
 
+test("only an exact verified Jackyun preflight closure reaches the hourly retry", () => {
+  const workflowId = hourlyRetryTargets[0]!.workflowId;
+  const payload = { workflow: { id: workflowId }, execution: { id: "8800", mode: "trigger", lastNodeExecuted: "B·接口校验与五表下载",
+    error: { message: "The service was not able to process your request", description: "JACKYUN_PREFLIGHT_RETRY_READY" } } };
+  assert.equal(classifyHourlyRetryFailure(payload).reason, "verified_preflight_retry");
+  assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, lastNodeExecuted: "A·固定采集日和销售日期" } }).retry, false);
+  assert.equal(classifyHourlyRetryFailure({ ...payload, workflow: { id: hourlyRetryTargets[1]!.workflowId } }).retry, false);
+  assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, message: "credential rejected" } } }).retry, false);
+  assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }).retry, false);
+});
+
 test("target attachment is deterministic and idempotent", () => {
   const workflow = {
     id: hourlyRetryTargets[0]!.workflowId,

@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { chromium } from "playwright-core";
 import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, jackyunBrowserIdentityProgram, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
-import { assertJackyunLoginConfig, invokeJackyunVault, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
+import { assertJackyunLoginConfig, invokeJackyunVault, readJackyunRuntimeCredential, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { jackyunDpapiProgram } from "../lib/jackyun/dpapi-program";
 
 const config: JackyunLoginConfig = { version: 1, loginMode: "windows_dpapi_credentials", tenantId: "771168",
@@ -69,6 +69,45 @@ test("DPAPI config and site binding reject invalid modes, ports and lookalike ho
     assert.equal(isJackyunLoginOrigin(url), false);
   }
   assert.ok(Buffer.from(jackyunDpapiProgram, "utf16le").toString("base64").length < 30000);
+});
+
+test("credential preparation retries only before browser use and stops after a bounded budget", async () => {
+  let calls = 0;
+  const delays: number[] = [];
+  const transient = new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（binding_input）。");
+  const invoke = (async () => {
+    calls++;
+    if (calls < 3) throw transient;
+    return JSON.stringify({ username: "fixture", password: "fixture-only" });
+  }) as typeof invokeJackyunVault;
+  assert.deepEqual(await readJackyunRuntimeCredential(config, { invoke, sleep: async ms => { delays.push(ms); } }),
+    { username: "fixture", password: "fixture-only" });
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [500, 1000]);
+  calls = 0;
+  await assert.rejects(readJackyunRuntimeCredential(config, {
+    invoke: (async () => { calls++; throw transient; }) as typeof invokeJackyunVault,
+    sleep: async () => {},
+  }), /binding_input/);
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(readJackyunRuntimeCredential(config, {
+    invoke: (async () => { calls++; throw new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（read）。"); }) as typeof invokeJackyunVault,
+    sleep: async () => {},
+  }), /（read）/);
+  assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(readJackyunRuntimeCredential(config, {
+    invoke: (async () => { calls++; throw new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（binding_fields）。"); }) as typeof invokeJackyunVault,
+    sleep: async () => {},
+  }), /binding_fields/);
+  assert.equal(calls, 1);
+  calls = 0;
+  await assert.rejects(readJackyunRuntimeCredential(config, {
+    invoke: (async () => { calls++; throw new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。"); }) as typeof invokeJackyunVault,
+    sleep: async () => {},
+  }), /（missing）/);
+  assert.equal(calls, 1);
 });
 
 test("browser process must match the Windows owner, executable, profile and exact unique port flags", () => {
