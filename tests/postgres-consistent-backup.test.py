@@ -385,6 +385,14 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_protected_0073_has_exact_table_role_and_migration_inventory(self):
+        name = "0073_business_promotion_budget_v11_login_attestation"
+        self.assertEqual(MODULE.PROTECTED_AI_TABLES_BY_MIGRATION[name],
+            {"protected_business_budget_v11_login_attestations"})
+        self.assertIn(name, MODULE.PROTECTED_AI_MIGRATIONS)
+        self.assertIn("teruisi_ai_budget_v11_attestor_v2_login",
+            MODULE.PROTECTED_AI_ROLES)
+
     def test_promotion_trial_renderer9_requires_0046_receipt_and_exact_file_gates(self):
         names = sorted(p.stem for p in (ROOT / "backend/ai_assistant/migrations").glob("*.py")
                        if p.stem[:4].isdigit() and int(p.stem[:4]) <= 46)
@@ -988,7 +996,7 @@ class ConsistentBackupTests(unittest.TestCase):
         cursor = Cursor(can_read=False)
         result = MODULE._protected_ai_preflight(cursor)
         self.assertIn("backup_identity_cannot_read_private_key_table", result["issues"])
-        self.assertEqual(result["exactProtectedRoleCount"], 12)
+        self.assertEqual(result["exactProtectedRoleCount"], 13)
 
     def test_explicit_protected_preflight_uses_read_only_bound_identity(self):
         connection = mock.MagicMock()

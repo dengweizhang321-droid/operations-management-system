@@ -21,6 +21,17 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
+test("protected 0073 stays behind the formal restore and backup preflight", async () => {
+  const [operator, helper] = await Promise.all([
+    readFile(operatorPath, "utf8"), readFile(helperPath, "utf8"),
+  ]);
+  assert.match(operator, /67\|68\|69\|70\|71\|72\|73/);
+  assert.match(operator, /Assert-MaintenanceProtectedArchiveUnsupported/);
+  assert.match(helper, /0073_business_promotion_budget_v11_login_attestation/);
+  assert.match(helper, /protected_business_budget_v11_login_attestations/);
+  assert.match(helper, /teruisi_ai_budget_v11_attestor_v2_login/);
+});
+
 test("finance.0003 marker guards are migration-gated in backup and readiness", async () => {
   const [backup, health, datasetManifest] = await Promise.all([
     readFile(helperPath, "utf8"),

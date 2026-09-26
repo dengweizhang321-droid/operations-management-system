@@ -25,6 +25,7 @@ PROTECTED_ROLES = {
     "teruisi_ai_market_rate_proposer",
     "teruisi_ai_market_cap_proposer",
     "teruisi_ai_market_proposal_revoker",
+    "teruisi_ai_budget_v11_attestor_v2_login",
 }
 
 
@@ -34,6 +35,32 @@ def audit(root: Path = ROOT) -> dict[str, object]:
     migration = (root / "backend/ai_assistant/migrations/0068_business_promotion_budget_v11_verifier_receipt.py").read_text(encoding="utf-8")
     installer = (root / "tools/django-local-service.ps1").read_text(encoding="utf-8")
     issues: list[str] = []
+    login_attestation_path = (root / "backend/ai_assistant/migrations/"
+        "0073_business_promotion_budget_v11_login_attestation.py")
+    if login_attestation_path.is_file():
+        login_attestation = login_attestation_path.read_text(encoding="utf-8")
+        login_sql_path = (root / "backend/ai_assistant/"
+            "business_promotion_budget_v11_login_attestation_sql.py")
+        login_sql = (login_sql_path.read_text(encoding="utf-8")
+            if login_sql_path.is_file() else "")
+        for source_name, source, marker in (
+            ("formal PrepareApp", installer,
+             "0073_business_promotion_budget_v11_login_attestation.py"),
+            ("backup inventory", helper,
+             "protected_business_budget_v11_login_attestations"),
+            ("backup migration receipt", helper,
+             "0073_business_promotion_budget_v11_login_attestation"),
+            ("0073 catalog verifier", login_attestation,
+             "def verify_catalog("),
+            ("0073 protected table", login_attestation,
+             "protected_business_budget_v11_login_attestations"),
+            ("0073 protected role", login_attestation + login_sql,
+             "teruisi_ai_budget_v11_attestor_v2_login"),
+        ):
+            if marker not in source:
+                issues.append(source_name + " lacks exact 0073 protection")
+        if '67|68|69|70|71|72|73' not in operator:
+            issues.append("formal restore gate omits protected 0073 receipt")
 
     roles_block = re.search(r"\$MaintenanceRehearsalRoles\s*=\s*@\((.*?)\)", operator, re.S)
     actual_roles = set(re.findall(r'"(teruisi_[a-z0-9_]+)"', roles_block.group(1))) if roles_block else set()

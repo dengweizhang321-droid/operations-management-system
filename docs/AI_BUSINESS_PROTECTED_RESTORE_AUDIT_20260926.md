@@ -1,6 +1,10 @@
-# 0068–0072 受保护 SQL 侧表的正式备份与异集群恢复阻断审查
+# 0068–0073 受保护 SQL 侧表的正式备份与异集群恢复阻断审查
 
 状态：**阻断生产采用**。本审查只读源码，没有连接正式数据库、运行迁移、备份或恢复。`tools/protected-ai-restore-static-audit.py` 是保守静态探针：当前返回 `status=blocked`、退出码 2；将来返回 0 也只表示已知源码阻断消失，仍须真实隔离异集群演练。
+
+0073 候选 `0073_business_promotion_budget_v11_login_attestation` 新增 SQL-only `protected_business_budget_v11_login_attestations` 和初始 NOLOGIN `teruisi_ai_budget_v11_attestor_v2_login`。正式 PrepareApp/DeployApp/普通 migrate 以及备份和恢复继续提前拒绝；正式备份的精确迁移→表清单、角色预检和 `verify_catalog` 只扩大识别范围，不授权读取、签名、发布或恢复。下文 12 角色/8 表的旧隔离证据仅覆盖 0072 及以前，不能当成 0073 的 13 角色/9 表演练。旧迁移未应用的历史备份判定仍按其当时的迁移与物理表清单，不因本候选增加而补造新表。
+
+后续隔离 0073 第二新集群演练已补齐 13 角色/9 表目录：owner/ACL、旧私钥 1 行与空新证明表保持；新表 owner 和函数授权故意漂移均拒绝，v2 分块密文六类损坏输入拒绝且无明文 dump，源/目标停机。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-3867919323eb-protected-v2-0073\evidence.json`，SHA-256 `cc18231f0ae924a8eee14a399fcc407582c353fd5100666d74627ed02166e5b6`。仅使用进程内随机测试密钥与合成超级用户，不能代替正式密钥托管、特权备份身份及非空证明行的可恢复性。
 
 ## 现有路径与确定缺口
 

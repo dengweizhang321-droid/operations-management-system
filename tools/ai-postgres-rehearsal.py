@@ -75,19 +75,33 @@ parser.add_argument("--business-market-v2-paid-round-upgrade", action="store_tru
 parser.add_argument("--business-promotion-budget-v11-identity-upgrade", action="store_true")
 parser.add_argument("--business-v4-report-link-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-authority-upgrade", action="store_true")
+parser.add_argument("--business-v11-login-attestation-upgrade", action="store_true",
+                    help="Test only: 0072->0073 isolated LOGIN sidecar upgrade and rollback")
 parser.add_argument("--business-protected-cross-cluster-restore", action="store_true",
                     help="Test only: follow 0072 with a second fresh cluster and preserve protected owners/ACL")
+parser.add_argument("--business-protected-cross-cluster-restore-0073", action="store_true",
+                    help="Test only: follow 0073 with a second fresh encrypted cluster; old 0072 path unchanged")
 parser.add_argument("--business-protected-migration-role-rehearsal", action="store_true",
                     help="Test only: probe 0067-0072 with a real synthetic non-superuser migration login")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_protected_cross_cluster_restore_0073:
+    if (arguments.business_protected_cross_cluster_restore
+            or arguments.business_protected_migration_role_rehearsal
+            or arguments.tests_only):
+        parser.error("Choose one protected 0073 cross-cluster rehearsal")
+    arguments.business_v11_login_attestation_upgrade = True
 if arguments.business_protected_migration_role_rehearsal:
     if arguments.business_protected_cross_cluster_restore:
         parser.error("Choose only one protected rehearsal")
     arguments.business_promotion_budget_v11_stage_upgrade = True
 if arguments.business_protected_cross_cluster_restore:
+    arguments.business_market_v2_authority_upgrade = True
+if arguments.business_v11_login_attestation_upgrade:
+    if arguments.business_protected_cross_cluster_restore:
+        parser.error("Choose only one protected rehearsal")
     arguments.business_market_v2_authority_upgrade = True
 if arguments.preprovision_ai_runtime_roles and (
         not arguments.tests_only or arguments.upgrade_only):
@@ -357,6 +371,7 @@ try:
         "DJANGO_SETTINGS_MODULE": "teruisi_backend.settings",
         "PYTHONUTF8": "1",
         "TERUISI_AI_REHEARSAL_PORT": str(PORT),
+        "TERUISI_AI_REHEARSAL_RUN_ROOT": str(RUN),
     }
     print(
         json.dumps(
@@ -640,6 +655,9 @@ try:
         if arguments.business_market_v2_authority_upgrade:
             rehearsals += (("business-market-v2-authority-upgrade-rehearsal.py",
                 "business-market-v2-authority-upgrade.json"),)
+        if arguments.business_v11_login_attestation_upgrade:
+            rehearsals += (("business-v11-login-attestation-upgrade-rehearsal.py",
+                "business-v11-login-attestation-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")
@@ -649,6 +667,14 @@ try:
                 "business-protected-cross-cluster-restore-rehearsal.py",
                 "--run-root", RUN], timeout=600, env=django_env)
             (RUN / "business-protected-cross-cluster-restore.json").write_text(
+                restored, encoding="utf-8")
+            print(restored.strip(), flush=True)
+        if arguments.business_protected_cross_cluster_restore_0073:
+            restored = run([sys.executable, ROOT / "tools" /
+                "business-protected-cross-cluster-restore-rehearsal.py",
+                "--run-root", RUN, "--generation", "0073"], timeout=600,
+                env=django_env)
+            (RUN / "business-protected-cross-cluster-restore-0073.json").write_text(
                 restored, encoding="utf-8")
             print(restored.strip(), flush=True)
         if arguments.business_protected_migration_role_rehearsal:

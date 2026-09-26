@@ -80,6 +80,7 @@ test("protected AI migrations are rejected before formal preparation and before 
   );
   assert.match(gate, /0070_business_promotion_budget_v11_limited_identity\.py/);
   assert.match(gate, /0072_business_market_v2_authority_proposals\.py/);
+  assert.match(gate, /0073_business_promotion_budget_v11_login_attestation\.py/);
   assert.match(gate, /D:\\teruisi-runtime\\django-sales/);
 
   const prepare = script.slice(

@@ -30,13 +30,19 @@ from protected_ai_archive_v2 import (
     CHUNK_BYTES, MAGIC, MAX_PLAINTEXT_BYTES, TAG_BYTES, open_archive,
     seal_archive,
 )
+from protected_ai_cross_cluster_generation import (
+    LOGIN_ROLE, LOGIN_TABLE, contract, seed_matches,
+)
 
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
-folder = parser.parse_args().run_root.resolve()
+parser.add_argument("--generation", choices=("0072", "0073"), default="0072")
+options = parser.parse_args()
+folder = options.run_root.resolve()
+generation = contract(options.generation)
 database = settings.DATABASES["default"]
-seed_path = folder / "business-market-v2-authority-upgrade-evidence.json"
+seed_path = folder / generation.seed_file
 seed = json.loads(seed_path.read_text(encoding="utf-8")) if seed_path.is_file() else {}
 if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
         or folder.parent != (ROOT / ".runtime").resolve()
@@ -46,33 +52,13 @@ if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
         or database["USER"] != "ai_rehearsal_admin"
         or str(database["PORT"]) != os.getenv("TERUISI_AI_REHEARSAL_PORT")
         or not 55440 <= int(database["PORT"]) <= 55999
-        or seed.get("upgrade") != "0071->0072"
-        or seed.get("afterBackupRestored") is not True
-        or seed.get("emptyReverseAndReapply") is not True):
-    raise RuntimeError("cross-cluster restore requires exact isolated 0072 seed")
+        or not seed_matches(seed, generation)):
+    raise RuntimeError("cross-cluster restore requires exact isolated "
+        + generation.name + " seed")
 
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
-PROTECTED_ROLES = {
-    "teruisi_ai_budget_v11_attestor",
-    "teruisi_ai_budget_v11_key_owner",
-    "teruisi_ai_budget_v11_publisher",
-    "teruisi_ai_market_paid_adopter",
-    "teruisi_ai_market_paid_reserver",
-    "teruisi_ai_market_paid_starter",
-    "teruisi_ai_budget_v11_attest_login",
-    "teruisi_ai_budget_v11_sign_login",
-    "teruisi_ai_budget_v11_publish_login",
-    "teruisi_ai_market_rate_proposer",
-    "teruisi_ai_market_cap_proposer",
-    "teruisi_ai_market_proposal_revoker",
-}
-MIGRATIONS = (
-    "0068_business_promotion_budget_v11_verifier_receipt",
-    "0069_business_market_v2_paid_round_rehearsal",
-    "0070_business_promotion_budget_v11_limited_identity",
-    "0071_business_v4_report_source_link",
-    "0072_business_market_v2_authority_proposals",
-)
+PROTECTED_ROLES = set(generation.roles)
+MIGRATIONS = generation.migrations
 modules = [importlib.import_module("ai_assistant.migrations." + name)
            for name in MIGRATIONS]
 key_table = modules[0].KEY_TABLE
@@ -132,6 +118,11 @@ def verify_catalog(db: psycopg.Connection) -> None:
             ["teruisi_ai_writer", key_table])
         if cursor.fetchone() != (False,):
             raise AssertionError("ordinary AI writer can read verifier key")
+        if generation.name == "0073":
+            cursor.execute("SELECT rolpassword IS NULL FROM pg_catalog.pg_authid "
+                "WHERE rolname=%s", [LOGIN_ROLE])
+            if cursor.fetchone() != (True,):
+                raise AssertionError("0073 protected role gained a password")
 
 
 def protected_rows(db: psycopg.Connection) -> dict[str, tuple[int, str]]:
@@ -139,7 +130,9 @@ def protected_rows(db: psycopg.Connection) -> dict[str, tuple[int, str]]:
     tables = [row[0] for row in db.execute(
         "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public' "
         "AND tablename LIKE 'protected_business_%' ORDER BY tablename")]
-    if len(tables) != 8 or key_table.removeprefix("public.") not in tables:
+    if (len(tables) != generation.table_count
+            or key_table.removeprefix("public.") not in tables
+            or generation.name == "0073" and LOGIN_TABLE not in tables):
         raise AssertionError("protected table inventory incomplete")
     result = {}
     for table in tables:
@@ -209,6 +202,8 @@ with open_db(source_port, source_password) as source:
     before_rows = protected_rows(source)
     if before_rows[key_table.removeprefix("public.")][0] != 1:
         raise AssertionError("synthetic private key fixture missing")
+    if generation.name == "0073" and before_rows[LOGIN_TABLE][0] != 0:
+        raise AssertionError("0073 source attestation table must remain empty")
     source_roles = role_inventory(source)
     archive_context = hashlib.sha256(json.dumps({
         "migrations": MIGRATIONS,
@@ -325,7 +320,8 @@ try:
     plaintext = verified.plaintext
     toc = run_sensitive([BIN / "pg_restore.exe", "--list"],
         env=target_env, input_bytes=plaintext)
-    if b"protected_business_" not in toc or b"ACL" not in toc:
+    if (b"protected_business_" not in toc or b"ACL" not in toc
+            or generation.name == "0073" and LOGIN_TABLE.encode("ascii") not in toc):
         raise AssertionError("synthetic archive TOC lacks protected owner/ACL entries")
     run([BIN / "createdb.exe", "teruisi_ai_rehearsal"], env=target_env)
     # Exact opposite of the formal restore's current owner/ACL suppression.
@@ -341,6 +337,16 @@ try:
             " OWNER TO ai_rehearsal_admin")
         assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
             modules[0].VERIFY_SIGNATURE + " FROM " + modules[0].PUBLISHER)
+        if generation.name == "0073":
+            owner = target.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) "
+                "FROM pg_catalog.pg_class c WHERE c.oid=%s::regclass",
+                ["public." + LOGIN_TABLE]).fetchone()
+            if owner is None or owner[0] == "teruisi_ai_budget_v11_key_owner":
+                raise AssertionError("0073 owner-drift target is not distinct")
+            assert_catalog_rejects(target, "ALTER TABLE public." +
+                LOGIN_TABLE + " OWNER TO teruisi_ai_budget_v11_key_owner")
+            assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
+                modules[-1].v2.ATTEST_SIGNATURE + " FROM " + LOGIN_ROLE)
     if before_rows != after_rows or source_roles != target_roles:
         raise AssertionError("protected rows or global role attributes differ")
     result = {"status": "passed", "scope": "isolated synthetic cross-cluster only",
@@ -366,6 +372,9 @@ try:
         "syntheticKeyPersisted": False,
         "archiveNegativeCasesRejected": rejected_cases,
         "wrongKeyTamperAndTruncationRejected": True}
+    if generation.name == "0073":
+        result.update({"newLoginAttestationRows": after_rows[LOGIN_TABLE][0],
+            "newRoleNoLoginNoPassword": True})
     (target_root / "evidence.json").write_text(json.dumps(result,
         ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))

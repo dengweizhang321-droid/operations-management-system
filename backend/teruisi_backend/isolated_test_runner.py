@@ -15,6 +15,7 @@ PROTECTED_SQL_TABLES = frozenset({
     "protected_business_budget_v11_verifier_keys",
     "protected_business_budget_v11_proof_tickets",
     "protected_business_budget_v11_proof_ticket_claims",
+    "protected_business_budget_v11_login_attestations",
     "protected_business_v4_report_link_intents",
     "protected_business_v4_report_source_links",
     "protected_business_market_v2_rate_proposals",
