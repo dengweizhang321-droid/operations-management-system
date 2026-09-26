@@ -14,6 +14,7 @@ export const NETSHOP_PRODUCT_PERFORMANCE_PATH = "/api/netshop/product-performanc
 export const NETSHOP_PROMOTION_PERFORMANCE_PATH = "/api/netshop/promotion-performance";
 export const NETSHOP_PROMOTION_OVERVIEW_PATH = "/api/netshop/promotion-performance/overview";
 export const NETSHOP_PROMOTION_ITEMS_PATH = "/api/netshop/promotion-performance/items";
+export const NETSHOP_PROMOTION_DIAGNOSTIC_PATH = "/api/netshop/promotion-diagnostic";
 export const NETSHOP_CONSUMER_QUERY_PATH = "/api/netshop/consumers/query";
 export const NETSHOP_ASSET_UPLOADS_PATH = "/api/netshop/asset-uploads";
 
@@ -25,6 +26,7 @@ const STATIC_PATHS = new Set([
   NETSHOP_PROMOTION_PERFORMANCE_PATH,
   NETSHOP_PROMOTION_OVERVIEW_PATH,
   NETSHOP_PROMOTION_ITEMS_PATH,
+  NETSHOP_PROMOTION_DIAGNOSTIC_PATH,
   NETSHOP_CONSUMER_QUERY_PATH,
   NETSHOP_ASSET_UPLOADS_PATH,
 ]);
