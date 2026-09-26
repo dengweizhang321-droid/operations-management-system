@@ -142,6 +142,9 @@ def _dispatch(request, path=""):
             r"business-reports": {"POST"},
             r"market-v2-parked-reports": {"POST"},
             r"market-v2-parked-reports/[A-Za-z0-9_-]{1,160}/preview": {"GET"},
+            r"market-v2-cap-approvals/[0-9a-f]{64}": {"POST"},
+            r"market-v2-cap-approvals/[0-9a-f]{64}/(?:preview|outcome)": {"GET"},
+            r"market-v2-cap-approvals/[0-9a-f]{64}/revoke": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}": {"GET"},
             r"business-files/[A-Za-z0-9_-]{1,160}/control": {"POST"},
             r"business-files/[A-Za-z0-9_-]{1,160}/chunks/(?:html|xlsx)": {"GET"},
@@ -238,10 +241,13 @@ def _dispatch(request, path=""):
         if report_detail_shape and path != endpoint:
             raise AiError("AI 接口不存在", "not_found", 404)
         report_detail_read = report_detail_shape and path == endpoint
+        human_cap_path = root == "market-v2-cap-approvals"
+        if human_cap_path and path != endpoint:
+            raise AiError("AI 接口不存在", "not_found", 404)
         writer = (
             request.method != "GET" or root in {"artifacts"} or
             root == "reports" and parts[-1] == "content" or
-            model_admin_read or report_detail_read
+            model_admin_read or report_detail_read or human_cap_path
         ) and not consumer_read and root != "datasets"
         if re.fullmatch(r"(?:reports|business-evidence)/[A-Za-z0-9_-]{1,160}/budget-preview", endpoint) and request.method == "POST":
             writer = False
@@ -265,12 +271,25 @@ def _dispatch(request, path=""):
                 principal, write=writer and not model_admin_read and
                     root not in {"consumer", "artifacts", "reports"}
             )
-        if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules"} or parts[:2] in [
+        if root in {"models", "channels", "prompt-settings", "dingtalk-settings", "dingtalk-schedules", "market-v2-cap-approvals"} or parts[:2] in [
             ["space", "profiles"],
             ["space", "templates"],
         ]:
             current_principal(principal, admin=True)
         request_id = request.headers["X-Teruisi-Request-Id"]
+        if human_cap_path:
+            from . import business_market_v2_human_cap_owner as cap_owner
+            if params:
+                raise AiError("费用审批接口不接受查询参数", "invalid_request", 400)
+            ledger_id = parts[1]
+            if request.method == "GET":
+                return response((cap_owner.preview if parts[2] == "preview"
+                    else cap_owner.outcome)(ledger_id, principal))
+            if parts[-1] == "revoke":
+                return write(request, principal,
+                    lambda: (cap_owner.revoke(ledger_id, payload, principal), 200))
+            return write(request, principal,
+                lambda: (cap_owner.approve(ledger_id, payload, principal), 200))
         if root == "market-v2-parked-reports":
             if getattr(settings, "AI_MARKET_V2_PREVIEW_ENABLED", False) is not True:
                 raise AiError("市场v2停放预览尚未启用", "market_v2_preview_not_ready", 409)

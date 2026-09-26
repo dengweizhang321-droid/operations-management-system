@@ -39,6 +39,15 @@ try {
     $blocked = $true
   }
   if (-not $blocked) { throw 'Formal 0073-only source was not blocked before staging' }
+  [IO.File]::Delete((Join-Path $candidateMigrations '0073_business_promotion_budget_v11_login_attestation.py'))
+  [IO.File]::WriteAllText((Join-Path $candidateMigrations '0074_business_market_v2_human_cap_approval.py'), '# isolated test only')
+  $blocked = $false
+  try { Assert-NoUnapprovedProtectedAiMigration '0074-only' $candidateBackend }
+  catch {
+    if ($_.Exception.Message -notmatch '0074-only refuses protected AI migration release') { throw }
+    $blocked = $true
+  }
+  if (-not $blocked) { throw 'Formal 0074-only source was not blocked before staging' }
   'protected AI migration preflight: isolated allowed, formal blocked'
 } finally {
   if ($candidateRoot -and (Test-Path -LiteralPath $candidateRoot)) {

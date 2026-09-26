@@ -13,7 +13,7 @@ export async function forwardAiRequest(request: Request) {
     const datasetQuery = request.method === "POST" && /^\/api\/ai\/datasets\/[a-z][a-z0-9_]{0,63}\/query$/.test(url.pathname);
     if (!read) requireAiSameOriginWrite(request);
     const principal = await requireAppPrincipal(read || datasetQuery ? undefined : ["admin", "operator", "analyst"]);
-    if (/^\/api\/ai\/(?:business-plan|business-evidence|business-reports|market-v2-parked-reports)(?:\/|$)/.test(url.pathname)) {
+    if (/^\/api\/ai\/(?:business-plan|business-evidence|business-reports|market-v2-parked-reports|market-v2-cap-approvals)(?:\/|$)/.test(url.pathname)) {
       if (principal.role !== "admin") throw new PublicApiError(403, "access_denied", "经营分析仅允许管理员。");
       requireUnrestrictedDataScope(principal, "经营分析");
     }
@@ -21,6 +21,11 @@ export async function forwardAiRequest(request: Request) {
       const service = await import("@/lib/django/ai-service");
       if ((await service.aiEnvironment()).AI_MARKET_V2_PREVIEW_ENABLED !== "true")
         throw new PublicApiError(409, "conflict", "市场样本预览尚未启用。");
+    }
+    if (/^\/api\/ai\/market-v2-cap-approvals(?:\/|$)/.test(url.pathname)) {
+      const service = await import("@/lib/django/ai-service");
+      if ((await service.aiEnvironment()).AI_MARKET_V2_HUMAN_CAP_ENABLED !== "true")
+        throw new PublicApiError(409, "conflict", "市场单报告费用上限审批尚未启用。");
     }
     if (/^\/api\/ai\/(?:report-library|prompt-settings|dingtalk-settings|dingtalk-schedules(?:\/run)?|models|channels|space\/(?:profiles|templates))$/.test(url.pathname)) {
       if (principal.role !== "admin") throw new PublicApiError(403, "access_denied", "AI 管理仅允许管理员。");
