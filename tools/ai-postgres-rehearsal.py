@@ -89,6 +89,8 @@ parser.add_argument("--business-v11-ticket-sign-focused-upgrade",
     action="store_true", help="Test only: current finance.0005 0075->0076 empty reverse and dual restore")
 parser.add_argument("--business-market-v6-topology-focused-upgrade",
     action="store_true", help="Test only: 0076->0077 paused five-job topology empty reverse and dual restore")
+parser.add_argument("--business-v11-publication-focused-upgrade",
+    action="store_true", help="Test only: 0077->0078 signed sidecar empty reverse and dual restore")
 parser.add_argument("--finance-raw-workbook-upgrade", action="store_true",
     help="Test only: finance.0005->0006 empty upgrade and dual restore")
 parser.add_argument("--business-protected-cross-cluster-restore-0074", action="store_true",
@@ -108,6 +110,20 @@ parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_v11_publication_focused_upgrade:
+    if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
+            or arguments.all_backend_tests
+            or any(getattr(arguments, name) for name in vars(arguments)
+                if name.endswith("_upgrade") and name !=
+                "business_v11_publication_focused_upgrade")
+            or any(getattr(arguments, name) for name in (
+                "business_protected_cross_cluster_restore",
+                "business_protected_cross_cluster_restore_0073",
+                "business_protected_cross_cluster_restore_0074",
+                "business_protected_migration_role_rehearsal",
+                "business_protected_installer_focus"))):
+        parser.error("0078 focused upgrade is one isolated standalone run")
+    arguments.preprovision_ai_runtime_roles = True
 if arguments.business_market_v6_topology_focused_upgrade:
     if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
             or arguments.all_backend_tests
@@ -216,7 +232,8 @@ if arguments.preprovision_ai_runtime_roles and (
         not (arguments.tests_only or
             arguments.business_v4_report_restricted_page_focused_upgrade or
             arguments.business_v11_ticket_sign_focused_upgrade or
-            arguments.business_market_v6_topology_focused_upgrade)
+            arguments.business_market_v6_topology_focused_upgrade or
+            arguments.business_v11_publication_focused_upgrade)
         or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
 if arguments.business_v4_report_restricted_reader_login and (
@@ -519,6 +536,19 @@ try:
         ),
         flush=True,
     )
+    if arguments.business_v11_publication_focused_upgrade:
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "--noinput"], timeout=900, env=django_env)
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "ai_assistant", "0077_business_market_v6_paused_topology",
+            "--noinput"], timeout=180, env=django_env)
+        focused = run([sys.executable, ROOT / "tools" /
+            "business-v11-publication-upgrade-rehearsal.py",
+            "--run-root", RUN], timeout=900, env=django_env)
+        (RUN / "business-v11-publication-focused-upgrade.json"
+            ).write_text(focused, encoding="utf-8")
+        print(focused.strip(), flush=True)
+        sys.exit(0)
     if arguments.business_market_v6_topology_focused_upgrade:
         run([sys.executable, ROOT / "backend/manage.py", "migrate",
             "--noinput"], timeout=900, env=django_env)

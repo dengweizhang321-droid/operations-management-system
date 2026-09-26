@@ -28,6 +28,7 @@ PROTECTED_SQL_TABLES = frozenset({
     "protected_business_market_v2_authority_revocations",
     "protected_business_market_v6_topologies",
     "protected_business_market_v6_topology_cancellations",
+    "protected_business_budget_v11_publications_v2",
 })
 FINANCE_DIGEST_TABLES = (
     "finance_raw_column_evidence_months",
