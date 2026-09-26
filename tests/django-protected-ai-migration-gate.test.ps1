@@ -39,9 +39,22 @@ try {
     $blocked = $true
   }
   if (-not $blocked) { throw 'Formal 0073-only source was not blocked before staging' }
-
   $synthetic0073 = Join-Path $candidateMigrations '0073_business_promotion_budget_v11_login_attestation.py'
-  Remove-Item -LiteralPath $synthetic0073 -Force
+  [IO.File]::Delete($synthetic0073)
+  $synthetic0074 = Join-Path $candidateMigrations '0074_business_market_v2_human_cap_approval.py'
+  [IO.File]::WriteAllText($synthetic0074, '# isolated test only')
+  $blocked = $false
+  try { Assert-NoUnapprovedProtectedAiMigration '0074-only' $candidateBackend }
+  catch {
+    if ($_.Exception.Message -notmatch '0074-only refuses protected AI migration release') { throw }
+    $blocked = $true
+  }
+  if (-not $blocked) { throw 'Formal 0074-only source was not blocked before staging' }
+  $RuntimeRoot = $temporary
+  Assert-NoUnapprovedProtectedAiMigration 'isolated 0074 preview' $candidateBackend
+  $RuntimeRoot = 'D:\teruisi-runtime\django-sales'
+  [IO.File]::Delete($synthetic0074)
+
   $financeMigrations = Join-Path $candidateBackend 'finance\migrations'
   New-Item -ItemType Directory -Path $financeMigrations -Force | Out-Null
   [IO.File]::WriteAllText((Join-Path $financeMigrations '0005_raw_column_evidence_v2.py'), '# isolated test only')

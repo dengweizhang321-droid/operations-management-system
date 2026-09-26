@@ -33,13 +33,14 @@ from protected_ai_archive_v2 import (
 )
 import protected_ai_archive_v2_stream as stream_v2
 from protected_ai_cross_cluster_generation import (
-    LOGIN_ROLE, LOGIN_TABLE, contract, seed_matches,
+    LOGIN_ROLE, LOGIN_TABLE, CAP_APPROVAL, CAP_REVOCATION,
+    contract, seed_matches,
 )
 
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
-parser.add_argument("--generation", choices=("0072", "0073"), default="0072")
+parser.add_argument("--generation", choices=("0072", "0073", "0074"), default="0072")
 parser.add_argument("--archive-layout", choices=("whole-v2", "stream-v1"),
                     default="whole-v2")
 options = parser.parse_args()
@@ -227,7 +228,7 @@ def verify_catalog(db: psycopg.Connection) -> None:
             ["teruisi_ai_writer", key_table])
         if cursor.fetchone() != (False,):
             raise AssertionError("ordinary AI writer can read verifier key")
-        if generation.name == "0073":
+        if generation.name in {"0073", "0074"}:
             cursor.execute("SELECT rolpassword IS NULL FROM pg_catalog.pg_authid "
                 "WHERE rolname=%s", [LOGIN_ROLE])
             if cursor.fetchone() != (True,):
@@ -241,7 +242,9 @@ def protected_rows(db: psycopg.Connection) -> dict[str, tuple[int, str]]:
         "AND tablename LIKE 'protected_business_%' ORDER BY tablename")]
     if (len(tables) != generation.table_count
             or key_table.removeprefix("public.") not in tables
-            or generation.name == "0073" and LOGIN_TABLE not in tables):
+            or generation.name in {"0073", "0074"} and LOGIN_TABLE not in tables
+            or generation.name == "0074" and
+              (CAP_APPROVAL not in tables or CAP_REVOCATION not in tables)):
         raise AssertionError("protected table inventory incomplete")
     result = {}
     for table in tables:
@@ -311,8 +314,11 @@ with open_db(source_port, source_password) as source:
     before_rows = protected_rows(source)
     if before_rows[key_table.removeprefix("public.")][0] != 1:
         raise AssertionError("synthetic private key fixture missing")
-    if generation.name == "0073" and before_rows[LOGIN_TABLE][0] != 0:
+    if generation.name in {"0073", "0074"} and before_rows[LOGIN_TABLE][0] != 0:
         raise AssertionError("0073 source attestation table must remain empty")
+    if generation.name == "0074" and (before_rows[CAP_APPROVAL][0] != 0
+            or before_rows[CAP_REVOCATION][0] != 0):
+        raise AssertionError("0074 source cap tables must remain empty")
     source_roles = role_inventory(source)
     archive_context = hashlib.sha256(json.dumps({
         "migrations": MIGRATIONS,
@@ -338,6 +344,8 @@ if target_port is None:
 target_root = folder / "protected-cross-cluster"
 if target_root.exists() or target_root.parent.resolve() != folder:
     raise RuntimeError("cross-cluster target already exists or escaped run root")
+if shutil.disk_usage(folder).free < 4 * 1024**3:
+    raise RuntimeError("cross-cluster target requires at least 4 GiB free before initdb")
 target_root.mkdir()
 data = target_root / "data"
 password_file = target_root / ".synthetic-password.tmp"
@@ -468,7 +476,9 @@ try:
     toc = run_sensitive([BIN / "pg_restore.exe", "--list"],
         env=target_env, input_bytes=plaintext)
     if (b"protected_business_" not in toc or b"ACL" not in toc
-            or generation.name == "0073" and LOGIN_TABLE.encode("ascii") not in toc):
+            or generation.name in {"0073", "0074"} and LOGIN_TABLE.encode("ascii") not in toc
+            or generation.name == "0074" and (CAP_APPROVAL.encode("ascii") not in toc
+                or CAP_REVOCATION.encode("ascii") not in toc)):
         raise AssertionError("synthetic archive TOC lacks protected owner/ACL entries")
     run([BIN / "createdb.exe", "teruisi_ai_rehearsal"], env=target_env)
     # Exact opposite of the formal restore's current owner/ACL suppression.
@@ -484,7 +494,7 @@ try:
             " OWNER TO ai_rehearsal_admin")
         assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
             modules[0].VERIFY_SIGNATURE + " FROM " + modules[0].PUBLISHER)
-        if generation.name == "0073":
+        if generation.name in {"0073", "0074"}:
             owner = target.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) "
                 "FROM pg_catalog.pg_class c WHERE c.oid=%s::regclass",
                 ["public." + LOGIN_TABLE]).fetchone()
@@ -492,8 +502,15 @@ try:
                 raise AssertionError("0073 owner-drift target is not distinct")
             assert_catalog_rejects(target, "ALTER TABLE public." +
                 LOGIN_TABLE + " OWNER TO teruisi_ai_budget_v11_key_owner")
+            login = next(module for module in modules if
+                module.__name__.endswith("0073_business_promotion_budget_v11_login_attestation"))
             assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
-                modules[-1].v2.ATTEST_SIGNATURE + " FROM " + LOGIN_ROLE)
+                login.v2.ATTEST_SIGNATURE + " FROM " + LOGIN_ROLE)
+        if generation.name == "0074":
+            assert_catalog_rejects(target, "GRANT INSERT ON public." +
+                CAP_APPROVAL + " TO teruisi_ai_writer")
+            assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
+                modules[-1].cap.APPROVE_SIG + " FROM teruisi_ai_writer")
     if before_rows != after_rows or source_roles != target_roles:
         raise AssertionError("protected rows or global role attributes differ")
     result = {"status": "passed", "scope": "isolated synthetic cross-cluster only",
@@ -519,9 +536,13 @@ try:
         "syntheticKeyPersisted": False,
         "archiveNegativeCasesRejected": rejected_cases,
         "wrongKeyTamperAndTruncationRejected": True}
-    if generation.name == "0073":
+    if generation.name in {"0073", "0074"}:
         result.update({"newLoginAttestationRows": after_rows[LOGIN_TABLE][0],
             "newRoleNoLoginNoPassword": True})
+    if generation.name == "0074":
+        result.update({"newHumanCapApprovalRows": after_rows[CAP_APPROVAL][0],
+            "newHumanCapRevocationRows": after_rows[CAP_REVOCATION][0],
+            "modelCallsAllowed": False})
     (target_root / "evidence.json").write_text(json.dumps(result,
         ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))

@@ -1,4 +1,4 @@
-"""The frozen 0072 default and explicit 0073 synthetic generation."""
+"""The frozen 0072 default and explicit protected synthetic generations."""
 from __future__ import annotations
 
 import ast
@@ -54,7 +54,22 @@ class ProtectedCrossClusterGenerationTests(unittest.TestCase):
             changed[field] = None
             self.assertFalse(seed_matches(changed, new), field)
         with self.assertRaises(ValueError):
-            contract("0074")
+            contract("0075")
+
+    def test_0074_extends_0073_without_changing_its_roles(self):
+        prior = contract("0073")
+        cap = contract("0074")
+        self.assertEqual(cap.upgrade, "0073->0074")
+        self.assertEqual(cap.seed_file,
+            "business-market-v2-human-cap-upgrade-evidence.json")
+        self.assertEqual(cap.roles, prior.roles)
+        self.assertEqual(cap.migrations[:-1], prior.migrations)
+        self.assertEqual((len(cap.roles), cap.table_count), (13, 11))
+        self.assertTrue(seed_matches({"upgrade": cap.upgrade,
+            "beforeBackupRestored": True, "afterBackupRestored": True,
+            "emptyReverseAndReapply": True,
+            "oldFunctionOidBodyAclOwnerPreserved": True,
+            "newApprovals": 0, "productionWrites": False}, cap))
 
     def test_runner_only_selects_new_generation_by_explicit_flag(self):
         script = (ROOT / "tools/ai-postgres-rehearsal.py").read_text(
@@ -96,7 +111,7 @@ class ProtectedCrossClusterGenerationTests(unittest.TestCase):
             "plaintextDumpFiles", "syntheticKeyPersisted",
             "archiveNegativeCasesRejected", "wrongKeyTamperAndTruncationRejected",
         }])
-        self.assertIn('if generation.name == "0073":\n        result.update(', source)
+        self.assertIn('if generation.name in {"0073", "0074"}:\n        result.update(', source)
 
 
 if __name__ == "__main__":

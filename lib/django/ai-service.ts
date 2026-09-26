@@ -7,12 +7,13 @@ import { isReportDetailPath, REPORT_DETAIL_BYTES, allowReportDetailBytes } from 
 type Environment = Record<string, string | undefined>;
 const encoder = new TextEncoder();
 const ENTITY = "[A-Za-z0-9_-]{1,160}";
-const PUBLIC_PATH = new RegExp(`^/api/ai/(?:business-plan/preview|business-reports|market-v2-parked-reports(?:/${ENTITY}/preview)?|business-files/${ENTITY}(?:/control|/chunks/(?:html|xlsx)|/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json))?|business-evidence(?:/${ENTITY}(?:/(?:collect|finish|control|mapping|mapping-v2|analysis|budget-targets|budget-preview)|/sources(?:/${ENTITY})?|/chunks/${ENTITY})?)?|report-library|reports(?:/${ENTITY}(?:/(?:content|send|files|budget|budget-preview|budget-reference|integrated-directory|integrated-analysis-table|integrated-budget|promotion-keyword-sku|screening/(?:package|analysis|budget)))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
+const PUBLIC_PATH = new RegExp(`^/api/ai/(?:business-plan/preview|business-reports|market-v2-parked-reports(?:/${ENTITY}/preview)?|market-v2-cap-approvals/[0-9a-f]{64}(?:/(?:preview|outcome|revoke))?|business-files/${ENTITY}(?:/control|/chunks/(?:html|xlsx)|/volumes/(?:0|[1-9][0-9]?|100)/chunks/(?:html|xlsx|json))?|business-evidence(?:/${ENTITY}(?:/(?:collect|finish|control|mapping|mapping-v2|analysis|budget-targets|budget-preview)|/sources(?:/${ENTITY})?|/chunks/${ENTITY})?)?|report-library|reports(?:/${ENTITY}(?:/(?:content|send|files|budget|budget-preview|budget-reference|integrated-directory|integrated-analysis-table|integrated-budget|promotion-keyword-sku|screening/(?:package|analysis|budget)))?)?|datasets(?:/[a-z][a-z0-9_]{0,63}(?:/query)?)?|prompt-settings|dingtalk-settings|dingtalk-schedules(?:/run)?|models|channels|conversations|chat(?:/cancel)?|memories(?:/${ENTITY})?|sandbox|agent-jobs(?:/${ENTITY}(?:/(?:cancel|resume))?)?|workflow-runs(?:/${ENTITY}(?:/(?:cancel|resume)|/nodes/${ENTITY}/review)?)?|artifacts/${ENTITY}|space/(?:meta|profiles|templates|jobs(?:/${ENTITY}(?:/cancel)?)?|assets(?:/${ENTITY}(?:/content)?)?))$`);
 export const AI_INTERNAL_PATHS = new Set(["/api/ai/consumer", "/api/ai/scheduler"]);
 const INTERNAL_PROMOTION_DISPATCH_PATH = new RegExp(`^/api/ai/promotion-tool-dispatch/(${ENTITY})$`);
 const INTERNAL_MARKET_V2_CANDIDATE_PATH = new RegExp(`^/api/ai/market-v2-tool-candidate/(${ENTITY})$`);
 const INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH = new RegExp(`^/api/ai/market-v2-base-tool-candidate/(${ENTITY})$`);
 const INTERNAL_MARKET_OBSERVATION_PATH = new RegExp(`^/api/ai/reports/${ENTITY}/market-observation$`);
+const HUMAN_CAP_PATH = /^\/api\/ai\/market-v2-cap-approvals\/[0-9a-f]{64}(?:\/(?:preview|outcome|revoke))?$/;
 const INTERNAL_V3_SOURCE_READ_PATH = new RegExp(`^/api/ai/business-v3-source-read/${ENTITY}/(?:directory|pages/${ENTITY})$`);
 
 export async function aiEnvironment(): Promise<Environment> {
@@ -26,6 +27,7 @@ export function isInternalPromotionDispatchPath(path: string) { return INTERNAL_
 export function isInternalMarketV2CandidatePath(path: string) { return INTERNAL_MARKET_V2_CANDIDATE_PATH.test(path); }
 export function isInternalMarketV2BaseCandidatePath(path: string) { return INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH.test(path); }
 export function isInternalMarketObservationPath(path: string) { return INTERNAL_MARKET_OBSERVATION_PATH.test(path); }
+export function isHumanCapApprovalPath(path: string) { return HUMAN_CAP_PATH.test(path); }
 export function isInternalV3SourceReadPath(path: string) { return INTERNAL_V3_SOURCE_READ_PATH.test(path); }
 
 function unavailable() { return new PublicApiError(503, "service_unavailable", "Django AI 服务暂时不可用。"); }
@@ -67,6 +69,7 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
   const marketV2Candidate = INTERNAL_MARKET_V2_CANDIDATE_PATH.exec(input.path);
   const marketV2BaseCandidate = INTERNAL_MARKET_V2_BASE_CANDIDATE_PATH.exec(input.path);
   const marketObservationRead = isInternalMarketObservationPath(input.path);
+  const humanCap = isHumanCapApprovalPath(input.path);
   const v3SourceRead = isInternalV3SourceReadPath(input.path);
   if (promotionRead && (method !== "GET" || input.service === "writer")) throw new PublicApiError(400, "invalid_request", "推广词货接口仅允许reader GET。");
   if (marketObservationRead && (method !== "GET" || input.service !== "reader"
@@ -86,7 +89,12 @@ export async function requestDjangoAi<T>(principal: AppPrincipal, input: {
     throw new PublicApiError(400, "invalid_request", "v3 来源读取必须使用内部 writer 进程精确签名 POST。");
   if (reportDetail && input.service === "reader")
     throw new PublicApiError(400, "invalid_request", "报告详情仅读取受保护 writer 进程。");
-  const service = reportDetail ? "writer" : input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
+  if (humanCap && (input.service === "reader" || input.query?.toString()
+    || (method === "GET" && !/\/(?:preview|outcome)$/.test(input.path))
+    || (method === "POST" && (/\/(?:preview|outcome)$/.test(input.path) || input.payload === undefined))
+    || !["GET", "POST"].includes(method)))
+    throw new PublicApiError(400, "invalid_request", "市场费用审批仅允许精确 writer 请求。");
+  const service = reportDetail || humanCap ? "writer" : input.service ?? ((method === "GET" && !input.path.startsWith("/api/ai/artifacts/") && !/^\/api\/ai\/reports\/[^/]+\/content$/.test(input.path)) || input.path.startsWith("/api/ai/datasets") ? "reader" : "writer");
   const endpoint = environment[service === "reader" ? "TERUISI_DJANGO_AI_READER_BASE_URL" : "TERUISI_DJANGO_AI_WRITER_BASE_URL"];
   let base: URL;
   try { base = new URL(endpoint ?? ""); } catch { throw unavailable(); }
