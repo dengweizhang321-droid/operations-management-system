@@ -20,6 +20,7 @@
 - 隔离受保护迁移脚本现复验每步精确前缀，并在 0068 角色预置/收据两处模拟中断后换新连接恢复；伪造后续收据和临时私钥角色成员关系均拒绝，6 步及普通账号拒权仍通过。证据已独立复制并核对到 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-6d8e94e3939d-migration-resume\business-protected-migration-role-evidence.json`；源集群已停，正式 installer/backup 仍未启用。
 - 新增默认关闭的三期关键词×明确推广 SKU owning 候选，只从同一 sealed-v2 报告完整重放本期/可用基期，保留缺源/null/身份不足并拒绝双遍本期漂移；纯测试 5 项、隔离 PG 1 项通过。它不接旧 13 表/正式 renderer，也受旧 v2 容量限制。市场 v6 同报告工具结果纯合同核计划、角色/job、调用身份及回放结果，纯测试与上述合计 10 项通过；提供的回放回调不是独立受保护根，已读、数值引用及发布仍 false。
 - 财报店铺映射只读诊断候选在已发布月上列出精确财报范围/组，标记同名跨组、可能先期合并及缺月，始终不提供稳定网店身份或映射证明；纯 6 项/隔离 PG 2 项通过。实际两店财报原始列及一对一身份仍须业务核对，不能把文本同名或年度目标别名直接给 v4 signer。
+- 财报新增显式 v2 候选解析路径，在旧聚合前按原工作表列/格保存组名、店名、科目与值，识别同名跨组会被旧 key 合并的事实；v1 规范 JSON 黄金摘要保持不变，相关 12 项通过。v2 只产候选，8 MiB 源/32 MiB 输出上限，后端不接受导入，原文件字节、已发布批次及网店身份未独立验真。见 `docs/AI_BUSINESS_FINANCE_RAW_COLUMN_EVIDENCE_V2.md`。
 - 市场 v6 工具观察在隔离真实角色下双遍读取已封存市场来源并核同任务候选身份，`summary`/`page` PG 2 项通过，零模型/远程调用和 Agent 派发表变化；观察标识未持久化，不能称五 Agent 已读、数值引用或付费派发。见 `docs/AI_BUSINESS_MARKET_V6_TOOL_OBSERVATION.md`。
 - 第二新集群的合成受保护归档现使用 AES-256-GCM 认证封套，错密钥/篡改/截断拒绝、明文 dump 0，恢复后 12 角色/8 表/1 合成密钥和 owner/ACL 通过；纯 6 项及全链成功，源/目标停机。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-db30f987684a-protected-aead\evidence.json`。随机测试密钥不留存，正式备份身份、长期密钥托管/恢复及部署门禁仍未解决。
 - 补齐旧筛查工具目录测试对新增市场 v2 surface 的精确尾部预期，原 47 工具条目与 96 份目录规范字节摘要继续保持不变；相关 13 项通过。整合分支全量 `npm run test:unit` 最终 2,628 项、2,608 通过、20 跳过、0 失败；`npm run lint` 为 0 错误、12 条警告。未运行会改写在线构建产物的生产构建。
