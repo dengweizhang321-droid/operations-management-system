@@ -55,7 +55,11 @@ class IsolatedPostgresTestRunner(DiscoverRunner):
             if (data["HOST"] != "127.0.0.1" or
                     data["NAME"] != "test_teruisi_ai_rehearsal" or
                     not 55440 <= int(data["PORT"]) <= 55999):
-                raise RuntimeError("protected SQL flush requires isolated test database")
+                raise RuntimeError("protected SQL flush requires isolated test "
+                    "database: hostOk=" + str(data["HOST"] == "127.0.0.1") +
+                    ", nameOk=" + str(data["NAME"] ==
+                        "test_teruisi_ai_rehearsal") +
+                    ", portOk=" + str(55440 <= int(data["PORT"]) <= 55999))
             operations = connection.ops
             original = operations.sql_flush
             original_execute = operations.execute_sql_flush

@@ -17,3 +17,5 @@
 当前逐项证据与下一步源代码见 [整合状态](AI_BUSINESS_INTEGRATION_STATUS.md)、[参考成品差距](AI_BUSINESS_REFERENCE_PARITY_GAPS.md)及市场/预算/三期专项文档。每个阶段在独立真实角色、旧版兼容、备份恢复与成品同数验收前均不标为完成。
 
 2026-09-26 补充：默认关闭的 `0074` 单报告人民币上限侧车已在隔离真实 AI writer 角色、0073→0074 前后独立恢复、第二新集群 AES-256-GCM 归档中通过；新两表保持空，13 角色/11 受保护表的 owner 和 ACL 保留，正式备份仍提前拒绝。同一整合分支且同时安装 finance.0005 的隔离 PostgreSQL 又通过 13 项组合测试（财报侧车 7、市场审批真实角色 5、目录共存 1）。审批能力仅接受管理员明确提交的上限，尚无实际管理员提交、真实模型/计费账号/权威费率、逐轮费用预留或付费派发；所有回执 `providerCallsAllowed=false`。参见 [0074 候选](AI_BUSINESS_MARKET_V2_HUMAN_CAP_0074.md)和[交接清单](AI_BUSINESS_HANDOFF_20260926.md)。
+
+2026-09-26 后续门槛：`0075` 的真实 reader 6/6 与 focused 升级证明只读身份可沿同报告三期精确读合成封存页，旧0040/0071冻结；该页读取是无锁候选，未通过真实 HMAC 三期双遍或575095行，不授报告生成/Agent/下载。v11 的真实受限 signer 只通过预期安全拒绝：0070票据领取后 provider/tool 四账本整表 SELECT 被拒，旧0068 MAC不含claim，故无MAC/ready。下一代0076需同票据/同job窄账本与新目的域MAC；随后才考虑原子发布。详见 [0075页读取](AI_BUSINESS_V4_RESTRICTED_PAGES_0075.md)、[v11受限签发设计](AI_BUSINESS_V11_LIMITED_SIGNER_BRIDGE_0076_DESIGN.md)。
