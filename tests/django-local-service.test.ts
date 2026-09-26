@@ -73,6 +73,46 @@ test("full-stack startup checks PostgreSQL capacity before schema work and proce
   );
 });
 
+test("protected AI migrations are rejected before formal preparation and before migrate", () => {
+  const gate = script.slice(
+    script.indexOf("function Assert-NoUnapprovedProtectedAiMigration"),
+    script.indexOf("function Prepare-Application"),
+  );
+  assert.match(gate, /0070_business_promotion_budget_v11_limited_identity\.py/);
+  assert.match(gate, /0072_business_market_v2_authority_proposals\.py/);
+  assert.match(gate, /D:\\teruisi-runtime\\django-sales/);
+
+  const prepare = script.slice(
+    script.indexOf("function Prepare-Application"),
+    script.indexOf("function Deploy-Application"),
+  );
+  assert.ok(prepare.indexOf('Assert-NoUnapprovedProtectedAiMigration "PrepareApp"') > -1);
+  assert.ok(
+    prepare.indexOf('Assert-NoUnapprovedProtectedAiMigration "PrepareApp"') <
+      prepare.indexOf("New-Item -ItemType Directory -Path $RuntimeRoot"),
+  );
+
+  const deploy = script.slice(
+    script.indexOf("function Deploy-Application"),
+    script.indexOf("function Rollback-Application"),
+  );
+  assert.ok(deploy.includes('Assert-NoUnapprovedProtectedAiMigration "DeployApp" (Join-Path $staging "backend")'));
+  assert.ok(
+    deploy.indexOf('Assert-NoUnapprovedProtectedAiMigration "DeployApp"') <
+      deploy.indexOf('Move-Item -LiteralPath $staging -Destination $InstalledAppRoot'),
+  );
+
+  const migration = script.slice(
+    script.indexOf("function Invoke-DjangoMigrations"),
+    script.indexOf("function ", script.indexOf("function Invoke-DjangoMigrations") + 1),
+  );
+  assert.ok(migration.indexOf('Assert-NoUnapprovedProtectedAiMigration "Django migrate"') > -1);
+  assert.ok(
+    migration.indexOf('Assert-NoUnapprovedProtectedAiMigration "Django migrate"') <
+      migration.indexOf('"migrate", "--noinput"'),
+  );
+});
+
 test("Django local status keeps ACL verification bounded and labels its root-only scope", () => {
   const statusBlock = script.match(
     /function Show-ServiceStatus \{([\s\S]*?)\r?\n\}\r?\n\r?\nfunction Show-FinanceServiceStatus/,

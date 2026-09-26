@@ -34,10 +34,10 @@
 
 `tests/postgres-consistent-backup.test.py` 覆盖备份先拒绝且不调用 dump/内容读取、受保护 TOC 恢复先拒绝、角色/所有权/能力/策略的只读诊断；`tests/django-postgres-maintenance.test.ts` 覆盖显式动作、PowerShell 解析与恢复启动前栅栏。下一阶段仍须受控特权迁移/备份身份、密钥归档加密与独立新集群的**正式**恢复路径；在这些门槛完成前不得打开受保护迁移生产采用。
 
-此切片尚未改造 `tools/django-local-service.ps1` 的 `Invoke-DjangoMigrations`（仍由普通 `teruisi_sales_owner` 调用 `migrate`），也没有证明候选源码在停服前会自动调用此预检。任何把 0067–0072 带入正式部署的计划，必须另外加发布前迁移门禁并验收失败不会进入维护窗口；不能以本备份门禁替代迁移安装授权。
+后续补上了正式运行目录的源码栅栏：`PrepareApp` 在建立 staging 前拒绝含 0067–0072 的源码，`DeployApp` 在替换已安装应用前复查准备件，`Invoke-DjangoMigrations` 在普通 `teruisi_sales_owner` 调用 `migrate` 前再次拒绝。隔离运行目录仍可执行合成演练。PowerShell 动态测试与 Django 生命周期 38 项测试通过。栅栏只识别固定正式目录与精确迁移文件，保持默认关闭；它不是特权安装通道，也未把正式备份/恢复改为可用。维护编排仍须先执行 `PrepareApp` 并确认成功，然后才进入停服窗口。
 
 ## 隔离非超级用户迁移探针
 
 测试专用 `--business-protected-migration-role-rehearsal --upgrade-only` 从已完整恢复的 0066 合成种子复制测试库，使用随机密码的真实 `NOSUPERUSER NOCREATEROLE NOINHERIT` 迁移登录账号。未预置角色时 0067 因创建角色权限失败且零业务目录副作用；独立测试管理员预置精确 NOLOGIN 角色后，普通账号可安装 0067、0069、0071、0072。0068 因临时 GRANT KEY_OWNER 权限失败、0070 因私钥表读取权限失败，两次均无迁移收据或目录副作用，随后只由隔离测试管理员安装。普通迁移账号和 AI reader/writer 都不能读取私钥表。证据：`E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-b5e25dad0289-migration-role-audit\business-protected-migration-role-evidence.json`；源 `pg_ctl status` 已核为 no server running。
 
-本探针只分类了真实普通账号的安装边界，**没有**给正式 `teruisi_sales_owner` 特权，也没有修改生产迁移入口。正式发布须在维护开始前拒绝当前不可安装的迁移，另建受控特权 0068/0070 安装通道并做非超级用户/跨集群备份恢复终验。
+本探针只分类了真实普通账号的安装边界，**没有**给正式 `teruisi_sales_owner` 特权。当前生产迁移入口已在调用普通账号前拒绝这批候选，正式发布还须另建受控特权 0068/0070 安装通道，并做非超级用户/跨集群备份恢复终验。

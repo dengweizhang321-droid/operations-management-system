@@ -1624,10 +1624,32 @@ function Copy-WranglerRuntimeClosure([string]$RuntimeToolsRoot) {
   return $manifest
 }
 
+function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$CandidateBackendRoot = $BackendRoot) {
+  # The protected AI sidecars need a separate privileged installer, private
+  # backup identity and cross-cluster role/ACL recovery. Never enter a formal
+  # app release with these migrations through the ordinary sales owner path.
+  $formalRoot = [IO.Path]::GetFullPath('D:\teruisi-runtime\django-sales').TrimEnd('\')
+  $currentRoot = [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
+  if ($currentRoot -ine $formalRoot) { return }
+  $migrationRoot = Join-Path $CandidateBackendRoot 'ai_assistant\migrations'
+  foreach ($name in @(
+      '0067_business_promotion_budget_v11_attestation.py',
+      '0068_business_promotion_budget_v11_verifier_receipt.py',
+      '0069_business_market_v2_paid_round_rehearsal.py',
+      '0070_business_promotion_budget_v11_limited_identity.py',
+      '0071_business_v4_report_source_link.py',
+      '0072_business_market_v2_authority_proposals.py')) {
+    if (Test-Path -LiteralPath (Join-Path $migrationRoot $name) -PathType Leaf) {
+      throw "$Operation refuses protected AI migration release until the privileged installation and backup/restore gates are verified"
+    }
+  }
+}
+
 function Prepare-Application {
   if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
+  Assert-NoUnapprovedProtectedAiMigration "PrepareApp"
   if (-not (Test-Path -LiteralPath $BackendRoot -PathType Container)) { throw "源码 backend 不存在" }
   if (-not (Test-Path -LiteralPath $DingTalkReplenishmentConfigSource -PathType Leaf)) {
     throw "源码缺少钉钉备货计划同步配置"
@@ -1825,6 +1847,7 @@ function Deploy-Application {
     $id = $prepared.id; $approvedSha256 = $prepared.receiptSha256
   } else { $id = $PreparedAppId; $approvedSha256 = $PreparedAppSha256 }
   $staging = Get-PreparedApplication $id $approvedSha256
+  Assert-NoUnapprovedProtectedAiMigration "DeployApp" (Join-Path $staging "backend")
   $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
   Assert-ProductionMaintenance "DeployApp"
   Assert-ApplicationDeploymentStopped "DeployApp"
@@ -2906,6 +2929,7 @@ function Invoke-DjangoMigrations(
   [string]$DatabaseName = "teruisi_sales"
 ) {
   if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { throw "缺少 Python 运行文件" }
+  Assert-NoUnapprovedProtectedAiMigration "Django migrate"
   $ownerUrl = Database-Url "teruisi_sales_owner" $Secrets.OwnerPassword "teruisi_django_migrate" $WriterStatementTimeoutMs $DatabaseName
   $logPath = Join-Path $LogDirectory "django-migrate.$DatabaseName.$RunId.log"
   $manage = Join-Path $BackendRoot "manage.py"
