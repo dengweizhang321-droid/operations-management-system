@@ -81,12 +81,18 @@ parser.add_argument("--business-protected-cross-cluster-restore", action="store_
                     help="Test only: follow 0072 with a second fresh cluster and preserve protected owners/ACL")
 parser.add_argument("--business-protected-cross-cluster-restore-0073", action="store_true",
                     help="Test only: follow 0073 with a second fresh encrypted cluster; old 0072 path unchanged")
+parser.add_argument("--protected-archive-layout",
+                    choices=("whole-v2", "stream-v1"), default="whole-v2",
+                    help="Test only: explicit 0073 cross-cluster archive layout")
 parser.add_argument("--business-protected-migration-role-rehearsal", action="store_true",
                     help="Test only: probe 0067-0072 with a real synthetic non-superuser migration login")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if (arguments.protected_archive_layout == "stream-v1"
+        and not arguments.business_protected_cross_cluster_restore_0073):
+    parser.error("stream-v1 requires the explicit 0073 cross-cluster rehearsal")
 if arguments.business_protected_cross_cluster_restore_0073:
     if (arguments.business_protected_cross_cluster_restore
             or arguments.business_protected_migration_role_rehearsal
@@ -672,7 +678,8 @@ try:
         if arguments.business_protected_cross_cluster_restore_0073:
             restored = run([sys.executable, ROOT / "tools" /
                 "business-protected-cross-cluster-restore-rehearsal.py",
-                "--run-root", RUN, "--generation", "0073"], timeout=600,
+                "--run-root", RUN, "--generation", "0073",
+                "--archive-layout", arguments.protected_archive_layout], timeout=600,
                 env=django_env)
             (RUN / "business-protected-cross-cluster-restore-0073.json").write_text(
                 restored, encoding="utf-8")

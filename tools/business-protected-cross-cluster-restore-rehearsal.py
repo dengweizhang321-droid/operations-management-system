@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import socket
 import struct
 import subprocess
@@ -30,6 +31,7 @@ from protected_ai_archive_v2 import (
     CHUNK_BYTES, MAGIC, MAX_PLAINTEXT_BYTES, TAG_BYTES, open_archive,
     seal_archive,
 )
+import protected_ai_archive_v2_stream as stream_v2
 from protected_ai_cross_cluster_generation import (
     LOGIN_ROLE, LOGIN_TABLE, contract, seed_matches,
 )
@@ -38,7 +40,11 @@ from protected_ai_cross_cluster_generation import (
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--run-root", type=Path, required=True)
 parser.add_argument("--generation", choices=("0072", "0073"), default="0072")
+parser.add_argument("--archive-layout", choices=("whole-v2", "stream-v1"),
+                    default="whole-v2")
 options = parser.parse_args()
+if options.archive_layout == "stream-v1" and options.generation != "0073":
+    parser.error("stream-v1 is limited to isolated 0073 cross-cluster rehearsal")
 folder = options.run_root.resolve()
 generation = contract(options.generation)
 database = settings.DATABASES["default"]
@@ -98,6 +104,109 @@ class SyntheticArchiveKeys:
         if key_id != self.key_id or purpose not in {"seal", "open"}:
             raise AssertionError("unexpected synthetic archive key request")
         return self.key
+
+
+def restore_stream_layout(target_root: Path, source_env: dict[str, str],
+        target_env: dict[str, str], archive_context: str) -> dict[str, object]:
+    """Test-only pg_dump pipe -> encrypted file -> verified pg_restore pipe."""
+    key_id = "isolated_synthetic_archive_key_v2_stream"
+    keys = SyntheticArchiveKeys(secrets.token_bytes(32), key_id)
+    archive = target_root / "synthetic-source.dump.v2s1.aead"
+    command = [BIN / "pg_dump.exe", "--format=custom",
+        "teruisi_ai_rehearsal"]
+    sealed = stream_v2.seal_process_stdout(command, archive,
+        key_id=key_id, context_sha256=archive_context,
+        key_provider=keys, env=source_env, timeout_seconds=600)
+    with archive.open("rb") as check:
+        plaintext_prefix = check.read(5)
+    if (not archive.is_file() or any(target_root.glob("*.dump"))
+            or plaintext_prefix == b"PGDMP"):
+        raise AssertionError("stream archive persisted a plaintext dump")
+
+    rejected = []
+
+    def expect_rejected(label: str, candidate: Path,
+            selected_keys: SyntheticArchiveKeys = keys):
+        try:
+            with stream_v2.open_verified_stream(candidate,
+                    expected_key_id=key_id,
+                    expected_context_sha256=archive_context,
+                    key_provider=selected_keys):
+                pass
+        except stream_v2.ArchiveInvalid:
+            rejected.append(label)
+        else:
+            raise AssertionError("stream archive accepted " + label)
+
+    expect_rejected("wrong_key", archive,
+        SyntheticArchiveKeys(secrets.token_bytes(32), key_id))
+    for label in ("truncation", "chunk_tamper"):
+        damaged = target_root / (label + ".v2s1.aead")
+        shutil.copyfile(archive, damaged)
+        try:
+            if label == "truncation":
+                with damaged.open("r+b") as handle:
+                    handle.seek(-1, os.SEEK_END)
+                    handle.truncate()
+            else:
+                with damaged.open("r+b") as handle:
+                    handle.seek(len(stream_v2.MAGIC))
+                    header_size = struct.unpack(">I", handle.read(4))[0]
+                    handle.seek(len(stream_v2.MAGIC) + 4 + header_size + 9)
+                    original = handle.read(1)
+                    if len(original) != 1:
+                        raise AssertionError("stream first chunk is missing")
+                    handle.seek(-1, os.SEEK_CUR)
+                    handle.write(bytes((original[0] ^ 1,)))
+            expect_rejected(label, damaged)
+        finally:
+            damaged.unlink(missing_ok=True)
+    failure_target = target_root / "failed-source.v2s1.aead"
+    failed_command = [sys.executable, "-c",
+        "import sys;sys.stdout.buffer.write(b'PGDMP'+b'x'*65536);sys.exit(7)"]
+    try:
+        stream_v2.seal_process_stdout(failed_command, failure_target,
+            key_id=key_id, context_sha256=archive_context,
+            key_provider=keys, timeout_seconds=15)
+    except stream_v2.ArchiveProcessError:
+        if (failure_target.exists() or
+                any(target_root.glob("failed-source.v2s1.aead.incomplete-*"))):
+            raise AssertionError("failed source left a partial stream archive")
+    else:
+        raise AssertionError("failed source process published a stream archive")
+
+    # Negative cases above run before creating the destination database.
+    with stream_v2.open_verified_stream(archive, expected_key_id=key_id,
+            expected_context_sha256=archive_context,
+            key_provider=keys) as verified:
+        if verified.evidence != sealed:
+            raise AssertionError("stream seal and first-pass evidence differ")
+        run([BIN / "createdb.exe", "teruisi_ai_rehearsal"], env=target_env)
+        restored = verified.copy_to_transactional_process(
+            [BIN / "pg_restore.exe", "--single-transaction",
+             "--exit-on-error", "--dbname", "teruisi_ai_rehearsal"],
+            env=target_env, timeout_seconds=600)
+        if restored != sealed:
+            raise AssertionError("stream second-pass restore evidence differs")
+    with archive.open("rb") as source:
+        archive_sha = hashlib.file_digest(source, "sha256").hexdigest()
+    if any(target_root.glob("*.dump")):
+        raise AssertionError("stream restore left a plaintext dump")
+    return {"archiveEncryptionVerified": True,
+        "archiveLayout": "v2-stream-v1",
+        "archiveCipher": "AES-256-GCM-stream-v2-synthetic-only",
+        "archiveVersion": 2,
+        "archiveChunkBytes": stream_v2.CHUNK_BYTES,
+        "archiveChunkCount": sealed.chunk_count,
+        "archiveContextSha256": archive_context,
+        "streamPlaintextSha256": sealed.plaintext_sha256,
+        "streamCiphertextBodySha256": sealed.ciphertext_sha256,
+        "encryptedArchiveSha256": archive_sha,
+        "plaintextDumpFiles": 0,
+        "syntheticKeyPersisted": False,
+        "sourceProcessFailureCleaned": True,
+        "archiveNegativeCasesRejected": rejected,
+        "wrongKeyTamperAndTruncationRejected": True}
 
 
 def open_db(port: int, password: str) -> psycopg.Connection:
@@ -263,6 +372,44 @@ try:
                 sql.SQL("INHERIT" if inherit else "NOINHERIT")))
     # The synthetic key exists only in this process. No custom dump is ever
     # written as a plaintext file; the formal backup/restore path stays closed.
+    if options.archive_layout == "stream-v1":
+        stream_fields = restore_stream_layout(target_root, source_env,
+            target_env, archive_context)
+        with open_db(target_port, target_password) as target:
+            verify_catalog(target)
+            after_rows = protected_rows(target)
+            target_roles = role_inventory(target)
+            assert_catalog_rejects(target, "ALTER TABLE " + key_table +
+                " OWNER TO ai_rehearsal_admin")
+            assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
+                modules[0].VERIFY_SIGNATURE + " FROM " + modules[0].PUBLISHER)
+            owner = target.execute("SELECT pg_catalog.pg_get_userbyid(c.relowner) "
+                "FROM pg_catalog.pg_class c WHERE c.oid=%s::regclass",
+                ["public." + LOGIN_TABLE]).fetchone()
+            if owner is None or owner[0] == "teruisi_ai_budget_v11_key_owner":
+                raise AssertionError("0073 owner-drift target is not distinct")
+            assert_catalog_rejects(target, "ALTER TABLE public." +
+                LOGIN_TABLE + " OWNER TO teruisi_ai_budget_v11_key_owner")
+            assert_catalog_rejects(target, "REVOKE EXECUTE ON FUNCTION " +
+                modules[-1].v2.ATTEST_SIGNATURE + " FROM " + LOGIN_ROLE)
+        if before_rows != after_rows or source_roles != target_roles:
+            raise AssertionError("stream restored rows or global roles differ")
+        stream_result = dict(status="passed",
+            scope="isolated synthetic cross-cluster only",
+            protectedMigrationsVerified=list(MIGRATIONS),
+            protectedRoles=len(PROTECTED_ROLES),
+            protectedTables=len(before_rows),
+            syntheticVerifierKeyRows=1, ownersAndAclPreserved=True,
+            ownerAndAclTamperRejected=True, ordinaryAiKeyReadDenied=True,
+            productionWrites=False, formalBackupPathVerified=False,
+            privilegedMigrationPathVerified=False,
+            newLoginAttestationRows=after_rows[LOGIN_TABLE][0],
+            newRoleNoLoginNoPassword=True)
+        stream_result.update(stream_fields)
+        (target_root / "evidence.json").write_text(json.dumps(stream_result,
+            ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(stream_result, ensure_ascii=False))
+        sys.exit(0)  # finally stops this exact second fresh cluster.
     plaintext = run_sensitive([BIN / "pg_dump.exe", "--format=custom",
         "teruisi_ai_rehearsal"], env=source_env)
     if not 5 <= len(plaintext) <= MAX_PLAINTEXT_BYTES:
