@@ -1274,6 +1274,18 @@ function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
   if ($protected.Count -gt 0) {
     throw "受保护 AI 归档尚无角色、owner/ACL 与私钥隔离恢复契约；拒绝开始恢复演练"
   }
+  $financeRaw = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "finance" -and
+    [string]$_.name -ceq "0005_raw_column_evidence_v2"
+  })
+  $financeRawTables = @("finance_raw_column_evidence_months",
+    "finance_raw_column_evidence_columns", "finance_raw_column_evidence_cells")
+  $presentFinanceRaw = @($financeRawTables | Where-Object {
+    $_ -cin @($Manifest.evidence.tables.PSObject.Properties.Name)
+  })
+  if ($financeRaw.Count -gt 0 -or $presentFinanceRaw.Count -gt 0) {
+    throw "财报原始列证据侧车归档尚无正式角色与恢复契约；拒绝启动隔离恢复"
+  }
 }
 
 function Assert-MaintenanceRehearsalListenerOwnership(

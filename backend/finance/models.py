@@ -95,6 +95,76 @@ class FinanceLine(models.Model):
         ]
 
 
+class FinanceRawEvidenceMonth(models.Model):
+    """Append-only digest claims for one current completed finance month/batch."""
+    id = models.CharField(primary_key=True, max_length=64)
+    month = models.CharField(max_length=7)
+    batch = models.ForeignKey(FinanceImportBatch, on_delete=models.PROTECT,
+        db_column="batch_id")
+    finance_revision = models.BigIntegerField()
+    finance_source_digest = models.CharField(max_length=64)
+    raw_file_hash = models.CharField(max_length=64)
+    batch_content_hash = models.CharField(max_length=64)
+    batch_published_state_token = models.CharField(max_length=64)
+    candidate_digest = models.CharField(max_length=64)
+    evidence_digest = models.CharField(max_length=64)
+    header_digest = models.CharField(max_length=64)
+    cells_digest = models.CharField(max_length=64)
+    column_chain_digest = models.CharField(max_length=64)
+    cell_chain_digest = models.CharField(max_length=64)
+    collision_digest = models.CharField(max_length=64)
+    column_count = models.PositiveIntegerField()
+    cell_count = models.PositiveIntegerField()
+    cross_group_same_name_risk = models.BooleanField(default=False)
+    ambiguity_flags_json = models.JSONField(default=list)
+    raw_workbook_bytes_verified = models.BooleanField(default=False)
+    stable_netshop_shop_identity_verified = models.BooleanField(default=False)
+    mapping_authority_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "finance_raw_column_evidence_months"
+        constraints = [
+            models.UniqueConstraint(fields=["month", "batch"],
+                name="fin_raw_month_batch_uq"),
+            models.CheckConstraint(condition=models.Q(raw_workbook_bytes_verified=False),
+                name="fin_raw_unverified_bytes"),
+            models.CheckConstraint(condition=models.Q(stable_netshop_shop_identity_verified=False),
+                name="fin_raw_unverified_shop"),
+            models.CheckConstraint(condition=models.Q(mapping_authority_verified=False),
+                name="fin_raw_unverified_mapping"),
+        ]
+
+
+class FinanceRawEvidenceColumn(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    evidence = models.ForeignKey(FinanceRawEvidenceMonth,
+        on_delete=models.PROTECT, db_column="evidence_id")
+    column_index = models.PositiveIntegerField()
+    column_digest = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = "finance_raw_column_evidence_columns"
+        constraints = [models.UniqueConstraint(
+            fields=["evidence", "column_index"], name="fin_raw_column_uq")]
+
+
+class FinanceRawEvidenceCell(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    evidence = models.ForeignKey(FinanceRawEvidenceMonth,
+        on_delete=models.PROTECT, db_column="evidence_id")
+    section = models.CharField(max_length=32)
+    row_index = models.PositiveIntegerField()
+    column_index = models.PositiveIntegerField()
+    cell_digest = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = "finance_raw_column_evidence_cells"
+        constraints = [models.UniqueConstraint(
+            fields=["evidence", "section", "row_index", "column_index"],
+            name="fin_raw_cell_uq")]
+
+
 class FinanceTarget(models.Model):
     id = models.CharField(primary_key=True, max_length=128)
     period_type = models.CharField(max_length=16)

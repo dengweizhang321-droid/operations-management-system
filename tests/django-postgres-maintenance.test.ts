@@ -315,10 +315,14 @@ test("protected archive is rejected by pure operator guard before restore startu
   const command = [
     "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1';",
     `. '${escapedScript}';`,
-    "$old=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0066_business_promotion_budget_v11_durable_stage'})}};",
+    "$old=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0066_business_promotion_budget_v11_durable_stage'});tables=[pscustomobject]@{}}};",
     "Assert-MaintenanceProtectedArchiveUnsupported $old;",
-    "$protected=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0068_business_promotion_budget_v11_verifier_receipt'})}};",
+    "$protected=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='ai_assistant';name='0068_business_promotion_budget_v11_verifier_receipt'});tables=[pscustomobject]@{}}};",
     "try {Assert-MaintenanceProtectedArchiveUnsupported $protected; exit 9} catch {};",
+    "$rawReceipt=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@([pscustomobject]@{app='finance';name='0005_raw_column_evidence_v2'});tables=[pscustomobject]@{}}};",
+    "try {Assert-MaintenanceProtectedArchiveUnsupported $rawReceipt; exit 10} catch {};",
+    "$rawTable=[pscustomobject]@{evidence=[pscustomobject]@{migrations=@();tables=[pscustomobject]@{finance_raw_column_evidence_cells=0}}};",
+    "try {Assert-MaintenanceProtectedArchiveUnsupported $rawTable; exit 11} catch {};",
     "exit 0",
   ].join(" ");
   const result = spawnSync(powershell, [

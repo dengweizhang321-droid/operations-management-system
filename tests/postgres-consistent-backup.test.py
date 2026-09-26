@@ -827,6 +827,8 @@ class ConsistentBackupTests(unittest.TestCase):
                 ),
                 mock.patch.object(MODULE, "_protected_ai_preflight",
                     return_value={"appliedProtectedMigrations": []}),
+                mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
+                    return_value=False),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
                 result = MODULE.run_backup(args)
@@ -865,6 +867,8 @@ class ConsistentBackupTests(unittest.TestCase):
                 mock.patch.object(MODULE, "collect_evidence", return_value={}),
                 mock.patch.object(MODULE, "_protected_ai_preflight",
                     return_value={"appliedProtectedMigrations": []}),
+                mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
+                    return_value=False),
                 mock.patch.object(MODULE.subprocess, "run", side_effect=fake_run),
             ):
                 with self.assertRaisesRegex(RuntimeError, "pg_dump failed"):
@@ -895,6 +899,47 @@ class ConsistentBackupTests(unittest.TestCase):
             evidence.assert_not_called()
             native.assert_not_called()
             self.assertFalse((root / "protected.dump").exists())
+
+    def test_finance_raw_evidence_receipt_or_table_refuses_backup_before_dump(self):
+        class Cursor:
+            def __init__(self, receipt, tables):
+                self.receipt, self.tables = receipt, tables
+            def execute(self, statement, params=None):
+                self.statement = statement
+            def fetchone(self):
+                return (self.receipt,)
+            def fetchall(self):
+                return [(name,) for name in self.tables]
+        self.assertFalse(MODULE._finance_raw_evidence_preflight(Cursor(False, [])))
+        self.assertTrue(MODULE._finance_raw_evidence_preflight(Cursor(True,
+            MODULE.FINANCE_RAW_EVIDENCE_TABLES)))
+        for receipt, tables in ((True, []), (False, MODULE.FINANCE_RAW_EVIDENCE_TABLES),
+                (True, ["finance_raw_column_evidence_cells"])):
+            with self.subTest(receipt=receipt, tables=tables), \
+                    self.assertRaisesRegex(RuntimeError, "finance raw evidence"):
+                MODULE._finance_raw_evidence_preflight(Cursor(receipt, tables))
+        with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
+            root = Path(temporary)
+            pg_dump = root / "pg_dump.exe"
+            pg_dump.write_bytes(b"fixture")
+            args = argparse.Namespace(pg_dump=str(pg_dump),
+                output=str(root / "raw-evidence.dump"),
+                expected_database="teruisi_sales",
+                expected_user="teruisi_sales_owner", port=5432,
+                timeout_seconds=77)
+            with (mock.patch.object(MODULE.psycopg, "connect",
+                        return_value=_SnapshotConnection()),
+                    mock.patch.object(MODULE, "_protected_ai_preflight",
+                        return_value={"appliedProtectedMigrations": []}),
+                    mock.patch.object(MODULE, "_finance_raw_evidence_preflight",
+                        return_value=True),
+                    mock.patch.object(MODULE, "collect_evidence") as evidence,
+                    mock.patch.object(MODULE.subprocess, "run") as native):
+                with self.assertRaisesRegex(RuntimeError,
+                        "finance raw evidence daily backup is not admitted"):
+                    MODULE.run_backup(args)
+            evidence.assert_not_called(); native.assert_not_called()
+            self.assertFalse((root / "raw-evidence.dump").exists())
 
     def test_restore_is_single_transaction_and_bounded(self):
         with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
@@ -944,6 +989,28 @@ class ConsistentBackupTests(unittest.TestCase):
             with mock.patch.object(MODULE.subprocess, "run",
                     side_effect=fake_run) as native:
                 with self.assertRaisesRegex(RuntimeError, "not admitted"):
+                    MODULE.run_restore(args)
+            self.assertEqual(native.call_count, 1)
+
+    def test_finance_raw_evidence_toc_refuses_before_restore(self):
+        with tempfile.TemporaryDirectory(prefix="teruisi-pg-helper-") as temporary:
+            root = Path(temporary)
+            pg_restore = root / "pg_restore.exe"
+            archive = root / "approved.dump"
+            pg_restore.write_bytes(b"fixture")
+            archive.write_bytes(b"archive")
+            args = argparse.Namespace(pg_restore=str(pg_restore),
+                archive=str(archive), expected_database="teruisi_sales",
+                expected_user="postgres", port=55432,
+                timeout_seconds=91)
+            def fake_run(command, **kwargs):
+                self.assertIn("--list", command)
+                return subprocess.CompletedProcess(command, 0,
+                    b"TABLE DATA public finance_raw_column_evidence_cells", b"")
+            with mock.patch.object(MODULE.subprocess, "run",
+                    side_effect=fake_run) as native:
+                with self.assertRaisesRegex(RuntimeError,
+                        "finance raw evidence archive restore is not admitted"):
                     MODULE.run_restore(args)
             self.assertEqual(native.call_count, 1)
 

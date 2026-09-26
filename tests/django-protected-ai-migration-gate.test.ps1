@@ -39,6 +39,21 @@ try {
     $blocked = $true
   }
   if (-not $blocked) { throw 'Formal 0073-only source was not blocked before staging' }
+
+  $synthetic0073 = Join-Path $candidateMigrations '0073_business_promotion_budget_v11_login_attestation.py'
+  Remove-Item -LiteralPath $synthetic0073 -Force
+  $financeMigrations = Join-Path $candidateBackend 'finance\migrations'
+  New-Item -ItemType Directory -Path $financeMigrations -Force | Out-Null
+  [IO.File]::WriteAllText((Join-Path $financeMigrations '0005_raw_column_evidence_v2.py'), '# isolated test only')
+  $blocked = $false
+  try { Assert-NoUnapprovedProtectedAiMigration 'finance-v2-only' $candidateBackend }
+  catch {
+    if ($_.Exception.Message -notmatch 'finance-v2-only refuses finance raw evidence v2 migration release') { throw }
+    $blocked = $true
+  }
+  if (-not $blocked) { throw 'Formal finance.0005-only source was not blocked before staging' }
+  $RuntimeRoot = $temporary
+  Assert-NoUnapprovedProtectedAiMigration 'isolated finance-v2 preview' $candidateBackend
   'protected AI migration preflight: isolated allowed, formal blocked'
 } finally {
   if ($candidateRoot -and (Test-Path -LiteralPath $candidateRoot)) {

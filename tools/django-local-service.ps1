@@ -1644,6 +1644,10 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
       throw "$Operation refuses protected AI migration release until the privileged installation and backup/restore gates are verified"
     }
   }
+  $financeRawMigration = Join-Path $CandidateBackendRoot 'finance\migrations\0005_raw_column_evidence_v2.py'
+  if (Test-Path -LiteralPath $financeRawMigration -PathType Leaf) {
+    throw "$Operation refuses finance raw evidence v2 migration release until its independent backup/restore contract is verified"
+  }
 }
 
 function Prepare-Application {
