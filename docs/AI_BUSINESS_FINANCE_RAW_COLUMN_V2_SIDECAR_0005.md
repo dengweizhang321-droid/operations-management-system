@@ -7,3 +7,5 @@
 正式 PrepareApp、DeployApp 和普通 `migrate` 在源码发现精确 `finance.0005` 时先拒绝，隔离测试目录不受影响。正式备份/恢复在 `finance.0005` 迁移收据或任一侧车表出现时继续提前拒绝：备份在 `pg_dump`/文件工作前、helper 恢复在实际 `pg_restore` 前、维护操作员在隔离集群 `initdb` 前拒。旧无 `finance.0005` 的 v1 备份路径不变。新表目录、专用恢复身份/ACL 与异集群恢复尚未受控验收，**不能发布本迁移**。多月批次、历史原文件缺失、跨组同名源列本身的独立真实性、网店稳定店铺 ID 和 v4 可报告财报映射均未解决。
 
 2026-09-26 隔离真实 PostgreSQL 终验：唯一源端口 55772 的 7 项测试全部通过，日志 `.runtime/ai-pg-df8f201373e3/tests.log`；测试库销毁、`pg_ctl` 回读 `no server running`，端口无监听。测试覆盖新表三类 UPDATE/DELETE/TRUNCATE 触发器、触发事件与函数正文/owner/PUBLIC 和四个应用角色的表/列 ACL 漂移、独立连接以 `teruisi_finance_writer` 实际 INSERT 获 SQLSTATE 42501。完整合成 Worker 候选的表头继承、首格原文与金蝶父行金额回卷、缺格/改声明、附加子格后的幂等重放、财报 revision 与月→批次变化均拒；正例写前后 `FinanceLine`、`FinanceMonth`、`FinanceImportBatch` **全部字段** SHA 一致。旧正式备份 Python 29 项、维护/生命周期 Node 55 项、正式目录 finance.0005-only 动态拒绝及 Django `check`/迁移清单也通过。所有客户原始值仅存在于测试合成候选，不在新增侧车表中保存；原 XLSX 字节、真实多月批次、稳定店铺映射、正式备份恢复和生产发布仍未证明。
+
+隔离角色测试日志另已归档至 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-df8f201373e3-finance-raw-v2-tests\tests.log`，SHA-256 `a7107ded1528aff8c4726f1bcbdd27803973c89a648c575a89534a28a08693dd`；同目录 `status.json` 只含无凭据命令、7 项结果及停机摘要。复制前后日志 SHA 一致。
