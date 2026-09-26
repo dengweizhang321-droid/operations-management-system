@@ -15,6 +15,7 @@
 - 默认关闭的五维调整计划合同已校验对象、同报告事实引用、责任、预算依据、KPI、观察期及停止/回退条件；缺源只能提出补源动作，不会自动调价、投放或发布。
 - `0073` 未建迁移：0062 的原暂停报告与 0064 的另立合成五角色报告不能合并成同 job/provider 已读。五角色逐一拒绝 0062 回执、拥有方数据库重读服务拒绝空/合成执行的隔离 PG 2 项通过，证据 `.runtime/ai-pg-2853609f92c2/tests.log`。v5 诊断另以真实 reader 识别原暂停报告，并明确拒绝其无权直接读取的合成派发表；隔离 PG 1 项通过 `.runtime/ai-pg-8623cfa54c7b/tests.log`。不把合成链冒充真实 Agent 已读。
 - 测试专用**第二全新 PostgreSQL 集群**在合成超级用户/随机合成密钥下保留 owner/ACL，恢复 12 受保护角色、8 表与 1 合成密钥；0068–0072 目录逐项通过，故意所有者和函数授权漂移均拒绝回滚。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-38e31f193b17-protected-audit\protected-cross-cluster\evidence.json`。正式备份/非超级用户迁移/归档加密均未因此通过；正式备份和恢复已增加默认关闭的只读预检，发现受保护迁移便在写归档或启动恢复前拒绝，避免产生不可验证的成品。
+- 测试专用普通迁移登录账号 `NOSUPERUSER NOCREATEROLE NOINHERIT` 的逐步安装探针通过：预置角色后普通账号可安装 0067/0069/0071/0072；0068 因临时角色授权、0070 因私钥表读权被拒，两次失败均原子回滚且无迁移收据，再由隔离特权测试账号接续。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-b5e25dad0289-migration-role-audit\business-protected-migration-role-evidence.json`。正式迁移尚无特权拆分通道，不因本探针通过而允许部署。
 
 ## 尚未达到五阶段终验的条件
 
