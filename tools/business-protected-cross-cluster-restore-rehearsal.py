@@ -25,6 +25,10 @@ django.setup()
 import psycopg
 from psycopg import sql
 from django.conf import settings
+from protected_ai_synthetic_archive import (
+    MAX_PLAINTEXT_BYTES, decrypt as decrypt_synthetic_archive,
+    encrypt as encrypt_synthetic_archive,
+)
 
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -81,6 +85,19 @@ def run(command: list[object], *, env: dict[str, str], timeout: int = 300) -> No
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
     if completed.returncode:
         raise RuntimeError("isolated cross-cluster command failed: " + str(log))
+
+
+def run_sensitive(command: list[object], *, env: dict[str, str],
+        input_bytes: bytes | None = None, timeout: int = 600) -> bytes:
+    """Keep synthetic custom archive bytes out of command logs and disk files."""
+    completed = subprocess.run([str(part) for part in command], cwd=ROOT,
+        env=env, input=input_bytes, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=timeout,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+    if completed.returncode:
+        raise RuntimeError("isolated protected archive command failed; diagnosticSha256="
+            + hashlib.sha256(completed.stderr[:16384]).hexdigest())
+    return completed.stdout
 
 
 def open_db(port: int, password: str) -> psycopg.Connection:
@@ -179,6 +196,12 @@ with open_db(source_port, source_password) as source:
     if before_rows[key_table.removeprefix("public.")][0] != 1:
         raise AssertionError("synthetic private key fixture missing")
     source_roles = role_inventory(source)
+    archive_context = hashlib.sha256(json.dumps({
+        "migrations": MIGRATIONS,
+        "protectedRows": before_rows,
+        "roles": source_roles,
+    }, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode(
+        "ascii")).digest()
 
 target_port = None
 for candidate_port in range(55440, 56000):
@@ -229,14 +252,44 @@ try:
                 sql.Identifier(name),
                 sql.SQL("LOGIN" if can_login else "NOLOGIN"),
                 sql.SQL("INHERIT" if inherit else "NOINHERIT")))
+    # The synthetic key exists only in this process. No custom dump is ever
+    # written as a plaintext file; the formal backup/restore path stays closed.
+    plaintext = run_sensitive([BIN / "pg_dump.exe", "--format=custom",
+        "teruisi_ai_rehearsal"], env=source_env)
+    if not 5 <= len(plaintext) <= MAX_PLAINTEXT_BYTES:
+        raise AssertionError("synthetic archive exceeded the bounded test format")
+    test_key = secrets.token_bytes(32)
+    archive = target_root / "synthetic-source.dump.aead"
+    archive.write_bytes(encrypt_synthetic_archive(
+        plaintext, test_key, archive_context))
+    os.chmod(archive, 0o600)
+    del plaintext
+    encrypted = archive.read_bytes()
+    if encrypted.startswith(b"PGDMP") or any(target_root.glob("*.dump")):
+        raise AssertionError("synthetic protected archive persisted in plaintext")
+    for damaged_key, damaged_archive in (
+            (secrets.token_bytes(32), encrypted),
+            (test_key, encrypted[:-1]),
+            (test_key, encrypted[:-17] + bytes((encrypted[-17] ^ 1,))
+             + encrypted[-16:])):
+        try:
+            decrypt_synthetic_archive(damaged_archive, damaged_key,
+                archive_context)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("tampered synthetic archive authenticated")
+    plaintext = decrypt_synthetic_archive(encrypted, test_key, archive_context)
+    toc = run_sensitive([BIN / "pg_restore.exe", "--list"],
+        env=target_env, input_bytes=plaintext)
+    if b"protected_business_" not in toc or b"ACL" not in toc:
+        raise AssertionError("synthetic archive TOC lacks protected owner/ACL entries")
     run([BIN / "createdb.exe", "teruisi_ai_rehearsal"], env=target_env)
-    archive = target_root / "synthetic-source.dump"
-    run([BIN / "pg_dump.exe", "--format=custom", "--file", archive,
-        "teruisi_ai_rehearsal"], env=source_env, timeout=600)
     # Exact opposite of the formal restore's current owner/ACL suppression.
-    run([BIN / "pg_restore.exe", "--single-transaction", "--exit-on-error",
-        "--dbname", "teruisi_ai_rehearsal", archive],
-        env=target_env, timeout=600)
+    run_sensitive([BIN / "pg_restore.exe", "--single-transaction",
+        "--exit-on-error", "--dbname", "teruisi_ai_rehearsal"],
+        env=target_env, input_bytes=plaintext)
+    del plaintext
     with open_db(target_port, target_password) as target:
         verify_catalog(target)
         after_rows = protected_rows(target)
@@ -256,7 +309,11 @@ try:
         "ordinaryAiKeyReadDenied": True, "productionWrites": False,
         "formalBackupPathVerified": False,
         "privilegedMigrationPathVerified": False,
-        "archiveEncryptionVerified": False}
+        "archiveEncryptionVerified": True,
+        "archiveCipher": "AES-256-GCM-synthetic-only",
+        "encryptedArchiveSha256": hashlib.sha256(encrypted).hexdigest(),
+        "plaintextDumpFiles": 0,
+        "wrongKeyTamperAndTruncationRejected": True}
     (target_root / "evidence.json").write_text(json.dumps(result,
         ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(result, ensure_ascii=False))

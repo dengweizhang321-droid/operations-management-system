@@ -43,3 +43,5 @@
 本探针只分类了真实普通账号的安装边界，**没有**给正式 `teruisi_sales_owner` 特权。当前生产迁移入口已在调用普通账号前拒绝这批候选，正式发布还须另建受控特权 0068/0070 安装通道，并做非超级用户/跨集群备份恢复终验。
 
 续跑演练又扩展为每步从隔离数据库重建精确 0067–0072 迁移收据前缀、受保护表清单、12 角色无登录/无继承/零成员和已安装目录。0068 角色预置后与安装收据后各模拟一次安装器中断并换新连接续检；伪造未来收据和临时 KEY_OWNER 成员关系均被拒绝且回滚。原普通账号 0068/0070 失败分类、其余四步安装及私钥表拒读仍通过。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-6d8e94e3939d-migration-resume\business-protected-migration-role-evidence.json`，SHA-256 `36b821f36c7c2b17c62dd44898bfc2ecb90149640dd767d3564d2edffaf75c8b`，原隔离集群停机。本切片仍只在合成超级用户辅助的克隆库运行；不改变正式迁移/备份的默认关闭状态。
+
+另一轮隔离第二新集群演练把原明文自定义 dump 改为测试专用 AES-256-GCM 封套：随机 256 位密钥只驻本进程，固定版本/上下文摘要作为附加认证数据，目标目录仅保留 `.dump.aead`；认证后经 `pg_restore` 标准输入列目录并单事务恢复。错密钥、改密文/标签、截断均在恢复前拒绝；12 角色、8 表、1 合成私钥、owner/ACL 与故意漂移拒绝沿原核验通过。6 项纯封套测试和全链通过，源/目标 `pg_ctl` 均为 no server running；证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-db30f987684a-protected-aead\evidence.json`，SHA-256 `1f2e90cc093cdb7ed3844a3a8899b4e2b57f7584378d5bd71af6f7f4f49341da`。随机测试密钥没有保存，密文不能作为长期可恢复备份；归档目录的正式 ACL、受控特权备份身份、密钥托管/轮换、流式大文件认证及正式恢复仍未实现，原失败关闭门禁不放开。
