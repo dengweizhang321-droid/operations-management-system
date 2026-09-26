@@ -23,6 +23,7 @@
 - 市场 v6 工具观察在隔离真实角色下双遍读取已封存市场来源并核同任务候选身份，`summary`/`page` PG 2 项通过，零模型/远程调用和 Agent 派发表变化；观察标识未持久化，不能称五 Agent 已读、数值引用或付费派发。见 `docs/AI_BUSINESS_MARKET_V6_TOOL_OBSERVATION.md`。
 - 第二新集群的合成受保护归档现使用 AES-256-GCM 认证封套，错密钥/篡改/截断拒绝、明文 dump 0，恢复后 12 角色/8 表/1 合成密钥和 owner/ACL 通过；纯 6 项及全链成功，源/目标停机。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-db30f987684a-protected-aead\evidence.json`。随机测试密钥不留存，正式备份身份、长期密钥托管/恢复及部署门禁仍未解决。
 - 补齐旧筛查工具目录测试对新增市场 v2 surface 的精确尾部预期，原 47 工具条目与 96 份目录规范字节摘要继续保持不变；相关 13 项通过。整合分支全量 `npm run test:unit` 最终 2,628 项、2,608 通过、20 跳过、0 失败；`npm run lint` 为 0 错误、12 条警告。未运行会改写在线构建产物的生产构建。
+- 受保护归档 v2 独立格式以 64 KiB 分块认证和最终帧拒绝错 key、截断、乱序、重复及篡改；默认密钥提供者直接拒绝。第二新集群真实 `pg_dump/pg_restore` 合成演练 32 块、12 角色/8 表/1 私钥与 owner/ACL 通过，双集群停机，证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-f31632b8cd04-protected-v2\evidence.json`。格式仍限内存 64 MiB、随机测试密钥不留存，正式备份和恢复仍关闭。
 
 ## 尚未达到五阶段终验的条件
 

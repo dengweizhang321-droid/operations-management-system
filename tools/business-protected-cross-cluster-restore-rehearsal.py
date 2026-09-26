@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import secrets
 import socket
+import struct
 import subprocess
 import sys
 
@@ -25,9 +26,9 @@ django.setup()
 import psycopg
 from psycopg import sql
 from django.conf import settings
-from protected_ai_synthetic_archive import (
-    MAX_PLAINTEXT_BYTES, decrypt as decrypt_synthetic_archive,
-    encrypt as encrypt_synthetic_archive,
+from protected_ai_archive_v2 import (
+    CHUNK_BYTES, MAGIC, MAX_PLAINTEXT_BYTES, TAG_BYTES, open_archive,
+    seal_archive,
 )
 
 
@@ -98,6 +99,19 @@ def run_sensitive(command: list[object], *, env: dict[str, str],
         raise RuntimeError("isolated protected archive command failed; diagnosticSha256="
             + hashlib.sha256(completed.stderr[:16384]).hexdigest())
     return completed.stdout
+
+
+class SyntheticArchiveKeys:
+    """A single test key in process memory, never a formal custody adapter."""
+
+    def __init__(self, key: bytes, key_id: str):
+        self.key = key
+        self.key_id = key_id
+
+    def resolve_key(self, key_id: str, purpose: str) -> bytes:
+        if key_id != self.key_id or purpose not in {"seal", "open"}:
+            raise AssertionError("unexpected synthetic archive key request")
+        return self.key
 
 
 def open_db(port: int, password: str) -> psycopg.Connection:
@@ -201,7 +215,7 @@ with open_db(source_port, source_password) as source:
         "protectedRows": before_rows,
         "roles": source_roles,
     }, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode(
-        "ascii")).digest()
+        "ascii")).hexdigest()
 
 target_port = None
 for candidate_port in range(55440, 56000):
@@ -258,28 +272,57 @@ try:
         "teruisi_ai_rehearsal"], env=source_env)
     if not 5 <= len(plaintext) <= MAX_PLAINTEXT_BYTES:
         raise AssertionError("synthetic archive exceeded the bounded test format")
-    test_key = secrets.token_bytes(32)
-    archive = target_root / "synthetic-source.dump.aead"
-    archive.write_bytes(encrypt_synthetic_archive(
-        plaintext, test_key, archive_context))
+    key_id = "isolated_synthetic_archive_key_v2"
+    keys = SyntheticArchiveKeys(secrets.token_bytes(32), key_id)
+    archive = target_root / "synthetic-source.dump.v2.aead"
+    archive.write_bytes(seal_archive(plaintext, key_id=key_id,
+        context_sha256=archive_context, key_provider=keys))
     os.chmod(archive, 0o600)
     del plaintext
     encrypted = archive.read_bytes()
     if encrypted.startswith(b"PGDMP") or any(target_root.glob("*.dump")):
         raise AssertionError("synthetic protected archive persisted in plaintext")
-    for damaged_key, damaged_archive in (
-            (secrets.token_bytes(32), encrypted),
-            (test_key, encrypted[:-1]),
-            (test_key, encrypted[:-17] + bytes((encrypted[-17] ^ 1,))
-             + encrypted[-16:])):
+    manifest_size = struct.unpack_from(">I", encrypted, len(MAGIC))[0]
+    header_end = len(MAGIC) + 4 + manifest_size
+    first_size = struct.unpack_from(">I", encrypted, header_end + 4)[0]
+    first_end = header_end + 8 + first_size + TAG_BYTES
+    second_size = struct.unpack_from(">I", encrypted, first_end + 4)[0]
+    second_end = first_end + 8 + second_size + TAG_BYTES
+    if first_size != CHUNK_BYTES or second_size != CHUNK_BYTES:
+        raise AssertionError("synthetic protected archive lacks two full v2 chunks")
+    tampered = bytearray(encrypted)
+    tampered[header_end + 8] ^= 1
+    negative_cases = (
+        ("wrong_key", encrypted,
+         SyntheticArchiveKeys(secrets.token_bytes(32), key_id), archive_context),
+        ("truncation", encrypted[:-1], keys, archive_context),
+        ("chunk_tamper", bytes(tampered), keys, archive_context),
+        ("reordered_chunks", encrypted[:header_end] +
+         encrypted[first_end:second_end] + encrypted[header_end:first_end] +
+         encrypted[second_end:], keys, archive_context),
+        ("duplicated_chunk", encrypted[:header_end] +
+         encrypted[header_end:first_end] * 2 + encrypted[second_end:],
+         keys, archive_context),
+        ("wrong_context", encrypted, keys,
+         hashlib.sha256(b"wrong isolated source").hexdigest()),
+    )
+    rejected_cases = []
+    for label, damaged_archive, damaged_keys, expected_context in negative_cases:
         try:
-            decrypt_synthetic_archive(damaged_archive, damaged_key,
-                archive_context)
+            open_archive(damaged_archive, expected_key_id=key_id,
+                expected_context_sha256=expected_context,
+                key_provider=damaged_keys)
         except ValueError:
-            pass
+            rejected_cases.append(label)
         else:
-            raise AssertionError("tampered synthetic archive authenticated")
-    plaintext = decrypt_synthetic_archive(encrypted, test_key, archive_context)
+            raise AssertionError("tampered synthetic v2 archive authenticated")
+    verified = open_archive(encrypted, expected_key_id=key_id,
+        expected_context_sha256=archive_context, key_provider=keys)
+    if (verified.manifest["version"] != 2
+            or verified.manifest["chunkBytes"] != CHUNK_BYTES
+            or verified.manifest["chunkCount"] < 2):
+        raise AssertionError("synthetic v2 archive manifest is invalid")
+    plaintext = verified.plaintext
     toc = run_sensitive([BIN / "pg_restore.exe", "--list"],
         env=target_env, input_bytes=plaintext)
     if b"protected_business_" not in toc or b"ACL" not in toc:
@@ -310,9 +353,18 @@ try:
         "formalBackupPathVerified": False,
         "privilegedMigrationPathVerified": False,
         "archiveEncryptionVerified": True,
-        "archiveCipher": "AES-256-GCM-synthetic-only",
+        "archiveCipher": "AES-256-GCM-chunked-v2-synthetic-only",
+        "archiveVersion": verified.manifest["version"],
+        "archiveChunkBytes": verified.manifest["chunkBytes"],
+        "archiveChunkCount": verified.manifest["chunkCount"],
+        "archiveContextSha256": archive_context,
+        "archiveManifestSha256": hashlib.sha256(json.dumps(
+            verified.manifest, ensure_ascii=True, sort_keys=True,
+            separators=(",", ":")).encode("ascii")).hexdigest(),
         "encryptedArchiveSha256": hashlib.sha256(encrypted).hexdigest(),
         "plaintextDumpFiles": 0,
+        "syntheticKeyPersisted": False,
+        "archiveNegativeCasesRejected": rejected_cases,
         "wrongKeyTamperAndTruncationRejected": True}
     (target_root / "evidence.json").write_text(json.dumps(result,
         ensure_ascii=False, indent=2), encoding="utf-8")
