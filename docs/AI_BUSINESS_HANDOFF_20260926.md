@@ -35,6 +35,10 @@
 
 - 默认关闭、仅隔离测试的受保护迁移安装器已合入 `568e70f1`：固定 0066 前驱与 0067–0073 源码 SHA/13 个 NOLOGIN 零成员角色，只接受连续正向计划；每步原子独占锁、先写 intent，未知结果不自动重放，显式审计可确认精确已提交前缀。含 finance.0005 的合成 clone 在 55786 实际完成 7 步，0068 提交后丢回复由审计确认、普通迁移角色私钥 SELECT 被拒，`formalAllowed=false`、`productionWrites=false`；源停机，E 盘完整归档 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-6513bfe33917-protected-installer\protected-installer-isolated-evidence.json`，SHA-256 `d0d1aa86c69dc23a4ff7ae0115a05f5e3b55262f2eeb9d6fa8522fcf4204bd0d`。整合后纯/静态 15 项及旧流式相关 18 项通过。0074 未在该安装器白名单，正式特权身份、加密备份/异机恢复与操作账本保护仍缺，正式发布栅栏未放行；见 `docs/AI_BUSINESS_PROTECTED_MIGRATION_INSTALLER_CANDIDATE.md`。
 
+- `0074` 单报告人民币上限候选已在隔离树通过真实 AI writer 五项、`0073→0074` 旧函数 OID/正文/ACL/owner 与旧 7 文件块冻结、前后独立恢复/空逆迁移，第二新集群 AES-256-GCM 恢复 13 角色/11 受保护表 owner/ACL 与六类损坏拒；两库停机、目标无明文 dump，正式备份早拒和模型调用关闭。证据 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-pg-3e8d545dc06c-human-cap-0074-passed`，升级 SHA-256 `83d2c6a8bcd625dadb73ddc618cfa1c759bd8bd3f25de468ce5144f8216f7da0`、跨集群 SHA-256 `e32831bb873617ad59d2f6f9beed3aa8acc6ff156a37d7ddef19dfcd3f78afe0`。同一整合分支同时装 finance.0005/0074 的隔离 PG 又通过财务 7、审批真实角色 5、目录共存 1，共 13 项，日志 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-business-0074-finance-0005-combined-20260926\tests.log` SHA-256 `224c1c23c702565326db097a928c892f5041ed1b375ca8a81ed2ba27ebeea7dc`。默认关闭、无真实人审金额、权威费率/计费账号或付费调用；见 `docs/AI_BUSINESS_MARKET_V2_HUMAN_CAP_0074.md`。
+
+- 财务与审批**原始测试套件**在整合分支同一隔离库再次 13/13 通过。首次同跑发现 Django `TransactionTestCase` 全库 `TRUNCATE` 与 finance.0005 无条件守卫冲突；仅精确测试库 runner 在事务内核三表触发器启用、临时关闭 TRUNCATE 事件做清理并恢复，失败回滚，正式迁移/连接不变。最终日志 `E:\codex-artifacts\ai-business-trial-acceptance-20260925\archived-pg\ai-business-0074-finance-0005-combined-runner-20260926\tests.log` SHA-256 `0ae130b2c86421b547a4b5b4b2a499d92af42b3da7a892254993f96166040cac`；测试库销毁、55792 `pg_ctl no server running`/无监听。比上条使用 scoped wrapper 的 13 项证据更强，替代其组合测试状态；不替代正式恢复。
+
 ## 尚未达到五阶段终验的条件
 
 1. v11 虽已有 `0070` 持久身份与票据候选，完整拥有方 ORM 预检、`0067` 写入和签名进程仍未沿非超级用户身份完成；旧 `0067/0068` NOLOGIN 会话仅由隔离超级用户模拟。发布事务还要同锁复验密钥状态、来源根与所有文件块字节，实现一次性 CAS/OUTCOME 和窄下载；在此之前保持 v11 `ready` 拒绝。

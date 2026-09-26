@@ -1,13 +1,16 @@
-"""Isolated PostgreSQL test runner for protected SQL-only FK tables.
+"""Isolated PostgreSQL test runner for protected append-only tables.
 
 The protected ticket tables intentionally have no Django model. Django's
 normal flush lists only managed model tables, so their foreign keys require
 TRUNCATE CASCADE in the isolated rehearsal database. Production connections
-never select this runner.
+never select this runner. finance.0005's ORM sidecar instead has an unconditional
+TRUNCATE guard; only this exact test database temporarily disables that one
+event inside a rollback-safe flush transaction and verifies it is re-enabled.
 """
 from __future__ import annotations
 
 from django.db import connections
+from django.db import transaction
 from django.test.runner import DiscoverRunner
 
 
@@ -22,6 +25,23 @@ PROTECTED_SQL_TABLES = frozenset({
     "protected_business_market_v2_cap_proposals",
     "protected_business_market_v2_authority_revocations",
 })
+FINANCE_DIGEST_TABLES = (
+    "finance_raw_column_evidence_months",
+    "finance_raw_column_evidence_columns",
+    "finance_raw_column_evidence_cells",
+)
+FINANCE_TRUNCATE_GUARD = "fin_raw_evidence_immutable_truncate"
+
+
+def _finance_truncate_guard_state(connection):
+    states = []
+    with connection.cursor() as cursor:
+        for table in FINANCE_DIGEST_TABLES:
+            cursor.execute("SELECT t.tgenabled FROM pg_catalog.pg_trigger t "
+                "WHERE t.tgrelid=%s::regclass AND t.tgname=%s",
+                ["public." + table, FINANCE_TRUNCATE_GUARD])
+            states.append(cursor.fetchone())
+    return tuple(states)
 
 
 class IsolatedPostgresTestRunner(DiscoverRunner):
@@ -38,6 +58,7 @@ class IsolatedPostgresTestRunner(DiscoverRunner):
                 raise RuntimeError("protected SQL flush requires isolated test database")
             operations = connection.ops
             original = operations.sql_flush
+            original_execute = operations.execute_sql_flush
 
             def isolated_flush(style, tables, *, reset_sequences=False,
                                allow_cascade=False, _original=original,
@@ -49,12 +70,42 @@ class IsolatedPostgresTestRunner(DiscoverRunner):
                     reset_sequences=reset_sequences, allow_cascade=True)
 
             operations.sql_flush = isolated_flush
-            self._patched_flush.append((operations, original))
+
+            def isolated_execute_sql_flush(sql_list, *, _original=original_execute,
+                                           _connection=connection):
+                if not sql_list or not set(FINANCE_DIGEST_TABLES).issubset(
+                        _connection.introspection.table_names()):
+                    return _original(sql_list)
+                # This test database's superuser must clean ORM tables between
+                # TransactionTestCase methods. The finance production trigger
+                # remains unconditional; disable only its TRUNCATE event inside
+                # a rollback-safe transaction around this exact test flush.
+                with transaction.atomic(using=_connection.alias):
+                    if _finance_truncate_guard_state(_connection) != (
+                            ("O",),) * len(FINANCE_DIGEST_TABLES):
+                        raise RuntimeError("finance test flush guard drift")
+                    with _connection.cursor() as cursor:
+                        for table in FINANCE_DIGEST_TABLES:
+                            cursor.execute("ALTER TABLE public." + table +
+                                " DISABLE TRIGGER " + FINANCE_TRUNCATE_GUARD)
+                    _original(sql_list)
+                    with _connection.cursor() as cursor:
+                        for table in FINANCE_DIGEST_TABLES:
+                            cursor.execute("ALTER TABLE public." + table +
+                                " ENABLE TRIGGER " + FINANCE_TRUNCATE_GUARD)
+                    if _finance_truncate_guard_state(_connection) != (
+                            ("O",),) * len(FINANCE_DIGEST_TABLES):
+                        raise RuntimeError("finance test flush guard not restored")
+
+            operations.execute_sql_flush = isolated_execute_sql_flush
+            self._patched_flush.append((operations, original, original_execute))
         return old_config
 
     def teardown_databases(self, old_config, **kwargs):
         try:
             return super().teardown_databases(old_config, **kwargs)
         finally:
-            for operations, original in getattr(self, "_patched_flush", ()):
+            for operations, original, original_execute in getattr(
+                    self, "_patched_flush", ()):
                 operations.sql_flush = original
+                operations.execute_sql_flush = original_execute
