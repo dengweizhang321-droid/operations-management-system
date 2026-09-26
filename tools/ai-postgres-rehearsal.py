@@ -77,10 +77,16 @@ parser.add_argument("--business-v4-report-link-upgrade", action="store_true")
 parser.add_argument("--business-market-v2-authority-upgrade", action="store_true")
 parser.add_argument("--business-protected-cross-cluster-restore", action="store_true",
                     help="Test only: follow 0072 with a second fresh cluster and preserve protected owners/ACL")
+parser.add_argument("--business-protected-migration-role-rehearsal", action="store_true",
+                    help="Test only: probe 0067-0072 with a real synthetic non-superuser migration login")
 parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_protected_migration_role_rehearsal:
+    if arguments.business_protected_cross_cluster_restore:
+        parser.error("Choose only one protected rehearsal")
+    arguments.business_promotion_budget_v11_stage_upgrade = True
 if arguments.business_protected_cross_cluster_restore:
     arguments.business_market_v2_authority_upgrade = True
 if arguments.preprovision_ai_runtime_roles and (
@@ -645,6 +651,13 @@ try:
             (RUN / "business-protected-cross-cluster-restore.json").write_text(
                 restored, encoding="utf-8")
             print(restored.strip(), flush=True)
+        if arguments.business_protected_migration_role_rehearsal:
+            role_result = run([sys.executable, ROOT / "tools" /
+                "business-protected-migration-role-rehearsal.py",
+                "--run-root", RUN], timeout=600, env=django_env)
+            (RUN / "business-protected-migration-role-rehearsal.json").write_text(
+                role_result, encoding="utf-8")
+            print(role_result.strip(), flush=True)
     if arguments.source_revision_guards_upgrade:
         upgrade = run([sys.executable, ROOT / "tools" /
             "source-revision-guards-upgrade-rehearsal.py", "--run-root", RUN],
