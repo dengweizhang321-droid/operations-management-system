@@ -48,6 +48,9 @@ PROTECTED_AI_TABLES_BY_MIGRATION = {
     "0075_business_v4_report_restricted_page": set(),
     "0076_business_promotion_budget_v11_ticket_bound_signer": {
         "protected_business_budget_v11_signed_receipts_v3"},
+    "0077_business_market_v6_paused_topology": {
+        "protected_business_market_v6_topologies",
+        "protected_business_market_v6_topology_cancellations"},
 }
 PROTECTED_AI_MIGRATIONS = frozenset(PROTECTED_AI_TABLES_BY_MIGRATION) | {
     "0067_business_promotion_budget_v11_attestation",
@@ -1020,7 +1023,9 @@ def collect_evidence(
                     ("0075_business_v4_report_restricted_page",
                      "0074_business_market_v2_human_cap_approval"),
                     ("0076_business_promotion_budget_v11_ticket_bound_signer",
-                     "0075_business_v4_report_restricted_page")):
+                     "0075_business_v4_report_restricted_page"),
+                    ("0077_business_market_v6_paused_topology",
+                     "0076_business_promotion_budget_v11_ticket_bound_signer")):
                 if migration_name in ai_migrations:
                     if predecessor not in ai_migrations:
                         raise RuntimeError("AI protected sidecar lacks predecessor: "
