@@ -21,6 +21,19 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
+test("0075 source and receipt cannot enter formal app or restore", async () => {
+  const [service, operator, helper, audit] = await Promise.all([
+    readFile(servicePath, "utf8"),
+    readFile(operatorPath, "utf8"),
+    readFile(helperPath, "utf8"),
+    readFile(path.join(root, "tools", "protected-ai-restore-static-audit.py"), "utf8"),
+  ]);
+  assert.match(service, /'0075_business_v4_report_restricted_page\.py'/);
+  assert.match(operator, /67\|68\|69\|70\|71\|72\|73\|74\|75/);
+  assert.match(helper, /"0075_business_v4_report_restricted_page"/);
+  assert.match(audit, /formal restore gate omits protected 0075 receipt/);
+});
+
 test("protected 0073 stays behind the formal restore and backup preflight", async () => {
   const [operator, helper] = await Promise.all([
     readFile(operatorPath, "utf8"), readFile(helperPath, "utf8"),

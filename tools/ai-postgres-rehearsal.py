@@ -17,6 +17,8 @@ parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
 parser.add_argument("--preprovision-ai-runtime-roles", action="store_true",
                     help="Isolated tests only: create reader/writer roles before migrations")
+parser.add_argument("--business-v4-report-restricted-reader-login",
+    action="store_true", help="Test only: give the isolated ai_reader a synthetic login password and read-only default")
 parser.add_argument("--test-label", action="append", default=[], help="Explicit Django test labels; only with --tests-only, without upgrade flags")
 parser.add_argument("--test-timeout-seconds", type=int, default=300,
                     help="Bounded Django test duration for large isolated suites (60-1800)")
@@ -79,6 +81,10 @@ parser.add_argument("--business-v11-login-attestation-upgrade", action="store_tr
                     help="Test only: 0072->0073 isolated LOGIN sidecar upgrade and rollback")
 parser.add_argument("--business-market-human-cap-upgrade", action="store_true",
                     help="Test only: 0073->0074 explicit CNY cap upgrade and rollback")
+parser.add_argument("--business-v4-report-restricted-page-upgrade",
+    action="store_true", help="Test only: 0074->0075 restricted read upgrade and dual restore")
+parser.add_argument("--business-v4-report-restricted-page-focused-upgrade",
+    action="store_true", help="Test only: current finance.0005 0075 empty reverse and restored upgrade")
 parser.add_argument("--business-protected-cross-cluster-restore-0074", action="store_true",
                     help="Test only: restore 0074 owner/ACL into a second fresh encrypted cluster")
 parser.add_argument("--business-protected-cross-cluster-restore", action="store_true",
@@ -96,6 +102,20 @@ parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.business_v4_report_restricted_page_focused_upgrade:
+    if (arguments.tests_only or arguments.upgrade_only or arguments.test_label
+            or arguments.all_backend_tests
+            or any(getattr(arguments, name) for name in vars(arguments)
+                if name.endswith("_upgrade") and name !=
+                "business_v4_report_restricted_page_focused_upgrade")
+            or any(getattr(arguments, name) for name in (
+                "business_protected_cross_cluster_restore",
+                "business_protected_cross_cluster_restore_0073",
+                "business_protected_cross_cluster_restore_0074",
+                "business_protected_migration_role_rehearsal",
+                "business_protected_installer_focus"))):
+        parser.error("0075 focused upgrade is one isolated standalone run")
+    arguments.preprovision_ai_runtime_roles = True
 if arguments.business_protected_installer_focus and (
         arguments.tests_only or arguments.test_label or arguments.upgrade_only
         or arguments.business_protected_migration_role_rehearsal
@@ -120,6 +140,11 @@ if arguments.business_protected_cross_cluster_restore_0074:
             or arguments.tests_only):
         parser.error("Choose one protected 0074 cross-cluster rehearsal")
     arguments.business_market_human_cap_upgrade = True
+if arguments.business_v4_report_restricted_page_upgrade:
+    if (arguments.tests_only or arguments.test_label
+            or arguments.business_protected_cross_cluster_restore_0074):
+        parser.error("0075 upgrade is a standalone isolated rehearsal")
+    arguments.business_market_human_cap_upgrade = True
 if arguments.business_market_human_cap_upgrade:
     if arguments.business_protected_cross_cluster_restore_0073:
         parser.error("0074 upgrade cannot combine the 0073 cross-cluster rehearsal")
@@ -141,8 +166,17 @@ if arguments.business_v11_login_attestation_upgrade:
         parser.error("Choose only one protected rehearsal")
     arguments.business_market_v2_authority_upgrade = True
 if arguments.preprovision_ai_runtime_roles and (
-        not arguments.tests_only or arguments.upgrade_only):
+        not (arguments.tests_only or
+            arguments.business_v4_report_restricted_page_focused_upgrade)
+        or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
+if arguments.business_v4_report_restricted_reader_login and (
+        not arguments.tests_only or not arguments.preprovision_ai_runtime_roles
+        or arguments.upgrade_only or not arguments.test_label
+        or any(not label.startswith(
+            "ai_assistant.test_business_v4_report_restricted_page_role")
+            for label in arguments.test_label)):
+    parser.error("0075 synthetic reader login requires only its isolated role tests")
 if arguments.business_market_v2_authority_upgrade:
     if arguments.business_v4_report_link_upgrade:
         parser.error("Choose only one fresh database upgrade rehearsal")
@@ -398,6 +432,19 @@ try:
             run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
                 "-c", "CREATE ROLE " + role + " LOGIN NOINHERIT "
                 "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
+    synthetic_0075_reader_password = None
+    if arguments.business_v4_report_restricted_reader_login:
+        import psycopg
+        from psycopg import sql
+        synthetic_0075_reader_password = secrets.token_hex(32)
+        with psycopg.connect(host="127.0.0.1", port=PORT,
+                dbname="teruisi_ai_rehearsal", user="ai_rehearsal_admin",
+                password=password, autocommit=True) as installer:
+            installer.execute(sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                sql.Identifier("teruisi_ai_reader"),
+                sql.Literal(synthetic_0075_reader_password)))
+            installer.execute("ALTER ROLE teruisi_ai_reader SET "
+                "default_transaction_read_only=on")
     django_env = {
         **environment,
         "DJANGO_SECRET_KEY": secrets.token_hex(32),
@@ -410,6 +457,9 @@ try:
         "TERUISI_AI_REHEARSAL_PORT": str(PORT),
         "TERUISI_AI_REHEARSAL_RUN_ROOT": str(RUN),
     }
+    if synthetic_0075_reader_password is not None:
+        django_env["TERUISI_AI_0075_SYNTHETIC_READER_PASSWORD"] = (
+            synthetic_0075_reader_password)
     print(
         json.dumps(
             {
@@ -420,6 +470,20 @@ try:
         ),
         flush=True,
     )
+    if arguments.business_v4_report_restricted_page_focused_upgrade:
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "--noinput"], timeout=900, env=django_env)
+        run([sys.executable, ROOT / "backend/manage.py", "migrate",
+            "ai_assistant", "0074_business_market_v2_human_cap_approval",
+            "--noinput"], timeout=180, env=django_env)
+        focused = run([sys.executable, ROOT / "tools" /
+            "business-v4-report-restricted-page-upgrade-rehearsal.py",
+            "--run-root", RUN, "--focused-current"], timeout=900,
+            env=django_env)
+        (RUN / "business-v4-report-restricted-page-focused-upgrade.json"
+            ).write_text(focused, encoding="utf-8")
+        print(focused.strip(), flush=True)
+        sys.exit(0)  # finally stops this exact synthetic cluster.
     if arguments.business_protected_installer_focus:
         focused = run([sys.executable, ROOT / "tools" /
             "protected-ai-installer-focus-rehearsal.py", "--run-root", RUN],
@@ -706,6 +770,9 @@ try:
         if arguments.business_market_human_cap_upgrade:
             rehearsals += (("business-market-v2-human-cap-upgrade-rehearsal.py",
                 "business-market-v2-human-cap-upgrade.json"),)
+        if arguments.business_v4_report_restricted_page_upgrade:
+            rehearsals += (("business-v4-report-restricted-page-upgrade-rehearsal.py",
+                "business-v4-report-restricted-page-upgrade.json"),)
         for script, name in rehearsals:
             upgrade = run([sys.executable, ROOT / "tools" / script, "--run-root", RUN], env=django_env)
             (RUN / name).write_text(upgrade, encoding="utf-8")

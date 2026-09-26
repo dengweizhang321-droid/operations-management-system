@@ -385,6 +385,14 @@ class _SnapshotConnection:
 
 
 class ConsistentBackupTests(unittest.TestCase):
+    def test_0075_without_new_tables_is_still_a_protected_backup_receipt(self):
+        name = "0075_business_v4_report_restricted_page"
+        self.assertIn(name, MODULE.PROTECTED_AI_MIGRATIONS)
+        self.assertEqual(MODULE.PROTECTED_AI_TABLES_BY_MIGRATION[name], set())
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn('if protected["appliedProtectedMigrations"]:', source)
+        self.assertIn('raise RuntimeError("protected AI daily backup is not admitted")', source)
+
     def test_protected_0073_has_exact_table_role_and_migration_inventory(self):
         name = "0073_business_promotion_budget_v11_login_attestation"
         self.assertEqual(MODULE.PROTECTED_AI_TABLES_BY_MIGRATION[name],

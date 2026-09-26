@@ -78,6 +78,23 @@ def audit(root: Path = ROOT) -> dict[str, object]:
                 issues.append(source_name + " lacks exact 0074 protection")
         if '67|68|69|70|71|72|73|74' not in operator:
             issues.append("formal restore gate omits protected 0074 receipt")
+    report_page_path = (root / "backend/ai_assistant/migrations/"
+        "0075_business_v4_report_restricted_page.py")
+    if report_page_path.is_file():
+        page_source = report_page_path.read_text(encoding="utf-8")
+        for source_name, source, marker in (
+            ("formal PrepareApp", installer,
+             "0075_business_v4_report_restricted_page.py"),
+            ("backup migration receipt", helper,
+             "0075_business_v4_report_restricted_page"),
+            ("0075 catalog verifier", page_source, "def verify_catalog("),
+            ("0075 restricted function", page_source,
+             "business_v4_report_restricted_page_sql"),
+        ):
+            if marker not in source:
+                issues.append(source_name + " lacks exact 0075 protection")
+        if '67|68|69|70|71|72|73|74|75' not in operator:
+            issues.append("formal restore gate omits protected 0075 receipt")
 
     roles_block = re.search(r"\$MaintenanceRehearsalRoles\s*=\s*@\((.*?)\)", operator, re.S)
     actual_roles = set(re.findall(r'"(teruisi_[a-z0-9_]+)"', roles_block.group(1))) if roles_block else set()
