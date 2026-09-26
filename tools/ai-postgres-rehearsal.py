@@ -249,7 +249,8 @@ if arguments.preprovision_ai_runtime_roles and (
             arguments.business_v4_report_restricted_page_focused_upgrade or
             arguments.business_v11_ticket_sign_focused_upgrade or
             arguments.business_market_v6_topology_focused_upgrade or
-            arguments.business_v11_publication_focused_upgrade)
+            arguments.business_v11_publication_focused_upgrade or
+            arguments.business_market_v6_source_ticket_focused_upgrade)
         or arguments.upgrade_only):
     parser.error("Preprovisioned AI runtime roles are only for isolated tests")
 if arguments.business_v4_report_restricted_reader_login and (

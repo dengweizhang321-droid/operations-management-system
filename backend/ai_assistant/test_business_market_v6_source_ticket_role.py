@@ -124,6 +124,13 @@ class SourceTicketRoleTests(PausedTopologyRoleTests):
                 with connection.cursor() as cursor:
                     cursor.execute("REVOKE teruisi_ai_reader FROM " +
                         MIGRATION.source.ROLE)
+        with self.assertRaisesRegex(RuntimeError,
+                "cannot discard persisted source tickets"):
+            with connection.schema_editor() as editor:
+                MIGRATION.uninstall(None, editor)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM " + MIGRATION.TABLE)
+            self.assertEqual(cursor.fetchone(), (1,))
         self.assertEqual(m.AiAgentJobs.objects.filter(
             workflow_run_id=snapshot["workflowId"],
             status="paused", provider_round_count=0,
