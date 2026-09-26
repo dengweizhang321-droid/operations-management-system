@@ -4,9 +4,15 @@ from copy import deepcopy
 from unittest import TestCase
 from unittest.mock import patch
 
+from django.db import connection
+from django.test import TestCase as DjangoTestCase
+from django.test.utils import CaptureQueriesContext
+
 from finance.shop_mapping_diagnostic import inspect, project
 from finance.errors import FinanceApiError
 from finance.tests.factories import finance_month
+from finance.tests.test_business_analysis_source import FinanceBusinessSourceTests
+from access_control.models import AppUser
 
 
 REVISION = {"revision": 7, "source_digest": "a" * 64}
@@ -117,3 +123,35 @@ class FinanceShopMappingDiagnosticTests(TestCase):
             with self.assertRaises(FinanceApiError):
                 inspect(object(), ["2026-08"])
             actor.assert_not_called()
+
+
+class FinanceShopMappingOwningTests(DjangoTestCase):
+    setUp = FinanceBusinessSourceTests.setUp
+
+    def test_imported_month_is_read_without_amounts_or_writes(self):
+        with CaptureQueriesContext(connection) as captured:
+            result = inspect(self.principal, ["2026-08"], enabled=True)
+        self.assertEqual(result["months"][0]["status"], "completed_metadata")
+        self.assertGreaterEqual(result["candidateCount"], 1)
+        self.assertFalse(result["financeShopMappingVerified"])
+        self.assertTrue(all(item["netshopStableIdentity"] is None
+            for item in result["candidates"]))
+        sql = "\n".join(item["sql"].lower() for item in captured)
+        for field in ("amount_cents", "rate_bps", "raw_value"):
+            self.assertNotIn(field, sql)
+        self.assertTrue(all(item["sql"].lstrip().upper().startswith("SELECT")
+            for item in captured))
+
+    def test_account_revocation_before_return_blocks_diagnostic(self):
+        from finance import shop_mapping_diagnostic as diagnostic
+        original = diagnostic.project
+
+        def revoke(*args):
+            result = original(*args)
+            AppUser.objects.filter(email=self.principal.email).update(
+                status="disabled")
+            return result
+
+        with patch.object(diagnostic, "project", side_effect=revoke):
+            with self.assertRaises(FinanceApiError):
+                inspect(self.principal, ["2026-08"], enabled=True)
