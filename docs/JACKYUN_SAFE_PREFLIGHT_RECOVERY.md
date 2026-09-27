@@ -40,3 +40,9 @@ v3 回执只供绑定的新执行消费。如果闭合后发生磁盘写入失�
 正式采用为源码 `75a89e64809400a2c421a59e6489369c547d5b33`、Worker/helper `20260927T054418Z-9450f55665c5e000`、manifest `5afc99ee3a1486a22cd5d1e239889f607c7ed36c76224b584555d73ad9ed1f75`，由精确绑定前驱 `20260927T025729Z-73db9d9489dd6952` 的在线计划 `c8cff1fe6c633a8facb16ac8f7fc1c65cc1fa9a11af869f5a62ddafb17cee0cc` 受控切换。发布前备份 Verify、隔离恢复内容一致与清理，发布后备份 Verify、前后 E 盘三文件逐项哈希归档、12 组件/启动绑定、两轮自然看门狗通过。只短暂停启 Worker/helper；PostgreSQL、Django、n8n 未停启或迁移，18 条 n8n 定义摘要不变，未闭合新的生产失败、未手动重跑、未改凭据或 profile。原天猫重试 4790 与 14:10/14:15/14:20 周报检查均自然成功。详见 `docs/evidence/jackyun-safe-recovery-production-20260927.json`。
 
 4737 已补齐的数据不为本版本重复导入；真实失败恢复分支须由自然执行验证，不能在生产注入故障或承诺不会再失败。底层间歇性 DPAPI 读取失败仍未证实根因。
+
+## 发布后 Worker 短时退出与自动恢复
+
+约 14:34，原 Worker supervisor、Worker 端口和 helper 端口消失。原看门狗在 14:34–14:35 观察到 `StaleReceipt/NotReady`，按既有 Start 引擎于 14:38 建立**同一 release**的新 supervisor；14:40 和 14:45 的自然检查均恢复健康，持久故障状态闭合。PostgreSQL 和 n8n PID 始终不变，未人工重启或补跑。原 14:35 周报 execution 4801 错误，14:40 的 4802 与 14:45 的 4803 自然成功。
+
+旧 Worker 日志在正常健康请求后结束，stderr 和本轮查看的 Windows Application/System 事件没有给出明确退出原因。退出时间紧邻 worktree 归档，但现有证据不足以认定因果；这次自动恢复也不能算作吉客云新失败闭合分支已在生产验收。详见同日正式证据的 `postReleaseIncident`。
