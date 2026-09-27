@@ -1,4 +1,5 @@
 import { authorizationErrorResponse, requireAppPrincipal } from "@/lib/auth/authorization";
+import jdStoreRegistry from "@/config/jd-store-accounts.json";
 import { aiConsumer } from "@/lib/django/ai-service";
 import { createDjangoNetshopService, NETSHOP_PROMOTION_DIAGNOSTIC_PATH } from "@/lib/django/netshop-service";
 import { readBoundedJsonObject } from "@/lib/http/bounded-json";
@@ -7,7 +8,7 @@ import { netshopOutletsForPrincipal, netshopPlatformsForPrincipal } from "@/lib/
 import { resolveNetshopQueryPeriod } from "@/lib/netshop/query-contract";
 import { buildPromotionDiagnosticReport, type DiagnosticPeriod, type ReportTarget } from "@/lib/jd/promotion-diagnostic-report";
 import { appendPromotionRelations } from "@/lib/jd/promotion-diagnostic-relations";
-import { promotionSourceIdentityReady } from "@/lib/jd/promotion-diagnostic-identity";
+import { promotionSystemSourceReady } from "@/lib/jd/promotion-diagnostic-identity";
 import { preparePromotionInterpretation, validatePromotionInterpretationReply } from "@/lib/jd/promotion-diagnostic-interpret";
 
 const SHOP_NAME = "志高商用设备旗舰店";
@@ -24,6 +25,10 @@ function previousPeriod(startDate: string, days: number) {
 export async function POST(request: Request) {
   try {
     const principal = await requireAppPrincipal(["admin"]);
+    const registered = jdStoreRegistry.stores.find((store) => store.storeKey === "jd-yiyong-director");
+    if (!registered || registered.platform !== "京东" || registered.shopName !== SHOP_NAME || registered.shopId !== "701455") {
+      return Response.json({ error: "运营系统受控店铺注册信息与诊断范围不一致" }, { status: 503 });
+    }
     const input = await readBoundedJsonObject(request, MAX_BODY_BYTES);
     const allowed = new Set(["startDate", "endDate", "shopName", "sourceRevision", "target"]);
     if (Object.keys(input).some((key) => !allowed.has(key))
@@ -54,8 +59,8 @@ export async function POST(request: Request) {
     }
     const previous = previousPeriod(period.startDate, period.days);
     const baseline = await read(previous.startDate, previous.endDate);
-    if (!promotionSourceIdentityReady(current, baseline)) {
-      return Response.json({ error: "推广来源账户昵称尚未完成与受控店铺的权威归属核验，已阻止发送给模型" },
+    if (!promotionSystemSourceReady(current, baseline)) {
+      return Response.json({ error: "推广来源的系统导入批次归属尚未完整对账，已阻止发送给模型" },
         { status: 409, headers: { "cache-control": "no-store" } });
     }
     const report = appendPromotionRelations(buildPromotionDiagnosticReport(current, baseline), current);

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { netshopOutletFilterKey } from "./module-view-shared";
 import { appendPromotionRelations, linksForPromotionTarget, type RelationLink } from "@/lib/jd/promotion-diagnostic-relations";
-import { promotionSourceIdentityReady } from "@/lib/jd/promotion-diagnostic-identity";
+import { promotionSystemSourceReady } from "@/lib/jd/promotion-diagnostic-identity";
 import { attachPromotionInterpretation, preparePromotionInterpretation, type PromotionInterpretationReply } from "@/lib/jd/promotion-diagnostic-interpret";
 import {
   buildPromotionDiagnosticReport,
@@ -89,11 +89,11 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   const pages = Math.max(1, Math.ceil(rows.length / 50));
   const visible = rows.slice(Math.min(page, pages - 1) * 50, (Math.min(page, pages - 1) + 1) * 50);
   const links = focus && source ? linksForPromotionTarget(source, focus.tableKey, focus.groupKey) : [];
-  const sourceIdentityReady = Boolean(source && baselineSource && report?.comparisonAvailable
-    && promotionSourceIdentityReady(source, baselineSource));
+  const systemSourceReady = Boolean(source && baselineSource && report?.comparisonAvailable
+    && promotionSystemSourceReady(source, baselineSource));
   const aiBlockReason = !baselineSource ? "前等长周期未读取，AI解读暂不可用。"
     : !report?.comparisonAvailable ? "前等长周期覆盖或来源修订不可比，AI解读暂不可用。"
-    : "来源账户昵称归属待核实，暂不发送给模型。";
+    : "系统导入批次归属不完整，暂不发送给模型。";
 
   function openTable(tableKey: string) {
     setSelected(tableKey); setFocus(null); setRelationFilter(null); setSearch(""); setSortColumn(""); setPage(0);
@@ -153,7 +153,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
   }
 
   async function interpretFocused() {
-    if (!report || !focus || !sourceIdentityReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")) return;
+    if (!report || !focus || !systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")) return;
     const controller = new AbortController();
     aiRequestRef.current = controller;
     setAiLoading(true); setAiError("");
@@ -217,7 +217,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate 
       {table && <><p className="muted">{table.note}</p>
         {(focus || relationFilter) && <div className="table-toolbar"><strong>{focus ? `已定位来源键 ${focus.groupKey}` : `已筛选 ${relationFilter?.label}`}</strong><button className="row-action" onClick={() => openTable(table.key)}>查看当前表全部</button></div>}
         {links.length > 0 && <div className="table-toolbar"><span>沿同一来源行查看：</span>{links.map((link) => <button key={`${link.tableKey}:${link.columnKey}`} type="button" className="row-action" onClick={() => openRelation(link)}>{link.label}</button>)}</div>}
-        {focus && ["plans", "products", "keywords", "searchTerms", "keywordSku"].includes(focus.tableKey) && <div className="table-toolbar"><button type="button" className="secondary-button" disabled={!sourceIdentityReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")} onClick={() => void interpretFocused()}>{aiLoading ? "正在生成 AI 解读…" : "用现有模型解释此对象"}</button><span className="muted">{sourceIdentityReady ? "手动单次调用，沿用模型最大输出 65,536 Token；按服务商实际计费。" : aiBlockReason}</span></div>}
+        {focus && ["plans", "products", "keywords", "searchTerms", "keywordSku"].includes(focus.tableKey) && <div className="table-toolbar"><button type="button" className="secondary-button" disabled={!systemSourceReady || aiLoading || report.tables.some((item) => item.key === "modelInterpretation")} onClick={() => void interpretFocused()}>{aiLoading ? "正在生成 AI 解读…" : "用现有模型解释此对象"}</button><span className="muted">{systemSourceReady ? "手动单次调用，沿用模型最大输出 65,536 Token；按服务商实际计费。" : aiBlockReason}</span></div>}
         <div className="table-toolbar"><label>搜索当前表 <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></label><label>排序列 <select value={sortColumn} onChange={(event) => { setSortColumn(event.target.value); setPage(0); }}><option value="">原始顺序</option>{table.columns.map((column, index) => <option key={column.key} value={index}>{column.label}</option>)}</select></label><button className="row-action" onClick={() => setDescending((value) => !value)}>{descending ? "降序" : "升序"}</button></div>
         <div className="data-table-wrap"><table className="data-table"><thead><tr>{table.columns.map((column) => <th key={column.key}>{column.label}</th>)}{table.key === "actions" && <th>证据</th>}</tr></thead><tbody>{visible.map((row, index) => {
           const action = table.key === "actions" ? report.actions[table.rows.indexOf(row)] : undefined;

@@ -36,9 +36,13 @@ function period(start: string, { count = 6, shopName = "志高商用设备旗舰
     identity: { platform: "京东", shopName },
     period: { startDate: requested[0]!, endDate: requested.at(-1)! },
     sourceRevision: "12:abcdef",
-    coverage: { requestedDates: requested, presentDates: present, missingDates: missing ? requested.slice(-1) : [], complete: !missing, rowCount, aggregateReconciled: true },
+    coverage: { requestedDates: requested, presentDates: present, missingDates: missing ? requested.slice(-1) : [], complete: !missing, rowCount, aggregateReconciled: true, batchOwnershipReconciled: true },
     metricAvailability,
-    sourceBatches: present.map((date) => ({ date, batchIds: [`batch-${date}`], accountNicknames: ["测试账户"], accountPresentRows: 1, rowCount: 1, aggregateBatchId: `batch-${date}` })),
+    sourceBatches: present.map((date) => ({ date, batchIds: [`batch-${date}`], accountNicknames: ["测试账户"], accountPresentRows: 1, rowCount: 1, aggregateBatchId: `batch-${date}`,
+      ownership: [{ batchId: `batch-${date}`, status: "completed", source: "jd_promotion", dataset: "ad", platform: "京东", shopName,
+        dateMin: date, dateMax: date, rowCount: 1, warningCount: 0 }],
+      aggregateOwnership: { batchId: `batch-${date}`, status: "completed", source: "jd_promotion", dataset: "ad", platform: "京东", shopName,
+        dateMin: date, dateMax: date, rowCount: 1, warningCount: 0 } })),
     summary: metrics,
     daily: requested.map((date) => ({ date, rowCount: present.includes(date) ? 1 : 0,
       metrics: present.includes(date) ? { spendCents: 1000, impressions: 100, clicks: 20, reportedOrderLines: 2, reportedGmvCents: 9000 }
@@ -73,10 +77,12 @@ test("fixed six-day periods produce dynamic offline HTML and same-table XLSX", (
   const workbook = strFromU8(files["xl/workbook.xml"]!);
   assert.equal((workbook.match(/<sheet /g) ?? []).length, report.tables.length);
   const summary = strFromU8(files["xl/worksheets/sheet1.xml"]!);
+  const styles = strFromU8(files["xl/styles.xml"]!);
   assert.match(summary, /推广花费/);
   assert.match(summary, /60<\/v>/); // 6 × 10 yuan, same source cells as HTML.
   assert.match(summary, /state="frozen"/);
   assert.match(summary, /<autoFilter ref="A1:E10"\/>/);
+  assert.match(styles, /formatCode="0\.00&quot;%&quot;"/);
 });
 
 test("missing source day stays partial, and a mismatched shop or revision cannot compare", () => {

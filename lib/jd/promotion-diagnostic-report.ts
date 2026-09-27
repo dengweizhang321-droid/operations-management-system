@@ -5,6 +5,8 @@ type MetricKey = "spendCents" | "impressions" | "clicks" | "reportedOrderLines" 
 const METRICS: MetricKey[] = ["spendCents", "impressions", "clicks", "reportedOrderLines", "reportedGmvCents"];
 
 export type DiagnosticMetrics = Record<MetricKey, number | null>;
+export type DiagnosticBatchOwnership = { batchId: string; status: string; source: string; dataset: string; platform: string;
+  shopName: string; dateMin: string; dateMax: string; rowCount: number; warningCount: number };
 export type DiagnosticGroup = {
   key: string;
   rowCount: number;
@@ -28,9 +30,11 @@ export type DiagnosticPeriod = {
     complete: boolean;
     rowCount: number;
     aggregateReconciled: boolean;
+    batchOwnershipReconciled: boolean;
   };
   metricAvailability: Record<MetricKey, { presentRows: number; totalRows: number; complete: boolean }>;
-  sourceBatches: Array<{ date: string; batchIds: string[]; accountNicknames: string[]; accountPresentRows: number; rowCount: number; aggregateBatchId: string }>;
+  sourceBatches: Array<{ date: string; batchIds: string[]; accountNicknames: string[]; accountPresentRows: number; rowCount: number; aggregateBatchId: string;
+    ownership: DiagnosticBatchOwnership[]; aggregateOwnership: DiagnosticBatchOwnership }>;
   summary: DiagnosticMetrics;
   daily: Array<{ date: string; rowCount: number; metrics: DiagnosticMetrics }>;
   groups: Record<"plans" | "products" | "keywords" | "searchTerms" | "keywordSku", DiagnosticGroup[]>;
@@ -81,7 +85,8 @@ function safeMetric(value: number | null, name: string) {
 
 export function validateDiagnosticPeriod(period: DiagnosticPeriod) {
   if (period?.schemaVersion !== PROMOTION_DIAGNOSTIC_SCHEMA || period.identity?.platform !== "京东"
-    || !period.identity?.shopName || !period.sourceRevision || period.coverage?.aggregateReconciled !== true) {
+    || !period.identity?.shopName || !period.sourceRevision || period.coverage?.aggregateReconciled !== true
+    || period.coverage?.batchOwnershipReconciled !== true) {
     throw new Error("推广诊断来源身份、修订或逐日对账无效");
   }
   const expected = dates(period.period.startDate, period.period.endDate);
@@ -92,9 +97,20 @@ export function validateDiagnosticPeriod(period: DiagnosticPeriod) {
     || !Number.isSafeInteger(period.coverage.rowCount) || period.coverage.rowCount < 0) {
     throw new Error("推广诊断日期覆盖或行数无效");
   }
-  if (period.sourceBatches.some((item) => !Array.isArray(item.accountNicknames) || item.accountNicknames.length > 10
-    || !Number.isSafeInteger(item.accountPresentRows) || item.accountPresentRows < 0 || item.accountPresentRows > item.rowCount)) {
-    throw new Error("推广来源账户昵称证据无效");
+  if (period.sourceBatches.length !== period.coverage.presentDates.length
+    || new Set(period.sourceBatches.map((item) => item.date)).size !== period.sourceBatches.length
+    || period.sourceBatches.some((item) => !period.coverage.presentDates.includes(item.date)
+      || !Array.isArray(item.accountNicknames) || item.accountNicknames.length > 10
+      || !Number.isSafeInteger(item.accountPresentRows) || item.accountPresentRows < 0 || item.accountPresentRows > item.rowCount
+      || !Array.isArray(item.ownership) || item.ownership.length !== item.batchIds.length
+      || !item.aggregateOwnership || item.aggregateOwnership.batchId !== item.aggregateBatchId
+      || ![...item.ownership, item.aggregateOwnership].every((owner) => owner.status === "completed"
+        && owner.source === "jd_promotion" && owner.dataset === "ad" && owner.platform === "京东"
+        && owner.shopName === period.identity.shopName && owner.dateMin <= item.date && owner.dateMax >= item.date
+        && Number.isSafeInteger(owner.rowCount) && owner.rowCount >= 1
+        && Number.isSafeInteger(owner.warningCount) && owner.warningCount >= 0)
+      || item.ownership.some((owner) => !item.batchIds.includes(owner.batchId)))) {
+    throw new Error("推广来源账户或系统批次归属证据无效");
   }
   for (const key of METRICS) {
     safeMetric(period.summary[key], key);
@@ -430,10 +446,18 @@ export function buildPromotionDiagnosticReport(current: DiagnosticPeriod, previo
     { key: "coverage", title: "来源与口径", note: "日期/批次只证明所列来源；推广归因不是ERP净销售或利润。", columns: [
       { key: "date", label: "业务日", kind: "text" }, { key: "status", label: "本期覆盖", kind: "text" },
       { key: "rows", label: "来源行", kind: "number" }, { key: "batch", label: "来源批次", kind: "text" },
+      { key: "batchOwner", label: "系统导入批次归属", kind: "text" },
+      { key: "aggregateBatch", label: "聚合发布批次", kind: "text" },
       { key: "account", label: "来源账户昵称", kind: "text" },
+      { key: "accountCoverage", label: "账户昵称行覆盖", kind: "text" },
     ], rows: currentDates.map((date) => {
       const source = current.sourceBatches.find((item) => item.date === date);
-      return [date, source ? "已观察且与聚合对账" : "缺源", source?.rowCount ?? null, source?.batchIds.join("、") ?? null, source?.accountNicknames.join("、") ?? null];
+      return [date, source ? "已与系统聚合及批次对账" : "缺源", source?.rowCount ?? null,
+        source?.batchIds.join("、") ?? null,
+        source?.ownership.map((item) => `${item.status} · ${item.platform} · ${item.shopName} · 警告${item.warningCount}`).join("；") ?? null,
+        source ? `${source.aggregateBatchId} · 警告${source.aggregateOwnership.warningCount}` : null,
+        source?.accountNicknames.join("、") ?? null,
+        source ? `${source.accountPresentRows}/${source.rowCount}` : null];
     }) },
   ];
   return {
@@ -641,6 +665,7 @@ export function promotionDiagnosticXlsx(report: PromotionDiagnosticReport) {
     freezeHeader: true,
     autoFilter: true,
     columnWidths: table.columns.map((column) => column.kind === "text" ? 28 : 18),
+    columnKinds: table.columns.map((column) => column.kind),
   }));
   return createXlsxWorkbookBytes(sheets);
 }

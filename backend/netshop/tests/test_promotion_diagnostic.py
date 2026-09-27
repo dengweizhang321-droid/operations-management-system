@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 
 from django.test import TestCase
 
-from netshop.models import NetshopDataRevision, NetshopPromotionShopDaily, NetshopRow
+from netshop.models import NetshopDataRevision, NetshopImportBatch, NetshopPromotionShopDaily, NetshopRow
 from netshop.promotion_diagnostic import SHOP_NAME
 from sales.tests.factories import TEST_SECRET, signed_headers
 
@@ -29,11 +29,20 @@ class PromotionDiagnosticApiTests(TestCase):
         return self.client.get(url, headers=signed_headers(url, role=role, scope=scope))
 
     def add_day(self, day: str, rows: list[dict], *, shop: str = SHOP_NAME) -> None:
+        batch_id = f"batch-{shop}-{day}"
+        NetshopImportBatch.objects.create(
+            id=batch_id, source="jd_promotion", dataset="ad", platform="京东", shop_name=shop,
+            file_name="推广.csv", file_size_bytes=100, file_hash=day.replace("-", ""),
+            raw_file_hash="a" * 64, content_hash="b" * 64, scope_key="c" * 64,
+            status="completed", row_count=len(rows), inserted_count=len(rows),
+            date_min=day, date_max=day, created_at="2026-09-22T00:00:00Z",
+            completed_at="2026-09-22T00:00:00Z",
+        )
         for index, values in enumerate(rows):
             metrics = values.get("metrics", {})
             NetshopRow.objects.create(
                 source_row_key=f"{shop}-{day}-{index}", source_row_hash="f" * 64,
-                first_import_batch_id=f"batch-{day}", last_import_batch_id=f"batch-{day}",
+                first_import_batch_id=batch_id, last_import_batch_id=batch_id,
                 source_row_number=index + 2, source="jd_promotion", dataset="ad", platform="京东",
                 shop_name=shop, business_date=day, sku_id=values.get("sku", "SKU-1"),
                 product_name=values.get("product", "商用设备"),
@@ -50,7 +59,7 @@ class PromotionDiagnosticApiTests(TestCase):
             clicks=sum(item.get("clicks", 0) for item in rows),
             net_orders=sum(item.get("orders", 0) for item in rows),
             net_transaction_amount_cents=sum(item.get("gmv", 0) for item in rows),
-            source_row_count=len(rows), source_batch_id=f"batch-{day}", source_batch_count=1,
+            source_row_count=len(rows), source_batch_id=batch_id, source_batch_count=1,
             rebuilt_at="2026-09-22T00:00:00Z",
         )
 
@@ -81,6 +90,7 @@ class PromotionDiagnosticApiTests(TestCase):
         self.assertEqual(result["coverage"]["rowCount"], 3)
         self.assertTrue(result["coverage"]["complete"])
         self.assertTrue(result["coverage"]["aggregateReconciled"])
+        self.assertTrue(result["coverage"]["batchOwnershipReconciled"])
         self.assertEqual(result["summary"]["spendCents"], 230)
         self.assertIsNone(result["summary"]["reportedGmvCents"])
         self.assertEqual(result["metricAvailability"]["reportedGmvCents"]["presentRows"], 2)
@@ -98,6 +108,11 @@ class PromotionDiagnosticApiTests(TestCase):
         self.assertEqual(result["sourceBatches"][0]["accountNicknames"], ["来源子账号"])
         self.assertEqual(result["sourceBatches"][0]["accountPresentRows"], 1)
         self.assertEqual(result["sourceBatches"][0]["rowCount"], 2)
+        self.assertEqual(result["sourceBatches"][0]["ownership"][0]["status"], "completed")
+        self.assertEqual(result["sourceBatches"][0]["ownership"][0]["shopName"], SHOP_NAME)
+        self.assertEqual(result["sourceBatches"][0]["ownership"][0]["warningCount"], 0)
+        self.assertEqual(result["sourceBatches"][0]["aggregateOwnership"]["warningCount"], 0)
+        self.assertEqual(result["sourceBatches"][1]["ownership"][0]["dateMax"], "2026-09-21")
         self.assertEqual(result["sourceRevision"], "7:aaaaaaaaaaaa")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
@@ -123,6 +138,69 @@ class PromotionDiagnosticApiTests(TestCase):
             response = self.request()
         self.assertEqual(response.status_code, 413, response.content)
         self.assertEqual(response.json()["code"], "response_too_large")
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_missing_or_wrong_batch_ownership_fails_closed(self) -> None:
+        self.add_day("2026-09-20", [{"spend": 20, "metrics": {"spendCents": 20}}])
+        owner = NetshopImportBatch.objects.get(shop_name=SHOP_NAME)
+        for changes in (
+            {"status": "failed"},
+            {"shop_name": "其他京东店"},
+            {"source": "tmall_promotion"},
+            {"date_min": "2026-09-21"},
+            {"row_count": 0},
+        ):
+            with self.subTest(changes=changes):
+                NetshopImportBatch.objects.filter(pk=owner.pk).update(**changes)
+                response = self.request()
+                self.assertEqual(response.status_code, 503, response.content)
+                NetshopImportBatch.objects.filter(pk=owner.pk).update(
+                    status="completed", shop_name=SHOP_NAME, source="jd_promotion",
+                    date_min="2026-09-20", row_count=1,
+                )
+        NetshopPromotionShopDaily.objects.update(source_batch_id="unrelated-batch")
+        self.assertEqual(self.request().status_code, 503)
+        NetshopPromotionShopDaily.objects.update(source_batch_id=owner.pk)
+        owner.delete()
+        missing = self.request()
+        self.assertEqual(missing.status_code, 503, missing.content)
+        self.assertEqual(missing.json()["code"], "service_unavailable")
+
+    @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
+    def test_distinct_aggregate_publication_batch_is_valid_and_separately_checked(self) -> None:
+        self.add_day("2026-09-20", [{"spend": 20, "metrics": {"spendCents": 20}}])
+        owner = NetshopImportBatch.objects.get(shop_name=SHOP_NAME)
+        row_owner_id = owner.pk
+        owner.pk = "publication-2026-09-20"
+        owner.file_hash = "publication-2026-09-20"
+        owner.warning_count = 2
+        owner.save(force_insert=True)
+        NetshopPromotionShopDaily.objects.update(source_batch_id=owner.pk)
+
+        valid = self.request()
+        self.assertEqual(valid.status_code, 200, valid.content)
+        day = valid.json()["sourceBatches"][0]
+        self.assertEqual(day["batchIds"], [row_owner_id])
+        self.assertEqual(day["aggregateBatchId"], owner.pk)
+        self.assertEqual(day["ownership"][0]["warningCount"], 0)
+        self.assertEqual(day["aggregateOwnership"]["warningCount"], 2)
+        self.assertTrue(valid.json()["coverage"]["batchOwnershipReconciled"])
+
+        for changes in (
+            {"status": "failed"},
+            {"shop_name": "其他京东店"},
+            {"dataset": "sku_daily"},
+            {"date_max": "2026-09-19"},
+            {"row_count": 0},
+            {"warning_count": -1},
+        ):
+            with self.subTest(changes=changes):
+                NetshopImportBatch.objects.filter(pk=owner.pk).update(**changes)
+                self.assertEqual(self.request().status_code, 503)
+                NetshopImportBatch.objects.filter(pk=owner.pk).update(
+                    status="completed", shop_name=SHOP_NAME, dataset="ad",
+                    date_max="2026-09-20", row_count=1, warning_count=2,
+                )
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
     def test_admin_scope_shop_and_period_are_fenced(self) -> None:

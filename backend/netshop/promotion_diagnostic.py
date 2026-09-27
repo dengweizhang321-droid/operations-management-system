@@ -12,13 +12,14 @@ import math
 from datetime import date, timedelta
 
 from .errors import NetshopApiError
-from .models import NetshopPromotionShopDaily, NetshopRow
+from .models import NetshopImportBatch, NetshopPromotionShopDaily, NetshopRow
 
 
 SHOP_NAME = "志高商用设备旗舰店"
 SCHEMA_VERSION = "jd-promotion-diagnostic-v1"
 MAX_SOURCE_ROWS = 150_000
 MAX_GROUPS = 30_000
+MAX_BATCHES = 500
 MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 
 METRICS = {
@@ -156,6 +157,7 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
         name: {} for name in ("plans", "products", "keywords", "searchTerms", "keywordSku", "searchTermSku", "planSku", "planKeyword")
     }
     batches: dict[str, set[str]] = {}
+    batch_row_counts: dict[str, int] = {}
     accounts: dict[str, set[str]] = {}
     account_present: dict[str, int] = {}
     columns = (
@@ -172,7 +174,9 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
         }
         _add(summary, row, available)
         _add(daily.setdefault(business_date, _bucket()), row, available)
-        batches.setdefault(business_date, set()).add(row["last_import_batch_id"])
+        batch_id = row["last_import_batch_id"]
+        batches.setdefault(business_date, set()).add(batch_id)
+        batch_row_counts[batch_id] = batch_row_counts.get(batch_id, 0) + 1
         account = _text(raw, "账户昵称")
         if account:
             account_present[business_date] = account_present.get(business_date, 0) + 1
@@ -239,6 +243,60 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
                 code="service_unavailable", status=503,
             )
 
+    # A shop-daily source_batch_id records the publication that rebuilt the
+    # aggregate. Its retained source rows may belong to earlier imports.
+    all_batch_ids = set(batch_row_counts) | {
+        item.source_batch_id for item in shop_rows.values()
+    }
+    if len(all_batch_ids) > MAX_BATCHES:
+        raise NetshopApiError(
+            "推广诊断来源批次数超过完整核验上限，请缩短日期范围",
+            code="response_too_large", status=413,
+        )
+    owners = {
+        item.id: item for item in NetshopImportBatch.objects.filter(id__in=all_batch_ids)
+    }
+    def valid_batch(owner: NetshopImportBatch | None) -> bool:
+        return bool(
+            owner is not None and owner.status == "completed"
+            and owner.source == "jd_promotion" and owner.dataset == "ad"
+            and owner.platform == "京东" and owner.shop_name == SHOP_NAME
+            and owner.date_min and owner.date_max and owner.date_min <= owner.date_max
+            and owner.row_count >= 1 and owner.warning_count >= 0
+        )
+
+    def batch_payload(batch_id: str) -> dict[str, object]:
+        owner = owners[batch_id]
+        return {
+            "batchId": batch_id, "status": owner.status,
+            "source": owner.source, "dataset": owner.dataset,
+            "platform": owner.platform, "shopName": owner.shop_name,
+            "dateMin": owner.date_min, "dateMax": owner.date_max,
+            "rowCount": owner.row_count, "warningCount": owner.warning_count,
+        }
+
+    for batch_id, observed_rows in batch_row_counts.items():
+        owner = owners.get(batch_id)
+        if not batch_id or not valid_batch(owner) or owner.row_count < observed_rows:
+            raise NetshopApiError(
+                "推广原始行没有可核对的系统导入批次归属",
+                code="service_unavailable", status=503,
+            )
+    for business_date, batch_ids in batches.items():
+        publication = owners.get(shop_rows[business_date].source_batch_id)
+        if (
+            not valid_batch(publication)
+            or not (publication.date_min <= business_date <= publication.date_max)
+            or any(
+            not (owners[batch_id].date_min <= business_date <= owners[batch_id].date_max)
+            for batch_id in batch_ids
+            )
+        ):
+            raise NetshopApiError(
+                "推广逐日聚合发布批次或原始行批次归属不一致",
+                code="service_unavailable", status=503,
+            )
+
     result: dict[str, object] = {
         "schemaVersion": SCHEMA_VERSION,
         "identity": {"platform": "京东", "shopName": SHOP_NAME},
@@ -250,13 +308,16 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
             "complete": len(daily) == len(requested_dates),
             "rowCount": summary["rowCount"],
             "aggregateReconciled": True,
+            "batchOwnershipReconciled": True,
         },
         "sourceRevision": source_revision,
         "sourceBatches": [
             {"date": value, "batchIds": sorted(batches[value]), "accountNicknames": sorted(accounts.get(value, set())),
              "accountPresentRows": account_present.get(value, 0),
              "rowCount": daily[value]["rowCount"],
-             "aggregateBatchId": shop_rows[value].source_batch_id}
+             "aggregateBatchId": shop_rows[value].source_batch_id,
+             "aggregateOwnership": batch_payload(shop_rows[value].source_batch_id),
+             "ownership": [batch_payload(batch_id) for batch_id in sorted(batches[value])]}
             for value in sorted(daily)
         ],
         "summary": _metrics(summary),
@@ -276,7 +337,7 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
             "各维度均来自同一批推广行，不可把不同维度的金额相加。",
             "最近日期的归因可能尚未成熟；短周期低样本仅适合观察和复查。",
             "字段缺失时对应指标为 null，metricAvailability 给出有值行数。",
-            "来源账户昵称是平台文本，不单独证明店铺身份；须对照导入批次和账户到店铺的映射。",
+            "来源账户昵称是平台文本，仅作信息；店铺身份依据系统已导入批次的平台与店铺复合键。",
         ],
     }
     if not result["coverage"]["complete"]:

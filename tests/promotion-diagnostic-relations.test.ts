@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { appendPromotionRelations, linksForPromotionTarget, type DiagnosticWithRelations } from "../lib/jd/promotion-diagnostic-relations";
-import { promotionSourceIdentityReady } from "../lib/jd/promotion-diagnostic-identity";
+import { promotionSystemSourceReady } from "../lib/jd/promotion-diagnostic-identity";
 import { buildPromotionDiagnosticReport } from "../lib/jd/promotion-diagnostic-report";
 
 const metrics = { spendCents: 1000, impressions: 100, clicks: 20, reportedOrderLines: 2, reportedGmvCents: 8000 };
@@ -11,9 +11,13 @@ function source(): DiagnosticWithRelations {
   return {
     schemaVersion: "jd-promotion-diagnostic-v1", identity: { platform: "京东", shopName: "志高商用设备旗舰店" },
     period: { startDate: "2026-09-20", endDate: "2026-09-20" }, sourceRevision: "1:abc",
-    coverage: { requestedDates: ["2026-09-20"], presentDates: ["2026-09-20"], missingDates: [], complete: true, rowCount: 1, aggregateReconciled: true },
+    coverage: { requestedDates: ["2026-09-20"], presentDates: ["2026-09-20"], missingDates: [], complete: true, rowCount: 1, aggregateReconciled: true, batchOwnershipReconciled: true },
     metricAvailability: Object.fromEntries(Object.keys(metrics).map((key) => [key, { presentRows: 1, totalRows: 1, complete: true }])) as DiagnosticWithRelations["metricAvailability"],
-    sourceBatches: [{ date: "2026-09-20", batchIds: ["batch"], accountNicknames: ["account"], accountPresentRows: 1, rowCount: 1, aggregateBatchId: "batch" }],
+    sourceBatches: [{ date: "2026-09-20", batchIds: ["batch"], accountNicknames: ["account"], accountPresentRows: 1, rowCount: 1, aggregateBatchId: "batch",
+      ownership: [{ batchId: "batch", status: "completed", source: "jd_promotion", dataset: "ad", platform: "京东", shopName: "志高商用设备旗舰店",
+        dateMin: "2026-09-20", dateMax: "2026-09-20", rowCount: 1, warningCount: 0 }],
+      aggregateOwnership: { batchId: "batch", status: "completed", source: "jd_promotion", dataset: "ad", platform: "京东", shopName: "志高商用设备旗舰店",
+        dateMin: "2026-09-20", dateMax: "2026-09-20", rowCount: 1, warningCount: 0 } }],
     summary: metrics, daily: [{ date: "2026-09-20", rowCount: 1, metrics }], limitations: [],
     groups: {
       plans: [group('["P1"]', { planId: "P1", name: "计划" })],
@@ -48,11 +52,15 @@ test("a missing or fabricated relationship is rejected, not silently omitted", (
   assert.throws(() => appendPromotionRelations(buildPromotionDiagnosticReport(incomplete), incomplete), /未与来源行对平/);
 });
 
-test("unmapped source account nickname blocks the model branch despite complete metrics", () => {
+test("system-owned batches determine report scope even when source nickname is absent", () => {
   const current = source();
-  assert.equal(promotionSourceIdentityReady(current), false);
-  current.sourceBatches[0]!.accountNicknames = ["志高亿用-总监"];
-  assert.equal(promotionSourceIdentityReady(current), false); // Page label alone is not a verified source alias.
+  assert.equal(promotionSystemSourceReady(current), true);
+  current.sourceBatches[0]!.accountPresentRows = 0;
   current.sourceBatches[0]!.accountNicknames = [];
-  assert.equal(promotionSourceIdentityReady(current), false);
+  assert.equal(promotionSystemSourceReady(current), true);
+  current.sourceBatches[0]!.ownership[0]!.shopName = "其他店";
+  assert.equal(promotionSystemSourceReady(current), false);
+  current.sourceBatches[0]!.ownership[0]!.shopName = "志高商用设备旗舰店";
+  current.sourceBatches[0]!.aggregateOwnership.warningCount = 1;
+  assert.equal(promotionSystemSourceReady(current), false);
 });
