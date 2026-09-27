@@ -379,17 +379,16 @@ def check():
                 raise ValueError("AI market v2 parked profile guard drift")
 
         _verify_market_v2_material_attestation(cursor)
-        _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,
-                                            publish_gate_enabled=True,
-                                            slim_stage_enabled=True)
+        from .business_budget_catalog import verify_v11_budget_catalog
+        verify_v11_budget_catalog(cursor,
+            file_guard_verifier=_verify_promotion_trial_file_guard)
         from importlib import import_module
-        import_module("ai_assistant.migrations.0059_business_promotion_budget_v10_reader_fence").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0067_business_promotion_budget_v11_attestation").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0068_business_promotion_budget_v11_verifier_receipt").verify_catalog(cursor)
         from .business_market_v2_context_catalog import verify as verify_market_context
         verify_market_context(cursor)
         from .business_market_v2_read_catalog import verify as verify_market_read
-        verify_market_read(cursor)
+        verify_market_read(cursor, topology_guard_enabled=True, runtime_probe=True)
         from .business_market_v2_execution_plan_catalog import verify as verify_market_plan
         verify_market_plan(cursor)
         from .business_market_v2_synthetic_catalog import verify as verify_market_synthetic
@@ -400,6 +399,7 @@ def check():
         import_module("ai_assistant.migrations.0070_business_promotion_budget_v11_limited_identity").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0071_business_v4_report_source_link").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0072_business_market_v2_authority_proposals").verify_catalog(cursor)
+        import_module("ai_assistant.migrations.0082_no_new_keys_profile").verify_catalog(cursor)
         from .v4_replay_progress_catalog import verify as verify_v4_replay_progress
         verify_v4_replay_progress(cursor, finance_enabled=True,
                                   read_cast_enabled=True,
@@ -604,17 +604,19 @@ def check():
         integrated = importlib.import_module("ai_assistant.migrations.0022_business_integrated_reports")
         screening = importlib.import_module("ai_assistant.migrations.0023_business_screening_storage")
         screening_runtime = importlib.import_module("ai_assistant.migrations.0024_business_screening_runtime")
+        promotion_profile = importlib.import_module("ai_assistant.migrations.0026_business_promotion_profile")
         for signature, definition, volatility in (
             ("public.ai_screen_fields(json,text[])", screening.FIELDS, "i"),
             ("public.ai_screen_uint(json,bigint,bigint)", screening.UINT, "i"),
-            ("public.ai_screen_initial_guard()", screening_runtime.SCREEN_INITIAL, "v"),
+            ("public.ai_screen_initial_guard()", promotion_profile.SCREEN_INITIAL, "v"),
             ("public.ai_screen_page_guard()", screening.PAGE, "v"),
             ("public.ai_screen_complete_guard()", screening.COMPLETE, "v"),
             ("public.ai_business_mapping_plan_json(text)", integrated.PLAN_GUARD, "i"),
-            ("public.ai_business_integrated_report_guard()", screening_runtime.INTEGRATED_REPORT_GUARD, "v"),
-            ("public.ai_business_budget_report_guard()", screening_runtime.NEW_BUDGET_GUARD, "v"),
-            ("public.ai_business_screening_report_guard()", screening_runtime.REPORT_GUARD, "v"),
-            ("public.ai_business_screening_workflow_guard()", screening_runtime.WORKFLOW_GUARD, "v"),
+            ("public.ai_business_integrated_report_guard()", promotion_profile.INTEGRATED_GUARD, "v"),
+            ("public.ai_business_budget_report_guard()", promotion_profile.BUDGET_GUARD, "v"),
+            ("public.ai_business_screening_report_guard()", promotion_profile.SCREENING_GUARD, "v"),
+            ("public.ai_business_screening_workflow_guard()", promotion_profile.WORKFLOW_GUARD, "v"),
+            ("public.ai_business_promotion_report_guard()", promotion_profile.PROMOTION_GUARD, "v"),
         ):
             cursor.execute("""SELECT p.prosrc,p.provolatile,p.prosecdef,p.proconfig,l.lanname
                 FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=to_regprocedure(%s)""", [signature])
@@ -622,7 +624,7 @@ def check():
             if (function is None or function[0] != definition.split("$$")[1]
                     or function[1:3] != (volatility, False) or function[4] != "plpgsql"
                     or {item.replace(" ", "") for item in (function[3] or [])} != {"search_path=pg_catalog,public"}):
-                raise ValueError("AI integrated function contract missing or changed")
+                raise ValueError("AI integrated function contract missing or changed: " + signature)
         cursor.execute("""SELECT tgtype,tgdeferrable,tginitdeferred,
             tgfoid='public.ai_business_integrated_report_guard()'::regprocedure
             FROM pg_trigger WHERE tgrelid='public.ai_report_runs'::regclass
@@ -630,6 +632,7 @@ def check():
         if cursor.fetchone() != (7, False, False, True):
             raise ValueError("AI integrated report trigger contract changed")
         for table, name, expected_type, deferred, function in (
+            ("ai_report_runs", "ai_business_promotion_report_binding", 7, False, "ai_business_promotion_report_guard"),
             ("ai_report_runs", "ai_business_screening_report_binding", 7, False, "ai_business_screening_report_guard"),
             ("ai_workflow_runs", "ai_business_screening_workflow_binding", 5, True, "ai_business_screening_workflow_guard"),
             ("ai_business_screening_runs", "ai_screen_initial", 7, False, "ai_screen_initial_guard"),

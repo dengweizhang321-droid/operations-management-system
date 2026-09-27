@@ -21,6 +21,7 @@ $ErrorActionPreference = "Stop"
 $MaintenanceUtf8NoBom = [Text.UTF8Encoding]::new($false)
 $MaintenanceFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
 $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
+$MaintenanceNoKeyBackupVersion = "teruisi-postgres-daily-backup-v2-no-keys"
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
 $MaintenanceRehearsalRoles = @(
@@ -244,7 +245,8 @@ function Assert-MaintenanceEvidence(
   [object]$Evidence,
   [string]$ExpectedDatabase,
   [string]$ExpectedUser,
-  [int]$ExpectedPort
+  [int]$ExpectedPort,
+  [bool]$NoKeys = $false
 ) {
   $hasBiMigration = @($Evidence.migrations | Where-Object {
       [string]$_.app -ceq "bi" -and [string]$_.name -ceq "0001_initial"
@@ -378,6 +380,35 @@ function Assert-MaintenanceEvidence(
     "django_migrations", "sales_data_revisions", "sales_import_batches",
     "sales_order_lines", "sales_write_authority", "erp_product_master"
   )
+  $protectedTables = @()
+  if ($NoKeys) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and
+          $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or @($Evidence.migrations).Count -ne 138) {
+      throw "无新增密钥备份迁移代际未获核验"
+    }
+    $protectedTables = @(
+      "protected_business_budget_v11_verifier_keys", "protected_business_budget_v11_proof_tickets",
+      "protected_business_budget_v11_proof_ticket_claims", "protected_business_v4_report_link_intents",
+      "protected_business_v4_report_source_links", "protected_business_market_v2_rate_proposals",
+      "protected_business_market_v2_cap_proposals", "protected_business_market_v2_authority_revocations",
+      "protected_business_budget_v11_login_attestations", "protected_business_market_v2_human_cap_approvals",
+      "protected_business_market_v2_human_cap_revocations", "protected_business_budget_v11_signed_receipts_v3",
+      "protected_business_market_v6_topologies", "protected_business_market_v6_topology_cancellations",
+      "protected_business_budget_v11_publications_v2", "protected_business_market_v6_source_tickets"
+    )
+    $requiredTables += $protectedTables
+    $requiredTables += @(
+      "ai_business_market_v2_context_proofs", "ai_business_market_v2_cost_ledger_candidates",
+      "ai_business_market_v2_execution_plans", "ai_business_market_v2_materials",
+      "ai_business_market_v2_paid_authorities", "ai_business_market_v2_read_receipts",
+      "ai_business_market_v2_round_events", "ai_business_market_v2_round_reservations",
+      "ai_business_promotion_budget_v10_attestations", "ai_business_promotion_budget_v11_attestations",
+      "ai_business_v4_period_plan_candidates", "ai_business_v4_seal_claims",
+      "ai_business_v4_seal_consumptions", "ai_business_v4_seal_tickets",
+      "ai_business_v4_sealer_replay_progress", "ai_business_v4_seals",
+      "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments"
+    )
+  }
   if ($hasErpReferenceAuthority) {
     $requiredTables += @(
       "erp_combo_items", "erp_reference_import_batches_pg",
@@ -569,12 +600,12 @@ function Assert-MaintenanceEvidence(
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
-    if ($property.Name -cne "django_migrations" -and
+    if ($property.Name -cne "django_migrations" -and $property.Name -cnotin $protectedTables -and
         $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi|access_control|ai)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if ($property.Name -clike "ai_*" -and $property.Name -cnotin $requiredTables) {
-      throw "PostgreSQL AI 表不在已采用的闭合清单中"
+      throw "PostgreSQL AI table is outside the adopted inventory: $($property.Name)"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
         [int64]$property.Value -lt 0) {
@@ -924,10 +955,27 @@ function Assert-MaintenanceEvidence(
   }
 }
 
-function Assert-MaintenanceBackupPayload([object]$Payload) {
-  Assert-MaintenanceExactPropertySet $Payload @(
+function Assert-MaintenanceNoKeyEvidence([object]$Evidence) {
+  Assert-MaintenanceExactPropertySet $Evidence @(
+    "profile", "roles", "tables", "catalog", "contentSha256", "sequenceLowerBounds",
+    "archiveEncrypted", "newRecoveryKeyGenerated", "privateKeyRows"
+  ) "无新增密钥备份证据"
+  if ([string]$Evidence.profile -cne "teruisi-postgres-no-new-keys-v1" -or
+      $Evidence.archiveEncrypted -cne $false -or $Evidence.newRecoveryKeyGenerated -cne $false -or
+      -not (Test-MaintenanceInteger $Evidence.privateKeyRows) -or [int]$Evidence.privateKeyRows -ne 0 -or
+      [string]$Evidence.contentSha256 -cnotmatch "^[0-9a-f]{64}$" -or
+      @($Evidence.tables.PSObject.Properties).Count -lt 1 -or
+      @($Evidence.tables.PSObject.Properties).Count -gt 512) {
+    throw "无新增密钥备份证据无效"
+  }
+}
+
+function Assert-MaintenanceBackupPayload([object]$Payload, [bool]$NoKeys = $false) {
+  $properties = @(
     "version", "status", "snapshotIdSha256", "evidence", "nativeDiagnostic"
-  ) "一致性备份工具结果"
+  )
+  if ($NoKeys) { $properties += "profileEvidence" }
+  Assert-MaintenanceExactPropertySet $Payload $properties "一致性备份工具结果"
   if ([string]$Payload.version -cne "teruisi-postgres-consistent-backup-v1" -or
       [string]$Payload.status -cne "completed" -or
       [string]$Payload.snapshotIdSha256 -cnotmatch "^[0-9a-f]{64}$") {
@@ -940,7 +988,9 @@ function Assert-MaintenanceBackupPayload([object]$Payload) {
       [string]$Payload.nativeDiagnostic.outputSha256 -cnotmatch "^[0-9a-f]{64}$") {
     throw "pg_dump 诊断未通过"
   }
-  Assert-MaintenanceEvidence $Payload.evidence "teruisi_sales" "teruisi_sales_owner" 5432
+  $identity = if ($NoKeys) { "postgres" } else { "teruisi_sales_owner" }
+  Assert-MaintenanceEvidence $Payload.evidence "teruisi_sales" $identity 5432 $NoKeys
+  if ($NoKeys) { Assert-MaintenanceNoKeyEvidence $Payload.profileEvidence }
 }
 
 function Read-MaintenanceArchive(
@@ -980,11 +1030,14 @@ function Read-MaintenanceArchive(
   }
 
   $manifest = Read-JsonFile $manifestPath "PostgreSQL 备份 manifest"
-  Assert-MaintenanceExactPropertySet $manifest @(
+  $noKeys = [string]$manifest.version -ceq $MaintenanceNoKeyBackupVersion
+  $manifestProperties = @(
     "version", "status", "backupId", "createdAt", "completedAt", "database",
     "dump", "evidence", "software"
-  ) "PostgreSQL 备份 manifest"
-  if ([string]$manifest.version -cne $MaintenanceBackupVersion -or
+  )
+  if ($noKeys) { $manifestProperties += "profileEvidence" }
+  Assert-MaintenanceExactPropertySet $manifest $manifestProperties "PostgreSQL 备份 manifest"
+  if (([string]$manifest.version -cne $MaintenanceBackupVersion -and -not $noKeys) -or
       [string]$manifest.status -cne "completed" -or
       [string]$manifest.backupId -cnotmatch "^daily-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$") {
     throw "PostgreSQL 备份 manifest 身份无效"
@@ -1000,10 +1053,11 @@ function Read-MaintenanceArchive(
   Assert-MaintenanceExactPropertySet $manifest.database @(
     "name", "host", "port", "sourceRole", "consistency"
   ) "PostgreSQL 备份数据库身份"
+  $sourceRole = if ($noKeys) { "postgres" } else { "teruisi_sales_owner" }
   if ([string]$manifest.database.name -cne "teruisi_sales" -or
       [string]$manifest.database.host -cne "127.0.0.1" -or
       [int]$manifest.database.port -ne 5432 -or
-      [string]$manifest.database.sourceRole -cne "teruisi_sales_owner" -or
+      [string]$manifest.database.sourceRole -cne $sourceRole -or
       [string]$manifest.database.consistency -cne "exported-snapshot") {
     throw "PostgreSQL 备份数据库身份无效"
   }
@@ -1023,7 +1077,8 @@ function Read-MaintenanceArchive(
     throw "PostgreSQL dump 证据无效"
   }
 
-  Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" "teruisi_sales_owner" 5432
+  Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" $sourceRole 5432 $noKeys
+  if ($noKeys) { Assert-MaintenanceNoKeyEvidence $manifest.profileEvidence }
   Assert-MaintenanceExactPropertySet $manifest.software @(
     "deploymentManifestSha256", "serviceConfigSha256", "serviceScriptSha256",
     "operatorScriptSha256", "evidenceToolSha256", "pgDumpSha256", "pgRestoreSha256"
@@ -1103,8 +1158,11 @@ function Invoke-MaintenanceBackup {
     throw "权威 PostgreSQL 未就绪；日常备份不会自动启停服务"
   }
   $protectedState = Invoke-MaintenanceProtectedAiPreflight
-  if (@($protectedState.appliedProtectedMigrations).Count -gt 0) {
-    throw "受保护 AI 迁移尚无正式备份契约；拒绝创建备份工作目录"
+  $noKeys = @($protectedState.appliedProtectedMigrations).Count -gt 0
+  if ($noKeys) {
+    # Preflight before creating an archive directory; the backup process repeats
+    # it while holding the private-key table lock through the entire dump.
+    Invoke-MaintenanceNoKeyPreflight | Out-Null
   }
 
   $backupRoot = Get-MaintenanceBackupRoot $true
@@ -1131,28 +1189,35 @@ function Invoke-MaintenanceBackup {
     }
 
     $secrets = Read-Secrets
+    $sourceRole = if ($noKeys) { "postgres" } else { "teruisi_sales_owner" }
+    $backupPassword = if ($noKeys) {
+      $credentials = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
+      Unprotect-Value ([string]$credentials.postgresSuperuser) "postgresSuperuser"
+    } else { $secrets.OwnerPassword }
+    $profileArguments = if ($noKeys) { @("--profile", "no-new-keys") } else { @() }
     $payload = Invoke-MaintenancePgEnvironment @{
       PGHOST = "127.0.0.1"
       PGPORT = "5432"
-      PGUSER = "teruisi_sales_owner"
+      PGUSER = $sourceRole
       PGDATABASE = "teruisi_sales"
-      PGPASSWORD = $secrets.OwnerPassword
+      PGPASSWORD = $backupPassword
       PGAPPNAME = "teruisi_daily_backup"
       PGOPTIONS = "-c statement_timeout=1800000 -c idle_in_transaction_session_timeout=1860000"
       PGCLIENTENCODING = "UTF8"
     } {
-      $run = Invoke-BoundedNativeProcess $Python @(
+      $backupArguments = @(
         $evidenceTool, "backup",
         "--pg-dump", $pgDump,
         "--output", $dumpPath,
         "--expected-database", "teruisi_sales",
-        "--expected-user", "teruisi_sales_owner",
+        "--expected-user", $sourceRole,
         "--port", "5432",
         "--timeout-seconds", "1800"
-      ) $InstalledAppRoot
+      ) + $profileArguments
+      $run = Invoke-BoundedNativeProcess $Python $backupArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $run "创建 PostgreSQL 一致性备份"
     }
-    Assert-MaintenanceBackupPayload $payload
+    Assert-MaintenanceBackupPayload $payload $noKeys
 
     $archiveRun = Invoke-BoundedNativeProcess $pgRestore @("--list", $dumpPath) $workingDirectory
     $archiveEntries = @($archiveRun.Output)
@@ -1160,7 +1225,7 @@ function Invoke-MaintenanceBackup {
       throw "PostgreSQL dump 归档目录验证失败（$(Get-NativeFailureSummary $archiveRun)）"
     }
     $manifest = [pscustomobject][ordered]@{
-      version = $MaintenanceBackupVersion
+      version = $(if ($noKeys) { $MaintenanceNoKeyBackupVersion } else { $MaintenanceBackupVersion })
       status = "completed"
       backupId = $backupId
       createdAt = $timestamp.ToString("o")
@@ -1169,7 +1234,7 @@ function Invoke-MaintenanceBackup {
         name = "teruisi_sales"
         host = "127.0.0.1"
         port = 5432
-        sourceRole = "teruisi_sales_owner"
+        sourceRole = $sourceRole
         consistency = "exported-snapshot"
       }
       dump = [pscustomobject][ordered]@{
@@ -1190,6 +1255,7 @@ function Invoke-MaintenanceBackup {
         pgRestoreSha256 = Get-FileSha256 $pgRestore
       }
     }
+    if ($noKeys) { $manifest | Add-Member -NotePropertyName profileEvidence -NotePropertyValue $payload.profileEvidence }
     $manifestPath = Join-Path $workingDirectory "backup-manifest.json"
     Write-AtomicJson $manifestPath $manifest
     Write-MaintenanceAtomicText (
@@ -1214,10 +1280,37 @@ function Invoke-MaintenanceBackup {
     }
   } finally {
     $secrets = $null
+    $backupPassword = $null
+    $credentials = $null
     if (-not $published) {
       Remove-MaintenanceIncompleteDirectory $workingDirectory $backupRoot $workingName
     }
   }
+}
+
+function Invoke-MaintenanceNoKeyPreflight {
+  $evidenceTool = Assert-MaintenanceRuntimeContext
+  Assert-PostgresListenerOwnership | Out-Null
+  $credentials = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
+  $secret = Unprotect-Value ([string]$credentials.postgresSuperuser) "postgresSuperuser"
+  try {
+    $result = Invoke-MaintenancePgEnvironment @{
+      PGHOST = "127.0.0.1"; PGPORT = "5432"; PGDATABASE = "teruisi_sales"
+      PGUSER = "postgres"; PGPASSWORD = $secret; PGCLIENTENCODING = "UTF8"
+      PGAPPNAME = "teruisi_no_key_backup_preflight"
+      PGOPTIONS = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
+    } {
+      $run = Invoke-BoundedNativeProcess $Python @($evidenceTool, "no-key-preflight",
+        "--expected-database", "teruisi_sales", "--expected-user", "postgres", "--port", "5432") $InstalledAppRoot
+      ConvertFrom-UniqueNativeJson $run "无新增密钥备份预检"
+    }
+    Assert-MaintenanceExactPropertySet $result @("status", "profile", "privateKeyRows", "newRecoveryKeyGenerated") "无新增密钥备份预检"
+    if ([string]$result.status -cne "admitted" -or [string]$result.profile -cne "teruisi-postgres-no-new-keys-v1" -or
+        [int]$result.privateKeyRows -ne 0 -or $result.newRecoveryKeyGenerated -cne $false) {
+      throw "无新增密钥备份预检失败"
+    }
+    return $result
+  } finally { $secret = $null; $credentials = $null }
 }
 
 function Invoke-MaintenanceProtectedAiPreflight {
@@ -1267,6 +1360,10 @@ function Invoke-MaintenanceProtectedAiPreflight {
 }
 
 function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
+  if ([string]$Manifest.version -ceq $MaintenanceNoKeyBackupVersion) {
+    Assert-MaintenanceNoKeyEvidence $Manifest.profileEvidence
+    return
+  }
   $protected = @($Manifest.evidence.migrations | Where-Object {
     [string]$_.app -ceq "ai_assistant" -and
     [string]$_.name -cmatch "^00(67|68|69|70|71|72|73|74|75|76|77|78|79)_business_"
@@ -1442,6 +1539,7 @@ function Invoke-MaintenanceRestoreRehearsal {
     $MaintenanceRequest.BackupDirectory
   ) $MaintenanceRequest.ApprovedManifestSha256
   Assert-MaintenanceProtectedArchiveUnsupported $backup.Manifest
+  $noKeys = [string]$backup.Manifest.version -ceq $MaintenanceNoKeyBackupVersion
   if (@(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -ne 0) {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
@@ -1522,9 +1620,11 @@ function Invoke-MaintenanceRestoreRehearsal {
       Assert-MaintenanceRehearsalListenerOwnership (
         $MaintenanceRequest.RehearsalPort
       ) $dataDirectory | Out-Null
-      Initialize-MaintenanceRehearsalRoles $createUser $rehearsalRoot (
-        $MaintenanceRequest.RehearsalPort
-      )
+      if (-not $noKeys) {
+        Initialize-MaintenanceRehearsalRoles $createUser $rehearsalRoot (
+          $MaintenanceRequest.RehearsalPort
+        )
+      }
       $createRun = Invoke-BoundedNativeProcess $createdb @(
         "--host=127.0.0.1", "--port=$($MaintenanceRequest.RehearsalPort)",
         "--username=postgres", "--owner=postgres", "teruisi_sales"
@@ -1532,7 +1632,7 @@ function Invoke-MaintenanceRestoreRehearsal {
       if ($createRun.ExitCode -ne 0) {
         throw "隔离恢复数据库创建失败（$(Get-NativeFailureSummary $createRun)）"
       }
-      $restoreRun = Invoke-BoundedNativeProcess $Python @(
+      $restoreArguments = @(
         $evidenceTool, "restore",
         "--pg-restore", $pgRestore,
         "--archive", $backup.DumpPath,
@@ -1540,7 +1640,10 @@ function Invoke-MaintenanceRestoreRehearsal {
         "--expected-user", "postgres",
         "--port", [string]$MaintenanceRequest.RehearsalPort,
         "--timeout-seconds", "1800"
-      ) $InstalledAppRoot
+      )
+      if ($noKeys) { $restoreArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
+          "--approved-manifest-sha256", $backup.ManifestSha256) }
+      $restoreRun = Invoke-BoundedNativeProcess $Python $restoreArguments $InstalledAppRoot
       $restorePayload = ConvertFrom-UniqueNativeJson $restoreRun "隔离 PostgreSQL restore"
       Assert-MaintenanceExactPropertySet $restorePayload @(
         "version", "status", "nativeDiagnostic"
@@ -1551,21 +1654,27 @@ function Invoke-MaintenanceRestoreRehearsal {
         throw "隔离 PostgreSQL restore 结果无效"
       }
       [Environment]::SetEnvironmentVariable("PGDATABASE", "teruisi_sales", "Process")
-      $probeRun = Invoke-BoundedNativeProcess $Python @(
+      $probeArguments = @(
         $evidenceTool, "probe",
         "--expected-database", "teruisi_sales",
         "--expected-user", "postgres"
-      ) $InstalledAppRoot
+      )
+      if ($noKeys) { $probeArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
+          "--approved-manifest-sha256", $backup.ManifestSha256, "--archive", $backup.DumpPath) }
+      $probeRun = Invoke-BoundedNativeProcess $Python $probeArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $probeRun "读取隔离恢复证据"
     }
-    Assert-MaintenanceExactPropertySet $probe @("version", "status", "evidence") "隔离恢复探针结果"
+    $probeProperties = @("version", "status", "evidence")
+    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified") }
+    Assert-MaintenanceExactPropertySet $probe $probeProperties "隔离恢复探针结果"
+    if ($noKeys -and $probe.profileRestoreVerified -cne $true) { throw "完整恢复内容、角色和权限未复验" }
     if ([string]$probe.version -cne "teruisi-postgres-consistent-backup-v1" -or
         [string]$probe.status -cne "completed") {
       throw "隔离恢复探针结果无效"
     }
     Assert-MaintenanceEvidence $probe.evidence "teruisi_sales" "postgres" (
       $MaintenanceRequest.RehearsalPort
-    )
+    ) $noKeys
     if ([string]$probe.evidence.contentSha256 -cne
         [string]$backup.Manifest.evidence.contentSha256) {
       throw "隔离恢复内容证据与备份快照不一致"

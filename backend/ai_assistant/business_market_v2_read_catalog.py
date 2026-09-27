@@ -2,7 +2,7 @@
 from importlib import import_module
 
 
-def verify(cursor, error_type=ValueError):
+def verify(cursor, error_type=ValueError, *, topology_guard_enabled=False, runtime_probe=False):
     migration = import_module(
         "ai_assistant.migrations.0062_business_market_v2_read_receipt_candidate")
     role = migration.ROLE
@@ -83,7 +83,8 @@ def verify(cursor, error_type=ValueError):
             "WHERE p.oid=to_regprocedure(%s)", [signature])
         if set(cursor.fetchall()) != {(name, "EXECUTE") for name in grants}:
             raise error_type("market read receipt function ACL drift")
-    cursor.execute("SELECT t.tgname,t.tgfoid::regprocedure::text,t.tgenabled "
+    cursor.execute("SELECT t.tgname,t.tgfoid::regprocedure::text,t.tgenabled,"
+        "t.tgtype,t.tgdeferrable,t.tginitdeferred,t.tgqual "
         "FROM pg_catalog.pg_trigger t WHERE t.tgrelid=to_regclass(%s) "
         "AND NOT t.tgisinternal", [migration.TABLE])
     triggers = cursor.fetchall()
@@ -91,12 +92,39 @@ def verify(cursor, error_type=ValueError):
         "public.ai_market_v2_read_receipt_guard()",
         "ai_market_v2_read_receipt_no_truncate":
         "public.ai_v4_seal_ticket_no_truncate()"}
-    if len(triggers) != 2 or {item[0] for item in triggers} != set(wanted):
+    if topology_guard_enabled:
+        from . import business_market_v6_paused_topology_sql as topology
+        wanted["ai_market_v6_topology_effect_guard"] = topology.EFFECT_GUARD
+        cursor.execute("SELECT p.prosrc,p.prosecdef,p.proconfig,"
+            "pg_catalog.pg_get_userbyid(p.proowner),l.lanname "
+            "FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_language l ON l.oid=p.prolang "
+            "WHERE p.oid=to_regprocedure(%s)", [topology.EFFECT_GUARD])
+        row = cursor.fetchone()
+        if (row is None or row[0] != topology.EFFECT_GUARD_SQL.split("$$", 2)[1]
+                or row[1] is not True or row[3:] != (owner, "plpgsql")
+                or {value.replace(" ", "") for value in row[2] or []} != {"search_path=pg_catalog,public"}):
+            raise error_type("market topology effect guard drift")
+        cursor.execute("SELECT CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE "
+            "pg_catalog.pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable "
+            "FROM pg_catalog.pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,"
+            "acldefault('f',p.proowner))) a WHERE p.oid=to_regprocedure(%s)", [topology.EFFECT_GUARD])
+        if set(cursor.fetchall()) != {(owner, "EXECUTE", False)}:
+            raise error_type("market topology effect guard ACL drift")
+    if len(triggers) != len(wanted) or {item[0] for item in triggers} != set(wanted):
         raise error_type("market read receipt trigger set drift")
-    for name, signature, enabled in triggers:
+    for name, signature, enabled, event_bits, deferred, initially, predicate in triggers:
         cursor.execute("SELECT to_regprocedure(%s)::text", [wanted[name]])
-        if signature != cursor.fetchone()[0] or enabled != "O":
+        expected_bits = 34 if name.endswith("no_truncate") else 31
+        if (signature != cursor.fetchone()[0] or enabled != "O" or event_bits != expected_bits
+                or deferred or initially or predicate is not None):
             raise error_type("market read receipt trigger binding drift")
-    cursor.execute("SELECT count(*) FROM " + migration.TABLE)
-    if cursor.fetchone() != (0,):
-        raise error_type("market read receipt must remain empty before activation")
+    if runtime_probe:
+        probe = import_module("ai_assistant.migrations.0081_readiness_catalog_probe")
+        probe.verify_catalog(cursor)
+        cursor.execute("SELECT " + probe.SIGNATURE)
+        if cursor.fetchone() != (True,):
+            raise error_type("market read receipt must remain empty before activation")
+    else:
+        cursor.execute("SELECT count(*) FROM " + migration.TABLE)
+        if cursor.fetchone() != (0,):
+            raise error_type("market read receipt must remain empty before activation")

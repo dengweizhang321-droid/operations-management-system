@@ -14,7 +14,7 @@ from integration_migration_plan import (
 class IntegrationPlanTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.policy = load_policy(ROOT / "config/integration-migration-policy-v1.json")
+        cls.policy = load_policy(ROOT / "config/integration-migration-policy-v3.json")
 
     def setUp(self):
         import hashlib
@@ -41,7 +41,7 @@ class IntegrationPlanTests(unittest.TestCase):
                 self.assertEqual(current.next_step, name)
                 self.assertEqual(current.next_identity,
                     "privileged" if name in PRIVILEGED_STEPS else "owner")
-        self.assertIsNone(self.plan(74).next_identity)
+        self.assertIsNone(self.plan(len(self.policy.steps)).next_identity)
 
     def test_missing_duplicate_unknown_and_gap_receipts_are_rejected(self):
         base = [key.split(".", 1) for key in self.policy.baseline]

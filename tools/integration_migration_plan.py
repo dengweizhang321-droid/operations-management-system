@@ -1,4 +1,4 @@
-"""Immutable-source plans for the reviewed 62 -> 136 migration generation.
+"""Immutable-source plans for the reviewed 62 -> 138 no-new-keys generation.
 
 This module validates plans and outcomes; it never grants database privileges,
 opens a production connection, changes a release gate, or replays a step.
@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 import re
 
-VERSION = "teruisi-integration-migration-plan-v1"
-SOURCE_FORMAT = "python-utf8-lf-sha256-v1"
+VERSION = "teruisi-integration-migration-plan-v3-no-keys"
+SOURCE_FORMAT = "python-and-json-utf8-lf-sha256-v1"
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 NODE = re.compile(r"[a-z][a-z0-9_]*\.[0-9]{4}_[a-zA-Z0-9_]+\Z")
 PRIVILEGED_STEPS = frozenset({
@@ -24,6 +24,7 @@ PRIVILEGED_STEPS = frozenset({
     "ai_assistant.0077_business_market_v6_paused_topology",
     "ai_assistant.0078_business_promotion_budget_v11_signed_publication",
     "ai_assistant.0079_business_market_v6_source_ticket",
+    "ai_assistant.0082_no_new_keys_profile",
 })
 
 
@@ -70,11 +71,11 @@ class Policy:
     bootstrap_roles: tuple[str, ...]
 
     def __post_init__(self):
-        if (len(self.baseline) != 62 or len(self.steps) != 74
-                or len(set(self.baseline + self.steps)) != 136
+        if (len(self.baseline) != 62 or len(self.steps) != 76
+                or len(set(self.baseline + self.steps)) != 138
                 or any(not NODE.fullmatch(key) for key in self.baseline + self.steps)
                 or not PRIVILEGED_STEPS <= set(self.steps)
-                or "ai_assistant.0080_model_tool_budget_300" not in self.steps
+                or "ai_assistant.0082_no_new_keys_profile" not in self.steps
                 or len(self.bootstrap_roles) != 24
                 or len(set(self.bootstrap_roles)) != 24
                 or any(not re.fullmatch(r"teruisi_ai_[a-z0-9_]+", name)
@@ -87,7 +88,7 @@ class Policy:
             if (relative.is_absolute() or ".." in relative.parts or "\\" in path
                     or ":" in path or "\x00" in path or relative.as_posix() != path
                     or not path.startswith(("backend/", "tools/"))
-                    or not path.endswith(".py") or not HEX64.fullmatch(expected)):
+                    or not path.endswith((".py", ".json")) or not HEX64.fullmatch(expected)):
                 raise PlanBlocked("source inventory path or digest invalid")
 
     @property
@@ -110,7 +111,7 @@ class Policy:
                 raise PlanBlocked("approved migration source changed")
         actual_python = {str(path.relative_to(root)).replace("\\", "/")
             for directory in ("backend", "tools")
-            for path in (root / directory).rglob("*.py")}
+            for path in (root / directory).rglob("*") if path.suffix in (".py", ".json")}
         if actual_python != {path for path, _ in self.files}:
             raise PlanBlocked("Python source inventory expanded or disappeared")
         return digest(self.files)

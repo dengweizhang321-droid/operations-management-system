@@ -422,7 +422,8 @@ class ConsistentBackupTests(unittest.TestCase):
         self.assertIn(name, MODULE.PROTECTED_AI_MIGRATIONS)
         self.assertEqual(MODULE.PROTECTED_AI_TABLES_BY_MIGRATION[name], set())
         source = MODULE_PATH.read_text(encoding="utf-8")
-        self.assertIn('if protected["appliedProtectedMigrations"]:', source)
+        self.assertIn('if protected["appliedProtectedMigrations"] and not no_keys:', source)
+        self.assertIn('profile_evidence = postgres_no_key_backup.collect(connection)', source)
         self.assertIn('raise RuntimeError("protected AI daily backup is not admitted")', source)
 
     def test_protected_0073_has_exact_table_role_and_migration_inventory(self):

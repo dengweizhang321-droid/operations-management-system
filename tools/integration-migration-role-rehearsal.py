@@ -73,12 +73,15 @@ def worker(stage, port, privileged_steps, reviewed_policy):
     from django.db import connection
     from django.db.migrations.executor import MigrationExecutor
     from django.db.migrations.recorder import MigrationRecorder
+    passwords = {OWNER: parsed.password,
+        ADMIN: os.environ["TERUISI_SYNTHETIC_PROBE_ADMIN_PASSWORD"]}
 
     def use_role(role):
+        if role not in passwords:
+            raise RuntimeError("unknown synthetic role")
         connection.close()
         connection.settings_dict["USER"] = role
-        connection.settings_dict["PASSWORD"] = (parsed.password if role == OWNER
-            else os.environ["TERUISI_SYNTHETIC_PROBE_ADMIN_PASSWORD"])
+        connection.settings_dict["PASSWORD"] = passwords[role]
         with connection.cursor() as cursor:
             cursor.execute("SELECT current_database(),current_user,inet_server_port()")
             if cursor.fetchone() != (DATABASE, role, port):
@@ -141,6 +144,51 @@ def worker(stage, port, privileged_steps, reviewed_policy):
         finally:
             fixture.doCleanups()
         result = {"status": "synthetic_application_files_created", "productionWrites": False}
+    elif stage == "runtime":
+        import uuid
+        import psycopg
+        from django.test import override_settings
+        from django.utils import timezone
+        from ai_assistant import database_contract, health
+        from ai_assistant.control_models import AiDataRevision, AiWriteAuthority, AiMigrationRun
+        epoch = str(uuid.uuid4())
+        synthetic_digest = hashlib.sha256(b"synthetic-runtime-authority-fixture").hexdigest()
+        from sales.models import SalesDataRevision, SalesWriteAuthority
+        for domain in ("sales", "erp"):
+            SalesDataRevision.objects.get_or_create(domain=domain)
+        SalesWriteAuthority.objects.filter(id=1).update(status="active",
+            cutover_id="integration-runtime-synthetic", activated_at=timezone.now())
+        from market.models import MarketDataRevision
+        MarketDataRevision.objects.filter(domain="market", revision=0).update(
+            revision=1, source_digest=synthetic_digest)
+        adoption_id = "ai-apply-" + secrets.token_hex(16)
+        # Explicit synthetic authority fixture for readiness only. This is not
+        # a historical D1 migration or evidence about the production authority.
+        revision = AiDataRevision.objects.get(domain="ai-assistant")
+        AiDataRevision.objects.filter(domain=revision.domain).update(
+            revision=max(revision.revision, 1), source_digest=synthetic_digest)
+        AiMigrationRun.objects.create(id=adoption_id, mode="apply", status="verified",
+            source_path_digest=synthetic_digest, source_snapshot_digest=synthetic_digest,
+            target_snapshot_digest=synthetic_digest, source_counts={}, target_counts={})
+        AiWriteAuthority.objects.filter(id=1, status="d1").update(status="postgres",
+            authority_epoch=epoch, cutover_id="integration-runtime-synthetic",
+            migration_verify_run_id=adoption_id, activated_at=timezone.now())
+        passwords["teruisi_ai_reader"] = secrets.token_hex(32)
+        passwords["teruisi_ai_writer"] = secrets.token_hex(32)
+        with psycopg.connect(host="127.0.0.1", port=port, dbname=DATABASE,
+                user=ADMIN, password=passwords[ADMIN], autocommit=True) as admin:
+            database_contract.provision(admin, passwords["teruisi_ai_reader"],
+                passwords["teruisi_ai_writer"])
+        ready = {}
+        for role in ("ai_reader", "ai_writer"):
+            use_role("teruisi_" + role)
+            with override_settings(DJANGO_PROCESS_ROLE=role,
+                    AI_WRITE_AUTHORITY_EPOCH=epoch,
+                    AI_WRITE_CUTOVER_ID="integration-runtime-synthetic"):
+                ready[role] = health.check()["status"] == "ready"
+        use_role(OWNER)
+        result = {"status": "runtime_ready", "roles": ready,
+            "syntheticAuthorityFixture": True, "productionWrites": False}
     else:
         plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
         completed = []
@@ -148,7 +196,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
         policy = None
         if reviewed_policy:
             from integration_migration_plan import build_plan, confirm_single_step, load_policy
-            policy = load_policy(ROOT / "config/integration-migration-policy-v1.json")
+            policy = load_policy(ROOT / "config/integration-migration-policy-v3.json")
 
         def current_plan():
             active = MigrationExecutor(connection)
@@ -213,7 +261,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
     print(json.dumps(result), flush=True)
 
 
-def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_policy):
+def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_policy, verify_runtime):
     if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
             or not 55440 <= port <= 55999):
         raise RuntimeError("probe requires an isolated worktree and test port")
@@ -221,7 +269,7 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
         probe.bind(("127.0.0.1", port))
     if reviewed_policy:
         from integration_migration_plan import load_policy, PRIVILEGED_STEPS
-        policy = load_policy(ROOT / "config/integration-migration-policy-v1.json")
+        policy = load_policy(ROOT / "config/integration-migration-policy-v3.json")
         policy.verify_source(ROOT)
         if (not preprovision or set(privileged_steps) != {key.split(".")[1][:4] for key in PRIVILEGED_STEPS}
                 or set(policy.bootstrap_roles) != set(CLOSED_ROLES) | {"teruisi_ai_seal_writer"}):
@@ -295,7 +343,8 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
                 "cluster": cluster, "databaseOid": database_oid, "port": port,
                 "runRoot": str(run_root), "environment": "test"})).hexdigest(),
             "TERUISI_SYNTHETIC_PROBE_ADMIN_PASSWORD": admin_password}
-        for stage in (("baseline", "probe", "files") if restore_port else ("baseline", "probe")):
+        stages = ["baseline", "probe"] + (["files"] if restore_port else []) + (["runtime"] if verify_runtime else [])
+        for stage in stages:
             print(json.dumps({"stage": stage, "port": port,
                 "runRoot": str(run_root), "productionWrites": False}), flush=True)
             args = [sys.executable, "-B", __file__, "--worker", stage, "--port", str(port)]
@@ -318,7 +367,7 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
             if stage == "probe" and restore_port and result["status"] != "mixed_completed":
                 raise RuntimeError("restore requires a completed mixed migration rehearsal")
         if restore_port:
-            print(json.dumps({"stage": "encrypted_new_cluster_restore", "sourcePort": port,
+            print(json.dumps({"stage": "no_key_new_cluster_restore", "sourcePort": port,
                 "targetPort": restore_port, "productionWrites": False}), flush=True)
             output = native([sys.executable, "-B", ROOT / "tools" /
                 "integration-protected-restore-rehearsal.py", "--run-root", run_root,
@@ -339,12 +388,13 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, required=True)
-    parser.add_argument("--worker", choices=("baseline", "probe", "files"))
+    parser.add_argument("--worker", choices=("baseline", "probe", "files", "runtime"))
     parser.add_argument("--restore-port", type=int)
     parser.add_argument("--preprovision-closed-roles", action="store_true")
     parser.add_argument("--use-reviewed-policy", action="store_true")
+    parser.add_argument("--verify-runtime", action="store_true")
     parser.add_argument("--privileged-ai-step", action="append", default=[],
-        choices=[f"{value:04}" for value in range(14, 80)])
+        choices=[f"{value:04}" for value in range(14, 80)] + ["0082"])
     args = parser.parse_args()
     if args.restore_port is not None and (not 55440 <= args.restore_port <= 55999
             or args.restore_port == args.port or args.worker):
@@ -353,7 +403,7 @@ def main():
         worker(args.worker, args.port, args.privileged_ai_step, args.use_reviewed_policy)
     else:
         run_probe(args.port, args.preprovision_closed_roles, args.privileged_ai_step,
-            args.restore_port, args.use_reviewed_policy)
+            args.restore_port, args.use_reviewed_policy, args.verify_runtime)
 
 
 if __name__ == "__main__":

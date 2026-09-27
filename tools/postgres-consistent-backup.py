@@ -935,7 +935,14 @@ def collect_evidence(
                         else "ai_assistant.migrations.0058_business_promotion_budget_v10_publish_gate"
                         if "0058_business_promotion_budget_v10_publish_gate" in ai_migrations
                         else "ai_assistant.migrations.0057_business_promotion_budget_v10_attestation")
-                    attestation_guard.verify_catalog(cursor)
+                    if "0066_business_promotion_budget_v11_durable_stage" in ai_migrations:
+                        if "0059_business_promotion_budget_v10_reader_fence" not in ai_migrations:
+                            raise RuntimeError("AI budget v11 lacks the frozen v10 reader predecessor")
+                        from ai_assistant.business_budget_catalog import verify_v11_budget_catalog
+                        verify_v11_budget_catalog(cursor,
+                            file_guard_verifier=verify_promotion_trial_file_guard)
+                    else:
+                        attestation_guard.verify_catalog(cursor)
                     if ("0059_business_promotion_budget_v10_reader_fence" in ai_migrations
                             and "0058_business_promotion_budget_v10_publish_gate" not in ai_migrations):
                         raise RuntimeError("AI budget v10 reader fence lacks publish predecessor")
@@ -986,7 +993,8 @@ def collect_evidence(
                 if "0061_business_market_v2_context_proof" not in ai_migrations:
                     raise RuntimeError("AI market read receipt has no context proof")
                 from ai_assistant.business_market_v2_read_catalog import verify
-                verify(cursor, RuntimeError)
+                verify(cursor, RuntimeError, topology_guard_enabled=
+                    "0077_business_market_v6_paused_topology" in ai_migrations)
             if "0063_business_market_v2_execution_plan" in ai_migrations:
                 if "0062_business_market_v2_read_receipt_candidate" not in ai_migrations:
                     raise RuntimeError("AI market execution plan lacks read-receipt predecessor")
@@ -1042,8 +1050,11 @@ def collect_evidence(
                         raise RuntimeError("AI protected sidecar lacks predecessor: "
                             + migration_name)
                     from importlib import import_module
-                    import_module("ai_assistant.migrations." + migration_name
-                        ).verify_catalog(cursor)
+                    module = import_module("ai_assistant.migrations." + migration_name)
+                    if migration_name == "0075_business_v4_report_restricted_page" and "0082_no_new_keys_profile" in ai_migrations:
+                        import_module("ai_assistant.migrations.0082_no_new_keys_profile").verify_catalog(cursor)
+                    else:
+                        module.verify_catalog(cursor)
             if ("0054_business_promotion_budget_file_staging" in ai_migrations
                     and ("0053_business_market_v2_admitted_paused" not in ai_migrations
                          or "0046_business_promotion_trial_file_guard" not in ai_migrations)):
@@ -1967,6 +1978,24 @@ def run_protected_preflight(args: argparse.Namespace) -> dict[str, Any]:
     return result
 
 
+def run_no_key_preflight(args: argparse.Namespace) -> dict[str, Any]:
+    import postgres_no_key_backup
+    with psycopg.connect("") as connection:
+        connection.execute("BEGIN ISOLATION LEVEL REPEATABLE READ")
+        connection.execute("SET LOCAL lock_timeout='5s'")
+        identity = connection.execute("SELECT current_database(),current_user,"
+            "inet_server_addr()::text,inet_server_port()").fetchone()
+        if (identity is None or identity[:2] != (args.expected_database, args.expected_user)
+                or _canonical_loopback_address(identity[2]) != "127.0.0.1"
+                or identity[3] != args.port):
+            raise RuntimeError("no-key preflight database identity mismatch")
+        postgres_no_key_backup.verify_closed_profile(connection)
+        postgres_no_key_backup.role_contract(connection)
+        connection.rollback()
+    return {"status": "admitted", "profile": postgres_no_key_backup.PROFILE,
+        "privateKeyRows": 0, "newRecoveryKeyGenerated": False}
+
+
 def run_backup(args: argparse.Namespace) -> dict[str, Any]:
     pg_dump = _validate_leaf(args.pg_dump, "pg_dump")
     output = _validate_new_output(args.output)
@@ -1974,18 +2003,23 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
 
     try:
         with psycopg.connect("") as connection:
-            connection.execute(
-                "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
-            )
+            no_keys = getattr(args, "profile", "legacy") == "no-new-keys"
+            connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ" +
+                ("" if no_keys else " READ ONLY"))
+            profile_evidence = None
             with connection.cursor() as cursor:
+                if no_keys:
+                    import postgres_no_key_backup
+                    connection.execute("SET LOCAL lock_timeout='5s'")
+                    profile_evidence = postgres_no_key_backup.collect(connection)
                 cursor.execute("SELECT pg_export_snapshot()")
                 snapshot = str(cursor.fetchone()[0])
                 protected = _protected_ai_preflight(cursor)
-                if protected["appliedProtectedMigrations"]:
+                if protected["appliedProtectedMigrations"] and not no_keys:
                     raise RuntimeError("protected AI daily backup is not admitted")
-                if _finance_raw_workbook_preflight(cursor):
+                if _finance_raw_workbook_preflight(cursor) and not no_keys:
                     raise RuntimeError("finance raw workbook daily backup is not admitted")
-                if _finance_raw_evidence_preflight(cursor):
+                if _finance_raw_evidence_preflight(cursor) and not no_keys:
                     raise RuntimeError("finance raw evidence daily backup is not admitted")
             evidence = collect_evidence(
                 connection,
@@ -2000,7 +2034,7 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
                 f"--dbname={args.expected_database}",
                 "--format=custom",
                 "--compress=6",
-                *FORMAL_DUMP_FLAGS,
+                *([] if no_keys else FORMAL_DUMP_FLAGS),
                 "--lock-wait-timeout=5000",
                 f"--snapshot={snapshot}",
                 f"--file={output}",
@@ -2018,13 +2052,16 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
             if not output.is_file() or output.stat().st_size < 1:
                 raise RuntimeError("pg_dump produced an empty archive")
             connection.commit()
-        return {
+        result = {
             "version": VERSION,
             "status": "completed",
             "snapshotIdSha256": _sha256_bytes(snapshot.encode("utf-8")),
             "evidence": evidence,
             "nativeDiagnostic": _safe_native_diagnostic(completed),
         }
+        if no_keys:
+            result["profileEvidence"] = profile_evidence
+        return result
     except subprocess.TimeoutExpired as exc:
         bounded = ((exc.stdout or b"") + b"\n" + (exc.stderr or b""))[
             :MAX_NATIVE_DIAGNOSTIC_BYTES
@@ -2040,33 +2077,66 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
 
 def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     with psycopg.connect("") as connection:
-        connection.execute(
-            "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
-        )
+        no_keys = getattr(args, "profile", "legacy") == "no-new-keys"
+        connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ" +
+            ("" if no_keys else " READ ONLY"))
+        profile_evidence = None
+        if no_keys:
+            import postgres_no_key_backup
+            connection.execute("SET LOCAL lock_timeout='5s'")
+            profile_evidence = postgres_no_key_backup.collect(connection)
         evidence = collect_evidence(
             connection,
             expected_database=args.expected_database,
             expected_user=args.expected_user,
         )
         connection.rollback()
-    return {
+    result = {
         "version": VERSION,
         "status": "completed",
         "evidence": evidence,
     }
+    if no_keys:
+        result["profileEvidence"] = profile_evidence
+        if getattr(args, "manifest", ""):
+            expected = postgres_no_key_backup.read_manifest(args.manifest,
+                args.approved_manifest_sha256, args.archive, args.expected_database)
+            postgres_no_key_backup.verify_restored(expected, profile_evidence)
+            result["profileRestoreVerified"] = True
+    return result
 
 
 def run_restore(args: argparse.Namespace) -> dict[str, Any]:
     pg_restore = _validate_leaf(args.pg_restore, "pg_restore")
     archive = _validate_leaf(args.archive, "backup archive")
+    no_keys = getattr(args, "profile", "legacy") == "no-new-keys"
+    if no_keys:
+        import postgres_no_key_backup
+        profile = postgres_no_key_backup.read_manifest(args.manifest,
+            args.approved_manifest_sha256, archive, args.expected_database)
+        # Never accept the production port, an existing schema, or roles from a
+        # previous attempt. The owning PowerShell operator creates this cluster.
+        if not 55432 <= int(args.port) <= 55999:
+            raise RuntimeError("no-key restore only accepts an isolated port")
+        with psycopg.connect("") as connection:
+            postgres_no_key_backup.provision_restore_roles(connection, profile["roles"],
+                expected_database=args.expected_database, expected_port=int(args.port))
+            connection.execute(sql.SQL("ALTER DATABASE {} OWNER TO teruisi_sales_owner").format(
+                sql.Identifier(args.expected_database)))
+            postgres_no_key_backup.apply_restore_role_settings(connection,
+                profile["roles"], args.expected_database)
+        with psycopg.connect("", dbname=args.expected_database) as connection:
+            if connection.execute("SELECT count(*) FROM pg_tables WHERE schemaname='public'"
+                    ).fetchone() != (0,):
+                raise RuntimeError("restore database is not empty")
     listed = subprocess.run([str(pg_restore), "--list", str(archive)],
         check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         timeout=min(int(args.timeout_seconds), 60), env=os.environ.copy())
     if listed.returncode != 0:
         raise RuntimeError("restore archive list preflight failed")
-    if b"protected_business_" in listed.stdout:
+    if b"protected_business_" in listed.stdout and not no_keys:
         raise RuntimeError("protected AI archive restore is not admitted")
-    if any(table.encode("ascii") in listed.stdout
+    if not no_keys and any(table.encode("ascii") in listed.stdout
             for table in FINANCE_RAW_EVIDENCE_TABLES | FINANCE_RAW_WORKBOOK_TABLES):
         raise RuntimeError("finance raw evidence archive restore is not admitted")
     command = [
@@ -2076,7 +2146,7 @@ def run_restore(args: argparse.Namespace) -> dict[str, Any]:
         f"--username={args.expected_user}",
         f"--dbname={args.expected_database}",
         "--single-transaction",
-        *FORMAL_RESTORE_FLAGS,
+        *(["--exit-on-error"] if no_keys else FORMAL_RESTORE_FLAGS),
         str(archive),
     ]
     try:
@@ -2118,15 +2188,24 @@ def build_parser() -> argparse.ArgumentParser:
     backup.add_argument("--expected-user", required=True)
     backup.add_argument("--port", required=True, type=int)
     backup.add_argument("--timeout-seconds", type=int, default=1800)
+    backup.add_argument("--profile", choices=("legacy", "no-new-keys"), default="legacy")
 
     probe = subparsers.add_parser("probe")
     probe.add_argument("--expected-database", required=True)
     probe.add_argument("--expected-user", required=True)
+    probe.add_argument("--profile", choices=("legacy", "no-new-keys"), default="legacy")
+    probe.add_argument("--manifest", default="")
+    probe.add_argument("--approved-manifest-sha256", default="")
+    probe.add_argument("--archive", default="")
 
     protected = subparsers.add_parser("protected-preflight")
     protected.add_argument("--expected-database", required=True)
     protected.add_argument("--expected-user", required=True)
     protected.add_argument("--port", required=True, type=int)
+    no_key = subparsers.add_parser("no-key-preflight")
+    no_key.add_argument("--expected-database", required=True)
+    no_key.add_argument("--expected-user", required=True)
+    no_key.add_argument("--port", required=True, type=int)
 
     restore = subparsers.add_parser("restore")
     restore.add_argument("--pg-restore", required=True)
@@ -2135,6 +2214,9 @@ def build_parser() -> argparse.ArgumentParser:
     restore.add_argument("--expected-user", required=True)
     restore.add_argument("--port", required=True, type=int)
     restore.add_argument("--timeout-seconds", type=int, default=1800)
+    restore.add_argument("--profile", choices=("legacy", "no-new-keys"), default="legacy")
+    restore.add_argument("--manifest", default="")
+    restore.add_argument("--approved-manifest-sha256", default="")
     return parser
 
 
@@ -2147,6 +2229,8 @@ def main() -> int:
             result = run_restore(args)
         elif args.command == "protected-preflight":
             result = run_protected_preflight(args)
+        elif args.command == "no-key-preflight":
+            result = run_no_key_preflight(args)
         else:
             result = run_probe(args)
         print(json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(",", ":")))
