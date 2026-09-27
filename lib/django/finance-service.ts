@@ -8,10 +8,12 @@ import {
 import { PublicApiError } from "@/lib/http/api-error";
 
 export const FINANCE_IMPORTS_PATH = "/api/finance/imports";
+export const FINANCE_RAW_WORKBOOK_ATTEST_PATH = "/api/finance/imports/raw-attest";
 export const FINANCE_ANALYSIS_PATH = "/api/finance/analysis";
 export const FINANCE_TARGETS_PATH = "/api/finance/targets";
 export const FINANCE_TARGET_IMPORT_PATH = "/api/finance/targets/import";
 export const FINANCE_CONSUMER_QUERY_PATH = "/api/finance/consumers/query";
+export const FINANCE_BUSINESS_EVIDENCE_PAGE_PATH = "/api/finance/business-evidence/page";
 
 const FINANCE_PATHS = new Set([
   FINANCE_IMPORTS_PATH,
@@ -19,6 +21,7 @@ const FINANCE_PATHS = new Set([
   FINANCE_TARGETS_PATH,
   FINANCE_TARGET_IMPORT_PATH,
   FINANCE_CONSUMER_QUERY_PATH,
+  FINANCE_BUSINESS_EVIDENCE_PAGE_PATH,
 ]);
 const encoder = new TextEncoder();
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -212,7 +215,7 @@ export async function requestDjangoFinanceService<T>(
   if (!FINANCE_PATHS.has(input.path)) throw unavailable();
   const readerRequest = input.service === "reader" && (
     (input.method === "GET" && input.path !== FINANCE_CONSUMER_QUERY_PATH)
-    || (input.method === "POST" && input.path === FINANCE_CONSUMER_QUERY_PATH)
+    || (input.method === "POST" && (input.path === FINANCE_CONSUMER_QUERY_PATH || input.path === FINANCE_BUSINESS_EVIDENCE_PAGE_PATH))
   );
   const writerRequest = input.service === "writer" && (
     (input.method === "POST" && (input.path === FINANCE_IMPORTS_PATH || input.path === FINANCE_TARGETS_PATH || input.path === FINANCE_TARGET_IMPORT_PATH))
@@ -272,6 +275,64 @@ export async function requestDjangoFinanceService<T>(
   }
 }
 
+/** Exact signed byte follow-up after an already completed legacy v1 import.
+ * It cannot import, replace, or roll back any finance facts. */
+export async function requestDjangoFinanceRawWorkbookAttestation(
+  principal: AppPrincipal,
+  input: { bytes: Uint8Array; month: string; batchId: string },
+  options: DjangoFinanceServiceOptions = {},
+): Promise<DjangoFinanceServiceResult<Record<string, unknown>>> {
+  if (!(input.bytes instanceof Uint8Array) || input.bytes.byteLength < 1
+    || input.bytes.byteLength > 8 * 1024 * 1024
+    || !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(input.month)
+    || !/^[A-Za-z0-9_-]{1,64}$/.test(input.batchId)) {
+    throw new PublicApiError(422, "invalid_request", "财报原始字节验真目标无效。");
+  }
+  const config = normalizedConfig(options.config ?? await loadConfig());
+  const query = new URLSearchParams({ month: input.month, batchId: input.batchId });
+  const rawQuery = query.toString();
+  const bodySha256 = await salesGatewayBodySha256(input.bytes);
+  const rawBody = new ArrayBuffer(input.bytes.byteLength);
+  new Uint8Array(rawBody).set(input.bytes);
+  const requestId = (options.requestId ?? (() => crypto.randomUUID()))();
+  const headers = await createFinanceGatewayAuthHeaders({
+    secret: config.internalSecret,
+    principal,
+    method: "POST",
+    path: FINANCE_RAW_WORKBOOK_ATTEST_PATH,
+    rawQuery,
+    bodySha256,
+    timestamp: Math.floor((options.now ?? Date.now)() / 1_000),
+    requestId,
+  });
+  headers.set("content-type", "application/octet-stream");
+  const target = new URL(`${FINANCE_RAW_WORKBOOK_ATTEST_PATH}?${rawQuery}`,
+    config.writerBaseUrl);
+  try {
+    const { response, data } = await fetchBoundedJson({
+      url: target.toString(),
+      init: { method: "POST", headers, body: rawBody, cache: "no-store" },
+      timeoutMs: config.timeoutMs,
+      maxBytes: config.maxResponseBytes,
+      fetcher: options.fetchImpl,
+      signal: options.signal,
+    });
+    if (!jsonContentType(response.headers.get("content-type")) || !isRecord(data)) throw unavailable();
+    if ((response.status !== 200 && response.status !== 201) || data.ok !== true
+      || data.backendRawBytesObserved !== true || data.reportAuthorityVerified !== false
+      || data.stableNetshopShopIdentityVerified !== false) {
+      throw upstreamError(response.status, data);
+    }
+    return { status: response.status, data,
+      replayed: response.headers.get("x-teruisi-write-replay") === "1",
+      revision: response.headers.get("x-finance-data-revision") };
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
+    if (error instanceof BoundedFetchError) throw unavailable();
+    throw unavailable();
+  }
+}
+
 export function createDjangoFinanceService(config?: DjangoFinanceServiceConfig) {
   return {
     request: <T>(
@@ -279,5 +340,10 @@ export function createDjangoFinanceService(config?: DjangoFinanceServiceConfig) 
       input: Parameters<typeof requestDjangoFinanceService<T>>[1],
       options: Omit<DjangoFinanceServiceOptions, "config"> = {},
     ) => requestDjangoFinanceService<T>(principal, input, { ...options, config }),
+    attestRawWorkbook: (principal: AppPrincipal,
+      input: Parameters<typeof requestDjangoFinanceRawWorkbookAttestation>[1],
+      options: Omit<DjangoFinanceServiceOptions, "config"> = {}) =>
+      requestDjangoFinanceRawWorkbookAttestation(principal, input,
+        { ...options, config }),
   };
 }

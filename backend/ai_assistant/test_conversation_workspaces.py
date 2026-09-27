@@ -68,6 +68,29 @@ class WorkspaceTests(TestCase):
         self.assertEqual(m.AiConversationWorkspace.objects.get().conversation_id, b["conversationId"])
         self.assertTrue(m.AiConversationDeletionAudits.objects.exists())
 
+    def test_activation_order_survives_equal_and_backward_wall_clock(self):
+        from datetime import timedelta
+        a = self.ask("same-clock-first")
+        b = self.ask("same-clock-second")
+        latest = m.AiConversationWorkspace.objects.get(conversation_id=b['conversationId']).last_opened_at
+        for target, instant in ((a, latest), (b, latest-timedelta(seconds=1)), (a, latest)):
+            with patch('ai_assistant.conversation_workspace.timezone.now', return_value=instant), mutation(self.owner):
+                workspace.activate({'action':'activate','conversationId':target['conversationId'],'workspaceModule':'sales'},self.owner)
+            self.assertEqual(chat.listing({'workspaceModule':'sales'},self.owner)['items'][0]['id'],target['conversationId'])
+
+    def test_activation_clock_isolated_by_owner_and_module(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        a = self.ask('clock-owner')
+        other = self.ask('clock-other',actor=self.other)
+        inventory = self.ask('clock-inventory','inventory')
+        now = timezone.now()
+        with mutation(self.owner):
+            m.AiConversationWorkspace.objects.filter(conversation_id__in=[other['conversationId'],inventory['conversationId']]).update(last_opened_at=now+timedelta(days=100))
+        with patch('ai_assistant.conversation_workspace.timezone.now',return_value=now), mutation(self.owner):
+            workspace.activate({'action':'activate','conversationId':a['conversationId'],'workspaceModule':'sales'},self.owner)
+        self.assertLess(m.AiConversationWorkspace.objects.get(conversation_id=a['conversationId']).last_opened_at, now+timedelta(seconds=1))
+
     def test_receipt_recovery_is_read_only_and_owner_scoped(self):
         a = self.ask("recover")
         with patch("ai_assistant.provider.turn", side_effect=AssertionError("must not call model")):

@@ -107,7 +107,12 @@ ACCESS_CONTROL_WRITER_TABLE_PRIVILEGES = {
 }
 ACCESS_CONTROL_WRITER_AUTO_ID_TABLES = ("access_control_permission_audits",)
 
+REQUIRED_SALES_OPTIONS_COLUMNS = {
+    "sales_analysis_options": {"id", "platform", "shop", "channel", "first_date", "last_date", "row_count", "entry_json", "entry_digest"},
+    "sales_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_sales_revision", "reason"},
+}
 REQUIRED_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "business_date",
         "platform_key",
@@ -161,6 +166,31 @@ REQUIRED_FINANCE_INDEXES = {
     "fin_line_scope_idx", "fin_line_metric_idx", "fin_line_subject_idx", "fin_line_shop_idx",
 }
 REQUIRED_FINANCE_READER_COLLATION = "zh-Hans-CN-x-icu"
+FINANCE_MARKER_MIGRATION = "0003_finance_source_revision_guard"
+FINANCE_MARKER_TABLE = "finance_source_revision_markers"
+FINANCE_MARKER_TRIGGERS = {
+    ("finance_lines", "finance_line_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_months", "finance_month_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    ("finance_import_batches", "finance_batch_revision_required", "finance_source_mark_revision_required", 30, False, False),
+    (FINANCE_MARKER_TABLE, "finance_source_revision_required", "finance_source_revision_required_at_commit", 5, True, True),
+}
+FINANCE_MARKER_FUNCTIONS = {"finance_source_mark_revision_required",
+    "finance_source_revision_required_at_commit"}
+FINANCE_MONOTONIC_MIGRATION = "0004_finance_revision_monotonic"
+FINANCE_MONOTONIC_FUNCTION = "finance_revision_monotonic_guard"
+FINANCE_MONOTONIC_TRIGGER = ("finance_data_revisions",
+    "finance_revision_monotonic", FINANCE_MONOTONIC_FUNCTION, "O", 31, False, False)
+NETSHOP_MARKER_MIGRATION = "0003_netshop_source_revision_guard"
+NETSHOP_MARKER_TABLE = "netshop_source_revision_markers"
+NETSHOP_MARKER_TRIGGERS = {
+    ("netshop_rows", "netshop_row_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    ("netshop_import_batches", "netshop_batch_revision_required", "netshop_source_mark_revision_required", "O", 30, False, False),
+    (NETSHOP_MARKER_TABLE, "netshop_source_revision_required", "netshop_source_revision_required_at_commit", "O", 5, True, True),
+    ("netshop_data_revisions", "netshop_source_revision_monotonic", "netshop_source_revision_monotonic", "O", 31, False, False),
+}
+NETSHOP_MARKER_FUNCTIONS = {"netshop_source_mark_revision_required": True,
+    "netshop_source_revision_required_at_commit": True,
+    "netshop_source_revision_monotonic": False}
 FINANCE_WRITER_TABLE_PRIVILEGES = {
     "finance_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "finance_months": ("SELECT", "INSERT", "UPDATE"),
@@ -258,6 +288,8 @@ NETSHOP_WRITER_AUTO_ID_TABLES = (
     "netshop_asset_upload_chunks",
 )
 REQUIRED_MARKET_COLUMNS = {
+    "market_analysis_options": {"id", "category", "scope", "ranking_dimension", "price_band_filter", "first_date", "last_date", "entry_json", "entry_digest", "search_casefold"},
+    "market_analysis_options_state": {"id", "status", "generation", "directory_digest", "identity_count", "stored_bytes", "source_revision", "reason"},
     "market_import_batches": {
         "id", "source_type", "status", "raw_file_hash", "content_hash",
         "scope_json", "published_state_token", "migration_generation",
@@ -321,8 +353,12 @@ REQUIRED_MARKET_WRITER_COLUMNS = {
 }
 REQUIRED_MARKET_INDEXES = {
     "mkt_entry_period_idx", "mkt_entry_category_idx", "mkt_entry_identity_idx",
+    "mkt_facet_scope_idx", "mkt_facet_dimension_idx",
+    "mkt_facet_operation_idx", "mkt_facet_subcategory_idx",
 }
 MARKET_WRITER_TABLE_PRIVILEGES = {
+    "market_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "market_analysis_options_state": ("SELECT", "UPDATE"),
     "market_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "market_ranking_entries": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "market_master_identities": ("SELECT", "INSERT", "UPDATE", "DELETE"),
@@ -364,6 +400,7 @@ MARKET_WRITER_TABLE_PRIVILEGES = {
     "market_netshop_projection_control": ("SELECT", "INSERT", "UPDATE"),
 }
 MARKET_WRITER_AUTO_ID_TABLES = (
+    "market_analysis_options",
     "market_ranking_entries", "market_master_identities", "market_import_fingerprints",
     "market_image_cache_job_items", "market_annotation_concurrency_settings",
     "market_netshop_projection",
@@ -790,6 +827,7 @@ ERP_REFERENCE_WRITER_AUTO_ID_TABLES = (
     "erp_reference_raw_upload_chunks",
 )
 REQUIRED_WRITER_COLUMNS = {
+    **REQUIRED_SALES_OPTIONS_COLUMNS,
     "sales_order_lines": {
         "source_line_key",
         "last_import_batch_id",
@@ -861,6 +899,8 @@ REQUIRED_WRITER_COLUMNS = {
     **REQUIRED_ERP_RUNTIME_COLUMNS,
 }
 WRITER_TABLE_PRIVILEGES = {
+    "sales_analysis_options": ("SELECT", "INSERT", "UPDATE", "DELETE"),
+    "sales_analysis_options_state": ("SELECT", "UPDATE"),
     "sales_order_lines": ("SELECT", "INSERT", "UPDATE", "DELETE"),
     "sales_import_batches": ("SELECT", "INSERT", "UPDATE"),
     "sales_data_revisions": ("SELECT", "INSERT", "UPDATE"),
@@ -891,6 +931,7 @@ WRITER_FORBIDDEN_PROTECTED_TABLE_PRIVILEGES = {
     "sales_legacy_upload_audits": ("INSERT", "UPDATE", "DELETE", "TRUNCATE"),
 }
 WRITER_AUTO_ID_TABLES = (
+    "sales_analysis_options",
     "sales_order_lines",
     "sales_import_fingerprints",
     "sales_raw_upload_chunks",
@@ -914,7 +955,27 @@ def _column_names(cursor, table: str) -> set[str]:
     return {item.name for item in connection.introspection.get_table_description(cursor, table)}
 
 
+def _validate_sales_options(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    constraints = connection.introspection.get_constraints(cursor, "sales_analysis_options")
+    if not {"sales_options_shape_ck", "sales_options_page_idx"}.issubset(constraints):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if "sales_options_state_ck" not in connection.introspection.get_constraints(cursor, "sales_analysis_options_state"):
+        raise ReadinessError("sales_options_constraints_incomplete")
+    if settings.DJANGO_PROCESS_ROLE in {"reader", "sales_writer"}:
+        for table in REQUIRED_SALES_OPTIONS_COLUMNS:
+            cursor.execute("SELECT has_table_privilege(current_user,%s,'SELECT')", [table])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_privilege_missing")
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user,'access_control_users',%s,'SELECT')", [column])
+            if cursor.fetchone()[0] is not True:
+                raise ReadinessError("sales_options_identity_privilege_missing")
+
+
 def _validate_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_COLUMNS.items():
         if table not in tables:
@@ -929,6 +990,7 @@ def _validate_schema(cursor) -> None:
 
 
 def _validate_writer_schema(cursor) -> None:
+    _validate_sales_options(cursor)
     tables = set(connection.introspection.table_names(cursor))
     for table, expected_columns in REQUIRED_WRITER_COLUMNS.items():
         if table not in tables:
@@ -937,8 +999,162 @@ def _validate_writer_schema(cursor) -> None:
             raise ReadinessError("sales_writer_schema_incomplete")
 
 
+def _validate_finance_source_marker_guard(cursor) -> None:
+    """Only finance.0003 requires the private marker and exact live guards."""
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='finance' AND name='0003_finance_source_revision_guard')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute("SELECT pg_catalog.to_regclass('public.finance_source_revision_markers') IS NOT NULL")
+    present = cursor.fetchone()[0] is True
+    if not migrated:
+        if present:
+            raise ReadinessError("finance_source_marker_without_migration")
+        return
+    if not present:
+        raise ReadinessError("finance_source_marker_schema_missing")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [
+        ("transaction_id",True,"bigint"),
+        ("baseline_revision",True,"bigint"),
+        ("baseline_digest",True,"character varying(64)"),
+    ]:
+        raise ReadinessError("finance_source_marker_schema_incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='finance_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise ReadinessError("finance_source_marker_primary_key_missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgtype,t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND t.tgenabled='O' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in FINANCE_MARKER_TRIGGERS],),
+    )
+    found = {(str(table),str(name),str(function),int(kind),bool(deferred),bool(initial))
+        for table,name,function,kind,deferred,initial in cursor.fetchall()}
+    if found != FINANCE_MARKER_TRIGGERS:
+        raise ReadinessError("finance_source_marker_triggers_incomplete")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(FINANCE_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer), config) for name,definer,config in cursor.fetchall()}
+    if (set(functions) != FINANCE_MARKER_FUNCTIONS or any(not definer or
+            [str(item).replace(" ", "") for item in (config or [])
+                if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]
+            for definer,config in functions.values())):
+        raise ReadinessError("finance_source_marker_functions_incomplete")
+    privileges = [("teruisi_finance_writer", "INSERT"),
+        ("teruisi_finance_writer", "UPDATE"),
+        ("teruisi_finance_writer", "DELETE"),
+        ("teruisi_finance_writer", "TRUNCATE"),
+        *(("teruisi_finance_reader", privilege) for privilege in
+            ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"))]
+    clauses = ["pg_catalog.has_table_privilege(%s,%s,%s)" for _ in privileges]
+    arguments = []
+    for role, privilege in privileges:
+        arguments.extend((role, "public.finance_source_revision_markers", privilege))
+    for role, grants in (
+            ("teruisi_finance_writer", ("INSERT", "UPDATE")),
+            ("teruisi_finance_reader", ("SELECT", "INSERT", "UPDATE"))):
+        for column in ("transaction_id", "baseline_revision", "baseline_digest"):
+            for privilege in grants:
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                arguments.extend((role,"public.finance_source_revision_markers",
+                    column,privilege))
+    for role in ("teruisi_finance_writer", "teruisi_finance_reader"):
+        for function in sorted(FINANCE_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            arguments.extend((role, f"public.{function}()", "EXECUTE"))
+    cursor.execute("SELECT " + ",".join(clauses), arguments)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("finance_source_marker_privilege_excessive")
+
+
+def _validate_finance_monotonic_guard(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='finance' AND name='0004_finance_revision_monotonic')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname='finance_revision_monotonic'"
+    )
+    found = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname='finance_revision_monotonic_guard'"
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if not migrated:
+        if found or functions:
+            raise ReadinessError("finance_monotonic_without_migration")
+        return
+    if found != {FINANCE_MONOTONIC_TRIGGER} or set(functions) != {FINANCE_MONOTONIC_FUNCTION}:
+        raise ReadinessError("finance_monotonic_guard_missing")
+    definer, config = functions[FINANCE_MONOTONIC_FUNCTION]
+    if definer or [str(item).replace(" ", "") for item in (config or [])
+            if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+        raise ReadinessError("finance_monotonic_function_invalid")
+    checks, values = [], []
+    for privilege in ("DELETE","TRUNCATE","TRIGGER"):
+        checks.append("pg_catalog.has_table_privilege(%s,%s,%s)")
+        values.extend(("teruisi_finance_writer","public.finance_data_revisions",privilege))
+    checks.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+    values.extend(("teruisi_finance_writer",
+        "public.finance_revision_monotonic_guard()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(checks),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("finance_monotonic_writer_privilege_excessive")
+    cursor.execute(
+        "SELECT pg_catalog.pg_has_role(%s,c.relowner,'MEMBER'),r.rolsuper "
+        "FROM pg_catalog.pg_class c "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_roles r ON r.rolname=%s "
+        "WHERE n.nspname='public' AND c.relname='finance_data_revisions'",
+        ("teruisi_finance_writer","teruisi_finance_writer"),
+    )
+    if cursor.fetchone() != (False,False):
+        raise ReadinessError("finance_monotonic_writer_can_disable_trigger")
+
+
 def _validate_finance_schema(cursor, *, writer: bool) -> None:
     tables = set(connection.introspection.table_names(cursor))
+    _validate_finance_source_marker_guard(cursor)
+    _validate_finance_monotonic_guard(cursor)
     expected = REQUIRED_FINANCE_WRITER_COLUMNS if writer else REQUIRED_FINANCE_COLUMNS
     for table, expected_columns in expected.items():
         if table not in tables:
@@ -965,6 +1181,18 @@ def _validate_finance_revision(cursor) -> None:
     row = cursor.fetchone()
     if row is None or int(row[0]) < 0 or not HEX_64.fullmatch(str(row[1] or "")):
         raise ReadinessError("finance_reader_revision_invalid")
+
+
+def _validate_finance_source_reader_permissions(cursor) -> None:
+    if connection.vendor != "postgresql":
+        if settings.DJANGO_ENVIRONMENT == "production":
+            raise ReadinessError("finance_source_requires_postgresql")
+        return
+    from finance.business_source_permissions import FinanceSourcePermissionError, validate_reader
+    try:
+        validate_reader(cursor)
+    except FinanceSourcePermissionError as error:
+        raise ReadinessError(str(error)) from error
 
 
 def _validate_finance_writer_authority(cursor) -> None:
@@ -1009,7 +1237,98 @@ def _validate_finance_writer_permissions(cursor) -> None:
                 raise ReadinessError("finance_writer_database_privilege_missing")
 
 
+def _validate_netshop_source_marker_guard(cursor) -> None:
+    if connection.vendor != "postgresql":
+        return
+    cursor.execute("SELECT EXISTS(SELECT 1 FROM django_migrations "
+        "WHERE app='netshop' AND name='0003_netshop_source_revision_guard')")
+    migrated = cursor.fetchone()[0] is True
+    cursor.execute("SELECT pg_catalog.to_regclass('public.netshop_source_revision_markers') IS NOT NULL")
+    present = cursor.fetchone()[0] is True
+    if not migrated:
+        if present:
+            raise ReadinessError("netshop_source_marker_without_migration")
+        return
+    if not present:
+        raise ReadinessError("netshop_source_marker_schema_missing")
+    cursor.execute(
+        "SELECT a.attname,a.attnotnull,pg_catalog.format_type(a.atttypid,a.atttypmod) "
+        "FROM pg_catalog.pg_attribute a "
+        "JOIN pg_catalog.pg_class c ON c.oid=a.attrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum"
+    )
+    if cursor.fetchall() != [("transaction_id",True,"bigint"),
+            ("baseline_revision",True,"bigint"),
+            ("baseline_digest",True,"character varying(64)")]:
+        raise ReadinessError("netshop_source_marker_schema_incomplete")
+    cursor.execute(
+        "SELECT pg_catalog.pg_get_constraintdef(con.oid) "
+        "FROM pg_catalog.pg_constraint con "
+        "JOIN pg_catalog.pg_class c ON c.oid=con.conrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "WHERE n.nspname='public' AND c.relname='netshop_source_revision_markers' "
+        "AND con.contype='p'"
+    )
+    if cursor.fetchall() != [("PRIMARY KEY (transaction_id)",)]:
+        raise ReadinessError("netshop_source_marker_primary_key_missing")
+    cursor.execute(
+        "SELECT c.relname,t.tgname,p.proname,t.tgenabled,t.tgtype,"
+        "t.tgdeferrable,t.tginitdeferred "
+        "FROM pg_catalog.pg_trigger t "
+        "JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace "
+        "JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid "
+        "WHERE n.nspname='public' AND NOT t.tgisinternal "
+        "AND t.tgname=ANY(%s)",
+        ([item[1] for item in NETSHOP_MARKER_TRIGGERS],),
+    )
+    found = {(str(table),str(name),str(function),str(enabled),int(kind),
+        bool(deferred),bool(initial)) for table,name,function,enabled,kind,deferred,initial
+        in cursor.fetchall()}
+    if found != NETSHOP_MARKER_TRIGGERS:
+        raise ReadinessError("netshop_source_marker_triggers_incomplete")
+    cursor.execute(
+        "SELECT p.proname,p.prosecdef,p.proconfig "
+        "FROM pg_catalog.pg_proc p "
+        "JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace "
+        "WHERE n.nspname='public' AND pg_catalog.pg_get_function_identity_arguments(p.oid)='' "
+        "AND p.proname=ANY(%s)", (list(NETSHOP_MARKER_FUNCTIONS),),
+    )
+    functions = {str(name):(bool(definer),config) for name,definer,config in cursor.fetchall()}
+    if set(functions) != set(NETSHOP_MARKER_FUNCTIONS):
+        raise ReadinessError("netshop_source_marker_functions_missing")
+    for name, expected_definer in NETSHOP_MARKER_FUNCTIONS.items():
+        definer,config = functions[name]
+        if definer is not expected_definer or [str(item).replace(" ", "")
+                for item in (config or []) if str(item).startswith("search_path=")] != ["search_path=pg_catalog,public"]:
+            raise ReadinessError("netshop_source_marker_function_invalid")
+    clauses, values = [], []
+    for role in ("teruisi_netshop_writer","teruisi_netshop_reader"):
+        for privilege in ("SELECT","INSERT","UPDATE","DELETE","TRUNCATE"):
+            clauses.append("pg_catalog.has_table_privilege(%s,%s,%s)")
+            values.extend((role,"public.netshop_source_revision_markers",privilege))
+        for column in ("transaction_id","baseline_revision","baseline_digest"):
+            for privilege in ("SELECT","INSERT","UPDATE"):
+                clauses.append("pg_catalog.has_column_privilege(%s,%s,%s,%s)")
+                values.extend((role,"public.netshop_source_revision_markers",column,privilege))
+        for function in sorted(NETSHOP_MARKER_FUNCTIONS):
+            clauses.append("pg_catalog.has_function_privilege(%s,%s,%s)")
+            values.extend((role,f"public.{function}()","EXECUTE"))
+    cursor.execute("SELECT "+",".join(clauses),values)
+    if not all(value is False for value in cursor.fetchone()):
+        raise ReadinessError("netshop_source_marker_privilege_excessive")
+
+
 def _validate_netshop_schema(cursor, *, writer: bool) -> None:
+    _validate_netshop_source_marker_guard(cursor)
+    if connection.vendor == "postgresql" and not writer:
+        from netshop.analysis_permissions import validate_actor_read
+        try:
+            validate_actor_read(cursor)
+        except ValueError as error:
+            raise ReadinessError("netshop_analysis_identity_privilege_missing") from error
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_NETSHOP_WRITER_COLUMNS if writer else REQUIRED_NETSHOP_COLUMNS
     for table, expected_columns in expected.items():
@@ -1119,6 +1438,11 @@ def _validate_netshop_writer_permissions(cursor) -> None:
 
 
 def _validate_market_schema(cursor, *, writer: bool) -> None:
+    if connection.vendor == "postgresql":
+        for column in ("email", "role", "status", "scope", "version"):
+            cursor.execute("SELECT has_column_privilege(current_user, 'access_control_users', %s, 'SELECT')", [column])
+            if not cursor.fetchone()[0]:
+                raise ReadinessError("market_current_principal_columns_missing")
     tables = set(connection.introspection.table_names(cursor))
     expected = REQUIRED_MARKET_WRITER_COLUMNS if writer else REQUIRED_MARKET_COLUMNS
     for table, expected_columns in expected.items():
@@ -1138,6 +1462,12 @@ def _validate_market_schema(cursor, *, writer: bool) -> None:
     }
     if not REQUIRED_MARKET_INDEXES.issubset(present_indexes):
         raise ReadinessError("market_projection_indexes_incomplete")
+    if connection.vendor == "postgresql":
+        option_constraints = connection.introspection.get_constraints(cursor, "market_analysis_options")
+        if not {"mkt_options_page_idx", "mkt_options_shape_ck"}.issubset(option_constraints):
+            raise ReadinessError("market_options_constraints_incomplete")
+        if "mkt_options_state_ck" not in connection.introspection.get_constraints(cursor, "market_analysis_options_state"):
+            raise ReadinessError("market_options_constraints_incomplete")
 
 
 def _validate_market_revision(cursor) -> None:
@@ -2326,6 +2656,7 @@ def ready(_request):
             elif finance_reader_process:
                 _validate_finance_schema(cursor, writer=False)
                 _validate_finance_revision(cursor)
+                _validate_finance_source_reader_permissions(cursor)
                 if settings.DJANGO_EXPECT_READ_ONLY:
                     if connection.vendor != "postgresql":
                         raise ReadinessError("database_role_not_read_only")

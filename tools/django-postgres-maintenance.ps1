@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status")]
+  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight")]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$BackupDirectory = "",
@@ -414,6 +414,49 @@ function Assert-MaintenanceEvidence(
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0012_report_library" }).Count -ne 1) { throw "AI 媒体任务迁移缺少前置报告迁移" }
       $requiredTables += @("ai_dingtalk_schedules", "ai_dingtalk_schedule_runs")
     }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0013_dingtalk_schedule_media" }).Count -ne 1) { throw "AI 经营证据迁移缺少前置媒体迁移" }
+      $requiredTables += @("ai_business_evidence_runs", "ai_business_evidence_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0016_business_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0015_business_collection" }).Count -ne 1 -or @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -ne 1) { throw "AI 报告文件迁移缺少前置采集迁移" }
+      $requiredTables += @("ai_business_file_runs", "ai_business_file_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -gt 0) {
+      foreach ($sourceDirectoryPredecessor in @("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $sourceDirectoryPredecessor }).Count -ne 1) { throw "AI 来源目录迁移缺少完整前置证据/文件迁移" }
+      }
+      $requiredTables += @("ai_business_evidence_sources")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0032_business_source_tool_receipts" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0031_business_daily_v3_source_pages" }).Count -ne 1) { throw "AI v3工具收据迁移缺少日来源前驱迁移" }
+      $requiredTables += @("ai_business_source_tool_receipts")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0034_business_v3_report_intent" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0033_business_v3_parent_seal" }).Count -ne 1) { throw "AI v3暂停报告意图迁移缺少封存前驱迁移" }
+      $requiredTables += @("ai_business_v3_report_intents")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0035_business_v4_ledger" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0034_business_v3_report_intent" }).Count -ne 1) { throw "AI v4物理账迁移缺少v3暂停意图前驱迁移" }
+      $requiredTables += @("ai_business_v4_runs", "ai_business_v4_sources", "ai_business_v4_chunks", "ai_business_v4_tool_receipts")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -ne 1) { throw "AI 多卷文件迁移缺少前置来源目录迁移" }
+      $requiredTables += @("ai_business_volume_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0021_business_budget_plans" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -ne 1) { throw "AI 固定预算迁移缺少前置多卷迁移" }
+      $requiredTables += @("ai_business_budget_plans")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0024_business_screening_runtime" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -ne 1) { throw "AI 筛查执行迁移缺少前置固定筛查存储迁移" }
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -gt 0) {
+      foreach ($screeningPredecessor in @("0022_business_integrated_reports", "0021_business_budget_plans")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $screeningPredecessor }).Count -ne 1) { throw "AI 固定筛查存储缺少前置集成报告迁移" }
+      }
+      $requiredTables += @("ai_business_screening_runs", "ai_business_screening_pages")
+    }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
     }
@@ -508,6 +551,20 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  $salesOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0010_analysis_options" }).Count
+  $salesOptionsTables = @("sales_analysis_options", "sales_analysis_options_state")
+  if ($salesOptionsMigration -eq 1) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0009_postgres_raw_upload_payload" }).Count -ne 1) { throw "ERP选项迁移缺少前置迁移" }
+    $requiredTables += $salesOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $salesOptionsTables }).Count -gt 0) { throw "ERP选项表缺少对应迁移依据" }
+  $marketOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0006_analysis_options" }).Count
+  $marketFacetMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0005_filter_facet_indexes" }).Count
+  $marketOptionsTables = @("market_analysis_options", "market_analysis_options_state")
+  if ($marketFacetMigration -eq 1 -and @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0004_projection_sync_fencing" }).Count -ne 1) { throw "市场筛选索引迁移缺少前置迁移" }
+  if ($marketOptionsMigration -eq 1) {
+    if ($marketFacetMigration -ne 1) { throw "市场选项迁移缺少前置筛选索引迁移" }
+    $requiredTables += $marketOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $marketOptionsTables }).Count -gt 0) { throw "市场选项表缺少对应迁移依据" }
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
@@ -1045,6 +1102,10 @@ function Invoke-MaintenanceBackup {
   if (-not (Test-PostgresReady)) {
     throw "权威 PostgreSQL 未就绪；日常备份不会自动启停服务"
   }
+  $protectedState = Invoke-MaintenanceProtectedAiPreflight
+  if (@($protectedState.appliedProtectedMigrations).Count -gt 0) {
+    throw "受保护 AI 迁移尚无正式备份契约；拒绝创建备份工作目录"
+  }
 
   $backupRoot = Get-MaintenanceBackupRoot $true
   $timestamp = [DateTimeOffset]::UtcNow
@@ -1156,6 +1217,77 @@ function Invoke-MaintenanceBackup {
     if (-not $published) {
       Remove-MaintenanceIncompleteDirectory $workingDirectory $backupRoot $workingName
     }
+  }
+}
+
+function Invoke-MaintenanceProtectedAiPreflight {
+  # Explicit read-only action. It never returns verifier key bytes or opens an archive.
+  $evidenceTool = Assert-MaintenanceRuntimeContext
+  if (@(Get-PortListeners 5432).Count -ne 1) {
+    throw "权威 PostgreSQL 当前未运行；受保护 AI 预检不会启动服务"
+  }
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) {
+    throw "权威 PostgreSQL 未就绪；受保护 AI 预检不会启动服务"
+  }
+  $secrets = Read-Secrets
+  try {
+    $payload = Invoke-MaintenancePgEnvironment @{
+      PGHOST = "127.0.0.1"
+      PGPORT = "5432"
+      PGUSER = "teruisi_sales_owner"
+      PGDATABASE = "teruisi_sales"
+      PGPASSWORD = $secrets.OwnerPassword
+      PGAPPNAME = "teruisi_protected_ai_preflight"
+      PGOPTIONS = "-c statement_timeout=15000 -c default_transaction_read_only=on"
+      PGCLIENTENCODING = "UTF8"
+    } {
+      $run = Invoke-BoundedNativeProcess $Python @(
+        $evidenceTool, "protected-preflight",
+        "--expected-database", "teruisi_sales",
+        "--expected-user", "teruisi_sales_owner",
+        "--port", "5432"
+      ) $InstalledAppRoot
+      return ConvertFrom-UniqueNativeJson $run "受保护 AI 只读预检"
+    }
+    Assert-MaintenanceExactPropertySet $payload @(
+      "version", "status", "readOnly", "appliedProtectedMigrations",
+      "exactProtectedRoleCount", "issues"
+    ) "受保护 AI 预检结果"
+    if ([string]$payload.version -cne "teruisi-postgres-consistent-backup-v1" -or
+        [string]$payload.status -cne "blocked" -or
+        $payload.readOnly -cne $true -or
+        @($payload.issues).Count -lt 1) {
+      throw "受保护 AI 预检结果无效或意外放行"
+    }
+    return $payload
+  } finally {
+    $secrets = $null
+  }
+}
+
+function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
+  $protected = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "ai_assistant" -and
+    [string]$_.name -cmatch "^00(67|68|69|70|71|72|73|74|75|76|77|78|79)_business_"
+  })
+  if ($protected.Count -gt 0) {
+    throw "受保护 AI 归档尚无角色、owner/ACL 与私钥隔离恢复契约；拒绝开始恢复演练"
+  }
+  $financeRaw = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "finance" -and
+    [string]$_.name -cin @("0005_raw_column_evidence_v2",
+      "0006_raw_workbook_bytes_v2")
+  })
+  $financeRawTables = @("finance_raw_column_evidence_months",
+    "finance_raw_column_evidence_columns", "finance_raw_column_evidence_cells",
+    "finance_raw_workbook_attestations", "finance_raw_workbook_columns",
+    "finance_raw_workbook_cells")
+  $presentFinanceRaw = @($financeRawTables | Where-Object {
+    $_ -cin @($Manifest.evidence.tables.PSObject.Properties.Name)
+  })
+  if ($financeRaw.Count -gt 0 -or $presentFinanceRaw.Count -gt 0) {
+    throw "财报原始列证据侧车归档尚无正式角色与恢复契约；拒绝启动隔离恢复"
   }
 }
 
@@ -1309,6 +1441,7 @@ function Invoke-MaintenanceRestoreRehearsal {
   $backup = Resolve-MaintenanceBackupArchive (
     $MaintenanceRequest.BackupDirectory
   ) $MaintenanceRequest.ApprovedManifestSha256
+  Assert-MaintenanceProtectedArchiveUnsupported $backup.Manifest
   if (@(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -ne 0) {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
@@ -1742,6 +1875,7 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
         }
       }
       "RestoreRehearsal" { Invoke-MaintenanceRestoreRehearsal }
+      "ProtectedAiPreflight" { Invoke-MaintenanceProtectedAiPreflight }
       "Prune" { Invoke-MaintenancePrune }
       "Status" { Show-MaintenanceStatus }
     }

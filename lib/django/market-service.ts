@@ -10,6 +10,8 @@ export const MARKET_QUERIES_PATH = "/api/market/queries";
 export const MARKET_CONSUMER_QUERY_PATH = "/api/market/consumers/query";
 export const MARKET_COMMANDS_PATH = "/api/market/commands";
 export const MARKET_IMPORTS_PATH = "/api/market/imports";
+export const MARKET_ANALYSIS_OPTIONS_PATH = "/api/market/analysis-options";
+export const MARKET_ANALYSIS_CONTINUATION_PATH = "/api/market/analysis-records/continuation";
 
 const READER_PATHS = new Set([MARKET_QUERIES_PATH, MARKET_CONSUMER_QUERY_PATH]);
 const WRITER_PATHS = new Set([MARKET_COMMANDS_PATH, MARKET_IMPORTS_PATH]);
@@ -280,4 +282,65 @@ export function createDjangoMarketService(config?: DjangoMarketServiceConfig) {
       options: Omit<DjangoMarketServiceOptions, "config"> = {},
     ) => requestDjangoMarketService<T>(principal, input, { ...options, config }),
   };
+}
+
+/** A fixed read-only endpoint; existing POST query/command contracts stay closed. */
+export async function requestMarketAnalysisOptions<T>(
+  principal: AppPrincipal, query: URLSearchParams, options: DjangoMarketServiceOptions = {},
+): Promise<DjangoMarketServiceResult<T>> {
+  const config = normalizedConfig(options.config ?? await loadConfig());
+  const rawQuery = query.toString();
+  const headers = await createMarketGatewayAuthHeaders({
+    secret: config.internalSecret, principal, method: "GET", path: MARKET_ANALYSIS_OPTIONS_PATH,
+    rawQuery, bodySha256: await salesGatewayBodySha256(new Uint8Array()),
+    timestamp: Math.floor((options.now ?? Date.now)() / 1_000),
+    requestId: (options.requestId ?? (() => crypto.randomUUID()))(),
+  });
+  const target = new URL(MARKET_ANALYSIS_OPTIONS_PATH, config.readerBaseUrl);
+  target.search = rawQuery;
+  try {
+    const { response, data } = await fetchBoundedJson({
+      url: target.toString(), init: { method: "GET", headers, cache: "no-store" },
+      timeoutMs: config.timeoutMs, maxBytes: Math.min(config.maxResponseBytes, 38_000),
+      fetcher: options.fetchImpl, signal: options.signal,
+    });
+    if (!jsonContentType(response.headers.get("content-type")) || !isRecord(data)) throw unavailable();
+    if (!response.ok) throw upstreamError(response.status, data);
+    const revision = response.headers.get("x-market-data-revision") ?? "";
+    if (!/^\d+:[a-f0-9]{12}$/.test(revision) || revision !== data.revision) throw unavailable();
+    return { status: response.status, data: data as T, replayed: false, revision };
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
+    throw unavailable();
+  }
+}
+
+/** Dedicated GET, not a widening of the generic POST reader allowlist. */
+export async function requestMarketAnalysisContinuation(
+  principal: AppPrincipal, query: URLSearchParams, options: DjangoMarketServiceOptions = {},
+): Promise<Record<string, unknown>> {
+  const rawQuery = query.toString(), fixed = new URLSearchParams(rawQuery);
+  if (options.signal?.aborted) throw unavailable();
+  const config = normalizedConfig(options.config ?? await loadConfig());
+  const headers = await createMarketGatewayAuthHeaders({ secret: config.internalSecret, principal, method: "GET",
+    path: MARKET_ANALYSIS_CONTINUATION_PATH, rawQuery, bodySha256: await salesGatewayBodySha256(new Uint8Array()),
+    timestamp: Math.floor((options.now ?? Date.now)() / 1000), requestId: (options.requestId ?? (() => crypto.randomUUID()))() });
+  const target = new URL(MARKET_ANALYSIS_CONTINUATION_PATH, config.readerBaseUrl); target.search = rawQuery;
+  try {
+    const { response, data } = await fetchBoundedJson({ url: target.toString(),
+      init: { method: "GET", headers, cache: "no-store", redirect: "manual" }, timeoutMs: config.timeoutMs,
+      maxBytes: Math.min(config.maxResponseBytes, 131_072), fetcher: options.fetchImpl, signal: options.signal });
+    if (options.signal?.aborted || !jsonContentType(response.headers.get("content-type")) || !isRecord(data)) throw unavailable();
+    if (!response.ok) throw upstreamError(response.status, data);
+    const revision = response.headers.get("x-market-data-revision") ?? "";
+    if (!/^(0|[1-9]\d*):[a-f0-9]{12}$/.test(revision) || revision !== data.sourceRevision
+      || revision !== fixed.get("expectedRevision") || data.sourceRef !== fixed.get("expectedSourceRef"))
+      throw new PublicApiError(409, "conflict", "市场续读来源版本或绑定与检查点不一致");
+    return data;
+  } catch (error) {
+    if (error instanceof PublicApiError) throw error;
+    if (error instanceof BoundedFetchError && error.code === "response_too_large")
+      throw new PublicApiError(413, "payload_too_large", "市场续读完整页超过容量");
+    throw unavailable();
+  }
 }

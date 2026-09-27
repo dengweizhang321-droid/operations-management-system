@@ -9,12 +9,15 @@ import tempfile
 import uuid
 from contextlib import closing
 from pathlib import Path
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase, override_settings
+from django.db import connection as target_connection
+from django.test import TestCase, TransactionTestCase, override_settings
 
 from finance.import_service import _fingerprint, finance_scope_key
+from finance.management.commands import migrate_finance_from_d1 as migration_command
 from finance.models import (
     FinanceDataRevision,
     FinanceImportAttempt,
@@ -441,3 +444,117 @@ class FinanceMigrationCommandTests(TestCase):
                 connection.execute(
                     "DELETE FROM finance_lines WHERE id=1"
                 )
+
+
+class FinanceMigrationRevisionGuardTests(TransactionTestCase):
+    """Real commits under finance.0003, including a second approved apply."""
+
+    def setUp(self) -> None:
+        if target_connection.vendor != "postgresql":
+            self.skipTest("requires PostgreSQL finance.0003 deferred guard")
+        FinanceWriteAuthority.objects.update_or_create(id=1,
+            defaults={"status": "d1"})
+        FinanceDataRevision.objects.get_or_create(domain="finance",
+            defaults={"revision": 0, "source_digest": "0" * 64})
+        self.temporary = tempfile.TemporaryDirectory()
+        self.source = Path(self.temporary.name) / "source.sqlite"
+        create_source(self.source)
+
+    def tearDown(self) -> None:
+        if hasattr(self, "temporary"):
+            self.temporary.cleanup()
+
+    def run_command(self, **options):
+        output = io.StringIO()
+        call_command("migrate_finance_from_d1", source=str(self.source),
+            stdout=output, **options)
+        return json.loads(output.getvalue().strip().splitlines()[-1])
+
+    def target(self):
+        return migration_command._target_snapshot()
+
+    def marker_count(self):
+        with target_connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM finance_source_revision_markers")
+            return cursor.fetchone()[0]
+
+    def first_line_xmin(self):
+        with target_connection.cursor() as cursor:
+            cursor.execute("SELECT xmin::text FROM finance_lines ORDER BY id LIMIT 1")
+            return cursor.fetchone()[0]
+
+    def change_source(self):
+        with closing(sqlite3.connect(self.source)) as source:
+            source.execute("UPDATE finance_lines SET raw_value='changed' WHERE id=1")
+            source.commit()
+
+    def test_first_identical_second_and_changed_second_keep_monotonic_revision(self):
+        dry = self.run_command()
+        first = self.run_command(apply=True, approved_run_id=dry["runId"])
+        initial = FinanceDataRevision.objects.get(domain="finance")
+        self.assertEqual(initial.revision, 1)
+        self.assertEqual(initial.source_digest, first["targetProjectionDigest"])
+        first_target, first_xmin = self.target(), self.first_line_xmin()
+        self.assertEqual(self.marker_count(), 0)
+
+        same = self.run_command(apply=True, approved_run_id=dry["runId"])
+        unchanged = FinanceDataRevision.objects.get(domain="finance")
+        self.assertEqual(unchanged.revision, 1)
+        self.assertEqual(unchanged.source_digest, initial.source_digest)
+        self.assertEqual(self.target(), first_target)
+        self.assertEqual(self.first_line_xmin(), first_xmin)
+        self.assertEqual(same["targetProjectionDigest"], first["targetProjectionDigest"])
+        self.assertEqual(self.marker_count(), 0)
+
+        self.change_source()
+        new_dry = self.run_command()
+        changed = self.run_command(apply=True, approved_run_id=new_dry["runId"])
+        revised = FinanceDataRevision.objects.get(domain="finance")
+        self.assertEqual(revised.revision, 2)
+        self.assertEqual(revised.source_digest, changed["targetProjectionDigest"])
+        self.assertNotEqual(changed["targetProjectionDigest"], first["targetProjectionDigest"])
+        self.assertEqual(self.marker_count(), 0)
+
+    def test_identical_target_rejects_late_source_artifact_change(self):
+        dry = self.run_command()
+        self.run_command(apply=True, approved_run_id=dry["runId"])
+        approved = self.run_command()
+        baseline = self.target(), FinanceDataRevision.objects.get(domain="finance").revision
+        baseline_runs = FinanceMigrationRun.objects.count()
+        original_digest = migration_command._file_digest
+        calls = 0
+
+        def late_change(path):
+            nonlocal calls
+            calls += 1
+            return original_digest(path) if calls == 1 else "f" * 64
+
+        with patch.object(migration_command, "_file_digest", side_effect=late_change):
+            with self.assertRaisesMessage(CommandError, "提交前发生变化"):
+                self.run_command(apply=True, approved_run_id=approved["runId"])
+        self.assertEqual(FinanceMigrationRun.objects.count(), baseline_runs)
+        self.assertEqual((self.target(), FinanceDataRevision.objects.get(
+            domain="finance").revision), baseline)
+        self.assertEqual(self.marker_count(), 0)
+
+    def test_changed_snapshot_failure_rolls_back_fact_and_revision(self):
+        dry = self.run_command()
+        self.run_command(apply=True, approved_run_id=dry["runId"])
+        before = self.target(), FinanceDataRevision.objects.get(domain="finance").revision
+        before_xmin = self.first_line_xmin()
+        self.change_source()
+        approved = self.run_command()
+        original_bulk = migration_command._bulk
+
+        def fail_lines(model, records, generation, size):
+            if model is FinanceLine:
+                raise RuntimeError("synthetic rollback after source deletion")
+            return original_bulk(model, records, generation, size)
+
+        with patch.object(migration_command, "_bulk", side_effect=fail_lines):
+            with self.assertRaisesRegex(RuntimeError, "synthetic rollback"):
+                self.run_command(apply=True, approved_run_id=approved["runId"])
+        self.assertEqual((self.target(), FinanceDataRevision.objects.get(
+            domain="finance").revision), before)
+        self.assertEqual(self.first_line_xmin(), before_xmin)
+        self.assertEqual(self.marker_count(), 0)

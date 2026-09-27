@@ -58,12 +58,22 @@ async function runScheduledMarketTask(
 async function runScheduledMarketMaintenance(
   input: { marketImageBucket?: R2Bucket } = {},
 ) {
-  // 每个队列每次最多推进一个持久微步，并放在可能耗时更长的图片任务之前，避免队列饥饿。
+  // 文件构建独立推进；等待大文件不得阻塞取数、Agent 或市场维护。
+  const aiFilesPending = runScheduledMarketTask(
+    "AI business file runner failed",
+    () => wakeAiQueue("files"),
+  );
+  // 证据按时间与页数双重限制采集，不依赖浏览器页面存活。
+  const aiEvidence = await runScheduledMarketTask(
+    "AI evidence collection runner failed",
+    () => wakeAiQueue("evidence"),
+  );
+  // 其他队列先于可能耗时更长的图片任务推进，避免队列饥饿。
   const aiWorkflow = await runScheduledMarketTask(
     "AI workflow scheduled runner failed",
     () => wakeAiQueue("workflow"),
   );
-  // 正式 Agent 一次只允许一次 provider HTTP 或一次中央注册表只读工具调用。
+  // 每个 Agent 微步仍只允许一次外部调用；Django 为新版经营报告最多并行三个独立微步，普通任务保持串行。
   const aiAgent = await runScheduledMarketTask(
     "AI Agent scheduled runner failed",
     () => wakeAiQueue("agent"),
@@ -85,7 +95,7 @@ async function runScheduledMarketMaintenance(
     "market annotation scheduled runner failed",
     () => runScheduledDjangoMarketAnnotation(),
   );
-  return { aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
+  return { aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace };
 }
 
 function allowsLoopbackDevelopmentRequest(request: Request, env: Env) {

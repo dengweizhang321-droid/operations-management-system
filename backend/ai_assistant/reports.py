@@ -94,7 +94,10 @@ def create(body, principal):
     return {"item": mapping(row), "replayed": False}
 
 
-def content(row):
+def content(row, principal=None):
+    if run_snapshot(row).get("schemaVersion") == "business-report-v1":
+        from . import business_reports
+        return business_reports.content(row, principal)["sections"]
     if row.workflow.dry_run:
         raise AiError("空跑只校验流程，不生成报告", "conflict", 409)
     node = m.AiWorkflowNodeRuns.objects.filter(run_id=row.workflow_id, node_key="report", status="completed").first()
@@ -123,8 +126,16 @@ def content(row):
 def detail(report_id, principal):
     row = get(report_id, principal)
     result = {"item": mapping(row), "snapshot": run_snapshot(row), "workflow": workflows.mapping(row.workflow)}
+    from .business_screening_runtime_contract import PROFILE as screening_profile
+    if result["snapshot"].get("executionProfile") == screening_profile:
+        from .business_screening_readiness import preparation_status
+        result["screeningPreparation"] = preparation_status(row,principal)
     try:
-        result["sections"] = content(row)
+        if run_snapshot(row).get("schemaVersion") == "business-report-v1":
+            from . import business_reports
+            result.update(business_reports.content(row, principal))
+        else:
+            result["sections"] = content(row, principal)
     except AiError as error:
         result["contentError"] = str(error)
     delivery = m.AiReportDelivery.objects.filter(report_id=row.id).first()
@@ -160,7 +171,11 @@ def validate_review(workflow_id, principal):
     row = m.AiReportRun.objects.select_related("workflow").filter(workflow_id=workflow_id).first()
     if row:
         authorize_owner(row, principal)
-        content(row)
+        if run_snapshot(row).get("schemaVersion") == "business-report-v1":
+            from . import business_reports
+            business_reports.validate_review(row, principal)
+            return
+        content(row, principal)
         verify_sources(evidence(row))
 
 
@@ -173,7 +188,9 @@ def download(report_id, params, principal):
     draft = params.get("draft") == "true"
     if not draft and row.workflow.status != "completed":
         raise AiError("正式报告须先通过人工复核", "conflict", 409)
-    sections, sources = content(row), evidence(row)
+    if run_snapshot(row).get("schemaVersion") == "business-report-v1":
+        raise AiError("经营分析的完整文件交付尚未接通，请查看结构化结果", "conflict", 409)
+    sections, sources = content(row, principal), evidence(row)
     if not draft:
         verify_sources(sources)
     return render(row.id, run_snapshot(row), sections, sources, params["format"], draft)
@@ -187,8 +204,7 @@ def send(report_id, body, principal):
     row = get(report_id, principal)
     if row.workflow.status != "completed" or row.workflow.dry_run:
         raise AiError("报告尚未通过复核", "conflict", 409)
-    content(row)
-    verify_sources(evidence(row))
+    validate_review(row.workflow_id, principal)
     with mutation(principal):
         current_principal(principal, admin=True, write=True)
         if m.AiReportDelivery.objects.filter(report_id=row.id).exists():

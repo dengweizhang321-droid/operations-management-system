@@ -29,6 +29,7 @@ class AiReportRun(models.Model):
     client_request_id = models.CharField(max_length=160)
     request_digest = models.CharField(max_length=64)
     workflow = models.OneToOneField("ai_assistant.AiWorkflowRuns", on_delete=models.PROTECT)
+    budget_plan = models.OneToOneField("ai_assistant.AiBusinessBudgetPlan", on_delete=models.PROTECT, null=True, blank=True)
     snapshot_json = models.TextField()
     created_at = models.DateTimeField(default=timezone.now)
 

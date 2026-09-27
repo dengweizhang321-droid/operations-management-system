@@ -13,6 +13,7 @@
   --color-bg-app: #f5f7f6;
   --color-bg-surface: #ffffff;
   --color-bg-subtle: #f3f7f4;
+  --color-surface-subtle: var(--color-bg-subtle);
   --color-bg-elevated: #ffffff;
   --color-bg-inverse: #293f32;
 

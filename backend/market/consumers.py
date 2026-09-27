@@ -12,6 +12,7 @@ from .query import item_trend, overview
 
 OPERATIONS = frozenset(
     {
+        "analysis_records",
         "workspace_status",
         "sku_search",
         "annotation_search",
@@ -43,6 +44,9 @@ def validate_consumer_request(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict) or payload.get("operation") not in OPERATIONS:
         raise _error("市场消费查询操作无效")
     operation = str(payload["operation"])
+    if operation == "analysis_records":
+        from .analysis import validate
+        return validate(payload)
     if operation == "workspace_status":
         expected = {"operation"}
     elif operation in {"sku_search", "annotation_search", "import_batch_search"}:
@@ -166,6 +170,9 @@ def _batch_search(request: dict[str, object]) -> dict[str, object]:
 
 def execute_consumer_query(principal: Principal, request: dict[str, object]) -> dict[str, object]:
     operation = str(request["operation"])
+    if operation == "analysis_records":
+        from .analysis import read_page
+        return read_page(principal, request)
     if operation == "workspace_status":
         return {"settings": settings_status(), "kpis": system_kpis()}
     if operation == "sku_search":

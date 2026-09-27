@@ -85,6 +85,10 @@ D:\teruisi-runtime\django-sales\rehearsals\postgres-restore\restore-<RehearsalId
 
 如果临时进程无法确认停止，工具会保留数据目录并标记 `requires_manual_review`，不会强删或终止身份不明的进程。
 
+### 受保护 AI 候选的只读预检
+
+在讨论采用 0067–0072 前，可从已核验的部署副本显式调用 `& $maintenance -Action ProtectedAiPreflight`。此动作只读取角色目录、迁移收据、私钥表所有权与当前备份身份的 SELECT 权限，不读取密钥行或运行备份。当前结果固定为 `blocked`，原因码指出缺失的角色/权限以及尚未实现的 owner/ACL 归档和加密策略。若数据库已经含受保护迁移，日常备份会在 `pg_dump` 前拒绝；含这些迁移的归档会在隔离演练 `initdb` 前拒绝。原日常备份与恢复参数不变。正式使用受保护迁移之前，须另行完成特权迁移/备份身份、加密归档与异集群恢复验收。
+
 ## 5. 保留与清理
 
 默认保留至少最近 30 天并且至少保留 7 份已完整验证的成功备份。先只生成计划：

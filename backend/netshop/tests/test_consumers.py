@@ -12,7 +12,7 @@ from sales.tests.factories import TEST_SECRET, signed_headers
 class NetshopConsumerContractTests(TestCase):
     def setUp(self) -> None:
         NetshopDataRevision.objects.update_or_create(
-            domain="netshop", defaults={"revision": 3, "source_digest": "a" * 64}
+            domain="netshop", defaults={"revision": 2, "source_digest": "b" * 64}
         )
         NetshopImportBatch.objects.create(
             id="master-1", source="jd_product_master", dataset="product_master",
@@ -46,6 +46,8 @@ class NetshopConsumerContractTests(TestCase):
             sku_id="SKU-1", spu_id="SPU-1", metrics_json={"transactionAmountCents": 12345}, raw_json={},
             transaction_amount_cents=12_345, created_at="2026-08-30T00:00:00Z", updated_at="2026-08-30T00:00:00Z",
         )
+        NetshopDataRevision.objects.filter(domain="netshop").update(
+            revision=3, source_digest="a" * 64)
 
     def query(self, payload: dict[str, object], *, scope=None, request_id="netshop-consumer"):
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()

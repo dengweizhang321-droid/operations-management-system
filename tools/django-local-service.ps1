@@ -1624,10 +1624,47 @@ function Copy-WranglerRuntimeClosure([string]$RuntimeToolsRoot) {
   return $manifest
 }
 
+function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$CandidateBackendRoot = $BackendRoot) {
+  # The protected AI sidecars need a separate privileged installer, private
+  # backup identity and cross-cluster role/ACL recovery. Never enter a formal
+  # app release with these migrations through the ordinary sales owner path.
+  $formalRoot = [IO.Path]::GetFullPath('D:\teruisi-runtime\django-sales').TrimEnd('\')
+  $currentRoot = [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
+  if ($currentRoot -ine $formalRoot) { return }
+  $migrationRoot = Join-Path $CandidateBackendRoot 'ai_assistant\migrations'
+  foreach ($name in @(
+      '0067_business_promotion_budget_v11_attestation.py',
+      '0068_business_promotion_budget_v11_verifier_receipt.py',
+      '0069_business_market_v2_paid_round_rehearsal.py',
+      '0070_business_promotion_budget_v11_limited_identity.py',
+      '0071_business_v4_report_source_link.py',
+      '0072_business_market_v2_authority_proposals.py',
+      '0073_business_promotion_budget_v11_login_attestation.py',
+      '0074_business_market_v2_human_cap_approval.py',
+      '0075_business_v4_report_restricted_page.py',
+      '0076_business_promotion_budget_v11_ticket_bound_signer.py',
+      '0077_business_market_v6_paused_topology.py',
+      '0078_business_promotion_budget_v11_signed_publication.py',
+      '0079_business_market_v6_source_ticket.py')) {
+    if (Test-Path -LiteralPath (Join-Path $migrationRoot $name) -PathType Leaf) {
+      throw "$Operation refuses protected AI migration release until the privileged installation and backup/restore gates are verified"
+    }
+  }
+  $financeRawMigration = Join-Path $CandidateBackendRoot 'finance\migrations\0005_raw_column_evidence_v2.py'
+  if (Test-Path -LiteralPath $financeRawMigration -PathType Leaf) {
+    throw "$Operation refuses finance raw evidence v2 migration release until its independent backup/restore contract is verified"
+  }
+  $financeBytesMigration = Join-Path $CandidateBackendRoot 'finance\migrations\0006_raw_workbook_bytes_v2.py'
+  if (Test-Path -LiteralPath $financeBytesMigration -PathType Leaf) {
+    throw "$Operation refuses finance raw workbook bytes v2 migration release until its independent backup/restore contract is verified"
+  }
+}
+
 function Prepare-Application {
   if ((Get-CanonicalPath $ExecutionRoot) -eq (Get-CanonicalPath $InstalledAppRoot)) {
     throw "DeployApp 必须从源码工作树脚本执行，不能从 runtime app 自我覆盖"
   }
+  Assert-NoUnapprovedProtectedAiMigration "PrepareApp"
   if (-not (Test-Path -LiteralPath $BackendRoot -PathType Container)) { throw "源码 backend 不存在" }
   if (-not (Test-Path -LiteralPath $DingTalkReplenishmentConfigSource -PathType Leaf)) {
     throw "源码缺少钉钉备货计划同步配置"
@@ -1825,6 +1862,7 @@ function Deploy-Application {
     $id = $prepared.id; $approvedSha256 = $prepared.receiptSha256
   } else { $id = $PreparedAppId; $approvedSha256 = $PreparedAppSha256 }
   $staging = Get-PreparedApplication $id $approvedSha256
+  Assert-NoUnapprovedProtectedAiMigration "DeployApp" (Join-Path $staging "backend")
   $backup = Assert-RuntimeChildPath (Join-Path $RuntimeRoot "app.previous")
   Assert-ProductionMaintenance "DeployApp"
   Assert-ApplicationDeploymentStopped "DeployApp"
@@ -2906,6 +2944,7 @@ function Invoke-DjangoMigrations(
   [string]$DatabaseName = "teruisi_sales"
 ) {
   if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { throw "缺少 Python 运行文件" }
+  Assert-NoUnapprovedProtectedAiMigration "Django migrate"
   $ownerUrl = Database-Url "teruisi_sales_owner" $Secrets.OwnerPassword "teruisi_django_migrate" $WriterStatementTimeoutMs $DatabaseName
   $logPath = Join-Path $LogDirectory "django-migrate.$DatabaseName.$RunId.log"
   $manage = Join-Path $BackendRoot "manage.py"
@@ -2980,6 +3019,8 @@ with connection.cursor() as c:
     from system_datasets.permissions import grant_columns
     grant_columns(c, "sales")
     grant_columns(c, "finance")
+    from sales.analysis_options_permissions import provision as grant_sales_options
+    grant_sales_options(c)
 
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON sales_order_lines TO teruisi_sales_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE ON sales_import_batches, sales_data_revisions, sales_import_scope_heads, sales_import_attempts, sales_raw_upload_sessions, sales_staged_import_sessions, sales_write_request_receipts TO teruisi_sales_writer")
@@ -3005,6 +3046,8 @@ with connection.cursor() as c:
         "GRANT SELECT ON finance_import_batches, finance_months, finance_lines, "
         "finance_targets_scoped, finance_data_revisions TO teruisi_finance_reader"
     )
+    from finance.business_source_permissions import grant_actor_read as grant_finance_source_actor
+    grant_finance_source_actor(c)
 
     c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")

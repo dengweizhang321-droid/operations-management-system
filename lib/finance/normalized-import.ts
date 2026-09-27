@@ -1,6 +1,7 @@
 import type { findFinanceImportBatchByHash } from "./database";
-import { parseFinanceWorkbook } from "./parser";
-import type { FinanceImportIssue } from "./types";
+import { parseFinanceWorkbook, parseFinanceWorkbookWithColumnEvidence } from "./parser";
+import { extractFinanceColumnEvidenceV2 } from "./column-evidence-v2";
+import type { FinanceImportIssue, FinanceNormalizedV2Candidate } from "./types";
 
 
 export function toHex(buffer: ArrayBuffer) {
@@ -144,4 +145,76 @@ export async function prepareNormalizedFinanceImport(input: {
     sourceSheetCount: parsed.sourceSheetCount,
     months: parsed.months,
   };
+}
+
+const MAX_V2_CANDIDATE_BYTES = 32 * 1024 * 1024;
+const MAX_V2_SOURCE_BYTES = 8 * 1024 * 1024;
+
+/** Explicit, unregistered candidate. Django accepts only finance-normalized-v1. */
+export async function prepareNormalizedFinanceImportV2Candidate(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  fileSizeBytes: number;
+}): Promise<FinanceNormalizedV2Candidate> {
+  if (input.bytes.length > MAX_V2_SOURCE_BYTES) {
+    throw new Error("v2财报源文件超过8 MiB上限，未读取或计算文件摘要");
+  }
+  const rawFileHash = toHex(await sha256(input.bytes));
+  const base = {
+    schemaVersion: "finance-normalized-v2-candidate" as const,
+    fileName: safeFinanceFileName(input.fileName),
+    fileSizeBytes: input.fileSizeBytes,
+    rawFileHash,
+    rawFileHashVerifiedByBackend: false as const,
+    completeWorkbookBindingVerified: false as const,
+    financeShopMappingVerified: false as const,
+    backendImportSupported: false as const,
+  };
+  const reject = (code: string, message: string) => ({
+    ...base, disposition: "rejected" as const,
+    warnings: [], errors: [{ code, message }], message,
+  });
+  if (input.fileSizeBytes !== input.bytes.length || !isSupportedFinanceSignature(input.bytes)) {
+    return reject("FINANCE_V2_FILE_METADATA_INVALID",
+      "v2候选的文件长度或Excel签名无效");
+  }
+  let bundle: ReturnType<typeof parseFinanceWorkbookWithColumnEvidence>;
+  try {
+    bundle = parseFinanceWorkbookWithColumnEvidence(input.bytes);
+  } catch {
+    return reject("FINANCE_V2_PARSE_ERROR", "v2财报列来源解析失败");
+  }
+  const errors = validateParsedWorkbook(bundle.parsed);
+  if (errors.length) {
+    return { ...base, disposition: "rejected" as const,
+      warnings: bundle.parsed.warnings, errors,
+      message: "v2财报结构校验未通过" };
+  }
+  try {
+    const columnEvidence = [];
+    let evidenceBytes = 0;
+    for (const source of bundle.evidenceInputs) {
+      const evidence = await extractFinanceColumnEvidenceV2(source);
+      evidenceBytes += new TextEncoder().encode(JSON.stringify(evidence)).length;
+      if (evidenceBytes > MAX_V2_CANDIDATE_BYTES) {
+        return reject("FINANCE_V2_CANDIDATE_TOO_LARGE", "v2完整来源候选超过固定容量");
+      }
+      columnEvidence.push(evidence);
+    }
+    if (columnEvidence.length !== bundle.parsed.months.length
+      || columnEvidence.some((item, index) => item.month !== bundle.parsed.months[index].month)) {
+      return reject("FINANCE_V2_EVIDENCE_MISSING", "v2月份与聚合前列来源未完整对应");
+    }
+    const body = { ...base, disposition: "candidate_only" as const,
+      warnings: bundle.parsed.warnings,
+      sourceSheetCount: bundle.parsed.sourceSheetCount,
+      months: bundle.parsed.months, columnEvidence };
+    const encoded = new TextEncoder().encode(JSON.stringify(body));
+    if (encoded.length > MAX_V2_CANDIDATE_BYTES) {
+      return reject("FINANCE_V2_CANDIDATE_TOO_LARGE", "v2完整来源候选超过固定容量");
+    }
+    return { ...body, candidateDigest: toHex(await sha256(encoded)) };
+  } catch {
+    return reject("FINANCE_V2_EVIDENCE_INVALID", "v2财报列来源未通过完整坐标与容量核对");
+  }
 }
