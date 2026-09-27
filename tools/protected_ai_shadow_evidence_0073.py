@@ -137,7 +137,7 @@ def _public_row_roots(db, table_names: list[str]) -> dict:
         "tableRowsRootSha256": digest(canonical(result))}
 
 
-def _catalog_roots(db) -> dict[str, object]:
+def _catalog_roots(db, *, logical_restore: bool = False) -> dict[str, object]:
     sections = {}
     items = {}
     queries = {
@@ -193,6 +193,11 @@ def _catalog_roots(db) -> dict[str, object]:
     total = 0
     raw_acl_roots = {}
     for name, query in queries.items():
+        if logical_restore and name == "relations":
+            query = query.replace("pg_catalog.aclexplode(c.relacl)",
+                "pg_catalog.aclexplode(COALESCE(c.relacl,"
+                "pg_catalog.acldefault(CASE WHEN c.relkind='S' THEN 'S'::\"char\" "
+                "ELSE 'r'::\"char\" END,c.relowner)))")
         rows = db.execute(query).fetchall()
         total += len(canonical(rows))
         if total > MAX_CATALOG_BYTES:
@@ -205,8 +210,13 @@ def _catalog_roots(db) -> dict[str, object]:
                     raise ShadowEvidenceBlocked("shadow relation identity repeated")
                 raw_acl_roots[identity] = digest(canonical(raw_acl))
                 normalized.append((relation, kind, owner,
-                    canonical_acl_entries(is_null, grants), security))
+                    canonical_acl_entries(False if logical_restore else is_null, grants), security))
             rows = normalized
+        if logical_restore and name in ("constraints", "indexes"):
+            from postgres_restore_semantics import normalize_dump_expression
+            offset = 3 if name == "constraints" else 2
+            rows = [tuple(normalize_dump_expression(value) if index == offset else value
+                for index, value in enumerate(row)) for row in rows]
         sections[name] = digest(canonical(rows))
         if name in CATALOG_ITEM_FIELDS:
             fields = CATALOG_ITEM_FIELDS[name]

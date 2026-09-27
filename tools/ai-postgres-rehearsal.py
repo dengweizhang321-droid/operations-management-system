@@ -18,6 +18,8 @@ parser.add_argument("--all-backend-tests", action="store_true")
 parser.add_argument("--tests-only", action="store_true", help="Run AI tests in an isolated cluster without historical migration rehearsal")
 parser.add_argument("--preprovision-ai-runtime-roles", action="store_true",
                     help="Isolated tests only: create reader/writer roles before migrations")
+parser.add_argument("--preprovision-finance-netshop-roles", action="store_true",
+    help="Tests-only: create closed finance/netshop roles for cross-domain ACL assertions")
 parser.add_argument("--business-v4-report-restricted-reader-login",
     action="store_true", help="Test only: give the isolated ai_reader a synthetic login password and read-only default")
 parser.add_argument("--test-label", action="append", default=[], help="Explicit Django test labels; only with --tests-only, without upgrade flags")
@@ -117,6 +119,8 @@ parser.add_argument("--source-revision-guards-upgrade", action="store_true")
 parser.add_argument("--upgrade-only", action="store_true", help="Run the full selected upgrade/restore rehearsal; run tests separately with --tests-only")
 parser.add_argument("--port", type=int, default=55443, help="Independent rehearsal port (55440-55999)")
 arguments = parser.parse_args()
+if arguments.preprovision_finance_netshop_roles and not arguments.tests_only:
+    parser.error("Finance/netshop role fixtures require --tests-only")
 if arguments.business_protected_shadow_snapshot_0073:
     # Reject unrelated modes before any run root, credential, or cluster exists.
     allowed = {"business_protected_shadow_snapshot_0073", "upgrade_only"}
@@ -546,6 +550,12 @@ try:
         for role in ("teruisi_ai_reader", "teruisi_ai_writer"):
             run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
                 "-c", "CREATE ROLE " + role + " LOGIN NOINHERIT "
+                "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
+    if arguments.preprovision_finance_netshop_roles:
+        for role in ("teruisi_finance_reader", "teruisi_finance_writer",
+                "teruisi_netshop_reader", "teruisi_netshop_writer"):
+            run([BIN / "psql.exe", "-d", "teruisi_ai_rehearsal", "-v", "ON_ERROR_STOP=1",
+                "-c", "CREATE ROLE " + role + " NOLOGIN NOINHERIT "
                 "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"])
     synthetic_0075_reader_password = None
     if arguments.business_v4_report_restricted_reader_login:

@@ -1,0 +1,366 @@
+{
+  "schemaVersion": "integration-migration-restore-candidate-v1",
+  "base": "5d134e092de8a30f1bffab7f0f2c62e8e0c54525",
+  "run": "ai-pg-5c8d8aa168d5",
+  "migration": {
+    "baselineReceiptCount": 62,
+    "completed": [
+      [
+        "netshop",
+        "0003_netshop_source_revision_guard"
+      ],
+      [
+        "finance",
+        "0003_finance_source_revision_guard"
+      ],
+      [
+        "finance",
+        "0004_finance_revision_monotonic"
+      ],
+      [
+        "ai_assistant",
+        "0014_business_evidence"
+      ],
+      [
+        "ai_assistant",
+        "0015_business_collection"
+      ],
+      [
+        "ai_assistant",
+        "0016_business_files"
+      ],
+      [
+        "ai_assistant",
+        "0017_business_file_renderer"
+      ],
+      [
+        "ai_assistant",
+        "0018_business_excel_renderer"
+      ],
+      [
+        "ai_assistant",
+        "0019_business_source_directory"
+      ],
+      [
+        "ai_assistant",
+        "0020_business_volume_files"
+      ],
+      [
+        "ai_assistant",
+        "0021_business_budget_plans"
+      ],
+      [
+        "ai_assistant",
+        "0022_business_integrated_reports"
+      ],
+      [
+        "ai_assistant",
+        "0023_business_screening_storage"
+      ],
+      [
+        "ai_assistant",
+        "0024_business_screening_runtime"
+      ],
+      [
+        "ai_assistant",
+        "0025_business_file_opc"
+      ],
+      [
+        "ai_assistant",
+        "0026_business_promotion_profile"
+      ],
+      [
+        "ai_assistant",
+        "0027_business_promotion_file_guard"
+      ],
+      [
+        "ai_assistant",
+        "0028_business_finance_v3_gate"
+      ],
+      [
+        "ai_assistant",
+        "0029_business_promotion_file_ready"
+      ],
+      [
+        "ai_assistant",
+        "0030_business_finance_source_pages"
+      ],
+      [
+        "ai_assistant",
+        "0031_business_daily_v3_source_pages"
+      ],
+      [
+        "ai_assistant",
+        "0032_business_source_tool_receipts"
+      ],
+      [
+        "ai_assistant",
+        "0033_business_v3_parent_seal"
+      ],
+      [
+        "ai_assistant",
+        "0034_business_v3_report_intent"
+      ],
+      [
+        "ai_assistant",
+        "0035_business_v4_ledger"
+      ],
+      [
+        "ai_assistant",
+        "0036_business_v4_validation_segments"
+      ],
+      [
+        "ai_assistant",
+        "0037_business_v4_seal_admission_read"
+      ],
+      [
+        "ai_assistant",
+        "0038_business_v4_seal_writer_gate"
+      ],
+      [
+        "ai_assistant",
+        "0039_business_v4_sealer_ledger_read"
+      ],
+      [
+        "ai_assistant",
+        "0040_business_v4_sealer_narrow_stream"
+      ],
+      [
+        "ai_assistant",
+        "0041_business_v4_seal_ticket"
+      ],
+      [
+        "ai_assistant",
+        "0042_business_v4_claimed_read"
+      ],
+      [
+        "ai_assistant",
+        "0043_business_v4_seal_consumption_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0044_business_market_v2_profile"
+      ],
+      [
+        "ai_assistant",
+        "0045_business_market_v2_material_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0046_business_promotion_trial_file_guard"
+      ],
+      [
+        "ai_assistant",
+        "0047_business_v4_sealer_replay_progress"
+      ],
+      [
+        "ai_assistant",
+        "0048_business_v4_finance_replay_progress"
+      ],
+      [
+        "ai_assistant",
+        "0049_business_v4_sealer_source_bridge"
+      ],
+      [
+        "ai_assistant",
+        "0050_business_v4_replay_read_cast"
+      ],
+      [
+        "ai_assistant",
+        "0051_business_v4_prior_claim_column"
+      ],
+      [
+        "ai_assistant",
+        "0052_business_v4_commit_consumption"
+      ],
+      [
+        "ai_assistant",
+        "0053_business_market_v2_admitted_paused"
+      ],
+      [
+        "ai_assistant",
+        "0054_business_promotion_budget_file_staging"
+      ],
+      [
+        "ai_assistant",
+        "0055_business_v4_period_plan_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0056_business_market_v2_material_role_bridge"
+      ],
+      [
+        "ai_assistant",
+        "0057_business_promotion_budget_v10_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0058_business_promotion_budget_v10_publish_gate"
+      ],
+      [
+        "ai_assistant",
+        "0059_business_promotion_budget_v10_reader_fence"
+      ],
+      [
+        "ai_assistant",
+        "0060_business_market_v2_execution_snapshot"
+      ],
+      [
+        "ai_assistant",
+        "0061_business_market_v2_context_proof"
+      ],
+      [
+        "ai_assistant",
+        "0062_business_market_v2_read_receipt_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0063_business_market_v2_execution_plan"
+      ],
+      [
+        "ai_assistant",
+        "0064_business_market_v2_synthetic_vertical"
+      ],
+      [
+        "ai_assistant",
+        "0065_business_market_v2_model_cost_reservation"
+      ],
+      [
+        "ai_assistant",
+        "0066_business_promotion_budget_v11_durable_stage"
+      ],
+      [
+        "ai_assistant",
+        "0067_business_promotion_budget_v11_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0068_business_promotion_budget_v11_verifier_receipt"
+      ],
+      [
+        "ai_assistant",
+        "0069_business_market_v2_paid_round_rehearsal"
+      ],
+      [
+        "ai_assistant",
+        "0070_business_promotion_budget_v11_limited_identity"
+      ],
+      [
+        "ai_assistant",
+        "0071_business_v4_report_source_link"
+      ],
+      [
+        "ai_assistant",
+        "0072_business_market_v2_authority_proposals"
+      ],
+      [
+        "ai_assistant",
+        "0073_business_promotion_budget_v11_login_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0074_business_market_v2_human_cap_approval"
+      ],
+      [
+        "ai_assistant",
+        "0075_business_v4_report_restricted_page"
+      ],
+      [
+        "ai_assistant",
+        "0076_business_promotion_budget_v11_ticket_bound_signer"
+      ],
+      [
+        "ai_assistant",
+        "0077_business_market_v6_paused_topology"
+      ],
+      [
+        "ai_assistant",
+        "0078_business_promotion_budget_v11_signed_publication"
+      ],
+      [
+        "ai_assistant",
+        "0079_business_market_v6_source_ticket"
+      ],
+      [
+        "ai_assistant",
+        "0080_model_tool_budget_300"
+      ],
+      [
+        "finance",
+        "0005_raw_column_evidence_v2"
+      ],
+      [
+        "finance",
+        "0006_raw_workbook_bytes_v2"
+      ],
+      [
+        "market",
+        "0006_analysis_options"
+      ],
+      [
+        "sales",
+        "0010_analysis_options"
+      ]
+    ],
+    "finalReceiptCount": 136,
+    "migrationSourcesSha256": "207a4af7658ed4b65a2587685532692aa983d918df1e7c97f3f8ec81ab018b4e",
+    "modelBudgetAndVersionsVerified": true,
+    "ordinaryRoleStillUnprivileged": true,
+    "privilegedSteps": [
+      "0068",
+      "0070",
+      "0073",
+      "0074",
+      "0076",
+      "0077",
+      "0078",
+      "0079"
+    ],
+    "productionWrites": false,
+    "rehearsalScriptSha256": "e065dd2b943a511eda7682f31df63253fe1fb2dd9cdf2acf0c472caae2a4d22b",
+    "reviewedPolicySha256": "de2e452d0ed091be722c145937af5057a6d28ca3e49860bb15b3826e76ffeb5a",
+    "roleMemberships": 0,
+    "status": "mixed_completed"
+  },
+  "restore": {
+    "contentSha256": "510036ff8684c11782cc934d90698b1f8200c8ece8d309351b6d81c0f73c6346",
+    "encryptedRecoveryEnvelopeVerified": true,
+    "fileFormats": [
+      [
+        "html",
+        1,
+        65548
+      ],
+      [
+        "xlsx",
+        1,
+        30820
+      ]
+    ],
+    "formalBackupPathVerified": false,
+    "ownerAclAndRowsPreserved": true,
+    "plaintextDumpFiles": 0,
+    "privateKeyGrantDriftRejected": true,
+    "productionKeyCustodyConfigured": false,
+    "productionWrites": false,
+    "roleCount": 31,
+    "rows": 304,
+    "sourcePort": 55972,
+    "status": "passed",
+    "tables": 295,
+    "targetPort": 55973,
+    "wrongRecoveryPasswordRejected": true
+  },
+  "isolatedClustersStopped": true,
+  "formalInstallerConnected": false,
+  "formalBackupOperatorConnected": false,
+  "productionWrites": false,
+  "notes": [
+    "Missing bootstrap roles caused ordinary 0045 failure with checked rollback.",
+    "After closed-role bootstrap, ordinary 0068 correctly failed and rolled back.",
+    "Mixed-identity 0074 exposed owner mismatch; candidate installation now preserves frozen 0065 owner.",
+    "Catalog comparison preserves effective ACLs and narrowly normalizes observed PostgreSQL dump/reparse equivalents.",
+    "Separate PostgreSQL regression suite: 7 tests passed."
+  ],
+  "recordedAt": "2026-09-28T00:09:11.9271999+08:00"
+}
