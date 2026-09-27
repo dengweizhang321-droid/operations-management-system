@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,16 +106,23 @@ class ShadowSnapshotPureTests(unittest.TestCase):
         files = shadow.file_digest_rows([
             ("run", 1, 1, "html", 1, b"html", sha(b"html")),
             ("run", 1, 1, "xlsx", 1, b"xlsx", sha(b"xlsx"))])
-        evidence = {"contentSha256": "a" * 64}
+        evidence = {"shadowContentSha256": "a" * 64,
+            "formalContentSha256Verified": False,
+            "migrationRootSha256": "d" * 64,
+            "tableRowsRootSha256": "e" * 64,
+            "catalogOwnerAclRootSha256": "f" * 64}
         args = ("snapshot", evidence, rows, files, [("role", False)],
             55851, 55852)
         manifest, context = shadow.snapshot_manifest(*args)
         self.assertEqual(context, shadow.snapshot_manifest(*args)[1])
         self.assertFalse(manifest["formalBackupPathVerified"])
+        self.assertFalse(manifest["formalContentSha256Verified"])
+        self.assertNotIn("contentSha256", manifest)
         self.assertFalse(manifest["longTermKeyCustodyVerified"])
         self.assertFalse(manifest["productionWrites"])
         for changed in (("snapshot2", *args[1:]),
-                (args[0], {"contentSha256": "b" * 64}, *args[2:]),
+                (args[0], {**evidence,
+                    "shadowContentSha256": "b" * 64}, *args[2:]),
                 (*args[:3], {**files, "chunkRootSha256": "c" * 64}, *args[4:]),
                 (*args[:4], [("other-role", False)], *args[5:])):
             self.assertNotEqual(context, shadow.snapshot_manifest(*changed)[1])
@@ -134,6 +143,140 @@ class ShadowSnapshotPureTests(unittest.TestCase):
             formal)
         self.assertIn('FORMAL_RESTORE_FLAGS = ("--no-owner", "--no-privileges")',
             formal)
+
+    def test_native_child_uses_file_handles_not_inherited_pipes(self):
+        calls = []
+
+        def completed(*args, **kwargs):
+            self.assertNotIn("capture_output", kwargs)
+            self.assertIs(kwargs["stdout"], kwargs["stderr"])
+            self.assertGreaterEqual(kwargs["stdout"].fileno(), 0)
+            calls.append(args[0])
+            return SimpleNamespace(returncode=0)
+
+        with patch.object(shadow.subprocess, "run", side_effect=completed):
+            shadow._native(["synthetic-native", "--status"], {}, timeout=3)
+        self.assertEqual(calls, [["synthetic-native", "--status"]])
+
+        def rejected(*args, **kwargs):
+            kwargs["stderr"].write(b"synthetic-error")
+            return SimpleNamespace(returncode=1)
+
+        with patch.object(shadow.subprocess, "run", side_effect=rejected):
+            with self.assertRaisesRegex(shadow.ShadowBlocked,
+                    sha(b"synthetic-error")):
+                shadow._native(["synthetic-native"], {}, timeout=3)
+
+    def test_current_v11_verifier_and_shadow_root_do_not_claim_formal_content(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("_verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,",
+            source)
+        self.assertIn("publish_gate_enabled=True, slim_stage_enabled=True)", source)
+        self.assertIn("collect_shadow_evidence(db, expected_port=port,", source)
+        self.assertIn('"formalContentSha256Verified": False', source)
+        self.assertNotIn("helper.collect_evidence", source)
+        self.assertNotIn('"contentSha256": evidence', source)
+
+    def test_mismatch_diagnostic_reveals_only_roots_counts_and_first_table(self):
+        evidence = {"shadowContentSha256": "a" * 64,
+            "tableRowsRootSha256": "b" * 64,
+            "protectedRowsRootSha256": "c" * 64,
+            "fileRootSha256": "d" * 64,
+            "roleRootSha256": "e" * 64,
+            "catalogOwnerAclRootSha256": "f" * 64,
+            "migrationRootSha256": "0" * 64,
+            "catalogSectionRoots": {"constraints": "1" * 64,
+                "functions": "2" * 64},
+            "tableRoots": {"protected_business_example": {
+                "rowCount": 1, "rowHashesSha256": "3" * 64}},
+            "tableCount": 282, "rowCount": 12}
+        target = {**evidence,
+            "shadowContentSha256": "9" * 64,
+            "tableRowsRootSha256": "8" * 64,
+            "catalogOwnerAclRootSha256": "7" * 64,
+            "catalogSectionRoots": {"constraints": "1" * 64,
+                "functions": "6" * 64},
+            "tableRoots": {"protected_business_example": {
+                "rowCount": 2, "rowHashesSha256": "5" * 64}}}
+        roles = {"entries": [("role", False)],
+            "credentialPresence": [("role", False)],
+            "runtimeSettings": {}, "aiAclSha256": "4" * 64}
+        diagnostic = shadow.mismatch_diagnostic(evidence, target,
+            {"secret": "raw-synthetic-only"},
+            {"secret": "raw-synthetic-only"},
+            {"chunkRootSha256": "d" * 64},
+            {"chunkRootSha256": "d" * 64}, roles, roles)
+        self.assertFalse(diagnostic["checks"]["shadowContentSha256"])
+        self.assertTrue(diagnostic["checks"]["fileChunks"])
+        self.assertFalse(diagnostic["catalogSectionEqual"]["functions"])
+        self.assertEqual(diagnostic["firstDifferentTable"]["table"],
+            "protected_business_example")
+        self.assertEqual(diagnostic["firstDifferentTable"]["sourceRows"], 1)
+        self.assertNotIn("raw-synthetic-only", str(diagnostic))
+
+    def test_catalog_diagnostic_pins_first_object_and_only_field_digests(self):
+        base = {"shadowContentSha256": "a" * 64,
+            "catalogSectionRoots": {"relations": "b" * 64},
+            "catalogItemRoots": {"relations": {"public.ai_table": {
+                "name": "c" * 64, "kind": "d" * 64,
+                "owner": "e" * 64, "acl": "f" * 64,
+                "rowSecurity": "0" * 64}}}}
+        target = {**base,
+            "catalogSectionRoots": {"relations": "1" * 64},
+            "catalogItemRoots": {"relations": {"public.ai_table": {
+                **base["catalogItemRoots"]["relations"]["public.ai_table"],
+                "acl": "2" * 64}}}}
+        diag = shadow.mismatch_diagnostic(base, target, {}, {}, {}, {},
+            {}, {})
+        item = diag["firstDifferentCatalogObject"]
+        self.assertEqual(item["type"], "relations")
+        self.assertEqual(item["identity"], "public.ai_table")
+        self.assertFalse(item["fieldEqual"]["acl"])
+        self.assertTrue(item["fieldEqual"]["owner"])
+        self.assertEqual(item["differentFieldDigests"]["acl"], {
+            "sourceSha256": "f" * 64, "targetSha256": "2" * 64})
+        self.assertEqual(diag["firstDifferentCatalogBySection"]["relations"],
+            item)
+        self.assertNotIn("raw catalog", str(diag))
+
+    def test_constraint_and_index_diagnostics_stay_hash_only(self):
+        for section in ("constraints", "indexes"):
+            with self.subTest(section=section):
+                fields = shadow.CATALOG_ITEM_FIELDS[section]
+                identity = "public.ai_table.ai_object"
+                before = {field: "a" * 64 for field in fields}
+                after = {**before, "definition": "b" * 64}
+                source = {"catalogSectionRoots": {section: "c" * 64},
+                    "catalogItemRoots": {section: {identity: before}}}
+                target = {"catalogSectionRoots": {section: "d" * 64},
+                    "catalogItemRoots": {section: {identity: after}}}
+                item = shadow.mismatch_diagnostic(source, target,
+                    {}, {}, {}, {}, {}, {})["firstDifferentCatalogObject"]
+                self.assertEqual(item["type"], section)
+                self.assertEqual(item["identity"], identity)
+                self.assertFalse(item["fieldEqual"]["definition"])
+                self.assertEqual(item["differentFieldDigests"]["definition"],
+                    {"sourceSha256": "a" * 64, "targetSha256": "b" * 64})
+
+    def test_raw_acl_order_difference_reports_semantic_equality(self):
+        identity = "public.ai_table"
+        source = {"catalogSectionRoots": {"relations": "a" * 64},
+            "catalogItemRoots": {"relations": {identity: {"acl": "b" * 64}}},
+            "rawRelationAclRoots": {identity: "c" * 64}}
+        target = {**source,
+            "rawRelationAclRoots": {identity: "d" * 64}}
+        raw = shadow.mismatch_diagnostic(source, target,
+            {}, {}, {}, {}, {}, {})["firstRawAclDifference"]
+        self.assertEqual(raw["identity"], identity)
+        self.assertFalse(raw["rawAclEqual"])
+        self.assertTrue(raw["semanticAclEqual"])
+        self.assertEqual(raw["sourceRawAclSha256"], "c" * 64)
+        self.assertEqual(raw["targetRawAclSha256"], "d" * 64)
+        target["catalogItemRoots"] = {"relations": {identity: {
+            "acl": "e" * 64}}}
+        raw = shadow.mismatch_diagnostic(source, target,
+            {}, {}, {}, {}, {}, {})["firstRawAclDifference"]
+        self.assertFalse(raw["semanticAclEqual"])
 
 
 if __name__ == "__main__":

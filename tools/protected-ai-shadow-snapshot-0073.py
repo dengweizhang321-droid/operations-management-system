@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -20,6 +19,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -28,9 +28,15 @@ sys.path.insert(0, str(ROOT / "tools"))
 from protected_ai_archive_v2_stream import (
     ArchiveInvalid, open_verified_stream, seal_process_stdout)
 from protected_ai_cross_cluster_generation import contract, seed_matches
+from protected_ai_shadow_runtime_roles_0073 import (
+    AI_RUNTIME_ROLES, EVIDENCE_ROLES, TABLE_PRIVILEGES,
+    new_target_credentials, verify_ai_acl_matrix,
+    verify_post_provision_rows)
+from protected_ai_shadow_evidence_0073 import (
+    CATALOG_ITEM_FIELDS, collect_shadow_evidence)
 
 
-VERSION = "protected-ai-shadow-snapshot-0073-v1"
+VERSION = "protected-ai-shadow-snapshot-0073-v2"
 MIGRATIONS = contract("0073").migrations
 BASE_MIGRATION = "0067_business_promotion_budget_v11_attestation"
 PROTECTED_ROLES = contract("0073").roles
@@ -143,20 +149,24 @@ def protected_row_digest(rows_by_table: dict[str, list[object]]) -> dict:
 
 
 def snapshot_manifest(snapshot_id: str, evidence: dict,
-                      protected_rows: dict, files: dict, roles: list,
+                      protected_rows: dict, files: dict, roles: dict,
                       source_port: int, target_port: int) -> tuple[dict, str]:
     if (not isinstance(snapshot_id, str) or not snapshot_id
             or not isinstance(evidence, dict)
             or not re.fullmatch(r"[0-9a-f]{64}",
-                str(evidence.get("contentSha256", "")))
+                str(evidence.get("shadowContentSha256", "")))
+            or evidence.get("formalContentSha256Verified") is not False
             or type(source_port) is not int or type(target_port) is not int):
         raise ShadowBlocked("snapshot evidence is incomplete")
     manifest = {"schemaVersion": VERSION, "generation": "0073",
         "archiveLayout": "v2-stream-v1", "sourcePort": source_port,
         "targetPort": target_port,
         "snapshotIdSha256": _sha(snapshot_id.encode("utf-8")),
-        "contentSha256": evidence["contentSha256"],
-        "migrationRootSha256": _sha(_canonical(MIGRATIONS)),
+        "shadowContentSha256": evidence["shadowContentSha256"],
+        "formalContentSha256Verified": False,
+        "migrationRootSha256": evidence["migrationRootSha256"],
+        "tableRowsRootSha256": evidence["tableRowsRootSha256"],
+        "catalogOwnerAclRootSha256": evidence["catalogOwnerAclRootSha256"],
         "protectedRowsRootSha256": _sha(_canonical(protected_rows)),
         "fileRootSha256": files["chunkRootSha256"],
         "fileChunkCount": files["chunkCount"],
@@ -182,23 +192,16 @@ class SyntheticKeyProvider:
 
 
 def _native(command, env: dict[str, str], *, timeout=600):
-    result = subprocess.run([str(item) for item in command], cwd=ROOT,
-        env=env, capture_output=True, timeout=timeout,
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
-    if result.returncode:
-        raise ShadowBlocked("isolated native command failed; diagnosticSha256="
-            + _sha(result.stderr[:16384]))
-
-
-def _backup_helper():
-    source = ROOT / "tools/postgres-consistent-backup.py"
-    spec = importlib.util.spec_from_file_location(
-        "protected_shadow_backup_helper", source)
-    if spec is None or spec.loader is None:
-        raise ShadowBlocked("backup evidence helper is unavailable")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    # On Windows postgres can inherit pg_ctl's standard handles. A PIPE would
+    # wait for the long-lived server to close it even after pg_ctl exits.
+    with tempfile.TemporaryFile(mode="w+b") as output:
+        result = subprocess.run([str(item) for item in command], cwd=ROOT,
+            env=env, stdout=output, stderr=output, timeout=timeout,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+        if result.returncode:
+            output.seek(0)
+            raise ShadowBlocked("isolated native command failed; diagnosticSha256="
+                + _sha(output.read(16384)))
 
 
 def _roles(db):
@@ -227,7 +230,57 @@ def _roles(db):
     if (len(protected_passwords) != len(PROTECTED_ROLES)
             or any(value is not None for _, value in protected_passwords)):
         raise ShadowBlocked("0073 protected role login or password drifted")
-    return rows
+    evidence_roles = db.execute("SELECT rolname,rolcanlogin,rolinherit,"
+        "rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,"
+        "rolpassword,rolconnlimit,rolvaliduntil FROM "
+        "pg_catalog.pg_authid WHERE rolname=ANY(%s) ORDER BY rolname",
+        [list(EVIDENCE_ROLES)]).fetchall()
+    setting_rows = db.execute("SELECT a.rolname,s.setdatabase,s.setconfig "
+        "FROM pg_catalog.pg_db_role_setting s JOIN pg_catalog.pg_authid a "
+        "ON a.oid=s.setrole WHERE a.rolname=ANY(%s) ORDER BY a.rolname",
+        [list(EVIDENCE_ROLES)]).fetchall()
+    settings = verify_post_provision_rows(evidence_roles, members[0],
+        setting_rows)
+    credentials = db.execute("SELECT rolname,rolpassword IS NOT NULL FROM "
+        "pg_catalog.pg_authid WHERE rolname LIKE 'teruisi_%' "
+        "ORDER BY rolname").fetchall()
+    if {name for name, _ in credentials} != names:
+        raise ShadowBlocked("0073 credential role inventory drifted")
+    return {"entries": rows, "credentialPresence": credentials,
+        "runtimeSettings": settings, "aiAclSha256": _ai_runtime_acl(db)}
+
+
+def _ai_runtime_acl(db) -> str:
+    from ai_assistant.database_contract import (READ_TABLES,
+        WRITER_PRIVILEGES, MODEL_READER_COLUMNS)
+    tables = [row[0] for row in db.execute(
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_schema='public' ORDER BY table_name").fetchall()]
+    matrix = []
+    for role in ("teruisi_ai_reader", "teruisi_ai_writer"):
+        boundary = db.execute("SELECT "
+            "has_schema_privilege(%s,'public','USAGE'),"
+            "has_schema_privilege(%s,'public','CREATE'),"
+            "has_database_privilege(%s,current_database(),'CONNECT'),"
+            "has_database_privilege(%s,current_database(),'CREATE')",
+            [role] * 4).fetchone()
+        if boundary != (True, False, True, False):
+            raise ShadowBlocked("AI runtime schema/database ACL drifted")
+        for table in tables:
+            for privilege in TABLE_PRIVILEGES:
+                actual = db.execute("SELECT has_table_privilege(%s,%s,%s)",
+                    [role, "public." + table, privilege]).fetchone()[0]
+                matrix.append((role, table, privilege, actual))
+    model_columns = [row[0] for row in db.execute(
+        "SELECT a.attname FROM pg_catalog.pg_attribute a "
+        "WHERE a.attrelid='public.ai_models'::regclass AND a.attnum>0 "
+        "AND NOT a.attisdropped AND pg_catalog.has_column_privilege("
+        "'teruisi_ai_reader','public.ai_models',a.attname,'SELECT') "
+        "ORDER BY a.attname").fetchall()]
+    verify_ai_acl_matrix(tables, matrix, set(READ_TABLES),
+        WRITER_PRIVILEGES, model_columns, MODEL_READER_COLUMNS)
+    return _sha(_canonical({"tables": matrix,
+        "modelReaderColumns": model_columns}))
 
 
 def _protected_rows(db):
@@ -270,6 +323,10 @@ def _files(db):
 
 
 def _verify_catalog(db):
+    from ai_assistant.health import _verify_promotion_trial_file_guard
+    with db.cursor() as cursor:
+        _verify_promotion_trial_file_guard(cursor, budget_stage_enabled=True,
+            publish_gate_enabled=True, slim_stage_enabled=True)
     for name in (BASE_MIGRATION, *MIGRATIONS):
         module = importlib.import_module("ai_assistant.migrations." + name)
         with db.cursor() as cursor:
@@ -284,14 +341,13 @@ def _verify_catalog(db):
         raise ShadowBlocked("ordinary AI writer can read private key")
 
 
-def _source_state(db, helper, port):
+def _source_state(db, port):
     _verify_catalog(db)
-    evidence = helper.collect_evidence(db,
-        expected_database="teruisi_ai_rehearsal",
-        expected_user="ai_rehearsal_admin")
     rows = protected_row_digest(_protected_rows(db))
     files = _files(db)
     roles = _roles(db)
+    evidence = collect_shadow_evidence(db, expected_port=port,
+        protected_rows=rows, files=files, roles=roles)
     return evidence, rows, files, roles
 
 
@@ -326,8 +382,133 @@ def _free_loopback_port(port: int):
             raise ShadowBlocked("synthetic target port is occupied") from error
 
 
+def _reject_corrupt_archive(archive: Path, context: str,
+                            key_provider: SyntheticKeyProvider) -> None:
+    size = archive.stat().st_size
+    if not 64 <= size <= 64 * 1024 * 1024:
+        raise ShadowBlocked("synthetic encrypted archive exceeds test bound")
+    for suffix, kept, appended in (("truncated", size - 1, b""),
+                                   ("tampered", size, b"x")):
+        variant = archive.with_name(archive.name + "." + suffix)
+        if variant.exists():
+            raise ShadowBlocked("synthetic negative archive already exists")
+        try:
+            with archive.open("rb") as source, variant.open("xb") as output:
+                remaining = kept
+                while remaining:
+                    chunk = source.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise ShadowBlocked("synthetic archive changed during negative")
+                    output.write(chunk)
+                    remaining -= len(chunk)
+                output.write(appended)
+            try:
+                with open_verified_stream(variant,
+                        expected_key_id=ARCHIVE_KEY_ID,
+                        expected_context_sha256=context,
+                        key_provider=key_provider):
+                    pass
+            except ArchiveInvalid:
+                pass
+            else:
+                raise ShadowBlocked("corrupt synthetic archive was accepted")
+        finally:
+            if variant.exists():
+                variant.unlink()
+
+
+def mismatch_diagnostic(source_evidence: dict, target_evidence: dict,
+                        source_rows: dict, target_rows: dict,
+                        source_files: dict, target_files: dict,
+                        source_roles: dict, target_roles: dict) -> dict:
+    """Bounded, non-sensitive root comparison; never include raw rows/keys."""
+    keys = ("shadowContentSha256", "tableRowsRootSha256",
+        "protectedRowsRootSha256", "fileRootSha256",
+        "roleRootSha256", "catalogOwnerAclRootSha256",
+        "migrationRootSha256")
+    checks = {key: source_evidence.get(key) == target_evidence.get(key)
+        for key in keys}
+    checks.update({"protectedRows": source_rows == target_rows,
+        "fileChunks": source_files == target_files,
+        "roleAttributes": source_roles.get("entries") ==
+            target_roles.get("entries"),
+        "credentialPresence": source_roles.get("credentialPresence") ==
+            target_roles.get("credentialPresence"),
+        "roleSettings": source_roles.get("runtimeSettings") ==
+            target_roles.get("runtimeSettings"),
+        "aiAcl": source_roles.get("aiAclSha256") ==
+            target_roles.get("aiAclSha256")})
+    sections = {}
+    source_sections = source_evidence.get("catalogSectionRoots", {})
+    target_sections = target_evidence.get("catalogSectionRoots", {})
+    for name in sorted(set(source_sections) | set(target_sections)):
+        sections[name] = source_sections.get(name) == target_sections.get(name)
+    source_items = source_evidence.get("catalogItemRoots", {})
+    target_items = target_evidence.get("catalogItemRoots", {})
+    first_catalog_by_section = {}
+    for section in ("relations", "constraints", "indexes"):
+        if sections.get(section) is not False:
+            continue
+        before_items = source_items.get(section, {})
+        after_items = target_items.get(section, {})
+        for identity in sorted(set(before_items) | set(after_items)):
+            before = before_items.get(identity, {})
+            after = after_items.get(identity, {})
+            if before != after:
+                fields = CATALOG_ITEM_FIELDS[section]
+                first_catalog_by_section[section] = {
+                    "type": section, "identity": identity,
+                    "sourcePresent": identity in before_items,
+                    "targetPresent": identity in after_items,
+                    "fieldEqual": {name: before.get(name) == after.get(name)
+                        for name in fields},
+                    "differentFieldDigests": {name: {
+                        "sourceSha256": before.get(name),
+                        "targetSha256": after.get(name)}
+                        for name in fields if before.get(name) != after.get(name)}}
+                break
+    first_catalog = next(iter(first_catalog_by_section.values()), None)
+    raw_acl = None
+    source_raw = source_evidence.get("rawRelationAclRoots", {})
+    target_raw = target_evidence.get("rawRelationAclRoots", {})
+    for identity in sorted(set(source_raw) | set(target_raw)):
+        if source_raw.get(identity) != target_raw.get(identity):
+            before = source_items.get("relations", {}).get(identity, {})
+            after = target_items.get("relations", {}).get(identity, {})
+            raw_acl = {"identity": identity,
+                "rawAclEqual": False,
+                "semanticAclEqual": before.get("acl") == after.get("acl"),
+                "sourceRawAclSha256": source_raw.get(identity),
+                "targetRawAclSha256": target_raw.get(identity),
+                "sourceSemanticAclSha256": before.get("acl"),
+                "targetSemanticAclSha256": after.get("acl")}
+            break
+    source_tables = source_evidence.get("tableRoots", {})
+    target_tables = target_evidence.get("tableRoots", {})
+    first_table = None
+    for name in sorted(set(source_tables) | set(target_tables)):
+        if source_tables.get(name) != target_tables.get(name):
+            before = source_tables.get(name, {})
+            after = target_tables.get(name, {})
+            first_table = {"table": name,
+                "sourceRows": before.get("rowCount"),
+                "targetRows": after.get("rowCount"),
+                "sourceSha256": before.get("rowHashesSha256"),
+                "targetSha256": after.get("rowHashesSha256")}
+            break
+    return {"checks": checks, "catalogSectionEqual": sections,
+        "firstDifferentCatalogObject": first_catalog,
+        "firstDifferentCatalogBySection": first_catalog_by_section,
+        "firstRawAclDifference": raw_acl,
+        "firstDifferentTable": first_table,
+        "sourceTableCount": source_evidence.get("tableCount"),
+        "targetTableCount": target_evidence.get("tableCount"),
+        "sourceRowCount": source_evidence.get("rowCount"),
+        "targetRowCount": target_evidence.get("rowCount")}
+
+
 def run_shadow(run_root: Path, source_port: int, target_port: int,
-               password: str, *, helper) -> dict:
+               password: str) -> dict:
     """The only effectful path; caller must pass validate_isolation first."""
     import psycopg
     from psycopg import sql
@@ -387,12 +568,35 @@ def run_shadow(run_root: Path, source_port: int, target_port: int,
                     dbname="teruisi_ai_rehearsal", user="ai_rehearsal_admin",
                     password=password, autocommit=True) as source:
                 source_roles = _roles(source)
-            for name, login, inherit, *_ in source_roles:
-                admin.execute(sql.SQL("CREATE ROLE {} {} {} NOSUPERUSER "
-                    "NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS "
-                    "PASSWORD NULL").format(sql.Identifier(name),
-                    sql.SQL("LOGIN" if login else "NOLOGIN"),
-                    sql.SQL("INHERIT" if inherit else "NOINHERIT")))
+            target_credentials = new_target_credentials(
+                [item[0] for item in source_roles["entries"]], secrets.token_hex)
+            for name, login, inherit, *_ in source_roles["entries"]:
+                if name in AI_RUNTIME_ROLES:
+                    if login is not True or inherit is not False:
+                        raise ShadowBlocked("source AI runtime role state drifted")
+                    # Fresh target credentials are independent of the source;
+                    # their plaintext and SCRAM hash never enter evidence.
+                    target_secret = target_credentials[name]
+                    admin.execute(sql.SQL("CREATE ROLE {} LOGIN NOINHERIT "
+                        "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION "
+                        "NOBYPASSRLS PASSWORD {}").format(
+                        sql.Identifier(name), sql.Literal(target_secret)))
+                    admin.execute(sql.SQL("ALTER ROLE {} SET "
+                        "default_transaction_read_only={}").format(
+                        sql.Identifier(name),
+                        sql.SQL("on" if name == "teruisi_ai_reader" else "off")))
+                    for setting, value in (("statement_timeout", "15000"),
+                            ("idle_in_transaction_session_timeout", "30000")):
+                        admin.execute(sql.SQL("ALTER ROLE {} SET {}={}").format(
+                            sql.Identifier(name), sql.SQL(setting),
+                            sql.Literal(value)))
+                else:
+                    if login or inherit:
+                        raise ShadowBlocked("unexpected synthetic LOGIN or INHERIT role")
+                    admin.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOINHERIT "
+                        "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION "
+                        "NOBYPASSRLS PASSWORD NULL").format(sql.Identifier(name)))
+            target_credentials.clear()
 
         with psycopg.connect(host="127.0.0.1", port=source_port,
                 dbname="teruisi_ai_rehearsal", user="ai_rehearsal_admin",
@@ -401,8 +605,7 @@ def run_shadow(run_root: Path, source_port: int, target_port: int,
                 "READ READ ONLY")
             snapshot_id = source.execute("SELECT pg_export_snapshot()"
                 ).fetchone()[0]
-            evidence, rows, files, roles = _source_state(source, helper,
-                source_port)
+            evidence, rows, files, roles = _source_state(source, source_port)
             manifest, context = snapshot_manifest(snapshot_id, evidence,
                 rows, files, roles, source_port, target_port)
             dump = [BIN / "pg_dump.exe", "--format=custom", "--compress=6",
@@ -436,6 +639,7 @@ def run_shadow(run_root: Path, source_port: int, target_port: int,
             pass
         else:
             raise ShadowBlocked("wrong synthetic archive key was accepted")
+        _reject_corrupt_archive(archive, context, archive_key)
         _native([BIN / "createdb.exe", "teruisi_ai_rehearsal"],
             target_env)
         with open_verified_stream(archive,
@@ -453,12 +657,20 @@ def run_shadow(run_root: Path, source_port: int, target_port: int,
         with psycopg.connect(host="127.0.0.1", port=target_port,
                 dbname="teruisi_ai_rehearsal", user="ai_rehearsal_admin",
                 password=target_password, autocommit=True) as target:
+            target.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE "
+                "READ READ ONLY")
             target_evidence, target_rows, target_files, target_roles = (
-                _source_state(target, helper, target_port))
-            if (target_evidence["contentSha256"] != evidence["contentSha256"]
+                _source_state(target, target_port))
+            if (target_evidence["shadowContentSha256"] !=
+                    evidence["shadowContentSha256"]
                     or target_rows != rows or target_files != files
                     or target_roles != roles):
-                raise ShadowBlocked("restored snapshot rows, files or roles differ")
+                diagnostic = mismatch_diagnostic(evidence, target_evidence,
+                    rows, target_rows, files, target_files,
+                    roles, target_roles)
+                raise ShadowBlocked("restored shadow roots differ; diagnostic="
+                    + _canonical(diagnostic).decode("ascii"))
+            target.execute("ROLLBACK")
         if any(target_root.glob("*.dump")):
             raise ShadowBlocked("shadow target left a plaintext dump")
         with archive.open("rb") as encrypted_file:
@@ -470,10 +682,15 @@ def run_shadow(run_root: Path, source_port: int, target_port: int,
             "fileChunkCount": files["chunkCount"],
             "fileFormats": files["formats"],
             "fileRootSha256": files["chunkRootSha256"],
-            "contentSha256": evidence["contentSha256"],
+            "shadowContentSha256": evidence["shadowContentSha256"],
+            "formalContentSha256Verified": False,
+            "tableRowsRootSha256": evidence["tableRowsRootSha256"],
+            "catalogOwnerAclRootSha256": evidence["catalogOwnerAclRootSha256"],
             "archiveContextSha256": context,
             "encryptedArchiveSha256": archive_sha,
             "archiveChunks": sealed.chunk_count,
+            "streamPlaintextSha256": sealed.plaintext_sha256,
+            "wrongKeyTamperAndTruncationRejected": True,
             "ownerAclAndFilesRestored": True,
             "formalBackupEarlyRefusal": True,
             "archiveKeyPersisted": False,
@@ -523,9 +740,8 @@ def main(argv=None) -> int:
     if (str(source_port) != os.getenv("TERUISI_AI_REHEARSAL_PORT")
             or not database.get("PASSWORD") or not BIN.is_dir()):
         raise ShadowBlocked("isolated source port or binary runtime unavailable")
-    helper = _backup_helper()
     run_shadow(folder, source_port, options.target_port,
-        str(database["PASSWORD"]), helper=helper)
+        str(database["PASSWORD"]))
     return 0
 
 
