@@ -176,49 +176,107 @@ def _promotion_prompt_conflicts(prompt, locator):
     return False
 
 
-def _latest_promotion_locator(conv):
+def _latest_promotion_state(conv):
     reset = m.AiConversationMessages.objects.filter(conversation_id=conv.id, message_kind="context_reset").order_by("-ordinal").first()
-    query = m.AiConversationMessages.objects.filter(conversation_id=conv.id, role="assistant", message_kind="message")
+    query = m.AiConversationMessages.objects.filter(conversation_id=conv.id, message_kind="message")
     if reset:
         query = query.filter(ordinal__gt=reset.ordinal)
-    for previous in query.only("execution_json").order_by("-ordinal")[:20]:
+    for previous in query.only("execution_json").order_by("-ordinal")[:100]:
+        saved = {}
         try:
             saved = json.loads(previous.execution_json)
+            scope = saved.get("promotionRequestedScope")
             locator = _promotion_locator([(PROMOTION_TOOL, {"ok": True, "data": {"reportLocator": saved.get("promotionReport")}})])
         except (TypeError, ValueError, AttributeError):
+            scope = None
             locator = None
+        if isinstance(saved, dict) and saved.get("promotionScopeInvalidated") is True:
+            return {"scope": None, "locator": None, "status": "unsupported_store"}
+        if isinstance(scope, dict) and set(scope) == {"shopName", "startDate", "endDate"} and scope.get("shopName") == PROMOTION_SHOP:
+            try:
+                start, end = date.fromisoformat(scope["startDate"]), date.fromisoformat(scope["endDate"])
+            except (TypeError, ValueError):
+                continue
+            if start <= end and (end - start).days < 7:
+                verified = locator if locator and locator["startDate"] == scope["startDate"] and locator["endDate"] == scope["endDate"] else None
+                return {"scope": scope, "locator": verified, "status": saved.get("promotionStatus") if verified is None else "complete"}
         if locator:
-            return locator
+            return {"scope": {key: locator[key] for key in ("shopName", "startDate", "endDate")},
+                    "locator": locator, "status": "complete"}
     return None
+
+
+def _latest_promotion_locator(conv):
+    state = _latest_promotion_state(conv)
+    return state["locator"] if state else None
 
 
 def _promotion_date_range(prompt, prior=None):
     iso = re.findall(r"20\d\d[-/]\d{1,2}[-/]\d{1,2}", prompt)
+    def normalize(value):
+        year, month, day = value.replace("/", "-").split("-")
+        return f"{year}-{int(month):02d}-{int(day):02d}"
+    def keep_context_for_prior_period(pair):
+        if prior and re.search(r"前期|对照期|基线", prompt) and not re.search(r"改成|换成|作为本期", prompt):
+            current_start = date.fromisoformat(prior["startDate"])
+            days = (date.fromisoformat(prior["endDate"]) - current_start).days + 1
+            baseline_start, baseline_end = current_start - timedelta(days=days), current_start - timedelta(days=1)
+            if pair == (baseline_start.isoformat(), baseline_end.isoformat()) or (
+                    pair[0] == pair[1] and baseline_start <= date.fromisoformat(pair[0]) <= baseline_end):
+                return prior["startDate"], prior["endDate"]
+        return pair
+    if len(iso) > 4 or len(iso) == 3:
+        raise AiError("问题包含多组日期且本期不明确，请分别写明本期与对照期", "invalid_request", 400)
+    if len(iso) == 4:
+        pairs = [(normalize(iso[0]), normalize(iso[1])), (normalize(iso[2]), normalize(iso[3]))]
+        try:
+            ordered = sorted(pairs, key=lambda pair: date.fromisoformat(pair[0]))
+            first_start, first_end = map(date.fromisoformat, ordered[0])
+            last_start, last_end = map(date.fromisoformat, ordered[1])
+        except ValueError:
+            raise AiError("推广诊断日期无效", "invalid_request", 400)
+        if first_start > first_end or last_start > last_end or first_end + timedelta(days=1) != last_start or (first_end - first_start) != (last_end - last_start):
+            raise AiError("两组日期不是相邻等长周期，请明确本期起止", "invalid_request", 400)
+        return ordered[1]
     if len(iso) >= 2:
-        def normalize(value):
-            year, month, day = value.replace("/", "-").split("-")
-            return f"{year}-{int(month):02d}-{int(day):02d}"
-        return normalize(iso[0]), normalize(iso[1])
+        pair = normalize(iso[0]), normalize(iso[1])
+        return keep_context_for_prior_period(pair)
+    shorthand = re.search(r"(20\d\d)[-/](\d{1,2})[-/](\d{1,2})\s*(?:至|到|-)\s*(\d{1,2})(?:日|号)?", prompt)
+    if shorthand:
+        year, month, day, end_day = shorthand.groups()
+        return keep_context_for_prior_period((f"{year}-{int(month):02d}-{int(day):02d}", f"{year}-{int(month):02d}-{int(end_day):02d}"))
+    if len(iso) == 1:
+        day = normalize(iso[0])
+        return keep_context_for_prior_period((day, day))
     chinese = re.search(r"(20\d\d)年(\d{1,2})月(\d{1,2})日?\s*(?:至|到|-)\s*(?:(20\d\d)年)?(?:(\d{1,2})月)?(\d{1,2})日?", prompt)
     if chinese:
         year, month, day, end_year, end_month, end_day = chinese.groups()
-        return (f"{year}-{int(month):02d}-{int(day):02d}",
-                f"{end_year or year}-{int(end_month or month):02d}-{int(end_day):02d}")
+        return keep_context_for_prior_period((f"{year}-{int(month):02d}-{int(day):02d}",
+                f"{end_year or year}-{int(end_month or month):02d}-{int(end_day):02d}"))
     month_range = re.search(r"(\d{1,2})月(\d{1,2})日?\s*(?:至|到|-)\s*(?:(\d{1,2})月)?(\d{1,2})日?", prompt)
     if month_range:
         month, day, end_month, end_day = [int(value) if value else None for value in month_range.groups()]
         year = int(prior["startDate"][:4]) if prior else timezone.now().astimezone(ZoneInfo("Asia/Shanghai")).year
         finish_month = end_month or month
         finish_year = year + (1 if finish_month < month else 0)
-        return f"{year}-{month:02d}-{day:02d}", f"{finish_year}-{finish_month:02d}-{end_day:02d}"
+        return keep_context_for_prior_period((f"{year}-{month:02d}-{day:02d}", f"{finish_year}-{finish_month:02d}-{end_day:02d}"))
+    single_chinese = re.search(r"(?:(20\d\d)年)?(\d{1,2})月(\d{1,2})日", prompt)
+    if single_chinese:
+        year, month, day = single_chinese.groups()
+        selected_year = int(year or (prior["startDate"][:4] if prior else timezone.now().astimezone(ZoneInfo("Asia/Shanghai")).year))
+        selected = f"{selected_year}-{int(month):02d}-{int(day):02d}"
+        return keep_context_for_prior_period((selected, selected))
     return None
 
 
 def _promotion_request_args(prompt, prior, principal):
-    if not re.search(r"推广|京准通|搜索词|关键词|计划|SKU|归因|报告", prompt, re.I):
+    direct = bool(re.search(r"推广|京准通|投放|广告|归因", prompt, re.I))
+    followup = bool(re.search(r"搜索词|关键词|计划|SKU|词货|报告", prompt, re.I))
+    if not direct and (prior is None and not (PROMOTION_SHOP in prompt and followup)
+                       or prior is not None and (not followup or re.search(r"库存|财务|客服|市场|销售", prompt))):
         return None
-    names = re.findall(r"[\u4e00-\u9fffA-Za-z0-9（）()]{2,50}(?:旗舰店|专卖店)", prompt)
-    if names and not any(PROMOTION_SHOP in name for name in names):
+    names = re.findall(r"[\u4e00-\u9fffA-Za-z0-9（）()]{2,50}?(?:旗舰店|专卖店)", prompt)
+    if any(PROMOTION_SHOP not in name for name in names):
         raise AiError(f"首版 AI 对话推广深度诊断仅支持京东{PROMOTION_SHOP}；其他店铺尚未接入", "invalid_request", 400)
     if principal.role != "admin" or principal.scope is not None:
         if PROMOTION_SHOP in prompt or prior:
@@ -793,7 +851,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             placement = workspace.save_context(conv, workspace_module, normalized_context, replace="pageContext" in body)
             if "pageContext" not in body:
                 normalized_context = json.loads(placement.page_context_json)
-        append(conv.id, "user", prompt, "help" if shortcut == "help" else "message")
+        user_message = append(conv.id, "user", prompt, "help" if shortcut == "help" else "message")
     results = []
     try:
         emit("status", {"stage": "正在准备查询", "conversationId": conv.id})
@@ -846,9 +904,27 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 )
             promotion_mode = False
             if dingtalk_session is None:
-                promotion_args = _promotion_request_args(prompt, _latest_promotion_locator(conv), principal)
+                prior_state = _latest_promotion_state(conv)
+                if prior_state and prior_state["status"] == "unsupported_store" and PROMOTION_SHOP not in prompt \
+                        and re.search(r"推广|京准通|搜索词|关键词|计划|SKU|归因|报告", prompt, re.I):
+                    raise AiError("最近一次切换的店铺尚未接入推广诊断；请明确受支持店铺与日期", "invalid_request", 400)
+                try:
+                    promotion_args = _promotion_request_args(prompt, prior_state["scope"] if prior_state else None, principal)
+                except AiError as error:
+                    if "仅支持" in str(error) and re.search(r"旗舰店|专卖店", prompt):
+                        with mutation(principal):
+                            live(receipt.id)
+                            user_message.execution_json = canonical({"promotionScopeInvalidated": True})
+                            user_message.save(update_fields=["execution_json"])
+                    raise
                 if promotion_args is not None:
                     promotion_mode = True
+                    requested_scope = {key: promotion_args[key] for key in ("shopName", "startDate", "endDate")}
+                    execution["promotionRequestedScope"] = requested_scope
+                    with mutation(principal):
+                        live(receipt.id)
+                        user_message.execution_json = canonical({"promotionRequestedScope": requested_scope, "promotionStatus": "pending"})
+                        user_message.save(update_fields=["execution_json"])
                     if model.max_total_tool_calls < 2:
                         raise AiError("当前模型工具调用额度不足以完成数据水位与推广诊断", "invalid_request", 400)
                     if not any(entry["name"] == PROMOTION_TOOL for entry in tools):
@@ -868,13 +944,16 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                             raise AiError(str(detail.get("message") or "推广诊断系统读取失败")[:240], "service_unavailable", 503)
                         results.append((tool_name, observed))
                         total += 1
+                        execution["toolCalls"] += 1
                         per_tool[tool_name] = per_tool.get(tool_name, 0) + 1
                         emit("tool", {"title": next(entry["title"] for entry in tools if entry["name"] == tool_name), "ok": True})
                         if tool_name == "get_data_freshness":
                             frames[-1]["content"] += "\n<data_freshness>" + canonical(observed).replace("<", "\\u003c") + "</data_freshness>"
-                    promotion_data = results[-1][1].get("data")
+                    promotion_overview_result = results[-1][1]
+                    promotion_data = promotion_overview_result.get("data")
                     if not isinstance(promotion_data, dict) or promotion_data.get("status") not in {"complete", "source_unavailable"}:
                         raise AiError("推广诊断工具结果无效", "service_unavailable", 503)
+                    execution["promotionStatus"] = promotion_data["status"]
                     frames[-1]["content"] += "\n<verified_promotion_diagnostic>" + canonical(promotion_data).replace("<", "\\u003c") + "</verified_promotion_diagnostic>"
                     if promotion_data["status"] != "complete":
                         finish_only = True
@@ -1003,6 +1082,21 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                     live(receipt.id)
                     if promotion_mode and call["name"] != PROMOTION_TOOL:
                         raise AiError("推广诊断对话只允许使用已核验的推广对象工具", "access_denied", 403)
+                    if promotion_mode:
+                        try:
+                            requested = json.loads(call["arguments"]) if isinstance(call["arguments"], str) else call["arguments"]
+                        except (TypeError, ValueError):
+                            requested = None
+                        expected_scope = {key: promotion_args[key] for key in ("shopName", "startDate", "endDate")}
+                        if not isinstance(requested, dict) or any(requested.get(key) != value for key, value in expected_scope.items()):
+                            raise AiError("模型请求的推广店铺或日期与本次已核验范围不一致", "access_denied", 403)
+                        mode = requested.get("mode", "overview")
+                        if mode in (None, "overview"):
+                            outputs.append(promotion_overview_result)
+                            continue  # Reuse the already audited overview without another read.
+                        expected_revision = promotion_data.get("reportLocator", {}).get("sourceRevision")
+                        if mode not in {"table", "relations"} or requested.get("sourceRevision") != expected_revision:
+                            raise AiError("模型请求的推广对象来源修订与本次总览不一致", "access_denied", 403)
                     entry = next((t for t in tools if t["name"] == call["name"]), None)
                     if not entry:
                         with mutation(principal):
