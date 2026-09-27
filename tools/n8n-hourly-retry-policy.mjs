@@ -21,6 +21,7 @@ export const hourlyRetryTargets = [
 ];
 
 const terminalFailurePatterns = [
+  "challenge_present|waiting_login",
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
   "credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]",
   "JACKYUN_PREFLIGHT_RETRY_READY",

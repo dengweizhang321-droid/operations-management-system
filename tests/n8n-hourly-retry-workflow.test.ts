@@ -123,6 +123,37 @@ test("only an exact verified Jackyun preflight closure reaches the hourly retry"
   assert.equal(classifyHourlyRetryFailure({ ...payload, execution: { ...payload.execution, error: { ...payload.execution.error, description: "JACKYUN_PREFLIGHT_RETRY_READY but uncertain" } } }).retry, false);
 });
 
+test("live 4605 login challenge and other waiting-login failures never dispatch a retry", () => {
+  const workflowId = hourlyRetryTargets[0]!.workflowId;
+  const code = buildHourlyRetryErrorWorkflow().nodes.find(node => node.type === "n8n-nodes-base.code")!.parameters.jsCode;
+  const execute = new Function("$input", code);
+  for (const mode of ["trigger", "webhook"]) {
+    for (const description of [
+      "waiting_login：吉客云登录已停止（challenge_present）。",
+      "challenge_present",
+      "waiting_login：吉客云登录已停止（form_ambiguous）。",
+      "waiting_login：吉客云登录已停止（origin_mismatch）。",
+      "waiting_login：吉客云登录已停止（tenant_mismatch）。",
+    ]) {
+      const payload = { workflow: { id: workflowId }, execution: { id: "4605", mode,
+        lastNodeExecuted: "B·接口校验与五表下载",
+        error: { message: "The service was not able to process your request", description, httpCode: "500" } } };
+      assert.equal(classifyHourlyRetryFailure(payload).retry, false, description);
+      assert.deepEqual(execute({ all: () => [{ json: payload }] }), [], description);
+      // An exact closure marker must not override a simultaneous unsafe login error.
+      payload.execution.error = { message: description, description: "JACKYUN_PREFLIGHT_RETRY_READY", httpCode: "500" };
+      assert.equal(classifyHourlyRetryFailure(payload).retry, false, description);
+      assert.deepEqual(execute({ all: () => [{ json: payload }] }), [], description);
+    }
+    for (const description of ["JACKYUN_PREFLIGHT_RETRY_READY", "HTTP 503 service unavailable"]) {
+      const payload = { workflow: { id: workflowId }, execution: { mode,
+        lastNodeExecuted: "B·接口校验与五表下载", error: { description } } };
+      assert.equal(classifyHourlyRetryFailure(payload).retry, true);
+      assert.equal(execute({ all: () => [{ json: payload }] }).length, 1);
+    }
+  }
+});
+
 test("target attachment is deterministic and idempotent", () => {
   const workflow = {
     id: hourlyRetryTargets[0]!.workflowId,
