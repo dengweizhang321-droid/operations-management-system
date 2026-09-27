@@ -126,13 +126,27 @@ def worker(stage, port, privileged_steps, reviewed_policy):
         targets.extend(node for node in executor.loader.graph.leaf_nodes()
             if node[0] == "contenttypes")
         executor.migrate(targets)
+        if os.environ.get("TERUISI_SYNTHETIC_BASELINE_RUNTIME_GRANTS") == "1":
+            # Execute the exact upstream baseline contract against this fresh
+            # synthetic cluster. Existing runtime grants matter during upgrade.
+            import types
+            import psycopg
+            blob = subprocess.check_output(["git", "show", BASELINE +
+                ":backend/ai_assistant/database_contract.py"], cwd=ROOT)
+            old_contract = types.ModuleType("ai_assistant._pinned_baseline_contract")
+            old_contract.__package__ = "ai_assistant"
+            exec(compile(blob, "pinned-baseline-ai-contract.py", "exec"), old_contract.__dict__)
+            with psycopg.connect(host="127.0.0.1", port=port, dbname=DATABASE,
+                    user=ADMIN, password=passwords[ADMIN]) as admin:
+                old_contract.provision(admin, secrets.token_hex(32), secrets.token_hex(32))
         from ai_assistant.models import AiModels
         for model_type in ("text", "vision", "image"):
             AiModels.objects.create(id="integration-probe-" + model_type,
                 name="Synthetic migration fixture", protocol="openai_compatible",
                 model_type=model_type, model_name="synthetic-fixture", status="disabled",
                 max_total_tool_calls=74, version=5)
-        result = {"status": "baseline_created", "state": state()}
+        result = {"status": "baseline_created", "state": state(),
+            "pinnedBaselineRuntimeGrants": os.environ.get("TERUISI_SYNTHETIC_BASELINE_RUNTIME_GRANTS") == "1"}
     elif stage == "files":
         from django.test import Client
         from ai_assistant.test_business_files import BusinessFileTests
@@ -206,6 +220,18 @@ def worker(stage, port, privileged_steps, reviewed_policy):
                 [(item.app_label, item.name, backwards) for item, backwards in pending],
                 os.environ["TERUISI_SYNTHETIC_PROBE_BINDING"])
 
+        journal = None
+        if policy is not None:
+            from integration_migration_journal import Journal
+            run_root = Path(os.environ["TERUISI_SYNTHETIC_PROBE_RUN_ROOT"])
+            if (run_root.resolve().parent != (ROOT / ".runtime").resolve()
+                    or not run_root.name.startswith("ai-pg-") or run_root.is_symlink()):
+                raise RuntimeError("synthetic journal root identity changed")
+            directory = run_root / "migration-journal"
+            directory.mkdir()
+            journal = Journal(directory, os.environ["TERUISI_SYNTHETIC_PROBE_BINDING"][:32])
+            journal.initialize(current_plan())
+
         for migration, reverse in plan:
             if reverse:
                 raise RuntimeError("probe cannot reverse a migration")
@@ -218,6 +244,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
                 if (approved.next_step != ".".join(step) or
                         approved.next_identity != ("privileged" if selected_role == ADMIN else "owner")):
                     raise RuntimeError("requested migration differs from reviewed policy")
+            intent_sha256 = journal.reserve(approved) if journal else None
             try:
                 use_role(selected_role)
                 MigrationExecutor(connection).migrate([tuple(step)])
@@ -241,7 +268,9 @@ def worker(stage, port, privileged_steps, reviewed_policy):
             if set(map(tuple, after["receipts"])) - set(map(tuple, before["receipts"])) != {tuple(step)}:
                 raise RuntimeError("migration applied an unexpected dependency")
             if approved is not None:
-                confirm_single_step(approved, current_plan())
+                verified = current_plan()
+                confirm_single_step(approved, verified)
+                journal.complete(approved, verified, intent_sha256)
             completed.append(step)
         else:
             final = state()
@@ -257,11 +286,15 @@ def worker(stage, port, privileged_steps, reviewed_policy):
                 "modelBudgetAndVersionsVerified": True,
                 "ordinaryRoleStillUnprivileged": True,
                 "reviewedPolicySha256": policy.sha256 if policy else None,
+                "journalSha256": journal.complete_digest(current_plan()) if journal else None,
+                "journalCommittedSteps": len(completed) if journal else 0,
+                "pinnedBaselineRuntimeGrants": os.environ.get("TERUISI_SYNTHETIC_BASELINE_RUNTIME_GRANTS") == "1",
                 "roleMemberships": 0, "productionWrites": False}
     print(json.dumps(result), flush=True)
 
 
-def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_policy, verify_runtime):
+def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_policy, verify_runtime,
+              baseline_runtime_grants=False):
     if (ROOT.resolve() == Path(r"D:\运营管理系统").resolve()
             or not 55440 <= port <= 55999):
         raise RuntimeError("probe requires an isolated worktree and test port")
@@ -334,6 +367,8 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
             cluster = admin.execute("SELECT system_identifier FROM pg_control_system()").fetchone()[0]
             database_oid = admin.execute("SELECT oid FROM pg_database WHERE datname=%s", [DATABASE]).fetchone()[0]
         django_env = {**env, "TERUISI_DJANGO_ENVIRONMENT": "test",
+            "TERUISI_SYNTHETIC_BASELINE_RUNTIME_GRANTS": "1" if baseline_runtime_grants else "0",
+            "TERUISI_SYNTHETIC_PROBE_RUN_ROOT": str(run_root),
             "TERUISI_DJANGO_PROCESS_ROLE": "development",
             "TERUISI_DJANGO_DATABASE_URL":
                 f"postgresql://{OWNER}:{owner_password}@127.0.0.1:{port}/{DATABASE}",
@@ -344,6 +379,7 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
                 "runRoot": str(run_root), "environment": "test"})).hexdigest(),
             "TERUISI_SYNTHETIC_PROBE_ADMIN_PASSWORD": admin_password}
         stages = ["baseline", "probe"] + (["files"] if restore_port else []) + (["runtime"] if verify_runtime else [])
+        migration_result = None
         for stage in stages:
             print(json.dumps({"stage": stage, "port": port,
                 "runRoot": str(run_root), "productionWrites": False}), flush=True)
@@ -357,6 +393,8 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
             if len(payloads) != 1:
                 raise RuntimeError("synthetic worker must return one result object")
             result = json.loads(payloads[0])
+            if stage == "probe":
+                migration_result = result
             result["rehearsalScriptSha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
             result["migrationSourcesSha256"] = hashlib.sha256(canonical({
                 str(path.relative_to(ROOT)).replace("\\", "/"):
@@ -376,7 +414,7 @@ def run_probe(port, preprovision, privileged_steps, restore_port, reviewed_polic
             print(output.strip(), flush=True)
         print(json.dumps({name: value for name, value in result.items()
             if name not in ("completed", "plan")}
-            | {"completedCount": len(result.get("completed", []))}), flush=True)
+            | {"completedCount": len((migration_result or {}).get("completed", []))}), flush=True)
     finally:
         password_file.unlink(missing_ok=True)
         if started:
@@ -393,6 +431,7 @@ def main():
     parser.add_argument("--preprovision-closed-roles", action="store_true")
     parser.add_argument("--use-reviewed-policy", action="store_true")
     parser.add_argument("--verify-runtime", action="store_true")
+    parser.add_argument("--baseline-runtime-grants", action="store_true")
     parser.add_argument("--privileged-ai-step", action="append", default=[],
         choices=[f"{value:04}" for value in range(14, 80)] + ["0082"])
     args = parser.parse_args()
@@ -403,7 +442,7 @@ def main():
         worker(args.worker, args.port, args.privileged_ai_step, args.use_reviewed_policy)
     else:
         run_probe(args.port, args.preprovision_closed_roles, args.privileged_ai_step,
-            args.restore_port, args.use_reviewed_policy, args.verify_runtime)
+            args.restore_port, args.use_reviewed_policy, args.verify_runtime, args.baseline_runtime_grants)
 
 
 if __name__ == "__main__":

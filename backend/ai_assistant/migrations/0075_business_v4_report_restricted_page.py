@@ -12,6 +12,13 @@ def install(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
     with schema_editor.connection.cursor() as cursor:
+        # The pre-integration runtime already exposes allowlisted audit columns
+        # to its admin dataset reader. Keep that feature and leave this new
+        # experimental entry closed; never revoke existing audit reads merely
+        # to satisfy the historical isolated-only prototype profile.
+        cursor.execute("SELECT has_any_column_privilege(%s,'public.ai_tool_audit_logs','SELECT')",
+            [page.READER])
+        reader_closed = cursor.fetchone() == (True,)
         cursor.execute("SELECT to_regprocedure(%s)", [page.PAGE])
         if cursor.fetchone()[0] is not None:
             raise RuntimeError("0075 restricted page function already exists")
@@ -27,10 +34,11 @@ def install(apps, schema_editor):
                 " FROM PUBLIC")
             cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM " +
                 page.WRITER + "," + page.READER)
-        for signature in (page.RO_READ, page.PAGE):
-            cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
-                " TO " + page.READER)
-        verify_catalog(cursor)
+        if not reader_closed:
+            for signature in (page.RO_READ, page.PAGE):
+                cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
+                    " TO " + page.READER)
+        verify_catalog(cursor, reader_closed=reader_closed)
 
 
 def uninstall(apps, schema_editor):
