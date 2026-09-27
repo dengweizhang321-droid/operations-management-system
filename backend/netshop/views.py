@@ -18,6 +18,7 @@ from .asset_uploads import execute_asset_upload_action
 from .consumers import execute_consumer_query, validate_consumer_request
 from .import_service import import_netshop_payload, list_import_batches
 from .models import NetshopPromotionShopDaily, NetshopWriteRequestReceipt
+from .promotion_diagnostic import SHOP_NAME as PROMOTION_DIAGNOSTIC_SHOP, read_promotion_diagnostic
 from .query import (
     MAX_DAYS,
     MAX_PAGE,
@@ -451,6 +452,35 @@ def promotion_overview(request: HttpRequest) -> JsonResponse:
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取网店推广概览失败")
+
+
+@require_GET
+def promotion_diagnostic(request: HttpRequest) -> JsonResponse:
+    try:
+        principal = _principal(request, {"admin"})
+        if request.GET.getlist("platform") != ["京东"]:
+            raise NetshopApiError("推广诊断必须指定唯一京东平台")
+        _platforms(principal, ["京东"])
+        outlets = _outlets(request, ["京东"])
+        if outlets != [{"platform": "京东", "shopName": PROMOTION_DIAGNOSTIC_SHOP}]:
+            raise NetshopApiError("推广诊断必须指定唯一授权店铺的 outlet 复合键")
+        if len(request.GET.getlist("startDate")) != 1 or len(request.GET.getlist("endDate")) != 1:
+            raise NetshopApiError("推广诊断必须指定唯一的起止日期")
+        requested_period = period(request.GET["startDate"], request.GET["endDate"], required=True)
+        assert requested_period is not None
+        if requested_period["days"] > 31:
+            raise NetshopApiError("推广诊断单次最多查询 31 个完整自然日")
+        payload, revision = _consistent_read(
+            lambda: read_promotion_diagnostic(
+                start_date=str(requested_period["startDate"]),
+                end_date=str(requested_period["endDate"]),
+                source_revision=revision_value(),
+            )
+        )
+        payload["sourceRevision"] = revision
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "读取京东推广诊断失败")
 
 
 @require_GET
