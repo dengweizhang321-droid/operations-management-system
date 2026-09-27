@@ -124,14 +124,31 @@ class CapabilityChatTests(TestCase):
             model_type="vision", model_name="fixture-vision", status="enabled",
             max_total_tool_calls=74,
         )
+        non_chat = m.AiModels.objects.create(
+            id="image-at-old-ceiling", name="image",
+            protocol="openai_compatible", model_type="image",
+            model_name="fixture-image", status="enabled",
+            max_total_tool_calls=74,
+        )
+        original_versions = {model.id: model.version
+            for model in (self.model, unchanged, vision, non_chat)}
         migration = importlib.import_module("ai_assistant.migrations.0080_model_tool_budget_300")
         migration.raise_budget(apps, None)
         self.model.refresh_from_db()
         unchanged.refresh_from_db()
         vision.refresh_from_db()
+        non_chat.refresh_from_db()
         self.assertEqual(self.model.max_total_tool_calls, 300)
         self.assertEqual(unchanged.max_total_tool_calls, 62)
         self.assertEqual(vision.max_total_tool_calls, 300)
+        self.assertEqual(non_chat.max_total_tool_calls, 74)
+        for model in (self.model, vision):
+            self.assertEqual(model.version, original_versions[model.id] + 1)
+        for model in (unchanged, non_chat):
+            self.assertEqual(model.version, original_versions[model.id])
+        after = list(m.AiModels.objects.order_by("id").values())
+        migration.raise_budget(apps, None)
+        self.assertEqual(list(m.AiModels.objects.order_by("id").values()), after)
 
     def test_save_high_limits_cas_and_readback_preserve_options_without_touching_old_defaults(self):
         admin = self.user("capability-admin@example.invalid", "admin", None)

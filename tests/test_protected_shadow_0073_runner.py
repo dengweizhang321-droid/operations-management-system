@@ -12,13 +12,27 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "tools/ai-postgres-rehearsal.py"
 SHADOW = ROOT / "tools/protected-ai-shadow-snapshot-0073.py"
 REVIEWED_SHADOW_SHA256 = (
-    "2ade3c82a37f649f0752887f5fcc91dd96fb50414c26116c468f829130874e5a")
+    # Integrated a28d98bf candidate; this pins bytes, not a successful restore.
+    "47fb1766e761c2953a36563a9e1dbf786d44cfa98cd2fbc6d4c3dca3830671ba")
 
 
 class FrozenShadowRunnerTests(unittest.TestCase):
     def test_shadow_script_is_reviewed_versioned_evidence_candidate(self):
         self.assertEqual(hashlib.sha256(SHADOW.read_bytes()).hexdigest(),
             REVIEWED_SHADOW_SHA256)
+
+    def test_current_integration_cannot_masquerade_as_frozen_0073(self):
+        runtime = ROOT / ".runtime"
+        before = set(runtime.glob("ai-pg-*")) if runtime.exists() else set()
+        result = subprocess.run([sys.executable, RUNNER,
+            "--business-protected-shadow-snapshot-0073", "--upgrade-only",
+            "--port", "55973", "--shadow-target-port", "55974"],
+            cwd=ROOT, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(b"Frozen 0073 shadow rejects later AI migration source",
+            result.stderr)
+        after = set(runtime.glob("ai-pg-*")) if runtime.exists() else set()
+        self.assertEqual(after, before)
 
     def test_invalid_modes_refuse_before_run_root_creation(self):
         runtime = ROOT / ".runtime"

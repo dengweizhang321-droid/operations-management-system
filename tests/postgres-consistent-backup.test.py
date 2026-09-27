@@ -1109,7 +1109,8 @@ class ConsistentBackupTests(unittest.TestCase):
         cursor = Cursor(can_read=False)
         result = MODULE._protected_ai_preflight(cursor)
         self.assertIn("backup_identity_cannot_read_private_key_table", result["issues"])
-        self.assertEqual(result["exactProtectedRoleCount"], 15)
+        self.assertIn("teruisi_ai_market_v6_source_login", MODULE.PROTECTED_AI_ROLES)
+        self.assertEqual(result["exactProtectedRoleCount"], 16)
 
     def test_explicit_protected_preflight_uses_read_only_bound_identity(self):
         connection = mock.MagicMock()
