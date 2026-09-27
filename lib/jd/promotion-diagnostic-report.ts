@@ -611,7 +611,9 @@ function promotionDiagnosticRuntimeScript() {
       const tr = N('tr');
       row.forEach((value, index) => {
         const td = N('td', fmt(value, selected.columns[index].kind));
-        if (selected.columns[index].kind !== 'text') td.className = 'num'; tr.append(td);
+        if (selected.columns[index].kind !== 'text') td.className = 'num';
+        if (selected.key === 'chatInterpretation' && selected.columns[index].key === 'content') td.className = 'chat-text';
+        tr.append(td);
       });
       if (selected.key === 'actions') {
         const action = R.actions[selected.rows.indexOf(row)];
@@ -646,15 +648,17 @@ function promotionDiagnosticRuntimeScript() {
 /** Self-contained, offline HTML. Every visible number comes from the same table cells as XLSX. */
 export function promotionDiagnosticHtml(report: PromotionDiagnosticReport) {
   const title = `${report.shopName} · ${report.period.startDate} 至 ${report.period.endDate} 推广深度诊断`;
-  const mode = report.tables.some((table) => table.key === "modelInterpretation")
-    ? "规则诊断与单模型解释 · 来源与口径可核对 · 无自动投放操作"
-    : "规则诊断草稿 · 来源与口径可核对 · 无自动投放操作";
+  const mode = report.tables.some((table) => table.key === "chatInterpretation")
+    ? "规则诊断与 AI 对话原文（文字未逐项核验） · 来源数值以确定性表为准 · 无自动投放操作"
+    : report.tables.some((table) => table.key === "modelInterpretation")
+      ? "规则诊断与单模型解释 · 来源与口径可核对 · 无自动投放操作"
+      : "规则诊断草稿 · 来源与口径可核对 · 无自动投放操作";
   const encoded = JSON.stringify(report).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>${escapeHtml(title)}</title><style>
   :root{font-family:system-ui,"Microsoft YaHei",sans-serif;color:#173129;background:#f4f7f5}body{margin:0}header{background:#12382f;color:white;padding:32px max(20px,5vw)}h1{font-size:clamp(24px,4vw,38px);margin:8px 0}main{max-width:1380px;margin:auto;padding:24px}p{line-height:1.55}.muted{color:#65746e}.warning{background:#fff3d7;border:1px solid #e0ba62;padding:14px;border-radius:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.card,section{background:white;border:1px solid #d8e3dd;border-radius:12px;padding:16px;margin:12px 0}.card b{font-size:23px;display:block}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,input,select{font:inherit;padding:9px;border:1px solid #b7cac0;border-radius:7px;background:white}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #187f5a}nav{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.active{background:#17684e;color:white}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #dce6e0;padding:9px;text-align:left;white-space:nowrap}th{background:#eef4f0;position:sticky;top:0}td.num{text-align:right;font-variant-numeric:tabular-nums}.pager{display:flex;justify-content:space-between;gap:8px;align-items:center}.chart{width:100%;max-height:220px}.badge{display:inline-block;border-radius:100px;background:#e9f5ec;padding:3px 9px;margin-right:6px}@media(max-width:600px){main{padding:12px}header{padding:22px 14px}}
   </style></head><body><header><small>BUSINESS REVIEW · 京东推广</small><h1>${escapeHtml(title)}</h1><p>${escapeHtml(mode)}</p></header><main><div id="status"></div><div id="kpis" class="grid"></div><section><h2>经营判断与复查方向</h2><div id="findings"></div></section><section><h2>逐日推广花费（元）</h2><div id="chart"></div></section><section><h2>明细与行动</h2><nav id="tabs"></nav><p id="note" class="muted"></p><div id="related" class="toolbar"></div><div class="toolbar"><input id="search" placeholder="搜索当前表" aria-label="搜索当前表"><select id="sort" aria-label="排序列"></select><button id="direction">降序</button><button id="csv">导出当前表CSV</button></div><div class="tablewrap"><table><thead id="head"></thead><tbody id="body"></tbody></table></div><div class="pager"><span id="count"></span><span><button id="prev">上一页</button> <button id="next">下一页</button></span></div></section><section><h2>口径与限制</h2><ul id="limits"></ul></section></main><script type="application/json" id="report">${encoded}</script><script>
   ${promotionDiagnosticRuntimeScript()}
-  </script></body></html>`;
+  </script></body></html>`.replace("</style></head>", ".chat-text{white-space:pre-wrap;overflow-wrap:anywhere;max-width:850px;line-height:1.55}</style></head>");
 }
 
 export function promotionDiagnosticXlsx(report: PromotionDiagnosticReport) {

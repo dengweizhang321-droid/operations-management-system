@@ -384,6 +384,82 @@ function AiMessageArtifacts({ artifacts }: { artifacts: AiTableArtifact[] }) {
   </div>;
 }
 
+function AiPromotionReportLinks({ message }: { message: AiConversationMessage }) {
+  const [busy, setBusy] = useState<"html" | "xlsx" | null>(null);
+  const [error, setError] = useState("");
+  const locator = message.execution?.promotionReport;
+  if (message.role !== "assistant" || !locator || locator.shopName !== "志高商用设备旗舰店"
+    || !/^20\d\d-\d\d-\d\d$/.test(locator.startDate)
+    || !/^20\d\d-\d\d-\d\d$/.test(locator.endDate)
+    || !/^\d+:[0-9a-f]{12}$/.test(locator.sourceRevision)) return null;
+  const query = new URLSearchParams({ conversationId: message.conversationId, messageId: message.id });
+  const link = (format: "html" | "xlsx") => `/api/netshop/promotion-diagnostic/chat-report?${query.toString()}&format=${format}`;
+  async function download(format: "html" | "xlsx") {
+    if (!locator || busy) return;
+    setBusy(format); setError("");
+    try {
+      const response = await fetch(link(format), { cache: "no-store" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error || `下载失败（${response.status}），请重新生成诊断。`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${locator.shopName}_${locator.startDate}_${locator.endDate}_推广诊断.${format}`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "下载失败，请刷新并核对来源。");
+    } finally { setBusy(null); }
+  }
+  return <section className="ai-artifact-card" aria-label="本条回复的推广诊断报告">
+    <header><div><strong>京东推广深度诊断报告</strong><small>{locator.shopName} · {locator.startDate} 至 {locator.endDate} · 来源修订 {locator.sourceRevision}</small></div>
+      <span><button type="button" className="secondary-button" disabled={busy !== null} onClick={() => void download("html")}>{busy === "html" ? "正在下载…" : "下载 HTML"}</button>{" "}<button type="button" className="secondary-button" disabled={busy !== null} onClick={() => void download("xlsx")}>{busy === "xlsx" ? "正在下载…" : "下载 XLSX"}</button></span></header>
+    <p className="muted">文件由系统已导入数据生成；下载时重新核对权限与来源修订。来源变更后请重新发起诊断。</p>
+    {error && <p role="alert" className="inventory-feedback inventory-feedback-error">{error}</p>}
+  </section>;
+}
+
+const promotionEvidenceColumns = [
+  ["name", "对象"], ["state", "对照状态"], ["spendCurrent", "本期花费（元）"],
+  ["spendPrevious", "前期花费（元）"], ["clicksCurrent", "本期点击"],
+  ["clicksPrevious", "前期点击"], ["ordersCurrent", "本期归因订单行"],
+  ["ordersPrevious", "前期归因订单行"], ["orderRateCurrent", "本期点击→订单行率（%）"],
+  ["orderRatePrevious", "前期点击→订单行率（%）"], ["roasCurrent", "本期归因 ROAS"],
+  ["planKey", "计划来源键"], ["planId", "计划 ID"], ["skuId", "SKU"],
+  ["keyword", "关键词"], ["searchTerm", "搜索词"], ["groupKey", "来源键"],
+] as const;
+
+function PromotionEvidenceRows({ rows }: { rows: Array<Record<string, string | number | null>> }) {
+  if (!rows.length) return <p className="muted">当前证据页没有匹配行。</p>;
+  const columns = promotionEvidenceColumns.filter(([key]) => rows.some((row) => Object.hasOwn(row, key)));
+  return <div className="ai-artifact-table-wrap"><table><thead><tr>{columns.map(([key, label]) => <th key={key} scope="col">{label}</th>)}</tr></thead>
+    <tbody>{rows.map((row, index) => <tr key={index}>{columns.map(([key]) => <td key={key}>{formatAiArtifactCell(row[key])}</td>)}</tr>)}</tbody></table></div>;
+}
+
+function AiPromotionEvidenceCard({ message }: { message: AiConversationMessage }) {
+  const evidence = message.execution?.promotionEvidence;
+  if (message.role !== "assistant" || !evidence || evidence.shopName !== "志高商用设备旗舰店"
+    || !/^20\d\d-\d\d-\d\d$/.test(evidence.startDate) || !/^20\d\d-\d\d-\d\d$/.test(evidence.endDate)
+    || !/^\d+:[0-9a-f]{12}$/.test(evidence.sourceRevision)) return null;
+  return <section className="ai-artifact-card" aria-label="本条回复的推广对象依据"><details>
+    <summary>查看本条回答的对象依据 · {evidence.startDate} 至 {evidence.endDate} · 来源修订 {evidence.sourceRevision}</summary>
+    {evidence.mode === "table" ? <>
+      <p className="muted">{evidence.title || evidence.tableKey} · 第 {evidence.page ?? 1} 页 · 展示最多 5 行 / 匹配 {evidence.totalRows ?? 0} 行{evidence.hasMore ? "；其余可继续追问分页" : ""}</p>
+      <PromotionEvidenceRows rows={evidence.rows ?? []} />
+    </> : <>
+      <p className="muted">精确对象：{evidence.target?.tableKey} · {evidence.target?.groupKey}。关联仅表示同一来源行的真实关系，各视角不可相加。</p>
+      <PromotionEvidenceRows rows={evidence.targetEvidence ? [evidence.targetEvidence] : []} />
+      {evidence.relationCoverage === "previous_only_not_queried" && <p role="status" className="muted">此对象仅在前期存在；本期关系不适用，前期 SKU/词关系未查询，不能把空列表当作没有关联。</p>}
+      {(evidence.relations ?? []).map((item, index) => <div key={`${item.tableKey}-${index}`}>
+        <p className="muted">{item.label} · 展示最多 2 行 / 匹配 {item.totalRows} 行</p><PromotionEvidenceRows rows={item.rows} />
+      </div>)}
+    </>}
+  </details></section>;
+}
+
 function formatAiArtifactCell(value: AiArtifactCell | undefined) {
   if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "是" : "否";
@@ -1082,7 +1158,7 @@ function AiAssistantView({
       onModel={id => void changeConversationModel(id)} onMore={() => void loadMoreConversations()}
       onExpand={id => void expandMessage(id)} onOlder={() => void loadOlderMessages()} onRefresh={() => { setLiveAnswer(null); void refresh(); }}
       onRemoveContext={() => setPageContext(null)}
-      renderArtifacts={id => <AiMessageArtifacts artifacts={messages.find(item => item.id === id)?.artifacts ?? []} />}
+      renderArtifacts={id => { const message = messages.find(item => item.id === id); return <><AiMessageArtifacts artifacts={message?.artifacts ?? []} />{message && <><AiPromotionEvidenceCard message={message} /><AiPromotionReportLinks message={message} /></>}</>; }}
     />}
     {showManagement && (isAdmin ? <>
       <article className="panel ai-permission-card">

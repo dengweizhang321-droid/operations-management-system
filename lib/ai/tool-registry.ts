@@ -34,6 +34,7 @@ import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/dat
 import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
+import { getJdPromotionDiagnosticForChat } from "@/lib/ai/promotion-diagnostic-tool";
 import { getSalesCategoryAnalysisForAi } from "@/lib/sales/category-ai-tool";
 import {
   describeAiAnalysisDatasets,
@@ -118,6 +119,39 @@ const dingTalkReadOnlyExecution: AiToolExecutionPolicy = {
  * Never derive this registry from API routes, database tables, or arbitrary SQL.
  */
 export const aiToolRegistry = [
+  {
+    name: "get_jd_promotion_diagnostic",
+    title: "京东单店推广深度诊断与对象证据",
+    description: "在现有运营系统已导入京准通数据中，按明确京东店铺及1—7个完整自然日读取本期和前等长周期。首版仅支持志高商用设备旗舰店。overview 返回代码核算的花费、CTR、CPC、归因转化、ROAS、对象发现、人工调整建议、来源修订及报告定位；table 按表名和精确来源键/列值分页，可用表中数值列 sortColumn、sortDirection 查变化最大的计划、商品、关键词或搜索词；relations 按对象来源键追溯计划关联SKU/词、商品关联词。排序排名不等于因果或调整优先级，先看样本和归因成熟度。未收集的B端、净销售、利润、同比不可推断。仅管理员、无限制数据范围的AI对话可用；不访问外部平台、不调整投放、不把全量源行交给模型。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        shopName: { type: "string", maxLength: 100, description: "运营系统内精确店铺名；首版为志高商用设备旗舰店。" },
+        startDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        endDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+        sourceRevision: { type: "string", maxLength: 120, description: "table/relations 必填：overview 返回的 sourceRevision；来源变化时需重新做总览。" },
+        mode: { type: "string", enum: ["overview", "table", "relations"], default: "overview" },
+        tableKey: { type: "string", enum: ["summary", "daily", "plans", "products", "keywords", "searchTerms",
+          "keywordSku", "planSku", "planKeyword", "searchTermSku", "actions", "coverage"] },
+        groupKey: { type: "string", maxLength: 240, description: "table 或 relations 中对象的精确 groupKey；先从 overview 或 table 的来源证据读取。" },
+        filterColumn: { type: "string", maxLength: 40, description: "table 中表列 key，按精确值过滤；可用于关系表的 planKey、skuId、keyword、searchTerm。" },
+        filterValue: { type: "string", maxLength: 240 },
+        page: { type: "integer", minimum: 1, maximum: 100000, default: 1 },
+        pageSize: { type: "integer", minimum: 1, maximum: 20, default: 10 },
+        sortColumn: { type: "string", maxLength: 40, description: "table 模式按返回表中的数值列 key 排序，例如 orderRatePointChange、spendChange、ordersChange；缺值始终排末。" },
+        sortDirection: { type: "string", enum: ["asc", "desc"] },
+      },
+      required: ["shopName", "startDate", "endDate"],
+      additionalProperties: false,
+    } satisfies JsonSchema,
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: ["admin"],
+    scopePolicy: "unscoped_only",
+    execution: { ...synchronousReadOnlyExecution, allowedSurfaces: ["ai_chat", "test"], timeoutMs: 30_000,
+      maxResultCharacters: 40_000, maxCallsPerRequest: 4 },
+    handler: getJdPromotionDiagnosticForChat,
+  },
   {
     name: "run_pandas_analysis",
     title: "容器 pandas 临时分析",
