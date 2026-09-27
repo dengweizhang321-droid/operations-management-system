@@ -19,7 +19,7 @@ SHOP_NAME = "志高商用设备旗舰店"
 SCHEMA_VERSION = "jd-promotion-diagnostic-v1"
 MAX_SOURCE_ROWS = 150_000
 MAX_GROUPS = 30_000
-MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 
 METRICS = {
     "spendCents": ("spend_cents", "spendCents", "花费"),
@@ -106,11 +106,26 @@ def _group_rows(kind: str, groups: dict[tuple, dict[str, object]]) -> list[dict[
             item.update(keyword=parts[0], name=parts[0] or "未提供关键词")
         elif kind == "searchTerms":
             item.update(searchTerm=parts[0], name=parts[0] or "未提供搜索词")
-        else:
+        elif kind == "keywordSku":
             item.update(
                 keyword=parts[0], skuId=parts[1],
                 name=f"{parts[0] or '未提供关键词'} × {parts[1] or '未提供跟单SKU'}",
             )
+        elif kind == "searchTermSku":
+            item.update(
+                searchTerm=parts[0], skuId=parts[1],
+                name=f"{parts[0] or '未提供搜索词'} × {parts[1] or '未提供跟单SKU'}",
+            )
+        else:
+            plan_parts, related_value = parts
+            item.update(
+                planKey=_key(plan_parts), planId=plan_parts[0],
+                name=f"{bucket.get('planName') or '未提供计划名称'} × {related_value or '未提供身份'}",
+            )
+            if kind == "planSku":
+                item["skuId"] = related_value
+            else:
+                item["keyword"] = related_value
         result.append(item)
     result.sort(key=lambda item: (-int(item["metrics"]["spendCents"] or 0), item["key"]))
     return result
@@ -138,10 +153,11 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
     summary = _bucket()
     daily: dict[str, dict[str, object]] = {}
     groups: dict[str, dict[tuple, dict[str, object]]] = {
-        name: {} for name in ("plans", "products", "keywords", "searchTerms", "keywordSku")
+        name: {} for name in ("plans", "products", "keywords", "searchTerms", "keywordSku", "searchTermSku", "planSku", "planKeyword")
     }
     batches: dict[str, set[str]] = {}
     accounts: dict[str, set[str]] = {}
+    account_present: dict[str, int] = {}
     columns = (
         "business_date", "last_import_batch_id", "sku_id", "product_name", "raw_json", "metrics_json",
         *(value[0] for value in METRICS.values()),
@@ -159,6 +175,7 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
         batches.setdefault(business_date, set()).add(row["last_import_batch_id"])
         account = _text(raw, "账户昵称")
         if account:
+            account_present[business_date] = account_present.get(business_date, 0) + 1
             account_values = accounts.setdefault(business_date, set())
             account_values.add(account)
             if len(account_values) > 10:
@@ -169,16 +186,20 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
 
         plan_id = _text(raw, "计划ID")
         plan_name = _text(raw, "推广计划", "计划名称", "计划")
+        plan_key = (plan_id,) if plan_id else (None, plan_name)
         sku_id = row["sku_id"].strip() or None
         product_name = row["product_name"].strip() or _text(raw, "跟单SKU名称")
         keyword = _text(raw, "关键词")
         search_term = _text(raw, "搜索词")
         for kind, key in (
-            ("plans", (plan_id,) if plan_id else (None, plan_name)),
+            ("plans", plan_key),
             ("products", (sku_id,)),
             ("keywords", (keyword,)),
             ("searchTerms", (search_term,)),
             ("keywordSku", (keyword, sku_id)),
+            ("searchTermSku", (search_term, sku_id)),
+            ("planSku", (plan_key, sku_id)),
+            ("planKeyword", (plan_key, keyword)),
         ):
             bucket = _group(groups[kind], key)
             _add(bucket, row, available)
@@ -186,6 +207,8 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
                 bucket["name"] = plan_name
             if kind == "products" and product_name and product_name > (bucket.get("name") or ""):
                 bucket["name"] = product_name
+            if kind in {"planSku", "planKeyword"} and plan_name and plan_name > (bucket.get("planName") or ""):
+                bucket["planName"] = plan_name
 
     shop_rows = {
         item.business_date: item
@@ -231,6 +254,7 @@ def read_promotion_diagnostic(*, start_date: str, end_date: str, source_revision
         "sourceRevision": source_revision,
         "sourceBatches": [
             {"date": value, "batchIds": sorted(batches[value]), "accountNicknames": sorted(accounts.get(value, set())),
+             "accountPresentRows": account_present.get(value, 0),
              "rowCount": daily[value]["rowCount"],
              "aggregateBatchId": shop_rows[value].source_batch_id}
             for value in sorted(daily)

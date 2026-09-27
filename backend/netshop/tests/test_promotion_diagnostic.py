@@ -88,9 +88,16 @@ class PromotionDiagnosticApiTests(TestCase):
         self.assertEqual(len(result["groups"]["plans"]), 2)
         self.assertEqual(next(item for item in result["groups"]["plans"] if item["planId"] == "P1")["rowCount"], 2)
         self.assertEqual(sum(item["rowCount"] for item in result["groups"]["keywordSku"]), 3)
+        self.assertEqual(sum(item["rowCount"] for item in result["groups"]["planSku"]), 3)
+        self.assertEqual(sum(item["rowCount"] for item in result["groups"]["planKeyword"]), 3)
+        self.assertEqual(sum(item["rowCount"] for item in result["groups"]["searchTermSku"]), 3)
+        self.assertTrue(any(item["planKey"] == '["P1"]' and item["skuId"] == "SKU-1"
+                            for item in result["groups"]["planSku"]))
         self.assertTrue(any(item["keyword"] is None for item in result["groups"]["keywords"]))
         self.assertEqual(len(result["sourceBatches"]), 2)
         self.assertEqual(result["sourceBatches"][0]["accountNicknames"], ["来源子账号"])
+        self.assertEqual(result["sourceBatches"][0]["accountPresentRows"], 1)
+        self.assertEqual(result["sourceBatches"][0]["rowCount"], 2)
         self.assertEqual(result["sourceRevision"], "7:aaaaaaaaaaaa")
 
     @patch.dict("os.environ", {"TERUISI_DJANGO_INTERNAL_SECRET": TEST_SECRET})
