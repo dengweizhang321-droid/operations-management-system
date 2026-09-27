@@ -366,6 +366,24 @@ export function buildPromotionDiagnosticReport(current: DiagnosticPeriod, previo
       }
     }
   }
+  if (comparable) for (const tableKey of ["keywords", "searchTerms"] as const) {
+    const label = tableKey === "keywords" ? "关键词" : "搜索词";
+    const observed = groupComparisons[tableKey].filter((pair) => pair.state === "可比" && pair.current && pair.previous
+      && pair.current.metrics.spendCents !== null && pair.current.metrics.clicks !== null && pair.current.metrics.clicks >= 30
+      && pair.previous.metrics.clicks !== null && pair.previous.metrics.clicks >= 30)
+      .sort((left, right) => (right.current!.metrics.spendCents ?? 0) - (left.current!.metrics.spendCents ?? 0)).slice(0, 2);
+    for (const pair of observed) {
+      const now = pair.current!, before = pair.previous!;
+      if (actions.some((item) => item.target?.tableKey === tableKey && item.target.groupKey === now.key)) continue;
+      const evidence = `花费 ${money(now.metrics.spendCents)} 元；点击 ${before.metrics.clicks}→${now.metrics.clicks}，归因订单行 ${before.metrics.reportedOrderLines ?? "缺字段"}→${now.metrics.reportedOrderLines ?? "缺字段"}`;
+      const target = { tableKey, groupKey: now.key };
+      findings.push({ title: `${label}重点观察：${now.name ?? now.key}`, text: `${evidence}。这是有${label}身份的来源子集，两期点击达到观察门槛；订单行样本或归因成熟度仍需复核，不据此直接调预算。`, tableKey, target });
+      actions.push({ priority: "观察：对象复核", object: `${label}：${now.name ?? now.key}`, evidence,
+        change: "核对搜索意图、匹配方式、跟单SKU及归因窗口；保留小步人工试验空间，不据短周期直接停投",
+        metric: "点击/归因订单行/匹配词货", observation: "至少7天并等待归因成熟",
+        rollback: "身份或归因口径变化时撤回观察；试验不优于可比对照时人工回退", tableKey, target });
+    }
+  }
   if (!actions.length) actions.push({ priority: "例行复查", object: current.identity.shopName, evidence: "当前周期来源已对账", change: "复核花费前列对象及归因成熟度，保留现有策略待人工判断", metric: "CTR/点击到订单行率/ROAS", observation: "下一完整周期", rollback: "源版本变化时重新生成报告", tableKey: "plans" });
   const tables: ReportTable[] = [
     { key: "summary", title: "经营总览", note: "同一京准通推广口径；环比只在同店、等天数、两期完整且来源修订一致时展示。", columns: [

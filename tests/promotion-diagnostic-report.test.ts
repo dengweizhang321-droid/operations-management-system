@@ -207,3 +207,13 @@ test("name fallback is unique, while duplicate plan identities and mismatched re
   assert.equal(cell(noComparison, "plans", 0, "state"), "无前期基线");
   assert.equal(cell(noComparison, "plans", 0, "spendPrevious"), null);
 });
+
+test("identifiable keyword and search-term subsets get exact observation targets", () => {
+  const report = buildPromotionDiagnosticReport(period("2026-09-20"), period("2026-09-14"));
+  for (const tableKey of ["keywords", "searchTerms"]) {
+    const observation = report.actions.find((item) => item.tableKey === tableKey && item.priority === "观察：对象复核");
+    assert.ok(observation?.target?.groupKey);
+    assert.equal(observation.target.tableKey, tableKey);
+    assert.match(observation.change, /核对/);
+  }
+});
