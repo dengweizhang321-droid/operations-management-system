@@ -22,4 +22,14 @@ export type AiExecutionInfo = {
   guidance?: { version: number; digest: string; rules: { id: string; name: string; source: string }[] };
   skills?: { version: number; digest: string; skills: { id: string; name: string }[] };
   context?: { estimatedInputTokens?: number; contextWindowTokens?: number; droppedMessages?: number; tokenCountMethod?: string };
+  promotionReport?: { shopName: string; startDate: string; endDate: string; sourceRevision: string };
+  promotionEvidence?: {
+    mode: "table" | "relations"; shopName: string; startDate: string; endDate: string; sourceRevision: string; tableKey?: string; title?: string;
+    totalRows?: number; page?: number; hasMore?: boolean;
+    rows?: Array<Record<string, string | number | null>>;
+    relationCoverage?: "current_source" | "previous_only_not_queried";
+    target?: { tableKey: string; groupKey: string };
+    targetEvidence?: Record<string, string | number | null>;
+    relations?: Array<{ label: string; tableKey: string; totalRows: number; rows: Array<Record<string, string | number | null>> }>;
+  };
 };
