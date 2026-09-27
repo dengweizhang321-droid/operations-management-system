@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve, dirname, relative } from "node:path";
 import ts from "typescript";
+import { n8nMetadataReaderPath, isApprovedN8nMetadataReader, metadataReaderImportRoots } from "./n8n-metadata-read-boundary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 async function files(directory) {
@@ -28,8 +29,14 @@ export async function auditProductionBoundary() {
   const queue = (await Promise.all([files(resolve(root, "app")), files(resolve(root, "worker"))])).flat()
     .filter((path) => /\.[cm]?[jt]sx?$/.test(path));
   queue.push(...operationalEntrypoints.map((entry) => resolve(root, entry)));
+  const entrypoints = [...queue], edges = new Map(), metadataCandidates = [];
   const parents = new Map(queue.map((path) => [path, null]));
   const violations = [];
+  const chainFor = path => {
+    const chain = [];
+    for (let current = path; current; current = parents.get(current)) chain.unshift(relative(root, current).replaceAll("\\", "/"));
+    return chain.join(" -> ");
+  };
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const path = queue[cursor];
     const source = await readFile(path, "utf8");
@@ -55,21 +62,28 @@ export async function auditProductionBoundary() {
       ts.forEachChild(node, visit);
     }
     visit(ast);
-    if (bindingAccess || /\b(?:getD1Database|getMarketDatabase|getFinanceDatabase|getInventoryDatabase|getNetshopDatabase|getErpReferenceDatabase)\s*\(|\b(?:env|environment)\s*(?:\.DB\b|\[\s*["']DB["']\s*\])|\bsqlite_master\b|\b(?:CREATE TABLE|INSERT INTO|DELETE FROM)\b/.test(emitted)
+    const relativePath = relative(root, path).replaceAll("\\", "/");
+    if (relativePath === n8nMetadataReaderPath) metadataCandidates.push({ path, source, relativePath });
+    else if (bindingAccess || /\b(?:getD1Database|getMarketDatabase|getFinanceDatabase|getInventoryDatabase|getNetshopDatabase|getErpReferenceDatabase)\s*\(|\b(?:env|environment)\s*(?:\.DB\b|\[\s*["']DB["']\s*\])|\bsqlite_master\b|\b(?:CREATE TABLE|INSERT INTO|DELETE FROM)\b/.test(emitted)
       || imports.some((specifier) => /^(?:drizzle-orm|@\/db\/|node:sqlite$|better-sqlite3$)/.test(specifier))) {
-      const chain = [];
-      for (let current = path; current; current = parents.get(current)) chain.unshift(relative(root, current).replaceAll("\\", "/"));
-      violations.push(chain.join(" -> "));
+      violations.push(chainFor(path));
     }
     for (const specifier of imports) {
       const imported = await localModule(path, specifier);
+      if (imported) edges.set(path, [...(edges.get(path) ?? []), imported]);
       if (imported && /\.[cm]?[jt]sx?$/.test(imported) && !parents.has(imported)) {
         parents.set(imported, path);
         queue.push(imported);
       }
     }
   }
-  return { checkedModules: queue.length, operationalEntrypoints, violations };
+  const approvedMetadataReaders = [];
+  for (const candidate of metadataCandidates) {
+    const roots = metadataReaderImportRoots(entrypoints, edges, candidate.path).map(path => relative(root, path).replaceAll("\\", "/"));
+    if (!isApprovedN8nMetadataReader(candidate.relativePath, candidate.source, roots)) violations.push(chainFor(candidate.path));
+    else approvedMetadataReaders.push({ path: candidate.relativePath, roots });
+  }
+  return { checkedModules: queue.length, operationalEntrypoints, violations, approvedMetadataReaders };
 }
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
   const result = await auditProductionBoundary();

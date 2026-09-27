@@ -4,6 +4,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { jackyunCaptureDate, jackyunExportFirstPolicyVersion } from "./run-contract";
 import { jackyunSalesPeriod } from "./sales-period";
+import { classifyJackyunPreflightFailure } from "./preflight-failure";
 
 export const jackyunWorkflowId = "J8kY2mQ5vR7sT4pN";
 const failedNode = "1·分仓库存：筛选并导出所有页";
@@ -142,7 +143,7 @@ export type PreflightClosure = {
   version: 1; status: "closed_before_business" | "closed_before_export"; executionId: string; runId: string; closedAt: string;
   root: string; downloadDirectory: string; policySha256: string; planSha256: string; activeSha256: string;
   evidence: PreflightEvidence; absentPaths: string[];
-  reason: "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4299_dpapi_before_api_exports" | "audited_4726_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports";
+  reason: "verified_api_preflight_without_business_effects" | "verified_login_failure_without_business_effects" | "verified_api_login_challenge_without_business_effects" | "verified_api_browser_occupied_without_business_effects" | "verified_api_page_selection_without_business_effects" | "verified_query_failure_before_export_intent" | "audited_843_menu_lookup_before_export_click" | "audited_897_controls_before_query_and_export" | "audited_2621_dpapi_before_api_exports" | "audited_3134_dpapi_before_api_exports" | "audited_4163_dpapi_before_api_exports" | "audited_4299_dpapi_before_api_exports" | "audited_4726_dpapi_before_api_exports" | "audited_4098_page_selection_before_api_exports";
   controllerEvidence?: { path: string; sha256: string };
   historicalCodeEvidence?: { releaseId: string; controllerSourceSha256: string };
 };
@@ -157,7 +158,8 @@ type AutomatedCredentialClosure = {
   policySha256: string; absentPaths: string[];
 };
 
-async function inspectAutomatedCredentialClosure(root: string, executionId: string, closedAt: string): Promise<AutomatedCredentialClosure> {
+type PreflightZeroEffectProof = Omit<AutomatedCredentialClosure, "version" | "reason">;
+async function inspectPreflightZeroEffects(root: string, executionId: string, closedAt: string): Promise<PreflightZeroEffectProof> {
   preflightClosurePath(root, executionId);
   const directory = path.join(root, "outputs", "jackyun-export-first");
   const planRaw = await readRegular(path.join(directory, `n8n-export-first-${executionId}.json`));
@@ -178,11 +180,11 @@ async function inspectAutomatedCredentialClosure(root: string, executionId: stri
     || !path.isAbsolute(policy.browser.downloadDirectory) || plan.baseUrl !== "http://localhost:3000"
     || plan.runDate !== jackyunCaptureDate(plan.createdAt) || plan.asOfDate !== date.toISOString().slice(0, 10)
     || !Number.isFinite(Date.parse(closedAt)) || Date.parse(closedAt) < Date.parse(plan.createdAt)) {
-    throw new Error("DPAPI 自动闭合前的原运行身份或零业务状态不成立。");
+    throw new Error("登录准备自动闭合前的原运行身份或零业务状态不成立。");
   }
   const absentPaths = effectPaths(root, policy.browser.downloadDirectory, plan.runId);
   await assertAbsentEffects(absentPaths);
-  return { version: 2, status: "closed_before_business", reason: "verified_transient_dpapi_preflight_without_business_effects",
+  return { status: "closed_before_business",
     executionId, runId: plan.runId, closedAt, planSha256: recoverySha(planRaw), activeSha256: recoverySha(activeRaw),
     policySha256: recoverySha(policyRaw), absentPaths };
 }
@@ -195,6 +197,22 @@ export async function publishAutomatedCredentialClosure(root: string, executionI
   await assertEntityPath(path.dirname(target));
   await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
   return { status: receipt.status, receiptSha256: recoverySha(await readRegular(target)) };
+}
+
+async function inspectAutomatedCredentialClosure(root: string, executionId: string, closedAt: string): Promise<AutomatedCredentialClosure> {
+  const { status, ...proof } = await inspectPreflightZeroEffects(root, executionId, closedAt);
+  return { version: 2, status, reason: "verified_transient_dpapi_preflight_without_business_effects", ...proof };
+}
+
+/** A session/page failure before any login submission or export callback. */
+export async function publishAutomatedPageClosure(root: string, executionId: string, closedAt: string, error: string) {
+  if (classifyJackyunPreflightFailure(error) !== "automatic") throw new Error("页面失败不允许自动重试。");
+  const proof = await inspectPreflightZeroEffects(root, executionId, closedAt);
+  const receipt = { version: 4, reason: "verified_transient_page_preflight_without_business_effects", error, proof };
+  const target = preflightClosurePath(root, executionId);
+  await mkdir(path.dirname(target), { recursive: true }); await assertEntityPath(path.dirname(target));
+  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  return { status: proof.status, receiptSha256: recoverySha(await readRegular(target)) };
 }
 async function assertEntityPath(target: string, allowMissing = false) {
   const absolute = path.resolve(target);
@@ -340,12 +358,15 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     && (evidence.error === apiLoginChallengeFailure || evidence.error === apiBrowserOccupiedFailure);
   const apiPageSelectionOnly = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
     && isApiPageSelectionFailure(evidence.error);
+  const genericPreflight = (plan as EmptyPlan & { exportTransport?: string }).exportTransport === "session_api_v1"
+    && classifyJackyunPreflightFailure(evidence.error) !== null;
   if (apiLoginAudit) {
     if (recoverySha(planRaw) !== apiLoginAudit.planSha256 || !isDeepStrictEqual(evidence, apiLoginAudit.evidence)) throw new Error(`${executionId} 原失败运行身份或证据已变化。`);
   } else if (controlsOnly) {
     if (recoverySha(planRaw) !== audited897.planSha256 || !isDeepStrictEqual(evidence, audited897.evidence)) throw new Error("897 原失败运行身份或证据已变化。");
   } else if (apiChallengeOnly) assertEmptyApiChallengePlan(plan, executionId, evidence);
   else if (apiPageSelectionOnly) assertEmptyApiChallengePlan(plan, executionId, evidence, isApiPageSelectionFailure);
+  else if (genericPreflight) assertEmptyApiChallengePlan(plan, executionId, evidence, message => classifyJackyunPreflightFailure(message) !== null);
   else { assertEmptyPlan(plan, executionId); assertEvidence(evidence, plan); }
   if (!isDeepStrictEqual(active, { runId: plan.runId, executionId }) || policy.version !== plan.protocol
     || !path.isAbsolute(policy.browser.downloadDirectory) || !Number.isFinite(Date.parse(closedAt))
@@ -378,6 +399,9 @@ export async function inspectPreflightClosure(root: string, executionId: string,
     activeSha256: recoverySha(activeRaw), evidence, absentPaths,
     reason: apiPageSelectionOnly ? "verified_api_page_selection_without_business_effects"
       : evidence.error === apiLoginChallengeFailure ? "verified_api_login_challenge_without_business_effects" : "verified_api_browser_occupied_without_business_effects" };
+  if (genericPreflight) return { version: 1, status: "closed_before_business", executionId, runId: plan.runId, closedAt, root,
+    downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
+    activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "verified_api_preflight_without_business_effects" };
   if (legacyMenuOnly) return { version: 1, status: "closed_before_export", executionId, runId: plan.runId, closedAt, root,
     downloadDirectory: policy.browser.downloadDirectory, policySha256: recoverySha(policyRaw), planSha256: recoverySha(planRaw),
     activeSha256: recoverySha(activeRaw), evidence, absentPaths, reason: "audited_843_menu_lookup_before_export_click", controllerEvidence,
@@ -400,8 +424,55 @@ export async function publishPreflightClosure(root: string, approved: PreflightC
   await writeFile(target, `${canonical(approved)}\n`, { encoding: "utf8", flag: "wx" });
   return { status: approved.status, runId: approved.runId, closureSha256: recoverySha(await readRegular(target)) };
 }
-export async function assertClosedPreflight(root: string, executionId: string) {
+type ReplacementClosure = {
+  version: 3; reason: "verified_preflight_for_fresh_execution";
+  replacementExecutionId: string; replacementMode: "manual" | "trigger" | "webhook";
+  credentialReadinessVerified: boolean; proof: PreflightClosure;
+};
+
+/** The run-lock owner has verified the failed and replacement n8n executions. */
+export async function publishReplacementPreflightClosure(root: string, proof: PreflightClosure,
+  replacement: { executionId: string; mode: ReplacementClosure["replacementMode"] }, credentialReadinessVerified: boolean) {
+  const policy = classifyJackyunPreflightFailure(proof.evidence.error);
+  if (!policy || (policy === "manual" && replacement.mode !== "manual") || (policy === "credential_ready" && !credentialReadinessVerified)
+    || !["manual", "trigger", "webhook"].includes(replacement.mode) || typeof credentialReadinessVerified !== "boolean"
+    || !/^[1-9]\d{0,19}$/.test(replacement.executionId) || BigInt(replacement.executionId) <= BigInt(proof.executionId)) throw new Error("旧任务未满足安全恢复条件。");
+  const actual = await inspectPreflightClosure(root, proof.executionId, proof.evidence, proof.closedAt);
+  if (!isDeepStrictEqual(actual, proof)) throw new Error("旧任务恢复证据已变化。");
+  const receipt: ReplacementClosure = { version: 3, reason: "verified_preflight_for_fresh_execution",
+    replacementExecutionId: replacement.executionId, replacementMode: replacement.mode, credentialReadinessVerified, proof };
+  const target = preflightClosurePath(root, proof.executionId);
+  await mkdir(path.dirname(target), { recursive: true }); await assertEntityPath(path.dirname(target));
+  await writeFile(target, `${canonical(receipt)}\n`, { encoding: "utf8", flag: "wx" });
+  await assertClosedPreflight(root, proof.executionId, replacement.executionId);
+  return { status: "closed_before_business", receiptSha256: recoverySha(await readRegular(target)) };
+}
+
+export async function assertClosedPreflight(root: string, executionId: string, replacementExecutionId?: string) {
   const raw = await readRegular(preflightClosurePath(root, executionId));
+  const pageFailure = parse<{ version: number; reason: string; error: string; proof: PreflightZeroEffectProof }>(raw);
+  if (pageFailure.version === 4) {
+    if (pageFailure.reason !== "verified_transient_page_preflight_without_business_effects"
+      || classifyJackyunPreflightFailure(pageFailure.error) !== "automatic" || pageFailure.proof?.executionId !== executionId
+      || !isDeepStrictEqual(Object.keys(pageFailure).sort(), ["version", "reason", "error", "proof"].sort())
+      || !isDeepStrictEqual(pageFailure.proof, await inspectPreflightZeroEffects(root, executionId, pageFailure.proof.closedAt))) throw new Error("页面失败闭合证据已变化。");
+    return;
+  }
+  const replacement = parse<ReplacementClosure>(raw);
+  if (replacement.version === 3) {
+    const policy = classifyJackyunPreflightFailure(replacement.proof?.evidence?.error ?? "");
+    if (replacement.reason !== "verified_preflight_for_fresh_execution" || !policy || !replacementExecutionId
+      || replacement.replacementExecutionId !== replacementExecutionId || replacement.proof.executionId !== executionId
+      || !/^[1-9]\d{0,19}$/.test(replacementExecutionId) || BigInt(replacementExecutionId) <= BigInt(executionId)
+      || typeof replacement.credentialReadinessVerified !== "boolean"
+      || !["manual", "trigger", "webhook"].includes(replacement.replacementMode)
+      || (policy === "manual" && replacement.replacementMode !== "manual")
+      || (policy === "credential_ready" && replacement.credentialReadinessVerified !== true)) throw new Error("旧任务闭合只允许绑定的新完整执行消费。");
+    const actual = await inspectPreflightClosure(root, executionId, replacement.proof.evidence, replacement.proof.closedAt);
+    if (!isDeepStrictEqual(actual, replacement.proof)
+      || !isDeepStrictEqual(Object.keys(replacement).sort(), ["version", "reason", "replacementExecutionId", "replacementMode", "credentialReadinessVerified", "proof"].sort())) throw new Error("旧任务闭合证据已变化。");
+    return;
+  }
   const receipt = parse<PreflightClosure>(raw);
   if ((receipt as { reason?: string }).reason === "verified_transient_dpapi_preflight_without_business_effects") {
     const automated = receipt as unknown as AutomatedCredentialClosure;
@@ -414,6 +485,7 @@ export async function assertClosedPreflight(root: string, executionId: string) {
   const apiChallengeClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_login_challenge_without_business_effects";
   const apiBrowserOccupiedClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_browser_occupied_without_business_effects";
   const apiPageSelectionClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_page_selection_without_business_effects";
+  const apiPreflightClosed = receipt.status === "closed_before_business" && receipt.reason === "verified_api_preflight_without_business_effects";
   const queryClosed = receipt.status === "closed_before_export" && receipt.reason === "verified_query_failure_before_export_intent";
   const menuClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_843_menu_lookup_before_export_click";
   const controlsClosed = receipt.status === "closed_before_export" && receipt.reason === "audited_897_controls_before_query_and_export";
@@ -421,7 +493,7 @@ export async function assertClosedPreflight(root: string, executionId: string) {
     && (receipt.reason === "audited_2621_dpapi_before_api_exports" || receipt.reason === "audited_3134_dpapi_before_api_exports"
       || receipt.reason === "audited_4163_dpapi_before_api_exports" || receipt.reason === "audited_4299_dpapi_before_api_exports" || receipt.reason === "audited_4726_dpapi_before_api_exports"
       || receipt.reason === "audited_4098_page_selection_before_api_exports");
-  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !apiPageSelectionClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
+  if (receipt.version !== 1 || receipt.executionId !== executionId || (!loginClosed && !apiChallengeClosed && !apiBrowserOccupiedClosed && !apiPageSelectionClosed && !apiPreflightClosed && !queryClosed && !menuClosed && !controlsClosed && !apiLoginClosed)) {
     throw new Error("原运行未持有有效的导出前失败闭合证据。");
   }
   const actual = await inspectPreflightClosure(root, executionId, receipt.evidence, receipt.closedAt);

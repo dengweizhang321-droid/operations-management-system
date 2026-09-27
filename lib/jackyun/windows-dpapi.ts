@@ -102,8 +102,11 @@ export async function invokeJackyunVault(
   });
 }
 
+class VerifiedCredentialLookupFailure extends Error {}
+
 export function isRetryableJackyunCredentialPreparationFailure(error: unknown) {
   if (!(error instanceof Error)) return false;
+  if (error instanceof VerifiedCredentialLookupFailure) return true;
   return /^waiting_login：吉客云 DPAPI 凭据配置或解密未完成（(?:binding(?:[ /）]|_(?:input|identity|local_path|vault_lookup)[ /）]))/.test(error.message);
 }
 
@@ -119,6 +122,19 @@ export async function readJackyunRuntimeCredential(config: JackyunLoginConfig, d
   for (let attempt = 0; attempt < 3; attempt++) {
     try { stdout = await invoke("read", config); break; }
     catch (error) {
+      // A missing-file report alone is terminal. Only a fresh successful status
+      // probe for the same binding can prove a transient lookup inconsistency.
+      if (error instanceof Error && /^waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing(?:[ /）])/.test(error.message)) {
+        let ready = false;
+        try {
+          const status = JSON.parse(await invoke("status", config)) as JackyunCredentialStatus;
+          ready = status.ok === true && status.ready === true && status.status === "ready";
+        } catch { /* Keep the original redacted failure; never expose probe output. */ }
+        if (!ready) throw error;
+        if (attempt === 2) throw new VerifiedCredentialLookupFailure(error.message);
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
       if (attempt === 2 || !isRetryableJackyunCredentialPreparationFailure(error)) throw error;
       await sleep(500 * (attempt + 1));
     }

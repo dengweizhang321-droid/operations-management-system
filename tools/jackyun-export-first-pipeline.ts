@@ -11,7 +11,8 @@ import { assertJackyunHandoffEvidence, assertJackyunSnapshotEvidence, jackyunCap
 import { jackyunModuleOrder, prepareJackyunWorkbook, type JackyunModule } from "../lib/jackyun/post-download";
 import { verifyJackyunModuleArtifact, type JackyunArtifactManifestModule } from "../lib/jackyun/run-artifact-verification";
 import { withJackyunRunLock } from "../lib/jackyun/run-lock";
-import { assertClosedPreflight, preflightClosurePath, publishAutomatedCredentialClosure } from "../lib/jackyun/preflight-recovery";
+import { assertClosedPreflight, preflightClosurePath, publishAutomatedCredentialClosure, publishAutomatedPageClosure } from "../lib/jackyun/preflight-recovery";
+import { classifyJackyunPreflightFailure } from "../lib/jackyun/preflight-failure";
 import { isRetryableJackyunCredentialPreparationFailure } from "../lib/jackyun/windows-dpapi";
 import { claimJackyunResumePermit } from "../lib/jackyun/execution-resume";
 import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recovery";
@@ -63,6 +64,7 @@ export type ExportFirstDependencies = {
   runBrowser?: typeof runController;
   runApi?: typeof runApiExports;
   runDownload?: typeof runJackyunDownload;
+  recoverPreviousPreflight?: (previousId: string, replacementId: string, at: string) => Promise<void>;
 };
 const sha = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 const nowOf = (deps: ExportFirstDependencies) => (deps.now?.() ?? new Date()).toISOString();
@@ -273,6 +275,15 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     ...(deps.lockDirectory ? { lockDirectory: deps.lockDirectory } : {}) }, async () => {
     const policy = await readJsonFile<Policy>(path.join(root, "config", "jackyun-export-first-policy.json"));
     if (policy.version !== jackyunExportFirstPolicyVersion) throw new Error("导出策略版本不一致。");
+    let newPlanReady = false;
+    const ensureNewPlanReady = async () => {
+      if (newPlanReady) return;
+      const ready = await (deps.profileReady?.() ?? getJackyunProfileStatus(policy.browser.controller.profileDirectory, root).then(value => value === "ready"));
+      if (!ready) throw new Error("吉客云专用浏览器未完成首次登录配置。");
+      const response = await (deps.request ?? fetch)(`${normalizeJackyunLocalBaseUrl("http://localhost:3000")}/api/sales/data-health`, { signal: AbortSignal.timeout(30000) });
+      if (!response.ok) throw new Error("运营系统身份或只读数据健康检查未通过。");
+      newPlanReady = true;
+    };
     let resumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
     let apiResumeTaskBinding: import("../lib/jackyun/export-task").JackyunExportTaskBinding | undefined;
     let webConfirmationRecovery: Awaited<ReturnType<typeof claimWebConfirmationRecovery>> | undefined;
@@ -293,7 +304,11 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           executionId = active.executionId; runId = active.runId;
         }
       } else if (previous.phase !== "completed") {
-        const closed = await assertClosedPreflight(root, active.executionId).then(() => true, () => false);
+        if (action === "plan-api" && previous.exportTransport === jackyunApiTransport && deps.recoverPreviousPreflight) {
+          await ensureNewPlanReady();
+          await deps.recoverPreviousPreflight(active.executionId, executionId, nowOf(deps));
+        }
+        const closed = await assertClosedPreflight(root, active.executionId, executionId).then(() => true, () => false);
         if (!closed) {
           try {
             if (previous.exportTransport === jackyunWebSessionTransport) {
@@ -319,11 +334,8 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
     let plan = await readJsonFileOr<JackyunExportFirstPlan | null>(planPath, null);
     if (!plan) {
       if (!["plan", "plan-web-session", "plan-direct-http", "plan-api"].includes(action)) throw new Error("缺少本 execution 的计划，禁止单节点执行。");
-      const ready = await (deps.profileReady?.() ?? getJackyunProfileStatus(policy.browser.controller.profileDirectory, root).then(value => value === "ready"));
-      if (!ready) throw new Error("吉客云专用浏览器未完成首次登录配置。");
+      await ensureNewPlanReady();
       const baseUrl = normalizeJackyunLocalBaseUrl("http://localhost:3000");
-      const response = await (deps.request ?? fetch)(`${baseUrl}/api/sales/data-health`, { signal: AbortSignal.timeout(30000) });
-      if (!response.ok) throw new Error("运营系统身份或只读数据健康检查未通过。");
       const createdAt = nowOf(deps);
       const runDate = jackyunCaptureDate(createdAt);
       const yesterday = new Date(`${runDate}T00:00:00Z`);
@@ -391,10 +403,14 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
         },
         });
       } catch (error) {
-        if (plan.exportTransport !== jackyunApiTransport || !isRetryableJackyunCredentialPreparationFailure(error)) throw error;
+        const pageFailure = error instanceof Error && classifyJackyunPreflightFailure(error.message) === "automatic";
+        if (plan.exportTransport !== jackyunApiTransport || (!isRetryableJackyunCredentialPreparationFailure(error) && !pageFailure)) throw error;
         // The browser/session has already unwound. While still holding the
         // global run lock, prove that B created no export or import effects.
-        try { await publishAutomatedCredentialClosure(root, executionId, nowOf(deps)); }
+        try {
+          if (pageFailure) await publishAutomatedPageClosure(root, executionId, nowOf(deps), (error as Error).message);
+          else await publishAutomatedCredentialClosure(root, executionId, nowOf(deps));
+        }
         catch { throw error; }
         throw new Error("JACKYUN_PREFLIGHT_RETRY_READY");
       }

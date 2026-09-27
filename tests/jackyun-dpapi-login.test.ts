@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { chromium } from "playwright-core";
 import { assertJackyunBrowserIdentity, inspectJackyunLoginSurface, isJackyunLoginOrigin, submitJackyunDpapiLogin, waitForJackyunDpapiSession, resolveJackyunChromiumExecutable, jackyunBrowserIdentityProgram, type JackyunLoginSurface } from "../lib/jackyun/dpapi-login";
-import { assertJackyunLoginConfig, invokeJackyunVault, readJackyunRuntimeCredential, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
+import { assertJackyunLoginConfig, invokeJackyunVault, readJackyunRuntimeCredential, isRetryableJackyunCredentialPreparationFailure, windowsPowerShellEnvironment, type JackyunLoginConfig } from "../lib/jackyun/windows-dpapi";
 import { jackyunDpapiProgram } from "../lib/jackyun/dpapi-program";
 
 const config: JackyunLoginConfig = { version: 1, loginMode: "windows_dpapi_credentials", tenantId: "771168",
@@ -107,7 +107,41 @@ test("credential preparation retries only before browser use and stops after a b
     invoke: (async () => { calls++; throw new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。"); }) as typeof invokeJackyunVault,
     sleep: async () => {},
   }), /（missing）/);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2); // One read and one failed status probe; no second read.
+});
+
+test("missing lookup retries only after fresh same-binding readiness and remains bounded", async () => {
+  const missing = new Error("waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing / lookup=provider:0,file:1,directory:1）。");
+  const actions: string[] = [], delays: number[] = [];
+  const ready = JSON.stringify({ ok: true, ready: true, status: "ready" });
+  let reads = 0;
+  const credential = { username: "fixture", password: "fixture-only" };
+  const invoke = (async (action: string, bound: typeof config) => {
+    assert.equal(bound, config); actions.push(action);
+    if (action === "status") return ready;
+    if (++reads === 1) throw missing;
+    return JSON.stringify(credential);
+  }) as typeof invokeJackyunVault;
+  assert.deepEqual(await readJackyunRuntimeCredential(config, { invoke, sleep: async ms => { delays.push(ms); } }), credential);
+  assert.deepEqual(actions, ["read", "status", "read"]); assert.deepEqual(delays, [500]);
+  for (const status of [JSON.stringify({ ok: true, ready: false, status: "missing" }), "malformed", "throws"]) {
+    const calls: string[] = [];
+    await assert.rejects(readJackyunRuntimeCredential(config, { invoke: (async (action: string) => {
+      calls.push(action); if (action === "read") throw missing;
+      if (status === "throws") throw new Error("synthetic-secret"); return status;
+    }) as typeof invokeJackyunVault, sleep: async () => assert.fail("must not wait for a terminal failure") }), e => e === missing);
+    assert.deepEqual(calls, ["read", "status"]);
+  }
+  const exhausted: string[] = [], waits: number[] = [];
+  await assert.rejects(readJackyunRuntimeCredential(config, { invoke: (async (action: string) => {
+    exhausted.push(action); if (action === "status") return ready; throw missing;
+  }) as typeof invokeJackyunVault, sleep: async ms => { waits.push(ms); } }), e => {
+    assert(e instanceof Error); assert.equal(e.message, missing.message);
+    assert.equal(isRetryableJackyunCredentialPreparationFailure(e), true); return true;
+  });
+  assert.deepEqual(exhausted, ["read", "status", "read", "status", "read", "status"]);
+  assert.deepEqual(waits, [500, 1000]);
+  assert.equal(isRetryableJackyunCredentialPreparationFailure(missing), false);
 });
 
 test("browser process must match the Windows owner, executable, profile and exact unique port flags", () => {

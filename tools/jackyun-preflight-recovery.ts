@@ -1,3 +1,4 @@
+import { decodeN8nPreflightEvidence } from "../lib/jackyun/n8n-preflight-decode";
 import { DatabaseSync } from "node:sqlite";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
@@ -16,25 +17,8 @@ export function readN8nPreflightEvidence(databasePath: string, executionId: stri
     if (!row || row.deletedAt !== null) throw new Error("缺少原 n8n execution。");
     const data = db.prepare("SELECT data FROM execution_data WHERE executionId=? AND length(data)<=1048576").get(executionId)?.data;
     if (typeof data !== "string") throw new Error("n8n 运行证据缺失或超限。");
-    // n8n stores flatted references. Resolve only the allowlisted diagnostic
-    // fields; never expand/log credentials, resume tokens or arbitrary outputs.
-    const values = JSON.parse(data) as unknown[];
-    if (!Array.isArray(values) || values.length > 10000) throw new Error("n8n 证据格式不支持。");
-    const deref = (value: unknown): unknown => typeof value === "string" && /^\d+$/.test(value) ? values[Number(value)] : value;
-    const object = (value: unknown): Record<string, unknown> => {
-      const resolved = deref(value);
-      if (!resolved || typeof resolved !== "object" || Array.isArray(resolved)) throw new Error("n8n 诊断对象格式不支持。");
-      return resolved as Record<string, unknown>;
-    };
-    const root = values[0] as Record<string, unknown>;
-    const result = object(root.resultData), error = object(result.error), node = object(error.node), parameters = object(node.parameters);
-    const utc = (value: unknown) => { if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/.test(value)) throw new Error("n8n 时间证据不明确。"); return value.replace(" ", "T") + "Z"; };
     const active = db.prepare("SELECT COUNT(*) AS count FROM execution_entity WHERE workflowId=? AND status NOT IN ('error','success','canceled','crashed')").get(jackyunWorkflowId);
-    return { executionId: String(row.id), workflowId: String(row.workflowId), status: String(row.status),
-      startedAt: utc(row.startedAt), stoppedAt: utc(row.stoppedAt), retrySuccessId: row.retrySuccessId === null ? null : String(row.retrySuccessId),
-      lastNode: String(deref(result.lastNodeExecuted)), runNodes: Object.keys(object(result.runData)),
-      error: String(deref(error.description)), httpCode: String(deref(error.httpCode)), requestUrl: String(deref(parameters.url)),
-      executionDataSha256: recoverySha(data), activeExecutions: Number(active?.count) };
+    return decodeN8nPreflightEvidence(row, data, Number(active?.count));
   } finally { db.close(); }
 }
 async function main() {

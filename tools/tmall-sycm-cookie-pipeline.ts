@@ -10,6 +10,7 @@ import { isolatedHelperProtocol, isolatedHelperTokenHeader, isolatedRequestIdent
 
 import { closeChromeBrowser, connectChromeBrowser } from "../lib/jackyun/cdp-client";
 import { jackyunExportFirstActions, jackyunExportFirstPrefix, runJackyunExportFirstAction } from "./jackyun-export-first-pipeline";
+import { recoverPreviousJackyunPreflight } from "../lib/jackyun/automatic-preflight-recovery";
 import { writeJsonAtomic } from "../lib/jackyun/json-file";
 import { inspectTmallImportBytes } from "../lib/netshop/normalized-import";
 import {
@@ -1486,7 +1487,8 @@ async function serveCommand(argv: string[]) {
     try {
       if (isJackyunExportFirst) {
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
-        const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot });
+        const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot,
+          recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at) });
         stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
         reply(200, result);
         if (stage === "completed") scheduleOneShotServerClose(server, 500);
