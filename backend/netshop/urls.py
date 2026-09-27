@@ -12,6 +12,7 @@ read_patterns = [
     path("product-performance", views.product_performance, name="netshop-product-performance"),
     path("promotion-performance", views.promotion_performance, name="netshop-promotion-performance"),
     path("promotion-performance/overview", views.promotion_overview, name="netshop-promotion-overview"),
+    path("promotion-diagnostic", views.promotion_diagnostic, name="netshop-promotion-diagnostic"),
     path("promotion-performance/items", views.promotion_items, name="netshop-promotion-items"),
     path("product-images/<str:content_hash>/metadata", views.product_image, name="netshop-product-image"),
     path("consumers/query", require_POST(views.consumers), name="netshop-consumers"),

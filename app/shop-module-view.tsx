@@ -1,6 +1,7 @@
 "use client";
 
 import { useAiPageDetails } from "./ai-page-context-provider";
+import PromotionDiagnosticPanel from "./promotion-diagnostic-panel";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
@@ -1553,6 +1554,7 @@ function ShopPromotionView({
   const pagination = currentItems?.pagination ?? { page, pageSize, total: 0, returned: 0, truncated: false };
   const items = currentItems?.items ?? [];
   const maxTrend = Math.max(1, ...(currentOverview?.daily ?? []).map((item) => Math.max(item.spendCents, item.netTransactionAmountCents)));
+  const promotionDiagnosticDays = Math.round((Date.parse(`${period.endDate}T00:00:00Z`) - Date.parse(`${period.startDate}T00:00:00Z`)) / 86_400_000) + 1;
   const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
   return <>
     {platformSubnav}
@@ -1561,6 +1563,9 @@ function ShopPromotionView({
       <div><span className="eyebrow">{pageConfig.eyebrow}</span><h2>{pageConfig.title}</h2><p>{pageConfig.description}</p></div>
       <div className="jd-sku-hero-actions"><span><Dot tone="green" />{selectedShopLabel} · 数据截止 {dataCutoffDate ?? "载入中"}</span><button type="button" className="secondary-button" onClick={refreshPromotion} disabled={itemsLoading || overviewLoading}>{itemsLoading || overviewLoading ? "刷新中…" : "↻ 刷新"}</button>{promotionPage === "tmall" && <button type="button" className="primary-button" onClick={onOpenTmallImport}>＋ 导入推广报表</button>}</div>
     </section>
+    {promotionPage === "jd" && (selectedPromotionShops.length === 1 && selectedPromotionShops[0].shopName === "志高商用设备旗舰店" && hasCompleteScopedPair && promotionDiagnosticDays >= 1 && promotionDiagnosticDays <= 7
+      ? <PromotionDiagnosticPanel key={`${selectedPromotionShops[0].shopName}:${period.startDate}:${period.endDate}`} shopName={selectedPromotionShops[0].shopName} startDate={period.startDate} endDate={period.endDate} />
+      : <section className="panel"><h2>推广深度诊断</h2><p>首版支持京东志高商用设备旗舰店的单店 1—7 个完整自然日；选择该店与周期后，可核对来源并生成 HTML 和 XLSX。</p></section>)}
     {overviewLoading && !currentOverview && <section className="panel promotion-overview-state" role="status"><span className="state-spinner" /><div><strong>商品排行已就绪，正在加载推广概览</strong><p>花费、成交、覆盖和日趋势将在这里补充显示。</p></div></section>}
     {overviewError && !currentOverview && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>推广概览加载失败</strong><p>{overviewError}；商品排行仍可继续搜索和翻页。</p></div><button className="row-action" onClick={() => setOverviewRetryKey((value) => value + 1)}>重试概览</button></section>}
     {currentOverview && <>
