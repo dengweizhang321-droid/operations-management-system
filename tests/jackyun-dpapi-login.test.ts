@@ -259,6 +259,17 @@ test("Windows DPAPI roundtrip rejects copied bindings, corrupted ciphertext and 
     const detachedRead = detachedVault("read", root);
     assert.equal(detachedRead.status, 0);
     assert.deepEqual(JSON.parse(detachedRead.stdout), fakeCredential);
+    // Simulate a provider false-negative against an existing synthetic vault.
+    // The independent .NET observation is diagnostic and must never allow a read.
+    const forcedMissing = runWithoutConsole(jackyunDpapiProgram.replace(
+      "if (-not (Test-Path -LiteralPath $vaultFile)) {", "if ($true) {"),
+    JSON.stringify({ action: "read", vaultRoot: root, tenantId: config.tenantId, profileDirectory: config.profileDirectory }));
+    assert.equal(forcedMissing.status, 1);
+    assert.equal(JSON.parse(forcedMissing.stdout).stage, "missing");
+    assert.deepEqual(JSON.parse(forcedMissing.stdout).lookup, { provider: false, file: true, directory: true });
+    assert.doesNotMatch(forcedMissing.stdout + forcedMissing.stderr, /模拟账号|模拟密码|ciphertext|vaultRoot|profileDirectory/);
+    const absentRoot = path.join(root, "absent-vault");
+    await assert.rejects(invokeJackyunVault("read", config, absentRoot), /missing.*lookup=provider:0,file:0,directory:0/);
     const file = path.join(root, `${key}.json`);
     const bytes = await readFile(file, "utf8");
     assert.doesNotMatch(bytes, /模拟账号|模拟密码/);

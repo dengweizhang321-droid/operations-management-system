@@ -79,12 +79,16 @@ export async function invokeJackyunVault(
       else {
         let stage = "transport";
         let errorId = "";
+        let lookup = "";
         try {
-          const diagnostic = JSON.parse(result) as { stage?: string; errorId?: string };
+          const diagnostic = JSON.parse(result) as { stage?: string; errorId?: string; lookup?: Record<string, unknown> };
           if (["initialize", "binding", "binding_input", "binding_fields", "binding_paths", "binding_identity", "binding_local_path", "binding_vault_lookup", "path_integrity", "missing", "setup_acl", "setup_form", "setup_encrypt", "setup_verify", "read"].includes(diagnostic.stage ?? "")) stage = diagnostic.stage!;
           if (/^[A-Za-z][A-Za-z0-9.,_-]{0,159}$/.test(diagnostic.errorId ?? "")) errorId = diagnostic.errorId!;
+          if (stage === "missing" && diagnostic.lookup && ["provider", "file", "directory"].every(key => typeof diagnostic.lookup![key] === "boolean")) {
+            lookup = ` / lookup=${["provider", "file", "directory"].map(key => `${key}:${Number(diagnostic.lookup![key])}`).join(",")}`;
+          }
         } catch { /* secret-bearing output and raw errors are never propagated */ }
-        reject(new Error(`waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}）。`));
+        reject(new Error(`waiting_login：吉客云 DPAPI 凭据配置或解密未完成（${stage}${errorId ? ` / ${errorId}` : ""}${lookup}）。`));
       }
     };
     child.stdout.setEncoding("utf8");

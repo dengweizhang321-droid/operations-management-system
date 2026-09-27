@@ -14,8 +14,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $stage = 'initialize'
 $pipeWriter = $null
+$lookupDiagnostic = $null
 trap {
-  $diagnostic = @{ok=$false;status='failed';stage=$script:stage;exceptionType=$_.Exception.GetType().FullName;errorId=$_.FullyQualifiedErrorId} | ConvertTo-Json -Compress
+  $failure = @{ok=$false;status='failed';stage=$script:stage;exceptionType=$_.Exception.GetType().FullName;errorId=$_.FullyQualifiedErrorId}
+  if ($script:stage -eq 'missing' -and $null -ne $script:lookupDiagnostic) { $failure.lookup = $script:lookupDiagnostic }
+  $diagnostic = $failure | ConvertTo-Json -Compress
   if ($null -ne $script:pipeWriter) { $script:pipeWriter.WriteLine($diagnostic) } else { $diagnostic }
   exit 1
 }
@@ -194,6 +197,9 @@ $stage = 'binding_vault_lookup'
 if (-not (Test-Path -LiteralPath $vaultFile)) {
   if ($request.action -eq 'status') { $pipeWriter.WriteLine((@{ok=$true;ready=$false;status='missing'} | ConvertTo-Json -Compress)); exit 0 }
   $stage = 'missing'
+  # Diagnostic only: neither alternate lookup may authorize reading a file
+  # that the original provider check rejected. Never emit paths or bindings.
+  $lookupDiagnostic = @{provider=$false;file=[IO.File]::Exists($vaultFile);directory=[IO.Directory]::Exists($vaultRoot)}
   throw 'Credential missing'
 }
 $stage = 'read'

@@ -123,6 +123,35 @@ async function fixture4299() {
   return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-25T17:00:00Z") } };
 }
 
+const proof4726: PreflightEvidence = {
+  "executionId": "4726",
+  "workflowId": "J8kY2mQ5vR7sT4pN",
+  "status": "error",
+  "startedAt": "2026-09-27T01:49:15.180Z",
+  "stoppedAt": "2026-09-27T01:49:21.611Z",
+  "retrySuccessId": null,
+  "lastNode": "B·接口校验与五表下载",
+  "runNodes": [
+    "手动运行",
+    "领取共享 helper",
+    "helper 领取成功？",
+    "A·固定采集日和销售日期",
+    "B·接口校验与五表下载"
+  ],
+  "error": "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing）。",
+  "httpCode": "500",
+  "requestUrl": "http://127.0.0.1:5791/jackyun/export-first/export-all",
+  "executionDataSha256": "0cf4719a609968a537fe23fa276f449ec32ec46a55d44cee4aafed5c6fbf4100",
+  "activeExecutions": 0
+};
+async function fixture4726() {
+  const f = await fixture(), runId = "n8n-export-first-4726";
+  const planPath = path.join(f.pipeline, `${runId}.json`);
+  await writeFile(planPath, await readFile(new URL("./fixtures/jackyun-4726-plan.json", import.meta.url)));
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId: "4726" }));
+  return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-27T03:00:00Z") } };
+}
+
 const proof2879: PreflightEvidence = {
   executionId: "2879", workflowId: jackyunWorkflowId, status: "error",
   startedAt: "2026-09-17T16:10:00.237Z", stoppedAt: "2026-09-17T16:10:07.842Z", retrySuccessId: null,
@@ -650,4 +679,49 @@ test("preflight automation stops when any business artifact appears or a closure
   await assert.rejects(runJackyunExportFirstAction("export-all", "8800", failed), /JACKYUN_PREFLIGHT_RETRY_READY/);
   await mkdir(path.join(f.root, "outputs", "jackyun-browser-events", "n8n-export-first-8800"), { recursive: true });
   await assert.rejects(runJackyunExportFirstAction("plan-api", "8801", deps), /尚未闭合/);
+});
+
+test("4726 historical DPAPI failure requires exact evidence and zero effects before a new full plan", async () => {
+  const f = await fixture4726();
+  await assert.rejects(runJackyunExportFirstAction("plan-api", "4727", f.deps), /尚未闭合/);
+  const before = await readFile(f.planPath), active = await readFile(f.activePath);
+  const proposal = await inspectPreflightClosure(f.root, "4726", proof4726, "2026-09-27T02:30:00Z");
+  assert.equal(proposal.reason, "audited_4726_dpapi_before_api_exports");
+  await publishPreflightClosure(f.root, proposal, proof4726, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, "4726");
+  assert.deepEqual(await readFile(f.planPath), before);
+  assert.deepEqual(await readFile(f.activePath), active);
+  await runJackyunExportFirstAction("plan-api", "4727", f.deps);
+  assert.equal(JSON.parse(await readFile(f.activePath, "utf8")).executionId, "4727");
+  const changed = await fixture4726();
+  await mkdir(path.join(changed.root, "outputs", "jackyun-browser-events", changed.runId), { recursive: true });
+  await assert.rejects(inspectPreflightClosure(changed.root, "4726", proof4726, "2026-09-27T02:30:00Z"));
+  await assert.rejects(inspectPreflightClosure(changed.root, "4726", { ...proof4726, executionDataSha256: "f".repeat(64) }, "2026-09-27T02:30:00Z"));
+});
+
+test("4726 rejects changed evidence, any business artifact and late writes after closure", async () => {
+  for (const change of ["plan", "active", "live", "hash", "retry", "other-id", "later-node", "error", "time", "imports", "events", "validation", "download", "late-imports"]) {
+    const f = await fixture4726(), evidence = { ...proof4726 };
+    const imports = path.join(f.root, "outputs/jackyun-import-runs", f.runId);
+    if (change === "late-imports") {
+      const proposal = await inspectPreflightClosure(f.root, "4726", evidence, "2026-09-27T02:30:00Z");
+      await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+      await mkdir(imports, { recursive: true });
+      await assert.rejects(runJackyunExportFirstAction("plan-api", "4727", f.deps), /尚未闭合/);
+      continue;
+    }
+    if (change === "plan") await writeFile(f.planPath, (await readFile(f.planPath, "utf8")) + " ");
+    if (change === "active") await writeFile(f.activePath, JSON.stringify({ runId: "n8n-export-first-4727", executionId: "4727" }));
+    if (change === "live") evidence.activeExecutions = 1;
+    if (change === "hash") evidence.executionDataSha256 = "f".repeat(64);
+    if (change === "retry") evidence.retrySuccessId = "4727";
+    if (change === "other-id") evidence.executionId = "4727";
+    if (change === "later-node") evidence.runNodes = [...evidence.runNodes, "D·统一导入运营管理系统"];
+    if (change === "error") evidence.error = "提交结果未决";
+    if (change === "time") evidence.stoppedAt = "2026-09-18T16:10:13.384Z";
+    const paths = { imports, events: path.join(f.root, "outputs/jackyun-browser-events", f.runId),
+      validation: path.join(f.root, "outputs/jackyun-export-first-validation", f.runId), download: path.join(f.download, "jackyun", f.runId) };
+    if (change in paths) await mkdir(paths[change as keyof typeof paths], { recursive: true });
+    await assert.rejects(inspectPreflightClosure(f.root, "4726", evidence, "2026-09-27T02:30:00Z"));
+  }
 });
