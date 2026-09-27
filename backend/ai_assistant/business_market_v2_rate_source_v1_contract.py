@@ -96,7 +96,7 @@ def model_transport(raw_model):
         and type(model["maxToolRounds"]) is int
         and 1 <= model["maxToolRounds"] <= 62
         and type(model["maxTotalToolCalls"]) is int
-        and 1 <= model["maxTotalToolCalls"] <= 74
+        and 1 <= model["maxTotalToolCalls"] <= 300
         and type(model["timeoutMs"]) is int
         and 3000 <= model["timeoutMs"] <= 600000
         and model["reasoningMode"] in {"auto", "disabled"}

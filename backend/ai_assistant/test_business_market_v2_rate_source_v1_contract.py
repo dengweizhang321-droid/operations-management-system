@@ -125,7 +125,7 @@ class MarketV2RateSourceContractTests(TestCase):
         for field, value in (("timeoutMs", 2999),
                 ("timeoutMs", 600001), ("reasoningMode", "unbounded"),
                 ("temperatureMilli", 2001), ("maxTokens", 127),
-                ("maxToolRounds", 63), ("maxTotalToolCalls", 75)):
+                ("maxToolRounds", 63), ("maxTotalToolCalls", 301)):
             changed = deepcopy(original)
             changed[field] = value
             with self.subTest(field=field, value=value), self.assertRaises(

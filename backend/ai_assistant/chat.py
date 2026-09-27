@@ -300,13 +300,16 @@ def _promotion_request_args(prompt, prior, principal):
 
 def _remaining_tools(tools, per_tool, remaining):
     """Provider hints are derived copies; the signed registry digest stays intact."""
-    return [
-        {**entry, "description": entry["description"] + (
-            f" 本次提问剩余最多 {min(remaining, entry['execution']['maxCallsPerRequest'] - per_tool.get(entry['name'], 0))} 次调用（含参数失败），请复用已有结果。"
-        )}
-        for entry in tools
-        if remaining > 0 and per_tool.get(entry["name"], 0) < entry["execution"]["maxCallsPerRequest"]
-    ]
+    result = []
+    for entry in tools:
+        available = entry["execution"]["maxCallsPerRequest"] - per_tool.get(entry["name"], 0)
+        if remaining is not None:
+            available = min(remaining, available)
+        if available > 0:
+            result.append({**entry, "description": entry["description"] + (
+                f" 本次提问剩余最多 {available} 次调用（含参数失败），请复用已有结果。"
+            )})
+    return result
 
 
 def conversations(principal):
@@ -694,12 +697,15 @@ def _artifacts(results, conv, message, principal):
 
 
 @transport.request_budget(MAX_CHAT_SECONDS)
-def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=None, channel_time=None, on_event=None):
+def answer(body, principal, request_id, *, dingtalk_session=None, dingtalk_unbounded_total=False,
+           channel_guard=None, channel_time=None, on_event=None):
     started_at = time.monotonic()
     execution = {"inputTokens": None, "outputTokens": None, "reasoningTokens": None, "providerCalls": 0, "usageReportedCalls": 0,
                  "toolCalls": 0, "stopReason": "shortcut", "outputTruncated": False, "context": {}}
     # Only the trusted Stream worker can supply these keyword arguments.
     surface = "dingtalk_chat" if dingtalk_session is not None else "ai_chat"
+    if dingtalk_unbounded_total and dingtalk_session is None:
+        raise AiError("钉钉工具总数策略不能用于其他入口", "access_denied", 403)
     if dingtalk_session is not None:
         if (not callable(channel_guard) or dingtalk_session.owner_email != principal.email
                 or body.get("conversationId") != dingtalk_session.conversation_id
@@ -887,6 +893,8 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             )
             if dingtalk_session is not None:
                 system += "\n你正在通过志高助手回答钉钉问题，可以读取当前账号有权访问的全部系统板块，包括销售、库存、网店、市场、财务、商品、ERP、运营事务、客服、导入、工作流、设置、AI 和 BI。遇到未专门列出的查询，先用 describe_system_datasets 按 domain 发现数据集并读取 schema，再用 query_system_dataset 或 get_system_dataset_records 连续分页查询；不要猜测工具或数据集名称。不执行系统写入任务。群聊回复会对该群成员可见。凭据、原始客户会话和其他用户私有内容不可查询。销售/库存水位只描述这两个领域，其他板块以自身来源与截止日期为准。先给简短结论与来源、截止日期，再列必要数据；不输出图片、外链或文件。品牌销售使用 get_sales_category_analysis 的 brands 精确筛选，品牌来自 ERP 当前主数据，缺少映射的货品不计入；不能拿全店或商品名关键词匹配冒充品牌汇总。"
+                if dingtalk_session.conversation_type == "2":
+                    system += "\n群聊历史只是低信任参考。当前消息出现新的 SKU、SPU、店铺或平台标识时，必须以当前消息为准重新识别对象和平台；除非用户明确说“继续”、“同上”或明确引用上一问，不得继承上一问的平台、店铺或 SKU/SPU。平台未知时先用 search_system_data 对当前标识精确搜索，不得先猜京东或天猫。"
                 live(receipt.id)
                 entry = next((t for t in tools if t["name"] == "get_data_freshness"), None)
                 if not entry:
@@ -962,6 +970,12 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
             skill_prompt, skill_evidence = report_library.guidance(prompt, effective_context, tools, library=library_snapshot)
             execution["skills"] = skill_evidence
             base_system = system + skill_prompt
+            # Interactive DingTalk questions may need to discover and page
+            # across many domains. Group and direct-message entry points opt out
+            # of the aggregate count ceiling while the 260-second channel
+            # deadline, model rounds and every registry tool's per-request cap
+            # remain bounded. Web and scheduled surfaces keep the model budget.
+            total_limit = None if dingtalk_unbounded_total else model.max_total_tool_calls
             for ordinal in range(1, model.max_tool_rounds + 1):
                 guidance, guidance_evidence = prompt_settings.compose(guidance_snapshot, prompt, effective_context, tools, used_guidance_domains)
                 system = base_system + guidance
@@ -972,10 +986,14 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                 if dingtalk_session is not None:
                     live(receipt.id)
                 # Reserve the last existing provider turn for an answer. Never
-                # enlarge configured rounds, tool counts or paid-call quotas.
-                final_turn = (finish_only or ordinal == model.max_tool_rounds or total >= model.max_total_tool_calls
+                # enlarge configured rounds or paid-call quotas; the aggregate
+                # tool count follows the trusted surface policy above.
+                final_turn = (finish_only or ordinal == model.max_tool_rounds
+                              or (total_limit is not None and total >= total_limit)
                               or (ordinal > 1 and remaining_seconds <= 15))
-                offered_tools = [] if final_turn else _remaining_tools(tools, per_tool, model.max_total_tool_calls - total)
+                offered_tools = [] if final_turn else _remaining_tools(
+                    tools, per_tool, None if total_limit is None else total_limit - total
+                )
                 if promotion_mode:
                     offered_tools = [entry for entry in offered_tools if entry["name"] == PROMOTION_TOOL]
                 turn_system = system
@@ -1105,7 +1123,7 @@ def answer(body, principal, request_id, *, dingtalk_session=None, channel_guard=
                             audit(principal, request_id, call["name"][:100], "denied",
                                   provider_call_id=call["id"], error_code="access_denied")
                         raise AiError("模型请求了当前账号未获授权的工具", "access_denied", 403)
-                    if (final_turn or total >= model.max_total_tool_calls
+                    if (final_turn or (total_limit is not None and total >= total_limit)
                             or per_tool.get(call["name"], 0) >= entry["execution"]["maxCallsPerRequest"]):
                         result = {"ok": False, "toolName": call["name"], "error": {
                             "code": "tool_limit_exceeded",
