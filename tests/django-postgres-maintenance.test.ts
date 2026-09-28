@@ -21,7 +21,7 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
-test("prepared maintenance helpers cannot create or prune production backups", () => {
+test("prepared maintenance helpers cannot create or prune production backups", { skip: !existsSync(powershell) }, () => {
   const code = [
     "$ErrorActionPreference='Stop'",
     "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1'",
