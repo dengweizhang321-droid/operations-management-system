@@ -15,6 +15,18 @@ RUNTIME = Path(r"D:\teruisi-runtime\django-sales")
 ARCHIVE = Path(r"E:\运营管理系统业务数据")
 
 
+def operator_environment(source=None):
+    source = os.environ if source is None else source
+    removed = {"PSMODULEPATH", "PSMODULEANALYSISCACHEPATH", "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY",
+               "TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY"}
+    environment = {key: value for key, value in source.items() if key.upper() not in removed}
+    system_root = next(value for key, value in source.items() if key.upper() == "SYSTEMROOT")
+    # Windows PowerShell 5 cannot import PowerShell 7's Security module. The
+    # installed operator only needs the inbox Windows modules, never user modules.
+    environment["PSModulePath"] = str(Path(system_root) / "System32/WindowsPowerShell/v1.0/Modules")
+    return environment
+
+
 def production_store():
     expected = RUNTIME / "app" / "backend" / "system_backups" / "runner.py"
     if os.name != "nt" or Path(__file__).absolute() != expected:
@@ -60,7 +72,8 @@ def invoke_operator(store, job_id, action, directory=None, sha=None, *, rehearsa
     log = checked(store.root / f"operator-{job_id}-{uuid.uuid4().hex}.log", missing=True)
     with log.open("xb") as output:
         process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=output, stderr=output,
-                                   creationflags=subprocess.CREATE_NO_WINDOW, close_fds=True)
+                                   creationflags=subprocess.CREATE_NO_WINDOW, close_fds=True,
+                                   env=operator_environment())
         try:
             result = process.wait(timeout=7200)
         except subprocess.TimeoutExpired:
