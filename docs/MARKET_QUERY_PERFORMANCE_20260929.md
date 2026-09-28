@@ -44,7 +44,7 @@
 
 ## 验证与结果
 
-当前状态：瓶颈已在合成 PostgreSQL 执行计划复现；源码已完成最小修改；未正式采用；完整性能验收尚未完成。
+当前状态：瓶颈已在合成 PostgreSQL 执行计划复现；源码已完成最小修改；本轮约定的 21 组隔离性能对照已完成，筛选改进目标通过；未正式采用，不能据此宣称生产 SLA 达标。PostgreSQL 功能回归结果见下方最终验收记录。
 
 2026-09-29 00:46 轻量正确性回归：`market.tests.test_filter_count_performance`、`test_filter_cache`、`test_ranking_pagination`、`test_query`、`test_api` 共 40 项，SQLite 内存测试 37 通过、3 项 PostgreSQL 专用跳过。新增测试覆盖六字段独立精确计数、空值/重复/中文/计数同值排序、部分扫描失败、真实事实新增/删除与 revision 失效；7 秒预算的 SET LOCAL 恢复测试须在 PostgreSQL 续验。原用例保留价格、投影后排序、分页、跨范围、权限、失败缓存与并发复用覆盖。`git diff --check` 通过。
 
@@ -52,7 +52,63 @@
 
 [中断诊断原始样本](evidence/market-query-performance-20260929/interrupted-diagnostic.json) 明确标为 `complete=false`、`not_accepted_interrupted_for_parallel_work`。筛选三组诊断 P95 分别为冷读 182→67 ms、热读 2.76→2.73 ms、仅 revision 失效 147→52 ms；部分日期组亦已读取且前后摘要一致，但全范围、空范围及翻页组尚未完成。**这些数字不是最终前后验收结果。**用户已选择等其他重任务结束后再测，本项测试集群已停止，保留证据，不清理其他任务资源。
 
-续验入口：在本 worktree 将基线 `e00d4a82:backend/market/query.py` 原字节保存到 `.runtime/query-reference.py`，执行 `python tools/market-query-performance.py --reference .runtime/query-reference.py`。最终脚本还需补全实际事实变更后的读取、全部范围和第二页采样；之后串行执行真实 PostgreSQL 回归与最小角色探针。更大数据规模/并发压力、全库 Node 测试与构建按统一收尾安排错峰，不把 SQLite 通过等同 PostgreSQL 或组合版本通过。
+复现入口：在本 worktree 将基线 `e00d4a82:backend/market/query.py` 原字节保存到 `.runtime/query-reference.py`，执行 `python tools/market-query-performance.py --reference .runtime/query-reference.py --samples 50`。更大数据规模/并发压力、全库 Node 测试与构建按统一收尾安排错峰，不把领域读取性能等同真实 Worker/HTTP 或组合版本通过。
+
+## 最终隔离性能对照（本轮续验）
+
+用户明确允许开始后重新确认四个并行优化聊天均 idle；启动前本机 CPU 约 14%，可用内存约 4 GiB。为增加尾部样本，将原计划的每组每版本 20 次提高为 50 次，其他方法保持不变。采样期间不运行回归测试；全部完成后再串行执行 PostgreSQL 回归。
+
+- PostgreSQL 17.11、42,000 条合成数据、60 天、并发 1，21 个条件 × 2 个版本 × 50 次 = **2,100 次计时读取**，另有 1,400 次不计时预热。全部计时读取成功，前后完整 JSON 摘要逐组一致；筛选失效后的摘要与变更前不同，证明已返回实际变更结果。
+- P50/P95 使用 nearest-rank；50 个样本的 P95 是排序后的第 48 个值。仅描述本轮有限样本，不作为生产尾延迟保证。
+- 采样约 663.6 秒；各组整机平均 CPU 为 16.03%–38.65%，起止记录点可用内存最低约 3.26 GiB。两次组间短时 CPU 升高触发容量等待；没有放宽门槛、删去慢样本或延长 SQL 超时。
+- 候选 query.py SHA-256：`da2907289b3786c4fd318227f38c74c58ae2d5ddbc1d03328081a169a992956a`；基线仍为上方正式安装核对的 `639649…12dce8`。没有增加业务源码修改。
+- 筛选冷读 P95 **136.342→48.050 ms（下降 64.8%）**；真实事实变更并递增 revision 后首次读取 **174.157→59.902 ms（下降 65.6%）**，均超过修改前设定的 30% 改进目标。热读 **2.373→1.992 ms**。
+- 榜单与翻页的中位数接近，P95 有双向波动，例如单日热读 66.571→85.286 ms、全范围冷读 392.451→440.664 ms，而第二页失效后 484.402→411.327 ms。保留这些差异，**不将榜单标为稳定提速，也不承诺其 P95 无回退**。本轮仅筛选计数源码发生变化，客户端独立榜单不调用该计数。
+
+下表单位均为 ms，数值按“基线 → 候选”列出；“冷”只指应用缓存冷，“变更后”指实际合成事实更新及 revision 递增后的首次读取。
+
+| 查询范围 | 状态 | P50 | P95 |
+| --- | --- | --- | --- |
+| 筛选 | 冷 | 119.06 → 40.94 | 136.34 → 48.05 |
+| 筛选 | 热 | 1.65 → 1.54 | 2.37 → 1.99 |
+| 筛选 | 变更后 | 122.55 → 41.68 | 174.16 → 59.90 |
+| 单日 | 冷 | 51.82 → 52.54 | 63.39 → 61.15 |
+| 单日 | 热 | 51.37 → 51.96 | 66.57 → 85.29 |
+| 单日 | 变更后 | 53.93 → 54.68 | 70.68 → 66.65 |
+| 7 天 | 冷 | 99.65 → 100.64 | 122.47 → 129.31 |
+| 7 天 | 热 | 95.07 → 94.75 | 112.61 → 109.67 |
+| 7 天 | 变更后 | 99.55 → 97.55 | 110.03 → 109.19 |
+| 30 天 | 冷 | 179.98 → 182.01 | 251.23 → 278.67 |
+| 30 天 | 热 | 177.76 → 177.94 | 205.24 → 195.77 |
+| 30 天 | 变更后 | 176.61 → 176.39 | 200.33 → 219.74 |
+| 全范围 | 冷 | 345.63 → 349.81 | 392.45 → 440.66 |
+| 全范围 | 热 | 340.39 → 338.49 | 367.48 → 404.01 |
+| 全范围 | 变更后 | 352.99 → 355.65 | 413.50 → 411.70 |
+| 空范围 | 冷 | 39.58 → 39.65 | 48.00 → 44.20 |
+| 空范围 | 热 | 40.12 → 39.46 | 46.94 → 42.55 |
+| 空范围 | 变更后 | 40.13 → 40.06 | 53.24 → 57.82 |
+| 第二页 | 冷 | 351.72 → 350.78 | 381.82 → 378.42 |
+| 第二页 | 热 | 346.07 → 345.04 | 469.36 → 378.26 |
+| 第二页 | 变更后 | 356.77 → 356.56 | 484.40 → 411.33 |
+
+全部原始样本、P50/P95、负载和摘要见 [最终性能报告](evidence/market-query-performance-20260929/acceptance-report.json)，全部 EXPLAIN ANALYZE/BUFFERS 见 [最终计划](evidence/market-query-performance-20260929/acceptance-plans.json)。初始中断诊断继续保留，但不混入最终统计。
+
+本轮结论边界：通过既定合成分布下的筛选优化与结果等价性验收。计时覆盖 Django 领域读取和 revision fence，未覆盖真实网络销售 consumer、Worker、浏览器，也不是物理冷盘或生产真实规模/并发验收；原统计、排序、分页、价格、权限、缓存版本与查询边界继续保留。
+
+## 最终 PostgreSQL 功能与权限验收
+
+完整 `market` 测试 **140 项全部通过，0 失败、0 跳过**，测试正文约 90.492 秒。覆盖 250,002 条事实的完整统计、数据库分页与 oversized report 拒绝；100,001 条相关价格状态的原 6 秒单 SQL 门槛；价格区间、合法图片摘要、同排名投影后排序、历史排名、空范围、超界页、中文与转义输入；缓存失败退避、并发复用、事务绕过、实际变更失效及 SET LOCAL 成功/失败恢复。测试过程没有放宽查询上限。
+
+复用正式 provision 的 reader/writer 权限合同，分别建立真实测试连接：两角色的独立筛选及榜单分页读取通过。reader 的 5 项、writer 的 4 项负向权限探针全部拒绝，包括建表、改 authority、跨域销售写入、截断以及 reader 业务写入；writer 的原标注领取、完成、提交与审计路径也通过。没有调用外部模型或服务。
+
+演练入口为 `python -B tools/market-query-postgres-validation.py`。该工具只在本 worktree `.runtime` 生成带摘要绑定的入口，复用现有 `market-annotation-postgres-rehearsal.py`，独立端口 55485、数据库 `market_performance_regression`。它从既有 integration 演练读取受保护角色清单并精确预建 NOLOGIN 角色，保留完整迁移链、外键、触发器和运行角色验证，不修改正式环境。
+
+保留两次失败记录，未将其改写为成功：
+
+1. 原演练脚本在 AI 0038 迁移前缺少预建受保护角色，测试尚未开始；通过上述既有清单补齐测试环境前置条件。
+2. 补齐角色后，140 项首次执行报告 6 failures / 17 errors：Django 事务测试的整库清理被无关 AI 受保护表外键拦截，继而残留夹具。最终 runner 只对四个已审查的市场事务测试类设置 Django `available_apps`，清理市场自有夹具；analysis-options 用例另清理其明确创建的 access_control 夹具。其他测试、全部迁移和约束保持，未知新事务测试类会拒绝并要求复核其范围。随后从全新集群重跑全部 140 项及角色探针通过。
+
+原始通过日志见 [postgres-tests.txt](evidence/market-query-performance-20260929/postgres-tests.txt)，结果、前两次失败日志摘要、来源脚本摘要和生成入口绑定见 [postgres-verification.json](evidence/market-query-performance-20260929/postgres-verification.json)。所有本轮测试 PostgreSQL 已停止，55485 无监听，临时明文测试密码文件为 0；保留隔离运行材料供统一收尾复核。
 
 ## 后续生产方案与回滚边界（待用户确认）
 
@@ -66,6 +122,23 @@
 ## 提交与续验交接
 
 - 候选源码/测试/工具/诊断证据提交：`040822be0b00681ce7332f5fe07d349a2483bdda`，已推送 `origin/codex/market-query-performance` 并回读远端相同 SHA。未合并 main，无其他候选分支依赖。
-- 用户选择“其他重任务结束后再测”。已为本聊天创建十分钟检查一次的“第5项市场性能错峰续验”heartbeat（本机 id `5`），只在其他并行优化重任务结束且资源允许时继续本分支隔离验证；状态不变不通知，完成后暂停该续验。调度本聊天不等于批准任何生产操作。
+- 用户选择“其他重任务结束后再测”，随后明确允许开始。本轮已完成续验，并将“第5项市场性能错峰续验”heartbeat（本机 id `5`）更新为 **PAUSED**，避免重复运行。该调度从未授予生产操作权限。
 - 工作区与本项隔离样本保留供续验；中断的两套测试 PostgreSQL 经 `pg_ctl status` 回读均无运行服务器，临时明文测试密码已移除。生产服务未停启。
-- 待完成：最终脚本全部21条件的前后样本、实际事实变化后的缓存失效、PostgreSQL专用测试及角色验收、完整结果更新与后续提交。统一收尾合并与生产采用门禁继续保留。
+- 已完成：全部 21 条件、2,100 次计时样本、事实变化后的缓存失效、140 项 PostgreSQL 回归与读写角色验收、完整证据整理。统一收尾合并、组合版本验证及生产采用门禁继续保留；本轮没有生产压测、迁移、索引变更、部署或正式服务启停。
+- 分支无其他优化提交依赖。其他优化涉及公共 Worker 响应或启动/发布控制器时，统一收尾须补验组合版本真实端到端行为，本轮领域读取测量不能代替该项。
+
+变更文件清单（相对本分支基线，共 11 个）：
+
+| 文件 | 用途 |
+| --- | --- |
+| `backend/market/query.py` | 唯一业务源码修改，精确计数复用窄索引 |
+| `backend/market/tests/test_filter_count_performance.py` | 统计、失败、参数恢复、事实变更失效回归 |
+| `tools/market-query-performance.py` | 隔离基线/候选交错测量与计划捕获 |
+| `tools/market-query-postgres-validation.py` | 复用既有演练，准备当前测试前置角色与夹具清理范围 |
+| `docs/MARKET_QUERY_PERFORMANCE_20260929.md` | 独立交付记录、目标、结果、边界与采用方案 |
+| `docs/evidence/market-query-performance-20260929/interrupted-diagnostic.json` | 早期中断样本，明确不验收 |
+| `docs/evidence/market-query-performance-20260929/plans.json` | 初始计划证据 |
+| `docs/evidence/market-query-performance-20260929/acceptance-report.json` | 最终全部样本与负载、P50/P95、响应摘要 |
+| `docs/evidence/market-query-performance-20260929/acceptance-plans.json` | 最终执行计划与缓冲块统计 |
+| `docs/evidence/market-query-performance-20260929/postgres-verification.json` | 完整回归、角色探针、失败历史与工具绑定 |
+| `docs/evidence/market-query-performance-20260929/postgres-tests.txt` | 原始通过日志 |

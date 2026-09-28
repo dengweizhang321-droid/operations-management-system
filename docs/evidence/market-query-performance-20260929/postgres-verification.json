@@ -1,0 +1,102 @@
+{
+  "port": 55485,
+  "productionTouched": false,
+  "externalModelCalls": 0,
+  "tests": {
+    "count": 140,
+    "log": "D:\\.codex\\worktrees\\market-query-performance\\\u8fd0\u8425\u7ba1\u7406\u7cfb\u7edf\\.runtime\\market-annotation-pg-08d99ea61272\\tests.log",
+    "summary": "Ran 140 tests in 90.492s",
+    "logSha256": "1218446b7dc1d740a7a5bfa60595a33a1bd7d584f0db08bf00692ba6bc293bd3",
+    "archivedLogSha256": "df3bcc1ade93da4a5a8ecd5396ac205f25b6b3548552fcca9d4ad366105f65ea",
+    "archivedLogNormalization": "UTF-8 LF; only trailing blank lines removed; original runtime bytes hash retained separately"
+  },
+  "roles": [
+    {
+      "role": "teruisi_market_reader",
+      "readQueries": true,
+      "rankingPagination": true,
+      "independentFilters": true,
+      "promptVersionAllocation": false,
+      "claimComplete": false,
+      "commitExistingAnnotation": false,
+      "externalModelCalls": 0,
+      "negativePermissionsRejected": 5
+    },
+    {
+      "role": "teruisi_market_writer",
+      "readQueries": true,
+      "rankingPagination": true,
+      "independentFilters": true,
+      "promptVersionAllocation": true,
+      "claimComplete": true,
+      "commitExistingAnnotation": true,
+      "externalModelCalls": 0,
+      "negativePermissionsRejected": 4
+    }
+  ],
+  "status": "passed",
+  "isolatedClusterStopped": true,
+  "harnessBinding": {
+    "source": "tools\\market-annotation-postgres-rehearsal.py",
+    "sourceSha256": "fa0c33651e052b0c938ff5092c66e7ce15b66f95668a72e817341e3886af58f1",
+    "prerequisitesSource": "tools\\integration-migration-role-rehearsal.py",
+    "prerequisitesSha256": "97f75be3b027a664f2fb22e28f7f9af11fda1c1564273be0bdfe8ec948c019ef",
+    "entrySha256": "7c4bf580f25fcd2e9fd6e3122b7f13b387936fc3a55919dc26c40619203ffbee",
+    "runnerSha256": "8d9f0d1ed0842e2e61c922eccad83940a8741ac3782ce96f56c447de76827453",
+    "settingsSha256": "87983fd9d8391f7695b27cbd295aae99c6ee5596188726be850122aedf2406f7",
+    "teardownScope": "Only market-owned transaction fixtures; analysis-options also owns access_control fixtures",
+    "migrationsConstraintsAndTriggersPreserved": true,
+    "port": 55485,
+    "database": "market_performance_regression",
+    "preparedClosedRoles": [
+      "teruisi_ai_reader",
+      "teruisi_ai_writer",
+      "teruisi_finance_reader",
+      "teruisi_finance_writer",
+      "teruisi_netshop_reader",
+      "teruisi_netshop_writer",
+      "teruisi_ai_seal_writer",
+      "teruisi_ai_market_attestor",
+      "teruisi_ai_budget_v10_attestor",
+      "teruisi_ai_market_context_attestor",
+      "teruisi_ai_market_read_attestor",
+      "teruisi_ai_market_plan_attestor",
+      "teruisi_ai_market_synthetic_attestor",
+      "teruisi_ai_market_cost_attestor",
+      "teruisi_ai_budget_v11_attestor",
+      "teruisi_ai_budget_v11_key_owner",
+      "teruisi_ai_budget_v11_publisher",
+      "teruisi_ai_market_paid_adopter",
+      "teruisi_ai_market_paid_reserver",
+      "teruisi_ai_market_paid_starter",
+      "teruisi_ai_budget_v11_attest_login",
+      "teruisi_ai_budget_v11_sign_login",
+      "teruisi_ai_budget_v11_publish_login",
+      "teruisi_ai_market_rate_proposer",
+      "teruisi_ai_market_cap_proposer",
+      "teruisi_ai_market_proposal_revoker",
+      "teruisi_ai_budget_v11_attestor_v2_login",
+      "teruisi_ai_market_v6_topology_login",
+      "teruisi_ai_budget_v11_download_v2_login",
+      "teruisi_ai_market_v6_source_login"
+    ],
+    "productionTouched": false
+  },
+  "priorAttempts": [
+    {
+      "stage": "database_setup",
+      "status": "failed_before_tests",
+      "reason": "Missing preprovisioned protected NOLOGIN roles",
+      "logSha256": "3b4ed0fa81490532182586cefc63498da870e8ad549560367c0c104853b76eac"
+    },
+    {
+      "stage": "full_market_tests",
+      "status": "failed",
+      "tests": 140,
+      "failures": 6,
+      "errors": 17,
+      "reason": "Whole-database TransactionTestCase teardown blocked by unrelated protected AI FK; subsequent fixture contamination",
+      "logSha256": "40ff604e4e5d6811e8f2503c58b143240dead50d7a6d675713f6013ec48b2db6"
+    }
+  ]
+}
