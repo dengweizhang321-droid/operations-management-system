@@ -1,0 +1,86 @@
+[
+  {
+    "log": "worker-20260913-105301.stdout.log",
+    "totalLinesBeforeFatal": 704,
+    "parsedRequests": 531,
+    "all": {
+      "api-market:GET:200": 361,
+      "page-or-other:GET:200": 5,
+      "api-ai:POST:200": 1,
+      "local-scheduled:POST:200": 59,
+      "health:GET:200": 4,
+      "asset:GET:200": 22,
+      "api-auth:GET:200": 1,
+      "api-market:GET:503": 2,
+      "api-netshop:POST:201": 3,
+      "page-or-other:GET:404": 3,
+      "api-netshop:GET:200": 70
+    },
+    "last60": {
+      "api-market:GET:200": 45,
+      "local-scheduled:POST:200": 15
+    }
+  },
+  {
+    "log": "worker-20260914-005842.stdout.log",
+    "totalLinesBeforeFatal": 377,
+    "parsedRequests": 202,
+    "all": {
+      "page-or-other:GET:200": 3,
+      "local-scheduled:POST:200": 150,
+      "health:GET:200": 3,
+      "api-auth:GET:200": 1,
+      "api-other:GET:200": 2,
+      "api-products:GET:200": 1,
+      "api-ai:GET:200": 2,
+      "asset:GET:200": 2,
+      "api-workflow:GET:200": 25,
+      "api-workflow:POST:200": 1,
+      "api-workflow:PATCH:200": 3,
+      "api-sales:GET:200": 9
+    },
+    "last60": {
+      "local-scheduled:POST:200": 60
+    }
+  },
+  {
+    "log": "worker-20260914-085550.stdout.log",
+    "totalLinesBeforeFatal": 1007,
+    "parsedRequests": 832,
+    "all": {
+      "page-or-other:GET:200": 9,
+      "local-scheduled:POST:200": 163,
+      "health:GET:200": 4,
+      "api-ai:POST:200": 134,
+      "api-auth:GET:200": 1,
+      "api-other:GET:200": 17,
+      "api-sales:GET:200": 40,
+      "asset:GET:200": 10,
+      "api-inventory:GET:200": 30,
+      "api-inventory:PATCH:200": 6,
+      "api-netshop:GET:200": 63,
+      "api-ai:GET:200": 38,
+      "api-market:GET:200": 28,
+      "api-products:GET:200": 9,
+      "api-workflow:GET:200": 223,
+      "api-workflow:POST:200": 14,
+      "api-market:GET:400": 1,
+      "api-market:POST:200": 3,
+      "api-market:GET:503": 2,
+      "api-workflow:PATCH:400": 1,
+      "api-finance:GET:200": 2,
+      "api-workflow:PATCH:200": 9,
+      "api-netshop:POST:201": 12,
+      "api-workflow:POST:201": 4,
+      "api-market:POST:201": 7,
+      "api-market:GET:413": 2
+    },
+    "last60": {
+      "api-ai:POST:200": 18,
+      "api-ai:GET:200": 5,
+      "local-scheduled:POST:200": 30,
+      "api-workflow:GET:200": 6,
+      "api-workflow:PATCH:200": 1
+    }
+  }
+]

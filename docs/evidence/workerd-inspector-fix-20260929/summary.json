@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "baseline": {
+    "requests": 51,
+    "backendCalls": 459,
+    "elapsedSeconds": 60.08,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 315.746,
+    "proxyFinalMiB": 307.184,
+    "applicationPeakMiB": 221.43,
+    "nodeHostPeakMiB": 393.293,
+    "competingSamples": 0,
+    "inspectorProxySha256": "17077283a771d0575bb5def67e91c0c74dec9e505d29bd63f8a71c1294c81f8f",
+    "externalDevToolsAttached": false
+  },
+  "candidate": {
+    "requests": 51,
+    "backendCalls": 459,
+    "elapsedSeconds": 59.407,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 50.137,
+    "proxyFinalMiB": 48.824,
+    "applicationPeakMiB": 222.375,
+    "nodeHostPeakMiB": 331.395,
+    "competingSamples": 0,
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "externalDevToolsAttached": false
+  },
+  "candidateSoak": {
+    "requests": 151,
+    "backendCalls": 1359,
+    "elapsedSeconds": 98.674,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 52.922,
+    "proxyFinalMiB": 52.73,
+    "applicationPeakMiB": 237.48,
+    "nodeHostPeakMiB": 341.129,
+    "competingSamples": 0,
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "externalDevToolsAttached": false
+  },
+  "workerBuildUnchanged": true,
+  "outputLengthsAndSuccessResultsMatch": true,
+  "noForcedGcInWranglerComparison": true,
+  "oldSpaceMiB": 3072,
+  "buffer": {
+    "events": 3000,
+    "originalBuffered": 3000,
+    "patchedBuffered": 187,
+    "originalRetainedHeapMiB": 16.567,
+    "patchedRetainedHeapMiB": 1.602,
+    "retainingPaths": [
+      {
+        "target": "Object",
+        "reachableThroughNonWeakEdges": true,
+        "rootReached": true,
+        "path": [
+          {
+            "from": "",
+            "edge": "1",
+            "type": "element",
+            "to": "(GC roots)"
+          },
+          {
+            "from": "(GC roots)",
+            "edge": "10",
+            "type": "element",
+            "to": "(Global handles)"
+          },
+          {
+            "from": "(Global handles)",
+            "edge": "146",
+            "type": "internal",
+            "to": "fetch"
+          },
+          {
+            "from": "fetch",
+            "edge": "context",
+            "type": "internal",
+            "to": "system / Context"
+          },
+          {
+            "from": "system / Context",
+            "edge": "proxy",
+            "type": "context",
+            "to": "InspectorProxyWorker"
+          },
+          {
+            "from": "InspectorProxyWorker",
+            "edge": "runtimeMessageBuffer",
+            "type": "property",
+            "to": "Array"
+          },
+          {
+            "from": "Array",
+            "edge": "253",
+            "type": "element",
+            "to": "Object"
+          }
+        ]
+      },
+      {
+        "target": "Object",
+        "reachableThroughNonWeakEdges": true,
+        "rootReached": true,
+        "path": [
+          {
+            "from": "",
+            "edge": "1",
+            "type": "element",
+            "to": "(GC roots)"
+          },
+          {
+            "from": "(GC roots)",
+            "edge": "10",
+            "type": "element",
+            "to": "(Global handles)"
+          },
+          {
+            "from": "(Global handles)",
+            "edge": "146",
+            "type": "internal",
+            "to": "fetch"
+          },
+          {
+            "from": "fetch",
+            "edge": "context",
+            "type": "internal",
+            "to": "system / Context"
+          },
+          {
+            "from": "system / Context",
+            "edge": "proxy",
+            "type": "context",
+            "to": "InspectorProxyWorker"
+          },
+          {
+            "from": "InspectorProxyWorker",
+            "edge": "runtimeMessageBuffer",
+            "type": "property",
+            "to": "Array"
+          },
+          {
+            "from": "Array",
+            "edge": "254",
+            "type": "element",
+            "to": "Object"
+          }
+        ]
+      }
+    ]
+  },
+  "functional": [
+    {
+      "mode": "asset",
+      "requests": 4,
+      "bytes": 8388608,
+      "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+    },
+    {
+      "mode": "rsc",
+      "requests": 4,
+      "bytes": 2791
+    },
+    {
+      "mode": "page",
+      "requests": 4,
+      "bytes": 17001
+    }
+  ],
+  "productionChanged": false
+}

@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "88dda323d461f49e725cc8e74dcf40a5b63bd6ca",
+  "fullUnit": {
+    "tests": 2714,
+    "passed": 2694,
+    "failed": 0,
+    "skipped": 20,
+    "elapsedMs": 463820.4058
+  },
+  "build": "passed",
+  "fullLint": {
+    "errors": 0,
+    "warnings": 12,
+    "unchangedFileWarnings": true
+  },
+  "changedFileLint": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "backendBoundary": {
+    "checkedModules": 545,
+    "violations": 0
+  },
+  "originalPackageCopySmoke": {
+    "requests": 2,
+    "backendCalls": 18,
+    "installedCandidateUnchanged": true
+  },
+  "production": {
+    "release": "20260928T112356Z-eeac7bbc96a8c51a",
+    "supervisorPid": 32412,
+    "publicWorkerdPid": 52044,
+    "applicationWorkerdPid": 19232,
+    "helperPid": 53952,
+    "inspectorSha256": "17077283a771d0575bb5def67e91c0c74dec9e505d29bd63f8a71c1294c81f8f",
+    "actions": []
+  },
+  "archiveDirectory": "E:\\codex-artifacts\\workerd-inspector-fix-20260929",
+  "files": [
+    {
+      "name": "inspector-fix-full-unit.log",
+      "bytes": 256567,
+      "sha256": "2cc4de6254e2fb4da74baabacbc4a4dfac62f81641f7dbffdb1f5192cfb58ab0"
+    },
+    {
+      "name": "final-app-build.log",
+      "bytes": 14237,
+      "sha256": "7aa8d7695f58fe1e1a544cf9d7fc7683b1c54f4b4013345d1bdb5eaa49c81fd7"
+    },
+    {
+      "name": "inspector-fix-full-lint.log",
+      "bytes": 2733,
+      "sha256": "526866ecce8406c7a1ef00909243959c000d219de89ea463d92518384d678bee"
+    },
+    {
+      "name": "inspector-fix-lint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "inspector-fix-boundary-final.json",
+      "bytes": 1420,
+      "sha256": "68089dadd810569fbc20331b3876b5003a32c7be68cb6bb746e05e4f3c6bfdd6"
+    }
+  ]
+}
