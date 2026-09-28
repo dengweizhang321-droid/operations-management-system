@@ -16,9 +16,10 @@ function Assert-MaintenanceArchiveRoot { return $MaintenanceArchiveRoot }
 function Get-MaintenanceCanonicalPath([string]$Path) { return [IO.Path]::GetFullPath($Path).TrimEnd('\') }
 function Get-MaintenanceRetentionPolicy { return $script:policy }
 function Write-MaintenanceRetentionAudit($Value) { $script:events.Add($Value.event) }
-function Resolve-MaintenanceBackupArchive([string]$RequestedDirectory,[string]$ApprovedSha256='') {
+function Resolve-MaintenanceBackupArchive([string]$RequestedDirectory,[string]$ApprovedSha256='',[switch]$RetentionInventory) {
   $parent = Split-Path -Parent $RequestedDirectory
   if ($parent -ine $testDaily -and $parent -ine $MaintenanceArchiveRoot) { throw 'unsafe target' }
+  if (-not $RetentionInventory -and [IO.Path]::GetFileName($RequestedDirectory) -match '^daily-2026010[23]T') { throw 'legacy-schema-is-not-a-survivor' }
   return Read-MaintenanceArchive $RequestedDirectory $ApprovedSha256
 }
 function Read-MaintenanceArchive([string]$Directory,[string]$ApprovedSha256='') {

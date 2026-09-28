@@ -1014,8 +1014,14 @@ function Assert-MaintenanceBackupPayload([object]$Payload, [bool]$NoKeys = $fals
 function Read-MaintenanceArchive(
   [string]$Directory,
   [string]$ApprovedSha256 = "",
-  [switch]$RequireCurrentDeployment
+  [switch]$RequireCurrentDeployment,
+  [switch]$RetentionInventory
 ) {
+  if ($RetentionInventory -and ($RequireCurrentDeployment -or
+      $MaintenanceRequest.Action -cnotin @('Backup','Retain','Prune') -or
+      -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId))) {
+    throw 'Container-only validation is confined to retention inventory; never Verify or restore'
+  }
   $manifestPath = Join-Path $Directory "backup-manifest.json"
   $sidecarPath = Join-Path $Directory "backup-manifest.json.sha256"
   $dumpPath = Join-Path $Directory "teruisi-sales.dump"
@@ -1095,8 +1101,13 @@ function Read-MaintenanceArchive(
     throw "PostgreSQL dump 证据无效"
   }
 
-  Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" $sourceRole 5432 $noKeys
-  if ($noKeys) { Assert-MaintenanceNoKeyEvidence $manifest.profileEvidence }
+  # Old disposable archives can predate the current business-evidence fields.
+  # Their complete container is still checked below; selected survivors must
+  # take the normal full-evidence path before a retention plan can be admitted.
+  if (-not $RetentionInventory) {
+    Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" $sourceRole 5432 $noKeys
+    if ($noKeys) { Assert-MaintenanceNoKeyEvidence $manifest.profileEvidence }
+  }
   Assert-MaintenanceExactPropertySet $manifest.software @(
     "deploymentManifestSha256", "serviceConfigSha256", "serviceScriptSha256",
     "operatorScriptSha256", "evidenceToolSha256", "pgDumpSha256", "pgRestoreSha256"
@@ -1130,7 +1141,8 @@ function Read-MaintenanceArchive(
 function Resolve-MaintenanceBackupArchive(
   [string]$RequestedDirectory,
   [string]$ApprovedSha256 = "",
-  [switch]$RequireCurrentDeployment
+  [switch]$RequireCurrentDeployment,
+  [switch]$RetentionInventory
 ) {
   $backupRoot = Get-MaintenanceBackupRoot $false
   $requestedParent = Get-MaintenanceCanonicalPath (Split-Path -Parent $RequestedDirectory)
@@ -1152,7 +1164,7 @@ function Resolve-MaintenanceBackupArchive(
       Assert-ExactRuntimeAclEntry $entry (Get-RuntimeItemAccessControl $entry) $allowedSids $MaintenanceArchiveRoot
     }
   }
-  $archive = Read-MaintenanceArchive $directory $ApprovedSha256 $RequireCurrentDeployment
+  $archive = Read-MaintenanceArchive $directory $ApprovedSha256 $RequireCurrentDeployment -RetentionInventory:$RetentionInventory
   if ([IO.Path]::GetFileName($directory) -cne [string]$archive.Manifest.backupId) {
     throw "PostgreSQL 备份目录与 manifest 身份不一致"
   }

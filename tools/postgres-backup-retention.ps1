@@ -62,8 +62,9 @@ function Get-MaintenanceRecoveryPoints {
     $directories = @(Get-ChildItem -LiteralPath $root -Directory -Force | Where-Object { $_.Name -cmatch '^daily-\d{8}T\d{6}Z-[0-9a-f]{12}$' })
     if ($directories.Count -gt 4096) { throw 'Backup inventory exceeds bound' }
     foreach ($directory in $directories) {
-      # An invalid eligible archive stops the entire plan; it is never skipped for deletion.
-      $archive = Resolve-MaintenanceBackupArchive $directory.FullName
+      # Corrupt containers stop the entire plan. Historical business-evidence
+      # schemas are not used to claim that a discarded archive is restorable.
+      $archive = Resolve-MaintenanceBackupArchive $directory.FullName -RetentionInventory
       if ([DateTimeOffset]::Parse($archive.Manifest.completedAt) -gt [DateTimeOffset]::UtcNow) { throw 'Backup completion is in the future' }
       $id = [string]$archive.Manifest.backupId
       if ($result.ContainsKey($id)) {
@@ -90,7 +91,11 @@ function Invoke-MaintenanceRetention {
     [void]$keep.Add($pin.backupId)
   }
   foreach ($point in $points) { if ($keep.Count -lt 3) { [void]$keep.Add($point.backupId) } }
+  foreach ($survivor in @($points | Where-Object {$keep.Contains($_.backupId)})) {
+    Resolve-MaintenanceBackupArchive $survivor.copies[0].Directory $survivor.manifestSha256 | Out-Null
+  }
   $plan = [pscustomobject]@{version='teruisi-backup-retention-plan-v2'; maximumRecoveryPoints=3;
+    retainedVerification='full-evidence'; discardedVerification='container-integrity';
     retained=@($points | Where-Object {$keep.Contains($_.backupId)} | ForEach-Object {$_.backupId});
     removed=@($points | Where-Object {-not $keep.Contains($_.backupId)} | ForEach-Object {$_.backupId}); serviceStateChanged=$false}
   if (-not $MaintenanceRequest.Execute) { return $plan }
@@ -140,7 +145,7 @@ function Invoke-MaintenanceRetention {
     foreach ($copy in $point.copies) {
       if ($keep.Contains($point.backupId) -and (Split-Path -Parent $copy.Directory) -ieq $MaintenanceArchiveRoot) { continue }
       # Verified survivors remain open without write/delete sharing throughout pruning.
-      $checked = Resolve-MaintenanceBackupArchive $copy.Directory $point.manifestSha256
+      $checked = Resolve-MaintenanceBackupArchive $copy.Directory $point.manifestSha256 -RetentionInventory
       $parent = Get-MaintenanceCanonicalPath (Split-Path -Parent $checked.Directory)
       if ($parent -ine (Get-MaintenanceBackupRoot $false) -and $parent -ine $MaintenanceArchiveRoot) { throw 'Delete escaped backup roots' }
       Write-MaintenanceRetentionAudit @{event='delete-reserved';backupId=$point.backupId;manifestSha256=$point.manifestSha256;path=$checked.Directory}
