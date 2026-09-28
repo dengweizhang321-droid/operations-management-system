@@ -1,0 +1,4291 @@
+{
+  "schemaVersion": 1,
+  "status": "isolated_candidate_not_deployed",
+  "date": "2026-09-29",
+  "baseCommit": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e",
+  "branch": "codex/wrangler-self-check",
+  "lockedWrangler": "4.92.0",
+  "node": "24.18.0",
+  "fileHashes": {
+    "package.json": "ce38493daf69c5e122a78a56877bb29f0e9753c3705e0b2301597385cc72a890",
+    "package-lock.json": "486154660ca7b1c32822078584c7938ae5de172a0dc8bcd47891100563af935e",
+    "tools/django-local-service.ps1": "c1eeb14d9d0b6119d3f6c3ba12df8405a21cfc5d66c1aec624bac21cb4bf7268",
+    "node_modules/wrangler/wrangler-dist/cli.js": "fc1aa72afc91906759a3555e76e6dae1b13504f71dec6d3bbfa0fe24c351ebd7"
+  },
+  "experiments": [
+    {
+      "source": "tmp/wrangler-diagnostic-DX9J2i/results.json",
+      "sourceSha256": "18cc893e199669777809c62a0564d3feebcb1903d4bce8bcc4e146abe53c10e7",
+      "node": "v24.18.0",
+      "scenarios": [
+        {
+          "name": "absent-real",
+          "cache": "absent",
+          "pathLength": 95,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 2870,
+              "firstOutputMs": 2839,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 62,
+              "freeMemoryMiB": 2623,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 2756
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 913,
+              "firstOutputMs": 872,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 70,
+              "freeMemoryMiB": 3008,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 809
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 24004,
+              "firstOutputMs": 931,
+              "completedMs": 2791,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 2602,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "elapsedMs": 759
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_response_end",
+                  "elapsedMs": 23883
+                },
+                {
+                  "event": "version_request_close",
+                  "elapsedMs": 23884
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 23897
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1308,
+              "firstOutputMs": 764,
+              "completedMs": 1265,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 50,
+              "freeMemoryMiB": 2579,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 1192
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.650499999999738
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1222,
+              "firstOutputMs": 761,
+              "completedMs": 1183,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 54,
+              "freeMemoryMiB": 2727,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 1119
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1527,
+              "firstOutputMs": 880,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 67,
+              "freeMemoryMiB": 2683,
+              "outputSha256": "749f4a71509d4aa611cc894d4c31a46a744a9a6599618ba1f93f16b2f800dff4",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 1416
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "expired-real",
+          "cache": "expired",
+          "pathLength": 96,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 958,
+              "firstOutputMs": 923,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 74,
+              "freeMemoryMiB": 2739,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 847
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 938,
+              "firstOutputMs": 892,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 73,
+              "freeMemoryMiB": 2884,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 817
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 23458,
+              "firstOutputMs": 935,
+              "completedMs": 2109,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 67,
+              "freeMemoryMiB": 2351,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "elapsedMs": 759
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_response_end",
+                  "elapsedMs": 23324
+                },
+                {
+                  "event": "version_request_close",
+                  "elapsedMs": 23325
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 23331
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 2275,
+              "firstOutputMs": 1082,
+              "completedMs": 2208,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 82,
+              "freeMemoryMiB": 2489,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 2137
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 2.7114000000001397
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1619,
+              "firstOutputMs": 995,
+              "completedMs": 1569,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 74,
+              "freeMemoryMiB": 2690,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 53904,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "elapsedMs": 1467
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1817,
+              "firstOutputMs": 1021,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 82,
+              "freeMemoryMiB": 2692,
+              "outputSha256": "363dcb41817d30e57f5bbc9e1235aa71e4f5e7293e7f5ecb59c4cf89a683460a",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 35036,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 35036,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 35036,
+                  "elapsedMs": 1691
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "absent-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "pathLength": 98,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 1199,
+              "firstOutputMs": 1129,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 87,
+              "freeMemoryMiB": 3302,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 54844,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 54844,
+                  "elapsedMs": 1061
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 1159,
+              "firstOutputMs": 1106,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 91,
+              "freeMemoryMiB": 3950,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53424,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53424,
+                  "elapsedMs": 1014
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 30067,
+              "firstOutputMs": 1040,
+              "completedMs": 1765,
+              "exitCode": null,
+              "signal": "SIGTERM",
+              "timedOut": true,
+              "cpuBusyPercent": 65,
+              "freeMemoryMiB": 3262,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52808,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 52808,
+                  "elapsedMs": 816
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 52808,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 52808,
+                  "elapsedMs": 2826
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "hidden-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "pathLength": 98,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 1010,
+              "firstOutputMs": 980,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 74,
+              "freeMemoryMiB": 3248,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 8244,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 8244,
+                  "elapsedMs": 872
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 964,
+              "firstOutputMs": 925,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 72,
+              "freeMemoryMiB": 3255,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 32260,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 32260,
+                  "elapsedMs": 846
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1845,
+              "firstOutputMs": 926,
+              "completedMs": 1792,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 79,
+              "freeMemoryMiB": 3082,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 4312,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 4312,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 4312,
+                  "elapsedMs": 1714
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1689,
+              "firstOutputMs": 982,
+              "completedMs": 1628,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 81,
+              "freeMemoryMiB": 2978,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 43480,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 43480,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 43480,
+                  "elapsedMs": 1539
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.7171000000089407
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1550,
+              "firstOutputMs": 966,
+              "completedMs": 1509,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 78,
+              "freeMemoryMiB": 2920,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 48976,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 48976,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 48976,
+                  "elapsedMs": 1437
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1630,
+              "firstOutputMs": 944,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 77,
+              "freeMemoryMiB": 2943,
+              "outputSha256": "0508bd340c648c6fa22871b60975d97ae05fd6fd67df8b922e0d7ce9824a7ab1",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 45904,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 45904,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 45904,
+                  "elapsedMs": 1513
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "hidden-long-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "long": true,
+          "pathLength": 166,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 1095,
+              "firstOutputMs": 1053,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 83,
+              "freeMemoryMiB": 3009,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 1836,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 1836,
+                  "elapsedMs": 967
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 1106,
+              "firstOutputMs": 1046,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 85,
+              "freeMemoryMiB": 2975,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 51748,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 51748,
+                  "elapsedMs": 972
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 4584,
+              "firstOutputMs": 1161,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 93,
+              "freeMemoryMiB": 2805,
+              "outputSha256": "040059151e37fb79da22cf876af6979df5bc309bcd688684f8bcd1476d152c76",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52032,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 52032,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 52032,
+                  "elapsedMs": 2411
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 52032,
+                  "elapsedMs": 4426
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 52032,
+                  "elapsedMs": 4430
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "source": "tmp/wrangler-diagnostic-n0Luwr/results.json",
+      "sourceSha256": "79a273b165bd22845357bc4e2a1bc925ff02193cfb3a36361f5c6ac47b9e7367",
+      "node": "v24.18.0",
+      "scenarios": [
+        {
+          "name": "absent-real",
+          "cache": "absent",
+          "pathLength": 95,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 893,
+              "firstOutputMs": 862,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 60,
+              "freeMemoryMiB": 3066,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 34956,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 34956,
+                  "elapsedMs": 784
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 879,
+              "firstOutputMs": 831,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 63,
+              "freeMemoryMiB": 3040,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 30176,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 30176,
+                  "elapsedMs": 775
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 24903,
+              "firstOutputMs": 947,
+              "completedMs": 2314,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 46,
+              "freeMemoryMiB": 3626,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 28952,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 28952,
+                  "elapsedMs": 774
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 28952,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_response_end",
+                  "pid": 28952,
+                  "elapsedMs": 24793
+                },
+                {
+                  "event": "version_request_close",
+                  "pid": 28952,
+                  "elapsedMs": 24793
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 28952,
+                  "elapsedMs": 24797
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1304,
+              "firstOutputMs": 771,
+              "completedMs": 1263,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 55,
+              "freeMemoryMiB": 3587,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 50532,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 50532,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 50532,
+                  "elapsedMs": 1199
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.52639999999883
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1120,
+              "firstOutputMs": 691,
+              "completedMs": 1086,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 39,
+              "freeMemoryMiB": 3512,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 46040,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 46040,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 46040,
+                  "elapsedMs": 1016
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1194,
+              "firstOutputMs": 677,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 39,
+              "freeMemoryMiB": 3478,
+              "outputSha256": "72219c1b3908023e3f227c39893715c6db9e485918bb96e1e20aa3885a1ef34f",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53208,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 53208,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53208,
+                  "elapsedMs": 1098
+                }
+              ]
+            }
+          ],
+          "statePathLength": 101,
+          "cacheAfterSha256": "a9287c5de64fcbed7d6bafeb6334bc4d2b9f37a55a3f65cc1683a53a5f8a2dfb"
+        },
+        {
+          "name": "warm-real",
+          "cache": "warm",
+          "pathLength": 93,
+          "cacheBeforeSha256": "a9287c5de64fcbed7d6bafeb6334bc4d2b9f37a55a3f65cc1683a53a5f8a2dfb",
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 682,
+              "firstOutputMs": 658,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 33,
+              "freeMemoryMiB": 3435,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 44820,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 44820,
+                  "elapsedMs": 598
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 746,
+              "firstOutputMs": 709,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 37,
+              "freeMemoryMiB": 3627,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 6304,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 6304,
+                  "elapsedMs": 660
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1310,
+              "firstOutputMs": 704,
+              "completedMs": 1276,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 37,
+              "freeMemoryMiB": 3606,
+              "outputSha256": "1b59959da4d7c57b244f7bbaa930ee03eb117cce9e8b4da13b880dfbee35d2f5",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 55196,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 55196,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 55196,
+                  "elapsedMs": 1208
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1125,
+              "firstOutputMs": 679,
+              "completedMs": 1090,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 34,
+              "freeMemoryMiB": 3574,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 49868,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 49868,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 49868,
+                  "elapsedMs": 1025
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.4867000000012922
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1615,
+              "firstOutputMs": 972,
+              "completedMs": 1568,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 76,
+              "freeMemoryMiB": 3811,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 42984,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 42984,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 42984,
+                  "elapsedMs": 1510
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1342,
+              "firstOutputMs": 844,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 58,
+              "freeMemoryMiB": 3748,
+              "outputSha256": "956ae02e3af2a118fea1e2d372dfb8bd0a396f1f6081724f6bbc4624f2f11c24",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 33644,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 33644,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 33644,
+                  "elapsedMs": 1220
+                }
+              ]
+            }
+          ],
+          "statePathLength": 99,
+          "cacheAfterSha256": "a9287c5de64fcbed7d6bafeb6334bc4d2b9f37a55a3f65cc1683a53a5f8a2dfb"
+        },
+        {
+          "name": "expired-real",
+          "cache": "expired",
+          "pathLength": 96,
+          "cacheBeforeSha256": "0c8453f9d512092f1cceb6711d563d91195337954523696b933e288a48ce93f7",
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 699,
+              "firstOutputMs": 676,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 33,
+              "freeMemoryMiB": 3730,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 49208,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 49208,
+                  "elapsedMs": 611
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 965,
+              "firstOutputMs": 916,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 70,
+              "freeMemoryMiB": 3772,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53656,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53656,
+                  "elapsedMs": 868
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 24291,
+              "firstOutputMs": 1157,
+              "completedMs": 1839,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 31,
+              "freeMemoryMiB": 2938,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 48688,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 48688,
+                  "elapsedMs": 963
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 48688,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_response_end",
+                  "pid": 48688,
+                  "elapsedMs": 24158
+                },
+                {
+                  "event": "version_request_close",
+                  "pid": 48688,
+                  "elapsedMs": 24159
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 48688,
+                  "elapsedMs": 24161
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1634,
+              "firstOutputMs": 818,
+              "completedMs": 1589,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 2891,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 43528,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 43528,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 43528,
+                  "elapsedMs": 1531
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.9703999999983353
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1323,
+              "firstOutputMs": 735,
+              "completedMs": 1278,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 57,
+              "freeMemoryMiB": 2941,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 32892,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 32892,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 32892,
+                  "elapsedMs": 1219
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1275,
+              "firstOutputMs": 729,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 47,
+              "freeMemoryMiB": 3082,
+              "outputSha256": "602ad34daa2caf218c07e1a3634f125b6992e84e27ffb8999b8c782b7be76f2d",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 46900,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 46900,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 46900,
+                  "elapsedMs": 1176
+                }
+              ]
+            }
+          ],
+          "statePathLength": 102,
+          "cacheAfterSha256": "8f127f14238e17d5c90872643b5d634989a7bd39251725739dce4f8ba2a23a3b"
+        },
+        {
+          "name": "absent-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "pathLength": 98,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 697,
+              "firstOutputMs": 673,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 39,
+              "freeMemoryMiB": 3073,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 48772,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 48772,
+                  "elapsedMs": 610
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 720,
+              "firstOutputMs": 692,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 35,
+              "freeMemoryMiB": 3064,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 54244,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 54244,
+                  "elapsedMs": 637
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 30042,
+              "firstOutputMs": 797,
+              "completedMs": 1425,
+              "exitCode": null,
+              "signal": "SIGTERM",
+              "timedOut": true,
+              "cpuBusyPercent": 39,
+              "freeMemoryMiB": 3970,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 51624,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 51624,
+                  "elapsedMs": 620
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 51624,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 51624,
+                  "elapsedMs": 2626
+                }
+              ]
+            }
+          ],
+          "statePathLength": 104,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "pathLength": 98,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 730,
+              "firstOutputMs": 707,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 36,
+              "freeMemoryMiB": 3946,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 8016,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 8016,
+                  "elapsedMs": 641
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 760,
+              "firstOutputMs": 715,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 42,
+              "freeMemoryMiB": 3777,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 55172,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 55172,
+                  "elapsedMs": 669
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1426,
+              "firstOutputMs": 720,
+              "completedMs": 1396,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 37,
+              "freeMemoryMiB": 4149,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 29664,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 29664,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 29664,
+                  "elapsedMs": 1326
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1119,
+              "firstOutputMs": 682,
+              "completedMs": 1084,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 25,
+              "freeMemoryMiB": 4146,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 52780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 52780,
+                  "elapsedMs": 1026
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.4488000000128523
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1022,
+              "firstOutputMs": 643,
+              "completedMs": 991,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 16,
+              "freeMemoryMiB": 4136,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 47704,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 47704,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 47704,
+                  "elapsedMs": 934
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1120,
+              "firstOutputMs": 669,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 20,
+              "freeMemoryMiB": 4043,
+              "outputSha256": "3bb961057ca4970126ab7683cb08ccc3423655223cab6302cdc0bba41eb41123",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53392,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 53392,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53392,
+                  "elapsedMs": 1025
+                }
+              ]
+            }
+          ],
+          "statePathLength": 104,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-medium-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 1,
+          "pathLength": 117,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 705,
+              "firstOutputMs": 681,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 37,
+              "freeMemoryMiB": 3969,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52116,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 52116,
+                  "elapsedMs": 622
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 729,
+              "firstOutputMs": 674,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 34,
+              "freeMemoryMiB": 3846,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 50796,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 50796,
+                  "elapsedMs": 617
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1396,
+              "firstOutputMs": 729,
+              "completedMs": 1363,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 36,
+              "freeMemoryMiB": 3931,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 6304,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 6304,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 6304,
+                  "elapsedMs": 1304
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1194,
+              "firstOutputMs": 727,
+              "completedMs": 1152,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 46,
+              "freeMemoryMiB": 3825,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 31908,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 31908,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 31908,
+                  "elapsedMs": 1086
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.3840000000054715
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1153,
+              "firstOutputMs": 724,
+              "completedMs": 1117,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 39,
+              "freeMemoryMiB": 3797,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 46100,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 46100,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 46100,
+                  "elapsedMs": 1055
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1201,
+              "firstOutputMs": 736,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 42,
+              "freeMemoryMiB": 3859,
+              "outputSha256": "ac9ad1dfa141e3fd48e06266747636252164337a0e52411be70bdf0652b281a3",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 38140,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 38140,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 38140,
+                  "elapsedMs": 1101
+                }
+              ]
+            }
+          ],
+          "statePathLength": 122,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-long-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 4,
+          "pathLength": 166,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 718,
+              "firstOutputMs": 691,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 42,
+              "freeMemoryMiB": 3823,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53672,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53672,
+                  "elapsedMs": 628
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 713,
+              "firstOutputMs": 678,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 25,
+              "freeMemoryMiB": 3844,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 42628,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 42628,
+                  "elapsedMs": 623
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 3761,
+              "firstOutputMs": 735,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 36,
+              "freeMemoryMiB": 3748,
+              "outputSha256": "27346fd7edcad8188b6a4eec4a5ba1ea291a574f92572d560ac64d35ec0d3265",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 44464,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 44464,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 44464,
+                  "elapsedMs": 1658
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 44464,
+                  "elapsedMs": 3667
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 44464,
+                  "elapsedMs": 3671
+                }
+              ]
+            }
+          ],
+          "statePathLength": 171,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-long-shortstate",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 4,
+          "shortState": true,
+          "pathLength": 169,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 817,
+              "firstOutputMs": 788,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 51,
+              "freeMemoryMiB": 3800,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 23188,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 23188,
+                  "elapsedMs": 723
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 737,
+              "firstOutputMs": 694,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 43,
+              "freeMemoryMiB": 3686,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 2300,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 2300,
+                  "elapsedMs": 642
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1534,
+              "firstOutputMs": 688,
+              "completedMs": 1498,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 34,
+              "freeMemoryMiB": 3636,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 46780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 46780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 46780,
+                  "elapsedMs": 1437
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1190,
+              "firstOutputMs": 675,
+              "completedMs": 1147,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 41,
+              "freeMemoryMiB": 3478,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 37448,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 37448,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 37448,
+                  "elapsedMs": 1092
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.8117999999958556
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1299,
+              "firstOutputMs": 862,
+              "completedMs": 1262,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 60,
+              "freeMemoryMiB": 3649,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 47188,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 47188,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 47188,
+                  "elapsedMs": 1186
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1169,
+              "firstOutputMs": 721,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 31,
+              "freeMemoryMiB": 3680,
+              "outputSha256": "e95ef3e85e15c13fb51c0c6c8550584e2358b9bafa33964409e45bbe2171c781",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53596,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 53596,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53596,
+                  "elapsedMs": 1068
+                }
+              ]
+            }
+          ],
+          "statePathLength": 89,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-stalled-repeat",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "pathLength": 105,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 747,
+              "firstOutputMs": 719,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 36,
+              "freeMemoryMiB": 3614,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53356,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53356,
+                  "elapsedMs": 662
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 775,
+              "firstOutputMs": 733,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 43,
+              "freeMemoryMiB": 3538,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 54168,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 54168,
+                  "elapsedMs": 674
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1433,
+              "firstOutputMs": 724,
+              "completedMs": 1397,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 42,
+              "freeMemoryMiB": 3436,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 17780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 17780,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 17780,
+                  "elapsedMs": 1338
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1259,
+              "firstOutputMs": 742,
+              "completedMs": 1214,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 50,
+              "freeMemoryMiB": 3317,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52188,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 52188,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 52188,
+                  "elapsedMs": 1153
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.4478999999992084
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1245,
+              "firstOutputMs": 783,
+              "completedMs": 1206,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 51,
+              "freeMemoryMiB": 3119,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 27884,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 27884,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 27884,
+                  "elapsedMs": 1140
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1317,
+              "firstOutputMs": 817,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 51,
+              "freeMemoryMiB": 2952,
+              "outputSha256": "8b7aadbb6a9a7ba7be5fbe643121ff10ab8a2f57e33e32aed23759b05b6b84d6",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 49356,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_preload",
+                  "pid": 49356,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 49356,
+                  "elapsedMs": 1214
+                }
+              ]
+            }
+          ],
+          "statePathLength": 111,
+          "cacheAfterSha256": null
+        }
+      ]
+    },
+    {
+      "source": "tmp/wrangler-diagnostic-iiuu3V/results.json",
+      "sourceSha256": "2c472dc80561ee3195fce699dbdd3848f38a7aa6fdf51bfede8bfc7e7542dbad",
+      "node": "v24.18.0",
+      "scenarios": [
+        {
+          "name": "absent-real",
+          "cache": "absent",
+          "pathLength": 95,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 3796,
+              "firstOutputMs": 3766,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 66,
+              "freeMemoryMiB": 4205,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 29020,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 29020,
+                  "elapsedMs": 3674
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 783,
+              "firstOutputMs": 744,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 44,
+              "freeMemoryMiB": 4177,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 30632,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 30632,
+                  "elapsedMs": 666
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 24024,
+              "firstOutputMs": 888,
+              "completedMs": 2373,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 48,
+              "freeMemoryMiB": 2694,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 9908,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 9908,
+                  "elapsedMs": 683
+                },
+                {
+                  "event": "version_response_end",
+                  "pid": 9908,
+                  "elapsedMs": 23867
+                },
+                {
+                  "event": "version_request_close",
+                  "pid": 9908,
+                  "elapsedMs": 23868
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 9908,
+                  "elapsedMs": 23883
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1589,
+              "firstOutputMs": 929,
+              "completedMs": 1537,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 74,
+              "freeMemoryMiB": 2851,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53552,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53552,
+                  "elapsedMs": 1428
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 2.243800000000192
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1805,
+              "firstOutputMs": 1078,
+              "completedMs": 1744,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 86,
+              "freeMemoryMiB": 2488,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 33912,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 33912,
+                  "elapsedMs": 1615
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 2229,
+              "firstOutputMs": 1478,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 94,
+              "freeMemoryMiB": 2143,
+              "outputSha256": "3d24c62fb3bc59a6ba639c2126b3510aa883ce29dc5f41d678af0e04b3f1b96a",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 12056,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 12056,
+                  "elapsedMs": 1987
+                }
+              ]
+            }
+          ],
+          "statePathLength": 101,
+          "cacheAfterSha256": "9c90f3f0336612db337b377df4f010bb17f78792f7c18621a112e3b87546ec5e"
+        },
+        {
+          "name": "warm-real",
+          "cache": "warm",
+          "pathLength": 93,
+          "cacheBeforeSha256": "9c90f3f0336612db337b377df4f010bb17f78792f7c18621a112e3b87546ec5e",
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 1053,
+              "firstOutputMs": 1013,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 71,
+              "freeMemoryMiB": 1933,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 41324,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 41324,
+                  "elapsedMs": 887
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 907,
+              "firstOutputMs": 858,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 54,
+              "freeMemoryMiB": 1699,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 14232,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 14232,
+                  "elapsedMs": 764
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1603,
+              "firstOutputMs": 897,
+              "completedMs": 1564,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 55,
+              "freeMemoryMiB": 1489,
+              "outputSha256": "1b59959da4d7c57b244f7bbaa930ee03eb117cce9e8b4da13b880dfbee35d2f5",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 54168,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 54168,
+                  "elapsedMs": 1458
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1542,
+              "firstOutputMs": 1018,
+              "completedMs": 1499,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 61,
+              "freeMemoryMiB": 1329,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 25144,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 25144,
+                  "elapsedMs": 1394
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.48859999999695
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1304,
+              "firstOutputMs": 834,
+              "completedMs": 1264,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 1264,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 51404,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 51404,
+                  "elapsedMs": 1172
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1499,
+              "firstOutputMs": 896,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 66,
+              "freeMemoryMiB": 1786,
+              "outputSha256": "b63c3f07e8990a087f2b348855b12bb6df756e4b42fb56dfca8040151d482679",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 28928,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 28928,
+                  "elapsedMs": 1358
+                }
+              ]
+            }
+          ],
+          "statePathLength": 99,
+          "cacheAfterSha256": "9c90f3f0336612db337b377df4f010bb17f78792f7c18621a112e3b87546ec5e"
+        },
+        {
+          "name": "expired-real",
+          "cache": "expired",
+          "pathLength": 96,
+          "cacheBeforeSha256": "0c8453f9d512092f1cceb6711d563d91195337954523696b933e288a48ce93f7",
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 906,
+              "firstOutputMs": 876,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 60,
+              "freeMemoryMiB": 1793,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 45100,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 45100,
+                  "elapsedMs": 751
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 1403,
+              "firstOutputMs": 1098,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 77,
+              "freeMemoryMiB": 1891,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 26728,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 26728,
+                  "elapsedMs": 1014
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 23190,
+              "firstOutputMs": 1294,
+              "completedMs": 2115,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 66,
+              "freeMemoryMiB": 1697,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 29740,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 29740,
+                  "elapsedMs": 1058
+                },
+                {
+                  "event": "version_response_end",
+                  "pid": 29740,
+                  "elapsedMs": 23007
+                },
+                {
+                  "event": "version_request_close",
+                  "pid": 29740,
+                  "elapsedMs": 23007
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 29740,
+                  "elapsedMs": 23011
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1664,
+              "firstOutputMs": 846,
+              "completedMs": 1614,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 52,
+              "freeMemoryMiB": 1543,
+              "outputSha256": "8ac242518c5644eac523f29f6597f28de00430ddb21b3621803fc7a0ea2be76f",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 37392,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 37392,
+                  "elapsedMs": 1519
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.6330000000016298
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1856,
+              "firstOutputMs": 878,
+              "completedMs": 1393,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 65,
+              "freeMemoryMiB": 1488,
+              "outputSha256": "86c4efebea23167356df4e4210a74eb8df0a0110101be4290c21c7ccd9e4ecf9",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 11120,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 11120,
+                  "elapsedMs": 1299
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1491,
+              "firstOutputMs": 915,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 59,
+              "freeMemoryMiB": 1282,
+              "outputSha256": "79fbc5f2c888f2c9c60c16b0885e99f7d8eda76591b135e494453ceb789a965e",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 19420,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 19420,
+                  "elapsedMs": 1319
+                }
+              ]
+            }
+          ],
+          "statePathLength": 102,
+          "cacheAfterSha256": "e1656afad0934d3dca8007698e4b15ec781ce69144d2f8c4660a422643113685"
+        },
+        {
+          "name": "absent-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "pathLength": 98,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 908,
+              "firstOutputMs": 875,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 62,
+              "freeMemoryMiB": 1272,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 28952,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 28952,
+                  "elapsedMs": 767
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 921,
+              "firstOutputMs": 872,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 51,
+              "freeMemoryMiB": 1278,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 25024,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 25024,
+                  "elapsedMs": 783
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 30031,
+              "firstOutputMs": 1028,
+              "completedMs": 1704,
+              "exitCode": null,
+              "signal": "SIGTERM",
+              "timedOut": true,
+              "cpuBusyPercent": 44,
+              "freeMemoryMiB": 3603,
+              "outputSha256": "455e5ddfbdebbc6cbb9999c272970ceae3b39c2e5a399bb8e8e175cb78cb39fd",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 42584,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 42584,
+                  "elapsedMs": 825
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 42584,
+                  "elapsedMs": 2841
+                }
+              ]
+            }
+          ],
+          "statePathLength": 104,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "pathLength": 98,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 828,
+              "firstOutputMs": 801,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 44,
+              "freeMemoryMiB": 3527,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 5000,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 5000,
+                  "elapsedMs": 718
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 776,
+              "firstOutputMs": 729,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 36,
+              "freeMemoryMiB": 3360,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 36500,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 36500,
+                  "elapsedMs": 666
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1473,
+              "firstOutputMs": 779,
+              "completedMs": 1442,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 45,
+              "freeMemoryMiB": 3302,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 47852,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 47852,
+                  "elapsedMs": 1350
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1249,
+              "firstOutputMs": 777,
+              "completedMs": 1213,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 46,
+              "freeMemoryMiB": 3346,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 13668,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 13668,
+                  "elapsedMs": 1127
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.3076000000000931
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1212,
+              "firstOutputMs": 763,
+              "completedMs": 1171,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 45,
+              "freeMemoryMiB": 3376,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 39044,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 39044,
+                  "elapsedMs": 1087
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1364,
+              "firstOutputMs": 848,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 60,
+              "freeMemoryMiB": 3309,
+              "outputSha256": "bad328cd911053fea3d2b9cef6eaf3ab95e4c21b6fec45507955dfa2d0481b65",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 35972,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 35972,
+                  "elapsedMs": 1229
+                }
+              ]
+            }
+          ],
+          "statePathLength": 104,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-medium-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 1,
+          "pathLength": 117,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 944,
+              "firstOutputMs": 910,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 66,
+              "freeMemoryMiB": 3073,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 29200,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 29200,
+                  "elapsedMs": 819
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 831,
+              "firstOutputMs": 798,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 43,
+              "freeMemoryMiB": 3077,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 25108,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 25108,
+                  "elapsedMs": 701
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1892,
+              "firstOutputMs": 1007,
+              "completedMs": 1849,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 79,
+              "freeMemoryMiB": 3201,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 14144,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 14144,
+                  "elapsedMs": 1760
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1464,
+              "firstOutputMs": 912,
+              "completedMs": 1425,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 65,
+              "freeMemoryMiB": 4278,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 41620,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 41620,
+                  "elapsedMs": 1309
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.6181999999971595
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1296,
+              "firstOutputMs": 799,
+              "completedMs": 1260,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 54,
+              "freeMemoryMiB": 4209,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 33040,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 33040,
+                  "elapsedMs": 1163
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1802,
+              "firstOutputMs": 1015,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 83,
+              "freeMemoryMiB": 4241,
+              "outputSha256": "57ccda75bc2131bb8ccf143240cd063735a075e71f0e4f19cbb14d707b121a04",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53624,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53624,
+                  "elapsedMs": 1673
+                }
+              ]
+            }
+          ],
+          "statePathLength": 122,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-long-stalled",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 4,
+          "pathLength": 166,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 1367,
+              "firstOutputMs": 1315,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 97,
+              "freeMemoryMiB": 4237,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 35436,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 35436,
+                  "elapsedMs": 1160
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 973,
+              "firstOutputMs": 941,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 66,
+              "freeMemoryMiB": 4264,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 49096,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 49096,
+                  "elapsedMs": 793
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 3717,
+              "firstOutputMs": 821,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 48,
+              "freeMemoryMiB": 4204,
+              "outputSha256": "82d6b30e90946ba70b362b232b9e6fa9ebca01a292988a34fce4942b9c054fdb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 46576,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "version_request_start",
+                  "pid": 46576,
+                  "elapsedMs": 1585
+                },
+                {
+                  "event": "version_request_timeout",
+                  "pid": 46576,
+                  "elapsedMs": 3591
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 46576,
+                  "elapsedMs": 3594
+                }
+              ]
+            }
+          ],
+          "statePathLength": 171,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-long-shortstate",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "depth": 4,
+          "shortState": true,
+          "pathLength": 169,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 797,
+              "firstOutputMs": 767,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 38,
+              "freeMemoryMiB": 4231,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 53644,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 53644,
+                  "elapsedMs": 682
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 1019,
+              "firstOutputMs": 969,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 70,
+              "freeMemoryMiB": 4147,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 20540,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 20540,
+                  "elapsedMs": 859
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1454,
+              "firstOutputMs": 828,
+              "completedMs": 1420,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 4161,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 33000,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 33000,
+                  "elapsedMs": 1314
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1288,
+              "firstOutputMs": 820,
+              "completedMs": 1252,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 4013,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 36912,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 36912,
+                  "elapsedMs": 1162
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.7474999999976717
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1282,
+              "firstOutputMs": 820,
+              "completedMs": 1249,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 49,
+              "freeMemoryMiB": 3959,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 50352,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 50352,
+                  "elapsedMs": 1165
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1300,
+              "firstOutputMs": 812,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 55,
+              "freeMemoryMiB": 4029,
+              "outputSha256": "1e7fc22aa015fbefaf6ee433fe22da2d1de5545a706c171a8a625a7327e83ef7",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 48816,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 48816,
+                  "elapsedMs": 1166
+                }
+              ]
+            }
+          ],
+          "statePathLength": 89,
+          "cacheAfterSha256": null
+        },
+        {
+          "name": "hidden-stalled-repeat",
+          "cache": "absent",
+          "stalled": true,
+          "hide": true,
+          "pathLength": 105,
+          "cacheBeforeSha256": null,
+          "stages": [
+            {
+              "stage": "version",
+              "elapsedMs": 826,
+              "firstOutputMs": 786,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 47,
+              "freeMemoryMiB": 3975,
+              "outputSha256": "38bae246034240991c1c4153d2694347e4c2c87cc114d333a63cc3e9ba58a97b",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 27148,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 27148,
+                  "elapsedMs": 699
+                }
+              ]
+            },
+            {
+              "stage": "help",
+              "elapsedMs": 799,
+              "firstOutputMs": 761,
+              "completedMs": null,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 45,
+              "freeMemoryMiB": 3995,
+              "outputSha256": "d8ef5b2977591dd25dce09a945353bf541970fe725a677753a59fb18528549d2",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 55092,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 55092,
+                  "elapsedMs": 683
+                }
+              ]
+            },
+            {
+              "stage": "put",
+              "elapsedMs": 1515,
+              "firstOutputMs": 852,
+              "completedMs": 1480,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 54,
+              "freeMemoryMiB": 3843,
+              "outputSha256": "6052edeebf4d291dd20986bbc169051e1c14173b5ae836c4dfd26b2ccb219683",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 11804,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 11804,
+                  "elapsedMs": 1393
+                }
+              ]
+            },
+            {
+              "stage": "get",
+              "elapsedMs": 1287,
+              "firstOutputMs": 800,
+              "completedMs": 1248,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 47,
+              "freeMemoryMiB": 3856,
+              "outputSha256": "015e91f13e0df6e0a09598a6d54aa2b4a4d6efa5df0a8d6eec54f453ea205f33",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 48048,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 48048,
+                  "elapsedMs": 1165
+                }
+              ]
+            },
+            {
+              "stage": "hash",
+              "matched": true,
+              "elapsedMs": 1.1477000000013504
+            },
+            {
+              "stage": "delete",
+              "elapsedMs": 1252,
+              "firstOutputMs": 795,
+              "completedMs": 1215,
+              "exitCode": 0,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 47,
+              "freeMemoryMiB": 3923,
+              "outputSha256": "22ce6505e1ed1ae27155acb29182591a011ccfa87ac0e0e72821896cd0556dfb",
+              "missingMessage": false,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 52400,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 52400,
+                  "elapsedMs": 1125
+                }
+              ]
+            },
+            {
+              "stage": "missing",
+              "elapsedMs": 1244,
+              "firstOutputMs": 771,
+              "completedMs": null,
+              "exitCode": 1,
+              "signal": null,
+              "timedOut": false,
+              "cpuBusyPercent": 46,
+              "freeMemoryMiB": 3888,
+              "outputSha256": "fd2742deb64d69ddb0c38ca3b59843d3a5e8fffb5f18b1e05f7cc19fc4828530",
+              "missingMessage": true,
+              "trace": [
+                {
+                  "event": "node_preload",
+                  "pid": 34584,
+                  "elapsedMs": 0
+                },
+                {
+                  "event": "node_exit",
+                  "pid": 34584,
+                  "elapsedMs": 1122
+                }
+              ]
+            }
+          ],
+          "statePathLength": 111,
+          "cacheAfterSha256": null
+        }
+      ]
+    }
+  ],
+  "realGateRounds": [
+    {
+      "shell": "7.6.5",
+      "logSha256": "de2ad91b3593dc01edce324ce119d7240f6e0f8259bdbf1eb6471ee2aa80c0f7",
+      "events": [
+        {
+          "timestamp": "2026-09-29T00:47:47.3983404+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":13,\"exitMilliseconds\":2871,\"elapsedMilliseconds\":2891,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:48.2015309+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":9,\"exitMilliseconds\":790,\"elapsedMilliseconds\":791,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:50.1219366+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":9,\"exitMilliseconds\":1911,\"elapsedMilliseconds\":1912,\"outputComplete\":true,\"outputSha256\":\"1256f9c9b19d1bf1c2f4ddc8e7cfc6cf4a0ef988a25c27b6f48f0d340ab51676\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:51.2220518+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":1097,\"elapsedMilliseconds\":1097,\"outputComplete\":true,\"outputSha256\":\"5c11e3e3fffde3fdef1b36858e5930e045f44002654d619b74e48d5828befdfa\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:51.2298941+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=5"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:52.3118124+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":1079,\"elapsedMilliseconds\":1079,\"outputComplete\":true,\"outputSha256\":\"bf377ad4d4a77b952858cf8ead6f1c7de19653fe32863acee7eaca4f9de6e27e\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:53.6046716+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":9,\"exitMilliseconds\":1290,\"elapsedMilliseconds\":1290,\"outputComplete\":true,\"outputSha256\":\"1dcc176a0d25ad20b698b5c011ceebbb2966174f0d1e8e477b3bddf4b468817f\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:53.6072974+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=9140"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:54.4284511+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":11,\"exitMilliseconds\":805,\"elapsedMilliseconds\":806,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:55.1737287+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":742,\"elapsedMilliseconds\":743,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:56.6625361+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":10,\"exitMilliseconds\":1483,\"elapsedMilliseconds\":1483,\"outputComplete\":true,\"outputSha256\":\"8bb19f089154924aff9910d83ec994ba3d2083d1b37243203fb8a6d12afaf224\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:58.2792283+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":21,\"exitMilliseconds\":1612,\"elapsedMilliseconds\":1613,\"outputComplete\":true,\"outputSha256\":\"260acd773b0f67ca2591e213577a837a66ca92e18cef66dd338d31c3ec3d2ef0\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:58.2828175+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=1"
+        },
+        {
+          "timestamp": "2026-09-29T00:47:59.4886155+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":12,\"exitMilliseconds\":1202,\"elapsedMilliseconds\":1203,\"outputComplete\":true,\"outputSha256\":\"e2cdccab55bee915f779a9fcb1041e35b6aea15d3612399d5c4380388cd0840c\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:01.4539740+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":10,\"exitMilliseconds\":1961,\"elapsedMilliseconds\":1962,\"outputComplete\":true,\"outputSha256\":\"4b520499261ac95de8b3f97c726c8560eb43389c3f3ab5fc05c15130da7d650b\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:01.4559506+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=7835"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:02.2351457+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":11,\"exitMilliseconds\":764,\"elapsedMilliseconds\":764,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:02.9909572+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":7,\"exitMilliseconds\":752,\"elapsedMilliseconds\":753,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:04.1487564+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":10,\"exitMilliseconds\":1154,\"elapsedMilliseconds\":1154,\"outputComplete\":true,\"outputSha256\":\"927c2962d12ec553789d528977d199b82389478649d74acde8d05f8d7fd301b8\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:05.2779119+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":10,\"exitMilliseconds\":1124,\"elapsedMilliseconds\":1125,\"outputComplete\":true,\"outputSha256\":\"80dbed15c5f0ccd5389aaf264e3de10b808ad36582fa141b12dd6a56e5df07c6\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:05.2803216+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=1"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:06.4382906+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":9,\"exitMilliseconds\":1155,\"elapsedMilliseconds\":1155,\"outputComplete\":true,\"outputSha256\":\"3bcb64038f165dc7243117476c10065d75f9d4a4211cfde4ddebfccfd461653d\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:07.5398942+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":9,\"exitMilliseconds\":1098,\"elapsedMilliseconds\":1099,\"outputComplete\":true,\"outputSha256\":\"d6dc2f3d4ae3d0bd29a86c6e2704924a132872e21e2f010d5a1f46a0e7e5bfa4\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:07.5411346+08:00",
+          "runId": "20260929-004737-a753c777",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=6073"
+        }
+      ]
+    },
+    {
+      "shell": "5.1.26100.9168",
+      "logSha256": "75cc7b7d05fb1dd493fcc1703e39c73a307a6ffc51db3bb316196b24dd364090",
+      "events": [
+        {
+          "timestamp": "2026-09-29T00:48:44.3326821+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":12,\"exitMilliseconds\":3129,\"elapsedMilliseconds\":3149,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:45.0203131+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":5,\"exitMilliseconds\":667,\"elapsedMilliseconds\":667,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:46.9156336+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":5,\"exitMilliseconds\":1884,\"elapsedMilliseconds\":1886,\"outputComplete\":true,\"outputSha256\":\"1b007e54dbd1698bad43bb8620dfbc93d01d3b242978822937d5e345cde53d7e\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:48.0926222+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":10,\"exitMilliseconds\":1172,\"elapsedMilliseconds\":1172,\"outputComplete\":true,\"outputSha256\":\"0ae63b4004d68b3c86ff4bd225f30b193ebe2649587b8e57351fdc362f5a0abc\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:48.0984822+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=3"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:49.1502747+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":6,\"exitMilliseconds\":1047,\"elapsedMilliseconds\":1048,\"outputComplete\":true,\"outputSha256\":\"9c2f0702cfcd5c3f57ca3acdfdae91137ff4dd4a08e3604b1ff4de660018ed21\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:50.3587320+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":7,\"exitMilliseconds\":1204,\"elapsedMilliseconds\":1204,\"outputComplete\":true,\"outputSha256\":\"1c2cb42a8362dba6f8312042a095b274af749008426c7d1fa3eacbe8a6ab88a1\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:50.3613659+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=9216"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:51.0405661+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":4,\"exitMilliseconds\":663,\"elapsedMilliseconds\":663,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:51.7054320+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":4,\"exitMilliseconds\":660,\"elapsedMilliseconds\":661,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:52.8164747+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":5,\"exitMilliseconds\":1105,\"elapsedMilliseconds\":1105,\"outputComplete\":true,\"outputSha256\":\"4f081713c91de0726e2efe88592c98e71ae389c6b1db056d9bc560c8466a82f4\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:54.0963457+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":6,\"exitMilliseconds\":1275,\"elapsedMilliseconds\":1276,\"outputComplete\":true,\"outputSha256\":\"6e0fcb2ea4e13471227eefb824b0afa429cb9d3b80def884208525278b3805c6\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:54.0999290+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=1"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:55.4606437+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":9,\"exitMilliseconds\":1355,\"elapsedMilliseconds\":1356,\"outputComplete\":true,\"outputSha256\":\"074b26b7be444b65383dac5cfa699e670668a3e59255fc96851110b5f624e805\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:56.9151347+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":10,\"exitMilliseconds\":1448,\"elapsedMilliseconds\":1448,\"outputComplete\":true,\"outputSha256\":\"d02c1f9e538cc0b155afe6cf29c73adde19857a6c70640fdb77e86960a602036\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:56.9170581+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=6543"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:57.6210969+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":4,\"exitMilliseconds\":691,\"elapsedMilliseconds\":691,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:58.3288718+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":4,\"exitMilliseconds\":703,\"elapsedMilliseconds\":704,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:48:59.8638613+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":7,\"exitMilliseconds\":1530,\"elapsedMilliseconds\":1530,\"outputComplete\":true,\"outputSha256\":\"2fd4c97a6ba07cda7e122a03e19d8ecea97d89cb593ff16a265d488289d9a141\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:49:00.9961530+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":5,\"exitMilliseconds\":1122,\"elapsedMilliseconds\":1122,\"outputComplete\":true,\"outputSha256\":\"acabc4a0942ae2e869d214f8af883b3dd801fe55e43e9e70001b6569d2833ff1\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:49:01.0004593+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=2"
+        },
+        {
+          "timestamp": "2026-09-29T00:49:02.0797370+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":14,\"exitMilliseconds\":1075,\"elapsedMilliseconds\":1075,\"outputComplete\":true,\"outputSha256\":\"d93875daff215c0d09956fb82b54e8198fd12e3e4ff0c54c8cbc538d303beddd\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:49:03.1998086+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":6,\"exitMilliseconds\":1117,\"elapsedMilliseconds\":1117,\"outputComplete\":true,\"outputSha256\":\"0f7ae6af483bf2fa89faed8edfe9cf78c4127bb356a122c0259f0da3499300e4\",\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:49:03.2018005+08:00",
+          "runId": "20260929-004837-77405221",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=6275"
+        }
+      ]
+    },
+    {
+      "shell": "7.6.5",
+      "finalSource": true,
+      "logSha256": "d082eea1583bca6de2bf5c9bc2d7617b9cdaa0b27c2529af4bf118f559e521e8",
+      "events": [
+        {
+          "timestamp": "2026-09-29T00:56:40.0623147+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":13,\"exitMilliseconds\":3372,\"elapsedMilliseconds\":3397,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":null,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:40.9173778+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":14,\"exitMilliseconds\":839,\"elapsedMilliseconds\":839,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":null,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:42.9651182+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":2037,\"elapsedMilliseconds\":2039,\"outputComplete\":true,\"outputSha256\":\"f9038e799db49a66761d46710f9c96cea4136ed411f2a3a8cb56198ad326f6b5\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:44.1183847+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":11,\"exitMilliseconds\":1150,\"elapsedMilliseconds\":1151,\"outputComplete\":true,\"outputSha256\":\"805bdd6e835bc6fba73cbf9136cedc96a093de190111c3b06f5948cdb17b2913\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:44.1277529+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=7"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:45.2355534+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":17,\"exitMilliseconds\":1104,\"elapsedMilliseconds\":1105,\"outputComplete\":true,\"outputSha256\":\"c98e08a03595159dbb762bcbe98c2c86315908d9e2cdccb2a77faf19234c929b\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:46.4463343+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":11,\"exitMilliseconds\":1207,\"elapsedMilliseconds\":1207,\"outputComplete\":true,\"outputSha256\":\"5169df051760dfbea0a79109b1f097caec61936e0cce493225efd60ab35dc901\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:46.4481213+08:00",
+          "runId": "20260929-005618-4d0f4cf4",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=9831"
+        }
+      ]
+    },
+    {
+      "shell": "5.1.26100.9168",
+      "finalSource": true,
+      "logSha256": "809d39355a017834121071a466c5a69135f2dafaf6401573a757660726a4e602",
+      "events": [
+        {
+          "timestamp": "2026-09-29T00:56:52.7767930+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"version\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":11,\"exitMilliseconds\":2591,\"elapsedMilliseconds\":2620,\"outputComplete\":true,\"outputSha256\":\"a31a79bc8d3c76eb4615453bfd006eeff5f042d4c2e1a4a58198394aa06f6339\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":null,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:53.6170988+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"cli_load\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":816,\"elapsedMilliseconds\":817,\"outputComplete\":true,\"outputSha256\":\"31bc5bd1669a26b4c372e8feec1f277e1aec360d225962188f2c694a7ac9b120\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":null,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":15}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:56.0611092+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"put\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":8,\"exitMilliseconds\":2427,\"elapsedMilliseconds\":2434,\"outputComplete\":true,\"outputSha256\":\"c3e18e42fe49c9f0372c5e6205ded6bc19b099c5966913a15d7b40f5d83e0dc0\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:57.2683119+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"get\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":11,\"exitMilliseconds\":1202,\"elapsedMilliseconds\":1203,\"outputComplete\":true,\"outputSha256\":\"cc65029cebec2dc090e3d7f7e4321d82ac8e3ede12766189636aa5b39c8b2aae\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:57.2763230+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_hash_stage",
+          "message": "matched=True elapsedMilliseconds=4"
+        },
+        {
+          "timestamp": "2026-09-29T00:56:58.5110384+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"delete\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":0,\"launchMilliseconds\":5,\"exitMilliseconds\":1230,\"elapsedMilliseconds\":1231,\"outputComplete\":true,\"outputSha256\":\"65c5388d53d9f8d8403668256876eee101a8885158eecfb6d99d8a9b54ef539d\",\"completionReported\":true,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:57:00.1227216+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_cli_stage",
+          "message": "{\"stage\":\"missing\",\"phase\":\"exited\",\"started\":true,\"timedOut\":false,\"exitCode\":1,\"launchMilliseconds\":14,\"exitMilliseconds\":1605,\"elapsedMilliseconds\":1607,\"outputComplete\":true,\"outputSha256\":\"ae3a87a55cf5fc673bd4a6861fb0333823794c69c407269f310589b66f58bb41\",\"completionReported\":false,\"appPathLength\":53,\"persistPathLength\":107,\"updateCheckPolicy\":\"hide_banner\",\"timeoutSeconds\":30}"
+        },
+        {
+          "timestamp": "2026-09-29T00:57:00.1257217+08:00",
+          "runId": "20260929-005646-a5ae5e7d",
+          "action": "Status",
+          "level": "INFO",
+          "event": "wrangler_roundtrip_passed",
+          "message": "elapsedMilliseconds=10020"
+        }
+      ]
+    }
+  ],
+  "productionChanges": false,
+  "rootCauseBoundary": "Banner update request retention reproduced. Long persist path failure separately reproduced; native filesystem cause and all historical failures not established. Natural CPU variation observed, no synthetic stress load.",
+  "validation": {
+    "djangoLocalService": {
+      "passed": 38,
+      "failed": 0
+    },
+    "dualShellNegativeWrapper": {
+      "passed": 2,
+      "failed": 0
+    },
+    "realRoundTrips": 8,
+    "backendBoundary": {
+      "modules": 544,
+      "violations": 0
+    },
+    "lint": {
+      "exitCode": 0,
+      "errors": 0,
+      "existingWarnings": 12,
+      "logSha256": "0015671bb14a0adfdb295a02a4b260daf212b0858fc7dbd25a4347bec8291d00"
+    },
+    "pythonFixtureRecovery": {
+      "isolatedVenvCreated": true,
+      "envelopeRetestPassed": 18,
+      "contractRetestPassed": 28
+    },
+    "frontendBuild": "not_run: no frontend/build graph change; runtime closure copied and exercised with original code; avoid concurrent large builds",
+    "fullUnitFirstRun": {
+      "command": "node --import tsx --test --test-concurrency=1 tests/*.test.ts",
+      "passed": 2656,
+      "failed": 4,
+      "skipped": 23,
+      "durationMilliseconds": 815040.057,
+      "logSha256": "37a0e1adac4cd65a7b0a7317459afa5e690fa3cb0fe9c325001f2fcc27f8228d",
+      "failureReason": "Isolated .runtime/test-venv/Scripts/python.exe was initially missing; no business source change."
+    },
+    "fourFileRetest": {
+      "passed": 46,
+      "failed": 0,
+      "logSha256": "4c30aba39a8f4ff79da5b5cd51258d1cd993c2ef170495115498026abab98280",
+      "files": [
+        "tests/business-market-options-envelope.test.ts",
+        "tests/business-market-options.test.ts",
+        "tests/business-sales-options-envelope.test.ts",
+        "tests/business-sales-options.test.ts"
+      ]
+    }
+  },
+  "delivery": {
+    "branch": "codex/wrangler-self-check",
+    "mergeMain": false,
+    "deployed": false,
+    "sharedFile": "tools/django-local-service.ps1",
+    "otherOptimizationDependencies": []
+  }
+}
