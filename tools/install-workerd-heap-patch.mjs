@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installWranglerInspectorPatch } from "./install-wrangler-inspector-patch.mjs";
 
 // Backport only config forwarding; retain the currently validated runtime.
 // Upstream: cloudflare/workers-sdk#14702. Do not patch a running release.
@@ -31,5 +32,5 @@ export async function installWorkerdHeapPatch(root = path.resolve(path.dirname(f
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  console.log(JSON.stringify(await installWorkerdHeapPatch()));
+  console.log(JSON.stringify({ ...await installWorkerdHeapPatch(), inspector: await installWranglerInspectorPatch() }));
 }
