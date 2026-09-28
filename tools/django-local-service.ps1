@@ -1764,6 +1764,7 @@ function Prepare-Application {
       "tools\django-inventory-cutover.ps1",
       "tools\django-postgres-maintenance.ps1",
       "tools\postgres-backup-retention.ps1",
+      "tools\postgres-backup-continuity.ps1",
       "tools\release-payload-retention.ps1",
       "tools\release-payload-retention.mjs",
       "tools\worker-local-release-rotation.mjs",
@@ -4199,7 +4200,13 @@ function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
   }
   $stream = [IO.FileStream]::new($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
   $locked = $false
+  # Same mutex as the direct installed backup/Verify/restore operator. Acquire
+  # while holding the lifecycle lock, and never wait for release housekeeping.
+  $pgMutex = [Threading.Mutex]::new($false, ('Local\TERUISI-DjangoPostgresMaintenance-' + (Get-Sha256Text (Get-CanonicalPath $RuntimeRoot)).Substring(0,20)))
+  $pgHeld = $false
   try {
+    try { $pgHeld = $pgMutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $pgHeld = $true }
+    if (-not $pgHeld) { throw 'PostgreSQL backup or verification is active; maintenance refused' }
     $stream.Lock(0, 1); $locked = $true
     $jobs = @(Get-ChildItem -LiteralPath $consoleRoot -Filter 'job-*.json' -Force)
     if ($jobs.Count -gt 10000) { throw 'Backup task inventory exceeds bound' }
@@ -4212,6 +4219,8 @@ function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
   } finally {
     if ($locked) { $stream.Unlock(0, 1) }
     $stream.Dispose()
+    if ($pgHeld) { $pgMutex.ReleaseMutex() }
+    $pgMutex.Dispose()
   }
 }
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./database-backups.css";
 
 type Backup = { backupId: string; completedAt: string; sizeBytes: number; manifestSha256: string; protected: boolean };
-type Result = { backupId?: string; uploadId?: string; downloadId?: string; sizeBytes?: number; isolatedRestoreVerified?: boolean; releaseRetention?: { status: string } };
+type Result = { backupId?: string; uploadId?: string; downloadId?: string; sizeBytes?: number; isolatedRestoreVerified?: boolean; retention?: { status?: string }; releaseRetention?: { status: string } };
 type Job = { id: string; action: string; status: string; createdAt: number; result?: Result; error?: string };
 type Snapshot = { enabled: boolean; items: Backup[]; jobs: Job[]; uploads: Array<{ id: string; sizeBytes: number; status: string }>; invalidBackupIds: string[]; uploadChunkBytes: number; maximumArchiveBytes: number };
 type Writable = { write(data: Uint8Array): Promise<void>; close(): Promise<void>; abort(): Promise<void> };
@@ -171,6 +171,7 @@ export default function DatabaseBackups({ canManage }: { canManage: boolean }) {
         {item.status === "completed" && item.result?.downloadId && <button className="secondary-button" disabled={busy} onClick={() => void download(item)}>保存备份包</button>}
         {item.status === "completed" && item.action === "verify-import" && <button className="secondary-button" disabled={disabled} onClick={() => void job("rehearse", item.result?.uploadId)}>隔离恢复验证</button>}
         {item.result?.isolatedRestoreVerified && <p>隔离恢复验证通过。生产数据尚未恢复，等待确认具体恢复点和维护窗口。</p>}
+        {item.result?.retention?.status === "blocked" && <p role="alert">数据库备份已生成并保留，E 盘归档或轮换未完成，请查看运维回执；不要重复生成或手动删除旧备份。</p>}
         {item.result?.releaseRetention?.status === "blocked" && <p role="alert">数据库备份已完成，发布包清理未完成，需核查版本保护或当前发布任务。</p>}
       </div>)}
     </section>

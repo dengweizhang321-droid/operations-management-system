@@ -2192,9 +2192,27 @@ def run_restore(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def run_capacity(args: argparse.Namespace) -> dict[str, Any]:
+    with psycopg.connect("") as connection:
+        connection.execute("SET TRANSACTION READ ONLY")
+        row = connection.execute(
+            "SELECT current_database(), current_user, inet_server_addr()::text, "
+            "inet_server_port(), pg_database_size(current_database())"
+        ).fetchone()
+        if (not row or row[:4] != (args.expected_database, args.expected_user, "127.0.0.1", args.port)
+                or type(row[4]) is not int or row[4] <= 0):
+            raise RuntimeError("capacity database identity mismatch")
+        return {"status": "completed", "databaseBytes": row[4]}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    capacity = subparsers.add_parser("capacity")
+    capacity.add_argument("--expected-database", required=True)
+    capacity.add_argument("--expected-user", required=True)
+    capacity.add_argument("--port", required=True, type=int)
 
     backup = subparsers.add_parser("backup")
     backup.add_argument("--pg-dump", required=True)
@@ -2240,7 +2258,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        if args.command == "backup":
+        if args.command == "capacity":
+            result = run_capacity(args)
+        elif args.command == "backup":
             result = run_backup(args)
         elif args.command == "restore":
             result = run_restore(args)

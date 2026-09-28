@@ -27,9 +27,11 @@ $MaintenanceUtf8NoBom = [Text.UTF8Encoding]::new($false)
 $MaintenanceFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
 $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
 $MaintenanceNoKeyBackupVersion = "teruisi-postgres-daily-backup-v2-no-keys"
+$script:MaintenanceRun = $null
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
 . (Join-Path $PSScriptRoot "postgres-backup-retention.ps1")
+. (Join-Path $PSScriptRoot "postgres-backup-continuity.ps1")
 $MaintenanceRehearsalRoles = @(
   "teruisi_sales_owner",
   "teruisi_sales_reader",
@@ -1192,7 +1194,10 @@ function Invoke-MaintenanceBackup {
   if (-not $MaintenanceRequest.Execute) {
     throw "创建日常 PostgreSQL 备份必须显式提供 -Execute"
   }
+  Set-MaintenancePhase 'source_preflight'
+  Assert-NoSystemMaintenance
   $evidenceTool = Assert-MaintenanceRuntimeContext
+  if ($null -ne (Get-MaintenanceRetentionPolicy)) { Assert-MaintenanceArchiveRoot | Out-Null }
   if (@(Get-PortListeners 5432).Count -ne 1) {
     throw "权威 PostgreSQL 当前未运行；日常备份不会自动启停服务"
   }
@@ -1248,6 +1253,14 @@ function Invoke-MaintenanceBackup {
       PGOPTIONS = "-c statement_timeout=1800000 -c idle_in_transaction_session_timeout=1860000"
       PGCLIENTENCODING = "UTF8"
     } {
+      Set-MaintenancePhase 'capacity_preflight'
+      $capacityRun = Invoke-BoundedNativeProcess $Python @($evidenceTool, 'capacity', '--expected-database', 'teruisi_sales', '--expected-user', $sourceRole, '--port', '5432') $InstalledAppRoot
+      $capacity = ConvertFrom-UniqueNativeJson $capacityRun 'Database capacity preflight'
+      if ($capacity.status -cne 'completed' -or -not (Test-MaintenanceInteger $capacity.databaseBytes) -or $capacity.databaseBytes -le 0) { throw 'Invalid database capacity receipt' }
+      $required = [decimal]$capacity.databaseBytes * 2 + 1GB
+      Assert-MaintenanceCapacity $backupRoot $required 'dump_generation' | Out-Null
+      if ($null -ne (Get-MaintenanceRetentionPolicy)) { Assert-MaintenanceCapacity $MaintenanceArchiveRoot $required 'archive_generation' | Out-Null }
+      Set-MaintenancePhase 'consistent_dump'
       $backupArguments = @(
         $evidenceTool, "backup",
         "--pg-dump", $pgDump,
@@ -1304,6 +1317,7 @@ function Invoke-MaintenanceBackup {
     Write-MaintenanceAtomicText (
       Join-Path $workingDirectory "backup-manifest.json.sha256"
     ) ((Get-FileSha256 $manifestPath) + [Environment]::NewLine)
+    Set-MaintenancePhase 'dump_verification'
     Read-MaintenanceArchive $workingDirectory | Out-Null
 
     Move-Item -LiteralPath $workingDirectory -Destination $finalDirectory
@@ -1603,6 +1617,8 @@ function Remove-MaintenanceRehearsalData(
 }
 
 function Invoke-MaintenanceRestoreRehearsal {
+  Assert-NoSystemMaintenance
+  Set-MaintenancePhase 'restore_preflight'
   if (-not $MaintenanceRequest.Execute -or
       -not $MaintenanceRequest.ConfirmedIsolatedRestore -or
       $MaintenanceRequest.RehearsalId -cnotmatch "^[0-9a-f]{12}$" -or
@@ -1627,6 +1643,8 @@ function Invoke-MaintenanceRestoreRehearsal {
   }
 
   $rehearsalParent = Get-MaintenanceRehearsalParent $true
+  Assert-MaintenanceCapacity $rehearsalParent ([decimal]$backup.Manifest.dump.sizeBytes * 32 + 2GB) 'isolated_restore' | Out-Null
+  Set-MaintenancePhase 'isolated_restore'
   $rehearsalRoot = Get-MaintenanceCanonicalPath (Join-Path $rehearsalParent "restore-$($MaintenanceRequest.RehearsalId)")
   if ((Get-MaintenanceCanonicalPath (Split-Path -Parent $rehearsalRoot)) -ine $rehearsalParent) {
     throw 'Restore rehearsal path escaped the approved parent'
@@ -1660,6 +1678,7 @@ function Invoke-MaintenanceRestoreRehearsal {
   $password = New-RandomSecret
   try {
     Write-MaintenanceAtomicText $passwordPath ($password + [Environment]::NewLine)
+    Set-MaintenancePhase 'restore_initialize'
     $initRun = Invoke-BoundedNativeProcess $initDb @(
       "--pgdata=$dataDirectory", "--username=postgres", "--pwfile=$passwordPath",
       "--auth-host=scram-sha-256", "--auth-local=scram-sha-256",
@@ -1671,6 +1690,7 @@ function Invoke-MaintenanceRestoreRehearsal {
     Remove-Item -LiteralPath $passwordPath -Force
 
     $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c max_locks_per_transaction=256 -c shared_buffers=128MB -c log_min_messages=warning"
+    Set-MaintenancePhase 'restore_start'
     $startRun = Invoke-MaintenancePgCtlStart $pgCtl $dataDirectory $logPath (
       $serverOptions
     ) $rehearsalRoot
@@ -1723,6 +1743,7 @@ function Invoke-MaintenanceRestoreRehearsal {
       )
       if ($noKeys) { $restoreArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
           "--approved-manifest-sha256", $backup.ManifestSha256) }
+      Set-MaintenancePhase 'restore_data'
       $restoreRun = Invoke-BoundedNativeProcess $Python $restoreArguments $InstalledAppRoot
       $restorePayload = ConvertFrom-UniqueNativeJson $restoreRun "隔离 PostgreSQL restore"
       Assert-MaintenanceExactPropertySet $restorePayload @(
@@ -1745,6 +1766,7 @@ function Invoke-MaintenanceRestoreRehearsal {
         $probeArguments += @('--policy-witness',$MaintenanceRequest.PolicySyntaxWitnessPath,
           '--policy-witness-sha256',$MaintenanceRequest.PolicySyntaxWitnessSha256)
       }
+      Set-MaintenancePhase 'restore_verification'
       $probeRun = Invoke-BoundedNativeProcess $Python $probeArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $probeRun "读取隔离恢复证据"
     }
@@ -1764,6 +1786,7 @@ function Invoke-MaintenanceRestoreRehearsal {
       throw "隔离恢复内容证据与备份快照不一致"
     }
 
+    Set-MaintenancePhase 'restore_cleanup'
     $stopRun = Invoke-BoundedNativeProcess $pgCtl @(
       "stop", "-D", $dataDirectory, "-m", "fast", "-w", "-t", "30"
     ) $rehearsalRoot
@@ -1990,6 +2013,36 @@ function Invoke-MaintenancePrune {
   return $result
 }
 
+function Invoke-MaintenanceBackupCycle {
+  $created = Invoke-MaintenanceBackup
+  $script:MaintenanceRun.databaseBackup = $created.PSObject.Copy()
+  Save-MaintenanceRun "running"
+  if ($null -ne (Get-MaintenanceRetentionPolicy)) {
+    $MaintenanceRequest.ConfirmedPrune = $true
+    Set-MaintenancePhase 'archive_and_rotation'
+    try {
+      $retained = Invoke-MaintenanceRetention
+      $retained | Add-Member -NotePropertyName status -NotePropertyValue 'completed' -Force
+      $created.backupDirectory = Join-Path $MaintenanceArchiveRoot $created.backupId
+    } catch {
+      $retained = Get-MaintenanceFailure $_ $script:MaintenancePhase
+      # Retention can fail after publishing E or during deletion. Reverify
+      # the exact surviving copy and keep the dump success separate.
+      $archivedPath = Join-Path $MaintenanceArchiveRoot $created.backupId
+      if (Test-Path -LiteralPath $archivedPath) {
+        Resolve-MaintenanceBackupArchive $archivedPath $created.manifestSha256 | Out-Null
+        $created.backupDirectory = $archivedPath
+      } else {
+        Resolve-MaintenanceBackupArchive $created.backupDirectory $created.manifestSha256 | Out-Null
+      }
+    }
+    $created | Add-Member -NotePropertyName retention -NotePropertyValue $retained
+  }
+  $script:MaintenanceRun.databaseBackup = $created
+  Save-MaintenanceRun 'running'
+  $created
+}
+
 function Show-MaintenanceStatus {
   Assert-MaintenanceRuntimeContext | Out-Null
   $backupRoot = Get-MaintenanceBackupRoot $false
@@ -2024,6 +2077,7 @@ function Show-MaintenanceStatus {
   }
   return [pscustomobject][ordered]@{
     status = "completed"
+    operationHistory = Get-MaintenanceRunStatus
     backupCount = [int]$directories.Count
     latestBackup = $latest
     serviceStateChanged = $false
@@ -2070,18 +2124,16 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
     Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256 | Out-Null
   }
 
+  $script:MaintenancePhase = 'admission'
+  $script:MaintenanceRun = $null
+  try {
   $output = Invoke-MaintenanceMutex {
+    if ($MaintenanceRequest.Execute -and $MaintenanceRequest.Action -cin @('Backup','RestoreRehearsal')) {
+      Assert-MaintenanceRuntimeContext | Out-Null
+      Start-MaintenanceRun
+    }
     switch ($MaintenanceRequest.Action) {
-      "Backup" {
-        $created = Invoke-MaintenanceBackup
-        if ($null -ne (Get-MaintenanceRetentionPolicy)) {
-          $MaintenanceRequest.ConfirmedPrune = $true
-          $retained = Invoke-MaintenanceRetention
-          $created.backupDirectory = Join-Path $MaintenanceArchiveRoot $created.backupId
-          $created | Add-Member -NotePropertyName retention -NotePropertyValue $retained
-        }
-        $created
-      }
+      "Backup" { Invoke-MaintenanceBackupCycle }
       "AdoptRetention" { Set-MaintenanceRecoveryProtection }
       "Protect" { Set-MaintenanceRecoveryProtection }
       "Unprotect" { Set-MaintenanceRecoveryProtection }
@@ -2111,18 +2163,26 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
       "Status" { Show-MaintenanceStatus }
     }
   }
-  # The PG mutex has been released; housekeeping must never invert the lifecycle lock order.
+  # Release cleanup remains outside the PG mutex: never invert lifecycle lock order.
   if ($MaintenanceRequest.Action -ceq 'Backup' -and $null -ne (Get-MaintenanceRetentionPolicy)) {
+    Set-MaintenancePhase 'release_retention'
     try {
       $cleanupRaw = & (Join-Path $PSScriptRoot 'release-payload-retention.ps1') -Execute
       $cleanup = ($cleanupRaw -join "`n") | ConvertFrom-Json
       if ($cleanup.status -cne 'completed') { throw 'Release retention receipt invalid' }
-      $output | Add-Member -NotePropertyName releaseRetention -NotePropertyValue $cleanup
-    } catch {
-      # A busy lifecycle or invalid release cannot invalidate a completed DB backup.
-      # Expose the separate blocked outcome; do not retry or bypass its protections.
-      $output | Add-Member -NotePropertyName releaseRetention -NotePropertyValue ([pscustomobject]@{status='blocked';errorCode='release_retention_not_completed'})
-    }
+    } catch { $cleanup = Get-MaintenanceFailure $_ 'release_retention' }
+    $output | Add-Member -NotePropertyName releaseRetention -NotePropertyValue $cleanup
+  }
+  if ($null -ne $script:MaintenanceRun) {
+    $script:MaintenanceRun.result = $output
+    Save-MaintenanceRun 'completed'
   }
   Write-Output ($output | ConvertTo-Json -Depth 12 -Compress)
+  } catch {
+    if ($null -ne $script:MaintenanceRun) {
+      $script:MaintenanceRun.failure = Get-MaintenanceFailure $_ $script:MaintenancePhase
+      Save-MaintenanceRun 'failed'
+    }
+    throw
+  }
 }

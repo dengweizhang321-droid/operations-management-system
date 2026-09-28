@@ -174,6 +174,15 @@ class BackupTests(unittest.TestCase):
         self.assertFalse(imported.exists())
         self.assertEqual(archive_metadata(self.directory, full=True), self.meta)
 
+    def test_backup_keeps_retention_and_release_failure_separate(self):
+        result = execute(self.store, {"id": "a" * 32, "action": "backup"},
+            operator=lambda *args: {"backupId": "fixture", "manifestSha256": "b" * 64,
+                "completedAt": "2026-01-01T00:00:00Z", "retention": {"status": "blocked"},
+                "releaseRetention": {"status": "blocked"}})
+        self.assertEqual(result["backupId"], "fixture")
+        self.assertEqual(result["retention"]["status"], "blocked")
+        self.assertEqual(result["releaseRetention"]["status"], "blocked")
+
     def test_hardlink_is_rejected(self):
         linked = Path(self.temp.name) / "linked"
         os.link(self.directory / FILES[2], linked)
