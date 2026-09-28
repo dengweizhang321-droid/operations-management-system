@@ -1,0 +1,330 @@
+{
+  "date": "2026-09-28",
+  "status": "production-adopted-and-verified",
+  "sourceCommit": "4aec20c1",
+  "operationId": "087be3fbd2dc45848ff59b449b418225",
+  "authorization": "User requested formal installation, local rollout, rollback tag, merge to main, local-only branch/worktree cleanup and verified duplicate backup cleanup.",
+  "migration": {
+    "baselineReceiptCount": 62,
+    "finalReceiptCount": 138,
+    "committedSteps": 76,
+    "journalSha256": "ca51ad3211b913080bdfde0ac7b6fb69f5abf5ffc73cce8006dd16efb915979a",
+    "modelBudgetAndVersionsVerified": true
+  },
+  "releaseAdmission": {
+    "afterBackupSha256": "1d14e4c876d9d7654f50eb626a2f0753c785395eda89a44ac95d4bb0e323641a",
+    "afterRestoreSha256": "7e95d76084a6929cae53ae442f8ada015865147f396bdae3649bf8375307def9",
+    "installedSha256": "044cd59199cb45d698414e9848e40c96a66e514edaa40d69fd9be3988b06c9da",
+    "migrationSha256": "02dfcb5319072caedaf0a1dac5d56b8317ece1f3abe26124dd7ce4f29ab14f47",
+    "operationId": "087be3fbd2dc45848ff59b449b418225",
+    "policySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
+    "status": "verified",
+    "version": "teruisi-integration-release-v1"
+  },
+  "django": {
+    "version": 2,
+    "deployedAt": "2026-09-28T11:49:58.7410768+08:00",
+    "sourceRoot": "D:\\.codex\\worktrees\\upstream-integration-pr\\运营管理系统",
+    "fingerprintAlgorithm": "relative-path-file-sha256-ordinal-v2",
+    "fileCount": 2880,
+    "appFingerprint": "40c14a55789586f844894d5977b51ad33675ed8ff03169dc163ff5114dbe2a14"
+  },
+  "djangoManifestSha256": "dc4ad06123926fdf582c633c8d6173bf3ea3fde853e314288246222cf9f6075e",
+  "worker": {
+    "releaseId": "20260928T013126Z-a6492ec30545a5df",
+    "manifestSha256": "22ac2845aa854ca2f7c5e7ac94f96ca498e65ef9c16adb93f133716332e08794",
+    "sourceCommit": "c742d9e0"
+  },
+  "rollbackTag": {
+    "name": "rollback/pre-integration-20260928",
+    "commit": "108fed614c2f03f26caf4cf169a26ea3d48609ee",
+    "databaseBackupRequired": true
+  },
+  "beforeBackup": {
+    "directory": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20260928T015929Z-e476816fcece",
+    "manifestSha256": "a7a87f0df36a80adbab9da9f833012d470ef95016e775f4c0f9760de9ed4f083",
+    "restore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "9fdc13ed2437",
+      "startedAt": "2026-09-28T02:04:27.5701221+00:00",
+      "completedAt": "2026-09-28T02:09:57.5995875+00:00",
+      "backupId": "daily-20260928T015929Z-e476816fcece",
+      "backupManifestSha256": "a7a87f0df36a80adbab9da9f833012d470ef95016e775f4c0f9760de9ed4f083",
+      "dumpSha256": "74bfed11c6660b5540d7b841be771ec069130e6c7f2104ac5a5960d75e8ca791",
+      "expectedContentSha256": "7add3056d5c19274ab3fbcbf04e300b2f800545a01b52abd36036273d198d0d2",
+      "restoredContentSha256": "7add3056d5c19274ab3fbcbf04e300b2f800545a01b52abd36036273d198d0d2",
+      "isolatedPort": 55765,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed"
+    },
+    "eArchiveThreeFilesVerified": true
+  },
+  "installedBackup": {
+    "directory": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20260928T022936Z-342ec5098849",
+    "manifestSha256": "1d14e4c876d9d7654f50eb626a2f0753c785395eda89a44ac95d4bb0e323641a",
+    "restore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "c3c999390026",
+      "startedAt": "2026-09-28T03:22:19.1856388+00:00",
+      "completedAt": "2026-09-28T03:30:50.1456344+00:00",
+      "backupId": "daily-20260928T022936Z-342ec5098849",
+      "backupManifestSha256": "1d14e4c876d9d7654f50eb626a2f0753c785395eda89a44ac95d4bb0e323641a",
+      "dumpSha256": "9553a43377fd15cfef08db4d82904e2f1c8c896ce1103a834f15332eda696a12",
+      "expectedContentSha256": "7dbf33ae4cec3d7d8acedc2f6216dc18da642bfeaaaca8bc6589598c3c062fa7",
+      "restoredContentSha256": "7dbf33ae4cec3d7d8acedc2f6216dc18da642bfeaaaca8bc6589598c3c062fa7",
+      "isolatedPort": 55772,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "60bee1767a3634064a7794e3fe1a2a005bc2768c574179e011cee96738b2dc6a",
+      "policySyntaxEquivalenceVerified": true,
+      "policySyntaxWitnessSha256": "e6f774fd28be3c63feb02101bb1d4a757784da80a06e10754bdd23aa8c15742a"
+    },
+    "eArchiveThreeFilesVerified": true
+  },
+  "startupCorrections": {
+    "ordinaryOwnerDoesNotRevokeIndependentOwnerTables": true,
+    "unexpectedProtectedRelationAccessRejected": true,
+    "grantUpdateAtomic": true,
+    "financeNetshopMigrationMetadataOnlyAppName": true,
+    "netshopRolesProvisionedThroughOriginalOperator": true,
+    "exactGrantBlockRepeatedInIsolatedDatabase": true,
+    "domainHealthGuardsVerifiedUnderFourActualRoles": true
+  },
+  "closedCapabilities": {
+    "newRecoveryKeyGenerated": false,
+    "privateKeyRows": 0,
+    "experimentalSigningRolesRemainClosed": true
+  },
+  "knownOperationalIssues": [
+    "Initial Start queued behind existing weekly report and rejected stopped-state fence; retried original Start.",
+    "Worker controller success output alone is insufficient: independent aggregate readiness is required."
+  ],
+  "preserved": {
+    "postgresPid": 11332,
+    "n8nPid": 17868,
+    "remoteBranches": true,
+    "businessManualReplay": false
+  },
+  "remaining": [
+    "Merge upstream PR53",
+    "Sync local main",
+    "Remaining local worktree/duplicate-backup cleanup"
+  ],
+  "runtime": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260928T013126Z-a6492ec30545a5df",
+    "supervisorProcessId": 8048,
+    "portProcessId": 36728,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-28T12:03:06.9080915+08:00"
+  },
+  "startupBinding": {
+    "status": "verified",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20260928T013126Z-a6492ec30545a5df",
+    "manifestSha256": "22ac2845aa854ca2f7c5e7ac94f96ca498e65ef9c16adb93f133716332e08794",
+    "startupVerified": true
+  },
+  "aiRuntime": {
+    "AiReader": "running",
+    "AiWriter": "running",
+    "ReaderReadiness": "ready",
+    "WriterReadiness": "ready",
+    "CheckedAt": "2026-09-28T04:04:24.6241126+00:00",
+    "PandasReadiness": "ready",
+    "DingTalkScheduler": "running",
+    "DingTalkStartup": "enabled",
+    "DingTalkReceiver": "running",
+    "DingTalkConnection": "connected"
+  },
+  "supervisor": {
+    "status": "completed",
+    "desiredState": "running",
+    "supervisorProcess": "running",
+    "health": "healthy",
+    "code": "all_components_ready",
+    "lastHealthyAt": "2026-09-28T04:09:29.7933639+00:00",
+    "restartAttemptsInWindow": 1,
+    "pendingAlertCount": 101,
+    "serviceStateChanged": false
+  },
+  "assets": {
+    "homepageStatus": 200,
+    "assetCount": 15,
+    "allServedAssetsMatch": true,
+    "assets": [
+      {
+        "path": "/assets/ai-page-context-provider-Dc3lH0uZ.js",
+        "sha256": "81068a87be6359e62cb5aca4183656b0fdb30f82e4dab2532fd9e2caa6753858",
+        "bytes": 519
+      },
+      {
+        "path": "/assets/api-client-BkSFlZxp.js",
+        "sha256": "1668ca8a79bf454e2d7c8c8ef2783c19ca9d6640e5df6327400a57e8ccc5edbe",
+        "bytes": 1587
+      },
+      {
+        "path": "/assets/api-error-CJCV3BJQ.js",
+        "sha256": "4efae8b1a9127677a8c80569e149000d507839d79d3fc807c2a37d490174941f",
+        "bytes": 201
+      },
+      {
+        "path": "/assets/dialog-CXm5GeIc.js",
+        "sha256": "62403b91d7d23f2e2c0f24b5941f9176e1a7ebf61f5cb8f770132bc6f8dc1ac5",
+        "bytes": 3064
+      },
+      {
+        "path": "/assets/framework-CXnKph_e.js",
+        "sha256": "73b45b606448e4dc310fbe851d8089ee752f3eb081980b3a6fec88988820ee12",
+        "bytes": 189805
+      },
+      {
+        "path": "/assets/index-BRzFKYJh.css",
+        "sha256": "1b6e155693b6716184f0d19a39610327ceea0b1466c09f90de27694c79d5655e",
+        "bytes": 415844
+      },
+      {
+        "path": "/assets/index-bTlgy56Z.js",
+        "sha256": "fd59bd2fc4de23286c7541f97b6ac8e1a10031d2b4264a6af082194638600d22",
+        "bytes": 81370
+      },
+      {
+        "path": "/assets/layout-segment-context-DqE-kCkU.js",
+        "sha256": "527123442b75eac744e325febf2072588eeaa78133af6f3ba43ad9ed297910af",
+        "bytes": 288
+      },
+      {
+        "path": "/assets/module-view-shared-C5DPvJ_4.js",
+        "sha256": "bef709b2ccd5a55e06911ae20a759ba86e015a641693a7ab40cd93607f8086d3",
+        "bytes": 6469
+      },
+      {
+        "path": "/assets/navigation-catalog-DvolBk78.js",
+        "sha256": "c83bd576cc5d5ce20c2d4cd8cd67214cb338dc7f340405edad8b7ba11ae1efbe",
+        "bytes": 3061
+      },
+      {
+        "path": "/assets/page-DQ61ju8m.js",
+        "sha256": "7b30ebbe37a2fcfad297fe73675bce3646f6d1f81ccf8e5abb27168447deb851",
+        "bytes": 59393
+      },
+      {
+        "path": "/assets/page-context-DTMpRdSa.js",
+        "sha256": "5d9125e98d2820f2853aeb82cb368758d028ddd380e71062e35726a2cd774c52",
+        "bytes": 6428
+      },
+      {
+        "path": "/assets/reloadable-lazy-BU4AV5pU.js",
+        "sha256": "89877a478fb2c752b38ed3187cc3c2976f3114b25c92131f6a3da6421188a432",
+        "bytes": 536
+      },
+      {
+        "path": "/assets/rolldown-runtime-S-ySWqyJ.js",
+        "sha256": "5db5ba82eef00d1dee7e86e663098c9427d01183a88d357437daff295aec3e75",
+        "bytes": 694
+      },
+      {
+        "path": "/assets/searchable-select-TuzqFU6k.js",
+        "sha256": "f423c656f508f5e8c08f6790e50b567b02f6e294204032fe6ba28e765310916f",
+        "bytes": 5409
+      }
+    ]
+  },
+  "watchdog": [
+    {
+      "decision": "healthy",
+      "lastCheck": "2026-09-28T12:12:59.141422+08:00",
+      "lastHealthy": "2026-09-28T12:12:59.1910804+08:00",
+      "failures": 0
+    },
+    {
+      "decision": "healthy",
+      "lastCheck": "2026-09-28T12:14:04.863017+08:00",
+      "lastHealthy": "2026-09-28T12:14:04.8809268+08:00",
+      "failures": 0
+    }
+  ],
+  "postStartBackup": {
+    "source": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20260928T040353Z-906d56bc49e4",
+    "archive": "E:\\运营管理系统业务数据\\daily-20260928T040353Z-906d56bc49e4",
+    "status": "verified",
+    "files": [
+      {
+        "name": "backup-manifest.json",
+        "bytes": 252906,
+        "sha256": "1381662cead2a5025ec8d726af1ea96a994d9f46ab500c03e89f1536c4351406"
+      },
+      {
+        "name": "backup-manifest.json.sha256",
+        "bytes": 66,
+        "sha256": "16c0cf94d276a7d01dd33d94a2f2d410bf99800c691df5fbfd46f098ea794938"
+      },
+      {
+        "name": "teruisi-sales.dump",
+        "bytes": 815653753,
+        "sha256": "8c953b8da9f57e2a8f153f78ab59d4b18bf2d2c06e24e164e16d0e41ba02a7ac"
+      }
+    ],
+    "manifestSha256": "1381662cead2a5025ec8d726af1ea96a994d9f46ab500c03e89f1536c4351406",
+    "independentRestoreStatus": "completed",
+    "restore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "7d20610d3fb5",
+      "startedAt": "2026-09-28T04:11:19.9045156+00:00",
+      "completedAt": "2026-09-28T04:20:32.1392013+00:00",
+      "backupId": "daily-20260928T040353Z-906d56bc49e4",
+      "backupManifestSha256": "1381662cead2a5025ec8d726af1ea96a994d9f46ab500c03e89f1536c4351406",
+      "dumpSha256": "8c953b8da9f57e2a8f153f78ab59d4b18bf2d2c06e24e164e16d0e41ba02a7ac",
+      "expectedContentSha256": "7406cb37e029b75a7aaf4eef2bfc3d0bc23a6af4e52e08607702ed9a055e9146",
+      "restoredContentSha256": "7406cb37e029b75a7aaf4eef2bfc3d0bc23a6af4e52e08607702ed9a055e9146",
+      "isolatedPort": 55779,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "25533dd3955bd5bec37b09305874000e60975cb4fd2e5db266fa69185d9db30d",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "restoreResultSha256": "9403cc7c915c007b1d3669cf7dca4ec109cf99565922a6d25543735cf38fb9be"
+  },
+  "cleanup": {
+    "verifiedDuplicateBackupDirectories": 17,
+    "unoccupiedMergedLocalBranches": 23,
+    "worktrees": 92,
+    "deletionCompleted": false,
+    "automaticApprovalRejection": "blocked by policy; deleting 17 verified D/E duplicate backups and earlier 46 synthetic PostgreSQL test directories was rejected; no alternative deletion attempted",
+    "localBranchesDeleted": 23,
+    "localBranchesRemaining": 87,
+    "remainingWorktrees": 92,
+    "localMainEditsPreserved": {
+      "stash": "c5e5c053070f054010816a12616e47a9a3d75b43",
+      "archive": "E:\\codex-artifacts\\upstream-integration-20260927\\local-main-edits-before-update-20260928.bundle",
+      "verified": true
+    }
+  }
+}

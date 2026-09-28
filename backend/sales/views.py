@@ -259,3 +259,26 @@ def category_detail(request: HttpRequest) -> JsonResponse:
         return _json(payload, revision=stable_revision)
 
     return _handle(execute, request)
+
+
+@require_GET
+def analysis_options(request):
+    from django.http import HttpResponse
+    from . import analysis_options as service
+    from .analysis_options_contract import canonical
+    from .analysis_options_projection import OptionsError
+    if settings.DJANGO_PROCESS_ROLE not in {"reader", "development"}:
+        return _json({"code":"not_found", "error":"Not found"},status=404)
+    try:
+        principal=verify_principal(request)
+        query,cursor=service.validate_request(request.GET)
+        value=service.read_page(principal,query,cursor)
+        response=HttpResponse(canonical(value),content_type="application/json",status=200)
+        response["Cache-Control"]="no-store"
+        response["X-Sales-Data-Revision"]=value["revision"]
+        response["X-Sales-Source-Revision"]=value["revision"]
+        return response
+    except PrincipalEnvelopeError as error:
+        return _json({"code":error.code,"error":str(error)},status=error.status)
+    except OptionsError as error:
+        return _json({"code":error.code,"error":str(error)},status=error.status)

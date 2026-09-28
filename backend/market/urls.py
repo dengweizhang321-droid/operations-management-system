@@ -3,10 +3,13 @@ from django.urls import path
 
 from . import views
 from .read_health import endpoint as read_health
+from .analysis_continuation import continuation
 
 
 read_patterns = [
     path("health/reads", read_health, name="market-read-health"),
+    path("analysis-records/continuation", continuation, name="market-analysis-continuation"),
+    path("analysis-options", views.analysis_options, name="market-analysis-options"),
     path("queries", views.queries, name="market-queries"),
     path("consumers/query", views.consumers, name="market-consumers"),
 ]

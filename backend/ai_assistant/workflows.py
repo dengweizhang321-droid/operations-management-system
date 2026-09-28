@@ -1,8 +1,9 @@
-"""Durable, fenced, one-call microsteps and serial DAG orchestration."""
+"""Durable one-call microsteps; serial DAGs and pinned parallel business DAGs."""
 
 from __future__ import annotations
 import json
 from datetime import timedelta
+from django.conf import settings
 from django.db.models import Q, F, Sum, Min
 from django.utils import timezone
 from sales.auth import Principal
@@ -143,10 +144,10 @@ def validate_graph(value):
     return {"nodes": output}
 
 
-def admission(principal, model_id=None):
+def admission(principal, model_id=None, *, surface="ai_agent"):
     current_principal(principal, write=True)
     model = resolve_model(model_id)
-    entries = transport.catalog(principal, "ai_agent")
+    entries = transport.catalog(principal, surface)
     if not entries or len(entries) > 64:
         raise AiError("Agent 工具目录无效", "service_unavailable", 503)
     return {
@@ -175,7 +176,7 @@ def event(row, principal, kind, previous=None, node=None):
         m.AiAgentEvents.objects.create(job_id=row.id, job_version=row.version, **values)
 
 
-def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None):
+def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=None, execution_profile=None, budget_prepared=None, integrated_prepared=None):
     allowed = {"clientRequestId", "input", "modelId"} | (
         {"name", "graph", "dryRun"} if workflow else {"task"}
     )
@@ -195,8 +196,31 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
         "name" if workflow else "task",
         120 if workflow else 8000,
     )
-    admitted, entries = admission(principal, body.get("modelId")) if not dry else ({}, [])
+    if execution_profile is not None:
+        from . import business_reports
+        if not workflow or execution_profile not in {business_reports.V2_PROFILE, business_reports.BUDGET_PROFILE, business_reports.integrated.PROFILE}:
+            raise AiError("工作流执行协议无效")
+        if execution_profile == business_reports.BUDGET_PROFILE:
+            from .business_budget_store import PreparedBudget
+            from .policy import _mutation_depth
+            if type(budget_prepared) is not PreparedBudget or _mutation_depth.get() < 1:
+                raise AiError("预算工作流仅可在完整报告创建事务中使用固定参数")
+        if execution_profile == business_reports.integrated.PROFILE:
+            from .policy import _mutation_depth
+            if type(integrated_prepared) is not business_reports.integrated.Prepared or _mutation_depth.get() < 1:
+                raise AiError("集成工作流仅可在完整报告事务中使用固定关联参数")
+    if integrated_prepared is not None and execution_profile != "business-agent-integrated-reference-v1":
+        raise AiError("关联参数与工作流协议不一致")
+    if budget_prepared is not None and execution_profile != "business-agent-budget-reference-v1":
+        raise AiError("预算参数与工作流执行协议不一致")
+    surface = ("business_agent_integrated_v1" if execution_profile == "business-agent-integrated-reference-v1" else
+               "business_agent_budget_v1" if execution_profile == "business-agent-budget-reference-v1" else
+               "business_agent_v2" if execution_profile is not None else "ai_agent")
+    admitted, entries = (admission(principal, body.get("modelId"), surface=surface) if execution_profile is not None
+                         else admission(principal, body.get("modelId"))) if not dry else ({}, [])
     request_digest = digest({"payload": body, "admission": admitted})
+    if execution_profile is not None:
+        request_digest = digest({"payload": body, "admission": admitted, "executionProfile": execution_profile})
     cls = m.AiWorkflowRuns if workflow else m.AiAgentJobs
     with mutation(principal):
         existing = cls.objects.filter(
@@ -236,6 +260,15 @@ def create(body, principal, workflow=False, *, skill_ids=None, library_snapshot=
         if not dry:
             from . import report_library
             report_library.pin(row.id, title, None, entries, skill_ids=skill_ids, library=library_snapshot)
+        if execution_profile is not None:
+            if execution_profile == business_reports.integrated.PROFILE:
+                from .business_integrated_preflight import preflight
+                preflight(row, principal, graph, entries, prepared=integrated_prepared)
+            elif execution_profile == business_reports.BUDGET_PROFILE:
+                from .business_budget_preflight import preflight
+                preflight(row, principal, graph, entries, prepared=budget_prepared)
+            else:
+                business_reports.preflight_v2(row, principal, graph, entries)
         if workflow:
             for position, node in enumerate(graph["nodes"]):
                 m.AiWorkflowNodeRuns.objects.create(
@@ -287,6 +320,10 @@ def control(entity_id, body, principal, action, workflow=False):
                 or row.resume_count >= 16
             ):
                 raise AiError("此任务不能恢复", "conflict", 409)
+            from . import business_integrated
+            report = m.AiReportRun.objects.filter(workflow_id=row.id if workflow else row.workflow_run_id).first()
+            if report and business_integrated.is_snapshot(json.loads(report.snapshot_json)):
+                business_integrated.bound(report, principal)
             row.status = "queued"
             row.resume_count += 1
             row.completed_at = None
@@ -321,7 +358,7 @@ def control(entity_id, body, principal, action, workflow=False):
         return {"item": mapping(row)}
 
 
-def review(run_id, node_key, body, principal):
+def review(run_id, node_key, body, principal, *, commit=None):
     fields(
         body,
         {"expectedVersion", "decision", "comment"},
@@ -329,11 +366,28 @@ def review(run_id, node_key, body, principal):
     )
     decision = choice(body["decision"], ["approve", "reject"], "decision")
     comment = text(body.get("comment", ""), "comment", 2000, empty=True)
+    screening_review = promotion_review = None
+    if decision == "approve":
+        from . import business_screening_readiness, business_screening_content
+        from . import business_promotion_readiness, business_promotion_review
+        candidate = get(run_id,principal,True)
+        promotion_report = business_promotion_readiness.report_for(candidate)
+        if promotion_report is not None:
+            promotion_review = business_promotion_review.prepare_review(promotion_report.id,principal)
+        else:
+            screening_report = business_screening_readiness.report_for(candidate)
+            if screening_report is not None:
+                screening_review = business_screening_content.prepare_review(screening_report,principal)
     with mutation(principal):
         row = get(run_id, principal, True)
         if decision == "approve":
-            from . import reports
-            reports.validate_review(row.id, principal)
+            if promotion_review is not None:
+                business_promotion_review.revalidate_review(promotion_review,principal)
+            elif screening_review is not None:
+                business_screening_content.revalidate_review(screening_review,principal)
+            else:
+                from . import reports
+                reports.validate_review(row.id, principal)
         node = m.AiWorkflowNodeRuns.objects.filter(
             run_id=row.id, node_key=identifier(node_key)
         ).first()
@@ -367,7 +421,8 @@ def review(run_id, node_key, body, principal):
             previous,
             node.node_key,
         )
-        return {"item": mapping(row)}
+        result = {"item": mapping(row)}
+        return commit(result,200) if commit is not None else result
 
 
 def background(row):
@@ -452,11 +507,17 @@ def prepared_candidate(query):
         return row, Principal(row.owner_email, "", "operator", None), error
 
 
-def agent_tick():
-    eligible = m.AiAgentJobs.objects.filter(
+def agent_candidates():
+    return m.AiAgentJobs.objects.filter(
         Q(status="queued") | Q(status="running", lease_expires_at__lte=timezone.now()),
         next_run_at__lte=timezone.now(),
     )
+
+
+def agent_tick(*, job_id=None):
+    eligible = agent_candidates()
+    if job_id is not None:
+        eligible = eligible.filter(pk=job_id)
     candidate, principal, error = prepared_candidate(eligible)
     if not candidate:
         return {"status": "idle"}
@@ -484,10 +545,28 @@ def agent_tick():
         row.save()
         lease = (row.id, row.lease_token, row.lease_epoch)
     try:
-        admitted, entries = admission(principal, row.model_id)
+        from . import business_reports
+        surface = business_reports.execution_surface(row, principal)
+        admitted, entries = (admission(principal, row.model_id) if surface == "ai_agent"
+                             else admission(principal, row.model_id, surface=surface))
         if any(getattr(row, k) != v for k, v in admitted.items()):
             raise AiError("执行策略已变化", "executor_policy_changed", 409)
+        from . import business_reports
+        entries = business_reports.restricted_entries(row, entries)
         model = resolve_model(row.model_id)
+        screening_step = screening_answer = None
+        promotion_step = promotion_permission = promotion_answer = None
+        from . import business_screening_execution, business_screening_runtime_contract
+        if surface == business_screening_runtime_contract.SURFACE:
+            screening_step = business_screening_execution.prepare(row,principal)
+        from . import business_promotion_runtime_contract, business_promotion_microstep
+        if surface == business_promotion_runtime_contract.SURFACE:
+            from . import business_promotion_execution
+            promotion_step = business_promotion_microstep.prepare(row, principal)
+            if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is True:
+                from . import business_promotion_runtime_permission
+                promotion_permission = business_promotion_runtime_permission.prepare(
+                    promotion_step.proof["reportId"], principal, row.workflow_node_key)
         providers = list(
             m.AiAgentProviderDispatches.objects.filter(job_id=row.id).order_by(
                 "dispatch_ordinal"
@@ -549,15 +628,44 @@ def agent_tick():
             frames += provider.tool_frames(model, response["calls"], outputs)
         if len(canonical(frames).encode()) > 192 * 1024:
             raise AiError("任务上下文超限", "transcript_limit_exceeded", 409)
+        if screening_step is not None and final is not None:
+            screening_answer = business_screening_execution.validate_answer(screening_step,final,principal)
+        if promotion_step is not None and final is not None and promotion_permission is not None:
+            from . import business_promotion_execution
+            promotion_answer = business_promotion_execution.validate_final(row, final, principal)
+        if promotion_step is not None and pending is None and final is None and promotion_permission is not None:
+            business_promotion_microstep.validate_provider_turn(
+                promotion_step, frames, entries, model, principal)
         with mutation(principal, background=True):
             row = _leased(lease)
+            # The 0060/0064 market snapshots are not recognized by the older
+            # business_reports.context helper.  Fence this family before a
+            # generic provider *or* tool dispatch can be reserved.
+            from . import business_market_v2_paid_gate
+            business_market_v2_paid_gate.before_reservation(row)
+            if promotion_step is not None:
+                business_promotion_microstep.check(promotion_step, row, principal)
+                if promotion_permission is None:
+                    raise AiError("词货运行许可尚未开放，不能预留模型或工具派发",
+                        "promotion_runtime_not_ready", 409)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal)
+            if screening_step is not None:
+                business_screening_execution.check(screening_step,row,principal)
             current = resolve_model(row.model_id)
             if current.version != row.model_version:
                 raise AiError("模型版本已变化", "model_version_changed", 409)
             if final is not None:
-                return _complete(row, principal, final)
+                return _complete(row, principal, final,
+                    **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}),
+                    **({"promotion_permission":promotion_permission,"promotion_answer":promotion_answer}
+                        if promotion_step is not None else {}))
             if pending:
                 parent, call = pending
+                business_reports.validate_call(row, call, principal,
+                    **({"screening_step":screening_step} if screening_step is not None else {}),
+                    **({"promotion_step":promotion_step,"promotion_permission":promotion_permission}
+                        if promotion_step is not None else {}))
                 entry = next((e for e in entries if e["name"] == call["name"]), None)
                 if (
                     not entry
@@ -579,6 +687,9 @@ def agent_tick():
                     lease_epoch=row.lease_epoch,
                 )
             else:
+                if promotion_step is None:
+                    business_reports.validate_provider_turn(row, principal,
+                        **({"screening_step":screening_step} if screening_step is not None else {}))
                 if len(providers) >= min(model.max_tool_rounds, 20):
                     raise AiError("模型轮数超限", "provider_limit_exceeded", 409)
                 dispatch_budget(principal.email.lower(), model.id)
@@ -603,8 +714,8 @@ def agent_tick():
                 call["name"],
                 call["arguments"],
                 principal,
-                surface="ai_agent",
-                request_id=dispatch.invocation_id,
+                surface=surface,
+                request_id=dispatch.id if promotion_step is not None else dispatch.invocation_id,
                 provider_call_id=call["id"],
                 policy_digest=row.tool_policy_digest,
             )
@@ -614,8 +725,61 @@ def agent_tick():
         passive(result, 256 * 1024)
         if result.get("auditStatus") == "unavailable":
             raise AiError("工具审计不可用", "audit_unavailable", 503)
+        if screening_step is not None and not pending and not result["calls"]:
+            # Preserve the known external outcome before expensive owning
+            # numeric validation. A later failure must not erase and replay it.
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+                m.AiAgentProviderResults.objects.create(dispatch_id=dispatch.id,response_json=canonical(result),
+                    response_digest=digest(result),usage_json=canonical(result.get("usage",{})),
+                    provider_request_id=result.get("providerRequestId",""))
+                row.provider_round_count += 1
+                row.save(update_fields=["provider_round_count"])
+                dispatch.state,dispatch.completed_at = "succeeded",timezone.now()
+                dispatch.save()
+            screening_answer = business_screening_execution.validate_answer(screening_step,result["text"],principal)
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+                return _complete(row,principal,result["text"],screening_step=screening_step,screening_answer=screening_answer)
+        if promotion_step is not None and not pending and not result["calls"]:
+            # A known final provider response is saved before expensive full
+            # Agent read and numeric diagnosis. Failure must retain this exact
+            # known result and must never ask the model for it again.
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                _promotion_result_dispatch(row, dispatch, pending=False)
+                m.AiAgentProviderResults.objects.create(dispatch_id=dispatch.id,
+                    response_json=canonical(result), response_digest=digest(result),
+                    usage_json=canonical(result.get("usage", {})),
+                    provider_request_id=result.get("providerRequestId", ""))
+                row.provider_round_count += 1
+                row.save(update_fields=["provider_round_count"])
+                dispatch.state, dispatch.completed_at = "succeeded", timezone.now()
+                dispatch.save()
+            promotion_answer = business_promotion_execution.validate_final(
+                row, result["text"], principal)
+            with mutation(principal, background=True):
+                row = _leased(lease)
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                business_promotion_execution.check(promotion_answer, row,
+                    result["text"], principal)
+                return _complete(row, principal, result["text"],
+                    promotion_permission=promotion_permission,
+                    promotion_answer=promotion_answer,
+                    promotion_result_commit=True)
         with mutation(principal, background=True):
             row = _leased(lease)
+            if screening_step is not None:
+                business_screening_execution.check(screening_step,row,principal,dispatch=dispatch)
+            if promotion_step is not None:
+                business_promotion_runtime_permission.authorize_dispatch(
+                    promotion_permission, row, principal, result_commit=True)
+                _promotion_result_dispatch(row, dispatch, pending=bool(pending))
             if pending:
                 m.AiAgentToolResults.objects.create(
                     tool_dispatch_id=dispatch.id,
@@ -688,8 +852,63 @@ def _leased(lease):
     return row
 
 
-def _complete(row, principal, answer):
-    output = {"answer": text(answer, "answer", 12000)}
+def _promotion_result_dispatch(job, dispatch, *, pending):
+    """Local post-call CAS for the one reservation made by this microstep.
+
+    The prepared prefix cannot be checked unchanged after reservation. This
+    checks the exact new row and lease instead; no old profile calls it.
+    """
+    cls = m.AiAgentToolDispatches if pending else m.AiAgentProviderDispatches
+    if type(dispatch) is not cls:
+        raise AiError("词货派发类型与已知结果不一致", "conflict", 409)
+    saved = cls.objects.filter(pk=dispatch.id, job_id=job.id,
+        lease_epoch=job.lease_epoch, state="calling").first()
+    result_cls = m.AiAgentToolResults if pending else m.AiAgentProviderResults
+    result_filter = {"tool_dispatch_id":dispatch.id} if pending else {"dispatch_id":dispatch.id}
+    if saved is None or result_cls.objects.filter(**result_filter).exists():
+        raise AiError("词货派发已变化或结果已存在，禁止重放", "tool_dispatch_unknown" if pending else "provider_dispatch_unknown", 409)
+    if pending:
+        provider_row = m.AiAgentProviderDispatches.objects.filter(
+            pk=saved.provider_dispatch_id, job_id=job.id, state="succeeded").first()
+        provider_result = (m.AiAgentProviderResults.objects.filter(
+            dispatch_id=provider_row.id).first() if provider_row else None)
+        if (saved.tool_call_ordinal != job.tool_call_count+1
+                or saved.tool_name != dispatch.tool_name
+                or saved.provider_call_id != dispatch.provider_call_id
+                or saved.arguments_json != dispatch.arguments_json
+                or saved.arguments_digest != digest(saved.arguments_json)
+                or saved.invocation_id != dispatch.invocation_id
+                or provider_result is None
+                or provider_result.response_digest != digest(provider_result.response_json)):
+            raise AiError("词货工具派发与已保存模型调用不一致", "tool_dispatch_unknown", 409)
+    elif (saved.dispatch_ordinal != job.provider_round_count+1
+            or saved.owner_email != job.owner_email or saved.actor_role != "admin"
+            or saved.model_id != job.model_id or saved.model_version != job.model_version
+            or saved.tool_policy_digest != job.tool_policy_digest
+            or saved.request_digest != dispatch.request_digest):
+        raise AiError("词货模型派发与当前租约或固定策略不一致", "provider_dispatch_unknown", 409)
+    return saved
+
+
+def _complete(row, principal, answer, *, screening_step=None, screening_answer=None,
+              promotion_permission=None, promotion_answer=None,
+              promotion_result_commit=False):
+    from . import business_reports
+    # A received v2 answer can fail proof validation. Keep its provider receipt
+    # and succeeded dispatch in this transaction; never relabel it as unknown.
+    if business_reports.has_v2_profile(row):
+        try:
+            business_reports.validate_output(row, answer, principal,
+                **({"screening_step":screening_step,"screening_answer":screening_answer} if screening_step is not None else {}),
+                **({"promotion_permission":promotion_permission,"promotion_answer":promotion_answer,
+                    "promotion_result_commit":promotion_result_commit}
+                    if promotion_answer is not None else {}))
+            output = {"answer": text(answer, "answer", 12000)}
+        except (AiError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as error:
+            return _fail(row, principal, error.code if isinstance(error, AiError) else "business_output_validation_failed")
+    else:
+        business_reports.validate_output(row, answer, principal)
+        output = {"answer": text(answer, "answer", 12000)}
     row.output_json = canonical(output)
     row.status = "completed"
     row.phase = "completed"
@@ -715,12 +934,37 @@ def _complete(row, principal, answer):
 def workflow_tick():
     # No external request inside this transaction. A single domain mutex protects
     # child creation, stable node identity and parent observation atomically.
-    eligible = m.AiWorkflowRuns.objects.filter(
+    from . import business_screening_readiness, business_screening_pipeline
+    from . import business_promotion_readiness, business_promotion_postreview
+    eligible = business_screening_readiness.available(m.AiWorkflowRuns.objects.filter(
         status__in=["queued", "running"], next_run_at__lte=timezone.now()
-    )
+    ))
     candidate, principal, error = prepared_candidate(eligible)
     if not candidate:
         return {"status": "idle"}
+    if not error and business_promotion_readiness.report_for(candidate) is not None:
+        if business_promotion_postreview.is_approved_candidate(candidate):
+            return business_promotion_postreview.advance(candidate, principal)
+        if m.AiAgentJobs.objects.filter(workflow_run_id=candidate.id).exists():
+            if getattr(settings, "AI_PROMOTION_AGENT_RUNTIME_ENABLED", False) is not True:
+                return {"status": "promotion_runtime_disabled", "runId": candidate.id}
+            from . import business_promotion_runtime_permission, business_promotion_pipeline
+            from . import business_parallel
+            report = business_promotion_readiness.report_for(candidate)
+            prepared = business_promotion_runtime_permission.prepare(report.id, principal, "commerce")
+            with mutation(principal):
+                row = eligible.filter(pk=candidate.pk, version=candidate.version).first()
+                if row is None:
+                    return {"status": "idle"}
+                business_promotion_runtime_permission.check(prepared, principal)
+                nodes = business_promotion_pipeline.checked_nodes(row, prepared, principal)
+                return business_parallel.workflow_step(row, principal, nodes)
+        # This new profile may publish its fixed rule scan, then parks before
+        # Agent creation until the independent four-tool admission is complete.
+        return business_promotion_readiness.advance(candidate, principal)
+    if not error and business_screening_readiness.report_for(candidate) is not None:
+        return business_screening_readiness.advance(candidate,principal,
+            on_ready=lambda row,prepared:business_screening_pipeline.step(row,prepared,principal))
     with mutation():
         row = eligible.filter(pk=candidate.pk, version=candidate.version).first()
         if not row:
@@ -754,6 +998,9 @@ def workflow_tick():
         nodes = list(
             m.AiWorkflowNodeRuns.objects.filter(run_id=row.id).order_by("position")[:24]
         )
+        from . import business_parallel
+        if not row.dry_run and business_parallel.is_parallel(row.id):
+            return business_parallel.workflow_step(row, principal, nodes)
         by_key = {n.node_key: n for n in nodes}
         active = next((n for n in nodes if n.status == "running"), None)
         if active:

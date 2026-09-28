@@ -169,6 +169,13 @@ else:
         }
     }
 
+if DJANGO_ENVIRONMENT == "test" and database_url:
+    isolated = DATABASES["default"]
+    if (isolated["HOST"] == "127.0.0.1" and
+            isolated["NAME"] == "teruisi_ai_rehearsal" and
+            55440 <= int(isolated["PORT"]) <= 55999):
+        TEST_RUNNER = "teruisi_backend.isolated_test_runner.IsolatedPostgresTestRunner"
+
 LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
@@ -180,6 +187,17 @@ ERP_REFERENCE_SYNC_MAX_AGE_SECONDS = env_int(
 )
 DJANGO_EXPECT_READ_ONLY = env_bool("TERUISI_DJANGO_EXPECT_READ_ONLY", False)
 DJANGO_PROCESS_ROLE = os.getenv("TERUISI_DJANGO_PROCESS_ROLE", "development").strip().lower()
+AI_MARKET_V2_PREVIEW_ENABLED = env_bool(
+    "TERUISI_DJANGO_AI_MARKET_V2_PREVIEW_ENABLED", False
+)
+AI_MARKET_V2_AGENT_RUNTIME_ENABLED = env_bool(
+    "TERUISI_DJANGO_AI_MARKET_V2_AGENT_RUNTIME_ENABLED", False
+)
+# Separate from the read-only five-tool surface.  The 0065 cost row has no
+# spendable reservation; enabling this flag alone never permits a model call.
+AI_MARKET_V2_PAID_RUNTIME_ENABLED = env_bool(
+    "TERUISI_DJANGO_AI_MARKET_V2_PAID_RUNTIME_ENABLED", False
+)
 SALES_WRITE_AUTHORITY_EPOCH = os.getenv(
     "TERUISI_DJANGO_SALES_AUTHORITY_EPOCH", ""
 ).strip()
@@ -418,6 +436,9 @@ DJANGO_MAX_BODY_BYTES = env_int(
     else 1_048_576,
     0,
     134_217_728,
+)
+FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED = env_bool(
+    "TERUISI_FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED", False
 )
 CACHES = {
     "default": {

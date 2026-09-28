@@ -300,7 +300,7 @@ test("AI assistant routes, callbacks, knowledge, artifacts, UI, and migrations a
   assert.match(gateway, /thinking: \{ type: "disabled" \}/);
   assert.match(gateway, /signal/);
   assert.match(toolBudget, /maximumRounds: 62/);
-  assert.match(toolBudget, /maximumTotalCalls: 74/);
+  assert.match(toolBudget, /maximumTotalCalls: 300/);
   assert.match(service, /DEFAULT_MODEL_TIMEOUT_MS = 60_000/);
   assert.match(service, /createRegisteredToolExecutionRuntime/);
   assert.match(service, /listAiArtifactsForConversation/);

@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status")]
+  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight")]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$BackupDirectory = "",
@@ -8,6 +8,11 @@ param(
   [string]$RehearsalId = "",
   [ValidateRange(55432, 55999)]
   [int]$RehearsalPort = 55432,
+  [ValidateSet('D','E')][string]$RehearsalDrive = 'D',
+  [string]$PreparedToolAppId = '',
+  [string]$PreparedToolAppSha256 = '',
+  [string]$PolicySyntaxWitnessPath = '',
+  [string]$PolicySyntaxWitnessSha256 = '',
   [ValidateRange(7, 3650)]
   [int]$RetentionDays = 30,
   [ValidateRange(3, 365)]
@@ -21,6 +26,7 @@ $ErrorActionPreference = "Stop"
 $MaintenanceUtf8NoBom = [Text.UTF8Encoding]::new($false)
 $MaintenanceFixedRuntimeRoot = "D:\teruisi-runtime\django-sales"
 $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
+$MaintenanceNoKeyBackupVersion = "teruisi-postgres-daily-backup-v2-no-keys"
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
 $MaintenanceRehearsalRoles = @(
@@ -56,6 +62,11 @@ $MaintenanceRequest = [pscustomobject][ordered]@{
   ApprovedManifestSha256 = $ApprovedManifestSha256
   RehearsalId = $RehearsalId
   RehearsalPort = $RehearsalPort
+  RehearsalDrive = $RehearsalDrive
+  PreparedToolAppId = $PreparedToolAppId
+  PreparedToolAppSha256 = $PreparedToolAppSha256
+  PolicySyntaxWitnessPath = $PolicySyntaxWitnessPath
+  PolicySyntaxWitnessSha256 = $PolicySyntaxWitnessSha256
   RetentionDays = $RetentionDays
   MinimumSuccessfulBackups = $MinimumSuccessfulBackups
   Execute = $Execute.IsPresent
@@ -233,7 +244,14 @@ function Assert-MaintenanceRuntimeContext {
   if ([string]$config.postgresAddress -cne "127.0.0.1:5432") {
     throw "Django 本机 PostgreSQL 配置不符合固定回环契约"
   }
-  $expectedTool = Join-Path $InstalledAppRoot "tools\postgres-consistent-backup.py"
+  $toolRoot = $InstalledAppRoot
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal')) {
+      throw 'Prepared maintenance tools are limited to verification and isolated restoration'
+    }
+    $toolRoot = Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256
+  }
+  $expectedTool = Join-Path $toolRoot "tools\postgres-consistent-backup.py"
   if (-not (Test-Path -LiteralPath $expectedTool -PathType Leaf)) {
     throw "runtime app 缺少一致性备份工具"
   }
@@ -244,7 +262,8 @@ function Assert-MaintenanceEvidence(
   [object]$Evidence,
   [string]$ExpectedDatabase,
   [string]$ExpectedUser,
-  [int]$ExpectedPort
+  [int]$ExpectedPort,
+  [bool]$NoKeys = $false
 ) {
   $hasBiMigration = @($Evidence.migrations | Where-Object {
       [string]$_.app -ceq "bi" -and [string]$_.name -ceq "0001_initial"
@@ -378,6 +397,35 @@ function Assert-MaintenanceEvidence(
     "django_migrations", "sales_data_revisions", "sales_import_batches",
     "sales_order_lines", "sales_write_authority", "erp_product_master"
   )
+  $protectedTables = @()
+  if ($NoKeys) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and
+          $_.name -ceq "0082_no_new_keys_profile" }).Count -ne 1 -or @($Evidence.migrations).Count -ne 138) {
+      throw "无新增密钥备份迁移代际未获核验"
+    }
+    $protectedTables = @(
+      "protected_business_budget_v11_verifier_keys", "protected_business_budget_v11_proof_tickets",
+      "protected_business_budget_v11_proof_ticket_claims", "protected_business_v4_report_link_intents",
+      "protected_business_v4_report_source_links", "protected_business_market_v2_rate_proposals",
+      "protected_business_market_v2_cap_proposals", "protected_business_market_v2_authority_revocations",
+      "protected_business_budget_v11_login_attestations", "protected_business_market_v2_human_cap_approvals",
+      "protected_business_market_v2_human_cap_revocations", "protected_business_budget_v11_signed_receipts_v3",
+      "protected_business_market_v6_topologies", "protected_business_market_v6_topology_cancellations",
+      "protected_business_budget_v11_publications_v2", "protected_business_market_v6_source_tickets"
+    )
+    $requiredTables += $protectedTables
+    $requiredTables += @(
+      "ai_business_market_v2_context_proofs", "ai_business_market_v2_cost_ledger_candidates",
+      "ai_business_market_v2_execution_plans", "ai_business_market_v2_materials",
+      "ai_business_market_v2_paid_authorities", "ai_business_market_v2_read_receipts",
+      "ai_business_market_v2_round_events", "ai_business_market_v2_round_reservations",
+      "ai_business_promotion_budget_v10_attestations", "ai_business_promotion_budget_v11_attestations",
+      "ai_business_v4_period_plan_candidates", "ai_business_v4_seal_claims",
+      "ai_business_v4_seal_consumptions", "ai_business_v4_seal_tickets",
+      "ai_business_v4_sealer_replay_progress", "ai_business_v4_seals",
+      "ai_business_v4_validation_attempts", "ai_business_v4_validation_segments"
+    )
+  }
   if ($hasErpReferenceAuthority) {
     $requiredTables += @(
       "erp_combo_items", "erp_reference_import_batches_pg",
@@ -413,6 +461,49 @@ function Assert-MaintenanceEvidence(
     if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0013_dingtalk_schedule_media" }).Count -gt 0) {
       if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0012_report_library" }).Count -ne 1) { throw "AI 媒体任务迁移缺少前置报告迁移" }
       $requiredTables += @("ai_dingtalk_schedules", "ai_dingtalk_schedule_runs")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0013_dingtalk_schedule_media" }).Count -ne 1) { throw "AI 经营证据迁移缺少前置媒体迁移" }
+      $requiredTables += @("ai_business_evidence_runs", "ai_business_evidence_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0016_business_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0015_business_collection" }).Count -ne 1 -or @($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0014_business_evidence" }).Count -ne 1) { throw "AI 报告文件迁移缺少前置采集迁移" }
+      $requiredTables += @("ai_business_file_runs", "ai_business_file_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -gt 0) {
+      foreach ($sourceDirectoryPredecessor in @("0014_business_evidence", "0015_business_collection", "0016_business_files", "0017_business_file_renderer", "0018_business_excel_renderer")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $sourceDirectoryPredecessor }).Count -ne 1) { throw "AI 来源目录迁移缺少完整前置证据/文件迁移" }
+      }
+      $requiredTables += @("ai_business_evidence_sources")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0032_business_source_tool_receipts" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0031_business_daily_v3_source_pages" }).Count -ne 1) { throw "AI v3工具收据迁移缺少日来源前驱迁移" }
+      $requiredTables += @("ai_business_source_tool_receipts")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0034_business_v3_report_intent" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0033_business_v3_parent_seal" }).Count -ne 1) { throw "AI v3暂停报告意图迁移缺少封存前驱迁移" }
+      $requiredTables += @("ai_business_v3_report_intents")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0035_business_v4_ledger" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0034_business_v3_report_intent" }).Count -ne 1) { throw "AI v4物理账迁移缺少v3暂停意图前驱迁移" }
+      $requiredTables += @("ai_business_v4_runs", "ai_business_v4_sources", "ai_business_v4_chunks", "ai_business_v4_tool_receipts")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0019_business_source_directory" }).Count -ne 1) { throw "AI 多卷文件迁移缺少前置来源目录迁移" }
+      $requiredTables += @("ai_business_volume_chunks")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0021_business_budget_plans" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0020_business_volume_files" }).Count -ne 1) { throw "AI 固定预算迁移缺少前置多卷迁移" }
+      $requiredTables += @("ai_business_budget_plans")
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0024_business_screening_runtime" }).Count -gt 0) {
+      if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -ne 1) { throw "AI 筛查执行迁移缺少前置固定筛查存储迁移" }
+    }
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq "0023_business_screening_storage" }).Count -gt 0) {
+      foreach ($screeningPredecessor in @("0022_business_integrated_reports", "0021_business_budget_plans")) {
+        if (@($Evidence.migrations | Where-Object { $_.app -ceq "ai_assistant" -and $_.name -ceq $screeningPredecessor }).Count -ne 1) { throw "AI 固定筛查存储缺少前置集成报告迁移" }
+      }
+      $requiredTables += @("ai_business_screening_runs", "ai_business_screening_pages")
     }
     if ($workspaceMigration.Count -gt 0) {
       $requiredTables += @("ai_conversation_workspaces")
@@ -508,16 +599,30 @@ function Assert-MaintenanceEvidence(
     )
   }
   $tableNames = @($Evidence.tables.PSObject.Properties.Name)
+  $salesOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0010_analysis_options" }).Count
+  $salesOptionsTables = @("sales_analysis_options", "sales_analysis_options_state")
+  if ($salesOptionsMigration -eq 1) {
+    if (@($Evidence.migrations | Where-Object { $_.app -ceq "sales" -and $_.name -ceq "0009_postgres_raw_upload_payload" }).Count -ne 1) { throw "ERP选项迁移缺少前置迁移" }
+    $requiredTables += $salesOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $salesOptionsTables }).Count -gt 0) { throw "ERP选项表缺少对应迁移依据" }
+  $marketOptionsMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0006_analysis_options" }).Count
+  $marketFacetMigration = @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0005_filter_facet_indexes" }).Count
+  $marketOptionsTables = @("market_analysis_options", "market_analysis_options_state")
+  if ($marketFacetMigration -eq 1 -and @($Evidence.migrations | Where-Object { $_.app -ceq "market" -and $_.name -ceq "0004_projection_sync_fencing" }).Count -ne 1) { throw "市场筛选索引迁移缺少前置迁移" }
+  if ($marketOptionsMigration -eq 1) {
+    if ($marketFacetMigration -ne 1) { throw "市场选项迁移缺少前置筛选索引迁移" }
+    $requiredTables += $marketOptionsTables
+  } elseif (@($tableNames | Where-Object { $_ -cin $marketOptionsTables }).Count -gt 0) { throw "市场选项表缺少对应迁移依据" }
   foreach ($required in $requiredTables) {
     if ($required -notin $tableNames) { throw "PostgreSQL 证据缺少关键表" }
   }
   foreach ($property in $Evidence.tables.PSObject.Properties) {
-    if ($property.Name -cne "django_migrations" -and
+    if ($property.Name -cne "django_migrations" -and $property.Name -cnotin $protectedTables -and
         $property.Name -cnotmatch "^(?:sales|erp|finance|netshop|market|product|inventory|replenishment|workflow|customer_service|bi|access_control|ai)_[a-z0-9_]+$") {
       throw "PostgreSQL 证据包含越界表"
     }
     if ($property.Name -clike "ai_*" -and $property.Name -cnotin $requiredTables) {
-      throw "PostgreSQL AI 表不在已采用的闭合清单中"
+      throw "PostgreSQL AI table is outside the adopted inventory: $($property.Name)"
     }
     if (-not (Test-MaintenanceInteger $property.Value) -or
         [int64]$property.Value -lt 0) {
@@ -867,10 +972,27 @@ function Assert-MaintenanceEvidence(
   }
 }
 
-function Assert-MaintenanceBackupPayload([object]$Payload) {
-  Assert-MaintenanceExactPropertySet $Payload @(
+function Assert-MaintenanceNoKeyEvidence([object]$Evidence) {
+  Assert-MaintenanceExactPropertySet $Evidence @(
+    "profile", "roles", "tables", "catalog", "contentSha256", "sequenceLowerBounds",
+    "archiveEncrypted", "newRecoveryKeyGenerated", "privateKeyRows"
+  ) "无新增密钥备份证据"
+  if ([string]$Evidence.profile -cne "teruisi-postgres-no-new-keys-v1" -or
+      $Evidence.archiveEncrypted -cne $false -or $Evidence.newRecoveryKeyGenerated -cne $false -or
+      -not (Test-MaintenanceInteger $Evidence.privateKeyRows) -or [int]$Evidence.privateKeyRows -ne 0 -or
+      [string]$Evidence.contentSha256 -cnotmatch "^[0-9a-f]{64}$" -or
+      @($Evidence.tables.PSObject.Properties).Count -lt 1 -or
+      @($Evidence.tables.PSObject.Properties).Count -gt 512) {
+    throw "无新增密钥备份证据无效"
+  }
+}
+
+function Assert-MaintenanceBackupPayload([object]$Payload, [bool]$NoKeys = $false) {
+  $properties = @(
     "version", "status", "snapshotIdSha256", "evidence", "nativeDiagnostic"
-  ) "一致性备份工具结果"
+  )
+  if ($NoKeys) { $properties += "profileEvidence" }
+  Assert-MaintenanceExactPropertySet $Payload $properties "一致性备份工具结果"
   if ([string]$Payload.version -cne "teruisi-postgres-consistent-backup-v1" -or
       [string]$Payload.status -cne "completed" -or
       [string]$Payload.snapshotIdSha256 -cnotmatch "^[0-9a-f]{64}$") {
@@ -883,7 +1005,9 @@ function Assert-MaintenanceBackupPayload([object]$Payload) {
       [string]$Payload.nativeDiagnostic.outputSha256 -cnotmatch "^[0-9a-f]{64}$") {
     throw "pg_dump 诊断未通过"
   }
-  Assert-MaintenanceEvidence $Payload.evidence "teruisi_sales" "teruisi_sales_owner" 5432
+  $identity = if ($NoKeys) { "postgres" } else { "teruisi_sales_owner" }
+  Assert-MaintenanceEvidence $Payload.evidence "teruisi_sales" $identity 5432 $NoKeys
+  if ($NoKeys) { Assert-MaintenanceNoKeyEvidence $Payload.profileEvidence }
 }
 
 function Read-MaintenanceArchive(
@@ -923,11 +1047,14 @@ function Read-MaintenanceArchive(
   }
 
   $manifest = Read-JsonFile $manifestPath "PostgreSQL 备份 manifest"
-  Assert-MaintenanceExactPropertySet $manifest @(
+  $noKeys = [string]$manifest.version -ceq $MaintenanceNoKeyBackupVersion
+  $manifestProperties = @(
     "version", "status", "backupId", "createdAt", "completedAt", "database",
     "dump", "evidence", "software"
-  ) "PostgreSQL 备份 manifest"
-  if ([string]$manifest.version -cne $MaintenanceBackupVersion -or
+  )
+  if ($noKeys) { $manifestProperties += "profileEvidence" }
+  Assert-MaintenanceExactPropertySet $manifest $manifestProperties "PostgreSQL 备份 manifest"
+  if (([string]$manifest.version -cne $MaintenanceBackupVersion -and -not $noKeys) -or
       [string]$manifest.status -cne "completed" -or
       [string]$manifest.backupId -cnotmatch "^daily-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$") {
     throw "PostgreSQL 备份 manifest 身份无效"
@@ -943,10 +1070,11 @@ function Read-MaintenanceArchive(
   Assert-MaintenanceExactPropertySet $manifest.database @(
     "name", "host", "port", "sourceRole", "consistency"
   ) "PostgreSQL 备份数据库身份"
+  $sourceRole = if ($noKeys) { "postgres" } else { "teruisi_sales_owner" }
   if ([string]$manifest.database.name -cne "teruisi_sales" -or
       [string]$manifest.database.host -cne "127.0.0.1" -or
       [int]$manifest.database.port -ne 5432 -or
-      [string]$manifest.database.sourceRole -cne "teruisi_sales_owner" -or
+      [string]$manifest.database.sourceRole -cne $sourceRole -or
       [string]$manifest.database.consistency -cne "exported-snapshot") {
     throw "PostgreSQL 备份数据库身份无效"
   }
@@ -966,7 +1094,8 @@ function Read-MaintenanceArchive(
     throw "PostgreSQL dump 证据无效"
   }
 
-  Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" "teruisi_sales_owner" 5432
+  Assert-MaintenanceEvidence $manifest.evidence "teruisi_sales" $sourceRole 5432 $noKeys
+  if ($noKeys) { Assert-MaintenanceNoKeyEvidence $manifest.profileEvidence }
   Assert-MaintenanceExactPropertySet $manifest.software @(
     "deploymentManifestSha256", "serviceConfigSha256", "serviceScriptSha256",
     "operatorScriptSha256", "evidenceToolSha256", "pgDumpSha256", "pgRestoreSha256"
@@ -1045,6 +1174,13 @@ function Invoke-MaintenanceBackup {
   if (-not (Test-PostgresReady)) {
     throw "权威 PostgreSQL 未就绪；日常备份不会自动启停服务"
   }
+  $protectedState = Invoke-MaintenanceProtectedAiPreflight
+  $noKeys = @($protectedState.appliedProtectedMigrations).Count -gt 0
+  if ($noKeys) {
+    # Preflight before creating an archive directory; the backup process repeats
+    # it while holding the private-key table lock through the entire dump.
+    Invoke-MaintenanceNoKeyPreflight | Out-Null
+  }
 
   $backupRoot = Get-MaintenanceBackupRoot $true
   $timestamp = [DateTimeOffset]::UtcNow
@@ -1070,28 +1206,35 @@ function Invoke-MaintenanceBackup {
     }
 
     $secrets = Read-Secrets
+    $sourceRole = if ($noKeys) { "postgres" } else { "teruisi_sales_owner" }
+    $backupPassword = if ($noKeys) {
+      $credentials = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
+      Unprotect-Value ([string]$credentials.postgresSuperuser) "postgresSuperuser"
+    } else { $secrets.OwnerPassword }
+    $profileArguments = if ($noKeys) { @("--profile", "no-new-keys") } else { @() }
     $payload = Invoke-MaintenancePgEnvironment @{
       PGHOST = "127.0.0.1"
       PGPORT = "5432"
-      PGUSER = "teruisi_sales_owner"
+      PGUSER = $sourceRole
       PGDATABASE = "teruisi_sales"
-      PGPASSWORD = $secrets.OwnerPassword
+      PGPASSWORD = $backupPassword
       PGAPPNAME = "teruisi_daily_backup"
       PGOPTIONS = "-c statement_timeout=1800000 -c idle_in_transaction_session_timeout=1860000"
       PGCLIENTENCODING = "UTF8"
     } {
-      $run = Invoke-BoundedNativeProcess $Python @(
+      $backupArguments = @(
         $evidenceTool, "backup",
         "--pg-dump", $pgDump,
         "--output", $dumpPath,
         "--expected-database", "teruisi_sales",
-        "--expected-user", "teruisi_sales_owner",
+        "--expected-user", $sourceRole,
         "--port", "5432",
         "--timeout-seconds", "1800"
-      ) $InstalledAppRoot
+      ) + $profileArguments
+      $run = Invoke-BoundedNativeProcess $Python $backupArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $run "创建 PostgreSQL 一致性备份"
     }
-    Assert-MaintenanceBackupPayload $payload
+    Assert-MaintenanceBackupPayload $payload $noKeys
 
     $archiveRun = Invoke-BoundedNativeProcess $pgRestore @("--list", $dumpPath) $workingDirectory
     $archiveEntries = @($archiveRun.Output)
@@ -1099,7 +1242,7 @@ function Invoke-MaintenanceBackup {
       throw "PostgreSQL dump 归档目录验证失败（$(Get-NativeFailureSummary $archiveRun)）"
     }
     $manifest = [pscustomobject][ordered]@{
-      version = $MaintenanceBackupVersion
+      version = $(if ($noKeys) { $MaintenanceNoKeyBackupVersion } else { $MaintenanceBackupVersion })
       status = "completed"
       backupId = $backupId
       createdAt = $timestamp.ToString("o")
@@ -1108,7 +1251,7 @@ function Invoke-MaintenanceBackup {
         name = "teruisi_sales"
         host = "127.0.0.1"
         port = 5432
-        sourceRole = "teruisi_sales_owner"
+        sourceRole = $sourceRole
         consistency = "exported-snapshot"
       }
       dump = [pscustomobject][ordered]@{
@@ -1129,6 +1272,7 @@ function Invoke-MaintenanceBackup {
         pgRestoreSha256 = Get-FileSha256 $pgRestore
       }
     }
+    if ($noKeys) { $manifest | Add-Member -NotePropertyName profileEvidence -NotePropertyValue $payload.profileEvidence }
     $manifestPath = Join-Path $workingDirectory "backup-manifest.json"
     Write-AtomicJson $manifestPath $manifest
     Write-MaintenanceAtomicText (
@@ -1153,9 +1297,111 @@ function Invoke-MaintenanceBackup {
     }
   } finally {
     $secrets = $null
+    $backupPassword = $null
+    $credentials = $null
     if (-not $published) {
       Remove-MaintenanceIncompleteDirectory $workingDirectory $backupRoot $workingName
     }
+  }
+}
+
+function Invoke-MaintenanceNoKeyPreflight {
+  $evidenceTool = Assert-MaintenanceRuntimeContext
+  Assert-PostgresListenerOwnership | Out-Null
+  $credentials = Read-JsonFile $CredentialPath "Django 本机 DPAPI 凭据库"
+  $secret = Unprotect-Value ([string]$credentials.postgresSuperuser) "postgresSuperuser"
+  try {
+    $result = Invoke-MaintenancePgEnvironment @{
+      PGHOST = "127.0.0.1"; PGPORT = "5432"; PGDATABASE = "teruisi_sales"
+      PGUSER = "postgres"; PGPASSWORD = $secret; PGCLIENTENCODING = "UTF8"
+      PGAPPNAME = "teruisi_no_key_backup_preflight"
+      PGOPTIONS = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
+    } {
+      $run = Invoke-BoundedNativeProcess $Python @($evidenceTool, "no-key-preflight",
+        "--expected-database", "teruisi_sales", "--expected-user", "postgres", "--port", "5432") $InstalledAppRoot
+      ConvertFrom-UniqueNativeJson $run "无新增密钥备份预检"
+    }
+    Assert-MaintenanceExactPropertySet $result @("status", "profile", "privateKeyRows", "newRecoveryKeyGenerated") "无新增密钥备份预检"
+    if ([string]$result.status -cne "admitted" -or [string]$result.profile -cne "teruisi-postgres-no-new-keys-v1" -or
+        [int]$result.privateKeyRows -ne 0 -or $result.newRecoveryKeyGenerated -cne $false) {
+      throw "无新增密钥备份预检失败"
+    }
+    return $result
+  } finally { $secret = $null; $credentials = $null }
+}
+
+function Invoke-MaintenanceProtectedAiPreflight {
+  # Explicit read-only action. It never returns verifier key bytes or opens an archive.
+  $evidenceTool = Assert-MaintenanceRuntimeContext
+  if (@(Get-PortListeners 5432).Count -ne 1) {
+    throw "权威 PostgreSQL 当前未运行；受保护 AI 预检不会启动服务"
+  }
+  Assert-PostgresListenerOwnership | Out-Null
+  if (-not (Test-PostgresReady)) {
+    throw "权威 PostgreSQL 未就绪；受保护 AI 预检不会启动服务"
+  }
+  $secrets = Read-Secrets
+  try {
+    $payload = Invoke-MaintenancePgEnvironment @{
+      PGHOST = "127.0.0.1"
+      PGPORT = "5432"
+      PGUSER = "teruisi_sales_owner"
+      PGDATABASE = "teruisi_sales"
+      PGPASSWORD = $secrets.OwnerPassword
+      PGAPPNAME = "teruisi_protected_ai_preflight"
+      PGOPTIONS = "-c statement_timeout=15000 -c default_transaction_read_only=on"
+      PGCLIENTENCODING = "UTF8"
+    } {
+      $run = Invoke-BoundedNativeProcess $Python @(
+        $evidenceTool, "protected-preflight",
+        "--expected-database", "teruisi_sales",
+        "--expected-user", "teruisi_sales_owner",
+        "--port", "5432"
+      ) $InstalledAppRoot
+      return ConvertFrom-UniqueNativeJson $run "受保护 AI 只读预检"
+    }
+    Assert-MaintenanceExactPropertySet $payload @(
+      "version", "status", "readOnly", "appliedProtectedMigrations",
+      "exactProtectedRoleCount", "issues"
+    ) "受保护 AI 预检结果"
+    if ([string]$payload.version -cne "teruisi-postgres-consistent-backup-v1" -or
+        [string]$payload.status -cne "blocked" -or
+        $payload.readOnly -cne $true -or
+        @($payload.issues).Count -lt 1) {
+      throw "受保护 AI 预检结果无效或意外放行"
+    }
+    return $payload
+  } finally {
+    $secrets = $null
+  }
+}
+
+function Assert-MaintenanceProtectedArchiveUnsupported([object]$Manifest) {
+  if ([string]$Manifest.version -ceq $MaintenanceNoKeyBackupVersion) {
+    Assert-MaintenanceNoKeyEvidence $Manifest.profileEvidence
+    return
+  }
+  $protected = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "ai_assistant" -and
+    [string]$_.name -cmatch "^00(67|68|69|70|71|72|73|74|75|76|77|78|79)_business_"
+  })
+  if ($protected.Count -gt 0) {
+    throw "受保护 AI 归档尚无角色、owner/ACL 与私钥隔离恢复契约；拒绝开始恢复演练"
+  }
+  $financeRaw = @($Manifest.evidence.migrations | Where-Object {
+    [string]$_.app -ceq "finance" -and
+    [string]$_.name -cin @("0005_raw_column_evidence_v2",
+      "0006_raw_workbook_bytes_v2")
+  })
+  $financeRawTables = @("finance_raw_column_evidence_months",
+    "finance_raw_column_evidence_columns", "finance_raw_column_evidence_cells",
+    "finance_raw_workbook_attestations", "finance_raw_workbook_columns",
+    "finance_raw_workbook_cells")
+  $presentFinanceRaw = @($financeRawTables | Where-Object {
+    $_ -cin @($Manifest.evidence.tables.PSObject.Properties.Name)
+  })
+  if ($financeRaw.Count -gt 0 -or $presentFinanceRaw.Count -gt 0) {
+    throw "财报原始列证据侧车归档尚无正式角色与恢复契约；拒绝启动隔离恢复"
   }
 }
 
@@ -1272,6 +1518,41 @@ function Initialize-MaintenanceRehearsalRoles(
   }
 }
 
+function Get-MaintenanceRehearsalParent([bool]$Create = $false) {
+  if ($MaintenanceRequest.RehearsalDrive -cne 'E') {
+    $parent = Assert-RuntimeChildPath (Join-Path $MaintenanceRequest.RuntimeRoot 'rehearsals\postgres-restore')
+    if ($Create) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    return $parent
+  }
+  $parent = 'E:\TERUISI-Postgres-Rehearsals'
+  if (-not (Test-Path -LiteralPath $parent)) {
+    if (-not $Create) { throw 'Protected E-drive rehearsal root is missing' }
+    New-Item -ItemType Directory -Path $parent | Out-Null
+    $directory = Get-Item -LiteralPath $parent -Force
+    $dacl = New-RuntimeRootDacl
+    if ($null -ne ('System.IO.FileSystemAclExtensions' -as [type])) {
+      [IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]$directory,$dacl)
+    } else { $directory.SetAccessControl($dacl) }
+  }
+  Assert-MaintenanceNoReparsePoints $parent 'Protected E-drive rehearsal root'
+  $directory = Get-Item -LiteralPath $parent -Force
+  if (-not $directory.PSIsContainer) { throw 'Invalid E-drive rehearsal root' }
+  $acl = if ($null -ne ('System.IO.FileSystemAclExtensions' -as [type])) {
+    [IO.FileSystemAclExtensions]::GetAccessControl([IO.DirectoryInfo]$directory,[Security.AccessControl.AccessControlSections]::Access)
+  } else { $directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Access) }
+  $rules = @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+  $allowed = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
+  if (-not $acl.AreAccessRulesProtected -or $rules.Count -ne $allowed.Count) { throw 'E-drive rehearsal ACL is not private' }
+  foreach ($rule in $rules) {
+    if ($rule.IsInherited -or $rule.IdentityReference.Value -cnotin $allowed -or
+        $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+        $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or
+        $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None -or
+        [int]$rule.InheritanceFlags -ne 3) { throw 'E-drive rehearsal ACL differs from the private contract' }
+  }
+  return $parent
+}
+
 function Remove-MaintenanceRehearsalData(
   [string]$DataDirectory,
   [string]$RehearsalRoot,
@@ -1281,9 +1562,7 @@ function Remove-MaintenanceRehearsalData(
   if (-not (Test-Path -LiteralPath $DataDirectory)) { return }
   $root = Get-MaintenanceCanonicalPath $RehearsalRoot
   $data = Get-MaintenanceCanonicalPath $DataDirectory
-  $expectedParent = Assert-RuntimeChildPath (
-    Join-Path $MaintenanceRequest.RuntimeRoot "rehearsals\postgres-restore"
-  )
+  $expectedParent = Get-MaintenanceRehearsalParent $false
   if ([IO.Path]::GetFileName($root) -cne "restore-$ExpectedRehearsalId" -or
       (Get-MaintenanceCanonicalPath (Split-Path -Parent $root)) -ine
         (Get-MaintenanceCanonicalPath $expectedParent) -or
@@ -1309,17 +1588,23 @@ function Invoke-MaintenanceRestoreRehearsal {
   $backup = Resolve-MaintenanceBackupArchive (
     $MaintenanceRequest.BackupDirectory
   ) $MaintenanceRequest.ApprovedManifestSha256
+  Assert-MaintenanceProtectedArchiveUnsupported $backup.Manifest
+  $noKeys = [string]$backup.Manifest.version -ceq $MaintenanceNoKeyBackupVersion
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PolicySyntaxWitnessPath)) {
+    if (-not $noKeys -or $MaintenanceRequest.PolicySyntaxWitnessSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        (Get-FileSha256 $MaintenanceRequest.PolicySyntaxWitnessPath) -cne $MaintenanceRequest.PolicySyntaxWitnessSha256) {
+      throw 'Policy syntax witness is not bound to an approved file'
+    }
+  }
   if (@(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -ne 0) {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
 
-  $rehearsalParent = Assert-RuntimeChildPath (
-    Join-Path $MaintenanceRequest.RuntimeRoot "rehearsals\postgres-restore"
-  )
-  New-Item -ItemType Directory -Path $rehearsalParent -Force | Out-Null
-  $rehearsalRoot = Assert-RuntimeChildPath (
-    Join-Path $rehearsalParent "restore-$($MaintenanceRequest.RehearsalId)"
-  )
+  $rehearsalParent = Get-MaintenanceRehearsalParent $true
+  $rehearsalRoot = Get-MaintenanceCanonicalPath (Join-Path $rehearsalParent "restore-$($MaintenanceRequest.RehearsalId)")
+  if ((Get-MaintenanceCanonicalPath (Split-Path -Parent $rehearsalRoot)) -ine $rehearsalParent) {
+    throw 'Restore rehearsal path escaped the approved parent'
+  }
   if (Test-Path -LiteralPath $rehearsalRoot) {
     throw "相同 RehearsalId 的隔离恢复记录已存在；拒绝覆盖或复用"
   }
@@ -1359,7 +1644,7 @@ function Invoke-MaintenanceRestoreRehearsal {
     }
     Remove-Item -LiteralPath $passwordPath -Force
 
-    $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c shared_buffers=128MB -c log_min_messages=warning"
+    $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c max_locks_per_transaction=256 -c shared_buffers=128MB -c log_min_messages=warning"
     $startRun = Invoke-MaintenancePgCtlStart $pgCtl $dataDirectory $logPath (
       $serverOptions
     ) $rehearsalRoot
@@ -1389,9 +1674,11 @@ function Invoke-MaintenanceRestoreRehearsal {
       Assert-MaintenanceRehearsalListenerOwnership (
         $MaintenanceRequest.RehearsalPort
       ) $dataDirectory | Out-Null
-      Initialize-MaintenanceRehearsalRoles $createUser $rehearsalRoot (
-        $MaintenanceRequest.RehearsalPort
-      )
+      if (-not $noKeys) {
+        Initialize-MaintenanceRehearsalRoles $createUser $rehearsalRoot (
+          $MaintenanceRequest.RehearsalPort
+        )
+      }
       $createRun = Invoke-BoundedNativeProcess $createdb @(
         "--host=127.0.0.1", "--port=$($MaintenanceRequest.RehearsalPort)",
         "--username=postgres", "--owner=postgres", "teruisi_sales"
@@ -1399,7 +1686,7 @@ function Invoke-MaintenanceRestoreRehearsal {
       if ($createRun.ExitCode -ne 0) {
         throw "隔离恢复数据库创建失败（$(Get-NativeFailureSummary $createRun)）"
       }
-      $restoreRun = Invoke-BoundedNativeProcess $Python @(
+      $restoreArguments = @(
         $evidenceTool, "restore",
         "--pg-restore", $pgRestore,
         "--archive", $backup.DumpPath,
@@ -1407,7 +1694,10 @@ function Invoke-MaintenanceRestoreRehearsal {
         "--expected-user", "postgres",
         "--port", [string]$MaintenanceRequest.RehearsalPort,
         "--timeout-seconds", "1800"
-      ) $InstalledAppRoot
+      )
+      if ($noKeys) { $restoreArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
+          "--approved-manifest-sha256", $backup.ManifestSha256) }
+      $restoreRun = Invoke-BoundedNativeProcess $Python $restoreArguments $InstalledAppRoot
       $restorePayload = ConvertFrom-UniqueNativeJson $restoreRun "隔离 PostgreSQL restore"
       Assert-MaintenanceExactPropertySet $restorePayload @(
         "version", "status", "nativeDiagnostic"
@@ -1418,21 +1708,31 @@ function Invoke-MaintenanceRestoreRehearsal {
         throw "隔离 PostgreSQL restore 结果无效"
       }
       [Environment]::SetEnvironmentVariable("PGDATABASE", "teruisi_sales", "Process")
-      $probeRun = Invoke-BoundedNativeProcess $Python @(
+      $probeArguments = @(
         $evidenceTool, "probe",
         "--expected-database", "teruisi_sales",
         "--expected-user", "postgres"
-      ) $InstalledAppRoot
+      )
+      if ($noKeys) { $probeArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
+          "--approved-manifest-sha256", $backup.ManifestSha256, "--archive", $backup.DumpPath) }
+      if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PolicySyntaxWitnessPath)) {
+        $probeArguments += @('--policy-witness',$MaintenanceRequest.PolicySyntaxWitnessPath,
+          '--policy-witness-sha256',$MaintenanceRequest.PolicySyntaxWitnessSha256)
+      }
+      $probeRun = Invoke-BoundedNativeProcess $Python $probeArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $probeRun "读取隔离恢复证据"
     }
-    Assert-MaintenanceExactPropertySet $probe @("version", "status", "evidence") "隔离恢复探针结果"
+    $probeProperties = @("version", "status", "evidence")
+    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified", "policySyntaxEquivalenceVerified", "policySyntaxWitnessSha256") }
+    Assert-MaintenanceExactPropertySet $probe $probeProperties "隔离恢复探针结果"
+    if ($noKeys -and $probe.profileRestoreVerified -cne $true) { throw "完整恢复内容、角色和权限未复验" }
     if ([string]$probe.version -cne "teruisi-postgres-consistent-backup-v1" -or
         [string]$probe.status -cne "completed") {
       throw "隔离恢复探针结果无效"
     }
     Assert-MaintenanceEvidence $probe.evidence "teruisi_sales" "postgres" (
       $MaintenanceRequest.RehearsalPort
-    )
+    ) $noKeys
     if ([string]$probe.evidence.contentSha256 -cne
         [string]$backup.Manifest.evidence.contentSha256) {
       throw "隔离恢复内容证据与备份快照不一致"
@@ -1467,6 +1767,12 @@ function Invoke-MaintenanceRestoreRehearsal {
       productionDatabaseTouched = $false
       serviceStateChanged = $false
       cleanupStatus = $cleanupStatus
+    }
+    if ($noKeys) {
+      $result | Add-Member -NotePropertyName profileRestoreVerified -NotePropertyValue $true
+      $result | Add-Member -NotePropertyName profileContentSha256 -NotePropertyValue ([string]$probe.profileEvidence.contentSha256)
+      $result | Add-Member -NotePropertyName policySyntaxEquivalenceVerified -NotePropertyValue ([bool]$probe.policySyntaxEquivalenceVerified)
+      $result | Add-Member -NotePropertyName policySyntaxWitnessSha256 -NotePropertyValue ([string]$probe.policySyntaxWitnessSha256)
     }
   } catch {
     $failure = $_.Exception
@@ -1705,6 +2011,15 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
   }
   $serviceScript = Join-Path $canonicalRuntime "app\tools\django-local-service.ps1"
   $expectedSelf = Join-Path $canonicalRuntime "app\tools\django-postgres-maintenance.ps1"
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId) -or
+      -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppSha256)) {
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal') -or
+        $MaintenanceRequest.PreparedToolAppId -cnotmatch '^[0-9a-f]{32}$' -or
+        $MaintenanceRequest.PreparedToolAppSha256 -cnotmatch '^[0-9a-f]{64}$') {
+      throw 'Invalid read-only prepared maintenance request'
+    }
+    $expectedSelf = Join-Path $canonicalRuntime ('app.deploy-' + $MaintenanceRequest.PreparedToolAppId + '\tools\django-postgres-maintenance.ps1')
+  }
   if (-not (Test-Path -LiteralPath $serviceScript -PathType Leaf) -or
       (Get-MaintenanceCanonicalPath $PSCommandPath) -ine
         (Get-MaintenanceCanonicalPath $expectedSelf)) {
@@ -1720,6 +2035,10 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
     [Environment]::SetEnvironmentVariable(
       "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", $previousLibraryOnly, "Process"
     )
+  }
+
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
+    Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256 | Out-Null
   }
 
   $output = Invoke-MaintenanceMutex {
@@ -1742,6 +2061,7 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
         }
       }
       "RestoreRehearsal" { Invoke-MaintenanceRestoreRehearsal }
+      "ProtectedAiPreflight" { Invoke-MaintenanceProtectedAiPreflight }
       "Prune" { Invoke-MaintenancePrune }
       "Status" { Show-MaintenanceStatus }
     }

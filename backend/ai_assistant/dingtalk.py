@@ -202,7 +202,8 @@ def step(config_reader, sender):
                 answer = chat.answer({
                     "clientRequestId": "ding-" + row.id, "message": row.prompt,
                     "conversationId": session.conversation_id, "workspaceModule": "ai", "title": "志高助手 · 钉钉问数",
-                }, principal, "ding-" + row.id, dingtalk_session=session, channel_guard=check, channel_time=row.created_at)
+                }, principal, "ding-" + row.id, dingtalk_session=session, dingtalk_unbounded_total=True,
+                    channel_guard=check, channel_time=row.created_at)
             check()
             with mutation(principal):
                 row.reply = plain_reply(answer["reply"])

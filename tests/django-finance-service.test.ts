@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
 import type { AppPrincipal } from "../lib/auth/authorization";
@@ -7,6 +7,7 @@ import {
   DjangoFinanceServiceResponseError,
   financeBackendModeFromEnvironment,
   requestDjangoFinanceService,
+  requestDjangoFinanceRawWorkbookAttestation,
 } from "../lib/django/finance-service";
 import { createSalesGatewayAuthHeaders } from "../lib/django/sales-gateway";
 import { PublicApiError } from "../lib/http/api-error";
@@ -126,6 +127,38 @@ test("finance writer sends normalized JSON only to the writer and preserves repl
   verifySignature(request, "/api/finance/imports", "");
   assert.equal(result.status, 422);
   assert.equal(result.replayed, true);
+});
+
+test("raw workbook follow-up signs the exact bytes and only the private writer path", async () => {
+  const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
+  const batchId = "a".repeat(64);
+  const observed: Request[] = [];
+  const result = await requestDjangoFinanceRawWorkbookAttestation(
+    principal, { bytes, month: "2026-01", batchId }, {
+      config, requestId: () => "finance-byte-proof-1",
+      now: () => 1_800_000_000_000,
+      fetchImpl: async (input, init) => {
+        observed.push(new Request(input, init));
+        return Response.json({ ok: true, backendRawBytesObserved: true,
+          reportAuthorityVerified: false,
+          stableNetshopShopIdentityVerified: false }, { status: 201 });
+      },
+    },
+  );
+  const request = observed[0];
+  assert.equal(new URL(request.url).origin, "http://127.0.0.1:8012");
+  assert.equal(request.headers.get("content-type"), "application/octet-stream");
+  assert.equal(request.headers.get("x-teruisi-content-sha256"),
+    createHash("sha256").update(bytes).digest("hex"));
+  assert.deepEqual(new Uint8Array(await request.arrayBuffer()), bytes);
+  verifySignature(request, "/api/finance/imports/raw-attest",
+    `month=2026-01&batchId=${batchId}`);
+  assert.equal(result.status, 201);
+  await assert.rejects(requestDjangoFinanceRawWorkbookAttestation(
+    principal, { bytes: new Uint8Array(8 * 1024 * 1024 + 1),
+      month: "2026-01", batchId }, { config,
+      fetchImpl: async () => assert.fail("oversize source reached backend") }),
+    (error: unknown) => error instanceof PublicApiError && error.status === 422);
 });
 
 test("annual target imports use the dedicated finance writer path", async () => {

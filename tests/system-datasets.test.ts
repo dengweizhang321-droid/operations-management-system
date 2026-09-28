@@ -84,6 +84,8 @@ test("dataset tools share provider schemas, principal filtering and strict input
   }
   assert.ok(!getToolsForPrincipal(principal, "market_ai").some(v => v.name === "query_system_dataset"));
   const entry = aiToolRegistry.find(v => v.name === "query_system_dataset")!;
+  const catalogEntry = aiToolRegistry.find(v => v.name === "describe_system_datasets")!;
+  assert.equal(catalogEntry.execution.maxCallsPerRequest, 24);
   for (const args of [{ dataset: "sales_summary", queryJson: "{}", role: "admin" },
     { dataset: "../consumer", queryJson: "{}" }, { dataset: "sales_summary", queryJson: "x".repeat(16001) }]) {
     assert.throws(() => validateToolArguments(args, entry.inputSchema));

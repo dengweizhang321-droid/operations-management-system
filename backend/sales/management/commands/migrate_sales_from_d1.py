@@ -1940,6 +1940,12 @@ class Command(BaseCommand):
                     revision.revision = source_value
                     revision.source_digest = domain_digest
                     revision.save(update_fields=["revision", "source_digest", "updated_at"])
+                # This PG-only directory cannot inherit readiness from D1 data.
+                from sales.models import SalesAnalysisOption, SalesAnalysisOptionsState
+                SalesAnalysisOption.objects.all().delete()
+                SalesAnalysisOptionsState.objects.filter(id=1).update(status="not_ready", generation="",
+                    directory_digest="", identity_count=0, stored_bytes=0, source_sales_revision=-1,
+                    reason="d1_reinitialized")
                 run.status = "completed"
                 run.source_counts = source_counts
                 run.target_counts = target_counts

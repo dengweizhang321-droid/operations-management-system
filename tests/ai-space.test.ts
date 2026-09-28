@@ -684,7 +684,7 @@ test("AI Space routes and UI preserve role, private-object, and six-workspace co
   assert.match(moduleView, /\["reports", "skills", "pipelines", "agents", "memory", "space", "management", "scheduled", "configuration"\]/);
   assert.match(catalog, /ai: \{ defaultView: "assistant", views: \["assistant", "agents", "memory", "space", "management", "scheduled", "configuration", "reports", "skills", "pipelines"\] \}/);
   assert.match(worker, /wakeAiQueue\("space"\)/);
-  assert.match(worker, /return \{ aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \}/);
+  assert.match(worker, /return \{ aiFiles: await aiFilesPending, aiEvidence, aiWorkflow, aiAgent, netshopProjection, imageCache, annotations, aiSpace \}/);
 });
 
 function applyDrizzleMigration(sqlite: DatabaseSync, migration: string) {

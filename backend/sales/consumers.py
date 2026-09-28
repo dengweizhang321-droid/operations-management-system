@@ -53,6 +53,7 @@ from .summary import SALES_RANGES, get_sales_summary
 
 CONSUMER_OPERATIONS = frozenset(
     {
+        "analysis_records",
         "freshness",
         "summary",
         "inventory_demand",
@@ -313,6 +314,9 @@ def _resolved_outlets(
 
 def validate_consumer_request(payload: dict[str, object]) -> dict[str, object]:
     operation = payload.get("operation")
+    if operation == "analysis_records":
+        from .analysis import validate
+        return validate(payload)
     if not isinstance(operation, str) or operation not in CONSUMER_OPERATIONS:
         raise SalesRequestError("operation 不在固定消费者查询清单中")
     allowed: dict[str, set[str]] = {
@@ -1236,4 +1240,7 @@ def execute_consumer_query(
     principal: Principal, request: dict[str, object]
 ) -> dict[str, object]:
     operation = str(request["operation"])
+    if operation == "analysis_records":
+        from .analysis import read_page
+        return read_page(principal, request)
     return HANDLERS[operation](principal, request)

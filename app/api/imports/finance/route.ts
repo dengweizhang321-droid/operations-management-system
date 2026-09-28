@@ -11,6 +11,21 @@ import {
 import { parsePositiveIntegerQuery, safeApiErrorResponse } from "@/lib/http/api-error";
 
 const MAX_FINANCE_FILE_BYTES = 8 * 1024 * 1024;
+const RAW_BYTES_FLAG = "TERUISI_FINANCE_RAW_WORKBOOK_BYTES_V2_ENABLED";
+
+async function rawBytesAttestationEnabled(): Promise<boolean> {
+  let worker: Record<string, unknown> = {};
+  try {
+    const cloudflare = await import("cloudflare:workers");
+    worker = cloudflare.env as Record<string, unknown>;
+  } catch {
+    // Local tests may only have process.env.
+  }
+  const processEnv = (globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+  }).process?.env;
+  return (worker[RAW_BYTES_FLAG] ?? processEnv?.[RAW_BYTES_FLAG]) === "true";
+}
 
 function errorResponse(status: number, message: string) {
   return Response.json({ ok: false, status: "rejected", message }, { status, headers: { "cache-control": "no-store" } });
@@ -87,6 +102,36 @@ export async function POST(request: Request) {
     );
     const headers = new Headers({ "cache-control": "no-store" });
     if (result.replayed) headers.set("x-teruisi-write-replay", "1");
+    if (await rawBytesAttestationEnabled()) {
+      let attestation = "unknown";
+      const batch = result.data.batch;
+      const acceptedImport = (result.status === 201 && result.data.status === "imported")
+        || (result.status === 200 && result.data.status === "duplicate");
+      if (acceptedImport
+        && normalized.disposition === "prepared"
+        && normalized.months?.length === 1
+        && batch && typeof batch === "object" && !Array.isArray(batch)
+        && typeof (batch as Record<string, unknown>).id === "string"
+        && /^[a-f0-9]{64}$/.test((batch as Record<string, string>).id)
+        && (batch as Record<string, unknown>).status === "completed"
+        && (batch as Record<string, unknown>).fileName === normalized.fileName
+        && (batch as Record<string, unknown>).fileSizeBytes === bytes.byteLength
+        && Array.isArray((batch as Record<string, unknown>).months)
+        && (batch as { months: unknown[] }).months.length === 1
+        && (batch as { months: unknown[] }).months[0] === normalized.months[0].month) {
+        try {
+          await createDjangoFinanceService().attestRawWorkbook(principal, {
+            bytes,
+            month: normalized.months[0].month,
+            batchId: (batch as Record<string, string>).id,
+          }, { signal: request.signal });
+          attestation = "verified";
+        } catch {
+          // The legacy import already committed. Missing sidecar stays unknown.
+        }
+      }
+      headers.set("x-finance-raw-workbook-attestation", attestation);
+    }
     return Response.json(result.data, { status: result.status, headers });
   } catch (error) {
     const authResponse = authorizationErrorResponse(error);

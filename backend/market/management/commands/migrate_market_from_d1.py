@@ -849,6 +849,13 @@ def _apply(
             "source_digest": source_digest,
         },
     )
+    # D1 has no complete options-directory generation. Restoring business rows
+    # must not retain a previously initialized PostgreSQL-only directory.
+    from market.models import MarketAnalysisOption, MarketAnalysisOptionsState
+    MarketAnalysisOption.objects.all().delete()
+    MarketAnalysisOptionsState.objects.update_or_create(id=1, defaults={
+        "status": "not_ready", "generation": "", "directory_digest": "", "identity_count": 0,
+        "stored_bytes": 0, "source_revision": "", "reason": "restored_requires_initialization"})
     authority = MarketWriteAuthority.objects.select_for_update().get(id=1)
     authority.migration_verify_run_id = run_id
     authority.save(update_fields=["migration_verify_run_id", "updated_at"])
