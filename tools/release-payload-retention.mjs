@@ -6,6 +6,11 @@ import { assertNoReparsePoint, canonicalJson, hashTree, sha256Bytes, verifyWorke
 
 export const payloadNames = ["dist", "helper", "source-snapshot", "node_modules"];
 const releaseId = /^\d{8}T\d{6}Z-[a-f0-9]{16}$/;
+export function asciiJson(value) {
+  // Native PowerShell 5 pipelines may decode stdout using a legacy code page.
+  // Escaped JSON keeps path values lossless without changing the console's code page.
+  return JSON.stringify(value).replace(/[^\x00-\x7f]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
+}
 
 export function selectReleaseRetention(releases, now, pinned = []) {
   const clock = Date.parse(now);
@@ -102,6 +107,6 @@ export async function planReleaseRetention(now = new Date().toISOString()) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.length !== 2) throw new Error("Planner accepts no arguments");
-  planReleaseRetention().then((result) => process.stdout.write(JSON.stringify(result) + "\n"))
+  planReleaseRetention().then((result) => process.stdout.write(asciiJson(result) + "\n"))
     .catch((error) => { process.stderr.write(error.message + "\n"); process.exitCode = 1; });
 }

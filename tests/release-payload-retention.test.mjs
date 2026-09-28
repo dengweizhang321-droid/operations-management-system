@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectReleaseRetention, exactPayloadPath } from "../tools/release-payload-retention.mjs";
+import { selectReleaseRetention, exactPayloadPath, asciiJson } from "../tools/release-payload-retention.mjs";
+
+test("planner stdout preserves Unicode paths through legacy console code pages", () => {
+  const value = { path: "D:\\运行项目\\文件-😀.json" };
+  const output = asciiJson(value);
+  assert.equal(/[^\x00-\x7f]/.test(output), false);
+  assert.deepEqual(JSON.parse(output), value);
+});
 
 const release = (day) => ({ releaseId: `202609${String(day).padStart(2, "0")}T000000Z-${"a".repeat(16)}`, createdAt: `2026-09-${String(day).padStart(2, "0")}T00:00:00Z` });
 test("seven-day boundary preserves current and two rollback predecessors", () => {
