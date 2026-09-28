@@ -6,6 +6,7 @@ import {
   salesGatewayBodySha256,
 } from "@/lib/django/sales-gateway";
 
+export const SYSTEM_BACKUPS_PATH = "/api/access-control/backups";
 export const ACCESS_CONTROL_RESOLVE_PATH = "/api/access-control/principal/resolve";
 export const ACCESS_CONTROL_BACKGROUND_PATH = "/api/access-control/principal/authorize-background";
 export const ACCESS_CONTROL_ROLES_PATH = "/api/access-control/roles";
@@ -127,11 +128,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function allowedRequest(input: { method: string; path: string; service: "reader" | "writer" }): boolean {
   if (input.service === "reader") {
-    return input.method === "GET" && [ACCESS_CONTROL_ROLES_PATH, ACCESS_CONTROL_USERS_PATH, ACCESS_CONTROL_AUDITS_PATH].includes(input.path)
+    return input.method === "GET" && [ACCESS_CONTROL_ROLES_PATH, ACCESS_CONTROL_USERS_PATH, ACCESS_CONTROL_AUDITS_PATH, SYSTEM_BACKUPS_PATH].includes(input.path)
       || input.method === "POST" && [ACCESS_CONTROL_RESOLVE_PATH, ACCESS_CONTROL_BACKGROUND_PATH].includes(input.path);
   }
   return (input.method === "POST" || input.method === "PUT")
-    && input.path === ACCESS_CONTROL_USERS_PATH;
+    && (input.path === ACCESS_CONTROL_USERS_PATH || input.method === "POST" && input.path === SYSTEM_BACKUPS_PATH);
 }
 
 export async function requestDjangoAccessControl<T>(

@@ -2,9 +2,11 @@ from django.conf import settings
 from django.urls import path
 
 from . import views
+from system_backups.views import backups
 
 
 reader_patterns = [
+    path("backups", backups, name="system-backup-read"),
     path("principal/resolve", views.principal_resolve, name="access-principal-resolve"),
     path("principal/authorize-background", views.background_authorize, name="access-background-authorize"),
     path("roles", views.roles, name="access-roles"),
@@ -12,6 +14,7 @@ reader_patterns = [
     path("audits", views.audits, name="access-audits"),
 ]
 writer_patterns = [
+    path("backups", backups, name="system-backup-write"),
     path("users", views.users, name="access-users-write"),
 ]
 

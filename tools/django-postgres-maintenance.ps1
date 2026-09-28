@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight")]
+  [ValidateSet("Backup", "Verify", "RestoreRehearsal", "Prune", "Status", "ProtectedAiPreflight", "AdoptRetention", "Retain", "Protect", "Unprotect")]
   [string]$Action = "Status",
   [string]$RuntimeRoot = "D:\teruisi-runtime\django-sales",
   [string]$BackupDirectory = "",
@@ -29,6 +29,7 @@ $MaintenanceBackupVersion = "teruisi-postgres-daily-backup-v1"
 $MaintenanceNoKeyBackupVersion = "teruisi-postgres-daily-backup-v2-no-keys"
 $MaintenanceRestoreVersion = "teruisi-postgres-restore-rehearsal-v1"
 $MaintenancePruneVersion = "teruisi-postgres-backup-prune-v1"
+. (Join-Path $PSScriptRoot "postgres-backup-retention.ps1")
 $MaintenanceRehearsalRoles = @(
   "teruisi_sales_owner",
   "teruisi_sales_reader",
@@ -1132,12 +1133,25 @@ function Resolve-MaintenanceBackupArchive(
   [switch]$RequireCurrentDeployment
 ) {
   $backupRoot = Get-MaintenanceBackupRoot $false
+  $requestedParent = Get-MaintenanceCanonicalPath (Split-Path -Parent $RequestedDirectory)
+  $importsRoot = Assert-RuntimeChildPath (Join-Path $MaintenanceRequest.RuntimeRoot 'backups\postgres-imports')
+  if ($requestedParent -ieq $MaintenanceArchiveRoot) {
+    $backupRoot = Assert-MaintenanceArchiveRoot
+  } elseif ($requestedParent -ieq $importsRoot -and $MaintenanceRequest.Action -cin @('Verify','RestoreRehearsal')) {
+    $backupRoot = $importsRoot
+  }
   if (-not (Test-Path -LiteralPath $backupRoot -PathType Container)) {
-    throw "PostgreSQL 日常备份根目录不存在"
+    throw "PostgreSQL 备份根目录不存在"
   }
   $directory = Resolve-MaintenanceDirectChildDirectory (
     $RequestedDirectory
   ) $backupRoot "^daily-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$" "PostgreSQL 备份目录"
+  if ($backupRoot -ieq $MaintenanceArchiveRoot) {
+    $allowedSids = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
+    foreach ($entry in @((Get-Item -LiteralPath $directory)) + @(Get-ChildItem -LiteralPath $directory -Force)) {
+      Assert-ExactRuntimeAclEntry $entry (Get-RuntimeItemAccessControl $entry) $allowedSids $MaintenanceArchiveRoot
+    }
+  }
   $archive = Read-MaintenanceArchive $directory $ApprovedSha256 $RequireCurrentDeployment
   if ([IO.Path]::GetFileName($directory) -cne [string]$archive.Manifest.backupId) {
     throw "PostgreSQL 备份目录与 manifest 身份不一致"
@@ -1967,6 +1981,9 @@ function Invoke-MaintenancePrune {
 function Show-MaintenanceStatus {
   Assert-MaintenanceRuntimeContext | Out-Null
   $backupRoot = Get-MaintenanceBackupRoot $false
+  if ($null -ne (Get-MaintenanceRetentionPolicy)) {
+    $backupRoot = Assert-MaintenanceArchiveRoot
+  }
   $directories = @()
   if (Test-Path -LiteralPath $backupRoot -PathType Container) {
     $directories = @(
@@ -2043,7 +2060,20 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
 
   $output = Invoke-MaintenanceMutex {
     switch ($MaintenanceRequest.Action) {
-      "Backup" { Invoke-MaintenanceBackup }
+      "Backup" {
+        $created = Invoke-MaintenanceBackup
+        if ($null -ne (Get-MaintenanceRetentionPolicy)) {
+          $MaintenanceRequest.ConfirmedPrune = $true
+          $retained = Invoke-MaintenanceRetention
+          $created.backupDirectory = Join-Path $MaintenanceArchiveRoot $created.backupId
+          $created | Add-Member -NotePropertyName retention -NotePropertyValue $retained
+        }
+        $created
+      }
+      "AdoptRetention" { Set-MaintenanceRecoveryProtection }
+      "Protect" { Set-MaintenanceRecoveryProtection }
+      "Unprotect" { Set-MaintenanceRecoveryProtection }
+      "Retain" { Invoke-MaintenanceRetention }
       "Verify" {
         if ([string]::IsNullOrWhiteSpace($MaintenanceRequest.BackupDirectory)) {
           throw "Verify 必须提供 BackupDirectory"
@@ -2062,8 +2092,24 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
       }
       "RestoreRehearsal" { Invoke-MaintenanceRestoreRehearsal }
       "ProtectedAiPreflight" { Invoke-MaintenanceProtectedAiPreflight }
-      "Prune" { Invoke-MaintenancePrune }
+      "Prune" {
+        if ($null -ne (Get-MaintenanceRetentionPolicy)) { Invoke-MaintenanceRetention }
+        else { Invoke-MaintenancePrune }
+      }
       "Status" { Show-MaintenanceStatus }
+    }
+  }
+  # The PG mutex has been released; housekeeping must never invert the lifecycle lock order.
+  if ($MaintenanceRequest.Action -ceq 'Backup' -and $null -ne (Get-MaintenanceRetentionPolicy)) {
+    try {
+      $cleanupRaw = & (Join-Path $PSScriptRoot 'release-payload-retention.ps1') -Execute
+      $cleanup = ($cleanupRaw -join "`n") | ConvertFrom-Json
+      if ($cleanup.status -cne 'completed') { throw 'Release retention receipt invalid' }
+      $output | Add-Member -NotePropertyName releaseRetention -NotePropertyValue $cleanup
+    } catch {
+      # A busy lifecycle or invalid release cannot invalidate a completed DB backup.
+      # Expose the separate blocked outcome; do not retry or bypass its protections.
+      $output | Add-Member -NotePropertyName releaseRetention -NotePropertyValue ([pscustomobject]@{status='blocked';errorCode='release_retention_not_completed'})
     }
   }
   Write-Output ($output | ConvertTo-Json -Depth 12 -Compress)

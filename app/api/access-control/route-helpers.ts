@@ -37,13 +37,13 @@ export function requireSameOriginWrite(request: Request): void {
   }
 }
 
-export async function readAccessControlJson(request: Request): Promise<Record<string, unknown>> {
+export async function readAccessControlJson(request: Request, maximumBytes = MAX_BODY_BYTES): Promise<Record<string, unknown>> {
   const contentType = request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
   if (contentType !== "application/json") {
     throw new PublicApiError(415, "unsupported_media_type", "权限写入请求必须使用 application/json。" );
   }
   const declared = request.headers.get("content-length");
-  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_BODY_BYTES)) {
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maximumBytes)) {
     throw new PublicApiError(413, "payload_too_large", "权限写入请求超过大小上限。" );
   }
   const reader = request.body?.getReader();
@@ -55,7 +55,7 @@ export async function readAccessControlJson(request: Request): Promise<Record<st
         const next = await reader.read();
         if (next.done) break;
         size += next.value.byteLength;
-        if (size > MAX_BODY_BYTES) {
+        if (size > maximumBytes) {
           await reader.cancel();
           throw new PublicApiError(413, "payload_too_large", "权限写入请求超过大小上限。");
         }

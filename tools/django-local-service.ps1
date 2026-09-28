@@ -1763,6 +1763,11 @@ function Prepare-Application {
       "tools\erp-reference-d1-snapshot.py",
       "tools\django-inventory-cutover.ps1",
       "tools\django-postgres-maintenance.ps1",
+      "tools\postgres-backup-retention.ps1",
+      "tools\release-payload-retention.ps1",
+      "tools\release-payload-retention.mjs",
+      "tools\worker-local-release-rotation.mjs",
+      "tools\d1-retirement-proof.mjs",
       "tools\finance-d1-authority-install.py",
       "tools\finance_d1_rehearsal_snapshot.py",
       "tools\workflow-d1-authority-install.py",
@@ -4178,6 +4183,38 @@ function Assert-ProductionMaintenance([string]$Operation) {
   }
 }
 
+function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
+  # Shared with Python's one-byte state.lock. Check-and-mark is atomic with
+  # web job reservation, so maintenance cannot stop a just-admitted backup.
+  $consoleRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot 'backups\console')
+  if (-not (Test-Path -LiteralPath $consoleRoot)) { New-Item -ItemType Directory -Path $consoleRoot -Force | Out-Null }
+  $cursor = Get-Item -LiteralPath $consoleRoot -Force
+  while ($null -ne $cursor) {
+    if ($cursor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Backup console path is linked' }
+    $cursor = $cursor.Parent
+  }
+  $lockPath = Join-Path $consoleRoot 'state.lock'
+  if (Test-Path -LiteralPath $lockPath) {
+    if ((Get-Item -LiteralPath $lockPath -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Backup console lock is linked' }
+  }
+  $stream = [IO.FileStream]::new($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
+  $locked = $false
+  try {
+    $stream.Lock(0, 1); $locked = $true
+    $jobs = @(Get-ChildItem -LiteralPath $consoleRoot -Filter 'job-*.json' -Force)
+    if ($jobs.Count -gt 10000) { throw 'Backup task inventory exceeds bound' }
+    foreach ($jobFile in $jobs) {
+      if ($jobFile.PSIsContainer -or $jobFile.Attributes -band [IO.FileAttributes]::ReparsePoint -or $jobFile.Length -gt 4194304) { throw 'Invalid backup task record' }
+      $job = Read-JsonFile $jobFile.FullName 'Backup task record'
+      if ($job.status -cnotin @('completed','failed')) { throw 'Backup task is still active or unresolved; maintenance refused' }
+    }
+    & $Operation
+  } finally {
+    if ($locked) { $stream.Unlock(0, 1) }
+    $stream.Dispose()
+  }
+}
+
 function Begin-SystemMaintenance {
   if ($MaintenanceId -cnotmatch "^[0-9a-f]{32}$") { throw "MaintenanceId must be an explicit 32-character lowercase operation id" }
   Assert-DeployedApplication
@@ -4188,11 +4225,13 @@ function Begin-SystemMaintenance {
     if ((Test-MaintenanceKeepsPostgres $existing) -ne [bool]$KeepPostgres) { throw "Maintenance scope changed" }
     return
   }
-  Write-AtomicJson $MaintenancePath ([ordered]@{
-    version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
-    runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
-    keepPostgres = [bool]$KeepPostgres
-  })
+  Invoke-BackupConsoleMaintenanceFence {
+    Write-AtomicJson $MaintenancePath ([ordered]@{
+      version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
+      runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
+      keepPostgres = [bool]$KeepPostgres
+    })
+  }
   Write-LauncherEvent "INFO" "system_maintenance_entered" $MaintenanceId
 }
 

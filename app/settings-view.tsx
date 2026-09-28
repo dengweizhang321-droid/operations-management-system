@@ -28,6 +28,8 @@ const { Component: LazyWarehouseMappingSettings } = createReloadableLazy("settin
 const { Component: LazyDingTalkRobotSettings } = createReloadableLazy<{ canWrite: boolean }>("settings", () => import("./dingtalk-robot-settings"));
 const { Component: LazyAccessControlManagement } = createReloadableLazy<{ canManage: boolean }>("settings", () => import("./access-control-management"));
 
+const { Component: LazyDatabaseBackups } = createReloadableLazy<{ canManage: boolean }>("settings", () => import("./database-backups"));
+
 export type SettingsTab = ModuleViewKey<"settings">;
 
 export type SettingsCurrentUser = {
@@ -62,7 +64,7 @@ type NumericSettingKey = "targetDays" | "criticalDays" | "slowDays" | "stagnantD
 type BooleanSettingKey = "autoReplenishment" | "inventoryAlert" | "allowNegativeInventory";
 export type MarketSettingsPane = "master-data" | "imports" | "annotation";
 
-const settingsTabs = ["parameters", "master", "warehouses", "dingtalk", "permissions"] as const satisfies readonly SettingsTab[];
+const settingsTabs = ["parameters", "master", "warehouses", "dingtalk", "backups", "permissions"] as const satisfies readonly SettingsTab[];
 const marketSettingsPanes = ["master-data", "imports", "annotation"] as const satisfies readonly MarketSettingsPane[];
 
 const settingsTabLabels: Record<SettingsTab, string> = {
@@ -71,6 +73,7 @@ const settingsTabLabels: Record<SettingsTab, string> = {
   warehouses: "仓库映射",
   dingtalk: "钉钉机器人",
   permissions: "权限管理",
+  backups: "数据库备份",
 };
 
 export function nextSettingsTab(current: SettingsTab, key: string): SettingsTab | null {
@@ -594,6 +597,12 @@ export default function SettingsView({
     >
       <Suspense fallback={<LoadingState>正在加载钉钉机器人设置</LoadingState>}>
         <LazyDingTalkRobotSettings canWrite={canEditDingTalk} />
+      </Suspense>
+    </section>}
+
+    {activeTab === "backups" && <section id="settings-panel-backups" role="tabpanel" aria-labelledby="settings-tab-backups" tabIndex={0}>
+      <Suspense fallback={<LoadingState>正在加载备份管理</LoadingState>}>
+        <LazyDatabaseBackups canManage={currentUser?.role === "admin" && !currentUser.scopeRestricted} />
       </Suspense>
     </section>}
 

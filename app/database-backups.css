@@ -1,0 +1,22 @@
+.settings-backups { display: grid; gap: 16px; font-size: 14px; line-height: 1.6; min-width: 0; }
+.settings-backups .panel { min-width: 0; margin-top: 0 !important; }
+.settings-backups h2 { font-size: 20px; font-weight: 650; margin: 0 0 8px; }
+.settings-backups p { margin: 8px 0 16px; }
+.settings-backups .section-header { padding: 0; margin-bottom: 20px; gap: 20px; flex-wrap: wrap; align-items: center; }
+.settings-backups .section-header > div { flex: 1 1 280px; }
+.settings-backups .section-header p { font-size: 14px; }
+.settings-backups .section-header h2 { font-size: 20px; }
+.settings-backups button { white-space: nowrap; flex-shrink: 0; font-size: 14px; min-height: 36px; }
+.backup-table-scroll { width: 100%; overflow-x: auto; }
+.backup-table-scroll table { width: 100%; min-width: 740px; border-collapse: collapse; text-align: left; }
+.backup-table-scroll th { font-size: 14px; font-weight: 600; color: var(--color-text-secondary, #546560); background: #f5f8f6; }
+.backup-table-scroll th, .backup-table-scroll td { padding: 14px 12px; border-bottom: 1px solid #e5ece8; vertical-align: middle; }
+.backup-table-scroll td:first-child, .backup-table-scroll td:nth-child(2), .backup-table-scroll td:last-child { white-space: nowrap; }
+.backup-table-scroll small { font-family: monospace; font-size: 12px; color: #60716a; }
+.settings-backups input[type="file"] { max-width: 100%; padding: 10px 0; }
+.settings-backups input[type="file"]::file-selector-button { padding: 8px 12px; margin-right: 12px; border-radius: 6px; border: 1px solid #d5dfd9; background: white; }
+.settings-backups input[type="checkbox"] { margin-right: 8px; accent-color: #37604b; }
+@media (max-width: 600px) {
+  .settings-backups .panel { padding: 18px !important; }
+  .settings-backups .section-header { gap: 8px; }
+}

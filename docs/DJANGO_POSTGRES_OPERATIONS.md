@@ -91,6 +91,8 @@ D:\teruisi-runtime\django-sales\rehearsals\postgres-restore\restore-<RehearsalId
 
 ## 5. 保留与清理
 
+2026-09-28 用户确认三份恢复点策略：E 盘保留正式备份，D 盘仅生成/导入暂存；关键迁移前备份占保护名额。候选 operator 增加 `AdoptRetention`、`Retain`、`Protect`、`Unprotect`；正式采用后 Backup 自动归档/轮换，Prune 转入相同新规则。新操作、固定 E/导入目录支持和采用边界见 [BACKUP_RETENTION.md](BACKUP_RETENTION.md)。以下命令只描述未采用新策略时的历史兼容行为。
+
 默认保留至少最近 30 天并且至少保留 7 份已完整验证的成功备份。先只生成计划：
 
 ```powershell

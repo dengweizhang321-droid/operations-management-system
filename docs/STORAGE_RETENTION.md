@@ -49,7 +49,9 @@ powershell.exe -NoProfile -File tools/storage-dependency-cleanup.ps1 `
 # 按同一参数加 -Apply 先验证一份实际清理，再决定批量范围。
 ```
 
-## 数据库保留目标
+## 数据库保留目标（历史方案）
+
+2026-09-28 用户确认的新目标为 E 盘最多三个已验证恢复点，D 盘仅暂存；发布包按七天及必要保护例外清理。新实现与采用门禁见 [BACKUP_RETENTION.md](BACKUP_RETENTION.md)。以下 14 天/7 份和云端密钥方案保留为历史记录，不覆盖新约定。
 
 目标是本机至少14天且至少7份成功备份，云端按日/周/月分层归档。当前 `backupRetentionPlan` 只做计划，不授权删除，也未改变原来30天的正式策略。
 

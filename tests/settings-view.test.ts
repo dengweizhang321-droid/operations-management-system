@@ -148,7 +148,7 @@ test("DingTalk robot is a dedicated system settings workspace", async () => {
     source("../app/new-product-sales-followup-view.tsx"),
     source("../app/shell/navigation-catalog.ts"),
   ]);
-  assert.match(navigation, /settings: \{ defaultView: "parameters", views: \["parameters", "master", "warehouses", "dingtalk", "permissions"\] \}/);
+  assert.match(navigation, /settings: \{ defaultView: "parameters", views: \["parameters", "master", "warehouses", "dingtalk", "backups", "permissions"\] \}/);
   assert.match(settings, /dingtalk: "钉钉机器人"/);
   assert.match(settings, /<LazyDingTalkRobotSettings canWrite=\{canEditDingTalk\}/);
   for (const label of ["钉钉机器人", "Stream 模式", "机器人名称", "目标群名称", "图片投递方式", "保存机器人配置"]) {

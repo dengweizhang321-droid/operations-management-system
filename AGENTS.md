@@ -110,7 +110,7 @@
 
 ### 1.1 默认开发隔离与合并流程
 
-- 前端展示调整可在独立 worktree 使用 `npm run preview:isolated`，通过 3100 端口和独立合成 SQLite 数据先给用户观看；数据准备/快照和限制见 `docs/ISOLATED_PREVIEW.md`。不得向预览 worktree 复制生产 `.dev.vars`、密钥或数据库连接。演示验收不能替代 PostgreSQL/权限/写流程验收；用户确认效果后才合并，生产发布单独处理。
+- 前端展示调整可在独立 worktree 使用 `npm run preview:isolated`，通过 3100 端口和独立合成 SQLite 数据先给用户观看；数据准备/快照和限制见 `docs/ISOLATED_PREVIEW.md`。不得向预览 worktree 复制生产 `.dev.vars`、密钥或数据库连接。演示验收不能替代 PostgreSQL/权限/写流程验收；测试与必要审查通过后及时合并；用户明确要求效果确认时先完成该确认，生产发布另须用户确认。
 
 - 后续代码变更默认从最新 `main` 创建独立 `codex/*` 分支和独立 Git worktree，在该 worktree 内完成开发、测试、构建、迁移演练与复审；不得直接在生产运行目录或生产检出上开发、切分支、安装依赖、生成构建产物或运行会改变状态的脚本。
 - 涉及数据库、导入、队列、缓存、对象存储或自动化的验证，默认使用与生产隔离的镜像库/镜像环境。镜像必须使用独立连接、凭据、端口和存储命名空间；任何写入、迁移、回填、清理、任务消费和回调都只能指向镜像，禁止把生产连接作为开发回退路径。
@@ -183,11 +183,11 @@
 - D1 `0092_sales_domain_retirement.sql` 已退役销售事实、批次、上传、缓存、投影 outbox 和 authority 对象。保留的只读 tombstone views、retirement receipt、共享导入表销售永久写入 guard、迁移工具和测试夹具是防复活终态证据，不代表仍存在销售 D1 后端；普通 Drizzle 生成在建立新审计 baseline 前仍须失败关闭。
 - 2026-09-05，本机 ERP 主数据域已完成 Django/PostgreSQL 正式单写切换、D1 终态退役和旧 `inventory-upload/` R2 路径下线，cutover ID 为 `erp-reference-pg-20260905T102200Z-8a8dbcb59fc8`，authority epoch 为 `69f7d42f-109f-43c7-9f84-c86629d8fa00`。PostgreSQL 是 ERP 货品、组合装、批次、scope head、内容指纹、导入尝试、请求 receipt、原始分片、revision、迁移和审计的唯一权威；生产 run `erp-reference-eb5fa9fc5cd0467ba58c9dc0a9c11b01` 迁移并复验 8,473 条货品、4,392 条组合件、83 个批次、58 个尝试、83 个规范化指纹和 2 个 scope head，源/目标摘要均为 `33b4d6032868f5d25532cc9333f09482bc2a205ee92f2cec0524a8f583f4d7fb`。公开 Worker 只承担真实鉴权、权限、Excel 解析、HMAC、超时/体积边界和薄适配，ERP 读写固定进入 `127.0.0.1:8091/8092`。唯一跨域写权限是按 ERP 映射更新既有 `sales_order_lines.resolved_category` 派生分类；不得新增或删除销售事实，不得修改金额、成本、销量、`gross_profit`、其他销售字段或批次。operator-only `0110` 已将 7 个旧 D1 ERP 对象变为空 tombstone view，并安装 18 个永久 guard；旧 ERP bridge 已撤权并退出启动链。切换已跨过 PNR，禁止恢复 D1/R2/bridge/legacy/shadow、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。正式证据见 `docs/DJANGO_ERP_REFERENCE_MIGRATION.md`。
 - 切换已跨过 PNR，不支持 `pending→d1`、`legacy`/`shadow` 路由或反向迁移。故障恢复仅允许兼容代码、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复；成功正式备份、恢复演练、attestation、forward-recovery 和 retirement 证据不得清理。
-- Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 只能在 Worker 停止时执行受控 `plan`，再用精确 plan SHA 执行 `apply`，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
+- Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 可以通过受控 `plan --prepare-online` 在线准备候选，普通 `plan` 保持停止门禁；`apply` 仍必须在获批维护、Worker 停止后使用精确 plan SHA 执行，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
 - Worker supervisor 的 prelaunch 不得递归调用 PowerShell `Status`；只能直接、有界验证 service 原子写入的 create-only canonical process receipt，且等待预算必须覆盖 controller 建立精确 CIM identity 和写入 receipt 的时延。外层 controller 仍须按 PID、CreationDate、命令行和进程树二次核验。PowerShell 读取受控 JSON 时必须保留 ISO 日期字符串，不能让 pwsh 自动转换为 `DateTime` 后进入递归规范化。
 - Miniflare 的 `Request.cf` 缓存固定写入 Worker runtime 的 `cache\miniflare\cf.json`，不得写入 immutable release、`node_modules` 或业务 `.wrangler/state`。每次启动和子进程重启前都必须清除继承的同名环境变量并安装固定绑定，核验 runtime/release/persist 边界、目录全链、文件叶和硬链接身份；release 出现 `.mf` 或其他未列入 manifest 的对象必须失败关闭。
 - 本机 Django/PostgreSQL 服务固定运行于 `D:\teruisi-runtime\django-sales`：PostgreSQL 17.11 只监听 `127.0.0.1:5432`，销售 reader/writer 固定监听 `127.0.0.1:8001/8002`，财务 reader/writer 固定监听 `127.0.0.1:8011/8012`，网店 reader/writer 固定监听 `127.0.0.1:8021/8022`，市场 reader/writer 固定监听 `127.0.0.1:8031/8032`，商品经营 reader/writer 固定监听 `127.0.0.1:8041/8042`，库存 reader/writer 固定监听 `127.0.0.1:8051/8052`，运营事务 reader/writer 固定监听 `127.0.0.1:8061/8062`，客服 reader/writer 固定监听 `127.0.0.1:8071/8072`，ERP 主数据 reader/writer 固定监听 `127.0.0.1:8091/8092`。长期进程使用各领域独立最小权限 reader/writer，凭据仅保存为当前 Windows 用户绑定的 DPAPI 密文；readiness 必须验证各自 schema、索引、authority、attestation、revision、摘要和只读事务。网店、市场、商品经营、库存、运营事务、客服和 ERP 主数据分别通过 authority 绑定的 `netshop-service-enabled.json`、`market-service-enabled.json`、`products-service-enabled.json`、`inventory-service-enabled.json`、`workflow-service-enabled.json`、`customer-service-enabled.json`、`erp-reference-enabled.json` 加入现有受控开机启动链。完整 Django/BI 运行栈按最大线程连接数和运维余量要求 PostgreSQL `max_connections>=120`，本机正式值为 `128`；低于门槛时顶层启动和 ERP/商品经营/库存/运营事务独立启动均必须失败关闭。登录快捷方式不是 Windows Service；顶层进程崩溃后仍需受控检查和显式启动。
-- PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；证据必须覆盖库中已经存在的销售、ERP、财务、网店、市场、商品经营、库存、运营事务及客服全板块表，并绑定各已迁移域的 revision、迁移 run 与 authority。恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。过期备份清理必须保留至少 30 天和至少 7 份已验证成功备份，只能删除固定 `postgres-daily` 根目录下通过 manifest、SHA-256 与 archive 复验的精确 `daily-*` 直接子目录，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
+- PostgreSQL 日常逻辑备份必须使用 exported snapshot 将证据与 dump 绑定，在线备份不得自动启停服务；证据必须覆盖库中已经存在的销售、ERP、财务、网店、市场、商品经营、库存、运营事务及客服全板块表，并绑定各已迁移域的 revision、迁移 run 与 authority。恢复演练只能在独立端口和独立临时数据目录启动受控 PostgreSQL，禁止在生产 cluster 内创建、覆盖或删除演练数据库。备份保留采用第 10.1 节确认的三个恢复点策略，替代历史 30 天/7 份规则；所有删除仍须经过完整 manifest、SHA-256、archive 与受控路径复验，并保留清理审计。具体 operator 和门禁见 `docs/DJANGO_POSTGRES_OPERATIONS.md`。
 - Django runtime 守护必须随 runtime 部署并通过登录启动项持续运行；它只能在显式 `desiredState=running`、连续两次确认本部署 PostgreSQL 或任一 reader/writer 进程确实停止、且端口/进程/ACL 身份均正常时调用既有 `Start`。Windows 重启后仅当 receipt 的进程创建时间、启动时间及文件最后写入时间都严格早于当前系统启动时间，operator 才可只删除该上次开机遗留 receipt，绝不能终止当前复用同一 PID 的进程；当前启动周期内或无法证明来源的 PID/身份异常仍只能告警并失败关闭。状态探针失败、端口冲突、进程仍在但 readiness 失败或 ERP authority/revision/摘要分歧也禁止自动重启或调用 `Stop`。自动 Start 必须在服务 mutex 内复验 desired-state 文件 SHA-256 fencing token，15 分钟最多 3 次。告警只写脱敏本地 outbox；外部发送仍须动态唯一核验“志高助手”与“测试群聊”，不得保存或猜测机器人/群身份。启用与回退见 `docs/DJANGO_RUNTIME_SUPERVISION.md`。
 - `GET /api/sales/data-health` 只允许无数据范围限制的 `operator/admin`，且只能复用 Django reader 已有的 `freshness` consumer；返回单写来源、动态 revision、上海业务日期、销售覆盖、机械 lag 天数和最近成功批次。不得为该接口扩大 reader 数据库权限、读取 runtime/备份/告警文件、定义未经确认的“过期”阈值，或在销售/财务页面模板中复制另一套新鲜度口径。
 - 后续业务域复用 Django/PostgreSQL 时必须遵守 `docs/DJANGO_DATA_IMPORT_ARCHITECTURE.md`。每个领域保留独立 app、迁移、写权限、revision、幂等/范围 owner 和切换证据；新增领域故障只能使该领域失败关闭，不得改变销售或 ERP authority、销售事实、其他模块写入所有权或其他页面可用性。迁移开发和测试只使用隔离工作树与临时数据库，正式切换前不得停止或重启其他模块服务。
@@ -328,11 +328,20 @@
 - 未经明确要求，不执行生产部署、远程 D1 迁移、生产数据导入或外部平台真实发送。涉及这类动作时，应先说明目标环境、影响范围和验证/回滚方案。
 - 修改注册表、鉴权、导入、市场迁移、缓存或自动化状态机时，必须增加针对失败、重试、重复、跨范围和并发交错的负向测试，不能只验证成功路径。
 
+### 10.1 发布与备份保留约定（2026-09-28 用户确认）
+
+- 发布包保留最近 7×24 小时的完整包；当前运行版本、必要回滚版本及显式保护版本即使超过七天仍保留。历史启动校验依赖的 manifest、successor、activation fence、guard、authority 和审计凭证不按日期删除。仅清理经验证且无进程引用的精确旧包载荷，禁止整目录按时间通删。
+- PostgreSQL 使用既有 `pg_dump` custom 格式与一致性快照备份，不新增备份密码或恢复密钥。一个恢复点包含 dump、manifest、SHA-256 校验文件；角色、权限和迁移证据继续按现有归档版本验证。数据库备份不代表已备份 R2 附件或整机配置。
+- 正式数据库备份保存到 `E:\运营管理系统业务数据`，最多 3 个已验证恢复点；D 盘只作生成和导入校验的临时区。发布前后备份均占名额，必要的迁移前备份作为保护项占其中一个名额，其余按完成时间保留最新。新备份成功、E 盘归档复验完成后才淘汰旧份，过程中允许短暂第四份；失败不提前删旧，不因达到上限解除关键备份保护。保护项占满或证据异常时停止轮换并报告。
+- 系统备份管理仅允许无数据范围限制的管理员使用，复用既有备份/Verify/隔离恢复工具。导出交付完整备份包；导入先上传、校验并在独立 PostgreSQL 环境恢复验证。上传或校验不等于生产恢复，恢复生产必须另获用户对精确恢复点、目标与维护窗口的明确确认。
+- 发布流程以 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 为准：开发、测试、生产构建及候选准备期间保持生产正常，不修改当前生效入口或运行包。正式切换可在用户批准的短时应用维护窗口进行；不得把在线准备描述为全程零停机。优先保留 PostgreSQL 的应用维护，沿用唯一生命周期引擎和全部原验证/恢复门禁。
+- 此处是已确认的目标约定；自动保留工具和备份页面必须完成隔离验证、受控上线及生产验收后才宣称已生效。对仍在使用的历史恢复材料，先核验并建立保护绑定再采用轮换策略。
+
 ## 11. Git 与交付
 
 - 市场榜单分页维护必须保持数据库内去重、正式价格与投影后排序的口径，只为当前页查询关联销售；不得通过提高原始记录上限或返回截断统计冒充完整结果。首次读取失败仍须保留日期、筛选及子菜单，选项独立读取；迟到结果不得覆盖新范围。行业汇报的有界计算与榜单分页分别验收，细节见 `docs/MARKET_QUERY_PAGINATION.md`。
 
-- 所有使用开发分支完成的任务，在上线并通过生产验收后，必须把与本次上线一致的提交合并到 `main`，推送 `main`，并核验远端 `main` 已包含该上线提交；完成这些核验后，再清理本次已合并的本地开发分支和对应远端开发分支。上线后的分支合并与清理属于任务收尾门禁，未完成时不得宣称交付闭环；存在未合并提交、分支仍被其他工作使用、远端权限不足或删除风险时，不得强行删除，须保留分支并在交付说明中明确阻塞项。
+- 所有开发（包括文档与配置）在从最新 `main` 创建的独立 `codex/*` 分支及 worktree 完成。相关测试、审查与生产构建通过后，及时合并并推送 `main`，核验远端包含本次提交；合并不等于上线。完成生产候选构建/准备后等待用户对本次上线的明确确认，才执行维护、迁移、部署和生产验收。已合并分支及 worktree 在确认无构建、发布、进程或其他任务依赖、且必要材料已保全后及时清理；包括本次本地及同名远端开发分支。受管 worktree 使用应用归档工具。未合并、未验证或仍在使用的内容不得强制删除。
 - 每次源码或项目配置修改完成后，创建一个聚焦、可审查的 Git 提交，并推送到已配置远端；文档/规范修改也属于项目配置修改。
 - 只暂存本任务文件。推送前再次核验 `git diff --cached`，避免纳入用户已有改动、生成文件、下载文件、凭证或运行产物。
 - 不使用破坏性 Git 命令清理工作区。没有明确要求时不改写历史、不强推、不切换或删除用户分支。
@@ -346,8 +355,8 @@
 - 普通 Git worktree 与应用受管附件分别处理：核验 Git 管理目录、归属元数据及占用，确认未受应用管理、未锁定且内容已保全后，可以使用 Git 原生 `git worktree remove` 同步移除检出和登记，不需要原会话。不能只因缺少聊天归属就把普通 Git 工作树永久搁置，也不能伪造或移除受管归属来绕过归档保护。Git 登记移除后仍须检查目录；剩余 junction、空目录或其他文件单独列为残留，不跟随 junction 删除目标。
 - 闲置的发布准备工作树仅在确认运行进程、日常启动及计划任务不依赖该检出后才能清理；已部署的不可变运行包及生产数据保持。下一次发布须先按发布工具要求重新准备来源，不得为省略准备步骤而放宽生产门禁。停止的隔离测试数据库及可再生缓存可随闲置检出清理，必要的独有脚本与验收材料应先校验保全，避免反复复制整套生成数据。
 - 用户授权与工具能力分开判断：原会话不是审批门槛，但工具的附件范围、受管保护或系统权限仍须遵守。确实无法从当前工具完成时，记录精确路径与工具阻塞，不绕过保护直接删除，不把部分清理说成只剩 `main`。
-- 只删除已解除 worktree 占用、提交已保全的本地分支；默认保留远端分支和恢复标签。重复备份必须先核验保留副本的完整文件清单、大小、SHA-256、备份 manifest 及可读取性，删除精确重复副本并留存审计；不得把唯一备份、生产数据或正式运行目录当作缓存。
-- 结束时复查 `git worktree list`、本地分支、主工作区状态、保留副本和实际释放空间；明确区分已清理项目与尚存阻塞。该长期授权不扩展到停服、发布、迁移、业务补跑或远端分支删除。
+- 历史清理只删除已解除 worktree 占用、提交已保全的本地分支；后续新开发按第 11 节清理本次已合并的本地及同名远端分支，恢复标签继续保留。重复备份必须先核验保留副本的完整文件清单、大小、SHA-256、备份 manifest 及可读取性，删除精确重复副本并留存审计；不得把唯一备份、生产数据或正式运行目录当作缓存。
+- 结束时复查 `git worktree list`、本地分支、主工作区状态、保留副本和实际释放空间；明确区分已清理项目与尚存阻塞。该清理授权不扩展到停服、发布、迁移或业务补跑；远端删除只限第 11 节明确的本次已合并开发分支。
 
 ## 12. 任务结束与长期记忆
 
