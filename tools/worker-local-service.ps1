@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus")]
+  [ValidateSet("Deploy", "Verify", "Start", "Restart", "RestartFull", "Stop", "Status", "InstallStartup", "VerifyStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "MaintenanceStatus", "CancelDrain")]
   [string]$Action = "Status",
   [string]$SourceRoot,
   [string]$RuntimeRoot = "D:\teruisi-runtime\teruisi-worker-sales",
@@ -51,7 +51,7 @@ $StartupShortcut = if ([string]::IsNullOrWhiteSpace($StartupShortcutPath)) {
   if (-not [System.IO.Path]::IsPathRooted($StartupShortcutPath)) { throw "StartupShortcutPath must be absolute" }
   [System.IO.Path]::GetFullPath($StartupShortcutPath)
 }
-$MutatingActions = @("Deploy", "Start", "Restart", "RestartFull", "Stop", "InstallStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance")
+$MutatingActions = @("Deploy", "Start", "Restart", "RestartFull", "Stop", "InstallStartup", "RemoveStartup", "EnterMaintenance", "ExitMaintenance", "CancelDrain")
 $ServiceMutex = $null
 
 if (-not ("Teruisi.NativeCommandLine" -as [type])) {
@@ -1513,13 +1513,25 @@ function Read-WorkerSystemMaintenance {
   return $record
 }
 
+function Read-WorkerAutomationDrain {
+  $path = Join-Path $FixedDjangoRuntimeRoot 'run\automation-drain.json'
+  Assert-NoReparsePath $path -AllowMissingLeaf
+  if (-not (Test-Path -LiteralPath $path)) { return $null }
+  $entry = Get-Item -LiteralPath $path -Force
+  if ($entry.PSIsContainer -or $entry.Length -gt 4096) { throw 'Invalid automation drain file' }
+  $record = [IO.File]::ReadAllText($path) | ConvertFrom-Json -ErrorAction Stop
+  if ($record.version -cne 'teruisi-automation-drain-v1' -or [string]$record.id -cnotmatch '^[0-9a-f]{32}$' -or
+      $record.phase -cnotin @('helpers','requests') -or [IO.Path]::GetFullPath([string]$record.runtimeRoot).TrimEnd('\') -ine [IO.Path]::GetFullPath($FixedDjangoRuntimeRoot).TrimEnd('\')) { throw 'Invalid automation drain binding' }
+  return $record
+}
+
 function Assert-WorkerMaintenanceInactive {
   $record = Read-WorkerSystemMaintenance
   if ($record) { throw "System maintenance is active: $($record.id). Start and restart are disabled until ExitMaintenance." }
 }
 
 function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$OperationId = "", [switch]$PreservePostgres) {
-  if ($ControlAction -in @("BeginMaintenance", "EndMaintenance")) {
+  if ($ControlAction -in @("BeginMaintenance", "EndMaintenance", "CancelDrain", "CompleteDrain")) {
     if ($OperationId -cnotmatch "^[0-9a-f]{32}$") { throw "Invalid maintenance operation id" }
     # A reviewed source checkout can establish the gate for its first upgrade;
     # immutable Worker releases use the already-deployed Django controller.
@@ -1542,6 +1554,8 @@ function Invoke-DjangoLifecycleAction([string]$ControlAction, [string]$Operation
         $Action = $maintenanceOperation
         Invoke-WithServiceMutex {
           if ($maintenanceOperation -eq "BeginMaintenance") { Begin-SystemMaintenance }
+          elseif ($maintenanceOperation -eq 'CancelDrain') { Cancel-AutomationDrain }
+          elseif ($maintenanceOperation -eq 'CompleteDrain') { Complete-AutomationMaintenanceStop }
           else { End-SystemMaintenance }
         }
       } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibraryMode }
@@ -1701,7 +1715,7 @@ try {
   $resolvedManifest = Get-CurrentManifestPath
   $identity = if ($resolvedManifest) { Get-ManifestIdentity $resolvedManifest } else { $null }
 
-  if ($Action -eq "MaintenanceStatus") { Write-Result (@{ maintenance = Read-WorkerSystemMaintenance }); exit 0 }
+  if ($Action -eq "MaintenanceStatus") { Write-Result (@{ maintenance = Read-WorkerSystemMaintenance; automationDrain = Read-WorkerAutomationDrain }); exit 0 }
 
   if ($Action -eq "Status") {
     Write-Result (Get-PublicStatus (Get-WorkerStatusInternal $identity))
@@ -1777,9 +1791,19 @@ try {
   if ($Action -eq "EnterMaintenance") {
     if (-not $MaintenanceId) { $MaintenanceId = [Guid]::NewGuid().ToString("N") }
     Invoke-DjangoLifecycleAction "BeginMaintenance" $MaintenanceId -PreservePostgres:$KeepPostgres
-    try { $stopped = Invoke-WorkerSystemStop $identity -WithBackend -PreservePostgres:$KeepPostgres }
+    try {
+      if ((Read-WorkerSystemMaintenance).drainedStopped -ne $true) {
+        $stopped = Invoke-WorkerSystemStop $identity -WithBackend -PreservePostgres:$KeepPostgres
+        Invoke-DjangoLifecycleAction 'CompleteDrain' $MaintenanceId
+      }
+    }
     catch { throw "Maintenance $MaintenanceId remains active after stop failure: $($_.Exception.Message)" }
     Write-Result ([ordered]@{ status = "maintenance"; maintenanceId = $MaintenanceId; backendStopped = $true; postgresPreserved = [bool]$KeepPostgres })
+    exit 0
+  }
+  if ($Action -eq 'CancelDrain') {
+    Invoke-DjangoLifecycleAction 'CancelDrain' $MaintenanceId
+    Write-Result ([ordered]@{ status='drain_cancelled'; maintenanceId=$MaintenanceId })
     exit 0
   }
   if ($Action -eq "ExitMaintenance") {

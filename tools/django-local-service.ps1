@@ -4213,7 +4213,8 @@ function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
     foreach ($jobFile in $jobs) {
       if ($jobFile.PSIsContainer -or $jobFile.Attributes -band [IO.FileAttributes]::ReparsePoint -or $jobFile.Length -gt 4194304) { throw 'Invalid backup task record' }
       $job = Read-JsonFile $jobFile.FullName 'Backup task record'
-      if ($job.status -cnotin @('completed','failed')) { throw 'Backup task is still active or unresolved; maintenance refused' }
+      if ($job.status -cin @('queued','running')) { throw 'Backup task is still active or unresolved; maintenance refused' }
+      if ($job.status -cnotin @('completed','failed')) { throw 'Backup task is still active or unresolved (manual reconciliation required); maintenance refused' }
     }
     & $Operation
   } finally {
@@ -4222,6 +4223,108 @@ function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
     if ($pgHeld) { $pgMutex.ReleaseMutex() }
     $pgMutex.Dispose()
   }
+}
+
+function Read-AutomationDrain {
+  $path = Assert-RuntimeChildPath (Join-Path $RunDirectory 'automation-drain.json')
+  if (-not (Test-Path -LiteralPath $path)) { return $null }
+  $file = Get-Item -LiteralPath $path -Force
+  if ($file.PSIsContainer -or $file.Length -gt 4096 -or $file.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Invalid automation drain file' }
+  $gate = Read-JsonFile $path 'Automation drain'
+  if ($gate.version -cne 'teruisi-automation-drain-v1' -or [string]$gate.id -cnotmatch '^[a-f0-9]{32}$' -or
+      $gate.phase -cnotin @('helpers','requests') -or $gate.runtimeRoot -ine (Get-CanonicalPath $RuntimeRoot)) { throw 'Invalid automation drain binding' }
+  return $gate
+}
+
+function Set-AutomationDrainPhase([string]$Phase) {
+  $gate = Read-AutomationDrain
+  if ($gate -and $gate.id -cne $MaintenanceId) { throw 'Another automation drain owns admission' }
+  if ($gate -and $gate.keepPostgres -ne [bool]$KeepPostgres) { throw 'Automation drain scope changed' }
+  if ($gate -and $gate.phase -ceq 'requests' -and $Phase -ceq 'helpers') { return }
+  Write-AtomicJson (Join-Path $RunDirectory 'automation-drain.json') ([ordered]@{
+    version='teruisi-automation-drain-v1'; id=$MaintenanceId; runtimeRoot=(Get-CanonicalPath $RuntimeRoot)
+    phase=$Phase; keepPostgres=[bool]$KeepPostgres; createdAt=$(if ($gate) { $gate.createdAt } else { [DateTimeOffset]::UtcNow.ToString('o') })
+  })
+}
+
+function Wait-AutomationDrain([int]$TimeoutSeconds = 900) {
+  # Refuse mixed-version adoption: an old backend does not hold activity leases.
+  if (-not (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'app\backend\teruisi_backend\automation_drain.py') -PathType Leaf)) {
+    throw 'Backend drain capability is not installed; use the reviewed first-adoption procedure'
+  }
+  Set-AutomationDrainPhase 'helpers'
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  do {
+    $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5791/health' -TimeoutSec 5
+    if ($health.drainProtocol -cne 'teruisi-automation-drain-v1' -or $health.drain.id -cne $MaintenanceId -or $health.ok -ne $true) {
+      throw 'Helper did not acknowledge exact drain; no service may be stopped'
+    }
+    if (@($health.storeExecutions | Where-Object { $_.status -ceq 'quarantined' }).Count) { throw 'Helper result unresolved; reconcile original execution before maintenance' }
+    if ($health.busy -eq $false -and @($health.storeExecutions).Count -eq 0) { break }
+    if ([DateTimeOffset]::UtcNow -ge $deadline) { throw 'Helper drain timed out; admission remains closed, services remain running' }
+    Start-Sleep -Milliseconds 500
+  } while ($true)
+  do {
+    try { Invoke-BackupConsoleMaintenanceFence {}; break } catch {
+      if ($_.Exception.Message -cne 'Backup task is still active or unresolved; maintenance refused' -or [DateTimeOffset]::UtcNow -ge $deadline) { throw }
+      Start-Sleep -Milliseconds 500
+    }
+  } while ($true)
+  Wait-AutomationActivityLock 'automation-background.lock' $deadline
+  Set-AutomationDrainPhase 'requests'
+  Wait-AutomationActivityLock 'automation-activity.lock' $deadline
+}
+
+function Wait-AutomationActivityLock([string]$Name, [DateTimeOffset]$deadline) {
+  # Shared byte leases cover complete HTTP requests/streams and scheduled sends.
+  $path = Assert-RuntimeChildPath (Join-Path $RunDirectory $Name)
+  if (Test-Path -LiteralPath $path) {
+    if ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Activity lock is linked' }
+  }
+  $stream = [IO.FileStream]::new($path, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::ReadWrite)
+  $locked = $false
+  try {
+    do {
+      try { $stream.Lock(0,1); $locked = $true } catch [IO.IOException] {
+        if ([DateTimeOffset]::UtcNow -ge $deadline) { throw 'Request drain timed out; services remain running' }
+        Start-Sleep -Milliseconds 100
+      }
+    } until ($locked)
+  } finally {
+    if ($locked) { $stream.Unlock(0,1) }
+    $stream.Dispose()
+  }
+}
+
+function Invoke-AutomationPgDrainFence([scriptblock]$Operation) {
+  # Exactly the existing Backup/Verify/RestoreRehearsal operator mutex.
+  $name = 'Local\TERUISI-DjangoPostgresMaintenance-' + (Get-Sha256Text (Get-CanonicalPath $RuntimeRoot)).Substring(0,20)
+  $mutex = [Threading.Mutex]::new($false, $name)
+  $owned = $false
+  try {
+    try { $owned = $mutex.WaitOne([TimeSpan]::FromSeconds(5)) }
+    catch [Threading.AbandonedMutexException] { $owned = $true; throw 'Backup operator ended unexpectedly; verify its result before maintenance' }
+    if (-not $owned) { throw 'Backup or isolated restore is active; retry the same drain after it finishes' }
+    & $Operation
+  } finally { if ($owned) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
+}
+
+function Cancel-AutomationDrain {
+  if (Read-SystemMaintenance) { throw 'Use ExitMaintenance for an entered maintenance operation' }
+  $gate = Read-AutomationDrain
+  if (-not $gate -or $gate.id -cne $MaintenanceId) { throw 'Exact drain owner is required' }
+  [IO.File]::Delete((Join-Path $RunDirectory 'automation-drain.json'))
+  Write-LauncherEvent 'INFO' 'automation_drain_cancelled' $MaintenanceId
+}
+
+function Complete-AutomationMaintenanceStop {
+  $record = Read-SystemMaintenance
+  $gate = Read-AutomationDrain
+  if (-not $record -or -not $gate -or $record.id -cne $MaintenanceId -or $gate.id -cne $MaintenanceId -or $gate.phase -cne 'requests') { throw 'Drain stop ownership changed' }
+  Assert-ApplicationDeploymentStopped 'CompleteDrain'
+  Assert-SalesRetirementWorkerStopped 'CompleteDrain'
+  $record | Add-Member -NotePropertyName drainedStopped -NotePropertyValue $true -Force
+  Write-AtomicJson $MaintenancePath $record
 }
 
 function Begin-SystemMaintenance {
@@ -4234,13 +4337,14 @@ function Begin-SystemMaintenance {
     if ((Test-MaintenanceKeepsPostgres $existing) -ne [bool]$KeepPostgres) { throw "Maintenance scope changed" }
     return
   }
-  Invoke-BackupConsoleMaintenanceFence {
+  Wait-AutomationDrain
+  Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence {
     Write-AtomicJson $MaintenancePath ([ordered]@{
       version = "teruisi-system-maintenance-v1"; id = $MaintenanceId
       runtimeRoot = Get-CanonicalPath $RuntimeRoot; createdAt = [DateTimeOffset]::UtcNow.ToString("o")
       keepPostgres = [bool]$KeepPostgres
     })
-  }
+  } }
   Write-LauncherEvent "INFO" "system_maintenance_entered" $MaintenanceId
 }
 
@@ -4252,7 +4356,12 @@ function End-SystemMaintenance {
   Assert-RuntimeAclHardened
   Assert-ApplicationDeploymentStopped "EndMaintenance"
   Assert-SalesRetirementWorkerStopped "EndMaintenance"
-  [IO.File]::Delete((Assert-RuntimeChildPath $MaintenancePath))
+  $gate = Read-AutomationDrain
+  if ($gate -and $gate.id -cne $MaintenanceId) { throw 'Automation drain ownership changed' }
+  Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence {
+    [IO.File]::Delete((Assert-RuntimeChildPath $MaintenancePath))
+    if ($gate) { [IO.File]::Delete((Join-Path $RunDirectory 'automation-drain.json')) }
+  } }
   Write-LauncherEvent "INFO" "system_maintenance_ended" $MaintenanceId
 }
 

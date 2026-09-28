@@ -13,6 +13,8 @@ try {
   function Assert-ServiceStackStopped {}
   function Assert-SalesRetirementWorkerStopped {}
   function Write-LauncherEvent {}
+  # Admission/byte locks are exercised by automation-drain.test.ps1.
+  function Wait-AutomationDrain {}
   $MaintenanceId = "a" * 32
   Begin-SystemMaintenance
   Begin-SystemMaintenance

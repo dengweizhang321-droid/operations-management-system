@@ -143,6 +143,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "teruisi_backend.security.LoopbackOnlyMiddleware",
+    "teruisi_backend.automation_drain.AutomationDrainMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

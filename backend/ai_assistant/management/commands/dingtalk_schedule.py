@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from ai_assistant import dingtalk, dingtalk_settings, dingtalk_schedules, dingtalk_transport as platform
 from ai_assistant.policy import AiError, authority
+from teruisi_backend.automation_drain import AdmissionClosed, protected_activity
 
 
 class Command(BaseCommand):
@@ -18,10 +19,14 @@ class Command(BaseCommand):
 
     def run_schedules(self, reader):
         while True:
-            dingtalk_schedules.step(reader,
-                lambda session, content, before_send=None: platform.send(reader, session, content, before_send=before_send),
-                lambda session, raw, name, kind, caption="", before_send=None:
-                    platform.send_media(reader, session, raw, name, kind, caption, before_send=before_send))
+            try:
+                with protected_activity(background=True):
+                    dingtalk_schedules.step(reader,
+                        lambda session, content, before_send=None: platform.send(reader, session, content, before_send=before_send),
+                        lambda session, raw, name, kind, caption="", before_send=None:
+                            platform.send_media(reader, session, raw, name, kind, caption, before_send=before_send))
+            except AdmissionClosed:
+                pass  # Keep the original scheduled slot; no delivery was claimed.
             time.sleep(.5)
 
     def handle(self, *args, **options):

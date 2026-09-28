@@ -126,20 +126,29 @@ class Command(BaseCommand):
                 return fn()
             finally:
                 close_old_connections()
+        from teruisi_backend.automation_drain import AdmissionClosed, protected_activity
+        def admitted_call(fn):
+            with protected_activity(background=True):
+                return db_call(fn)
+        def admitted_step():
+            try:
+                return admitted_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content)))
+            except AdmissionClosed:
+                return False  # Durable original queue is unchanged; no send claimed.
         command = self
         class Handler(sdk.CallbackHandler):
             async def process(self, message):
                 command.ingress_event("callback_received")
                 try:
                     return await loop.run_in_executor(ingress,
-                        lambda: db_call(lambda: command.accept_message(reader, message.data)))
+                        lambda: admitted_call(lambda: command.accept_message(reader, message.data)))
                 except Exception:
                     command.ingress_event("callback_unavailable", stage="database_context",
                         reason="internal_error", retryable=True)
                     return 503, "unavailable"
         async def work():
             while True:
-                await loop.run_in_executor(worker, lambda: db_call(lambda: service.step(reader, lambda session, content: platform.send(reader, session, content))))
+                await loop.run_in_executor(worker, admitted_step)
                 await asyncio.sleep(0.5)
         async def listen():
             failures = 0

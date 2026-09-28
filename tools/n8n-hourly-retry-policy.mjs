@@ -21,6 +21,7 @@ export const hourlyRetryTargets = [
 ];
 
 const terminalFailurePatterns = [
+  "maintenance_requires_plan_anchor|execution_plan_anchor_changed|coordination_wait_expired|manual_action|maintenance_wait",
   "challenge_present|waiting_login",
   "captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\b601\\b",
   "credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]",
@@ -192,6 +193,9 @@ export function buildHourlyRetryErrorWorkflow() {
   const classifyName = "仅保留可安全自动重试的失败";
   const waitName = "等待一小时";
   const dispatchName = "启动新的完整工作流 execution";
+  const unknownName = "重试派发结果未知转人工";
+  const contextName = "读取原执行计划时间";
+  const contextReadyName = "原计划核验完成？";
   const noteName = "每小时安全重试说明";
   return {
     id: hourlyRetryErrorWorkflowId,
@@ -222,9 +226,47 @@ export function buildHourlyRetryErrorWorkflow() {
         position: [-60, 0],
       },
       {
+        parameters: { mode: "runOnceForAllItems", jsCode: `
+const pending = $('${classifyName}').first().json;
+if ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');
+let response;
+try {
+  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});
+} catch(error) {
+  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);
+  if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');
+  return [{json:{...pending,contextStatus:'waiting'}}];
+}
+const status = Number(response.statusCode);
+if(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];
+if(status !== 200) throw new Error('retry_context_unverified_manual_action');
+const context = response.body;
+if(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId
+  || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');
+let reservation;
+try {
+  reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
+    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});
+} catch { throw new Error('retry_reservation_result_unknown_manual_action'); }
+if(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'
+  || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');
+return [{json:{...pending,...context,contextStatus:'verified'}}];` },
+        id: stableUuid("teruisi-hourly-retry:original-context"), name: contextName,
+        type: "n8n-nodes-base.code", typeVersion: 2, position: [160, 0],
+      },
+      {
+        parameters: { conditions: { options: { caseSensitive: true, typeValidation: "strict", version: 2 },
+          conditions: [{ id: stableUuid("teruisi-hourly-retry:context-check"), leftValue: "={{ $json.contextStatus }}", rightValue: "verified", operator: { type: "string", operation: "equals" } }], combinator: "and" }, options: {} },
+        id: stableUuid("teruisi-hourly-retry:context-ready"), name: contextReadyName,
+        type: "n8n-nodes-base.if", typeVersion: 2.2, position: [380, 0],
+      },
+      {
         parameters: {
           method: "POST",
           url: "={{ $json.retryPolicy.retryUrl }}",
+          sendBody: true, specifyBody: "json",
+          jsonBody: "={{ {version:$json.version,workflowId:$json.workflowId,failedExecutionId:$json.failedExecutionId,originalScheduledAt:$json.originalScheduledAt,originalExecutionId:$json.originalExecutionId} }}",
           options: { timeout: 10000 },
         },
         id: stableUuid("teruisi-hourly-retry:dispatch"),
@@ -232,10 +274,16 @@ export function buildHourlyRetryErrorWorkflow() {
         type: "n8n-nodes-base.httpRequest",
         typeVersion: 4.2,
         position: [180, 0],
-        retryOnFail: true,
-        maxTries: 3,
-        waitBetweenTries: 5000,
+        retryOnFail: false,
         onError: "continueErrorOutput",
+      },
+      {
+        parameters: { errorMessage: "dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST" },
+        id: stableUuid("teruisi-hourly-retry:dispatch-unknown"),
+        name: unknownName,
+        type: "n8n-nodes-base.stopAndError",
+        typeVersion: 1,
+        position: [420, 140],
       },
       {
         parameters: {
@@ -254,8 +302,10 @@ export function buildHourlyRetryErrorWorkflow() {
     connections: {
       [errorName]: { main: [[edge(classifyName)]] },
       [classifyName]: { main: [[edge(waitName)]] },
-      [waitName]: { main: [[edge(dispatchName)]] },
-      [dispatchName]: { main: [[], [edge(waitName)]] },
+      [waitName]: { main: [[edge(contextName)]] },
+      [contextName]: { main: [[edge(contextReadyName)]] },
+      [contextReadyName]: { main: [[edge(dispatchName)], [edge(waitName)]] },
+      [dispatchName]: { main: [[], [edge(unknownName)]] },
     },
     pinData: {},
     active: false,

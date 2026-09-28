@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
+import { automationDrainProtocol, readAutomationDrain } from "./automation-drain";
+import { readN8nRetryContext } from "../lib/jackyun/n8n-preflight-evidence";
+import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -9,7 +12,7 @@ const executionHeader = "x-teruisi-n8n-execution-id";
 const workflowHeader = "x-teruisi-workflow-key";
 const tmallRoutes = new Set(["/plan", "/plan-backfill", "/next-day", "/fetch", "/import", "/promotion", "/promotion-direct-v1", "/product-master", "/product-master-direct-v1"]);
 const legacyPrefixes = ["/jd/", "/jd-market/", "/jd-promotion/", "/jd-promotion-cut-meat/", "/jackyun/"];
-export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string };
+export type SlotIdentity = { key: string; storeKey: string | null; workflow: string; executionId: string; scheduledAt?: string };
 export type HelperSlot = { port: number; token: string; stop: () => Promise<unknown> };
 export type SlotRecord = SlotIdentity & { status: "starting" | "running" | "closing" | "quarantined"; stage: string; ready: Promise<HelperSlot> };
 
@@ -66,8 +69,11 @@ export function isolatedRequestIdentity(route: string, headers: IncomingHttpHead
   if (!workflow || !["tmall", "jd", "jd-market", "jd-promotion", "jackyun"].includes(workflow)) return null;
   if (route !== "/coordination/claim" && !tmallRoutes.has(route) && !legacyPrefixes.some(prefix => route.startsWith(prefix))) return null;
   const storeKey = workflow === "tmall" ? scalar(headers, storeHeader) : null;
+  const scheduledAt = scalar(headers, "x-teruisi-scheduled-at");
+  if (scheduledAt !== null && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(scheduledAt)
+    || !Number.isFinite(Date.parse(scheduledAt)) || new Date(scheduledAt).toISOString() !== scheduledAt)) return null;
   if (workflow === "tmall" && (!storeKey || !/^tmall-[a-z0-9-]+$/.test(storeKey))) return null;
-  return { key: storeKey ?? "legacy", storeKey, workflow, executionId };
+  return { key: storeKey ?? "legacy", storeKey, workflow, executionId, ...(scheduledAt ? { scheduledAt } : {}) };
 }
 
 // One independently terminable JS runtime per Tmall store. A simple Map of
@@ -77,11 +83,12 @@ export class IsolatedHelperSlots {
   private readonly retired = new Set<string>();
   constructor(private readonly allowedStores: ReadonlySet<string>, private readonly spawn: (
     identity: SlotIdentity, finish: (clean: boolean) => void,
-  ) => Promise<HelperSlot>) {}
+  ) => Promise<HelperSlot>, private readonly draining: () => boolean = () => false) {}
 
   claim(identity: SlotIdentity): { status: "granted" | "waiting" | "rejected"; reason?: string; slot?: SlotRecord } {
     if (identity.storeKey && !this.allowedStores.has(identity.storeKey)) return { status: "rejected", reason: "tmall_store_not_enabled_or_registered" };
     const active = this.slots.get(identity.key);
+    if (active?.executionId === identity.executionId && active.scheduledAt !== identity.scheduledAt) return { status: "rejected", reason: "execution_plan_anchor_changed_manual_action" };
     if (active?.status === "quarantined") return { status: "rejected", reason: "helper_slot_cleanup_requires_manual_action" };
     if (this.retired.has(identity.executionId)) return { status: "rejected", reason: "execution_already_finished" };
     for (const slot of this.slots.values()) {
@@ -91,6 +98,11 @@ export class IsolatedHelperSlots {
     }
     if (active) return active.executionId === identity.executionId && active.workflow === identity.workflow && active.status !== "closing"
       ? { status: "granted", slot: active } : { status: "waiting", reason: "store_execution_active" };
+    // Synchronous gate read and reservation: the controller observes /health
+    // only after publishing the gate. Existing owners retain their whole chain.
+    if (this.draining()) return identity.scheduledAt
+      ? { status: "waiting", reason: "maintenance_wait" }
+      : { status: "rejected", reason: "maintenance_requires_plan_anchor_manual_action" };
     // Preserve existing non-Tmall mutual exclusion. This change does not
     // authorize JD/Jackyun to overlap their shared resources with Tmall.
     if (identity.key === "legacy" ? this.slots.size > 0 : this.slots.has("legacy")) {
@@ -201,7 +213,7 @@ async function forward(request: IncomingMessage, response: ServerResponse, recor
   if (record.status !== "running") throw new Error("helper_slot_not_running");
   await new Promise<void>((resolve, reject) => {
     const upstream = httpRequest({ hostname: "127.0.0.1", port: slot.port, path: request.url, method: "POST",
-      headers: { ...request.headers, host: `127.0.0.1:${slot.port}`, connection: "close", [isolatedHelperTokenHeader]: slot.token },
+      headers: { ...request.headers, ...(record.scheduledAt ? { "x-teruisi-scheduled-at": record.scheduledAt } : {}), host: `127.0.0.1:${slot.port}`, connection: "close", [isolatedHelperTokenHeader]: slot.token },
     }, result => {
       const chunks: Buffer[] = [];
       let bytes = 0;
@@ -229,10 +241,11 @@ async function forward(request: IncomingMessage, response: ServerResponse, recor
 
 export async function serveIsolatedHelper(options: {
   port: number; entryFile: string; allowedStores: ReadonlySet<string>;
+  mutableRoot: string;
   health: () => Promise<Record<string, unknown>>;
   cors: (origin: string | undefined, privateNetwork: boolean) => Record<string, string>;
 }) {
-  const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish));
+  const pool = new IsolatedHelperSlots(options.allowedStores, (identity, finish) => spawnIsolatedHelper(options.entryFile, identity, finish), () => readAutomationDrain() !== null);
   const server = createServer(async (request, response) => {
     const route = request.url ?? "";
     const cors = route === "/health" ? options.cors(request.headers.origin, request.headers["access-control-request-private-network"] === "true") : {};
@@ -245,7 +258,20 @@ export async function serveIsolatedHelper(options: {
         const slots = pool.summary();
         reply(response, 200, { ...(await options.health()), ok: true, stage: slots.length ? "running" : "ready", busy: slots.length > 0,
           activeWorkflow: slots.some(slot => slot.workflow === "tmall") ? "tmall" : slots[0]?.workflow ?? null,
-          isolationProtocol: isolatedHelperProtocol, storeExecutions: slots }, cors);
+          isolationProtocol: isolatedHelperProtocol, storeExecutions: slots,
+          drainProtocol: automationDrainProtocol, drain: readAutomationDrain() }, cors);
+        return;
+      }
+      if (request.method === "POST" && ["/coordination/retry-context", "/coordination/reserve-retry"].includes(route)) {
+        if (request.headers["transfer-encoding"] !== undefined || Number(request.headers["content-length"] ?? 0) !== 0) {
+          reply(response, 400, { ok: false, error: "invalid_retry_context_request" }); return;
+        }
+        try {
+          const reserve = route === "/coordination/reserve-retry";
+          const retryExecutionId = scalar(request.headers, "x-teruisi-retry-execution-id") ?? "";
+          const context = readN8nRetryContext(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "", reserve ? retryExecutionId : undefined);
+          reply(response, 200, reserve ? reserveRetryDispatch(options.mutableRoot, context, retryExecutionId) : { ok: true, ...context });
+        } catch { reply(response, 409, { ok: false, error: "retry_context_unverified_manual_action" }); }
         return;
       }
       const identity = request.method === "POST" ? isolatedRequestIdentity(route, request.headers) : null;
@@ -270,6 +296,9 @@ export async function serveIsolatedHelper(options: {
         }
         await forward(request, response, decision.slot!);
       } else {
+        // Plan anchor is owned by the admitted slot, never by later route input.
+        const owner = pool.slots.get(identity.key);
+        if (identity.scheduledAt && identity.scheduledAt !== owner?.scheduledAt) { reply(response, 409, { ok: false, error: "execution_plan_anchor_changed_manual_action" }); return; }
         const slot = pool.lookup(identity);
         if (!slot) { reply(response, 409, { ok: false, error: "execution_not_claimed_or_store_mismatch" }); return; }
         await forward(request, response, slot);

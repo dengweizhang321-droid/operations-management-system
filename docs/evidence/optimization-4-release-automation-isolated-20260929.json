@@ -1,0 +1,181 @@
+{
+  "version": "optimization-4-isolated-v1",
+  "recordedAt": "2026-09-28T16:58:32.080Z",
+  "base": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e",
+  "branch": "codex/release-automation-coordination",
+  "status": "candidate_integration_pending",
+  "productionActions": [],
+  "mainMerged": false,
+  "tests": {
+    "node": {
+      "total": 86,
+      "passed": 86,
+      "failed": 0
+    },
+    "python": {
+      "admission": 8,
+      "backup": 20,
+      "djangoMiddleware": 2,
+      "failed": 0
+    },
+    "nativeShells": [
+      "Windows PowerShell 5",
+      "PowerShell 7"
+    ],
+    "nativeChecks": [
+      "helper interleavings",
+      "request byte lock",
+      "cross-process existing backup/restore mutex",
+      "owner and cancellation"
+    ],
+    "lint": {
+      "errors": 0,
+      "warnings": 12
+    },
+    "diffCheck": "passed",
+    "dispatchFollowup": {
+      "passed": 14,
+      "failed": 0
+    }
+  },
+  "helperBuild": {
+    "protocol": "teruisi-worker-helper-build-v1",
+    "outputSha256": "5d105ddb94dcf244bf12ff8f51d52e32c80d082d7272bcfa65f66dc72ef697ed",
+    "inputCount": 88
+  },
+  "candidates": [
+    {
+      "workflowId": "J8kY2mQ5vR7sT4pN",
+      "fileName": "jackyun-five-dataset-api.workflow.json",
+      "sourceSha256": "e1cc0139df5a34eda38d9c6b3974927b0d389e59419bd0a44fb2439c1195d671",
+      "candidateSha256": "f5fe9acfb8b9d85405551735cebf2040d727eab2573ee9a177443344565713cc",
+      "published": false
+    },
+    {
+      "workflowId": "JdN8nM3uL7tI2026",
+      "fileName": "jd-multi-store-daily.workflow.json",
+      "sourceSha256": "6015ca2d0e7a79cc89319b3debc4f85831e6577805e15aa54f2f4f197618d6a2",
+      "candidateSha256": "5ef76a06d8b15e19828a6048341ba4c8c03411e6111423bb2e84533a339f8791",
+      "published": false
+    },
+    {
+      "workflowId": "JdN8nSilentCopy2026",
+      "fileName": "jd-multi-store-daily.chromium-silent-copy.workflow.json",
+      "sourceSha256": "3a69599839fe957ac71be24e14213512d73c81eb3deaa217d61ba6ed78433d2a",
+      "candidateSha256": "f25797d09ae1edbcefca46999d1aecfb7b48a05271da63477c4eb33fb4e40e47",
+      "published": false
+    },
+    {
+      "workflowId": "JdMarketDaily2026",
+      "fileName": "jd-market-ranking-daily.workflow.json",
+      "sourceSha256": "ccb1c20082c160e426eb970ef17ed848a85b45b2a6d9bf5b23d1331c6536fc5f",
+      "candidateSha256": "44f762bb4f347d744506dd7622f066cfe268005a4b29accbaf7ffb6273f7e887",
+      "published": false
+    },
+    {
+      "workflowId": "JdMarketSilentCopy2026",
+      "fileName": "jd-market-ranking-daily.chromium-silent-copy.workflow.json",
+      "sourceSha256": "8a025d1d04b2a268bc96312784a6a260f1dd6eec31bc56672ddc9dda12ca4c9e",
+      "candidateSha256": "c2af09b23b2f234689209113969716d01d78b3b717d914c4ad9ad7db1405b064",
+      "published": false
+    },
+    {
+      "workflowId": "JdPromotionDaily2026",
+      "fileName": "jd-promotion-daily.workflow.json",
+      "sourceSha256": "bcad9fddc7cfd72deb878da5c3b6b7fae996ce8427ba2070a9040d7deff49c03",
+      "candidateSha256": "624794061d055fce4ac3b87a126182810fdd0645737cd182c30c38407cf24c06",
+      "published": false
+    },
+    {
+      "workflowId": "JdPromotionCutMeat2026",
+      "fileName": "jd-promotion-cut-meat-20260813-14.workflow.json",
+      "sourceSha256": "824130f701e3cf40fd2e00f515eeef7d9f2230d8888e16791c7bacc70f3dbb32",
+      "candidateSha256": "2a2501b5c5ef6b6c740a276f724691115c783013cc7c02f45b6da632a55475b1",
+      "published": false
+    },
+    {
+      "workflowId": "M4xY8kQ2vR6sT9pC",
+      "fileName": "tmall-yijiu-direct-pm-candidate.workflow.json",
+      "sourceSha256": "031411b2e08a353d712a6fe1790ab01185707871374ad39591683d12ccee4676",
+      "candidateSha256": "d815137a83bfd617d4666e7c253f1708c62005f42e8b6e463e8244f8df3436a9",
+      "published": false
+    },
+    {
+      "workflowId": "TmallLiliDaily2026",
+      "fileName": "tmall-lili-sycm-cookie-daily.workflow.json",
+      "sourceSha256": "033c9d71c70b112cff78cf7369b2eab61366aa5151f3530253ba3b095efe4681",
+      "candidateSha256": "eeae0142e1e810fa7e91491735cc11bd70e9cad77e98feead1e8aa8a4888ec45",
+      "published": false
+    },
+    {
+      "workflowId": "TmallTuofengDaily2026",
+      "fileName": "tmall-tuofeng-sycm-cookie-daily.workflow.json",
+      "sourceSha256": "9c15c02f3c0e8bc76c27573c1e18150e2213916474c58cbb707a4b9355948bcf",
+      "candidateSha256": "b658ede193207a0dfe0554edccdf988ca57ca865e306fbebce46f2ebc04f2335",
+      "published": false
+    },
+    {
+      "workflowId": "TmallCuizhiwangDaily2026",
+      "fileName": "tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
+      "sourceSha256": "1b69a5c05a945ae757ba6f9e7878794f7db3f758712f745f1fc353adbf0cdc5f",
+      "candidateSha256": "57089bc148999d0bce5720d9fb818af62ef54bf2f33ddd46d43489991828ac84",
+      "published": false
+    },
+    {
+      "workflowId": "TmallMasituDaily2026",
+      "fileName": "tmall-masitu-sycm-cookie-daily.workflow.json",
+      "sourceSha256": "868f5265151284ff3643bf658e5af70866d3851d78a403f75df6ce77dbe78311",
+      "candidateSha256": "5e864a6e0e53ccf949c0e7800de7cf0aef1184f76bd7fedf1db6e7073586cef8",
+      "published": false
+    },
+    {
+      "workflowId": "TmallYiyongDaily2026",
+      "fileName": "tmall-yiyong-direct-pm-candidate.workflow.json",
+      "sourceSha256": "4f219be4253e8f59d3328b663e2cfb8293771b060ab7a7adaadc58e4a0ece60a",
+      "candidateSha256": "b6a2ae0aeacc952e8e1b08f95f6848385bada71784decbd9937faebbccb067e4",
+      "published": false
+    }
+  ],
+  "pending": [
+    "isolated n8n engine and persisted Wait verification",
+    "validated original plan anchor handoff from hourly retry",
+    "PostgreSQL import and schedule integration",
+    "combined branch validation and production build",
+    "approved first adoption and natural business verification"
+  ],
+  "limits": [
+    "no production workflow definitions or schedules changed",
+    "no production maintenance, deployment, restore, import or message",
+    "other background queues still require existing release preflight",
+    "service readiness is not business completion"
+  ],
+  "changedFiles": [
+    "automation/n8n/data-import-hourly-safe-retry.workflow.json",
+    "backend/ai_assistant/dingtalk_schedules.py",
+    "backend/ai_assistant/management/commands/dingtalk_ask.py",
+    "backend/ai_assistant/management/commands/dingtalk_schedule.py",
+    "backend/ai_assistant/test_dingtalk_schedules.py",
+    "backend/system_backups/storage.py",
+    "backend/teruisi_backend/automation_drain.py",
+    "backend/teruisi_backend/settings.py",
+    "docs/OPTIMIZATION_4_RELEASE_AUTOMATION_COORDINATION_20260929.md",
+    "docs/evidence/optimization-4-release-automation-isolated-20260929.json",
+    "tests/automation-drain.test.ps1",
+    "tests/automation-drain.test.ts",
+    "tests/n8n-hourly-retry-workflow.test.ts",
+    "tests/startup-release-optimization.test.ps1",
+    "tests/system-lifecycle-race.test.ps1",
+    "tests/test_automation_drain.py",
+    "tests/test_automation_drain_middleware.py",
+    "tests/test_system_backups.py",
+    "tools/automation-drain.ts",
+    "tools/django-local-service.ps1",
+    "tools/django-postgres-maintenance.ps1",
+    "tools/n8n-hourly-retry-policy.mjs",
+    "tools/n8n-maintenance-coordination.mjs",
+    "tools/tmall-isolated-helper.ts",
+    "tools/tmall-sycm-cookie-pipeline.ts",
+    "tools/worker-local-service.ps1"
+  ],
+  "sharedErrorCandidateSha256": "92c601c3d4e0e5814b22c19bd697bc6c21b8e05a03385af442ca441abb60ee10"
+}

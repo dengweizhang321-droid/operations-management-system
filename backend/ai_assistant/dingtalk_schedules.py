@@ -163,7 +163,12 @@ def step(config_reader, sender, media_sender=None):
             row.next_run_at = next_slot(row.cadence, row.hour, row.minute, row.day, now)
             row.save(update_fields=["next_run_at"])
             if now - slot > timedelta(minutes=5):
-                return True  # No backlog on receiver downtime or disabled policy.
+                # A skipped original slot is observable, never a silent success
+                # or a new delivery under the recovery date.
+                m.AiDingTalkScheduleRun.objects.get_or_create(schedule=row, scheduled_at=slot,
+                    defaults={"id": uid("ding-run"), "schedule_version": row.version,
+                              "status": "denied", "error_code": "missed_window", "completed_at": now})
+                return True  # Preserve the existing no-backlog delivery policy.
             run, created = m.AiDingTalkScheduleRun.objects.get_or_create(schedule=row, scheduled_at=slot,
                 defaults={"id": uid("ding-run"), "schedule_version": row.version, "status": "running"})
             if not created:

@@ -57,10 +57,11 @@ test("the shared error workflow waits exactly one hour and dispatches only to lo
   const dispatch = workflow.nodes.find((node) => node.name === "启动新的完整工作流 execution");
   assert.equal(dispatch?.type, "n8n-nodes-base.httpRequest");
   assert.equal(dispatch?.parameters.url, "={{ $json.retryPolicy.retryUrl }}");
-  assert.equal(dispatch?.retryOnFail, true);
-  assert.equal(dispatch?.maxTries, 3);
+  assert.equal(dispatch?.retryOnFail, false);
+  assert.equal(dispatch?.maxTries, undefined);
   assert.equal(dispatch?.onError, "continueErrorOutput");
-  assert.equal(workflow.connections["启动新的完整工作流 execution"]?.main?.[1]?.[0]?.node, "等待一小时");
+  assert.equal(workflow.connections["启动新的完整工作流 execution"]?.main?.[1]?.[0]?.node, "重试派发结果未知转人工");
+  assert.equal(workflow.nodes.find(node => node.name === "重试派发结果未知转人工")?.type, "n8n-nodes-base.stopAndError");
   const generated = buildHourlyRetryErrorWorkflow();
   assert.deepEqual(generated, workflow);
   const source = await readFile(new URL("data-import-hourly-safe-retry.workflow.json", workflowDirectory), "utf8");
@@ -77,7 +78,6 @@ test("retry classification permits transient failures and stops unsafe or human-
   for (const message of [
     "ETIMEDOUT while reading the local import verification API",
     "HTTP 503 service unavailable",
-    "coordination_wait_expired",
     "browser page load timed out before any business action",
     "migration-guide-modal intercepts pointer events before selecting the report",
   ]) {
@@ -86,6 +86,7 @@ test("retry classification permits transient failures and stops unsafe or human-
     assert.match(result.retryUrl!, /^http:\/\/127\.0\.0\.1:5678\/webhook\/teruisi-hourly-retry-/);
   }
   for (const message of [
+    "coordination_wait_expired",
     "需要验证码或安全验证",
     "店铺身份 identity mismatch",
     "DPAPI 凭据损坏",

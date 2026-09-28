@@ -1271,6 +1271,7 @@ async function serveCommand(argv: string[]) {
     const stores = (await loadTmallStores()).filter(store => store.enabled);
     return serveIsolatedHelper({
       port: integerPort(cliValue(argv, "--port")), entryFile: process.argv[1]!,
+      mutableRoot: projectRoot,
       allowedStores: new Set(stores.map(store => store.storeKey)),
       health: helperProfileHealth, cors: helperHealthCorsHeaders,
     });
@@ -1278,6 +1279,7 @@ async function serveCommand(argv: string[]) {
   if (workerData?.protocol !== isolatedHelperProtocol || typeof workerData.token !== "string"
     || !/^[a-f0-9]{64}$/.test(workerData.token) || !workerData.identity) throw new Error("invalid_helper_slot_bootstrap");
   const slotIdentity = workerData.identity as SlotIdentity;
+  const planTime = slotIdentity.scheduledAt ? new Date(slotIdentity.scheduledAt) : undefined;
   const port = 0; // OS-assigned loopback port; only the parent receives it via IPC.
   let stage: HelperStage = "ready";
   let busy = false;
@@ -1487,6 +1489,11 @@ async function serveCommand(argv: string[]) {
     try {
       if (isJackyunExportFirst) {
         const action = request.url!.slice(jackyunExportFirstPrefix.length);
+        // Current inventory/age cannot be recreated for yesterday. Preserve the
+        // original request as unresolved instead of relabelling today's capture.
+        if (action.startsWith("plan") && planTime && shanghaiYesterday(planTime) !== shanghaiYesterday()) {
+          throw new Error("原计划已跨日，当前库存快照不可补采，需要人工核查原 execution；禁止自动重建计划");
+        }
         const result = await runJackyunExportFirstAction(action, requestExecutionId!, { root: projectRoot,
           recoverPreviousPreflight: (previousId, replacementId, at) => recoverPreviousJackyunPreflight(projectRoot, previousId, replacementId, at) });
         stage = result.phase === "completed" ? "completed" : result.phase === "imported" ? "executed" : "planned";
@@ -1495,6 +1502,7 @@ async function serveCommand(argv: string[]) {
         else inactivityReaper?.arm();
       } else if (request.url === "/jd-promotion/plan" || request.url === "/jd-promotion-cut-meat/plan") {
         jdPromotionPlan = await planJdPromotionN8nRun({
+          now: planTime,
           executionId: requestExecutionId!,
           storeKey: parseJdPromotionStoreKeyHeader(request.headers[jdPromotionStoreKeyHeader]),
           startDate: parseJdPromotionDateHeader(request.headers[jdPromotionStartDateHeader]),
@@ -1518,6 +1526,7 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd-market/plan") {
         jdMarketPlan = await planJdMarketDailyRun({
+          now: planTime,
           executionId: requestExecutionId!,
           resumeRunId: parseJdMarketResumeRunIdHeader(request.headers[jdMarketResumeRunIdHeader]),
           silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
@@ -1540,6 +1549,7 @@ async function serveCommand(argv: string[]) {
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jd/plan") {
         jdPlan = await planJdN8nRun({
+          now: planTime,
           executionId: requestExecutionId!,
           silentNoWindow: parseJdSilentNoWindowHeader(request.headers[jdSilentNoWindowHeader]),
         });
@@ -1562,7 +1572,7 @@ async function serveCommand(argv: string[]) {
         reply(200, result);
         scheduleOneShotServerClose(server, 500);
       } else if (request.url === "/jackyun/plan") {
-        jackyunPlan = await planJackyunN8nRun();
+        jackyunPlan = await planJackyunN8nRun({ now: planTime });
         stage = "planned";
         reply(200, publicJackyunPlan(jackyunPlan));
         // The plan is already persisted. Expiry only releases this helper's
@@ -1625,6 +1635,7 @@ async function serveCommand(argv: string[]) {
         );
         const planArguments = ["--store-key", claimedTmallStoreKey!, "--max-days", String(maximumDaysPerRun)];
         if (explicitDates) planArguments.push("--start-date", explicitDates.startDate, "--end-date", explicitDates.endDate);
+        else if (planTime) planArguments.push("--end-date", shanghaiYesterday(planTime));
         const result = await planCommand(planArguments);
         if (request.url === "/plan-backfill") {
           const initial = beginTmallBackfill(requestExecutionId!, claimedTmallStoreKey!, result, startedAt);

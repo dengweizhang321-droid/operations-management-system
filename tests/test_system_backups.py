@@ -17,6 +17,20 @@ from system_backups.runner import execute
 
 
 class BackupTests(unittest.TestCase):
+    def test_drain_rejects_new_job_but_returns_exact_prior_receipt(self):
+        payload = {"id": "a" * 32, "action": "backup", "target": "", "manifestSha256": ""}
+        original, created = self.store.submit(self.actor, payload)
+        self.assertTrue(created)
+        atomic_json(self.store.runtime / "run/automation-drain.json", {"phase": "helpers"})
+        replay, created = self.store.submit(self.actor, payload)
+        self.assertFalse(created)
+        self.assertEqual(replay, original)
+        with self.assertRaises(BackupError) as caught:
+            self.store.submit(self.actor, {**payload, "id": "b" * 32})
+        self.assertEqual(caught.exception.code, "maintenance")
+        with self.assertRaises(BackupError):
+            self.store.submit("another@example.test", payload)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)

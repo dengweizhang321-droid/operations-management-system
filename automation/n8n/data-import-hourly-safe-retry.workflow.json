@@ -16,7 +16,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const targets = {\"J8kY2mQ5vR7sT4pN\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-fc753414409a49c05026b800c1eced5bf3875b69\",\"JdN8nM3uL7tI2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-e969f078b6dbc21dfc397fe88f7eb69d065305cd\",\"JdN8nSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-b12ca72b424761db1f0c7f165bab115ab54fac22\",\"JdMarketDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c0b07cd7f8532051c80a289258c4c497686fa880\",\"JdMarketSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-433789cd0a25c6daf93a4dfcc83d1ef227236957\",\"JdPromotionDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-e30f35b5bcbba9b6372a866c8d8ba9c05d0be4c5\",\"JdPromotionCutMeat2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c299587c4711e52824c319f192a6429ca61eb55f\",\"M4xY8kQ2vR6sT9pC\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453\",\"TmallLiliDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-5bf5673970f4b8262809dd8f152d1603dc03c133\",\"TmallTuofengDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-16548ad67bffa402d516bbe87fbd2143fbd4d1be\",\"TmallCuizhiwangDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-d14bda4ec9c13c68832c6cc82e7465ad3ce90817\",\"TmallMasituDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea\",\"TmallYiyongDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-1311a7e06af8415e5080650e1668871676ddebb1\"};\nconst terminalPatterns = [\"challenge_present|waiting_login\",\"captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\\\b601\\\\b\",\"credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]\",\"JACKYUN_PREFLIGHT_RETRY_READY\",\"API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\\\d{0,19} 尚未闭合\",\"店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store\",\"登录失效|需要登录|登录.*(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\\\.jd\\\\.com|login\\\\.taobao\\\\.com\",\"多个候选|候选.*不唯一|任务.*歧义|ambiguous|multiple candidates\",\"点击结果未决|提交结果未决|result unknown|dispatch unknown|click unknown\",\"export_submitting|report_submitting|page_export_submitting|task_click_invoked\",\"source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪|日期.*disabled\",\"活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突\",\"唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)\",\"需要人工|转人工|manual action|required human\"].map((source) => new RegExp(source, \"iu\"));\nconst collect = (value, output = []) => {\n  if (typeof value === 'string') output.push(value);\n  else if (Array.isArray(value)) for (const item of value) collect(item, output);\n  else if (value && typeof value === 'object') for (const item of Object.values(value)) collect(item, output);\n  return output.join(' ').slice(0, 32768);\n};\nconst result = [];\nfor (const item of $input.all()) {\n  const payload = item.json ?? {};\n  const workflowId = String(payload.workflow?.id ?? '');\n  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');\n  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;\n  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });\n  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {\n    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n    continue;\n  }\n  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;\n  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n}\nreturn result;"
+        "jsCode": "const targets = {\"J8kY2mQ5vR7sT4pN\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-fc753414409a49c05026b800c1eced5bf3875b69\",\"JdN8nM3uL7tI2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-e969f078b6dbc21dfc397fe88f7eb69d065305cd\",\"JdN8nSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-b12ca72b424761db1f0c7f165bab115ab54fac22\",\"JdMarketDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c0b07cd7f8532051c80a289258c4c497686fa880\",\"JdMarketSilentCopy2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-433789cd0a25c6daf93a4dfcc83d1ef227236957\",\"JdPromotionDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-e30f35b5bcbba9b6372a866c8d8ba9c05d0be4c5\",\"JdPromotionCutMeat2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-c299587c4711e52824c319f192a6429ca61eb55f\",\"M4xY8kQ2vR6sT9pC\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-46892fbc3a30a11922bfa53523d5af695645e453\",\"TmallLiliDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-5bf5673970f4b8262809dd8f152d1603dc03c133\",\"TmallTuofengDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-16548ad67bffa402d516bbe87fbd2143fbd4d1be\",\"TmallCuizhiwangDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-d14bda4ec9c13c68832c6cc82e7465ad3ce90817\",\"TmallMasituDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-699bf7e42f83386073c4d5b40b5222c4a93b65ea\",\"TmallYiyongDaily2026\":\"http://127.0.0.1:5678/webhook/teruisi-hourly-retry-1311a7e06af8415e5080650e1668871676ddebb1\"};\nconst terminalPatterns = [\"maintenance_requires_plan_anchor|execution_plan_anchor_changed|coordination_wait_expired|manual_action|maintenance_wait\",\"challenge_present|waiting_login\",\"captcha|验证码|滑块|短信验证|安全验证|security verification|risk control|风控|\\\\b601\\\\b\",\"credential|credentials|凭据|dpapi|密码.*(?:缺失|损坏|错误)|授权失效|unauthori[sz]ed|authentication failed|http 40[13]\",\"JACKYUN_PREFLIGHT_RETRY_READY\",\"API_LOGIN_PAGE_NOT_UNIQUE|原运行 n8n-export-first-[1-9]\\\\d{0,19} 尚未闭合\",\"店铺身份|账号身份|identity(?: mismatch| invalid)|cross[- ]store|跨店|wrong store\",\"登录失效|需要登录|登录.*(?:失败|异常|拒绝|未就绪)|login (?:required|failed|failure)|not authenticated|session invalid|cookie invalid|passport\\\\.jd\\\\.com|login\\\\.taobao\\\\.com\",\"多个候选|候选.*不唯一|任务.*歧义|ambiguous|multiple candidates\",\"点击结果未决|提交结果未决|result unknown|dispatch unknown|click unknown\",\"export_submitting|report_submitting|page_export_submitting|task_click_invoked\",\"source[_ -]?not[_ -]?ready|来源数据未就绪|数据源未就绪|日期.*disabled\",\"活动清单.*无法证明|manifest.*(?:mismatch|ambiguous|invalid)|owner.*conflict|owner.*冲突\",\"唯一商品数.*出售中总数|内容完整性错误|content completeness|内容校验失败|validation failed|日期覆盖.*(?:缺失|不一致)|date coverage.*(?:missing|mismatch)|空文件|零行业务|malformed workbook|批次.*(?:不匹配|回查失败)\",\"需要人工|转人工|manual action|required human\"].map((source) => new RegExp(source, \"iu\"));\nconst collect = (value, output = []) => {\n  if (typeof value === 'string') output.push(value);\n  else if (Array.isArray(value)) for (const item of value) collect(item, output);\n  else if (value && typeof value === 'object') for (const item of Object.values(value)) collect(item, output);\n  return output.join(' ').slice(0, 32768);\n};\nconst result = [];\nfor (const item of $input.all()) {\n  const payload = item.json ?? {};\n  const workflowId = String(payload.workflow?.id ?? '');\n  const mode = String(payload.execution?.mode ?? payload.trigger?.mode ?? '');\n  if (!targets[workflowId] || !['trigger', 'webhook'].includes(mode)) continue;\n  const failureText = collect({ error: payload.execution?.error ?? payload.trigger?.error, lastNodeExecuted: payload.execution?.lastNodeExecuted });\n  if (workflowId === 'J8kY2mQ5vR7sT4pN' && payload.execution?.lastNodeExecuted === 'B·接口校验与五表下载' && payload.execution?.error?.description === 'JACKYUN_PREFLIGHT_RETRY_READY' && !terminalPatterns.some((pattern) => pattern.test(failureText.replaceAll('JACKYUN_PREFLIGHT_RETRY_READY', '')))) {\n    result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n    continue;\n  }\n  if (terminalPatterns.some((pattern) => pattern.test(failureText))) continue;\n  result.push({ json: { retryPolicy: { workflowId, retryUrl: targets[workflowId], delayMinutes: 60 }, failedExecutionId: String(payload.execution?.id ?? '') } });\n}\nreturn result;"
       },
       "id": "0dcc9c2e-5f1b-4f91-b5cf-ae8e5381d57e",
       "name": "仅保留可安全自动重试的失败",
@@ -44,8 +44,57 @@
     },
     {
       "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\nconst pending = $('仅保留可安全自动重试的失败').first().json;\nif ($runIndex >= 72) throw new Error('retry_context_wait_expired_manual_action');\nlet response;\ntry {\n  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/retry-context',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId}});\n} catch(error) {\n  const status = Number(error.statusCode ?? error.response?.statusCode ?? error.httpCode ?? 0);\n  if(status >= 400 && status < 500) throw new Error('retry_context_unverified_manual_action');\n  return [{json:{...pending,contextStatus:'waiting'}}];\n}\nconst status = Number(response.statusCode);\nif(status >= 500) return [{json:{...pending,contextStatus:'waiting'}}];\nif(status !== 200) throw new Error('retry_context_unverified_manual_action');\nconst context = response.body;\nif(context?.ok !== true || context.version !== 'teruisi-retry-context-v1' || context.workflowId !== pending.retryPolicy.workflowId\n  || context.failedExecutionId !== pending.failedExecutionId || !context.originalScheduledAt || !context.originalExecutionId) throw new Error('retry_context_unverified_manual_action');\nlet reservation;\ntry {\n  reservation = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/reserve-retry',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,\n    headers:{'X-TERUISI-SOURCE-WORKFLOW-ID':pending.retryPolicy.workflowId,'X-TERUISI-FAILED-EXECUTION-ID':pending.failedExecutionId,'X-TERUISI-RETRY-EXECUTION-ID':String($execution.id)}});\n} catch { throw new Error('retry_reservation_result_unknown_manual_action'); }\nif(reservation.statusCode !== 200 || reservation.body?.reservationStatus !== 'reserved'\n  || reservation.body.failedExecutionId !== pending.failedExecutionId || reservation.body.retryExecutionId !== String($execution.id)) throw new Error('retry_already_reserved_or_unverified_manual_action');\nreturn [{json:{...pending,...context,contextStatus:'verified'}}];"
+      },
+      "id": "3ecdf16a-d64e-4569-a1c7-7f1ed8ac4ccc",
+      "name": "读取原执行计划时间",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "61eb5f7d-9ced-4fd6-af0e-e2a24761a245",
+              "leftValue": "={{ $json.contextStatus }}",
+              "rightValue": "verified",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "10c36f4f-85d7-4854-be8b-64b1c277dcd9",
+      "name": "原计划核验完成？",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        380,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "={{ $json.retryPolicy.retryUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {version:$json.version,workflowId:$json.workflowId,failedExecutionId:$json.failedExecutionId,originalScheduledAt:$json.originalScheduledAt,originalExecutionId:$json.originalExecutionId} }}",
         "options": {
           "timeout": 10000
         }
@@ -58,10 +107,21 @@
         180,
         0
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 5000,
+      "retryOnFail": false,
       "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "dispatch result unknown: 原重试 Webhook 可能已受理，需要人工核查 execution；禁止自动再次 POST"
+      },
+      "id": "f778a31a-9171-4da9-8f28-b0a39cef5cfb",
+      "name": "重试派发结果未知转人工",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        420,
+        140
+      ]
     },
     {
       "parameters": {
@@ -107,7 +167,36 @@
       "main": [
         [
           {
+            "node": "读取原执行计划时间",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "读取原执行计划时间": {
+      "main": [
+        [
+          {
+            "node": "原计划核验完成？",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "原计划核验完成？": {
+      "main": [
+        [
+          {
             "node": "启动新的完整工作流 execution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "等待一小时",
             "type": "main",
             "index": 0
           }
@@ -119,7 +208,7 @@
         [],
         [
           {
-            "node": "等待一小时",
+            "node": "重试派发结果未知转人工",
             "type": "main",
             "index": 0
           }

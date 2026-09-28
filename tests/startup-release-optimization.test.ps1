@@ -17,6 +17,8 @@ try {
   . (Join-Path $workspace "tools/django-local-service.ps1") -RuntimeRoot $root
   $script:events = [Collections.Generic.List[string]]::new()
   function Write-LauncherEvent {}
+  # This fixture covers lifecycle scope; the drain has its own native tests.
+  function Wait-AutomationDrain {}
   function Assert-DeployedApplication {}
   function Assert-RuntimeAclHardened {}
   function Assert-SalesRetirementWorkerStopped {}
