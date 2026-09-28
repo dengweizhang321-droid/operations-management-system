@@ -1,0 +1,152 @@
+{
+  "schema": "supervisor-exit-investigation-v1",
+  "capturedAt": "2026-09-29T00:18:28.9836837+08:00",
+  "baseCommit": "e00d4a82",
+  "scope": "optimization-2-development-only",
+  "runtime": {
+    "supervisorPid": 32412,
+    "supervisorCreationDate": "2026-09-28T14:56:41.04815Z",
+    "initialObservedAt": "2026-09-29T00:08:47+08:00",
+    "initialAndCurrentPidMatch": true,
+    "backend": "Ready",
+    "componentCount": 12,
+    "watchdogAt": "2026-09-29T00:17:25.9186911+08:00",
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "worker": "exact_release",
+    "system": "Running",
+    "healthy": true,
+    "manifestSha256": "3cd3766cbe39071b2a19c6348d062388c6cdaeb433152c84b73ea2a2bd295b0b"
+  },
+  "historicalWindowsEventReview": {
+    "windows": [
+      "2026-09-27 00:00:00 through 00:25:00",
+      "2026-09-27 14:20:00 through 14:45:00"
+    ],
+    "eventIds": [
+      41,
+      1074,
+      6008,
+      2004,
+      1000,
+      1001,
+      1002
+    ],
+    "matchedEvents": 0,
+    "timezone": "Asia/Shanghai",
+    "conclusion": "No matching retained events in these windows; does not exclude external termination or native failure.",
+    "logs": [
+      "Application",
+      "System"
+    ]
+  },
+  "conclusions": {
+    "confirmedIsolatedDefect": "Unhandled stdout EPIPE terminates baseline Node process; installed diagnostic handler records EPIPE and preserves process execution.",
+    "memoryCause": "not established",
+    "historicalExitCause": "undetermined"
+  },
+  "productionActions": {
+    "watchdogInstalled": false,
+    "stopped": false,
+    "deployed": false,
+    "businessReplay": false,
+    "scheduleChanged": false,
+    "restarted": false
+  },
+  "hashes": [
+    {
+      "sha256": "fbd5ecf25e01d553c3e4e0d9b155cbfaf2507421ad04ac6a7e8b0a83a0e66148",
+      "path": "D:\\运营管理系统\\tools\\worker-local-runtime-supervisor.mjs"
+    },
+    {
+      "sha256": "fbd5ecf25e01d553c3e4e0d9b155cbfaf2507421ad04ac6a7e8b0a83a0e66148",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260928T112356Z-eeac7bbc96a8c51a\\tools\\worker-local-runtime-supervisor.mjs"
+    },
+    {
+      "sha256": "bdd1c8af39ccc39129415c8e44312b79688bc6ddf511bd4fde3ebb6841313aea",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\logs\\worker-20260927-140959.stderr.log"
+    },
+    {
+      "sha256": "e9779f3f10196c0667a82dd1f3478b15acee2f700c3436726d7be83208744e2f",
+      "path": "D:\\teruisi-runtime\\teruisi-worker-sales\\logs\\worker-20260926-232725.stderr.log"
+    },
+    {
+      "sha256": "99593a800321569257bf8e31fdd64dda8b558f9bacdeed316ca7000a301c162a",
+      "path": "D:\\teruisi-runtime\\operations-watchdog\\operations-system-watchdog.ps1"
+    }
+  ],
+  "tests": {
+    "diffCheck": "passed",
+    "lint": {
+      "errors": 0,
+      "warningsInChangedFiles": 0,
+      "warnings": 12
+    },
+    "pythonEnvironmentRecheck": {
+      "files": 4,
+      "passed": 46,
+      "venv": "worktree-local, without-pip, Python stdlib only",
+      "failed": 0
+    },
+    "finalLifecycle": {
+      "passed": 37,
+      "failed": 0
+    },
+    "logs": [
+      {
+        "sha256": "ca5e7a53e82a47c10ba92fae8ca4f38f8b8bf600b1d65cbf1542734766f0c688",
+        "name": "supervisor-diagnostics.log"
+      },
+      {
+        "sha256": "67ace1ae8f07a26f5bfa8860e1d0b18da173fd4f3ba65eda859bb7d8eba987f2",
+        "name": "supervisor-final-lifecycle.log"
+      },
+      {
+        "sha256": "a6bb6e44e31972b7e66cd738be330378b4646e2a3e34f9979a35a5ee6edf6f39",
+        "name": "supervisor-final-related.log"
+      },
+      {
+        "sha256": "d4b7888bccf8a82a4ca166828e1253f42d02097c59930a1d70da7cc521864458",
+        "name": "supervisor-lint.log"
+      },
+      {
+        "sha256": "a3c5330344305b8f92bf41bd00e21274220b90bb6c5b1b6ec3e49b816b8a624b",
+        "name": "supervisor-python-recheck.log"
+      },
+      {
+        "sha256": "57d6a18db03550d1b6f997e2aeac5aa81f55119ead997073e9626d590ef14069",
+        "name": "supervisor-related.log"
+      },
+      {
+        "sha256": "bac3083fb01aacf9d8dd9406d7bec277bd4dcd82b18c45b56f668f171c916345",
+        "name": "supervisor-unit.log"
+      }
+    ],
+    "productionBuild": "deferred to coordinated integration slot",
+    "watchdogControllerAndDiagnostics": {
+      "overlapsFinalLifecycle": true,
+      "passed": 22,
+      "failed": 0
+    },
+    "fullUnit": {
+      "passed": 2666,
+      "durationMs": 593416.2166,
+      "failed": 4,
+      "failureReason": "Missing worktree-local .runtime/test-venv/Scripts/python.exe in four unchanged Python DTO tests",
+      "skipped": 23,
+      "total": 2693
+    }
+  },
+  "finalReadOnly": {
+    "components": 12,
+    "unchangedSupervisor": true,
+    "backend": "Ready",
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "watchdogAt": "2026-09-29T00:28:24.76899+08:00",
+    "at": "2026-09-29T00:29:54.8800945+08:00",
+    "healthy": true,
+    "supervisorCreationDate": "2026-09-28T14:56:41.04815Z",
+    "worker": "exact_release",
+    "system": "Running",
+    "supervisorPid": 32412
+  }
+}

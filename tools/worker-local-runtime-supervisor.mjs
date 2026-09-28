@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { openSync, closeSync, fstatSync, ftruncateSync, writeSync } from "node:fs";
+import { freemem, totalmem } from "node:os";
 import { lstat, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,6 +35,102 @@ const releaseRoot = path.resolve(path.dirname(modulePath), "..");
 const hex64 = /^[0-9a-f]{64}$/;
 const restartWindowMs = 10 * 60_000;
 const maxRestartsPerWindow = 5;
+// Independent of the launcher's redirected pipes. Two fixed slots bound disk use;
+// diagnostics never grant launch/stop authority and never change recovery policy.
+export async function createSupervisorJournal(logRoot, identity) {
+  await assertNoReparsePoint(logRoot, { label: "supervisor logs" });
+  const descriptors = [];
+  try {
+    for (let slot = 0; slot < 2; slot += 1) {
+      const target = path.join(logRoot, `supervisor-lifecycle-${slot}.jsonl`);
+      await assertSafeMiniflareCacheFile(target);
+      let fd;
+      try { fd = openSync(target, "r+"); }
+      catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        fd = openSync(target, "wx+");
+      }
+      descriptors.push(fd);
+      const stat = fstatSync(fd);
+      if (!stat.isFile() || stat.nlink !== 1) throw new Error("Unsafe supervisor journal");
+    }
+  } catch (error) {
+    for (const fd of descriptors) closeSync(fd);
+    throw error;
+  }
+  const maxBytes = 1024 * 1024;
+  let slot = fstatSync(descriptors[0]).mtimeMs >= fstatSync(descriptors[1]).mtimeMs ? 0 : 1;
+  let sequence = 0;
+  let disabled = false;
+  let closed = false;
+  return {
+    record(event, fields = {}) {
+      if (disabled) return;
+      try {
+        // Explicit scalar allowlist: no error message, stack, URL, argv or env.
+        const safe = {};
+        for (const key of ["role", "phase", "signal", "origin", "errorCode", "errorName"])
+          if (typeof fields[key] === "string" && /^[A-Za-z0-9_:-]{1,64}$/.test(fields[key])) safe[key] = fields[key];
+        for (const key of ["childPid", "code", "delayMs", "consecutiveFailures"])
+          if (Number.isSafeInteger(fields[key])) safe[key] = fields[key];
+        const error = fields.error;
+        if (error instanceof Error) {
+          safe.errorName = ["Error", "TypeError", "RangeError", "SyntaxError"].includes(error.name) ? error.name : "OtherError";
+          safe.errorSha256 = sha256Bytes(Buffer.from(String(error.stack ?? error.name).slice(0, 8192)));
+          safe.frames = [...String(error.stack ?? "").slice(0, 8192).matchAll(/(?:worker-local-runtime-supervisor|start-local-worker|worker-authority-guard|worker-local-release)\.mjs:\d+:\d+/g)]
+            .slice(0, 6).map(match => match[0]);
+          if (["EPIPE", "EBADF", "EIO", "ENOENT", "EACCES", "EPERM", "ENOSPC"].includes(error.code)) safe.errorCode = error.code;
+        }
+        const memory = process.memoryUsage();
+        const line = Buffer.from(JSON.stringify({ version: 1, at: new Date().toISOString(), sequence: ++sequence,
+          pid: process.pid, ppid: process.ppid, estimatedStartedAt: identity.startedAt,
+          manifestSha256: identity.manifestSha256, event, ...safe,
+          uptimeMs: Math.round(process.uptime() * 1000), rss: memory.rss, heapUsed: memory.heapUsed,
+          freeMemory: freemem(), totalMemory: totalmem() }) + "\n");
+        if (line.length > 4096) return;
+        if (fstatSync(descriptors[slot]).size + line.length > maxBytes) {
+          slot = 1 - slot;
+          ftruncateSync(descriptors[slot], 0);
+        }
+        writeSync(descriptors[slot], line, 0, line.length, fstatSync(descriptors[slot]).size);
+      } catch {
+        disabled = true;
+        // One fixed fallback notice, never the exception body or repeated retries.
+        try { writeSync(2, "supervisor_diagnostics_write_failed\n"); } catch { /* Both sinks may be unavailable. */ }
+      }
+    },
+    close() {
+      if (closed) return;
+      closed = true;
+      disabled = true;
+      for (const fd of descriptors) { try { closeSync(fd); } catch { /* already closed */ } }
+    },
+  };
+}
+
+export function installSupervisorDiagnostics(journal, target = process) {
+  const onFatal = (error, origin) => journal.record("uncaught_exception", { error, origin });
+  const onExit = (code) => journal.record("supervisor_exit", { code });
+  // A detached launcher's pipe can disappear. Losing logging is observable but
+  // must not become an unhandled stream 'error' that terminates supervision.
+  const onOutputError = (error) => {
+    journal.record("output_error", { error });
+    if (error?.code !== "EPIPE") throw error;
+  };
+  target.on("uncaughtExceptionMonitor", onFatal);
+  target.on("exit", onExit);
+  target.stdout.on("error", onOutputError);
+  target.stderr.on("error", onOutputError);
+  const timer = setInterval(() => journal.record("heartbeat"), 60_000);
+  timer.unref();
+  return () => {
+    clearInterval(timer);
+    target.removeListener("uncaughtExceptionMonitor", onFatal);
+    target.removeListener("exit", onExit);
+    target.stdout.removeListener("error", onOutputError);
+    target.stderr.removeListener("error", onOutputError);
+  };
+}
 export const miniflareCacheRelativePath = "cache/miniflare";
 export const workerdOldSpaceMiB = 3072;
 export const heapPatchedMiniflareSha256 = "2b2a89fb96a270e678b4aa87e65aa1282049b18d28a1e30ff7fe7f2736b648c7";
@@ -178,16 +276,21 @@ function waitForDelay(delayMs, signal) {
   });
 }
 
-function observeChild(child, signal) {
+export function observeChild(child, signal, record = () => {}, role = "unknown") {
   return new Promise((resolveExit, rejectExit) => {
     const onAbort = () => {
       if (child.exitCode == null && child.signalCode == null) child.kill("SIGTERM");
     };
     if (signal?.aborted) onAbort();
     else signal?.addEventListener("abort", onAbort, { once: true });
-    child.once("error", rejectExit);
+    child.once("error", (error) => {
+      signal?.removeEventListener("abort", onAbort);
+      record("child_error", { role, childPid: child.pid, error });
+      rejectExit(error);
+    });
     child.once("exit", (code, childSignal) => {
       signal?.removeEventListener("abort", onAbort);
+      record("child_exit", { role, childPid: child.pid, code, signal: childSignal });
       resolveExit({ code, signal: childSignal });
     });
   });
@@ -231,9 +334,10 @@ async function assertHelperArtifact(releaseRoot, manifest) {
   }
 }
 
-export async function superviseImmutableHelper({ releaseRoot, manifest, manifestPath, manifestSha256, runtimeRoot, signal }) {
+export async function superviseImmutableHelper({ releaseRoot, manifest, manifestPath, manifestSha256, runtimeRoot, signal, record = () => {} }) {
   let consecutiveRestarts = 0;
   while (!signal.aborted) {
+    record("launch_validation", { role: "helper" });
     await assertSupervisorPrelaunchProcessState({
       manifestPath,
       releaseRoot,
@@ -255,13 +359,15 @@ export async function superviseImmutableHelper({ releaseRoot, manifest, manifest
       stdio: "inherit",
       windowsHide: true,
     });
-    const outcome = await observeChild(child, signal);
+    child.once("spawn", () => record("child_spawn", { role: "helper", childPid: child.pid }));
+    const outcome = await observeChild(child, signal, record, "helper");
     if (signal.aborted) return;
     await waitForPortRelease(workerHelperPort, "immutable helper", signal);
     const lifetime = Math.max(0, Date.now() - startedAt);
     consecutiveRestarts = lifetime >= 30_000 ? 0 : consecutiveRestarts + 1;
     const reason = outcome.signal ? `signal=${outcome.signal}` : `exit=${outcome.code ?? "unknown"}`;
     const delay = Math.min(5_000, 500 * (2 ** Math.min(Math.max(0, consecutiveRestarts - 1), 4)));
+    record("restart_scheduled", { role: "helper", delayMs: delay });
     process.stderr.write(`immutable helper 已退出（${reason}），${delay}ms 后受控重启\n`);
     if (!(await waitForDelay(delay, signal))) return;
   }
@@ -271,10 +377,12 @@ export async function superviseImmutableWorker({
   releaseRoot, manifest, manifestPath, manifestSha256, runtimeRoot, signal,
   livenessMonitor = monitorLocalWorkerLiveness,
   terminateWorkerTree = terminateOwnedProcessTree,
+  record = () => {},
 }) {
   let restartTimestamps = [];
   let restartCount = 0;
   while (!signal.aborted) {
+    record("launch_validation", { role: "worker" });
     await assertSupervisorPrelaunchProcessState({
       manifestPath,
       releaseRoot,
@@ -307,7 +415,8 @@ export async function superviseImmutableWorker({
     ], { cwd: releaseRoot, env: workerEnvironment, stdio: "inherit", windowsHide: true });
     // Shutdown must terminate the owned Wrangler tree, not just the parent
     // process: an inner workerd can outlive Wrangler after a fatal error.
-    const childExit = observeChild(child);
+    child.once("spawn", () => record("child_spawn", { role: "worker", childPid: child.pid }));
+    const childExit = observeChild(child, undefined, record, "worker");
     const monitorController = new AbortController();
     const abortMonitor = () => monitorController.abort();
     if (signal.aborted) abortMonitor();
@@ -337,6 +446,7 @@ export async function superviseImmutableWorker({
       return;
     }
     if (first.source === "liveness") {
+      record("liveness_termination", { role: "worker", childPid: child.pid, consecutiveFailures: first.result.consecutiveFailures });
       await terminateWorkerTree(child);
       if (first.result.status === "aborted") {
         await waitForTerminatedChild(childExit);
@@ -357,6 +467,7 @@ export async function superviseImmutableWorker({
       ? `存活检查连续 ${first.result.consecutiveFailures ?? localLivenessFailureThreshold} 次失败`
       : outcome.signal ? `signal=${outcome.signal}` : `exit=${outcome.code ?? "unknown"}`;
     const delay = Math.min(30_000, 1_000 * (2 ** Math.min(restartCount - 1, 5)));
+    record("restart_scheduled", { role: "worker", delayMs: delay });
     process.stderr.write(`不可变 Worker 已退出（${reason}），${delay}ms 后受控重启\n`);
     if (!(await waitForDelay(delay, signal))) return;
   }
@@ -382,7 +493,8 @@ async function readManifestIdentity(manifestPath, approvedManifestSha256) {
   return manifest;
 }
 
-export async function startImmutableWorker(argv = process.argv.slice(2)) {
+export async function startImmutableWorker(argv = process.argv.slice(2), record = () => {}) {
+  record("startup_validation", { phase: "manifest" });
   const { manifestPath, approvedManifestSha256 } = parseArguments(argv);
   const manifest = await readManifestIdentity(manifestPath, approvedManifestSha256);
   const runtimeRoot = path.resolve(releaseRoot, "..", "..");
@@ -396,6 +508,7 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
     || canonicalJson(manifest.processIdentity.fixedHelperArguments) !== canonicalJson(["serve", "--port", String(workerHelperPort)])) {
     throw new Error("Worker release immutable helper 契约无效");
   }
+  record("startup_validation", { phase: "prelaunch" });
   await assertSupervisorPrelaunchProcessState({
     manifestPath,
     releaseRoot,
@@ -412,10 +525,11 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
   // or Miniflare cache overrides. Each Worker child receives manifest-bound
   // persistence plus a cache path derived from the verified runtime root.
   await ensureRuntimeDevVarsLink(releaseRoot);
+  record("startup_validated");
 
   const scheduled = createLocalScheduledTriggerSupervisor();
   const shutdown = new AbortController();
-  const requestShutdown = () => shutdown.abort();
+  const requestShutdown = (signal) => { record("signal_received", { signal }); shutdown.abort(); };
   process.once("SIGINT", requestShutdown);
   process.once("SIGTERM", requestShutdown);
   scheduled.start();
@@ -427,6 +541,7 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
       manifestSha256: approvedManifestSha256,
       runtimeRoot,
       signal: shutdown.signal,
+      record,
     }), superviseImmutableHelper({
       releaseRoot,
       manifest,
@@ -434,6 +549,7 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
       manifestSha256: approvedManifestSha256,
       runtimeRoot,
       signal: shutdown.signal,
+      record,
     })]);
   } finally {
     shutdown.abort();
@@ -444,8 +560,22 @@ export async function startImmutableWorker(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === modulePath) {
-  startImmutableWorker().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  let journal;
+  try {
+    const { approvedManifestSha256 } = parseArguments(process.argv.slice(2));
+    journal = await createSupervisorJournal(path.resolve(releaseRoot, "..", "..", "logs"), {
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+      manifestSha256: approvedManifestSha256,
+    });
+  } catch { /* Startup validation remains authoritative even without diagnostics. */ }
+  const record = journal ? journal.record.bind(journal) : () => {};
+  installSupervisorDiagnostics({ record });
+  if (!journal) process.stderr.write("supervisor_diagnostics_unavailable\n");
+  record("supervisor_start");
+  startImmutableWorker(process.argv.slice(2), record).then(() => record("supervision_stopped")).catch((error) => {
+    record("supervision_failed", { error });
+    // Do not disclose exception strings (which can contain runtime paths).
+    process.stderr.write("Immutable Worker supervisor failed; inspect lifecycle diagnostics.\n");
     process.exitCode = 1;
   });
 }
