@@ -1,0 +1,111 @@
+{
+  "schema": "workerd-historical-oom-evidence-v1",
+  "readOnly": true,
+  "rawCustomerDataIncluded": false,
+  "filenameTimestampIsNotAssumedCrashTime": true,
+  "evidence": [
+    {
+      "sourceLog": "worker-20260913-105301.stdout.log",
+      "sourceBytes": 56739,
+      "sourceSha256": "ec97a95257eedff490bca63b255a2f9c9c9b93912557de7e1313641708bd1dda",
+      "collections": [
+        {
+          "line": 703,
+          "processId": 55456,
+          "v8UptimeMs": 5780746,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1392.6,
+          "beforeCapacityMB": 1407.9,
+          "afterMB": 1392.6,
+          "afterCapacityMB": 1407.9,
+          "lastResort": true
+        },
+        {
+          "line": 704,
+          "processId": 55456,
+          "v8UptimeMs": 5780770,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1392.6,
+          "beforeCapacityMB": 1407.9,
+          "afterMB": 1392.6,
+          "afterCapacityMB": 1407.9,
+          "lastResort": true
+        }
+      ],
+      "fatal": {
+        "line": 705,
+        "location": "Reached heap limit",
+        "message": "allocation failed: JavaScript heap out of memory"
+      }
+    },
+    {
+      "sourceLog": "worker-20260914-005842.stdout.log",
+      "sourceBytes": 40278,
+      "sourceSha256": "dcd3d5c2c9c8443aaeeaebac182c44ae750ed3b71652385f884b77d9421ac3b8",
+      "collections": [
+        {
+          "line": 376,
+          "processId": 33768,
+          "v8UptimeMs": 12318874,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1391.7,
+          "beforeCapacityMB": 1407.7,
+          "afterMB": 1391.7,
+          "afterCapacityMB": 1407.7,
+          "lastResort": true
+        },
+        {
+          "line": 377,
+          "processId": 33768,
+          "v8UptimeMs": 12318896,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1391.7,
+          "beforeCapacityMB": 1407.7,
+          "afterMB": 1391.7,
+          "afterCapacityMB": 1407.7,
+          "lastResort": true
+        }
+      ],
+      "fatal": {
+        "line": 378,
+        "location": "Reached heap limit",
+        "message": "allocation failed: JavaScript heap out of memory"
+      }
+    },
+    {
+      "sourceLog": "worker-20260914-085550.stdout.log",
+      "sourceBytes": 83183,
+      "sourceSha256": "9cadcd2b353773d24c8b960c7e0c5929aa0ebda8837530cf636f8bb4a187c673",
+      "collections": [
+        {
+          "line": 1006,
+          "processId": 24792,
+          "v8UptimeMs": 12536552,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1395.9,
+          "beforeCapacityMB": 1408.1,
+          "afterMB": 1395.9,
+          "afterCapacityMB": 1408.1,
+          "lastResort": true
+        },
+        {
+          "line": 1007,
+          "processId": 24792,
+          "v8UptimeMs": 12536575,
+          "collector": "Mark-Compact (reduce)",
+          "beforeMB": 1395.9,
+          "beforeCapacityMB": 1408.1,
+          "afterMB": 1395.9,
+          "afterCapacityMB": 1408.1,
+          "lastResort": true
+        }
+      ],
+      "fatal": {
+        "line": 1008,
+        "location": "Reached heap limit",
+        "message": "allocation failed: JavaScript heap out of memory"
+      }
+    }
+  ],
+  "conclusion": "Historical V8 old-space limit was reached despite last-resort major GC with negligible reported reduction. The retained objects and full application workload remain unidentified; this is not proven equivalent to collectable synthetic growth."
+}
