@@ -1,0 +1,968 @@
+{
+  "label": "before",
+  "sourceSha256": "072f5822c6a47a553902337f6318c57aa32d84533429b86a2a0e002d81160f04",
+  "payloadBytes": 8388608,
+  "requestCount": 120,
+  "elapsedSeconds": 60.977,
+  "samples": [
+    {
+      "seconds": 2.376,
+      "phase": "warmup",
+      "active": 0,
+      "opened": 0,
+      "closed": 0,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 52375552,
+          "privateBytes": 39890944,
+          "cpuSeconds": 0.140625
+        }
+      ]
+    },
+    {
+      "seconds": 5.203,
+      "phase": "load-1",
+      "active": 0,
+      "opened": 10,
+      "closed": 10,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 63250432,
+          "privateBytes": 42590208,
+          "cpuSeconds": 0.171875
+        }
+      ]
+    },
+    {
+      "seconds": 8.203,
+      "phase": "load-1",
+      "active": 0,
+      "opened": 20,
+      "closed": 20,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 69865472,
+          "privateBytes": 43642880,
+          "cpuSeconds": 0.203125
+        }
+      ]
+    },
+    {
+      "seconds": 11.024,
+      "phase": "load-1",
+      "active": 0,
+      "opened": 30,
+      "closed": 30,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 70668288,
+          "privateBytes": 44072960,
+          "cpuSeconds": 0.234375
+        }
+      ]
+    },
+    {
+      "seconds": 14.911,
+      "phase": "load-1",
+      "active": 0,
+      "opened": 40,
+      "closed": 40,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 70942720,
+          "privateBytes": 44331008,
+          "cpuSeconds": 0.234375
+        }
+      ]
+    },
+    {
+      "seconds": 17.873,
+      "phase": "idle-1",
+      "active": 0,
+      "opened": 40,
+      "closed": 40,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 70942720,
+          "privateBytes": 44331008,
+          "cpuSeconds": 0.234375
+        }
+      ]
+    },
+    {
+      "seconds": 21.008,
+      "phase": "idle-1",
+      "active": 0,
+      "opened": 40,
+      "closed": 40,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 70942720,
+          "privateBytes": 44331008,
+          "cpuSeconds": 0.234375
+        }
+      ]
+    },
+    {
+      "seconds": 23.897,
+      "phase": "idle-1",
+      "active": 0,
+      "opened": 40,
+      "closed": 40,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 70942720,
+          "privateBytes": 44331008,
+          "cpuSeconds": 0.234375
+        }
+      ]
+    },
+    {
+      "seconds": 26.685,
+      "phase": "load-2",
+      "active": 0,
+      "opened": 50,
+      "closed": 50,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 71327744,
+          "privateBytes": 44675072,
+          "cpuSeconds": 0.28125
+        }
+      ]
+    },
+    {
+      "seconds": 29.517,
+      "phase": "load-2",
+      "active": 0,
+      "opened": 60,
+      "closed": 60,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 71823360,
+          "privateBytes": 45375488,
+          "cpuSeconds": 0.3125
+        }
+      ]
+    },
+    {
+      "seconds": 32.432,
+      "phase": "load-2",
+      "active": 0,
+      "opened": 70,
+      "closed": 70,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72122368,
+          "privateBytes": 45690880,
+          "cpuSeconds": 0.34375
+        }
+      ]
+    },
+    {
+      "seconds": 35.261,
+      "phase": "load-2",
+      "active": 0,
+      "opened": 80,
+      "closed": 80,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72519680,
+          "privateBytes": 45948928,
+          "cpuSeconds": 0.390625
+        }
+      ]
+    },
+    {
+      "seconds": 37.96,
+      "phase": "idle-2",
+      "active": 0,
+      "opened": 80,
+      "closed": 80,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72519680,
+          "privateBytes": 45948928,
+          "cpuSeconds": 0.390625
+        }
+      ]
+    },
+    {
+      "seconds": 40.718,
+      "phase": "idle-2",
+      "active": 0,
+      "opened": 80,
+      "closed": 80,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72519680,
+          "privateBytes": 45948928,
+          "cpuSeconds": 0.390625
+        }
+      ]
+    },
+    {
+      "seconds": 43.31,
+      "phase": "idle-2",
+      "active": 0,
+      "opened": 80,
+      "closed": 80,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72519680,
+          "privateBytes": 45948928,
+          "cpuSeconds": 0.390625
+        }
+      ]
+    },
+    {
+      "seconds": 45.854,
+      "phase": "load-3",
+      "active": 0,
+      "opened": 90,
+      "closed": 90,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 72728576,
+          "privateBytes": 46039040,
+          "cpuSeconds": 0.4375
+        }
+      ]
+    },
+    {
+      "seconds": 48.29,
+      "phase": "load-3",
+      "active": 0,
+      "opened": 100,
+      "closed": 100,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 73330688,
+          "privateBytes": 46645248,
+          "cpuSeconds": 0.5
+        }
+      ]
+    },
+    {
+      "seconds": 50.661,
+      "phase": "load-3",
+      "active": 0,
+      "opened": 110,
+      "closed": 110,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 73797632,
+          "privateBytes": 46907392,
+          "cpuSeconds": 0.5625
+        }
+      ]
+    },
+    {
+      "seconds": 53.079,
+      "phase": "load-3",
+      "active": 0,
+      "opened": 120,
+      "closed": 120,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 74502144,
+          "privateBytes": 47652864,
+          "cpuSeconds": 0.59375
+        }
+      ]
+    },
+    {
+      "seconds": 55.559,
+      "phase": "idle-3",
+      "active": 0,
+      "opened": 120,
+      "closed": 120,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 74502144,
+          "privateBytes": 47652864,
+          "cpuSeconds": 0.59375
+        }
+      ]
+    },
+    {
+      "seconds": 58.041,
+      "phase": "idle-3",
+      "active": 0,
+      "opened": 120,
+      "closed": 120,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 74502144,
+          "privateBytes": 47652864,
+          "cpuSeconds": 0.59375
+        }
+      ]
+    },
+    {
+      "seconds": 60.923,
+      "phase": "idle-3",
+      "active": 0,
+      "opened": 120,
+      "closed": 120,
+      "sentBytes": 0,
+      "processes": [
+        {
+          "pid": 38884,
+          "workingSetBytes": 74489856,
+          "privateBytes": 47624192,
+          "cpuSeconds": 0.59375
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 21
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 11
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 11
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 15
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 17
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 17
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 5
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 28
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 18
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 0,
+      "mode": "/redirect",
+      "ms": 19
+    },
+    {
+      "cycle": 0,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 11
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 30
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 12
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 11
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 9
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 15
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 14
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 11
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 9
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 10
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 10
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 1,
+      "mode": "/redirect",
+      "ms": 10
+    },
+    {
+      "cycle": 1,
+      "mode": "/oversize",
+      "ms": 10
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 5
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 12
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 5
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 7
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 9
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 8
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/redirect",
+      "ms": 6
+    },
+    {
+      "cycle": 2,
+      "mode": "/oversize",
+      "ms": 8
+    }
+  ],
+  "cleanup": {
+    "active": 0,
+    "opened": 120,
+    "closed": 120
+  }
+}
