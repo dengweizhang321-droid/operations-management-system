@@ -108,6 +108,29 @@ def main():
             exec(compile(grant_code,'production-runtime-grants','exec'),{})
             exec(compile(grant_code,'production-runtime-grants','exec'),{})
             result['ordinaryOwnerExactGrantBlockRepeated']=True
+            import ast, re
+            health_source=ast.parse((ROOT/'backend/teruisi_backend/health.py').read_text(encoding='utf-8'))
+            names={'_validate_finance_source_marker_guard','_validate_finance_monotonic_guard','_validate_netshop_source_marker_guard'}
+            definitions=[node for node in health_source.body if isinstance(node,ast.FunctionDef) and node.name in names]
+            checks={'connection':connection,'ReadinessError':RuntimeError,'re':re}
+            for node in health_source.body:
+                if isinstance(node,ast.Assign) and len(node.targets)==1 and isinstance(node.targets[0],ast.Name) and node.targets[0].id.startswith(('FINANCE_MARKER_','FINANCE_MONOTONIC_','NETSHOP_MARKER_')):
+                    exec(compile(ast.Module(body=[node],type_ignores=[]),'health-constants','exec'),checks)
+            exec(compile(ast.Module(body=definitions,type_ignores=[]),'real-health-functions','exec'),checks)
+            netshop_service=(ROOT/'tools/django-netshop-service.ps1').read_text(encoding='utf-8-sig')
+            grant_line=next(line.strip() for line in netshop_service.splitlines() if 'GRANT SELECT (app, name)' in line)
+            with connection.cursor() as cursor:
+                exec(grant_line,{'cursor':cursor})
+                for role,functions in [(f'teruisi_{domain}_{kind}',[n for n in names if domain in n]) for domain in ('finance','netshop') for kind in ('reader','writer')]:
+                    cursor.execute('RESET ROLE')
+                    cursor.execute('SET LOCAL ROLE '+role)
+                    for name in functions: checks[name](cursor)
+                    cursor.execute("SELECT has_column_privilege(current_user,'django_migrations','id','SELECT'), "
+                        "has_table_privilege(current_user,'django_migrations','INSERT,UPDATE,DELETE')")
+                    assert cursor.fetchone()==(False,False)
+                cursor.execute('RESET ROLE')
+                cursor.execute('SET LOCAL ROLE teruisi_sales_owner')
+            result['financeNetshopGuardAndMinimalMigrationGrantsVerified']=True
             with connection.cursor() as c:
                 c.execute("RESET ROLE")
                 c.execute("SELECT r.relname FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace "
@@ -135,5 +158,7 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as error:
+        import traceback
+        traceback.print_exc()
         print(json.dumps({'status':'failed','errorType':type(error).__name__,'errorSha256':hashlib.sha256(str(error).encode()).hexdigest()}))
         raise SystemExit(1)

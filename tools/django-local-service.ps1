@@ -3143,6 +3143,8 @@ with transaction.atomic(), connection.cursor() as c:
     from finance.business_source_permissions import grant_actor_read as grant_finance_source_actor
     grant_finance_source_actor(c)
 
+    c.execute("GRANT SELECT (app, name) ON public.django_migrations TO teruisi_finance_reader, teruisi_finance_writer")
+
     c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT ON finance_target_deletion_audits, finance_import_fingerprints TO teruisi_finance_writer")
