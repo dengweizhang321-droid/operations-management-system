@@ -53,6 +53,33 @@ function Assert-IntegrationStopped {
   return $maintenance
 }
 
+function Assert-IntegrationPreparedSource([string]$Prepared, [string]$Source) {
+  $preparedRoot = [IO.Path]::GetFullPath($Prepared).TrimEnd('\')
+  $expectedBackend = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  $sourceBackend = [IO.Path]::GetFullPath((Join-Path $Source 'backend')).TrimEnd('\')
+  foreach ($file in Get-ChildItem -LiteralPath $sourceBackend -File -Recurse -Force) {
+    $relative = $file.FullName.Substring($sourceBackend.Length + 1)
+    $segments = $relative -split '[\\/]'
+    if ($file.Extension -in @('.pyc','.pyo') -or
+        @($segments | Where-Object { $_ -in @('.runtime','__pycache__','.pytest_cache','.mypy_cache','tests') }).Count) { continue }
+    [void]$expectedBackend.Add($relative)
+  }
+  $actualBackend = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+  foreach ($directory in @('backend','config','tools','drizzle')) {
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path $preparedRoot $directory) -File -Recurse -Force) {
+      if ($file.Extension -in @('.pyc','.pyo') -or $file.FullName -match '[\\/](__pycache__|\.pytest_cache|\.mypy_cache)[\\/]') { continue }
+      $relative = $file.FullName.Substring($preparedRoot.Length + 1)
+      if ($directory -ceq 'backend') { [void]$actualBackend.Add($relative.Substring('backend\'.Length)) }
+      $original = Join-Path $Source $relative
+      if (-not (Test-Path -LiteralPath $original -PathType Leaf) -or
+          (Get-FileSha256 $file.FullName) -cne (Get-FileSha256 $original)) {
+        throw 'Prepared integration application differs from the reviewed source'
+      }
+    }
+  }
+  if (-not $expectedBackend.SetEquals($actualBackend)) { throw 'Prepared integration backend inventory differs from the reviewed source' }
+}
+
 $result = Invoke-WithServiceMutex {
   $maintenance = Assert-IntegrationStopped
   $operationRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot ('integration-installs\' + $IntegrationRequest.OperationId))
@@ -75,6 +102,7 @@ $result = Invoke-WithServiceMutex {
       throw 'Integration source must not contain symlinks or submodules'
     }
     $prepared = Get-PreparedApplication $IntegrationRequest.PreparedAppId $IntegrationRequest.PreparedAppSha256
+    Assert-IntegrationPreparedSource $prepared $source
     $gate = Join-Path $source 'tools\integration_release_gate.py'
     $candidateRun = Invoke-BoundedNativeProcess $Python @($gate,'candidate','--root',$source,
       '--evidence',$IntegrationRequest.CandidateEvidencePath,'--approved-sha256',$IntegrationRequest.CandidateEvidenceSha256) $source
