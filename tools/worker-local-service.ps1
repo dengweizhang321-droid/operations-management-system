@@ -1247,16 +1247,47 @@ function Restart-ExactWorkerChild([object]$Internal, [datetime]$DeadlineUtc) {
   return $readyStatus
 }
 
+function Write-WorkerStopDiagnostic([object]$Internal, [string]$Phase) {
+  # Observational only. The exact process snapshot and original mutex remain
+  # authoritative; this record must never authorize a later stop or recovery.
+  $temporary = $null
+  try {
+    $stateRoot = Join-Path $RuntimeRoot 'state'
+    Assert-EntityDirectory $stateRoot
+    $target = Join-Path $stateRoot 'worker-last-controlled-stop.json'
+    Assert-NoReparsePath $target -AllowMissingLeaf
+    $record = [ordered]@{
+      version = 'teruisi-worker-stop-diagnostic-v1'
+      at = [DateTimeOffset]::UtcNow.ToString('o')
+      phase = $Phase
+      action = if ($Action -in @('Stop','RestartFull','EnterMaintenance','Start')) { $Action } else { 'internal_cleanup' }
+      supervisorPid = [int]$Internal.Supervisor.ProcessId
+      supervisorCreationDate = Get-CreationIdentity $Internal.Supervisor
+      manifestSha256 = $Internal.Identity.Sha256
+    }
+    $temporary = "$target.tmp-$([Guid]::NewGuid().ToString('N'))"
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($record | ConvertTo-Json -Compress) + "`n")
+    $stream = [IO.FileStream]::new($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
+    if ([IO.File]::Exists($target)) { [IO.File]::Replace($temporary, $target, [NullString]::Value) }
+    else { [IO.File]::Move($temporary, $target) }
+  } catch { Write-Warning 'worker_stop_diagnostic_unavailable' -WarningAction Continue }
+  finally { try { if ($temporary -and [IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) } } catch { Write-Warning 'worker_stop_diagnostic_cleanup_unavailable' -WarningAction Continue } }
+}
+
 function Stop-ExactWorkerSnapshot([object]$Internal) {
   if (-not $Internal.Supervisor -or $Internal.State -notin @("starting_exact_release", "exact_release")) { return }
   $supervisor = $Internal.Supervisor
   $supervisorId = [int]$supervisor.ProcessId
+  $stopRequested = $false
   $currentSupervisor = Get-ExactCurrentProcess $supervisorId
   if ($currentSupervisor) {
     if (-not (Test-SameProcessIdentity $currentSupervisor $supervisor) -or
         -not (Test-AllowedTreeProcess $currentSupervisor $Internal.Identity $supervisorId)) {
       throw "Immutable Worker supervisor identity changed before Stop"
     }
+    Write-WorkerStopDiagnostic $Internal 'requested'
+    $stopRequested = $true
     Stop-ExactProcessIdentity $supervisor
   }
   # First quiesce the only process allowed to create new helper/Worker roots.
@@ -1272,6 +1303,7 @@ function Stop-ExactWorkerSnapshot([object]$Internal) {
     Start-Sleep -Milliseconds 100
   }
   if (-not $supervisorStopped) { throw "Exact immutable Worker supervisor did not terminate within 5 seconds" }
+  if ($stopRequested) { Write-WorkerStopDiagnostic $Internal 'supervisor_absent' }
   $directChildCutoffTicks = (Get-Date).ToUniversalTime().Ticks
 
   $knownSnapshots = @($Internal.Tree | ForEach-Object { $_.Process })
