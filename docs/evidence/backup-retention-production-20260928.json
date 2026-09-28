@@ -1,0 +1,336 @@
+{
+  "status": "deployed_verified",
+  "date": "2026-09-28",
+  "productionSourceCommit": "9b88f08a",
+  "workerSourceCommit": "73e60559",
+  "worker": {
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "manifestSha256": "3cd3766cbe39071b2a19c6348d062388c6cdaeb433152c84b73ea2a2bd295b0b"
+  },
+  "django": {
+    "appFingerprint": "c1db18721d0770d5e539e2845b22524d4e228278b778d0c50a1bb61907edfc06",
+    "manifestSha256": "1ce8d0c99fc689417aa50cd2d9a9bad48edd22faa06ef7a89e67be190c5146f3"
+  },
+  "runtime": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "supervisorProcessId": 32412,
+    "portProcessId": 52044,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-28T22:59:04.5228416+08:00"
+  },
+  "databaseAndN8n": {
+    "postgresPid": 11332,
+    "n8nPid": 17868,
+    "bothPredateMaintenance": true,
+    "bothPidsUnchanged": true,
+    "migrationsUnchanged": true,
+    "migrationCount": 138,
+    "productionDatabaseRestored": false
+  },
+  "backupPolicy": {
+    "archiveRoot": "E:/运营管理系统业务数据",
+    "maximumRecoveryPoints": 3,
+    "items": [
+      {
+        "backupId": "daily-20260928T125351Z-31cb501bc72d",
+        "manifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5",
+        "dumpSha256": "36f89e570ccca758f13c692934b554af4222879d13ed7f3c750d163f161542fa",
+        "sizeBytes": 822882781,
+        "protected": true
+      },
+      {
+        "backupId": "daily-20260928T135914Z-ff7f06dc6b94",
+        "manifestSha256": "dfaf32603cb4820cd826ccc8a8f51926416c55de2314ba075d6784a122fd2d79",
+        "dumpSha256": "f7ce85a8327e1324f2ff6551b3b33a781d53a934154f6821029ff6a255b52f34",
+        "sizeBytes": 822885804,
+        "protected": false
+      },
+      {
+        "backupId": "daily-20260928T145714Z-78107f0c7a59",
+        "manifestSha256": "2bbdb1c6826930476d1bb9b7c74438bb8af809ba5294dd56e13f5fa438a1b83e",
+        "dumpSha256": "117d9f0a7a3a691d55f9e1ebb18689ad619346f521f11c91af711b3306ebb5cf",
+        "sizeBytes": 822888546,
+        "protected": false
+      }
+    ],
+    "dailyStagingCount": 0,
+    "initialDDirectoriesRemoved": 99
+  },
+  "backupVerification": {
+    "preBackup": {
+      "status": "completed",
+      "backupId": "daily-20260928T125351Z-31cb501bc72d",
+      "backupDirectory": "D:\\teruisi-runtime\\django-sales\\backups\\postgres-daily\\daily-20260928T125351Z-31cb501bc72d",
+      "manifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5",
+      "dumpSha256": "36f89e570ccca758f13c692934b554af4222879d13ed7f3c750d163f161542fa",
+      "contentSha256": "31b017c1f8bca24d987b5b2ca8498053be53187cb3fd0747d5a8220f386a979c",
+      "completedAt": "2026-09-28T12:59:39.1632512+00:00",
+      "serviceStateChanged": false
+    },
+    "preRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "88c230b4d6f9",
+      "startedAt": "2026-09-28T13:05:54.5872220+00:00",
+      "completedAt": "2026-09-28T13:14:54.6799895+00:00",
+      "backupId": "daily-20260928T125351Z-31cb501bc72d",
+      "backupManifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5",
+      "dumpSha256": "36f89e570ccca758f13c692934b554af4222879d13ed7f3c750d163f161542fa",
+      "expectedContentSha256": "31b017c1f8bca24d987b5b2ca8498053be53187cb3fd0747d5a8220f386a979c",
+      "restoredContentSha256": "31b017c1f8bca24d987b5b2ca8498053be53187cb3fd0747d5a8220f386a979c",
+      "isolatedPort": 55783,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "31d087b0e5f607548c652ae801c6a17362dfe30208e13b65824a0f1175cda056",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "publicInterfaceTransfer": {
+      "status": "passed",
+      "backupId": "daily-20260928T135914Z-ff7f06dc6b94",
+      "bytes": 823139156,
+      "sha256": "e15f9382376a3a404fd394d1e5aee620c8e873f28c346072d5e2790b72648618",
+      "exportSha256": "e15f9382376a3a404fd394d1e5aee620c8e873f28c346072d5e2790b72648618",
+      "importManifestSha256": "dfaf32603cb4820cd826ccc8a8f51926416c55de2314ba075d6784a122fd2d79",
+      "isolatedRestoreVerified": true,
+      "productionRestored": false,
+      "importTemporaryFilesRemoved": true,
+      "jobs": [
+        {
+          "id": "09e2fdc796c247ac99af0b90602a1f8e",
+          "action": "retention",
+          "status": "completed"
+        },
+        {
+          "id": "1d3be403a3f94820b624f76c83e04dee",
+          "action": "export",
+          "status": "completed"
+        },
+        {
+          "id": "7eb1d7f036834c4abf3f3485d557ff08",
+          "action": "verify-import",
+          "status": "completed"
+        },
+        {
+          "id": "baca56b3cc734215aca7629c3a947e44",
+          "action": "rehearse",
+          "status": "completed"
+        }
+      ]
+    },
+    "finalBackup": {
+      "id": "4de76589eb1c4bc6ba7d0a51c9fb4ac3",
+      "action": "backup",
+      "status": "completed",
+      "createdAt": 1790607412.4351196,
+      "updatedAt": 1790607816.0660625,
+      "result": {
+        "backupId": "daily-20260928T145714Z-78107f0c7a59",
+        "manifestSha256": "2bbdb1c6826930476d1bb9b7c74438bb8af809ba5294dd56e13f5fa438a1b83e",
+        "completedAt": "2026-09-28T15:03:01.3948632+00:00",
+        "releaseRetention": {
+          "status": "blocked",
+          "errorCode": "release_retention_not_completed"
+        }
+      }
+    },
+    "finalIndependentVerify": {
+      "status": "completed",
+      "backupId": "daily-20260928T145714Z-78107f0c7a59",
+      "manifestSha256": "2bbdb1c6826930476d1bb9b7c74438bb8af809ba5294dd56e13f5fa438a1b83e",
+      "dumpSha256": "117d9f0a7a3a691d55f9e1ebb18689ad619346f521f11c91af711b3306ebb5cf",
+      "contentSha256": "a5982f54b5acd84f587d1d0c36266daddaad85facff198e17fe54c365d35fa9d",
+      "serviceStateChanged": false
+    }
+  },
+  "releaseRetention": {
+    "days": 7,
+    "automaticResult": {
+      "status": "blocked",
+      "errorCode": "release_retention_not_completed"
+    },
+    "automaticBlockRootCause": "not recorded by the existing generic catch",
+    "separateControlledExecution": {
+      "serviceStateChanged": false,
+      "status": "completed",
+      "removedPayloads": 0
+    },
+    "activeRollbackAndChainEvidencePreserved": true
+  },
+  "web": {
+    "status": "passed",
+    "actualProductionPage": true,
+    "assetCount": 18,
+    "verified": [
+      {
+        "route": "/assets/index-Sgc4G-ZW.css",
+        "sha256": "aaa00899c24497972eddb737774444a75980d7aa0d5eb7d03bc56a4ac1c27fcc",
+        "bytes": 416063
+      },
+      {
+        "route": "/assets/layout-segment-context-BFQd642I.js",
+        "sha256": "ab9bea57501575ab432f1d512b080ad22b95758033e0e5f947aa0dfc91171c9f",
+        "bytes": 288
+      },
+      {
+        "route": "/assets/rolldown-runtime-S-ySWqyJ.js",
+        "sha256": "5db5ba82eef00d1dee7e86e663098c9427d01183a88d357437daff295aec3e75",
+        "bytes": 694
+      },
+      {
+        "route": "/assets/index-jZZivRpX.js",
+        "sha256": "03c0a1bba9e0114d62ba67acfd5a2f57ecae7e92bfee430329a57da12912b56a",
+        "bytes": 81370
+      },
+      {
+        "route": "/assets/ai-page-context-provider-Dc3lH0uZ.js",
+        "sha256": "81068a87be6359e62cb5aca4183656b0fdb30f82e4dab2532fd9e2caa6753858",
+        "bytes": 519
+      },
+      {
+        "route": "/assets/page-DPEPatfR.js",
+        "sha256": "ec6702fc1c80d215962c836d3ad50cd9c39e6e9407c2fcdf944f0c749aae2599",
+        "bytes": 59393
+      },
+      {
+        "route": "/assets/module-view-shared-C5DPvJ_4.js",
+        "sha256": "bef709b2ccd5a55e06911ae20a759ba86e015a641693a7ab40cd93607f8086d3",
+        "bytes": 6469
+      },
+      {
+        "route": "/assets/framework-CXnKph_e.js",
+        "sha256": "73b45b606448e4dc310fbe851d8089ee752f3eb081980b3a6fec88988820ee12",
+        "bytes": 189805
+      },
+      {
+        "route": "/assets/reloadable-lazy-DdXIQ3Cd.js",
+        "sha256": "89877a478fb2c752b38ed3187cc3c2976f3114b25c92131f6a3da6421188a432",
+        "bytes": 536
+      },
+      {
+        "route": "/assets/navigation-catalog-CFFzuV3l.js",
+        "sha256": "f6a00161fc62716613f22fb481d4c1692f15187eca44913109ad32524b24f628",
+        "bytes": 3071
+      },
+      {
+        "route": "/assets/searchable-select-TuzqFU6k.js",
+        "sha256": "f423c656f508f5e8c08f6790e50b567b02f6e294204032fe6ba28e765310916f",
+        "bytes": 5409
+      },
+      {
+        "route": "/assets/dialog-CXm5GeIc.js",
+        "sha256": "62403b91d7d23f2e2c0f24b5941f9176e1a7ebf61f5cb8f770132bc6f8dc1ac5",
+        "bytes": 3064
+      },
+      {
+        "route": "/assets/page-context-CHRRbv11.js",
+        "sha256": "2ce9a4930dee41b41188a10de0f5c6defc2ea4c8395d062e61054d5fc1f3bb61",
+        "bytes": 6438
+      },
+      {
+        "route": "/assets/api-client-BkSFlZxp.js",
+        "sha256": "1668ca8a79bf454e2d7c8c8ef2783c19ca9d6640e5df6327400a57e8ccc5edbe",
+        "bytes": 1587
+      },
+      {
+        "route": "/assets/api-error-CJCV3BJQ.js",
+        "sha256": "4efae8b1a9127677a8c80569e149000d507839d79d3fc807c2a37d490174941f",
+        "bytes": 201
+      },
+      {
+        "route": "/assets/settings-view-DTrIjCNr.js",
+        "sha256": "317c6a2d26b274220bb2ec39f4844b7773547f629239b660e4d08711849540b8",
+        "bytes": 16780
+      },
+      {
+        "route": "/assets/database-backups-DHGuS4tA.css",
+        "sha256": "c211bf28a98f5426d29591f963435954c85f95b3b94d9d873bc22d0cfa96667b",
+        "bytes": 1586
+      },
+      {
+        "route": "/assets/database-backups-04pO5Q41.js",
+        "sha256": "f390c8fc4f754026bb381553283e6a439bb93f130b5ac198a350313ec11b5f53",
+        "bytes": 9267
+      }
+    ],
+    "errors": []
+  },
+  "permissions": {
+    "crossOriginStatus": 403,
+    "unsignedBackendStatus": 401
+  },
+  "ai": {
+    "PandasReadiness": "ready",
+    "DingTalkScheduler": "running",
+    "DingTalkReceiver": "running",
+    "DingTalkConnection": "connected"
+  },
+  "watchdog": {
+    "first": "2026-09-28T15:10:25.1028056+00:00",
+    "second": "2026-09-28T15:13:25.1272612+00:00",
+    "bothHealthy": true
+  },
+  "maintenance": {
+    "applicationWindows": 4,
+    "notes": [
+      "E archive ACL and Windows PowerShell Unicode were fixed before the first adoption.",
+      "Background operator module environment, legacy discard inventory and release-cleanup library scope were corrected through controlled backend updates.",
+      "One pre-existing concurrent-start desired-state guard refusal recovered through the original Start engine; no fence was removed or forged."
+    ]
+  },
+  "n8n": {
+    "duringReleaseCounts": {
+      "success": 23,
+      "error": 4
+    },
+    "latestObservedExecution": [
+      5207,
+      "success",
+      "NewProductWeeklyDingTalk2026",
+      "2026-09-28 15:10:00.121",
+      "2026-09-28 15:10:23.150"
+    ],
+    "manualReplayPerformed": false
+  },
+  "automation": {
+    "id": "e",
+    "status": "PAUSED",
+    "schedulePreserved": true,
+    "promptUpdated": true
+  },
+  "validation": {
+    "baseNodePassed": 2676,
+    "baseNodeSkipped": 21,
+    "baseNodeFailed": 0,
+    "fixes": "Windows PowerShell 5/7 ACL and scope tests, native legacy-container rotation, original PostgreSQL maintenance regression (20), operator-environment subprocess and backup transport tests passed."
+  },
+  "evidenceRoot": "E:\\codex-artifacts\\backup-retention-20260928\\production",
+  "deliveryCleanupEvidence": "E:/codex-artifacts/backup-retention-20260928/final-delivery.json",
+  "limitations": [
+    "Imports are independently restored in an isolated cluster; production restore requires separate approval.",
+    "Export cache is temporary for 24 hours and removed by a subsequent backup task.",
+    "The daily backup heartbeat remains paused.",
+    "The initial automatic release-cleanup receipt was blocked; a later controlled execution completed without changing services."
+  ]
+}

@@ -182,7 +182,7 @@
 - 公开 Worker 继续负责真实 `requireAppPrincipal()`、参数契约、HMAC principal 信封、Excel 解析、分片请求边界、请求超时与体积边界和边缘适配；销售查询进入 `127.0.0.1:8001`，销售导入及原始分片字节进入 `127.0.0.1:8002` 的 PostgreSQL 写侧。销售生产路径不得读写 R2；超时、签名、响应上限、JSON、revision、reader/writer 或权限异常必须失败关闭，不得回查 D1/R2。全局 R2 binding 仍供其他业务域使用，不得因销售退役 R2 而删除。
 - D1 `0092_sales_domain_retirement.sql` 已退役销售事实、批次、上传、缓存、投影 outbox 和 authority 对象。保留的只读 tombstone views、retirement receipt、共享导入表销售永久写入 guard、迁移工具和测试夹具是防复活终态证据，不代表仍存在销售 D1 后端；普通 Drizzle 生成在建立新审计 baseline 前仍须失败关闭。
 - 2026-09-05，本机 ERP 主数据域已完成 Django/PostgreSQL 正式单写切换、D1 终态退役和旧 `inventory-upload/` R2 路径下线，cutover ID 为 `erp-reference-pg-20260905T102200Z-8a8dbcb59fc8`，authority epoch 为 `69f7d42f-109f-43c7-9f84-c86629d8fa00`。PostgreSQL 是 ERP 货品、组合装、批次、scope head、内容指纹、导入尝试、请求 receipt、原始分片、revision、迁移和审计的唯一权威；生产 run `erp-reference-eb5fa9fc5cd0467ba58c9dc0a9c11b01` 迁移并复验 8,473 条货品、4,392 条组合件、83 个批次、58 个尝试、83 个规范化指纹和 2 个 scope head，源/目标摘要均为 `33b4d6032868f5d25532cc9333f09482bc2a205ee92f2cec0524a8f583f4d7fb`。公开 Worker 只承担真实鉴权、权限、Excel 解析、HMAC、超时/体积边界和薄适配，ERP 读写固定进入 `127.0.0.1:8091/8092`。唯一跨域写权限是按 ERP 映射更新既有 `sales_order_lines.resolved_category` 派生分类；不得新增或删除销售事实，不得修改金额、成本、销量、`gross_profit`、其他销售字段或批次。operator-only `0110` 已将 7 个旧 D1 ERP 对象变为空 tombstone view，并安装 18 个永久 guard；旧 ERP bridge 已撤权并退出启动链。切换已跨过 PNR，禁止恢复 D1/R2/bridge/legacy/shadow、双写或反向迁移；恢复只允许 PostgreSQL 备份/WAL/PITR、兼容代码或经审批的前向修复。正式证据见 `docs/DJANGO_ERP_REFERENCE_MIGRATION.md`。
-- 切换已跨过 PNR，不支持 `pending→d1`、`legacy`/`shadow` 路由或反向迁移。故障恢复仅允许兼容代码、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复；成功正式备份、恢复演练、attestation、forward-recovery 和 retirement 证据不得清理。
+- 切换已跨过 PNR，不支持 `pending→d1`、`legacy`/`shadow` 路由或反向迁移。故障恢复仅允许兼容代码、PostgreSQL 备份/WAL/PITR 或经审批的前向数据修复；仍被迁移/恢复流程引用的关键 PostgreSQL 备份按第 10.1 节占保护名额；恢复演练记录、attestation、forward-recovery 和 retirement 等控制证据继续保留。
 - Worker bootstrap current/authority 只是 append-only 链根和不可变切换证据，当前运行版本必须以经验证的 effective successor head 为准。后续 release 可以通过受控 `plan --prepare-online` 在线准备候选，普通 `plan` 保持停止门禁；`apply` 仍必须在获批维护、Worker 停止后使用精确 plan SHA 执行，通过 append-only successor record/sidecar 形成唯一、连续、有界的 effective-head 链；每个 release 的 activation fence 必须先使 predecessor guard 失败关闭。旧 release、分叉、环、篡改、孤立 sidecar、不可达记录、过期 CAS 或证据不一致均失败关闭。`plan` 会构建候选并写入计划，不是无副作用 dry-run；激活后必须立即把登录快捷方式重绑到 effective head 并回读验证。
 - Worker supervisor 的 prelaunch 不得递归调用 PowerShell `Status`；只能直接、有界验证 service 原子写入的 create-only canonical process receipt，且等待预算必须覆盖 controller 建立精确 CIM identity 和写入 receipt 的时延。外层 controller 仍须按 PID、CreationDate、命令行和进程树二次核验。PowerShell 读取受控 JSON 时必须保留 ISO 日期字符串，不能让 pwsh 自动转换为 `DateTime` 后进入递归规范化。
 - Miniflare 的 `Request.cf` 缓存固定写入 Worker runtime 的 `cache\miniflare\cf.json`，不得写入 immutable release、`node_modules` 或业务 `.wrangler/state`。每次启动和子进程重启前都必须清除继承的同名环境变量并安装固定绑定，核验 runtime/release/persist 边界、目录全链、文件叶和硬链接身份；release 出现 `.mf` 或其他未列入 manifest 的对象必须失败关闭。
@@ -332,10 +332,11 @@
 
 - 发布包保留最近 7×24 小时的完整包；当前运行版本、必要回滚版本及显式保护版本即使超过七天仍保留。历史启动校验依赖的 manifest、successor、activation fence、guard、authority 和审计凭证不按日期删除。仅清理经验证且无进程引用的精确旧包载荷，禁止整目录按时间通删。
 - PostgreSQL 使用既有 `pg_dump` custom 格式与一致性快照备份，不新增备份密码或恢复密钥。一个恢复点包含 dump、manifest、SHA-256 校验文件；角色、权限和迁移证据继续按现有归档版本验证。数据库备份不代表已备份 R2 附件或整机配置。
+- 备份脚本包含中文路径时使用 UTF-8 BOM，并同时验证 Windows PowerShell 5 和 PowerShell 7 的实际路径、根权限及子文件继承。E 盘归档根使用独立受限 DACL，不得绕过仅限 D 盘 runtime 的权限函数。备份后台启动 Windows PowerShell 5 时固定使用其系统内置模块目录并清除继承的 library-only 标志，不修改全局 `PSModulePath`。加载运维脚本库时隔离参数作用域，避免覆盖调用者的 `Execute`、`Json` 等变量；跨旧代码页传输路径时使用无损的 ASCII 转义 JSON。
 - 正式数据库备份保存到 `E:\运营管理系统业务数据`，最多 3 个已验证恢复点；D 盘只作生成和导入校验的临时区。发布前后备份均占名额，必要的迁移前备份作为保护项占其中一个名额，其余按完成时间保留最新。新备份成功、E 盘归档复验完成后才淘汰旧份，过程中允许短暂第四份；失败不提前删旧，不因达到上限解除关键备份保护。保护项占满或证据异常时停止轮换并报告。
 - 系统备份管理仅允许无数据范围限制的管理员使用，复用既有备份/Verify/隔离恢复工具。导出交付完整备份包；导入先上传、校验并在独立 PostgreSQL 环境恢复验证。上传或校验不等于生产恢复，恢复生产必须另获用户对精确恢复点、目标与维护窗口的明确确认。
 - 发布流程以 `docs/STARTUP_RELEASE_OPTIMIZATION.md` 为准：开发、测试、生产构建及候选准备期间保持生产正常，不修改当前生效入口或运行包。正式切换可在用户批准的短时应用维护窗口进行；不得把在线准备描述为全程零停机。优先保留 PostgreSQL 的应用维护，沿用唯一生命周期引擎和全部原验证/恢复门禁。
-- 此处是已确认的目标约定；自动保留工具和备份页面必须完成隔离验证、受控上线及生产验收后才宣称已生效。对仍在使用的历史恢复材料，先核验并建立保护绑定再采用轮换策略。
+- 2026-09-28 本机已按当次明确授权采用上述规则及备份页面，实际三份归档、公开接口传输和隔离恢复已验证；采用证据见 `docs/evidence/backup-retention-production-20260928.json`。后续变更仍须隔离验证和对应上线确认；历史恢复材料须先核验保护绑定，不能因旧记录引用而自动恢复已按新策略淘汰的备份。
 
 ## 11. Git 与交付
 
