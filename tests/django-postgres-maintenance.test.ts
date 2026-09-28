@@ -268,7 +268,10 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /initdb\.exe/);
   assert.match(restoreBlock, /createuser\.exe/);
   assert.doesNotMatch(script, /createuser[\s\S]{0,800}--dbname/);
-  assert.match(restoreBlock, /rehearsals\\postgres-restore/);
+  assert.match(restoreBlock, /Get-MaintenanceRehearsalParent \$true/);
+  assert.match(script, /rehearsals\\postgres-restore/);
+  assert.match(script, /E:\\TERUISI-Postgres-Rehearsals/);
+  assert.match(script, /AreAccessRulesProtected/);
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
   assert.match(restoreBlock, /-h 127\.0\.0\.1/);
   assert.match(restoreBlock, /max_connections=10/);

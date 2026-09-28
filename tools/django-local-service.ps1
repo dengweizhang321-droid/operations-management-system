@@ -20,6 +20,8 @@ param(
   [string]$MaintenanceId = "",
   [string]$PreparedAppId = "",
   [string]$PreparedAppSha256 = "",
+  [string]$IntegrationEvidencePath = "",
+  [string]$IntegrationEvidenceSha256 = "",
   [switch]$KeepPostgres,
   [switch]$Json,
   [switch]$Execute
@@ -1631,6 +1633,34 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   $formalRoot = [IO.Path]::GetFullPath('D:\teruisi-runtime\django-sales').TrimEnd('\')
   $currentRoot = [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
   if ($currentRoot -ine $formalRoot) { return }
+  $candidateRoot = Split-Path -Parent $CandidateBackendRoot
+  $integrationGate = Join-Path $candidateRoot 'tools\integration_release_gate.py'
+  $integrationPolicy = Join-Path $candidateRoot 'config\integration-migration-policy-v3.json'
+  if ((Test-Path -LiteralPath $integrationGate -PathType Leaf) -and
+      (Test-Path -LiteralPath $integrationPolicy -PathType Leaf)) {
+    $arguments = @($integrationGate)
+    if ($Operation -cin @('PrepareApp','DeployApp') -and
+        (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf)) {
+      # A successor with byte-equivalent migration sources needs no database
+      # upgrade. New/rewritten migrations still fail the published generation.
+      $arguments += @('release', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } elseif ($Operation -ceq 'PrepareApp') {
+      if ($IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+          [string]::IsNullOrWhiteSpace($IntegrationEvidencePath)) {
+        throw 'Protected integration preparation requires verified candidate evidence'
+      }
+      $arguments += @('candidate', '--root', $candidateRoot, '--evidence', $IntegrationEvidencePath,
+        '--approved-sha256', $IntegrationEvidenceSha256)
+    } elseif ($Operation -ceq 'DeployApp') {
+      $arguments += @('deployment', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } elseif ($Operation -ceq 'Django migrate') {
+      $arguments += @('release', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } else { throw 'Unknown integration lifecycle operation' }
+    $run = Invoke-BoundedNativeProcess $Python $arguments $candidateRoot
+    $result = ConvertFrom-UniqueNativeJson $run 'Verify protected integration gate'
+    if ([string]$result.status -cne 'verified') { throw 'Protected integration gate refused the operation' }
+    return
+  }
   $migrationRoot = Join-Path $CandidateBackendRoot 'ai_assistant\migrations'
   foreach ($name in @(
       '0067_business_promotion_budget_v11_attestation.py',
@@ -1748,6 +1778,11 @@ function Prepare-Application {
       "tools\postgres_no_key_backup.py",
       "tools\protected_ai_shadow_evidence_0073.py",
       "tools\postgres_restore_semantics.py",
+      "tools\integration_release_gate.py",
+      "tools\integration_migration_plan.py",
+      "tools\integration_migration_journal.py",
+      "tools\django-integration-install.ps1",
+      "config\integration-migration-policy-v3.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",
@@ -2952,6 +2987,14 @@ function Invoke-DjangoMigrations(
   $logPath = Join-Path $LogDirectory "django-migrate.$DatabaseName.$RunId.log"
   $manage = Join-Path $BackendRoot "manage.py"
   Invoke-WithDjangoEnvironment $Secrets $ownerUrl "migration_writer" $false $WriterMaxBodyBytes "" "" {
+    $integrationGate = Join-Path $ExecutionRoot 'tools\integration_release_gate.py'
+    if ((Get-CanonicalPath $RuntimeRoot) -ieq 'D:\teruisi-runtime\django-sales' -and
+        (Test-Path -LiteralPath $integrationGate -PathType Leaf)) {
+      $env:DJANGO_SETTINGS_MODULE = 'teruisi_backend.settings'
+      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot) $BackendRoot
+      $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
+      if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
+    }
     $migrationRun = Invoke-BoundedNativeProcess $Python @($manage, "migrate", "--noinput") $BackendRoot
     Write-NativeDiagnosticLog $logPath "django_migrate" $migrationRun
     if ($migrationRun.ExitCode -ne 0) {

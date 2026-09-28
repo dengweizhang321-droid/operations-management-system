@@ -47,6 +47,20 @@
 
 ## 清理范围
 
+## 正式安装候选流程
+
+新增 tools/django-integration-install.ps1 的 Plan / Install / Finalize 三个显式操作。原 Worker EnterMaintenance -KeepPostgres 和 Django 生命周期互斥仍是唯一停服入口；安装器检查所有应用进程停止、PostgreSQL 归属、固定源码、前驱与准备收据。仅从受保护的 Git 源码快照执行迁移，使用原 DPAPI 凭据，逐步记录后才执行；未知结果保留意图并拒绝自动重跑。
+
+PrepareApp 首次接收 IntegrationEvidencePath / IntegrationEvidenceSha256，绑定 [正式候选证明](evidence/integration-formal-candidate-20260928.json)。Plan 要求同一维护窗口内、同一前驱的生产前备份以及独立恢复结果；DeployApp 只接受该计划绑定的候选。Install 完成 76 步后，还必须经原 AI ProvisionRoles、新版 Backup / RestoreRehearsal 和 Finalize，才产生启动许可。普通 Start 只接受已完整安装的 138 条迁移，不能自动安装未完成的受保护迁移。
+
+采用成功后的普通代码更新继续走原准备和部署流程；启动许可绑定迁移文件树。迁移文件新增、删除或改写时重新关闭，不能借普通发布隐式升级数据库。原安装和恢复元数据保存在 runtime 的 integration-installs 下，不随日常备份保留策略删除。
+
+新版 RestoreRehearsal 支持显式 RehearsalDrive E，固定使用 E:\\TERUISI-Postgres-Rehearsals，目录只允许当前用户、Administrators、SYSTEM；未知 ACL、重解析点、已有演练 ID 和端口占用均拒绝。恢复后只清理已核验停止的精确临时 data 子目录。D 盘仍为默认，旧备份格式保持兼容。
+
+全量 Node 2,676 通过、20 跳过、零失败/取消，生命周期 43 项通过，lint 零错误/12 条既有警告。生产备份副本在 E 盘恢复后，以同一逐步执行引擎完成 62→138，原 AI 授权和两服务健康通过；没有启动业务服务、触发任务或调用模型。生产采用尚待下列实际操作完成，不将候选测试当作上线结果。
+
+## 最终清理边界
+
 保留全部远程分支，只清理已合入且无在途使用的本地分支/worktree。未提交内容、未合入提交、固定发布源和在用目录先保全；不能直接批量删除。
 
 保留 E 盘已核验副本及 D 盘最新备份。只有逐文件重新核验相同、且不再承担回滚用途的较旧 D 副本可删除。清理在上线和回退验证之后进行。

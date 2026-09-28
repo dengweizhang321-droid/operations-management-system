@@ -1,0 +1,411 @@
+{
+  "controlsSha256": {
+    "tools/django-integration-install.ps1": "3d8e3361b01bb04d26fd2e1d8f5007f72a65d30b1d70cde464db7c5281477cd9",
+    "tools/django-local-service.ps1": "1990e324f46e0f5fa647c3762854096d405d7b5317ef0931e434e6b23d15f103",
+    "tools/django-postgres-maintenance.ps1": "3e9628ca013dd2c93fa445eb284eabbea97c97790bd8612b105421917d0cc741"
+  },
+  "date": "2026-09-28",
+  "migration": {
+    "baselineReceiptCount": 62,
+    "completed": [
+      [
+        "netshop",
+        "0003_netshop_source_revision_guard"
+      ],
+      [
+        "finance",
+        "0003_finance_source_revision_guard"
+      ],
+      [
+        "finance",
+        "0004_finance_revision_monotonic"
+      ],
+      [
+        "ai_assistant",
+        "0014_business_evidence"
+      ],
+      [
+        "ai_assistant",
+        "0015_business_collection"
+      ],
+      [
+        "ai_assistant",
+        "0016_business_files"
+      ],
+      [
+        "ai_assistant",
+        "0017_business_file_renderer"
+      ],
+      [
+        "ai_assistant",
+        "0018_business_excel_renderer"
+      ],
+      [
+        "ai_assistant",
+        "0019_business_source_directory"
+      ],
+      [
+        "ai_assistant",
+        "0020_business_volume_files"
+      ],
+      [
+        "ai_assistant",
+        "0021_business_budget_plans"
+      ],
+      [
+        "ai_assistant",
+        "0022_business_integrated_reports"
+      ],
+      [
+        "ai_assistant",
+        "0023_business_screening_storage"
+      ],
+      [
+        "ai_assistant",
+        "0024_business_screening_runtime"
+      ],
+      [
+        "ai_assistant",
+        "0025_business_file_opc"
+      ],
+      [
+        "ai_assistant",
+        "0026_business_promotion_profile"
+      ],
+      [
+        "ai_assistant",
+        "0027_business_promotion_file_guard"
+      ],
+      [
+        "ai_assistant",
+        "0028_business_finance_v3_gate"
+      ],
+      [
+        "ai_assistant",
+        "0029_business_promotion_file_ready"
+      ],
+      [
+        "ai_assistant",
+        "0030_business_finance_source_pages"
+      ],
+      [
+        "ai_assistant",
+        "0031_business_daily_v3_source_pages"
+      ],
+      [
+        "ai_assistant",
+        "0032_business_source_tool_receipts"
+      ],
+      [
+        "ai_assistant",
+        "0033_business_v3_parent_seal"
+      ],
+      [
+        "ai_assistant",
+        "0034_business_v3_report_intent"
+      ],
+      [
+        "ai_assistant",
+        "0035_business_v4_ledger"
+      ],
+      [
+        "ai_assistant",
+        "0036_business_v4_validation_segments"
+      ],
+      [
+        "ai_assistant",
+        "0037_business_v4_seal_admission_read"
+      ],
+      [
+        "ai_assistant",
+        "0038_business_v4_seal_writer_gate"
+      ],
+      [
+        "ai_assistant",
+        "0039_business_v4_sealer_ledger_read"
+      ],
+      [
+        "ai_assistant",
+        "0040_business_v4_sealer_narrow_stream"
+      ],
+      [
+        "ai_assistant",
+        "0041_business_v4_seal_ticket"
+      ],
+      [
+        "ai_assistant",
+        "0042_business_v4_claimed_read"
+      ],
+      [
+        "ai_assistant",
+        "0043_business_v4_seal_consumption_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0044_business_market_v2_profile"
+      ],
+      [
+        "ai_assistant",
+        "0045_business_market_v2_material_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0046_business_promotion_trial_file_guard"
+      ],
+      [
+        "ai_assistant",
+        "0047_business_v4_sealer_replay_progress"
+      ],
+      [
+        "ai_assistant",
+        "0048_business_v4_finance_replay_progress"
+      ],
+      [
+        "ai_assistant",
+        "0049_business_v4_sealer_source_bridge"
+      ],
+      [
+        "ai_assistant",
+        "0050_business_v4_replay_read_cast"
+      ],
+      [
+        "ai_assistant",
+        "0051_business_v4_prior_claim_column"
+      ],
+      [
+        "ai_assistant",
+        "0052_business_v4_commit_consumption"
+      ],
+      [
+        "ai_assistant",
+        "0053_business_market_v2_admitted_paused"
+      ],
+      [
+        "ai_assistant",
+        "0054_business_promotion_budget_file_staging"
+      ],
+      [
+        "ai_assistant",
+        "0055_business_v4_period_plan_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0056_business_market_v2_material_role_bridge"
+      ],
+      [
+        "ai_assistant",
+        "0057_business_promotion_budget_v10_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0058_business_promotion_budget_v10_publish_gate"
+      ],
+      [
+        "ai_assistant",
+        "0059_business_promotion_budget_v10_reader_fence"
+      ],
+      [
+        "ai_assistant",
+        "0060_business_market_v2_execution_snapshot"
+      ],
+      [
+        "ai_assistant",
+        "0061_business_market_v2_context_proof"
+      ],
+      [
+        "ai_assistant",
+        "0062_business_market_v2_read_receipt_candidate"
+      ],
+      [
+        "ai_assistant",
+        "0063_business_market_v2_execution_plan"
+      ],
+      [
+        "ai_assistant",
+        "0064_business_market_v2_synthetic_vertical"
+      ],
+      [
+        "ai_assistant",
+        "0065_business_market_v2_model_cost_reservation"
+      ],
+      [
+        "ai_assistant",
+        "0066_business_promotion_budget_v11_durable_stage"
+      ],
+      [
+        "ai_assistant",
+        "0067_business_promotion_budget_v11_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0068_business_promotion_budget_v11_verifier_receipt"
+      ],
+      [
+        "ai_assistant",
+        "0069_business_market_v2_paid_round_rehearsal"
+      ],
+      [
+        "ai_assistant",
+        "0070_business_promotion_budget_v11_limited_identity"
+      ],
+      [
+        "ai_assistant",
+        "0071_business_v4_report_source_link"
+      ],
+      [
+        "ai_assistant",
+        "0072_business_market_v2_authority_proposals"
+      ],
+      [
+        "ai_assistant",
+        "0073_business_promotion_budget_v11_login_attestation"
+      ],
+      [
+        "ai_assistant",
+        "0074_business_market_v2_human_cap_approval"
+      ],
+      [
+        "ai_assistant",
+        "0075_business_v4_report_restricted_page"
+      ],
+      [
+        "ai_assistant",
+        "0076_business_promotion_budget_v11_ticket_bound_signer"
+      ],
+      [
+        "ai_assistant",
+        "0077_business_market_v6_paused_topology"
+      ],
+      [
+        "ai_assistant",
+        "0078_business_promotion_budget_v11_signed_publication"
+      ],
+      [
+        "ai_assistant",
+        "0079_business_market_v6_source_ticket"
+      ],
+      [
+        "ai_assistant",
+        "0080_model_tool_budget_300"
+      ],
+      [
+        "ai_assistant",
+        "0081_readiness_catalog_probe"
+      ],
+      [
+        "ai_assistant",
+        "0082_no_new_keys_profile"
+      ],
+      [
+        "finance",
+        "0005_raw_column_evidence_v2"
+      ],
+      [
+        "finance",
+        "0006_raw_workbook_bytes_v2"
+      ],
+      [
+        "market",
+        "0006_analysis_options"
+      ],
+      [
+        "sales",
+        "0010_analysis_options"
+      ]
+    ],
+    "finalReceiptCount": 138,
+    "journalCommittedSteps": 76,
+    "journalSha256": "5bdb28fa8418ac801a0468bbcfad33506742084a9658687322e152d510256d66",
+    "migrationSourcesSha256": "02dfcb5319072caedaf0a1dac5d56b8317ece1f3abe26124dd7ce4f29ab14f47",
+    "modelBudgetAndVersionsVerified": true,
+    "ordinaryRoleStillUnprivileged": true,
+    "pinnedBaselineRuntimeGrants": true,
+    "privilegedSteps": [
+      "0068",
+      "0070",
+      "0073",
+      "0074",
+      "0076",
+      "0077",
+      "0078",
+      "0079",
+      "0082"
+    ],
+    "productionInstallerEngineVerified": true,
+    "productionWrites": false,
+    "rehearsalScriptSha256": "97f75be3b027a664f2fb22e28f7f9af11fda1c1564273be0bdfe8ec948c019ef",
+    "reviewedPolicySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
+    "roleMemberships": 0,
+    "status": "mixed_completed"
+  },
+  "productionAdoptionCompleted": false,
+  "productionBackupClone": {
+    "baselineBackupSha256": "c9c4cf9ea5c6389b63e35b8f53f7aefa00206940a52c8230eb6fef0cc78e9c88",
+    "journalCommittedSteps": 76,
+    "journalSha256": "a8864c9d90e6e9de05fe3b086c28ddc323a771dd3e4771d6f83274293999d36b",
+    "limitation": "baseline data and AI grants tested; other domain services were not started",
+    "migrationCount": 138,
+    "modelBudgetAndVersionsVerified": true,
+    "productionWrites": false,
+    "reviewedPolicySha256": "5e3e0469129f828551f699141c37a64e8e26d504657bdcdc1cd032fc683fedd2",
+    "runtimeReady": {
+      "ai_reader": true,
+      "ai_writer": true
+    },
+    "status": "passed"
+  },
+  "productionInstalled": false,
+  "productionWrites": false,
+  "restore": {
+    "archiveEncrypted": false,
+    "archivePolicy": "no-new-keys-closed-profile-v1",
+    "archiveSha256": "1e84ef2d385007c63f98218c729e6533060e3d6ee9851e3428fa20ffe113f299",
+    "contentSha256": "4307ab77f706a1f7bd4cf8c76cbb373ad0731c699a46bf5a087dbb79f57cad8c",
+    "fileFormats": [
+      [
+        "html",
+        1,
+        65548
+      ],
+      [
+        "xlsx",
+        1,
+        30814
+      ]
+    ],
+    "formalBackupPathVerified": false,
+    "maintenancePowerShellPayloadVerified": true,
+    "maintenancePythonBackupRestoreVerified": true,
+    "newRecoveryKeyGenerated": false,
+    "nonemptyPrivateKeyTableRejectedBeforeBackup": true,
+    "ownerAclAndRowsPreserved": true,
+    "privateKeyGrantDriftRejected": true,
+    "privateKeyRows": 0,
+    "productionWrites": false,
+    "restoredRuntimeReady": {
+      "ai_reader": true,
+      "ai_writer": true
+    },
+    "roleCount": 31,
+    "rows": 307,
+    "runtimePrivilegeNegativeChecks": 25,
+    "sourcePort": 55763,
+    "status": "passed",
+    "tables": 295,
+    "targetPort": 55764
+  },
+  "schemaVersion": "integration-formal-candidate-v1",
+  "sourceFileCount": 1468,
+  "sourcePolicySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
+  "unitChecks": {
+    "journalTestsPassed": 6,
+    "lintErrors": 0,
+    "lintWarnings": 12,
+    "maintenanceTestsPassed": 19,
+    "nodeCancelled": 0,
+    "nodeFailed": 0,
+    "nodePass": 2676,
+    "nodeSkipped": 20,
+    "releaseGateTestsPassed": 6
+  }
+}

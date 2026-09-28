@@ -244,10 +244,17 @@ def worker(stage, port, privileged_steps, reviewed_policy):
                 if (approved.next_step != ".".join(step) or
                         approved.next_identity != ("privileged" if selected_role == ADMIN else "owner")):
                     raise RuntimeError("requested migration differs from reviewed policy")
-            intent_sha256 = journal.reserve(approved) if journal else None
             try:
-                use_role(selected_role)
-                MigrationExecutor(connection).migrate([tuple(step)])
+                if journal:
+                    from integration_install import apply_django_step
+                    def inspect_step():
+                        use_role(OWNER)
+                        return current_plan()
+                    verified = apply_django_step(approved, journal, inspect_step,
+                        lambda privileged: use_role(ADMIN if privileged else OWNER))
+                else:
+                    use_role(selected_role)
+                    MigrationExecutor(connection).migrate([tuple(step)])
             except Exception as error:
                 cause = error
                 while getattr(cause, "__cause__", None) is not None:
@@ -268,9 +275,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
             if set(map(tuple, after["receipts"])) - set(map(tuple, before["receipts"])) != {tuple(step)}:
                 raise RuntimeError("migration applied an unexpected dependency")
             if approved is not None:
-                verified = current_plan()
                 confirm_single_step(approved, verified)
-                journal.complete(approved, verified, intent_sha256)
             completed.append(step)
         else:
             final = state()
@@ -288,6 +293,7 @@ def worker(stage, port, privileged_steps, reviewed_policy):
                 "reviewedPolicySha256": policy.sha256 if policy else None,
                 "journalSha256": journal.complete_digest(current_plan()) if journal else None,
                 "journalCommittedSteps": len(completed) if journal else 0,
+                "productionInstallerEngineVerified": bool(journal),
                 "pinnedBaselineRuntimeGrants": os.environ.get("TERUISI_SYNTHETIC_BASELINE_RUNTIME_GRANTS") == "1",
                 "roleMemberships": 0, "productionWrites": False}
     print(json.dumps(result), flush=True)

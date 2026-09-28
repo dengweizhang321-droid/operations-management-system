@@ -8,6 +8,7 @@ param(
   [string]$RehearsalId = "",
   [ValidateRange(55432, 55999)]
   [int]$RehearsalPort = 55432,
+  [ValidateSet('D','E')][string]$RehearsalDrive = 'D',
   [ValidateRange(7, 3650)]
   [int]$RetentionDays = 30,
   [ValidateRange(3, 365)]
@@ -57,6 +58,7 @@ $MaintenanceRequest = [pscustomobject][ordered]@{
   ApprovedManifestSha256 = $ApprovedManifestSha256
   RehearsalId = $RehearsalId
   RehearsalPort = $RehearsalPort
+  RehearsalDrive = $RehearsalDrive
   RetentionDays = $RetentionDays
   MinimumSuccessfulBackups = $MinimumSuccessfulBackups
   Execute = $Execute.IsPresent
@@ -1501,6 +1503,41 @@ function Initialize-MaintenanceRehearsalRoles(
   }
 }
 
+function Get-MaintenanceRehearsalParent([bool]$Create = $false) {
+  if ($MaintenanceRequest.RehearsalDrive -cne 'E') {
+    $parent = Assert-RuntimeChildPath (Join-Path $MaintenanceRequest.RuntimeRoot 'rehearsals\postgres-restore')
+    if ($Create) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    return $parent
+  }
+  $parent = 'E:\TERUISI-Postgres-Rehearsals'
+  if (-not (Test-Path -LiteralPath $parent)) {
+    if (-not $Create) { throw 'Protected E-drive rehearsal root is missing' }
+    New-Item -ItemType Directory -Path $parent | Out-Null
+    $directory = Get-Item -LiteralPath $parent -Force
+    $dacl = New-RuntimeRootDacl
+    if ($null -ne ('System.IO.FileSystemAclExtensions' -as [type])) {
+      [IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]$directory,$dacl)
+    } else { $directory.SetAccessControl($dacl) }
+  }
+  Assert-MaintenanceNoReparsePoints $parent 'Protected E-drive rehearsal root'
+  $directory = Get-Item -LiteralPath $parent -Force
+  if (-not $directory.PSIsContainer) { throw 'Invalid E-drive rehearsal root' }
+  $acl = if ($null -ne ('System.IO.FileSystemAclExtensions' -as [type])) {
+    [IO.FileSystemAclExtensions]::GetAccessControl([IO.DirectoryInfo]$directory,[Security.AccessControl.AccessControlSections]::Access)
+  } else { $directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Access) }
+  $rules = @($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))
+  $allowed = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
+  if (-not $acl.AreAccessRulesProtected -or $rules.Count -ne $allowed.Count) { throw 'E-drive rehearsal ACL is not private' }
+  foreach ($rule in $rules) {
+    if ($rule.IsInherited -or $rule.IdentityReference.Value -cnotin $allowed -or
+        $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+        $rule.FileSystemRights -ne [Security.AccessControl.FileSystemRights]::FullControl -or
+        $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None -or
+        [int]$rule.InheritanceFlags -ne 3) { throw 'E-drive rehearsal ACL differs from the private contract' }
+  }
+  return $parent
+}
+
 function Remove-MaintenanceRehearsalData(
   [string]$DataDirectory,
   [string]$RehearsalRoot,
@@ -1510,9 +1547,7 @@ function Remove-MaintenanceRehearsalData(
   if (-not (Test-Path -LiteralPath $DataDirectory)) { return }
   $root = Get-MaintenanceCanonicalPath $RehearsalRoot
   $data = Get-MaintenanceCanonicalPath $DataDirectory
-  $expectedParent = Assert-RuntimeChildPath (
-    Join-Path $MaintenanceRequest.RuntimeRoot "rehearsals\postgres-restore"
-  )
+  $expectedParent = Get-MaintenanceRehearsalParent $false
   if ([IO.Path]::GetFileName($root) -cne "restore-$ExpectedRehearsalId" -or
       (Get-MaintenanceCanonicalPath (Split-Path -Parent $root)) -ine
         (Get-MaintenanceCanonicalPath $expectedParent) -or
@@ -1544,13 +1579,11 @@ function Invoke-MaintenanceRestoreRehearsal {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
 
-  $rehearsalParent = Assert-RuntimeChildPath (
-    Join-Path $MaintenanceRequest.RuntimeRoot "rehearsals\postgres-restore"
-  )
-  New-Item -ItemType Directory -Path $rehearsalParent -Force | Out-Null
-  $rehearsalRoot = Assert-RuntimeChildPath (
-    Join-Path $rehearsalParent "restore-$($MaintenanceRequest.RehearsalId)"
-  )
+  $rehearsalParent = Get-MaintenanceRehearsalParent $true
+  $rehearsalRoot = Get-MaintenanceCanonicalPath (Join-Path $rehearsalParent "restore-$($MaintenanceRequest.RehearsalId)")
+  if ((Get-MaintenanceCanonicalPath (Split-Path -Parent $rehearsalRoot)) -ine $rehearsalParent) {
+    throw 'Restore rehearsal path escaped the approved parent'
+  }
   if (Test-Path -LiteralPath $rehearsalRoot) {
     throw "相同 RehearsalId 的隔离恢复记录已存在；拒绝覆盖或复用"
   }
@@ -1709,6 +1742,10 @@ function Invoke-MaintenanceRestoreRehearsal {
       productionDatabaseTouched = $false
       serviceStateChanged = $false
       cleanupStatus = $cleanupStatus
+    }
+    if ($noKeys) {
+      $result | Add-Member -NotePropertyName profileRestoreVerified -NotePropertyValue $true
+      $result | Add-Member -NotePropertyName profileContentSha256 -NotePropertyValue ([string]$probe.profileEvidence.contentSha256)
     }
   } catch {
     $failure = $_.Exception
