@@ -1,0 +1,612 @@
+{
+  "version": "teruisi-optimization-integration-candidate-v1",
+  "status": "integrated_verified_prepared_awaiting_production_approval",
+  "codeCommit": "4fa95986db54f4b3b6dea8ddfb2e68e3bc089b64",
+  "sourceHeads": [
+    "321a7c33cf9cc1bd1a923b7ca3bd34155c94f588",
+    "ce192d352c34096b0382e5992dd998879d77f582",
+    "a1a088d73269254d3d68a49fc0153d11fc828180",
+    "aea9986d50b796c892ac3d1c1b8a969d7a9f58e4",
+    "99fcdf7b230341aac6f96204f19d6e175cbf34af",
+    "c00bc376bc2c6442c06ec3515906edec48e4bed1",
+    "1bb12decc7af88f0faf0e5907427268f45ce705b"
+  ],
+  "togetherInOneBatch": [
+    2,
+    7
+  ],
+  "integrationFixes": [
+    "a96730e7",
+    "33b5486e",
+    "4fa95986"
+  ],
+  "validation": {
+    "finalNode": {
+      "tests": 2736,
+      "pass": 2716,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 20
+    },
+    "initialNode": {
+      "tests": 2736,
+      "pass": 2716,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 20
+    },
+    "python": 45,
+    "rendered": 20,
+    "nativeShellGroups": 14,
+    "postgresDrain": 74,
+    "postgresMarket": 140,
+    "negativeMarketPermissionProbes": 9,
+    "realIsolatedN8nScenarios": 6,
+    "lintErrors": 0,
+    "preExistingLintWarnings": 12,
+    "backendBoundaryModules": 547,
+    "build": "passed"
+  },
+  "validationHistory": [
+    "The initial capacity fixture referenced the superseded gate; updated its explicit no-maintenance fixture and reran both shells.",
+    "Unknown direct-backup results were first reproduced as failing negative tests, then fixed; final full suite passed."
+  ],
+  "workerCandidate": {
+    "status": "planned",
+    "version": "teruisi-local-worker-release-rotation-plan-v1",
+    "planSha256": "477942a2eceeef28d13fff424c433831416bafb2d2ef37326497a92f87ff087d",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\477942a2eceeef28d13fff424c433831416bafb2d2ef37326497a92f87ff087d.json",
+    "predecessorReleaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "candidateReleaseId": "20260928T205715Z-8b977fa9a3715321",
+    "candidateManifestSha256": "635217760d526759e007e9946e0cef7f3a5be45e36cd8f606178cbe78079c5a3",
+    "candidateGuardReceiptSha256": "775a684ce61902e64891463127a979157437b1cc1acfab411200024ea1d0ac7e",
+    "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+  },
+  "djangoCandidate": {
+    "id": "7dbaa5bb0b764ce2a71c9a27e41b5f2d",
+    "receiptSha256": "20764506dd638133917886c032e88c6129bcf070396f7ffabe9880ab26ac96d0",
+    "appFingerprint": "d632972da53492310be90cae09b093bdb5f322d599dc1b28e99af5ee4767943e"
+  },
+  "djangoBinding": {
+    "id": "7dbaa5bb0b764ce2a71c9a27e41b5f2d",
+    "predecessorManifestSha256": "1ce8d0c99fc689417aa50cd2d9a9bad48edd22faa06ef7a89e67be190c5146f3",
+    "candidateManifestSha256": "d7888a5624dc771c2f5b4b4ea938cc30382ee6c932911a7bc23003ebcd4cc2bf",
+    "installedManifestUnchanged": true
+  },
+  "backup": {
+    "status": "completed",
+    "backupId": "daily-20260928T210553Z-26d4cef45619",
+    "backupDirectory": "E:\\运营管理系统业务数据\\daily-20260928T210553Z-26d4cef45619",
+    "manifestSha256": "394b9d57d10e34cf14ecfb3a71a7c7c977334d023a78b66cbcd6e0a1bf140cb1",
+    "dumpSha256": "c9f7f8d666a28c5ffa9c38e3e8e525eadc721663a9dfd3ae660f404c49d41ce5",
+    "contentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+    "completedAt": "09/29/2026 05:11:49",
+    "serviceStateChanged": false,
+    "retention": {
+      "version": "teruisi-backup-retention-plan-v2",
+      "maximumRecoveryPoints": 3,
+      "retainedVerification": "full-evidence",
+      "discardedVerification": "container-integrity",
+      "retained": [
+        "daily-20260928T210553Z-26d4cef45619",
+        "daily-20260928T145714Z-78107f0c7a59",
+        "daily-20260928T125351Z-31cb501bc72d"
+      ],
+      "removed": [
+        "daily-20260928T135914Z-ff7f06dc6b94"
+      ],
+      "serviceStateChanged": false
+    },
+    "releaseRetention": {
+      "serviceStateChanged": false,
+      "status": "completed",
+      "removedPayloads": 4
+    }
+  },
+  "backupVerify": {
+    "status": "completed",
+    "backupId": "daily-20260928T210553Z-26d4cef45619",
+    "manifestSha256": "394b9d57d10e34cf14ecfb3a71a7c7c977334d023a78b66cbcd6e0a1bf140cb1",
+    "dumpSha256": "c9f7f8d666a28c5ffa9c38e3e8e525eadc721663a9dfd3ae660f404c49d41ce5",
+    "contentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+    "serviceStateChanged": false
+  },
+  "backupCompletedAt": "2026-09-28T21:11:49.8003123+00:00",
+  "migrationCount": 138,
+  "restore": {
+    "version": "teruisi-postgres-restore-rehearsal-v1",
+    "status": "completed",
+    "rehearsalId": "a5a69d60853e",
+    "startedAt": "2026-09-28T21:18:18.6359514+00:00",
+    "completedAt": "2026-09-28T21:27:30.0390815+00:00",
+    "backupId": "daily-20260928T210553Z-26d4cef45619",
+    "backupManifestSha256": "394b9d57d10e34cf14ecfb3a71a7c7c977334d023a78b66cbcd6e0a1bf140cb1",
+    "dumpSha256": "c9f7f8d666a28c5ffa9c38e3e8e525eadc721663a9dfd3ae660f404c49d41ce5",
+    "expectedContentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+    "restoredContentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+    "isolatedPort": 55893,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed",
+    "profileRestoreVerified": true,
+    "profileContentSha256": "30da8c185432fb643c3d215ce81e8bdccc9a5f797c6c48d9d1601591704fa097",
+    "policySyntaxEquivalenceVerified": false,
+    "policySyntaxWitnessSha256": ""
+  },
+  "backupProtection": {
+    "protectedIds": [
+      "daily-20260928T125351Z-31cb501bc72d",
+      "daily-20260928T210553Z-26d4cef45619"
+    ],
+    "backupCount": 3,
+    "maximumRecoveryPoints": 3,
+    "restorePortReleased": true,
+    "restoreDataRemoved": true,
+    "dStagingCount": 0
+  },
+  "n8nReview": {
+    "preparedAt": "2026-09-28T20:33:08.759Z",
+    "status": "offline_review_only",
+    "sourceCommit": "a96730e7648f17fe5d6ed562d39ea5c58c5880ce",
+    "productionDefinitionsChanged": false,
+    "items": [
+      {
+        "id": "J8kY2mQ5vR7sT4pN",
+        "name": "吉客云导入系统",
+        "originalActive": true,
+        "originalVersionId": "91d35933-8b9f-4ae8-a444-cbd74ee64381",
+        "originalDefinitionSha256": "1310bcdf7d39eecf037c5becaf4c1efec44c6de4d719daa922aff88d6463348a",
+        "candidateDefinitionSha256": "4c75fdeaf46ad2b4aa023ad694ec57efff9d45232224fa63ce33a34473392be8",
+        "originalFile": "J8kY2mQ5vR7sT4pN.original.json",
+        "originalFileSha256": "7bdb558188629e6a3cb7fc11ab7426a1f742e85892283c86a765ba9f62d9b97c",
+        "candidateFile": "J8kY2mQ5vR7sT4pN.candidate.json",
+        "candidateFileSha256": "9c8d3eba853391f1f31b02a9c2750038ba22e48bfab9950ed5186efc733c7f28",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "JdN8nSilentCopy2026",
+        "name": "京东多店铺商品数据统一下载与导入（Chromium静默下载副本）",
+        "originalActive": true,
+        "originalVersionId": "a441654e-eca1-4294-a15e-2f521549f0b4",
+        "originalDefinitionSha256": "0dec66729dce1b1e9564d1e8b4785fa1727f7eddfbd846ea26cf8a9c80e059de",
+        "candidateDefinitionSha256": "55191594df58e458d504872747a0758b291cb57b63df65c047a51d45da55427f",
+        "originalFile": "JdN8nSilentCopy2026.original.json",
+        "originalFileSha256": "2799fa289811fad681cc435bfc5d2b8c235847e250e9879fb00ee9bf7fe0bc7c",
+        "candidateFile": "JdN8nSilentCopy2026.candidate.json",
+        "candidateFileSha256": "e5375888baa2b9e778fe9dcf6d5ca094b1ac11a9e250639c8def8a3669b97f4f",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "JdMarketSilentCopy2026",
+        "name": "京东市场商品榜单缺失日下载与导入（Profile 3 Chromium静默下载副本）",
+        "originalActive": true,
+        "originalVersionId": "42822146-296a-47fd-b88f-235800517072",
+        "originalDefinitionSha256": "76554390696920173ea8bf8a4671ce2ba45f09c14f760acf0d6bdc5eebcee70c",
+        "candidateDefinitionSha256": "4451a4a693b0d5d7b737b7136179b79a2f1f6209ed4aecd1cefcdb6690502ee1",
+        "originalFile": "JdMarketSilentCopy2026.original.json",
+        "originalFileSha256": "0e30c34204980066a119eb96d2c199c87394864770320f2452eca9318ee04523",
+        "candidateFile": "JdMarketSilentCopy2026.candidate.json",
+        "candidateFileSha256": "aa34388cc1aeabdd31e9b6b3273c71c73a9be45c8ae0b62becb7dc762440c552",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "JdPromotionDaily2026",
+        "name": "京东志高商用设备AI推广数据下载与导入",
+        "originalActive": true,
+        "originalVersionId": "8b43b538-8a96-4361-b40b-ce1aaa772abf",
+        "originalDefinitionSha256": "80cd55ce505aa6764186c932e5ba08e4f35641a95438e335f968dbc2f48421d6",
+        "candidateDefinitionSha256": "2ab01c20d3f55d651b682315e001fa87d4657badba9718496b1c4ad6cdd7ea79",
+        "originalFile": "JdPromotionDaily2026.original.json",
+        "originalFileSha256": "cafd2b8464e54304fbe52123548c34cdaa5f6f53b62057c3d80403a222ca9427",
+        "candidateFile": "JdPromotionDaily2026.candidate.json",
+        "candidateFileSha256": "c753971dba6cc63a6560438bc9157b90c70cd7dee9a78452f683728b59f5e4a1",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "JdPromotionCutMeat2026",
+        "name": "京东志高切肉机AI推广数据下载与导入",
+        "originalActive": true,
+        "originalVersionId": "a93a5115-c6f4-456c-be90-a63c0b4742f6",
+        "originalDefinitionSha256": "a15c9711a9cbb0b5ce502a655a4f8beb70988d7f0d8206cd67b39542affbb22c",
+        "candidateDefinitionSha256": "a7065dc6e4a94de35a3bf7d418f10cc85da6ac83799b054b444f9c697a776151",
+        "originalFile": "JdPromotionCutMeat2026.original.json",
+        "originalFileSha256": "9b9d18f7c4b0709cd8767111ef62b360981f1c5acdcf89dbe66c5049b5ce6777",
+        "candidateFile": "JdPromotionCutMeat2026.candidate.json",
+        "candidateFileSha256": "02e939fee42844d75013fc86dbd9964824b6f0ef515f5166eb6a05fe7b2eec96",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "M4xY8kQ2vR6sT9pC",
+        "name": "天猫店铺数据导入（亿玖 P/M 直连·每日 M）",
+        "originalActive": true,
+        "originalVersionId": "853f2af7-0316-4d89-8a84-0cb13fbecbca",
+        "originalDefinitionSha256": "fb24dc774be8644bcddbf3b54ff5e39500f4208fab0755748aeae5cb2269a7dd",
+        "candidateDefinitionSha256": "30b34f389910771832ac4221465212149a1644c977a5b1486b340a1feadc7a59",
+        "originalFile": "M4xY8kQ2vR6sT9pC.original.json",
+        "originalFileSha256": "24a19888fce3d3c7b26feea573679cbef50f044d63e417ae308e37a10ac4e7a9",
+        "candidateFile": "M4xY8kQ2vR6sT9pC.candidate.json",
+        "candidateFileSha256": "8ccf081c37def7180e617869b8c836bf42b826751714bd0c4d6ac6935db4315a",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TmallLiliDaily2026",
+        "name": "天猫店铺数据导入-丽力",
+        "originalActive": true,
+        "originalVersionId": "a4cdc9e1-3aec-4ce6-8735-56835045c6b4",
+        "originalDefinitionSha256": "782ff0a4a7909710360a2cafba0b4bfbfb5f5d91dcb00a8e3e2e7251fda4301c",
+        "candidateDefinitionSha256": "bc37d61155a1a968c5082a84745c95912b079f29c58a58a9df699e2be305700b",
+        "originalFile": "TmallLiliDaily2026.original.json",
+        "originalFileSha256": "4b59d84000952b083c86af37023f78ccc752066e4ebd24737aac75b9ff832966",
+        "candidateFile": "TmallLiliDaily2026.candidate.json",
+        "candidateFileSha256": "c0e5af9dced8eabee3fe7ac84026ee83795470266d2f87689029e1e374478ef8",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TmallTuofengDaily2026",
+        "name": "天猫店铺数据导入-拓丰",
+        "originalActive": true,
+        "originalVersionId": "2ca9473c-783e-4302-b3b2-af73db16ccf1",
+        "originalDefinitionSha256": "4356ed881bdc769adbc00a64f517700f5a172f18868575c67f581c0f13c4243d",
+        "candidateDefinitionSha256": "d95d2061257e46b9249e95d0562241be67da2e056b19a0662e64cdcce8cf7570",
+        "originalFile": "TmallTuofengDaily2026.original.json",
+        "originalFileSha256": "a778502e1f0587c1ddaf4a3663931e5c4745bf781b6ecaa2c72dba1457015713",
+        "candidateFile": "TmallTuofengDaily2026.candidate.json",
+        "candidateFileSha256": "0c884b32ef386b1827600d17a80d783eb81647ca079af87a94b670f60542b928",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TmallCuizhiwangDaily2026",
+        "name": "天猫店铺数据导入-炊之王",
+        "originalActive": true,
+        "originalVersionId": "86d085df-a5ec-407f-a601-94d22c99fd40",
+        "originalDefinitionSha256": "4942cf3c25d9eaa792c98b1f4d7b78ca54a197efdc651260d0a5c42d49caa6ea",
+        "candidateDefinitionSha256": "eabd2a81f5efc0afb2451fbfe179a6250d82ede76645d5adcdc54a2f26a64caf",
+        "originalFile": "TmallCuizhiwangDaily2026.original.json",
+        "originalFileSha256": "2002bc7c32329c8d0dbb2e845cf146fd0904339179e54f2a6c46511d272866b7",
+        "candidateFile": "TmallCuizhiwangDaily2026.candidate.json",
+        "candidateFileSha256": "cf8b4c6affdad5395932983026d6ec74cdbded6a44c9d1bfe53a67d5509bf3bf",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TmallMasituDaily2026",
+        "name": "天猫店铺数据导入-马思图",
+        "originalActive": true,
+        "originalVersionId": "ea61deb6-3a6e-46a1-b407-df4ed3ca272d",
+        "originalDefinitionSha256": "ea850930841fb074a908c99f533ebaa9ce249bdb429add516e2b89bc932b0d87",
+        "candidateDefinitionSha256": "adc4ba683bff2032ba2516af3049d44c5e8f7f223cbe17561bcb84f238c7003f",
+        "originalFile": "TmallMasituDaily2026.original.json",
+        "originalFileSha256": "5326ae35b6fa83ca9521a9427318f75e2cedf32eb7c80d8681f0d04174f172a6",
+        "candidateFile": "TmallMasituDaily2026.candidate.json",
+        "candidateFileSha256": "69a2a1f0ba43c1b55acb0b1b3262e543a6a239db0c0312751ec6e1e3675b4ce0",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TmallYiyongDaily2026",
+        "name": "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）",
+        "originalActive": true,
+        "originalVersionId": "aab474d8-0c35-42c0-b4b0-e28ea02e7730",
+        "originalDefinitionSha256": "cbd75c6851226dbdc13171ad3d45cea4346e7c7acb7320b3f699c3dc451cd90a",
+        "candidateDefinitionSha256": "2e964b4555561eb9f63a28d5143326a182e0afccfec77859738a841112133943",
+        "originalFile": "TmallYiyongDaily2026.original.json",
+        "originalFileSha256": "9fff93e8a4cbbb29fca3c94c1560b939c7cd5ea89039163c13e5786534261051",
+        "candidateFile": "TmallYiyongDaily2026.candidate.json",
+        "candidateFileSha256": "65148b38284790c9b7b2256baf00cd741812e52e91de33ce4b3d20a0f7c263e3",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      },
+      {
+        "id": "TeruisiHourlyRetry2026",
+        "name": "数据下载导入工作流每小时安全重试",
+        "originalActive": true,
+        "originalVersionId": "e477fdf4-ccf2-4e4e-bad4-ba8bff7b2d54",
+        "originalDefinitionSha256": "3606a1253f29698a7694b3c36d7d404a7e59a3e4505a89c233aa914e00849e03",
+        "candidateDefinitionSha256": "83c364316d943f1196196b9a5e8e32a741d3145ce736c3c85f08a200cb76a7c6",
+        "originalFile": "TeruisiHourlyRetry2026.original.json",
+        "originalFileSha256": "696a09f3399121b5e3518b9762b61e9014ae8f7caba472fc48c9f9486b3b9702",
+        "candidateFile": "TeruisiHourlyRetry2026.candidate.json",
+        "candidateFileSha256": "e5cef6d1a1fc22b8dc4072ffcf14c5e33dec967dad53eec925be3bd077852fde",
+        "schedulePreserved": true,
+        "settingsPreserved": true
+      }
+    ],
+    "skipped": [
+      {
+        "id": "JdN8nM3uL7tI2026",
+        "reason": "inactive_original_preserved"
+      },
+      {
+        "id": "JdMarketDaily2026",
+        "reason": "inactive_original_preserved"
+      }
+    ]
+  },
+  "productionBefore": {
+    "checkedAt": "2026-09-29T04:40:32.1593930+08:00",
+    "djangoManifestSha256": "1ce8d0c99fc689417aa50cd2d9a9bad48edd22faa06ef7a89e67be190c5146f3",
+    "workerSourceHead": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e",
+    "releaseSourceHead": "33b5486e7801562d2f1edbf1038f63c53625848e",
+    "postgres": {
+      "Id": 11332,
+      "StartTime": "2026-09-25T17:43:40.2494496+08:00"
+    },
+    "n8n": {
+      "Id": 17868,
+      "StartTime": "2026-09-25T17:41:47.4188886+08:00"
+    },
+    "supervisor": {
+      "Id": 32412,
+      "StartTime": "2026-09-28T22:56:41.0481505+08:00"
+    }
+  },
+  "productionAfter": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "supervisorProcessId": 32412,
+    "portProcessId": 52044,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-29T05:30:29.7098638+08:00"
+  },
+  "finalBindings": {
+    "checkedAt": "2026-09-29T05:32:08.9075185+08:00",
+    "djangoManifestUnchanged": true,
+    "n8nDefinitionsUnchanged": true,
+    "processesUnchanged": true,
+    "trackedProcesses": [
+      {
+        "name": "postgres",
+        "id": 11332,
+        "startTime": "2026-09-25T17:43:40.2494496+08:00",
+        "unchanged": true
+      },
+      {
+        "name": "n8n",
+        "id": 17868,
+        "startTime": "2026-09-25T17:41:47.4188886+08:00",
+        "unchanged": true
+      },
+      {
+        "name": "supervisor",
+        "id": 32412,
+        "startTime": "2026-09-28T22:56:41.0481505+08:00",
+        "unchanged": true
+      }
+    ],
+    "protectedEntrypoints": [
+      {
+        "path": "package.json",
+        "predecessorMatches": true
+      },
+      {
+        "path": "运行项目.bat",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/operations-system-control.ps1",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/start-local-worker.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/worker-authority-guard.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/d1-retirement-proof.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/collect-d1-retirement-proof.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/worker-local-release.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/worker-local-release-rotation.mjs",
+        "predecessorMatches": true
+      },
+      {
+        "path": "tools/worker-local-service.ps1",
+        "predecessorMatches": true
+      },
+      {
+        "path": ".runtime/worker-release-activation-fence.json",
+        "predecessorMatches": true
+      }
+    ],
+    "backupSchedulerPaused": true,
+    "n8nNonterminalAtFinalRead": [],
+    "maintenanceAbsent": true,
+    "drainAbsent": true,
+    "workerProcessUnchanged": true,
+    "candidateManifestsVerified": true,
+    "n8nFinalObservedAt": "2026-09-28T21:34:33.406Z",
+    "naturalWeeklyCheck": {
+      "manualReplay": false,
+      "executionId": "5284",
+      "status": "success"
+    }
+  },
+  "runtimeChanges": {
+    "deployed": false,
+    "servicesStoppedOrRestarted": false,
+    "migrationsApplied": false,
+    "n8nPublished": false,
+    "backupSchedulerResumed": false,
+    "manualBusinessReplay": false,
+    "freshBackupCreated": true,
+    "isolatedRestorePerformed": true
+  },
+  "sourceAndDelivery": {
+    "remoteMainContainsCode": true,
+    "localProductionMain": "e00d4a82",
+    "fixedReleaseSource": "D:\\运营管理系统-sales-django-release",
+    "reasonForDeferredLocalFastForward": "Primary checkout holds installed guarded startup bytes; synchronize only in the approved maintenance cutover.",
+    "rollbackTag": "rollback/pre-optimization-integration-20260929",
+    "rollbackCode": "e00d4a82"
+  },
+  "logDigests": [
+    {
+      "name": "full-unit.log",
+      "sha256": "36fcdfc1a8acbed0da7a39188ce53d9cfb184733d9829a74866c56d2c9871286"
+    },
+    {
+      "name": "full-unit-final.log",
+      "sha256": "de485cc93549c37bee027ce3aa2999f8671779ba68bdeac9e477a8705e7f80df"
+    },
+    {
+      "name": "targeted.log",
+      "sha256": "c810dc9a1b076849e8291af1f09fee3e83a5a24dc1cf2abb5466fe5259cd34a0"
+    },
+    {
+      "name": "unresolved-operator-before.log",
+      "sha256": "b9fd95745662a019c4430443c7e0d611349ee94afc1fd3cdc375e4091607face"
+    },
+    {
+      "name": "unresolved-operator-after.log",
+      "sha256": "6319fec34c52be802e9727e45d00d4d1b08ff202f7325fdacaeea13d0d36b926"
+    },
+    {
+      "name": "build.log",
+      "sha256": "669a7cdfcc17da2d9b2be5a2260affb5e6fb592605d515e37fe7823ea3c95440"
+    },
+    {
+      "name": "lint.log",
+      "sha256": "9583462a43007a8812f8055b9e511d8fd6986f482286bfa15cf6d9ee6b211461"
+    },
+    {
+      "name": "boundary.log",
+      "sha256": "748820418e19fdb4b6f9959df28058c96081c51e3b093ace1dcf0ecdb0ef08d1"
+    },
+    {
+      "name": "rendered.log",
+      "sha256": "37ca3249523c003388416c5ff93422aba36030dd8c9d82c9c5045be401f76fd4"
+    },
+    {
+      "name": "drain-postgres.log",
+      "sha256": "de45f95f738afbf5e1d13694d717e9abdca58e54789b49a3498138ce759c1dfe"
+    },
+    {
+      "name": "market-postgres.log",
+      "sha256": "5dbec2a0199abeb8726d86f71e580d388dafb935efbc576321653e5a95ce1de2"
+    },
+    {
+      "name": "n8n-isolated.log",
+      "sha256": "3ce256c6e48ae36a72ac3ea9b8ed02dced0fef55f504658038e0004f74a23b83"
+    },
+    {
+      "name": "django-prepare.json",
+      "sha256": "d0efb8918fc05a91731a3e4f1e3a3c08cbbb76b321353010054fd801f54bfd2d"
+    },
+    {
+      "name": "worker-plan.json",
+      "sha256": "665fee4deea941fc45c573cc6c8db4439931bdf82a1f5585a548664af0802554"
+    },
+    {
+      "name": "backup.json",
+      "sha256": "96c4127da5a77f0ae4d1f440dff10e13f3aba7621072728036061f19f4161a66"
+    },
+    {
+      "name": "backup-verify.json",
+      "sha256": "51b63eaa6424ab1f4b0d1ed5357e4b99ad73b2b830b6b27c94f578da1f44b88d"
+    },
+    {
+      "name": "restore.json",
+      "sha256": "ac695e4ac39eced88980d840220a2730f1a60169784ddf93cd4248f68a0c7dc4"
+    },
+    {
+      "name": "powershell.exe-automation-drain.test.ps1.final.log",
+      "sha256": "8914b41418095671f116600415c6b3d291ecd20d4a9db94bce78a33ac3b0cd80"
+    },
+    {
+      "name": "powershell.exe-backup-console-fence.test.ps1.final.log",
+      "sha256": "60a6cb36093a86b131ed7f63691dec3bf07790ac720c8ab8e57079fcb769e6cb"
+    },
+    {
+      "name": "powershell.exe-backup-direct-maintenance-fence.test.ps1.final.log",
+      "sha256": "72b9aab876d76622c25220f9e1492b48439f2c39747fa023afcb777b268bc13f"
+    },
+    {
+      "name": "powershell.exe-postgres-backup-archive-acl.test.ps1.final.log",
+      "sha256": "15e3db5c09d24d3cb49c477f1b0ccbd26b74b8867eb23955e7352fdc4e73ce7a"
+    },
+    {
+      "name": "powershell.exe-postgres-backup-continuity.test.ps1.final.log",
+      "sha256": "df544a5eba26f1dd1b8a35f9889fc5626f60d6de43430c46cb4bbb7c58ca7f8a"
+    },
+    {
+      "name": "powershell.exe-postgres-backup-retention.test.ps1.final.log",
+      "sha256": "f52c4fea3b2fe3e1b73083a2bb23f25cdb3b1d32c0a075235f3a66860f68a922"
+    },
+    {
+      "name": "powershell.exe-release-retention-scope.test.ps1.final.log",
+      "sha256": "9e7405ffa877a2ffb3af28531d6e139062b9c9c260102d20711f95c34c1dcab8"
+    },
+    {
+      "name": "pwsh.exe-automation-drain.test.ps1.final.log",
+      "sha256": "8914b41418095671f116600415c6b3d291ecd20d4a9db94bce78a33ac3b0cd80"
+    },
+    {
+      "name": "pwsh.exe-backup-console-fence.test.ps1.final.log",
+      "sha256": "60a6cb36093a86b131ed7f63691dec3bf07790ac720c8ab8e57079fcb769e6cb"
+    },
+    {
+      "name": "pwsh.exe-backup-direct-maintenance-fence.test.ps1.final.log",
+      "sha256": "72b9aab876d76622c25220f9e1492b48439f2c39747fa023afcb777b268bc13f"
+    },
+    {
+      "name": "pwsh.exe-postgres-backup-archive-acl.test.ps1.final.log",
+      "sha256": "15e3db5c09d24d3cb49c477f1b0ccbd26b74b8867eb23955e7352fdc4e73ce7a"
+    },
+    {
+      "name": "pwsh.exe-postgres-backup-continuity.test.ps1.final.log",
+      "sha256": "df544a5eba26f1dd1b8a35f9889fc5626f60d6de43430c46cb4bbb7c58ca7f8a"
+    },
+    {
+      "name": "pwsh.exe-postgres-backup-retention.test.ps1.final.log",
+      "sha256": "f52c4fea3b2fe3e1b73083a2bb23f25cdb3b1d32c0a075235f3a66860f68a922"
+    },
+    {
+      "name": "pwsh.exe-release-retention-scope.test.ps1.final.log",
+      "sha256": "9e7405ffa877a2ffb3af28531d6e139062b9c9c260102d20711f95c34c1dcab8"
+    }
+  ],
+  "limitations": [
+    "Historical supervisor exit cause remains unproven.",
+    "Production OOM/long-term memory root cause remains open.",
+    "Production market P95 and full-stack startup improvement are not established by isolated results.",
+    "Daily backup remains paused; natural continuity acceptance requires explicit schedule resumption.",
+    "First adoption requires the reviewed old-protocol drain/freeze procedure and the matching live workflow candidates."
+  ]
+}
