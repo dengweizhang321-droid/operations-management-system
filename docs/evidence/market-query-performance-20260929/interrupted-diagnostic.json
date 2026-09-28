@@ -1,0 +1,991 @@
+{
+  "schema": "market-performance-v1",
+  "rows": 42000,
+  "heapBytes": 86024192,
+  "indexBytes": 19013632,
+  "port": 55485,
+  "productionTouched": false,
+  "concurrency": 1,
+  "samplesPerCase": 20,
+  "percentile": "nearest-rank",
+  "coldDefinition": "application cache cleared; OS and PostgreSQL buffers not flushed",
+  "salesConsumer": "deterministic synthetic stub; excludes network/Worker/browser latency",
+  "sourceSha256": "da2907289b3786c4fd318227f38c74c58ae2d5ddbc1d03328081a169a992956a",
+  "complete": false,
+  "machine": {
+    "logicalCpus": 16,
+    "initial": {
+      "time": 1790613802.077341,
+      "availableBytes": 3378372608,
+      "memoryLoadPercent": 90,
+      "idle": 35069638906250,
+      "total": 45525866093750
+    }
+  },
+  "results": [
+    {
+      "case": "filters",
+      "state": "cold",
+      "version": "baseline",
+      "samplesMs": [
+        152.27,
+        145.003,
+        149.714,
+        158.437,
+        157.433,
+        163.99,
+        174.454,
+        182.05,
+        165.771,
+        156.888,
+        153.403,
+        169.313,
+        155.24,
+        166.17,
+        142.85,
+        142.562,
+        139.377,
+        183.451,
+        176.894,
+        163.479
+      ],
+      "p50Ms": 157.433,
+      "p95Ms": 182.05,
+      "maxMs": 183.451,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613802.9893527,
+          "availableBytes": 3400671232,
+          "memoryLoadPercent": 89,
+          "idle": 35069717812500,
+          "total": 45526011093750
+        },
+        "end": {
+          "time": 1790613808.2845693,
+          "availableBytes": 3110572032,
+          "memoryLoadPercent": 90,
+          "idle": 35070053750000,
+          "total": 45526858593750
+        },
+        "cpuPercent": 60.36
+      }
+    },
+    {
+      "case": "filters",
+      "state": "cold",
+      "version": "candidate",
+      "samplesMs": [
+        43.669,
+        46.181,
+        53.854,
+        48.16,
+        50.459,
+        53.478,
+        51.669,
+        50.151,
+        58.346,
+        52.408,
+        52.148,
+        55.476,
+        55.995,
+        55.282,
+        49.573,
+        47.473,
+        67.396,
+        61.006,
+        69.209,
+        54.841
+      ],
+      "p50Ms": 52.408,
+      "p95Ms": 67.396,
+      "maxMs": 69.209,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613802.9893527,
+          "availableBytes": 3400671232,
+          "memoryLoadPercent": 89,
+          "idle": 35069717812500,
+          "total": 45526011093750
+        },
+        "end": {
+          "time": 1790613808.2845693,
+          "availableBytes": 3110567936,
+          "memoryLoadPercent": 90,
+          "idle": 35070053750000,
+          "total": 45526858593750
+        },
+        "cpuPercent": 60.36
+      }
+    },
+    {
+      "case": "filters",
+      "state": "hot",
+      "version": "baseline",
+      "samplesMs": [
+        2.574,
+        1.624,
+        1.673,
+        1.793,
+        1.937,
+        2.449,
+        1.858,
+        1.628,
+        2.322,
+        1.795,
+        2.152,
+        2.391,
+        2.392,
+        2.296,
+        2.341,
+        2.759,
+        2.147,
+        2.975,
+        2.009,
+        1.88
+      ],
+      "p50Ms": 2.147,
+      "p95Ms": 2.759,
+      "maxMs": 2.975,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613814.2883997,
+          "availableBytes": 2840244224,
+          "memoryLoadPercent": 91,
+          "idle": 35070441718750,
+          "total": 45527821093750
+        },
+        "end": {
+          "time": 1790613819.9097059,
+          "availableBytes": 3442286592,
+          "memoryLoadPercent": 89,
+          "idle": 35070739843750,
+          "total": 45528718593750
+        },
+        "cpuPercent": 66.78
+      }
+    },
+    {
+      "case": "filters",
+      "state": "hot",
+      "version": "candidate",
+      "samplesMs": [
+        1.963,
+        2.725,
+        1.799,
+        2.336,
+        2.464,
+        2.139,
+        2.122,
+        1.824,
+        2.12,
+        2.193,
+        2.162,
+        2.673,
+        2.001,
+        1.903,
+        1.949,
+        2.468,
+        3.319,
+        2.06,
+        2.634,
+        2.149
+      ],
+      "p50Ms": 2.139,
+      "p95Ms": 2.725,
+      "maxMs": 3.319,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613814.2883997,
+          "availableBytes": 2840244224,
+          "memoryLoadPercent": 91,
+          "idle": 35070441718750,
+          "total": 45527821093750
+        },
+        "end": {
+          "time": 1790613819.9102333,
+          "availableBytes": 3442204672,
+          "memoryLoadPercent": 89,
+          "idle": 35070739843750,
+          "total": 45528718593750
+        },
+        "cpuPercent": 66.78
+      }
+    },
+    {
+      "case": "filters",
+      "state": "invalidated",
+      "version": "baseline",
+      "samplesMs": [
+        125.483,
+        132.297,
+        121.974,
+        147.009,
+        141.85,
+        140.28,
+        136.949,
+        126.579,
+        131.211,
+        140.797,
+        128.354,
+        134.299,
+        130.988,
+        140.786,
+        137.869,
+        181.787,
+        128.885,
+        118.708,
+        134.238,
+        126.058
+      ],
+      "p50Ms": 132.297,
+      "p95Ms": 147.009,
+      "maxMs": 181.787,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613880.9301012,
+          "availableBytes": 4041637888,
+          "memoryLoadPercent": 88,
+          "idle": 35074296718750,
+          "total": 45538483593750
+        },
+        "end": {
+          "time": 1790613889.4991412,
+          "availableBytes": 3807023104,
+          "memoryLoadPercent": 88,
+          "idle": 35074993593750,
+          "total": 45539853593750
+        },
+        "cpuPercent": 49.13
+      }
+    },
+    {
+      "case": "filters",
+      "state": "invalidated",
+      "version": "candidate",
+      "samplesMs": [
+        44.558,
+        46.818,
+        46.451,
+        49.513,
+        53.456,
+        50.235,
+        45.75,
+        43.155,
+        51.556,
+        46.089,
+        41.502,
+        44.193,
+        48.378,
+        52.075,
+        48.06,
+        49.122,
+        52.071,
+        51.656,
+        45.623,
+        46.891
+      ],
+      "p50Ms": 46.891,
+      "p95Ms": 52.075,
+      "maxMs": 53.456,
+      "responseSha256": "773c2d45a0e52f39a74bae1a6b3519c990ef3fd594c625699a83b57911acda1d",
+      "load": {
+        "start": {
+          "time": 1790613880.9301012,
+          "availableBytes": 4041637888,
+          "memoryLoadPercent": 88,
+          "idle": 35074296718750,
+          "total": 45538483593750
+        },
+        "end": {
+          "time": 1790613889.4991412,
+          "availableBytes": 3807019008,
+          "memoryLoadPercent": 88,
+          "idle": 35074993593750,
+          "total": 45539853593750
+        },
+        "cpuPercent": 49.13
+      }
+    },
+    {
+      "case": "day",
+      "state": "cold",
+      "version": "baseline",
+      "samplesMs": [
+        112.112,
+        71.864,
+        63.045,
+        71.481,
+        60.765,
+        72.112,
+        63.55,
+        65.378,
+        61.366,
+        70.533,
+        75.442,
+        57.72,
+        60.058,
+        58.682,
+        60.593,
+        64.617,
+        69.907,
+        74.065,
+        60.429,
+        58.999
+      ],
+      "p50Ms": 63.55,
+      "p95Ms": 75.442,
+      "maxMs": 112.112,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613890.0010169,
+          "availableBytes": 3767779328,
+          "memoryLoadPercent": 88,
+          "idle": 35075044531250,
+          "total": 45539933593750
+        },
+        "end": {
+          "time": 1790613893.6693487,
+          "availableBytes": 3630530560,
+          "memoryLoadPercent": 89,
+          "idle": 35075354687500,
+          "total": 45540521093750
+        },
+        "cpuPercent": 47.21
+      }
+    },
+    {
+      "case": "day",
+      "state": "cold",
+      "version": "candidate",
+      "samplesMs": [
+        63.994,
+        66.895,
+        66.19,
+        78.689,
+        68.305,
+        67.522,
+        63.665,
+        68.909,
+        75.691,
+        75.783,
+        57.63,
+        55.485,
+        58.834,
+        57.683,
+        62.459,
+        63.195,
+        60.343,
+        60.335,
+        58.805,
+        56.605
+      ],
+      "p50Ms": 63.195,
+      "p95Ms": 75.783,
+      "maxMs": 78.689,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613890.0010169,
+          "availableBytes": 3767779328,
+          "memoryLoadPercent": 88,
+          "idle": 35075044531250,
+          "total": 45539933593750
+        },
+        "end": {
+          "time": 1790613893.6693487,
+          "availableBytes": 3630530560,
+          "memoryLoadPercent": 89,
+          "idle": 35075354687500,
+          "total": 45540521093750
+        },
+        "cpuPercent": 47.21
+      }
+    },
+    {
+      "case": "day",
+      "state": "hot",
+      "version": "baseline",
+      "samplesMs": [
+        59.939,
+        53.146,
+        58.705,
+        55.48,
+        54.179,
+        56.46,
+        58.358,
+        58.559,
+        57.415,
+        119.101,
+        93.789,
+        88.474,
+        110.544,
+        52.823,
+        57.384,
+        58.478,
+        62.758,
+        59.539,
+        69.739,
+        103.209
+      ],
+      "p50Ms": 58.559,
+      "p95Ms": 110.544,
+      "maxMs": 119.101,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613894.1708603,
+          "availableBytes": 3738951680,
+          "memoryLoadPercent": 89,
+          "idle": 35075400312500,
+          "total": 45540601093750
+        },
+        "end": {
+          "time": 1790613900.9105992,
+          "availableBytes": 3700932608,
+          "memoryLoadPercent": 89,
+          "idle": 35075776718750,
+          "total": 45541678593750
+        },
+        "cpuPercent": 65.07
+      }
+    },
+    {
+      "case": "day",
+      "state": "hot",
+      "version": "candidate",
+      "samplesMs": [
+        57.523,
+        61.114,
+        57.987,
+        57.907,
+        57.085,
+        63.177,
+        54.021,
+        66.57,
+        92.635,
+        108.303,
+        85.266,
+        96.009,
+        85.848,
+        58.633,
+        57.855,
+        71.412,
+        75.474,
+        69.737,
+        63.13,
+        95.761
+      ],
+      "p50Ms": 63.177,
+      "p95Ms": 96.009,
+      "maxMs": 108.303,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613894.1708603,
+          "availableBytes": 3738951680,
+          "memoryLoadPercent": 89,
+          "idle": 35075400312500,
+          "total": 45540601093750
+        },
+        "end": {
+          "time": 1790613900.9105992,
+          "availableBytes": 3699924992,
+          "memoryLoadPercent": 89,
+          "idle": 35075776718750,
+          "total": 45541678593750
+        },
+        "cpuPercent": 65.07
+      }
+    },
+    {
+      "case": "day",
+      "state": "invalidated",
+      "version": "baseline",
+      "samplesMs": [
+        50.457,
+        51.182,
+        50.22,
+        52.924,
+        59.409,
+        52.243,
+        54.093,
+        54.516,
+        59.582,
+        50.487,
+        50.805,
+        48.985,
+        54.424,
+        49.044,
+        50.608,
+        51.681,
+        52.317,
+        50.495,
+        53.988,
+        52.529
+      ],
+      "p50Ms": 51.681,
+      "p95Ms": 59.409,
+      "maxMs": 59.582,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613906.9271114,
+          "availableBytes": 3811037184,
+          "memoryLoadPercent": 88,
+          "idle": 35076106562500,
+          "total": 45542642343750
+        },
+        "end": {
+          "time": 1790613912.2165089,
+          "availableBytes": 3798740992,
+          "memoryLoadPercent": 88,
+          "idle": 35076710781250,
+          "total": 45543487968750
+        },
+        "cpuPercent": 28.55
+      }
+    },
+    {
+      "case": "day",
+      "state": "invalidated",
+      "version": "candidate",
+      "samplesMs": [
+        51.401,
+        51.656,
+        50.732,
+        55.37,
+        51.599,
+        51.185,
+        50.565,
+        51.026,
+        59.684,
+        54.75,
+        51.863,
+        50.81,
+        58.802,
+        50.889,
+        51.344,
+        51.512,
+        52.149,
+        50.609,
+        52.874,
+        53.13
+      ],
+      "p50Ms": 51.512,
+      "p95Ms": 58.802,
+      "maxMs": 59.684,
+      "responseSha256": "523da63499dbed017b37159c22561539d978e94b1021de8e94a18a8b201a713a",
+      "load": {
+        "start": {
+          "time": 1790613906.9271114,
+          "availableBytes": 3811037184,
+          "memoryLoadPercent": 88,
+          "idle": 35076106562500,
+          "total": 45542642343750
+        },
+        "end": {
+          "time": 1790613912.2165089,
+          "availableBytes": 3798740992,
+          "memoryLoadPercent": 88,
+          "idle": 35076710781250,
+          "total": 45543487968750
+        },
+        "cpuPercent": 28.55
+      }
+    },
+    {
+      "case": "week",
+      "state": "cold",
+      "version": "baseline",
+      "samplesMs": [
+        96.946,
+        100.688,
+        110.532,
+        92.906,
+        94.875,
+        96.521,
+        91.686,
+        107.053,
+        95.513,
+        93.266,
+        100.427,
+        101.734,
+        93.285,
+        93.24,
+        96.644,
+        95.807,
+        96.73,
+        92.01,
+        97.5,
+        92.525
+      ],
+      "p50Ms": 95.807,
+      "p95Ms": 107.053,
+      "maxMs": 110.532,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613912.7181015,
+          "availableBytes": 3800608768,
+          "memoryLoadPercent": 88,
+          "idle": 35076775937500,
+          "total": 45543568593750
+        },
+        "end": {
+          "time": 1790613917.6400542,
+          "availableBytes": 3714195456,
+          "memoryLoadPercent": 89,
+          "idle": 35077337031250,
+          "total": 45544356093750
+        },
+        "cpuPercent": 28.75
+      }
+    },
+    {
+      "case": "week",
+      "state": "cold",
+      "version": "candidate",
+      "samplesMs": [
+        102.858,
+        103.121,
+        97.277,
+        95.655,
+        95.712,
+        93.967,
+        107.531,
+        103.682,
+        101.928,
+        100.165,
+        93.18,
+        96.275,
+        94.865,
+        102.14,
+        94.11,
+        95.018,
+        95.941,
+        95.342,
+        96.531,
+        92.363
+      ],
+      "p50Ms": 95.941,
+      "p95Ms": 103.682,
+      "maxMs": 107.531,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613912.7181015,
+          "availableBytes": 3800608768,
+          "memoryLoadPercent": 88,
+          "idle": 35076775937500,
+          "total": 45543568593750
+        },
+        "end": {
+          "time": 1790613917.6400542,
+          "availableBytes": 3714195456,
+          "memoryLoadPercent": 89,
+          "idle": 35077337031250,
+          "total": 45544356093750
+        },
+        "cpuPercent": 28.75
+      }
+    },
+    {
+      "case": "week",
+      "state": "hot",
+      "version": "baseline",
+      "samplesMs": [
+        98.971,
+        98.741,
+        95.657,
+        100.159,
+        101.604,
+        98.837,
+        103.372,
+        93.332,
+        99.774,
+        94.902,
+        105.787,
+        131.536,
+        125.557,
+        121.742,
+        120.368,
+        121.056,
+        113.727,
+        99.34,
+        102.11,
+        103.304
+      ],
+      "p50Ms": 101.604,
+      "p95Ms": 125.557,
+      "maxMs": 131.536,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613918.141597,
+          "availableBytes": 3720323072,
+          "memoryLoadPercent": 89,
+          "idle": 35077400000000,
+          "total": 45544436093750
+        },
+        "end": {
+          "time": 1790613927.724664,
+          "availableBytes": 2829381632,
+          "memoryLoadPercent": 91,
+          "idle": 35078204062500,
+          "total": 45545970156250
+        },
+        "cpuPercent": 47.59
+      }
+    },
+    {
+      "case": "week",
+      "state": "hot",
+      "version": "candidate",
+      "samplesMs": [
+        94.063,
+        100.144,
+        93.283,
+        103.345,
+        112.109,
+        96.98,
+        113.592,
+        92.739,
+        98.256,
+        109.157,
+        107.275,
+        105.314,
+        112.764,
+        124.072,
+        135.764,
+        106.993,
+        122.172,
+        121.026,
+        108.889,
+        99.989
+      ],
+      "p50Ms": 106.993,
+      "p95Ms": 124.072,
+      "maxMs": 135.764,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613918.141597,
+          "availableBytes": 3720323072,
+          "memoryLoadPercent": 89,
+          "idle": 35077400000000,
+          "total": 45544436093750
+        },
+        "end": {
+          "time": 1790613927.724664,
+          "availableBytes": 2829381632,
+          "memoryLoadPercent": 91,
+          "idle": 35078204062500,
+          "total": 45545970156250
+        },
+        "cpuPercent": 47.59
+      }
+    },
+    {
+      "case": "week",
+      "state": "invalidated",
+      "version": "baseline",
+      "samplesMs": [
+        106.778,
+        126.936,
+        99.015,
+        94.568,
+        108.352,
+        97.299,
+        98.775,
+        95.789,
+        100.973,
+        104.3,
+        99.446,
+        114.308,
+        147.331,
+        125.258,
+        112.843,
+        122.806,
+        121.519,
+        116.71,
+        99.139,
+        121.182
+      ],
+      "p50Ms": 106.778,
+      "p95Ms": 126.936,
+      "maxMs": 147.331,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613928.2266014,
+          "availableBytes": 2873143296,
+          "memoryLoadPercent": 91,
+          "idle": 35078253125000,
+          "total": 45546050156250
+        },
+        "end": {
+          "time": 1790613938.2682245,
+          "availableBytes": 2457505792,
+          "memoryLoadPercent": 92,
+          "idle": 35078976250000,
+          "total": 45547656093750
+        },
+        "cpuPercent": 54.97
+      }
+    },
+    {
+      "case": "week",
+      "state": "invalidated",
+      "version": "candidate",
+      "samplesMs": [
+        97.455,
+        111.082,
+        100.432,
+        101.337,
+        106.811,
+        111.961,
+        100.325,
+        99.048,
+        94.372,
+        100.572,
+        129.854,
+        148.897,
+        127.508,
+        126.383,
+        126.037,
+        150.907,
+        128.976,
+        120.815,
+        97.907,
+        116.679
+      ],
+      "p50Ms": 111.082,
+      "p95Ms": 148.897,
+      "maxMs": 150.907,
+      "responseSha256": "d81f09f6fee747e82ff45af713bf7dbb461141cedefcde4afabed3dcec095707",
+      "load": {
+        "start": {
+          "time": 1790613928.2266014,
+          "availableBytes": 2873143296,
+          "memoryLoadPercent": 91,
+          "idle": 35078253125000,
+          "total": 45546050156250
+        },
+        "end": {
+          "time": 1790613938.2682245,
+          "availableBytes": 2457505792,
+          "memoryLoadPercent": 92,
+          "idle": 35078976250000,
+          "total": 45547656093750
+        },
+        "cpuPercent": 54.97
+      }
+    },
+    {
+      "case": "month",
+      "state": "cold",
+      "version": "baseline",
+      "samplesMs": [
+        186.247,
+        191.889,
+        186.993,
+        188.051,
+        201.183,
+        179.694,
+        184.705,
+        197.506,
+        180.736,
+        186.769,
+        192.768,
+        198.343,
+        205.252,
+        204.557,
+        198.016,
+        213.31,
+        210.331,
+        182.789,
+        185.455,
+        193.602
+      ],
+      "p50Ms": 191.889,
+      "p95Ms": 210.331,
+      "maxMs": 213.31,
+      "responseSha256": "fce50cc1382ec646d0b85d2b5cffb7485f638ae4c32da8ea64e4a735bbeb221d",
+      "load": {
+        "start": {
+          "time": 1790613944.2716484,
+          "availableBytes": 3708788736,
+          "memoryLoadPercent": 89,
+          "idle": 35079585781250,
+          "total": 45548617343750
+        },
+        "end": {
+          "time": 1790613953.0295947,
+          "availableBytes": 3676602368,
+          "memoryLoadPercent": 89,
+          "idle": 35080423593750,
+          "total": 45550018593750
+        },
+        "cpuPercent": 40.21
+      }
+    },
+    {
+      "case": "month",
+      "state": "cold",
+      "version": "candidate",
+      "samplesMs": [
+        185.204,
+        191.621,
+        187.484,
+        186.958,
+        191.069,
+        181.187,
+        185.373,
+        180.178,
+        184.909,
+        180.375,
+        187.759,
+        185.887,
+        226.471,
+        191.619,
+        217.927,
+        201.711,
+        218.95,
+        194.116,
+        184.504,
+        199.16
+      ],
+      "p50Ms": 187.484,
+      "p95Ms": 218.95,
+      "maxMs": 226.471,
+      "responseSha256": "fce50cc1382ec646d0b85d2b5cffb7485f638ae4c32da8ea64e4a735bbeb221d",
+      "load": {
+        "start": {
+          "time": 1790613944.2716484,
+          "availableBytes": 3708788736,
+          "memoryLoadPercent": 89,
+          "idle": 35079585781250,
+          "total": 45548617343750
+        },
+        "end": {
+          "time": 1790613953.0295947,
+          "availableBytes": 3676532736,
+          "memoryLoadPercent": 89,
+          "idle": 35080423593750,
+          "total": 45550018593750
+        },
+        "cpuPercent": 40.21
+      }
+    }
+  ],
+  "referenceSha256": "63964994244e48ea308cf89ab6a94579c4c78e8a62839c1af8aabc00c112dce8",
+  "acceptance": "not_accepted_interrupted_for_parallel_work",
+  "invalidationExperiment": "revision-only; subsequent harness revised to mutate one synthetic fact as well",
+  "harnessRevision": "interim; not the final checked-in harness"
+}
