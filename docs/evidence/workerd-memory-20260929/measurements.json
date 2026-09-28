@@ -1,0 +1,6866 @@
+{
+  "results": {
+    "before": {
+      "label": "before-controlled",
+      "sourceSha256": "072f5822c6a47a553902337f6318c57aa32d84533429b86a2a0e002d81160f04",
+      "requestCount": 120,
+      "elapsedSeconds": 103.678,
+      "peakSampledPrivateMiB": 104.73,
+      "peakWorkingSetMiB": 113.9,
+      "finalIdlePrivateMiB": 104.73,
+      "competingSamples": 0,
+      "minFreeHostMiB": 2539.3359375,
+      "idleEnds": [
+        {
+          "seconds": 35.816,
+          "privateMiB": 72.91
+        },
+        {
+          "seconds": 69.053,
+          "privateMiB": 88.75
+        },
+        {
+          "seconds": 103.654,
+          "privateMiB": 104.73
+        }
+      ],
+      "cleanup": {
+        "active": 0,
+        "opened": 120,
+        "closed": 120
+      }
+    },
+    "after": {
+      "label": "after-controlled",
+      "sourceSha256": "c459ff92166977b69e00baed32200840606e3c9385a988453a4710d361ba7dbf",
+      "requestCount": 120,
+      "elapsedSeconds": 105.609,
+      "peakSampledPrivateMiB": 104.93,
+      "peakWorkingSetMiB": 114.72,
+      "finalIdlePrivateMiB": 104.93,
+      "competingSamples": 0,
+      "minFreeHostMiB": 2132.671875,
+      "idleEnds": [
+        {
+          "seconds": 35.253,
+          "privateMiB": 73.99
+        },
+        {
+          "seconds": 69.683,
+          "privateMiB": 88.47
+        },
+        {
+          "seconds": 105.575,
+          "privateMiB": 104.93
+        }
+      ],
+      "cleanup": {
+        "active": 0,
+        "opened": 120,
+        "closed": 120
+      }
+    },
+    "profile": {
+      "label": "before-profile",
+      "sourceSha256": "072f5822c6a47a553902337f6318c57aa32d84533429b86a2a0e002d81160f04",
+      "requestCount": 240,
+      "elapsedSeconds": 211.388,
+      "peakSampledPrivateMiB": 150.31,
+      "peakWorkingSetMiB": 159.41,
+      "finalIdlePrivateMiB": 150.31,
+      "competingSamples": 32,
+      "minFreeHostMiB": 1061.07421875,
+      "idleEnds": [
+        {
+          "seconds": 36.974,
+          "privateMiB": 76.17
+        },
+        {
+          "seconds": 70.962,
+          "privateMiB": 91.61
+        },
+        {
+          "seconds": 104.79,
+          "privateMiB": 107.13
+        },
+        {
+          "seconds": 139.672,
+          "privateMiB": 121.16
+        },
+        {
+          "seconds": 175.598,
+          "privateMiB": 136
+        },
+        {
+          "seconds": 211.359,
+          "privateMiB": 150.31
+        }
+      ],
+      "cleanup": {
+        "active": 0,
+        "opened": 240,
+        "closed": 240
+      }
+    },
+    "production": {
+      "samples": 25,
+      "seconds": 490.789,
+      "busySamples": 0,
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "initialAgeMinutes": 82.093913875,
+          "firstPrivateMiB": 73.7,
+          "lastPrivateMiB": 71.96,
+          "peakSampledPrivateMiB": 73.87,
+          "peakSampledWorkingSetMiB": 77.1,
+          "cpuDeltaSeconds": 0.28125
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "initialAgeMinutes": 81.99086973333333,
+          "firstPrivateMiB": 133.36,
+          "lastPrivateMiB": 135.21,
+          "peakSampledPrivateMiB": 135.21,
+          "peakSampledWorkingSetMiB": 140.06,
+          "cpuDeltaSeconds": 0.65625
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "initialAgeMinutes": 81.99059101666667,
+          "firstPrivateMiB": 19.74,
+          "lastPrivateMiB": 19.74,
+          "peakSampledPrivateMiB": 19.74,
+          "peakSampledWorkingSetMiB": 55.64,
+          "cpuDeltaSeconds": 0
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "initialAgeMinutes": 81.98968792166667,
+          "firstPrivateMiB": 192.93,
+          "lastPrivateMiB": 199.54,
+          "peakSampledPrivateMiB": 199.54,
+          "peakSampledWorkingSetMiB": 201.48,
+          "cpuDeltaSeconds": 2.796875
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "initialAgeMinutes": 81.97335903166666,
+          "firstPrivateMiB": 238.54,
+          "lastPrivateMiB": 219.97,
+          "peakSampledPrivateMiB": 240.04,
+          "peakSampledWorkingSetMiB": 231.55,
+          "cpuDeltaSeconds": 1.53125
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "initialAgeMinutes": 81.96538416666665,
+          "firstPrivateMiB": 253.91,
+          "lastPrivateMiB": 254.18,
+          "peakSampledPrivateMiB": 254.3,
+          "peakSampledWorkingSetMiB": 268.26,
+          "cpuDeltaSeconds": 0.859375
+        }
+      ]
+    }
+  },
+  "before": {
+    "label": "before-controlled",
+    "baselineRef": "e00d4a82",
+    "sourceSha256": "072f5822c6a47a553902337f6318c57aa32d84533429b86a2a0e002d81160f04",
+    "payloadBytes": 8388608,
+    "fixtureRows": 4096,
+    "fixtureBytes": 1002411,
+    "importBytes": 1048576,
+    "requestCount": 120,
+    "elapsedSeconds": 103.678,
+    "samples": [
+      {
+        "seconds": 1.905,
+        "phase": "warmup",
+        "active": 0,
+        "opened": 0,
+        "closed": 0,
+        "sentBytes": 0,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 52568064,
+            "privateBytes": 40058880,
+            "peakWorkingSetBytes": 52568064,
+            "cpuSeconds": 0.171875
+          }
+        ],
+        "freePhysicalKiB": 3559964,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 8.716,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 10,
+        "closed": 10,
+        "sentBytes": 20983468,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 69177344,
+            "privateBytes": 57917440,
+            "peakWorkingSetBytes": 70803456,
+            "cpuSeconds": 0.265625
+          }
+        ],
+        "freePhysicalKiB": 3137328,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 15.52,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 20,
+        "closed": 20,
+        "sentBytes": 41901400,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 80941056,
+            "privateBytes": 67977216,
+            "peakWorkingSetBytes": 80941056,
+            "cpuSeconds": 0.34375
+          }
+        ],
+        "freePhysicalKiB": 3342980,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 22.191,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 30,
+        "closed": 30,
+        "sentBytes": 62688260,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 82464768,
+            "privateBytes": 70606848,
+            "peakWorkingSetBytes": 86016000,
+            "cpuSeconds": 0.4375
+          }
+        ],
+        "freePhysicalKiB": 3197324,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 29.053,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 89583616,
+            "privateBytes": 76521472,
+            "peakWorkingSetBytes": 90062848,
+            "cpuSeconds": 0.78125
+          }
+        ],
+        "freePhysicalKiB": 2864872,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 31.505,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 89546752,
+            "privateBytes": 76451840,
+            "peakWorkingSetBytes": 90062848,
+            "cpuSeconds": 0.78125
+          }
+        ],
+        "freePhysicalKiB": 3027668,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 33.747,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 89546752,
+            "privateBytes": 76451840,
+            "peakWorkingSetBytes": 90062848,
+            "cpuSeconds": 0.78125
+          }
+        ],
+        "freePhysicalKiB": 3272144,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 35.816,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 89546752,
+            "privateBytes": 76451840,
+            "peakWorkingSetBytes": 90062848,
+            "cpuSeconds": 0.78125
+          }
+        ],
+        "freePhysicalKiB": 3155832,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 42.322,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 50,
+        "closed": 50,
+        "sentBytes": 104327516,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 90202112,
+            "privateBytes": 78168064,
+            "peakWorkingSetBytes": 93753344,
+            "cpuSeconds": 0.9375
+          }
+        ],
+        "freePhysicalKiB": 3100072,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 49.01,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 60,
+        "closed": 60,
+        "sentBytes": 125114376,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 97144832,
+            "privateBytes": 85315584,
+            "peakWorkingSetBytes": 97468416,
+            "cpuSeconds": 1.09375
+          }
+        ],
+        "freePhysicalKiB": 3179904,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 56.073,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 70,
+        "closed": 70,
+        "sentBytes": 145901236,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 97452032,
+            "privateBytes": 85868544,
+            "peakWorkingSetBytes": 101384192,
+            "cpuSeconds": 1.25
+          }
+        ],
+        "freePhysicalKiB": 3768260,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 62.857,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166753632,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 104423424,
+            "privateBytes": 93057024,
+            "peakWorkingSetBytes": 104583168,
+            "cpuSeconds": 1.296875
+          }
+        ],
+        "freePhysicalKiB": 3526080,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 64.971,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166753632,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 104423424,
+            "privateBytes": 93057024,
+            "peakWorkingSetBytes": 104583168,
+            "cpuSeconds": 1.296875
+          }
+        ],
+        "freePhysicalKiB": 3494640,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 67.03,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166753632,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 104423424,
+            "privateBytes": 93057024,
+            "peakWorkingSetBytes": 104583168,
+            "cpuSeconds": 1.296875
+          }
+        ],
+        "freePhysicalKiB": 3625212,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 69.053,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166753632,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 104423424,
+            "privateBytes": 93057024,
+            "peakWorkingSetBytes": 104583168,
+            "cpuSeconds": 1.296875
+          }
+        ],
+        "freePhysicalKiB": 3420760,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 75.723,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 90,
+        "closed": 90,
+        "sentBytes": 187606028,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 105598976,
+            "privateBytes": 94556160,
+            "peakWorkingSetBytes": 108945408,
+            "cpuSeconds": 1.375
+          }
+        ],
+        "freePhysicalKiB": 3039108,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 82.541,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 100,
+        "closed": 100,
+        "sentBytes": 208458424,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 111874048,
+            "privateBytes": 101765120,
+            "peakWorkingSetBytes": 111931392,
+            "cpuSeconds": 1.5625
+          }
+        ],
+        "freePhysicalKiB": 3150752,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 89.322,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 110,
+        "closed": 110,
+        "sentBytes": 229310820,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 111149056,
+            "privateBytes": 101683200,
+            "peakWorkingSetBytes": 116596736,
+            "cpuSeconds": 1.703125
+          }
+        ],
+        "freePhysicalKiB": 2959872,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 96.23,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 119431168,
+            "privateBytes": 109821952,
+            "peakWorkingSetBytes": 119431168,
+            "cpuSeconds": 1.984375
+          }
+        ],
+        "freePhysicalKiB": 2600280,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 99.212,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 119431168,
+            "privateBytes": 109821952,
+            "peakWorkingSetBytes": 119431168,
+            "cpuSeconds": 1.984375
+          }
+        ],
+        "freePhysicalKiB": 2778280,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 101.35,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 119431168,
+            "privateBytes": 109821952,
+            "peakWorkingSetBytes": 119431168,
+            "cpuSeconds": 1.984375
+          }
+        ],
+        "freePhysicalKiB": 2981712,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 103.654,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 32940,
+            "workingSetBytes": 119431168,
+            "privateBytes": 109821952,
+            "peakWorkingSetBytes": 119431168,
+            "cpuSeconds": 1.984375
+          }
+        ],
+        "freePhysicalKiB": 2709980,
+        "competingTestOrBuildCount": 0
+      }
+    ],
+    "requests": [
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 14
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 259
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 239
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1857
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1887
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1895
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1923
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1885
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 255
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1869
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1940
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 236
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1933
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1861
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 237
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 249
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1892
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1911
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1944
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1940
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1923
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1929
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1934
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1901
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1892
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1945
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1939
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1928
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1924
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1943
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 237
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1900
+      }
+    ],
+    "cleanup": {
+      "active": 0,
+      "opened": 120,
+      "closed": 120
+    }
+  },
+  "after": {
+    "label": "after-controlled",
+    "sourceSha256": "c459ff92166977b69e00baed32200840606e3c9385a988453a4710d361ba7dbf",
+    "payloadBytes": 8388608,
+    "fixtureRows": 4096,
+    "fixtureBytes": 1002411,
+    "importBytes": 1048576,
+    "requestCount": 120,
+    "elapsedSeconds": 105.609,
+    "samples": [
+      {
+        "seconds": 2.042,
+        "phase": "warmup",
+        "active": 0,
+        "opened": 0,
+        "closed": 0,
+        "sentBytes": 0,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 52629504,
+            "privateBytes": 40235008,
+            "peakWorkingSetBytes": 52629504,
+            "cpuSeconds": 0.171875
+          }
+        ],
+        "freePhysicalKiB": 3040800,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 8.582,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 10,
+        "closed": 10,
+        "sentBytes": 20786860,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 69505024,
+            "privateBytes": 57982976,
+            "peakWorkingSetBytes": 71118848,
+            "cpuSeconds": 0.453125
+          }
+        ],
+        "freePhysicalKiB": 2790868,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 15.297,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 20,
+        "closed": 20,
+        "sentBytes": 41573720,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 80916480,
+            "privateBytes": 67735552,
+            "peakWorkingSetBytes": 80916480,
+            "cpuSeconds": 0.59375
+          }
+        ],
+        "freePhysicalKiB": 3538376,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 22.104,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 30,
+        "closed": 30,
+        "sentBytes": 62360580,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 83300352,
+            "privateBytes": 70238208,
+            "peakWorkingSetBytes": 86036480,
+            "cpuSeconds": 0.734375
+          }
+        ],
+        "freePhysicalKiB": 3410656,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 28.927,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83147440,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 90103808,
+            "privateBytes": 77656064,
+            "peakWorkingSetBytes": 90812416,
+            "cpuSeconds": 0.9375
+          }
+        ],
+        "freePhysicalKiB": 3187276,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 31.047,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83147440,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 90103808,
+            "privateBytes": 77656064,
+            "peakWorkingSetBytes": 90812416,
+            "cpuSeconds": 0.9375
+          }
+        ],
+        "freePhysicalKiB": 3473988,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 33.093,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83147440,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 90066944,
+            "privateBytes": 77586432,
+            "peakWorkingSetBytes": 90812416,
+            "cpuSeconds": 0.9375
+          }
+        ],
+        "freePhysicalKiB": 3386340,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 35.253,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83147440,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 90066944,
+            "privateBytes": 77586432,
+            "peakWorkingSetBytes": 90812416,
+            "cpuSeconds": 0.9375
+          }
+        ],
+        "freePhysicalKiB": 3151088,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 42.189,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 50,
+        "closed": 50,
+        "sentBytes": 103934300,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 90566656,
+            "privateBytes": 78553088,
+            "peakWorkingSetBytes": 94470144,
+            "cpuSeconds": 1.078125
+          }
+        ],
+        "freePhysicalKiB": 3095800,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 49.178,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 60,
+        "closed": 60,
+        "sentBytes": 124721160,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 98123776,
+            "privateBytes": 86077440,
+            "peakWorkingSetBytes": 98123776,
+            "cpuSeconds": 1.21875
+          }
+        ],
+        "freePhysicalKiB": 3081780,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 56.081,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 70,
+        "closed": 70,
+        "sentBytes": 145508020,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 97370112,
+            "privateBytes": 86372352,
+            "peakWorkingSetBytes": 101445632,
+            "cpuSeconds": 1.296875
+          }
+        ],
+        "freePhysicalKiB": 3138840,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 62.961,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166294880,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 104255488,
+            "privateBytes": 92766208,
+            "peakWorkingSetBytes": 104914944,
+            "cpuSeconds": 1.453125
+          }
+        ],
+        "freePhysicalKiB": 2890828,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 65.226,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166294880,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 104255488,
+            "privateBytes": 92766208,
+            "peakWorkingSetBytes": 104914944,
+            "cpuSeconds": 1.453125
+          }
+        ],
+        "freePhysicalKiB": 2854708,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 67.509,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166294880,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 104255488,
+            "privateBytes": 92766208,
+            "peakWorkingSetBytes": 104914944,
+            "cpuSeconds": 1.453125
+          }
+        ],
+        "freePhysicalKiB": 2781352,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 69.683,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166294880,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 104255488,
+            "privateBytes": 92766208,
+            "peakWorkingSetBytes": 104914944,
+            "cpuSeconds": 1.453125
+          }
+        ],
+        "freePhysicalKiB": 2667600,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 76.734,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 90,
+        "closed": 90,
+        "sentBytes": 187081740,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 104513536,
+            "privateBytes": 93376512,
+            "peakWorkingSetBytes": 108417024,
+            "cpuSeconds": 1.5625
+          }
+        ],
+        "freePhysicalKiB": 2183856,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 83.853,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 100,
+        "closed": 100,
+        "sentBytes": 207868600,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 111865856,
+            "privateBytes": 100925440,
+            "peakWorkingSetBytes": 112201728,
+            "cpuSeconds": 1.671875
+          }
+        ],
+        "freePhysicalKiB": 3247552,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 90.752,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 110,
+        "closed": 110,
+        "sentBytes": 228655460,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 112635904,
+            "privateBytes": 101810176,
+            "peakWorkingSetBytes": 116432896,
+            "cpuSeconds": 1.78125
+          }
+        ],
+        "freePhysicalKiB": 3387532,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 97.694,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 249442320,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 120029184,
+            "privateBytes": 110026752,
+            "peakWorkingSetBytes": 120291328,
+            "cpuSeconds": 1.96875
+          }
+        ],
+        "freePhysicalKiB": 3001260,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 100.022,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 249442320,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 120029184,
+            "privateBytes": 110026752,
+            "peakWorkingSetBytes": 120291328,
+            "cpuSeconds": 1.96875
+          }
+        ],
+        "freePhysicalKiB": 2850836,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 103.055,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 249442320,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 120029184,
+            "privateBytes": 110026752,
+            "peakWorkingSetBytes": 120291328,
+            "cpuSeconds": 1.96875
+          }
+        ],
+        "freePhysicalKiB": 2955832,
+        "competingTestOrBuildCount": 0
+      },
+      {
+        "seconds": 105.575,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 249442320,
+        "processes": [
+          {
+            "pid": 29972,
+            "workingSetBytes": 120029184,
+            "privateBytes": 110026752,
+            "peakWorkingSetBytes": 120291328,
+            "cpuSeconds": 1.96875
+          }
+        ],
+        "freePhysicalKiB": 2852680,
+        "competingTestOrBuildCount": 0
+      }
+    ],
+    "requests": [
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 20
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 265
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1829
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 238
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1901
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 249
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1869
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 235
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1892
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1818
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 255
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1891
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1927
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1927
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 256
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1811
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 236
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1937
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1948
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1923
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 8
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 236
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1970
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 7
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1926
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 235
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1917
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 249
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1948
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1904
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 238
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1924
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 7
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1923
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 249
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 249
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1951
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 239
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1934
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 235
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1923
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1941
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1915
+      }
+    ],
+    "cleanup": {
+      "active": 0,
+      "opened": 120,
+      "closed": 120
+    }
+  },
+  "profile": {
+    "label": "before-profile",
+    "baselineRef": "e00d4a82",
+    "cycles": 6,
+    "inspect": true,
+    "sourceSha256": "072f5822c6a47a553902337f6318c57aa32d84533429b86a2a0e002d81160f04",
+    "payloadBytes": 8388608,
+    "fixtureRows": 4096,
+    "fixtureBytes": 1002411,
+    "importBytes": 1048576,
+    "requestCount": 240,
+    "elapsedSeconds": 211.388,
+    "samples": [
+      {
+        "seconds": 2.448,
+        "phase": "warmup",
+        "active": 0,
+        "opened": 0,
+        "closed": 0,
+        "sentBytes": 0,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 57167872,
+            "privateBytes": 43507712,
+            "peakWorkingSetBytes": 57167872,
+            "cpuSeconds": 0.1875
+          }
+        ],
+        "freePhysicalKiB": 3022036,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 405900,
+            "totalSize": 786432,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 0
+          },
+          "core:entry": {
+            "usedSize": 1278548,
+            "totalSize": 1998848,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 9.107,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 10,
+        "closed": 10,
+        "sentBytes": 20983468,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 75907072,
+            "privateBytes": 62152704,
+            "peakWorkingSetBytes": 75907072,
+            "cpuSeconds": 0.265625
+          }
+        ],
+        "freePhysicalKiB": 3055072,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 8407488,
+            "totalSize": 12718080,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 1636340,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 15.962,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 20,
+        "closed": 20,
+        "sentBytes": 41835864,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 85557248,
+            "privateBytes": 70799360,
+            "peakWorkingSetBytes": 85557248,
+            "cpuSeconds": 0.3125
+          }
+        ],
+        "freePhysicalKiB": 3535212,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 13594728,
+            "totalSize": 18399232,
+            "embedderHeapUsedSize": 386896,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 1465556,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 22.931,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 30,
+        "closed": 30,
+        "sentBytes": 62688260,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 89436160,
+            "privateBytes": 74321920,
+            "peakWorkingSetBytes": 90714112,
+            "cpuSeconds": 0.453125
+          }
+        ],
+        "freePhysicalKiB": 3662460,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 14086180,
+            "totalSize": 18141184,
+            "embedderHeapUsedSize": 515856,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 1329196,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 30.53,
+        "phase": "load-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 94302208,
+            "privateBytes": 79867904,
+            "peakWorkingSetBytes": 94679040,
+            "cpuSeconds": 0.640625
+          }
+        ],
+        "freePhysicalKiB": 3527716,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19312632,
+            "totalSize": 24084480,
+            "embedderHeapUsedSize": 644816,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1660784,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 32.824,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 94318592,
+            "privateBytes": 79872000,
+            "peakWorkingSetBytes": 94679040,
+            "cpuSeconds": 0.640625
+          }
+        ],
+        "freePhysicalKiB": 3491652,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19312632,
+            "totalSize": 24084480,
+            "embedderHeapUsedSize": 644816,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1660784,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 34.915,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 94318592,
+            "privateBytes": 79872000,
+            "peakWorkingSetBytes": 94679040,
+            "cpuSeconds": 0.640625
+          }
+        ],
+        "freePhysicalKiB": 3680168,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19312632,
+            "totalSize": 24084480,
+            "embedderHeapUsedSize": 644816,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1660784,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 36.974,
+        "phase": "idle-1",
+        "active": 0,
+        "opened": 40,
+        "closed": 40,
+        "sentBytes": 83540656,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 94318592,
+            "privateBytes": 79872000,
+            "peakWorkingSetBytes": 94679040,
+            "cpuSeconds": 0.640625
+          }
+        ],
+        "freePhysicalKiB": 3846564,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19312632,
+            "totalSize": 24084480,
+            "embedderHeapUsedSize": 644816,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1660784,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 43.534,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 50,
+        "closed": 50,
+        "sentBytes": 104327516,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 97218560,
+            "privateBytes": 82644992,
+            "peakWorkingSetBytes": 98828288,
+            "cpuSeconds": 0.703125
+          }
+        ],
+        "freePhysicalKiB": 4079956,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19757488,
+            "totalSize": 23826432,
+            "embedderHeapUsedSize": 644816,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 1984972,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 50.426,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 60,
+        "closed": 60,
+        "sentBytes": 125114376,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 102064128,
+            "privateBytes": 88260608,
+            "peakWorkingSetBytes": 102297600,
+            "cpuSeconds": 0.78125
+          }
+        ],
+        "freePhysicalKiB": 3767780,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 24986856,
+            "totalSize": 29769728,
+            "embedderHeapUsedSize": 773776,
+            "backingStorageSize": 5022465
+          },
+          "core:entry": {
+            "usedSize": 1581352,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 57.327,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 70,
+        "closed": 70,
+        "sentBytes": 145901236,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 104022016,
+            "privateBytes": 90943488,
+            "peakWorkingSetBytes": 106110976,
+            "cpuSeconds": 0.984375
+          }
+        ],
+        "freePhysicalKiB": 3544232,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 25417840,
+            "totalSize": 29773824,
+            "embedderHeapUsedSize": 773776,
+            "backingStorageSize": 4018945
+          },
+          "core:entry": {
+            "usedSize": 1908092,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 64.216,
+        "phase": "load-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166688096,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 109129728,
+            "privateBytes": 96055296,
+            "peakWorkingSetBytes": 109432832,
+            "cpuSeconds": 1.03125
+          }
+        ],
+        "freePhysicalKiB": 3120268,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 30665092,
+            "totalSize": 35454976,
+            "embedderHeapUsedSize": 902736,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1511660,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 66.587,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166688096,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 109129728,
+            "privateBytes": 96055296,
+            "peakWorkingSetBytes": 109432832,
+            "cpuSeconds": 1.046875
+          }
+        ],
+        "freePhysicalKiB": 3124816,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 30665092,
+            "totalSize": 35454976,
+            "embedderHeapUsedSize": 902736,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1511660,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 68.749,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166688096,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 109129728,
+            "privateBytes": 96055296,
+            "peakWorkingSetBytes": 109432832,
+            "cpuSeconds": 1.046875
+          }
+        ],
+        "freePhysicalKiB": 3183248,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 30665092,
+            "totalSize": 35454976,
+            "embedderHeapUsedSize": 902736,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1511660,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 70.962,
+        "phase": "idle-2",
+        "active": 0,
+        "opened": 80,
+        "closed": 80,
+        "sentBytes": 166688096,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 109129728,
+            "privateBytes": 96055296,
+            "peakWorkingSetBytes": 109432832,
+            "cpuSeconds": 1.046875
+          }
+        ],
+        "freePhysicalKiB": 2998888,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 30665092,
+            "totalSize": 35454976,
+            "embedderHeapUsedSize": 902736,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 1511660,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 77.74,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 90,
+        "closed": 90,
+        "sentBytes": 187540492,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 110829568,
+            "privateBytes": 97284096,
+            "peakWorkingSetBytes": 113582080,
+            "cpuSeconds": 1.1875
+          }
+        ],
+        "freePhysicalKiB": 4081208,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 31101532,
+            "totalSize": 35196928,
+            "embedderHeapUsedSize": 902736,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 1839016,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 85.089,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 100,
+        "closed": 100,
+        "sentBytes": 208327352,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 116793344,
+            "privateBytes": 104026112,
+            "peakWorkingSetBytes": 116793344,
+            "cpuSeconds": 1.359375
+          }
+        ],
+        "freePhysicalKiB": 4127280,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 36370824,
+            "totalSize": 41140224,
+            "embedderHeapUsedSize": 1031696,
+            "backingStorageSize": 5038849
+          },
+          "core:entry": {
+            "usedSize": 1415312,
+            "totalSize": 3309568,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 91.991,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 110,
+        "closed": 110,
+        "sentBytes": 229310820,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 119382016,
+            "privateBytes": 106651648,
+            "peakWorkingSetBytes": 121315328,
+            "cpuSeconds": 1.5
+          }
+        ],
+        "freePhysicalKiB": 3898020,
+        "competingTestOrBuildCount": 0,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 36817912,
+            "totalSize": 40882176,
+            "embedderHeapUsedSize": 1160656,
+            "backingStorageSize": 4018945
+          },
+          "core:entry": {
+            "usedSize": 1743356,
+            "totalSize": 3571712,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 98.711,
+        "phase": "load-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 124526592,
+            "privateBytes": 112336896,
+            "peakWorkingSetBytes": 125337600,
+            "cpuSeconds": 1.515625
+          }
+        ],
+        "freePhysicalKiB": 3932548,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 42021028,
+            "totalSize": 46563328,
+            "embedderHeapUsedSize": 1289616,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 2070100,
+            "totalSize": 3833856,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 100.757,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 124526592,
+            "privateBytes": 112336896,
+            "peakWorkingSetBytes": 125337600,
+            "cpuSeconds": 1.515625
+          }
+        ],
+        "freePhysicalKiB": 3919508,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 42021028,
+            "totalSize": 46563328,
+            "embedderHeapUsedSize": 1289616,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 2070100,
+            "totalSize": 3833856,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 102.785,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 124526592,
+            "privateBytes": 112336896,
+            "peakWorkingSetBytes": 125337600,
+            "cpuSeconds": 1.515625
+          }
+        ],
+        "freePhysicalKiB": 3850660,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 42021028,
+            "totalSize": 46563328,
+            "embedderHeapUsedSize": 1289616,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 2070100,
+            "totalSize": 3833856,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 104.79,
+        "phase": "idle-3",
+        "active": 0,
+        "opened": 120,
+        "closed": 120,
+        "sentBytes": 250163216,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 124526592,
+            "privateBytes": 112336896,
+            "peakWorkingSetBytes": 125337600,
+            "cpuSeconds": 1.515625
+          }
+        ],
+        "freePhysicalKiB": 3778688,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 42021028,
+            "totalSize": 46563328,
+            "embedderHeapUsedSize": 1289616,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 2070100,
+            "totalSize": 3833856,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 111.501,
+        "phase": "load-4",
+        "active": 0,
+        "opened": 130,
+        "closed": 130,
+        "sentBytes": 270950076,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 125157376,
+            "privateBytes": 113045504,
+            "peakWorkingSetBytes": 128512000,
+            "cpuSeconds": 1.6875
+          }
+        ],
+        "freePhysicalKiB": 3543424,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 42452660,
+            "totalSize": 46567424,
+            "embedderHeapUsedSize": 1289616,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 1677652,
+            "totalSize": 3047424,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 118.451,
+        "phase": "load-4",
+        "active": 0,
+        "opened": 140,
+        "closed": 140,
+        "sentBytes": 291868008,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 131510272,
+            "privateBytes": 119541760,
+            "peakWorkingSetBytes": 131510272,
+            "cpuSeconds": 1.75
+          }
+        ],
+        "freePhysicalKiB": 3345436,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 47694844,
+            "totalSize": 52510720,
+            "embedderHeapUsedSize": 1418576,
+            "backingStorageSize": 5030657
+          },
+          "core:entry": {
+            "usedSize": 2004392,
+            "totalSize": 3047424,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 125.238,
+        "phase": "load-4",
+        "active": 0,
+        "opened": 150,
+        "closed": 150,
+        "sentBytes": 312654868,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 133459968,
+            "privateBytes": 121688064,
+            "peakWorkingSetBytes": 135573504,
+            "cpuSeconds": 1.90625
+          }
+        ],
+        "freePhysicalKiB": 3254012,
+        "competingTestOrBuildCount": 1,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 48127572,
+            "totalSize": 52514816,
+            "embedderHeapUsedSize": 1418576,
+            "backingStorageSize": 4018945
+          },
+          "core:entry": {
+            "usedSize": 1607476,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 132.559,
+        "phase": "load-4",
+        "active": 0,
+        "opened": 160,
+        "closed": 160,
+        "sentBytes": 333441728,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 138625024,
+            "privateBytes": 127119360,
+            "peakWorkingSetBytes": 138907648,
+            "cpuSeconds": 2.03125
+          }
+        ],
+        "freePhysicalKiB": 2737864,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 53391456,
+            "totalSize": 57933824,
+            "embedderHeapUsedSize": 1547536,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1934884,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 134.99,
+        "phase": "idle-4",
+        "active": 0,
+        "opened": 160,
+        "closed": 160,
+        "sentBytes": 333441728,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 138625024,
+            "privateBytes": 127119360,
+            "peakWorkingSetBytes": 138907648,
+            "cpuSeconds": 2.03125
+          }
+        ],
+        "freePhysicalKiB": 2729208,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 53391456,
+            "totalSize": 57933824,
+            "embedderHeapUsedSize": 1547536,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1934884,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 137.339,
+        "phase": "idle-4",
+        "active": 0,
+        "opened": 160,
+        "closed": 160,
+        "sentBytes": 333441728,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 138584064,
+            "privateBytes": 127045632,
+            "peakWorkingSetBytes": 138907648,
+            "cpuSeconds": 2.03125
+          }
+        ],
+        "freePhysicalKiB": 2898240,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 53391456,
+            "totalSize": 57933824,
+            "embedderHeapUsedSize": 1547536,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1934884,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 139.672,
+        "phase": "idle-4",
+        "active": 0,
+        "opened": 160,
+        "closed": 160,
+        "sentBytes": 333441728,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 138584064,
+            "privateBytes": 127045632,
+            "peakWorkingSetBytes": 138907648,
+            "cpuSeconds": 2.03125
+          }
+        ],
+        "freePhysicalKiB": 3705588,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 53391456,
+            "totalSize": 57933824,
+            "embedderHeapUsedSize": 1547536,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1934884,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 146.821,
+        "phase": "load-5",
+        "active": 0,
+        "opened": 170,
+        "closed": 170,
+        "sentBytes": 354228588,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 140496896,
+            "privateBytes": 130097152,
+            "peakWorkingSetBytes": 142626816,
+            "cpuSeconds": 2.125
+          }
+        ],
+        "freePhysicalKiB": 3483756,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 53851268,
+            "totalSize": 58200064,
+            "embedderHeapUsedSize": 1547536,
+            "backingStorageSize": 4018945
+          },
+          "core:entry": {
+            "usedSize": 1542328,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 153.618,
+        "phase": "load-5",
+        "active": 0,
+        "opened": 180,
+        "closed": 180,
+        "sentBytes": 375015448,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 145915904,
+            "privateBytes": 135729152,
+            "peakWorkingSetBytes": 145915904,
+            "cpuSeconds": 2.25
+          }
+        ],
+        "freePhysicalKiB": 3371044,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 59045384,
+            "totalSize": 64143360,
+            "embedderHeapUsedSize": 1676496,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1866600,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 160.651,
+        "phase": "load-5",
+        "active": 0,
+        "opened": 190,
+        "closed": 190,
+        "sentBytes": 395933380,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 147533824,
+            "privateBytes": 137383936,
+            "peakWorkingSetBytes": 149659648,
+            "cpuSeconds": 2.34375
+          }
+        ],
+        "freePhysicalKiB": 2886060,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 59481228,
+            "totalSize": 63623168,
+            "embedderHeapUsedSize": 1805456,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 2193308,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 167.845,
+        "phase": "load-5",
+        "active": 0,
+        "opened": 200,
+        "closed": 200,
+        "sentBytes": 416720240,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 152002560,
+            "privateBytes": 142602240,
+            "peakWorkingSetBytes": 152559616,
+            "cpuSeconds": 2.59375
+          }
+        ],
+        "freePhysicalKiB": 2279896,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 64703288,
+            "totalSize": 69304320,
+            "embedderHeapUsedSize": 1934416,
+            "backingStorageSize": 5022465
+          },
+          "core:entry": {
+            "usedSize": 1800880,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 170.239,
+        "phase": "idle-5",
+        "active": 0,
+        "opened": 200,
+        "closed": 200,
+        "sentBytes": 416720240,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 152002560,
+            "privateBytes": 142602240,
+            "peakWorkingSetBytes": 152559616,
+            "cpuSeconds": 2.59375
+          }
+        ],
+        "freePhysicalKiB": 1943784,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 64703288,
+            "totalSize": 69304320,
+            "embedderHeapUsedSize": 1934416,
+            "backingStorageSize": 5022465
+          },
+          "core:entry": {
+            "usedSize": 1800880,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 172.888,
+        "phase": "idle-5",
+        "active": 0,
+        "opened": 200,
+        "closed": 200,
+        "sentBytes": 416720240,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 152002560,
+            "privateBytes": 142610432,
+            "peakWorkingSetBytes": 152559616,
+            "cpuSeconds": 2.609375
+          }
+        ],
+        "freePhysicalKiB": 1521440,
+        "competingTestOrBuildCount": 3,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 64703288,
+            "totalSize": 69304320,
+            "embedderHeapUsedSize": 1934416,
+            "backingStorageSize": 5022465
+          },
+          "core:entry": {
+            "usedSize": 1800880,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 175.598,
+        "phase": "idle-5",
+        "active": 0,
+        "opened": 200,
+        "closed": 200,
+        "sentBytes": 416720240,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 152002560,
+            "privateBytes": 142610432,
+            "peakWorkingSetBytes": 152559616,
+            "cpuSeconds": 2.609375
+          }
+        ],
+        "freePhysicalKiB": 1658812,
+        "competingTestOrBuildCount": 3,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 64703288,
+            "totalSize": 69304320,
+            "embedderHeapUsedSize": 1934416,
+            "backingStorageSize": 5022465
+          },
+          "core:entry": {
+            "usedSize": 1800880,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 182.792,
+        "phase": "load-6",
+        "active": 0,
+        "opened": 210,
+        "closed": 210,
+        "sentBytes": 437703708,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 154660864,
+            "privateBytes": 145645568,
+            "peakWorkingSetBytes": 156016640,
+            "cpuSeconds": 2.78125
+          }
+        ],
+        "freePhysicalKiB": 1086540,
+        "competingTestOrBuildCount": 3,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 65223584,
+            "totalSize": 69308416,
+            "embedderHeapUsedSize": 1934416,
+            "backingStorageSize": 4023041
+          },
+          "core:entry": {
+            "usedSize": 2127552,
+            "totalSize": 3047424,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 190.04,
+        "phase": "load-6",
+        "active": 0,
+        "opened": 220,
+        "closed": 220,
+        "sentBytes": 458621640,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 159444992,
+            "privateBytes": 150106112,
+            "peakWorkingSetBytes": 160169984,
+            "cpuSeconds": 2.9375
+          }
+        ],
+        "freePhysicalKiB": 1159976,
+        "competingTestOrBuildCount": 3,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 70425000,
+            "totalSize": 74989568,
+            "embedderHeapUsedSize": 2063376,
+            "backingStorageSize": 5026561
+          },
+          "core:entry": {
+            "usedSize": 1735124,
+            "totalSize": 2785280,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 197.158,
+        "phase": "load-6",
+        "active": 0,
+        "opened": 230,
+        "closed": 230,
+        "sentBytes": 479539572,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 162193408,
+            "privateBytes": 153415680,
+            "peakWorkingSetBytes": 163385344,
+            "cpuSeconds": 3.09375
+          }
+        ],
+        "freePhysicalKiB": 1174284,
+        "competingTestOrBuildCount": 3,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 70885304,
+            "totalSize": 74993664,
+            "embedderHeapUsedSize": 2063376,
+            "backingStorageSize": 4014849
+          },
+          "core:entry": {
+            "usedSize": 2061868,
+            "totalSize": 3047424,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 204.282,
+        "phase": "load-6",
+        "active": 0,
+        "opened": 240,
+        "closed": 240,
+        "sentBytes": 500523040,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 166400000,
+            "privateBytes": 157614080,
+            "peakWorkingSetBytes": 167153664,
+            "cpuSeconds": 3.203125
+          }
+        ],
+        "freePhysicalKiB": 2028908,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 76084108,
+            "totalSize": 80936960,
+            "embedderHeapUsedSize": 2192336,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 1638164,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 206.823,
+        "phase": "idle-6",
+        "active": 0,
+        "opened": 240,
+        "closed": 240,
+        "sentBytes": 500523040,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 166400000,
+            "privateBytes": 157614080,
+            "peakWorkingSetBytes": 167153664,
+            "cpuSeconds": 3.203125
+          }
+        ],
+        "freePhysicalKiB": 2243080,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 76084108,
+            "totalSize": 80936960,
+            "embedderHeapUsedSize": 2192336,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 1638164,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 209.118,
+        "phase": "idle-6",
+        "active": 0,
+        "opened": 240,
+        "closed": 240,
+        "sentBytes": 500523040,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 166400000,
+            "privateBytes": 157614080,
+            "peakWorkingSetBytes": 167153664,
+            "cpuSeconds": 3.203125
+          }
+        ],
+        "freePhysicalKiB": 3985800,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 76084108,
+            "totalSize": 80936960,
+            "embedderHeapUsedSize": 2192336,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 1638164,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "seconds": 211.359,
+        "phase": "idle-6",
+        "active": 0,
+        "opened": 240,
+        "closed": 240,
+        "sentBytes": 500523040,
+        "processes": [
+          {
+            "pid": 42268,
+            "workingSetBytes": 166400000,
+            "privateBytes": 157614080,
+            "peakWorkingSetBytes": 167153664,
+            "cpuSeconds": 3.203125
+          }
+        ],
+        "freePhysicalKiB": 3820628,
+        "competingTestOrBuildCount": 2,
+        "heaps": {
+          "core:user:": {
+            "usedSize": 76084108,
+            "totalSize": 80936960,
+            "embedderHeapUsedSize": 2192336,
+            "backingStorageSize": 5034753
+          },
+          "core:entry": {
+            "usedSize": 1638164,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      }
+    ],
+    "requests": [
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 9
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 264
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 238
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1795
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 236
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1880
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1919
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 235
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1861
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1909
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1924
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 257
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1975
+      },
+      {
+        "cycle": 0,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 0,
+        "mode": "/redirect",
+        "ms": 7
+      },
+      {
+        "cycle": 0,
+        "mode": "/query",
+        "ms": 256
+      },
+      {
+        "cycle": 0,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 0,
+        "mode": "/download",
+        "ms": 1951
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 15
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 205
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1864
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1938
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1931
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1952
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 220
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1926
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1970
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 249
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1936
+      },
+      {
+        "cycle": 1,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 1,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 1,
+        "mode": "/query",
+        "ms": 249
+      },
+      {
+        "cycle": 1,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 1,
+        "mode": "/download",
+        "ms": 1935
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 255
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1926
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1936
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 256
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1961
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1915
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1993
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 13
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1938
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1955
+      },
+      {
+        "cycle": 2,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 2,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 2,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 2,
+        "mode": "/download",
+        "ms": 1910
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1940
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1956
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1951
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 238
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1969
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1941
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1872
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1986
+      },
+      {
+        "cycle": 3,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 3,
+        "mode": "/query",
+        "ms": 249
+      },
+      {
+        "cycle": 3,
+        "mode": "/import",
+        "ms": 249
+      },
+      {
+        "cycle": 3,
+        "mode": "/download",
+        "ms": 1939
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1925
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 3
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1980
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 249
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1848
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1921
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 255
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1980
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 237
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1924
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 251
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 256
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1974
+      },
+      {
+        "cycle": 4,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 4,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 4,
+        "mode": "/query",
+        "ms": 247
+      },
+      {
+        "cycle": 4,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 4,
+        "mode": "/download",
+        "ms": 1957
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 8
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 256
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 255
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1947
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 7
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 10
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 250
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1954
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 252
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1934
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 250
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 251
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1918
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 5
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 5
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 256
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1940
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 3
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 254
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 253
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1953
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 4
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 6
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 253
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1927
+      },
+      {
+        "cycle": 5,
+        "mode": "/oversize",
+        "ms": 6
+      },
+      {
+        "cycle": 5,
+        "mode": "/redirect",
+        "ms": 7
+      },
+      {
+        "cycle": 5,
+        "mode": "/query",
+        "ms": 252
+      },
+      {
+        "cycle": 5,
+        "mode": "/import",
+        "ms": 254
+      },
+      {
+        "cycle": 5,
+        "mode": "/download",
+        "ms": 1943
+      }
+    ],
+    "cleanup": {
+      "active": 0,
+      "opened": 240,
+      "closed": 240
+    }
+  },
+  "production": [
+    {
+      "utc": "2026-09-28T16:18:46.6829830Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 4925.6348325,
+          "workingSetBytes": 80560128,
+          "privateBytes": 77279232,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.328125,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 4919.452184,
+          "workingSetBytes": 146182144,
+          "privateBytes": 139833344,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.65625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 4919.435461,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 4919.3812753,
+          "workingSetBytes": 203145216,
+          "privateBytes": 202297344,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.359375,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 4918.4015419,
+          "workingSetBytes": 241545216,
+          "privateBytes": 250126336,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.53125,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 4917.923049999999,
+          "workingSetBytes": 281292800,
+          "privateBytes": 266244096,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.421875,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3111352,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:19:07.1006974Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 4946.0525468999995,
+          "workingSetBytes": 80580608,
+          "privateBytes": 77283328,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.328125,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 4939.869898399999,
+          "workingSetBytes": 146186240,
+          "privateBytes": 140496896,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.671875,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 4939.8531754,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 4939.7989897,
+          "workingSetBytes": 203952128,
+          "privateBytes": 202567680,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.71875,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 4938.819256299999,
+          "workingSetBytes": 242339840,
+          "privateBytes": 251043840,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.71875,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 4938.3407644,
+          "workingSetBytes": 272801792,
+          "privateBytes": 257593344,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.5,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 4187712,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:19:27.4077276Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 4966.3595771,
+          "workingSetBytes": 80084992,
+          "privateBytes": 76804096,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.328125,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 4960.1769286,
+          "workingSetBytes": 146194432,
+          "privateBytes": 140496896,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.671875,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 4960.1602056,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 4960.106019899999,
+          "workingSetBytes": 204017664,
+          "privateBytes": 202567680,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.75,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 4959.1262865,
+          "workingSetBytes": 242556928,
+          "privateBytes": 251568128,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.734375,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 4958.6477945999995,
+          "workingSetBytes": 272814080,
+          "privateBytes": 257855488,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.5,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3568716,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:19:47.7291001Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 4986.6809496,
+          "workingSetBytes": 80826368,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.390625,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 4980.4983010999995,
+          "workingSetBytes": 146198528,
+          "privateBytes": 140496896,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.734375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 4980.4815781,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 4980.4273924,
+          "workingSetBytes": 204083200,
+          "privateBytes": 202567680,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.8125,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 4979.4476589999995,
+          "workingSetBytes": 242769920,
+          "privateBytes": 251699200,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.796875,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 4978.9691671,
+          "workingSetBytes": 273252352,
+          "privateBytes": 258379776,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.515625,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 2103664,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:20:08.3541450Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5007.3059944999995,
+          "workingSetBytes": 80826368,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.421875,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5001.123345999999,
+          "workingSetBytes": 146284544,
+          "privateBytes": 141082624,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.734375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5001.106623,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5001.0524373,
+          "workingSetBytes": 204115968,
+          "privateBytes": 202567680,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.859375,
+          "handles": 513
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5000.072703899999,
+          "workingSetBytes": 242774016,
+          "privateBytes": 251699200,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.796875,
+          "handles": 218
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 4999.594212,
+          "workingSetBytes": 272601088,
+          "privateBytes": 258117632,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.515625,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 2149396,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:20:29.0047403Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5027.9565898,
+          "workingSetBytes": 80826368,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.4375,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5021.7739413,
+          "workingSetBytes": 146284544,
+          "privateBytes": 141082624,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.78125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5021.7572183,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5021.7030325999995,
+          "workingSetBytes": 204132352,
+          "privateBytes": 202567680,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 52.890625,
+          "handles": 513
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5020.7232992,
+          "workingSetBytes": 242794496,
+          "privateBytes": 251699200,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.859375,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5020.2448073,
+          "workingSetBytes": 274034688,
+          "privateBytes": 259010560,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.53125,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 1799176,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:20:49.8012533Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5048.753102799999,
+          "workingSetBytes": 80830464,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.453125,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5042.5704543,
+          "workingSetBytes": 146288640,
+          "privateBytes": 141082624,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.859375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5042.5537312999995,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5042.4995456,
+          "workingSetBytes": 205377536,
+          "privateBytes": 203649024,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.140625,
+          "handles": 516
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5041.5198122,
+          "workingSetBytes": 215506944,
+          "privateBytes": 221868032,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.96875,
+          "handles": 220
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5041.0413203,
+          "workingSetBytes": 274284544,
+          "privateBytes": 259534848,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.609375,
+          "handles": 285
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 1485208,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:21:10.5809998Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5069.5328493,
+          "workingSetBytes": 80834560,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.453125,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5063.3502008,
+          "workingSetBytes": 146288640,
+          "privateBytes": 141082624,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.875,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5063.3334778,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5063.2792921,
+          "workingSetBytes": 205377536,
+          "privateBytes": 203649024,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.1875,
+          "handles": 513
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5062.2995587,
+          "workingSetBytes": 215515136,
+          "privateBytes": 222130176,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.96875,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5061.8210668,
+          "workingSetBytes": 274489344,
+          "privateBytes": 259534848,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.609375,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 2353816,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:21:31.1893407Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5090.1411902,
+          "workingSetBytes": 80834560,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.46875,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5083.9585417,
+          "workingSetBytes": 146288640,
+          "privateBytes": 141082624,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.90625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5083.9418187,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5083.887632999999,
+          "workingSetBytes": 205377536,
+          "privateBytes": 203649024,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.21875,
+          "handles": 512
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5082.9078996,
+          "workingSetBytes": 215646208,
+          "privateBytes": 222130176,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.984375,
+          "handles": 215
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5082.4294076999995,
+          "workingSetBytes": 274497536,
+          "privateBytes": 259534848,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.609375,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 1545288,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:21:51.7284819Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5110.6803314,
+          "workingSetBytes": 80842752,
+          "privateBytes": 77455360,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.46875,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5104.4976829,
+          "workingSetBytes": 146268160,
+          "privateBytes": 141045760,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.921875,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5104.4809599,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5104.4267742,
+          "workingSetBytes": 205377536,
+          "privateBytes": 203649024,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.28125,
+          "handles": 512
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5103.4470408,
+          "workingSetBytes": 215789568,
+          "privateBytes": 222392320,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 17.984375,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5102.968548899999,
+          "workingSetBytes": 274534400,
+          "privateBytes": 259731456,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.625,
+          "handles": 283
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 1165648,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:22:12.2095940Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5131.1614435,
+          "workingSetBytes": 79618048,
+          "privateBytes": 75526144,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.546875,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5124.978795,
+          "workingSetBytes": 146276352,
+          "privateBytes": 141070336,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 55.9375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5124.962071999999,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5124.9078862999995,
+          "workingSetBytes": 205377536,
+          "privateBytes": 203649024,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.3125,
+          "handles": 512
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5123.9281529,
+          "workingSetBytes": 215965696,
+          "privateBytes": 222707712,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.015625,
+          "handles": 215
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5123.449661,
+          "workingSetBytes": 273731584,
+          "privateBytes": 259010560,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.65625,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 2325148,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:22:32.5907617Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5151.5426112,
+          "workingSetBytes": 79622144,
+          "privateBytes": 75526144,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.546875,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5145.359962699999,
+          "workingSetBytes": 146497536,
+          "privateBytes": 141234176,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.015625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5145.3432397,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5145.289054,
+          "workingSetBytes": 205836288,
+          "privateBytes": 204726272,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.53125,
+          "handles": 512
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5144.309320599999,
+          "workingSetBytes": 216752128,
+          "privateBytes": 223780864,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.109375,
+          "handles": 215
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5143.8308287,
+          "workingSetBytes": 273215488,
+          "privateBytes": 260583424,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.734375,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 2916144,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:22:53.0480633Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5171.9999128,
+          "workingSetBytes": 79785984,
+          "privateBytes": 75718656,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.546875,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5165.8172643,
+          "workingSetBytes": 146501632,
+          "privateBytes": 141234176,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.015625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5165.8005413,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5165.746355599999,
+          "workingSetBytes": 205836288,
+          "privateBytes": 204726272,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.546875,
+          "handles": 512
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5164.7666222,
+          "workingSetBytes": 216821760,
+          "privateBytes": 223780864,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.125,
+          "handles": 215
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5164.2881302999995,
+          "workingSetBytes": 273223680,
+          "privateBytes": 260583424,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.75,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3011420,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:23:13.4276578Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5192.3795073,
+          "workingSetBytes": 79790080,
+          "privateBytes": 75718656,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.5625,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5186.1968588,
+          "workingSetBytes": 146509824,
+          "privateBytes": 141234176,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.03125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5186.180135799999,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5186.1259500999995,
+          "workingSetBytes": 205959168,
+          "privateBytes": 204996608,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.609375,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5185.1462167,
+          "workingSetBytes": 217247744,
+          "privateBytes": 224145408,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.203125,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5184.6677248,
+          "workingSetBytes": 273743872,
+          "privateBytes": 261107712,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.765625,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3808168,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:23:33.8941891Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5212.8460386,
+          "workingSetBytes": 79790080,
+          "privateBytes": 75718656,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.5625,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5206.6633901,
+          "workingSetBytes": 146509824,
+          "privateBytes": 141234176,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.03125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5206.6466671,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5206.5924814,
+          "workingSetBytes": 205959168,
+          "privateBytes": 204996608,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.625,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5205.612748,
+          "workingSetBytes": 217260032,
+          "privateBytes": 223883264,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.21875,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5205.1342561,
+          "workingSetBytes": 273813504,
+          "privateBytes": 261107712,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.765625,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3094348,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:23:54.2952945Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5233.247144,
+          "workingSetBytes": 79790080,
+          "privateBytes": 75718656,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.578125,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5227.0644955,
+          "workingSetBytes": 146522112,
+          "privateBytes": 141234176,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.03125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5227.0477725,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5226.993586799999,
+          "workingSetBytes": 206032896,
+          "privateBytes": 204996608,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.625,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5226.0138534,
+          "workingSetBytes": 217341952,
+          "privateBytes": 223883264,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.234375,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5225.535361499999,
+          "workingSetBytes": 274698240,
+          "privateBytes": 262414336,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.765625,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3009056,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:24:14.6131248Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5253.564974299999,
+          "workingSetBytes": 79790080,
+          "privateBytes": 75718656,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.578125,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5247.3823258,
+          "workingSetBytes": 146825216,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.109375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5247.3656028,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5247.3114171,
+          "workingSetBytes": 206454784,
+          "privateBytes": 205000704,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.640625,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5246.3316837,
+          "workingSetBytes": 217546752,
+          "privateBytes": 224014336,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.265625,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5245.8531918,
+          "workingSetBytes": 274989056,
+          "privateBytes": 262479872,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.78125,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3420864,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:24:34.9975001Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5273.9493496,
+          "workingSetBytes": 79802368,
+          "privateBytes": 75911168,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.578125,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5267.766701099999,
+          "workingSetBytes": 146825216,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.109375,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5267.7499781,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5267.6957924,
+          "workingSetBytes": 206454784,
+          "privateBytes": 205000704,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.671875,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5266.716058999999,
+          "workingSetBytes": 217550848,
+          "privateBytes": 224014336,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.265625,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5266.2375671,
+          "workingSetBytes": 275005440,
+          "privateBytes": 262479872,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.78125,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3191504,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:24:55.3415109Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5294.2933604,
+          "workingSetBytes": 79814656,
+          "privateBytes": 75911168,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.59375,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5288.1107119,
+          "workingSetBytes": 146833408,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.140625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5288.0939889,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5288.039803199999,
+          "workingSetBytes": 206454784,
+          "privateBytes": 205000704,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.671875,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5287.0600698,
+          "workingSetBytes": 217554944,
+          "privateBytes": 224014336,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.28125,
+          "handles": 217
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5286.5815778999995,
+          "workingSetBytes": 275083264,
+          "privateBytes": 262479872,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.8125,
+          "handles": 281
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3081036,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:25:15.6685408Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5314.6203903,
+          "workingSetBytes": 79826944,
+          "privateBytes": 75911168,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.59375,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5308.4377417999995,
+          "workingSetBytes": 146837504,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.140625,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5308.4210188,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5308.3668331,
+          "workingSetBytes": 209666048,
+          "privateBytes": 207568896,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.96875,
+          "handles": 551
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5307.387099699999,
+          "workingSetBytes": 219746304,
+          "privateBytes": 227520512,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.421875,
+          "handles": 256
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5306.9086078,
+          "workingSetBytes": 278773760,
+          "privateBytes": 266330112,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.859375,
+          "handles": 286
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3251996,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:25:36.0880702Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5335.0399197,
+          "workingSetBytes": 79835136,
+          "privateBytes": 75911168,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.609375,
+          "handles": 260
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5328.8572712,
+          "workingSetBytes": 146837504,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.203125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5328.8405482,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5328.7863625,
+          "workingSetBytes": 209686528,
+          "privateBytes": 207568896,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 53.984375,
+          "handles": 518
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5327.8066291,
+          "workingSetBytes": 219746304,
+          "privateBytes": 227545088,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.46875,
+          "handles": 225
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5327.3281372,
+          "workingSetBytes": 279142400,
+          "privateBytes": 266657792,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 22.875,
+          "handles": 289
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3070584,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:25:56.5700886Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5355.5219381,
+          "workingSetBytes": 79585280,
+          "privateBytes": 75128832,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.609375,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5349.3392896,
+          "workingSetBytes": 146845696,
+          "privateBytes": 141504512,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.203125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5349.3225666,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5349.2683809,
+          "workingSetBytes": 210677760,
+          "privateBytes": 208928768,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 54.328125,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5348.2886475,
+          "workingSetBytes": 220467200,
+          "privateBytes": 228593664,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.640625,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5347.8101556,
+          "workingSetBytes": 279068672,
+          "privateBytes": 266657792,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 23,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 3289344,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:26:16.9092536Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5375.8611031,
+          "workingSetBytes": 79994880,
+          "privateBytes": 75456512,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.609375,
+          "handles": 262
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5369.6784546,
+          "workingSetBytes": 146857984,
+          "privateBytes": 141774848,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.203125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5369.6617316,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5369.607545899999,
+          "workingSetBytes": 209162240,
+          "privateBytes": 207122432,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 54.71875,
+          "handles": 519
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5368.6278125,
+          "workingSetBytes": 221941760,
+          "privateBytes": 229801984,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.859375,
+          "handles": 227
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5368.1493206,
+          "workingSetBytes": 278872064,
+          "privateBytes": 266264576,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 23.1875,
+          "handles": 309
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 4522380,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:26:37.1991838Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5396.1510333,
+          "workingSetBytes": 79994880,
+          "privateBytes": 75456512,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.609375,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5389.9683847999995,
+          "workingSetBytes": 146862080,
+          "privateBytes": 141774848,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.28125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5389.9516618,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5389.8974761,
+          "workingSetBytes": 211267584,
+          "privateBytes": 209227776,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 54.859375,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5388.9177426999995,
+          "workingSetBytes": 222810112,
+          "privateBytes": 230854656,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 18.921875,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5388.4392508,
+          "workingSetBytes": 278151168,
+          "privateBytes": 265478144,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 23.21875,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 4126416,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    },
+    {
+      "utc": "2026-09-28T16:26:57.4714604Z",
+      "release": "20260928T112356Z-eeac7bbc96a8c51a",
+      "processes": [
+        {
+          "pid": 32412,
+          "role": "supervisor",
+          "created": "2026-09-28T14:56:41.0481505Z",
+          "ageSeconds": 5416.423309899999,
+          "workingSetBytes": 79998976,
+          "privateBytes": 75456512,
+          "peakWorkingSetBytes": 102363136,
+          "cpuSeconds": 8.609375,
+          "handles": 261
+        },
+        {
+          "pid": 53952,
+          "role": "helper",
+          "created": "2026-09-28T14:56:47.2307990Z",
+          "ageSeconds": 5410.2406614,
+          "workingSetBytes": 146866176,
+          "privateBytes": 141774848,
+          "peakWorkingSetBytes": 1362939904,
+          "cpuSeconds": 56.3125,
+          "handles": 309
+        },
+        {
+          "pid": 27796,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.2475220Z",
+          "ageSeconds": 5410.2239383999995,
+          "workingSetBytes": 58339328,
+          "privateBytes": 20701184,
+          "peakWorkingSetBytes": 58384384,
+          "cpuSeconds": 0.046875,
+          "handles": 225
+        },
+        {
+          "pid": 36036,
+          "role": "wrangler",
+          "created": "2026-09-28T14:56:47.3017077Z",
+          "ageSeconds": 5410.1697527,
+          "workingSetBytes": 211267584,
+          "privateBytes": 209227776,
+          "peakWorkingSetBytes": 571326464,
+          "cpuSeconds": 55.15625,
+          "handles": 514
+        },
+        {
+          "pid": 52044,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.2814411Z",
+          "ageSeconds": 5409.1900193,
+          "workingSetBytes": 222511104,
+          "privateBytes": 230658048,
+          "peakWorkingSetBytes": 246255616,
+          "cpuSeconds": 19.0625,
+          "handles": 219
+        },
+        {
+          "pid": 19232,
+          "role": "workerd",
+          "created": "2026-09-28T14:56:48.7599330Z",
+          "ageSeconds": 5408.7115274,
+          "workingSetBytes": 279056384,
+          "privateBytes": 266526720,
+          "peakWorkingSetBytes": 752082944,
+          "cpuSeconds": 23.28125,
+          "handles": 282
+        }
+      ],
+      "helper": {
+        "busy": false,
+        "status": null
+      },
+      "freePhysicalKiB": 4016600,
+      "requestCount": null,
+      "requestCountReason": "current production logs do not expose reliable per-process counters"
+    }
+  ]
+}

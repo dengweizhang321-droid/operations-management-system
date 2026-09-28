@@ -31,8 +31,10 @@ export async function fetchBoundedJson(input: {
     timedOut = true;
     controller.abort(new Error("response_timeout"));
   }, timeoutMs);
+  let response: Response | undefined;
+  let bodyConsumed = false;
   try {
-    const response = await (input.fetcher ?? fetch)(input.url, {
+    response = await (input.fetcher ?? fetch)(input.url, {
       ...input.init,
       redirect: "manual",
       signal: controller.signal,
@@ -45,6 +47,7 @@ export async function fetchBoundedJson(input: {
       throw new BoundedFetchError("response_too_large", `模型响应超过 ${maxBytes} 字节上限`);
     }
     const bytes = await readBoundedBody(response, maxBytes);
+    bodyConsumed = true;
     if (bytes.byteLength === 0) return { response, data: null, responseBytes: 0 };
     try {
       return { response, data: JSON.parse(new TextDecoder().decode(bytes)) as unknown, responseBytes: bytes.byteLength };
@@ -59,6 +62,15 @@ export async function fetchBoundedJson(input: {
   } finally {
     clearTimeout(timer);
     externalSignal?.removeEventListener("abort", abortFromExternal);
+    if (!bodyConsumed) {
+      // Header-level rejection must release the unread body as well as the
+      // transport. Do not await an upstream cancellation promise: cleanup must
+      // neither extend the deadline nor replace the original public error.
+      if (response?.body && !response.body.locked) {
+        void response.body.cancel().catch(() => undefined);
+      }
+      controller.abort();
+    }
   }
 }
 

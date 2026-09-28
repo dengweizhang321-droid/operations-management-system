@@ -1,0 +1,52 @@
+{
+  "baselineRef": "e00d4a82",
+  "requests": 32,
+  "fixtureRows": 4096,
+  "syntheticFetcher": true,
+  "production": false,
+  "acceptance": false,
+  "elapsedSeconds": 6.525,
+  "collectionAcknowledgement": "unacknowledged_within_5_seconds",
+  "baseline": {
+    "core:user:": {
+      "usedSize": 3173768,
+      "totalSize": 5722112,
+      "embedderHeapUsedSize": 257936,
+      "backingStorageSize": 0
+    },
+    "core:entry": {
+      "usedSize": 1229892,
+      "totalSize": 1998848,
+      "embedderHeapUsedSize": 257936,
+      "backingStorageSize": 341617
+    }
+  },
+  "afterLoad": {
+    "core:user:": {
+      "usedSize": 10389780,
+      "totalSize": 19832832,
+      "embedderHeapUsedSize": 902736,
+      "backingStorageSize": 6030081
+    },
+    "core:entry": {
+      "usedSize": 1388412,
+      "totalSize": 4620288,
+      "embedderHeapUsedSize": 257936,
+      "backingStorageSize": 341617
+    }
+  },
+  "afterCollectionRequest": {
+    "core:user:": {
+      "usedSize": 10389780,
+      "totalSize": 19832832,
+      "embedderHeapUsedSize": 902736,
+      "backingStorageSize": 6030081
+    },
+    "core:entry": {
+      "usedSize": 1388412,
+      "totalSize": 4620288,
+      "embedderHeapUsedSize": 257936,
+      "backingStorageSize": 341617
+    }
+  }
+}

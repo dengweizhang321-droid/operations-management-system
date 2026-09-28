@@ -1,0 +1,1422 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>workerd split workload and heap attribution</title><style>body{max-width:1120px;margin:28px auto;font:16px system-ui;color:#222}svg{width:100%;border:1px solid #ddd;margin:12px 0}text{font:13px system-ui}pre{white-space:pre-wrap}</style><h1>Split workloads and heap snapshots</h1><p>These are diagnostic experiments, not a repair benchmark. Taking a heap snapshot affects collection. All ordinary fixture-row objects disappear; an intentionally retained positive control remains. No production service was changed.</p><svg viewBox="0 0 1040 694" role="img" aria-label="User heap before and after diagnostic heap snapshot"><text x="230" y="24">User heap MiB: before snapshot (blue), after snapshot (orange)</text><text x="5" y="61">empty</text><rect x="230" y="48" width="24.156" height="13" fill="#176fc1"/><text x="261.156" y="59">1.281</text><rect x="230" y="64" width="22.025142857142857" height="13" fill="#bc5700"/><text x="259.02514285714284" y="75">1.168</text><text x="5" y="109">parse</text><rect x="230" y="96" width="117.80057142857142" height="13" fill="#176fc1"/><text x="354.8005714285714" y="107">6.247</text><rect x="230" y="112" width="22.025142857142857" height="13" fill="#bc5700"/><text x="259.02514285714284" y="123">1.168</text><text x="5" y="157">response-json</text><rect x="230" y="144" width="355.872" height="13" fill="#176fc1"/><text x="592.8720000000001" y="155">18.872</text><rect x="230" y="160" width="22.025142857142857" height="13" fill="#bc5700"/><text x="259.02514285714284" y="171">1.168</text><text x="5" y="205">synthetic-bounded</text><rect x="230" y="192" width="183.29142857142858" height="13" fill="#176fc1"/><text x="420.2914285714286" y="203">9.72</text><rect x="230" y="208" width="22.308000000000003" height="13" fill="#bc5700"/><text x="259.308" y="219">1.183</text><text x="5" y="253">fetch-json</text><rect x="230" y="240" width="356.0417142857143" height="13" fill="#176fc1"/><text x="593.0417142857143" y="251">18.881</text><rect x="230" y="256" width="22.13828571428571" height="13" fill="#bc5700"/><text x="259.1382857142857" y="267">1.174</text><text x="5" y="301">fetch-signal</text><rect x="230" y="288" width="356.532" height="13" fill="#176fc1"/><text x="593.5319999999999" y="299">18.907</text><rect x="230" y="304" width="22.044" height="13" fill="#bc5700"/><text x="259.044" y="315">1.169</text><text x="5" y="349">fetch-timer</text><rect x="230" y="336" width="356.532" height="13" fill="#176fc1"/><text x="593.5319999999999" y="347">18.907</text><rect x="230" y="352" width="22.044" height="13" fill="#bc5700"/><text x="259.044" y="363">1.169</text><text x="5" y="397">fetch-bounded</text><rect x="230" y="384" width="368.90228571428565" height="13" fill="#176fc1"/><text x="605.9022857142857" y="395">19.563</text><rect x="230" y="400" width="22.308000000000003" height="13" fill="#bc5700"/><text x="259.308" y="411">1.183</text><text x="5" y="445">upload-bounded</text><rect x="230" y="432" width="566.3742857142856" height="13" fill="#176fc1"/><text x="803.3742857142856" y="443">30.035</text><rect x="230" y="448" width="22.326857142857143" height="13" fill="#bc5700"/><text x="259.32685714285714" y="459">1.184</text><text x="5" y="493">stream</text><rect x="230" y="480" width="25.249714285714287" height="13" fill="#176fc1"/><text x="262.2497142857143" y="491">1.339</text><rect x="230" y="496" width="22.025142857142857" height="13" fill="#bc5700"/><text x="259.02514285714284" y="507">1.168</text><text x="5" y="541">timeout</text><rect x="230" y="528" width="39.80742857142858" height="13" fill="#176fc1"/><text x="276.8074285714286" y="539">2.111</text><rect x="230" y="544" width="22.439999999999998" height="13" fill="#bc5700"/><text x="259.44" y="555">1.19</text><text x="5" y="589">cancel</text><rect x="230" y="576" width="39.90171428571429" height="13" fill="#176fc1"/><text x="276.9017142857143" y="587">2.116</text><rect x="230" y="592" width="22.45885714285714" height="13" fill="#bc5700"/><text x="259.45885714285714" y="603">1.191</text><text x="5" y="637">retained-control</text><rect x="230" y="624" width="61.05942857142857" height="13" fill="#176fc1"/><text x="298.05942857142855" y="635">3.238</text><rect x="230" y="640" width="58.09885714285714" height="13" fill="#bc5700"/><text x="295.0988571428571" y="651">3.081</text></svg><svg viewBox="0 0 1040 350" role="img" aria-label="Private memory during detached idle experiment"><text x="60" y="24">Detached load and 180-second quiet interval: process Private MiB</text><path d="M60 280H980" stroke="#ddd"/><text x="10" y="285">0</text><path d="M60 236H980" stroke="#ddd"/><text x="10" y="241">32</text><path d="M60 192H980" stroke="#ddd"/><text x="10" y="197">64</text><path d="M60 148H980" stroke="#ddd"/><text x="10" y="153">96</text><path d="M60 104H980" stroke="#ddd"/><text x="10" y="109">128</text><path d="M60 60H980" stroke="#ddd"/><text x="10" y="65">160</text><text x="60" y="306">0s</text><text x="244" y="306">47s</text><text x="428" y="306">94s</text><text x="612" y="306">142s</text><text x="796" y="306">189s</text><text x="980" y="306">236s</text><polyline fill="none" stroke="#176fc1" stroke-width="2" points="65.13260530421216,218.807 69.70748829953197,237.563375 86.34945397815913,186.880875 98.198127925117,186.880875 114.92979719188767,137.11825 127.58970358814352,137.11825 145.24960998439937,120.50550000000001 157.22308892355693,120.50550000000001 173.54524180967238,119.24324999999999 185.13650546021842,119.14700000000002 201.72386895475822,115.13475 213.38533541341656,115.13475 230.49141965678626,63.62587500000001 242.53510140405615,63.62587500000001 246.88767550702028,64.84 368.1825273010921,64.984375 489.23166926677067,64.984375 611.4001560062402,65.07512499999999 732.6131045241809,65.07512499999999 853.865054602184,65.07512499999999 975.2847113884555,65.07512499999999 980,203.504625"/></svg><pre>{
+  "schema": "workerd-memory-attribution-v1",
+  "baseline": "e00d4a82",
+  "productionChanged": false,
+  "comparisonIsDiagnosisNotFix": true,
+  "cases": [
+    {
+      "case": "empty",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 36.06,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 1.281,
+      "afterSnapshotHeapMiB": 1.168,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 47.645,
+      "naturalIdlePrivateMiB": 47.645,
+      "afterSnapshotPrivateMiB": 47.523,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 171,
+          "delta": 1
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 0,
+        "closed": 0
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2874936,
+        "sha256": "d5bb9bc7e95dcd74572960ea1b43f9d6fa9f633b986a7c719544802040b15fc5"
+      },
+      "finalSnapshot": {
+        "bytes": 2919485,
+        "sha256": "b776431d529b4ee9975c782099f6eef3a27dc47bd24baa52cdb744af833166a4"
+      }
+    },
+    {
+      "case": "parse",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 35.563,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 6.247,
+      "afterSnapshotHeapMiB": 1.168,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 62.887,
+      "naturalIdlePrivateMiB": 62.637,
+      "afterSnapshotPrivateMiB": 47.914,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 171,
+          "delta": 1
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 0,
+        "closed": 0
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2875147,
+        "sha256": "85734c004b5fe119ef1adb070d15aec52c3c421299a04c419a00617d6df88c6c"
+      },
+      "finalSnapshot": {
+        "bytes": 2923506,
+        "sha256": "7ba4c40074b5f989f29a08a3d24a4fcf957d89a518c8e31edf8f41a3797180b6"
+      }
+    },
+    {
+      "case": "response-json",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 35.56,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 18.872,
+      "afterSnapshotHeapMiB": 1.168,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 147.008,
+      "naturalIdlePrivateMiB": 147.004,
+      "afterSnapshotPrivateMiB": 48.699,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 171,
+          "delta": 1
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 0,
+        "closed": 0
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2875130,
+        "sha256": "07f86eab92b22d67b0a35d71ad1e9fe0b1de29d64fa61c3f9ef25454e5cf4de5"
+      },
+      "finalSnapshot": {
+        "bytes": 2923652,
+        "sha256": "26053f83a9e003f890f6d5b9cffa136f56153962b6f89592776b4ee16c4d4239"
+      }
+    },
+    {
+      "case": "synthetic-bounded",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 36.054,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.166,
+      "beforeSnapshotHeapMiB": 9.72,
+      "afterSnapshotHeapMiB": 1.183,
+      "backingBeforeMiB": 7.664,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 77.82,
+      "naturalIdlePrivateMiB": 77.82,
+      "afterSnapshotPrivateMiB": 53.773,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 174,
+          "delta": 4
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 0,
+        "closed": 0
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2882643,
+        "sha256": "016fe5d54822c5e56c6fd12b128a74442cd87e8a1d0fb785f5871ef2d86a1229"
+      },
+      "finalSnapshot": {
+        "bytes": 2952298,
+        "sha256": "ed240a1cf7a8238cc8f9e59a6d7cc3555f24eb067cc4e76bab610ff842d53082"
+      }
+    },
+    {
+      "case": "fetch-json",
+      "label": "fetch-json-pure-v2",
+      "requestCount": 75,
+      "elapsedSeconds": 35.338,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.164,
+      "beforeSnapshotHeapMiB": 18.881,
+      "afterSnapshotHeapMiB": 1.174,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 78.277,
+      "naturalIdlePrivateMiB": 77.266,
+      "afterSnapshotPrivateMiB": 48.859,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 171,
+          "delta": 1
+        },
+        "Array": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2877303,
+        "sha256": "e44228d0d30a6566b9d0569158f0753da23620ed07e6c3a966344d93c0d2d1b2"
+      },
+      "finalSnapshot": {
+        "bytes": 2926595,
+        "sha256": "bd71d5753f196479eb231f9316b277b8e807447b8a3905ccc2defd87393a1949"
+      }
+    },
+    {
+      "case": "fetch-signal",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 36.273,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 18.907,
+      "afterSnapshotHeapMiB": 1.169,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 78.414,
+      "naturalIdlePrivateMiB": 77.402,
+      "afterSnapshotPrivateMiB": 49.621,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 172,
+          "delta": 2
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2875458,
+        "sha256": "d4c834d8715656d8374bb651c9483e3826cef00742a412b60ac353320c3c12f4"
+      },
+      "finalSnapshot": {
+        "bytes": 2926374,
+        "sha256": "88add66027b93a1cca95037c43173c7211c3672f46b841405f35abaa43367ace"
+      }
+    },
+    {
+      "case": "fetch-timer",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 36.823,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 18.907,
+      "afterSnapshotHeapMiB": 1.169,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 78.434,
+      "naturalIdlePrivateMiB": 77.5,
+      "afterSnapshotPrivateMiB": 48.734,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 172,
+          "delta": 2
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2875468,
+        "sha256": "aecfd2664436738e08d36a4da1fa5da477c46e169ab4260f67224f073e5cbfec"
+      },
+      "finalSnapshot": {
+        "bytes": 2926510,
+        "sha256": "dd841397dc265d47e6704fd2dcdf03f47b781e4e4b4bac174065b0e744eb81e1"
+      }
+    },
+    {
+      "case": "fetch-bounded",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 36.956,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.166,
+      "beforeSnapshotHeapMiB": 19.563,
+      "afterSnapshotHeapMiB": 1.183,
+      "backingBeforeMiB": 1.917,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 88.223,
+      "naturalIdlePrivateMiB": 87.215,
+      "afterSnapshotPrivateMiB": 54.668,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 173,
+          "delta": 3
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2882589,
+        "sha256": "1a242b7fe6b12d8405ba4cc98a7e95ae85c13c96a1108f7a21088e8923bca8a6"
+      },
+      "finalSnapshot": {
+        "bytes": 2948218,
+        "sha256": "44995e366df898e5e2ca77652e813e620332a1f0f30187fe81c7f3bf9048de03"
+      }
+    },
+    {
+      "case": "upload-bounded",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 37.043,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.166,
+      "beforeSnapshotHeapMiB": 30.035,
+      "afterSnapshotHeapMiB": 1.184,
+      "backingBeforeMiB": 14.37,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 120.324,
+      "naturalIdlePrivateMiB": 118.379,
+      "afterSnapshotPrivateMiB": 55.801,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 174,
+          "delta": 4
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 78643200,
+      "warmSnapshot": {
+        "bytes": 2882527,
+        "sha256": "02f6b005c168c687524cf8b10145c8913b3b1bfddf52fa4f846e0139b2e91a98"
+      },
+      "finalSnapshot": {
+        "bytes": 2953293,
+        "sha256": "acf8680c027e3e9866b7d69622ef209de68c9915c6fac806124dd945185b0551"
+      }
+    },
+    {
+      "case": "stream",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 43.52,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.162,
+      "beforeSnapshotHeapMiB": 1.339,
+      "afterSnapshotHeapMiB": 1.168,
+      "backingBeforeMiB": 0,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 64.586,
+      "naturalIdlePrivateMiB": 48.543,
+      "afterSnapshotPrivateMiB": 48.949,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 170,
+          "delta": 0
+        },
+        "Array": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2875107,
+        "sha256": "1e2d912bb267be1d367aac5d6ee670760849517d308640f6042cf7af5a3ed7b1"
+      },
+      "finalSnapshot": {
+        "bytes": 2917774,
+        "sha256": "af14232e03dc91e195982c5173126508ec47185b33f4499a37fba1186501f9d8"
+      }
+    },
+    {
+      "case": "timeout",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 37.806,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.168,
+      "beforeSnapshotHeapMiB": 2.111,
+      "afterSnapshotHeapMiB": 1.19,
+      "backingBeforeMiB": 0.563,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 50.273,
+      "naturalIdlePrivateMiB": 50.273,
+      "afterSnapshotPrivateMiB": 48.93,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 174,
+          "delta": 4
+        },
+        "Array": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2885521,
+        "sha256": "4da6aa8844bfbe8ee3e508f91ba93c6df64c6619a892059c1ca651fa4a175765"
+      },
+      "finalSnapshot": {
+        "bytes": 2951257,
+        "sha256": "15ed92a4876d3ede73767dc5c0f08f209a12b5568d37e2acc38d42fc398b6683"
+      }
+    },
+    {
+      "case": "cancel",
+      "label": "split-v1",
+      "requestCount": 75,
+      "elapsedSeconds": 37.78,
+      "fixtureRows": 4096,
+      "fixtureBytes": 1002411,
+      "warmHeapMiB": 1.168,
+      "beforeSnapshotHeapMiB": 2.116,
+      "afterSnapshotHeapMiB": 1.191,
+      "backingBeforeMiB": 0.563,
+      "backingAfterMiB": 0,
+      "peakPrivateMiB": 49.527,
+      "naturalIdlePrivateMiB": 49.281,
+      "afterSnapshotPrivateMiB": 49.48,
+      "fixtureRowObjectsWarm": 0,
+      "fixtureRowObjectsFinal": 0,
+      "objectCountChanges": {
+        "Object": {
+          "warm": 170,
+          "final": 174,
+          "delta": 4
+        },
+        "Array": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Map": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Set": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Promise": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ArrayBuffer": {
+          "warm": 1,
+          "final": 1,
+          "delta": 0
+        },
+        "Request": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortController": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "AbortSignal": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Response": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "Headers": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStream": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        },
+        "ReadableStreamDefaultReader": {
+          "warm": 2,
+          "final": 2,
+          "delta": 0
+        }
+      },
+      "competingSamples": 0,
+      "upstreamResponsesActiveAtFinalSample": 0,
+      "cleanup": {
+        "active": 0,
+        "opened": 75,
+        "closed": 75
+      },
+      "uploadedBytes": 0,
+      "warmSnapshot": {
+        "bytes": 2887999,
+        "sha256": "f068c023204cd9af121412f4f9de2cded0c274f30b55af6eaa19b42c5981e008"
+      },
+      "finalSnapshot": {
+        "bytes": 2954309,
+        "sha256": "90fb7644d9aef8de02a4fe4d223d98b6e4f15f968707ebe85fa5d32451a0b20c"
+      }
+    }
+  ],
+  "positiveControl": {
+    "case": "retained-control",
+    "label": "positive-v1",
+    "requestCount": 75,
+    "elapsedSeconds": 37.549,
+    "fixtureRows": 128,
+    "fixtureBytes": 1002411,
+    "warmHeapMiB": 1.241,
+    "beforeSnapshotHeapMiB": 3.238,
+    "afterSnapshotHeapMiB": 3.081,
+    "backingBeforeMiB": 0,
+    "backingAfterMiB": 0,
+    "peakPrivateMiB": 55.715,
+    "naturalIdlePrivateMiB": 50.504,
+    "afterSnapshotPrivateMiB": 55.715,
+    "fixtureRowObjectsWarm": 384,
+    "fixtureRowObjectsFinal": 9600,
+    "objectCountChanges": {
+      "Object": {
+        "warm": 555,
+        "final": 9773,
+        "delta": 9218
+      },
+      "ReadableStreamDefaultReader": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "ReadableStream": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Headers": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Request": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "Response": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "AbortController": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "AbortSignal": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Array": {
+        "warm": 5,
+        "final": 77,
+        "delta": 72
+      },
+      "Map": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Set": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Promise": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "ArrayBuffer": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      }
+    },
+    "competingSamples": 0,
+    "upstreamResponsesActiveAtFinalSample": 0,
+    "cleanup": {
+      "active": 0,
+      "opened": 0,
+      "closed": 0
+    },
+    "uploadedBytes": 0,
+    "warmSnapshot": {
+      "bytes": 3094876,
+      "sha256": "ecbdc71eaf76248371fbf10f2f4c268547083f490b5e697b06fabbdf50058d9e"
+    },
+    "finalSnapshot": {
+      "bytes": 8348872,
+      "sha256": "55c7ef6bd6f4e33da54e92753558e76a09119707a7fea2006da37c3e8e354f8b"
+    }
+  },
+  "detachedIdle": {
+    "case": "upload-bounded",
+    "label": "detached-idle-v1",
+    "requestCount": 147,
+    "elapsedSeconds": 235.908,
+    "fixtureRows": 4096,
+    "fixtureBytes": 1002411,
+    "warmHeapMiB": 1.168,
+    "beforeSnapshotHeapMiB": 42.231,
+    "afterSnapshotHeapMiB": 1.189,
+    "backingBeforeMiB": 22.038,
+    "backingAfterMiB": 0,
+    "peakPrivateMiB": 157.363,
+    "naturalIdlePrivateMiB": 156.309,
+    "afterSnapshotPrivateMiB": 55.633,
+    "fixtureRowObjectsWarm": 0,
+    "fixtureRowObjectsFinal": 0,
+    "objectCountChanges": {
+      "Object": {
+        "warm": 170,
+        "final": 174,
+        "delta": 4
+      },
+      "Array": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "Map": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Set": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Promise": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "ArrayBuffer": {
+        "warm": 1,
+        "final": 1,
+        "delta": 0
+      },
+      "Request": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "AbortController": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "AbortSignal": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "Response": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "Headers": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "ReadableStream": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      },
+      "ReadableStreamDefaultReader": {
+        "warm": 2,
+        "final": 2,
+        "delta": 0
+      }
+    },
+    "competingSamples": 0,
+    "upstreamResponsesActiveAtFinalSample": 0,
+    "cleanup": {
+      "active": 0,
+      "opened": 147,
+      "closed": 147
+    },
+    "uploadedBytes": 154140672,
+    "warmSnapshot": {
+      "bytes": 2884745,
+      "sha256": "12f6779116e1cf0b2aadf86bb4a812af562376bede879b28273f3e9c8de3e191"
+    },
+    "finalSnapshot": {
+      "bytes": 2916038,
+      "sha256": "161e55e0303b7bc12bbd96ce1e26c8bdd3a4d53e19ecb431942397097815a74b"
+    }
+  }
+}</pre></html>
