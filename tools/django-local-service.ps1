@@ -1643,7 +1643,8 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
         (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf)) {
       # A successor with byte-equivalent migration sources needs no database
       # upgrade. New/rewritten migrations still fail the published generation.
-      $arguments += @('release', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+      $gateCommand = if ($Operation -ceq 'PrepareApp') { 'successor' } else { 'release' }
+      $arguments += @($gateCommand, '--root', $candidateRoot, '--runtime', $RuntimeRoot)
     } elseif ($Operation -ceq 'PrepareApp') {
       if ($IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or
           [string]::IsNullOrWhiteSpace($IntegrationEvidencePath)) {
@@ -3031,7 +3032,7 @@ function Invoke-DjangoMigrations(
     }
 
     $grantCode = @'
-from django.db import connection
+from django.db import connection, transaction
 
 roles = (
     "teruisi_sales_reader",
@@ -3040,7 +3041,26 @@ roles = (
     "teruisi_finance_writer",
 )
 quote = connection.ops.quote_name
-with connection.cursor() as c:
+def revoke_owned_relations(c, role):
+    # Protected sidecars have independent owners. Never attempt to acquire their
+    # authority; reject unexpected effective access before resetting our objects.
+    c.execute("SELECT r.oid,r.relname,r.relkind,r.relowner = (SELECT oid FROM pg_roles WHERE rolname=current_user) "
+              "FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace "
+              "WHERE n.nspname='public' AND r.relkind IN ('r','p','v','m','f','S') ORDER BY r.oid")
+    for oid, name, kind, owned in c.fetchall():
+        if not owned:
+            if kind == 'S':
+                c.execute("SELECT has_sequence_privilege(%s,%s,'USAGE,SELECT,UPDATE')", [role,oid])
+            else:
+                c.execute("SELECT has_table_privilege(%s,%s,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
+                          "OR has_any_column_privilege(%s,%s,'SELECT,INSERT,UPDATE,REFERENCES')", [role,oid,role,oid])
+            if c.fetchone()[0]:
+                raise RuntimeError("Runtime role has unexpected access to a protected relation")
+            continue
+        object_type = 'SEQUENCE' if kind == 'S' else 'TABLE'
+        c.execute(f"REVOKE ALL PRIVILEGES ON {object_type} public.{quote(name)} FROM {quote(role)}")
+
+with transaction.atomic(), connection.cursor() as c:
     c.execute(
         "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolreplication, "
         "rolbypassrls FROM pg_roles WHERE rolname = ANY(%s)",
@@ -3066,8 +3086,7 @@ with connection.cursor() as c:
     if c.fetchone() is not None:
         raise RuntimeError("Django runtime roles must not inherit or SET ROLE into another role")
     for role in roles:
-        c.execute(f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {quote(role)}")
-        c.execute(f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {quote(role)}")
+        revoke_owned_relations(c, role)
         c.execute(f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {quote(role)}")
         c.execute(
             "SELECT table_schema, table_name, column_name "
@@ -3153,8 +3172,7 @@ with connection.cursor() as c:
     if c.fetchone() is not None:
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_erp_reference_sync")
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_erp_reference_sync")
-        c.execute("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM teruisi_erp_reference_sync")
-        c.execute("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM teruisi_erp_reference_sync")
+        revoke_owned_relations(c, "teruisi_erp_reference_sync")
         c.execute("REVOKE ALL PRIVILEGES ON SCHEMA public FROM teruisi_erp_reference_sync")
         c.execute(
             "SELECT table_schema,table_name,column_name FROM information_schema.column_privileges "

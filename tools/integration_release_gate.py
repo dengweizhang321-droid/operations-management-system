@@ -174,6 +174,15 @@ def verify_release(root, runtime):
     return receipt
 
 
+def verify_successor(root, runtime):
+    # Maintenance code can evolve without reinstalling an unchanged migration
+    # generation. Its original policy/journal must still verify in the runtime.
+    receipt = verify_release(Path(runtime) / "app", runtime)
+    if migration_digest(Path(root)) != receipt["migrationSha256"]:
+        raise PlanBlocked("successor changes the installed migration generation")
+    return receipt
+
+
 def verify_database_complete(root):
     import sys
     sys.path.insert(0, str(Path(root) / "backend"))
@@ -196,7 +205,7 @@ def verify_database_complete(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("candidate", "deployment", "release", "database"))
+    parser.add_argument("command", choices=("candidate", "deployment", "release", "successor", "database"))
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--runtime", type=Path)
     parser.add_argument("--evidence", type=Path)
@@ -205,6 +214,8 @@ def main():
     try:
         if args.command == "candidate":
             result = verify_candidate(args.root, args.evidence, args.approved_sha256)
+        elif args.command == "successor":
+            result = verify_successor(args.root, args.runtime)
         elif args.command == "release":
             result = verify_release(args.root, args.runtime)
         elif args.command == "deployment":

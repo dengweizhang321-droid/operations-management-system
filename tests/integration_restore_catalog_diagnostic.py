@@ -65,7 +65,7 @@ def main():
         native([BIN/'pg_restore.exe','--data-only','--table=django_migrations','--dbname','teruisi_sales','--single-transaction','--exit-on-error',archive])
         with connect() as db:
             db.execute('BEGIN ISOLATION LEVEL REPEATABLE READ')
-            actual=profile.collect(db)
+            actual=profile.collect(db,legacy_catalog="functionAttributes" not in expected['catalog'])
             result={'schemaOnly':True,'productionWrites':False,'roleContractEqual':actual['roles']==expected['roles'],
                 'catalogDifferences':[key for key in expected['catalog'] if expected['catalog'][key]!=actual['catalog'].get(key)],
                 'expectedCatalog':expected['catalog'],'actualCatalog':actual['catalog']}
@@ -80,7 +80,51 @@ def main():
             result['sourcePoliciesBoundToBackup']=profile.digest(source_policies)==expected['catalog']['policies']
             result['normalizedPolicyDefinitionsEqual']=normalized(policies)==normalized(source_policies)
             result['policyRolesAndCommandsEqual']=[list(row[:6]) for row in policies]==[row[:6] for row in source_policies]
+            db.execute('SAVEPOINT ordinary_revoke_probe')
+            try:
+                db.execute('SET LOCAL ROLE teruisi_sales_owner')
+                db.execute('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM teruisi_sales_reader')
+                result['ordinaryOwnerGlobalRevokeSqlstate']=None
+            except psycopg.Error as error:
+                result['ordinaryOwnerGlobalRevokeSqlstate']=error.sqlstate
+            finally:
+                db.execute('ROLLBACK TO SAVEPOINT ordinary_revoke_probe')
             db.execute('ROLLBACK')
+        # Exercise the exact production grant block, including repeat startup,
+        # under the ordinary owner in this disposable schema-only database.
+        from django.conf import settings
+        settings.configure(DATABASES={'default':{'ENGINE':'django.db.backends.postgresql',
+            'HOST':'127.0.0.1','PORT':args.port,'NAME':'teruisi_sales',
+            'USER':'postgres','PASSWORD':password}},INSTALLED_APPS=[])
+        import django
+        django.setup()
+        from django.db import connection, transaction
+        sys.path.insert(0,str(ROOT/'backend'))
+        service=(ROOT/'tools/django-local-service.ps1').read_text(encoding='utf-8-sig')
+        grant_code=service.split("    $grantCode = @'",1)[1].split("\n'@",1)[0]
+        with transaction.atomic():
+            with connection.cursor() as c:
+                c.execute("SET LOCAL ROLE teruisi_sales_owner")
+            exec(compile(grant_code,'production-runtime-grants','exec'),{})
+            exec(compile(grant_code,'production-runtime-grants','exec'),{})
+            result['ordinaryOwnerExactGrantBlockRepeated']=True
+            with connection.cursor() as c:
+                c.execute("RESET ROLE")
+                c.execute("SELECT r.relname FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace "
+                          "WHERE n.nspname='public' AND r.relkind='r' AND "
+                          "r.relowner <> (SELECT oid FROM pg_roles WHERE rolname='teruisi_sales_owner') ORDER BY r.relname LIMIT 1")
+                protected=c.fetchone()[0]
+                c.execute(sql.SQL('GRANT SELECT ON public.{} TO teruisi_sales_reader').format(sql.Identifier(protected)))
+                c.execute("SET LOCAL ROLE teruisi_sales_owner")
+            try:
+                exec(compile(grant_code,'production-runtime-grants-negative','exec'),{})
+            except RuntimeError as error:
+                if str(error) != 'Runtime role has unexpected access to a protected relation': raise
+                result['unexpectedProtectedGrantRejected']=True
+            else:
+                raise AssertionError('protected access was silently accepted')
+            transaction.set_rollback(True)
+        connection.close()
         (root/'result.json').write_bytes(profile.canonical(result))
         print(json.dumps(result,ensure_ascii=True),flush=True)
     finally:

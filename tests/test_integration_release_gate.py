@@ -77,6 +77,19 @@ class ReleaseProofTests(unittest.TestCase):
                 gate.verify_release(self.root, self.root)
             verify.assert_not_called()
 
+    def test_successor_requires_verified_original_generation_and_same_migrations(self):
+        receipt = {"migrationSha256": "a" * 64}
+        with patch.object(gate, "verify_release", return_value=receipt) as verify, \
+                patch.object(gate, "migration_digest", return_value="a" * 64) as migration:
+            self.assertEqual(gate.verify_successor(self.root / "candidate", self.root), receipt)
+            verify.assert_called_with(self.root / "app", self.root)
+            migration.return_value = "b" * 64
+            with self.assertRaises(PlanBlocked):
+                gate.verify_successor(self.root / "candidate", self.root)
+            verify.side_effect = PlanBlocked("invalid installed generation")
+            with self.assertRaises(PlanBlocked):
+                gate.verify_successor(self.root / "candidate", self.root)
+
     def test_deployment_binds_maintenance_predecessor_and_prepared_app(self):
         runtime = self.root / "runtime"
         stage = self.root / "stage"

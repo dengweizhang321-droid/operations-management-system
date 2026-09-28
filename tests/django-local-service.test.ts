@@ -172,7 +172,8 @@ test("Django local service uses deterministic production secrets and least-privi
   assert.doesNotMatch(script, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(erpReferenceService, /ALTER ROLE teruisi_erp_reference_sync NOLOGIN/);
   assert.match(script, /NOBYPASSRLS/);
-  assert.match(script, /REVOKE ALL PRIVILEGES ON ALL TABLES/);
+  assert.match(script, /revoke_owned_relations\(c, role\)/);
+  assert.match(script, /Runtime role has unexpected access to a protected relation/);
   assert.match(script, /REVOKE ALL PRIVILEGES \(\{names\}\)/);
   assert.match(script, /ENABLE ROW LEVEL SECURITY/);
   assert.match(script, /domain = 'sales'/);
