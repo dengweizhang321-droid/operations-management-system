@@ -232,6 +232,23 @@ function Invoke-MaintenanceMutex([scriptblock]$Operation) {
   }
 }
 
+function Assert-MaintenanceOperationAdmission {
+  $maintenance = Read-SystemMaintenance
+  if (-not $maintenance) { return }
+  $drain = Read-AutomationDrain
+  # Backup continuity rejects active maintenance. The coordinated lifecycle
+  # permits its original operator only after the same drain has fully stopped
+  # applications; recheck that proof rather than accepting a marker alone.
+  if (-not $drain -or $drain.id -cne $maintenance.id -or $drain.phase -cne 'requests' -or
+      $maintenance.drainedStopped -isnot [bool] -or $maintenance.drainedStopped -ne $true -or
+      $maintenance.keepPostgres -isnot [bool] -or $drain.keepPostgres -isnot [bool] -or
+      $maintenance.keepPostgres -ne $drain.keepPostgres) {
+    throw "System maintenance is active: $($maintenance.id). Backup/restore requires a matching completed drain."
+  }
+  Assert-ApplicationDeploymentStopped 'PostgresMaintenance'
+  Assert-SalesRetirementWorkerStopped 'PostgresMaintenance'
+}
+
 function Get-MaintenanceBackupRoot([bool]$Create = $false) {
   $root = Assert-RuntimeChildPath (
     Join-Path $MaintenanceRequest.RuntimeRoot "backups\postgres-daily"
@@ -1205,7 +1222,7 @@ function Invoke-MaintenanceBackup {
     throw "创建日常 PostgreSQL 备份必须显式提供 -Execute"
   }
   Set-MaintenancePhase 'source_preflight'
-  Assert-NoSystemMaintenance
+  Assert-MaintenanceOperationAdmission
   $evidenceTool = Assert-MaintenanceRuntimeContext
   if ($null -ne (Get-MaintenanceRetentionPolicy)) { Assert-MaintenanceArchiveRoot | Out-Null }
   if (@(Get-PortListeners 5432).Count -ne 1) {
@@ -1627,7 +1644,7 @@ function Remove-MaintenanceRehearsalData(
 }
 
 function Invoke-MaintenanceRestoreRehearsal {
-  Assert-NoSystemMaintenance
+  Assert-MaintenanceOperationAdmission
   Set-MaintenancePhase 'restore_preflight'
   if (-not $MaintenanceRequest.Execute -or
       -not $MaintenanceRequest.ConfirmedIsolatedRestore -or
