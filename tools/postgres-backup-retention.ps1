@@ -1,4 +1,4 @@
-# Loaded by the installed PostgreSQL maintenance operator, under its existing mutex.
+﻿# Loaded by the installed PostgreSQL maintenance operator, under its existing mutex.
 $MaintenanceArchiveRoot = 'E:\运营管理系统业务数据'
 
 function Get-MaintenanceRetentionPolicy {
@@ -25,9 +25,20 @@ function Assert-MaintenanceArchiveRoot([bool]$Create = $false) {
   }
   if (-not (Test-Path -LiteralPath $MaintenanceArchiveRoot -PathType Container)) { throw 'E-drive backup directory is unavailable' }
   $item = Get-Item -LiteralPath $MaintenanceArchiveRoot -Force
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Backup root cannot be a reparse point' }
+  $cursor = $item
+  while ($null -ne $cursor) {
+    if (($cursor.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Backup root cannot contain a reparse point' }
+    $cursor = $cursor.Parent
+  }
   if ($Create) {
-    Set-DirectoryDaclOnly $MaintenanceArchiveRoot (New-RuntimeRootDacl)
+    # The runtime DACL setter intentionally refuses external directories.
+    # Only this already-validated, fixed archive root receives its own DACL.
+    $dacl = New-RuntimeRootDacl
+    if ($null -ne ('System.IO.FileSystemAclExtensions' -as [type])) {
+      [IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]$item, $dacl)
+    } else {
+      $item.SetAccessControl($dacl)
+    }
   }
   $allowed = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
   Assert-ExactRuntimeAclEntry $item (Get-RuntimeItemAccessControl $item) $allowed $MaintenanceArchiveRoot
