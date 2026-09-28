@@ -5,16 +5,21 @@ $releases = Join-Path $runtime 'releases'
 $mutex = [Threading.Mutex]::new($false, 'Local\TERUISI.Worker.LocalService.v1')
 $held = $false
 $auditStream = $null
-if ($Execute) {
-  $installed = 'D:\teruisi-runtime\django-sales\app\tools\release-payload-retention.ps1'
-  if ([IO.Path]::GetFullPath($PSCommandPath) -ine $installed) { throw 'Release cleanup requires the installed operator' }
+function Assert-ReleaseRetentionDeployment([string]$LibraryPath) {
+  # Dot-sourcing in this function keeps the library's parameters (including
+  # Execute, Action and RuntimeRoot) out of the cleanup caller's scope.
   $previousLibrary = $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY
   try {
     $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = '1'
-    . (Join-Path $PSScriptRoot 'django-local-service.ps1') -Action Status
+    . $LibraryPath -Action Status
     Assert-DeployedApplication
     Assert-RuntimeRootAclHardened
   } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibrary }
+}
+if ($Execute) {
+  $installed = 'D:\teruisi-runtime\django-sales\app\tools\release-payload-retention.ps1'
+  if ([IO.Path]::GetFullPath($PSCommandPath) -ine $installed) { throw 'Release cleanup requires the installed operator' }
+  Assert-ReleaseRetentionDeployment (Join-Path $PSScriptRoot 'django-local-service.ps1')
 }
 function Write-RetentionAudit($value) {
   $bytes = [Text.Encoding]::UTF8.GetBytes(($value | ConvertTo-Json -Depth 12 -Compress) + "`n")
