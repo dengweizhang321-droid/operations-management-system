@@ -163,7 +163,8 @@ class DingTalkScheduleTests(TestCase):
         with patch.object(schedules.chat, "answer") as answer:
             self.assertTrue(schedules.step(lambda: dingtalk_settings.effective(self.config), Mock()))
         answer.assert_not_called()
-        self.assertFalse(m.AiDingTalkScheduleRun.objects.exists())
+        skipped = m.AiDingTalkScheduleRun.objects.get(schedule_id=item["id"], scheduled_at=old)
+        self.assertEqual((skipped.status, skipped.error_code), ("denied", "missed_window"))
         self.assertGreater(m.AiDingTalkSchedule.objects.get(pk=item["id"]).next_run_at, datetime.now(utc.utc))
 
     def test_admin_revocation_after_queue_prevents_ai_and_delivery(self):

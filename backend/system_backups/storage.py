@@ -228,16 +228,16 @@ class BackupStore:
             identifier(payload["target"], BACKUP_ID)
             identifier(payload["manifestSha256"], SHA)
         with self.lock():
-            if (self.runtime / "run" / "system-maintenance.json").exists():
-                raise BackupError("系统正在维护，暂不接受新的备份任务", "maintenance", 409)
-            if self.policy() is None:
-                raise BackupError("备份保留策略尚未上线启用", "not_enabled", 409)
             path = self.root / f"job-{job_id}.json"
             if path.exists():
                 old = read_json(path)
                 if old["actor"] != actor or any(old[k] != payload[k] for k in payload):
                     raise BackupError("任务编号已绑定其他请求", "conflict", 409)
                 return old, False
+            if any((self.runtime / "run" / name).exists() for name in ("system-maintenance.json", "automation-drain.json")):
+                raise BackupError("系统正在维护，暂不接受新的备份任务", "maintenance", 409)
+            if self.policy() is None:
+                raise BackupError("备份保留策略尚未上线启用", "not_enabled", 409)
             for old_path in self.root.glob("job-*.json"):
                 old = read_json(old_path)
                 if old["status"] in {"queued", "running", "unknown"}:

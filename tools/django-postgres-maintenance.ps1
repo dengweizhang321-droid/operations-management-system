@@ -213,6 +213,16 @@ function Invoke-MaintenanceMutex([scriptblock]$Operation) {
       $acquired = $true
     }
     if (-not $acquired) { throw "另一个 PostgreSQL 维护操作仍在运行" }
+    $drainPath = Assert-RuntimeChildPath (Join-Path $MaintenanceRequest.RuntimeRoot 'run\automation-drain.json')
+    if (Test-Path -LiteralPath $drainPath) {
+      $drain = Read-AutomationDrain
+      # Once fully stopped, the original approved maintenance backup/verify/
+      # rehearsal operations remain usable. A drain alone grants no such scope.
+      $maintenance = Read-SystemMaintenance
+      if ($drain.phase -ceq 'requests' -and (-not $maintenance -or $maintenance.id -cne $drain.id -or $maintenance.drainedStopped -ne $true)) {
+        throw 'Automation drain is waiting; defer this operator request without replay'
+      }
+    }
     & $Operation
   } finally {
     if ($acquired) { $mutex.ReleaseMutex() }
