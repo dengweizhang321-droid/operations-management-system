@@ -1211,7 +1211,8 @@ function Get-ApplicationTreeFingerprintLegacyV1([string]$AppRoot) {
 function Invoke-WranglerRuntimeProcess(
   [string]$AppRoot,
   [string[]]$Arguments,
-  [int]$TimeoutSeconds = 30
+  [int]$TimeoutSeconds = 30,
+  [string]$Stage = "cli"
 ) {
   $cli = Join-Path $AppRoot "runtime-tools\node_modules\wrangler\wrangler-dist\cli.js"
   if (-not (Test-Path -LiteralPath $Node -PathType Leaf) -or
@@ -1227,6 +1228,9 @@ function Invoke-WranglerRuntimeProcess(
   $startInfo.RedirectStandardError = $true
   $startInfo.EnvironmentVariables["CI"] = "1"
   $startInfo.EnvironmentVariables["WRANGLER_SEND_METRICS"] = "false"
+  # Wrangler 4.92.0: printWranglerBanner returns before updateCheck when hidden.
+  # Only this local validation child is affected; --version and all R2 gates remain.
+  $startInfo.EnvironmentVariables["WRANGLER_HIDE_BANNER"] = "true"
   foreach ($name in @(
     "NODE_PATH", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_API_KEY",
     "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_EMAIL", "CF_API_TOKEN", "CF_API_KEY"
@@ -1240,26 +1244,71 @@ function Invoke-WranglerRuntimeProcess(
   $process = [Diagnostics.Process]::new()
   $process.StartInfo = $startInfo
   $operation = (@($Arguments | Select-Object -First 3) -join " ")
+  $timer = [Diagnostics.Stopwatch]::StartNew()
+  $phase = "launch"
+  $started = $false
+  $timedOut = $false
+  $exitCode = $null
+  $stdoutTask = $null
+  $stderrTask = $null
+  $result = $null
+  $launchMilliseconds = $null
+  $exitMilliseconds = $null
   try {
     if (-not $process.Start()) { throw "受保护 Wrangler CLI 无法启动" }
+    $started = $true
+    $launchMilliseconds = [int64]$timer.ElapsedMilliseconds
+    $phase = "wait_exit"
     $stdoutTask = $process.StandardOutput.ReadToEndAsync()
     $stderrTask = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+      $timedOut = $true
       try { $process.Kill($true) } catch {
         try { $process.Kill() } catch { }
       }
       if (-not $process.WaitForExit(5000)) {
         throw "受保护 Wrangler CLI 超时后无法在 5 秒内终止"
       }
-      throw "受保护 Wrangler CLI 执行超时（operation=$operation；timeoutSeconds=$TimeoutSeconds）"
     }
-    $process.WaitForExit()
-    return [pscustomobject]@{
-      ExitCode = [int]$process.ExitCode
+    $exitCode = [int]$process.ExitCode
+    $exitMilliseconds = [int64]$timer.ElapsedMilliseconds
+    $phase = "drain_output"
+    # Descendants may inherit redirected pipes. Never replace a process timeout
+    # with an unbounded ReadToEnd/WaitForExit after the direct child has exited.
+    if (-not [Threading.Tasks.Task]::WaitAll(
+        [Threading.Tasks.Task[]]@($stdoutTask, $stderrTask), 5000
+      )) {
+      throw "受保护 Wrangler CLI 输出管道未关闭（stage=$Stage；exitCode=$exitCode；timedOut=$timedOut）"
+    }
+    $result = [pscustomobject]@{
+      ExitCode = $exitCode
       Stdout = [string]$stdoutTask.GetAwaiter().GetResult()
       Stderr = [string]$stderrTask.GetAwaiter().GetResult()
     }
+    if ($timedOut) {
+      throw "受保护 Wrangler CLI 执行超时（stage=$Stage；operation=$operation；timeoutSeconds=$TimeoutSeconds；exitCode=$exitCode）"
+    }
+    $phase = "exited"
+    return $result
   } finally {
+    $digest = if ($null -ne $result) { Get-WranglerRuntimeFailureDigest $result } else { $null }
+    $completionReported = $null
+    if ($null -ne $result) {
+      $completionReported = ([string]$result.Stdout) -match "Upload complete|Download complete|Delete complete"
+    }
+    $persistIndex = [Array]::IndexOf($Arguments, "--persist-to")
+    $persistPathLength = if ($persistIndex -ge 0 -and $persistIndex + 1 -lt $Arguments.Count) {
+      ([string]$Arguments[$persistIndex + 1]).Length
+    } else { $null }
+    Write-LauncherEvent "INFO" "wrangler_cli_stage" ([ordered]@{
+      stage = $Stage; phase = $phase; started = $started; timedOut = $timedOut
+      exitCode = $exitCode; launchMilliseconds = $launchMilliseconds
+      exitMilliseconds = $exitMilliseconds; elapsedMilliseconds = [int64]$timer.ElapsedMilliseconds
+      outputComplete = ($null -ne $result); outputSha256 = $digest
+      completionReported = $completionReported; appPathLength = $AppRoot.Length
+      persistPathLength = $persistPathLength
+      updateCheckPolicy = "hide_banner"; timeoutSeconds = $TimeoutSeconds
+    } | ConvertTo-Json -Compress)
     $process.Dispose()
   }
 }
@@ -1280,7 +1329,7 @@ function Assert-WranglerRuntimeCli([string]$AppRoot) {
     throw "Wrangler runtime 依赖清单无效"
   }
 
-  $versionResult = Invoke-WranglerRuntimeProcess $AppRoot @("--version") 15
+  $versionResult = Invoke-WranglerRuntimeProcess $AppRoot @("--version") 15 "version"
   $versionOutput = (([string]$versionResult.Stdout) + ([string]$versionResult.Stderr)).Trim()
   if ($versionResult.ExitCode -ne 0 -or $versionOutput -cne [string]$closure.rootVersion) {
     throw "Wrangler runtime 版本 smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $versionResult)）"
@@ -1288,7 +1337,7 @@ function Assert-WranglerRuntimeCli([string]$AppRoot) {
 
   $helpResult = Invoke-WranglerRuntimeProcess $AppRoot @(
     "r2", "object", "delete", "--help"
-  ) 15
+  ) 15 "cli_load"
   $helpOutput = ([string]$helpResult.Stdout) + "`n" + ([string]$helpResult.Stderr)
   if ($helpResult.ExitCode -ne 0 -or
       $helpOutput -notmatch [regex]::Escape("wrangler r2 object delete <objectPath>") -or
@@ -1299,7 +1348,6 @@ function Assert-WranglerRuntimeCli([string]$AppRoot) {
 }
 
 function Assert-WranglerLocalR2RoundTrip([string]$AppRoot) {
-  Assert-WranglerRuntimeCli $AppRoot
   $smokeRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot (
     "run\wrangler-smoke-" + [Guid]::NewGuid().ToString("N")
   ))
@@ -1316,43 +1364,64 @@ function Assert-WranglerLocalR2RoundTrip([string]$AppRoot) {
   $missingPath = Join-Path $smokeRoot "missing.bin"
   $objectPath = "teruisi-runtime-smoke/__runtime_smoke__/" +
     [Guid]::NewGuid().ToString("N") + ".bin"
+  $stage = "cli_validation"
+  $roundTripTimer = [Diagnostics.Stopwatch]::StartNew()
   try {
+    Assert-WranglerRuntimeCli $AppRoot
     New-Item -ItemType Directory -Path $persistRoot -Force | Out-Null
     [IO.File]::WriteAllBytes(
       $inputPath,
       [Text.Encoding]::UTF8.GetBytes("teruisi-wrangler-runtime-smoke-v1")
     )
+    $stage = "put"
     $put = Invoke-WranglerRuntimeProcess $AppRoot @(
       "r2", "object", "put", $objectPath,
       "--local", "--persist-to", $persistRoot, "--file", $inputPath
-    ) 30
+    ) 30 "put"
     if ($put.ExitCode -ne 0) {
       throw "Wrangler local R2 put smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $put)）"
     }
+    $stage = "get"
     $get = Invoke-WranglerRuntimeProcess $AppRoot @(
       "r2", "object", "get", $objectPath,
       "--local", "--persist-to", $persistRoot, "--file", $outputPath
-    ) 30
-    if ($get.ExitCode -ne 0 -or
-        -not (Test-Path -LiteralPath $outputPath -PathType Leaf) -or
-        (Get-FileSha256 $inputPath) -cne (Get-FileSha256 $outputPath)) {
+    ) 30 "get"
+    if ($get.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+      throw "Wrangler local R2 get smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $get)）"
+    }
+    $stage = "hash"
+    $hashTimer = [Diagnostics.Stopwatch]::StartNew()
+    $hashMatched = (Get-FileSha256 $inputPath) -ceq (Get-FileSha256 $outputPath)
+    Write-LauncherEvent "INFO" "wrangler_hash_stage" (
+      "matched=$hashMatched elapsedMilliseconds=$($hashTimer.ElapsedMilliseconds)"
+    )
+    if (-not $hashMatched) {
       throw "Wrangler local R2 get/hash smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $get)）"
     }
+    $stage = "delete"
     $delete = Invoke-WranglerRuntimeProcess $AppRoot @(
       "r2", "object", "delete", $objectPath,
       "--local", "--persist-to", $persistRoot, "--force"
-    ) 30
+    ) 30 "delete"
     if ($delete.ExitCode -ne 0) {
       throw "Wrangler local R2 delete smoke 失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $delete)）"
     }
+    $stage = "missing"
     $missing = Invoke-WranglerRuntimeProcess $AppRoot @(
       "r2", "object", "get", $objectPath,
       "--local", "--persist-to", $persistRoot, "--file", $missingPath
-    ) 30
+    ) 30 "missing"
     $missingOutput = ([string]$missing.Stdout) + "`n" + ([string]$missing.Stderr)
-    if ($missing.ExitCode -eq 0 -or $missingOutput -notmatch "does not exist") {
+    # Wrangler opens --file before the missing lookup, so an empty file is normal.
+    $missingHasBytes = (Test-Path -LiteralPath $missingPath -PathType Leaf) -and
+      (Get-Item -LiteralPath $missingPath).Length -gt 0
+    if ($missing.ExitCode -ne 1 -or $missingOutput -notmatch "does not exist" -or $missingHasBytes) {
       throw "Wrangler local R2 delete 后缺失回查失败（outputSha256=$(Get-WranglerRuntimeFailureDigest $missing)）"
     }
+    Write-LauncherEvent "INFO" "wrangler_roundtrip_passed" "elapsedMilliseconds=$($roundTripTimer.ElapsedMilliseconds)"
+  } catch {
+    Write-LauncherEvent "ERROR" "wrangler_roundtrip_failed" "stage=$stage elapsedMilliseconds=$($roundTripTimer.ElapsedMilliseconds)"
+    throw
   } finally {
     $candidate = Get-CanonicalPath $smokeRoot
     if ($candidate.StartsWith(
