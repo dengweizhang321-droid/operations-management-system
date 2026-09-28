@@ -107,6 +107,29 @@ class NoKeyEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "duplicate backup manifest key"):
                 backup.read_manifest(manifest, approved, archive, "teruisi_sales")
 
+    def test_legacy_policy_equivalence_requires_original_digest_and_same_permissions(self):
+        old = [["public","sales_data_revisions","reader","PERMISSIVE",["teruisi_sales_reader"],"SELECT",
+            "((domain)::text = ANY ((ARRAY['sales'::character varying, 'erp'::character varying])::text[]))",None]]
+        new = backup.normalized_policies(old)
+        before = self.evidence()
+        before["catalog"]["policies"] = backup.digest(old)
+        before["contentSha256"] = backup.digest({key:before[key] for key in ("profile","roles","tables","catalog")})
+        after = copy.deepcopy(before)
+        after["catalog"]["policies"] = backup.digest(new)
+        after["contentSha256"] = backup.digest({key:after[key] for key in ("profile","roles","tables","catalog")})
+        with self.assertRaisesRegex(RuntimeError,"bound equivalence witness"):
+            backup.verify_restored(before,after)
+        verified=backup.verify_restored(before,after,source_policy_rows=old,restored_policy_rows=new)
+        self.assertEqual(verified["contentSha256"],before["contentSha256"])
+        for index,value in ((4,["teruisi_ai_reader"]),(5,"ALL"),(6,new[0][6].replace("sales","other"))):
+            changed=copy.deepcopy(new);changed[0][index]=value
+            mutated=copy.deepcopy(after);mutated["catalog"]["policies"]=backup.digest(changed)
+            mutated["contentSha256"]=backup.digest({key:mutated[key] for key in ("profile","roles","tables","catalog")})
+            with self.assertRaises(RuntimeError):
+                backup.verify_restored(before,mutated,source_policy_rows=old,restored_policy_rows=changed)
+        with self.assertRaises(RuntimeError):
+            backup.verify_restored(before,after,source_policy_rows=new,restored_policy_rows=new)
+
 
 if __name__ == "__main__":
     unittest.main()

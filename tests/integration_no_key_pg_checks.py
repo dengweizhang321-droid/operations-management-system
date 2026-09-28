@@ -68,4 +68,16 @@ def verify(db):
         finally:
             db.execute("ROLLBACK")
         catalogs()
+    import postgres_no_key_backup
+    db.execute("BEGIN")
+    try:
+        db.execute("CREATE FUNCTION public.no_key_catalog_body_probe() RETURNS integer LANGUAGE sql AS $$ SELECT 1 $$")
+        before = postgres_no_key_backup.collect(db)
+        db.execute("CREATE OR REPLACE FUNCTION public.no_key_catalog_body_probe() RETURNS integer LANGUAGE sql AS $$ SELECT 2 $$")
+        after = postgres_no_key_backup.collect(db)
+        assert before["catalog"]["functions"] != after["catalog"]["functions"]
+        assert before["catalog"]["functionAttributes"] == after["catalog"]["functionAttributes"]
+        checks += 1
+    finally:
+        db.execute("ROLLBACK")
     return checks

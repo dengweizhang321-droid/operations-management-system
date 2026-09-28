@@ -11,6 +11,8 @@ param(
   [ValidateSet('D','E')][string]$RehearsalDrive = 'D',
   [string]$PreparedToolAppId = '',
   [string]$PreparedToolAppSha256 = '',
+  [string]$PolicySyntaxWitnessPath = '',
+  [string]$PolicySyntaxWitnessSha256 = '',
   [ValidateRange(7, 3650)]
   [int]$RetentionDays = 30,
   [ValidateRange(3, 365)]
@@ -63,6 +65,8 @@ $MaintenanceRequest = [pscustomobject][ordered]@{
   RehearsalDrive = $RehearsalDrive
   PreparedToolAppId = $PreparedToolAppId
   PreparedToolAppSha256 = $PreparedToolAppSha256
+  PolicySyntaxWitnessPath = $PolicySyntaxWitnessPath
+  PolicySyntaxWitnessSha256 = $PolicySyntaxWitnessSha256
   RetentionDays = $RetentionDays
   MinimumSuccessfulBackups = $MinimumSuccessfulBackups
   Execute = $Execute.IsPresent
@@ -1586,6 +1590,12 @@ function Invoke-MaintenanceRestoreRehearsal {
   ) $MaintenanceRequest.ApprovedManifestSha256
   Assert-MaintenanceProtectedArchiveUnsupported $backup.Manifest
   $noKeys = [string]$backup.Manifest.version -ceq $MaintenanceNoKeyBackupVersion
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PolicySyntaxWitnessPath)) {
+    if (-not $noKeys -or $MaintenanceRequest.PolicySyntaxWitnessSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+        (Get-FileSha256 $MaintenanceRequest.PolicySyntaxWitnessPath) -cne $MaintenanceRequest.PolicySyntaxWitnessSha256) {
+      throw 'Policy syntax witness is not bound to an approved file'
+    }
+  }
   if (@(Get-PortListeners $MaintenanceRequest.RehearsalPort).Count -ne 0) {
     throw "隔离恢复端口已被占用；拒绝接管或终止现有进程"
   }
@@ -1705,11 +1715,15 @@ function Invoke-MaintenanceRestoreRehearsal {
       )
       if ($noKeys) { $probeArguments += @("--profile", "no-new-keys", "--manifest", $backup.ManifestPath,
           "--approved-manifest-sha256", $backup.ManifestSha256, "--archive", $backup.DumpPath) }
+      if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PolicySyntaxWitnessPath)) {
+        $probeArguments += @('--policy-witness',$MaintenanceRequest.PolicySyntaxWitnessPath,
+          '--policy-witness-sha256',$MaintenanceRequest.PolicySyntaxWitnessSha256)
+      }
       $probeRun = Invoke-BoundedNativeProcess $Python $probeArguments $InstalledAppRoot
       return ConvertFrom-UniqueNativeJson $probeRun "读取隔离恢复证据"
     }
     $probeProperties = @("version", "status", "evidence")
-    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified") }
+    if ($noKeys) { $probeProperties += @("profileEvidence", "profileRestoreVerified", "policySyntaxEquivalenceVerified", "policySyntaxWitnessSha256") }
     Assert-MaintenanceExactPropertySet $probe $probeProperties "隔离恢复探针结果"
     if ($noKeys -and $probe.profileRestoreVerified -cne $true) { throw "完整恢复内容、角色和权限未复验" }
     if ([string]$probe.version -cne "teruisi-postgres-consistent-backup-v1" -or
@@ -1757,6 +1771,8 @@ function Invoke-MaintenanceRestoreRehearsal {
     if ($noKeys) {
       $result | Add-Member -NotePropertyName profileRestoreVerified -NotePropertyValue $true
       $result | Add-Member -NotePropertyName profileContentSha256 -NotePropertyValue ([string]$probe.profileEvidence.contentSha256)
+      $result | Add-Member -NotePropertyName policySyntaxEquivalenceVerified -NotePropertyValue ([bool]$probe.policySyntaxEquivalenceVerified)
+      $result | Add-Member -NotePropertyName policySyntaxWitnessSha256 -NotePropertyValue ([string]$probe.policySyntaxWitnessSha256)
     }
   } catch {
     $failure = $_.Exception

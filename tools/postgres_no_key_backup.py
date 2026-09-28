@@ -141,7 +141,51 @@ def validate_roles(value, database):
             seen.add(key)
 
 
-def collect(db):
+def policy_rows(db):
+    return db.execute("SELECT schemaname,tablename,policyname,permissive,roles,cmd,qual,"
+        "with_check FROM pg_policies ORDER BY 1,2,3").fetchall()
+
+
+def normalized_policies(rows):
+    from postgres_restore_semantics import normalize_dump_expression
+    if not isinstance(rows, (list, tuple)) or len(rows) > 512:
+        raise RuntimeError("RLS policy witness exceeds bound")
+    normalized = []
+    for row in rows:
+        if (not isinstance(row, (list, tuple)) or len(row) != 8
+                or not all(isinstance(row[i], str) for i in (0,1,2,3,5))
+                or not isinstance(row[4], (list, tuple)) or len(row[4]) > MAX_ROLES
+                or not all(isinstance(role, str) for role in row[4])
+                or any(value is not None and (not isinstance(value, str) or len(value) > 262144)
+                    for value in row[6:])):
+            raise RuntimeError("invalid RLS policy witness")
+        normalized.append([*row[:4], list(row[4]), row[5],
+            *(normalize_dump_expression(value) if value is not None else None for value in row[6:])])
+    return normalized
+
+
+def read_policy_witness(path, approved_sha256):
+    path = Path(path)
+    if (not HEX.fullmatch(str(approved_sha256)) or not path.is_file() or path.is_symlink()
+            or path.stat().st_nlink != 1 or path.stat().st_size > 1024*1024):
+        raise RuntimeError("invalid policy witness file")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != approved_sha256:
+        raise RuntimeError("policy witness file changed")
+    def unique(items):
+        result = {}
+        for key, value in items:
+            if key in result: raise RuntimeError("duplicate policy witness key")
+            result[key] = value
+        return result
+    value = json.loads(raw.decode("utf-8-sig"), object_pairs_hook=unique)
+    if type(value) is not dict or set(value) != {"readOnly","policies"} or value["readOnly"] is not True:
+        raise RuntimeError("invalid policy witness shape")
+    normalized_policies(value["policies"])
+    return value["policies"]
+
+
+def collect(db, *, legacy_catalog=False):
     verify_closed_profile(db)
     db.execute("SET LOCAL TIME ZONE 'UTC'")
     db.execute("SET LOCAL search_path=pg_catalog,public")
@@ -164,15 +208,21 @@ def collect(db):
         "defaultAcl": db.execute("SELECT pg_get_userbyid(d.defaclrole),COALESCE(n.nspname,''),"
             "d.defaclobjtype,d.defaclacl::text FROM pg_default_acl d LEFT JOIN pg_namespace n "
             "ON n.oid=d.defaclnamespace ORDER BY 1,2,3").fetchall(),
-        "policies": db.execute("SELECT schemaname,tablename,policyname,permissive,roles,cmd,qual,"
-            "with_check FROM pg_policies ORDER BY 1,2,3").fetchall(),
-        "functions": db.execute("SELECT p.proname,pg_get_function_identity_arguments(p.oid),"
+        "policies": policy_rows(db),
+        "functionAttributes": db.execute("SELECT p.proname,pg_get_function_identity_arguments(p.oid),"
             "p.provolatile,p.proisstrict,p.proleakproof,p.proparallel,p.prorettype::regtype::text,"
             "p.proretset FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
             "WHERE n.nspname='public' ORDER BY 1,2").fetchall(),
         "extensions": db.execute("SELECT extname,extversion,pg_get_userbyid(extowner) "
             "FROM pg_extension ORDER BY extname").fetchall(),
     }
+    if legacy_catalog:
+        # Compatibility with the first, pre-adoption v1 evidence shape.
+        details["functions"] = details.pop("functionAttributes")
+    else:
+        # Preserve the original function body/owner/ACL root. Additional
+        # attributes must not overwrite it under the same section name.
+        details["policies"] = normalized_policies(details["policies"])
     catalog.update({key: digest(rows) for key, rows in details.items()})
     tables = stream_table_roots(db)
     sequences = {}
@@ -186,9 +236,19 @@ def collect(db):
         "archiveEncrypted": False, "newRecoveryKeyGenerated": False, "privateKeyRows": 0}
 
 
-def verify_restored(expected, actual):
+def verify_restored(expected, actual, *, source_policy_rows=None, restored_policy_rows=None):
     validate_evidence(expected)
     validate_evidence(actual)
+    if actual["catalog"].get("policies") != expected["catalog"].get("policies"):
+        # Legacy evidence stored only a raw policy digest. A witness must match
+        # that exact archived digest before narrow parser equivalence is used.
+        if (source_policy_rows is None or restored_policy_rows is None
+                or digest(source_policy_rows) != expected["catalog"].get("policies")
+                or digest(restored_policy_rows) != actual["catalog"].get("policies")
+                or normalized_policies(source_policy_rows) != normalized_policies(restored_policy_rows)):
+            raise RuntimeError("restored RLS policies differ without a bound equivalence witness")
+        actual = {**actual, "catalog": {**actual["catalog"], "policies": expected["catalog"]["policies"]}}
+        actual["contentSha256"] = digest({key: actual[key] for key in ("profile","roles","tables","catalog")})
     if actual["contentSha256"] != expected["contentSha256"]:
         raise RuntimeError("restored rows/roles/owner/ACL differ from backup snapshot")
     if set(expected["sequenceLowerBounds"]) != set(actual["sequenceLowerBounds"]):
@@ -198,6 +258,7 @@ def verify_restored(expected, actual):
         if (after["minimumLastValue"] < before["minimumLastValue"]
                 or before["isCalled"] and not after["isCalled"]):
             raise RuntimeError("restored sequence is behind the backup snapshot")
+    return actual
 
 
 def validate_evidence(value):

@@ -1,10 +1,11 @@
 {
   "controlsSha256": {
     "tools/django-integration-install.ps1": "7117ec2a883a4c559213b4db479852efdb0ea03096446b4dc1685433d065e5ca",
-    "tools/django-local-service.ps1": "1990e324f46e0f5fa647c3762854096d405d7b5317ef0931e434e6b23d15f103",
-    "tools/django-postgres-maintenance.ps1": "0d61c67709783b726b89d5f439243376fba353038ba544afcdaaa4fdedc1ccea"
+    "tools/django-local-service.ps1": "49748c74fd70e9d64a95d6c9c7555de866fca6d0e0e37323afae761f51b94ee5",
+    "tools/django-postgres-maintenance.ps1": "e2c650c1f173cd025f677735d81beacd5e808c8477ac05c6dabd7cd5f185de3a"
   },
   "date": "2026-09-28",
+  "functionBodyOwnerAclDigestPreserved": true,
   "isolatedRestoreLockCapacity": 256,
   "migration": {
     "baselineReceiptCount": 62,
@@ -316,7 +317,7 @@
     ],
     "finalReceiptCount": 138,
     "journalCommittedSteps": 76,
-    "journalSha256": "5bdb28fa8418ac801a0468bbcfad33506742084a9658687322e152d510256d66",
+    "journalSha256": "661768dd7a6a0cc2632d8275c395fcbbe4dc112de5354ab27d9cd6dc61650ee1",
     "migrationSourcesSha256": "02dfcb5319072caedaf0a1dac5d56b8317ece1f3abe26124dd7ce4f29ab14f47",
     "modelBudgetAndVersionsVerified": true,
     "ordinaryRoleStillUnprivileged": true,
@@ -335,7 +336,7 @@
     "productionInstallerEngineVerified": true,
     "productionWrites": false,
     "rehearsalScriptSha256": "97f75be3b027a664f2fb22e28f7f9af11fda1c1564273be0bdfe8ec948c019ef",
-    "reviewedPolicySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
+    "reviewedPolicySha256": "b1cda064c54a20b7615f4336bafed887b4459df31407b8feaa09c05fabd25300",
     "roleMemberships": 0,
     "status": "mixed_completed"
   },
@@ -362,8 +363,8 @@
   "restore": {
     "archiveEncrypted": false,
     "archivePolicy": "no-new-keys-closed-profile-v1",
-    "archiveSha256": "1e84ef2d385007c63f98218c729e6533060e3d6ee9851e3428fa20ffe113f299",
-    "contentSha256": "4307ab77f706a1f7bd4cf8c76cbb373ad0731c699a46bf5a087dbb79f57cad8c",
+    "archiveSha256": "029dfacb4fd24441834d39501dda7d5ca25b3f9bf6a7d286bf88aae9a8cc23ee",
+    "contentSha256": "17fbdf486e7a487be70daae9954321f03e9e8b73cfbcf69ded540f18ce999b05",
     "fileFormats": [
       [
         "html",
@@ -373,7 +374,7 @@
       [
         "xlsx",
         1,
-        30814
+        30819
       ]
     ],
     "formalBackupPathVerified": false,
@@ -391,21 +392,23 @@
     },
     "roleCount": 31,
     "rows": 307,
-    "runtimePrivilegeNegativeChecks": 25,
-    "sourcePort": 55763,
+    "runtimePrivilegeNegativeChecks": 26,
+    "sourcePort": 55770,
     "status": "passed",
     "tables": 295,
-    "targetPort": 55764
+    "targetPort": 55771
   },
+  "rlsPolicySyntaxWitnessBoundToOriginalBackup": true,
   "schemaVersion": "integration-formal-candidate-v1",
   "sourceFileCount": 1468,
-  "sourcePolicySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
+  "sourcePolicySha256": "b1cda064c54a20b7615f4336bafed887b4459df31407b8feaa09c05fabd25300",
   "unitChecks": {
     "journalTestsPassed": 6,
     "lifecycleTestsPassed": 43,
     "lintErrors": 0,
     "lintWarnings": 12,
     "maintenanceTestsPassed": 20,
+    "noKeyContractTestsPassed": 7,
     "nodeCancelled": 0,
     "nodeFailed": 0,
     "nodePass": 2676,

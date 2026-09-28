@@ -2076,15 +2076,27 @@ def run_backup(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+    no_keys = getattr(args, "profile", "legacy") == "no-new-keys"
+    expected = None
+    witness = None
+    if no_keys:
+        import postgres_no_key_backup
+        if getattr(args, "manifest", ""):
+            expected = postgres_no_key_backup.read_manifest(args.manifest,
+                args.approved_manifest_sha256, args.archive, args.expected_database)
+        if getattr(args, "policy_witness", ""):
+            witness = postgres_no_key_backup.read_policy_witness(args.policy_witness,
+                args.policy_witness_sha256)
     with psycopg.connect("") as connection:
-        no_keys = getattr(args, "profile", "legacy") == "no-new-keys"
         connection.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ" +
             ("" if no_keys else " READ ONLY"))
         profile_evidence = None
         if no_keys:
             import postgres_no_key_backup
             connection.execute("SET LOCAL lock_timeout='5s'")
-            profile_evidence = postgres_no_key_backup.collect(connection)
+            profile_evidence = postgres_no_key_backup.collect(connection,
+                legacy_catalog=expected is not None and "functionAttributes" not in expected["catalog"])
+            restored_policies = postgres_no_key_backup.policy_rows(connection)
         evidence = collect_evidence(
             connection,
             expected_database=args.expected_database,
@@ -2098,11 +2110,14 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     }
     if no_keys:
         result["profileEvidence"] = profile_evidence
-        if getattr(args, "manifest", ""):
-            expected = postgres_no_key_backup.read_manifest(args.manifest,
-                args.approved_manifest_sha256, args.archive, args.expected_database)
-            postgres_no_key_backup.verify_restored(expected, profile_evidence)
+        if expected is not None:
+            syntax_changed = expected["catalog"]["policies"] != profile_evidence["catalog"]["policies"]
+            profile_evidence = postgres_no_key_backup.verify_restored(expected, profile_evidence,
+                source_policy_rows=witness, restored_policy_rows=restored_policies)
+            result["profileEvidence"] = profile_evidence
             result["profileRestoreVerified"] = True
+            result["policySyntaxEquivalenceVerified"] = syntax_changed
+            result["policySyntaxWitnessSha256"] = args.policy_witness_sha256 if syntax_changed else ""
     return result
 
 
@@ -2197,6 +2212,8 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("--manifest", default="")
     probe.add_argument("--approved-manifest-sha256", default="")
     probe.add_argument("--archive", default="")
+    probe.add_argument("--policy-witness", default="")
+    probe.add_argument("--policy-witness-sha256", default="")
 
     protected = subparsers.add_parser("protected-preflight")
     protected.add_argument("--expected-database", required=True)

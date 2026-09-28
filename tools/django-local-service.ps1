@@ -1815,6 +1815,35 @@ function Prepare-Application {
       }
       Copy-Item -LiteralPath $source -Destination (Join-Path $staging $relative) -Force
     }
+    $installedIntegrationPolicy = Join-Path $InstalledAppRoot 'config\integration-migration-policy-v3.json'
+    $installedGenerationPresent = Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf
+    $integrationPlanPath = Join-Path $RuntimeRoot 'integration-install-plan.json'
+    if (-not $installedGenerationPresent -and (Test-Path -LiteralPath $integrationPlanPath -PathType Leaf)) {
+      $integrationPlan = Read-JsonFile $integrationPlanPath 'Integration generation plan'
+      if ([string]$integrationPlan.operationId -cmatch '^[0-9a-f]{32}$') {
+        $installedRecordPath = Join-Path $RuntimeRoot ('integration-installs\' + $integrationPlan.operationId + '\evidence\installed.json')
+        if (Test-Path -LiteralPath $installedRecordPath -PathType Leaf) {
+          $installedRecord = Read-JsonFile $installedRecordPath 'Installed integration generation'
+          $installedGenerationPresent = [string]$installedRecord.status -ceq 'schema_installed'
+        }
+      }
+    }
+    if ($installedGenerationPresent -and (Test-Path -LiteralPath $installedIntegrationPolicy -PathType Leaf)) {
+      $sameMigrationCode = @'
+import json,sys
+from pathlib import Path
+sys.path.insert(0,str(Path(sys.argv[1])/'tools'))
+from integration_release_gate import migration_digest
+print(json.dumps({'same':migration_digest(Path(sys.argv[1]))==migration_digest(Path(sys.argv[2]))}))
+'@
+      $sameRun = Invoke-BoundedNativeProcess $Python @('-c',$sameMigrationCode,$ExecutionRoot,$InstalledAppRoot) $ExecutionRoot
+      $same = ConvertFrom-UniqueNativeJson $sameRun 'Compare installed migration generation'
+      if ($same.same -ceq $true) {
+        # Source approval evolves with maintenance code. The runtime retains
+        # the original installed generation policy and its immutable journal.
+        Copy-Item -LiteralPath $installedIntegrationPolicy -Destination (Join-Path $staging 'config\integration-migration-policy-v3.json') -Force
+      }
+    }
     Assert-WranglerLocalR2RoundTrip $staging
     $fingerprintEvidence = Get-ApplicationTreeFingerprintEvidence $staging
     $fingerprint = [string]$fingerprintEvidence.Fingerprint
