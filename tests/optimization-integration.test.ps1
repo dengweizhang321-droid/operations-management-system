@@ -72,9 +72,21 @@ foreach ($variant in @('owner','phase','scope','nonBooleanProof')) {
 $script:callbacks=0
 Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence { $script:callbacks++ } }
 if ($script:callbacks -ne 1) { throw 'Nested fence did not execute exactly once' }
+$auditId='e'*32
+$auditPath=Join-Path $Scratch ('audits\postgres-operations\'+$auditId+'.json')
+$audit=@{version='teruisi-postgres-operation-v1';id=$auditId;status='running';action='Backup';phase='consistent_dump';startedAt='2026-09-29T00:00:00Z'}
+Write-AtomicJson $auditPath $audit
+$caught=$null
+try { Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence { $script:callbacks++ } } }
+catch { $caught=$_.Exception.Message }
+if ($caught -notlike '*PostgreSQL backup operation is unresolved*' -or $script:callbacks -ne 1) { throw 'Unresolved direct operator admitted maintenance after OS mutex release' }
+$audit.status='completed'
+Write-AtomicJson $auditPath $audit
+Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence { $script:callbacks++ } }
+if ($script:callbacks -ne 2) { throw 'Reconciled direct operator still blocked maintenance' }
 Write-AtomicJson (Join-Path $Scratch 'backups\console\job-fixture.json') @{status='unknown'}
 $caught=$null
 try { Invoke-AutomationPgDrainFence { Invoke-BackupConsoleMaintenanceFence { $script:callbacks++ } } }
 catch { $caught=$_.Exception.Message }
-if ($caught -notlike '*manual reconciliation required*' -or $script:callbacks -ne 1) { throw 'Unresolved console job bypassed nested gate' }
+if ($caught -notlike '*manual reconciliation required*' -or $script:callbacks -ne 2) { throw 'Unresolved console job bypassed nested gate' }
 Write-Output 'PASS: combined backup/drain admission, stopped proof, identity/scope rejection and nested mutex'

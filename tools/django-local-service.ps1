@@ -4404,8 +4404,27 @@ function Invoke-BackupConsoleMaintenanceFence([scriptblock]$Operation) {
   $pgMutex = [Threading.Mutex]::new($false, ('Local\TERUISI-DjangoPostgresMaintenance-' + (Get-Sha256Text (Get-CanonicalPath $RuntimeRoot)).Substring(0,20)))
   $pgHeld = $false
   try {
-    try { $pgHeld = $pgMutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $pgHeld = $true }
+    try { $pgHeld = $pgMutex.WaitOne(0) } catch [Threading.AbandonedMutexException] {
+      $pgHeld = $true
+      throw 'PostgreSQL backup operator ended unexpectedly; verify its result before maintenance'
+    }
     if (-not $pgHeld) { throw 'PostgreSQL backup or verification is active; maintenance refused' }
+    # An exited operator releases its OS lock but may leave an unknown result.
+    # Reuse the continuity journal reader in a local scope; do not consume the
+    # abandonment signal or let maintenance bypass a durable running receipt.
+    $operationRoot = Assert-RuntimeChildPath (Join-Path $RuntimeRoot 'audits\postgres-operations')
+    if (Test-Path -LiteralPath $operationRoot) {
+      if (-not (Test-Path -LiteralPath $operationRoot -PathType Container)) { throw 'Invalid PostgreSQL operation audit root' }
+      & {
+        param($backupRuntime, $continuityLibrary)
+        $MaintenanceRequest = [pscustomobject]@{RuntimeRoot=$backupRuntime}
+        . $continuityLibrary
+        $history = Get-MaintenanceRunStatus
+        if ($null -ne $history -and @($history.unresolved).Count -gt 0) {
+          throw 'PostgreSQL backup operation is unresolved; verify its exact receipt before maintenance'
+        }
+      } $RuntimeRoot (Join-Path $ExecutionRoot 'tools\postgres-backup-continuity.ps1')
+    }
     $stream.Lock(0, 1); $locked = $true
     $jobs = @(Get-ChildItem -LiteralPath $consoleRoot -Filter 'job-*.json' -Force)
     if ($jobs.Count -gt 10000) { throw 'Backup task inventory exceeds bound' }
