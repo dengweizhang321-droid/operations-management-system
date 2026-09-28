@@ -246,6 +246,8 @@ function Invoke-BoundedNativeProcess(
   [string[]]$Arguments,
   [string]$WorkingDirectory = ""
 ) {
+  $nativePhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $nativePhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
   $output = @()
   $nativeExitCode = $null
   $launchFailed = $false
@@ -290,6 +292,8 @@ function Invoke-BoundedNativeProcess(
     LaunchFailed = [bool]$launchFailed
     Output = @($output)
     Diagnostic = Get-BoundedNativeDiagnostic $output
+    StartedAt = $nativePhaseAt
+    ElapsedMilliseconds = $nativePhaseClock.ElapsedMilliseconds
   }
 }
 
@@ -334,6 +338,11 @@ function Write-NativeDiagnosticLog(
 ) {
   $line = "operation=$Operation; $(Get-NativeFailureSummary $Run)"
   [IO.File]::AppendAllText($Path, $line + [Environment]::NewLine, $Utf8NoBom)
+  if ($Operation -in @('django_migrate', 'django_runtime_grants') -and
+      $Run.PSObject.Properties.Name -contains 'ElapsedMilliseconds') {
+    $outcome = if ($Run.ExitCode -eq 0) { 'completed' } else { 'failed' }
+    try { Write-DjangoStartupTiming ($Operation.Replace('_', '-')) $Run.StartedAt $Run.ElapsedMilliseconds $outcome } catch { }
+  }
 }
 
 function Rotate-LauncherLog {
@@ -369,6 +378,17 @@ function Write-LauncherEvent([string]$Level, [string]$Event, [string]$Message = 
   } catch {
     # Logging must never replace the original deployment failure.
   }
+}
+
+function Write-DjangoStartupTiming([string]$Stage, [string]$StartedAt, [long]$ElapsedMilliseconds, [string]$Outcome) {
+  # Fixed stage names and counts only: never include arguments, URLs or errors.
+  try {
+    if ($Action -cnotin @('Start', 'StartFinance')) { return }
+    if ($Stage -cnotmatch '^[A-Za-z][A-Za-z0-9-]{0,79}$' -or $Outcome -cnotin @('completed', 'failed')) { return }
+    Write-LauncherEvent 'INFO' 'startup_phase' (
+      "stage=$Stage startedAt=$StartedAt elapsedMilliseconds=$ElapsedMilliseconds outcome=$Outcome processId=$PID"
+    )
+  } catch { }
 }
 
 function Remove-OldServiceLogs([string]$Prefix, [int]$Keep = 10) {
@@ -1068,6 +1088,10 @@ function Assert-RuntimeRootAclHardened {
 }
 
 function Assert-RuntimeAclHardened {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (-not (Test-Path -LiteralPath $RuntimeRoot -PathType Container)) { throw "运行目录不存在：$RuntimeRoot" }
   $allowedValues = @((Get-AllowedAclSids) | ForEach-Object { $_.Value })
   $root = Get-CanonicalPath $RuntimeRoot
@@ -1077,6 +1101,12 @@ function Assert-RuntimeAclHardened {
   Write-LauncherEvent "INFO" "runtime_acl_verified" (
     "objects=$objectCount elapsedMilliseconds=$($timer.ElapsedMilliseconds)"
   )
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Assert-RuntimeAclHardened' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function New-OrchestratedLifecycleAclToken {
@@ -1438,7 +1468,17 @@ function Assert-ApplicationTreeManifest([string]$AppRoot, [string]$Label) {
 }
 
 function Assert-DeployedApplication {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-ApplicationTreeManifest $InstalledAppRoot "Django runtime app" | Out-Null
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Assert-DeployedApplication' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Copy-ApplicationTree(
@@ -2284,6 +2324,9 @@ function Start-ManagedProcess(
   [string]$StdoutPath,
   [string]$StderrPath
 ) {
+  $launchPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $launchPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $launchPhaseOutcome = 'completed'
   $launchArguments = @($Arguments | ForEach-Object { ConvertTo-ProcessArgument $_ })
   $process = $null
   try {
@@ -2308,11 +2351,14 @@ function Start-ManagedProcess(
     Write-LauncherEvent "INFO" "process_started" "$Service pid=$($snapshot.ProcessId)"
     return $snapshot.Process
   } catch {
+    $launchPhaseOutcome = 'failed'
     if ($process -and -not $process.HasExited) {
       Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path -LiteralPath $PidPath) { Remove-Item -LiteralPath $PidPath -Force }
     throw
+  } finally {
+    try { Write-DjangoStartupTiming ('launch-' + $Service) $launchPhaseAt $launchPhaseClock.ElapsedMilliseconds $launchPhaseOutcome } catch { }
   }
 }
 
@@ -2586,6 +2632,10 @@ function Invoke-PgCtl([string[]]$Arguments, [string]$Operation, [int]$TimeoutSec
 }
 
 function Start-Postgres {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $pgCtl = Join-Path $PostgresBin "pg_ctl.exe"
   if (-not (Test-Path -LiteralPath $pgCtl -PathType Leaf)) { throw "缺少 PostgreSQL 17 运行文件" }
   $listeners = @(Get-PortListeners 5432)
@@ -2608,6 +2658,12 @@ function Start-Postgres {
   }
   Write-LauncherEvent "INFO" "postgres_started"
   return $true
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-Postgres' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-Postgres {
@@ -2981,6 +3037,10 @@ function Invoke-WithDjangoEnvironment(
 }
 
 function Assert-PostgresConnectionCapacity([object]$Secrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $requiredConnections = if (Test-Path -LiteralPath $AiStartupEnabledPath -PathType Leaf) { 128 } else { $MinimumPostgresConnectionsForFullStack }
   $ownerUrl = Database-Url `
     "teruisi_sales_owner" $Secrets.OwnerPassword `
@@ -3010,12 +3070,22 @@ print(json.dumps({"maxConnections": max_connections}, separators=(",", ":")))
     throw "PostgreSQL max_connections 低于完整运行栈所需的 $requiredConnections；拒绝启动服务"
   }
   return [int]$payload.maxConnections
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Assert-PostgresConnectionCapacity' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Invoke-DjangoMigrations(
   [object]$Secrets,
   [string]$DatabaseName = "teruisi_sales"
 ) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { throw "缺少 Python 运行文件" }
   Assert-NoUnapprovedProtectedAiMigration "Django migrate"
   $ownerUrl = Database-Url "teruisi_sales_owner" $Secrets.OwnerPassword "teruisi_django_migrate" $WriterStatementTimeoutMs $DatabaseName
@@ -3247,9 +3317,19 @@ with transaction.atomic(), connection.cursor() as c:
   }
   $ownerUrl = $null
   Write-LauncherEvent "INFO" "django_migrations_applied"
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Invoke-DjangoMigrations' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Get-ActiveWriteAuthority([object]$Secrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_sales_writer" $Secrets.WriterPassword "teruisi_authority_probe" $ReaderStatementTimeoutMs
   $manage = Join-Path $BackendRoot "manage.py"
   $payload = Invoke-WithDjangoEnvironment $Secrets $writerUrl "migration_writer" $false $ReaderMaxBodyBytes "" "" {
@@ -3267,9 +3347,19 @@ function Get-ActiveWriteAuthority([object]$Secrets) {
     throw "PostgreSQL 尚未成为销售唯一写入源；拒绝启动 writer"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-ActiveWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Get-FinanceWriteAuthority([object]$Secrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_finance_writer" $Secrets.FinanceWriterPassword "teruisi_finance_authority_probe" $ReaderStatementTimeoutMs
   $manage = Join-Path $BackendRoot "manage.py"
   $code = @'
@@ -3299,9 +3389,19 @@ print(json.dumps({
     throw "PostgreSQL 财务写入权威身份无效"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-FinanceWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Wait-DjangoReady([string]$Label, [string]$HealthUrl, [string]$HostHeader, [int]$Seconds = 30) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $deadline = (Get-Date).AddSeconds($Seconds)
   $lastStatus = "connection_failed"
   do {
@@ -3315,6 +3415,12 @@ function Wait-DjangoReady([string]$Label, [string]$HealthUrl, [string]$HostHeade
     }
   } while ((Get-Date) -lt $deadline)
   throw "Django $Label 未在 ${Seconds} 秒内就绪（lastStatus=$lastStatus）"
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming ('Wait-DjangoReady-' + $Label) $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
@@ -3351,7 +3457,7 @@ function Start-DjangoReader([object]$Secrets, [switch]$DeferReady) {
   }
 }
 
-function Start-DjangoWriter([object]$Secrets, [object]$Authority) {
+function Start-DjangoWriter([object]$Secrets, [object]$Authority, [switch]$DeferReady) {
   if (-not (Test-Path -LiteralPath $Waitress -PathType Leaf)) { throw "缺少 Waitress 运行文件" }
   $arguments = @(
     "--listen=127.0.0.1:8002", "--threads=4", "--connection-limit=20",
@@ -3374,6 +3480,8 @@ function Start-DjangoWriter([object]$Secrets, [object]$Authority) {
     Start-ManagedProcess "django-writer" $Waitress $arguments $BackendRoot $DjangoWriterPidPath $fingerprint $stdout $stderr | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
     return $true
@@ -3417,7 +3525,7 @@ function Start-DjangoFinanceReader([object]$Secrets, [switch]$DeferReady) {
   }
 }
 
-function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority) {
+function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") {
     throw "PostgreSQL 尚未成为财务唯一写入源；拒绝启动 finance writer"
   }
@@ -3443,6 +3551,8 @@ function Start-DjangoFinanceWriter([object]$Secrets, [object]$Authority) {
     Start-ManagedProcess "django-finance-writer" $Waitress $arguments $BackendRoot $DjangoFinanceWriterPidPath $fingerprint $stdout $stderr | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "finance-writer" $DjangoFinanceWriterHealthUrl "127.0.0.1:8012"
     return $true
@@ -3695,6 +3805,10 @@ function Invoke-CreateSalesCutoverSmokeReceipt {
 }
 
 function Start-ServiceStack {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "Start 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
   }
@@ -3720,14 +3834,14 @@ function Start-ServiceStack {
     Invoke-DjangoMigrations $secrets
     $authority = Get-ActiveWriteAuthority $secrets
     $readerStarted = Start-DjangoReader $secrets -DeferReady
-    $writerStarted = Start-DjangoWriter $secrets $authority
+    $writerStarted = Start-DjangoWriter $secrets $authority -DeferReady
     Wait-DjangoReady "reader" $DjangoReaderHealthUrl "127.0.0.1:8001"
     Wait-DjangoReady "writer" $DjangoWriterHealthUrl "127.0.0.1:8002"
     $salesCoreReady = $true
     $financeReaderStarted = Start-DjangoFinanceReader $secrets -DeferReady
     $financeAuthority = Get-FinanceWriteAuthority $secrets
     if ([string]$financeAuthority.status -ceq "postgres") {
-      $financeWriterStarted = Start-DjangoFinanceWriter $secrets $financeAuthority
+      $financeWriterStarted = Start-DjangoFinanceWriter $secrets $financeAuthority -DeferReady
     }
     Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
     if ([string]$financeAuthority.status -ceq "postgres") {
@@ -3772,6 +3886,12 @@ function Start-ServiceStack {
   } finally {
     $secrets = $null
   }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-ServiceStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-ServiceStack {
@@ -3796,6 +3916,10 @@ function Stop-ServiceStack {
 }
 
 function Start-FinanceStack {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if ((Get-CanonicalPath $ExecutionRoot) -ine (Get-CanonicalPath $InstalledAppRoot)) {
     throw "StartFinance 必须从受保护的 runtime app 启动脚本执行；请先运行 DeployApp"
   }
@@ -3811,7 +3935,7 @@ function Start-FinanceStack {
     $readerStarted = Start-DjangoFinanceReader $secrets -DeferReady
     $authority = Get-FinanceWriteAuthority $secrets
     if ([string]$authority.status -ceq "postgres") {
-      $writerStarted = Start-DjangoFinanceWriter $secrets $authority
+      $writerStarted = Start-DjangoFinanceWriter $secrets $authority -DeferReady
     }
     Wait-DjangoReady "finance-reader" $DjangoFinanceReaderHealthUrl "127.0.0.1:8011"
     if ([string]$authority.status -ceq "postgres") {
@@ -3831,6 +3955,12 @@ function Start-FinanceStack {
     throw $originalError
   } finally {
     $secrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-FinanceStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 
@@ -4285,6 +4415,10 @@ function Invoke-WithServiceMutex(
 }
 
 function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if ($OrchestratedLifecycleAclToken -cnotmatch "^[0-9a-f]{64}$") {
     throw "orchestrated lifecycle ACL token 无效"
   }
@@ -4357,6 +4491,12 @@ function Invoke-EnabledDjangoDomainStarts([string]$OrchestratedLifecycleAclToken
     }
     & $InstalledBiScriptPath -Action Start -RuntimeRoot $RuntimeRoot `
       -OrchestratedLifecycleAclToken $OrchestratedLifecycleAclToken
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Invoke-EnabledDjangoDomainStarts' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 

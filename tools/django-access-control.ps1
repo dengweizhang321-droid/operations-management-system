@@ -185,6 +185,10 @@ connection.close()
 }
 
 function Get-AccessControlWriteAuthority([object]$RuntimeSecrets, [object]$AccessControlSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_access_control_writer" $AccessControlSecrets.WriterPassword "teruisi_access_control_authority_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
@@ -215,6 +219,12 @@ print(json.dumps({
       -not ([string]$payload.migrationRunId -match "^access-control-[0-9a-f]{32}$") -or
       [int]$payload.revision -lt 1)) { throw "PostgreSQL 权限写入权威证据不完整" }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-AccessControlWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessControlSecrets, [switch]$DeferReady) {
@@ -242,7 +252,7 @@ function Start-AccessControlReader([object]$RuntimeSecrets, [object]$AccessContr
   catch { Stop-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress; throw }
 }
 
-function Start-AccessControlWriter([object]$RuntimeSecrets, [object]$AccessControlSecrets, [object]$Authority) {
+function Start-AccessControlWriter([object]$RuntimeSecrets, [object]$AccessControlSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为权限唯一写入源；拒绝启动权限 writer" }
   $arguments = @(
     "--listen=127.0.0.1:8102", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
@@ -262,11 +272,17 @@ function Start-AccessControlWriter([object]$RuntimeSecrets, [object]$AccessContr
       (Join-Path $LogDirectory "django-access-control-writer.$RunId.stdout.log") (Join-Path $LogDirectory "django-access-control-writer.$RunId.stderr.log") | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:8102"; return $true }
   catch { Stop-OwnedProcess "django-access-control-writer" $AccessControlWriterPidPath $Waitress; throw }
 }
 
 function Start-AccessControlStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-AccessControlRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动权限服务" }
@@ -284,7 +300,7 @@ function Start-AccessControlStack([string]$LifecycleAclToken = "") {
       }
     }
     $readerStarted = Start-AccessControlReader $runtimeSecrets $accessControlSecrets -DeferReady
-    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-AccessControlWriter $runtimeSecrets $accessControlSecrets $authority }
+    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-AccessControlWriter $runtimeSecrets $accessControlSecrets $authority -DeferReady }
     Wait-DjangoReady "access-control-reader" $AccessControlReaderHealthUrl "127.0.0.1:8101"
     if ([string]$authority.status -ceq "postgres") {
       Wait-DjangoReady "access-control-writer" $AccessControlWriterHealthUrl "127.0.0.1:8102"
@@ -296,6 +312,12 @@ function Start-AccessControlStack([string]$LifecycleAclToken = "") {
     if ($readerStarted) { try { Stop-OwnedProcess "django-access-control-reader" $AccessControlReaderPidPath $Waitress } catch {} }
     throw $original
   } finally { $runtimeSecrets = $null; $accessControlSecrets = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-AccessControlStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-AccessControlStack([string]$LifecycleAclToken = "") {

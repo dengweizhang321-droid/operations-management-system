@@ -1,0 +1,307 @@
+{
+  "capturedAt": "2026-09-29T00:49:49.399477+08:00",
+  "scope": "read-only historical Django Start; not a fresh startup measurement",
+  "events": [
+    {
+      "timestamp": "2026-09-28T22:54:16.4501835+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "action_started"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:29.9314689+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "runtime_acl_verified",
+      "detail": "objects=118511 elapsedMilliseconds=8467"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:37.8803991+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "django_migrations_applied"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:39.5032020+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-reader pid=48948"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:39.9872607+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-writer pid=27088"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:43.7868005+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-finance-reader pid=2272"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:45.1221014+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-finance-writer pid=45608"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:47.2271538+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "service_stack_ready"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:47.2724728+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_context_issued"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:47.3290913+08:00",
+      "runId": "20260928-225447-c8a419dc",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=netshop"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:49.2339025+08:00",
+      "runId": "20260928-225447-c8a419dc",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-netshop-reader pid=15120"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:49.8113630+08:00",
+      "runId": "20260928-225447-c8a419dc",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-netshop-writer pid=31024"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:52.0184376+08:00",
+      "runId": "20260928-225452-e36eb52c",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=market"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:54.0800651+08:00",
+      "runId": "20260928-225452-e36eb52c",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-market-reader pid=49428"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:54.6338041+08:00",
+      "runId": "20260928-225452-e36eb52c",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-market-writer pid=39296"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:56.8303353+08:00",
+      "runId": "20260928-225456-5d3c5134",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=products"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:58.8948477+08:00",
+      "runId": "20260928-225456-5d3c5134",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-products-reader pid=34884"
+    },
+    {
+      "timestamp": "2026-09-28T22:54:59.4865872+08:00",
+      "runId": "20260928-225456-5d3c5134",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-products-writer pid=36324"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:02.0078672+08:00",
+      "runId": "20260928-225501-c19ba51e",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=inventory"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:04.0727450+08:00",
+      "runId": "20260928-225501-c19ba51e",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-inventory-reader pid=50188"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:04.6307494+08:00",
+      "runId": "20260928-225501-c19ba51e",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-inventory-writer pid=11152"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:07.7098332+08:00",
+      "runId": "20260928-225507-0f50d8f7",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=workflow"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:09.9309342+08:00",
+      "runId": "20260928-225507-0f50d8f7",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-workflow-reader pid=48484"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:10.5136275+08:00",
+      "runId": "20260928-225507-0f50d8f7",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-workflow-writer pid=12360"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:12.8091387+08:00",
+      "runId": "20260928-225512-60cf96a0",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=customer-service"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:15.0719840+08:00",
+      "runId": "20260928-225512-60cf96a0",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-customer-service-reader pid=34512"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:15.7113179+08:00",
+      "runId": "20260928-225512-60cf96a0",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-customer-service-writer pid=52672"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:17.8531078+08:00",
+      "runId": "20260928-225517-80064c7a",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=access-control"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:20.0396122+08:00",
+      "runId": "20260928-225517-80064c7a",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-access-control-reader pid=39140"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:20.6632814+08:00",
+      "runId": "20260928-225517-80064c7a",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-access-control-writer pid=49728"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:22.6581731+08:00",
+      "runId": "20260928-225522-5433441a",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=ai"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:26.5675968+08:00",
+      "runId": "20260928-225522-5433441a",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "ai-pandas-wsl pid=12216"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:34.4824352+08:00",
+      "runId": "20260928-225522-5433441a",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-ai-reader pid=53564"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:35.2144301+08:00",
+      "runId": "20260928-225522-5433441a",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-ai-writer pid=37320"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:38.1351919+08:00",
+      "runId": "20260928-225538-0952e856",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=erp-reference"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:40.7191966+08:00",
+      "runId": "20260928-225538-0952e856",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-erp-reference-reader pid=35652"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:41.4755189+08:00",
+      "runId": "20260928-225538-0952e856",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-erp-reference-writer pid=32748"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:44.8401589+08:00",
+      "runId": "20260928-225544-e9fe7ab7",
+      "action": "Start",
+      "event": "orchestrated_lifecycle_acl_reused",
+      "detail": "domain=bi"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:47.3224208+08:00",
+      "runId": "20260928-225544-e9fe7ab7",
+      "action": "Start",
+      "event": "process_started",
+      "detail": "django-bi-reader pid=29444"
+    },
+    {
+      "timestamp": "2026-09-28T22:55:49.2623025+08:00",
+      "runId": "20260928-225416-e60ec949",
+      "action": "Start",
+      "event": "action_completed"
+    }
+  ],
+  "controllerHashes": [
+    {
+      "file": "django-local-service.ps1",
+      "checkoutSha256": "e948cdf5e803bb035a02ed0ff7880f2482d60ebbfcc0496e5b8e48159a07eea1",
+      "installedSha256": "e948cdf5e803bb035a02ed0ff7880f2482d60ebbfcc0496e5b8e48159a07eea1",
+      "exact": true
+    },
+    {
+      "file": "django-ai.ps1",
+      "checkoutSha256": "cae76aab3ab96a03f2082e9c0b0ad5e522566f07702b7750b96d94a57bc78c2d",
+      "installedSha256": "cae76aab3ab96a03f2082e9c0b0ad5e522566f07702b7750b96d94a57bc78c2d",
+      "exact": true
+    },
+    {
+      "file": "django-netshop-service.ps1",
+      "checkoutSha256": "6da63c7dde22d232555ce400ecdc9bf85dc31ed12585550bb800ab1d28691760",
+      "installedSha256": "6da63c7dde22d232555ce400ecdc9bf85dc31ed12585550bb800ab1d28691760",
+      "exact": true
+    },
+    {
+      "file": "django-market-service.ps1",
+      "checkoutSha256": "72b87b82b283e4dfffea6431e27a1ffa89cc852ba0040f8d49a73471cdaa41e5",
+      "installedSha256": "72b87b82b283e4dfffea6431e27a1ffa89cc852ba0040f8d49a73471cdaa41e5",
+      "exact": true
+    }
+  ]
+}

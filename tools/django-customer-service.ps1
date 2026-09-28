@@ -198,6 +198,10 @@ connection.close()
 }
 
 function Get-CustomerServiceWriteAuthority([object]$RuntimeSecrets, [object]$CustomerSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_customer_service_writer" $CustomerSecrets.WriterPassword "teruisi_customer_service_authority_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
@@ -228,6 +232,12 @@ print(json.dumps({
       -not ([string]$payload.migrationRunId -match "^customer-service-[0-9a-f]{32}$") -or
       [int]$payload.revision -lt 1)) { throw "PostgreSQL 客服写入权威证据不完整" }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-CustomerServiceWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerSecrets, [switch]$DeferReady) {
@@ -255,7 +265,7 @@ function Start-CustomerServiceReader([object]$RuntimeSecrets, [object]$CustomerS
   catch { Stop-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress; throw }
 }
 
-function Start-CustomerServiceWriter([object]$RuntimeSecrets, [object]$CustomerSecrets, [object]$Authority) {
+function Start-CustomerServiceWriter([object]$RuntimeSecrets, [object]$CustomerSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为客服唯一写入源；拒绝启动客服 writer" }
   $arguments = @(
     "--listen=127.0.0.1:8072", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
@@ -275,11 +285,17 @@ function Start-CustomerServiceWriter([object]$RuntimeSecrets, [object]$CustomerS
       (Join-Path $LogDirectory "django-customer-service-writer.$RunId.stdout.log") (Join-Path $LogDirectory "django-customer-service-writer.$RunId.stderr.log") | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:8072"; return $true }
   catch { Stop-OwnedProcess "django-customer-service-writer" $CustomerServiceWriterPidPath $Waitress; throw }
 }
 
 function Start-CustomerServiceStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-CustomerServiceRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动客服服务" }
@@ -297,7 +313,7 @@ function Start-CustomerServiceStack([string]$LifecycleAclToken = "") {
       }
     }
     $readerStarted = Start-CustomerServiceReader $runtimeSecrets $customerSecrets -DeferReady
-    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-CustomerServiceWriter $runtimeSecrets $customerSecrets $authority }
+    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-CustomerServiceWriter $runtimeSecrets $customerSecrets $authority -DeferReady }
     Wait-DjangoReady "customer-service-reader" $CustomerServiceReaderHealthUrl "127.0.0.1:8071"
     if ([string]$authority.status -ceq "postgres") {
       Wait-DjangoReady "customer-service-writer" $CustomerServiceWriterHealthUrl "127.0.0.1:8072"
@@ -309,6 +325,12 @@ function Start-CustomerServiceStack([string]$LifecycleAclToken = "") {
     if ($readerStarted) { try { Stop-OwnedProcess "django-customer-service-reader" $CustomerServiceReaderPidPath $Waitress } catch {} }
     throw $original
   } finally { $runtimeSecrets = $null; $customerSecrets = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-CustomerServiceStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-CustomerServiceStack([string]$LifecycleAclToken = "") {

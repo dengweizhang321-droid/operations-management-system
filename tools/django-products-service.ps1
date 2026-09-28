@@ -321,6 +321,10 @@ connection.close()
 }
 
 function Get-ProductsWriteAuthority([object]$RuntimeSecrets, [object]$ProductsSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url `
     "teruisi_products_writer" $ProductsSecrets.WriterPassword `
     "teruisi_products_authority_probe" $ReaderStatementTimeoutMs
@@ -368,6 +372,12 @@ print(json.dumps({
     throw "PostgreSQL 商品经营写入权威证据不完整"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-ProductsWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets, [switch]$DeferReady) {
@@ -409,8 +419,7 @@ function Start-ProductsReader([object]$RuntimeSecrets, [object]$ProductsSecrets,
 function Start-ProductsWriter(
   [object]$RuntimeSecrets,
   [object]$ProductsSecrets,
-  [object]$Authority
-) {
+  [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") {
     throw "PostgreSQL 尚未成为商品经营唯一写入源；拒绝启动商品经营 writer"
   }
@@ -439,6 +448,8 @@ function Start-ProductsWriter(
         (Join-Path $LogDirectory "django-products-writer.$RunId.stderr.log") | Out-Null
     }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "products-writer" $ProductsWriterHealthUrl "127.0.0.1:8042"
     return $true
@@ -449,6 +460,10 @@ function Start-ProductsWriter(
 }
 
 function Start-ProductsStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-ProductsRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动商品经营服务" }
@@ -473,7 +488,7 @@ function Start-ProductsStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-ProductsReader $runtimeSecrets $productsSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
-      $writerStarted = Start-ProductsWriter $runtimeSecrets $productsSecrets $authority
+      $writerStarted = Start-ProductsWriter $runtimeSecrets $productsSecrets $authority -DeferReady
     }
     Wait-DjangoReady "products-reader" $ProductsReaderHealthUrl "127.0.0.1:8041"
     if ([string]$authority.status -ceq "postgres") {
@@ -494,6 +509,12 @@ function Start-ProductsStack([string]$LifecycleAclToken = "") {
   } finally {
     $runtimeSecrets = $null
     $productsSecrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-ProductsStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 

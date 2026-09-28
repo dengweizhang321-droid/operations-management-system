@@ -310,6 +310,10 @@ connection.close()
 }
 
 function Get-WorkflowWriteAuthority([object]$RuntimeSecrets, [object]$WorkflowSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url `
     "teruisi_workflow_writer" $WorkflowSecrets.WriterPassword `
     "teruisi_workflow_authority_probe" $ReaderStatementTimeoutMs
@@ -374,6 +378,12 @@ print(json.dumps({
     throw "PostgreSQL 运营事务全板块写入权威证据不完整"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-WorkflowWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets, [switch]$DeferReady) {
@@ -415,8 +425,7 @@ function Start-WorkflowReader([object]$RuntimeSecrets, [object]$WorkflowSecrets,
 function Start-WorkflowWriter(
   [object]$RuntimeSecrets,
   [object]$WorkflowSecrets,
-  [object]$Authority
-) {
+  [object]$Authority, [switch]$DeferReady) {
   if (
     [string]$Authority.status -cne "postgres" -or
     [string]$Authority.operationsStatus -cne "postgres"
@@ -449,6 +458,8 @@ function Start-WorkflowWriter(
     } -WorkflowOperationsAuthorityEpoch ([string]$Authority.operationsAuthorityEpoch) `
       -WorkflowOperationsCutoverId ([string]$Authority.operationsCutoverId)
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "workflow-writer" $WorkflowWriterHealthUrl "127.0.0.1:8062"
     return $true
@@ -459,6 +470,10 @@ function Start-WorkflowWriter(
 }
 
 function Start-WorkflowStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-WorkflowRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动运营事务新品服务" }
@@ -491,7 +506,7 @@ function Start-WorkflowStack([string]$LifecycleAclToken = "") {
       [string]$authority.status -ceq "postgres" -and
       [string]$authority.operationsStatus -ceq "postgres"
     ) {
-      $writerStarted = Start-WorkflowWriter $runtimeSecrets $workflowSecrets $authority
+      $writerStarted = Start-WorkflowWriter $runtimeSecrets $workflowSecrets $authority -DeferReady
     }
     Wait-DjangoReady "workflow-reader" $WorkflowReaderHealthUrl "127.0.0.1:8061"
     if (
@@ -515,6 +530,12 @@ function Start-WorkflowStack([string]$LifecycleAclToken = "") {
   } finally {
     $runtimeSecrets = $null
     $workflowSecrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-WorkflowStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 
