@@ -1,6 +1,6 @@
 {
   "date": "2026-09-28",
-  "status": "runtime-adopted-final-recovery-in-progress",
+  "status": "production-adopted-and-verified",
   "sourceCommit": "4aec20c1",
   "operationId": "087be3fbd2dc45848ff59b449b418225",
   "authorization": "User requested formal installation, local rollout, rollback tag, merge to main, local-only branch/worktree cleanup and verified duplicate backup cleanup.",
@@ -111,9 +111,9 @@
     "businessManualReplay": false
   },
   "remaining": [
-    "Final post-start independent recovery",
-    "Merge upstream PRs",
-    "Local cleanup blocked/remaining"
+    "Merge upstream PR53",
+    "Sync local main",
+    "Remaining local worktree/duplicate-backup cleanup"
   ],
   "runtime": {
     "version": "teruisi-operations-system-control-v2",
@@ -289,13 +289,42 @@
       }
     ],
     "manifestSha256": "1381662cead2a5025ec8d726af1ea96a994d9f46ab500c03e89f1536c4351406",
-    "independentRestoreStatus": "in-progress"
+    "independentRestoreStatus": "completed",
+    "restore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "7d20610d3fb5",
+      "startedAt": "2026-09-28T04:11:19.9045156+00:00",
+      "completedAt": "2026-09-28T04:20:32.1392013+00:00",
+      "backupId": "daily-20260928T040353Z-906d56bc49e4",
+      "backupManifestSha256": "1381662cead2a5025ec8d726af1ea96a994d9f46ab500c03e89f1536c4351406",
+      "dumpSha256": "8c953b8da9f57e2a8f153f78ab59d4b18bf2d2c06e24e164e16d0e41ba02a7ac",
+      "expectedContentSha256": "7406cb37e029b75a7aaf4eef2bfc3d0bc23a6af4e52e08607702ed9a055e9146",
+      "restoredContentSha256": "7406cb37e029b75a7aaf4eef2bfc3d0bc23a6af4e52e08607702ed9a055e9146",
+      "isolatedPort": 55779,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "25533dd3955bd5bec37b09305874000e60975cb4fd2e5db266fa69185d9db30d",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "restoreResultSha256": "9403cc7c915c007b1d3669cf7dca4ec109cf99565922a6d25543735cf38fb9be"
   },
   "cleanup": {
     "verifiedDuplicateBackupDirectories": 17,
     "unoccupiedMergedLocalBranches": 23,
     "worktrees": 92,
     "deletionCompleted": false,
-    "automaticApprovalRejection": "blocked by policy; deleting 17 verified D/E duplicate backups and earlier 46 synthetic PostgreSQL test directories was rejected; no alternative deletion attempted"
+    "automaticApprovalRejection": "blocked by policy; deleting 17 verified D/E duplicate backups and earlier 46 synthetic PostgreSQL test directories was rejected; no alternative deletion attempted",
+    "localBranchesDeleted": 23,
+    "localBranchesRemaining": 87,
+    "remainingWorktrees": 92,
+    "localMainEditsPreserved": {
+      "stash": "c5e5c053070f054010816a12616e47a9a3d75b43",
+      "archive": "E:\\codex-artifacts\\upstream-integration-20260927\\local-main-edits-before-update-20260928.bundle",
+      "verified": true
+    }
   }
 }

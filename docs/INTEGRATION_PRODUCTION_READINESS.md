@@ -1,5 +1,9 @@
 # 集成分支的本机发布门槛
 
+2026-09-28 正式采用已通过：76 步迁移、前后备份独立恢复、12 组件、AI/Pandas/钉钉、开机绑定、15 份资源和两轮自然看门狗健康。最新 [生产证据](evidence/integration-production-20260928.json) 为准。回滚标签 `rollback/pre-integration-20260928` 只保存代码，数据库回滚必须使用已核验的迁移前备份。实验签名角色继续关闭、密钥表为空。
+
+清理尚未全部完成：23 个不用的本地分支已删除；worktree 保留。自动审批拒绝删除 17 份已核验 D/E 重复备份及此前 46 个合成测试目录，仅返回 `blocked by policy`，没有删除或换方式绕过。所有远端分支保留。
+
 上游集成 PR 为 [#53](https://github.com/dengweizhang321-droid/operations-management-system/pull/53)，原候选 5d134e092de8a30f1bffab7f0f2c62e8e0c54525 基于 108fed614c2f03f26caf4cf169a26ea3d48609ee。后续发布准备在 [#54](https://github.com/dengweizhang321-droid/operations-management-system/pull/54)。主系统采用 Windows Worker/Django/PostgreSQL；Pandas 容器是独立组件。
 
 ## 用户选择：不新增密码和备份密钥
@@ -36,7 +40,7 @@
 
 固定 1,465 个 Python/JSON 源文件的演练已通过完整新集群恢复以及恢复后 AI reader/writer readiness；包括 295 张表、307 条合成记录、非空 HTML/XLSX、原 owner/ACL 和普通角色保持受限。正式 Python 备份/恢复程序、PowerShell 实际 payload 校验、25 项数据库权限负向检查通过。见 [无新增密钥演练证据](evidence/integration-no-new-keys-20260928.json)。旧 [加密演练证据](evidence/integration-migration-restore-20260927.json) 仅为已替代方案的历史记录，不作为当前方案的采用凭证。
 
-**以下为安装前的准备记录。2026-09-28 已完成正式 76 步安装及独立恢复，当前正在运行验收。** 最新状态见 [生产采用证据](evidence/integration-production-20260928.json)，尚不把服务启动命令的返回当作整栈验收成功。
+**以下为安装前的准备记录。2026-09-28 已完成正式 76 步安装及独立恢复，运行验收和最终备份独立恢复均已通过。** 最新状态见 [生产采用证据](evidence/integration-production-20260928.json)，尚不把服务启动命令的返回当作整栈验收成功。
 
 随后从 108fed61 的原 AI 权限配置重做了隔离升级，复现 0075 拒绝既有审计列权限且步骤回滚。兼容修复在原审计列存在时保持新的实验入口关闭，保留原查询；修复后 76 步、独立恢复及 25 项权限负向检查通过。新增逐步创建的持久意图/结果记录，断连、未知提交、重复调用和记录损坏均不自动重放。固定 1,466 个源文件的最终演练包含全部 76 个已核验结果。见 [既有权限升级证据](evidence/integration-existing-grants-20260928.json)。生产只读核查确认仍为相同 62 条基线，未进行生产写入。
 
