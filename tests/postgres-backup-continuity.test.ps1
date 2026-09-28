@@ -65,7 +65,7 @@ function Invoke-MaintenanceRetention { throw 'retention failed' }
 try { Invoke-MaintenanceBackupCycle; throw 'corrupt surviving copy accepted' }
 catch { if ($_.Exception.Message -ne 'copy changed') { throw } }
 # Restore capacity refusal must precede creating the isolated cluster.
-function Assert-NoSystemMaintenance {}
+function Read-SystemMaintenance { return $null }
 function Assert-MaintenanceRuntimeContext { return 'fixture-tool' }
 function Assert-MaintenanceProtectedArchiveUnsupported {}
 function Resolve-MaintenanceBackupArchive { return [pscustomobject]@{Manifest=[pscustomobject]@{version='legacy';dump=[pscustomobject]@{sizeBytes=100}}} }
