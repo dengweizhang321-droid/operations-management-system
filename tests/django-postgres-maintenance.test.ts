@@ -301,6 +301,7 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
   assert.match(restoreBlock, /-h 127\.0\.0\.1/);
   assert.match(restoreBlock, /max_connections=10/);
+  assert.match(restoreBlock, /max_locks_per_transaction=256/);
   assert.match(restoreBlock, /shared_buffers=128MB/);
   assert.match(restoreBlock, /"restore"/);
   assert.match(restoreBlock, /--timeout-seconds", "1800"/);

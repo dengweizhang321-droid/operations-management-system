@@ -2,9 +2,10 @@
   "controlsSha256": {
     "tools/django-integration-install.ps1": "7117ec2a883a4c559213b4db479852efdb0ea03096446b4dc1685433d065e5ca",
     "tools/django-local-service.ps1": "1990e324f46e0f5fa647c3762854096d405d7b5317ef0931e434e6b23d15f103",
-    "tools/django-postgres-maintenance.ps1": "0d7f56b1b2737ba62c1e6cfddf0f74df0c7e238985a94fe684a6df14ea7d2124"
+    "tools/django-postgres-maintenance.ps1": "0d61c67709783b726b89d5f439243376fba353038ba544afcdaaa4fdedc1ccea"
   },
   "date": "2026-09-28",
+  "isolatedRestoreLockCapacity": 256,
   "migration": {
     "baselineReceiptCount": 62,
     "completed": [

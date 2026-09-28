@@ -1634,7 +1634,7 @@ function Invoke-MaintenanceRestoreRehearsal {
     }
     Remove-Item -LiteralPath $passwordPath -Force
 
-    $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c shared_buffers=128MB -c log_min_messages=warning"
+    $serverOptions = "-p $($MaintenanceRequest.RehearsalPort) -h 127.0.0.1 -c max_connections=10 -c max_locks_per_transaction=256 -c shared_buffers=128MB -c log_min_messages=warning"
     $startRun = Invoke-MaintenancePgCtlStart $pgCtl $dataDirectory $logPath (
       $serverOptions
     ) $rehearsalRoot
