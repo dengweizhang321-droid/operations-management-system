@@ -26,14 +26,21 @@ export async function connectMemoryInspector(miniflare) {
         else request.resolve(response.result);
       }
     });
-    const call=method=>new Promise((resolve,reject)=>{
+    const call=(method,params={},timeoutMs=5000)=>new Promise((resolve,reject)=>{
       const messageId=++nextId;
-      const timer=setTimeout(()=>{pending.delete(messageId);reject(new Error('Inspector request timeout'));},5000);
-      pending.set(messageId,{resolve,reject,timer});socket.send(JSON.stringify({id:messageId,method}));
+      const timer=setTimeout(()=>{pending.delete(messageId);reject(new Error(`Inspector request timeout: ${method}`));},timeoutMs);
+      pending.set(messageId,{resolve,reject,timer});socket.send(JSON.stringify({id:messageId,method,params}));
     });
     connections.push({id,socket,call});
   } } catch(error) { for(const c of connections)c.socket.close();throw error; }
   return {
+    callUser:(method,params,timeoutMs)=>connections[0].call(method,params,timeoutMs),
+    onUserEvent(listener){
+      const socket=connections[0].socket;
+      const handler=event=>{const data=JSON.parse(event.data);if(data.method)listener(data);};
+      socket.addEventListener('message',handler);
+      return ()=>socket.removeEventListener('message',handler);
+    },
     async usage(){return Object.fromEntries(await Promise.all(connections.map(async c=>[c.id,await c.call('Runtime.getHeapUsage')])));},
     // Diagnostic only: some workerd versions collect before acknowledging CDP.
     // A timeout is recorded as unknown acknowledgement, never GC success.
