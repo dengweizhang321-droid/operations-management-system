@@ -509,9 +509,12 @@ def _option(values: Iterable[str]) -> list[dict[str, object]]:
 
 
 def _database_options(queryset, field: str) -> list[dict[str, object]]:
+    # Every ranking entry has a non-null PK. COUNT(*) preserves the exact row
+    # count while allowing the existing facet index to cover the aggregate;
+    # COUNT(pk) also requires id, defeating the narrow single-field indexes.
     return [{"value": row[field], "count": row["count"]}
             for row in queryset.exclude(**{field: ""}).order_by().values(field)
-            .annotate(count=Count("pk")).order_by("-count", field)]
+            .annotate(count=Count("*")).order_by("-count", field)]
 
 
 def filter_options() -> dict[str, object]:
