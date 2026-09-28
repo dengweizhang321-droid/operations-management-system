@@ -1271,6 +1271,7 @@ async function serveCommand(argv: string[]) {
     const stores = (await loadTmallStores()).filter(store => store.enabled);
     return serveIsolatedHelper({
       port: integerPort(cliValue(argv, "--port")), entryFile: process.argv[1]!,
+      mutableRoot: projectRoot,
       allowedStores: new Set(stores.map(store => store.storeKey)),
       health: helperProfileHealth, cors: helperHealthCorsHeaders,
     });

@@ -14,9 +14,12 @@ export function withMaintenanceCoordination(source) {
 const input = $input.first().json;
 // Hourly descendants must carry the original anchor. Missing evidence stops;
 // a new execution must not silently recompute yesterday after downtime.
-if (input.body && !input.body.originalScheduledAt) throw new Error('maintenance_retry_plan_anchor_missing_manual_action');
+if (input.body && (input.body.version !== 'teruisi-retry-context-v1' || input.body.workflowId !== ${JSON.stringify(source.id)}
+  || !/^[1-9]\\d{0,19}$/.test(input.body.failedExecutionId ?? '') || !/^[1-9]\\d{0,19}$/.test(input.body.originalExecutionId ?? '')
+  || !input.body.originalScheduledAt)) throw new Error('maintenance_retry_plan_anchor_missing_manual_action');
 const scheduledAt = new Date(input.body?.originalScheduledAt ?? input.timestamp ?? Date.now()).toISOString();
-return [{json:{scheduledAt, originalExecutionId: String(input.body?.originalExecutionId ?? $execution.id)}}];` } });
+return [{json:{version:'teruisi-retry-context-v1',workflowId:${JSON.stringify(source.id)},executionId:String($execution.id),
+  scheduledAt, originalExecutionId: String(input.body?.originalExecutionId ?? $execution.id)}}];` } });
   let incoming = 0;
   for (const [name, connection] of Object.entries(workflow.connections)) {
     const node = workflow.nodes.find(n => n.name === name);
@@ -31,9 +34,9 @@ return [{json:{scheduledAt, originalExecutionId: String(input.body?.originalExec
   claim.parameters = { jsCode: `
 const anchor = $('${anchorNodeName}').first().json;
 if ($runIndex >= 72) throw new Error('coordination_wait_expired_manual_action');
-let result;
+let response;
 try {
-  result = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/claim',json:true,timeout:10000,
+  response = await this.helpers.httpRequest({method:'POST',url:'http://127.0.0.1:5791/coordination/claim',json:true,timeout:10000,returnFullResponse:true,ignoreHttpStatusErrors:true,
     headers:{...${JSON.stringify(staticHeaders)},'X-TERUISI-N8N-EXECUTION-ID':String($execution.id),
       'X-TERUISI-COORDINATION-ATTEMPT':String($runIndex),'X-TERUISI-SCHEDULED-AT':anchor.scheduledAt}});
 } catch (error) {
@@ -41,8 +44,13 @@ try {
   if (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');
   // This node has no business effect. Retry only this same claim/execution;
   // never call A or replay any export/import/send on an uncertain response.
-  result = {ok:true,coordinationStatus:'waiting',reason:'helper_unavailable_wait'};
+  return [{json:{ok:true,coordinationStatus:'waiting',reason:'helper_unavailable_wait',...anchor}}];
 }
+const status = Number(response.statusCode);
+if (status >= 400 && status < 500) throw new Error('coordination_rejected_manual_action');
+if (status >= 500) return [{json:{ok:true,coordinationStatus:'waiting',reason:'helper_unavailable_wait',...anchor}}];
+if (status !== 200) throw new Error('invalid_coordination_http_status_manual_action');
+const result = response.body;
 if (!result || result.ok !== true || !['granted','waiting'].includes(result.coordinationStatus)) throw new Error('invalid_coordination_result_manual_action');
 return [{json:{...result,...anchor}}];` };
   workflow.meta = { ...workflow.meta, maintenanceCoordination: "candidate-v1" };

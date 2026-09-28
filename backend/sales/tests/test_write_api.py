@@ -55,6 +55,39 @@ def json_body(payload: dict[str, object]) -> bytes:
     SALES_WRITE_CUTOVER_ID=CUTOVER_ID,
 )
 class SalesWriteApiTests(TestCase):
+    def test_maintenance_interleaves_with_admitted_import_and_resume_reuses_receipt(self):
+        import tempfile
+        from pathlib import Path
+        from sales import write_views
+        from teruisi_backend.automation_drain import PROTOCOL
+        url = "/api/sales/imports/uploads"
+        payload = {"action": "init", "fingerprint": "drain-import", "fileName": "fixture.xlsx", "fileSizeBytes": 1,
+                   "chunkCount": 1, "expectedStartDate": "2024-01-01", "expectedEndDate": "2024-01-01"}
+        with tempfile.TemporaryDirectory(prefix="optimization4-pg-import-") as directory:
+            runtime = Path(directory)
+            (runtime / "run").mkdir()
+            gate = runtime / "run/automation-drain.json"
+            real_begin = write_views.begin_raw_upload
+            def drain_during_request(body, actor):
+                gate.write_text(json.dumps({"version": PROTOCOL, "id": "a" * 32, "phase": "requests", "runtimeRoot": str(runtime)}))
+                return real_begin(body, actor)
+            with patch("teruisi_backend.automation_drain.deployed_runtime", return_value=runtime):
+                with patch.object(write_views, "begin_raw_upload", side_effect=drain_during_request):
+                    first = self._post(url, payload, request_id="drain-request")
+                self.assertEqual(first.status_code, 200, first.content)
+                self.assertEqual(SalesRawUploadSession.objects.count(), 1)
+                denied = self._post(url, payload, request_id="drain-new-request")
+                self.assertEqual(denied.status_code, 503)
+                self.assertFalse(denied.json()["accepted"])
+                self.assertFalse(SalesWriteRequestReceipt.objects.filter(request_id="drain-new-request").exists())
+                gate.unlink()
+                # Treat first response as lost. Exact original request returns its
+                # committed receipt after admission reopens, with no new upload.
+                replay = self._post(url, payload, request_id="drain-request")
+                self.assertEqual(replay.json(), first.json())
+                self.assertEqual(replay["X-Teruisi-Write-Replay"], "1")
+                self.assertEqual(SalesRawUploadSession.objects.count(), 1)
+
     def setUp(self) -> None:
         SalesWriteAuthority.objects.filter(id=1).update(
             status="active",

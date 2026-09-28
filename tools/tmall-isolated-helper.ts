@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { automationDrainProtocol, readAutomationDrain } from "./automation-drain";
+import { readN8nRetryContext } from "../lib/jackyun/n8n-preflight-evidence";
+import { reserveRetryDispatch } from "../lib/jackyun/retry-dispatch-reservation";
 
 export const isolatedHelperProtocol = "tmall-store-isolation-v1";
 export const isolatedHelperTokenHeader = "x-teruisi-helper-slot-token";
@@ -239,6 +241,7 @@ async function forward(request: IncomingMessage, response: ServerResponse, recor
 
 export async function serveIsolatedHelper(options: {
   port: number; entryFile: string; allowedStores: ReadonlySet<string>;
+  mutableRoot: string;
   health: () => Promise<Record<string, unknown>>;
   cors: (origin: string | undefined, privateNetwork: boolean) => Record<string, string>;
 }) {
@@ -257,6 +260,18 @@ export async function serveIsolatedHelper(options: {
           activeWorkflow: slots.some(slot => slot.workflow === "tmall") ? "tmall" : slots[0]?.workflow ?? null,
           isolationProtocol: isolatedHelperProtocol, storeExecutions: slots,
           drainProtocol: automationDrainProtocol, drain: readAutomationDrain() }, cors);
+        return;
+      }
+      if (request.method === "POST" && ["/coordination/retry-context", "/coordination/reserve-retry"].includes(route)) {
+        if (request.headers["transfer-encoding"] !== undefined || Number(request.headers["content-length"] ?? 0) !== 0) {
+          reply(response, 400, { ok: false, error: "invalid_retry_context_request" }); return;
+        }
+        try {
+          const reserve = route === "/coordination/reserve-retry";
+          const retryExecutionId = scalar(request.headers, "x-teruisi-retry-execution-id") ?? "";
+          const context = readN8nRetryContext(scalar(request.headers, "x-teruisi-source-workflow-id") ?? "", scalar(request.headers, "x-teruisi-failed-execution-id") ?? "", reserve ? retryExecutionId : undefined);
+          reply(response, 200, reserve ? reserveRetryDispatch(options.mutableRoot, context, retryExecutionId) : { ok: true, ...context });
+        } catch { reply(response, 409, { ok: false, error: "retry_context_unverified_manual_action" }); }
         return;
       }
       const identity = request.method === "POST" ? isolatedRequestIdentity(route, request.headers) : null;

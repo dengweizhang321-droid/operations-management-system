@@ -1,0 +1,296 @@
+{
+  "version": "optimization-4-completion-v2",
+  "recordedAt": "2026-09-28T17:59:08.987Z",
+  "branch": "codex/release-automation-coordination",
+  "previousCommit": "0d45912d9fb051ba8edafd26f2502a4f99ad0fbc",
+  "status": "development_and_isolated_validation_complete",
+  "productionActions": [],
+  "mainMerged": false,
+  "n8n": {
+    "version": "2.32.7",
+    "isolatedUserFolder": true,
+    "isolatedSQLite": true,
+    "nonFixtureNetworkBlocked": true,
+    "processExited": true,
+    "scenarioCount": 6,
+    "results": [
+      {
+        "scenario": "wait-once",
+        "status": "success",
+        "calls": [
+          {
+            "route": "/coordination/claim",
+            "executionId": "1",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          },
+          {
+            "route": "/coordination/claim",
+            "executionId": "1",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          },
+          {
+            "route": "/effect"
+          }
+        ]
+      },
+      {
+        "scenario": "conflict",
+        "status": "error",
+        "calls": [
+          {
+            "route": "/coordination/claim",
+            "executionId": "2",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          }
+        ]
+      },
+      {
+        "scenario": "persisted-wait",
+        "status": "success",
+        "sameExecution": true,
+        "effects": 1,
+        "restarted": true
+      },
+      {
+        "scenario": "retry",
+        "status": "success",
+        "dispatches": 1,
+        "effects": 1,
+        "claims": [
+          {
+            "route": "/coordination/claim",
+            "executionId": "4",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          },
+          {
+            "route": "/coordination/claim",
+            "executionId": "6",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          }
+        ]
+      },
+      {
+        "scenario": "dispatch-unknown",
+        "status": "error",
+        "dispatches": 1,
+        "effects": 1,
+        "claims": [
+          {
+            "route": "/coordination/claim",
+            "executionId": "7",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          },
+          {
+            "route": "/coordination/claim",
+            "executionId": "9",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          }
+        ]
+      },
+      {
+        "scenario": "invalid-context",
+        "status": "error",
+        "dispatches": 0,
+        "effects": 0,
+        "claims": [
+          {
+            "route": "/coordination/claim",
+            "executionId": "10",
+            "scheduledAt": "2026-09-27T15:59:00.000Z"
+          }
+        ]
+      }
+    ],
+    "logSha256": "bc40a8cd8fcf575f1dcd1854fc311afd2aef23a80a9c2d68320bdf163887f478"
+  },
+  "postgres": {
+    "version": "17.11",
+    "port": 55884,
+    "syntheticOnly": true,
+    "tests": 74,
+    "failures": 0,
+    "clusterStopped": true,
+    "pgCtlStatusExitCode": 3,
+    "passwordFileRemoved": true,
+    "testLogSha256": "4573b4f2fd0e80e27801c11538827b6a4c43395af11c1e1bcf810283b870e42a"
+  },
+  "regression": {
+    "fullNodeInitial": {
+      "tests": 2692,
+      "passed": 2662,
+      "failed": 7,
+      "skipped": 23
+    },
+    "environmentCorrections": [
+      "isolated .runtime/test-venv with locked backend requirements",
+      "existing digest-pinned npm postinstall heap adapter in this worktree only"
+    ],
+    "affectedFileRechecks": [
+      {
+        "files": 4,
+        "passed": 46,
+        "failed": 0
+      },
+      {
+        "files": 2,
+        "passed": 5,
+        "failed": 0
+      }
+    ],
+    "unresolvedFailures": 0,
+    "python": {
+      "admission": 8,
+      "backups": 20,
+      "middleware": 2
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 12
+    },
+    "boundaryModules": 547,
+    "diffCheck": "passed"
+  },
+  "builds": {
+    "productionFrontend": "passed",
+    "frontendLogSha256": "d6fec9c7c82e28b9f722ebc9e6bca6a3ad839fd673a6394138b1f373dd236604",
+    "helperOutputSha256": "ebadcab253941a8132cb54189829b5732cafac92fe927f38fa45820c56f3edd5",
+    "helperInputCount": 91
+  },
+  "reviewBundle": {
+    "version": "maintenance-coordination-review-bundle-v2",
+    "generatedAt": "2026-09-28T17:40:00.296Z",
+    "published": false,
+    "files": [
+      {
+        "workflowId": "J8kY2mQ5vR7sT4pN",
+        "fileName": "jackyun-five-dataset-api.workflow.json",
+        "sourceSha256": "e1cc0139df5a34eda38d9c6b3974927b0d389e59419bd0a44fb2439c1195d671",
+        "candidateSha256": "42040d2067b7492c707a9853832ce5f57481170c75a91029d15341c599b7f222"
+      },
+      {
+        "workflowId": "JdN8nM3uL7tI2026",
+        "fileName": "jd-multi-store-daily.workflow.json",
+        "sourceSha256": "6015ca2d0e7a79cc89319b3debc4f85831e6577805e15aa54f2f4f197618d6a2",
+        "candidateSha256": "f1cdbda5fd523d9640df7ed6b8a06087b069c4226e5516c0b19599d7aaba133d"
+      },
+      {
+        "workflowId": "JdN8nSilentCopy2026",
+        "fileName": "jd-multi-store-daily.chromium-silent-copy.workflow.json",
+        "sourceSha256": "3a69599839fe957ac71be24e14213512d73c81eb3deaa217d61ba6ed78433d2a",
+        "candidateSha256": "87d87461e984006b37b0848dd24bc120425a199936eb2ae557d2e80948121135"
+      },
+      {
+        "workflowId": "JdMarketDaily2026",
+        "fileName": "jd-market-ranking-daily.workflow.json",
+        "sourceSha256": "ccb1c20082c160e426eb970ef17ed848a85b45b2a6d9bf5b23d1331c6536fc5f",
+        "candidateSha256": "24e0709aa832ab1ecbe05ffd7f65f3f7ab31c72dbc5a279dfa4c66556ef058f0"
+      },
+      {
+        "workflowId": "JdMarketSilentCopy2026",
+        "fileName": "jd-market-ranking-daily.chromium-silent-copy.workflow.json",
+        "sourceSha256": "8a025d1d04b2a268bc96312784a6a260f1dd6eec31bc56672ddc9dda12ca4c9e",
+        "candidateSha256": "602556c45919b5dca617cca0a2109cd3e8bfbfd9526d2878ee69f8cfd9049436"
+      },
+      {
+        "workflowId": "JdPromotionDaily2026",
+        "fileName": "jd-promotion-daily.workflow.json",
+        "sourceSha256": "bcad9fddc7cfd72deb878da5c3b6b7fae996ce8427ba2070a9040d7deff49c03",
+        "candidateSha256": "7c1339df26c607eae89615e323a6963b8dc693369968ce0196c943af2b0ebf7f"
+      },
+      {
+        "workflowId": "JdPromotionCutMeat2026",
+        "fileName": "jd-promotion-cut-meat-20260813-14.workflow.json",
+        "sourceSha256": "824130f701e3cf40fd2e00f515eeef7d9f2230d8888e16791c7bacc70f3dbb32",
+        "candidateSha256": "329ff3f7cdd01b5b8da323c6cc5ac8a8f1c9a09fa0a99b19843ff1a6c71f14f5"
+      },
+      {
+        "workflowId": "M4xY8kQ2vR6sT9pC",
+        "fileName": "tmall-yijiu-direct-pm-candidate.workflow.json",
+        "sourceSha256": "031411b2e08a353d712a6fe1790ab01185707871374ad39591683d12ccee4676",
+        "candidateSha256": "3f10e86a28f6b7cfd750e556d89d196657787619591f4f3bd253eee480f2b745"
+      },
+      {
+        "workflowId": "TmallLiliDaily2026",
+        "fileName": "tmall-lili-sycm-cookie-daily.workflow.json",
+        "sourceSha256": "033c9d71c70b112cff78cf7369b2eab61366aa5151f3530253ba3b095efe4681",
+        "candidateSha256": "dd2f94290a1edc369dabd321ec889d74d775159e76e95f6686ba532c9d69fd10"
+      },
+      {
+        "workflowId": "TmallTuofengDaily2026",
+        "fileName": "tmall-tuofeng-sycm-cookie-daily.workflow.json",
+        "sourceSha256": "9c15c02f3c0e8bc76c27573c1e18150e2213916474c58cbb707a4b9355948bcf",
+        "candidateSha256": "285b66d67a5f331c58a69a4dc172597d985ebaa6a2f4187c0afa1b2841a7c052"
+      },
+      {
+        "workflowId": "TmallCuizhiwangDaily2026",
+        "fileName": "tmall-cuizhiwang-sycm-cookie-daily.workflow.json",
+        "sourceSha256": "1b69a5c05a945ae757ba6f9e7878794f7db3f758712f745f1fc353adbf0cdc5f",
+        "candidateSha256": "167f0c6ccae6b3cb4a22700ae187d5a0a49c34c7457dcfe73f82dc5f4002abee"
+      },
+      {
+        "workflowId": "TmallMasituDaily2026",
+        "fileName": "tmall-masitu-sycm-cookie-daily.workflow.json",
+        "sourceSha256": "868f5265151284ff3643bf658e5af70866d3851d78a403f75df6ce77dbe78311",
+        "candidateSha256": "0f3c73e47afd40aea74712c9156c1694ae5611e4cd462b1c16cb16f24839faac"
+      },
+      {
+        "workflowId": "TmallYiyongDaily2026",
+        "fileName": "tmall-yiyong-direct-pm-candidate.workflow.json",
+        "sourceSha256": "4f219be4253e8f59d3328b663e2cfb8293771b060ab7a7adaadc58e4a0ece60a",
+        "candidateSha256": "f7ae41edf5274b37085ce0ec2ab06bb4b0c6170150cd7fc2f9159634e25922c6"
+      },
+      {
+        "workflowId": "TeruisiHourlyRetry2026",
+        "fileName": "data-import-hourly-safe-retry.workflow.json",
+        "candidateSha256": "05340eada9f3c64ba6ba5e38e6d4994f6ca2fad466318301acd2c52b4619a589"
+      }
+    ]
+  },
+  "stillRequiresAuthorization": [
+    "designated integration chat merging branches",
+    "production workflow publishing or schedule changes",
+    "maintenance, deployment, migrations or actual business replay"
+  ],
+  "limits": [
+    "only synthetic business effects were exercised",
+    "historical executions without verified original anchor remain manual",
+    "unknown dispatch reservation is never auto-released",
+    "other background queues retain existing release preflight"
+  ],
+  "changedFiles": [
+    "automation/n8n/data-import-hourly-safe-retry.workflow.json",
+    "backend/sales/tests/test_write_api.py",
+    "docs/OPTIMIZATION_4_RELEASE_AUTOMATION_COORDINATION_20260929.md",
+    "docs/evidence/optimization-4-release-automation-completion-20260929.json",
+    "lib/jackyun/n8n-preflight-evidence.ts",
+    "lib/jackyun/n8n-retry-context.ts",
+    "lib/jackyun/retry-dispatch-reservation.ts",
+    "tests/automation-drain.test.ts",
+    "tests/n8n-retry-context.test.ts",
+    "tools/generate-n8n-maintenance-candidates.mjs",
+    "tools/n8n-hourly-retry-policy.mjs",
+    "tools/n8n-maintenance-coordination.mjs",
+    "tools/n8n-metadata-read-boundary.mjs",
+    "tools/test-automation-drain-n8n.mjs",
+    "tools/test-automation-drain-postgres.py",
+    "tools/tmall-isolated-helper.ts",
+    "tools/tmall-sycm-cookie-pipeline.ts"
+  ],
+  "sourceSha256": {
+    "automation/n8n/data-import-hourly-safe-retry.workflow.json": "05340eada9f3c64ba6ba5e38e6d4994f6ca2fad466318301acd2c52b4619a589",
+    "backend/sales/tests/test_write_api.py": "203a1a09860058692c6487c6522773519372ee7c7e2d691cb83691e33a5ec200",
+    "lib/jackyun/n8n-preflight-evidence.ts": "43a16066afb52a5f8eb36396f4e40b4764bb37657751965de91d04f5876137a6",
+    "lib/jackyun/n8n-retry-context.ts": "dbacf5758219c13930584fa8ab089027172fdc326e2c2fb0992fc241b2d0e95d",
+    "lib/jackyun/retry-dispatch-reservation.ts": "79241352f21c306a992f6670b22af744ffd9a3dde41ecbefc113304c39e6ac77",
+    "tests/automation-drain.test.ts": "e559e4509217fa1752abcd94f4d34a6facc38286ce0d8b3b02a0998f5514ab43",
+    "tests/n8n-retry-context.test.ts": "2f2b69fa580d0224c3db21a712d4aaf8caf09f815337fb36cfb41bdc535dae09",
+    "tools/generate-n8n-maintenance-candidates.mjs": "96f28d9f228b11970ff67c639237cb00443635d267ff4454fb1ee2d2eccb2d3e",
+    "tools/n8n-hourly-retry-policy.mjs": "dba8b2330551396cab1fd22362760fec3b11ee7dd9ec7f2a0e4d1a67a41a825a",
+    "tools/n8n-maintenance-coordination.mjs": "72f6d3ec00d37b95ec47b8cbfb14341fc1a420c0f70c0bd69c02b607cd41ffb4",
+    "tools/n8n-metadata-read-boundary.mjs": "ea60f674b6a2add75edf43ed4b3f37f2a249584c59bb312a2bcd5e2eca32b06e",
+    "tools/test-automation-drain-n8n.mjs": "751b21f72ff77d1841688222d520020b96c85a423fa5d6c94f49d234c05ca131",
+    "tools/test-automation-drain-postgres.py": "ff3ff1261ac66a18be2d79a8db01dc0b3bbd762db9dbdffd61cebfdd6fccde19",
+    "tools/tmall-isolated-helper.ts": "b7b48db5c9577433670be0a9926fd280005c539d2a66e54e8a5ebe26fd095be8",
+    "tools/tmall-sycm-cookie-pipeline.ts": "61c54aaab835c8a2e4c271d0affd0e3d3be95ae250a60ba9e7d68b560ca085a9"
+  }
+}

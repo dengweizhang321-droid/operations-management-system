@@ -91,7 +91,7 @@ test("actual candidate code retains a pre-midnight anchor over offline waiting a
   const context = { helpers: { httpRequest: async (request: {headers: Record<string,string>}) => {
     seen.push(request.headers);
     if (seen.length === 1) throw new Error("ECONNREFUSED");
-    return { ok: true, coordinationStatus: "granted" };
+    return { statusCode: 200, body: { ok: true, coordinationStatus: "granted" } };
   } } };
   const lookup = () => ({ first: () => anchor });
   assert.equal((await claim.call(context, lookup, { id: "42" }, 0))[0].json.coordinationStatus, "waiting");
