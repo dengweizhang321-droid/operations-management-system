@@ -9,6 +9,8 @@ param(
   [ValidateRange(55432, 55999)]
   [int]$RehearsalPort = 55432,
   [ValidateSet('D','E')][string]$RehearsalDrive = 'D',
+  [string]$PreparedToolAppId = '',
+  [string]$PreparedToolAppSha256 = '',
   [ValidateRange(7, 3650)]
   [int]$RetentionDays = 30,
   [ValidateRange(3, 365)]
@@ -59,6 +61,8 @@ $MaintenanceRequest = [pscustomobject][ordered]@{
   RehearsalId = $RehearsalId
   RehearsalPort = $RehearsalPort
   RehearsalDrive = $RehearsalDrive
+  PreparedToolAppId = $PreparedToolAppId
+  PreparedToolAppSha256 = $PreparedToolAppSha256
   RetentionDays = $RetentionDays
   MinimumSuccessfulBackups = $MinimumSuccessfulBackups
   Execute = $Execute.IsPresent
@@ -236,7 +240,14 @@ function Assert-MaintenanceRuntimeContext {
   if ([string]$config.postgresAddress -cne "127.0.0.1:5432") {
     throw "Django 本机 PostgreSQL 配置不符合固定回环契约"
   }
-  $expectedTool = Join-Path $InstalledAppRoot "tools\postgres-consistent-backup.py"
+  $toolRoot = $InstalledAppRoot
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal')) {
+      throw 'Prepared maintenance tools are limited to verification and isolated restoration'
+    }
+    $toolRoot = Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256
+  }
+  $expectedTool = Join-Path $toolRoot "tools\postgres-consistent-backup.py"
   if (-not (Test-Path -LiteralPath $expectedTool -PathType Leaf)) {
     throw "runtime app 缺少一致性备份工具"
   }
@@ -1984,6 +1995,15 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
   }
   $serviceScript = Join-Path $canonicalRuntime "app\tools\django-local-service.ps1"
   $expectedSelf = Join-Path $canonicalRuntime "app\tools\django-postgres-maintenance.ps1"
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId) -or
+      -not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppSha256)) {
+    if ($MaintenanceRequest.Action -cnotin @('Verify','RestoreRehearsal') -or
+        $MaintenanceRequest.PreparedToolAppId -cnotmatch '^[0-9a-f]{32}$' -or
+        $MaintenanceRequest.PreparedToolAppSha256 -cnotmatch '^[0-9a-f]{64}$') {
+      throw 'Invalid read-only prepared maintenance request'
+    }
+    $expectedSelf = Join-Path $canonicalRuntime ('app.deploy-' + $MaintenanceRequest.PreparedToolAppId + '\tools\django-postgres-maintenance.ps1')
+  }
   if (-not (Test-Path -LiteralPath $serviceScript -PathType Leaf) -or
       (Get-MaintenanceCanonicalPath $PSCommandPath) -ine
         (Get-MaintenanceCanonicalPath $expectedSelf)) {
@@ -1999,6 +2019,10 @@ if ($env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY -ne "1") {
     [Environment]::SetEnvironmentVariable(
       "TERUISI_DJANGO_SERVICE_LIBRARY_ONLY", $previousLibraryOnly, "Process"
     )
+  }
+
+  if (-not [string]::IsNullOrEmpty($MaintenanceRequest.PreparedToolAppId)) {
+    Get-PreparedApplication $MaintenanceRequest.PreparedToolAppId $MaintenanceRequest.PreparedToolAppSha256 | Out-Null
   }
 
   $output = Invoke-MaintenanceMutex {

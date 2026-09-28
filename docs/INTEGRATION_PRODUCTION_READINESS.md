@@ -57,6 +57,8 @@ PrepareApp 首次接收 IntegrationEvidencePath / IntegrationEvidenceSha256，�
 
 新版 RestoreRehearsal 支持显式 RehearsalDrive E，固定使用 E:\\TERUISI-Postgres-Rehearsals，目录只允许当前用户、Administrators、SYSTEM；未知 ACL、重解析点、已有演练 ID 和端口占用均拒绝。恢复后只清理已核验停止的精确临时 data 子目录。D 盘仍为默认，旧备份格式保持兼容。
 
+发布前可从已核验的准备目录运行 Verify / RestoreRehearsal，必须显式提供 PreparedToolAppId / PreparedToolAppSha256，并由原已安装服务控制器重新核验完整候选、前驱和收据。该模式不允许 Backup、Prune、迁移或服务操作，也不提前切换 app；用于在 D 盘空间有限时直接在 E 盘独立恢复前备份。
+
 全量 Node 2,676 通过、20 跳过、零失败/取消，生命周期 43 项通过，lint 零错误/12 条既有警告。生产备份副本在 E 盘恢复后，以同一逐步执行引擎完成 62→138，原 AI 授权和两服务健康通过；没有启动业务服务、触发任务或调用模型。生产采用尚待下列实际操作完成，不将候选测试当作上线结果。
 
 ## 最终清理边界

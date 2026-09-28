@@ -2,7 +2,7 @@
   "controlsSha256": {
     "tools/django-integration-install.ps1": "3d8e3361b01bb04d26fd2e1d8f5007f72a65d30b1d70cde464db7c5281477cd9",
     "tools/django-local-service.ps1": "1990e324f46e0f5fa647c3762854096d405d7b5317ef0931e434e6b23d15f103",
-    "tools/django-postgres-maintenance.ps1": "3e9628ca013dd2c93fa445eb284eabbea97c97790bd8612b105421917d0cc741"
+    "tools/django-postgres-maintenance.ps1": "0d7f56b1b2737ba62c1e6cfddf0f74df0c7e238985a94fe684a6df14ea7d2124"
   },
   "date": "2026-09-28",
   "migration": {
@@ -338,6 +338,7 @@
     "roleMemberships": 0,
     "status": "mixed_completed"
   },
+  "preparedReadOnlyRestoreModeTested": true,
   "productionAdoptionCompleted": false,
   "productionBackupClone": {
     "baselineBackupSha256": "c9c4cf9ea5c6389b63e35b8f53f7aefa00206940a52c8230eb6fef0cc78e9c88",
@@ -399,9 +400,10 @@
   "sourcePolicySha256": "37b731d9e7e2e110da7dde58f573c6bf6603d2f033656a17f8bab18bcada7894",
   "unitChecks": {
     "journalTestsPassed": 6,
+    "lifecycleTestsPassed": 43,
     "lintErrors": 0,
     "lintWarnings": 12,
-    "maintenanceTestsPassed": 19,
+    "maintenanceTestsPassed": 20,
     "nodeCancelled": 0,
     "nodeFailed": 0,
     "nodePass": 2676,

@@ -21,6 +21,32 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
+test("prepared maintenance helpers cannot create or prune production backups", () => {
+  const code = [
+    "$ErrorActionPreference='Stop'",
+    "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1'",
+    `. '${operatorPath.replaceAll("'", "''")}' -Action Status`,
+    "function Assert-DeployedApplication {}",
+    "function Assert-RuntimeRootAclHardened {}",
+    "function Get-ServiceConfig { [pscustomobject]@{postgresAddress='127.0.0.1:5432'} }",
+    "function Get-PreparedApplication { throw 'unexpected prepared lookup' }",
+    "$MaintenanceRequest.PreparedToolAppId='a'*32",
+    "$MaintenanceRequest.PreparedToolAppSha256='b'*64",
+    "$rejected=0",
+    "foreach($verb in @('Backup','Prune','Status','ProtectedAiPreflight')) {",
+    " $MaintenanceRequest.Action=$verb",
+    " try { Assert-MaintenanceRuntimeContext; throw 'unexpected acceptance' }",
+    " catch { if($_.Exception.Message -notlike '*limited to verification and isolated restoration*') { throw }; $rejected++ }",
+    "}",
+    "if($rejected -ne 4) { throw 'missing rejection' }",
+    "Write-Output 'prepared-actions-rejected'",
+  ].join("\n");
+  const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-EncodedCommand",
+    Buffer.from(code, "utf16le").toString("base64")], { encoding: "utf8", timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /prepared-actions-rejected/);
+});
+
 test("finance.0006 source, receipt and all physical tables stay behind formal gates", async () => {
   const [service, operator, backup] = await Promise.all([
     readFile(servicePath, "utf8"),
