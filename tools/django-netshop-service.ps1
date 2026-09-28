@@ -301,6 +301,10 @@ connection.close()
 }
 
 function Get-NetshopWriteAuthority([object]$RuntimeSecrets, [object]$NetshopSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url `
     "teruisi_netshop_writer" $NetshopSecrets.WriterPassword `
     "teruisi_netshop_authority_probe" $ReaderStatementTimeoutMs
@@ -335,6 +339,12 @@ print(json.dumps({
     throw "PostgreSQL 网店写入权威证据不完整"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-NetshopWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets, [switch]$DeferReady) {
@@ -376,8 +386,7 @@ function Start-NetshopReader([object]$RuntimeSecrets, [object]$NetshopSecrets, [
 function Start-NetshopWriter(
   [object]$RuntimeSecrets,
   [object]$NetshopSecrets,
-  [object]$Authority
-) {
+  [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") {
     throw "PostgreSQL 尚未成为网店唯一写入源；拒绝启动网店 writer"
   }
@@ -406,6 +415,8 @@ function Start-NetshopWriter(
         (Join-Path $LogDirectory "django-netshop-writer.$RunId.stderr.log") | Out-Null
     }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "netshop-writer" $NetshopWriterHealthUrl "127.0.0.1:8022"
     return $true
@@ -416,6 +427,10 @@ function Start-NetshopWriter(
 }
 
 function Start-NetshopStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-NetshopRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动网店服务" }
@@ -440,7 +455,7 @@ function Start-NetshopStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-NetshopReader $runtimeSecrets $netshopSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
-      $writerStarted = Start-NetshopWriter $runtimeSecrets $netshopSecrets $authority
+      $writerStarted = Start-NetshopWriter $runtimeSecrets $netshopSecrets $authority -DeferReady
     }
     Wait-DjangoReady "netshop-reader" $NetshopReaderHealthUrl "127.0.0.1:8021"
     if ([string]$authority.status -ceq "postgres") {
@@ -461,6 +476,12 @@ function Start-NetshopStack([string]$LifecycleAclToken = "") {
   } finally {
     $runtimeSecrets = $null
     $netshopSecrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-NetshopStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 

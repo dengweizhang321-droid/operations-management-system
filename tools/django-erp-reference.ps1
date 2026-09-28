@@ -206,6 +206,10 @@ connection.close()
 }
 
 function Get-ErpReferenceWriteAuthority([object]$RuntimeSecrets, [object]$ErpSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_erp_reference_writer" $ErpSecrets.WriterPassword "teruisi_erp_reference_authority_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
@@ -244,6 +248,12 @@ print(json.dumps({
       -not ([string]$payload.migrationRunId -match "^erp-reference-[0-9a-f]{32}$") -or
       [int]$payload.revision -lt 1)) { throw "PostgreSQL ERP 主数据写入权威证据不完整" }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-ErpReferenceWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets, [switch]$DeferReady) {
@@ -271,7 +281,7 @@ function Start-ErpReferenceReader([object]$RuntimeSecrets, [object]$ErpSecrets, 
   catch { Stop-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress; throw }
 }
 
-function Start-ErpReferenceWriter([object]$RuntimeSecrets, [object]$ErpSecrets, [object]$Authority) {
+function Start-ErpReferenceWriter([object]$RuntimeSecrets, [object]$ErpSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为ERP 主数据唯一写入源；拒绝启动ERP 主数据 writer" }
   $arguments = @(
     "--listen=127.0.0.1:8092", "--threads=4", "--connection-limit=20", "--channel-timeout=960",
@@ -291,11 +301,17 @@ function Start-ErpReferenceWriter([object]$RuntimeSecrets, [object]$ErpSecrets, 
       (Join-Path $LogDirectory "django-erp-reference-writer.$RunId.stdout.log") (Join-Path $LogDirectory "django-erp-reference-writer.$RunId.stderr.log") | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:8092"; return $true }
   catch { Stop-OwnedProcess "django-erp-reference-writer" $ErpReferenceWriterPidPath $Waitress; throw }
 }
 
 function Start-ErpReferenceStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-ErpReferenceRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动ERP 主数据服务" }
@@ -313,7 +329,7 @@ function Start-ErpReferenceStack([string]$LifecycleAclToken = "") {
       }
     }
     $readerStarted = Start-ErpReferenceReader $runtimeSecrets $erpSecrets -DeferReady
-    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-ErpReferenceWriter $runtimeSecrets $erpSecrets $authority }
+    if ([string]$authority.status -ceq "postgres") { $writerStarted = Start-ErpReferenceWriter $runtimeSecrets $erpSecrets $authority -DeferReady }
     Wait-DjangoReady "erp-reference-reader" $ErpReferenceReaderHealthUrl "127.0.0.1:8091"
     if ([string]$authority.status -ceq "postgres") {
       Wait-DjangoReady "erp-reference-writer" $ErpReferenceWriterHealthUrl "127.0.0.1:8092"
@@ -325,6 +341,12 @@ function Start-ErpReferenceStack([string]$LifecycleAclToken = "") {
     if ($readerStarted) { try { Stop-OwnedProcess "django-erp-reference-reader" $ErpReferenceReaderPidPath $Waitress } catch {} }
     throw $original
   } finally { $runtimeSecrets = $null; $erpSecrets = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-ErpReferenceStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-ErpReferenceStack([string]$LifecycleAclToken = "") {

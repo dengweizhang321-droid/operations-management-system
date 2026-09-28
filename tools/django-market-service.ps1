@@ -334,6 +334,10 @@ connection.close()
 }
 
 function Get-MarketWriteAuthority([object]$RuntimeSecrets, [object]$MarketSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url `
     "teruisi_market_writer" $MarketSecrets.WriterPassword `
     "teruisi_market_authority_probe" $ReaderStatementTimeoutMs
@@ -368,6 +372,12 @@ print(json.dumps({
     throw "PostgreSQL 市场写入权威证据不完整"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-MarketWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets, [switch]$DeferReady) {
@@ -409,8 +419,7 @@ function Start-MarketReader([object]$RuntimeSecrets, [object]$MarketSecrets, [sw
 function Start-MarketWriter(
   [object]$RuntimeSecrets,
   [object]$MarketSecrets,
-  [object]$Authority
-) {
+  [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") {
     throw "PostgreSQL 尚未成为市场唯一写入源；拒绝启动市场 writer"
   }
@@ -439,6 +448,8 @@ function Start-MarketWriter(
         (Join-Path $LogDirectory "django-market-writer.$RunId.stderr.log") | Out-Null
     }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "market-writer" $MarketWriterHealthUrl "127.0.0.1:8032"
     return $true
@@ -449,6 +460,10 @@ function Start-MarketWriter(
 }
 
 function Start-MarketStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-MarketRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动市场服务" }
@@ -473,7 +488,7 @@ function Start-MarketStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-MarketReader $runtimeSecrets $marketSecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
-      $writerStarted = Start-MarketWriter $runtimeSecrets $marketSecrets $authority
+      $writerStarted = Start-MarketWriter $runtimeSecrets $marketSecrets $authority -DeferReady
     }
     Wait-DjangoReady "market-reader" $MarketReaderHealthUrl "127.0.0.1:8031"
     if ([string]$authority.status -ceq "postgres") {
@@ -494,6 +509,12 @@ function Start-MarketStack([string]$LifecycleAclToken = "") {
   } finally {
     $runtimeSecrets = $null
     $marketSecrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-MarketStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 

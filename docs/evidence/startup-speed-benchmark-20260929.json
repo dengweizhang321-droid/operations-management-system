@@ -1,0 +1,179 @@
+{
+  "baseline": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e",
+  "measuredAt": "2026-09-28T16:53:53.791Z",
+  "fixturePort": 56204,
+  "totalMemory": 34003079168,
+  "requests": 660,
+  "scope": "Isolated 11-domain ready HTTP fragment only; database, ACL and actual service launch are not measured. Not a production startup benchmark.",
+  "conditions": "Same host and ephemeral loopback endpoint; baseline/candidate alternated with one warmup pair and five retained pairs in each shell. This task ran no concurrent tests, lint, builds, restores or load generators during this retained run. Other tasks and production remained online; load was observed, not controlled.",
+  "results": [
+    {
+      "shell": "5.1.26100.9168",
+      "samples": [
+        {
+          "variant": "candidate",
+          "milliseconds": 627.2387,
+          "round": 1,
+          "requests": 22
+        },
+        {
+          "variant": "baseline",
+          "milliseconds": 821.0046000000001,
+          "round": 1,
+          "requests": 33
+        },
+        {
+          "variant": "baseline",
+          "milliseconds": 713.9524,
+          "round": 2,
+          "requests": 33
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 467.81280000000004,
+          "round": 2,
+          "requests": 22
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 516.1237,
+          "round": 3,
+          "requests": 22
+        },
+        {
+          "variant": "baseline",
+          "milliseconds": 777.9411,
+          "round": 3,
+          "requests": 33
+        },
+        {
+          "variant": "baseline",
+          "milliseconds": 755.6447000000001,
+          "round": 4,
+          "requests": 33
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 473.89000000000004,
+          "round": 4,
+          "requests": 22
+        },
+        {
+          "variant": "candidate",
+          "milliseconds": 663.4715,
+          "round": 5,
+          "requests": 22
+        },
+        {
+          "variant": "baseline",
+          "milliseconds": 966.6557,
+          "round": 5,
+          "requests": 33
+        }
+      ],
+      "summary": {
+        "baseline": {
+          "minMs": 713.9524,
+          "medianMs": 777.9411,
+          "maxMs": 966.6557,
+          "meanMs": 807.0397
+        },
+        "candidate": {
+          "minMs": 467.81280000000004,
+          "medianMs": 516.1237,
+          "maxMs": 663.4715,
+          "meanMs": 549.70734
+        }
+      },
+      "hostCpuBusyPercent": 62.91216337254434,
+      "beforeFreeMemory": 2132561920,
+      "afterFreeMemory": 2003611648,
+      "beforeAt": "2026-09-28T16:53:38.359Z",
+      "afterAt": "2026-09-28T16:53:48.712Z"
+    },
+    {
+      "shell": "7.6.5",
+      "samples": [
+        {
+          "requests": 22,
+          "variant": "candidate",
+          "milliseconds": 161.069,
+          "round": 1
+        },
+        {
+          "requests": 33,
+          "variant": "baseline",
+          "milliseconds": 123.9825,
+          "round": 1
+        },
+        {
+          "requests": 33,
+          "variant": "baseline",
+          "milliseconds": 158.0909,
+          "round": 2
+        },
+        {
+          "requests": 22,
+          "variant": "candidate",
+          "milliseconds": 118.4294,
+          "round": 2
+        },
+        {
+          "requests": 22,
+          "variant": "candidate",
+          "milliseconds": 126.2532,
+          "round": 3
+        },
+        {
+          "requests": 33,
+          "variant": "baseline",
+          "milliseconds": 120.6919,
+          "round": 3
+        },
+        {
+          "requests": 33,
+          "variant": "baseline",
+          "milliseconds": 122.4684,
+          "round": 4
+        },
+        {
+          "requests": 22,
+          "variant": "candidate",
+          "milliseconds": 86.7598,
+          "round": 4
+        },
+        {
+          "requests": 22,
+          "variant": "candidate",
+          "milliseconds": 75.675,
+          "round": 5
+        },
+        {
+          "requests": 33,
+          "variant": "baseline",
+          "milliseconds": 111.9632,
+          "round": 5
+        }
+      ],
+      "summary": {
+        "baseline": {
+          "minMs": 111.9632,
+          "medianMs": 122.4684,
+          "maxMs": 158.0909,
+          "meanMs": 127.43938
+        },
+        "candidate": {
+          "minMs": 75.675,
+          "medianMs": 118.4294,
+          "maxMs": 161.069,
+          "meanMs": 113.63728
+        }
+      },
+      "hostCpuBusyPercent": 82.29308998633613,
+      "beforeFreeMemory": 2002436096,
+      "afterFreeMemory": 1563312128,
+      "beforeAt": "2026-09-28T16:53:48.713Z",
+      "afterAt": "2026-09-28T16:53:53.789Z"
+    }
+  ]
+}

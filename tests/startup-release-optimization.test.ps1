@@ -87,25 +87,27 @@ try {
     @('django-access-control.ps1','Start-AccessControlReader'), @('django-ai.ps1','Start-AiReader'),
     @('django-erp-reference.ps1','Start-ErpReferenceReader')
   )
-  foreach ($item in $readers) {
+  $writers = @($readers | ForEach-Object { ,@($_[0], ($_[1] -replace "Reader$", "Writer")) })
+  foreach ($item in @($readers + $writers)) {
     & {
       $node = Load-Function (Join-Path $workspace ('tools/' + $item[0])) $item[1]
       . ([scriptblock]::Create($node.Extent.Text))
       $call = @{}
       foreach ($parameter in $node.Parameters) {
         $name = $parameter.Name.VariablePath.UserPath
-        if ($name -ne 'DeferReady') { $call[$name] = [pscustomobject]@{ ReaderPassword='fixture'; authorityEpoch='epoch'; cutoverId='cutover' } }
+        if ($name -ne 'DeferReady') { $call[$name] = [pscustomobject]@{ ReaderPassword='fixture'; WriterPassword='fixture'; FinanceWriterPassword='fixture'; status='postgres'; authorityEpoch='epoch'; cutoverId='cutover'; operationsStatus='postgres'; operationsAuthorityEpoch='epoch'; operationsCutoverId='cutover' } }
       }
       $script:owned = $false; $script:foreignPort = $false; $script:failReady = $false
       $Waitress = Join-Path $stage 'payload.txt'
       function Get-ConfigFingerprint { return 'fingerprint' }
       function Get-Sha256Text { return 'fingerprint' }
       function Get-FileHash { return @{Hash='fixture'} }
+      function Read-PandasConfig { return $null }
       function Resolve-OwnedProcess { return $script:owned }
       function Get-PortListeners { if ($script:foreignPort) { return 42 } }
       function Remove-OldServiceLogs {}
       function Database-Url { return 'fixture' }
-      function Invoke-WithDjangoEnvironment { & $args[-1] }
+      function Invoke-WithDjangoEnvironment { & ($args | Where-Object { $_ -is [scriptblock] } | Select-Object -First 1) }
       function Invoke-WithAiEnvironment { & $args[-1] }
       function Invoke-WithCustomerServiceEnvironment { & $args[-1] }
       function Invoke-WithAccessControlEnvironment { & $args[-1] }
@@ -122,6 +124,10 @@ try {
       $script:events.Clear(); $script:owned = $true
       $started = & $item[1] @call -DeferReady
       if ($started -ne $false -or ($script:events -join ',') -ne 'ready') { throw "Existing reader was relaunched: $($item[1])" }
+      $script:events.Clear(); $script:failReady = $true
+      try { & $item[1] @call -DeferReady; throw 'unready existing process accepted' } catch { if ($_.Exception.Message -ne 'readiness failed') { throw } }
+      if (($script:events -join ',') -ne 'ready') { throw 'Unready existing process was changed' }
+      $script:failReady = $false
       $script:events.Clear(); $script:owned = $false; $script:foreignPort = $true
       try { & $item[1] @call -DeferReady; throw 'foreign port accepted' } catch { if ($_.Exception.Message -notmatch '端口') { throw } }
       if ($script:events.Count) { throw 'Foreign process was modified' }
@@ -158,7 +164,7 @@ try {
     try { Start-MarketStack; throw 'writer failure accepted' } catch { if ($_.Exception.Message -ne 'writer failed') { throw } }
     if (($script:events -join ',') -ne 'reader-launch,writer-launch,django-market-reader') { throw 'Writer failure leaked the deferred reader' }
   }
-  Write-Output 'PASS: application maintenance, prepared artifact fencing, all 11 deferred readers and stack rollback'
+  Write-Output 'PASS: application maintenance, prepared artifact fencing, all 11 deferred readers, 11 deferred writers and stack rollback'
 } finally {
   $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previous
   $canonical = [IO.Path]::GetFullPath($root)

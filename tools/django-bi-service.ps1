@@ -190,6 +190,10 @@ connection.close()
 }
 
 function Get-BiMigrationState([object]$RuntimeSecrets, [object]$BiSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $readerUrl = Database-Url "teruisi_bi_reader" $BiSecrets.ReaderPassword "teruisi_bi_migration_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
@@ -223,6 +227,12 @@ print(json.dumps({
     }
     return $payload
   } finally { $readerUrl = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-BiMigrationState' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Invoke-BiMigration([ValidateSet("plan", "apply", "verify")][string]$Mode) {
@@ -290,6 +300,10 @@ function Start-BiReader([object]$RuntimeSecrets, [object]$BiSecrets) {
 }
 
 function Start-BiStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-BiRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动 BI reader" }
@@ -311,6 +325,12 @@ function Start-BiStack([string]$LifecycleAclToken = "") {
     Wait-DjangoReady "bi-reader" $BiReaderHealthUrl "127.0.0.1:8081"
     Write-Output "Django BI reader 已就绪：http://127.0.0.1:8081。"
   } finally { $runtimeSecrets = $null; $biSecrets = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-BiStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-BiStack([string]$LifecycleAclToken = "") {

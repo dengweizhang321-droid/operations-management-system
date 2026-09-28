@@ -139,6 +139,28 @@ function Get-NodeExecutable {
   return $node.Source
 }
 
+function Write-WorkerStartupTiming([string]$Stage, [string]$StartedAt, [long]$ElapsedMilliseconds, [string]$Outcome) {
+  try {
+    if ($Action -cnotin @('Start', 'Restart', 'RestartFull')) { return }
+    if ($Stage -cnotmatch '^[A-Za-z][A-Za-z0-9-]{0,79}$' -or $Outcome -cnotin @('completed', 'failed')) { return }
+    $directory = Join-Path $RuntimeRoot 'logs'
+    $path = Join-Path $directory 'startup-timing.jsonl'
+    Assert-NoReparsePath $path -AllowMissingLeaf
+    [IO.Directory]::CreateDirectory($directory) | Out-Null
+    if ((Test-Path -LiteralPath $path) -and (Get-Item -LiteralPath $path).Length -gt 1048576) {
+      $previous = $path + '.1'
+      Assert-NoReparsePath $previous -AllowMissingLeaf
+      [IO.File]::Copy($path, $previous, $true)
+      [IO.File]::WriteAllText($path, '', [Text.UTF8Encoding]::new($false))
+    }
+    $record = [ordered]@{
+      version = 1; processId = $PID; action = $Action; stage = $Stage
+      startedAt = $StartedAt; elapsedMilliseconds = $ElapsedMilliseconds; outcome = $Outcome
+    } | ConvertTo-Json -Compress
+    [IO.File]::AppendAllText($path, $record + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+  } catch { }
+}
+
 function Get-DjangoControlPowerShell {
   $djangoPowerShell = Get-Command "pwsh.exe" -ErrorAction SilentlyContinue
   if (-not $djangoPowerShell) { $djangoPowerShell = Get-Command "pwsh" -ErrorAction SilentlyContinue }
@@ -168,6 +190,10 @@ function Invoke-DjangoStartProcess(
   [ValidateSet("Start", "Stop", "AutoStartDingTalk")][string]$ControlAction = "Start",
   [switch]$PreservePostgres
 ) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (-not (Test-Path -LiteralPath $Controller -PathType Leaf)) {
     throw "Missing installed Django controller: $Controller"
   }
@@ -215,14 +241,25 @@ function Invoke-DjangoStartProcess(
     }
   }
 
+  if ($exitCode -ne 0) { $startupPhaseOutcome = 'failed' }
   return [pscustomobject]@{
     ExitCode = $exitCode
     StdoutTail = $stdoutTail
     StderrTail = $stderrTail
   }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Invoke-DjangoStartProcess' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-SystemDingTalkReceiver {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (Test-IsIsolatedTestRuntime) { return }
   $startup = Join-Path $FixedDjangoRuntimeRoot "config\dingtalk-startup.json"
   if (-not (Test-Path -LiteralPath $startup)) { return }
@@ -238,6 +275,12 @@ function Start-SystemDingTalkReceiver {
     throw "System services are running, but configured DingTalk receiver startup failed; check the AI runtime logs."
   }
   if (-not $Json) { Write-Host "DingTalk automatic startup configuration checked by the AI runtime controller" }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Start-SystemDingTalkReceiver' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Test-DjangoDomainReady(
@@ -284,6 +327,10 @@ function Test-DjangoAggregateStatusSupported {
 }
 
 function Get-DjangoSystemReadiness {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (Test-IsIsolatedTestRuntime) {
     return [pscustomobject]@{ Ready = $true; Missing = @() }
   }
@@ -352,9 +399,19 @@ function Get-DjangoSystemReadiness {
     Ready = ($missing.Count -eq 0)
     Missing = $missing
   }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Get-DjangoSystemReadiness' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Ensure-DjangoSystemReady {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if (Test-IsIsolatedTestRuntime) { return }
 
   $readiness = Get-DjangoSystemReadiness
@@ -382,6 +439,12 @@ function Ensure-DjangoSystemReady {
   # enabled reader/writer, including ERP reference, has passed its own bounded
   # readiness gate. Re-running seven heavyweight Status controllers here only
   # regenerates the same evidence and can add minutes of process startup cost.
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Ensure-DjangoSystemReady' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Assert-NoReparsePath([string]$Path, [switch]$AllowMissingLeaf) {
@@ -614,6 +677,10 @@ function Invoke-ReleaseVerification(
   [string]$ProcessPolicy,
   [switch]$WriteSupervisorPrelaunchReceipt
 ) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $node = Get-NodeExecutable
   $args = @(
     $ReleaseTool, "verify", "--manifest", $Identity.Path,
@@ -628,6 +695,12 @@ function Invoke-ReleaseVerification(
   $output = & $node @args 2>&1
   if ($LASTEXITCODE -ne 0) { throw (($output | Out-String).Trim()) }
   return (ConvertFrom-ExactJson (($output | Out-String).Trim()) "Worker release verification")
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Invoke-ReleaseVerification' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Remove-ExactSupervisorPrelaunchVerificationReceipt([string]$ExpectedSha256) {
@@ -1410,6 +1483,10 @@ function Start-VerifiedWorkerSupervisor(
   [string]$StartupVerificationReceiptSha256,
   [string]$ResultStatus = "started"
 ) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   if ($StartupVerificationReceiptSha256 -cnotmatch "^[0-9a-f]{64}$") {
     throw "Worker full verification did not publish an exact supervisor prelaunch receipt"
   }
@@ -1495,6 +1572,12 @@ function Start-VerifiedWorkerSupervisor(
     } catch {}
     if ($receiptWritten) { try { Remove-ExactProcessReceipt $Identity } catch {} }
     throw $startError
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Start-VerifiedWorkerSupervisor' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 
@@ -1585,6 +1668,10 @@ function Invoke-WorkerFullRestart([object]$identity) {
 }
 
 function Get-JoinedWorkerStartResult([object]$identity) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   # Joining is observation only: never restart after a concurrent Stop, failed
   # Start, or maintenance operation. The existing owner decides all mutations.
   Assert-WorkerMaintenanceInactive
@@ -1601,9 +1688,19 @@ function Get-JoinedWorkerStartResult([object]$identity) {
   $helperHealth = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:5791/health" -TimeoutSec 15
   if (-not $helperHealth -or $helperHealth.ok -ne $true) { throw "Concurrent startup did not make the helper ready" }
   return ([ordered]@{ status = "already_running"; version = $StatusVersion; releaseId = $identity.ReleaseId; manifestSha256 = $identity.Sha256 })
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Get-JoinedWorkerStartResult' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Invoke-WorkerSystemStart([object]$identity) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
     Assert-WorkerMaintenanceInactive
     $status = Get-WorkerStatusInternal $identity
     if ($status.State -eq "starting_exact_release") { throw "The exact immutable Worker release is already starting" }
@@ -1639,6 +1736,12 @@ function Invoke-WorkerSystemStart([object]$identity) {
     $startResult = Start-VerifiedWorkerSupervisor $identity $startupVerificationReceiptSha256 "started"
     Start-SystemDingTalkReceiver
     return $startResult
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-WorkerStartupTiming 'Invoke-WorkerSystemStart' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-WorkerOnly([object]$identity) {

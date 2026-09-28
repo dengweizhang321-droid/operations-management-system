@@ -80,6 +80,10 @@ function Invoke-PandasSystemctl([string]$Verb) {
 }
 
 function Start-PandasSandbox {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $config = Read-PandasConfig
   if ($null -eq $config) { return $false }
   $fingerprint = Get-Sha256Text ((Get-ConfigFingerprint "ai-pandas-wsl" $PandasWsl $PandasKeepaliveArguments) +
@@ -101,6 +105,12 @@ function Start-PandasSandbox {
     # Preserve uncertain Linux state for inspection; never retry an unknown job.
     throw
   } finally { [Environment]::SetEnvironmentVariable("WSLENV", $previousWslEnv, "Process") }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-PandasSandbox' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-PandasSandbox {
@@ -251,6 +261,10 @@ with psycopg.connect(os.environ["TERUISI_PROVISION_DATABASE_URL"], autocommit=Tr
 }
 
 function Get-AiWriteAuthority([object]$RuntimeSecrets, [object]$AiSecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url "teruisi_ai_writer" $AiSecrets.WriterPassword "teruisi_ai_authority_probe" $ReaderStatementTimeoutMs
   $code = @'
 import json
@@ -281,6 +295,12 @@ print(json.dumps({
       -not ([string]$payload.migrationRunId -match "^ai-apply-[0-9a-f]{32}$") -or
       [int]$payload.revision -lt 1)) { throw "PostgreSQL AI 助理写入权威证据不完整" }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-AiWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 
@@ -328,7 +348,7 @@ function Start-AiReader([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
   catch { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress; throw }
 }
 
-function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority) {
+function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") { throw "PostgreSQL 尚未成为AI 助理唯一写入源；拒绝启动AI 助理 writer" }
   $arguments = @(
     "--listen=127.0.0.1:8112", "--threads=6", "--connection-limit=30", "--channel-timeout=320",
@@ -349,11 +369,17 @@ function Start-AiWriter([object]$RuntimeSecrets, [object]$AiSecrets, [object]$Au
       (Join-Path $LogDirectory "django-ai-writer.$RunId.stdout.log") (Join-Path $LogDirectory "django-ai-writer.$RunId.stderr.log") | Out-Null
   }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try { Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"; return $true }
   catch { Stop-OwnedProcess "django-ai-writer" $AiWriterPidPath $Waitress; throw }
 }
 
 function Start-AiStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-AiRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动AI 助理服务" }
@@ -382,7 +408,7 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
     }
     Start-PandasSandbox | Out-Null
     $readerStarted = Start-AiReader $runtimeSecrets $aiSecrets $authority -DeferReady
-    $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority
+    $writerStarted = Start-AiWriter $runtimeSecrets $aiSecrets $authority -DeferReady
     Wait-DjangoReady "ai-reader" $AiReaderHealthUrl "127.0.0.1:8111"
     Wait-DjangoReady "ai-writer" $AiWriterHealthUrl "127.0.0.1:8112"
     Write-Output "Django AI 助理服务已就绪：reader=http://127.0.0.1:8111 writer=http://127.0.0.1:8112。"
@@ -392,6 +418,12 @@ function Start-AiStack([string]$LifecycleAclToken = "") {
     if ($readerStarted) { try { Stop-OwnedProcess "django-ai-reader" $AiReaderPidPath $Waitress } catch {} }
     throw $original
   } finally { $runtimeSecrets = $null; $aiSecrets = $null }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-AiStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Stop-AiStack([string]$LifecycleAclToken = "") {

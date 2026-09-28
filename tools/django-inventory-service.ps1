@@ -329,6 +329,10 @@ connection.close()
 }
 
 function Get-InventoryWriteAuthority([object]$RuntimeSecrets, [object]$InventorySecrets) {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   $writerUrl = Database-Url `
     "teruisi_inventory_writer" $InventorySecrets.WriterPassword `
     "teruisi_inventory_authority_probe" $ReaderStatementTimeoutMs
@@ -376,6 +380,12 @@ print(json.dumps({
     throw "PostgreSQL 库存写入权威证据不完整"
   }
   return $payload
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Get-InventoryWriteAuthority' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
+  }
 }
 
 function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecrets, [switch]$DeferReady) {
@@ -417,8 +427,7 @@ function Start-InventoryReader([object]$RuntimeSecrets, [object]$InventorySecret
 function Start-InventoryWriter(
   [object]$RuntimeSecrets,
   [object]$InventorySecrets,
-  [object]$Authority
-) {
+  [object]$Authority, [switch]$DeferReady) {
   if ([string]$Authority.status -cne "postgres") {
     throw "PostgreSQL 尚未成为库存唯一写入源；拒绝启动库存 writer"
   }
@@ -447,6 +456,8 @@ function Start-InventoryWriter(
         (Join-Path $LogDirectory "django-inventory-writer.$RunId.stderr.log") | Out-Null
     }
   $writerUrl = $null
+  # The stack owns new-process rollback and the final readiness barrier.
+  if ($DeferReady) { return $true }
   try {
     Wait-DjangoReady "inventory-writer" $InventoryWriterHealthUrl "127.0.0.1:8052"
     return $true
@@ -457,6 +468,10 @@ function Start-InventoryWriter(
 }
 
 function Start-InventoryStack([string]$LifecycleAclToken = "") {
+  $startupPhaseClock = [Diagnostics.Stopwatch]::StartNew()
+  $startupPhaseAt = [DateTimeOffset]::UtcNow.ToString('o')
+  $startupPhaseOutcome = 'completed'
+  try {
   Assert-InventoryRuntimeEntry $LifecycleAclToken
   Assert-PostgresListenerOwnership | Out-Null
   if (-not (Test-PostgresReady)) { throw "PostgreSQL 未就绪；拒绝启动库存服务" }
@@ -481,7 +496,7 @@ function Start-InventoryStack([string]$LifecycleAclToken = "") {
     }
     $readerStarted = Start-InventoryReader $runtimeSecrets $inventorySecrets -DeferReady
     if ([string]$authority.status -ceq "postgres") {
-      $writerStarted = Start-InventoryWriter $runtimeSecrets $inventorySecrets $authority
+      $writerStarted = Start-InventoryWriter $runtimeSecrets $inventorySecrets $authority -DeferReady
     }
     Wait-DjangoReady "inventory-reader" $InventoryReaderHealthUrl "127.0.0.1:8051"
     if ([string]$authority.status -ceq "postgres") {
@@ -502,6 +517,12 @@ function Start-InventoryStack([string]$LifecycleAclToken = "") {
   } finally {
     $runtimeSecrets = $null
     $inventorySecrets = $null
+  }
+  } catch {
+    $startupPhaseOutcome = 'failed'
+    throw
+  } finally {
+    try { Write-DjangoStartupTiming 'Start-InventoryStack' $startupPhaseAt $startupPhaseClock.ElapsedMilliseconds $startupPhaseOutcome } catch { }
   }
 }
 
