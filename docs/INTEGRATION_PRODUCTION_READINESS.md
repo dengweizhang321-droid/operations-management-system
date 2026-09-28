@@ -36,7 +36,7 @@
 
 固定 1,465 个 Python/JSON 源文件的演练已通过完整新集群恢复以及恢复后 AI reader/writer readiness；包括 295 张表、307 条合成记录、非空 HTML/XLSX、原 owner/ACL 和普通角色保持受限。正式 Python 备份/恢复程序、PowerShell 实际 payload 校验、25 项数据库权限负向检查通过。见 [无新增密钥演练证据](evidence/integration-no-new-keys-20260928.json)。旧 [加密演练证据](evidence/integration-migration-restore-20260927.json) 仅为已替代方案的历史记录，不作为当前方案的采用凭证。
 
-**生产尚未迁移或发布。** PrepareApp、DeployApp 与普通 migrate 的正式保护门禁仍保留。接下来必须完成：
+**以下为安装前的准备记录。2026-09-28 已完成正式 76 步安装及独立恢复，当前正在运行验收。** 最新状态见 [生产采用证据](evidence/integration-production-20260928.json)，尚不把服务启动命令的返回当作整栈验收成功。
 
 随后从 108fed61 的原 AI 权限配置重做了隔离升级，复现 0075 拒绝既有审计列权限且步骤回滚。兼容修复在原审计列存在时保持新的实验入口关闭，保留原查询；修复后 76 步、独立恢复及 25 项权限负向检查通过。新增逐步创建的持久意图/结果记录，断连、未知提交、重复调用和记录损坏均不自动重放。固定 1,466 个源文件的最终演练包含全部 76 个已核验结果。见 [既有权限升级证据](evidence/integration-existing-grants-20260928.json)。生产只读核查确认仍为相同 62 条基线，未进行生产写入。
 
@@ -51,7 +51,7 @@
 
 新增 tools/django-integration-install.ps1 的 Plan / Install / Finalize 三个显式操作。原 Worker EnterMaintenance -KeepPostgres 和 Django 生命周期互斥仍是唯一停服入口；安装器检查所有应用进程停止、PostgreSQL 归属、固定源码、前驱与准备收据。仅从受保护的 Git 源码快照执行迁移，使用原 DPAPI 凭据，逐步记录后才执行；未知结果保留意图并拒绝自动重跑。
 
-PrepareApp 首次接收 IntegrationEvidencePath / IntegrationEvidenceSha256，绑定 [正式候选证明](evidence/integration-formal-candidate-20260928.json)。Plan 要求同一维护窗口内、同一前驱的生产前备份以及独立恢复结果；DeployApp 只接受该计划绑定的候选。Install 完成 76 步后，还必须经原 AI ProvisionRoles、新版 Backup / RestoreRehearsal 和 Finalize，才产生启动许可。普通 Start 只接受已完整安装的 138 条迁移，不能自动安装未完成的受保护迁移。
+PrepareApp 首次接收 IntegrationEvidencePath / IntegrationEvidenceSha256，绑定 [正式候选证明](evidence/integration-formal-candidate-20260928.json)。Plan 要求同一维护窗口内、同一前驱的生产前备份以及独立恢复结果；DeployApp 只接受该计划绑定的候选。Install 完成 76 步后，还必须经原 AI / Netshop ProvisionRoles、新版 Backup / RestoreRehearsal 和 Finalize，才产生启动许可。普通 Start 只接受已完整安装的 138 条迁移，不能自动安装未完成的受保护迁移。
 
 采用成功后的普通代码更新继续走原准备和部署流程；启动许可绑定迁移文件树。迁移文件新增、删除或改写时重新关闭，不能借普通发布隐式升级数据库。原安装和恢复元数据保存在 runtime 的 integration-installs 下，不随日常备份保留策略删除。
 
@@ -66,3 +66,9 @@ PrepareApp 首次接收 IntegrationEvidencePath / IntegrationEvidenceSha256，�
 保留全部远程分支，只清理已合入且无在途使用的本地分支/worktree。未提交内容、未合入提交、固定发布源和在用目录先保全；不能直接批量删除。
 
 保留 E 盘已核验副本及 D 盘最新备份。只有逐文件重新核验相同、且不再承担回滚用途的较旧 D 副本可删除。清理在上线和回退验证之后进行。
+
+## 2026-09-28 正式启动兼容修复
+
+普通 owner 的启动授权只重设自有表与序列；对于独立角色拥有的受保护表，发现业务角色有效权限即拒绝，不能以扩大 owner 权限解决。整个授权过程在同一事务内执行。财务/网店的迁移健康检查只授予 django_migrations 的 app/name 两列读取；网店角色通过原 ProvisionRoles 显式更新。真实隔离结构库重复执行生产授权块两次，并以四个实际角色核验健康检查、越权注入拒绝和其他迁移列/写权限保持关闭。
+
+生产恢复曾分别发现隔离锁容量不足、RLS等价表达式摘要不同；前者修正隔离实例配置，后者要求原备份摘要绑定的原定义见证。失败证据保留。最终恢复 c3c999390026 全量数据/角色/目录校验通过后才生成正式启动许可。后续维护保留最初安装策略与76步journal；普通代码更新只接受相同迁移文件树。
