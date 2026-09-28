@@ -106,3 +106,31 @@
 阶段计时及重复等待候选已开发。[验证清单](evidence/startup-speed-validation-20260929.json)：核心回归 46/46、各域回归 57/57（其中 2 项与核心重复）、Worker/总控 39/39，去重 **140 项通过**；最终新增夹具复验 5/5。全库 lint 为 0 错误、12 项未改文件警告，新增 JS/TS 定向 lint 零警告；后端边界检查 544 模块/0 违规，`git diff --check` 通过。未运行全库单测或生产构建；本轮采用串行、定向生命周期回归，不覆盖其他任务的业务功能。
 
 正式三类启动均未取得本轮前后配对样本；不存在整机提速、生产稳定比例或全部启动目标达成的结论。主工作区及总评估保持不变；分支和工作树继续保留给统一收尾合并。
+
+源码、测试和证据提交 **`47706d2e50e24dae445405a656506b3cfc99126e`** 已推送 `origin/codex/startup-speed`，通过 `git ls-remote` 精确核对。随后仅补本节交付状态；最终分支 HEAD 以交付消息和远端同名分支为准。无其他分支提交依赖，尚未合并 main、未生产采用。
+
+精确变更文件（21 个）：
+
+```text
+tools/django-local-service.ps1
+tools/django-netshop-service.ps1
+tools/django-market-service.ps1
+tools/django-products-service.ps1
+tools/django-inventory-service.ps1
+tools/django-workflow-service.ps1
+tools/django-customer-service.ps1
+tools/django-access-control.ps1
+tools/django-ai.ps1
+tools/django-erp-reference.ps1
+tools/django-bi-service.ps1
+tools/worker-local-service.ps1
+tests/startup-release-optimization.test.ps1
+tests/startup-speed.test.ps1
+tests/startup-speed.test.ts
+tests/startup-speed-benchmark.ps1
+tests/startup-speed-benchmark.mjs
+docs/STARTUP_SPEED_OPTIMIZATION_20260929.md
+docs/evidence/startup-speed-history-20260929.json
+docs/evidence/startup-speed-benchmark-20260929.json
+docs/evidence/startup-speed-validation-20260929.json
+```
