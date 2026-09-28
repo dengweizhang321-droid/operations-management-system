@@ -137,7 +137,8 @@ def _public_row_roots(db, table_names: list[str]) -> dict:
         "tableRowsRootSha256": digest(canonical(result))}
 
 
-def _catalog_roots(db) -> dict[str, object]:
+def _catalog_roots(db, *, logical_restore: bool = False,
+                   sequence_positions: bool = True) -> dict[str, object]:
     sections = {}
     items = {}
     queries = {
@@ -193,6 +194,26 @@ def _catalog_roots(db) -> dict[str, object]:
     total = 0
     raw_acl_roots = {}
     for name, query in queries.items():
+        if name == "sequences" and not sequence_positions:
+            # Sequence values are not MVCC. Online archives validate their
+            # restored lower bounds separately from snapshot-bound catalogs.
+            query = ("SELECT schemaname,sequencename,data_type::text,start_value,"
+                "min_value,max_value,increment_by,cycle,cache_size "
+                "FROM pg_catalog.pg_sequences WHERE schemaname='public' "
+                "ORDER BY sequencename")
+        if logical_restore and name == "relations":
+            query = query.replace("pg_catalog.aclexplode(c.relacl)",
+                "pg_catalog.aclexplode(COALESCE(c.relacl,"
+                "pg_catalog.acldefault(CASE WHEN c.relkind='S' THEN 's'::\"char\" "
+                "ELSE 'r'::\"char\" END,c.relowner)))")
+        if logical_restore and name == "columns":
+            query = query.replace("pg_catalog.pg_get_expr(d.adbin,d.adrelid) ",
+                "pg_catalog.pg_get_expr(d.adbin,d.adrelid),"
+                "(SELECT jsonb_agg(jsonb_build_array("
+                "CASE WHEN acl.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(acl.grantee) END,"
+                "CASE WHEN acl.grantor=0 THEN 'PUBLIC' ELSE pg_get_userbyid(acl.grantor) END,"
+                "acl.privilege_type,acl.is_grantable)) FROM aclexplode("
+                "COALESCE(a.attacl,acldefault('c',c.relowner))) acl) ")
         rows = db.execute(query).fetchall()
         total += len(canonical(rows))
         if total > MAX_CATALOG_BYTES:
@@ -205,8 +226,15 @@ def _catalog_roots(db) -> dict[str, object]:
                     raise ShadowEvidenceBlocked("shadow relation identity repeated")
                 raw_acl_roots[identity] = digest(canonical(raw_acl))
                 normalized.append((relation, kind, owner,
-                    canonical_acl_entries(is_null, grants), security))
+                    canonical_acl_entries(False if logical_restore else is_null, grants), security))
             rows = normalized
+        if logical_restore and name in ("constraints", "indexes"):
+            from postgres_restore_semantics import normalize_dump_expression
+            offset = 3 if name == "constraints" else 2
+            rows = [tuple(normalize_dump_expression(value) if index == offset else value
+                for index, value in enumerate(row)) for row in rows]
+        if logical_restore and name == "columns":
+            rows = [(*row[:-1], canonical_acl_entries(False, row[-1])) for row in rows]
         sections[name] = digest(canonical(rows))
         if name in CATALOG_ITEM_FIELDS:
             fields = CATALOG_ITEM_FIELDS[name]

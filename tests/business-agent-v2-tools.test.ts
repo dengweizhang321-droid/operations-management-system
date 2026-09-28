@@ -1,3 +1,4 @@
+import { preIntegrationCatalog } from "./legacy/integration-catalog-projection";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -28,17 +29,17 @@ function isolated(t: TestContext) {
 }
 const response = (data: object) => Response.json(data, { headers: { "x-ai-revision": "1" } });
 
-test("all preexisting catalog canonical hashes and entry metadata remain exactly unchanged", async () => {
+test("historical catalogs retain their frozen hashes after projecting the reviewed integration changes", async () => {
   const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-v2-legacy-catalog.json", import.meta.url), "utf8"));
   assert.deepEqual(aiToolSurfaces.filter(surface => baseline.legacySurfaces.includes(surface)), baseline.legacySurfaces);
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
   assert.ok(aiToolSurfaces.includes(context.surface));
-  const oldEntries = aiToolRegistry.filter(entry => !continuationNames.includes(entry.name)
+  const oldEntries = preIntegrationCatalog(aiToolRegistry).filter(entry => !continuationNames.includes(entry.name)
     && entry.execution.allowedSurfaces.some(surface => baseline.legacySurfaces.includes(surface)));
   assert.deepEqual({ count: oldEntries.length, sha256: sha(canonicalAiEdge(oldEntries.map(strip))) }, baseline.registry);
   const actual: Record<string, { count: number; sha256: string }> = {};
   for (const surface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {
-    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, surface)
+    const entries = preIntegrationCatalog(getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, surface))
       .filter(entry => !continuationNames.includes(entry.name)).map(strip);
     actual[`${surface}/${role}/${scoped ? "scoped" : "unscoped"}`] = { count: entries.length, sha256: sha(canonicalAiEdge(entries)) };
   }

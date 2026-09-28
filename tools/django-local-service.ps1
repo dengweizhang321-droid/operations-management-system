@@ -20,6 +20,8 @@ param(
   [string]$MaintenanceId = "",
   [string]$PreparedAppId = "",
   [string]$PreparedAppSha256 = "",
+  [string]$IntegrationEvidencePath = "",
+  [string]$IntegrationEvidenceSha256 = "",
   [switch]$KeepPostgres,
   [switch]$Json,
   [switch]$Execute
@@ -1631,6 +1633,35 @@ function Assert-NoUnapprovedProtectedAiMigration([string]$Operation, [string]$Ca
   $formalRoot = [IO.Path]::GetFullPath('D:\teruisi-runtime\django-sales').TrimEnd('\')
   $currentRoot = [IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
   if ($currentRoot -ine $formalRoot) { return }
+  $candidateRoot = Split-Path -Parent $CandidateBackendRoot
+  $integrationGate = Join-Path $candidateRoot 'tools\integration_release_gate.py'
+  $integrationPolicy = Join-Path $candidateRoot 'config\integration-migration-policy-v3.json'
+  if ((Test-Path -LiteralPath $integrationGate -PathType Leaf) -and
+      (Test-Path -LiteralPath $integrationPolicy -PathType Leaf)) {
+    $arguments = @($integrationGate)
+    if ($Operation -cin @('PrepareApp','DeployApp') -and
+        (Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf)) {
+      # A successor with byte-equivalent migration sources needs no database
+      # upgrade. New/rewritten migrations still fail the published generation.
+      $gateCommand = if ($Operation -ceq 'PrepareApp') { 'successor' } else { 'release' }
+      $arguments += @($gateCommand, '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } elseif ($Operation -ceq 'PrepareApp') {
+      if ($IntegrationEvidenceSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+          [string]::IsNullOrWhiteSpace($IntegrationEvidencePath)) {
+        throw 'Protected integration preparation requires verified candidate evidence'
+      }
+      $arguments += @('candidate', '--root', $candidateRoot, '--evidence', $IntegrationEvidencePath,
+        '--approved-sha256', $IntegrationEvidenceSha256)
+    } elseif ($Operation -ceq 'DeployApp') {
+      $arguments += @('deployment', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } elseif ($Operation -ceq 'Django migrate') {
+      $arguments += @('release', '--root', $candidateRoot, '--runtime', $RuntimeRoot)
+    } else { throw 'Unknown integration lifecycle operation' }
+    $run = Invoke-BoundedNativeProcess $Python $arguments $candidateRoot
+    $result = ConvertFrom-UniqueNativeJson $run 'Verify protected integration gate'
+    if ([string]$result.status -cne 'verified') { throw 'Protected integration gate refused the operation' }
+    return
+  }
   $migrationRoot = Join-Path $CandidateBackendRoot 'ai_assistant\migrations'
   foreach ($name in @(
       '0067_business_promotion_budget_v11_attestation.py',
@@ -1745,6 +1776,14 @@ function Prepare-Application {
       "tools\erp-reference-d1-authority-install.py",
       "tools\customer-service-d1-snapshot.py",
       "tools\postgres-consistent-backup.py",
+      "tools\postgres_no_key_backup.py",
+      "tools\protected_ai_shadow_evidence_0073.py",
+      "tools\postgres_restore_semantics.py",
+      "tools\integration_release_gate.py",
+      "tools\integration_migration_plan.py",
+      "tools\integration_migration_journal.py",
+      "tools\django-integration-install.ps1",
+      "config\integration-migration-policy-v3.json",
       "drizzle\0090_sales_write_authority.sql",
       "drizzle\0091_erp_reference_projection.sql",
       "drizzle\0092_sales_domain_retirement.sql",
@@ -1776,6 +1815,35 @@ function Prepare-Application {
         throw "Django runtime 部署缺少受控 retirement operator 文件：$relative"
       }
       Copy-Item -LiteralPath $source -Destination (Join-Path $staging $relative) -Force
+    }
+    $installedIntegrationPolicy = Join-Path $InstalledAppRoot 'config\integration-migration-policy-v3.json'
+    $installedGenerationPresent = Test-Path -LiteralPath (Join-Path $RuntimeRoot 'integration-release.json') -PathType Leaf
+    $integrationPlanPath = Join-Path $RuntimeRoot 'integration-install-plan.json'
+    if (-not $installedGenerationPresent -and (Test-Path -LiteralPath $integrationPlanPath -PathType Leaf)) {
+      $integrationPlan = Read-JsonFile $integrationPlanPath 'Integration generation plan'
+      if ([string]$integrationPlan.operationId -cmatch '^[0-9a-f]{32}$') {
+        $installedRecordPath = Join-Path $RuntimeRoot ('integration-installs\' + $integrationPlan.operationId + '\evidence\installed.json')
+        if (Test-Path -LiteralPath $installedRecordPath -PathType Leaf) {
+          $installedRecord = Read-JsonFile $installedRecordPath 'Installed integration generation'
+          $installedGenerationPresent = [string]$installedRecord.status -ceq 'schema_installed'
+        }
+      }
+    }
+    if ($installedGenerationPresent -and (Test-Path -LiteralPath $installedIntegrationPolicy -PathType Leaf)) {
+      $sameMigrationCode = @'
+import json,sys
+from pathlib import Path
+sys.path.insert(0,str(Path(sys.argv[1])/'tools'))
+from integration_release_gate import migration_digest
+print(json.dumps({'same':migration_digest(Path(sys.argv[1]))==migration_digest(Path(sys.argv[2]))}))
+'@
+      $sameRun = Invoke-BoundedNativeProcess $Python @('-c',$sameMigrationCode,$ExecutionRoot,$InstalledAppRoot) $ExecutionRoot
+      $same = ConvertFrom-UniqueNativeJson $sameRun 'Compare installed migration generation'
+      if ($same.same -ceq $true) {
+        # Source approval evolves with maintenance code. The runtime retains
+        # the original installed generation policy and its immutable journal.
+        Copy-Item -LiteralPath $installedIntegrationPolicy -Destination (Join-Path $staging 'config\integration-migration-policy-v3.json') -Force
+      }
     }
     Assert-WranglerLocalR2RoundTrip $staging
     $fingerprintEvidence = Get-ApplicationTreeFingerprintEvidence $staging
@@ -2949,6 +3017,14 @@ function Invoke-DjangoMigrations(
   $logPath = Join-Path $LogDirectory "django-migrate.$DatabaseName.$RunId.log"
   $manage = Join-Path $BackendRoot "manage.py"
   Invoke-WithDjangoEnvironment $Secrets $ownerUrl "migration_writer" $false $WriterMaxBodyBytes "" "" {
+    $integrationGate = Join-Path $ExecutionRoot 'tools\integration_release_gate.py'
+    if ((Get-CanonicalPath $RuntimeRoot) -ieq 'D:\teruisi-runtime\django-sales' -and
+        (Test-Path -LiteralPath $integrationGate -PathType Leaf)) {
+      $env:DJANGO_SETTINGS_MODULE = 'teruisi_backend.settings'
+      $check = Invoke-BoundedNativeProcess $Python @($integrationGate, 'database', '--root', $ExecutionRoot) $BackendRoot
+      $verified = ConvertFrom-UniqueNativeJson $check 'Verify completed integration migrations'
+      if ([string]$verified.status -cne 'verified') { throw 'Protected migration plan is incomplete' }
+    }
     $migrationRun = Invoke-BoundedNativeProcess $Python @($manage, "migrate", "--noinput") $BackendRoot
     Write-NativeDiagnosticLog $logPath "django_migrate" $migrationRun
     if ($migrationRun.ExitCode -ne 0) {
@@ -2956,7 +3032,7 @@ function Invoke-DjangoMigrations(
     }
 
     $grantCode = @'
-from django.db import connection
+from django.db import connection, transaction
 
 roles = (
     "teruisi_sales_reader",
@@ -2965,7 +3041,26 @@ roles = (
     "teruisi_finance_writer",
 )
 quote = connection.ops.quote_name
-with connection.cursor() as c:
+def revoke_owned_relations(c, role):
+    # Protected sidecars have independent owners. Never attempt to acquire their
+    # authority; reject unexpected effective access before resetting our objects.
+    c.execute("SELECT r.oid,r.relname,r.relkind,r.relowner = (SELECT oid FROM pg_roles WHERE rolname=current_user) "
+              "FROM pg_class r JOIN pg_namespace n ON n.oid=r.relnamespace "
+              "WHERE n.nspname='public' AND r.relkind IN ('r','p','v','m','f','S') ORDER BY r.oid")
+    for oid, name, kind, owned in c.fetchall():
+        if not owned:
+            if kind == 'S':
+                c.execute("SELECT has_sequence_privilege(%s,%s,'USAGE,SELECT,UPDATE')", [role,oid])
+            else:
+                c.execute("SELECT has_table_privilege(%s,%s,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') "
+                          "OR has_any_column_privilege(%s,%s,'SELECT,INSERT,UPDATE,REFERENCES')", [role,oid,role,oid])
+            if c.fetchone()[0]:
+                raise RuntimeError("Runtime role has unexpected access to a protected relation")
+            continue
+        object_type = 'SEQUENCE' if kind == 'S' else 'TABLE'
+        c.execute(f"REVOKE ALL PRIVILEGES ON {object_type} public.{quote(name)} FROM {quote(role)}")
+
+with transaction.atomic(), connection.cursor() as c:
     c.execute(
         "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolreplication, "
         "rolbypassrls FROM pg_roles WHERE rolname = ANY(%s)",
@@ -2991,8 +3086,7 @@ with connection.cursor() as c:
     if c.fetchone() is not None:
         raise RuntimeError("Django runtime roles must not inherit or SET ROLE into another role")
     for role in roles:
-        c.execute(f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {quote(role)}")
-        c.execute(f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {quote(role)}")
+        revoke_owned_relations(c, role)
         c.execute(f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {quote(role)}")
         c.execute(
             "SELECT table_schema, table_name, column_name "
@@ -3049,6 +3143,8 @@ with connection.cursor() as c:
     from finance.business_source_permissions import grant_actor_read as grant_finance_source_actor
     grant_finance_source_actor(c)
 
+    c.execute("GRANT SELECT (app, name) ON public.django_migrations TO teruisi_finance_reader, teruisi_finance_writer")
+
     c.execute("GRANT SELECT, INSERT, UPDATE ON finance_import_batches, finance_months, finance_import_scope_heads, finance_import_attempts, finance_data_revisions, finance_write_request_receipts TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON finance_lines, finance_targets_scoped TO teruisi_finance_writer")
     c.execute("GRANT SELECT, INSERT ON finance_target_deletion_audits, finance_import_fingerprints TO teruisi_finance_writer")
@@ -3078,8 +3174,7 @@ with connection.cursor() as c:
     if c.fetchone() is not None:
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON TABLES FROM teruisi_erp_reference_sync")
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE teruisi_sales_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM teruisi_erp_reference_sync")
-        c.execute("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM teruisi_erp_reference_sync")
-        c.execute("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM teruisi_erp_reference_sync")
+        revoke_owned_relations(c, "teruisi_erp_reference_sync")
         c.execute("REVOKE ALL PRIVILEGES ON SCHEMA public FROM teruisi_erp_reference_sync")
         c.execute(
             "SELECT table_schema,table_name,column_name FROM information_schema.column_privileges "

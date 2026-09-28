@@ -12,6 +12,13 @@ def install(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
     with schema_editor.connection.cursor() as cursor:
+        # The pre-integration runtime already exposes allowlisted audit columns
+        # to its admin dataset reader. Keep that feature and leave this new
+        # experimental entry closed; never revoke existing audit reads merely
+        # to satisfy the historical isolated-only prototype profile.
+        cursor.execute("SELECT has_any_column_privilege(%s,'public.ai_tool_audit_logs','SELECT')",
+            [page.READER])
+        reader_closed = cursor.fetchone() == (True,)
         cursor.execute("SELECT to_regprocedure(%s)", [page.PAGE])
         if cursor.fetchone()[0] is not None:
             raise RuntimeError("0075 restricted page function already exists")
@@ -27,10 +34,11 @@ def install(apps, schema_editor):
                 " FROM PUBLIC")
             cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM " +
                 page.WRITER + "," + page.READER)
-        for signature in (page.RO_READ, page.PAGE):
-            cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
-                " TO " + page.READER)
-        verify_catalog(cursor)
+        if not reader_closed:
+            for signature in (page.RO_READ, page.PAGE):
+                cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
+                    " TO " + page.READER)
+        verify_catalog(cursor, reader_closed=reader_closed)
 
 
 def uninstall(apps, schema_editor):
@@ -42,7 +50,7 @@ def uninstall(apps, schema_editor):
         cursor.execute("DROP FUNCTION " + page.RO_BINDINGS)
 
 
-def verify_catalog(cursor):
+def verify_catalog(cursor, *, reader_closed=False):
     """Pin new function and the old 0071 contract without changing either."""
     from importlib import import_module
     import_module("ai_assistant.migrations.0071_business_v4_report_source_link"
@@ -97,9 +105,9 @@ def verify_catalog(cursor):
                     for grantee, privilege, grantable in acl)):
             raise RuntimeError("0075 function EXECUTE ACL drift")
 
-    exact_execute_acl(page.PAGE, page.READER)
+    exact_execute_acl(page.PAGE, None if reader_closed else page.READER)
     exact_execute_acl(page.RO_BINDINGS, None)
-    exact_execute_acl(page.RO_READ, page.READER)
+    exact_execute_acl(page.RO_READ, None if reader_closed else page.READER)
     cursor.execute("SELECT prosrc,prosecdef,proconfig,"
         "pg_catalog.pg_get_userbyid(proowner) "
         "FROM pg_catalog.pg_proc WHERE oid=to_regprocedure(%s)",
@@ -119,7 +127,7 @@ def verify_catalog(cursor):
         for role in (page.READER, page.WRITER):
             cursor.execute("SELECT has_function_privilege(%s,%s,'EXECUTE')",
                 [role, signature])
-            if cursor.fetchone() != (role == page.READER and
+            if cursor.fetchone() != (not reader_closed and role == page.READER and
                     reader_allowed,):
                 raise RuntimeError("0075 restricted function effective ACL drift")
     for table in ("public.ai_business_v4_chunks",
@@ -134,6 +142,22 @@ def verify_catalog(cursor):
             if cursor.fetchone() != (False,):
                 raise RuntimeError("0075 reader physical table ACL drift")
         for privilege in ("SELECT", "INSERT", "UPDATE"):
+            if reader_closed and table == "public.ai_tool_audit_logs" and privilege == "SELECT":
+                # The successor disables the experimental page entry. Retain
+                # only the original admin audit dataset's column allowlist.
+                import json
+                from pathlib import Path
+                manifest = json.loads((Path(__file__).resolve().parents[2] /
+                    "system_datasets/manifest.json").read_text(encoding="utf-8"))
+                permitted = {field["column"] for item in manifest["datasets"]
+                    if item["domain"] == "ai_assistant" and item["table"] == "ai_tool_audit_logs"
+                    for field in [*item["fields"].values(), *item.get("paginationOnlyFields", {}).values()]}
+                cursor.execute("SELECT attname FROM pg_catalog.pg_attribute "
+                    "WHERE attrelid=%s::regclass AND attnum>0 AND NOT attisdropped "
+                    "AND has_column_privilege(%s,%s,attname,'SELECT')", [table, page.READER, table])
+                if not permitted or not {row[0] for row in cursor.fetchall()} <= permitted:
+                    raise RuntimeError("0082 audit dataset column grant exceeds its original contract")
+                continue
             cursor.execute("SELECT has_any_column_privilege(%s,%s,%s)",
                 [page.READER, table, privilege])
             if cursor.fetchone() != (False,):

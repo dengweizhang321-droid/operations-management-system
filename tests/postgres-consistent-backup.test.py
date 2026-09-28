@@ -422,7 +422,8 @@ class ConsistentBackupTests(unittest.TestCase):
         self.assertIn(name, MODULE.PROTECTED_AI_MIGRATIONS)
         self.assertEqual(MODULE.PROTECTED_AI_TABLES_BY_MIGRATION[name], set())
         source = MODULE_PATH.read_text(encoding="utf-8")
-        self.assertIn('if protected["appliedProtectedMigrations"]:', source)
+        self.assertIn('if protected["appliedProtectedMigrations"] and not no_keys:', source)
+        self.assertIn('profile_evidence = postgres_no_key_backup.collect(connection)', source)
         self.assertIn('raise RuntimeError("protected AI daily backup is not admitted")', source)
 
     def test_protected_0073_has_exact_table_role_and_migration_inventory(self):
@@ -1109,7 +1110,8 @@ class ConsistentBackupTests(unittest.TestCase):
         cursor = Cursor(can_read=False)
         result = MODULE._protected_ai_preflight(cursor)
         self.assertIn("backup_identity_cannot_read_private_key_table", result["issues"])
-        self.assertEqual(result["exactProtectedRoleCount"], 15)
+        self.assertIn("teruisi_ai_market_v6_source_login", MODULE.PROTECTED_AI_ROLES)
+        self.assertEqual(result["exactProtectedRoleCount"], 16)
 
     def test_explicit_protected_preflight_uses_read_only_bound_identity(self):
         connection = mock.MagicMock()

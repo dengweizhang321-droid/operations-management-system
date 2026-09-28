@@ -21,6 +21,32 @@ const powershell = path.join(
 );
 const runtimePython = "D:\\teruisi-runtime\\django-sales\\venv\\Scripts\\python.exe";
 
+test("prepared maintenance helpers cannot create or prune production backups", { skip: !existsSync(powershell) }, () => {
+  const code = [
+    "$ErrorActionPreference='Stop'",
+    "$env:TERUISI_DJANGO_MAINTENANCE_LIBRARY_ONLY='1'",
+    `. '${operatorPath.replaceAll("'", "''")}' -Action Status`,
+    "function Assert-DeployedApplication {}",
+    "function Assert-RuntimeRootAclHardened {}",
+    "function Get-ServiceConfig { [pscustomobject]@{postgresAddress='127.0.0.1:5432'} }",
+    "function Get-PreparedApplication { throw 'unexpected prepared lookup' }",
+    "$MaintenanceRequest.PreparedToolAppId='a'*32",
+    "$MaintenanceRequest.PreparedToolAppSha256='b'*64",
+    "$rejected=0",
+    "foreach($verb in @('Backup','Prune','Status','ProtectedAiPreflight')) {",
+    " $MaintenanceRequest.Action=$verb",
+    " try { Assert-MaintenanceRuntimeContext; throw 'unexpected acceptance' }",
+    " catch { if($_.Exception.Message -notlike '*limited to verification and isolated restoration*') { throw }; $rejected++ }",
+    "}",
+    "if($rejected -ne 4) { throw 'missing rejection' }",
+    "Write-Output 'prepared-actions-rejected'",
+  ].join("\n");
+  const result = spawnSync(powershell, ["-NoProfile", "-NonInteractive", "-EncodedCommand",
+    Buffer.from(code, "utf16le").toString("base64")], { encoding: "utf8", timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /prepared-actions-rejected/);
+});
+
 test("finance.0006 source, receipt and all physical tables stay behind formal gates", async () => {
   const [service, operator, backup] = await Promise.all([
     readFile(servicePath, "utf8"),
@@ -268,10 +294,14 @@ test("restore rehearsal uses a separate cluster and never creates or drops a pro
   assert.match(restoreBlock, /initdb\.exe/);
   assert.match(restoreBlock, /createuser\.exe/);
   assert.doesNotMatch(script, /createuser[\s\S]{0,800}--dbname/);
-  assert.match(restoreBlock, /rehearsals\\postgres-restore/);
+  assert.match(restoreBlock, /Get-MaintenanceRehearsalParent \$true/);
+  assert.match(script, /rehearsals\\postgres-restore/);
+  assert.match(script, /E:\\TERUISI-Postgres-Rehearsals/);
+  assert.match(script, /AreAccessRulesProtected/);
   assert.match(restoreBlock, /--auth-host=scram-sha-256/);
   assert.match(restoreBlock, /-h 127\.0\.0\.1/);
   assert.match(restoreBlock, /max_connections=10/);
+  assert.match(restoreBlock, /max_locks_per_transaction=256/);
   assert.match(restoreBlock, /shared_buffers=128MB/);
   assert.match(restoreBlock, /"restore"/);
   assert.match(restoreBlock, /--timeout-seconds", "1800"/);
@@ -418,7 +448,7 @@ test("Python helper imports with the controlled runtime", async (t) => {
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\{backup,probe,protected-preflight,restore\}/);
+  assert.match(result.stdout, /\{backup,probe,protected-preflight,no-key-preflight,restore\}/);
   assert.equal(result.stderr, "");
 });
 

@@ -281,6 +281,8 @@ def provision(connection, reader_password, writer_password):
                     sql.Identifier(connection.info.dbname), sql.Identifier(role)
                 )
             )
+            cursor.execute(sql.SQL("GRANT SELECT (app,name) ON TABLE "
+                "public.django_migrations TO {}").format(sql.Identifier(role)))
             privileges = (
                 {table: ("SELECT",) for table in READ_TABLES}
                 if role == "teruisi_ai_reader"

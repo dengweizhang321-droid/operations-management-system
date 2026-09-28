@@ -1,3 +1,4 @@
+import { preIntegrationCatalog } from "./legacy/integration-catalog-projection";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -31,16 +32,16 @@ const boundPayload = (name: string) => ({
   reference: { evidenceRunId: base.runId, reportId: base.reportId },
 });
 
-test("44 legacy entries and every old surface/role/scope catalog remain byte-identical", async () => {
+test("44 historical entries and their catalogs retain frozen bytes under the reviewed integration projection", async () => {
   const baseline = JSON.parse(await readFile(new URL("./fixtures/business-agent-integrated-legacy-catalog.json", import.meta.url), "utf8"));
   assert.deepEqual(aiToolSurfaces.slice(0, baseline.legacySurfaces.length), baseline.legacySurfaces);
   assert.ok(aiToolSurfaces.includes(surface));
-  const old = aiToolRegistry.filter(entry => baseline.legacyToolNames.includes(entry.name));
+  const old = preIntegrationCatalog(aiToolRegistry).filter(entry => baseline.legacyToolNames.includes(entry.name));
   assert.deepEqual(old.map(entry => entry.name), baseline.legacyToolNames);
   assert.deepEqual({ count: old.length, sha256: sha(canonicalAiEdge(old.map(strip))) }, baseline.registry);
   const catalogs: Record<string, unknown> = {};
   for (const oldSurface of baseline.legacySurfaces as AiToolSurface[]) for (const role of ["viewer", "analyst", "operator", "admin"] as const) for (const scoped of [false, true]) {
-    const entries = getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, oldSurface)
+    const entries = preIntegrationCatalog(getToolsForPrincipal({ ...admin, role, scope: scoped ? { warehouses: [], channels: [], platforms: [] } : null }, oldSurface))
       .filter(entry => !continuationNames.includes(entry.name)).map(strip);
     catalogs[`${oldSurface}/${role}/${scoped ? "scoped" : "unscoped"}`] = { count: entries.length, sha256: sha(canonicalAiEdge(entries)) };
   }

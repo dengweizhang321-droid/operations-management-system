@@ -191,6 +191,16 @@ def install(apps, schema_editor):
         from importlib import import_module
         import_module("ai_assistant.migrations.0073_business_promotion_budget_v11_login_attestation").verify_catalog(cursor)
         import_module("ai_assistant.migrations.0072_business_market_v2_authority_proposals").verify_catalog(cursor)
+        # The privileged installer is distinct from the ordinary schema owner.
+        # Preserve the frozen 0065 owner even when this step requires privileges
+        # to verify the preceding private-key/role catalog.
+        cursor.execute("SELECT pg_catalog.pg_get_userbyid(relowner) FROM "
+            "pg_catalog.pg_class WHERE oid="
+            "'public.ai_business_market_v2_cost_ledger_candidates'::regclass")
+        owner = cursor.fetchone()[0]
+        if not owner or owner in {cap.WRITER, "teruisi_ai_reader"}:
+            raise RuntimeError("0074 frozen ledger owner is not an installer owner")
+        quoted_owner = schema_editor.connection.ops.quote_name(owner)
         for table in (cap.APPROVAL, cap.REVOCATION):
             cursor.execute("SELECT to_regclass(%s)", [table])
             if cursor.fetchone()[0] is not None:
@@ -239,6 +249,7 @@ def install(apps, schema_editor):
             cursor.execute("REVOKE ALL ON TABLE " + table + " FROM PUBLIC")
             for role in (cap.WRITER, "teruisi_ai_reader"):
                 cursor.execute("REVOKE ALL ON TABLE " + table + " FROM " + role)
+            cursor.execute("ALTER TABLE " + table + " OWNER TO " + quoted_owner)
         for definition in (cap.GUARD, cap.MODEL, cap.PREVIEW, cap.APPROVE,
                 cap.REVOKE, cap.OUTCOME):
             cursor.execute(definition)
@@ -248,6 +259,7 @@ def install(apps, schema_editor):
             cursor.execute("REVOKE ALL ON FUNCTION " + signature + " FROM PUBLIC")
             cursor.execute("REVOKE ALL ON FUNCTION " + signature +
                 " FROM teruisi_ai_reader,teruisi_ai_writer")
+            cursor.execute("ALTER FUNCTION " + signature + " OWNER TO " + quoted_owner)
         for signature in (cap.PREVIEW_SIG, cap.APPROVE_SIG,
                 cap.REVOKE_SIG, cap.OUTCOME_SIG):
             cursor.execute("GRANT EXECUTE ON FUNCTION " + signature +
