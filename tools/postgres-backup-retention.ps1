@@ -80,6 +80,7 @@ function Get-MaintenanceRecoveryPoints {
 }
 
 function Invoke-MaintenanceRetention {
+  Set-MaintenancePhase 'archive_inventory'
   Assert-MaintenanceRuntimeContext | Out-Null
   $policy = Get-MaintenanceRetentionPolicy
   if ($null -eq $policy) { throw 'Backup retention has not been adopted' }
@@ -109,12 +110,19 @@ function Invoke-MaintenanceRetention {
       $source = Resolve-MaintenanceBackupArchive $point.copies[0].Directory $point.manifestSha256
       $stage = Join-Path $MaintenanceArchiveRoot ('.' + $point.backupId + '.' + $script:MaintenanceRetentionRunId + '.incomplete')
       if (Test-Path -LiteralPath $stage) { throw 'Archive staging already exists' }
+      Set-MaintenancePhase 'archive_copy'
+      $copyBytes = [decimal]0
+      foreach ($name in @('teruisi-sales.dump','backup-manifest.json','backup-manifest.json.sha256')) {
+        $copyBytes += (Get-Item -LiteralPath (Join-Path $source.Directory $name)).Length
+      }
+      Assert-MaintenanceCapacity $MaintenanceArchiveRoot ($copyBytes + 1GB) 'archive_copy' | Out-Null
       New-Item -ItemType Directory -Path $stage | Out-Null
       try {
         foreach ($name in @('teruisi-sales.dump','backup-manifest.json','backup-manifest.json.sha256')) {
           Copy-Item -LiteralPath (Join-Path $source.Directory $name) -Destination (Join-Path $stage $name)
         }
         Assert-MaintenanceNoReparsePoints $stage 'Archive staging'
+        Set-MaintenancePhase 'archive_verification'
         Read-MaintenanceArchive $stage $point.manifestSha256 | Out-Null
         Move-Item -LiteralPath $stage -Destination $target
       } finally {
@@ -132,6 +140,7 @@ function Invoke-MaintenanceRetention {
     }
     Resolve-MaintenanceBackupArchive $target $point.manifestSha256 | Out-Null
   }
+  Set-MaintenancePhase 'retained_verification'
   $survivorStreams = [Collections.Generic.List[IDisposable]]::new()
   try {
     foreach ($survivor in @($points | Where-Object {$keep.Contains($_.backupId)})) {
@@ -141,6 +150,7 @@ function Invoke-MaintenanceRetention {
       }
       Resolve-MaintenanceBackupArchive $survivorDirectory $survivor.manifestSha256 | Out-Null
     }
+  Set-MaintenancePhase 'backup_rotation'
   foreach ($point in $points) {
     foreach ($copy in $point.copies) {
       if ($keep.Contains($point.backupId) -and (Split-Path -Parent $copy.Directory) -ieq $MaintenanceArchiveRoot) { continue }

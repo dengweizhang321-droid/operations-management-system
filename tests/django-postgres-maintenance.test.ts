@@ -448,7 +448,7 @@ test("Python helper imports with the controlled runtime", async (t) => {
     windowsHide: true,
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\{backup,probe,protected-preflight,no-key-preflight,restore\}/);
+  assert.match(result.stdout, /\{capacity,backup,probe,protected-preflight,no-key-preflight,restore\}/);
   assert.equal(result.stderr, "");
 });
 

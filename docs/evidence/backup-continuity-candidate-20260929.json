@@ -1,0 +1,171 @@
+{
+  "date": "2026-09-29",
+  "scope": "assessment item 1 only",
+  "status": "candidate_validated_not_deployed",
+  "branch": "codex/backup-continuity",
+  "baseCommit": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e",
+  "mergedToMain": false,
+  "deployed": false,
+  "scheduleChanged": false,
+  "productionDatabaseRestored": false,
+  "automaticBackup": {
+    "id": "e",
+    "status": "PAUSED",
+    "localTime": "22:30",
+    "timezone": "Asia/Shanghai",
+    "existingPromptUsesInstalledOperatorAndReturnedArchivePath": true
+  },
+  "baseline": {
+    "workerReleaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "workerState": "exact_release",
+    "supervisorPid": 32412,
+    "workerPid": 52044,
+    "archiveCount": 3,
+    "dailyStagingCount": 0,
+    "latestBackupId": "daily-20260928T145714Z-78107f0c7a59",
+    "manifestSha256": "2bbdb1c6826930476d1bb9b7c74438bb8af809ba5294dd56e13f5fa438a1b83e",
+    "dumpBytes": 822888546,
+    "allThreeDumpAndManifestSidecarsMatch": true,
+    "protectionUnchanged": true
+  },
+  "tests": {
+    "relatedNode": {
+      "passed": 63,
+      "failed": 0
+    },
+    "finalOperatorNode": {
+      "passed": 20,
+      "failed": 0
+    },
+    "python": {
+      "backupContent": 31,
+      "console": 20,
+      "permissions": 4,
+      "operatorEnvironment": 2,
+      "capacity": 1
+    },
+    "releasePlanner": {
+      "passed": 4
+    },
+    "nativePowerShell": {
+      "shells": [
+        "Windows PowerShell 5.1",
+        "PowerShell 7"
+      ],
+      "groupsPerShell": 6,
+      "passed": true,
+      "crossProcessMutexTested": true
+    },
+    "browser": [
+      "backup-success-preserves-separate-retention-warnings",
+      "ambiguous-job-response-reuses-id",
+      "bounded-upload-checksums-and-offsets",
+      "restore-is-separate-from-upload",
+      "non-admin-has-no-actions"
+    ],
+    "initialFullUnit": {
+      "tests": 2681,
+      "passed": 2652,
+      "failed": 7,
+      "cancelled": 1,
+      "skipped": 21,
+      "failureCauses": [
+        "missing worktree isolated Python venv",
+        "browser fixture timed out under full concurrency"
+      ]
+    },
+    "failedAndCancelledFilesRecheck": {
+      "passed": 56,
+      "failed": 0,
+      "cancelled": 0,
+      "businessCodeChanged": false
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 12,
+      "warningsInTaskFiles": 0
+    },
+    "backendBoundary": {
+      "checkedModules": 544,
+      "violations": 0
+    },
+    "isolatedProductionBuild": "passed",
+    "diffCheck": "passed"
+  },
+  "testLogSha256": {
+    "related-node.log": "2e15833ea827b6a36f83539711db84d070a9d118b9dc8129c22f81d72939a160",
+    "maintenance-final.log": "de4490a686935a45ffccab0f31d75f0585bb1c5a432b6e52db4fcbec8e54a12a",
+    "unit.log": "1ff3c31f139e40f81be71499778f79017bb0d171821048dc466016f5475e609c",
+    "unit-recheck.log": "8b0e1dd36e03e3979fb44820f3fe1155541640204296fc699ee409dea79ba439",
+    "lint.log": "55a8dcd4c585fec633f18624f0e8b67869461994cbe54706543f3366b2b2735c",
+    "build-final.log": "360b0a4f36ca43ae6e97e0d09dd59112574afd2bd6d92bdbe55b84c01e0fc768"
+  },
+  "isolatedRestore": {
+    "rehearsalId": "d6b83d704f73",
+    "port": 55891,
+    "usesExistingInstalledOperator": true,
+    "candidateAdoptionTest": false,
+    "status": "completed",
+    "version": "teruisi-postgres-restore-rehearsal-v1",
+    "startedAt": "2026-09-28T16:30:18.7655987+00:00",
+    "completedAt": "2026-09-28T16:40:35.6719321+00:00",
+    "backupId": "daily-20260928T145714Z-78107f0c7a59",
+    "backupManifestSha256": "2bbdb1c6826930476d1bb9b7c74438bb8af809ba5294dd56e13f5fa438a1b83e",
+    "dumpSha256": "117d9f0a7a3a691d55f9e1ebb18689ad619346f521f11c91af711b3306ebb5cf",
+    "expectedContentSha256": "a5982f54b5acd84f587d1d0c36266daddaad85facff198e17fe54c365d35fa9d",
+    "restoredContentSha256": "a5982f54b5acd84f587d1d0c36266daddaad85facff198e17fe54c365d35fa9d",
+    "isolatedPort": 55891,
+    "productionDatabaseTouched": false,
+    "serviceStateChanged": false,
+    "cleanupStatus": "isolated_data_removed",
+    "profileRestoreVerified": true,
+    "profileContentSha256": "6cfbe34ca32af72a3fd8493b4a11c3dbefc283b35c4ab5e2bea44a0bd86cdcae",
+    "policySyntaxEquivalenceVerified": false,
+    "policySyntaxWitnessSha256": "",
+    "temporaryDataRemovedIndependentlyChecked": true,
+    "passwordFileAbsent": true,
+    "migrationCount": 138,
+    "isolatedPortClosedIndependentlyChecked": true
+  },
+  "pending": [
+    "unified branch integration and combined validation",
+    "exact combined candidate preparation",
+    "user approval for adoption and maintenance",
+    "user approval to resume existing daily automation",
+    "next natural scheduled backup validation"
+  ],
+  "limitations": [
+    "capacity thresholds are estimates, not disk reservations",
+    "historical automatic release cleanup blocked root cause not reproduced",
+    "no claim of full-suite single-run green after selective rechecks"
+  ],
+  "finalRuntime": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "supervisorProcessId": 32412,
+    "portProcessId": 52044,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-29T00:41:44.8302134+08:00"
+  },
+  "finalArchiveCount": 3,
+  "finalScheduleStatus": "PAUSED",
+  "mainUnchangedAtCompletion": "e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e"
+}

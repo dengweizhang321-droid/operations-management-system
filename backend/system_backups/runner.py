@@ -110,7 +110,7 @@ def execute(store, job, operator=invoke_operator):
     job_id, action = job["id"], job["action"]
     if action == "backup":
         result = operator(store, job_id, "Backup")
-        return {**{key: result[key] for key in ("backupId", "manifestSha256", "completedAt")}, "releaseRetention": result.get("releaseRetention")}
+        return {**{key: result[key] for key in ("backupId", "manifestSha256", "completedAt")}, "retention": result.get("retention"), "releaseRetention": result.get("releaseRetention")}
     if action == "retention":
         result = operator(store, job_id, "Retain")
         return {key: result[key] for key in ("retained", "removed")}

@@ -33,7 +33,7 @@ try {
     const payload = route.request().postDataJSON(); requests.push(payload);
     if (payload.operation === "job") {
       if (failJob) { failJob = false; return route.fulfill({ status: 503, json: { error: "合成响应中断" } }); }
-      snapshot.jobs.unshift({ id: payload.id, action: payload.action, status: "completed", createdAt: Date.now() / 1000, result: { uploadId: payload.target } });
+      snapshot.jobs.unshift({ id: payload.id, action: payload.action, status: "completed", createdAt: Date.now() / 1000, result: { uploadId: payload.target, ...(payload.action === "backup" ? { retention: { status: "blocked" }, releaseRetention: { status: "blocked" } } : {}) } });
       return route.fulfill({ json: { job: snapshot.jobs[0] } });
     }
     if (payload.operation === "upload-start") return route.fulfill({ json: { id: payload.id, offset: 0 } });
@@ -48,6 +48,9 @@ try {
   await page.getByRole("alert").filter({ hasText: "合成响应中断" }).waitFor();
   await page.getByRole("button", { name: "核对原请求" }).click();
   await page.getByText("创建备份 · 已完成", { exact: true }).waitFor();
+  await page.getByRole("alert").filter({ hasText: "E 盘归档或轮换未完成" }).waitFor();
+  await page.getByRole("alert").filter({ hasText: "发布包清理未完成" }).waitFor();
+  checks.push("backup-success-preserves-separate-retention-warnings");
   assert.equal(requests[0].id, requests[1].id); checks.push("ambiguous-job-response-reuses-id");
   await page.getByLabel("选择数据库备份包").setInputFiles({ name: "synthetic-backup.zip", mimeType: "application/zip", buffer: Buffer.alloc(300000, 42) });
   assert.equal(await page.getByRole("button", { name: "上传并校验", exact: true }).isEnabled(), false);

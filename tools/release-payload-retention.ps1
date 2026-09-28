@@ -1,5 +1,6 @@
-param([switch]$Execute)
+﻿param([switch]$Execute)
 $ErrorActionPreference = 'Stop'
+$cleanupStage = 'deployment_preflight'
 $runtime = 'D:\teruisi-runtime\teruisi-worker-sales'
 $releases = Join-Path $runtime 'releases'
 $mutex = [Threading.Mutex]::new($false, 'Local\TERUISI.Worker.LocalService.v1')
@@ -16,6 +17,7 @@ function Assert-ReleaseRetentionDeployment([string]$LibraryPath) {
     Assert-RuntimeRootAclHardened
   } finally { $env:TERUISI_DJANGO_SERVICE_LIBRARY_ONLY = $previousLibrary }
 }
+try {
 if ($Execute) {
   $installed = 'D:\teruisi-runtime\django-sales\app\tools\release-payload-retention.ps1'
   if ([IO.Path]::GetFullPath($PSCommandPath) -ine $installed) { throw 'Release cleanup requires the installed operator' }
@@ -47,8 +49,10 @@ function Assert-RetentionTarget($target) {
   return $expected
 }
 try {
+  $cleanupStage = 'lifecycle_admission'
   $held = $mutex.WaitOne(0)
   if (-not $held) { throw 'Worker lifecycle is busy; cleanup skipped' }
+  $cleanupStage = 'release_plan'
   $json = & node (Join-Path $PSScriptRoot 'release-payload-retention.mjs')
   if ($LASTEXITCODE -ne 0) { throw 'Release retention preflight failed' }
   $plan = ($json -join "`n") | ConvertFrom-Json
@@ -59,6 +63,7 @@ try {
   while ($null -ne $cursor) { if ($cursor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Audit path is linked' }; $cursor = $cursor.Parent }
   $auditStream = [IO.FileStream]::new((Join-Path $audit ([Guid]::NewGuid().ToString('N') + '.jsonl')), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::Read)
   Write-RetentionAudit @{event='planned';plan=$plan}
+  $cleanupStage = 'payload_prune'
   foreach ($target in $plan.targets) {
     $path = Assert-RetentionTarget $target
     $root = Split-Path -Parent $path
@@ -83,6 +88,7 @@ try {
     if (Test-Path -LiteralPath $path) { throw 'Release payload cleanup incomplete' }
     Write-RetentionAudit @{event='deleted';path=$path}
   }
+  $cleanupStage = 'release_postflight'
   foreach ($file in @($plan.retainedKeys) + @($plan.preservedMetadata)) {
     if ((Get-FileHash -LiteralPath $file.path -Algorithm SHA256).Hash -ine $file.sha256) { throw 'Preserved release material changed' }
   }
@@ -95,5 +101,11 @@ try {
 } finally {
   if ($null -ne $auditStream) { $auditStream.Dispose() }
   if ($held) { $mutex.ReleaseMutex() }
+}
+
+} catch {
+  $_.Exception.Data['backupPhase'] = $cleanupStage
+  throw
+} finally {
   $mutex.Dispose()
 }
