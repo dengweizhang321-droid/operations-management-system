@@ -11,5 +11,261 @@
     "TmallYiyongDaily2026",
     "TmallCuizhiwangDaily2026",
     "TmallMasituDaily2026"
-  ]
+  ],
+  "manualCompletion": {
+    "J8kY2mQ5vR7sT4pN": [
+      {
+        "name": "手动运行",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固定采集日和销售日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·接口校验与五表下载",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·五表完整校验和导入演练",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "D·统一导入运营管理系统",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "E·独立核验五类精确批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdN8nSilentCopy2026": [
+      {
+        "name": "手动运行",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·生成京东多店铺计划",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·四店串行静默下载、导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·核验四店三类数据与批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdMarketSilentCopy2026": [
+      {
+        "name": "手动运行",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计算运营系统缺失日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·按日静默导出签收并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·回查全部目标日覆盖",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdPromotionDaily2026": [
+      {
+        "name": "手动补跑8月20日",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固化京准通目标日期与店铺",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·生成下载校验导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验文件与精确批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "JdPromotionCutMeat2026": [
+      {
+        "name": "手动补跑8月20日",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·固化切肉机店铺与目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·生成下载校验导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·独立复验文件与精确批次",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "M4xY8kQ2vR6sT9pC": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "TmallLiliDaily2026": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·商品报表逐日下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "TmallTuofengDaily2026": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·商品报表逐日下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·出售中逐页导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "TmallYiyongDaily2026": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·直连创建商品报表、下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·MTOP 分批导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "TmallCuizhiwangDaily2026": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·商品报表逐日下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·出售中逐页导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ],
+    "TmallMasituDaily2026": [
+      {
+        "name": "手动完整运行（强制 M）",
+        "type": "n8n-nodes-base.manualTrigger"
+      },
+      {
+        "name": "A·计划目标日期",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "B·逐日下载并验证 XLS",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "C·签收、导入并覆盖回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "P·商品报表逐日下载、汇总导入并回查",
+        "type": "n8n-nodes-base.httpRequest"
+      },
+      {
+        "name": "M·出售中逐页导出、合并校验并导入",
+        "type": "n8n-nodes-base.httpRequest"
+      }
+    ]
+  }
 }

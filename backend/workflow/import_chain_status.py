@@ -1,7 +1,8 @@
-"""Bounded, read-only projection of n8n execution metadata; never reads node data."""
+"""Bounded, read-only n8n status projection; node payloads never leave this reader."""
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import time
 from datetime import datetime, time as day_time, timedelta, timezone
@@ -16,6 +17,74 @@ SHANGHAI = ZoneInfo("Asia/Shanghai")
 CATALOG = Path(__file__).with_name("import_chain_catalog.json")
 MAX_ROWS = 2000
 SYNTHETIC_APPLICATION_ID = 0x54525349
+MAX_MANUAL_RUNS = 64
+MAX_EVIDENCE_BYTES = 1024 * 1024
+MAX_TOTAL_EVIDENCE_BYTES = 8 * 1024 * 1024
+
+
+def _complete_manual_run(row, evidence, contract):
+    """Inspect only run metadata, not HTTP parameters, credentials or output values.
+
+    A successful editor execution can be a single-node test. Require the original
+    manual entry and every registered business stage to actually finish in this
+    execution, without pinned/cached input or a partial-execution destination.
+    n8n stores execution data as a flatted table; dereference only known fields,
+    avoiding recursive expansion of arbitrary payloads or cyclic references.
+    """
+    if not evidence or not contract:
+        return False
+    try:
+        definition = json.loads(evidence["workflowData"])
+        values = json.loads(evidence["data"])
+        if not isinstance(values, list) or not 1 <= len(values) <= 10000:
+            return False
+
+        def ref(value):
+            if isinstance(value, str) and value.isascii() and value.isdigit():
+                return values[int(value)]
+            return value
+
+        def obj(value):
+            value = ref(value)
+            if not isinstance(value, dict):
+                raise ValueError("Invalid metadata object")
+            return value
+
+        root = obj(values[0])
+        result = obj(root["resultData"])
+        if (definition["id"] != row["workflowId"] or definition.get("pinData")
+                or obj(root["startData"]) or ref(result.get("pinData")) or result.get("error")):
+            return False
+        run = obj(result["runData"])
+        started, stopped = _instant(row["startedAt"]), _instant(row["stoppedAt"])
+        if not started or not stopped or stopped < started:
+            return False
+        prior_index, prior_time = -1, started.timestamp() * 1000
+        for expected in contract:
+            nodes = [n for n in definition["nodes"] if n["name"] == expected["name"]]
+            if (len(nodes) != 1 or nodes[0]["type"] != expected["type"] or nodes[0].get("disabled")
+                    or nodes[0].get("continueOnFail") or nodes[0].get("onError", "stopWorkflow") != "stopWorkflow"):
+                return False
+            attempts = ref(run[expected["name"]])
+            if not isinstance(attempts, list) or not attempts:
+                return False
+            # Every recorded attempt must be real and successful. Use the final
+            # attempt for ordering; loops in other coordination nodes are allowed.
+            for attempt in attempts:
+                attempt = obj(attempt)
+                if ref(attempt.get("executionStatus")) != "success" or attempt.get("error"):
+                    return False
+            last = obj(attempts[-1])
+            index, stamp, duration = last["executionIndex"], last["startTime"], last["executionTime"]
+            if (type(index) is not int or type(stamp) not in (int, float) or type(duration) not in (int, float)
+                    or not math.isfinite(stamp) or not math.isfinite(duration)
+                    or index <= prior_index or not prior_time <= stamp <= stopped.timestamp() * 1000
+                    or duration < 0 or stamp + duration > stopped.timestamp() * 1000):
+                return False
+            prior_index, prior_time = index, stamp
+        return True
+    except (ValueError, TypeError, KeyError, IndexError, OverflowError, RecursionError):
+        return False
 
 
 def _unavailable():
@@ -31,7 +100,7 @@ def _instant(value):
 
 def summarize_workflow(workflow_id, active, rows):
     # All rows have already been restricted to today's terminal executions or
-    # currently active executions, and to full automatic trigger/webhook runs.
+    # currently active executions. Manual successes have full-run evidence.
     # n8n SQLite timestamps may omit the zone or include milliseconds. Return
     # explicit UTC instants so browsers never interpret database UTC as local.
     rows = [{**r, "startedAt": _instant(r["startedAt"]).isoformat() if r["startedAt"] else None,
@@ -69,7 +138,8 @@ def read_today_status(*, now=None):
         raise _unavailable()
     if any(p.is_symlink() or getattr(p, "is_junction", lambda: False)() for p in (database, *database.parents)):
         raise _unavailable()
-    workflow_ids = json.loads(CATALOG.read_text(encoding="utf-8"))["workflowIds"]
+    catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
+    workflow_ids = catalog["workflowIds"]
     if not workflow_ids or len(workflow_ids) > 32:
         raise _unavailable()
     deadline = time.monotonic() + 2
@@ -87,7 +157,7 @@ def read_today_status(*, now=None):
             SELECT id, "workflowId", status, mode, COALESCE("startedAt", "createdAt") AS "startedAt", "stoppedAt"
             FROM execution_entity
             WHERE "workflowId" IN ({marks}) AND "deletedAt" IS NULL
-              AND mode IN ('trigger', 'webhook')
+              AND (mode IN ('trigger', 'webhook') OR (mode = 'manual' AND status = 'success' AND "stoppedAt" IS NOT NULL))
               AND datetime(COALESCE("startedAt", "createdAt")) <= datetime(?)
               AND ((datetime("stoppedAt") >= datetime(?) AND datetime("stoppedAt") < datetime(?)
                     AND datetime("stoppedAt") <= datetime(?))
@@ -96,6 +166,26 @@ def read_today_status(*, now=None):
         ''', [*workflow_ids, now.isoformat(), start.isoformat(), end.isoformat(), now.isoformat(), MAX_ROWS + 1]).fetchall()
         if len(rows) > MAX_ROWS:
             raise _unavailable()  # Never infer a missing success from truncated history.
+        manual_rows = [r for r in rows if r["mode"] == "manual"]
+        if len(manual_rows) > MAX_MANUAL_RUNS:
+            raise _unavailable()
+        accepted_manual, total_bytes = set(), 0
+        for row in manual_rows:
+            if time.monotonic() > deadline:
+                raise _unavailable()
+            evidence = connection.execute('''
+                SELECT data, "workflowData" FROM execution_data WHERE "executionId" = ?
+                AND length(CAST(data AS BLOB)) <= ? AND length(CAST("workflowData" AS BLOB)) <= ?
+            ''', [row["id"], MAX_EVIDENCE_BYTES, MAX_EVIDENCE_BYTES]).fetchone()
+            if evidence:
+                total_bytes += sum(len(v.encode("utf-8")) for v in evidence)
+                if total_bytes > MAX_TOTAL_EVIDENCE_BYTES:
+                    raise _unavailable()
+            if _complete_manual_run(row, evidence, catalog.get("manualCompletion", {}).get(row["workflowId"])):
+                accepted_manual.add(row["id"])
+        rows = [r for r in rows if r["mode"] != "manual" or r["id"] in accepted_manual]
+        if time.monotonic() > deadline:
+            raise _unavailable()
         synthetic = connection.execute("PRAGMA application_id").fetchone()[0] == SYNTHETIC_APPLICATION_ID
         items = []
         for workflow_id in workflow_ids:

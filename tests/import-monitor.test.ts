@@ -33,12 +33,13 @@ test("removed continuity links normalize safely and chain links survive refresh"
 });
 
 test("display catalog matches allowlisted workflow definitions without bundling operational configuration", async () => {
-  const { buildImportChainCatalog } = await import("../tools/build-import-chain-catalog.mjs");
+  const { buildImportChainCatalog, buildManualCompletionContracts } = await import("../tools/build-import-chain-catalog.mjs");
   const text = await readFile(new URL("../lib/imports/chain-catalog.generated.json", import.meta.url), "utf8");
   const catalog = JSON.parse(text);
   assert.deepEqual(catalog, await buildImportChainCatalog());
   const backend = JSON.parse(await readFile(new URL("../backend/workflow/import_chain_catalog.json", import.meta.url), "utf8"));
   assert.deepEqual(backend.workflowIds, catalog.rules.map((r: { workflowId: string }) => r.workflowId));
+  assert.deepEqual(backend.manualCompletion, await buildManualCompletionContracts(catalog));
   assert.equal(new Set(catalog.rules.map((r: { workflowId: string }) => r.workflowId)).size, catalog.rules.length);
   const jdRule = catalog.rules.find((r: { chainKey: string }) => r.chainKey === "jd");
   assert.equal(jdRule?.workflowId, "JdN8nSilentCopy2026");
@@ -84,4 +85,11 @@ test("today status distinguishes scheduled completion from an automatic retry", 
   assert.equal(completedAtLabel(scheduled), "今日定时完成于");
   assert.equal(todayStatusLabel(retried).label, "今天重试已完成");
   assert.equal(completedAtLabel(retried), "今日重试完成于");
+  const manual = { ...base, completedMode: "manual" as const, executionMode: "manual" as const };
+  assert.equal(todayStatusLabel(manual).label, "今日手动补跑已完成");
+  assert.equal(completedAtLabel(manual), "今日手动补跑完成于");
+  const response: ChainTodayResponse = { date: "2026-09-10", timezone: "Asia/Shanghai", checkedAt: "2026-09-10T02:00:00Z", source: "n8n_execution_metadata", items: [manual] };
+  assert.equal(validateTodayStatus(response), true);
+  assert.equal(validateTodayStatus({ ...response, items: [{ ...manual, state: "running" }] }), false);
+  assert.equal(validateTodayStatus({ ...response, items: [{ ...manual, completedMode: "trigger" }] }), false);
 });

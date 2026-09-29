@@ -1439,7 +1439,7 @@ export async function getAutomationRunStatusPageData(
   const allowed = ["jackyun", "tmall", "jd", "jd_market", "jd_promotion", "jd_promotion_cut_meat"] as const;
   if (!allowed.includes(workflowKey as (typeof allowed)[number])) failInput("workflowKey 不受支持");
   const payload = await serviceSet(overrides).readAutomationStatus(principal, context.signal) as ChainTodayResponse;
-  if (!validateTodayStatus(payload)) throw new Error("自动运行状态响应无效，无法核实今天是否完成。");
+  if (!validateTodayStatus(payload)) throw new Error("工作流运行状态响应无效，无法核实今天是否完成。");
   const ids = new Set(importChainCatalog.rules.filter(rule => workflowKey === "jd_promotion_cut_meat"
     ? rule.workflowId === "JdPromotionCutMeat2026" : workflowKey === "jd_promotion"
       ? rule.workflowId === "JdPromotionDaily2026" : rule.chainKey === workflowKey).map(rule => rule.workflowId));

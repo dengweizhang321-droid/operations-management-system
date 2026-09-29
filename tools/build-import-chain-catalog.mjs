@@ -41,8 +41,24 @@ export async function buildImportChainCatalog() {
   return { source: "repository_definitions", entities, chains, rules };
 }
 
+// Server-only completion contract: never send executable node parameters to clients.
+export async function buildManualCompletionContracts(catalog) {
+  const stageOrder = { jackyun: "ABCDE", jd: "ABC", jd_market: "ABC", jd_promotion: "ABC", tmall: "ABCPM" };
+  return Object.fromEntries(await Promise.all(catalog.rules.map(async (rule) => {
+    const definition = await read(rule.definitionFile);
+    const unique = (predicate) => {
+      const matches = definition.nodes.filter(predicate);
+      if (matches.length !== 1 || matches[0].disabled || matches[0].continueOnFail) throw new Error(`Invalid completion contract: ${rule.workflowId}`);
+      return { name: matches[0].name, type: matches[0].type };
+    };
+    const nodes = [unique(n => n.type === "n8n-nodes-base.manualTrigger"),
+      ...[...stageOrder[rule.chainKey]].map(stage => unique(n => n.name.startsWith(`${stage}·`) && n.type === "n8n-nodes-base.httpRequest"))];
+    return [rule.workflowId, nodes];
+  })));
+}
+
 if (process.argv[1] && import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]).href) {
   const catalog = await buildImportChainCatalog();
   await writeFile(new URL("lib/imports/chain-catalog.generated.json", root), `${JSON.stringify(catalog, null, 2)}\n`);
-  await writeFile(new URL("backend/workflow/import_chain_catalog.json", root), `${JSON.stringify({ workflowIds: catalog.rules.map(r => r.workflowId) }, null, 2)}\n`);
+  await writeFile(new URL("backend/workflow/import_chain_catalog.json", root), `${JSON.stringify({ workflowIds: catalog.rules.map(r => r.workflowId), manualCompletion: await buildManualCompletionContracts(catalog) }, null, 2)}\n`);
 }
