@@ -1,0 +1,371 @@
+{
+  "version": "teruisi-manual-import-status-production-v1",
+  "checkedAt": "2026-09-29T10:38:16.739127+00:00",
+  "status": "deployed_verified",
+  "sourceCommits": {
+    "manualStatus": "34caa914a785d51db55a51659f0c45de0ded0c64",
+    "displayHints": "0e96f617ff5f45a496a7fcef33a009eee38f25cf"
+  },
+  "authorization": "User explicitly approved short application maintenance and deployment in this chat. Footer correction completed within the same release scope.",
+  "maintenance": {
+    "status": "maintenance",
+    "maintenanceId": "75453834f96e4d498b9d18c77b61e966",
+    "backendStopped": true,
+    "postgresPreserved": true
+  },
+  "firstWorker": {
+    "status": "activated",
+    "version": "teruisi-local-worker-release-successor-v1",
+    "planSha256": "9e16b74e82e7a7a73566bbc32f84d8824344f81b78a671abbf61e2223a1cfbe7",
+    "predecessorReleaseId": "20260929T005710Z-e980ef9414b72995",
+    "releaseId": "20260929T091126Z-1efe1a549c7491e5",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T091126Z-1efe1a549c7491e5\\deployment-manifest.json",
+    "manifestSha256": "f607137eea428f8d0b4b976d3a1dc596a0b34457c0b34fa1ffdb9803ad70af11",
+    "successorSha256": "a83aaf8891e727280422c95e9c8b58654c85af8066738f08741e1d8488da7a1e",
+    "consumptionSha256": "51387daf3b32719911c25d26878668aeac8526f0869f3c6f717a9740a6cb3c99",
+    "startupBindingSha256": "fa8e3e82322db47f88c87059588d148ddd0089daa0470d530281430358542d0a"
+  },
+  "finalWorker": {
+    "status": "activated",
+    "version": "teruisi-local-worker-release-successor-v1",
+    "planSha256": "a62eef7e17cb1f69958f7cbe919f586eafb4232bfb0f51b19dfcacc349acefaf",
+    "predecessorReleaseId": "20260929T091126Z-1efe1a549c7491e5",
+    "releaseId": "20260929T100854Z-25db306d29baf4ee",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T100854Z-25db306d29baf4ee\\deployment-manifest.json",
+    "manifestSha256": "cb9ef902f969d3de3c0ed154653986680ca8c49478e1df869932d88886336d55",
+    "successorSha256": "6674887dbe179509681c2f651ee2842fb8fec17a2f0c51572daed850159772f9",
+    "consumptionSha256": "af278bd4886dba952d615d929b80de24502aa6c8bd325f4d74c7a25e7b452f5d",
+    "startupBindingSha256": "51c4498b89c59c5cdcbf115995ada33ef0a8b1137485ac63a26c113a4f2418f0"
+  },
+  "django": {
+    "preparedId": "bf419fe762944c6a904bc0f468d25b55",
+    "manifestSha256": "52b13c8cf8c580fb6bcef2c3b17c187a0b6aee3811b5df1e1aa0622f16fb19e1"
+  },
+  "system": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260929T100854Z-25db306d29baf4ee",
+    "supervisorProcessId": 33248,
+    "portProcessId": 32752,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-29T18:36:44.6079915+08:00"
+  },
+  "startup": {
+    "status": "verified",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20260929T100854Z-25db306d29baf4ee",
+    "manifestSha256": "cb9ef902f969d3de3c0ed154653986680ca8c49478e1df869932d88886336d55",
+    "startupVerified": true
+  },
+  "supervisor": {
+    "status": "completed",
+    "desiredState": "running",
+    "supervisorProcess": "running",
+    "health": "healthy",
+    "code": "all_components_ready",
+    "lastHealthyAt": "2026-09-29T10:34:44.3339010+00:00",
+    "restartAttemptsInWindow": 1,
+    "pendingAlertCount": 111,
+    "serviceStateChanged": false
+  },
+  "dingtalk": {
+    "DingTalkScheduler": "running",
+    "DingTalkReceiver": "running",
+    "DingTalkConnection": "connected"
+  },
+  "page": {
+    "workflow": {
+      "workflowId": "JdN8nSilentCopy2026",
+      "active": true,
+      "state": "completed",
+      "completedToday": true,
+      "completedAt": "2026-09-29T15:59:24.807+08:00",
+      "completedMode": "manual",
+      "executionId": "5392",
+      "executionMode": "manual",
+      "startedAt": "2026-09-29T15:52:53.214+08:00",
+      "finishedAt": "2026-09-29T15:59:24.807+08:00"
+    },
+    "verifiedStoreRows": 4,
+    "label": "今日手动补跑已完成",
+    "finishedAtLabel": "今日手动补跑完成于 09/29 15:59",
+    "footerVerified": true,
+    "screenshot": "E:/codex-artifacts/manual-import-status-20260929/page-final-detail.png"
+  },
+  "resourceVerification": {
+    "assets": [
+      {
+        "url": "/assets/ai-page-context-provider-Dc3lH0uZ.js",
+        "sha256": "81068a87be6359e62cb5aca4183656b0fdb30f82e4dab2532fd9e2caa6753858",
+        "matched": true
+      },
+      {
+        "url": "/assets/api-client-BkSFlZxp.js",
+        "sha256": "1668ca8a79bf454e2d7c8c8ef2783c19ca9d6640e5df6327400a57e8ccc5edbe",
+        "matched": true
+      },
+      {
+        "url": "/assets/api-error-CJCV3BJQ.js",
+        "sha256": "4efae8b1a9127677a8c80569e149000d507839d79d3fc807c2a37d490174941f",
+        "matched": true
+      },
+      {
+        "url": "/assets/dialog-CXm5GeIc.js",
+        "sha256": "62403b91d7d23f2e2c0f24b5941f9176e1a7ebf61f5cb8f770132bc6f8dc1ac5",
+        "matched": true
+      },
+      {
+        "url": "/assets/framework-CXnKph_e.js",
+        "sha256": "73b45b606448e4dc310fbe851d8089ee752f3eb081980b3a6fec88988820ee12",
+        "matched": true
+      },
+      {
+        "url": "/assets/index-CG6T1BIZ.js",
+        "sha256": "6fcee39ec581f11d5286805bd95d0977d58d9680def25a77c994201a3291e77f",
+        "matched": true
+      },
+      {
+        "url": "/assets/index-Sgc4G-ZW.css",
+        "sha256": "aaa00899c24497972eddb737774444a75980d7aa0d5eb7d03bc56a4ac1c27fcc",
+        "matched": true
+      },
+      {
+        "url": "/assets/layout-segment-context-DGpZeu7o.js",
+        "sha256": "3242055f435184a00915ad509196f21147dd2427dcab6f024b96908a49275c3d",
+        "matched": true
+      },
+      {
+        "url": "/assets/module-view-shared-C5DPvJ_4.js",
+        "sha256": "bef709b2ccd5a55e06911ae20a759ba86e015a641693a7ab40cd93607f8086d3",
+        "matched": true
+      },
+      {
+        "url": "/assets/navigation-catalog-CFFzuV3l.js",
+        "sha256": "f6a00161fc62716613f22fb481d4c1692f15187eca44913109ad32524b24f628",
+        "matched": true
+      },
+      {
+        "url": "/assets/page-Cmx5lN5d.js",
+        "sha256": "0710cf9046bd90947f018d2a352b46b442a6781f682fdc400c36f17d7a6c469c",
+        "matched": true
+      },
+      {
+        "url": "/assets/page-context-CHRRbv11.js",
+        "sha256": "2ce9a4930dee41b41188a10de0f5c6defc2ea4c8395d062e61054d5fc1f3bb61",
+        "matched": true
+      },
+      {
+        "url": "/assets/reloadable-lazy-DdXIQ3Cd.js",
+        "sha256": "89877a478fb2c752b38ed3187cc3c2976f3114b25c92131f6a3da6421188a432",
+        "matched": true
+      },
+      {
+        "url": "/assets/rolldown-runtime-S-ySWqyJ.js",
+        "sha256": "5db5ba82eef00d1dee7e86e663098c9427d01183a88d357437daff295aec3e75",
+        "matched": true
+      },
+      {
+        "url": "/assets/searchable-select-TuzqFU6k.js",
+        "sha256": "f423c656f508f5e8c08f6790e50b567b02f6e294204032fe6ba28e765310916f",
+        "matched": true
+      }
+    ],
+    "backend": [
+      {
+        "path": "backend/workflow/import_chain_status.py",
+        "sha256": "4421c72258b24255a920e5763ffb3704dc53c4a0ac51a650ab18b6528372dc83",
+        "matched": true
+      },
+      {
+        "path": "backend/workflow/import_chain_catalog.json",
+        "sha256": "ce16c2728cb3aa124d6312666a73429e2498d08616298b16422df13e11cb2f23",
+        "matched": true
+      }
+    ]
+  },
+  "n8n": {
+    "checkedAt": "2026-09-29T10:27:19.183354+00:00",
+    "definitionsUnchanged": true,
+    "definitionCount": 18,
+    "activeCount": 13,
+    "nonterminal": [],
+    "naturalWeeklyExecutionsDuringRelease": []
+  },
+  "preservedProcesses": [
+    {
+      "ProcessId": 25736,
+      "Name": "postgres.exe",
+      "CreationDate": "2026-09-29T15:16:08.483356+08:00"
+    },
+    {
+      "ProcessId": 13776,
+      "Name": "node.exe",
+      "CreationDate": "2026-09-29T15:16:11.881284+08:00"
+    }
+  ],
+  "migrations": {
+    "migrationCount": 138,
+    "unchanged": true,
+    "sha256": "9020a1028f7d6cbd8f538e5b278e942a3db95c7dc95cc3554d7adf8ce8042f2a"
+  },
+  "backups": {
+    "before": {
+      "status": "completed",
+      "backupId": "daily-20260929T093200Z-6cd51c95f8b8",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20260929T093200Z-6cd51c95f8b8",
+      "manifestSha256": "f8642d9e20e196916006abb288a3c3b42aaba9eba16a877325aee683b28988d6",
+      "dumpSha256": "5201953a011e35ca1376203825ea74d5847e00caf5daee5103a5d5649d26e9cc",
+      "contentSha256": "13fde053515036fc929c6ae3964aff36e86978d1ed87c10a863cac51a2399aa1",
+      "completedAt": "2026-09-29T09:37:58.0010068+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20260929T093200Z-6cd51c95f8b8",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20260929T023526Z-a389d83c37d9"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      }
+    },
+    "beforeRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "ad15b6304913",
+      "startedAt": "2026-09-29T09:42:58.6520210+00:00",
+      "completedAt": "2026-09-29T09:52:16.9732225+00:00",
+      "backupId": "daily-20260929T093200Z-6cd51c95f8b8",
+      "backupManifestSha256": "f8642d9e20e196916006abb288a3c3b42aaba9eba16a877325aee683b28988d6",
+      "dumpSha256": "5201953a011e35ca1376203825ea74d5847e00caf5daee5103a5d5649d26e9cc",
+      "expectedContentSha256": "13fde053515036fc929c6ae3964aff36e86978d1ed87c10a863cac51a2399aa1",
+      "restoredContentSha256": "13fde053515036fc929c6ae3964aff36e86978d1ed87c10a863cac51a2399aa1",
+      "isolatedPort": 55897,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "6f0724e56f6d7bed2fabe3cb8452852ba491680aaed1d2da0886d17b0b8d0872",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "after": {
+      "status": "completed",
+      "backupId": "daily-20260929T102516Z-09215ad5905e",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20260929T102516Z-09215ad5905e",
+      "manifestSha256": "aaece17411d9aab54d2ccc18c849903c41ea8aab07de472a2f432675d6473e64",
+      "dumpSha256": "fb09caf4b431145b0560267a1c87b601905cf54e14253d30f716bc1dc5306dd2",
+      "contentSha256": "c5933030043d124d3d6eacdc1fc415ccced54617456b81081e082a0a7b1e227a",
+      "completedAt": "2026-09-29T10:31:33.6756349+00:00",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20260929T102516Z-09215ad5905e",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20260929T093200Z-6cd51c95f8b8"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      }
+    },
+    "afterVerify": {
+      "status": "completed",
+      "backupId": "daily-20260929T102516Z-09215ad5905e",
+      "manifestSha256": "aaece17411d9aab54d2ccc18c849903c41ea8aab07de472a2f432675d6473e64",
+      "dumpSha256": "fb09caf4b431145b0560267a1c87b601905cf54e14253d30f716bc1dc5306dd2",
+      "contentSha256": "c5933030043d124d3d6eacdc1fc415ccced54617456b81081e082a0a7b1e227a",
+      "serviceStateChanged": false
+    },
+    "finalCount": 3,
+    "unresolvedCount": 0,
+    "retentionNote": "The verified pre-release restore point was automatically retired by the existing three-point policy after the final backup succeeded. Two original protected points remain; do not treat the retired pre-release directory as still present."
+  },
+  "watchdog": {
+    "observations": [
+      {
+        "state": {
+          "lastMode": "running",
+          "decision": "healthy",
+          "lastCheck": "2026-09-29T18:32:16.085179+08:00",
+          "lastHealthy": "2026-09-29T18:32:58.1130951+08:00",
+          "failures": 0
+        },
+        "task": {
+          "LastRunTime": "2026-09-29T18:33:24+08:00",
+          "LastTaskResult": 267009
+        }
+      },
+      {
+        "state": {
+          "lastMode": "running",
+          "decision": "healthy",
+          "lastCheck": "2026-09-29T18:34:02.5226822+08:00",
+          "lastHealthy": "2026-09-29T18:34:02.57498+08:00",
+          "failures": 0
+        },
+        "task": {
+          "LastRunTime": "2026-09-29T18:34:24+08:00",
+          "LastTaskResult": 267009
+        }
+      },
+      {
+        "state": {
+          "lastMode": "running",
+          "decision": "healthy",
+          "lastCheck": "2026-09-29T18:35:58.0304601+08:00",
+          "lastHealthy": "2026-09-29T18:35:58.0485801+08:00",
+          "failures": 0
+        },
+        "task": {
+          "LastRunTime": "2026-09-29T18:35:24+08:00",
+          "LastTaskResult": 0
+        }
+      }
+    ],
+    "probeFailureRetained": true,
+    "note": "Two status-probe-unavailable samples occurred during post-backup work; one also had homepage timeout. Active recheck and subsequent natural checks returned healthy with zero failures; no watchdog settings, budgets or thresholds changed. The underlying probe timing cause was not established."
+  },
+  "businessReplayPerformed": false,
+  "n8nRestarted": false,
+  "codeReviewNotes": "The first UI check caught two residual automatic-only hints; commit 0e96f617 corrected them with 7 targeted tests, 20 rendered contracts and a fresh build, then a Worker-only release. Initial 2728-test run had 12 failures; all passed in the 134-test targeted rerun after exact snapshot projection and isolated test dependency setup. No clean full-suite rerun is claimed."
+}
