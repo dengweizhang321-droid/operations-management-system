@@ -1,0 +1,6306 @@
+{
+  "before": {
+    "mode": "scheduled",
+    "label": "wrangler-before-normal",
+    "count": 50,
+    "engine": "wrangler",
+    "fixturePadding": 262144,
+    "inspectorAttached": false,
+    "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+    "inspectorProxySha256": "17077283a771d0575bb5def67e91c0c74dec9e505d29bd63f8a71c1294c81f8f",
+    "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+    "elapsedSeconds": 60.08,
+    "requests": [
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      }
+    ],
+    "samples": [
+      {
+        "phase": "warm",
+        "seconds": 3.367,
+        "requests": 1,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 61222912,
+              "workingSetBytes": 70905856
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 107716608,
+              "workingSetBytes": 113766400
+            }
+          ],
+          "hostPrivateBytes": 353566720,
+          "freeKiB": 3849488,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 7.507,
+        "requests": 11,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 171515904,
+              "workingSetBytes": 161579008
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 161554432,
+              "workingSetBytes": 155594752
+            }
+          ],
+          "hostPrivateBytes": 312606720,
+          "freeKiB": 3698836,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 11.999,
+        "requests": 21,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 236761088,
+              "workingSetBytes": 215678976
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 168546304,
+              "workingSetBytes": 157396992
+            }
+          ],
+          "hostPrivateBytes": 412397568,
+          "freeKiB": 3284632,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 16.409,
+        "requests": 31,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 248508416,
+              "workingSetBytes": 222248960
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 192462848,
+              "workingSetBytes": 179027968
+            }
+          ],
+          "hostPrivateBytes": 391868416,
+          "freeKiB": 3066612,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 20.835,
+        "requests": 41,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 319238144,
+              "workingSetBytes": 277090304
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 198782976,
+              "workingSetBytes": 180416512
+            }
+          ],
+          "hostPrivateBytes": 398811136,
+          "freeKiB": 2886836,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 25.068,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 331083776,
+              "workingSetBytes": 290381824
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 221704192,
+              "workingSetBytes": 201736192
+            }
+          ],
+          "hostPrivateBytes": 407883776,
+          "freeKiB": 2882540,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "loaded",
+        "seconds": 27.623,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 331083776,
+              "workingSetBytes": 290381824
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 221704192,
+              "workingSetBytes": 201736192
+            }
+          ],
+          "hostPrivateBytes": 411226112,
+          "freeKiB": 2877960,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "idle-30s",
+        "seconds": 59.94,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 17440,
+              "role": "public-proxy",
+              "privateBytes": 322105344,
+              "workingSetBytes": 282009600
+            },
+            {
+              "pid": 52256,
+              "role": "application",
+              "privateBytes": 232185856,
+              "workingSetBytes": 214241280
+            }
+          ],
+          "hostPrivateBytes": 207183872,
+          "freeKiB": 2415388,
+          "competingTests": 0
+        },
+        "heaps": null
+      }
+    ],
+    "snapshots": {},
+    "counters": {
+      "outbound": 459,
+      "rejectedOrigin": 0,
+      "rejectedSignature": 0,
+      "unhandled": 0,
+      "paths": {
+        "/api/ai/scheduler": 255,
+        "/api/netshop/consumers/query": 51,
+        "/api/market/commands": 102,
+        "/api/market/queries": 51
+      }
+    },
+    "production": false
+  },
+  "after": {
+    "mode": "scheduled",
+    "label": "wrangler-after-normal",
+    "count": 50,
+    "engine": "wrangler",
+    "fixturePadding": 262144,
+    "inspectorAttached": false,
+    "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+    "elapsedSeconds": 59.407,
+    "requests": [
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      }
+    ],
+    "samples": [
+      {
+        "phase": "warm",
+        "seconds": 4.061,
+        "requests": 1,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 47767552,
+              "workingSetBytes": 59322368
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 107986944,
+              "workingSetBytes": 113565696
+            }
+          ],
+          "hostPrivateBytes": 347492352,
+          "freeKiB": 3104900,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 8.078,
+        "requests": 11,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 51326976,
+              "workingSetBytes": 61689856
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 159649792,
+              "workingSetBytes": 152813568
+            }
+          ],
+          "hostPrivateBytes": 288522240,
+          "freeKiB": 3208892,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 12.22,
+        "requests": 21,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 51331072,
+              "workingSetBytes": 62222336
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 172847104,
+              "workingSetBytes": 159252480
+            }
+          ],
+          "hostPrivateBytes": 281718784,
+          "freeKiB": 3120940,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 16.151,
+        "requests": 31,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 51507200,
+              "workingSetBytes": 62713856
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 190685184,
+              "workingSetBytes": 176541696
+            }
+          ],
+          "hostPrivateBytes": 287543296,
+          "freeKiB": 3025700,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 20.059,
+        "requests": 41,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 52097024,
+              "workingSetBytes": 64344064
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 197242880,
+              "workingSetBytes": 178429952
+            }
+          ],
+          "hostPrivateBytes": 281300992,
+          "freeKiB": 2969640,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 24.367,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 52572160,
+              "workingSetBytes": 64798720
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 220401664,
+              "workingSetBytes": 199827456
+            }
+          ],
+          "hostPrivateBytes": 294948864,
+          "freeKiB": 2934712,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "loaded",
+        "seconds": 27.081,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 52572160,
+              "workingSetBytes": 64798720
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 220401664,
+              "workingSetBytes": 199827456
+            }
+          ],
+          "hostPrivateBytes": 294948864,
+          "freeKiB": 2858172,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "idle-30s",
+        "seconds": 59.297,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 38792,
+              "role": "public-proxy",
+              "privateBytes": 51195904,
+              "workingSetBytes": 63467520
+            },
+            {
+              "pid": 36836,
+              "role": "application",
+              "privateBytes": 233177088,
+              "workingSetBytes": 213708800
+            }
+          ],
+          "hostPrivateBytes": 197001216,
+          "freeKiB": 3294592,
+          "competingTests": 0
+        },
+        "heaps": null
+      }
+    ],
+    "snapshots": {},
+    "counters": {
+      "outbound": 459,
+      "rejectedOrigin": 0,
+      "rejectedSignature": 0,
+      "unhandled": 0,
+      "paths": {
+        "/api/ai/scheduler": 255,
+        "/api/netshop/consumers/query": 51,
+        "/api/market/commands": 102,
+        "/api/market/queries": 51
+      }
+    },
+    "production": false
+  },
+  "soak": {
+    "mode": "scheduled",
+    "label": "wrangler-after-soak",
+    "count": 150,
+    "engine": "wrangler",
+    "fixturePadding": 262144,
+    "inspectorAttached": false,
+    "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+    "elapsedSeconds": 98.674,
+    "requests": [
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      },
+      {
+        "status": 200,
+        "bytes": 1311562
+      }
+    ],
+    "samples": [
+      {
+        "phase": "warm",
+        "seconds": 6.099,
+        "requests": 1,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 47779840,
+              "workingSetBytes": 59293696
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 106721280,
+              "workingSetBytes": 113385472
+            }
+          ],
+          "hostPrivateBytes": 357699584,
+          "freeKiB": 2973460,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 10.236,
+        "requests": 11,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 51326976,
+              "workingSetBytes": 61636608
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 159358976,
+              "workingSetBytes": 153415680
+            }
+          ],
+          "hostPrivateBytes": 298049536,
+          "freeKiB": 2863156,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 14.067,
+        "requests": 21,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 51326976,
+              "workingSetBytes": 62164992
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 170659840,
+              "workingSetBytes": 159354880
+            }
+          ],
+          "hostPrivateBytes": 294907904,
+          "freeKiB": 2921996,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 17.897,
+        "requests": 31,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 51675136,
+              "workingSetBytes": 62771200
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 187375616,
+              "workingSetBytes": 175620096
+            }
+          ],
+          "hostPrivateBytes": 295325696,
+          "freeKiB": 2822792,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 21.642,
+        "requests": 41,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 51933184,
+              "workingSetBytes": 64286720
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 196849664,
+              "workingSetBytes": 179609600
+            }
+          ],
+          "hostPrivateBytes": 296710144,
+          "freeKiB": 2910212,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 25.279,
+        "requests": 51,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 52461568,
+              "workingSetBytes": 64786432
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 217776128,
+              "workingSetBytes": 199233536
+            }
+          ],
+          "hostPrivateBytes": 290000896,
+          "freeKiB": 2875480,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 28.945,
+        "requests": 61,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 52482048,
+              "workingSetBytes": 64856064
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 179900416,
+              "workingSetBytes": 176852992
+            }
+          ],
+          "hostPrivateBytes": 302018560,
+          "freeKiB": 2837096,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 32.612,
+        "requests": 71,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 52707328,
+              "workingSetBytes": 65191936
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 174993408,
+              "workingSetBytes": 176750592
+            }
+          ],
+          "hostPrivateBytes": 291065856,
+          "freeKiB": 2773908,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 36.502,
+        "requests": 81,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 52723712,
+              "workingSetBytes": 65220608
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 223076352,
+              "workingSetBytes": 207503360
+            }
+          ],
+          "hostPrivateBytes": 302460928,
+          "freeKiB": 3510872,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 40.297,
+        "requests": 91,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 52723712,
+              "workingSetBytes": 65286144
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 235810816,
+              "workingSetBytes": 218865664
+            }
+          ],
+          "hostPrivateBytes": 293814272,
+          "freeKiB": 3322572,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 44.13,
+        "requests": 101,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 53882880,
+              "workingSetBytes": 65982464
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 245899264,
+              "workingSetBytes": 227733504
+            }
+          ],
+          "hostPrivateBytes": 291790848,
+          "freeKiB": 3229892,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 47.921,
+        "requests": 111,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 54472704,
+              "workingSetBytes": 66281472
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 210194432,
+              "workingSetBytes": 197218304
+            }
+          ],
+          "hostPrivateBytes": 298700800,
+          "freeKiB": 3295156,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 51.672,
+        "requests": 121,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 55492608,
+              "workingSetBytes": 67452928
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 219693056,
+              "workingSetBytes": 206123008
+            }
+          ],
+          "hostPrivateBytes": 303185920,
+          "freeKiB": 3194772,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 55.442,
+        "requests": 131,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 54726656,
+              "workingSetBytes": 66879488
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 230260736,
+              "workingSetBytes": 214716416
+            }
+          ],
+          "hostPrivateBytes": 312795136,
+          "freeKiB": 3097640,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 59.275,
+        "requests": 141,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 54800384,
+              "workingSetBytes": 67002368
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 240295936,
+              "workingSetBytes": 224497664
+            }
+          ],
+          "hostPrivateBytes": 313929728,
+          "freeKiB": 2910508,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "load",
+        "seconds": 63.555,
+        "requests": 151,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 54763520,
+              "workingSetBytes": 67006464
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 245739520,
+              "workingSetBytes": 228691968
+            }
+          ],
+          "hostPrivateBytes": 294715392,
+          "freeKiB": 3053872,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "loaded",
+        "seconds": 66.233,
+        "requests": 151,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 54763520,
+              "workingSetBytes": 67010560
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 245739520,
+              "workingSetBytes": 228691968
+            }
+          ],
+          "hostPrivateBytes": 294715392,
+          "freeKiB": 3169960,
+          "competingTests": 0
+        },
+        "heaps": null
+      },
+      {
+        "phase": "idle-30s",
+        "seconds": 98.553,
+        "requests": 151,
+        "host": {
+          "processes": [
+            {
+              "pid": 53164,
+              "role": "public-proxy",
+              "privateBytes": 55291904,
+              "workingSetBytes": 67178496
+            },
+            {
+              "pid": 48012,
+              "role": "application",
+              "privateBytes": 249016320,
+              "workingSetBytes": 237359104
+            }
+          ],
+          "hostPrivateBytes": 200773632,
+          "freeKiB": 3917140,
+          "competingTests": 0
+        },
+        "heaps": null
+      }
+    ],
+    "snapshots": {},
+    "counters": {
+      "outbound": 1359,
+      "rejectedOrigin": 0,
+      "rejectedSignature": 0,
+      "unhandled": 0,
+      "paths": {
+        "/api/ai/scheduler": 755,
+        "/api/netshop/consumers/query": 151,
+        "/api/market/commands": 302,
+        "/api/market/queries": 151
+      }
+    },
+    "production": false
+  },
+  "bufferBefore": {
+    "variant": "before",
+    "label": "proxy-buffer-before2",
+    "proxySha256": "17077283a771d0575bb5def67e91c0c74dec9e505d29bd63f8a71c1294c81f8f",
+    "events": 3000,
+    "bodyBytesPerEvent": 4096,
+    "elapsedSeconds": 13.119,
+    "samples": [
+      {
+        "phase": "warm",
+        "seconds": 1.234,
+        "state": {
+          "events": 0,
+          "buffered": 0,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3718136,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 31449088,
+              "workingSetBytes": 41377792
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 824704,
+            "totalSize": 1572864,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1278932,
+            "totalSize": 1998848,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "warm-after-snapshot",
+        "seconds": 2.384,
+        "state": {
+          "events": 0,
+          "buffered": 0,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3593536,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 33411072,
+              "workingSetBytes": 46284800
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 537808,
+            "totalSize": 1572864,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1311272,
+            "totalSize": 1998848,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-5",
+        "seconds": 3.84,
+        "state": {
+          "events": 500,
+          "buffered": 500,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3715528,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 44486656,
+              "workingSetBytes": 57323520
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 4214048,
+            "totalSize": 9961472,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1506504,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-10",
+        "seconds": 5.398,
+        "state": {
+          "events": 1000,
+          "buffered": 1000,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3655344,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 56315904,
+              "workingSetBytes": 69046272
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 6934148,
+            "totalSize": 19136512,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1255064,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-15",
+        "seconds": 6.901,
+        "state": {
+          "events": 1500,
+          "buffered": 1500,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3612492,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 65581056,
+              "workingSetBytes": 78176256
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 10022268,
+            "totalSize": 26214400,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1450688,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-20",
+        "seconds": 8.488,
+        "state": {
+          "events": 2000,
+          "buffered": 2000,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3610316,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 67858432,
+              "workingSetBytes": 81203200
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 16841792,
+            "totalSize": 27525120,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1645068,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-25",
+        "seconds": 10.083,
+        "state": {
+          "events": 2500,
+          "buffered": 2500,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3531188,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 78286848,
+              "workingSetBytes": 91279360
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 19989744,
+            "totalSize": 36700160,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1390256,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-30",
+        "seconds": 11.688,
+        "state": {
+          "events": 3000,
+          "buffered": 3000,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3424664,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 89624576,
+              "workingSetBytes": 103165952
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 22942632,
+            "totalSize": 45875200,
+            "embedderHeapUsedSize": 386912,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1584316,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "after-snapshot",
+        "seconds": 13.095,
+        "state": {
+          "events": 3000,
+          "buffered": 3000,
+          "chars": null
+        },
+        "host": {
+          "freeKiB": 3390548,
+          "processes": [
+            {
+              "pid": 28896,
+              "privateBytes": 61014016,
+              "workingSetBytes": 75177984
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 17371584,
+            "totalSize": 18874368,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1616656,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      }
+    ],
+    "snapshots": {
+      "warm": {
+        "bytes": 4511593,
+        "sha256": "554d60e39a402436eb28ae665585a5f19a158165c780277601cd96a57f057e0a",
+        "analysisVersion": "padding-string-v2",
+        "nodeCount": 106900,
+        "edgeCount": 158796,
+        "totalSelfBytes": 842400,
+        "fixtureRowObjects": 0,
+        "networkEventObjects": 0,
+        "networkEventPathSamples": [],
+        "topClassesBySelfBytes": [
+          {
+            "type": "string",
+            "name": "<long-name>",
+            "count": 40,
+            "selfBytes": 321300
+          },
+          {
+            "type": "object shape",
+            "name": "system / DescriptorArray",
+            "count": 688,
+            "selfBytes": 55948
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateInfo",
+            "count": 698,
+            "selfBytes": 47328
+          },
+          {
+            "type": "object shape",
+            "name": "system / Map",
+            "count": 964,
+            "selfBytes": 38560
+          },
+          {
+            "type": "code",
+            "name": "(script line ends)",
+            "count": 16,
+            "selfBytes": 35048
+          },
+          {
+            "type": "array",
+            "name": "",
+            "count": 430,
+            "selfBytes": 31104
+          },
+          {
+            "type": "array",
+            "name": "(object properties)",
+            "count": 71,
+            "selfBytes": 20876
+          },
+          {
+            "type": "hidden",
+            "name": "system / ArrayList",
+            "count": 134,
+            "selfBytes": 17680
+          },
+          {
+            "type": "code",
+            "name": "system / BytecodeArray",
+            "count": 41,
+            "selfBytes": 14656
+          },
+          {
+            "type": "hidden",
+            "name": "system / PropertyArray",
+            "count": 349,
+            "selfBytes": 8640
+          },
+          {
+            "type": "hidden",
+            "name": "system / ObjectTemplateInfo",
+            "count": 299,
+            "selfBytes": 8372
+          },
+          {
+            "type": "code",
+            "name": "system / FeedbackCell",
+            "count": 488,
+            "selfBytes": 7792
+          },
+          {
+            "type": "code",
+            "name": "system / ScopeInfo",
+            "count": 48,
+            "selfBytes": 7660
+          },
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 258,
+            "selfBytes": 7268
+          },
+          {
+            "type": "code",
+            "name": "system / UncompiledDataWithoutPreparseData",
+            "count": 438,
+            "selfBytes": 7008
+          },
+          {
+            "type": "code",
+            "name": "(constant pool)",
+            "count": 55,
+            "selfBytes": 6520
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateRareData",
+            "count": 107,
+            "selfBytes": 4280
+          },
+          {
+            "type": "hidden",
+            "name": "system / SourceTextModuleInfoEntry",
+            "count": 110,
+            "selfBytes": 3520
+          },
+          {
+            "type": "object shape",
+            "name": "system / PrototypeInfo",
+            "count": 87,
+            "selfBytes": 3480
+          },
+          {
+            "type": "hidden",
+            "name": "system / AccessorPair",
+            "count": 285,
+            "selfBytes": 3420
+          }
+        ],
+        "selectedClasses": [
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 258,
+            "selfBytes": 7268
+          },
+          {
+            "type": "object",
+            "name": "Promise",
+            "count": 9,
+            "selfBytes": 220
+          },
+          {
+            "type": "object",
+            "name": "Map",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "Array",
+            "count": 50,
+            "selfBytes": 800
+          },
+          {
+            "type": "object",
+            "name": "Set",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "InspectorProxyWorker",
+            "count": 1,
+            "selfBytes": 100
+          },
+          {
+            "type": "object",
+            "name": "ReadableStreamDefaultReader",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ReadableStream",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Headers",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Request",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "Response",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortController",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortSignal",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ArrayBuffer",
+            "count": 3,
+            "selfBytes": 172
+          }
+        ],
+        "retentionPathSamples": [
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "94",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "99",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "wellKnownPrototypes",
+                "type": "context",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "builtInObjects",
+                "type": "context",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "InspectorProxyWorker",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStreamDefaultReader",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "82",
+                "type": "internal",
+                "to": "ReadableStreamDefaultReader"
+              },
+              {
+                "from": "ReadableStreamDefaultReader",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStreamDefaultReader"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStream",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "97",
+                "type": "internal",
+                "to": "ReadableStream"
+              },
+              {
+                "from": "ReadableStream",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStream"
+              }
+            ]
+          },
+          {
+            "target": "Headers",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "175",
+                "type": "internal",
+                "to": "Headers"
+              },
+              {
+                "from": "Headers",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Headers"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "186",
+                "type": "internal",
+                "to": "Request"
+              },
+              {
+                "from": "Request",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "189",
+                "type": "internal",
+                "to": "Response"
+              },
+              {
+                "from": "Response",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "207",
+                "type": "internal",
+                "to": "AbortController"
+              },
+              {
+                "from": "AbortController",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "AbortSignal",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "210",
+                "type": "internal",
+                "to": "AbortSignal"
+              },
+              {
+                "from": "AbortSignal",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortSignal"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_set_prototype",
+                "type": "internal",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_map_prototype",
+                "type": "internal",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "array_buffer_fun",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              },
+              {
+                "from": "ArrayBuffer",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "601",
+                "type": "internal",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "608",
+                "type": "internal",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "610",
+                "type": "internal",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "100",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "float32Array",
+                "type": "context",
+                "to": "Float32Array"
+              },
+              {
+                "from": "Float32Array",
+                "edge": "buffer",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              }
+            ]
+          }
+        ]
+      },
+      "final": {
+        "bytes": 8567965,
+        "sha256": "fe42b2a07ca18564781e9f38bc78d70cc8aca62dd4ef92b3835f1f14395b837c",
+        "analysisVersion": "padding-string-v2",
+        "nodeCount": 122962,
+        "edgeCount": 202755,
+        "totalSelfBytes": 17676476,
+        "fixtureRowObjects": 0,
+        "networkEventObjects": 3001,
+        "networkEventPathSamples": [
+          {
+            "target": "Object",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              },
+              {
+                "from": "InspectorProxyWorker",
+                "edge": "runtimeMessageBuffer",
+                "type": "property",
+                "to": "Array"
+              },
+              {
+                "from": "Array",
+                "edge": "253",
+                "type": "element",
+                "to": "Object"
+              }
+            ]
+          },
+          {
+            "target": "Object",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              },
+              {
+                "from": "InspectorProxyWorker",
+                "edge": "runtimeMessageBuffer",
+                "type": "property",
+                "to": "Array"
+              },
+              {
+                "from": "Array",
+                "edge": "254",
+                "type": "element",
+                "to": "Object"
+              }
+            ]
+          }
+        ],
+        "topClassesBySelfBytes": [
+          {
+            "type": "string",
+            "name": "<long-name>",
+            "count": 3040,
+            "selfBytes": 16749300
+          },
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 6264,
+            "selfBytes": 163400
+          },
+          {
+            "type": "string",
+            "name": "Network.dataReceived",
+            "count": 3001,
+            "selfBytes": 96032
+          },
+          {
+            "type": "array",
+            "name": "",
+            "count": 430,
+            "selfBytes": 95616
+          },
+          {
+            "type": "object shape",
+            "name": "system / DescriptorArray",
+            "count": 695,
+            "selfBytes": 56364
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateInfo",
+            "count": 698,
+            "selfBytes": 47328
+          },
+          {
+            "type": "object shape",
+            "name": "system / Map",
+            "count": 980,
+            "selfBytes": 39200
+          },
+          {
+            "type": "code",
+            "name": "(script line ends)",
+            "count": 16,
+            "selfBytes": 35048
+          },
+          {
+            "type": "array",
+            "name": "(object properties)",
+            "count": 70,
+            "selfBytes": 20652
+          },
+          {
+            "type": "array",
+            "name": "(object elements)",
+            "count": 37,
+            "selfBytes": 18436
+          },
+          {
+            "type": "hidden",
+            "name": "system / ArrayList",
+            "count": 134,
+            "selfBytes": 17680
+          },
+          {
+            "type": "code",
+            "name": "system / BytecodeArray",
+            "count": 52,
+            "selfBytes": 16092
+          },
+          {
+            "type": "code",
+            "name": "system / InstructionStream",
+            "count": 16,
+            "selfBytes": 14144
+          },
+          {
+            "type": "hidden",
+            "name": "system / PropertyArray",
+            "count": 350,
+            "selfBytes": 8680
+          },
+          {
+            "type": "hidden",
+            "name": "system / ObjectTemplateInfo",
+            "count": 299,
+            "selfBytes": 8372
+          },
+          {
+            "type": "code",
+            "name": "system / ScopeInfo",
+            "count": 60,
+            "selfBytes": 8180
+          },
+          {
+            "type": "code",
+            "name": "system / FeedbackCell",
+            "count": 488,
+            "selfBytes": 7792
+          },
+          {
+            "type": "code",
+            "name": "system / UncompiledDataWithoutPreparseData",
+            "count": 427,
+            "selfBytes": 6832
+          },
+          {
+            "type": "code",
+            "name": "(constant pool)",
+            "count": 66,
+            "selfBytes": 6828
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateRareData",
+            "count": 107,
+            "selfBytes": 4280
+          }
+        ],
+        "selectedClasses": [
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 6264,
+            "selfBytes": 163400
+          },
+          {
+            "type": "object",
+            "name": "Promise",
+            "count": 9,
+            "selfBytes": 220
+          },
+          {
+            "type": "object",
+            "name": "Map",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "Array",
+            "count": 50,
+            "selfBytes": 800
+          },
+          {
+            "type": "object",
+            "name": "Set",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "InspectorProxyWorker",
+            "count": 1,
+            "selfBytes": 100
+          },
+          {
+            "type": "object",
+            "name": "ReadableStreamDefaultReader",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ReadableStream",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Headers",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Request",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "Response",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortController",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortSignal",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ArrayBuffer",
+            "count": 3,
+            "selfBytes": 172
+          }
+        ],
+        "retentionPathSamples": [
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "94",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "99",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "wellKnownPrototypes",
+                "type": "context",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "builtInObjects",
+                "type": "context",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "InspectorProxyWorker",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStreamDefaultReader",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "82",
+                "type": "internal",
+                "to": "ReadableStreamDefaultReader"
+              },
+              {
+                "from": "ReadableStreamDefaultReader",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStreamDefaultReader"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStream",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "97",
+                "type": "internal",
+                "to": "ReadableStream"
+              },
+              {
+                "from": "ReadableStream",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStream"
+              }
+            ]
+          },
+          {
+            "target": "Headers",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "175",
+                "type": "internal",
+                "to": "Headers"
+              },
+              {
+                "from": "Headers",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Headers"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "186",
+                "type": "internal",
+                "to": "Request"
+              },
+              {
+                "from": "Request",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "189",
+                "type": "internal",
+                "to": "Response"
+              },
+              {
+                "from": "Response",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "207",
+                "type": "internal",
+                "to": "AbortController"
+              },
+              {
+                "from": "AbortController",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "AbortSignal",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "210",
+                "type": "internal",
+                "to": "AbortSignal"
+              },
+              {
+                "from": "AbortSignal",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortSignal"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_set_prototype",
+                "type": "internal",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_map_prototype",
+                "type": "internal",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "array_buffer_fun",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              },
+              {
+                "from": "ArrayBuffer",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "100",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "float32Array",
+                "type": "context",
+                "to": "Float32Array"
+              },
+              {
+                "from": "Float32Array",
+                "edge": "buffer",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "601",
+                "type": "internal",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "608",
+                "type": "internal",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "610",
+                "type": "internal",
+                "to": "Response"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "synthetic": true,
+    "production": false
+  },
+  "bufferAfter": {
+    "variant": "after",
+    "label": "proxy-buffer-after",
+    "proxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "events": 3000,
+    "bodyBytesPerEvent": 4096,
+    "elapsedSeconds": 12.754,
+    "samples": [
+      {
+        "phase": "warm",
+        "seconds": 1.152,
+        "state": {
+          "events": 0,
+          "buffered": 0,
+          "chars": 0
+        },
+        "host": {
+          "freeKiB": 4234044,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 32755712,
+              "workingSetBytes": 41590784
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 825648,
+            "totalSize": 1572864,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1278932,
+            "totalSize": 1998848,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "warm-after-snapshot",
+        "seconds": 2.249,
+        "state": {
+          "events": 0,
+          "buffered": 0,
+          "chars": 0
+        },
+        "host": {
+          "freeKiB": 4163472,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 34631680,
+              "workingSetBytes": 46325760
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 539044,
+            "totalSize": 1572864,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1311272,
+            "totalSize": 1998848,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-5",
+        "seconds": 3.668,
+        "state": {
+          "events": 500,
+          "buffered": 187,
+          "chars": 1046265
+        },
+        "host": {
+          "freeKiB": 4098372,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 46555136,
+              "workingSetBytes": 57524224
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 4288568,
+            "totalSize": 10485760,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1506504,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-10",
+        "seconds": 5.185,
+        "state": {
+          "events": 1000,
+          "buffered": 187,
+          "chars": 1046266
+        },
+        "host": {
+          "freeKiB": 4082452,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 52781056,
+              "workingSetBytes": 65007616
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 7796252,
+            "totalSize": 14155776,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1262360,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-15",
+        "seconds": 6.72,
+        "state": {
+          "events": 1500,
+          "buffered": 187,
+          "chars": 1046639
+        },
+        "host": {
+          "freeKiB": 4026452,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 62648320,
+              "workingSetBytes": 75382784
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 5544340,
+            "totalSize": 22806528,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1460144,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-20",
+        "seconds": 8.247,
+        "state": {
+          "events": 2000,
+          "buffered": 187,
+          "chars": 1046639
+        },
+        "host": {
+          "freeKiB": 3998980,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 64229376,
+              "workingSetBytes": 77275136
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 10449520,
+            "totalSize": 22806528,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1654524,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-25",
+        "seconds": 9.805,
+        "state": {
+          "events": 2500,
+          "buffered": 187,
+          "chars": 1046639
+        },
+        "host": {
+          "freeKiB": 3970160,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 66256896,
+              "workingSetBytes": 79372288
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 8377272,
+            "totalSize": 23592960,
+            "embedderHeapUsedSize": 257952,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1390256,
+            "totalSize": 2260992,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "load-30",
+        "seconds": 11.351,
+        "state": {
+          "events": 3000,
+          "buffered": 187,
+          "chars": 1046639
+        },
+        "host": {
+          "freeKiB": 3932912,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 67756032,
+              "workingSetBytes": 80920576
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 6270620,
+            "totalSize": 23592960,
+            "embedderHeapUsedSize": 386912,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1584316,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      },
+      {
+        "phase": "after-snapshot",
+        "seconds": 12.735,
+        "state": {
+          "events": 3000,
+          "buffered": 187,
+          "chars": 1046639
+        },
+        "host": {
+          "freeKiB": 3852164,
+          "processes": [
+            {
+              "pid": 39612,
+              "privateBytes": 42766336,
+              "workingSetBytes": 56057856
+            }
+          ]
+        },
+        "heaps": {
+          "core:user:": {
+            "usedSize": 1680084,
+            "totalSize": 2883584,
+            "embedderHeapUsedSize": 128712,
+            "backingStorageSize": 302356
+          },
+          "core:entry": {
+            "usedSize": 1616656,
+            "totalSize": 2523136,
+            "embedderHeapUsedSize": 257936,
+            "backingStorageSize": 341617
+          }
+        }
+      }
+    ],
+    "snapshots": {
+      "warm": {
+        "bytes": 4515646,
+        "sha256": "9906e033cdbd4ca8e9e3646c759e7b78ad093db61444ebe6862507d08b186430",
+        "analysisVersion": "padding-string-v2",
+        "nodeCount": 107014,
+        "edgeCount": 158929,
+        "totalSelfBytes": 843640,
+        "fixtureRowObjects": 0,
+        "networkEventObjects": 0,
+        "networkEventPathSamples": [],
+        "topClassesBySelfBytes": [
+          {
+            "type": "string",
+            "name": "<long-name>",
+            "count": 40,
+            "selfBytes": 322252
+          },
+          {
+            "type": "object shape",
+            "name": "system / DescriptorArray",
+            "count": 688,
+            "selfBytes": 55984
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateInfo",
+            "count": 698,
+            "selfBytes": 47328
+          },
+          {
+            "type": "object shape",
+            "name": "system / Map",
+            "count": 966,
+            "selfBytes": 38640
+          },
+          {
+            "type": "code",
+            "name": "(script line ends)",
+            "count": 16,
+            "selfBytes": 35128
+          },
+          {
+            "type": "array",
+            "name": "",
+            "count": 430,
+            "selfBytes": 31104
+          },
+          {
+            "type": "array",
+            "name": "(object properties)",
+            "count": 71,
+            "selfBytes": 20876
+          },
+          {
+            "type": "hidden",
+            "name": "system / ArrayList",
+            "count": 134,
+            "selfBytes": 17680
+          },
+          {
+            "type": "code",
+            "name": "system / BytecodeArray",
+            "count": 41,
+            "selfBytes": 14668
+          },
+          {
+            "type": "hidden",
+            "name": "system / PropertyArray",
+            "count": 349,
+            "selfBytes": 8640
+          },
+          {
+            "type": "hidden",
+            "name": "system / ObjectTemplateInfo",
+            "count": 299,
+            "selfBytes": 8372
+          },
+          {
+            "type": "code",
+            "name": "system / FeedbackCell",
+            "count": 488,
+            "selfBytes": 7792
+          },
+          {
+            "type": "code",
+            "name": "system / ScopeInfo",
+            "count": 48,
+            "selfBytes": 7660
+          },
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 258,
+            "selfBytes": 7268
+          },
+          {
+            "type": "code",
+            "name": "system / UncompiledDataWithoutPreparseData",
+            "count": 438,
+            "selfBytes": 7008
+          },
+          {
+            "type": "code",
+            "name": "(constant pool)",
+            "count": 55,
+            "selfBytes": 6528
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateRareData",
+            "count": 107,
+            "selfBytes": 4280
+          },
+          {
+            "type": "hidden",
+            "name": "system / SourceTextModuleInfoEntry",
+            "count": 110,
+            "selfBytes": 3520
+          },
+          {
+            "type": "object shape",
+            "name": "system / PrototypeInfo",
+            "count": 87,
+            "selfBytes": 3480
+          },
+          {
+            "type": "hidden",
+            "name": "system / AccessorPair",
+            "count": 285,
+            "selfBytes": 3420
+          }
+        ],
+        "selectedClasses": [
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 258,
+            "selfBytes": 7268
+          },
+          {
+            "type": "object",
+            "name": "Promise",
+            "count": 9,
+            "selfBytes": 220
+          },
+          {
+            "type": "object",
+            "name": "Map",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "Array",
+            "count": 51,
+            "selfBytes": 816
+          },
+          {
+            "type": "object",
+            "name": "Set",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "InspectorProxyWorker",
+            "count": 1,
+            "selfBytes": 108
+          },
+          {
+            "type": "object",
+            "name": "ReadableStreamDefaultReader",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ReadableStream",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Headers",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Request",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "Response",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortController",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortSignal",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ArrayBuffer",
+            "count": 3,
+            "selfBytes": 172
+          }
+        ],
+        "retentionPathSamples": [
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "94",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "99",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "wellKnownPrototypes",
+                "type": "context",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "builtInObjects",
+                "type": "context",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "InspectorProxyWorker",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStreamDefaultReader",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "82",
+                "type": "internal",
+                "to": "ReadableStreamDefaultReader"
+              },
+              {
+                "from": "ReadableStreamDefaultReader",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStreamDefaultReader"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStream",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "97",
+                "type": "internal",
+                "to": "ReadableStream"
+              },
+              {
+                "from": "ReadableStream",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStream"
+              }
+            ]
+          },
+          {
+            "target": "Headers",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "175",
+                "type": "internal",
+                "to": "Headers"
+              },
+              {
+                "from": "Headers",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Headers"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "186",
+                "type": "internal",
+                "to": "Request"
+              },
+              {
+                "from": "Request",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "189",
+                "type": "internal",
+                "to": "Response"
+              },
+              {
+                "from": "Response",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "207",
+                "type": "internal",
+                "to": "AbortController"
+              },
+              {
+                "from": "AbortController",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "AbortSignal",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "210",
+                "type": "internal",
+                "to": "AbortSignal"
+              },
+              {
+                "from": "AbortSignal",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortSignal"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_set_prototype",
+                "type": "internal",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_map_prototype",
+                "type": "internal",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "array_buffer_fun",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              },
+              {
+                "from": "ArrayBuffer",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "601",
+                "type": "internal",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "608",
+                "type": "internal",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "610",
+                "type": "internal",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "100",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "float32Array",
+                "type": "context",
+                "to": "Float32Array"
+              },
+              {
+                "from": "Float32Array",
+                "edge": "buffer",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              }
+            ]
+          }
+        ]
+      },
+      "final": {
+        "bytes": 4854103,
+        "sha256": "3f2800a657d446af0604035205add289c2b7ee137097b6f9c6c4b50968974b1a",
+        "analysisVersion": "padding-string-v2",
+        "nodeCount": 109144,
+        "edgeCount": 163881,
+        "totalSelfBytes": 1984972,
+        "fixtureRowObjects": 0,
+        "networkEventObjects": 188,
+        "networkEventPathSamples": [
+          {
+            "target": "Object",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              },
+              {
+                "from": "InspectorProxyWorker",
+                "edge": "runtimeMessageBuffer",
+                "type": "property",
+                "to": "Array"
+              },
+              {
+                "from": "Array",
+                "edge": "158",
+                "type": "element",
+                "to": "Object"
+              }
+            ]
+          },
+          {
+            "target": "Object",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              },
+              {
+                "from": "InspectorProxyWorker",
+                "edge": "runtimeMessageBuffer",
+                "type": "property",
+                "to": "Array"
+              },
+              {
+                "from": "Array",
+                "edge": "159",
+                "type": "element",
+                "to": "Object"
+              }
+            ]
+          }
+        ],
+        "topClassesBySelfBytes": [
+          {
+            "type": "string",
+            "name": "<long-name>",
+            "count": 227,
+            "selfBytes": 1346264
+          },
+          {
+            "type": "array",
+            "name": "",
+            "count": 430,
+            "selfBytes": 95616
+          },
+          {
+            "type": "object shape",
+            "name": "system / DescriptorArray",
+            "count": 695,
+            "selfBytes": 56400
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateInfo",
+            "count": 698,
+            "selfBytes": 47328
+          },
+          {
+            "type": "object shape",
+            "name": "system / Map",
+            "count": 982,
+            "selfBytes": 39280
+          },
+          {
+            "type": "code",
+            "name": "(script line ends)",
+            "count": 16,
+            "selfBytes": 35128
+          },
+          {
+            "type": "array",
+            "name": "(object properties)",
+            "count": 70,
+            "selfBytes": 20652
+          },
+          {
+            "type": "code",
+            "name": "system / InstructionStream",
+            "count": 21,
+            "selfBytes": 18816
+          },
+          {
+            "type": "hidden",
+            "name": "system / ArrayList",
+            "count": 134,
+            "selfBytes": 17680
+          },
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 638,
+            "selfBytes": 17124
+          },
+          {
+            "type": "code",
+            "name": "system / BytecodeArray",
+            "count": 52,
+            "selfBytes": 16312
+          },
+          {
+            "type": "hidden",
+            "name": "system / PropertyArray",
+            "count": 350,
+            "selfBytes": 8680
+          },
+          {
+            "type": "hidden",
+            "name": "system / ObjectTemplateInfo",
+            "count": 299,
+            "selfBytes": 8372
+          },
+          {
+            "type": "code",
+            "name": "system / ScopeInfo",
+            "count": 60,
+            "selfBytes": 8180
+          },
+          {
+            "type": "code",
+            "name": "system / FeedbackCell",
+            "count": 488,
+            "selfBytes": 7792
+          },
+          {
+            "type": "code",
+            "name": "(constant pool)",
+            "count": 66,
+            "selfBytes": 6872
+          },
+          {
+            "type": "code",
+            "name": "system / UncompiledDataWithoutPreparseData",
+            "count": 427,
+            "selfBytes": 6832
+          },
+          {
+            "type": "string",
+            "name": "Network.dataReceived",
+            "count": 188,
+            "selfBytes": 6016
+          },
+          {
+            "type": "hidden",
+            "name": "system / FunctionTemplateRareData",
+            "count": 107,
+            "selfBytes": 4280
+          },
+          {
+            "type": "code",
+            "name": "system / TrustedByteArray",
+            "count": 65,
+            "selfBytes": 4240
+          }
+        ],
+        "selectedClasses": [
+          {
+            "type": "object",
+            "name": "Object",
+            "count": 638,
+            "selfBytes": 17124
+          },
+          {
+            "type": "object",
+            "name": "Array",
+            "count": 51,
+            "selfBytes": 816
+          },
+          {
+            "type": "object",
+            "name": "Map",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "ArrayBuffer",
+            "count": 3,
+            "selfBytes": 172
+          },
+          {
+            "type": "object",
+            "name": "Set",
+            "count": 2,
+            "selfBytes": 44
+          },
+          {
+            "type": "object",
+            "name": "Promise",
+            "count": 9,
+            "selfBytes": 220
+          },
+          {
+            "type": "object",
+            "name": "Request",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "AbortController",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "Response",
+            "count": 2,
+            "selfBytes": 60
+          },
+          {
+            "type": "object",
+            "name": "ReadableStreamDefaultReader",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "ReadableStream",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "Headers",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "AbortSignal",
+            "count": 1,
+            "selfBytes": 28
+          },
+          {
+            "type": "object",
+            "name": "InspectorProxyWorker",
+            "count": 1,
+            "selfBytes": 108
+          }
+        ],
+        "retentionPathSamples": [
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "wellKnownPrototypes",
+                "type": "context",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "Map",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_map_prototype",
+                "type": "internal",
+                "to": "Map"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "array_buffer_fun",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              },
+              {
+                "from": "ArrayBuffer",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "initial_set_prototype",
+                "type": "internal",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "promise_prototype",
+                "type": "internal",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "601",
+                "type": "internal",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "608",
+                "type": "internal",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "610",
+                "type": "internal",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStreamDefaultReader",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "82",
+                "type": "internal",
+                "to": "ReadableStreamDefaultReader"
+              },
+              {
+                "from": "ReadableStreamDefaultReader",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStreamDefaultReader"
+              }
+            ]
+          },
+          {
+            "target": "ReadableStream",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "97",
+                "type": "internal",
+                "to": "ReadableStream"
+              },
+              {
+                "from": "ReadableStream",
+                "edge": "prototype",
+                "type": "property",
+                "to": "ReadableStream"
+              }
+            ]
+          },
+          {
+            "target": "Headers",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "175",
+                "type": "internal",
+                "to": "Headers"
+              },
+              {
+                "from": "Headers",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Headers"
+              }
+            ]
+          },
+          {
+            "target": "Request",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "186",
+                "type": "internal",
+                "to": "Request"
+              },
+              {
+                "from": "Request",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Request"
+              }
+            ]
+          },
+          {
+            "target": "Response",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "189",
+                "type": "internal",
+                "to": "Response"
+              },
+              {
+                "from": "Response",
+                "edge": "prototype",
+                "type": "property",
+                "to": "Response"
+              }
+            ]
+          },
+          {
+            "target": "AbortController",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "207",
+                "type": "internal",
+                "to": "AbortController"
+              },
+              {
+                "from": "AbortController",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortController"
+              }
+            ]
+          },
+          {
+            "target": "ArrayBuffer",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "100",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "float64Array",
+                "type": "context",
+                "to": "Float64Array"
+              },
+              {
+                "from": "Float64Array",
+                "edge": "buffer",
+                "type": "internal",
+                "to": "ArrayBuffer"
+              }
+            ]
+          },
+          {
+            "target": "AbortSignal",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "2",
+                "type": "shortcut",
+                "to": "system / NativeContext"
+              },
+              {
+                "from": "system / NativeContext",
+                "edge": "fast_template_instantiations_cache",
+                "type": "internal",
+                "to": ""
+              },
+              {
+                "from": "",
+                "edge": "210",
+                "type": "internal",
+                "to": "AbortSignal"
+              },
+              {
+                "from": "AbortSignal",
+                "edge": "prototype",
+                "type": "property",
+                "to": "AbortSignal"
+              }
+            ]
+          },
+          {
+            "target": "Promise",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "94",
+                "type": "internal",
+                "to": "system / SyntheticModule"
+              },
+              {
+                "from": "system / SyntheticModule",
+                "edge": "4",
+                "type": "hidden",
+                "to": "Promise"
+              }
+            ]
+          },
+          {
+            "target": "Set",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "111",
+                "type": "internal",
+                "to": "system / SourceTextModule"
+              },
+              {
+                "from": "system / SourceTextModule",
+                "edge": "5",
+                "type": "hidden",
+                "to": "Generator"
+              },
+              {
+                "from": "Generator",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "builtInObjects",
+                "type": "context",
+                "to": "Set"
+              }
+            ]
+          },
+          {
+            "target": "InspectorProxyWorker",
+            "reachableThroughNonWeakEdges": true,
+            "rootReached": true,
+            "path": [
+              {
+                "from": "",
+                "edge": "1",
+                "type": "element",
+                "to": "(GC roots)"
+              },
+              {
+                "from": "(GC roots)",
+                "edge": "10",
+                "type": "element",
+                "to": "(Global handles)"
+              },
+              {
+                "from": "(Global handles)",
+                "edge": "146",
+                "type": "internal",
+                "to": "fetch"
+              },
+              {
+                "from": "fetch",
+                "edge": "context",
+                "type": "internal",
+                "to": "system / Context"
+              },
+              {
+                "from": "system / Context",
+                "edge": "proxy",
+                "type": "context",
+                "to": "InspectorProxyWorker"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "synthetic": true,
+    "production": false
+  },
+  "functional": [
+    {
+      "mode": "asset",
+      "label": "wrangler-after-asset3",
+      "count": 3,
+      "engine": "wrangler",
+      "fixturePadding": 0,
+      "inspectorAttached": false,
+      "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+      "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+      "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+      "elapsedSeconds": 38.414,
+      "requests": [
+        {
+          "status": 200,
+          "bytes": 8388608,
+          "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+        },
+        {
+          "status": 200,
+          "bytes": 8388608,
+          "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+        },
+        {
+          "status": 200,
+          "bytes": 8388608,
+          "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+        },
+        {
+          "status": 200,
+          "bytes": 8388608,
+          "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+        }
+      ],
+      "samples": [
+        {
+          "phase": "warm",
+          "seconds": 3.451,
+          "requests": 1,
+          "host": {
+            "processes": [
+              {
+                "pid": 47892,
+                "role": "public-proxy",
+                "privateBytes": 48189440,
+                "workingSetBytes": 59625472
+              },
+              {
+                "pid": 54576,
+                "role": "application",
+                "privateBytes": 93986816,
+                "workingSetBytes": 102842368
+              }
+            ],
+            "hostPrivateBytes": 314671104,
+            "freeKiB": 3466268,
+            "competingTests": 0
+          },
+          "heaps": null
+        },
+        {
+          "phase": "loaded",
+          "seconds": 6.211,
+          "requests": 4,
+          "host": {
+            "processes": [
+              {
+                "pid": 47892,
+                "role": "public-proxy",
+                "privateBytes": 49811456,
+                "workingSetBytes": 60346368
+              },
+              {
+                "pid": 54576,
+                "role": "application",
+                "privateBytes": 96264192,
+                "workingSetBytes": 103653376
+              }
+            ],
+            "hostPrivateBytes": 289542144,
+            "freeKiB": 3330096,
+            "competingTests": 0
+          },
+          "heaps": null
+        },
+        {
+          "phase": "idle-30s",
+          "seconds": 38.325,
+          "requests": 4,
+          "host": {
+            "processes": [
+              {
+                "pid": 47892,
+                "role": "public-proxy",
+                "privateBytes": 49754112,
+                "workingSetBytes": 60362752
+              },
+              {
+                "pid": 54576,
+                "role": "application",
+                "privateBytes": 112103424,
+                "workingSetBytes": 120016896
+              }
+            ],
+            "hostPrivateBytes": 203538432,
+            "freeKiB": 3078028,
+            "competingTests": 0
+          },
+          "heaps": null
+        }
+      ],
+      "snapshots": {},
+      "counters": {
+        "outbound": 0,
+        "rejectedOrigin": 0,
+        "rejectedSignature": 0,
+        "unhandled": 0,
+        "paths": {}
+      },
+      "production": false
+    },
+    {
+      "mode": "rsc",
+      "label": "wrangler-after-rsc2",
+      "count": 3,
+      "engine": "wrangler",
+      "fixturePadding": 0,
+      "inspectorAttached": false,
+      "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+      "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+      "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+      "elapsedSeconds": 5.916,
+      "requests": [
+        {
+          "status": 200,
+          "bytes": 2791
+        },
+        {
+          "status": 200,
+          "bytes": 2791
+        },
+        {
+          "status": 200,
+          "bytes": 2791
+        },
+        {
+          "status": 200,
+          "bytes": 2791
+        }
+      ],
+      "samples": [
+        {
+          "phase": "warm",
+          "seconds": 3.361,
+          "requests": 1,
+          "host": {
+            "processes": [
+              {
+                "pid": 33548,
+                "role": "public-proxy",
+                "privateBytes": 48443392,
+                "workingSetBytes": 59875328
+              },
+              {
+                "pid": 34420,
+                "role": "application",
+                "privateBytes": 93786112,
+                "workingSetBytes": 108081152
+              }
+            ],
+            "hostPrivateBytes": 441102336,
+            "freeKiB": 2975940,
+            "competingTests": 0
+          },
+          "heaps": null
+        },
+        {
+          "phase": "loaded",
+          "seconds": 5.827,
+          "requests": 4,
+          "host": {
+            "processes": [
+              {
+                "pid": 33548,
+                "role": "public-proxy",
+                "privateBytes": 49991680,
+                "workingSetBytes": 60526592
+              },
+              {
+                "pid": 34420,
+                "role": "application",
+                "privateBytes": 95707136,
+                "workingSetBytes": 109268992
+              }
+            ],
+            "hostPrivateBytes": 441651200,
+            "freeKiB": 3090996,
+            "competingTests": 0
+          },
+          "heaps": null
+        }
+      ],
+      "snapshots": {},
+      "counters": {
+        "outbound": 0,
+        "rejectedOrigin": 0,
+        "rejectedSignature": 0,
+        "unhandled": 0,
+        "paths": {}
+      },
+      "production": false
+    },
+    {
+      "mode": "page",
+      "label": "wrangler-after-page",
+      "count": 3,
+      "engine": "wrangler",
+      "fixturePadding": 0,
+      "inspectorAttached": false,
+      "sourceCommit": "3faa47de94be6c9fe3817ecf86fab8a26cb08e92",
+      "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+      "buildIndexSha256": "c557df2305e18aef41d9cbbfa3540b3636e1879bb89ab7517a1939d5bcca955d",
+      "elapsedSeconds": 6.551,
+      "requests": [
+        {
+          "status": 200,
+          "bytes": 17001
+        },
+        {
+          "status": 200,
+          "bytes": 17001
+        },
+        {
+          "status": 200,
+          "bytes": 17001
+        },
+        {
+          "status": 200,
+          "bytes": 17001
+        }
+      ],
+      "samples": [
+        {
+          "phase": "warm",
+          "seconds": 3.841,
+          "requests": 1,
+          "host": {
+            "processes": [
+              {
+                "pid": 46320,
+                "role": "public-proxy",
+                "privateBytes": 48439296,
+                "workingSetBytes": 60305408
+              },
+              {
+                "pid": 52196,
+                "role": "application",
+                "privateBytes": 98775040,
+                "workingSetBytes": 109891584
+              }
+            ],
+            "hostPrivateBytes": 310763520,
+            "freeKiB": 3664856,
+            "competingTests": 0
+          },
+          "heaps": null
+        },
+        {
+          "phase": "loaded",
+          "seconds": 6.425,
+          "requests": 4,
+          "host": {
+            "processes": [
+              {
+                "pid": 46320,
+                "role": "public-proxy",
+                "privateBytes": 50077696,
+                "workingSetBytes": 61009920
+              },
+              {
+                "pid": 52196,
+                "role": "application",
+                "privateBytes": 105943040,
+                "workingSetBytes": 118951936
+              }
+            ],
+            "hostPrivateBytes": 311545856,
+            "freeKiB": 3720876,
+            "competingTests": 0
+          },
+          "heaps": null
+        }
+      ],
+      "snapshots": {},
+      "counters": {
+        "outbound": 0,
+        "rejectedOrigin": 0,
+        "rejectedSignature": 0,
+        "unhandled": 0,
+        "paths": {}
+      },
+      "production": false
+    }
+  ]
+}

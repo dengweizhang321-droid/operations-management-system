@@ -1,0 +1,175 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Wrangler inspector retention fix</title><style>body{max-width:1100px;margin:30px auto;font:16px system-ui;color:#222}svg{width:100%;border:1px solid #ddd;margin:12px 0}text{font:14px system-ui}pre{white-space:pre-wrap}</style><h1>Wrangler inspector retention fix — isolated verification</h1><p>Same compiled Worker, 51 scheduled requests, 459 signed fixture calls, 3072 MiB old-space. No external DevTools, heap snapshot, forced GC or restart during these curves. Windows Private bytes in MiB. Node host includes Wrangler API, driver and synthetic backend.</p><svg viewBox="0 0 1000 340" role="img" aria-label="Public proxy process (contains InspectorProxyWorker)"><text x="65" y="25">Public proxy process (contains InspectorProxyWorker)</text><path d="M65 280H940" stroke="#ddd"/><text x="8" y="285">0</text><path d="M65 236H940" stroke="#ddd"/><text x="8" y="241">70</text><path d="M65 192H940" stroke="#ddd"/><text x="8" y="197">140</text><path d="M65 148H940" stroke="#ddd"/><text x="8" y="153">210</text><path d="M65 104H940" stroke="#ddd"/><text x="8" y="109">280</text><path d="M65 60H940" stroke="#ddd"/><text x="8" y="65">350</text><text x="65" y="302">0s</text><text x="240" y="302">12s</text><text x="415" y="302">24s</text><text x="590" y="302">36s</text><text x="765" y="302">48s</text><text x="940" y="302">60s</text><polyline fill="none" stroke="#b54a17" stroke-width="3" points="114.15123456790124,243.2996 174.58667000333668,177.18457142857142 240.1605772439106,138.07297142857144 304.5374541207874,131.0310857142857 369.1478978978979,88.63205714285712 430.94094094094095,81.53108571428572 468.2386553219887,81.53108571428572 940,86.91291428571427"/><text x="65" y="327" fill="#b54a17">Original 4.92.0</text><polyline fill="none" stroke="#116ab3" stroke-width="3" points="124.2821988655322,251.36542857142857 182.92208875542207,249.23205714285714 243.38672005338674,249.22954285714286 300.77118785452114,249.12394285714285 357.8199032365699,248.77005714285715 420.7077911244578,248.48531428571428 460.32657657657654,248.48531428571428 930.6135301968635,249.31062857142857"/><text x="285" y="327" fill="#116ab3">Candidate</text></svg><svg viewBox="0 0 1000 340" role="img" aria-label="Application workerd process"><text x="65" y="25">Application workerd process</text><path d="M65 280H940" stroke="#ddd"/><text x="8" y="285">0</text><path d="M65 236H940" stroke="#ddd"/><text x="8" y="241">50</text><path d="M65 192H940" stroke="#ddd"/><text x="8" y="197">100</text><path d="M65 148H940" stroke="#ddd"/><text x="8" y="153">150</text><path d="M65 104H940" stroke="#ddd"/><text x="8" y="109">200</text><path d="M65 60H940" stroke="#ddd"/><text x="8" y="65">250</text><text x="65" y="302">0s</text><text x="240" y="302">12s</text><text x="415" y="302">24s</text><text x="590" y="302">36s</text><text x="765" y="302">48s</text><text x="940" y="302">60s</text><polyline fill="none" stroke="#b54a17" stroke-width="3" points="114.15123456790124,189.60023999999999 174.58667000333668,144.41840000000002 240.1605772439106,138.55056000000002 304.5374541207874,118.47864000000001 369.1478978978979,113.17487999999997 430.94094094094095,93.93807999999999 468.2386553219887,93.93807999999999 940,85.14159999999998"/><text x="65" y="327" fill="#b54a17">Original 4.92.0</text><polyline fill="none" stroke="#116ab3" stroke-width="3" points="124.2821988655322,189.37408 182.92208875542207,146.01648 243.38672005338674,134.9408 300.77118785452114,119.97023999999999 357.8199032365699,114.4676 420.7077911244578,95.03192000000001 460.32657657657654,95.03192000000001 930.6135301968635,84.31"/><text x="285" y="327" fill="#116ab3">Candidate</text></svg><pre>{
+  "version": 1,
+  "baseline": {
+    "requests": 51,
+    "backendCalls": 459,
+    "elapsedSeconds": 60.08,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 315.746,
+    "proxyFinalMiB": 307.184,
+    "applicationPeakMiB": 221.43,
+    "nodeHostPeakMiB": 393.293,
+    "competingSamples": 0,
+    "inspectorProxySha256": "17077283a771d0575bb5def67e91c0c74dec9e505d29bd63f8a71c1294c81f8f",
+    "externalDevToolsAttached": false
+  },
+  "candidate": {
+    "requests": 51,
+    "backendCalls": 459,
+    "elapsedSeconds": 59.407,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 50.137,
+    "proxyFinalMiB": 48.824,
+    "applicationPeakMiB": 222.375,
+    "nodeHostPeakMiB": 331.395,
+    "competingSamples": 0,
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "externalDevToolsAttached": false
+  },
+  "candidateSoak": {
+    "requests": 151,
+    "backendCalls": 1359,
+    "elapsedSeconds": 98.674,
+    "responseBytes": 1311562,
+    "fixturePadding": 262144,
+    "proxyPeakMiB": 52.922,
+    "proxyFinalMiB": 52.73,
+    "applicationPeakMiB": 237.48,
+    "nodeHostPeakMiB": 341.129,
+    "competingSamples": 0,
+    "inspectorProxySha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "externalDevToolsAttached": false
+  },
+  "workerBuildUnchanged": true,
+  "outputLengthsAndSuccessResultsMatch": true,
+  "noForcedGcInWranglerComparison": true,
+  "oldSpaceMiB": 3072,
+  "buffer": {
+    "events": 3000,
+    "originalBuffered": 3000,
+    "patchedBuffered": 187,
+    "originalRetainedHeapMiB": 16.567,
+    "patchedRetainedHeapMiB": 1.602,
+    "retainingPaths": [
+      {
+        "target": "Object",
+        "reachableThroughNonWeakEdges": true,
+        "rootReached": true,
+        "path": [
+          {
+            "from": "",
+            "edge": "1",
+            "type": "element",
+            "to": "(GC roots)"
+          },
+          {
+            "from": "(GC roots)",
+            "edge": "10",
+            "type": "element",
+            "to": "(Global handles)"
+          },
+          {
+            "from": "(Global handles)",
+            "edge": "146",
+            "type": "internal",
+            "to": "fetch"
+          },
+          {
+            "from": "fetch",
+            "edge": "context",
+            "type": "internal",
+            "to": "system / Context"
+          },
+          {
+            "from": "system / Context",
+            "edge": "proxy",
+            "type": "context",
+            "to": "InspectorProxyWorker"
+          },
+          {
+            "from": "InspectorProxyWorker",
+            "edge": "runtimeMessageBuffer",
+            "type": "property",
+            "to": "Array"
+          },
+          {
+            "from": "Array",
+            "edge": "253",
+            "type": "element",
+            "to": "Object"
+          }
+        ]
+      },
+      {
+        "target": "Object",
+        "reachableThroughNonWeakEdges": true,
+        "rootReached": true,
+        "path": [
+          {
+            "from": "",
+            "edge": "1",
+            "type": "element",
+            "to": "(GC roots)"
+          },
+          {
+            "from": "(GC roots)",
+            "edge": "10",
+            "type": "element",
+            "to": "(Global handles)"
+          },
+          {
+            "from": "(Global handles)",
+            "edge": "146",
+            "type": "internal",
+            "to": "fetch"
+          },
+          {
+            "from": "fetch",
+            "edge": "context",
+            "type": "internal",
+            "to": "system / Context"
+          },
+          {
+            "from": "system / Context",
+            "edge": "proxy",
+            "type": "context",
+            "to": "InspectorProxyWorker"
+          },
+          {
+            "from": "InspectorProxyWorker",
+            "edge": "runtimeMessageBuffer",
+            "type": "property",
+            "to": "Array"
+          },
+          {
+            "from": "Array",
+            "edge": "254",
+            "type": "element",
+            "to": "Object"
+          }
+        ]
+      }
+    ]
+  },
+  "functional": [
+    {
+      "mode": "asset",
+      "requests": 4,
+      "bytes": 8388608,
+      "sha256": "a42c714ef2d0993bb5a717eca3830f3057baa50f9194fd9b1ed9ee5a71161b64"
+    },
+    {
+      "mode": "rsc",
+      "requests": 4,
+      "bytes": 2791
+    },
+    {
+      "mode": "page",
+      "requests": 4,
+      "bytes": 17001
+    }
+  ],
+  "productionChanged": false
+}</pre></html>

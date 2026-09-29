@@ -36,7 +36,7 @@ export function summarizeHeap(graph) {
   const count=nodes.length/stride;
   if(!Number.isSafeInteger(count)||count!==graph.snapshot.node_count)throw new Error('Heap node count mismatch');
   const edgeStarts=new Uint32Array(count+1);
-  const classes=new Map(),rowNodes=[],namedNodes=[];
+  const classes=new Map(),rowNodes=[],namedNodes=[],networkEventNodes=[];
   const nameOf=i=>String(strings[nodes[i*stride+fields.name]]??'');
   const typeOf=i=>meta.node_types[fields.type][nodes[i*stride+fields.type]];
   let edgeOffset=0,totalSelfBytes=0;
@@ -46,12 +46,16 @@ export function summarizeHeap(graph) {
     const key=`${type}:${name.length<=80?name:'<long-name>'}`;
     const item=classes.get(key)??{type,name:name.length<=80?name:'<long-name>',count:0,selfBytes:0};
     item.count++;item.selfBytes+=size;classes.set(key,item);totalSelfBytes+=size;
-    let padding=false;
+    let padding=false,networkEvent=false;
     const edgeCount=nodes[i*stride+fields.edge_count];
     for(let e=0;e<edgeCount;e++) {
       const pos=edgeOffset+e*estride;
       if(meta.edge_types[edgeFields.type][edges[pos+edgeFields.type]]==='property') {
         const field=strings[edges[pos+edgeFields.name_or_index]];
+        if(field==='method') {
+          const target=edges[pos+edgeFields.to_node]/stride;
+          networkEvent ||= Number.isInteger(target)&&target>=0&&target<count&&nameOf(target)==='Network.dataReceived';
+        }
         // V8 can omit edges for small integer (Smi) properties such as id.
         // The synthetic fixtures uniquely identify rows by a string padding property.
         if(field==='padding') {
@@ -61,7 +65,8 @@ export function summarizeHeap(graph) {
       }
     }
     if(type==='object'&&padding)rowNodes.push(i);
-    if(type==='object'&&['Response','Request','Headers','AbortController','AbortSignal','Promise','Map','Set','ArrayBuffer','ReadableStream','ReadableStreamDefaultReader'].includes(name))namedNodes.push(i);
+    if(type==='object'&&networkEvent)networkEventNodes.push(i);
+    if(type==='object'&&['InspectorProxyWorker','Response','Request','Headers','AbortController','AbortSignal','Promise','Map','Set','ArrayBuffer','ReadableStream','ReadableStreamDefaultReader'].includes(name))namedNodes.push(i);
     edgeOffset+=edgeCount*estride;
   }
   edgeStarts[count]=edgeOffset;
@@ -94,8 +99,8 @@ export function summarizeHeap(graph) {
   }
   const selectedNodes=[];const perName=new Map();
   for(const node of namedNodes){const name=nameOf(node),seen=perName.get(name)??0;if(seen<2){selectedNodes.push(node);perName.set(name,seen+1);}}
-  return {analysisVersion:'padding-string-v2',nodeCount:count,edgeCount:edges.length/estride,totalSelfBytes,fixtureRowObjects:rowNodes.length,
+  return {analysisVersion:'padding-string-v2',nodeCount:count,edgeCount:edges.length/estride,totalSelfBytes,fixtureRowObjects:rowNodes.length,networkEventObjects:networkEventNodes.length,networkEventPathSamples:networkEventNodes.slice(0,2).map(pathTo),
     topClassesBySelfBytes:[...classes.values()].sort((a,b)=>b.selfBytes-a.selfBytes).slice(0,20),
-    selectedClasses:[...classes.values()].filter(c=>c.type==='object'&&['Object','Array','Response','Request','Headers','AbortController','AbortSignal','Promise','Map','Set','ArrayBuffer','ReadableStream','ReadableStreamDefaultReader'].includes(c.name)),
+    selectedClasses:[...classes.values()].filter(c=>c.type==='object'&&['InspectorProxyWorker','Object','Array','Response','Request','Headers','AbortController','AbortSignal','Promise','Map','Set','ArrayBuffer','ReadableStream','ReadableStreamDefaultReader'].includes(c.name)),
     retentionPathSamples:[...rowNodes.slice(0,2),...selectedNodes].map(pathTo)};
 }

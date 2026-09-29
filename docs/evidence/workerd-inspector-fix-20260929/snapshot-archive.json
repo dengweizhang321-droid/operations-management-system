@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "directory": "E:\\codex-artifacts\\workerd-inspector-fix-20260929",
+  "syntheticOnly": true,
+  "files": [
+    {
+      "name": "proxy-buffer-before2-warm.heapsnapshot.gz",
+      "rawBytes": 4511593,
+      "rawSha256": "554d60e39a402436eb28ae665585a5f19a158165c780277601cd96a57f057e0a",
+      "gzipBytes": 966414,
+      "gzipSha256": "bb5d8451cc8f9a7c63228f29ed9cea98ee3c209883a7df2ac4ab80f6256c0efe"
+    },
+    {
+      "name": "proxy-buffer-before2-final.heapsnapshot.gz",
+      "rawBytes": 8567965,
+      "rawSha256": "fe42b2a07ca18564781e9f38bc78d70cc8aca62dd4ef92b3835f1f14395b837c",
+      "gzipBytes": 1158236,
+      "gzipSha256": "2f868fc12bc97291b7b2f462cb4020366cd64898a409207e570bffc08e3f7a7b"
+    },
+    {
+      "name": "proxy-buffer-after-warm.heapsnapshot.gz",
+      "rawBytes": 4515646,
+      "rawSha256": "9906e033cdbd4ca8e9e3646c759e7b78ad093db61444ebe6862507d08b186430",
+      "gzipBytes": 967894,
+      "gzipSha256": "d0e21eba840a31d292a61bd2b27963e32632e7ea1184801b9321893b32b29c9a"
+    },
+    {
+      "name": "proxy-buffer-after-final.heapsnapshot.gz",
+      "rawBytes": 4854103,
+      "rawSha256": "3f2800a657d446af0604035205add289c2b7ee137097b6f9c6c4b50968974b1a",
+      "gzipBytes": 998880,
+      "gzipSha256": "454c3e604077e6e1a2b91377fd9a5cfd3eae06157fcdbadb9e2f410a95df5627"
+    }
+  ]
+}
