@@ -2199,7 +2199,8 @@ def run_capacity(args: argparse.Namespace) -> dict[str, Any]:
             "SELECT current_database(), current_user, inet_server_addr()::text, "
             "inet_server_port(), pg_database_size(current_database())"
         ).fetchone()
-        if (not row or row[:4] != (args.expected_database, args.expected_user, "127.0.0.1", args.port)
+        if (not row or row[:2] != (args.expected_database, args.expected_user)
+                or _canonical_loopback_address(row[2]) != "127.0.0.1" or row[3] != args.port
                 or type(row[4]) is not int or row[4] <= 0):
             raise RuntimeError("capacity database identity mismatch")
         return {"status": "completed", "databaseBytes": row[4]}
