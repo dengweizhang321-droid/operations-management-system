@@ -76,7 +76,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
               const label = todayStatusLabel(item);
               return <div className="import-rule-cell" key={rule.workflowId}>
               <span className={`import-run-badge is-${label.tone}`}>{loading && !currentStatus ? "读取今天状态…" : label.label}</span>
-              {item?.state === "failed" && <small>仅统计定时与自动重试；手动恢复请查 n8n 执行及导入批次。</small>}
+              {item?.state === "failed" && <small>最近自动执行失败；完整手动补跑成功后会更新状态，业务结果请查导入批次。</small>}
               {item?.completedToday && <small>{completedAtLabel(item)} {formatChainStatusTime(item.completedAt || "")}{item.state !== "completed" ? " · 后续执行状态见上" : ""}</small>}
               {rule.entityKeys.length > 1 && <small>共用 {rule.entityKeys.length} 店 · 整链状态</small>}
               <span>{rule.schedules.map(describeSchedule).join("、") || "手动触发"}</span>
@@ -87,7 +87,7 @@ export default function ImportChainRulesView({ currentUser }: { currentUser: Cur
           })}
         </tr>)}</tbody></table>
       </div>
-      <footer className="import-monitor-footer"><span>只统计自动触发及完整自动重试，手动调试不计入今天完成。</span><span>{currentStatus ? `最近核查 ${formatChainStatusTime(currentStatus.checkedAt)}` : "尚未取得今天状态"}</span></footer>
+      <footer className="import-monitor-footer"><span>统计定时、自动重试及已核验的完整手动补跑成功；单节点测试与局部执行不计入今天完成。</span><span>{currentStatus ? `最近核查 ${formatChainStatusTime(currentStatus.checkedAt)}` : "尚未取得今天状态"}</span></footer>
     </section>
     <dialog ref={dialog} className="import-rule-dialog" aria-labelledby="import-rule-title" onClose={() => setSelection(null)} onCancel={() => setSelection(null)}>
       {selection && selectedChain && <>

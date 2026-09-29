@@ -62,6 +62,8 @@ test("matrix renders workflows across columns and shops down rows", () => {
   assert.doesNotMatch(head, /志高商用设备旗舰店/);
   assert.match(body, /<th scope="row"><strong>志高商用设备旗舰店/);
   assert.match(body, /读取今天状态/);
+  assert.match(html, /统计定时、自动重试及已核验的完整手动补跑成功/);
+  assert.doesNotMatch(html, /只统计自动触发|手动调试不计入今天完成/);
 });
 
 test("today status rejects impossible completion and shows later failure distinctly", () => {
