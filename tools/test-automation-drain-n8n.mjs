@@ -124,20 +124,25 @@ const results = [];
 try {
   console.log(JSON.stringify({ phase: "n8n", directory: root, mockUrl }));
   const source = JSON.parse(await readFile(new URL("../automation/n8n/tmall-lili-sycm-cookie-daily.workflow.json", import.meta.url), "utf8"));
-  let workflow = withMaintenanceCoordination(source);
+  let workflow = structuredClone(source);
   const claim = workflow.nodes.find(n => n.name === "领取共享 helper");
   const condition = workflow.nodes.find(n => n.name === "helper 领取成功？");
   const wait = workflow.nodes.find(n => n.type === "n8n-nodes-base.wait");
   wait.parameters = { resume: "timeInterval", amount: 0.02, unit: "seconds" };
-  const anchor = workflow.nodes.find(n => n.name === anchorNodeName);
   const manual = { id: "fixture-manual", name: "Fixture", type: "n8n-nodes-base.manualTrigger", typeVersion: 1, position: [-1000, 0], parameters: {} };
   const fixed = { id: "fixture-date", name: "Synthetic date", type: "n8n-nodes-base.code", typeVersion: 2, position: [-900, 0], parameters: { jsCode: "return [{json:{timestamp:'2026-09-27T23:59:00+08:00'}}];" } };
   const effect = { id: "fixture-effect", name: "Synthetic effect", type: "n8n-nodes-base.httpRequest", typeVersion: 4.2, position: [0, 0], parameters: { method: "POST", url: `${mockUrl}/effect` } };
   const edge = name => [{ node: name, type: "main", index: 0 }];
-  workflow.nodes = [manual, fixed, anchor, claim, condition, wait, effect];
-  workflow.connections = { Fixture: { main: [edge(fixed.name)] }, [fixed.name]: { main: [edge(anchor.name)] },
-    [anchor.name]: { main: [edge(claim.name)] }, [claim.name]: { main: [edge(condition.name)] },
+  const initialWait = { id: "fixture-initial-wait", name: "Initial delay before claim", type: "n8n-nodes-base.wait", typeVersion: 1.1,
+    position: [-800, 0], parameters: { resume: "timeInterval", amount: 0.02, unit: "seconds" } };
+  workflow.nodes = [manual, fixed, initialWait, claim, condition, wait, effect];
+  workflow.connections = { Fixture: { main: [edge(fixed.name)] }, [fixed.name]: { main: [edge(initialWait.name)] },
+    [initialWait.name]: { main: [edge(claim.name)] }, [claim.name]: { main: [edge(condition.name)] },
     [condition.name]: { main: [edge(effect.name), edge(wait.name)] }, [wait.name]: { main: [edge(claim.name)] } };
+  workflow = withMaintenanceCoordination(workflow);
+  const anchor = workflow.nodes.find(n => n.name === anchorNodeName);
+  assert.equal(workflow.connections[initialWait.name].main[0][0].node, anchor.name);
+  assert.equal(workflow.connections[wait.name].main[0][0].node, claim.name);
   workflow.settings = { timezone: "Asia/Shanghai", executionOrder: "v1" };
   workflow = JSON.parse(JSON.stringify(workflow).replaceAll("http://127.0.0.1:5791", mockUrl));
   assert.equal(JSON.stringify(workflow).includes(":5791"), false);

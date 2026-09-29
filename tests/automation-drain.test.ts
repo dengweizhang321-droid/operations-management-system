@@ -80,6 +80,24 @@ test("all candidate definitions preserve identities, triggers and business nodes
   }
 });
 
+test("every trigger path reaches the plan anchor before claim, including an initial Wait", () => {
+  for (const target of hourlyRetryTargets) {
+    const source = JSON.parse(readFileSync(new URL(`../automation/n8n/${target.fileName}`, import.meta.url), "utf8"));
+    const candidate = withMaintenanceCoordination(source);
+    const claim = source.nodes.find(n => n.parameters?.url === "http://127.0.0.1:5791/coordination/claim");
+    for (const trigger of source.nodes.filter(n => n.type.endsWith("Trigger") || n.type === "n8n-nodes-base.webhook")) {
+      const pending: string[] = [trigger.name], seen = new Set<string>();
+      while (pending.length) {
+        const name = pending.shift()!;
+        if (seen.has(name) || name === anchorNodeName) continue;
+        seen.add(name);
+        assert.notEqual(name, claim.name, `${target.workflowId}: ${trigger.name} can claim without the original plan anchor`);
+        for (const edges of candidate.connections[name]?.main ?? []) for (const edge of edges) pending.push(edge.node);
+      }
+    }
+  }
+});
+
 test("actual candidate code retains a pre-midnight anchor over offline waiting and duplicate claims", async () => {
   const source = JSON.parse(readFileSync(new URL("../automation/n8n/tmall-lili-sycm-cookie-daily.workflow.json", import.meta.url), "utf8"));
   const candidate = withMaintenanceCoordination(source);

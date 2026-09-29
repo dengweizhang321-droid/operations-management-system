@@ -20,11 +20,21 @@ if (input.body && (input.body.version !== 'teruisi-retry-context-v1' || input.bo
 const scheduledAt = new Date(input.body?.originalScheduledAt ?? input.timestamp ?? Date.now()).toISOString();
 return [{json:{version:'teruisi-retry-context-v1',workflowId:${JSON.stringify(source.id)},executionId:String($execution.id),
   scheduledAt, originalExecutionId: String(input.body?.originalExecutionId ?? $execution.id)}}];` } });
+  // Only a Wait reachable from claim is a polling return. An initial delay
+  // before claim is still an entry path and must initialize the plan anchor.
+  const claimDescendants = new Set();
+  const pending = [claim.name];
+  while (pending.length) {
+    const name = pending.pop();
+    if (claimDescendants.has(name)) continue;
+    claimDescendants.add(name);
+    for (const edges of workflow.connections[name]?.main ?? []) for (const edge of edges) pending.push(edge.node);
+  }
   let incoming = 0;
   for (const [name, connection] of Object.entries(workflow.connections)) {
     const node = workflow.nodes.find(n => n.name === name);
     for (const edges of connection.main ?? []) for (const edge of edges) {
-      if (edge.node === claim.name && node?.type !== "n8n-nodes-base.wait") { edge.node = anchorNodeName; incoming++; }
+      if (edge.node === claim.name && !(node?.type === "n8n-nodes-base.wait" && claimDescendants.has(name))) { edge.node = anchorNodeName; incoming++; }
     }
   }
   if (!incoming) throw new Error("claim_entry_required");
