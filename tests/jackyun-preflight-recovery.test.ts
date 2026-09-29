@@ -152,6 +152,38 @@ async function fixture4726() {
   return { ...f, planPath, runId, deps: { ...f.deps, now: () => new Date("2026-09-27T03:00:00Z") } };
 }
 
+test("post-plan-time n8n route closes only the exact zero-effect DPAPI failure", async () => {
+  const f = await fixture(), executionId = "5395", runId = `n8n-export-first-${executionId}`;
+  const plan = { version: 2, protocol: f.plan.protocol, executionId, runId,
+    runDate: "2026-09-30", asOfDate: "2026-09-29", salesStartDate: "2026-08-16",
+    baseUrl: "http://localhost:3000", createdAt: "2026-09-29T16:10:03.220Z",
+    phase: "exporting", exports: {}, exportTransport: "session_api_v1" };
+  await writeFile(path.join(f.pipeline, `${runId}.json`), JSON.stringify(plan));
+  await writeFile(f.activePath, JSON.stringify({ runId, executionId }));
+  const evidence: PreflightEvidence = { executionId, workflowId: jackyunWorkflowId, status: "error",
+    startedAt: "2026-09-29T16:10:02.222Z", stoppedAt: "2026-09-29T16:10:12.144Z",
+    retrySuccessId: null, lastNode: "B·接口校验与五表下载",
+    runNodes: ["每天本机时间 00:10", "固定原执行计划时间", "领取共享 helper", "helper 领取成功？",
+      "A·固定采集日和销售日期", "B·接口校验与五表下载"],
+    error: "waiting_login：吉客云 DPAPI 凭据配置或解密未完成（missing / lookup=provider:0,file:0,directory:0）。",
+    httpCode: "500", requestUrl: "http://127.0.0.1:5791/jackyun/export-first/export-all",
+    executionDataSha256: "7".repeat(64), activeExecutions: 0 };
+  const proposal = await inspectPreflightClosure(f.root, executionId, evidence, "2026-09-29T20:40:00Z");
+  assert.equal(proposal.absentPaths.length, 4);
+  await publishPreflightClosure(f.root, proposal, evidence, recoverySha(JSON.stringify(proposal)));
+  await assertClosedPreflight(f.root, executionId);
+  for (const runNodes of [
+    evidence.runNodes.slice(1),
+    [...evidence.runNodes.slice(0, 2), "D·统一导入运营管理系统", ...evidence.runNodes.slice(2)],
+    [...evidence.runNodes, "D·统一导入运营管理系统"],
+  ]) {
+    const variant = await fixture();
+    await writeFile(path.join(variant.pipeline, `${runId}.json`), JSON.stringify(plan));
+    await writeFile(variant.activePath, JSON.stringify({ runId, executionId }));
+    await assert.rejects(inspectPreflightClosure(variant.root, executionId, { ...evidence, runNodes }, "2026-09-29T20:40:00Z"));
+  }
+});
+
 const proof2879: PreflightEvidence = {
   executionId: "2879", workflowId: jackyunWorkflowId, status: "error",
   startedAt: "2026-09-17T16:10:00.237Z", stoppedAt: "2026-09-17T16:10:07.842Z", retrySuccessId: null,

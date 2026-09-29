@@ -302,6 +302,7 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
   jackyunSalesPeriod(plan.asOfDate, plan.salesStartDate);
   const date = new Date(`${plan.runDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1);
   const expectedRunNodes = [evidence.runNodes[0], "领取共享 helper", "helper 领取成功？", "A·固定采集日和销售日期", apiDownloadNode];
+  const expectedRunNodesWithScheduledAt = [evidence.runNodes[0], "固定原执行计划时间", ...expectedRunNodes.slice(1)];
   if (![1, 2].includes(plan.version) || (plan.version === 2 ? plan.salesStartDate === undefined : plan.salesStartDate !== undefined)
     || plan.protocol !== jackyunExportFirstPolicyVersion || plan.executionId !== executionId
     || plan.runId !== `n8n-export-first-${executionId}` || plan.phase !== "exporting" || plan.exportTransport !== "session_api_v1"
@@ -312,7 +313,9 @@ function assertEmptyApiChallengePlan(plan: EmptyPlan & { exportTransport?: strin
     || plan.asOfDate !== date.toISOString().slice(0, 10)
     || evidence.executionId !== executionId || evidence.workflowId !== jackyunWorkflowId || evidence.status !== "error"
     || evidence.retrySuccessId !== null || evidence.activeExecutions !== 0 || evidence.lastNode !== apiDownloadNode
-    || !apiPlanTriggers.has(evidence.runNodes[0] ?? "") || !isDeepStrictEqual(evidence.runNodes, expectedRunNodes)
+    || !apiPlanTriggers.has(evidence.runNodes[0] ?? "")
+    || (!isDeepStrictEqual(evidence.runNodes, expectedRunNodes)
+      && !isDeepStrictEqual(evidence.runNodes, expectedRunNodesWithScheduledAt))
     || !errorAllowed(evidence.error) || evidence.httpCode !== "500"
     || evidence.requestUrl !== "http://127.0.0.1:5791/jackyun/export-first/export-all"
     || !/^[a-f0-9]{64}$/.test(evidence.executionDataSha256)
