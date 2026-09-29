@@ -1,5 +1,7 @@
 # 第 4 项：发布与自动化协调（独立候选）
 
+**2026-09-29 生产更新：本项代码已随统一批次采用，现场修正及验收边界见[正式采用记录](OPTIMIZATION_PRODUCTION_20260929.md)。下文保留开发交付时的历史状态，不能将其中“待合并/待上线”理解为当前状态。**
+
 日期：2026-09-29。范围：`SYSTEM_OPTIMIZATION_ASSESSMENT_20260928.md` 第 4.4 节。
 基线：`e00d4a82b2480d05646f5e0b65b13e9a2cc6bb7e`；分支：`codex/release-automation-coordination`。
 

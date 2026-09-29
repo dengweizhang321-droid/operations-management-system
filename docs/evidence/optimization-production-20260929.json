@@ -1,0 +1,1201 @@
+{
+  "version": "teruisi-optimization-production-20260929-v1",
+  "checkedAt": "2026-09-29T02:55:06.279639+00:00",
+  "status": "deployed_verified_with_business_followups",
+  "sourceCommits": {
+    "workerAndInitialDjango": "2f1b547076cbafff393eb6952edced73fc545e8e",
+    "djangoCapacityRepair": "e92aeaf79d500bbfbcddda267ba973e19f0aae89",
+    "workflowEntryRepair": "7e71c26c6a1b707b6483bb7f2463dc7a75a4374d"
+  },
+  "authorization": {
+    "initialDeployment": true,
+    "replaceOwnEarlierBackupProtection": true,
+    "additionalApplicationMaintenance": true,
+    "dailyBackupAutomationResumption": false,
+    "manualBusinessReplay": false
+  },
+  "worker": {
+    "status": "activated",
+    "version": "teruisi-local-worker-release-successor-v1",
+    "planSha256": "875bd5bdcfef17af472758a2c135aa8685729d845b285542e543603a6b1b169e",
+    "predecessorReleaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "releaseId": "20260929T005710Z-e980ef9414b72995",
+    "manifestPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\releases\\20260929T005710Z-e980ef9414b72995\\deployment-manifest.json",
+    "manifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+    "successorSha256": "de726ff8c137d9df3729631572c601a7f73e98bc8c6b9e5b5cd8297dad03adbb",
+    "consumptionSha256": "9f4b6634c521610266965112e5ef7cc8ff803988496d8174e482a6ef0a330cec",
+    "startupBindingSha256": "78b6d5c8ea1051d48b5c1365e7a62da1229ed37651ebc9aa07cd2b656f9d6311"
+  },
+  "django": {
+    "id": "87e41232b2f34ee59bfa248ee119faa9",
+    "receiptSha256": "45c05895858be1d03c42c164b7510d0d8aee6f88c4a5b79df3dd60e27ff7aff3",
+    "predecessorManifestSha256": "fd52d2f4cd8e9ab4ec1a20bac8c528042524fc15e18bb192ecbd04af22061287",
+    "candidateManifestSha256": "2643e0fee6163a885d651215f1814102fdbe8001376fd335cffe0d647b5f5583",
+    "capacityToolSha256": "f24b200af039b73043a469ef07b4b6c50607f84064a343c75e6766f4242488ca",
+    "sourceCapacityToolSha256": "f24b200af039b73043a469ef07b4b6c50607f84064a343c75e6766f4242488ca",
+    "inspectorSha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "applied": true
+  },
+  "system": {
+    "version": "teruisi-operations-system-control-v2",
+    "state": "Running",
+    "backendState": "Ready",
+    "workerState": "exact_release",
+    "releaseId": "20260929T005710Z-e980ef9414b72995",
+    "supervisorProcessId": 52472,
+    "portProcessId": 29868,
+    "url": "http://localhost:3000/",
+    "reason": null,
+    "components": {
+      "core": true,
+      "finance": true,
+      "netshop": true,
+      "market": true,
+      "products": true,
+      "workflow": true,
+      "inventory": true,
+      "customerService": true,
+      "accessControl": true,
+      "erpReference": true,
+      "bi": true,
+      "ai": true
+    },
+    "checkedAt": "2026-09-29T10:49:09.3614449+08:00"
+  },
+  "startup": {
+    "status": "verified",
+    "version": "teruisi-local-worker-status-v1",
+    "releaseId": "20260929T005710Z-e980ef9414b72995",
+    "manifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+    "startupVerified": true
+  },
+  "supervisor": {
+    "status": "completed",
+    "desiredState": "running",
+    "supervisorProcess": "running",
+    "health": "healthy",
+    "code": "all_components_ready",
+    "lastHealthyAt": "09/29/2026 10:46:40",
+    "restartAttemptsInWindow": 1,
+    "pendingAlertCount": 109,
+    "serviceStateChanged": false
+  },
+  "preservedProcesses": [
+    {
+      "ProcessId": 17868,
+      "CreationDate": "2026-09-25T17:41:47.418888+08:00"
+    },
+    {
+      "ProcessId": 11332,
+      "CreationDate": "2026-09-25T17:43:40.249449+08:00"
+    }
+  ],
+  "migrationCount": 138,
+  "migrationListUnchanged": true,
+  "resources": {
+    "checkedAt": "2026-09-29T02:34:59.281Z",
+    "releaseId": "20260929T005710Z-e980ef9414b72995",
+    "resources": [
+      {
+        "url": "/assets/index-Sgc4G-ZW.css",
+        "sha256": "aaa00899c24497972eddb737774444a75980d7aa0d5eb7d03bc56a4ac1c27fcc",
+        "bytes": 416063
+      },
+      {
+        "url": "/assets/layout-segment-context-B9raqfzA.js",
+        "sha256": "50d0482c9621c50976b55afd1a8ef88aa5c5182c479c9336fbcf9d13f0e3f48b",
+        "bytes": 288
+      },
+      {
+        "url": "/assets/rolldown-runtime-S-ySWqyJ.js",
+        "sha256": "5db5ba82eef00d1dee7e86e663098c9427d01183a88d357437daff295aec3e75",
+        "bytes": 694
+      },
+      {
+        "url": "/assets/index-Bdij0lhI.js",
+        "sha256": "a7b3fceb77ecfb80aad63dab257f23d2db145e596da3080d78bfa53cb3f408f3",
+        "bytes": 81370
+      },
+      {
+        "url": "/assets/framework-CXnKph_e.js",
+        "sha256": "73b45b606448e4dc310fbe851d8089ee752f3eb081980b3a6fec88988820ee12",
+        "bytes": 189805
+      },
+      {
+        "url": "/assets/page-DHZJxwAG.js",
+        "sha256": "4226d97b54c1267f76d6718b780573559503d6b07ea2a357a9cd0d0d17b5d744",
+        "bytes": 59393
+      },
+      {
+        "url": "/assets/ai-page-context-provider-Dc3lH0uZ.js",
+        "sha256": "81068a87be6359e62cb5aca4183656b0fdb30f82e4dab2532fd9e2caa6753858",
+        "bytes": 519
+      },
+      {
+        "url": "/assets/module-view-shared-C5DPvJ_4.js",
+        "sha256": "bef709b2ccd5a55e06911ae20a759ba86e015a641693a7ab40cd93607f8086d3",
+        "bytes": 6469
+      },
+      {
+        "url": "/assets/navigation-catalog-CFFzuV3l.js",
+        "sha256": "f6a00161fc62716613f22fb481d4c1692f15187eca44913109ad32524b24f628",
+        "bytes": 3071
+      },
+      {
+        "url": "/assets/reloadable-lazy-DdXIQ3Cd.js",
+        "sha256": "89877a478fb2c752b38ed3187cc3c2976f3114b25c92131f6a3da6421188a432",
+        "bytes": 536
+      },
+      {
+        "url": "/assets/dialog-CXm5GeIc.js",
+        "sha256": "62403b91d7d23f2e2c0f24b5941f9176e1a7ebf61f5cb8f770132bc6f8dc1ac5",
+        "bytes": 3064
+      },
+      {
+        "url": "/assets/searchable-select-TuzqFU6k.js",
+        "sha256": "f423c656f508f5e8c08f6790e50b567b02f6e294204032fe6ba28e765310916f",
+        "bytes": 5409
+      },
+      {
+        "url": "/assets/page-context-CHRRbv11.js",
+        "sha256": "2ce9a4930dee41b41188a10de0f5c6defc2ea4c8395d062e61054d5fc1f3bb61",
+        "bytes": 6438
+      },
+      {
+        "url": "/assets/api-client-BkSFlZxp.js",
+        "sha256": "1668ca8a79bf454e2d7c8c8ef2783c19ca9d6640e5df6327400a57e8ccc5edbe",
+        "bytes": 1587
+      },
+      {
+        "url": "/assets/api-error-CJCV3BJQ.js",
+        "sha256": "4efae8b1a9127677a8c80569e149000d507839d79d3fc807c2a37d490174941f",
+        "bytes": 201
+      }
+    ],
+    "probes": [
+      {
+        "url": "http://127.0.0.1:3000/_teruisi/local/health/live",
+        "status": 200,
+        "body": {
+          "ok": true,
+          "status": "live"
+        }
+      },
+      {
+        "url": "http://127.0.0.1:3000/_teruisi/local/health/ready",
+        "status": 200,
+        "body": {
+          "ok": true,
+          "backend": "django-postgresql",
+          "unavailableServices": [],
+          "status": "ready"
+        }
+      },
+      {
+        "url": "http://127.0.0.1:5791/health",
+        "status": 200,
+        "body": {
+          "cookieSource": "missing",
+          "tmallProfile": "ready",
+          "jackyunProfile": "ready",
+          "jdProfiles": "ready",
+          "jdMarketProfile": "ready",
+          "jdPromotionProfile": "ready",
+          "jdPromotionCutMeatProfile": "ready",
+          "ok": true,
+          "stage": "ready",
+          "busy": false,
+          "activeWorkflow": null,
+          "isolationProtocol": "tmall-store-isolation-v1",
+          "storeExecutions": [],
+          "drainProtocol": "teruisi-automation-drain-v1",
+          "drain": null
+        }
+      }
+    ],
+    "inspectorSha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c"
+  },
+  "watchdogChecks": [
+    {
+      "admission": {
+        "fence": "0153bbb3e21881bf486ed2fdb5c413058a5b4eb7d28266b9cd829f163562815e",
+        "mode": "running"
+      },
+      "releaseId": "20260929T005710Z-e980ef9414b72995",
+      "worker": "exact_release",
+      "healthy": true,
+      "business": {
+        "checkedAt": "2026-09-29T02:48:54.6263305+00:00",
+        "status": "unknown",
+        "reason": "no_confirmed_failure",
+        "version": "market-read-probe-v1"
+      },
+      "supervisor": "running",
+      "workerPid": 29868,
+      "supervisorPid": 52472,
+      "backend": "Ready",
+      "system": "Running",
+      "components": {
+        "erpReference": true,
+        "netshop": true,
+        "products": true,
+        "customerService": true,
+        "workflow": true,
+        "core": true,
+        "finance": true,
+        "accessControl": true,
+        "ai": true,
+        "market": true,
+        "inventory": true,
+        "bi": true
+      },
+      "probeError": false,
+      "at": "2026-09-29T02:49:24.6750583+00:00",
+      "ports": [
+        {
+          "pid": 33544,
+          "port": 5791
+        },
+        {
+          "pid": 11332,
+          "port": 5432
+        },
+        {
+          "pid": 29868,
+          "port": 3000
+        }
+      ],
+      "probes": {
+        "ready": {
+          "status": 200,
+          "ok": true
+        },
+        "live": {
+          "status": 200,
+          "ok": true
+        },
+        "homepage": {
+          "status": 200,
+          "ok": true
+        },
+        "helper": {
+          "status": 200,
+          "ok": true
+        }
+      },
+      "supervisorHealth": "healthy"
+    },
+    {
+      "backend": "Ready",
+      "components": {
+        "core": true,
+        "netshop": true,
+        "erpReference": true,
+        "bi": true,
+        "customerService": true,
+        "finance": true,
+        "ai": true,
+        "market": true,
+        "products": true,
+        "accessControl": true,
+        "inventory": true,
+        "workflow": true
+      },
+      "healthy": true,
+      "probeError": false,
+      "supervisorPid": 52472,
+      "probes": {
+        "ready": {
+          "ok": true,
+          "status": 200
+        },
+        "homepage": {
+          "ok": true,
+          "status": 200
+        },
+        "live": {
+          "ok": true,
+          "status": 200
+        },
+        "helper": {
+          "ok": true,
+          "status": 200
+        }
+      },
+      "admission": {
+        "mode": "running",
+        "fence": "0153bbb3e21881bf486ed2fdb5c413058a5b4eb7d28266b9cd829f163562815e"
+      },
+      "releaseId": "20260929T005710Z-e980ef9414b72995",
+      "at": "2026-09-29T02:52:24.6751730+00:00",
+      "ports": [
+        {
+          "port": 5791,
+          "pid": 33544
+        },
+        {
+          "port": 5432,
+          "pid": 11332
+        },
+        {
+          "port": 3000,
+          "pid": 29868
+        }
+      ],
+      "workerPid": 29868,
+      "system": "Running",
+      "supervisorHealth": "healthy",
+      "worker": "exact_release",
+      "supervisor": "running",
+      "business": {
+        "checkedAt": "2026-09-29T02:48:54.6263305+00:00",
+        "status": "unknown",
+        "reason": "no_confirmed_failure",
+        "version": "market-read-probe-v1"
+      }
+    }
+  ],
+  "maintenance": [
+    {
+      "enter": {
+        "status": "maintenance",
+        "maintenanceId": "22d8753349984facba1521917f371b2b",
+        "backendStopped": true,
+        "postgresPreserved": true
+      },
+      "exit": {
+        "status": "maintenance_ended",
+        "maintenanceId": "22d8753349984facba1521917f371b2b"
+      },
+      "start": {
+        "status": "started",
+        "version": "teruisi-local-worker-status-v1",
+        "releaseId": "20260929T005710Z-e980ef9414b72995",
+        "manifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+        "supervisorProcessId": 50584
+      }
+    },
+    {
+      "enter": {
+        "status": "maintenance",
+        "maintenanceId": "2aadd6f51216462a9e326f2e4db55aa8",
+        "backendStopped": true,
+        "postgresPreserved": true
+      },
+      "drain": {
+        "version": "teruisi-automation-drain-v1",
+        "id": "2aadd6f51216462a9e326f2e4db55aa8",
+        "runtimeRoot": "D:\\teruisi-runtime\\django-sales",
+        "phase": "requests",
+        "keepPostgres": true,
+        "createdAt": "2026-09-29T10:24:39.7879099+08:00"
+      },
+      "stoppedProof": {
+        "version": "teruisi-system-maintenance-v1",
+        "id": "2aadd6f51216462a9e326f2e4db55aa8",
+        "runtimeRoot": "D:\\teruisi-runtime\\django-sales",
+        "createdAt": "2026-09-29T10:24:40.0217119+08:00",
+        "keepPostgres": true,
+        "drainedStopped": true
+      },
+      "exit": {
+        "status": "maintenance_ended",
+        "maintenanceId": "2aadd6f51216462a9e326f2e4db55aa8"
+      },
+      "start": {
+        "status": "started",
+        "version": "teruisi-local-worker-status-v1",
+        "releaseId": "20260929T005710Z-e980ef9414b72995",
+        "manifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+        "supervisorProcessId": 52472
+      }
+    }
+  ],
+  "backups": {
+    "before": {
+      "status": "completed",
+      "backupId": "daily-20260929T012900Z-ad2817875f20",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20260929T012900Z-ad2817875f20",
+      "manifestSha256": "b93fa5c4c939f5dfbec9758b4d8fe7d7274465cbb1df0eb16028ba55d0f61e40",
+      "dumpSha256": "3b1f0d5a19828c0b9c3e131ec283527fdb79a4173620102fbc41518951dc8d9a",
+      "contentSha256": "cdf1211fdb27e04524c7328fe6e8da6703be22317aae6cb5e82871ffd04202cd",
+      "completedAt": "09/29/2026 09:35:03",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T210553Z-26d4cef45619",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20260928T145714Z-78107f0c7a59"
+        ],
+        "serviceStateChanged": false
+      },
+      "releaseRetention": {
+        "status": "completed",
+        "serviceStateChanged": false,
+        "removedPayloads": 0
+      }
+    },
+    "isolatedRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "b769fd95e073",
+      "startedAt": "2026-09-29T01:40:10.8057664+00:00",
+      "completedAt": "2026-09-29T01:49:25.7625566+00:00",
+      "backupId": "daily-20260929T012900Z-ad2817875f20",
+      "backupManifestSha256": "b93fa5c4c939f5dfbec9758b4d8fe7d7274465cbb1df0eb16028ba55d0f61e40",
+      "dumpSha256": "3b1f0d5a19828c0b9c3e131ec283527fdb79a4173620102fbc41518951dc8d9a",
+      "expectedContentSha256": "cdf1211fdb27e04524c7328fe6e8da6703be22317aae6cb5e82871ffd04202cd",
+      "restoredContentSha256": "cdf1211fdb27e04524c7328fe6e8da6703be22317aae6cb5e82871ffd04202cd",
+      "isolatedPort": 55893,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "3ecebcab3a403819ab1525685ffc3a78b37f82526ca6644b6cecfbbbe8a168b3",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "protection": {
+      "status": "completed",
+      "policy": {
+        "version": "teruisi-backup-retention-v2",
+        "maximumRecoveryPoints": 3,
+        "archiveRoot": "E:\\运营管理系统业务数据",
+        "pins": [
+          {
+            "backupId": "daily-20260928T125351Z-31cb501bc72d",
+            "manifestSha256": "36f3c99be1a9c23421547a70600006d0a05027e5bc40e5579e4d973189b14ad5"
+          },
+          {
+            "backupId": "daily-20260929T012900Z-ad2817875f20",
+            "manifestSha256": "b93fa5c4c939f5dfbec9758b4d8fe7d7274465cbb1df0eb16028ba55d0f61e40"
+          }
+        ]
+      },
+      "serviceStateChanged": false
+    },
+    "firstPostAttempt": {
+      "version": "teruisi-postgres-operation-v1",
+      "id": "d3d9b96d17b042f797da773f17a8d58f",
+      "action": "Backup",
+      "startedAt": "2026-09-29T02:08:24.5410347+00:00",
+      "updatedAt": "2026-09-29T02:08:46.8668535+00:00",
+      "status": "failed",
+      "phase": "capacity_preflight",
+      "capacity": [],
+      "databaseBackup": null,
+      "result": null,
+      "failure": {
+        "status": "blocked",
+        "stage": "capacity_preflight",
+        "errorCode": "operation_failed",
+        "reason": "See exception type, source location and diagnostic hash",
+        "hresult": -2146233087,
+        "exceptionType": "System.Management.Automation.RuntimeException",
+        "reasonSha256": "a7c9eebf23d622fdfb8e5d8fdf76b783d80a21fc45b4ba71b8c4edc87fd98423",
+        "requiredBytes": null,
+        "availableBytes": null,
+        "errorId": "redacted",
+        "sourceFile": "django-local-service.ps1",
+        "sourceLine": 313
+      }
+    },
+    "capacityReproduction": {
+      "readOnly": true,
+      "identity": [
+        "teruisi_sales",
+        "postgres",
+        "127.0.0.1/32",
+        5432
+      ],
+      "databaseBytes": 15467378355,
+      "result": {
+        "status": "failed",
+        "errorType": "RuntimeError",
+        "identityMismatch": true
+      }
+    },
+    "installedCapacityRepair": {
+      "readOnly": true,
+      "identity": [
+        "teruisi_sales",
+        "postgres",
+        "127.0.0.1/32",
+        5432
+      ],
+      "databaseBytes": 15467386547,
+      "result": {
+        "status": "completed",
+        "databaseBytes": 15467386547
+      }
+    },
+    "after": {
+      "status": "completed",
+      "backupId": "daily-20260929T023526Z-a389d83c37d9",
+      "backupDirectory": "E:\\运营管理系统业务数据\\daily-20260929T023526Z-a389d83c37d9",
+      "manifestSha256": "c3ae9827732c9d0c3e1803e62e93c90d588bc12fae0b782e1a49d37dcd095a54",
+      "dumpSha256": "1bcd083f92795d7bccb3c89f39b751c31e556d7c6d6d8ffcdb74d48e58d56f9b",
+      "contentSha256": "8398990db93dd30efd30fe92f08752b90afdbeaafb40ea983517d38fba3262eb",
+      "completedAt": "09/29/2026 10:41:36",
+      "serviceStateChanged": false,
+      "retention": {
+        "version": "teruisi-backup-retention-plan-v2",
+        "maximumRecoveryPoints": 3,
+        "retainedVerification": "full-evidence",
+        "discardedVerification": "container-integrity",
+        "retained": [
+          "daily-20260929T023526Z-a389d83c37d9",
+          "daily-20260929T012900Z-ad2817875f20",
+          "daily-20260928T125351Z-31cb501bc72d"
+        ],
+        "removed": [
+          "daily-20260928T210553Z-26d4cef45619"
+        ],
+        "serviceStateChanged": false,
+        "status": "completed"
+      },
+      "releaseRetention": {
+        "serviceStateChanged": false,
+        "status": "completed",
+        "removedPayloads": 0
+      }
+    },
+    "afterVerify": {
+      "status": "completed",
+      "backupId": "daily-20260929T023526Z-a389d83c37d9",
+      "manifestSha256": "c3ae9827732c9d0c3e1803e62e93c90d588bc12fae0b782e1a49d37dcd095a54",
+      "dumpSha256": "1bcd083f92795d7bccb3c89f39b751c31e556d7c6d6d8ffcdb74d48e58d56f9b",
+      "contentSha256": "8398990db93dd30efd30fe92f08752b90afdbeaafb40ea983517d38fba3262eb",
+      "serviceStateChanged": false
+    },
+    "unresolvedCount": 0,
+    "retainedCount": 3,
+    "dailyAutomationStatus": "PAUSED"
+  },
+  "n8n": {
+    "verification": {
+      "checkedAt": "2026-09-29T02:55:03.146Z",
+      "published": true,
+      "verified": 18,
+      "reviewedCount": 12,
+      "activeCount": 13,
+      "workflows": [
+        {
+          "id": "20ZtTLAAbsx5KvTp",
+          "name": "My workflow",
+          "active": false,
+          "versionId": "b5fe6929-6bca-4226-9ace-35f29742dfd2",
+          "activeVersionId": null,
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "61d5d49ee88dabe2b2605b3b7df0acfbc51cc051d93933b0121197aea34af523",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "DlSNhk4y5H1e7AJ6",
+          "name": "天猫店铺数据导入-一次性跳过M恢复",
+          "active": false,
+          "versionId": "c89e694b-29b1-4a17-af3c-21fa8a5d9782",
+          "activeVersionId": null,
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "a32e80ffa3ef60678244a88469532206ca8b900e2f25a4cee3524d8824e68346",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "J8kY2mQ5vR7sT4pN",
+          "name": "吉客云导入系统",
+          "active": true,
+          "versionId": "0821abae-9259-4647-b686-132db08c0053",
+          "activeVersionId": "0821abae-9259-4647-b686-132db08c0053",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "4e35496053c1f291ae3d3d853cfd7ba01654fe5440d6005fcba1d6685883ebbe",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdMarketDaily2026",
+          "name": "京东市场商品榜单缺失日下载与导入",
+          "active": false,
+          "versionId": "ed754780-36b5-47fc-b267-c9c0584becee",
+          "activeVersionId": null,
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "8965f1fa7910e44e744be7c2f1f454fbd7b24d093c3db830d6faffd2dc001420",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdMarketSilentCopy2026",
+          "name": "京东市场商品榜单缺失日下载与导入（Profile 3 Chromium静默下载副本）",
+          "active": true,
+          "versionId": "772a848c-b462-43aa-a487-6d2ddd97b61f",
+          "activeVersionId": "772a848c-b462-43aa-a487-6d2ddd97b61f",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "73677cbacfb91d5df61260cb0e97c43ea21111a004f614bafb63dbe495ba5d22",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdN8nM3uL7tI2026",
+          "name": "京东多店铺商品数据统一下载与导入",
+          "active": false,
+          "versionId": "2d7270a8-65f4-4ffa-acd0-513184966970",
+          "activeVersionId": null,
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "ae8f99914751416c48045bf0e7adccd50971767febfdfc354eab2691505c36e7",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdN8nSilentCopy2026",
+          "name": "京东多店铺商品数据统一下载与导入（Chromium静默下载副本）",
+          "active": true,
+          "versionId": "b7b2cdb3-251c-467e-b7bb-811135e7725f",
+          "activeVersionId": "b7b2cdb3-251c-467e-b7bb-811135e7725f",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [
+            {
+              "nodeId": "7aa3e3b1-4adb-4c8e-b431-100000000011",
+              "webhookId": "d4e539bb-25c2-43d7-9e90-2393e99074f4"
+            }
+          ],
+          "adoptedDefinitionSha256": "1b1f0b940858862c0439bd4f90e387e0daf3e14562959fb666893daff5f8d0d5",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdPromotionCutMeat2026",
+          "name": "京东志高切肉机AI推广数据下载与导入",
+          "active": true,
+          "versionId": "a8fead76-7a61-4c6c-9768-b320d2015c57",
+          "activeVersionId": "a8fead76-7a61-4c6c-9768-b320d2015c57",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "5cda733d9f3d0a07ca328b9d29f167b963546e49b9970b60421a70d0ebcb370f",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "JdPromotionDaily2026",
+          "name": "京东志高商用设备AI推广数据下载与导入",
+          "active": true,
+          "versionId": "a3b7d639-6b54-4133-a2f3-b9c6f5a31edc",
+          "activeVersionId": "a3b7d639-6b54-4133-a2f3-b9c6f5a31edc",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "d9f71c1641e030843a82d53dad4536b68e849fc62a57d2e22e39ca367a88c853",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "M4xY8kQ2vR6sT9pC",
+          "name": "天猫店铺数据导入（亿玖 P/M 直连·每日 M）",
+          "active": true,
+          "versionId": "effc98fc-09cf-453b-bd7a-91c3cca816f4",
+          "activeVersionId": "effc98fc-09cf-453b-bd7a-91c3cca816f4",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "802a2840acc44637cf2ddade2bd0e5429750d6a0015532d5adf97d14998df0c8",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "NewProductWeeklyDingTalk2026",
+          "name": "新品销售周报（本机时间）",
+          "active": true,
+          "versionId": "89163a42-a6e6-4732-bb75-09532184ef6c",
+          "activeVersionId": "89163a42-a6e6-4732-bb75-09532184ef6c",
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "cc821529921b9175be3362416e5004dc1cf44f9865897ab94410062e56e385f6",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TeruisiHourlyRetry2026",
+          "name": "数据下载导入工作流每小时安全重试",
+          "active": true,
+          "versionId": "adfc6eba-dfe8-4b43-9635-607651722f92",
+          "activeVersionId": "adfc6eba-dfe8-4b43-9635-607651722f92",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "06e27539a0a45fa76ea0f42d814086a3ec665d50c545cefcc788cae539f4256e",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TmallCuizhiwangDaily2026",
+          "name": "天猫店铺数据导入-炊之王",
+          "active": true,
+          "versionId": "4f1cde87-00e6-46f7-90ae-99e578745c21",
+          "activeVersionId": "4f1cde87-00e6-46f7-90ae-99e578745c21",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "c0c350eabe2c2645009acd197aabfdffcfc610d3afdaad6a5251d2eae86ee9a5",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TmallLiliDaily2026",
+          "name": "天猫店铺数据导入-丽力",
+          "active": true,
+          "versionId": "1dca5da9-5a9c-454b-ac23-62f3090fe43a",
+          "activeVersionId": "1dca5da9-5a9c-454b-ac23-62f3090fe43a",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "060e0e0a1be54256ab81bc63548433634240a2434501f48e5f68bc1883afb258",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TmallMasituDaily2026",
+          "name": "天猫店铺数据导入-马思图",
+          "active": true,
+          "versionId": "08655186-1768-47f7-acf7-47bcfba335f2",
+          "activeVersionId": "08655186-1768-47f7-acf7-47bcfba335f2",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "99db52cbdec9161b7d5e581c4f0e2e96acd769723244f6fdacbb880b1c34b02c",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TmallTuofengDaily2026",
+          "name": "天猫店铺数据导入-拓丰",
+          "active": true,
+          "versionId": "1b8c0c2e-ba4e-4f34-8745-c997bafaed82",
+          "activeVersionId": "1b8c0c2e-ba4e-4f34-8745-c997bafaed82",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "6d21fe2cc1ed7506d917451ce7c2d10821c57341a3566459a9f085d99e71265d",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "TmallYiyongDaily2026",
+          "name": "天猫店铺数据导入（亿用 P/M 直连试点·每日 M）",
+          "active": true,
+          "versionId": "3ffd4333-78ce-4536-a40f-651b5dcbe50b",
+          "activeVersionId": "3ffd4333-78ce-4536-a40f-651b5dcbe50b",
+          "reviewed": true,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "f24920044acbeb02ef11f5a4d93c7876284fc1f91dc985c707fe8d8b8cdbae12",
+          "originalRuntimeMetadataPreserved": true
+        },
+        {
+          "id": "cF7wN8k2pQ5sR1vX",
+          "name": "天猫-志高亿玖生意参谋逐日签收导入",
+          "active": false,
+          "versionId": "41e9bfb2-e1b0-4840-ae07-558cda7fcd71",
+          "activeVersionId": null,
+          "reviewed": false,
+          "serverAddedWaitWebhookIds": [],
+          "adoptedDefinitionSha256": "edf20167230e106f3cc8a971cb668031a9ef5802a5dabd26e5c90259da198d3f",
+          "originalRuntimeMetadataPreserved": true
+        }
+      ],
+      "executions": [
+        {
+          "id": 5328,
+          "workflowId": "TeruisiHourlyRetry2026",
+          "status": "waiting",
+          "startedAt": "2026-09-29 02:31:00.569",
+          "waitTill": "2026-09-29 03:31:00.604"
+        },
+        {
+          "id": 5334,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "running",
+          "startedAt": "2026-09-29 02:55:00.166",
+          "waitTill": null
+        }
+      ]
+    },
+    "adoption": {
+      "published": [
+        {
+          "httpStatus": 200,
+          "id": "TeruisiHourlyRetry2026",
+          "phase": "published_verified",
+          "versionId": "adfc6eba-dfe8-4b43-9635-607651722f92"
+        },
+        {
+          "httpStatus": 200,
+          "id": "J8kY2mQ5vR7sT4pN",
+          "phase": "published_verified",
+          "versionId": "0821abae-9259-4647-b686-132db08c0053"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdN8nSilentCopy2026",
+          "phase": "published_verified",
+          "versionId": "b7b2cdb3-251c-467e-b7bb-811135e7725f"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdMarketSilentCopy2026",
+          "phase": "published_verified",
+          "versionId": "67287746-7f05-406e-9245-8c2e114a9fb8"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdPromotionDaily2026",
+          "phase": "published_verified",
+          "versionId": "a3b7d639-6b54-4133-a2f3-b9c6f5a31edc"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdPromotionCutMeat2026",
+          "phase": "published_verified",
+          "versionId": "a8fead76-7a61-4c6c-9768-b320d2015c57"
+        },
+        {
+          "httpStatus": 200,
+          "id": "M4xY8kQ2vR6sT9pC",
+          "phase": "published_verified",
+          "versionId": "effc98fc-09cf-453b-bd7a-91c3cca816f4"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallLiliDaily2026",
+          "phase": "published_verified",
+          "versionId": "1dca5da9-5a9c-454b-ac23-62f3090fe43a"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallTuofengDaily2026",
+          "phase": "published_verified",
+          "versionId": "1b8c0c2e-ba4e-4f34-8745-c997bafaed82"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallCuizhiwangDaily2026",
+          "phase": "published_verified",
+          "versionId": "4f1cde87-00e6-46f7-90ae-99e578745c21"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallMasituDaily2026",
+          "phase": "published_verified",
+          "versionId": "08655186-1768-47f7-acf7-47bcfba335f2"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallYiyongDaily2026",
+          "phase": "published_verified",
+          "versionId": "3ffd4333-78ce-4536-a40f-651b5dcbe50b"
+        },
+        {
+          "httpStatus": 200,
+          "id": "NewProductWeeklyDingTalk2026",
+          "phase": "published_verified",
+          "versionId": "89163a42-a6e6-4732-bb75-09532184ef6c"
+        }
+      ],
+      "saved": [
+        {
+          "httpStatus": 200,
+          "id": "J8kY2mQ5vR7sT4pN",
+          "originalVersionId": "91d35933-8b9f-4ae8-a444-cbd74ee64381",
+          "phase": "updated_verified_frozen",
+          "versionId": "0821abae-9259-4647-b686-132db08c0053"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdN8nSilentCopy2026",
+          "originalVersionId": "a441654e-eca1-4294-a15e-2f521549f0b4",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [
+            {
+              "nodeId": "7aa3e3b1-4adb-4c8e-b431-100000000011",
+              "webhookId": "d4e539bb-25c2-43d7-9e90-2393e99074f4"
+            }
+          ],
+          "versionId": "b7b2cdb3-251c-467e-b7bb-811135e7725f"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdMarketSilentCopy2026",
+          "originalVersionId": "42822146-296a-47fd-b88f-235800517072",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "67287746-7f05-406e-9245-8c2e114a9fb8"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdPromotionDaily2026",
+          "originalVersionId": "8b43b538-8a96-4361-b40b-ce1aaa772abf",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "a3b7d639-6b54-4133-a2f3-b9c6f5a31edc"
+        },
+        {
+          "httpStatus": 200,
+          "id": "JdPromotionCutMeat2026",
+          "originalVersionId": "a93a5115-c6f4-456c-be90-a63c0b4742f6",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "a8fead76-7a61-4c6c-9768-b320d2015c57"
+        },
+        {
+          "httpStatus": 200,
+          "id": "M4xY8kQ2vR6sT9pC",
+          "originalVersionId": "853f2af7-0316-4d89-8a84-0cb13fbecbca",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "effc98fc-09cf-453b-bd7a-91c3cca816f4"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallLiliDaily2026",
+          "originalVersionId": "a4cdc9e1-3aec-4ce6-8735-56835045c6b4",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "1dca5da9-5a9c-454b-ac23-62f3090fe43a"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallTuofengDaily2026",
+          "originalVersionId": "2ca9473c-783e-4302-b3b2-af73db16ccf1",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "1b8c0c2e-ba4e-4f34-8745-c997bafaed82"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallCuizhiwangDaily2026",
+          "originalVersionId": "86d085df-a5ec-407f-a601-94d22c99fd40",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "4f1cde87-00e6-46f7-90ae-99e578745c21"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallMasituDaily2026",
+          "originalVersionId": "ea61deb6-3a6e-46a1-b407-df4ed3ca272d",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "08655186-1768-47f7-acf7-47bcfba335f2"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TmallYiyongDaily2026",
+          "originalVersionId": "aab474d8-0c35-42c0-b4b0-e28ea02e7730",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "3ffd4333-78ce-4536-a40f-651b5dcbe50b"
+        },
+        {
+          "httpStatus": 200,
+          "id": "TeruisiHourlyRetry2026",
+          "originalVersionId": "e477fdf4-ccf2-4e4e-bad4-ba8bff7b2d54",
+          "phase": "updated_verified_frozen",
+          "serverAddedWaitWebhookIds": [],
+          "versionId": "adfc6eba-dfe8-4b43-9635-607651722f92"
+        }
+      ]
+    },
+    "marketCorrection": {
+      "active": true,
+      "activeVersionId": "772a848c-b462-43aa-a487-6d2ddd97b61f",
+      "definitionSha256": "73677cbacfb91d5df61260cb0e97c43ea21111a004f614bafb63dbe495ba5d22",
+      "id": "JdMarketSilentCopy2026",
+      "publishedAt": "2026-09-29T02:41:43.432Z",
+      "versionId": "772a848c-b462-43aa-a487-6d2ddd97b61f"
+    },
+    "naturalExecutions": {
+      "checkedAt": "2026-09-29T02:55:03.220Z",
+      "readOnly": true,
+      "executions": [
+        {
+          "id": 5324,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:10:00.033",
+          "stoppedAt": "2026-09-29 02:10:30.700"
+        },
+        {
+          "id": 5325,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:15:00.277",
+          "stoppedAt": "2026-09-29 02:15:29.349"
+        },
+        {
+          "id": 5326,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:20:00.118",
+          "stoppedAt": "2026-09-29 02:20:23.489"
+        },
+        {
+          "id": 5327,
+          "workflowId": "JdMarketSilentCopy2026",
+          "status": "error",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:30:00.117",
+          "stoppedAt": "2026-09-29 02:31:00.534"
+        },
+        {
+          "id": 5328,
+          "workflowId": "TeruisiHourlyRetry2026",
+          "status": "waiting",
+          "mode": "error",
+          "startedAt": "2026-09-29 02:31:00.569",
+          "stoppedAt": "2026-09-29 02:31:00.605"
+        },
+        {
+          "id": 5329,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:40:12.184",
+          "stoppedAt": "2026-09-29 02:42:36.768"
+        },
+        {
+          "id": 5330,
+          "workflowId": "JdPromotionDaily2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:40:12.908",
+          "stoppedAt": "2026-09-29 02:41:48.952"
+        },
+        {
+          "id": 5331,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:45:00.087",
+          "stoppedAt": "2026-09-29 02:45:29.033"
+        },
+        {
+          "id": 5332,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:50:00.228",
+          "stoppedAt": "2026-09-29 02:50:44.541"
+        },
+        {
+          "id": 5333,
+          "workflowId": "JdPromotionCutMeat2026",
+          "status": "success",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:50:00.240",
+          "stoppedAt": "2026-09-29 02:50:44.191"
+        },
+        {
+          "id": 5334,
+          "workflowId": "NewProductWeeklyDingTalk2026",
+          "status": "running",
+          "mode": "trigger",
+          "startedAt": "2026-09-29 02:55:00.166",
+          "stoppedAt": null
+        }
+      ]
+    }
+  },
+  "targetedRepairTests": {
+    "capacityAndBackupPython": 41,
+    "coordinationNode": 8,
+    "realIsolatedN8n": {
+      "status": "passed",
+      "productionTouched": false,
+      "results": [
+        {
+          "scenario": "wait-once",
+          "status": "success",
+          "calls": [
+            {
+              "route": "/coordination/claim",
+              "executionId": "1",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            },
+            {
+              "route": "/coordination/claim",
+              "executionId": "1",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            },
+            {
+              "route": "/effect"
+            }
+          ]
+        },
+        {
+          "scenario": "conflict",
+          "status": "error",
+          "calls": [
+            {
+              "route": "/coordination/claim",
+              "executionId": "2",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            }
+          ]
+        },
+        {
+          "scenario": "persisted-wait",
+          "status": "success",
+          "sameExecution": true,
+          "effects": 1,
+          "restarted": true
+        },
+        {
+          "scenario": "retry",
+          "status": "success",
+          "dispatches": 1,
+          "effects": 1,
+          "claims": [
+            {
+              "route": "/coordination/claim",
+              "executionId": "4",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            },
+            {
+              "route": "/coordination/claim",
+              "executionId": "6",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            }
+          ]
+        },
+        {
+          "scenario": "dispatch-unknown",
+          "status": "error",
+          "dispatches": 1,
+          "effects": 1,
+          "claims": [
+            {
+              "route": "/coordination/claim",
+              "executionId": "7",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            },
+            {
+              "route": "/coordination/claim",
+              "executionId": "9",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            }
+          ]
+        },
+        {
+          "scenario": "invalid-context",
+          "status": "error",
+          "dispatches": 0,
+          "effects": 0,
+          "claims": [
+            {
+              "route": "/coordination/claim",
+              "executionId": "10",
+              "scheduledAt": "2026-09-27T15:59:00.000Z"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "followups": [
+    "Daily 22:30 backup automation e remains PAUSED; no natural backup schedule acceptance.",
+    "JD four-store 10:00 slot missed during first-adoption freeze; no manual replay.",
+    "JD market execution 5327 failed before helper/business nodes; connection repaired, no manual replay. Existing shared retry 5328 retained, no business recovery claimed.",
+    "Production long-term memory, market P95 and like-for-like cold-start performance remain unproven."
+  ],
+  "artifactRoot": "E:\\codex-artifacts\\optimization-integration-20260929\\production"
+}
