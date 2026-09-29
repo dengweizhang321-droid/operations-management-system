@@ -1,0 +1,228 @@
+{
+  "status": "latest_seven_integrated_verified_candidates_refreshed_awaiting_approval",
+  "codeCommit": "2f1b547076cbafff393eb6952edced73fc545e8e",
+  "sourceHeads": [
+    "321a7c33cf9cc1bd1a923b7ca3bd34155c94f588",
+    "ce192d352c34096b0382e5992dd998879d77f582",
+    "7114b7d14e08f650470c17c1bccd33e91434f4b4",
+    "aea9986d50b796c892ac3d1c1b8a969d7a9f58e4",
+    "99fcdf7b230341aac6f96204f19d6e175cbf34af",
+    "c00bc376bc2c6442c06ec3515906edec48e4bed1",
+    "1bb12decc7af88f0faf0e5907427268f45ce705b"
+  ],
+  "task3Delta": [
+    "3faa47de",
+    "88dda323",
+    "7114b7d1"
+  ],
+  "togetherInOneBatch": [
+    2,
+    7
+  ],
+  "validation": {
+    "targeted": 26,
+    "fullUnit": {
+      "tests": 2743,
+      "pass": 2723,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 20
+    },
+    "build": "passed",
+    "rendered": 20,
+    "lintErrors": 0,
+    "preExistingLintWarnings": 12,
+    "backendBoundaryModules": 548,
+    "freshNpmCi": "passed"
+  },
+  "fullApp": {
+    "requests": 151,
+    "backendCalls": 1359,
+    "unhandled": 0,
+    "proxySampledPeakMiB": 52.996,
+    "elapsedSeconds": 93.08,
+    "inspectorAttached": false,
+    "production": false
+  },
+  "fullAppResultSha256": "ac6cc3ee22aac4caab2bba369d2bf8bea7f0572bb2cbf319879c07a30b71494f",
+  "workerCandidate": {
+    "status": "planned",
+    "version": "teruisi-local-worker-release-rotation-plan-v1",
+    "planSha256": "875bd5bdcfef17af472758a2c135aa8685729d845b285542e543603a6b1b169e",
+    "planPath": "D:\\teruisi-runtime\\teruisi-worker-sales\\state\\worker-release-rotation-plans\\875bd5bdcfef17af472758a2c135aa8685729d845b285542e543603a6b1b169e.json",
+    "predecessorReleaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+    "candidateReleaseId": "20260929T005710Z-e980ef9414b72995",
+    "candidateManifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+    "candidateGuardReceiptSha256": "a76edef8e9c30ae644ac6f5477d498cf4ddb8b6d8e723bacd7c65e41b9de2654",
+    "cutoverId": "sales-pg-20260829T204417Z-d9896e904d8092cb"
+  },
+  "workerByteVerification": {
+    "releaseId": "20260929T005710Z-e980ef9414b72995",
+    "manifestSha256": "0d2858c324d872f5c1a570e84fb45a0c2363dd74c7d24237ce1adc3cbb0d39b7",
+    "inspectorSha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "heapAdapterSha256": "2b2a89fb96a270e678b4aa87e65aa1282049b18d28a1e30ff7fe7f2736b648c7",
+    "protectedPredecessorEntrypointsUnchanged": true,
+    "productionInspectorUnchanged": true
+  },
+  "djangoCandidate": {
+    "id": "a926376cf4fd4a35a24110a71fd69392",
+    "receiptSha256": "867892aa4f58be3f5e0f8f5b88b6f51f105f753c1319a69bc81c414a998ebca9",
+    "appFingerprint": "c7418b8a2c6bcb7ab31d7c4a0079e1394ce05e64239186f0e54e4c1808db1142"
+  },
+  "djangoByteVerification": {
+    "id": "a926376cf4fd4a35a24110a71fd69392",
+    "predecessorManifestSha256": "1ce8d0c99fc689417aa50cd2d9a9bad48edd22faa06ef7a89e67be190c5146f3",
+    "candidateManifestSha256": "fd52d2f4cd8e9ab4ec1a20bac8c528042524fc15e18bb192ecbd04af22061287",
+    "inspectorSha256": "ee6e78c50d02eef01d20312ed8e9a72dc75489e6f25ebba1f9869a7db7a0828c",
+    "heapAdapterSha256": "2b2a89fb96a270e678b4aa87e65aa1282049b18d28a1e30ff7fe7f2736b648c7",
+    "installedManifestUnchanged": true
+  },
+  "supersedesForLatestRelease": {
+    "workerCandidate": "20260928T205715Z-8b977fa9a3715321",
+    "djangoPreparedId": "7dbaa5bb0b764ce2a71c9a27e41b5f2d",
+    "historicalRecordsPreserved": true
+  },
+  "recovery": {
+    "newBackupCreatedThisTurn": false,
+    "newRestorePerformedThisTurn": false,
+    "reverifiedBackup": {
+      "status": "completed",
+      "backupId": "daily-20260928T210553Z-26d4cef45619",
+      "manifestSha256": "394b9d57d10e34cf14ecfb3a71a7c7c977334d023a78b66cbcd6e0a1bf140cb1",
+      "dumpSha256": "c9f7f8d666a28c5ffa9c38e3e8e525eadc721663a9dfd3ae660f404c49d41ce5",
+      "contentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+      "serviceStateChanged": false
+    },
+    "existingRestore": {
+      "version": "teruisi-postgres-restore-rehearsal-v1",
+      "status": "completed",
+      "rehearsalId": "a5a69d60853e",
+      "startedAt": "2026-09-28T21:18:18.6359514+00:00",
+      "completedAt": "2026-09-28T21:27:30.0390815+00:00",
+      "backupId": "daily-20260928T210553Z-26d4cef45619",
+      "backupManifestSha256": "394b9d57d10e34cf14ecfb3a71a7c7c977334d023a78b66cbcd6e0a1bf140cb1",
+      "dumpSha256": "c9f7f8d666a28c5ffa9c38e3e8e525eadc721663a9dfd3ae660f404c49d41ce5",
+      "expectedContentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+      "restoredContentSha256": "b64bf28c353b83c80ff77cc5aeb2207c7efa1fd26c2b2931aa7aa337419280f8",
+      "isolatedPort": 55893,
+      "productionDatabaseTouched": false,
+      "serviceStateChanged": false,
+      "cleanupStatus": "isolated_data_removed",
+      "profileRestoreVerified": true,
+      "profileContentSha256": "30da8c185432fb643c3d215ce81e8bdccc9a5f797c6c48d9d1601591704fa097",
+      "policySyntaxEquivalenceVerified": false,
+      "policySyntaxWitnessSha256": ""
+    },
+    "protectedRecoveryPointIds": [
+      "daily-20260928T125351Z-31cb501bc72d",
+      "daily-20260928T210553Z-26d4cef45619"
+    ],
+    "backupAndMigrationCodeChanged": false,
+    "freshnessMustBeRecheckedBeforeMaintenance": true
+  },
+  "production": {
+    "finalState": {
+      "version": "teruisi-operations-system-control-v2",
+      "state": "Running",
+      "backendState": "Ready",
+      "workerState": "exact_release",
+      "releaseId": "20260928T112356Z-eeac7bbc96a8c51a",
+      "supervisorProcessId": 32412,
+      "portProcessId": 52044,
+      "url": "http://localhost:3000/",
+      "reason": null,
+      "components": {
+        "core": true,
+        "finance": true,
+        "netshop": true,
+        "market": true,
+        "products": true,
+        "workflow": true,
+        "inventory": true,
+        "customerService": true,
+        "accessControl": true,
+        "erpReference": true,
+        "bi": true,
+        "ai": true
+      },
+      "checkedAt": "2026-09-29T09:07:02.7390864+08:00"
+    },
+    "onlineWorkflowDefinitionsUnchanged": true,
+    "workflowObservedAt": "2026-09-29T01:06:32.658Z",
+    "nonterminalExecutions": [],
+    "inspectorUnchanged": true,
+    "servicesStoppedOrRestartedByThisTask": false,
+    "migrationApplied": false,
+    "n8nPublished": false,
+    "dailyBackupPaused": true
+  },
+  "sourceAndDelivery": {
+    "productionCheckoutKeptAt": "e00d4a82",
+    "fixedReleaseSource": "D:\\运营管理系统-sales-django-release",
+    "fixedSourceCommit": "2f1b547076cbafff393eb6952edced73fc545e8e"
+  },
+  "logs": [
+    {
+      "name": "postinstall.log",
+      "sha256": "e458a64662ada6385b91ea94d937d2daf06e41bdf17f3a38fd4a8c58b9302fac"
+    },
+    {
+      "name": "npm-ci.log",
+      "sha256": "ed68168982032f837ab5d2a5fbd418861b724f4e670826287c1593947d05209f"
+    },
+    {
+      "name": "targeted.log",
+      "sha256": "66e9f7dbe3129a9fb97d3c2a8ee6ce72df3b3c826d2fd91703f84a9c2a3a306a"
+    },
+    {
+      "name": "build.log",
+      "sha256": "a27538580b3acf6208255462b996ed72bac71daa5038a46180a34504473d6c4f"
+    },
+    {
+      "name": "full-unit.log",
+      "sha256": "45989f224367c172e0f89ac12e941e42b51face4ed2c7618883ebe166567dd55"
+    },
+    {
+      "name": "lint.log",
+      "sha256": "9583462a43007a8812f8055b9e511d8fd6986f482286bfa15cf6d9ee6b211461"
+    },
+    {
+      "name": "boundary.log",
+      "sha256": "c2fe96a5c7da73c78e281ae9c3a8dc25d6c541609ed19ddf07fa6b1b4c8571d9"
+    },
+    {
+      "name": "rendered.log",
+      "sha256": "cdd2b989ceed27ee909088eea5016b4caaabad4ac969dedd75ad17e310efaf07"
+    },
+    {
+      "name": "full-app.log",
+      "sha256": "c45523de062eea0e5fa57f14b8df7d0f7becf60187f6bf246d4b050ab58f5448"
+    },
+    {
+      "name": "release-source-npm-ci.log",
+      "sha256": "1631526531f5aa4d543cdb75f61deca2eb0ef20ac55d4679fa1b81d1389137ac"
+    },
+    {
+      "name": "django-prepare.json",
+      "sha256": "66b0a4a14e6f3cb571866dbe9e008f8457bbf6b6d1e5daba781de303144dad28"
+    },
+    {
+      "name": "worker-plan.json",
+      "sha256": "3cb05ee910050e36906490f7eb68d544945cc54d15a65d27b9c25d282543978f"
+    },
+    {
+      "name": "backup-reverify.json",
+      "sha256": "51b63eaa6424ab1f4b0d1ed5357e4b99ad73b2b830b6b27c94f578da1f44b88d"
+    },
+    {
+      "name": "production-final.json",
+      "sha256": "61563f9b664f930c5e2cbb51470ff9ae97911a2b36155affe3a326f233d94c49"
+    }
+  ],
+  "limitations": [
+    "No production adoption or business-cycle acceptance.",
+    "Isolated sampled proxy memory is not a whole-machine bound or production SLA.",
+    "Historical OOMs are not individually attributed without historical heap snapshots.",
+    "Existing protected backup was reverified, not newly generated during this increment."
+  ]
+}
