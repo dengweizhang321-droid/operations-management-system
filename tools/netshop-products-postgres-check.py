@@ -66,7 +66,7 @@ try:
     run([BIN / "pg_ctl.exe", "-D", RUN / "data", "-l", RUN / "postgres.log", "-w", "-t", "30", "start"], "start", timeout=45)
     started = True
     run([BIN / "createdb.exe", "-h", "127.0.0.1", "-p", str(PORT), "-U", "products_fixture", "products_fixture"], "database", timeout=30)
-    labels = sys.argv[1:] or ["netshop.tests.test_product_insights"]
+    labels = sys.argv[1:] or ["netshop.tests.test_product_insights", "netshop.tests.test_product_insights_detail"]
     if any(not label.startswith("netshop.tests.test_product_insights") for label in labels):
         raise RuntimeError("Only product-owned tests may use this fixture runner")
     run([sys.executable, "backend/manage.py", "test", *labels, "--settings=netshop_products_test_settings", "--noinput", "--verbosity=2"], "tests")
