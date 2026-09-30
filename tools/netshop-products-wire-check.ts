@@ -17,6 +17,8 @@ for (const [filename, detail] of [["wire-list.json", false], ["wire-detail.json"
   const failureCases: string[] = [];
   const invalid = (name: string, mutate: (data: Record<string, unknown>) => void) => { const copy = structuredClone(wire.payload); mutate(copy); assert.throws(() => decode(copy, query, wire.revision)); failureCases.push(name); };
   if (detail) {
+    for (const key of ["extras", "visitorValue", "visitorValueComparisons", "skuContribution", "daily"]) invalid(`fixed detail ${key} cannot disappear`, p => { delete (p.sections as Record<string, unknown>)[key]; });
+    invalid("unverified image cannot claim an available picture", p => { setAt(p, ["sections", "performance", "imageStatus"], "available"); setAt(p, ["sections", "performance", "imageUrl"], null); });
     invalid("mapping status must be a scalar string", p => setAt(p, ["sections", "erp", "data", "mapping", "status"], ["unverified"]));
     invalid("failed baseline cannot leave a usable product comparison", p => setAt(p, ["sections", "baselineReads", "previous"], { state: "error", data: null, code: "service_unavailable", message: "Baseline unavailable" }));
     invalid("missing snapshot structure", p => setAt(p, ["sections", "catalog", "data", "snapshots"], null));
@@ -27,6 +29,7 @@ for (const [filename, detail] of [["wire-list.json", false], ["wire-detail.json"
     for (const code of ["access_denied", "insights_revision_changed"]) invalid(`catalog ${code} cannot be disguised as HTTP200`, p => setAt(p, ["sections", "catalog"], { state: "error", data: null, code, message: "Source changed" }));
     invalid("unavailable SKU cannot contain a fake child", p => { setAt(p, ["sections", "skuContribution", "items"], [readAt(p, ["sections", "performance"])]); setAt(p, ["sections", "skuContribution", "pagination", "returned"], 1); });
   } else {
+    for (const key of ["counts", "structure", "efficiency", "dataQuality", "metadata"]) invalid(`fixed list ${key} cannot disappear`, p => { delete (p.sections as Record<string, unknown>)[key]; });
     invalid("comparison status must be a scalar string", p => setAt(p, ["sections", "comparisons", "payment", "previous", "status"], ["available"]));
     invalid("price basis must be a scalar string", p => setAt(p, ["sections", "structure", "priceBasis"], ["transaction_mean"]));
     invalid("quality count cannot use money units", p => setAt(p, ["sections", "dataQuality", "counts", "missingImage", "unit"], "CNY_CENT"));
