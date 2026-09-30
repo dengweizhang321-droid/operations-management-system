@@ -201,7 +201,13 @@ try {
     const d = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(d.scroll <= d.client + 1, JSON.stringify(d));
     assert.equal(await page.locator("#primary-navigation").evaluate(element => getComputedStyle(element).display), "none");
-    assert.equal(await page.getByRole("button", { name: "打开主导航", exact: true }).isVisible(), true);
+    const menu = page.getByRole("button", { name: "打开主导航", exact: true });
+    assert.equal(await menu.isVisible(), true);
+    const glyph = await menu.locator("span").evaluate(element => ({ display: getComputedStyle(element).display, text: element.textContent, width: element.getBoundingClientRect().width, fontSize: parseFloat(getComputedStyle(element).fontSize) }));
+    assert.notEqual(glyph.display, "none"); assert.equal(glyph.text, "☰"); assert.ok(glyph.width > 0 && glyph.fontSize >= 16, JSON.stringify(glyph));
+    await menu.click(); await page.locator('#primary-navigation[role="dialog"]').waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "关闭主导航", exact: true }).click();
+    await page.locator("#primary-navigation").waitFor({ state: "hidden" });
     await page.screenshot({ path: resolve(evidence, `root-products-${width}.png`), fullPage: true });
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
