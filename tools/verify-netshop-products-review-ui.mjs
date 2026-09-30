@@ -39,7 +39,9 @@ source = source.replace(checkMarker, `
     await page.getByText('目录合成商品 1',{exact:true}).waitFor();
     await check('Q malformed old catalogue '+mode+' fails before React consumers',async()=>{
       await page.evaluate(mode=>{window.__mode=mode;},mode);
-      await page.getByRole('button',{name:'刷新目录',exact:true}).click();
+      // A changed filter starts a full read, so shops is present in the injected
+      // response. Same-family refresh deliberately uses the page-only DTO.
+      await page.getByLabel('目录状态筛选').selectOption('on_sale');
       await page.getByRole('alert').waitFor();
       assert.equal(await page.locator('.np-table tbody tr').count(),0);
       assert.equal(await page.locator('.np-gallery-item').count(),0);
