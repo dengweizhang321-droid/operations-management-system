@@ -130,7 +130,7 @@ export function validateProductQuery(params: URLSearchParams, detail = false) {
   for (const key of params.keys()) if (!sharedKeys.has(key) && !ownKeys.has(key) || !["platform", "outlet"].includes(key) && params.getAll(key).length !== 1) return fail("商品请求包含未知或重复参数");
   const query = productContextQuery(params), shared = validateContextQuery(query);
   const q = (params.get("q") ?? "").trim(), category = (params.get("category") ?? "").trim(), sort = params.get("sort") ?? "payment_desc";
-  if (!text(q, 120, true) || !text(category, 200, true) || !productSorts.includes(sort as ProductSort) || params.has("sectionToken") && !token(params.get("sectionToken"))) return fail("商品筛选或版本无效");
+  if (!text(q, 120, true) || !text(category, 120, true) || !productSorts.includes(sort as ProductSort) || params.has("sectionToken") && !token(params.get("sectionToken"))) return fail("商品筛选或版本无效");
   const page = pageNumber(params.get("page"), 1, 10000), pageSize = pageNumber(params.get("pageSize"), 20, 100);
   const section = params.get("section") ?? "overview", source = params.get("source") ?? "platform";
   if (!productSections.includes(section as ProductSection) || !productSources.includes(source as ProductSource) || params.has("source") && !["daily", "trends"].includes(section) || !detail && (params.has("section") || params.has("source") || params.has("productIdentity"))) return fail("商品详情分区与来源组合无效");
@@ -157,6 +157,8 @@ function extraMetrics(value: unknown) {
   return result;
 }
 function visitorValue(value: unknown) { const metric = decodeDerivedMoneyPerCount(value); if (metric.denominatorKind !== "product_day_visitors_sum" || !["product_day_sum", "unverified"].includes(metric.basis)) return fail("商品访客价值分母或口径不匹配"); return metric; }
+function promotionMetrics(value: unknown) { const metrics = metricRecord(value, ["spend", "attributedPayment", "roas", "clicks"]); for (const [key, m] of Object.entries(metrics)) if (m.unit !== (key === "roas" ? "MULTIPLE" : key === "clicks" ? "COUNT" : "CNY_CENT") || !["platform_attributed", "unverified"].includes(m.basis)) return fail("广告指标单位或来源口径无效"); return metrics; }
+function erpMetrics(value: unknown) { const metrics = metricRecord(value, ["netSales", "cost", "largeMarginRate", "orderMargin", "returnAmount", "returnQuantity"]); for (const [key, m] of Object.entries(metrics)) if (m.unit !== (key === "largeMarginRate" ? "RATIO" : key === "returnQuantity" ? "COUNT" : "CNY_CENT") || !["erp_net_sales", "erp_order_margin", "erp_large_margin", "unverified"].includes(m.basis)) return fail("ERP指标单位或来源口径无效"); return metrics; }
 function categoryEvidence(value: unknown): CategoryEvidence {
   const e = object(value);
   if (!["verified_id", "label_only", "unknown"].includes(String(e.status)) || ![null, "京东", "天猫"].includes(e.platform as null | "京东" | "天猫") || !["sourceId", "namespace", "version", "id", "label", "parentId"].every(k => nullableText(e[k])) || !dateOrNull(e.effectiveFrom) || !dateOrNull(e.effectiveTo) || e.effectiveFrom !== null && e.effectiveTo !== null && String(e.effectiveFrom) > String(e.effectiveTo)) return fail("类目来源与有效期证据无效");
@@ -261,17 +263,17 @@ export function decodeProductDetail(value: unknown, params: URLSearchParams, rev
   const performance = row(sections.performance, context); if (encodeProductIdentity(performance.identity) !== encodeProductIdentity(actual)) return fail("详情经营身份不一致");
   baselineReads(sections.baselineReads);
   sourceSection(sections.catalog, v => catalogProfile(v, context, actual));
-  sourceSection(sections.promotion, v => { const data = object(v), metrics = metricRecord(data.metrics, ["spend", "attributedPayment", "roas", "clicks"]), mapping = mappingEvidence(data.mapping); if (metrics.spend.unit !== "CNY_CENT" || metrics.attributedPayment.unit !== "CNY_CENT" || metrics.roas.unit !== "MULTIPLE" || metrics.clicks.unit !== "COUNT" || !nullableText(data.attributionWindow)) return fail("广告字段单位或归因窗口无效"); if (mapping.status !== "verified" && Object.values(metrics).some(m => m.value !== null)) return fail("未验证广告身份不得返回归因金额"); return data; });
-  sourceSection(sections.erp, v => { const data = object(v), metrics = metricRecord(data.metrics, ["netSales", "cost", "largeMarginRate", "orderMargin", "returnAmount", "returnQuantity"]), mapping = mappingEvidence(data.mapping); for (const [key, m] of Object.entries(metrics)) if (m.unit !== (key === "largeMarginRate" ? "RATIO" : key === "returnQuantity" ? "COUNT" : "CNY_CENT")) return fail("ERP指标单位无效"); if (mapping.status !== "verified" && Object.values(metrics).some(m => m.value !== null)) return fail("未验证ERP映射不得推断净额、成本或毛利"); return data; });
+  sourceSection(sections.promotion, v => { const data = object(v), metrics = promotionMetrics(data.metrics), mapping = mappingEvidence(data.mapping); if (!nullableText(data.attributionWindow)) return fail("广告归因窗口无效"); if (mapping.status !== "verified" && Object.values(metrics).some(m => m.value !== null)) return fail("未验证广告身份不得返回归因金额"); return data; });
+  sourceSection(sections.erp, v => { const data = object(v), metrics = erpMetrics(data.metrics), mapping = mappingEvidence(data.mapping); if (mapping.status !== "verified" && Object.values(metrics).some(m => m.value !== null)) return fail("未验证ERP映射不得推断净额、成本或毛利"); return data; });
   if (sections.extras !== undefined) extraMetrics(sections.extras);
   if (sections.visitorValue !== undefined) visitorValue(sections.visitorValue);
   metadata(sections.metadata);
   for (const kind of ["daily", "trends"]) if (sections[kind] !== undefined) sourceSection(sections[kind], v => {
     const data = object(v), p = decodeInsightPagination(data.pagination);
     if (!productSources.includes(data.source as ProductSource) || data.source !== request.tableScope.source || !Array.isArray(data.items) || data.items.length !== p.returned || data.items.length > 100 || p.page !== request.tableScope.page || p.pageSize !== request.tableScope.pageSize || data.startDate !== context.periods.current.startDate || data.endDate !== context.periods.current.endDate) return fail("单品来源明细范围或分页无效");
-    strings(data.definitions); revisionVector(data.sourceRevisions);
+    strings(data.definitions); revisionVector(data.sourceRevisions, context);
     const seen = new Set<string>();
-    for (const raw of data.items) { const item = object(raw); if (typeof item.date !== "string" || !isNetshopIsoDate(item.date) || item.date < String(data.startDate) || item.date > String(data.endDate) || seen.has(item.date) || item.source !== data.source) return fail("单品日期重复、越界或跨源"); seen.add(item.date); if (data.source === "platform") { metricRecord(item.metrics, productMetricKeys, true); extraMetrics(item.metrics); if (item.visitorValue !== undefined) visitorValue(item.visitorValue); } else metricRecord(item.metrics, data.source === "promotion" ? ["spend", "attributedPayment", "roas", "clicks"] : ["netSales", "cost", "largeMarginRate", "orderMargin", "returnAmount", "returnQuantity"]); }
+    for (const raw of data.items) { const item = object(raw); if (typeof item.date !== "string" || !isNetshopIsoDate(item.date) || item.date < String(data.startDate) || item.date > String(data.endDate) || seen.has(item.date) || item.source !== data.source) return fail("单品日期重复、越界或跨源"); seen.add(item.date); if (data.source === "platform") { metricRecord(item.metrics, productMetricKeys, true); extraMetrics(item.metrics); if (item.visitorValue !== undefined) visitorValue(item.visitorValue); } else if (data.source === "promotion") promotionMetrics(item.metrics); else erpMetrics(item.metrics); }
     return data;
   });
   if (sections.skuContribution !== undefined) {

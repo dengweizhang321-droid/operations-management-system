@@ -64,17 +64,17 @@ export function useModuleViewState() {
 
     if (input === undefined && hasBrowserLocation) {
       const canonical = normalizeShellLocation(window.location.href);
-      if (canonical !== currentRelativeUrl()) window.history.replaceState(null, "", canonical);
+      if (canonical !== currentRelativeUrl()) window.history.replaceState(window.history.state, "", canonical);
     }
     return next;
   }, []);
 
-  const pushView = useCallback(<M extends ModuleKey>(module: M, view: ModuleViewKey<M>) => {
+  const pushView = useCallback(<M extends ModuleKey>(module: M, view: ModuleViewKey<M>, historyState?: unknown) => {
     const normalized = normalizeModuleView(module, view);
     const current = typeof window === "undefined" ? "/" : window.location.href;
     const nextUrl = updateModuleViewLocation(current, module, normalized);
     if (typeof window !== "undefined" && nextUrl !== currentRelativeUrl()) {
-      window.history.pushState(null, "", nextUrl);
+      window.history.pushState(historyState === undefined ? window.history.state : historyState, "", nextUrl);
     }
     setSelectionState((existing) => {
       const next = createSelection(module, normalized);
