@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import StatisticalPeriodPicker from "../../statistical-period-picker";
-import { shanghaiIsoToday } from "../../module-view-shared";
+import PromotionDiagnosticPanel from "../../promotion-diagnostic-panel";
+import { addIsoDays, shanghaiIsoToday } from "../../module-view-shared";
 import type { NetshopColumnProps } from "../shared/module-slots";
 import { InsightDerivedMoneyMetric, InsightFilterBar, InsightListPagination, InsightMetric, InsightReadState, InsightSourceCoverage } from "../shared/components";
 import { InsightReadError, useScopedRead } from "../shared/request-state";
@@ -138,6 +139,8 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const orderLabel = s?.attribution.orderDefinition === "tmall_net_transactions" ? "归因净成交笔数" : "归因订单行";
   const today = shanghaiIsoToday();
   const rateCoverage = data && coverageForRef(data, data.sections.summary.spendRate.coverageRef);
+  const owningRevision = data?.context.sourceRevisions.find(source => source.kind === "owning_revision")?.revision;
+  const reportEligible = Boolean(data && s?.diagnostic.status === "available" && s.diagnostic.shopName === "志高商用设备旗舰店" && platform === "京东" && props.currentUser?.role === "admin" && data.context.effectiveScope.shopKeys.length === 1 && data.context.effectiveScope.shopKeys[0] === `京东\u001f${s.diagnostic.shopName}` && data.context.periods.current.days <= 7 && owningRevision);
   const selectedObject = chosen?.response === data && data ? chosen.item : null;
   const sectionTable = data ? <ObjectTable data={data} props={props} onChoose={choose} sort={sort} onSort={next => { setSortSelection({ baseScope, value: next }); setChosen(null); onContextChange({ page: 1 }); }}/> : null;
   return <div className="promotion-insights">
@@ -181,7 +184,11 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
       </PromotionSection>
       {selectedObject && <ObjectDetail key={`${requestScope}:${selectedObject.rowKey}`} selected={selectedObject} data={data} query={encoded} onClose={() => setChosen(null)} onChoose={choose} onDrill={props.onDrill} onInvalidate={invalidate}/>}
       <PromotionSection id="promotion-diagnostic" title="诊断与复盘" note="观察事实 → 公开规则 → 证据 → 核查建议 → 观察指标与停止条件。">
-        {s.diagnostic.status === "available" ? <p className="promotion-note">当前范围符合原京东单店、1—7 个完整自然日的诊断支持条件。HTML / XLSX 原报告入口等待公共兼容接线。</p> : <CapabilityGap reason={s.diagnostic.message}/>}<p className="promotion-caption">报告按精确店铺、完整范围及来源版本生成；列表搜索不裁剪报告。真实付费模型调用不在本栏目任务范围。</p>
+        {reportEligible ? <>
+          <p className="promotion-note">原报告本期 {startDate}—{endDate}；基期 {addIsoDays(startDate, -data.context.periods.current.days)}—{addIsoDays(startDate, -1)}，采用紧邻前等长规则。本页环比采用“{data.context.periods.rule}”，另有去年同期；原报告与页面比较规则分别披露。</p>
+          <p className="promotion-caption">HTML / XLSX 导出保留原报告的完整本期与基期、精确店铺及同一网店来源修订，不导出当前搜索页、本页同比或新贡献榜。</p>
+          <PromotionDiagnosticPanel key={`${platform}:${s.diagnostic.shopName}:${startDate}:${endDate}:${owningRevision}:${authority}:${data.sectionToken}`} shopName={s.diagnostic.shopName!} startDate={startDate} endDate={endDate} allowPaidModel={false} ratioLabel="ROI" expectedOwningRevision={owningRevision}/>
+        </> : <CapabilityGap reason={s.diagnostic.status === "available" ? "原报告须为已核验管理员、指定京东单店、1—7 个完整自然日及可信来源修订；当前条件不足。" : s.diagnostic.message}/>}<p className="promotion-caption">列表搜索和对象日期不裁剪原报告。规则草稿需运营复核；本栏目未启用付费模型解释。</p>
       </PromotionSection>
       <PromotionSection id="promotion-sources" title="数据与归因" note="来源、范围、版本、字段存在与映射共同决定可用性。">
         <div className="promotion-source-grid"><article><h3>金额与订单定义</h3><p>{amountLabel}：{s.attribution.amountDefinition === "jd_total_order_amount" ? "京准通归因总订单金额，不能表达退款后销售净额。" : "天猫推广来源净成交金额，保留原来源退款与归因规则。"}</p><p>{orderLabel}保持来源定义，不替换为客户数。ROI 为归因成交 ÷ 花费、单位倍数，不是利润或广告增量。</p></article><article><h3>归因与可比性</h3><p>归因窗口：{s.attribution.window ?? "来源尚未提供可信窗口"}。归因成交与平台成交的包含关系未核验，不标自然/付费渠道份额，不用相减推算自然成交。</p><p>推广 SKU、触发 SKU、跟单 SKU独立建模。商品映射未关联或多义时停止钻取。</p></article></div>
