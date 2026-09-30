@@ -38,3 +38,5 @@ Demo 交互验证与正式 PostgreSQL/权限/查询验证分别记录；本轮�
 接口、字段映射、已知源限制与后续正式验收见 [dependencies.md](dependencies.md)；设计协议边界样例见 [contract-sample.json](contract-sample.json)。这些材料不是新正式接口的冻结版本。
 
 本轮已通过27项合成UI回归及独立Q的26项补充检查；完整完成表、截图、提交/树清单和未验证项见 [handoff.md](handoff.md)。用户尚未选版，正式改造和PG/真实权限验收尚未开始。
+
+2026-09-30 用户追加统一字体、色调、栏目位置并要求导航置顶。五版已统一顶部墨绿主菜单＋下方横向栏目；04章节导航也横排置顶，按两层导航实际高度避让。复用本树已批准 `app/styles/tokens.css` 的字节一致Demo快照 `system-tokens.css`，由局部 `system-frame.css` 适配现系统字体与14/13/12/18/24字号；不修改公共样式。当前28项检查通过，样式独立复核通过，预览已刷新。
