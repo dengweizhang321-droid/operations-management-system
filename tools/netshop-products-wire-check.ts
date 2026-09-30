@@ -29,6 +29,8 @@ for (const [filename, detail] of [["wire-list.json", false], ["wire-detail.json"
   } else {
     invalid("comparison status must be a scalar string", p => setAt(p, ["sections", "comparisons", "payment", "previous", "status"], ["available"]));
     invalid("price basis must be a scalar string", p => setAt(p, ["sections", "structure", "priceBasis"], ["transaction_mean"]));
+    invalid("quality count cannot use money units", p => setAt(p, ["sections", "dataQuality", "counts", "missingImage", "unit"], "CNY_CENT"));
+    invalid("quality count cannot be negative", p => setAt(p, ["sections", "dataQuality", "counts", "missingImage", "value"], -1));
     invalid("missing classification structure", p => setAt(p, ["sections", "structure", "classification"], null));
     invalid("invalid complete-set eligibility", p => setAt(p, ["sections", "structure", "qualification", "paired"], -1));
     invalid("label only cannot pretend official taxonomy", p => setAt(p, ["sections", "structure", "categories", 0, "categoryEvidence", "id"], "fake"));
