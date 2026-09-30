@@ -4,7 +4,7 @@ import type { ModuleViewKey } from "../../shell/navigation-catalog";
 
 export const netshopViews = ["analysis", "outlets", "platforms", "products", "promotion"] as const;
 export type NetshopView = ModuleViewKey<"shop">;
-const labels = ["店铺分析", "网店总览", "平台对比", "商品数据", "推广分析"];
+const labels = ["店铺分析", "网店总览", "平台对比", "商品表现", "推广分析"];
 
 /** Shared shell slot. Columns supply their own component; only active is called.
  * I owns the final map, so no column needs to edit the legacy module file.
