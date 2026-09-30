@@ -36,7 +36,7 @@ export async function readPromotion<T>(path: PromotionPath, query: URLSearchPara
     if (!response.ok) {
       const error = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : {};
       const message = typeof error.error === "string" ? error.error.slice(0, 600) : `推广来源读取失败（${response.status}）`;
-      const code = typeof error.code === "string" ? error.code : response.status === 409 ? "promotion_revision_changed" : response.status === 401 || response.status === 403 ? "access_denied" : "service_unavailable";
+      const code = response.status === 401 || response.status === 403 ? "access_denied" : typeof error.code === "string" ? error.code : response.status === 409 ? "promotion_revision_changed" : "service_unavailable";
       throw new InsightReadError(code, message);
     }
     return decode(payload, query, response.headers.get("X-Netshop-Data-Revision"));

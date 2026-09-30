@@ -17,6 +17,12 @@
 .promotion-filter input,.promotion-filter select,.promotion-date-trigger { border:1px solid var(--color-border-default,#e3e9e5); background:var(--color-bg-surface,#fff); color:inherit; border-radius:7px; padding:8px 10px; min-height:36px; max-width:100%; }
 .promotion-filter select[multiple] { min-height:70px; max-width:320px; }
 .promotion-checks { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.promotion-shop-picker { position:relative; }
+.promotion-shop-picker > summary { border:1px solid var(--color-border-default); border-radius:7px; padding:8px 10px; min-height:36px; background:var(--color-bg-surface); cursor:pointer; }
+.promotion-shop-options { position:absolute; z-index:35; top:calc(100% + 7px); left:0; min-width:260px; max-width:min(340px,calc(100vw - 40px)); max-height:360px; overflow:auto; display:grid; gap:10px; padding:14px; background:var(--color-bg-surface); border:1px solid var(--color-border-default); border-radius:8px; box-shadow:var(--shadow-overlay); }
+.promotion-shop-options > label { display:flex; align-items:start; gap:8px; }
+.promotion-comparisons [data-direction=up] { color:var(--color-metric-up); }
+.promotion-comparisons [data-direction=down] { color:var(--color-metric-down); }
 .promotion-date-selector { position:relative; }
 .promotion-date-selector .stat-period-picker { z-index:40; }
 .promotion-context-line { color:var(--color-text-muted,#66756b); font-size:var(--font-size-label,13px); overflow-wrap:anywhere; }

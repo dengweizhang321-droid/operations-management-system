@@ -52,3 +52,9 @@ test("owning decoder rejection cannot be presented as trusted promotion data", a
   await assert.rejects(readPromotion("/api/netshop/promotion-insights", query(), new AbortController().signal,
     () => { throw new InsightReadError("invalid_promotion_contract", "范围或来源版本不符"); }, async () => Response.json({ summary: 100 })), /版本不符/);
 });
+
+test("HTTP revocation cannot be disguised by an unrelated response error code", async () => {
+  await assert.rejects(readPromotion("/api/netshop/promotion-insights/detail", query(), new AbortController().signal,
+    () => null, async () => Response.json({ code: "invalid_request", error: "合成撤权" }, { status: 403 })),
+  error => error instanceof InsightReadError && error.code === "access_denied");
+});
