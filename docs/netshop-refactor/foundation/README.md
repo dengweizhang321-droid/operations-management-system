@@ -98,7 +98,7 @@ ShopContext由原shell解析/序列化与history负责：平台、精确店集�
 证据根：`E:\codex-artifacts\netshop-scheme2-20260930\foundation`，非敏感源码/日志/合成截图/计划保全。具体最终命令、SHA和文件摘要由 `handoff.json` 记录。
 
 - 私有PG动态端口、独立目录/随机凭据、合成事实与最小reader role；没有5432 fallback或新生产GRANT。包含22初轮、63旧回归、25修订、68最终规模/权限/旧01/旧API/consumer/source-guard回归，分轮日志不相加冒独有测试数。
-- 50店×366天本期/367天同比完整缺日响应1,748,954 UTF-8字节，102来源成员，未截断。5000合成行/10店/10日/500商品的读取12条SQL、94,717字节；控制金额5,000,000分匹配，有同环境ANALYZE/BUFFERS计划。该单次约0.104秒只说明这个合成规模，不承诺生产P95。
+- 50店×366天本期/367天同比完整缺日响应1,748,954 UTF-8字节，102来源成员，未截断。5000合成行/10店/10日/500商品的读取12条SQL、94,717字节；控制金额5,000,000分匹配，有同环境ANALYZE/BUFFERS计划。最新单次约0.095秒只说明这个合成规模，不承诺生产P95。
 - 合成React harness31交互通过、无runtime error，含迟到/失败/版本恢复、0/缺数、非sticky、分页/钻取/返回/搜索、390px、旧五view、新旧01、精确跨排名比较/百分点、自定义与rolling实际请求、初读基期503及同/新范围401/403。仅合成组件API，不称完整真实Worker/Django联调。测试脚本曾有选择器/默认比较未开启/旧CSS顺序影响，失败证据保留，闭合版本见机器结果。
 - Node定向132通过，含原lifecycle强断言、共享合同、20组owning日历夹具、旧01 decoder与730/500边界、route/header/权限；独立的原authorization与access-control transport11项通过，确验已有local-direct-access边界。typecheck整体188条既有诊断与I d3cd baseline标准化比无新增，不宣称全库类型通过；相关lint0错误/2既有img警告、backend boundary通过、隔离构建通过。
 - F3130静态合成harness与blank headless Chrome已正常关闭；18130/18131/13130未启用。所有PG实例正常stop。无Teammate子分支/子树；F独立编写，最终独立复核由未写本变更的Q承担。

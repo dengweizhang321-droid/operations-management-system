@@ -1,0 +1,369 @@
+{
+  "date": "2026-10-01",
+  "role": "F",
+  "status": "author_verified_pending_I_combination_Q_and_main_freeze",
+  "branch": "codex/netshop-foundation",
+  "worktree": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统",
+  "baselineM1": "1c2cfa506dcf1430de900aaadad2e076cf1a4f9e",
+  "syncedMain": "d3cd59ead81160fba16475576f2f86b305f7789e",
+  "commits": {
+    "initialCode": "082737f9",
+    "mainSync": "a5a13560ca8b895528e0f1396827415592d5151a",
+    "reviewFixSource": "b86e237274f617ada352176cf7232f44ca01595f"
+  },
+  "protocol": {
+    "schemaVersion": "netshop-insights-v1",
+    "implemented": [
+      "/api/netshop/insights-context",
+      "/api/netshop/product-performance?view=identities"
+    ],
+    "reservedNotImplemented": [
+      "/api/netshop/product-insights",
+      "/api/netshop/promotion-insights",
+      "/api/netshop/store-panorama",
+      "/api/netshop/comparison-insights"
+    ],
+    "decoder": "lib/netshop/insights-contract.ts:decodeInsightsContextForQuery",
+    "rawDTOBytes": 2097152,
+    "uiTimeoutMs": 90000,
+    "owningWholeReadDeadlineMs": 65000,
+    "maximumAttempts": 2,
+    "currentDays": 366,
+    "derivedDays": 367,
+    "shops": 50,
+    "listDefault": 20,
+    "listMaximum": 100,
+    "oldReadDays": 730,
+    "oldPromotionListMaximum": 500,
+    "legacy731Comparison": "date computation verified; old 730-day reader unchanged; over-limit comparison fails explicitly",
+    "identityMaximum": 100,
+    "budgetProof": "capacity/maximum-shape.json and capacity/query-scale.json"
+  },
+  "ownership": {
+    "public": "F serial during implementation; I after M2 handoff and acceptance",
+    "slots": "app/netshop/shared/module-slots.ts, empty registry; I sole column registration",
+    "ai": "I owns central registry/handler, not changed by F",
+    "teammates": [],
+    "subBranches": [],
+    "subWorktrees": []
+  },
+  "checks": [
+    {
+      "name": "node-direct-contract-lifecycle-calendar",
+      "exitCode": 0,
+      "passed": 132,
+      "log": "node-post-review.log"
+    },
+    {
+      "name": "existing-authorization-and-transport",
+      "exitCode": 0,
+      "passed": 11,
+      "log": "authorization-regression.log"
+    },
+    {
+      "name": "isolated-postgresql",
+      "exitCode": 0,
+      "passed": 68,
+      "log": "foundation-pg-164444c23e73/tests.log"
+    },
+    {
+      "name": "synthetic-react",
+      "exitCode": 0,
+      "passed": 31,
+      "errors": 0,
+      "log": "ui/result.json"
+    },
+    {
+      "name": "lint",
+      "exitCode": 0,
+      "errors": 0,
+      "existingWarnings": 2,
+      "log": "lint-final-source.log"
+    },
+    {
+      "name": "typecheck",
+      "exitCode": 2,
+      "existingDiagnostics": 188,
+      "newDiagnostics": 0,
+      "baselineEvidence": "I normalized d3cd baseline comparison",
+      "log": "typescript-final-source.log"
+    },
+    {
+      "name": "backend-boundary",
+      "exitCode": 0,
+      "log": "boundary-final.log"
+    },
+    {
+      "name": "isolated-build",
+      "exitCode": 0,
+      "log": "build-final.log"
+    }
+  ],
+  "independentReview": {
+    "authorIndependent": false,
+    "rootQ": "Root Q reviews actual I combination; F does not certify independent approval",
+    "knownRootQFixes": [
+      "Q-M2-01 initial baseline 503 vs 401/403 splitting",
+      "Q-M2-02 true custom/rolling/quarter date semantics",
+      "three legacy source assertions updated with scope/alias guards"
+    ]
+  },
+  "evidenceRoot": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation",
+  "resources": {
+    "frontend": {
+      "port": 3130,
+      "status": "stopped",
+      "browser": "blank headless Chrome closed"
+    },
+    "notStartedPorts": [
+      18130,
+      18131,
+      13130
+    ],
+    "privatePostgres": [
+      {
+        "evidence": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation\\foundation-pg-164444c23e73",
+        "port": 54513,
+        "runtime": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统\\.runtime\\foundation-pg-164444c23e73",
+        "stopped": true,
+        "stopExit": 0,
+        "testExit": 0
+      },
+      {
+        "evidence": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation\\foundation-pg-42b8dcd77556",
+        "port": 52452,
+        "runtime": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统\\.runtime\\foundation-pg-42b8dcd77556",
+        "stopped": true,
+        "stopExit": 0,
+        "testExit": 0
+      },
+      {
+        "evidence": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation\\foundation-pg-87d7bbaccd58",
+        "port": 58552,
+        "runtime": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统\\.runtime\\foundation-pg-87d7bbaccd58",
+        "stopped": true,
+        "stopExit": 0,
+        "testExit": 0
+      },
+      {
+        "evidence": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation\\foundation-pg-9683e3fac4be",
+        "port": 52653,
+        "runtime": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统\\.runtime\\foundation-pg-9683e3fac4be",
+        "stopped": true,
+        "stopExit": 0,
+        "testExit": 0
+      },
+      {
+        "evidence": "E:\\codex-artifacts\\netshop-scheme2-20260930\\foundation\\foundation-pg-ff23e2d07b73",
+        "port": 63422,
+        "runtime": "D:\\.codex\\worktrees\\netshop-foundation\\运营管理系统\\.runtime\\foundation-pg-ff23e2d07b73",
+        "stopped": true,
+        "stopExit": 0,
+        "testExit": 0
+      }
+    ],
+    "ignoredPreservation": "E screenshots/logs/query plans/capacity/period goldens; own deps/build/runtime retained pending Q/I cleanup",
+    "dependencies": "Own npm ci and private venv locked requirements, no production links"
+  },
+  "limitations": [
+    "Synthetic UI API fixtures are not full runtime integration or real source verification",
+    "No source acquisition, platform unique UV, paid/free visitors, B2B subset, customer CRM, repeat buyers, Tmall SKU daily or unverified historical mapping",
+    "ERP/margin/inventory/finance consumers remain owning-domain authority with existing cost/warehouse rules",
+    "Dedicated column endpoints and four column implementations are reserved and remain unimplemented at M2",
+    "Measured synthetic 5000-row sample is not production P95"
+  ],
+  "productionOperations": [],
+  "productionStatus": "not_adopted; runtime version not changed or certified by F",
+  "files": [
+    {
+      "path": "app/api/netshop/insights-context/route.ts",
+      "diskSha256": "d9c25d089b9899670fe5da96750be7facac16d9f14c1499ca388e5d8b16f6806",
+      "gitBlob": "369444f4877e0d2430b83b9377fc8eb6d67f566e"
+    },
+    {
+      "path": "app/api/netshop/product-performance/route.ts",
+      "diskSha256": "8a928948e2ad1f1546834d74b06bcf8a91aa33663bd24e12990856715d6143d6",
+      "gitBlob": "f9de53969576d397d1bf5539c7452ef80ae0fa7b"
+    },
+    {
+      "path": "app/module-view-shared.tsx",
+      "diskSha256": "c3485b54dd7881d4dd7cae4ce71f435116e074399842ef83d6c870edd84f6547",
+      "gitBlob": "1ee94dcc91c0a0fd6b4054b8c4c412898e93be66"
+    },
+    {
+      "path": "app/netshop/shared/components.tsx",
+      "diskSha256": "db2502071842ae55c6c01689905475cf5791c255e4398ae1f3ac996ba82c0f57",
+      "gitBlob": "8470d5fc088b693170b722a0b127e5c78e583c43"
+    },
+    {
+      "path": "app/netshop/shared/module-slots.ts",
+      "diskSha256": "3924c5e99dc9d51d92de8fbb6d06f450b2d84abc13f7592b2b36264f3b0640ea",
+      "gitBlob": "50a9ef0b99103b103030d63a105e2041df485b37"
+    },
+    {
+      "path": "app/netshop/shared/navigation.tsx",
+      "diskSha256": "7b21978d5cce5c894849ff0557daa944c89467700a9617b0a1ccd2e518eff6ac",
+      "gitBlob": "6f9ec3d52410277a67833bd632dcf8a9098f6b85"
+    },
+    {
+      "path": "app/netshop/shared/request-state.ts",
+      "diskSha256": "b7f939b67f70d5e5444ced044a80d82061871af8373a0692c91c0ccf429ea9f2",
+      "gitBlob": "92d4c61cb6194e7deaf899aac5a6fa5b3d513afa"
+    },
+    {
+      "path": "app/netshop/shared/shared.css",
+      "diskSha256": "b1e0e042b68e7081a1ffd310c2a75c92cb63321b9b167ba7355b2aef40e51524",
+      "gitBlob": "9224014e9cafd9eb3d22396e7d0de415de9bc525"
+    },
+    {
+      "path": "app/page.tsx",
+      "diskSha256": "f5f42dbbf374f45951a6efbd907359ff5ddfffe3e64981dac126e72702de6e29",
+      "gitBlob": "28826907fae37981b60f9fb9f1be20352b8aa39a"
+    },
+    {
+      "path": "app/shell/navigation-contract.ts",
+      "diskSha256": "e2e41792adee243dd1724d396d02f2fc62e24e3c26fe97c99731603823a92567",
+      "gitBlob": "7bcfe81819c2a478b6381f90b3655224c2dc961b"
+    },
+    {
+      "path": "app/shell/shop-context.ts",
+      "diskSha256": "d6a7341296c8860caec20e5d21c0bcf4d053b6a74ed13a404aac140deddcdcee",
+      "gitBlob": "56af7338da119c4a0d4a48c1df59e3fd1eaa065f"
+    },
+    {
+      "path": "app/shop-module-view.tsx",
+      "diskSha256": "edb704a957fc840d70e69bc59e492ebf6bef41aa8cbb8c8b84a8a5736e2772a1",
+      "gitBlob": "3b418eb546a9dffc505d9de7574f3692d82bafb2"
+    },
+    {
+      "path": "backend/netshop/insights_common.py",
+      "diskSha256": "c36b1e1633038ae005d3a35be9b8b7585fa1649097cdbf5bf448d2f619efa19e",
+      "gitBlob": "68c5836f76e26a320fa6fcd140bc387755759fd8"
+    },
+    {
+      "path": "backend/netshop/query.py",
+      "diskSha256": "987ea5fd659c9405efcc9225375ef061345dba5b6d0203463f42b7c60c0bd4ca",
+      "gitBlob": "2fe0ef39dd1a533aa38d70d908254b2f7bd2fa7a"
+    },
+    {
+      "path": "backend/netshop/tests/test_insights_common.py",
+      "diskSha256": "a279eac0f26d2d1233d13a0e9efd962949549e90cb4f596a7357c56b62b372c3",
+      "gitBlob": "93319906cce6fc508523306a6ea1192015bc0745"
+    },
+    {
+      "path": "backend/netshop/urls.py",
+      "diskSha256": "363651e609f3ba13c511403f3b0a2d5a2c56d633b31cf680552a303bba08b901",
+      "gitBlob": "62f50970e82f40ba1cad87426399371570f5a0fe"
+    },
+    {
+      "path": "backend/netshop/views.py",
+      "diskSha256": "3dfac5e2ec508094cb21772b286cd9b70a53573d58f78767c27f50ef66517e96",
+      "gitBlob": "f529e6362644d2ee77eaee84eafc274b7ea790b4"
+    },
+    {
+      "path": "lib/django/netshop-service.ts",
+      "diskSha256": "a0265c75093fa9121ecd9d6f28e1858ff1d15748ab89057e9d567dc752ad3653",
+      "gitBlob": "e1cd0e0a1519f0078c74c8da47837e83a77070d1"
+    },
+    {
+      "path": "lib/netshop/access.ts",
+      "diskSha256": "095d86167266c8ff4d70ce686dbbbac4f3386c9f8cd602f6c444dc0b53b2a490",
+      "gitBlob": "e3f184ee5cbdd8eec3c62af6f608e8a62a20c5e3"
+    },
+    {
+      "path": "lib/netshop/fixtures/periods.synthetic.json",
+      "diskSha256": "db734469cde4db3ac89efca1a6b4d611fcdfb3f4af8a280ebc6b3b8185c24f43",
+      "gitBlob": "359bd68b9290e5a8ab3ef52088a7d6d49b418658"
+    },
+    {
+      "path": "lib/netshop/insights-consumers.ts",
+      "diskSha256": "c6880733bc277a081c70a171d72f62fb41ff3fdc6695278fda3b567fdd71eff8",
+      "gitBlob": "b2d353a7a6fe68f3f75e7ba7822b86c5c570d285"
+    },
+    {
+      "path": "lib/netshop/insights-contract.ts",
+      "diskSha256": "1f5ac1015d91a7ad538841549c595f852a90f40728258384a72adec7fc26ea63",
+      "gitBlob": "1453e2f5a5e35d9cf88981fcd7d09c8be089d29d"
+    },
+    {
+      "path": "lib/netshop/insights-endpoints.ts",
+      "diskSha256": "ecea95daee4dcae5cf704aff3bb84738bf77fb9bc388f8b116784d9544bac390",
+      "gitBlob": "8b64f181dab50ab8161a370adce6a39ce134beb8"
+    },
+    {
+      "path": "lib/netshop/insights-fixtures.ts",
+      "diskSha256": "4bbbbe27a60985aa41ea76ef00c4459e2ed3eb2964ac899c90ea992c38fab83b",
+      "gitBlob": "2a4028bd2aa87bdf84e68552670a4f5be5a23474"
+    },
+    {
+      "path": "lib/netshop/periods.ts",
+      "diskSha256": "3647d39f85114dafaad88f4c4a1002528d5b5fea2150c73a55ded625b76cd609",
+      "gitBlob": "484775701325bb73c45ee2e0803ef79bb1356401"
+    },
+    {
+      "path": "lib/netshop/product-display.ts",
+      "diskSha256": "8dbe508e8245bf0b96bcaa52709918dea9f2453668f43032fa2b0db88e139e8a",
+      "gitBlob": "9904011146e9716c2d6ec1ddd0fb9d255e0993d8"
+    },
+    {
+      "path": "lib/netshop/promotion-display.ts",
+      "diskSha256": "b1c9755075edac72deaf01c8bd9623ea81e531c226437a6e7412c305dc818887",
+      "gitBlob": "ce37fa90d9093bd30d5e1d508ba873ff3563c173"
+    },
+    {
+      "path": "lib/netshop/query-contract.ts",
+      "diskSha256": "f6fa91154f0026b8129ad2ffe9bd95eb27c1817a81912cdcb521b58193461532",
+      "gitBlob": "034be34c742edc5d128f6c70d351535b5d057ecb"
+    },
+    {
+      "path": "lib/netshop/store-overview-contract.ts",
+      "diskSha256": "d1d5f10e4bf8ad53c5f8db6fffadbd7011d24917b68d52e96fab1242a270e0dd",
+      "gitBlob": "ead61affb47083350def04af942a0ac3c3e87832"
+    },
+    {
+      "path": "tests/netshop-insights-derived-period.test.ts",
+      "diskSha256": "c417c084f9877885c8b5b1a3801b61d422e0e6c1e0b8deb6295125f0275c9e85",
+      "gitBlob": "9fc5a66913592d5f0a771b77c8555fa530309fd5"
+    },
+    {
+      "path": "tests/netshop-insights-foundation.test.ts",
+      "diskSha256": "c9efc7bf014b914e7925771ff7fce03675eb107c18131e7ec76065bd794f75f5",
+      "gitBlob": "269bdaa276b69dcbca52ddd19f416a8600803aca"
+    },
+    {
+      "path": "tests/netshop-insights-periods.test.ts",
+      "diskSha256": "abe0a362341a6eab9980aa3e7a3d304af879b4eeff3fbdd6c670b3f8cf9e116b",
+      "gitBlob": "992064ae93422b0147040f0efe8d482bce640317"
+    },
+    {
+      "path": "tests/netshop-insights-route.test.ts",
+      "diskSha256": "b0c520580e615efaa95f85d56c5218407083fe72343338857fa97f17220abbcd",
+      "gitBlob": "7c53a23d62c0ea7d2224335cfd75c8e45f183506"
+    },
+    {
+      "path": "tests/page-request-lifecycle.test.ts",
+      "diskSha256": "64dfda40eb02ff6fe5666290c57db8804a7da55498ee5e215906afc07fee11a3",
+      "gitBlob": "ac2de1f401255bda9c0fa3be1a2c532a28959e76"
+    },
+    {
+      "path": "tools/generate-netshop-period-fixtures.py",
+      "diskSha256": "adb3aa62f9e08198091c473d1c868f3e043ac4e0cab7516646b52bc7fb30e30d",
+      "gitBlob": "b0b9920caac8b38f95b429b40ab538696ad59e56"
+    },
+    {
+      "path": "tools/netshop-foundation-postgres-check.py",
+      "diskSha256": "3b5af2adea658f70d1c161d407ce9fc17f2e2dcab8ba9b0a08e69aa7ee183c03",
+      "gitBlob": "706d94c5acba49d7504fbbff519108357435ebc6"
+    },
+    {
+      "path": "tools/verify-netshop-foundation-ui.mjs",
+      "diskSha256": "12cec6a3076790b3591f61a138030d0767d0673929e67e21b183955d8e27567d",
+      "gitBlob": "9cd9dda2a6a9f281c94d0e18fbf1b2132a945666"
+    }
+  ],
+  "documentation": [
+    "docs/netshop-refactor/foundation/README.md",
+    "docs/netshop-refactor/foundation/handoff.json"
+  ],
+  "manifestNote": "files bind immutable b86e2372 code/tests/fixtures/tools; the subsequent commit changes delivery documentation only and its final SHA is separately reported"
+}
