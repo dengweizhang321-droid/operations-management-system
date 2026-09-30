@@ -86,6 +86,39 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
         self.assertEqual(section["matchedRange"]["shopDates"][0]["dates"], ["2026-09-01"])
         self.assertEqual(section["summary"]["spend"]["value"], 400)
+        ref = section["matchedRange"]["coverageRef"]
+        self.assertTrue(section["coverage"][ref]["complete"])
+        self.assertEqual(section["coverage"][ref]["expectedShopDatePairs"], 1)
+
+    def test_19_of_21_auxiliary_subset_is_complete_but_whole_fee_remains_null(self):
+        for day in range(1, 22):
+            self.day(day=f"2026-09-{day:02d}")
+            if day <= 19: self.day(day=f"2026-09-{day:02d}", promotion=False)
+        result = self.read(endDate="2026-09-21")
+        section = result["sections"]
+        self.assertIsNone(section["summary"]["spendRate"]["value"])
+        self.assertEqual(section["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        subset = section["coverage"][section["matchedRange"]["coverageRef"]]
+        self.assertTrue(subset["complete"])
+        self.assertEqual((subset["expectedShopDatePairs"], subset["coveredShopDatePairs"]), (19, 19))
+        self.assertEqual(subset["missingByShop"], [])
+        self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-partial-19-of-21.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
+
+    def test_rates_efficiency_and_shares_use_weighted_full_numerators(self):
+        self.day(shop="A", rows=[{"id": "same", "values": {"spendCents": 100, "netTransactionAmountCents": 1000, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        self.day(shop="B", rows=[{"id": "same", "values": {"spendCents": 900, "netTransactionAmountCents": 900, "impressions": 100, "clicks": 3, "netOrders": 1}}])
+        self.day(shop="A", promotion=False, rows=[{"id": "same", "values": {"transactionAmountCents": 1000}}])
+        self.day(shop="B", promotion=False, rows=[{"id": "same", "values": {"transactionAmountCents": 3000}}])
+        section = self.read()["sections"]
+        self.assertEqual(section["summary"]["spendRate"]["value"], .25)
+        self.assertEqual(section["summary"]["cpc"]["value"], 250)
+        self.assertEqual(section["summary"]["roas"]["value"], 1.9)
+        self.assertEqual(section["summary"]["ctr"]["value"], 4/110)
+        self.assertEqual({r["shopName"]: r["spendShare"]["value"] for r in section["shops"]["items"]}, {"A": .1, "B": .9})
 
     def test_missing_field_does_not_turn_projection_zero_into_observed_zero(self):
         self.day(rows=[{"values": {"spendCents": 0, "clicks": 0}}])
@@ -270,6 +303,8 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(current["changes"]["spend"]["previous"]["value"], 100)
         self.assertEqual(gone["metrics"]["spend"]["value"], 0)
         self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertEqual(gone["observation"]["current"]["verifiedAbsentDates"], ["2026-09-01"])
+        self.assertEqual(gone["observation"]["previous"]["observedDates"], ["2026-08-31"])
         self.assertIn("已导入", " ".join(section["limitations"]))
         # An unowned identity in a completely reconciled store-day means that
         # the object universe is not complete, even when additive totals match.
@@ -281,6 +316,7 @@ class PromotionInsightsTests(TestCase):
         self.assertIsNone(current["changes"]["spend"]["previous"]["value"])
         unknown = next(r for r in section["items"] if r["id"] is None)
         self.assertFalse(unknown["drillable"])
+        self.assertEqual(unknown["observation"]["current"]["verifiedAbsentDates"], [])
         self.assertEqual(unknown["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
         self.assertEqual(section["contributions"]["comparedObjectCount"], 0)
         self.assertEqual(section["contributions"]["excludedObjectCount"], 2)
@@ -310,6 +346,16 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["items"][0]["metrics"]["spend"]["value"], 100)
         self.assertFalse(section["items"][0]["drillable"])
         self.assertEqual(section["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+
+    def test_empty_product_identity_has_no_shared_link_even_when_both_sources_empty_id(self):
+        self.day(platform="天猫", rows=[{"id": "", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        self.day(platform="天猫", promotion=False, rows=[{"id": "", "values": {"transactionAmountCents": 1000}}])
+        item = self.read(platform="天猫")["sections"]["items"][0]
+        self.assertIsNone(item["id"])
+        self.assertFalse(item["drillable"])
+        self.assertEqual(item["mapping"]["status"], "unmapped")
+        self.assertIsNone(item["mapping"]["linkIdentity"])
+        self.assertIsNone(item["metrics"]["spendRate"]["value"])
 
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow
