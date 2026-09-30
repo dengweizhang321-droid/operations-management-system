@@ -13,22 +13,30 @@ import { ProductsCatalog } from "./ProductsCatalog";
 import { ProductsPerformance } from "./ProductsPerformance";
 import { PeriodContext } from "./ProductsPrimitives";
 import { productPrincipalKey } from "./ProductsRead";
-import { decodeProductsUiState, defaultProductsUiState, productsUiStorageKey, type ProductsUiState } from "./ui-state";
+import { decodeProductsPresentationPrefs, type ProductsPresentationPrefs } from "../../shell/shop-products-prefs";
+import { decodeProductsUiState, defaultProductsUiState, productsUiStorageKey, type ProductsUiChange, type ProductsUiState } from "./ui-state";
 import "./products.css";
 
-function usePresentation(key: string) {
+function usePresentation(key: string, sharedPrefs: ProductsPresentationPrefs | null | undefined, onContextChange: NetshopColumnProps["onContextChange"]) {
+  const rawShared = sharedPrefs ? JSON.stringify(sharedPrefs) : null;
+  const bound = useMemo(() => decodeProductsPresentationPrefs(rawShared), [rawShared]);
   const [stored, setStored] = useState<{ key: string; value: ProductsUiState }>({ key: "", value: defaultProductsUiState });
   useEffect(() => {
+    if (bound) return;
     let raw: string | null = null;
     try { raw = sessionStorage.getItem(key); } catch { /* Blocked browser storage only affects presentation restoration. */ }
     setStored({ key, value: decodeProductsUiState(raw) });
-  }, [key]);
-  const save = (value: ProductsUiState) => {
+  }, [bound, key]);
+  const save: ProductsUiChange = (value, patch) => {
     const normalized = decodeProductsUiState(JSON.stringify(value));
     setStored({ key, value: normalized });
     try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch { /* No business results are stored. */ }
+    onContextChange({ ...patch, productsPrefs: { schemaVersion: "products-ui-v1", ...normalized } });
   };
-  return [stored.key === key ? stored.value : defaultProductsUiState, save] as const;
+  // Valid shared preferences were account/scope-bound by the shell. An old
+  // same-account/scope session value is only an initial presentation hint.
+  const selected = bound ? { sort: bound.sort, columns: bound.columns, gallery: bound.gallery, detailSource: bound.detailSource, topic: bound.topic } : stored.key === key ? stored.value : defaultProductsUiState;
+  return [selected, save] as const;
 }
 
 /** Registered by I as the active products slot. The shared shell owns the
@@ -36,7 +44,7 @@ function usePresentation(key: string) {
 export function ProductsColumn(props: NetshopColumnProps) {
   const principal = productPrincipalKey(props);
   const localKey = productsUiStorageKey(props.context, props.startDate, props.endDate, principal, props.periodKind);
-  const [ui, onUi] = usePresentation(localKey);
+  const [ui, onUi] = usePresentation(localKey, props.context.productsPrefs, props.onContextChange);
   const [dateOpen, setDateOpen] = useState(false);
   const [options, setOptions] = useState<{ principal: string; shops: string[]; categories: string[] }>({ principal: "", shops: [], categories: [] });
   const [readContext, setReadContext] = useState<{ key: string; value: InsightsContext } | null>(null);

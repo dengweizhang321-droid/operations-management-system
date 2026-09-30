@@ -15,6 +15,7 @@ export type ProductsUiState = {
   detailSource: "platform" | "promotion" | "erp";
   topic: "home" | "growth" | "traffic" | "list";
 };
+export type ProductsUiChange = (value: ProductsUiState, patch?: Partial<ShopLocationContext>) => void;
 export const defaultProductsUiState: ProductsUiState = {
   sort: "payment_desc", columns: { traffic: true, comparison: true, association: true, coverage: true }, gallery: false, detailSource: "platform", topic: "home",
 };
