@@ -27,7 +27,7 @@ function quality(item: JdSkuCatalogItem) { return [!item.imageUrl ? "缺图" : n
 export function checkCatalog(value: unknown, query: URLSearchParams, revision?: string | null): CatalogView {
   if (!plain(value)) throw new Error("目录响应对象无效");
   const data = value as CatalogView;
-  const pagination = data.pagination;
+  const pagination = data.pagination as CatalogView["pagination"] & { hasMore?: unknown };
   // Legacy `truncated` is a pagination hint (including ordinary partial pages),
   // not the shared insight protocol's indication of an incomplete source set.
   if (!text(data.snapshotToken, 64) || !/^[a-f0-9]{64}$/.test(data.snapshotToken) || !Array.isArray(data.items) || !Array.isArray(data.shops) || !plain(data.summary) || !plain(pagination) || pagination.page !== Number(query.get("page")) || pagination.pageSize !== Number(query.get("pageSize")) || !Number.isSafeInteger(pagination.total) || pagination.total < 0 || data.items.length > pagination.pageSize || data.items.length > Math.max(0, pagination.total - (pagination.page - 1) * pagination.pageSize) || pagination.returned !== undefined && pagination.returned !== data.items.length || pagination.truncated !== undefined && typeof pagination.truncated !== "boolean" || Object.hasOwn(pagination, "hasMore") && (typeof pagination.hasMore !== "boolean" || pagination.hasMore !== ((pagination.page - 1) * pagination.pageSize + data.items.length < pagination.total))) throw new Error("目录版本或分页回执无效");
