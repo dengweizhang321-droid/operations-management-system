@@ -73,6 +73,6 @@ export const productReasonLabels: Record<string, string> = {
   incomplete_baseline: "基期覆盖不足", negative_baseline: "基期为负", unverified_source: "来源未核验",
   attribution_window_unknown: "归因窗口未核验", unsafe_integer: "数值超出安全范围", incomplete_coverage: "范围覆盖不足",
   no_comparable_date: "没有对应比较日", promotion_not_ready: "推广来源未就绪", promotion_mismatch: "推广与原始来源不一致",
-  missingImage: "缺少图片", missingCode: "缺少商家编码", missingCategory: "缺少类目", conflict: "资料冲突", stale: "资料陈旧", mapping_unverified: "ERP映射未核验",
+  missingImage: "缺少图片", missingCode: "缺少商家编码", missingCategory: "缺少类目", conflict: "资料冲突", stale: "资料陈旧", mapping_unverified: "ERP映射未核验", image_identity_unverified: "图片身份未核验",
 };
 export const productMappingLabels = { verified: "已验证关联", unmapped: "未关联", ambiguous: "关联不唯一", unverified: "关联未核验" } as const;
