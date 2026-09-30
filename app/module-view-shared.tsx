@@ -679,6 +679,7 @@ export type JdSkuCatalogItem = {
   productUrl: string;
   createdAt: string;
   snapshotDate: string | null;
+  catalogSnapshotDates?: { master: string | null; price: string | null; inventory: string | null; image: string | null };
   costPriceCents: number | null;
   netSalesCents: number | null;
   grossMarginRate: number | null;
