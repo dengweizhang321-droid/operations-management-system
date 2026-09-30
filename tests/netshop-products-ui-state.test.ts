@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerHooks } from "node:module";
+import { register } from "node:module";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { defaultShopLocationContext } from "../app/shell/shop-context";
-import { decodeProductsUiState, productsUiStorageKey, safeProductUrl } from "../app/netshop/products/ui-state";
+import { decodeProductsUiState, productsUiStorageKey, safeProductImageUrl, safeProductUrl } from "../app/netshop/products/ui-state";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 
 // CSS is still consumed by the real browser harness; Node server rendering
 // verifies text/state semantics without treating the stylesheet as JavaScript.
-registerHooks({ load(url, context, nextLoad) { return url.endsWith(".css") ? { format: "module", source: "", shortCircuit: true } : nextLoad(url, context); } });
+register(`data:text/javascript,${encodeURIComponent('export async function load(url, context, nextLoad) { return url.endsWith(".css") ? { format: "module", source: "", shortCircuit: true } : nextLoad(url, context); }')}`, import.meta.url);
 const { CompareCell, MetricCell, ProductPicture } = await import("../app/netshop/products/ProductsPrimitives");
 const { productsQuery } = await import("../app/netshop/products/ProductsRead");
 import { validateProductQuery } from "../app/netshop/products/contract";
@@ -39,10 +39,17 @@ test("product links reject scripts, inline data and credential-bearing URLs", ()
   for (const raw of ["javascript:alert(1)", "data:image/png;base64,x", "//example.com/x", "https://user:pass@example.com/x", "/relative", ""]) assert.equal(safeProductUrl(raw), null);
   assert.equal(safeProductUrl("https://example.com/product?id=1"), "https://example.com/product?id=1");
 });
+test("existing authenticated Tmall image paths are preserved with exact hash validation", () => {
+  const path = `/api/netshop/product-images/${"a".repeat(64)}`;
+  assert.equal(safeProductImageUrl(path), path);
+  for (const input of ["/api/netshop/product-images/not-a-hash", `${path}?url=https://other.invalid`, `/api/netshop/product-images/../${"a".repeat(64)}`, "//other.invalid/picture", "/relative.png"]) assert.equal(safeProductImageUrl(input), null);
+  const html = renderToStaticMarkup(React.createElement(ProductPicture, { title: "天猫主图", url: path }));
+  assert.match(html, new RegExp(`src="${path}"`)); assert.doesNotMatch(html, /缺少主图/);
+});
 const available: MetricValue = { value: 0, unit: "CNY_CENT", status: "available", reasonCode: null, basis: "product_day_sum", sourceIds: ["platform"], aggregation: "sum", coverageRef: "platform:current" };
 test("a proven zero renders zero yuan; missing fields and mappings render separate reasons", () => {
   const zero = renderToStaticMarkup(React.createElement(MetricCell, { metric: available }));
-  assert.match(zero, /0 元/); assert.doesNotMatch(zero, /缺少/);
+  assert.match(zero, /0\.00 元/); assert.doesNotMatch(zero, /缺少/);
   for (const [reason, text] of [["missing_field", "来源缺少字段"], ["missing_day", "缺少日期"], ["unmapped", "未关联"]] as const) {
     const html = renderToStaticMarkup(React.createElement(MetricCell, { metric: { ...available, value: null, status: "unavailable", reasonCode: reason } }));
     assert.match(html, new RegExp(text)); assert.match(html, /—/); assert.doesNotMatch(html, /0 元/);

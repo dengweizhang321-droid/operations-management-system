@@ -1,6 +1,6 @@
 "use client";
 
-import { formatMetric, type MetricValue } from "@/lib/netshop/insights-contract";
+import { formatMetric, formatDerivedMoneyPerCount, type DerivedMoneyPerCountV1, type MetricValue } from "@/lib/netshop/insights-contract";
 import { MetricCell } from "./ProductsPrimitives";
 
 export function ProductsBars({ rows }: { rows: Array<{ label: string; metric: MetricValue; share?: MetricValue }> }) {
@@ -10,7 +10,7 @@ export function ProductsBars({ rows }: { rows: Array<{ label: string; metric: Me
 
 /** Rendering scale only; missing days remain breaks, never zero-filled. The
  * reader owns period pairing, metric values and any temporal grouping. */
-export function ProductsTrend({ label, points }: { label: string; points: Array<{ date: string; metric: MetricValue }> }) {
+export function ProductsTrend({ label, points }: { label: string; points: Array<{ date: string; metric: MetricValue | DerivedMoneyPerCountV1 }> }) {
   const values = points.map(point => point.metric.value);
   const known = values.filter((value): value is number => value !== null);
   if (!known.length) return <div className="np-empty">{label}：当前范围没有可靠序列</div>;
@@ -25,9 +25,9 @@ export function ProductsTrend({ label, points }: { label: string; points: Array<
   if (segment.length) segments.push(segment);
   return <div><svg className="np-chart" viewBox="0 0 600 150" role="img" aria-label={`${label}；缺日断开，详细数值见明细`}>
     <line x1="45" y1={y(0)} x2="570" y2={y(0)} stroke="var(--np-line)" />
-    <text x="5" y="18" className="np-chart-label">{points[0].metric.unit === "CNY_CENT" ? "元" : points[0].metric.unit === "RATIO" ? "%" : points[0].metric.unit === "COUNT" ? "累计" : "倍"}</text>
+    <text x="5" y="18" className="np-chart-label">{points[0].metric.unit === "CNY_CENT" ? "元" : points[0].metric.unit === "CNY_CENT_PER_COUNT" ? "元/累计次数" : points[0].metric.unit === "RATIO" ? "%" : points[0].metric.unit === "COUNT" ? "累计" : "倍"}</text>
     {segments.map((coordinates, index) => <polyline key={index} points={coordinates.join(" ")} fill="none" stroke="var(--np-brand)" strokeWidth="2" />)}
-    {values.map((value, index) => value === null ? null : <circle key={points[index].date} cx={x(index)} cy={y(value)} r="2.5" fill="var(--np-brand)"><title>{points[index].date}：{formatMetric(points[index].metric)}</title></circle>)}
+    {values.map((value, index) => { const metric = points[index].metric; return value === null ? null : <circle key={points[index].date} cx={x(index)} cy={y(value)} r="2.5" fill="var(--np-brand)"><title>{points[index].date}：{metric.unit === "CNY_CENT_PER_COUNT" ? formatDerivedMoneyPerCount(metric) : formatMetric(metric)}</title></circle>; })}
     <text x="45" y="140" className="np-chart-label">{points[0].date}</text><text x="570" y="140" textAnchor="end" className="np-chart-label">{points[points.length - 1].date}</text>
   </svg><span className="np-caption">{known.length}/{points.length} 个有值日期；图形仅显示已读取序列</span></div>;
 }

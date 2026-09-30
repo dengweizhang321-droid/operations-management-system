@@ -10,7 +10,8 @@ import { chromium } from "playwright-core";
 
 const root = process.cwd();
 const runId = `${new Date().toISOString().replace(/[-:.]/g, "")}-${randomUUID()}`;
-const evidenceParent = "E:/codex-artifacts/netshop-scheme2-20261001/products/ui";
+const evidenceParent = process.env.NETSHOP_PRODUCTS_UI_EVIDENCE_ROOT ?? "E:/codex-artifacts/netshop-scheme2-20261001/products/ui";
+const role = process.env.NETSHOP_PRODUCTS_UI_ROLE ?? "P-ui-author";
 await mkdir(evidenceParent, { recursive: true });
 const evidence = resolve(evidenceParent, runId), runtime = resolve(root, ".runtime", `products-ui-${runId}`);
 await mkdir(evidence); await mkdir(runtime, { recursive: true });
@@ -92,7 +93,7 @@ function detail(query){
  return {...env,identity:{platform,shopName,dimension,id},sections:{performance,baselineReads:baselines(),catalog:{state:'ready',data:null},promotion:{state:'ready',data:{metrics:linked(['spend','attributedPayment','roas','clicks'],'platform_attributed'),mapping:unmapped(),attributionWindow:null}},erp:{state:'ready',data:{metrics:linked(['netSales','cost','largeMarginRate','orderMargin','returnAmount','returnQuantity'],'erp_net_sales'),mapping:unmapped()}},extras:extras(),daily:{state:'ready',data:daily},trends:{state:'ready',data:daily},skuContribution:{status:'unavailable',reasonCode:'unverified_source',basis:'historical_relation',relationVersion:null,items:[],pagination:{page:1,pageSize:20,total:0,returned:0,hasMore:false,truncated:false}},metadata:metadata()}};
 }
 function catalog(query){
- const platform=query.get('platform')||'京东',shopName=(query.get('outlet')||platform+'\\u001f合成店A').split('\\u001f')[1],search=query.get('q')||'',all=Array.from({length:42},(_,i)=>({platform,shopName,spuId:'SPU'+(i+1),skuId:'SKU'+(i+1),productCode:'CODE'+(i+1),productName:'目录合成商品 '+(i+1),imageUrl:'',saleAttribute:'合成规格',category:'合成类目',brand:'合成品牌',price:10,priceCents:1000,totalInventory:12,availableInventory:10,status:'上架',productUrl:'',createdAt:'2026-09-01',snapshotDate:'2026-09-01',costPriceCents:null,netSalesCents:null,grossMarginRate:null,refundRate:null,salesMatched:false}));
+ const platform=query.get('platform')||'京东',shopName=(query.get('outlet')||platform+'\\u001f合成店A').split('\\u001f')[1],search=query.get('q')||'',all=Array.from({length:42},(_,i)=>({platform,shopName,spuId:'SPU'+(i+1),skuId:'SKU'+(i+1),productCode:'CODE'+(i+1),productName:'目录合成商品 '+(i+1),imageUrl:i===0?'/api/netshop/product-images/'+'f'.repeat(64):'',saleAttribute:'合成规格',category:'合成类目',brand:'合成品牌',price:10,priceCents:1000,totalInventory:12,availableInventory:10,status:'上架',productUrl:'',createdAt:'2026-09-01',snapshotDate:'2026-09-01',costPriceCents:null,netSalesCents:null,grossMarginRate:null,refundRate:null,salesMatched:false}));
  const filtered=all.filter(item=>!search||item.productName.includes(search)||item.skuId.includes(search)||item.spuId.includes(search)),page=Number(query.get('page')||1),size=Number(query.get('pageSize')||20),items=filtered.slice((page-1)*size,page*size);
  return {snapshotToken:'c'.repeat(64),batch:{fileName:'synthetic-catalog.xlsx',snapshotDate:'2026-09-01',rowCount:42,completedAt:'2026-09-01'},summary:{totalSkus:42,onSaleSkus:42,totalInventory:504,availableInventory:420},shops:[{platform,shopName,snapshotDate:'2026-09-01',completedAt:'2026-09-01'}],sales:{periodStart:query.get('startDate'),periodEnd:query.get('endDate'),dataCutoffDate:query.get('endDate'),platform},items,pagination:{page,pageSize:size,total:filtered.length,returned:items.length,truncated:false}};
 }
@@ -125,6 +126,7 @@ const server = createServer(async (request, response) => {
   response.setHeader("Content-Security-Policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; frame-src 'none'; form-action 'none'");
   if (path === "/ui.js" || path === "/ui.css") { response.setHeader("Content-Type", path.endsWith(".js") ? "text/javascript" : "text/css"); response.end(await readFile(resolve(runtime, path.slice(1)))); return; }
   if (path === "/favicon.ico") { response.writeHead(204).end(); return; }
+  if (/^\/api\/netshop\/product-images\/[a-f0-9]{64}$/.test(path)) { response.setHeader("Content-Type", "image/svg+xml"); response.end('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64"><rect width="96" height="64" fill="#d3ddd7"/><text x="12" y="36" fill="#396149">fixture</text></svg>'); return; }
   if (path !== "/" && path !== "/primitives") { response.writeHead(404).end(); return; }
   response.setHeader("Content-Type", "text/html;charset=utf-8");
   response.end('<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/ui.css"><style>body{margin:0;padding:12px}#root{max-width:1440px;margin:auto}</style><div id="root"></div><script type="module" src="/ui.js"></script></html>');
@@ -134,7 +136,7 @@ const checks = [], errors = [];
 try {
   await new Promise((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   const port = server.address().port;
-  await writeEvidence("resource.json", { role: "P-ui", runId, port, pid: process.pid, root, evidence, synthetic: true, status: "running" });
+  await writeEvidence("resource.json", { role, runId, port, pid: process.pid, root, evidence, synthetic: true, status: "running" });
   browser = await chromium.launch({ executablePath: process.env.NETSHOP_UI_CHROME ?? "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
   page.on("pageerror", error => errors.push(error.message));
@@ -172,13 +174,13 @@ try {
   await page.screenshot({ path: resolve(evidence, "full-column-desktop.png"), fullPage: true });
   for (const width of [390, 320]) await check(`full column viewport ${width} does not overflow`, async () => { await page.setViewportSize({ width, height: 900 }); const dimensions = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth })); assert.ok(dimensions.scroll <= dimensions.client + 1, JSON.stringify(dimensions)); await page.screenshot({ path: resolve(evidence, `full-column-${width}.png`), fullPage: true }); });
   assert.deepEqual(errors, []);
-  await writeEvidence("result.json", { role: "P-ui", synthetic: true, runId, checks, errors, status: "passed", authorIndependent: false, limitations: ["Full ProductsColumn with synthetic API and real shell navigation helpers", "No live source, Worker/Django end-to-end or PostgreSQL validation"] });
+  await writeEvidence("result.json", { role, synthetic: true, runId, checks, errors, status: "passed", scriptAuthor: "P-ui", independentReviewConclusion: null, limitations: ["Full ProductsColumn with synthetic API and real shell navigation helpers", "No live source, Worker/Django end-to-end or PostgreSQL validation"] });
   process.stdout.write(`${JSON.stringify({ evidence, runId, checks: checks.length, errors, status: "passed" })}\n`);
 } catch (error) {
-  await writeEvidence("failure.json", { role: "P-ui", runId, checks, errors, status: "failed", error: error.message });
+  await writeEvidence("failure.json", { role, runId, checks, errors, status: "failed", error: error.message });
   throw error;
 } finally {
   if (browser) await browser.close();
   if (server.listening) await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
-  await writeEvidence("shutdown.json", { role: "P-ui", runId, browserClosed: true, serverClosed: !server.listening });
+  await writeEvidence("shutdown.json", { role, runId, browserClosed: true, serverClosed: !server.listening });
 }

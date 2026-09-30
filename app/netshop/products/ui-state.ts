@@ -48,6 +48,11 @@ export function safeProductUrl(raw: string | null | undefined) {
     return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : null;
   } catch { return null; }
 }
+export function safeProductImageUrl(raw: string | null | undefined) {
+  // Preserve the existing authenticated Tmall asset path. Product links still
+  // require an explicit HTTP(S) URL; arbitrary relative URLs are not accepted.
+  return raw && /^\/api\/netshop\/product-images\/[a-f0-9]{64}$/.test(raw) ? raw : safeProductUrl(raw);
+}
 export const productReasonLabels: Record<string, string> = {
   no_records: "未导入记录", missing_day: "缺少日期", missing_field: "来源缺少字段", not_applicable: "当前来源不适用",
   unmapped: "未关联", ambiguous_mapping: "关联不唯一", zero_denominator: "分母为零", negative_denominator: "分母为负",
