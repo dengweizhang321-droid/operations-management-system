@@ -16,8 +16,11 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 BIN = Path(r"D:\teruisi-runtime\django-sales\postgresql-17.11\bin")
+EVIDENCE_ROLE = os.environ.get("TERUISI_PRODUCTS_PG_EVIDENCE_ROLE", "query")
+if EVIDENCE_ROLE not in {"query", "lead"}:
+    raise RuntimeError("Evidence role must be exactly query or lead")
 RUN = ROOT / ".runtime" / ("products-pg-" + secrets.token_hex(10))
-EVIDENCE = Path(r"E:\codex-artifacts\netshop-scheme2-20261001\products\query") / RUN.name
+EVIDENCE = Path(r"E:\codex-artifacts\netshop-scheme2-20261001\products") / EVIDENCE_ROLE / RUN.name
 with socket.socket() as probe:
     probe.bind(("127.0.0.1", 0))
     PORT = probe.getsockname()[1]
@@ -79,5 +82,5 @@ finally:
             stopped = True
     finally:
         with (EVIDENCE / "result.json").open("x", encoding="utf-8") as output:
-            json.dump({"fixture": "products-synthetic-v1", "port": PORT, "runtime": str(RUN), "started": started, "stopped": stopped, "results": results}, output, indent=2)
+            json.dump({"fixture": "products-synthetic-v1", "evidenceRole": EVIDENCE_ROLE, "port": PORT, "runtime": str(RUN), "started": started, "stopped": stopped, "results": results}, output, indent=2)
         print(f"Private product PostgreSQL normal stop={stopped}; evidence {EVIDENCE}")
