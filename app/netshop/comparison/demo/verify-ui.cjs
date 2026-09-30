@@ -177,6 +177,27 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.ok((await snapshot()).state.expanded.includes('JD'));
       assert.ok(await page.locator('.table-subrow').count()>=3);
     });
+    await check('Trend buckets and normalized values match the summary for stable shop identities', async () => {
+      await set({design:1,mode:'shops',platform:'JD',source:'platform',coverage:'all',currentStart:'2026-09-01',currentEnd:'2026-09-03',previousStart:'2026-08-01',previousEnd:'2026-08-28',selectedIds:['JD:A','JD:B'],grain:'week',normalized:false});
+      let s=await snapshot();
+      for(const id of ['JD:A','JD:B']){
+        const row=s.objects.find(o=>o.id===id),series=s.series.find(o=>o.id===id);
+        assert.equal(series.points.length,1);
+        assert.equal(series.points[0].value,row.current.amount);
+      }
+      await set({normalized:true});
+      s=await snapshot();
+      for(const id of ['JD:A','JD:B']){
+        const row=s.objects.find(o=>o.id===id),point=s.series.find(o=>o.id===id).points[0];
+        const expected=(row.current.amount/point.days)/(row.previous.amount/row.previous.coverage.requested)*100;
+        assert.ok(Math.abs(point.value-expected)<1e-10);
+      }
+      await set({mode:'platforms',platform:'all',grain:'month',normalized:false});
+      s=await snapshot();
+      for(const platform of s.objects){
+        assert.equal(s.series.find(o=>o.id===platform.id).points[0].value,platform.current.amount);
+      }
+    });
     await set({mode:'shops',platform:'JD',source:'platform',coverage:'all',grain:'day',currentStart:'2026-09-01',currentEnd:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-29'});
     await page.setViewportSize({width:390,height:844});
     for (let design = 1; design <= 5; design++) {

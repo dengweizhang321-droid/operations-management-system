@@ -50,7 +50,7 @@
   }
   function growthHTML(object){const g=object.growth;return g.value===null?`<span class="muted small" title="${esc(g.reason)}">${g.reason=== '基期为 0，仅显示差额'?'基期 0':g.reason=== '负基期，仅显示差额'?'负基期':g.reason==='基期缺失'?'基期缺失':'不可比'}</span>`:`<span class="${g.value>=0?'up':'down'}">${g.value>=0?'+':''}${pct(g.value)}</span>`;}
   function fixture(shop,date){
-    const stamp=day(date),d=stamp.getUTCDate(),m=stamp.getUTCMonth()+1,index=SHOPS.indexOf(shop);
+    const stamp=day(date),d=stamp.getUTCDate(),m=stamp.getUTCMonth()+1,index=SHOPS.findIndex(item=>item.id===shop.id);
     const baseline=m<9, wave=1+Math.sin((d+index*4)*.63)*.15+Math.cos(d*.18)*.06;
     const factor=(baseline?shop.prev:1)*(m===9&&d>17?1.09:1)*(1+(m-9)*.025);
     const missingProduct=shop.id==='JD:C'&&m===9&&(d===15||d===21) || shop.id==='TMALL:E'&&m===9&&d%7===0;

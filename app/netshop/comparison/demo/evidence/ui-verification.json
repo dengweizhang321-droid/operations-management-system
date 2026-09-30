@@ -2,10 +2,10 @@
   "scope": "synthetic isolated UI only",
   "sourceHashes": {
     "index.html": "6ba8391df928b53a3a0ef2aae3026c4b2a16c2d2b58a59221a8a25ecb5bd7bf4",
-    "demo.js": "a50aab8842c32140ba3b22db6f0aa416dfec6337db0928296541170d5a1bdbfb",
+    "demo.js": "66c0b44ad37ad32abf304aa2da0a86354d56937398913b8179beedb4d930443c",
     "demo.css": "a5930c4e49522dc6e6768cfc42451d1895230a718f8080338a75917a588c93c1"
   },
-  "testedAt": "2026-09-30T09:40:14.055Z",
+  "testedAt": "2026-09-30T09:42:53.793Z",
   "viewport": [
     "1440x1080",
     "390x844"
@@ -84,6 +84,10 @@
       "result": "pass"
     },
     {
+      "name": "Trend buckets and normalized values match the summary for stable shop identities",
+      "result": "pass"
+    },
+    {
       "name": "Design 1: narrow layout",
       "result": "pass"
     },
@@ -123,7 +127,7 @@
       "url": "http://127.0.0.1:3170/demo.js"
     }
   ],
-  "passed": 24,
+  "passed": 25,
   "failed": 0,
   "PostgreSQL": "not implemented/not tested in this design stage",
   "productionPermissions": "not tested; required after F/P/A integration",
