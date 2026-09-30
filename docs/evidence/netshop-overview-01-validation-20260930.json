@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "netshop-overview-01-validation-v1",
+  "codeCommit": "00f5149c0e5da9cbf315919091c536bbc417d4f5",
+  "baseCommit": "cf8384fd0bd30738ea570ca58632fdfbc261b5c4",
+  "integrationOwner": "I per docs/netshop-refactor/execution/20260930-coordination.md on origin/main",
+  "branch": "codex/netshop-overview-01",
+  "mainMerged": false,
+  "productionAdopted": false,
+  "controlledUnit": {
+    "total": 2755,
+    "passed": 2735,
+    "skipped": 20,
+    "failed": 0,
+    "cancelled": 0,
+    "testConcurrency": 4
+  },
+  "related": {
+    "passed": 35,
+    "failed": 0
+  },
+  "environmentRetry": {
+    "passed": 61,
+    "failed": 0
+  },
+  "defaultConcurrencyRerun": {
+    "passed": 2733,
+    "skipped": 20,
+    "failed": 2,
+    "limitations": [
+      "Windows protected fixture lineage changed while stopping",
+      "Node test IPC deserialization error"
+    ],
+    "subsequentControlledRunPassed": true
+  },
+  "postgres": {
+    "passed": 47,
+    "failed": 0,
+    "source": "isolated synthetic domain schema",
+    "minimumReaderWriteDenied": true,
+    "clusterStopped": true
+  },
+  "build": {
+    "passed": true,
+    "isolated": true
+  },
+  "lint": {
+    "errors": 0,
+    "existingWarnings": 12
+  },
+  "typecheck": {
+    "baselineDiagnostics": 188,
+    "candidateDiagnostics": 188,
+    "newDiagnostics": 0
+  },
+  "preview": {
+    "url": "http://127.0.0.1:3100",
+    "data": "synthetic-only",
+    "writesDisabled": true,
+    "smokeChecks": 12,
+    "treeRetainedForActivePreview": true
+  },
+  "visual": {
+    "sizes": [
+      1440,
+      1920,
+      390
+    ],
+    "fontFamily": "system tokens",
+    "mainKpiPx": 24,
+    "cardLabelPx": 16,
+    "chartAxisPx": 12,
+    "pageHorizontalOverflow": false,
+    "physicalTouchVerified": false
+  },
+  "realReadOnlyData": {
+    "range": [
+      "2026-09-01",
+      "2026-09-29"
+    ],
+    "through": "2026-09-29",
+    "revision": "889:3c3453c7cc4c",
+    "productionWrites": false,
+    "mcpAvailable": false,
+    "fallback": "existing minimum PostgreSQL netshop reader"
+  },
+  "limitations": [
+    "Missing trusted field mappings/sources are unavailable or qualified partial",
+    "JD wide-source validation around43s; large-range performance needs further validation",
+    "Physical touch driver unavailable",
+    "New formal public API and production stack not adopted/verified",
+    "Independent Q review/latest-main combined verification pending"
+  ],
+  "evidence": {
+    "controlled-unit": {
+      "sha256": "03c3f3f454c879fc0de9d71d03e2fe3c643cee28378c5e59d96b0810dff3b9c3",
+      "localEvidence": ".runtime/preview/overview-unit-controlled.txt"
+    },
+    "related": {
+      "sha256": "42ceae2490a3b9bf56d6c32ab5f57cd7f046a0474f51f596471a7479638536dc",
+      "localEvidence": ".runtime/preview/overview-handoff-tests.txt"
+    },
+    "environment-retry": {
+      "sha256": "5a5647dab23e142ced0c4f16f9151f0f9465a1a336c0496d0e24fad1634571c9",
+      "localEvidence": ".runtime/preview/overview-environment-retry.txt"
+    },
+    "build": {
+      "sha256": "b42841f869d8fd630c367fb7063cc9ac0020a5b9ad3c598419748af0995d0965",
+      "localEvidence": ".runtime/preview/overview-build-handoff.txt"
+    },
+    "lint": {
+      "sha256": "efaf75308287ed0985a534e4476496b328d10e6e8cae59cd85ae423df13bc998",
+      "localEvidence": ".runtime/preview/overview-lint-handoff.txt"
+    },
+    "postgres": {
+      "sha256": "23e3c1a898a83751efd4bf842ef7c6cf9d224f1fe1ba4b8d0f3d7cd29594b458",
+      "localEvidence": ".runtime/preview/overview-pg-115b52221055/netshop-tests.log"
+    },
+    "typecheck-baseline": {
+      "sha256": "c571dda93f15d6b63e1ca0636fc9710ddc76e89e328f00e842e1eed0778ee8e1",
+      "localEvidence": ".runtime/preview/overview-typecheck-baseline.txt"
+    },
+    "typecheck-candidate": {
+      "sha256": "3292f6af90603a1caa0a3f199dcd18dc5485afef9e82aa9c292e1d3139ca931a",
+      "localEvidence": ".runtime/preview/overview-typecheck-last.txt"
+    },
+    "ui": {
+      "sha256": "8122e9167ed10307766b664442d5a449d461ad11df93fd9eb12ec5d94c4310a2",
+      "localEvidence": "outputs/netshop-overview-01/ui-evidence.json"
+    }
+  }
+}
