@@ -1,6 +1,8 @@
 """Promotion query semantics verified on the independently launched synthetic PG."""
 import hashlib
 import json
+import os
+from pathlib import Path
 from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -216,6 +218,50 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(m["ctr"]["previous"]["method"], "percentage_points")
         self.assertEqual(m["spend"]["yearAgo"]["reasonCode"], "incomplete_baseline")
 
+    def test_negative_baseline_and_negative_denominator_are_explained(self):
+        self.day()
+        self.day(day="2026-08-31", rows=[{"id": "same", "values": {"spendCents": -100, "netTransactionAmountCents": 400, "impressions": 100, "clicks": -2, "netOrders": 1}}])
+        section = self.read()["sections"]
+        self.assertEqual(section["comparisons"]["spend"]["previous"]["reasonCode"], "negative_baseline")
+        self.assertEqual(section["comparisons"]["cpc"]["previous"]["reasonCode"], "incomplete_baseline")
+        self.assertIsNone(section["comparisons"]["spend"]["previous"]["value"])
+
+    def test_paired_full_universe_before_growth_pagination_and_search(self):
+        current, prior = [], []
+        for i in range(120):
+            current.append({"id": f"P{i:03d}", "values": {"spendCents": 100+i, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}})
+            prior.append({"id": f"P{i:03d}", "values": {"spendCents": 500 if i == 0 else 10, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}})
+        self.day(rows=current); self.day(day="2026-08-31", rows=prior)
+        section = self.read(sort="spend_change_asc", pageSize=20)["sections"]
+        self.assertEqual(section["pagination"]["total"], 120)
+        self.assertEqual(section["items"][0]["id"], "P000")
+        self.assertAlmostEqual(section["items"][0]["comparisons"]["spend"]["previous"]["value"], -.8)
+        self.assertEqual(section["pagination"]["returned"], 20)
+        self.assertTrue(section["pagination"]["hasMore"])
+        found = self.read(q="P000", pageSize=1)["sections"]
+        self.assertEqual(found["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertEqual(found["summary"]["spend"]["value"], sum(100+i for i in range(120)))
+
+    def test_leap_date_focus_does_not_compare_to_shorter_baseline(self):
+        self.pair(day="2024-02-29")
+        self.pair(day="2023-02-28")
+        section = self.read(startDate="2024-02-28", endDate="2024-02-29", focusDate="2024-02-29")["sections"]
+        self.assertEqual(section["listScope"]["comparisonDates"]["yearAgo"], [])
+        self.assertIsNone(section["items"][0]["comparisons"]["spend"]["yearAgo"]["value"])
+
+    def test_actual_response_examples_are_preserved_create_new_for_decoder(self):
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if not evidence: self.skipTest("Evidence root only provided by independent PG runner")
+        self.admin(); self.day(shop=SHOP_NAME, rows=[{"id": "SKU1", "values": {"spendCents": 100, "netTransactionAmountCents": 300, "impressions": 20, "clicks": 3, "netOrders": 2}, "raw": {"计划ID": "P1", "推广计划": "合成计划", "单元ID": "U1", "关键词": "合成词", "搜索词": "合成搜索", "匹配方式": "精确"}}])
+        self.day(shop=SHOP_NAME, promotion=False, rows=[{"id": "SKU1", "values": {"transactionAmountCents": 1000}}])
+        product = self.read()
+        plan = self.read(objectKind="plan")
+        row = plan["sections"]["items"][0]
+        detail = read_promotion_detail(self.principal, self.params(objectKind="plan", objectId=row["rowKey"], shopKey=row["shopKey"], sectionToken=plan["sectionToken"]))
+        root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+        for name, data in [("response-product.json", product), ("response-plan.json", plan), ("response-detail.json", detail)]:
+            with (root/name).open("x", encoding="utf-8") as output: json.dump(data, output, ensure_ascii=False, indent=2)
+
     def test_changed_source_vector_stale_token_actor_revocation_fail_closed(self):
         self.pair()
         result = self.read()
@@ -270,11 +316,12 @@ class PromotionInsightsTests(TestCase):
     def test_select_only_role_cannot_write_sources(self):
         self.pair()
         role = "promotion_reader_test"
-        tables = ["app_users", "netshop_rows", "netshop_import_batches", "netshop_data_revisions", "netshop_product_daily_scope_revisions", "netshop_promotion_scope_revisions", "netshop_promotion_aggregate_manifest", "netshop_promotion_aggregate_state", "netshop_promotion_shop_daily", "netshop_promotion_product_daily"]
+        tables = ["netshop_rows", "netshop_import_batches", "netshop_data_revisions", "netshop_product_daily_scope_revisions", "netshop_promotion_scope_revisions", "netshop_promotion_aggregate_manifest", "netshop_promotion_aggregate_state", "netshop_promotion_shop_daily", "netshop_promotion_product_daily"]
         with connection.cursor() as cursor:
             cursor.execute('CREATE ROLE "'+role+'" NOLOGIN')
             cursor.execute('GRANT USAGE ON SCHEMA public TO "'+role+'"')
             cursor.execute('GRANT SELECT ON '+','.join('"'+t+'"' for t in tables)+' TO "'+role+'"')
+            cursor.execute('GRANT SELECT(email,role,status,scope,version) ON access_control_users TO "'+role+'"')
         try:
             with transaction.atomic():
                 with connection.cursor() as cursor: cursor.execute('SET LOCAL ROLE "'+role+'"')
