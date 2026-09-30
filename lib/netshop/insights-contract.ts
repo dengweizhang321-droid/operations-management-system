@@ -68,12 +68,13 @@ export function decodeMetric(value: unknown): MetricValue {
  */
 export function decodeDerivedMoneyPerCount(value: unknown): DerivedMoneyPerCountV1 {
   const m = record(value);
-  if (m.metricSchemaVersion !== derivedMoneySchema || m.unit !== "CNY_CENT_PER_COUNT" || m.aggregation !== "ratio_of_sums" || !moneyDenominatorKinds.includes(m.denominatorKind as typeof moneyDenominatorKinds[number]) || !["available", "unavailable", "invalid"].includes(String(m.status)) || !("numerator" in m) || !("denominator" in m)) return fail("派生货币单价版本、单位或分母定义无效");
+  if (m.metricSchemaVersion !== derivedMoneySchema || m.unit !== "CNY_CENT_PER_COUNT" || m.aggregation !== "ratio_of_sums" || typeof m.denominatorKind !== "string" || !moneyDenominatorKinds.includes(m.denominatorKind as typeof moneyDenominatorKinds[number]) || typeof m.status !== "string" || !["available", "unavailable", "invalid"].includes(m.status) || typeof m.basis !== "string" || !["product_day_sum", "platform_attributed", "erp_net_sales", "erp_order_margin", "erp_large_margin", "finance_month", "current_snapshot", "unverified"].includes(m.basis) || m.reasonCode !== null && (typeof m.reasonCode !== "string" || !metricReasons.includes(m.reasonCode as MetricReason)) || !("numerator" in m) || !("denominator" in m)) return fail("派生货币单价版本、单位或分母定义无效");
   for (const key of ["numerator", "denominator"]) if (m[key] !== null && !Number.isSafeInteger(m[key])) return fail("派生货币单价须以安全整数分和次数计算");
   if (m.status === "available" && (typeof m.numerator !== "number" || typeof m.denominator !== "number" || m.denominator <= 0 || m.denominatorKind === "clicks" && m.numerator < 0)) return fail("派生货币单价分子分母无效");
   // Reuse four-state/source/reason/ratio consistency checks without widening
   // decodeMetric's monetary unit. This validation proxy is never returned.
   decodeMetric({ ...m, unit: "RATIO" });
+  if (m.status === "available" && m.value !== Number(m.numerator) / Number(m.denominator)) return fail("派生货币单价必须保留整数分/次数的未舍入商");
   return m as DerivedMoneyPerCountV1;
 }
 export function compareDerivedMoneyPerCount(current: DerivedMoneyPerCountV1, baseline: DerivedMoneyPerCountV1): MetricComparison {

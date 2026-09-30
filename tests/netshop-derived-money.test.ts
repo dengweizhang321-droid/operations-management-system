@@ -22,9 +22,20 @@ test("version, unit, aggregation and every exact operand are validated", () => {
     { denominator: .5 }, { denominator: Number.MAX_SAFE_INTEGER + 1 }, { denominator: 0 }, { denominator: -1 }, { denominator: null },
     { numerator: -101, value: -101 / 3 }, { value: Number.POSITIVE_INFINITY }, { value: Number.NaN },
     { value: .33 }, { sourceIds: [] }, { sourceIds: ["jd_promotion", "jd_promotion"] }, { basis: "unverified" },
+    { basis: ["platform_attributed"] }, { status: ["available"] }, { reasonCode: ["missing_day"] }, { denominatorKind: ["clicks"] },
   ]) assert.throws(() => decodeDerivedMoneyPerCount({ ...price(), ...invalid }));
   const missing = { ...price() } as Record<string, unknown>; delete missing.numerator;
   assert.throws(() => decodeDerivedMoneyPerCount(missing));
+});
+test("no absolute tolerance accepts a rounded tiny positive as zero or a premature rounded larger price", () => {
+  const tiny = price({ numerator: 1, denominator: Number.MAX_SAFE_INTEGER, value: 1 / Number.MAX_SAFE_INTEGER });
+  assert.deepEqual(decodeDerivedMoneyPerCount(tiny), tiny);
+  assert.match(formatDerivedMoneyPerCount(tiny), /^<0.0001/);
+  assert.throws(() => decodeDerivedMoneyPerCount({ ...tiny, value: 0 }));
+  const large = price({ numerator: Number.MAX_SAFE_INTEGER, denominator: 3, value: Number.MAX_SAFE_INTEGER / 3 });
+  assert.deepEqual(decodeDerivedMoneyPerCount(large), large);
+  assert.throws(() => decodeDerivedMoneyPerCount({ ...large, value: Math.round(large.value!) }));
+  assert.throws(() => decodeDerivedMoneyPerCount(price({ value: null, numerator: null, denominator: null, reasonCode: "missing_day", status: ["unavailable"] as unknown as "unavailable" })));
 });
 test("missing fields, missing dates and invalid denominators stay null with exact reasons", () => {
   for (const reasonCode of ["missing_field", "missing_day", "zero_denominator", "negative_denominator", "incomplete_coverage"] as const) {

@@ -20,6 +20,16 @@ class DerivedMoneyTests(SimpleTestCase):
             with self.subTest(invalid=invalid), self.assertRaises(NetshopApiError): validate_derived_money_per_count(price(**invalid))
         missing = price(); del missing["numerator"]
         with self.assertRaises(NetshopApiError): validate_derived_money_per_count(missing)
+        for invalid in ({"basis": ["platform_attributed"]}, {"status": ["available"]}, {"reasonCode": ["missing_day"]}, {"denominatorKind": ["clicks"]}, {"status": ["unavailable"], "value": None, "numerator": None, "denominator": None, "reasonCode": "missing_day"}):
+            with self.subTest(invalid=invalid), self.assertRaises(NetshopApiError): validate_derived_money_per_count(price(**invalid))
+
+    def test_tiny_positive_and_larger_unrounded_quotients_have_no_absolute_tolerance(self):
+        tiny = price(numerator=1, denominator=9007199254740991, value=1 / 9007199254740991)
+        self.assertEqual(validate_derived_money_per_count(tiny)["value"], tiny["value"])
+        with self.assertRaises(NetshopApiError): validate_derived_money_per_count({**tiny, "value": 0})
+        large = price(numerator=9007199254740991, denominator=3, value=9007199254740991 / 3)
+        self.assertEqual(validate_derived_money_per_count(large)["value"], large["value"])
+        with self.assertRaises(NetshopApiError): validate_derived_money_per_count({**large, "value": round(large["value"])})
 
     def test_unavailable_reasons_and_comparison_semantics(self):
         for reason in ("missing_field", "missing_day", "zero_denominator", "negative_denominator", "incomplete_coverage"):

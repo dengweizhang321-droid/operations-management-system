@@ -88,6 +88,8 @@ def compare_metrics(current, baseline):
 
 def validate_derived_money_per_count(metric):
     """Versioned fractional-cent unit price; original amounts stay integers."""
+    if not isinstance(metric, dict) or any(type(metric.get(key)) is not str for key in ("metricSchemaVersion", "unit", "aggregation", "denominatorKind", "status", "basis")) or metric.get("reasonCode") is not None and type(metric.get("reasonCode")) is not str:
+        raise NetshopApiError("派生货币单价枚举结构无效")
     if not isinstance(metric, dict) or metric.get("metricSchemaVersion") != "netshop-money-per-count-v1" or metric.get("unit") != "CNY_CENT_PER_COUNT" or metric.get("aggregation") != "ratio_of_sums" or metric.get("denominatorKind") not in {"clicks", "item_quantity", "transaction_customers_sum", "product_day_visitors_sum"} or metric.get("status") not in {"available", "unavailable", "invalid"} or "numerator" not in metric or "denominator" not in metric:
         raise NetshopApiError("派生货币单价版本、单位或分母定义无效")
     numerator, denominator = metric["numerator"], metric["denominator"]
@@ -96,6 +98,8 @@ def validate_derived_money_per_count(metric):
     if metric["status"] == "available" and (type(numerator) is not int or type(denominator) is not int or denominator <= 0 or metric["denominatorKind"] == "clicks" and numerator < 0):
         raise NetshopApiError("派生货币单价分子分母无效")
     validate_metric({**metric, "unit": "RATIO"})
+    if metric["status"] == "available" and metric["value"] != numerator/denominator:
+        raise NetshopApiError("派生货币单价必须保留整数分/次数的未舍入商")
     return metric
 
 
