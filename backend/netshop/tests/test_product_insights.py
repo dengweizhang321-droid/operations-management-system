@@ -156,7 +156,7 @@ class ProductInsightsTests(TestCase):
         self.assertEqual(self.read()["sections"]["summary"]["payment"]["value"], 1000)
 
     def test_unknown_duplicate_and_oversized_parameters_rejected(self):
-        for delta in ({"sql": "anything"}, {"page": ["1", "2"]}, {"sort": "payment"}, {"pageSize": "101"}, {"q": "q" * 121}, {"sectionToken": "bad"}):
+        for delta in ({"sql": "anything"}, {"page": ["1", "2"]}, {"sort": "payment"}, {"pageSize": "101"}, {"q": "q" * 121}, {"category": "类" * 121}, {"sectionToken": "bad"}):
             with self.subTest(delta=delta), self.assertRaises(NetshopApiError):
                 self.spec(**delta)
 
@@ -249,7 +249,7 @@ class ProductInsightsTests(TestCase):
     def test_section_token_binds_table_query_category_sort_not_page(self):
         self.fact()
         token = self.read()["sectionToken"]
-        for delta in ({"q": "P"}, {"category": "设备"}, {"sort": "payment_asc"}):
+        for delta in ({"q": "P"}, {"category": "设备"}, {"sort": "payment_asc"}, {"pageSize": "10"}):
             with self.subTest(delta=delta), self.assertRaises(NetshopApiError) as failure:
                 self.read(sectionToken=token, **delta)
             self.assertEqual(failure.exception.status, 409)
@@ -369,3 +369,28 @@ class ProductInsightsTests(TestCase):
         if destination:
             with (Path(destination) / "representative-scale.json").open("x", encoding="utf-8") as output:
                 json.dump({"fixture": "products-5001-source-rows-v1", "sourceRows": 5001, "products": 501, "shops": 1, "days": 10, "sqlCount": len(captured), "elapsedSeconds": elapsed, "responseBytes": len(encoded), "controlPaymentCents": 5_001_000, "actualPaymentCents": result["sections"]["summary"]["payment"]["value"], "growthPlan": plan}, output, ensure_ascii=False, indent=2)
+
+    def test_actual_large_utf8_payload_rejected_not_truncated_to_fake_full_set(self):
+        for number in range(100):
+            product = f"Large-{number:03d}"
+            self.fact(product=product, title="合成" * 1000, values={"transactionAmountCents": 1000, "visitors": 400, "transactionCustomers": 0})
+            self.fact(product=product, day="2026-08-31", title="合成" * 1000, values={"transactionAmountCents": 0, "visitors": 400, "transactionCustomers": 0})
+        with self.assertRaises(NetshopApiError) as failure:
+            self.read(pageSize="100")
+        self.assertEqual(failure.exception.status, 422)
+        self.assertEqual(failure.exception.code, "quality_incomplete")
+
+    def test_shared_context_receives_original_outer_deadline_after_actor_sql(self):
+        self.fact()
+        from netshop.product_insights import read_context, actor_fence
+        clock, received = [0.0], []
+        def actor(*args):
+            value = actor_fence(*args)
+            clock[0] = 30.0
+            return value
+        def context(*args, **kwargs):
+            received.append(kwargs["deadline"])
+            return read_context(*args, **kwargs)
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights.actor_fence", side_effect=actor), patch("netshop.product_insights.read_context", side_effect=context):
+            self.read()
+        self.assertEqual(received, [65.0])

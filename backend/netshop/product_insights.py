@@ -17,6 +17,7 @@ from django.db.models import (
 )
 
 from .errors import NetshopApiError
+from .catalog_filters import CATALOG_STALE_AFTER_DAYS
 from .insights_common import (
     MAX_SAFE, actor_fence, compare_metrics, context_versions, parse_identities,
     read_context, validate_context, validate_metric, validate_derived_money_per_count,
@@ -81,7 +82,7 @@ def validate_product_query(params, *, detail=False):
             del shared[key]
     spec = validate_context(shared)
     query, category = params.get("q", "").strip(), params.get("category", "").strip()
-    if len(query) > 120 or len(category) > 200 or any(
+    if len(query) > 120 or len(category) > 120 or any(
         ord(char) < 32 or ord(char) == 127 for char in query + category
     ):
         raise NetshopApiError("商品搜索或类目无效")
@@ -407,7 +408,7 @@ def _section_token(context, spec):
     return _canonical_token({
         "kind": PRODUCT_SCHEMA, "contextScope": context["scopeKey"],
         "sourceRevisions": context["sourceRevisions"],
-        "filter": {"q": spec["query"], "category": spec["category"], "sort": spec["sort"], "identity": spec["identity"], "section": spec["section"], "source": spec["source"]},
+        "filter": {"q": spec["query"], "category": spec["category"], "sort": spec["sort"], "pageSize": spec["pageSize"], "identity": spec["identity"], "section": spec["section"], "source": spec["source"]},
     })
 
 
@@ -602,7 +603,7 @@ def _catalog_profile(identity, context, *, deadline):
     if not first.category: quality.append("missingCategory")
     if values["titles"] > 1 or values["categories"] > 1: quality.append("conflict")
     from django.utils import timezone
-    if head.snapshot_date and head.snapshot_date < (timezone.localdate() - timedelta(days=7)).isoformat(): quality.append("stale")
+    if head.snapshot_date and head.snapshot_date < (timezone.localdate() - timedelta(days=CATALOG_STALE_AFTER_DAYS)).isoformat(): quality.append("stale")
     quality.append("mapping_unverified")
     price_reason = "ambiguous_mapping" if values["prices"] > 1 else "missing_field" if values["price_present"] != count else None
     return {"identity": {"platform": platform, "shopName": shop, "dimension": dimension, "id": product}, "title": first.product_name or product,
@@ -764,11 +765,11 @@ def _quality(base, spec, context, deadline):
         assets = NetshopRow.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source__in=["jd_yimei_sku", "tmall_product_assets"]).filter(last_import_batch_id=Subquery(image_head)).filter(Q(image_url__gt="") | Q(image_content_sha256__gt="")).filter(Q(platform="天猫", spu_id=OuterRef("spu_id")) | Q(platform="京东", sku_id=OuterRef("sku_id")))
         missing_code = master.filter(merchant__isnull=True).count()
         conflicts = master.exclude(sku_id="").values("platform", "shop_name", "sku_id").annotate(titles=Count("product_name", distinct=True), codes=Count("product_code", distinct=True), parents=Count("spu_id", distinct=True)).filter(Q(titles__gt=1) | Q(codes__gt=1) | Q(parents__gt=1)).count()
-        values = {"missingImage": master.filter(image_url="").filter(~Exists(assets)).count(), "missingCode": missing_code, "missingCategory": master.filter(category="").count(), "conflict": conflicts, "stale": master.filter(snapshot_date__lt=(timezone.localdate() - timedelta(days=7)).isoformat()).count(), "unmapped": missing_code}
+        values = {"missingImage": master.filter(image_url="").filter(~Exists(assets)).count(), "missingCode": missing_code, "missingCategory": master.filter(category="").count(), "conflict": conflicts, "stale": master.filter(snapshot_date__isnull=False, snapshot_date__regex=r"^\d{4}-\d{2}-\d{2}$", snapshot_date__lt=(timezone.localdate() - timedelta(days=CATALOG_STALE_AFTER_DAYS)).isoformat()).exclude(snapshot_date="").count(), "unmapped": missing_code}
     counts = {}
     for key, value in values.items():
         counts[key] = _metric(key, None if key == "unmapped" else value, "unavailable" if key == "unmapped" or value is None else "available", "unverified_source" if key == "unmapped" else "no_records" if value is None else None, sources, "products:current_snapshot", basis="current_snapshot")
-    return {"counts": counts, "staleAfterDays": 7, "basis": "current_snapshot"}
+    return {"counts": counts, "staleAfterDays": CATALOG_STALE_AFTER_DAYS, "basis": "current_snapshot"}
 
 
 def _page_images(items, context, deadline):
@@ -827,7 +828,7 @@ def read_product_insights(principal, spec):
     deadline = time.monotonic() + 65
     actor = actor_fence(principal)
     _check_budget(deadline)
-    context = read_context(principal, _shared_spec(spec))
+    context = read_context(principal, _shared_spec(spec), deadline=deadline)
     _check_budget(deadline)
     section_token = _section_token(context, spec)
     if spec["sectionToken"] and spec["sectionToken"] != section_token:
@@ -896,7 +897,7 @@ def read_product_detail(principal, spec):
     deadline = time.monotonic() + 65
     actor = actor_fence(principal)
     _check_budget(deadline)
-    context = read_context(principal, _shared_spec(spec))
+    context = read_context(principal, _shared_spec(spec), deadline=deadline)
     _check_budget(deadline)
     section_token = _section_token(context, spec)
     if spec["sectionToken"] and spec["sectionToken"] != section_token:
