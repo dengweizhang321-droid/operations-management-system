@@ -110,6 +110,7 @@ class ProductCatalogHeaderIndependentReviewTests(TestCase):
     """Actual signed old directory reader supplies the new UI owning header."""
     setUp = detail_seeds.ProductDetailTests.setUp
     tearDown = detail_seeds.ProductDetailTests.tearDown
+    fact = detail_seeds.ProductDetailTests.fact
     master = detail_seeds.ProductDetailTests.master
     read = catalog_seeds.CatalogFilterWiringTests.read
     seed = catalog_seeds.CatalogFilterWiringTests.seed
