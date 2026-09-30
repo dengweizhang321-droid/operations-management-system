@@ -14,7 +14,7 @@ function args(value: ReturnType<typeof fixture>, detail = false) {
   else { query.set("page", String(s.pagination.page)); query.set("pageSize", String(s.pagination.pageSize)); query.set("q", s.listScope.q); }
   return { query, revision: c.sourceRevisions.find((r: { kind: string }) => r.kind === "owning_revision").revision as string };
 }
-for (const name of ["product", "plan"] as const) test(`actual isolated Python ${name} DTO obeys the consumer contract`, () => {
+for (const name of ["product", "plan", "partial-19-of-21"] as const) test(`actual isolated Python ${name} DTO obeys the consumer contract`, () => {
   const value = fixture(name), request = args(value);
   assert.equal(decodePromotionInsightsForQuery(value, request.query, request.revision).columnVersion, "netshop-promotion-v1");
 });
@@ -54,4 +54,21 @@ test("ratio values cannot disagree with their source operands", () => {
   const value = fixture("product"), request = args(value);
   value.sections.summary.roas.value = 10000;
   assert.throws(() => decodePromotionInsightsForQuery(value, request.query, request.revision));
+});
+test("partial matched fees remain separate from the unavailable whole-period fee", () => {
+  const value = fixture("partial-19-of-21"), request = args(value);
+  const decoded = decodePromotionInsightsForQuery(value, request.query, request.revision);
+  assert.equal(decoded.sections.summary.spendRate.value, null);
+  assert.equal(decoded.sections.summary.spendRate.reasonCode, "incomplete_coverage");
+  assert.equal(decoded.sections.matchedRange?.metrics.spendRate.value, 0.2);
+  const own = decoded.sections.coverage[decoded.sections.matchedRange!.coverageRef];
+  assert.equal(own.expectedShopDatePairs, 19); assert.equal(own.complete, true);
+});
+test("auxiliary matched scope cannot claim the whole period or mix monetary sources", () => {
+  const value = fixture("partial-19-of-21"), request = args(value);
+  value.sections.matchedRange.shopDates[0].dates.pop();
+  assert.throws(() => decodePromotionInsightsForQuery(value, request.query, request.revision));
+  const mixed = fixture("partial-19-of-21"), mixedRequest = args(mixed);
+  mixed.sections.matchedRange.metrics.payment.coverageRef = mixed.sections.summary.spend.coverageRef;
+  assert.throws(() => decodePromotionInsightsForQuery(mixed, mixedRequest.query, mixedRequest.revision));
 });

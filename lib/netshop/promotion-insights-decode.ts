@@ -105,7 +105,21 @@ export function decodePromotionInsightsForQuery(value: unknown, query: URLSearch
   const shops = rec(s.shops); if (!Array.isArray(shops.items) || shops.items.length !== context.effectiveScope.shopKeys.length || shops.visible !== (shops.items.length > 1)) fail("店铺对比集合不完整");
   const shopSet = new Set<string>();
   for (const raw of shops.items) { const r = rec(raw), o = shop(r.shopKey, context); if (shopSet.has(String(r.shopKey)) || r.shopName !== o.shopName || r.platform !== o.platform) fail("店铺对比重复或跨店"); shopSet.add(String(r.shopKey)); metricMap(r.metrics, covers, context); comparisons(r.comparisons); changes(r.changes, covers, context); const share = referenced(r.spendShare, covers, context); if (share.unit !== "RATIO") fail("店铺占比单位无效"); }
-  if (s.matchedRange !== null) { const m = rec(s.matchedRange); if (!txt(m.scopeLabel, 500) || !Object.hasOwn(covers, String(m.coverageRef)) || !Array.isArray(m.shopDates) || m.shopDates.length > 50) fail("辅助费率匹配范围无效"); const seen = new Set<string>(); for (const raw of m.shopDates) { const r = rec(raw); shop(r.shopKey, context); if (seen.has(String(r.shopKey))) fail("辅助费率店铺重复"); seen.add(String(r.shopKey)); dates(r.dates, context, "current"); } for (const name of ["spend", "payment", "spendRate"]) referenced(rec(m.metrics)[name], covers, context); }
+  if (s.matchedRange !== null) {
+    const m = rec(s.matchedRange);
+    if (!txt(m.scopeLabel, 500) || !Object.hasOwn(covers, String(m.coverageRef)) || !Array.isArray(m.shopDates) || m.shopDates.length > 50) fail("辅助费率匹配范围无效");
+    const seen = new Set<string>(); let pairs = 0;
+    for (const raw of m.shopDates) { const r = rec(raw); shop(r.shopKey, context); if (seen.has(String(r.shopKey))) fail("辅助费率店铺重复"); seen.add(String(r.shopKey)); pairs += dates(r.dates, context, "current").length; }
+    const ownCoverage = covers[String(m.coverageRef)];
+    if (ownCoverage.expectedShopDatePairs !== pairs || ownCoverage.coveredShopDatePairs !== pairs || ownCoverage.complete !== (pairs > 0)) fail("辅助费率须使用明确的匹配子范围，零匹配不可用");
+    const decoded: Record<string, ReturnType<typeof referenced>> = {};
+    for (const name of ["spend", "payment", "spendRate"]) {
+      const metric = referenced(rec(m.metrics)[name], covers, context);
+      if (metric.coverageRef !== m.coverageRef || metric.unit !== (name === "spendRate" ? "RATIO" : "CNY_CENT")) fail("辅助费率金额和比率必须属于同一匹配范围");
+      decoded[name] = metric;
+    }
+    if (decoded.spendRate.status === "available" && (decoded.spendRate.numerator !== decoded.spend.value || decoded.spendRate.denominator !== decoded.payment.value)) fail("辅助费率不是匹配范围金额的比值");
+  }
   const capabilities = rec(s.objectCapabilities);
   for (const kind of PROMOTION_OBJECT_KINDS) { const c = rec(capabilities[kind]); if (typeof c.canQuery !== "boolean" || !["available", "unavailable"].includes(String(c.status)) || !txt(c.message, 1500) || c.unidentifiedCount !== null && !int(c.unidentifiedCount, 1000000) || !Array.isArray(c.sourceIds) || !c.sourceIds.every(v => txt(v)) || c.status === "available" && c.reasonCode !== null || c.status === "unavailable" && !metricReasons.includes(c.reasonCode as typeof metricReasons[number])) fail("对象资格、字段能力或未核计数无效"); }
   const d = rec(s.diagnostic); if (!txt(d.message, 1500) || !["available", "unavailable"].includes(String(d.status)) || d.maximumDays !== 7 || d.paidModelAllowed !== false || !Array.isArray(d.reportFormats) || !d.reportFormats.every(v => ["html", "xlsx"].includes(String(v)))) fail("原诊断边界或付费限制无效"); nullableText(d.shopName);
