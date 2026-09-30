@@ -203,6 +203,41 @@ test("sales dry-run --use-file-cost keeps the workbook cost column as final cost
   }
 });
 
+test("one approved product code may use zero only when both the source row and missing inventory cost support it", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "sales-approved-zero-cost-test-"));
+  const code = "ZG-WB-YSFLQ-006";
+  const salesPath = path.join(directory, "销售单明细账.xlsx");
+  const costPath = path.join(directory, "分仓库存查询_已剔除刷刷仓.xlsx");
+  const header = ["网店订单号", "销售渠道", "发货仓库", "货品编号", "货品名称", "数量", "下单时间", "发货时间", "货品成本", "分摊后单价", "分摊后金额", "费用分摊", "毛利"];
+  const row = (sku: string, sourceCost: number) => ["ON-ZERO", "天猫-志高丽力专卖店", "主仓", sku,
+    "测试零成本货品", 1, "2026-09-29 09:00:00", "2026-09-29 10:00:00", sourceCost, 100, 100, 0, 100];
+  const run = async (sku: string, sourceCost: number, inventoryCost: number | "") => {
+    await writeFile(salesPath, salesSheet([header, row(sku, sourceCost)]));
+    await writeFile(costPath, costSheet([["货品编号", "固定成本价", "货品名称"], [sku, inventoryCost, "测试零成本货品"]]));
+    return execFileAsync(process.execPath, ["--import", "tsx", path.resolve("tools/sales-import-runner.ts"),
+      "--download", salesPath, "--cost-source", costPath, "--expected-source-rows", "1",
+      "--as-of", "2026-09-29", "--audit-root", path.join(directory, "audit", `${sku}-${sourceCost}-${inventoryCost}`), "--dry-run"],
+    { cwd: path.resolve("."), encoding: "utf8", timeout: 30_000 });
+  };
+  try {
+    const approved = JSON.parse((await run(code, 0, "")).stdout) as { auditPath: string; outputPath: string };
+    const audit = JSON.parse(await readFile(approved.auditPath, "utf8")) as { validation: { approvedZeroCostRows: number; approvedZeroCostCodes: string[] }; totals: { costAmountCents: number } };
+    assert.equal(audit.validation.approvedZeroCostRows, 1);
+    assert.deepEqual(audit.validation.approvedZeroCostCodes, [code]);
+    assert.equal(audit.totals.costAmountCents, 0);
+    const result = parseXlsxFirstSheet(new Uint8Array(await readFile(approved.outputPath)));
+    assert.equal(result.rows[1]?.cells[3], code);
+    await assert.rejects(run("ZG-WB-YSFLQ-007", 0, ""), /导入前自动校验未通过/);
+    await assert.rejects(run(code, 5, ""), /导入前自动校验未通过/);
+    const actualCost = JSON.parse((await run(code, 0, 30)).stdout) as { auditPath: string };
+    const actualAudit = JSON.parse(await readFile(actualCost.auditPath, "utf8")) as { validation: { approvedZeroCostRows: number }; totals: { costAmountCents: number } };
+    assert.equal(actualAudit.validation.approvedZeroCostRows, 0);
+    assert.equal(actualAudit.totals.costAmountCents, 3000);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("sales dry-run accepts the current sales export shape", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "sales-runner-test-"));
   try {

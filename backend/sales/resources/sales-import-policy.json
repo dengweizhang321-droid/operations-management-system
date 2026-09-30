@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-20.1",
+  "version": "2026-09-30.1",
   "timeZone": "Asia/Shanghai",
   "download": {
     "directory": "D:\\谷歌浏览器",
@@ -50,6 +50,7 @@
     "productCodeHeader": "货品编号",
     "productNameHeader": "货品名称",
     "unitCostHeader": "固定成本价",
-    "zeroCostProductNames": ["补差价专用"]
+    "zeroCostProductNames": ["补差价专用"],
+    "zeroCostProductCodes": ["ZG-WB-YSFLQ-006"]
   }
 }

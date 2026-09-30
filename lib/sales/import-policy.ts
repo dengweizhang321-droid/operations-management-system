@@ -22,6 +22,7 @@ type SalesImportPolicy = {
     productNameHeader: string;
     unitCostHeader: string;
     zeroCostProductNames: string[];
+    zeroCostProductCodes: string[];
   };
 };
 
@@ -29,6 +30,7 @@ export const salesImportPolicy = policy as SalesImportPolicy;
 export const approvedSalesChannelSet = new Set(salesImportPolicy.approvedSalesChannels);
 export const excludedWarehouseSet = new Set(salesImportPolicy.excludedWarehouses);
 export const zeroCostProductNameSet = new Set(salesImportPolicy.costSource.zeroCostProductNames);
+export const zeroCostProductCodeSet = new Set(salesImportPolicy.costSource.zeroCostProductCodes);
 
 export function normalizeSalesImportText(value: string | null | undefined) {
   return (value ?? "").trim();

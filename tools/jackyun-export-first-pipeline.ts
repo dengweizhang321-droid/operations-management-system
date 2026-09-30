@@ -19,6 +19,7 @@ import { claimWebConfirmationRecovery } from "../lib/jackyun/web-session-recover
 import { claimHttpScopeRecovery } from "../lib/jackyun/http-scope-recovery";
 import { claimImportRecovery, type ImportRecoveryBinding } from "../lib/jackyun/import-recovery";
 import { claimJackyunApiResumePermit } from "../lib/jackyun/api-execution-resume";
+import { claimValidationRecovery } from "../lib/jackyun/validation-recovery";
 import { runController } from "./jackyun-browser-controller";
 import { jackyunWebSessionTransport } from "../lib/jackyun/web-session-export";
 import { jackyunDirectTransport } from "../lib/jackyun/direct-export";
@@ -308,7 +309,11 @@ export async function runJackyunExportFirstAction(action: string, executionId: s
           await ensureNewPlanReady();
           await deps.recoverPreviousPreflight(active.executionId, executionId, nowOf(deps));
         }
-        const closed = await assertClosedPreflight(root, active.executionId, executionId).then(() => true, () => false);
+        let closed = await assertClosedPreflight(root, active.executionId, executionId).then(() => true, () => false);
+        if (!closed && previous.phase === "validating" && previous.exportTransport === jackyunApiTransport && action === "plan-api") {
+          await claimValidationRecovery(root, active.executionId, executionId, action, nowOf(deps));
+          closed = true;
+        }
         if (!closed) {
           try {
             if (previous.exportTransport === jackyunWebSessionTransport) {

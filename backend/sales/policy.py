@@ -28,6 +28,7 @@ def sales_import_policy() -> dict[str, object]:
     warehouses = payload.get("excludedWarehouses")
     cost_source = payload.get("costSource")
     zero_cost_names = cost_source.get("zeroCostProductNames") if isinstance(cost_source, dict) else None
+    zero_cost_codes = cost_source.get("zeroCostProductCodes") if isinstance(cost_source, dict) else None
     if not isinstance(version, str) or not version.strip() or time_zone != "Asia/Shanghai":
         raise SalesImportPolicyError("销售导入策略版本或时区无效")
     if (
@@ -47,12 +48,19 @@ def sales_import_policy() -> dict[str, object]:
         not isinstance(item, str) or not item.strip() for item in zero_cost_names
     ):
         raise SalesImportPolicyError("销售零成本例外策略无效")
+    if (
+        not isinstance(zero_cost_codes, list)
+        or any(not isinstance(item, str) or not item.strip() for item in zero_cost_codes)
+        or len(set(zero_cost_codes)) != len(zero_cost_codes)
+    ):
+        raise SalesImportPolicyError("销售零成本货品编码策略无效")
     return {
         "version": version.strip(),
         "timeZone": time_zone,
         "approvedSalesChannels": tuple(item.strip() for item in channels),
         "excludedWarehouses": tuple(item.strip() for item in warehouses),
         "zeroCostProductNames": tuple(item.strip() for item in zero_cost_names),
+        "zeroCostProductCodes": tuple(item.strip() for item in zero_cost_codes),
     }
 
 

@@ -28,6 +28,7 @@ type Policy = {
     productNameHeader: string;
     unitCostHeader: string;
     zeroCostProductNames: string[];
+    zeroCostProductCodes: string[];
   };
 };
 
@@ -536,7 +537,12 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     );
   }
   const policy = await readJsonFileOr<Policy>(policyPath, {} as Policy);
-  if (!policy.version || policy.dateRule.type !== "month_to_previous_day") throw new Error("销售导入策略文件无效。");
+  if (!policy.version || policy.dateRule.type !== "month_to_previous_day"
+    || !Array.isArray(policy.costSource.zeroCostProductCodes)
+    || new Set(policy.costSource.zeroCostProductCodes).size !== policy.costSource.zeroCostProductCodes.length
+    || policy.costSource.zeroCostProductCodes.some(code => typeof code !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$/.test(code))) {
+    throw new Error("销售导入策略文件无效。");
+  }
   if (!options.dryRun) await assertServerPolicyVersion(options.baseUrl, policy.version);
   const period = monthToPreviousDay(options.asOfDate);
   if (options.salesStartDate !== undefined) {
@@ -787,6 +793,8 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
   let feeTotal = 0;
   let grossTotal = 0;
   let blankCodeZeroCostRows = 0;
+  let approvedZeroCostRows = 0;
+  const approvedZeroCostCodes = new Set<string>();
   for (const sourceRow of retainedRows) {
     // Reuse cached effectiveDate from the first pass instead of recomputing.
     const effectiveDate = effectiveDateCache.get(sourceRow) ?? null;
@@ -819,7 +827,10 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
       }
       lineCost = roundMoney(sourceCost);
     } else {
-      const unitCost = isPriceAdjustment || isBlankCodeZeroCost ? 0 : costMap.get(code);
+      const approvedZeroCost = !isPriceAdjustment && !isBlankCodeZeroCost && sourceCost === 0
+        && costMap.get(code) === undefined && policy.costSource.zeroCostProductCodes.includes(code);
+      if (approvedZeroCost) { approvedZeroCostRows += 1; approvedZeroCostCodes.add(code); }
+      const unitCost = isPriceAdjustment || isBlankCodeZeroCost || approvedZeroCost ? 0 : costMap.get(code);
       if (unitCost === undefined) {
         const current = unmatchedCosts.get(code) ?? { productName, rows: [] };
         if (current.rows.length < 10) current.rows.push(sourceRow.rowNumber);
@@ -866,6 +877,7 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
         excludedTodayRows: { count: futureDateRows.length, samples: futureDateRows.slice(0, 20) },
         numericProblems: { count: numericProblems.length, samples: numericProblems.slice(0, 20) },
         blankCodeZeroCostRows,
+        approvedZeroCostRows,
         costConflicts: { count: costConflicts.length, samples: costConflicts.slice(0, 20) },
         unmatchedCosts: {
           count: unmatchedCosts.size,
@@ -932,7 +944,8 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
     ]
     : [
       ["货品编号", "固定成本价", "货品名称", "成本来源"],
-      ...usedCodes.map((code) => [code, costMap.get(code) ?? null, costEntries.get(code)?.productName ?? "", path.basename(costSourcePath!)]),
+      ...usedCodes.map((code) => [code, approvedZeroCostCodes.has(code) ? 0 : costMap.get(code) ?? null,
+        costEntries.get(code)?.productName ?? "", approvedZeroCostCodes.has(code) ? "用户确认的单货品零成本例外" : path.basename(costSourcePath!)]),
     ];
   const whitelistRows: XlsxCellValue[][] = [["保留店铺（销售渠道精确匹配）", "保留行数", "状态", "被剔除店铺", "剔除行数"]];
   const excludedShopEntries = [...excludedShopCounts.entries()].sort((left, right) => right[1] - left[1]);
@@ -1030,6 +1043,8 @@ export async function runSalesImport(options: SalesImportRunOptions): Promise<Sa
       numericProblems: { count: 0, samples: [] },
       processedChecks,
       blankCodeZeroCostRows,
+      approvedZeroCostRows,
+      approvedZeroCostCodes: [...approvedZeroCostCodes].sort(),
       missingPreviouslyLoadedChannels,
     },
     totals: {
