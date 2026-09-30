@@ -76,6 +76,10 @@ class PromotionInsightsTests(TestCase):
         result = self.read()["sections"]
         self.assertIsNone(result["summary"]["spendRate"]["value"])
         self.assertEqual(result["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        main_ref = result["summary"]["spendRate"]["coverageRef"]
+        main_coverage = result["coverage"][main_ref]
+        self.assertEqual((main_coverage["expectedShopDatePairs"], main_coverage["coveredShopDatePairs"]), (2, 0))
+        self.assertFalse(main_coverage["complete"])
         self.assertIsNone(result["matchedRange"]["metrics"]["spendRate"]["value"])
         self.assertEqual(result["matchedRange"]["shopDates"], [{"shopKey": "京东\x1fA", "dates": []}, {"shopKey": "京东\x1fB", "dates": []}])
 
@@ -98,6 +102,9 @@ class PromotionInsightsTests(TestCase):
         section = result["sections"]
         self.assertIsNone(section["summary"]["spendRate"]["value"])
         self.assertEqual(section["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        primary = section["coverage"][section["summary"]["spendRate"]["coverageRef"]]
+        self.assertFalse(primary["complete"])
+        self.assertEqual((primary["expectedShopDatePairs"], primary["coveredShopDatePairs"]), (21, 19))
         subset = section["coverage"][section["matchedRange"]["coverageRef"]]
         self.assertTrue(subset["complete"])
         self.assertEqual((subset["expectedShopDatePairs"], subset["coveredShopDatePairs"]), (19, 19))

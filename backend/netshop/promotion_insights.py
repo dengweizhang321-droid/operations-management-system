@@ -268,7 +268,9 @@ class _Reader:
                     matching_raw[key], matching_product[key] = a, b
         matched = set(matching_raw)
         matched_ref = ref+":matched"
+        whole_ref = ref+":paired-whole"
         whole_matching = coverage_for(self.platform, names, dates, matched)
+        self.context["coverageBySource"][whole_ref] = whole_matching
         matched_c = {"expectedShopDatePairs": len(matched), "coveredShopDatePairs": len(matched), "complete": bool(matched), "missingByShop": [], "truncated": False}
         self.context["coverageBySource"][matched_ref] = matched_c
         sums = sum(matching_raw[k]["spend_cents"] for k in matched), sum(matching_product[k]["payment"] for k in matched)
@@ -276,7 +278,7 @@ class _Reader:
         b = _metric("payment", matched_ref, [facts["productSource"]], sums[1] if matched else None, "available" if matched else "unavailable", None if matched else "no_records")
         matched_rate = _ratio("spendRate", a, b, matched_ref)
         applicable = object_id is None or product_applicable
-        result["spendRate"] = matched_rate if whole_matching["complete"] and applicable else _metric("spendRate", ref,
+        result["spendRate"] = _ratio("spendRate", a, b, whole_ref) if whole_matching["complete"] and applicable else _metric("spendRate", whole_ref,
             [facts["source"], facts["productSource"]], reason="incomplete_coverage" if applicable else "not_applicable")
         matched_range = {"scopeLabel": "仅已匹配平台×店铺×日期"+("×商品" if object_id else ""),
             "coverageRef": matched_ref, "metrics": {"spend": a, "payment": b, "spendRate": matched_rate},
