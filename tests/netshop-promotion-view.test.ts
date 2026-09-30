@@ -58,3 +58,8 @@ test("HTTP revocation cannot be disguised by an unrelated response error code", 
     () => null, async () => Response.json({ code: "invalid_request", error: "合成撤权" }, { status: 403 })),
   error => error instanceof InsightReadError && error.code === "access_denied");
 });
+
+test("promotion transport rejects invalid UTF-8 rather than altering source identity", async () => {
+  await assert.rejects(readPromotion("/api/netshop/promotion-insights", query(), new AbortController().signal,
+    () => null, async () => new Response(new Uint8Array([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]))), /编码无法验证/);
+});

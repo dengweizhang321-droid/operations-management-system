@@ -16,7 +16,11 @@ export async function readPromotion<T>(path: PromotionPath, query: URLSearchPara
     const reader = response.body?.getReader();
     let body = "";
     if (reader) {
-      const decoder = new TextDecoder();
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      const decodeChunk = (chunk?: Uint8Array, stream = false) => {
+        try { return decoder.decode(chunk, { stream }); }
+        catch { throw new InsightReadError("invalid_promotion_contract", "推广响应编码无法验证，请重新读取"); }
+      };
       let bytes = 0;
       try {
         while (true) {
@@ -24,9 +28,9 @@ export async function readPromotion<T>(path: PromotionPath, query: URLSearchPara
           if (chunk.done) break;
           bytes += chunk.value.byteLength;
           if (bytes > insightBudget.responseBytes) throw new InsightReadError("response_too_large", "推广响应超出安全读取范围，请缩小店铺或日期范围");
-          body += decoder.decode(chunk.value, { stream: true });
+          body += decodeChunk(chunk.value, true);
         }
-        body += decoder.decode();
+        body += decodeChunk();
       } finally { reader.releaseLock(); }
     }
     if (controller.signal.aborted) throw controller.signal.reason ?? new DOMException("读取已取消", "AbortError");
