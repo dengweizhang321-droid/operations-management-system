@@ -6,7 +6,6 @@ import { shanghaiIsoToday } from "../../module-view-shared";
 import type { NetshopColumnProps } from "../shared/module-slots";
 import { InsightDerivedMoneyMetric, InsightFilterBar, InsightListPagination, InsightReadState, InsightSourceCoverage } from "../shared/components";
 import { InsightReadError, useScopedRead } from "../shared/request-state";
-import type { MetricValue } from "@/lib/netshop/insights-contract";
 import {
   decodePromotionInsightsForQuery, decodePromotionDetailForQuery, PROMOTION_OBJECT_KINDS, PROMOTION_SORTS,
   type PromotionDetailResponse, type PromotionInsightsResponse,
@@ -25,14 +24,14 @@ const chapters = [
 ] as const;
 const objectLabels: Record<PromotionObjectKind, string> = { product: "商品", plan: "计划", unit: "单元", keyword: "关键词", search_term: "搜索词" };
 const identityLabels: Record<PromotionObjectRow["identityKind"], string> = {
-  follow_order_sku: "跟单 SKU（分摊视角）", promotion_product: "推广商品 ID", plan: "计划 ID", unit: "单元 ID", keyword: "关键词 ID", search_term: "搜索词 ID",
+  follow_order_sku: "跟单 SKU（分摊视角）", promotion_product: "推广商品 ID", plan: "计划 ID", unit: "单元 ID", keyword: "关键词原文", search_term: "搜索词原文",
 };
 const mappingLabels = { matched: "精确关联", unmapped: "尚未关联", ambiguous: "关联多义", not_applicable: "不适用" };
 type ObjectSelection = Pick<PromotionObjectRow, "rowKey" | "id" | "shopKey" | "objectKind" | "title">;
 type FocusedPeriod = { baseScope: string; startDate: string; endDate: string };
 
 function isObjectKind(value: string): value is PromotionObjectKind { return PROMOTION_OBJECT_KINDS.includes(value as PromotionObjectKind); }
-function coverageFor(data: PromotionInsightsResponse, metric: MetricValue) { return data.sections.coverage[metric.coverageRef] ?? data.context.coverageBySource[metric.coverageRef]; }
+function coverageForRef(data: PromotionInsightsResponse, ref: string) { return data.sections.coverage[ref] ?? data.context.coverageBySource[ref]; }
 
 function ObjectTable({ data, props, onChoose, sort, onSort }: { data: PromotionInsightsResponse; props: NetshopColumnProps; onChoose: (item: ObjectSelection) => void; sort: PromotionSort; onSort: (sort: PromotionSort) => void }) {
   const s = data.sections, capability = s.objectCapabilities[s.listScope.objectKind];
@@ -45,14 +44,14 @@ function ObjectTable({ data, props, onChoose, sort, onSort }: { data: PromotionI
     <p className="promotion-caption">搜索与对象日期只过滤当前列表，上方整期概览、趋势与店铺对比保持原范围。当前对象期：{s.listScope.objectStartDate}—{s.listScope.objectEndDate}。</p>
     {capability.status !== "available" ? <CapabilityGap reason={capability.message}/> : <>
       {capability.unidentifiedCount !== null && capability.unidentifiedCount > 0 && <p className="promotion-note">有 {capability.unidentifiedCount} 个对象缺少真实业务 ID，保留核查桶并禁用详情和商品联动。</p>}
-      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>对象 / 精确 ID</th><th>店铺</th><th>{s.listScope.objectKind === "product" && s.attribution.amountDefinition === "jd_total_order_amount" ? "跟单分摊花费" : "花费"} / 占比</th><th>归因成交</th><th>ROI</th><th>点击 / 订单指标</th><th>CTR / CPC</th><th>花费变化 / 差额</th><th>来源与关联</th></tr></thead><tbody>
+      <div className="data-table-wrap"><table className="data-table"><thead><tr><th>对象 / 来源身份</th><th>店铺</th><th>{s.listScope.objectKind === "product" && s.attribution.amountDefinition === "jd_total_order_amount" ? "跟单分摊花费" : "花费"} / 占比</th><th>归因成交</th><th>ROI</th><th>点击 / 订单指标</th><th>CTR / CPC</th><th>花费变化 / 差额</th><th>来源与关联</th></tr></thead><tbody>
         {s.items.map(item => <tr key={item.rowKey}>
           <td>{item.id !== null && item.drillable ? <button type="button" className="row-action" onClick={() => onChoose(item)}>{item.title || item.id}</button> : <strong>{item.title || "未提供对象名称"}</strong>}<small>{identityLabels[item.identityKind]} · {item.id ?? "来源未提供 ID"}</small>{item.planId && <small>计划 {item.planId}</small>}{item.unitId && <small>单元 {item.unitId}</small>}{item.matchType && <small>匹配方式 {item.matchType}</small>}</td>
           <td>{item.platform} · {item.shopName}</td><td><MetricCell metric={item.metrics.spend}/><small>对象全集花费占比</small><MetricCell metric={item.spendShare}/></td><td><MetricCell metric={item.metrics.attributedPayment}/></td><td><MetricCell metric={item.metrics.roas}/></td>
           <td><MetricCell metric={item.metrics.clicks}/><small>{s.attribution.orderDefinition === "jd_order_lines" ? "归因订单行" : "归因净成交笔数"}</small><MetricCell metric={item.metrics.orders}/></td>
           <td><MetricCell metric={item.metrics.ctr}/><br/><MetricCell metric={item.metrics.cpc}/></td>
           <td>{props.context.previous ? <><ComparisonCell value={item.comparisons.spend.previous}/><small>环比差额 <MetricCell metric={item.changes.spend.previous}/></small></> : "环比已关闭"}{props.context.yearAgo && <><small>同比 <ComparisonCell value={item.comparisons.spend.yearAgo}/></small><small>同比差额 <MetricCell metric={item.changes.spend.yearAgo}/></small></>}</td>
-          <td>{mappingLabels[item.mapping.status]}<small>{data.sections.coverage[item.coverageRef]?.complete ? "完整覆盖" : "覆盖不足"}</small>{item.observation && <details><summary>来源观测</summary>{(["current", "previous", "yearAgo"] as const).map((period, index) => <p key={period}>{["本期", "基期", "去年同期"][index]}：{item.observation![period].observedDates.length} 天有来源记录；{item.observation![period].verifiedAbsentDates.length} 天完整导入来源未报告本对象。</p>)}<p>来源内已核验的缺席，不等于平台真实零花费。</p></details>}</td>
+          <td>{mappingLabels[item.mapping.status]}<small>{coverageForRef(data, item.coverageRef)?.complete ? "完整覆盖" : "覆盖不足"}</small>{item.observation && <details><summary>来源观测</summary>{(["current", "previous", "yearAgo"] as const).map((period, index) => <p key={period}>{["本期", "基期", "去年同期"][index]}：{item.observation![period].observedDates.length} 天有来源记录；{item.observation![period].verifiedAbsentDates.length} 天完整导入来源未报告本对象。</p>)}<p>来源内已核验的缺席，不等于平台真实零花费。</p></details>}</td>
         </tr>)}
       </tbody></table></div>
       {s.items.length === 0 && <div className="promotion-gap" role="status"><strong>{s.pagination.total > 0 ? "当前页没有对象" : s.listScope.q ? "没有匹配当前搜索的对象" : "当前对象范围没有记录"}</strong><p>{s.pagination.total > 0 ? `当前列表范围共有 ${s.pagination.total} 条，请调整页码。` : "不将空列表或缺失字段当作经营值为零。"}</p></div>}
@@ -138,7 +137,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
   const amountLabel = s?.attribution.amountDefinition === "tmall_net_amount" ? "推广净成交（归因）" : "总订单金额（归因）";
   const orderLabel = s?.attribution.orderDefinition === "tmall_net_transactions" ? "归因净成交笔数" : "归因订单行";
   const today = shanghaiIsoToday();
-  const rateCoverage = data && coverageFor(data, data.sections.summary.spendRate);
+  const rateCoverage = data && coverageForRef(data, data.sections.summary.spendRate.coverageRef);
   const selectedObject = chosen?.response === data && data ? chosen.item : null;
   const sectionTable = data ? <ObjectTable data={data} props={props} onChoose={choose} sort={sort} onSort={next => { setSortSelection({ baseScope, value: next }); setChosen(null); onContextChange({ page: 1 }); }}/> : null;
   return <div className="promotion-insights">
@@ -163,7 +162,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
           <PromotionContributions data={data} showPrevious={context.previous} onChoose={choose}/>
         </PromotionSection>
         <PromotionSection id="promotion-shops" title="店铺投入与效率" note="同一平台下按每家店铺的独立店日覆盖核验；占比不代表交易渠道份额。">
-          {!s.shops.visible ? <p className="promotion-caption">{data.context.effectiveScope.shopKeys.length === 1 ? "当前为单店范围，已收起重复的多店对比。" : "当前范围没有可核验店铺，店铺对比暂无数据。"}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>店铺</th><th>花费 / 占比</th><th>{amountLabel}</th><th>ROI / 费率</th><th>花费变化</th><th>覆盖</th></tr></thead><tbody>{s.shops.items.map(shop => <tr key={shop.shopKey}><td><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1, product: null })}>{shop.platform} · {shop.shopName}</button></td><td><MetricCell metric={shop.metrics.spend}/><br/><MetricCell metric={shop.spendShare}/></td><td><MetricCell metric={shop.metrics.attributedPayment}/></td><td><MetricCell metric={shop.metrics.roas}/><br/><MetricCell metric={shop.metrics.spendRate}/></td><td>{context.previous ? <ComparisonCell value={shop.comparisons.spend.previous}/> : "—"}{context.yearAgo && <small>同比 <ComparisonCell value={shop.comparisons.spend.yearAgo}/></small>}</td><td>{s.coverage[shop.coverageRef] && <InsightSourceCoverage coverage={s.coverage[shop.coverageRef]} label="推广"/>}</td></tr>)}</tbody></table></div>}
+          {!s.shops.visible ? <p className="promotion-caption">{data.context.effectiveScope.shopKeys.length === 1 ? "当前为单店范围，已收起重复的多店对比。" : "当前范围没有可核验店铺，店铺对比暂无数据。"}</p> : <div className="data-table-wrap"><table className="data-table"><thead><tr><th>店铺</th><th>花费 / 占比</th><th>{amountLabel}</th><th>ROI / 费率</th><th>花费变化</th><th>覆盖</th></tr></thead><tbody>{s.shops.items.map(shop => <tr key={shop.shopKey}><td><button type="button" className="row-action" onClick={() => onContextChange({ outlets: [shop.shopKey], page: 1, product: null })}>{shop.platform} · {shop.shopName}</button></td><td><MetricCell metric={shop.metrics.spend}/><br/><MetricCell metric={shop.spendShare}/></td><td><MetricCell metric={shop.metrics.attributedPayment}/></td><td><MetricCell metric={shop.metrics.roas}/><br/><MetricCell metric={shop.metrics.spendRate}/></td><td>{context.previous ? <ComparisonCell value={shop.comparisons.spend.previous}/> : "—"}{context.yearAgo && <small>同比 <ComparisonCell value={shop.comparisons.spend.yearAgo}/></small>}</td><td>{coverageForRef(data, shop.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, shop.coverageRef)!} label="推广"/>}</td></tr>)}</tbody></table></div>}
         </PromotionSection>
       </div><aside className="promotion-aside"><div className="promotion-column-label"><span>效率与核查</span><small>同口径 / 同覆盖</small></div>
         <PromotionSection title="流量与归因效率" note="点击不是访客；订单行、订单笔数和客户数分别保留。"><div className="promotion-efficiency"><MetricCard label="CTR" metric={s.summary.ctr} previous={s.comparisons.ctr.previous} yearAgo={s.comparisons.ctr.yearAgo} showPrevious={context.previous} showYearAgo={context.yearAgo}/><div><InsightDerivedMoneyMetric label="CPC" metric={s.summary.cpc}/><div className="promotion-comparisons">{context.previous && <span>环比 <ComparisonCell value={s.comparisons.cpc.previous}/></span>}{context.yearAgo && <span>同比 <ComparisonCell value={s.comparisons.cpc.yearAgo}/></span>}</div></div></div><div className="promotion-fact-list">{(["impressions", "clicks", "orders"] as const).map((key, index) => <div className="promotion-fact-row" key={key}><span>{["展现", "点击", orderLabel][index]}</span><MetricCell metric={s.summary[key]}/></div>)}</div><p className="promotion-caption">ROI 采用平台归因成交 ÷ 推广花费，不表示利润回报率或广告增量。归因窗口：{s.attribution.window ?? "尚未核验"}。</p></PromotionSection>
@@ -186,7 +185,7 @@ export default function PromotionInsightsView(props: NetshopColumnProps) {
       </PromotionSection>
       <PromotionSection id="promotion-sources" title="数据与归因" note="来源、范围、版本、字段存在与映射共同决定可用性。">
         <div className="promotion-source-grid"><article><h3>金额与订单定义</h3><p>{amountLabel}：{s.attribution.amountDefinition === "jd_total_order_amount" ? "京准通归因总订单金额，不能表达退款后销售净额。" : "天猫推广来源净成交金额，保留原来源退款与归因规则。"}</p><p>{orderLabel}保持来源定义，不替换为客户数。ROI 为归因成交 ÷ 花费、单位倍数，不是利润或广告增量。</p></article><article><h3>归因与可比性</h3><p>归因窗口：{s.attribution.window ?? "来源尚未提供可信窗口"}。归因成交与平台成交的包含关系未核验，不标自然/付费渠道份额，不用相减推算自然成交。</p><p>推广 SKU、触发 SKU、跟单 SKU独立建模。商品映射未关联或多义时停止钻取。</p></article></div>
-        <div className="data-table-wrap"><table className="data-table promotion-capability-table"><thead><tr><th>来源</th><th>字段能力</th><th>范围覆盖</th><th>说明</th></tr></thead><tbody>{s.sourceMatrix.map(source => <tr key={source.sourceId}><td>{source.label}<small>{source.sourceId}</small></td><td>{source.fields.map(field => <p key={field.field}>{field.field}：{field.status === "available" ? "已提供" : `缺口（${field.reasonCode ?? "未核验"}）`}</p>)}</td><td>{s.coverage[source.coverageRef] && <InsightSourceCoverage coverage={s.coverage[source.coverageRef]} label="当前来源"/>}</td><td>{source.notes.map((note, index) => <p key={index}>{note}</p>)}</td></tr>)}</tbody></table></div>
+        <div className="data-table-wrap"><table className="data-table promotion-capability-table"><thead><tr><th>来源</th><th>字段能力</th><th>范围覆盖</th><th>说明</th></tr></thead><tbody>{s.sourceMatrix.map(source => <tr key={source.sourceId}><td>{source.label}<small>{source.sourceId}</small></td><td>{source.fields.map(field => <p key={field.field}>{field.field}：{field.status === "available" ? "已提供" : `缺口（${field.reasonCode ?? "未核验"}）`}</p>)}</td><td>{coverageForRef(data, source.coverageRef) && <InsightSourceCoverage coverage={coverageForRef(data, source.coverageRef)!} label="当前来源"/>}</td><td>{source.notes.map((note, index) => <p key={index}>{note}</p>)}</td></tr>)}</tbody></table></div>
         <details><summary>完整修订向量、截止日期与限制</summary><ul>{data.context.freshness.map(source => <li key={source.sourceId}>{source.sourceId} · 截止 {source.dataThrough ?? "无可信截止日期"}</li>)}</ul><ul>{data.context.sourceRevisions.map(source => <li key={`${source.kind}:${source.scopeKey}`}>{source.kind} · {source.scopeKey.replace("\u001f", " · ")} · {source.revision}</li>)}</ul><ul>{[...data.context.limitations, ...s.limitations].map((text, index) => <li key={index}>{text}</li>)}</ul></details>
       </PromotionSection>
     </>}
