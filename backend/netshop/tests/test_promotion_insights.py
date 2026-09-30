@@ -311,6 +311,16 @@ class PromotionInsightsTests(TestCase):
         self.assertFalse(section["items"][0]["drillable"])
         self.assertEqual(section["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
 
+    def test_empty_product_identity_has_no_shared_link_even_when_both_sources_empty_id(self):
+        self.day(platform="天猫", rows=[{"id": "", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        self.day(platform="天猫", promotion=False, rows=[{"id": "", "values": {"transactionAmountCents": 1000}}])
+        item = self.read(platform="天猫")["sections"]["items"][0]
+        self.assertIsNone(item["id"])
+        self.assertFalse(item["drillable"])
+        self.assertEqual(item["mapping"]["status"], "unmapped")
+        self.assertIsNone(item["mapping"]["linkIdentity"])
+        self.assertIsNone(item["metrics"]["spendRate"]["value"])
+
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow
         for shop in range(10):
