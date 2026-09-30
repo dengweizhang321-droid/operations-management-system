@@ -37,6 +37,8 @@ REASONS = {"no_records", "missing_day", "missing_field", "not_applicable", "unma
 
 def validate_metric(metric):
     """Reject illegal four-state combinations; preserve explicit true zero."""
+    if not isinstance(metric, dict):
+        raise NetshopApiError("指标须为对象")
     unit, status, value = metric.get("unit"), metric.get("status"), metric.get("value")
     reason = metric.get("reasonCode")
     if unit not in {"CNY_CENT", "COUNT", "RATIO", "MULTIPLE", "SECONDS"} or status not in {"available", "partial", "unavailable", "invalid"}:
@@ -45,6 +47,9 @@ def validate_metric(metric):
         raise NetshopApiError("指标口径无效")
     if reason is not None and reason not in REASONS:
         raise NetshopApiError("指标原因码无效")
+    sources = metric.get("sourceIds")
+    if not isinstance(sources, list) or len(sources) > 50 or any(not isinstance(s, str) or not s.strip() or len(s) > 200 for s in sources) or len(set(sources)) != len(sources):
+        raise NetshopApiError("指标来源引用无效")
     if status in {"available", "partial"}:
         if type(value) not in {int, float} or not isfinite(value) or unit in {"CNY_CENT", "COUNT"} and (type(value) is not int or abs(value) > MAX_SAFE):
             raise NetshopApiError("指标数值无效")
@@ -56,10 +61,12 @@ def validate_metric(metric):
         raise NetshopApiError("指标原因与状态不一致")
     if status == "partial" and (metric["aggregation"] != "sum" or unit in {"RATIO", "MULTIPLE"}):
         raise NetshopApiError("部分覆盖不能冒充整期比率")
-    if not isinstance(metric.get("coverageRef"), str) or not metric["coverageRef"]:
+    if not isinstance(metric.get("coverageRef"), str) or not metric["coverageRef"].strip() or len(metric["coverageRef"]) > 200:
         raise NetshopApiError("指标必须绑定覆盖")
     if "numerator" in metric or "denominator" in metric:
         numerator, denominator = metric.get("numerator"), metric.get("denominator")
+        if any(v is not None and (type(v) not in {int, float} or not isfinite(v)) for v in (numerator, denominator)):
+            raise NetshopApiError("比率输入无效")
         if metric["aggregation"] != "ratio_of_sums" or status == "available" and (type(numerator) not in {int, float} or type(denominator) not in {int, float} or not isfinite(numerator) or not isfinite(denominator) or denominator <= 0):
             raise NetshopApiError("比率分子分母与可用状态不一致")
         if status == "available":
@@ -72,7 +79,7 @@ def validate_metric(metric):
 def compare_metrics(current, baseline):
     validate_metric(current); validate_metric(baseline)
     method = "percentage_points" if current["unit"] == "RATIO" else "relative_change"
-    reason = "not_applicable" if current["unit"] != baseline["unit"] or current["basis"] != baseline["basis"] else "incomplete_baseline" if current["status"] != "available" or baseline["status"] != "available" else "zero_denominator" if method == "relative_change" and baseline["value"] == 0 else "negative_baseline" if method == "relative_change" and baseline["value"] < 0 else None
+    reason = "not_applicable" if current["unit"] != baseline["unit"] or current["basis"] != baseline["basis"] or sorted(current["sourceIds"]) != sorted(baseline["sourceIds"]) else "incomplete_baseline" if current["status"] != "available" or baseline["status"] != "available" else "zero_denominator" if method == "relative_change" and baseline["value"] == 0 else "negative_baseline" if method == "relative_change" and baseline["value"] < 0 else None
     value = None if reason else (current["value"]-baseline["value"])*100 if method == "percentage_points" else (current["value"]-baseline["value"])/baseline["value"]
     if value is not None and not isfinite(value):
         value, reason = None, "unsafe_integer"

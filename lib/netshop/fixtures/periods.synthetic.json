@@ -1,0 +1,632 @@
+{
+  "fixture": "owning-sales-period-v1-synthetic",
+  "source": [
+    "netshop.store_overview.periods",
+    "sales.summary._custom_comparison_period",
+    "sales.summary._period_for",
+    "sales.query.add_years"
+  ],
+  "databaseRead": false,
+  "cases": [
+    {
+      "input": {
+        "startDate": "2026-09-03",
+        "endDate": "2026-09-03",
+        "kind": "today",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "前一日",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-03",
+          "endDate": "2026-09-03",
+          "endExclusive": "2026-09-04",
+          "days": 1
+        },
+        "previous": {
+          "startDate": "2026-09-02",
+          "endDate": "2026-09-02",
+          "endExclusive": "2026-09-03",
+          "days": 1
+        },
+        "yearAgo": {
+          "startDate": "2025-09-03",
+          "endDate": "2025-09-03",
+          "endExclusive": "2025-09-04",
+          "days": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-02",
+        "endDate": "2026-09-02",
+        "kind": "yesterday",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "前一日",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-02",
+          "endDate": "2026-09-02",
+          "endExclusive": "2026-09-03",
+          "days": 1
+        },
+        "previous": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-01",
+          "endExclusive": "2026-09-02",
+          "days": 1
+        },
+        "yearAgo": {
+          "startDate": "2025-09-02",
+          "endDate": "2025-09-02",
+          "endExclusive": "2025-09-03",
+          "days": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-24",
+        "endDate": "2026-09-30",
+        "kind": "last7",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长滚动区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-24",
+          "endDate": "2026-09-30",
+          "endExclusive": "2026-10-01",
+          "days": 7
+        },
+        "previous": {
+          "startDate": "2026-09-17",
+          "endDate": "2026-09-23",
+          "endExclusive": "2026-09-24",
+          "days": 7
+        },
+        "yearAgo": {
+          "startDate": "2025-09-24",
+          "endDate": "2025-09-30",
+          "endExclusive": "2025-10-01",
+          "days": 7
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-24",
+        "endDate": "2026-09-30",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上月对应日期，月末收敛",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-24",
+          "endDate": "2026-09-30",
+          "endExclusive": "2026-10-01",
+          "days": 7
+        },
+        "previous": {
+          "startDate": "2026-08-24",
+          "endDate": "2026-08-30",
+          "endExclusive": "2026-08-31",
+          "days": 7
+        },
+        "yearAgo": {
+          "startDate": "2025-09-24",
+          "endDate": "2025-09-30",
+          "endExclusive": "2025-10-01",
+          "days": 7
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-16",
+        "endDate": "2026-09-30",
+        "kind": "last15",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长滚动区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-16",
+          "endDate": "2026-09-30",
+          "endExclusive": "2026-10-01",
+          "days": 15
+        },
+        "previous": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-15",
+          "endExclusive": "2026-09-16",
+          "days": 15
+        },
+        "yearAgo": {
+          "startDate": "2025-09-16",
+          "endDate": "2025-09-30",
+          "endExclusive": "2025-10-01",
+          "days": 15
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-30",
+        "kind": "last30",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长滚动区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-30",
+          "endExclusive": "2026-10-01",
+          "days": 30
+        },
+        "previous": {
+          "startDate": "2026-08-02",
+          "endDate": "2026-08-31",
+          "endExclusive": "2026-09-01",
+          "days": 30
+        },
+        "yearAgo": {
+          "startDate": "2025-09-01",
+          "endDate": "2025-09-30",
+          "endExclusive": "2025-10-01",
+          "days": 30
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "kind": "month",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上一完整自然月",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-03-01",
+          "endDate": "2026-03-31",
+          "endExclusive": "2026-04-01",
+          "days": 31
+        },
+        "previous": {
+          "startDate": "2026-02-01",
+          "endDate": "2026-02-28",
+          "endExclusive": "2026-03-01",
+          "days": 28
+        },
+        "yearAgo": {
+          "startDate": "2025-03-01",
+          "endDate": "2025-03-31",
+          "endExclusive": "2025-04-01",
+          "days": 31
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-01",
+        "endDate": "2026-09-04",
+        "kind": "month",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上月对应日期，月末收敛",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-04",
+          "endExclusive": "2026-09-05",
+          "days": 4
+        },
+        "previous": {
+          "startDate": "2026-08-01",
+          "endDate": "2026-08-04",
+          "endExclusive": "2026-08-05",
+          "days": 4
+        },
+        "yearAgo": {
+          "startDate": "2025-09-01",
+          "endDate": "2025-09-04",
+          "endExclusive": "2025-09-05",
+          "days": 4
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-03",
+        "endDate": "2026-09-04",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上月对应日期，月末收敛",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-03",
+          "endDate": "2026-09-04",
+          "endExclusive": "2026-09-05",
+          "days": 2
+        },
+        "previous": {
+          "startDate": "2026-08-03",
+          "endDate": "2026-08-04",
+          "endExclusive": "2026-08-05",
+          "days": 2
+        },
+        "yearAgo": {
+          "startDate": "2025-09-03",
+          "endDate": "2025-09-04",
+          "endExclusive": "2025-09-05",
+          "days": 2
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-09-03",
+        "endDate": "2026-09-04",
+        "kind": "rolling",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长滚动区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-09-03",
+          "endDate": "2026-09-04",
+          "endExclusive": "2026-09-05",
+          "days": 2
+        },
+        "previous": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-02",
+          "endExclusive": "2026-09-03",
+          "days": 2
+        },
+        "yearAgo": {
+          "startDate": "2025-09-03",
+          "endDate": "2025-09-04",
+          "endExclusive": "2025-09-05",
+          "days": 2
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-03-29",
+        "endDate": "2026-03-31",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上月对应日期，月末收敛",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-03-29",
+          "endDate": "2026-03-31",
+          "endExclusive": "2026-04-01",
+          "days": 3
+        },
+        "previous": {
+          "startDate": "2026-02-28",
+          "endDate": "2026-02-28",
+          "endExclusive": "2026-03-01",
+          "days": 1
+        },
+        "yearAgo": {
+          "startDate": "2025-03-29",
+          "endDate": "2025-03-31",
+          "endExclusive": "2025-04-01",
+          "days": 3
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2024-02-28",
+        "endDate": "2024-02-29",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "上月对应日期，月末收敛",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2024-02-28",
+          "endDate": "2024-02-29",
+          "endExclusive": "2024-03-01",
+          "days": 2
+        },
+        "previous": {
+          "startDate": "2024-01-28",
+          "endDate": "2024-01-29",
+          "endExclusive": "2024-01-30",
+          "days": 2
+        },
+        "yearAgo": {
+          "startDate": "2023-02-28",
+          "endDate": "2023-02-28",
+          "endExclusive": "2023-03-01",
+          "days": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-08-28",
+        "endDate": "2026-09-04",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-08-28",
+          "endDate": "2026-09-04",
+          "endExclusive": "2026-09-05",
+          "days": 8
+        },
+        "previous": {
+          "startDate": "2026-08-20",
+          "endDate": "2026-08-27",
+          "endExclusive": "2026-08-28",
+          "days": 8
+        },
+        "yearAgo": {
+          "startDate": "2025-08-28",
+          "endDate": "2025-09-04",
+          "endExclusive": "2025-09-05",
+          "days": 8
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-03-31",
+        "kind": "quarter",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "现系统季度规则",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-01-01",
+          "endDate": "2026-03-31",
+          "endExclusive": "2026-04-01",
+          "days": 90
+        },
+        "previous": {
+          "startDate": "2025-10-01",
+          "endDate": "2025-12-31",
+          "endExclusive": "2026-01-01",
+          "days": 92
+        },
+        "yearAgo": {
+          "startDate": "2025-01-01",
+          "endDate": "2025-03-31",
+          "endExclusive": "2025-04-01",
+          "days": 90
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-01-01",
+        "endDate": "2026-01-01",
+        "kind": "quarter",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "现系统季度规则",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-01-01",
+          "endDate": "2026-01-01",
+          "endExclusive": "2026-01-02",
+          "days": 1
+        },
+        "previous": {
+          "startDate": "2025-10-01",
+          "endDate": "2025-10-01",
+          "endExclusive": "2025-10-02",
+          "days": 1
+        },
+        "yearAgo": {
+          "startDate": "2025-01-01",
+          "endDate": "2025-01-01",
+          "endExclusive": "2025-01-02",
+          "days": 1
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-07-01",
+        "endDate": "2026-09-30",
+        "kind": "quarter",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "现系统季度规则",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-07-01",
+          "endDate": "2026-09-30",
+          "endExclusive": "2026-10-01",
+          "days": 92
+        },
+        "previous": {
+          "startDate": "2026-04-01",
+          "endDate": "2026-06-30",
+          "endExclusive": "2026-07-01",
+          "days": 91
+        },
+        "yearAgo": {
+          "startDate": "2025-07-01",
+          "endDate": "2025-09-30",
+          "endExclusive": "2025-10-01",
+          "days": 92
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2026-07-01",
+        "endDate": "2026-08-15",
+        "kind": "quarter",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "现系统季度规则",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2026-07-01",
+          "endDate": "2026-08-15",
+          "endExclusive": "2026-08-16",
+          "days": 46
+        },
+        "previous": {
+          "startDate": "2026-04-01",
+          "endDate": "2026-05-16",
+          "endExclusive": "2026-05-17",
+          "days": 46
+        },
+        "yearAgo": {
+          "startDate": "2025-07-01",
+          "endDate": "2025-08-15",
+          "endExclusive": "2025-08-16",
+          "days": 46
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2025-02-28",
+        "endDate": "2026-02-28",
+        "kind": "custom",
+        "maximumCurrentDays": 366
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2025-02-28",
+          "endDate": "2026-02-28",
+          "endExclusive": "2026-03-01",
+          "days": 366
+        },
+        "previous": {
+          "startDate": "2024-02-28",
+          "endDate": "2025-02-27",
+          "endExclusive": "2025-02-28",
+          "days": 366
+        },
+        "yearAgo": {
+          "startDate": "2024-02-28",
+          "endDate": "2025-02-28",
+          "endExclusive": "2025-03-01",
+          "days": 367
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2024-01-01",
+        "endDate": "2025-12-30",
+        "kind": "custom",
+        "maximumCurrentDays": 730
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2024-01-01",
+          "endDate": "2025-12-30",
+          "endExclusive": "2025-12-31",
+          "days": 730
+        },
+        "previous": {
+          "startDate": "2022-01-01",
+          "endDate": "2023-12-31",
+          "endExclusive": "2024-01-01",
+          "days": 730
+        },
+        "yearAgo": {
+          "startDate": "2023-01-01",
+          "endDate": "2024-12-30",
+          "endExclusive": "2024-12-31",
+          "days": 730
+        }
+      }
+    },
+    {
+      "input": {
+        "startDate": "2025-02-28",
+        "endDate": "2027-02-27",
+        "kind": "custom",
+        "maximumCurrentDays": 730
+      },
+      "expected": {
+        "timezone": "Asia/Shanghai",
+        "rule": "紧邻之前的等长区间",
+        "ruleVersion": "sales-period-v1",
+        "current": {
+          "startDate": "2025-02-28",
+          "endDate": "2027-02-27",
+          "endExclusive": "2027-02-28",
+          "days": 730
+        },
+        "previous": {
+          "startDate": "2023-03-01",
+          "endDate": "2025-02-27",
+          "endExclusive": "2025-02-28",
+          "days": 730
+        },
+        "yearAgo": {
+          "startDate": "2024-02-28",
+          "endDate": "2026-02-27",
+          "endExclusive": "2026-02-28",
+          "days": 731
+        }
+      }
+    }
+  ]
+}

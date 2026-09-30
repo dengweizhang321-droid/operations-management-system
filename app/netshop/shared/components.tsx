@@ -20,7 +20,7 @@ export function InsightComparison({ value }: { value: MetricComparison }) {
 export function InsightReadState({ status, error, onRetry }: { status: ReadStatus; error?: string; onRetry?: () => void }) {
   if (status === "ready") return null;
   const text = status === "loading" ? "正在读取当前范围…" : status === "empty" ? "当前范围没有记录" : status === "version_changed" ? "来源版本已变化，请重新读取" : "当前范围读取失败";
-  return <section className={`panel data-state${status === "error" || status === "version_changed" ? " data-state-error" : ""}`} role={status === "error" || status === "version_changed" ? "alert" : "status"}><strong>{text}</strong>{error && <p>{error}</p>}{onRetry && status !== "loading" && <button type="button" className="secondary-button" onClick={onRetry}>重新读取</button>}</section>;
+  return <section className={`panel data-state insights-read-state${status === "error" || status === "version_changed" ? " data-state-error" : ""}`} role={status === "error" || status === "version_changed" ? "alert" : "status"}><strong>{text}</strong>{error && <p>{error}</p>}{onRetry && status !== "loading" && <button type="button" className="secondary-button" onClick={onRetry}>重新读取</button>}</section>;
 }
 export function InsightSourceCoverage({ coverage, label }: { coverage: SourceCoverage; label: string }) {
   return <details className="insights-coverage"><summary>{label}：{coverage.coveredShopDatePairs}/{coverage.expectedShopDatePairs} 店日{coverage.complete ? "，完整" : "，覆盖不足"}</summary><ul>{coverage.missingByShop.map(shop => <li key={shop.shopKey}>{shop.shopKey.replace("\u001f", " · ")}：{shop.dates.join("、")}</li>)}</ul></details>;
@@ -28,5 +28,5 @@ export function InsightSourceCoverage({ coverage, label }: { coverage: SourceCov
 export function InsightListPagination({ pagination, busy, onPage }: { pagination: InsightPagination; busy?: boolean; onPage: (page: number) => void }) {
   decodeInsightPagination(pagination);
   const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
-  return <footer className="jd-sku-pagination" aria-label="列表分页"><span>第 {pagination.page}/{totalPages} 页，共 {pagination.total} 条</span><div><button type="button" className="row-action" disabled={busy || pagination.page <= 1} onClick={() => onPage(pagination.page-1)}>上一页</button><button type="button" className="row-action" disabled={busy || !pagination.hasMore} onClick={() => onPage(pagination.page+1)}>下一页</button></div></footer>;
+  return <footer className="jd-sku-pagination insights-pagination" aria-label="列表分页"><span>第 {pagination.page}/{totalPages} 页，共 {pagination.total} 条</span><div><button type="button" className="row-action" disabled={busy || pagination.page <= 1} onClick={() => onPage(pagination.page-1)}>上一页</button><button type="button" className="row-action" disabled={busy || !pagination.hasMore} onClick={() => onPage(pagination.page+1)}>下一页</button></div></footer>;
 }

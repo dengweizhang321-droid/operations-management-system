@@ -5,6 +5,7 @@ import type React from "react";
 import type { ShellPeriodState } from "./shell/navigation-contract";
 import type { ImportSourceKey } from "./shell/navigation-catalog";
 import type { AppCurrentUser } from "./shell/view-contract";
+import { resolveNetshopPeriods } from "@/lib/netshop/periods";
 export type CurrentUser = AppCurrentUser;
 
 export function canManageFinanceTargets(
@@ -1088,18 +1089,17 @@ export const previousYearPeriod = (period: { startDate: string; endDate: string 
 export const productComparisonPeriod = (
   current: { startDate: string; endDate: string },
   mode: ProductComparisonMode,
+  periodKind = "custom",
 ) => {
-  if (mode === "year") {
-    return { startDate: moveIsoYears(current.startDate, -1), endDate: moveIsoYears(current.endDate, -1) };
-  }
-  const days = Math.max(1, isoDayDifference(current.startDate, current.endDate) + 1);
-  const endDate = addIsoDays(current.startDate, -1);
-  return { startDate: addIsoDays(endDate, -(days - 1)), endDate };
+  const periods = resolveNetshopPeriods(current.startDate, current.endDate, periodKind, 730);
+  const actual = mode === "year" ? periods.yearAgo : periods.previous;
+  return { startDate: actual.startDate, endDate: actual.endDate };
 };
 
 export const productComparisonRate = (value?: number | null, baseline?: number | null) => {
   if (value === null || value === undefined || baseline === null || baseline === undefined || !Number.isFinite(value) || !Number.isFinite(baseline) || baseline <= 0) return null;
-  return (value - baseline) / Math.abs(baseline);
+  const valueChange = (value - baseline) / baseline;
+  return Number.isFinite(valueChange) ? valueChange : null;
 };
 
 export const formatProductComparison = (value?: number | null, baseline?: number | null) => {

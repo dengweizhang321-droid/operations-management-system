@@ -13,6 +13,7 @@ import { defaultShopLocationContext, type ShopLocationContext } from "./shell/sh
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestJson } from "@/lib/http/api-client";
+import { ApiError } from "@/lib/http/api-error";
 import type { ImportSourceKey, ModuleKey, ModuleViewKey } from "./shell/navigation-catalog";
 import { SearchableMultiSelect, SearchableSelect } from "./ui/searchable-select";
 import {
@@ -705,12 +706,14 @@ function ShopDailyProductPerformanceView({
   range,
   customStartDate,
   customEndDate,
+  periodKind,
 }: {
   dimension: NetshopProductPerformanceDimension;
   onOpenImport: (dimension: NetshopProductPerformanceDimension) => void;
   range: SalesRangeLabel;
   customStartDate: string;
   customEndDate: string;
+  periodKind?: string;
 }) {
   const [currentPerformanceResponse, setCurrentPerformanceResponse] = useState<NetshopProductPerformanceResponse | null>(null);
   const [currentPerformanceLoadedScopeKey, setCurrentPerformanceLoadedScopeKey] = useState("");
@@ -750,8 +753,8 @@ function ShopDailyProductPerformanceView({
   });
 
   const comparisonPeriod = useMemo(
-    () => showComparison ? productComparisonPeriod(selectedPeriod, comparisonMode) : null,
-    [comparisonMode, selectedPeriod, showComparison],
+    () => showComparison ? productComparisonPeriod(selectedPeriod, comparisonMode, periodKind ?? salesRangeMap[range]) : null,
+    [comparisonMode, periodKind, range, selectedPeriod, showComparison],
   );
   const currentPerformanceScopeKey = useMemo(() => JSON.stringify({
     dimension,
@@ -862,7 +865,7 @@ function ShopDailyProductPerformanceView({
         return { kind: "restart" as const, snapshotToken: expectedSnapshotToken };
       }
       if (!response.ok || !payload) {
-        throw new Error(payload?.error || `${dimensionLabel} 商品表现读取失败（${response.status}）`);
+        throw new ApiError({ status: response.status, message: payload?.error || `${dimensionLabel} 商品表现读取失败（${response.status}）` });
       }
       if (!snapshotTokenPattern.test(payload.snapshotToken)) throw new Error(`${dimensionLabel} 商品表现响应缺少有效数据版本`);
       if (pageOnly) {
@@ -884,11 +887,18 @@ function ShopDailyProductPerformanceView({
     setError("");
     let recoveringSnapshot = false;
     try {
-      const [currentResult, loadedComparisonResult] = await Promise.all([
+      const [currentRead, comparisonRead] = await Promise.allSettled([
         requestPerformance("current", selectedPeriod, currentPerformanceScopeKey),
         comparisonPeriod ? requestPerformance("comparison", comparisonPeriod, comparisonPerformanceScopeKey) : Promise.resolve(null),
       ]);
-      let comparisonResult = loadedComparisonResult;
+      if (currentRead.status === "rejected") throw currentRead.reason;
+      const currentResult = currentRead.value;
+      if (comparisonRead.status === "rejected" && comparisonRead.reason instanceof ApiError && [401, 403].includes(comparisonRead.reason.status)) throw comparisonRead.reason;
+      let comparisonResult = comparisonRead.status === "fulfilled" ? comparisonRead.value : null;
+      if (comparisonRead.status === "rejected" && !controller.signal.aborted && generation === productPerformanceGenerationRef.current) {
+        setComparisonPerformanceResponse(null); setComparisonPerformanceLoadedScopeKey("");
+        setError(`本期数据已读取；比较读取失败：${comparisonRead.reason instanceof Error ? comparisonRead.reason.message : "来源未就绪"}`);
+      }
       const restartResult = [currentResult, comparisonResult].find((result) => result?.kind === "restart");
       if (restartResult?.kind === "restart") {
         if (!controller.signal.aborted
@@ -923,12 +933,14 @@ function ShopDailyProductPerformanceView({
             });
             const response = await fetch(`/api/netshop/product-performance?${exactParams}`, { cache: "no-store", signal: controller.signal });
             const paired = await response.json().catch(() => null) as (NetshopProductPerformancePageResponse & { pairing?: string; error?: string }) | null;
-            if (!response.ok || !paired || paired.sourceRevision !== revision || paired.pairing !== "exact_identity" || !Array.isArray(paired.items)) throw new Error(paired?.error || "商品精确配对失败，请重新读取");
+            if (!response.ok) throw new ApiError({ status: response.status, message: paired?.error || "商品精确配对读取失败" });
+            if (!paired || paired.sourceRevision !== revision || paired.pairing !== "exact_identity" || !Array.isArray(paired.items)) throw new Error(paired?.error || "商品精确配对失败，请重新读取");
             comparisonResult.payload.items = paired.items;
           } else comparisonResult.payload.items = [];
           if (controller.signal.aborted || generation !== productPerformanceGenerationRef.current) return;
           } catch (comparisonError) {
             if (controller.signal.aborted || generation !== productPerformanceGenerationRef.current) return;
+            if (comparisonError instanceof ApiError && [401, 403].includes(comparisonError.status)) throw comparisonError;
             comparisonResult = null;
             setComparisonPerformanceResponse(null);
             setComparisonPerformanceLoadedScopeKey("");
@@ -964,7 +976,15 @@ function ShopDailyProductPerformanceView({
         }
       }
     } catch (requestError) {
-      if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) setError(requestError instanceof Error ? requestError.message : `暂时无法读取 ${dimensionLabel} 商品表现`);
+      if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) {
+        if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
+          setCurrentPerformanceResponse(null); setCurrentPerformanceLoadedScopeKey("");
+          setComparisonPerformanceResponse(null); setComparisonPerformanceLoadedScopeKey("");
+          currentPerformanceBootstrapKeyRef.current = ""; currentPerformanceSnapshotTokenRef.current = "";
+          comparisonPerformanceBootstrapKeyRef.current = ""; comparisonPerformanceSnapshotTokenRef.current = "";
+        }
+        setError(requestError instanceof Error ? requestError.message : `暂时无法读取 ${dimensionLabel} 商品表现`);
+      }
     } finally {
       if (!controller.signal.aborted && generation === productPerformanceGenerationRef.current) {
         if (!recoveringSnapshot) setLoading(false);
@@ -1069,7 +1089,7 @@ function ShopDailyProductPerformanceView({
     </section>
     {error && <section className="inventory-feedback inventory-feedback-error" role="alert"><span>!</span><div><strong>数据刷新失败</strong><p>{error}</p></div><button className="row-action" onClick={() => setRetryKey((value) => value + 1)}>重试</button></section>}
     <section className="panel table-panel netshop-performance-table-panel data-refresh-region" aria-busy={loading}>
-      <div className="table-toolbar netshop-performance-toolbar"><div><h2>{dimensionLabel} 商品明细</h2><p>商智已接入指标可显示{comparisonLabel}百分比；推广与企业购指标保留为待接入列，不会以零值替代。</p></div><div className="netshop-performance-toolbar-actions"><span className="soft-tag">{formatCount(current.summary.productCount)} 个商品</span><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索 ${dimensionLabel}、商品编码或名称`} aria-label={`搜索${dimensionLabel}商品表现`} /></label><div className={`store-column-picker product-performance-column-picker ${columnPickerOpen ? "open" : ""}`} ref={columnPickerRef}><button type="button" className="store-column-picker-trigger" aria-haspopup="dialog" aria-expanded={columnPickerOpen} onClick={() => { setColumnPickerOpen((open) => !open); setColumnPickerSearch(""); }}><span>☷</span>列设置 <em>{visibleColumns.length}/{productPerformanceColumns.length}</em></button>{columnPickerOpen && <div className="store-column-picker-menu" role="dialog" aria-label="选择商品明细指标"><div className="store-column-picker-head"><div><strong>显示指标</strong><small>商品信息、店铺名称和数据覆盖固定显示，至少保留 1 个指标</small></div><button type="button" onClick={() => setColumnPickerOpen(false)} aria-label="关闭列设置">×</button></div><div className="store-column-picker-actions"><button type="button" onClick={() => setVisibleColumns(productPerformanceColumns.map((column) => column.key))}>全选</button><button type="button" onClick={() => setVisibleColumns(connectedProductPerformanceColumns)}>仅商智已接入</button></div><label className="store-column-picker-search">⌕<input autoFocus type="search" value={columnPickerSearch} onChange={(event) => setColumnPickerSearch(event.target.value)} placeholder="搜索指标" aria-label="搜索商品明细指标" /></label><div className="store-column-picker-options">{matchedProductColumns.map((column) => { const checked = visibleColumns.includes(column.key); return <label key={column.key} className={checked ? "selected" : ""}><input type="checkbox" checked={checked} disabled={checked && visibleColumns.length === 1} onChange={() => toggleProductColumn(column.key)} /><span>{column.label}</span><em className={column.available ? "available" : "pending"}>{column.available ? "商智已接入" : "待接入"}</em></label>; })}{matchedProductColumns.length === 0 && <p className="store-column-picker-empty">没有匹配的指标</p>}</div></div>}</div></div></div>
+      <div className="table-toolbar netshop-performance-toolbar"><div><h2>{dimensionLabel} 商品明细</h2><p>金额与数量比较显示增幅，比率比较显示百分点；推广与企业购指标保留待接入状态。</p></div><div className="netshop-performance-toolbar-actions"><span className="soft-tag">{formatCount(current.summary.productCount)} 个商品</span><label className="jd-sku-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索 ${dimensionLabel}、商品编码或名称`} aria-label={`搜索${dimensionLabel}商品表现`} /></label><div className={`store-column-picker product-performance-column-picker ${columnPickerOpen ? "open" : ""}`} ref={columnPickerRef}><button type="button" className="store-column-picker-trigger" aria-haspopup="dialog" aria-expanded={columnPickerOpen} onClick={() => { setColumnPickerOpen((open) => !open); setColumnPickerSearch(""); }}><span>☷</span>列设置 <em>{visibleColumns.length}/{productPerformanceColumns.length}</em></button>{columnPickerOpen && <div className="store-column-picker-menu" role="dialog" aria-label="选择商品明细指标"><div className="store-column-picker-head"><div><strong>显示指标</strong><small>商品信息、店铺名称和数据覆盖固定显示，至少保留 1 个指标</small></div><button type="button" onClick={() => setColumnPickerOpen(false)} aria-label="关闭列设置">×</button></div><div className="store-column-picker-actions"><button type="button" onClick={() => setVisibleColumns(productPerformanceColumns.map((column) => column.key))}>全选</button><button type="button" onClick={() => setVisibleColumns(connectedProductPerformanceColumns)}>仅商智已接入</button></div><label className="store-column-picker-search">⌕<input autoFocus type="search" value={columnPickerSearch} onChange={(event) => setColumnPickerSearch(event.target.value)} placeholder="搜索指标" aria-label="搜索商品明细指标" /></label><div className="store-column-picker-options">{matchedProductColumns.map((column) => { const checked = visibleColumns.includes(column.key); return <label key={column.key} className={checked ? "selected" : ""}><input type="checkbox" checked={checked} disabled={checked && visibleColumns.length === 1} onChange={() => toggleProductColumn(column.key)} /><span>{column.label}</span><em className={column.available ? "available" : "pending"}>{column.available ? "商智已接入" : "待接入"}</em></label>; })}{matchedProductColumns.length === 0 && <p className="store-column-picker-empty">没有匹配的指标</p>}</div></div>}</div></div></div>
       <div className="data-table-wrap netshop-performance-detail-scroll">
         <table className="data-table netshop-performance-data-table" style={{ minWidth: `${Math.max(dimension === "spu" ? 1750 : 1680, 850 + visibleProductColumns.length * 116 + (dimension === "spu" ? 70 : 0))}px` }}>
           <thead><tr>{dimension === "spu" && <th>商品图</th>}<th>{dimensionLabel} ID</th><th>商品名称 / 编码</th><th>平台 / 店铺</th><th>类目</th>{visibleProductColumns.map((column) => <th key={column.key}>{column.label}</th>)}<th>数据覆盖</th><th>操作</th></tr></thead>
@@ -1111,6 +1131,7 @@ function ShopProductDataView({
   range,
   customStartDate,
   customEndDate,
+  periodKind,
 }: {
   onOpenImport: (dimension: NetshopProductPerformanceDimension) => void;
   onOpenCatalogImport: () => void;
@@ -1118,6 +1139,7 @@ function ShopProductDataView({
   range: SalesRangeLabel;
   customStartDate: string;
   customEndDate: string;
+  periodKind?: string;
 }) {
   const [activeTab, setActiveTab] = useState<ShopProductDataTab>("spu");
   return <>
@@ -1128,7 +1150,7 @@ function ShopProductDataView({
     </section>
     {activeTab === "catalog"
       ? <ShopSkuView onOpenImport={onOpenCatalogImport} onOpenAssetImport={onOpenCatalogAssetImport} range={range} customStartDate={customStartDate} customEndDate={customEndDate} />
-      : <ShopDailyProductPerformanceView key={activeTab} dimension={activeTab} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenImport={onOpenImport} />}
+      : <ShopDailyProductPerformanceView key={activeTab} dimension={activeTab} range={range} customStartDate={customStartDate} customEndDate={customEndDate} periodKind={periodKind} onOpenImport={onOpenImport} />}
   </>;
 }
 
@@ -1634,7 +1656,7 @@ type OutletTab = ModuleViewKey<"shop">;
 type ShopViewProps = { range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void };
 
 
-function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, moduleView, onModuleViewChange, platformSelection, onPlatformSelectionChange, outletSelection, onOutletSelectionChange }: { outletSelection: string[]; onOutletSelectionChange: (values: string[]) => void; platformSelection: string[]; onPlatformSelectionChange: (values: string[]) => void; range: SalesRangeLabel; customStartDate: string; customEndDate: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
+function ClassicShopView({ range, customStartDate, customEndDate, periodKind, onNavigate, moduleView, onModuleViewChange, platformSelection, onPlatformSelectionChange, outletSelection, onOutletSelectionChange }: { outletSelection: string[]; onOutletSelectionChange: (values: string[]) => void; platformSelection: string[]; onPlatformSelectionChange: (values: string[]) => void; range: SalesRangeLabel; customStartDate: string; customEndDate: string; periodKind?: string; onNavigate: (key: ModuleKey, importSource?: ImportSourceKey) => void; moduleView: OutletTab; onModuleViewChange: (view: OutletTab) => void }) {
   const apiRange = salesRangeMap[range];
   const activeTab = moduleView;
   const [summaryResponse, setSummary] = useState<SalesSummaryResponse | null>(null);
@@ -1734,7 +1756,7 @@ function ClassicShopView({ range, customStartDate, customEndDate, onNavigate, mo
 
   const subnav = <NetshopNavigation active={activeTab} onChange={onModuleViewChange} />;
 
-  if (activeTab === "products") return <>{subnav}<ShopProductDataView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenCatalogImport={() => onNavigate("import", "tmall_product_master")} onOpenCatalogAssetImport={() => onNavigate("import", "tmall_product_assets")} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "tmall_product_daily")} /></>;
+  if (activeTab === "products") return <>{subnav}<ShopProductDataView periodKind={periodKind} range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenCatalogImport={() => onNavigate("import", "tmall_product_master")} onOpenCatalogAssetImport={() => onNavigate("import", "tmall_product_assets")} onOpenImport={(dimension) => onNavigate("import", dimension === "sku" ? "jd_sku_daily" : "tmall_product_daily")} /></>;
   if (activeTab === "promotion") return <>{subnav}<ShopPromotionView range={range} customStartDate={customStartDate} customEndDate={customEndDate} onOpenTmallImport={() => onNavigate("import", "tmall_promotion")} /></>;
 
   if (loading && !summary) return <>{subnav}<section className="panel data-state" role="status"><span className="state-spinner" /><strong>正在同步网店经营数据</strong><p>正在汇总已导入销售明细中的网店、平台、毛利与退货信息…</p></section></>;
