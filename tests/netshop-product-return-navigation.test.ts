@@ -21,6 +21,8 @@ test("list to product to promotion to product preserves the original list with f
   const returnedDetail = returnShopLocation(promotion);
   assert.equal(returnedDetail, detail);
   assert.equal(returnShopLocation(returnedDetail), list);
+  assert.equal(drillShopLocation(promotion, "products", product, "daily"), detail);
+  assert.equal(returnShopLocation(drillShopLocation(promotion, "products", product, "daily")), list);
   // Parsing the copied URL preserves the same route, without another history owner.
   assert.equal(returnShopLocation(serializeShellLocation(parseShellLocation(promotion), promotion)), detail);
 });

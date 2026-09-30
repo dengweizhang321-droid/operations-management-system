@@ -8,7 +8,7 @@ import {
 } from "./navigation-catalog";
 import { normalizeModuleView, parseModuleView } from "./module-view-contract";
 import { defaultShopLocationContext, parseShopLocationContext, writeShopLocationContext, shopContextKeys, validShopReturn, type ShopLocationContext } from "./shop-context";
-import type { ProductIdentity } from "@/lib/netshop/insights-contract";
+import { encodeProductIdentity, type ProductIdentity } from "@/lib/netshop/insights-contract";
 
 export const shellPeriodKeys = [
   "today",
@@ -265,6 +265,12 @@ export function updateShopContextLocation(input: string | URL, patch: Partial<Sh
 }
 export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {
   const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
+  // Following the same exact product back from A restores the original P
+  // detail and its flat list origin instead of creating another return level.
+  if (state.module === "shop" && state.view === "promotion" && view === "products" && product && before.returnTo) {
+    const origin = parseShellLocation(before.returnTo);
+    if (origin.module === "shop" && origin.view === "products" && origin.shop?.product && encodeProductIdentity(origin.shop.product) === encodeProductIdentity(product) && JSON.stringify(origin.period) === JSON.stringify(state.period)) return returnShopLocation(input);
+  }
   const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null, returnOrigin: null } }, "/");
   const returnOrigin = state.module === "shop" && state.view === "products" && before.product && view === "promotion" ? validShopReturn(before.returnTo) : null;
   const shop = { ...before, product, section, page: 1, returnTo, returnOrigin, ...(state.module === "shop" && state.view !== view ? { q: "", category: "" } : {}), ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
