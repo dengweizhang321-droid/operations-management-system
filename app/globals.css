@@ -3329,3 +3329,10 @@ body { font-size: var(--font-size-body); line-height: var(--line-height-body); }
   .app-shell .channel-sales-list em,
   .app-shell .channel-sales-list small { font-size: 12px !important; }
 }
+
+/* Both overview modes keep their switch usable before the new bundle loads. */
+.overview-view-switch { display:flex; justify-content:flex-end; gap:0; margin:0 0 12px; }
+.overview-view-switch button { border:1px solid var(--color-border-default); padding:7px 18px; background:white; color:var(--color-brand); font-size:var(--font-size-body); }
+.overview-view-switch button:first-child { border-radius:6px 0 0 6px; }
+.overview-view-switch button:last-child { border-radius:0 6px 6px 0; }
+.overview-view-switch button[aria-pressed=true] { background:var(--color-brand); color:white; }

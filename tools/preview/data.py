@@ -35,6 +35,8 @@ def seed():
     stamp = now.isoformat()
     digest = hashlib.sha256(b"teruisi-synthetic-preview-v1").hexdigest()
     with transaction.atomic():
+        from netshop_fixture import seed_netshop
+        seed_netshop(today, stamp)
         SalesImportBatch.objects.create(id="preview-sales", source="synthetic-preview", file_name="合成演示销售", file_size_bytes=0, file_hash=digest, sheet_name="演示", status="completed", row_count=180, inserted_count=180, created_at=stamp, completed_at=stamp)
         for i in range(6):
             code = f"DEMO-{i+1:03d}"

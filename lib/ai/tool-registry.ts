@@ -37,6 +37,7 @@ import { getCustomerServiceConversationsForAi } from "@/lib/customer-service/dat
 import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
+import { getNetshopInsightsContextForAi, netshopInsightsContextInputSchema, NETSHOP_INSIGHTS_CONTEXT_TOOL_NAME, NETSHOP_INSIGHTS_AI_TIMEOUT_MS, NETSHOP_INSIGHTS_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-insights-context-tool";
 import { getJdPromotionDiagnosticForChat } from "@/lib/ai/promotion-diagnostic-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
 import { getSalesAnalysisRecords } from "@/lib/sales/analysis-tool";
@@ -1016,6 +1017,18 @@ export const aiToolRegistry = [
     annotations: readOnlyAnnotations, risk: "read_only", allowedRoles: ["admin"], scopePolicy: "unscoped_only",
     execution: { ...synchronousReadOnlyExecution, maxResultCharacters: 40_000, maxCallsPerRequest: 8 },
     handler: (args, context) => readBusinessEvidence(args, context.principal, context.signal),
+  },
+  {
+    name: NETSHOP_INSIGHTS_CONTEXT_TOOL_NAME,
+    title: "网店共享范围、覆盖与版本上下文",
+    description: "读取运营系统已导入网店数据的本期、前期、同比实际日期与日历，平台×店铺×日期覆盖、字段能力、来源截止及完整版本向量。返回完整有界元数据，不能当作商品明细或经营指标，也不能证明ERP映射或推广归因窗口。人数口径是商品×日累计，SKU/SPU不混用。超过预算需缩小店铺或日期范围；版本变化须重读。只读所属reader，不下载、导入或操作外部平台。",
+    inputSchema: netshopInsightsContextInputSchema,
+    annotations: readOnlyAnnotations,
+    risk: "read_only",
+    allowedRoles: allRoles,
+    scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: NETSHOP_INSIGHTS_AI_TIMEOUT_MS, maxResultCharacters: NETSHOP_INSIGHTS_AI_MAX_CHARACTERS, maxCallsPerRequest: 2 },
+    handler: getNetshopInsightsContextForAi,
   },
   {
     name: "get_netshop_performance",
