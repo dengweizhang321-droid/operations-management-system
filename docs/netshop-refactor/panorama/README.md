@@ -1,8 +1,8 @@
 # 店铺全景 · 五版设计交付
 
-2026-09-30，角色 S。当前交付阶段为**设计完成 / 合成 UI 验证**。用户选定版式后才开始正式栏目改造；本交付没有业务 API、PostgreSQL 查询或正式页面接线。
+2026-09-30，角色 S。当前交付阶段为**设计完成 / 合成 UI 验证**。用户最新指令：保留01章节驾驶舱、02—05继续改版，字体/色调/栏目位置按系统统一，导航置顶。本轮已完成上述设计调整，用户定版后才开始正式栏目改造；没有业务 API、PostgreSQL 查询或正式页面接线。
 
-基线：首次核验 `c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`；已同步总控发布的登记提交 `daf211644efffdc762c0d33c1faba992cf082df7`。该登记明确 O 在途、F 尚未启动、共享契约与 P/A 接口未冻结。草案 `netshop-insights-v1` 不是可调用协议。
+基线：首次核验 `c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`；首轮设计 `38685c2ad14b3500619d5a8789c3a61a45d78273` 已推送。第二轮同步总控登记 main `f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe`，公共底座与接口仍未冻结。草案 `netshop-insights-v1` 不是可调用协议。
 
 ## 观看方式
 
@@ -16,15 +16,15 @@ node app/netshop/panorama/demo/serve.mjs
 
 | 版式 | 信息结构 | 适用场景 | 截图 |
 | --- | --- | --- | --- |
-| 01 章节驾驶舱 | 左索引 + 五卡 + 大趋势/经营侧写 + 八章 | 日常巡店与全面阅读 | [01](evidence/layout-1.png) |
-| 02 经营报告 | 报告封面 + 章节导读 + 逐章叙述/表图 | 月度复盘 | [02](evidence/layout-2.png) |
-| 03 主题工作台 | 左侧八章、单章主区、右侧来源与专题入口 | 逐项深入查看 | [03](evidence/layout-3.png) |
-| 04 明细图表分屏 | 日期表固定在左，右侧当日明细与章节 | 核查日期波动 | [04](evidence/layout-4.png) |
-| 05 经营脉络看板 | 四组并列主题、八章展开、重点商品速览 | 快速把握经营结构 | [05](evidence/layout-5.png) |
+| 01 章节驾驶舱（保留） | 顶部八章索引 + 原五卡 + 趋势/经营侧写 + 八章 | 日常巡店与全面阅读 | [01](evidence/round-2/layout-1.png) |
+| 02 经营对照矩阵 | 八章为行、本期/基期/变化/来源为列，点行展开章节 | 核对成绩与差异 | [02](evidence/round-2/layout-2.png) |
+| 03 双列专题台 | 四组专题导航，两章并排、来源表在下方 | 查看相关经营专题 | [03](evidence/round-2/layout-3.png) |
+| 04 趋势先行 | 大幅单源趋势、当日定位、章节切换、逐日表 | 追踪变化与核查日期 | [04](evidence/round-2/layout-4.png) |
+| 05 八章折叠档案 | 八行摘要，展开查看对应指标、表格与来源 | 按重点章节阅读 | [05](evidence/round-2/layout-5.png) |
 
-设计引用：森林绿 `#396149`、深绿 `#293f32`、应用背景 `#f5f7f6`，来自已提交 `app/styles/tokens.css`。字体沿用 Inter / SF Pro Display / PingFang SC / Microsoft YaHei / system-ui；涨红跌绿。没有改共享 tokens、公共日期组件或总览01。
+设计引用：森林绿 `#396149`、深绿 `#293f32`、应用背景 `#f5f7f6`，来自已提交 `app/styles/tokens.css`。字体沿用 Inter / SF Pro Display / PingFang SC / Microsoft YaHei / system-ui；正文14px、标题20px、章节18px、卡片标题16px、KPI24px、表格/筛选13px、说明12px，涨红跌绿。桌面主导航位于最上方、网店栏目导航在下方、日期位于右上；01八章节导航已横向置于指标前。位置依据已提交 `app/shell/{app-shell.tsx,top-navigation.css,navigation-catalog.ts}`；没有改公共导航、共享 tokens、日期组件或总览01。
 
-参考信息组织方式：[Tremor Dashboard](https://github.com/tremorlabs/template-dashboard-oss)、[Metabase sections](https://www.metabase.com/docs/latest/dashboards/introduction)、[Elastic UI](https://eui.elastic.co/)、[AG Grid charts](https://www.ag-grid.com/javascript-data-grid/integrated-charts/)、[Grafana groupings](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/create-dashboard/dashboard-groupings/)。未引入上述库或复制其代码。
+第二轮参考信息组织方式：01保留；02借鉴[AG Grid 表格与图表结合](https://www.ag-grid.com/javascript-data-grid/integrated-charts/)，03参考[Grafana 分组面板](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/create-dashboard/dashboard-groupings/)，04参考[Tremor Dashboard](https://blocks.tremor.so/templates)，05参考[Carbon 折叠面板](https://carbondesignsystem.com/components/accordion/usage/)。未引入上述库或复制其代码。首轮设计与参考保留在 `38685c2a`。
 
 ## 八章节完成表
 
@@ -53,7 +53,9 @@ $env:PANORAMA_BROWSER_PATH = '<浏览器可执行文件>'
 node app/netshop/panorama/demo/verify.mjs
 ```
 
-[UI 结果](evidence/ui-checks.json)记录具体检查；[独立复核](evidence/independent-review.md)记录发现、修订与范围。覆盖桌面及 320/390px、八章、未选店、实际基期、跨月/完整月/跨年日历、商品/推广上下文及返回、缺日/修订/权限/失败、快切店与迟到保护、静态服务器禁写。业务范围中的负基期、ERP 规则、PG reader/consumer、真实 revision 及旧五视图/01回归仍未验收，不能据 Demo 通过声称真实功能完成。
+首轮38项UI及26项独立复核适用于 `38685c2a`，保留在 `evidence/`，不作为第二轮通过声明。第二轮[CUA UI 结果](evidence/round-2/cua-ui-checks.json)记录31组通过、0失败，包含五布局、四版逐章可达、折叠高亮、趋势/日期、1440/390/320、缺日/修订/权限/失败、快切店、商品上下文与顶部日期。图表按实际容器重排，窄屏实测标注约12px，未以CSS字号冒充渲染字号。章节定位依据真实顶部导航和筛选高度，320px的目标章节顶部386.69px高于筛选底368.85px。01内容renderer与首轮字节相同，见[冻结摘要](evidence/round-2/source-manifest.json)。
+
+第二轮浏览器检查使用CUA；更新后的独立 `verify.mjs` 留作可复现检查入口，本轮未再次运行该CLI脚本。独立复核另见本轮证据目录。业务范围中的负基期、ERP规则、PG reader/consumer、真实revision及旧五视图/01回归仍未验收，不能据Demo通过声称真实功能完成。
 
 首次自动检查遇到浏览器包缺失，改用现有独立 Chrome；首次版式/窄屏检查发现报告章计数重复与 grid min-content 溢出，修订后复跑。未删除断言或放宽覆盖标准。
 

@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
-const out=resolve('docs/netshop-refactor/panorama/evidence');
+const out=resolve('docs/netshop-refactor/panorama/evidence/round-2');
 await mkdir(out,{recursive:true});
 const browser=await chromium.launch({headless:true,...(process.env.PANORAMA_BROWSER_PATH?{executablePath:process.env.PANORAMA_BROWSER_PATH}:{})});
 const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
@@ -21,7 +21,8 @@ try{
   for(let n=1;n<=5;n++){
     await page.locator(`[data-layout="${n}"]`).click();await ready();
     assert.equal(await page.locator('[data-layout][aria-pressed=true]').count(),1);
-    if(n===1||n===2||n===5)assert.equal(await page.locator('[data-section]').count(),8);
+    if(n===1||n===5)assert.equal(await page.locator('[data-section]').count(),8);
+    if(n===2){assert.equal(await page.locator('[data-matrix-row]').count(),8);for(let chapter=1;chapter<=8;chapter++){await page.locator('[data-matrix-row="'+chapter+'"] [data-chapter]').click();assert.equal(await page.locator('[data-section="'+chapter+'"]').count(),1)}await page.locator('[data-matrix-row="1"] [data-chapter]').click()}
     if(n===3||n===4){for(let chapter=1;chapter<=8;chapter++){await page.locator(`nav [data-chapter="${chapter}"]`).first().click();assert.equal(await page.locator(`[data-section="${chapter}"]`).count(),1)}await page.locator('nav [data-chapter="1"]').click()}
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await page.screenshot({path:resolve(out,`layout-${n}.png`)});
@@ -65,7 +66,7 @@ try{
   assert.match(await page.locator('#scope').innerText(),/2026-01-01 — 2026-01-31/);checks.push('full calendar month comparison');
   await page.locator('#date-button').click();await page.locator('#start').fill('2026-09-05');await page.locator('#end').fill('2026-09-04');await page.locator('#apply-date').click();assert.match(await page.locator('#date-error').innerText(),/有效/);await page.locator('#date-dialog [data-close]').first().click();checks.push('invalid date range rejected');
   await page.locator('#date-button').click();await page.locator('[data-preset="month"]').click();await page.locator('#apply-date').click();await ready();
-  await page.locator('[data-layout="4"]').click();await page.locator('[data-select-day="2026-09-15"]').click();assert.match(await page.locator('.day-spotlight').innerText(),/2026-09-15/);checks.push('day selection updates details without changing period totals');
+  await page.locator('[data-layout="4"]').click();await page.locator('[data-select-day="2026-09-15"]').click();assert.match(await page.locator('.trend-day-summary').innerText(),/2026-09-15/);checks.push('day selection updates details without changing period totals');
   for(const width of [390,320]){
     await page.setViewportSize({width,height:900});
     for(let n=1;n<=5;n++){await page.locator(`[data-layout="${n}"]`).click();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`layout ${n} overflow at ${width}`);checks.push(`layout ${n} fits ${width}px`)}

@@ -8,24 +8,20 @@
   <script src="demo.js" defer></script>
 </head>
 <body>
-  <div class="demo-bar"><strong>设计评审 · 合成数据</strong><span>五种信息布局，同一套经营内容</span><button id="reference-button">参考与版式说明</button></div>
   <div class="app-window">
-    <aside class="app-nav">
+    <header class="system-masthead">
       <div class="brand"><b>T</b><span>TERUISI<small>运营管理系统</small></span></div>
-      <div class="nav-label">经营工作台</div>
-      <span>销售分析</span><span>商品经营</span><span>库存管理</span>
-      <div class="active-nav">网店分析</div>
-      <div class="sub-nav"><span>网店总览</span><strong>店铺全景</strong><span>店铺与平台对比</span><span>商品表现</span><span>推广分析</span></div>
-      <span>财务报表</span><span>运营事务</span>
-      <footer><i></i>隔离设计预览<small>未接入业务接口</small></footer>
-    </aside>
+      <nav class="primary-nav" aria-label="顶部应用导航"><span>运营事务</span><span>自动化中心</span><span>BI 看板</span><strong>网店分析</strong><span>市场分析</span><span>客服分析</span><span>销售分析</span><span>库存管理</span><span>商品经营</span><span>数据导入</span><span>系统设置</span><span>AI 助理</span></nav>
+      <div class="masthead-tools"><label class="global-date">统计期间<button id="date-button" class="date-trigger"></button></label><span class="account-avatar" aria-label="演示账号">演</span></div>
+    </header>
     <main>
-      <header class="page-title"><div><span class="eyebrow">网店分析 / 单店经营</span><h1>店铺全景</h1></div><span class="subtle">DESIGN REVIEW / 2026.09</span></header>
-      <div class="variant-tabs" id="variants" aria-label="五种版式"></div>
-      <div class="variant-description" id="variant-description"></div>
+      <nav class="module-nav" aria-label="网店分析栏目"><strong aria-current="page">店铺全景</strong><span>网店总览</span><span>店铺与平台对比</span><span>商品表现</span><span>推广分析</span><span class="disabled">企业购分析</span><span class="disabled">客服分析</span></nav>
+  <div class="demo-bar"><strong>设计评审 · 合成数据</strong><span>五种信息布局，同一套经营内容</span><button id="reference-button">参考与版式说明</button></div>
+  <div class="demo-controls"><div class="variant-tabs" id="variants" aria-label="五种版式"></div><div class="variant-description" id="variant-description"></div></div>
+      <header class="page-title"><div><span class="eyebrow">网店分析 / 单店经营</span><h1>店铺全景</h1></div><span class="subtle">合成设计预览 · 仅查询</span></header>
       <div class="filterbar">
         <label>平台与店铺<select id="shop"><option value="">请选择店铺</option><option value="jd-demo">京东 · 演示商用设备旗舰店</option><option value="tm-demo">天猫 · 演示厨电旗舰店</option></select></label>
-        <label>统计期间<button id="date-button" class="date-trigger"></button></label>
+        <div class="store-period-context"><span>统计周期</span><strong id="period-context"></strong><small>商品 / 推广 / ERP 分来源展示</small></div>
         <label>比较方式<select id="compare"><option value="previous">环比</option><option value="year">同比</option><option value="none">不比较</option></select></label>
         <button id="refresh" class="soft-button">刷新</button>
         <details class="scenario"><summary>演示状态</summary><label>数据状态<select id="scenario"><option value="complete">完整覆盖</option><option value="missing">推广缺日</option><option value="revision">多源修订变化</option><option value="failure">本次刷新失败</option><option value="denied">无店铺权限</option></select></label></details>
