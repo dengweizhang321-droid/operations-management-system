@@ -337,11 +337,12 @@ def _objects(reader, names, options, deadline):
     facts, p, platform = reader.facts, reader.context["periods"], reader.platform
     identities = sorted(facts["rawByObject"])
     selected_dates = _list_dates(reader.context, options)
+    focused_dates = {d for values in selected_dates.values() for d in values}
     result = []
     for n, object_id in identities:
         _budget(deadline)
         object_rows = facts["rawByObject"][(n, object_id)]
-        if not any(d in selected_dates["current"] for _, d in object_rows) and options["objectStartDate"]: continue
+        if options["objectStartDate"] and not any(d in focused_dates for _, d in object_rows): continue
         product_rows = list(facts["productByObject"].get((n, object_id), {}).values())
         relation_values = {r[k] for r in product_rows for k in ("spu_min", "spu_max") if r[k]}
         ambiguity = any(r["mapped_spus"] > 1 for r in product_rows) or len(relation_values) > 1
@@ -456,7 +457,7 @@ def _dimensions(reader, names, options, deadline, principal):
             for v in comparisons["spendRate"].values(): v.update(value=None, status="unavailable", reasonCode="not_applicable")
             title = dims["planName"] if kind == "plan" else dims["unitName"] if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"]
             rows = {k: r for k, r in group["periods"].get("current", {}).items() if k[1] in selected_dates["current"]}
-            if not rows and options["objectStartDate"]: continue
+            if options["objectStartDate"] and not any(any(key[1] in selected_dates[kind] for key in values) for kind, values in group["periods"].items()): continue
             prior = {k: r for k, r in group["periods"].get("previous", {}).items() if k[1] in selected_dates["previous"]}
             actual_id = dims["planId"] if kind == "plan" else dims["unitId"] if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"]
             if actual_id is None or not real_identity:

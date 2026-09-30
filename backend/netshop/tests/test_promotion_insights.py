@@ -73,7 +73,8 @@ class PromotionInsightsTests(TestCase):
 
     def test_misaligned_store_day_never_produces_main_or_matched_rate(self):
         self.day(shop="A"); self.day(shop="B", promotion=False)
-        result = self.read()["sections"]
+        response = self.read()
+        result = response["sections"]
         self.assertIsNone(result["summary"]["spendRate"]["value"])
         self.assertEqual(result["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
         main_ref = result["summary"]["spendRate"]["coverageRef"]
@@ -82,6 +83,10 @@ class PromotionInsightsTests(TestCase):
         self.assertFalse(main_coverage["complete"])
         self.assertIsNone(result["matchedRange"]["metrics"]["spendRate"]["value"])
         self.assertEqual(result["matchedRange"]["shopDates"], [{"shopKey": "京东\x1fA", "dates": []}, {"shopKey": "京东\x1fB", "dates": []}])
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-misaligned.json").open("x", encoding="utf-8") as output: json.dump(response, output, ensure_ascii=False, indent=2)
 
     def test_partial_matching_is_separate_and_weighted_sum_not_average(self):
         self.pair(); self.day(day="2026-09-02")
@@ -261,6 +266,24 @@ class PromotionInsightsTests(TestCase):
         absent = self.read(endDate="2026-09-02", q="NO MATCH")
         self.assertEqual(absent["sections"]["items"], [])
         self.assertEqual(absent["sections"]["summary"], all["sections"]["summary"])
+
+    def test_focus_universe_retains_previous_only_decline_and_excludes_other_dates(self):
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(day="2026-09-01", rows=[{"id": "OTHER-DATE", "values": values}])
+        self.day(day="2026-09-02", rows=[{"id": "CURRENT", "values": values}])
+        self.day(day="2026-08-02", rows=[{"id": "GONE", "values": values}])
+        self.day(day="2025-09-02", rows=[{"id": "YEAR-ONLY", "values": values}])
+        section = self.read(endDate="2026-09-02", focusDate="2026-09-02")["sections"]
+        self.assertEqual({r["id"] for r in section["items"]}, {"CURRENT", "GONE", "YEAR-ONLY"})
+        gone = next(r for r in section["items"] if r["id"] == "GONE")
+        self.assertEqual(gone["metrics"]["spend"]["value"], 0)
+        self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertEqual(gone["observation"]["current"]["verifiedAbsentDates"], ["2026-09-02"])
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "GONE")
+        searched = self.read(endDate="2026-09-02", focusDate="2026-09-02", q="CURRENT", pageSize=1)["sections"]
+        self.assertEqual(searched["items"][0]["id"], "CURRENT")
+        self.assertEqual(searched["contributions"], section["contributions"])
+        self.assertEqual(searched["summary"], section["summary"])
 
     def test_percentage_points_and_zero_negative_missing_baselines(self):
         self.pair()
