@@ -26,12 +26,31 @@ function reject(name: string, mutation: (payload: typeof wire.payload) => void) 
     results.push({ name, rejected: true, controlledError: error instanceof NetshopQueryError || error instanceof ProductResponseError });
   }
 }
+function rejectList(name: string, mutation: (payload: typeof list.payload) => void) {
+  const payload = structuredClone(list.payload);
+  mutation(payload);
+  try {
+    decodeProductInsights(payload, new URLSearchParams(list.query), list.revision);
+    results.push({ name, rejected: false });
+  } catch (error) {
+    results.push({ name, rejected: true, controlledError: error instanceof NetshopQueryError || error instanceof ProductResponseError });
+  }
+}
 reject("daily promotion money cannot become COUNT", p => { p.sections.daily.data.items[0].metrics.spend.unit = "COUNT"; });
 reject("daily ROAS cannot become CNY_CENT", p => { p.sections.daily.data.items[0].metrics.roas = { ...p.sections.daily.data.items[0].metrics.spend, unit: "CNY_CENT", value: 200 }; });
 reject("daily owning vector cannot be absent", p => { p.sections.daily.data.sourceRevisions = []; });
 reject("daily owning vector cannot differ from context", p => { p.sections.daily.data.sourceRevisions[0].revision = "999:bbbbbbbbbbbb"; });
 reject("embedded catalogue permission loss must fail the whole read", p => { p.sections.catalog = { state: "error", data: null, code: "access_denied", message: "Synthetic permission loss" }; });
 reject("embedded catalogue revision loss must fail the whole read", p => { p.sections.catalog = { state: "error", data: null, code: "insights_revision_changed", message: "Synthetic revision loss" }; });
+reject("catalogue evidence enum cannot be a JSON array", p => { p.sections.catalog.data.categoryEvidence.status = ["label_only"]; });
+reject("comparison status cannot be a JSON array", p => { p.sections.performance.comparisons.payment.previous.status = ["available"]; });
+reject("detail failed baseline cannot retain available row comparisons", p => { p.sections.baselineReads.previous = { state: "error", data: null, code: "service_unavailable", message: "Synthetic baseline failure" }; });
+rejectList("list failed baseline cannot retain available row comparisons", p => {
+  p.sections.baselineReads.previous = { state: "error", data: null, code: "service_unavailable", message: "Synthetic baseline failure" };
+  for (const pair of Object.values(p.sections.comparisons) as { previous: { method: string; value: number | null; status: string; reasonCode: string | null } }[]) {
+    pair.previous = { method: pair.previous.method, value: null, status: "unavailable", reasonCode: "incomplete_baseline" };
+  }
+});
 const destination = resolve(reviewRoot, "products-review-wire-" + randomUUID());
 await mkdir(destination, { recursive: false });
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
