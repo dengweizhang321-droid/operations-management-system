@@ -22,6 +22,7 @@ EVIDENCE = Path(r"E:\codex-artifacts\netshop-scheme2-20261001\products\review") 
 labels = sys.argv[1:] or [
     "netshop.tests.test_product_insights",
     "netshop.tests.test_product_insights_detail",
+    "netshop.tests.test_product_insights_catalog_filters",
     "netshop.tests.test_product_insights_review",
 ]
 if any(not name.startswith("netshop.tests.test_product_insights") for name in labels):

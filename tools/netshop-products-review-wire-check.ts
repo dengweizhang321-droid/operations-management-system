@@ -51,6 +51,8 @@ rejectList("list failed baseline cannot retain available row comparisons", p => 
     pair.previous = { method: pair.previous.method, value: null, status: "unavailable", reasonCode: "incomplete_baseline" };
   }
 });
+rejectList("data-quality count cannot become CNY_CENT", p => { p.sections.dataQuality.counts.missingImage.unit = "CNY_CENT"; });
+rejectList("data-quality count cannot be negative", p => { p.sections.dataQuality.counts.missingImage.value = -1; });
 const destination = resolve(reviewRoot, "products-review-wire-" + randomUUID());
 await mkdir(destination, { recursive: false });
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
