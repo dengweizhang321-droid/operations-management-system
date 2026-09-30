@@ -22,6 +22,7 @@ export type PromotionCpc = {
 };
 export type PromotionMetrics = Record<Exclude<PromotionMetricKey, "cpc">, MetricValue> & { cpc: PromotionCpc };
 export type PromotionComparisons = Record<PromotionMetricKey, { previous: MetricComparison; yearAgo: MetricComparison }>;
+export type PromotionChanges = Record<"spend" | "attributedPayment", { previous: MetricValue; yearAgo: MetricValue }>;
 
 export type PromotionObjectMapping = {
   status: "matched" | "unmapped" | "ambiguous" | "not_applicable";
@@ -37,6 +38,7 @@ export type PromotionObjectRow = {
   identityKind: "follow_order_sku" | "promotion_product" | "plan" | "unit" | "keyword" | "search_term";
   title: string; planId: string | null; unitId: string | null; matchType: string | null;
   metrics: PromotionMetrics; comparisons: PromotionComparisons;
+  spendShare: MetricValue; changes: PromotionChanges;
   coverageRef: string; mapping: PromotionObjectMapping;
   /** Reliable identity for this promotion domain's own detail only.
    * Product navigation separately requires matched mapping/linkIdentity. */
@@ -48,12 +50,14 @@ export type PromotionTrendPoint = {
 };
 export type PromotionShopRow = {
   platform: "京东" | "天猫"; shopKey: string; shopName: string;
-  metrics: PromotionMetrics; comparisons: PromotionComparisons;
+  metrics: PromotionMetrics; comparisons: PromotionComparisons; changes: PromotionChanges;
   spendShare: MetricValue; coverageRef: string;
 };
 export type PromotionObjectCapability = {
+  /** Query eligibility does not prove the source fields have been read. */
+  canQuery: boolean;
   status: "available" | "unavailable"; reasonCode: MetricReason | null;
-  message: string; sourceIds: string[]; unidentifiedCount: number;
+  message: string; sourceIds: string[]; unidentifiedCount: number | null;
 };
 export type PromotionSourceMatrixEntry = {
   sourceId: string; label: string; coverageRef: string;
@@ -80,7 +84,7 @@ export type PromotionInsightsResponse = {
   columnVersion: typeof PROMOTION_COLUMN_VERSION;
   context: InsightsContext; sectionToken: string;
   sections: {
-    summary: PromotionMetrics; comparisons: PromotionComparisons;
+    summary: PromotionMetrics; comparisons: PromotionComparisons; changes: PromotionChanges;
     attribution: {
       amountDefinition: "jd_total_order_amount" | "tmall_net_amount";
       orderDefinition: "jd_order_lines" | "tmall_net_transactions";
@@ -90,6 +94,11 @@ export type PromotionInsightsResponse = {
     trend: { grain: "day" | "week" | "month"; items: PromotionTrendPoint[] };
     shops: { visible: boolean; items: PromotionShopRow[] };
     items: PromotionObjectRow[]; pagination: InsightPagination;
+    contributions: {
+      collection: "comparable_full_set_before_search_pagination";
+      comparedObjectCount: number; excludedObjectCount: number;
+      previous: Record<"spendIncrease" | "spendDecrease" | "attributedPaymentIncrease" | "attributedPaymentDecrease", PromotionObjectRow[]>;
+    };
     listScope: PromotionListScope;
     objectCapabilities: Record<PromotionObjectKind, PromotionObjectCapability>;
     diagnostic: PromotionDiagnosticCapability;

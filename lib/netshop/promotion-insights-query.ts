@@ -42,6 +42,7 @@ export function validatePromotionQuery(params: URLSearchParams, detail = false) 
   }
   if (objectId !== null && shopKey === null || detail && (objectId === null || shopKey === null || sectionToken === null || !params.has("objectKind"))) reject("详情必须同时提供对象键、精确店铺、对象种类及所属章节版本");
   const focusDate = params.get("focusDate"), start = params.get("objectStartDate"), end = params.get("objectEndDate");
+  if (detail && (focusDate !== null || start !== null || end !== null)) reject("对象详情使用原整期，不能混入列表日期定位范围");
   if (focusDate !== null && (start !== null || end !== null) || (start === null) !== (end === null)) reject("对象日期须提供一种完整范围");
   const objectStartDate = focusDate ?? start ?? context.window.startDate;
   const objectEndDate = focusDate ?? end ?? context.window.endDate;

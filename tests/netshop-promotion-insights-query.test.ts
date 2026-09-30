@@ -16,6 +16,11 @@ test("details never accept an ID without an exact scoped shop", () => {
   assert.equal(validatePromotionQuery(value, true).shopKey, "京东\u001fA店");
   value.append("outlet", "京东\u001fB店"); assert.throws(() => validatePromotionQuery(value, true));
 });
+test("detail keeps its original whole period instead of mixing an item focus", () => {
+  const value = query(); value.set("objectId", "a".repeat(64)); value.set("shopKey", "京东\u001fA店");
+  value.set("sectionToken", "b".repeat(64)); value.set("objectKind", "product"); value.set("focusDate", "2026-09-03");
+  assert.throws(() => validatePromotionQuery(value, true));
+});
 test("object focus is bounded separately from the complete summary period", () => {
   const value = query(); value.set("objectStartDate", "2026-09-08"); value.set("objectEndDate", "2026-09-14");
   const parsed = validatePromotionQuery(value);
