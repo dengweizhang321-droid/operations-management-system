@@ -256,6 +256,8 @@ export function updateShopContextLocation(input: string | URL, patch: Partial<Sh
     canonical.productsPrefs = null;
   }
   if ((before.productsPrefs?.sort ?? "payment_desc") !== (canonical.productsPrefs?.sort ?? "payment_desc")) canonical.page = 1;
+  const catalog = (context: ShopLocationContext) => context.productsPrefs?.catalogFilters ?? { status: "all", quality: "all", mapping: "all" };
+  if (JSON.stringify(catalog(before)) !== JSON.stringify(catalog(canonical))) canonical.page = 1;
   return serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, shop: canonical }, input);
 }
 export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {
