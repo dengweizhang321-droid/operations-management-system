@@ -38,6 +38,7 @@ import { callMarketTool } from "@/lib/market/ai-tools";
 import { searchAiKnowledge } from "@/lib/ai/data-knowledge";
 import { getNetshopPerformanceForAi } from "@/lib/netshop/ai-tool";
 import { getNetshopInsightsContextForAi, netshopInsightsContextInputSchema, NETSHOP_INSIGHTS_CONTEXT_TOOL_NAME, NETSHOP_INSIGHTS_AI_TIMEOUT_MS, NETSHOP_INSIGHTS_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-insights-context-tool";
+import { getNetshopPromotionInsightsForAi, getNetshopPromotionObjectDetailForAi, netshopPromotionInsightsInputSchema, netshopPromotionDetailInputSchema, NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME, NETSHOP_PROMOTION_DETAIL_TOOL_NAME, NETSHOP_PROMOTION_AI_TIMEOUT_MS, NETSHOP_PROMOTION_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-promotion-insights-tool";
 import { getNetshopProductInsightsForAi, netshopProductInsightsInputSchema, NETSHOP_PRODUCT_INSIGHTS_TOOL_NAME, NETSHOP_PRODUCT_INSIGHTS_AI_TIMEOUT_MS, NETSHOP_PRODUCT_INSIGHTS_AI_MAX_CHARACTERS } from "@/lib/ai/netshop-product-insights-tool";
 import { getJdPromotionDiagnosticForChat } from "@/lib/ai/promotion-diagnostic-tool";
 import { getNetshopAnalysisRecords } from "@/lib/netshop/analysis-tool";
@@ -1042,6 +1043,26 @@ export const aiToolRegistry = [
     scopePolicy: "principal_scope",
     execution: { ...synchronousReadOnlyExecution, timeoutMs: NETSHOP_INSIGHTS_AI_TIMEOUT_MS, maxResultCharacters: NETSHOP_INSIGHTS_AI_MAX_CHARACTERS, maxCallsPerRequest: 2 },
     handler: getNetshopInsightsContextForAi,
+  },
+  {
+    name: NETSHOP_PROMOTION_INSIGHTS_TOOL_NAME,
+    title: "推广分析完整指标与有界对象列表",
+    description: "读取网店推广已导入事实的同源指标、真实本期/环比/同比日期、逐店逐日覆盖、完整贡献集合和最多20行对象。京东/天猫逐平台查询；维度由平台固定派生。表内q只影响对象列表，不改变整期汇总或贡献集合。ROI为平台归因成交/花费的倍数，不是ERP净销售、利润或增量效果。计划/单元/词继续由原管理员、原支持京东单店1—7天权限与源能力门禁控制；不扩大来源。超预算拒绝而不裁去覆盖或求页总。只读所属reader，不下载、导入、投放、调用模型或发消息。",
+    inputSchema: netshopPromotionInsightsInputSchema,
+    annotations: readOnlyAnnotations,
+    risk: "read_only", allowedRoles: allRoles, scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: NETSHOP_PROMOTION_AI_TIMEOUT_MS, maxResultCharacters: NETSHOP_PROMOTION_AI_MAX_CHARACTERS, maxCallsPerRequest: 2 },
+    handler: getNetshopPromotionInsightsForAi,
+  },
+  {
+    name: NETSHOP_PROMOTION_DETAIL_TOOL_NAME,
+    title: "推广对象原整期精确详情",
+    description: "承接推广列表item.rowKey、item.shopKey、objectKind及原sectionToken，读取原整期同对象趋势、来源关系和完整覆盖；不按业务ID或名称猜对象。共享snapshotToken和推广sectionToken是不同种类，分别由所属decoder核验，拥有方响应头也须一致。不能夹入q、分页或focus日期范围。ROI仍是平台归因成交/花费倍数。保留原计划/单元/词明细管理员、原京东单店1—7天限制。只读、可取消，超40000字符完整信封拒绝，不裁剪，不调用模型或业务。",
+    inputSchema: netshopPromotionDetailInputSchema,
+    annotations: readOnlyAnnotations,
+    risk: "read_only", allowedRoles: allRoles, scopePolicy: "principal_scope",
+    execution: { ...synchronousReadOnlyExecution, timeoutMs: NETSHOP_PROMOTION_AI_TIMEOUT_MS, maxResultCharacters: NETSHOP_PROMOTION_AI_MAX_CHARACTERS, maxCallsPerRequest: 2 },
+    handler: getNetshopPromotionObjectDetailForAi,
   },
   {
     name: "get_netshop_performance",

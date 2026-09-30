@@ -83,6 +83,32 @@ def insights_context(request: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+def promotion_insights(request: HttpRequest) -> JsonResponse:
+    from .promotion_insights import read_promotion_insights
+    try:
+        principal = _principal(request)
+        payload = read_promotion_insights(principal, request.GET)
+        revision = next(item["revision"] for item in payload["context"]["sourceRevisions"]
+                        if item["domain"] == "netshop" and item["kind"] == "owning_revision")
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "推广经营分析读取失败")
+
+
+@require_GET
+def promotion_insights_detail(request: HttpRequest) -> JsonResponse:
+    from .promotion_insights import read_promotion_detail
+    try:
+        principal = _principal(request)
+        payload = read_promotion_detail(principal, request.GET)
+        revision = next(item["revision"] for item in payload["context"]["sourceRevisions"]
+                        if item["domain"] == "netshop" and item["kind"] == "owning_revision")
+        return _json(payload, revision=revision)
+    except Exception as error:
+        return _error(error, "推广经营详情读取失败")
+
+
+@require_GET
 def product_insights(request: HttpRequest) -> JsonResponse:
     from .product_insights import read_product_insights, validate_product_query
     try:
