@@ -45,7 +45,7 @@
 
 子树四提交`0cf236f2bdeea3f3189fd8a0e1432279a00422c7`、`f67e35d13a830f02192e326d2beb3ed919355950`、`568cb45d68ee24eb75f11e5660ce0598c00ac0d0`、`09f9982c29ab59fdc60cae556f276faa0db39d63`分别以cherry-pick集成到C；随后C修复独立Q缺陷。没有复制其他Lead未提交内容。
 
-开工基线`c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`，随后同步I协调main `daf211644efffdc762c0d33c1faba992cf082df7`。所有本轮差异只在 `app/netshop/comparison/demo/**`；公共入口、路由、权限、共享算法、package/lockfile未修改。
+开工基线`c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`，随后同步I协调main `daf211644efffdc762c0d33c1faba992cf082df7`；交付前再同步 `e8c4e2db771371d9f874ebc201ef1dacb5ce7934`（仅协调记录更新，F仍未冻结，UI源码摘要不变）。所有相对最新main的本轮差异只在 `app/netshop/comparison/demo/**`；公共入口、路由、权限、共享算法、package/lockfile未修改。
 
 只推送C栏目分支，不合main。两树均因待定版、未合main而保留，I后续核对包含性、未提交/忽略材料和预览依赖后统一清理。当前静态预览3170仍供用户选版。
 
