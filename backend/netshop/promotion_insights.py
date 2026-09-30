@@ -16,7 +16,7 @@ from django.http import QueryDict
 from .analysis import DIMENSION_FIELDS, _scalar
 from .errors import NetshopApiError
 from .insights_common import (MAX_SAFE, actor_fence, compare_metrics, context_versions,
-                              coverage_for, period_groups, read_context,
+                              coverage_for, parse_identities, period_groups, read_context,
                               validate_context, validate_metric)
 from .models import (NetshopImportBatch, NetshopPromotionAggregateManifest,
                      NetshopPromotionAggregateState, NetshopPromotionProductDaily,
@@ -35,7 +35,7 @@ METRICS = {
 CONTROL_COLUMNS = tuple(v[0] for v in METRICS.values()) + ("gross_transaction_amount_cents", "favorites", "cart_quantity")
 KEYS = (*METRICS, "roas", "ctr", "cpc", "spendRate")
 CONTEXT_PARAMS = {"platform", "outlet", "dimension", "startDate", "endDate", "periodKind", "snapshotToken"}
-EXTRA_PARAMS = {"q", "objectKind", "objectId", "shopKey", "page", "pageSize", "sort", "sectionToken", "trendGrain", "focusDate", "objectStartDate", "objectEndDate"}
+EXTRA_PARAMS = {"q", "objectKind", "objectId", "shopKey", "page", "pageSize", "sort", "sectionToken", "trendGrain", "focusDate", "objectStartDate", "objectEndDate", "productIdentity"}
 MAX_GROUPS = 100_000
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
@@ -63,6 +63,11 @@ def _validate(params, detail=False):
     kind = params.get("objectKind", "product")
     if kind not in {"product", "plan", "unit", "keyword", "search_term"}:
         raise NetshopApiError("推广对象类型无效")
+    product_focus = None
+    if "productIdentity" in params:
+        if kind != "product": raise NetshopApiError("精确商品联动只支持推广商品视角", code="not_applicable", status=422)
+        identity = parse_identities([params["productIdentity"]], spec["dimension"], spec["platforms"], spec["outlets"])[0]
+        product_focus = dict(zip(("platform", "shopName", "dimension", "id"), identity))
     query = params.get("q", "")
     if len(query) > 120 or any(ord(c) < 32 or ord(c) == 127 for c in query): raise NetshopApiError("q最多120字符且不能含控制字符")
     query = query.strip()
@@ -88,6 +93,7 @@ def _validate(params, detail=False):
         raise NetshopApiError("推广objectId须为服务返回的稳定对象键且提供精确店铺")
     return spec, {"objectKind": kind, "q": query, "grain": grain, "focusDate": focus, "objectStartDate": start or focus, "objectEndDate": end or focus, "sort": sort,
                   "objectId": object_id, "shopKey": shop_key, "token": token,
+                  "productFocus": product_focus,
                   "page": positive(params.get("page"), 1, "page", 10000),
                   "pageSize": positive(params.get("pageSize"), 20, "pageSize", 100)}
 
@@ -376,6 +382,16 @@ def _row_key(platform, name, kind, identity):
     return _canonical_token({"platform": platform, "shopName": name, "objectKind": kind, "sourceIdentity": identity})
 
 
+def _product_focus(objects, identity):
+    if identity is None: return objects, None
+    candidates = [r for r in objects if r["mapping"]["status"] == "matched" and r["mapping"]["evidence"] == "exact_source_identity" and r["mapping"]["linkIdentity"] == identity]
+    ambiguous = len(candidates) > 1 or any(r["platform"] == identity["platform"] and r["shopName"] == identity["shopName"] and r["id"] == identity["id"] and r["mapping"]["status"] == "ambiguous" for r in objects)
+    reason = "ambiguous_mapping" if ambiguous else None if len(candidates) == 1 else "unmapped"
+    return candidates if reason is None else [], {"identity": identity, "status": "available" if reason is None else "unavailable",
+        "reasonCode": reason, "message": "已按精确商品身份匹配推广对象；只影响对象明细与贡献" if reason is None else
+        "商品与推广身份存在多义关系，未合并或猜配；不能据此判断无投放" if ambiguous else "未确认该商品与推广对象的可靠关系；不能据此判断无投放"}
+
+
 def _observation(reader, names, source_rows, selected_dates, universe, real_identity):
     result = {}
     for kind, dates in selected_dates.items():
@@ -498,14 +514,17 @@ def _read(principal, params, detail=False):
     spec, options = _validate(params, detail)
     if options["objectKind"] != "product" and principal.role != "admin":
         raise NetshopApiError("计划单元和词明细保持原管理员权限", code="access_denied", status=403)
-    context = read_context(principal, spec)
+    context = read_context(principal, spec, deadline=deadline)
     _budget(deadline)
     platform = spec["platforms"][0]
     names = [k.split("\x1f", 1)[1] for k in context["effectiveScope"]["shopKeys"]]
     if options["shopKey"] and options["shopKey"] not in context["effectiveScope"]["shopKeys"]:
         raise NetshopApiError("推广对象店铺不属于授权范围", code="access_denied", status=403)
-    section_token = _canonical_token({"version": "promotion-insights-v1", "snapshot": context["snapshotToken"],
-        "scope": context["scopeKey"]})
+    if options["productFocus"] and options["productFocus"]["platform"]+"\x1f"+options["productFocus"]["shopName"] not in context["effectiveScope"]["shopKeys"]:
+        raise NetshopApiError("联动商品店铺不属于当前授权有效范围", code="access_denied", status=403)
+    section_binding = {"version": "promotion-insights-v1", "snapshot": context["snapshotToken"], "scope": context["scopeKey"]}
+    if options["productFocus"] is not None: section_binding["productFocus"] = options["productFocus"]
+    section_token = _canonical_token(section_binding)
     if options["token"] and options["token"] != section_token:
         raise NetshopApiError("推广对象来源版本已变化", code="insights_revision_changed", status=409)
     facts = _read_facts(platform, names, context["periods"], deadline)
@@ -536,6 +555,7 @@ def _read(principal, params, detail=False):
             "coverageRef": metrics["spend"]["coverageRef"],
             "spendShare": _ratio("ctr", metrics["spend"], summary["spend"], metrics["spend"]["coverageRef"])})
     objects = _objects(reader, names, options, deadline)
+    objects, product_focus = _product_focus(objects, options["productFocus"])
     products = _page(objects, options)
     dimensions, diagnostic = _dimensions(reader, names, options, deadline, principal)
     active = products if options["objectKind"] == "product" else _page(dimensions[options["objectKind"]], options)
@@ -582,7 +602,7 @@ def _read(principal, params, detail=False):
             "reportFormats": ["html", "xlsx"] if diagnostic["status"] == "available" else []},
         "dataQuality": facts["metadata"],
         "listScope": {"objectKind": options["objectKind"], "q": options["q"], "objectStartDate": list_dates["current"][0], "objectEndDate": list_dates["current"][-1],
-            "comparisonDates": {k: list_dates[k] for k in ("previous", "yearAgo")}, "summaryUnaffectedBySearch": True}}
+            "comparisonDates": {k: list_dates[k] for k in ("previous", "yearAgo")}, "summaryUnaffectedBySearch": True, "productFocus": product_focus}}
     if detail:
         candidates = objects if options["objectKind"] == "product" else dimensions[options["objectKind"]]
         item = next((r for r in candidates if r["shopKey"] == options["shopKey"] and r["rowKey"] == options["objectId"] and r["id"] is not None), None)
