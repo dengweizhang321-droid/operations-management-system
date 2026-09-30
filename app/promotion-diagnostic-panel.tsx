@@ -16,6 +16,7 @@ import {
   type DiagnosticPeriod,
   type PromotionDiagnosticReport,
   type ReportColumn,
+  type PromotionDiagnosticExportOptions,
 } from "@/lib/jd/promotion-diagnostic-report";
 
 function previousPeriod(startDate: string, endDate: string) {
@@ -45,7 +46,7 @@ function download(name: string, bytes: BlobPart, type: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-export default function PromotionDiagnosticPanel({ shopName, startDate, endDate, allowPaidModel = true, ratioLabel = "ROAS", expectedOwningRevision, onReadInvalidated }: {
+export default function PromotionDiagnosticPanel({ shopName, startDate, endDate, allowPaidModel = true, ratioLabel = "ROAS", expectedOwningRevision, onReadInvalidated, includeExportProvenance = false }: {
   shopName: string;
   startDate: string;
   endDate: string;
@@ -53,6 +54,7 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate,
   ratioLabel?: "ROI" | "ROAS";
   expectedOwningRevision?: string;
   onReadInvalidated?: (code: string, message: string) => void;
+  includeExportProvenance?: boolean;
 }) {
   const [storedReport, setReport] = useState<PromotionDiagnosticReport | null>(null);
   const [storedSource, setSource] = useState<DiagnosticPeriod | null>(null);
@@ -62,6 +64,11 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate,
   const report = loadedScope === scopeKey ? storedReport : null;
   const source = loadedScope === scopeKey ? storedSource : null;
   const baselineSource = loadedScope === scopeKey ? storedBaselineSource : null;
+  const exportOptions = useMemo<PromotionDiagnosticExportOptions>(() => includeExportProvenance ? {
+    ratioLabel, includeProvenance: true, baselineProvenance: baselineSource ? {
+      identity: baselineSource.identity, period: baselineSource.period, sourceRevision: baselineSource.sourceRevision, coverage: baselineSource.coverage,
+    } : null,
+  } : { ratioLabel }, [includeExportProvenance, ratioLabel, baselineSource]);
   const displayReport = useMemo(() => report ? promotionDiagnosticDisplayReport(report, { ratioLabel }) : null, [report, ratioLabel]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -229,8 +236,8 @@ export default function PromotionDiagnosticPanel({ shopName, startDate, endDate,
         : "前等长周期不可比，环比留空"}。平台归因订单金额不是 ERP 净销售或利润。</p>
       <div className="table-toolbar"><div><strong>可查看的表与建议</strong><p>各分组是同一来源的不同视角，不跨表累加。</p></div>
         <div>
-          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.html`, promotionDiagnosticHtml(report, { ratioLabel }), "text/html;charset=utf-8")}>导出 HTML</button>{" "}
-          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.xlsx`, Uint8Array.from(promotionDiagnosticXlsx(report, { ratioLabel })), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>导出 XLSX</button>
+          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.html`, promotionDiagnosticHtml(report, exportOptions), "text/html;charset=utf-8")}>导出 HTML</button>{" "}
+          <button className="secondary-button" disabled={!report.complete} onClick={() => download(`${fileBase}.xlsx`, Uint8Array.from(promotionDiagnosticXlsx(report, exportOptions)), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}>导出 XLSX</button>
         </div>
       </div>
       <div className="store-metrics-grid">{[
