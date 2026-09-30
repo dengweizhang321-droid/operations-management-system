@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.db import connection
 
 from netshop.errors import NetshopApiError
 from netshop.insights_common import read_context
@@ -18,6 +19,7 @@ class ProductIndependentReviewTests(TestCase):
     spec = product_seeds.ProductInsightsTests.spec
     read = product_seeds.ProductInsightsTests.read
     detail_spec = detail_seeds.ProductDetailTests.detail_spec
+    master = detail_seeds.ProductDetailTests.master
 
     def seed_pair(self):
         self.fact(product="REVIEW-A")
@@ -75,3 +77,27 @@ class ProductIndependentReviewTests(TestCase):
                 self.read()
             self.assertEqual(failure.exception.status, 503)
             self.assertEqual(next_phase.call_count, 0, "No new fact phase may start after the final baseline SQL has consumed the whole request budget")
+
+    def test_review_catalog_nested_sql_stops_after_a_successful_read_expires(self):
+        """The shared deadline also bounds SQL inside a catalogue loader."""
+        self.seed_pair()
+        self.master(product="REVIEW-A", total_inventory=4, available_inventory=3, price_cents=100)
+        clock = [0.0]
+        observations = {"triggered": False, "followingSelects": 0}
+
+        def expire_after_catalog_count(execute, sql, params, many, context):
+            read = sql.lstrip().upper().startswith(("SELECT", "WITH"))
+            if read and clock[0] > 65:
+                observations["followingSelects"] += 1
+            result = execute(sql, params, many, context)
+            if not observations["triggered"] and sql.lstrip().upper().startswith("SELECT COUNT(") and '"netshop_rows"' in sql and "jd_product_master" in (params or ()):
+                observations["triggered"] = True
+                clock[0] = 66.0
+            return result
+
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), connection.execute_wrapper(expire_after_catalog_count):
+            with self.assertRaises(NetshopApiError) as failure:
+                read_product_detail(self.principal, self.detail_spec(product="REVIEW-A"))
+            self.assertEqual(failure.exception.status, 503)
+        self.assertTrue(observations["triggered"], "The independent PG scenario must actually reach the catalogue SQL")
+        self.assertEqual(observations["followingSelects"], 0, "An exhausted loader may unwind its transaction, but must not run more SELECTs")
