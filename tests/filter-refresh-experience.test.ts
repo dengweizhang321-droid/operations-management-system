@@ -36,9 +36,13 @@ test("filter-driven requests keep the last successful layout mounted", async () 
     readSource("../app/import-module-view.tsx"),
   ]);
 
-  assert.match(shop, /const currentPerformance = scopedCurrentPerformance \?\? currentPerformanceResponse/);
-  assert.match(shop, /const catalog = scopedCatalog \?\? catalogResponse/);
-  assert.match(shop, /const currentItems = hasCompleteScopedPair \|\| !promotionDisplayPair/);
+  // A refresh can retain data only within the same owning scope. The old
+  // unqualified response fallback exposed the preceding shop/date selection.
+  assert.doesNotMatch(shop, /scopedCurrentPerformance \?\? currentPerformanceResponse|scopedCatalog \?\? catalogResponse/);
+  assert.match(shop, /currentPerformanceLoadedScopeKey === currentPerformanceScopeKey/);
+  assert.match(shop, /catalogResponseScopeKey === catalogBootstrapScopeKey/);
+  assert.match(shop, /promotionDisplayPair\?\.scopeKey === promotionScopeKey \? promotionDisplayPair : null/);
+  assert.match(shop, /const currentItems = hasCompleteScopedPair \|\| !retainedPromotionPair/);
   assert.match(shop, /if \(itemsLoading && !currentItems && !currentOverview\)/);
   assert.match(shop, /loading && current\.items\.length === 0/);
   assert.match(shop, /loading && catalog\.items\.length === 0/);
@@ -97,7 +101,7 @@ test("module navigation remains client-side and preserves the previous lazy view
   const page = await readSource("../app/page.tsx");
 
   assert.match(page, /const \[moduleTransitionPending, startModuleTransition\] = useTransition\(\)/);
-  assert.match(page, /window\.history\.pushState\(null, "", nextUrl\)/);
+  assert.match(page, /window\.history\.pushState\(bindShopPresentationHistory\(window\.history\.state, nextUrl, shopPresentationPrincipal\), "", nextUrl\)/);
   assert.match(page, /startModuleTransition\(\(\) => \{[\s\S]*setModuleViewSelection\(key, nextView\)[\s\S]*setImportSource\(nextSource \?\? null\)[\s\S]*setActive\(key\)/);
   assert.match(page, /module-stage-pending/);
   assert.doesNotMatch(page, /window\.location\.(?:reload|replace)\(/);
