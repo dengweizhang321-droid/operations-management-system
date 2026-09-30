@@ -25,9 +25,10 @@ labels = sys.argv[1:] or [
     "netshop.tests.test_product_insights_detail",
     "netshop.tests.test_product_insights_catalog_filters",
     "netshop.tests.test_product_insights_http",
+    "netshop.tests.test_catalog_filter_wiring",
     "netshop.tests.test_product_insights_review",
 ]
-if any(not name.startswith("netshop.tests.test_product_insights") for name in labels):
+if any(not name.startswith("netshop.tests.test_product_insights") and name != "netshop.tests.test_catalog_filter_wiring" for name in labels):
     raise RuntimeError("This Q runner accepts only product-owned tests")
 with socket.socket() as probe:
     probe.bind(("127.0.0.1", 0))
