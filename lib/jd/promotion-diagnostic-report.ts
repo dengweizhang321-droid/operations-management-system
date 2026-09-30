@@ -64,6 +64,45 @@ export type PromotionDiagnosticReport = {
   limitations: string[];
 };
 
+export type PromotionDiagnosticDisplayOptions = { ratioLabel?: "ROI" | "ROAS" };
+export class PromotionDiagnosticBindingError extends Error {
+  readonly code = "promotion_diagnostic_binding_changed";
+  constructor(message: string) { super(message); this.name = "PromotionDiagnosticBindingError"; }
+}
+
+/** The revision is netshop's owning revision, never a promotion snapshot token. */
+export function validateDiagnosticResponse(period: DiagnosticPeriod, owningRevision: string | null, expected: {
+  shopName: string; startDate: string; endDate: string; expectedOwningRevision?: string;
+}) {
+  if (!owningRevision || !/^\d+:[a-f0-9]{12}$/.test(owningRevision) || period?.sourceRevision !== owningRevision
+    || expected.expectedOwningRevision !== undefined && owningRevision !== expected.expectedOwningRevision) {
+    throw new PromotionDiagnosticBindingError("推广诊断拥有方修订已变化或响应头不一致，请重新读取");
+  }
+  if (period.identity?.platform !== "京东" || period.identity?.shopName !== expected.shopName
+    || period.period?.startDate !== expected.startDate || period.period?.endDate !== expected.endDate) {
+    throw new PromotionDiagnosticBindingError("推广诊断响应不属于当前店铺或日期范围");
+  }
+  validateDiagnosticPeriod(period);
+  return period;
+}
+
+/** Copy display labels only. Canonical roas keys and numeric cells stay intact. */
+export function promotionDiagnosticDisplayReport(report: PromotionDiagnosticReport, { ratioLabel = "ROAS" }: PromotionDiagnosticDisplayOptions = {}): PromotionDiagnosticReport {
+  if (ratioLabel !== "ROI" && ratioLabel !== "ROAS") throw new Error("推广比值显示名称无效");
+  if (ratioLabel === "ROAS") return report;
+  const label = (text: string) => text.replace(/\bROAS\b/g, ratioLabel);
+  return {
+    ...report,
+    findings: report.findings.map(finding => ({ ...finding, title: label(finding.title), text: label(finding.text) })),
+    actions: report.actions.map(action => ({ ...action, evidence: label(action.evidence), change: label(action.change), metric: label(action.metric), observation: label(action.observation), rollback: label(action.rollback) })),
+    limitations: [...report.limitations.map(label), "ROI显示值仍为平台归因订单金额 / 推广花费，单位倍数；不代表利润回报率或增量效果。"],
+    tables: report.tables.map(table => ({
+      ...table, title: label(table.title), note: label(table.note), columns: table.columns.map(column => ({ ...column, label: label(column.label) })),
+      rows: table.rows.map(row => row.map((cell, index) => typeof cell === "string" && (table.key === "summary" && index === 0 || table.key === "actions" && index >= 2) ? label(cell) : cell)),
+    })),
+  };
+}
+
 function validDate(value: string) {
   return /^20\d\d-\d\d-\d\d$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
     && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
@@ -646,7 +685,8 @@ function promotionDiagnosticRuntimeScript() {
 }
 
 /** Self-contained, offline HTML. Every visible number comes from the same table cells as XLSX. */
-export function promotionDiagnosticHtml(report: PromotionDiagnosticReport) {
+export function promotionDiagnosticHtml(sourceReport: PromotionDiagnosticReport, options?: PromotionDiagnosticDisplayOptions) {
+  const report = promotionDiagnosticDisplayReport(sourceReport, options);
   const title = `${report.shopName} · ${report.period.startDate} 至 ${report.period.endDate} 推广深度诊断`;
   const mode = report.tables.some((table) => table.key === "chatInterpretation")
     ? "规则诊断与 AI 对话原文（文字未逐项核验） · 来源数值以确定性表为准 · 无自动投放操作"
@@ -661,7 +701,8 @@ export function promotionDiagnosticHtml(report: PromotionDiagnosticReport) {
   </script></body></html>`.replace("</style></head>", ".chat-text{white-space:pre-wrap;overflow-wrap:anywhere;max-width:850px;line-height:1.55}</style></head>");
 }
 
-export function promotionDiagnosticXlsx(report: PromotionDiagnosticReport) {
+export function promotionDiagnosticXlsx(sourceReport: PromotionDiagnosticReport, options?: PromotionDiagnosticDisplayOptions) {
+  const report = promotionDiagnosticDisplayReport(sourceReport, options);
   const sheets: XlsxOutputSheet[] = report.tables.map((table) => ({
     name: table.title.slice(0, 25),
     rows: [[...table.columns.map((column) => column.label)], ...table.rows],

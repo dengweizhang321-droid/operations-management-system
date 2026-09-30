@@ -43,6 +43,21 @@ def write_capacity_evidence(name, payload):
 class InsightsFoundationTests(TestCase):
     fact = overview_fixture.StoreOverviewTests.fact
 
+    def test_caller_deadline_is_remaining_budget_not_a_new_65_second_window(self):
+        from netshop.insights_common import actor_fence
+        clock = [0.0]
+        def delayed_actor(principal):
+            result = actor_fence(principal); clock[0] = 6.0; return result
+        with patch("netshop.insights_common.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.insights_common.actor_fence", side_effect=delayed_actor):
+            with self.assertRaises(NetshopApiError) as failure:
+                read_context(self.principal, self.spec(), deadline=5.0)
+        self.assertEqual(failure.exception.code, "source_not_ready")
+        with patch("netshop.insights_common.time.monotonic", return_value=10.0), patch("netshop.insights_common.actor_fence") as actor:
+            with self.assertRaises(NetshopApiError): read_context(self.principal, self.spec(), deadline=9.0)
+            actor.assert_not_called()
+        for invalid in (True, float("inf"), float("nan"), "65"):
+            with self.assertRaises(NetshopApiError): read_context(self.principal, self.spec(), deadline=invalid)
+
     def test_initial_actor_sql_time_is_inside_whole_read_deadline(self):
         from netshop.insights_common import actor_fence
         clock = [0.0]

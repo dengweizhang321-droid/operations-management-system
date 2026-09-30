@@ -233,8 +233,12 @@ def context_versions(platform, names, revision):
     return vector
 
 
-def read_context(principal, spec):
-    deadline = time.monotonic()+65
+def read_context(principal, spec, *, deadline=None):
+    started = time.monotonic()
+    if deadline is not None and (type(deadline) not in {int, float} or not isfinite(deadline)):
+        raise NetshopApiError("共享内部读取期限无效")
+    deadline = started + 65 if deadline is None else min(deadline, started + 65)
+    if started > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     actor = actor_fence(principal)
     if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     require_supported_scope(principal)
