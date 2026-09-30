@@ -58,7 +58,7 @@
 .netshop-products .np-thumb{width:42px;height:42px;background:#eef2ef;border-radius:6px;display:grid;place-items:center;flex-shrink:0;color:#5f7567;overflow:hidden}
 .netshop-products .np-thumb img{display:block;width:100%;height:100%;object-fit:contain}
 .netshop-products .np-thumb.np-big{width:102px;height:102px}
-.netshop-products .np-empty-image{font-size:12px;text-align:center}
+.netshop-products .np-empty-image{font-size:12px;text-align:center;white-space:normal;line-height:1.2;padding:2px}
 .netshop-products .np-badge{display:inline-block;border-radius:4px;padding:2px 6px;font-size:12px;line-height:1.6;background:var(--np-soft);color:var(--np-brand)}
 .netshop-products .np-badge.np-warning{background:var(--np-warn-bg);color:var(--np-warn)}
 .netshop-products .np-column-picker{display:flex;flex-wrap:wrap;gap:12px;background:var(--np-soft);padding:10px;margin-bottom:10px;border-radius:6px;font-size:13px}
@@ -89,5 +89,6 @@
 .netshop-products .np-coverage{margin-top:12px}
 .netshop-products .np-coverage ul{padding-left:20px;overflow-wrap:anywhere}
 .netshop-products .np-source-meta{font-size:12px;color:var(--np-secondary);overflow-wrap:anywhere}
+.netshop-products .insights-read-state{min-height:140px;margin:12px 0;padding:20px}
 @media(max-width:1000px){.netshop-products .np-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.netshop-products .np-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.netshop-products{padding:14px}.netshop-products .np-two,.netshop-products .np-even{grid-template-columns:1fr}.netshop-products .np-panel{padding:13px}.netshop-products .np-tabs{gap:16px}.netshop-products .np-properties{grid-template-columns:105px minmax(0,1fr)}.netshop-products .np-filters .np-date-label{flex-basis:100%}.netshop-products .np-metric{padding:10px}.netshop-products .insights-metric>strong{font-size:22px}.netshop-products .np-bar-row{grid-template-columns:minmax(0,85px) minmax(15px,1fr) 78px}}
