@@ -86,6 +86,26 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
         self.assertEqual(section["matchedRange"]["shopDates"][0]["dates"], ["2026-09-01"])
         self.assertEqual(section["summary"]["spend"]["value"], 400)
+        ref = section["matchedRange"]["coverageRef"]
+        self.assertTrue(section["coverage"][ref]["complete"])
+        self.assertEqual(section["coverage"][ref]["expectedShopDatePairs"], 1)
+
+    def test_19_of_21_auxiliary_subset_is_complete_but_whole_fee_remains_null(self):
+        for day in range(1, 22):
+            self.day(day=f"2026-09-{day:02d}")
+            if day <= 19: self.day(day=f"2026-09-{day:02d}", promotion=False)
+        result = self.read(endDate="2026-09-21")
+        section = result["sections"]
+        self.assertIsNone(section["summary"]["spendRate"]["value"])
+        self.assertEqual(section["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        subset = section["coverage"][section["matchedRange"]["coverageRef"]]
+        self.assertTrue(subset["complete"])
+        self.assertEqual((subset["expectedShopDatePairs"], subset["coveredShopDatePairs"]), (19, 19))
+        self.assertEqual(subset["missingByShop"], [])
+        self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            with (Path(evidence)/"response-partial-19-of-21.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
 
     def test_rates_efficiency_and_shares_use_weighted_full_numerators(self):
         self.day(shop="A", rows=[{"id": "same", "values": {"spendCents": 100, "netTransactionAmountCents": 1000, "impressions": 10, "clicks": 1, "netOrders": 1}}])
@@ -282,6 +302,8 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(current["changes"]["spend"]["previous"]["value"], 100)
         self.assertEqual(gone["metrics"]["spend"]["value"], 0)
         self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertEqual(gone["observation"]["current"]["verifiedAbsentDates"], ["2026-09-01"])
+        self.assertEqual(gone["observation"]["previous"]["observedDates"], ["2026-08-31"])
         self.assertIn("已导入", " ".join(section["limitations"]))
         # An unowned identity in a completely reconciled store-day means that
         # the object universe is not complete, even when additive totals match.
@@ -293,6 +315,7 @@ class PromotionInsightsTests(TestCase):
         self.assertIsNone(current["changes"]["spend"]["previous"]["value"])
         unknown = next(r for r in section["items"] if r["id"] is None)
         self.assertFalse(unknown["drillable"])
+        self.assertEqual(unknown["observation"]["current"]["verifiedAbsentDates"], [])
         self.assertEqual(unknown["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
         self.assertEqual(section["contributions"]["comparedObjectCount"], 0)
         self.assertEqual(section["contributions"]["excludedObjectCount"], 2)

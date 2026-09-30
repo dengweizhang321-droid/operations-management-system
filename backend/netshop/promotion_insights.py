@@ -227,7 +227,8 @@ class _Reader:
         raw = raw_override if raw_override is not None else facts["shopRaw"] if object_id is None else facts["rawByObject"].get((names[0], object_id), {})
         product = facts["productDaily"] if object_id is None else facts["productByObject"].get((names[0], object_id), {})
         universe = absence_universe if absence_universe is not None else facts["productUniverse"]
-        verified_absence = {key for key in facts["shopRaw"] if object_view and allow_absence and (object_id is None or bool(object_id)) and universe.get(key) and key not in raw and key not in facts["failures"]}
+        verified_absence = {key for key, control in facts["shopRaw"].items() if object_view and allow_absence and (object_id is None or bool(object_id)) and universe.get(key) and key not in raw and key not in facts["failures"]
+            and all(control[k+"_present"] == control["row_count"] and abs(control[v[0]]) <= MAX_SAFE for k, v in METRICS.items())}
         observed = {key for key in set(raw) | verified_absence if key[0] in names and key[1] in dates and key not in facts["failures"]}
         c = coverage_for(self.platform, names, dates, observed)
         self.context["coverageBySource"][ref] = c
@@ -267,14 +268,15 @@ class _Reader:
                     matching_raw[key], matching_product[key] = a, b
         matched = set(matching_raw)
         matched_ref = ref+":matched"
-        matched_c = coverage_for(self.platform, names, dates, matched)
+        whole_matching = coverage_for(self.platform, names, dates, matched)
+        matched_c = {"expectedShopDatePairs": len(matched), "coveredShopDatePairs": len(matched), "complete": bool(matched), "missingByShop": [], "truncated": False}
         self.context["coverageBySource"][matched_ref] = matched_c
         sums = sum(matching_raw[k]["spend_cents"] for k in matched), sum(matching_product[k]["payment"] for k in matched)
         a = _metric("spend", matched_ref, [facts["source"]], sums[0] if matched else None, "available" if matched else "unavailable", None if matched else "no_records")
         b = _metric("payment", matched_ref, [facts["productSource"]], sums[1] if matched else None, "available" if matched else "unavailable", None if matched else "no_records")
         matched_rate = _ratio("spendRate", a, b, matched_ref)
         applicable = object_id is None or product_applicable
-        result["spendRate"] = matched_rate if matched_c["complete"] and applicable else _metric("spendRate", ref,
+        result["spendRate"] = matched_rate if whole_matching["complete"] and applicable else _metric("spendRate", ref,
             [facts["source"], facts["productSource"]], reason="incomplete_coverage" if applicable else "not_applicable")
         matched_range = {"scopeLabel": "仅已匹配平台×店铺×日期"+("×商品" if object_id else ""),
             "coverageRef": matched_ref, "metrics": {"spend": a, "payment": b, "spendRate": matched_rate},
@@ -361,6 +363,7 @@ def _objects(reader, names, options, deadline):
             "metrics": metrics, "comparisons": comparisons, "matchedRange": matched,
             "spendShare": _ratio("ctr", metrics["spend"], reader.focused_summary["spend"], metrics["spend"]["coverageRef"]),
             "changes": changes, "observedDates": sorted(r["business_date"] for r in current_rows), "coverageRef": metrics["spend"]["coverageRef"],
+            "observation": _observation(reader, [n], object_rows, selected_dates, facts["productUniverse"], bool(object_id)),
             "identitySemantics": "跟单SKU归因视角，费用不是独立投放SKU效果" if platform == "京东" else "推广商品ID"}
         result.append(row)
     return result
@@ -368,6 +371,24 @@ def _objects(reader, names, options, deadline):
 
 def _row_key(platform, name, kind, identity):
     return _canonical_token({"platform": platform, "shopName": name, "objectKind": kind, "sourceIdentity": identity})
+
+
+def _observation(reader, names, source_rows, selected_dates, universe, real_identity):
+    result = {}
+    for kind, dates in selected_dates.items():
+        observed = [d for d in dates if any((n, d) in source_rows for n in names)]
+        absent = []
+        if real_identity:
+            for d in dates:
+                valid = True
+                for n in names:
+                    key = (n, d)
+                    control = reader.facts["shopRaw"].get(key)
+                    if key in source_rows or key in reader.facts["failures"] or not universe.get(key) or not control or any(control[k+"_present"] != control["row_count"] or abs(control[v[0]]) > MAX_SAFE for k, v in METRICS.items()):
+                        valid = False; break
+                if valid: absent.append(d)
+        result[kind] = {"observedDates": observed, "verifiedAbsentDates": absent}
+    return result
 
 
 def _list_dates(context, options):
@@ -450,6 +471,7 @@ def _dimensions(reader, names, options, deadline, principal):
                 "mapping": {"status": "not_applicable", "linkIdentity": None, "evidence": "unverified",
                     "advertisedSkuId": None, "triggerSkuId": None, "followSkuId": None},
                 "coverageRef": metrics["spend"]["coverageRef"], "observedDates": sorted(k[1] for k in rows),
+                "observation": _observation(reader, names, all_period_rows, selected_dates, universe, real_identity),
                 "metrics": metrics, "comparisons": comparisons, "changes": changes,
                 "spendShare": _ratio("ctr", metrics["spend"], reader.focused_summary["spend"], metrics["spend"]["coverageRef"]),
                 "missingIdentity": dims["planId"] is None if kind == "plan" else dims["unitId"] is None if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"] is None,
