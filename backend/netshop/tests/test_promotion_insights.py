@@ -12,6 +12,7 @@ from django.db import connection, transaction, DatabaseError
 from django.db.models import F
 from django.http import QueryDict
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from access_control.models import AppUser
@@ -299,6 +300,40 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(plans["items"][0]["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
         self.assertEqual(plans["contributions"]["excludedObjectCount"], 1)
         self.assertIsNone(plans["objectCapabilities"]["keyword"]["unidentifiedCount"])
+
+    def test_conflicting_raw_identity_aliases_stay_unknown_not_named_fallback(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "P1", "计划id": "P2", "推广计划": "不能当ID"}}])
+        section = self.read(objectKind="plan")["sections"]
+        self.assertIsNone(section["items"][0]["id"])
+        self.assertEqual(section["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertFalse(section["items"][0]["drillable"])
+        self.assertEqual(section["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+
+    def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
+        from netshop.models import NetshopRow
+        for shop in range(10):
+            for day in range(1, 11):
+                identities = [f"P{i:03d}" for i in range(50)]
+                self.day(shop=f"S{shop}", day=f"2026-09-{day:02d}", rows=[{"id": id, "values": {"spendCents": 200, "netTransactionAmountCents": 400, "impressions": 100, "clicks": 3, "netOrders": 1}} for id in identities])
+                self.day(shop=f"S{shop}", day=f"2026-09-{day:02d}", promotion=False, rows=[{"id": id, "values": {"transactionAmountCents": 1000}} for id in identities])
+        with CaptureQueriesContext(connection) as calls:
+            start = time.monotonic(); result = self.read(endDate="2026-09-10"); elapsed = time.monotonic()-start
+        self.assertEqual(result["sections"]["summary"]["spend"]["value"], 1_000_000)
+        self.assertEqual(result["sections"]["summary"]["spendRate"]["value"], .2)
+        self.assertEqual(result["sections"]["pagination"]["total"], 500)
+        self.assertEqual(len(result["sections"]["items"]), 20)
+        self.assertEqual(result["sections"]["contributions"]["excludedObjectCount"], 500)
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            source = NetshopRow.objects.filter(source="jd_promotion", business_date__gte="2026-09-01", business_date__lt="2026-09-11")
+            plan = source.values("shop_name", "business_date", "sku_id").annotate(count=__import__("django.db.models", fromlist=["Count"]).Count("id"), spend=__import__("django.db.models", fromlist=["Sum"]).Sum("spend_cents")).explain(format="json", analyze=True, buffers=True)
+            with (Path(evidence)/"promotion-query-scale.json").open("x", encoding="utf-8") as output:
+                json.dump({"fixture": "synthetic-promotion-5000-v1", "promotionRows": 5000, "productRows": 5000,
+                    "shops": 10, "days": 10, "objects": 500, "sqlCalls": len(calls), "seconds": elapsed,
+                    "bytes": len(json.dumps(result, ensure_ascii=False).encode()), "controlSpendCents": 1_000_000,
+                    "plan": json.loads(plan), "limitation": "This synthetic sample does not establish production P95 or maximum-source cost."}, output, ensure_ascii=False, indent=2)
 
     def test_leap_date_focus_does_not_compare_to_shorter_baseline(self):
         self.pair(day="2024-02-29")
