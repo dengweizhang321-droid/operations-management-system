@@ -11,6 +11,7 @@ read_patterns = [
     path("analysis-records", views.analysis_records, name="netshop-analysis-records"),
     path("analysis-records/continuation", continuation, name="netshop-analysis-continuation"),
     path("analysis-options", views.analysis_options, name="netshop-analysis-options"),
+    path("store-overview", views.store_overview, name="netshop-store-overview"),
     path("overview", views.overview, name="netshop-overview"),
     path("products", views.products, name="netshop-products"),
     path("product-performance", views.product_performance, name="netshop-product-performance"),

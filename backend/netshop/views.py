@@ -586,3 +586,16 @@ def product_image(request: HttpRequest, content_hash: str) -> JsonResponse:
         return _json(payload, revision=revision)
     except Exception as error:
         return _error(error, "读取网店商品图片元数据失败")
+
+
+@require_GET
+def store_overview(request: HttpRequest) -> JsonResponse:
+    from .store_overview import validate, read
+    try:
+        principal = _principal(request)
+        spec = validate(request.GET)
+        _platforms(principal, [spec["platform"]])
+        payload = read(principal, spec)
+        return _json(payload, revision=payload["sourceRevisions"]["netshop"])
+    except Exception as error:
+        return _error(error, "读取网店均衡总览失败")

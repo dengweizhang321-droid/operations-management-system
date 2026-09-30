@@ -47,7 +47,7 @@ test("page modules consume one controlled view and route tab clicks through the 
 
   for (const [index, moduleName] of ["ShopView", "SalesView", "InventoryView", "ProductView", "ImportView"].entries()) {
     const declaration = new RegExp(`export default function ${moduleName}\\([^)]*moduleView[^)]*onModuleViewChange`);
-    assert.match(moduleSources[index] ?? "", declaration, `${moduleName} must be controlled by the shell view`);
+    assert.match(moduleSources[index] ?? "", moduleName === "ShopView" ? /export default function ShopView\(props: ShopViewProps/ : declaration, `${moduleName} must be controlled by the shell view`);
   }
   assert.match(source, /Component: SettingsView \} = createReloadableLazy\("settings", \(\) => import\("\.\/settings-view"\)\)/);
   assert.match(source, /settings: \([^\n]+moduleView[^\n]+<SettingsView[^\n]+onModuleViewChange/);

@@ -7,6 +7,7 @@ type ModuleErrorBoundaryProps = {
   resetKey: string;
   onRetry: () => void;
   onOpenDashboard: () => void;
+  returnLabel?: string;
 };
 
 type ModuleErrorBoundaryState = { failed: boolean };
@@ -76,10 +77,10 @@ export default class ModuleErrorBoundary extends Component<ModuleErrorBoundaryPr
       >
         <span className="state-symbol" aria-hidden="true">!</span>
         <strong id="module-error-title">当前模块发生异常</strong>
-        <p id="module-error-description">导航和筛选仍可使用。你可以重试当前模块，或先返回 BI 看板继续工作。</p>
+        <p id="module-error-description">导航和筛选仍可使用。你可以重试当前模块，或使用下方入口继续工作。</p>
         <div className="data-state-actions">
           <button type="button" className="secondary-button" onClick={this.retryCurrentModule}>重试当前模块</button>
-          <button type="button" className="primary-button" onClick={this.props.onOpenDashboard}>返回 BI 看板</button>
+          <button type="button" className="primary-button" onClick={this.props.onOpenDashboard}>{this.props.returnLabel ?? "返回 BI 看板"}</button>
         </div>
       </section>
     );
