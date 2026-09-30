@@ -1,6 +1,6 @@
 # 商品表现 P：接口与来源交接
 
-2026-10-01。阶段：商品私有范围独立复核通过；公共窄屏菜单图标补充复核在途。此文件不表示 main 已合并或生产采用。
+2026-10-01。阶段：商品范围及公共顶部导航补充独立复核通过，可交 I 集成。此文件不表示 main 已合并或生产采用。
 
 用户已选择唯一“均衡经营台”。顶部系统/栏目导航的冻结设计由 I 接入；P 组件不复制第二套导航。三个页签为经营表现、单品详情、货品档案，保留 `view=products`，经营默认 SPU。
 
@@ -98,7 +98,9 @@ P 目录第一次明确传 all/all/all opt-in，读取 I 的真实 catalogFilter
 
 Q 商品范围最终私有报告：`review/products-review-final-private-b5d0af1dbf8045ca935c0add80097738/{README.md,record.json,source-hashes.json}`，Q clean `153a816781e2a7fc6644313aaa4977234eca12d1`，绑定产品候选 1aa 与 69 文件摘要。Q 自己 fresh 62 Node、build/boundary/lint exit0、39 组件 UI、15 Home UI；最新实际 signed 目录 PG 7 测试/normalstop，真实 full/page 两控制+10错误拒绝。商品私有 P1/P2 已闭合。没有重复核心无变化 PG 或累加测试轮数。
 
-公共尚需 I 精准 CSS 补充：390/320 的全局 `.title-area span{display:none}` 隐藏汉堡图标，虽然按钮/菜单打开与 Escape 功能正常，但图标为空。Q 仅加测试、没改公共；证据 `review/20260930T230010787Z-0628e137-9822-403f-8186-5a588c149135`。待 I 唯一公共补丁及 Q 定向菜单复核关闭；此项不能用商品 39 UI 或 desktop 几何冒通过。
+公共顶部导航 P2 已闭合：I 唯一 CSS 补丁 `6abe3202dd4bfb80f83f9975b1748128c985bb7d` 恢复被全局窄屏 caption 规则隐藏的汉堡 glyph，Root 正常继承为 `013b53aa3f024c6662693cda5187cbb85a12e379`。Q clean `e37264029bb63f9d591591e6370d2201ac487e7f` 定向真实 Home 17 检查通过：390/320 glyph 可见、20px、有实际尺寸；菜单展开、Escape 关闭、aria 与无溢出均通过，browser/server 已关闭。独占证据 `review/20260930T231419736Z-6ba39e38-98c4-40a1-835e-0917dd097faf`；失败历史保留，不冒称旧假左栏或 blank glyph 图通过。没有重复无变化核心 PG。
+
+Q 最终补充批准回执 `review/products-review-final-supplement-ea82ecec9c714daea7efc8e8fdbecb84/{README.md,record.json,source-hashes.json,actual-home-compile-source.json,resources-closed.json}`：批准商品候选 013b 的 P M3 与公共顶部导航，无剩 P0/P1/P2。69 源码与此前批准 1aa 相比，仅 top-navigation.css 变化、其余 68 逐字相同；随后 P 交接只增加文档/解码回放工具，无运行源码变更。资源审计 `review/products-review-resource-audit-7b5e8549790f47488afaf1c8b39b7171` 记录全部 Q 10 PG/8 UI 正常关闭，含失败历史。
 
 分支 `codex/netshop-products`，Root 工作树 `D:\.codex\worktrees\netshop-products\运营管理系统`。后端/UI/Q 的独立分支和工作树继续保留给 I；只推栏目分支，不自行合 main。最终源码 SHA、截图、基线失败对照和 Q 结论在最后一次交接补齐。
 
@@ -106,9 +108,11 @@ Q 商品范围最终私有报告：`review/products-review-final-private-b5d0af1
 | --- | --- | --- |
 | 后端 `/root/content_mapping` | `codex/netshop-products-query` / `D:\.codex\worktrees\netshop-products-query\运营管理系统` | `9e323618398a7f94b18cc06955541da79c2a6e25` |
 | 页面 `/root/products_ui` | `codex/netshop-products-ui` / `D:\.codex\worktrees\netshop-products-ui\运营管理系统` | `985444d2951d54a243d11a0c2cc1fca5bd7c40c1` |
-| 独立复核 `/root/design_references` | `codex/netshop-products-review` / `D:\.codex\worktrees\netshop-products-review\运营管理系统` | `153a816781e2a7fc6644313aaa4977234eca12d1`，只写 Q 测试/工具 |
+| 独立复核 `/root/design_references` | `codex/netshop-products-review` / `D:\.codex\worktrees\netshop-products-review\运营管理系统` | 商品私有 `153a8167`、导航补充 `e3726402`，只写 Q 测试/工具 |
 
 P 目前代码候选 `4c94925aaff7737e91e5aeae99274b2787d2cd12`，后续交接文档或 I 公共修正会生成最后 SHA。Root/作者所有私有 PG 正常停止；自身 mock UI 服务和临时浏览器已关闭。3120/18120/18121/13120 保留端口未启用。外部唯一选定 Demo 57873 按用户预览保留；清理全部交 I 按任务/资源归属执行。
+
+忽略文件保全：各角色自有 node_modules、.runtime、.wrangler、dist/构建产物暂留树内给 I；不得当作无改动即删除。非敏感必须留存的 SQL/计划、wire、日志、截图、源码/依赖摘要和资源回执已写外部 E 各角色目录，禁止覆写。Q 独立回归测试/工具在 review 子分支，I 计划正常合并其祖先供最终远端包含性和安全归档；P 不代替 I 清理或合 main。
 
 UI 作者曾跑全库 2866（2832 pass、14 fail、20 skip）；精确 main39bc 同文件复现 13 个失败，另一个 managed PowerShell whole-run 失败在作者单文件 38/38 中未复现，不能称根因已修复。此候选相关检查与构建通过，不声称全库测试/类型全绿。正式 来源、历史 ERP 映射、历史 SKU 关系及 A 精确钻取组合限制保持上述准确缺失态。
 

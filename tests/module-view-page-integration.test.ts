@@ -57,11 +57,11 @@ test("page modules consume one controlled view and route tab clicks through the 
   assert.match(source, /ai: \([^\n]+moduleView[^\n]+<AiModuleView[^\n]+onModuleViewChange/);
   // Tabs can live in shared/column components. Exercise every catalog value
   // through the single shell transition rather than count call-site strings.
-  for (const module of ["shop", "sales", "inventory", "product", "import"] as const) {
-    for (const view of moduleViewCatalog[module].views) {
-      const location = updateModuleViewLocation("/?period=custom&from=2026-09-01&to=2026-09-07", module, view);
+  for (const moduleKey of ["shop", "sales", "inventory", "product", "import"] as const) {
+    for (const view of moduleViewCatalog[moduleKey].views) {
+      const location = updateModuleViewLocation("/?period=custom&from=2026-09-01&to=2026-09-07", moduleKey, view);
       const state = parseShellLocation(location);
-      assert.equal(state.module, module); assert.equal(state.view, view);
+      assert.equal(state.module, moduleKey); assert.equal(state.view, view);
       assert.deepEqual(state.period, { kind: "custom", from: "2026-09-01", to: "2026-09-07" });
     }
   }
