@@ -63,6 +63,8 @@ test("all four states distinguish true zero, missing field, partial, unmapped an
   assert.equal(compareMetrics(syntheticMetrics.trueZero, syntheticMetrics.trueZero).reasonCode, "zero_denominator");
   assert.equal(compareMetrics(syntheticMetrics.trueZero, { ...syntheticMetrics.trueZero, value: -1 }).reasonCode, "negative_baseline");
   assert.equal(compareMetrics(syntheticMetrics.trueZero, syntheticMetrics.partial).reasonCode, "incomplete_baseline");
+  assert.equal(compareMetrics(syntheticMetrics.trueZero, { ...syntheticMetrics.trueZero, sourceIds: ["tmall_product_daily"] }).reasonCode, "not_applicable");
+  assert.throws(() => decodeMetric({ ...syntheticMetrics.trueZero, sourceIds: ["jd_sku_daily", "jd_sku_daily"] }));
   assert.equal(compareMetrics({ ...syntheticMetrics.trueZero, value: .2, unit: "RATIO" }, { ...syntheticMetrics.trueZero, value: .1, unit: "RATIO" }).value, 10);
   assert.equal(formatMetric({ ...syntheticMetrics.trueZero, unit: "MULTIPLE", value: 2 }), "2 倍");
   assert.equal(formatMetric({ ...syntheticMetrics.trueZero, unit: "RATIO", value: 1.5 }), "150%");

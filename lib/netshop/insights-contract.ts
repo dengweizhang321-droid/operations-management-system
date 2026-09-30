@@ -44,6 +44,7 @@ export function decodeMetric(value: unknown): MetricValue {
   if (m.status === "available" || m.status === "partial") {
     if (typeof m.value !== "number" || !Number.isFinite(m.value) || ["COUNT", "CNY_CENT"].includes(String(m.unit)) && !Number.isSafeInteger(m.value) || m.sourceIds.length === 0 || m.basis === "unverified") return fail("共享指标数值或来源无效");
   } else if (m.value !== null) return fail("不可用指标须为空");
+  if (new Set(m.sourceIds as string[]).size !== (m.sourceIds as string[]).length) return fail("指标来源引用重复");
   if (m.status === "available" && m.reasonCode !== null || m.status !== "available" && m.reasonCode === null || m.status === "partial" && (m.aggregation !== "sum" || ["RATIO", "MULTIPLE"].includes(String(m.unit)))) return fail("指标四态与原因不一致");
   for (const key of ["numerator", "denominator"]) if (m[key] !== undefined && m[key] !== null && (typeof m[key] !== "number" || !Number.isFinite(m[key]))) return fail("比率输入无效");
   if (m.numerator !== undefined || m.denominator !== undefined) {
@@ -65,7 +66,7 @@ export function adaptOverviewMetric(metric: OverviewMetric, coverageRef: string)
 export function compareMetrics(currentValue: MetricValue, baselineValue: MetricValue): MetricComparison {
   const a = decodeMetric(currentValue), b = decodeMetric(baselineValue);
   const method = a.unit === "RATIO" ? "percentage_points" : "relative_change";
-  const reason = a.unit !== b.unit || a.basis !== b.basis ? "not_applicable" : a.status !== "available" || b.status !== "available" ? "incomplete_baseline" : method === "relative_change" && b.value === 0 ? "zero_denominator" : method === "relative_change" && Number(b.value) < 0 ? "negative_baseline" : null;
+  const reason = a.unit !== b.unit || a.basis !== b.basis || JSON.stringify([...a.sourceIds].sort()) !== JSON.stringify([...b.sourceIds].sort()) ? "not_applicable" : a.status !== "available" || b.status !== "available" ? "incomplete_baseline" : method === "relative_change" && b.value === 0 ? "zero_denominator" : method === "relative_change" && Number(b.value) < 0 ? "negative_baseline" : null;
   const value = reason ? null : method === "percentage_points" ? (Number(a.value)-Number(b.value))*100 : (Number(a.value)-Number(b.value))/Number(b.value);
   if (value !== null && !Number.isFinite(value)) return { value: null, method, status: "unavailable", reasonCode: "unsafe_integer" };
   return { value, method, status: reason ? "unavailable" : "available", reasonCode: reason };

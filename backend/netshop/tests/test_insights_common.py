@@ -1,15 +1,18 @@
 """Synthetic foundation contract and owning-reader negatives, including PG roles."""
 import hashlib
 import json
+import time
+from pathlib import Path
 from datetime import date
 from unittest import skipUnless
 from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.db import connection, transaction, DatabaseError
-from django.db.models import F
+from django.db.models import F, Count, Sum
 from django.http import QueryDict
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from access_control.models import AppUser
@@ -100,6 +103,18 @@ class InsightsFoundationTests(TestCase):
         self.assertEqual(coverage["expectedShopDatePairs"], 367)
         self.assertEqual(len(coverage["missingByShop"][0]["dates"]), 367)
 
+    def test_maximum_scope_shape_keeps_all_50_shops_and_derived_missing_dates(self):
+        shops = ["京东\x1f"+"合"*96+f"{i:03d}" for i in range(50)]
+        result = read_context(self.principal, self.spec(startDate="2025-02-28", endDate="2026-02-28", outlet=shops))
+        self.assertEqual(len(result["effectiveScope"]["shopKeys"]), 50)
+        self.assertEqual(len(result["sourceRevisions"]), 102)
+        self.assertEqual(result["coverageBySource"]["jd_sku_daily:sku_daily:京东:yearAgo"]["expectedShopDatePairs"], 18350)
+        encoded = json.dumps(result, ensure_ascii=False).encode("utf-8")
+        self.assertLessEqual(len(encoded), 2*1024*1024)
+        evidence = Path(r"E:\codex-artifacts\netshop-scheme2-20260930\foundation\capacity")
+        evidence.mkdir(parents=True, exist_ok=True)
+        (evidence/"maximum-shape.json").write_text(json.dumps({"fixture": "synthetic-empty-source-v1", "shops": 50, "currentDays": 366, "yearAgoDays": 367, "bytes": len(encoded), "sourceMembers": 102, "truncated": False}), encoding="utf-8")
+
     def test_metric_states_and_bad_baselines_do_not_invent_growth(self):
         metric = {"value": 0, "unit": "CNY_CENT", "status": "available", "reasonCode": None, "sourceIds": ["jd_sku_daily"], "basis": "product_day_sum", "aggregation": "sum", "coverageRef": "current"}
         self.assertEqual(validate_metric(metric)["value"], 0)
@@ -107,6 +122,7 @@ class InsightsFoundationTests(TestCase):
             with self.assertRaises(NetshopApiError): validate_metric({**metric, **bad})
         self.assertEqual(compare_metrics(metric, metric)["reasonCode"], "zero_denominator")
         self.assertEqual(compare_metrics(metric, {**metric, "value": -10})["reasonCode"], "negative_baseline")
+        self.assertEqual(compare_metrics(metric, {**metric, "sourceIds": ["tmall_product_daily"]})["reasonCode"], "not_applicable")
         self.assertEqual(compare_metrics({**metric, "unit": "RATIO", "value": .2}, {**metric, "unit": "RATIO", "value": .1})["value"], 10)
         ratio = {**metric, "unit": "RATIO", "aggregation": "ratio_of_sums", "numerator": 0, "denominator": 10}
         self.assertEqual(validate_metric(ratio)["value"], 0)
@@ -200,6 +216,37 @@ class InsightsFoundationTests(TestCase):
         self.assertFalse(self.performance()["summaryFieldAvailability"]["visitors"]["complete"])
         self.assertTrue(self.performance()["summaryFieldAvailability"]["transactionAmountCents"]["complete"])
         self.assertFalse(self.performance(end="2026-09-02")["items"][0]["fieldAvailability"]["transactionAmountCents"]["complete"])
+
+    @skipUnless(connection.vendor == "postgresql", "Requires isolated PostgreSQL execution plans")
+    def test_synthetic_query_scale_controls_plans_bytes_and_elapsed(self):
+        from netshop.query import PERFORMANCE_FIELD_ALIASES
+        from netshop.store_overview import NumericMetricPresent
+        fields = {aliases[0]: 0 for aliases in PERFORMANCE_FIELD_ALIASES.values()}
+        fields.update(transactionAmountCents=1000, visitors=100, transactionCustomers=10)
+        for index in range(10): self.fact(shop=f"scale-{index}", values={"transactionAmountCents": 1000, "visitors": 100, "transactionCustomers": 10})
+        NetshopRow.objects.update(metrics_json=fields)
+        batches = {r.shop_name: r.last_import_batch_id for r in NetshopRow.objects.all()}
+        rows = []
+        for shop, batch in batches.items():
+            for day in range(1, 11):
+                for product in range(50):
+                    if day == 1 and product == 0: continue
+                    key = f"scale:{shop}:{day}:{product}"
+                    rows.append(NetshopRow(source_row_key=key, source_row_hash=hashlib.sha256(key.encode()).hexdigest(), first_import_batch_id=batch, last_import_batch_id=batch, source_row_number=2, source="jd_sku_daily", dataset="sku_daily", platform="京东", shop_name=shop, business_date=f"2026-09-{day:02d}", sku_id="same-product" if product == 0 else f"P{product}", metrics_json=fields, transaction_amount_cents=1000, visitors=100, transaction_customers=10))
+        NetshopRow.objects.bulk_create(rows, batch_size=500)
+        queryset = NetshopRow.objects.filter(source="jd_sku_daily", dataset="sku_daily", platform="京东", business_date__gte="2026-09-01", business_date__lt="2026-09-11")
+        self.assertEqual(queryset.count(), 5000)
+        rank_plan = queryset.values("platform", "shop_name", "sku_id").annotate(transaction_amount_cents=Sum("transaction_amount_cents"), visitors=Sum("visitors")).order_by("-transaction_amount_cents", "-visitors", "sku_id")[:50].explain(format="json", analyze=True, buffers=True)
+        field_plan = queryset.values("shop_name", "business_date").annotate(rows=Count("id"), visitors_present=Count("id", filter=NumericMetricPresent(("visitors", "商品访客数")))).explain(format="json", analyze=True, buffers=True)
+        with CaptureQueriesContext(connection) as calls:
+            start = time.monotonic(); result = self.performance(end="2026-09-10"); elapsed = time.monotonic()-start
+        self.assertEqual(result["summary"]["transactionAmountCents"], 5_000_000)
+        self.assertTrue(result["summaryFieldAvailability"]["visitors"]["complete"])
+        self.assertEqual(len(result["items"]), 50)
+        self.assertEqual(result["pagination"]["total"], 500)
+        evidence = Path(r"E:\codex-artifacts\netshop-scheme2-20260930\foundation\capacity")
+        evidence.mkdir(parents=True, exist_ok=True)
+        (evidence/"query-scale.json").write_text(json.dumps({"fixture": "synthetic-5000-v1", "database": "private-postgresql", "rows": 5000, "shops": 10, "days": 10, "products": 500, "sqlCalls": len(calls), "seconds": elapsed, "bytes": len(json.dumps(result, ensure_ascii=False).encode()), "controlPaymentCents": 5_000_000, "rankPlan": json.loads(rank_plan), "fieldPlan": json.loads(field_plan), "limits": "This bounded synthetic sample does not establish production P95 or all maximum-source SQL cost"}, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def test_identity_rejects_wrong_dimension_scope_duplicate_and_changed_revision(self):
         for identities in [[json.dumps(["天猫", "A", "sku", "1"])], [json.dumps(["京东", "B", "sku", "1"])], [json.dumps(["京东", "A", "spu", "1"])], [json.dumps(["京东", "A", "sku", "1"])]*2]:

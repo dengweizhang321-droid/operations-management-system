@@ -6,3 +6,7 @@
 .insights-metric > small,.insights-coverage { color:var(--color-text-muted,#66756b); font-size:var(--font-size-caption,12px); }
 .insights-coverage { padding:8px 0; overflow-wrap:anywhere; }
 .insights-comparison { white-space:nowrap; }
+.insights-pagination { flex-wrap:wrap; }
+.insights-pagination.jd-sku-pagination,.insights-pagination .row-action,.insights-read-state button { font-size:var(--font-size-label,13px); font-family:inherit; }
+.insights-read-state,.insights-read-state p { font-size:var(--font-size-body,14px); }
+.insights-read-state strong { font-size:var(--font-size-card-title,16px); }
