@@ -36,3 +36,5 @@ Demo 交互验证与正式 PostgreSQL/权限/查询验证分别记录；本轮�
 设计选择仍待用户；只推送 `codex/netshop-comparison`，由I负责接纳与后续串行合并、清理。公共入口、路由、权限、共享算法和底座文件未变更。
 
 接口、字段映射、已知源限制与后续正式验收见 [dependencies.md](dependencies.md)；设计协议边界样例见 [contract-sample.json](contract-sample.json)。这些材料不是新正式接口的冻结版本。
+
+本轮已通过27项合成UI回归及独立Q的26项补充检查；完整完成表、截图、提交/树清单和未验证项见 [handoff.md](handoff.md)。用户尚未选版，正式改造和PG/真实权限验收尚未开始。
