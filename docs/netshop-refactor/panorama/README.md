@@ -1,12 +1,12 @@
-# 店铺全景 · 五版设计交付
+# 店铺全景01 · 设计交付
 
-2026-09-30，角色 S。当前交付阶段为**设计完成 / 合成 UI 验证**。用户最新指令：保留01章节驾驶舱、02—05继续改版，字体/色调/栏目位置按系统统一，导航置顶。本轮已完成上述设计调整，用户定版后才开始正式栏目改造；没有业务 API、PostgreSQL 查询或正式页面接线。
+2026-09-30，角色 S。用户已选定只保留01章节驾驶舱，当前预览已移除02—05与版式选择。截图所指的店铺标题/筛选区随页面滚动，商品明细新增ID/标题搜索、页码、每页条数与上下翻页。此交付仍是独立合成Demo；正式接口、PostgreSQL与主线接线须等总控冻结依赖。
 
 基线：首次核验 `c7c6c2a4c012dd60af0565b97b2d2f11f9246c0a`；首轮设计 `38685c2ad14b3500619d5a8789c3a61a45d78273` 已推送。第二轮同步总控登记 main `f08b34884fdc83813e4d2c8f3ec86b8ed2a795fe`，公共底座与接口仍未冻结。草案 `netshop-insights-v1` 不是可调用协议。
 
 ## 观看方式
 
-静态预览：`http://127.0.0.1:3160/?layout=1&shop=jd-demo`。顶部可切换五版、店铺、日期、比较与演示状态。直接打开无 shop 参数的入口先要求明确选择店铺，不隐式选第一店。
+静态预览：`http://127.0.0.1:3160/?layout=1&shop=jd-demo`。可切换店铺、日期、比较与演示状态；商品表支持ID/标题搜索和底部分页。直接打开无 shop 参数的入口先要求明确选择店铺，不隐式选第一店。
 
 ```powershell
 node app/netshop/panorama/demo/serve.mjs
@@ -14,17 +14,13 @@ node app/netshop/panorama/demo/serve.mjs
 
 服务器仅监听回环 3160，只服务四个静态资源、仅 GET/HEAD；无 gateway、数据库、凭据、定时任务或远程依赖。3160 为 S 候选资源，已把启用情况回报总控；未启用配套 18160/18161/13160。旧临时 3140 仅本任务静态进程已关闭，避免与 P 候选冲突。
 
-| 版式 | 信息结构 | 适用场景 | 截图 |
-| --- | --- | --- | --- |
-| 01 章节驾驶舱（保留） | 顶部八章索引 + 原五卡 + 趋势/经营侧写 + 八章 | 日常巡店与全面阅读 | [01](evidence/round-2/layout-1.png) |
-| 02 经营对照矩阵 | 八章为行、本期/基期/变化/来源为列，点行展开章节 | 核对成绩与差异 | [02](evidence/round-2/layout-2.png) |
-| 03 双列专题台 | 四组专题导航，两章并排、来源表在下方 | 查看相关经营专题 | [03](evidence/round-2/layout-3.png) |
-| 04 趋势先行 | 大幅单源趋势、当日定位、章节切换、逐日表 | 追踪变化与核查日期 | [04](evidence/round-2/layout-4.png) |
-| 05 八章折叠档案 | 八行摘要，展开查看对应指标、表格与来源 | 按重点章节阅读 | [05](evidence/round-2/layout-5.png) |
+| 版式 | 信息结构 | 当前证据 |
+| --- | --- | --- |
+| 01 章节驾驶舱 | 顶部八章索引、原五卡、趋势/经营侧写、八章；商品表局部搜索与分页 | [单01页头](evidence/round-3/only01-header.png)、[搜索与底部分页](evidence/round-3/product-search-pagination.png) |
 
-设计引用：森林绿 `#396149`、深绿 `#293f32`、应用背景 `#f5f7f6`，来自已提交 `app/styles/tokens.css`。字体沿用 Inter / SF Pro Display / PingFang SC / Microsoft YaHei / system-ui；正文14px、标题20px、章节18px、卡片标题16px、KPI24px、表格/筛选13px、说明12px，涨红跌绿。桌面主导航位于最上方、网店栏目导航在下方、日期位于右上；01八章节导航已横向置于指标前。位置依据已提交 `app/shell/{app-shell.tsx,top-navigation.css,navigation-catalog.ts}`；没有改公共导航、共享 tokens、日期组件或总览01。
+设计引用：森林绿 `#396149`、深绿 `#293f32`、应用背景 `#f5f7f6`，来自已提交 `app/styles/tokens.css`。字体沿用 Inter / SF Pro Display / PingFang SC / Microsoft YaHei / system-ui；正文14px、标题20px、章节18px、卡片标题16px、KPI24px、表格/筛选13px、说明12px，涨红跌绿。桌面主导航位于最上方、网店栏目导航在下方、日期位于右上；01八章节导航已横向置于指标前。店铺标题和筛选区不再sticky；主导航与系统栏目导航仍沿用原系统行为。位置依据已提交 `app/shell/{app-shell.tsx,top-navigation.css,navigation-catalog.ts}`；没有改公共导航、共享 tokens、日期组件或总览01。
 
-第二轮参考信息组织方式：01保留；02借鉴[AG Grid 表格与图表结合](https://www.ag-grid.com/javascript-data-grid/integrated-charts/)，03参考[Grafana 分组面板](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/create-dashboard/dashboard-groupings/)，04参考[Tremor Dashboard](https://blocks.tremor.so/templates)，05参考[Carbon 折叠面板](https://carbondesignsystem.com/components/accordion/usage/)。未引入上述库或复制其代码。首轮设计与参考保留在 `38685c2a`。
+01的信息组织参考[Tremor Dashboard](https://github.com/tremorlabs/template-dashboard-oss)。早期五版及第二轮的已提交截图保留为历史证据，不再作为当前候选；未复制参考项目代码或安装其依赖。
 
 ## 八章节完成表
 
@@ -60,3 +56,10 @@ node app/netshop/panorama/demo/verify.mjs
 首次自动检查遇到浏览器包缺失，改用现有独立 Chrome；首次版式/窄屏检查发现报告章计数重复与 grid min-content 溢出，修订后复跑。未删除断言或放宽覆盖标准。
 
 正式改造阶段的来源、字段与验收门槛见[字段映射](field-mapping.md)，公共接线需求见[接线请求](integration-request.md)。总控确认依赖 SHA 均合入 main 后，本角色同步主线、按定版实施、隔离 PG/UI 联调、回归，再交 I 串行合并。
+
+
+## 单01搜索与分页
+
+本轮证据在[evidence/round-3](evidence/round-3/README.md)。18条合成商品与原成交商品数一致；TOP5=93%、TOP10=97%，其余7%保留在未分类。默认5条/页共4页，支持10/20条，末页/空结果禁用越界导航。搜索按ID或标题包含匹配，不区分ID大小写；支持搜索按钮、Enter与清空。只有商品明细改变，上方汇总、类目贡献与期间统计保留完整店铺范围。搜索/每页条数/店铺/日期变化从第一页显示，切每页条数与搜索后恢复相应控件焦点，商品详情返回保留查询及页码。
+
+当前实现仅过滤合成夹具。正式实现必须消费P的服务端q/page/pageSize与范围/版本绑定，不能把本地分页当真实接口完成；新公共接线需求见S-007。旧layout=2—5书签规范化到唯一01。CLI检查脚本已改为单01，可复现入口保留，本轮UI验证使用CUA。
