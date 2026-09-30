@@ -9,7 +9,7 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.db import connection, transaction, DatabaseError
-from django.db.models import F
+from django.db.models import F, Count, Sum
 from django.http import QueryDict
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -328,7 +328,7 @@ class PromotionInsightsTests(TestCase):
         evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
         if evidence:
             source = NetshopRow.objects.filter(source="jd_promotion", business_date__gte="2026-09-01", business_date__lt="2026-09-11")
-            plan = source.values("shop_name", "business_date", "sku_id").annotate(count=__import__("django.db.models", fromlist=["Count"]).Count("id"), spend=__import__("django.db.models", fromlist=["Sum"]).Sum("spend_cents")).explain(format="json", analyze=True, buffers=True)
+            plan = source.values("shop_name", "business_date", "sku_id").annotate(count=Count("id"), spend=Sum("spend_cents")).explain(format="json", analyze=True, buffers=True)
             with (Path(evidence)/"promotion-query-scale.json").open("x", encoding="utf-8") as output:
                 json.dump({"fixture": "synthetic-promotion-5000-v1", "promotionRows": 5000, "productRows": 5000,
                     "shops": 10, "days": 10, "objects": 500, "sqlCalls": len(calls), "seconds": elapsed,
