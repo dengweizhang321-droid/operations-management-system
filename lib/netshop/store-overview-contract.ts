@@ -49,6 +49,9 @@ export type StoreOverviewResponse = {
 
 const expectedUnits: Record<OverviewMetricKey, OverviewMetric["unit"]> = { payment: "CNY_CENT", visitors: "COUNT", customers: "COUNT", spend: "CNY_CENT", promotionPayment: "CNY_CENT", spendRate: "RATIO", conversion: "RATIO", roas: "MULTIPLE", averageOrder: "CNY_CENT", uvValue: "CNY_CENT", paidVisitors: "COUNT", freeVisitors: "COUNT", b2bRate: "RATIO" };
 const statuses = new Set(["available", "partial", "unavailable", "invalid"]);
+// Two global revisions plus product/promotion revisions for all 50 scope shops.
+// A shop detail inherits its parent's full scope vector.
+const maximumSourceRevisions = 2 + 2 * 50;
 function text(value: unknown, limit = 200): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= limit;
 }
@@ -163,7 +166,7 @@ export function decodeStoreOverview(value: unknown): StoreOverviewResponse {
   }
   if (!Array.isArray(p.freshness) || !Array.isArray(p.movingAverage) || !Array.isArray(p.annotations)) throw new Error("网店总览来源证据不完整");
   const revisions = object(p.sourceRevisions), coverages = object(p.coverageBySource);
-  if (Object.keys(revisions).length === 0 || Object.keys(revisions).length > 50 || !Object.entries(revisions).every(([k, v]) => text(k) && text(v))) throw new Error("网店来源修订无效");
+  if (Object.keys(revisions).length === 0 || Object.keys(revisions).length > maximumSourceRevisions || !Object.entries(revisions).every(([k, v]) => k.trim().length > 0 && text(v))) throw new Error("网店来源修订无效");
   if (Object.keys(coverages).length === 0 || Object.keys(coverages).length > 50) throw new Error("网店来源覆盖缺失");
   for (const item of Object.values(coverages)) {
     const c = object(item);
