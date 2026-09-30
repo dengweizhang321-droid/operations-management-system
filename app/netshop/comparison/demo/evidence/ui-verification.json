@@ -5,9 +5,9 @@
     "demo.js": "0e3e6cd50ad4d413130f065b174b4a7a70e852c81006c05040950ceb63fd0f8b",
     "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
     "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
-    "system-frame.css": "fa7183b34eddb2b4c94897d0518a1a9046abee36fe66429a5c5d39fbe368afbb"
+    "system-frame.css": "14608c7dd738a059d962e40f8ccc9c3109ac1867819e43a258f04df30e09b202"
   },
-  "testedAt": "2026-09-30T10:37:05.120Z",
+  "testedAt": "2026-09-30T10:38:01.084Z",
   "viewport": [
     "1440x1080",
     "390x844"

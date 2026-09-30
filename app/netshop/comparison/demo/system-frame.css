@@ -28,7 +28,7 @@ h3 { font-size:var(--font-size-card-title); line-height:var(--line-height-tight)
 small,.small,.plain-note,.card-head p,.demo-notice,.page-footer { font-size:var(--font-size-caption); }
 label,.field-label,th,td,.segment button,.outline-button,.primary-button,.kpi-label { font-size:var(--font-size-label); }
 th,td { line-height:var(--line-height-body); }
-.kpi-value,.mini-kpis strong { font-size:var(--font-size-kpi); line-height:var(--line-height-tight); }
+.kpi-value,.mini-kpis strong,.matrix-table .big-cell { font-size:var(--font-size-kpi); line-height:var(--line-height-tight); }
 .card,.kpi-card,.filter-card { background:var(--color-bg-surface); border-color:var(--color-border-default); border-radius:var(--radius-md); }
 .filter-card { scroll-margin-top:calc(var(--demo-masthead-height) + 85px); }
 .primary-button { background:var(--color-brand); border-color:var(--color-brand); box-shadow:none; }
