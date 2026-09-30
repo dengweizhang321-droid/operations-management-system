@@ -3,3 +3,9 @@
 /* Keep intrinsic table width inside its scroll container in all five narrow layouts. */
 .workbench > *, .report-shell > *, .audit-shell > *, .left-pane, .right-pane, .report-body, .audit-main, .audit-aside { min-width: 0; }
 @media(max-width:760px){ .matrix-footer,.workbench,.report-shell,.audit-shell,.audit-aside { grid-template-columns:minmax(0,1fr); } }
+
+/* Preserve 12px rendered chart labels; scroll the chart locally when its panel is narrow. */
+.chart-wrap { max-width:100%; overflow-x:auto; }
+.chart-svg { width:100%; height:auto !important; min-width:440px; }
+.chart-svg[data-testid="trend-chart"] { min-width:720px; }
+@media(max-width:760px) { .chart-wrap::after { content:"横向滑动查看完整坐标"; display:block; font-size:12px; color:var(--muted); padding-top:4px; } }

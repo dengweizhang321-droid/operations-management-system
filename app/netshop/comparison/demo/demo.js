@@ -187,7 +187,7 @@
     for(let i=0;i<4;i++){const yy=H-B-i*(H-T-B)/3;svg+=`<line class="gridline" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text x="${L-8}" y="${yy+4}" text-anchor="end">${n(maxY*i/3/100)}</text>`;}
     objects.forEach(o=>{const index=data.selected.indexOf(o),xx=L+Math.max(0,o.current.amount)/maxX*(W-L-R),yy=H-B-o.ratios.aov/maxY*(H-T-B);svg+=`<circle cx="${xx}" cy="${yy}" r="${8+Math.sqrt(o.current.orders||0)/5}" fill="${COLORS[index]}" fill-opacity=".7"/><text x="${xx}" y="${yy-22}" text-anchor="middle">${o.name.replace('演示','')}</text>`;});
     svg+=`<text x="${L}" y="${H-24}">0</text><text x="${W-R}" y="${H-24}" text-anchor="end">${money(maxX)}</text><text x="${W-R}" y="${H-3}" text-anchor="end">${esc(amountLabel())}（万元）</text></svg>`;
-    return svg+`<p class="plain-note">气泡大小：订单数。仅对完整覆盖对象绘图；不计算综合评分。负值净销售不用于规模气泡。</p>`;
+    return `<div class="chart-wrap">${svg}</div>`+`<p class="plain-note">气泡大小：订单数。仅对完整覆盖对象绘图；不计算综合评分。负值净销售不用于规模气泡。</p>`;
   }
   function efficiencyTable(data){return `<div class="table-wrap"><table><thead><tr><th>对象</th><th>客单价 / 元</th><th>大毛利率</th><th>退货金额率</th><th>商品累计转化率</th></tr></thead><tbody>${data.selected.map(o=>`<tr><td>${o.name}</td><td>${yuan(o.ratios.aov)}</td><td>${pct(o.ratios.grossMargin)}</td><td>${pct(o.ratios.returnRate)}</td><td>${pct(o.ratios.conversion)}</td></tr>`).join('')}</tbody></table></div><p class="plain-note">客单价=同源金额/可信订单数；大毛利率=(ERP净销售−成本)/ERP净销售；退货金额率=退货金额/退货前销售金额。商品累计转化率仅演示同 SPU 维度，不当店铺去重转化。</p>`;}
   function efficiencyCard(data,span='span-5'){return card('经营效率',2,scatter(data),span,'横轴规模，纵轴效率；比率按分子分母重算',`<button class="text-button" data-action="efficiency-detail">指标矩阵 ↗</button>`);}

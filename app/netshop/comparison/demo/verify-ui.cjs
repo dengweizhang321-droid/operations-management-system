@@ -102,7 +102,9 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
     });
     await check('Demo detail and return preserve the comparison range', async () => {
       const before = (await snapshot()).state;
-      await page.evaluate(id => window.comparisonDemo.openDetail('shop',id), (await snapshot()).objects[0].id);
+      const detailId=(await snapshot()).objects[0].id;
+      await page.evaluate(id => window.comparisonDemo.openDetail('store',id), detailId);
+      assert.deepEqual((await snapshot()).drawer,{kind:'store',id:detailId});
       await page.getByTestId('detail-close').click();
       assert.deepEqual((await snapshot()).state, before);
     });
@@ -212,7 +214,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       assert.ok((await snapshot()).objects.find(o=>o.id==='JD:B').current.amount<0);
       const scatter=page.locator('svg[aria-label="规模与客单价分布"]');
       assert.equal(await scatter.locator('circle').count(),1);
-      assert.doesNotMatch(await scatter.innerText(),/京东 B 店/);
+      assert.doesNotMatch(await scatter.textContent(),/京东 B 店/);
       assert.match(await page.getByTestId('ranking-table').innerText(),/京东 B 店/);
     });
     await set({mode:'shops',platform:'JD',source:'platform',coverage:'all',grain:'day',currentStart:'2026-09-01',currentEnd:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-29'});
@@ -220,7 +222,10 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
     for (let design = 1; design <= 5; design++) {
       await check(`Design ${design}: narrow layout`, async () => {
         await page.getByTestId(`design-${design}`).click();
+        if(design===4) await page.getByTestId('chapter-3').click();
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        const textSizes=await page.evaluate(()=>[...document.querySelectorAll('svg.chart-svg text')].map(el=>Number.parseFloat(getComputedStyle(el).fontSize)*el.getScreenCTM().a));
+        assert.ok(textSizes.length>0&&textSizes.every(size=>size>=11.9));
         await page.screenshot({path: path.join(out, `design-${design}-narrow.png`),fullPage:true});
       });
     }
