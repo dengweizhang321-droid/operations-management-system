@@ -1,0 +1,40 @@
+/** Independent Q checks the actual Home mobile menu glyph and real open/close. */
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const directory = resolve(process.cwd(), ".runtime", "products-review-nav-" + randomUUID());
+await mkdir(directory);
+let source = await readFile(resolve("tools/verify-netshop-integrated-shell-ui.mjs"), "utf8");
+const decl = "const checks = [], errors = [], consoleErrors = [], blockedNetwork = [];";
+assert.equal(source.split(decl).length, 2);
+source = source.replace(decl, decl + "\nconst qNavigationFailures=[];");
+const marker = '    await page.locator("#primary-navigation").waitFor({ state: "hidden" });';
+assert.equal(source.split(marker).length, 2);
+source = source.replace(marker, marker + `
+    const menuToggle=page.getByRole('button',{name:'打开主导航',exact:true});
+    const qGlyph=await menuToggle.locator('span').evaluate(element=>{const css=getComputedStyle(element),rect=element.getBoundingClientRect();return {display:css.display,visibility:css.visibility,color:css.color,fontSize:css.fontSize,width:rect.width,height:rect.height,text:element.textContent};});
+    await menuToggle.screenshot({path:resolve(evidence,'q-menu-button-'+width+'.png')});
+    if(qGlyph.display==='none'||qGlyph.visibility!=='visible'||qGlyph.width===0||qGlyph.height===0||parseFloat(qGlyph.fontSize)<16)qNavigationFailures.push({width,glyph:qGlyph});
+    await menuToggle.click();
+    await page.getByRole('dialog',{name:'顶部应用导航',exact:true}).waitFor();
+    assert.equal(await menuToggle.getAttribute('aria-expanded'),'true');
+    const open=await page.locator('#primary-navigation').evaluate(element=>{const r=element.getBoundingClientRect();return {x:r.x,width:r.width,client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth};});
+    assert.ok(open.x>=-1&&open.x+open.width<=open.client+1&&open.scroll<=open.client+1,JSON.stringify(open));
+    assert.ok(await page.getByRole('navigation',{name:'主导航',exact:true}).getByRole('link').count()>5);
+    await page.screenshot({path:resolve(evidence,'q-open-menu-'+width+'.png'),fullPage:true});
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog',{name:'顶部应用导航',exact:true}).waitFor({state:'hidden'});
+    assert.equal(await menuToggle.getAttribute('aria-expanded'),'false');
+    await save('q-menu-'+width+'.json',{glyph:qGlyph,open,closedByEscape:true});
+    checks.push('Q real mobile menu '+width+' opens within viewport and closes by Escape');
+`);
+const after = '  await page.setViewportSize({ width: 1440, height: 1000 });';
+assert.equal(source.split(after).length, 2);
+source = source.replace(after, '  assert.deepEqual(qNavigationFailures,[],"The actual narrow-screen menu glyph must remain visible");\n' + after);
+await writeFile(resolve(directory, "review-navigation-harness.mjs"), source, { flag: "wx" });
+process.env.NETSHOP_INTEGRATED_UI_EVIDENCE_ROOT = "E:/codex-artifacts/netshop-scheme2-20261001/products/review";
+process.env.NETSHOP_INTEGRATED_UI_ROLE = "P-Q-independent-public-navigation";
+await import(pathToFileURL(resolve(directory, "review-navigation-harness.mjs")).href);
