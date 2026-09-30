@@ -2,7 +2,7 @@
   "columnVersion": "netshop-promotion-v1",
   "context": {
     "schemaVersion": "netshop-insights-v1",
-    "requestId": "90768e12-6cc1-40b5-98ec-58afbc3187a2",
+    "requestId": "4b2ebe82-ea00-4243-b054-5878acea2f35",
     "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
     "snapshotToken": "13e0baeae1193ce7af941a16cc1d0a615b5a3bf4b6d751642634976519877e6a",
     "requestedScope": {
@@ -385,6 +385,22 @@
       "observedDates": [
         "2026-09-01"
       ],
+      "observation": {
+        "current": {
+          "observedDates": [
+            "2026-09-01"
+          ],
+          "verifiedAbsentDates": []
+        },
+        "previous": {
+          "observedDates": [],
+          "verifiedAbsentDates": []
+        },
+        "yearAgo": {
+          "observedDates": [],
+          "verifiedAbsentDates": []
+        }
+      },
       "metrics": {
         "spend": {
           "value": 100,

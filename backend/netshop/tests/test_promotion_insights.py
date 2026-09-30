@@ -73,11 +73,20 @@ class PromotionInsightsTests(TestCase):
 
     def test_misaligned_store_day_never_produces_main_or_matched_rate(self):
         self.day(shop="A"); self.day(shop="B", promotion=False)
-        result = self.read()["sections"]
+        response = self.read()
+        result = response["sections"]
         self.assertIsNone(result["summary"]["spendRate"]["value"])
         self.assertEqual(result["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        main_ref = result["summary"]["spendRate"]["coverageRef"]
+        main_coverage = result["coverage"][main_ref]
+        self.assertEqual((main_coverage["expectedShopDatePairs"], main_coverage["coveredShopDatePairs"]), (2, 0))
+        self.assertFalse(main_coverage["complete"])
         self.assertIsNone(result["matchedRange"]["metrics"]["spendRate"]["value"])
         self.assertEqual(result["matchedRange"]["shopDates"], [{"shopKey": "京东\x1fA", "dates": []}, {"shopKey": "京东\x1fB", "dates": []}])
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-misaligned.json").open("x", encoding="utf-8") as output: json.dump(response, output, ensure_ascii=False, indent=2)
 
     def test_partial_matching_is_separate_and_weighted_sum_not_average(self):
         self.pair(); self.day(day="2026-09-02")
@@ -86,6 +95,42 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
         self.assertEqual(section["matchedRange"]["shopDates"][0]["dates"], ["2026-09-01"])
         self.assertEqual(section["summary"]["spend"]["value"], 400)
+        ref = section["matchedRange"]["coverageRef"]
+        self.assertTrue(section["coverage"][ref]["complete"])
+        self.assertEqual(section["coverage"][ref]["expectedShopDatePairs"], 1)
+
+    def test_19_of_21_auxiliary_subset_is_complete_but_whole_fee_remains_null(self):
+        for day in range(1, 22):
+            self.day(day=f"2026-09-{day:02d}")
+            if day <= 19: self.day(day=f"2026-09-{day:02d}", promotion=False)
+        result = self.read(endDate="2026-09-21")
+        section = result["sections"]
+        self.assertIsNone(section["summary"]["spendRate"]["value"])
+        self.assertEqual(section["summary"]["spendRate"]["reasonCode"], "incomplete_coverage")
+        primary = section["coverage"][section["summary"]["spendRate"]["coverageRef"]]
+        self.assertFalse(primary["complete"])
+        self.assertEqual((primary["expectedShopDatePairs"], primary["coveredShopDatePairs"]), (21, 19))
+        subset = section["coverage"][section["matchedRange"]["coverageRef"]]
+        self.assertTrue(subset["complete"])
+        self.assertEqual((subset["expectedShopDatePairs"], subset["coveredShopDatePairs"]), (19, 19))
+        self.assertEqual(subset["missingByShop"], [])
+        self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-partial-19-of-21.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
+
+    def test_rates_efficiency_and_shares_use_weighted_full_numerators(self):
+        self.day(shop="A", rows=[{"id": "same", "values": {"spendCents": 100, "netTransactionAmountCents": 1000, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        self.day(shop="B", rows=[{"id": "same", "values": {"spendCents": 900, "netTransactionAmountCents": 900, "impressions": 100, "clicks": 3, "netOrders": 1}}])
+        self.day(shop="A", promotion=False, rows=[{"id": "same", "values": {"transactionAmountCents": 1000}}])
+        self.day(shop="B", promotion=False, rows=[{"id": "same", "values": {"transactionAmountCents": 3000}}])
+        section = self.read()["sections"]
+        self.assertEqual(section["summary"]["spendRate"]["value"], .25)
+        self.assertEqual(section["summary"]["cpc"]["value"], 250)
+        self.assertEqual(section["summary"]["roas"]["value"], 1.9)
+        self.assertEqual(section["summary"]["ctr"]["value"], 4/110)
+        self.assertEqual({r["shopName"]: r["spendShare"]["value"] for r in section["shops"]["items"]}, {"A": .1, "B": .9})
 
     def test_missing_field_does_not_turn_projection_zero_into_observed_zero(self):
         self.day(rows=[{"values": {"spendCents": 0, "clicks": 0}}])
@@ -222,6 +267,38 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(absent["sections"]["items"], [])
         self.assertEqual(absent["sections"]["summary"], all["sections"]["summary"])
 
+    def test_focus_universe_retains_previous_only_decline_and_excludes_other_dates(self):
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(day="2026-09-01", rows=[{"id": "OTHER-DATE", "values": values}])
+        self.day(day="2026-09-02", rows=[{"id": "CURRENT", "values": values}])
+        self.day(day="2026-08-02", rows=[{"id": "GONE", "values": values}])
+        self.day(day="2025-09-02", rows=[{"id": "YEAR-ONLY", "values": values}])
+        section = self.read(endDate="2026-09-02", focusDate="2026-09-02")["sections"]
+        self.assertEqual({r["id"] for r in section["items"]}, {"CURRENT", "GONE", "YEAR-ONLY"})
+        gone = next(r for r in section["items"] if r["id"] == "GONE")
+        self.assertEqual(gone["metrics"]["spend"]["value"], 0)
+        self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertEqual(gone["observation"]["current"]["verifiedAbsentDates"], ["2026-09-02"])
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "GONE")
+        searched = self.read(endDate="2026-09-02", focusDate="2026-09-02", q="CURRENT", pageSize=1)["sections"]
+        self.assertEqual(searched["items"][0]["id"], "CURRENT")
+        self.assertEqual(searched["contributions"], section["contributions"])
+        self.assertEqual(searched["summary"], section["summary"])
+
+    def test_focused_plan_universe_retains_real_baseline_only_and_unknown_is_not_paired(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, day="2026-09-01", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "OTHER-DATE", "推广计划": "其他日期"}}])
+        self.day(shop=SHOP_NAME, day="2026-09-02", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "CURRENT", "推广计划": "本期"}}])
+        self.day(shop=SHOP_NAME, day="2026-08-02", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "GONE", "推广计划": "下降对象"}}])
+        self.day(shop=SHOP_NAME, day="2025-09-02", rows=[{"id": "SKU", "values": values, "raw": {"推广计划": "未知ID"}}])
+        section = self.read(endDate="2026-09-02", focusDate="2026-09-02", objectKind="plan")["sections"]
+        self.assertEqual({r["id"] for r in section["items"]}, {"CURRENT", "GONE", None})
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "GONE")
+        unknown = next(r for r in section["items"] if r["id"] is None)
+        self.assertIsNone(unknown["changes"]["spend"]["previous"]["value"])
+        self.assertEqual(unknown["observation"]["current"]["verifiedAbsentDates"], [])
+
     def test_percentage_points_and_zero_negative_missing_baselines(self):
         self.pair()
         self.day(day="2026-08-31", rows=[{"id": "same", "values": {"spendCents": 0, "netTransactionAmountCents": 0, "impressions": 100, "clicks": 1, "netOrders": 0}}])
@@ -270,6 +347,8 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(current["changes"]["spend"]["previous"]["value"], 100)
         self.assertEqual(gone["metrics"]["spend"]["value"], 0)
         self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertEqual(gone["observation"]["current"]["verifiedAbsentDates"], ["2026-09-01"])
+        self.assertEqual(gone["observation"]["previous"]["observedDates"], ["2026-08-31"])
         self.assertIn("已导入", " ".join(section["limitations"]))
         # An unowned identity in a completely reconciled store-day means that
         # the object universe is not complete, even when additive totals match.
@@ -281,6 +360,7 @@ class PromotionInsightsTests(TestCase):
         self.assertIsNone(current["changes"]["spend"]["previous"]["value"])
         unknown = next(r for r in section["items"] if r["id"] is None)
         self.assertFalse(unknown["drillable"])
+        self.assertEqual(unknown["observation"]["current"]["verifiedAbsentDates"], [])
         self.assertEqual(unknown["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
         self.assertEqual(section["contributions"]["comparedObjectCount"], 0)
         self.assertEqual(section["contributions"]["excludedObjectCount"], 2)
@@ -310,6 +390,28 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["items"][0]["metrics"]["spend"]["value"], 100)
         self.assertFalse(section["items"][0]["drillable"])
         self.assertEqual(section["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+
+    def test_empty_product_identity_has_no_shared_link_even_when_both_sources_empty_id(self):
+        self.day(platform="天猫", rows=[{"id": "", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        self.day(platform="天猫", promotion=False, rows=[{"id": "", "values": {"transactionAmountCents": 1000}}])
+        item = self.read(platform="天猫")["sections"]["items"][0]
+        self.assertIsNone(item["id"])
+        self.assertFalse(item["drillable"])
+        self.assertEqual(item["mapping"]["status"], "unmapped")
+        self.assertIsNone(item["mapping"]["linkIdentity"])
+        self.assertIsNone(item["metrics"]["spendRate"]["value"])
+
+    def test_missing_jd_product_id_follow_identity_is_null_and_actual_dto_preserved(self):
+        self.day(rows=[{"id": "", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        result = self.read()
+        item = result["sections"]["items"][0]
+        self.assertIsNone(item["id"])
+        self.assertIsNone(item["mapping"]["followSkuId"])
+        self.assertFalse(item["drillable"])
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-missing-id.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
 
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow

@@ -2,9 +2,9 @@
   "columnVersion": "netshop-promotion-v1",
   "context": {
     "schemaVersion": "netshop-insights-v1",
-    "requestId": "90cf0cac-e938-450e-879d-6887b4c92f57",
-    "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
-    "snapshotToken": "13e0baeae1193ce7af941a16cc1d0a615b5a3bf4b6d751642634976519877e6a",
+    "requestId": "6d6576a6-904a-4402-959f-dca293388ac4",
+    "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
+    "snapshotToken": "5a25f48aae88a2b6cfde9a4467e2b70209f06592551461c5e1be1a3f545ee8f5",
     "requestedScope": {
       "platforms": [
         "京东"
@@ -18,7 +18,8 @@
         "京东"
       ],
       "shopKeys": [
-        "京东\u001f志高商用设备旗舰店"
+        "京东\u001fA",
+        "京东\u001fB"
       ],
       "dimension": "sku",
       "periodKind": "custom"
@@ -57,43 +58,68 @@
       {
         "domain": "netshop",
         "kind": "owning_revision",
-        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
         "revision": "1:aaaaaaaaaaaa"
       },
       {
         "domain": "netshop",
-        "kind": "京东:product:京东\u001f志高商用设备旗舰店",
-        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "kind": "京东:product:京东\u001fA",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
         "revision": "absent"
       },
       {
         "domain": "netshop",
-        "kind": "京东:promotion:京东\u001f志高商用设备旗舰店",
-        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "kind": "京东:product:京东\u001fB",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
+        "revision": "absent"
+      },
+      {
+        "domain": "netshop",
+        "kind": "京东:promotion:京东\u001fA",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
+        "revision": "absent"
+      },
+      {
+        "domain": "netshop",
+        "kind": "京东:promotion:京东\u001fB",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
         "revision": "absent"
       },
       {
         "domain": "netshop",
         "kind": "京东:promotionManifest",
-        "scopeKey": "0aefc06f3d02a1fb2275af8f1ad5cf6bfbb3c8a5cbb9f83ad08e081306c11a6f",
+        "scopeKey": "da94b273f3f92a3941bf8c9bc9c31172de3bf82884205ba957eb51d538d29f35",
         "revision": "1:True"
       }
     ],
     "coverageBySource": {
       "jd_sku_daily:sku_daily:京东:current": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       },
       "jd_sku_daily:sku_daily:京东:previous": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 0,
         "complete": false,
         "missingByShop": [
           {
-            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-08-31"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
             "dates": [
               "2026-08-31"
             ]
@@ -102,12 +128,18 @@
         "truncated": false
       },
       "jd_sku_daily:sku_daily:京东:yearAgo": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 0,
         "complete": false,
         "missingByShop": [
           {
-            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2025-09-01"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
             "dates": [
               "2025-09-01"
             ]
@@ -116,19 +148,32 @@
         "truncated": false
       },
       "jd_promotion:ad:京东:current": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       },
       "jd_promotion:ad:京东:previous": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 0,
         "complete": false,
         "missingByShop": [
           {
-            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-08-31"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
             "dates": [
               "2026-08-31"
             ]
@@ -137,12 +182,18 @@
         "truncated": false
       },
       "jd_promotion:ad:京东:yearAgo": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 0,
         "complete": false,
         "missingByShop": [
           {
-            "shopKey": "京东\u001f志高商用设备旗舰店",
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2025-09-01"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
             "dates": [
               "2025-09-01"
             ]
@@ -158,8 +209,8 @@
         "field": "payment",
         "coverageRef": "jd_sku_daily:sku_daily:京东:current",
         "presentShopDatePairs": 1,
-        "status": "available",
-        "reasonCode": null
+        "status": "unavailable",
+        "reasonCode": "missing_day"
       },
       {
         "sourceId": "jd_sku_daily:sku_daily:京东",
@@ -293,8 +344,8 @@
         "field": "spend",
         "coverageRef": "jd_promotion:ad:京东:current",
         "presentShopDatePairs": 1,
-        "status": "available",
-        "reasonCode": null
+        "status": "unavailable",
+        "reasonCode": "missing_day"
       },
       {
         "sourceId": "jd_promotion:ad:京东",
@@ -302,8 +353,8 @@
         "field": "attributedPayment",
         "coverageRef": "jd_promotion:ad:京东:current",
         "presentShopDatePairs": 1,
-        "status": "available",
-        "reasonCode": null
+        "status": "unavailable",
+        "reasonCode": "missing_day"
       },
       {
         "sourceId": "jd_promotion:ad:京东",
@@ -358,14 +409,14 @@
       "ERP/财报/库存须由所属consumer独立读取并验证修订向量"
     ]
   },
-  "sectionToken": "a6795392c8a68643aeb855241a84663e61234385ee0261b152e982e34b98d2e5",
+  "sectionToken": "d5f99b1a01e1f7b29ee36056e527303aa8f30dbe3b81335bad1d3661b941eb12",
   "sections": {
     "summary": {
       "spend": {
-        "value": 100,
+        "value": 200,
         "unit": "CNY_CENT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "partial",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -374,10 +425,10 @@
         "coverageRef": "promotion:summary:current"
       },
       "attributedPayment": {
-        "value": 300,
+        "value": 400,
         "unit": "CNY_CENT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "partial",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -386,10 +437,10 @@
         "coverageRef": "promotion:summary:current"
       },
       "impressions": {
-        "value": 20,
+        "value": 100,
         "unit": "COUNT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "partial",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -398,10 +449,10 @@
         "coverageRef": "promotion:summary:current"
       },
       "clicks": {
-        "value": 3,
+        "value": 2,
         "unit": "COUNT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "partial",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -410,10 +461,10 @@
         "coverageRef": "promotion:summary:current"
       },
       "orders": {
-        "value": 2,
+        "value": 1,
         "unit": "COUNT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "partial",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -422,54 +473,54 @@
         "coverageRef": "promotion:summary:current"
       },
       "roas": {
-        "value": 3.0,
+        "value": null,
         "unit": "MULTIPLE",
-        "status": "available",
-        "reasonCode": null,
+        "status": "unavailable",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
         "basis": "platform_attributed",
         "aggregation": "ratio_of_sums",
         "coverageRef": "promotion:summary:current",
-        "numerator": 300,
-        "denominator": 100
+        "numerator": 400,
+        "denominator": 200
       },
       "ctr": {
-        "value": 0.15,
+        "value": null,
         "unit": "RATIO",
-        "status": "available",
-        "reasonCode": null,
+        "status": "unavailable",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
         "basis": "platform_attributed",
         "aggregation": "ratio_of_sums",
         "coverageRef": "promotion:summary:current",
-        "numerator": 3,
-        "denominator": 20
+        "numerator": 2,
+        "denominator": 100
       },
       "cpc": {
-        "value": 33.333333333333336,
+        "value": null,
         "unit": "CNY_CENT_PER_COUNT",
-        "status": "available",
-        "reasonCode": null,
+        "status": "unavailable",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion"
         ],
         "basis": "platform_attributed",
         "aggregation": "ratio_of_sums",
         "coverageRef": "promotion:summary:current",
-        "numerator": 100,
-        "denominator": 3,
+        "numerator": 200,
+        "denominator": 2,
         "metricSchemaVersion": "netshop-money-per-count-v1",
         "denominatorKind": "clicks"
       },
       "spendRate": {
-        "value": 0.1,
+        "value": null,
         "unit": "RATIO",
-        "status": "available",
-        "reasonCode": null,
+        "status": "unavailable",
+        "reasonCode": "incomplete_coverage",
         "sourceIds": [
           "jd_promotion",
           "jd_sku_daily"
@@ -477,8 +528,8 @@
         "basis": "product_day_sum",
         "aggregation": "ratio_of_sums",
         "coverageRef": "promotion:summary:current:paired-whole",
-        "numerator": 100,
-        "denominator": 1000
+        "numerator": null,
+        "denominator": null
       }
     },
     "comparisons": {
@@ -668,10 +719,10 @@
       "coverageRef": "promotion:summary:current:matched",
       "metrics": {
         "spend": {
-          "value": 100,
+          "value": null,
           "unit": "CNY_CENT",
-          "status": "available",
-          "reasonCode": null,
+          "status": "unavailable",
+          "reasonCode": "no_records",
           "sourceIds": [
             "jd_promotion"
           ],
@@ -680,10 +731,10 @@
           "coverageRef": "promotion:summary:current:matched"
         },
         "payment": {
-          "value": 1000,
+          "value": null,
           "unit": "CNY_CENT",
-          "status": "available",
-          "reasonCode": null,
+          "status": "unavailable",
+          "reasonCode": "no_records",
           "sourceIds": [
             "jd_sku_daily"
           ],
@@ -692,10 +743,10 @@
           "coverageRef": "promotion:summary:current:matched"
         },
         "spendRate": {
-          "value": 0.1,
+          "value": null,
           "unit": "RATIO",
-          "status": "available",
-          "reasonCode": null,
+          "status": "unavailable",
+          "reasonCode": "incomplete_coverage",
           "sourceIds": [
             "jd_promotion",
             "jd_sku_daily"
@@ -703,16 +754,18 @@
           "basis": "product_day_sum",
           "aggregation": "ratio_of_sums",
           "coverageRef": "promotion:summary:current:matched",
-          "numerator": 100,
-          "denominator": 1000
+          "numerator": null,
+          "denominator": null
         }
       },
       "shopDates": [
         {
-          "shopKey": "京东\u001f志高商用设备旗舰店",
-          "dates": [
-            "2026-09-01"
-          ]
+          "shopKey": "京东\u001fA",
+          "dates": []
+        },
+        {
+          "shopKey": "京东\u001fB",
+          "dates": []
         }
       ]
     },
@@ -757,33 +810,28 @@
     "items": [
       {
         "platform": "京东",
-        "shopKey": "京东\u001f志高商用设备旗舰店",
-        "shopName": "志高商用设备旗舰店",
+        "shopKey": "京东\u001fA",
+        "shopName": "A",
         "objectKind": "product",
-        "id": "SKU1",
+        "id": "same",
         "title": "合成商品",
-        "rowKey": "8b99ad0a4afdbf6e7c7fd810fe38446b8193daeae0eda65b1d95fe89a8dc7140",
+        "rowKey": "22aec8e27180e793f090e72961d6506cb9477239bd039ceec5b5fa1dd144fab8",
         "identityKind": "follow_order_sku",
         "planId": null,
         "unitId": null,
         "matchType": null,
         "drillable": true,
         "mapping": {
-          "status": "matched",
-          "linkIdentity": {
-            "platform": "京东",
-            "shopName": "志高商用设备旗舰店",
-            "dimension": "sku",
-            "id": "SKU1"
-          },
+          "status": "unmapped",
+          "linkIdentity": null,
           "advertisedSkuId": null,
           "triggerSkuId": null,
-          "followSkuId": "SKU1",
-          "evidence": "exact_source_identity"
+          "followSkuId": "same",
+          "evidence": "unverified"
         },
         "metrics": {
           "spend": {
-            "value": 100,
+            "value": 200,
             "unit": "CNY_CENT",
             "status": "available",
             "reasonCode": null,
@@ -792,10 +840,10 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "sum",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
           },
           "attributedPayment": {
-            "value": 300,
+            "value": 400,
             "unit": "CNY_CENT",
             "status": "available",
             "reasonCode": null,
@@ -804,10 +852,10 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "sum",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
           },
           "impressions": {
-            "value": 20,
+            "value": 100,
             "unit": "COUNT",
             "status": "available",
             "reasonCode": null,
@@ -816,21 +864,9 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "sum",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
           },
           "clicks": {
-            "value": 3,
-            "unit": "COUNT",
-            "status": "available",
-            "reasonCode": null,
-            "sourceIds": [
-              "jd_promotion"
-            ],
-            "basis": "platform_attributed",
-            "aggregation": "sum",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
-          },
-          "orders": {
             "value": 2,
             "unit": "COUNT",
             "status": "available",
@@ -840,10 +876,22 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "sum",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
+          },
+          "orders": {
+            "value": 1,
+            "unit": "COUNT",
+            "status": "available",
+            "reasonCode": null,
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "sum",
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
           },
           "roas": {
-            "value": 3.0,
+            "value": 2.0,
             "unit": "MULTIPLE",
             "status": "available",
             "reasonCode": null,
@@ -852,12 +900,12 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current",
-            "numerator": 300,
-            "denominator": 100
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
+            "numerator": 400,
+            "denominator": 200
           },
           "ctr": {
-            "value": 0.15,
+            "value": 0.02,
             "unit": "RATIO",
             "status": "available",
             "reasonCode": null,
@@ -866,12 +914,12 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current",
-            "numerator": 3,
-            "denominator": 20
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
+            "numerator": 2,
+            "denominator": 100
           },
           "cpc": {
-            "value": 33.333333333333336,
+            "value": 100.0,
             "unit": "CNY_CENT_PER_COUNT",
             "status": "available",
             "reasonCode": null,
@@ -880,9 +928,9 @@
             ],
             "basis": "platform_attributed",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current",
-            "numerator": 100,
-            "denominator": 3,
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
+            "numerator": 200,
+            "denominator": 2,
             "metricSchemaVersion": "netshop-money-per-count-v1",
             "denominatorKind": "clicks"
           },
@@ -897,7 +945,7 @@
             ],
             "basis": "product_day_sum",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:object:5efa10c76fa2cf45:current:paired-whole",
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current:paired-whole",
             "numerator": null,
             "denominator": null
           }
@@ -1032,18 +1080,18 @@
         },
         "matchedRange": null,
         "spendShare": {
-          "value": 1.0,
+          "value": null,
           "unit": "RATIO",
-          "status": "available",
-          "reasonCode": null,
+          "status": "unavailable",
+          "reasonCode": "incomplete_coverage",
           "sourceIds": [
             "jd_promotion"
           ],
           "basis": "platform_attributed",
           "aggregation": "ratio_of_sums",
-          "coverageRef": "promotion:object:5efa10c76fa2cf45:current",
-          "numerator": 100,
-          "denominator": 100
+          "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
+          "numerator": 200,
+          "denominator": 200
         },
         "changes": {
           "spend": {
@@ -1057,7 +1105,7 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+              "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
             },
             "yearAgo": {
               "value": null,
@@ -1069,7 +1117,7 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+              "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
             }
           },
           "attributedPayment": {
@@ -1083,7 +1131,7 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+              "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
             },
             "yearAgo": {
               "value": null,
@@ -1095,14 +1143,14 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:object:5efa10c76fa2cf45:current"
+              "coverageRef": "promotion:object:2ed6fb95e1f3c989:current"
             }
           }
         },
         "observedDates": [
           "2026-09-01"
         ],
-        "coverageRef": "promotion:object:5efa10c76fa2cf45:current",
+        "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
         "observation": {
           "current": {
             "observedDates": [
@@ -1141,10 +1189,10 @@
           "truncatedPeriod": false,
           "metrics": {
             "spend": {
-              "value": 100,
+              "value": 200,
               "unit": "CNY_CENT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "partial",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
@@ -1153,10 +1201,10 @@
               "coverageRef": "promotion:trend:2026-09-01"
             },
             "attributedPayment": {
-              "value": 300,
+              "value": 400,
               "unit": "CNY_CENT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "partial",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
@@ -1165,10 +1213,10 @@
               "coverageRef": "promotion:trend:2026-09-01"
             },
             "impressions": {
-              "value": 20,
+              "value": 100,
               "unit": "COUNT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "partial",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
@@ -1177,10 +1225,10 @@
               "coverageRef": "promotion:trend:2026-09-01"
             },
             "clicks": {
-              "value": 3,
+              "value": 2,
               "unit": "COUNT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "partial",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
@@ -1189,10 +1237,10 @@
               "coverageRef": "promotion:trend:2026-09-01"
             },
             "orders": {
-              "value": 2,
+              "value": 1,
               "unit": "COUNT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "partial",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
@@ -1201,54 +1249,54 @@
               "coverageRef": "promotion:trend:2026-09-01"
             },
             "roas": {
-              "value": 3.0,
+              "value": null,
               "unit": "MULTIPLE",
-              "status": "available",
-              "reasonCode": null,
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
               "coverageRef": "promotion:trend:2026-09-01",
-              "numerator": 300,
-              "denominator": 100
+              "numerator": 400,
+              "denominator": 200
             },
             "ctr": {
-              "value": 0.15,
+              "value": null,
               "unit": "RATIO",
-              "status": "available",
-              "reasonCode": null,
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
               "coverageRef": "promotion:trend:2026-09-01",
-              "numerator": 3,
-              "denominator": 20
+              "numerator": 2,
+              "denominator": 100
             },
             "cpc": {
-              "value": 33.333333333333336,
+              "value": null,
               "unit": "CNY_CENT_PER_COUNT",
-              "status": "available",
-              "reasonCode": null,
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion"
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
               "coverageRef": "promotion:trend:2026-09-01",
-              "numerator": 100,
-              "denominator": 3,
+              "numerator": 200,
+              "denominator": 2,
               "metricSchemaVersion": "netshop-money-per-count-v1",
               "denominatorKind": "clicks"
             },
             "spendRate": {
-              "value": 0.1,
+              "value": null,
               "unit": "RATIO",
-              "status": "available",
-              "reasonCode": null,
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion",
                 "jd_sku_daily"
@@ -1256,8 +1304,8 @@
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
               "coverageRef": "promotion:trend:2026-09-01:paired-whole",
-              "numerator": 100,
-              "denominator": 1000
+              "numerator": null,
+              "denominator": null
             }
           },
           "coverageRef": "promotion:trend:2026-09-01",
@@ -1326,15 +1374,15 @@
       ]
     },
     "shops": {
-      "visible": false,
+      "visible": true,
       "items": [
         {
           "platform": "京东",
-          "shopKey": "京东\u001f志高商用设备旗舰店",
-          "shopName": "志高商用设备旗舰店",
+          "shopKey": "京东\u001fA",
+          "shopName": "A",
           "metrics": {
             "spend": {
-              "value": 100,
+              "value": 200,
               "unit": "CNY_CENT",
               "status": "available",
               "reasonCode": null,
@@ -1343,10 +1391,10 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:shop:a06e240438310996:current"
+              "coverageRef": "promotion:shop:798640599597df7a:current"
             },
             "attributedPayment": {
-              "value": 300,
+              "value": 400,
               "unit": "CNY_CENT",
               "status": "available",
               "reasonCode": null,
@@ -1355,10 +1403,10 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:shop:a06e240438310996:current"
+              "coverageRef": "promotion:shop:798640599597df7a:current"
             },
             "impressions": {
-              "value": 20,
+              "value": 100,
               "unit": "COUNT",
               "status": "available",
               "reasonCode": null,
@@ -1367,21 +1415,9 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:shop:a06e240438310996:current"
+              "coverageRef": "promotion:shop:798640599597df7a:current"
             },
             "clicks": {
-              "value": 3,
-              "unit": "COUNT",
-              "status": "available",
-              "reasonCode": null,
-              "sourceIds": [
-                "jd_promotion"
-              ],
-              "basis": "platform_attributed",
-              "aggregation": "sum",
-              "coverageRef": "promotion:shop:a06e240438310996:current"
-            },
-            "orders": {
               "value": 2,
               "unit": "COUNT",
               "status": "available",
@@ -1391,10 +1427,22 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "sum",
-              "coverageRef": "promotion:shop:a06e240438310996:current"
+              "coverageRef": "promotion:shop:798640599597df7a:current"
+            },
+            "orders": {
+              "value": 1,
+              "unit": "COUNT",
+              "status": "available",
+              "reasonCode": null,
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:798640599597df7a:current"
             },
             "roas": {
-              "value": 3.0,
+              "value": 2.0,
               "unit": "MULTIPLE",
               "status": "available",
               "reasonCode": null,
@@ -1403,12 +1451,12 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:shop:a06e240438310996:current",
-              "numerator": 300,
-              "denominator": 100
+              "coverageRef": "promotion:shop:798640599597df7a:current",
+              "numerator": 400,
+              "denominator": 200
             },
             "ctr": {
-              "value": 0.15,
+              "value": 0.02,
               "unit": "RATIO",
               "status": "available",
               "reasonCode": null,
@@ -1417,12 +1465,12 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:shop:a06e240438310996:current",
-              "numerator": 3,
-              "denominator": 20
+              "coverageRef": "promotion:shop:798640599597df7a:current",
+              "numerator": 2,
+              "denominator": 100
             },
             "cpc": {
-              "value": 33.333333333333336,
+              "value": 100.0,
               "unit": "CNY_CENT_PER_COUNT",
               "status": "available",
               "reasonCode": null,
@@ -1431,26 +1479,26 @@
               ],
               "basis": "platform_attributed",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:shop:a06e240438310996:current",
-              "numerator": 100,
-              "denominator": 3,
+              "coverageRef": "promotion:shop:798640599597df7a:current",
+              "numerator": 200,
+              "denominator": 2,
               "metricSchemaVersion": "netshop-money-per-count-v1",
               "denominatorKind": "clicks"
             },
             "spendRate": {
-              "value": 0.1,
+              "value": null,
               "unit": "RATIO",
-              "status": "available",
-              "reasonCode": null,
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
               "sourceIds": [
                 "jd_promotion",
                 "jd_sku_daily"
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:shop:a06e240438310996:current:paired-whole",
-              "numerator": 100,
-              "denominator": 1000
+              "coverageRef": "promotion:shop:798640599597df7a:current:paired-whole",
+              "numerator": null,
+              "denominator": null
             }
           },
           "comparisons": {
@@ -1593,7 +1641,7 @@
                 ],
                 "basis": "platform_attributed",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current"
+                "coverageRef": "promotion:shop:798640599597df7a:current"
               },
               "yearAgo": {
                 "value": null,
@@ -1605,7 +1653,7 @@
                 ],
                 "basis": "platform_attributed",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current"
+                "coverageRef": "promotion:shop:798640599597df7a:current"
               }
             },
             "attributedPayment": {
@@ -1619,7 +1667,7 @@
                 ],
                 "basis": "platform_attributed",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current"
+                "coverageRef": "promotion:shop:798640599597df7a:current"
               },
               "yearAgo": {
                 "value": null,
@@ -1631,77 +1679,449 @@
                 ],
                 "basis": "platform_attributed",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current"
+                "coverageRef": "promotion:shop:798640599597df7a:current"
               }
             }
           },
           "matchedRange": {
             "scopeLabel": "仅已匹配平台×店铺×日期",
-            "coverageRef": "promotion:shop:a06e240438310996:current:matched",
+            "coverageRef": "promotion:shop:798640599597df7a:current:matched",
             "metrics": {
               "spend": {
-                "value": 100,
+                "value": null,
                 "unit": "CNY_CENT",
-                "status": "available",
-                "reasonCode": null,
+                "status": "unavailable",
+                "reasonCode": "no_records",
                 "sourceIds": [
                   "jd_promotion"
                 ],
                 "basis": "platform_attributed",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current:matched"
+                "coverageRef": "promotion:shop:798640599597df7a:current:matched"
               },
               "payment": {
-                "value": 1000,
+                "value": null,
                 "unit": "CNY_CENT",
-                "status": "available",
-                "reasonCode": null,
+                "status": "unavailable",
+                "reasonCode": "no_records",
                 "sourceIds": [
                   "jd_sku_daily"
                 ],
                 "basis": "product_day_sum",
                 "aggregation": "sum",
-                "coverageRef": "promotion:shop:a06e240438310996:current:matched"
+                "coverageRef": "promotion:shop:798640599597df7a:current:matched"
               },
               "spendRate": {
-                "value": 0.1,
+                "value": null,
                 "unit": "RATIO",
-                "status": "available",
-                "reasonCode": null,
+                "status": "unavailable",
+                "reasonCode": "incomplete_coverage",
                 "sourceIds": [
                   "jd_promotion",
                   "jd_sku_daily"
                 ],
                 "basis": "product_day_sum",
                 "aggregation": "ratio_of_sums",
-                "coverageRef": "promotion:shop:a06e240438310996:current:matched",
-                "numerator": 100,
-                "denominator": 1000
+                "coverageRef": "promotion:shop:798640599597df7a:current:matched",
+                "numerator": null,
+                "denominator": null
               }
             },
             "shopDates": [
               {
-                "shopKey": "京东\u001f志高商用设备旗舰店",
-                "dates": [
-                  "2026-09-01"
-                ]
+                "shopKey": "京东\u001fA",
+                "dates": []
               }
             ]
           },
-          "coverageRef": "promotion:shop:a06e240438310996:current",
+          "coverageRef": "promotion:shop:798640599597df7a:current",
           "spendShare": {
-            "value": 1.0,
+            "value": null,
             "unit": "RATIO",
-            "status": "available",
-            "reasonCode": null,
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage",
             "sourceIds": [
               "jd_promotion"
             ],
             "basis": "platform_attributed",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:shop:a06e240438310996:current",
-            "numerator": 100,
-            "denominator": 100
+            "coverageRef": "promotion:shop:798640599597df7a:current",
+            "numerator": 200,
+            "denominator": 200
+          }
+        },
+        {
+          "platform": "京东",
+          "shopKey": "京东\u001fB",
+          "shopName": "B",
+          "metrics": {
+            "spend": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "no_records",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current"
+            },
+            "attributedPayment": {
+              "value": null,
+              "unit": "CNY_CENT",
+              "status": "unavailable",
+              "reasonCode": "no_records",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current"
+            },
+            "impressions": {
+              "value": null,
+              "unit": "COUNT",
+              "status": "unavailable",
+              "reasonCode": "no_records",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current"
+            },
+            "clicks": {
+              "value": null,
+              "unit": "COUNT",
+              "status": "unavailable",
+              "reasonCode": "no_records",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current"
+            },
+            "orders": {
+              "value": null,
+              "unit": "COUNT",
+              "status": "unavailable",
+              "reasonCode": "no_records",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "sum",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current"
+            },
+            "roas": {
+              "value": null,
+              "unit": "MULTIPLE",
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current",
+              "numerator": null,
+              "denominator": null
+            },
+            "ctr": {
+              "value": null,
+              "unit": "RATIO",
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current",
+              "numerator": null,
+              "denominator": null
+            },
+            "cpc": {
+              "value": null,
+              "unit": "CNY_CENT_PER_COUNT",
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
+              "sourceIds": [
+                "jd_promotion"
+              ],
+              "basis": "platform_attributed",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current",
+              "numerator": null,
+              "denominator": null,
+              "metricSchemaVersion": "netshop-money-per-count-v1",
+              "denominatorKind": "clicks"
+            },
+            "spendRate": {
+              "value": null,
+              "unit": "RATIO",
+              "status": "unavailable",
+              "reasonCode": "incomplete_coverage",
+              "sourceIds": [
+                "jd_promotion",
+                "jd_sku_daily"
+              ],
+              "basis": "product_day_sum",
+              "aggregation": "ratio_of_sums",
+              "coverageRef": "promotion:shop:955cca1ceba45052:current:paired-whole",
+              "numerator": null,
+              "denominator": null
+            }
+          },
+          "comparisons": {
+            "spend": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "attributedPayment": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "impressions": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "clicks": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "orders": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "roas": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "ctr": {
+              "previous": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "cpc": {
+              "previous": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "relative_change",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            },
+            "spendRate": {
+              "previous": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              },
+              "yearAgo": {
+                "value": null,
+                "method": "percentage_points",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline"
+              }
+            }
+          },
+          "changes": {
+            "spend": {
+              "previous": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current"
+              },
+              "yearAgo": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current"
+              }
+            },
+            "attributedPayment": {
+              "previous": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current"
+              },
+              "yearAgo": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "incomplete_baseline",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current"
+              }
+            }
+          },
+          "matchedRange": {
+            "scopeLabel": "仅已匹配平台×店铺×日期",
+            "coverageRef": "promotion:shop:955cca1ceba45052:current:matched",
+            "metrics": {
+              "spend": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "no_records",
+                "sourceIds": [
+                  "jd_promotion"
+                ],
+                "basis": "platform_attributed",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current:matched"
+              },
+              "payment": {
+                "value": null,
+                "unit": "CNY_CENT",
+                "status": "unavailable",
+                "reasonCode": "no_records",
+                "sourceIds": [
+                  "jd_sku_daily"
+                ],
+                "basis": "product_day_sum",
+                "aggregation": "sum",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current:matched"
+              },
+              "spendRate": {
+                "value": null,
+                "unit": "RATIO",
+                "status": "unavailable",
+                "reasonCode": "incomplete_coverage",
+                "sourceIds": [
+                  "jd_promotion",
+                  "jd_sku_daily"
+                ],
+                "basis": "product_day_sum",
+                "aggregation": "ratio_of_sums",
+                "coverageRef": "promotion:shop:955cca1ceba45052:current:matched",
+                "numerator": null,
+                "denominator": null
+              }
+            },
+            "shopDates": [
+              {
+                "shopKey": "京东\u001fB",
+                "dates": []
+              }
+            ]
+          },
+          "coverageRef": "promotion:shop:955cca1ceba45052:current",
+          "spendShare": {
+            "value": null,
+            "unit": "RATIO",
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage",
+            "sourceIds": [
+              "jd_promotion"
+            ],
+            "basis": "platform_attributed",
+            "aggregation": "ratio_of_sums",
+            "coverageRef": "promotion:shop:955cca1ceba45052:current",
+            "numerator": null,
+            "denominator": 200
           }
         }
       ]
@@ -1719,9 +2139,9 @@
       },
       "plan": {
         "status": "unavailable",
-        "reasonCode": "unverified_source",
-        "canQuery": true,
-        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "reasonCode": "not_applicable",
+        "canQuery": false,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -1729,9 +2149,9 @@
       },
       "unit": {
         "status": "unavailable",
-        "reasonCode": "unverified_source",
-        "canQuery": true,
-        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "reasonCode": "not_applicable",
+        "canQuery": false,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -1739,9 +2159,9 @@
       },
       "keyword": {
         "status": "unavailable",
-        "reasonCode": "unverified_source",
-        "canQuery": true,
-        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "reasonCode": "not_applicable",
+        "canQuery": false,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -1749,9 +2169,9 @@
       },
       "search_term": {
         "status": "unavailable",
-        "reasonCode": "unverified_source",
-        "canQuery": true,
-        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词；选中后按真实来源核验",
+        "reasonCode": "not_applicable",
+        "canQuery": false,
+        "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
         "sourceIds": [
           "jd_promotion"
         ],
@@ -1766,28 +2186,28 @@
         "fields": [
           {
             "field": "spend",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage"
           },
           {
             "field": "attributedPayment",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage"
           },
           {
             "field": "impressions",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage"
           },
           {
             "field": "clicks",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage"
           },
           {
             "field": "orders",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "incomplete_coverage"
           }
         ],
         "notes": [
@@ -1803,8 +2223,8 @@
         "fields": [
           {
             "field": "payment",
-            "status": "available",
-            "reasonCode": null
+            "status": "unavailable",
+            "reasonCode": "missing_day"
           },
           {
             "field": "visitors",
@@ -1852,16 +2272,13 @@
       }
     },
     "diagnostic": {
-      "status": "available",
-      "reasonCode": null,
+      "status": "unavailable",
+      "reasonCode": "not_applicable",
       "message": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词",
-      "shopName": "志高商用设备旗舰店",
+      "shopName": null,
       "maximumDays": 7,
       "paidModelAllowed": false,
-      "reportFormats": [
-        "html",
-        "xlsx"
-      ]
+      "reportFormats": []
     },
     "dataQuality": {
       "aggregateReconciled": true,
@@ -1884,73 +2301,162 @@
     },
     "coverage": {
       "promotion:summary:current": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       },
       "promotion:summary:current:paired-whole": {
-        "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "expectedShopDatePairs": 2,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-01"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       },
       "promotion:summary:current:matched": {
-        "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
+        "expectedShopDatePairs": 0,
+        "coveredShopDatePairs": 0,
+        "complete": false,
         "missingByShop": [],
         "truncated": false
       },
       "promotion:trend:2026-09-01": {
-        "expectedShopDatePairs": 1,
+        "expectedShopDatePairs": 2,
         "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       },
       "promotion:trend:2026-09-01:paired-whole": {
+        "expectedShopDatePairs": 2,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-01"
+            ]
+          },
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "promotion:shop:798640599597df7a:current": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:shop:a06e240438310996:current": {
+      "promotion:shop:798640599597df7a:current:paired-whole": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "promotion:shop:798640599597df7a:current:matched": {
+        "expectedShopDatePairs": 0,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:shop:955cca1ceba45052:current": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "promotion:shop:955cca1ceba45052:current:paired-whole": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fB",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
+        "truncated": false
+      },
+      "promotion:shop:955cca1ceba45052:current:matched": {
+        "expectedShopDatePairs": 0,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:object:2ed6fb95e1f3c989:current": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:shop:a06e240438310996:current:paired-whole": {
+      "promotion:object:2ed6fb95e1f3c989:current:paired-whole": {
         "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
-        "truncated": false
-      },
-      "promotion:shop:a06e240438310996:current:matched": {
-        "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
-        "truncated": false
-      },
-      "promotion:object:5efa10c76fa2cf45:current": {
-        "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
-        "truncated": false
-      },
-      "promotion:object:5efa10c76fa2cf45:current:paired-whole": {
-        "expectedShopDatePairs": 1,
-        "coveredShopDatePairs": 1,
-        "complete": true,
-        "missingByShop": [],
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-01"
+            ]
+          }
+        ],
         "truncated": false
       }
     }
