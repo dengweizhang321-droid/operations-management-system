@@ -216,7 +216,9 @@ class ProductDetailTests(TestCase):
         self.assertEqual(quality["counts"]["missingImage"]["value"], 0)
         self.assertEqual(quality["counts"]["missingCode"]["value"], 1)
         self.assertEqual(quality["counts"]["stale"]["value"], 1)
-        self.assertEqual(quality["counts"]["unmapped"]["status"], "partial")
+        self.assertEqual(quality["counts"]["unmapped"]["status"], "unavailable")
+        self.assertIsNone(quality["counts"]["unmapped"]["value"])
+        self.assertEqual(quality["counts"]["unmapped"]["reasonCode"], "unverified_source")
 
     def test_list_images_exact_shop_and_assets_without_master(self):
         self.fact(platform="天猫", shop="A")
@@ -319,3 +321,78 @@ class ProductDetailTests(TestCase):
         self.assertEqual(result["performance"]["metrics"]["payment"]["value"], 1000)
         self.assertIsNone(result["performance"]["baselineMetrics"]["previous"]["payment"]["value"])
         self.assertIsNone(result["performance"]["paymentDelta"]["value"])
+
+    def test_fractional_cent_visitor_value_uses_shared_independent_schema(self):
+        self.fact(values={"transactionAmountCents": 101, "visitors": 3})
+        result = self.read()["sections"]["efficiency"]
+        value = result["visitorValue"]
+        self.assertEqual(value["metricSchemaVersion"], "netshop-money-per-count-v1")
+        self.assertEqual(value["unit"], "CNY_CENT_PER_COUNT")
+        self.assertEqual(value["denominatorKind"], "product_day_visitors_sum")
+        self.assertEqual(value["value"], 101 / 3)
+        self.assertNotIn("visitorValue", result["metrics"])
+        self.assertEqual(self.detail()["sections"]["visitorValue"], value)
+
+    def test_visitor_value_weighted_operands_and_period_comparison(self):
+        self.fact(product="A", values={"transactionAmountCents": 100, "visitors": 1})
+        self.fact(product="B", values={"transactionAmountCents": 1, "visitors": 100})
+        self.fact(product="A", day="2026-08-31", values={"transactionAmountCents": 50, "visitors": 101})
+        result = self.read()["sections"]["efficiency"]
+        self.assertEqual(result["visitorValue"]["value"], 1)
+        self.assertEqual(result["visitorValue"]["numerator"], 101)
+        self.assertEqual(result["visitorValue"]["denominator"], 101)
+        self.assertEqual(result["visitorValueComparisons"]["previous"]["value"], (1 - 50 / 101) / (50 / 101))
+
+    def test_visitor_value_true_zero_zero_negative_missing_and_partial_denominator(self):
+        from netshop.product_insights import _visitor_value
+        metric = self.read()["sections"]["summary"]
+        for payment, visitors, expected in ((0, 3, None), (100, 0, "zero_denominator"), (100, -3, "negative_denominator")):
+            supplied = {**metric, "payment": {**metric["payment"], "value": payment, "status": "available", "reasonCode": None}, "visitors": {**metric["visitors"], "value": visitors, "status": "available", "reasonCode": None}}
+            value = _visitor_value(supplied)
+            self.assertEqual(value["reasonCode"], expected)
+            if expected is None:
+                self.assertEqual(value["value"], 0)
+        self.fact(values={"transactionAmountCents": 101})
+        self.assertIsNone(self.read()["sections"]["efficiency"]["visitorValue"]["value"])
+        NetshopRow.objects.update(visitors=3, metrics_json={"transactionAmountCents": 101, "visitors": 3})
+        self.assertIsNone(self.read(endDate="2026-09-02")["sections"]["efficiency"]["visitorValue"]["value"])
+
+    def test_platform_daily_visitor_value_is_outside_original_metric_map(self):
+        self.fact(values={"transactionAmountCents": 101, "visitors": 3})
+        row = self.detail(section="daily")["sections"]["daily"]["data"]["items"][0]
+        self.assertEqual(row["visitorValue"]["value"], 101 / 3)
+        self.assertNotIn("visitorValue", row["metrics"])
+
+    def test_unverified_mapping_not_reported_as_confirmed_unmapped_profile(self):
+        self.fact()
+        self.master(product_code="Valid-looking-code")
+        profile = self.detail()["sections"]["catalog"]["data"]
+        self.assertEqual(profile["mapping"]["status"], "unverified")
+        self.assertIn("mapping_unverified", profile["quality"])
+        self.assertNotIn("unmapped", profile["quality"])
+
+    def test_jd_platform_code_is_not_merchant_or_erp_code(self):
+        self.fact()
+        self.master(product_code="Platform-SPU", raw_json={})
+        result = self.detail()["sections"]["catalog"]["data"]
+        self.assertIsNone(result["merchantCode"])
+        self.assertIsNone(result["erpCode"])
+        self.assertIn("missingCode", result["quality"])
+
+    def test_promotion_aggregate_without_completed_raw_is_not_no_records(self):
+        self.fact(platform="天猫")
+        self.promotion()
+        NetshopImportBatch.objects.filter(source="tmall_promotion").update(status="processing")
+        result = self.detail(platform="天猫")["sections"]["promotion"]["data"]
+        self.assertEqual(result["metrics"]["spend"]["reasonCode"], "promotion_mismatch")
+        self.assertIsNone(result["metrics"]["spend"]["value"])
+
+    def test_image_foreign_shop_completed_batch_cannot_validate_current_identity(self):
+        self.fact(platform="天猫", shop="A")
+        self.fact(platform="天猫", shop="B")
+        asset_a = self.asset(shop="A")
+        asset_b = self.asset(shop="B")
+        NetshopRow.objects.filter(pk=asset_a.pk).update(last_import_batch_id=asset_b.last_import_batch_id)
+        rows = self.read(platform="天猫")["sections"]["items"]
+        self.assertIsNone(next(row for row in rows if row["identity"]["shopName"] == "A")["imageUrl"])
+        self.assertTrue(next(row for row in rows if row["identity"]["shopName"] == "B")["imageUrl"])

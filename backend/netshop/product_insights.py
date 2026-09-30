@@ -19,7 +19,8 @@ from django.db.models import (
 from .errors import NetshopApiError
 from .insights_common import (
     MAX_SAFE, actor_fence, compare_metrics, context_versions, parse_identities,
-    read_context, validate_context, validate_metric,
+    read_context, validate_context, validate_metric, validate_derived_money_per_count,
+    compare_derived_money_per_count,
 )
 from .models import (
     NetshopImportBatch, NetshopPromotionAggregateManifest, NetshopPromotionAggregateState,
@@ -63,7 +64,7 @@ EXTRA_FIELDS = {
     "searchImpressions": "search_impressions", "searchClicks": "search_clicks",
     "searchVisitors": "search_visitors", "searchCustomers": "search_transaction_customers",
 }
-EXTRA_KEYS = tuple(EXTRA_FIELDS) + ("searchClickRate", "visitorValue")
+EXTRA_KEYS = tuple(EXTRA_FIELDS) + ("searchClickRate",)
 ALL_FIELDS = {**CORE_FIELDS, **EXTRA_FIELDS}
 
 
@@ -130,6 +131,14 @@ def _source(platform, dimension):
     return ("jd_sku_daily", dimension + "_daily") if platform == "京东" else ("tmall_product_daily", "spu_daily")
 
 
+def _completed_match():
+    return NetshopImportBatch.objects.filter(
+        id=OuterRef("last_import_batch_id"), status="completed",
+        platform=OuterRef("platform"), shop_name=OuterRef("shop_name"),
+        source=OuterRef("source"), dataset=OuterRef("dataset"),
+    )
+
+
 def _base(context):
     """The batch must belong to this exact row's source, dataset and shop."""
     scopes = Q(pk__in=[])
@@ -137,11 +146,7 @@ def _base(context):
         platform, shop = shop_key.split("\x1f")
         source, dataset = _source(platform, context["effectiveScope"]["dimension"])
         scopes |= Q(platform=platform, shop_name=shop, source=source, dataset=dataset)
-    completed = NetshopImportBatch.objects.filter(
-        id=OuterRef("last_import_batch_id"), status="completed",
-        platform=OuterRef("platform"), shop_name=OuterRef("shop_name"),
-        source=OuterRef("source"), dataset=OuterRef("dataset"),
-    )
+    completed = _completed_match()
     identity_column = context["effectiveScope"]["dimension"] + "_id"
     return NetshopRow.objects.filter(scopes, Exists(completed)).exclude(**{identity_column: ""})
 
@@ -249,10 +254,23 @@ def _extra_metrics(aggregate, context, kind, *, platform=None, identity=False):
     impressions, clicks = result["searchImpressions"], result["searchClicks"]
     reason = "incomplete_coverage" if impressions["status"] != "available" or clicks["status"] != "available" else "zero_denominator" if impressions["value"] == 0 else "negative_denominator" if impressions["value"] < 0 else None
     result["searchClickRate"] = _metric("searchClickRate", clicks["value"] / impressions["value"] if reason is None else None, "available" if reason is None else "unavailable", reason, sources, "products:" + kind, numerator=clicks["value"], denominator=impressions["value"])
-    # DerivedMoneyPerCountV1 is owned by I and is not in this verified base yet.
-    # Its helper will be imported only after the shared main commit is verified.
-    result["visitorValue"] = _metric("visitorValue", None, "unavailable", "unverified_source", sources, "products:" + kind, aggregation="source_value_only")
     return result
+
+
+def _visitor_value(metrics):
+    payment, visitors = metrics["payment"], metrics["visitors"]
+    invalid = payment["status"] == "invalid" or visitors["status"] == "invalid"
+    complete = payment["status"] == "available" and visitors["status"] == "available"
+    reason = "unsafe_integer" if invalid else "incomplete_coverage" if not complete else "zero_denominator" if visitors["value"] == 0 else "negative_denominator" if visitors["value"] < 0 else None
+    return validate_derived_money_per_count({
+        "metricSchemaVersion": "netshop-money-per-count-v1", "unit": "CNY_CENT_PER_COUNT",
+        "denominatorKind": "product_day_visitors_sum", "aggregation": "ratio_of_sums",
+        "value": payment["value"] / visitors["value"] if reason is None else None,
+        "numerator": payment["value"], "denominator": visitors["value"],
+        "status": "invalid" if invalid else "available" if reason is None else "unavailable",
+        "reasonCode": reason, "basis": "product_day_sum", "sourceIds": payment["sourceIds"],
+        "coverageRef": payment["coverageRef"],
+    })
 
 
 def _comparison(current, prior, year):
@@ -439,7 +457,8 @@ def _metadata(spec):
                 "商品访客、客户和加购人数为商品×日累计；加购率为客户人数/访客，SKU与SPU不能相加",
                 "无商品行不补基期0；增长下降只排两期完整字段可比集合，缺少基期另列未知；全集增减金额是完整可比子集，不从页累计",
                 "价格带按成交金额/成交件数，不按当前标价；当前档案、图片和库存均标自身快照",
-                "访客价值待共享netshop-money-per-count-v1实装；不塞入整数分MetricValue、不隐式舍入",
+                "访客累计价值为合计平台成交分/商品×日访客，以netshop-money-per-count-v1保留未舍入商；不是店铺去重UV价值",
+                "资料快照与经营事实各自截止；资料质量只读机械阈值不改变事实有效性，ERP映射未核验不当已确认未关联",
                 "ERP历史编码映射、成本完整性与逐日consumer尚未验证；未关联不按0成本算毛利",
                 "SPU下SKU历史关系尚未验证；不能套用当前目录关系",
             ]}
@@ -479,7 +498,8 @@ def _derived_buckets(grouped, context, denominator, *, price=False):
         item = {"label": label, "payment": money, "share": _share(amount, denominator, context, complete=complete and amount is not None),
                 "products": _metric("quantity", int(products), "available", None, denominator["sourceIds"], "products:current")}
         if not price:
-            item["categoryEvidence"] = _category_evidence(label, context=context)
+            platform, literal = label.split(" / ", 1)
+            item["categoryEvidence"] = _category_evidence(None if literal == "未提供类目" else literal, _source(platform, context["effectiveScope"]["dimension"])[0], platform, context)
         output.append(item)
     return output
 
@@ -571,9 +591,11 @@ def _catalog_profile(identity, context, *, deadline):
         image = NetshopRow.objects.filter(platform=platform, shop_name=shop, source=image_source, last_import_batch_id=image_head.id, **{"sku_id" if platform == "京东" else "spu_id": first.sku_id if platform == "京东" else product}).order_by("-snapshot_date", "id").first()
     image_url = f"/api/netshop/product-images/{image.image_content_sha256}" if image and image.image_content_sha256 else image.image_url if image and image.image_url else first.image_url or None
     raw = first.raw_json
-    merchant_code = str(raw.get("商家SKU") or raw.get("SKU商家编码") or first.product_code or "").strip() or None
+    # JD's typed product_code may be the platform's 商品编码/SPU, not ERP or
+    # merchant SKU. Only Tmall's published master projection has that meaning.
+    merchant_code = str(raw.get("商家SKU") or raw.get("SKU商家编码") or (first.product_code if platform == "天猫" else "") or "").strip() or None
     code = merchant_code if count == 1 else None
-    mapping = _mapping("ambiguous_mapping" if count > 1 and values["codes"] > 1 else "unverified_source" if code else "unmapped", source=source, code=code, version=context["sourceRevisions"][0]["revision"])
+    mapping = _mapping("ambiguous_mapping" if count > 1 and values["codes"] > 1 else "unverified_source", source=source, code=code, version=context["sourceRevisions"][0]["revision"])
     quality = []
     if not image_url: quality.append("missingImage")
     if not merchant_code: quality.append("missingCode")
@@ -581,7 +603,7 @@ def _catalog_profile(identity, context, *, deadline):
     if values["titles"] > 1 or values["categories"] > 1: quality.append("conflict")
     from django.utils import timezone
     if head.snapshot_date and head.snapshot_date < (timezone.localdate() - timedelta(days=7)).isoformat(): quality.append("stale")
-    quality.append("unmapped")
+    quality.append("mapping_unverified")
     price_reason = "ambiguous_mapping" if values["prices"] > 1 else "missing_field" if values["price_present"] != count else None
     return {"identity": {"platform": platform, "shopName": shop, "dimension": dimension, "id": product}, "title": first.product_name or product,
             "imageUrl": image_url, "productUrl": first.product_url or None, "skuId": first.sku_id or None if count == 1 else None,
@@ -610,7 +632,7 @@ def _source_section(loader, deadline):
 
 
 def _published_rows(platform, shop, source, dataset):
-    completed = NetshopImportBatch.objects.filter(id=OuterRef("last_import_batch_id"), status="completed", platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source=OuterRef("source"), dataset=OuterRef("dataset"))
+    completed = _completed_match()
     return NetshopRow.objects.filter(platform=platform, shop_name=shop, source=source, dataset=dataset).filter(Exists(completed))
 
 
@@ -637,9 +659,9 @@ def _promotion_data(spec, context, deadline):
         annotations[key] = Sum(column, filter=NumericMetricPresent(aliases))
         annotations[key + "_present"] = Count("id", filter=NumericMetricPresent(aliases))
     observed = {row["business_date"]: row for row in raw.values("business_date").annotate(**annotations)}
-    if not observed:
-        return empty("no_records")
     aggregate = {row.business_date: row for row in NetshopPromotionProductDaily.objects.filter(platform=platform, shop_name=shop, product_id=product, source=source, business_date__gte=spec["periods"]["current"]["startDate"], business_date__lt=spec["periods"]["current"]["endExclusive"])}
+    if not observed:
+        return empty("promotion_mismatch" if aggregate else "no_records")
     states = {row.business_date: row for row in NetshopPromotionAggregateState.objects.filter(platform=platform, shop_name=shop, source=source, business_date__gte=spec["periods"]["current"]["startDate"], business_date__lt=spec["periods"]["current"]["endExclusive"])}
     # State attests the whole shop/day. Its raw count must agree with the whole
     # completed source rather than the selected product's narrower row count.
@@ -676,7 +698,7 @@ def _promotion_data(spec, context, deadline):
 
 
 def _erp_data(catalog):
-    mapping = catalog["mapping"] if catalog else _mapping("unmapped")
+    mapping = catalog["mapping"] if catalog else _mapping("unverified_source")
     reason = "ambiguous_mapping" if mapping["status"] == "ambiguous" else "unmapped" if mapping["status"] == "unmapped" else "unverified_source"
     metrics = {}
     for key in ("netSales", "cost", "largeMarginRate", "orderMargin", "returnAmount", "returnQuantity"):
@@ -708,7 +730,10 @@ def _daily_data(base, spec, context, deadline, *, promotion=None):
             _, daily = promotion
             source_id = "jd_promotion" if spec["identity"][0] == "京东" else "tmall_promotion"
             metrics = daily.get(day) or (promotion[0]["metrics"] if promotion[0]["mapping"]["status"] != "verified" else {key: _metric(key, None, "unavailable", "no_records", [source_id], "products:promotion", unit="MULTIPLE" if key == "roas" else "COUNT" if key == "clicks" else "CNY_CENT", basis="platform_attributed") for key in ("spend", "attributedPayment", "roas", "clicks")})
-        items.append({"date": day, "source": source, "metrics": metrics})
+        item = {"date": day, "source": source, "metrics": metrics}
+        if source == "platform":
+            item["visitorValue"] = _visitor_value(metrics)
+        items.append(item)
     definitions = ["自然日来自请求本期；未提供行/字段为空，真实0须数字字段存在", "金额为人民币分；人数为商品×日累计，SKU/SPU不相加"] if source == "platform" else ["京东为跟单SKU总订单金额，天猫为商品净归因成交；与平台支付/ERP净销售分开", "ROAS=归因成交/花费，归因窗口未知；不是利润或增量", "缺报日为空，不从其它商品、店铺或当前SKU归属补0"]
     return {"state": "ready", "data": {"source": source, "items": items, "pagination": _pagination(spec, len(selected), len(items)), "definitions": definitions, "startDate": window["startDate"], "endDate": window["endDate"], "sourceRevisions": context["sourceRevisions"]}}
 
@@ -726,10 +751,10 @@ def _quality(base, spec, context, deadline):
     heads = {}
     for batch in batches:
         heads.setdefault((batch.platform, batch.shop_name), batch)
-    master = NetshopRow.objects.filter(selected_scopes, source__in=["jd_product_master", "tmall_product_master"], dataset="product_master", last_import_batch_id__in=[batch.id for batch in heads.values()])
+    master = NetshopRow.objects.filter(selected_scopes, source__in=["jd_product_master", "tmall_product_master"], dataset="product_master", last_import_batch_id__in=[batch.id for batch in heads.values()]).filter(Exists(_completed_match()))
     cohort = _window_rows(base, spec["periods"]["current"]).filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), **{spec["dimension"] + "_id": OuterRef(spec["dimension"] + "_id")})
     master = master.filter(Exists(cohort))
-    master = master.annotate(merchant=Coalesce(NullIf(KeyTextTransform("商家SKU", "raw_json"), Value("")), NullIf(KeyTextTransform("SKU商家编码", "raw_json"), Value("")), NullIf(F("product_code"), Value("")), output_field=NetshopRow._meta.get_field("product_code")))
+    master = master.annotate(merchant=Coalesce(NullIf(KeyTextTransform("商家SKU", "raw_json"), Value("")), NullIf(KeyTextTransform("SKU商家编码", "raw_json"), Value("")), Case(When(platform="天猫", then=NullIf(F("product_code"), Value(""))), default=Value(None), output_field=NetshopRow._meta.get_field("product_code")), output_field=NetshopRow._meta.get_field("product_code")))
     total = master.count()
     sources = ["jd_product_master" if p == "京东" else "tmall_product_master" for p in context["effectiveScope"]["platforms"]]
     if not total:
@@ -738,11 +763,11 @@ def _quality(base, spec, context, deadline):
         image_head = NetshopImportBatch.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source=OuterRef("source"), status="completed").order_by("-snapshot_date", "-completed_at", "-created_at", "-id").values("id")[:1]
         assets = NetshopRow.objects.filter(platform=OuterRef("platform"), shop_name=OuterRef("shop_name"), source__in=["jd_yimei_sku", "tmall_product_assets"]).filter(last_import_batch_id=Subquery(image_head)).filter(Q(image_url__gt="") | Q(image_content_sha256__gt="")).filter(Q(platform="天猫", spu_id=OuterRef("spu_id")) | Q(platform="京东", sku_id=OuterRef("sku_id")))
         missing_code = master.filter(merchant__isnull=True).count()
-        conflicts = master.values("platform", "shop_name", "sku_id").annotate(titles=Count("product_name", distinct=True), codes=Count("product_code", distinct=True), parents=Count("spu_id", distinct=True)).filter(Q(titles__gt=1) | Q(codes__gt=1) | Q(parents__gt=1)).count()
+        conflicts = master.exclude(sku_id="").values("platform", "shop_name", "sku_id").annotate(titles=Count("product_name", distinct=True), codes=Count("product_code", distinct=True), parents=Count("spu_id", distinct=True)).filter(Q(titles__gt=1) | Q(codes__gt=1) | Q(parents__gt=1)).count()
         values = {"missingImage": master.filter(image_url="").filter(~Exists(assets)).count(), "missingCode": missing_code, "missingCategory": master.filter(category="").count(), "conflict": conflicts, "stale": master.filter(snapshot_date__lt=(timezone.localdate() - timedelta(days=7)).isoformat()).count(), "unmapped": missing_code}
     counts = {}
     for key, value in values.items():
-        counts[key] = _metric(key, value, "unavailable" if value is None else "partial" if key == "unmapped" else "available", "no_records" if value is None else "unverified_source" if key == "unmapped" else None, sources, "products:current_snapshot", basis="current_snapshot")
+        counts[key] = _metric(key, None if key == "unmapped" else value, "unavailable" if key == "unmapped" or value is None else "available", "unverified_source" if key == "unmapped" else "no_records" if value is None else None, sources, "products:current_snapshot", basis="current_snapshot")
     return {"counts": counts, "staleAfterDays": 7, "basis": "current_snapshot"}
 
 
@@ -764,7 +789,7 @@ def _page_images(items, context, deadline):
     for batch in NetshopImportBatch.objects.filter(scope, status="completed").order_by("-snapshot_date", "-completed_at", "-created_at", "-id"):
         heads.setdefault((batch.source, batch.platform, batch.shop_name), batch.id)
     images = {}
-    for row in NetshopRow.objects.filter(candidates, last_import_batch_id__in=heads.values()).only("platform", "shop_name", "sku_id", "spu_id", "image_url", "image_content_sha256").order_by("id"):
+    for row in NetshopRow.objects.filter(candidates, last_import_batch_id__in=heads.values()).filter(Exists(_completed_match())).only("platform", "shop_name", "sku_id", "spu_id", "image_url", "image_content_sha256").order_by("id"):
         key = (row.platform, row.shop_name, row.spu_id if row.platform == "天猫" else row.sku_id)
         images.setdefault(key, f"/api/netshop/product-images/{row.image_content_sha256}" if row.image_content_sha256 else row.image_url or None)
     for item in items:
@@ -843,6 +868,9 @@ def read_product_insights(principal, spec):
                 item["comparisons"][key][kind] = compare_metrics(item["metrics"][key], empty[key])
             item["baselineMetrics"][kind] = empty
             item["paymentDelta"] = _payment_delta(item["metrics"]["payment"], item["baselineMetrics"]["previous"]["payment"])
+    visitor_values = {kind: _visitor_value(metrics[kind]) for kind in ("current", "previous", "yearAgo")}
+    efficiency["visitorValue"] = visitor_values["current"]
+    efficiency["visitorValueComparisons"] = {kind: compare_derived_money_per_count(visitor_values["current"], visitor_values[kind]) for kind in ("previous", "yearAgo")}
     payload = {
         "schemaVersion": PRODUCT_SCHEMA, "context": context, "sectionToken": section_token,
         "tableScope": {"q": spec["query"], "category": spec["category"], "sort": spec["sort"], "page": spec["page"], "pageSize": spec["pageSize"]},
@@ -898,6 +926,9 @@ def read_product_detail(principal, spec):
                 "catalog": catalog_section, "extras": extras, "promotion": promotion_section, "erp": {"state": "ready", "data": _erp_data(catalog)},
                 "skuContribution": {"status": "unavailable", "reasonCode": "not_applicable" if dimension == "sku" else "unverified_source", "basis": "historical_relation", "relationVersion": None, "items": [], "pagination": _pagination(spec, 0, 0)},
                 "metadata": _metadata(spec)}
+    visitor_values = {kind: _visitor_value(metrics[kind]) for kind in ("current", "previous", "yearAgo")}
+    sections["visitorValue"] = visitor_values["current"]
+    sections["visitorValueComparisons"] = {kind: compare_derived_money_per_count(visitor_values["current"], visitor_values[kind]) for kind in ("previous", "yearAgo")}
     if spec["section"] in {"daily", "trends"}:
         sections[spec["section"]] = promotion_section if spec["source"] == "promotion" and promotion_section["state"] == "error" else _daily_data(base, spec, context, deadline, promotion=promotion_data[0])
     payload = {"schemaVersion": PRODUCT_SCHEMA, "context": context, "sectionToken": section_token,
