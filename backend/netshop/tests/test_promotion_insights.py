@@ -285,6 +285,20 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(searched["contributions"], section["contributions"])
         self.assertEqual(searched["summary"], section["summary"])
 
+    def test_focused_plan_universe_retains_real_baseline_only_and_unknown_is_not_paired(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, day="2026-09-01", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "OTHER-DATE", "推广计划": "其他日期"}}])
+        self.day(shop=SHOP_NAME, day="2026-09-02", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "CURRENT", "推广计划": "本期"}}])
+        self.day(shop=SHOP_NAME, day="2026-08-02", rows=[{"id": "SKU", "values": values, "raw": {"计划ID": "GONE", "推广计划": "下降对象"}}])
+        self.day(shop=SHOP_NAME, day="2025-09-02", rows=[{"id": "SKU", "values": values, "raw": {"推广计划": "未知ID"}}])
+        section = self.read(endDate="2026-09-02", focusDate="2026-09-02", objectKind="plan")["sections"]
+        self.assertEqual({r["id"] for r in section["items"]}, {"CURRENT", "GONE", None})
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "GONE")
+        unknown = next(r for r in section["items"] if r["id"] is None)
+        self.assertIsNone(unknown["changes"]["spend"]["previous"]["value"])
+        self.assertEqual(unknown["observation"]["current"]["verifiedAbsentDates"], [])
+
     def test_percentage_points_and_zero_negative_missing_baselines(self):
         self.pair()
         self.day(day="2026-08-31", rows=[{"id": "same", "values": {"spendCents": 0, "netTransactionAmountCents": 0, "impressions": 100, "clicks": 1, "netOrders": 0}}])
