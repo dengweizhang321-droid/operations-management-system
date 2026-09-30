@@ -12,11 +12,12 @@ import type { MetricValue } from "../lib/netshop/insights-contract";
 register(`data:text/javascript,${encodeURIComponent('export async function load(url, context, nextLoad) { return url.endsWith(".css") ? { format: "module", source: "", shortCircuit: true } : nextLoad(url, context); }')}`, import.meta.url);
 const { CompareCell, MetricCell, ProductPicture } = await import("../app/netshop/products/ProductsPrimitives");
 const { productsQuery } = await import("../app/netshop/products/ProductsRead");
+const { checkCatalog } = await import("../app/netshop/products/ProductsCatalog");
 import { validateProductQuery } from "../app/netshop/products/contract";
 
 test("presentation settings preserve columns and sort without retaining results or API tokens", () => {
   const value = decodeProductsUiState(JSON.stringify({ sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth" }));
-  assert.deepEqual(value, { sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth" });
+  assert.deepEqual(value, { sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth", catalogFilters: { status: "all", quality: "all", mapping: "all" } });
   assert.equal("snapshotToken" in value, false);
   assert.equal("data" in value, false);
 });
@@ -87,4 +88,16 @@ test("empty global platform selection explicitly requests the two permitted plat
   const query = productsQuery({ context: defaultShopLocationContext, startDate: "2026-09-01", endDate: "2026-09-01", periodKind: "custom" }, "payment_desc");
   assert.deepEqual(query.getAll("platform"), ["京东", "天猫"]);
   assert.doesNotThrow(() => validateProductQuery(query));
+});
+test("old catalog rejects null rows/shops, string match flags and nonfinite rates without TypeError", () => {
+  const query = new URLSearchParams({ page: "1", pageSize: "20", platform: "京东", outlet: "京东\u001f店A" });
+  const item = { platform: "京东", shopName: "店A", spuId: "P1", skuId: "S1", saleAttribute: "", productCode: "", productName: "商品", imageUrl: "", category: "", brand: "", status: "", productUrl: "", createdAt: "2026-09-01", snapshotDate: "2026-09-01", priceCents: 0, costPriceCents: null, netSalesCents: null, totalInventory: 0, availableInventory: 0, salesMatched: false, grossMarginRate: null, refundRate: null };
+  const fixture = () => ({ snapshotToken: "a".repeat(64), items: [{ ...item }], shops: [{ platform: "京东", shopName: "店A", snapshotDate: "2026-09-01", completedAt: "2026-09-01" }], summary: { totalSkus: 1, onSaleSkus: 0, totalInventory: 0, availableInventory: 0 }, batch: null, sales: { periodStart: null, periodEnd: null, dataCutoffDate: null, platform: "京东" }, pagination: { page: 1, pageSize: 20, total: 1, returned: 1, truncated: false } });
+  assert.doesNotThrow(() => checkCatalog(fixture(), query));
+  for (const mutate of [(data: unknown) => { (data as { items: unknown[] }).items = [null]; }, (data: unknown) => { (data as { shops: unknown[] }).shops = [null]; }, (data: unknown) => { (data as { items: Array<Record<string, unknown>> }).items[0].salesMatched = "false"; }, (data: unknown) => { (data as { items: Array<Record<string, unknown>> }).items[0].grossMarginRate = Infinity; }]) {
+    const data = fixture(); mutate(data);
+    assert.throws(() => checkCatalog(data, query), error => error instanceof Error && !(error instanceof TypeError));
+  }
+  const negative = fixture(); negative.items[0].grossMarginRate = -1.5 as never; negative.items[0].refundRate = 2.5 as never;
+  assert.equal(checkCatalog(negative, query).items[0].grossMarginRate, -1.5);
 });
