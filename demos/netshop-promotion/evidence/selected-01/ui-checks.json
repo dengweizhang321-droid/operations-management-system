@@ -1,0 +1,194 @@
+{
+  "version": "promotion-selected-01-roi",
+  "checkedAt": "2026-09-30T11:19:22.400Z",
+  "clientTimezone": "Asia/Shanghai",
+  "productionValidated": false,
+  "checks": [
+    {
+      "name": "only-01-no-hero-all-labels-roi",
+      "ok": true,
+      "state": {
+        "heading": "01 经营双栏",
+        "hero": 0,
+        "oldLayouts": 0,
+        "roasText": false,
+        "roiLabels": 9,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "values": [
+          "1.51万元",
+          "8.06万元",
+          "5.32×",
+          "8.08%"
+        ],
+        "variantControls": 0
+      }
+    },
+    {
+      "name": "roi-values-unchanged",
+      "ok": true
+    },
+    {
+      "name": "old-layout-url-normalized",
+      "ok": true
+    },
+    {
+      "name": "main-search-does-not-change-summary",
+      "ok": true
+    },
+    {
+      "name": "full-object-dialog-without-restoring-04",
+      "ok": true
+    },
+    {
+      "name": "dialog-search-isolated",
+      "ok": true
+    },
+    {
+      "name": "exact-product-drawer-roi",
+      "ok": true
+    },
+    {
+      "name": "roi-trend-labels",
+      "ok": true
+    },
+    {
+      "name": "roi-tooltip-label",
+      "ok": true
+    },
+    {
+      "name": "plan-dialog-keeps-main-product-view",
+      "ok": true
+    },
+    {
+      "name": "exact-plan-id-no-product-link",
+      "ok": true
+    },
+    {
+      "name": "keyword-dialog-roi-and-source-gap",
+      "ok": true
+    },
+    {
+      "name": "xlsx-structure-retained",
+      "ok": true
+    },
+    {
+      "name": "diagnostic-roi-only",
+      "ok": true
+    },
+    {
+      "name": "html-report-no-roas-original-structure",
+      "ok": true
+    },
+    {
+      "name": "tmall-roi-labels-and-order-definition",
+      "ok": true
+    },
+    {
+      "name": "incomplete-fee-stays-null",
+      "ok": true
+    },
+    {
+      "name": "mismatched-shop-day-fee-null",
+      "ok": true
+    },
+    {
+      "name": "zero-denominator-roi-null",
+      "ok": true
+    },
+    {
+      "name": "roi-definition-preserved",
+      "ok": true
+    },
+    {
+      "name": "selected-01-responsive-1440",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": 0,
+        "layout": "01 经营双栏",
+        "roas": false,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "variants": 0,
+        "width": 1440
+      }
+    },
+    {
+      "name": "selected-01-responsive-390",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": 0,
+        "layout": "01 经营双栏",
+        "roas": false,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "variants": 0,
+        "width": 390
+      }
+    },
+    {
+      "name": "selected-01-responsive-330",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "hero": 0,
+        "layout": "01 经营双栏",
+        "roas": false,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "variants": 0,
+        "width": 330
+      }
+    }
+  ],
+  "errors": [],
+  "qaNotes": [
+    {
+      "original": {
+        "name": "html-report-roi-only",
+        "ok": false
+      },
+      "reason": "The original HTML report preview did not contain this ratio field; validate that no ROAS remains and the original report structure is retained, without adding an unsolicited metric."
+    }
+  ]
+}

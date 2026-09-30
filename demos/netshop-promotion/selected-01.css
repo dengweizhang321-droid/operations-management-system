@@ -1,0 +1,4 @@
+.preview-heading {display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin:0 1px 17px}.preview-heading h1 {font-size:20px;font-weight:600;line-height:1.3}.preview-heading .quiet {margin-left:auto;font-size:13px}.modal.object-modal {width:min(1180px,100%)}.object-modal .object-table {min-height:0}.object-modal .table-wrap {max-height:55vh;overflow:auto}.object-modal th {position:sticky;top:0;z-index:2}.object-modal .table-range {margin-top:14px}.object-modal .object-tabs {margin-top:3px}.object-modal .empty-state {margin-top:16px}
+.preview-heading .heading-report {display:none}
+@media(max-width:860px) {.preview-heading .heading-report {display:inline-flex}}
+@media(max-width:550px) {.preview-heading {gap:9px;margin-bottom:15px}.preview-heading .quiet {padding:4px 0}.modal.object-modal {padding:18px}.object-modal .panel {padding:0;border:0;box-shadow:none}.object-modal .table-wrap {max-height:60vh}}
