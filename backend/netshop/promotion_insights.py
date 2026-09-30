@@ -399,7 +399,8 @@ def _dimensions(reader, names, options, deadline, principal):
         for index, row in enumerate(source.values(*columns).iterator(chunk_size=2000)):
             if index % 1000 == 0: _budget(deadline)
             if (row["shop_name"], row["business_date"]) in reader.facts["failures"]: continue
-            raw = row["raw_json"]
+            raw = row["raw_json"] if isinstance(row["raw_json"], dict) else {}
+            source_metrics = row["metrics_json"] if isinstance(row["metrics_json"], dict) else {}
             dims = {}
             for field, aliases in DIMENSION_FIELDS.items():
                 values = {_scalar(raw, (alias,)) for alias in aliases} - {None}
@@ -416,7 +417,7 @@ def _dimensions(reader, names, options, deadline, principal):
                 if len(groups[kind]) > 30_000: raise NetshopApiError("计划词完整分组超过原上限", code="quality_incomplete", status=422)
                 bucket = group["periods"].setdefault(window_kind, {})
                 cell = bucket.setdefault((SHOP_NAME, row["business_date"]), _empty())
-                source_row = {"row_count": 1, **{c: row[c] for c in CONTROL_COLUMNS}, **{k+"_present": int(any(type(row["metrics_json"].get(alias)) in {int, float} for alias in v[1])) for k, v in METRICS.items()}}
+                source_row = {"row_count": 1, **{c: row[c] for c in CONTROL_COLUMNS}, **{k+"_present": int(any(type(source_metrics.get(alias)) in {int, float} for alias in v[1])) for k, v in METRICS.items()}}
                 _add(cell, source_row)
                 group["relations"].add((row["sku_id"] or None, dims["promotedSkuId"], dims["triggerSkuId"], dims["keyword"], dims["searchTerm"], dims["planId"], dims["unitId"], dims["matchType"]))
     sections = {k: [] for k in ("plan", "unit", "keyword", "search_term")}
