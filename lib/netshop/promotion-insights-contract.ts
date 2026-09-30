@@ -1,4 +1,4 @@
-import type { InsightsContext, InsightPagination, MetricComparison, MetricReason, MetricValue, ProductIdentity, SourceCoverage } from "./insights-contract";
+import type { DerivedMoneyPerCountV1, InsightsContext, InsightPagination, MetricComparison, MetricReason, MetricValue, ProductIdentity, SourceCoverage } from "./insights-contract";
 
 export const PROMOTION_COLUMN_VERSION = "netshop-promotion-v1" as const;
 export const PROMOTION_METRIC_KEYS = ["spend", "attributedPayment", "roas", "impressions", "clicks", "ctr", "cpc", "orders", "spendRate"] as const;
@@ -8,18 +8,8 @@ export type PromotionMetricKey = typeof PROMOTION_METRIC_KEYS[number];
 export type PromotionObjectKind = typeof PROMOTION_OBJECT_KINDS[number];
 export type PromotionSort = typeof PROMOTION_SORTS[number];
 
-/** Structural wire type of I's explicitly approved monetary mean protocol.
- * Replace this alias with I's shared exported type when its implementation
- * reaches main. This module defines no competing formula or shared validator.
- */
-export type PromotionCpc = {
-  metricSchemaVersion: "netshop-money-per-count-v1";
-  unit: "CNY_CENT_PER_COUNT"; aggregation: "ratio_of_sums";
-  denominatorKind: "clicks"; numerator: number | null; denominator: number | null;
-  value: number | null; status: "available" | "partial" | "unavailable" | "invalid";
-  reasonCode: MetricReason | null; basis: MetricValue["basis"];
-  sourceIds: string[]; coverageRef: string;
-};
+/** I's versioned monetary mean; CPC specifically counts real clicks. */
+export type PromotionCpc = DerivedMoneyPerCountV1 & { denominatorKind: "clicks" };
 export type PromotionMetrics = Record<Exclude<PromotionMetricKey, "cpc">, MetricValue> & { cpc: PromotionCpc };
 export type PromotionComparisons = Record<PromotionMetricKey, { previous: MetricComparison; yearAgo: MetricComparison }>;
 export type PromotionChanges = Record<"spend" | "attributedPayment", { previous: MetricValue; yearAgo: MetricValue }>;
@@ -39,6 +29,7 @@ export type PromotionObjectRow = {
   title: string; planId: string | null; unitId: string | null; matchType: string | null;
   metrics: PromotionMetrics; comparisons: PromotionComparisons;
   spendShare: MetricValue; changes: PromotionChanges;
+  observation?: Record<"current" | "previous" | "yearAgo", { observedDates: string[]; verifiedAbsentDates: string[] }>;
   coverageRef: string; mapping: PromotionObjectMapping;
   /** Reliable identity for this promotion domain's own detail only.
    * Product navigation separately requires matched mapping/linkIdentity. */
@@ -119,3 +110,6 @@ export type PromotionDetailResponse = {
     limitations: string[];
   };
 };
+
+export { decodePromotionInsightsForQuery, decodePromotionDetailForQuery } from "./promotion-insights-decode";
+export { validatePromotionQuery } from "./promotion-insights-query";
