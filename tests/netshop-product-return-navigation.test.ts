@@ -10,6 +10,7 @@ test("list to product to promotion to product preserves the original list with f
   const detail = drillShopLocation(list, "products", product, "daily");
   const promotion = drillShopLocation(detail, "promotion", product, "product");
   const context = parseShellLocation(promotion).shop!;
+  assert.equal(context.q, ""); assert.equal(context.category, "");
   assert.equal(context.returnOrigin, list);
   for (const target of [context.returnTo, context.returnOrigin]) {
     assert.ok(validShopReturn(target!));
