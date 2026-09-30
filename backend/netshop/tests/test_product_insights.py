@@ -394,3 +394,21 @@ class ProductInsightsTests(TestCase):
         with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights.actor_fence", side_effect=actor), patch("netshop.product_insights.read_context", side_effect=context):
             self.read()
         self.assertEqual(received, [65.0])
+
+    def test_successful_last_baseline_sql_expiry_stops_before_next_fact_phase(self):
+        self.fact()
+        from netshop.product_insights import _aggregate, _list_rows
+        clock, aggregates, next_phase = [0.0], [0], [0]
+        def aggregate(*args):
+            value = _aggregate(*args)
+            aggregates[0] += 1
+            if aggregates[0] == 3:
+                clock[0] = 66.0
+            return value
+        def listing(*args):
+            next_phase[0] += 1
+            return _list_rows(*args)
+        with patch("netshop.product_insights.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.product_insights._aggregate", side_effect=aggregate), patch("netshop.product_insights._list_rows", side_effect=listing), self.assertRaises(NetshopApiError) as failure:
+            self.read()
+        self.assertEqual(failure.exception.code, "source_not_ready")
+        self.assertEqual(next_phase[0], 0)
