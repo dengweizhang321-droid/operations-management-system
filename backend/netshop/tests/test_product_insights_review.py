@@ -123,7 +123,7 @@ class ProductCatalogHeaderIndependentReviewTests(TestCase):
 
         self.seed()
         for index in range(4, 7):
-            self.master(product=f"P{index}", shop="A", product_status="上架", total_inventory=1)
+            self.master(product=f"P{index}", shop=f"Review-{index}", product_status="上架", total_inventory=1)
         values = {"status": "all", "quality": "all", "mapping": "all", "page": 1, "pageSize": 5, "q": "", "startDate": "2026-09-01", "endDate": "2026-09-01"}
         response = self.read(**values)
         self.assertEqual(response.status_code, 200, response.content)
