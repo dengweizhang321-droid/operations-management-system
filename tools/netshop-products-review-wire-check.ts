@@ -54,6 +54,8 @@ rejectList("list failed baseline cannot retain available row comparisons", p => 
 rejectList("data-quality count cannot become CNY_CENT", p => { p.sections.dataQuality.counts.missingImage.unit = "CNY_CENT"; });
 rejectList("data-quality count cannot be negative", p => { p.sections.dataQuality.counts.missingImage.value = -1; });
 rejectList("missing complete structure is a protocol failure, not a missing source", p => { delete p.sections.structure; });
+reject("catalogue image identity status cannot be absent", p => { delete p.sections.catalog.data.imageStatus; });
+reject("unverified image cannot retain a trusted-looking protected URL", p => { p.sections.performance.imageStatus = "unverified"; p.sections.performance.imageUrl = "/api/netshop/product-images/" + "a".repeat(64); });
 const destination = resolve(reviewRoot, "products-review-wire-" + randomUUID());
 await mkdir(destination, { recursive: false });
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
