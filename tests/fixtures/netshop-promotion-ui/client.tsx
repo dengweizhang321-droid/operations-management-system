@@ -14,7 +14,7 @@ function record(kind: string, message: string) {
   const event = { at: new Date().toISOString(), kind, message: message.slice(0, 3000) };
   const log = kind === "error" || kind === "console-error" ? window.__promotionUiQA.errors : window.__promotionUiQA.events;
   log.push(event); if (log.length > 100) log.shift();
-  window.dispatchEvent(new CustomEvent("promotion-qa-event"));
+  queueMicrotask(() => window.dispatchEvent(new CustomEvent("promotion-qa-event")));
 }
 window.addEventListener("error", event => record("error", event.message));
 window.addEventListener("unhandledrejection", event => record("error", event.reason instanceof Error ? event.reason.message : String(event.reason)));
