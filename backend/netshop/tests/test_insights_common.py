@@ -43,6 +43,32 @@ def write_capacity_evidence(name, payload):
 class InsightsFoundationTests(TestCase):
     fact = overview_fixture.StoreOverviewTests.fact
 
+    def test_initial_actor_sql_time_is_inside_whole_read_deadline(self):
+        from netshop.insights_common import actor_fence
+        clock = [0.0]
+        def slow_actor(principal):
+            result = actor_fence(principal)
+            clock[0] = 66.0
+            return result
+        with patch("netshop.insights_common.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.insights_common.actor_fence", side_effect=slow_actor):
+            with self.assertRaises(NetshopApiError) as failure:
+                read_context(self.principal, self.spec())
+        self.assertEqual(failure.exception.code, "source_not_ready")
+
+    def test_final_actor_sql_cannot_return_success_after_whole_read_deadline(self):
+        from netshop.insights_common import actor_fence
+        clock, calls = [0.0], [0]
+        def slow_final_actor(principal):
+            result = actor_fence(principal)
+            calls[0] += 1
+            if calls[0] == 2: clock[0] = 66.0
+            return result
+        with patch("netshop.insights_common.time.monotonic", side_effect=lambda: clock[0]), patch("netshop.insights_common.actor_fence", side_effect=slow_final_actor):
+            with self.assertRaises(NetshopApiError) as failure:
+                read_context(self.principal, self.spec())
+        self.assertEqual(calls[0], 2)
+        self.assertEqual(failure.exception.code, "source_not_ready")
+
     def setUp(self):
         NetshopDataRevision.objects.update_or_create(domain="netshop", defaults={"revision": 1, "source_digest": "a"*64})
         self.principal = Principal("foundation@example.test", "Synthetic", "viewer", None)

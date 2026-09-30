@@ -209,11 +209,12 @@ def context_versions(platform, names, revision):
 
 
 def read_context(principal, spec):
+    deadline = time.monotonic()+65
     actor = actor_fence(principal)
+    if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     require_supported_scope(principal)
     if principal.scope is not None and (not principal.scope["platforms"] or set(spec["platforms"])-set(principal.scope["platforms"])):
         raise NetshopApiError("共享平台超出权限", code="access_denied", status=403)
-    deadline = time.monotonic()+65
     def load(before):
         effective, coverages, capabilities, freshness, sampled = [], {}, [], [], {}
         for platform in spec["platforms"]:
@@ -271,4 +272,5 @@ def read_context(principal, spec):
         raise NetshopApiError("共享来源响应超过2MiB，请缩小范围", code="quality_incomplete", status=422)
     if actor_fence(principal) != actor:
         raise NetshopApiError("取数期间账号权限版本已变化", code="access_denied", status=403)
+    if time.monotonic() > deadline: raise NetshopApiError("共享来源读取超出预算", code="source_not_ready", status=503)
     return payload
