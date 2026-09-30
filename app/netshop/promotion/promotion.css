@@ -28,6 +28,7 @@
 .promotion-context-line { color:var(--color-text-muted,#66756b); font-size:var(--font-size-label,13px); overflow-wrap:anywhere; }
 .promotion-columns { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(300px,1fr); gap:20px; align-items:start; }
 .promotion-main,.promotion-aside { display:grid; min-width:0; gap:18px; }
+.promotion-unread-sections { display:grid; gap:14px; }
 .promotion-column-label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:600; font-size:var(--font-size-label,13px); color:var(--color-text-muted,#66756b); }
 .promotion-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
 .promotion-kpi { display:grid; align-content:start; gap:9px; min-width:0; padding:18px; border:1px solid var(--color-border-default,#e3e9e5); border-radius:10px; background:var(--color-bg-surface,#fff); }
