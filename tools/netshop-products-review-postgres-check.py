@@ -24,6 +24,7 @@ labels = sys.argv[1:] or [
     "netshop.tests.test_product_insights",
     "netshop.tests.test_product_insights_detail",
     "netshop.tests.test_product_insights_catalog_filters",
+    "netshop.tests.test_product_insights_http",
     "netshop.tests.test_product_insights_review",
 ]
 if any(not name.startswith("netshop.tests.test_product_insights") for name in labels):
