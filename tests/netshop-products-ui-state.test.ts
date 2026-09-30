@@ -94,6 +94,14 @@ test("old catalog rejects null rows/shops, string match flags and nonfinite rate
   const item = { platform: "京东", shopName: "店A", spuId: "P1", skuId: "S1", saleAttribute: "", productCode: "", productName: "商品", imageUrl: "", category: "", brand: "", status: "", productUrl: "", createdAt: "2026-09-01", snapshotDate: "2026-09-01", priceCents: 0, costPriceCents: null, netSalesCents: null, totalInventory: 0, availableInventory: 0, salesMatched: false, grossMarginRate: null, refundRate: null };
   const fixture = () => ({ snapshotToken: "a".repeat(64), items: [{ ...item }], shops: [{ platform: "京东", shopName: "店A", snapshotDate: "2026-09-01", completedAt: "2026-09-01" }], summary: { totalSkus: 1, onSaleSkus: 0, totalInventory: 0, availableInventory: 0 }, batch: null, sales: { periodStart: null, periodEnd: null, dataCutoffDate: null, platform: "京东" }, pagination: { page: 1, pageSize: 20, total: 1, returned: 1, truncated: false } });
   assert.doesNotThrow(() => checkCatalog(fixture(), query));
+  const firstPartial = fixture(); firstPartial.pagination.pageSize = 1; firstPartial.pagination.total = 3; firstPartial.pagination.truncated = true;
+  assert.doesNotThrow(() => checkCatalog(firstPartial, new URLSearchParams({ ...Object.fromEntries(query), pageSize: "1" })));
+  const lastPartial = fixture(); lastPartial.pagination.page = 2; lastPartial.pagination.pageSize = 5; lastPartial.pagination.total = 6; lastPartial.pagination.truncated = false;
+  assert.doesNotThrow(() => checkCatalog(lastPartial, new URLSearchParams({ ...Object.fromEntries(query), page: "2", pageSize: "5" })));
+  for (const truncated of ["true", 1, null]) assert.throws(() => checkCatalog({ ...fixture(), pagination: { ...fixture().pagination, truncated } }, query));
+  assert.throws(() => checkCatalog({ ...fixture(), pagination: { ...fixture().pagination, hasMore: true } }, query));
+  const nullableBatch = { ...fixture(), batch: { fileName: "合成.xlsx", snapshotDate: "2026-09-01", rowCount: 1, completedAt: null } };
+  assert.doesNotThrow(() => checkCatalog(nullableBatch, query));
   const optIn = new URLSearchParams(query); for (const key of ["status", "quality", "mapping"]) optIn.set(key, "all");
   const withMetadata = { ...fixture(), catalogFilters: { policyVersion: "netshop-product-catalog-filter-v1", status: "all", quality: "all", mapping: "all", asOfDate: "2026-10-01", scopeKey: "b".repeat(64), sourceVersion: "7:aaaaaaaaaaaa", staleAfterDays: 30, onSaleValues: ["上架"], offSaleValues: ["下架"], summaryBasis: "complete_store_set_before_table_filters", filteredRows: 1 }, catalogFilterCapabilities: { mapping: { supportedValues: ["all"], reasonCode: "unverified_source" }, unverified_mapping: { supported: false, reasonCode: "unverified_source" }, missing_image: { supported: false, reasonCode: "unverified_source" } } };
   assert.doesNotThrow(() => checkCatalog(withMetadata, optIn, "7:aaaaaaaaaaaa"));

@@ -363,10 +363,10 @@ def product_catalog(
             "sourceVersion": revision_value(),
             "fields": {key: True for key in ("product_status", "catalog_code", "category", "snapshot_date", "image_lookup", "exact_identity")},
         }
-        # The legacy JD renderer also accepts globally shared and code-fallback
-        # images. The new exact-shop/SKU predicate cannot prove that lookup yet.
-        # Keep the renderer; refuse an unsupported quality filter explicitly.
-        filter_capabilities["fields"]["image_lookup"] = not any(b.platform == "京东" for b in selected)
+        # Server-owned opt-in to the implemented current-snapshot proof. The
+        # predicate independently verifies full master/asset ownership, exact
+        # priority and code uniqueness, and rejects ambiguous/global fallbacks.
+        filter_capabilities["fields"]["jd_code_fallback"] = True
         filter_binding = catalog_filter_binding(catalog_filters, as_of_date=as_of_date, capabilities=filter_capabilities)
     snapshot_input = {
             "version": 2,
