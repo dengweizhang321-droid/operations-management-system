@@ -5,8 +5,9 @@ import { unzipSync, strFromU8 } from "fflate";
 import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
+import { createHash } from "node:crypto";
 import ActualPanel from "../app/promotion-diagnostic-panel";
-import { buildPromotionDiagnosticReport, promotionDiagnosticDisplayReport, promotionDiagnosticHtml, promotionDiagnosticXlsx, validateDiagnosticResponse, type DiagnosticPeriod } from "../lib/jd/promotion-diagnostic-report";
+import { buildPromotionDiagnosticReport, promotionDiagnosticDisplayReport, promotionDiagnosticHtml, promotionDiagnosticXlsx, validateDiagnosticResponse, type DiagnosticPeriod, type PromotionDiagnosticReport } from "../lib/jd/promotion-diagnostic-report";
 import type { DiagnosticWithRelations } from "../lib/jd/promotion-diagnostic-relations";
 
 const revision = "12:abcdefabcdef", shopName = "志高商用设备旗舰店";
@@ -42,6 +43,72 @@ test("diagnostic binding requires owning header/body/parent and exact shop/date,
   assert.equal(validateDiagnosticResponse(body, revision, expected), body);
   for (const header of [null, "13:bbbbbbbbbbbb", "a".repeat(64)]) assert.throws(() => validateDiagnosticResponse(body, header, expected));
   for (const values of [{ expectedOwningRevision: "13:bbbbbbbbbbbb" }, { shopName: "其他店" }, { startDate: "2026-09-19" }, { endDate: "2026-09-21" }]) assert.throws(() => validateDiagnosticResponse(body, revision, { ...expected, ...values }));
+});
+
+const exportBaseline = (value: DiagnosticPeriod) => ({ identity: value.identity, period: value.period, sourceRevision: value.sourceRevision, coverage: value.coverage });
+const embeddedReport = (html: string) => JSON.parse(html.match(/<script type="application\/json" id="report">([\s\S]*?)<\/script>/)![1]!) as PromotionDiagnosticReport;
+const provenanceRow = (html: string, label: string) => embeddedReport(html).tables.at(-1)!.rows.find(row => row[0] === label)!;
+test("default export bytes exactly preserve the pre-provenance baseline", () => {
+  const report = buildPromotionDiagnosticReport(period(), period("2026-09-19"));
+  const sha = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+  // Captured from committed 43bdf332 before this optional implementation.
+  assert.equal(sha(promotionDiagnosticHtml(report)), "b7122ed46eb2f592f1283021ce4a15d558ccf531d27bd8c200b9de3221b3b5f8");
+  assert.equal(sha(promotionDiagnosticXlsx(report)), "a9dbc6e028440bbf7a6ac2fa780a446315e18973eeba59f846e9ab62ef0a02ba");
+  assert.equal(promotionDiagnosticHtml(report), promotionDiagnosticHtml(report, { includeProvenance: false }));
+  assert.deepEqual(promotionDiagnosticXlsx(report), promotionDiagnosticXlsx(report, { includeProvenance: false }));
+});
+test("opt-in HTML and real XLSX ZIP append owning trace while every original cell/sheet remains exact", () => {
+  const current = period(), baseline = period("2026-09-19"), report = buildPromotionDiagnosticReport(current, baseline), before = structuredClone(report);
+  const options = { ratioLabel: "ROI" as const, includeProvenance: true, baselineProvenance: exportBaseline(baseline) };
+  const html = promotionDiagnosticHtml(report, options), basicHtml = promotionDiagnosticHtml(report, { ratioLabel: "ROI" });
+  assert.deepEqual(embeddedReport(html).tables.slice(0, -1), embeddedReport(basicHtml).tables);
+  assert.match(html, /<section id="export-provenance"><h2>范围与来源<\/h2>/);
+  const visibleTrace = html.match(/<section id="export-provenance">([\s\S]*?)<\/section>/)![1]!;
+  for (const value of [revision, "jd_promotion", "sourceRevision", "非snapshotToken", shopName, "2026-09-19", "2026-09-20", "aggregateReconciled", "batchOwnershipReconciled", "非利润回报率或增量效果"]) assert.ok(visibleTrace.includes(value), value);
+  assert.deepEqual(provenanceRow(html, "来源读取状态"), ["来源读取状态", "已读取本期报告", "已读取基期来源"]);
+  assert.deepEqual(provenanceRow(html, "实际来源行数"), ["实际来源行数", 1, 1]);
+  const legacy = unzipSync(promotionDiagnosticXlsx(report, { ratioLabel: "ROI" })), enhanced = unzipSync(promotionDiagnosticXlsx(report, options));
+  for (let i = 1; i <= report.tables.length; i++) assert.deepEqual(enhanced[`xl/worksheets/sheet${i}.xml`], legacy[`xl/worksheets/sheet${i}.xml`]);
+  assert.deepEqual(enhanced["xl/styles.xml"], legacy["xl/styles.xml"]);
+  assert.match(strFromU8(enhanced["xl/workbook.xml"]!), /<sheet name="范围与来源"/);
+  const trace = strFromU8(enhanced[`xl/worksheets/sheet${report.tables.length + 1}.xml`]!);
+  assert.match(trace, /12:abcdefabcdef/); assert.match(trace, /jd_promotion/); assert.match(trace, /2026-09-19/);
+  assert.match(trace, /归因订单金额÷推广花费/); assert.match(trace, /空串与null/);
+  assert.deepEqual(report, before);
+});
+test("baseline evidence is explicitly unknown when absent, actual when read but incomplete, and cannot fake comparable scope/version", () => {
+  const current = period(), comparable = buildPromotionDiagnosticReport(current, period("2026-09-19"));
+  for (const baselineProvenance of [undefined, null]) {
+    const html = promotionDiagnosticHtml(comparable, { includeProvenance: true, baselineProvenance });
+    assert.match(String(provenanceRow(html, "实际统计期间")[2]), /未知/);
+    assert.match(String(provenanceRow(html, "netshop拥有方修订（sourceRevision，非snapshotToken）")[2]), /未知/);
+    assert.match(String(provenanceRow(html, "已有来源日期")[2]), /未知/);
+    assert.notEqual(provenanceRow(html, "实际来源行数")[2], 0);
+  }
+  const partial = period("2026-09-19");
+  partial.coverage = { ...partial.coverage, presentDates: [], missingDates: ["2026-09-19"], rowCount: 0, complete: false };
+  partial.sourceBatches = []; partial.summary = Object.fromEntries(Object.keys(partial.summary).map(key => [key, null])) as DiagnosticPeriod["summary"];
+  partial.daily = [{ date: "2026-09-19", rowCount: 0, metrics: partial.summary }];
+  for (const field of Object.values(partial.metricAvailability)) Object.assign(field, { totalRows: 0, presentRows: 0, complete: false });
+  for (const key of Object.keys(partial.groups) as Array<keyof DiagnosticPeriod["groups"]>) partial.groups[key] = [];
+  const report = buildPromotionDiagnosticReport(current, partial);
+  assert.equal(report.previousPeriod, null); assert.equal(report.comparisonAvailable, false);
+  const html = promotionDiagnosticHtml(report, { includeProvenance: true, baselineProvenance: exportBaseline(partial) });
+  assert.deepEqual(provenanceRow(html, "实际统计期间"), ["实际统计期间", "2026-09-20 至 2026-09-20", "2026-09-19 至 2026-09-19"]);
+  assert.deepEqual(provenanceRow(html, "缺少来源日期"), ["缺少来源日期", "无（日期列表为空）", "2026-09-19"]);
+  assert.equal(provenanceRow(html, "实际来源行数")[2], 0); assert.equal(provenanceRow(html, "日期覆盖完整")[2], "不完整");
+  const baseline = exportBaseline(period("2026-09-19"));
+  for (const invalid of [{ ...baseline, identity: { platform: "天猫", shopName } }, { ...baseline, identity: { platform: "京东", shopName: "其他店" } }, { ...baseline, sourceRevision: "a".repeat(64) }, { ...baseline, sourceRevision: "13:bbbbbbbbbbbb" }, { ...baseline, period: { startDate: "2026-09-18", endDate: "2026-09-18" } }]) assert.throws(() => promotionDiagnosticXlsx(comparable, { includeProvenance: true, baselineProvenance: invalid }), /基期导出追溯/);
+  assert.throws(() => promotionDiagnosticHtml({ ...comparable, sourceRevision: "a".repeat(64) }, { includeProvenance: true }), /拥有方修订/);
+});
+test("trace leaves original empty-string/null blanks, whitespace and true zero exactly intact", () => {
+  const report = buildPromotionDiagnosticReport(period());
+  report.tables.push({ key: "syntheticNulls", title: "合成原值", note: "测试原空值", columns: [{ key: "value", label: "原值", kind: "text" }], rows: [[""], [null], [" "], [0], [-1]] });
+  const basic = unzipSync(promotionDiagnosticXlsx(report)), enhanced = unzipSync(promotionDiagnosticXlsx(report, { includeProvenance: true }));
+  const key = `xl/worksheets/sheet${report.tables.length}.xml`;
+  assert.deepEqual(enhanced[key], basic[key]);
+  const xml = strFromU8(enhanced[key]!); assert.match(xml, /xml:space="preserve"> <\/t>/); assert.match(xml, /<v>0<\/v>/); assert.match(xml, /<v>-1<\/v>/);
+  assert.deepEqual(embeddedReport(promotionDiagnosticHtml(report, { includeProvenance: true })).tables[report.tables.length - 1]!.rows, [[""], [null], [" "], [0], [-1]]);
 });
 
 type MockPrincipal = { email: string; role: string; scope: unknown };
@@ -82,7 +149,7 @@ const panelBuild = await build({ entryPoints: ["app/promotion-diagnostic-panel.t
     export function useMemo(fn){current().index++;return fn();}
     export function useLayoutEffect(callback,deps){const r=current(),i=r.index++,old=r.effects.get(i);if(!old||deps.some((d,n)=>d!==old.deps[n]))r.pending.push({index:i,callback,deps});}export const useEffect=useLayoutEffect;` }));
 } }] });
-const Panel = (await import("data:text/javascript;base64,"+Buffer.from(panelBuild.outputFiles[0].text).toString("base64"))).default as (props: { shopName: string; startDate: string; endDate: string; allowPaidModel?: boolean; ratioLabel?: "ROI" | "ROAS"; expectedOwningRevision?: string; onReadInvalidated?: (code: string, message: string) => void }) => Element;
+const Panel = (await import("data:text/javascript;base64,"+Buffer.from(panelBuild.outputFiles[0].text).toString("base64"))).default as (props: { shopName: string; startDate: string; endDate: string; allowPaidModel?: boolean; ratioLabel?: "ROI" | "ROAS"; expectedOwningRevision?: string; onReadInvalidated?: (code: string, message: string) => void; includeExportProvenance?: boolean }) => Element;
 function elements(node: unknown): Element[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!node || typeof node !== "object" || !("props" in node)) return [];
@@ -160,7 +227,8 @@ test("allowPaidModel false disables the button and its callable handler makes ze
 test("legacy range guards and export alias calls stay explicit in the panel", async () => {
   const source = await readFile("app/promotion-diagnostic-panel.tsx", "utf8");
   assert.match(source, /days < 1 \|\| days > 7/); assert.match(source, /allowPaidModel = true/); assert.match(source, /ratioLabel = "ROAS"/);
-  assert.match(source, /promotionDiagnosticHtml\(report, \{ ratioLabel \}\)/); assert.match(source, /promotionDiagnosticXlsx\(report, \{ ratioLabel \}\)/);
+  assert.match(source, /includeExportProvenance = false/); assert.match(source, /promotionDiagnosticHtml\(report, exportOptions\)/); assert.match(source, /promotionDiagnosticXlsx\(report, exportOptions\)/);
+  assert.match(source, /\} : \{ ratioLabel \}, \[includeExportProvenance/);
   assert.match(source, /async function interpretFocused\(\) \{\s*if \(!allowPaidModel/); assert.match(source, /current\.sourceRevision/);
 });
 test("parent revision change aborts mocked AI and stale enabled handler cannot bypass paid disable", async () => {
@@ -191,4 +259,38 @@ test("real React server markup stays warning-free and cannot dispatch reads or m
     const html = renderToStaticMarkup(createElement(ActualPanel, { ...props, allowPaidModel: false, ratioLabel: "ROI" }));
     assert.match(html, /独立1—7天报告/); assert.equal(errors.length, 0);
   } finally { console.error = original; }
+});
+
+test("panel opt-in exports actual baseline evidence or explicit unread state using synthetic Blobs only", async () => {
+  const oldFetch = globalThis.fetch, createUrl = URL.createObjectURL, revokeUrl = URL.revokeObjectURL;
+  const descriptors = new Map(["document", "window"].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const blobs: Blob[] = []; let posts = 0;
+  URL.createObjectURL = value => { assert.ok(value instanceof Blob); blobs.push(value); return "blob:synthetic-export"; };
+  URL.revokeObjectURL = () => undefined;
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => ({ click() {}, href: "", download: "" }) } });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { setTimeout(callback: () => void) { callback(); return 0; } } });
+  try {
+    for (const baseline503 of [false, true]) {
+      const r = renderer(); const exportProps = { ...props, allowPaidModel: false, ratioLabel: "ROI" as const, includeExportProvenance: true };
+      globalThis.fetch = async (input, options) => {
+        if (options?.method === "POST") { posts++; throw Error("No model or write request admitted"); }
+        const date = new URL(String(input), "http://synthetic.test").searchParams.get("startDate")!;
+        return baseline503 && date !== props.startDate ? Response.json({ error: "合成基期503" }, { status: 503 }) : Response.json(period(date), { headers: { "X-Netshop-Data-Revision": revision } });
+      };
+      try {
+        r.render(exportProps); await r.flush(); const first = r.render(exportProps); (button(first, "生成当前周期诊断").props.onClick as () => void)(); await new Promise(resolve => setImmediate(resolve));
+        const tree = r.render(exportProps); assert.equal(button(tree, "导出 HTML").props.disabled, false);
+        (button(tree, "导出 HTML").props.onClick as () => void)(); (button(tree, "导出 XLSX").props.onClick as () => void)();
+        const html = await blobs.at(-2)!.text(), files = unzipSync(new Uint8Array(await blobs.at(-1)!.arrayBuffer()));
+        assert.match(html, /<h2>范围与来源<\/h2>/); assert.equal(provenanceRow(html, "netshop拥有方修订（sourceRevision，非snapshotToken）")[1], revision);
+        assert.match(strFromU8(files["xl/workbook.xml"]!), /<sheet name="范围与来源"/);
+        if (baseline503) { assert.match(String(provenanceRow(html, "实际统计期间")[2]), /未读成功.*未知/); assert.notEqual(provenanceRow(html, "实际来源行数")[2], 0); }
+        else { assert.equal(provenanceRow(html, "实际统计期间")[2], "2026-09-19 至 2026-09-19"); assert.equal(provenanceRow(html, "netshop拥有方修订（sourceRevision，非snapshotToken）")[2], revision); }
+      } finally { r.cleanup(); }
+    }
+    assert.equal(posts, 0);
+  } finally {
+    globalThis.fetch = oldFetch; URL.createObjectURL = createUrl; URL.revokeObjectURL = revokeUrl;
+    for (const [key, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); }
+  }
 });
