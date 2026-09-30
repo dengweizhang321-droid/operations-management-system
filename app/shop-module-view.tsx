@@ -8,7 +8,7 @@ import { encodeProductIdentity, type InsightPlatform, type ProductIdentity } fro
 import { productSummaryForDisplay } from "@/lib/netshop/product-display";
 import { mergePromotionDisplayRows } from "@/lib/netshop/promotion-display";
 import { NetshopNavigation } from "./netshop/shared/navigation";
-import { netshopColumnModules } from "./netshop/shared/module-slots";
+import { netshopColumnModules, netshopColumnCapabilities } from "./netshop/shared/module-slots";
 import { defaultShopLocationContext, type ShopLocationContext } from "./shell/shop-context";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1799,7 +1799,7 @@ export default function ShopView(props: ShopViewProps & {
   const [balancedRetry, setBalancedRetry] = useState(0);
   const switcher = props.moduleView === "outlets" ? <div className="overview-view-switch" role="group" aria-label="网店总览视图">{(["classic", "balanced"] as const).map(view => <button type="button" key={view} aria-pressed={props.overview.view === view} onClick={() => props.onOverviewChange({ ...props.overview, view })}>{view === "classic" ? "旧视图" : "新视图"}</button>)}</div> : null;
   const Column = props.moduleView === "outlets" ? undefined : netshopColumnModules[props.moduleView];
-  if (Column && props.onContextChange && props.onDrill && props.onReturn) return <><NetshopNavigation active={props.moduleView} onChange={props.onModuleViewChange} /><Column startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} context={props.context ?? defaultShopLocationContext} onContextChange={props.onContextChange} onDrill={props.onDrill} onReturn={props.onReturn} currentUser={props.currentUser} onModuleViewChange={props.onModuleViewChange} onApplyPeriod={props.onApplyPeriod} onNavigate={props.onNavigate} /></>;
+  if (Column && props.onContextChange && props.onDrill && props.onReturn) return <><NetshopNavigation active={props.moduleView} onChange={props.onModuleViewChange} /><Column startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} context={props.context ?? defaultShopLocationContext} onContextChange={props.onContextChange} onDrill={props.onDrill} onReturn={props.onReturn} currentUser={props.currentUser} onModuleViewChange={props.onModuleViewChange} onApplyPeriod={props.onApplyPeriod} onNavigate={props.onNavigate} supportsPromotionProductDrill={Boolean(netshopColumnModules.promotion) && netshopColumnCapabilities.supportsPromotionProductDrill} /></>;
   return <>{switcher}{props.moduleView === "outlets" && props.overview.view === "balanced" ? <>
     <NetshopNavigation active={props.moduleView} onChange={props.onModuleViewChange} />
     <ModuleErrorBoundary resetKey={`balanced-${balancedRetry}`} onRetry={() => { resetReloadableLazyScope("shop-balanced"); setBalancedRetry(v => v + 1); }} onOpenDashboard={() => props.onOverviewChange({ ...props.overview, view: "classic" })} returnLabel="返回旧视图"><Suspense fallback={<section className="panel data-state" role="status">正在加载新视图…</section>}><BalancedOverview options={props.overview} onChange={props.onOverviewChange} startDate={props.customStartDate} endDate={props.customEndDate} periodKind={props.periodKind ?? salesRangeMap[props.range]} onApplyPeriod={props.onApplyPeriod} currentUser={props.currentUser} onClassic={() => props.onOverviewChange({ ...props.overview, view: "classic" })} /></Suspense></ModuleErrorBoundary>

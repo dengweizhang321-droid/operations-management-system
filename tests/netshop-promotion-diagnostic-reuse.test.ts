@@ -82,7 +82,7 @@ const panelBuild = await build({ entryPoints: ["app/promotion-diagnostic-panel.t
     export function useMemo(fn){current().index++;return fn();}
     export function useLayoutEffect(callback,deps){const r=current(),i=r.index++,old=r.effects.get(i);if(!old||deps.some((d,n)=>d!==old.deps[n]))r.pending.push({index:i,callback,deps});}export const useEffect=useLayoutEffect;` }));
 } }] });
-const Panel = (await import("data:text/javascript;base64,"+Buffer.from(panelBuild.outputFiles[0].text).toString("base64"))).default as (props: { shopName: string; startDate: string; endDate: string; allowPaidModel?: boolean; ratioLabel?: "ROI" | "ROAS"; expectedOwningRevision?: string }) => Element;
+const Panel = (await import("data:text/javascript;base64,"+Buffer.from(panelBuild.outputFiles[0].text).toString("base64"))).default as (props: { shopName: string; startDate: string; endDate: string; allowPaidModel?: boolean; ratioLabel?: "ROI" | "ROAS"; expectedOwningRevision?: string; onReadInvalidated?: (code: string, message: string) => void }) => Element;
 function elements(node: unknown): Element[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!node || typeof node !== "object" || !("props" in node)) return [];
@@ -100,25 +100,31 @@ function renderer() {
 const props = { shopName, startDate: "2026-09-20", endDate: "2026-09-20", expectedOwningRevision: revision };
 const button = (tree: Element, label: string) => elements(tree).find(e => e.type === "button" && text(e) === label)!;
 test("scope/revision change aborts in-flight read and late response cannot publish old report", async () => {
+  const invalidations: string[] = [];
+  const liveProps = { ...props, onReadInvalidated: (code: string) => { invalidations.push(code); } };
   const oldFetch = globalThis.fetch, r = renderer(); let release: ((response: Response) => void) | undefined, signal: AbortSignal | undefined;
   globalThis.fetch = async (_input, options) => { signal = options?.signal ?? undefined; return new Promise(resolve => { release = resolve; }); };
   try {
-    r.render(props); await r.flush(); let tree = r.render(props); const load = button(tree, "生成当前周期诊断").props.onClick as () => void; load();
-    r.render({ ...props, expectedOwningRevision: "13:bbbbbbbbbbbb" }); await r.flush(); assert.equal(signal?.aborted, true);
+    r.render(liveProps); await r.flush(); let tree = r.render(liveProps); const load = button(tree, "生成当前周期诊断").props.onClick as () => void; load();
+    r.render({ ...liveProps, expectedOwningRevision: "13:bbbbbbbbbbbb" }); await r.flush(); assert.equal(signal?.aborted, true);
     release!(Response.json(period(), { headers: { "X-Netshop-Data-Revision": revision } })); await new Promise(resolve => setImmediate(resolve));
     tree = r.render({ ...props, expectedOwningRevision: "13:bbbbbbbbbbbb" }); assert.equal(text(tree).includes("可查看的表与建议"), false);
+    assert.deepEqual(invalidations, []);
   } finally { r.cleanup(); globalThis.fetch = oldFetch; }
 });
 test("baseline 401/403 or owning-revision drift cannot be swallowed as comparison unavailable", async () => {
   const oldFetch = globalThis.fetch;
   try {
     for (const failure of [401, 403, "revision"] as const) {
+      const invalidations: string[] = [];
+      const invalidatingProps = { ...props, onReadInvalidated: (code: string) => { invalidations.push(code); } };
       const r = renderer(); globalThis.fetch = async input => {
         const from = new URL(String(input), "http://synthetic.test").searchParams.get("startDate")!;
         return from === props.startDate ? Response.json(period(from), { headers: { "X-Netshop-Data-Revision": revision } }) : failure === "revision" ? Response.json(period(from, "13:bbbbbbbbbbbb"), { headers: { "X-Netshop-Data-Revision": "13:bbbbbbbbbbbb" } }) : Response.json({ error: "没有权限" }, { status: failure });
       };
-      r.render(props); await r.flush(); const tree = r.render(props); (button(tree, "生成当前周期诊断").props.onClick as () => void)(); await new Promise(resolve => setImmediate(resolve));
+      r.render(invalidatingProps); await r.flush(); const tree = r.render(invalidatingProps); (button(tree, "生成当前周期诊断").props.onClick as () => void)(); await new Promise(resolve => setImmediate(resolve));
       const final = r.render(props); assert.equal(text(final).includes("诊断未生成"), true); assert.equal(text(final).includes("可查看的表与建议"), false); r.cleanup();
+      assert.deepEqual(invalidations, [failure === "revision" ? "promotion_diagnostic_binding_changed" : "access_denied"]);
     }
   } finally { globalThis.fetch = oldFetch; }
 });
