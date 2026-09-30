@@ -401,6 +401,18 @@ class PromotionInsightsTests(TestCase):
         self.assertIsNone(item["mapping"]["linkIdentity"])
         self.assertIsNone(item["metrics"]["spendRate"]["value"])
 
+    def test_missing_jd_product_id_follow_identity_is_null_and_actual_dto_preserved(self):
+        self.day(rows=[{"id": "", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 10, "clicks": 1, "netOrders": 1}}])
+        result = self.read()
+        item = result["sections"]["items"][0]
+        self.assertIsNone(item["id"])
+        self.assertIsNone(item["mapping"]["followSkuId"])
+        self.assertFalse(item["drillable"])
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-missing-id.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
+
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow
         for shop in range(10):

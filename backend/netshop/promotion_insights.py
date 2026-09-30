@@ -361,7 +361,7 @@ def _objects(reader, names, options, deadline):
             "planId": None, "unitId": None, "matchType": None, "drillable": bool(object_id),
             "mapping": {"status": "matched" if mapping_reason is None else "ambiguous" if ambiguity else "unmapped",
                         "linkIdentity": {"platform": platform, "shopName": n, "dimension": "sku" if platform == "京东" else "spu", "id": object_id} if mapping_reason is None else None,
-                        "advertisedSkuId": None, "triggerSkuId": None, "followSkuId": object_id if platform == "京东" else None,
+                        "advertisedSkuId": None, "triggerSkuId": None, "followSkuId": (object_id or None) if platform == "京东" else None,
                         "evidence": "exact_source_identity" if mapping_reason is None else "unverified"},
             "metrics": metrics, "comparisons": comparisons, "matchedRange": matched,
             "spendShare": _ratio("ctr", metrics["spend"], reader.focused_summary["spend"], metrics["spend"]["coverageRef"]),
