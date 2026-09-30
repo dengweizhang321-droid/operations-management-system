@@ -12,6 +12,13 @@ export const metricReasons = ["no_records", "missing_day", "missing_field", "not
 export type MetricReason = typeof metricReasons[number];
 export type MetricValue = { value: number | null; unit: "CNY_CENT" | "COUNT" | "RATIO" | "MULTIPLE" | "SECONDS"; status: "available" | "partial" | "unavailable" | "invalid"; reasonCode: MetricReason | null; basis: MetricBasis; sourceIds: string[]; aggregation: "sum" | "ratio_of_sums" | "source_value_only"; coverageRef: string; numerator?: number | null; denominator?: number | null };
 export type MetricComparison = OverviewComparison;
+export const derivedMoneySchema = "netshop-money-per-count-v1" as const;
+export const moneyDenominatorKinds = ["clicks", "item_quantity", "transaction_customers_sum", "product_day_visitors_sum"] as const;
+export type DerivedMoneyPerCountV1 = Omit<MetricValue, "unit" | "aggregation" | "numerator" | "denominator" | "status"> & {
+  metricSchemaVersion: typeof derivedMoneySchema; unit: "CNY_CENT_PER_COUNT"; aggregation: "ratio_of_sums";
+  denominatorKind: typeof moneyDenominatorKinds[number]; numerator: number | null; denominator: number | null;
+  status: "available" | "unavailable" | "invalid";
+};
 export type InsightWindow = { startDate: string; endDate: string; endExclusive: string; days: number };
 export type InsightPeriods = { timezone: "Asia/Shanghai"; rule: string; ruleVersion: "sales-period-v1"; current: InsightWindow; previous: InsightWindow; yearAgo: InsightWindow };
 export type SourceRevision = { domain: "netshop" | "sales" | "products" | "inventory" | "finance" | "erp_reference" | "workflow"; kind: string; scopeKey: string; revision: string };
@@ -55,6 +62,34 @@ export function decodeMetric(value: unknown): MetricValue {
     }
   }
   return m as MetricValue;
+}
+/** Derived monetary prices are versioned separately; transaction amounts and
+ * COUNT retain their original safe-integer contract. No rounding precedes use.
+ */
+export function decodeDerivedMoneyPerCount(value: unknown): DerivedMoneyPerCountV1 {
+  const m = record(value);
+  if (m.metricSchemaVersion !== derivedMoneySchema || m.unit !== "CNY_CENT_PER_COUNT" || m.aggregation !== "ratio_of_sums" || typeof m.denominatorKind !== "string" || !moneyDenominatorKinds.includes(m.denominatorKind as typeof moneyDenominatorKinds[number]) || typeof m.status !== "string" || !["available", "unavailable", "invalid"].includes(m.status) || typeof m.basis !== "string" || !["product_day_sum", "platform_attributed", "erp_net_sales", "erp_order_margin", "erp_large_margin", "finance_month", "current_snapshot", "unverified"].includes(m.basis) || m.reasonCode !== null && (typeof m.reasonCode !== "string" || !metricReasons.includes(m.reasonCode as MetricReason)) || !("numerator" in m) || !("denominator" in m)) return fail("派生货币单价版本、单位或分母定义无效");
+  for (const key of ["numerator", "denominator"]) if (m[key] !== null && !Number.isSafeInteger(m[key])) return fail("派生货币单价须以安全整数分和次数计算");
+  if (m.status === "available" && (typeof m.numerator !== "number" || typeof m.denominator !== "number" || m.denominator <= 0 || m.denominatorKind === "clicks" && m.numerator < 0)) return fail("派生货币单价分子分母无效");
+  // Reuse four-state/source/reason/ratio consistency checks without widening
+  // decodeMetric's monetary unit. This validation proxy is never returned.
+  decodeMetric({ ...m, unit: "RATIO" });
+  if (m.status === "available" && m.value !== Number(m.numerator) / Number(m.denominator)) return fail("派生货币单价必须保留整数分/次数的未舍入商");
+  return m as DerivedMoneyPerCountV1;
+}
+export function compareDerivedMoneyPerCount(current: DerivedMoneyPerCountV1, baseline: DerivedMoneyPerCountV1): MetricComparison {
+  const a = decodeDerivedMoneyPerCount(current), b = decodeDerivedMoneyPerCount(baseline);
+  const sameSources = JSON.stringify([...a.sourceIds].sort()) === JSON.stringify([...b.sourceIds].sort());
+  const reason: MetricReason | null = a.metricSchemaVersion !== b.metricSchemaVersion || a.denominatorKind !== b.denominatorKind || a.basis !== b.basis || !sameSources ? "not_applicable" : a.status !== "available" || b.status !== "available" ? "incomplete_baseline" : b.value === 0 ? "zero_denominator" : Number(b.value) < 0 ? "negative_baseline" : null;
+  const value = reason ? null : (Number(a.value) - Number(b.value)) / Number(b.value);
+  return { method: "relative_change", value: value !== null && Number.isFinite(value) ? value : null, status: reason || value === null || !Number.isFinite(value) ? "unavailable" : "available", reasonCode: reason ?? (value === null || !Number.isFinite(value) ? "unsafe_integer" : null) };
+}
+export function formatDerivedMoneyPerCount(value: DerivedMoneyPerCountV1): string {
+  const m = decodeDerivedMoneyPerCount(value);
+  if (m.value === null) return "—";
+  const labels = { clicks: "点击", item_quantity: "件", transaction_customers_sum: "成交客户累计", product_day_visitors_sum: "商品访客累计" };
+  if (m.value !== 0 && Math.abs(m.value / 100) < .0001) return `${m.value > 0 ? "<0.0001" : ">-0.0001"} 元/${labels[m.denominatorKind]}`;
+  return `${(m.value / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} 元/${labels[m.denominatorKind]}`;
 }
 /** Explicit overview adapter: validate the accepted DTO before adding refs. */
 export function adaptOverview(response: unknown) {
