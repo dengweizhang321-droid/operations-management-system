@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { syntheticInsightsContext } from "../lib/netshop/insights-fixtures";
 import { compareMetrics, type MetricValue } from "../lib/netshop/insights-contract";
-import { decodeProductInsights, productMetricKeys, validateProductQuery } from "../app/netshop/products/contract";
+import { decodeProductInsights, productMetricKeys, ProductResponseError, validateProductQuery } from "../app/netshop/products/contract";
 
 const query = new URLSearchParams({ platform: "京东", outlet: "京东\u001f合成店A", startDate: "2026-09-01", endDate: "2026-09-01" });
 function fixture() {
@@ -34,11 +34,24 @@ test("response cannot cross store, units, pagination, current scope or owning re
 test("ordinary baseline service failure is separate from reliable current and cannot invent zero", () => {
   const data = fixture(); const failed = { state: "error", data: null, code: "service_unavailable", message: "基期读取失败" };
   const comparisons = Object.fromEntries(productMetricKeys.map(key => [key, { ...data.sections.comparisons[key], previous: { value: null, method: key === "conversion" || key === "addCartRate" ? "percentage_points" : "relative_change", status: "unavailable", reasonCode: "incomplete_baseline" } }]));
-  const response = { ...data, sections: { ...data.sections, comparisons, baselineReads: { previous: failed, yearAgo: data.sections.baselineReads.yearAgo } } };
+  const previous = Object.fromEntries(productMetricKeys.map(key => [key, { ...data.sections.summary[key], value: null, status: "unavailable", reasonCode: "incomplete_baseline" }]));
+  const item = { ...data.sections.items[0], comparisons, baselineMetrics: { previous, yearAgo: data.sections.summary } };
+  const response = { ...data, sections: { ...data.sections, comparisons, items: [item], growth: failed, baselineReads: { previous: failed, yearAgo: data.sections.baselineReads.yearAgo } } };
   assert.equal(decodeProductInsights(response, query, "1:aaaaaaaaaaaa").sections.summary.payment.value, 0);
+  assert.throws(() => decodeProductInsights({ ...response, sections: { ...response.sections, items: data.sections.items } }, query, "1:aaaaaaaaaaaa"));
 });
 test("embedded baseline permission or version failures never release current under HTTP200", () => {
   for (const code of ["access_denied", "insights_revision_changed"]) { const data = fixture(); const payload = { ...data, sections: { ...data.sections, baselineReads: { ...data.sections.baselineReads, previous: { state: "error", data: null, code, message: "基期失效" } } } }; assert.throws(() => decodeProductInsights(payload, query, "1:aaaaaaaaaaaa")); }
+});
+test("growth failures enforce whole-read permission and version boundaries with strict scalar codes", () => {
+  const data = fixture();
+  for (const [code, status] of [["access_denied", 403], ["insights_revision_changed", 409]] as const) {
+    const growth = { state: "error", data: null, code, message: "贡献来源失效" };
+    assert.throws(() => decodeProductInsights({ ...data, sections: { ...data.sections, growth } }, query, "1:aaaaaaaaaaaa"), error => error instanceof ProductResponseError && error.status === status);
+    assert.throws(() => decodeProductInsights({ ...data, sections: { ...data.sections, growth: { ...growth, code: [code] } } }, query, "1:aaaaaaaaaaaa"));
+  }
+  const growth = { state: "error", data: null, code: "service_unavailable", message: "贡献来源暂时失败" };
+  assert.equal(decodeProductInsights({ ...data, sections: { ...data.sections, growth } }, query, "1:aaaaaaaaaaaa").sections.summary.payment.value, 0);
 });
 test("structured sections must supply typed classification and complete-set eligibility", () => {
   const data = fixture(); const m = data.sections.summary.payment;
