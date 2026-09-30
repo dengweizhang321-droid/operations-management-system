@@ -2,7 +2,7 @@ import { AuthorizationError, authorizationErrorResponse, requireAppPrincipal } f
 import { createDjangoNetshopService } from "@/lib/django/netshop-service";
 import { netshopPlatformsForPrincipal, netshopOutletsForPrincipal, requireSupportedInsightScope } from "@/lib/netshop/access";
 import { netshopQueryErrorPayload } from "@/lib/netshop/query-contract";
-import { decodeProductDetail, decodeProductInsights, validateProductQuery } from "./contract";
+import { decodeProductDetail, decodeProductInsights, ProductResponseError, validateProductQuery } from "./contract";
 
 /** Product-owned adapter. I registers both fixed paths in the common gateway. */
 export async function readProductApi(request: Request, detail = false) {
@@ -19,6 +19,7 @@ export async function readProductApi(request: Request, detail = false) {
     const data = detail ? decodeProductDetail(result.data, query, result.revision) : decodeProductInsights(result.data, query, result.revision);
     return Response.json(data, { headers: { "cache-control": "no-store", "X-Netshop-Data-Revision": result.revision! } });
   } catch (error) {
+    if (error instanceof ProductResponseError) return Response.json({ code: error.code, error: error.message }, { status: error.status, headers: { "cache-control": "no-store" } });
     const auth = authorizationErrorResponse(error); if (auth) return auth;
     const failure = netshopQueryErrorPayload(error, "商品来源读取失败");
     return Response.json(failure.body, { status: failure.status, headers: { "cache-control": "no-store" } });
