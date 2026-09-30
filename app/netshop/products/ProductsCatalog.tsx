@@ -28,7 +28,9 @@ export function checkCatalog(value: unknown, query: URLSearchParams, revision?: 
   if (!plain(value)) throw new Error("目录响应对象无效");
   const data = value as CatalogView;
   const pagination = data.pagination;
-  if (!text(data.snapshotToken, 64) || !/^[a-f0-9]{64}$/.test(data.snapshotToken) || !Array.isArray(data.items) || !Array.isArray(data.shops) || !plain(data.summary) || !plain(pagination) || pagination.page !== Number(query.get("page")) || pagination.pageSize !== Number(query.get("pageSize")) || !Number.isSafeInteger(pagination.total) || pagination.total < 0 || data.items.length > pagination.pageSize || data.items.length > Math.max(0, pagination.total - (pagination.page - 1) * pagination.pageSize) || pagination.returned !== undefined && pagination.returned !== data.items.length || pagination.truncated === true || pagination.truncated !== undefined && typeof pagination.truncated !== "boolean") throw new Error("目录版本或分页回执无效");
+  // Legacy `truncated` is a pagination hint (including ordinary partial pages),
+  // not the shared insight protocol's indication of an incomplete source set.
+  if (!text(data.snapshotToken, 64) || !/^[a-f0-9]{64}$/.test(data.snapshotToken) || !Array.isArray(data.items) || !Array.isArray(data.shops) || !plain(data.summary) || !plain(pagination) || pagination.page !== Number(query.get("page")) || pagination.pageSize !== Number(query.get("pageSize")) || !Number.isSafeInteger(pagination.total) || pagination.total < 0 || data.items.length > pagination.pageSize || data.items.length > Math.max(0, pagination.total - (pagination.page - 1) * pagination.pageSize) || pagination.returned !== undefined && pagination.returned !== data.items.length || pagination.truncated !== undefined && typeof pagination.truncated !== "boolean" || Object.hasOwn(pagination, "hasMore") && (typeof pagination.hasMore !== "boolean" || pagination.hasMore !== ((pagination.page - 1) * pagination.pageSize + data.items.length < pagination.total))) throw new Error("目录版本或分页回执无效");
   if (new TextEncoder().encode(JSON.stringify(value)).length > insightBudget.responseBytes) throw new Error("目录响应超出有界显示容量");
   const platforms = query.getAll("platform"), outlets = query.getAll("outlet");
   const identities = new Set<string>();
@@ -44,7 +46,7 @@ export function checkCatalog(value: unknown, query: URLSearchParams, revision?: 
   }
   for (const shop of data.shops) if (!plain(shop) || !text(shop.platform, 100) || !text(shop.shopName, 200) || !date(shop.snapshotDate) || shop.completedAt !== null && !text(shop.completedAt, 400)) throw new Error("目录店铺选项类型无效");
   for (const key of ["totalSkus", "onSaleSkus", "totalInventory", "availableInventory"] as const) if (!Number.isSafeInteger(data.summary[key]) || Number(data.summary[key]) < 0) throw new Error("目录摘要类型无效");
-  if (data.batch !== null && (!plain(data.batch) || !text(data.batch.fileName) || !date(data.batch.snapshotDate) || !Number.isSafeInteger(data.batch.rowCount) || !text(data.batch.completedAt, 400))) throw new Error("目录批次类型无效");
+  if (data.batch !== null && (!plain(data.batch) || !text(data.batch.fileName) || !date(data.batch.snapshotDate) || !Number.isSafeInteger(data.batch.rowCount) || data.batch.completedAt !== null && !text(data.batch.completedAt, 400))) throw new Error("目录批次类型无效");
   if (!plain(data.sales) || !(["periodStart", "periodEnd", "dataCutoffDate"] as const).every(key => date(data.sales[key])) || !text(data.sales.platform, 100)) throw new Error("目录ERP经营范围类型无效");
   const filters = readNetshopCatalogFilters(query);
   if (data.catalogFilters !== undefined) {
