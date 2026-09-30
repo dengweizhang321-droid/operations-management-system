@@ -15,8 +15,14 @@ const root = resolve("E:/codex-artifacts/netshop-scheme2-20261001/products/revie
 const input = resolve(process.argv[2] ?? "");
 assert.ok(process.argv[2] && input.startsWith(root + sep), "Use only Q-owned synthetic signed directory output");
 const wire = JSON.parse(await readFile(resolve(input, "wire-catalog-review.json"), "utf8"));
-checkCatalog(wire.full.payload, new URLSearchParams(wire.full.query), wire.full.revision);
-checkCatalog({ ...wire.full.payload, ...wire.page.payload }, new URLSearchParams(wire.page.query), wire.page.revision);
+const controls: { name: string; passed: boolean; error?: string }[] = [];
+for (const kind of ["full", "page"] as const) {
+  const section = wire[kind];
+  try {
+    checkCatalog(kind === "full" ? section.payload : { ...wire.full.payload, ...section.payload }, new URLSearchParams(section.query), section.revision);
+    controls.push({ name: kind, passed: true });
+  } catch (error) { controls.push({ name: kind, passed: false, error: error instanceof Error ? error.message : String(error) }); }
+}
 const results: { name: string; rejected: boolean }[] = [];
 function reject(name: string, mutate: (body: typeof wire.full.payload) => void, revision = wire.full.revision) {
   const body = structuredClone(wire.full.payload);
@@ -36,6 +42,7 @@ reject("string ratio cannot reach number formatting", body => { body.items[0].gr
 reject("unsafe currency integer cannot render as valid money", body => { body.items[0].priceCents = Number.MAX_SAFE_INTEGER + 1; });
 const output = resolve(root, "products-review-catalog-wire-" + randomUUID());
 await mkdir(output);
-await writeFile(resolve(output, "result.json"), JSON.stringify({ sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), syntheticPrivatePostgres: true, input, controls: 2, results }, null, 2), { flag: "wx" });
+await writeFile(resolve(output, "result.json"), JSON.stringify({ sourceSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), syntheticPrivatePostgres: true, input, controls, results }, null, 2), { flag: "wx" });
+assert.ok(controls.every(control => control.passed), JSON.stringify({ evidence: output, controls }));
 assert.ok(results.every(result => result.rejected), JSON.stringify(results));
 process.stdout.write(JSON.stringify({ evidence: output, controls: 2, rejected: results.length }) + "\n");
