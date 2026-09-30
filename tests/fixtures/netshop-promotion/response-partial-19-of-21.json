@@ -2,7 +2,7 @@
   "columnVersion": "netshop-promotion-v1",
   "context": {
     "schemaVersion": "netshop-insights-v1",
-    "requestId": "818470b1-79c0-436b-9d03-e6fbfc68c9db",
+    "requestId": "6f483268-067d-4f33-a2f6-4e037e7d0700",
     "scopeKey": "8c16174fd3f17e4b79db2071d46c098feb3241493139e3bd75122f9a5df2b080",
     "snapshotToken": "4fe21486c906a6e8d1218be28657445b01ec28a1f660fe062aef2bf44c2db8a6",
     "requestedScope": {
@@ -664,7 +664,7 @@
         ],
         "basis": "product_day_sum",
         "aggregation": "ratio_of_sums",
-        "coverageRef": "promotion:summary:current",
+        "coverageRef": "promotion:summary:current:paired-whole",
         "numerator": null,
         "denominator": null
       }
@@ -1103,7 +1103,7 @@
             ],
             "basis": "product_day_sum",
             "aggregation": "ratio_of_sums",
-            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current",
+            "coverageRef": "promotion:object:2ed6fb95e1f3c989:current:paired-whole",
             "numerator": null,
             "denominator": null
           }
@@ -1501,7 +1501,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-01:matched",
+              "coverageRef": "promotion:trend:2026-09-01:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -1690,7 +1690,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-02:matched",
+              "coverageRef": "promotion:trend:2026-09-02:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -1879,7 +1879,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-03:matched",
+              "coverageRef": "promotion:trend:2026-09-03:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -2068,7 +2068,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-04:matched",
+              "coverageRef": "promotion:trend:2026-09-04:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -2257,7 +2257,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-05:matched",
+              "coverageRef": "promotion:trend:2026-09-05:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -2446,7 +2446,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-06:matched",
+              "coverageRef": "promotion:trend:2026-09-06:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -2635,7 +2635,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-07:matched",
+              "coverageRef": "promotion:trend:2026-09-07:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -2824,7 +2824,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-08:matched",
+              "coverageRef": "promotion:trend:2026-09-08:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3013,7 +3013,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-09:matched",
+              "coverageRef": "promotion:trend:2026-09-09:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3202,7 +3202,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-10:matched",
+              "coverageRef": "promotion:trend:2026-09-10:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3391,7 +3391,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-11:matched",
+              "coverageRef": "promotion:trend:2026-09-11:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3580,7 +3580,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-12:matched",
+              "coverageRef": "promotion:trend:2026-09-12:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3769,7 +3769,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-13:matched",
+              "coverageRef": "promotion:trend:2026-09-13:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -3958,7 +3958,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-14:matched",
+              "coverageRef": "promotion:trend:2026-09-14:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -4147,7 +4147,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-15:matched",
+              "coverageRef": "promotion:trend:2026-09-15:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -4336,7 +4336,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-16:matched",
+              "coverageRef": "promotion:trend:2026-09-16:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -4525,7 +4525,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-17:matched",
+              "coverageRef": "promotion:trend:2026-09-17:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -4714,7 +4714,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-18:matched",
+              "coverageRef": "promotion:trend:2026-09-18:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -4903,7 +4903,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-19:matched",
+              "coverageRef": "promotion:trend:2026-09-19:paired-whole",
               "numerator": 200,
               "denominator": 1000
             }
@@ -5092,7 +5092,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-20",
+              "coverageRef": "promotion:trend:2026-09-20:paired-whole",
               "numerator": null,
               "denominator": null
             }
@@ -5281,7 +5281,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:trend:2026-09-21",
+              "coverageRef": "promotion:trend:2026-09-21:paired-whole",
               "numerator": null,
               "denominator": null
             }
@@ -5474,7 +5474,7 @@
               ],
               "basis": "product_day_sum",
               "aggregation": "ratio_of_sums",
-              "coverageRef": "promotion:shop:798640599597df7a:current",
+              "coverageRef": "promotion:shop:798640599597df7a:current:paired-whole",
               "numerator": null,
               "denominator": null
             }
@@ -5971,6 +5971,21 @@
         "missingByShop": [],
         "truncated": false
       },
+      "promotion:summary:current:paired-whole": {
+        "expectedShopDatePairs": 21,
+        "coveredShopDatePairs": 19,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-20",
+              "2026-09-21"
+            ]
+          }
+        ],
+        "truncated": false
+      },
       "promotion:summary:current:matched": {
         "expectedShopDatePairs": 19,
         "coveredShopDatePairs": 19,
@@ -5985,7 +6000,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-01:matched": {
+      "promotion:trend:2026-09-01:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -5999,7 +6014,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-02:matched": {
+      "promotion:trend:2026-09-02:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6013,7 +6028,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-03:matched": {
+      "promotion:trend:2026-09-03:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6027,7 +6042,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-04:matched": {
+      "promotion:trend:2026-09-04:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6041,7 +6056,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-05:matched": {
+      "promotion:trend:2026-09-05:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6055,7 +6070,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-06:matched": {
+      "promotion:trend:2026-09-06:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6069,7 +6084,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-07:matched": {
+      "promotion:trend:2026-09-07:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6083,7 +6098,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-08:matched": {
+      "promotion:trend:2026-09-08:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6097,7 +6112,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-09:matched": {
+      "promotion:trend:2026-09-09:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6111,7 +6126,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-10:matched": {
+      "promotion:trend:2026-09-10:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6125,7 +6140,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-11:matched": {
+      "promotion:trend:2026-09-11:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6139,7 +6154,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-12:matched": {
+      "promotion:trend:2026-09-12:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6153,7 +6168,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-13:matched": {
+      "promotion:trend:2026-09-13:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6167,7 +6182,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-14:matched": {
+      "promotion:trend:2026-09-14:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6181,7 +6196,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-15:matched": {
+      "promotion:trend:2026-09-15:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6195,7 +6210,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-16:matched": {
+      "promotion:trend:2026-09-16:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6209,7 +6224,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-17:matched": {
+      "promotion:trend:2026-09-17:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6223,7 +6238,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-18:matched": {
+      "promotion:trend:2026-09-18:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6237,7 +6252,7 @@
         "missingByShop": [],
         "truncated": false
       },
-      "promotion:trend:2026-09-19:matched": {
+      "promotion:trend:2026-09-19:paired-whole": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
         "complete": true,
@@ -6251,6 +6266,20 @@
         "missingByShop": [],
         "truncated": false
       },
+      "promotion:trend:2026-09-20:paired-whole": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-20"
+            ]
+          }
+        ],
+        "truncated": false
+      },
       "promotion:trend:2026-09-21": {
         "expectedShopDatePairs": 1,
         "coveredShopDatePairs": 1,
@@ -6258,11 +6287,40 @@
         "missingByShop": [],
         "truncated": false
       },
+      "promotion:trend:2026-09-21:paired-whole": {
+        "expectedShopDatePairs": 1,
+        "coveredShopDatePairs": 0,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-21"
+            ]
+          }
+        ],
+        "truncated": false
+      },
       "promotion:shop:798640599597df7a:current": {
         "expectedShopDatePairs": 21,
         "coveredShopDatePairs": 21,
         "complete": true,
         "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:shop:798640599597df7a:current:paired-whole": {
+        "expectedShopDatePairs": 21,
+        "coveredShopDatePairs": 19,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-20",
+              "2026-09-21"
+            ]
+          }
+        ],
         "truncated": false
       },
       "promotion:shop:798640599597df7a:current:matched": {
@@ -6277,6 +6335,21 @@
         "coveredShopDatePairs": 21,
         "complete": true,
         "missingByShop": [],
+        "truncated": false
+      },
+      "promotion:object:2ed6fb95e1f3c989:current:paired-whole": {
+        "expectedShopDatePairs": 21,
+        "coveredShopDatePairs": 19,
+        "complete": false,
+        "missingByShop": [
+          {
+            "shopKey": "京东\u001fA",
+            "dates": [
+              "2026-09-20",
+              "2026-09-21"
+            ]
+          }
+        ],
         "truncated": false
       }
     }
