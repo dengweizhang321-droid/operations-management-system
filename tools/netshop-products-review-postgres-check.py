@@ -6,6 +6,7 @@ The only existing runtime access is reading the installed PostgreSQL binaries.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import secrets
@@ -51,6 +52,24 @@ env.update(
     TERUISI_PRODUCTS_QUERY_EVIDENCE_DIR=str(EVIDENCE),
 )
 results = []
+source_binding = {
+    "reviewHead": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, encoding="ascii").strip(),
+    "python": sys.version,
+    "pythonExecutable": sys.executable,
+    "labels": labels,
+    "files": {},
+}
+for relative in (
+    "backend/requirements.txt", "backend/netshop/product_insights.py",
+    "backend/netshop/catalog_filters.py", "backend/netshop/insights_common.py",
+    "backend/netshop/views.py", "backend/netshop/urls.py",
+    "backend/netshop/tests/test_product_insights_review.py",
+    "app/netshop/products/contract.ts", "app/netshop/products/api.ts", "app/netshop/products/data.ts",
+    "lib/netshop/insights-contract.ts", "lib/django/netshop-service.ts",
+    "tools/netshop-products-review-postgres-check.py",
+):
+    path = ROOT / relative
+    source_binding["files"][relative] = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
 
 
 def run(args, label, timeout=600):
@@ -85,5 +104,5 @@ finally:
             stopped = True
     finally:
         with (EVIDENCE / "result.json").open("x", encoding="utf-8") as handle:
-            json.dump({"fixture": "products-independent-review-v1", "port": PORT, "runtime": str(RUN), "started": started, "stopped": stopped, "results": results}, handle, indent=2)
+            json.dump({"fixture": "products-independent-review-v1", "sourceBinding": source_binding, "port": PORT, "runtime": str(RUN), "started": started, "stopped": stopped, "results": results}, handle, indent=2)
         print(json.dumps({"evidence": str(EVIDENCE), "port": PORT, "normalStop": stopped}), flush=True)
