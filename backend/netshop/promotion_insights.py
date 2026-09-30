@@ -341,7 +341,7 @@ def _objects(reader, names, options, deadline):
         product_rows = list(facts["productByObject"].get((n, object_id), {}).values())
         relation_values = {r[k] for r in product_rows for k in ("spu_min", "spu_max") if r[k]}
         ambiguity = any(r["mapped_spus"] > 1 for r in product_rows) or len(relation_values) > 1
-        mapping_reason = "ambiguous_mapping" if ambiguity else None if product_rows else "unmapped"
+        mapping_reason = "unmapped" if not object_id else "ambiguous_mapping" if ambiguity else None if product_rows else "unmapped"
         metrics, comparisons, matched, changes = reader.windows([n], "promotion:object:"+_canonical_token([platform, n, object_id])[:16], object_id,
             platform == "天猫" and mapping_reason is None, selected_dates)
         current_rows = [r for (_, d), r in object_rows.items() if d in selected_dates["current"]]
