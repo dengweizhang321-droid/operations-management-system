@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from unittest import skipUnless
 from unittest.mock import patch
@@ -20,6 +21,7 @@ from netshop.models import (NetshopDataRevision, NetshopProductDailyScopeRevisio
     NetshopPromotionAggregateManifest, NetshopPromotionAggregateState, NetshopPromotionProductDaily, NetshopPromotionShopDaily)
 from netshop.promotion_diagnostic import SHOP_NAME
 from netshop.promotion_insights import read_promotion_insights, read_promotion_detail, _read_facts, _row_key
+from netshop.insights_common import periods
 from .promotion_insights_fixtures import add_day
 
 
@@ -114,6 +116,16 @@ class PromotionInsightsTests(TestCase):
             self.assertIsNone(m["value"])
             self.assertEqual(m["reasonCode"], reason)
             model.objects.update(**original)
+
+    def test_raw_control_reconciliation_before_metric_conversion(self):
+        self.pair()
+        p = periods("2026-09-01", "2026-09-01", "custom")
+        facts = _read_facts("京东", ["A"], p, time.monotonic()+65)
+        self.assertEqual(facts["failures"], {})
+        self.assertEqual(facts["shopRaw"][("A", "2026-09-01")]["spend_cents"], 200)
+        NetshopPromotionProductDaily.objects.update(clicks=99)
+        facts = _read_facts("京东", ["A"], p, time.monotonic()+65)
+        self.assertEqual(facts["failures"][("A", "2026-09-01")], "promotion_mismatch")
 
     def test_import_batch_ownership_is_checked_and_failed_fact_not_used(self):
         batch, _ = self.day()

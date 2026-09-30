@@ -150,6 +150,8 @@ def _read_facts(platform, names, p, deadline):
                 "title": Max("product_name"), **{c: Sum(c) for c in CONTROL_COLUMNS},
                 **{k+"_present": Count("id", filter=NumericMetricPresent(v[1])) for k, v in METRICS.items()}}
             for r in raw_base.filter(**scoped).values("shop_name", "business_date", id_column).annotate(**annotations).order_by():
+                if len(r[id_column]) > 200 or any(ord(c) < 32 or ord(c) == 127 for c in r[id_column]):
+                    raise NetshopApiError("推广商品源身份超过共享有界长度或包含控制字符", code="quality_incomplete", status=422)
                 raw[(r["shop_name"], r["business_date"], r[id_column])] = r
             _budget(deadline)
             for r in product_base.filter(**scoped, owner_ok=True).values("shop_name", "business_date", id_column).annotate(
