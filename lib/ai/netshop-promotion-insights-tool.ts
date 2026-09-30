@@ -23,6 +23,7 @@ const sharedProperties = {
   snapshotToken: { type: "string", pattern: "^[a-f0-9]{64}$", description: "原共享上下文令牌；不可用其他种类的token替代。" },
   sectionToken: { type: "string", pattern: "^[a-f0-9]{64}$", description: "原推广章节令牌；详情必须承接列表该令牌。" },
   objectKind: { type: "string", enum: [...PROMOTION_OBJECT_KINDS], default: "product", description: "计划/单元/关键词/搜索词继续受原管理员、原支持京东单店及1—7天限制。" },
+  productIdentity: { type: "array", minItems: 4, maxItems: 4, items: { type: "string", minLength: 1, maxLength: 200 }, description: "可选精确商品焦点：[平台,完整店名,维度,ID]，京东仅sku、天猫仅spu；只限product对象。由实际reader在全集配对后筛焦点，不用名称猜配，也不改变原统计期汇总。" },
 } as const;
 export const netshopPromotionInsightsInputSchema = {
   type: "object", properties: { ...sharedProperties,
@@ -52,6 +53,7 @@ function promotionQuery(args: Record<string, unknown>, context: AiToolExecutionC
     const outlets = (args.outlets ?? []) as string[];
     outlets.forEach(key => query.append("outlet", key));
     for (const key of ["snapshotToken", "sectionToken"] as const) if (args[key] !== undefined) query.set(key, String(args[key]));
+    if (args.productIdentity !== undefined) query.set("productIdentity", JSON.stringify(args.productIdentity));
     if (detail) {
       query.set("objectId", String(args.objectId)); query.set("shopKey", String(args.shopKey));
     } else {

@@ -38,6 +38,7 @@ function queryFor(args: Record<string, unknown>, detail = false) {
   const q = new URLSearchParams({ platform: String(args.platform), dimension: args.platform === "京东" ? "sku" : "spu", startDate: String(args.startDate), endDate: String(args.endDate), periodKind: String(args.periodKind ?? "custom"), trendGrain: String(args.trendGrain ?? "day"), objectKind: String(args.objectKind ?? "product") });
   ((args.outlets ?? []) as string[]).forEach(o => q.append("outlet", o));
   for (const key of detail ? ["objectId", "shopKey", "sectionToken", "snapshotToken"] : ["q", "page", "pageSize", "sort", "sectionToken", "snapshotToken"]) if (args[key] !== undefined) q.set(key, String(args[key]));
+  if (args.productIdentity !== undefined) q.set("productIdentity", JSON.stringify(args.productIdentity));
   return q;
 }
 function response(data: unknown = payload, status = 200, header: string | null = owningRevision) { return Response.json(data, { status, headers: header === null ? {} : { "X-Netshop-Data-Revision": header } }); }
@@ -80,6 +81,20 @@ test("actual detail binds exact row/shop/section/snapshot tokens and same-kind o
   assert.equal(calls[0]!.url.pathname, "/api/netshop/promotion-insights/detail"); assert.equal(calls[0]!.url.searchParams.has("page"), false); assert.equal(calls[0]!.url.searchParams.get("objectId"), (payload as PromotionDetailResponse).sections.item.rowKey);
   for (const delta of [{ objectId: "f".repeat(64) }, { shopKey: "京东\u001f未授权店" }, { objectKind: "unit" }, { sectionToken: "e".repeat(64) }, { snapshotToken: "d".repeat(64) }]) await assert.rejects(detailEntry.handler({ ...args, ...delta }, context), e => e instanceof RegistryToolError && e.code === "invalid_tool_result");
 });
+test("exact product focus is serialized canonically and stays bound to the actual parent detail", async () => {
+  payload = await fixture("product-focus-detail");
+  owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+  const identity = payload.sections.item.mapping.linkIdentity!;
+  const productIdentity = [identity.platform, identity.shopName, identity.dimension, identity.id];
+  const args = { ...argsFor(payload, true), productIdentity };
+  assert.deepEqual(await detailEntry.handler(args, context), payload);
+  assert.equal(calls[0]!.url.searchParams.get("productIdentity"), JSON.stringify(productIdentity));
+  for (const productIdentity of [[identity.platform, identity.shopName, "spu", identity.id], ["天猫", identity.shopName, "spu", identity.id], [identity.platform, identity.shopName, identity.dimension], { ...identity }]) {
+    await assert.rejects(detailEntry.handler({ ...args, productIdentity }, context), e => e instanceof RegistryToolError && e.code === "invalid_arguments");
+  }
+  await assert.rejects(detailEntry.handler({ ...args, productIdentity: [identity.platform, identity.shopName, identity.dimension, "different-valid-id"] }, context), e => e instanceof RegistryToolError && e.code === "invalid_tool_result");
+});
+
 test("closed arguments reject free dimensions, focus, category, q/page in detail and list oversize", async () => {
   const base = argsFor(payload);
   for (const value of [{ ...base, dimension: "spu" }, { ...base, platform: ["京东"] }, { ...base, focusDate: "2026-09-01" }, { ...base, category: "guess" }, { ...base, objectStartDate: "2026-09-01" }, { ...base, pageSize: 21 }, { ...base, page: 10001 }, { ...base, q: "x".repeat(121) }, { ...base, q: "a\u0000b" }, { ...base, sort: "page_total" }, { ...base, startDate: "2026-02-30" }, { ...base, startDate: "2025-01-01" }, { ...base, outlets: ["京东\u001fA", "京东\u001fA"] }, { ...base, outlets: ["京东\u001f A "] }, { ...base, outlets: ["天猫\u001fA"] }, { ...base, snapshotToken: "not-token" }, { ...base, principal }, { ...base, path: "/api/netshop/imports" }]) await assert.rejects(listEntry.handler(value, context), e => e instanceof RegistryToolError && e.code === "invalid_arguments");
