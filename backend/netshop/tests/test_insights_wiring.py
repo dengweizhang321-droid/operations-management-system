@@ -43,10 +43,17 @@ class ProductPublicWiringTests(TestCase):
             bad = url + suffix
             self.assertEqual(self.client.get(bad, headers=signed_headers(bad, email=self.user.email, role="viewer")).status_code, 400)
 
-    def test_not_implemented_minimum_detail_is_explicit_failure_never_list_fallback(self):
+    def test_actual_exact_detail_and_wrong_section_version_fail_closed(self):
         self.fact()
         import json
         url = self.request_url(productIdentity=json.dumps(["京东", "A", "spu", "P1"])) .replace("product-insights?", "product-insights/detail?")
         response = self.client.get(url, headers=signed_headers(url, email=self.user.email, role="viewer"))
-        self.assertEqual(response.status_code, 503)
-        self.assertNotIn("sections", response.json())
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["identity"]["id"], "P1")
+        self.assertEqual(data["sections"]["performance"]["metrics"]["payment"]["value"], 1000)
+        self.assertEqual(data["context"]["sourceRevisions"][0]["revision"], response["X-Netshop-Data-Revision"])
+        wrong = url + "&sectionToken=" + "f" * 64
+        failure = self.client.get(wrong, headers=signed_headers(wrong, email=self.user.email, role="viewer"))
+        self.assertEqual(failure.status_code, 409, failure.content)
+        self.assertNotIn("sections", failure.json())
