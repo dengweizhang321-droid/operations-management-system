@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatMetric, type MetricComparison, type MetricValue } from "@/lib/netshop/insights-contract";
+import { formatMetric, formatDerivedMoneyPerCount, type DerivedMoneyPerCountV1, type MetricComparison, type MetricValue } from "@/lib/netshop/insights-contract";
 import { InsightComparison, InsightMetric } from "../shared/components";
 
 const reasons: Record<string, string> = {
@@ -11,13 +11,13 @@ const reasons: Record<string, string> = {
   promotion_mismatch: "推广聚合与原始来源不一致", no_comparable_date: "没有对应比较日",
 };
 
-export function metricReason(metric: MetricValue): string {
+export function metricReason(metric: Pick<MetricValue, "reasonCode">): string {
   return metric.reasonCode ? reasons[metric.reasonCode] ?? metric.reasonCode : "";
 }
 
-export function MetricCell({ metric }: { metric: MetricValue }) {
+export function MetricCell({ metric }: { metric: MetricValue | DerivedMoneyPerCountV1 }) {
   return <span className="promotion-metric-cell" data-status={metric.status} title={metricReason(metric)}>
-    {formatMetric(metric)}{metric.status !== "available" && <small>{metric.status === "partial" ? "已覆盖范围 · " : ""}{metricReason(metric)}</small>}
+    {metric.unit === "CNY_CENT_PER_COUNT" ? formatDerivedMoneyPerCount(metric) : formatMetric(metric)}{metric.status !== "available" && <small>{metric.status === "partial" ? "已覆盖范围 · " : ""}{metricReason(metric)}</small>}
   </span>;
 }
 
