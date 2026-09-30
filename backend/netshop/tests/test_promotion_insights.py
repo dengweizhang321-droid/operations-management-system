@@ -105,7 +105,8 @@ class PromotionInsightsTests(TestCase):
         self.assertEqual(section["matchedRange"]["metrics"]["spendRate"]["value"], .2)
         evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
         if evidence:
-            with (Path(evidence)/"response-partial-19-of-21.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/"response-partial-19-of-21.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
 
     def test_rates_efficiency_and_shares_use_weighted_full_numerators(self):
         self.day(shop="A", rows=[{"id": "same", "values": {"spendCents": 100, "netTransactionAmountCents": 1000, "impressions": 10, "clicks": 1, "netOrders": 1}}])
