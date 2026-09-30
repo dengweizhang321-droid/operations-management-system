@@ -29,15 +29,20 @@ export function decodeProductsUiState(raw: string | null): ProductsUiState {
   if (!raw || raw.length > 1500) return fallback();
   try {
     const value: unknown = JSON.parse(raw);
-    if (!value || typeof value !== "object" || Array.isArray(value)) return fallback();
+    if (!value || typeof value !== "object" || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) return fallback();
     const v = value as Record<string, unknown>;
-    const c = v.columns && typeof v.columns === "object" ? v.columns as Record<string, unknown> : {};
+    const keys = ["sort", "columns", "gallery", "detailSource", "topic"];
+    if (Object.keys(v).length !== keys.length || Object.keys(v).some(key => !keys.includes(key)) || typeof v.sort !== "string" || !productSortOptions.some(([key]) => key === v.sort) || typeof v.gallery !== "boolean" || typeof v.detailSource !== "string" || !["platform", "promotion", "erp"].includes(v.detailSource) || typeof v.topic !== "string" || !["home", "growth", "traffic", "list"].includes(v.topic)) return fallback();
+    if (!v.columns || typeof v.columns !== "object" || Array.isArray(v.columns) || Object.getPrototypeOf(v.columns) !== Object.prototype) return fallback();
+    const c = v.columns as Record<string, unknown>;
+    const columnKeys = Object.keys(defaultProductsUiState.columns);
+    if (Object.keys(c).length !== columnKeys.length || Object.keys(c).some(key => !columnKeys.includes(key)) || columnKeys.some(key => typeof c[key] !== "boolean")) return fallback();
     return {
-      sort: productSortOptions.some(([key]) => key === v.sort) ? v.sort as ProductSort : "payment_desc",
-      columns: Object.fromEntries(Object.keys(defaultProductsUiState.columns).map(key => [key, typeof c[key] === "boolean" ? c[key] : true])) as ProductsUiState["columns"],
-      gallery: v.gallery === true,
-      detailSource: ["platform", "promotion", "erp"].includes(String(v.detailSource)) ? v.detailSource as ProductsUiState["detailSource"] : "platform",
-      topic: ["home", "growth", "traffic", "list"].includes(String(v.topic)) ? v.topic as ProductsUiState["topic"] : "home",
+      sort: v.sort as ProductSort,
+      columns: { traffic: c.traffic, comparison: c.comparison, association: c.association, coverage: c.coverage } as ProductsUiState["columns"],
+      gallery: v.gallery,
+      detailSource: v.detailSource as ProductsUiState["detailSource"],
+      topic: v.topic as ProductsUiState["topic"],
     };
   } catch { return fallback(); }
 }
@@ -59,4 +64,6 @@ export const productReasonLabels: Record<string, string> = {
   incomplete_baseline: "基期覆盖不足", negative_baseline: "基期为负", unverified_source: "来源未核验",
   attribution_window_unknown: "归因窗口未核验", unsafe_integer: "数值超出安全范围", incomplete_coverage: "范围覆盖不足",
   no_comparable_date: "没有对应比较日", promotion_not_ready: "推广来源未就绪", promotion_mismatch: "推广与原始来源不一致",
+  missingImage: "缺少图片", missingCode: "缺少商家编码", missingCategory: "缺少类目", conflict: "资料冲突", stale: "资料陈旧", mapping_unverified: "ERP映射未核验",
 };
+export const productMappingLabels = { verified: "已验证关联", unmapped: "未关联", ambiguous: "关联不唯一", unverified: "关联未核验" } as const;

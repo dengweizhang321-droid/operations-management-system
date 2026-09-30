@@ -4,7 +4,7 @@ import { register } from "node:module";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { defaultShopLocationContext } from "../app/shell/shop-context";
-import { decodeProductsUiState, productsUiStorageKey, safeProductImageUrl, safeProductUrl } from "../app/netshop/products/ui-state";
+import { decodeProductsUiState, defaultProductsUiState, productsUiStorageKey, safeProductImageUrl, safeProductUrl } from "../app/netshop/products/ui-state";
 import type { MetricValue } from "../lib/netshop/insights-contract";
 
 // CSS is still consumed by the real browser harness; Node server rendering
@@ -15,10 +15,18 @@ const { productsQuery } = await import("../app/netshop/products/ProductsRead");
 import { validateProductQuery } from "../app/netshop/products/contract";
 
 test("presentation settings preserve columns and sort without retaining results or API tokens", () => {
-  const value = decodeProductsUiState(JSON.stringify({ sort: "decline_desc", columns: { traffic: false, comparison: false }, gallery: true, topic: "growth", snapshotToken: "old", data: [{ payment: 100 }] }));
+  const value = decodeProductsUiState(JSON.stringify({ sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth" }));
   assert.deepEqual(value, { sort: "decline_desc", columns: { traffic: false, comparison: false, association: true, coverage: true }, gallery: true, detailSource: "platform", topic: "growth" });
   assert.equal("snapshotToken" in value, false);
   assert.equal("data" in value, false);
+});
+test("preference enums never coerce arrays and unknown keys or malformed column objects default completely", () => {
+  const variants = [
+    { detailSource: ["erp"] }, { topic: ["growth"] }, { sort: ["decline_desc"] },
+    { columns: [true, true, true, true] }, { columns: { ...defaultProductsUiState.columns, traffic: "true" } },
+    { columns: { ...defaultProductsUiState.columns, sql: true } }, { snapshotToken: "old" }, { data: [{ payment: 100 }] },
+  ];
+  for (const invalid of variants) assert.deepEqual(decodeProductsUiState(JSON.stringify({ ...defaultProductsUiState, ...invalid })), defaultProductsUiState);
 });
 test("invalid and oversized local presentation state falls back safely", () => {
   for (const raw of ["null", "[]", "{", "x".repeat(1501)]) assert.equal(decodeProductsUiState(raw).sort, "payment_desc");
