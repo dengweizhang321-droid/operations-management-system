@@ -130,7 +130,7 @@ export function validateProductQuery(params: URLSearchParams, detail = false) {
   for (const key of params.keys()) if (!sharedKeys.has(key) && !ownKeys.has(key) || !["platform", "outlet"].includes(key) && params.getAll(key).length !== 1) return fail("商品请求包含未知或重复参数");
   const query = productContextQuery(params), shared = validateContextQuery(query);
   const q = (params.get("q") ?? "").trim(), category = (params.get("category") ?? "").trim(), sort = params.get("sort") ?? "payment_desc";
-  if (!text(q, 120, true) || !text(category, 200, true) || !productSorts.includes(sort as ProductSort) || params.has("sectionToken") && !token(params.get("sectionToken"))) return fail("商品筛选或版本无效");
+  if (!text(q, 120, true) || !text(category, 120, true) || !productSorts.includes(sort as ProductSort) || params.has("sectionToken") && !token(params.get("sectionToken"))) return fail("商品筛选或版本无效");
   const page = pageNumber(params.get("page"), 1, 10000), pageSize = pageNumber(params.get("pageSize"), 20, 100);
   const section = params.get("section") ?? "overview", source = params.get("source") ?? "platform";
   if (!productSections.includes(section as ProductSection) || !productSources.includes(source as ProductSource) || params.has("source") && !["daily", "trends"].includes(section) || !detail && (params.has("section") || params.has("source") || params.has("productIdentity"))) return fail("商品详情分区与来源组合无效");
