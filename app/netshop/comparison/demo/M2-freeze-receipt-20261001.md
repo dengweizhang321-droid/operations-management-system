@@ -50,3 +50,20 @@ I已接收准备提交 `01ab8c5889da488c9922bfc9d019fe8c2725bb73`，七组pendin
 - F/Q已完工树由I清理，冻结证据以main/E材料为准，不依赖旧venv/runtime；C的3170及UI/date独有历史仍保留，不能按cherry-pick等价误清理。
 
 后续协议负向样例应覆盖opt-in与旧字段兼容、手动366/派生367、异长/重叠/不重复配对、未知namespace/字典版本/label-only、历史有效期及共享history恢复。这些仍是待实施用例，没有在本轮宣称执行通过。
+
+## A contract-v1只读字段准备
+
+本轮fetch核验main为 `39bc403a5385cb4766c45b0c670bd4c65f96b9b8`。只读候选A `6f6c8d4720eaec87f96c861ba181733b7e8a3081` 的 `docs/netshop-refactor/promotion/contract-v1.md` 和类型/查询符号；该候选不是当前main祖先（检查exit1）。A的35 PG/40 Node为作者证据，未视为组合终验，未合并、导入或执行候选。P的reader候选及UI/catalog/分类SourceEvidence仍待I交最终main SHA，C未提前M6。
+
+| 准备项 | 候选实际字段/符号 | C消费约束及待合后用例 |
+| --- | --- | --- |
+| 校验与摘要 | `PromotionInsightsResponse`、`PROMOTION_COLUMN_VERSION=netshop-promotion-v1`；`decodePromotionInsightsForQuery(payload,query,owningRevisionHeader)`、`validatePromotionQuery` | 后续采用已合main的实际decoder；每次仅一个平台。summary/comparisons/changes/attribution是原整期，不受q或对象focusDate影响；不同平台定义分组，不合混ROAS。 |
+| 主/辅助费率 | `summary.spendRate`及完整`:paired-whole`覆盖；`matchedRange`/`sections.coverage`、`shopDates`与`:matched` | 主值只接受完整店×日配对；辅助仅匹配子集，不能替代主值。0匹配为0/0且不完整，不能当真实0费率；辅助expected=covered不证明主范围完整。京东分母SKU日，天猫SPU日，不把当前P的其他维度成交额替换进去。 |
+| CPC | 已main的共享 `DerivedMoneyPerCountV1` / `netshop-money-per-count-v1`；A的 `PromotionCpc` 限denominatorKind=clicks | 消费未舍入分/真实点击数，显示元/点击；CPC不是旧整数CNY_CENT MetricValue，不重写旧金额协议。不能把点击分母改订单/客户；真实客单价仍需I给对应来源定义和接口。 |
+| 店铺/列表/变化 | `shops.items/visible`、`PromotionShopRow`；`contributions.collection`、`listScope`、`pagination` | 精确shopKey；完整可比身份集合先配对再Top10/搜索分页；基期独有下降保留，未知身份桶不跨期。焦点对象期不改主摘要/趋势/店铺，不同对象视角不相加。spendShare不是成交渠道份额。 |
+| 类目/能力 | A查询共享键+extraKeys不接category；`objectCapabilities.canQuery/unidentifiedCount`、`sourceMatrix` | 无字典不传category、不退全店作分类推广；C分类视图下推广不可用待真实映射扩展。资格不证明字段可用，unidentifiedCount=null不转0。任意自选baseline也不是A当前参数或F派生previous，需I另精确版本。 |
+| 详情与P | `decodePromotionDetailForQuery`；objectId=rowKey+shopKey+显式objectKind+sectionToken；`mapping.status/evidence/linkIdentity` | rowKey是所属版本内部查找键，不展示成业务ID；原整期详情不加列表focus。P钻取只允许matched+exact_source_identity+可靠精确linkIdentity；京东跟单SKU、天猫推广SPU分别保维度，跨店/多义不猜。 |
+
+拟补负向夹具范围：跨平台请求拒绝、JD非SKU/天猫非SPU拒绝、paired-whole缺日但matched完整、零匹配、0点击与真实0花费、类别参数未支持、custom baseline未支持、q/focus仅影响对象列表、基期独有/未知身份桶、null能力计数、同rowKey错shopKey/objectKind/token及映射不合格禁止P钻取。只保存准备清单，本轮未执行新验证或调整UI。
+
+仍由I串行落实原七组公共请求及C专属版本化comparisonScope/selectedBaseline；P/A都main且M6通知后才同步真实实现。C分支当前只新增准备文档，3170与UI/date历史保持，不依赖未审候选或旧runtime作为正式父分支。
