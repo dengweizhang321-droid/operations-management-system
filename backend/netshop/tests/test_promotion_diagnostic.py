@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from unittest.mock import patch
 from urllib.parse import urlencode
 
 from django.test import TestCase
+from django.db.models import F
 
 from netshop.models import NetshopDataRevision, NetshopImportBatch, NetshopPromotionShopDaily, NetshopRow
 from netshop.promotion_diagnostic import SHOP_NAME
@@ -18,6 +20,14 @@ class PromotionDiagnosticApiTests(TestCase):
     def setUp(self) -> None:
         NetshopDataRevision.objects.update_or_create(
             domain="netshop", defaults={"revision": 7, "source_digest": "a" * 64}
+        )
+
+    def tearDown(self) -> None:
+        # Synthetic source writes must obey the same deferred revision guard as
+        # other published-fact fixtures. Do not disable the database trigger.
+        NetshopDataRevision.objects.filter(domain="netshop").update(
+            revision=F("revision") + 1,
+            source_digest=hashlib.sha256(self.id().encode()).hexdigest(),
         )
 
     def request(self, *, role="admin", scope=None, **query):

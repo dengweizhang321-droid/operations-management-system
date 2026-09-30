@@ -1,5 +1,5 @@
 import { addIsoDays, selectedMonthPeriod, shanghaiIsoToday } from "../module-view-shared";
-import { parseShellLocation } from "./navigation-contract";
+import { parseShellLocation, serializeShellLocation } from "./navigation-contract";
 import { defaultShopLocationContext, type ShopLocationContext } from "./shop-context";
 
 const namespace = "teruisi.shop.presentation.v1";
@@ -32,7 +32,12 @@ export function shopPresentationHistoryMatches(history: unknown, input: string |
 export function readBoundShopLocationContext(input: string | URL, history: unknown, principalKey: string | null, today = shanghaiIsoToday()): ShopLocationContext {
   const context = parseShellLocation(input).shop ?? defaultShopLocationContext;
   if (shopPresentationHistoryMatches(history, input, principalKey, today)) return context;
+  let returnTo = context.returnTo;
+  if (returnTo) {
+    const target = parseShellLocation(returnTo);
+    if (target.shop) returnTo = serializeShellLocation({ ...target, shop: { ...target.shop, productsPrefs: null, returnOrigin: null } }, returnTo);
+  }
   // Old single return bookmarks retain their existing meaning. New flat origins
   // and shared preferences are restored only in an account-bound history entry.
-  return { ...context, productsPrefs: null, returnOrigin: null, ...(context.returnOrigin ? { returnTo: null } : {}) };
+  return { ...context, productsPrefs: null, returnOrigin: null, returnTo: context.returnOrigin ? null : returnTo };
 }
