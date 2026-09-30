@@ -22,6 +22,8 @@
 
 搜索只改当前对象列表。趋势定位对象期使用 focusDate，或完整 objectStartDate/objectEndDate 二选一；对应比较日期由 F 日历生成，主摘要/趋势/店铺仍保留原整期。对象候选使用焦点本期、环比、同比真实源日期身份全集，保留基期仅有对象的下降贡献，不带其他日期杂项。
 
+P→A 可选 `productIdentity` 使用共享规范四元 JSON `[platform,shopName,dimension,id]`，仅商品视角，JD只SKU、天猫只SPU，必须在平台/店铺授权范围内。按完整真实对象集合的唯一 exact_source_identity/linkIdentity 匹配后，才搜索分页；同文本ID、相似名称或当前页不能替代精确关联。`listScope.productFocus` 区分可用关联、未关联和多义，后两者不表示无投放；它绑定请求身份与 sectionToken。焦点只缩窄对象明细和贡献，花费占比的分母仍为原选店×对象日的该视角全集，整期摘要/趋势/店铺不变。详情继承同焦点及可靠返回 rowKey/token，跨焦点或其它店铺不能复用。
+
 `GET /api/netshop/promotion-insights/detail` 必须同时提供 `objectId=rowKey`、shopKey、显式 objectKind、sectionToken。rowKey 是内部不可展示作业务 ID 的所属版本 lookup key；仅存在于同范围的可靠非 null 来源身份可读。详情使用原整期，禁止列表日期聚焦。推广自己的详情与 P 联动分开：仅 mapping=matched、exact_source_identity、可靠 linkIdentity 才触发 P；京东跟单 SKU 联 SKU，天猫推广商品联 SPU。同文本不同维度、跨店、跨期多义映射不能猜配。
 
 ## 八分区与条件来源
