@@ -253,6 +253,52 @@ class PromotionInsightsTests(TestCase):
         found = self.read(q="P000", pageSize=1)["sections"]
         self.assertEqual(found["items"][0]["metrics"]["spend"]["value"], 100)
         self.assertEqual(found["summary"]["spend"]["value"], sum(100+i for i in range(120)))
+        self.assertEqual(section["contributions"]["comparedObjectCount"], 120)
+        self.assertEqual(section["contributions"]["excludedObjectCount"], 0)
+        self.assertEqual(section["contributions"]["previous"]["spendDecrease"][0]["id"], "P000")
+        self.assertLessEqual(len(section["contributions"]["previous"]["spendIncrease"]), 10)
+
+    def test_verified_source_absence_zero_and_unknown_identity_blocks_inference(self):
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(rows=[{"id": "P1", "values": values}])
+        self.day(day="2026-08-31", rows=[{"id": "P2", "values": values}])
+        section = self.read()["sections"]
+        current = next(r for r in section["items"] if r["id"] == "P1")
+        gone = next(r for r in section["items"] if r["id"] == "P2")
+        self.assertEqual(current["comparisons"]["spend"]["previous"]["reasonCode"], "zero_denominator")
+        self.assertEqual(current["changes"]["spend"]["previous"]["value"], 100)
+        self.assertEqual(gone["metrics"]["spend"]["value"], 0)
+        self.assertEqual(gone["changes"]["spend"]["previous"]["value"], -100)
+        self.assertIn("已导入", " ".join(section["limitations"]))
+        # An unowned identity in a completely reconciled store-day means that
+        # the object universe is not complete, even when additive totals match.
+        from netshop.models import NetshopRow
+        NetshopRow.objects.filter(business_date="2026-08-31").update(sku_id="")
+        NetshopPromotionProductDaily.objects.filter(business_date="2026-08-31").update(product_id="")
+        section = self.read()["sections"]
+        current = next(r for r in section["items"] if r["id"] == "P1")
+        self.assertIsNone(current["changes"]["spend"]["previous"]["value"])
+        unknown = next(r for r in section["items"] if r["id"] is None)
+        self.assertFalse(unknown["drillable"])
+        self.assertEqual(unknown["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
+        self.assertEqual(section["contributions"]["comparedObjectCount"], 0)
+        self.assertEqual(section["contributions"]["excludedObjectCount"], 2)
+
+    def test_lazy_dimensions_unknown_bucket_not_entity_and_focus_share(self):
+        self.admin()
+        values = {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}
+        self.day(shop=SHOP_NAME, rows=[{"id": "P1", "values": values, "raw": {"推广计划": "缺少真实ID"}}])
+        self.day(shop=SHOP_NAME, day="2026-08-31", rows=[{"id": "P1", "values": values, "raw": {"推广计划": "缺少真实ID"}}])
+        with patch("netshop.promotion_insights._scalar", side_effect=AssertionError("Default product must not scan raw dimensions")):
+            default = self.read()["sections"]
+        self.assertTrue(default["objectCapabilities"]["plan"]["canQuery"])
+        self.assertIsNone(default["objectCapabilities"]["plan"]["unidentifiedCount"])
+        plans = self.read(objectKind="plan")["sections"]
+        self.assertEqual(plans["objectCapabilities"]["plan"]["unidentifiedCount"], 1)
+        self.assertEqual(plans["items"][0]["metrics"]["spend"]["value"], 100)
+        self.assertEqual(plans["items"][0]["changes"]["spend"]["previous"]["reasonCode"], "not_applicable")
+        self.assertEqual(plans["contributions"]["excludedObjectCount"], 1)
+        self.assertIsNone(plans["objectCapabilities"]["keyword"]["unidentifiedCount"])
 
     def test_leap_date_focus_does_not_compare_to_shorter_baseline(self):
         self.pair(day="2024-02-29")
