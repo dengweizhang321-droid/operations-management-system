@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>店铺与平台对比 · 五版设计 Demo</title>
+  <title>店铺与平台对比 · 均衡对比看板</title>
   <link rel="stylesheet" href="./system-tokens.css">
   <link rel="stylesheet" href="./demo.css">
   <link rel="stylesheet" href="./system-frame.css">
+  <link rel="stylesheet" href="./date-picker.css">
 </head>
 <body>
   <header class="system-masthead" data-testid="system-masthead">
@@ -45,17 +46,17 @@
       <button type="button" disabled>客服分析</button>
     </nav>
     <main>
-      <h1 class="system-visually-hidden">店铺与平台对比 · 五版设计预览</h1>
-      <div class="demo-notice"><span class="notice-symbol">◈</span><div><strong>合成数据 Demo</strong>　五个独立版式，共用筛选和数据原则。未连接业务 API，任何数字、商品及结论均为交互演示。</div><button class="text-button" data-action="definitions">查看指标口径</button></div>
-      <nav id="design-picker" class="design-picker" aria-label="五个设计版式"></nav>
+      <h1 class="system-visually-hidden">店铺与平台对比 · 均衡对比看板</h1>
+      <div class="demo-notice"><span class="notice-symbol">◈</span><div><strong>均衡对比看板 · 方案1已采用</strong>　当前为合成数据预览，类目及本期/基期可自定义。正式来源将在接口验收后接入。</div><button class="text-button" data-action="definitions">查看指标口径</button></div>
       <section id="filters" class="filter-card" aria-label="对比筛选"></section>
       <div id="selection-bar"></div>
       <div id="content" aria-live="polite"></div>
-      <footer class="page-footer">设计预览 · 合成数据 · 五种版式共用同一筛选范围</footer>
+      <footer class="page-footer">均衡对比看板 · 合成数据预览 · 方案1已定版</footer>
     </main>
   </div>
   <div id="drawer-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
+  <script src="./date-picker.js"></script>
   <script src="./demo.js"></script>
 </body>
 </html>

@@ -31,6 +31,9 @@ th,td { line-height:var(--line-height-body); }
 .kpi-value,.mini-kpis strong,.matrix-table .big-cell { font-size:var(--font-size-kpi); line-height:var(--line-height-tight); }
 .card,.kpi-card,.filter-card { background:var(--color-bg-surface); border-color:var(--color-border-default); border-radius:var(--radius-md); }
 .filter-card { scroll-margin-top:calc(var(--demo-masthead-height) + 85px); }
+.period-range-button { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:38px; padding:7px 11px; border:1px solid var(--color-border-default); border-radius:6px; background:var(--color-bg-surface); color:var(--color-text-secondary); font-size:var(--font-size-label); }
+.period-range-button:hover { border-color:var(--color-brand-border); background:var(--color-brand-soft); }
+.period-range-button small { color:var(--color-brand); white-space:nowrap; }
 .primary-button { background:var(--color-brand); border-color:var(--color-brand); box-shadow:none; }
 .primary-button:hover { background:var(--color-brand-hover); }
 .segment button.active,.design-choice.active,.object-chip.selected,.audit-tabs button.active,
@@ -86,4 +89,6 @@ thead th,.selected-row td,.heat-cell,.matrix-group td { background:var(--color-b
   .system-subnav { max-width:calc(100% - 26px); margin:17px 13px 0; }
   main { padding:17px 13px 26px; }
   .chapter-nav { position:static; top:auto; }
+  .date-field { width:100%; }
+  .period-range-button { min-width:0; flex:1; flex-wrap:wrap; gap:4px 8px; }
 }

@@ -1,13 +1,15 @@
 {
   "scope": "synthetic isolated UI only",
   "sourceHashes": {
-    "index.html": "e15c7b66402526f2545a4695293f04be45e37c31336642c75187b108020cf5ae",
-    "demo.js": "0e3e6cd50ad4d413130f065b174b4a7a70e852c81006c05040950ceb63fd0f8b",
+    "index.html": "3891d818442127dc533694460f347272785442f5e41c48853f59769cd8b3e374",
+    "demo.js": "20e288f439213b6521ef2365d4827faf55c086a214463fc2658aedddc77140e9",
     "demo.css": "c861e52b1c464e4888045d73b8d6193cf9b73b47939bdf3c5658d4be464feec3",
     "system-tokens.css": "67ce705f082787654bb9914f10d743f9219708b3a845a7a2f6116cd7dbce9821",
-    "system-frame.css": "14608c7dd738a059d962e40f8ccc9c3109ac1867819e43a258f04df30e09b202"
+    "system-frame.css": "711109ad6e253ef01e64a82ef916c0c41c4bca2726f53a89bd39ea775c6776b3",
+    "date-picker.js": "c63103a07c8acd5783077abef0572f20eb4e127f38ad9519371a64f824d60a47",
+    "date-picker.css": "c70600905c55eea71dbe5e91cc546f81a5b69adffb1400c55334b0c493e22f98"
   },
-  "testedAt": "2026-09-30T10:38:01.084Z",
+  "testedAt": "2026-09-30T11:53:12.920Z",
   "viewport": [
     "1440x1080",
     "390x844"
@@ -22,23 +24,39 @@
       "result": "pass"
     },
     {
-      "name": "Design 1: distinct rendering and desktop fit",
+      "name": "Only approved balanced design remains with six sections",
       "result": "pass"
     },
     {
-      "name": "Design 2: distinct rendering and desktop fit",
+      "name": "Category selection changes summaries, trends, structure and ranking context",
       "result": "pass"
     },
     {
-      "name": "Design 3: distinct rendering and desktop fit",
+      "name": "Synthetic category facts conserve signed integer totals and missing fields",
       "result": "pass"
     },
     {
-      "name": "Design 4: distinct rendering and desktop fit",
+      "name": "Category changes reset pagination and preserve filter scope through details",
       "result": "pass"
     },
     {
-      "name": "Design 5: distinct rendering and desktop fit",
+      "name": "Calendar clicks only commit on confirmation and keep the category scope",
+      "result": "pass"
+    },
+    {
+      "name": "Calendar clear, cancellation and Escape preserve the committed periods",
+      "result": "pass"
+    },
+    {
+      "name": "Calendar previous-month shortcut updates the baseline only",
+      "result": "pass"
+    },
+    {
+      "name": "Mouse drag can select a range across the two months without early application",
+      "result": "pass"
+    },
+    {
+      "name": "Invalid, future, reversed and excessive custom ranges cannot be confirmed",
       "result": "pass"
     },
     {
@@ -74,7 +92,7 @@
       "result": "pass"
     },
     {
-      "name": "Local ranking pagination and six report chapters are interactive",
+      "name": "Local ranking pagination and balanced sections remain interactive",
       "result": "pass"
     },
     {
@@ -83,10 +101,6 @@
     },
     {
       "name": "Complete coverage requires both periods, and a partial baseline prevents decomposition",
-      "result": "pass"
-    },
-    {
-      "name": "Workbench platform disclosure expands shops and does not only focus the row",
       "result": "pass"
     },
     {
@@ -102,24 +116,13 @@
       "result": "pass"
     },
     {
-      "name": "Design 1: narrow layout",
+      "name": "Selected balanced view fits a narrow screen and keeps chart labels readable",
       "result": "pass"
     },
     {
-      "name": "Design 2: narrow layout",
-      "result": "pass"
-    },
-    {
-      "name": "Design 3: narrow layout",
-      "result": "pass"
-    },
-    {
-      "name": "Design 4: narrow layout",
-      "result": "pass"
-    },
-    {
-      "name": "Design 5: narrow layout",
-      "result": "pass"
+      "name": "Custom-time dialog fits a narrow screen with readable native controls",
+      "result": "fail",
+      "detail": "Expected values to be strictly equal:\n\n'14px' !== '13px'\n"
     },
     {
       "name": "No JS errors or business/network requests",
@@ -146,11 +149,19 @@
     },
     {
       "method": "GET",
+      "url": "http://127.0.0.1:3170/date-picker.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/date-picker.js"
+    },
+    {
+      "method": "GET",
       "url": "http://127.0.0.1:3170/demo.js"
     }
   ],
-  "passed": 28,
-  "failed": 0,
+  "passed": 27,
+  "failed": 1,
   "PostgreSQL": "not implemented/not tested in this design stage",
   "productionPermissions": "not tested; required after F/P/A integration",
   "productionOperations": []
