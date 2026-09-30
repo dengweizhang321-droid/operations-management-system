@@ -88,6 +88,8 @@
 .top-navigation-shell .content { max-width: none; }
 
 @media (max-width: 860px) {
+  /* The generic small-screen title caption rule must not hide the real menu glyph. */
+  .top-navigation-shell .title-area .mobile-menu-button > span { display: inline-block; font-size: 20px; line-height: 1; }
   .top-navigation-shell .shell-masthead { padding: 10px 13px; }
   .top-navigation-shell .masthead-tools { width: 100%; min-width: 0; }
   .top-navigation-shell .sidebar {
