@@ -84,6 +84,7 @@ test("actual detail binds exact row/shop/section/snapshot tokens and same-kind o
 test("exact product focus is serialized canonically and stays bound to the actual parent detail", async () => {
   payload = await fixture("product-focus-detail");
   owningRevision = payload.context.sourceRevisions.find(r => r.kind === "owning_revision")!.revision;
+  if (!("item" in payload.sections)) throw new Error("Expected the actual detail fixture");
   const identity = payload.sections.item.mapping.linkIdentity!;
   const productIdentity = [identity.platform, identity.shopName, identity.dimension, identity.id];
   const args = { ...argsFor(payload, true), productIdentity };
