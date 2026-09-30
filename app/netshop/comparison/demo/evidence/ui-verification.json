@@ -1,0 +1,123 @@
+{
+  "scope": "synthetic isolated UI only",
+  "sourceHashes": {
+    "index.html": "6ba8391df928b53a3a0ef2aae3026c4b2a16c2d2b58a59221a8a25ecb5bd7bf4",
+    "demo.js": "cdc26f4d1375cf4e1c8a91ece7e21d095389be1bbee734a3cdf91344ffc8cd8a",
+    "demo.css": "a5930c4e49522dc6e6768cfc42451d1895230a718f8080338a75917a588c93c1"
+  },
+  "testedAt": "2026-09-30T09:33:04.660Z",
+  "viewport": [
+    "1440x1080",
+    "390x844"
+  ],
+  "cases": [
+    {
+      "name": "Static-only CSP and synthetic disclosure",
+      "result": "pass"
+    },
+    {
+      "name": "Design 1: distinct rendering and desktop fit",
+      "result": "pass"
+    },
+    {
+      "name": "Design 2: distinct rendering and desktop fit",
+      "result": "pass"
+    },
+    {
+      "name": "Design 3: distinct rendering and desktop fit",
+      "result": "pass"
+    },
+    {
+      "name": "Design 4: distinct rendering and desktop fit",
+      "result": "pass"
+    },
+    {
+      "name": "Design 5: distinct rendering and desktop fit",
+      "result": "pass"
+    },
+    {
+      "name": "Platform mode keeps platforms separate from shop totals",
+      "result": "pass"
+    },
+    {
+      "name": "Source/date/grain controls alter the actual dataset",
+      "result": "pass"
+    },
+    {
+      "name": "Partial coverage is visible and cannot produce full growth or rate",
+      "result": "pass"
+    },
+    {
+      "name": "Rapid range changes end with the latest explicit range",
+      "result": "pass"
+    },
+    {
+      "name": "Demo detail and return preserve the comparison range",
+      "result": "pass"
+    },
+    {
+      "name": "Zero, negative and missing baselines cannot generate growth or normalized indexes",
+      "result": "pass"
+    },
+    {
+      "name": "Weighted ratios and cross-period ranking use the complete selected candidates",
+      "result": "pass"
+    },
+    {
+      "name": "Mixed-platform promotion remains separate and cannot produce a combined ROAS",
+      "result": "pass"
+    },
+    {
+      "name": "Local ranking pagination and six report chapters are interactive",
+      "result": "pass"
+    },
+    {
+      "name": "Synthetic limited-scope fixture rejects a shop outside that fixture scope",
+      "result": "pass"
+    },
+    {
+      "name": "Design 1: narrow layout",
+      "result": "pass"
+    },
+    {
+      "name": "Design 2: narrow layout",
+      "result": "pass"
+    },
+    {
+      "name": "Design 3: narrow layout",
+      "result": "pass"
+    },
+    {
+      "name": "Design 4: narrow layout",
+      "result": "pass"
+    },
+    {
+      "name": "Design 5: narrow layout",
+      "result": "pass"
+    },
+    {
+      "name": "No JS errors or business/network requests",
+      "result": "pass"
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/demo.css"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:3170/demo.js"
+    }
+  ],
+  "passed": 22,
+  "failed": 0,
+  "PostgreSQL": "not implemented/not tested in this design stage",
+  "productionPermissions": "not tested; required after F/P/A integration",
+  "productionOperations": []
+}

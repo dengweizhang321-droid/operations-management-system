@@ -55,7 +55,7 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       const expander = page.locator('[data-testid^="expand-platform-"]').first();
       await expander.click();
       assert.match(await page.getByTestId('ranking-table').innerText(), /演示/);
-      assert.equal((await snapshot()).totals.current, s.totals.current);
+      assert.deepEqual((await snapshot()).totals.current, s.totals.current);
     });
     await check('Source/date/grain controls alter the actual dataset', async () => {
       await page.getByTestId('mode-shops').click();
@@ -64,11 +64,11 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       await page.getByTestId('source-filter').selectOption('erp');
       const erp = await snapshot();
       assert.equal(erp.state.source, 'erp');
-      assert.notEqual(erp.totals.current, before.totals.current);
+      assert.notEqual(erp.totals.current.amount, before.totals.current.amount);
       await page.getByTestId('current-end').fill('2026-09-20');
       await page.getByTestId('current-end').dispatchEvent('change');
       const shorter = await snapshot();
-      assert.notEqual(shorter.totals.current, erp.totals.current);
+      assert.notEqual(shorter.totals.current.amount, erp.totals.current.amount);
       await page.getByTestId('grain-week').click();
       assert.equal((await snapshot()).state.grain, 'week');
       await page.getByTestId('grain-month').click();
@@ -81,7 +81,8 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       const s = await snapshot();
       assert.ok(s.objects.length > 0);
       assert.ok(s.objects.every(x => x.status !== 'available'));
-      assert.ok(s.objects.every(x => x.growth == null));
+      assert.ok(s.objects.every(x => x.growth.value == null));
+      assert.ok(s.objects.every(x => x.ratios.promotionRate == null));
       await page.getByTestId('coverage-filter').selectOption('complete');
       assert.ok((await snapshot()).objects.every(x => x.status === 'available'));
     });
@@ -98,6 +99,61 @@ const sha = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(__
       await page.evaluate(id => window.comparisonDemo.openDetail('shop',id), (await snapshot()).objects[0].id);
       await page.getByTestId('detail-close').click();
       assert.deepEqual((await snapshot()).state, before);
+    });
+    await check('Zero, negative and missing baselines cannot generate growth or normalized indexes', async () => {
+      await set({design:1,mode:'shops',platform:'JD',source:'platform',coverage:'all',currentStart:'2026-09-01',currentEnd:'2026-09-03',previousStart:'2026-08-01',previousEnd:'2026-08-28',selectedIds:['JD:A','JD:B','JD:C'],normalized:true});
+      let s = await snapshot();
+      assert.equal(s.objects.find(o=>o.id==='JD:C').previous.amount,0);
+      assert.equal(s.objects.find(o=>o.id==='JD:C').growth.value,null);
+      assert.ok(s.series.find(o=>o.id==='JD:C').points.every(p=>p.value===null));
+      await set({source:'erp'});
+      s = await snapshot();
+      assert.ok(s.objects.find(o=>o.id==='JD:B').previous.amount<0);
+      assert.equal(s.objects.find(o=>o.id==='JD:B').growth.value,null);
+      assert.ok(s.series.find(o=>o.id==='JD:B').points.every(p=>p.value===null));
+      await set({platform:'TMALL'});
+      s = await snapshot();
+      assert.equal(s.objects.find(o=>o.id==='TMALL:E').previous.amount,null);
+      assert.equal(s.objects.find(o=>o.id==='TMALL:E').growth.value,null);
+      assert.ok(s.series.find(o=>o.id==='TMALL:E').points.every(p=>p.value===null));
+    });
+    await check('Weighted ratios and cross-period ranking use the complete selected candidates', async () => {
+      await set({platform:'JD',source:'platform',coverage:'all',currentEnd:'2026-09-28',selectedIds:['JD:A','JD:B'],normalized:false});
+      const s = await snapshot();
+      const rows = s.objects.filter(o=>['JD:A','JD:B'].includes(o.id));
+      const weighted = rows.reduce((sum,o)=>sum+o.current.attribution,0)/rows.reduce((sum,o)=>sum+o.current.spend,0);
+      assert.ok(Math.abs(s.totals.ratios.roas-weighted)<1e-12);
+      assert.ok(Math.abs(s.totals.ratios.roas-rows.reduce((sum,o)=>sum+o.ratios.roas,0)/rows.length)>1e-8);
+      assert.ok(s.currentRank.indexOf('JD:A')<s.currentRank.indexOf('JD:B'));
+      assert.ok(s.previousRank.indexOf('JD:A')>s.previousRank.indexOf('JD:B'));
+    });
+    await check('Mixed-platform promotion remains separate and cannot produce a combined ROAS', async () => {
+      await set({platform:'all',selectedIds:['JD:A','TMALL:D']});
+      const s = await snapshot();
+      assert.equal(s.totals.ratios.roas,null);
+      assert.equal(s.totals.current.attribution,null);
+      assert.match(s.totals.promotionReason,/不同平台/);
+    });
+    await check('Local ranking pagination and six report chapters are interactive', async () => {
+      await set({design:1,platform:'all',page:1,selectedIds:['JD:A','JD:B','TMALL:D']});
+      await page.getByTestId('rank-next').click();
+      assert.equal((await snapshot()).state.page,2);
+      await page.getByTestId('rank-previous').click();
+      assert.equal((await snapshot()).state.page,1);
+      await page.getByTestId('design-4').click();
+      for(let chapter=1;chapter<=6;chapter++){
+        await page.getByTestId(`chapter-${chapter}`).click();
+        assert.equal((await snapshot()).state.chapter,chapter);
+        assert.ok(await page.locator(`[data-section="3.${chapter}"]`).count());
+      }
+    });
+    await check('Synthetic limited-scope fixture rejects a shop outside that fixture scope', async () => {
+      await set({design:1,platform:'all',permission:'limited',selectedIds:['JD:B','TMALL:E']});
+      const s = await snapshot();
+      assert.deepEqual(s.objects.map(o=>o.id).sort(),['JD:A','TMALL:D']);
+      assert.ok(!s.selectedIds.includes('JD:B')&&!s.selectedIds.includes('TMALL:E'));
+      // This models UI scope only. Formal principal/PG permission tests remain required.
+      await set({permission:'full'});
     });
     await set({mode:'shops',platform:'JD',source:'platform',coverage:'all',grain:'day',currentStart:'2026-09-01',currentEnd:'2026-09-29',previousStart:'2026-08-01',previousEnd:'2026-08-29'});
     await page.setViewportSize({width:390,height:844});
