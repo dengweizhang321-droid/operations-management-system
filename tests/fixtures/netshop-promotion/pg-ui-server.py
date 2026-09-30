@@ -61,7 +61,7 @@ try:
     sys.path[:0] = [str(ROOT/"tools"), str(ROOT/"backend")]
     import django
     django.setup()
-    from django.db import close_old_connections, transaction
+    from django.db import close_old_connections, connections, transaction
     from django.db.models import F
     from django.http import QueryDict
     from django.utils import timezone
@@ -96,19 +96,25 @@ try:
                         add_day(owner, shop=name, day=day, platform=platform, promotion=False, rows=product_rows)
         NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision")+1, source_digest=hashlib.sha256(b"promotion-ui-synthetic-v1").hexdigest())
     (EVIDENCE/"fixture.json").write_text(json.dumps({"fixture": "promotion-ui-synthetic-v1", "readerAdapter": "direct actual Python readers, public registration verified separately", "seededBatches": owner.counter, "readerPort": 18150, "privatePgPort": PG_PORT, "initialRole": "admin", "knownMissingPair": "京东×合成店B×2026-09-07", "startDate": "2026-09-01", "endDate": "2026-09-07"}, ensure_ascii=False, indent=2), encoding="utf-8")
+    connections.close_all()
     request_log = (EVIDENCE/"requests.jsonl").open("x", encoding="utf-8")
+    read_slots = threading.BoundedSemaphore(4)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args): pass
 
         def send_payload(self, value, status=200, revision=None):
             payload = json.dumps(value, ensure_ascii=False).encode("utf-8")
-            self.send_response(status); self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(payload)))
-            if revision is not None: self.send_header("X-Netshop-Data-Revision", revision)
-            self.end_headers(); self.wfile.write(payload)
+            try:
+                self.send_response(status); self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(payload)))
+                if revision is not None: self.send_header("X-Netshop-Data-Revision", revision)
+                self.end_headers(); self.wfile.write(payload)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                self.client_disconnected = True
 
         def do_GET(self):
+            read_slots.acquire()
             close_old_connections(); before = time.monotonic(); parts = urlsplit(self.path); status = 200
             try:
                 if parts.path == "/health/live": self.send_payload({"fixture": "promotion-ui-synthetic-v1"}); return
@@ -133,19 +139,23 @@ try:
             except Exception as error:
                 status = 500; self.send_payload({"code": "fixture_error", "error": type(error).__name__}, status)
             finally:
-                request_log.write(json.dumps({"path": parts.path, "query": parts.query, "status": status, "seconds": round(time.monotonic()-before, 4)}, ensure_ascii=False)+"\n"); request_log.flush(); close_old_connections()
+                request_log.write(json.dumps({"path": parts.path, "query": parts.query, "status": 499 if getattr(self, "client_disconnected", False) else status, "seconds": round(time.monotonic()-before, 4)}, ensure_ascii=False)+"\n"); request_log.flush(); connections.close_all(); read_slots.release()
 
         def do_POST(self):
             close_old_connections()
             if self.path != "/fixture/advance-revision": self.send_payload({"code": "fixture_read_only", "error": "Only a synthetic revision fixture is writable"}, 403); return
             with transaction.atomic():
                 NetshopDataRevision.objects.filter(domain="netshop").update(revision=F("revision")+1, source_digest=hashlib.sha256(secrets.token_bytes(32)).hexdigest())
-            self.send_payload({"fixture": "promotion-ui-synthetic-v1", "revisionAdvanced": True}); close_old_connections()
+            self.send_payload({"fixture": "promotion-ui-synthetic-v1", "revisionAdvanced": True}); connections.close_all()
 
     server = ThreadingHTTPServer(("127.0.0.1", 18150), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     print("Private synthetic PG and A reader adapter ready on 127.0.0.1:18150; create stop.request in its own evidence directory to stop.", flush=True)
-    while not (EVIDENCE/"stop.request").exists(): thread.join(timeout=0.5)
+    stop_poll = threading.Event()
+    while not (EVIDENCE/"stop.request").exists():
+        if not thread.is_alive(): raise RuntimeError("Private HTTP fixture loop exited unexpectedly")
+        stop_poll.wait(timeout=0.25)
+    with (EVIDENCE/"shutdown-begin.json").open("x", encoding="utf-8") as output: json.dump({"fixture": "promotion-ui-synthetic-v1", "markerObserved": True}, output)
     server.shutdown(); server.server_close(); server = None; thread.join(timeout=5); request_log.close()
 finally:
     if server is not None: server.shutdown(); server.server_close()
