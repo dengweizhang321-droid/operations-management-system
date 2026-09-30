@@ -22,6 +22,7 @@ for (const [filename, detail] of [["wire-list.json", false], ["wire-detail.json"
     invalid("daily definitions must remain a typed list", p => setAt(p, ["sections", "daily", "data", "definitions"], {}));
     invalid("daily vector cannot be arbitrary JSON", p => setAt(p, ["sections", "daily", "data", "sourceRevisions"], [{}]));
     invalid("daily vector cannot omit owning source", p => setAt(p, ["sections", "daily", "data", "sourceRevisions"], []));
+    for (const code of ["access_denied", "insights_revision_changed"]) invalid(`catalog ${code} cannot be disguised as HTTP200`, p => setAt(p, ["sections", "catalog"], { state: "error", data: null, code, message: "Source changed" }));
     invalid("unavailable SKU cannot contain a fake child", p => { setAt(p, ["sections", "skuContribution", "items"], [readAt(p, ["sections", "performance"])]); setAt(p, ["sections", "skuContribution", "pagination", "returned"], 1); });
   } else {
     invalid("missing classification structure", p => setAt(p, ["sections", "structure", "classification"], null));

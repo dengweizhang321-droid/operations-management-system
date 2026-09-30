@@ -220,6 +220,8 @@ function sourceSection<T>(value: unknown, decode: (value: unknown) => T): Source
   const input = object(value);
   if (input.state === "ready") { decode(input.data); return input as SourceSection<T>; }
   if (input.state !== "error" || input.data !== null || !["access_denied", "service_unavailable", "insights_revision_changed"].includes(String(input.code)) || !text(input.message, 2000)) return fail("商品来源分区状态无效");
+  if (input.code === "access_denied") throw new ProductResponseError(403, "access_denied", "来源读取权限失效，请重新读取当前授权范围");
+  if (input.code === "insights_revision_changed") throw new ProductResponseError(409, "insights_revision_changed", "参与来源版本变化，请完整重读");
   return input as SourceSection<T>;
 }
 function baselineReads(value: unknown) {
