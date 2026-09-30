@@ -17,10 +17,11 @@
 
 ## Remaining work
 
-1. Query author: pageSize/deadline/category120/stale30 completed in7cc; finish safe image fallback consistency and internal missingCode-as-unmapped cleanup. Deliver latest P-only complete-master catalog helpers/predicates/aliases/capabilities to I; I alone extends old catalog routes/query/snapshot bindings.
-2. UI author: consume real root DTO baselineMetrics/paymentDelta/structure.changes/shared derived visitor, strict pref decoder and actual bound `context.productsPrefs`, one onContextChange patch, flat L-D-A-D-L via I history, no private second history. No current-page fake quality/mapping filter.
-3. Root: integrate clean author commits, own PG+wire/Node/HTTP verification, actual isolated3120 UI after I module/nav/catalog/prefs registration, relevant lint/boundary/build and baseline-failure comparison, accurate completion/source matrix/interface consumption samples.
-4. Q: independently verify final combined fresh SHA and close all issues, including budgets, page3 matching, full contribution pool, metadata and source qualifiers, malformed200, role changes, scope/versions, old compatibility.
-5. Only push column branch; I serially accepts/M3 merges main. Preserve all child branches/trees/evidence; final cleanup by I after safety gates.
+Latest working checkpoint: Root code `4c94925a`, query `9e323618`, UI `b2ab9197` all pushed normally. Private implementation is complete; final Q/public integration remains. Root own exact-class PG104/normalstop, actual wire2+30 rejected, Node38, UI35/no errors/shutdown, build0, lint0/one img warning, boundary0 and inherited types188/P0 are recorded in HANDOFF. Q independently closed P backend112 +15 malformed; final fresh UI/public AI fixture/layout evidence is pending I/Q. Fixed v1 sections and explicit image identity are now required. Root docs are being updated only in its own product directory. Final worktree cleanup remains I-owned.
+
+1. I: update its own AI test fixture to the final complete private DTO; public Node failures currently come from that old bare fixture. Verify frozen top navigation with actual AppShell and all three layout styles, rather than the first harness's missing-CSS left-layout screenshot.
+2. Q: independently verify the latest complete UI/public combination, with precise final SHA; the backend112/wire15 issues are already closed. Keep ordinary unavailable sources distinct from malformed responses and permission/version failure.
+3. Root: integrate I's clean public checkpoint, record final Q conclusion and evidence, update private handoff plus durable memory, normal-push only the P branch. Current private code, relevant local verification and author commits are complete.
+4. I alone serially accepts/M3 merges main, arranges later actual P/A exact-object combination after M4, and preserves/cleans worktrees after all safety gates. All child branches/trees/evidence remain available.
 
 No production deployment, maintenance, service stop/restart, production migrations, real downloads/imports/replays, external messages or paid models are authorized. Four scope sections remain4.1—4.8; added metrics/navigation/compatibility are cross-cutting checklist, not4.9.
