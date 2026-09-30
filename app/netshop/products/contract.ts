@@ -20,7 +20,9 @@ export type ProductMetrics = Record<ProductMetricKey, MetricValue>;
 export type ProductComparisons = Record<ProductMetricKey, { previous: MetricComparison; yearAgo: MetricComparison }>;
 export const extraMetricKeys = ["pageViews", "favorites", "addCartCustomers", "addCartQuantity", "orderCustomers", "orderQuantity", "orderPayment", "transactionOrders", "searchImpressions", "searchClicks", "searchClickRate", "searchVisitors", "searchCustomers"] as const;
 export type ProductExtraMetrics = Record<typeof extraMetricKeys[number], MetricValue>;
+export type ProductImageStatus = "available" | "missing" | "unverified";
 export type ProductRow = ProductInsightRow & {
+  imageStatus: ProductImageStatus;
   baselineMetrics: { previous: ProductMetrics; yearAgo: ProductMetrics };
   paymentDelta?: MetricValue; categoryEvidence?: CategoryEvidence;
 };
@@ -49,11 +51,12 @@ export type ProductStructure = {
   priceBasis: "transaction_mean" | "current_price";
   classification: { continuous: MetricValue; newlyTraded: MetricValue; noLongerTraded: MetricValue; unknownBaseline: MetricValue };
   qualification: { current: number; paired: number; missingPrevious: number; missingYearAgo: number; incomplete: number };
-  changes?: Record<"pairedCurrentPayment" | "pairedPreviousPayment" | "growthPayment" | "declinePayment" | "netChange", MetricValue>;
+  changes: Record<"pairedCurrentPayment" | "pairedPreviousPayment" | "growthPayment" | "declinePayment" | "netChange", MetricValue>;
 };
 export type ProductEfficiency = {
   metrics: ProductExtraMetrics;
-  visitorValue?: DerivedMoneyPerCountV1;
+  visitorValue: DerivedMoneyPerCountV1;
+  visitorValueComparisons: { previous: MetricComparison; yearAgo: MetricComparison };
   rules: { id: string; minimumVisitors: number; maximumConversion: number; requireComplete: boolean };
   watchlist: ProductRow[]; pagination: InsightPagination;
   scanned: number; qualified: number;
@@ -72,12 +75,12 @@ export type ProductInsightsResponse = ProductInsightsDTO & {
     baselineReads: { previous: SourceSection<ProductMetrics>; yearAgo: SourceSection<ProductMetrics> };
     items: ProductRow[];
     growth: SourceSection<{ collection: "paired_full_set_before_pagination"; items: ProductRow[]; pagination: InsightPagination }>;
-    counts?: { dataProducts: MetricValue; tradedProducts: MetricValue };
-    structure?: ProductStructure; efficiency?: ProductEfficiency; dataQuality?: ProductQuality; metadata?: ProductMetadata;
+    counts: { dataProducts: MetricValue; tradedProducts: MetricValue };
+    structure: ProductStructure; efficiency: ProductEfficiency; dataQuality: ProductQuality; metadata: ProductMetadata;
   };
 };
 export type CatalogProfile = {
-  identity: ProductIdentity; title: string; imageUrl: string | null; productUrl: string | null;
+  identity: ProductIdentity; title: string; imageUrl: string | null; imageStatus: ProductImageStatus; productUrl: string | null;
   skuId: string | null; spuId: string | null; merchantCode: string | null; erpCode: string | null;
   brand: string | null; category: string | null; specification: string | null; state: string | null;
   price: MetricValue; inventory: { total: MetricValue; available: MetricValue };
@@ -100,11 +103,12 @@ export type ProductDetailResponse = {
   tableScope: ProductTableScope; identity: ProductIdentity; joinedSourceRevisions: SourceRevision[]; consistency: "revision_vector_checked";
   sections: {
     performance: ProductRow; baselineReads: ProductInsightsResponse["sections"]["baselineReads"];
-    catalog: SourceSection<CatalogProfile | null>; extras?: ProductExtraMetrics;
-    visitorValue?: DerivedMoneyPerCountV1;
+    catalog: SourceSection<CatalogProfile | null>; extras: ProductExtraMetrics;
+    visitorValue: DerivedMoneyPerCountV1;
+    visitorValueComparisons: { previous: MetricComparison; yearAgo: MetricComparison };
     promotion: SourceSection<LinkedPromotion>; erp: SourceSection<LinkedErp>;
     daily?: SourceSection<ProductDailyData>; trends?: SourceSection<ProductDailyData>;
-    skuContribution?: SkuContribution; metadata: ProductMetadata;
+    skuContribution: SkuContribution; metadata: ProductMetadata;
   };
 };
 
@@ -158,6 +162,9 @@ function extraMetrics(value: unknown) {
   return result;
 }
 function visitorValue(value: unknown) { const metric = decodeDerivedMoneyPerCount(value); if (metric.denominatorKind !== "product_day_visitors_sum" || !["product_day_sum", "unverified"].includes(metric.basis)) return fail("商品访客价值分母或口径不匹配"); return metric; }
+function imageStatus(value: unknown, url: unknown) {
+  if (!enumValue(value, ["available", "missing", "unverified"]) || value === "available" && !text(url, 8000) || value !== "available" && url !== null) return fail("图片身份状态或可信链接不一致");
+}
 function promotionMetrics(value: unknown) { const metrics = metricRecord(value, ["spend", "attributedPayment", "roas", "clicks"]); for (const [key, m] of Object.entries(metrics)) if (m.unit !== (key === "roas" ? "MULTIPLE" : key === "clicks" ? "COUNT" : "CNY_CENT") || !["platform_attributed", "unverified"].includes(m.basis)) return fail("广告指标单位或来源口径无效"); return metrics; }
 function erpMetrics(value: unknown) { const metrics = metricRecord(value, ["netSales", "cost", "largeMarginRate", "orderMargin", "returnAmount", "returnQuantity"]); for (const [key, m] of Object.entries(metrics)) if (m.unit !== (key === "largeMarginRate" ? "RATIO" : key === "returnQuantity" ? "COUNT" : "CNY_CENT") || !["erp_net_sales", "erp_order_margin", "erp_large_margin", "unverified"].includes(m.basis)) return fail("ERP指标单位或来源口径无效"); return metrics; }
 function categoryEvidence(value: unknown): CategoryEvidence {
@@ -190,6 +197,7 @@ function revisionVector(value: unknown, context?: InsightsContext) {
 function catalogProfile(value: unknown, context: InsightsContext, expected: ProductIdentity) {
   if (value === null) return null;
   const p = object(value);
+  imageStatus(p.imageStatus, p.imageUrl);
   if (encodeProductIdentity(identity(p.identity, context)) !== encodeProductIdentity(expected) || !displayText(p.title) || !["imageUrl", "productUrl", "skuId", "spuId", "merchantCode", "erpCode", "brand", "category", "specification", "state"].every(k => nullableText(p[k], 8000))) return fail("资料身份或字段定义不一致");
   const price = decodeMetric(p.price), inventory = metricRecord(p.inventory, ["total", "available"]);
   if (price.unit !== "CNY_CENT" || !["current_snapshot", "unverified"].includes(price.basis) || Object.values(inventory).some(m => m.unit !== "COUNT" || !["current_snapshot", "unverified"].includes(m.basis))) return fail("当前价格或库存不能冒历史经营指标");
@@ -210,6 +218,7 @@ function identity(value: unknown, context: InsightsContext): ProductIdentity {
 }
 function row(value: unknown, context: InsightsContext): ProductRow {
   const input = object(value); identity(input.identity, context);
+  imageStatus(input.imageStatus, input.imageUrl);
   if (!displayText(input.title) || input.category !== null && !displayText(input.category) || input.imageUrl !== null && !text(input.imageUrl, 8000)) return fail("商品身份资料无效");
   metricRecord(input.metrics, productMetricKeys, true); comparisons(input.comparisons);
   const baselines = object(input.baselineMetrics); metricRecord(baselines.previous, productMetricKeys, true); metricRecord(baselines.yearAgo, productMetricKeys, true);
@@ -259,6 +268,12 @@ function envelope(value: unknown, params: URLSearchParams, revision: string | nu
 }
 export function decodeProductInsights(value: unknown, params: URLSearchParams, revision: string | null | undefined): ProductInsightsResponse {
   const { input, context, sections } = envelope(value, params, revision, false);
+  for (const key of ["counts", "structure", "efficiency", "dataQuality", "metadata"]) object(sections[key]);
+  object(object(sections.structure).changes);
+  const efficiency = object(sections.efficiency);
+  visitorValue(efficiency.visitorValue);
+  const visitorComparisons = object(efficiency.visitorValueComparisons);
+  comparison(visitorComparisons.previous, "relative_change"); comparison(visitorComparisons.yearAgo, "relative_change");
   metricRecord(sections.summary, productMetricKeys, true); comparisons(sections.comparisons);
   const pagination = decodeInsightPagination(sections.pagination);
   if (!Array.isArray(sections.items) || sections.items.length !== pagination.returned || sections.items.length > 100 || pagination.page !== object(input.tableScope).page || pagination.pageSize !== object(input.tableScope).pageSize) return fail("商品分页与回执不一致");
@@ -282,6 +297,10 @@ export function decodeProductInsights(value: unknown, params: URLSearchParams, r
 }
 export function decodeProductDetail(value: unknown, params: URLSearchParams, revision: string | null | undefined): ProductDetailResponse {
   const { input, context, request, sections } = envelope(value, params, revision, true);
+  extraMetrics(sections.extras); visitorValue(sections.visitorValue); object(sections.skuContribution);
+  const visitorComparisons = object(sections.visitorValueComparisons);
+  comparison(visitorComparisons.previous, "relative_change"); comparison(visitorComparisons.yearAgo, "relative_change");
+  if (request.tableScope.section === "daily" || request.tableScope.section === "trends") object(sections[request.tableScope.section]);
   const actual = identity(input.identity, context); if (encodeProductIdentity(actual) !== encodeProductIdentity(request.identity!)) return fail("详情返回了其他商品");
   const performance = row(sections.performance, context); if (encodeProductIdentity(performance.identity) !== encodeProductIdentity(actual)) return fail("详情经营身份不一致");
   const baselines = baselineReads(sections.baselineReads);

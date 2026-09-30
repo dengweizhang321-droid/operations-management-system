@@ -264,7 +264,7 @@ export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop
   const state = parseShellLocation(input), before = state.shop ?? defaultShopLocationContext;
   const returnTo = serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, ...(state.overview ? { overview: state.overview } : {}), shop: { ...before, returnTo: null, returnOrigin: null } }, "/");
   const returnOrigin = state.module === "shop" && state.view === "products" && before.product && view === "promotion" ? validShopReturn(before.returnTo) : null;
-  const shop = { ...before, product, section, page: 1, returnTo, returnOrigin, ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
+  const shop = { ...before, product, section, page: 1, returnTo, returnOrigin, ...(state.module === "shop" && state.view !== view ? { q: "", category: "" } : {}), ...(product ? { platforms: [product.platform], outlets: [product.platform+"\u001f"+product.shopName], dimension: product.dimension } : {}) };
   return serializeShellLocation({ module: "shop", view, period: state.period, shop }, input);
 }
 export function returnShopLocation(input: string | URL): string {
