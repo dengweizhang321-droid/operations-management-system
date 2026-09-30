@@ -1,6 +1,6 @@
 # 推广分析五款设计 Demo
 
-2026-09-30 用户追加指令将本轮范围改为：参考互联网/GitHub，沿用现系统色调，先出五款可交互版式，用户定版后才开始系统重构。本目录只包含设计样例，不是推广栏目实现或公共底座。
+2026-09-30 用户追加指令将本轮范围改为：参考互联网/GitHub，沿用现系统色调，先出五款可交互版式，用户定版后才开始系统重构。随后用户要求栏目排版和色调统一按照系统，重新查找优质设计并替换五版；当前为第二轮 V2。本目录只包含设计样例，不是推广栏目实现或公共底座。
 
 ## 观看
 
@@ -14,17 +14,21 @@ python -m http.server 3196 --bind 127.0.0.1
 
 | 版式 | 信息组织 | 适用观看方式 | 参考 |
 | --- | --- | --- | --- |
-| 01 均衡分析 | 指标→趋势/核查→店铺→商品→条件明细 | 日常完整巡看 | [Ant Design Pro](https://github.com/ant-design/ant-design-pro)、[shadcn/ui](https://ui.shadcn.com/examples/dashboard) |
-| 02 趋势研究 | 大趋势→日期观察→对象变化→明细 | 定位投入产出变化 | [Tremor](https://github.com/tremorlabs/tremor) |
-| 03 多店矩阵 | 店铺横向、指标纵向→选中店铺→对象 | 多店同口径比较 | [Grafana Table](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/table/) |
-| 04 对象工作台 | 紧凑汇总→对象列表/详情分屏→关系与证据 | 逐商品、计划或词核查 | [AG Grid](https://www.ag-grid.com/javascript-data-grid/integrated-charts-range-chart/) |
-| 05 复盘报告 | 八章目录→摘要→事实→证据→可比性 | 周期复盘与报告阅读 | [Metabase](https://www.metabase.com/docs/latest/dashboards/introduction) |
+| 01 经营双栏 | 投入产出主栏、流量/覆盖/核查辅栏 | 经营规模与效率同时巡看 | [Tabler](https://preview.tabler.io/) |
+| 02 分析画布 | 同范围四图：投入产出、ROAS、点击、CPC | 多分析视角并排探索 | [Apache Superset](https://github.com/apache/superset) |
+| 03 店铺卡片墙 | 每店同尺寸指标和趋势卡片，精确日期钻取 | 多店同指标快速比较 | [Grafana](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/) |
+| 04 明细研究台 | 全宽对象表、固定表头/首列、右侧详情抽屉 | 商品、计划、词的精确对象核查 | [Ant Design ProTable](https://github.com/ant-design/pro-components) |
+| 05 自定义看板 | 模块拖动/箭头调序、1/3至整行宽度、恢复默认 | 按个人分析顺序组织内容 | [React Grid Layout](https://github.com/react-grid-layout/react-grid-layout) |
 
 只借鉴布局组织，自行编写无依赖的 HTML/CSS/JS。未复制或安装上述项目，不连接其服务。
 
 ## 色板与字体
 
 从基线 `app/styles/tokens.css` 对齐：森林绿 `#396149`、深绿 `#293f32`、浅灰绿背景 `#f5f7f6`、白色卡片；涨红跌绿。字体栈与系统一致；页面20、区块18、卡片16、KPI24、正文14、表格13、辅助12px。窄屏换行与局部表格横向滚动，不缩小字体。
+
+V2另只读对照正在运行的系统页面：实际使用深绿顶部导航、白色横向栏目TAB、独立平台TAB、深绿推广标题区、白色圆角11px卡片。五版采用同一外层，不再使用V1侧栏；图表产出线沿用系统辅助紫色 `#8167d9`。样式集中在设计专属 `system-layout.css`，没有修改系统样式或页面。
+
+用户继续要求重新设计导航并放在顶部，五版已统一为固定顶部导航：深绿品牌与四组下拉主菜单、白色栏目/平台切换、桌面分析章节栏；窄屏改用收起菜单和章节选择。设计选版条放在导航下方，主导航在页面最上方。`navigation.css`仅服务于本demo，菜单不打开真实业务或AI入口。
 
 ## 演示内容与边界
 
@@ -53,14 +57,13 @@ python -m http.server 3196 --bind 127.0.0.1
 
 全部为设计交付，不代表任何分区已完成系统重构。
 
-`verify.mjs` 使用桌面应用提供的浏览器依赖，运行设计交互与语义验证；不是PostgreSQL或生产功能验收。
+V2通过Codex浏览器控制执行49组设计检查，范围包括1440/390/330宽度、五版八分区、颜色/字号、筛选/日期/搜索、空值/真0、卡片日期钻取、对象抽屉、报告结构及实际模块拖动；导航追加33组检查，验证顶部放置/固定、五版适配、菜单单开与关闭、章节锚点、手机菜单和选择。两阶段共82组通过，错误日志0。不是PostgreSQL或生产功能验收。
 
-```powershell
-$env:TERUISI_DEMO_TOOLING = '<应用提供的 Node node_modules 目录>'
-node demos/netshop-promotion/verify.mjs
-```
+当前证据：`evidence/v2/ui-checks.json`、`desktop-01..05.jpg`、`mobile-01..05.jpg`、`review.md`。原生HTML拖动初验失败后改为pointer capture，真实鼠标拖动复验通过；原失败保留在resolvedFailures。
 
-证据：`evidence/ui-checks.json`；`desktop-01..05.png` 与 `mobile-01..05.png`。独立复核问题与复验见 `evidence/review.md`。
+导航修改前49组另保全为 `pre-navigation-ui-checks.json`；当前ui-checks按stage区分原设计和最终导航，不将早期页面截图冒充最终界面。
+
+V1历史证据保留在原 `evidence/ui-checks.json`、PNG截图及 `review.md`，对应提交 `a569bfe5`，不能当作V2证据。旧复验脚本归档为 `evidence/verify-v1.mjs`，只适用于该历史源码，当前不运行。
 
 ## 开发交接
 

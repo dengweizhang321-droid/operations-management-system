@@ -1,0 +1,1282 @@
+{
+  "version": "promotion-design-v2-top-navigation",
+  "checkedAt": "2026-09-30T10:34:43.568Z",
+  "clientTimezone": "Asia/Shanghai",
+  "productionValidated": false,
+  "stages": {
+    "designChecks": 49,
+    "topNavigationChecks": 33
+  },
+  "checks": [
+    {
+      "name": "desktop-layout-1",
+      "ok": true,
+      "state": {
+        "chrome": "rgb(41, 63, 50)",
+        "columns": "rgb(255, 255, 255)",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sidebarCount": 0,
+        "title": "京东推广 · 01 经营双栏",
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "desktop-layout-2",
+      "ok": true,
+      "state": {
+        "chrome": "rgb(41, 63, 50)",
+        "columns": "rgb(255, 255, 255)",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sidebarCount": 0,
+        "title": "京东推广 · 02 分析画布",
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "desktop-layout-3",
+      "ok": true,
+      "state": {
+        "chrome": "rgb(41, 63, 50)",
+        "columns": "rgb(255, 255, 255)",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sidebarCount": 0,
+        "title": "京东推广 · 03 店铺卡片墙",
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "desktop-layout-4",
+      "ok": true,
+      "state": {
+        "chrome": "rgb(41, 63, 50)",
+        "columns": "rgb(255, 255, 255)",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sidebarCount": 0,
+        "title": "京东推广 · 04 明细研究台",
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "desktop-layout-5",
+      "ok": true,
+      "state": {
+        "chrome": "rgb(41, 63, 50)",
+        "columns": "rgb(255, 255, 255)",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sidebarCount": 0,
+        "title": "京东推广 · 05 自定义看板",
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-390-layout-1",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-390-layout-2",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-390-layout-3",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-390-layout-4",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-390-layout-5",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-330-layout-1",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 330
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-330-layout-2",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 330
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-330-layout-3",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 330
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-330-layout-4",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 330
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "narrow-330-layout-5",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "title": "20px",
+        "width": 330
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "tmall-amount-order-definitions",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "search-summary-stable",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "data-state-partial",
+      "ok": true,
+      "state": {
+        "efficiency": "流量与归因效率点击不是访客，订单行不是客户合计重算CTR3.34%-0.01 个百分点CPC¥1.89↓ 0.3%展现239,363点击7,993总订单行279归因窗口待核验；ROAS是平台归因成交 / 花费。",
+        "notice": "主费率为空。已匹配部分 8.14%，仅适用于 19/21 店日；分子 ¥13,512.00 / 分母 ¥166,022.80。",
+        "scope": "京东 · 3 家店铺 · 7 个自然日 · 推广覆盖 21/21 店日 配对 19/21环比 2026-09-16 — 2026-09-22　合成版本 DEMO-R1",
+        "values": [
+          "1.51万元",
+          "8.06万元",
+          "5.32×",
+          "—"
+        ]
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "data-state-misaligned",
+      "ok": true,
+      "state": {
+        "efficiency": "流量与归因效率点击不是访客，订单行不是客户合计重算CTR2.80%覆盖不足不比较CPC¥1.65覆盖不足不比较展现92,536点击2,591总订单行91归因窗口待核验；ROAS是平台归因成交 / 花费。",
+        "notice": "主费率为空。A 店的推广与 B 店的商品成交不能配对，没有有效匹配范围。",
+        "scope": "京东 · 3 家店铺 · 7 个自然日 · 推广覆盖 7/21 店日 配对 0/21环比 2026-09-16 — 2026-09-22　合成版本 DEMO-R1",
+        "values": [
+          "0.43万元",
+          "1.93万元",
+          "4.52×",
+          "—"
+        ]
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "data-state-missing",
+      "ok": true,
+      "state": {
+        "efficiency": "流量与归因效率点击不是访客，订单行不是客户合计重算CTR—环比不可计算CPC—环比不可计算展现239,363点击—总订单行279归因窗口待核验；ROAS是平台归因成交 / 花费。",
+        "notice": "缺字段示例：点击为空，CTR/CPC 显示不可计算，不能转为 0。",
+        "scope": "京东 · 3 家店铺 · 7 个自然日 · 推广覆盖 21/21 店日 配对 21/21环比 2026-09-16 — 2026-09-22　合成版本 DEMO-R1",
+        "values": [
+          "1.51万元",
+          "8.06万元",
+          "5.32×",
+          "8.08%"
+        ]
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "data-state-zero",
+      "ok": true,
+      "state": {
+        "efficiency": "流量与归因效率点击不是访客，订单行不是客户合计重算CTR—环比不可计算CPC—环比不可计算展现0点击0总订单行0归因窗口待核验；ROAS是平台归因成交 / 花费。",
+        "notice": "真实 0 示例：花费、归因金额、点击和订单确实为 0；零分母的 ROAS/CTR/CPC 仍为空。",
+        "scope": "京东 · 3 家店铺 · 7 个自然日 · 推广覆盖 21/21 店日 配对 21/21环比 2026-09-16 — 2026-09-22　合成版本 DEMO-R1",
+        "values": [
+          "0.00万元",
+          "0.00万元",
+          "—",
+          "—"
+        ]
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "date-drill-and-summary-stable",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "shop-card-date-exact-scope",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "platform-clears-card-drill",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "full-table-object-drawer",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "unsupported-plan-gap",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "plan-exact-id-no-product-link",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "keyword-searchterm-gap",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "report-structure-scope",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "tile-arrow-reorders",
+      "ok": true,
+      "state": [
+        "overview",
+        "trend",
+        "products",
+        "shops",
+        "diagnostic",
+        "capabilities",
+        "sources"
+      ],
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "tile-width-layout-only",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "restore-default-layout",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "pointer-tile-drag-reorders",
+      "ok": true,
+      "state": [
+        "overview",
+        "shops",
+        "trend",
+        "products",
+        "diagnostic",
+        "capabilities",
+        "sources"
+      ],
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "calendar-cancel-scope-stable",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "calendar-apply-scope-updates",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "base-gap-hides-full-growth",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "natural-week-range",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "year-gap-not-fabricated",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "no-records-not-zero",
+      "ok": true,
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-1440-layout-1",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-1440-layout-2",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-1440-layout-3",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-1440-layout-4",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-1440-layout-5",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 1440
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-390-layout-1",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-390-layout-2",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-390-layout-3",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-390-layout-4",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "final-390-layout-5",
+      "ok": true,
+      "state": {
+        "axes": true,
+        "body": "14px",
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "width": 390
+      },
+      "stage": "design-before-top-navigation"
+    },
+    {
+      "name": "desktop-top-navigation-layout-1",
+      "ok": true,
+      "state": {
+        "background": "rgb(41, 63, 50)",
+        "chapterBars": 1,
+        "columnBars": 1,
+        "contentWidth": 1425,
+        "groups": 4,
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sticky": "sticky",
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-top-navigation-layout-2",
+      "ok": true,
+      "state": {
+        "background": "rgb(41, 63, 50)",
+        "chapterBars": 1,
+        "columnBars": 1,
+        "contentWidth": 1425,
+        "groups": 4,
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sticky": "sticky",
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-top-navigation-layout-3",
+      "ok": true,
+      "state": {
+        "background": "rgb(41, 63, 50)",
+        "chapterBars": 1,
+        "columnBars": 1,
+        "contentWidth": 1425,
+        "groups": 4,
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sticky": "sticky",
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-top-navigation-layout-4",
+      "ok": true,
+      "state": {
+        "background": "rgb(41, 63, 50)",
+        "chapterBars": 1,
+        "columnBars": 1,
+        "contentWidth": 1425,
+        "groups": 4,
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sticky": "sticky",
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-top-navigation-layout-5",
+      "ok": true,
+      "state": {
+        "background": "rgb(41, 63, 50)",
+        "chapterBars": 1,
+        "columnBars": 1,
+        "contentWidth": 1425,
+        "groups": 4,
+        "platformTabs": 2,
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "sticky": "sticky",
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-menu-open",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "desktop-single-menu",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "outside-click-closes-menu",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "navigation-stays-at-top-on-drill",
+      "ok": true,
+      "state": {
+        "chapter": "3",
+        "navTop": 0,
+        "targetTop": 691.7604370117188
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "section-anchor-clears-fixed-header",
+      "ok": true,
+      "state": {
+        "navBottom": 163.6666717529297,
+        "targetTop": 171.7604217529297
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-390-layout-1",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-390-layout-2",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-390-layout-3",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-390-layout-4",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-390-layout-5",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 375,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-330-layout-1",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 330
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-330-layout-2",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 330
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-330-layout-3",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 330
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-330-layout-4",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 330
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-top-navigation-330-layout-5",
+      "ok": true,
+      "state": {
+        "body": "14px",
+        "contentWidth": 315,
+        "menuDisplay": "block",
+        "sectionsDisplay": "flex",
+        "selected": "0",
+        "width": 330
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-system-menu-opens",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-current-column-closes-menu",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "mobile-section-select-links-detail",
+      "ok": true,
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-1440-layout-1",
+      "ok": true,
+      "state": {
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-1440-layout-2",
+      "ok": true,
+      "state": {
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-1440-layout-3",
+      "ok": true,
+      "state": {
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-1440-layout-4",
+      "ok": true,
+      "state": {
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-1440-layout-5",
+      "ok": true,
+      "state": {
+        "contentWidth": 1425,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 1440
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-390-layout-1",
+      "ok": true,
+      "state": {
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-390-layout-2",
+      "ok": true,
+      "state": {
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-390-layout-3",
+      "ok": true,
+      "state": {
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-390-layout-4",
+      "ok": true,
+      "state": {
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    },
+    {
+      "name": "final-top-header-390-layout-5",
+      "ok": true,
+      "state": {
+        "contentWidth": 375,
+        "hero": "rgb(41, 63, 50)",
+        "sections": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "top": 0,
+        "width": 390
+      },
+      "stage": "top-navigation-current"
+    }
+  ],
+  "errors": [],
+  "resolvedFailures": [
+    {
+      "original": {
+        "name": "native-tile-drag-reorders",
+        "ok": false,
+        "state": [
+          "overview",
+          "trend",
+          "shops",
+          "products",
+          "diagnostic",
+          "capabilities",
+          "sources"
+        ]
+      },
+      "resolution": "Native HTML drag replaced by pointer capture; real drag retested successfully"
+    }
+  ]
+}
