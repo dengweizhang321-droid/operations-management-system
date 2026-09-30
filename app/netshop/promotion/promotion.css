@@ -2,7 +2,7 @@
 .promotion-insights *, .promotion-insights *::before, .promotion-insights *::after { box-sizing:border-box; }
 .promotion-insights button,.promotion-insights input,.promotion-insights select { font:inherit; }
 .promotion-insights button { cursor:pointer; }
-.promotion-insights button:disabled { cursor:default; }
+.promotion-insights button:disabled { cursor:default; opacity:.55; }
 .promotion-insights h1 { margin:0; font-size:var(--font-size-page-title,20px); font-weight:600; }
 .promotion-insights h2 { margin:0; font-size:var(--font-size-section,18px); font-weight:600; }
 .promotion-insights h3 { margin:0; font-size:var(--font-size-card-title,16px); font-weight:600; }
@@ -35,6 +35,10 @@
 .promotion-kpi .insights-metric > span { font-size:var(--font-size-label,13px); }
 .promotion-kpi .insights-metric > strong { font-size:var(--font-size-kpi,24px); }
 .promotion-comparisons { display:flex; gap:12px; flex-wrap:wrap; font-size:var(--font-size-caption,12px); color:var(--color-text-muted,#66756b); }
+.promotion-comparison-cell { display:inline-grid; gap:3px; }
+.promotion-comparison-cell small,.promotion-comparisons > span > small { display:block; color:var(--color-text-muted); font-size:var(--font-size-caption); font-weight:400; }
+.promotion-contributions { margin-top:14px; padding-top:14px; border-top:1px solid var(--color-border-default); }
+.promotion-contributions .promotion-trend-tabs { margin:12px 0; }
 .promotion-section { padding:18px; margin:0; min-width:0; border-radius:10px; }
 .promotion-section-header { margin-bottom:15px; align-items:start; }
 .promotion-section-header > div { min-width:0; }
