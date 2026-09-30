@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 from django.test import TestCase, override_settings
 from django.urls import include, path
 from sales.tests.factories import TEST_SECRET, signed_headers
+from netshop.models import NetshopImportBatch, NetshopRow
 from . import test_product_insights_detail as detail_fixtures
 
 urlpatterns = [path("api/netshop/", include("netshop.urls"))]
@@ -46,9 +47,9 @@ class CatalogFilterWiringTests(TestCase):
         self.assertEqual(off.status_code, 200, off.content)
         self.assertEqual(off.json()["items"][0]["shopName"], "C")
 
-    def test_unsupported_mapping_or_jd_image_quality_and_duplicate_filters_refuse(self):
+    def test_unsupported_mapping_and_duplicate_filters_refuse(self):
         self.seed()
-        for values in ({"mapping": "unmapped"}, {"quality": "unverified_mapping"}, {"quality": "missing_image"}):
+        for values in ({"mapping": "unmapped"}, {"quality": "unverified_mapping"}):
             response = self.read(**values)
             self.assertEqual(response.status_code, 422, response.content)
         response = self.read(status="unknown")
@@ -73,3 +74,27 @@ class CatalogFilterWiringTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         dates = response.json()["items"][0]["catalogSnapshotDates"]
         self.assertEqual(dates, {"master": "2026-10-01", "price": "2026-10-01", "inventory": "2026-10-01", "image": "2026-09-30"})
+
+    def test_current_unique_code_image_is_kept_and_ambiguity_is_explicitly_unsupported(self):
+        self.master(product="P1", shop="A", product_code="CURRENT-CODE")
+        asset = self.asset(platform="京东", shop="A", product="Asset")
+        NetshopRow.objects.filter(pk=asset.pk).update(sku_id="", product_code="CURRENT-CODE")
+        current = self.read(status="all")
+        self.assertEqual(current.status_code, 200, current.content)
+        self.assertTrue(current.json()["items"][0]["imageUrl"])
+        filtered = self.read(quality="missing_image")
+        self.assertEqual(filtered.status_code, 200, filtered.content)
+        self.assertEqual(filtered.json()["pagination"]["total"], 0)
+        self.assertTrue(filtered.json()["catalogFilters"]["jdCodeFallback"])
+        NetshopImportBatch.objects.filter(pk=asset.last_import_batch_id).update(row_count=2)
+        invalid = self.read(quality="missing_image")
+        self.assertEqual(invalid.status_code, 422, invalid.content)
+
+    def test_possible_legacy_global_image_is_not_reported_as_a_verified_missing_image(self):
+        self.master(product="P1", shop="A")
+        self.asset(platform="京东", shop="", product="P1")
+        legacy = self.read()
+        self.assertEqual(legacy.status_code, 200, legacy.content)
+        self.assertTrue(legacy.json()["items"][0]["imageUrl"])
+        scoped = self.read(quality="missing_image")
+        self.assertEqual(scoped.status_code, 422, scoped.content)
