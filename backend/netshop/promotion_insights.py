@@ -64,7 +64,8 @@ def _validate(params, detail=False):
     if kind not in {"product", "plan", "unit", "keyword", "search_term"}:
         raise NetshopApiError("推广对象类型无效")
     query = params.get("q", "")
-    if len(query) > 120 or any(ord(c) < 32 for c in query): raise NetshopApiError("q最多120字符且不能含控制字符")
+    if len(query) > 120 or any(ord(c) < 32 or ord(c) == 127 for c in query): raise NetshopApiError("q最多120字符且不能含控制字符")
+    query = query.strip()
     grain = params.get("trendGrain", "day")
     if grain not in {"day", "week", "month"}: raise NetshopApiError("趋势粒度无效")
     sort = params.get("sort", "spend_desc")
@@ -83,8 +84,8 @@ def _validate(params, detail=False):
         raise NetshopApiError("sectionToken无效")
     object_id, shop_key = params.get("objectId"), params.get("shopKey")
     if detail and (not object_id or not shop_key or not token or "objectKind" not in params): raise NetshopApiError("推广详情须精确shopKey/objectId/objectKind/sectionToken")
-    if object_id is not None and (not object_id or len(object_id) > 1000 or any(ord(c) < 32 for c in object_id)):
-        raise NetshopApiError("推广对象ID无效")
+    if object_id is not None and (len(object_id) != 64 or any(c not in "0123456789abcdef" for c in object_id) or not shop_key):
+        raise NetshopApiError("推广objectId须为服务返回的稳定对象键且提供精确店铺")
     return spec, {"objectKind": kind, "q": query, "grain": grain, "focusDate": focus, "objectStartDate": start or focus, "objectEndDate": end or focus, "sort": sort,
                   "objectId": object_id, "shopKey": shop_key, "token": token,
                   "page": positive(params.get("page"), 1, "page", 10000),
@@ -273,6 +274,8 @@ class _Reader:
 def _page(items, options):
     query = options["q"].casefold()
     selected = [r for r in items if not query or query in ((r["id"] or "")+" "+r["title"]+" "+r["shopName"]).casefold()]
+    if options["objectId"]:
+        selected = [r for r in selected if r["rowKey"] == options["objectId"] and r["shopKey"] == options["shopKey"]]
     key = options["sort"]
     def number(r):
         value = r["change"]["spend"] if key.startswith("spend_change") else r["metrics"][key.removesuffix("_desc")]["value"]
