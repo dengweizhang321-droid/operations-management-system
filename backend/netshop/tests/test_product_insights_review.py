@@ -6,18 +6,18 @@ from django.test import TestCase
 from netshop.errors import NetshopApiError
 from netshop.insights_common import read_context
 from netshop.product_insights import read_product_detail
-from .test_product_insights import ProductInsightsTests
-from .test_product_insights_detail import ProductDetailTests
+from . import test_product_insights as product_seeds
+from . import test_product_insights_detail as detail_seeds
 
 
 class ProductIndependentReviewTests(TestCase):
     # Reuse only published synthetic seed helpers; none of their test methods.
-    setUp = ProductInsightsTests.setUp
-    tearDown = ProductInsightsTests.tearDown
-    fact = ProductInsightsTests.fact
-    spec = ProductInsightsTests.spec
-    read = ProductInsightsTests.read
-    detail_spec = ProductDetailTests.detail_spec
+    setUp = product_seeds.ProductInsightsTests.setUp
+    tearDown = product_seeds.ProductInsightsTests.tearDown
+    fact = product_seeds.ProductInsightsTests.fact
+    spec = product_seeds.ProductInsightsTests.spec
+    read = product_seeds.ProductInsightsTests.read
+    detail_spec = detail_seeds.ProductDetailTests.detail_spec
 
     def seed_pair(self):
         self.fact(product="REVIEW-A")
