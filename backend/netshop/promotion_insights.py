@@ -202,10 +202,13 @@ def _read_facts(platform, names, p, deadline):
         if not valid: failures[key] = "promotion_mismatch"
     # Publication ownership is part of metadata, independently of raw owners.
     batch_ids = {r["source_batch_id"] for r in [*states.values(), *shops.values(), *products.values()]}
-    owners = {r.id: r for r in NetshopImportBatch.objects.filter(id__in=batch_ids)}
+    owners, batch_list = {}, sorted(batch_ids)
+    for offset in range(0, len(batch_list), 1000):
+        _budget(deadline)
+        owners.update({r.id: r for r in NetshopImportBatch.objects.filter(id__in=batch_list[offset:offset+1000])})
     for item in [*states.values(), *shops.values(), *products.values()]:
         o = owners.get(item["source_batch_id"])
-        if not o or o.status != "completed" or (o.platform, o.shop_name, o.source, o.dataset) != (platform, item["shop_name"], promo_source, promo_dataset) or not o.date_min or not o.date_max or not o.date_min <= item["business_date"] <= o.date_max:
+        if not o or o.status != "completed" or o.row_count < 1 or o.warning_count < 0 or (o.platform, o.shop_name, o.source, o.dataset) != (platform, item["shop_name"], promo_source, promo_dataset) or not o.date_min or not o.date_max or not o.date_min <= item["business_date"] <= o.date_max:
             failures[(item["shop_name"], item["business_date"])] = "promotion_mismatch"
     return {"raw": raw, "product": product, "shopRaw": shop_raw, "rawByObject": raw_by_object, "productByObject": product_by_object, "productDaily": product_daily, "failures": failures,
             "ready": ready, "source": promo_source, "productSource": product_source, "idColumn": id_column,
