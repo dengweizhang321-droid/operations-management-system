@@ -22,6 +22,7 @@ from netshop.models import (NetshopDataRevision, NetshopProductDailyScopeRevisio
     NetshopPromotionAggregateManifest, NetshopPromotionAggregateState, NetshopPromotionProductDaily, NetshopPromotionShopDaily)
 from netshop.promotion_diagnostic import SHOP_NAME
 from netshop.promotion_insights import read_promotion_insights, read_promotion_detail, _read_facts, _row_key
+from netshop.query import _canonical_token
 from netshop.insights_common import periods
 from .promotion_insights_fixtures import add_day
 
@@ -412,6 +413,109 @@ class PromotionInsightsTests(TestCase):
         if evidence:
             root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
             with (root/"response-missing-id.json").open("x", encoding="utf-8") as output: json.dump(result, output, ensure_ascii=False, indent=2)
+
+    def product_identity(self, shop="A", id="same", platform="京东", dimension="sku"):
+        return json.dumps([platform, shop, dimension, id], ensure_ascii=False)
+
+    def preserve_focus(self, name, response):
+        evidence = os.environ.get("TERUISI_FOUNDATION_CAPACITY_EVIDENCE_DIR")
+        if evidence:
+            root = Path(evidence); root.mkdir(parents=True, exist_ok=True)
+            with (root/name).open("x", encoding="utf-8") as output: json.dump(response, output, ensure_ascii=False, indent=2)
+
+    def test_product_focus_exact_cross_store_and_whole_summary_unchanged(self):
+        self.pair(); self.pair(shop="B")
+        default = self.read()
+        focused = self.read(productIdentity=self.product_identity(shop="B"))
+        self.assertEqual(default["sections"]["summary"], focused["sections"]["summary"])
+        self.assertEqual(default["sections"]["trend"], focused["sections"]["trend"])
+        self.assertEqual(default["sections"]["shops"], focused["sections"]["shops"])
+        self.assertEqual([r["shopName"] for r in focused["sections"]["items"]], ["B"])
+        focus = focused["sections"]["listScope"]["productFocus"]
+        self.assertEqual(focus["identity"], {"platform": "京东", "shopName": "B", "dimension": "sku", "id": "same"})
+        self.assertEqual(focus["status"], "available")
+        self.assertIsNone(focus["reasonCode"])
+        self.assertEqual(focused["sections"]["items"][0]["spendShare"]["value"], .5)
+        self.assertNotEqual(default["sectionToken"], focused["sectionToken"])
+        self.assertEqual(default["sectionToken"], _canonical_token({"version": "promotion-insights-v1", "snapshot": default["context"]["snapshotToken"], "scope": default["context"]["scopeKey"]}))
+        self.preserve_focus("response-product-focus-cross-store.json", focused)
+
+    def test_product_focus_full_mapping_before_q_sort_page_and_contributions(self):
+        rows, products = [], []
+        for i in range(25):
+            id = f"SKU{i:02d}"
+            rows.append({"id": id, "title": "同名商品", "values": {"spendCents": 100+i, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}})
+            products.append({"id": id, "title": "同名商品", "values": {"transactionAmountCents": 1000}})
+        self.day(rows=rows); self.day(promotion=False, rows=products)
+        self.day(day="2026-08-31", rows=rows); self.day(day="2026-08-31", promotion=False, rows=products)
+        default = self.read(pageSize=1)
+        self.assertEqual(default["sections"]["items"][0]["id"], "SKU24")
+        focused = self.read(productIdentity=self.product_identity(id="SKU00"), pageSize=1)
+        self.assertEqual(focused["sections"]["items"][0]["id"], "SKU00")
+        self.assertEqual(focused["sections"]["pagination"]["total"], 1)
+        self.assertEqual(focused["sections"]["contributions"]["comparedObjectCount"], 1)
+        search = self.read(productIdentity=self.product_identity(id="SKU00"), q="SKU24", pageSize=1)
+        self.assertEqual(search["sections"]["items"], [])
+        self.assertEqual(search["sections"]["listScope"]["productFocus"]["status"], "available")
+        self.assertEqual(search["sections"]["contributions"], focused["sections"]["contributions"])
+        self.assertEqual(search["sections"]["summary"], default["sections"]["summary"])
+
+    def test_product_focus_unmapped_and_ambiguous_are_distinct_not_no_advertising(self):
+        self.day(rows=[{"id": "NEAR", "title": "相似商品名称", "values": {"spendCents": 100, "netTransactionAmountCents": 200, "impressions": 100, "clicks": 2, "netOrders": 1}}])
+        self.day(promotion=False, rows=[{"id": "TARGET", "title": "相似商品名称", "values": {"transactionAmountCents": 1000}}])
+        unmapped = self.read(productIdentity=self.product_identity(id="TARGET"), q="相似商品名称")
+        self.assertEqual(unmapped["sections"]["items"], [])
+        self.assertEqual(unmapped["sections"]["listScope"]["productFocus"]["reasonCode"], "unmapped")
+        self.assertIn("不能", unmapped["sections"]["listScope"]["productFocus"]["message"])
+        self.preserve_focus("response-product-focus-unmapped.json", unmapped)
+        # Exact same SKU with conflicting period SPUs remains a source gap.
+        self.day(day="2026-09-02")
+        self.day(day="2026-09-02", promotion=False, rows=[{"id": "same", "spu": "OLD", "values": {"transactionAmountCents": 1000}}])
+        self.day(day="2026-08-02", promotion=False, rows=[{"id": "same", "spu": "NEW", "values": {"transactionAmountCents": 1000}}])
+        ambiguous = self.read(endDate="2026-09-02", productIdentity=self.product_identity())
+        self.assertEqual(ambiguous["sections"]["items"], [])
+        self.assertEqual(ambiguous["sections"]["listScope"]["productFocus"]["reasonCode"], "ambiguous_mapping")
+        self.assertEqual(ambiguous["sections"]["summary"]["spend"]["value"], 300)
+        self.preserve_focus("response-product-focus-ambiguous.json", ambiguous)
+
+    def test_product_focus_rejects_wrong_scope_kind_dimensions_and_malformed_identity(self):
+        self.pair()
+        for values in [{"productIdentity": self.product_identity(shop="B"), "outlet": "京东\x1fA"},
+                       {"productIdentity": self.product_identity(platform="天猫", dimension="spu")},
+                       {"productIdentity": self.product_identity(dimension="spu")},
+                       {"productIdentity": self.product_identity(), "objectKind": "plan"},
+                       {"productIdentity": "not-json"}, {"productIdentity": json.dumps(["京东", "A", "sku", ""])}]:
+            with self.assertRaises(NetshopApiError): self.read(**values)
+        with self.assertRaises(NetshopApiError) as failure: self.read(productIdentity=self.product_identity(shop="B"))
+        self.assertEqual(failure.exception.status, 403)
+
+    def test_product_focus_detail_and_tokens_are_bound_to_exact_identity(self):
+        self.pair(); self.pair(shop="B")
+        default = self.read()
+        a, b = (next(r for r in default["sections"]["items"] if r["shopName"] == shop) for shop in ("A", "B"))
+        focus = self.read(productIdentity=self.product_identity())
+        args = {"objectKind": "product", "objectId": a["rowKey"], "shopKey": a["shopKey"], "sectionToken": focus["sectionToken"], "productIdentity": self.product_identity()}
+        detail = read_promotion_detail(self.principal, self.params(**args))
+        self.assertEqual(detail["sections"]["item"]["rowKey"], a["rowKey"])
+        self.preserve_focus("response-product-focus-detail.json", detail)
+        with self.assertRaises(NetshopApiError) as failure:
+            read_promotion_detail(self.principal, self.params(**{**args, "objectId": b["rowKey"], "shopKey": b["shopKey"]}))
+        self.assertEqual(failure.exception.status, 404)
+        with self.assertRaises(NetshopApiError) as failure:
+            read_promotion_detail(self.principal, self.params(**{**args, "sectionToken": default["sectionToken"]}))
+        self.assertEqual(failure.exception.code, "insights_revision_changed")
+        with self.assertRaises(NetshopApiError) as failure:
+            self.read(productIdentity=self.product_identity(shop="B"), sectionToken=focus["sectionToken"])
+        self.assertEqual(failure.exception.code, "insights_revision_changed")
+
+    def test_product_focus_tmall_spu_and_shared_deadline_are_real(self):
+        from netshop.promotion_insights import read_context
+        self.pair(platform="天猫")
+        with patch("netshop.promotion_insights.read_context", wraps=read_context) as context_reader:
+            result = self.read(platform="天猫", productIdentity=self.product_identity(platform="天猫", dimension="spu"))
+        self.assertEqual(result["sections"]["listScope"]["productFocus"]["status"], "available")
+        self.assertIn("deadline", context_reader.call_args.kwargs)
+        self.assertIsInstance(context_reader.call_args.kwargs["deadline"], float)
 
     def test_scale_complete_5000_facts_preserves_weighted_rates_and_measures_plan(self):
         from netshop.models import NetshopRow
