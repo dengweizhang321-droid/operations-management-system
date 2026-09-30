@@ -10,6 +10,8 @@ import { PublicApiError } from "@/lib/http/api-error";
 export const NETSHOP_IMPORTS_PATH = "/api/netshop/imports";
 export const NETSHOP_STORE_OVERVIEW_PATH = "/api/netshop/store-overview";
 export const NETSHOP_INSIGHTS_CONTEXT_PATH = "/api/netshop/insights-context";
+export const NETSHOP_PRODUCT_INSIGHTS_PATH = "/api/netshop/product-insights";
+export const NETSHOP_PRODUCT_INSIGHTS_DETAIL_PATH = "/api/netshop/product-insights/detail";
 export const NETSHOP_OVERVIEW_PATH = "/api/netshop/overview";
 export const NETSHOP_PRODUCTS_PATH = "/api/netshop/products";
 export const NETSHOP_PRODUCT_PERFORMANCE_PATH = "/api/netshop/product-performance";
@@ -31,6 +33,8 @@ const STATIC_PATHS = new Set([
   NETSHOP_OVERVIEW_PATH,
   NETSHOP_STORE_OVERVIEW_PATH,
   NETSHOP_INSIGHTS_CONTEXT_PATH,
+  NETSHOP_PRODUCT_INSIGHTS_PATH,
+  NETSHOP_PRODUCT_INSIGHTS_DETAIL_PATH,
   NETSHOP_PRODUCTS_PATH,
   NETSHOP_PRODUCT_PERFORMANCE_PATH,
   NETSHOP_PROMOTION_PERFORMANCE_PATH,
@@ -240,7 +244,7 @@ export async function requestDjangoNetshopService<T>(
     if (input.path !== NETSHOP_STORE_OVERVIEW_PATH || !readerRequest) throw unavailable();
     config.timeoutMs = boundedInteger(options.overviewTimeoutMs, 90_000, 90_000);
   }
-  if (input.path === NETSHOP_INSIGHTS_CONTEXT_PATH) {
+  if ([NETSHOP_INSIGHTS_CONTEXT_PATH, NETSHOP_PRODUCT_INSIGHTS_PATH, NETSHOP_PRODUCT_INSIGHTS_DETAIL_PATH].includes(input.path)) {
     if (!readerRequest) throw unavailable();
     config.maxResponseBytes = Math.min(config.maxResponseBytes, 2 * 1024 * 1024);
     if (options.insightsTimeoutMs !== undefined) config.timeoutMs = boundedInteger(options.insightsTimeoutMs, 90_000, 90_000);
