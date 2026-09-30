@@ -64,7 +64,8 @@ def _validate(params, detail=False):
     if kind not in {"product", "plan", "unit", "keyword", "search_term"}:
         raise NetshopApiError("推广对象类型无效")
     query = params.get("q", "")
-    if len(query) > 120 or any(ord(c) < 32 for c in query): raise NetshopApiError("q最多120字符且不能含控制字符")
+    if len(query) > 120 or any(ord(c) < 32 or ord(c) == 127 for c in query): raise NetshopApiError("q最多120字符且不能含控制字符")
+    query = query.strip()
     grain = params.get("trendGrain", "day")
     if grain not in {"day", "week", "month"}: raise NetshopApiError("趋势粒度无效")
     sort = params.get("sort", "spend_desc")
@@ -83,8 +84,8 @@ def _validate(params, detail=False):
         raise NetshopApiError("sectionToken无效")
     object_id, shop_key = params.get("objectId"), params.get("shopKey")
     if detail and (not object_id or not shop_key or not token or "objectKind" not in params): raise NetshopApiError("推广详情须精确shopKey/objectId/objectKind/sectionToken")
-    if object_id is not None and (not object_id or len(object_id) > 1000 or any(ord(c) < 32 for c in object_id)):
-        raise NetshopApiError("推广对象ID无效")
+    if object_id is not None and (len(object_id) != 64 or any(c not in "0123456789abcdef" for c in object_id) or not shop_key):
+        raise NetshopApiError("推广objectId须为服务返回的稳定对象键且提供精确店铺")
     return spec, {"objectKind": kind, "q": query, "grain": grain, "focusDate": focus, "objectStartDate": start or focus, "objectEndDate": end or focus, "sort": sort,
                   "objectId": object_id, "shopKey": shop_key, "token": token,
                   "page": positive(params.get("page"), 1, "page", 10000),
@@ -149,6 +150,8 @@ def _read_facts(platform, names, p, deadline):
                 "title": Max("product_name"), **{c: Sum(c) for c in CONTROL_COLUMNS},
                 **{k+"_present": Count("id", filter=NumericMetricPresent(v[1])) for k, v in METRICS.items()}}
             for r in raw_base.filter(**scoped).values("shop_name", "business_date", id_column).annotate(**annotations).order_by():
+                if len(r[id_column]) > 200 or any(ord(c) < 32 or ord(c) == 127 for c in r[id_column]):
+                    raise NetshopApiError("推广商品源身份超过共享有界长度或包含控制字符", code="quality_incomplete", status=422)
                 raw[(r["shop_name"], r["business_date"], r[id_column])] = r
             _budget(deadline)
             for r in product_base.filter(**scoped, owner_ok=True).values("shop_name", "business_date", id_column).annotate(
@@ -199,12 +202,16 @@ def _read_facts(platform, names, p, deadline):
         if not valid: failures[key] = "promotion_mismatch"
     # Publication ownership is part of metadata, independently of raw owners.
     batch_ids = {r["source_batch_id"] for r in [*states.values(), *shops.values(), *products.values()]}
-    owners = {r.id: r for r in NetshopImportBatch.objects.filter(id__in=batch_ids)}
+    owners, batch_list = {}, sorted(batch_ids)
+    for offset in range(0, len(batch_list), 1000):
+        _budget(deadline)
+        owners.update({r.id: r for r in NetshopImportBatch.objects.filter(id__in=batch_list[offset:offset+1000])})
     for item in [*states.values(), *shops.values(), *products.values()]:
         o = owners.get(item["source_batch_id"])
-        if not o or o.status != "completed" or (o.platform, o.shop_name, o.source, o.dataset) != (platform, item["shop_name"], promo_source, promo_dataset) or not o.date_min or not o.date_max or not o.date_min <= item["business_date"] <= o.date_max:
+        if not o or o.status != "completed" or o.row_count < 1 or o.warning_count < 0 or (o.platform, o.shop_name, o.source, o.dataset) != (platform, item["shop_name"], promo_source, promo_dataset) or not o.date_min or not o.date_max or not o.date_min <= item["business_date"] <= o.date_max:
             failures[(item["shop_name"], item["business_date"])] = "promotion_mismatch"
-    return {"raw": raw, "product": product, "shopRaw": shop_raw, "rawByObject": raw_by_object, "productByObject": product_by_object, "productDaily": product_daily, "failures": failures,
+    product_universe = {key: all(bool(k[2]) for k in objects) for key, objects in raw_by_day.items()}
+    return {"raw": raw, "product": product, "shopRaw": shop_raw, "productUniverse": product_universe, "rawByObject": raw_by_object, "productByObject": product_by_object, "productDaily": product_daily, "failures": failures,
             "ready": ready, "source": promo_source, "productSource": product_source, "idColumn": id_column,
             "rawBase": raw_base, "metadata": {"aggregateReconciled": not failures, "invalidShopDates": [
                 {"shopKey": platform+"\x1f"+n, "date": d, "reasonCode": reason} for (n, d), reason in sorted(failures.items())]}}
@@ -214,11 +221,14 @@ class _Reader:
     def __init__(self, context, facts, platform):
         self.context, self.facts, self.platform = context, facts, platform
 
-    def totals(self, names, dates, ref, object_id=None, product_applicable=True):
+    def totals(self, names, dates, ref, object_id=None, product_applicable=True, raw_override=None, absence_universe=None, allow_absence=True):
         facts = self.facts
-        raw = facts["shopRaw"] if object_id is None else facts["rawByObject"].get((names[0], object_id), {})
+        object_view = object_id is not None or raw_override is not None
+        raw = raw_override if raw_override is not None else facts["shopRaw"] if object_id is None else facts["rawByObject"].get((names[0], object_id), {})
         product = facts["productDaily"] if object_id is None else facts["productByObject"].get((names[0], object_id), {})
-        observed = {key for key in raw if key[0] in names and key[1] in dates and key not in facts["failures"]}
+        universe = absence_universe if absence_universe is not None else facts["productUniverse"]
+        verified_absence = {key for key in facts["shopRaw"] if object_view and allow_absence and (object_id is None or bool(object_id)) and universe.get(key) and key not in raw and key not in facts["failures"]}
+        observed = {key for key in set(raw) | verified_absence if key[0] in names and key[1] in dates and key not in facts["failures"]}
         c = coverage_for(self.platform, names, dates, observed)
         self.context["coverageBySource"][ref] = c
         result = {}
@@ -228,7 +238,12 @@ class _Reader:
                 for d in dates:
                     r = raw.get((n, d))
                     if (n, d) in facts["failures"]: reason = facts["failures"][(n, d)]; continue
-                    if not r: continue
+                    if not r:
+                        control = facts["shopRaw"].get((n, d))
+                        if (n, d) in verified_absence and control:
+                            if control[key+"_present"] == control["row_count"]: provided.append(0)
+                            else: reason = "missing_field"
+                        continue
                     if r[key+"_present"] != r["row_count"]: reason = "missing_field"; continue
                     provided.append(r[METRICS[key][0]])
             complete = c["expectedShopDatePairs"] > 0 and len(provided) == c["expectedShopDatePairs"]
@@ -238,13 +253,23 @@ class _Reader:
                 None if complete else reason if reason != "no_records" else "incomplete_coverage" if provided else "no_records")
         for key, a, b in [("roas", "attributedPayment", "spend"), ("ctr", "clicks", "impressions"), ("cpc", "spend", "clicks")]:
             result[key] = _ratio(key, result[a], result[b], ref)
-        matched = {(n, d) for n in names for d in dates if (n, d) in observed and (n, d) in product
-            and product[(n, d)]["payment_present"] == product[(n, d)]["row_count"]
-            and raw[(n, d)]["spend_present"] == raw[(n, d)]["row_count"]}
+        matching_raw, matching_product = {}, {}
+        for n in names:
+            for d in dates:
+                key = (n, d)
+                if key not in observed: continue
+                a, b = raw.get(key), product.get(key)
+                raw_control, product_control = facts["shopRaw"].get(key), facts["productDaily"].get(key)
+                if key in verified_absence and not a and raw_control and raw_control["spend_present"] == raw_control["row_count"]: a = _empty()
+                if object_id is not None and not b and product_control and product_control["payment_present"] == product_control["row_count"]:
+                    b = {"payment": 0, "row_count": 0, "payment_present": 0}
+                if a is not None and b is not None and a["spend_present"] == a["row_count"] and b["payment_present"] == b["row_count"]:
+                    matching_raw[key], matching_product[key] = a, b
+        matched = set(matching_raw)
         matched_ref = ref+":matched"
         matched_c = coverage_for(self.platform, names, dates, matched)
         self.context["coverageBySource"][matched_ref] = matched_c
-        sums = sum(raw[k]["spend_cents"] for k in matched), sum(product[k]["payment"] for k in matched)
+        sums = sum(matching_raw[k]["spend_cents"] for k in matched), sum(matching_product[k]["payment"] for k in matched)
         a = _metric("spend", matched_ref, [facts["source"]], sums[0] if matched else None, "available" if matched else "unavailable", None if matched else "no_records")
         b = _metric("payment", matched_ref, [facts["productSource"]], sums[1] if matched else None, "available" if matched else "unavailable", None if matched else "no_records")
         matched_rate = _ratio("spendRate", a, b, matched_ref)
@@ -257,25 +282,28 @@ class _Reader:
         if not applicable: matched_range = None
         return result, matched_range
 
-    def windows(self, names, ref, object_id=None, product_applicable=True, selected_dates=None):
+    def windows(self, names, ref, object_id=None, product_applicable=True, selected_dates=None, raw_override=None, absence_universe=None, allow_absence=True):
         metrics, matched = {}, None
         for kind in ("current", "previous", "yearAgo"):
             w = self.context["periods"][kind]
             dates = selected_dates[kind] if selected_dates else days(w["startDate"], w["endDate"])
-            metrics[kind], m = self.totals(names, dates, ref+":"+kind, object_id, product_applicable)
+            metrics[kind], m = self.totals(names, dates, ref+":"+kind, object_id, product_applicable, raw_override, absence_universe, allow_absence)
             if selected_dates and kind != "current" and len(dates) != len(selected_dates["current"]):
                 metrics[kind] = {k: _metric(k, ref+":"+kind, v["sourceIds"], reason="no_comparable_date") for k, v in metrics[kind].items()}
             if kind == "current": matched = m
         comparisons = {k: {v: _compare(k, metrics["current"][k], metrics[v][k]) for v in ("previous", "yearAgo")} for k in KEYS}
-        return metrics["current"], comparisons, matched
+        changes = {k: {v: _delta(k, metrics["current"][k], metrics[v][k]) for v in ("previous", "yearAgo")} for k in ("spend", "attributedPayment")}
+        return metrics["current"], comparisons, matched, changes
 
 
 def _page(items, options):
     query = options["q"].casefold()
     selected = [r for r in items if not query or query in ((r["id"] or "")+" "+r["title"]+" "+r["shopName"]).casefold()]
+    if options["objectId"]:
+        selected = [r for r in selected if r["rowKey"] == options["objectId"] and r["shopKey"] == options["shopKey"]]
     key = options["sort"]
     def number(r):
-        value = r["change"]["spend"] if key.startswith("spend_change") else r["metrics"][key.removesuffix("_desc")]["value"]
+        value = r["changes"]["spend"]["previous"]["value"] if key.startswith("spend_change") else r["metrics"][key.removesuffix("_desc")]["value"]
         return value
     selected.sort(key=lambda r: (number(r) is None, (number(r) or 0)*(1 if key.endswith("_asc") else -1), r["shopKey"], r["rowKey"]))
     total, start = len(selected), (options["page"]-1)*options["pageSize"]
@@ -286,6 +314,12 @@ def _page(items, options):
 
 def _change(current, baseline):
     return current["value"]-baseline["value"] if current["status"] == baseline["status"] == "available" else None
+
+
+def _delta(key, current, baseline):
+    reason = "not_applicable" if current["unit"] != baseline["unit"] or current["basis"] != baseline["basis"] or current["sourceIds"] != baseline["sourceIds"] else "unsafe_integer" if current["status"] == "invalid" or baseline["status"] == "invalid" else "incomplete_baseline" if current["status"] != "available" or baseline["status"] != "available" else None
+    return _metric(key, current["coverageRef"], current["sourceIds"], None if reason else current["value"]-baseline["value"],
+        "invalid" if reason == "unsafe_integer" else "unavailable" if reason else "available", reason)
 
 
 def _compare(key, current, baseline):
@@ -308,11 +342,15 @@ def _objects(reader, names, options, deadline):
         relation_values = {r[k] for r in product_rows for k in ("spu_min", "spu_max") if r[k]}
         ambiguity = any(r["mapped_spus"] > 1 for r in product_rows) or len(relation_values) > 1
         mapping_reason = "ambiguous_mapping" if ambiguity else None if product_rows else "unmapped"
-        metrics, comparisons, matched = reader.windows([n], "promotion:object:"+_canonical_token([platform, n, object_id])[:16], object_id,
+        metrics, comparisons, matched, changes = reader.windows([n], "promotion:object:"+_canonical_token([platform, n, object_id])[:16], object_id,
             platform == "天猫" and mapping_reason is None, selected_dates)
         current_rows = [r for (_, d), r in object_rows.items() if d in selected_dates["current"]]
         title = max((r["title"] for r in object_rows.values()), default="")
         row_key = _row_key(platform, n, "product", object_id)
+        if not object_id:
+            for values in comparisons.values():
+                for value in values.values(): value.update(value=None, status="unavailable", reasonCode="not_applicable")
+            changes = {k: {v: _metric(k, metrics[k]["coverageRef"], metrics[k]["sourceIds"], reason="not_applicable") for v in ("previous", "yearAgo")} for k in ("spend", "attributedPayment")}
         row = {"platform": platform, "shopKey": platform+"\x1f"+n, "shopName": n, "objectKind": "product", "id": object_id or None, "title": title or object_id or "未提供商品ID",
             "rowKey": row_key, "identityKind": "follow_order_sku" if platform == "京东" else "promotion_product",
             "planId": None, "unitId": None, "matchType": None, "drillable": bool(object_id),
@@ -321,12 +359,9 @@ def _objects(reader, names, options, deadline):
                         "advertisedSkuId": None, "triggerSkuId": None, "followSkuId": object_id if platform == "京东" else None,
                         "evidence": "exact_source_identity" if mapping_reason is None else "unverified"},
             "metrics": metrics, "comparisons": comparisons, "matchedRange": matched,
-            "spendShare": _ratio("ctr", metrics["spend"], reader.summary["spend"], metrics["spend"]["coverageRef"]),
-            "change": {}, "observedDates": sorted(r["business_date"] for r in current_rows), "coverageRef": metrics["spend"]["coverageRef"],
+            "spendShare": _ratio("ctr", metrics["spend"], reader.focused_summary["spend"], metrics["spend"]["coverageRef"]),
+            "changes": changes, "observedDates": sorted(r["business_date"] for r in current_rows), "coverageRef": metrics["spend"]["coverageRef"],
             "identitySemantics": "跟单SKU归因视角，费用不是独立投放SKU效果" if platform == "京东" else "推广商品ID"}
-        for key in ("spend", "attributedPayment"):
-            previous, _ = reader.totals([n], selected_dates["previous"], metrics[key]["coverageRef"].replace(":current", ":previous"), object_id, platform == "天猫" and mapping_reason is None)
-            row["change"][key] = _change(metrics[key], previous[key])
         result.append(row)
     return result
 
@@ -350,8 +385,10 @@ def _dimensions(reader, names, options, deadline, principal):
         "scope": {"platform": "京东", "shopName": SHOP_NAME, "maximumDays": 7},
         "limitation": "原管理员权限、志高商用设备旗舰店京东单店1—7天真实明细；无源不生成计划或词"}
     if not supported: return {k: [] for k in ("plan", "unit", "keyword", "search_term")}, capability
+    if options["objectKind"] == "product": return {k: [] for k in ("plan", "unit", "keyword", "search_term")}, capability
     selected_dates = _list_dates(reader.context, options)
-    groups = {k: {} for k in ("plan", "unit", "keyword", "search_term")}
+    groups = {options["objectKind"]: {}}
+    universe = {}
     for window_kind in ("current", "previous", "yearAgo"):
         _budget(deadline)
         w = p[window_kind]
@@ -362,48 +399,59 @@ def _dimensions(reader, names, options, deadline, principal):
         for index, row in enumerate(source.values(*columns).iterator(chunk_size=2000)):
             if index % 1000 == 0: _budget(deadline)
             if (row["shop_name"], row["business_date"]) in reader.facts["failures"]: continue
-            raw = row["raw_json"]
-            dims = {k: _scalar(raw, v) for k, v in DIMENSION_FIELDS.items()}
+            raw = row["raw_json"] if isinstance(row["raw_json"], dict) else {}
+            source_metrics = row["metrics_json"] if isinstance(row["metrics_json"], dict) else {}
+            dims = {}
+            for field, aliases in DIMENSION_FIELDS.items():
+                values = {_scalar(raw, (alias,)) for alias in aliases} - {None}
+                dims[field] = next(iter(values)) if len(values) == 1 else None
             for kind in groups:
                 # Plans never use a name as ID. Terms preserve their actual
                 # plan/unit/match relation rather than a cartesian join.
                 parts = (dims["planId"],) if kind == "plan" else (dims["planId"], dims["unitId"]) if kind == "unit" else (
                     dims["keyword" if kind == "keyword" else "searchTerm"], dims["planId"], dims["unitId"], dims["matchType"])
+                day_key = (SHOP_NAME, row["business_date"])
+                universe[day_key] = universe.get(day_key, True) and all(value is not None for value in parts)
                 object_id = json.dumps(parts, ensure_ascii=False, separators=(",", ":"))
                 group = groups[kind].setdefault(object_id, {"id": object_id, "dims": dims, "periods": {}, "relations": set()})
                 if len(groups[kind]) > 30_000: raise NetshopApiError("计划词完整分组超过原上限", code="quality_incomplete", status=422)
                 bucket = group["periods"].setdefault(window_kind, {})
                 cell = bucket.setdefault((SHOP_NAME, row["business_date"]), _empty())
-                source_row = {"row_count": 1, **{c: row[c] for c in CONTROL_COLUMNS}, **{k+"_present": int(any(type(row["metrics_json"].get(alias)) in {int, float} for alias in v[1])) for k, v in METRICS.items()}}
+                source_row = {"row_count": 1, **{c: row[c] for c in CONTROL_COLUMNS}, **{k+"_present": int(any(type(source_metrics.get(alias)) in {int, float} for alias in v[1])) for k, v in METRICS.items()}}
                 _add(cell, source_row)
                 group["relations"].add((row["sku_id"] or None, dims["promotedSkuId"], dims["triggerSkuId"], dims["keyword"], dims["searchTerm"], dims["planId"], dims["unitId"], dims["matchType"]))
-    sections = {}
+    sections = {k: [] for k in ("plan", "unit", "keyword", "search_term")}
     for kind, values in groups.items():
         items = []
         for object_id, group in values.items():
-            dims, original = group["dims"], reader.facts["shopRaw"]
+            dims = group["dims"]
             all_period_rows = {}
             for cells in group["periods"].values(): all_period_rows.update(cells)
-            reader.facts["shopRaw"] = all_period_rows
-            try: metrics, comparisons, _ = reader.windows(names, "promotion:"+kind+":"+_canonical_token(object_id)[:16], selected_dates=selected_dates)
-            finally: reader.facts["shopRaw"] = original
+            real_identity = all(value is not None for value in json.loads(object_id))
+            metrics, comparisons, _, changes = reader.windows(names, "promotion:"+kind+":"+_canonical_token(object_id)[:16], selected_dates=selected_dates, raw_override=all_period_rows, absence_universe=universe, allow_absence=real_identity)
             metrics["spendRate"] = _metric("spendRate", metrics["spend"]["coverageRef"], [reader.facts["source"], reader.facts["productSource"]], reason="not_applicable")
             for v in comparisons["spendRate"].values(): v.update(value=None, status="unavailable", reasonCode="not_applicable")
             title = dims["planName"] if kind == "plan" else dims["unitName"] if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"]
             rows = {k: r for k, r in group["periods"].get("current", {}).items() if k[1] in selected_dates["current"]}
             if not rows and options["objectStartDate"]: continue
             prior = {k: r for k, r in group["periods"].get("previous", {}).items() if k[1] in selected_dates["previous"]}
-            changes = {k: sum(r[METRICS[k][0]] for r in rows.values())-sum(r[METRICS[k][0]] for r in prior.values())
-                if metrics[k]["status"] == "available" and comparisons[k]["previous"]["status"] == "available" else None for k in ("spend", "attributedPayment")}
             actual_id = dims["planId"] if kind == "plan" else dims["unitId"] if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"]
+            if actual_id is None or not real_identity:
+                for values in comparisons.values():
+                    for v in values.values(): v.update(value=None, status="unavailable", reasonCode="not_applicable")
+                changes = {k: {v: _metric(k, metrics[k]["coverageRef"], metrics[k]["sourceIds"], reason="not_applicable") for v in ("previous", "yearAgo")} for k in ("spend", "attributedPayment")}
+            unit_ids = {v[6] for v in group["relations"]}
+            match_types = {v[7] for v in group["relations"]}
             items.append({"platform": platform, "shopKey": platform+"\x1f"+SHOP_NAME, "shopName": SHOP_NAME,
                 "objectKind": kind, "rowKey": _row_key(platform, SHOP_NAME, kind, json.loads(object_id)), "id": actual_id,
-                "title": title or "未提供身份/无词投放", "dimensions": dims, "identityKind": kind,
-                "planId": dims["planId"], "unitId": dims["unitId"], "matchType": dims["matchType"], "drillable": actual_id is not None,
+                "title": title or "未提供身份/无词投放", "identityKind": kind,
+                "planId": dims["planId"], "unitId": next(iter(unit_ids)) if len(unit_ids) == 1 else None,
+                "matchType": next(iter(match_types)) if len(match_types) == 1 else None, "drillable": actual_id is not None,
                 "mapping": {"status": "not_applicable", "linkIdentity": None, "evidence": "unverified",
                     "advertisedSkuId": None, "triggerSkuId": None, "followSkuId": None},
                 "coverageRef": metrics["spend"]["coverageRef"], "observedDates": sorted(k[1] for k in rows),
-                "metrics": metrics, "comparisons": comparisons, "change": changes,
+                "metrics": metrics, "comparisons": comparisons, "changes": changes,
+                "spendShare": _ratio("ctr", metrics["spend"], reader.focused_summary["spend"], metrics["spend"]["coverageRef"]),
                 "missingIdentity": dims["planId"] is None if kind == "plan" else dims["unitId"] is None if kind == "unit" else dims["keyword" if kind == "keyword" else "searchTerm"] is None,
                 "relations": [{"kind": "explicit_source_fields", "description": "来源同一行关联：跟单SKU="+(v[0] or "未提供")+"；推广SKU="+(v[1] or "未提供")+"；触发SKU="+(v[2] or "未提供")+"；匹配方式="+(v[7] or "未提供"),
                     "sourceFields": ["跟单SKU ID", "智能投放推广SKU ID", "触发SKU ID", "关键词", "搜索词", "计划ID", "单元ID", "匹配方式"],
@@ -412,7 +460,8 @@ def _dimensions(reader, names, options, deadline, principal):
                         {"objectKind": "unit", "id": v[6], "rowKey": _row_key(platform, SHOP_NAME, "unit", [v[5], v[6]]) if v[6] else None},
                         {"objectKind": "keyword", "id": v[3], "rowKey": _row_key(platform, SHOP_NAME, "keyword", [v[3], v[5], v[6], v[7]]) if v[3] else None},
                         {"objectKind": "search_term", "id": v[4], "rowKey": _row_key(platform, SHOP_NAME, "search_term", [v[4], v[5], v[6], v[7]]) if v[4] else None}]}
-                    for v in sorted(group["relations"], key=lambda v: tuple(x or "" for x in v))], "_sourceRows": all_period_rows})
+                    for v in sorted(group["relations"], key=lambda v: tuple(x or "" for x in v))], "_sourceRows": all_period_rows,
+                "_universe": universe, "_allowAbsence": real_identity})
         sections[kind] = items
     return sections, capability
 
@@ -436,9 +485,11 @@ def _read(principal, params, detail=False):
         raise NetshopApiError("推广对象来源版本已变化", code="insights_revision_changed", status=409)
     facts = _read_facts(platform, names, context["periods"], deadline)
     reader = _Reader(context, facts, platform)
-    summary, comparisons, matched = reader.windows(names, "promotion:summary")
+    summary, comparisons, matched, summary_changes = reader.windows(names, "promotion:summary")
     reader.summary = summary
     p = context["periods"]
+    list_dates = _list_dates(context, options)
+    reader.focused_summary, _ = reader.totals(names, list_dates["current"], "promotion:focused-scope")
     trend = []
     for dates in period_groups(p["current"]["startDate"], p["current"]["endDate"], options["grain"]):
         _budget(deadline)
@@ -454,9 +505,9 @@ def _read(principal, params, detail=False):
             "change": {k: _change(current[k], baseline[k]) for k in ("spend", "attributedPayment")}, "focusDate": dates[0]})
     shops = []
     for n in names:
-        metrics, comp, matching = reader.windows([n], "promotion:shop:"+_canonical_token(n)[:16])
+        metrics, comp, matching, shop_changes = reader.windows([n], "promotion:shop:"+_canonical_token(n)[:16])
         shops.append({"platform": platform, "shopKey": platform+"\x1f"+n, "shopName": n,
-            "metrics": metrics, "comparisons": comp, "matchedRange": matching,
+            "metrics": metrics, "comparisons": comp, "changes": shop_changes, "matchedRange": matching,
             "coverageRef": metrics["spend"]["coverageRef"],
             "spendShare": _ratio("ctr", metrics["spend"], summary["spend"], metrics["spend"]["coverageRef"])})
     objects = _objects(reader, names, options, deadline)
@@ -470,12 +521,18 @@ def _read(principal, params, detail=False):
         "roiMeaning": "platform_attributed_amount_divided_by_spend", "denominatorDataset": "sku_daily" if platform == "京东" else "spu_daily",
         "sourceMatrix": [{"sourceId": facts["source"], "metrics": list(METRICS), "aggregateReconciled": facts["metadata"]["aggregateReconciled"]},
                          {"sourceId": facts["productSource"], "metrics": ["payment"], "purpose": "exact_shop_date_denominator"}],
-        "limitations": ["归因窗口未知，ROI为倍数，不能解释利润或广告增量", "订单行/笔数不能替换成交客户数", "归因成交不是已验证渠道子集，不推算自然成交", "推广商品/触发SKU/跟单SKU分别建模，各视角同一事实不能相加"]}
-    object_capabilities = {k: {"status": "available" if k == "product" else diagnostic["status"],
-        "reasonCode": None if k == "product" else diagnostic["reasonCode"],
-        "message": "跟单SKU或推广商品ID，精确店铺隔离" if k == "product" else diagnostic["limitation"],
-        "sourceIds": [facts["source"]], "unidentifiedCount": sum(r["id"] is None for r in dimensions[k]) if k != "product" else sum(not r["id"] for r in objects)}
-        for k in ("product", "plan", "unit", "keyword", "search_term")}
+        "limitations": ["归因窗口未知，ROI为倍数，不能解释利润或广告增量", "订单行/笔数不能替换成交客户数", "归因成交不是已验证渠道子集，不推算自然成交", "推广商品/触发SKU/跟单SKU分别建模，各视角同一事实不能相加",
+            "对象空集合0仅指已导入且核对完整的来源中未报告该对象，不代表平台真实零投放；缺ID或多义关系不推断缺席0", "nullID未知桶保留本期来源金额，不能跨期作为同一实体比较或纳入贡献榜"]}
+    object_capabilities = {}
+    for kind in ("product", "plan", "unit", "keyword", "search_term"):
+        eligible = kind == "product" or diagnostic["status"] == "available"
+        loaded = kind == "product" or eligible and options["objectKind"] == kind
+        collection = objects if kind == "product" else dimensions[kind]
+        valid_id = any(r["id"] is not None for r in collection)
+        reason = None if loaded and valid_id else "missing_field" if loaded and collection else "no_records" if loaded else "unverified_source" if eligible else "not_applicable"
+        object_capabilities[kind] = {"status": "available" if reason is None else "unavailable", "reasonCode": reason,
+            "canQuery": eligible, "message": "跟单SKU或推广商品ID，精确店铺隔离" if kind == "product" else diagnostic["limitation"]+("；选中后按真实来源核验" if eligible and not loaded else ""),
+            "sourceIds": [facts["source"]], "unidentifiedCount": sum(r["id"] is None for r in collection) if loaded else None}
     matrix = [{"sourceId": facts["source"], "label": "京东推广明细" if platform == "京东" else "天猫推广商品日",
         "coverageRef": summary["spend"]["coverageRef"], "fields": [{"field": k, "status": "available" if summary[k]["status"] == "available" else "unavailable", "reasonCode": summary[k]["reasonCode"]} for k in METRICS],
         "notes": ["完成事实与manifest/state/shop/product聚合核对", "分类字典未获可靠映射，商品分类为未知", "归因窗口未提供"]},
@@ -483,11 +540,18 @@ def _read(principal, params, detail=False):
          "coverageRef": facts["productSource"]+":"+("sku_daily" if platform == "京东" else "spu_daily")+":"+platform+":current",
          "fields": [{"field": c["field"], "status": c["status"], "reasonCode": c["reasonCode"]} for c in context["capabilities"] if c["sourceId"].startswith(facts["productSource"]+":") and c["period"] == "current"],
          "notes": ["推广费率按同平台×店铺×日期配对，商品层还需精确适用身份"]}]
-    list_dates = _list_dates(context, options)
-    sections = {"summary": summary, "comparisons": comparisons, "matchedRange": matched, "attribution": attribution,
+    active_objects = objects if options["objectKind"] == "product" else dimensions[options["objectKind"]]
+    comparable = [r for r in active_objects if r["id"] is not None and all(r["changes"][key]["previous"]["status"] == "available" for key in ("spend", "attributedPayment"))]
+    contributions = {"collection": "comparable_full_set_before_search_pagination", "comparedObjectCount": len(comparable),
+        "excludedObjectCount": len(active_objects)-len(comparable), "previous": {}}
+    for name, key, sign in [("spendIncrease", "spend", 1), ("spendDecrease", "spend", -1), ("attributedPaymentIncrease", "attributedPayment", 1), ("attributedPaymentDecrease", "attributedPayment", -1)]:
+        items = [r for r in comparable if r["changes"][key]["previous"]["value"]*sign > 0]
+        items.sort(key=lambda r: (-r["changes"][key]["previous"]["value"]*sign, r["rowKey"]))
+        contributions["previous"][name] = items[:10]
+    sections = {"summary": summary, "comparisons": comparisons, "changes": summary_changes, "matchedRange": matched, "attribution": attribution,
         "items": active["items"], "pagination": active["pagination"], "objectKind": options["objectKind"],
         "trend": {"grain": options["grain"], "items": trend}, "shops": {"visible": len(names) > 1, "items": shops},
-        "objectCapabilities": object_capabilities, "sourceMatrix": matrix, "limitations": attribution["limitations"],
+        "objectCapabilities": object_capabilities, "sourceMatrix": matrix, "limitations": attribution["limitations"], "contributions": contributions,
         "diagnostic": {"status": diagnostic["status"], "reasonCode": diagnostic["reasonCode"], "message": diagnostic["limitation"],
             "shopName": SHOP_NAME if diagnostic["status"] == "available" else None, "maximumDays": 7, "paidModelAllowed": False,
             "reportFormats": ["html", "xlsx"] if diagnostic["status"] == "available" else []},
@@ -504,13 +568,10 @@ def _read(principal, params, detail=False):
                 metrics, _ = reader.totals([item["shopName"]], dates, "promotion:detail:"+dates[0], item["id"], platform == "天猫" and item["mapping"]["status"] == "matched")
                 object_trend.append({"startDate": dates[0], "endDate": dates[-1], "days": len(dates), "metrics": metrics, "coverageRef": metrics["spend"]["coverageRef"]})
         else:
-            original, reader.facts["shopRaw"] = reader.facts["shopRaw"], item["_sourceRows"]
-            try:
-                for dates in period_groups(p["current"]["startDate"], p["current"]["endDate"], options["grain"]):
-                    metrics, _ = reader.totals([item["shopName"]], dates, "promotion:detail:"+dates[0])
-                    metrics["spendRate"] = _metric("spendRate", metrics["spend"]["coverageRef"], [facts["source"], facts["productSource"]], reason="not_applicable")
-                    object_trend.append({"startDate": dates[0], "endDate": dates[-1], "days": len(dates), "metrics": metrics, "coverageRef": metrics["spend"]["coverageRef"]})
-            finally: reader.facts["shopRaw"] = original
+            for dates in period_groups(p["current"]["startDate"], p["current"]["endDate"], options["grain"]):
+                metrics, _ = reader.totals([item["shopName"]], dates, "promotion:detail:"+dates[0], raw_override=item["_sourceRows"], absence_universe=item["_universe"], allow_absence=item["_allowAbsence"])
+                metrics["spendRate"] = _metric("spendRate", metrics["spend"]["coverageRef"], [facts["source"], facts["productSource"]], reason="not_applicable")
+                object_trend.append({"startDate": dates[0], "endDate": dates[-1], "days": len(dates), "metrics": metrics, "coverageRef": metrics["spend"]["coverageRef"]})
         sections = {"item": item, "trend": {"grain": options["grain"], "items": object_trend},
             "relations": item.get("relations", []), "limitations": attribution["limitations"]}
     # Export only coverage referenced by returned sections. Sorting the complete
@@ -523,7 +584,8 @@ def _read(principal, params, detail=False):
         elif isinstance(value, list):
             for v in value: collect(v)
     for collection in [objects, *dimensions.values()]:
-        for r in collection: r.pop("_sourceRows", None)
+        for r in collection:
+            for key in ("_sourceRows", "_universe", "_allowAbsence"): r.pop(key, None)
     collect(sections)
     sections["coverage"] = {k: v for k, v in context["coverageBySource"].items() if k in refs and k.startswith("promotion:")}
     context["coverageBySource"] = {k: v for k, v in context["coverageBySource"].items() if not k.startswith("promotion:")}
