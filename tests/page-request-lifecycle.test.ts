@@ -14,6 +14,7 @@ const inventoryPath = new URL("../app/inventory-module-view.tsx", import.meta.ur
 const customerServicePath = new URL("../app/customer-service-view.tsx", import.meta.url);
 
 function viewSource(page: string, start: string, end: string) {
+  page = page.replace(/\r\n/g, "\n");
   const startIndex = page.indexOf(start);
   const endIndex = page.indexOf(end, startIndex);
   assert.ok(startIndex >= 0, `missing view start: ${start}`);
