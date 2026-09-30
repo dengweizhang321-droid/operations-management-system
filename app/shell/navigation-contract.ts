@@ -173,6 +173,7 @@ function writeShellState<M extends ModuleKey>(url: URL, state: ShellLocationInpu
       nextShop.page = 1;
       nextShop.returnTo = null;
       nextShop.returnOrigin = null;
+      nextShop.productsPrefs = null;
     }
     writeShopLocationContext(url.searchParams, nextShop);
   }
@@ -252,7 +253,9 @@ export function updateShopContextLocation(input: string | URL, patch: Partial<Sh
   if (JSON.stringify([before.platforms, before.outlets, before.dimension]) !== JSON.stringify([canonical.platforms, canonical.outlets, canonical.dimension])) {
     canonical.returnTo = null;
     canonical.returnOrigin = null;
+    canonical.productsPrefs = null;
   }
+  if ((before.productsPrefs?.sort ?? "payment_desc") !== (canonical.productsPrefs?.sort ?? "payment_desc")) canonical.page = 1;
   return serializeShellLocation({ module: "shop", view: state.module === "shop" ? state.view as ModuleViewKey<"shop"> : "analysis", period: state.period, shop: canonical }, input);
 }
 export function drillShopLocation(input: string | URL, view: ModuleViewKey<"shop">, product: ProductIdentity | null, section = ""): string {

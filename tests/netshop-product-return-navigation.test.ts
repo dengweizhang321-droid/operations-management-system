@@ -34,7 +34,7 @@ test("changing selected shops or date scope clears obsolete return locations", (
 });
 
 test("both return locations reject external, nested, duplicated or fragment destinations", () => {
-  for (const target of ["https://example.test/", "//example.test/", "/?module=sales", "/?module=shop&module=shop", "/?module=shop&shopReturn=x", "/?module=shop&shopReturnOrigin=x", "/?module=shop#detail"]) {
+  for (const target of ["https://example.test/", "//example.test/", "/?module=sales", "/?module=shop&module=shop", "/?module=shop&view=products&view=promotion", "/?module=shop&view=unknown", "/?module=shop&shopReturn=x", "/?module=shop&shopReturnOrigin=x", "/?module=shop&shopReturnV2=x", "/?module=shop#detail"]) {
     assert.equal(validShopReturn(target), null);
     const params = new URLSearchParams({ module: "shop", view: "promotion", shopReturn: target, shopReturnOrigin: target });
     const parsed = parseShellLocation("/?" + params).shop!;
